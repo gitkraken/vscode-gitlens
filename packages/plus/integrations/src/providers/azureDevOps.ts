@@ -25,6 +25,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, IntegrationKey } from '../models/integration.js';
 import { toCollectionScopeFailure } from '../results.js';
@@ -617,6 +618,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		_cancellation?: AbortSignal,
 		_silent?: boolean,
 		state?: PullRequestStateFilter,
+		_options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		if (repos != null) {

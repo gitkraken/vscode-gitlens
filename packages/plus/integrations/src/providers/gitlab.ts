@@ -21,6 +21,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
@@ -313,6 +314,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		_cancellation?: AbortSignal,
 		_silent?: boolean,
 		state?: PullRequestStateFilter,
+		_options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		// Resolve the username from THIS session's token (multi-account: `session` may be a non-primary
