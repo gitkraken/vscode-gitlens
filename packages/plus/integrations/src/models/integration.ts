@@ -146,9 +146,13 @@ export abstract class IntegrationBase<
 		if (this._session == null) return undefined;
 
 		if (this._sessionFingerprint?.session !== this._session) {
-			this._sessionFingerprint = { session: this._session, hash: fnv1aHash64(this._session.accessToken) };
+			this._sessionFingerprint = { session: this._session, hash: this.getSessionFingerprint(this._session) };
 		}
 		return this._sessionFingerprint.hash;
+	}
+
+	protected getSessionFingerprint(session: ProviderAuthenticationSession): string {
+		return fnv1aHash64(session.accessToken);
 	}
 
 	get connectionExpired(): boolean | undefined {
@@ -740,16 +744,16 @@ export abstract class IntegrationBase<
 
 	async getCurrentAccount(options?: {
 		avatarSize?: number;
+		connectionId?: string;
 		expiryOverride?: boolean | number;
 	}): Promise<Account | undefined> {
 		const scope = getScopedLogger();
+		const { connectionId: requestedConnectionId, expiryOverride, ...opts } = options ?? {};
+		const connectionId = requestedConnectionId || undefined;
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
-
-		const { expiryOverride, ...opts } = options ?? {};
+		const sessionFingerprint = this.getSessionFingerprint(session);
 
 		const currentAccount = await this.ctx.cache.getCurrentAccount(
 			this,
@@ -757,7 +761,7 @@ export abstract class IntegrationBase<
 			(cacheable: any) => ({
 				value: (async () => {
 					try {
-						const account = await this.getProviderCurrentAccount?.(this._session!, opts);
+						const account = await this.getProviderCurrentAccount?.(session, opts);
 						this.resetRequestExceptionCount('getCurrentAccount');
 						return account;
 					} catch (ex) {
@@ -778,7 +782,12 @@ export abstract class IntegrationBase<
 					}
 				})(),
 			}),
-			{ expiryOverride: expiryOverride, expireOnError: false },
+			{
+				connectionId: connectionId,
+				expiryOverride: expiryOverride,
+				expireOnError: false,
+				etag: `${this.id}:${this.maybeConnected ?? false}:${sessionFingerprint}`,
+			},
 		);
 		return currentAccount;
 	}
