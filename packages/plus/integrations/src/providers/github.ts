@@ -34,18 +34,33 @@ import type { ProvidersApi } from './providersApi.js';
 
 type GitHubPullRequestStateCursor = Partial<Record<PullRequestStateFilter, string>>;
 
+function isPullRequestStateFilter(key: string): key is PullRequestStateFilter {
+	return key === 'open' || key === 'closed' || key === 'merged' || key === 'all';
+}
+
+function toPullRequestStateCursor(value: unknown): GitHubPullRequestStateCursor {
+	if (value == null || typeof value !== 'object' || Array.isArray(value)) return {};
+
+	return Object.fromEntries(
+		Object.entries(value).filter(
+			([key, cursor]) => isPullRequestStateFilter(key) && typeof cursor === 'string' && cursor.length !== 0,
+		),
+	);
+}
+
 function parsePullRequestStateCursor(cursor: string | undefined): GitHubPullRequestStateCursor {
 	if (!cursor) return {};
 
 	try {
-		const parsed = JSON.parse(cursor) as Record<string, unknown>;
-		return Object.fromEntries(
-			Object.entries(parsed).filter(
-				([key, value]) =>
-					(key === 'open' || key === 'closed' || key === 'merged' || key === 'all') &&
-					typeof value === 'string',
-			),
-		);
+		const parsed = JSON.parse(cursor) as unknown;
+		if (parsed != null && typeof parsed === 'object' && !Array.isArray(parsed) && 'cursors' in parsed) {
+			const wrapped = parsed as { type?: unknown; cursors?: unknown };
+			if (wrapped.type === 'cursor') {
+				return toPullRequestStateCursor(wrapped.cursors);
+			}
+		}
+
+		return toPullRequestStateCursor(parsed);
 	} catch {
 		return {};
 	}
@@ -319,8 +334,20 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 			const requestedStates = [...new Set(options.state)];
 			const cursors = parsePullRequestStateCursor(options.cursor);
+			const hasResumableStateCursor = Object.keys(cursors).length !== 0;
+			const statesWithCursor = requestedStates.filter(state => cursors[state] != null);
+			// The first call has no cursor, so query every requested state. A continuation only happens after a
+			// prior page reported `more:true`, whose bundle carries a cursor for each state still in flight;
+			// states absent from the bundle are exhausted, so re-querying them from scratch would refetch the
+			// same PRs (duplicated by the dedup-free sweep) and waste an API call per page. Query only the
+			// states that still have a cursor, but degrade a malformed/empty cursor bundle, or one that doesn't
+			// apply to the current requested states, to the first page rather than returning an empty page.
+			const statesToQuery =
+				options.cursor != null && hasResumableStateCursor && statesWithCursor.length !== 0
+					? statesWithCursor
+					: requestedStates;
 			const results = await Promise.all(
-				requestedStates.map(async state => ({
+				statesToQuery.map(async state => ({
 					state: state,
 					result: await github.searchMyPullRequestsPage(this, toTokenWithInfo(this.id, session), {
 						baseUrl: this.apiBaseUrl,
@@ -351,7 +378,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				values: [...values.values()],
 				paging: {
 					more: hasMore,
-					cursor: JSON.stringify(nextCursors),
+					cursor: hasMore ? JSON.stringify({ type: 'cursor', cursors: nextCursors }) : '{}',
 					truncated: truncated || undefined,
 				},
 			};
