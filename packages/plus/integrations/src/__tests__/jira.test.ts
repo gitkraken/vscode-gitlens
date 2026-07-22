@@ -167,6 +167,42 @@ suite('Jira issue scoping (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	test('when every filter branch rejects, propagates the first reason unwrapped (not an AggregateError)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		// Two filter branches, both rejecting with distinct errors. The first reason must be re-thrown as-is so
+		// the facade can still classify it by type (auth/rate-limit); wrapping every reason in an AggregateError
+		// would collapse the classification to a generic 'other'. The remaining reason is logged, not surfaced.
+		const first = new Error('assignee branch failed');
+		stubApi(jira, {
+			getIssuesForProjectPaged: (
+				_t: unknown,
+				_name: string,
+				_resourceId: string,
+				options?: { authorLogin?: string; assigneeLogins?: string[] },
+			) =>
+				options?.authorLogin != null
+					? Promise.reject(new Error('author branch failed'))
+					: Promise.reject(first),
+		});
+
+		const result = await jira.getIssuesForProjectWithTruncationResult(project, {
+			user: 'me',
+			filters: [IssueFilter.Assignee, IssueFilter.Author],
+		});
+
+		assert.equal(result?.value, undefined, 'an all-rejected read is a hard error, not a partial success');
+		assert.equal(result?.error, first, 'the first reason is propagated verbatim, not wrapped');
+		assert.ok(
+			!(result?.error instanceof AggregateError),
+			'the reasons are not collapsed into an AggregateError (which would lose type-based classification)',
+		);
+
+		manager.dispose();
+	});
 });
 
 /**
