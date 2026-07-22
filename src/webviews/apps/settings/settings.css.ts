@@ -69,7 +69,7 @@ export const settingsAppStyles = [
 			max-width: 42rem;
 		}
 
-		.header__search code-icon {
+		.header__search > code-icon {
 			position: absolute;
 			top: 50%;
 			left: 1rem;
@@ -80,7 +80,7 @@ export const settingsAppStyles = [
 
 		.header__search input {
 			width: 100%;
-			padding: 0.7rem 0.9rem 0.7rem 3rem;
+			padding: 0.7rem 3rem;
 			font-family: var(--vscode-font-family);
 			font-size: 1.25rem;
 			color: var(--vscode-input-foreground);
@@ -98,6 +98,20 @@ export const settingsAppStyles = [
 			${focusOutline}
 		}
 
+		/* Hide the UA-drawn "x" and render our own clear, matching gl-search-input's affordance */
+		.header__search input::-webkit-search-cancel-button {
+			display: none;
+		}
+
+		.header__search-clear {
+			position: absolute;
+			inset-block-start: 50%;
+			inset-inline-end: 0.4rem;
+			display: inline-flex;
+			align-items: center;
+			transform: translateY(-50%);
+		}
+
 		.header__scope {
 			display: flex;
 			gap: var(--gl-space-8);
@@ -107,8 +121,7 @@ export const settingsAppStyles = [
 			white-space: nowrap;
 		}
 
-		/* Narrow panel: drop the search onto its own full-width line below the
-   title/scope row (ordered last so the title + scope share the first row) */
+		/* Narrow panel: drop the search onto its own full-width line below the title/scope row (ordered last so the title + scope share the first row) */
 		@container settings-app (max-width: 768px) {
 			.header {
 				flex-wrap: wrap;

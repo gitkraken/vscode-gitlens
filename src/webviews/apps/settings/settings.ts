@@ -15,6 +15,7 @@ import type { SettingsState } from './state.js';
 import { createSettingsState, settingsStateContext } from './state.js';
 import './components/settings-detail.js';
 import './components/settings-nav.js';
+import '../shared/components/button.js';
 import '../shared/components/code-icon.js';
 import '../shared/components/gl-error-banner.js';
 import '../shared/components/icons/icon-cube.js';
@@ -196,6 +197,14 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 		}
 	}
 
+	private handleSearchClear(): void {
+		this._actions?.setQuery('');
+		if (this._search != null) {
+			this._search.value = '';
+		}
+		this._search?.focus();
+	}
+
 	override render(): unknown {
 		const s = this._state;
 		const scopes = s.scopes.get();
@@ -231,6 +240,17 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 							@input=${this.handleSearchInput}
 							@keydown=${this.handleSearchKeyDown}
 						/>
+						${s.query.get()
+							? html`<gl-button
+									class="header__search-clear"
+									appearance="input"
+									tooltip="Clear"
+									aria-label="Clear search"
+									@click=${this.handleSearchClear}
+								>
+									<code-icon icon="close"></code-icon>
+								</gl-button>`
+							: nothing}
 					</div>
 					${
 						scopes.length > 1
