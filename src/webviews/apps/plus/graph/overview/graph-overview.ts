@@ -196,24 +196,38 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	 *  (e.g. switching away from the overview panel and back) emits a fresh shown event. */
 	private _shownEmitted = false;
 
+	/** Whether the initial `GetOverviewRequest` has been issued this mount (once the panel is
+	 *  visible). Guards `updated()` from re-firing it every render while `overview` is still null. */
+	private _overviewRequested = false;
+	/** Last-seen sidebar visibility, for detecting the hidden→visible transition in `updated()`. */
+	private _wasVisible = false;
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
 		this.addEventListener('gl-graph-overview-card-request-wip-details', this.onWipDetailsRequested);
 
-		if (this._state.overview == null) {
-			void this._ipc.sendRequest(GetOverviewRequest, {
-				recentThreshold: this._state.overviewRecentThreshold,
-			});
-		} else {
-			// Force a re-fetch on remount/visibility-restore — the bulk push path is gone, so any
-			// drift accumulated while the overview panel was hidden (e.g. file edits in opened
-			// worktrees whose graph WIP rows are off-screen) is caught here. Reset the fingerprint
-			// dedup so `maybeRefetchOverviewData` actually fires. The host's `GetOverviewWipRequest`
-			// handler is cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
-			// resolve without any extra `git status` — only genuinely stale entries cost a fetch.
-			this._lastOverviewFingerprint = undefined;
-			this.maybeRefetchOverviewData(this._state.overview);
+		// Defer host-side fetching until the sidebar is actually visible — the overview stays mounted
+		// (just `inert`) while the sidebar is collapsed, so fetching on mount would do `git`-backed
+		// work the user never sees. `updated()` fires the deferred fetch on the hidden→visible
+		// transition (connectedCallback won't refire when the sidebar reopens).
+		this._wasVisible = this._state.sidebar?.visible === true;
+		if (this._wasVisible) {
+			if (this._state.overview == null) {
+				this._overviewRequested = true;
+				void this._ipc.sendRequest(GetOverviewRequest, {
+					recentThreshold: this._state.overviewRecentThreshold,
+				});
+			} else {
+				// Force a re-fetch on remount/visibility-restore — the bulk push path is gone, so any
+				// drift accumulated while the overview panel was hidden (e.g. file edits in opened
+				// worktrees whose graph WIP rows are off-screen) is caught here. Reset the fingerprint
+				// dedup so `maybeRefetchOverviewData` actually fires. The host's `GetOverviewWipRequest`
+				// handler is cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
+				// resolve without any extra `git status` — only genuinely stale entries cost a fetch.
+				this._lastOverviewFingerprint = undefined;
+				this.maybeRefetchOverviewData(this._state.overview);
+			}
 		}
 	}
 
@@ -221,6 +235,8 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		this.removeEventListener('gl-graph-overview-card-request-wip-details', this.onWipDetailsRequested);
 		this._recomputeSelectionDebounced.cancel();
 		this._shownEmitted = false;
+		this._overviewRequested = false;
+		this._wasVisible = false;
 		super.disconnectedCallback?.();
 	}
 
@@ -274,8 +290,30 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 	override updated(_changedProperties: Map<string, unknown>): void {
 		const overview = this._state.overview;
-		if (overview != null) {
-			this.maybeRefetchOverviewData(overview);
+		const visible = this._state.sidebar?.visible === true;
+		const becameVisible = visible && !this._wasVisible;
+		this._wasVisible = visible;
+
+		// Gate host-side fetching on visibility — the overview stays mounted (just `inert`) while the
+		// sidebar is collapsed, so no `git`-backed work should run until it's actually shown.
+		if (visible) {
+			if (overview == null) {
+				// Deferred initial fetch: the panel became visible before any data arrived. Fire once
+				// (guarded) so repeated `updated()` passes don't spam the request while `overview` is null.
+				if (!this._overviewRequested) {
+					this._overviewRequested = true;
+					void this._ipc.sendRequest(GetOverviewRequest, {
+						recentThreshold: this._state.overviewRecentThreshold,
+					});
+				}
+			} else {
+				// On the hidden→visible transition, reset the fingerprint dedup to force a re-fetch that
+				// catches drift accumulated while hidden (mirrors the remount path in connectedCallback).
+				if (becameVisible) {
+					this._lastOverviewFingerprint = undefined;
+				}
+				this.maybeRefetchOverviewData(overview);
+			}
 		}
 
 		const pushedWip = this._state.overviewWip;
