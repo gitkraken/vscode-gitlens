@@ -1290,7 +1290,7 @@
 					},
 					"gitlens.graph.lanes.density": {
 						"type": "string",
-						"default": "expanded",
+						"default": "compact",
 						"enum": [
 							"expanded",
 							"compact"

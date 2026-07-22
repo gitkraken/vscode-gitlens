@@ -3805,7 +3805,7 @@ export class GlLitGraph extends LitElement {
 	// dots on the same row don't touch. Fixed spacing per mode (not a freeform drag). A config
 	// change flows through willUpdate → updateRenderState, which re-reads columnWidth below.
 	private get laneDensity(): 'expanded' | 'compact' {
-		return this.config?.lanesDensity ?? 'expanded';
+		return this.config?.lanesDensity ?? 'compact';
 	}
 	// Fixed lane spacing per density mode (compact = lanes nearly touch; expanded = a clear gap so
 	// two dots on a row don't touch) + node mode. The graph no longer respaces on resize — the density

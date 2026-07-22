@@ -3686,7 +3686,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		// Surface the current lane-spacing density so the context-menu `when` clauses can toggle it
-		contextItems.push(`lanes:density:${configuration.get('graph.lanes.density') ?? 'expanded'}`);
+		contextItems.push(`lanes:density:${configuration.get('graph.lanes.density') ?? 'compact'}`);
 
 		return contextItems;
 	}
