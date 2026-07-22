@@ -292,6 +292,207 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listPullRequestsPage preserves GitHub account-wide per-state cursors', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: {
+					apis: { github: Promise<Record<string, unknown> | undefined> };
+				};
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+
+		const seen: { state?: string; cursor?: string }[] = [];
+		githubApi.searchMyPullRequestsPage = async (
+			_provider: unknown,
+			_token: unknown,
+			options?: { state?: string; cursor?: string },
+		) => {
+			seen.push({ state: options?.state, cursor: options?.cursor });
+			if (options?.state === 'closed' && options.cursor == null) {
+				return { values: [searchPullRequest('1', 'closed')], hasMore: true, cursor: 'closed-next' };
+			}
+
+			return {
+				values: [
+					options?.state === 'closed' ? searchPullRequest('3', 'closed') : searchPullRequest('2', 'merged'),
+				],
+				hasMore: false,
+			};
+		};
+
+		const first = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			states: ['closed', 'merged'],
+		});
+
+		assert.equal(first.hasMore, true);
+		assert.equal(typeof first.cursor, 'string');
+		assert.deepEqual(JSON.parse(first.cursor ?? '{}'), { type: 'cursor', cursors: { closed: 'closed-next' } });
+
+		const second = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			states: ['closed', 'merged'],
+			cursor: first.cursor,
+		});
+
+		// The continuation page must only re-query the states still carrying a cursor. `merged` was exhausted
+		// on the first page (no cursor in the bundle), so re-querying it would refetch PR '2' and duplicate it
+		// in the sweep, which appends across pages without deduping.
+		assert.deepEqual(seen, [
+			{ state: 'closed', cursor: undefined },
+			{ state: 'merged', cursor: undefined },
+			{ state: 'closed', cursor: 'closed-next' },
+		]);
+		assert.deepEqual(
+			second.items.map(pr => pr.id),
+			['3'],
+			'the continuation page returns only the closed PR, not the already-drained merged PR',
+		);
+
+		manager.dispose();
+	});
+
+	test('a malformed GitHub per-state cursor degrades to the first page instead of returning empty', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: {
+					apis: { github: Promise<Record<string, unknown> | undefined> };
+				};
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+
+		const seen: { state?: string; cursor?: string }[] = [];
+		githubApi.searchMyPullRequestsPage = async (
+			_provider: unknown,
+			_token: unknown,
+			options?: { state?: string; cursor?: string },
+		) => {
+			seen.push({ state: options?.state, cursor: options?.cursor });
+			const state = options?.state === 'closed' ? 'closed' : 'merged';
+			return {
+				values: [searchPullRequest(state === 'closed' ? '1' : '2', state)],
+				hasMore: false,
+			};
+		};
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			states: ['closed', 'merged'],
+			cursor: JSON.stringify({ type: 'cursor', cursors: 'not-an-object' }),
+		});
+
+		assert.deepEqual(seen, [
+			{ state: 'closed', cursor: undefined },
+			{ state: 'merged', cursor: undefined },
+		]);
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['1', '2'],
+			'the malformed continuation falls back to the first page rather than short-circuiting empty',
+		);
+
+		manager.dispose();
+	});
+
+	test('a mismatched GitHub per-state cursor degrades to the first page instead of returning empty', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: {
+					apis: { github: Promise<Record<string, unknown> | undefined> };
+				};
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+
+		const seen: { state?: string; cursor?: string }[] = [];
+		githubApi.searchMyPullRequestsPage = async (
+			_provider: unknown,
+			_token: unknown,
+			options?: { state?: string; cursor?: string },
+		) => {
+			seen.push({ state: options?.state, cursor: options?.cursor });
+			return {
+				values: [searchPullRequest('1', options?.state === 'open' ? 'open' : 'closed')],
+				hasMore: false,
+			};
+		};
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			states: ['open'],
+			cursor: JSON.stringify({ type: 'cursor', cursors: { closed: 'closed-next' } }),
+		});
+
+		assert.deepEqual(seen, [{ state: 'open', cursor: undefined }]);
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['1'],
+			'the mismatched continuation falls back to the first page rather than short-circuiting empty',
+		);
+
+		manager.dispose();
+	});
+
+	test('an empty-string GitHub per-state cursor degrades to the first page instead of being forwarded', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: {
+					apis: { github: Promise<Record<string, unknown> | undefined> };
+				};
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+
+		const seen: { state?: string; cursor?: string }[] = [];
+		githubApi.searchMyPullRequestsPage = async (
+			_provider: unknown,
+			_token: unknown,
+			options?: { state?: string; cursor?: string },
+		) => {
+			seen.push({ state: options?.state, cursor: options?.cursor });
+			return {
+				values: [searchPullRequest('1', 'closed')],
+				hasMore: false,
+			};
+		};
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			states: ['closed'],
+			cursor: JSON.stringify({ type: 'cursor', cursors: { closed: '' } }),
+		});
+
+		assert.deepEqual(seen, [{ state: 'closed', cursor: undefined }]);
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['1'],
+		);
+
+		manager.dispose();
+	});
+
 	test('listPullRequestsPage derives the self-managed GitHub Enterprise baseUrl for repo reads', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
