@@ -355,9 +355,10 @@ export class CacheProvider implements Disposable {
 	}
 
 	private getIntegrationKeyAndEtag(integration: IntegrationBase) {
+		const key = this.getIntegrationCacheKey(integration);
 		return {
-			key: integration.id,
-			etag: `${integration.id}:${integration.maybeConnected ?? false}:${integration.sessionFingerprint ?? ''}`,
+			key: key,
+			etag: `${key}:${integration.maybeConnected ?? false}:${integration.sessionFingerprint ?? ''}`,
 		};
 	}
 
@@ -365,13 +366,17 @@ export class CacheProvider implements Disposable {
 	private getResourceKeyAndEtag(resource: ResourceDescriptor, integration?: GitHostIntegration | IntegrationBase) {
 		let fingerprint = '';
 		if (integration != null) {
-			fingerprint =
-				this.peek('currentAccount', `id:${integration.id}`)?.id ?? integration.sessionFingerprint ?? '';
+			const { key } = this.getIntegrationKeyAndEtag(integration);
+			fingerprint = this.peek('currentAccount', `id:${key}`)?.id ?? integration.sessionFingerprint ?? '';
 		}
 		return {
 			key: resource.key,
 			etag: `${resource.key}:${integration?.maybeConnected ?? false}:${fingerprint}`,
 		};
+	}
+
+	private getIntegrationCacheKey(integration: IntegrationBase): string {
+		return `${integration.id}:${integration.domain}`;
 	}
 }
 

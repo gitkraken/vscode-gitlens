@@ -151,6 +151,43 @@ suite('Trello integration (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('branch-associated Trello issues resolve through the real integration read', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession('my-app-key');
+
+		let boardReads = 0;
+		stubApi(trello, {
+			getTrelloListsForBoard: () => Promise.resolve([{ id: 'l1', name: 'To Do' }]),
+			getTrelloIssuesForBoard: () => {
+				boardReads++;
+				return Promise.resolve({ values: [fakeIssue()], metadata: { completeness: 'complete' } });
+			},
+		});
+
+		const issue = (await trello.getIssuesForProject({ key: 'b1', id: 'b1', name: 'Board 1' }))?.[0];
+		assert.ok(issue != null, 'a Trello issue was mapped');
+		if (issue == null) throw new Error('Expected a Trello issue');
+
+		const owner = getIssueOwner(issue);
+		assert.ok(owner != null, 'a Trello board owner descriptor can be derived');
+		if (owner == null) throw new Error('Expected a Trello owner descriptor');
+
+		const identifier = encodeIssueOrPullRequestForGitConfig({ ...issue, type: 'issue' } satisfies Issue, owner);
+		const resolved = await getIssueFromGitConfigEntityIdentifier(id => manager.get(id), identifier);
+
+		assert.equal(boardReads, 2, 'the identifier resolution performs a real board read on cache miss');
+		assert.equal(resolved?.id, '1');
+		assert.deepEqual(resolved?.project, {
+			id: 'b1',
+			name: 'Board 1',
+			resourceId: 'b1',
+			resourceName: 'Board 1',
+		});
+
+		manager.dispose();
+	});
+
 	test('a complete board result reports no truncation (#5438)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);

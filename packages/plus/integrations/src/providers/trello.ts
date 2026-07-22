@@ -10,7 +10,7 @@ import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { IssueFilter } from './models.js';
-import { providersMetadata, toIssueShape } from './models.js';
+import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Trello];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -161,11 +161,36 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return Promise.resolve(undefined);
 	}
 
-	protected override getProviderIssue(
-		_session: ProviderAuthenticationSession,
-		_resource: ResourceDescriptor,
-		_id: string,
+	protected override async getProviderIssue(
+		session: ProviderAuthenticationSession,
+		resource: ResourceDescriptor,
+		id: string,
 	): Promise<Issue | undefined> {
-		return Promise.resolve(undefined);
+		if (!isIssueResourceDescriptor(resource)) return undefined;
+
+		const appKey = this.requireAppKey(session);
+		const api = await this.getProvidersApi();
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const lists = await api.getTrelloListsForBoard(tokenWithInfo, appKey, resource.id);
+		const trelloBoardListsById = lists?.reduce<Record<string, { name: string }>>((acc, list) => {
+			acc[list.id] = { name: list.name };
+			return acc;
+		}, {});
+		const issue = (
+			await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, resource.id, {
+				trelloBoardListsById: trelloBoardListsById,
+			})
+		)?.values.find(issue => issue.number === id || issue.id === id);
+
+		return issue != null
+			? fromProviderIssue(issue, this, {
+					project: {
+						id: resource.id,
+						name: resource.name,
+						resourceId: resource.id,
+						resourceName: resource.name,
+					},
+				})
+			: undefined;
 	}
 }
