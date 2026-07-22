@@ -1214,7 +1214,9 @@ export class ProvidersApi {
 					repo: options?.repo,
 					page: options?.page,
 				},
-				{ token: azureToken, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+				// `azureToken` is always a PAT here (already PAT-formatted when `isPAT`, otherwise derived from
+				// the OAuth token), so it must be sent as a PAT regardless of the incoming `options?.isPAT`.
+				{ token: azureToken, isPAT: true, baseUrl: options?.baseUrl },
 			);
 			if (result == null) return undefined;
 			return { data: result.data, hasMore: result.pageInfo.hasNextPage, nextPage: result.pageInfo.nextPage };
