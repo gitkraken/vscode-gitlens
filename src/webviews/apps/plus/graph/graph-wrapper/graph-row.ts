@@ -303,13 +303,19 @@ function renderGhostRefPill(ghost: NonNullable<RowRenderContext['ghostRef']>, co
 	>`;
 }
 
-/** The author avatar (image, or author initials when no image). Only in dot node-mode — in avatar
- *  node-mode the graph node IS the avatar, so showing it again would duplicate. Workdir/WIP rows have
- *  no author, so they get no avatar (and thus no reserved avatar gap). A plain <img> (not <gl-avatar>)
- *  — the row already shows the author name + a full rich hover, so the avatar's own hover/tooltip
- *  would be redundant; all we need here is the image. */
-function renderAvatar(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult | typeof nothing {
-	if (ctx.nodeMode !== 'compact' || row.kind === 'workdir') return nothing;
+/** The author avatar (image, or author initials when no image). Normally only in dot node-mode — in
+ *  avatar node-mode the graph node IS the avatar, so showing it again would duplicate — but `forceAvatar`
+ *  overrides that: the min-width author cell drops the name and shows the avatar as the sole identity cue.
+ *  Workdir/WIP rows have no author, so they get no avatar (and thus no reserved avatar gap). A plain <img>
+ *  (not <gl-avatar>) — the row already shows the author name + a full rich hover, so the avatar's own
+ *  hover/tooltip would be redundant; all we need here is the image. */
+function renderAvatar(
+	row: ProcessedGraphRow,
+	ctx: RowRenderContext,
+	forceAvatar = false,
+): TemplateResult | typeof nothing {
+	if (row.kind === 'workdir') return nothing;
+	if (ctx.nodeMode !== 'compact' && !forceAvatar) return nothing;
 
 	const url = ctx.avatars ? ctx.avatarUrl : undefined;
 	// Nearer than the row's own `data-vscode-context` (the commit context), so a click ON the avatar
@@ -334,8 +340,10 @@ function renderAvatar(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateRe
 }
 
 /** The author avatar + name (expanded author cell). No per-cell tooltip — the full-row rich
- *  hover covers author/email/date/sha/message details. */
-function renderAuthor(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult {
+ *  hover covers author/email/date/sha/message details. At the column's min width the name can't fit,
+ *  so drop it and show just the avatar (forced on even in avatar node-mode) as the identity cue. */
+function renderAuthor(row: ProcessedGraphRow, ctx: RowRenderContext, atMinWidth: boolean): TemplateResult {
+	if (atMinWidth) return html`${renderAvatar(row, ctx, true)}`;
 	return html`${renderAvatar(row, ctx)}<span class="gl-graph__author">${ctx.commit.author}</span>`;
 }
 
@@ -594,7 +602,7 @@ function renderZoneContent(
 					? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
 					: nothing}<span class="gl-graph__message">${renderMessageContent(ctx.commit.message)}</span>`;
 		case 'author':
-			return renderAuthor(row, ctx);
+			return renderAuthor(row, ctx, zone.width <= zone.minWidth);
 		case 'datetime':
 			return html`<span class="gl-graph__date">${relativeDate ?? ''}</span>`;
 		case 'sha':
