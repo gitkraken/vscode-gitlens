@@ -6317,8 +6317,11 @@ export class GlLitGraph extends LitElement {
 	// controls, before the label). Idle it's collapsed to zero width + transparent (reserves no label
 	// space); the cell's `:hover`/`:focus-within` reveals it (CSS only). `active` shows it persistently in
 	// the accent tone with the filled icon. `floor` is the degraded ultra-narrow case where it stands in
-	// for the column icon entirely, so its tooltip names the filtered column. Click dispatches
-	// `gl-graph-filter-column` (bubbles+composed) — graph-app routes the zone to the right filter picker.
+	// for the column icon entirely, so its tooltip names the filtered column. It's a DRAG-THROUGH control
+	// (no pointerdown stopPropagation): the press bubbles to the cell so a drag reorders the column (vital
+	// on narrow cells where the icon fills the grab area) — a CLEAN mouse click instead dispatches the
+	// filter, resolved in `onColumnPointerUp` via `data-filter-zone`. No `@click` (like the Changes label):
+	// under the cell's pointer capture a mouse click is ambiguous, so keyboard is handled via `@keydown`.
 	private renderFilterButton(zone: ZoneSpec, active: boolean, floor: boolean, member = false): TemplateResult {
 		// Same action-first language as the placement toggles (Group/Ungroup X with/from Y).
 		const tooltip = active ? `Edit ${zone.label} Filter` : `Filter by ${zone.label}`;
@@ -6331,9 +6334,9 @@ export class GlLitGraph extends LitElement {
 			aria-pressed=${active ? 'true' : 'false'}
 			aria-label=${ariaLabel}
 			data-tooltip=${tooltip}
+			data-filter-zone=${zone.id}
 			draggable="false"
-			@pointerdown=${(e: Event) => e.stopPropagation()}
-			@click=${(e: Event) => this.onFilterButtonClick(e, zone.id)}
+			@keydown=${(e: KeyboardEvent) => this.onFilterButtonKeydown(e, zone.id)}
 		>
 			<code-icon icon=${active ? 'filter-filled' : 'filter'}></code-icon>
 		</button>`;
@@ -6341,11 +6344,21 @@ export class GlLitGraph extends LitElement {
 
 	// Bubbles+composed so it reaches the `@gl-graph-filter-column` listener on `<gl-graph-wrapper>`
 	// (graph-app binds it there); both this element and the wrapper are light DOM, so no re-dispatch.
-	private onFilterButtonClick(event: Event, zoneId: ZoneId): void {
-		event.stopPropagation();
+	// Shared by the filter button's keyboard path and the pointerup clean-click path (`onColumnPointerUp`).
+	private dispatchFilterColumn(zoneId: ZoneId): void {
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-filter-column', { detail: { zone: zoneId }, bubbles: true, composed: true }),
 		);
+	}
+
+	// Keyboard activation for the drag-through filter button (Enter/Space). The mouse path has no `@click`
+	// (a click under the cell's pointer capture is ambiguous) — it's dispatched from `onColumnPointerUp`.
+	private onFilterButtonKeydown(event: KeyboardEvent, zoneId: ZoneId): void {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+
+		event.preventDefault();
+		event.stopPropagation();
+		this.dispatchFilterColumn(zoneId);
 	}
 
 	// Compact-density header. The stacked 2-line rows have no per-zone columns, so instead of the full
@@ -7477,6 +7490,10 @@ export class GlLitGraph extends LitElement {
 		// `started` still false — the same threshold gate the reorder uses) on it toggles the mode picker;
 		// any press that crosses the drag threshold reorders and never opens it. See `onColumnPointerUp`.
 		changesLabel: HTMLElement | null;
+		// The filterable zone whose filter button this press landed on (else null) — carried by the
+		// button's `data-filter-zone` (a grouped-refs crumb button filters `ref` from another column's
+		// cell, so it can't be inferred from `colId`). A clean click dispatches it; a drag reorders instead.
+		filterZone: ZoneId | null;
 		// Snapshot taken when the drag begins (threshold crossed). The tentative order is always recomputed
 		// FROM this base, and the pointer is hit-tested against these frozen column edges — so the columns
 		// shifting underneath never feeds back into the targeting. Restored verbatim on cancel.
@@ -7518,6 +7535,14 @@ export class GlLitGraph extends LitElement {
 			colId === 'changes' && event.target instanceof Element
 				? event.target.closest<HTMLElement>('.gl-graph__header-label--changes')
 				: null;
+		// A press on a filter button arms the reorder like anywhere else on the cell; a clean click
+		// dispatches that button's zone at pointerup (the button has no `@click` — keyboard uses `@keydown`).
+		const filterZone =
+			event.target instanceof Element
+				? ((event.target.closest<HTMLElement>('.gl-graph__filter-toggle')?.dataset.filterZone as
+						| ZoneId
+						| undefined) ?? null)
+				: null;
 
 		this.columnDrag = {
 			pointerId: event.pointerId,
@@ -7531,6 +7556,7 @@ export class GlLitGraph extends LitElement {
 			pendingX: event.clientX,
 			rafId: null,
 			changesLabel: changesLabel,
+			filterZone: filterZone,
 			base: null,
 		};
 		window.addEventListener('pointermove', this.onColumnPointerMove);
@@ -7793,16 +7819,22 @@ export class GlLitGraph extends LitElement {
 		const colId = drag.colId;
 		const started = drag.started;
 		const changesLabel = drag.changesLabel;
+		const filterZone = drag.filterZone;
 		// Recompute the drop slot from the RELEASE position (the last rAF may not have flushed, so
 		// `drag.target` can be a frame stale) using the pointerup's own clientX — where the user let go.
 		const target = base != null ? this.columnDropTargetFor(base, event.clientX) : drag.target;
 		this.endColumnDrag();
 		if (!started || base == null) {
-			// A clean click (never crossed the drag threshold) on the Changes label toggles the picker; a
-			// started drag latches `base != null` and falls through here, so it can't open. No `@click`
-			// binding — this pointerup is the sole open trigger.
-			if (!started && changesLabel != null) {
-				this.toggleChangesModeMenu(changesLabel);
+			// A clean click (never crossed the drag threshold) toggles the Changes picker or dispatches a
+			// column filter; a started drag latches `base != null` and falls through here, so it can't. For
+			// the mouse path this pointerup is the sole trigger — neither control has an `@click` (keyboard
+			// activation goes through the label's / filter button's `@keydown`).
+			if (!started) {
+				if (changesLabel != null) {
+					this.toggleChangesModeMenu(changesLabel);
+				} else if (filterZone != null) {
+					this.dispatchFilterColumn(filterZone);
+				}
 			}
 			return;
 		}
