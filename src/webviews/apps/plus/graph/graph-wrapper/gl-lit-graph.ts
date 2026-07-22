@@ -1,6 +1,6 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
-import { classifyRowsDelta } from '@gitkraken/commit-graph/engine/delta.js';
+import { classifyRowsDelta, isHistoryRewrite } from '@gitkraken/commit-graph/engine/delta.js';
 import { collectReachable, identifyFirstParentChain } from '@gitkraken/commit-graph/engine/layout.js';
 import { buildChildrenBySha, findBranchingPointSha } from '@gitkraken/commit-graph/engine/navigation.js';
 import type { GraphProcessResume, GraphStability } from '@gitkraken/commit-graph/engine/process.js';
@@ -2132,8 +2132,16 @@ export class GlLitGraph extends LitElement {
 			// without the hint a fetch/new commit reshuffles lane colors AND defeats the suffix reconciliation
 			// below. The engine's opaque token carries that hint; how it's derived (below-window stubs vs real
 			// rows) is an engine detail we deliberately don't reach into.
+			//
+			// BUT sticky columns are only a valid fixpoint across a PREPEND (top insertion). A history
+			// rewrite (rebase/amend/squash) changes surviving commits' DAG roles, so reproducing their
+			// prior columns drags lanes to the wrong column — and equal-area misroutes slip past the
+			// engine's area-based renormalize backstop. So on a rewrite, lay out cold (== reopening the
+			// graph, the known-correct recovery); prepends keep stability.
 			const stableFrom =
-				delta.kind === 'replace' && this.processedRows.length > 0 ? this._engineStability : undefined;
+				delta.kind === 'replace' && this.processedRows.length > 0 && !isHistoryRewrite(prior, sourceRows)
+					? this._engineStability
+					: undefined;
 			// Prefix change (fetch/new commits/rebase): hand the prior rows to the engine so its edge
 			// pass — the expensive half — stops at carry convergence and splices the prior row objects
 			// (edges included) back in by IDENTITY. Byte-identical to a full run by construction; the
