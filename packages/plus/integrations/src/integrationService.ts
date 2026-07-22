@@ -1231,7 +1231,11 @@ export class IntegrationService implements Disposable {
 			}
 
 			items.push(...result.items);
-			warnings.push(...result.warnings);
+			// Dedupe across the multi-provider fan-out (matches listProjects): a warning that repeats verbatim
+			// across scopes — e.g. the same account surfaced under two ids — shouldn't be reported twice.
+			for (const w of result.warnings) {
+				appendDedupedWarning(warnings, w);
+			}
 			if (result.fetchFailed) {
 				fetchFailed = true;
 			}
@@ -2831,7 +2835,27 @@ export class IntegrationService implements Disposable {
 			const type = this.remoteProviderTypeForIntegration(options.providerId);
 			const domain = options.host ?? parsedDomain;
 			if (type != null && domain) {
-				configs.unshift({ type: type, domain: domain });
+				// The synthetic exact-domain entry is unshifted to the front, so it wins the match over the
+				// user's own config for the same host. Carry that config's protocol override across (matched by
+				// domain or regex, mirroring `ignoreSSLErrors`) so a self-managed host configured for a custom
+				// protocol — e.g. plain `http` — isn't silently downgraded to the provider default here.
+				const lowerDomain = domain.toLowerCase();
+				const protocol = configs.find(c => {
+					if (c.type !== type) return false;
+					if (c.domain != null) return c.domain.toLowerCase() === lowerDomain;
+
+					// Truthy (not just non-null): an empty regex would compile to a match-everything pattern.
+					if (c.regex) {
+						try {
+							return new RegExp(c.regex, 'i').test(lowerDomain);
+						} catch {
+							return false;
+						}
+					}
+
+					return false;
+				})?.protocol;
+				configs.unshift({ type: type, domain: domain, protocol: protocol });
 			}
 		}
 
