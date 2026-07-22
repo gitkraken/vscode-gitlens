@@ -53,11 +53,14 @@ export interface GraphCommitRef {
 	isDefault?: boolean;
 	/** Remote-only: the hosting provider, when known — drives the ref pill's provider icon. */
 	hostingServiceType?: GkProviderId;
-	/** JSON-stringified `data-vscode-context` for this ref's pill (right-click menu). */
+	/** JSON-stringified `data-vscode-context` for this ref's pill (right-click menu). For a grouped ref
+	 *  this MERGES the ref's own item context (`webviewItem…`) with its refGROUP context
+	 *  (`webviewItemGroup…`) so the pill exposes BOTH the branch/remote actions AND "Hide All" — parity
+	 *  with the legacy engine, which stamped the two contexts on stacked elements. */
 	context?: string;
-	/** The ref's INDIVIDUAL serialized context — never the refGROUP one `context` may carry for
+	/** The ref's INDIVIDUAL serialized context — never the refGROUP keys `context` may also carry for
 	 *  grouped refs. The branch sheet's kebab + action links need row-menu parity for THIS ref
-	 *  (a group context yields the "Hide All" menu and no-ops the ref-scoped command links). */
+	 *  (the `webviewItemGroup` keys yield the "Hide All" menu and no-op the ref-scoped command links). */
 	refContext?: string;
 }
 
@@ -91,13 +94,29 @@ function serializeContext(value: unknown): string | undefined {
 }
 
 /**
+ * Merge a ref's own item context (`webviewItem`/`webviewItemValue`) with its refGROUP context
+ * (`webviewItemGroup`/`webviewItemGroupValue`) into a single `data-vscode-context` object. The keys don't
+ * collide, so a grouped pill's right-click menu exposes BOTH the branch/remote `when` clauses AND the
+ * refGroup "Hide All" — matching the legacy engine, which stamped the two on stacked DOM elements (VS Code
+ * merges `data-vscode-context` up the ancestor chain). Falls back to the group context (prior behavior) if
+ * either isn't valid JSON.
+ */
+function mergeSerializedContexts(individual: string, group: string): string {
+	try {
+		return JSON.stringify({ ...JSON.parse(individual), ...JSON.parse(group) });
+	} catch {
+		return group;
+	}
+}
+
+/**
  * Convert a GitLens `GitGraphRow` into the commit-graph `GraphCommit` shape `processCommits` expects.
  * `idLength` carries `gitlens.advanced.abbreviatedShaLength` into the rendered `shortHash`.
  */
 export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string): GraphCommitView {
-	// refGroups is the authoritative per-ref context source when the row ships it; the per-ref
-	// `context`/`contextGroup` fields are the fallback. Seed it up front so the single ref pass
-	// below can skip the backfill for any ref the map already covers.
+	// refGroups carries each grouped ref's refGROUP context ("Hide All"), keyed by ref NAME. Seed it up
+	// front so the single ref pass below can merge it onto each ref's own item context (see
+	// `pillContextFor`) — grouped pills then expose both the ref actions and the refGroup actions.
 	// Right-click context: prefer the host-serialized `contexts.row`; for lean commit rows (the host
 	// now ships only `contexts.flags`, not the row blob — a perf change on main) reconstruct it from
 	// the flags + repo path so the row context menu works. WIP/stash rows keep their host context.
@@ -123,21 +142,26 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 	// per-ref context refGroups didn't already cover. The engine's `refs` token array stays `[]` (the
 	// engine never reads it; nothing in the Lit path does either now).
 	const commitRefs: GraphCommitRef[] = [];
-	// Per-ref right-click context. The host's `refGroups` (keyed by ref NAME) is the authoritative
-	// override; otherwise backfill from each ref's own `context`/`contextGroup`, keyed by `kind:name`
+	// Per-ref right-click context. Each ref's OWN item context is backfilled here, keyed by `kind:name`
 	// so a tag and a same-named branch/remote on one commit don't inherit each other's context menu.
+	// `pillContextFor` then merges it with the ref's refGROUP context (from `refContexts`, keyed by NAME)
+	// when the ref is grouped, so a grouped pill exposes BOTH the branch/remote actions AND the refGroup
+	// "Hide All". `refContext` (the pure individual) stays separate for the branch sheet.
 	let refContextsByKind: Record<string, string> | undefined;
 	const addContext = (kind: string, name: string, ref: { context?: unknown; contextGroup?: unknown }): void => {
-		if (refContexts?.[name] != null) return;
-
 		const serialized = serializeContext(ref.context) ?? serializeContext(ref.contextGroup);
 		if (serialized == null) return;
 
 		refContextsByKind ??= {};
 		refContextsByKind[`${kind}:${name}`] = serialized;
 	};
-	const contextFor = (kind: string, name: string): string | undefined =>
-		refContexts?.[name] ?? refContextsByKind?.[`${kind}:${name}`];
+	const pillContextFor = (kind: string, name: string): string | undefined => {
+		const individual = refContextsByKind?.[`${kind}:${name}`];
+		const group = refContexts?.[name];
+		if (group == null) return individual;
+		if (individual == null) return group;
+		return mergeSerializedContexts(individual, group);
+	};
 
 	for (const h of row.heads ?? []) {
 		addContext('head', h.name, h);
@@ -150,7 +174,7 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			upstreamId: h.upstream?.id,
 			worktreeId: h.worktreeId,
 			isDefault: h.isDefault,
-			context: contextFor('head', h.name),
+			context: pillContextFor('head', h.name),
 			refContext: serializeContext(h.context),
 		});
 	}
@@ -164,7 +188,7 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			current: r.current,
 			isDefault: r.isDefault,
 			hostingServiceType: r.hostingServiceType,
-			context: contextFor('remote', r.name),
+			context: pillContextFor('remote', r.name),
 			refContext: serializeContext(r.context),
 		});
 	}
@@ -174,7 +198,7 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			kind: 'tag',
 			name: t.name,
 			id: t.id,
-			context: contextFor('tag', t.name),
+			context: pillContextFor('tag', t.name),
 			refContext: serializeContext(t.context),
 		});
 	}

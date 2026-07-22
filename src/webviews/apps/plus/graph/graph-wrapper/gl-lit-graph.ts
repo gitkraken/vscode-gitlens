@@ -4896,9 +4896,9 @@ export class GlLitGraph extends LitElement {
 		if (refPill != null && (refPill.kind === 'head' || refPill.kind === 'tag' || refPill.kind === 'remote')) {
 			const pillSha = this.resolveSha(event);
 			const pinned = this.togglePinnedRef(refPill.key, pillSha);
-			// The pill's own `data-vscode-context` is the refGROUP context ("Hide All") when this ref is
-			// grouped with its remote(s), which the sheet's kebab + action links can't use. Prefer the
-			// ref's INDIVIDUAL context from the row model, falling back to the pill context.
+			// The pill's own `data-vscode-context` carries the refGROUP keys ("Hide All") merged in when
+			// this ref is grouped with its remote(s), which the sheet's kebab + action links can't use.
+			// Prefer the ref's INDIVIDUAL context from the row model, falling back to the pill context.
 			const refContext =
 				(pillSha != null
 					? this.getCommitBySha(pillSha)?.commitRefs.find(
