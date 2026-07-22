@@ -86,24 +86,27 @@ suite('compose/recomposeScope resolveRecomposeScope', () => {
 			ok: true,
 			branchName: 'main',
 			headSha: 'h',
+			tipSha: 'h',
 			shas: ['h', 'a', 'b'],
 			includeWip: true,
 			expandedFromSelection: false,
 		});
 	});
 
-	test('commitShas sub-selection → ok, widened to covering range, expandedFromSelection:true', async () => {
-		// The covering resolver logs from the base candidate's parent ('b' is the only candidate —
-		// 'a' has an in-selection parent) through HEAD, widening the selection to that range.
-		const svc = makeSvc({ branch: { name: 'main' }, head: 'h', commits: linear, log: { 'c..h': ['h', 'a', 'b'] } });
+	test('commitShas interior sub-selection → ok, range ends at the selection tip, not widened to HEAD', async () => {
+		// 'a' is the selection's single tip (no selected commit has it as a parent), so the covering
+		// resolver logs from the base candidate's parent ('b' is the only base — 'a' has an
+		// in-selection parent) through 'a', leaving the tip commit 'h' out of the rewrite.
+		const svc = makeSvc({ branch: { name: 'main' }, head: 'h', commits: linear, log: { 'c..a': ['a', 'b'] } });
 		const result = await resolveRecomposeScope(container, svc, { commitShas: ['a', 'b'] });
 		assert.deepStrictEqual(result, {
 			ok: true,
 			branchName: 'main',
 			headSha: 'h',
-			shas: ['h', 'a', 'b'],
+			tipSha: 'a',
+			shas: ['a', 'b'],
 			includeWip: false,
-			expandedFromSelection: true,
+			expandedFromSelection: false,
 		});
 	});
 

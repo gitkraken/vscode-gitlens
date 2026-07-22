@@ -37,10 +37,8 @@ export class GlCommitsScopePane extends LitElement {
 	@property({ type: Boolean })
 	loading = false;
 
-	/**
-	 * 'compose' = both draggable, but the start is clamped at the newest commit row (compose
-	 * ranges must end at HEAD). 'review' = both fully draggable.
-	 */
+	/** Both handles are fully draggable in both modes; 'compose' additionally enforces the
+	 *  unstaged-requires-staged floor on the end handle. */
 	@property()
 	mode: 'compose' | 'review' = 'compose';
 
@@ -360,22 +358,8 @@ export class GlCommitsScopePane extends LitElement {
 		return last;
 	}
 
-	/**
-	 * Deepest index the start (top) handle may reach. In compose mode the start is clamped to the
-	 * first commit row (HEAD) — compose ranges must end at HEAD because the compose engine's apply
-	 * requires HEAD to be at the source range's tip, so excluding newer commits would always fail
-	 * at commit time. WIP-only lists fall back to the full draggable range so staged-only stays
-	 * reachable.
-	 */
-	private get maxStartIndex(): number {
-		if (this.mode === 'review') return this.maxDraggableIndex;
-
-		const firstCommit = this.items.findIndex(i => i.state === 'unpushed' || i.state === 'pushed');
-		return firstCommit >= 0 ? Math.min(firstCommit, this.maxDraggableIndex) : this.maxDraggableIndex;
-	}
-
 	private get effectiveMaxStart(): number {
-		return Math.min(this.maxStartIndex, this.rangeEnd);
+		return Math.min(this.maxDraggableIndex, this.rangeEnd);
 	}
 
 	/**
@@ -401,9 +385,7 @@ export class GlCommitsScopePane extends LitElement {
 		const activeStart = this._dragging === 'start' ? (this._dragPreview ?? start) : start;
 
 		const showEndHandle = this.items.length > 1;
-		// Hide the start handle when it has no room to move (compose with no WIP rows —
-		// the start is pinned at the newest commit).
-		const showStartHandle = this.items.length > 1 && (this.mode === 'review' || this.maxStartIndex > 0);
+		const showStartHandle = this.items.length > 1 && (this.mode === 'review' || this.maxDraggableIndex > 0);
 
 		const showStartProxy = showStartHandle && this._startHandleOffscreen && !this._dragging;
 		const showEndProxy = showEndHandle && this._endHandleOffscreen && !this._dragging;

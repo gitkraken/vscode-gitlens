@@ -3,7 +3,7 @@ import { rootSha } from '@gitlens/git/models/revision.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
 import { ComposeToolsIntegration } from '../../../../plus/coretools/compose/integration.js';
-import { coverRangeEndingAtHead } from '../../../../plus/coretools/compose/recomposeScope.js';
+import { coverCommitRange } from '../../../../plus/coretools/compose/recomposeScope.js';
 import type {
 	ComposeApplyPlan,
 	ComposeHunk,
@@ -97,6 +97,8 @@ export interface RefinePlanForGraphDetailsInput {
  *  Read on refine so we can return the same downstream shape without re-running any git ops. */
 interface GraphCacheExtras {
 	headSha: string;
+	/** Newest commit of the rewritten range; below `headSha` for an interior range. */
+	tipSha: string;
 	rewriteFromSha: string;
 	selectedShas?: string[];
 	kind: 'wip-only' | 'wip+commits' | 'commits-only';
@@ -133,6 +135,15 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			const userExcluded = input.excludedFiles?.length
 				? new Set(input.excludedFiles.filter(p => !aiExcluded?.has(p)))
 				: undefined;
+			// An interior range's leftover hunks have nowhere to go — the commits above the range
+			// depend on the excluded content, and the worktree isn't the rewrite destination. The
+			// UI disables exclusion for interior scopes; guard the host path too.
+			if (userExcluded?.size && resolved.tipSha !== resolved.headSha) {
+				throw new ComposeWorkflowInputError(
+					'Compose scope is invalid: files cannot be excluded when the range has commits above it — the newer commits depend on the excluded changes',
+				);
+			}
+
 			const hunkFilter = userExcluded?.size
 				? (hunks: ComposeHunk[]) =>
 						hunks.filter(
@@ -159,6 +170,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			const cacheKey = this.createCacheKey(input.svc.path);
 			const extras: GraphCacheExtras = {
 				headSha: resolved.headSha,
+				tipSha: resolved.tipSha,
 				rewriteFromSha: resolved.rewriteFromSha,
 				selectedShas: resolved.selectedShas,
 				kind: resolved.kind,
@@ -297,6 +309,17 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		if (!cached) {
 			throw new Error(
 				`No cached compose plan for key '${input.cacheKey}'. Call generatePlanForGraphDetails() first.`,
+			);
+		}
+
+		// Interior ranges (tip below HEAD) can't partially apply: leftover hunks from omitted
+		// commits would land in the worktree, which isn't the rewrite destination, and the
+		// reparented commits above depend on the full range content. The UI hides subset-apply
+		// for interior scopes; guard the host path too.
+		const cachedExtras = cached.extras as GraphCacheExtras | undefined;
+		if (input.includedCommitIds != null && cachedExtras != null && cachedExtras.tipSha !== cachedExtras.headSha) {
+			throw new ComposeWorkflowInputError(
+				'Commits cannot be partially applied when the range has commits above it — apply the full plan instead',
 			);
 		}
 
@@ -550,6 +573,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 	): Promise<{
 		branchName: string;
 		headSha: string;
+		/** Newest commit of the covering range — the rewrite target's `to`. Below `headSha` for an
+		 *  interior range, where the engine reparents the commits above onto the rewritten chain. */
+		tipSha: string;
 		rewriteFromSha: string;
 		/** Oldest commit of the covering range — the rewrite base is its first parent. */
 		baseSha?: string;
@@ -576,17 +602,33 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		const hasWip = scope.includeStaged || scope.includeUnstaged;
 
 		if (!hasShas) {
-			return { branchName: branch.name, headSha: headSha, rewriteFromSha: headSha, kind: 'wip-only' };
+			return {
+				branchName: branch.name,
+				headSha: headSha,
+				tipSha: headSha,
+				rewriteFromSha: headSha,
+				kind: 'wip-only',
+			};
 		}
 
-		const covered = await coverRangeEndingAtHead(svc, headSha, new Set(scope.includeShas));
+		const covered = await coverCommitRange(svc, headSha, new Set(scope.includeShas));
 		if (!covered.ok) {
 			throw new ComposeWorkflowInputError(`Compose scope is invalid: ${covered.message}`);
+		}
+
+		// Working changes have no defined basis mid-range (the library's collect enforces this
+		// too). Unreachable via the picker — a contiguous slice including WIP always reaches the
+		// newest commit — but guard the seeded paths.
+		if (hasWip && covered.tipSha !== headSha) {
+			throw new ComposeWorkflowInputError(
+				'Compose scope is invalid: working changes can only be included when the range ends at the branch head',
+			);
 		}
 
 		return {
 			branchName: branch.name,
 			headSha: headSha,
+			tipSha: covered.tipSha,
 			rewriteFromSha: covered.baseParentSha ?? rootSha,
 			baseSha: covered.baseSha,
 			selectedShas: covered.shas,
@@ -599,6 +641,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		resolved: {
 			branchName: string;
 			headSha: string;
+			tipSha: string;
 			rewriteFromSha: string;
 			baseSha?: string;
 			selectedShas?: string[];
@@ -632,7 +675,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				type: 'commit-range',
 				branch: resolved.branchName,
 				from: oldestSha,
-				to: resolved.headSha,
+				to: resolved.tipSha,
 			};
 		}
 
@@ -640,7 +683,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			type: 'commit-range',
 			branch: resolved.branchName,
 			from: oldestSha,
-			to: resolved.headSha,
+			to: resolved.tipSha,
 			includeWorkdir: {
 				includeStaged: scope.includeStaged,
 				includeUnstaged: scope.includeUnstaged,

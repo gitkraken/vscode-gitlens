@@ -127,6 +127,40 @@ export function registerGraphWebviewCommands<T>(
 	container: Container,
 	panels: WebviewPanelsProxy<'gitlens.graph', GraphWebviewShowingArgs, T>,
 ): Disposable {
+	/** Routes to the best graph surface: an existing/visible instance wins over the configured
+	 *  layout, so the request lands on the graph the user is looking at instead of opening a
+	 *  second one in the other surface. */
+	function showOnBestGraphSurface(
+		options: { preserveFocus?: boolean; column?: ViewColumn; source?: Source },
+		...args: GraphWebviewShowingArgs
+	): void {
+		const { preserveFocus = false, column, source } = options;
+		if (configuration.get('graph.layout') === 'panel') {
+			if (!container.views.graph.visible) {
+				const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, ...args);
+				if (instance != null) {
+					void instance.show({ preserveFocus: preserveFocus, column: column, source: source }, ...args);
+					return;
+				}
+			}
+
+			void container.views.graph.show({ preserveFocus: preserveFocus, source: source }, ...args);
+		} else {
+			const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, ...args);
+			if (instance != null) {
+				void instance.show({ preserveFocus: preserveFocus, column: column, source: source }, ...args);
+				return;
+			}
+
+			if (container.views.graph.visible) {
+				void container.views.graph.show({ preserveFocus: preserveFocus, source: source }, ...args);
+				return;
+			}
+
+			void panels.show({ preserveFocus: preserveFocus, column: column, source: source }, ...args);
+		}
+	}
+
 	function showInCommitGraph(args: ShowInCommitGraphCommandArgs): void {
 		if (args instanceof PullRequestNode) {
 			if (args.ref == null) return;
@@ -137,30 +171,7 @@ export function registerGraphWebviewCommands<T>(
 		const preserveFocus = 'preserveFocus' in args ? (args.preserveFocus ?? false) : false;
 		const column = 'viewColumn' in args ? args.viewColumn : undefined;
 		const source = 'source' in args ? args.source : undefined;
-		if (configuration.get('graph.layout') === 'panel') {
-			if (!container.views.graph.visible) {
-				const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
-				if (instance != null) {
-					void instance.show({ preserveFocus: preserveFocus, column: column, source: source }, args);
-					return;
-				}
-			}
-
-			void container.views.graph.show({ preserveFocus: preserveFocus, source: source }, args);
-		} else {
-			const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
-			if (instance != null) {
-				void instance.show({ preserveFocus: preserveFocus, column: column, source: source }, args);
-				return;
-			}
-
-			if (container.views.graph.visible) {
-				void container.views.graph.show({ preserveFocus: preserveFocus, source: source }, args);
-				return;
-			}
-
-			void panels.show({ preserveFocus: preserveFocus, column: column, source: source }, args);
-		}
+		showOnBestGraphSurface({ preserveFocus: preserveFocus, column: column, source: source }, args);
 	}
 
 	async function openFileHistoryInGraph(...args: any[]): Promise<void> {
@@ -240,6 +251,14 @@ export function registerGraphWebviewCommands<T>(
 				arg != null && typeof arg === 'object' && 'source' in arg
 					? (arg as { source?: Source }).source
 					: undefined;
+
+			// An action (e.g. `enter-compose` from a recompose command) targets the graph the user
+			// can see — route through the same instance-aware selection as `showInCommitGraph`, so
+			// acting from a tree view doesn't open a second graph in the other surface.
+			if (arg != null && typeof arg === 'object' && 'action' in arg) {
+				showOnBestGraphSurface({ source: source }, arg as GraphWebviewShowingArgs[0]);
+				return;
+			}
 
 			if (configuration.get('graph.layout') === 'panel') {
 				// Panel-layout source-forwarding is deferred: `container.views.graph.show({ source }, ...args)`

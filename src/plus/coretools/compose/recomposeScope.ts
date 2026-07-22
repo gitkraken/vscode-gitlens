@@ -20,8 +20,11 @@ export type ResolvedRecomposeScope =
 			ok: true;
 			branchName: string;
 			headSha: string;
-			/** Covering commit range ending at HEAD, child-first (HEAD-first) with the range-base
-			 *  boundary commit last; becomes scope.includeShas downstream. */
+			/** Newest commit of the covering range. Below `headSha` for an interior range — the
+			 *  rewrite reparents the commits above it. */
+			tipSha: string;
+			/** Covering commit range, child-first (tip-first) with the range-base boundary commit
+			 *  last; becomes scope.includeShas downstream. */
 			shas: string[];
 			includeWip: boolean;
 			/** true when a commitShas sub-selection was widened to its covering range. */
@@ -50,63 +53,91 @@ export function coverRangeFromHead(
 	return { ok: true, shas: [...rangeShas], expanded: rangeShas.length > candidates.size };
 }
 
-export type CoveredRangeFromHead =
-	| { ok: true; shas: string[]; expanded: boolean; baseSha: string; baseParentSha: string | undefined }
+export type CoveredCommitRange =
+	| {
+			ok: true;
+			shas: string[];
+			expanded: boolean;
+			baseSha: string;
+			baseParentSha: string | undefined;
+			/** Newest commit of the covering range — the rewrite target's `to`. May sit below HEAD
+			 *  (an interior range); the engine reparents the descendants onto the rewritten chain. */
+			tipSha: string;
+	  }
 	| { ok: false; reason: 'empty' | 'not-contiguous' | 'not-found'; message: string };
 
-/** Expand `candidates` to the covering commit range ending at HEAD. Candidates may sit anywhere in
- *  the DAG (e.g. merge side-branch commits); the covering range is `parent(baseSha)..HEAD` for the
- *  base candidate producing the smallest covering log — deterministic and minimal, so a wider
- *  boundary commit (e.g. a side branch forked below the range base) can't silently pull older
- *  history into the rewrite. `shas` are child-first with `baseSha` guaranteed last, so
+/** Expand `candidates` to their covering commit range. The range ends at the selection's own tip
+ *  when the selection has a single newest commit (an interior range when that tip sits below
+ *  HEAD), falling back to a HEAD-anchored covering range for shapes that can't form one range
+ *  (disjoint selections, multiple tips). Candidates may sit anywhere in the DAG (e.g. merge
+ *  side-branch commits); the covering range is `parent(baseSha)..tip` for the base candidate
+ *  producing the smallest covering log — deterministic and minimal, so a wider boundary commit
+ *  (e.g. a side branch forked below the range base) can't silently pull older history into the
+ *  rewrite. `shas` are child-first (`shas[0]` is the tip) with `baseSha` guaranteed last, so
  *  order-sensitive consumers can anchor the rewrite base at `shas.at(-1)`. */
-export async function coverRangeEndingAtHead(
+export async function coverCommitRange(
 	svc: GitRepositoryService,
 	headSha: string,
 	candidates: ReadonlySet<string>,
-): Promise<CoveredRangeFromHead> {
+): Promise<CoveredCommitRange> {
 	if (candidates.size === 0) return { ok: false, reason: 'empty', message: 'No commits to recompose' };
 
-	// Normalize to canonical shas and capture first parents to identify base candidates.
-	const firstParents = new Map<string, string | undefined>();
+	// Normalize to canonical shas and capture parents to identify base and tip candidates.
+	const parentsBySha = new Map<string, readonly string[]>();
 	for (const sha of candidates) {
 		const commit = await svc.commits.getCommit(sha);
 		if (commit == null) return { ok: false, reason: 'not-found', message: `Commit '${sha}' was not found` };
 
-		firstParents.set(commit.sha, commit.parents[0]);
+		parentsBySha.set(commit.sha, commit.parents);
 	}
 
-	// A base candidate is a selected commit whose first parent is outside the selection; the range
-	// is valid when a base's parent-exclusive log from HEAD covers every candidate. Multiple
-	// candidates can cover (merge side branches forked below the range base), so evaluate all and
-	// keep the minimal covering log. `topo` ordering keeps the log child-before-parent even when
-	// commit dates are skewed.
-	const normalized = new Set(firstParents.keys());
-	let best: { shas: string[]; baseSha: string; baseParentSha: string | undefined } | undefined;
-	for (const [sha, parentSha] of firstParents) {
-		if (parentSha != null && normalized.has(parentSha)) continue;
+	const normalized = new Set(parentsBySha.keys());
+	const selectedParents = new Set([...parentsBySha.values()].flat().filter(p => normalized.has(p)));
+	const tipCandidates = [...normalized].filter(sha => !selectedParents.has(sha));
 
-		const log = await svc.commits.getLog(parentSha != null ? `${parentSha}..${headSha}` : headSha, {
-			limit: 0,
-			ordering: 'topo',
-		});
-		const covered = coverRangeFromHead([...(log?.commits.keys() ?? [])], normalized);
-		if (!covered.ok) continue;
+	// A base candidate is a selected commit whose first parent is outside the selection; a tip's
+	// parent-exclusive log from the base must cover every candidate. Multiple bases can cover
+	// (merge side branches forked below the range base), so evaluate all and keep the minimal
+	// covering log. `topo` ordering keeps the log child-before-parent even when commit dates are
+	// skewed.
+	const tryCover = async (tipSha: string) => {
+		let best: { shas: string[]; baseSha: string; baseParentSha: string | undefined } | undefined;
+		for (const [sha, parents] of parentsBySha) {
+			const parentSha = parents[0];
+			if (parentSha != null && normalized.has(parentSha)) continue;
 
-		if (
-			best == null ||
-			covered.shas.length < best.shas.length ||
-			(covered.shas.length === best.shas.length && sha < best.baseSha)
-		) {
-			best = { shas: covered.shas, baseSha: sha, baseParentSha: parentSha };
+			const log = await svc.commits.getLog(parentSha != null ? `${parentSha}..${tipSha}` : tipSha, {
+				limit: 0,
+				ordering: 'topo',
+			});
+			const covered = coverRangeFromHead([...(log?.commits.keys() ?? [])], normalized);
+			if (!covered.ok) continue;
+
+			if (
+				best == null ||
+				covered.shas.length < best.shas.length ||
+				(covered.shas.length === best.shas.length && sha < best.baseSha)
+			) {
+				best = { shas: covered.shas, baseSha: sha, baseParentSha: parentSha };
+			}
 		}
+		return best;
+	};
+
+	// Prefer a range ending at the selection's own tip so a mid-branch selection isn't widened to
+	// HEAD; fall back to the HEAD-anchored covering range when that can't cover the selection.
+	let tipSha = tipCandidates.length === 1 ? tipCandidates[0] : headSha;
+	let best = await tryCover(tipSha);
+	if (best == null && tipSha !== headSha) {
+		tipSha = headSha;
+		best = await tryCover(tipSha);
 	}
 
 	if (best == null) {
 		return {
 			ok: false,
 			reason: 'not-contiguous',
-			message: 'Selected commits do not form a commit range ending at HEAD',
+			message: 'Selected commits do not form a rewritable commit range',
 		};
 	}
 
@@ -118,6 +149,7 @@ export async function coverRangeEndingAtHead(
 		expanded: best.shas.length > normalized.size,
 		baseSha: best.baseSha,
 		baseParentSha: best.baseParentSha,
+		tipSha: tipSha,
 	};
 }
 
@@ -206,7 +238,7 @@ export async function resolveRecomposeScope(
 		}
 
 		// Keep the boundary commit anchored on the requested base last, matching
-		// coverRangeEndingAtHead's contract for order-sensitive consumers.
+		// coverCommitRange's contract for order-sensitive consumers.
 		const shas = commits.map(c => c.sha);
 		const baseCommitSha = (await svc.commits.getCommit(request.range.base))?.sha ?? request.range.base;
 		const baseIndex = commits.findIndex(c => c.parents[0] === baseCommitSha);
@@ -219,6 +251,7 @@ export async function resolveRecomposeScope(
 			ok: true,
 			branchName: branch.name,
 			headSha: headSha,
+			tipSha: headSha,
 			shas: shas,
 			includeWip: request.includeWip ?? false,
 			expandedFromSelection: false,
@@ -249,7 +282,7 @@ export async function resolveRecomposeScope(
 		candidates = new Set(branchData.commits.map(c => c.sha));
 	}
 
-	const covered = await coverRangeEndingAtHead(svc, headSha, candidates);
+	const covered = await coverCommitRange(svc, headSha, candidates);
 	if (!covered.ok) {
 		return { ok: false, reason: covered.reason, message: covered.message };
 	}
@@ -258,6 +291,7 @@ export async function resolveRecomposeScope(
 		ok: true,
 		branchName: branch.name,
 		headSha: headSha,
+		tipSha: covered.tipSha,
 		shas: covered.shas,
 		includeWip: request.includeWip ?? false,
 		expandedFromSelection: covered.expanded,

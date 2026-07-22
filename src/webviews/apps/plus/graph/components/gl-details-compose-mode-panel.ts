@@ -327,6 +327,17 @@ export class GlDetailsComposeModePanel extends LitElement {
 			this._idleSelectedFiles = [];
 		}
 
+		// Exclusions picked before the scope settled into an interior range would silently violate
+		// the whole-plan contract, so drop them the moment the range becomes interior.
+		if (this.isInteriorScope) {
+			if (this._excludedFiles.size > 0) {
+				this._excludedFiles = new Set();
+			}
+			if (this._excludedCommitIds.size > 0) {
+				this._excludedCommitIds = new Set();
+			}
+		}
+
 		// After a recompose (AI refine) completes, drop back to the commit posture so the user lands
 		// on the refined plan ready to commit rather than staying in the recompose input. Guard on the
 		// loading -> ready transition (success only) so a failed recompose keeps the posture for a
@@ -450,7 +461,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 		// The pushed-commit warning derives from the scope (stable across idle→ready), so render it
 		// once at the top — the user sees it while selecting a pushed range AND while reviewing the plan.
 		return html`<div class="compose-panel">
-			${this.hasPushedInScope() ? this.renderPushedCommitWarning() : nothing}${this.renderContent()}
+			${this.hasPushedInScope() ? this.renderPushedCommitWarning() : nothing}${this.isInteriorScope
+				? this.renderInteriorScopeNotice()
+				: nothing}${this.renderContent()}
 		</div>`;
 	}
 
@@ -593,7 +606,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 			<webview-pane-group flexible>
 				<gl-file-tree-pane
 					.files=${files}
-					?checkable=${true}
+					?checkable=${!this.isInteriorScope}
 					?multi-selectable=${true}
 					?show-file-icons=${true}
 					.collapsable=${false}
@@ -657,6 +670,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 	};
 
 	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
+		if (this.isInteriorScope) return;
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context as unknown as GitFileChangeShape[];
@@ -673,6 +687,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 	}
 
 	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
+		if (this.isInteriorScope) return;
+
 		const next = new Set(this._excludedFiles);
 		if (e.detail.checked) {
 			for (const path of e.detail.paths) {
@@ -720,6 +736,30 @@ export class GlDetailsComposeModePanel extends LitElement {
 	private hasPushedInScope(): boolean {
 		const includes = new Set(this.scope?.type === 'wip' ? this.scope.includeShas : []);
 		return (this.scopeItems ?? []).some(i => i.state === 'pushed' && includes.has(i.id));
+	}
+
+	/** True when the scope is a commit range ending below the newest commit (an interior range).
+	 *  The commits above the range depend on its content, so files can't be excluded and the plan
+	 *  can only be committed whole — the host rejects both at plan/apply time; the UI mirrors that
+	 *  contract here by disabling exclusion controls. */
+	private get isInteriorScope(): boolean {
+		const scope = this.scope;
+		if (scope?.type !== 'wip' || scope.includeStaged || scope.includeUnstaged || !scope.includeShas.length) {
+			return false;
+		}
+
+		const newest = this.scopeItems?.find(i => i.state === 'unpushed' || i.state === 'pushed');
+		return newest != null && !scope.includeShas.includes(newest.id);
+	}
+
+	private renderInteriorScopeNotice() {
+		return html`<div class="stale-banner" role="status">
+			<code-icon icon="info"></code-icon>
+			<span
+				>Newer commits build on this range — files can't be excluded and the plan will be committed in
+				full.</span
+			>
+		</div>`;
 	}
 
 	private renderPushedCommitWarning() {
@@ -847,14 +887,19 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const isExcluded = this._excludedCommitIds.has(commit.id);
 		// One checkmark per row; posture decides which axis it edits. Checked always means "let
 		// this commit flow through" (commit it / let the AI reshape it); unchecked "holds it back".
+		// Commit-posture exclusion is unavailable for an interior range (the plan applies whole);
+		// refine-posture locking stays available.
+		const commitCheckBlocked = !this._refineMode && this.isInteriorScope;
 		const isChecked = this._refineMode ? !isRefineExcluded : !isExcluded;
 		const checkLabel = this._refineMode
 			? isRefineExcluded
 				? 'Excluded when Recomposing'
 				: 'Included when Recomposing'
-			: isExcluded
-				? 'Excluded when Committing'
-				: 'Included when Committing';
+			: commitCheckBlocked
+				? 'Always committed — newer commits depend on this range'
+				: isExcluded
+					? 'Excluded when Committing'
+					: 'Included when Committing';
 
 		const ariaState = [isRefineExcluded ? 'excluded from recompose' : '', isExcluded ? 'excluded from commit' : '']
 			.filter(Boolean)
@@ -937,6 +982,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 						class="compose-commit__check ${isChecked
 							? 'compose-commit__check--on'
 							: 'compose-commit__check--off'}"
+						?disabled=${commitCheckBlocked}
 						aria-pressed=${isChecked ? 'true' : 'false'}
 						aria-label=${checkLabel}
 						@click=${(e: Event) => {
@@ -1129,7 +1175,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 	private handleCommitAll(): void {
 		const includedCommitIds =
-			this._excludedCommitIds.size === 0
+			this.isInteriorScope || this._excludedCommitIds.size === 0
 				? undefined
 				: this.commits?.filter(c => !this._excludedCommitIds.has(c.id)).map(c => c.id);
 
@@ -1479,6 +1525,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 	}
 
 	private handleToggleCommitIncluded(commitId: string): void {
+		if (this.isInteriorScope) return;
+
 		const next = new Set(this._excludedCommitIds);
 		if (next.has(commitId)) {
 			next.delete(commitId);

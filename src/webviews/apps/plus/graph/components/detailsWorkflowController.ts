@@ -387,7 +387,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		// the last-fetched repoPath catches that explicitly.
 		if (isWip && !state.branchCommitsFetching.get()) {
 			const lastFetchedRepoPath = this.actions.branchCommitsFetchedRepoPath();
-			if (state.branchCommits.get() == null || lastFetchedRepoPath !== repoPath) {
+			const fetchedFresh =
+				lastFetchedRepoPath != null &&
+				repoPath != null &&
+				normalizePath(lastFetchedRepoPath) === normalizePath(repoPath);
+			if (state.branchCommits.get() == null || !fetchedFresh) {
 				void this.actions.fetchBranchCommits(repoPath);
 			}
 		}

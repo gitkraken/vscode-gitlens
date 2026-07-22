@@ -25,5 +25,8 @@ export interface ComposerHunkBase {
 export interface ComposerHunk extends ComposerHunkBase {
 	diffHeader: string; // Git diff header (e.g., "diff --git a/file.ts b/file.ts")
 	hunkHeader: string; // Hunk header (e.g., "@@ -1,5 +1,7 @@") or "rename" for rename hunks
-	content: string; // The actual diff content (lines starting with +, -, or space) or rename info
+	// The actual diff content (lines starting with +, -, or space). For rename-only hunks this is a
+	// display label ("Rename from …\nRename to …"), NOT patch text — the rename lives in diffHeader
+	// in patch form, so patch builders must skip this content (see createCombinedDiffForCommit).
+	content: string;
 }

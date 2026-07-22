@@ -1,6 +1,7 @@
 import type { Uri } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { showGenericErrorMessage } from '../messages.js';
@@ -77,7 +78,9 @@ export class ComposeCommand extends GlCommandBase {
 			const rawRepo = args?.repoPath;
 			if (rawRepo != null) {
 				if (typeof rawRepo === 'string') {
-					repoPath = rawRepo;
+					// External callers (e.g. MCP) may pass any path form — canonicalize so the
+					// webview's repo-path comparisons and anchor keys match host-sent paths.
+					repoPath = normalizePath(rawRepo);
 				} else {
 					const repo = await this.container.git.getOrAddRepository(rawRepo, { opened: false });
 					repoPath = repo?.path;

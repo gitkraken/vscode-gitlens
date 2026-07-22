@@ -26,8 +26,9 @@ export function createCombinedDiffForCommit(hunks: ComposerHunk[]): {
 			filePatches.set(diffHeader, array);
 		}
 
-		// For rename hunks, the content is already properly formatted (the diffHeader carries the
-		// rename info); regular hunks combine the hunk header and content.
+		// Rename-only hunks carry a human-readable label in `content` ("Rename from …"), not patch
+		// lines — the diffHeader already holds the rename in patch form (`rename from/to`), so emit
+		// nothing beyond the header (mirrors compose-tools' own buildPatchForCommit).
 		if (hunk.isRename) {
 			array.push('');
 		} else {

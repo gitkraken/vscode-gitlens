@@ -327,10 +327,11 @@ export interface GraphActionTarget {
 }
 
 /** Resolved commit-range seed for `enter-compose`: recompose these existing commits instead of
- *  (or in addition to) working changes. `shas` are child-first (HEAD-first), a contiguous
- *  first-parent range ending at HEAD. Absent = plain working-changes compose. */
+ *  (or in addition to) working changes. `shas` are child-first (tip-first), a contiguous covering
+ *  range that may end below HEAD (an interior range — the commits above it are reparented onto
+ *  the rewritten chain). Absent = plain working-changes compose. */
 export interface GraphComposeScopeSeed {
-	/** Covering commit range ending at HEAD, child-first (HEAD-first); the final element is the
+	/** Covering commit range, child-first (`shas[0]` is the range tip); the final element is the
 	 *  range-base boundary commit (its first parent is the rewrite base). May include merge and
 	 *  side-branch commits. */
 	shas: string[];

@@ -146,12 +146,14 @@ export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs
 		return { lhs: 'HEAD', rhs: uncommitted };
 	}
 
-	// Seeded scopes guarantee the range-base boundary commit is last (see GraphComposeScopeSeed);
-	// picker-driven scopes are in pane row order, where the bottom row is the visible range base.
+	// Seeded scopes guarantee the range-base boundary commit last and the tip first (see
+	// GraphComposeScopeSeed); picker-driven scopes are in pane row order (newest-first), where the
+	// bottom row is the visible range base. Commits-only ranges diff to the selection's own tip —
+	// an interior range ends below HEAD, so 'HEAD' would fold newer commits into the diff.
 	const lhs = `${scope.includeShas.at(-1)}^`;
 	if (scope.includeUnstaged) return { lhs: lhs, rhs: uncommitted };
 	if (scope.includeStaged) return { lhs: lhs, rhs: uncommittedStaged };
-	return { lhs: lhs, rhs: 'HEAD' };
+	return { lhs: lhs, rhs: scope.includeShas[0] };
 }
 
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
@@ -2542,7 +2544,10 @@ export class DetailsActions {
 	async ensureBranchCommitsCover(repoPath: string | undefined, shas: readonly string[]): Promise<void> {
 		if (!repoPath || shas.length === 0) return;
 
-		if (this._branchCommitsFetchedRepoPath !== repoPath) {
+		const fetchedFresh =
+			this._branchCommitsFetchedRepoPath != null &&
+			normalizePath(this._branchCommitsFetchedRepoPath) === normalizePath(repoPath);
+		if (!fetchedFresh) {
 			await this.fetchBranchCommits(repoPath);
 		}
 		const covered = (): boolean => {
