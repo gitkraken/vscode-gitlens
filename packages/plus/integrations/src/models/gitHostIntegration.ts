@@ -1249,20 +1249,6 @@ export abstract class GitHostIntegration<
 		connectionId?: string,
 		state?: PullRequestStateFilter,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
-	async searchMyPullRequests(
-		repo?: T,
-		cancellation?: AbortSignal,
-		silent?: boolean,
-		connectionId?: string,
-		state?: PullRequestStateFilter,
-	): Promise<IntegrationResult<PullRequest[] | undefined>>;
-	async searchMyPullRequests(
-		repos?: T[],
-		cancellation?: AbortSignal,
-		silent?: boolean,
-		connectionId?: string,
-		state?: PullRequestStateFilter,
-	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	@trace()
 	async searchMyPullRequests(
 		repos?: T | T[],

@@ -128,4 +128,24 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 		);
 		assert.deepEqual(requestedPages, [1, 2, 3, 4, 5, 6, 7]);
 	});
+
+	test('stops at the page backstop when matches never appear', async () => {
+		// Every page is full (never a partial/last page) and holds no match, so the only thing that can stop
+		// the drain is the 20-page backstop. More pages exist than the cap to prove it truncates rather than
+		// running away.
+		const fullOpenedPage = (page: number) =>
+			Array.from({ length: 20 }, (_, i) => restMR(page * 100 + i + 1, 'opened'));
+		const pages = Array.from({ length: 25 }, (_, page) => fullOpenedPage(page));
+
+		const requestedPages: number[] = [];
+		const api = new GitLabApi(createFakeFetch(pages, requestedPages));
+
+		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['merged'] });
+
+		assert.deepEqual(results, []);
+		assert.deepEqual(
+			requestedPages,
+			Array.from({ length: 20 }, (_, i) => i + 1),
+		);
+	});
 });

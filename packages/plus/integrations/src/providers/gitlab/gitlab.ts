@@ -801,9 +801,11 @@ export class GitLabApi implements Disposable {
 				// appear on the first page. Server-side `&state=` narrows the single-state case when honored, but it
 				// can't express multiple states, so page through the results and accumulate matches until we fill the
 				// detail-query cap (`perPageLimit`) or exhaust the search results. This keeps correctness whether
-				// or not `&state=` takes effect.
+				// or not `&state=` takes effect. Bounded by `maxSearchPages` like the other paged provider drains in
+				// this package so a large, low-match result set can't fan out into an unbounded request loop.
+				const maxSearchPages = 20;
 				const matches: GitLabMergeRequestREST[] = [];
-				for (let page = 1; ; page++) {
+				for (let page = 1; page <= maxSearchPages; page++) {
 					const pagePRs = await this.request<GitLabMergeRequestREST[]>(
 						provider,
 						token,

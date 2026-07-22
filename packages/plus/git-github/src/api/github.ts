@@ -3629,9 +3629,12 @@ export class GitHubApi {
 				.filter(Boolean)
 				.join(' ');
 
+			// Bound the paginated case with a defensive page backstop like the other paged provider drains, so a
+			// large, low-match result set can't fan out into an unbounded request loop.
+			const maxSearchPages = 20;
 			let cursor: string | undefined;
 			const results: PullRequest[] = [];
-			do {
+			for (let page = 0; page < maxSearchPages; page++) {
 				const rsp = await this.graphql<SearchResult>(
 					provider,
 					token,
@@ -3657,7 +3660,7 @@ export class GitHubApi {
 				if (!requiresPagination || results.length >= pageSize || !rsp.search.pageInfo.hasNextPage) {
 					break;
 				}
-			} while (true);
+			}
 
 			return results.slice(0, pageSize);
 		} catch (ex) {

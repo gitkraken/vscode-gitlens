@@ -187,10 +187,10 @@ export interface PagedProjectInput {
 export interface GetPullRequestsOptions {
 	authorLogin?: string;
 	assigneeLogins?: string[];
-	reviewerId?: string;
 	reviewRequestedLogin?: string;
 	// Reviewer filters keyed differently per provider: GitHub/GitLab use reviewRequestedLogin (login),
 	// Bitbucket/Azure DevOps use reviewerId (account id), Bitbucket Server uses reviewerLogin (login).
+	reviewerId?: string;
 	reviewerLogin?: string;
 	mentionLogin?: string;
 	// PR states to include; when omitted the provider returns its default (open only).

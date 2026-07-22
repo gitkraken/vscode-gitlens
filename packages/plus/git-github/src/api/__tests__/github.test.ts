@@ -184,4 +184,24 @@ suite('GitHubApi.searchPullRequests', () => {
 		);
 		assert.deepStrictEqual(seenCursors, ['', 'page-2']);
 	});
+
+	test('stops at the page backstop when matches never fill the page', async () => {
+		const seenCursors: string[] = [];
+		// Every page is full of non-matching PRs and always reports another page, so results never reach the
+		// page-size cap and `hasNextPage` never goes false. The only thing that can end the drain is the 20-page
+		// backstop. More pages exist than the cap to prove it truncates rather than running away.
+		const pages = Array.from({ length: 25 }, (_, i) => ({
+			requestCursor: i === 0 ? undefined : `cursor-${i}`,
+			nextCursor: `cursor-${i + 1}`,
+			hasNextPage: true,
+			nodes: Array.from({ length: 10 }, (_, j) => prNode(i * 100 + j + 1, 'CLOSED')),
+		}));
+
+		const api = new GitHubApi(createConfig(pages, seenCursors));
+
+		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['opened', 'merged'] });
+
+		assert.deepStrictEqual(results, []);
+		assert.strictEqual(seenCursors.length, 20);
+	});
 });
