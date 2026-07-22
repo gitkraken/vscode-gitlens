@@ -240,8 +240,18 @@ export class GlAutocomplete extends LitElement {
 			}
 		}
 
-		if (changedProperties.has('_selectedIndex') && this._selectedIndex >= 0) {
-			this.scrollToSelected();
+		if (changedProperties.has('_selectedIndex')) {
+			if (this._selectedIndex >= 0) {
+				this.scrollToSelected();
+			}
+
+			this.dispatchEvent(
+				new CustomEvent<{ index: number }>('gl-autocomplete-active-change', {
+					detail: { index: this._selectedIndex },
+					bubbles: true,
+					composed: true,
+				}),
+			);
 		}
 	}
 

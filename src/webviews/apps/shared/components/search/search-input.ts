@@ -1627,6 +1627,7 @@ background-color: var(--vscode-menu-background);
 			?open="${this.autocompleteOpen && hasDescription && !this.errorMessage}"
 			@gl-autocomplete-select="${this.handleAutocompleteSelect}"
 			@gl-autocomplete-cancel="${this.hideAutocomplete}"
+			@gl-autocomplete-active-change="${() => this.requestUpdate()}"
 		>
 			${
 				hasDescription
