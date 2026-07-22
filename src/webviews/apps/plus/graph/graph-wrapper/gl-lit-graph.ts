@@ -556,9 +556,10 @@ export class GlLitGraph extends LitElement {
 	// order), so the only reactive bit is `dragColId` — the id of the column being dragged — which marks
 	// its cell as the lifted one. The rest of the drag (base snapshot, target, rAF) lives in `columnDrag`.
 	@state() private dragColId: string | null = null;
-	// Where the lane art renders. Persisted via the columns config (`graph.grouped`; `isHidden` from the
-	// host's column menu always wins).
-	@state() private graphPlacement: GraphPlacement = 'column';
+	// Where the lane art renders. Grouped by default (mirrors refs) — the lanes fold into the anchor-slot
+	// host zone. Persisted via the columns config (`graph.grouped`; `isHidden` from the host's column menu
+	// always wins).
+	@state() private graphPlacement: GraphPlacement = 'grouped';
 	// The graph's ANCHOR position: an insert-index into the FULL ordered zone list (`this.zones`,
 	// including hidden / inline-refs zones), NOT the visible list. The VISIBLE slot is DERIVED from this
 	// each render (`graphVisibleIndex`) by counting how many visible zones precede the anchor — so
@@ -1360,13 +1361,16 @@ export class GlLitGraph extends LitElement {
 			// races an in-flight drag (see the width/order comment below).
 			if (this.columns?.graph?.isHidden === true) {
 				this.graphPlacement = 'hidden';
-			} else if (this.columns?.graph?.grouped === true || typeof this.columns?.graph?.grouped === 'string') {
+			} else if (this.columns?.graph?.grouped === false) {
+				this.graphPlacement = 'column';
+				this.graphHostZoneId = undefined;
+			} else {
+				// `grouped === undefined` is the default (grouped, mirroring refs); a string is the captured
+				// host zone id (undefined here falls back to the anchor-slot zone via `graphHostIdFor`). Legacy
+				// persisted `true` (no host) also lands here.
 				this.graphPlacement = 'grouped';
 				this.graphHostZoneId =
 					typeof this.columns?.graph?.grouped === 'string' ? this.columns.graph.grouped : undefined;
-			} else {
-				this.graphPlacement = 'column';
-				this.graphHostZoneId = undefined;
 			}
 			if (this.columns?.ref?.isHidden === true) {
 				this.refsPlacement = 'hidden';
@@ -6927,12 +6931,14 @@ export class GlLitGraph extends LitElement {
 			order: this.graphColumnPos,
 		};
 		// Omit `grouped` while hidden so the `...persisted` spread above preserves the last-echoed
-		// value — only an active (non-hidden) placement overwrites it. Persist the RESOLVED host id
+		// value — only an active (non-hidden) placement overwrites it. Grouped persists the RESOLVED host id
 		// (mirrors `ref.grouped` via `refsHostIdFor`, see `buildColumnsConfig`); `?? true` covers an
 		// unresolvable host (e.g. a not-currently-visible zone) so grouped placement itself still persists.
+		// Column persists an explicit `false` (not `undefined`) — grouped is now the default, so an
+		// un-group must be recorded distinctly or it would spring back to grouped on reload.
 		if (this.graphPlacement !== 'hidden') {
 			config.grouped =
-				this.graphPlacement === 'grouped' ? (this.graphHostIdFor(this.getVisibleZones()) ?? true) : undefined;
+				this.graphPlacement === 'grouped' ? (this.graphHostIdFor(this.getVisibleZones()) ?? true) : false;
 		}
 		return config;
 	}
