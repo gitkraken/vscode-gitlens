@@ -1282,6 +1282,7 @@ export abstract class GitHostIntegration<
 					cancellation,
 					silent,
 					state,
+					options,
 				);
 			} else {
 				result = {
@@ -1401,6 +1402,7 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		state?: PullRequestStateFilter,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 
 	async searchPullRequests(
