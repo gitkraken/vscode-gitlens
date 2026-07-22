@@ -308,8 +308,20 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 			// If every filter branch rejected, the read failed outright — propagate the first rejection instead
 			// of returning an empty list, which the facade (getIssuesForProjectResult → runCaptured) would
-			// otherwise surface as a successful "no issues" rather than a warning + fetchFailed.
+			// otherwise surface as a successful "no issues" rather than a warning + fetchFailed. The first
+			// reason is re-thrown as-is (not wrapped in an AggregateError) so the facade can still classify it
+			// by type (auth/rate-limit) — wrapping would collapse every failure to a generic 'other'. The
+			// remaining reasons would otherwise be discarded, so log them here to keep them diagnosable.
 			if (settled.every(r => r.status === 'rejected')) {
+				for (let i = 1; i < settled.length; i++) {
+					const outcome = settled[i];
+					if (outcome.status === 'rejected') {
+						Logger.error(
+							outcome.reason,
+							`getProviderIssuesForProjectWithTruncation: filter '${filters[i]}' failed`,
+						);
+					}
+				}
 				throw settled[0].status === 'rejected' ? settled[0].reason : new Error('Jira issue read failed');
 			}
 
