@@ -45,7 +45,7 @@ import {
 } from './constants.js';
 import type { AuthenticationSessionsChangeEvent, IntegrationServiceContext } from './context.js';
 import { RequestNotFoundError } from './errors.js';
-import type { GitHostIntegration } from './models/gitHostIntegration.js';
+import type { GitHostIntegration, SearchMyPullRequestsOptions } from './models/gitHostIntegration.js';
 import type {
 	Integration,
 	IntegrationBase,
@@ -675,6 +675,7 @@ export class IntegrationService implements Disposable {
 		integrationIds?: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[],
 		cancellation?: AbortSignal,
 		silent?: boolean,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const integrations: Map<GitHostIntegration, ResourceDescriptor[] | undefined> = new Map();
 		for (const integrationId of integrationIds?.length
@@ -690,13 +691,14 @@ export class IntegrationService implements Disposable {
 		}
 		if (integrations.size === 0) return undefined;
 
-		return this.getMyPullRequestsCore(integrations, cancellation, silent);
+		return this.getMyPullRequestsCore(integrations, cancellation, silent, options);
 	}
 
 	private async getMyPullRequestsCore(
 		integrations: Map<GitHostIntegration, ResourceDescriptor[] | undefined>,
 		cancellation?: AbortSignal,
 		silent?: boolean,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const start = performance.now();
 
@@ -704,7 +706,7 @@ export class IntegrationService implements Disposable {
 		for (const [integration, repos] of integrations) {
 			if (integration == null) continue;
 
-			promises.push(integration.searchMyPullRequests(repos, cancellation, silent));
+			promises.push(integration.searchMyPullRequests(repos, cancellation, silent, undefined, undefined, options));
 		}
 
 		const results = await Promise.allSettled(promises);
