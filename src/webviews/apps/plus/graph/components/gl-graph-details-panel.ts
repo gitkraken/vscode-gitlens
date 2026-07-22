@@ -503,6 +503,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@property({ attribute: false })
 	navigation?: NavigationState;
 
+	/** True when the details panel is docked bottom — gates the maximize/restore chip in every mode's
+	 *  toolbar. Forwarded to each mode sub-panel. */
+	@property({ type: Boolean, attribute: 'show-maximize' })
+	showMaximize = false;
+
+	/** Whether the panel is currently maximized — drives the maximize chip's icon/label. */
+	@property({ type: Boolean })
+	maximized = false;
+
 	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
 	}
@@ -2425,6 +2434,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			<gl-details-wip-header
 				.wip=${wip}
 				.currentRepoPath=${this.graphRepoPath()}
+				?show-maximize=${this.showMaximize}
+				?maximized=${this.maximized}
 				.navigation=${this.navigation}
 				.activeMode=${activeMode}
 				.modeStatus=${this.engagedModeStatus}
@@ -2630,6 +2641,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const activeView = this._state.branchCompareActiveView.get();
 
 		return html`<gl-details-compare-mode-panel
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			.branchName=${branch?.name}
@@ -2773,6 +2786,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?multi-selectable=${true}
 			compare-enabled
 			show-jump-to-nearest-wip
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?show-search-box=${this.showSearchBox}
 			?search-box-filter=${this.searchBoxFilter}
 			.navigation=${this.navigation}
@@ -2849,6 +2864,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return html`<gl-details-multicommit-panel
 			variant="embedded"
 			file-icons
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?show-search-box=${this.showSearchBox}
 			?search-box-filter=${this.searchBoxFilter}
 			.commitFrom=${this._state.commitFrom.get()}

@@ -487,6 +487,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					this._autoEffectiveLocation = 'bottom';
 				} else if (this._autoEffectiveLocation === 'bottom' && width > detailsAutoBottomExitPx) {
 					this._autoEffectiveLocation = 'right';
+					// Maximize is bottom-only — drop it on a flip to the side so it doesn't silently
+					// re-apply when the panel later returns to the bottom.
+					if (this.graphState.details?.maximized) {
+						this.graphState.details = { maximized: false };
+						this.persistState();
+					}
 				}
 			}
 		});
@@ -1737,22 +1743,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const carried = otherSide != null && otherSide < 100 ? otherSide : undefined;
 		const persisted = sameSide ?? carried;
 		const position = detailsVisible ? (persisted ?? 100 - detailsDefaultPct) : 100;
+		// Maximize is bottom-only: drive the (start=graph) share to 0 so the details pane fills the area.
+		// The divider is disabled while maximized so no drag can overwrite the persisted `bottomPosition`
+		// — restore just re-binds `.position` to it. Gated on `detailsVisible` so a stray flag can't
+		// force a hidden panel open.
+		const maximized = isBottom && detailsVisible && hasContent && (this.graphState.details?.maximized ?? false);
 		return html`<gl-split-panel
 			class=${classMap({ 'graph__details-split': true, '-vertical': isBottom })}
 			orientation=${isBottom ? 'vertical' : 'horizontal'}
 			primary="end"
-			.position=${position}
+			.position=${maximized ? 0 : position}
 			.snap=${hasContent ? this._detailsSnap : undefined}
-			.disabled=${!hasContent}
+			.disabled=${!hasContent || maximized}
 			@gl-split-panel-change=${this.handleDetailsSplitChange}
 			@gl-split-panel-drag-end=${this.handleSplitDragEnd}
 			@gl-split-panel-closed-change=${this.handleDetailsClosedChange}
 		>
 			<div slot="start" class="graph__graph-pane">${this.renderGraphPaneContent()}</div>
-			<div slot="end" class="graph__details-pane">
+			<div slot="end" class="graph__details-pane" ?inert=${!detailsVisible}>
 				<gl-graph-details-panel
 					sha=${effectiveSha ?? nothing}
 					repo-path=${effectiveRepoPath ?? nothing}
+					?show-maximize=${isBottom}
+					?maximized=${maximized}
 					.shas=${multi?.shas}
 					.graphReachability=${single?.reachability}
 					.commitLite=${single?.commitLite}
@@ -1761,6 +1774,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.searchBoxFilter=${this.graphState.details?.searchBoxFilter ?? true}
 					.navigation=${this._navState}
 					@select-commit=${this.handleSelectCommit}
+					@gl-toggle-details-maximized=${this.handleToggleDetailsMaximized}
 					@gl-nav-back=${this.handleNavBack}
 					@gl-nav-forward=${this.handleNavForward}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
@@ -2300,7 +2314,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const gs = this.graphState;
 		if (gs.details?.visible === visible) return;
 
-		gs.details = { visible: visible };
+		// Clear maximize on hide so reopening isn't stuck full-height.
+		gs.details = visible ? { visible: visible } : { visible: visible, maximized: false };
 		this.persistState();
 		this.emitDetailsVisibilityTelemetry(visible, trigger ?? 'toggle');
 
@@ -2310,6 +2325,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: 'auto' } });
 		}
 	}
+
+	private handleToggleDetailsMaximized = (): void => {
+		const gs = this.graphState;
+		gs.details = { maximized: !(gs.details?.maximized ?? false) };
+		this.persistState();
+	};
 
 	private emitDetailsVisibilityTelemetry(
 		visible: boolean,
@@ -2369,6 +2390,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.trackModeOpenedClosed('review', e.detail.previous, e.detail.current);
 		this.trackModeOpenedClosed('resolve', e.detail.previous, e.detail.current);
 
+		// `graph.details.maximizeOnMode`: auto-maximize the bottom-docked details panel when entering a
+		// mode (compose/review/resolve/compare), and restore when leaving it. Mode→mode transitions leave
+		// the state alone, so a manual toggle mid-mode is respected.
+		if (this.graphState.config?.detailsMaximizeOnMode ?? true) {
+			const wasMode = this.isMaximizeMode(e.detail.previous);
+			const isMode = this.isMaximizeMode(e.detail.current);
+			if (isMode && !wasMode) {
+				if (this.effectiveDetailsLocation === 'bottom' && !(this.graphState.details?.maximized ?? false)) {
+					this.graphState.details = { maximized: true };
+					this.persistState();
+				}
+			} else if (wasMode && !isMode && this.graphState.details?.maximized) {
+				this.graphState.details = { maximized: false };
+				this.persistState();
+			}
+		}
+
 		// `shown`/`closed` already capture mode at open/close — only emit transitions while the
 		// panel stays visible (e.g. swap-to-close, mode chip toggles), so the event isolates
 		// in-panel transitions from open/close noise.
@@ -2394,6 +2432,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			data: { 'mode.old': e.detail.previous, 'mode.new': e.detail.current },
 		});
 	};
+
+	/** The modes that auto-maximize the bottom-docked panel on entry (gated by `graph.details.maximizeOnMode`). */
+	private isMaximizeMode(mode: GraphDetailsMode): boolean {
+		return mode === 'compose' || mode === 'review' || mode === 'resolve' || mode === 'compare';
+	}
 
 	private trackModeOpenedClosed(
 		mode: 'compose' | 'review' | 'resolve',
@@ -2457,6 +2500,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// an explicit `right`/`bottom`) and gives immediate visual feedback. Reset to `auto` via
 			// the setting to re-enable width-aware behavior.
 			const next = this.effectiveDetailsLocation === 'bottom' ? 'right' : 'bottom';
+			// Maximize is bottom-only — drop it when pinning to the side.
+			if (next === 'right' && this.graphState.details?.maximized) {
+				this.graphState.details = { maximized: false };
+			}
 			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: next } });
 			return;
 		}

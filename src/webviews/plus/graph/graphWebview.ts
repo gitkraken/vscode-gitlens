@@ -3754,6 +3754,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
 			detailsLocation: configuration.get('graph.details.location') ?? 'auto',
+			detailsMaximizeOnMode: configuration.get('graph.details.maximizeOnMode') ?? true,
 			enabledRefMetadataTypes: this._producers.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			experimentalHomeHeaderEnabled: configuration.get('graph.experimental.homeHeader.enabled') ?? false,

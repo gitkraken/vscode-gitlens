@@ -430,6 +430,7 @@ export interface GraphConfig {
 	readonly defaultItemLimit: number;
 	readonly details: {
 		readonly location: 'auto' | 'right' | 'bottom';
+		readonly maximizeOnMode: boolean;
 	};
 	readonly dimMergeCommits: boolean;
 	readonly editorOpeningBehavior: 'auto' | 'active';

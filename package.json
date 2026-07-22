@@ -987,6 +987,13 @@
 						"scope": "window",
 						"order": 3
 					},
+					"gitlens.graph.details.maximizeOnMode": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to automatically maximize the details panel in the _Commit Graph_ when entering a mode (e.g. Compose, Review, Resolve, or Compare), and to restore it when leaving. Only applies when the details panel is docked to the bottom",
+						"scope": "window",
+						"order": 3
+					},
 					"gitlens.graph.editorOpeningBehavior": {
 						"type": "string",
 						"default": "auto",

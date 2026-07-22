@@ -7,6 +7,7 @@ import type { RunningOperationExecState } from '../../../plus/graph/components/d
 import { chipStateSuffix, statusIconFor } from '../../../plus/graph/components/runningOperationStatus.js';
 import { elementBase } from '../styles/lit/base.css.js';
 import { modeHeaderStyles, modeToggleStyles } from '../styles/lit/mode.css.js';
+import { renderDetailsMaximizeChip } from './details-maximize-chip.js';
 import { detailsHeaderStyles } from './gl-details-header.css.js';
 import '../chips/action-chip.js';
 import '../code-icon.js';
@@ -66,6 +67,12 @@ export class GlDetailsHeader extends LitElement {
 	/** When true (and no mode is active), render a Compare entry-point chip in the primary
 	 *  action group, after the mode toggles. Not a `Mode` — see the `Mode` type comment. */
 	@property({ type: Boolean }) compareEnabled = false;
+
+	/** When true, render the details-panel maximize/restore chip in the active-mode close cluster
+	 *  (only bottom-docked graph panels opt in; the standalone Inspect view never sets this). */
+	@property({ type: Boolean, attribute: 'show-maximize' }) showMaximize = false;
+	/** Drives the maximize chip's icon/label when `showMaximize` is true. */
+	@property({ type: Boolean }) maximized = false;
 
 	/** Per-mode execState + has-result of any running operation at the engaged anchor — drives
 	 *  the status-overlay suffix icon on compose/review toggle chips (parallel to the WIP-row
@@ -235,6 +242,9 @@ export class GlDetailsHeader extends LitElement {
 		if (this.activeMode == null) return nothing;
 
 		const config = modeConfig[this.activeMode];
+		// Maximize/restore rides at the left of the cluster in every active-mode sub-state so it's
+		// available whether or not a Refresh chip is shown. Only bottom-docked graph panels opt in.
+		const maximizeChip = this.showMaximize ? renderDetailsMaximizeChip(this.maximized, false) : nothing;
 		const closeChip = html`<gl-action-chip
 			icon="close"
 			label=${config.closeLabel}
@@ -247,7 +257,7 @@ export class GlDetailsHeader extends LitElement {
 		// can re-run with a different scope without losing the result (back() snapshots it for
 		// forward()). Close still exits the mode entirely.
 		if (this.inResultsView) {
-			return html`<gl-action-chip
+			return html`${maximizeChip}<gl-action-chip
 					icon="debug-restart"
 					label="Restart"
 					overlay="tooltip"
@@ -264,9 +274,9 @@ export class GlDetailsHeader extends LitElement {
 		// run is locked to the scope it started with) or race with the result, so the chip
 		// would be misleading.
 		const isGenerating = this.modeStatus?.[this.activeMode]?.execState === 'generating';
-		if (isGenerating) return closeChip;
+		if (isGenerating) return html`${maximizeChip}${closeChip}`;
 
-		return html`<gl-action-chip
+		return html`${maximizeChip}<gl-action-chip
 				icon="refresh"
 				label="Refresh"
 				overlay="tooltip"

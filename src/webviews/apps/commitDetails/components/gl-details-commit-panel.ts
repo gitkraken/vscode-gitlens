@@ -25,6 +25,7 @@ import type {
 import type { AiModelInfo } from '../../../rpc/services/types.js';
 import type { RunningOperationExecState } from '../../plus/graph/components/detailsState.js';
 import { renderLearnAboutAutolinks } from '../../shared/components/chips/learn-about-autolinks.js';
+import { renderDetailsMaximizeChip } from '../../shared/components/details-header/details-maximize-chip.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
@@ -171,6 +172,14 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	 *  Folds in the old `gl-inspect-nav` graph toggle. */
 	@property({ type: Boolean, attribute: 'show-graph-action' })
 	showGraphAction = false;
+
+	/** Graph-bottom-only: render the maximize/restore chip left of Refresh (and thread it into the
+	 *  header's active-mode cluster). The Inspect host never sets this. */
+	@property({ type: Boolean, attribute: 'show-maximize' })
+	showMaximize = false;
+	/** Drives the maximize chip's icon/label when `showMaximize` is true. */
+	@property({ type: Boolean })
+	maximized = false;
 
 	@state()
 	private _reachabilityExpanded = false;
@@ -401,6 +410,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			.loading=${this.loading}
 			.modes=${this.computeCommitModes()}
 			.compareEnabled=${this.compareEnabled}
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?in-results-view=${this.inResultsView}
 		>
 			${headerContent}
@@ -440,6 +451,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 						@click=${this.onOpenInGraph}
 					></gl-action-chip>`
 				: nothing}
+			${this.activeMode == null && this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
 			${when(
 				this.activeMode == null,
 				() =>

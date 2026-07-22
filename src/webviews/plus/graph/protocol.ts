@@ -466,6 +466,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		visible?: boolean;
 		position?: number;
 		bottomPosition?: number;
+		/** `true` = the (bottom-docked) details panel fills the graph area; restores to `bottomPosition`. */
+		maximized?: boolean;
 		showSearchBox?: boolean;
 		/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
 		searchBoxFilter?: boolean;
@@ -662,6 +664,7 @@ export interface GraphComponentConfig {
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	detailsLocation?: 'auto' | 'right' | 'bottom';
+	detailsMaximizeOnMode?: boolean;
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	experimentalHomeHeaderEnabled?: boolean;
