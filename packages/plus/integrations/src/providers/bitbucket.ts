@@ -542,7 +542,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		searchQuery: string,
 		repos?: BitbucketRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		state?: PullRequestStateFilter,
+		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined> {
 		if (cancellation?.aborted) throw new CancellationError();
 
@@ -559,7 +559,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (workspaceRepos.length === 0) return repos != null ? [] : undefined;
 
 		const token = toTokenWithInfo(this.id, session);
-		const states = toProviderPullRequestStates(state);
+		const states = toProviderPullRequestStates(options?.include);
 		const providerPullRequests = await flatSettledOrThrow(
 			workspaceRepos.map(async repo => {
 				const result = await collectProviderPagedResult(cursor => {
