@@ -10,7 +10,7 @@ import type {
 	GlAutocomplete,
 } from '../../shared/components/autocomplete/autocomplete.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
-import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
+import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import { formatDate } from '../../shared/date.js';
 import type { SettingsActions } from '../actions.js';
 import type { FormatTokenInfo } from '../format-tokens.js';
@@ -66,6 +66,7 @@ const typeaheadRegex = /\$\{([A-Za-z]*)$/;
 export class GlFormatInput extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
+		linkBase,
 		css`
 			:host {
 				display: block;
@@ -93,49 +94,39 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			}
 
 			.field {
-				display: flex;
-				overflow: hidden;
+				position: relative;
+			}
+
+			input {
+				width: 100%;
+				padding: 0.7rem 3rem 0.7rem 0.9rem;
+				font-family: var(--vscode-editor-font-family);
+				font-size: 1.25rem;
+				color: var(--vscode-input-foreground);
 				background-color: var(--vscode-input-background);
 				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-input-border-radius, 0.4rem);
 			}
 
-			.field:focus-within {
+			input:focus {
 				${focusOutline}
-			}
-
-			input {
-				flex: 1;
-				min-width: 0;
-				padding: 0.7rem 0.9rem;
-				font-family: var(--vscode-editor-font-family);
-				font-size: 1.25rem;
-				color: var(--vscode-input-foreground);
-				outline: none;
-				background: transparent;
-				border: none;
 			}
 
 			input::placeholder {
 				color: var(--vscode-input-placeholderForeground);
 			}
 
-			.tokens-trigger {
-				flex: none;
-				padding: 0 var(--gl-space-8);
-				color: var(--color-foreground--75);
-				cursor: pointer;
-				background: transparent;
-				border: none;
-				border-left: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			.controls {
+				position: absolute;
+				inset-block: 0;
+				inset-inline-end: 0.4rem;
+				display: inline-flex;
+				align-items: center;
 			}
 
-			.tokens-trigger:hover {
-				background-color: var(--vscode-toolbar-hoverBackground);
-			}
-
-			.tokens-trigger:focus-visible {
-				${focusOutline}
+			/* gl-popover slots the trigger into a block context, so blockify it to its own height instead of the inline line-box height */
+			.controls gl-button {
+				display: inline-flex;
 			}
 
 			/* Token menu (chevron popover) */
@@ -551,15 +542,24 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 					this._autocomplete?.selectPrevious();
 					return;
 				case 'Enter':
-				case 'Tab':
-					if (suggestions.length) {
+				case 'Tab': {
+					const index = this._autocomplete?.selectedIndex ?? -1;
+					if (index >= 0 && suggestions.length) {
 						e.preventDefault();
-						// The input drives navigation; accept the dropdown's highlighted item, falling
-						// back to the first match so Enter completes without arrowing.
-						const index = this._autocomplete?.selectedIndex ?? -1;
-						this.acceptSuggestion(suggestions[index < 0 ? 0 : index].token);
+						this.acceptSuggestion(suggestions[index].token);
+						return;
 					}
+
+					// No option highlighted: Enter applies the format (the open palette must not swallow
+					// it); Tab falls through so focus leaves and handleFocusOut commits.
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						this._closeSuggestions();
+						this.commit();
+					}
+
 					return;
+				}
 				case 'Escape':
 					e.preventDefault();
 					this._closeSuggestions();
@@ -626,9 +626,10 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 	/** The current typeahead matches projected into the shared autocomplete's item shape. */
 	private get suggestionItems(): CompletionItem<FormatTokenInfo>[] {
+		const bare = this.tokenMode === 'date';
 		return this.suggestions.map(t => ({
 			// oxlint-disable-next-line prefer-template -- `\${` escaping is harder to read than concatenation
-			label: '${' + t.token + '}',
+			label: bare ? t.token : '${' + t.token + '}',
 			description: t.label,
 			item: t,
 		}));
@@ -666,59 +667,68 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		this.insertText(this.tokenMode === 'date' ? token.token : this.composeToken(token.token));
 	}
 
-	// ── Inline `${` typeahead ──
+	// ── Token palette ──
 
-	private updateSuggestions(): void {
-		const mode = this.tokenMode;
-		// Date tokens insert bare (no `${}` grammar), so no typeahead there
-		if (mode == null || mode === 'date') {
-			this._closeSuggestions();
-			return;
-		}
-
+	private getTokenQueryContext(): { kind: 'in-token' | 'loose'; query: string; start: number } {
 		const input = this._input;
 		const caret = input.selectionStart ?? input.value.length;
 		const before = input.value.substring(0, caret);
-		const match = typeaheadRegex.exec(before);
-		if (match == null) {
+
+		if (this.tokenMode !== 'date') {
+			const match = typeaheadRegex.exec(before);
+			if (match != null) {
+				return { kind: 'in-token', query: match[1], start: caret - match[1].length };
+			}
+		}
+
+		const query = /[A-Za-z]*$/.exec(before)?.[0] ?? '';
+		return { kind: 'loose', query: query, start: caret - query.length };
+	}
+
+	private updateSuggestions(): void {
+		if (this.tokenMode == null) {
 			this._closeSuggestions();
 			return;
 		}
 
-		this._suggestQuery = match[1];
+		const ctx = this.getTokenQueryContext();
+		this._suggestQuery = ctx.query;
 		this._suggestOpen = true;
-		// Pre-select the first match so Enter accepts it without arrowing (the shared dropdown starts
-		// unselected; wait for it to render the updated items before highlighting the first one).
+
 		void this.updateComplete.then(() => {
-			this._autocomplete?.setSelection(0);
+			// Auto-highlight ONLY when completing inside a `${…}`, so a bare Enter in loose/palette
+			// mode still commits the format instead of accepting a token.
+			if (ctx.kind === 'in-token' && this.suggestions.length) {
+				this._autocomplete?.setSelection(0);
+			} else {
+				this._autocomplete?.resetSelection();
+			}
 		});
 	}
 
 	private acceptSuggestion(token: string): void {
 		const input = this._input;
-		const caret = input.selectionStart ?? input.value.length;
 		const value = input.value;
-		const before = value.substring(0, caret);
-		const match = typeaheadRegex.exec(before);
-		if (match == null) {
-			this._closeSuggestions();
-			return;
+		const caret = input.selectionStart ?? value.length;
+		const ctx = this.getTokenQueryContext();
+
+		let completion: string;
+		let caretOffset = 0;
+		if (ctx.kind === 'in-token') {
+			// Skip the closing brace when one already follows the caret, so `${au|}` → `${author}` (not `${author}}`)
+			const hasClosingBrace = value[caret] === '}';
+			completion = hasClosingBrace ? token : `${token}}`;
+			caretOffset = hasClosingBrace ? 1 : 0;
+		} else {
+			completion = this.tokenMode === 'date' ? token : `\${${token}}`;
 		}
 
-		// Replace the partial word after `${` with the full token + closing brace (keep the typed `${`).
-		// Skip the closing brace when one already follows the caret (e.g. completing `${au|}` should
-		// yield `${author}`, not `${author}}`).
-		const insertStart = caret - match[1].length;
-		const hasClosingBrace = value[caret] === '}';
-		const completion = hasClosingBrace ? token : `${token}}`;
-		this._draft = value.substring(0, insertStart) + completion + value.substring(caret);
+		this._draft = value.substring(0, ctx.start) + completion + value.substring(caret);
 		this._closeSuggestions();
 
 		void this.updateComplete.then(() => {
 			input.focus();
-			// Land the caret just past the closing brace either way (whether it was just
-			// inserted, or was already present and left in place).
-			const next = insertStart + completion.length + (hasClosingBrace ? 1 : 0);
+			const next = ctx.start + completion.length + caretOffset;
 			input.setSelectionRange(next, next);
 		});
 	}
@@ -778,6 +788,8 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 	}
 
 	private handleMenuShown(): void {
+		// The chevron menu and the inline palette are redundant surfaces — don't show both at once
+		this._closeSuggestions();
 		this._activeIndex = 0;
 		void this.updateComplete.then(() => {
 			this.renderRoot.querySelector<HTMLInputElement>('.tokens__search')?.focus();
@@ -793,8 +805,8 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		const d = this.descriptor;
 		const mode = this.tokenMode;
 		const dirty = this._draft !== undefined;
-		// Fields with a `${…}` token set support the inline typeahead (date tokens insert bare)
-		const typeahead = mode != null && mode !== 'date';
+		// Any field with a token set exposes the palette combobox (date included)
+		const typeahead = mode != null;
 
 		return html`<label class="label" for="input">
 				${d.label}${dirty
@@ -821,15 +833,17 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 						?disabled=${this.disabled}
 						@input=${this.handleInput}
 						@keydown=${this.handleKeyDown}
+						@focus=${this.updateSuggestions}
 						@click=${this.updateSuggestions}
 					/>
-					${mode != null ? this.renderTokenMenu(mode) : nothing}
+					${mode != null ? html`<div class="controls">${this.renderTokenMenu(mode)}</div>` : nothing}
 				</div>
 				<gl-autocomplete
 					id="token-suggestions"
 					.items=${this.suggestionItems}
 					?open=${this._suggestOpen && this.suggestions.length > 0}
 					@gl-autocomplete-select=${this.handleSuggestionSelect}
+					@gl-autocomplete-active-change=${() => this.requestUpdate()}
 				></gl-autocomplete>
 			</div>
 			${d.preview != null
@@ -856,15 +870,9 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			@gl-popover-after-show=${this.handleMenuShown}
 			@gl-popover-after-hide=${this.handleMenuHidden}
 		>
-			<button
-				slot="anchor"
-				type="button"
-				class="tokens-trigger"
-				aria-label="Insert a token"
-				?disabled=${this.disabled}
-			>
+			<gl-button slot="anchor" appearance="input" aria-label="Insert a token" ?disabled=${this.disabled}>
 				<code-icon icon="chevron-down" aria-hidden="true"></code-icon>
-			</button>
+			</gl-button>
 			<div slot="content" class="tokens">
 				<h3 class="tokens__title">Insert token</h3>
 				<input
