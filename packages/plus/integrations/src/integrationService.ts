@@ -1225,7 +1225,11 @@ export class IntegrationService implements Disposable {
 			}
 
 			items.push(...result.items);
-			warnings.push(...result.warnings);
+			// Dedupe across the multi-provider fan-out (matches listProjects): a warning that repeats verbatim
+			// across scopes — e.g. the same account surfaced under two ids — shouldn't be reported twice.
+			for (const w of result.warnings) {
+				appendDedupedWarning(warnings, w);
+			}
 			if (result.fetchFailed) {
 				fetchFailed = true;
 			}
