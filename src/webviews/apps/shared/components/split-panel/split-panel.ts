@@ -217,10 +217,17 @@ export class GlSplitPanel extends LitElement {
 				}
 				// No primary: position stays the same percentage → proportional scaling
 
+				// A container resize is NOT a user gesture: hold the primary panel's pixel width by
+				// updating `_position` (→ `--_start-size` via `willUpdate`) but DON'T emit
+				// `gl-split-panel-change`. Emitting makes consumers persist the resize-adjusted
+				// percentage, which then feeds `.position` back into the setter and overwrites
+				// `_cachedPrimaryPx` — corrupting the very pixel width this branch preserves when snap
+				// clamps mid-resize (the panel then can't restore its width once the container grows
+				// back). Drag/keyboard still emit via their own paths; a closed transition can't happen
+				// here (refused above, closed panels are inert), so no closed-change is owed either.
 				if (this._position !== oldPos) {
-					this.emitChange();
+					this.requestUpdate();
 				}
-				this.requestUpdate();
 			}
 		});
 		void this.updateComplete.then(() => {

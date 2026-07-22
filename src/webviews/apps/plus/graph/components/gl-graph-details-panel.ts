@@ -303,13 +303,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
 
-	/** User's dragged splitter position (1-99 %) for the agents/WIP split in `expanded` mode.
-	 *  Set only by pointer drag (see {@link _onAgentStatusSplitChange} / {@link _onAgentStatusSplitDragEnd});
-	 *  ResizeObserver / keyboard-driven `gl-split-panel-change` events deliberately don't write
-	 *  here so a container resize never silently latches the user-size mode. Cleared by the sash
-	 *  dbl-click reset; preserved across collapse cycles so re-expanding (chevron, WIP indicator,
-	 *  sidebar/kanban select) restores the user's last chosen size. `undefined` means "use the
-	 *  default expanded position" — see {@link agentStatusDefaultPct}. */
+	/** User's chosen splitter position (1-99 %) for the agents/WIP split in `expanded` mode.
+	 *  Set by pointer drag OR keyboard resize (see {@link _onAgentStatusSplitChange} /
+	 *  {@link _onAgentStatusSplitDragEnd}). Container resizes never write here because `gl-split-panel`
+	 *  no longer emits `gl-split-panel-change` on resize — it holds the primary panel's pixel width
+	 *  silently — so a resize can't latch the user-size mode. Cleared by the sash dbl-click reset;
+	 *  preserved across collapse cycles so re-expanding (chevron, WIP indicator, sidebar/kanban
+	 *  select) restores the user's last chosen size. `undefined` means "use the default expanded
+	 *  position" — see {@link agentStatusDefaultPct}. */
 	@state()
 	private _agentStatusSplitPosition?: number;
 
@@ -385,18 +386,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private readonly _onAgentStatusSplitChange = (e: CustomEvent<{ position: number }>) => {
-		// Only persist user drag while in `expanded` — collapsed/partial render via fit-content,
-		// not the position attribute, so writes there would silently overwrite the expanded-mode
-		// position with a value that never even drove a render.
+		// Only persist while in `expanded` — collapsed/partial render via fit-content, not the
+		// position attribute, so writes there would silently overwrite the expanded-mode position
+		// with a value that never even drove a render. Drag and keyboard resizes both persist here;
+		// container resizes don't reach this handler (split-panel holds the primary pixel width
+		// silently, with no emit on resize), so no `dragging` gate is needed.
 		if (this.agentStatusExpand !== 'expanded') return;
-
-		// Gate on `dragging` — this event also fires from split-panel's internal ResizeObserver
-		// (container resize) and keyboard nudges; recording those would clobber the user's
-		// intended size with whatever the layout engine just computed. The `dragging` attribute
-		// is the host's source of truth for "pointer is down on the divider". `drag-end` is the
-		// fallback for the final value when the change event misses it.
-		const splitPanel = e.currentTarget;
-		if (!(splitPanel instanceof HTMLElement) || !splitPanel.hasAttribute('dragging')) return;
 
 		this._agentStatusSplitPosition = e.detail.position;
 	};
