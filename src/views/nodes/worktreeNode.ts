@@ -93,7 +93,7 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 	get treeHierarchy(): string[] {
 		// If this is a branch worktree, use the branch name for the hierarchy
 		if (this.worktree.type === 'branch' && !this.avoidCompacting) {
-			return this.worktree.branch?.nameWithoutRemote.split('/') || [this.worktree.name];
+			return this.worktree.branch?.nameWithoutRemote.split('/') ?? [this.worktree.name];
 		}
 		// For other types of worktrees or those that shouldn't be compacted, use the worktree name
 		return [this.worktree.name];

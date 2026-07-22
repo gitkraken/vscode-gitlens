@@ -832,7 +832,7 @@ export class CommitsPanel extends LitElement {
 	private get firstCommitWithoutMessage(): ComposerCommit | null {
 		// Find the first commit that doesn't have a message
 		return (
-			this.commits.find(commit => !commit.message.content || commit.message.content.trim().length === 0) || null
+			this.commits.find(commit => !commit.message.content || commit.message.content.trim().length === 0) ?? null
 		);
 	}
 

@@ -1003,9 +1003,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			${when(autolinks.length, () =>
 				autolinks.map(autolink => {
 					let name = autolink.description ?? autolink.title;
-					if (name === undefined) {
-						name = `Custom Autolink ${autolink.prefix}${autolink.id}`;
-					}
+					name ??= `Custom Autolink ${autolink.prefix}${autolink.id}`;
 					return html`<gl-autolink-chip
 						type="autolink"
 						name="${name}"

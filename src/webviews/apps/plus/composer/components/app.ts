@@ -670,9 +670,7 @@ export class ComposerApp extends LitElement {
 	}
 
 	private initializeResetStateIfNeeded() {
-		if (!this.history.resetState) {
-			this.history.resetState = this.createDataSnapshot();
-		}
+		this.history.resetState ??= this.createDataSnapshot();
 	}
 
 	private resetHistory() {

@@ -847,13 +847,7 @@ export class Git {
 
 		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-		runArgs.unshift(
-			'-c',
-			'core.quotepath=false',
-			'-c',
-			'color.ui=false',
-			...(configs !== undefined ? configs : emptyArray),
-		);
+		runArgs.unshift('-c', 'core.quotepath=false', '-c', 'color.ui=false', ...(configs ?? emptyArray));
 
 		if (process.platform === 'win32') {
 			runArgs.unshift('-c', 'core.longpaths=true');

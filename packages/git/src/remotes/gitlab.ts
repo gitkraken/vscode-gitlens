@@ -34,114 +34,112 @@ export class GitLabRemoteProvider extends RemoteProvider<GitLabRepositoryDescrip
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		if (this._autolinks === undefined) {
-			this._autolinks = [
-				...super.autolinks,
-				{
-					prefix: '#',
-					url: this.issueLinkPattern,
-					alphanumeric: false,
-					ignoreCase: false,
-					title: `Open Issue #<num> on ${this.name}`,
+		this._autolinks ??= [
+			...super.autolinks,
+			{
+				prefix: '#',
+				url: this.issueLinkPattern,
+				alphanumeric: false,
+				ignoreCase: false,
+				title: `Open Issue #<num> on ${this.name}`,
 
-					type: 'issue',
-					description: `${this.name} Issue #<num>`,
-				},
-				{
-					prefix: '!',
-					url: `${this.baseUrl}/-/merge_requests/<num>`,
-					alphanumeric: false,
-					ignoreCase: false,
-					title: `Open Merge Request !<num> on ${this.name}`,
+				type: 'issue',
+				description: `${this.name} Issue #<num>`,
+			},
+			{
+				prefix: '!',
+				url: `${this.baseUrl}/-/merge_requests/<num>`,
+				alphanumeric: false,
+				ignoreCase: false,
+				title: `Open Merge Request !<num> on ${this.name}`,
 
-					type: 'pullrequest',
-					description: `${this.name} Merge Request !<num>`,
-				},
-				{
-					descriptors: [
-						{
-							regex: autolinkFullIssuesRegex,
-							url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/-/issues/${num}`,
-							title: (repo, num) => `Open Issue #${num} from ${repo} on ${this.name}`,
-							label: (repo, num) => `GitLab Issue ${repo}#${num}`,
-						},
-					],
-					parse: (text: string, autolinks: Map<string, Autolink>) => {
-						let ownerAndRepo: string;
-						let num: string;
-
-						let match;
-						do {
-							match = autolinkFullIssuesRegex.exec(text);
-							if (match == null) break;
-
-							[, ownerAndRepo, num] = match;
-
-							const [owner, repo] = ownerAndRepo.split('/', 2);
-							autolinks.set(num, {
-								provider: this,
-								id: num,
-								prefix: `${ownerAndRepo}#`,
-								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/issues/${num}`,
-								alphanumeric: false,
-								ignoreCase: true,
-								title: `Open Issue #<num> from ${ownerAndRepo} on ${this.name}`,
-
-								type: 'issue',
-								description: `${this.name} Issue ${ownerAndRepo}#${num}`,
-								descriptor: {
-									key: this.remoteKey,
-									owner: owner,
-									name: repo,
-								} satisfies GitLabRepositoryDescriptor,
-							});
-						} while (true);
+				type: 'pullrequest',
+				description: `${this.name} Merge Request !<num>`,
+			},
+			{
+				descriptors: [
+					{
+						regex: autolinkFullIssuesRegex,
+						url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/-/issues/${num}`,
+						title: (repo, num) => `Open Issue #${num} from ${repo} on ${this.name}`,
+						label: (repo, num) => `GitLab Issue ${repo}#${num}`,
 					},
+				],
+				parse: (text: string, autolinks: Map<string, Autolink>) => {
+					let ownerAndRepo: string;
+					let num: string;
+
+					let match;
+					do {
+						match = autolinkFullIssuesRegex.exec(text);
+						if (match == null) break;
+
+						[, ownerAndRepo, num] = match;
+
+						const [owner, repo] = ownerAndRepo.split('/', 2);
+						autolinks.set(num, {
+							provider: this,
+							id: num,
+							prefix: `${ownerAndRepo}#`,
+							url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/issues/${num}`,
+							alphanumeric: false,
+							ignoreCase: true,
+							title: `Open Issue #<num> from ${ownerAndRepo} on ${this.name}`,
+
+							type: 'issue',
+							description: `${this.name} Issue ${ownerAndRepo}#${num}`,
+							descriptor: {
+								key: this.remoteKey,
+								owner: owner,
+								name: repo,
+							} satisfies GitLabRepositoryDescriptor,
+						});
+					} while (true);
 				},
-				{
-					descriptors: [
-						{
-							regex: autolinkFullMergeRequestsRegex,
-							url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/-/merge_requests/${num}`,
-							title: (repo, num) => `Open Merge Request !${num} from ${repo} on ${this.name}`,
-							label: (repo, num) => `${this.name} Merge Request ${repo}!${num}`,
-						},
-					],
-					parse: (text: string, autolinks: Map<string, Autolink>) => {
-						let ownerAndRepo: string;
-						let num: string;
-
-						let match;
-						do {
-							match = autolinkFullMergeRequestsRegex.exec(text);
-							if (match == null) break;
-
-							[, ownerAndRepo, num] = match;
-
-							const [owner, repo] = ownerAndRepo.split('/', 2);
-							autolinks.set(num, {
-								provider: this,
-								id: num,
-								prefix: `${ownerAndRepo}!`,
-								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/merge_requests/${num}`,
-								alphanumeric: false,
-								ignoreCase: true,
-								title: `Open Merge Request !<num> from ${ownerAndRepo} on ${this.name}`,
-
-								type: 'pullrequest',
-								description: `${this.name} Merge Request !${num} from ${ownerAndRepo}`,
-
-								descriptor: {
-									key: this.remoteKey,
-									owner: owner,
-									name: repo,
-								} satisfies GitLabRepositoryDescriptor,
-							});
-						} while (true);
+			},
+			{
+				descriptors: [
+					{
+						regex: autolinkFullMergeRequestsRegex,
+						url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/-/merge_requests/${num}`,
+						title: (repo, num) => `Open Merge Request !${num} from ${repo} on ${this.name}`,
+						label: (repo, num) => `${this.name} Merge Request ${repo}!${num}`,
 					},
+				],
+				parse: (text: string, autolinks: Map<string, Autolink>) => {
+					let ownerAndRepo: string;
+					let num: string;
+
+					let match;
+					do {
+						match = autolinkFullMergeRequestsRegex.exec(text);
+						if (match == null) break;
+
+						[, ownerAndRepo, num] = match;
+
+						const [owner, repo] = ownerAndRepo.split('/', 2);
+						autolinks.set(num, {
+							provider: this,
+							id: num,
+							prefix: `${ownerAndRepo}!`,
+							url: `${this.protocol}://${this.domain}/${ownerAndRepo}/-/merge_requests/${num}`,
+							alphanumeric: false,
+							ignoreCase: true,
+							title: `Open Merge Request !<num> from ${ownerAndRepo} on ${this.name}`,
+
+							type: 'pullrequest',
+							description: `${this.name} Merge Request !${num} from ${ownerAndRepo}`,
+
+							descriptor: {
+								key: this.remoteKey,
+								owner: owner,
+								name: repo,
+							} satisfies GitLabRepositoryDescriptor,
+						});
+					} while (true);
 				},
-			];
-		}
+			},
+		];
 		return this._autolinks;
 	}
 

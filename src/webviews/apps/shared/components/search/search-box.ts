@@ -16,7 +16,7 @@ import '../code-icon.js';
 import '../overlays/tooltip.js';
 import './search-input.js';
 
-export { SearchModeChangeEventDetail, SearchNavigationEventDetail };
+export type { SearchModeChangeEventDetail, SearchNavigationEventDetail };
 
 declare global {
 	interface HTMLElementTagNameMap {

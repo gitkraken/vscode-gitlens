@@ -291,15 +291,13 @@ export class DetailsPanel extends LitElement {
 	}
 
 	private updateCommitMessageStickyOffset() {
-		if (!this.commitMessageResizeObserver) {
-			this.commitMessageResizeObserver = new ResizeObserver(() => {
-				const commitMessage = this.shadowRoot?.querySelector('gl-commit-message');
-				if (commitMessage && this.changesList) {
-					const height = commitMessage.getBoundingClientRect().height;
-					this.changesList.style.setProperty('--file-header-sticky-top', `${height}px`);
-				}
-			});
-		}
+		this.commitMessageResizeObserver ??= new ResizeObserver(() => {
+			const commitMessage = this.shadowRoot?.querySelector('gl-commit-message');
+			if (commitMessage && this.changesList) {
+				const height = commitMessage.getBoundingClientRect().height;
+				this.changesList.style.setProperty('--file-header-sticky-top', `${height}px`);
+			}
+		});
 
 		this.commitMessageResizeObserver.disconnect();
 
@@ -566,7 +564,7 @@ export class DetailsPanel extends LitElement {
 
 		// Get hunk indices for this commit
 		const commit = this.selectedCommits.find(c => c.id === commitId);
-		const hunkIndices = commit?.hunkIndices || [];
+		const hunkIndices = commit?.hunkIndices ?? [];
 
 		this.dispatchEvent(
 			new CustomEvent('generate-commit-message', {

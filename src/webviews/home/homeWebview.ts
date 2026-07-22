@@ -1013,13 +1013,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						icon: `gl-provider-${providersMetadata[i.integrationId].iconKey}`,
 						connected: true,
 						supports:
-							supportedCloudDescriptor?.supports != null
-								? supportedCloudDescriptor.supports
-								: providersMetadata[i.integrationId].type === 'git'
-									? ['prs', 'issues']
-									: providersMetadata[i.integrationId].type === 'issues'
-										? ['issues']
-										: [],
+							supportedCloudDescriptor?.supports ??
+							(providersMetadata[i.integrationId].type === 'git'
+								? ['prs', 'issues']
+								: providersMetadata[i.integrationId].type === 'issues'
+									? ['issues']
+									: []),
 						requiresPro: supportedCloudDescriptor?.requiresPro ?? false,
 					} satisfies IntegrationState;
 				}),

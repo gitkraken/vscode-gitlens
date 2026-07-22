@@ -846,7 +846,7 @@ export class DraftService implements Disposable {
 			const drafts = await this.getDraftsCore({
 				prEntityId: prEntityId,
 				providerAuth: providerAuth,
-				isArchived: options?.includeArchived != null ? options.includeArchived : true,
+				isArchived: options?.includeArchived ?? true,
 			});
 			return drafts;
 		} catch (_ex) {

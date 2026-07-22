@@ -614,10 +614,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				const topItem: LaunchpadItem | undefined =
 					!selectTopItem || picked != null
 						? undefined
-						: uiGroups.get('mergeable')?.[0] ||
-							uiGroups.get('blocked')?.[0] ||
-							uiGroups.get('follow-up')?.[0] ||
-							uiGroups.get('needs-review')?.[0];
+						: (uiGroups.get('mergeable')?.[0] ??
+							uiGroups.get('blocked')?.[0] ??
+							uiGroups.get('follow-up')?.[0] ??
+							uiGroups.get('needs-review')?.[0]);
 				for (let [ui, groupItems] of uiGroups) {
 					if (context.inSearch) {
 						groupItems = groupItems.filter(i => i.isSearched);
