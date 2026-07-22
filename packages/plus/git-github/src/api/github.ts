@@ -13,7 +13,7 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestState, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
@@ -3576,14 +3576,21 @@ export class GitHubApi {
 			repos?: string[];
 			baseUrl?: string;
 			avatarSize?: number;
-			state?: PullRequestStateFilter;
+			include?: PullRequestState[];
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
+		const pageSize = 10;
+		const include = options?.include?.length ? options.include : undefined;
+		const requiresPagination = shouldPaginateGitHubSearchState(include);
 
 		interface SearchResult {
 			search: {
+				pageInfo: {
+					endCursor?: string | null;
+					hasNextPage: boolean;
+				};
 				nodes: GitHubPullRequest[];
 			};
 		}
@@ -3591,9 +3598,14 @@ export class GitHubApi {
 		try {
 			const query = `query searchPullRequests(
 	$searchQuery: String!
+		$cursor: String
 	$avatarSize: Int
 ) {
-	search(first: 10, query: $searchQuery, type: ISSUE) {
+		search(first: ${pageSize}, after: $cursor, query: $searchQuery, type: ISSUE) {
+			pageInfo {
+				endCursor
+				hasNextPage
+			}
 		nodes {
 			...on PullRequest {
 				${gqlPullRequestFragment}
@@ -3613,28 +3625,44 @@ export class GitHubApi {
 				search += `${repo}${options.repos.join(repo)}`;
 			}
 
-			const rsp = await this.graphql<SearchResult>(
-				provider,
-				token,
-				query,
-				{
-					searchQuery: [
-						'is:pr',
-						toGitHubSearchStateQualifier(options?.state),
-						'archived:false',
-						search.trim(),
-					]
-						.filter(Boolean)
-						.join(' '),
-					baseUrl: options?.baseUrl,
-					avatarSize: options?.avatarSize,
-				},
-				scope,
-				cancellation,
-			);
-			if (rsp == null) return [];
+			const searchQuery = ['is:pr', toGitHubSearchStateQualifier(include), 'archived:false', search.trim()]
+				.filter(Boolean)
+				.join(' ');
 
-			return rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider));
+			// Bound the paginated case with a defensive page backstop like the other paged provider drains, so a
+			// large, low-match result set can't fan out into an unbounded request loop.
+			const maxSearchPages = 20;
+			let cursor: string | undefined;
+			const results: PullRequest[] = [];
+			for (let page = 0; page < maxSearchPages; page++) {
+				const rsp = await this.graphql<SearchResult>(
+					provider,
+					token,
+					query,
+					{
+						searchQuery: searchQuery,
+						cursor: cursor,
+						baseUrl: options?.baseUrl,
+						avatarSize: options?.avatarSize,
+					},
+					scope,
+					cancellation,
+				);
+				if (rsp == null) return [];
+
+				const pageResults = filterPullRequestsBySearchState(
+					rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider)),
+					include,
+				);
+				results.push(...pageResults);
+
+				cursor = rsp.search.pageInfo.endCursor ?? undefined;
+				if (!requiresPagination || results.length >= pageSize || !rsp.search.pageInfo.hasNextPage) {
+					break;
+				}
+			}
+
+			return results.slice(0, pageSize);
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
@@ -3717,16 +3745,44 @@ function isGitHubDotCom(options?: { baseUrl?: string }) {
 	return options?.baseUrl == null || options.baseUrl === 'https://api.github.com';
 }
 
-// GitHub treats `is:closed` as closed-or-merged, so `is:unmerged` keeps closed and merged disjoint.
-export function toGitHubSearchStateQualifier(state: PullRequestStateFilter | undefined): string {
-	switch (state) {
-		case 'closed':
-			return 'is:closed is:unmerged';
-		case 'merged':
-			return 'is:merged';
-		case 'all':
-			return '';
-		default:
-			return 'is:open';
-	}
+// Translates the requested PR states into a GitHub search state qualifier. GitHub search treats
+// `is:closed` as closed-or-merged, `is:merged` as its subset, and `is:unmerged` as open + closed
+// (not-merged), so `closed` and `merged` (distinct in our model) map to `is:closed is:unmerged` and
+// `is:merged`. `undefined` preserves the historical open-only default.
+export function toGitHubSearchStateQualifier(include: PullRequestState[] | undefined): string {
+	if (include == null) return 'is:open';
+
+	const opened = include.includes('opened');
+	const closed = include.includes('closed');
+	const merged = include.includes('merged');
+
+	if (opened && closed && merged) return ''; // all states -> no qualifier
+	if (opened && closed) return 'is:unmerged';
+	if (closed && merged) return 'is:closed';
+	// `opened && merged` isn't expressible as a single AND qualifier; omit it here and post-filter.
+	if (opened && merged) return '';
+	if (opened) return 'is:open';
+	if (merged) return 'is:merged';
+	if (closed) return 'is:closed is:unmerged';
+	return 'is:open'; // empty include -> default
+}
+
+export function filterPullRequestsBySearchState<T extends { state: PullRequestState }>(
+	pullRequests: T[],
+	include: PullRequestState[] | undefined,
+): T[] {
+	const states = include?.length ? include : (['opened'] satisfies PullRequestState[]);
+	const allowedStates = new Set<PullRequestState>(states);
+	// There are only 3 possible states, so a full set means every state is allowed; use the deduped set
+	// size rather than the raw length so duplicates (e.g. `['opened', 'opened', 'closed']`) don't skip filtering.
+	if (allowedStates.size === 3) return pullRequests;
+
+	return pullRequests.filter(pr => allowedStates.has(pr.state));
+}
+
+function shouldPaginateGitHubSearchState(include: PullRequestState[] | undefined): boolean {
+	if (include == null || include.length === 0) return false;
+
+	const uniqueStates = new Set<PullRequestState>(include);
+	return uniqueStates.size === 2 && uniqueStates.has('opened') && uniqueStates.has('merged');
 }

@@ -416,7 +416,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		searchQuery: string,
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		state?: PullRequestStateFilter,
+		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined> {
 		return (await this.authenticationService.apis.github)?.searchPullRequests(
 			this,
@@ -425,7 +425,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				search: searchQuery,
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
-				state: state,
+				...options,
 			},
 			cancellation,
 		);

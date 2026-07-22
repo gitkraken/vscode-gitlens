@@ -324,6 +324,7 @@ export type GetPullRequestsForAzureProjectsFn = (
 		assigneeLogins?: string[];
 		reviewerId?: string;
 		states?: GitPullRequestState[];
+		repo?: ProviderRepoInput;
 	},
 	options?: EnterpriseOptions,
 	// Aggregate multi-project fan-out: no `pageInfo` (call getPullRequestsForAzureProject for that), but SDK
@@ -1007,26 +1008,12 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
 }
 
-export function providerPullRequestMatchesSearch(pr: ProviderPullRequest, search: string): boolean {
-	const term = search.trim().toLowerCase();
-	if (term.length === 0) return true;
+type PullRequestStateInput = PullRequestState | PullRequestStateFilter;
 
-	return pr.title.toLowerCase().includes(term) || (pr.description?.toLowerCase().includes(term) ?? false);
-}
-
-/** Maps a PR state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
-export function toProviderPullRequestStates(
-	state: PullRequestStateFilter | PullRequestStateFilter[] | undefined,
-): GitPullRequestState[] | undefined {
-	// Accept an array so callers can request a union the single-value filter can't express (e.g. the
-	// closed + merged "done" sweep); each element maps through the single-value logic and the result is deduped.
-	if (Array.isArray(state)) {
-		const states = state.flatMap(s => toProviderPullRequestStates(s) ?? []);
-		return states.length > 0 ? [...new Set(states)] : undefined;
-	}
-
+function toProviderPullRequestStatesCore(state: PullRequestStateInput): GitPullRequestState[] {
 	switch (state) {
 		case 'open':
+		case 'opened':
 			return [GitPullRequestState.Open];
 		case 'closed':
 			return [GitPullRequestState.Closed];
@@ -1034,9 +1021,17 @@ export function toProviderPullRequestStates(
 			return [GitPullRequestState.Merged];
 		case 'all':
 			return [GitPullRequestState.Open, GitPullRequestState.Closed, GitPullRequestState.Merged];
-		default:
-			return undefined;
 	}
+}
+
+/** Maps PR include/state filters to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
+export function toProviderPullRequestStates(
+	state: PullRequestStateInput | PullRequestStateInput[] | undefined,
+): GitPullRequestState[] | undefined {
+	if (state == null) return undefined;
+
+	const states = (Array.isArray(state) ? state : [state]).flatMap(s => toProviderPullRequestStatesCore(s));
+	return states.length > 0 ? [...new Set(states)] : undefined;
 }
 
 /** Maps an issue state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
@@ -1073,6 +1068,13 @@ export function resolveProviderScope(
 
 	const reposInput = scope.repos?.map(r => ({ namespace: r.owner, name: r.name, project: scope.project }));
 	return { reposInput: reposInput };
+}
+
+export function providerPullRequestMatchesSearch(pr: ProviderPullRequest, search: string): boolean {
+	const term = search.trim().toLowerCase();
+	if (term.length === 0) return true;
+
+	return pr.title.toLowerCase().includes(term) || (pr.description?.toLowerCase().includes(term) ?? false);
 }
 
 function toProviderRemoteInfo(ref: PullRequestRef | undefined): GitRepositoryRemoteInfo | null {
