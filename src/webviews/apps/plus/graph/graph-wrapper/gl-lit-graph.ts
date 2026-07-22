@@ -3036,6 +3036,13 @@ export class GlLitGraph extends LitElement {
 	private hoveredRowSha?: string;
 	// Zone of the CURRENT `hoveredRowSha` hover (always set together with it) — see `RowHoverZone`.
 	private hoveredRowZone?: RowHoverZone;
+	// The row the pointer is physically over — its content OR its right-edge action buttons/affordances,
+	// which carry their own `data-tooltip` and so route through the affordance branch of
+	// `onPointerOverTooltip` that cancels the rich-hover card (clearing `hoveredRowSha`). Tracked
+	// separately so the sticky-timeline pill's yield (`updateStickyTimelineYield`) survives that cancel:
+	// the pill rides exactly over the topmost row's action strip and must stay hidden while the pointer
+	// is on those buttons instead of flickering back on top of them.
+	private pointerRowSha?: string;
 	private readonly emitRowHover = debounce(
 		(detail: { sha: string; clientX: number; currentTarget: HTMLElement; zone: RowHoverZone }): void => {
 			this.dispatchEvent(new CustomEvent('gl-graph-rowhover', { detail: detail }));
@@ -3047,6 +3054,20 @@ export class GlLitGraph extends LitElement {
 		// No hovers/tooltips while a column resize is in progress — the pointer sweeps over the graph
 		// as the user drags the header handle, and flickering tooltips/row cards would be distracting.
 		if (this.draggingColumn) return;
+
+		// Track the row physically under the pointer for the sticky-timeline pill's yield BEFORE the
+		// affordance branch below can cancel the rich-hover card: a row's action buttons carry their own
+		// `data-tooltip`, so hovering them clears `hoveredRowSha` — this survives that so the pill stays
+		// hidden over the buttons it rides. Resolves off any row (incl. the transparent, yielded pill's
+		// pass-through) and to `undefined` when the pointer lands on the non-yielded pill itself.
+		const pointerRowSha =
+			event.target instanceof Element
+				? event.target.closest<HTMLElement>('.gl-graph__row')?.dataset.sha
+				: undefined;
+		if (pointerRowSha !== this.pointerRowSha) {
+			this.pointerRowSha = pointerRowSha;
+			this.updateStickyTimelineYield();
+		}
 
 		// Alt-hold ref-chain dim: track which pill (if any) is under the pointer on EVERY move, so an Alt
 		// keydown that arrives later knows what to activate against. Fires for every element in
@@ -3182,6 +3203,11 @@ export class GlLitGraph extends LitElement {
 			if (this.hoveredPillRef != null) {
 				this.hoveredPillRef = undefined;
 				this.deactivateModifierChain();
+			}
+			// Same reason: no pointerover fires once the pointer is gone, so release the pill's yield row.
+			if (this.pointerRowSha != null) {
+				this.pointerRowSha = undefined;
+				this.updateStickyTimelineYield();
 			}
 		}
 	};
@@ -3435,8 +3461,8 @@ export class GlLitGraph extends LitElement {
 
 		this.hoveredRowSha = sha;
 		this.hoveredRowZone = zone;
-		// hoveredRowSha is a plain field (no Lit render) — CSSOM is the only way the pill finds out.
-		this.updateStickyTimelineYield();
+		// The sticky-timeline pill's yield tracks `pointerRowSha` (updated in `onPointerOverTooltip`, which
+		// reached here), not `hoveredRowSha` — so no CSSOM poke is needed on this card-only transition.
 		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
 		this.startRowHover(sha, zone, event, rowEl, true);
 		// Modifier already held when a NEW row is entered (row→row retargets same as pill→pill).
@@ -3481,7 +3507,6 @@ export class GlLitGraph extends LitElement {
 		const zone = this.hoveredRowZone;
 		this.hoveredRowSha = undefined;
 		this.hoveredRowZone = undefined;
-		this.updateStickyTimelineYield();
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
 		);
@@ -6020,11 +6045,13 @@ export class GlLitGraph extends LitElement {
 	// the same index the bucket uses — needs its own top-right corner: it's selected, keyboard-focused,
 	// hovered, or renders PERSISTENT action buttons (the WIP-row case — at scroll-top the pill stays
 	// hidden entirely; it reappears once scrolling puts a normal, non-persistent-actions row on top).
-	// `hoveredRowSha` is a plain field (row hover never triggers a Lit render), which is exactly why this
-	// is CSSOM — an @state-driven equivalent would re-render rows on every hover in/out. No flicker loop:
-	// once yielded via hover, the pointer sits over the (now pointer-transparent) pill's old spot, which
-	// hits the row/buttons underneath — the row stays hovered, so it stays yielded until the pointer
-	// actually leaves the row. O(1): index math + a few Set/Map lookups + one classList.toggle;
+	// Hover reads `pointerRowSha` (NOT `hoveredRowSha`, which the rich-hover card clears when the pointer
+	// moves onto a row's `data-tooltip` action buttons — the pill rides right over those, so it must keep
+	// yielding while they're hovered). Both are plain fields (hover never triggers a Lit render), which is
+	// exactly why this is CSSOM — an @state-driven equivalent would re-render rows on every hover in/out.
+	// No flicker loop: once yielded via hover, the pointer sits over the (now pointer-transparent) pill's
+	// old spot, which hits the row/buttons underneath — the row stays hovered, so it stays yielded until
+	// the pointer actually leaves the row. O(1): index math + a few Set/Map lookups + one classList.toggle;
 	// `scrollTop` defaults to the last scroll position `onScroll` recorded (`_lastScrollTop`) — a plain
 	// field read, no DOM access — for the rare caller outside the scroll hot path; `onScroll` itself
 	// passes the value it already has.
@@ -6045,7 +6072,7 @@ export class GlLitGraph extends LitElement {
 			row != null &&
 			(this.selectedShas.has(row.sha) ||
 				idx === this.focusIndex ||
-				row.sha === this.hoveredRowSha ||
+				row.sha === this.pointerRowSha ||
 				this.topRowHasPersistentActions(row));
 		el.classList.toggle('is-yielding', yielding);
 	}
