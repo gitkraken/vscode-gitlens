@@ -320,7 +320,9 @@ export class BitbucketIntegration extends GitHostIntegration<
 		}
 
 		const user = await this.getProviderCurrentAccount(session);
-		if (user?.username == null) return undefined;
+		// `user.id` feeds both the authored workspace reads and the reviewer BBQL clause; guard on it so we
+		// never issue requests/queries with an undefined uuid. `username` isn't used here, so don't gate on it.
+		if (user?.id == null) return undefined;
 
 		const workspacesResult = await this.getProviderResourcesForCurrentUser(session);
 		if (workspacesResult == null) return undefined;
