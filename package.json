@@ -29626,7 +29626,7 @@
 		"@e18e/eslint-plugin": "0.5.1",
 		"@modelcontextprotocol/sdk": "1.29.0",
 		"@octokit/request-error": "catalog:",
-		"@oxlint/plugins": "1.74.0",
+		"@oxlint/plugins": "1.75.0",
 		"@playwright/test": "1.61.1",
 		"@profoundlogic/hogan": "3.0.4",
 		"@swc/core": "1.15.43",
@@ -29668,9 +29668,9 @@
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.10.2",
 		"ovsx": "1.0.2",
-		"oxfmt": "0.59.0",
-		"oxlint": "1.74.0",
-		"oxlint-tsgolint": "0.25.0",
+		"oxfmt": "0.60.0",
+		"oxlint": "1.75.0",
+		"oxlint-tsgolint": "7.0.2001",
 		"playwright": "1.61.1",
 		"postcss": "8.5.16",
 		"postcss-lit": "1.4.1",
@@ -29686,7 +29686,7 @@
 		"stylelint-config-standard": "40.0.0",
 		"stylelint-config-standard-scss": "17.0.0",
 		"stylelint-no-unsupported-browser-features": "8.1.1",
-		"svgo": "4.0.1",
+		"svgo": "4.0.2",
 		"terser-webpack-plugin": "5.6.1",
 		"tinybench": "catalog:",
 		"typescript": "catalog:",
@@ -29702,7 +29702,7 @@
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"
 	},
-	"packageManager": "pnpm@11.15.0",
+	"packageManager": "pnpm@11.15.1",
 	"postcss-lit": {
 		"babelOptions": {
 			"sourceType": "unambiguous",
