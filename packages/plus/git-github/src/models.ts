@@ -132,6 +132,7 @@ export type GitHubIssueOrPullRequestState = GitHubIssueState | GitHubPullRequest
 
 export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '__typename'> {
 	author: GitHubMember;
+	body: string;
 
 	baseRefName: string;
 	baseRefOid: string;
@@ -193,7 +194,6 @@ export type GitHubPullRequestReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'C
 
 export interface GitHubPullRequest extends GitHubPullRequestLite {
 	additions: number;
-	body: string;
 	assignees: {
 		nodes: GitHubMember[];
 	};
@@ -285,6 +285,18 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 			isCrossRepository: pr.isCrossRepository,
 		},
 		pr.isDraft,
+		undefined, // additions
+		undefined, // deletions
+		undefined, // commentsCount
+		undefined, // thumbsUpCount
+		undefined, // reviewDecision
+		undefined, // reviewRequests
+		undefined, // latestReviews
+		undefined, // assignees
+		undefined, // statusCheckRollupState
+		undefined, // project
+		undefined, // version
+		pr.body,
 	);
 }
 
