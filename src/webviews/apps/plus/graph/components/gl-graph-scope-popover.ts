@@ -157,7 +157,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				}
 				break;
 			case 'current':
-				icon = 'target';
+				icon = 'git-branch';
 				label = headName ?? 'Current Branch';
 				tooltip = 'Showing Current Branch Only';
 				break;
@@ -177,7 +177,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				tooltip = 'Showing Agent Branches Only';
 				break;
 			case 'scoped':
-				icon = 'eye';
+				icon = 'target';
 				label = scopedName ?? 'Scoped';
 				tooltip = `Showing ${scopedName ?? 'Specific Branch'} Only`;
 				break;
@@ -231,7 +231,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 			</gl-tooltip>
 			<div slot="content" class="mode-popover__content" role="menu" @keydown=${this.handleContentKeydown}>
 				${this.renderModeMenuItem('all', 'repo', 'All Branches', undefined, mode, this.repo?.virtual ?? false)}
-				${this.renderModeMenuItem('current', 'target', 'Current Branch', 'Follows HEAD', mode, false)}
+				${this.renderModeMenuItem('current', 'git-branch', 'Current Branch', 'Follows HEAD', mode, false)}
 				${this.renderModeMenuItem(
 					'smart',
 					'wand',
@@ -391,7 +391,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				@click=${this.handleFocusBranchRowClick}
 			>
 				<span class="mode-menu-item__icon">
-					<code-icon icon="eye"></code-icon>
+					<code-icon icon="target"></code-icon>
 				</span>
 				<span class="mode-menu-item__label">Focus Branch</span>
 				${scopedName != null
