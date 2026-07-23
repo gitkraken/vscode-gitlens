@@ -2655,9 +2655,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return (
 			(this.graphState.layoutPromptNeeded ?? false) &&
 			// The prompt lives inside the graph subtree, which the no-repository empty state
-			// doesn't render — mirror that condition here so the `shown` telemetry in `updated()`
-			// can't fire (and burn its one-shot guard) without a real impression.
-			this.graphState.repositories?.length !== 0 &&
+			// doesn't render — require repositories to be RESOLVED and non-empty (stricter than
+			// the subtree's own `?.length === 0` check, which renders during the initial load
+			// window) so the prompt can't flash and the `shown` telemetry in `updated()` can't
+			// fire (burning its one-shot guard) before a no-repo profile lands on the empty state.
+			(this.graphState.repositories?.length ?? 0) > 0 &&
 			// Don't compete with the graph walkthrough popover on first entry — hold the layout
 			// prompt until that banner is dismissed, completed, or STARTED ("See what's new" tracks
 			// started without dismissing the banner, and the header only force-opens the popover
