@@ -264,7 +264,6 @@ import {
 	GetWipStatsRequest,
 	GraphSyncResyncCommand,
 	isSecondaryWipSha,
-	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
 	ProxyAvatarsCommand,
 	ResetGraphFiltersCommand,
@@ -2894,24 +2893,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Convert URIs to relative paths from the repository root
 		const files = uris.map(uri => this.container.git.getRelativePath(uri, this.repository!.path));
 		return { files: files };
-	}
-
-	@ipcRequest(JumpToHeadRequest)
-	private async onJumpToHead(): Promise<IpcResponse<typeof JumpToHeadRequest>> {
-		if (this.repository == null) return undefined;
-
-		let branch = find(this._data.session!.current.branches.values(), b => b.current);
-		branch ??= await this.repository.git.branches.getBranch();
-
-		return branch?.sha != null
-			? {
-					id: branch.id,
-					name: branch.name,
-					sha: branch.sha,
-					refType: branch.refType as 'branch',
-					graphRefType: convertRefToGraphRefType(branch),
-				}
-			: undefined;
 	}
 
 	@ipcRequest(ResolveGraphScopeRequest)

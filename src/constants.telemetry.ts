@@ -214,7 +214,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when GitLens auto-fetch fires a `git fetch` for the visible Commit Graph */
 	'graph/autoFetch': GraphAutoFetchEvent;
 
-	/** Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph */
+	/** Sent when the user clicks the Focus Branch header button on the Commit Graph (plain-click focuses the current branch; alt-click opens the branch picker) */
 	'graph/action/jumpTo': GraphActionJumpToEvent;
 	/** Sent when the user clicks on the "Jump to HEAD"/"Jump to Reference" (alt) header button on the Commit Graph */
 	'graph/action/openRepoOnRemote': GraphContextEventData;
@@ -1442,7 +1442,7 @@ export type GraphShownTelemetryContext = GraphShownEventData;
 type GraphShownEvent = WebviewShownEventData & GraphShownEventData;
 
 interface GraphActionJumpToEvent extends GraphContextEventData {
-	target: 'HEAD' | 'choose';
+	alt: boolean;
 }
 
 interface GraphAutoFetchEvent extends GraphContextEventData {

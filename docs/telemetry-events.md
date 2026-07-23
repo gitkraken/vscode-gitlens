@@ -1335,10 +1335,11 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/action/jumpTo
 
-> Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph
+> Sent when the user clicks the Focus Branch header button on the Commit Graph (plain-click focuses the current branch; alt-click opens the branch picker)
 
 ```typescript
 {
+  'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -1347,8 +1348,7 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string,
-  'target': 'HEAD' | 'choose'
+  'context.webview.type': string
 }
 ```
 
@@ -2385,6 +2385,7 @@ background-upgraded the extension while the host kept running the old build
   'context.config.dateStyle': 'absolute' | 'relative',
   'context.config.defaultItemLimit': number,
   'context.config.details.location': 'auto' | 'right' | 'bottom',
+  'context.config.details.maximizeOnMode': boolean,
   'context.config.dimMergeCommits': boolean,
   'context.config.editorOpeningBehavior': 'active' | 'auto',
   'context.config.experimental.homeHeader.enabled': boolean,

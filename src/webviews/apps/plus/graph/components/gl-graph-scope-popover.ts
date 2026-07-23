@@ -23,6 +23,7 @@ import {
 } from '../../../../plus/graph/protocol.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import type { TreeItemSelectionDetail, TreeModel } from '../../../shared/components/tree/base.js';
+import type { GlTreeView } from '../../../shared/components/tree/tree-view.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from '../sidebar/sidebarContext.js';
@@ -95,6 +96,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	};
 	private _branchesFetchAttempts = 0;
 	@state() private _branchesFetchExhausted = false;
+	private _pendingFocusBranchFilter = false;
 
 	/** Maximum poll attempts (~750ms total at 250ms cadence) before showing the unable-to-load
 	 *  state. Bounded so a stuck sidebar service can't pin the popover on "Loading…" forever. */
@@ -108,6 +110,9 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 			const resource = this._sidebarActions?.state.panels.branches;
 			if (resource != null && resource.value.get() == null && !resource.loading.get()) {
 				this.tryFetchBranches();
+			}
+			if (this._pendingFocusBranchFilter) {
+				this.tryFocusBranchFilter();
 			}
 		}
 
@@ -529,6 +534,10 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		e.stopPropagation();
 		e.preventDefault();
 		this._focusBranchExpanded = !this._focusBranchExpanded;
+		// Collapsing cancels any pending auto-focus so it can't fire on a later re-expand.
+		if (!this._focusBranchExpanded) {
+			this._pendingFocusBranchFilter = false;
+		}
 	};
 
 	private handleContentKeydown = (e: KeyboardEvent) => {
@@ -556,6 +565,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 			e.preventDefault();
 			e.stopPropagation();
 			this._focusBranchExpanded = false;
+			this._pendingFocusBranchFilter = false;
 			return;
 		}
 
@@ -617,6 +627,11 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		// Focus the first menu item once the popover body is visible (body.hidden flips after
 		// gl-popover-show fires, so defer until the next frame).
 		requestAnimationFrame(() => {
+			// An alt-click open expands the focus pane and drives its own filter focus (openToFocusBranch,
+			// with the `updated()` retry as the cold-load fallback). Don't let this fallback steal focus
+			// to the first menu item in that case.
+			if (this._focusBranchExpanded) return;
+
 			this.getFocusableMenuItems()[0]?.focus();
 		});
 	};
@@ -624,12 +639,15 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	private handleModePopoverHide = () => {
 		this.clearBranchesFetchRetry();
 		this._focusBranchExpanded = false;
+		this._pendingFocusBranchFilter = false;
 	};
 
 	private tryFetchBranches = () => {
 		const actions = this._sidebarActions;
 		const resource = actions?.state.panels.branches;
-		if (resource == null || resource.value.get() != null) {
+		// Skip when already loaded or a fetch is already in flight — re-fetching mid-flight would cancel
+		// and restart it (createResource's cancelPrevious), wasting the round trip and delaying results.
+		if (resource == null || resource.value.get() != null || resource.loading.get()) {
 			this.clearBranchesFetchRetry();
 			return;
 		}
@@ -695,6 +713,41 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		if (popover == null) return;
 
 		void popover.hide();
+	}
+
+	/** Opens the scope menu straight into the Focus Branch pane with the branch filter focused.
+	 *  Invoked by the header's focus-branch button on alt-click. */
+	async openToFocusBranch(): Promise<void> {
+		const popover = this.renderRoot.querySelector<GlPopover>('gl-popover.mode-popover');
+		if (popover == null) return;
+
+		this._focusBranchExpanded = true;
+		this._pendingFocusBranchFilter = true;
+		// `show()` resolves after the popover body is visible (or immediately when it was already open,
+		// e.g. keyboard re-activation), so drive the focus directly here. When branches are still
+		// loading the tree isn't mounted yet — `updated()` retries once it renders.
+		await popover.show('click');
+		this.tryFocusBranchFilter();
+	}
+
+	/** Focuses the Focus Branch filter input once the tree has mounted. No-op (leaving the pending
+	 *  flag for the `updated()` retry) while branches are still loading. Guards against the pane
+	 *  collapsing/closing or the user moving focus before the deferred focus runs, so it never steals. */
+	private tryFocusBranchFilter(): void {
+		if (!this._pendingFocusBranchFilter || !this._focusBranchExpanded) return;
+
+		const tree = this.renderRoot.querySelector<GlTreeView>('gl-tree-view');
+		if (tree == null) return;
+
+		this._pendingFocusBranchFilter = false;
+		// Wait for the tree's own first render so its `.filter-input` exists (gl-tree-view.focus()
+		// prefers it when filterable), then re-check nothing changed while awaiting: don't focus if the
+		// pane collapsed/closed, and don't steal focus the user has since moved into the menu.
+		void tree.updateComplete.then(() => {
+			if (!this._focusBranchExpanded || (this.renderRoot as ShadowRoot).activeElement != null) return;
+
+			this.focusTreeView();
+		});
 	}
 
 	private handleModeSelect(value: GraphBranchesVisibility) {

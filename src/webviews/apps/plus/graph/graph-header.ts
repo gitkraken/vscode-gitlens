@@ -13,11 +13,9 @@ import { debounce } from '@gitlens/utils/decorators/debounce.js';
 import { hasTruthyKeys } from '@gitlens/utils/object.js';
 import { wait } from '@gitlens/utils/promise.js';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
-import { GlyphChars } from '../../../../constants.js';
 import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type {
-	DidChooseRefParams,
 	GraphColumnName,
 	GraphExcludedRef,
 	GraphExcludeRefs,
@@ -29,11 +27,9 @@ import type {
 	State,
 } from '../../../plus/graph/protocol.js';
 import {
-	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	CloseGraphWalkthroughBannerCommand,
 	EnsureRowRequest,
-	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
 	SearchCancelCommand,
 	SearchOpenInViewCommand,
@@ -54,6 +50,7 @@ import { ModifierKeysController } from '../../shared/controllers/modifier-keys.j
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
 import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-popover.js';
+import type { GlGraphScopePopover } from './components/gl-graph-scope-popover.js';
 import { graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
@@ -372,22 +369,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		this.graphState.activeFilterColumns = active;
 	}
 
-	private async onJumpToRefPromise(alt: boolean): Promise<DidChooseRefParams | undefined> {
-		try {
-			const repoName = this.graphState.repositories?.[0]?.name ?? '';
-			const rsp: DidChooseRefParams = alt
-				? await this._ipc.sendRequest(ChooseRefRequest, {
-						title: `Jump to Reference ${GlyphChars.Dot} ${repoName}`,
-						placeholder: 'Choose a reference to jump to',
-					})
-				: await this._ipc.sendRequest(JumpToHeadRequest, undefined);
-			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: alt } });
-			return rsp;
-		} catch {
-			return undefined;
-		}
-	}
-
 	private handleSidebarToggled() {
 		this.dispatchEvent(new CustomEvent('toggle-sidebar', { bubbles: true, composed: true }));
 	}
@@ -402,21 +383,36 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		);
 	}
 
-	private async handleJumpToRef(e: MouseEvent) {
-		const ref = await this.onJumpToRefPromise(e.altKey);
-		if (ref != null) {
-			await this.jumpToSha(ref.sha);
+	private handleJumpToRef(e: MouseEvent) {
+		// Alt: open the scope menu into the Focus Branch pane so the user can pick a branch to focus.
+		if (e.altKey) {
+			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: true } });
+			void this.scopePopoverEl?.openToFocusBranch();
+			return;
+		}
+
+		// Plain: focus (scope) the graph onto the current branch. Only record the action when it
+		// actually proceeds — a no-op click (e.g. detached HEAD, no current branch) shouldn't count.
+		if (this.scopeToCurrentBranch()) {
+			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: false } });
 		}
 	}
 
-	private async jumpToSha(sha: string) {
-		const id = await this.ensureSearchResultRow(sha);
-		if (id == null) return;
+	private scopeToCurrentBranch(): boolean {
+		const branch = this.graphState.branch;
+		if (branch == null) return false;
 
-		const rows = this.selectCommits?.([id], { ensureVisible: true });
-		if (rows?.[0]?.hidden) {
-			this._searchResultHidden = true;
-		}
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-scope-to-branch', {
+				detail: {
+					branchName: branch.name,
+					upstreamName: branch.upstream?.missing ? undefined : branch.upstream?.name,
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+		return true;
 	}
 
 	private onGraphWalkthroughBannerDismiss(e: Event): void {
@@ -1061,6 +1057,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@query('gl-search-box')
 	private readonly searchEl!: GlSearchBox;
 
+	@query('gl-graph-scope-popover')
+	private readonly scopePopoverEl!: GlGraphScopePopover | null;
+
 	override render() {
 		const repo = this.graphState.repositories?.find(repo => repo.id === this.graphState.selectedRepository);
 
@@ -1144,8 +1143,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							<code-icon icon="target"></code-icon>
 							<span slot="tooltip">
 								${this._modifiers.altKey
-									? html`Jump to Reference...`
-									: html`Jump to HEAD<br />[${getAltKeySymbol()}] Jump to Reference...`}
+									? html`Focus on a Branch...`
+									: html`Focus on Current Branch<br />[${getAltKeySymbol()}] Focus on a Branch...`}
 							</span>
 						</gl-button>
 						${this.renderCreateMenu()}

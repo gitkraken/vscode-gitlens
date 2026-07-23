@@ -977,8 +977,6 @@ export type DidChooseRefParams =
 	| { id?: string; name: string; sha: string; refType: GitReference['refType']; graphRefType?: GraphRefType }
 	| undefined;
 
-export const JumpToHeadRequest = new IpcRequest<undefined, DidChooseRefParams>(scope, 'jumpToHead');
-
 export interface ChooseRefParams {
 	title: string;
 	placeholder: string;
