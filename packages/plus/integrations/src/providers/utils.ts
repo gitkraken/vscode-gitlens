@@ -20,7 +20,11 @@ import type { AzureProjectInputDescriptor } from './azure/models.js';
 import type { GitConfigEntityIdentifier } from './models.js';
 import { isGitHubDotCom, isGitLabDotCom } from './models.js';
 
-const EntityIdentifierProviderType = {
+// Local runtime copies of the `@gitkraken/provider-apis` entity-identifier string enums, duplicated for
+// the same CJS-from-ESM reason as the enums in `models.ts`. Exported so the enum-parity test can guard
+// them against upstream drift. `EntityVersion` is an intentional subset: the package only ever writes
+// version 1, so the parity test asserts each local entry matches the SDK rather than a full mirror.
+export const EntityIdentifierProviderType = {
 	Azure: 'azure',
 	AzureDevOpsServer: 'azureDevOpsServer',
 	Github: 'github',
@@ -35,12 +39,12 @@ const EntityIdentifierProviderType = {
 	Trello: 'trello',
 } as const;
 
-const EntityType = {
+export const EntityType = {
 	PullRequest: 'pr',
 	Issue: 'issue',
 } as const;
 
-const EntityVersion = {
+export const EntityVersion = {
 	One: '1',
 } as const;
 
