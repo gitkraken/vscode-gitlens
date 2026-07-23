@@ -117,9 +117,15 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
  * the window where a row resolves in the DOM but reports `hidden`. Gate on the first visible treeitem.
  */
 async function waitForGraphRowsRendered(graphWebview: FrameLocator): Promise<void> {
-	await expect(graphWebview.getByRole('treeitem').filter({ visible: true }).first()).toBeVisible({
-		timeout: 30000,
-	});
+	// Scope to the graph tree so we don't match a details-panel file-tree treeitem (the details
+	// `gl-tree-view` also exposes role="treeitem"); graph rows are descendants of this tree.
+	await expect(
+		graphWebview
+			.getByRole('tree', { name: 'Commit graph' })
+			.getByRole('treeitem')
+			.filter({ visible: true })
+			.first(),
+	).toBeVisible({ timeout: 30000 });
 }
 
 async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {

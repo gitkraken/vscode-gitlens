@@ -129,9 +129,15 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
  * treeitem, the surface these tests then click.
  */
 async function waitForGraphRowsRendered(graphWebview: FrameLocator): Promise<void> {
-	await expect(graphWebview.getByRole('treeitem').filter({ visible: true }).first()).toBeVisible({
-		timeout: 30000,
-	});
+	// Scope to the graph tree so we don't match a details-panel file-tree treeitem (the details
+	// `gl-tree-view` also exposes role="treeitem"); graph rows are descendants of this tree.
+	await expect(
+		graphWebview
+			.getByRole('tree', { name: 'Commit graph' })
+			.getByRole('treeitem')
+			.filter({ visible: true })
+			.first(),
+	).toBeVisible({ timeout: 30000 });
 }
 
 async function ensureDetailsPanelOpen(graphWebview: FrameLocator): Promise<void> {
@@ -471,7 +477,10 @@ test.describe('Graph Details - Compare Mode', () => {
 		await waitForDetailsLoaded(graphWebview);
 
 		// Ctrl+Click second commit to multi-select
-		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
+		const secondCommit = graphWebview
+			.getByRole('treeitem', { name: 'Add utils module' })
+			.filter({ visible: true })
+			.first();
 		await expect(secondCommit).toBeVisible({ timeout: MaxTimeout });
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
@@ -485,7 +494,10 @@ test.describe('Graph Details - Compare Mode', () => {
 		// Multi-select two commits
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
+		const secondCommit = graphWebview
+			.getByRole('treeitem', { name: 'Add utils module' })
+			.filter({ visible: true })
+			.first();
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		// Wait for compare panel
@@ -501,7 +513,10 @@ test.describe('Graph Details - Compare Mode', () => {
 	test('should show swap button in compare mode', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
+		const secondCommit = graphWebview
+			.getByRole('treeitem', { name: 'Add utils module' })
+			.filter({ visible: true })
+			.first();
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
@@ -522,7 +537,10 @@ test.describe('Graph Details - Compare Mode', () => {
 		// There is 1 commit in between: "Add math module"
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
+		const secondCommit = graphWebview
+			.getByRole('treeitem', { name: 'Add utils module' })
+			.filter({ visible: true })
+			.first();
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
@@ -536,7 +554,10 @@ test.describe('Graph Details - Compare Mode', () => {
 	test('should exit compare mode by selecting a single commit', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
+		const secondCommit = graphWebview
+			.getByRole('treeitem', { name: 'Add utils module' })
+			.filter({ visible: true })
+			.first();
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
@@ -552,7 +573,10 @@ test.describe('Graph Details - Compare Mode', () => {
 	test('should show changed files section in compare mode', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
+		const secondCommit = graphWebview
+			.getByRole('treeitem', { name: 'Add utils module' })
+			.filter({ visible: true })
+			.first();
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });

@@ -90,6 +90,8 @@ test.describe('Review & Compose Sub-Panels', () => {
 			.filter({ visible: true })
 			.first();
 		await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
+		// Force the click: the virtualized WIP row can report "not stable" within the actionability
+		// window, and the following gl-details-wip-header assertion guards against a missed click.
 		await wipRow.click({ force: true });
 		await ensureDetailsPanelOpen();
 		await expect(graphWebview.locator('gl-details-wip-header')).toBeVisible({ timeout: MaxTimeout });
@@ -115,9 +117,15 @@ test.describe('Review & Compose Sub-Panels', () => {
 		// New Lit engine: the graph is a role="tree" ("Commit graph") of role="treeitem" rows. Gate on
 		// the tree and on rows actually painting; selectWip (beforeEach) opens the WIP details panel.
 		await expect(graphWebview.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
-		await expect(graphWebview.getByRole('treeitem').filter({ visible: true }).first()).toBeVisible({
-			timeout: 30000,
-		});
+		// Scope to the graph tree so we don't match a details-panel file-tree treeitem (the details
+		// `gl-tree-view` also exposes role="treeitem"); graph rows are descendants of this tree.
+		await expect(
+			graphWebview
+				.getByRole('tree', { name: 'Commit graph' })
+				.getByRole('treeitem')
+				.filter({ visible: true })
+				.first(),
+		).toBeVisible({ timeout: 30000 });
 	});
 
 	test.afterAll(async ({ vscode }) => {
