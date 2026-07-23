@@ -205,3 +205,68 @@ suite('GitHubApi.searchPullRequests', () => {
 		assert.strictEqual(seenCursors.length, 20);
 	});
 });
+
+suite('GitHubApi.searchMyIssues', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	// Captures the GraphQL variables of the single searchMyIssues request and returns empty result sets so the
+	// method resolves; each category exposes `issueCount: 0` so the read is never reported truncated.
+	function captureVariables(): { config: GitHubApiConfig; getVariables: () => Record<string, string> } {
+		let variables: Record<string, string> = {};
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, string> };
+				variables = body.variables ?? {};
+				const empty = { issueCount: 0, nodes: [] };
+				return new Response(JSON.stringify({ data: { authored: empty, assigned: empty, mentioned: empty } }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		return { config: config, getVariables: () => variables };
+	}
+
+	test('binds the assigned category to the current user by default', async () => {
+		const { config, getVariables } = captureVariables();
+		const api = new GitHubApi(config);
+
+		await api.searchMyIssues(provider, token, {});
+
+		const vars = getVariables();
+		assert.match(vars.assigned, /assignee:@me/);
+		assert.match(vars.authored, /author:@me/);
+		assert.match(vars.mentioned, /mentions:@me/);
+	});
+
+	test('broadens the assigned category to any assignee when includeAllAssignees is set, keeping authored/mentioned user-relative', async () => {
+		const { config, getVariables } = captureVariables();
+		const api = new GitHubApi(config);
+
+		await api.searchMyIssues(provider, token, { includeAllAssignees: true });
+
+		const vars = getVariables();
+		assert.match(vars.assigned, /assignee:\*/, 'assigned broadens to has-any-assignee');
+		assert.doesNotMatch(vars.assigned, /assignee:@me/, 'the @me binding is dropped from the assigned category');
+		assert.match(vars.authored, /author:@me/, 'authored stays user-relative');
+		assert.match(vars.mentioned, /mentions:@me/, 'mentioned stays user-relative');
+	});
+});

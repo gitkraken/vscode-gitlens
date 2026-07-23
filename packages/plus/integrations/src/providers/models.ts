@@ -469,8 +469,17 @@ export type GetIssuesForReposFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
 
+export type GetIssuesForCurrentUserInput = PagingInput & {
+	// GitLab's account-wide REST read (`GET /issues`): `scope` controls breadth ('assigned_to_me' vs 'all') and
+	// `assigneeUsername` optionally narrows a broad read to a specific assignee. Other providers (Linear) ignore
+	// these and page purely off the cursor.
+	scope?: 'assigned_to_me' | 'all';
+	assigneeUsername?: string;
+	pageSize?: number;
+};
+
 export type GetIssuesForCurrentUserFn = (
-	input: PagingInput,
+	input: GetIssuesForCurrentUserInput,
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
 
