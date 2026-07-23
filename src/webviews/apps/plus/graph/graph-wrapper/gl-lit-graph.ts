@@ -1,8 +1,12 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
 import { classifyRowsDelta, isHistoryRewrite } from '@gitkraken/commit-graph/engine/delta.js';
-import { collectReachable, identifyFirstParentChain } from '@gitkraken/commit-graph/engine/layout.js';
-import { buildChildrenBySha, findBranchingPointSha } from '@gitkraken/commit-graph/engine/navigation.js';
+import { collectReachable } from '@gitkraken/commit-graph/engine/layout.js';
+import {
+	buildChildrenBySha,
+	collectLaneChain,
+	findBranchingPointSha,
+} from '@gitkraken/commit-graph/engine/navigation.js';
 import type { GraphProcessResume, GraphStability } from '@gitkraken/commit-graph/engine/process.js';
 import { processCommitsAndSegments } from '@gitkraken/commit-graph/engine/process.js';
 import type { ReconciledSuffix } from '@gitkraken/commit-graph/engine/reconcile.js';
@@ -79,6 +83,7 @@ import type {
 import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
+import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
@@ -376,8 +381,10 @@ interface RenderCtx {
 	searchMatchedShas?: ReadonlySet<string>;
 	/** Active search mode — matches are highlighted only in `normal` (legacy parity). */
 	searchMode?: GraphSearchMode;
-	/** First-parent chain of the hovered ref (highlightRowsOnRefHover) → `.is-inRefChain` rows. */
+	/** Lane chain of the focused ref/row → `.is-inRefChain` rows (others dim). Bounded at the merge base. */
 	inRefChainShas?: ReadonlySet<string>;
+	/** The active chain is the transient Alt-hold peek (lighter dim) rather than the click-pin (full dim). */
+	chainTransient?: boolean;
 	/** `gitlens.graph.dimMergeCommits` — when true, merge rows render dimmed. */
 	dimMergeCommits?: boolean;
 	/** `showGhostRefsOnRowHover` — a faint ref pill (the row's lane-tip branch/tag) on hover/selection
@@ -604,18 +611,27 @@ export class GlLitGraph extends LitElement {
 	// Name of the click-pinned ref pill: keeps it expanded (the `.is-pinned` class, reconciled after
 	// each render) and drives the dim chain above + the click toggle. Undefined = nothing pinned.
 	@state() private _pinnedRefKey?: string;
+	// Sha the pinned ref resolved to — kept so the lane chain can be re-walked when more rows page in
+	// (a precise lane boundary means the branch's older commits would otherwise arrive dimmed).
+	private _pinnedRefSha?: string;
 	// The ref pill (if any) currently under the pointer — `{ key, sha }` matches what `togglePinnedRef`
 	// needs (`resolveRef` + `resolveSha` on the same event). Tracked regardless of the modifier so a
 	// press right after entering the pill activates immediately, with no re-hover required.
 	private hoveredPillRef?: { key: string; sha: string };
+	// Shared modifier-key tracker — the single source of Alt truth. Unlike a bare window keydown/keyup
+	// pair (which only fires when the webview iframe has keyboard focus), it also reads `altKey` off
+	// pointer events, so Alt is observed even when the graph isn't focused, and a menu-bar-steal that
+	// swallows the keyup still self-corrects on the next pointer move. `willUpdate` reconciles the
+	// transient chain against its `altKey` (see the reconcile there).
+	private readonly _modifiers = new ModifierKeysController(this);
 	// Transient Alt-hold chain (`activateModifierChain`/`deactivateModifierChain`): while Alt is
-	// held over a ref pill, dims rows outside that ref's first-parent chain — the same
-	// derivation as the click-pin, but momentary and layered ON TOP of it (see the `inRefChainShas`
-	// assignment in `updateRenderState`, which prefers this over `refHoverChainShas` while set).
+	// held over a ref pill, dims rows outside that ref's lane chain — the same derivation as the
+	// click-pin, but momentary and layered ON TOP of it (see the `inRefChainShas` assignment in
+	// `updateRenderState`, which prefers this over `refHoverChainShas` while set).
 	@state() private modifierChainShas?: ReadonlySet<string>;
 	// Seed key `activateModifierChain` last computed the chain from (`pill:<key>:<sha>` or `row:<sha>`) —
-	// re-hovering the SAME pill/row while the modifier stays held (or a fresh keydown lands on it) is a
-	// no-op instead of re-walking `identifyFirstParentChain` over the whole graph again.
+	// re-hovering the SAME pill/row while the modifier stays held (or a fresh reconcile lands on it) is a
+	// no-op instead of re-walking `collectLaneChain` over the lane again.
 	private lastModifierChainSeed?: string;
 	// Direction to the current HEAD commit when it's scrolled OFF-screen (drives the floating
 	// "Scroll to HEAD" pill; the arrow points toward HEAD). Undefined = HEAD is visible → no pill.
@@ -720,6 +736,12 @@ export class GlLitGraph extends LitElement {
 						: undefined;
 		// The merge-target row is ALSO the fork point (base) — show a combined marker + tooltip.
 		const anchorAlsoFork = anchorKind === 'target' && isForkAnchor;
+		// A focused lane chain (Alt-hold or click-pin) takes over the dim: while it's active, dim tracks
+		// chain membership ALONE — an in-chain merge no longer dims itself away, and search/scope dims
+		// yield to it (search matches keep their own `is-highlighted` tint). The transient peek dims
+		// out-of-chain rows more softly than the pinned focus.
+		const chainActive = c.inRefChainShas != null;
+		const outOfChain = chainActive && c.inRefChainShas?.has(row.sha) !== true;
 		// This row's lane-segment tip (undefined for the trunk lane / rows outside any segment) — reused
 		// below for BOTH the fold-chevron hit-target (`laneTipSha`) and the ghost-ref resolution so the
 		// map lookup only happens once.
@@ -786,13 +808,16 @@ export class GlLitGraph extends LitElement {
 			isAnchor: isAnchor,
 			anchorKind: anchorKind,
 			anchorAlsoFork: anchorAlsoFork,
-			isDimmed:
-				(c.inScopeShas != null && !c.inScopeShas.has(row.sha)) ||
-				(c.dimMergeCommits === true && row.kind === 'merge') ||
-				// Active search dims every non-match (and every row when there are 0 matches).
-				(c.searchMatchedShas != null && !c.searchMatchedShas.has(row.sha)) ||
-				// Ref-hover: dim rows outside the hovered ref's first-parent chain so the chain pops.
-				(c.inRefChainShas != null && !c.inRefChainShas.has(row.sha)),
+			// A focused lane chain owns the dim while active (chain membership alone); otherwise the
+			// scope / merge / search reasons apply. See `chainActive`/`outOfChain` above.
+			isDimmed: chainActive
+				? outOfChain
+				: (c.inScopeShas != null && !c.inScopeShas.has(row.sha)) ||
+					(c.dimMergeCommits === true && row.kind === 'merge') ||
+					// Active search dims every non-match (and every row when there are 0 matches).
+					(c.searchMatchedShas != null && !c.searchMatchedShas.has(row.sha)),
+			// Transient (Alt-hold) out-of-chain rows dim softer than the pinned focus — a peek, not a mode.
+			isDimmedSoft: outOfChain && c.chainTransient === true,
 			// Highlight matched rows — only in `normal` mode (filter mode would hide non-matches, so the
 			// remaining rows are all matches and highlighting them would be redundant; matches the legacy).
 			isSearchMatch: c.searchMatchedShas?.has(row.sha) === true && c.searchMode !== 'filter',
@@ -1202,16 +1227,12 @@ export class GlLitGraph extends LitElement {
 		window.addEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
 		this.startRelativeTimeTimer();
 		document.addEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
-		window.addEventListener('keydown', this.onModifierKeyDown);
-		window.addEventListener('keyup', this.onModifierKeyUp);
 	}
 
 	override disconnectedCallback(): void {
 		window.removeEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
 		document.removeEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
 		this.stopRelativeTimeTimer();
-		window.removeEventListener('keydown', this.onModifierKeyDown);
-		window.removeEventListener('keyup', this.onModifierKeyUp);
 		// Release the gutter-template cache so a detached instance holds no `TemplateResult`s.
 		this.gutterCache.clear();
 		// Drop the persistent requested-avatars dedup so a reconnect re-scans from scratch.
@@ -1247,6 +1268,7 @@ export class GlLitGraph extends LitElement {
 			this.pinnedRefDismiss = undefined;
 		}
 		this._pinnedRefKey = undefined;
+		this._pinnedRefSha = undefined;
 		this.hoveredPillRef = undefined;
 		this.modifierChainShas = undefined;
 		if (this.tooltipShowTimer != null) {
@@ -1320,6 +1342,7 @@ export class GlLitGraph extends LitElement {
 			// adornments with the cleared pin) and dismiss any pinned ref popover.
 			if (this._pinnedRefKey != null || this.pinnedRefDismiss != null) {
 				this._pinnedRefKey = undefined;
+				this._pinnedRefSha = undefined;
 				this.refHoverChainShas = undefined;
 				if (this.pinnedRefDismiss != null) {
 					document.removeEventListener('pointerdown', this.pinnedRefDismiss, true);
@@ -1415,6 +1438,21 @@ export class GlLitGraph extends LitElement {
 		// The host window losing focus (e.g. Alt-Tab away) can leave the Alt-hold dim stuck — the same
 		// `blur` signal drives `gl-graph--window-unfocused` in render().
 		if (changed.has('windowFocused') && this.windowFocused === false) {
+			this.deactivateModifierChain();
+		}
+
+		// Reconcile the transient Alt-hold chain against the shared modifier tracker — the single source
+		// of Alt truth. The tracker `requestUpdate`s us on every Alt transition (including ones carried by
+		// a pointer event while the graph is unfocused, or a menu-bar-steal that swallowed the keyup), so
+		// this engages on Alt-press and reverts on release without a mouse move. `activateModifierChain`
+		// dedups against `lastModifierChainSeed`, so this per-update pass is a no-op once settled. The
+		// explicit calls in `handleRowHover`/`onPointerOverTooltip` still retarget on a row/pill change.
+		// Gate the re-activation on window focus: an Alt-Tab away doesn't fire keyup/visibilitychange, so
+		// the tracker can still read `altKey` true while unfocused — without this guard the reconcile would
+		// immediately undo the `windowFocused === false` deactivation above, leaving the dim stuck.
+		if (this._modifiers.altKey && this.windowFocused !== false) {
+			this.activateModifierChain();
+		} else if (this.modifierChainShas != null) {
 			this.deactivateModifierChain();
 		}
 
@@ -1551,6 +1589,24 @@ export class GlLitGraph extends LitElement {
 			);
 		} else if (rowsPayloadOnly) {
 			this.recomputeDisplayRows();
+		}
+
+		// The pinned ref's lane chain (and a held-Alt transient chain) was walked against the rows loaded
+		// at the time — now bounded precisely at the merge base, so a branch's older commits that page in
+		// later would otherwise arrive dimmed (outside the frozen set). Re-walk against the fresh rows. A
+		// scope change already cleared the pin above, so this only fires for genuine paging/reconcile.
+		if (rowsChanged && !rowsPayloadOnly) {
+			if (this._pinnedRefKey != null && this._pinnedRefSha != null) {
+				this.refHoverChainShas = this.laneChainFor(
+					this.pinnedChainShas(this._pinnedRefKey, this._pinnedRefSha),
+					'down',
+				);
+			}
+			if (this.modifierChainShas != null) {
+				// Force a re-walk (the seed dedup would otherwise keep the stale, shorter chain).
+				this.lastModifierChainSeed = undefined;
+				this.activateModifierChain();
+			}
 		}
 
 		const wipChanged =
@@ -1883,6 +1939,8 @@ export class GlLitGraph extends LitElement {
 			searchMode: this.searchMode,
 			// The transient Alt-hold chain overrides the click-pin while held; falls back to the pin.
 			inRefChainShas: this.modifierChainShas ?? this.refHoverChainShas,
+			// Transient (Alt-hold) gets a lighter dim than the pinned focus — a peek, not a mode.
+			chainTransient: this.modifierChainShas != null,
 			dimMergeCommits: this.config?.dimMergeCommits,
 			showGhostRefs: this.config?.showGhostRefsOnRowHover === true,
 			getAvatarUrl: this.resolveAvatarUrl,
@@ -3089,9 +3147,9 @@ export class GlLitGraph extends LitElement {
 		}
 
 		// Alt-hold ref-chain dim: track which pill (if any) is under the pointer on EVERY move, so an Alt
-		// keydown that arrives later knows what to activate against. Fires for every element in
-		// the viewport (not just pills) — resolving to `undefined` off a pill is what detects "left it"
-		// without needing a separate pointerout branch for the pill↔non-pill transition. Gated behind a
+		// press that arrives later (via the modifier tracker's willUpdate reconcile) knows what to activate
+		// against. Fires for every element in the viewport (not just pills) — resolving to `undefined` off
+		// a pill is what detects "left it" without a separate pointerout branch. Gated behind a
 		// cheap native `closest()` first: `resolvePillHover` walks `event.composedPath()` TWICE
 		// (resolveRef + resolveSha each do their own walk/allocation) — most pointer moves in the graph
 		// aren't anywhere near a pill, so this short-circuits the common case for free.
@@ -3104,7 +3162,8 @@ export class GlLitGraph extends LitElement {
 				this.hoveredPillRef.sha !== pill.sha
 			) {
 				this.hoveredPillRef = pill;
-				// Modifier already held when the pointer arrives (no fresh keydown to catch) — activate now.
+				// Modifier already held when the pointer arrives onto a new pill — retarget the chain now
+				// (the willUpdate reconcile only re-runs on an Alt transition, not this pointer move).
 				if (event.altKey) {
 					this.activateModifierChain();
 				}
@@ -3271,11 +3330,12 @@ export class GlLitGraph extends LitElement {
 		}
 
 		this._pinnedRefKey = key;
-		// Highlight BOTH the pinned ref's first-parent chain AND its tracked counterpart's (a local head
-		// ↔ its upstream remote, a remote ↔ the local tracking it) when the counterpart is in view, so the
-		// ahead/behind divergence reads as one picture. Falls back to just the pinned ref's chain.
-		this.refHoverChainShas =
-			sha != null ? identifyFirstParentChain(this.processedRows, this.pinnedChainShas(key, sha)) : undefined;
+		this._pinnedRefSha = sha ?? undefined;
+		// Highlight BOTH the pinned ref's lane AND its tracked counterpart's (a local head ↔ its upstream
+		// remote, a remote ↔ the local tracking it) when the counterpart is in view, so the ahead/behind
+		// divergence reads as one picture. Falls back to just the pinned ref's lane. Down-only: a ref is
+		// its lane tip, and the walk stops at the merge base so the highlight stays on the branch.
+		this.refHoverChainShas = sha != null ? this.laneChainFor(this.pinnedChainShas(key, sha), 'down') : undefined;
 		if (this.pinnedRefDismiss == null) {
 			this.pinnedRefDismiss = (e: PointerEvent): void => {
 				const t = e.target;
@@ -3304,6 +3364,7 @@ export class GlLitGraph extends LitElement {
 	// Clear the click-pinned ref focus (expand + dim) and detach the dismiss listener.
 	private clearPinnedRef(): void {
 		this._pinnedRefKey = undefined;
+		this._pinnedRefSha = undefined;
 		this.refHoverChainShas = undefined;
 		if (this.pinnedRefDismiss != null) {
 			document.removeEventListener('pointerdown', this.pinnedRefDismiss, true);
@@ -3348,9 +3409,11 @@ export class GlLitGraph extends LitElement {
 	// pin, this never touches `_pinnedRefKey`/adornments — the ref pills themselves don't change, only
 	// the per-row dim/chain flags read fresh off `modifierChainShas` each render, so there's no adornment
 	// cache to evict here (contrast `togglePinnedRef`/`clearPinnedRef`, which evict to promote/demote the
-	// inline pill). A hovered ref PILL wins (richer chain: the ref's own chain + its tracked
-	// counterpart); otherwise a hovered ROW (either zone — a `graph`-zone hover is still a row hover
-	// with a sha) seeds from its LANE TIP instead of its own sha (see `laneTipShaFor`).
+	// inline pill). A hovered ref PILL wins (richer chain: the ref's own chain + its tracked counterpart),
+	// walked DOWN-only since a ref IS its lane tip; otherwise a hovered ROW (either zone — a `graph`-zone
+	// hover is still a row hover with a sha) seeds from the row itself and walks BOTH ways to cover the
+	// whole lane ("the branch this commit is on"). Both stop at the fork/merge boundary (see
+	// `collectLaneChain`), so highlighting a branch never bleeds into the trunk below its merge base.
 	private activateModifierChain(): void {
 		if (this.hoveredPillRef != null) {
 			const pill = this.hoveredPillRef;
@@ -3358,54 +3421,62 @@ export class GlLitGraph extends LitElement {
 			if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
 
 			this.lastModifierChainSeed = seed;
-			this.modifierChainShas = identifyFirstParentChain(
-				this.processedRows,
-				this.pinnedChainShas(pill.key, pill.sha),
-			);
+			this.modifierChainShas = this.laneChainFor(this.pinnedChainShas(pill.key, pill.sha), 'down');
 			return;
 		}
 
-		if (this.hoveredRowSha != null) {
-			const seed = `row:${this.hoveredRowSha}`;
+		// No `hoveredRowSha` while the pointer sits on a row affordance (a `data-tooltip` action/anchor
+		// cancels the rich-hover card) — fall back to `pointerRowSha`, which survives that cancel, so Alt
+		// still engages with the pointer parked on a row's action strip.
+		const rowSha = this.hoveredRowSha ?? this.pointerRowSha;
+		if (rowSha != null) {
+			const seed = `row:${rowSha}`;
 			if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
 
 			this.lastModifierChainSeed = seed;
-			this.modifierChainShas = identifyFirstParentChain(this.processedRows, [
-				this.laneTipShaFor(this.hoveredRowSha),
-			]);
+			this.modifierChainShas = this.laneChainFor([rowSha], 'both');
 		}
 	}
 
-	// `identifyFirstParentChain` walks DOWNWARD only (seed → first parents), so a mid-lane row must
-	// seed from its LANE'S TIP, not its own sha, or only the older half would highlight. Reuses the
-	// exact ghost-ref resolution (`renderRowItem`'s `laneTipSha ?? c.trunkTipSha`): `segmentByCommit`
-	// (excludes the trunk segment) with `trunkGhostTipSha()` as the trunk fallback — which ALSO hops a
-	// workdir tip to its real-HEAD parent, so a hovered WIP row's lane resolves through its anchor the
-	// same way the trunk's ghost ref does. Falls back to the row's own sha when neither resolves.
-	private laneTipShaFor(sha: string): string {
-		return this.segmentByCommit.get(sha) ?? this.trunkGhostTipSha() ?? sha;
+	// Lane-bounded first-parent chain for the given seed tips, layered into `inRefChainShas`. Reuses the
+	// same cached `childrenBySha` the branching-point nav builds. Returns `undefined` (not an empty set)
+	// when no seed is in the current rows — an empty-but-non-null chain would read as "active" and dim
+	// the WHOLE graph with nothing highlighted (e.g. a paging re-walk whose pinned seed no longer exists).
+	private laneChainFor(seeds: readonly string[], direction: 'down' | 'both'): ReadonlySet<string> | undefined {
+		const children = this.ensureChildrenBySha();
+		const chain = collectLaneChain(this.processedRows, this.processedIndexBySha, children, seeds, direction);
+		// A `'down'` walk (a ref pin) stops AT the ref tip, so it misses the working-changes (WIP) row —
+		// a synthetic `workdir` row sitting one row ABOVE the current branch's tip on the same lane. Pull
+		// it in so pinning the current branch lights its WIP row too, matching the `'both'` row-hover walk
+		// (which reaches it as a same-column first-parent child). Only the current branch carries a WIP
+		// row, so this is a no-op for any other pinned ref.
+		if (direction === 'down') {
+			for (const seed of seeds) {
+				if (!chain.has(seed)) continue;
+
+				const seedCol = this.processedRowFor(seed)?.column;
+				for (const kid of children.get(seed) ?? []) {
+					if (!this.workdirShas.has(kid)) continue;
+
+					const kidRow = this.processedRowFor(kid);
+					if (kidRow?.parents[0] === seed && kidRow.column === seedCol) {
+						chain.add(kid);
+					}
+				}
+			}
+		}
+		return chain.size > 0 ? chain : undefined;
+	}
+
+	private processedRowFor(sha: string): ProcessedGraphRow | undefined {
+		const i = this.processedIndexBySha.get(sha);
+		return i != null ? this.processedRows[i] : undefined;
 	}
 
 	private deactivateModifierChain(): void {
 		this.modifierChainShas = undefined;
 		this.lastModifierChainSeed = undefined;
 	}
-
-	// A fresh press of Alt (not the key-repeat while held) while a pill OR a row is already
-	// hovered — the mirror of the "Alt already held, pointer arrives" branches in
-	// `onPointerOverTooltip`/`handleRowHover`.
-	private readonly onModifierKeyDown = (event: KeyboardEvent): void => {
-		if (event.repeat || event.key !== 'Alt') return;
-		if (this.hoveredPillRef == null && this.hoveredRowSha == null) return;
-
-		this.activateModifierChain();
-	};
-
-	private readonly onModifierKeyUp = (event: KeyboardEvent): void => {
-		if (event.key !== 'Alt') return;
-
-		this.deactivateModifierChain();
-	};
 
 	// Reconcile the click-pinned expand class after each render. The pill element is recreated on
 	// re-render (scroll/selection), so the imperative `.is-pinned` class can't live only on the DOM —
@@ -5273,9 +5344,18 @@ export class GlLitGraph extends LitElement {
 		return undefined;
 	}
 
-	// Lazy reverse-topology map for branching-point nav; rebuilt only when processedRows changes.
+	// Lazy reverse-topology map for branching-point nav + lane-chain highlight; rebuilt only when
+	// processedRows changes.
 	private childrenBySha: ReadonlyMap<string, readonly string[]> | undefined;
 	private childrenByShaRows: readonly ProcessedGraphRow[] | undefined;
+
+	private ensureChildrenBySha(): ReadonlyMap<string, readonly string[]> {
+		if (this.childrenBySha == null || this.childrenByShaRows !== this.processedRows) {
+			this.childrenBySha = buildChildrenBySha(this.processedRows);
+			this.childrenByShaRows = this.processedRows;
+		}
+		return this.childrenBySha;
+	}
 
 	// Next/prev branching point: walks the row's lane lineage (same-column hops) to the nearest fork
 	// point — a commit with a child on another lane (old-engine parity). Walks the FULL topology
@@ -5285,15 +5365,10 @@ export class GlLitGraph extends LitElement {
 		const fromSha = this.displayRows[from]?.sha;
 		if (fromSha == null) return undefined;
 
-		if (this.childrenBySha == null || this.childrenByShaRows !== this.processedRows) {
-			this.childrenBySha = buildChildrenBySha(this.processedRows);
-			this.childrenByShaRows = this.processedRows;
-		}
-
 		const sha = findBranchingPointSha(
 			this.processedRows,
 			this.processedIndexBySha,
-			this.childrenBySha,
+			this.ensureChildrenBySha(),
 			fromSha,
 			dir,
 		);

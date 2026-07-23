@@ -686,8 +686,11 @@ gl-lit-graph {
 			outline: 1px dashed var(--color-graph-contrast-border);
 			outline-offset: -1px;
 		}
+		// Lane-chain highlight (Alt-hold or click-pin): a brand tint so the branch's commits READ as
+		// highlighted against the dimmed rest — carries the emphasis on its own for the lighter transient
+		// dim (see `is-dimmed-soft`), not only as "the rows that didn't dim".
 		&.is-inRefChain {
-			--row-rest-bg: hsl(var(--brand) / 0.06);
+			--row-rest-bg: hsl(var(--brand) / 0.1);
 
 			background-color: var(--row-rest-bg);
 		}
@@ -741,6 +744,13 @@ gl-lit-graph {
 		}
 		&.is-dimmed {
 			opacity: 0.35;
+		}
+		// Transient Alt-hold peek: a lighter dim that FADES IN (so a branch-wide dim doesn't flash the
+		// instant Alt goes down) and snaps back on release — the transition lives only on this class, so
+		// removing it is instant. Overrides the 0.35 above (declared after, always paired with is-dimmed).
+		&.is-dimmed-soft {
+			opacity: 0.6;
+			transition: opacity 120ms ease-out;
 		}
 
 		// Lane-color BAND (graph = its own column), BOUNDED to the gutter: a soft gradient that FADES IN

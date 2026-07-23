@@ -146,6 +146,8 @@ export interface RowRenderContext {
 	/** The target row is ALSO the fork point (merge-base === target tip) — adds a combined base marker. */
 	anchorAlsoFork?: boolean;
 	isDimmed: boolean;
+	/** The dim is the lighter transient (Alt-hold) peek rather than the full pinned/search/scope dim. */
+	isDimmedSoft: boolean;
 	/** Row matches the active search (normal mode) — gets the search-highlight treatment. */
 	isSearchMatch: boolean;
 	isInRefChain: boolean;
@@ -1056,7 +1058,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		rowClasses += ' is-inRefChain';
 	}
 	if (ctx.isDimmed) {
-		rowClasses += ' is-dimmed';
+		rowClasses += ctx.isDimmedSoft ? ' is-dimmed is-dimmed-soft' : ' is-dimmed';
 	}
 	if (isWorkdir) {
 		rowClasses += ' is-workdir';

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildChildrenBySha, findBranchingPointSha } from '../navigation.js';
+import { buildChildrenBySha, collectLaneChain, findBranchingPointSha } from '../navigation.js';
 import type { Sha } from '../types.js';
 
 type NavRow = { sha: Sha; parents: readonly Sha[]; column: number };
@@ -103,5 +103,62 @@ suite('engine/navigation', () => {
 		const rows = makeRows();
 		const sha = findBranchingPointSha(rows, indexBySha(rows), buildChildrenBySha(rows), 'ZZZ', 1);
 		assert.strictEqual(sha, undefined);
+	});
+});
+
+suite('engine/navigation collectLaneChain', () => {
+	const chainOf = (rows: readonly NavRow[], seeds: Sha[], dir: 'down' | 'both'): Sha[] =>
+		[...collectLaneChain(rows, indexBySha(rows), buildChildrenBySha(rows), seeds, dir)].sort();
+
+	test('down from a ref tip yields only the branch, excluding the fork commit and the merge', () => {
+		// F2 is the feature lane tip. Down: F2 → F1 → (B is off-lane) stop. B (merge base) and M (merge
+		// on trunk) are trunk's, not the branch's.
+		assert.deepStrictEqual(chainOf(makeRows(), ['F2'], 'down'), ['F1', 'F2']);
+	});
+
+	test('both from a mid-lane row yields the whole lane, up to the tip and down to the fork', () => {
+		// From F1: down stops at the fork (B excluded); up hops to F2 (its same-column first-parent child)
+		// and stops — M is a merge whose FIRST parent is A, not F1, so it's off-lane.
+		assert.deepStrictEqual(chainOf(makeRows(), ['F1'], 'both'), ['F1', 'F2']);
+	});
+
+	test('a trunk seed has no fork point, so it walks the whole mainline', () => {
+		// Trunk (col 0) never crosses columns on its first parent → down from A reaches the root.
+		assert.deepStrictEqual(chainOf(makeRows(), ['A'], 'down'), ['A', 'B', 'C', 'D']);
+	});
+
+	test('both from a trunk row also picks up the merge above it', () => {
+		// Up from A: M is A's same-column first-parent child (M.parents[0] === A, both col 0).
+		assert.deepStrictEqual(chainOf(makeRows(), ['A'], 'both'), ['A', 'B', 'C', 'D', 'M']);
+	});
+
+	test('a single-commit lane yields just that commit (the laneTipShaFor regression)', () => {
+		// A one-commit feature G on col 1 that merges back at M. Its first parent B is off-lane, so the
+		// chain is exactly {G} — never the whole mainline.
+		const rows: NavRow[] = [row('M', ['A', 'G'], 0), row('G', ['B'], 1), row('A', ['B'], 0), row('B', [], 0)];
+		assert.deepStrictEqual(chainOf(rows, ['G'], 'down'), ['G']);
+	});
+
+	test('a chain whose parent has not paged in terminates cleanly', () => {
+		// B/C/D are not loaded — the walk stops when the next first parent is absent.
+		const rows: NavRow[] = [row('F2', ['F1'], 1), row('F1', ['B'], 1)];
+		assert.deepStrictEqual(chainOf(rows, ['F2'], 'down'), ['F1', 'F2']);
+	});
+
+	test('multiple seeds union — a diverged local + tracked remote', () => {
+		// Local tip L (col 1) and remote tip R (col 2), each its own lane off a shared base.
+		const rows: NavRow[] = [
+			row('L', ['P1'], 1),
+			row('R', ['P2'], 2),
+			row('P1', ['Base'], 1),
+			row('P2', ['Base'], 2),
+			row('Base', [], 0),
+		];
+		// Both lanes highlight; the shared base (col 0) is excluded from both walks.
+		assert.deepStrictEqual(chainOf(rows, ['L', 'R'], 'down'), ['L', 'P1', 'P2', 'R']);
+	});
+
+	test('an unloaded seed contributes nothing', () => {
+		assert.deepStrictEqual(chainOf(makeRows(), ['ZZZ'], 'both'), []);
 	});
 });
