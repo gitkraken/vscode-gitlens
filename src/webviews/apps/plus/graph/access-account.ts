@@ -8,6 +8,7 @@ import { boxSizingBase, scrollableBase } from '@gitlens/components/components/st
 import type { Source } from '../../../../constants.telemetry.js';
 import type { SubscriptionLoginCommandArgs } from '../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../system/commands.js';
+import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { graphStateContext } from './context.js';
@@ -413,7 +414,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				margin-block: 0;
 				font-size: var(--gl-font-lg);
 				font-weight: 600;
-				color: var(--vscode-foreground);
+				color: var(--color-foreground);
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 60ms both;
 			}
 
