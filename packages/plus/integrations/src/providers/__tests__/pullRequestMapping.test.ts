@@ -96,6 +96,14 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 		assert.equal(roundTrip.headRepository?.isFork, true);
 	});
 
+	test('description round-trips through the normalized PullRequest body', () => {
+		const roundTrip = toProviderPullRequest(
+			fromProviderPullRequest(createProviderPullRequest({ description: 'PR body' }), fakeProvider),
+		);
+
+		assert.equal(roundTrip.description, 'PR body');
+	});
+
 	test('remoteInfo is left null when a ref carries only a partial clone URL pair', () => {
 		const roundTrip = toProviderPullRequest(
 			fromProviderPullRequest(
