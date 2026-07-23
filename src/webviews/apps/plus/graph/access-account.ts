@@ -6,6 +6,7 @@ import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
 import { CloseGraphWalkthroughBannerCommand } from '../../../plus/graph/protocol.js';
+import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
 import { graphStateContext } from './context.js';
 import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
@@ -22,12 +23,12 @@ const syncStatusDelayMs = 1500;
 @customElement('gl-graph-access-account')
 export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	static override styles = [
+		boxSizingBase,
 		css`
 			:host {
 				--link-foreground: var(--vscode-textLink-foreground);
 				--link-foreground-active: var(--vscode-textLink-activeForeground);
 
-				box-sizing: border-box;
 				display: flex;
 				align-items: safe center;
 				justify-content: center;
@@ -76,7 +77,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				margin-block: 0;
 				font-size: var(--gl-font-lg);
 				font-weight: 600;
-				color: var(--vscode-foreground);
+				color: var(--color-foreground);
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 60ms both;
 			}
 
