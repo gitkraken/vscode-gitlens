@@ -112,11 +112,25 @@ function resolvePanel(webview: FrameLocator) {
  * "panel is visible" assertion pass without the command having routed.
  */
 async function exitResolveMode(webview: FrameLocator): Promise<void> {
-	const closeChip = webview.locator('gl-action-chip.mode-close').first();
-	if (await closeChip.isVisible().catch(() => false)) {
-		await closeChip.click();
-		await expect(resolvePanel(webview)).toBeHidden({ timeout: MaxTimeout });
-	}
+	const panel = resolvePanel(webview);
+	if (
+		!(await panel
+			.first()
+			.isVisible()
+			.catch(() => false))
+	)
+		return;
+	// The resolve-mode header re-renders while the conflicted WIP is being watched, detaching the close
+	// chip between actionability and click (a single click races that re-render). Retry a forced click
+	// until the resolve panel is actually hidden rather than relying on one stable click landing.
+	await expect(async () => {
+		await webview
+			.locator('gl-action-chip.mode-close')
+			.first()
+			.click({ force: true, timeout: 2000 })
+			.catch(() => {});
+		await expect(panel).toBeHidden({ timeout: 1000 });
+	}).toPass({ timeout: MaxTimeout });
 }
 
 /** Open the Commit Graph and wait until the conflicted WIP row has rendered. */
