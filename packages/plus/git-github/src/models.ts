@@ -193,6 +193,7 @@ export type GitHubPullRequestReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'C
 
 export interface GitHubPullRequest extends GitHubPullRequestLite {
 	additions: number;
+	body: string;
 	assignees: {
 		nodes: GitHubMember[];
 	};
@@ -471,6 +472,9 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			url: r.url,
 		})),
 		fromGitHubPullRequestStatusCheckRollupState(pr.commits.nodes?.[0]?.commit.statusCheckRollup?.state),
+		undefined, // project
+		undefined, // version
+		pr.body,
 	);
 }
 

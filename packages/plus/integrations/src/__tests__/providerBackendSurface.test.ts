@@ -52,7 +52,7 @@ function providerPr(id: string): ProviderPullRequest {
 		id: id,
 		number: Number(id),
 		title: `PR ${id}`,
-		description: null,
+		description: `Body of PR ${id}`,
 		url: `https://example.com/pull/${id}`,
 		state: GitPullRequestState.Open,
 		isCrossRepository: false,
@@ -101,6 +101,7 @@ function searchPullRequest(id: string, state: 'open' | 'closed' | 'merged'): Pul
 		id: id,
 		nodeId: `node-${id}`,
 		title: `PR ${id}`,
+		body: `Body of PR ${id}`,
 		url: `https://example.com/pull/${id}`,
 		state: state === 'open' ? 'opened' : state,
 		createdDate: new Date('2024-01-01T00:00:00Z'),
@@ -179,6 +180,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			result.items.map(pr => pr.id),
 			['2', '3'],
 			'only the requested page is returned after draining',
+		);
+		assert.deepEqual(
+			result.items.map(pr => pr.body),
+			['Body of PR 2', 'Body of PR 3'],
+			'the provider description survives the normalized PullRequestShape (#5549)',
 		);
 		assert.equal(result.page.currentPage, 2, 'currentPage reflects the requested page after draining');
 		assert.equal(result.page.itemsPerPage, 2, 'itemsPerPage reflects the returned page after draining');
@@ -342,6 +348,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 		assert.deepEqual(seenStates, ['closed', 'merged']);
 		assert.equal(result.items.length, 2, 'closed and merged PRs survive the account-wide sweep');
+		assert.deepEqual(
+			result.items.map(pr => pr.body).sort(),
+			['Body of PR 1', 'Body of PR 2'],
+			'the search fragment body survives the per-state round-trip through toProviderPullRequest (#5549)',
+		);
 		assert.equal(result.page.truncated, true, 'GitHub search truncation is surfaced on the page');
 		assert.equal(result.warnings.length, 1, 'a generic truncation warning is emitted when no metadata explains it');
 		assert.equal(result.warnings[0].kind, 'other');
