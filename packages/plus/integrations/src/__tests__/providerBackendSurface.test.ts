@@ -349,6 +349,52 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listPullRequestsPage maps account-wide ReviewRequested to includeReviewRequested for Bitbucket (#5551)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		let capturedOptions: { state?: string[]; cursor?: string; includeReviewRequested?: boolean } | undefined;
+		(
+			bb as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					state?: string[];
+					cursor?: string;
+					includeReviewRequested?: boolean;
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = options => {
+			capturedOptions = options;
+			return Promise.resolve({
+				value: {
+					values: [providerPr('1')],
+					paging: { more: false, cursor: '{}' },
+				},
+			});
+		};
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.Bitbucket,
+			filters: [PullRequestFilter.ReviewRequested],
+			states: ['open'],
+		});
+
+		assert.equal(capturedOptions?.includeReviewRequested, true, 'the seam opts into the reviewer slice');
+		assert.deepEqual(capturedOptions?.state, ['open'], 'the requested states still reach the account-wide core');
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['1'],
+			'the account-wide read still returns the provider PRs after enabling the reviewer slice',
+		);
+		assert.equal(result.warnings.length, 0);
+
+		manager.dispose();
+	});
+
 	test('listPullRequestsPage preserves GitHub account-wide per-state cursors', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

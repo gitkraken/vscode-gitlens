@@ -64,12 +64,12 @@ import type {
 	ProviderReposInput,
 	ProviderRepository,
 	ProviderRepositoryShape,
-	PullRequestFilter,
 } from './providers/models.js';
 import {
 	fromProviderPullRequest,
 	IssueFilter,
 	providersMetadata,
+	PullRequestFilter,
 	toProviderRepositoryShape,
 } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
@@ -1508,8 +1508,10 @@ export class IntegrationService implements Disposable {
 		states?: PullRequestStateFilter[];
 		/**
 		 * PR filters to narrow a repo-scoped read to the current user (e.g. `[Author, Assignee,
-		 * ReviewRequested]`). Narrowed to what the provider supports; ignored on the account-wide (no-repos)
-		 * path, which is already user-scoped.
+		 * ReviewRequested]`). Narrowed to what the provider supports. On the account-wide (no-repos) path the
+		 * read is already user-scoped, so these don't narrow it — except `ReviewRequested`, which opts into the
+		 * review-requested slice on backends whose native account-wide query returns authored PRs only (see
+		 * {@link GitHostIntegration.getMyPullRequestsForUserResult}).
 		 */
 		filters?: PullRequestFilter[];
 		page?: number;
@@ -1538,10 +1540,11 @@ export class IntegrationService implements Disposable {
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
 		// With no repos this is an account-wide "my PRs" read; the repo-scoped core rejects an empty `repos`
 		// input, so route to the account-wide, inherently user-scoped core instead (see drainPullRequests).
-		// That path is cursor-based and already user-scoped, so `filters`/`page`/`pageSize` don't apply there
-		// — continuation is via the opaque `cursor` only. Do NOT synthesize a page-number cursor for it: the
-		// underlying query (e.g. GitHub `involves:`) ignores a page number and returns its first page, which
-		// would then be mislabeled as page N.
+		// That path is cursor-based and already user-scoped, so `page`/`pageSize` don't apply there and `filters`
+		// don't narrow it (only `ReviewRequested` toggles the opt-in reviewer slice below) — continuation is via
+		// the opaque `cursor` only. Do NOT synthesize a page-number cursor for it: the underlying query (e.g.
+		// GitHub `involves:`) ignores a page number and returns its first page, which would then be mislabeled
+		// as page N.
 		const accountWide = (options.repos?.length ?? 0) === 0;
 		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
 
@@ -1560,10 +1563,17 @@ export class IntegrationService implements Disposable {
 			};
 		}
 
+		// The account-wide read is inherently user-scoped, so repo-scoped `filters` don't narrow it — but the
+		// review-requested slice is opt-in on backends whose native account-wide query returns authored PRs only
+		// (Bitbucket fans out per-repo for it). Honor `PullRequestFilter.ReviewRequested` as that opt-in so a
+		// caller pays the fan-out cost only when it deliberately asks for review-requested PRs.
+		const includeReviewRequested = accountWide
+			? (options.filters?.includes(PullRequestFilter.ReviewRequested) ?? false)
+			: false;
 		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
 			accountWide
 				? integration.getMyPullRequestsForUserResult(
-						{ state: options.states, cursor: cursor },
+						{ state: options.states, cursor: cursor, includeReviewRequested: includeReviewRequested },
 						options.connectionId,
 					)
 				: integration.getMyPullRequestsForReposResult(
@@ -2282,8 +2292,13 @@ export class IntegrationService implements Disposable {
 
 		// With no repos this is an account-wide "my PRs" sweep. The repo-scoped core rejects an empty `repos`
 		// input (`isRepoIdsInput([])` is true → "Unsupported input"), so read the account-wide, inherently
-		// user-scoped core instead; `filters` don't apply there (the provider query is already user-scoped).
+		// user-scoped core instead; `filters` don't narrow it (the provider query is already user-scoped), but
+		// `ReviewRequested` opts into the reviewer slice on backends whose native account-wide read is
+		// authored-only (Bitbucket fans out per-repo for it), so honor it as that opt-in.
 		const accountWide = repos.length === 0;
+		const includeReviewRequested = accountWide
+			? (filters?.includes(PullRequestFilter.ReviewRequested) ?? false)
+			: false;
 
 		for (;;) {
 			page++;
@@ -2291,7 +2306,10 @@ export class IntegrationService implements Disposable {
 			const pageCursor = cursor;
 			const { value, warning } = await this.runCaptured(id, domain, connectionId, () =>
 				accountWide
-					? integration.getMyPullRequestsForUserResult({ state: state, cursor: pageCursor }, connectionId)
+					? integration.getMyPullRequestsForUserResult(
+							{ state: state, cursor: pageCursor, includeReviewRequested: includeReviewRequested },
+							connectionId,
+						)
 					: integration.getMyPullRequestsForReposResult(
 							repos,
 							{ state: state, filters: filters, cursor: pageCursor },
