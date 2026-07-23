@@ -5044,6 +5044,9 @@
 											{
 												"type": "object",
 												"properties": {
+													"blame": {
+														"type": "boolean"
+													},
 													"compare": {
 														"type": "boolean"
 													},
@@ -5307,6 +5310,7 @@
 								"compare": true
 							},
 							"editorGutter": {
+								"blame": true,
 								"compare": true,
 								"remote": true,
 								"share": true
@@ -17120,6 +17124,11 @@
 				}
 			],
 			"editor/lineNumber/context": [
+				{
+					"submenu": "gitlens/editor/annotations",
+					"when": "resourceScheme in gitlens:schemes:trackable && resource in gitlens:tabs:blameable && config.gitlens.menus.editorGutter.blame",
+					"group": "2_gitlens@1"
+				},
 				{
 					"submenu": "gitlens/editor/lineNumber/context/share",
 					"when": "resourceScheme in gitlens:schemes:trackable && gitlens:repos:withRemotes && config.gitlens.menus.editorGutter.share",

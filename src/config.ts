@@ -587,6 +587,7 @@ export interface MenuConfig {
 	readonly editorGutter:
 		| false
 		| {
+				readonly blame: boolean;
 				readonly compare: boolean;
 				readonly remote: boolean;
 				readonly share: boolean;

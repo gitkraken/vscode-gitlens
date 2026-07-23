@@ -20006,6 +20006,13 @@
 						"order": 1
 					}
 				],
+				"editor/lineNumber/context": [
+					{
+						"when": "resourceScheme in gitlens:schemes:trackable && resource in gitlens:tabs:blameable && config.gitlens.menus.editorGutter.blame",
+						"group": "2_gitlens",
+						"order": 1
+					}
+				],
 				"editor/title": [
 					{
 						"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
