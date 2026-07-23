@@ -4563,8 +4563,10 @@ web-graph {
 	padding: 0.1rem;
 	overflow: hidden;
 
-	// Account + integrations bar (issue #5411): sits above the graph header, always visible so
-	// account/integrations state is available when the Graph is the main GitLens panel.
+	// Account + integrations bar (issue #5411): sits above the graph header so account/integrations
+	// state is available when the Graph is the main GitLens panel. When the view is vertically
+	// constrained, the row is dropped and compact chips render inline in the graph header instead —
+	// see `headerInlineEnterPx`/`_headerInlineMode` in graph-app.ts (issue #5449).
 	&__account-bar {
 		position: relative;
 		z-index: var(--gl-z-sticky);

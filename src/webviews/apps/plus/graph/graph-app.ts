@@ -146,6 +146,13 @@ const detailsMaxPct = 80;
 const detailsAutoBottomEnterPx = 820;
 const detailsAutoBottomExitPx = 920;
 
+// Height thresholds (px) for the account bar's inline mode (issue #5449) — below `enter` the bar
+// gives up its own row and its chips move into the graph header's right group; above `exit` it
+// returns to a full-width row. The dead-band between them prevents flicker when the view is
+// dragged across the boundary (e.g. resizing the bottom panel).
+const headerInlineEnterPx = 400;
+const headerInlineExitPx = 460;
+
 const minimapDefaultPx = 40;
 const minimapMaxPct = 40;
 
@@ -378,6 +385,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		context: aiContext,
 		initialValue: this._aiState,
 	});
+	/** Height-driven presentation of the account bar (issue #5449): `false` = full-width row above
+	 *  the header (bar mode); `true` = chips inlined into the graph header's right group. Driven by
+	 *  `_graphSizeObserver` with enter/exit hysteresis (mirrors `_autoEffectiveLocation`, including
+	 *  the `@state` treatment). */
+	@state()
+	private _headerInlineMode = false;
+
 	/** Guards the account-bar context wiring. Set true while wired (see `updated()`); reset by the
 	 *  disarm branch when the home-header flag flips off so it can re-arm. */
 	private _accountContextsInitialized = false;
@@ -494,22 +508,39 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						this.persistState();
 					}
 				}
+
+				// Same hysteresis pattern for the account bar's inline mode (issue #5449), driven by
+				// height. Mode flips only change the header's contents — `.graph`'s own size is
+				// viewport-determined, so this can't feed back into the observer.
+				if (!this._headerInlineMode && height < headerInlineEnterPx) {
+					this._headerInlineMode = true;
+				} else if (this._headerInlineMode && height > headerInlineExitPx) {
+					this._headerInlineMode = false;
+				}
 			}
 		});
 	}
 
-	private _graphObserved = false;
+	private _observedGraphRoot: HTMLElement | undefined;
 
 	// Observe the outer `.graph` div once rendered — it contains the entire layout (header, panes,
-	// sidebar, React mount), so freezing this one element freezes everything inside it. Idempotent and
-	// driven from both `firstUpdated` and `updated`: `.graph` is absent on the first render when the
-	// account-access screen replaces the tree (signed out), so it must attach when the graph appears
-	// after sign-in — where `firstUpdated` no longer fires.
+	// sidebar, React mount), so freezing this one element freezes everything inside it. Identity-tracked
+	// (not a one-shot latch) and driven from both `firstUpdated` and `updated`: the signed-out
+	// account-access screen replaces the whole tree, so `.graph` is absent on the first render in that
+	// state AND is a brand-new element after each sign-out/sign-in cycle — a latch would leave the new
+	// element unobserved, freezing every height/width-driven behavior (inline header mode, `auto`
+	// details location) until a webview reload.
 	private ensureGraphObserved(): void {
-		if (this._graphObserved || this.graphRootEl == null || this._graphSizeObserver == null) return;
+		const el = this.graphRootEl;
+		if (el === this._observedGraphRoot || this._graphSizeObserver == null) return;
 
-		this._graphObserved = true;
-		this._graphSizeObserver.observe(this.graphRootEl);
+		if (this._observedGraphRoot != null) {
+			this._graphSizeObserver.unobserve(this._observedGraphRoot);
+		}
+		this._observedGraphRoot = el;
+		if (el != null) {
+			this._graphSizeObserver.observe(el);
+		}
 	}
 
 	protected override firstUpdated(): void {
@@ -540,6 +571,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		this._graphSizeObserver?.disconnect();
 		this._graphSizeObserver = undefined;
+		// Reset the identity tracking so a reconnect (which creates a fresh observer) re-observes the
+		// root even when the DOM element survived the disconnect.
+		this._observedGraphRoot = undefined;
 		if (this._releaseSuspensionRafId != null) {
 			cancelAnimationFrame(this._releaseSuspensionRafId);
 			this._releaseSuspensionRafId = undefined;
@@ -1674,6 +1708,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const detailsVisible = this.graphState.details?.visible ?? false;
 		const minimapVisible = this.graphState.minimap?.visible ?? true;
 		const { single, multi } = this.activeSelection;
+		const homeHeaderEnabled = this.graphState.config?.experimentalHomeHeaderEnabled ?? false;
 		// No repository open: render only the empty state — skip the header and the whole graph subtree
 		// (React GraphContainer + minimap + sidebar + details) rather than mounting them just to paint the
 		// empty state over the top. `repositories` is `undefined` during the initial load window, so `=== 0`
@@ -1685,7 +1720,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return html`
 			<div class="graph">
 				${when(
-					this.graphState.config?.experimentalHomeHeaderEnabled ?? false,
+					// With no repository open the header row (the inline chips' host) isn't rendered, so keep
+					// the bar in that case even when vertically constrained — otherwise the account and
+					// integrations info would disappear entirely.
+					homeHeaderEnabled && (!this._headerInlineMode || noRepos),
 					() => html`<gl-account-bar class="graph__account-bar"></gl-account-bar>`,
 				)}
 				${when(
@@ -1693,6 +1731,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					() => html`
 						<gl-graph-header
 							class="graph__header"
+							.accountBarInline=${homeHeaderEnabled && this._headerInlineMode}
 							.selectCommits=${this.selectCommits}
 							.getCommits=${this.getCommits}
 							.ensureGraphRendered=${this.ensureGraphRendered}
