@@ -1194,7 +1194,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		graphQLId: pr.nodeId,
 		number: Number.parseInt(pr.id, 10),
 		title: pr.title,
-		description: null,
+		description: pr.body ?? null,
 		url: pr.url,
 		state: toProviderPullRequestState(pr.state),
 		isCrossRepository: pr.refs?.isCrossRepository ?? false,
@@ -1367,6 +1367,7 @@ export function fromProviderPullRequest(
 			: undefined,
 		options?.project,
 		pr.version,
+		pr.description ?? undefined,
 	);
 }
 

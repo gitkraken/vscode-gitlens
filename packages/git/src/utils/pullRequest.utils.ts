@@ -93,6 +93,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		id: value.id,
 		nodeId: value.nodeId,
 		title: value.title,
+		body: value.body,
 		url: value.url,
 		createdDate: value.createdDate,
 		updatedDate: value.updatedDate,
