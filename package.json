@@ -1208,7 +1208,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how absolute dates will be formatted in the _Commit Graph_, when not specified `#gitlens.defaultDateFormat#` is used. Use `full`, `long`, `medium`, `short`, or a custom format, e.g. `MMMM Do, YYYY h:mma`, similar to [Moment.js formats](https://momentjs.com/docs/#/displaying/format/). Only applies when `#gitlens.graph.dateFormat#` is set to `absolute`",
+						"markdownDescription": "Specifies how absolute dates will be formatted in the _Commit Graph_, when not specified `#gitlens.defaultDateFormat#` is used. Use `full`, `long`, `medium`, `short`, or a custom format, e.g. `MMMM Do, YYYY h:mma`, similar to [Moment.js formats](https://momentjs.com/docs/#/displaying/format/). Only applies when `#gitlens.graph.dateStyle#` is set to `absolute`",
 						"scope": "window",
 						"order": 601
 					},
