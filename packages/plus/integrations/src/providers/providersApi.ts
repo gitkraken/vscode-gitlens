@@ -141,6 +141,7 @@ export class ProvidersApi {
 					providerApis.gitlab,
 				) as GetIssuesForReposFn,
 				getIssuesForRepoFn: providerApis.gitlab.getIssuesForRepo.bind(providerApis.gitlab),
+				getIssuesForCurrentUserFn: providerApis.gitlab.getIssuesForCurrentUser.bind(providerApis.gitlab),
 				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
 				getGroupsForCurrentUserFn: providerApis.gitlab.getGroupsForCurrentUser.bind(providerApis.gitlab),
 				getReposForCurrentUserFn: providerApis.gitlab.getReposForCurrentUser.bind(providerApis.gitlab),
@@ -162,6 +163,7 @@ export class ProvidersApi {
 					providerApis.gitlab,
 				) as GetIssuesForReposFn,
 				getIssuesForRepoFn: providerApis.gitlab.getIssuesForRepo.bind(providerApis.gitlab),
+				getIssuesForCurrentUserFn: providerApis.gitlab.getIssuesForCurrentUser.bind(providerApis.gitlab),
 				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
 				getGroupsForCurrentUserFn: providerApis.gitlab.getGroupsForCurrentUser.bind(providerApis.gitlab),
 				getReposForCurrentUserFn: providerApis.gitlab.getReposForCurrentUser.bind(providerApis.gitlab),
@@ -1313,14 +1315,26 @@ export class ProvidersApi {
 
 	async getIssuesForCurrentUser(
 		tokenOptInfo: TokenWithInfo,
-		options?: PagingInput & { isPAT?: boolean; baseUrl?: string },
+		options?: PagingInput & {
+			// Forwarded to the provider fn (GitLab's account-wide REST read); Linear ignores them.
+			scope?: 'assigned_to_me' | 'all';
+			assigneeUsername?: string;
+			pageSize?: number;
+			isPAT?: boolean;
+			baseUrl?: string;
+		},
 	): Promise<PagedResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getIssuesForCurrentUserFn',
 		);
 		return this.getPagedResult<ProviderIssue>(
-			options,
+			{
+				scope: options?.scope,
+				assigneeUsername: options?.assigneeUsername,
+				page: options?.page,
+				pageSize: options?.pageSize,
+			},
 			provider.getIssuesForCurrentUserFn,
 			tokenWithInfo,
 			options?.cursor ?? undefined,
