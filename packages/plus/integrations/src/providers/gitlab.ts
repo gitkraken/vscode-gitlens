@@ -11,6 +11,7 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
@@ -23,6 +24,7 @@ import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models.js';
@@ -449,6 +451,89 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		return apiResult.values
 			.map(issue => toIssueShape(issue, this))
 			.filter((result): result is IssueShape => result != null);
+	}
+
+	/**
+	 * Account-wide "my issues" for GitLab. GitLab's repo-scoped issue read bails without repos, and GitLab has
+	 * no GraphQL cross-project issue field, so this goes through the SDK's REST `GET /issues` read
+	 * ({@link ProvidersApi.getIssuesForCurrentUser}). Open issues only (matching GitHub's baked `is:open`).
+	 *
+	 * Default scope is the current user's assigned issues; `includeAllAssignees` broadens to `scope=all` (every
+	 * visible issue, any assignee). The read is numbered-paged, so each page is drained to exhaustion, bounded by
+	 * a defensive backstop — a hit backstop is reported as `truncated` so the facade surfaces an incomplete read
+	 * rather than publishing a partial list as complete.
+	 */
+	protected override async searchProviderMyIssuesWithTruncation(
+		session: ProviderAuthenticationSession,
+		_resources?: GitLabRepositoryDescriptor[],
+		cancellation?: AbortSignal,
+		options?: SearchMyIssuesOptions,
+	): Promise<AccountWideIssuesResult | undefined> {
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const api = await this.getProvidersApi();
+
+		// Resolve the username from THIS session's token (multi-account safe), matching the PR account-wide read.
+		// Only needed to scope the default (assigned-to-me) read; the all-assignees broaden drops it.
+		const username = options?.includeAllAssignees
+			? undefined
+			: (await this.getProviderCurrentAccount(session))?.username;
+		if (!options?.includeAllAssignees && username == null) return undefined;
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const baseUrl = this.isEnterprise ? `https://${this.domain}` : undefined;
+		const maxPages = 20;
+		// Dedupe by `url`, not `IssueShape.id`: for GitLab `id` is the per-project `iid`, which collides across
+		// projects in an account-wide read (two repos both have issue `#1`), so an id-keyed map would silently
+		// drop distinct issues. `url` is globally unique. Matches the GitHub/GitLab account-wide PR reads.
+		const issuesByUrl = new Map<string, IssueShape>();
+		let truncated = false;
+		let cursor: string | undefined;
+		for (let page = 1; ; page++) {
+			if (cancellation?.aborted) throw new CancellationError();
+
+			const result = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
+				scope: options?.includeAllAssignees ? 'all' : 'assigned_to_me',
+				assigneeUsername: username,
+				isPAT: this.isEnterprise,
+				baseUrl: baseUrl,
+				cursor: cursor,
+			});
+			if (cancellation?.aborted) throw new CancellationError();
+
+			for (const issue of result.values) {
+				const shape = toIssueShape(issue, this);
+				if (shape != null && !issuesByUrl.has(shape.url)) {
+					issuesByUrl.set(shape.url, shape);
+				}
+			}
+
+			// A page that couldn't confirm completeness (SDK metadata incompleteness) means the read is already
+			// incomplete, independent of the backstop below.
+			if (result.paging?.truncated) {
+				truncated = true;
+			}
+
+			if (!(result.paging?.more ?? false)) {
+				break;
+			}
+
+			const paging = result.paging;
+			const nextCursor = paging?.cursor;
+			if (nextCursor == null || nextCursor === '{}' || nextCursor === cursor) {
+				truncated = true;
+				break;
+			}
+
+			if (page >= maxPages) {
+				truncated = true;
+				break;
+			}
+
+			cursor = nextCursor;
+		}
+
+		return { values: [...issuesByUrl.values()], truncated: truncated };
 	}
 
 	protected override async searchProviderPullRequests(

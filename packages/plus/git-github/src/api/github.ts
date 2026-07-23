@@ -3452,6 +3452,7 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 			includeBody?: boolean;
+			includeAllAssignees?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
@@ -3524,6 +3525,15 @@ export class GitHubApi {
 		}
 
 		const baseFilters = 'type:issue is:open archived:false';
+		// `includeAllAssignees` broadens the assigned category from "assigned to me" to "assigned to anyone"
+		// (`assignee:*` is GitHub's has-any-assignee qualifier). Authored/mentioned stay bound to `@me` — they're
+		// user-relative by definition, so an all-assignees read still only surfaces the current user's authored
+		// and mentioned issues plus every assigned-to-anyone issue.
+		//
+		// NOTE: GitHub only honors `assignee:*` when the search is scoped to a single repository (see GitHub's
+		// issue-search docs). Callers using `includeAllAssignees` must scope the read via `repos` (the broaden
+		// fan-out does this per org/repo); an unscoped account-wide `assignee:*` is not meaningful to GitHub.
+		const assignedQualifier = options?.includeAllAssignees ? 'assignee:*' : 'assignee:@me';
 		try {
 			const rsp = await this.graphql<SearchResult>(
 				provider,
@@ -3531,7 +3541,7 @@ export class GitHubApi {
 				query,
 				{
 					authored: `${search} ${baseFilters} author:@me`.trim(),
-					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
+					assigned: `${search} ${baseFilters} ${assignedQualifier}`.trim(),
 					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,

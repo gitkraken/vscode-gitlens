@@ -856,6 +856,346 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssuesPage reads GitLab account-wide issues (assigned-to-me by default) instead of reporting unsupported (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		let capturedScope: string | undefined;
+		let capturedAssignee: string | undefined | 'unset' = 'unset';
+		stubApi(gl, {
+			getIssuesForCurrentUser: (_t: unknown, opts: { scope?: string; assigneeUsername?: string }) => {
+				capturedScope = opts.scope;
+				capturedAssignee = opts.assigneeUsername;
+				return Promise.resolve({
+					values: [
+						{
+							id: 'gl-1',
+							number: '1',
+							url: 'u',
+							updatedDate: new Date(),
+							labels: [],
+							assignees: [],
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: false, cursor: '{}' },
+				});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab });
+		assert.equal(result.items.length, 1, 'GitLab account-wide issues are returned');
+		assert.equal(
+			result.warnings.some(w => /not supported/i.test(w.message)),
+			false,
+			'GitLab is no longer reported as unsupported for account-wide issues',
+		);
+		assert.equal(capturedScope, 'assigned_to_me', 'the default read is scoped to the current user');
+		assert.equal(capturedAssignee, 'me', 'the assignee is the resolved current user');
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage broadens GitLab account-wide to scope=all with no assignee when includeAllAssignees is set (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		let capturedScope: string | undefined;
+		let capturedAssignee: string | undefined | 'unset' = 'unset';
+		let currentUserCalled = false;
+		stubApi(gl, {
+			getCurrentUser: () => {
+				currentUserCalled = true;
+				return Promise.resolve({ username: 'me', name: 'Me' });
+			},
+			getIssuesForCurrentUser: (_t: unknown, opts: { scope?: string; assigneeUsername?: string }) => {
+				capturedScope = opts.scope;
+				capturedAssignee = opts.assigneeUsername;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab, includeAllAssignees: true });
+		assert.equal(capturedScope, 'all', 'includeAllAssignees broadens to every visible issue');
+		assert.equal(capturedAssignee, undefined, 'the all-assignees read drops the per-user assignee filter');
+		assert.equal(
+			currentUserCalled,
+			false,
+			'no current-user lookup is needed when the read is not scoped to the user',
+		);
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage reports GitLab account-wide truncation when the page backstop is hit (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		// Every page reports another page, so the drain never terminates on its own and must stop at the backstop.
+		let calls = 0;
+		stubApi(gl, {
+			getIssuesForCurrentUser: () => {
+				calls++;
+				return Promise.resolve({
+					values: [
+						{
+							id: `gl-${calls}`,
+							number: `${calls}`,
+							url: 'u',
+							updatedDate: new Date(),
+							labels: [],
+							assignees: [],
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: true, cursor: JSON.stringify({ value: calls, type: 'page' }) },
+				});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab });
+		assert.equal(result.page.truncated, true, 'an unbounded read is capped at the backstop and reported truncated');
+		assert.ok(
+			result.warnings.some(w => /truncat/i.test(w.message)),
+			'a warning explains the read was truncated',
+		);
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage marks GitLab account-wide reads truncated when the provider reports more but no usable cursor (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		let calls = 0;
+		stubApi(gl, {
+			getIssuesForCurrentUser: () => {
+				calls++;
+				return Promise.resolve({
+					values: [
+						{
+							id: 'gl-1',
+							number: '1',
+							url: 'u',
+							updatedDate: new Date(),
+							labels: [],
+							assignees: [],
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: true, cursor: '{}' },
+				});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab });
+		assert.equal(calls, 1, 'the drain stops immediately when no usable continuation exists');
+		assert.equal(result.page.truncated, true, 'more-without-cursor is treated as an incomplete read');
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage marks GitLab account-wide reads truncated when the cursor stalls (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		let calls = 0;
+		stubApi(gl, {
+			getIssuesForCurrentUser: () => {
+				calls++;
+				return Promise.resolve({
+					values: [
+						{
+							id: `gl-${calls}`,
+							number: `${calls}`,
+							url: `u-${calls}`,
+							updatedDate: new Date(),
+							labels: [],
+							assignees: [],
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
+				});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab });
+		assert.equal(calls, 2, 'the drain stops when the provider repeats the same continuation');
+		assert.equal(result.page.truncated, true, 'a stalled cursor is treated as an incomplete read');
+
+		manager.dispose();
+	});
+
+	test('GitLab account-wide dedups by url, not the per-project issue number (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		// Two issues from different projects share iid `1` (IssueShape.id === number === iid), plus a genuine
+		// cross-page duplicate by url. Dedup must key on url so the distinct same-iid issues both survive and the
+		// real duplicate collapses.
+		const issue = (number: string, url: string) =>
+			({
+				id: `gid-${url}`,
+				number: number,
+				url: url,
+				updatedDate: new Date(),
+				labels: [],
+				assignees: [],
+			}) as unknown as ProviderIssue;
+		let call = 0;
+		stubApi(gl, {
+			getIssuesForCurrentUser: () => {
+				call++;
+				return call === 1
+					? Promise.resolve({
+							values: [
+								issue('1', 'https://gitlab.com/a/repo/-/issues/1'),
+								issue('1', 'https://gitlab.com/b/repo/-/issues/1'),
+							],
+							paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
+						})
+					: Promise.resolve({
+							// Repeats the first issue's url (a cross-page duplicate) plus a new one.
+							values: [
+								issue('1', 'https://gitlab.com/a/repo/-/issues/1'),
+								issue('7', 'https://gitlab.com/a/repo/-/issues/7'),
+							],
+							paging: { more: false, cursor: '{}' },
+						});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab });
+		const urls = result.items.map(i => i.url).sort();
+		assert.deepEqual(
+			urls,
+			[
+				'https://gitlab.com/a/repo/-/issues/1',
+				'https://gitlab.com/a/repo/-/issues/7',
+				'https://gitlab.com/b/repo/-/issues/1',
+			],
+			'same-iid issues from different repos both survive; the cross-page url duplicate is collapsed',
+		);
+
+		manager.dispose();
+	});
+
+	test('GitLab account-wide propagates a single-page SDK truncation signal (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		// A single page (no more pages) that the SDK flags as truncated (e.g. metadata incompleteness) must still
+		// mark the read truncated — the backstop is not the only truncation source.
+		stubApi(gl, {
+			getIssuesForCurrentUser: () =>
+				Promise.resolve({
+					values: [
+						{
+							id: 'gl-1',
+							number: '1',
+							url: 'u',
+							updatedDate: new Date(),
+							labels: [],
+							assignees: [],
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: false, cursor: '{}', truncated: true },
+				}),
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab });
+		assert.equal(result.items.length, 1, 'the page items still surface');
+		assert.equal(result.page.truncated, true, 'the SDK truncation flag is propagated even without a backstop hit');
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage rejects GitHub account-wide includeAllAssignees instead of advertising an unsupported read (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let accountWideCalled = false;
+		(
+			gh as unknown as {
+				searchProviderMyIssuesWithTruncation: (
+					s: unknown,
+					r: unknown,
+					c: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<{ values: IssueShape[]; truncated: boolean }>;
+			}
+		).searchProviderMyIssuesWithTruncation = () => {
+			accountWideCalled = true;
+			return Promise.resolve({ values: [], truncated: false });
+		};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			includeAllAssignees: true,
+		});
+		assert.equal(
+			accountWideCalled,
+			false,
+			'the unsupported account-wide read is rejected before the provider call',
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.ok(result.warnings.some(w => /includeAllAssignees/i.test(w.message)));
+
+		manager.dispose();
+	});
+
 	test('listOrgs maps issue-tracker resource descriptors to the unified org shape', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

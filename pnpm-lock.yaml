@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@gitkraken/provider-apis':
+      specifier: 0.53.0
+      version: 0.53.0
     '@types/mocha':
       specifier: 10.0.10
       version: 10.0.10
@@ -72,8 +75,8 @@ importers:
         specifier: 13.0.0-vnext.38
         version: 13.0.0-vnext.38(dragula@3.7.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@gitkraken/provider-apis':
-        specifier: 0.52.0
-        version: 0.52.0(encoding@0.1.13)
+        specifier: 'catalog:'
+        version: 0.53.0(encoding@0.1.13)
       '@gitkraken/shared-tools':
         specifier: 0.2.0
         version: 0.2.0
@@ -418,8 +421,8 @@ importers:
   packages/core:
     dependencies:
       '@gitkraken/provider-apis':
-        specifier: 0.52.0
-        version: 0.52.0(encoding@0.1.13)
+        specifier: 'catalog:'
+        version: 0.53.0(encoding@0.1.13)
       '@octokit/graphql':
         specifier: 9.0.3
         version: 9.0.3
@@ -592,8 +595,8 @@ importers:
   packages/plus/integrations:
     dependencies:
       '@gitkraken/provider-apis':
-        specifier: 0.52.0
-        version: 0.52.0(encoding@0.1.13)
+        specifier: 'catalog:'
+        version: 0.53.0(encoding@0.1.13)
       '@gitlens/git':
         specifier: workspace:*
         version: link:../../git
@@ -1095,8 +1098,8 @@ packages:
       react: 19.2.4
       react-dom: 19.2.4
 
-  '@gitkraken/provider-apis@0.52.0':
-    resolution: {integrity: sha512-8zk7lRum4fUyDP8WQAiLjzh8Npoclir9hibdjN5bbkvNuHDoQOEXaya5M2LKXQuMG2tPcx6YVaynIuiqvj3ATA==}
+  '@gitkraken/provider-apis@0.53.0':
+    resolution: {integrity: sha512-BhihYUfrq83SoUVDk7q0Kc/58SVFHWY6sGZJZ4hwsm5b8lTVJxmiwB8ll2V7meNpHY4pE6f1B0vBu1d9PYgybw==}
     engines: {node: '>= 20'}
 
   '@gitkraken/shared-tools@0.2.0':
@@ -1365,8 +1368,8 @@ packages:
     resolution: {integrity: sha512-x/iUDjcS90W69PryLDIMgFyV21YLTnG9zOpPXS7Bkt2b8AsY3zZsIpOLBkYr9fBcF3HbkKaER5hOBZLfpLgYNw==}
     engines: {node: '>= 14.0.0'}
 
-  '@koa/router@15.6.0':
-    resolution: {integrity: sha512-iEOXlvGIBqSNkGXrg0XtMARAOm5zA24oedXxiTGEkrD4JgwVjfRDddCQvW1s4WEcwDYvyecRbf8BikXsuEEj8w==}
+  '@koa/router@15.7.0':
+    resolution: {integrity: sha512-WaAlk4TOl/O0rhTpOR0l052gz03syPMmI6Pe2gd7v3ubjfv5UcSGcnb0Y/J5NNC/ln+5FiUqPJTc/a15I+XqAA==}
     engines: {node: '>= 20'}
     peerDependencies:
       koa: ^2.0.0 || ^3.0.0
@@ -4592,10 +4595,6 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.2.0:
-    resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
-    hasBin: true
-
   js-yaml@4.3.0:
     resolution: {integrity: sha512-1td788aAnnZ5qs7V2QIRl1owjtYpbKt749Y3xauqQgwIIGF/xXWz1wMTEBx5O3LK3lXLVuqXPdPxj2BoFHaW9Q==}
     hasBin: true
@@ -5467,10 +5466,6 @@ packages:
   picomatch@2.3.2:
     resolution: {integrity: sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==}
     engines: {node: '>=8.6'}
-
-  picomatch@4.0.4:
-    resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
-    engines: {node: '>=12'}
 
   picomatch@4.0.5:
     resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
@@ -6400,10 +6395,6 @@ packages:
     resolution: {integrity: sha512-1gnZf7DFcoIcajTjTwjwuDjzuz4PPcY2StKPlsGAQ1+YH20IRVrBaXSWmdjowTJ6u8Rc01PoYOGHXfP1mYcZNQ==}
     engines: {node: '>= 18'}
 
-  serialize-javascript@7.0.5:
-    resolution: {integrity: sha512-F4LcB0UqUl1zErq+1nYEEzSHJnIwb3AF2XWB94b+afhrekOUijwooAYqFyRbjYkm2PAKBabx6oYv/xDxNi8IBw==}
-    engines: {node: '>=20.0.0'}
-
   serialize-javascript@7.0.7:
     resolution: {integrity: sha512-YAy8Od6KV+uuwUuU50np8fGB/Aues6Y0nAhA9y/hId74PlKUcme4pXcBD46NWKr1Q4osN/iseZ17YqO1XfmI8g==}
     engines: {node: '>=20.0.0'}
@@ -7319,10 +7310,6 @@ packages:
     resolution: {integrity: sha512-7pRTIA9Qc1caZ0bZ6RYRGbHJthJWuakf+WmHK0rVeLkNrrGhfoabBNdue6kdINI6r4if7ocq9aD/n7xwKOdzOA==}
     engines: {node: '>=10'}
 
-  yargs@17.7.2:
-    resolution: {integrity: sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==}
-    engines: {node: '>=12'}
-
   yargs@17.7.3:
     resolution: {integrity: sha512-GZtjxm/J/4TSxuL3FNYjCmLktBTnIw/rVmKSIyKeYAZpmJB2ig9VauCC5xsa82GNKVKDAqpOn3KVzNt0zmrU0g==}
     engines: {node: '>=12'}
@@ -7788,7 +7775,7 @@ snapshots:
       react-dragula: 1.1.17
       react-onclickoutside: 6.13.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
 
-  '@gitkraken/provider-apis@0.52.0(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.53.0(encoding@0.1.13)':
     dependencies:
       '@linear/sdk': 58.1.0(encoding@0.1.13)
       diff: 8.0.4
@@ -8009,7 +7996,7 @@ snapshots:
     dependencies:
       vary: 1.1.2
 
-  '@koa/router@15.6.0(koa@3.2.1)(supports-color@8.1.1)':
+  '@koa/router@15.7.0(koa@3.2.1)(supports-color@8.1.1)':
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       http-errors: 2.0.1
@@ -8662,7 +8649,7 @@ snapshots:
       detect-libc: 2.1.2
       is-glob: 4.0.3
       node-addon-api: 7.1.1
-      picomatch: 4.0.4
+      picomatch: 4.0.5
     optionalDependencies:
       '@parcel/watcher-android-arm64': 2.5.6
       '@parcel/watcher-darwin-arm64': 2.5.6
@@ -9083,7 +9070,7 @@ snapshots:
   '@vscode/test-web@0.0.81(supports-color@8.1.1)':
     dependencies:
       '@koa/cors': 5.0.0
-      '@koa/router': 15.6.0(koa@3.2.1)(supports-color@8.1.1)
+      '@koa/router': 15.7.0(koa@3.2.1)(supports-color@8.1.1)
       '@playwright/browser-chromium': 1.61.1
       gunzip-maybe: 1.4.2
       http-proxy-agent: 9.1.0(supports-color@8.1.1)
@@ -11275,10 +11262,6 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.2.0:
-    dependencies:
-      argparse: 2.0.1
-
   js-yaml@4.3.0:
     dependencies:
       argparse: 2.0.1
@@ -11804,16 +11787,16 @@ snapshots:
       glob: 10.5.0
       he: 1.2.0
       is-path-inside: 3.0.3
-      js-yaml: 4.2.0
+      js-yaml: 4.3.0
       log-symbols: 4.1.0
       minimatch: 9.0.9
       ms: 2.1.3
       picocolors: 1.1.1
-      serialize-javascript: 7.0.5
+      serialize-javascript: 7.0.7
       strip-json-comments: 3.1.1
       supports-color: 8.1.1
       workerpool: 9.3.4
-      yargs: 17.7.2
+      yargs: 17.7.3
       yargs-parser: 21.1.1
       yargs-unparser: 2.0.0
 
@@ -12298,9 +12281,6 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@2.3.2: {}
-
-  picomatch@4.0.4:
-    optional: true
 
   picomatch@4.0.5: {}
 
@@ -13220,8 +13200,6 @@ snapshots:
       statuses: 2.0.2
     transitivePeerDependencies:
       - supports-color
-
-  serialize-javascript@7.0.5: {}
 
   serialize-javascript@7.0.7: {}
 
@@ -14207,16 +14185,6 @@ snapshots:
       decamelize: 4.0.0
       flat: 5.0.2
       is-plain-obj: 2.1.0
-
-  yargs@17.7.2:
-    dependencies:
-      cliui: 8.0.1
-      escalade: 3.2.0
-      get-caller-file: 2.0.5
-      require-directory: 2.1.1
-      string-width: 4.2.3
-      y18n: 5.0.8
-      yargs-parser: 21.1.1
 
   yargs@17.7.3:
     dependencies:
