@@ -80,6 +80,7 @@ suite('GitHubApi.searchPullRequests', () => {
 			id: `pr-${number}`,
 			number: number,
 			title: `PR ${number}`,
+			body: `Body ${number}`,
 			permalink: `https://github.com/octo/repo/pull/${number}`,
 			url: `https://github.com/octo/repo/pull/${number}`,
 			state: state,
@@ -203,6 +204,126 @@ suite('GitHubApi.searchPullRequests', () => {
 
 		assert.deepStrictEqual(results, []);
 		assert.strictEqual(seenCursors.length, 20);
+	});
+});
+
+suite('GitHubApi direct pull request lookups', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	function prNode(number: number) {
+		return {
+			id: `pr-${number}`,
+			number: number,
+			title: `PR ${number}`,
+			body: `Body ${number}`,
+			permalink: `https://github.com/octo/repo/pull/${number}`,
+			url: `https://github.com/octo/repo/pull/${number}`,
+			state: 'OPEN',
+			createdAt: '2024-01-01T00:00:00Z',
+			updatedAt: '2024-01-02T00:00:00Z',
+			closedAt: null,
+			mergedAt: null,
+			author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
+			baseRefName: 'main',
+			baseRefOid: 'base',
+			headRefName: 'feature',
+			headRefOid: 'head',
+			headRepository: {
+				isFork: false,
+				name: 'repo',
+				owner: { login: 'octo' },
+				sshUrl: 'git@github.com:octo/repo.git',
+				url: 'https://github.com/octo/repo',
+			},
+			repository: {
+				isFork: false,
+				name: 'repo',
+				owner: { login: 'octo' },
+				sshUrl: 'git@github.com:octo/repo.git',
+				url: 'https://github.com/octo/repo',
+				viewerPermission: 'WRITE',
+			},
+			isCrossRepository: false,
+			isDraft: false,
+			additions: 1,
+			deletions: 1,
+			checksUrl: '',
+			mergeable: 'MERGEABLE',
+			reviewDecision: 'APPROVED',
+			latestReviews: { nodes: [] },
+			reviewRequests: { nodes: [] },
+			assignees: { nodes: [] },
+			commits: { nodes: [] },
+			totalCommentsCount: 0,
+			viewerCanUpdate: true,
+		};
+	}
+
+	function captureQuery(data: unknown): { config: GitHubApiConfig; getQuery: () => string } {
+		let query = '';
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url, init) => {
+				const body = JSON.parse(String(init?.body ?? '{}')) as { query?: string };
+				query = body.query ?? '';
+				return new Response(JSON.stringify({ data: data }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+			wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
+		};
+		return { config: config, getQuery: () => query };
+	}
+
+	test('getPullRequest requests and maps the body', async () => {
+		const { config, getQuery } = captureQuery({ repository: { pullRequest: prNode(1) } });
+		const api = new GitHubApi(config);
+
+		const pr = await api.getPullRequest(provider, token, 'octo', 'repo', 1);
+
+		assert.match(getQuery(), /\bbody\b/);
+		assert.strictEqual(pr?.body, 'Body 1');
+	});
+
+	test('getPullRequestForBranch requests and maps the body', async () => {
+		const { config, getQuery } = captureQuery({
+			repository: { ref: { associatedPullRequests: { nodes: [prNode(2)] } } },
+		});
+		const api = new GitHubApi(config);
+
+		const pr = await api.getPullRequestForBranch(provider, token, 'octo', 'repo', 'feature');
+
+		assert.match(getQuery(), /\bbody\b/);
+		assert.strictEqual(pr?.body, 'Body 2');
+	});
+
+	test('getPullRequestForCommit requests and maps the body', async () => {
+		const { config, getQuery } = captureQuery({
+			repository: { object: { associatedPullRequests: { nodes: [prNode(3)] } } },
+		});
+		const api = new GitHubApi(config);
+
+		const pr = await api.getPullRequestForCommit(provider, token, 'octo', 'repo', 'deadbeef');
+
+		assert.match(getQuery(), /\bbody\b/);
+		assert.strictEqual(pr?.body, 'Body 3');
 	});
 });
 
