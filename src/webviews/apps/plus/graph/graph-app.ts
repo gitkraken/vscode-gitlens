@@ -2654,6 +2654,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private get shouldShowLayoutPrompt(): boolean {
 		return (
 			(this.graphState.layoutPromptNeeded ?? false) &&
+			// The prompt lives inside the graph subtree, which the no-repository empty state
+			// doesn't render — mirror that condition here so the `shown` telemetry in `updated()`
+			// can't fire (and burn its one-shot guard) without a real impression.
+			this.graphState.repositories?.length !== 0 &&
 			// Don't compete with the graph walkthrough popover on first entry — hold the layout
 			// prompt until that banner is dismissed, completed, or STARTED ("See what's new" tracks
 			// started without dismissing the banner, and the header only force-opens the popover
