@@ -80,9 +80,11 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
 
-	// Wait for graph to fully render (column headers appear)
-	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
-	// ...and the virtualized rows to actually paint (headers appear before rows finish layout).
+	// Wait for the graph to render. The new Lit engine (gitlens.graph.experimental.useNewEngine,
+	// default true) renders the graph as a role="tree" (aria-label "Commit graph") of role="treeitem"
+	// rows; gate readiness on the tree container.
+	await expect(graphWebview!.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
+	// ...and the rows to actually paint (the tree mounts before the virtualizer paints rows).
 	await waitForGraphRowsRendered(graphWebview!);
 
 	return {
@@ -101,7 +103,7 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
-	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphWebview!.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
 	await waitForGraphRowsRendered(graphWebview!);
 	return graphWebview!;
 }
@@ -111,29 +113,25 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
  * Graph rows are rendered by @gitkraken/gitkraken-components with commit messages as visible text.
  */
 async function selectCommitByMessage(graphWebview: FrameLocator, messageText: string): Promise<void> {
-	// Scope to the virtualized graph grid so we match the row's message cell — not a copy of the same
-	// text rendered in the details panel (an unscoped `.first()` could latch onto that). Filter to the
-	// visible instance so we skip recycled/off-screen row nodes react-virtualized keeps mounted.
-	const messageEl = graphWebview
-		.locator('.ReactVirtualized__Grid')
-		.getByText(messageText, { exact: true })
-		.filter({ visible: true })
-		.first();
-	await expect(messageEl).toBeVisible({ timeout: MaxTimeout });
-	await messageEl.click();
+	// New Lit engine: each commit is a role="treeitem" row whose accessible name embeds the message
+	// (e.g. "Commit f5b4898, by You, 7s, Add greeting module"). Match by that name (substring) and
+	// filter to the visible instance so we skip recycled/off-screen rows the virtualizer keeps mounted.
+	const row = graphWebview.getByRole('treeitem', { name: messageText }).filter({ visible: true }).first();
+	await expect(row).toBeVisible({ timeout: MaxTimeout });
+	await row.click();
 }
 
 /**
- * Wait until the virtualized graph rows have painted their commit-message cells.
- * The column headers ("BRANCH / TAG") render before the react-virtualized grid finishes its first
- * layout pass, so gating readiness on the header alone races the row paint on slower webviews (VS
- * Code forks) — the very window where a row message resolves in the DOM but reports `hidden`. Gate
- * on a visible row message cell, the surface these tests then click.
+ * Wait until the new Lit engine has painted commit rows. The tree container (role="tree",
+ * aria-label "Commit graph") mounts before the virtualizer paints its role="treeitem" rows, so
+ * gating readiness on the container alone races the row paint on slower webviews (VS Code forks) —
+ * the very window where a row resolves in the DOM but reports `hidden`. Gate on the first visible
+ * treeitem, the surface these tests then click.
  */
 async function waitForGraphRowsRendered(graphWebview: FrameLocator): Promise<void> {
-	await expect(
-		graphWebview.locator('.ReactVirtualized__Grid .message-zone--summary').filter({ visible: true }).first(),
-	).toBeVisible({ timeout: 30000 });
+	await expect(graphWebview.getByRole('treeitem').filter({ visible: true }).first()).toBeVisible({
+		timeout: 30000,
+	});
 }
 
 async function ensureDetailsPanelOpen(graphWebview: FrameLocator): Promise<void> {

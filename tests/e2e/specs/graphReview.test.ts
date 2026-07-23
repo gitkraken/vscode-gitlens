@@ -84,14 +84,13 @@ test.describe('Review & Compose Sub-Panels', () => {
 			return;
 		}
 
-		// Match the visible WIP row label, not the hidden tooltip-content span that also carries
-		// the "Working Changes" text (a plain .first() can pick the hidden tooltip span).
+		// New Lit engine: the WIP row is a role="treeitem" whose accessible name starts "Working Changes".
 		const wipRow = graphWebview
-			.getByText(/Working (Changes|Tree)/)
+			.getByRole('treeitem', { name: /Working Changes/ })
 			.filter({ visible: true })
 			.first();
 		await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
-		await wipRow.click();
+		await wipRow.click({ force: true });
 		await ensureDetailsPanelOpen();
 		await expect(graphWebview.locator('gl-details-wip-header')).toBeVisible({ timeout: MaxTimeout });
 	}
@@ -113,8 +112,12 @@ test.describe('Review & Compose Sub-Panels', () => {
 		expect(wv).not.toBeNull();
 		graphWebview = wv!;
 
-		await expect(graphWebview.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
-		await expect(graphWebview.locator('.details-content').first()).toBeVisible({ timeout: 30000 });
+		// New Lit engine: the graph is a role="tree" ("Commit graph") of role="treeitem" rows. Gate on
+		// the tree and on rows actually painting; selectWip (beforeEach) opens the WIP details panel.
+		await expect(graphWebview.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
+		await expect(graphWebview.getByRole('treeitem').filter({ visible: true }).first()).toBeVisible({
+			timeout: 30000,
+		});
 	});
 
 	test.afterAll(async ({ vscode }) => {
