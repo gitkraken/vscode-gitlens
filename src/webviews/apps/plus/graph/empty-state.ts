@@ -11,6 +11,7 @@ import { createCommandLink } from '../../../../system/commands.js';
 import { graphStateContext } from './context.js';
 import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/button.js';
+import '../../shared/components/code-icon.js';
 import '../../shared/components/gitlens-logo-circle.js';
 
 @customElement('gl-graph-empty-state')
@@ -70,6 +71,127 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 				margin-inline: auto;
 				text-align: center;
 			}
+
+			.logo {
+				margin-block: var(--gl-space-4) var(--gl-space-10);
+				transform: scale(1.22);
+			}
+
+			.title {
+				margin-block: 0;
+				font-size: var(--gl-font-lg);
+				font-weight: 600;
+				color: var(--color-foreground);
+			}
+
+			.description {
+				margin-block: var(--gl-space-8) 0;
+				font-size: var(--gl-font-base);
+				line-height: 1.5;
+				color: var(--vscode-descriptionForeground);
+				text-wrap: pretty;
+			}
+
+			.groups {
+				margin-block-start: var(--gl-space-12);
+			}
+
+			.group {
+				display: flex;
+				flex-direction: column;
+				inline-size: 100%;
+				max-width: 42ch;
+				margin-block-start: var(--gl-space-8);
+			}
+
+			.group__label {
+				padding: var(--gl-space-6) var(--gl-space-10);
+				margin: 0;
+				font-size: var(--gl-font-sm);
+				font-weight: 600;
+				color: var(--color-foreground--50);
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+			}
+
+			.action {
+				display: flex;
+				gap: var(--gl-space-10);
+				align-items: center;
+				padding: var(--gl-space-6) var(--gl-space-10);
+				color: inherit;
+				text-decoration: none;
+				cursor: pointer;
+				border-radius: var(--gl-radius-sm);
+			}
+
+			.action:hover {
+				text-decoration: none;
+				background: var(--vscode-list-hoverBackground);
+			}
+
+			.action:focus-visible {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
+
+			.action__icon {
+				flex: none;
+				color: var(--color-foreground--85);
+			}
+
+			.action__icon.is-issue {
+				color: var(--vscode-gitlens-openAutolinkedIssueIconColor);
+			}
+
+			.action__icon.is-pr {
+				color: var(--vscode-gitlens-mergedPullRequestIconColor);
+			}
+
+			.action__body {
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-2);
+				min-width: 0;
+			}
+
+			.action__title {
+				font-size: var(--gl-font-base);
+				color: var(--color-foreground);
+			}
+
+			.action__desc {
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
+			}
+
+			@media (height <= 360px) {
+				.scroller {
+					padding-block: var(--gl-space-12);
+				}
+
+				.logo {
+					margin-block: 0 var(--gl-space-6);
+					transform: none;
+				}
+
+				.groups {
+					margin-block-start: var(--gl-space-6);
+				}
+			}
+
+			@media (height <= 440px) and (width > 600px) {
+				.groups {
+					display: flex;
+					flex-direction: row;
+					gap: var(--gl-space-8);
+				}
+
+				.group {
+					width: 36ch;
+				}
+			}
+		`,
 
 			.logo {
 				margin-block: var(--gl-space-4) var(--gl-space-10);
