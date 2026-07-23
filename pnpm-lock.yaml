@@ -447,25 +447,25 @@ importers:
         specifier: 'catalog:'
         version: 0.53.0(encoding@0.1.13)
       '@octokit/graphql':
-        specifier: 9.0.3
+        specifier: 'catalog:'
         version: 9.0.3
       '@octokit/request':
         specifier: 10.0.11
         version: 10.0.11
       '@octokit/request-error':
-        specifier: 7.1.0
+        specifier: 'catalog:'
         version: 7.1.0
       '@octokit/types':
-        specifier: 16.0.0
+        specifier: 'catalog:'
         version: 16.0.0
       fast-string-truncated-width:
-        specifier: 3.0.3
+        specifier: 'catalog:'
         version: 3.0.3
       ignore:
-        specifier: 7.0.5
+        specifier: 'catalog:'
         version: 7.0.5
       vscode-uri:
-        specifier: 3.1.0
+        specifier: 'catalog:'
         version: 3.1.0
 
   packages/git:
@@ -11051,7 +11051,7 @@ snapshots:
     dependencies:
       '@sindresorhus/merge-streams': 2.3.0
       fast-glob: 3.3.3
-      ignore: 7.0.5
+      ignore: 7.0.6
       path-type: 6.0.0
       slash: 5.1.0
       unicorn-magic: 0.3.0
@@ -11060,7 +11060,7 @@ snapshots:
     dependencies:
       '@sindresorhus/merge-streams': 4.0.0
       fast-glob: 3.3.3
-      ignore: 7.0.5
+      ignore: 7.0.6
       is-path-inside: 4.0.0
       slash: 5.1.0
       unicorn-magic: 0.4.0
