@@ -38,12 +38,16 @@ export interface IntegrationAuthenticationSessionDescriptor {
 export interface IntegrationAuthenticationProvider extends Disposable {
 	/**
 	 * Clears the stored secret for one connection only (never the whole provider). Unlike
-	 * {@link deleteAllSessions}, this deliberately leaves the descriptor in `integrations:configured` — its
-	 * only caller today is a forced re-sync, which needs `getConfigured()` to keep reporting the connection
+	 * {@link deleteAllSessions}, this by default leaves the descriptor in `integrations:configured` — its
+	 * primary caller is a forced re-sync, which needs `getConfigured()` to keep reporting the connection
 	 * while a fresh session is fetched to replace the deleted secret. Implementers should not treat this as
-	 * a full disconnect.
+	 * a full disconnect. Pass `preserveConfigured: false` to also drop the descriptor (e.g. when the
+	 * re-sync's replacement fetch failed and the connection should no longer be reported as connected).
 	 */
-	deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void>;
+	deleteSession(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		options?: { preserveConfigured?: boolean },
+	): Promise<void>;
 	deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	getSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
@@ -76,7 +80,10 @@ abstract class IntegrationAuthenticationProviderBase<
 	protected abstract get authProviderId(): ID;
 
 	@trace()
-	async deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void> {
+	async deleteSession(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		options?: { preserveConfigured?: boolean },
+	): Promise<void> {
 		const domain = isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
 			domain: domain,
@@ -89,7 +96,7 @@ abstract class IntegrationAuthenticationProviderBase<
 			this.authProviderId,
 			{ ...descriptor, cloud: true },
 			true,
-			{ preserveConfigured: true },
+			{ preserveConfigured: options?.preserveConfigured ?? true },
 		);
 
 		if (configured?.length) {

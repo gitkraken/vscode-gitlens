@@ -1,138 +1,119 @@
 /**
  * Subscription service — GitKraken subscription state and change events.
  *
- * Exposes both event subscribers (for side-effect-driven consumers) and
- * `Signal.State` properties (for reactive bridging via Supertalk's SignalHandler).
- * The signals are the canonical host-side mirrors of Container state — portable
- * across all webviews that use this shared service.
+ * Exposes event subscribers (for side-effect-driven consumers) and `Signal.State` properties
+ * (reactive bridges via Supertalk's SignalHandler). Signal freshness is structural: a single eager
+ * listener per source (registered in the constructor) both updates the signal and fires the RPC
+ * event — so bridged signals stay fresh even for webviews that read without subscribing (#5513).
+ * Released via `dispose()` (`disposeServices`) at webview teardown.
  */
 
 import { Signal } from 'signal-polyfill';
+import { Disposable } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../../avatars.js';
 import type { Container } from '../../../container.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
-import { createRpcEventSubscription } from '../eventVisibilityBuffer.js';
+import { createRpcEvent } from '../eventVisibilityBuffer.js';
 import type { OrgSettings, RpcEventSubscription } from './types.js';
 
-export class SubscriptionService {
+export class SubscriptionService implements Disposable {
 	readonly #container: Container;
-
-	// ── Reactive signals (auto-synced to webview via SignalHandler) ──
+	readonly #disposable: Disposable;
+	#orgsFetchSeq = 0;
 
 	/**
 	 * Current subscription state as a reactive signal.
-	 * Starts `undefined` and is set asynchronously during construction.
-	 * By the time the webview connects (deferred handshake), the value is available.
+	 * Starts `undefined`; set asynchronously during construction, before the webview connects.
 	 */
 	readonly subscriptionState = new Signal.State<Subscription | undefined>(undefined);
 
-	/**
-	 * Whether the user has a GitKraken account (signed in).
-	 * Derived from `subscriptionState` — updated in sync with it.
-	 */
+	/** Whether the user has a GitKraken account (signed in). Derived from `subscriptionState`. */
 	readonly hasAccountState = new Signal.State<boolean>(false);
 
-	/**
-	 * User avatar URL (Gravatar derived from account email).
-	 * Derived from `subscriptionState` — updated in sync with it.
-	 */
+	/** User avatar URL (Gravatar from account email). Derived from `subscriptionState`. */
 	readonly avatarState = new Signal.State<string | undefined>(undefined);
 
-	/**
-	 * Number of organizations the current user belongs to.
-	 * Re-fetched when subscription changes (org membership can change with account changes).
-	 */
+	/** Number of organizations the current user belongs to. Re-fetched when subscription changes. */
 	readonly organizationsCountState = new Signal.State<number>(0);
 
-	/**
-	 * Organization settings as a reactive signal.
-	 * Initialized synchronously from extension context.
-	 */
+	/** Organization settings. Initialized synchronously from extension context. */
 	readonly orgSettingsState: Signal.State<OrgSettings>;
 
-	// ── Event subscribers (for side-effect-driven consumers) ──
-
-	/**
-	 * Fired when subscription state changes.
-	 * Includes the current subscription — derive `hasAccount` from
-	 * `subscription.account != null`.
-	 */
+	/** Fired when subscription state changes. Derive `hasAccount` from `subscription.account != null`. */
 	readonly onSubscriptionChanged: RpcEventSubscription<Subscription>;
 
-	/**
-	 * Fired when organization settings change (AI enabled, drafts enabled).
-	 */
+	/** Fired when organization settings change (AI enabled, drafts enabled). */
 	readonly onOrgSettingsChanged: RpcEventSubscription<OrgSettings>;
 
 	constructor(container: Container, buffer: EventVisibilityBuffer | undefined, tracker?: SubscriptionTracker) {
 		this.#container = container;
 
-		// Initialize orgSettings synchronously from context
-		this.orgSettingsState = new Signal.State<OrgSettings>({
-			ai: getContext('gitlens:gk:organization:ai:enabled', false),
-			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
-		});
+		this.orgSettingsState = new Signal.State<OrgSettings>(this.#readOrgSettings());
 
-		// Initialize subscription asynchronously — resolves before webview connects
+		const subscriptionChanged = createRpcEvent<Subscription>('subscriptionChanged', 'save-last');
+		const orgSettingsChanged = createRpcEvent<OrgSettings>('orgSettingsChanged', 'save-last');
+		this.onSubscriptionChanged = subscriptionChanged.subscribe(buffer, tracker);
+		this.onOrgSettingsChanged = orgSettingsChanged.subscribe(buffer, tracker);
+
+		// One eager listener per source keeps the signal fresh AND fires the RPC event — see class doc (#5513).
+		// Outlives `tracker.reset()` (RPC reconnection) by design; released by `dispose()` at teardown.
+		this.#disposable = Disposable.from(
+			container.subscription.onDidChange(e => {
+				const serialized = serialize(e.current);
+				this.subscriptionState.set(serialized);
+				this.#updateDerivedState(serialized);
+				subscriptionChanged.fire(serialized);
+			}),
+			onDidChangeContext(key => {
+				if (key === 'gitlens:gk:organization:ai:enabled' || key === 'gitlens:gk:organization:drafts:enabled') {
+					const settings = this.#readOrgSettings();
+					this.orgSettingsState.set(settings);
+					orgSettingsChanged.fire(settings);
+				}
+			}),
+		);
+
+		// Seed asynchronously — resolves before the webview connects. If a change event already
+		// populated the signal, keep it (the event's state is at least as fresh as this snapshot).
 		void container.subscription.getSubscription().then(sub => {
+			if (this.subscriptionState.get() !== undefined) return;
+
 			const serialized = serialize(sub);
 			this.subscriptionState.set(serialized);
 			this.#updateDerivedState(serialized);
 		});
-
-		this.onSubscriptionChanged = createRpcEventSubscription<Subscription>(
-			buffer,
-			'subscriptionChanged',
-			'save-last',
-			buffered =>
-				container.subscription.onDidChange(e => {
-					const serialized = serialize(e.current);
-					this.subscriptionState.set(serialized);
-					this.#updateDerivedState(serialized);
-					buffered(serialized);
-				}),
-			undefined,
-			tracker,
-		);
-
-		this.onOrgSettingsChanged = createRpcEventSubscription<OrgSettings>(
-			buffer,
-			'orgSettingsChanged',
-			'save-last',
-			buffered =>
-				onDidChangeContext(key => {
-					if (
-						key === 'gitlens:gk:organization:ai:enabled' ||
-						key === 'gitlens:gk:organization:drafts:enabled'
-					) {
-						const settings: OrgSettings = {
-							ai: getContext('gitlens:gk:organization:ai:enabled', false),
-							drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
-						};
-						this.orgSettingsState.set(settings);
-						buffered(settings);
-					}
-				}),
-			undefined,
-			tracker,
-		);
 	}
 
-	/**
-	 * Update all subscription-derived signals from a (serialized) subscription.
-	 */
+	dispose(): void {
+		this.#disposable.dispose();
+	}
+
+	/** Update all subscription-derived signals from a (serialized) subscription. */
 	#updateDerivedState(sub: Subscription): void {
 		this.hasAccountState.set(sub.account != null);
 		this.avatarState.set(
 			sub.account?.email != null ? getAvatarUriFromGravatarEmail(sub.account.email, 34).toString() : undefined,
 		);
-		// Orgs count may change with subscription changes (org membership tied to account)
+		// Orgs count may change with subscription changes (org membership tied to account).
+		// `getOrganizations` is `@gate()`d, so a later change's callback can receive an earlier change's
+		// gated result — drop stale answers by only applying the latest fetch's result.
+		const seq = ++this.#orgsFetchSeq;
 		void this.#container.organizations.getOrganizations().then(orgs => {
+			if (seq !== this.#orgsFetchSeq) return;
+
 			this.organizationsCountState.set(orgs?.length ?? 0);
 		});
+	}
+
+	/** Read current organization settings (AI enabled, drafts enabled) from extension context. */
+	#readOrgSettings(): OrgSettings {
+		return {
+			ai: getContext('gitlens:gk:organization:ai:enabled', false),
+			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
+		};
 	}
 
 	/**
@@ -184,9 +165,6 @@ export class SubscriptionService {
 	 * Get organization settings (AI enabled, drafts enabled).
 	 */
 	getOrgSettings(): Promise<OrgSettings> {
-		return Promise.resolve({
-			ai: getContext('gitlens:gk:organization:ai:enabled', false),
-			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
-		} satisfies OrgSettings);
+		return Promise.resolve(this.#readOrgSettings());
 	}
 }

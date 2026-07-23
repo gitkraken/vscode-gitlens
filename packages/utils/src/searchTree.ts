@@ -278,12 +278,15 @@ export class TernarySearchTree<K, V> {
 			} else if (iter.hasNext()) {
 				// mid
 				iter.next();
+				// Generic value may be falsy — keep truthy-wins semantics; don't narrow to `??`
+				// oxlint-disable-next-line typescript/prefer-nullish-coalescing
 				candidate = node.value || candidate;
 				node = node.mid;
 			} else {
 				break;
 			}
 		}
+		// oxlint-disable-next-line typescript/prefer-nullish-coalescing -- generic value may be falsy; keep `||`
 		return node?.value || candidate;
 	}
 

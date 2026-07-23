@@ -223,9 +223,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 					);
 				}
 				if (!dirty && cfg.authors.enabled) {
-					if (blameForRangeFn === undefined) {
-						blameForRangeFn = once(() => this.container.git.getBlameRange(blame!, gitUri, blameRange));
-					}
+					blameForRangeFn ??= once(() => this.container.git.getBlameRange(blame!, gitUri, blameRange));
 
 					const fileSymbol = new SymbolInformation(
 						gitUri.fileName,
@@ -412,9 +410,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 				}
 
 				if (multiline && !dirty) {
-					if (blameForRangeFn === undefined) {
-						blameForRangeFn = once(() => this.container.git.getBlameRange(blame!, gitUri!, blameRange));
-					}
+					blameForRangeFn ??= once(() => this.container.git.getBlameRange(blame!, gitUri!, blameRange));
 					lenses.push(
 						new GitAuthorsCodeLens(
 							document.languageId,

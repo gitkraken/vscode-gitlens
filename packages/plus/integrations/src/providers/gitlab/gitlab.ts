@@ -34,6 +34,7 @@ import type {
 	GitLabMergeRequestREST,
 	GitLabMergeRequestState,
 	GitLabProjectREST,
+	GitLabSshKey,
 	GitLabUser,
 } from './models.js';
 import { fromGitLabMergeRequest, fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models.js';
@@ -175,6 +176,43 @@ export class GitLabApi implements Disposable {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
 			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@trace({
+		args: (provider, token, userId) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			userId: userId,
+		}),
+	})
+	async getUserSigningKeys(
+		provider: Provider,
+		token: TokenWithInfo,
+		userId: string | number,
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<GitLabSshKey[]> {
+		const scope = getScopedLogger();
+
+		// SSH keys are public, so this works for any user with the current token (covered by the `read_user` scope).
+		try {
+			const keys = await this.request<GitLabSshKey[]>(
+				provider,
+				token,
+				options?.baseUrl,
+				`v4/users/${userId}/keys`,
+				{ method: 'GET' },
+				cancellation,
+				scope,
+			);
+			// Exclude auth-only keys — only signing-capable keys belong in an allowed_signers file.
+			return keys?.filter(k => k.usage_type === 'signing' || k.usage_type === 'auth_and_signing') ?? [];
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return [];
+
+			this.handleException(ex, provider, scope);
+			return [];
 		}
 	}
 

@@ -7,6 +7,7 @@ import type { Ref } from 'lit/directives/ref.js';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { when } from 'lit/directives/when.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
+import { agentPhaseToCategory, agentSuffixIconFor } from '../../agentUtils.js';
 import type { CollectionIndexController } from '../../controllers/collection-index.js';
 import { FilterController } from '../../controllers/filter.js';
 import type { FocusController } from '../../controllers/focus.js';
@@ -227,13 +228,35 @@ export class GlTreeView extends GlElement {
 				color: var(--gl-agent-waiting-color);
 			}
 
-			/* Pair wrapper for the robot + spinner glyphs so they sit flush as one identity
-	   marker. The decoration slot's gap applies between the wrapper and any sibling
-	   decoration but not between the icons inside. */
-			.tree-icon-agent-pair {
+			/* Positioning context for the robot + its overlaid phase badge, which together read as
+	   one identity marker. The decoration slot's gap applies between this wrapper and any
+	   sibling decoration, never inside it. */
+			.tree-icon-agent-anchor {
+				position: relative;
 				display: inline-flex;
-				gap: 0;
 				align-items: center;
+			}
+
+			/* Phase glyph overlaid on the robot's bottom-right corner, mirroring the graph's WIP row
+	   indicator (.gl-graph__row-action-status). Sized via code-icon's own size attribute
+	   rather than font-size, so it lands on the same 12px disc the graph uses. */
+			code-icon.tree-icon-agent__badge {
+				position: absolute;
+				right: -0.1rem;
+				bottom: -0.1rem;
+			}
+
+			/* Punch a hole in the robot behind the badge rather than backing the badge with an opaque
+	   chip (what the graph does). A chip has to re-tint itself against every row state; this
+	   component has no row-tint variable to track, and a cutout needs none — the row's own
+	   background (rest, hover, selected, drag) shows through untouched. Geometry resolves
+	   against the robot's own em box (1em = --code-icon-size = 16px): the badge's 12px disc
+	   centers ~0.69em in from each edge, so a 0.4em radius clears it with a hair to spare.
+	   Only applied when a badge is actually present, so a lone robot isn't needlessly notched. */
+			code-icon.tree-icon-agent--badged {
+				--gl-agent-badge-cutout: radial-gradient(circle 0.4em at 0.69em 0.69em, transparent 96%, #000 100%);
+				-webkit-mask-image: var(--gl-agent-badge-cutout);
+				mask-image: var(--gl-agent-badge-cutout);
 			}
 		`,
 	];
@@ -763,26 +786,30 @@ export class GlTreeView extends GlElement {
 			}
 
 			if (decoration.type === 'agent') {
-				// Robot glyph is the agent's identity (never animates); the spinner is a separate
-				// adjacent glyph that only renders during `working`. Color comes from the shared
-				// --gl-agent-* palette via the `tree-icon-agent--${phase}` class on each
-				// `code-icon` so the CSS rules at the top of this file match the rendered markup.
-				// Both icons live inside a flex wrapper so the decoration slot's `gap: 0.4rem`
-				// only applies between the wrapper and any other decoration — not between the
-				// robot and the spinner, which should sit flush as one identity glyph.
+				// One identity glyph: the robot (never animates) carries identity + phase color, with
+				// the phase glyph overlaid as a corner badge — the same vocabulary the graph's WIP row
+				// indicator uses, via the shared `agentSuffixIconFor`. The badge must be its own
+				// element rather than a ::after on the robot: code-icon's `modifier="spin"` rotates
+				// the whole host, which would spin the robot along with it. Color comes from the
+				// shared --gl-agent-* palette via `tree-icon-agent--${phase}` on each `code-icon`.
 				const tooltip = decoration.tooltip ?? decoration.label;
+				const category = agentPhaseToCategory[decoration.phase];
+				const badge = agentSuffixIconFor(category);
 				return html`<gl-tooltip slot=${slot} part=${slot} placement="top">
-					<span class="tree-icon-agent-pair">
+					<span class="tree-icon-agent-anchor">
 						<code-icon
 							icon="robot"
-							class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+							class="tree-icon-agent tree-icon-agent--${decoration.phase} ${badge != null
+								? 'tree-icon-agent--badged'
+								: ''}"
 							aria-label=${ifDefined(tooltip)}
 						></code-icon>
-						${decoration.phase === 'working'
+						${badge != null
 							? html`<code-icon
-									icon="sync"
-									modifier="spin"
-									class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+									icon=${badge}
+									size="12"
+									modifier=${category === 'working' ? 'spin' : ''}
+									class="tree-icon-agent tree-icon-agent--${decoration.phase} tree-icon-agent__badge"
 									aria-hidden="true"
 								></code-icon>`
 							: nothing}
@@ -1000,8 +1027,11 @@ export class GlTreeView extends GlElement {
 						?open=${this._hoverOpen}
 						.anchor=${this._hoveredAnchor}
 						placement="right-start"
+						flip-fallback-placements="bottom-start top-start"
 						trigger="manual"
 						.distance=${12}
+						@mouseenter=${this.onHoverPopoverEnter}
+						@mouseleave=${() => this.onTreeItemUnhover()}
 					>
 						<div slot="content" class="hover-content">
 							${typeof this._hoveredTooltip === 'string'
@@ -1260,6 +1290,14 @@ export class GlTreeView extends GlElement {
 			this._hoveredAnchor = undefined;
 		}, 100);
 	}
+
+	// The pointer entering the hover popover keeps it open (like VS Code's own tree hovers). In
+	// narrow viewports the popover has to overlap the list — without this, the row's mouseleave
+	// (fired the moment the popover lands under or the pointer crosses into it) closes the hover
+	// and the re-hover reopens it, looping open/close.
+	private readonly onHoverPopoverEnter = (): void => {
+		clearTimeout(this._unhoverTimer);
+	};
 
 	private onSuspendRowTooltip() {
 		clearTimeout(this._hoverTimer);

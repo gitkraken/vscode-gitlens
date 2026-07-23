@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { fileUri } from '@gitlens/utils/uri.js';
 import { Cache } from '../cache.js';
 
 suite('Cache.deleteGkConfig — branchOverviews invalidation', () => {
@@ -257,5 +258,107 @@ suite('Cache.deleteGkConfig — baseBranchName invalidation', () => {
 		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
 		assert.strictEqual(baseFactoryCount, 1, 'baseBranchName entry should have been preserved');
 		assert.strictEqual(overviewFactoryCount, 1, 'branchOverviews entry should have been preserved');
+	});
+});
+
+suite('Cache — status generation', () => {
+	const repoPath = '/test/repo';
+	const otherPath = '/test/other';
+
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	test('starts at 0 and advances monotonically', () => {
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 0, 'unknown repos start at generation 0');
+
+		cache.incrementStatusGeneration(repoPath);
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 1);
+
+		cache.incrementStatusGeneration(repoPath);
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 2);
+	});
+
+	test('is scoped per worktree path', () => {
+		cache.incrementStatusGeneration(repoPath);
+
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 1);
+		assert.strictEqual(cache.getStatusGeneration(otherPath), 0, 'sibling worktrees must not share a clock');
+	});
+
+	test('advances on repo changes that can change what `git status` reports', () => {
+		// File list (index/head/heads/paused-op), untracked set (ignores/config), ahead/behind (remotes).
+		for (const change of [
+			'index',
+			'head',
+			'heads',
+			'remotes',
+			'ignores',
+			'config',
+			'merge',
+			'rebase',
+			'cherryPick',
+			'revert',
+			'pausedOp',
+		]) {
+			const before = cache.getStatusGeneration(repoPath);
+			cache.onRepositoryChanged(repoPath, [change as never]);
+			assert.ok(
+				cache.getStatusGeneration(repoPath) > before,
+				`'${change}' must advance the status clock (a pre-change \`git status\` can't answer a post-change read)`,
+			);
+		}
+	});
+
+	test('does not advance on repo changes that cannot affect `git status`', () => {
+		// Tags never appear in `git status`; `lastFetched` (FETCH_HEAD) doesn't change its output.
+		cache.onRepositoryChanged(repoPath, ['tags', 'lastFetched']);
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 0);
+	});
+
+	test('advances on a working-tree change (the channel an external discard arrives on)', () => {
+		cache.onWorkingTreeChanged(repoPath);
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 1);
+	});
+
+	test("advances when 'status' caches are reset (the post-op hooks / user refresh)", () => {
+		cache.clearCaches(repoPath, 'status');
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 1);
+
+		// A repo-scoped reset must not disturb another worktree's clock
+		assert.strictEqual(cache.getStatusGeneration(otherPath), 0);
+	});
+
+	test('a global reset advances every known worktree', () => {
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(otherPath), { uri: fileUri(`${otherPath}/.git`) });
+
+		cache.clearCaches(undefined, 'status');
+
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 1);
+		assert.strictEqual(cache.getStatusGeneration(otherPath), 1);
+	});
+
+	test('advances on unregister (close) so a reopened path cannot join a pre-close read', () => {
+		cache.onRepositoryChanged(repoPath, ['index']); // generation 1
+		cache.unregisterRepoPath(repoPath);
+		assert.strictEqual(cache.getStatusGeneration(repoPath), 2, 'close must advance past the pre-close generation');
+	});
+
+	test('a global reset also advances an unregistered path that carries a generation', () => {
+		// A secondary-worktree path can be incremented via its own watcher without ever being registered.
+		cache.incrementStatusGeneration(otherPath); // generation 1, no registry entry
+		cache.clearCaches(undefined, 'status');
+		assert.strictEqual(
+			cache.getStatusGeneration(otherPath),
+			2,
+			'union of registry + generation keys is incremented',
+		);
 	});
 });

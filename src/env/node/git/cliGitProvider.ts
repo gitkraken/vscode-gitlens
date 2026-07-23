@@ -13,6 +13,7 @@ import type { Cache } from '@gitlens/git/cache.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitDir } from '@gitlens/git/models/repository.js';
+import { forcedRepositoryChanges } from '@gitlens/git/models/repository.js';
 import { deletedOrMissing, uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import type { GitProviderDescriptor, RepositoryVisibility } from '@gitlens/git/providers/types.js';
@@ -64,7 +65,7 @@ import type {
 import { createGitProviderContext } from '../../../git/gitProviderContext.js';
 import type { GitUri } from '../../../git/gitUri.js';
 import { isGitUri } from '../../../git/gitUri.js';
-import type { RepositoryChangeEvent } from '../../../git/models/repository.js';
+import type { RepositoryChange, RepositoryChangeEvent } from '../../../git/models/repository.js';
 import { GlRepository } from '../../../git/models/repository.js';
 import { getRemoteProviderUrl } from '../../../git/utils/-webview/remote.utils.js';
 import {
@@ -278,7 +279,14 @@ export class GlCliGitProvider implements GlGitProvider {
 		const repo = new GlRepository(this.container, this.descriptor, folder, uri, gitDir, root, opened);
 
 		repo.onDidChange(e => {
-			this.cache.onRepositoryChanged(repo.path, [...e.changes]);
+			// Only force-fired changes need telling here: they're delivered straight to this emitter, bypassing the
+			// watch session, so nothing upstream told the cache. Everything else went through the session, which
+			// already did it once, before notifying anyone (see `GitProviderService`'s global wiring) — telling it
+			// again would land a second time mid-notification, and a consumer reading status synchronously in that
+			// gap would spawn a duplicate `git status` the second advance immediately fences out.
+			if (e.changed(...forcedRepositoryChanges)) {
+				this.onRepositoryChanged(repo.path, e.changes);
+			}
 
 			if (!e.changed('unknown', 'closed')) {
 				if (e.changed('head')) {
@@ -293,8 +301,16 @@ export class GlCliGitProvider implements GlGitProvider {
 			this._onWillChangeRepository.fire(e);
 			this._onDidChangeRepository.fire(e);
 		});
+		// Working-tree changes are not wired here: they're driven onto the cache's status clock once, globally,
+		// at the watch session (see `GitProviderService`), so open repos and closed worktrees share one increment.
 
 		return repo;
+	}
+
+	/** Advance the cache for a FORCE-fired repo change (`opened`/`closed`/`lastFetched`), which bypasses the watch
+	 *  session — session-routed changes are advanced once by the session itself (see `GitProviderService`). */
+	private onRepositoryChanged(repoPath: string, changes: Iterable<RepositoryChange>): void {
+		this.cache.onRepositoryChanged(repoPath, changes);
 	}
 
 	private _gitLocator: Promise<GitLocation> | undefined;

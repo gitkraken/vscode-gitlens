@@ -10,7 +10,7 @@ import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitReflog } from '@gitlens/git/models/reflog.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
 import type { SearchQuery, SearchQueryFilters } from '@gitlens/git/models/search.js';
-import type { CommitSignature } from '@gitlens/git/models/signature.js';
+import type { CommitSignature, SshSignedCommit } from '@gitlens/git/models/signature.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
 import type {
 	GitCommitReachability,
@@ -58,6 +58,10 @@ import {
 } from '../parsers/logParser.js';
 import { getReflogParser, parseGitRefLog } from '../parsers/reflogParser.js';
 import { parseSignatureOutput, signatureFormat } from '../parsers/signatureParser.js';
+import {
+	extractCommitterFromCommitObject,
+	extractSshPublicKeyFromCommitObject,
+} from '../parsers/sshSignatureParser.js';
 import { createCommitFileset } from './commitFilesetUtils.js';
 import { convertStashesToStdin } from './stash.js';
 
@@ -331,9 +335,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				return { refs: refs };
 			} catch (ex) {
 				cacheable?.invalidate();
-				debugger;
 				if (isCancellationError(ex)) throw ex;
 
+				debugger;
 				scope?.error(ex);
 
 				return undefined;
@@ -1500,6 +1504,69 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			scope?.error(ex);
 			return false;
 		}
+	}
+
+	@debug()
+	async getCommitsSshSigners(repoPath: string, shas: string[]): Promise<Map<string, SshSignedCommit>> {
+		const scope = getScopedLogger();
+
+		const result = new Map<string, SshSignedCommit>();
+		if (shas.length === 0) return result;
+
+		try {
+			// Read every commit object in a single `cat-file --batch` process (the SHAs are piped to stdin) rather than
+			// spawning one `git` per commit — the embedded SSH signature and committer identity are then parsed from
+			// each raw object, avoiding a separate (and far heavier) `git log` pass to enumerate identities.
+			const data = await this.git.run<Buffer>(
+				{ cwd: repoPath, errors: 'ignore', stdin: `${shas.join('\n')}\n`, encoding: 'buffer' },
+				'cat-file',
+				'--batch',
+			);
+			parseCatFileBatchForSshSigners(data.stdout, new Set(shas), result);
+		} catch (ex) {
+			scope?.error(ex);
+		}
+		return result;
+	}
+}
+
+/**
+ * Parses `git cat-file --batch` output, extracting the embedded SSH public key (if any) from each requested commit
+ * object. Each record is `<sha> <type> <size>` LF `<content>` LF (or `<sha> missing` LF), and the object's bytes are
+ * consumed using the header's `<size>` rather than scanned line-by-line — so a commit/tag body line that happens to
+ * look like an object header can never be misread as a boundary. Operates on the raw `Buffer` because `<size>` counts
+ * bytes, not decoded characters.
+ *
+ * Exported for unit testing.
+ */
+export function parseCatFileBatchForSshSigners(
+	stdout: Buffer,
+	requestedShas: Set<string>,
+	out: Map<string, SshSignedCommit>,
+): void {
+	const headerRegex = /^([0-9a-f]{40,64}) (commit|tag|blob|missing)(?: (\d+))?$/;
+
+	let offset = 0;
+	while (offset < stdout.length) {
+		const newline = stdout.indexOf(0x0a, offset);
+		if (newline === -1) break;
+
+		const match = headerRegex.exec(stdout.toString('utf8', offset, newline));
+		offset = newline + 1;
+		// A missing object (or an unrecognizable header) has no content body following its header line.
+		if (match == null || match[2] === 'missing') continue;
+
+		const sha = match[1];
+		const object = stdout.toString('utf8', offset, offset + Number(match[3]));
+		offset += Number(match[3]) + 1; // consume the object's bytes and the trailing newline that separates records
+
+		if (!requestedShas.has(sha)) continue;
+
+		const key = extractSshPublicKeyFromCommitObject(object);
+		if (key == null) continue;
+
+		const committer = extractCommitterFromCommitObject(object);
+		out.set(sha, { key: key, name: committer?.name, email: committer?.email });
 	}
 }
 

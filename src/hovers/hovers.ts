@@ -330,7 +330,7 @@ export async function detailsMessage(
 			ai: { allowed: container.ai.allowed },
 			enrichedAutolinks:
 				enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
-			dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
+			dateFormat: options.dateFormat ?? 'MMMM Do, YYYY h:mma',
 			editor: { line: editorLine, uri: uri },
 			getBranchAndTagTips: options?.getBranchAndTagTips,
 			messageAutolinks: options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled),

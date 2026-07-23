@@ -175,7 +175,8 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 				let succeeded: boolean;
 
 				const deleteBranches = state.flags.includes('--delete-branches');
-				let force = state.flags.includes('--force');
+				// `'locked'` escalates to a double `--force`, which is required to delete a locked worktree
+				let force: boolean | 'locked' = state.flags.includes('--force');
 				const worktree = context.worktrees?.find(wt => wt.uri.toString() === uri.toString());
 
 				while (true) {
@@ -199,7 +200,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 									cancel,
 								);
 
-								if (result !== confirm) return;
+								if (result !== confirm) break;
 							}
 						}
 
@@ -230,7 +231,32 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 								break;
 							}
 
-							if (!force) {
+							// Handled before the `!force` check below, because a single `--force` can't delete a
+							// locked worktree -- it takes a double `--force`, so this must escalate even when forcing
+							if (ex.details.reason === 'locked') {
+								// Already double-forced and it's still locked, so there's nothing left to escalate to
+								if (force !== 'locked') {
+									const confirm: MessageItem = { title: 'Force Delete' };
+									const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+									const result = await window.showWarningMessage(
+										`Unable to delete worktree in '${uri.fsPath}' because it is locked.${
+											ex.details.lockReason ? `\n\nLock reason: ${ex.details.lockReason}` : ''
+										}\n\nSomething may still be using this worktree. Forcibly deleting it could disrupt whatever locked it.\n\nWould you like to forcibly delete it?`,
+										{ modal: true },
+										confirm,
+										cancel,
+									);
+
+									if (result === confirm) {
+										// If we were already forcing, the changes prompt (if any) has been answered -- don't re-ask on the retry
+										skipHasChangesPrompt = force === true;
+										force = 'locked';
+										continue;
+									}
+
+									break;
+								}
+							} else if (!force) {
 								const confirm: MessageItem = { title: 'Force Delete' };
 								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 								const result = await window.showErrorMessage(
@@ -252,7 +278,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 							}
 						}
 
-						void showGitErrorMessage(ex, `Unable to delete worktree in '${uri.fsPath}. ex=${String(ex)}`);
+						void showGitErrorMessage(ex, `Unable to delete worktree in '${uri.fsPath}'`);
 					}
 
 					break;

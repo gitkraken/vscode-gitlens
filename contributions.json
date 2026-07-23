@@ -2822,6 +2822,11 @@
 			"label": "Git Cherry Pick...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.git.editAllowedSigners": {
+			"label": "Edit SSH Allowed Signers...",
+			"icon": "$(key)",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.git.history": {
 			"label": "Git History (log)...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
@@ -4046,6 +4051,19 @@
 				]
 			}
 		},
+		"gitlens.graph.resumeAgentSession": {
+			"label": "Resume Agent Session...",
+			"icon": "$(robot)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+						"group": "0_gitlens_worktree_1",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.graph.revealWorktreeInExplorer": {
 			"label": "Reveal in File Explorer",
 			"menus": {
@@ -4265,7 +4283,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-						"group": "2_columns",
+						"group": "1_style",
 						"order": 1
 					}
 				]
@@ -4279,8 +4297,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-						"group": "2_columns",
-						"order": 1
+						"group": "1_style",
+						"order": 2
 					}
 				]
 			}
@@ -4293,8 +4311,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-						"group": "2_columns",
-						"order": 1
+						"group": "1_style",
+						"order": 3
 					}
 				]
 			}
@@ -4516,6 +4534,20 @@
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktreeHEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.unlockWorktree": {
+			"label": "Unlock Worktree",
+			"icon": "$(unlock)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+locked\\b)/ && !listMultiSelection && !gitlens:readonly",
+						"group": "1_gitlens_actions_2",
+						"order": 4
 					}
 				]
 			}
@@ -6545,7 +6577,7 @@
 		"gitlens.showGraph": {
 			"label": "Show Commit Graph",
 			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled",
+			"commandPalette": true,
 			"menus": {
 				"gitlens/scm/title": [
 					{
@@ -6619,12 +6651,12 @@
 		"gitlens.showGraphPage": {
 			"label": "Show Commit Graph in Editor",
 			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled"
+			"commandPalette": true
 		},
 		"gitlens.showGraphView": {
 			"label": "Show Commit Graph View",
 			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled"
+			"commandPalette": true
 		},
 		"gitlens.showHomeView": {
 			"label": "Show Home View",
@@ -18584,6 +18616,20 @@
 				]
 			}
 		},
+		"gitlens.views.unlockWorktree": {
+			"label": "Unlock Worktree",
+			"icon": "$(unlock)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+locked\\b)/ && !listMultiSelection && !gitlens:readonly",
+						"group": "1_gitlens_actions_2",
+						"order": 4
+					}
+				]
+			}
+		},
 		"gitlens.views.unstageDirectory": {
 			"label": "Unstage All Changes",
 			"icon": "$(remove)",
@@ -20924,7 +20970,7 @@
 		"gitlens.views.graph": {
 			"type": "webview",
 			"name": "Graph",
-			"when": "!gitlens:disabled && (!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/)",
+			"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-graph)",
 			"initialSize": 4,

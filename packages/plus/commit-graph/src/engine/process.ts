@@ -28,9 +28,35 @@ interface InternalProcessResume {
 	lastEdges: RowEdges;
 	priorRows: ProcessedGraphRow[];
 	commitCount: number;
-	// Parked-lane floor of the last FULL run — appends never park, but the prefix still holds that
-	// run's parked rows, so the floor must survive append cycles for the caller's pref filtering.
-	preferredColumnFloor: number;
+}
+
+// Opaque sticky-columns token — bundles a run's output so the NEXT run can reproduce its lane assignments
+// (colours + splice stability) without the consumer knowing how preferences are derived. Callers hold it
+// verbatim and pass it back as `stableFrom`; the shape is private, which is the point: the feed ordering
+// (below-window stubs first, real rows win) is an engine detail, not a contract the renderer must honour.
+declare const processStabilityBrand: unique symbol;
+export type GraphStability = { readonly [processStabilityBrand]: true };
+interface InternalStability {
+	rows: readonly ProcessedGraphRow[];
+	unloadedColumns: ReadonlyMap<Sha, number>;
+}
+
+// Sticky preferences from a prior run's output. Below-window stubs are seeded FIRST so a real row's column
+// always wins the tie: the two sets are disjoint for well-formed (children-first) rows, but a stray stub for
+// a sha that IS loaded must never clobber that row's true column, or the lane space ratchets by one on every
+// update. This is the sole home of that ordering — it used to live in the renderer.
+function preferencesFromStability(stability: GraphStability | undefined): ReadonlyMap<Sha, number> | undefined {
+	if (stability == null) return undefined;
+
+	const prior = stability as unknown as InternalStability;
+	const preferred = new Map<Sha, number>();
+	for (const [sha, column] of prior.unloadedColumns) {
+		preferred.set(sha, column);
+	}
+	for (const row of prior.rows) {
+		preferred.set(row.sha, row.column);
+	}
+	return preferred;
 }
 
 function commitToGraphRow(commit: GraphCommit): GraphRow {
@@ -83,7 +109,12 @@ export function processCommitsAndSegments(
 		syntheticChildren?: ReadonlySet<Sha>;
 		/** Resume token from a prior call to continue the pass over freshly-paged rows in O(page) time. */
 		resume?: GraphProcessResume;
-		/** Sticky-column hints from a prior run (sha → column) — see `computeColumnsAndSegments`. */
+		/** Sticky-columns token from a prior run — reproduces its lane assignments. The preferred consumer
+		 *  API: opaque, so the caller never encodes the preference-derivation. Ignored if `preferredColumns`
+		 *  is also given (an explicit map wins, for low-level/test callers). */
+		stableFrom?: GraphStability;
+		/** Explicit sticky-column hints (sha → column) — the low-level escape hatch; most callers pass
+		 *  `stableFrom` instead. See `computeColumnsAndSegments`. */
 		preferredColumns?: ReadonlyMap<Sha, number>;
 		/**
 		 * Prefix-change reconciliation: the layout still runs over everything (it's the cheap pass —
@@ -104,14 +135,14 @@ export function processCommitsAndSegments(
 	unloadedColumns: ReadonlyMap<Sha, number>;
 	/** Resume token to pass back on the next page-in for an incremental append. */
 	resume: GraphProcessResume;
+	/** Sticky-columns token to pass back as `stableFrom` on the next update, to reproduce these lanes. */
+	stability: GraphStability;
 	/** The spans actually reused from `reconcile.priorRows` (prior row identity), when any. */
 	reconciled?: ReconciledSuffix;
-	/**
-	 * First column at/above which this run PARKED lanes (0 = none). Exclude columns ≥ this floor
-	 * when building the next run's `preferredColumns` from this run's output — feeding parked
-	 * columns back ratchets the lane space upward on every update (see `computeColumnsAndSegments`).
-	 */
-	preferredColumnFloor: number;
+	/** True when this run DISCARDED the sticky preferences and adopted a cold layout because the sticky
+	 *  one had degraded (see the renormalize block). Lets the caller expect a wholesale lane reshuffle for
+	 *  this one update — colours/columns move — instead of the usual stable relayout. */
+	renormalized?: boolean;
 } {
 	// Incremental append: continue from the prior snapshot when this call is a pure APPEND of the SAME
 	// prefix (older commits added at the bottom), with no pinned lanes and no scope (synthetic edges) —
@@ -144,28 +175,47 @@ export function processCommitsAndSegments(
 			lastEdges: lastEdges,
 			priorRows: allRows,
 			commitCount: commits.length,
-			preferredColumnFloor: resume.preferredColumnFloor ?? 0,
 		};
 		return {
 			rows: allRows,
 			segments: segments,
 			unloadedColumns: unloadedColumns,
 			resume: nextResume as unknown as GraphProcessResume,
-			preferredColumnFloor: resume.preferredColumnFloor ?? 0,
+			stability: { rows: allRows, unloadedColumns: unloadedColumns } as unknown as GraphStability,
 		};
 	}
 
 	const rows: GraphRow[] = commits.map(commitToGraphRow);
-	const {
-		rows: processed,
-		segments,
-		unloadedColumns,
-		snapshot,
-		preferredColumnFloor,
-	} = computeColumnsAndSegments(rows, {
+	// An explicit map wins (test/low-level callers); otherwise derive from the opaque token.
+	const preferredColumns = options?.preferredColumns ?? preferencesFromStability(options?.stableFrom);
+	let layout = computeColumnsAndSegments(rows, {
 		pinnedShas: options?.pinnedShas,
-		preferredColumns: options?.preferredColumns,
+		preferredColumns: preferredColumns,
 	});
+
+	// RENORMALIZE. Sticky preferences are a ratchet in one direction: a lane that can't get a low column on
+	// the update it arrives keeps that column forever, and because a lane spans its tip down to its fork
+	// point, ONE badly-placed tip inflates the gutter for every row it crosses (measured: a tip that belongs
+	// on column 1 parked on column 9 and dragged a 250-row lane through the whole visible graph). Nothing
+	// recovers from it, which is why reopening the graph — a preference-less run — "fixes" it.
+	//
+	// So do that automatically. A cold layout is the layout-only (cheap) pass — the edge pass, the expensive
+	// half, runs once below over whichever layout we keep — so we can afford to compute it and COMPARE by
+	// gutter area (`laneArea`), then keep the sticky layout unless cold is tighter by more than one full
+	// column of height. The slack is what preserves stability: in steady state the sticky layout reproduces
+	// its prior columns and cold cannot beat it by a whole column, so nothing reshuffles; only a genuinely
+	// degraded layout (a far-right lane dragging the gutter out) loses to cold and gets discarded. Skipped
+	// when the run is already preference-less (a cold open / paging append is optimal by construction) or
+	// pinned (a pinned layout isn't comparable to an unpinned cold one).
+	let renormalized = false;
+	if (preferredColumns != null && preferredColumns.size > 0 && options?.pinnedShas == null) {
+		const cold = computeColumnsAndSegments(rows);
+		if (cold.laneArea + rows.length < layout.laneArea) {
+			layout = cold;
+			renormalized = true;
+		}
+	}
+	const { rows: processed, segments, unloadedColumns, snapshot } = layout;
 	// Prefix-change reconciliation: align the fresh LAYOUT against the prior rows so the edge pass
 	// can stop at carry convergence and adopt the prior row objects (edges included) wholesale.
 	// Scoped/pinned runs are excluded — their edges carry synthetic/pinned state a prior plain run
@@ -204,7 +254,6 @@ export function processCommitsAndSegments(
 		lastEdges: processed.at(-1)?.edges ?? {},
 		priorRows: processed,
 		commitCount: commits.length,
-		preferredColumnFloor: preferredColumnFloor,
 	};
 	// Surface `unloadedColumns` so the lane-collapse / scope re-pass (which re-runs `computeEdges` over the
 	// filtered rows) can re-thread it — otherwise the dangling stub vanishes the moment any lane folds.
@@ -213,7 +262,8 @@ export function processCommitsAndSegments(
 		segments: segments,
 		unloadedColumns: unloadedColumns,
 		resume: nextResume as unknown as GraphProcessResume,
+		stability: { rows: processed, unloadedColumns: unloadedColumns } as unknown as GraphStability,
 		reconciled: reconciled,
-		preferredColumnFloor: preferredColumnFloor,
+		renormalized: renormalized,
 	};
 }

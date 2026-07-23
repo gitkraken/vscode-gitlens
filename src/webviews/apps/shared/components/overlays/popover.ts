@@ -1,6 +1,7 @@
 import type WaPopup from '@awesome.me/webawesome/dist/components/popup/popup.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { parseDuration, waitForEvent } from '../../dom.js';
 import { GlElement, observe } from '../element.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
@@ -425,6 +426,13 @@ export class GlPopover extends GlElement {
 	@property({ reflect: true })
 	placement: WaPopup['placement'] = 'bottom';
 
+	/**
+	 * Space-separated placements to try when the preferred placement doesn't fit (e.g. 'bottom-start'),
+	 * instead of the default flip to the opposite side.
+	 */
+	@property({ attribute: 'flip-fallback-placements' })
+	flipFallbackPlacements?: string;
+
 	@property({ type: Object })
 	anchor?: string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> };
 
@@ -558,6 +566,8 @@ export class GlPopover extends GlElement {
 			auto-size=${this.autoSizeVertical ? 'both' : 'horizontal'}
 			auto-size-padding="3"
 			flip-padding="3"
+			flip-fallback-placements=${ifDefined(this.flipFallbackPlacements)}
+			flip-fallback-strategy="best-fit"
 			flip
 			shift
 			?arrow=${this.arrow}

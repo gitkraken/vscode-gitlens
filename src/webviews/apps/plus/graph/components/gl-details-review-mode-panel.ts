@@ -574,7 +574,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private renderIdleState() {
 		// Fallback: compute scope from files if not provided
-		const scope = this.scope || (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
+		const scope = this.scope ?? (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
 		if (!scope) return nothing;
 
 		// Disable Start Review when there are no effectively-included files (after both user

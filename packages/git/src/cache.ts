@@ -213,6 +213,8 @@ export class Cache implements Disposable {
 	private _commonPathRegistry = new Map<RepoPath, string>();
 	/** Reverse index: commonPath → set of worktree repoPaths that share it */
 	private _worktreesByCommonPath = new Map<string, Set<RepoPath>>();
+	/** Monotonic per-worktree "status clock" — see {@link getStatusGeneration}. */
+	private _statusGenerations = new Map<RepoPath, number>();
 
 	[Symbol.dispose](): void {
 		this.dispose();
@@ -492,6 +494,7 @@ export class Cache implements Disposable {
 			}
 
 			invalidateMemoized('providers');
+			this.incrementStatusGenerations(repoPath);
 		} else {
 			// Clear specific cache types
 			if (types.includes('blame')) {
@@ -589,6 +592,10 @@ export class Cache implements Disposable {
 			}
 			if (types.includes('status')) {
 				keysToClear.add('pausedOperationStatus');
+				// A caller asserting "status changed" (the post-op hooks in `operations.ts`, a user-initiated
+				// refresh) has to advance the clock too — otherwise a `git status` still in flight from before
+				// the operation can satisfy the read that follows it.
+				this.incrementStatusGenerations(repoPath);
 			}
 			if (types.includes('tags')) {
 				keysToClear.add('tags');
@@ -644,6 +651,52 @@ export class Cache implements Disposable {
 			} else {
 				cache.delete(repoPath);
 			}
+		}
+	}
+
+	/**
+	 * Monotonic per-worktree counter, advanced whenever anything that can change `git status` output is
+	 * observed. `git status` and its siblings are point-in-time reads of mutable state, so deduplicating them
+	 * on repoPath alone is unsound — a run that started before a commit would satisfy a caller that arrived
+	 * after it. Callers stamp their in-flight run with the generation it started in and refuse older joins.
+	 * Kept per exact worktree path (never spread to the common path) and advanced on `unregisterRepoPath` so a
+	 * read in flight from a prior registration can't be joined after a reopen.
+	 *
+	 * Note: a run that never settles wedges only its own generation's callers (a newer generation gets a fresh
+	 * key). `git.run` recovers via its per-command timeout (default 60s); a hung `git.stream` is caught by the
+	 * status provider's `raceWithTimeout` backstop (scaled to `advanced.git.timeout`; see
+	 * `dedupeByStatusGeneration`), which rejects a wedged read so waiters unblock and a later caller retries.
+	 */
+	getStatusGeneration(repoPath: string): number {
+		return this._statusGenerations.get(repoPath) ?? 0;
+	}
+
+	/** Advances the status clock — see {@link getStatusGeneration}. */
+	incrementStatusGeneration(repoPath: string): void {
+		this._statusGenerations.set(repoPath, this.getStatusGeneration(repoPath) + 1);
+	}
+
+	/**
+	 * Working-tree changes ride their own channel (`Repository.onDidChangeWorkingTree`), not
+	 * `onRepositoryChanged` — an external `git restore <file>` may touch no `.git` path we classify — so
+	 * they have to advance the status clock separately or a discard would never invalidate an in-flight read.
+	 */
+	onWorkingTreeChanged(repoPath: string): void {
+		this.incrementStatusGeneration(repoPath);
+	}
+
+	/** Advances the status clock for one worktree, or for every known worktree when `repoPath` is undefined. */
+	private incrementStatusGenerations(repoPath: string | undefined): void {
+		if (repoPath != null) {
+			this.incrementStatusGeneration(repoPath);
+			return;
+		}
+
+		// Union of registered repos and any path that already carries a generation — a secondary-worktree
+		// path incremented via its own watcher may never have been registered, but still has in-flight reads to fence.
+		const paths = new Set([...this._commonPathRegistry.keys(), ...this._statusGenerations.keys()]);
+		for (const path of paths) {
+			this.incrementStatusGeneration(path);
 		}
 	}
 
@@ -704,10 +757,15 @@ export class Cache implements Disposable {
 	 * cancellation into the underlying work rather than leaving it orphaned. Controller-backed
 	 * entries self-evict on settle; plain `.set()`-based entries hard-delete immediately.
 	 *
-	 * No-op if `repoPath` is not registered.
+	 * Cache eviction is a no-op if `repoPath` is not registered, but the status clock is advanced
+	 * unconditionally (a fresh registration must not let a post-reopen read join a pre-close one).
 	 */
 	@debug({ onlyExit: true })
 	unregisterRepoPath(repoPath: string): void {
+		// Advance the status clock on close so a status read still in flight from this registration can't be
+		// joined by a read issued after the path is reopened (which would otherwise reuse the same generation).
+		this.incrementStatusGeneration(repoPath);
+
 		const commonPath = this._commonPathRegistry.get(repoPath) ?? repoPath;
 		const worktrees = this._worktreesByCommonPath.get(commonPath);
 		// After removing repoPath, would the commonPath have any worktrees left?
@@ -755,11 +813,12 @@ export class Cache implements Disposable {
 	reset(): void {
 		this._commonPathRegistry.clear();
 		this._worktreesByCommonPath.clear();
+		this._statusGenerations.clear();
 		this._caches = createEmptyCaches();
 	}
 
 	@debug({ onlyExit: true })
-	onRepositoryChanged(repoPath: string, changes: RepositoryChange[]): void {
+	onRepositoryChanged(repoPath: string, changes: Iterable<RepositoryChange>): void {
 		const changesSet = new Set(changes);
 
 		const hasAny = (...c: RepositoryChange[]) => c.some(ch => changesSet.has(ch));
@@ -767,6 +826,14 @@ export class Cache implements Disposable {
 		if (hasAny('unknown', 'closed')) {
 			this.unregisterRepoPath(repoPath);
 			return;
+		}
+
+		// Advance the status clock (see {@link getStatusGeneration}) for changes that alter `git status` output but
+		// aren't mapped to the `'status'` cache type below: files (index/head/heads), untracked set (ignores/config),
+		// ahead/behind (remotes). Paused-op changes advance it too, but via `clearCaches('status')` (see below) —
+		// listing them here as well would double-increment the clock for a single change.
+		if (hasAny('index', 'head', 'heads', 'remotes', 'ignores', 'config')) {
+			this.incrementStatusGeneration(repoPath);
 		}
 
 		const types = new Set<CachedGitTypes>();

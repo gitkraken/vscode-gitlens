@@ -5,8 +5,22 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
+		id: 'gemini-3.6-flash',
+		name: 'Gemini 3.6 Flash',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
+	},
+	{
 		id: 'gemini-3.5-flash',
 		name: 'Gemini 3.5 Flash',
+		maxTokens: { input: 1048576, output: 65536 },
+		provider: provider,
+		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override
+	},
+	{
+		id: 'gemini-3.5-flash-lite',
+		name: 'Gemini 3.5 Flash-Lite',
 		maxTokens: { input: 1048576, output: 65536 },
 		provider: provider,
 		temperature: null, // Gemini 3.x reasoning is tuned for its default temperature; don't override

@@ -273,7 +273,10 @@
 		"typescript/unbound-method": "off",
 		"typescript/unified-signatures": "error",
 		"typescript/use-unknown-in-catch-callback-variable": "error",
-		"typescript/prefer-optional-chain": "error"
+		"typescript/prefer-optional-chain": "error",
+		"typescript/prefer-find": "error",
+		"typescript/prefer-string-starts-ends-with": "error",
+		"typescript/prefer-nullish-coalescing": ["error", { "ignorePrimitives": true }]
 	},
 	"overrides": [
 		{
@@ -426,6 +429,7 @@
 					{ "assertionStyle": "as", "objectLiteralTypeAssertions": "allow-as-parameter" }
 				],
 				"typescript/consistent-type-imports": ["error", { "disallowTypeAnnotations": false }],
+				"typescript/consistent-type-exports": "error",
 				"typescript/explicit-module-boundary-types": ["error", { "allowArgumentsExplicitlyTypedAsAny": true }],
 				"typescript/no-confusing-void-expression": [
 					"error",

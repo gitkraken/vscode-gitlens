@@ -70,6 +70,11 @@ export class IpcNotification<Params = void> extends IpcCall<Params> {
 		method: string,
 		reset?: boolean,
 		public readonly queueable?: boolean,
+		/**
+		 * When `true`, a slow send to a *view* skips the view's progress indicator — for background,
+		 * idempotent pushes the user isn't waiting on, where it's noise and a queue of them strobes it.
+		 */
+		public readonly silent?: boolean,
 	) {
 		super(scope, method, reset);
 	}

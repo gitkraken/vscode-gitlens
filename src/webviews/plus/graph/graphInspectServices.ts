@@ -101,7 +101,7 @@ export type GraphInspectServicesContext = {
 	getWipForRepoAndStats: (
 		repo: GlRepository,
 		signal?: AbortSignal,
-		options?: { bypassCache?: boolean },
+		options?: { force?: boolean },
 	) => Promise<{ wip: Wip } | undefined>;
 	getSearchContext: (sha: string | undefined) => GitCommitSearchContext | undefined;
 };
@@ -470,9 +470,10 @@ export class GraphInspectServices {
 					// panel uses — if a prior initial-state fetch landed with bad data and no FS event
 					// has fired since, the header/row badges stay stuck on stale stats until the next
 					// incidental tick.
-					// `force` (user-initiated refresh) bypasses `_wipStatusCache` so the button runs
-					// a genuinely fresh `git status` rather than re-serving a possibly-stale entry.
-					return this.context.getWipForRepoAndStats(repo, signal, force ? { bypassCache: true } : undefined);
+					// `force` (user-initiated refresh) advances the repo's status generation so the button runs
+					// a genuinely fresh `git status` — rather than joining one already in flight from before
+					// the click, or re-serving a cached entry.
+					return this.context.getWipForRepoAndStats(repo, signal, force ? { force: true } : undefined);
 				},
 				explainCommit: async (
 					repoPath: string,
@@ -542,6 +543,39 @@ export class GraphInspectServices {
 						);
 					} catch (ex) {
 						Logger.error(ex, 'GraphWebviewProvider', 'generateChangelogCompare');
+					}
+				},
+				getPreviousTag: async (
+					repoPath: string,
+					tagName: string,
+					tagSha: string,
+					signal?: AbortSignal,
+				): Promise<string | undefined> => {
+					try {
+						signal?.throwIfAborted();
+						const svc = this.container.git.getRepositoryService(repoPath);
+						const { values: tags } = await svc.tags.getTags({ sort: true }, signal);
+
+						// Anchor on the current tag's date so only strictly-older tags are considered
+						// (the reachability check below is the real guarantee; this just bounds cost).
+						const currentDate = tags.find(t => t.name === tagName)?.date?.getTime();
+
+						// `tags` is date-desc, so the first older tag that is an ancestor of the current
+						// tag is the newest previous reachable tag.
+						for (const tag of tags) {
+							signal?.throwIfAborted();
+							if (tag.sha === tagSha || tag.name === tagName) continue;
+							if (currentDate != null && (tag.date?.getTime() ?? 0) >= currentDate) continue;
+
+							const mergeBase = await svc.refs.getMergeBase(tag.sha, tagSha, undefined, signal);
+							if (mergeBase === tag.sha) return tag.name;
+						}
+						return undefined;
+					} catch (ex) {
+						if (isCancellationError(ex)) throw ex;
+
+						Logger.error(ex, 'GraphWebviewProvider', 'getPreviousTag');
+						return undefined;
 					}
 				},
 				explainCompare: async (

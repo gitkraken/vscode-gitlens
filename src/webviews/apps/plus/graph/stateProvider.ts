@@ -46,7 +46,6 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeVisualizationsButtonCallout,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
@@ -382,6 +381,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor webroot: string | undefined;
 
 	@signalState()
+	accessor isWeb: State['isWeb'] = false;
+
+	@signalState()
 	accessor repositories: State['repositories'];
 
 	@signalState()
@@ -530,13 +532,20 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** Fingerprint of the overview we last fetched enrichment for — avoids duplicate requests. */
 	private _enrichmentFingerprint: string | undefined;
 
+	/** Branch ids enriched on behalf of a non-overview consumer (a WIP-bar pill whose branch missed the
+	 *  overview's active/recent cut). The overview's publishes are authoritative only for their OWN ids,
+	 *  so these must be carried forward explicitly — otherwise an overview refetch evicts them, and a
+	 *  pill's PR/issue rows vanish live, under an open hover. */
+	private readonly _extraEnrichmentBranchIds = new Set<string>();
+	/** In-flight additive fetches, so re-hovering a pill doesn't re-issue the request. */
+	private readonly _extraEnrichmentInFlight = new Set<string>();
+
 	mcpBannerCollapsed?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
 	canInstallClaudeHook?: boolean | undefined;
 	graphWalkthroughBannerCollapsed?: boolean | undefined;
 	graphWalkthroughComplete?: boolean | undefined;
 	graphWalkthroughStarted?: boolean | undefined;
-	visualizationsButtonCalloutDismissed?: boolean | undefined;
 
 	constructor(
 		host: ReactiveElementHost,
@@ -657,30 +666,112 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		void this.ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: branchIds }).then(result => {
 			// Only publish when the overview fingerprint hasn't moved on — a newer overview
-			// in flight will trigger its own fetch whose result is authoritative. Build the next
-			// state from `result` so stale entries (e.g. a closed/retargeted PR's enrichment) for
-			// branchIds no longer in the active/recent set are dropped, but preserve any
-			// locally-merged `mergeTarget` from `mergeMergeTargetIntoEnrichment` (overview cards /
-			// click-to-scope) — the host opts out of merge-target resolution here via
-			// `skipMergeTarget: true`, so it always returns `mergeTarget: undefined`.
+			// in flight will trigger its own fetch whose result is authoritative.
 			if (this._enrichmentFingerprint === fingerprint) {
-				const previous = this.overviewEnrichment;
-				if (previous == null) {
-					this.overviewEnrichment = result;
-				} else {
-					const next: typeof result = {};
-					for (const branchId in result) {
-						const incoming = result[branchId];
-						const localMergeTarget = previous[branchId]?.mergeTarget;
-						next[branchId] =
-							localMergeTarget != null && incoming?.mergeTarget == null
-								? { ...incoming, mergeTarget: localMergeTarget }
-								: incoming;
-					}
-					this.overviewEnrichment = next;
-				}
+				this.publishOverviewEnrichment(result);
 			}
 		});
+	}
+
+	/**
+	 * Publish an authoritative overview enrichment result. Builds the next state from `result` so stale
+	 * entries (e.g. a closed/retargeted PR's enrichment) for branchIds no longer in the active/recent set
+	 * are dropped — but drop-stale applies only WITHIN the overview's own id set:
+	 *
+	 * - entries fetched additively for non-overview branches (`ensureEnrichmentFetchedForBranches`) are
+	 *   carried forward, since this result was never asked about them;
+	 * - locally-merged `mergeTarget`s from `mergeMergeTargetIntoEnrichment` are preserved — the host opts
+	 *   out of merge-target resolution here via `skipMergeTarget: true` and always returns `undefined`.
+	 */
+	publishOverviewEnrichment(result: NonNullable<AppState['overviewEnrichment']>): void {
+		const previous = this.overviewEnrichment;
+		if (previous == null) {
+			this.overviewEnrichment = result;
+			return;
+		}
+
+		const next: typeof result = {};
+		for (const branchId of this._extraEnrichmentBranchIds) {
+			if (branchId in result) continue;
+
+			const entry = previous[branchId];
+			if (entry != null) {
+				next[branchId] = entry;
+			}
+		}
+		for (const branchId in result) {
+			const incoming = result[branchId];
+			const localMergeTarget = previous[branchId]?.mergeTarget;
+			next[branchId] =
+				localMergeTarget != null && incoming?.mergeTarget == null
+					? { ...incoming, mergeTarget: localMergeTarget }
+					: incoming;
+		}
+		this.overviewEnrichment = next;
+	}
+
+	/** Clear all enrichment state — the shared record, the overview fingerprint, and the additive
+	 *  WIP-bar tracking Sets — as one unit. Both reset paths (scope-anchor invalidation and the overview
+	 *  panel's `refresh`) must go through here so the add-only `_extraEnrichmentBranchIds` can't outlive
+	 *  the data it tracks (unbounded growth) or carry a prior repo's ids into the next fetch. */
+	resetOverviewEnrichment(): void {
+		this._enrichmentFingerprint = undefined;
+		this._extraEnrichmentBranchIds.clear();
+		this._extraEnrichmentInFlight.clear();
+		if (this.overviewEnrichment != null) {
+			this.overviewEnrichment = undefined;
+		}
+	}
+
+	/**
+	 * Additively fetch enrichment for branch ids that may sit OUTSIDE the overview's active/recent set —
+	 * a WIP-bar pill on a worktree whose branch missed the recency cut still wants its PR/issues.
+	 *
+	 * Deliberately not routed through `ensureOverviewEnrichmentFetched`: that guards on a fingerprint of
+	 * the exact overview id set, so feeding it a different list would flip the fingerprint back and forth
+	 * and refetch forever. This path fetches only the ids it doesn't already have and merges — never drops.
+	 */
+	ensureEnrichmentFetchedForBranches(branchIds: string[]): void {
+		const enrichment = this.overviewEnrichment;
+		const missing = branchIds.filter(
+			id => !this._extraEnrichmentInFlight.has(id) && !(enrichment != null && id in enrichment),
+		);
+		if (missing.length === 0) return;
+
+		for (const id of missing) {
+			this._extraEnrichmentInFlight.add(id);
+		}
+
+		void this.ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: missing }).then(
+			result => {
+				for (const id of missing) {
+					this._extraEnrichmentInFlight.delete(id);
+					this._extraEnrichmentBranchIds.add(id);
+				}
+				if (result == null) return;
+
+				// Preserve any locally-merged `mergeTarget` per id: this fetch opts out of merge-target
+				// resolution (`skipMergeTarget`), so a raw spread would erase a target that
+				// `ensureMergeTargetFetched` may have published for the same branch moments earlier (both
+				// fire from one hover's settle timer). Same preservation as `publishOverviewEnrichment`.
+				const previous = this.overviewEnrichment;
+				const next: NonNullable<typeof previous> = { ...previous };
+				for (const branchId in result) {
+					const incoming = result[branchId];
+					const localMergeTarget = previous?.[branchId]?.mergeTarget;
+					next[branchId] =
+						localMergeTarget != null && incoming?.mergeTarget == null
+							? { ...incoming, mergeTarget: localMergeTarget }
+							: incoming;
+				}
+				this.overviewEnrichment = next;
+			},
+			() => {
+				for (const id of missing) {
+					this._extraEnrichmentInFlight.delete(id);
+				}
+			},
+		);
 	}
 
 	/** Session cache of resolved scope anchors (mergeBase + mergeTargetTipSha), keyed by `repoPath|branchRef`. */
@@ -740,8 +831,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/**
 	 * Merge a lazily-fetched merge-target into `overviewEnrichment` for the given branchId. The graph
 	 * overview's enrichment IPC opts out of eager merge-target fetching (`skipMergeTarget: true`); the
-	 * card and click-to-scope paths fetch via `BranchesService.getMergeTargetStatus` and call this to
-	 * publish the result so the existing `reconcileScopeMergeTarget` hook backfills the scope's tip SHA.
+	 * click-to-scope path and the shared branch hover (`gl-branch-hover`, backing both the overview card
+	 * and the graph WIP-bar pills) fetch it via `getBranchEnrichment(...).mergeTargetStatus` and call this
+	 * to publish the result so the existing `reconcileScopeMergeTarget` hook backfills the scope's tip SHA.
 	 */
 	mergeMergeTargetIntoEnrichment(branchId: string, mergeTarget: OverviewBranchMergeTarget | undefined): void {
 		const current = this.overviewEnrichment;
@@ -1207,10 +1299,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// Also reset enrichment so a stale `mergeTargetTipSha` doesn't survive — the next
 				// popover open or sidebar render will re-fetch and `reconcileScopeMergeTarget` will
 				// re-anchor the live scope when it lands.
-				this._enrichmentFingerprint = undefined;
-				if (this.overviewEnrichment != null) {
-					this.overviewEnrichment = undefined;
-				}
+				this.resetOverviewEnrichment();
 
 				// Proactively re-resolve the live scope. The cache clear above only ensures the
 				// *next* `resolveScopeMergeBase` call won't hand back the stale anchor — it doesn't
@@ -1248,6 +1337,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			case DidChangeColumnsNotification.is(msg):
 				this.updateState({
 					columns: msg.params.columns,
+					columnsRevision: msg.params.columnsRevision,
 					context: {
 						...this._state.context,
 						header: msg.params.context,
@@ -1507,10 +1597,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ graphWalkthroughStarted: msg.params });
 				break;
 
-			case DidChangeVisualizationsButtonCallout.is(msg):
-				this.updateState({ visualizationsButtonCalloutDismissed: msg.params });
-				break;
-
 			case DidChangeWorkingTreeNotification.is(msg): {
 				// Host always sends `wipMetadataBySha` as an object (possibly `{}`) so the merge
 				// can correctly clear stale anchors. If a future host change ever omits the field
@@ -1527,8 +1613,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// The producer always populates `wip.stats` and skips this notification when the status
 				// fetch fails, but guarding here keeps a stats-less push from blanking the badge and
 				// matches the `DidRequestWipRefetchNotification` handler's discipline below.
+				// Drop a push reflecting an older working tree than what's already applied (see `isStaleWip`) —
+				// otherwise a delayed push regresses the cache/badge/overview. `wipMetadataBySha` is an independent
+				// per-sha merge, so it still applies.
+				const staleWip = this.isStaleWip(msg.params.repoPath, msg.params.wip);
+
 				const updates: Partial<State> = {};
-				if (msg.params.wip?.stats != null) {
+				if (!staleWip && msg.params.wip?.stats != null) {
 					updates.workingTreeStats = msg.params.wip.stats;
 				}
 				if (msg.params.wipMetadataBySha != null) {
@@ -1541,7 +1632,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// The host packs the full WIP into every working-tree notification (same
 				// `git status` it already ran for the stats). The panel observes this and
 				// applies it directly — no `getWip` round-trip needed.
-				if (msg.params.wip != null) {
+				if (!staleWip && msg.params.wip != null) {
 					updates.wip = msg.params.wip;
 					// Seed the cache so re-opening the WIP panel paints from memory while a fresh
 					// host push lands. The active-watcher set covers `isLive` derivation at read
@@ -1552,7 +1643,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// Merge the overview entry for the primary's current branch from the same fetch,
 				// so the overview card's dirty/clean indicator AND inline breakdown counts stay
 				// live without the bulk probe. Skip on detached HEAD (no branch to key by).
-				this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.wip?.stats);
+				if (!staleWip) {
+					this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.wip?.stats);
+				}
 				break;
 			}
 
@@ -1560,7 +1653,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// Host pre-fetched the WIP for a non-active worktree (the active-repo watcher
 				// wouldn't fire for it). Push it through the same channel as the regular
 				// working-tree notification — the panel's `applyPushedWip` observer handles it.
-				if (msg.params.wip != null) {
+				// Same ordering rule as the working-tree notification above — a refetch reflecting an older working
+				// tree than what's applied must not regress the cache/badge/row metadata (see `isStaleWip`).
+				if (msg.params.wip != null && !this.isStaleWip(msg.params.repoPath, msg.params.wip)) {
 					const updates: Partial<State> = { wip: msg.params.wip };
 					const { repoPath } = msg.params;
 					// Stats travel embedded as `wip.stats` (host-computed from the same `git status`).
@@ -1701,6 +1796,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private readonly _wips = new LruMap<string, { wip: Wip; timestamp: number }>(16);
 
 	/**
+	 * Highest {@link Wip.revision} accepted per repo path — the ordering high-water for `isStaleWip`.
+	 *
+	 * Deliberately NOT read off `_wips`: that cache is evictable, and evicting a repo's payload would forget its
+	 * revision, so a delayed older push for it would then be accepted and regress the cache. Ordering state has to
+	 * outlive the payload it ordered, and only ever increase. One number per repo path seen this session.
+	 */
+	private readonly _wipRevisions = new Map<string, number>();
+
+	/**
 	 * The set of repo paths the host currently has an active working-tree watcher for. Drives
 	 * `getWipState().isLive` so consumers know whether a cache hit will be refreshed by a
 	 * push soon (true) or needs explicit revalidation (false).
@@ -1718,11 +1822,36 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _pendingLocalEditPaths = new Set<string>();
 
 	/**
+	 * Whether `wip` reflects an OLDER working tree than the one already cached for `repoPath`, per the host's
+	 * monotonic {@link Wip.revision}. Payloads race — a debounced push can land after a newer push or after a forced
+	 * refresh — so the graph-level mirrors (cache, badge, overview) must order by that marker rather than by arrival,
+	 * or a delayed push regresses them. Unstamped payloads have no ordering to enforce and are never stale.
+	 */
+	private isStaleWip(repoPath: string, wip: Wip | undefined): boolean {
+		if (wip?.revision == null) return false;
+
+		const applied = this._wipRevisions.get(repoPath);
+		return applied != null && wip.revision < applied;
+	}
+
+	/** Advance the ordering high-water for `repoPath`. Monotonic — a payload accepted for its content (an unstamped
+	 *  wip, an optimistic local edit) must never lower the bar for the pushes that follow it. */
+	private recordWipRevision(repoPath: string, wip: Wip): void {
+		if (wip.revision == null) return;
+
+		const applied = this._wipRevisions.get(repoPath);
+		if (applied == null || wip.revision > applied) {
+			this._wipRevisions.set(repoPath, wip.revision);
+		}
+	}
+
+	/**
 	 * Seed the wip cache from a host push (working-tree notification / refetch notification).
 	 * Clears the pending-local-edit marker because this write IS the host-side reconciliation.
 	 */
 	private cacheWip(repoPath: string, wip: Wip): void {
 		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
+		this.recordWipRevision(repoPath, wip);
 		this._pendingLocalEditPaths.delete(repoPath);
 	}
 
@@ -1799,7 +1928,29 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 */
 	setWip(repoPath: string, wip: Wip): void {
 		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
+		this.recordWipRevision(repoPath, wip);
 		this._pendingLocalEditPaths.add(repoPath);
+	}
+
+	/**
+	 * Ingest an AUTHORITATIVE wip for `repoPath` — a `getWip` RPC response, which the host produces from the same
+	 * single `git status` as a push. Reconciles every mirror a push reconciles: the payload cache and its ordering
+	 * high-water, the header/row badge stats, and the overview entry (otherwise the overview card's dirty indicator
+	 * silently keeps pre-refresh state — only the notification handlers merged it).
+	 *
+	 * Distinct from {@link setWip}, which exists for OPTIMISTIC local guesses and so marks the entry non-live until
+	 * the host reconciles. Marking host truth non-live makes every revisit buy another `git status` to re-confirm
+	 * what the host just said — and on an idle repo, with no watcher ticks to reconcile it, that repeats forever.
+	 *
+	 * Ordering is the caller's to enforce (same contract as `setWip`) — the panel gates on its own applied revision
+	 * before it paints, and ingesting a payload it didn't paint would strand the cache ahead of it.
+	 */
+	ingestWip(repoPath: string, wip: Wip): void {
+		this.cacheWip(repoPath, wip);
+		if (wip.stats != null) {
+			this.setWorkingTreeStats(repoPath, wip.stats);
+		}
+		this.mergeOverviewWipForRepo(repoPath, wip, wip.stats);
 	}
 
 	/**
@@ -2020,7 +2171,13 @@ export function mergeWipMetadata(
 			// Only the probe build carries `hasChanges`/local-only `hasUnpushed`; a per-tick push leaves
 			// them undefined and must not register as a change (the merge above preserves the prior value).
 			(entry.hasChanges != null && entry.hasChanges !== prevEntry?.hasChanges) ||
-			(entry.hasUnpushed != null && entry.hasUnpushed !== prevEntry?.hasUnpushed)
+			(entry.hasUnpushed != null && entry.hasUnpushed !== prevEntry?.hasUnpushed) ||
+			// Sent every build (a sync projection of the already-loaded `wt.branch`), so a plain content
+			// diff is right. Must be compared: without it, a change confined to the branch (e.g. `behind`
+			// moving after a fetch) leaves `changed` false, `prev` is returned, and the fresh branch is
+			// silently discarded — freezing the WIP bar's hover on stale tracking data. `areEqual` (deep)
+			// so a field the hover starts rendering later can't silently fall out of the comparison.
+			!areEqual(entry.branch, prevEntry?.branch)
 		) {
 			changed = true;
 		}

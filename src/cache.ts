@@ -409,7 +409,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 		case 'prByBranch':
 		case 'prsById':
 		case 'prsBySha': {
-			if (value == null) return cache === 'prByBranch' ? defaultExpiresAt : 0 /* Never expires */;
+			if (value == null) return cache === 'prByBranch' ? defaultExpiresAt : 0; /* Never expires */
 
 			// Open prs expire after 1 hour, but closed/merge prs expire after 12 hours unless recently updated and then expire in 1 hour
 

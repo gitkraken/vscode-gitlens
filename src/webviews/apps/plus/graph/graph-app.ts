@@ -1,4 +1,3 @@
-import type { GraphStyle } from '@gitkraken/commit-graph/view.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, ContextProvider, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
@@ -15,6 +14,7 @@ import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
@@ -33,7 +33,7 @@ import type {
 import {
 	createSecondaryWipSha,
 	createWipSha,
-	DismissVisualizationsButtonCalloutCommand,
+	EnableChangesColumnCommand,
 	GetRowHoverRequest,
 	getSecondaryWipPath,
 	GetWipStatsRequest,
@@ -46,15 +46,12 @@ import {
 	TrackGraphDetailsReviewModeCommand,
 	TrackGraphDetailsWipShownCommand,
 	TrackGraphScopeChangedCommand,
+	UpdateColumnModeCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateGraphDisplayModeCommand,
 } from '../../../plus/graph/protocol.js';
 import { noop } from '../../shared/actions/rpc.js';
-import {
-	formatAgentElapsed,
-	indexAgentSessionsByRepoAndWorktree,
-	matchAgentSessionsForWorktree,
-} from '../../shared/agentUtils.js';
+import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
@@ -99,6 +96,8 @@ import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
 import { shouldShowPrimaryWipRow } from './utils/wip.utils.js';
+import './empty-state.js';
+import './access-account.js';
 import './gate.js';
 import './graph-header.js';
 import './graph-wrapper/graph-wrapper.js';
@@ -488,18 +487,33 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					this._autoEffectiveLocation = 'bottom';
 				} else if (this._autoEffectiveLocation === 'bottom' && width > detailsAutoBottomExitPx) {
 					this._autoEffectiveLocation = 'right';
+					// Maximize is bottom-only — drop it on a flip to the side so it doesn't silently
+					// re-apply when the panel later returns to the bottom.
+					if (this.graphState.details?.maximized) {
+						this.graphState.details = { maximized: false };
+						this.persistState();
+					}
 				}
 			}
 		});
 	}
 
+	private _graphObserved = false;
+
+	// Observe the outer `.graph` div once rendered — it contains the entire layout (header, panes,
+	// sidebar, React mount), so freezing this one element freezes everything inside it. Idempotent and
+	// driven from both `firstUpdated` and `updated`: `.graph` is absent on the first render when the
+	// account-access screen replaces the tree (signed out), so it must attach when the graph appears
+	// after sign-in — where `firstUpdated` no longer fires.
+	private ensureGraphObserved(): void {
+		if (this._graphObserved || this.graphRootEl == null || this._graphSizeObserver == null) return;
+
+		this._graphObserved = true;
+		this._graphSizeObserver.observe(this.graphRootEl);
+	}
+
 	protected override firstUpdated(): void {
-		// Observe the outer `.graph` div once it's been rendered. It contains the entire
-		// layout — header, panes, sidebar, the React mount — so freezing this single element
-		// freezes everything inside it without needing to touch other components.
-		if (this.graphRootEl != null) {
-			this._graphSizeObserver?.observe(this.graphRootEl);
-		}
+		this.ensureGraphObserved();
 
 		// Manual refresh entry point (the WIP empty pane's refresh button, routed through the
 		// details panel) — force an immediate refetch rather than waiting on `onLaunchpadChanged`.
@@ -1256,12 +1270,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		void this.fetchSelectedWorktreeWipStats(id).finally(() => this._wipStatsInFlight.delete(id));
 	};
 
+	/** Last array handed to the bar. `wipBarItems` re-runs on every GraphApp render (selection, scroll,
+	 *  search, resize, agent ticks — none of which touch the WIP bar), and a fresh array each time fails
+	 *  Lit's `Object.is` check, re-rendering every pill. Returning the previous array when the content is
+	 *  unchanged makes those renders free. */
+	private _wipBarItemsCache: readonly WipBarItem[] = [];
+
+	private get wipBarItems(): readonly WipBarItem[] {
+		const next = this.buildWipBarItems();
+		const prev = this._wipBarItemsCache;
+
+		// Preserve identity PER ITEM, not just for the whole array: reuse each prior item object whose
+		// content is unchanged. Without this, one pill changing (e.g. another worktree's agent tick)
+		// reallocates the whole array, handing every OTHER pill's already-open hover a fresh `.wip`
+		// reference — which churns that hover's settle timer every unrelated tick. Content-compared, not
+		// identity-compared: nothing in a WipBarItem is derived from the clock, so equal content really
+		// means "nothing changed" (an earlier cut carried a sub-minute `lastActivity` string that would
+		// have defeated this on every tick while an agent worked — precisely when the bar is busiest).
+		const prevById = new Map(prev.map(item => [item.id, item]));
+		const merged = next.map(item => {
+			const prior = prevById.get(item.id);
+			return prior != null && areEqual(item, prior) ? prior : item;
+		});
+		// Everything reused in the same order → hand back the exact prior array so the bar itself skips
+		// re-rendering on unrelated GraphApp renders (selection, scroll, search, resize).
+		if (merged.length === prev.length && merged.every((item, i) => item === prev[i])) return prev;
+
+		this._wipBarItemsCache = merged;
+		return merged;
+	}
+
 	/** Computes the bar's WIP entries. The bar exists to surface OTHER worktrees' working changes, so it
 	 *  returns an empty array — hiding the bar — unless at least one secondary worktree qualifies. When it
 	 *  does, the primary worktree is the first entry (always, even when clean) as a stable anchor, followed
 	 *  by one entry per secondary, most-recent first. Agent state is resolved per-worktree via the
 	 *  session-by-worktree index. */
-	private get wipBarItems(): readonly WipBarItem[] {
+	private buildWipBarItems(): readonly WipBarItem[] {
 		const gs = this.graphState;
 		const fallbackRepoPath = this.fallbackRepoPath;
 		if (fallbackRepoPath == null) return [];
@@ -1301,17 +1345,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// lookup) instead of re-scanning every session per worktree — mirrors `getAgentStatusByRowSha`
 		// in graph-wrapper so the bar and the in-graph WIP rows surface the same indicator.
 		const sessionIndex = indexAgentSessionsByRepoAndWorktree(gs.agentSessions);
-		const pickAgent = (repoPath: string): Pick<WipBarItem, 'agent' | 'lastActivity'> => {
+		const pickAgent = (repoPath: string): Pick<WipBarItem, 'agent' | 'agentCount'> => {
 			const status = pickWipRowAgentStatus(
 				matchAgentSessionsForWorktree(sessionIndex, { repoPath: repoPath, worktreePath: repoPath }),
 				now,
 			);
 			if (status == null) return {};
 
-			// The row collapses the worktree's sessions to one indicator; surface their most-recent
-			// activity as the "Updated … ago" hint.
-			const latest = status.sessions.reduce((max, s) => Math.max(max, s.lastActivity.getTime()), 0);
-			return { agent: status.category, lastActivity: formatAgentElapsed(latest) };
+			return { agent: status.category, agentCount: status.sessions.length };
 		};
 
 		const items: WipBarItem[] = [];
@@ -1331,15 +1372,24 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			branch: gs.branch?.name ?? primaryFallbackLabel(fallbackRepoPath),
 			repoPath: fallbackRepoPath,
 			hasWorkingChanges: primaryDirty,
-			...(primary != null && primaryDirty
-				? {
-						files: primary.added + primary.modified + primary.deleted,
-						added: primary.added,
-						modified: primary.modified,
-						deleted: primary.deleted,
-					}
-				: {}),
-			...(primaryAhead > 0 ? { hasUnpushed: true, ahead: primaryAhead } : {}),
+			// The current branch is always `active` in the overview, so the hover resolves it from there and
+			// needs no `branchModel` fallback.
+			branchId: gs.branch?.id,
+			wip: {
+				hasChanges: primaryDirty,
+				...(primary != null && primaryDirty
+					? {
+							workingTreeState: {
+								added: primary.added,
+								changed: primary.modified,
+								deleted: primary.deleted,
+							},
+						}
+					: {}),
+				...(primary?.pausedOpStatus != null ? { pausedOpStatus: primary.pausedOpStatus } : {}),
+				...(primary?.hasConflicts === true ? { hasConflicts: true } : {}),
+			},
+			...(primaryAhead > 0 ? { hasUnpushed: true } : {}),
 			...pickAgent(fallbackRepoPath),
 			isPrimary: true,
 			context: serializeWipContext(fallbackRepoPath, false, primary?.hasConflicts ?? false),
@@ -1347,28 +1397,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		for (const { sha, meta, dirty } of secondaries) {
 			const stats = meta.workDirStats;
+			const unpushed = meta.hasUnpushed === true;
 			items.push({
 				id: sha,
 				branch: branchNameFromRef(meta.branchRef) ?? meta.label,
 				repoPath: meta.repoPath,
 				hasWorkingChanges: dirty,
-				// Stats omitted until hover fetches them — the pill renders from the dirty signal.
-				// `workDirStatsStale === false` with no `workDirStats` means a forced fetch settled
-				// without a breakdown (failed/cancelled), so flag it for the hover's terminal state
-				// instead of leaving the tooltip stuck on "Loading changes…".
-				...(stats != null
-					? {
-							files: stats.added + stats.modified + stats.deleted,
-							added: stats.added,
-							modified: stats.modified,
-							deleted: stats.deleted,
-						}
-					: meta.workDirStatsStale === false
-						? { statsUnavailable: true }
-						: {}),
-				...(meta.hasUnpushed === true
-					? { hasUnpushed: true, ...(meta.ahead != null && meta.ahead > 0 ? { ahead: meta.ahead } : {}) }
-					: {}),
+				hasUnpushed: unpushed,
+				branchId: meta.branchRef,
+				// The host's projection of this worktree's branch. Needed because a worktree branch only
+				// lands in `state.overview` when the worktree is open or its last commit is recent — without
+				// it, a dirty worktree on an older branch would hover with nothing to show.
+				branchModel: meta.branch,
+				wip: {
+					hasChanges: dirty,
+					// Absent until the breakdown is fetched on hover — the pill renders from the dirty bit.
+					// `workDirStatsStale === false` with no `workDirStats` means a forced fetch settled without
+					// one (failed/cancelled), so flag it for the hover's terminal "Couldn't load changes"
+					// instead of leaving it stuck on "Loading changes…".
+					...(stats != null
+						? {
+								workingTreeState: {
+									added: stats.added,
+									changed: stats.modified,
+									deleted: stats.deleted,
+								},
+							}
+						: meta.workDirStatsStale === false
+							? { statsUnavailable: true }
+							: {}),
+					// A local-only branch has no upstream, so `gl-tracking-status` renders nothing and the
+					// hover would silently drop the fact that there's work to push. `ahead` is undefined for
+					// these (there's nothing to count against) — it's a presence bit only.
+					...(unpushed && meta.ahead == null ? { hasUnpublishedCommits: true } : {}),
+					...(meta.pausedOpStatus != null ? { pausedOpStatus: meta.pausedOpStatus } : {}),
+					...(meta.hasConflicts === true ? { hasConflicts: true } : {}),
+				},
 				...pickAgent(meta.repoPath),
 				isPrimary: false,
 				context: serializeWipContext(meta.repoPath, true, meta.hasConflicts ?? false),
@@ -1393,6 +1457,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
+
+		// Attach the `.graph` size observer as soon as the graph tree exists — it isn't rendered on the
+		// first update when the account-access screen replaces it (signed out), and `firstUpdated` won't
+		// fire again after sign-in.
+		this.ensureGraphObserved();
 
 		// Start the Launchpad pipeline once `services` first resolves. `services` is a `@consume`d
 		// context value (not a reactive property), so it won't appear in `changedProperties` — guard
@@ -1589,40 +1658,66 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	resetHover() {
-		this.graphHover.reset();
+		// `graphHover` is null whenever the graph tree isn't rendered — the account-access screen (early
+		// return in `render`) or the no-repository empty state. `onStateUpdate` (graph.ts) only calls this on
+		// state pushes that include `rows` (even `rows: []`), so the optional chaining keeps it safe if one
+		// arrives while either screen is shown.
+		this.graphHover?.reset();
 	}
 
 	override render() {
+		const sub = this.graphState.subscription;
+		if (sub != null && (sub.account == null || sub.account.verified === false)) {
+			return html`<gl-graph-access-account></gl-graph-access-account>`;
+		}
+
 		const detailsVisible = this.graphState.details?.visible ?? false;
 		const minimapVisible = this.graphState.minimap?.visible ?? true;
 		const { single, multi } = this.activeSelection;
+		// No repository open: render only the empty state — skip the header and the whole graph subtree
+		// (React GraphContainer + minimap + sidebar + details) rather than mounting them just to paint the
+		// empty state over the top. `repositories` is `undefined` during the initial load window, so `=== 0`
+		// stays false until an actual `[]` arrives and the graph still renders while loading. This
+		// intentionally mounts/unmounts the graph subtree on the no-repo↔repo transition — acceptable here
+		// because there is no prior graph state to preserve (contrast the always-render remount-avoidance in
+		// `renderDetailsPanel`/`renderGraphPaneContent`, which guards mode switches, not this).
+		const noRepos = this.graphState.repositories?.length === 0;
 		return html`
 			<div class="graph">
 				${when(
 					this.graphState.config?.experimentalHomeHeaderEnabled ?? false,
 					() => html`<gl-account-bar class="graph__account-bar"></gl-account-bar>`,
 				)}
-				<gl-graph-header
-					class="graph__header"
-					.selectCommits=${this.selectCommits}
-					.getCommits=${this.getCommits}
-					.ensureGraphRendered=${this.ensureGraphRendered}
-					.detailsVisible=${detailsVisible}
-					.detailsEffectiveLocation=${this.effectiveDetailsLocation}
-					.minimapVisible=${minimapVisible}
-					.hasSelectedCommit=${single != null || multi != null}
-					@toggle-sidebar=${this.handleToggleSidebar}
-					@toggle-details=${this.handleToggleDetails}
-					@show-details=${this.handleShowDetails}
-					@toggle-minimap=${this.handleToggleMinimap}
-					@jump-to-wip=${this.handleJumpToWip}
-					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
-				></gl-graph-header>
+				${when(
+					!noRepos,
+					() => html`
+						<gl-graph-header
+							class="graph__header"
+							.selectCommits=${this.selectCommits}
+							.getCommits=${this.getCommits}
+							.ensureGraphRendered=${this.ensureGraphRendered}
+							.detailsVisible=${detailsVisible}
+							.detailsEffectiveLocation=${this.effectiveDetailsLocation}
+							.minimapVisible=${minimapVisible}
+							.hasSelectedCommit=${single != null || multi != null}
+							@toggle-sidebar=${this.handleToggleSidebar}
+							@toggle-details=${this.handleToggleDetails}
+							@show-details=${this.handleShowDetails}
+							@toggle-minimap=${this.handleToggleMinimap}
+							@jump-to-wip=${this.handleJumpToWip}
+							@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
+						></gl-graph-header>
+					`,
+				)}
 				<div class="graph__workspace">
 					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
-					<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
-					<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
-					<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
+					${noRepos
+						? html`<gl-graph-empty-state class="graph__empty-state"></gl-graph-empty-state>`
+						: html`
+								<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
+								<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
+								<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
+							`}
 				</div>
 			</div>
 		`;
@@ -1648,22 +1743,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const carried = otherSide != null && otherSide < 100 ? otherSide : undefined;
 		const persisted = sameSide ?? carried;
 		const position = detailsVisible ? (persisted ?? 100 - detailsDefaultPct) : 100;
+		// Maximize is bottom-only: drive the (start=graph) share to 0 so the details pane fills the area.
+		// The divider is disabled while maximized so no drag can overwrite the persisted `bottomPosition`
+		// — restore just re-binds `.position` to it. Gated on `detailsVisible` so a stray flag can't
+		// force a hidden panel open.
+		const maximized = isBottom && detailsVisible && hasContent && (this.graphState.details?.maximized ?? false);
 		return html`<gl-split-panel
 			class=${classMap({ 'graph__details-split': true, '-vertical': isBottom })}
 			orientation=${isBottom ? 'vertical' : 'horizontal'}
 			primary="end"
-			.position=${position}
+			.position=${maximized ? 0 : position}
 			.snap=${hasContent ? this._detailsSnap : undefined}
-			.disabled=${!hasContent}
+			.disabled=${!hasContent || maximized}
 			@gl-split-panel-change=${this.handleDetailsSplitChange}
 			@gl-split-panel-drag-end=${this.handleSplitDragEnd}
 			@gl-split-panel-closed-change=${this.handleDetailsClosedChange}
 		>
 			<div slot="start" class="graph__graph-pane">${this.renderGraphPaneContent()}</div>
-			<div slot="end" class="graph__details-pane">
+			<div slot="end" class="graph__details-pane" ?inert=${!detailsVisible}>
 				<gl-graph-details-panel
 					sha=${effectiveSha ?? nothing}
 					repo-path=${effectiveRepoPath ?? nothing}
+					?show-maximize=${isBottom}
+					?maximized=${maximized}
 					.shas=${multi?.shas}
 					.graphReachability=${single?.reachability}
 					.commitLite=${single?.commitLite}
@@ -1672,6 +1774,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.searchBoxFilter=${this.graphState.details?.searchBoxFilter ?? true}
 					.navigation=${this._navState}
 					@select-commit=${this.handleSelectCommit}
+					@gl-toggle-details-maximized=${this.handleToggleDetailsMaximized}
 					@gl-nav-back=${this.handleNavBack}
 					@gl-nav-forward=${this.handleNavForward}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
@@ -1733,7 +1836,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				class="graph__graph-pane-body"
 				@gl-graph-kanban-open-session=${this.handleKanbanOpenSession}
 				@gl-graph-open-branch=${this.handleOpenBranchSheet}
-				@gl-graph-style-change=${this.handleStyleChange}
 			>
 				${when(
 					this.graphState.config?.sidebar,
@@ -1743,8 +1845,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 								.sidebarVisible=${this.graphState.sidebar?.visible ?? false}
 								@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
 								@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
-								@gl-graph-sidebar-visualizations-callout-dismiss=${this
-									.handleVisualizationsCalloutDismiss}
 								@gl-graph-sidebar-show-shortcuts=${this.handleShowShortcuts}
 							></gl-graph-sidebar>
 							<gl-graph-keyboard-shortcuts
@@ -1916,6 +2016,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		>
 			<gl-graph-sidebar-panel
 				slot="start"
+				?inert=${!isOpen}
 				active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
 				date-format=${this.graphState.config?.dateFormat ?? nothing}
 				@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
@@ -1990,16 +2091,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			selectedCommit != null && isWipSha(selectedCommit.sha)
 				? wipItems.find(i => i.repoPath === selectedCommit.repoPath)?.id
 				: undefined;
-		// Move the WIP bar to the bottom of the graph (just above the details pane) whenever the
-		// details panel is — or would be — on the bottom, so the bar always sits adjacent to the
-		// details. CSS `order` (not DOM reordering) does the move to avoid remounting the bar/graph.
-		const wipBottom = this.effectiveDetailsLocation === 'bottom';
 		return html`
-			<div class=${classMap({ 'graph__graph-column': true, '-wip-bottom': wipBottom })} slot=${ifDefined(slot)}>
+			<div class="graph__graph-column" slot=${ifDefined(slot)}>
 				${wipItems.length > 0
 					? html`
 							<gl-graph-wip-bar
-								.position=${wipBottom ? 'bottom' : 'top'}
 								.items=${wipItems}
 								.selectedId=${selectedWipId}
 								.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
@@ -2010,8 +2106,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					: nothing}
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}
+					@gl-graph-change-column-mode=${this.handleGraphChangeColumnMode}
 					@gl-graph-change-selection=${this.handleGraphSelectionChanged}
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
+					@gl-graph-enable-changes-column=${this.handleGraphEnableChangesColumn}
 					@gl-graph-filter-column=${this.handleGraphFilterColumn}
 					@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
@@ -2216,7 +2314,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const gs = this.graphState;
 		if (gs.details?.visible === visible) return;
 
-		gs.details = { visible: visible };
+		// Clear maximize on hide so reopening isn't stuck full-height.
+		gs.details = visible ? { visible: visible } : { visible: visible, maximized: false };
 		this.persistState();
 		this.emitDetailsVisibilityTelemetry(visible, trigger ?? 'toggle');
 
@@ -2226,6 +2325,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: 'auto' } });
 		}
 	}
+
+	private handleToggleDetailsMaximized = (): void => {
+		const gs = this.graphState;
+		gs.details = { maximized: !(gs.details?.maximized ?? false) };
+		this.persistState();
+	};
 
 	private emitDetailsVisibilityTelemetry(
 		visible: boolean,
@@ -2285,6 +2390,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.trackModeOpenedClosed('review', e.detail.previous, e.detail.current);
 		this.trackModeOpenedClosed('resolve', e.detail.previous, e.detail.current);
 
+		// `graph.details.maximizeOnMode`: auto-maximize the bottom-docked details panel when entering a
+		// mode (compose/review/resolve/compare), and restore when leaving it. Mode→mode transitions leave
+		// the state alone, so a manual toggle mid-mode is respected.
+		if (this.graphState.config?.detailsMaximizeOnMode ?? true) {
+			const wasMode = this.isMaximizeMode(e.detail.previous);
+			const isMode = this.isMaximizeMode(e.detail.current);
+			if (isMode && !wasMode) {
+				if (this.effectiveDetailsLocation === 'bottom' && !(this.graphState.details?.maximized ?? false)) {
+					this.graphState.details = { maximized: true };
+					this.persistState();
+				}
+			} else if (wasMode && !isMode && this.graphState.details?.maximized) {
+				this.graphState.details = { maximized: false };
+				this.persistState();
+			}
+		}
+
 		// `shown`/`closed` already capture mode at open/close — only emit transitions while the
 		// panel stays visible (e.g. swap-to-close, mode chip toggles), so the event isolates
 		// in-panel transitions from open/close noise.
@@ -2310,6 +2432,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			data: { 'mode.old': e.detail.previous, 'mode.new': e.detail.current },
 		});
 	};
+
+	/** The modes that auto-maximize the bottom-docked panel on entry (gated by `graph.details.maximizeOnMode`). */
+	private isMaximizeMode(mode: GraphDetailsMode): boolean {
+		return mode === 'compose' || mode === 'review' || mode === 'resolve' || mode === 'compare';
+	}
 
 	private trackModeOpenedClosed(
 		mode: 'compose' | 'review' | 'resolve',
@@ -2373,6 +2500,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// an explicit `right`/`bottom`) and gives immediate visual feedback. Reset to `auto` via
 			// the setting to re-enable width-aware behavior.
 			const next = this.effectiveDetailsLocation === 'bottom' ? 'right' : 'bottom';
+			// Maximize is bottom-only — drop it when pinning to the side.
+			if (next === 'right' && this.graphState.details?.maximized) {
+				this.graphState.details = { maximized: false };
+			}
 			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: next } });
 			return;
 		}
@@ -2384,12 +2515,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true, 'toggle');
 			this.ensureDetailsPosition();
 		}
-	}
-
-	// The graph-style toggle (in gl-lit-graph's header) bubbles its next mode up; persist it to
-	// `gitlens.graph.style`, which flows back through config → the component's `effectiveStyle`.
-	private handleStyleChange(e: CustomEvent<{ style: GraphStyle }>) {
-		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { style: e.detail.style } });
 	}
 
 	private handleToggleMinimap() {
@@ -2461,16 +2586,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `renderGraphPaneContent` short-circuits the sidebar split when `displayMode !== 'graph'`, so
 		// the user's `sidebarVisible` setting is preserved automatically and restored on return.
 		this.persistState();
-	};
-
-	private handleVisualizationsCalloutDismiss = (): void => {
-		const gs = this.graphState;
-		if (gs.visualizationsButtonCalloutDismissed) return;
-
-		// Optimistic flip — the host echo via `DidChangeVisualizationsButtonCallout` would otherwise
-		// leave the callout glowing for a frame after the user has already clicked.
-		gs.visualizationsButtonCalloutDismissed = true;
-		this._ipc.sendCommand(DismissVisualizationsButtonCalloutCommand, undefined);
 	};
 
 	private handleTimelineCommitSelect = (e: CustomEvent<GlGraphTimelineCommitSelectDetail>): void => {
@@ -2878,15 +2993,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return result;
 	}
 
+	// `this.graph` isn't rendered when no repository is open (see `render`). The header — the sole caller
+	// of these — is gated on the same condition, so it can't invoke them while the graph is absent, but
+	// guard defensively against future condition drift while preserving the existing return types.
 	private selectCommits = (shas: string[], options?: SelectCommitsOptions) => {
-		return this.graph.selectCommits(shas, options);
+		return this.graph?.selectCommits(shas, options) ?? [];
 	};
 
 	private getCommits = (shas: string[]) => {
-		return this.graph.getCommits(shas);
+		return this.graph?.getCommits(shas) ?? [];
 	};
 
-	private ensureGraphRendered = (): Promise<void> => this.graph.ensureRendered();
+	private ensureGraphRendered = (): Promise<void> => this.graph?.ensureRendered() ?? Promise.resolve();
 
 	private handleMinimapWheel(e: GraphMinimapWheelEvent) {
 		this.graph?.scrollGraphBy(e.detail.deltaY);
@@ -3120,6 +3238,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphState.wipMetadataBySha = next;
 	}
 
+	// The Changes header mode picker's pick — a dedicated host write (not the columns persist, which drops
+	// echoed `mode`), keeping `setColumnMode` host-authoritative. Mirrors `gl-graph-filter-column`'s route.
+	private handleGraphChangeColumnMode(e: CustomEventType<'gl-graph-change-column-mode'>) {
+		this._ipc.sendCommand(UpdateColumnModeCommand, { name: e.detail.name, mode: e.detail.mode });
+	}
+
+	// The dormant Changes column's one-time opt-in — a dedicated consent write (`graph.changesColumn.enabled`).
+	private handleGraphEnableChangesColumn(_e: CustomEventType<'gl-graph-enable-changes-column'>) {
+		this._ipc.sendCommand(EnableChangesColumnCommand, undefined);
+	}
+
 	private handleGraphFilterColumn(e: CustomEventType<'gl-graph-filter-column'>) {
 		const header = this.graphHeader;
 		if (header == null) return;
@@ -3188,10 +3317,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		hover.onRowHovered(graphRow, anchor);
 	}
 
-	private handleGraphRowHoverTrack({ detail: { graphZoneType, graphRow } }: CustomEventType<'rowhovertrack'>) {
+	private handleGraphRowHoverTrack({
+		detail: { graphZoneType, graphRow, minimapDate },
+	}: CustomEventType<'rowhovertrack'>) {
 		if (graphZoneType === 'ref') return;
 
-		this.minimapEl?.select(graphRow.date, true);
+		this.minimapEl?.select(minimapDate ?? graphRow.date, true);
 		// Old-engine event detail is typed with the GKC row shape; the runtime object is the native row.
 		this.graphHover?.onRowChanged(graphRow as unknown as GitGraphRow);
 	}

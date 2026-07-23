@@ -1404,6 +1404,18 @@ export class GraphCommands {
 		return branch != null ? { branchName: branch.name, upstreamName: branch.upstream?.name } : undefined;
 	}
 
+	/** WIP-row context menu — opens the resume-session picker for the row's worktree. */
+	@command('gitlens.graph.resumeAgentSession')
+	@debug()
+	private resumeAgentSession(item?: GraphItemContext): void {
+		if (!isGraphItemRefContext(item, 'revision')) return;
+
+		const { worktreePath } = item.webviewItemValue;
+		if (worktreePath == null) return;
+
+		void executeCommand('gitlens.agents.showResumeSessionPicker', { worktreePath: worktreePath });
+	}
+
 	@command('gitlens.switchToAnotherBranch:graph')
 	@debug()
 	private switchToAnother(item?: GraphItemContext | unknown) {
@@ -2349,6 +2361,15 @@ export class GraphCommands {
 		if (worktree == null || worktree.isDefault || worktree.opened) return;
 
 		await WorktreeActions.remove(worktree.repoPath, [worktree.uri]);
+	}
+
+	@command('gitlens.graph.unlockWorktree')
+	@debug()
+	private async unlockWorktree(item?: GraphItemContext) {
+		const worktree = await this.getGraphItemWorktree(item);
+		if (worktree == null) return;
+
+		await WorktreeActions.unlock(worktree);
 	}
 
 	@command('gitlens.graph.addAuthor')

@@ -17,36 +17,30 @@ export class Emitter<T> {
 	 * to events from this Emitter
 	 */
 	get event(): Event<T> {
-		if (!this._event) {
-			this._event = (listener: (e: T) => any, thisArgs?: unknown, disposables?: { dispose(): void }[]) => {
-				if (this._disposed) {
-					return createDisposable(() => {});
-				}
+		this._event ??= (listener: (e: T) => any, thisArgs?: unknown, disposables?: { dispose(): void }[]) => {
+			if (this._disposed) {
+				return createDisposable(() => {});
+			}
 
-				if (!this._listeners) {
-					this._listeners = [];
-				}
+			this._listeners ??= [];
 
-				this._listeners.push({ callback: listener, thisArgs: thisArgs });
+			this._listeners.push({ callback: listener, thisArgs: thisArgs });
 
-				const result = createDisposable(() => {
-					if (!this._disposed && this._listeners) {
-						const index = this._listeners.findIndex(
-							l => l.callback === listener && l.thisArgs === thisArgs,
-						);
-						if (index > -1) {
-							this._listeners.splice(index, 1);
-						}
+			const result = createDisposable(() => {
+				if (!this._disposed && this._listeners) {
+					const index = this._listeners.findIndex(l => l.callback === listener && l.thisArgs === thisArgs);
+					if (index > -1) {
+						this._listeners.splice(index, 1);
 					}
-				});
-
-				if (disposables instanceof Array) {
-					disposables.push(result);
 				}
+			});
 
-				return result;
-			};
-		}
+			if (disposables instanceof Array) {
+				disposables.push(result);
+			}
+
+			return result;
+		};
 		return this._event;
 	}
 

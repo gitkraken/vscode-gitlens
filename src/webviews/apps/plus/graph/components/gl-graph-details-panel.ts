@@ -303,13 +303,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
 
-	/** User's dragged splitter position (1-99 %) for the agents/WIP split in `expanded` mode.
-	 *  Set only by pointer drag (see {@link _onAgentStatusSplitChange} / {@link _onAgentStatusSplitDragEnd});
-	 *  ResizeObserver / keyboard-driven `gl-split-panel-change` events deliberately don't write
-	 *  here so a container resize never silently latches the user-size mode. Cleared by the sash
-	 *  dbl-click reset; preserved across collapse cycles so re-expanding (chevron, WIP indicator,
-	 *  sidebar/kanban select) restores the user's last chosen size. `undefined` means "use the
-	 *  default expanded position" — see {@link agentStatusDefaultPct}. */
+	/** User's chosen splitter position (1-99 %) for the agents/WIP split in `expanded` mode.
+	 *  Set by pointer drag OR keyboard resize (see {@link _onAgentStatusSplitChange} /
+	 *  {@link _onAgentStatusSplitDragEnd}). Container resizes never write here because `gl-split-panel`
+	 *  no longer emits `gl-split-panel-change` on resize — it holds the primary panel's pixel width
+	 *  silently — so a resize can't latch the user-size mode. Cleared by the sash dbl-click reset;
+	 *  preserved across collapse cycles so re-expanding (chevron, WIP indicator, sidebar/kanban
+	 *  select) restores the user's last chosen size. `undefined` means "use the default expanded
+	 *  position" — see {@link agentStatusDefaultPct}. */
 	@state()
 	private _agentStatusSplitPosition?: number;
 
@@ -322,6 +323,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  each fresh working-tree push (a new `wip` object) triggers exactly one refetch, and re-selecting
 	 *  the same snapshot doesn't. */
 	private _wipFileStatsFetchedFor?: Wip;
+
+	/** Worktree path the past-agent-sessions resource was last fetched for — dedupes
+	 *  {@link updateWipPastSessions} so re-rendering the same WIP row doesn't refetch. */
+	private _lastPastSessionsPath?: string;
 
 	/** User's explicit choice for the agents-pane mode — collapsed (bar only) or expanded
 	 *  (all cards). Flipped by chevron clicks via {@link _onAgentStatusExpandRequest}. The
@@ -381,18 +386,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private readonly _onAgentStatusSplitChange = (e: CustomEvent<{ position: number }>) => {
-		// Only persist user drag while in `expanded` — collapsed/partial render via fit-content,
-		// not the position attribute, so writes there would silently overwrite the expanded-mode
-		// position with a value that never even drove a render.
+		// Only persist while in `expanded` — collapsed/partial render via fit-content, not the
+		// position attribute, so writes there would silently overwrite the expanded-mode position
+		// with a value that never even drove a render. Drag and keyboard resizes both persist here;
+		// container resizes don't reach this handler (split-panel holds the primary pixel width
+		// silently, with no emit on resize), so no `dragging` gate is needed.
 		if (this.agentStatusExpand !== 'expanded') return;
-
-		// Gate on `dragging` — this event also fires from split-panel's internal ResizeObserver
-		// (container resize) and keyboard nudges; recording those would clobber the user's
-		// intended size with whatever the layout engine just computed. The `dragging` attribute
-		// is the host's source of truth for "pointer is down on the divider". `drag-end` is the
-		// fallback for the final value when the change event misses it.
-		const splitPanel = e.currentTarget;
-		if (!(splitPanel instanceof HTMLElement) || !splitPanel.hasAttribute('dragging')) return;
 
 		this._agentStatusSplitPosition = e.detail.position;
 	};
@@ -504,6 +503,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@property({ attribute: false })
 	navigation?: NavigationState;
 
+	/** True when the details panel is docked bottom — gates the maximize/restore chip in every mode's
+	 *  toolbar. Forwarded to each mode sub-panel. */
+	@property({ type: Boolean, attribute: 'show-maximize' })
+	showMaximize = false;
+
+	/** Whether the panel is currently maximized — drives the maximize chip's icon/label. */
+	@property({ type: Boolean })
+	maximized = false;
+
 	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
 	}
@@ -550,6 +558,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._wipFileStats = stats ?? undefined;
 			}
 		});
+	}
+
+	/** Lazily fetch the worktree's past (resumable) agent sessions while a WIP row is selected,
+	 *  mirroring {@link updateWipFileStats}. Dedupes on {@link _lastPastSessionsPath} so re-rendering
+	 *  the same worktree doesn't refetch; the `Resource` itself (a `SignalWatcher` dependency) drives
+	 *  the re-render once the fetch resolves. */
+	private updateWipPastSessions(): void {
+		if (!this.isWip) return;
+
+		const worktreePath = this._state.wip.get()?.repo?.path;
+		if (worktreePath == null || worktreePath === this._lastPastSessionsPath) return;
+
+		this._lastPastSessionsPath = worktreePath;
+		void this._actions?.resources.pastAgentSessions.fetch(worktreePath);
 	}
 
 	/** Attach the lazily-fetched per-file line stats to the WIP file rows so `gl-file-tree-pane`
@@ -1294,6 +1316,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this.isWip;
 	}
 
+	/** Bumps the open sheet's stamp so it refetches — see {@link DetailsWorkflowController}.
+	 *  `_branchSheetChangeStamp` isn't reactive, so this needs an explicit `requestUpdate`. */
+	refreshBranchSheet(): void {
+		if (this._branchSheet == null) return;
+
+		this._branchSheetChangeStamp++;
+		this.requestUpdate();
+	}
+
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		// `_graphState` is a plain `@consume`d context value (no `@state()`), so its own changes
 		// don't show up in `changedProperties` — piggyback on whatever else triggered this cycle and
@@ -1483,6 +1514,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
 		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
 		this.updateWipFileStats();
+		this.updateWipPastSessions();
 
 		// The branch sheet just closed (any path: Esc/X/scrim, the Focus action, the sheet's own
 		// close-request on a deleted branch, the selection-change auto-close above, OR a graph-
@@ -2246,8 +2278,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// the auto-partial trigger and the rendered card list agree on the same data within a
 		// single update. See `_cycleAgentSessions` for why this matters.
 		const worktreeAgentSessions = this._cycleAgentSessions;
+		// Past sessions are keyed by worktree path (see `updateWipPastSessions`) — only trust the
+		// resource's current value when it was fetched for THIS wip's worktree; otherwise a fetch
+		// for a just-left worktree is still in flight and its stale value must not paint here.
+		const wipWorktreePath = wip.repo?.path;
+		const pastAgentSessions =
+			this._lastPastSessionsPath === wipWorktreePath
+				? this._actions?.resources.pastAgentSessions.value.get()
+				: undefined;
+		const hasPastSessions = (pastAgentSessions?.sessions.length ?? 0) > 0;
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
-		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
+		const showAgentStatus = (worktreeAgentSessions != null || hasPastSessions) && activeMode == null;
 		// Tri-state of the agents pane drives both splitter availability and sizing:
 		//  - `collapsed` / `partial`: pane is content-sized via CSS `fit-content(<MAX>%)` (see
 		//                              `--auto-size` rule). Splitter inert. The `position`
@@ -2271,10 +2312,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// splitter position directly.
 		const useAutoSize = !agentStatusIsExpanded;
 		// Cards visible under the current expand state, derived right here from the truth
-		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed.
-		const agentStatusHasVisibleCards = worktreeAgentSessions?.some(s =>
-			expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
-		);
+		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed. Past rows
+		// only ever render when expanded (see `gl-details-agent-status`), so they only count there.
+		const agentStatusHasVisibleCards =
+			(worktreeAgentSessions?.some(s =>
+				expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
+			) ??
+				false) ||
+			(agentStatusExpand === 'expanded' && hasPastSessions);
 
 		const restContent =
 			activeMode === 'review'
@@ -2389,6 +2434,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			<gl-details-wip-header
 				.wip=${wip}
 				.currentRepoPath=${this.graphRepoPath()}
+				?show-maximize=${this.showMaximize}
+				?maximized=${this.maximized}
 				.navigation=${this.navigation}
 				.activeMode=${activeMode}
 				.modeStatus=${this.engagedModeStatus}
@@ -2438,6 +2485,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						<div slot="start" class="agent-status-split__top scrollable">
 							<gl-details-agent-status
 								.sessions=${worktreeAgentSessions}
+								.pastSessions=${pastAgentSessions}
+								.worktreePath=${wipWorktreePath}
 								.expand=${agentStatusExpand}
 								.selectedSessionId=${this._selectedAgentSessionId}
 								@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
@@ -2592,6 +2641,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const activeView = this._state.branchCompareActiveView.get();
 
 		return html`<gl-details-compare-mode-panel
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			.branchName=${branch?.name}
@@ -2735,6 +2786,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?multi-selectable=${true}
 			compare-enabled
 			show-jump-to-nearest-wip
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?show-search-box=${this.showSearchBox}
 			?search-box-filter=${this.searchBoxFilter}
 			.navigation=${this.navigation}
@@ -2811,6 +2864,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return html`<gl-details-multicommit-panel
 			variant="embedded"
 			file-icons
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?show-search-box=${this.showSearchBox}
 			?search-box-filter=${this.searchBoxFilter}
 			.commitFrom=${this._state.commitFrom.get()}

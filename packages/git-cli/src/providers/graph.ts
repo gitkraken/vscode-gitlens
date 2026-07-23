@@ -45,7 +45,6 @@ import {
 	getBranchNameWithoutRemote,
 	getRemoteNameFromBranchName,
 } from '@gitlens/git/utils/branch.utils.js';
-import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
 import { appendRowsAtCursor, mergeAvatarsForward } from '@gitlens/git/utils/graph.utils.js';
 import { computeGraphRowContextFlags, createReachabilityTableBuilder } from '@gitlens/git/utils/reachability.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
@@ -860,13 +859,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					tags: refTags,
 					isCurrentUser: true,
 				};
-				if (stash.stats != null) {
-					rowStats.set(shaOrRemapped, {
-						files: getChangedFilesCount(stash.stats.files),
-						additions: stash.stats.additions,
-						deletions: stash.stats.deletions,
-					});
-				}
+				// Don't seed `rowStats` from `stash.stats` here: the graph's stash list is fetched with
+				// `includeFiles: false`, so the commit model SYNTHESIZES a zero-stats object from its empty
+				// fileset — seeding it marks the stash "covered" and permanently blanks it. The deferred
+				// stats pass owns stash stats (first-parent diff, keyed by stash sha).
 			} else {
 				const isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
 				row = {
@@ -1029,7 +1025,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				try {
 					// Stats are immutable per sha — only query shas the seed doesn't already cover.
 					let missingStdin = '';
-					let hasUncoveredStash = false;
+					let missingStashStdin = '';
 					for (const row of rows) {
 						if (rowStats.has(row.sha)) continue;
 
@@ -1040,39 +1036,62 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 
 						if (row.type === 'stash-node') {
-							hasUncoveredStash = true;
+							missingStashStdin += `${row.sha}\n`;
 						} else {
 							missingStdin += `${row.sha}\n`;
 						}
 					}
 
-					// A stash commit's own shortstat is empty; its stats come from its index/untracked
-					// parents, so any uncovered stash pulls in the whole stash stdin (remapped below).
-					if (hasUncoveredStash && stdin) {
-						missingStdin += stdin;
-					}
-
 					// Fully seeded — nothing new to compute, so no git process at all.
-					if (!missingStdin) return;
+					if (!missingStdin && !missingStashStdin) return;
 
-					const statsResult = await this.git.run(
-						{ cwd: repoPath, configs: gitConfigsLog, stdin: missingStdin, priority: 'background' },
-						'log',
-						'--no-walk',
-						'--stdin',
-						...statsParser.arguments,
-						'--',
-					);
+					// A stash is a merge commit, so its own shortstat record is empty. Stashes get their own
+					// query diffed against the first parent (`-m --first-parent` — what `git stash show`
+					// reports), keyed directly by stash sha: no parent remapping, so none of the old
+					// `--no-walk` time-order races that could let the empty record win and blank the stash.
+					const [statsResult, stashStatsResult] = await Promise.allSettled([
+						missingStdin
+							? this.git.run(
+									{
+										cwd: repoPath,
+										configs: gitConfigsLog,
+										stdin: missingStdin,
+										priority: 'background',
+									},
+									'log',
+									'--no-walk',
+									'--stdin',
+									...statsParser.arguments,
+									'--',
+								)
+							: undefined,
+						missingStashStdin
+							? this.git.run(
+									{
+										cwd: repoPath,
+										configs: gitConfigsLog,
+										stdin: missingStashStdin,
+										priority: 'background',
+									},
+									'log',
+									'--no-walk',
+									'--stdin',
+									'-m',
+									'--first-parent',
+									...statsParser.arguments,
+									'--',
+								)
+							: undefined,
+					]);
 
-					if (statsResult.stdout) {
-						let statShaOrRemapped;
-						for (const stat of statsParser.parse(statsResult.stdout)) {
-							statShaOrRemapped = remappedIds.get(stat.sha) ?? stat.sha;
+					for (const result of [getSettledValue(statsResult), getSettledValue(stashStatsResult)]) {
+						if (!result?.stdout) continue;
 
+						for (const stat of statsParser.parse(result.stdout)) {
 							// Don't overwrite stats already populated for this sha
-							if (rowStats.has(statShaOrRemapped)) continue;
+							if (rowStats.has(stat.sha)) continue;
 
-							rowStats.set(statShaOrRemapped, stat.stats);
+							rowStats.set(stat.sha, stat.stats);
 						}
 					}
 				} finally {

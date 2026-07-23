@@ -18,6 +18,7 @@ import type {
 	ColumnNumberBySha,
 	CssVariables,
 	GraphAvatars,
+	GraphColumnName,
 	GraphMissingRefsMetadata,
 	GraphRef,
 	GraphRefMetadataItem,
@@ -233,7 +234,9 @@ declare global {
 			/** Per-sha commit shell (no files/stats) for synchronous first paint of the details panel. */
 			commits?: Record<string, CommitDetails>;
 		}>;
+		'gl-graph-change-column-mode': CustomEvent<{ name: GraphColumnName; mode: string | undefined }>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
+		'gl-graph-enable-changes-column': CustomEvent<void>;
 		'gl-graph-filter-column': CustomEvent<{ zone: GraphZoneType }>;
 		'gl-graph-mouse-leave': CustomEvent<void>;
 		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GitGraphRow }>;
@@ -906,10 +909,19 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (graphState.config?.useNewEngine) {
 			// Pure-Lit renderer (React-free). Emits the same `gl-graph-*` events + takes the same
 			// props as the React `<gl-lit-graph>`, so it's a drop-in within this branch.
+			// Gate the Changes-column stats props on the column being visible AND its stats consent enabled:
+			// a hidden OR dormant (opt-in pending) column must get zero stats-driven re-renders (the host
+			// ships rowsStats/rowsStatsLoading regardless). The engine's own zones may briefly lag this host
+			// `isHidden` during an in-flight local columns write; it self-heals on that write's echo, so any
+			// transient stats prop is harmless.
+			const changesColumnVisible = graphState.columns?.changes?.isHidden !== true;
+			const changesColumnActive = changesColumnVisible && (graphState.config?.changesColumnEnabled ?? true);
 			return html`<gl-lit-graph
 				.rows=${decoratedRows}
 				.avatars=${graphState.avatars}
-				.rowsStats=${graphState.rowsStats}
+				.changesColumnEnabled=${graphState.config?.changesColumnEnabled ?? true}
+				.rowsStats=${changesColumnActive ? graphState.rowsStats : undefined}
+				?rowsStatsLoading=${changesColumnActive && (graphState.rowsStatsLoading ?? false)}
 				.selectedRows=${this.getSelectedRowsProp(decoratedRows, showPrimary)}
 				.refsMetadata=${graphState.refsMetadata}
 				.refsMetadataResetToken=${graphState.refsMetadataResetToken}
@@ -920,6 +932,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				.config=${graphState.config}
 				.downstreams=${graphState.downstreams}
 				.columns=${graphState.columns}
+				.columnsRevision=${graphState.columnsRevision ?? 0}
+				.activeFilterColumns=${graphState.activeFilterColumns}
 				.repoPath=${this.getRepoPath()}
 				.columnsContext=${graphState.context?.header}
 				.settingsContext=${graphState.context?.settings}
@@ -953,6 +967,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				@gl-graph-rowunhover=${this.onGraphRowUnhover}
 				@gl-graph-rowaction=${this.onGraphRowAction}
 				@gl-graph-wiprowopen=${this.onGraphWipRowOpen}
+				@gl-graph-mouseleave=${this.onMouseLeave}
 			></gl-lit-graph>`;
 		}
 
@@ -1188,7 +1203,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		];
 
 		this.graphState.activeRow = `${focusedRow.sha}|${focusedRow.date}`;
-		this.graphState.activeDay = focusedRow.date;
+		this.graphState.activeDay = this.dateForMinimapRow(focusedRow);
 
 		let commits: Record<string, CommitDetails> | undefined;
 		if (focusedRow.type !== 'work-dir-changes') {
@@ -1309,7 +1324,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
-		this._ipc.sendCommand(UpdateColumnsCommand, { config: event.detail.settings });
+		this._ipc.sendCommand(UpdateColumnsCommand, {
+			config: event.detail.settings,
+			revision: event.detail.revision,
+		});
 	}
 
 	private onGetMoreRows({ detail: sha }: CustomEventType<'graph-morerows'>) {
@@ -1522,7 +1540,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	private _lastHoverRow: GitGraphRow | undefined;
 
 	private rowBySha(sha: string): GitGraphRow | undefined {
-		return this.getDecoratedRows().rows?.find(r => r.sha === sha);
+		return this.getDecoratedRowByShaMap()?.get(sha);
 	}
 
 	/** sha→HOST row map (`graphState.rows` — never the synthetic WIP rows `getDecoratedRows` injects),
@@ -1538,6 +1556,24 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const map = new Map(rows.map(r => [r.sha, r]));
 		this._sourceRowByShaCache = { rows: rows, map: map };
 		return map;
+	}
+
+	/** A synthetic WIP row's `date` is a stable-but-arbitrary stamp (`stableWipRowDate`), not the day
+	 *  it's anchored at — feeding it straight to the minimap always tracks "today" instead of the WIP's
+	 *  anchor commit. Resolve to the anchor's (`parents[0]`, always a loaded HOST row when the WIP row
+	 *  exists) date instead; real rows pass through unchanged. Structural (not `GitGraphRow`/
+	 *  `ReadonlyGraphRow`) because the legacy GK's OWN same-named `ReadonlyGraphRow` (vendor package,
+	 *  surfaced by `graph-changeselection`) isn't nominally compatible with ours. */
+	private dateForMinimapRow(row: {
+		readonly type: string;
+		readonly parents: readonly string[];
+		readonly date: number;
+	}): number {
+		if (row.type !== 'work-dir-changes') return row.date;
+
+		const anchorSha = row.parents[0];
+		const anchorRow = anchorSha != null ? this.getSourceRowByShaMap()?.get(anchorSha) : undefined;
+		return anchorRow?.date ?? row.date;
 	}
 
 	/** sha→DECORATED row map (includes synthetic primary + per-worktree WIP rows `getDecoratedRows`
@@ -1568,29 +1604,42 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('rowhoverstart', { bubbles: true, composed: true }));
 	}
 
-	private onGraphRowHoverTrack({ detail }: CustomEvent<{ sha: string }>) {
+	/** Maps gl-lit-graph's own decoupled `'content' | 'graph'` hover-zone vocabulary onto the shared
+	 *  `GraphZoneType` graph-app's handlers understand — 'graph' is the seam a future lane/branch hover
+	 *  card would branch on in `handleGraphRowHoverTrack`; everything else collapses to 'message' (only
+	 *  the `=== 'ref'` check differentiates today, and the Lit engine never reports 'ref' — pills are
+	 *  excluded from row-hover entirely). */
+	private hoverZoneType(zone: 'content' | 'graph'): GraphZoneType {
+		return zone === 'graph' ? 'graph' : 'message';
+	}
+
+	private onGraphRowHoverTrack({ detail }: CustomEvent<{ sha: string; zone: 'content' | 'graph' }>) {
 		const graphRow = this.resolveHoverRow(detail.sha);
 		if (graphRow == null) return;
 
-		const graphZoneType: GraphZoneType = 'graph';
 		this.dispatchEvent(
 			new CustomEvent('rowhovertrack', {
-				detail: { graphZoneType: graphZoneType, graphRow: graphRow },
+				detail: {
+					graphZoneType: this.hoverZoneType(detail.zone),
+					graphRow: graphRow,
+					minimapDate: this.dateForMinimapRow(graphRow),
+				},
 				bubbles: true,
 				composed: true,
 			}),
 		);
 	}
 
-	private onGraphRowHover({ detail }: CustomEvent<{ sha: string; clientX: number; currentTarget: HTMLElement }>) {
+	private onGraphRowHover({
+		detail,
+	}: CustomEvent<{ sha: string; clientX: number; currentTarget: HTMLElement; zone: 'content' | 'graph' }>) {
 		const graphRow = this.resolveHoverRow(detail.sha);
 		if (graphRow == null) return;
 
-		const graphZoneType: GraphZoneType = 'graph';
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-row-hover', {
 				detail: {
-					graphZoneType: graphZoneType,
+					graphZoneType: this.hoverZoneType(detail.zone),
 					graphRow: graphRow,
 					clientX: detail.clientX,
 					currentTarget: detail.currentTarget,
@@ -1599,14 +1648,19 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		);
 	}
 
-	private onGraphRowUnhover({ detail }: CustomEvent<{ sha: string; relatedTarget: EventTarget | null }>) {
+	private onGraphRowUnhover({
+		detail,
+	}: CustomEvent<{ sha: string; zone?: 'content' | 'graph'; relatedTarget: EventTarget | null }>) {
 		const graphRow = this.resolveHoverRow(detail.sha);
 		if (graphRow == null) return;
 
-		const graphZoneType: GraphZoneType = 'graph';
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-row-unhover', {
-				detail: { graphZoneType: graphZoneType, graphRow: graphRow, relatedTarget: detail.relatedTarget },
+				detail: {
+					graphZoneType: this.hoverZoneType(detail.zone ?? 'content'),
+					graphRow: graphRow,
+					relatedTarget: detail.relatedTarget,
+				},
 			}),
 		);
 		this._lastHoverRow = undefined;
@@ -1630,7 +1684,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		const activeKey = focusedRow != null ? `${focusedRow.sha}|${focusedRow.date}` : undefined;
 		this.graphState.activeRow = activeKey;
-		this.graphState.activeDay = focusedRow?.date;
+		this.graphState.activeDay = focusedRow != null ? this.dateForMinimapRow(focusedRow) : undefined;
 
 		// EMPTY report → never moves the inspection anchor. The GK reports empty when the derived
 		// highlight is empty (scope/visibility filtered the anchor row out) or before a synthetic WIP
@@ -1827,7 +1881,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.graphState.selectedRows = nextSelectedRows;
 
 		this.graphState.activeRow = focusedRow != null ? `${focusedRow.sha}|${focusedRow.date}` : undefined;
-		this.graphState.activeDay = focusedRow?.date;
+		this.graphState.activeDay = focusedRow != null ? this.dateForMinimapRow(focusedRow) : undefined;
 
 		// Build commit-lite shells for every commit in the selection so the details panel
 		// paints synchronously without an IPC round-trip. WIP rows are skipped — they have

@@ -112,6 +112,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'agents/session/started': AgentProviderEvent;
 	/** Sent when an agent session ends */
 	'agents/session/ended': AgentProviderEvent;
+	/** Sent when a past agent session is resumed from its transcript */
+	'agents/sessionResumed': AgentSessionResumedEvent;
 	/** Sent when a permission request is resolved */
 	'agents/permission/resolved': AgentPermissionResolvedEvent;
 	/** Sent when a reconciliation poll (`list-sessions`) finds the polled session set differs from
@@ -349,7 +351,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/worktrees/shown': GraphSidebarWorktreesShownEvent;
 	/** Sent when the user clicks a worktree leaf in the sidebar worktrees panel */
 	'graph/worktrees/worktreeSelected': GraphSidebarWorktreesWorktreeSelectedEvent;
-	/** Sent when the user clicks an inline action (pull/push/fetch/open) on a worktree item */
+	/** Sent when the user invokes an action on a worktree item, via inline hover-icon or right-click context menu (see `location`) */
 	'graph/worktrees/worktreeAction': GraphSidebarWorktreesWorktreeActionEvent;
 	/** Sent when the user clicks a header action (Create Worktree, Refresh) in the sidebar worktrees panel */
 	'graph/worktrees/headerAction': GraphSidebarWorktreesHeaderActionEvent;
@@ -362,7 +364,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/branches/shown': GraphSidebarBranchesShownEvent;
 	/** Sent when the user clicks a branch leaf in the sidebar branches panel */
 	'graph/branches/branchSelected': GraphSidebarBranchesBranchSelectedEvent;
-	/** Sent when the user clicks an inline action (switch/fetch/pull/push/compare/open) on a branch item */
+	/** Sent when the user invokes an action on a branch item, via inline hover-icon or right-click context menu (see `location`) */
 	'graph/branches/branchAction': GraphSidebarBranchesBranchActionEvent;
 	/** Sent when the user clicks a header action (Switch to Branch, Create Branch, Refresh) in the sidebar branches panel */
 	'graph/branches/headerAction': GraphSidebarBranchesHeaderActionEvent;
@@ -373,7 +375,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the Remotes sidebar panel becomes visible */
 	'graph/remotes/shown': GraphSidebarRemotesShownEvent;
-	/** Sent when the user clicks an inline action (fetch/open/copy/connect/disconnect) on a remote item */
+	/** Sent when the user invokes an action on a remote item, via inline hover-icon or right-click context menu (see `location`) */
 	'graph/remotes/remoteAction': GraphSidebarRemotesRemoteActionEvent;
 	/** Sent when the user clicks a header action (Add Remote, Refresh) in the sidebar remotes panel */
 	'graph/remotes/headerAction': GraphSidebarRemotesHeaderActionEvent;
@@ -386,7 +388,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/stashes/shown': GraphSidebarStashesShownEvent;
 	/** Sent when the user clicks a stash leaf in the sidebar stashes panel */
 	'graph/stashes/stashSelected': GraphSidebarStashesStashSelectedEvent;
-	/** Sent when the user clicks an inline action (apply/pop, delete) on a stash item */
+	/** Sent when the user invokes an action on a stash item, via inline hover-icon or right-click context menu (see `location`) */
 	'graph/stashes/stashAction': GraphSidebarStashesStashActionEvent;
 	/** Sent when the user clicks a header action (Stash All, Apply/Pop Stash, Refresh) in the sidebar stashes panel */
 	'graph/stashes/headerAction': GraphSidebarStashesHeaderActionEvent;
@@ -397,7 +399,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/tags/shown': GraphSidebarTagsShownEvent;
 	/** Sent when the user clicks a tag leaf in the sidebar tags panel */
 	'graph/tags/tagSelected': GraphSidebarTagsTagSelectedEvent;
-	/** Sent when the user clicks an inline action (switch to tag) on a tag item */
+	/** Sent when the user invokes an action on a tag item, via inline hover-icon or right-click context menu (see `location`) */
 	'graph/tags/tagAction': GraphSidebarTagsTagActionEvent;
 	/** Sent when the user clicks a header action (Create Tag, Refresh) in the sidebar tags panel */
 	'graph/tags/headerAction': GraphSidebarTagsHeaderActionEvent;
@@ -807,6 +809,14 @@ interface AgentPermissionResolvedEvent {
 	'agent.provider': string;
 	'permission.tool': string;
 	'permission.decision': string;
+}
+
+interface AgentSessionResumedEvent {
+	'agent.provider': string;
+	/** Where the resume was invoked from. */
+	'agent.resume.source': 'webview' | 'quickpick';
+	/** Where it landed — a terminal, or the agent's own editor extension. */
+	'agent.resume.target': 'extension' | 'terminal';
 }
 
 interface AgentSyncDiscrepancyEvent {
@@ -1803,10 +1813,16 @@ export type GraphSidebarOverviewActionName =
 	| 'openChanges'
 	| 'other';
 
+/** Which surface the shared branch hover was anchored on. The overview card and the Graph's WIP bar
+ *  pills render the same hover, so every hover-sourced event carries this to keep the two segmentable. */
+export type GraphBranchHoverSurface = 'overview' | 'wip-bar';
+
 interface GraphSidebarOverviewActionEvent extends GraphContextEventData {
 	name: GraphSidebarOverviewActionName;
 	/** Where on the card the action was invoked */
 	location: 'inline' | 'hover';
+	/** Which surface the hover was anchored on (always `overview` for `location: 'inline'`) */
+	surface: GraphBranchHoverSurface;
 	/** Whether the user held Alt/Shift to swap to the alt action */
 	alt: boolean;
 }
@@ -1830,6 +1846,8 @@ interface GraphSidebarOverviewBranchSelectedEvent extends GraphContextEventData 
 }
 
 interface GraphSidebarOverviewHoverShownEvent extends GraphContextEventData {
+	/** Which surface the hover was anchored on */
+	surface: GraphBranchHoverSurface;
 	/** Whether the branch is the currently opened (active) branch */
 	isActive: boolean;
 	/** Whether the branch is checked out in a worktree */
@@ -1845,6 +1863,8 @@ interface GraphSidebarOverviewHoverShownEvent extends GraphContextEventData {
 }
 
 interface GraphSidebarOverviewLinkClickedEvent extends GraphContextEventData {
+	/** Which surface the hover was anchored on */
+	surface: GraphBranchHoverSurface;
 	/** Type of external link clicked */
 	type: 'pullrequest' | 'issue' | 'autolink';
 }
@@ -1902,9 +1922,28 @@ interface GraphSidebarWorktreesWorktreeSelectedEvent extends GraphContextEventDa
 	hasUpstream: boolean;
 }
 
+export type GraphSidebarWorktreesActionName =
+	| 'pull'
+	| 'push'
+	| 'fetch'
+	| 'openWorktree'
+	| 'openWorktreeInNewWindow'
+	| 'delete'
+	| 'revealInExplorer'
+	| 'openInTerminal'
+	| 'copyWorkingChanges'
+	| 'rename'
+	| 'publish'
+	| 'setUpstream'
+	| 'changeUpstream'
+	| 'reset'
+	| 'rebaseOntoUpstream';
+
 interface GraphSidebarWorktreesWorktreeActionEvent extends GraphContextEventData {
-	action: 'pull' | 'push' | 'fetch' | 'openWorktree' | 'openWorktreeInNewWindow';
+	action: GraphSidebarWorktreesActionName;
 	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
 }
 
 interface GraphSidebarWorktreesHeaderActionEvent extends GraphContextEventData {
@@ -1946,11 +1985,22 @@ export type GraphSidebarBranchesActionName =
 	| 'compareWithHead'
 	| 'compareWithWorking'
 	| 'openWorktree'
-	| 'openWorktreeInNewWindow';
+	| 'openWorktreeInNewWindow'
+	| 'delete'
+	| 'rename'
+	| 'merge'
+	| 'rebaseOntoBranch'
+	| 'rebaseOntoUpstream'
+	| 'reset'
+	| 'publish'
+	| 'setUpstream'
+	| 'changeUpstream';
 
 interface GraphSidebarBranchesBranchActionEvent extends GraphContextEventData {
 	action: GraphSidebarBranchesActionName;
 	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
 }
 
 interface GraphSidebarBranchesHeaderActionEvent extends GraphContextEventData {
@@ -1978,9 +2028,24 @@ interface GraphSidebarRemotesShownEvent extends GraphContextEventData {
 	hasMultipleRemotes: boolean;
 }
 
+export type GraphSidebarRemotesActionName =
+	| 'fetch'
+	| 'openOnRemote'
+	| 'copyUrl'
+	| 'connectIntegration'
+	| 'disconnectIntegration'
+	| 'openBranchesOnRemote'
+	| 'copyBranchesUrl'
+	| 'prune'
+	| 'remove'
+	| 'setDefault'
+	| 'unsetDefault';
+
 interface GraphSidebarRemotesRemoteActionEvent extends GraphContextEventData {
-	action: 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration';
+	action: GraphSidebarRemotesActionName;
 	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
 }
 
 interface GraphSidebarRemotesHeaderActionEvent extends GraphContextEventData {
@@ -2009,10 +2074,14 @@ interface GraphSidebarStashesStashSelectedEvent extends GraphContextEventData {
 	hasStashOnRef: boolean;
 }
 
+export type GraphSidebarStashesActionName = 'apply' | 'delete' | 'rename';
+
 interface GraphSidebarStashesStashActionEvent extends GraphContextEventData {
-	action: 'apply' | 'delete';
+	action: GraphSidebarStashesActionName;
 	/** Reserved for parity with other panels' item actions — no stash inline action defines an alt variant yet, so always false today */
 	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
 }
 
 interface GraphSidebarStashesHeaderActionEvent extends GraphContextEventData {
@@ -2037,10 +2106,14 @@ interface GraphSidebarTagsTagSelectedEvent extends GraphContextEventData {
 	annotated: boolean;
 }
 
+export type GraphSidebarTagsActionName = 'switchTo' | 'delete' | 'createBranch' | 'reset';
+
 interface GraphSidebarTagsTagActionEvent extends GraphContextEventData {
-	action: 'switchTo';
+	action: GraphSidebarTagsActionName;
 	/** Reserved for parity with other panels' item actions — no tag inline action defines an alt variant yet, so always false today */
 	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
 }
 
 interface GraphSidebarTagsHeaderActionEvent extends GraphContextEventData {
@@ -2061,7 +2134,7 @@ interface GraphSidebarTagsFilteredEvent extends GraphContextEventData {
 /** Flat key identifying a Graph visualization — collapses the two-axis
  *  (visualizationMode × treemapMode) state so one field names the active visualization,
  *  matching the switcher's tab model. */
-type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
+export type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
 
 interface GraphVisualizationsModeChangedEvent extends GraphContextEventData {
 	'mode.old': GraphVisualizationKey;

@@ -67,6 +67,249 @@ suite('engine/layout computeColumns', () => {
 	});
 });
 
+suite('engine/layout sticky columns', () => {
+	// Seed `preferredColumns` from a run's output the same way the engine does internally when a caller hands
+	// back the opaque `stableFrom` token: below-window stubs first, then real rows — so a row's own column
+	// always wins the tie (the sole home of that ordering is `process.ts`'s `preferencesFromStability`).
+	function preferencesOf(result: ReturnType<typeof computeColumnsAndSegments>): Map<Sha, number> {
+		const preferred = new Map<Sha, number>();
+		for (const [sha, column] of result.unloadedColumns) {
+			preferred.set(sha, column);
+		}
+		for (const r of result.rows) {
+			preferred.set(r.sha, r.column);
+		}
+		return preferred;
+	}
+
+	// Re-run `next` seeded with the prior run's columns. Also asserts the result is a FIXPOINT — feeding the
+	// relayout's OWN output back must reproduce it exactly. Every sticky-columns guarantee in this suite rests
+	// on that (a fetch/WIP/merge update must not reshuffle lanes AGAIN on the next relayout); pinning it here
+	// makes the property tested, not merely assumed, for every scenario below.
+	function relayout(prior: readonly GraphRow[], next: readonly GraphRow[]) {
+		const first = computeColumnsAndSegments(prior);
+		const second = computeColumnsAndSegments(next, { preferredColumns: preferencesOf(first) });
+		const third = computeColumnsAndSegments(next, { preferredColumns: preferencesOf(second) });
+		assert.deepStrictEqual(
+			third.rows.map(r => [r.sha, r.column]),
+			second.rows.map(r => [r.sha, r.column]),
+			'relayout is not a fixpoint — the columns moved again on the next update',
+		);
+		return {
+			before: new Map(first.rows.map(r => [r.sha, r.column])),
+			after: new Map(second.rows.map(r => [r.sha, r.column])),
+		};
+	}
+
+	// A side lane (S→F) whose tip F has a child, over a merge fan that only opens the DEEP lanes (B1/C1/D1
+	// at columns 1..3) BELOW F. So at F's row only columns 0-1 are live and 2 is free, while the window's
+	// deepest lane is 3 — the exact shape that used to fling a fresh claim out past every lane.
+	const sideLaneOverDeepFan = (): GraphRow[] => [
+		row('T', ['M1']),
+		row('S', ['F']),
+		row('F', ['M1']),
+		row('M1', ['M2', 'B1'], 'merge'),
+		row('M2', ['M3', 'C1'], 'merge'),
+		row('M3', ['BASE', 'D1'], 'merge'),
+		row('B1', ['BASE']),
+		row('C1', ['BASE']),
+		row('D1', ['BASE']),
+		row('BASE', []),
+	];
+
+	test('a WIP row above an already-reserved anchor packs in next to it, not out past every lane', () => {
+		// THE BUG: W's anchor F is reserved (S is F's child), so W's inherited preference (F's column) is
+		// taken and it fell through to the old "park above the whole preferred range" — landing on column 4
+		// with 2 and 3 sitting empty, and dragging the graph column wider with it.
+		const prior = sideLaneOverDeepFan();
+		const next = [...prior.slice(0, 2), row('W', ['F'], 'workdir'), ...prior.slice(2)];
+		const { before, after } = relayout(prior, next);
+
+		assert.strictEqual(before.get('F'), 1, 'fixture: the anchor sits on column 1');
+		assert.strictEqual(Math.max(...before.values()), 3, 'fixture: the window is 4 lanes deep');
+
+		// The lowest column that is actually free at W's row — NOT maxColumn + 1.
+		assert.strictEqual(after.get('W'), 2);
+
+		// ...and it cost nothing: every real commit keeps its lane, so the splice/lane colors hold.
+		for (const [sha, column] of before) {
+			assert.strictEqual(after.get(sha), column, `${sha} moved lanes`);
+		}
+		assert.strictEqual(Math.max(...after.values()), 3, 'the graph column must not have grown');
+	});
+
+	test('a WIP row never drags its anchor onto its own lane', () => {
+		// A fresh claim landing BELOW its first parent's reservation trips the reservation-replace path,
+		// which would pull the anchor (and its whole first-parent chain) up onto the WIP's lane.
+		const rows = computeColumns([row('C', ['A']), row('W', ['A'], 'workdir'), row('A', [])]);
+		const by = new Map(rows.map(r => [r.sha, r.column]));
+		assert.strictEqual(by.get('A'), 0, 'the anchor must stay on its own lane');
+		assert.strictEqual(by.get('W'), 1);
+	});
+
+	test('a WIP row on an unreserved anchor still shares its lane (straight dotted line)', () => {
+		// The good case that must not regress: nothing reserved B, so W claims the lane and B inherits it.
+		const rows = computeColumns([
+			row('T', ['A']),
+			row('W', ['B'], 'workdir'),
+			row('A', ['BASE']),
+			row('B', ['BASE']),
+			row('BASE', []),
+		]);
+		const by = new Map(rows.map(r => [r.sha, r.column]));
+		assert.strictEqual(by.get('W'), by.get('B'), 'the WIP row and its anchor share one lane');
+	});
+
+	// INHERITANCE SANITY. Nothing asserted this, and that blind spot let a candidate fix that bent the trunk
+	// onto a fresh lane on EVERY new commit pass the entire suite. A layout that simply never inherits scores
+	// perfectly on eviction, width and fixpoint — these are the tests that tell those two apart. The
+	// "uncontended" qualifier is load-bearing: declining to inherit is CORRECT when something already owns
+	// the lane across the span the new row would occupy.
+	test('a new commit on an uncontended trunk lands on the trunk lane', () => {
+		const prior = [row('T0', ['T1']), row('T1', ['T2']), row('T2', [])];
+		const { before, after } = relayout(prior, [row('N', ['T0']), ...prior]);
+
+		assert.strictEqual(before.get('T0'), 0, 'fixture: the trunk owns column 0');
+		assert.strictEqual(after.get('N'), 0, 'the new commit must continue the trunk lane, not bend off it');
+		for (const sha of ['T0', 'T1', 'T2']) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} left the trunk lane`);
+		}
+	});
+
+	test('every commit of an uncontended fetched branch lands on the branch lane', () => {
+		// Multi-commit branch: the whole chain inherits, so a single-parent release row is not enough to
+		// reason about it. All three must end up on one lane, and the trunk must not move.
+		const prior = [row('T0', ['T1']), row('T1', ['T2']), row('T2', [])];
+		const next = [row('F1', ['F2']), row('F2', ['F3']), row('F3', ['T1']), ...prior];
+		const { before, after } = relayout(prior, next);
+
+		assert.strictEqual(after.get('F1'), after.get('F2'), 'the branch must occupy ONE lane');
+		assert.strictEqual(after.get('F2'), after.get('F3'), 'the branch must occupy ONE lane');
+		for (const sha of ['T0', 'T1', 'T2']) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} left the trunk lane`);
+		}
+	});
+
+	test('a new tip does not inherit a lane that is occupied where it would sit', () => {
+		// C9 is a childless stash tip, so FEAT may legitimately continue its lane — EXCEPT that C7 also owns
+		// that column and sits inside the span FEAT's lane would cover. Inheriting is only a guess that the
+		// parent's lane is still free where the new row lands; here it isn't, and taking it anyway evicted C7.
+		const prior = [row('T0', ['C8']), row('C7', ['C8', 'U0'], 'merge'), row('C8', ['U0']), row('C9', [], 'stash')];
+		const { before, after } = relayout(prior, [row('FEAT', ['C9']), ...prior]);
+
+		assert.strictEqual(before.get('C7'), 1, 'fixture: C7 owns column 1');
+		assert.strictEqual(before.get('C9'), 1, 'fixture: C9 owns column 1 too — its lane is disjoint from C7s');
+
+		assert.strictEqual(after.get('C7'), 1, 'C7 kept its lane');
+		assert.notStrictEqual(after.get('FEAT'), 1, 'FEAT must take a fresh lane, not camp on C7s');
+	});
+
+	test('a force-pushed tip does not evict the lane it lands beside', () => {
+		// A row whose children ALL decline to reserve it (the no-drag rule) gets no reservation and
+		// fresh-claims after all — so it consults its preference. `makeScratchFactory` must register it as a
+		// need, or a fallback claim camps on its column and evicts everything below it.
+		const prior = [row('T', ['M']), row('S', ['M']), row('M', ['A']), row('A', ['B']), row('B', [])];
+		const next = [row('FP', ['A']), ...prior.filter(r => r.sha !== 'T')];
+		const { before, after } = relayout(prior, next);
+
+		for (const sha of ['S', 'M', 'A', 'B']) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} was evicted from its lane`);
+		}
+	});
+
+	test('a cold run still lets a claim pull its parent chain onto a lower lane', () => {
+		// The drag guard must NOT fire without preferences. Here C3 claims the free column 0 and the
+		// reservation-replace pulls C4 down onto it — GKC's own lane compaction, and it is what keeps the
+		// graph one lane narrower. There is no prior layout to cascade into on a cold run, so guarding it
+		// would cost width for nothing (C3 landed on column 2, C4 on 1, before this was scoped to fallbacks).
+		const rows = computeColumns([
+			row('C0', ['C1', 'C2'], 'merge'),
+			row('C1', ['C2'], 'stash'),
+			row('C2', ['C4']),
+			row('C3', ['C4'], 'stash'),
+			row('C4', []),
+		]);
+		assert.deepStrictEqual(
+			rows.map(r => r.column),
+			[0, 0, 1, 0, 0],
+		);
+	});
+
+	test('a tip under an unreplaceable reservation still takes the lowest free lane', () => {
+		// The drag guard (sit above the first parent's reserved column) must fire ONLY where the drag is
+		// actually reachable. C6 is a plain tip whose first parent C7 is an ADDITIONAL parent of the merge
+		// C1 — merge-flagged, so `assignColumnForRow` refuses to move it and no drag is possible. Bounding
+		// C6 anyway would strand it out right (it landed on column 4 here) for nothing.
+		const rows = computeColumns([
+			row('C0', ['C1']),
+			row('C1', ['C2', 'C8', 'C7'], 'merge'),
+			row('C2', ['C3']),
+			row('C3', ['C4', 'C5'], 'merge'),
+			row('C4', ['C5'], 'stash'),
+			row('C5', ['C8']),
+			row('C6', ['C7']),
+			row('C7', ['C8']),
+			row('C8', [], 'stash'),
+		]);
+		assert.deepStrictEqual(
+			rows.map(r => r.column),
+			[0, 0, 0, 0, 0, 3, 0, 2, 1],
+		);
+	});
+
+	test('a new tip takes a fresh lane instead of evicting the lanes already on its parent', () => {
+		// BASE's lane is already continued by T1 (which OWNS column 0), so the brand-new tip N must not
+		// inherit — and thereby claim — that column. N sorts newest, so it claims FIRST: inheriting would let
+		// it win column 0 and evict T1, which then has to step over T2 and renumber the tail behind it.
+		const prior = [row('T1', ['BASE']), row('T2', ['BASE']), row('BASE', [])];
+		const { before, after } = relayout(prior, [row('N', ['BASE']), ...prior]);
+
+		assert.strictEqual(before.get('T1'), 0, 'fixture: T1 owns column 0');
+		assert.strictEqual(before.get('T2'), 1, 'fixture: T2 owns column 1');
+
+		assert.strictEqual(after.get('T1'), 0, 'T1 kept its lane');
+		assert.strictEqual(after.get('T2'), 1, 'T2 kept its lane');
+		assert.strictEqual(after.get('N'), 2, 'the NEW tip is the one that takes a fresh lane');
+	});
+
+	test('a fetched branch tip does not evict the trunk onto a far-right lane', () => {
+		// THE FETCH BUG: `feat` forks off the trunk, so it inherits the trunk's column — and being newest it
+		// claims first, winning that column. The trunk's own new commit is then displaced, and (worse) its
+		// first-parent reservation used to drag the trunk's chain out with it, splitting the mainline across
+		// lanes. The trunk owns its lane; a tip hanging off it must take a new one.
+		const prior = [
+			row('main', ['T1']),
+			row('T1', ['T2', 'S1'], 'merge'),
+			row('T2', ['BASE']),
+			row('S1', ['BASE']),
+			row('BASE', []),
+		];
+		const next = [row('feat', ['T2']), row('newmain', ['main']), ...prior];
+		const { before, after } = relayout(prior, next);
+
+		const trunk = ['main', 'T1', 'T2', 'BASE'];
+		for (const sha of trunk) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} left the trunk lane`);
+		}
+		assert.strictEqual(after.get('newmain'), before.get('main'), 'the new trunk commit continues the trunk lane');
+		assert.notStrictEqual(after.get('feat'), before.get('T2'), 'the fetched tip must not sit on the trunk lane');
+	});
+
+	test('a fetched merge does not evict the trunk its additional parent sits on', () => {
+		// A fetched merge FM whose ADDITIONAL parent (T2) is a mid-trunk commit used to reserve the trunk's
+		// column for T2 at the merge row, occupying it down to T2 and shoving the owners in between (T0, T1)
+		// off their lane — the trunk split. FM must leave T2 on its own chain and take a side lane instead.
+		const prior = [row('T0', ['T1']), row('T1', ['T2']), row('T2', ['T3']), row('T3', ['BASE']), row('BASE', [])];
+		const next = [row('FM', ['FB', 'T2'], 'merge'), row('FB', ['T3']), ...prior];
+		const { before, after } = relayout(prior, next);
+
+		for (const sha of ['T0', 'T1', 'T2', 'T3', 'BASE']) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} was evicted from the trunk`);
+		}
+		assert.notStrictEqual(after.get('FM'), before.get('T2'), 'the merge must not sit on the trunk lane');
+	});
+});
+
 suite('engine/layout segments', () => {
 	test('linear history yields one fold segment covering the whole lane', () => {
 		const { segments } = computeColumnsAndSegments(fixtures.linear());

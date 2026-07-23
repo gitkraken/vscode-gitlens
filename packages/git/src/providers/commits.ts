@@ -6,7 +6,7 @@ import type { GitLog } from '../models/log.js';
 import type { GitReflog } from '../models/reflog.js';
 import type { GitRevisionRange } from '../models/revision.js';
 import type { SearchQuery } from '../models/search.js';
-import type { CommitSignature } from '../models/signature.js';
+import type { CommitSignature, SshSignedCommit } from '../models/signature.js';
 import type { GitUser } from '../models/user.js';
 import type { DiffRange } from './types.js';
 
@@ -154,5 +154,10 @@ export interface GitCommitsSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<GitCommitReachability | undefined>;
 	getCommitSignature?(repoPath: string, sha: string): Promise<CommitSignature | undefined>;
+	/**
+	 * For the given commits that are SSH-signed, extracts the signer's full SSH public key and raw committer identity,
+	 * reading all commit objects in a single batched `git` invocation. Keyed by commit SHA (unsigned commits omitted).
+	 */
+	getCommitsSshSigners?(repoPath: string, shas: string[]): Promise<Map<string, SshSignedCommit>>;
 	isCommitSigned?(repoPath: string, sha: string): Promise<boolean>;
 }

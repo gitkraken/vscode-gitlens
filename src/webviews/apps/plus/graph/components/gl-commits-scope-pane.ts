@@ -747,9 +747,7 @@ export class GlCommitsScopePane extends LitElement {
 		// Force the resize cursor globally for the duration of the drag so it doesn't
 		// snap back to default whenever the pointer leaves the thumb element. Guard the
 		// snapshot so a re-entrant drag doesn't capture our own override as the "original".
-		if (this._previousBodyCursor === undefined) {
-			this._previousBodyCursor = document.documentElement.style.cursor;
-		}
+		this._previousBodyCursor ??= document.documentElement.style.cursor;
 		document.documentElement.style.setProperty('cursor', 'ns-resize', 'important');
 
 		// Use window-level listeners so move/up events keep firing while the pointer

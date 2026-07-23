@@ -11,6 +11,7 @@ import type {
 	State,
 } from '../../../plus/graph/protocol.js';
 import { GlAppHost } from '../../shared/appHost.js';
+import { createOnboardingDismissals, onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
 import type { HostIpc } from '../../shared/ipc.js';
 import { RpcController } from '../../shared/rpc/rpcController.js';
 import type { ThemeChangeEvent } from '../../shared/theme.js';
@@ -39,6 +40,15 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		initialValue: this._sidebarActions,
 	});
 
+	private readonly _onboardingDismissals = createOnboardingDismissals();
+
+	// Eager provider (like _sidebarActionsProvider): consumers can read during connectedCallback;
+	// connect() later wires the RPC remote and signal updates drive their reactivity.
+	private _onboardingDismissalsProvider = new ContextProvider(this, {
+		context: onboardingDismissalsContext,
+		initialValue: this._onboardingDismissals,
+	});
+
 	private _servicesProvider = new ContextProvider(this, {
 		context: graphServicesContext,
 		initialValue: undefined,
@@ -50,6 +60,8 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 	private async _onRpcReady(services: import('@eamodio/supertalk').Remote<GraphServices>): Promise<void> {
 		this._servicesProvider.setValue(services);
+
+		this._onboardingDismissals.connect(services.onboarding);
 
 		const sidebar = await services.sidebar;
 		this._sidebarActions.initialize(sidebar);
@@ -98,6 +110,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		);
 		this.removeEventListener('gl-graph-request-search', this._handleRequestSearch as EventListener);
 		this._sidebarActions.dispose();
+		this._onboardingDismissals.dispose();
 	}
 
 	private _handleRequestOpenCompareMode = (e: CustomEvent<DidRequestOpenCompareModeParams>): void => {
@@ -230,6 +243,10 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	}
 
 	protected override onWebviewVisibilityChanged(visible: boolean): void {
+		// Buffered onboarding change events collapse to the last one while hidden; re-sync on restore
+		if (visible) {
+			this._onboardingDismissals.refresh();
+		}
 		this.appElement?.onWebviewVisibilityChanged(visible);
 	}
 }

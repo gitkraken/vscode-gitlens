@@ -33,10 +33,15 @@ export const actionButton = css`
 		border-radius: var(--gl-radius-sm);
 		height: auto;
 
+		/* Match the taller gl-button/ref-button controls in the header (~2.6rem). The bare line-height
+		   only yields ~2.2rem, leaving these buttons visibly shorter than their neighbors. */
+		min-height: 2.6rem;
+
 		display: grid;
 		grid-auto-flow: column;
 		grid-gap: 0.5rem;
 		gap: 0.5rem;
+		align-items: center;
 		max-width: fit-content;
 	}
 

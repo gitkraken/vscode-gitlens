@@ -1,3 +1,4 @@
+import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
@@ -5,6 +6,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../../../plus/startWork/associateIssueWithBranch.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { State } from '../../../../plus/graph/detailsProtocol.js';
@@ -18,12 +20,16 @@ import type {
 	OverviewBranchPullRequest,
 } from '../../../../shared/overviewBranches.js';
 import { isAbortError, noopUnlessReal } from '../../../shared/actions/rpc.js';
+import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
+import { graphStateContext } from '../context.js';
 import type { ResolvedServices } from './detailsActions.js';
+import type { ExpandState } from './gl-details-agent-status.js';
 import { graphBranchSheetPaneStyles } from './gl-graph-branch-sheet-pane.css.js';
 import './gl-compare-ai-actions.js';
+import './gl-details-agent-status.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/chips/autolink-chip.js';
 import '../../../shared/components/chips/chip-overflow.js';
@@ -57,6 +63,8 @@ interface BranchSheetCacheEntry {
 	hasMergeTarget?: boolean;
 	pullRequest?: OverviewBranchPullRequest;
 	hasPullRequest?: boolean;
+	pastSessions?: PastAgentSessionsResult;
+	hasPastSessions?: boolean;
 }
 
 type SheetStepAction = {
@@ -97,11 +105,16 @@ function onlyTrustedCommandLinkClicks(e: MouseEvent): void {
  * identity-only fallback until their P2 tailoring lands.
  */
 @customElement('gl-graph-branch-sheet-pane')
-export class GlGraphBranchSheetPane extends LitElement {
+export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	static override styles = [elementBase, metadataBarVarsBase, graphBranchSheetPaneStyles];
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
+
+	/** Live agent sessions — self-served via the graph's reactive state (see `stateProvider.ts`)
+	 *  rather than threaded in as a 13th property, matching `gl-graph-treemap`'s precedent. */
+	@consume({ context: graphStateContext, subscribe: true })
+	private graphState!: typeof graphStateContext.__context__;
 
 	/** The ref this sheet is scoped to (name/refType/remote/sha). */
 	@property({ attribute: false }) ref?: BranchSheetRef;
@@ -126,8 +139,14 @@ export class GlGraphBranchSheetPane extends LitElement {
 	@state() private _mergeTargetLoading = false;
 	@state() private _pullRequest?: OverviewBranchPullRequest;
 	@state() private _pullRequestLoading = false;
+	@state() private _pastAgentSessions?: PastAgentSessionsResult;
+	/** Agents section expand state — collapsed by default (matters at hundreds of past sessions).
+	 *  Consumer-owned by `gl-details-agent-status`'s contract; reset on ref identity change. */
+	@state() private _agentExpand: ExpandState = 'collapsed';
 	/** Tag tip-commit summary (for the tag tip line). */
 	@state() private _tipMessage?: string;
+	/** Previous reachable tag (for the tag sheet's "since <prev-tag>" changelog default). */
+	@state() private _prevTagRef?: string;
 	/** User's AI band scope pick — reset on ref identity change; falls back to the default
 	 *  (unpushed when it exists, else target) when unset or no longer available. */
 	@state() private _aiScope?: AiScope;
@@ -136,6 +155,7 @@ export class GlGraphBranchSheetPane extends LitElement {
 
 	private readonly _cache = new Map<string, BranchSheetCacheEntry>();
 	private readonly _tipCache = new Map<string, string | undefined>();
+	private readonly _prevTagCache = new Map<string, string | undefined>();
 	private _controller?: AbortController;
 	private _loadedKey?: string;
 	private _refreshTimer?: ReturnType<typeof setTimeout>;
@@ -169,6 +189,10 @@ export class GlGraphBranchSheetPane extends LitElement {
 		// A new ref's AI band re-derives its own default scope rather than inheriting the previous
 		// ref's pick.
 		this._aiScope = undefined;
+		// Tag-only; cleared here so a tag → branch switch doesn't leave a stale changelog default.
+		this._prevTagRef = undefined;
+		// A new ref's agent section starts collapsed rather than inheriting the previous ref's choice.
+		this._agentExpand = 'collapsed';
 
 		// Branch refs (local/current/worktree/remote): fetch enrichment. Remote surfaces only the PR
 		// chip + Checkout row (per the gating table); the other legs land but stay ungated-off.
@@ -184,11 +208,11 @@ export class GlGraphBranchSheetPane extends LitElement {
 			return;
 		}
 
-		// Tags: no branch enrichment; fetch the tip-commit summary for the tip line.
+		// Tags: no branch enrichment; fetch the tip-commit summary + previous tag (changelog default).
 		this._loadedKey = key;
 		this.resetEnrichmentState();
 		if (ref?.refType === 'tag' && key != null && repoPath != null && ref.sha != null && services != null) {
-			void this.loadTagTip(key, repoPath, ref.sha, services);
+			void this.loadTagData(key, repoPath, ref.name, ref.sha, services);
 		} else {
 			this._tipMessage = undefined;
 		}
@@ -253,6 +277,7 @@ export class GlGraphBranchSheetPane extends LitElement {
 				this._mergeTargetLoading = !cached.hasMergeTarget;
 				this._pullRequest = cached.pullRequest;
 				this._pullRequestLoading = !cached.hasPullRequest;
+				this._pastAgentSessions = cached.hasPastSessions ? cached.pastSessions : undefined;
 			} else {
 				this.resetEnrichmentState();
 				this._mergeTargetLoading = true;
@@ -280,6 +305,18 @@ export class GlGraphBranchSheetPane extends LitElement {
 
 			this._branch = enrichment.branch;
 			this.updateCache(key, { branch: enrichment.branch });
+
+			// Gated on the branch's own worktree, not `isOtherWorktree` — the current window's
+			// worktree has past sessions too.
+			const pastWorktreePath = enrichment.branch.worktree?.path;
+			if (pastWorktreePath != null) {
+				void services.agents.getPastSessionsForWorktree(pastWorktreePath, { limit: 3 }, signal).then(result => {
+					if (signal.aborted || this._loadedKey !== key) return;
+
+					this._pastAgentSessions = result;
+					this.updateCache(key, { pastSessions: result, hasPastSessions: true });
+				}, noopUnlessReal);
+			}
 
 			void enrichment.autolinks.then(autolinks => {
 				if (signal.aborted || this._loadedKey !== key) return;
@@ -346,10 +383,18 @@ export class GlGraphBranchSheetPane extends LitElement {
 		this._mergeTargetLoading = false;
 		this._pullRequest = undefined;
 		this._pullRequestLoading = false;
+		this._pastAgentSessions = undefined;
 	}
 
-	/** Fetch the tag's tip-commit summary for the tip line (best-effort; cached per key). */
-	private async loadTagTip(key: string, repoPath: string, sha: string, services: ResolvedServices): Promise<void> {
+	/** Fetch the tag's tip-commit summary (tip line) and its previous reachable tag (changelog
+	 *  default) under one signal — both best-effort and cached per key. */
+	private async loadTagData(
+		key: string,
+		repoPath: string,
+		tagName: string,
+		sha: string,
+		services: ResolvedServices,
+	): Promise<void> {
 		this._controller?.abort();
 		const controller = new AbortController();
 		this._controller = controller;
@@ -357,20 +402,34 @@ export class GlGraphBranchSheetPane extends LitElement {
 
 		if (this._tipCache.has(key)) {
 			this._tipMessage = this._tipCache.get(key);
+		} else {
+			this._tipMessage = undefined;
+			try {
+				const commit = await services.repository.getCommit(repoPath, sha);
+				if (signal.aborted || this._loadedKey !== key) return;
+
+				const message = commit?.summary ?? commit?.message;
+				this._tipMessage = message;
+				this._tipCache.set(key, message);
+			} catch {
+				// Best-effort — the tip line just omits the message on failure.
+			}
+		}
+
+		if (this._prevTagCache.has(key)) {
+			this._prevTagRef = this._prevTagCache.get(key);
 			return;
 		}
 
-		this._tipMessage = undefined;
-
+		this._prevTagRef = undefined;
 		try {
-			const commit = await services.repository.getCommit(repoPath, sha);
+			const prevTag = await services.graphInspect.getPreviousTag(repoPath, tagName, sha, signal);
 			if (signal.aborted || this._loadedKey !== key) return;
 
-			const message = commit?.summary ?? commit?.message;
-			this._tipMessage = message;
-			this._tipCache.set(key, message);
+			this._prevTagRef = prevTag;
+			this._prevTagCache.set(key, prevTag);
 		} catch {
-			// Best-effort — the tip line just omits the message on failure.
+			// Best-effort — no changelog default when the previous tag can't be resolved.
 		}
 	}
 
@@ -439,21 +498,29 @@ export class GlGraphBranchSheetPane extends LitElement {
 	}
 
 	private renderRemoteHub(ref: BranchSheetRef): TemplateResult | typeof nothing {
+		const branch = this._branch;
 		const context = this.parseContext();
-		if (context == null) return nothing;
 
-		const step: SheetStep = {
-			icon: 'gl-switch',
-			label: `Switch to ${this.displayName(ref)}`,
-			actionLabel: 'Switch',
-			href: this._webview.createCommandLink<GraphItemContext>('gitlens.switchToBranch:', context),
-		};
-		return html`<div class="hub">
-			<section class="section">
-				<h3 class="section__heading">Next steps</h3>
-				${this.renderStep(step)}
-			</section>
-		</div>`;
+		// The AI band (Explain + Generate Changelog) scoped to the remote branch's changes vs its
+		// merge target (the default branch fallback, e.g. `origin/main`) — self-hides when AI is off,
+		// the branch is merged, or no scope resolves.
+		const aiBand = branch != null ? this.renderAiBand(branch) : nothing;
+		const steps =
+			context != null
+				? html`<section class="section">
+						<h3 class="section__heading">Next steps</h3>
+						${this.renderStep({
+							icon: 'gl-switch',
+							label: `Switch to ${this.displayName(ref)}`,
+							actionLabel: 'Switch',
+							href: this._webview.createCommandLink<GraphItemContext>('gitlens.switchToBranch:', context),
+						})}
+					</section>`
+				: nothing;
+
+		if (aiBand === nothing && steps === nothing) return nothing;
+
+		return html`<div class="hub">${aiBand}${steps}</div>`;
 	}
 
 	private renderTagStrip(ref: BranchSheetRef): TemplateResult | typeof nothing {
@@ -474,28 +541,55 @@ export class GlGraphBranchSheetPane extends LitElement {
 
 	private renderTagHub(ref: BranchSheetRef): TemplateResult | typeof nothing {
 		const context = this.parseContext();
-		if (context == null) return nothing;
 
-		const steps: SheetStep[] = [
-			{
-				icon: 'git-branch',
-				label: `Create Branch from ${ref.name}`,
-				actionLabel: 'Create Branch…',
-				href: this._webview.createCommandLink<GraphItemContext>('gitlens.createBranch:', context),
-			},
-			{
-				icon: 'gl-switch',
-				label: `Switch to ${ref.name} (Detached)`,
-				actionLabel: 'Switch',
-				href: this._webview.createCommandLink<GraphItemContext>('gitlens.graph.switchToTag', context),
-			},
-		];
+		const steps: SheetStep[] = [];
+
+		// Changelog since the previous reachable tag — release-notes default, no manual base pick.
+		const prevTag = this._prevTagRef;
+		if (this.aiEnabled && this.orgSettings?.ai !== false && prevTag != null) {
+			steps.push({
+				icon: 'list-unordered',
+				label: `Changelog since ${prevTag}`,
+				actionLabel: 'Generate',
+				loading: this._generateChangelogBusy,
+				onClick: () => this.onTagGenerateChangelog(prevTag, ref.name),
+			});
+		}
+
+		if (context != null) {
+			steps.push(
+				{
+					icon: 'git-branch',
+					label: `Create Branch from ${ref.name}`,
+					actionLabel: 'Create Branch…',
+					href: this._webview.createCommandLink<GraphItemContext>('gitlens.createBranch:', context),
+				},
+				{
+					icon: 'gl-switch',
+					label: `Switch to ${ref.name} (Detached)`,
+					actionLabel: 'Switch',
+					href: this._webview.createCommandLink<GraphItemContext>('gitlens.graph.switchToTag', context),
+				},
+			);
+		}
+
+		if (steps.length === 0) return nothing;
+
 		return html`<div class="hub">
 			<section class="section">
 				<h3 class="section__heading">Next steps</h3>
 				${steps.map(step => this.renderStep(step))}
 			</section>
 		</div>`;
+	}
+
+	private onTagGenerateChangelog(prevTag: string, tagName: string): void {
+		if (this._generateChangelogBusy || this.services == null || this.repoPath == null) return;
+
+		this._generateChangelogBusy = true;
+		void this.services.graphInspect.generateChangelogCompare(this.repoPath, prevTag, tagName).finally(() => {
+			this._generateChangelogBusy = false;
+		});
 	}
 
 	/** One consolidated strip row — issues (chips + associate) on the left, actions (PR chip +
@@ -638,15 +732,46 @@ export class GlGraphBranchSheetPane extends LitElement {
 			<div class="relationship-cards">
 				${this.renderUpstreamCard(branch)}${this.renderMergeTargetCard(branch)}
 			</div>
+			${this.renderAiBand(branch)} ${this.renderAgentSessions(branch)}
 			${steps.length > 0
 				? html`<section class="section">
 						<h3 class="section__heading">Next steps</h3>
 						${steps.map(step => this.renderStep(step))}
 					</section>`
 				: nothing}
-			${this.renderAiBand(branch)}
 		</div>`;
 	}
+
+	/** Agent sessions (live + past) for the branch's own worktree. Bails when the branch has no
+	 *  worktree — matches `branch-card.ts`'s `renderAgentPillsRow` bail: `matchAgentSessionsForWorktree`'s
+	 *  `worktreePath ?? repoPath` fallback exists for the Graph's "undefined ≡ default worktree"
+	 *  convention, and would otherwise false-match a not-checked-out branch to the default worktree's
+	 *  sessions. Passes `branch.repoPath` (the branch's OWN repo), never `this.repoPath` (the window's). */
+	private renderAgentSessions(branch: BranchSnapshot): TemplateResult | typeof nothing {
+		const worktreePath = branch.worktree?.path;
+		if (worktreePath == null) return nothing;
+
+		const sessions = matchAgentSessionsForWorktree(this.graphState?.agentSessions, {
+			repoPath: branch.repoPath,
+			worktreePath: worktreePath,
+		});
+		if ((sessions?.length ?? 0) === 0 && (this._pastAgentSessions?.sessions.length ?? 0) === 0) return nothing;
+
+		return html`<section class="section">
+			<gl-details-agent-status
+				flat
+				.sessions=${sessions}
+				.pastSessions=${this._pastAgentSessions}
+				.worktreePath=${worktreePath}
+				.expand=${this._agentExpand}
+				@gl-agent-status-expand-request=${this._onAgentExpandRequest}
+			></gl-details-agent-status>
+		</section>`;
+	}
+
+	private readonly _onAgentExpandRequest = (): void => {
+		this._agentExpand = this._agentExpand === 'expanded' ? 'collapsed' : 'expanded';
+	};
 
 	/** "Upstream" relationship card — the branch's own remote tracking counterpart, always rendered
 	 *  once the branch snapshot resolves (upstream state arrives synchronously with it, so unlike the

@@ -455,6 +455,7 @@ export class PathTrie<T> {
 		}
 
 		if (node?.children == null) return [];
+		// oxlint-disable-next-line typescript/prefer-nullish-coalescing -- generic value may be falsy; `||` drops falsy entries by design
 		return [...filterMap(node.children.values(), n => n.value || undefined)];
 	}
 

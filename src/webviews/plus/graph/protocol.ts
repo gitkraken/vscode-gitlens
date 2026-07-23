@@ -115,7 +115,7 @@ export interface GraphColumnSetting {
 	isHidden: boolean;
 	mode?: string;
 	order?: number;
-	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	/** Column↔grouped placement. `graph`: `true` (legacy) or host zone id = grouped. `ref`: host zone id = grouped, `false` = column. */
 	grouped?: boolean | string;
 }
 
@@ -378,6 +378,9 @@ export interface GraphScope {
 export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.graph'> {
 	windowFocused?: boolean;
 	webroot?: string;
+	/** True when running in a web/virtual environment (e.g. vscode.dev), where the no-repo empty state
+	 *  offers "Open Remote Repository" instead of clone/init. Sourced from `isWeb` (`@env/platform`). */
+	isWeb?: boolean;
 	repositories?: GraphRepository[];
 	/** Absolute fsPaths of every worktree in the current repo's family (the main checkout plus
 	 *  every secondary worktree), sourced from the loaded graph. A reusable registry for any
@@ -424,6 +427,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 */
 	sync?: GraphRowsSyncStamp;
 	columns?: GraphColumnsSettings;
+	/** See {@link DidChangeColumnsParams.columnsRevision} — bootstrap carries it too. */
+	columnsRevision?: number;
 	config?: GraphComponentConfig;
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
@@ -454,7 +459,6 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	graphWalkthroughBannerCollapsed?: boolean;
 	graphWalkthroughComplete?: boolean;
 	graphWalkthroughStarted?: boolean;
-	visualizationsButtonCalloutDismissed?: boolean;
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;
@@ -462,6 +466,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		visible?: boolean;
 		position?: number;
 		bottomPosition?: number;
+		/** `true` = the (bottom-docked) details panel fills the graph area; restores to `bottomPosition`. */
+		maximized?: boolean;
 		showSearchBox?: boolean;
 		/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
 		searchBoxFilter?: boolean;
@@ -572,6 +578,16 @@ export interface GraphWipNodeMetadata {
 	 */
 	branchRef?: string;
 	/**
+	 * Host-only: the worktree's branch in overview form, keyed by `branchRef`. Pure sync projection of
+	 * the `GitBranch` the worktree enumeration already loaded — no extra git work.
+	 *
+	 * Exists because a worktree branch only lands in `state.overview` when the worktree is `opened` or
+	 * its last commit is recent (see `getBranchOverviewType`), so a dirty worktree on an older branch
+	 * has no `OverviewBranch` to hover. The WIP bar passes this to `<gl-branch-hover>` as a fallback.
+	 * Undefined for detached worktrees (no `wt.branch`) — those get a degraded hover.
+	 */
+	branch?: OverviewBranch;
+	/**
 	 * Host-only: paused operation (rebase/merge/cherry-pick) running in this worktree, when any.
 	 * Mirrors the primary's `workingTreeStats.pausedOpStatus` so the secondary WIP row can render
 	 * the same indicator the action bar does. Not consumed by the GK component.
@@ -644,9 +660,11 @@ export interface GraphComponentConfig {
 	autoFetchIntervalSeconds?: number;
 	autoFetchMode?: GraphAutoFetchMode;
 	avatars?: boolean;
+	changesColumnEnabled?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	detailsLocation?: 'auto' | 'right' | 'bottom';
+	detailsMaximizeOnMode?: boolean;
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	experimentalHomeHeaderEnabled?: boolean;
@@ -732,6 +750,7 @@ export interface GraphComponentConfig {
 	 * Backed by the user setting `gitlens.graph.style`.
 	 */
 	style?: GraphStyle;
+	timelineSeparators?: boolean;
 }
 
 export interface GraphColumnConfig {
@@ -739,7 +758,7 @@ export interface GraphColumnConfig {
 	mode?: string;
 	width?: number;
 	order?: number;
-	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	/** Column↔grouped placement. `graph`: `true` (legacy) or host zone id = grouped. `ref`: host zone id = grouped, `false` = column. */
 	grouped?: boolean | string;
 }
 
@@ -861,8 +880,22 @@ export const SearchCancelCommand = new IpcCommand<SearchCancelParams>(scope, 'se
 
 export interface UpdateColumnsParams {
 	config: GraphColumnsConfig;
+	/** Monotonic per-webview-session write counter; echoed back as `columnsRevision` so the webview can
+	 * order pushes against its own writes (see `DidChangeColumnsParams.columnsRevision`). */
+	revision?: number;
 }
 export const UpdateColumnsCommand = new IpcCommand<UpdateColumnsParams>(scope, 'columns/update');
+
+export interface UpdateColumnModeParams {
+	name: GraphColumnName;
+	mode: string | undefined;
+}
+// Dedicated column-mode write: kept separate from `UpdateColumnsCommand` (which ignores echoed `mode` —
+// it's host-authoritative) so the Changes mode picker's pick reaches the host's `setColumnMode` directly.
+export const UpdateColumnModeCommand = new IpcCommand<UpdateColumnModeParams>(scope, 'columns/mode/update');
+
+// One-time consent write for the Changes column's stats computation (`graph.changesColumn.enabled`).
+export const EnableChangesColumnCommand = new IpcCommand(scope, 'columns/changes/enable');
 
 export interface UpdateRefsVisibilityParams {
 	refs: GraphExcludedRef[];
@@ -1166,13 +1199,13 @@ export interface GraphSidebarBranch {
 	date?: number;
 	providerName?: string;
 	starred?: boolean;
-	context?: GraphItemRefContext<GraphBranchContextValue>;
+	context?: GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin;
 }
 
 export interface GraphSidebarRemoteBranch {
 	name: string;
 	sha?: string;
-	context?: GraphItemRefContext<GraphBranchContextValue>;
+	context?: GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin;
 }
 
 export interface GraphSidebarRemote {
@@ -1184,7 +1217,7 @@ export interface GraphSidebarRemote {
 	/** Whether the remote's integration is connected (`true`), disconnected (`false`), or not applicable (`undefined`). */
 	connected?: boolean;
 	branches: GraphSidebarRemoteBranch[];
-	context?: GraphItemTypedContext<GraphRemoteContextValue>;
+	context?: GraphItemTypedContext<GraphRemoteContextValue> & GraphSidebarItemOrigin;
 }
 
 export interface GraphSidebarStash {
@@ -1194,7 +1227,7 @@ export interface GraphSidebarStash {
 	date?: number;
 	stashNumber: string;
 	stashOnRef?: string;
-	context?: GraphItemRefContext<GraphStashContextValue>;
+	context?: GraphItemRefContext<GraphStashContextValue> & GraphSidebarItemOrigin;
 }
 
 export interface GraphSidebarTag {
@@ -1203,7 +1236,7 @@ export interface GraphSidebarTag {
 	message?: string;
 	annotated: boolean;
 	date?: number;
-	context?: GraphItemRefContext<GraphTagContextValue>;
+	context?: GraphItemRefContext<GraphTagContextValue> & GraphSidebarItemOrigin;
 }
 
 /**
@@ -1239,7 +1272,9 @@ export interface GraphSidebarWorktree {
 	upstream?: string;
 	tracking?: { ahead: number; behind: number };
 	providerName?: string;
-	context?: GraphItemRefContext<GraphBranchContextValue> | GraphItemRefContext<GraphCommitContextValue>;
+	context?:
+		| (GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin)
+		| (GraphItemRefContext<GraphCommitContextValue> & GraphSidebarItemOrigin);
 }
 
 export type GetSidebarDataParams = { panel: GraphSidebarPanel };
@@ -1395,13 +1430,6 @@ export const DidChangeGraphWalkthroughStarted = new IpcNotification<boolean>(
 	'graphWalkthrough/started/didChange',
 );
 
-export const DidChangeVisualizationsButtonCallout = new IpcNotification<boolean>(
-	scope,
-	'visualizationsButtonCallout/didChange',
-);
-
-export const DismissVisualizationsButtonCalloutCommand = new IpcCommand(scope, 'visualizationsButtonCallout/dismiss');
-
 export interface DidRequestActiveSidebarPanelParams {
 	panel: GraphSidebarPanel;
 }
@@ -1442,6 +1470,10 @@ export const DidChangeBranchStateNotification = new IpcNotification<DidChangeBra
 
 export interface DidChangeColumnsParams {
 	columns: GraphColumnsSettings | undefined;
+	/** The latest webview columns-write revision this push reflects (commands are processed serially).
+	 * The webview drops pushes whose revision trails its own write counter — they were generated before
+	 * an in-flight local change and would otherwise revert it (early-load grouping "reset/jump"). */
+	columnsRevision?: number;
 	context?: string;
 	settingsContext?: string;
 }
@@ -1591,7 +1623,9 @@ export const DidSearchNotification = new IpcNotification<DidSearchParams>(scope,
 export interface DidFetchParams {
 	lastFetched: Date;
 }
-export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch');
+// `silent` — this only carries the last-fetched time; the user isn't waiting on it, so it should never
+// spin the view's progress indicator.
+export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch', undefined, undefined, true);
 
 export interface DidInvalidateScopeAnchorsParams {
 	repoPath: string;
@@ -1622,6 +1656,19 @@ export const DidStartFeaturePreviewNotification = new IpcNotification<DidStartFe
 
 export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
 export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;
+
+/** Origin stamp carried by every graph SIDEBAR item context. The host's sidebar-action telemetry
+ *  gate keys on it — the same `webviewItem` types (and commands) are also produced by graph-canvas
+ *  ref pills and the WIP header kebab, which must NOT count as sidebar actions. */
+export const sidebarItemOrigin = 'sidebar';
+/** Runtime rewrite applied by the host (`onSidebarAction`) to INLINE (hover-icon) invocations so
+ *  the context-menu telemetry gate skips them (the webview already emitted `location: 'inline'`).
+ *  Never present in serialized protocol data — sidebar contexts always serialize with
+ *  {@link sidebarItemOrigin}; this value exists only on the host-side parsed copy. */
+export const sidebarInlineItemOrigin = 'sidebar-inline';
+/** Makes the origin stamp REQUIRED on sidebar item context types, so a new sidebar builder that
+ *  forgets to stamp fails to compile instead of silently dropping out of sidebar telemetry. */
+export type GraphSidebarItemOrigin = { webviewItemOrigin: typeof sidebarItemOrigin };
 
 export type GraphItemGroupContext = WebviewItemGroupContext<GraphItemGroupContextValue>;
 export type GraphItemGroupContextValue = GraphItemRefGroupContextValue;

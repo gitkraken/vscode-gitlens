@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { classifyRowsDelta } from '../delta.js';
+import { classifyRowsDelta, isHistoryRewrite } from '../delta.js';
 import type { RowTopology } from '../delta.js';
 
 function row(sha: string, parents: string[], type = 'commit-node', date = 0): RowTopology {
@@ -70,5 +70,71 @@ suite('engine/delta classification', () => {
 		const next = [...history(), row('F', [])];
 		next[1] = row('B', ['C']);
 		assert.deepStrictEqual(classifyRowsDelta(history(), next), { kind: 'replace' });
+	});
+});
+
+suite('engine/delta isHistoryRewrite', () => {
+	const wip = (parent: string) => row('0000', [parent], 'work-dir-changes');
+
+	test('no prior rows → not a rewrite', () => {
+		assert.strictEqual(isHistoryRewrite(undefined, history()), false);
+		assert.strictEqual(isHistoryRewrite([], history()), false);
+	});
+
+	test('unchanged topology → not a rewrite', () => {
+		assert.strictEqual(isHistoryRewrite(history(), history()), false);
+	});
+
+	test('older rows paged in at the bottom → not a rewrite', () => {
+		const next = [...history(), row('F', ['G']), row('G', [])];
+		assert.strictEqual(isHistoryRewrite(history(), next), false);
+	});
+
+	test('a new commit prepended on top → not a rewrite (prepend keeps stability)', () => {
+		const next = [row('N', ['A']), ...history()];
+		assert.strictEqual(isHistoryRewrite(history(), next), false);
+	});
+
+	test('a prepend that also trims the bottom row → not a rewrite', () => {
+		const next = [row('N', ['A']), ...history().slice(0, -1)];
+		assert.strictEqual(isHistoryRewrite(history(), next), false);
+	});
+
+	test('a WIP row parent moving on a plain commit → not a rewrite', () => {
+		// The WIP row tracks HEAD, so its parent changes on every commit — it must not be read as a rewrite.
+		const prior = [wip('A'), ...history()];
+		const next = [wip('N'), row('N', ['A']), ...history()];
+		assert.strictEqual(isHistoryRewrite(prior, next), false);
+	});
+
+	test('a rebased tip (top commit rewritten) → rewrite', () => {
+		// The top commit's sha is gone (replayed with a new sha) — its lane preferences are stale.
+		const next = [row('A2', ['B']), ...history().slice(1)];
+		assert.strictEqual(isHistoryRewrite(history(), next), true);
+	});
+
+	test('a rewrite below an unchanged top commit → rewrite', () => {
+		// Anchor (A) still present, but a surviving commit deeper in the window was rewritten.
+		const next = history();
+		next[2] = row('C2', ['E']); // C replayed as C2
+		assert.strictEqual(isHistoryRewrite(history(), next), true);
+	});
+
+	test('an amended tip (same position, new sha) → rewrite', () => {
+		const next = history();
+		next[0] = row('A2', ['B']);
+		assert.strictEqual(isHistoryRewrite(history(), next), true);
+	});
+
+	test('a reset that drops the top commits from the window → rewrite', () => {
+		// HEAD reset back: the former tip rows are gone (unreachable) → surviving lanes may re-pack.
+		const next = history().slice(2);
+		assert.strictEqual(isHistoryRewrite(history(), next), true);
+	});
+
+	test('a WIP row present while the history below is rebased → rewrite', () => {
+		const prior = [wip('A'), ...history()];
+		const next = [wip('A2'), row('A2', ['B']), ...history().slice(1)];
+		assert.strictEqual(isHistoryRewrite(prior, next), true);
 	});
 });

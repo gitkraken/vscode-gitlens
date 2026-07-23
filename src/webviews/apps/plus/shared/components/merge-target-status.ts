@@ -45,6 +45,14 @@ const mergeTargetStyles = css`
 		--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 	}
 
+	/* Compact indicator (branch hover): scale the whole composite to 80% so the merge-target glyph +
+	   status overlay keep their tuned alignment. transform, not smaller icon sizes, so the overlap
+	   margins scale with it. */
+	.chip.compact {
+		transform: scale(0.8);
+		transform-origin: left center;
+	}
+
 	.header__title > span {
 		cursor: help;
 	}
@@ -235,6 +243,12 @@ export class GlMergeTargetStatus extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	loading = false;
 
+	/** Compact presentation for tight surfaces (the branch hover): the indicator renders at 80% scale and
+	 *  opens a plain one-line tooltip instead of the full interactive popover (no push/compare/delete
+	 *  actions). Off by default so the overview card / home keep the rich popover. */
+	@property({ type: Boolean, reflect: true })
+	compact = false;
+
 	@state()
 	private _target: Awaited<MergeTargetPromise>;
 	get target(): Awaited<MergeTargetPromise> {
@@ -314,11 +328,22 @@ export class GlMergeTargetStatus extends LitElement {
 		};
 	}
 
+	/** One-line status summary for the compact tooltip — a terse stand-in for the popover's rich header. */
+	private get compactStatusLabel(): string {
+		const target = this.target?.name ?? 'the merge target';
+		if (this.mergedStatus?.merged) return `Merged into ${target}`;
+		if (this.conflicts) return `Merging into ${target} will cause conflicts`;
+
+		const behind = this.status?.behind ?? 0;
+		if (behind > 0) return `${pluralize('commit', behind)} behind ${target}`;
+		return `Merges cleanly into ${target}`;
+	}
+
 	override render(): unknown {
 		if (!this.status && !this.conflicts) {
 			if (this.loading) {
 				return html`<gl-tooltip content="Checking merge target status…">
-					<span class="chip status--loading" aria-busy="true">
+					<span class="chip status--loading${this.compact ? ' compact' : ''}" aria-busy="true">
 						<code-icon class="icon" icon="gl-merge-target" size="18"></code-icon>
 						<code-icon class="status-indicator" icon="sync" size="12"></code-icon>
 					</span>
@@ -342,6 +367,16 @@ export class GlMergeTargetStatus extends LitElement {
 		} else {
 			icon = 'check';
 			status = 'in-sync';
+		}
+
+		// Compact: a plain tooltip with a one-line summary rather than the interactive popover.
+		if (this.compact) {
+			return html`<gl-tooltip content=${this.compactStatusLabel} placement="bottom">
+				<span class="chip status--${status} compact" tabindex="0"
+					><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
+					><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
+				</span>
+			</gl-tooltip>`;
 		}
 
 		return html`<gl-popover placement="bottom" trigger="hover click focus">

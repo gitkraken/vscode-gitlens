@@ -26,6 +26,10 @@
 			"types": "./src/paging.ts",
 			"default": "./src/paging.ts"
 		},
+		"./stats.js": {
+			"types": "./src/stats.ts",
+			"default": "./src/stats.ts"
+		},
 		"./view.js": {
 			"types": "./src/view.ts",
 			"default": "./src/view.ts"
@@ -45,6 +49,10 @@
 		"./engine/layout.js": {
 			"types": "./src/engine/layout.ts",
 			"default": "./src/engine/layout.ts"
+		},
+		"./engine/navigation.js": {
+			"types": "./src/engine/navigation.ts",
+			"default": "./src/engine/navigation.ts"
 		},
 		"./engine/process.js": {
 			"types": "./src/engine/process.ts",

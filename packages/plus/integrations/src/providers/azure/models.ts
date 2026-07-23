@@ -11,7 +11,7 @@ import {
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 
-const vstsHostnameRegex = /\.visualstudio\.com$/;
+const vstsHostnameSuffix = '.visualstudio.com';
 
 export interface AzureRepositoryDescriptor extends ResourceDescriptor {
 	owner: string;
@@ -374,11 +374,11 @@ export function getAzureDevOpsOwner(url: URL): string {
 	return url.pathname.split('/')[1];
 }
 export function getAzureOwner(url: URL): string {
-	const isVSTS = vstsHostnameRegex.test(url.hostname);
+	const isVSTS = url.hostname.endsWith(vstsHostnameSuffix);
 	return isVSTS ? getVSTSOwner(url) : getAzureDevOpsOwner(url);
 }
 export function isVsts(domain: string): boolean {
-	return vstsHostnameRegex.test(domain);
+	return domain.endsWith(vstsHostnameSuffix);
 }
 
 export function getAzureRepo(pr: AzurePullRequest): string {
@@ -414,7 +414,7 @@ export function parseAzureHttpsUrl(url: string): [owner: string, project: string
 export function parseAzureHttpsUrl(urlObj: URL): [owner: string, project: string, repo: string];
 export function parseAzureHttpsUrl(arg: URL | string): [owner: string, project: string, repo: string] {
 	const url = typeof arg === 'string' ? new URL(arg) : arg;
-	if (vstsHostnameRegex.test(url.hostname)) {
+	if (url.hostname.endsWith(vstsHostnameSuffix)) {
 		return parseVstsHttpsUrl(url);
 	}
 	return parseAzureNewStyleUrl(url);
@@ -424,7 +424,7 @@ export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
 	const url = new URL(pr.url);
 	const baseUrl = new URL(url.origin).toString();
 	const repoPath = getAzureRepo(pr);
-	const isVSTS = vstsHostnameRegex.test(url.hostname);
+	const isVSTS = url.hostname.endsWith(vstsHostnameSuffix);
 	if (isVSTS) {
 		return `${baseUrl}/${repoPath}/pullrequest/${pr.pullRequestId}`;
 	}

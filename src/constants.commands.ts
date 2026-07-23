@@ -85,7 +85,9 @@ type InternalAgentCommands =
 	| 'gitlens.agents.installClaudeHook'
 	| 'gitlens.agents.uninstallClaudeHook'
 	| 'gitlens.agents.resolvePermission'
-	| 'gitlens.agents.openPlanFile';
+	| 'gitlens.agents.openPlanFile'
+	| 'gitlens.agents.resumeSession'
+	| 'gitlens.agents.showResumeSessionPicker';
 
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 

@@ -359,7 +359,7 @@ export class LineAnnotationController implements Disposable {
 					// l,
 					commit.isUncommitted ? (cfg.uncommittedChangesFormat ?? cfg.format) : cfg.format,
 					{
-						dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
+						dateFormat: cfg.dateFormat ?? configuration.get('defaultDateFormat'),
 						getBranchAndTagTips: getBranchAndTagTips,
 						pullRequest: pr?.value,
 						pullRequestPendingMessage: `PR ${GlyphChars.Ellipsis}`,

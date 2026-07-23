@@ -809,13 +809,16 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	};
 
 	private onHeaderSliceByChange = (e: CustomEvent<{ sliceBy: TimelineSliceBy }>): void => {
-		// Compare against the EFFECTIVE slice-by (what the chart actually renders) so a pick that
-		// changes nothing visible isn't counted as a change.
+		// Compare the EFFECTIVE slice-by before and after (what the chart actually renders), not the
+		// raw pick. When slicing is forced to 'author' (repo scope, a virtual repo, or not viewing all
+		// branches) the picked value is ignored by the chart, so a pick that leaves the effective value
+		// unchanged must not be counted — matching this guard's stated intent.
 		const previous = this.effectiveSliceBy;
-		if (e.detail.sliceBy !== previous) {
+		const next = this.sliceBySupportedEffective && this.showAllBranchesEffective ? e.detail.sliceBy : 'author';
+		if (next !== previous) {
 			emitTelemetrySentEvent<'graph/timeline/sliceByChanged'>(this, {
 				name: 'graph/timeline/sliceByChanged',
-				data: { 'sliceBy.old': previous, 'sliceBy.new': e.detail.sliceBy },
+				data: { 'sliceBy.old': previous, 'sliceBy.new': next },
 			});
 		}
 		this.dispatchConfigChange({ sliceBy: e.detail.sliceBy });
