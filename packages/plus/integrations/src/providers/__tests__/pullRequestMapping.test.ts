@@ -114,4 +114,16 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 
 		assert.equal(roundTrip.repository.remoteInfo, null, 'partial clone info does not produce a remoteInfo');
 	});
+
+	test('fromProviderPullRequest tolerates a missing repository payload', () => {
+		const providerPr = { ...createProviderPullRequest(), repository: undefined } as unknown as ProviderPullRequest;
+
+		const pr = fromProviderPullRequest(providerPr, fakeProvider);
+
+		assert.equal(pr.repository.owner, '');
+		assert.equal(pr.repository.repo, '');
+		assert.equal(pr.repository.id, '');
+		assert.equal(pr.refs?.base.owner, '');
+		assert.equal(pr.refs?.base.repo, '');
+	});
 });
