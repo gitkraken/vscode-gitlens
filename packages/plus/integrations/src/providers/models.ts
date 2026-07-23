@@ -85,7 +85,11 @@ type GitPullRequestState = GitPullRequestStateType;
 const { EntityIdentifierUtils } = entityIdentifiersModule;
 const { GitProviderUtils } = providerUtilsModule;
 
-const GitBuildStatusState = {
+// Local runtime copies of the `@gitkraken/provider-apis` string enums. Duplicated (not imported as
+// values) because the SDK ships as CJS whose named enum exports can't be statically imported as ESM
+// values from the bundled `dist`. Exported so the enum-parity test can deep-equal them against the
+// real SDK enums and turn any upstream drift into a test failure instead of a silent mismatch.
+export const GitBuildStatusState = {
 	ActionRequired: 'ACTION_REQUIRED' as GitBuildStatusState,
 	Cancelled: 'CANCELLED' as GitBuildStatusState,
 	Error: 'ERROR' as GitBuildStatusState,
@@ -98,25 +102,25 @@ const GitBuildStatusState = {
 	OptionalActionRequired: 'OPTIONAL_ACTION_REQUIRED' as GitBuildStatusState,
 } as const;
 
-const GitIssueState = {
+export const GitIssueState = {
 	Open: 'OPEN' as GitIssueState,
 	Closed: 'CLOSED' as GitIssueState,
 } as const;
 
-const GitPullRequestState = {
+export const GitPullRequestState = {
 	Open: 'OPEN' as GitPullRequestState,
 	Closed: 'CLOSED' as GitPullRequestState,
 	Merged: 'MERGED' as GitPullRequestState,
 } as const;
 
-const GitPullRequestReviewState = {
+export const GitPullRequestReviewState = {
 	Approved: 'APPROVED' as GitPullRequestReviewState,
 	ChangesRequested: 'CHANGES_REQUESTED' as GitPullRequestReviewState,
 	Commented: 'COMMENTED' as GitPullRequestReviewState,
 	ReviewRequested: 'REVIEW_REQUESTED' as GitPullRequestReviewState,
 } as const;
 
-const GitPullRequestMergeableState = {
+export const GitPullRequestMergeableState = {
 	Behind: 'BEHIND' as GitPullRequestMergeableState,
 	Blocked: 'BLOCKED' as GitPullRequestMergeableState,
 	Conflicts: 'CONFLICTS' as GitPullRequestMergeableState,

@@ -9,20 +9,25 @@ type GitPullRequestMergeableState = GitPullRequestMergeableStateType;
 type GitPullRequestReviewState = GitPullRequestReviewStateType;
 type GitPullRequestState = GitPullRequestStateType;
 
-const GitPullRequestState = {
+// Local runtime copies of the `@gitkraken/provider-apis` PR string enums, duplicated for the same
+// CJS-from-ESM reason as the enums in `../models.ts`. Exported so the enum-parity test can guard them
+// against upstream drift. `GitPullRequestMergeableState` is an intentional subset: Bitbucket Server
+// only ever normalizes to `Unknown`, so the parity test asserts each local entry matches the SDK
+// rather than a full mirror.
+export const GitPullRequestState = {
 	Open: 'OPEN' as GitPullRequestState,
 	Closed: 'CLOSED' as GitPullRequestState,
 	Merged: 'MERGED' as GitPullRequestState,
 } as const;
 
-const GitPullRequestReviewState = {
+export const GitPullRequestReviewState = {
 	Approved: 'APPROVED' as GitPullRequestReviewState,
 	ChangesRequested: 'CHANGES_REQUESTED' as GitPullRequestReviewState,
 	Commented: 'COMMENTED' as GitPullRequestReviewState,
 	ReviewRequested: 'REVIEW_REQUESTED' as GitPullRequestReviewState,
 } as const;
 
-const GitPullRequestMergeableState = {
+export const GitPullRequestMergeableState = {
 	Unknown: 'UNKNOWN' as GitPullRequestMergeableState,
 } as const;
 
