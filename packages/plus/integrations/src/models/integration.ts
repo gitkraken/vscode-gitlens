@@ -57,6 +57,14 @@ export type IntegrationResult<T> =
  */
 export type AccountWideIssuesResult = { values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata };
 
+/**
+ * Options for the account-wide issue read. `includeAllAssignees` drops the "assigned to me" scoping so the
+ * read broadens to issues assigned to anyone (the account-wide equivalent of the repo-scoped
+ * {@link GitHostIntegration.getMyIssuesForReposResult}'s toggle). Authored/mentioned categories, where a
+ * provider has them, stay user-relative — they're meaningless without a user.
+ */
+export type SearchMyIssuesOptions = { includeAllAssignees?: boolean };
+
 type SyncReqUsecase = Exclude<
 	| 'getAccountForCommit'
 	| 'getAccountForEmail'
@@ -623,7 +631,10 @@ export abstract class IntegrationBase<
 		session: ProviderAuthenticationSession,
 		resources?: ResourceDescriptor[],
 		cancellation?: AbortSignal,
+		_options?: SearchMyIssuesOptions,
 	): Promise<AccountWideIssuesResult | undefined> {
+		// The default read has no assignee scoping to broaden, so `_options` is inert here; a provider whose
+		// account-wide read is user-scoped (GitHub/GitLab/Azure) overrides this and honors `includeAllAssignees`.
 		const values = await this.searchProviderMyIssues(session, resources, cancellation);
 		if (values == null) return undefined;
 		return { values: values, truncated: false };
@@ -637,6 +648,7 @@ export abstract class IntegrationBase<
 		resources?: ResourceDescriptor | ResourceDescriptor[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
+		options?: SearchMyIssuesOptions,
 	): Promise<IntegrationResult<AccountWideIssuesResult | undefined>> {
 		const scope = getScopedLogger();
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -647,6 +659,7 @@ export abstract class IntegrationBase<
 				session,
 				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
 				cancellation,
+				options,
 			);
 			this.resetRequestExceptionCount('searchMyIssues');
 			return { value: result };

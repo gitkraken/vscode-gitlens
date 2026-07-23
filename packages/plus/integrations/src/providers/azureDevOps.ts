@@ -27,7 +27,7 @@ import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { AccountWideIssuesResult, IntegrationKey } from '../models/integration.js';
+import type { AccountWideIssuesResult, IntegrationKey, SearchMyIssuesOptions } from '../models/integration.js';
 import { toCollectionScopeFailure } from '../results.js';
 import type {
 	AzureOrganizationDescriptor,
@@ -907,6 +907,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		session: ProviderAuthenticationSession,
 		_resources?: ResourceDescriptor[],
 		_cancellation?: AbortSignal,
+		searchOptions?: SearchMyIssuesOptions,
 	): Promise<AccountWideIssuesResult | undefined> {
 		const api = await this.getProvidersApi();
 
@@ -950,10 +951,15 @@ export abstract class AzureDevOpsIntegrationBase<
 			};
 		};
 
+		// `includeAllAssignees` broadens to every issue in each project (any assignee, any author), so a single
+		// unfiltered drain per project replaces the assigned+authored pair — an unfiltered assignee drain already
+		// subsumes the authored one.
 		const outcomes = await Promise.all(
-			projects.values.flatMap(p => {
-				return [drain(p, { assigneeLogins: [user.username!] }), drain(p, { authorLogin: user.username! })];
-			}),
+			projects.values.flatMap(p =>
+				searchOptions?.includeAllAssignees
+					? [drain(p, {})]
+					: [drain(p, { assigneeLogins: [user.username!] }), drain(p, { authorLogin: user.username! })],
+			),
 		);
 
 		const issuesById = new Map<string, IssueShape>();
