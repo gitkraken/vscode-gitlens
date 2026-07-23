@@ -345,8 +345,9 @@ test.describe('Smoke Tests — Commit Graph view', () => {
 		// Use a longer timeout for webview discovery under parallel load
 		const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 		expect(graphWebview).not.toBeNull();
-		// Graph may take longer to load and render
-		await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: MaxTimeout });
+		// Graph may take longer to load and render. The new Lit engine renders it as a role="tree"
+		// ("Commit graph"); its presence (with Pro) means the gate is not blocking the view.
+		await expect(graphWebview!.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: MaxTimeout });
 
 		// Verify that the Pro gate is NOT visible
 		const featureGate = graphWebview!.locator('gl-feature-gate:not([hidden])');
