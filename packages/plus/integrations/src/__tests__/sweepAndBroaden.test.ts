@@ -1411,4 +1411,119 @@ suite('sweep + broaden (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	test('Azure account-wide issue read broadens to a single unfiltered drain per project when includeAllAssignees is set (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		const seenFilters: { assigneeLogins?: string[]; authorLogin?: string }[] = [];
+		stubApi(azure, {
+			getIssuesForAzureProject: (
+				_t: unknown,
+				_ns: string,
+				_p: string,
+				options?: { assigneeLogins?: string[]; authorLogin?: string },
+			) => {
+				seenFilters.push({ assigneeLogins: options?.assigneeLogins, authorLogin: options?.authorLogin });
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({ values: [{ resourceName: 'org-1', name: 'proj' }] });
+
+		await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					r?: unknown,
+					c?: unknown,
+					id?: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<IntegrationResult<{ values: unknown[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult(undefined, undefined, undefined, { includeAllAssignees: true });
+
+		// A single unfiltered drain replaces the assignee+author pair: any-assignee subsumes the authored read.
+		assert.equal(seenFilters.length, 1, 'one unfiltered drain per project, not the assigned+authored pair');
+		assert.equal(seenFilters[0].assigneeLogins, undefined, 'the per-user assignee filter is dropped');
+		assert.equal(seenFilters[0].authorLogin, undefined, 'no author filter is applied either');
+
+		manager.dispose();
+	});
+
+	test('GitLab account-wide issue read stops before fetching the next page after cancellation (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		const controller = new AbortController();
+		let calls = 0;
+		stubApi(gl, {
+			getIssuesForCurrentUser: () => {
+				calls++;
+				controller.abort();
+				return Promise.resolve({
+					values: [],
+					paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
+				});
+			},
+		});
+
+		const result = await (
+			gl as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					r?: unknown,
+					c?: AbortSignal,
+					id?: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<IntegrationResult<{ values: unknown[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult(undefined, controller.signal, undefined, { includeAllAssignees: true });
+
+		assert.equal(calls, 1, 'the drain does not fetch a second page after cancellation');
+		assert.equal(result?.value, undefined);
+		assert.equal(result?.error?.name, 'CancellationError');
+
+		manager.dispose();
+	});
+
+	test('GitHub account-wide issue seam rejects includeAllAssignees instead of advertising an unsupported read (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		const result = await (
+			gh as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					r?: unknown,
+					c?: unknown,
+					id?: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<IntegrationResult<{ values: unknown[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult(undefined, undefined, undefined, { includeAllAssignees: true });
+
+		assert.equal(result?.value, undefined);
+		assert.match(result?.error?.message ?? '', /includeAllAssignees/i);
+		assert.match(result?.error?.message ?? '', /account-wide issue reads/i);
+
+		manager.dispose();
+	});
 });

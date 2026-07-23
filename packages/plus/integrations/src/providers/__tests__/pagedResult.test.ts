@@ -23,6 +23,20 @@ async function seedGitHubConnection(runtime: ReturnType<typeof createFakeRuntime
 	);
 }
 
+async function seedGitLabConnection(runtime: ReturnType<typeof createFakeRuntime>, tokenId: string, token: string) {
+	await runtime.storage.storeSecret(
+		`integration.auth.cloud:gitlab|${tokenId}`,
+		JSON.stringify({
+			id: tokenId,
+			accessToken: token,
+			scopes: ['api'],
+			cloud: true,
+			type: 'oauth',
+			domain: 'gitlab.com',
+		}),
+	);
+}
+
 type CapturingProvider = Record<string, (input: unknown, options?: { token?: string }) => Promise<unknown>>;
 
 suite('page-number pagination (#5435)', () => {
@@ -98,6 +112,45 @@ suite('page-number pagination (#5435)', () => {
 			JSON.stringify({ value: 'abc', type: 'cursor' }),
 			'cursor round-trip preserved',
 		);
+
+		manager.dispose();
+	});
+
+	test('getIssuesForCurrentUser forwards an explicit numbered page request', async () => {
+		const runtime = createFakeRuntime();
+		await seedGitLabConnection(runtime, 'sec-tok', 'token-secondary');
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+
+		let capturedInput:
+			| { page?: number; pageSize?: number; maxPageSize?: number; scope?: string; assigneeUsername?: string }
+			| undefined;
+		const api = await (
+			gl as unknown as {
+				getProvidersApi(): Promise<{
+					providers: Record<string, unknown>;
+					getIssuesForCurrentUser(
+						tokenOptInfo: unknown,
+						options?: { scope?: 'assigned_to_me' | 'all'; page?: number; pageSize?: number },
+					): Promise<{ paging?: Record<string, unknown> }>;
+				}>;
+			}
+		).getProvidersApi();
+		(api.providers.gitlab as CapturingProvider).getIssuesForCurrentUserFn = input => {
+			capturedInput = input as typeof capturedInput;
+			return Promise.resolve({ data: [], pageInfo: { hasNextPage: true, nextPage: 4, currentPage: 3 } });
+		};
+
+		const result = await api.getIssuesForCurrentUser(
+			{ providerId: GitCloudHostIntegrationId.GitLab, accessToken: 'token-secondary' },
+			{ scope: 'all', page: 3, pageSize: 25 },
+		);
+
+		assert.equal(capturedInput?.page, 3, 'explicit page forwarded to the provider');
+		assert.equal(capturedInput?.pageSize, 25, 'pageSize forwarded for numbered providers');
+		assert.equal(capturedInput?.scope, 'all');
+		assert.equal(result.paging?.page, 3, 'currentPage surfaced as page');
+		assert.equal(result.paging?.nextPage, 4);
 
 		manager.dispose();
 	});

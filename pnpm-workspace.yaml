@@ -20,7 +20,7 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
-    '@gitkraken/provider-apis': 0.50.0
+    '@gitkraken/provider-apis': 0.53.0
     # The @octokit/* packages depend on each other; version them as a family so a lone bump can't
     # split them. @octokit/graphql wants `@octokit/request: ^10.0.6` — see the overrides entry.
     '@octokit/graphql': 9.0.3

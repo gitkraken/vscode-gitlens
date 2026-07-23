@@ -21,9 +21,11 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
+import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { SearchMyIssuesOptions } from '../models/integration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
 import type {
@@ -482,7 +484,15 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: AbortSignal,
+		options?: SearchMyIssuesOptions,
 	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+		if ((repos == null || repos.length === 0) && options?.includeAllAssignees) {
+			throw new IntegrationReadUnavailableError(
+				this.name,
+				'`includeAllAssignees` is not supported for account-wide issue reads; scope the read to repositories instead.',
+			);
+		}
+
 		return (await this.authenticationService.apis.github)?.searchMyIssues(
 			this,
 			toTokenWithInfo(this.id, session),
@@ -490,6 +500,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
 				includeBody: true,
+				includeAllAssignees: options?.includeAllAssignees,
 			},
 			cancellation,
 		);
