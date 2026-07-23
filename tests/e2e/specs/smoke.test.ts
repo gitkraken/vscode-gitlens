@@ -317,12 +317,18 @@ test.describe('Smoke Tests — Commit Graph view', () => {
 		const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 		expect(graphWebview).not.toBeNull();
 
-		// For Community users, expect the Pro gate (feature-gate component with Try GitLens Pro)
+		// A user without a Pro subscription is gated out of the graph. Depending on account state this
+		// is either the Pro feature-gate ("Try GitLens Pro" / "Continue") for a signed-in Community user,
+		// or — for a signed-out user (the harness default) — the account-access gate ("Get Started with
+		// GitLens" with "Create Free Account" / "Sign In"). Accept any of them.
 		const featureGate = graphWebview!.locator('gl-feature-gate');
 		const tryProButton = graphWebview!.getByRole('button', { name: /Try GitLens Pro/i });
 		const continueButton = graphWebview!.getByRole('button', { name: /Continue/i });
-		// Could be "Try GitLens Pro" for Community, or "Continue" for feature preview
-		await expect(featureGate.or(tryProButton).or(continueButton).first()).toBeVisible({ timeout: 30000 });
+		const getStartedHeading = graphWebview!.getByRole('heading', { name: /Get Started with GitLens/i });
+		const accountLink = graphWebview!.getByRole('link', { name: /Create Free Account|Sign In/i });
+		await expect(
+			featureGate.or(tryProButton).or(continueButton).or(getStartedHeading).or(accountLink).first(),
+		).toBeVisible({ timeout: 30000 });
 	});
 
 	test('should show commit graph content (Pro - with simulated Pro subscription)', async ({ vscode }) => {
