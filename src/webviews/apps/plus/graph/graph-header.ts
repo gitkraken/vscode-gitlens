@@ -61,6 +61,8 @@ import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProvider.js';
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
+import '../shared/components/account-chip.js';
+import '../shared/components/integrations-chip.js';
 import '../../shared/components/branch-name.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
@@ -141,6 +143,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 			progress-indicator {
 				top: 0;
+			}
+
+			.inline-chip {
+				flex: none;
+				align-self: center;
 			}
 
 			.mcp-tooltip::part(body),
@@ -254,6 +261,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	@property({ type: Boolean, attribute: 'has-selected-commit' })
 	hasSelectedCommit = false;
+
+	/** When set, the account/integrations chips render inline at the end of the header's right group
+	 *  instead of the standalone account bar row above (issue #5449). Driven by GraphApp's
+	 *  height-based mode tracking; only ever true while the experimental home header is enabled. */
+	@property({ type: Boolean, attribute: 'account-bar-inline' })
+	accountBarInline = false;
 
 	get hasFilters() {
 		// Scope mode forces first-parent rendering, so it always counts as a filter.
@@ -1213,6 +1226,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				)}
 				${this.renderGraphWalkthroughBanner(state)} ${this.renderStartMenu()}
 				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
+				${when(
+					this.accountBarInline,
+					// Last in the RIGHT group on purpose: when the row is also width-constrained, the row's
+					// overflow policy (see titlebar__row--wrap in header.css.ts) pushes trailing content past
+					// the right edge — the chips clip away first (whole, reappearing when widened) rather
+					// than displacing the header's primary controls. Accepted degradation; verified live.
+					() => html`<gl-account-chip class="inline-chip" compact></gl-account-chip>
+						<gl-integrations-chip class="inline-chip" compact></gl-integrations-chip>`,
+				)}
 			</div>
 		</div>`;
 	}
