@@ -16,7 +16,7 @@ import type {
 	ProviderReposInput,
 	ProviderRepository,
 } from '../providers/models.js';
-import { PagingMode } from '../providers/models.js';
+import { PagingMode, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -758,10 +758,14 @@ suite('sweep + broaden (#5438)', () => {
 					nextPage: page < 2 ? page + 1 : null,
 				});
 			},
-			// The reviewer slice now enumerates the workspace's repos and drains each; return no repos so it
-			// contributes nothing here, keeping the test focused on the authored drain.
-			getReposForBitbucketWorkspace: () => Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } }),
-			getPullRequestsForRepo: () => Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } }),
+			// The reviewer slice is opt-in (#5551) and not requested here, so it must never run; flag the repo
+			// discovery/read hooks so a regression that fans out unconditionally fails loudly.
+			getReposForBitbucketWorkspace: () => {
+				assert.fail('the reviewer fan-out must not run without includeReviewRequested');
+			},
+			getPullRequestsForRepo: () => {
+				assert.fail('the reviewer fan-out must not run without includeReviewRequested');
+			},
 		});
 		(
 			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
@@ -837,9 +841,11 @@ suite('sweep + broaden (#5438)', () => {
 
 		const result = await (
 			bb as unknown as {
-				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+				getMyPullRequestsForUserResult: (options?: {
+					includeReviewRequested?: boolean;
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
 			}
-		).getMyPullRequestsForUserResult();
+		).getMyPullRequestsForUserResult({ includeReviewRequested: true });
 		// The reviewer read goes through the per-repo paged method with the dedicated reviewerId input, not the
 		// aggregate getPullRequestsForRepos (which is not resumable) nor a text `query`.
 		assert.equal(reviewerReposCalled, false, 'the non-resumable aggregate getPullRequestsForRepos is not used');
@@ -882,12 +888,16 @@ suite('sweep + broaden (#5438)', () => {
 		return { manager: manager, bb: bb };
 	}
 
-	function callAccountWide(bb: GitHostIntegration) {
+	// The reviewer fan-out is opt-in (#5551), so the reviewer-slice tests must ask for it explicitly; the
+	// default (authored-only) path is covered separately below.
+	function callAccountWide(bb: GitHostIntegration, options?: { includeReviewRequested?: boolean }) {
 		return (
 			bb as unknown as {
-				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+				getMyPullRequestsForUserResult: (options?: {
+					includeReviewRequested?: boolean;
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
 			}
-		).getMyPullRequestsForUserResult();
+		).getMyPullRequestsForUserResult({ includeReviewRequested: true, ...options });
 	}
 
 	test('Bitbucket reviewer PRs are returned for a repo with no open local remote (#5438)', async () => {
@@ -989,9 +999,10 @@ suite('sweep + broaden (#5438)', () => {
 
 		// An auth failure on one repo is recorded as a structured scope failure (not re-thrown, which would
 		// discard the good repo's PR), so the facade maps it to an actionable auth warning + fetchFailed while
-		// the good repo's reviewer PR still survives.
+		// the good repo's reviewer PR still survives. Opt into the reviewer slice (#5551) so the fan-out runs.
 		const result = await manager.sweepPullRequests({
 			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+			filters: [PullRequestFilter.ReviewRequested],
 			connectionId: undefined,
 		});
 
@@ -1076,6 +1087,76 @@ suite('sweep + broaden (#5438)', () => {
 		const result = await callAccountWide(bb);
 		assert.equal(discoveryCalls, 20, 'repo discovery stops at the maxReposPagesPerWorkspace backstop');
 		assert.equal(result?.value?.paging?.truncated, true, 'a backstopped repo discovery marks the slice truncated');
+
+		manager.dispose();
+	});
+
+	test('Bitbucket account-wide PR read skips the reviewer fan-out by default (#5551)', async () => {
+		const runtime = createFakeRuntime();
+		let repoDiscoveryCalls = 0;
+		let reviewerReadCalls = 0;
+		// The authored drain returns one PR; the reviewer hooks count their calls so we can assert they never run.
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({
+					data: [{ id: 'authored', url: 'u/authored' } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				}),
+			getReposForBitbucketWorkspace: () => {
+				repoDiscoveryCalls += 1;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+			getPullRequestsForRepo: () => {
+				reviewerReadCalls += 1;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		// Default read (no includeReviewRequested): authored PRs only, and the O(workspaces × repos) reviewer
+		// fan-out must not run — that's the cost regression #5551 fixes.
+		const result = await (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		assert.equal(repoDiscoveryCalls, 0, 'workspace repo discovery is skipped without includeReviewRequested');
+		assert.equal(reviewerReadCalls, 0, 'the per-repo reviewer read is skipped without includeReviewRequested');
+		assert.deepEqual(
+			(result?.value?.values ?? []).map(pr => pr.url),
+			['u/authored'],
+			'the default read returns authored PRs only',
+		);
+
+		manager.dispose();
+	});
+
+	test('sweepPullRequests does not fan out the Bitbucket reviewer slice without the ReviewRequested filter (#5551)', async () => {
+		const runtime = createFakeRuntime();
+		let repoDiscoveryCalls = 0;
+		const { manager } = await bitbucketForReviewerSlice(runtime, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({
+					data: [{ id: 'authored', url: 'u/authored' } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				}),
+			getReposForBitbucketWorkspace: () => {
+				repoDiscoveryCalls += 1;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+			getPullRequestsForRepo: () => Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } }),
+		});
+
+		// A plain sweep (Kepler's periodic kanban read) passes no filters, so it must stay on the authored-only
+		// path and never trigger the per-repo reviewer fan-out.
+		const result = await manager.sweepPullRequests({ providerIds: [GitCloudHostIntegrationId.Bitbucket] });
+		assert.equal(repoDiscoveryCalls, 0, 'a filterless sweep does not enumerate workspace repos');
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/authored'],
+			'a filterless sweep returns authored PRs only',
+		);
 
 		manager.dispose();
 	});

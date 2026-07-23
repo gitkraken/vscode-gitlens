@@ -390,7 +390,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
-		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+		options?: { state?: PullRequestStateFilter[]; cursor?: string; includeReviewRequested?: boolean },
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
 		const user = await this.getProviderCurrentAccount(session);
@@ -459,87 +459,95 @@ export class BitbucketIntegration extends GitHostIntegration<
 		});
 
 		// Bitbucket's account-wide (per-workspace) endpoint returns authored PRs only, and the SDK exposes no
-		// workspace-level reviewer query — only a repo-scoped one. Enumerate the account's repos by draining each
-		// resolved workspace's repository list, then drain the real per-repo paged `getPullRequestsForRepo` for
-		// each repo with `reviewerId`, so review-requested PRs aren't bounded to the currently-open remotes and a
-		// reviewer PR past the first page isn't dropped. Structured per-scope failures are collected as
-		// CollectionScopeFailure so the ProviderBackend facade maps them to actionable warnings (Step 3).
-		const maxReposPagesPerWorkspace = 20;
-		const maxPrPagesPerRepo = 20;
-		// Bound concurrency: workspaces are few, so process them concurrently, but drain each workspace's repos in
-		// a bounded batch rather than an unbounded Promise.all over every repo in every workspace.
-		const repoBatchSize = 5;
+		// workspace-level reviewer query — only a repo-scoped one. Adding the reviewer slice therefore requires
+		// draining every workspace's full repo list and then a per-repo `getPullRequestsForRepo` with `reviewerId`
+		// (O(workspaces × repos) requests), so keep it opt-in: gate it on `includeReviewRequested` so the default
+		// sweep matches the gkcli baseline (authored PRs only, no reviewer fan-out) and a caller pays that cost
+		// only when it deliberately asks for review-requested PRs.
+		if (options?.includeReviewRequested) {
+			// Enumerate the account's repos by draining each resolved workspace's repository list, then drain the
+			// real per-repo paged `getPullRequestsForRepo` for each repo with `reviewerId`, so review-requested PRs
+			// aren't bounded to the currently-open remotes and a reviewer PR past the first page isn't dropped.
+			// Structured per-scope failures are collected as CollectionScopeFailure so the ProviderBackend facade
+			// maps them to actionable warnings (Step 3).
+			const maxReposPagesPerWorkspace = 20;
+			const maxPrPagesPerRepo = 20;
+			// Bound concurrency: workspaces are few, so process them concurrently, but drain each workspace's repos
+			// in a bounded batch rather than an unbounded Promise.all over every repo in every workspace.
+			const repoBatchSize = 5;
 
-		await Promise.all(
-			workspaces.map(async ws => {
-				let repos: ProviderRepository[];
-				try {
-					const discovered = await collectProviderPagedResult(
-						cursor =>
-							api.getReposForBitbucketWorkspace(toTokenWithInfo(this.id, session), ws.slug, {
-								cursor: cursor,
-							}),
-						maxReposPagesPerWorkspace,
-					);
-					repos = discovered.values;
-					// Repo discovery hitting its backstop leaves the workspace's repo set incomplete.
-					if (discovered.truncated) {
-						truncated = true;
-					}
-				} catch (ex) {
-					// Record the workspace as a structured failure and keep going: the failure metadata drives the
-					// warning + `fetchFailed` + incompleteness for every kind (auth/rate-limit stay actionable via
-					// their warning kind), so sibling workspaces' repos are still drained.
-					failures.push(this.toWorkspaceFailure(ws.slug, ex));
-					return;
-				}
-
-				const drained = await batchResults(repos, repoBatchSize, async repo => {
-					const reviewing = await collectProviderPagedResult(
-						cursor =>
-							api.getPullRequestsForRepo(
-								toTokenWithInfo(this.id, session),
-								{ namespace: repo.namespace, name: repo.name },
-								{ reviewerId: user.id, states: states, cursor: cursor },
-							),
-						maxPrPagesPerRepo,
-					);
-					return { repo: repo, reviewing: reviewing };
-				});
-
-				for (let i = 0; i < drained.length; i++) {
-					const outcome = drained[i];
-					if (outcome.status !== 'fulfilled') {
-						const repo = repos[i];
-						failures.push(
-							this.toRepositoryFailure(
-								`${repo?.namespace ?? ws.slug}/${repo?.name ?? 'unknown'}`,
-								outcome.reason,
-							),
+			await Promise.all(
+				workspaces.map(async ws => {
+					let repos: ProviderRepository[];
+					try {
+						const discovered = await collectProviderPagedResult(
+							cursor =>
+								api.getReposForBitbucketWorkspace(toTokenWithInfo(this.id, session), ws.slug, {
+									cursor: cursor,
+								}),
+							maxReposPagesPerWorkspace,
 						);
-						continue;
+						repos = discovered.values;
+						// Repo discovery hitting its backstop leaves the workspace's repo set incomplete.
+						if (discovered.truncated) {
+							truncated = true;
+						}
+					} catch (ex) {
+						// Record the workspace as a structured failure and keep going: the failure metadata drives
+						// the warning + `fetchFailed` + incompleteness for every kind (auth/rate-limit stay
+						// actionable via their warning kind), so sibling workspaces' repos are still drained.
+						failures.push(this.toWorkspaceFailure(ws.slug, ex));
+						return;
 					}
 
-					const { reviewing } = outcome.value;
-					for (const pr of reviewing.values) {
-						// Dedupe authored and reviewer PRs by URL, falling back to ID only when URL is absent.
-						const key = pr.url ?? pr.id;
-						if (!prsByUrl.has(key)) {
-							prsByUrl.set(key, pr);
+					const drained = await batchResults(repos, repoBatchSize, async repo => {
+						const reviewing = await collectProviderPagedResult(
+							cursor =>
+								api.getPullRequestsForRepo(
+									toTokenWithInfo(this.id, session),
+									{ namespace: repo.namespace, name: repo.name },
+									{ reviewerId: user.id, states: states, cursor: cursor },
+								),
+							maxPrPagesPerRepo,
+						);
+						return { repo: repo, reviewing: reviewing };
+					});
+
+					for (let i = 0; i < drained.length; i++) {
+						const outcome = drained[i];
+						if (outcome.status !== 'fulfilled') {
+							const repo = repos[i];
+							failures.push(
+								this.toRepositoryFailure(
+									`${repo?.namespace ?? ws.slug}/${repo?.name ?? 'unknown'}`,
+									outcome.reason,
+								),
+							);
+							continue;
+						}
+
+						const { reviewing } = outcome.value;
+						for (const pr of reviewing.values) {
+							// Dedupe authored and reviewer PRs by URL, falling back to ID only when URL is absent.
+							const key = pr.url ?? pr.id;
+							if (!prsByUrl.has(key)) {
+								prsByUrl.set(key, pr);
+							}
+						}
+						// A per-repo PR drain hitting its own page backstop leaves the reviewer slice incomplete.
+						if (reviewing.truncated) {
+							truncated = true;
 						}
 					}
-					// A per-repo PR drain hitting its own page backstop leaves the reviewer slice incomplete.
-					if (reviewing.truncated) {
-						truncated = true;
-					}
-				}
-			}),
-		);
+				}),
+			);
+		}
 
-		// Both slices record per-scope rejections (authored workspaces + reviewer workspaces/repos) as structured
-		// failures instead of re-throwing: re-throwing would discard every successful sibling's PRs. Auth/rate-limit
-		// failures stay actionable through the metadata (the facade maps kind `authentication` → an `auth` warning,
-		// `rate-limit` → a `rate-limit` warning) while the survivors are returned with `fetchFailed`.
+		// Every slice that ran (authored workspaces always, reviewer workspaces/repos when opted in) records its
+		// per-scope rejections as structured failures instead of re-throwing: re-throwing would discard every
+		// successful sibling's PRs. Auth/rate-limit failures stay actionable through the metadata (the facade maps
+		// kind `authentication` → an `auth` warning, `rate-limit` → a `rate-limit` warning) while the survivors are
+		// returned with `fetchFailed`.
 		const metadata: CollectionMetadata | undefined = mergeCollectionMetadata(
 			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined,
 			workspacesResult.metadata,
