@@ -59,12 +59,7 @@ import type {
 	GitHubSshSigningKey,
 	GitHubTag,
 } from '../models.js';
-import {
-	fromGitHubIssue,
-	fromGitHubIssueOrPullRequestState,
-	fromGitHubPullRequest,
-	fromGitHubPullRequestLite,
-} from '../models.js';
+import { fromGitHubIssue, fromGitHubIssueOrPullRequestState, fromGitHubPullRequest } from '../models.js';
 import type { GitHubApiConfig } from './config.js';
 import type { GitHubTokenInfo } from './token.js';
 
@@ -163,6 +158,7 @@ repository {
 const gqlPullRequestFragment = `
 ${gqlPullRequestLiteFragment}
 additions
+body
 assignees(first: 25) {
 	nodes {
 		login
@@ -858,7 +854,7 @@ export class GitHubApi {
 		interface QueryResult {
 			repository:
 				| {
-						pullRequest: GitHubPullRequestLite | null | undefined;
+						pullRequest: GitHubPullRequest | null | undefined;
 				  }
 				| null
 				| undefined;
@@ -893,7 +889,7 @@ export class GitHubApi {
 
 			if (rsp?.repository?.pullRequest == null) return undefined;
 
-			return fromGitHubPullRequestLite(rsp.repository.pullRequest, provider);
+			return fromGitHubPullRequest(rsp.repository.pullRequest, provider);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -930,7 +926,7 @@ export class GitHubApi {
 						ref:
 							| {
 									associatedPullRequests?: {
-										nodes?: GitHubPullRequestLite[];
+										nodes?: GitHubPullRequest[];
 									};
 							  }
 							| null
@@ -953,7 +949,7 @@ export class GitHubApi {
 		ref(qualifiedName: $branch) {
 			associatedPullRequests(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}, states: $include) {
 				nodes {
-					${gqlPullRequestLiteFragment}
+						${gqlPullRequestFragment}
 				}
 			}
 		}
@@ -990,7 +986,7 @@ export class GitHubApi {
 				);
 			}
 
-			return fromGitHubPullRequestLite(prs[0], provider);
+			return fromGitHubPullRequest(prs[0], provider);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
@@ -1026,7 +1022,7 @@ export class GitHubApi {
 				| {
 						object?: {
 							associatedPullRequests?: {
-								nodes?: GitHubPullRequestLite[];
+								nodes?: GitHubPullRequest[];
 							};
 						};
 				  }
@@ -1046,7 +1042,7 @@ export class GitHubApi {
 			... on Commit {
 				associatedPullRequests(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
 					nodes {
-						${gqlPullRequestLiteFragment}
+								${gqlPullRequestFragment}
 					}
 				}
 			}
@@ -1083,7 +1079,7 @@ export class GitHubApi {
 				);
 			}
 
-			return fromGitHubPullRequestLite(prs[0], provider);
+			return fromGitHubPullRequest(prs[0], provider);
 		} catch (ex) {
 			if (ex instanceof RequestNotFoundError) return undefined;
 
