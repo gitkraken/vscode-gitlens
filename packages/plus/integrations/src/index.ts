@@ -142,15 +142,13 @@ export type {
 	RepositoryResolutionStatus,
 	ResolveRepositoryResult,
 } from './results.js';
-// Item shapes surfaced by the read methods. `ProviderOrganization` is a local interface; the rest are
-// re-aliases of `@gitkraken/provider-apis` types that resolve for consumers via the transitive install.
-export type {
-	ProviderAccount,
-	ProviderIssue,
-	ProviderOrganization,
-	ProviderPullRequest,
-	ProviderRepository,
-} from './providers/models.js';
+// GitLens-owned item shapes surfaced by the org/repo discovery read methods (`listOrgs`/`listProjects`/
+// `listRepos`). These carry no `@gitkraken/provider-apis` types, so consumers depend only on
+// `@gitkraken/core-gitlens`. PR/issue reads surface `PullRequestShape`/`IssueShape` from
+// `@gitlens/git/models` (reached via the `@gitkraken/core-gitlens/git/models/*` subpath), mirroring how
+// issues are already exposed; the raw provider-apis PR/repo/account/issue types are intentionally not
+// re-exported here.
+export type { ProviderOrganization, ProviderRepositoryShape } from './providers/models.js';
 // Runtime enums — re-exported as values (not `export type`) so consumers can read their members.
 export { IssueFilter, PullRequestFilter } from './providers/models.js';
 // Cross-provider PR/issue state filters (string unions in the git models).

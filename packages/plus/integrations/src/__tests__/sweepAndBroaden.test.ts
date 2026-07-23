@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import { GitPullRequestMergeableState, GitPullRequestState } from '@gitkraken/provider-apis';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
@@ -39,6 +40,41 @@ function stubApi(gh: GitHostIntegration, api: Record<string, unknown>): void {
 	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
 }
 
+function providerPr(id: string, overrides?: Partial<ProviderPullRequest>): ProviderPullRequest {
+	return {
+		id: id,
+		number: Number.parseInt(id.split('-').at(-1) ?? id, 10) || 1,
+		title: `PR ${id}`,
+		description: null,
+		url: `https://example.com/pull/${id}`,
+		state: GitPullRequestState.Open,
+		isCrossRepository: false,
+		isDraft: false,
+		createdDate: new Date(0),
+		updatedDate: new Date(0),
+		closedDate: null,
+		mergedDate: null,
+		baseRef: null,
+		headRef: null,
+		commentCount: null,
+		upvoteCount: null,
+		commitCount: null,
+		fileCount: null,
+		additions: null,
+		deletions: null,
+		author: null,
+		assignees: null,
+		reviews: null,
+		reviewDecision: null,
+		repository: { id: `repo-${id}`, name: 'hello', owner: { login: 'octocat' }, remoteInfo: null },
+		headRepository: null,
+		headCommit: null,
+		mergeableState: GitPullRequestMergeableState.Unknown,
+		permissions: null,
+		...overrides,
+	};
+}
+
 async function connectedGitHub(runtime: ReturnType<typeof createFakeRuntime>) {
 	const manager = createIntegrationManager(runtime);
 	const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
@@ -58,7 +94,7 @@ suite('sweep + broaden (#5438)', () => {
 			getPullRequestsForRepos: () => {
 				calls++;
 				return Promise.resolve({
-					values: [{ id: `pr-${calls}` } as unknown as ProviderPullRequest],
+					values: [providerPr(`pr-${calls}`)],
 					paging: { more: true, cursor: JSON.stringify({ value: calls + 1, type: 'page' }) },
 				} satisfies PagedResult<ProviderPullRequest>);
 			},
@@ -94,7 +130,7 @@ suite('sweep + broaden (#5438)', () => {
 			getPullRequestsForRepos: () => {
 				calls++;
 				return Promise.resolve({
-					values: [{ id: `pr-${calls}` } as unknown as ProviderPullRequest],
+					values: [providerPr(`pr-${calls}`)],
 					paging: {
 						more: calls < 2,
 						cursor: calls < 2 ? JSON.stringify({ value: calls + 1, type: 'page' }) : '{}',
@@ -129,7 +165,7 @@ suite('sweep + broaden (#5438)', () => {
 				calls++;
 				if (calls === 1) {
 					return Promise.resolve({
-						values: [{ id: 'pr-1' } as unknown as ProviderPullRequest],
+						values: [providerPr('pr-1')],
 						paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
 					} satisfies PagedResult<ProviderPullRequest>);
 				}
@@ -161,7 +197,7 @@ suite('sweep + broaden (#5438)', () => {
 			// PR must survive, but the sweep cannot claim it read every page.
 			getPullRequestsForRepos: () =>
 				Promise.resolve({
-					values: [{ id: 'pr-good' } as unknown as ProviderPullRequest],
+					values: [providerPr('pr-good')],
 					paging: { more: false, cursor: '{}' },
 					metadata: {
 						completeness: 'partial',
@@ -644,7 +680,7 @@ suite('sweep + broaden (#5438)', () => {
 			accountWideStates = o?.state;
 			return Promise.resolve({
 				value: {
-					values: [{ id: 'mine' } as unknown as ProviderPullRequest],
+					values: [providerPr('mine')],
 					paging: { more: false, cursor: '{}' },
 				},
 			});
@@ -652,7 +688,8 @@ suite('sweep + broaden (#5438)', () => {
 
 		const result = await manager.sweepClosedPullRequests({ providerIds: [GitCloudHostIntegrationId.GitHub] });
 		assert.equal(reposCalled, false, 'no repos → the repo-scoped core is not called');
-		assert.deepEqual(result.items, [{ id: 'mine' }], 'account-wide user PRs are returned');
+		assert.equal(result.items.length, 1, 'account-wide user PRs are returned');
+		assert.equal(result.items[0].id, 'mine', 'the account-wide PR is normalized to the GitLens shape');
 		assert.deepEqual(
 			accountWideStates,
 			['closed', 'merged'],
@@ -675,7 +712,7 @@ suite('sweep + broaden (#5438)', () => {
 		).getMyPullRequestsForUserResult = () =>
 			Promise.resolve({
 				value: {
-					values: [{ id: 'pr' } as unknown as ProviderPullRequest],
+					values: [providerPr('pr')],
 					paging: { more: false, cursor: '{}', truncated: true },
 				},
 			});
@@ -939,7 +976,12 @@ suite('sweep + broaden (#5438)', () => {
 					);
 				}
 				return Promise.resolve({
-					values: [{ id: 'good-pr', url: 'u/good' } as unknown as ProviderPullRequest],
+					values: [
+						providerPr('good-pr', {
+							url: 'u/good',
+							repository: { id: 'r1', name: 'good', owner: { login: 'ws' }, remoteInfo: null },
+						}),
+					],
 					paging: { more: false, cursor: '{}' },
 				});
 			},

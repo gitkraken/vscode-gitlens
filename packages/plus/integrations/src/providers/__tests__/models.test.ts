@@ -1,10 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
-import type { ProviderPullRequest } from '../models.js';
+import type { ProviderPullRequest, ProviderRepository } from '../models.js';
 import {
 	providerPullRequestMatchesSearch,
 	toProviderPullRequestState,
 	toProviderPullRequestStates,
+	toProviderRepositoryShape,
 } from '../models.js';
 
 suite('providerPullRequestMatchesSearch', () => {
@@ -60,5 +61,46 @@ suite('toProviderPullRequestStates', () => {
 			toProviderPullRequestState('opened'),
 			toProviderPullRequestState('merged'),
 		]);
+	});
+});
+
+suite('toProviderRepositoryShape', () => {
+	function repo(overrides?: Partial<ProviderRepository>): ProviderRepository {
+		return {
+			id: 'r1',
+			namespace: 'octocat',
+			name: 'hello',
+			webUrl: 'https://github.com/octocat/hello',
+			httpsUrl: 'https://github.com/octocat/hello.git',
+			sshUrl: 'git@github.com:octocat/hello.git',
+			defaultBranch: { name: 'main' },
+			permissions: null,
+			...overrides,
+		};
+	}
+
+	test('maps identity, URLs, and default branch from the SDK repo', () => {
+		assert.deepEqual(toProviderRepositoryShape(repo({ project: 'proj' })), {
+			id: 'r1',
+			namespace: 'octocat',
+			name: 'hello',
+			project: 'proj',
+			url: 'https://github.com/octocat/hello',
+			cloneUrlHttps: 'https://github.com/octocat/hello.git',
+			cloneUrlSsh: 'git@github.com:octocat/hello.git',
+			defaultBranch: 'main',
+		});
+	});
+
+	test('collapses the SDK nullable fields to undefined', () => {
+		const shape = toProviderRepositoryShape(
+			repo({ webUrl: null, httpsUrl: null, sshUrl: null, defaultBranch: null }),
+		);
+		assert.equal(shape.url, undefined);
+		assert.equal(shape.cloneUrlHttps, undefined);
+		assert.equal(shape.cloneUrlSsh, undefined);
+		assert.equal(shape.defaultBranch, undefined);
+		// A repo with no project layer (non-Azure) leaves `project` absent rather than empty-string.
+		assert.equal(shape.project, undefined);
 	});
 });
