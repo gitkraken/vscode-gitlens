@@ -11,6 +11,7 @@ export type { PullRequestState };
 
 export interface PullRequestShape extends IssueOrPullRequest {
 	readonly author: PullRequestMember;
+	readonly body?: string;
 	readonly mergedDate?: Date;
 	readonly refs?: PullRequestRefs;
 	readonly isDraft?: boolean;
