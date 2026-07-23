@@ -29648,7 +29648,7 @@
 		"@gitkraken/commit-graph": "workspace:*",
 		"@gitkraken/compose-tools": "0.6.0",
 		"@gitkraken/conflict-tools": "0.2.3",
-		"@gitkraken/provider-apis": "0.52.0",
+		"@gitkraken/provider-apis": "catalog:",
 		"@gitkraken/shared-tools": "0.2.0",
 		"@gitlens/agents": "workspace:*",
 		"@gitlens/ai": "workspace:*",

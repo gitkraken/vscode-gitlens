@@ -1735,17 +1735,43 @@ export class IntegrationService implements Disposable {
 		const accountWide = (options.repos?.length ?? 0) === 0;
 
 		if (accountWide) {
+			if (
+				options.includeAllAssignees === true &&
+				(options.providerId === GitCloudHostIntegrationId.GitHub ||
+					options.providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise)
+			) {
+				return {
+					items: [],
+					warnings: [
+						{
+							providerId: options.providerId,
+							domain: domain,
+							connectionId: options.connectionId,
+							message:
+								'`includeAllAssignees` is not supported for account-wide GitHub issue reads; scope the read to repositories instead.',
+							kind: 'other',
+							isAuth: false,
+						},
+					],
+					page: { currentPage: 1, itemsPerPage: 0 },
+					hasMore: false,
+					fetchFailed: true,
+				};
+			}
+
 			// The repo-scoped core rejects empty repos (GitHub/Bitbucket/Azure); read the account-wide,
 			// already-user-scoped core instead. It returns normalized shapes and no resumable cursor, so this
 			// is reported as a single page — with `page.truncated` when the provider's search is capped.
 			const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-				integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId),
+				integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId, {
+					includeAllAssignees: options.includeAllAssignees,
+				}),
 			);
 
-			// Only GitHub supports an account-wide issue search; GitLab and Bitbucket have no such endpoint
-			// (their issue reads are repo-scoped, and Bitbucket exposes no issues at all), so their core
-			// returns `undefined` with no error. Surface that as an explicit unsupported warning + fetchFailed
-			// rather than a silent empty success — the caller must fall back (e.g. broadenIssues over repos).
+			// GitHub, GitLab, and Azure implement an account-wide issue search; a provider that doesn't (Bitbucket
+			// exposes no issues at all, and `supportsIssues` already short-circuits it above) returns `undefined`
+			// with no error. Surface that as an explicit unsupported warning + fetchFailed rather than a silent
+			// empty success — the caller must fall back (e.g. broadenIssues over repos).
 			if (value == null && warning == null) {
 				return {
 					items: [],
