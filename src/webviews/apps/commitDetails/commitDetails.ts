@@ -10,8 +10,6 @@ import type { CommitDetailsServices } from '../../commitDetails/commitDetailsSer
 import type { ExecuteCommitActionsParams } from '../../commitDetails/protocol.js';
 import type { CopyCommitPatchEventDetail, OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
-import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane.js';
-import { DOM } from '../shared/dom.js';
 import { getHost } from '../shared/host/context.js';
 import { RpcController } from '../shared/rpc/rpcController.js';
 import type { ResourceStatus } from '../shared/state/resource.js';
@@ -243,10 +241,10 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	}
 
 	/**
-	 * Set up DOM event listeners for data-action buttons inside child templates.
-	 * These use document-level delegation because the buttons are rendered by
-	 * child components (gl-details-commit-panel) in light DOM.
-	 * Custom events from named child elements use template @event bindings instead.
+	 * Set up document-level DOM event listeners. Child component interactions use
+	 * template @event bindings instead — gl-details-commit-panel renders into a
+	 * shadow root, so document-level delegation by selector cannot match its content
+	 * (events are retargeted to the host element).
 	 */
 	private setupDomListeners(): void {
 		const actions = this._actions;
@@ -268,18 +266,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		};
 		document.addEventListener('visibilitychange', onVisibilityChange);
 		this.disposables.push({ dispose: () => document.removeEventListener('visibilitychange', onVisibilityChange) });
-
-		this.disposables.push(
-			DOM.on('[data-action="pick-commit"]', 'click', () => actions.pickCommit()),
-			DOM.on('[data-action="search-commit"]', 'click', () => actions.searchCommit()),
-			DOM.on('[data-action="files-layout"]', 'click', e => this.onToggleFilesLayout(e)),
-			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
-				'[data-region="pullrequest-pane"]',
-				'expanded-change',
-				e => this.onExpandedChange(e.detail, 'pullrequest'),
-			),
-			DOM.on('[data-action="switch-ai"]', 'click', () => actions.executeCommand('gitlens.ai.switchProvider')),
-		);
 	}
 
 	override updated(_changedProperties: Map<PropertyKey, unknown>): void {
@@ -324,6 +310,9 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	// ============================================================
 
 	override render(): unknown {
+		// The gl-pick-commit/gl-search-commit bindings below read `this._actions` at event time
+		// instead of this capture — the empty state is interactive before the RPC handshake
+		// assigns `_actions`, so a render-scoped capture could be stale when clicked
 		const actions = this._actions;
 		const s = this._state;
 		const resources = this._resources;
@@ -375,6 +364,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 						.aiEnabled=${org?.ai !== false}
 						.aiModel=${s.aiModel.get()}
 						@switch-model=${() => actions?.executeCommand('gitlens.ai.switchProvider')}
+						@gl-pick-commit=${() => this._actions?.pickCommit()}
+						@gl-search-commit=${() => this._actions?.searchCommit()}
 						@gl-pin=${() => actions?.togglePin()}
 						@gl-nav-back=${() => actions?.navigateBack()}
 						@gl-nav-forward=${() => actions?.navigateForward()}
@@ -421,24 +412,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	// ============================================================
 	// Event handlers
 	// ============================================================
-
-	private onToggleFilesLayout(e: MouseEvent): void {
-		const layout = ((e.target as HTMLElement)?.dataset.filesLayout as ViewFilesLayout) ?? undefined;
-		const prefs = this._state.preferences.get();
-		if (prefs?.files == null || layout === prefs.files.layout) return;
-
-		const files = {
-			...prefs.files,
-			layout: layout ?? 'auto',
-		};
-		this._actions?.updateFilesLayout(files);
-	}
-
-	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail, pane: string): void {
-		if (pane === 'pullrequest') {
-			this._actions?.updatePullRequestExpanded(e.expanded);
-		}
-	}
 
 	private onCommitActions(e: CustomEvent<{ action: string; alt: boolean }>): void {
 		const commit = this._state.currentCommit.get();

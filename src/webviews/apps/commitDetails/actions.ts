@@ -275,25 +275,6 @@ export class CommitDetailsActions {
 	 * Update a preference value via direct config/workspace storage calls.
 	 * Uses optimistic update with rollback on error.
 	 */
-	updatePullRequestExpanded(expanded: boolean): void {
-		const currentPrefs = this.state.preferences.get();
-		if (currentPrefs == null) {
-			fireRpc(
-				this.state.error,
-				this.services.storage.updateWorkspace('views:commitDetails:pullRequestExpanded', expanded),
-				'update pullRequestExpanded',
-			);
-			return;
-		}
-
-		optimisticFireAndForget(
-			this.state.preferences,
-			{ ...currentPrefs, pullRequestExpanded: expanded },
-			this.services.storage.updateWorkspace('views:commitDetails:pullRequestExpanded', expanded),
-			'update pullRequestExpanded',
-		);
-	}
-
 	updateShowSearchBox(value: boolean): void {
 		const currentPrefs = this.state.preferences.get();
 		if (currentPrefs == null) {
@@ -330,45 +311,6 @@ export class CommitDetailsActions {
 			this.services.storage.updateWorkspace('views:commitDetails:searchBoxFilter', value),
 			'update searchBoxFilter',
 		);
-	}
-
-	updateFilesLayout(files: {
-		compact?: boolean;
-		icon?: 'type' | 'status';
-		layout?: ViewFilesLayout;
-		threshold?: number;
-	}): void {
-		const currentPrefs = this.state.preferences.get();
-		if (currentPrefs == null) return;
-
-		const newPrefs = { ...currentPrefs, files: { ...currentPrefs.files, ...files } };
-		this.state.preferences.set(newPrefs);
-
-		// Persist each changed property individually
-		if (files.compact != null) {
-			fireAndForget(
-				this.services.config.update('views.commitDetails.files.compact', files.compact),
-				'update files.compact',
-			);
-		}
-		if (files.icon != null) {
-			fireAndForget(
-				this.services.config.update('views.commitDetails.files.icon', files.icon),
-				'update files.icon',
-			);
-		}
-		if (files.layout != null) {
-			fireAndForget(
-				this.services.config.update('views.commitDetails.files.layout', files.layout),
-				'update files.layout',
-			);
-		}
-		if (files.threshold != null) {
-			fireAndForget(
-				this.services.config.update('views.commitDetails.files.threshold', files.threshold),
-				'update files.threshold',
-			);
-		}
 	}
 
 	// ============================================================

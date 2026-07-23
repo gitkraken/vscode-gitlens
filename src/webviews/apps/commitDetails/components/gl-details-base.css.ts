@@ -1,12 +1,14 @@
 import { css } from 'lit';
 import {
 	elementBase,
+	linkBase,
 	metadataBarVarsBase,
 	scrollableBase,
 	subPanelEnterStyles,
 } from '../../shared/components/styles/lit/base.css.js';
 
 export const detailsBaseStyles = [
+	linkBase,
 	elementBase,
 	scrollableBase,
 	subPanelEnterStyles,
