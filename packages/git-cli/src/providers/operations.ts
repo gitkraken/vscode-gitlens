@@ -684,6 +684,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			messageEditor?: string;
 			onto?: string;
 			updateRefs?: boolean;
+			committerDateIsAuthorDate?: boolean;
 			source?: unknown;
 		},
 		runOptions?: GitOperationRunOptions,
@@ -723,6 +724,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		if (options?.updateRefs) {
 			args.push('--update-refs');
+		}
+
+		if (options?.committerDateIsAuthorDate) {
+			args.push('--committer-date-is-author-date');
 		}
 
 		if (options?.onto) {
