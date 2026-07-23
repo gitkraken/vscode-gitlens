@@ -1230,6 +1230,7 @@ export class GlLitGraph extends LitElement {
 		}
 		this.emitMoreRows.cancel();
 		this.announceLoadingMore.cancel();
+		this.cancelPendingPillActivation();
 		this.resizeDragCleanup?.();
 		this.resizeDragCleanup = undefined;
 		// Tear down any in-flight column-reorder drag (window listeners, rAF, pointer capture, cursor) so
@@ -4882,6 +4883,48 @@ export class GlLitGraph extends LitElement {
 		return this.getCommitBySha(sha)?.type ?? 'commit-node';
 	}
 
+	// A ref-pill click's pin + branch-sheet open is deferred so a checkout double-click doesn't flash them
+	// (the first of a double-click's two clicks would otherwise pin/open and the second toggle it back off).
+	private _pendingPillActivation?: ReturnType<typeof setTimeout>;
+
+	// Pin the ref + open its branch sheet (the body that used to run inline in `onClick`). `pillSha` is
+	// captured at click time because the deferral timer runs without the event.
+	private activatePill(refPill: ResolvedRefTarget, pillSha: string | undefined): void {
+		const pinned = this.togglePinnedRef(refPill.key, pillSha);
+		// The pill's own `data-vscode-context` carries the refGROUP keys ("Hide All") merged in when this ref
+		// is grouped with its remote(s), which the sheet's kebab + action links can't use. Prefer the ref's
+		// INDIVIDUAL context from the row model, falling back to the pill context.
+		const refContext =
+			(pillSha != null
+				? this.getCommitBySha(pillSha)?.commitRefs.find(r => r.kind === refPill.kind && r.name === refPill.name)
+						?.refContext
+				: undefined) ?? refPill.context;
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-open-branch', {
+				detail: {
+					name: refPill.name,
+					refType: refPill.kind,
+					remote: refPill.remote,
+					sha: pillSha,
+					// Serialized `data-vscode-context` for this ref — powers the sheet's kebab menu (row-menu
+					// parity) and its remote/tag action links.
+					context: refContext,
+					open: pinned,
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	// Cancel a ref-pill activation still waiting on its deferral timer.
+	private cancelPendingPillActivation(): void {
+		if (this._pendingPillActivation == null) return;
+
+		clearTimeout(this._pendingPillActivation);
+		this._pendingPillActivation = undefined;
+	}
+
 	private onClick = (event: MouseEvent): void => {
 		// Ignore clicks that land while a column resize drag is active (defensive — the drag's
 		// pointerup is captured on window, but guard so a stray click can't select/toggle mid-resize).
@@ -4893,6 +4936,11 @@ export class GlLitGraph extends LitElement {
 		// scroll the view away instead of just selecting what was clicked — the intermittent "jumps instead
 		// of selects". The jump button stops propagation, so its own freshly-queued reveal never reaches here.
 		this._pendingRevealSha = undefined;
+
+		// A new click supersedes any ref-pill activation still pending from a prior click — whether the pointer
+		// moved to another row (don't let a stale sheet pop open) or this is the second click of a double-click
+		// (the pill branch below re-schedules only on a first click; `onDblClick` handles the checkout).
+		this.cancelPendingPillActivation();
 
 		// Row-action buttons (Open Changes / stash Apply-Drop / WIP Compose-Review-Stash) resolve
 		// BEFORE selection so a button click doesn't also select the row. They carry data-row-action
@@ -5011,32 +5059,22 @@ export class GlLitGraph extends LitElement {
 		const refPill = this.resolveRef(event);
 		if (refPill != null && (refPill.kind === 'head' || refPill.kind === 'tag' || refPill.kind === 'remote')) {
 			const pillSha = this.resolveSha(event);
-			const pinned = this.togglePinnedRef(refPill.key, pillSha);
-			// The pill's own `data-vscode-context` carries the refGROUP keys ("Hide All") merged in when
-			// this ref is grouped with its remote(s), which the sheet's kebab + action links can't use.
-			// Prefer the ref's INDIVIDUAL context from the row model, falling back to the pill context.
-			const refContext =
-				(pillSha != null
-					? this.getCommitBySha(pillSha)?.commitRefs.find(
-							r => r.kind === refPill.kind && r.name === refPill.name,
-						)?.refContext
-					: undefined) ?? refPill.context;
-			this.dispatchEvent(
-				new CustomEvent('gl-graph-open-branch', {
-					detail: {
-						name: refPill.name,
-						refType: refPill.kind,
-						remote: refPill.remote,
-						sha: pillSha,
-						// Serialized `data-vscode-context` for this ref — powers the sheet's kebab menu
-						// (row-menu parity) and its remote/tag action links.
-						context: refContext,
-						open: pinned,
-					},
-					bubbles: true,
-					composed: true,
-				}),
-			);
+			if (event.detail === 0) {
+				// Keyboard activation (synthesized `control.click()` carries `detail` 0) — no double-click to
+				// guard against, so pin + open immediately.
+				this.activatePill(refPill, pillSha);
+			} else if (event.detail === 1) {
+				// First click of a potential double-click — DEFER the pin + sheet open so a checkout
+				// double-click can cancel it (the top-of-onClick cancel above / `onDblClick`) before it
+				// flashes. Row selection still happens instantly via the fall-through below.
+				this._pendingPillActivation = setTimeout(() => {
+					this._pendingPillActivation = undefined;
+					this.activatePill(refPill, pillSha);
+				}, 250);
+			}
+			// detail >= 2 (the second click of a double-click): the top-of-onClick cancel already killed the
+			// pending timer; do nothing here and let `onDblClick` route the checkout.
+
 			// stopPropagation keeps the raw click from bubbling past the graph (defensive; it does NOT
 			// affect the CustomEvents above nor the selection dispatch below, which are separate events).
 			event.stopPropagation();
@@ -5104,6 +5142,24 @@ export class GlLitGraph extends LitElement {
 		const ref = this.resolveRef(event);
 		if (ref != null) {
 			event.stopPropagation();
+			// A pill double-click is a ref action (checkout), not a "focus" select. Cancel this gesture's
+			// still-pending deferred activation (a fast double-click — the second click's `onClick` usually
+			// beat us to it), and drop any ref that IS pinned + close its sheet — whether pinned by an earlier
+			// click or by this gesture's own timer having already fired (a slower double-click). Idempotent
+			// when nothing is pinned, and it deliberately leaves the details panel's visibility untouched.
+			if (ref.kind === 'head' || ref.kind === 'tag' || ref.kind === 'remote') {
+				this.cancelPendingPillActivation();
+				if (this._pinnedRefKey != null) {
+					this.clearPinnedRef();
+					this.dispatchEvent(
+						new CustomEvent('gl-graph-open-branch', {
+							detail: { open: false },
+							bubbles: true,
+							composed: true,
+						}),
+					);
+				}
+			}
 			const metadata = this.resolveRefMetadata(event);
 			// PR/issue chips open on a SINGLE click (see `onClick`); don't also fire the open on double-click. A
 			// plain ref double-click (metadata == null) still routes here — the checkout / pull-push path.
