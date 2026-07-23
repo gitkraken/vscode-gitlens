@@ -168,7 +168,7 @@ export class WorkspacesService implements Disposable {
 	private async loadLocalWorkspaces(): Promise<LoadLocalWorkspacesResponse> {
 		const localWorkspaces: LocalWorkspace[] = [];
 		const workspaceFileData: LocalWorkspaceData =
-			(await this._sharedStorage?.getLocalWorkspaceData())?.workspaces || {};
+			(await this._sharedStorage?.getLocalWorkspaceData())?.workspaces ?? {};
 		for (const workspace of Object.values(workspaceFileData)) {
 			if (workspace.localId == null || workspace.name == null) continue;
 
@@ -927,7 +927,7 @@ export class WorkspacesService implements Disposable {
 					: await this.container.git.getOrAddRepository(Uri.file(repoOrPath), { opened: false });
 			if (repo == null) continue;
 
-			const remote = (await repo.git.remotes.getRemote('origin')) || (await repo.git.remotes.getRemotes())?.[0];
+			const remote = (await repo.git.remotes.getRemote('origin')) ?? (await repo.git.remotes.getRemotes())?.[0];
 			const remoteDescriptor = await getRemoteDescriptor(remote);
 			if (remoteDescriptor == null) continue;
 

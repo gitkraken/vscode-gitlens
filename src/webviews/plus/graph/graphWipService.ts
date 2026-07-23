@@ -37,6 +37,7 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
 import type { IpcParams } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
+import { toOverviewBranch } from '../../shared/overviewBranches.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GitBranchShape, Wip, WipStats } from './detailsProtocol.js';
 import type {
@@ -140,12 +141,18 @@ export class GraphWipService {
 	/**
 	 * Per-secondary-worktree cache of `getStatus()` results, keyed by worktree path. Consulted on
 	 * cold load (`GetWipStatsRequest`) for newly-visible rows that don't yet have stats; the FS
-	 * watcher invalidates entries on real changes. The live-update path pushes WIP+stats directly
-	 * via `DidRequestWipRefetchNotification` and bypasses this cache entirely.
+	 * watcher hard-`delete`s entries on real changes — a soft `invalidate` would leave the pre-change
+	 * read joinable here and re-serve the stale file list, which the generation fence one layer down
+	 * can't undo. The live-update path pushes WIP+stats directly via `DidRequestWipRefetchNotification`
+	 * and bypasses this cache entirely.
 	 */
 	private readonly _wipStatusCache = new PromiseCache<string, GitStatus | undefined>({
 		createTTL: 1000 * 10, // 10 seconds
 	});
+
+	/** Per-repo monotonic WIP freshness marker — see {@link Wip.revision}. Bumped when a `getWipForRepoAndStats`
+	 *  read STARTS, so a consumer can discard a payload reflecting an older working tree than one already applied. */
+	private readonly _wipRevisions = new Map<string, number>();
 
 	private _wipProbeGeneration = 0;
 	private _wipProbeCancellation: CancellationTokenSource | undefined;
@@ -169,6 +176,17 @@ export class GraphWipService {
 	 *  to avoid poisoning the cache on transport failure or repo swap mid-await. Reset alongside
 	 *  `_lastSentWipDrafts` in `setGraph(undefined)`. */
 	private _lastSentWipNotificationParams: DidChangeWorkingTreeParams | undefined;
+	/** Highest {@link Wip.revision} handed to the client out-of-band (see `onWipServedOutOfBand`). A push carrying an
+	 *  OLDER revision than this is one the client will drop on arrival, so it must not stamp
+	 *  `_lastSentWipNotificationParams` — recording content the client never applied dedups away the later push that
+	 *  carries it for real. Compared by revision rather than tracked by a captured counter precisely because the
+	 *  hazard window opens when the push's `git status` STARTS, not when its notify does. */
+	private _lastOutOfBandWipRevision: number | undefined;
+	/** Whether the client has ever been given authoritative working-tree content for this graph, by push or by
+	 *  out-of-band RPC. Distinct from `_lastSentWipNotificationParams`, which records CONTENT and therefore has to
+	 *  be cleared on an out-of-band serve — that clear must not make the badges look stuck and buy a needless
+	 *  recovery `git status` on the next focus transition (see `recoverWorkingTreeStatsIfStuck`). */
+	private _wipEverServed = false;
 
 	/** Last working-tree count pushed to the view badge — skips redundant `host.badge` writes.
 	 *  Reset to -1 (force re-set) on repo swap (`setGraph(undefined)`) and on setting toggle. */
@@ -256,8 +274,12 @@ export class GraphWipService {
 			this._wipWatches.set(
 				sha,
 				Disposable.from(
+					// Hard-evict (not soft-`invalidate`) the webview-level cache so the refetch doesn't read it warm.
+					// The status generation is advanced once at the watch session, before any subscriber runs (see
+					// `GitProviderService`'s global wiring), so a closed secondary worktree's changes still fence
+					// in-flight status reads — this handler only refreshes the webview cache.
 					watcher.onDidChangeWorkingTree(() => {
-						this._wipStatusCache.invalidate(path);
+						this._wipStatusCache.delete(path);
 						this.queueWipRefetch(sha, repo);
 					}),
 					// `onDidChangeWorkingTree` covers FS edits to tracked/untracked files. Index,
@@ -270,7 +292,8 @@ export class GraphWipService {
 					watcher.onDidChange(e => {
 						if (!e.changed('index', 'ignores', 'pausedOp', 'head', 'heads', 'remotes', 'config')) return;
 
-						this._wipStatusCache.invalidate(path);
+						// (generation already advanced at the watch session; this handler just refreshes the webview cache)
+						this._wipStatusCache.delete(path);
 						this.queueWipRefetch(sha, repo);
 					}),
 					watcher,
@@ -338,6 +361,11 @@ export class GraphWipService {
 				// queues when not ready and replays on reconnect.
 				if (this._disposed) return;
 
+				// Another direct-to-client serve. No-ops for a secondary (the guard inside only tracks the primary),
+				// but every serving channel calls it unconditionally — the dedup's correctness shouldn't rest on
+				// re-deriving which repos can reach which path.
+				this.onWipServedOutOfBand(entry.repo, result.wip.revision);
+
 				void this.host.notify(DidRequestWipRefetchNotification, {
 					repoPath: entry.repo.path,
 					wip: result.wip,
@@ -381,13 +409,13 @@ export class GraphWipService {
 
 	/** Lazy escalation for the rare case where both the initial-state stats fetch AND the
 	 *  500ms one-shot retry returned undefined (git busy / locked / antivirus during ready-up).
-	 *  `_lastSentWipNotificationParams == null` means no authoritative working-tree push has ever
-	 *  landed for this graph — so the header/row badges are rendering nothing. Recover on the
-	 *  next visibility/focus transition: cheap (a single `git status` only when actually needed)
-	 *  and aligned with when the user is actually looking. No-op once any push has succeeded. */
+	 *  `!_wipEverServed` means no authoritative working-tree content has ever reached the client for this
+	 *  graph — so the header/row badges are rendering nothing. Recover on the next visibility/focus
+	 *  transition: cheap (a single `git status` only when actually needed) and aligned with when the user
+	 *  is actually looking. No-op once anything has been served. */
 	recoverWorkingTreeStatsIfStuck(): void {
 		if (this._disposed || this.repository == null) return;
-		if (this._lastSentWipNotificationParams != null) return;
+		if (this._wipEverServed) return;
 
 		void this.notifyDidChangeWorkingTree();
 	}
@@ -506,11 +534,10 @@ export class GraphWipService {
 		const repo = this.repository;
 		if (repo == null || !this.container.git.repositoryCount) return false;
 
-		// Working-tree event means this repo's status has changed; drop any cached `_wipStatusCache`
-		// entry so the fetch below sees fresh data. Mirrors the secondary worktree watcher's
-		// invalidate-then-refetch pattern (see `_wipWatches` setup) — without this, rapid-succession
-		// primary edits within the 10s TTL would serve stale data through the per-event push.
-		this._wipStatusCache.invalidate(repo.path);
+		// Hard-`delete` (not soft-`invalidate`): a soft invalidate leaves the in-flight pre-change
+		// `git status` joinable by `getOrCreate` below, which would re-serve the pre-change file list.
+		// The status sub-provider's generation stamp stops the same join one layer down.
+		this._wipStatusCache.delete(repo.path);
 
 		// Single `git status` per working-tree tick. The details panel previously did a second
 		// `getWip` RPC after the host sent stats — both runs returned the same status data, just
@@ -558,10 +585,14 @@ export class GraphWipService {
 		};
 		// Skip identical pushes. Working-tree events fire on any FS write in the repo (file saves,
 		// `.git/index.lock` twiddles, branch-metadata writes), so most ticks reproduce the prior
-		// status verbatim. Comparing the whole params object is safe: `wipMetadataBySha` and `wip`
-		// (with stats embedded as `wip.stats`) all derive from the same `git status` — when `wip`
-		// is unchanged the others are too. Same dedup pattern as `_lastSentBranchState`.
-		if (this._lastSentWipNotificationParams != null && areEqual(this._lastSentWipNotificationParams, params)) {
+		// status verbatim. `wipMetadataBySha` and `wip` (with stats embedded as `wip.stats`) all derive
+		// from the same `git status` — when `wip` is unchanged the others are too. Same dedup pattern as
+		// `_lastSentBranchState`. Compared by CONTENT: `wip.revision` is a per-read freshness marker that
+		// changes on EVERY producer run, so including it would make every payload unequal and push a
+		// byte-identical WIP on every FS write. Suppressed payloads are never sent, so they can't arrive
+		// late and disturb the consumer's revision ordering.
+		const comparable = stripWipRevision(params);
+		if (this._lastSentWipNotificationParams != null && areEqual(this._lastSentWipNotificationParams, comparable)) {
 			return false;
 		}
 
@@ -572,9 +603,24 @@ export class GraphWipService {
 		// `setGraph(undefined)` may have cleared the cache. Without the re-check, the resolved-
 		// successfully notify (for the OLD repo's payload) would re-pin stale params into the
 		// just-cleared cache, blocking the NEW repo's first push.
+		//
+		// `success` means DELIVERED, not APPLIED: the client orders by `Wip.revision` and drops anything older
+		// than an out-of-band `getWip` already gave it. Stamping a dropped payload would record content the
+		// client doesn't hold and suppress the later push that carries it for real. The read above is the slow
+		// part (seconds on a cold repo), and an out-of-band serve most often lands DURING it — so compare
+		// revisions, which covers the whole read+notify window, rather than a counter captured at some point
+		// inside it. An unstamped payload has no ordering to lose: the client always applies it.
+		const revision = params.wip?.revision;
 		return this.host.notify(DidChangeWorkingTreeNotification, params).then(success => {
 			if (success && this.repository === repo) {
-				this._lastSentWipNotificationParams = params;
+				this._wipEverServed = true;
+				if (
+					revision == null ||
+					this._lastOutOfBandWipRevision == null ||
+					revision > this._lastOutOfBandWipRevision
+				) {
+					this._lastSentWipNotificationParams = comparable;
+				}
 			}
 			return success;
 		});
@@ -750,6 +796,11 @@ export class GraphWipService {
 			hasUnpushedByPath = unpushedMap;
 		}
 
+		// Branch-id → worktree for `toOverviewBranch` below (it looks the worktree up by `branch.id` to
+		// fill the branch's `worktree` field). Built once for the whole loop rather than a throwaway
+		// single-entry Map per iteration.
+		const worktreesByBranch = new Map(worktrees.filter(wt => wt.branch != null).map(wt => [wt.branch!.id, wt]));
+
 		// All known worktrees other than the primary (which is already covered by workingTreeStats).
 		// Emit row-anchor metadata only; workDirStats are fetched on-demand via GetWipStatsRequest
 		// when the GK component fires onWipShasMissingStats for visible rows.
@@ -776,6 +827,19 @@ export class GraphWipService {
 			} else if (hasUnpushedByPath != null) {
 				hasUnpushed = hasUnpushedByPath.get(wt.path);
 			}
+			const branchRef = branchName != null ? getBranchId(repo.path, false, branchName) : undefined;
+			// Overview projection of the worktree's branch, so the WIP bar's hover has full branch data even
+			// when the branch missed the overview's active/recent cut. Pure sync — `wt.branch` is already
+			// loaded. `id`/`repoPath` are re-stamped from the MAIN repo path so they match `branchRef` (and
+			// therefore the ids `state.overview` and `overviewEnrichment` are keyed by).
+			const branch =
+				wt.branch != null && branchRef != null
+					? {
+							...toOverviewBranch(wt.branch, worktreesByBranch, wt.opened),
+							id: branchRef,
+							repoPath: repo.path,
+						}
+					: undefined;
 			result[createSecondaryWipSha(wt.path)] = {
 				repoPath: wt.path,
 				parentSha: wt.sha,
@@ -791,11 +855,37 @@ export class GraphWipService {
 				// preserved client-side by `mergeWipMetadata`.
 				...(hasUnpushed != null ? { hasUnpushed: hasUnpushed } : {}),
 				label: wt.name,
-				branchRef: branchName != null ? getBranchId(repo.path, false, branchName) : undefined,
+				branchRef: branchRef,
+				...(branch != null ? { branch: branch } : {}),
 			};
 		}
 
 		return result;
+	}
+
+	/**
+	 * The client received a WIP through a channel the push dedup doesn't track — an RPC or refetch notification hands
+	 * the payload straight back — so our record of what it holds is stale. Drop it: otherwise, if the settled truth is
+	 * byte-identical to the last push we sent, the corrective push is suppressed as "identical" and the client keeps
+	 * the out-of-band payload indefinitely (e.g. a `git status` that spanned a modify-then-revert). Only the primary
+	 * matters — it's the only repo `_lastSentWipNotificationParams` ever tracks (see the guard on its assignment).
+	 * Costs at most one un-deduped push on the next tick; no extra `git status`.
+	 *
+	 * EVERY channel that serves the client a payload directly must call this, or the dedup keeps claiming the client
+	 * holds something it replaced. `revision` additionally fences pushes already reading when this landed — they'll be
+	 * dropped client-side as older, so they must not stamp.
+	 */
+	onWipServedOutOfBand(repo: GlRepository, revision: number | undefined): void {
+		if (this.repository?.path === repo.path) {
+			this._lastSentWipNotificationParams = undefined;
+			this._wipEverServed = true;
+			if (
+				revision != null &&
+				(this._lastOutOfBandWipRevision == null || revision > this._lastOutOfBandWipRevision)
+			) {
+				this._lastOutOfBandWipRevision = revision;
+			}
+		}
 	}
 
 	/**
@@ -808,28 +898,32 @@ export class GraphWipService {
 	async getWipForRepoAndStats(
 		repo: GlRepository,
 		signal?: AbortSignal,
-		options?: { bypassCache?: boolean },
+		options?: { force?: boolean },
 	): Promise<{ wip: Wip } | undefined> {
 		signal?.throwIfAborted();
 
+		// Stamp this read's freshness marker BEFORE it starts (see {@link Wip.revision}). Taking it at read-start —
+		// not at assembly — is what makes it correct: a slow read that began against older state gets a LOWER
+		// revision than a later read of newer state, even if it finishes (or is delivered) afterwards.
+		const revision = (this._wipRevisions.get(repo.path) ?? 0) + 1;
+		this._wipRevisions.set(repo.path, revision);
+
+		// `force` (user-initiated refresh): evict the warm cache and read with `{ force }` so the fetch below is a
+		// guaranteed-fresh `git status` (it can't join one already in flight from before the click).
+		if (options?.force) {
+			this._wipStatusCache.delete(repo.path);
+		}
+
 		const svc = this.container.git.getRepositoryService(repo.path);
 		// Route `getStatus` through `_wipStatusCache` so every WIP/overview/worktrees code path
-		// shares the same status data within the cache's TTL — FS-watcher invalidations keep it
+		// shares the same status data within the cache's TTL — FS-watcher evictions keep it
 		// honest, and the lazy overview-panel-visibility refresh + worktrees-panel fetch get
 		// served from cache when warm (often right after we just populated it here).
-		//
-		// `bypassCache` (user-initiated refresh) runs a separate `git status` OUTSIDE the cache.
-		// We don't invalidate or write back — invalidate would fire the shared `AbortAggregate`
-		// and could cancel a concurrent watcher fetch; a write-back is unsafe because the prior
-		// in-flight entry's settle handler can delete our freshly-set value. Other consumers
-		// self-correct within the cache TTL via the next FS-watcher tick.
-		const statusFetch = options?.bypassCache
-			? svc.status.getStatus(undefined, signal)
-			: this._wipStatusCache.getOrCreate(
-					repo.path,
-					(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
-					{ cancellation: signal },
-				);
+		const statusFetch = this._wipStatusCache.getOrCreate(
+			repo.path,
+			(_cacheable, factorySignal) => svc.status.getStatus({ force: options?.force }, factorySignal),
+			{ cancellation: signal },
+		);
 		const [statusResult, pausedOpStatusResult, signingConfigResult] = await Promise.allSettled([
 			statusFetch,
 			// `force` so a missed `'pausedOp'` FS-watcher tick (common on secondary worktrees
@@ -987,6 +1081,7 @@ export class GraphWipService {
 					pausedOpStatus: pausedOpStatus,
 				},
 				repositoryCount: this.container.git.openRepositoryCount,
+				revision: revision,
 				branch: branchShape,
 				repo: {
 					uri: repo.uri.toString(),
@@ -1127,6 +1222,9 @@ export class GraphWipService {
 		this._lastSentWipDrafts = undefined;
 		this._lastSentWipDraftsInitialized = false;
 		this._lastSentWipNotificationParams = undefined;
+		this._wipEverServed = false;
+		// Revisions are per-repo, so the outgoing repo's out-of-band high-water can't fence the incoming one's pushes.
+		this._lastOutOfBandWipRevision = undefined;
 		// Force the badge to re-evaluate on the next push so a repo swap to one with the same
 		// change count as the prior repo still re-stamps (and the tooltip stays correct).
 		this._lastBadgeCount = -1;
@@ -1166,4 +1264,12 @@ export class GraphWipService {
 		this._wipRefetches.clear();
 		this._wipStatusCache.clear();
 	}
+}
+
+/**
+ * `params` minus `wip.revision` — the marker identifies which read produced the payload (see {@link Wip.revision})
+ * and changes on every producer run, so it must not participate in an identical-CONTENT comparison.
+ */
+function stripWipRevision(params: DidChangeWorkingTreeParams): DidChangeWorkingTreeParams {
+	return params.wip?.revision == null ? params : { ...params, wip: { ...params.wip, revision: undefined } };
 }

@@ -131,7 +131,9 @@ export function setupSubscriptions(
 		// Generic events — from WebviewEventsService
 		// ============================================================
 
-		// Subscription changed — state handled by signal bridges, keep side effects only
+		// Subscription changed — state flows via the bridged signals, whose freshness is
+		// guaranteed by SubscriptionService's eager listeners (#5513); this subscription
+		// exists solely for its side effects and is safe to remove if they go away
 		() =>
 			services.subscription.onSubscriptionChanged(() => {
 				actions.onSubscriptionChanged();
@@ -145,7 +147,8 @@ export function setupSubscriptions(
 				actions.refreshOverview();
 			}),
 
-		// Note: onOrgSettingsChanged removed — orgSettings signal bridged from host
+		// Note: onOrgSettingsChanged removed — the bridged orgSettings signal is kept fresh
+		// by SubscriptionService's eager listeners (#5513)
 
 		// Repository discovery completed
 		() =>

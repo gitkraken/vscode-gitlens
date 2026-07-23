@@ -94,10 +94,14 @@ suite('GraphSubProvider rowsStatsSeed', () => {
 
 		const stashRow = fresh.rows.find(r => r.type === 'stash-node');
 		assert.ok(stashRow, 'Expected a stash row');
-		// Note: the remap of a stash's stats onto its index/untracked parent's shortstat is a
-		// pre-existing (repository-level, not introduced by seeding) ordering issue — see report.
+		// A stash's stats are its first-parent diff (what `git stash show` reports) — deterministic,
+		// unlike the old remap of the whole stash stdin, which raced on `--no-walk` commit-time ordering.
+		// createStash stages one new 1-line file.
 		const stashStats = fresh.rowsStats?.get(stashRow.sha);
 		assert.ok(stashStats, 'Expected a stats entry for the stash row');
+		assert.strictEqual(stashStats.files, 1, 'stash files');
+		assert.strictEqual(stashStats.additions, 1, 'stash additions');
+		assert.strictEqual(stashStats.deletions, 0, 'stash deletions');
 
 		const rebuilt = await repo.provider.graph.getGraph(repo.path, undefined, {
 			include: { stats: true },

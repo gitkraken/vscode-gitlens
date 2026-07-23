@@ -146,7 +146,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				Object.create(null),
 			);
 			const formatOptions: CommitFormatOptions = {
-				dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
+				dateFormat: cfg.dateFormat ?? configuration.get('defaultDateFormat'),
 				tokenOptions: tokenOptions,
 				source: { source: 'editor:hover' },
 			};
@@ -627,7 +627,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		}
 
 		const formatOptions: CommitFormatOptions = {
-			dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
+			dateFormat: cfg.dateFormat ?? configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: getBranchAndTagTips,
 			tokenOptions: tokenOptions,
 			source: { source: 'editor:hover' },

@@ -29,6 +29,7 @@ import { areEqual } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
@@ -147,6 +148,7 @@ export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
 
 export interface ResolvedServices {
+	readonly agents: ResolvedSubService<'agents'>;
 	readonly files: ResolvedSubService<'files'>;
 	readonly drafts: ResolvedSubService<'drafts'>;
 	readonly graphInspect: ResolvedSubService<'graphInspect'>;
@@ -166,6 +168,8 @@ export interface ResolvedServices {
 export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
 	readonly wip: Resource<{ wip: Wip } | undefined, [string, boolean?]>;
+	/** Past (resumable) agent sessions for a worktree — top-3, keyed on `worktreePath`. */
+	readonly pastAgentSessions: Resource<PastAgentSessionsResult | undefined, [string]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<
@@ -219,6 +223,15 @@ const commitEnrichmentCacheLimit = 32;
 
 export class DetailsActions {
 	private _lastFetchedKey?: string;
+	/** The repo whose data the fetched signals currently hold. Assigned only where a fetch actually seeds, and never
+	 *  cleared — a fetch that bails seeds nothing, so what's held (and therefore this description of it) is unchanged.
+	 *  Lets a reset tell "stale value from the prior repo" apart from "value this cycle's fetch just seeded for the
+	 *  incoming repo", which values like reachability can't answer about themselves. */
+	private _lastFetchedRepoPath?: string;
+	/** Highest {@link Wip.revision} applied to `state.wip`, per repo. WIP payloads (host pushes and fetch/refresh
+	 *  responses) can arrive out of order relative to the working-tree state they reflect, so we order them by the
+	 *  host's marker rather than by arrival — see {@link acceptWipRevision}. */
+	private readonly _lastAppliedWipRevision = new Map<string, number>();
 	private _pendingStagingOp?: Promise<void>;
 	/** Repo path with a commit RPC in flight. While set, host-pushed WIP for this repo is ignored:
 	 *  the commit's own pre-commit hooks (e.g. lint-staged stashing unstaged changes) churn the
@@ -360,6 +373,7 @@ export class DetailsActions {
 		this._commitEnrichmentCache.clear();
 		this.resources.commit.dispose();
 		this.resources.wip.dispose();
+		this.resources.pastAgentSessions.dispose();
 		this.resources.compare.dispose();
 		this.resources.branchCompareSummary.dispose();
 		this.resources.branchCompareSide.dispose();
@@ -414,134 +428,51 @@ export class DetailsActions {
 	}
 
 	/**
+	 * Reset repo-scoped state for a switch to {@link repoPath}, unless something else owns it. No-op when the
+	 * last fetch already seeded this repo — that's what makes this safe to call from both the fetch prologues
+	 * and {@link DetailsWorkflowController}'s render-target trigger without the two fighting.
+	 *
+	 * Skips while an open compare sheet (anchored to its own refs) or an active mode owns the state: a mode's
+	 * `fetchBranchCommits` can be in flight, and resetting would clobber `branchCommitsFetching` back to false,
+	 * stranding the picker in "no items + not loading". Cross-repo staleness on that path is caught instead by
+	 * `toggleMode`'s {@link branchCommitsFetchedRepoPath} check.
+	 */
+	resetRepoScopedStateOnSwitch(repoPath?: string): void {
+		if (this._lastFetchedRepoPath === repoPath) return;
+		if (this.state.compareSheetOpen.get() || this.state.compareAsPanel.get()) return;
+		if (this.state.activeMode.get() != null) return;
+
+		this.resetRepoScopedState(repoPath);
+	}
+
+	/**
 	 * Invalidate every repo/worktree-scoped signal in {@link DetailsState} so the panel does not
-	 * surface the prior repo's data after the host's render target switches. Called from the
-	 * worktree-switch trigger in {@link DetailsWorkflowController}.
+	 * surface the prior repo's data after the host's render target switches.
 	 *
 	 * The implicit "next fetch overwrites" pattern fails for signals that are gated (e.g.
 	 * `branchCommits`), never auto-refreshed on repo switch, or that return nothing for the new
 	 * repo and leave the old value latent. Clearing here forces a clean slate so the picker /
 	 * panel show a loading state until the new repo's fetches land.
 	 *
+	 * Callers MUST invoke this BEFORE seeding anything for the incoming repo — the fetch prologues
+	 * do, which is the invariant that keeps this method a plain unconditional wipe. It used to run
+	 * after the panel's `willUpdate` fetch had already seeded (Lit fires `willUpdate` ahead of the
+	 * controller's `hostUpdate`), so each signal seeded synchronously needed its own preserve gate
+	 * to survive; the ones that never got a gate were silently clobbered instead.
+	 *
 	 * Notes on what is NOT touched here:
-	 * - `_lastFetchedKey` is left alone — `willUpdate` on the panel already kicked off
-	 *   `fetchDetails(sha, newRepoPath)` BEFORE this runs (Lit fires `willUpdate` ahead of
-	 *   `hostUpdate`), so the key has already been re-stamped to the new selection. Resetting
-	 *   it here would cause that fetch's success path to abort its write.
-	 * - `_enrichmentController` is left alone for the same reason — see the doc on
-	 *   {@link clearEnrichmentCaches}.
-	 * - Capability flags (`preferences`, `orgSettings`, `aiModel`, etc.) and pure UI toggles
-	 *   are not repo-scoped — they intentionally survive switches.
+	 * - `_lastFetchedKey` / `_lastFetchedRepoPath` are left alone — the prologue stamps them right
+	 *   after this returns, and resetting them would re-arm this reset against its own fetch.
+	 * - `_enrichmentController` is left alone — see the doc on {@link clearEnrichmentCaches}.
 	 */
 	resetRepoScopedState(repoPath?: string): void {
-		const s = this.state;
-
-		// `willUpdate` (which fires before `hostUpdate`) may have synchronously hydrated the
-		// commit/wip signal from cache for the just-arrived selection — already keyed to the
-		// new repo. Wiping unconditionally clobbers that hydrate and the next render lands on
-		// `undefined` (the blank-panel bug). Preserve when the held value already belongs to
-		// the new repo; pair the enrichment chips with the same gate so they don't flash empty
-		// while the kept selection stays visible.
-		const preserveWip = repoPath != null && s.wip.get()?.repo?.path === repoPath;
-		const preserveCommit = repoPath != null && s.commit.get()?.repoPath === repoPath;
-
+		// Which signals this covers is declared at each signal in `createDetailsState` — including the
+		// repo-scoped slice of the transient layer (the commit-input form). Mode signals + scope +
+		// aiExcludedFiles are already cleared by `exitMode`, which runs before this on the switch trigger;
+		// `generating` is panel-derived from the registry, which the switch clears.
+		this.state.resetRepoScoped();
+		// The LRU caches + branch-commits controllers aren't signals, so they still need doing by hand.
 		this.clearEnrichmentCaches(repoPath);
-
-		// Core selection-scoped data
-		if (!preserveCommit) {
-			s.commit.set(undefined);
-		}
-		if (!preserveWip) {
-			s.wip.set(undefined);
-		}
-		s.searchContext.set(undefined);
-
-		// WIP enrichment (branch-scoped chips) — paired with `preserveWip`. Without the gate
-		// the chips would flash empty even though `state.wip` survives the reset.
-		if (!preserveWip) {
-			s.wipAutolinks.set(undefined);
-			s.wipIssues.set(undefined);
-			s.wipMergeTarget.set(undefined);
-			s.wipMergeTargetLoading.set(false);
-			s.wipPullRequest.set(undefined);
-			s.wipPullRequestLoading.set(false);
-		}
-
-		// 2-commit compare fetched data
-		s.commitFrom.set(undefined);
-		s.commitTo.set(undefined);
-		s.compareStats.set(undefined);
-		s.compareFiles.set(undefined);
-		s.compareBetweenCount.set(undefined);
-		s.compareAutolinks.set(undefined);
-		s.compareAutolinksLoading.set(false);
-		s.signatureFrom.set(undefined);
-		s.signatureTo.set(undefined);
-		s.compareEnrichedItems.set(undefined);
-		s.compareEnrichmentLoading.set(false);
-
-		// Single-commit enrichment — paired with `preserveCommit` for the same reason.
-		if (!preserveCommit) {
-			s.autolinks.set(undefined);
-			s.formattedMessage.set(undefined);
-			s.autolinkedIssues.set(undefined);
-			s.pullRequest.set(undefined);
-			s.signature.set(undefined);
-		}
-
-		// Reachability + AI explain
-		s.reachability.set(undefined);
-		s.reachabilityState.set('idle');
-		s.explain.set(undefined);
-		s.compareExplainBusy.set(false);
-		s.compareGenerateChangelogBusy.set(false);
-
-		// Branch-commits picker source (the gated leak that motivated this method)
-		s.branchCommits.set(undefined);
-		s.branchMergeBase.set(undefined);
-		s.branchCommitsFetching.set(false);
-		s.branchCommitsHasMore.set(false);
-		s.branchCommitsLoadingMore.set(false);
-
-		// Branch-comparison phases + per-scope Maps. `openCompare` already resets these on entry,
-		// but the Maps accumulate keys across repos otherwise — clear here so a stale per-scope
-		// value can never resurface on a different repo's same-shaped key.
-		s.branchCompareAheadCount.set(0);
-		s.branchCompareBehindCount.set(0);
-		s.branchCompareAllFiles.set([]);
-		s.branchCompareAllFilesCount.set(0);
-		s.branchCompareAheadCommits.set([]);
-		s.branchCompareBehindCommits.set([]);
-		s.branchCompareAheadFiles.set([]);
-		s.branchCompareBehindFiles.set([]);
-		s.branchCompareAheadLoaded.set(false);
-		s.branchCompareBehindLoaded.set(false);
-		s.branchCompareAheadHasMore.set(false);
-		s.branchCompareBehindHasMore.set(false);
-		s.branchCompareAheadLimit.set(100);
-		s.branchCompareBehindLimit.set(100);
-		s.branchCompareAheadLoadingMore.set(false);
-		s.branchCompareBehindLoadingMore.set(false);
-		s.branchCompareAutolinksByScope.set(new Map());
-		s.branchCompareEnrichedAutolinksByScope.set(new Map());
-		s.branchCompareContributorsByScope.set(new Map());
-		s.branchCompareEnrichmentLoading.set(new Map());
-		s.branchCompareContributorsLoading.set(new Map());
-		s.branchCompareCommitFilesLoading.set(new Map());
-
-		// Capability-ish but repo-scoped
-		s.hasRemotes.set(false);
-
-		// Repo-scoped transient state. Mode signals + scope + aiExcludedFiles are already
-		// cleared via `exitMode` which runs before this in the worktree-switch trigger. The
-		// commit-input form is repo-scoped too — the panel's `updated` hook clears it on
-		// repoChanged but only when no mode is active, so cover the mode-active case here.
-		s.commitMessage.set('');
-		s.commitMessageDirty.set(false);
-		s.amend.set(false);
-		s.amendBaseSha.set(undefined);
-		s.commitError.set(undefined);
-		// `generating` is not reset here — it's panel-derived from the registry, which repo-switch clears.
 	}
 
 	/**
@@ -887,7 +818,13 @@ export class DetailsActions {
 			return;
 		}
 
+		// Landing on a different repo — drop its predecessor's state before seeding any of this one's
+		// below, so "clear then seed" is one synchronous sequence. `clearEnrichmentCaches` keeps this
+		// repo's cache entries, so the hydrate below still paints at t≈0.
+		this.resetRepoScopedStateOnSwitch(repoPath);
+
 		this._lastFetchedKey = key;
+		this._lastFetchedRepoPath = repoPath;
 
 		// For commit selections, hydrate enrichment from cache if we've seen this sha before.
 		// Misses (or WIP) get cleared to undefined so stale prior-selection chips don't linger.
@@ -965,7 +902,11 @@ export class DetailsActions {
 				// we know we don't have cached merge-target data (set in fetchWipBranchEnrichment).
 
 				const cached = this.graphState?.getWipState(repoPath);
-				if (cached != null) {
+				// Seed through the same gate as every other writer: records the seeded revision (so a delayed older
+				// push can't later apply over it). A cached payload OLDER than what's applied (an explicit refresh
+				// advanced the panel past the cache) is a MISS, not a hit — it has to fall through to the fetch
+				// below or nothing repaints and the panel keeps whatever the last selection left behind.
+				if (cached != null && this.acceptWipRevision(cached.wip, repoPath)) {
 					this.state.wip.set(cached.wip);
 					if (this.state.activeMode.get() != null) {
 						this.state.wipStale.set(true);
@@ -991,12 +932,13 @@ export class DetailsActions {
 									const result = this.resources.wip.value.get();
 									if (result != null) {
 										const { wip } = result;
+										// Drop if a newer WIP landed while this background revalidate was in flight.
+										if (!this.acceptWipRevision(wip, repoPath)) return;
+
 										this.state.wip.set(wip);
-										this.graphState?.setWip(repoPath, wip);
-										// Stats travel embedded as `wip.stats`.
-										if (wip.stats != null) {
-											this.graphState?.setWorkingTreeStats(repoPath, wip.stats);
-										}
+										// Authoritative host result (stats travel embedded as `wip.stats`) — reconciles
+										// every mirror and leaves the entry live, so revisits don't re-buy a `git status`.
+										this.graphState?.ingestWip(repoPath, wip);
 										if (this.state.activeMode.get() != null) {
 											this.state.wipStale.set(true);
 										}
@@ -1015,7 +957,7 @@ export class DetailsActions {
 						})();
 					}
 				} else {
-					// Missing cache entry — block and fetch.
+					// Cache miss, or a cached payload older than what's already applied — block and fetch.
 					await this.resources.wip.fetch(repoPath);
 
 					if (this._lastFetchedKey !== key) return;
@@ -1024,12 +966,13 @@ export class DetailsActions {
 						const result = this.resources.wip.value.get();
 						if (result != null) {
 							const { wip } = result;
+							// Drop if a newer WIP landed while this fetch was in flight.
+							if (!this.acceptWipRevision(wip, repoPath)) return;
+
 							this.state.wip.set(wip);
-							this.graphState?.setWip(repoPath, wip);
-							// Stats travel embedded as `wip.stats`.
-							if (wip.stats != null) {
-								this.graphState?.setWorkingTreeStats(repoPath, wip.stats);
-							}
+							// Authoritative host result (stats travel embedded as `wip.stats`) — reconciles every
+							// mirror and leaves the entry live, so revisits don't re-buy a `git status`.
+							this.graphState?.ingestWip(repoPath, wip);
 							if (this.state.activeMode.get() != null) {
 								this.state.wipStale.set(true);
 							}
@@ -1447,7 +1390,12 @@ export class DetailsActions {
 			return;
 		}
 
+		// Same clear-then-seed sequence as `fetchDetails` — the eager `commitFrom`/`commitTo` lite paint
+		// below is seeding, so the switch has to be cleared ahead of it.
+		this.resetRepoScopedStateOnSwitch(repoPath);
+
 		this._lastFetchedKey = key;
+		this._lastFetchedRepoPath = repoPath;
 		this.clearCompareEnrichment();
 		// Search context only applies in single-commit selection — clear on entering compare.
 		this.state.searchContext.set(undefined);
@@ -3121,13 +3069,17 @@ export class DetailsActions {
 		const result = this.resources.wip.value.get();
 		if (result == null) return;
 
-		this.applyWipPayload(result.wip, repoPath);
-		// Reseed the header/row badge source from the SAME `git status` the panel just applied.
-		// Stats travel embedded as `result.wip.stats` (one git-authoritative object), so the
-		// panel's file list and the header counts can't disagree.
-		if (result.wip.stats != null) {
-			this.graphState?.setWorkingTreeStats(repoPath, result.wip.stats);
-		}
+		// `applyWipPayload` enforces the ordering: if a push reflecting a LATER working tree landed while this
+		// refresh was in flight, this (older) result is dropped — and if this refresh is the newer read, it wins.
+		// Bail on drop so the badge isn't reseeded from a payload the panel didn't apply.
+		if (!this.applyWipPayload(result.wip, repoPath)) return;
+
+		// Write the accepted response back to the graph cache, like every other fetch site. Skipping it leaves the
+		// cache holding an OLDER revision than the panel just applied, so re-selecting this repo later seeds a
+		// payload its own gate then rejects — a blank panel until the next push. `ingestWip` also reseeds the
+		// header/row badge from the SAME `git status` the panel just applied: stats travel embedded as
+		// `result.wip.stats` (one git-authoritative object), so the file list and the counts can't disagree.
+		this.graphState?.ingestWip(repoPath, result.wip);
 	}
 
 	/**
@@ -3166,7 +3118,27 @@ export class DetailsActions {
 		this.applyWipPayload(wip, repoPath);
 	}
 
-	private applyWipPayload(wip: Wip, repoPath: string): void {
+	/**
+	 * Gates every `state.wip` write on the host's per-repo freshness marker ({@link Wip.revision}), recording it on
+	 * accept. Payloads race: a debounced/delayed push can land after a newer push or a forced refresh, and a fetch
+	 * can resolve after a newer push. Ordering by arrival would let any of those revert newer state, so we compare
+	 * the host's marker instead and drop anything reflecting an older working tree than what's already applied.
+	 * Payloads without a revision (non-Graph producers) are always accepted — they have no ordering to enforce.
+	 */
+	private acceptWipRevision(wip: Wip, repoPath: string): boolean {
+		if (wip.revision == null) return true;
+
+		const lastApplied = this._lastAppliedWipRevision.get(repoPath);
+		if (lastApplied != null && wip.revision < lastApplied) return false;
+
+		this._lastAppliedWipRevision.set(repoPath, wip.revision);
+		return true;
+	}
+
+	/** @returns `false` if the payload was dropped as older than what's already applied (see {@link acceptWipRevision}). */
+	private applyWipPayload(wip: Wip, repoPath: string): boolean {
+		if (!this.acceptWipRevision(wip, repoPath)) return false;
+
 		const prev = this.state.wip.get();
 		this.state.wip.set(wip);
 		if (this.state.activeMode.get() != null) {
@@ -3176,6 +3148,7 @@ export class DetailsActions {
 		if (branchName != null && prev?.branch?.name !== branchName) {
 			this.fetchWipBranchEnrichment(repoPath, branchName, this.resetEnrichment());
 		}
+		return true;
 	}
 
 	private optimisticallyUpdateFileStaged(filePath: string, newStaged: boolean): void {

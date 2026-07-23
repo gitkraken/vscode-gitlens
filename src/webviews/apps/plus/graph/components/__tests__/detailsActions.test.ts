@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
 	BranchComparisonOptions,
@@ -8,6 +9,7 @@ import type {
 	ScopeSelection,
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
+import type { AppState } from '../../context.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
 import { DetailsActions, scopeSelectionEqual } from '../detailsActions.js';
 import { createDetailsState } from '../detailsState.js';
@@ -16,6 +18,7 @@ function createResources(overrides: Partial<DetailsResources> = {}): DetailsReso
 	return {
 		commit: createResource(async (_signal, _repoPath: string, _sha: string) => undefined),
 		wip: createResource(async (_signal, _repoPath: string) => undefined),
+		pastAgentSessions: createResource(async (_signal, _worktreePath: string) => undefined),
 		compare: createResource(async (_signal, _repoPath: string, _fromSha: string, _toSha: string) => undefined),
 		branchCompareSummary: createResource(
 			async (
@@ -48,6 +51,9 @@ function createServices(commitCompose?: (repoPath: string, plan: unknown) => Pro
 	return {
 		graphInspect: {
 			commitCompose: commitCompose ?? (async () => ({ success: true })),
+		},
+		repository: {
+			hasRemotes: async () => false,
 		},
 		telemetry: {
 			sendEvent: () => Promise.resolve(),
@@ -445,6 +451,184 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.wipStale.get(), false);
 	});
 
+	// WIP payloads race: a refresh response and host pushes can arrive in either order relative to the working tree
+	// they reflect. Ordering is by the host's `revision` marker (assigned at read-start), never by arrival.
+	const wipRepo = { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false };
+	function makeWip(revision: number, modified: number): Wip {
+		return {
+			changes: undefined,
+			repositoryCount: 1,
+			repo: wipRepo,
+			revision: revision,
+			stats: { added: 0, deleted: 0, modified: modified },
+		};
+	}
+
+	test('refetchWipQuiet drops its result when a push reflecting a newer working tree landed mid-flight', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const staleRefresh = makeWip(1, 1); // read started BEFORE the change
+		const newerPush = makeWip(2, 2); // read started AFTER it
+
+		// A wip fetch that resolves only when the test releases it, so the push can land mid-flight.
+		let releaseFetch!: (v: { wip: Wip }) => void;
+		const fetchGate = new Promise<{ wip: Wip }>(resolve => (releaseFetch = resolve));
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => fetchGate),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		const refreshing = actions.refetchWipQuiet('/repo', true);
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		actions.applyPushedWip(newerPush);
+		assert.strictEqual(state.wip.get(), newerPush);
+
+		releaseFetch({ wip: staleRefresh });
+		await refreshing;
+
+		assert.strictEqual(state.wip.get(), newerPush, 'an older refresh must not overwrite a newer push');
+	});
+
+	test('a delayed push reflecting an older working tree cannot revert newer applied state', () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		const newer = makeWip(5, 2);
+		const delayedOlder = makeWip(4, 1); // produced earlier, delivered later
+
+		actions.applyPushedWip(newer);
+		assert.strictEqual(state.wip.get(), newer);
+
+		actions.applyPushedWip(delayedOlder);
+		assert.strictEqual(state.wip.get(), newer, 'a delayed older push must be dropped, not revert newer state');
+	});
+
+	test('a push reflecting a newer working tree still applies over an older one', () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		const older = makeWip(1, 1);
+		const newer = makeWip(2, 2);
+
+		actions.applyPushedWip(older);
+		actions.applyPushedWip(newer);
+		assert.strictEqual(state.wip.get(), newer, 'newer revisions must still win');
+	});
+
+	// The panel's applied-revision gate and the graph's wip cache have to advance together. If a writer moves one
+	// without the other, re-selecting the repo seeds a payload the gate then rejects — and nothing repaints.
+	function createGraphStateStub(seed?: { repoPath: string; wip: Wip; isLive: boolean }) {
+		const cache = new Map<string, Wip>();
+		if (seed != null) {
+			cache.set(seed.repoPath, seed.wip);
+		}
+		return {
+			cache: cache,
+			stub: {
+				getWipState: (repoPath: string) => {
+					const wip = cache.get(repoPath);
+					return wip != null ? { wip: wip, isLive: seed?.isLive ?? true, ageMs: 0 } : undefined;
+				},
+				setWip: (repoPath: string, wip: Wip) => void cache.set(repoPath, wip),
+				ingestWip: (repoPath: string, wip: Wip) => void cache.set(repoPath, wip),
+				setWorkingTreeStats: () => {},
+				mergeOverviewWipForRepo: () => {},
+			},
+		};
+	}
+
+	test('refetchWipQuiet writes its accepted result back to the graph cache', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const fresh = makeWip(10, 2);
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: fresh })),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+		const graph = createGraphStateStub({ repoPath: '/repo', wip: makeWip(9, 1), isLive: true });
+		actions.graphState = graph.stub as unknown as AppState;
+
+		await actions.refetchWipQuiet('/repo', true);
+
+		assert.strictEqual(state.wip.get(), fresh);
+		assert.strictEqual(
+			graph.cache.get('/repo'),
+			fresh,
+			'the cache must not be left older than the revision the panel just applied',
+		);
+	});
+
+	test('an accepted host result ingests authoritatively — never through the optimistic API', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const fresh = makeWip(10, 2);
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: fresh })),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		// `setWip` marks the entry as a pending local edit, which suppresses `isLive` and buys a `git status`
+		// revalidate on every revisit — forever on an idle repo. A host RPC response is not a local guess.
+		const calls: string[] = [];
+		actions.graphState = {
+			getWipState: () => undefined,
+			setWip: () => calls.push('setWip'),
+			ingestWip: () => calls.push('ingestWip'),
+			setWorkingTreeStats: () => {},
+		} as unknown as AppState;
+
+		await actions.refetchWipQuiet('/repo', true);
+
+		assert.deepStrictEqual(calls, ['ingestWip'], 'a host result must not be cached as an optimistic local edit');
+	});
+
+	test('a cached WIP older than what is applied is a miss — it must fetch, not paint nothing', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const fresh = makeWip(10, 2);
+		let fetched = 0;
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => {
+				fetched++;
+				return { wip: fresh };
+			}),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+		// Live cache entry stranded at an older revision than the panel has applied (an explicit refresh advanced
+		// the panel past it). `isLive: true` is the trap: it also suppresses the background revalidate.
+		const graph = createGraphStateStub({ repoPath: '/repo', wip: makeWip(9, 1), isLive: true });
+		actions.graphState = graph.stub as unknown as AppState;
+
+		actions.applyPushedWip(makeWip(10, 2));
+		state.wip.set(undefined);
+
+		await actions.fetchDetails(uncommitted, '/repo');
+
+		assert.strictEqual(fetched, 1, 'a rejected cache seed must fall through to a fetch');
+		assert.strictEqual(state.wip.get(), fresh, 'the panel must repaint rather than be left blank');
+	});
+
+	test('WIP payloads without a revision are always applied (non-Graph producers)', () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		const unversioned: Wip = { changes: undefined, repositoryCount: 1, repo: wipRepo };
+		actions.applyPushedWip(makeWip(9, 3));
+		actions.applyPushedWip(unversioned);
+		assert.strictEqual(state.wip.get(), unversioned, 'no revision means no ordering to enforce');
+	});
+
 	test('applyPushedWip ignores host pushes for a repo while its commit is in flight', () => {
 		const state = createDetailsState();
 		const makeWip = (modified: number): Wip => ({
@@ -482,85 +666,87 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.wip.get(), transient, 'push after the commit settles must apply');
 	});
 
-	test('resetRepoScopedState conditionally clears signals', () => {
+	// The panel's `willUpdate` fetch seeds, then the controller's `hostUpdate` render-target trigger fires
+	// (Lit runs `willUpdate` first). The reset has to run BEFORE any seeding — hence in the fetch prologue —
+	// or it clobbers what the fetch just wrote. These tests pin that ordering rather than the per-signal
+	// preserve gates that used to paper over it.
+
+	test('resetRepoScopedState clears every repo-scoped signal unconditionally', () => {
 		const state = createDetailsState();
-		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
-		const wip = { repo: { path: '/repo1' } } as any;
-		state.commit.set(commit);
-		state.wip.set(wip);
-
-		const actions = new DetailsActions(state, createServices(), createResources());
-
-		// 1. Calling with matching path preserves state
-		actions.resetRepoScopedState('/repo1');
-		assert.strictEqual(state.commit.get(), commit);
-		assert.strictEqual(state.wip.get(), wip);
-
-		// 2. Calling with mismatching path clears state
-		actions.resetRepoScopedState('/repo2');
-		assert.strictEqual(state.commit.get(), undefined);
-		assert.strictEqual(state.wip.get(), undefined);
-	});
-
-	test('resetRepoScopedState preserves wip enrichment chips alongside state.wip', () => {
-		const state = createDetailsState();
-		const wip = { repo: { path: '/repo1' } } as any;
-		state.wip.set(wip);
+		state.commit.set({ repoPath: '/repo1', sha: 'c1' } as any);
+		state.wip.set({ repo: { path: '/repo1' } } as any);
 		state.wipAutolinks.set([{ id: 'auto1' } as any]);
-		state.wipIssues.set([{ entityId: 'issue1' } as any]);
-		state.wipMergeTarget.set({ branch: { name: 'main' } } as any);
 		state.wipMergeTargetLoading.set(true);
-		state.wipPullRequest.set({ id: 'pr1' } as any);
-		state.wipPullRequestLoading.set(true);
-
-		const actions = new DetailsActions(state, createServices(), createResources());
-
-		// Matching path: chips survive alongside state.wip.
-		actions.resetRepoScopedState('/repo1');
-		assert.deepStrictEqual(state.wipAutolinks.get(), [{ id: 'auto1' }]);
-		assert.deepStrictEqual(state.wipIssues.get(), [{ entityId: 'issue1' }]);
-		assert.deepStrictEqual(state.wipMergeTarget.get(), { branch: { name: 'main' } });
-		assert.strictEqual(state.wipMergeTargetLoading.get(), true);
-		assert.deepStrictEqual(state.wipPullRequest.get(), { id: 'pr1' });
-		assert.strictEqual(state.wipPullRequestLoading.get(), true);
-
-		// Mismatching path: chips wiped along with state.wip.
-		actions.resetRepoScopedState('/repo2');
-		assert.strictEqual(state.wipAutolinks.get(), undefined);
-		assert.strictEqual(state.wipIssues.get(), undefined);
-		assert.strictEqual(state.wipMergeTarget.get(), undefined);
-		assert.strictEqual(state.wipMergeTargetLoading.get(), false);
-		assert.strictEqual(state.wipPullRequest.get(), undefined);
-		assert.strictEqual(state.wipPullRequestLoading.get(), false);
-	});
-
-	test('resetRepoScopedState preserves single-commit enrichment alongside state.commit', () => {
-		const state = createDetailsState();
-		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
-		state.commit.set(commit);
 		state.autolinks.set([{ id: 'auto1' } as any]);
 		state.formattedMessage.set('msg');
-		state.autolinkedIssues.set([{ id: 'issue1' } as any]);
-		state.pullRequest.set({ id: 'pr1' } as any);
-		state.signature.set({ verified: true } as any);
+		state.commitFrom.set({ repoPath: '/repo1', sha: 'c1' } as any);
+		state.reachability.set({ partial: true, refs: [{ name: 'main', refType: 'branch' }] } as any);
+		state.reachabilityState.set('loaded');
 
 		const actions = new DetailsActions(state, createServices(), createResources());
 
-		// Matching path: enrichment survives alongside state.commit.
+		// Matching the target repo is NOT a reason to preserve — callers reset before seeding, so there is
+		// never anything fresh to protect. Whether to reset at all is `resetRepoScopedStateOnSwitch`'s call.
 		actions.resetRepoScopedState('/repo1');
-		assert.deepStrictEqual(state.autolinks.get(), [{ id: 'auto1' }]);
-		assert.strictEqual(state.formattedMessage.get(), 'msg');
-		assert.deepStrictEqual(state.autolinkedIssues.get(), [{ id: 'issue1' }]);
-		assert.deepStrictEqual(state.pullRequest.get(), { id: 'pr1' });
-		assert.deepStrictEqual(state.signature.get(), { verified: true });
-
-		// Mismatching path: enrichment wiped along with state.commit.
-		actions.resetRepoScopedState('/repo2');
+		assert.strictEqual(state.commit.get(), undefined);
+		assert.strictEqual(state.wip.get(), undefined);
+		assert.strictEqual(state.wipAutolinks.get(), undefined);
+		assert.strictEqual(state.wipMergeTargetLoading.get(), false);
 		assert.strictEqual(state.autolinks.get(), undefined);
 		assert.strictEqual(state.formattedMessage.get(), undefined);
-		assert.strictEqual(state.autolinkedIssues.get(), undefined);
-		assert.strictEqual(state.pullRequest.get(), undefined);
-		assert.strictEqual(state.signature.get(), undefined);
+		assert.strictEqual(state.commitFrom.get(), undefined);
+		assert.strictEqual(state.reachability.get(), undefined);
+		assert.strictEqual(state.reachabilityState.get(), 'idle');
+	});
+
+	test('a fetch seeding a new repo survives the render-target trigger that follows it', async () => {
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+		const reachability = { partial: true, refs: [{ name: 'feature/git-health', refType: 'branch' }] } as any;
+
+		// Land on /repo1 first so the next fetch is a genuine cross-repo switch.
+		await actions.fetchDetails('c1', '/repo1');
+		await actions.fetchDetails('c2', '/repo2', reachability);
+
+		// `hostUpdate`'s trigger fires after `willUpdate`'s fetch. It must not clobber the graph-seeded
+		// reachability: nothing re-seeds it (the `_lastFetchedKey` dedup early-outs), so a wipe here
+		// stranded the branch indicator at `idle` until the user forced a redundant git call.
+		actions.resetRepoScopedStateOnSwitch('/repo2');
+		assert.strictEqual(state.reachability.get(), reachability, 'graph-seeded reachability must survive');
+		assert.strictEqual(state.reachabilityState.get(), 'loaded');
+	});
+
+	test('resetRepoScopedStateOnSwitch clears when the fetched repo differs', async () => {
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		await actions.fetchDetails('c1', '/repo1');
+		state.wipAutolinks.set([{ id: 'auto1' } as any]);
+
+		actions.resetRepoScopedStateOnSwitch('/repo2');
+		assert.strictEqual(state.commit.get(), undefined);
+		assert.strictEqual(state.wipAutolinks.get(), undefined);
+	});
+
+	test('resetRepoScopedStateOnSwitch defers to an active mode or an open compare sheet', async () => {
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		// An active mode owns its own in-flight fetches — resetting would clobber `branchCommitsFetching`
+		// back to false mid-air, stranding the picker in "no items + not loading".
+		await actions.fetchDetails('c1', '/repo1');
+		state.activeMode.set('compose');
+		state.branchCommitsFetching.set(true);
+		actions.resetRepoScopedStateOnSwitch('/repo2');
+		assert.strictEqual(state.branchCommitsFetching.get(), true, 'an in-flight mode fetch must not be clobbered');
+		state.activeMode.set(null);
+
+		// An open compare sheet is anchored to its own refs.
+		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
+		state.commit.set(commit);
+		state.compareSheetOpen.set(true);
+		actions.resetRepoScopedStateOnSwitch('/repo2');
+		assert.strictEqual(state.commit.get(), commit, 'an open compare sheet keeps its repo-scoped state');
 	});
 
 	test('resetRepoScopedState keeps enrichment caches matching the target repo', () => {

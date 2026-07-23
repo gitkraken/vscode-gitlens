@@ -420,12 +420,17 @@ export interface GraphConfig {
 	};
 	readonly avatars: boolean;
 	readonly branchesVisibility: GraphBranchesVisibility;
+	readonly changesColumn: {
+		readonly enabled: boolean;
+		readonly mode: 'numbers' | 'squares' | 'bar' | 'bipolar';
+	};
 	readonly commitOrdering: 'date' | 'author-date' | 'topo';
 	readonly dateFormat: DateTimeFormat | string | null;
 	readonly dateStyle: DateStyle | null;
 	readonly defaultItemLimit: number;
 	readonly details: {
 		readonly location: 'auto' | 'right' | 'bottom';
+		readonly maximizeOnMode: boolean;
 	};
 	readonly dimMergeCommits: boolean;
 	readonly editorOpeningBehavior: 'auto' | 'active';
@@ -493,6 +498,7 @@ export interface GraphConfig {
 	};
 	readonly stickyTimeline: boolean;
 	readonly style: 'auto' | 'table' | 'list';
+	readonly timelineSeparators: boolean;
 }
 
 interface HeatmapConfig {

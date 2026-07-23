@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
-import { getSignatureStatusInfo } from './signature.utils.js';
+import { getSignatureState, getSignatureStatusInfo } from './signature.utils.js';
 import '../code-icon.js';
 import '../copy-container.js';
 import './signature-badge.js';
@@ -81,6 +81,25 @@ export class GlSignatureDetails extends LitElement {
 		gl-copy-container:hover code-icon {
 			color: var(--vscode-foreground);
 		}
+
+		.signature-action {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.3rem;
+			width: fit-content;
+			margin-top: 0.15rem;
+			color: var(--vscode-textLink-foreground);
+			text-decoration: none;
+		}
+
+		.signature-action:hover {
+			color: var(--vscode-textLink-activeForeground);
+		}
+
+		/* Only underline the text label on hover, not the leading icon. */
+		.signature-action:hover .signature-action-label {
+			text-decoration: underline;
+		}
 	`;
 
 	@property({ type: String })
@@ -88,6 +107,10 @@ export class GlSignatureDetails extends LitElement {
 
 	@property({ type: Object })
 	signature?: CommitSignatureShape;
+
+	/** When set, an unverified SSH signature offers a link to add the signer to the repo's `allowed_signers` file. */
+	@property({ type: String })
+	repoPath?: string;
 
 	private getFormatLabel(format: string | undefined): string {
 		switch (format) {
@@ -125,6 +148,25 @@ export class GlSignatureDetails extends LitElement {
 		`;
 	}
 
+	private renderAddAction() {
+		// Only offer to trust the signer for an SSH signature that isn't verified yet (not trusted, not tampered),
+		// and only when a repo is known so the editor can be scoped to it.
+		if (this.repoPath == null || this.signature?.format !== 'ssh') return nothing;
+		if (getSignatureState(this.signature, this.committerEmail) !== 'unknown') return nothing;
+
+		// Pass this commit's signer fingerprint so the editor pre-checks only that signer (not every discovered one).
+		const args = encodeURIComponent(JSON.stringify([null, this.repoPath, this.signature.fingerprint]));
+		return html`
+			<a
+				class="signature-action"
+				href="command:gitlens.git.editAllowedSigners?${args}"
+				title="Open the SSH Allowed Signers editor"
+			>
+				<code-icon icon="key"></code-icon><span class="signature-action-label">Add to allowed signers…</span>
+			</a>
+		`;
+	}
+
 	override render() {
 		if (this.signature == null) return nothing;
 
@@ -143,7 +185,7 @@ export class GlSignatureDetails extends LitElement {
 								: nothing}
 						</div>
 						${info.detail ? html`<div class="signature-status-detail">${info.detail}</div>` : nothing}
-						${this.renderKeyLine()}
+						${this.renderKeyLine()} ${this.renderAddAction()}
 					</div>
 				</div>
 			</div>

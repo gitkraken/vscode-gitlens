@@ -6,19 +6,38 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds an empty state to the _Commit Graph_ when no repository is open &mdash; offers _Open a Folder_, _Clone a Repository_, and _Start a New Project_ actions to get started; in web/virtual environments (e.g. vscode.dev) clone and new-project are replaced by an _Open Remote Repository_ action ([#5408](https://github.com/gitkraken/vscode-gitlens/issues/5408))
+- Adds a sign-in screen to the _Commit Graph_ for signed-out users &mdash; when no account is connected, the graph is replaced by a _Get Started with GitLens_ screen offering _Create Free Account_ and _Sign In_ actions; when the connected account's email is unverified, it shows a _Verify your email_ prompt with _Resend Email_ and _Synchronize Status_ actions instead
+- Adds a _Resume Agent Session..._ option to working tree (WIP) rows in the _Commit Graph_ &mdash; right-click a WIP row to pick from that worktree's AI agent sessions, opening live sessions or resuming past ones, even when no session is currently active on the row
+- Adds support for Gemini 3.6 Flash and Gemini 3.5 Flash-Lite AI models
+
 ### Changed
 
 - Changes the default _Commit Graph_ lane colors for dark and high-contrast themes to a new vibrant, perceptually-uniform palette &mdash; every lane shares the same perceived brightness so no lane visually dominates; light themes keep the previous colors, and any `gitlens.graphLane1Color`&ndash;`gitlens.graphLane10Color` customizations in `workbench.colorCustomizations` are still honored
 - Changes the _Commit Graph_ sidebar to be unpinned by default &mdash; the sidebar now floats over the graph and auto-collapses when it loses focus; pin it (or set `gitlens.graph.sidebar.pinned` to `true`) to restore the previous shared-space layout ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
 
+### Fixed
+
+- Fixes the _Commit Graph_ header's account/subscription state never updating after the view loads &mdash; sign-in/sign-out, organization switches, and plan changes (including the subscription simulator) now update the header live instead of requiring a reload; the same underlying fix also keeps account and organization state live in _Commit Details_ and organization AI/drafts settings live in the _Home_ view ([#5513](https://github.com/gitkraken/vscode-gitlens/issues/5513))
+- Fixes the _Commit Graph_ working changes (WIP) details continuing to show files after they were committed or discarded outside of VS Code (e.g. from a terminal)
+- Fixes the _Commit Graph_ view's progress indicator repeatedly flashing while nothing appears to change (most noticeable after the VS Code window regains focus) &mdash; last-fetched updates now coalesce into a single pending update instead of queuing one per `FETCH_HEAD` change
+- Fixes the _Commit Graph_ sidebar list hovers repeatedly opening and closing in narrow viewports &mdash; when there's no room beside the list the hover now falls back below/above the row instead of flipping over the pointer, and moving the pointer into the hover keeps it open (like VS Code's own tree hovers) instead of dismissing it
+
 ### Removed
 
 - Removes the _Pro_ feature badge from the _Commit Graph_ header &mdash; the _Start New_ menu now occupies that area ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
+
+### Fixed
+
+- Fixes self-managed cloud integrations (e.g. GitHub Enterprise, GitLab Self-Hosted) repeatedly issuing a token request that the server rejects on every session refresh, and legacy connections getting stuck reported as connected with no usable token &mdash; the per-connection token fetch no longer uses the host domain as the token id, and a connection whose token can no longer be fetched is now cleanly disconnected instead of left token-less ([#5497](https://github.com/gitkraken/vscode-gitlens/issues/5497))
 
 ## [18.3.0] - 2026-07-09
 
 ### Added
 
+- Adds an _Edit SSH Allowed Signers_ editor &mdash; opened from the Command Palette, or via an _Add to allowed signers…_ action shown on an unverified SSH signature in a commit's signature details (_Inspect_ view / commit hover) &mdash; that builds an SSH `allowed_signers` file so Git can verify SSH-signed commits &mdash; discovers candidate signers by extracting the full public key embedded in this repository's SSH-signed commits (offline, works with any host) and, when a GitHub or GitLab integration is connected, cross-checks them against each signer's registered SSH signing keys (marking keys as signed-here, provider-verified, or both); lets you review signers (avatar, email, fingerprint, provenance, signed-commit count), choose which to include, pick the target file path, and optionally point `gpg.ssh.allowedSignersFile` at it (globally or for the current repository) &mdash; merging into any existing file without clobbering manual entries ([#5469](https://github.com/gitkraken/vscode-gitlens/issues/5469))
 - Adds ConfigCat-based feature flag service for A/B testing and experimentation support ([#5092](https://github.com/gitkraken/vscode-gitlens/issues/5092))
 - Adds an optional `avatar` URL template to custom remotes in the `gitlens.remotes` setting &mdash; enables corporate and self-hosted setups to resolve commit-author avatars via a templated URL with `${email}`, `${emailName}`, `${domain}`, and `${size}` tokens; identity values are component-encoded before interpolation to keep attacker-controllable commit emails from injecting URL-structural characters, and templates configured via workspace settings require explicit user approval on first use in a trusted workspace (revocable via _GitLens: Reset > Approved Avatar URL Templates..._) ([#302](https://github.com/gitkraken/vscode-gitlens/issues/302), [#5155](https://github.com/gitkraken/vscode-gitlens/pull/5155)) &mdash; thanks to [PR #1636](https://github.com/gitkraken/vscode-gitlens/pull/1636) by Tmk ([@tmkx](https://github.com/tmkx))
 - Adds the ability to stash or copy a patch of only the selected files from the working tree (WIP) file list in the _Inspect_ and _Commit Graph_ views &mdash; selecting 2+ files retargets the _Stash_ and _Copy (Patch)_ toolbar buttons to the selection, with the whole-scope action available by holding Alt, plus a matching multi-select _Copy Changes (Patch)_ context menu command ([#5384](https://github.com/gitkraken/vscode-gitlens/issues/5384))

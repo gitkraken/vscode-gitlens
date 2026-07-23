@@ -32,21 +32,19 @@ export class GiteaRemoteProvider extends RemoteProvider {
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		if (this._autolinks === undefined) {
-			this._autolinks = [
-				...super.autolinks,
-				{
-					prefix: '#',
-					url: this.issueLinkPattern,
-					alphanumeric: false,
-					ignoreCase: false,
-					title: `Open Issue #<num> on ${this.name}`,
+		this._autolinks ??= [
+			...super.autolinks,
+			{
+				prefix: '#',
+				url: this.issueLinkPattern,
+				alphanumeric: false,
+				ignoreCase: false,
+				title: `Open Issue #<num> on ${this.name}`,
 
-					type: 'issue',
-					description: `${this.name} Issue #<num>`,
-				},
-			];
-		}
+				type: 'issue',
+				description: `${this.name} Issue #<num>`,
+			},
+		];
 		return this._autolinks;
 	}
 

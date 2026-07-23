@@ -1,14 +1,13 @@
-import type { GlCommands } from '../../../../../constants.commands.js';
-import type { GraphSidebarBranchesActionName } from '../../../../../constants.telemetry.js';
 import type { GraphSidebarBranch } from '../../../../plus/graph/protocol.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 
 /**
  * Builds the inline actions for a branch leaf in the branches sidebar panel.
  *
- * Every command (action/altAction) produced here must resolve in
- * {@link branchActionsToTelemetryNames} — otherwise `graph/branches/branchAction` telemetry
- * silently drops it. Guarded by `__tests__/branchActions.utils.test.ts`.
+ * Every command (action/altAction) produced here must resolve in the shared
+ * `sidebarItemActions.branch` table (graphSidebarActionTelemetry.ts) — otherwise
+ * `graph/branches/branchAction` telemetry silently drops it. Guarded by
+ * `__tests__/branchActions.utils.test.ts`.
  */
 export function getBranchLeafActions(b: GraphSidebarBranch): TreeItemAction[] {
 	const actions: TreeItemAction[] = [];
@@ -73,17 +72,3 @@ export function getBranchLeafActions(b: GraphSidebarBranch): TreeItemAction[] {
 
 	return actions;
 }
-
-/** Maps the commands produced by {@link getBranchLeafActions} to `graph/branches/branchAction`
- *  telemetry action names. Unknown commands are dropped silently, so keep this in sync. */
-export const branchActionsToTelemetryNames: Partial<Record<GlCommands, GraphSidebarBranchesActionName>> = {
-	'gitlens.switchToBranch:graph': 'switch',
-	'gitlens.switchToAnotherBranch:graph': 'switch',
-	'gitlens.fetch:graph': 'fetch',
-	'gitlens.graph.pull': 'pull',
-	'gitlens.graph.push': 'push',
-	'gitlens.graph.compareBranchWithHead': 'compareWithHead',
-	'gitlens.graph.compareWithWorking': 'compareWithWorking',
-	'gitlens.openWorktree:graph': 'openWorktree',
-	'gitlens.openWorktreeInNewWindow:graph': 'openWorktreeInNewWindow',
-};

@@ -60,6 +60,40 @@ export function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal): Pro
 }
 
 /**
+ * Races a promise against a timeout. If `ms` elapses before the promise settles, the returned promise
+ * rejects with `CancellationError`. If the promise settles first, the timer is cleared. Parallels
+ * `raceWithSignal`, with a timer standing in for the signal.
+ *
+ * When `abortOnTimeout` is provided, it is aborted on timeout — so a caller can link the underlying operation to
+ * it (e.g. via `AbortSignal.any`) and have it torn down instead of orphaned. Abort is best-effort (a truly-stuck
+ * op may ignore it); the returned promise rejects on timeout regardless of whether the underlying op settles.
+ */
+export function raceWithTimeout<T>(promise: Promise<T>, ms: number, abortOnTimeout?: AbortController): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const timer = setTimeout(() => {
+			const error = new CancellationError(new Error(`Timed out after ${ms}ms`));
+			abortOnTimeout?.abort(error);
+			reject(error);
+		}, ms);
+		// Don't let the timeout timer keep a (Node) process alive on its own — a still-pending promise shouldn't
+		// hold the event loop open just for its backstop (no-op in the browser, where setTimeout returns a number).
+		if (typeof timer !== 'number') {
+			timer.unref();
+		}
+		promise.then(
+			v => {
+				clearTimeout(timer);
+				resolve(v);
+			},
+			(e: unknown) => {
+				clearTimeout(timer);
+				reject(e instanceof Error ? e : new Error(String(e)));
+			},
+		);
+	});
+}
+
+/**
  * Aggregates multiple caller `AbortSignal`s into a single signal that
  * only fires when **all** callers have cancelled (the inverse of `AbortSignal.any()`).
  *
@@ -71,7 +105,8 @@ export function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal): Pro
 export class AbortAggregate {
 	private readonly controller = new AbortController();
 	private activeCount = 0;
-	private readonly cleanups = new Map<AbortSignal, () => void>();
+	/** One listener-remover per registration (NOT keyed by signal), so adding the same signal twice is safe. */
+	private readonly cleanups = new Set<() => void>();
 
 	/** The aggregate signal — only fires when all callers have cancelled. */
 	get signal(): AbortSignal {
@@ -83,6 +118,8 @@ export class AbortAggregate {
 	 * - If `cancellation` is provided, the caller is auto-removed when it fires.
 	 * - If `cancellation` is `undefined`, the caller is "permanent" — the aggregate
 	 *   can never fire while it's active. Call the returned cleanup on promise settle.
+	 * - The same signal instance may safely be added more than once — each registration is tracked and cleaned up
+	 *   independently, so no listener leaks.
 	 * @returns A cleanup function to unregister the caller.
 	 */
 	add(cancellation?: AbortSignal): () => void {
@@ -101,17 +138,29 @@ export class AbortAggregate {
 			return () => {};
 		}
 
+		// Track this registration's listener removal individually (a Set of removers, NOT keyed by the signal) so
+		// adding the same signal twice can't overwrite the other's cleanup. `settled` keeps both exit paths (abort
+		// vs. manual cleanup) idempotent and preserves the accounting: only `onAbort` decrements `activeCount`.
+		let settled = false;
+		let remove: () => void;
 		const onAbort = () => {
-			this.cleanups.delete(cancellation);
+			if (settled) return;
+
+			settled = true;
+			this.cleanups.delete(remove);
 			this.activeCount--;
 			this.checkAbort();
 		};
+		remove = () => cancellation.removeEventListener('abort', onAbort);
 		cancellation.addEventListener('abort', onAbort, { once: true });
-		this.cleanups.set(cancellation, () => cancellation.removeEventListener('abort', onAbort));
+		this.cleanups.add(remove);
 
 		return () => {
-			this.cleanups.get(cancellation)?.();
-			this.cleanups.delete(cancellation);
+			if (settled) return;
+
+			settled = true;
+			this.cleanups.delete(remove);
+			remove();
 		};
 	}
 
@@ -123,8 +172,8 @@ export class AbortAggregate {
 
 	/** Remove all abort listeners. Call when the cached promise settles. */
 	dispose(): void {
-		for (const cleanup of this.cleanups.values()) {
-			cleanup();
+		for (const remove of this.cleanups) {
+			remove();
 		}
 		this.cleanups.clear();
 	}

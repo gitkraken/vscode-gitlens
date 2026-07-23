@@ -57,9 +57,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			}
 
 			if (args.line !== undefined && args.line !== 0) {
-				if (args.showOptions === undefined) {
-					args.showOptions = {};
-				}
+				args.showOptions ??= {};
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 

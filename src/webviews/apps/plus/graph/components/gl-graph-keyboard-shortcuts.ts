@@ -43,9 +43,21 @@ const commitGroup: ShortcutGroup = {
 	title: 'Commit',
 	shortcuts: [{ chords: [[ctrlOrCmd, 'Enter']], description: 'Commit staged changes (in commit box)' }],
 };
-const otherGroup: ShortcutGroup = {
+// Split per-engine: the lane-highlight hold modifier differs (new engine = Alt-hover; old = Ctrl/Cmd
+// dim), while the Esc row is shared chrome present in both.
+const litOtherGroup: ShortcutGroup = {
 	title: 'Other',
-	shortcuts: [{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' }],
+	shortcuts: [
+		{ chords: [[alt]], description: 'Hold while hovering a row or ref to highlight its branch lane' },
+		{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' },
+	],
+};
+const legacyOtherGroup: ShortcutGroup = {
+	title: 'Other',
+	shortcuts: [
+		{ chords: [[ctrlOrCmd]], description: "Hold to dim rows outside the selected commit's lane" },
+		{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' },
+	],
 };
 
 // New engine — mirrors the Lit graph's `onKeydown` (navigation + open + fold).
@@ -84,10 +96,11 @@ const litNavigationGroup: ShortcutGroup = {
 			],
 			description: 'Select previous / next ref',
 		},
-		{ chords: [['H']], description: 'Select HEAD commit' },
+		{ chords: [['H']], description: 'Select HEAD commit (hold Shift for its upstream)' },
+		{ chords: [['Esc']], description: 'Clear selection' },
 	],
 };
-const litGroups: ShortcutGroup[] = [litNavigationGroup, openGroup, searchGroup, commitGroup, otherGroup];
+const litGroups: ShortcutGroup[] = [litNavigationGroup, openGroup, searchGroup, commitGroup, litOtherGroup];
 
 // Old engine — mirrors gitkraken-components GraphContainer's keydown handler.
 const legacyNavigationGroup: ShortcutGroup = {
@@ -125,10 +138,10 @@ const legacyNavigationGroup: ShortcutGroup = {
 			],
 			description: 'Select previous / next ref',
 		},
-		{ chords: [['H']], description: 'Select HEAD commit' },
+		{ chords: [['H']], description: 'Select HEAD commit (hold Shift for its upstream)' },
 	],
 };
-const legacyGroups: ShortcutGroup[] = [legacyNavigationGroup, openGroup, searchGroup, commitGroup, otherGroup];
+const legacyGroups: ShortcutGroup[] = [legacyNavigationGroup, openGroup, searchGroup, commitGroup, legacyOtherGroup];
 
 @customElement('gl-graph-keyboard-shortcuts')
 export class GlGraphKeyboardShortcuts extends LitElement {

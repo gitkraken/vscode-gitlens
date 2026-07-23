@@ -3,18 +3,29 @@ import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-grap
 import type { GraphCommit, ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 import type { LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
 import { graphEdgeFadePx, rowShiftedGutterWidth } from '@gitkraken/commit-graph/laneClamp.js';
+import type { ChangesColumnMode, RowStats } from '@gitkraken/commit-graph/stats.js';
+import {
+	changesModeOrDefault,
+	changesTrackWidth,
+	computeChangesBarWidths,
+	computeChangesBipolarWidths,
+	computeChangesSquares,
+	formatChangesFiles,
+} from '@gitkraken/commit-graph/stats.js';
 import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle, ZoneSpec } from '@gitkraken/commit-graph/view.js';
 import { relativeTime, rowGutterWidth, xForColumn } from '@gitkraken/commit-graph/view.js';
 import type { TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { pluralize } from '@gitlens/utils/string.js';
+import { agentSuffixIconFor } from '../../../shared/agentUtils.js';
 import type { StyleInfo } from '../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOperationStatus.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
-import { agentIndicatorTooltipFor, agentSuffixIconFor } from '../components/wipRowAgentStatus.js';
+import { agentIndicatorTooltipFor } from '../components/wipRowAgentStatus.js';
 import type { GutterCache } from './graph-gutter-cache.js';
 import type { NodeStyle } from './graph-gutter.js';
 import { nodeRadiusFor } from './graph-gutter.js';
@@ -38,6 +49,10 @@ export interface RowRenderContext {
 	index: number;
 	total: number;
 	rowHeight: number;
+	/** Sticky-timeline hairline: this row's bucket (Today/Yesterday/This week/...) differs from the row
+	 *  above it — renders a `.gl-graph__row-timeline-sep` overlay (1px, no row/height cost; fades out
+	 *  before the lane gutter — see graph.scss). See `gl-lit-graph.ts`'s `renderRowItem`. */
+	isBucketBoundary?: boolean;
 	/** Fixed standalone graph-column width (used in `column` placement) — the lane-art width, NOT
 	 *  including the fold strip (see `foldLaneWidth`). */
 	gutterWidth: number;
@@ -58,6 +73,9 @@ export interface RowRenderContext {
 	/** The revealed lane offset (px) backing `groupedShifted` — 0 when unshifted. */
 	laneOffset?: number;
 	columnWidth: number;
+	/** Shared ref to the host's per-sha diffstat map (files/additions/deletions) driving the Changes
+	 *  column; an absent key means that row's stats are still pending (the cell renders blank). */
+	rowsStats?: Readonly<Record<string, RowStats>>;
 	/** Narrowest graph-column width: render nodes as a single dot rail (no lane spread / connectors). */
 	singleColumn?: boolean;
 	/** Lane build window (deep scrolled graphs) — edge art wholly outside it is skipped in the gutter
@@ -78,6 +96,10 @@ export interface RowRenderContext {
 	graphPlacement: GraphPlacement;
 	/** Visible-column slot the graph occupies in column mode (interleaved among the zone cells). */
 	graphColumnPos: number;
+	/** When the graph is grouped, the host zone id its lanes render on — BY ID, not position — so the
+	 *  [graph + host] pair travels together through reorders. Undefined when not grouped, or grouped with
+	 *  no resolvable host (falls back to `graphColumnPos`'s anchor-slot clamp). */
+	graphHostId?: string;
 	/** Where refs render: `grouped` = pills at the head of the first content column (default); `column`
 	 *  = a dedicated Refs column (expanded density only). Drives whether refs prepend inline. */
 	refsPlacement: RefsPlacement;
@@ -111,6 +133,9 @@ export interface RowRenderContext {
 	/** Commit/merge-only: resolved Undo Commit target (leaf worktree HEAD), when undo is offered. The
 	 *  optional `worktreePath` routes the undo to a non-active worktree; `branchName` labels the button. */
 	undoTarget?: { worktreePath?: string; branchName?: string };
+	/** Commit/merge-only: a WIP/workdir row sits on this commit (it's a worktree branch tip) — gates the
+	 *  Jump to Working Changes action (the inverse of the WIP row's Jump to Branch Tip). */
+	hasWipRow?: boolean;
 	/** Right-click context for the author avatar zone (contributor menu) — stamped on the avatar element
 	 *  itself so it's NEARER than the row's own `commit.contextData` and wins there. */
 	avatarVscodeContext?: string;
@@ -281,13 +306,19 @@ function renderGhostRefPill(ghost: NonNullable<RowRenderContext['ghostRef']>, co
 	>`;
 }
 
-/** The author avatar (image, or author initials when no image). Only in dot node-mode — in avatar
- *  node-mode the graph node IS the avatar, so showing it again would duplicate. Workdir/WIP rows have
- *  no author, so they get no avatar (and thus no reserved avatar gap). A plain <img> (not <gl-avatar>)
- *  — the row already shows the author name + a full rich hover, so the avatar's own hover/tooltip
- *  would be redundant; all we need here is the image. */
-function renderAvatar(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult | typeof nothing {
-	if (ctx.nodeMode !== 'compact' || row.kind === 'workdir') return nothing;
+/** The author avatar (image, or author initials when no image). Normally only in dot node-mode — in
+ *  avatar node-mode the graph node IS the avatar, so showing it again would duplicate — but `forceAvatar`
+ *  overrides that: the min-width author cell drops the name and shows the avatar as the sole identity cue.
+ *  Workdir/WIP rows have no author, so they get no avatar (and thus no reserved avatar gap). A plain <img>
+ *  (not <gl-avatar>) — the row already shows the author name + a full rich hover, so the avatar's own
+ *  hover/tooltip would be redundant; all we need here is the image. */
+function renderAvatar(
+	row: ProcessedGraphRow,
+	ctx: RowRenderContext,
+	forceAvatar = false,
+): TemplateResult | typeof nothing {
+	if (row.kind === 'workdir') return nothing;
+	if (ctx.nodeMode !== 'compact' && !forceAvatar) return nothing;
 
 	const url = ctx.avatars ? ctx.avatarUrl : undefined;
 	// Nearer than the row's own `data-vscode-context` (the commit context), so a click ON the avatar
@@ -312,8 +343,10 @@ function renderAvatar(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateRe
 }
 
 /** The author avatar + name (expanded author cell). No per-cell tooltip — the full-row rich
- *  hover covers author/email/date/sha/message details. */
-function renderAuthor(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult {
+ *  hover covers author/email/date/sha/message details. At the column's min width the name can't fit,
+ *  so drop it and show just the avatar (forced on even in avatar node-mode) as the identity cue. */
+function renderAuthor(row: ProcessedGraphRow, ctx: RowRenderContext, atMinWidth: boolean): TemplateResult {
+	if (atMinWidth) return html`${renderAvatar(row, ctx, true)}`;
 	return html`${renderAvatar(row, ctx)}<span class="gl-graph__author">${ctx.commit.author}</span>`;
 }
 
@@ -382,6 +415,118 @@ function renderMessageContent(message: string): TemplateResult {
 	return result;
 }
 
+// The Changes cell's tooltip + aria text: "N files changed, N lines added, N lines deleted", each part
+// omitted when zero. `pluralize` thousands-separates ≥4-digit counts. Cached by the stable stats object
+// (both the memoized cell and the per-row aria path read it, the latter every render for every row).
+const changesAriaTextCache = new WeakMap<RowStats, string>();
+function changesAriaText(stats: RowStats): string {
+	let text = changesAriaTextCache.get(stats);
+	if (text != null) return text;
+
+	const parts: string[] = [];
+	if (stats.files) {
+		parts.push(`${pluralize('file', stats.files)} changed`);
+	}
+	if (stats.additions) {
+		parts.push(`${pluralize('line', stats.additions)} added`);
+	}
+	if (stats.deletions) {
+		parts.push(`${pluralize('line', stats.deletions)} deleted`);
+	}
+	text = parts.join(', ');
+	changesAriaTextCache.set(stats, text);
+	return text;
+}
+
+// The Changes column's per-row cell: files count + hairline + the mode's magnitude viz. Pure fn of
+// (stats, mode); plain spans only (no per-row custom elements); absent stats = pending → `nothing`.
+// Memoized by (stats, mode): the SAME TemplateResult on a hit lets Lit skip the cell's subtree.
+const changesCellCache = new WeakMap<RowStats, Partial<Record<ChangesColumnMode, TemplateResult>>>();
+function renderChangesCell(
+	zone: ZoneSpec,
+	row: ProcessedGraphRow,
+	ctx: RowRenderContext,
+): TemplateResult | typeof nothing {
+	if (ctx.skeleton) return nothing;
+
+	const stats = ctx.rowsStats?.[row.sha];
+	if (stats == null) return nothing;
+
+	const mode = changesModeOrDefault(zone.mode);
+	let byMode = changesCellCache.get(stats);
+	const cached = byMode?.[mode];
+	if (cached != null) return cached;
+
+	// No data-tooltip here: a tooltip-bearing element suppresses the row hover card (tooltip exclusivity),
+	// and the stats already ride the row's aria-label + hover surface.
+	const result = html`<span class="gl-graph__changes"
+		><span class="gl-graph__changes-files"
+			><span class="codicon codicon-files gl-graph__changes-files-icon" aria-hidden="true"></span
+			><span class="gl-graph__changes-files-count">${formatChangesFiles(stats.files)}</span></span
+		>${renderChangesViz(mode, stats)}</span
+	>`;
+	byMode ??= {};
+	byMode[mode] = result;
+	changesCellCache.set(stats, byMode);
+	return result;
+}
+
+// The mode-specific magnitude visualization inside the Changes cell. Segment widths flow through
+// `cspStyleMap` (the graph webview's CSP forbids inline style attributes); colors come from graph.scss.
+function renderChangesViz(mode: ChangesColumnMode, stats: RowStats): TemplateResult {
+	const { additions, deletions } = stats;
+	switch (mode) {
+		case 'numbers':
+			// U+2212 MINUS SIGN (not an ASCII hyphen) so the deletions read as a true minus at this weight.
+			return html`<span class="gl-graph__changes-numbers"
+				><span class="gl-graph__changes-added">+${additions}</span
+				><span class="gl-graph__changes-deleted">−${deletions}</span></span
+			>`;
+		case 'squares': {
+			const squares = computeChangesSquares(additions, deletions);
+			return html`<span class="gl-graph__changes-squares"
+				><span class="gl-graph__changes-churn">${additions + deletions}</span
+				><span class="gl-graph__changes-squares-cells"
+					>${squares.map(
+						fill => html`<span class="gl-graph__changes-square gl-graph__changes-square--${fill}"></span>`,
+					)}</span
+				></span
+			>`;
+		}
+		case 'bipolar': {
+			// Widths as PERCENTAGES of the (CSS-sized, responsive) track — the math stays px-vs-78 so the
+			// magnitude scale is unchanged at the default width, and the cached template stays zone-independent.
+			const { addedWidth, deletedWidth } = computeChangesBipolarWidths(additions, deletions);
+			const half = changesTrackWidth / 2;
+			return html`<span class="gl-graph__changes-bipolar"
+				><span class="gl-graph__changes-bipolar-axis" aria-hidden="true"></span
+				><span
+					class="gl-graph__changes-bipolar-deleted"
+					style=${cspStyleMap({ width: `${((deletedWidth / half) * 50).toFixed(2)}%` })}
+				></span
+				><span
+					class="gl-graph__changes-bipolar-added"
+					style=${cspStyleMap({ width: `${((addedWidth / half) * 50).toFixed(2)}%` })}
+				></span
+			></span>`;
+		}
+		default: {
+			// 'bar' — the churn-magnitude fill split into added/deleted segments, as % of the responsive track.
+			const { addedWidth, deletedWidth } = computeChangesBarWidths(additions, deletions);
+			return html`<span class="gl-graph__changes-bar"
+				><span
+					class="gl-graph__changes-bar-added"
+					style=${cspStyleMap({ width: `${((addedWidth / changesTrackWidth) * 100).toFixed(2)}%` })}
+				></span
+				><span
+					class="gl-graph__changes-bar-deleted"
+					style=${cspStyleMap({ width: `${((deletedWidth / changesTrackWidth) * 100).toFixed(2)}%` })}
+				></span
+			></span>`;
+		}
+	}
+}
+
 /**
  * Inner content of a expanded zone cell (no leading gutter/refs — those go on the first zone).
  * Plain function (not a per-row closure factory) so it allocates nothing extra per visible row.
@@ -436,8 +581,13 @@ function renderZoneContent(
 	ctx: RowRenderContext,
 	relativeDate: string | undefined,
 ): TemplateResult | typeof nothing {
-	// Workdir/WIP rows carry no author/date/sha — leave those cells empty so columns align.
-	if (row.kind === 'workdir' && (zone.id === 'author' || zone.id === 'datetime' || zone.id === 'sha')) return nothing;
+	// Workdir/WIP rows carry no author/date/sha/changes — leave those cells empty so columns align.
+	if (
+		row.kind === 'workdir' &&
+		(zone.id === 'author' || zone.id === 'datetime' || zone.id === 'sha' || zone.id === 'changes')
+	) {
+		return nothing;
+	}
 
 	switch (zone.id) {
 		case 'ref': {
@@ -455,11 +605,13 @@ function renderZoneContent(
 					? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
 					: nothing}<span class="gl-graph__message">${renderMessageContent(ctx.commit.message)}</span>`;
 		case 'author':
-			return renderAuthor(row, ctx);
+			return renderAuthor(row, ctx, zone.width <= zone.minWidth);
 		case 'datetime':
 			return html`<span class="gl-graph__date">${relativeDate ?? ''}</span>`;
 		case 'sha':
 			return html`<span class="gl-graph__sha">${ctx.commit.shortHash}</span>`;
+		case 'changes':
+			return renderChangesCell(zone, row, ctx);
 		default:
 			return nothing;
 	}
@@ -507,6 +659,30 @@ function renderActionStatus(icon: string | null | undefined, spin: boolean): Tem
 		: nothing;
 }
 
+/** Whether a row's action strip has a PERSISTENT button (agent attached, an active resolve/compose/
+ *  review op, or an unpushed commit) — i.e. it switches to per-button `--has-persistent` mode instead of
+ *  the whole-strip hover/focus/selected fade. NOT simply `kind === 'workdir'` — a workdir row with no
+ *  agent/active op is JUST as hover-gated as a commit row. Exported so callers outside the row template
+ *  (the sticky-timeline pill's yield-to-row check) read the EXACT same decision `renderRowActions` makes
+ *  below, rather than re-deriving/drifting from it. */
+export function hasPersistentRowActions(
+	kind: ProcessedGraphRow['kind'],
+	wipAgent: WipRowAgentStatus | undefined,
+	wipOperation: RunningOperationBucket | undefined,
+	isUnpushed: boolean | undefined,
+): boolean {
+	if (kind === 'workdir') {
+		return (
+			wipAgent != null ||
+			wipOperation?.resolve != null ||
+			wipOperation?.compose != null ||
+			wipOperation?.review != null
+		);
+	}
+	if (kind === 'stash') return false;
+	return isUnpushed === true;
+}
+
 // Row-action strip (right-aligned): per row kind — workdir gets Resolve (conflicts only) / Compose /
 // Review / Stash-Save (+ an agent indicator when agents are attached), stash gets Apply/Drop, commit/
 // merge gets Undo (leaf worktree tip) / Open-Changes / Push-to-Commit (unpushed). Buttons carry
@@ -546,7 +722,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 
 			// Active compose/review stay visible at rest so their status icon reads; idle ones reveal on
 			// interaction. The agent indicator is always visible when present.
-			hasPersistent = agent != null || resolveActive || composeActive || reviewActive;
+			hasPersistent = hasPersistentRowActions(row.kind, agent, op, undefined);
 
 			actions = html`${agent != null
 					? html`<button
@@ -606,8 +782,18 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					data-tooltip="Stash All Changes..."
 					aria-label="Stash All Changes..."
 				>
-					<code-icon icon="gl-stash-save"></code-icon>
-				</button>`;
+					<code-icon icon="gl-stash-save"></code-icon></button
+				>${ctx.commit.parents[0] != null
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							data-jump-sha=${ctx.commit.parents[0]}
+							data-tooltip="Jump to Branch Tip"
+							aria-label="Jump to Branch Tip"
+						>
+							<code-icon icon="download"></code-icon>
+						</button>`
+					: nothing}`;
 			break;
 		}
 		case 'stash':
@@ -636,7 +822,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			// actions grow leftward; on pushed rows the whole strip stays hover-only (no persistent button).
 			const undo = ctx.undoTarget;
 			const isUnpushed = ctx.isUnpushed === true;
-			hasPersistent = isUnpushed;
+			hasPersistent = hasPersistentRowActions(row.kind, undefined, undefined, isUnpushed);
 			const undoLabel = undo?.branchName != null ? `Undo Commit on ${undo.branchName}` : 'Undo Commit';
 
 			actions = html`${undo != null
@@ -658,7 +844,17 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					aria-label="Open All Changes"
 				>
 					<code-icon icon="diff-multiple"></code-icon></button
-				>${isUnpushed
+				>${ctx.hasWipRow === true
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							data-jump-nearest-wip="true"
+							data-tooltip="Jump to Working Changes"
+							aria-label="Jump to Working Changes"
+						>
+							<code-icon icon="download" flip="block"></code-icon>
+						</button>`
+					: nothing}${isUnpushed
 					? html`<button
 							class="gl-graph__row-action gl-graph__row-action--persistent unpushed-push-button"
 							type="button"
@@ -687,6 +883,13 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// Format the relative date ONCE per row, then reuse for the date cell + both aria-label builds (one
 	// `new Date()` + Intl format per visible row instead of two producing the same string).
 	const relativeDate = ctx.commit.date ? (ctx.formatDate ?? relativeTime)(ctx.commit.date) : undefined;
+	// A11y: append the changes summary to the row label, but only when the Changes column is actually
+	// shown — announce only what's displayed. Skeleton rows keep the bare message label.
+	const changesStats = ctx.skeleton ? undefined : ctx.rowsStats?.[row.sha];
+	const changesText =
+		changesStats != null && ctx.zones.some(z => z.id === 'changes') ? changesAriaText(changesStats) : '';
+	// Zero-churn rows produce empty text — no dangling ", " on the label.
+	const changesAriaSuffix = changesText ? `, ${changesText}` : '';
 
 	const nodeStyle: NodeStyle = {
 		mode: ctx.nodeMode,
@@ -874,10 +1077,12 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// band stops at the START of the host column (the lanes' right edge), since a non-refs host owns its
 	// own content. `hidden` has no node, so it falls back to the thin left EDGE.
 	const isGraphColumn = ctx.graphPlacement === 'column';
-	// Which zone slot the lanes occupy: the graph's own slot (column) or — when inlined — its
-	// RIGHT-neighbor zone, so inlining combines the graph into the column to its right and never crams
-	// a leading Refs column with lane art. Clamped to the last zone.
-	const laneZoneIdx = Math.min(ctx.graphColumnPos, Math.max(0, ctx.zones.length - 1));
+	// Which zone slot the lanes occupy: the graph's own slot (column) or — when inlined — its grouped HOST
+	// zone, tracked BY ID (`graphHostId`) so it never crams a leading Refs column with lane art. Falls back
+	// to the anchor-slot clamp (last zone) when the host id is unset or no longer visible.
+	const graphHostIdx = ctx.graphHostId != null ? ctx.zones.findIndex(z => z.id === ctx.graphHostId) : -1;
+	const laneZoneIdx =
+		graphHostIdx >= 0 ? graphHostIdx : Math.min(ctx.graphColumnPos, Math.max(0, ctx.zones.length - 1));
 	const laneZone = ctx.zones[laneZoneIdx];
 	// Lead offset = total RENDERED width of every zone BEFORE the lanes (flex zones included — their
 	// solved `width` is the rendered width); the band (an absolute overlay) shifts right by it so it
@@ -927,9 +1132,9 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	if (ctx.style === 'list') {
 		body = renderListBody(row, ctx, inlineGutter, inlineRefs, relativeDate);
 	} else {
-		// Expanded: one cell per visible zone. The inline gutter hosts in the lanes' slot (`laneZoneIdx`
-		// — the graph's right-neighbor) so inlining combines into the column to its right; inline refs sit
-		// at the head of the first content zone. The cell holding the gutter is flush (no left padding).
+		// Expanded: one cell per visible zone. The inline gutter hosts in the lanes' slot (`laneZoneIdx` —
+		// the graph's grouped host, by id) so inlining combines into that column; inline refs sit at the
+		// head of the first content zone. The cell holding the gutter is flush (no left padding).
 		const cells: (TemplateResult | typeof nothing)[] = ctx.zones.map((zone, zoneIndex) => {
 			const gutterHere = ctx.graphPlacement === 'grouped' && zoneIndex === laneZoneIdx;
 			// Grouped refs render on their HOST zone by id (so the group moves as a unit); fall back to the
@@ -966,8 +1171,8 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		aria-label=${ctx.skeleton
 			? ctx.commit.message
 			: ctx.isAnchor && ctx.anchorKind != null
-				? `${anchorTitle(ctx.anchorKind, ctx.anchorAlsoFork)}. ${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}`
-				: buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}
+				? `${anchorTitle(ctx.anchorKind, ctx.anchorAlsoFork)}. ${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`
+				: `${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`}
 		data-sha=${row.sha}
 		data-index=${ctx.index}
 		data-focused=${ctx.isFocused || nothing}
@@ -995,6 +1200,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					data-tooltip=${anchorTitle(ctx.anchorKind, ctx.anchorAlsoFork)}
 				></span>`
 			: nothing}
+		${ctx.isBucketBoundary ? html`<div class="gl-graph__row-timeline-sep" aria-hidden="true"></div>` : nothing}
 		${leadingGraph}${body}${ctx.skeleton ? nothing : renderRowActions(row, ctx)}
 	</div>`;
 }

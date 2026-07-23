@@ -467,6 +467,50 @@ describe('WatchSession', () => {
 		});
 	});
 
+	describe('onDidFireWorkingTreeChange (global cache-clock forwarding)', () => {
+		it('fires with the repoPath BEFORE subscribers, so a synchronous status read sees the advanced clock', async () => {
+			const order: string[] = [];
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 20,
+				onDidFireWorkingTreeChange: p => order.push(`clock:${p}`),
+			});
+
+			const sub = session.subscribeToWorkingTree({ delayMs: 20 });
+			sub.onDidChangeWorkingTree(() => order.push('subscriber'));
+
+			session.pushWorkingTreeChanges(['/repo/a.ts']);
+			await delay(50);
+
+			assert.deepStrictEqual(order, ['clock:/repo', 'subscriber']);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('does not fire while suspended (no spurious clock advance)', async () => {
+			const fired: string[] = [];
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 20,
+				onDidFireWorkingTreeChange: p => fired.push(p),
+			});
+			const sub = session.subscribeToWorkingTree({ delayMs: 20 });
+
+			session.suspend();
+			session.pushWorkingTreeChanges(['/repo/a.ts']);
+			await delay(50);
+			assert.strictEqual(fired.length, 0, 'suspended: no clock advance');
+
+			session.resume();
+			await delay(50);
+			assert.deepStrictEqual(fired, ['/repo'], 'resume flushes exactly one clock advance');
+
+			sub.dispose();
+			session.dispose();
+		});
+	});
+
 	describe('fireChange (manual injection)', () => {
 		it('goes through debounce pipeline', async () => {
 			const session = new RepositoryWatchSession({
@@ -540,6 +584,26 @@ describe('WatchSession', () => {
 	});
 
 	describe('fireChangeImmediate', () => {
+		it('notifies the global forwarder BEFORE subscribers (same contract as flushRepo)', () => {
+			const order: string[] = [];
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				onDidFireRepoChange: () => order.push('clock'),
+			});
+
+			const sub = session.subscribe();
+			sub.onDidChange(() => order.push('subscriber'));
+
+			session.fireChangeImmediate('closed');
+
+			// Skipping the forwarder would route the change to subscribers that nobody advanced the clock for —
+			// they treat it as session-routed and (correctly) don't re-advance, so the cache would go stale.
+			assert.deepStrictEqual(order, ['clock', 'subscriber']);
+
+			sub.dispose();
+			session.dispose();
+		});
+
 		it('fires immediately, bypassing debounce and suspend', () => {
 			const session = new RepositoryWatchSession({ repoPath: '/repo' });
 

@@ -461,6 +461,280 @@ suite('PromiseCache Test Suite', () => {
 			assert.deepStrictEqual(captured, [], 'cleanup chain must not produce an unhandled rejection');
 		});
 	});
+
+	suite('delete while in flight, then recreate', () => {
+		test("the deleted entry's late settle does not clobber the successor's controller", async () => {
+			const cache = new PromiseCache<string, number>();
+
+			// Entry A is in flight (e.g. a slow `git status`).
+			const dA = deferred<number>();
+			const pA = cache.getOrCreate('k', () => dA.promise);
+
+			// A watcher tick hard-`delete`s the key, then a fresh read recreates it (entry B, still in flight).
+			cache.delete('k');
+			const dB = deferred<number>();
+			const pB = cache.getOrCreate('k', () => dB.promise);
+
+			// A settles late. Without the identity guard its cleanup deletes B's controller from the map.
+			dA.resolve(1);
+			await pA;
+			await flush();
+
+			// B is still in flight, so `invalidate` must take the SOFT path (mark the controller; entry
+			// stays joinable, self-evicts on settle). If A's settle had clobbered B's controller, `invalidate`
+			// would fall through to a hard delete — a new caller would then miss and re-run the factory.
+			cache.invalidate('k');
+
+			let factoryRuns = 0;
+			const pJoin = cache.getOrCreate('k', () => {
+				factoryRuns++;
+				return deferred<number>().promise;
+			});
+			assert.strictEqual(factoryRuns, 0, 'soft-invalidate must keep B joinable — controller was not clobbered');
+
+			dB.resolve(2);
+			assert.strictEqual(await pB, 2);
+			assert.strictEqual(await pJoin, 2, 'the joiner shares B, not a fresh run');
+		});
+
+		test("the deleted entry's late REJECTION does not evict the successor (expireOnError path)", async () => {
+			const cache = new PromiseCache<string, number>();
+
+			// Entry A is in flight, then hard-deleted and recreated as B (both in flight).
+			const dA = deferred<number>();
+			const pA = cache.getOrCreate('k', () => dA.promise);
+			cache.delete('k');
+			const dB = deferred<number>();
+			const pB = cache.getOrCreate('k', () => dB.promise);
+
+			// A REJECTS late. The default `expireOnError` catch would `cache.delete(key)` — which, unguarded,
+			// evicts B's entry, so a new caller misses and re-runs the factory instead of joining B.
+			dA.reject(new Error('A failed'));
+			await assert.rejects(pA);
+			await flush();
+
+			let factoryRuns = 0;
+			const pJoin = cache.getOrCreate('k', () => {
+				factoryRuns++;
+				return deferred<number>().promise;
+			});
+			assert.strictEqual(factoryRuns, 0, "A's rejection must not evict successor B");
+
+			dB.resolve(2);
+			assert.strictEqual(await pB, 2);
+			assert.strictEqual(await pJoin, 2);
+		});
+
+		test('PromiseMap: a deleted entry’s late rejection does not evict the successor', async () => {
+			const map = new PromiseMap<string, number>();
+
+			const dA = deferred<number>();
+			const pA = map.getOrCreate('k', () => dA.promise);
+			map.delete('k');
+			const dB = deferred<number>();
+			const pB = map.getOrCreate('k', () => dB.promise);
+
+			dA.reject(new Error('A failed'));
+			await assert.rejects(pA);
+			await flush();
+
+			let factoryRuns = 0;
+			const pJoin = map.getOrCreate('k', () => {
+				factoryRuns++;
+				return deferred<number>().promise;
+			});
+			assert.strictEqual(factoryRuns, 0, "A's rejection must not evict successor B");
+
+			dB.resolve(2);
+			assert.strictEqual(await pB, 2);
+			assert.strictEqual(await pJoin, 2);
+		});
+
+		test("the deleted entry's invalidated-finally does not evict the successor", async () => {
+			const cache = new PromiseCache<string, number>();
+
+			// Entry A is in flight and soft-invalidated (marks its controller); then hard-deleted and recreated
+			// as B. When A settles, its finally sees its own controller invalidated and — unguarded — would
+			// `cache.delete(key)`, evicting B.
+			const dA = deferred<number>();
+			const pA = cache.getOrCreate('k', () => dA.promise);
+			cache.invalidate('k');
+			cache.delete('k');
+			const dB = deferred<number>();
+			const pB = cache.getOrCreate('k', () => dB.promise);
+
+			dA.resolve(1);
+			await pA;
+			await flush();
+
+			let factoryRuns = 0;
+			const pJoin = cache.getOrCreate('k', () => {
+				factoryRuns++;
+				return deferred<number>().promise;
+			});
+			assert.strictEqual(factoryRuns, 0, "A's invalidated-finally must not evict successor B");
+
+			dB.resolve(2);
+			assert.strictEqual(await pB, 2);
+			assert.strictEqual(await pJoin, 2);
+		});
+	});
+
+	suite('aborted-aggregate entry is not joined', () => {
+		test('PromiseMap: a new caller after all prior callers cancelled starts a fresh run', async () => {
+			const map = new PromiseMap<string, number>();
+			// The run rejects when its aggregate signal aborts (models a git command killed on cancel), but not
+			// synchronously — so the doomed entry lingers in the cache in the window a new caller can hit it.
+			const factory = (_c: CacheController, signal?: AbortSignal): Promise<number> =>
+				new Promise<number>((_res, rej) => {
+					signal?.addEventListener('abort', () => queueMicrotask(() => rej(new CancellationError())), {
+						once: true,
+					});
+				});
+
+			const ctrlA = new AbortController();
+			const a = map.getOrCreate('k', factory, ctrlA.signal);
+			a.catch(() => {});
+
+			ctrlA.abort(); // only caller cancels -> aggregate fires -> run 1 is doomed
+
+			// B arrives before the doomed run's rejection has evicted the entry. It must NOT join the doomed run.
+			const dB = deferred<number>();
+			let bRuns = 0;
+			const b = map.getOrCreate('k', () => {
+				bRuns++;
+				return dB.promise;
+			});
+			assert.strictEqual(bRuns, 1, 'B must start a fresh run rather than join the aborted-aggregate entry');
+
+			dB.resolve(7);
+			assert.strictEqual(await b, 7, 'B resolves with its own fresh result, not the doomed rejection');
+		});
+
+		test('PromiseCache: a new caller after all prior callers cancelled starts a fresh run', async () => {
+			const cache = new PromiseCache<string, number>();
+			const factory = (_c: CacheController, signal?: AbortSignal): Promise<number> =>
+				new Promise<number>((_res, rej) => {
+					signal?.addEventListener('abort', () => queueMicrotask(() => rej(new CancellationError())), {
+						once: true,
+					});
+				});
+
+			const ctrlA = new AbortController();
+			const a = cache.getOrCreate('k', factory, { cancellation: ctrlA.signal });
+			a.catch(() => {});
+			ctrlA.abort();
+
+			const dB = deferred<number>();
+			let bRuns = 0;
+			const b = cache.getOrCreate('k', () => {
+				bRuns++;
+				return dB.promise;
+			});
+			assert.strictEqual(bRuns, 1, 'B must start a fresh run rather than join the aborted-aggregate entry');
+
+			dB.resolve(7);
+			assert.strictEqual(await b, 7);
+		});
+	});
+
+	suite('delete() keeps in-flight cancellation wired', () => {
+		// A hard `delete(key)` on an in-flight entry must NOT dispose the abort aggregate — otherwise a caller
+		// aborting after the delete can no longer cancel the still-running underlying op (orphaned `git status`).
+		test('PromiseMap: a caller aborting after delete still cancels the underlying run', () => {
+			const map = new PromiseMap<string, number>();
+			const d = deferred<number>();
+			let underlyingSignal: AbortSignal | undefined;
+
+			const ctrl = new AbortController();
+			const p = map.getOrCreate(
+				'k',
+				(_c: CacheController, signal?: AbortSignal) => {
+					underlyingSignal = signal;
+					return d.promise;
+				},
+				ctrl.signal,
+			);
+			p.catch(() => {});
+			assert.strictEqual(underlyingSignal?.aborted, false, 'the run starts un-aborted');
+
+			map.delete('k'); // watcher tick hard-deletes the in-flight entry
+			ctrl.abort(); // the sole caller cancels
+
+			assert.strictEqual(underlyingSignal?.aborted, true, 'delete must not orphan the in-flight cancellation');
+			d.resolve(0);
+		});
+
+		test('PromiseCache: a caller aborting after delete still cancels the underlying run', () => {
+			const cache = new PromiseCache<string, number>();
+			const d = deferred<number>();
+			let underlyingSignal: AbortSignal | undefined;
+
+			const ctrl = new AbortController();
+			const p = cache.getOrCreate(
+				'k',
+				(_c: CacheController, signal?: AbortSignal) => {
+					underlyingSignal = signal;
+					return d.promise;
+				},
+				{ cancellation: ctrl.signal },
+			);
+			p.catch(() => {});
+			assert.strictEqual(underlyingSignal?.aborted, false, 'the run starts un-aborted');
+
+			cache.delete('k');
+			ctrl.abort();
+
+			assert.strictEqual(underlyingSignal?.aborted, true, 'delete must not orphan the in-flight cancellation');
+			d.resolve(0);
+		});
+
+		test('PromiseMap: a caller aborting after clear still cancels the underlying run', () => {
+			const map = new PromiseMap<string, number>();
+			const d = deferred<number>();
+			let underlyingSignal: AbortSignal | undefined;
+
+			const ctrl = new AbortController();
+			const p = map.getOrCreate(
+				'k',
+				(_c: CacheController, signal?: AbortSignal) => {
+					underlyingSignal = signal;
+					return d.promise;
+				},
+				ctrl.signal,
+			);
+			p.catch(() => {});
+
+			map.clear(); // whole-cache reset while the run is in flight
+			ctrl.abort();
+
+			assert.strictEqual(underlyingSignal?.aborted, true, 'clear must not orphan the in-flight cancellation');
+			d.resolve(0);
+		});
+
+		test('PromiseCache: a caller aborting after clear still cancels the underlying run', () => {
+			const cache = new PromiseCache<string, number>();
+			const d = deferred<number>();
+			let underlyingSignal: AbortSignal | undefined;
+
+			const ctrl = new AbortController();
+			const p = cache.getOrCreate(
+				'k',
+				(_c: CacheController, signal?: AbortSignal) => {
+					underlyingSignal = signal;
+					return d.promise;
+				},
+				{ cancellation: ctrl.signal },
+			);
+			p.catch(() => {});
+
+			cache.clear();
+			ctrl.abort();
+
+			assert.strictEqual(underlyingSignal?.aborted, true, 'clear must not orphan the in-flight cancellation');
+			d.resolve(0);
+		});
+	});
 });
 
 suite('RepoPromiseMap Test Suite', () => {

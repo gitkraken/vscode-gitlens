@@ -1,5 +1,7 @@
+import { changesModeOrDefault } from '@gitkraken/commit-graph/stats.js';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
+import { isWeb } from '@env/platform.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitGraph, GitGraphRow, GitGraphRowType } from '@gitlens/git/models/graph.js';
@@ -21,6 +23,7 @@ import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations
 import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
 import { filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
@@ -85,6 +88,7 @@ import {
 import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
+import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
@@ -123,7 +127,8 @@ import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
 import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import { LaunchpadService } from '../../rpc/launchpadService.js';
-import { createSharedServices, proxyServices } from '../../rpc/services/common.js';
+import { createSharedServices } from '../../rpc/services/common.js';
+import { proxyServices } from '../../rpc/services/proxy.js';
 import type { GetOverviewEnrichmentResponse, GetOverviewWipResponse } from '../../shared/overviewBranches.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
@@ -144,6 +149,7 @@ import { GraphProducersService } from './graphProducersService.js';
 import type { GraphSearchServiceContext } from './graphSearchService.js';
 import { GraphSearchService } from './graphSearchService.js';
 import type { GraphServices } from './graphService.js';
+import { isSidebarOriginContext, resolveSidebarContextMenuAction } from './graphSidebarActionTelemetry.js';
 import { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from './graphSyncPublisher.js';
 import {
@@ -223,7 +229,6 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeVisualizationsButtonCallout,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
@@ -235,8 +240,8 @@ import {
 	DidRequestSearchNotification,
 	DidRequestWipRefetchNotification,
 	DidStartFeaturePreviewNotification,
-	DismissVisualizationsButtonCalloutCommand,
 	DoubleClickedCommand,
+	EnableChangesColumnCommand,
 	EnsureRowRequest,
 	GetAgentSessionsRequest,
 	GetCountsRequest,
@@ -274,6 +279,7 @@ import {
 	TrackGraphOverviewShownCommand,
 	TrackGraphScopeChangedCommand,
 	TreemapFileActionCommand,
+	UpdateColumnModeCommand,
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
@@ -399,6 +405,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Mirrors the webview's `displayMode` (session-only); Visualizations mode needs row stats. */
 	private _displayMode: GraphDisplayMode = 'graph';
 	private _hoverCache = new Map<string, Promise<string>>();
+	// True while the webview shows only the account-access screen (signed out or unverified). In that
+	// state `getState` skips the entire graph data pipeline, so the graph must be reloaded once the
+	// account becomes usable — see `onSubscriptionChanged`.
+	private _accountAccessRequired = false;
 
 	// Map value type is `() => Promise<boolean | void>` so we can include notify methods that don't
 	// return whether they sent (e.g. `notifyDidChangeBranchStateOnly`, `notifyDidChangeOverview`).
@@ -420,6 +430,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidStartFeaturePreviewNotification, this.notifyDidStartFeaturePreview],
 	]);
 	private _selectedId?: string;
+	// Latest columns-write revision received from the webview (see UpdateColumnsParams.revision);
+	// echoed on every columns push so the webview can order pushes against its in-flight writes.
+	private _columnsRevision = 0;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
@@ -726,7 +739,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			container: this.container,
 			host: this.host,
 			getSession: () => this._data.session,
-			getWipForRepoAndStats: (repo, signal, options) => this._wip.getWipForRepoAndStats(repo, signal, options),
+			getWipForRepoAndStats: async (repo, signal, options) => {
+				const result = await this._wip.getWipForRepoAndStats(repo, signal, options);
+				// This response goes straight to the client, bypassing the push channel — so the push dedup's
+				// record of what the client holds is now stale. Invalidate it, or a corrective push that happens
+				// to be byte-identical to the last one we sent would be suppressed as a no-op.
+				if (result != null) {
+					this._wip.onWipServedOutOfBand(repo, result.wip.revision);
+				}
+				return result;
+			},
 			getSearchContext: sha => this._searchService.getSearchContext(sha),
 		};
 	}
@@ -937,15 +959,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const columnContext: Partial<{
 			[K in Extract<keyof GraphShownTelemetryContext, `context.column.${string}`>]: GraphShownTelemetryContext[K];
 		}> = {};
-		const columns = this.getColumns();
-		if (columns != null) {
-			for (const [name, config] of Object.entries(columns)) {
-				if (!config.isHidden) {
-					columnContext[`context.column.${name}.visible`] = true;
-				}
-				if (config.mode != null) {
-					columnContext[`context.column.${name}.mode`] = config.mode;
-				}
+		// Use getColumnSettings (not raw getColumns) so the Changes column's config-overlaid mode is reported,
+		// not a possibly-stale stored mode.
+		const columnSettings = this.getColumnSettings(this.getColumns());
+		for (const [name, config] of Object.entries(columnSettings)) {
+			if (!config.isHidden) {
+				columnContext[`context.column.${name}.visible`] = true;
+			}
+			if (config.mode != null) {
+				columnContext[`context.column.${name}.mode`] = config.mode;
 			}
 		}
 
@@ -1192,11 +1214,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Register commands from the extracted `GraphCommands` @command decorators, bound to that instance.
 		for (const c of getGraphCommands()) {
+			const id = getWebviewCommand(c.command, this.host.type);
+			const handler = c.handler.bind(this._commands) as (...args: unknown[]) => unknown;
 			commands.push(
-				this.host.registerWebviewCommand(
-					getWebviewCommand(c.command, this.host.type),
-					c.handler.bind(this._commands),
-				),
+				this.host.registerWebviewCommand(id, (...args: unknown[]) => {
+					// Context-menu actions dispatch straight here; emit sidebar action telemetry for the
+					// right-click path (inline invocations are re-stamped and already emitted by the
+					// webview). Guarded: a telemetry failure must never gate command execution.
+					try {
+						this.emitSidebarContextMenuActionTelemetry(id, args[0]);
+					} catch (ex) {
+						Logger.error(ex, 'GraphWebviewProvider.sidebarContextMenuActionTelemetry');
+					}
+					return handler(...args);
+				}),
 			);
 		}
 
@@ -1510,6 +1541,61 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._panels.onSidebarAction(params);
 	}
 
+	/**
+	 * Emits `graph/{panel}/{item}Action` with `location: 'contextMenu'` for a sidebar right-click
+	 * command. The origin gate covers both exclusions: inline (hover-icon) invocations are
+	 * re-stamped 'sidebar-inline' in `onSidebarAction` (the webview already emitted
+	 * `location: 'inline'`, so emitting here too would double-count dual-surface commands like
+	 * fetch), and graph-canvas ref pills / the WIP header kebab produce the same `webviewItem`
+	 * types but never carry the sidebar origin at all. The panel is resolved from the item's
+	 * `webviewItem` context, so shared command ids attribute to the right panel.
+	 */
+	private emitSidebarContextMenuActionTelemetry(command: string, context: unknown): void {
+		if (!isSidebarOriginContext(context)) return;
+
+		const webviewItem = (context as { webviewItem?: string }).webviewItem;
+		const resolved = resolveSidebarContextMenuAction(command, webviewItem);
+		if (resolved == null) return;
+
+		switch (resolved.type) {
+			case 'branch':
+				this.host.sendTelemetryEvent('graph/branches/branchAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'remote':
+				this.host.sendTelemetryEvent('graph/remotes/remoteAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'worktree':
+				this.host.sendTelemetryEvent('graph/worktrees/worktreeAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'tag':
+				this.host.sendTelemetryEvent('graph/tags/tagAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'stash':
+				this.host.sendTelemetryEvent('graph/stashes/stashAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+		}
+	}
+
 	@ipcCommand(UpdateGraphConfigurationCommand)
 	private onUpdateGraphConfig(params: IpcParams<typeof UpdateGraphConfigurationCommand>) {
 		const config = this.getComponentConfig();
@@ -1614,8 +1700,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// catch-all below) AND the column-menu context (`lanes:density:*`, which the Expanded/Compact
 		// menu items toggle on). Refresh the column context too — otherwise the menu item is one-way: the
 		// spacing changes but the item's `when` clause never flips to offer the opposite.
-		if (configuration.changed(e, 'graph.lanes.density')) {
+		// The Changes column mode is a real setting overlaid into column config (see `getColumnSettings`) —
+		// a settings.json edit isn't part of the component-config catch-all, so push a columns update so the
+		// column (and the picker's current-mode highlight) re-render live.
+		if (configuration.changed(e, ['graph.lanes.density', 'graph.changesColumn.mode'])) {
 			void this.notifyDidChangeColumns();
+		}
+
+		// Enabling the Changes column's stats consent starts the stats-bearing rebuild with the same eager
+		// spinner flow as un-hiding the column; the component-config re-send (catch-all below) flips the
+		// webview out of its dormant overlay. Disabling needs no rebuild — already-loaded stats just go unused.
+		if (
+			configuration.changed(e, 'graph.changesColumn.enabled') &&
+			configuration.get('graph.changesColumn.enabled') &&
+			!this._data.session?.current.includes?.stats &&
+			!this.getColumnSettings(this.getColumns()).changes.isHidden
+		) {
+			this._data.rowsStatsLoadingOverride = true;
+			this._graphSync.mark('rowsStats');
+			void this._graphSync.flush();
+			this._data.updateState();
 		}
 
 		// `graph.showUpstreamStatus` feeds `resetRefsMetadata`'s feature-on/off decision (upstream is
@@ -1735,6 +1839,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
+	private isAccountAccessRequired(subscription: Subscription): boolean {
+		return subscription.account == null || subscription.account.verified === false;
+	}
+
 	@trace({ args: false })
 	private onFeaturePreviewChanged(e: FeaturePreviewChangeEvent) {
 		if (e.feature !== 'graph') return;
@@ -1753,6 +1861,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// the window and drive notifications against the new one. Same guard as
 		// `onRepositoryWorkingTreeChanged`.
 		if (e.repository.id !== this.repository?.id) return;
+
+		// While only the account-access screen is shown, the graph data is neither loaded nor displayed —
+		// skip all repo-driven WIP/branch/state work (mirrors the guard in `onRepositoryWorkingTreeChanged`).
+		if (this._accountAccessRequired) return;
 
 		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), `.gitignore` edits
 		// (`ignores` → which untracked files appear in `git status`), secondary-worktree add/remove
@@ -1846,6 +1958,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@trace({ args: false })
 	private onRepositoryWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
 		if (e.repository.id !== this.repository?.id) return;
+		// Skip WIP git-status work while only the account-access screen is shown.
+		if (this._accountAccessRequired) return;
 
 		void this._wip.notifyDidChangeWorkingTree();
 	}
@@ -1855,6 +1969,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (e.etag === this._etagSubscription) return;
 
 		this._etagSubscription = e.etag;
+
+		const wasAccountAccessRequired = this._accountAccessRequired;
+		this._accountAccessRequired = this.isAccountAccessRequired(e.current);
+
+		// When the account-access state flips in either direction, reload the full state rather than
+		// sending a subscription-only push. The full `getState` push carries subscription + repositories
+		// (+ rows) atomically and clears the working-tree badge on the access path, which:
+		//  - keeps the access screen up until the graph data is ready when entering a usable account (a
+		//    subscription-only push would un-gate the screen while `repositories` is still `[]`, flashing
+		//    the "no repository" empty state), and
+		//  - on entering the access screen, cancels any in-flight full-path `getState` (whose stale
+		//    signed-in state would otherwise overwrite the signed-out one) and clears a stale badge.
+		if (wasAccountAccessRequired !== this._accountAccessRequired && this.host.ready) {
+			this._data.updateState(true);
+			return;
+		}
+
 		void this.notifyDidChangeSubscription();
 	}
 
@@ -1867,8 +1998,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.onHooksBannerChanged();
 		} else if (e.key === 'graph-walkthrough:banner') {
 			this.onGraphWalkthroughBannerChanged();
-		} else if (e.key === 'graph:visualizations:buttonCallout') {
-			this.onVisualizationsButtonCalloutChanged();
 		}
 	}
 
@@ -1943,20 +2072,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.host.notify(DidChangeGraphWalkthroughBanner, this.getGraphWalkthroughBannerState());
 	}
 
-	private onVisualizationsButtonCalloutChanged() {
-		if (!this.host.visible) return;
-
-		void this.host.notify(
-			DidChangeVisualizationsButtonCallout,
-			this.container.onboarding.isDismissed('graph:visualizations:buttonCallout'),
-		);
-	}
-
-	@ipcCommand(DismissVisualizationsButtonCalloutCommand)
-	private onDismissVisualizationsButtonCallout() {
-		void this.container.onboarding.dismiss('graph:visualizations:buttonCallout').catch();
-	}
-
 	private onGraphWalkthroughProgressChanged() {
 		if (!this.host.visible) return;
 
@@ -2003,7 +2118,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcCommand(UpdateColumnsCommand)
 	private onColumnsChanged(params: IpcParams<typeof UpdateColumnsCommand>) {
-		this.updateColumns(params.config);
+		// Ack the webview's write counter — every later columns push carries it so the webview can drop
+		// pushes generated before this write (see DidChangeColumnsParams.columnsRevision).
+		this._columnsRevision = params.revision ?? this._columnsRevision;
+		this.updateColumns(params.config, { keepStoredModes: true });
 
 		const eventData: WebviewTelemetryEvents['graph/columns/changed'] = {};
 		for (const [name, config] of Object.entries(params.config)) {
@@ -2012,6 +2130,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 		this.host.sendTelemetryEvent('graph/columns/changed', eventData);
+	}
+
+	// The Changes mode picker's pick. Changes' mode is a real setting (single source of truth): write it
+	// effectively so a settings.json round-trip works both directions. Other columns' modes stay in storage
+	// (only the graph column's compact toggle uses that path). Mode is still never webview-authored via
+	// `updateColumns` — this dedicated command is the only mode write path from the webview.
+	@ipcCommand(UpdateColumnModeCommand)
+	private onColumnModeChanged(params: IpcParams<typeof UpdateColumnModeCommand>) {
+		if (params.name !== 'changes') return;
+
+		void configuration.updateEffective('graph.changesColumn.mode', changesModeOrDefault(params.mode));
+	}
+
+	@ipcCommand(EnableChangesColumnCommand)
+	private onEnableChangesColumn(): void {
+		void configuration.updateEffective('graph.changesColumn.enabled', true);
 	}
 
 	@ipcCommand(UpdateGraphDisplayModeCommand)
@@ -2891,6 +3025,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	/**
+	 * Coalesces `DidFetch` pushes into a single in-flight notify with one trailing re-fire. The payload is
+	 * idempotent (just the latest fetch time), but `postMessage` is sequentialized by unique message id, so
+	 * an un-coalesced burst enqueues one post per trigger. When the queue drains slower than it fills — the
+	 * webview is throttled while the window is unfocused, or the host is busy — the backlog grows unbounded,
+	 * and since every slow post to a *view* is wrapped in `withProgress({ viewId })`, each drained post
+	 * re-shows the view's progress indicator, strobing it for the life of the drain. Bursts are routine:
+	 * `.git/FETCH_HEAD` force-fires `lastFetched` on any FS touch (see `Repository.onFetchHeadChanged`).
+	 */
+	private readonly _didFetchNotify = new CoalescedRun<boolean>(
+		() => this.runNotifyDidFetch(),
+		() => void this.notifyDidFetch(),
+	);
+	/** Last-sent fetch time — skips pushes when `lastFetched` didn't actually advance. */
+	private _lastSentFetchedAt: number | undefined;
+
 	// Debounced handler for repository `lastFetched` events. Coalesces 100ms bursts of FETCH_HEAD
 	// FS-watcher events that real-world git operations produce (`git fetch` writes the file in
 	// multiple steps, the watcher sees each one) into a single downstream refresh.
@@ -2907,6 +3057,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const columnSettings = this.getColumnSettings(columns);
 		return this.host.notify(DidChangeColumnsNotification, {
 			columns: columnSettings,
+			columnsRevision: this._columnsRevision,
 			context: this.getColumnHeaderContext(columnSettings),
 			settingsContext: this.getGraphSettingsIconContext(columnSettings),
 		});
@@ -2989,17 +3140,34 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	private notifyDidFetch(): Promise<boolean> {
+		return this._didFetchNotify.run();
+	}
+
 	@trace()
-	private async notifyDidFetch() {
+	private async runNotifyDidFetch(): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidFetchNotification, this._ipcNotificationMap, this);
 			return false;
 		}
 
-		const lastFetched = await this.repository!.getLastFetched();
-		return this.host.notify(DidFetchNotification, {
-			lastFetched: new Date(lastFetched),
-		});
+		const repo = this.repository;
+		if (repo == null) return false;
+
+		const lastFetched = await repo.getLastFetched();
+		// Re-validate after the await — a repo swap mid-read would push the old repo's fetch time.
+		if (this._repository !== repo) return false;
+		// FETCH_HEAD force-fires `lastFetched` even when the time didn't advance, so most triggers
+		// carry nothing new; skip those rather than spend a post on an identical payload.
+		if (lastFetched === this._lastSentFetchedAt) return true;
+
+		const success = await this.host.notify(DidFetchNotification, { lastFetched: new Date(lastFetched) });
+		// Stamp only after a successful send, and only if the repo still matches, so a failed
+		// transport or a mid-await swap can't poison the dedupe.
+		if (success && this._repository === repo) {
+			this._lastSentFetchedAt = lastFetched;
+		}
+		return success;
 	}
 
 	@trace()
@@ -3471,6 +3639,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
+		// The Changes column's mode is config-driven (single source of truth) — overlay the setting over any
+		// stale/echoed storage mode so a settings.json edit drives the column and the picker stays in sync.
+		columnsSettings.changes = {
+			...columnsSettings.changes,
+			mode: configuration.get('graph.changesColumn.mode'),
+		};
+
 		return columnsSettings;
 	}
 
@@ -3511,7 +3686,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		// Surface the current lane-spacing density so the context-menu `when` clauses can toggle it
-		contextItems.push(`lanes:density:${configuration.get('graph.lanes.density') ?? 'expanded'}`);
+		contextItems.push(`lanes:density:${configuration.get('graph.lanes.density') ?? 'compact'}`);
 
 		return contextItems;
 	}
@@ -3574,10 +3749,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			autoFetchIntervalSeconds: this.getAutoFetchIntervalSeconds(),
 			autoFetchMode: this.getAutoFetchMode(),
 			avatars: configuration.get('graph.avatars'),
+			changesColumnEnabled: configuration.get('graph.changesColumn.enabled'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
 			detailsLocation: configuration.get('graph.details.location') ?? 'auto',
+			detailsMaximizeOnMode: configuration.get('graph.details.maximizeOnMode') ?? true,
 			enabledRefMetadataTypes: this._producers.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			experimentalHomeHeaderEnabled: configuration.get('graph.experimental.homeHeader.enabled') ?? false,
@@ -3611,6 +3788,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			sidebarPinned: configuration.get('graph.sidebar.pinned') ?? false,
 			stickyTimeline: configuration.get('graph.stickyTimeline'),
 			style: configuration.get('graph.style'),
+			timelineSeparators: configuration.get('graph.timelineSeparators'),
 		};
 		return config;
 	}
@@ -3678,16 +3856,44 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const searchRequest = this._searchRequest;
 		this._searchRequest = undefined;
 
+		const subscription = await this.container.subscription.getSubscription();
+		this._accountAccessRequired = this.isAccountAccessRequired(subscription);
+		if (this._accountAccessRequired) {
+			// Signed out or unverified: the webview renders only the account-access screen, so skip the
+			// entire graph data pipeline (git walk, WIP, branch/PR/remote/worktree lookups). A full reload
+			// is forced from `onSubscriptionChanged` once the account becomes usable.
+			this._wip.updateWorkingTreeBadge(undefined);
+			return {
+				...this.host.baseWebviewState,
+				allowed: false,
+				repositories: [],
+				isWeb: isWeb,
+				subscription: subscription,
+			};
+		}
+
 		if (this.container.git.repositoryCount === 0) {
 			this._wip.updateWorkingTreeBadge(undefined);
-			return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
+			return {
+				...this.host.baseWebviewState,
+				allowed: true,
+				repositories: [],
+				isWeb: isWeb,
+				subscription: subscription,
+			};
 		}
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
 				this._wip.updateWorkingTreeBadge(undefined);
-				return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
+				return {
+					...this.host.baseWebviewState,
+					allowed: true,
+					repositories: [],
+					isWeb: isWeb,
+					subscription: subscription,
+				};
 			}
 		}
 
@@ -3721,7 +3927,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			(configuration.get('graph.minimap.enabled') &&
 				configuration.get('graph.minimap.dataType') === 'lines' &&
 				this.isMinimapVisible()) ||
-			!columnSettings.changes.isHidden ||
+			(this.isChangesColumnStatsEnabled() && !columnSettings.changes.isHidden) ||
 			this._displayMode === 'visualizations';
 
 		// Reuse the loaded graph when NOTHING that feeds it changed — the repo etag is untouched and
@@ -4114,6 +4320,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// by the onReady snapshot (the publisher's this-connection watermark) at no extra cost.
 			sync: { generation: this._graphSync.generation, seq: -1 },
 			columns: columnSettings,
+			columnsRevision: this._columnsRevision,
 			config: this.getComponentConfig(),
 			context: {
 				header: this.getColumnHeaderContext(columnSettings),
@@ -4137,9 +4344,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
 			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
 			graphWalkthroughStarted: this.getGraphWalkthroughStarted(),
-			visualizationsButtonCalloutDismissed: this.container.onboarding.isDismissed(
-				'graph:visualizations:buttonCallout',
-			),
 			searchRequest: searchRequest,
 			details: {
 				...storedPanels?.details,
@@ -4173,10 +4377,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return result;
 	}
 
-	private updateColumns(columnsCfg: GraphColumnsConfig) {
+	private updateColumns(columnsCfg: GraphColumnsConfig, options?: { keepStoredModes?: boolean }) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
 		for (const [key, value] of Object.entries(columnsCfg)) {
-			columns = updateRecordValue(columns, key, value);
+			// `mode` is host-owned — webviews only echo it, and a stale echo (second panel / pre-command
+			// persist) must not clobber a just-set value. Host callers (the column resets) author it for real.
+			const mode = options?.keepStoredModes ? columns?.[key]?.mode : value.mode;
+			columns = updateRecordValue(columns, key, { ...value, mode: mode });
 		}
 		void this.container.storage
 			.storeWorkspace('graph:columns', columns)
@@ -4498,6 +4705,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// already captured its `seqAtRebuildStart` and will commit it as the fired watermark — zeroing
 		// here would strand the next repo's events below it. Monotonic growth is safe; only deltas matter.
 		this._lastFetchedHandlerDebounced?.cancel();
+		this._lastSentFetchedAt = undefined;
 		this._inspect.resetCaches();
 		this.invalidateScopeAnchors();
 		this._data.clearStateFreshnessRetryTimer();
@@ -4587,6 +4795,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			detectNested: true,
 		});
 		const result = repo != null ? await this._wip.getWipForRepoAndStats(repo) : undefined;
+		// Serves the client directly, and `value.repoPath` can be the primary — so this is an out-of-band serve and
+		// must invalidate the push dedup like any other, or a later push carrying this same content is deduped away.
+		if (repo != null && result != null) {
+			this._wip.onWipServedOutOfBand(repo, result.wip.revision);
+		}
 		// Ship `wip` (with stats embedded as `wip.stats`) so the webview never has to re-derive
 		// them — the host just did the work, the webview's classifier wouldn't match
 		// `git diff --shortstat` semantics for renames/conflicts, and the derived value would drop
@@ -4649,6 +4862,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return { viewColumn: ViewColumn.Beside, sourceViewColumn: this.host.viewColumn };
 	}
 
+	// Stats for the Changes column are consent-gated on the new engine; the legacy engine keeps its
+	// pre-consent behavior (visible column = stats) until it is deleted.
+	private isChangesColumnStatsEnabled(): boolean {
+		return (
+			configuration.get('graph.changesColumn.enabled') ||
+			configuration.get('graph.experimental.useNewEngine') === false
+		);
+	}
+
 	@debug()
 	private async toggleColumn(name: GraphColumnName, visible: boolean) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
@@ -4664,7 +4886,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.notifyDidChangeColumns();
 
-		if (name === 'changes' && !column.isHidden && !this._data.session?.current.includes?.stats) {
+		if (
+			name === 'changes' &&
+			this.isChangesColumnStatsEnabled() &&
+			!column.isHidden &&
+			!this._data.session?.current.includes?.stats
+		) {
+			// Eager override + flush so the Changes column shows its spinner during the stats-including rebuild.
+			this._data.rowsStatsLoadingOverride = true;
+			this._graphSync.mark('rowsStats');
+			void this._graphSync.flush();
 			this._data.updateState();
 		}
 	}

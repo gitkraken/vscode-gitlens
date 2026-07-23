@@ -1,6 +1,8 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { pluralize } from '@gitlens/utils/string.js';
+import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
@@ -168,14 +170,34 @@ export class GlDetailsAgentStatus extends LitElement {
 				text-align: left;
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
-				appearance: none;
-				cursor: pointer;
 
 				/* Match the WIP details panel background (same token the commit-box uses) so the
 		   sticky heading reads as continuous with the surrounding panel instead of as a
 		   tinted metadata-bar strip. */
 				background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+			}
+
+			/* Only the toggle is the button; the resume action is its sibling at the far right. */
+			.section__heading-toggle {
+				display: flex;
+				flex: 1;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
+				padding: 0;
+				font: inherit;
+				color: inherit;
+				text-align: left;
+				text-transform: inherit;
+				letter-spacing: inherit;
+				appearance: none;
+				cursor: pointer;
+				background: none;
 				border: none;
+			}
+
+			.section__heading-action {
+				flex: none;
 			}
 
 			.section__heading-chevron {
@@ -232,6 +254,24 @@ export class GlDetailsAgentStatus extends LitElement {
 				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: 2px;
 				border-radius: var(--gl-radius-xs);
+			}
+
+			/* Branch-sheet variant — the sheet's own .hub already supplies outer padding and
+	   scrolls the whole pane (no inner scroller for the heading to stick within), so the
+	   split-panel-scroller chrome below is wrong here and gets neutralized. */
+			:host([flat]) .section {
+				padding: 0;
+			}
+
+			:host([flat]) .section[data-expand='expanded'] {
+				padding-bottom: 0;
+			}
+
+			:host([flat]) .section__heading {
+				position: static;
+				margin: 0;
+				padding: 0;
+				background-color: transparent;
 			}
 
 			/* Cluster — dots + textual summary inside the heading row. */
@@ -299,6 +339,103 @@ export class GlDetailsAgentStatus extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-4);
+			}
+
+			/* ---------- Past sessions ---------- */
+
+			.section__past {
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-4);
+				padding-top: var(--gl-space-4);
+				margin-top: var(--gl-space-4);
+				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+			}
+
+			.section__past-row {
+				display: flex;
+				gap: var(--gl-space-6);
+
+				/* Top-align so the dot centers on the first line (matching the live cards' idle dots),
+		   not on the whole title+prompt block. */
+				align-items: flex-start;
+
+				/* Cards inset their rail by their 0.3rem left border plus their padding; match it (and their
+		   column gap) so the rails line up down the column even though a past row has no card chrome. */
+				padding-left: calc(0.3rem + var(--gl-space-8));
+
+				/* One step dimmer than .card--idle's 0.85 — reads as "not running" rather than idle. */
+				opacity: 0.7;
+			}
+
+			/* Hollow ring (vs. the live cards' filled .card__dot disc) so a past row reads as
+	   "no process" at a glance, reusing the same idle phase color. Sits in a .card__rail so the
+	   body column lines up with the live cards above it. */
+			.section__past-dot {
+				flex: none;
+				width: 0.8rem;
+				height: 0.8rem;
+				background-color: transparent;
+				border: var(--gl-border-width) solid var(--gl-agent-idle-color);
+				border-radius: 50%;
+			}
+
+			.section__past-body {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				gap: var(--gl-space-2);
+				min-width: 0;
+			}
+
+			.section__past-title-row {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
+
+				/* Match the rail's box so the hollow dot centers on the name line. Without a chip in
+		   this row (unlike live cards) the bare text is shorter than the rail, leaving the dot low. */
+				min-height: 1.6em;
+			}
+
+			.section__past-name {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				font-weight: 600;
+				white-space: nowrap;
+			}
+
+			.section__past-prompt {
+				display: -webkit-box;
+				overflow: hidden;
+				-webkit-line-clamp: 2;
+				font-size: 0.9em;
+				font-style: italic;
+				color: var(--vscode-descriptionForeground);
+				-webkit-box-orient: vertical;
+			}
+
+			.section__past-footer {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				justify-content: flex-end;
+			}
+
+			.section__past-count {
+				margin-right: auto;
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.section__past-more {
+				--chip-text-transform: none;
+				margin-right: auto;
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.section__hover {
@@ -608,20 +745,42 @@ export class GlDetailsAgentStatus extends LitElement {
 	/** When true, render only the dot-cluster + counts popover anchor — drop the chevron, "Agents"
 	 *  label, and the cards body. Used by surfaces (e.g. the treemap's Activity toolbar) that
 	 *  want the live-status glance but don't need the inline expanded view; per-session detail is
-	 *  still available via hover on the cluster. */
+	 *  still available via hover on the cluster. Past sessions never factor into this mode — see
+	 *  {@link render}. */
 	@property({ type: Boolean, reflect: true })
 	compact = false;
+
+	/** Past (resumable) sessions for the worktree — top few, most-recent first, plus the total
+	 *  count for the "N more past sessions" footer link. Rendered as a `.section__past` list,
+	 *  visible only while {@link expand} is `'expanded'` (past is never urgent enough to
+	 *  auto-surface). */
+	@property({ attribute: false })
+	pastSessions?: PastAgentSessionsResult;
+
+	/** The worktree the past sessions belong to — threaded into the "Resume Session…" footer
+	 *  button's `showResumeSessionPicker` command link. */
+	@property({ attribute: false })
+	worktreePath?: string;
+
+	/** Branch-sheet variant: neutralizes the panel-scroller-specific chrome (sticky heading,
+	 *  hardcoded panel padding) that's wrong inside the sheet's `.hub`. See the `:host([flat])`
+	 *  overrides below. */
+	@property({ type: Boolean, reflect: true })
+	flat = false;
 
 	/** Build a stable string capturing every input the component renders against. Identical
 	 *  fingerprint between two parent passes → skip the render entirely via {@link shouldUpdate}.
 	 *
 	 *  Fields included reflect what `renderCard`, `renderHoverRow`, `tally`, and the heading
 	 *  cluster consume:
-	 *  - `expand` and `selectedSessionId` — both shape the rendered tree.
+	 *  - `expand`, `selectedSessionId`, `flat`, `compact`, `worktreePath` — all shape the rendered
+	 *    tree (`compact` is reflected via `update()`, which never runs when `shouldUpdate` returns
+	 *    false; `worktreePath` feeds the heading and past-footer resume-picker links).
 	 *  - Per session: `id`, `phase`, `status`, `statusDetail` (running-tool surface), `displayName`,
 	 *    `lastPrompt` (card prompt + fallback line), `phaseSince` (ms, drives elapsed labels).
 	 *  - `pendingPermission` — encoded by {@link permissionFingerprint} so every needs-input
 	 *    variant's renderable fields contribute, not just kind/toolName.
+	 *  - `pastSessions.total` plus, per past row, `id`/`displayName`/`lastPrompt`/`lastActivity`.
 	 *
 	 *  Adding a new rendered field requires extending this fingerprint (or
 	 *  {@link permissionFingerprint}) or the component will silently fail to update when only
@@ -631,12 +790,24 @@ export class GlDetailsAgentStatus extends LitElement {
 		// even when session content is unchanged. Every user-typed string field goes through
 		// `fpField` so embedded `|` (shell pipes in statusDetail, free-form descriptions) and
 		// `\n` (multi-line prompts) can't collide via delimiter accidents.
-		const parts: string[] = [`t${this._tickGeneration}`, `e${this.expand}`, `s${fpField(this.selectedSessionId)}`];
+		const parts: string[] = [
+			`t${this._tickGeneration}`,
+			`e${this.expand}`,
+			`s${fpField(this.selectedSessionId)}`,
+			`f${this.flat ? 1 : 0}`,
+			`c${this.compact ? 1 : 0}`,
+			`w${fpField(this.worktreePath)}`,
+		];
 		const sessions = this.sessions ?? [];
 		for (const s of sessions) {
 			parts.push(
 				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${s.phaseSince.getTime()}|${permissionFingerprint(s.pendingPermission)}`,
 			);
+		}
+		const past = this.pastSessions;
+		parts.push(`p${past?.total ?? 0}`);
+		for (const p of past?.sessions ?? []) {
+			parts.push(`${p.id}|${fpField(p.displayName)}|${fpField(p.lastPrompt)}|${p.lastActivity}`);
 		}
 		return parts.join('\n');
 	}
@@ -683,12 +854,22 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	override render(): unknown {
 		const sessions = this.sessions;
-		if (sessions == null || sessions.length === 0) return nothing;
 
+		// Compact stays past-agnostic — the treemap toolbar passes no `pastSessions`, and this
+		// mode's cluster-only glance has no room for a past list anyway.
 		if (this.compact) {
+			if (sessions == null || sessions.length === 0) return nothing;
 			return this.renderClusterOnly(sessions);
 		}
-		return this.renderSection(sessions, this.tally(sessions));
+
+		const live = sessions ?? [];
+		// De-dup against live at render time: the host excludes live ids at fetch time, but after a
+		// resume the cached past list goes stale until the next fetch, and would otherwise paint twice.
+		const liveIds = new Set(live.map(s => s.id));
+		const past = this.pastSessions?.sessions.filter(p => !liveIds.has(p.id));
+		if (live.length === 0 && (past?.length ?? 0) === 0) return nothing;
+
+		return this.renderSection(live, this.tally(live), past);
 	}
 
 	/** Compact render: just the cluster + counts popover, no surrounding heading button or cards.
@@ -724,9 +905,15 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	/* ---------- Section (heading + cards list) ---------- */
 
-	private renderSection(sessions: AgentSessionState[], counts: Record<AgentSessionCategory, number>): unknown {
+	private renderSection(
+		sessions: AgentSessionState[],
+		counts: Record<AgentSessionCategory, number>,
+		past: PastAgentSessionState[] | undefined,
+	): unknown {
 		const visibleCats = expandVisibleCategories[this.expand];
 		const visible = sessions.filter(s => visibleCats.has(agentPhaseToCategory[s.phase]));
+		// Past is never urgent — only surfaced once the user has explicitly expanded the section.
+		const showPast = this.expand === 'expanded';
 
 		return html`
 			<div class="section" data-expand=${this.expand}>
@@ -734,6 +921,94 @@ export class GlDetailsAgentStatus extends LitElement {
 				${visible.length > 0
 					? html`<div id="section__list" class="section__list">${visible.map(s => this.renderCard(s))}</div>`
 					: nothing}
+				${showPast ? this.renderPastSection(past) : nothing}
+			</div>
+		`;
+	}
+
+	/** "Past sessions" list — resumable sessions recovered from the worktree's transcript store,
+	 *  rendered only in `expanded` mode. Each row links its resume chip at `gitlens.agents.resumeSession`
+	 *  (the default extension-if-available-else-terminal resume); the footer's count links into the
+	 *  same searchable picker over the worktree's 100 most-recent sessions as the heading action. */
+	private renderPastSection(past: PastAgentSessionState[] | undefined): unknown {
+		if (!past?.length) return nothing;
+
+		const total = this.pastSessions?.total ?? past.length;
+		return html`
+			<div class="section__past">
+				${past.map(p => this.renderPastRow(p))} ${this.renderPastFooter(total, past.length)}
+			</div>
+		`;
+	}
+
+	private renderPastRow(session: PastAgentSessionState): unknown {
+		const elapsed = formatAgentElapsed(new Date(session.lastActivity));
+		const resumeHref = createCommandLink('gitlens.agents.resumeSession', {
+			sessionId: session.id,
+			cwd: session.cwd,
+		});
+		// Mirrors a live card's `{phase} · {elapsed}`. "Ended" is all we can honestly say — the store
+		// keeps no exit reason, only that nothing is running.
+		const stateContent = html`Ended${elapsed != null
+			? html` · <span class="agent-phase-elapsed">${elapsed}</span>`
+			: nothing}`;
+
+		return html`
+			<div class="section__past-row" data-session-id=${session.id}>
+				<div class="card__rail"><span class="section__past-dot"></span></div>
+				<div class="section__past-body">
+					<div class="section__past-title-row">
+						<gl-tooltip content=${session.displayName} placement="bottom">
+							<span class="section__past-name">${session.displayName}</span>
+						</gl-tooltip>
+						${elapsed != null
+							? html`<gl-tooltip content=${`Last active ${elapsed} ago`} placement="bottom">
+									<span class="card__phase">${stateContent}</span>
+								</gl-tooltip>`
+							: html`<span class="card__phase">${stateContent}</span>`}
+					</div>
+					${session.lastPrompt
+						? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
+								<span class="section__past-prompt">${session.lastPrompt}</span>
+							</gl-tooltip>`
+						: nothing}
+				</div>
+				<gl-action-chip
+					icon="debug-restart"
+					label="Resume Session"
+					overlay="tooltip"
+					href=${resumeHref}
+				></gl-action-chip>
+			</div>
+		`;
+	}
+
+	/** The count of past sessions the list can't show, linking into the same resume picker as the
+	 *  heading chip. Static (no link) when there's no worktree to scope the picker to. */
+	private renderPastFooter(total: number, shown: number): unknown {
+		if (total <= shown) return nothing;
+
+		const countText = pluralize('more past session', total - shown);
+		if (this.worktreePath == null) {
+			return html`
+				<div class="section__past-footer">
+					<span class="section__past-count">${countText}</span>
+				</div>
+			`;
+		}
+
+		return html`
+			<div class="section__past-footer">
+				<gl-action-chip
+					class="section__past-more"
+					icon="history"
+					label="${countText} — Resume Session…"
+					overlay="tooltip"
+					href=${createCommandLink('gitlens.agents.showResumeSessionPicker', {
+						worktreePath: this.worktreePath,
+					})}
+					><span>${countText}…</span></gl-action-chip
+				>
 			</div>
 		`;
 	}
@@ -743,44 +1018,63 @@ export class GlDetailsAgentStatus extends LitElement {
 		const visibleDots = sessions.slice(0, maxClusterDots);
 		const overflow = sessions.length - visibleDots.length;
 
+		// The row is a container, not the button: the resume action sits inside it, and a control
+		// nested in a <button> is invalid and unreachable by keyboard.
 		return html`
-			<button
-				type="button"
-				class="section__heading"
-				aria-controls="section__list"
-				aria-expanded=${state === 'expanded' ? 'true' : 'false'}
-				aria-label=${this.expandAriaLabel(state)}
-				@click=${this.onChevronClick}
-			>
-				<code-icon
-					class="section__heading-chevron"
-					icon=${state === 'expanded' ? 'chevron-down' : 'chevron-right'}
-					data-expand=${state}
-				></code-icon>
-				<span class="section__heading-label">Agents</span>
-				<gl-popover placement="bottom" ?disabled=${state === 'expanded'}>
-					<span slot="anchor" class="section__cluster">
-						<span class="section__cluster-dots">
-							${visibleDots.map(
-								s =>
-									html`<span
-										class=${`section__cluster-dot section__cluster-dot--${agentPhaseToCategory[s.phase]}`}
-									></span>`,
-							)}
-							${overflow > 0
-								? html`<span
-										class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
-									>
-										+${overflow}
-									</span>`
-								: nothing}
+			<div class="section__heading">
+				<button
+					type="button"
+					class="section__heading-toggle"
+					aria-controls="section__list"
+					aria-expanded=${state === 'expanded' ? 'true' : 'false'}
+					aria-label=${this.expandAriaLabel(state)}
+					@click=${this.onChevronClick}
+				>
+					<code-icon
+						class="section__heading-chevron"
+						icon=${state === 'expanded' ? 'chevron-down' : 'chevron-right'}
+						data-expand=${state}
+					></code-icon>
+					<span class="section__heading-label">Agents</span>
+					<gl-popover placement="bottom" ?disabled=${state === 'expanded'}>
+						<span slot="anchor" class="section__cluster">
+							<span class="section__cluster-dots">
+								${visibleDots.map(
+									s =>
+										html`<span
+											class=${`section__cluster-dot section__cluster-dot--${agentPhaseToCategory[s.phase]}`}
+										></span>`,
+								)}
+								${overflow > 0
+									? html`<span
+											class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
+										>
+											+${overflow}
+										</span>`
+									: nothing}
+							</span>
+							<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
 						</span>
-						<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
-					</span>
-					<div slot="content" class="section__hover">${sessions.map(s => this.renderHoverRow(s))}</div>
-				</gl-popover>
-			</button>
+						<div slot="content" class="section__hover">${sessions.map(s => this.renderHoverRow(s))}</div>
+					</gl-popover>
+				</button>
+				${this.renderResumePickerAction()}
+			</div>
 		`;
+	}
+
+	/** Opens the picker over every session the worktree can resume — available whatever the section
+	 *  shows, so it hangs off the heading rather than the past list. */
+	private renderResumePickerAction(): unknown {
+		if (this.worktreePath == null) return nothing;
+
+		return html`<gl-action-chip
+			class="section__heading-action"
+			icon="history"
+			label="Resume Session…"
+			overlay="tooltip"
+			href=${createCommandLink('gitlens.agents.showResumeSessionPicker', { worktreePath: this.worktreePath })}
+		></gl-action-chip>`;
 	}
 
 	/** Chevron click — emits a `gl-agent-status-expand-request` with the next state in the

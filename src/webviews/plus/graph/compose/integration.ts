@@ -125,6 +125,8 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			const resolved = await this.resolveGraphScope(input.svc, input.scope);
 			const source = this.scopeToComposeSource(input.scope, resolved);
 
+			await this.confirmInteriorRefsOrThrow(git, source);
+
 			const aiExcluded = input.aiExcludedFiles?.length ? new Set(input.aiExcludedFiles) : undefined;
 			const userExcluded = input.excludedFiles?.length
 				? new Set(input.excludedFiles.filter(p => !aiExcluded?.has(p)))
@@ -149,6 +151,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				onBeforePrompt: onBeforePrompt,
 				hunkFilter: hunkFilter,
 				redactHunkContent: redactHunkContent,
+				overrideSafetyFailures: { interiorRefs: true },
 			});
 
 			const cacheKey = this.createCacheKey(input.svc.path);
@@ -325,6 +328,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				applyCommitIds: input.includedCommitIds != null ? [...input.includedCommitIds] : undefined,
 				stashLabel: stashLabel,
 				hunkFilter: hunkFilter,
+				overrideSafetyFailures: { interiorRefs: true },
 			});
 
 			return {

@@ -4,6 +4,7 @@ import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { WorktreeOpenState } from '../../commands/git/worktree/open.js';
 import { Container } from '../../container.js';
+import { showGitErrorMessage } from '../../messages.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
 import type { RevealOptions } from '../../views/viewBase.js';
@@ -73,6 +74,14 @@ export function remove(repo?: string | GlRepository, uris?: Uri[]): Promise<void
 		command: 'worktree',
 		state: { subcommand: 'delete', repo: repo, uris: uris },
 	});
+}
+
+export async function unlock(worktree: GitWorktree): Promise<void> {
+	try {
+		await Container.instance.git.getRepositoryService(worktree.repoPath).worktrees?.unlockWorktree(worktree.uri);
+	} catch (ex) {
+		void showGitErrorMessage(ex, `Unable to unlock worktree '${worktree.name}': ${ex.message}`);
+	}
 }
 
 export function revealWorktree(worktree: GitWorktree, options?: RevealOptions): Promise<ViewNode | undefined> {

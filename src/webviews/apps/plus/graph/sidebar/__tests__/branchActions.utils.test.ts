@@ -1,7 +1,8 @@
 import * as assert from 'assert';
 import type { GlCommands } from '../../../../../../constants.commands.js';
+import { sidebarItemActions } from '../../../../../plus/graph/graphSidebarActionTelemetry.js';
 import type { GraphSidebarBranch } from '../../../../../plus/graph/protocol.js';
-import { branchActionsToTelemetryNames, getBranchLeafActions } from '../branchActions.utils.js';
+import { getBranchLeafActions } from '../branchActions.utils.js';
 
 function makeBranch(overrides: Partial<GraphSidebarBranch>): GraphSidebarBranch {
 	return {
@@ -44,21 +45,14 @@ suite('branchActions.utils', () => {
 	test('every command a branch leaf can produce resolves to a telemetry action name', () => {
 		// If a new inline action is added without a mapping, graph/branches/branchAction drops
 		// it silently — this test turns that into a failure.
+		// Note: the shared table (sidebarItemActions.branch) intentionally contains MORE commands
+		// than the inline leaves produce — the extras are context-menu-only actions — so only the
+		// "inline ⊆ table" direction is asserted.
 		for (const command of collectProducedCommands()) {
 			assert.ok(
-				branchActionsToTelemetryNames[command as GlCommands] != null,
+				sidebarItemActions.branch[command as GlCommands] != null,
 				`Command '${command}' has no graph/branches/branchAction telemetry mapping — ` +
-					`add it to branchActionsToTelemetryNames`,
-			);
-		}
-	});
-
-	test('no orphaned telemetry mappings for commands no leaf produces', () => {
-		const produced = collectProducedCommands();
-		for (const command of Object.keys(branchActionsToTelemetryNames)) {
-			assert.ok(
-				produced.has(command),
-				`Telemetry mapping for '${command}' is orphaned — no branch leaf produces it`,
+					`add it to sidebarItemActions.branch (graphSidebarActionTelemetry.ts)`,
 			);
 		}
 	});

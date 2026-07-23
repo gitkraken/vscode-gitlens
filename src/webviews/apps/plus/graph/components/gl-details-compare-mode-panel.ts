@@ -18,6 +18,7 @@ import type {
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
+import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { redispatch } from '../../../shared/components/element.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
 import {
@@ -84,6 +85,13 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	@property({ attribute: 'branch-name' })
 	branchName?: string;
+
+	/** Graph-bottom-only: render the maximize/restore chip left of the compare Refresh. */
+	@property({ type: Boolean, attribute: 'show-maximize' })
+	showMaximize = false;
+	/** Drives the maximize chip's icon/label when `showMaximize` is true. */
+	@property({ type: Boolean })
+	maximized = false;
 
 	@property({ attribute: 'repo-path' })
 	repoPath?: string;
@@ -530,6 +538,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					: nothing}
 			</div>
 			<div class="compare-bar__actions">
+				${this.showMaximize ? renderDetailsMaximizeChip(this.maximized, false) : nothing}
 				<gl-action-chip
 					class="compare-refresh"
 					icon="refresh"

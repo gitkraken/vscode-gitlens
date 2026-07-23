@@ -22,6 +22,7 @@ import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
+import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { redispatch } from '../../../shared/components/element.js';
 import {
 	elementBase,
@@ -134,6 +135,12 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 
 	/** Forwarded to `gl-details-header` — when true, close becomes a back arrow. */
 	@property({ type: Boolean }) inResultsView = false;
+
+	/** Graph-bottom-only: render the maximize/restore chip in the header actions (and its active-mode
+	 *  cluster). */
+	@property({ type: Boolean, attribute: 'show-maximize' }) showMaximize = false;
+	/** Drives the maximize chip's icon/label when `showMaximize` is true. */
+	@property({ type: Boolean }) maximized = false;
 
 	@property({ attribute: false })
 	subPanelContent?: ReturnType<typeof html> | typeof nothing;
@@ -418,6 +425,8 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 			.loading=${this.loading}
 			.modes=${modes}
 			.compareEnabled=${true}
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?in-results-view=${this.inResultsView}
 		>
 			<span class="compare-header__title">
@@ -428,6 +437,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 						</span>`
 					: html`Comparing References`}
 			</span>
+			${this.activeMode == null && this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
 		</gl-details-header>`;
 	}
 

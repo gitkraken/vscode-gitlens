@@ -167,7 +167,7 @@ export function parseGitDiff(data: string, includeRawContent = false): ParsedGit
 			header = `diff --git ${file.substring(0, hunkStartIndex)}`;
 			const content = file.substring(hunkStartIndex + 1);
 			rawContent = includeRawContent ? content : undefined;
-			hunks = parseGitFileDiff(content, includeRawContent)?.hunks || [];
+			hunks = parseGitFileDiff(content, includeRawContent)?.hunks ?? [];
 		}
 
 		parsed.files.push({

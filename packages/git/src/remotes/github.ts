@@ -42,66 +42,64 @@ export class GitHubRemoteProvider extends RemoteProvider<GitHubRepositoryDescrip
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		if (this._autolinks === undefined) {
-			this._autolinks = [
-				...super.autolinks,
-				{
-					prefix: '#',
-					url: this.issueLinkPattern,
-					alphanumeric: false,
-					ignoreCase: false,
-					title: `Open Issue or Pull Request #<num> on ${this.name}`,
-					description: `${this.name} Issue or Pull Request #<num>`,
-				},
-				{
-					prefix: 'gh-',
-					url: this.issueLinkPattern,
-					alphanumeric: false,
-					ignoreCase: true,
-					title: `Open Issue or Pull Request #<num> on ${this.name}`,
-					description: `${this.name} Issue or Pull Request #<num>`,
-				},
-				{
-					descriptors: [
-						{
-							regex: autolinkFullIssuesRegex,
-							url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/issues/${num}`,
-							title: (repo, num) => `Open Issue or Pull Request #${num} from ${repo} on ${this.name}`,
-							label: (repo, num) => `${this.name} Issue or Pull Request ${repo}#${num}`,
-						},
-					],
-					parse: (text: string, autolinks: Map<string, Autolink>) => {
-						let ownerAndRepo: string;
-						let num: string;
-
-						let match;
-						do {
-							match = autolinkFullIssuesRegex.exec(text);
-							if (match == null) break;
-
-							[, ownerAndRepo, num] = match;
-
-							const [owner, repo] = ownerAndRepo.split('/', 2);
-							autolinks.set(num, {
-								provider: this,
-								id: num,
-								prefix: `${ownerAndRepo}#`,
-								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/issues/${num}`,
-								alphanumeric: false,
-								ignoreCase: true,
-								title: `Open Issue or Pull Request #<num> from ${ownerAndRepo} on ${this.name}`,
-								description: `${this.name} Issue or Pull Request ${ownerAndRepo}#${num}`,
-								descriptor: {
-									key: this.remoteKey,
-									owner: owner,
-									name: repo,
-								} satisfies GitHubRepositoryDescriptor,
-							});
-						} while (true);
+		this._autolinks ??= [
+			...super.autolinks,
+			{
+				prefix: '#',
+				url: this.issueLinkPattern,
+				alphanumeric: false,
+				ignoreCase: false,
+				title: `Open Issue or Pull Request #<num> on ${this.name}`,
+				description: `${this.name} Issue or Pull Request #<num>`,
+			},
+			{
+				prefix: 'gh-',
+				url: this.issueLinkPattern,
+				alphanumeric: false,
+				ignoreCase: true,
+				title: `Open Issue or Pull Request #<num> on ${this.name}`,
+				description: `${this.name} Issue or Pull Request #<num>`,
+			},
+			{
+				descriptors: [
+					{
+						regex: autolinkFullIssuesRegex,
+						url: (repo, num) => `${this.protocol}://${this.domain}/${repo}/issues/${num}`,
+						title: (repo, num) => `Open Issue or Pull Request #${num} from ${repo} on ${this.name}`,
+						label: (repo, num) => `${this.name} Issue or Pull Request ${repo}#${num}`,
 					},
+				],
+				parse: (text: string, autolinks: Map<string, Autolink>) => {
+					let ownerAndRepo: string;
+					let num: string;
+
+					let match;
+					do {
+						match = autolinkFullIssuesRegex.exec(text);
+						if (match == null) break;
+
+						[, ownerAndRepo, num] = match;
+
+						const [owner, repo] = ownerAndRepo.split('/', 2);
+						autolinks.set(num, {
+							provider: this,
+							id: num,
+							prefix: `${ownerAndRepo}#`,
+							url: `${this.protocol}://${this.domain}/${ownerAndRepo}/issues/${num}`,
+							alphanumeric: false,
+							ignoreCase: true,
+							title: `Open Issue or Pull Request #<num> from ${ownerAndRepo} on ${this.name}`,
+							description: `${this.name} Issue or Pull Request ${ownerAndRepo}#${num}`,
+							descriptor: {
+								key: this.remoteKey,
+								owner: owner,
+								name: repo,
+							} satisfies GitHubRepositoryDescriptor,
+						});
+					} while (true);
 				},
-			];
-		}
+			},
+		];
 		return this._autolinks;
 	}
 

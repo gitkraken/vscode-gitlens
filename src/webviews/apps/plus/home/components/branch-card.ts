@@ -781,8 +781,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 				)}
 				${this.renderAgentPillsRow()}
 				${when(
-					// TODO: this doesn't work properly. nothing is true, empty html template is true
-					actionsSection || mergeTargetStatus,
+					(actionsSection != null && actionsSection !== nothing) || mergeTargetStatus !== nothing,
 					() =>
 						html`<div class="branch-item__actions" slot="actions">
 							${mergeTargetStatus ?? nothing}${actionsSection ?? nothing}

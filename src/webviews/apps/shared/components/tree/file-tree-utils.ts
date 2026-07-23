@@ -275,9 +275,7 @@ export function walkFileTree<T extends GitFileChangeShape>(
 	folderToContextData?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined,
 	fileCompare?: (a: TreeModel, b: TreeModel) => number,
 ): TreeModel {
-	if (options.level === undefined) {
-		options.level = 1;
-	}
+	options.level ??= 1;
 
 	let model: TreeModel;
 	if (item.value == null) {
@@ -338,9 +336,7 @@ export function buildFileTree<T extends GitFileChangeShape>(
 	sortByStage?: boolean,
 	mixedPaths?: ReadonlySet<string>,
 ): TreeModel[] {
-	if (options.level === undefined) {
-		options.level = 1;
-	}
+	options.level ??= 1;
 
 	// Filter files if context-match visibility is 'matched' and we have search context
 	let filteredFiles = files;

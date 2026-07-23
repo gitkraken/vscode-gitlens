@@ -271,6 +271,104 @@ gl-lit-graph {
 		text-overflow: ellipsis;
 	}
 
+	// Sticky-timeline pill (gitlens.graph.stickyTimeline) — rides the header/first-row seam, top-right,
+	// clear of the scroll-marker rail (same `--gl-graph-scrollbar-width` offset the head/pinned pills
+	// use). AT REST shows only the bucket label (muted); scrolling OR hovering widens the SAME pill in
+	// place — ONE JS-toggled class (`is-scroll-active`, set in gl-lit-graph's onScroll) combined with
+	// native `:hover` drives every child's reveal below, so the expand/collapse never re-renders.
+	.gl-graph__sticky-timeline {
+		position: absolute;
+		top: 2.5rem;
+		right: var(--gl-graph-scrollbar-width, 14px);
+		z-index: 15;
+		display: inline-flex;
+		align-items: center;
+		height: 1.9rem;
+		padding: 0 0.8rem;
+		font-size: 1.1rem;
+		font-weight: 600;
+		line-height: 1;
+		white-space: nowrap;
+		cursor: default;
+		background-color: var(--vscode-editorWidget-background);
+		border: var(--gl-border-width) solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+		border-radius: 0.5rem;
+		opacity: 1;
+		transition:
+			box-shadow 0.24s ease,
+			opacity 0.18s ease;
+
+		// State selectors nest FROM THE PILL DOWN (not `X &`, which — nested this deep under the
+		// `gl-lit-graph` host rule — expands `&` to the FULL ancestor chain and puts X in FRONT of it,
+		// compiling to `X gl-lit-graph .gl-graph__sticky-timeline-icon`: never matches real DOM, since
+		// `gl-lit-graph` is the outermost ancestor, not a descendant of the pill).
+		&.is-scroll-active,
+		&:hover {
+			box-shadow: 0 0.2rem 0.6rem var(--vscode-widget-shadow);
+
+			.gl-graph__sticky-timeline-icon {
+				max-width: 1.8rem;
+				margin-right: 0.6rem;
+				opacity: 1;
+			}
+
+			.gl-graph__sticky-timeline-label {
+				color: var(--vscode-foreground);
+			}
+
+			.gl-graph__sticky-timeline-span {
+				max-width: 16rem;
+				margin-left: 0.8rem;
+				opacity: 1;
+			}
+		}
+
+		// Yields to the row it's covering (selected/focused/hovered/persistent action buttons — see
+		// updateStickyTimelineYield). Declared LAST so it wins over `.is-scroll-active`/`:hover` above on
+		// tied specificity (two classes each) — scrolling can coincide with the top row needing its
+		// corner, and yield must win. `pointer-events: none` (inherited by the children below — none set
+		// their own) passes the pointer straight through to the row/buttons underneath: no flicker loop,
+		// since the row then stays hovered/selected until the pointer actually leaves it.
+		&.is-yielding {
+			pointer-events: none;
+			opacity: 0;
+		}
+	}
+
+	.gl-graph__sticky-timeline-icon {
+		display: inline-block;
+		max-width: 0;
+		margin-right: 0;
+		overflow: hidden;
+		font-size: 1.2rem;
+		color: var(--vscode-focusBorder);
+		opacity: 0;
+		transition:
+			max-width 0.28s ease,
+			opacity 0.2s ease,
+			margin-right 0.24s ease;
+	}
+
+	.gl-graph__sticky-timeline-label {
+		color: var(--vscode-descriptionForeground);
+		transition: color 0.2s ease;
+	}
+
+	.gl-graph__sticky-timeline-span {
+		display: inline-block;
+		max-width: 0;
+		margin-left: 0;
+		overflow: hidden;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--vscode-descriptionForeground);
+		opacity: 0;
+		transition:
+			max-width 0.28s ease,
+			opacity 0.2s ease,
+			margin-left 0.24s ease;
+	}
+
 	// Hidden singleton holding the synthetic-edge <defs> filter — kept out of flow.
 	.gl-graph__defs {
 		position: absolute;
@@ -361,11 +459,10 @@ gl-lit-graph {
 		display: flex;
 		flex-shrink: 0;
 		height: 2.4rem;
-		// Reserve the end gutter (max of the scrollbar width and the settings-gear footprint, set at
-		// runtime) so header columns end exactly where the rows do — the rows' zone solve reserves the
-		// SAME gutter, and the gear is absolutely positioned within it (below) instead of consuming flex
-		// width (which would shrink the fill column and break header↔body alignment).
-		padding-right: var(--gl-graph-end-gutter, var(--gl-graph-scrollbar-width, 0px));
+		// Match the body scroller's stable scrollbar lane so the header and row column edges align. The
+		// pinned settings gear sits over the trailing header cell's tail, which renders narrower to yield
+		// it room (header-only — body columns keep their full width to the scrollbar).
+		padding-inline-end: var(--gl-graph-scrollbar-width, 0px);
 		user-select: none;
 		border-bottom: 1px solid hsl(var(--border));
 		background: hsl(var(--background));
@@ -411,6 +508,13 @@ gl-lit-graph {
 			pointer-events: none;
 		}
 	}
+	// The trailing header cell renders narrower than its body column (it yields its tail to the pinned
+	// gear). Clip it so a squeezed icon/label can't spill under the gear — safe for zone cells (the last
+	// zone renders no resize handle), but NOT for the graph cell, which always renders its own handle
+	// hanging outside the cell (clipping would sever it).
+	.gl-graph__header-cell:not(.gl-graph__header-cell--graph):not(:has(~ .gl-graph__header-cell)) {
+		overflow: hidden;
+	}
 	.gl-graph__header-label {
 		min-width: 0;
 		overflow: hidden;
@@ -432,21 +536,34 @@ gl-lit-graph {
 			outline: none;
 		}
 	}
-	// Icon shown in place of a column-header text label when the column is too narrow for the text.
+	// Optical correction: centering a text box centers its font box (ascent >> descent), but all-caps only
+	// occupies the ascent — so caps render low against the icons. A 1px bottom pad centers cap-height
+	// instead. Not for the swap-in icon below: a block child, already exact.
+	.gl-graph__header-label:not(:has(.gl-graph__header-label-icon)),
+	.gl-graph__placement-toggle-label {
+		padding-bottom: 1px;
+	}
+	// Icon shown in place of a column-header text label when the column is too narrow for the text. It's
+	// the label's only child, so a block box lets the cell's `align-items: center` center the icon itself;
+	// the icon font's default inline-block + `vertical-align: middle` would instead center it on the text
+	// baseline's half-x-height, which sits below the cell's center axis.
 	.gl-graph__header-label-icon {
-		font-size: 1.4rem;
-		vertical-align: middle;
+		display: block;
+		--code-icon-size: 1.4rem;
 	}
 	// The GRAB target straddles the column boundary in the HEADER only (takes no flex width, so header
-	// columns line up with the rows). Width matches the VS Code sash hover hit-area (~8px). Pointer
-	// events live here — NOT over the list — so the divider never intercepts clicks/wheel on the row
+	// columns line up with the rows). Pointer events live here — NOT over the list — so the divider
+	// never intercepts clicks/wheel on the row
 	// adornments + action buttons below (those stay on top + clickable).
 	.gl-graph__resize-handle {
 		position: absolute;
 		top: 0;
-		right: -0.4rem;
+		// 1.2rem hit area centered on the boundary (was 0.8rem, tight) so the grab/double-click target is
+		// comfortable; the visible divider is the separate `.gl-graph__resize-line` child (unchanged), so
+		// widening the hit area doesn't thicken the line.
+		right: -0.6rem;
 		z-index: 10;
-		width: var(--vscode-sash-hoverSize, 0.8rem);
+		width: 1.2rem;
 		height: 100%;
 		cursor: ew-resize;
 		// A touch-drag resizes the column instead of scrolling the list.
@@ -536,14 +653,23 @@ gl-lit-graph {
 		// Scope-anchor resting tint: colorize the WHOLE anchor row by its role (target = colored, base =
 		// monochromatic muted, focal = brand) so the anchor reads across the row, not just at the marker.
 		// Declared before the state rules below so hover/highlight/selection still override it.
+		// Each resting tint also publishes `--row-rest-bg` (same value) so the row-actions strip + its status
+		// badge can reproduce the row's own background at rest rather than punching an untinted hole through
+		// it; source order here IS the precedence (anchor < inRefChain < highlighted).
 		&.is-anchor--target {
-			background-color: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 12%, transparent);
+			--row-rest-bg: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 12%, transparent);
+
+			background-color: var(--row-rest-bg);
 		}
 		&.is-anchor--fork {
-			background-color: color-mix(in srgb, var(--vscode-descriptionForeground, #8b949e) 12%, transparent);
+			--row-rest-bg: color-mix(in srgb, var(--vscode-descriptionForeground, #8b949e) 12%, transparent);
+
+			background-color: var(--row-rest-bg);
 		}
 		&.is-anchor--focal {
-			background-color: hsl(var(--brand) / 0.1);
+			--row-rest-bg: hsl(var(--brand) / 0.1);
+
+			background-color: var(--row-rest-bg);
 		}
 
 		&:hover {
@@ -560,13 +686,20 @@ gl-lit-graph {
 			outline-offset: -1px;
 		}
 		&.is-inRefChain {
-			background-color: hsl(var(--brand) / 0.06);
+			--row-rest-bg: hsl(var(--brand) / 0.06);
+
+			background-color: var(--row-rest-bg);
 		}
-		// Active-search match (normal mode): the VS Code list filter-match tint so hits stand out while
-		// non-matches dim (is-dimmed). Before is-selected so a selected match still reads as selected.
+		// Active-search match (normal mode): the VS Code range-highlight color — the row-scale "line
+		// containing a search hit" tint (Quick Open/Find) — while non-matches dim (is-dimmed); char-level
+		// find/filter-match tints are too heavy across a full row. Falls back to a brand tint where the
+		// theme defines neither (e.g. high contrast). Before is-selected so a selected match still reads
+		// as selected.
 		&.is-highlighted {
-			background-color: var(--vscode-list-filterMatchBackground, hsl(var(--brand) / 0.2));
-			box-shadow: inset 0 0 0 1px var(--vscode-list-filterMatchBorder, transparent);
+			--row-rest-bg: var(--vscode-editor-rangeHighlightBackground, hsl(var(--brand) / 0.2));
+
+			background-color: var(--row-rest-bg);
+			box-shadow: inset 0 0 0 1px var(--vscode-editor-rangeHighlightBorder, transparent);
 		}
 		&.is-selected {
 			// Component-scoped tokens (not the raw `--vscode-*` directly) so the window-unfocused override
@@ -602,6 +735,7 @@ gl-lit-graph {
 		&.is-dimmed {
 			opacity: 0.35;
 		}
+
 		// Lane-color BAND (graph = its own column), BOUNDED to the gutter: a soft gradient that FADES IN
 		// from the node (`--row-node-x`, transparent) and ramps up toward the graph column's right edge
 		// (`--row-gutter-width`), terminating in a crisp lane-color LINE at that edge — the "edge". Subtle
@@ -652,13 +786,18 @@ gl-lit-graph {
 		// is a generous fixed distance past the lanes' edge so it covers typical pills and bleeds a few
 		// letters into the message; an unusually long pill keeps its own outline past the taper.
 		&.is-graph-band.is-graph-bleed::before {
+			// Spillover past the lanes/pills (`--row-band-edge`) into the message is deliberately kept
+			// subtle: it holds the ramp's peak AT the edge (continuous — no hard step), then falls off
+			// quicker at first and slower later (convex decay) so the wash dims fast just past the pills
+			// but never cuts hard against the message text.
 			background-image: linear-gradient(
 				90deg,
 				transparent var(--band-origin),
 				color-mix(in srgb, var(--row-lane-color) 8%, transparent) calc(var(--band-origin) + 0.5rem),
 				color-mix(in srgb, var(--row-lane-color) 18%, transparent) var(--row-band-edge),
-				color-mix(in srgb, var(--row-lane-color) 16%, transparent) calc(var(--row-band-edge) + 2.5rem),
-				color-mix(in srgb, var(--row-lane-color) 7%, transparent) calc(var(--row-band-edge) + 9rem),
+				color-mix(in srgb, var(--row-lane-color) 9%, transparent) calc(var(--row-band-edge) + 1.25rem),
+				color-mix(in srgb, var(--row-lane-color) 4%, transparent) calc(var(--row-band-edge) + 4rem),
+				color-mix(in srgb, var(--row-lane-color) 1.5%, transparent) calc(var(--row-band-edge) + 8.5rem),
 				transparent calc(var(--row-band-edge) + 13rem)
 			);
 		}
@@ -675,6 +814,44 @@ gl-lit-graph {
 			background-color: var(--row-lane-color);
 			pointer-events: none;
 		}
+	}
+
+	// Sticky-timeline bucket-boundary separator (gitlens.graph.timelineSeparators) — a real child element
+	// (NOT `.gl-graph__row::before`/`::after`: both are already claimed by the lane band/edge and the
+	// focus ring, and a row can be boundary + band/focused at once) rendered only on boundary rows (see
+	// `isBucketBoundary` in gl-lit-graph.ts/graph-row.ts). An absolutely-positioned 1px overlay — NOT a
+	// `border-top` — so it never touches row height/content flow (a top border shifts the content box by
+	// 1px even under `box-sizing: border-box`). The line spans the text zones but fades to transparent
+	// before it reaches the lane gutter (`--graph-col-left`/`--graph-col-vw`, published once per solve in
+	// `updateRenderState` — zeroed when the graph is hidden, so this degrades to a plain full-width line),
+	// so it never crosses the lane strokes/commit dots; ramps on BOTH sides handle the graph column sitting
+	// mid-row (`column` placement, reorderable) as gracefully as at an edge (ramp collapses to nothing when
+	// the excluded region starts/ends at 0%/100%). Static per layout, not per-scroll: the lane region here
+	// is the zone's VIEWPORT slot, not live per-scroll lane content position (`--graph-scroll-x` et al).
+	.gl-graph__row-timeline-sep {
+		--timeline-sep-color: var(--vscode-editorWidget-border, var(--vscode-widget-border));
+		--timeline-sep-ramp: 2rem;
+		--timeline-sep-mask: linear-gradient(
+			90deg,
+			black 0,
+			black calc(var(--graph-col-left, 0) - var(--timeline-sep-ramp)),
+			transparent var(--graph-col-left, 0),
+			transparent calc(var(--graph-col-left, 0) + var(--graph-col-vw, 0)),
+			black calc(var(--graph-col-left, 0) + var(--graph-col-vw, 0) + var(--timeline-sep-ramp)),
+			black 100%
+		);
+
+		position: absolute;
+		top: 0;
+		right: 0;
+		left: 0;
+		height: 0;
+		pointer-events: none;
+		// A real border (not a background line): at fractional display scaling Chromium device-snaps
+		// borders but antialiases backgrounds across 2 physical rows — the mask fades it over the lanes.
+		border-top: var(--gl-border-width) solid var(--timeline-sep-color);
+		-webkit-mask-image: var(--timeline-sep-mask);
+		mask-image: var(--timeline-sep-mask);
 	}
 	// Unfocused host window: dim the selection accent to VS Code's inactive tone (matches list/tree
 	// views losing focus). `windowFocused` is undefined/true when focused — see gl-lit-graph.ts, which
@@ -712,8 +889,12 @@ gl-lit-graph {
 		// semi-transparent): the row-state tint on top, an opaque base (graph bg) below — both fade in
 		// over 1.6rem so the left edge blends into the row instead of a hard cut. Content underneath is
 		// hidden once faded, so nothing shows through behind the buttons.
+		// The tint is the row's OWN resting one (`--row-rest-bg`, unset => transparent) so a `--has-persistent`
+		// strip — visible at rest, see below — disappears into the row instead of reading as a highlighted
+		// chip behind its always-on buttons, while staying opaque enough to still hide row content. The
+		// reveal rules below swap in the hover/selection tints.
 		background:
-			linear-gradient(to right, transparent, var(--vscode-list-hoverBackground) 1.6rem),
+			linear-gradient(to right, transparent, var(--row-rest-bg, transparent) 1.6rem),
 			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
 		transition:
 			opacity 120ms ease-out,
@@ -725,6 +906,9 @@ gl-lit-graph {
 		opacity: 1;
 		visibility: visible;
 		pointer-events: auto;
+		background:
+			linear-gradient(to right, transparent, var(--vscode-list-hoverBackground) 1.6rem),
+			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
 		transition:
 			opacity 120ms ease-out,
 			visibility 0s;
@@ -766,6 +950,21 @@ gl-lit-graph {
 	.gl-graph__row-action.unpushed-push-button {
 		color: var(--branch-status-ahead-foreground);
 	}
+	// Agent indicator phase color. The `.agent-indicator` block further down is nested inside
+	// `.graph-row-actions` — the REACT renderer's container — so it can't reach this renderer's
+	// `.gl-graph__row-actions` rows; these rules are the Lit equivalent (the markup already carries
+	// `agent-indicator--${category}`). Compound selectors, like `.unpushed-push-button` above, so
+	// they outrank `.gl-graph__row-action`'s own `color` on specificity rather than source order.
+	// Tokens come from theme.scss, keeping this aligned with the tree decoration and status pill.
+	.gl-graph__row-action.agent-indicator--needs-input {
+		color: var(--gl-agent-waiting-color);
+	}
+	.gl-graph__row-action.agent-indicator--working {
+		color: var(--gl-agent-working-color);
+	}
+	.gl-graph__row-action.agent-indicator--idle {
+		color: var(--gl-agent-idle-color);
+	}
 	.gl-graph__row-action {
 		position: relative;
 		display: inline-flex;
@@ -797,12 +996,27 @@ gl-lit-graph {
 		bottom: -0.1rem;
 		font-size: 1.2rem;
 		border-radius: 50%;
-		// Opaque chip MATCHING the revealed row bg (not the black editor bg) so it cleanly cuts the
-		// main icon's corner — same two-layer (row tint over the graph bg) as the strip itself.
+		// Opaque chip MATCHING the row bg (not the black editor bg) so it cleanly cuts the main icon's
+		// corner — same two-layer (row tint over the graph bg) as the strip itself, and tracking the same
+		// tints. A status badge only ever renders on an always-on button, so it's the resting tint here.
+		background:
+			linear-gradient(0deg, var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
+			hsl(var(--background));
+		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
+	}
+	// The agent badge IS the phase signal, so it takes the phase color from its button instead of the
+	// neutral foreground above — matching the file tree's agent decoration, and the React renderer,
+	// whose suffix icon already inherits the color from `.agent-indicator`. Scoped to the agent button:
+	// the compose/review/resolve badges sharing this class encode operation state (loading/pass/error),
+	// which must not read as an agent phase. Outranks the base rule on specificity, not source order.
+	.gl-graph__row-action--agent .gl-graph__row-action-status {
+		color: inherit;
+	}
+	.gl-graph__row:hover .gl-graph__row-action-status,
+	.gl-graph__row.is-focused .gl-graph__row-action-status {
 		background:
 			linear-gradient(0deg, var(--vscode-list-hoverBackground), var(--vscode-list-hoverBackground)),
 			hsl(var(--background));
-		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
 	}
 	.gl-graph__row.is-selected .gl-graph__row-action-status {
 		background: linear-gradient(0deg, var(--row-selection-bg), var(--row-selection-bg)), hsl(var(--background));
@@ -931,6 +1145,15 @@ gl-lit-graph {
 	.gl-graph__gutter-node .gl-graph__node-lane {
 		opacity: var(--gutter-node-dim, 1);
 	}
+	// Promote both sliding gutter layers to compositor layers, but only while the gutter can h-scroll
+	// (`is-gutter-fading` = it overflows): they then slide at fractional px with no per-frame repaint,
+	// keeping the pinned dot from desyncing off its surface-drawn lane art. Scoped so idle rows pay none.
+	.gl-graph__virtualizer.is-gutter-fading .gl-graph__gutter-surface {
+		will-change: transform;
+	}
+	.gl-graph__virtualizer.is-gutter-fading .gl-graph__gutter-node {
+		will-change: translate;
+	}
 	.gl-graph__row {
 		// The dot's screen x: its absolute lane x, slid by the scroll offset, pinned inside
 		// [inset, viewport-width - inset] — the same expression the band origin consumes, so the band
@@ -1018,10 +1241,9 @@ gl-lit-graph {
 
 	.gl-graph__refs {
 		display: flex;
-		// The message yields first (its high flex-shrink + 14rem floor) so pills keep their FULL name until
-		// the message reaches that floor; only then do pills shrink (label keeps a name prefix, not a bare
-		// icon). No hard width cap here — a fixed % capped the pills *before* the message hit its floor, so
-		// names ellipsized with room to spare in narrower windows; the message's min-width is the real bound.
+		// Pills shrink (label ellipsises) down to their leading icon; the grouped cap below is what bounds
+		// them against the message. Uncapped base = the dedicated Refs column / compact line 2, where the
+		// refs own the whole cell and there's no message to protect.
 		flex-shrink: 1;
 		min-width: 0;
 		// Separate the pills from the message text that follows in the same cell.
@@ -1030,22 +1252,16 @@ gl-lit-graph {
 		gap: 0.4rem;
 		overflow: hidden;
 	}
-	// Floor the zone so its overflow:hidden can never chop the leftmost interactive marks, while the
-	// name LABEL still collapses fully (its own min-width:0 + ellipsis). Fixed rem, NOT min-content —
-	// the label is `white-space: nowrap`, so its min-content is the WHOLE name and would block shrinking.
-	// Measured floors: a lone pill is icon-only — border(0.1·2)+pad(0.8·2)+icon(1.2) = 3rem; a +N pill
-	// adds the icon↔label gap + label↔badge gap + the badge ≈ 6rem (tuned to a 1-digit badge so it
-	// collapses to exactly icon + badge with NO 1-char name sliver; a wider count clips a hair only at
-	// full compression). The badge rule comes AFTER the plain rule so it wins the source-order tie.
+	// Leading-icon guarantee: floor the zone so its overflow:hidden can never chop the pill's leading
+	// icon — border(0.1·2)+pad(0.8·2)+icon(1.2) = exactly 3rem. This is NOT a pill floor (the pill sizes
+	// itself, see `-main`), and NOT min-content — that sums in the anchor markers AND outranks the
+	// grouped cap below (min-width beats max-width), starving the message all over again.
 	.gl-graph__refs:has(.gl-graph__ref-pill) {
 		min-width: 3rem;
 	}
-	.gl-graph__refs:has(.gl-graph__ref-pill-more) {
-		min-width: 6rem;
-	}
 	// The WIP stats badge is NOT a truncatable pill — it must always show in full. Inlined into the
 	// message column it shares `.gl-graph__refs`, whose shrink/clip is meant for branch pills; pin it to
-	// its content width (and drop the 60% cap + overflow clip) so the message yields instead of the stats.
+	// its content width (and drop the inline cap + overflow clip) so the message yields instead of the stats.
 	.gl-graph__refs:has(.gl-graph__wip-stats) {
 		flex-shrink: 0;
 		min-width: auto;
@@ -1055,13 +1271,16 @@ gl-lit-graph {
 	// Pills sharing the message cell size to their CONTENT, not a flex-shrunk fraction. flex-shrink:0 makes
 	// the zone EXACTLY the pills' width, so each label's box matches its text — eliminating the sub-pixel
 	// rounding that tripped `text-overflow: ellipsis` a pixel early (a flex-shrunk zone lands on a fractional
-	// width whose floor is 1px under the text, so the name ellipsised with room to spare). max-width caps the
-	// zone so the message still keeps a ~9rem floor; past the cap the pills truncate (hover reveals the full
-	// name). Scoped to ref-pill refs that precede a message — NOT the wip-stats refs (must never cap) nor the
-	// dedicated Refs column / compact line 2 (no message sibling there).
+	// width whose floor is 1px under the text, so the name ellipsised with room to spare). The CAP is what
+	// makes pills yield — a bare `100% - 9rem` reserved the message only ~7 chars, so the pills ate the cell
+	// and never visibly shrank; the percentage splits it down the middle instead. `100% - 9rem` takes back
+	// over below an 18rem cell (of the zone's CONTENT box), where half would leave the message too little to
+	// read. Past the cap the pills truncate (hover reveals the full name). Tune the percentage to trade pill
+	// name vs message length — it's the only dial here. Scoped to ref-pill refs that precede a message — NOT
+	// the wip-stats refs (must never cap) nor the dedicated Refs column / compact line 2 (no message sibling).
 	.gl-graph__refs:has(.gl-graph__ref-pill):has(~ .gl-graph__message) {
 		flex-shrink: 0;
-		max-width: calc(100% - 9rem);
+		max-width: min(40%, calc(100% - 9rem));
 	}
 	// In the list (2-line) layout the pills sit on line 2 (before the sha/author/date); the line's flex
 	// gap already spaces them from the metadata, so drop the refs' trailing margin.
@@ -1069,7 +1288,7 @@ gl-lit-graph {
 		margin-right: 0;
 	}
 	// Dedicated Refs column (refs placement = column): the pills own the whole cell, so drop the
-	// inline 60%-of-row cap + the trailing margin (no message follows them here) and let them fill it.
+	// inline share-of-row cap + the trailing margin (no message follows them here) and let them fill it.
 	.gl-graph__zone--ref .gl-graph__refs {
 		max-width: 100%;
 		margin-right: 0;
@@ -1082,12 +1301,15 @@ gl-lit-graph {
 	}
 	.gl-graph__message {
 		// The message absorbs ALL the squeeze in this cell: the branch pills are flex-shrink:0 and capped
-		// (see the `.gl-graph__refs` rule above) so they size to their CONTENT and reserve the message a
-		// floor, while the message shrinks/ellipsises into whatever's left. flex-shrink stays high so the
-		// message yields before the lane-collapse adornments do; min-width mirrors the pills' reserve — the
-		// message is ALWAYS ellipsised here anyway (content is thousands of px), so a modest floor costs
-		// nothing readable but lets the pills (short, COMPLETE identifiers) show their full name, not `m…`.
-		min-width: 9rem;
+		// (see the `.gl-graph__refs` rule above) so they size to their CONTENT, while the message shrinks/
+		// ellipsises into whatever's left. flex-shrink stays high so the message yields before the
+		// lane-collapse adornments do.
+		// min-width MUST stay 0. A floor here can't push the pills back (they're flex-shrink:0) — it only
+		// overflows the line, and the zone's overflow:hidden then chops the message's own `…` off, so it
+		// read as CLIPPED instead of ellipsised. The pills' cap above is what reserves the message its
+		// room; this side just has to yield. The cap can't do the arithmetic itself anyway — it can't see
+		// the refs' 0.6rem margin or the (variable, optional) `-msg-adornments` sharing this line.
+		min-width: 0;
 		flex: 1 1 auto;
 		flex-shrink: 100;
 		overflow: hidden;
@@ -1165,6 +1387,194 @@ gl-lit-graph {
 		color: hsl(var(--muted-foreground));
 	}
 
+	// Changes column: a unified cell (files count · magnitude viz). Bar/bipolar segment widths come from
+	// `stats.ts` math as PERCENTAGES via `cspStyleMap`, so the tracks flex responsively with the column.
+	.gl-graph__changes {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 1.1rem;
+		width: 100%;
+		min-width: 0;
+		overflow: hidden;
+	}
+	.gl-graph__changes-files {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	// The files codicon glyph (font class from the globally-loaded codicons.scss). The `.codicon` compound
+	// selector matches the base `.codicon[class*='codicon-']` specificity but is scoped under gl-lit-graph,
+	// so it outranks it and can shrink the glyph from the base 16px to 12px.
+	.gl-graph__changes-files-icon.codicon {
+		flex-shrink: 0;
+		font-size: 1.2rem;
+		color: var(--color-graph-text-disabled);
+	}
+	.gl-graph__changes-files-count {
+		min-width: 1.6rem;
+		font-size: 1.15rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+		color: hsl(var(--muted-foreground));
+	}
+	// numbers mode: `+N` / `−N` in the added/deleted decoration colors, monospace + tabular so they align.
+	.gl-graph__changes-numbers {
+		display: inline-flex;
+		flex-shrink: 1;
+		min-width: 0;
+		align-items: center;
+		gap: 0.7rem;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 1.15rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+	}
+	.gl-graph__changes-added {
+		min-width: 0;
+		overflow: hidden;
+		color: var(--vscode-gitDecoration-addedResourceForeground);
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-deleted {
+		min-width: 0;
+		overflow: hidden;
+		color: var(--vscode-gitDecoration-deletedResourceForeground);
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	// squares mode: a leading total-churn number + five fixed cells (added / deleted / empty).
+	.gl-graph__changes-squares {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.gl-graph__changes-churn {
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 1.1rem;
+		font-variant-numeric: tabular-nums;
+		color: hsl(var(--muted-foreground));
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-squares-cells {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.2rem;
+	}
+	.gl-graph__changes-square {
+		width: 0.8rem;
+		height: 0.8rem;
+		flex-shrink: 0;
+		border-radius: 0.2rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-square--added {
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-square--deleted {
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// bar mode: a responsive track (flexes with the column) holding the churn-magnitude fill, segment
+	// widths as percentages of the track.
+	.gl-graph__changes-bar {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 3rem;
+		max-width: 20rem;
+		align-items: stretch;
+		height: 0.9rem;
+		overflow: hidden;
+		border-radius: 0.3rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-bar-added {
+		flex-shrink: 0;
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-bar-deleted {
+		flex-shrink: 0;
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// bipolar mode: a responsive bounds track with a center axis; added grows right, deleted grows left,
+	// each scaled independently to a half-track (segment widths as percentages).
+	.gl-graph__changes-bipolar {
+		position: relative;
+		flex: 1 1 auto;
+		min-width: 3rem;
+		max-width: 20rem;
+		height: 0.9rem;
+		overflow: hidden;
+		border-radius: 0.3rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-bipolar-axis,
+	.gl-graph__changes-mode-glyph-bipolar-axis {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		width: 0;
+		height: 100%;
+		// A real border, not a background line — crisp at fractional display scaling (see the timeline sep's note).
+		border-left: var(--gl-border-width) solid hsl(var(--border));
+	}
+	.gl-graph__changes-bipolar-added {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		height: 0.8rem;
+		transform: translateY(-50%);
+		border-radius: 0 0.2rem 0.2rem 0;
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-bipolar-deleted {
+		position: absolute;
+		top: 50%;
+		right: 50%;
+		height: 0.8rem;
+		transform: translateY(-50%);
+		border-radius: 0.2rem 0 0 0.2rem;
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// Colorblind-safe deletions ("minus notch"): a dash punches the row background through the fill so
+	// add/delete survives red/green colorblindness without hue. Two layers because the row tint is
+	// semi-transparent; hover/selected need their own overrides below.
+	.gl-graph__changes-square--deleted,
+	.gl-graph__changes-bar-deleted,
+	.gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+		background-size: 50% 1.5px;
+		background-repeat: no-repeat;
+		background-position: center;
+	}
+	.gl-graph__row:hover .gl-graph__changes-square--deleted,
+	.gl-graph__row:hover .gl-graph__changes-bar-deleted,
+	.gl-graph__row:hover .gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--vscode-list-hoverBackground), var(--vscode-list-hoverBackground)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+	}
+	.gl-graph__row.is-selected .gl-graph__changes-square--deleted,
+	.gl-graph__row.is-selected .gl-graph__changes-bar-deleted,
+	.gl-graph__row.is-selected .gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--row-selection-bg), var(--row-selection-bg)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+	}
+
 	// Standalone graph column (placement = column): holds the fold strip + the gutter viewport, no
 	// padding (the SVG carries its own gutter padding), never shrinks.
 	.gl-graph__zone--graph {
@@ -1224,29 +1634,19 @@ gl-lit-graph {
 		margin-left: auto;
 		margin-right: 0.6rem;
 	}
-	// Settings gear pinned to the header's right edge, ABSOLUTELY positioned within the reserved end
-	// gutter so it never consumes flex width (which shrank the fill column and broke header↔body
-	// alignment). Centered vertically; sits in the gutter the columns stop short of.
+	// Settings gear pinned to the header's inline end, absolutely positioned over the tail the trailing
+	// header cell yields to it. It never consumes flex width, so header/body column edges align.
 	.gl-graph__header-settings {
 		position: absolute;
-		right: 0.3rem;
+		inset-inline-end: 0.3rem;
 		top: 50%;
 		transform: translateY(-50%);
 		margin: 0;
-	}
-	// 3-way graph-style toggle, pinned to the header's right edge in the reserved end gutter (left of the
-	// settings gear when it's present, else at the edge). Absolute so it doesn't consume flex width.
-	.gl-graph__header-style {
-		position: absolute;
-		right: 0.3rem;
-		top: 50%;
-		transform: translateY(-50%);
-		margin: 0;
-	}
-	.gl-graph__header-style--with-gear {
-		right: 2.7rem;
 	}
 	.gl-graph__placement-toggle {
+		// The icon is a flex item here, so its `vertical-align` is inert — `align-items` centers it.
+		--code-icon-size: 1.3rem;
+
 		display: inline-flex;
 		flex-shrink: 0;
 		align-items: center;
@@ -1283,12 +1683,9 @@ gl-lit-graph {
 			outline: 1px solid hsl(var(--brand));
 			outline-offset: 1px;
 		}
-		code-icon {
-			font-size: 1.3rem;
-		}
 	}
-	// Labeled placement toggle ("Graph" + icon) — shown when the graph has no cell of its own (grouped
-	// into another column, or hidden), so the affordance is named like the standalone column's header.
+	// Labeled placement toggle ("Graph" + icon) — used only by the list header, whose single details cell
+	// has no other label to name the affordance.
 	.gl-graph__placement-toggle--labeled {
 		width: auto;
 		gap: 0.3rem;
@@ -1297,6 +1694,470 @@ gl-lit-graph {
 	.gl-graph__placement-toggle-label {
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
+		// Match the column labels: a button's UA `font` shorthand blocks the header's weight/line-height
+		// from inheriting, which would render this label lighter than every real column header.
+		font-weight: 500;
+		line-height: 1.4;
+	}
+
+	// Breadcrumb "group member": a folded column's muted label + its placement toggle + a chevron, rendered
+	// at the head of its grouped HOST cell ahead of the host's own label (e.g. `Graph ⛶ › Message`). The
+	// label + chevron drop on narrow hosts (see `controlsPx`/`headerLabelFits`), leaving just the toggle.
+	.gl-graph__group-member {
+		display: inline-flex;
+		// Icon-only crumbs are fixed-size (column icon + toggle + chevron) — they never shrink or clip.
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.3rem;
+		overflow: hidden;
+
+		// Breathing room between successive crumbs — members are adjacent flex spans, so without this
+		// a member's chevron sits flush against the next member's label.
+		+ .gl-graph__group-member {
+			margin-inline-start: 0.5rem;
+		}
+		// The refs crumb hosts the refs filter button at its inline-START (before the label, matching the
+		// non-grouped columns). Idle it collapses to ~0 width but still owns a flex-gap slot — pull the
+		// following label back so the idle crumb shows no leading hole.
+		.gl-graph__filter-toggle {
+			margin-inline-end: -0.3rem;
+		}
+		// The toggle's base margin-right stacks with the crumb's gap + the chevron's margin (0.8rem on
+		// the toggle→chevron side vs 0.5rem everywhere else) — the flex gap alone spaces it here.
+		.gl-graph__placement-toggle {
+			margin-right: 0;
+		}
+	}
+	// Revealed (crumb hover/focus) or active, the crumb's filter rejoins the gap flow: drop the idle
+	// pull-back AND the global reveal's leading margin (the crumb's own gap already spaces it).
+	.gl-graph__group-member:hover .gl-graph__filter-toggle--member,
+	.gl-graph__group-member:has(:focus-visible) .gl-graph__filter-toggle--member,
+	.gl-graph__filter-toggle--member.is-active {
+		margin-inline-start: 0;
+		margin-inline-end: 0;
+	}
+	// Everything in a header cell EXCEPT the resize handle lives in this clipper: cell content can never
+	// spill into the neighboring header (the old overlap), while the handle — which hangs OUTSIDE the
+	// cell box — stays a direct cell child so it isn't severed.
+	.gl-graph__header-cell-content {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
+		align-items: center;
+		height: 100%;
+		overflow: hidden;
+	}
+	// Crumb-chip form of the placement toggle: the column's identity icon + the map icon in ONE button —
+	// the whole crumb is the ungroup hit target (same pattern as `--labeled`, icon instead of text).
+	.gl-graph__placement-toggle--crumb {
+		width: auto;
+		gap: 0.3rem;
+		padding: 0 0.5rem;
+	}
+	// Breadcrumb separator between a group member and the next crumb (or the host label). Every chevron
+	// gets 0.5rem of air on BOTH sides: left = the member's 0.3rem gap + 0.2rem here; right = the 0.5rem
+	// inter-member margin (above) or the host label's scoped 0.5rem padding (below).
+	.gl-graph__group-member-chevron {
+		--code-icon-size: 1.2rem;
+		flex-shrink: 0;
+		margin-inline-start: 0.2rem;
+		color: hsl(var(--muted-foreground));
+	}
+	// The host's own label follows the crumbs at the same 0.5rem the inter-member margin provides —
+	// its default 0.8rem label padding read as a wider, uneven gap after the last chevron.
+	.gl-graph__group-member ~ .gl-graph__header-label {
+		padding-inline-start: 0.5rem;
+	}
+
+	// Column-header filter button. Idle it collapses to zero width + transparent, so the label sits at its
+	// normal position (no reserved space). The reveal is entirely CSS-internal to the header cell — it
+	// never touches the JS zone-width solver (only an ACTIVE filter feeds the fit math, done in renderHeader).
+	.gl-graph__filter-toggle {
+		--code-icon-size: 1.3rem;
+
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 0;
+		height: 1.8rem;
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		border: 1px solid transparent;
+		border-radius: 0.4rem;
+		background: transparent;
+		color: hsl(var(--muted-foreground));
+		opacity: 0;
+		pointer-events: none;
+		cursor: pointer;
+		// Width + margin animate the label sliding right; opacity fades the icon in.
+		transition:
+			width var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			margin var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			opacity var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			background-color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			border-color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out);
+	}
+	// Reveal on cell hover / keyboard focus-within: expand to the ~22px footprint (sliding the label right)
+	// and fade in. Presentational only — the label-fit math (renderHeader) is unaffected by hover.
+	// Crumb-hosted filters (`--member`) are excluded: they reveal on their own CRUMB's hover below, so
+	// mousing anywhere on a wide host cell doesn't pop a filter inside the breadcrumb.
+	// Keyboard-origin focus only (`:focus-visible`, matching the header ring convention): the picker's
+	// close restores focus to the Changes label, and a plain `:focus-within` reveal made the filter icon
+	// pop in after every pointer-driven open/close. While the mode picker is OPEN the filter stays pinned
+	// (aria-expanded) — a mid-open collapse shifts the label and drags the anchored popover with it.
+	.gl-graph__header-cell:hover .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__header-cell:has(:focus-visible) .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__header-cell:has(.gl-graph__header-label--changes[aria-expanded='true'])
+		.gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__filter-toggle.is-active {
+		width: 1.8rem;
+		margin-inline-start: 0.4rem;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	// Crumb filter reveal: only when the pointer/focus is on that breadcrumb member itself. Margins stay
+	// 0 (the crumb's own gap spaces it — see the member margin rules above).
+	.gl-graph__group-member:hover .gl-graph__filter-toggle--member,
+	.gl-graph__group-member:focus-within .gl-graph__filter-toggle--member {
+		width: 1.8rem;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.gl-graph__filter-toggle:hover {
+		background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		border-color: hsl(var(--border));
+		color: hsl(var(--foreground));
+	}
+	.gl-graph__filter-toggle:focus-visible {
+		outline: 1px solid hsl(var(--brand));
+		outline-offset: 1px;
+	}
+	// Active filter: persistently shown + accent-toned so the "filtered" state reads at a glance (paired
+	// with the `filter-filled` icon set in renderFilterButton). Accent uses focusBorder for legibility.
+	.gl-graph__filter-toggle.is-active {
+		color: var(--vscode-focusBorder);
+	}
+	.gl-graph__filter-toggle.is-active:hover {
+		border-color: var(--vscode-focusBorder);
+		color: var(--vscode-focusBorder);
+	}
+	// Floor degradation: the button stands in for the column icon on an ultra-narrow active-filtered cell,
+	// so it's the cell's sole content — drop the reveal margin so it sits flush at the cell's inline-start.
+	.gl-graph__filter-toggle--floor {
+		margin-inline-start: 0;
+	}
+
+	// Combined Changes-column control: the CHANGES label + a trailing chevron form ONE pill that opens the
+	// mode picker. The label keeps its column-reorder role (drag + Arrow keys — see gl-lit-graph), so this is
+	// purely additive styling. The pill lights up on hover like the old standalone chevron did. Changes only.
+	.gl-graph__header-label--changes {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		border-radius: 0.4rem;
+		transition:
+			background-color 120ms ease-out,
+			color 120ms ease-out;
+
+		&:hover {
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+			color: hsl(var(--foreground));
+		}
+	}
+	// The label text truncates while the chevron stays put (its width is held by the 19px controlsPx reserve).
+	// In icon-collapsed mode the label icon stands in for the text and the chevron follows it.
+	.gl-graph__header-label-text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-mode-chevron {
+		--code-icon-size: 1.2rem;
+		flex-shrink: 0;
+		color: hsl(var(--muted-foreground));
+	}
+
+	// Loading spinner shown while the host computes diffstats. Absolutely pinned to the column header's
+	// inline-end (the cell is `position: relative`), vertically centered, and pointer-transparent so it never
+	// shadows the resize handle's hit zone. When Changes is the trailing column its cell is already narrowed
+	// by the gear's width (headerActionsPx), so this inline-end inset keeps the spinner clear of the gear.
+	// Centered via auto block margins, NOT translateY — the spin animation owns `transform`, and a
+	// translate here would fight it (the icon visibly bobbed instead of spinning).
+	.gl-graph__changes-header-spinner {
+		--code-icon-size: 1.3rem;
+		position: absolute;
+		inset-block: 0;
+		inset-inline-end: 0.6rem;
+		block-size: 1.3rem;
+		margin-block: auto;
+		pointer-events: none;
+		color: hsl(var(--muted-foreground));
+	}
+
+	// Dormant Changes column opt-in overlay — covers ONLY the rows area (top = header height 2.4rem) so the
+	// header stays interactive. `left`/`width` are set inline from the column's solved rect (see
+	// renderChangesOptInOverlay). The whole surface is the Show-Changes affordance; the Hide link intercepts.
+	.gl-graph__changes-optin {
+		position: absolute;
+		top: 2.4rem;
+		bottom: 0;
+		// The inline `width` is the column's exact solved px — keep padding/border inside it.
+		box-sizing: border-box;
+		z-index: var(--gl-z-raised);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.8rem;
+		padding: 1.2rem 1.4rem;
+		overflow: hidden;
+		text-align: center;
+		cursor: pointer;
+		background-color: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 40%, transparent);
+
+		&:hover {
+			border-color: var(--vscode-focusBorder);
+		}
+	}
+	.gl-graph__changes-optin-button {
+		height: 2.4rem;
+		padding: 0 1.2rem;
+		// Buttons don't inherit font — without these they render in the UA default (larger, wrong family).
+		font-family: inherit;
+		font-size: 1.2rem;
+		font-weight: 600;
+		white-space: nowrap;
+		color: var(--vscode-button-foreground);
+		background: var(--vscode-button-background);
+		border: none;
+		border-radius: 0.3rem;
+		cursor: pointer;
+
+		// Expand the button's hit area to the whole overlay (its nearest positioned ancestor) — hover/click
+		// anywhere on the dormant surface IS the button, so its gl-tooltip triggers + stays open while the
+		// tooltip itself anchors to the button's own rect (pseudo overflow doesn't grow it).
+		&::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+		}
+
+		&:hover {
+			background: var(--vscode-button-hoverBackground);
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0.2rem;
+		}
+	}
+	.gl-graph__changes-optin-hide {
+		// Positioned so it paints above the Show button's positioned full-surface `::before` and stays clickable.
+		position: relative;
+		padding: 0;
+		font-family: inherit;
+		font-size: 1rem;
+		color: hsl(var(--muted-foreground));
+		text-underline-offset: 0.2rem;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+
+		&:hover {
+			color: hsl(var(--foreground));
+			text-decoration: underline;
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0.2rem;
+		}
+	}
+	.gl-graph__changes-optin-help {
+		max-width: 18rem;
+		font-size: 1.1rem;
+		line-height: 1.45;
+		color: hsl(var(--muted-foreground));
+		// Let hover/clicks over the text fall through to the Show button's full-surface hit area.
+		pointer-events: none;
+	}
+	.gl-graph__changes-optin-sub {
+		max-width: 18rem;
+		font-size: 1rem;
+		color: var(--color-graph-text-disabled);
+		pointer-events: none;
+	}
+	// The narrow opt-in button's tooltip — the overlay's help stack (title/body/sub) reflowed into the tooltip.
+	.gl-graph__changes-optin-tooltip {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		max-width: 22rem;
+		white-space: normal;
+		text-align: center;
+	}
+	.gl-graph__changes-optin-tooltip-title {
+		font-weight: 600;
+	}
+	.gl-graph__changes-optin-tooltip-sub {
+		color: var(--color-graph-text-disabled);
+	}
+	// Matching faint tint on the dormant Changes header cell so header + overlay read as one dormant column.
+	.gl-graph__header-cell--changes-dormant {
+		background-color: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
+	}
+
+	// Changes mode-picker: a horizontal strip of 4 glyph buttons in a `gl-popover` menu. gl-popover owns the
+	// surface, positioning (flip/shift) + dismiss; this tightens the body padding and lays the glyphs out.
+	// gl-popover is Floating-UI `position: fixed` (NOT the native top layer) — the popup needs the popover
+	// z tier or graph chrome (sticky-timeline pill etc.) paints over it.
+	.gl-graph__changes-mode-popover::part(base__popup) {
+		z-index: var(--gl-z-popover);
+	}
+	.gl-graph__changes-mode-popover::part(body) {
+		padding: 0.4rem;
+	}
+	.gl-graph__changes-mode-strip {
+		display: flex;
+		gap: 0.3rem;
+	}
+
+	// Compact chevron-only picker entry (filter + narrow Changes column) — keeps the mode picker reachable.
+	.gl-graph__changes-mode-picker-button {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: 1.9rem;
+		height: 1.9rem;
+		padding: 0;
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		background: transparent;
+		border: none;
+		border-radius: 0.4rem;
+		--code-icon-size: 1.2rem;
+
+		&:hover {
+			color: hsl(var(--foreground));
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+	}
+
+	// A glyph button: fixed 4rem × 2.6rem, the current mode brand-tinted + brand-bordered.
+	.gl-graph__changes-mode-glyph {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 4rem;
+		height: 2.6rem;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 0.5rem;
+		background: transparent;
+		color: hsl(var(--foreground));
+		cursor: pointer;
+
+		&:hover {
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		}
+		&:focus-visible {
+			outline: 1px solid hsl(var(--brand));
+			outline-offset: 1px;
+		}
+		&.is-current {
+			background: hsl(var(--brand) / 0.16);
+			border-color: hsl(var(--brand));
+		}
+
+		@media (prefers-reduced-motion: no-preference) {
+			transition:
+				background-color 120ms ease-out,
+				border-color 120ms ease-out;
+		}
+	}
+
+	// numbers glyph: a stylized `+N −N` in the add/delete colors (the numbers mode degrades to a mnemonic
+	// at glyph scale — actual counts are illegible this small).
+	.gl-graph__changes-mode-glyph-numbers {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 0.85rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+	}
+	.gl-graph__changes-mode-glyph-added {
+		color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-deleted {
+		color: var(--color-graph-stats-deleted);
+	}
+
+	// squares glyph: five 4px cells (4 added / 1 deleted) — a fixed representative ratio.
+	.gl-graph__changes-mode-glyph-squares {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15rem;
+	}
+	.gl-graph__changes-mode-glyph-square {
+		width: 0.4rem;
+		height: 0.4rem;
+		border-radius: 0.1rem;
+		background: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-mode-glyph-square--added {
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-square--deleted {
+		background: var(--color-graph-stats-deleted);
+	}
+
+	// bar + bipolar glyphs share a 22px × 7px track. bar: left-aligned green+red fill. bipolar: a center
+	// axis with green growing right / red growing left. Fixed representative widths (glyph, not data).
+	.gl-graph__changes-mode-glyph-track {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		width: 2.2rem;
+		height: 0.7rem;
+		overflow: hidden;
+		border-radius: 0.2rem;
+		background: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-mode-glyph-bar-added {
+		height: 100%;
+		width: 0.7rem;
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-bar-deleted {
+		height: 100%;
+		width: 0.2rem;
+		background: var(--color-graph-stats-deleted);
+	}
+	.gl-graph__changes-mode-glyph-bipolar-added {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		width: 0.6rem;
+		height: 100%;
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-bipolar-deleted {
+		position: absolute;
+		top: 0;
+		right: 50%;
+		width: 0.3rem;
+		height: 100%;
+		background: var(--color-graph-stats-deleted);
 	}
 
 	// List style: 2-line stacked rows (line 1 = refs + message; line 2 = author · date · sha).
@@ -1480,24 +2341,16 @@ gl-lit-graph {
 	// (NOT inline color/bg, so the :hover rule can win). At rest: lane-colored text + soft border;
 	// on hover: the pill FILLS with its lane color and the text flips to a readable contrast.
 	.gl-graph__ref-pill {
-		// min-width:0 so the refs zone CAN shrink the pill (its flex auto-minimum would otherwise be
-		// the full-name min-content and the pill would overflow + get clipped by the zone's
-		// overflow:hidden instead of truncating). The icon (flex-shrink:0) + visible overflow on
-		// `-main` provide the floor: the label ellipsises away but the icon never shrinks or clips, so
-		// `-main` bottoms out at "just the icon" and never past it. min-width:0 must also be set on
-		// `-main` for the shrink to reach the label. position:relative anchors the hover-expand overlay
-		// (`-expand`), which reveals the full name ON TOP of the message.
-		// overflow:hidden HERE (not just max-width) clips the pill's flex-shrink:0 segments — the
-		// out-of-sync jump button, PR/issue chips, +N badge — at the pill's own edge once `-main`
-		// bottoms out: those never shrink, and the refs-zone floors (below) only reserve room for
-		// icon(+badge), not for them, so without this they painted past the pill into the neighbor
-		// column (message text, or the next zone/column when refs sit as a bare flex sibling —
-		// dedicated Refs column, compact line 2). :hover/pinned reopen to visible so `-expand` escapes.
+		// NO min-width:0 and NO overflow:hidden — either one zeroes the flex auto-minimum, which let the
+		// pill collapse under its own rigid segments (jump button, PR/issue chips, +N badge) until they
+		// painted over the leading icon. Letting `min-width: auto` stand sizes the pill to its real
+		// content instead. It's a SOFT floor — max-width below clamps it (css-flexbox §4.5) — so a narrow
+		// refs zone still squeezes the pill and clips it at the zone's edge; that's fine, because `-main`
+		// can no longer collapse past its icon, so the segments can never overlap it. position:relative
+		// anchors the hover-expand overlay (`-expand`), which reveals the full name ON TOP of the message.
 		position: relative;
-		min-width: 0;
 		display: inline-flex;
 		max-width: 100%;
-		overflow: hidden;
 		flex-shrink: 1;
 		align-items: center;
 		gap: 0.6rem;
@@ -1530,15 +2383,23 @@ gl-lit-graph {
 		}
 	}
 	.gl-graph__ref-pill-main {
-		display: flex;
-		// min-width:0 propagates the pill's shrink down to the label so it can ellipsise (without it,
-		// `-main`'s auto-minimum is the full-name min-content and nothing truncates). NO overflow:hidden
-		// here though — the icon is flex-shrink:0, and visible overflow guarantees it's never clipped
-		// when `-main` shrinks to the floor; the label owns its own overflow:hidden + ellipsis.
-		min-width: 0;
+		// Grid, not flex: `minmax(0, 1fr)` zeroes the label track's min-content contribution — the one
+		// thing flex CAN'T express (a flex item contributes its own min-content, and the label is nowrap,
+		// so that's the WHOLE name; hence the fixed-rem floors this replaced). `-main`'s auto-minimum is
+		// therefore exactly icon + gap, so it can never collapse past its icon and let the trailing
+		// segments paint over it. The label still ellipsises — a 0-min track doesn't apply its item's
+		// auto-minimum, and the label owns its own overflow:hidden.
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
 		flex-shrink: 1;
 		align-items: center;
-		gap: 0.6rem;
+	}
+	// Icon↔label spacing as a LABEL MARGIN, not `-main`'s grid `gap`: a gap doesn't collapse with its
+	// 0-width track, so it stranded 0.6rem of dead space between the icon and the divider at full
+	// compression. A margin rides with the label and vanishes with it. Scoped to `-main`'s label — the
+	// ghost pill's label is a direct flex child of the pill and takes the pill's own `gap` instead.
+	.gl-graph__ref-pill-main > .gl-graph__ref-pill-label {
+		margin-inline-start: 0.6rem;
 	}
 	.gl-graph__ref-pill-icon {
 		display: inline-flex;
@@ -1548,9 +2409,8 @@ gl-lit-graph {
 		--code-icon-size: 1.2rem;
 	}
 	.gl-graph__ref-pill-label {
-		// Shrink all the way to the icon (+ the +N badge) — the label is the first thing to collapse
-		// once the message hits its floor. The zone floors (`:has(.ref-pill)` 3rem / `:has(.ref-more)`
-		// 6.6rem) keep the icon (and badge) from being clipped.
+		// Collapses to nothing — it's the only part of the pill that yields (it sits in `-main`'s 0-min
+		// grid track). The refs zone's 3rem floor keeps the leading icon itself from being clipped.
 		min-width: 0;
 		overflow: hidden;
 		white-space: nowrap;
@@ -1615,9 +2475,10 @@ gl-lit-graph {
 		display: inline-flex;
 		// The in-sync segment shrinks FIRST (higher shrink than the name half) and well before the local
 		// name, so the local branch stays readable longest; its remote label ellipsises, then it floors at
-		// the cloud icon — leaving the `[name-icon] | [cloud-icon]` minimum with the divider intact.
+		// the cloud icon — leaving the `[name-icon] | [cloud-icon]` minimum with the divider intact. No
+		// min-width:0 — the auto-minimum IS that floor (the labelled shape gets it from the grid below;
+		// the icon-only and icon+stats shapes have nothing that shrinks anyway).
 		flex-shrink: 100;
-		min-width: 0;
 		align-items: center;
 		line-height: 1;
 		gap: 0.3rem;
@@ -1625,6 +2486,17 @@ gl-lit-graph {
 		padding: 0 0 0 0.5rem;
 		border: 0;
 		border-left: 1px solid var(--ref-border, currentColor);
+	}
+	// Same 0-min label track as `-main`, but ONLY for the shape that HAS a label. Unscoped, this breaks the
+	// other two shapes sharing this class: the `--jump` button (icon + arrow [+ stats]) would wrap its last
+	// child to an implicit second row, and the no-jump stats shape would collapse its tracking pill into the
+	// 0-min track.
+	.gl-graph__ref-pill-upstream:has(> .gl-graph__ref-pill-upstream-label) {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		// Gap → label margin, same as `-main`: a grid gap survives its 0-width track and would strand
+		// dead space between the cloud icon and the next segment at full compression.
+		column-gap: 0;
 	}
 	// Out-of-sync: the WHOLE segment is a button that jumps to the counterpart's row. Reset the UA button
 	// chrome (keeping the base layout/divider) and STRETCH it to the full pill height, bleeding into the
@@ -1709,6 +2581,8 @@ gl-lit-graph {
 		white-space: nowrap;
 		text-overflow: ellipsis;
 		line-height: 1;
+		// Carries its own icon↔label spacing (see the grid rule above) so it vanishes with the label.
+		margin-inline-start: 0.3rem;
 		padding-block: 0.3rem;
 		margin-block: -0.3rem;
 		opacity: 0.85;
@@ -1866,9 +2740,6 @@ gl-lit-graph {
 	}
 	.gl-graph__ref-pill:hover {
 		z-index: 20;
-		// Reopen the pill's own resting overflow:hidden (see above) so `-expand`'s absolute overlay —
-		// contained by THIS element (position:relative) — can still escape past the pill's edge.
-		overflow: visible;
 	}
 	.gl-graph__ref-pill:hover .gl-graph__ref-pill-expand {
 		display: inline-flex;
@@ -1892,8 +2763,6 @@ gl-lit-graph {
 	.gl-graph__ref-pill.is-context-pinned,
 	.gl-graph__ref-pill.is-pinned {
 		z-index: 20;
-		// Same reopen as :hover above — pinned states keep `-expand` shown for their lifetime.
-		overflow: visible;
 	}
 	.gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-expand,
 	.gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-expand {
@@ -2159,6 +3028,10 @@ gl-lit-graph {
 	--color-graph-stats-added: var(--vscode-gitlens-graphChangesColumnAddedColor);
 	--color-graph-stats-deleted: var(--vscode-gitlens-graphChangesColumnDeletedColor);
 	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
+	// Neutral "empty track" fill behind the Changes bars / bipolar axis / unfilled squares. Derived from
+	// the editor foreground (which flips with the theme) at low alpha, matching the `--color-graph-text-*`
+	// neutrals above so it reads as a subtle recess in both light + dark themes.
+	--color-graph-stats-track: color-mix(in srgb, transparent 82%, var(--color-graph-text-selected));
 
 	--color-graph-minimap-line0: var(--vscode-progressBar-background);
 	--color-graph-minimap-focusLine: var(--vscode-foreground);
@@ -3785,13 +4658,6 @@ web-graph {
 			height: 100%;
 			min-height: 0;
 			overflow: hidden;
-
-			// Details on the bottom → move the WIP bar below the graph (just above the details pane)
-			// via flex order, so the bar is restyled/repositioned without remounting the bar or the
-			// graph wrapper (DOM reordering would remount and flicker).
-			&.-wip-bottom gl-graph-wip-bar {
-				order: 1;
-			}
 		}
 
 		// Light DOM custom elements default to display:inline — force block for flex sizing

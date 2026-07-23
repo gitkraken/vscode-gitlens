@@ -74,6 +74,27 @@ export const repositoryChanges = exhaustiveArray<RepositoryChange>()([
 	'lastFetched',
 ]);
 
+/**
+ * The only changes {@link Repository.fireChange} accepts with `force` — delivered straight to the repository's
+ * emitter, bypassing the watch session, so they still arrive while it's suspended or when there's no watch handle
+ * at all (a repo being opened, or closed, or a virtual repo that never had one).
+ *
+ * These have nothing intrinsic in common — being forced IS the shared property, which is why this is keyed off
+ * `force` rather than some category of change.
+ *
+ * It's the partition consumers need: everything NOT listed here goes through the session, which does its
+ * pre-notification work (e.g. advancing a cache's status clock) exactly once, before it notifies anyone. Nothing
+ * runs upstream of a forced change, so a consumer bridging repository changes into a cache must handle these
+ * itself. Forcing a change that isn't listed is a compile error — and consumers gate on this same array, so
+ * listing one wires it up for free.
+ */
+export const forcedRepositoryChanges = [
+	'opened',
+	'closed',
+	'lastFetched',
+] as const satisfies readonly RepositoryChange[];
+export type ForcedRepositoryChange = (typeof forcedRepositoryChanges)[number];
+
 export interface RepositoryInit {
 	readonly id: string;
 	readonly path: string;
@@ -318,7 +339,9 @@ export class Repository {
 	}
 
 	protected fireChange(...changes: RepositoryChange[]): void;
-	protected fireChange(change: RepositoryChange, force: boolean): void;
+	/** Force-fire: delivered straight to the emitter, bypassing the watch session — see
+	 *  {@link forcedRepositoryChanges}, which is the only set this accepts. */
+	protected fireChange(change: ForcedRepositoryChange, force: true): void;
 	@trace()
 	protected fireChange(...args: RepositoryChange[] | [RepositoryChange, boolean]): void {
 		const lastArg = args.at(-1);

@@ -73,6 +73,12 @@ export const detailsHeaderStyles = css`
 		border-radius: var(--gl-radius-sm);
 	}
 
+	/* Zero-gap segmented box: keep each "new" dot inside its own chip so it can't land on a neighbor
+	   or ride the accent border. */
+	.details-header__modes gl-new-indicator {
+		--gl-new-indicator-overhang: 0%;
+	}
+
 	/* Accent-tint the AI mode icons only (scoped to the box; Compare keeps its default icon color).
 	   Labels stay foreground. gl-action-chip exposes its code-icon as part="icon". Exclude the
 	   running-op (--has-status) state: those chips are filled with --mode-toggle-accent and rely on

@@ -7,6 +7,7 @@ import { createCommandLink } from '../../../../../system/commands.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
+import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
@@ -66,6 +67,11 @@ export class GlDetailsWipHeader extends LitElement {
 	@property() dateStyle?: string;
 	/** Back/forward history state from the graph host, rendered to the left of the jump button. */
 	@property({ attribute: false }) navigation?: NavigationState;
+	/** Graph-bottom-only: render the maximize/restore chip left of Refresh (and thread it into the
+	 *  header's active-mode cluster). */
+	@property({ type: Boolean, attribute: 'show-maximize' }) showMaximize = false;
+	/** Drives the maximize chip's icon/label when `showMaximize` is true. */
+	@property({ type: Boolean }) maximized = false;
 
 	override render() {
 		const wip = this.wip;
@@ -115,6 +121,8 @@ export class GlDetailsWipHeader extends LitElement {
 			.loading=${this.loading}
 			.modes=${this.computeWipModes()}
 			.compareEnabled=${true}
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?in-results-view=${this.inResultsView}
 		>
 			<div class="graph-details-header__title-group">
@@ -153,6 +161,7 @@ export class GlDetailsWipHeader extends LitElement {
 										: nothing}
 								</span>`
 							: nothing}
+						${this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
 						<gl-action-chip
 							slot="actions"
 							icon="refresh"

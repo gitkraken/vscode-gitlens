@@ -542,6 +542,14 @@ export class ViewCommands implements Disposable {
 		return WorktreeActions.remove(node.repoPath, uris);
 	}
 
+	@command('gitlens.views.unlockWorktree')
+	@debug()
+	private async unlockWorktree(node: WorktreeNode) {
+		if (!node.is('worktree')) return undefined;
+
+		return WorktreeActions.unlock(node.worktree);
+	}
+
 	@command('gitlens.fetch:views')
 	@debug()
 	private fetch(

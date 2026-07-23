@@ -1,17 +1,19 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
-import { classifyRowsDelta } from '@gitkraken/commit-graph/engine/delta.js';
+import { classifyRowsDelta, isHistoryRewrite } from '@gitkraken/commit-graph/engine/delta.js';
 import { collectReachable, identifyFirstParentChain } from '@gitkraken/commit-graph/engine/layout.js';
-import type { GraphProcessResume } from '@gitkraken/commit-graph/engine/process.js';
+import { buildChildrenBySha, findBranchingPointSha } from '@gitkraken/commit-graph/engine/navigation.js';
+import type { GraphProcessResume, GraphStability } from '@gitkraken/commit-graph/engine/process.js';
 import { processCommitsAndSegments } from '@gitkraken/commit-graph/engine/process.js';
 import type { ReconciledSuffix } from '@gitkraken/commit-graph/engine/reconcile.js';
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
 import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/laneClamp.js';
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
+import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
+import { changesModeOrDefault } from '@gitkraken/commit-graph/stats.js';
 import type {
 	GraphPlacement,
-	GraphStyle,
 	RefsPlacement,
 	ResolvedGraphStyle,
 	ZoneId,
@@ -39,13 +41,21 @@ import { createRef, ref } from 'lit/directives/ref.js';
 import '@lit-labs/virtualizer';
 import { repeat } from 'lit/directives/repeat.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
-import { formatDate as formatGitLensDate, fromNow as gitlensFromNow } from '@gitlens/utils/date.js';
+import {
+	formatDate as formatGitLensDate,
+	fromNowUnit,
+	fromNowUnitKey,
+	fromNow as gitlensFromNow,
+	unitDivisorMs,
+	unitThresholdMs,
+} from '@gitlens/utils/date.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	DidSearchParams,
 	GraphAvatars,
 	GraphColumnConfig,
+	GraphColumnName,
 	GraphColumnsConfig,
 	GraphColumnsSettings,
 	GraphComponentConfig,
@@ -74,6 +84,7 @@ import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
+import '../../../shared/components/overlays/tooltip.js';
 import type { LaneCollapseChipContext } from './adornments/laneCollapseAdornmentProvider.js';
 import type { ParsedRef } from './adornments/refAdornmentProvider.js';
 import { createRefAdornmentProvider, refPillKey } from './adornments/refAdornmentProvider.js';
@@ -98,7 +109,7 @@ import {
 	spliceDroppedRows,
 } from './graph-lane-collapse.js';
 import type { RowRenderContext } from './graph-row.js';
-import { renderRow } from './graph-row.js';
+import { hasPersistentRowActions, renderRow } from './graph-row.js';
 import { computeInScopeShas, computeScopeAnchors, computeScopeProjection } from './graph-scope.js';
 import type { ScopeAnchors, ScopeProjection } from './graph-scope.js';
 import type { RowMarkers, ScrollMarker } from './graph-scroll-markers.js';
@@ -127,9 +138,6 @@ const scrollMarkerDragThresholdPx = 3;
 // Width (px) of the dedicated lane-fold strip prepended to the lanes when folding is enabled — wide
 // enough for the chevron toggle, narrow enough to not crowd the lanes.
 const foldLaneWidthPx = 14;
-// Right gutter (px) reserved for the header's absolutely-positioned settings gear, so the columns
-// stop short of it instead of the gear pushing the flex fill (which broke header↔body alignment).
-const headerSettingsGutterPx = 24;
 // Minimum width (px) of the graph column's horizontal scrollbar thumb, so it stays grabbable even when
 // the lane content vastly overflows a narrow viewport.
 const graphHScrollMinThumbPx = 24;
@@ -139,12 +147,13 @@ const graphHScrollMinThumbPx = 24;
 const defaultGroupedMinLanes = 10;
 const defaultGroupedMaxPercent = 40;
 // Codicon shown in a column header in place of the text label when the column is too narrow to fit it
-// (legacy behavior — see `headerLabelFits`). The graph column uses 'graph-line' (handled inline).
+// (legacy behavior — see `headerLabelFits`). The graph column uses 'gl-graph' (handled inline).
 const zoneHeaderIcons: Record<ZoneId, string> = {
 	ref: 'git-branch',
 	message: 'comment',
 	author: 'account',
 	datetime: 'calendar',
+	changes: 'request-changes',
 	sha: 'git-commit',
 };
 // Whether an uppercased header label fits the given label-area width (px): ≈7px/char + the resize
@@ -152,8 +161,19 @@ const zoneHeaderIcons: Record<ZoneId, string> = {
 function headerLabelFits(label: string, areaPx: number): boolean {
 	return areaPx >= label.length * 7 + 28;
 }
+// Footprint (px) of the pinned settings gear over the trailing header cell's tail (button + edge
+// inset); the trailing HEADER cell renders narrower by this so its label/icon never sit under it.
+const headerActionPx = 24;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+// Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
+// attached to the DOM. Used to size the date column to its NORMAL (non-compact) format on autosize.
+let textMeasureCanvas: HTMLCanvasElement | undefined;
+function getTextMeasureContext(): CanvasRenderingContext2D | null {
+	textMeasureCanvas ??= document.createElement('canvas');
+	return textMeasureCanvas.getContext('2d');
+}
 
 // WIP (workdir) rows carry a today-ish synthetic date, not a real commit date — reading one straight
 // off a visible-range edge would skew the reported day-range (minimap). Walks from `from` toward
@@ -172,6 +192,116 @@ function nearestNonWorkdirDate(
 	return rows[from]?.date;
 }
 
+// Sticky-timeline bucket for the row scrolled to the top of the viewport (see `updateStickyTimelineBucket`).
+// Groups mirror the Date column's OWN `fromNow` relative-time families exactly (same unit/threshold
+// table, via `fromNowUnit`) — NOT calendar-midnight day buckets — so the pill never disagrees with what
+// a row's own date cell reads. `key` is dynamic (e.g. `week:3`) since the edge-gate just compares keys.
+type StickyTimelineGroup = {
+	key: string;
+	label: string;
+	/** Elapsed-ms window [lo, hi) this group covers, magnitude (days/weeks/… ago). `hi` undefined = an
+	 *  open-ended (year) group — formatted as "before <lo's date>" instead of a range. */
+	lo: number;
+	hi?: number;
+};
+
+// Classifies `dateMs` relative to `nowMs` into a sticky-timeline group — pure arithmetic over
+// `fromNowUnit`'s own threshold table (no Date allocation when both args are numbers, as they always
+// are here), so this is safe to call per row. today/yesterday/"this week" collapse the column's
+// second/minute/hour/day-2-6 families the same way a Date cell's OWN relative text would read them.
+// Windows are clamped to the ADJACENT unit's real threshold (not just `n+1` steps of the same divisor)
+// so [lo,hi) exactly tiles what `fromNowUnit` actually produces — e.g. week:4's naive hi (35d) would
+// overshoot into where classification has already flipped to 'month' (~30.42d); year:1's naive lo (365d)
+// would undershoot into where it's still 'month' (year requires ~729d elapsed before it triggers at all).
+function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGroup {
+	const day = unitDivisorMs('day');
+	// Future dates (clock skew, an intentionally future-dated commit) — no sensible "in N days" bucket;
+	// read as "now" like a Date cell showing a sub-day relative time would.
+	if (dateMs > nowMs) return { key: 'today', label: 'Today', lo: 0, hi: day };
+
+	const result = fromNowUnit(dateMs, nowMs);
+	if (result == null) return { key: 'today', label: 'Today', lo: 0, hi: day };
+
+	const { unit, value } = result;
+	const n = Math.abs(value);
+	switch (unit) {
+		case 'second':
+		case 'minute':
+		case 'hour':
+			return { key: 'today', label: 'Today', lo: 0, hi: day };
+		case 'day':
+			if (n <= 1) return { key: 'yesterday', label: 'Yesterday', lo: day, hi: 2 * day };
+			return { key: 'week', label: 'This week', lo: 2 * day, hi: unitDivisorMs('week') };
+		case 'week': {
+			const week = unitDivisorMs('week');
+			const monthThreshold = unitThresholdMs('month');
+			if (n <= 1) {
+				return { key: 'week:1', label: 'Last week', lo: week, hi: Math.min(2 * week, monthThreshold) };
+			}
+			return {
+				key: `week:${n}`,
+				label: `${n} weeks ago`,
+				lo: n * week,
+				hi: Math.min((n + 1) * week, monthThreshold),
+			};
+		}
+		case 'month': {
+			const month = unitDivisorMs('month');
+			const yearThreshold = unitThresholdMs('year');
+			if (n <= 1) {
+				return { key: 'month:1', label: 'Last month', lo: month, hi: Math.min(2 * month, yearThreshold) };
+			}
+			return {
+				key: `month:${n}`,
+				label: `${n} months ago`,
+				lo: n * month,
+				hi: Math.min((n + 1) * month, yearThreshold),
+			};
+		}
+		default: {
+			// 'year' — the only other unit fromNowUnit's table can return. year:1's true reachable window
+			// starts at the YEAR THRESHOLD (~729d), not `1 * yearDivisor` (365d) — everything from 365d up
+			// to the threshold is still classified 'month'; year:2+ aren't affected (n*year already clears
+			// the threshold). `hi` deliberately stays undefined — stickyTimelineSpanFor reads that as
+			// "open-ended" and formats "before <date>" instead of a bounded range (a year group's window
+			// still gets a real reclassification bound, just computed separately — see
+			// updateStickyTimelineBucket, which can't reuse group.hi here without losing that formatting).
+			const lo = n <= 1 ? unitThresholdMs('year') : n * unitDivisorMs('year');
+			return { key: `year:${n}`, label: `${n} years ago`, lo: lo };
+		}
+	}
+}
+
+// Allocation-free sibling of `stickyTimelineGroupFor` — same classification (including the future-date
+// guard) but returns a plain number instead of building the group object (label/lo/hi), for the PER-ROW
+// hairline comparison (renderRowItem calls this twice per row; must stay zero-allocation). Every group
+// `stickyTimelineGroupFor` distinguishes maps to a distinct number here too — bases are spaced 100,000
+// apart so `n` can grow arbitrarily large within a family without colliding with the next one.
+function stickyTimelineGroupKeyFor(dateMs: number, nowMs: number): number {
+	if (dateMs > nowMs) return 0; // future → 'today', same as stickyTimelineGroupFor.
+
+	const raw = fromNowUnitKey(dateMs, nowMs);
+	if (raw == null) return 0;
+
+	// fromNowUnitKey's ordinal order: 0=year, 1=month, 2=week, 3=day, 4=hour, 5=minute, 6=second.
+	const ordinal = Math.trunc(raw / 100_000);
+	const n = Math.abs(raw - ordinal * 100_000);
+	switch (ordinal) {
+		case 4: // hour
+		case 5: // minute
+		case 6: // second
+			return 0; // 'today'
+		case 3: // day
+			return n <= 1 ? 1 /* yesterday */ : 2; /* this week */
+		case 2: // week
+			return n <= 1 ? 100_000 /* last week */ : 100_000 + n;
+		case 1: // month
+			return n <= 1 ? 200_000 /* last month */ : 200_000 + n;
+		default: // 0 = year
+			return 300_000 + n;
+	}
+}
+
 /** Per-row adornment content fanned out by zone, plus the joined a11y label fragment. */
 type ResolvedAdornments = { fold: TemplateResult[]; ref: TemplateResult[]; message: TemplateResult[]; label: string };
 
@@ -185,6 +315,12 @@ type ResolvedRefTarget = {
 	current: boolean;
 };
 
+/** Which surface of a hovered row the pointer is over (see `handleRowHover`). 'content' = the
+ *  message/author/date/sha cells (schedules the rich commit card); 'graph' = the lanes/commit-dot
+ *  column (tracks only — no card today, but the seam for a future lane/branch hover card). Threaded
+ *  into the emitted `gl-graph-rowhover*` events' detail so the wrapper can forward it accurately. */
+type RowHoverZone = 'content' | 'graph';
+
 /**
  * Snapshot of the render-derived state the per-row `renderItem` needs. Populated once per
  * `render()` and read (never re-derived) inside the hot per-row loop, so `renderItem` can be a
@@ -197,10 +333,14 @@ interface RenderCtx {
 	gutterWidth: number;
 	columnWidth: number;
 	zones: readonly ZoneSpec[];
+	/** Shared ref to the host's per-sha diffstat map for the Changes column (absent key = still pending). */
+	rowsStats?: Readonly<Record<string, GraphRowStats>>;
 	style: ResolvedGraphStyle;
 	graphPlacement: GraphPlacement;
 	/** Visible-column slot the graph occupies (column mode) — interleaved among the zone cells. */
 	graphColumnPos: number;
+	/** Host zone id the grouped lanes render in (see `graphHostIdFor`); undefined = anchor-slot fallback. */
+	graphHostId: string | undefined;
 	/** Width (px) of the dedicated lane-fold strip prepended to the lanes; 0 when folding disabled. */
 	foldLaneWidth: number;
 	/** Displayed width (px) of the graph column (fold strip + gutter viewport). When < gutterWidth +
@@ -272,6 +412,42 @@ interface RenderCtx {
 	wipMetadataBySha?: GraphWipMetadataBySha;
 }
 
+// Changes-column mode picker: the four visualizations as an ordered glyph strip. Labels drive the
+// delegated tooltip + the accessible name; order matches the native menu.
+const changesModeOptions: readonly { mode: ChangesColumnMode; label: string }[] = [
+	{ mode: 'numbers', label: 'Numbers' },
+	{ mode: 'squares', label: 'Squares' },
+	{ mode: 'bar', label: 'Bar' },
+	{ mode: 'bipolar', label: 'Bipolar' },
+];
+
+// Static glyph templates for the mode picker — tiny iconographic shapes at glyph scale (fixed, no
+// data). Allocated once at module load and reused every render. Plain spans only (no custom elements);
+// all sizing/colors live in graph.scss. NO minus-notch at this scale (illegible — deliberate).
+const changesModeGlyphs: Record<ChangesColumnMode, TemplateResult> = {
+	numbers: html`<span class="gl-graph__changes-mode-glyph-numbers"
+		><span class="gl-graph__changes-mode-glyph-added">+N</span
+		><span class="gl-graph__changes-mode-glyph-deleted">−N</span></span
+	>`,
+	squares: html`<span class="gl-graph__changes-mode-glyph-squares"
+		>${(['added', 'added', 'added', 'added', 'deleted'] as const).map(
+			fill =>
+				html`<span
+					class="gl-graph__changes-mode-glyph-square gl-graph__changes-mode-glyph-square--${fill}"
+				></span>`,
+		)}</span
+	>`,
+	bar: html`<span class="gl-graph__changes-mode-glyph-track"
+		><span class="gl-graph__changes-mode-glyph-bar-added"></span
+		><span class="gl-graph__changes-mode-glyph-bar-deleted"></span
+	></span>`,
+	bipolar: html`<span class="gl-graph__changes-mode-glyph-track"
+		><span class="gl-graph__changes-mode-glyph-bipolar-axis"></span
+		><span class="gl-graph__changes-mode-glyph-bipolar-deleted"></span
+		><span class="gl-graph__changes-mode-glyph-bipolar-added"></span
+	></span>`,
+};
+
 /**
  * Pure-Lit commit graph host — the React-free replacement for `<gl-lit-graph>`. Owns the
  * `<lit-virtualizer>` row list, the engine pipeline (GitGraphRow → GraphCommitView →
@@ -295,6 +471,13 @@ export class GlLitGraph extends LitElement {
 	@property({ type: Array }) rows?: GitGraphRow[];
 	@property({ type: Object }) avatars?: GraphAvatars;
 	@property({ type: Object }) rowsStats?: Record<string, GraphRowStats>;
+	// True while the host is still computing per-row diffstats (rowsStats) — drives the Changes header's
+	// loading spinner. The wrapper only passes this (and rowsStats) while the Changes column is visible,
+	// so a hidden column never spins nor re-renders on stats deltas.
+	@property({ type: Boolean }) rowsStatsLoading = false;
+	// False = the Changes column is dormant (stats consent not yet given): it renders an opt-in overlay
+	// over its rows area instead of stats. The host pushes this from `graph.changesColumn.enabled`.
+	@property({ type: Boolean }) changesColumnEnabled = true;
 	@property({ type: Object }) selectedRows?: GraphSelectedRows;
 	// Lazily-fetched upstream/PR/issue metadata (keyed by ref id). The split ref pill reads ahead/behind
 	// from `refsMetadata[id].upstream`; missing entries are requested via `gl-graph-missingrefsmetadata`.
@@ -316,6 +499,8 @@ export class GlLitGraph extends LitElement {
 	@property({ type: String }) searchMode?: GraphSearchMode;
 	@property({ type: Object }) config?: GraphComponentConfig;
 	@property({ type: Object }) columns?: GraphColumnsSettings;
+	// Host's ack of our latest columns write (see persistColumnsConfig / shouldApplyIncomingColumns).
+	@property({ type: Number }) columnsRevision = 0;
 	// Selected repo path — needed to reconstruct lean commit rows' right-click context (the host now
 	// ships only `contexts.flags`, not a serialized `contexts.row`); see toGraphCommit.
 	@property({ type: String }) repoPath?: string;
@@ -355,6 +540,12 @@ export class GlLitGraph extends LitElement {
 	// Branch pinned to the leftmost lane(s) (gitlens.graph.pinBranchToEdge). Resolved to a sha and fed
 	// to the engine as `pinnedShas`; a floating "Jump to Pinned Branch" pill scrolls to it when off-screen.
 	@property({ type: Object }) pinnedRef?: GraphPinnedRef;
+	// Columns whose header filter is currently active (derived host-side from the search query's
+	// operators — see graph-header's `updateActiveFilterColumns`). A filterable column's header filter
+	// button is persistently shown + accent-toned when its id is in this set, and its 22px footprint
+	// joins that cell's label-fit math (see `renderHeader`). Hover/focus reveal is CSS-only and never
+	// touches this or the zone-width solver.
+	@property({ attribute: false }) activeFilterColumns?: ReadonlySet<GraphColumnName>;
 
 	@state() private containerWidth = 0;
 	@state() private focusIndex = 0;
@@ -365,13 +556,16 @@ export class GlLitGraph extends LitElement {
 	// order), so the only reactive bit is `dragColId` — the id of the column being dragged — which marks
 	// its cell as the lifted one. The rest of the drag (base snapshot, target, rAF) lives in `columnDrag`.
 	@state() private dragColId: string | null = null;
-	// Where the lane art renders. Session-scoped for now (not yet persisted across reloads).
-	@state() private graphPlacement: GraphPlacement = 'column';
+	// Where the lane art renders. Grouped by default (mirrors refs) — the lanes fold into the anchor-slot
+	// host zone. Persisted via the columns config (`graph.grouped`; `isHidden` from the host's column menu
+	// always wins).
+	@state() private graphPlacement: GraphPlacement = 'grouped';
 	// The graph's ANCHOR position: an insert-index into the FULL ordered zone list (`this.zones`,
 	// including hidden / inline-refs zones), NOT the visible list. The VISIBLE slot is DERIVED from this
 	// each render (`graphVisibleIndex`) by counting how many visible zones precede the anchor — so
 	// hiding/inlining/reordering a column to the graph's left shifts its visible slot automatically and
-	// can never desync. drag/Arrow-key reorder map the visible target back to an anchor. Session-scoped.
+	// can never desync. drag/Arrow-key reorder map the visible target back to an anchor. Persisted via
+	// the columns config (`graph.order`).
 	@state() private graphColumnPos = 0;
 	// Derived once per render in `updateRenderState`: the graph's VISIBLE-slot index (anchor projected
 	// through the current visible zones). Read by the header; passed to rows as `ctx.graphColumnPos`.
@@ -379,12 +573,18 @@ export class GlLitGraph extends LitElement {
 	// Where refs (branches/tags/remotes) render: 'grouped' = pills at the head of their host column —
 	// the zone adjacent to Refs at group-time (`refsHostZoneId`), falling back to Message — anchored BY
 	// ID via `refsHostIdFor` so the group travels with it through reorders (default); 'column' = a
-	// dedicated Refs column (expanded density only, where columns exist). Session-scoped, matching
-	// `graphPlacement`.
+	// dedicated Refs column (expanded density only, where columns exist). Persisted via the columns
+	// config (`ref.grouped`), matching `graphPlacement`.
 	@state() private refsPlacement: RefsPlacement = 'grouped';
 	// Adjacent zone id captured at group-time by `toggleRefsPlacement` (undefined = use the Message
-	// fallback). Session-scoped like `refsPlacement` — not persisted.
+	// fallback). Persisted via the columns config round-trip (`ref.grouped`'s string value; see
+	// `buildColumnsConfig`).
 	@state() private refsHostZoneId: string | undefined;
+	// Host zone the GRAPH groups into, captured at group-time — mirrors `refsHostZoneId` BY ID so the
+	// [graph + host] pair travels together through reorders. Persisted via the columns config
+	// (`graph.grouped`'s string value; see `currentGraphColumnConfig`). Undefined = fall back to the
+	// anchor slot (`graphHostIdFor`) — also covers legacy persisted `grouped: true`.
+	@state() private graphHostZoneId: string | undefined;
 	// Lane folding (collapse/expand of mergeable lane segments). On → a dedicated fold strip on the
 	// left edge of the lanes shows expand/collapse chevrons on collapsible segment-tip rows. Off → no
 	// fold strip, no chevrons, and all lanes stay expanded (default-collapse + manual folds ignored).
@@ -403,6 +603,19 @@ export class GlLitGraph extends LitElement {
 	// Name of the click-pinned ref pill: keeps it expanded (the `.is-pinned` class, reconciled after
 	// each render) and drives the dim chain above + the click toggle. Undefined = nothing pinned.
 	@state() private _pinnedRefKey?: string;
+	// The ref pill (if any) currently under the pointer — `{ key, sha }` matches what `togglePinnedRef`
+	// needs (`resolveRef` + `resolveSha` on the same event). Tracked regardless of the modifier so a
+	// press right after entering the pill activates immediately, with no re-hover required.
+	private hoveredPillRef?: { key: string; sha: string };
+	// Transient Alt-hold chain (`activateModifierChain`/`deactivateModifierChain`): while Alt is
+	// held over a ref pill, dims rows outside that ref's first-parent chain — the same
+	// derivation as the click-pin, but momentary and layered ON TOP of it (see the `inRefChainShas`
+	// assignment in `updateRenderState`, which prefers this over `refHoverChainShas` while set).
+	@state() private modifierChainShas?: ReadonlySet<string>;
+	// Seed key `activateModifierChain` last computed the chain from (`pill:<key>:<sha>` or `row:<sha>`) —
+	// re-hovering the SAME pill/row while the modifier stays held (or a fresh keydown lands on it) is a
+	// no-op instead of re-walking `identifyFirstParentChain` over the whole graph again.
+	private lastModifierChainSeed?: string;
 	// Direction to the current HEAD commit when it's scrolled OFF-screen (drives the floating
 	// "Scroll to HEAD" pill; the arrow points toward HEAD). Undefined = HEAD is visible → no pill.
 	// Only flips when HEAD crosses the visible edge (set from onRangeChanged), so it's not per-frame.
@@ -410,6 +623,17 @@ export class GlLitGraph extends LitElement {
 	// Direction to the pinned branch's row when it's scrolled OFF-screen (drives the floating "Jump to
 	// Pinned Branch" pill; the arrow points toward it). Undefined = no pinned ref, or it's in view.
 	@state() private pinnedPillDirection?: 'up' | 'down';
+	// Sticky-timeline group for the row scrolled to the top (drives the seam pill) — updated from
+	// onScroll/onRangeChanged (same spot as the pill directions above), written ONLY on a group-key
+	// change so a scroll that stays within one group never re-renders. Undefined = not yet computed /
+	// feature off. `key` is dynamic (e.g. `week:3`) — see `StickyTimelineGroup`. One @state object (not
+	// three separate fields) since they're always read/written together.
+	@state() private stickyTimeline?: { key: string; label: string; span: string };
+	// The last classified group's elapsed WINDOW [lo, hi) (hi = +Infinity for year groups — see
+	// updateStickyTimelineBucket) — lets a call land back in the SAME window short-circuit before even
+	// building a new StickyTimelineGroup (skips the fromNowUnit walk entirely). Invalidated whenever
+	// `nowMs` is refreshed (the window is elapsed-relative, so it can go stale as real time passes).
+	private stickyTimelineWindow?: { key: string; lo: number; hi: number };
 	// User-set displayed width (px) of the graph column viewport, via the resize handle. Undefined =
 	// fit the lanes. Narrower than the lane content → the gutter scrolls horizontally (graphScrollX)
 	// instead of the lanes re-spacing. Session-scoped, matching `graphPlacement`.
@@ -514,18 +738,38 @@ export class GlLitGraph extends LitElement {
 				: undefined;
 		const ghostRef: RowRenderContext['ghostRef'] =
 			ghostRefSource != null ? { name: ghostRefSource.name, kind: ghostRefSource.kind } : undefined;
+		// Sticky-timeline hairline: a 1px separator overlay where this row's group differs from the row
+		// ABOVE it in display order (never row 0 — no "previous" to differ from). Gated on its OWN setting
+		// (`gitlens.graph.timelineSeparators`), independent of the pill's `stickyTimeline` — this is the
+		// FIRST condition in the `&&` chain, so it's a real short-circuit: disabled means zero
+		// `stickyTimelineGroupKeyFor` calls, not just a discarded result. Compares raw row dates (NOT
+		// workdir-anchor-normalized like the pill's topmost-row read) — a WIP row's own "now" stamp
+		// legitimately reading as a different (newer) group than its anchor below it is the correct
+		// visual: it says "this is uncommitted, everything below is history". `stickyTimelineGroupKeyFor`
+		// (the allocation-free sibling of `stickyTimelineGroupFor` — no object/label/lo/hi built) is pure
+		// arithmetic off the per-render-cached `nowMs`; the full group is built ONLY in
+		// `updateStickyTimelineBucket`, which runs far less often than once-per-visible-row-per-render.
+		const prevRowDate = index > 0 ? this.displayRows[index - 1]?.date : undefined;
+		const isBucketBoundary =
+			this.config?.timelineSeparators !== false &&
+			row.date != null &&
+			prevRowDate != null &&
+			stickyTimelineGroupKeyFor(row.date, this.nowMs) !== stickyTimelineGroupKeyFor(prevRowDate, this.nowMs);
 		return renderRow(row, {
 			commit: commit,
 			index: index,
+			isBucketBoundary: isBucketBoundary,
 			total: c.total,
 			skeleton: skeleton || undefined,
 			rowHeight: c.rowHeight,
 			gutterWidth: c.gutterWidth,
 			columnWidth: c.columnWidth,
 			zones: c.zones,
+			rowsStats: c.rowsStats,
 			style: c.style,
 			graphPlacement: c.graphPlacement,
 			graphColumnPos: c.graphColumnPos,
+			graphHostId: c.graphHostId,
 			refsPlacement: c.refsPlacement,
 			refsHostId: c.refsHostId,
 			gutterCache: this.gutterCache,
@@ -574,6 +818,9 @@ export class GlLitGraph extends LitElement {
 				row.kind === 'workdir' && !isSecondaryWipSha(row.sha) ? c.workingTreeStats?.hasConflicts : undefined,
 			isUnpushed: commit.isUnpublished,
 			undoTarget: commit.undo,
+			// A WIP/workdir row sits on this commit (it's a worktree branch tip) — gates the inverse
+			// Jump to Working Changes action. `wipAnchorShas` holds workdir rows' first-parent anchors.
+			hasWipRow: this.wipAnchorShas.has(row.sha),
 			avatarVscodeContext: commit.avatarVscodeContext,
 		});
 	}
@@ -594,11 +841,11 @@ export class GlLitGraph extends LitElement {
 	// is the last engine input (post-filter) used to classify the change; `commits` doubles as its
 	// mapping, reused for the prefix. Any mismatch falls back to a full recompute.
 	private _engineResume?: GraphProcessResume;
+	// Opaque sticky-columns token from the prior engine run — fed back as `stableFrom` so a fetch/new commit
+	// reproduces the prior lanes instead of reshuffling them. The engine owns how it's derived.
+	private _engineStability?: GraphStability;
 	private _priorEngineSourceRows?: readonly GitGraphRow[];
 	private _priorEngineIdLength?: number;
-	// Parked-lane floor of the last full engine run — columns ≥ this are excluded from the next
-	// run's sticky preferences so the lane space can't ratchet upward (see recomputeRows).
-	private _priorPreferredFloor = 0;
 	// True when the LAST recomputeRows took the payload-only path (engine + topology derivations
 	// skipped). willUpdate reads it (same synchronous update) to route a payload change to the light
 	// displayRows refresh (ref indexes + upstream requests) instead of the full lane re-derivation.
@@ -623,6 +870,9 @@ export class GlLitGraph extends LitElement {
 	private lastRowsRef?: GitGraphRow[];
 	private lastIdLength = 7;
 	private lastColumnsRef?: GraphColumnsSettings;
+	// Monotonic counter stamped on every local columns write (rides UpdateColumnsCommand; the host acks
+	// it back as `columnsRevision` on every push). See `shouldApplyIncomingColumns`.
+	private columnsWriteRevision = 0;
 	// Cached collapse/scope derivation (the pre-filter row set produced by computeDisplayRows /
 	// compactColumns). Rebuilt only when its inputs change — so an incremental filter search, which
 	// re-runs recomputeDisplayRows on every results update without touching these inputs, reuses it
@@ -662,6 +912,10 @@ export class GlLitGraph extends LitElement {
 	private formatDateFn?: (date: number) => string;
 	private formatDateShortFn?: (date: number) => string;
 	private lastConfigRef?: GraphComponentConfig;
+	// Keeps relative dates ("5m ago") fresh on an otherwise-idle graph. Only runs while the effective
+	// date style is relative (see `isRelativeDateStyle`); started/stopped alongside `formatDateFn` in
+	// willUpdate, and always torn down in disconnectedCallback.
+	private relativeTimeTimer?: ReturnType<typeof setInterval>;
 	// Scroll-rail markers (recomputed only when rows/selection/search/marker-types change). The flat
 	// list is grouped by row for rendering: one full-width interactive band per row carrying all its
 	// markers (so hover/click hits the whole row + one tooltip lists every marker, in lane order).
@@ -883,6 +1137,18 @@ export class GlLitGraph extends LitElement {
 	// Cached scroller clientHeight (the viewport height). Only changes on resize, so it's read in the
 	// ResizeObserver + firstUpdated rather than per scroll frame (reading clientHeight forces layout).
 	private scrollerClientHeight = 0;
+	// Cached "now" (ms), refreshed once per render (updateRenderState) AND on the 60s relative-time tick
+	// (see onRelativeTimeTick) — lets `stickyTimelineGroupFor`'s elapsed math (via `fromNowUnit`) stay
+	// allocation-free per row/scroll event while still tracking real time closely enough that a bucket
+	// crossing (e.g. a 6-day-old top row rolling into "Last week") shows up on an otherwise-idle graph.
+	private nowMs = Date.now();
+	private stickyTimelineRef: Ref<HTMLElement> = createRef();
+	// Toggles the sticky-timeline pill's expanded state for the ~900ms after the last scroll (idempotent
+	// add per scroll; a trailing debounce removes it once scrolling settles) — CSSOM only, so a scroll
+	// burst never re-renders. Mirrors `clearScrolling`'s idle-clear idiom.
+	private readonly clearStickyTimelineScrollActive = debounce((): void => {
+		this.stickyTimelineRef.value?.classList.remove('is-scroll-active');
+	}, 900);
 	// Teardown for an in-flight column-resize drag (window listeners + RAF live outside the
 	// element, so they must be cleaned up explicitly if the element disconnects mid-drag).
 	private resizeDragCleanup?: () => void;
@@ -928,10 +1194,18 @@ export class GlLitGraph extends LitElement {
 			this.attachScrollListener();
 		}
 		window.addEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
+		this.startRelativeTimeTimer();
+		document.addEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
+		window.addEventListener('keydown', this.onModifierKeyDown);
+		window.addEventListener('keyup', this.onModifierKeyUp);
 	}
 
 	override disconnectedCallback(): void {
 		window.removeEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
+		document.removeEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
+		this.stopRelativeTimeTimer();
+		window.removeEventListener('keydown', this.onModifierKeyDown);
+		window.removeEventListener('keyup', this.onModifierKeyUp);
 		// Release the gutter-template cache so a detached instance holds no `TemplateResult`s.
 		this.gutterCache.clear();
 		// Drop the persistent requested-avatars dedup so a reconnect re-scans from scratch.
@@ -940,6 +1214,9 @@ export class GlLitGraph extends LitElement {
 		this.resizeObserver = undefined;
 		this.virtualizerRef.value?.removeEventListener('scroll', this.onScroll);
 		this.clearScrolling.cancel();
+		this.clearStickyTimelineScrollActive.cancel();
+		this.stickyTimeline = undefined;
+		this.stickyTimelineWindow = undefined;
 		this.scanVisibleRangeDebounced.cancel();
 		if (this.avatarErrorFlushTimer != null) {
 			clearTimeout(this.avatarErrorFlushTimer);
@@ -963,6 +1240,8 @@ export class GlLitGraph extends LitElement {
 			this.pinnedRefDismiss = undefined;
 		}
 		this._pinnedRefKey = undefined;
+		this.hoveredPillRef = undefined;
+		this.modifierChainShas = undefined;
 		if (this.tooltipShowTimer != null) {
 			clearTimeout(this.tooltipShowTimer);
 			this.tooltipShowTimer = undefined;
@@ -989,6 +1268,8 @@ export class GlLitGraph extends LitElement {
 			unsub();
 		}
 		this.invalidateUnsubs = [];
+		// Drop the mode-picker's document/window dismiss listeners if it's still open on detach.
+		this.closeChangesModeMenu();
 		super.disconnectedCallback?.();
 	}
 
@@ -1068,9 +1349,14 @@ export class GlLitGraph extends LitElement {
 			this.recomputeRows(idLength);
 		}
 
-		if (changed.has('columns') || this.columns !== this.lastColumnsRef) {
+		if ((changed.has('columns') || this.columns !== this.lastColumnsRef) && this.shouldApplyIncomingColumns()) {
 			this.lastColumnsRef = this.columns;
 			this.zones = mergeZones(defaultZones, columnsToZones(this.columns));
+			// The rebuilt zones re-bind the header cells the open picker anchored to — close it so its
+			// dismiss / focus-return can't target a now-wrong column. No focus return (the anchor moves).
+			if (this.changesModeAnchor != null) {
+				this.closeChangesModeMenu('none');
+			}
 			// The host's column menu hides/shows the graph + Branches/Tags columns via a boolean `isHidden`;
 			// column↔grouped is persisted separately as `grouped` (see `currentGraphColumnConfig`/
 			// `buildColumnsConfig`). `isHidden` always wins. This bridge is idempotent — a local toggle
@@ -1078,8 +1364,16 @@ export class GlLitGraph extends LitElement {
 			// races an in-flight drag (see the width/order comment below).
 			if (this.columns?.graph?.isHidden === true) {
 				this.graphPlacement = 'hidden';
+			} else if (this.columns?.graph?.grouped === false) {
+				this.graphPlacement = 'column';
+				this.graphHostZoneId = undefined;
 			} else {
-				this.graphPlacement = this.columns?.graph?.grouped === true ? 'grouped' : 'column';
+				// `grouped === undefined` is the default (grouped, mirroring refs); a string is the captured
+				// host zone id (undefined here falls back to the anchor-slot zone via `graphHostIdFor`). Legacy
+				// persisted `true` (no host) also lands here.
+				this.graphPlacement = 'grouped';
+				this.graphHostZoneId =
+					typeof this.columns?.graph?.grouped === 'string' ? this.columns.graph.grouped : undefined;
 			}
 			if (this.columns?.ref?.isHidden === true) {
 				this.refsPlacement = 'hidden';
@@ -1111,6 +1405,12 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
+		// The host window losing focus (e.g. Alt-Tab away) can leave the Alt-hold dim stuck — the same
+		// `blur` signal drives `gl-graph--window-unfocused` in render().
+		if (changed.has('windowFocused') && this.windowFocused === false) {
+			this.deactivateModifierChain();
+		}
+
 		const selectionChanged = changed.has('selectedRows') || this.selectedRows !== this.lastSelectedRowsRef;
 		if (selectionChanged) {
 			this.lastSelectedRowsRef = this.selectedRows;
@@ -1121,6 +1421,27 @@ export class GlLitGraph extends LitElement {
 			this.lastConfigRef = this.config;
 			this.formatDateFn = this.buildFormatDate(false);
 			this.formatDateShortFn = this.buildFormatDate(true);
+			if (this.needsRelativeTimeTimer()) {
+				this.startRelativeTimeTimer();
+			} else {
+				this.stopRelativeTimeTimer();
+			}
+			// `stickyTimeline` propagates live: OFF hides immediately; ON (first load or re-enabled)
+			// computes right away from the current scroll position instead of waiting for the next scroll.
+			if (this.config?.stickyTimeline === false) {
+				if (this.stickyTimeline != null) {
+					this.stickyTimeline = undefined;
+					this.stickyTimelineWindow = undefined;
+				}
+			} else if (this.stickyTimeline == null) {
+				this.recomputeStickyTimelineBucket();
+			}
+		}
+
+		// The host's `changesColumnEnabled` push is authoritative — clear the optimistic opt-in latch when it
+		// lands (enabled = the overlay is gone anyway; still-disabled = the write was declined, re-show it).
+		if (changed.has('changesColumnEnabled')) {
+			this._changesEnableRequested = false;
 		}
 
 		// Upstream metadata (ahead/behind) arrives lazily after a `gl-graph-missingrefsmetadata` request;
@@ -1307,6 +1628,14 @@ export class GlLitGraph extends LitElement {
 		// assignment there, and this caches the ≤6-element zones filter + the per-row RenderCtx the
 		// stable `renderItem` reads). willUpdate→render is synchronous, so the snapshot is fresh.
 		this.updateRenderState();
+
+		// Selection/focus/rows/config changes all reach here (an @state write or an explicit
+		// requestUpdate() is how every one of those paths is already expressed) — one unconditional,
+		// O(1) check covers them all instead of threading a call into every individual mutation site
+		// (selection round-trip in this method above, ~8 onKeydown branches, onClick, jump-to-HEAD/
+		// -pinned, Tab-in focus...). Hover is the one input that does NOT flow through here (see
+		// handleRowHover/endRowHover) since hover never triggers a Lit render at all.
+		this.updateStickyTimelineYield();
 	}
 
 	// Visible content zones: refs only shows as a column when `refsPlacement === 'column'` (else it's
@@ -1344,7 +1673,7 @@ export class GlLitGraph extends LitElement {
 		return refIdx < 0 ? undefined : (visibleZones[refIdx + 1] ?? visibleZones[refIdx - 1])?.id;
 	}
 
-	// True when the Refs column sits immediately right of the Graph column in the full zone order — here
+	// True when the Refs column sits immediately LEFT of the Graph column in the full zone order — here
 	// "group refs" instead merges the GRAPH into the Refs zone (see `toggleRefsPlacement`), not the
 	// `refsGroupTargetId` neighbor (which only walks real content zones and can't see the graph). Shared
 	// by `toggleRefsPlacement` (drives the merge) and the placement-control label (keeps it honest) so the
@@ -1360,11 +1689,16 @@ export class GlLitGraph extends LitElement {
 		return this.zones.find(z => z.id === id)?.label ?? id;
 	}
 
-	// Host zone the GRAPH groups into (by id) — the zone its lanes render in (its visible-slot neighbor).
-	// Used to ride the graph's group toggle on that cell instead of stranding it on the first column.
-	// Undefined when the graph is a column or hidden (no grouped host).
+	// Host zone the GRAPH groups into — BY ID (`graphHostZoneId`, captured at group-time), so the
+	// [graph + host] pair travels together through reorders instead of jumping to whatever zone lands at
+	// the anchor slot. Falls back to the anchor-slot derivation when unset — covers legacy persisted
+	// `grouped: true` (no id) and a hidden/inlined captured host. Undefined when the graph is a column or
+	// hidden (no grouped host). Mirrors `refsHostIdFor`.
 	private graphHostIdFor(visibleZones: readonly ZoneSpec[]): string | undefined {
 		if (this.graphPlacement !== 'grouped') return undefined;
+		if (this.graphHostZoneId != null && visibleZones.some(z => z.id === this.graphHostZoneId)) {
+			return this.graphHostZoneId;
+		}
 		return visibleZones[Math.min(this.graphVisibleSlot, Math.max(0, visibleZones.length - 1))]?.id;
 	}
 
@@ -1412,6 +1746,8 @@ export class GlLitGraph extends LitElement {
 	// active-descendant id). Runs at the end of willUpdate on every update.
 	private updateRenderState(): void {
 		const rows = this.displayRows;
+		// Refreshed once per render (not per row) — see `nowMs`'s own doc comment.
+		this.nowMs = Date.now();
 		const avatarsSetting = this.config?.avatars ?? true;
 		const nodeStyle = this.effectiveNodeStyle;
 		const zones = this.getVisibleZones();
@@ -1502,15 +1838,20 @@ export class GlLitGraph extends LitElement {
 		// hscrollbar all read this single derived slot (no per-row recompute, no desync).
 		const graphVisSlot = this.graphVisibleIndex(visibleZones);
 		this.graphVisibleSlot = graphVisSlot;
+		// Resolved once here — rows + the hscrollbar lead below both read this single value (no per-row
+		// recompute, no desync).
+		const graphHostId = this.graphHostIdFor(visibleZones);
 		this._renderCtx = {
 			total: rows.length,
 			rowHeight: this.rowHeight,
 			gutterWidth: this.gutterWidth,
 			columnWidth: this.columnWidth,
 			zones: visibleZones,
+			rowsStats: this.rowsStats,
 			style: style,
 			graphPlacement: this.graphPlacement,
 			graphColumnPos: graphVisSlot,
+			graphHostId: graphHostId,
 			foldLaneWidth: this.foldLaneWidth,
 			graphColumnWidth: this.graphColumnWidth,
 			inlineGutterWidth: this.inlineGutterWidth,
@@ -1533,7 +1874,8 @@ export class GlLitGraph extends LitElement {
 			inScopeShas: this.scopeProjection != null ? undefined : this.inScopeShas,
 			searchMatchedShas: this._searchMatchedShas,
 			searchMode: this.searchMode,
-			inRefChainShas: this.refHoverChainShas,
+			// The transient Alt-hold chain overrides the click-pin while held; falls back to the pin.
+			inRefChainShas: this.modifierChainShas ?? this.refHoverChainShas,
 			dimMergeCommits: this.config?.dimMergeCommits,
 			showGhostRefs: this.config?.showGhostRefsOnRowHover === true,
 			getAvatarUrl: this.resolveAvatarUrl,
@@ -1555,17 +1897,25 @@ export class GlLitGraph extends LitElement {
 		// so the bar lines up with the gutter viewport); width = the viewport; thumb = proportional with
 		// a floor; thumb offset maps [0, max] onto the leftover track.
 		// Column placement splices the graph at `graphVisSlot` (0..length) so the lead sums every preceding
-		// zone; inline shares the host zone (clamped to the last zone). Clamping the column case dropped the
-		// last column's width when the graph was the LAST column (band/scrollbar anchored one column short).
+		// zone; inline shares the resolved HOST zone (by id — falls back to the anchor-slot clamp when the
+		// host isn't in `visibleZones`). Clamping the column case dropped the last column's width when the
+		// graph was the LAST column (band/scrollbar anchored one column short).
+		const graphHostVisIdx = visibleZones.findIndex(z => z.id === graphHostId);
 		const leadCount =
 			this.graphPlacement === 'column'
 				? Math.min(graphVisSlot, visibleZones.length)
-				: Math.min(graphVisSlot, Math.max(0, visibleZones.length - 1));
+				: graphHostVisIdx >= 0
+					? graphHostVisIdx
+					: Math.min(graphVisSlot, Math.max(0, visibleZones.length - 1));
 		let leadOffset = 0;
 		for (let i = 0; i < leadCount; i++) {
 			leadOffset += visibleZones[i].width;
 		}
-		const viewport = Math.max(0, this.graphColumnWidth - this.foldLaneWidth);
+		// `hidden` placement has no lane column at all, but `graphColumnWidth` still resolves to a phantom
+		// "what it would be if shown" size — zeroed here so `--graph-col-vw` (below) correctly tells the
+		// timeline-separator gradient (graph.scss) there's no lane region to exclude in that placement, not
+		// just the scrollbar (which self-gates on `graphPlacement === 'column'` regardless of this value).
+		const viewport = this.graphPlacement === 'hidden' ? 0 : Math.max(0, this.graphColumnWidth - this.foldLaneWidth);
 		const content = this.gutterWidth;
 		const thumb = content > 0 ? Math.max(graphHScrollMinThumbPx, (viewport * viewport) / content) : viewport;
 		const travel = Math.max(0, viewport - thumb);
@@ -1577,9 +1927,6 @@ export class GlLitGraph extends LitElement {
 		// Pass-through raster layer's h-scroll translate + edge-fade mask gates — set on the render path too so
 		// freshly rendered / recycled rows position + fade their raster before the first clamp overlay pass paints.
 		this.updateGutterScrollVars();
-		// Right gutter the header reserves for the absolutely-positioned settings gear (matches the
-		// zone-solve target so header columns end exactly where the row columns do).
-		this.style.setProperty('--gl-graph-end-gutter', `${this.endGutterPx}px`);
 		// Full GRAPH height (header + scroller) so the column resize-line dividers, anchored at the header
 		// cells' top (the graph's top), span all the way to the bottom edge (VS Code sash look) instead of
 		// stopping a header's-height short. `scrollerClientHeight` excludes the header, so add it back.
@@ -1705,6 +2052,7 @@ export class GlLitGraph extends LitElement {
 		const rows = this.rows;
 		if (rows == null || rows.length === 0) {
 			this._engineResume = undefined;
+			this._engineStability = undefined;
 			this._priorEngineSourceRows = undefined;
 			this.commits = [];
 			this.processedRows = [];
@@ -1783,33 +2131,24 @@ export class GlLitGraph extends LitElement {
 			segments = result.segments;
 			unloadedColumns = result.unloadedColumns;
 			this._engineResume = result.resume;
+			this._engineStability = result.stability;
 		} else {
 			commits = sourceRows.map(r => toGraphCommit(r, idLength, this.repoPath));
-			// Sticky columns: seed the layout with the prior run's lane assignments so the unchanged
-			// region reproduces its layout across a top insertion — free-column allocation is order-
-			// sensitive, so without the hints a fetch/new commit reshuffles lane colors AND defeats
-			// the suffix reconciliation below.
-			let preferredColumns: Map<Sha, number> | undefined;
-			if (delta.kind === 'replace' && this.processedRows.length > 0) {
-				// PARKED lanes (column ≥ the prior run's floor) are excluded: feeding them back as
-				// preferences ratchets the lane space upward on every update. They re-park
-				// deterministically instead (same conflicts, same claim order).
-				const parkedFloor = this._priorPreferredFloor;
-				preferredColumns = new Map();
-				for (const r of this.processedRows) {
-					if (parkedFloor > 0 && r.column >= parkedFloor) continue;
-
-					preferredColumns.set(r.sha, r.column);
-				}
-				// Below-window parents keep their reserved lanes too — their dangling stubs thread
-				// through every row beneath their merge, so a shifted reservation column would break
-				// the suffix convergence just as a shifted row column would.
-				for (const [sha, column] of this.unloadedColumns) {
-					if (parkedFloor > 0 && column >= parkedFloor) continue;
-
-					preferredColumns.set(sha, column);
-				}
-			}
+			// Sticky columns: seed the layout with the prior run's lane assignments so the unchanged region
+			// reproduces its layout across a top insertion — free-column allocation is order-sensitive, so
+			// without the hint a fetch/new commit reshuffles lane colors AND defeats the suffix reconciliation
+			// below. The engine's opaque token carries that hint; how it's derived (below-window stubs vs real
+			// rows) is an engine detail we deliberately don't reach into.
+			//
+			// BUT sticky columns are only a valid fixpoint across a PREPEND (top insertion). A history
+			// rewrite (rebase/amend/squash) changes surviving commits' DAG roles, so reproducing their
+			// prior columns drags lanes to the wrong column — and equal-area misroutes slip past the
+			// engine's area-based renormalize backstop. So on a rewrite, lay out cold (== reopening the
+			// graph, the known-correct recovery); prepends keep stability.
+			const stableFrom =
+				delta.kind === 'replace' && this.processedRows.length > 0 && !isHistoryRewrite(prior, sourceRows)
+					? this._engineStability
+					: undefined;
 			// Prefix change (fetch/new commits/rebase): hand the prior rows to the engine so its edge
 			// pass — the expensive half — stops at carry convergence and splices the prior row objects
 			// (edges included) back in by IDENTITY. Byte-identical to a full run by construction; the
@@ -1818,7 +2157,7 @@ export class GlLitGraph extends LitElement {
 			const result = processCommitsAndSegments(commits, {
 				syntheticChildren: synthetic ?? undefined,
 				pinnedShas: pinnedSha != null ? [pinnedSha] : undefined,
-				preferredColumns: preferredColumns,
+				stableFrom: stableFrom,
 				reconcile:
 					delta.kind === 'replace' && this.processedRows.length > 0
 						? {
@@ -1833,8 +2172,8 @@ export class GlLitGraph extends LitElement {
 			// Only keep a resume for a plain (unscoped, unpinned) run — a scoped/pinned run's edge carry-over
 			// carries synthetic/pinned state that can't seed a later plain append.
 			this._engineResume = resumable ? result.resume : undefined;
+			this._engineStability = result.stability;
 			this.lastRowsDeltaReconciled = result.reconciled;
-			this._priorPreferredFloor = result.preferredColumnFloor;
 		}
 		this._priorEngineSourceRows = sourceRows;
 		this._priorEngineIdLength = idLength;
@@ -2583,6 +2922,16 @@ export class GlLitGraph extends LitElement {
 	// captureLaneScrollAnchor / resolveLaneScrollAnchorTop / applyPendingScrollAnchor.
 	private _pendingScrollAnchorTop?: number;
 
+	// Topmost-row index for a scrollTop: floor(scrollTop/rowHeight), clamped into [0, rowCount-1] — "which
+	// row is pinned at the viewport's top edge". Shared by every reader that needs that (this method,
+	// the sticky-timeline bucket/yield checks) so the clamp can't drift between them. NOT the same as
+	// onRangeChanged's own `firstVisible` (see its comment) — that one skips the upper clamp.
+	private topmostRowIndexFor(scrollTop: number, rowCount: number): number {
+		if (rowCount <= 0) return 0;
+
+		return Math.max(0, Math.min(rowCount - 1, Math.floor(scrollTop / this.rowHeight)));
+	}
+
 	// Snapshot the row pinned at the viewport's top edge BEFORE a lane collapse/expand swaps displayRows:
 	// the topmost row intersecting `scrollTop` plus the pixels the viewport has scrolled INTO it. Returns
 	// the OLD row list by reference (still valid after the swap reassigns `this.displayRows`) so the resolve
@@ -2597,7 +2946,7 @@ export class GlLitGraph extends LitElement {
 		if (rows.length === 0) return undefined;
 
 		const scrollTop = scroller.scrollTop;
-		const index = Math.max(0, Math.min(rows.length - 1, Math.floor(scrollTop / this.rowHeight)));
+		const index = this.topmostRowIndexFor(scrollTop, rows.length);
 		return { rows: rows, index: index, offset: scrollTop - index * this.rowHeight };
 	}
 
@@ -2688,8 +3037,17 @@ export class GlLitGraph extends LitElement {
 	// decoupled `gl-graph-rowhover*` events; the wrapper translates them into the existing GraphHover
 	// pipeline (GetRowHoverRequest → markdown card). Debounced to match the legacy 250ms open delay.
 	private hoveredRowSha?: string;
+	// Zone of the CURRENT `hoveredRowSha` hover (always set together with it) — see `RowHoverZone`.
+	private hoveredRowZone?: RowHoverZone;
+	// The row the pointer is physically over — its content OR its right-edge action buttons/affordances,
+	// which carry their own `data-tooltip` and so route through the affordance branch of
+	// `onPointerOverTooltip` that cancels the rich-hover card (clearing `hoveredRowSha`). Tracked
+	// separately so the sticky-timeline pill's yield (`updateStickyTimelineYield`) survives that cancel:
+	// the pill rides exactly over the topmost row's action strip and must stay hidden while the pointer
+	// is on those buttons instead of flickering back on top of them.
+	private pointerRowSha?: string;
 	private readonly emitRowHover = debounce(
-		(detail: { sha: string; clientX: number; currentTarget: HTMLElement }): void => {
+		(detail: { sha: string; clientX: number; currentTarget: HTMLElement; zone: RowHoverZone }): void => {
 			this.dispatchEvent(new CustomEvent('gl-graph-rowhover', { detail: detail }));
 		},
 		250,
@@ -2699,6 +3057,46 @@ export class GlLitGraph extends LitElement {
 		// No hovers/tooltips while a column resize is in progress — the pointer sweeps over the graph
 		// as the user drags the header handle, and flickering tooltips/row cards would be distracting.
 		if (this.draggingColumn) return;
+
+		// Track the row physically under the pointer for the sticky-timeline pill's yield BEFORE the
+		// affordance branch below can cancel the rich-hover card: a row's action buttons carry their own
+		// `data-tooltip`, so hovering them clears `hoveredRowSha` — this survives that so the pill stays
+		// hidden over the buttons it rides. Resolves off any row (incl. the transparent, yielded pill's
+		// pass-through) and to `undefined` when the pointer lands on the non-yielded pill itself.
+		const pointerRowSha =
+			event.target instanceof Element
+				? event.target.closest<HTMLElement>('.gl-graph__row')?.dataset.sha
+				: undefined;
+		if (pointerRowSha !== this.pointerRowSha) {
+			this.pointerRowSha = pointerRowSha;
+			this.updateStickyTimelineYield();
+		}
+
+		// Alt-hold ref-chain dim: track which pill (if any) is under the pointer on EVERY move, so an Alt
+		// keydown that arrives later knows what to activate against. Fires for every element in
+		// the viewport (not just pills) — resolving to `undefined` off a pill is what detects "left it"
+		// without needing a separate pointerout branch for the pill↔non-pill transition. Gated behind a
+		// cheap native `closest()` first: `resolvePillHover` walks `event.composedPath()` TWICE
+		// (resolveRef + resolveSha each do their own walk/allocation) — most pointer moves in the graph
+		// aren't anywhere near a pill, so this short-circuits the common case for free.
+		const overPill = event.target instanceof Element && event.target.closest('[data-ref-name]') != null;
+		const pill = overPill ? this.resolvePillHover(event) : undefined;
+		if (pill != null) {
+			if (
+				this.hoveredPillRef == null ||
+				this.hoveredPillRef.key !== pill.key ||
+				this.hoveredPillRef.sha !== pill.sha
+			) {
+				this.hoveredPillRef = pill;
+				// Modifier already held when the pointer arrives (no fresh keydown to catch) — activate now.
+				if (event.altKey) {
+					this.activateModifierChain();
+				}
+			}
+		} else if (this.hoveredPillRef != null) {
+			this.hoveredPillRef = undefined;
+			this.deactivateModifierChain();
+		}
 
 		const target = this.closestTooltipTarget(event.target);
 		// Row entry → rich hover (only when NOT over a small affordance with its own tooltip, and
@@ -2711,10 +3109,16 @@ export class GlLitGraph extends LitElement {
 
 		// Over a tooltip affordance: cancel any pending/active row hover so the two never co-show.
 		this.cancelRowHover();
+		this.showTooltipForTarget(target);
+	};
 
+	// Resolve + show the delegated tooltip for a `data-tooltip`/`data-tooltip-row` element. Shared by the
+	// pointer (`onPointerOverTooltip`) and keyboard (`showTooltipForFocus`) paths.
+	private showTooltipForTarget(target: HTMLElement): void {
 		if (target === this.tooltipAnchor) {
 			// Re-entering the same anchor (still open, or just-closed within the keep window): cancel the
-			// pending hide/clear and re-open in place — content is still set, so no re-fetch/flash.
+			// pending hide/clear and re-open in place — content is still set, so no re-fetch/flash. Also
+			// dedupes a coincident hover+focus on one element (the host anchors one tooltip at a time).
 			if (this.tooltipHideTimer != null) {
 				clearTimeout(this.tooltipHideTimer);
 				this.tooltipHideTimer = undefined;
@@ -2768,7 +3172,20 @@ export class GlLitGraph extends LitElement {
 		}
 
 		this.showTooltip(target, text, icon, placement, delay);
-	};
+	}
+
+	// Keyboard focus → same delegated tooltip resolver. Cheap + delegated (rides the viewport `focusin`).
+	private showTooltipForFocus(event: FocusEvent): void {
+		if (this.draggingColumn) return;
+
+		const target = this.closestTooltipTarget(event.target);
+		if (target == null) return;
+		// The mode-picker strip labels itself (aria + is-current highlight) — a tooltip popping over the
+		// just-opened menu from its own programmatic focus is noise, not help.
+		if (target.closest('.gl-graph__changes-mode-strip') != null) return;
+
+		this.showTooltipForTarget(target);
+	}
 
 	private readonly onPointerOutTooltip = (event: PointerEvent): void => {
 		// Only react when the pointer actually leaves the current anchor (not when moving to a child).
@@ -2783,7 +3200,26 @@ export class GlLitGraph extends LitElement {
 		// so it deliberately persists across hover-out.)
 		if (!(related instanceof Node) || !this.contains(related)) {
 			this.endRowHover(related ?? null);
+			// `onPointerOverTooltip` clears `hoveredPillRef` itself on every move that resolves off a
+			// pill — but a move that leaves the viewport entirely fires no further pointerover, so that
+			// path never runs. Mirror the row-hover cleanup above for the same reason.
+			if (this.hoveredPillRef != null) {
+				this.hoveredPillRef = undefined;
+				this.deactivateModifierChain();
+			}
+			// Same reason: no pointerover fires once the pointer is gone, so release the pill's yield row.
+			if (this.pointerRowSha != null) {
+				this.pointerRowSha = undefined;
+				this.updateStickyTimelineYield();
+			}
 		}
+	};
+
+	// `pointerleave` (unlike `pointerout`) only fires once the pointer has left the element AND all its
+	// descendants — exactly the "gone" signal the minimap's day-highlight needs (the wrapper re-dispatches
+	// this as `gl-graph-mouse-leave` for graph-app's `minimapEl.unselect`).
+	private readonly onPointerLeave = (): void => {
+		this.dispatchEvent(new CustomEvent('gl-graph-mouseleave'));
 	};
 
 	// While a ref is pinned, a pointerdown anywhere that ISN'T a ref pill unfocuses it (click-outside
@@ -2873,6 +3309,70 @@ export class GlLitGraph extends LitElement {
 		return counterpart != null && counterpart !== sha ? [sha, counterpart] : [sha];
 	}
 
+	// Alt-hold transient chain (same first-parent derivation `togglePinnedRef` uses for the click
+	// pin), layered on top of it via the `inRefChainShas` fallback in `updateRenderState`. Unlike the
+	// pin, this never touches `_pinnedRefKey`/adornments — the ref pills themselves don't change, only
+	// the per-row dim/chain flags read fresh off `modifierChainShas` each render, so there's no adornment
+	// cache to evict here (contrast `togglePinnedRef`/`clearPinnedRef`, which evict to promote/demote the
+	// inline pill). A hovered ref PILL wins (richer chain: the ref's own chain + its tracked
+	// counterpart); otherwise a hovered ROW (either zone — a `graph`-zone hover is still a row hover
+	// with a sha) seeds from its LANE TIP instead of its own sha (see `laneTipShaFor`).
+	private activateModifierChain(): void {
+		if (this.hoveredPillRef != null) {
+			const pill = this.hoveredPillRef;
+			const seed = `pill:${pill.key}:${pill.sha}`;
+			if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
+
+			this.lastModifierChainSeed = seed;
+			this.modifierChainShas = identifyFirstParentChain(
+				this.processedRows,
+				this.pinnedChainShas(pill.key, pill.sha),
+			);
+			return;
+		}
+
+		if (this.hoveredRowSha != null) {
+			const seed = `row:${this.hoveredRowSha}`;
+			if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
+
+			this.lastModifierChainSeed = seed;
+			this.modifierChainShas = identifyFirstParentChain(this.processedRows, [
+				this.laneTipShaFor(this.hoveredRowSha),
+			]);
+		}
+	}
+
+	// `identifyFirstParentChain` walks DOWNWARD only (seed → first parents), so a mid-lane row must
+	// seed from its LANE'S TIP, not its own sha, or only the older half would highlight. Reuses the
+	// exact ghost-ref resolution (`renderRowItem`'s `laneTipSha ?? c.trunkTipSha`): `segmentByCommit`
+	// (excludes the trunk segment) with `trunkGhostTipSha()` as the trunk fallback — which ALSO hops a
+	// workdir tip to its real-HEAD parent, so a hovered WIP row's lane resolves through its anchor the
+	// same way the trunk's ghost ref does. Falls back to the row's own sha when neither resolves.
+	private laneTipShaFor(sha: string): string {
+		return this.segmentByCommit.get(sha) ?? this.trunkGhostTipSha() ?? sha;
+	}
+
+	private deactivateModifierChain(): void {
+		this.modifierChainShas = undefined;
+		this.lastModifierChainSeed = undefined;
+	}
+
+	// A fresh press of Alt (not the key-repeat while held) while a pill OR a row is already
+	// hovered — the mirror of the "Alt already held, pointer arrives" branches in
+	// `onPointerOverTooltip`/`handleRowHover`.
+	private readonly onModifierKeyDown = (event: KeyboardEvent): void => {
+		if (event.repeat || event.key !== 'Alt') return;
+		if (this.hoveredPillRef == null && this.hoveredRowSha == null) return;
+
+		this.activateModifierChain();
+	};
+
+	private readonly onModifierKeyUp = (event: KeyboardEvent): void => {
+		if (event.key !== 'Alt') return;
+
+		this.deactivateModifierChain();
+	};
+
 	// Reconcile the click-pinned expand class after each render. The pill element is recreated on
 	// re-render (scroll/selection), so the imperative `.is-pinned` class can't live only on the DOM —
 	// re-apply it to the pinned pill (by its UNIQUE `data-ref-key`) and strip it from any stale pill.
@@ -2908,13 +3408,16 @@ export class GlLitGraph extends LitElement {
 		});
 	}
 
-	// Emit the rich-hover lifecycle for the row under the pointer. Refs are excluded (they own the
-	// ref popover); the standalone graph column is excluded (it's decorative). Mirrors the legacy
-	// gl-graph: an immediate start/track pair (cancels unhover timers + tracks the minimap) then a
-	// debounced hover that actually requests + shows the card.
+	// Emit the rich-hover lifecycle for the row under the pointer. Ref pills are fully excluded (they
+	// own their own popover). The lanes/commit-dot column now PARTICIPATES (start/track fire → the
+	// minimap follows it) but the ONE decision point below (zone → treatment) only schedules the
+	// debounced card for 'content' — sliding onto content from the SAME row upgrades to the full
+	// hover; sliding back onto the lanes hides any open/pending card without dropping row-hover/
+	// minimap tracking. Also (re)targets the Alt-hold lane-chain dim (`activateModifierChain`)
+	// when a NEW row is entered while Alt is already held.
 	private handleRowHover(event: PointerEvent): void {
 		const node = event.target;
-		if (node instanceof Element && node.closest('[data-ref-name], .gl-graph__zone--graph') != null) {
+		if (node instanceof Element && node.closest('[data-ref-name]') != null) {
 			this.cancelRowHover();
 			return;
 		}
@@ -2926,23 +3429,75 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
-		if (sha === this.hoveredRowSha) return;
+		const zone: RowHoverZone =
+			node instanceof Element && node.closest('.gl-graph__zone--graph') != null ? 'graph' : 'content';
+
+		if (sha === this.hoveredRowSha) {
+			// Same row — only a zone CHANGE reacts; staying within a zone is a no-op. No
+			// `gl-graph-rowhovertrack` here (unlike the new-row path below): the row (and hence its
+			// minimap date) hasn't changed, only the zone within it, so the wrapper's minimap-select
+			// would just repeat the same date — a genuine no-op dispatch.
+			if (zone === this.hoveredRowZone) return;
+
+			this.hoveredRowZone = zone;
+			if (zone === 'content') {
+				// graph → content: upgrade to the full hover.
+				this.startRowHover(sha, zone, event, rowEl, false);
+			} else {
+				// content → graph: cancel any pending card request and hide an already-open one, but
+				// keep the row tracked — `gl-graph-rowunhover` hides the card without touching the
+				// minimap's selected day (see handleGraphRowUnhover/GraphHover.onRowUnhovered).
+				this.emitRowHover.cancel();
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: null } }),
+				);
+			}
+			return;
+		}
 
 		// Moving directly between rows (or onto an affordance and back): end the previous row's
-		// hover first so its card can't linger. `rowhoverstart` below cancels the resulting unhover
-		// timer in GraphHover, so the transition stays flicker-free.
+		// hover first so its card can't linger. `rowhoverstart` (inside startRowHover below) cancels
+		// the resulting unhover timer in GraphHover, so the transition stays flicker-free.
 		if (this.hoveredRowSha != null) {
 			this.endRowHover(null);
 		}
 
 		this.hoveredRowSha = sha;
-		this.dispatchEvent(new CustomEvent('gl-graph-rowhoverstart'));
-		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha } }));
-		this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl });
+		this.hoveredRowZone = zone;
+		// The sticky-timeline pill's yield tracks `pointerRowSha` (updated in `onPointerOverTooltip`, which
+		// reached here), not `hoveredRowSha` — so no CSSOM poke is needed on this card-only transition.
+		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
+		this.startRowHover(sha, zone, event, rowEl, true);
+		// Modifier already held when a NEW row is entered (row→row retargets same as pill→pill).
+		if (event.altKey) {
+			this.activateModifierChain();
+		}
 	}
 
-	// End any active row hover (also used when the pointer moves onto a tooltip affordance or the
-	// decorative graph column, so the rich card hides instead of co-showing with the tooltip).
+	// `rowhoverstart` + emitRowHover's payload are dispatched together at both hover-start sites — a
+	// NEW row entered, or an already-hovered row's zone upgrading from graph → content — factored out so
+	// the two can't drift on the payload shape. `isNewRow` covers the new-row case, where `rowhoverstart`
+	// must fire even when landing directly in the 'graph' zone (so GraphHover's unhover timer still
+	// resets and the minimap still tracks); the same-row upgrade caller only reaches this when
+	// zone==='content', where `rowhoverstart` fires unconditionally either way.
+	private startRowHover(
+		sha: string,
+		zone: RowHoverZone,
+		event: PointerEvent,
+		rowEl: HTMLElement,
+		isNewRow: boolean,
+	): void {
+		if (isNewRow || zone === 'content') {
+			this.dispatchEvent(new CustomEvent('gl-graph-rowhoverstart'));
+		}
+		if (zone === 'content') {
+			this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl, zone: zone });
+		}
+	}
+
+	// End any active row hover (also used when the pointer moves onto a tooltip affordance or a ref
+	// pill, which own their own tooltip/popover) — fully drops tracking, unlike the same-row zone
+	// transition above, which keeps `hoveredRowSha` alive.
 	private cancelRowHover(): void {
 		this.endRowHover(null);
 	}
@@ -2952,10 +3507,17 @@ export class GlLitGraph extends LitElement {
 		const sha = this.hoveredRowSha;
 		if (sha == null) return;
 
+		const zone = this.hoveredRowZone;
 		this.hoveredRowSha = undefined;
+		this.hoveredRowZone = undefined;
 		this.dispatchEvent(
-			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, relatedTarget: relatedTarget } }),
+			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
 		);
+		// A pill claiming the hover moments earlier in the SAME event (see onPointerOverTooltip) has
+		// already re-activated for it — only clear when NEITHER a pill nor a row is hovered anymore.
+		if (this.hoveredPillRef == null) {
+			this.deactivateModifierChain();
+		}
 	}
 
 	private closestTooltipTarget(node: EventTarget | null): HTMLElement | undefined {
@@ -3271,7 +3833,7 @@ export class GlLitGraph extends LitElement {
 	// dots on the same row don't touch. Fixed spacing per mode (not a freeform drag). A config
 	// change flows through willUpdate → updateRenderState, which re-reads columnWidth below.
 	private get laneDensity(): 'expanded' | 'compact' {
-		return this.config?.lanesDensity ?? 'expanded';
+		return this.config?.lanesDensity ?? 'compact';
 	}
 	// Fixed lane spacing per density mode (compact = lanes nearly touch; expanded = a clear gap so
 	// two dots on a row don't touch) + node mode. The graph no longer respaces on resize — the density
@@ -3284,24 +3846,26 @@ export class GlLitGraph extends LitElement {
 		return gutterPadding * 2 + (this.maxColumn + 1) * this.columnWidth;
 	}
 
-	// Right gutter reserved on BOTH the header (padding) and the rows (the columns stop short of it),
-	// so the settings gear has a home and the body never grows into it. Max of the scrollbar width and
-	// the gear's footprint (gear only present when there's a settings menu).
-	private get endGutterPx(): number {
-		const scrollbar = Math.max(0, this.lastScrollbarWidth);
-		// Reserve room for the header actions so columns stop short of them: the graph-style toggle (always
-		// present) + the settings gear (only when there's a settings menu).
-		const actions = headerSettingsGutterPx + (this.settingsContext != null ? headerSettingsGutterPx : 0);
-		return Math.max(scrollbar, actions);
+	// The row columns stop only for the vertical scrollbar. Header actions reserve space INSIDE the
+	// trailing header cell, so their footprint never creates an empty body gutter.
+	private get scrollbarGutterPx(): number {
+		return Math.max(0, this.lastScrollbarWidth);
+	}
+
+	// Width the pinned settings gear occupies over the trailing header cell's tail (0 when there's no
+	// settings menu). The trailing HEADER cell renders narrower by this much so its label/icon never sit
+	// under the gear — header-only; body columns keep their full width to the scrollbar.
+	private get headerActionsPx(): number {
+		return this.settingsContext != null ? headerActionPx : 0;
 	}
 
 	// Available width the content zones zero-scroll-fill (Σ currentWidth = this): the container minus the
-	// right gutter (scrollbar / settings gear) and — in `column` placement — the separate graph column
+	// scrollbar gutter and — in `column` placement — the separate graph column
 	// (which keeps its own width + lane-scroll). In inline/hidden placement the graph isn't a separate
 	// cell, so it's just the container minus the gutter.
 	private get zoneTargetWidth(): number {
 		const graphCol = this.graphPlacement === 'column' ? this.graphColumnWidth : 0;
-		return Math.max(0, this.containerWidth - this.endGutterPx - graphCol);
+		return Math.max(0, this.containerWidth - this.scrollbarGutterPx - graphCol);
 	}
 
 	// Width of the dedicated lane-fold strip prepended to the lanes. Non-zero only when folding is on
@@ -3331,7 +3895,7 @@ export class GlLitGraph extends LitElement {
 		for (const z of this.getVisibleZones()) {
 			zoneMinSum += z.minWidth;
 		}
-		const capForZones = this.containerWidth - this.endGutterPx - zoneMinSum;
+		const capForZones = this.containerWidth - this.scrollbarGutterPx - zoneMinSum;
 		return Math.max(floor, Math.min(want, capForZones));
 	}
 
@@ -3577,18 +4141,81 @@ export class GlLitGraph extends LitElement {
 	// `short` is set and the effective style is relative, returns the ultra-compact form ("2d");
 	// absolute styles can't meaningfully shrink a custom format, so they ignore `short`.
 	private buildFormatDate(short: boolean): (date: number) => string {
-		const style = this.config?.dateStyle;
-		const fmt = typeof this.config?.dateFormat === 'string' ? this.config.dateFormat : undefined;
-		const isRelative = style === 'relative' || (style == null && fmt == null);
-		if (isRelative) {
+		if (this.isRelativeDateStyle()) {
 			// Both forms come from GitLens' `fromNow` (the `short` flag picks "2d" vs "2 days ago") so the
 			// narrow and wide date columns share one threshold set and can't disagree on resize.
 			return short
 				? (date: number): string => gitlensFromNow(new Date(date), true)
 				: (date: number): string => gitlensFromNow(new Date(date));
 		}
+
+		const fmt = typeof this.config?.dateFormat === 'string' ? this.config.dateFormat : undefined;
 		return (date: number): string => formatGitLensDate(new Date(date), fmt ?? 'short');
 	}
+
+	// Same effective-style check `buildFormatDate` uses — factored out so the relative-time refresh
+	// timer (willUpdate) can gate on it without duplicating the two-line derivation.
+	private isRelativeDateStyle(): boolean {
+		const style = this.config?.dateStyle;
+		const fmt = typeof this.config?.dateFormat === 'string' ? this.config.dateFormat : undefined;
+		return style === 'relative' || (style == null && fmt == null);
+	}
+
+	// Whether the 60s refresh timer needs to run at all: either the Date column's own cells are
+	// relative-styled text that goes stale, or the sticky-timeline pill's grouping is elapsed-based (see
+	// stickyTimelineGroupFor) and can drift even when every row's date column reads an absolute format.
+	// One shared timer covers both consumers instead of running two.
+	private needsRelativeTimeTimer(): boolean {
+		return this.isRelativeDateStyle() || this.config?.stickyTimeline !== false;
+	}
+
+	// Starts (or leaves running) the relative-time refresh timer — only while something actually needs
+	// it (see `needsRelativeTimeTimer`); a no-op otherwise/when already running. `requestUpdate()` alone
+	// is enough to refresh the visible rows' dates: `formatDateFn` isn't identity-gated in the willUpdate
+	// trigger matrix, so no engine/adornment/marker recompute runs, just a re-render of what's on screen.
+	private startRelativeTimeTimer(): void {
+		if (this.relativeTimeTimer != null || !this.needsRelativeTimeTimer()) return;
+
+		this.relativeTimeTimer = setInterval(this.onRelativeTimeTick, 60_000);
+	}
+
+	private stopRelativeTimeTimer(): void {
+		if (this.relativeTimeTimer == null) return;
+
+		clearInterval(this.relativeTimeTimer);
+		this.relativeTimeTimer = undefined;
+	}
+
+	private readonly onRelativeTimeTick = (): void => {
+		// A hidden retained webview must not churn while backgrounded.
+		if (document.visibilityState === 'hidden') return;
+
+		// Only the Date column's cells need a re-render (relative text going stale); the sticky-timeline
+		// pill's own DOM is driven by its own @state write below, not this requestUpdate.
+		if (this.isRelativeDateStyle()) {
+			this.requestUpdate();
+		}
+		// Sticky-timeline groups are purely elapsed-based (see stickyTimelineGroupFor) — an otherwise-idle
+		// graph's group can drift as real time passes (e.g. a 6-day-old top row rolling into "Last week"),
+		// so recompute it on every tick regardless of dateStyle. Refresh `nowMs` first so the recompute
+		// doesn't read a stale cached value. Still edge-gated inside `updateStickyTimelineBucket`/its
+		// window cache, so this is a no-op unless a boundary was actually crossed.
+		this.nowMs = Date.now();
+		this.recomputeStickyTimelineBucket();
+	};
+
+	// Becoming visible again while the timer is active refreshes immediately instead of waiting up to
+	// 60s for the next tick — same split as onRelativeTimeTick (dates re-render only if relative-styled,
+	// sticky-timeline recomputes regardless).
+	private readonly onVisibilityChangeForRelativeTime = (): void => {
+		if (document.visibilityState !== 'visible' || this.relativeTimeTimer == null) return;
+
+		if (this.isRelativeDateStyle()) {
+			this.requestUpdate();
+		}
+		this.nowMs = Date.now();
+		this.recomputeStickyTimelineBucket();
+	};
 
 	// Loading / empty overlay shown over the (empty) lane area. State discrimination is deliberate to
 	// avoid the sticky "No commits" cold-load trap: while `loading` OR before the host's first row push
@@ -3607,6 +4234,75 @@ export class GlLitGraph extends LitElement {
 		const message = this.rows.length === 0 ? 'No commits' : 'No matching commits';
 		return html`<div class="gl-graph__status" role="status"><span>${message}</span></div>`;
 	}
+
+	// One-time opt-in overlay for the dormant Changes column — covers ONLY its rows area (top offset =
+	// header height, see graph.scss) so the header stays interactive (mode picker, hide, resize). Absolutely
+	// positioned to the column's solved rect, mirroring renderHeader's zone + gutter layout so it aligns with
+	// the rows below. Suppressed the moment consent is requested (optimistic) or granted by the host.
+	private renderChangesOptInOverlay(): unknown {
+		if (this.changesColumnEnabled !== false || this._changesEnableRequested) return nothing;
+
+		// Defer while the status overlay owns the empty viewport ("Loading commits…" / "No commits") —
+		// the opt-in shouldn't compete with it, and there's no column of rows to overlay yet anyway.
+		if (this.displayRows.length === 0) return nothing;
+
+		const c = this._renderCtx;
+		if (c.style !== 'table') return nothing;
+
+		const zone = c.zones.find(z => z.id === 'changes');
+		if (zone == null) return nothing;
+
+		const narrow = zone.width < 150;
+		// `gl-tooltip` is `display: contents`, so its slotted buttons stay flex items of the overlay stack.
+		// wa-popup anchors to the FIRST slotted element (the Show button), while the button's `::before`
+		// expands its hit area to the whole overlay surface (see graph.scss) — hover/click anywhere on the
+		// dormant column triggers the button + its tooltip, but the tooltip stays pinned above the button.
+		return html`<div
+			${ref(this.changesOptInRef)}
+			class="gl-graph__changes-optin"
+			style=${cspStyleMap({ width: `${zone.width}px`, visibility: 'hidden' })}
+			@click=${this.onChangesOptInClick}
+		>
+			<gl-tooltip placement="top" show-delay="280">
+				<button type="button" class="gl-graph__changes-optin-button" aria-label="Show Changes Column">
+					Show
+				</button>
+				<button
+					type="button"
+					class="gl-graph__changes-optin-hide"
+					aria-label="Hide Column"
+					@click=${this.onChangesOptInHideClick}
+				>
+					Hide
+				</button>
+				<span slot="content" class="gl-graph__changes-optin-tooltip"
+					><span class="gl-graph__changes-optin-tooltip-title">Show Changes Column</span
+					><span
+						>Computes diff stats for loaded commits in the background — can be intensive in very large
+						repos.</span
+					><span class="gl-graph__changes-optin-tooltip-sub">Enable once for all repos.</span></span
+				>
+			</gl-tooltip>
+			${narrow
+				? nothing
+				: html`<span class="gl-graph__changes-optin-help"
+							>Computes diff stats for loaded commits in the background — can be intensive in very large
+							repos.</span
+						>
+						<span class="gl-graph__changes-optin-sub">Enable once for all repos.</span>`}
+		</div>`;
+	}
+
+	private onChangesOptInClick = (): void => {
+		this._changesEnableRequested = true;
+		this.requestUpdate();
+		this.dispatchEvent(new CustomEvent('gl-graph-enable-changes-column', { bubbles: true, composed: true }));
+	};
+
+	private onChangesOptInHideClick = (e: MouseEvent): void => {
+		e.stopPropagation();
+		this.applyZones(this.zones.map(z => (z.id === 'changes' ? { ...z, hidden: true } : z)));
+	};
 
 	// Filter-search results footer (mirrors the legacy graph's `renderFooter`, filter mode only — the
 	// normal/highlight mode's "Load more commits…" affordance isn't ported here). A sibling BELOW the
@@ -3683,6 +4379,7 @@ export class GlLitGraph extends LitElement {
 				@contextmenu=${this.onContextMenu}
 				@pointerover=${this.onPointerOverTooltip}
 				@pointerout=${this.onPointerOutTooltip}
+				@pointerleave=${this.onPointerLeave}
 			>
 				${header}
 				<lit-virtualizer
@@ -3702,7 +4399,7 @@ export class GlLitGraph extends LitElement {
 						this.graphPlacement === 'column' && this.maxGraphScrollX > 0 ? this.graphWheelListener : nothing
 					}
 				></lit-virtualizer>
-				${this.renderStatusOverlay()}${this.renderScrollMarkers()}${this.renderPinnedPill()}${this.renderHeadPill()}${this.renderHScrollbar()}
+				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderPinnedPill()}${this.renderHeadPill()}${this.renderStickyTimeline()}${this.renderHScrollbar()}${this.renderChangesModePopover()}
 			</div>
 			${this.renderSearchFooter()}
 			<span
@@ -3783,6 +4480,22 @@ export class GlLitGraph extends LitElement {
 			<code-icon icon=${dir === 'up' ? 'arrow-up' : 'arrow-down'}></code-icon
 			><code-icon icon="pinned"></code-icon>${name ?? 'Pinned'}
 		</button>`;
+	}
+
+	// Sticky-timeline pill: rides the header/first-row seam, showing which relative-time group (Today /
+	// Yesterday / This week / Last week / N weeks ago / …) — mirroring the Date column's OWN `fromNow`
+	// families — the topmost visible row falls in (see `updateStickyTimelineBucket`). AT REST it's just
+	// the label; scrolling or hovering widens the SAME pill in place (native `:hover` + the JS-toggled
+	// `is-scroll-active` class in `onScroll` — CSS alone drives the reveal, see graph.scss). Not a
+	// button — purely informational, so no click handler/tabstop.
+	private renderStickyTimeline(): TemplateResult | typeof nothing {
+		if (this.config?.stickyTimeline === false || this.stickyTimeline == null) return nothing;
+
+		return html`<div ${ref(this.stickyTimelineRef)} class="gl-graph__sticky-timeline" aria-hidden="true">
+			<code-icon class="gl-graph__sticky-timeline-icon" icon="calendar"></code-icon>
+			<span class="gl-graph__sticky-timeline-label">${this.stickyTimeline.label}</span>
+			<span class="gl-graph__sticky-timeline-span">${this.stickyTimeline.span}</span>
+		</div>`;
 	}
 
 	// Scroll-rail markers: a thin overlay pinned to the right edge of the viewport (over the scrollbar
@@ -4076,6 +4789,17 @@ export class GlLitGraph extends LitElement {
 		return undefined;
 	}
 
+	// Resolve the `{ key, sha }` pair `togglePinnedRef`/`activateModifierChain` need from a pointer
+	// event's path — same two lookups the pill click handler makes (resolveRef for the pill, resolveSha
+	// for its row), just packaged for the hover path.
+	private resolvePillHover(event: Event): { key: string; sha: string } | undefined {
+		const ref = this.resolveRef(event);
+		if (ref == null) return undefined;
+
+		const sha = this.resolveSha(event);
+		return sha != null ? { key: ref.key, sha: sha } : undefined;
+	}
+
 	// Resolve a PR/issue chip or upstream segment double-click into its full metadata object (walking
 	// the SAME composedPath as resolveRef, but for the nearer `data-ref-metadata-type` surface). Returns
 	// undefined when the click didn't land on a metadata surface, or its data isn't loaded/resolved yet
@@ -4163,6 +4887,30 @@ export class GlLitGraph extends LitElement {
 				event.stopPropagation();
 				return;
 			}
+
+			// The WIP row's "Jump to Branch Tip" button carries the tip sha directly (`parents[0]`, the
+			// commit the working changes sit on) — a client-side scroll+select via the same
+			// `gl-jump-to-commit` path the WIP details header uses (graph-wrapper's onJumpToCommit →
+			// ensureAndSelectCommit); NOT a host round-trip like data-row-action.
+			const jumpSha = el.getAttribute('data-jump-sha');
+			if (jumpSha != null) {
+				document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha } }));
+				event.stopPropagation();
+				return;
+			}
+
+			// The inverse: a worktree branch-tip row's "Jump to Working Changes" button jumps to the WIP
+			// row sitting on this commit. Pass the row's own sha as `fromSha`; graph-wrapper's
+			// onJumpToNearestWip resolves it (exact-anchor match) to that worktree's WIP row — the same
+			// client-side path the commit details panel's chip uses.
+			if (el.getAttribute('data-jump-nearest-wip') != null) {
+				const sha = this.resolveSha(event);
+				if (sha != null) {
+					document.dispatchEvent(new CustomEvent('gl-jump-to-nearest-wip', { detail: { fromSha: sha } }));
+				}
+				event.stopPropagation();
+				return;
+			}
 		}
 
 		// Lane-collapse toggle takes precedence over selection: the gutter node hit-target
@@ -4200,9 +4948,9 @@ export class GlLitGraph extends LitElement {
 		if (refPill != null && (refPill.kind === 'head' || refPill.kind === 'tag' || refPill.kind === 'remote')) {
 			const pillSha = this.resolveSha(event);
 			const pinned = this.togglePinnedRef(refPill.key, pillSha);
-			// The pill's own `data-vscode-context` is the refGROUP context ("Hide All") when this ref is
-			// grouped with its remote(s), which the sheet's kebab + action links can't use. Prefer the
-			// ref's INDIVIDUAL context from the row model, falling back to the pill context.
+			// The pill's own `data-vscode-context` carries the refGROUP keys ("Hide All") merged in when
+			// this ref is grouped with its remote(s), which the sheet's kebab + action links can't use.
+			// Prefer the ref's INDIVIDUAL context from the row model, falling back to the pill context.
 			const refContext =
 				(pillSha != null
 					? this.getCommitBySha(pillSha)?.commitRefs.find(
@@ -4385,13 +5133,38 @@ export class GlLitGraph extends LitElement {
 		return undefined;
 	}
 
-	// Next/prev branching point (a merge commit — two or more parents) from `from`.
+	// Lazy reverse-topology map for branching-point nav; rebuilt only when processedRows changes.
+	private childrenBySha: ReadonlyMap<string, readonly string[]> | undefined;
+	private childrenByShaRows: readonly ProcessedGraphRow[] | undefined;
+
+	// Next/prev branching point: walks the row's lane lineage (same-column hops) to the nearest fork
+	// point — a commit with a child on another lane (old-engine parity). Walks the FULL topology
+	// (processedRows) so hops through a collapsed lane still land, then maps the target back to a
+	// display row — its own row, or the collapsed lane's chip row when it's folded away.
 	private findBranchingPointIndex(from: number, dir: 1 | -1): number | undefined {
-		const rows = this.displayRows;
-		for (let i = from + dir; i >= 0 && i < rows.length; i += dir) {
-			if ((rows[i].parents?.length ?? 0) > 1) return i;
+		const fromSha = this.displayRows[from]?.sha;
+		if (fromSha == null) return undefined;
+
+		if (this.childrenBySha == null || this.childrenByShaRows !== this.processedRows) {
+			this.childrenBySha = buildChildrenBySha(this.processedRows);
+			this.childrenByShaRows = this.processedRows;
 		}
-		return undefined;
+
+		const sha = findBranchingPointSha(
+			this.processedRows,
+			this.processedIndexBySha,
+			this.childrenBySha,
+			fromSha,
+			dir,
+		);
+		if (sha == null) return undefined;
+
+		const idx = this.indexBySha.get(sha);
+		if (idx != null) return idx;
+
+		// Target hidden inside a collapsed lane → land on that lane's chip (tip) row instead.
+		const tip = this.segmentByCommit.get(sha);
+		return tip != null ? this.indexBySha.get(tip) : undefined;
 	}
 
 	private onKeydown = (event: KeyboardEvent): void => {
@@ -4499,21 +5272,29 @@ export class GlLitGraph extends LitElement {
 			}
 			case 'h':
 			case 'H': {
-				// Jump selection to HEAD (the current branch tip) — a frequent re-orientation move.
+				// Jump selection to HEAD (the current branch tip) — a frequent re-orientation move. Shift
+				// targets HEAD's upstream instead (falling back to HEAD when it has none / it's off-window).
 				const headSha = this.headSha;
-				const idx = headSha != null ? this.indexBySha.get(headSha) : undefined;
-				if (headSha != null && idx != null) {
+				let targetSha = headSha;
+				if (event.shiftKey && headSha != null) {
+					// Several local branches can share the HEAD commit — take the checked-out one's upstream.
+					const heads = this.getCommitBySha(headSha)?.commitRefs.filter(r => r.kind === 'head');
+					const upstreamId = (heads?.find(r => r.current === true) ?? heads?.[0])?.upstreamId;
+					targetSha = (upstreamId != null ? this.refRowIndex.get(upstreamId)?.sha : undefined) ?? headSha;
+				}
+				const idx = targetSha != null ? this.indexBySha.get(targetSha) : undefined;
+				if (targetSha != null && idx != null) {
 					if (this._pinnedRefKey != null) {
 						this.clearPinnedRef();
 					}
 					this.focusIndex = idx;
 					this._selectionAnchorIndex = idx;
-					this.selectedShas = new Set([headSha]);
+					this.selectedShas = new Set([targetSha]);
 					this.requestUpdate();
 					this.dispatchEvent(
-						new CustomEvent('gl-graph-changeselection', { detail: { sha: headSha, mode: 'replace' } }),
+						new CustomEvent('gl-graph-changeselection', { detail: { sha: targetSha, mode: 'replace' } }),
 					);
-					this.virtualizerRef.value?.scrollToIndex(idx, 'nearest');
+					this.revealIndexNearest(idx);
 				}
 				event.preventDefault();
 				return;
@@ -4591,7 +5372,7 @@ export class GlLitGraph extends LitElement {
 				);
 			}
 		}
-		this.virtualizerRef.value?.scrollToIndex(next, 'nearest');
+		this.revealIndexNearest(next);
 	};
 
 	// On Tab-in, align the active descendant with the current selection so the screen reader
@@ -4608,6 +5389,10 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private onFocusIn = (event: FocusEvent): void => {
+		// Keyboard parity for the pointer tooltip path — a focused `data-tooltip` element (incl. the mode
+		// picker's glyph buttons) shows the same delegated tooltip.
+		this.showTooltipForFocus(event);
+
 		if (this.selectedShas.size === 0) return;
 
 		const firstSelected = this.selectedShas.values().next().value;
@@ -4637,18 +5422,10 @@ export class GlLitGraph extends LitElement {
 		if (related instanceof Node && this.contains(related)) return;
 
 		// Ensure the active-descendant row is actually rendered (virtualized in) so the
-		// `aria-activedescendant` id resolves to a real element. Only scroll when the row is OFF-screen —
-		// an already-visible row (the common arrow-key/Tab-in case) needn't enter the virtualizer's
-		// scroll-scheduling path (`scrollToIndex` is a no-op for visible rows, but skipping the call
-		// avoids the work entirely). Same visibility math as flushPendingReveal/updateHeadPillDirection.
-		const scroller = this.virtualizerRef.value;
-		if (scroller == null) return;
-
-		const top = idx * this.rowHeight;
-		const viewTop = scroller.scrollTop;
-		if (top >= viewTop && top + this.rowHeight <= viewTop + this.scrollerClientHeight) return;
-
-		scroller.scrollToIndex(idx, 'nearest');
+		// `aria-activedescendant` id resolves to a real element. `revealIndexNearest` only scrolls when
+		// the row is off (or, with padding, too near) screen — an already-comfortably-visible row (the
+		// common arrow-key/Tab-in case) needn't enter the virtualizer's scroll-scheduling path.
+		this.revealIndexNearest(idx);
 	};
 
 	// Dispatch a "load the next page" request. The wrapper's `graphState.loading` guard (webview) and the
@@ -4727,6 +5504,12 @@ export class GlLitGraph extends LitElement {
 				this.lastVisibleDaysKey = key;
 				this.dispatchEvent(new CustomEvent('gl-graph-changevisibledays', { detail: days }));
 			}
+		}
+
+		// Sticky-timeline bucket — same topmost-row date (already workdir-normalized above), O(1) bucket
+		// classify, @state write only on a bucket-key change (see updateStickyTimelineBucket).
+		if (!Number.isNaN(topMs)) {
+			this.updateStickyTimelineBucket(topMs);
 		}
 
 		// Defer the WIP scan + missing-avatar collection behind the trailing debounce so continuous arrow/scroll
@@ -4845,6 +5628,19 @@ export class GlLitGraph extends LitElement {
 		// boundary without resizing us would otherwise leave the snap stale → every row (and its text)
 		// renders off the device-pixel grid and softens. Cheap: a no-op early-returns when already snapped.
 		this.snapVirtualizerToPixelGrid();
+		// Position the dormant Changes opt-in overlay from the RENDERED header cell — solved-zone
+		// arithmetic can't see layout-owning concerns (grouped refs/graph slot, crumbs), and drift paints
+		// the overlay over the wrong column (live-caught +126px with grouped refs). Hidden until
+		// positioned so it never flashes unaligned; re-synced every render (the template style re-apply
+		// resets it).
+		const optin = this.changesOptInRef.value;
+		if (optin != null) {
+			const cell = this.querySelector<HTMLElement>('.gl-graph__header-cell[data-col-id="changes"]');
+			if (cell != null) {
+				optin.style.left = `${cell.offsetLeft}px`;
+				optin.style.visibility = 'visible';
+			}
+		}
 	}
 
 	/** True when `sha` is currently rendered (present in `displayRows`); false when it's loaded but
@@ -4895,6 +5691,44 @@ export class GlLitGraph extends LitElement {
 		this.flushPendingReveal();
 	}
 
+	// `scrollToIndex(idx, 'nearest')` replacement that also honors `gitlens.graph.scrollRowPadding` —
+	// rows of margin kept from the viewport edge (matches the legacy GKC prop, unread until now). Used
+	// by every 'nearest' reveal (keyboard nav, jump-to-HEAD/-sha, focus-in ensure-visible, the
+	// pending-reveal retry below) — deliberate-reveal-only, NEVER the scroll hot path, so the one live
+	// `scrollTop` read below is fine (mirrors the plain-visibility checks these same call sites already
+	// did). All size math otherwise comes from cached geometry (`scrollerClientHeight`/`rowHeight`) — no
+	// layout-forcing reads. Padding is clamped to leave at least one row of "nearest" slack either side;
+	// a clamp-to-zero (tiny viewport, or the setting itself is 0) falls through to the exact prior
+	// behavior.
+	private revealIndexNearest(idx: number): void {
+		const scroller = this.virtualizerRef.value;
+		if (scroller == null) return;
+
+		const rowHeight = this.rowHeight;
+		const viewportHeight = this.scrollerClientHeight;
+		const visibleRows = rowHeight > 0 ? viewportHeight / rowHeight : 0;
+		const padding = Math.max(0, Math.min(this.config?.scrollRowPadding ?? 0, Math.floor(visibleRows / 2) - 1));
+		const rowTop = idx * rowHeight;
+		const rowBottom = rowTop + rowHeight;
+		const scrollTop = scroller.scrollTop;
+		if (padding <= 0) {
+			// Already fully on-screen → leave it put, same as the 'center' path in flushPendingReveal;
+			// `scrollToIndex` isn't a guaranteed no-op for an already-visible row (lit-virtualizer can still
+			// nudge it), so skip the call entirely rather than rely on that.
+			if (rowTop >= scrollTop && rowBottom <= scrollTop + viewportHeight) return;
+
+			scroller.scrollToIndex(idx, 'nearest');
+			return;
+		}
+
+		const padPx = padding * rowHeight;
+		if (rowTop < scrollTop + padPx) {
+			scroller.scrollTop = Math.max(0, rowTop - padPx);
+		} else if (rowBottom > scrollTop + viewportHeight - padPx) {
+			scroller.scrollTop = rowBottom - viewportHeight + padPx;
+		}
+	}
+
 	private flushPendingReveal(): void {
 		const sha = this._pendingRevealSha;
 		if (sha == null) return;
@@ -4907,13 +5741,19 @@ export class GlLitGraph extends LitElement {
 
 		this._pendingRevealSha = undefined;
 
+		if (this._pendingRevealPosition === 'nearest') {
+			// Padding-aware — its own internal check subsumes the plain-visibility skip below.
+			this.revealIndexNearest(idx);
+			return;
+		}
+
 		// Already fully on-screen → leave the scroll position put (revealing shouldn't recenter a
 		// row the user can already see).
 		const top = idx * this.rowHeight;
 		const viewTop = scroller.scrollTop;
 		if (top >= viewTop && top + this.rowHeight <= viewTop + scroller.clientHeight) return;
 
-		scroller.scrollToIndex(idx, this._pendingRevealPosition);
+		scroller.scrollToIndex(idx, 'center');
 	}
 
 	// Attach the scroll handler PASSIVELY (so it never blocks the compositor on a scroll frame —
@@ -4945,7 +5785,8 @@ export class GlLitGraph extends LitElement {
 	// Auto-adapts to classic (≈14px) vs overlay (0px) scrollbars. Measured only on resize +
 	// first render (the only times it can change for an always-overflowing list) rather than
 	// every reactive update — reading offsetWidth/clientWidth forces a synchronous layout.
-	// Set via CSSOM (CSP-safe) so it doesn't trigger a re-render.
+	// Set via CSSOM (CSP-safe), then re-render once because the measured width is also an input
+	// to the zero-scroll column solve.
 	private measureScrollbarWidth(): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller == null) return;
@@ -4955,6 +5796,7 @@ export class GlLitGraph extends LitElement {
 
 		this.lastScrollbarWidth = scrollbarWidth;
 		this.style.setProperty('--gl-graph-scrollbar-width', `${scrollbarWidth}px`);
+		this.requestUpdate();
 	}
 
 	// Toggle the header's scrolled-shadow via CSSOM only when crossing the threshold — NOT a
@@ -5025,6 +5867,23 @@ export class GlLitGraph extends LitElement {
 		// transitions so those don't fire as spurious fades trailing the scroll; a short settle re-enables
 		// them so genuine interaction still animates. The burst start also tears down any open hover card.
 		this.markScrolling();
+
+		if (this.config?.stickyTimeline !== false) {
+			// CSSOM-only expand-while-scrolling — classList + a debounced idle-clear, no @state, so a
+			// scroll burst never triggers a render on its own.
+			this.stickyTimelineRef.value?.classList.add('is-scroll-active');
+			this.clearStickyTimelineScrollActive();
+			// Bucket must ALSO be re-derived here, not just from onRangeChanged: the virtualizer's
+			// materialized range (and its rangeChanged event) stops advancing once the render buffer
+			// already covers the destination, so an incremental scroll within an already-buffered range
+			// would otherwise leave the bucket frozen. O(1) index math + one array access — no DOM read
+			// beyond the `scrollTop` this handler already has; the @state write inside stays edge-gated
+			// (bucket-key changes only), so this doesn't turn scrolling into a render-per-frame path.
+			this.updateStickyTimelineBucketFromScrollTop(scrollTop);
+			// The topmost row (same index) can change independently of the bucket (an adjacent row within
+			// the same bucket) — re-check the yield every scroll too, reusing the same `scrollTop`.
+			this.updateStickyTimelineYield(scrollTop);
+		}
 
 		const scrolled = scrollTop > 4;
 		if (scrolled === this.wasScrolled) return;
@@ -5138,6 +5997,147 @@ export class GlLitGraph extends LitElement {
 		}
 	}
 
+	// `gitlens.graph.stickyTimeline` OFF → clear (hides the pill/hairlines). Otherwise reclassifies
+	// `topMs` (the topmost visible row's workdir-normalized date) and writes @state ONLY when the
+	// group's KEY actually changes — mirrors `updateHeadPillDirection`'s edge-crossing gate. The window
+	// cache (`stickyTimelineWindow`) short-circuits BEFORE that: while `topMs` (any row's date) stays
+	// within the last classified group's elapsed bounds, there's nothing to reclassify — pure numeric
+	// check, no `stickyTimelineGroupFor`/`fromNowUnit` call (and hence no allocation) at all.
+	private updateStickyTimelineBucket(topMs: number): void {
+		if (this.config?.stickyTimeline === false) {
+			if (this.stickyTimeline != null) {
+				this.stickyTimeline = undefined;
+				this.stickyTimelineWindow = undefined;
+			}
+			return;
+		}
+
+		const win = this.stickyTimelineWindow;
+		const elapsed = this.nowMs - topMs;
+		if (win != null && elapsed >= win.lo && elapsed < win.hi) return;
+
+		const group = stickyTimelineGroupFor(topMs, this.nowMs);
+		// A year group's `hi` is deliberately undefined on the GROUP (stickyTimelineSpanFor reads that as
+		// "open-ended" for the "before <date>" display) — but the WINDOW still needs a real reclassification
+		// bound, or it'd cache as valid forever and never notice elapsed crossing into year:(n+1). Derive it
+		// the same way fromNowUnit would classify the NEXT year boundary: elapsed is >=0 here (a year group
+		// only classifies past dates — the future-date guard in stickyTimelineGroupFor redirects anything
+		// newer to 'today' first), so this can't disagree with what re-running fromNowUnit would say.
+		const year = unitDivisorMs('year');
+		const hi = group.hi ?? (Math.trunc(elapsed / year) + 1) * year;
+		this.stickyTimelineWindow = { key: group.key, lo: group.lo, hi: hi };
+		if (group.key === this.stickyTimeline?.key) return;
+
+		this.stickyTimeline = { key: group.key, label: group.label, span: this.stickyTimelineSpanFor(group) };
+	}
+
+	// Derives the topmost-row index (via the shared `topmostRowIndexFor` — NOT the same formula
+	// onRangeChanged's minimap-day read uses, which skips the upper clamp), then updates the bucket
+	// through the shared, edge-gated `updateStickyTimelineBucket`. Shared by `onScroll` (the scroll hot
+	// path — `updateHeadPillDirection`-style: cheap index math + one array access, no DOM read beyond
+	// the `scrollTop` the caller already has) and `recomputeStickyTimelineBucket` (a live `scrollTop`
+	// read, fine there — not the hot path).
+	private updateStickyTimelineBucketFromScrollTop(scrollTop: number): void {
+		const rows = this.displayRows;
+		const rh = this.rowHeight;
+		if (rows.length === 0 || rh <= 0) return;
+
+		const idx = this.topmostRowIndexFor(scrollTop, rows.length);
+		const row = rows[idx];
+		// A workdir (WIP) row's OWN date is a synthetic stamp — resolve through its EXACT anchor
+		// (parents[0], mirroring the wrapper's dateForMinimapRow) when it's loaded; the positional
+		// nearestNonWorkdirDate walk is only a fallback for the rare case the anchor hasn't paged in yet.
+		const anchorSha = row?.kind === 'workdir' ? row.parents[0] : undefined;
+		const anchorIdx = anchorSha != null ? this.indexBySha.get(anchorSha) : undefined;
+		const anchorDate = anchorIdx != null ? rows[anchorIdx]?.date : undefined;
+		const dateMs = anchorDate ?? nearestNonWorkdirDate(rows, idx, rows.length - 1) ?? NaN;
+		if (!Number.isNaN(dateMs)) {
+			this.updateStickyTimelineBucket(dateMs);
+		}
+	}
+
+	// Re-derives the bucket from the CURRENT scroll position outside a range-change/scroll event — used
+	// when `stickyTimeline` flips on live (see willUpdate) so the pill appears immediately instead of
+	// waiting for the next scroll. A live scrollTop read is fine here (a deliberate, infrequent
+	// config-driven call, not the scroll hot path) — same allowance already used by the reveal helpers.
+	private recomputeStickyTimelineBucket(): void {
+		const scroller = this.virtualizerRef.value;
+		if (scroller == null) return;
+
+		this.updateStickyTimelineBucketFromScrollTop(scroller.scrollTop);
+	}
+
+	// Yields the pill to the row it's covering: fades it out AND makes it pointer-transparent (CSS
+	// `.is-yielding`, wins over the expand states — see graph.scss) whenever the TOPMOST visible row —
+	// the same index the bucket uses — needs its own top-right corner: it's selected, keyboard-focused,
+	// hovered, or renders PERSISTENT action buttons (the WIP-row case — at scroll-top the pill stays
+	// hidden entirely; it reappears once scrolling puts a normal, non-persistent-actions row on top).
+	// Hover reads `pointerRowSha` (NOT `hoveredRowSha`, which the rich-hover card clears when the pointer
+	// moves onto a row's `data-tooltip` action buttons — the pill rides right over those, so it must keep
+	// yielding while they're hovered). Both are plain fields (hover never triggers a Lit render), which is
+	// exactly why this is CSSOM — an @state-driven equivalent would re-render rows on every hover in/out.
+	// No flicker loop: once yielded via hover, the pointer sits over the (now pointer-transparent) pill's
+	// old spot, which hits the row/buttons underneath — the row stays hovered, so it stays yielded until
+	// the pointer actually leaves the row. O(1): index math + a few Set/Map lookups + one classList.toggle;
+	// `scrollTop` defaults to the last scroll position `onScroll` recorded (`_lastScrollTop`) — a plain
+	// field read, no DOM access — for the rare caller outside the scroll hot path; `onScroll` itself
+	// passes the value it already has.
+	private updateStickyTimelineYield(scrollTop: number = this._lastScrollTop): void {
+		const el = this.stickyTimelineRef.value;
+		if (el == null) return;
+
+		const rows = this.displayRows;
+		const rh = this.rowHeight;
+		if (rows.length === 0 || rh <= 0) {
+			el.classList.remove('is-yielding');
+			return;
+		}
+
+		const idx = this.topmostRowIndexFor(scrollTop, rows.length);
+		const row = rows[idx];
+		const yielding =
+			row != null &&
+			(this.selectedShas.has(row.sha) ||
+				idx === this.focusIndex ||
+				row.sha === this.pointerRowSha ||
+				this.topRowHasPersistentActions(row));
+		el.classList.toggle('is-yielding', yielding);
+	}
+
+	// The same `--has-persistent` decision `renderRowActions` makes (see `hasPersistentRowActions`),
+	// re-derived for an arbitrary row OUTSIDE the render loop — a WIP row's agent/operation status and a
+	// commit row's unpushed state live in plain fields/the payload plane, not just the per-render RenderCtx.
+	private topRowHasPersistentActions(row: ProcessedGraphRow): boolean {
+		const wipAgent = row.kind === 'workdir' ? this.agentStatusByRowSha?.get(row.sha) : undefined;
+		const wipOperation = row.kind === 'workdir' ? this.runningOperationByRowSha?.get(row.sha) : undefined;
+		const isUnpushed = row.kind === 'workdir' ? undefined : this.getCommitBySha(row.sha)?.isUnpublished;
+		return hasPersistentRowActions(row.kind, wipAgent, wipOperation, isUnpushed);
+	}
+
+	// Exact date span for a group's elapsed window [lo, hi) — short month + day, en dash between; the
+	// second date drops its month when it's the same as the first's (a same-month range like
+	// "Jul 13 – 19" reads more naturally than repeating "Jul"). `hi` undefined (year groups) → a single
+	// "before <date>" (no upper bound to show). `hi` exclusive → +1 day so the boundary date itself
+	// isn't double-counted; a exactly-1-day-wide window (today/yesterday) collapses to a single date.
+	private stickyTimelineSpanFor(group: StickyTimelineGroup): string {
+		if (group.hi == null) {
+			return `before ${formatGitLensDate(this.nowMs - group.lo, 'MMM D')}`;
+		}
+
+		const endMs = this.nowMs - group.lo;
+		const startMs = this.nowMs - group.hi + unitDivisorMs('day');
+		if (startMs >= endMs) return formatGitLensDate(endMs, 'MMM D');
+
+		return this.formatDaySpan(startMs, endMs);
+	}
+
+	private formatDaySpan(fromMs: number, toMs: number): string {
+		const from = new Date(fromMs);
+		const to = new Date(toMs);
+		const sameMonth = from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth();
+		return `${formatGitLensDate(from, 'MMM D')} – ${formatGitLensDate(to, sameMonth ? 'D' : 'MMM D')}`;
+	}
+
 	private onHeadPillClick = (): void => {
 		const scroller = this.virtualizerRef.value;
 		const headSha = this.headSha;
@@ -5188,12 +6188,18 @@ export class GlLitGraph extends LitElement {
 				: nothing}
 			${visibleZones.map((zone, i) => {
 				const isLast = i === visibleZones.length - 1;
+				// The trailing HEADER cell yields its tail to the pinned gear — header-only: the BODY column
+				// keeps its full solved width to the scrollbar (no dead body gutter), and no divider marks the
+				// last cell's right edge, so the header being narrower there is invisible.
+				const isTrailingCell = isLast && !graphIsLastColumn;
+				const headerW = isTrailingCell ? Math.max(0, zone.width - this.headerActionsPx) : zone.width;
 				// Same zero-scroll rule as the body cells (zoneStyle): fill may shrink but not grow, others
 				// rigid at the solved width — so the header columns line up exactly with the rows below.
-				const w = `${zone.width}px`;
+				const w = `${headerW}px`;
+				const minW = isTrailingCell ? '0px' : `${zone.minWidth}px`;
 				const style = zone.flex
-					? { flex: `0 1 ${w}`, minWidth: `${zone.minWidth}px` }
-					: { flex: `0 0 ${w}`, width: w, minWidth: `${zone.minWidth}px` };
+					? { flex: `0 1 ${w}`, minWidth: minW }
+					: { flex: `0 0 ${w}`, width: w, minWidth: minW };
 				// Reserve room for any controls in this cell, then swap the text label for its icon when
 				// the remaining width can't fit it (legacy narrow-column behavior). The flex zone never
 				// narrows (it grows), so it always keeps its text.
@@ -5202,35 +6208,139 @@ export class GlLitGraph extends LitElement {
 				const graphControlHere =
 					gutterWidth === 0 && (this.graphPlacement === 'grouped' ? zone.id === graphHostId : i === 0);
 				const hasRefsControl = (zone.id === 'ref' && this.refsPlacement === 'column') || zone.id === refsHostId;
-				// The graph control is labeled ("Graph") on its host cell, so it's wider than the bare refs toggle.
-				const controlsPx = (graphControlHere ? 64 : 0) + (hasRefsControl ? 22 : 0);
-				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, zone.width - controlsPx);
+				// This column offers a header filter (host `isFilterable`), and whether that filter is currently
+				// active (its search operator is in the query — see `activeFilterColumns`). Active persistently
+				// shows the button and reserves its unit in the fit math below; hover/focus reveal is CSS-only
+				// and never reaches this math.
+				const filterable = this.columns?.[zone.id]?.isFilterable === true;
+				const filterActive = filterable && (this.activeFilterColumns?.has(zone.id) ?? false);
+				const refsMember = zone.id === refsHostId;
+				// The refs crumb carries the refs FILTER button too — grouped refs have no ref header cell,
+				// so the crumb is that filter's only home (routes to pickRefs like the column's own button).
+				const refsCrumbZone = refsMember ? this.zones.find(z => z.id === 'ref') : undefined;
+				const refsCrumbFilterable = refsCrumbZone != null && this.columns?.ref?.isFilterable === true;
+				const refsCrumbFilterActive = refsCrumbFilterable && (this.activeFilterColumns?.has('ref') ?? false);
+				// Grouped only — when the graph is HIDDEN the same control renders here as a bare restore
+				// toggle, and a crumb would falsely read as "grouped into this column".
+				const graphCrumb = graphControlHere && this.graphPlacement === 'grouped';
+				// Crumbs are fixed-size chips: full = column icon + map toggle in ONE button + chevron
+				// (~55px); collapsed = the bare map chip (~22px), no identity icon, no chevron. Both crumbs
+				// collapse together when the fulls (plus filters + the host label's reserve) can't fit —
+				// deterministic math, so the cell content can never spill into the neighboring header.
+				const crumbCount = (graphCrumb ? 1 : 0) + (refsMember ? 1 : 0);
+				const filtersPx = (filterActive ? 22 : 0) + (refsCrumbFilterActive ? 22 : 0);
+				const hostLabelReservePx = Math.min(zone.label.length * 7, 70) + 16;
+				const crumbsCollapsed = crumbCount > 0 && headerW - filtersPx - hostLabelReservePx < crumbCount * 55;
+				const crumbsPx = crumbCount * (crumbsCollapsed ? 22 : 55);
+				// Fixed reserve per control (22 each): a hidden-graph restore toggle, the ungrouped ref
+				// column's right-edge toggle, ACTIVE filter buttons — plus the crumbs at their stage size.
+				// Changes' mode chevron always renders inside the label (19px ≈ 1.2rem icon + 0.3rem gap +
+				// slack, graph.scss) — reserve its label-adjacent width so the text never crowds it out.
+				const controlsPx =
+					(graphControlHere && !graphCrumb ? 22 : 0) +
+					(hasRefsControl && !refsMember ? 22 : 0) +
+					(zone.id === 'changes' ? 19 : 0) +
+					filtersPx +
+					crumbsPx;
+				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, headerW - controlsPx);
+				// Floor degradation: an active filter on an ultra-narrow icon-only column can't fit both the
+				// filter button and the column icon — render ONLY the filter button (never a clipped half icon).
+				const filterOnly = filterActive && labelAsIcon && headerW - controlsPx < 46;
+				// Double-click fits the column the splitter precedes (the NEXT zone) — except when that's the
+				// elastic fill (no fixed width), where it fits THIS zone instead (see onResizeAutosize). Name
+				// the real target so the tooltip doesn't lie.
+				const fitTargetLabel = (visibleZones[i + 1]?.flex ? zone.label : visibleZones[i + 1]?.label) ?? 'next';
+				// Dormant tint on the Changes header while its stats are opt-in (consent not yet requested/given).
+				const changesDormant =
+					zone.id === 'changes' && this.changesColumnEnabled === false && !this._changesEnableRequested;
 				return html`<div
-						class="gl-graph__header-cell${this.dragColId === zone.id ? ' is-dragging' : ''}"
+						class="gl-graph__header-cell${this.dragColId === zone.id ? ' is-dragging' : ''}${changesDormant
+							? ' gl-graph__header-cell--changes-dormant'
+							: ''}"
 						data-col-id=${zone.id}
 						data-vscode-context=${this.columnsContext ?? nothing}
 						style=${cspStyleMap(style)}
 						@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, zone.id)}
 					>
-						${graphControlHere ? this.renderPlacementControl(true) : nothing}
-						${zone.id === refsHostId ? this.renderRefsPlacementControl(false, visibleZones) : nothing}
-						<span
-							class="gl-graph__header-label"
-							role="button"
-							tabindex="0"
-							aria-label=${`${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
-							data-tooltip=${`Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
-							@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
-							>${labelAsIcon
-								? html`<code-icon
-										class="gl-graph__header-label-icon"
-										icon=${zoneHeaderIcons[zone.id]}
-									></code-icon>`
-								: zone.label}</span
-						>
-						${zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
-							? this.renderRefsPlacementControl(true, visibleZones)
-							: nothing}
+						<span class="gl-graph__header-cell-content">
+							${graphControlHere
+								? html`<span class="gl-graph__group-member">
+										${this.renderPlacementControl(
+											false,
+											graphCrumb && !crumbsCollapsed ? 'gl-graph' : undefined,
+										)}
+										${graphCrumb && !crumbsCollapsed
+											? html`<code-icon
+													class="gl-graph__group-member-chevron"
+													icon="chevron-right"
+												></code-icon>`
+											: nothing}
+									</span>`
+								: nothing}
+							${refsMember
+								? html`<span class="gl-graph__group-member">
+										${refsCrumbFilterable
+											? this.renderFilterButton(refsCrumbZone, refsCrumbFilterActive, false, true)
+											: nothing}
+										${this.renderRefsPlacementControl(
+											false,
+											visibleZones,
+											crumbsCollapsed ? undefined : zoneHeaderIcons.ref,
+										)}
+										${crumbsCollapsed
+											? nothing
+											: html`<code-icon
+													class="gl-graph__group-member-chevron"
+													icon="chevron-right"
+												></code-icon>`}
+									</span>`
+								: nothing}
+							${filterOnly
+								? html`${this.renderFilterButton(zone, true, true)}${zone.id === 'changes'
+										? this.renderChangesModePickerButton()
+										: nothing}`
+								: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
+										<span
+											class="gl-graph__header-label${zone.id === 'changes'
+												? ' gl-graph__header-label--changes'
+												: ''}"
+											role="button"
+											tabindex="0"
+											aria-haspopup=${zone.id === 'changes' ? 'menu' : nothing}
+											aria-expanded=${zone.id === 'changes'
+												? this.changesModeAnchor != null
+													? 'true'
+													: 'false'
+												: nothing}
+											aria-label=${zone.id === 'changes'
+												? 'Changes column. Press Enter to change the visualization; use Arrow Left/Right to reorder, or drag.'
+												: `${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
+											data-tooltip=${zone.id === 'changes'
+												? 'Change Visualization — or drag / Arrow keys to reorder'
+												: `Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
+											@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
+											>${labelAsIcon
+												? html`<code-icon
+														class="gl-graph__header-label-icon"
+														icon=${zoneHeaderIcons[zone.id]}
+													></code-icon>`
+												: zone.id === 'changes'
+													? html`<span class="gl-graph__header-label-text"
+															>${zone.label}</span
+														>`
+													: zone.label}${zone.id === 'changes'
+												? html`<code-icon
+														class="gl-graph__changes-mode-chevron"
+														icon="chevron-down"
+														aria-hidden="true"
+													></code-icon>`
+												: nothing}</span
+										>`}
+							${zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
+								? this.renderRefsPlacementControl(true, visibleZones)
+								: nothing}
+						</span>
+						${zone.id === 'changes' ? this.renderChangesLoading(headerW, filterOnly, labelAsIcon) : nothing}
 						${isLast
 							? nothing
 							: html`<div
@@ -5242,7 +6352,7 @@ export class GlLitGraph extends LitElement {
 									aria-valuenow=${zone.width}
 									aria-valuemin=${zone.minWidth}
 									aria-valuemax="800"
-									data-tooltip=${`Drag to resize, or double-click to fit the ${(visibleZones[i + 1]?.label ?? 'next').toLowerCase()} column to its contents`}
+									data-tooltip=${`Drag to resize, or double-click to fit the ${fitTargetLabel.toLowerCase()} column to its contents`}
 									@pointerdown=${(e: PointerEvent) => this.onResizeStart(e, visibleZones, i)}
 									@keydown=${(e: KeyboardEvent) => this.onResizeKeydown(e, visibleZones, i)}
 								>
@@ -5253,8 +6363,56 @@ export class GlLitGraph extends LitElement {
 						? this.renderGraphHeaderCell(gutterWidth, graphIsLastColumn)
 						: nothing}`;
 			})}
-			${this.renderStyleToggle()}${this.renderSettingsControl()}
+			${this.renderSettingsControl()}
 		</div>`;
+	}
+
+	// Header filter button, rendered at a filterable column cell's inline-start (after any placement
+	// controls, before the label). Idle it's collapsed to zero width + transparent (reserves no label
+	// space); the cell's `:hover`/`:focus-within` reveals it (CSS only). `active` shows it persistently in
+	// the accent tone with the filled icon. `floor` is the degraded ultra-narrow case where it stands in
+	// for the column icon entirely, so its tooltip names the filtered column. It's a DRAG-THROUGH control
+	// (no pointerdown stopPropagation): the press bubbles to the cell so a drag reorders the column (vital
+	// on narrow cells where the icon fills the grab area) — a CLEAN mouse click instead dispatches the
+	// filter, resolved in `onColumnPointerUp` via `data-filter-zone`. No `@click` (like the Changes label):
+	// under the cell's pointer capture a mouse click is ambiguous, so keyboard is handled via `@keydown`.
+	private renderFilterButton(zone: ZoneSpec, active: boolean, floor: boolean, member = false): TemplateResult {
+		// Same action-first language as the placement toggles (Group/Ungroup X with/from Y).
+		const tooltip = active ? `Edit ${zone.label} Filter` : `Filter by ${zone.label}`;
+		const ariaLabel = tooltip;
+		return html`<button
+			class="gl-graph__filter-toggle${active ? ' is-active' : ''}${floor
+				? ' gl-graph__filter-toggle--floor'
+				: ''}${member ? ' gl-graph__filter-toggle--member' : ''}"
+			type="button"
+			aria-pressed=${active ? 'true' : 'false'}
+			aria-label=${ariaLabel}
+			data-tooltip=${tooltip}
+			data-filter-zone=${zone.id}
+			draggable="false"
+			@keydown=${(e: KeyboardEvent) => this.onFilterButtonKeydown(e, zone.id)}
+		>
+			<code-icon icon=${active ? 'filter-filled' : 'filter'}></code-icon>
+		</button>`;
+	}
+
+	// Bubbles+composed so it reaches the `@gl-graph-filter-column` listener on `<gl-graph-wrapper>`
+	// (graph-app binds it there); both this element and the wrapper are light DOM, so no re-dispatch.
+	// Shared by the filter button's keyboard path and the pointerup clean-click path (`onColumnPointerUp`).
+	private dispatchFilterColumn(zoneId: ZoneId): void {
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-filter-column', { detail: { zone: zoneId }, bubbles: true, composed: true }),
+		);
+	}
+
+	// Keyboard activation for the drag-through filter button (Enter/Space). The mouse path has no `@click`
+	// (a click under the cell's pointer capture is ambiguous) — it's dispatched from `onColumnPointerUp`.
+	private onFilterButtonKeydown(event: KeyboardEvent, zoneId: ZoneId): void {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+
+		event.preventDefault();
+		event.stopPropagation();
+		this.dispatchFilterColumn(zoneId);
 	}
 
 	// Compact-density header. The stacked 2-line rows have no per-zone columns, so instead of the full
@@ -5273,7 +6431,7 @@ export class GlLitGraph extends LitElement {
 			>
 				${graphIsColumn ? nothing : this.renderPlacementControl(true)}
 			</div>
-			${this.renderStyleToggle()}${this.renderSettingsControl()}
+			${this.renderSettingsControl()}
 		</div>`;
 	}
 
@@ -5284,15 +6442,18 @@ export class GlLitGraph extends LitElement {
 	private renderGraphHeaderCell(gutterWidth: number, isLast: boolean): TemplateResult {
 		const foldLaneWidth = this.foldLaneWidth;
 		const totalWidth = this.graphColumnWidth;
+		// As the trailing cell, yield the tail to the pinned gear (header-only — the body gutter keeps
+		// `totalWidth`; no divider marks the last cell's right edge, so the difference is invisible).
+		const cellWidth = isLast ? Math.max(0, totalWidth - this.headerActionsPx) : totalWidth;
 		// Swap the "Graph" text for the graph icon once the cell can't fit it (placement control + label
 		// + handle) — same narrow-column behavior as the zone headers.
-		const labelAsIcon = !headerLabelFits('Graph', totalWidth - 22);
+		const labelAsIcon = !headerLabelFits('Graph', cellWidth - 22);
 		return html`<div
 			class="gl-graph__header-cell gl-graph__header-cell--graph${this.dragColId === 'graph'
 				? ' is-dragging'
 				: ''}"
 			data-vscode-context=${this.columnsContext ?? nothing}
-			style=${cspStyleMap({ width: `${totalWidth}px`, minWidth: `${totalWidth}px` })}
+			style=${cspStyleMap({ width: `${cellWidth}px`, minWidth: `${cellWidth}px` })}
 			@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, 'graph')}
 		>
 			<span
@@ -5303,7 +6464,7 @@ export class GlLitGraph extends LitElement {
 				data-tooltip="Drag or press Arrow keys to reorder the graph column"
 				@keydown=${this.onGraphLabelKeydown}
 				>${labelAsIcon
-					? html`<code-icon class="gl-graph__header-label-icon" icon="graph-line"></code-icon>`
+					? html`<code-icon class="gl-graph__header-label-icon" icon="gl-graph"></code-icon>`
 					: 'Graph'}</span
 			>${isLast ? nothing : this.renderPlacementControl()}
 			<div
@@ -5327,21 +6488,34 @@ export class GlLitGraph extends LitElement {
 	// Group/ungroup pushbutton for the graph's placement: click toggles Column ↔ Grouped. Hiding/showing
 	// the graph is via the column right-click menu (which sets `graphPlacement: 'hidden'`), not this
 	// button. Lives in the Graph header cell (column mode) or the grouped host's header cell. `labeled`
-	// appends a "Graph" text label — used when the graph has no cell of its own (grouped into another
-	// column, or hidden), so the header still names the affordance the way the standalone column does.
-	private renderPlacementControl(labeled = false): TemplateResult {
+	// appends a "Graph" text label — used only by the list header, whose single details cell has no other
+	// label to name the affordance. The table header keeps it bare: its host cell already shows that
+	// column's own label, and a second "GRAPH" beside it reads as two columns rather than one control.
+	// `identityIcon` renders the column's icon inside the button (the crumb-chip form: the WHOLE crumb is
+	// the ungroup control — one hit target, the tooltip covers it all — instead of a dead identity glyph
+	// beside a tiny button).
+	private renderPlacementControl(labeled = false, identityIcon?: string): TemplateResult {
 		const hidden = this.graphPlacement === 'hidden';
 		const grouped = this.graphPlacement === 'grouped';
-		// Group/detach affordance: standalone column = outline `map` (group with the next column);
+		// Group/detach affordance: standalone column = outline `map` (group with the target column);
 		// grouped = filled `map-filled` (separate back out). Icons are provisional (easy to swap).
 		const icon = grouped ? 'map-filled' : 'map';
+		// Name the actual target — the current host when offering to ungroup, the would-be host (same
+		// slot `togglePlacement` captures on group) when offering to group — so the label can never lie.
+		const visibleZones = this._renderCtx?.zones ?? this.getVisibleZones();
+		const targetId = grouped
+			? this.graphHostIdFor(visibleZones)
+			: visibleZones[Math.min(this.graphVisibleSlot, Math.max(0, visibleZones.length - 1))]?.id;
+		const targetName = targetId != null ? this.zoneDisplayName(targetId) : 'the next column';
 		const title = hidden
-			? 'Graph: hidden — click to show as its own column'
+			? 'Show Graph Column'
 			: grouped
-				? 'Graph: grouped with the next column — click to show as its own column'
-				: 'Graph: shown as its own column — click to group it with the next column';
+				? `Ungroup Graph from ${targetName}`
+				: `Group Graph with ${targetName}`;
 		return html`<button
-			class="gl-graph__placement-toggle${labeled ? ' gl-graph__placement-toggle--labeled' : ''}"
+			class="gl-graph__placement-toggle${labeled ? ' gl-graph__placement-toggle--labeled' : ''}${identityIcon
+				? ' gl-graph__placement-toggle--crumb'
+				: ''}"
 			type="button"
 			aria-pressed=${grouped ? 'true' : 'false'}
 			aria-label=${title}
@@ -5350,15 +6524,39 @@ export class GlLitGraph extends LitElement {
 			@pointerdown=${(e: Event) => e.stopPropagation()}
 			@click=${this.togglePlacement}
 		>
-			<code-icon icon=${icon}></code-icon>${labeled
+			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon>` : nothing}${labeled
 				? html`<span class="gl-graph__placement-toggle-label">Graph</span>`
-				: nothing}
+				: nothing}<code-icon icon=${icon}></code-icon>
 		</button>`;
 	}
 
 	// Click: flip Column ↔ Grouped (from hidden, restore to column).
 	private togglePlacement = (): void => {
-		this.graphPlacement = this.graphPlacement === 'column' ? 'grouped' : 'column';
+		if (this.graphPlacement === 'column') {
+			// column → grouped: capture the host BY ID — the zone at the graph's current visible slot (its
+			// right neighbor once the graph cell folds away) — so the [graph + host] pair travels together
+			// through later reorders instead of re-deriving positionally each time.
+			const visible = this.getVisibleZones();
+			this.graphHostZoneId = visible[Math.min(this.graphVisibleSlot, Math.max(0, visible.length - 1))]?.id;
+			this.graphPlacement = 'grouped';
+		} else if (this.graphPlacement === 'grouped') {
+			// grouped → column: re-derive the anchor from the host's CURRENT position — BEFORE clearing the
+			// sticky id, while `graphHostIdFor` can still resolve it — so the graph column reappears
+			// immediately LEFT of the host (which may have moved while grouped). Leave the anchor unchanged
+			// if the host is no longer visible.
+			const visible = this.getVisibleZones();
+			const hostId = this.graphHostIdFor(visible);
+			const hostIdx = hostId != null ? visible.findIndex(z => z.id === hostId) : -1;
+			if (hostIdx >= 0) {
+				this.graphColumnPos = this.graphAnchorForVisibleSlot(visible, hostIdx);
+			}
+			this.graphPlacement = 'column';
+			this.graphHostZoneId = undefined;
+		} else {
+			// hidden → column.
+			this.graphPlacement = 'column';
+			this.graphHostZoneId = undefined;
+		}
 		// Reset the offsets on a placement flip: a carried-over value would leave `--graph-gutter-scroll`
 		// sliding the rasters out from under their dots in the new placement. Re-run the scroll path so the
 		// var + any dependent clamp state re-settle against the new placement.
@@ -5385,7 +6583,12 @@ export class GlLitGraph extends LitElement {
 	// Refs header (`atEnd` → outline `map` → group with Message), mirroring the graph column's toggle;
 	// when grouped it migrates to the LEFT of the Message host header (filled `map-filled` → separate
 	// back out). Rendered from the zone-header loop. Expanded density only (the header).
-	private renderRefsPlacementControl(atEnd: boolean, visibleZones: readonly ZoneSpec[]): TemplateResult {
+	// `identityIcon` = the crumb-chip form (column icon inside the button) — see renderPlacementControl.
+	private renderRefsPlacementControl(
+		atEnd: boolean,
+		visibleZones: readonly ZoneSpec[],
+		identityIcon?: string,
+	): TemplateResult {
 		const isColumn = this.refsPlacement === 'column';
 		const icon = isColumn ? 'map' : 'map-filled';
 		// SPECIAL CASE (see `refsGroupMergesGraph`): here the click merges the Graph into Refs, not the
@@ -5397,12 +6600,14 @@ export class GlLitGraph extends LitElement {
 			isColumn && !mergesGraph ? this.refsGroupTargetId(visibleZones) : this.refsHostIdFor(visibleZones);
 		const targetName = targetId != null ? this.zoneDisplayName(targetId) : 'the next column';
 		const title = mergesGraph
-			? 'Branches / Tags: shown as their own column — click to group the Graph into it'
+			? 'Group Graph with Branches / Tags'
 			: isColumn
-				? `Branches / Tags: shown as their own column — click to group them with the ${targetName} column`
-				: `Branches / Tags: grouped with ${targetName} — click to show them as their own column`;
+				? `Group Branches / Tags with ${targetName}`
+				: `Ungroup Branches / Tags from ${targetName}`;
 		return html`<button
-			class=${atEnd ? 'gl-graph__placement-toggle gl-graph__placement-toggle--end' : 'gl-graph__placement-toggle'}
+			class="gl-graph__placement-toggle${atEnd ? ' gl-graph__placement-toggle--end' : ''}${identityIcon
+				? ' gl-graph__placement-toggle--crumb'
+				: ''}"
 			type="button"
 			aria-pressed=${isColumn ? 'false' : 'true'}
 			aria-label=${title}
@@ -5411,7 +6616,9 @@ export class GlLitGraph extends LitElement {
 			@pointerdown=${(e: Event) => e.stopPropagation()}
 			@click=${this.toggleRefsPlacement}
 		>
-			<code-icon icon=${icon}></code-icon>
+			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon> ` : nothing}<code-icon
+				icon=${icon}
+			></code-icon>
 		</button>`;
 	}
 
@@ -5429,15 +6636,17 @@ export class GlLitGraph extends LitElement {
 		// order. "Group refs" here means "merge that adjacent refs+graph pair", which is the SAME operation
 		// as grouping the graph in [Graph][Refs]. So group the GRAPH into the Refs zone (Refs STAYS a
 		// column — the flexible zone hosts lanes + pills), producing the identical end state. The anchor
-		// moves onto the refs zone so the lanes group there.
+		// moves onto the refs zone so the lanes group there; the sticky host id is set to `'ref'` directly
+		// (no visible-slot lookup needed — this IS the merge).
 		if (this.refsGroupMergesGraph()) {
 			const refsFullIdx = this.zones.findIndex(z => z.id === 'ref');
 			this.graphPlacement = 'grouped';
+			this.graphHostZoneId = 'ref';
 			this.graphColumnPos = refsFullIdx;
-			// Unlike the ordinary group/ungroup paths above/below (session-only placement, anchor
-			// unchanged), this special case moves the persisted anchor itself — persist it now so an
-			// unrelated columns push (e.g. another column's visibility toggled from the host) can't echo
-			// back the stale pre-toggle order and snap the anchor back.
+			// Unlike ordinary GROUPING (which captures the host id and leaves the anchor alone), this
+			// special case moves the persisted anchor itself — persist it now so an unrelated columns
+			// push (e.g. another column's visibility toggled from the host) can't echo back the stale
+			// pre-toggle order and snap the anchor back.
 			this.persistColumnsConfig();
 			return;
 		}
@@ -5450,39 +6659,10 @@ export class GlLitGraph extends LitElement {
 		this.persistColumnsConfig();
 	};
 
-	// 3-way graph-style toggle beside the settings gear: shows the current `gitlens.graph.style` mode's
-	// icon and cycles auto → table → list on click. Persists via a bubbling event the app forwards to the
-	// host (`UpdateGraphConfigurationCommand`); the setting then flows back through config → `effectiveStyle`.
-	private renderStyleToggle(): TemplateResult {
-		const style = this.config?.style ?? 'auto';
-		const icon = style === 'table' ? 'table' : style === 'list' ? 'list-flat' : 'gl-list-auto';
-		const label = style === 'table' ? 'Table' : style === 'list' ? 'List' : 'Auto';
-		const next = style === 'auto' ? 'table' : style === 'table' ? 'list' : 'auto';
-		return html`<button
-			class="gl-graph__placement-toggle gl-graph__header-style${this.settingsContext != null
-				? ' gl-graph__header-style--with-gear'
-				: ''}"
-			type="button"
-			aria-label=${`Graph style: ${label}. Click to cycle Auto, Table, List.`}
-			data-tooltip=${`Graph style: ${label} — click to change`}
-			draggable="false"
-			@pointerdown=${(e: Event) => e.stopPropagation()}
-			@click=${() => this.onStyleToggle(next)}
-		>
-			<code-icon icon=${icon}></code-icon>
-		</button>`;
-	}
-
-	private onStyleToggle(next: GraphStyle): void {
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-style-change', { detail: { style: next }, bubbles: true, composed: true }),
-		);
-	}
-
 	// Settings gear: opens VS Code's native graph menu (column show/hide + the Scroll Markers submenu)
 	// on click. `settingsContext` is the host-built `gitlens:graph:settings` data-vscode-context; a
-	// left-click dispatches a synthetic `contextmenu` at the button so the native menu opens there
-	// (same pattern as gl-details-commit-panel.onMoreActionsClick).
+	// left-click dispatches a synthetic `contextmenu` at the button (see `openHeaderContextMenu`) so the
+	// native menu opens there (same pattern as gl-details-commit-panel.onMoreActionsClick).
 	private renderSettingsControl(): TemplateResult | typeof nothing {
 		if (this.settingsContext == null) return nothing;
 
@@ -5494,13 +6674,300 @@ export class GlLitGraph extends LitElement {
 			draggable="false"
 			data-vscode-context=${this.settingsContext}
 			@pointerdown=${(e: Event) => e.stopPropagation()}
-			@click=${this.openSettingsMenu}
+			@click=${this.openHeaderContextMenu}
 		>
 			<code-icon icon="settings-gear"></code-icon>
 		</button>`;
 	}
 
-	private openSettingsMenu = (event: MouseEvent): void => {
+	// Collision floors: below these header widths the inline-end spinner would overlap the leading content,
+	// so it's suppressed (filter-only = filter button ~18 + compact chevron ~19 + spinner ~13 + insets;
+	// icon-collapsed = icon + chevron ~45 + spinner + insets). Text mode always has room.
+	private static readonly changesSpinnerFilterOnlyFloor = 60;
+	private static readonly changesSpinnerIconFloor = 64;
+
+	// Loading spinner while the host resolves diffstats. Absolutely pinned to the column's inline-end
+	// (graph.scss), pointer-transparent + `aria-hidden`; suppressed only when the header is too narrow to
+	// clear the leading content (content-aware floor), otherwise shown in every state incl. filter-only.
+	private renderChangesLoading(
+		headerW: number,
+		filterOnly: boolean,
+		labelAsIcon: boolean,
+	): TemplateResult | typeof nothing {
+		if (!this.rowsStatsLoading) return nothing;
+
+		const floor = filterOnly
+			? GlLitGraph.changesSpinnerFilterOnlyFloor
+			: labelAsIcon
+				? GlLitGraph.changesSpinnerIconFloor
+				: 0;
+		if (headerW < floor) return nothing;
+
+		return html`<code-icon
+			class="gl-graph__changes-header-spinner"
+			icon="loading"
+			modifier="spin"
+			aria-hidden="true"
+		></code-icon>`;
+	}
+
+	// Compact chevron-only picker entry, shown beside the filter button when the Changes column is too narrow
+	// (filter + narrow) for the full label — keeps the mode picker reachable (incl. keyboard). Same open path
+	// as the label; the button becomes the popover anchor.
+	private renderChangesModePickerButton(): TemplateResult {
+		return html`<button
+			class="gl-graph__changes-mode-picker-button"
+			type="button"
+			aria-haspopup="menu"
+			aria-expanded=${this.changesModeAnchor != null ? 'true' : 'false'}
+			aria-label="Change Changes column visualization"
+			data-tooltip="Change Visualization"
+			draggable="false"
+			@pointerdown=${(e: Event) => e.stopPropagation()}
+			@click=${this.onChangesModePickerButtonClick}
+		>
+			<code-icon icon="chevron-down"></code-icon>
+		</button>`;
+	}
+
+	private readonly onChangesModePickerButtonClick = (event: Event): void => {
+		event.stopPropagation();
+		const target = event.currentTarget;
+		if (target instanceof HTMLElement) {
+			this.toggleChangesModeMenu(target);
+		}
+	};
+
+	private get currentChangesMode(): ChangesColumnMode {
+		return changesModeOrDefault(this.getVisibleZones().find(z => z.id === 'changes')?.mode);
+	}
+
+	// Mode-picker popover — a horizontal `menu` of `menuitemradio` glyph buttons hosted by `gl-popover`
+	// (`trigger="manual"`): gl-popover owns the surface, Floating-UI flip/shift positioning, native top-layer
+	// stacking, and the Escape/CloseWatcher + focus-out dismiss. We drive open/close programmatically from the
+	// pointerup drag-latch decision (its click trigger can't be gated on the latch) and anchor it to the
+	// combined Changes label control (or the compact chevron button in filter-only). Rendered inside the
+	// viewport so the delegated tooltip/`focusin` listeners cover the glyphs' `data-tooltip`. `null` anchor =
+	// closed (drives `open` + the label's aria-expanded); the current mode is highlighted + focused on open.
+	private changesModeMenuRef = createRef<HTMLElement>();
+	@state() private changesModeAnchor?: HTMLElement;
+	private changesModeFocusIndex = 0;
+
+	// Optimistic latch: the opt-in overlay's click flips this so the dormant overlay + header tint clear
+	// instantly, before the host's `changesColumnEnabled` push lands. Reset in willUpdate on that push
+	// (the host is authoritative), so a failed/declined write re-shows the overlay.
+	@state() private _changesEnableRequested = false;
+	private changesOptInRef: Ref<HTMLElement> = createRef();
+
+	private renderChangesModePopover(): TemplateResult {
+		const current = this.currentChangesMode;
+		return html`<gl-popover
+			class="gl-graph__changes-mode-popover"
+			appearance="menu"
+			trigger="manual"
+			placement="bottom-end"
+			?arrow=${false}
+			.distance=${4}
+			.anchor=${this.changesModeAnchor}
+			.open=${this.changesModeAnchor != null}
+			@gl-popover-after-show=${this.onChangesModePopoverShow}
+			@gl-popover-hide=${this.onChangesModePopoverHide}
+		>
+			<span slot="anchor"></span>
+			<div
+				${ref(this.changesModeMenuRef)}
+				slot="content"
+				class="gl-graph__changes-mode-strip"
+				role="menu"
+				aria-orientation="horizontal"
+				aria-label="Changes column visualization"
+				@keydown=${this.onChangesModeMenuKeydown}
+			>
+				${changesModeOptions.map((opt, i) => {
+					const isCurrent = opt.mode === current;
+					return html`<button
+						class="gl-graph__changes-mode-glyph${isCurrent ? ' is-current' : ''}"
+						type="button"
+						role="menuitemradio"
+						aria-checked=${isCurrent ? 'true' : 'false'}
+						aria-label=${opt.label}
+						data-tooltip=${opt.label}
+						tabindex=${i === this.changesModeFocusIndex ? '0' : '-1'}
+						@click=${() => this.pickChangesMode(opt.mode)}
+					>
+						${changesModeGlyphs[opt.mode]}
+					</button>`;
+				})}
+			</div>
+		</gl-popover>`;
+	}
+
+	private toggleChangesModeMenu(anchor: HTMLElement): void {
+		if (this.changesModeAnchor != null) {
+			this.closeChangesModeMenu('none');
+		} else {
+			this.openChangesModeMenu(anchor);
+		}
+	}
+
+	private openChangesModeMenu(anchor: HTMLElement): void {
+		this.changesModeFocusIndex = Math.max(
+			0,
+			changesModeOptions.findIndex(o => o.mode === this.currentChangesMode),
+		);
+		this.changesModeAnchor = anchor;
+		// Manual-trigger gl-popover installs its own Escape/CloseWatcher + focus-out dismiss, but not an
+		// outside-pointer dismiss — add one that EXCEPTS the anchor so a click on the label toggles (never
+		// reopens). Capture phase so it settles before the label's own pointerup toggle.
+		document.addEventListener('pointerdown', this.onChangesModeDocumentPointerDown, true);
+	}
+
+	// Focus on close: 'always' = keyboard/pick paths (ARIA menu pattern — focus returns to the trigger
+	// unconditionally); 'ifLost' = self-dismiss sync (only recover a focus that fell to <body> — never
+	// steal from a deliberate focus move); 'none' = drag/zones-rebuild/detach (the anchor is moving).
+	private closeChangesModeMenu(restore: 'none' | 'ifLost' | 'always' = 'none'): void {
+		const anchor = this.changesModeAnchor;
+		if (anchor == null) return;
+
+		this.changesModeAnchor = undefined;
+		this.detachChangesModeMenu();
+		if (restore !== 'none') {
+			this.restoreLabelFocus(anchor, restore === 'always');
+		}
+	}
+
+	private detachChangesModeMenu(): void {
+		document.removeEventListener('pointerdown', this.onChangesModeDocumentPointerDown, true);
+	}
+
+	// Return focus to the label only if the close dropped it to <body> — i.e. the focused glyph was hidden
+	// and nothing else claimed focus (Escape / a click on non-focusable chrome). Leaves focus wherever a Tab
+	// or a focusable-target click sent it, so we never steal it.
+	private restoreLabelFocus(anchor: HTMLElement, always: boolean): void {
+		// Same async-hide race as the open-focus: gl-popover's teardown can park focus elsewhere a frame
+		// AFTER updateComplete — retry once per frame (bounded) so the restore actually lands.
+		const tryRestore = (attempts: number): void => {
+			const active = document.activeElement;
+			if (always || active == null || active === document.body) {
+				anchor.focus();
+				if (document.activeElement === anchor) return;
+			} else {
+				return;
+			}
+
+			if (attempts > 0) {
+				requestAnimationFrame(() => tryRestore(attempts - 1));
+			}
+		};
+		void this.updateComplete.then(() => tryRestore(5));
+	}
+
+	// Move DOM focus to the roving-tabindex button (the current mode on open, the arrowed-to one after).
+	private focusChangesModeButton(): void {
+		this.changesModeMenuRef.value?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+	}
+
+	private readonly onChangesModePopoverShow = (): void => {
+		// wa-popup commits the native `showPopover()` on its own (async) update — a single-frame focus
+		// attempt can land while the popover is still unfocusable and silently no-op (live-verified).
+		// Bounded per-frame retry until focus actually sticks.
+		const tryFocus = (attempts: number): void => {
+			const btn = this.changesModeMenuRef.value?.querySelector<HTMLElement>('[tabindex="0"]');
+			if (btn != null) {
+				btn.focus();
+				if (document.activeElement === btn) return;
+			}
+
+			if (attempts > 0) {
+				requestAnimationFrame(() => tryFocus(attempts - 1));
+			}
+		};
+		requestAnimationFrame(() => tryFocus(5));
+	};
+
+	// Sync our state when gl-popover self-dismisses (Escape via CloseWatcher, focus-out, webview blur). A
+	// programmatic close nulls the anchor first, so this early-returns for it. gl-popover emits `hide` BEFORE
+	// it hides the body, so an Escape-dismissed glyph is still the active element for the focus recovery.
+	private readonly onChangesModePopoverHide = (): void => {
+		const anchor = this.changesModeAnchor;
+		if (anchor == null) return;
+
+		this.changesModeAnchor = undefined;
+		this.detachChangesModeMenu();
+		this.restoreLabelFocus(anchor, false);
+	};
+
+	// Outside-pointer light dismiss (manual gl-popover doesn't install one). Excepts the anchor + popover
+	// content; capture phase so it settles before the label's own pointerup toggle.
+	private readonly onChangesModeDocumentPointerDown = (event: PointerEvent): void => {
+		const target = event.target;
+		if (!(target instanceof Node)) return;
+		if (this.changesModeMenuRef.value?.contains(target) || this.changesModeAnchor?.contains(target)) {
+			return;
+		}
+
+		this.closeChangesModeMenu('ifLost');
+	};
+
+	private readonly onChangesModeMenuKeydown = (event: KeyboardEvent): void => {
+		const count = changesModeOptions.length;
+		let next = this.changesModeFocusIndex;
+		switch (event.key) {
+			case 'ArrowRight':
+				next = (this.changesModeFocusIndex + 1) % count;
+				break;
+			case 'ArrowLeft':
+				next = (this.changesModeFocusIndex - 1 + count) % count;
+				break;
+			case 'Home':
+				next = 0;
+				break;
+			case 'End':
+				next = count - 1;
+				break;
+			// No Enter/Space case: the focused native <button> fires its own @click (→ pickChangesMode).
+			case 'Escape':
+				event.preventDefault();
+				event.stopPropagation();
+				this.closeChangesModeMenu('always');
+				return;
+			case 'Tab':
+				event.preventDefault();
+				this.closeChangesModeMenu('always');
+				return;
+			default:
+				return;
+		}
+		event.preventDefault();
+		if (next !== this.changesModeFocusIndex) {
+			this.changesModeFocusIndex = next;
+			this.requestUpdate();
+			void this.updateComplete.then(() => this.focusChangesModeButton());
+		}
+	};
+
+	// Host-authoritative write: `updateColumns` ignores webview-echoed `mode`, so route the pick through a
+	// dedicated command (gl-lit-graph → graph-app → UpdateColumnModeCommand → host `setColumnMode`).
+	private pickChangesMode(mode: ChangesColumnMode): void {
+		this.closeChangesModeMenu('always');
+		// Optimistic: reflect the pick on the changes zone now so the column re-renders instantly. No persist
+		// / no write-revision bump — a pure local render; the IPC below drives the real, host-authoritative
+		// write, whose columns echo re-confirms. A dropped push is harmless (local state already matches).
+		this.zones = this.zones.map(z => (z.id === 'changes' ? { ...z, mode: mode } : z));
+		this.requestUpdate();
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-change-column-mode', {
+				detail: { name: 'changes', mode: mode },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	// Settings-gear menu opener (sole consumer): dispatches a synthetic `contextmenu` at the gear so VS
+	// Code's native menu opens there, resolving the gear's `settingsContext` `data-vscode-context`. (The
+	// Changes column's display mode is picked via the glyph popover, not a native menu item.)
+	private openHeaderContextMenu = (event: MouseEvent): void => {
 		event.preventDefault();
 		event.stopPropagation();
 		const target = event.currentTarget;
@@ -5531,9 +6998,14 @@ export class GlLitGraph extends LitElement {
 			order: this.graphColumnPos,
 		};
 		// Omit `grouped` while hidden so the `...persisted` spread above preserves the last-echoed
-		// value — only an active (non-hidden) placement overwrites it.
+		// value — only an active (non-hidden) placement overwrites it. Grouped persists the RESOLVED host id
+		// (mirrors `ref.grouped` via `refsHostIdFor`, see `buildColumnsConfig`); `?? true` covers an
+		// unresolvable host (e.g. a not-currently-visible zone) so grouped placement itself still persists.
+		// Column persists an explicit `false` (not `undefined`) — grouped is now the default, so an
+		// un-group must be recorded distinctly or it would spring back to grouped on reload.
 		if (this.graphPlacement !== 'hidden') {
-			config.grouped = this.graphPlacement === 'grouped' || undefined;
+			config.grouped =
+				this.graphPlacement === 'grouped' ? (this.graphHostIdFor(this.getVisibleZones()) ?? true) : false;
 		}
 		return config;
 	}
@@ -5556,9 +7028,23 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private persistColumnsConfig(): void {
+		// Stamp the write with the next revision; the host acks it on every subsequent columns push so
+		// `shouldApplyIncomingColumns` can order pushes against our writes deterministically.
 		this.dispatchEvent(
-			new CustomEvent('gl-graph-changecolumns', { detail: { settings: this.buildColumnsConfig() } }),
+			new CustomEvent('gl-graph-changecolumns', {
+				detail: { settings: this.buildColumnsConfig(), revision: ++this.columnsWriteRevision },
+			}),
 		);
+	}
+
+	// True when an incoming `columns` push reflects ALL our local writes (the host processes commands
+	// serially and acks the latest write revision on every push). A push whose ack trails our counter was
+	// generated BEFORE an in-flight write — applying it would revert the just-made placement/width change
+	// ("grouping resets or jumps right after load") — so it's dropped; our own echo (ack == counter)
+	// arrives next and re-syncs. Host-initiated changes (cog menu, resets) carry the current ack, so with
+	// no write in flight they always apply.
+	private shouldApplyIncomingColumns(): boolean {
+		return this.columnsRevision >= this.columnsWriteRevision;
 	}
 
 	private applyZones(next: readonly ZoneSpec[]): void {
@@ -5571,7 +7057,7 @@ export class GlLitGraph extends LitElement {
 		// Double-click = fit-to-content. The capture + preventDefault below suppress the native `dblclick`,
 		// so detect a rapid second press on the SAME boundary here and autosize instead of starting a drag.
 		const now = Date.now();
-		if (this.lastResizeDownIdx === visibleIdx && now - this.lastResizeDownAt < 300) {
+		if (this.lastResizeDownIdx === visibleIdx && now - this.lastResizeDownAt < 500) {
 			this.lastResizeDownAt = 0;
 			this.lastResizeDownIdx = -1;
 			event.preventDefault();
@@ -5604,7 +7090,13 @@ export class GlLitGraph extends LitElement {
 		let totalDx = 0;
 		let rafId: number | null = null;
 		const flush = (): void => {
-			rafId = null;
+			// Cancel any still-pending rAF (harmless no-op when running AS that rAF): `onUp` calls flush
+			// directly, and just nulling the id would orphan the scheduled frame — it would then re-set the
+			// preview AFTER cleanup cleared it, freezing rendering on the stale snapshot until the next drag.
+			if (rafId != null) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
 			const result = dragResizeZone(visibleZones, visibleIdx, totalDx);
 			if (result == null) return;
 
@@ -5637,19 +7129,21 @@ export class GlLitGraph extends LitElement {
 		};
 		onUp = (): void => {
 			flush();
-			// Commit: persist the cascaded columns' new widths as their preferred. Clear the preview so
-			// updateRenderState re-solves from the persisted preferred widths.
+			// Commit the FULL drag result (see zonesWithSolvedWidths — zero-sum, so the re-solve
+			// reproduces the drag-end state instead of jumping). Only when a drag actually moved a
+			// boundary (`savedIds` non-empty) — a zero-distance press (e.g. the first click of a
+			// double-click, which autosizes on the second press) must NOT persist, or its stale pre-fit
+			// echo races the autosize's fitted echo and the width visibly bounces pre-fit → fitted.
 			const solved = this.dragSolvedZones;
 			const ids = this.dragSavedIds;
-			if (solved != null && ids != null) {
-				const widthById = new Map(ids.map(id => [id, solved.find(z => z.id === id)?.currentWidth]));
-				this.zones = this.zones.map(z => {
-					const w = widthById.get(z.id);
-					return w != null ? { ...z, width: w, currentWidth: undefined } : z;
-				});
+			const changed = solved != null && ids != null && ids.length > 0;
+			if (changed) {
+				this.zones = this.zonesWithSolvedWidths(solved);
 			}
 			cleanup();
-			this.persistColumnsConfig();
+			if (changed) {
+				this.persistColumnsConfig();
+			}
 		};
 		this.resizeDragCleanup = cleanup;
 		document.body.style.cursor = 'col-resize';
@@ -5662,41 +7156,136 @@ export class GlLitGraph extends LitElement {
 		window.addEventListener('pointercancel', onUp);
 	}
 
-	// Double-click a column boundary to fit a column to its widest loaded content. The handle sits at the
-	// RIGHT edge of zone `visibleIdx` — i.e. the START of the NEXT column — so we fit that next column (the
-	// one the splitter precedes), matching the "splitter before the column" model. Handles only render on
-	// non-last zones, so `visibleIdx + 1` is always in range. The flex fill zone has no fixed width to fit.
+	// Double-click a column boundary to fit a column to its widest rendered content. The handle sits at the
+	// RIGHT edge of zone `visibleIdx` — i.e. the START of the NEXT column — so we normally fit that next
+	// column (the one the splitter precedes), matching the "splitter before the column" model. Handles only
+	// render on non-last zones, so `visibleIdx + 1` is always in range. When the next column is the elastic
+	// fill (no fixed width to fit) we fall back to fitting the LEFT column instead of no-opping.
 	private onResizeAutosize(visibleZones: readonly ZoneSpec[], visibleIdx: number): void {
-		const zone = visibleZones[visibleIdx + 1];
+		const right = visibleZones[visibleIdx + 1];
+		const zone = right != null && !right.flex ? right : visibleZones[visibleIdx];
 		if (zone == null) return;
+		// Only one fill zone exists, so the left can't also be flex today — but guard anyway.
 		if (zone.flex) return;
 
-		const cells = this.querySelectorAll<HTMLElement>(`.gl-graph__zone--${zone.id}`);
+		// Only content-bearing cells count — workdir rows leave author/date/sha cells empty and pill-less
+		// rows leave ref cells empty; measuring those would fit the column to its bare padding. With none
+		// at all there is nothing to fit, so bail (a no-op, matching the pre-measurement behavior).
+		const cells = [...this.querySelectorAll<HTMLElement>(`.gl-graph__zone--${zone.id}`)].filter(
+			cell => cell.childElementCount > 0,
+		);
 		if (cells.length === 0) return;
 
-		// The cell never overflows — its content span truncates INSIDE it — so `cell.scrollWidth` is just the
-		// current width. Measure the natural width of the cell's content children instead: each is a default
-		// flex child (grow: 0), so its `scrollWidth` is the un-truncated content width. Sum them (a cell can
-		// hold a leading gutter/refs + the content) and add the cell's horizontal padding (read once).
-		const cs = getComputedStyle(cells[0]);
-		const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-		let content = 0;
-		for (const cell of cells) {
-			let inner = 0;
-			for (const child of [...cell.children]) {
-				inner += (child as HTMLElement).scrollWidth;
-			}
-			content = Math.max(content, inner);
-		}
+		// The date column renders the ultra-compact "2d" stub whenever it's ≤ shortDateWidth, so measuring
+		// the rendered cells would fit it to that stub. Instead measure the NORMAL date string so the fit
+		// always sizes for the full date (which also lifts the column out of short mode, > shortDateWidth).
+		// Falls back to the DOM path when the formatter or resolvable dates are unavailable.
+		const content =
+			zone.id === 'datetime'
+				? (this.measureDatetimeContent(cells) ?? this.measureDomContent(cells))
+				: this.measureDomContent(cells);
 		if (content <= 0) return;
 
-		// Round up + a hair so the fitted text isn't immediately re-truncated by sub-pixel rounding.
-		const width = Math.max(zone.minWidth, Math.min(zone.maxWidth ?? Infinity, Math.ceil(content + pad) + 1));
-		if (width === zone.width) return;
+		// Round up + a hair so the fitted content isn't immediately re-truncated by sub-pixel rounding.
+		const width = Math.max(zone.minWidth, Math.min(zone.maxWidth ?? Infinity, Math.ceil(content) + 1));
+		// No-op only when BOTH the canonical preferred (`this.zones`) and the solved/rendered width already
+		// match the fit. Preferred alone isn't enough: a previously-persisted fit can equal the new fit
+		// while a deficit renders the column crushed below it — the commit below must still run to lift it.
+		const preferredWidth = this.zones.find(z => z.id === zone.id)?.width;
+		if (width === preferredWidth && width === zone.width) return;
 
-		this.zones = this.zones.map(z => (z.id === zone.id ? { ...z, width: width, currentWidth: undefined } : z));
+		// Commit like a drag does — zero-sum against the CURRENT solved snapshot: the fitted zone takes its
+		// fit width, every other fixed zone freezes at its solved width, and the elastic fill's committed
+		// width hands over the growth delta. Without that last part, a deficit layout re-seeds the fill at
+		// its full preferred on the next solve and the positional deficit pass (rightmost-first, fill
+		// unprivileged) crushes the fitted column straight back to its floor — the fit visibly no-ops.
+		// In slack, solved == preferred for fixed zones, so only the fill's (elastic, re-absorbing) width
+		// moves; a shrink-fit (excess <= 0) frees width that flows back to the fill as slack on its own.
+		const solvedById = new Map(visibleZones.map(z => [z.id, z.width]));
+		const fillId = visibleZones.find(z => z.flex)?.id;
+		const excess = width - (solvedById.get(zone.id) ?? width);
+		this.zones = this.zones.map(z => {
+			if (z.id === zone.id) return { ...z, width: width, currentWidth: undefined };
+
+			if (z.id === fillId) {
+				if (excess <= 0) return z;
+
+				const solved = solvedById.get(z.id) ?? z.width;
+				return { ...z, width: Math.max(z.minWidth, solved - excess), currentWidth: undefined };
+			}
+
+			const solved = solvedById.get(z.id);
+			return solved != null && solved !== z.width ? { ...z, width: solved, currentWidth: undefined } : z;
+		});
 		this.persistColumnsConfig();
 		this.requestUpdate();
+	}
+
+	// Fit-to-content width (px, incl. cell padding + internal gaps) across a set of rendered zone cells:
+	// `cell.scrollWidth` can't be used — content either truncates INSIDE the cell (text spans) or
+	// flex-shrinks to fit (ref pills), so neither overflows and both report the current width, not the
+	// natural one. Instead transiently size each cell to its content (`max-content`) and read its
+	// border-box `offsetWidth`. `flex-basis` overrides `width`, so both must be overridden. Synchronous
+	// write→read→restore (batched to avoid layout thrash) within one task, so the transient state never paints.
+	private measureDomContent(cells: readonly HTMLElement[]): number {
+		const saved = cells.map(cell => cell.style.cssText);
+		for (const cell of cells) {
+			cell.style.flex = '0 0 auto';
+			cell.style.width = 'max-content';
+			// Drop the zone's min-width floor too — it would inflate the measurement; the caller re-applies it.
+			cell.style.minWidth = '0';
+		}
+		let content = 0;
+		for (const cell of cells) {
+			content = Math.max(content, cell.offsetWidth);
+		}
+		cells.forEach((cell, i) => (cell.style.cssText = saved[i]));
+		return content;
+	}
+
+	// Date-column fit target: the width of the NORMAL (non-compact) date string, not the "2d" stub the
+	// column shows while narrow. Measures `formatDateFn(date)` for each rendered row via a canvas 2D
+	// context using the rendered `.gl-graph__date` span's font, adds the cell's horizontal padding, and
+	// returns the widest. Returns undefined (→ DOM fallback) when the formatter, a measuring context, or
+	// any resolvable date is missing.
+	private measureDatetimeContent(cells: readonly HTMLElement[]): number | undefined {
+		const format = this.formatDateFn;
+		if (format == null) return undefined;
+
+		const ctx = getTextMeasureContext();
+		if (ctx == null) return undefined;
+
+		// sha → date over the rendered rows, so each measured cell maps to its commit's real date.
+		const dateBySha = new Map<string, number>();
+		for (const row of this.displayRows) {
+			if (row.date != null) {
+				dateBySha.set(row.sha, row.date);
+			}
+		}
+
+		// Font + horizontal padding sampled from a rendered date span / its cell (all rows share these).
+		const sampleSpan = cells[0].querySelector<HTMLElement>('.gl-graph__date');
+		const font = getComputedStyle(sampleSpan ?? cells[0]).font;
+		if (font) {
+			ctx.font = font;
+		}
+		const cellStyle = getComputedStyle(cells[0]);
+		const padding = parseFloat(cellStyle.paddingLeft) + parseFloat(cellStyle.paddingRight);
+
+		let maxText = 0;
+		let matched = 0;
+		for (const cell of cells) {
+			const rowId = cell.closest('[id^="graph-row-"]')?.id;
+			const sha = rowId?.slice('graph-row-'.length);
+			const date = sha != null ? dateBySha.get(sha) : undefined;
+			if (date == null) continue;
+
+			matched++;
+			maxText = Math.max(maxText, ctx.measureText(format(date)).width);
+		}
+		if (matched === 0) return undefined;
+
+		return maxText + (Number.isFinite(padding) ? padding : 0);
 	}
 
 	// Drag the graph-column resize handle to set its displayed width (`graphViewportWidth`). Lanes keep
@@ -5951,6 +7540,14 @@ export class GlLitGraph extends LitElement {
 		target: number;
 		pendingX: number;
 		rafId: number | null;
+		// The Changes label control this press landed on (else null). A CLEAN click (pointerup with
+		// `started` still false — the same threshold gate the reorder uses) on it toggles the mode picker;
+		// any press that crosses the drag threshold reorders and never opens it. See `onColumnPointerUp`.
+		changesLabel: HTMLElement | null;
+		// The filterable zone whose filter button this press landed on (else null) — carried by the
+		// button's `data-filter-zone` (a grouped-refs crumb button filters `ref` from another column's
+		// cell, so it can't be inferred from `colId`). A clean click dispatches it; a drag reorders instead.
+		filterZone: ZoneId | null;
 		// Snapshot taken when the drag begins (threshold crossed). The tentative order is always recomputed
 		// FROM this base, and the pointer is hit-tested against these frozen column edges — so the columns
 		// shifting underneath never feeds back into the targeting. Restored verbatim on cancel.
@@ -5986,6 +7583,21 @@ export class GlLitGraph extends LitElement {
 			// no active pointer to capture — the window listeners still drive the drag
 		}
 
+		// Record whether the press landed on the Changes label control so a clean click (no drag) can open
+		// the picker at pointerup. Only the label (text/icon + chevron) arms it — empty cell space doesn't.
+		const changesLabel =
+			colId === 'changes' && event.target instanceof Element
+				? event.target.closest<HTMLElement>('.gl-graph__header-label--changes')
+				: null;
+		// A press on a filter button arms the reorder like anywhere else on the cell; a clean click
+		// dispatches that button's zone at pointerup (the button has no `@click` — keyboard uses `@keydown`).
+		const filterZone =
+			event.target instanceof Element
+				? ((event.target.closest<HTMLElement>('.gl-graph__filter-toggle')?.dataset.filterZone as
+						| ZoneId
+						| undefined) ?? null)
+				: null;
+
 		this.columnDrag = {
 			pointerId: event.pointerId,
 			colId: colId,
@@ -5997,6 +7609,8 @@ export class GlLitGraph extends LitElement {
 			target: -1,
 			pendingX: event.clientX,
 			rafId: null,
+			changesLabel: changesLabel,
+			filterZone: filterZone,
 			base: null,
 		};
 		window.addEventListener('pointermove', this.onColumnPointerMove);
@@ -6018,6 +7632,8 @@ export class GlLitGraph extends LitElement {
 			this.draggingColumn = true;
 			this.scheduleHideTooltip();
 			this.cancelRowHover();
+			// A reorder beats the open picker (the anchored label is about to move) — close it, no focus return.
+			this.closeChangesModeMenu('none');
 			document.body.style.cursor = 'grabbing';
 			this.captureColumnDragBase();
 		}
@@ -6215,12 +7831,6 @@ export class GlLitGraph extends LitElement {
 		cols.splice(from, 1);
 		cols.splice(target, 0, colId);
 
-		// An inlined graph follows its HOST zone so the pair moves as a group; a column graph moves alone.
-		const hostId =
-			!graphIsColumn && this.graphPlacement === 'grouped'
-				? base.visible[Math.min(base.visibleSlot, Math.max(0, base.visible.length - 1))]?.id
-				: undefined;
-
 		let zones = base.zones;
 		if (colId !== 'graph') {
 			// Move the dragged zone in the FULL list via the shared visible→canonical mapping, so it lands
@@ -6241,18 +7851,16 @@ export class GlLitGraph extends LitElement {
 			);
 		}
 
+		// Grouped's anchor never moves during a content reorder anymore — the lanes render at the STICKY
+		// host id (`graphHostIdFor`), not a re-derived slot, so no host-follow compensation is needed here.
+		if (this.graphPlacement === 'grouped') {
+			return { zones: zones, graphColumnPos: base.graphColumnPos };
+		}
+
 		// Reordering never changes WHICH zones are visible — only their order; recompute the visible order.
 		const visibleIds = new Set(base.visible.map(z => z.id));
 		const updatedVisible = zones.filter(z => visibleIds.has(z.id));
-		const graphSlot =
-			hostId != null
-				? Math.max(
-						0,
-						updatedVisible.findIndex(z => z.id === hostId),
-					)
-				: graphIsColumn
-					? cols.indexOf('graph')
-					: Math.min(base.visibleSlot, updatedVisible.length);
+		const graphSlot = graphIsColumn ? cols.indexOf('graph') : Math.min(base.visibleSlot, updatedVisible.length);
 		return { zones: zones, graphColumnPos: this.graphAnchorForVisibleSlotIn(zones, updatedVisible, graphSlot) };
 	}
 
@@ -6264,11 +7872,26 @@ export class GlLitGraph extends LitElement {
 		const base = drag.base;
 		const colId = drag.colId;
 		const started = drag.started;
+		const changesLabel = drag.changesLabel;
+		const filterZone = drag.filterZone;
 		// Recompute the drop slot from the RELEASE position (the last rAF may not have flushed, so
 		// `drag.target` can be a frame stale) using the pointerup's own clientX — where the user let go.
 		const target = base != null ? this.columnDropTargetFor(base, event.clientX) : drag.target;
 		this.endColumnDrag();
-		if (!started || base == null) return;
+		if (!started || base == null) {
+			// A clean click (never crossed the drag threshold) toggles the Changes picker or dispatches a
+			// column filter; a started drag latches `base != null` and falls through here, so it can't. For
+			// the mouse path this pointerup is the sole trigger — neither control has an `@click` (keyboard
+			// activation goes through the label's / filter button's `@keydown`).
+			if (!started) {
+				if (changesLabel != null) {
+					this.toggleChangesModeMenu(changesLabel);
+				} else if (filterZone != null) {
+					this.dispatchFilterColumn(filterZone);
+				}
+			}
+			return;
+		}
 
 		const result = this.computeColumnReorder(base, colId, target);
 		// No NET change → restore base so a mid-drag tentative render can't stick. Must compare the graph
@@ -6369,24 +7992,43 @@ export class GlLitGraph extends LitElement {
 
 		event.preventDefault();
 		const step = (event.shiftKey ? 40 : 8) * dir;
-		// Same boundary trade as the pointer drag, applied once and persisted immediately: trade width
-		// between this column and its right neighbor, persisting both columns' new preferred widths.
+		// Same boundary trade as the pointer drag, applied once and persisted immediately. Commits the
+		// FULL result set (zero-sum — see zonesWithSolvedWidths); a floored no-op press commits nothing.
 		const result = dragResizeZone(visibleZones, visibleIdx, step);
-		if (result == null) return;
+		if (result == null || result.savedIds.length === 0) return;
 
-		const widthById = new Map(result.savedIds.map(id => [id, result.zones.find(z => z.id === id)?.currentWidth]));
-		this.applyZones(
-			this.zones.map(z => {
-				const w = widthById.get(z.id);
-				return w != null ? { ...z, width: w, currentWidth: undefined } : z;
-			}),
-		);
+		this.applyZones(this.zonesWithSolvedWidths(result.zones));
+	}
+
+	// Zero-sum resize commit: persist EVERY visible zone at its drag/keyboard-result width — not just the
+	// cascade's touched ids. In a deficit layout an untouched zone's larger preferred would re-inflate on
+	// the next solve and crush the just-resized columns back to their floors (the release-time "jump").
+	// The result set already sums exactly to the target, so committing it verbatim makes the re-solve
+	// reproduce it deterministically. Hidden/inlined zones aren't in the set and keep their preferreds.
+	private zonesWithSolvedWidths(solved: readonly ZoneSpec[]): ZoneSpec[] {
+		const widthById = new Map(solved.map(z => [z.id, z.currentWidth ?? z.width]));
+		return this.zones.map(z => {
+			const w = widthById.get(z.id);
+			return w != null ? { ...z, width: w, currentWidth: undefined } : z;
+		});
 	}
 
 	// Keyboard reorder for the column label (Arrow Left/Right). Uses the same gap-index +
 	// reorderZones path as the drag-drop handler. Gap convention: move-right lands past the right
 	// neighbor (gap i+2), move-left lands before the left neighbor (gap i-1).
 	private onLabelKeydown(event: KeyboardEvent, visibleZones: readonly ZoneSpec[], visibleIdx: number): void {
+		// The Changes label doubles as the mode-picker control: Enter/Space toggle the picker (Space must
+		// preventDefault or the viewport scrolls). Arrow keys still reorder (below), so this is additive.
+		if (
+			(event.key === 'Enter' || event.key === ' ') &&
+			visibleZones[visibleIdx].id === 'changes' &&
+			event.currentTarget instanceof HTMLElement
+		) {
+			event.preventDefault();
+			this.toggleChangesModeMenu(event.currentTarget);
+			return;
+		}
+
 		let toVisible: number;
 		if (event.key === 'ArrowRight') {
 			if (visibleIdx >= visibleZones.length - 1) return;
@@ -6416,5 +8058,6 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		'gl-graph-lanetoggle': CustomEvent<{ tipSha: string }>;
+		'gl-graph-mouseleave': CustomEvent<void>;
 	}
 }
