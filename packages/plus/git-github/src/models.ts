@@ -209,6 +209,7 @@ export type GitHubPullRequestReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'C
 
 export interface GitHubPullRequest extends GitHubPullRequestLite {
 	additions: number;
+	body: string;
 	assignees: {
 		nodes: GitHubMember[];
 	};
