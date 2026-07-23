@@ -133,6 +133,7 @@ export type GitHubIssueOrPullRequestState = GitHubIssueState | GitHubPullRequest
 export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '__typename'> {
 	/** `Actor` is nullable in GitHub's schema — `null` once the author's account is deleted */
 	author: GitHubMember | null;
+	body: string;
 
 	baseRefName: string;
 	baseRefOid: string;
@@ -209,7 +210,6 @@ export type GitHubPullRequestReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'C
 
 export interface GitHubPullRequest extends GitHubPullRequestLite {
 	additions: number;
-	body: string;
 	assignees: {
 		nodes: GitHubMember[];
 	};
@@ -312,7 +312,7 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 			isCrossRepository: pr.isCrossRepository,
 		},
 		pr.isDraft,
-		// The lite fragment selects nothing between `isDraft` and `stack`.
+		// The lite fragment selects nothing between `isDraft` and `commitCount`.
 		undefined, // additions
 		undefined, // deletions
 		undefined, // commentsCount
@@ -326,6 +326,8 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 		undefined, // version
 		undefined, // commitCount
 		fromGitHubPullRequestStack(pr),
+		undefined, // filesChanged
+		pr.body,
 	);
 }
 
