@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type {
 	ConnectCloudIntegrationsCommandArgs,
@@ -13,6 +13,7 @@ import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/mode
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AIState, IntegrationStateInfo } from '../../../../rpc/services/types.js';
+import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
@@ -176,6 +177,11 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				}
 			}
 
+			/* Compact hosts get icon-sized chips, so shrink the loading placeholder to match. */
+			:host([compact]) .chip--skeleton {
+				width: 2.4rem;
+			}
+
 			.chip--skeleton {
 				position: relative;
 				width: 9rem;
@@ -202,8 +208,22 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		`,
 	];
 
+	/** Compact presentation for space-constrained hosts (e.g. inlined in the Graph header, issue
+	 *  #5449): collapses the anchor to a single plug icon (the full status-icon strip is too wide
+	 *  for a header) — the popover still carries the full content. Opt-in via attribute so existing
+	 *  hosts (Home) are unaffected. */
+	@property({ type: Boolean, reflect: true })
+	compact = false;
+
 	@query('#chip')
 	private _chip!: HTMLElement;
+
+	@query('gl-popover')
+	private _popover!: GlPopover;
+
+	/** Mirrors the popover's open state so the compact anchor's `aria-expanded` stays accurate. */
+	@state()
+	private _popoverOpen = false;
 
 	private get hasAccount() {
 		return this._subscription.subscription.get()?.account != null;
@@ -237,6 +257,24 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		this._chip.focus();
 	}
 
+	/** Enter/Space activation for the compact anchor's `role="button"` — a span doesn't synthesize
+	 *  clicks, so without this the advertised button semantics wouldn't work from the keyboard
+	 *  (e.g. reopening the popover after dismissing it with Escape). */
+	private onAnchorKeydown(e: KeyboardEvent) {
+		if (!this.compact || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+
+		e.preventDefault();
+		void (this._popover.open ? this._popover.hide() : this._popover.show());
+	}
+
+	private onPopoverShow() {
+		this._popoverOpen = true;
+	}
+
+	private onPopoverHide() {
+		this._popoverOpen = false;
+	}
+
 	override render(): unknown {
 		// Don't show integration state until subscription data has loaded —
 		// otherwise we'd flash "Connect" with an empty list.
@@ -251,20 +289,39 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		}
 
 		const anyConnected = this.hasConnectedIntegrations;
-		const statusFilter = createStatusIconFilter(this.integrations);
+		// Capture one array instance — the icon-dedup filter matches items by identity, so it must be
+		// built from the same read it filters.
+		const integrations = this.integrations;
 
-		return html`<gl-popover placement="bottom" trigger="hover click focus">
-			<span slot="anchor" class="chip" tabindex="0"
-				>${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${this.integrations
-					.filter(statusFilter)
-					.map(i =>
-						this.renderIntegrationStatus(i),
-					)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}</span
+		return html`<gl-popover
+			placement="bottom"
+			trigger="hover click focus"
+			@gl-popover-show=${this.onPopoverShow}
+			@gl-popover-hide=${this.onPopoverHide}
+		>
+			<span
+				id="chip"
+				slot="anchor"
+				class="chip"
+				tabindex="0"
+				role=${this.compact ? 'button' : nothing}
+				aria-label=${this.compact ? `Integrations (${anyConnected ? 'connected' : 'not connected'})` : nothing}
+				aria-expanded=${this.compact ? this._popoverOpen : nothing}
+				@keydown=${this.onAnchorKeydown}
+				>${this.compact
+					? html`<span class="integration status--${anyConnected ? 'connected' : 'disconnected'}"
+							><code-icon icon="plug"></code-icon
+						></span>`
+					: html`${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${integrations
+							.filter(createStatusIconFilter(integrations))
+							.map(i =>
+								this.renderIntegrationStatus(i),
+							)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`}</span
 			>
 			<div slot="content" class="content">
 				<div class="header">
 					<span class="header__title">Integrations</span>
-					<span class="header__actions"></span>
+					<span class="header__actions">
 						<gl-button
 							appearance="toolbar"
 							href="${createCommandLink<Source>('gitlens.plus.validate', {
@@ -288,8 +345,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 							><code-icon icon="gear"></code-icon></gl-button
 					></span>
 				</div>
-				<div class="integrations">${
-					!anyConnected
+				<div class="integrations">
+					${!anyConnected
 						? html`<p>
 									Connect hosting services like <strong>GitHub</strong> and issue trackers like
 									<strong>Jira</strong> to track progress and take action on PRs and issues related to
@@ -310,8 +367,10 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 										>Connect Integrations</gl-button
 									>
 								</button-container>`
-						: this.integrations.map(i => this.renderIntegrationRow(i))
-				}${this.renderAIRow()}${this.renderMcpRow()}${this.renderDefaultAgentRow()}${this.renderHooksRow()}</div>
+						: this.integrations.map(i =>
+								this.renderIntegrationRow(i),
+							)}${this.renderAIRow()}${this.renderMcpRow()}${this.renderDefaultAgentRow()}${this.renderHooksRow()}
+				</div>
 			</div>
 		</gl-popover>`;
 	}

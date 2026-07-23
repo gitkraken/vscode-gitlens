@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -79,6 +79,12 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				line-height: 2rem;
 				text-transform: uppercase;
 				background-color: var(--gl-account-chip-color);
+			}
+
+			/* Avatar-only anchor: the right padding exists to balance the trailing plan-tier label,
+			   which compact mode drops. */
+			:host([compact]) .chip {
+				padding-right: 0;
 			}
 
 			.chip--outlined {
@@ -244,6 +250,11 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				}
 			}
 
+			/* Compact hosts get an avatar-only chip, so shrink the loading placeholder to match. */
+			:host([compact]) .chip--skeleton {
+				width: 2.4rem;
+			}
+
 			.chip--skeleton {
 				position: relative;
 				width: 8rem;
@@ -279,11 +290,21 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		this._showUpgrade = value;
 	}
 
+	/** Compact presentation for space-constrained hosts (e.g. inlined in the Graph header, issue
+	 *  #5449): avatar-only anchor, no plan-tier label, no upgrade CTA — the popover still carries
+	 *  the full account content. Opt-in via attribute so existing hosts (Home) are unaffected. */
+	@property({ type: Boolean, reflect: true })
+	compact = false;
+
 	@query('#chip')
 	private _chip!: HTMLElement;
 
 	@query('gl-popover')
 	private _popover!: GlPopover;
+
+	/** Mirrors the popover's open state so the compact anchor's `aria-expanded` stays accurate. */
+	@state()
+	private _popoverOpen = false;
 
 	private get accountAvatar() {
 		return this.hasAccount && this._subscription.avatar.get();
@@ -365,12 +386,26 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			></span>`;
 		}
 
-		return html`<gl-popover placement="bottom" trigger="hover focus click">
-				<span id="chip" slot="anchor" class="chip" tabindex="0">
+		return html`<gl-popover
+				placement="bottom"
+				trigger="hover focus click"
+				@gl-popover-show=${this.onPopoverShow}
+				@gl-popover-hide=${this.onPopoverHide}
+			>
+				<span
+					id="chip"
+					slot="anchor"
+					class="chip"
+					tabindex="0"
+					role=${this.compact ? 'button' : nothing}
+					aria-label=${this.compact ? `Account (${this.planTier})` : nothing}
+					aria-expanded=${this.compact ? this._popoverOpen : nothing}
+					@keydown=${this.onAnchorKeydown}
+				>
 					${this.accountAvatar
 						? html`<img class="chip__media" src=${this.accountAvatar} />`
 						: html`<code-icon class="chip__media" icon="gl-gitlens" size="16"></code-icon>`}
-					<span>${this.planTier}</span>
+					${this.compact ? nothing : html`<span>${this.planTier}</span>`}
 				</span>
 				<div slot="content" class="content" tabindex="-1">
 					<div class="header">
@@ -410,12 +445,30 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					${this.renderAccountInfo()} ${this.renderAccountState()}
 				</div>
 			</gl-popover>
-			${this.renderUpgradeContent()}`;
+			${this.compact ? nothing : this.renderUpgradeContent()}`;
 	}
 
 	show(): void {
 		void this._popover.show();
 		this.focus();
+	}
+
+	/** Enter/Space activation for the compact anchor's `role="button"` — a span doesn't synthesize
+	 *  clicks, so without this the advertised button semantics wouldn't work from the keyboard
+	 *  (e.g. reopening the popover after dismissing it with Escape). */
+	private onAnchorKeydown(e: KeyboardEvent) {
+		if (!this.compact || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+
+		e.preventDefault();
+		void (this._popover.open ? this._popover.hide() : this._popover.show());
+	}
+
+	private onPopoverShow() {
+		this._popoverOpen = true;
+	}
+
+	private onPopoverHide() {
+		this._popoverOpen = false;
 	}
 
 	private renderAccountInfo() {
