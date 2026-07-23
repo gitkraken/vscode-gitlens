@@ -1351,7 +1351,7 @@ export abstract class GitHostIntegration<
 	 * rejects an empty `repos` input). Recovers thrown errors into `{ error }` so callers surface warnings.
 	 */
 	async getMyPullRequestsForUserResult(
-		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+		options?: { state?: PullRequestStateFilter[]; cursor?: string; includeReviewRequested?: boolean },
 		connectionId?: string,
 	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {
 		const scope = getScopedLogger();
@@ -1375,16 +1375,22 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
-	 * Reads the current user's pull requests across the whole account (author + assignee + review-requested,
-	 * per each provider's native "my PRs" query), returning the raw provider shape. Optional: providers that
-	 * can't express an account-wide user query leave it undefined and the surface falls back to repo-scoped.
+	 * Reads the current user's pull requests across the whole account using each provider's native "my PRs"
+	 * query, returning the raw provider shape. The exact user scopes (authored, assignee, review-requested)
+	 * depend on provider-native behavior and options like `includeReviewRequested`. Optional: providers that can't
+	 * express an account-wide user query leave it undefined and the surface falls back to repo-scoped.
 	 *
 	 * These native user queries are cursor-based, so `cursor` (not a page number) drives continuation; there
 	 * is no jump-to-page-N and no per-call page size on this path.
+	 *
+	 * `includeReviewRequested` opts into the review-requested slice for providers whose account-wide read
+	 * only returns authored PRs natively and must fan out per-repo to add reviewer PRs (Bitbucket). It's off
+	 * by default so a sweep pays gkcli-parity cost (authored only) unless the caller deliberately opts in;
+	 * providers whose native query already covers review-requested PRs ignore it.
 	 */
 	protected getProviderMyPullRequestsForUser?(
 		session: ProviderAuthenticationSession,
-		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+		options?: { state?: PullRequestStateFilter[]; cursor?: string; includeReviewRequested?: boolean },
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined>;
 
 	/**
