@@ -78,6 +78,12 @@ export class GlGraphLayoutPrompt extends LitElement {
 			--code-icon-v-align: middle;
 		}
 
+		.layout-prompt__title-info:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0.2rem;
+			border-radius: var(--gl-radius-sm);
+		}
+
 		.layout-prompt__options {
 			display: flex;
 			gap: var(--gl-space-16);
@@ -320,8 +326,18 @@ export class GlGraphLayoutPrompt extends LitElement {
 		>
 			<div class="layout-prompt">
 				<h2 class="layout-prompt__title">
+					<!-- Focusable (not aria-hidden) so sighted keyboard-only users can reach the
+					     caption in the compact variants, where hovering this icon is otherwise the
+					     only way to see it; gl-tooltip opens on focus. display: none in the normal
+					     layout keeps it out of the tab order there. -->
 					${promptTitle}<gl-tooltip content=${promptCaption}
-						><code-icon class="layout-prompt__title-info" icon="info" aria-hidden="true"></code-icon
+						><code-icon
+							class="layout-prompt__title-info"
+							icon="info"
+							role="img"
+							tabindex="0"
+							aria-label="More information"
+						></code-icon
 					></gl-tooltip>
 				</h2>
 				<p class="layout-prompt__caption">${promptCaption}</p>
