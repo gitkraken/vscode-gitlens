@@ -18,12 +18,6 @@ import {
 export interface ComposerCommandArgs {
 	repoPath?: string | Uri;
 	source?: Sources | Source;
-	includedUnstagedChanges?: boolean;
-	branchName?: string;
-	/** Optional filter: if provided, only these commits are selectable for composition */
-	commitShas?: string[];
-	/** If provided, defines the commit range directly (skips merge target resolution) */
-	range?: { base: string; head: string };
 	autoComposeInstructions?: string;
 }
 

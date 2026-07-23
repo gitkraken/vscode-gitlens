@@ -407,12 +407,20 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  preserved rather than clobbered. */
 	enterComposeWithScope(selection: DetailsSelection, shas: readonly string[], includeWip: boolean): void {
 		const state = this.actions.state;
+		// Trust the WIP snapshot only when it belongs to this anchor's repo — on a cross-repo
+		// entry it can still hold the outgoing repo's changes. When stale/absent, fall back to
+		// including both areas: extra flags are harmless (the workdir source just collects
+		// nothing), while dropped ones would silently exclude the user's working changes.
 		const wip = state.wip.get();
-		const files = wip?.changes?.files ?? [];
+		const wipFresh =
+			wip != null &&
+			selection.repoPath != null &&
+			normalizePath(wip.repo.path) === normalizePath(selection.repoPath);
+		const files = wipFresh ? (wip.changes?.files ?? []) : undefined;
 		const scope: ScopeSelection = {
 			type: 'wip',
-			includeUnstaged: includeWip && files.some(f => !f.staged),
-			includeStaged: includeWip && files.some(f => f.staged),
+			includeUnstaged: includeWip && (files?.some(f => !f.staged) ?? true),
+			includeStaged: includeWip && (files?.some(f => f.staged) ?? true),
 			includeShas: [...shas],
 		};
 

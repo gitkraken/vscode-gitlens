@@ -12,6 +12,17 @@ function makeSvc(opts: {
 	log?: Record<string, string[]>;
 }): GitRepositoryService {
 	const commits = opts.commits ?? {};
+	const ancestorsOf = (start: string): Set<string> => {
+		const seen = new Set<string>();
+		const stack = [start];
+		while (stack.length) {
+			const sha = stack.pop()!;
+			if (seen.has(sha)) continue;
+			seen.add(sha);
+			stack.push(...(commits[sha] ?? []));
+		}
+		return seen;
+	};
 	return {
 		branches: { getBranch: async () => opts.branch ?? undefined },
 		commits: {
@@ -25,6 +36,23 @@ function makeSvc(opts: {
 				if (shas == null) return undefined;
 				// Real log entries are GitCommits — the resolver reads `sha` and `parents` off them.
 				return { commits: new Map(shas.map(s => [s, { sha: s, parents: commits[s] ?? [] }])) };
+			},
+		},
+		refs: {
+			// First ancestor of `b` (walking parents from `b`, inclusive) that is also reachable
+			// from `a` — good enough for the linear/side-branch fixtures here.
+			getMergeBase: async (a: string, b: string) => {
+				const reachableFromA = ancestorsOf(a);
+				const seen = new Set<string>();
+				const stack = [b];
+				while (stack.length) {
+					const sha = stack.pop()!;
+					if (seen.has(sha)) continue;
+					seen.add(sha);
+					if (reachableFromA.has(sha)) return sha;
+					stack.push(...(commits[sha] ?? []));
+				}
+				return undefined;
 			},
 		},
 		getRepository: () => undefined,

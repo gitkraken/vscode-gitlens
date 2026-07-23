@@ -7,7 +7,7 @@ import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.uti
 export interface RecomposeScopeRequest {
 	branchName?: string;
 	/** Explicit range; `base` is EXCLUSIVE (parent of the first rewritten commit), `head` INCLUSIVE.
-	 *  Mirrors ComposerCommandArgs.range. */
+	 *  Mirrors RecomposeBranchCommandArgs.range. */
 	range?: { base: string; head: string };
 	/** Selected commits; expanded to the covering range ending at HEAD. */
 	commitShas?: string[];
@@ -125,8 +125,18 @@ export async function coverCommitRange(
 	};
 
 	// Prefer a range ending at the selection's own tip so a mid-branch selection isn't widened to
-	// HEAD; fall back to the HEAD-anchored covering range when that can't cover the selection.
-	let tipSha = tipCandidates.length === 1 ? tipCandidates[0] : headSha;
+	// HEAD — but only when that tip is an ancestor of HEAD; a tip off the branch's ancestry has no
+	// descendant chain to reparent, so rewriting there would target commits outside the branch.
+	// Otherwise fall back to the HEAD-anchored covering range, which rejects unreachable
+	// selections as not-contiguous.
+	let tipSha = headSha;
+	if (tipCandidates.length === 1 && tipCandidates[0] !== headSha) {
+		const mergeBase = await svc.refs.getMergeBase(tipCandidates[0], headSha);
+		if (mergeBase === tipCandidates[0]) {
+			tipSha = tipCandidates[0];
+		}
+	}
+
 	let best = await tryCover(tipSha);
 	if (best == null && tipSha !== headSha) {
 		tipSha = headSha;
@@ -238,11 +248,14 @@ export async function resolveRecomposeScope(
 		}
 
 		// Keep the boundary commit anchored on the requested base last, matching
-		// coverCommitRange's contract for order-sensitive consumers.
+		// coverCommitRange's contract for order-sensitive consumers. Never displace the tip
+		// (index 0 — e.g. a tip merge whose first parent is the base): `shas[0]` must stay the
+		// range tip, and the topo log already leaves a valid boundary last (the topo-last
+		// commit's parents are all outside the range).
 		const shas = commits.map(c => c.sha);
 		const baseCommitSha = (await svc.commits.getCommit(request.range.base))?.sha ?? request.range.base;
 		const baseIndex = commits.findIndex(c => c.parents[0] === baseCommitSha);
-		if (baseIndex >= 0 && baseIndex !== shas.length - 1) {
+		if (baseIndex > 0 && baseIndex !== shas.length - 1) {
 			const [boundarySha] = shas.splice(baseIndex, 1);
 			shas.push(boundarySha);
 		}
