@@ -1,16 +1,17 @@
 import { window } from 'vscode';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import { resolveRecomposeScope } from '../plus/coretools/compose/recomposeScope.js';
 import { CommandQuickPickItem } from '../quickpicks/items/common.js';
 import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode.js';
-import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
-import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext } from './commandContext.js';
 import { isCommandContextViewNodeHasBranch } from './commandContext.utils.js';
+import { resolveRecomposeAnchor } from './recompose.utils.js';
 
 export interface RecomposeBranchCommandArgs {
 	repoPath?: string;
@@ -95,19 +96,28 @@ export class RecomposeBranchCommand extends GlCommandBase {
 				return;
 			}
 
-			// Open the composer with branch mode
-			await executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
-				'gitlens.showComposerPage',
-				undefined,
-				{
-					repoPath: repoPath,
-					source: args?.source,
-					mode: 'preview',
-					branchName: branchName,
-					commitShas: args?.commitShas,
-					range: args?.range,
-				},
-			);
+			// Anchor on the branch's worktree (primary or secondary), creating one for a branch
+			// with no worktree; stop if the user declines or cancels the creation.
+			const anchor = await resolveRecomposeAnchor(this.container, branch);
+			if (anchor == null) return;
+
+			const resolved = await resolveRecomposeScope(this.container, anchor.svc, {
+				branchName: branchName,
+				commitShas: args?.commitShas,
+				range: args?.range,
+				includeWip: false,
+			});
+			if (!resolved.ok) {
+				void window.showErrorMessage(`Unable to recompose branch '${branchName}': ${resolved.message}`);
+				return;
+			}
+
+			void executeCommand('gitlens.showGraph', {
+				action: 'enter-compose',
+				target: { sha: uncommitted, worktreePath: anchor.worktreePath },
+				composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
+				source: { source: args?.source ?? 'commandPalette' },
+			});
 		} catch (ex) {
 			void window.showErrorMessage(`Failed to recompose branch: ${ex}`);
 		}

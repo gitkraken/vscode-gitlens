@@ -196,7 +196,14 @@ export type ComposeChangesOptions = {
 
 export type ComposeResult =
 	| { result: { commits: ProposedCommit[]; baseCommit: ComposeBaseCommit; cacheKey?: string } }
-	| { error: { message: string } }
+	| {
+			error: {
+				message: string;
+				/** `invalid-scope` = the selected scope cannot be rewritten (e.g. interior forks);
+				 *  retrying identically fails, so the UI offers scope adjustment instead. */
+				kind?: 'invalid-scope';
+			};
+	  }
 	| { cancelled: true };
 
 /** Result of {@link GraphInspectService.regenerateProposedCommitMessage}. On success the host has

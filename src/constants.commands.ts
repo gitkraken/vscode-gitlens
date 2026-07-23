@@ -170,7 +170,6 @@ type InternalGlCommands =
 	| 'gitlens.regenerateMarkdownDocument'
 	| 'gitlens.runPromptInAgent'
 	| 'gitlens.sendToChat'
-	| 'gitlens.showComposerPage'
 	| 'gitlens.showInCommitGraphView'
 	| 'gitlens.onboarding.dismiss'
 	| 'gitlens.showQuickCommitDetails'

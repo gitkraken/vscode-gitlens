@@ -77,10 +77,6 @@ import { Views } from './views/views.js';
 import { VirtualFileSystemService } from './virtual/virtualFileSystemService.js';
 import { VslsController } from './vsls/vsls.js';
 import { registerAllowedSignersWebviewPanel } from './webviews/allowedSigners/registration.js';
-import {
-	registerComposerWebviewCommands,
-	registerComposerWebviewPanel,
-} from './webviews/plus/composer/registration.js';
 import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './webviews/plus/graph/registration.js';
 import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/registration.js';
 import {
@@ -298,10 +294,6 @@ export class Container {
 		this._disposables.push(graphPanels);
 		this._disposables.push(registerGraphWebviewCommands(this, graphPanels));
 		this._disposables.push(new GraphStatusBarController(this));
-
-		const composerPanels = registerComposerWebviewPanel(webviews);
-		this._disposables.push(composerPanels);
-		this._disposables.push(registerComposerWebviewCommands(this, composerPanels));
 
 		const timelinePanels = registerTimelineWebviewPanel(webviews);
 		this._disposables.push(timelinePanels);

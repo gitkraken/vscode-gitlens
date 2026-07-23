@@ -57,7 +57,13 @@ import type { ChoosePathParams, DidChoosePathParams } from '../timeline/protocol
 import { buildTimelineDataset } from '../timeline/timelineDataset.js';
 import type { GraphComposeIntegration } from './compose/integration.js';
 import { isComposeSimulatorActive, runSimulatedComposeChanges } from './compose/simulator.js';
-import { executeComposeCommit, isComposeCancelled, libraryPlanToProposedCommits } from './compose/utils.js';
+import {
+	createCombinedDiffForCommit,
+	executeComposeCommit,
+	isComposeCancelled,
+	isComposeInputError,
+	libraryPlanToProposedCommits,
+} from './compose/utils.js';
 import type { CommitDetails, CompareDiff, Wip } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
@@ -1032,7 +1038,12 @@ export class GraphInspectServices {
 						signal?.throwIfAborted();
 
 						if (scope.type !== 'wip') {
-							return { error: { message: 'Compose is only supported for working changes.' } };
+							return {
+								error: {
+									message:
+										'Compose supports working changes and commit ranges on the current branch.',
+								},
+							};
 						}
 
 						const svc = this.container.git.getRepositoryService(repoPath);
@@ -1123,16 +1134,12 @@ export class GraphInspectServices {
 						// for `commitCompose` to apply.
 						cacheKeyToRegister = simulated ? undefined : (planResult as { cacheKey: string }).cacheKey;
 
-						// getCommit('HEAD') (optional base metadata) and deriveComposeCommits are independent — overlap them.
-						const [headCommitResult, commitsResult] = await Promise.allSettled([
-							svc.commits.getCommit('HEAD'),
-							this.deriveComposeCommits(repoPath, planResult),
-						]);
+						// getCommit('HEAD') is optional base metadata — tolerate its failure.
+						const headCommitPromise = svc.commits.getCommit('HEAD').catch(() => undefined);
+						const commits = this.deriveComposeCommits(repoPath, planResult);
 						signal?.throwIfAborted();
-						if (commitsResult.status === 'rejected') throw commitsResult.reason;
 
-						const headCommit = getSettledValue(headCommitResult);
-						const commits = commitsResult.value;
+						const headCommit = await headCommitPromise;
 
 						const baseAnchorSha =
 							planResult.kind === 'wip-only' ? planResult.headSha : planResult.rewriteFromSha;
@@ -1181,6 +1188,7 @@ export class GraphInspectServices {
 						return {
 							error: {
 								message: ex instanceof Error ? ex.message : String(ex),
+								kind: isComposeInputError(ex) ? 'invalid-scope' : undefined,
 							},
 						};
 					} finally {
@@ -1239,9 +1247,6 @@ export class GraphInspectServices {
 						this._aiCancellations,
 					);
 					try {
-						const { createCombinedDiffForCommit } = await loadChunk(
-							() => import(/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'),
-						);
 						const { patch } = createCombinedDiffForCommit(cached.hunks);
 						if (!patch) {
 							return { error: { message: 'Unable to build a diff for the selected commit.' } };
@@ -1327,7 +1332,7 @@ export class GraphInspectServices {
 						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
 					}
 
-					const commits = await this.deriveComposeCommits(repoPath, planResult);
+					const commits = this.deriveComposeCommits(repoPath, planResult);
 					return { result: { commits: commits.toReversed() } };
 				},
 				resolveConflicts: async (repoPath, focusedFilePaths, instructions, signal) => {
@@ -2081,18 +2086,11 @@ export class GraphInspectServices {
 	 * Shared by the initial compose derive and post-mutation re-derives (e.g. a file move). Callers
 	 * reverse the result for display order.
 	 */
-	private async deriveComposeCommits(
+	private deriveComposeCommits(
 		repoPath: string,
 		planResult: Parameters<typeof libraryPlanToProposedCommits>[0] & { rewriteFromSha: string },
-	): Promise<ProposedCommit[]> {
-		const { createCombinedDiffForCommit } = await loadChunk(
-			() => import(/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'),
-		);
-		const { commits, commitHunksByIndex } = libraryPlanToProposedCommits(
-			planResult,
-			repoPath,
-			createCombinedDiffForCommit,
-		);
+	): ProposedCommit[] {
+		const { commits, commitHunksByIndex } = libraryPlanToProposedCommits(planResult, repoPath);
 
 		if (commits.length > 0) {
 			const { provider } = this.getOrCreateComposeVirtual();

@@ -3,6 +3,7 @@ import { Uri, ViewColumn, window, workspace } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ProcessedRebaseTodo, RebaseTodoAction } from '@gitlens/git/models/rebase.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -42,6 +43,7 @@ import {
 } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
+import { resolveRecomposeScope } from '../../plus/coretools/compose/recomposeScope.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
@@ -52,10 +54,8 @@ import { exists } from '../../system/-webview/vscode/uris.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
 import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
-import type { ComposerWebviewShowingArgs } from '../plus/composer/registration.js';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
 import type { WebviewHost } from '../webviewProvider.js';
-import type { WebviewPanelShowCommandArgs } from '../webviewsController.js';
 import type {
 	Author,
 	Commit,
@@ -661,7 +661,7 @@ export class RebaseWebviewProvider implements Disposable {
 			'context.session.duration': this.getSessionDuration(),
 		});
 
-		// Get commit SHAs from the rebase entries
+		// Capture everything derived from the todo document BEFORE aborting — the abort clears it.
 		const { processed } = this._todoDocument.parsed;
 
 		const firstShortSha = first(processed.commits.keys())!;
@@ -680,21 +680,37 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 
 		const headCommitSha = commits.get(headShortSha)!.sha;
+		const repoPath = this.repoPath;
+		const branchName = this._branchName ?? undefined;
 
-		// Open the Commit Composer with the commits
-		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
-			'gitlens.showComposerPage',
-			undefined,
-			{
-				repoPath: this.repoPath,
-				source: 'rebaseEditor',
-				mode: 'preview',
-				branchName: this._branchName ?? undefined,
-				range: { base: baseCommitSha, head: headCommitSha },
-			},
-		);
-
+		// Abort FIRST (the user confirmed "Abort > Recompose") — the abort restores HEAD to the
+		// branch at its original tip, which is exactly the state the inline compose resolver
+		// requires. Mid-rebase HEAD is detached, so resolving before the abort could never go
+		// inline. The range endpoints are the original pre-rebase shas, which the abort restores.
 		await this.onAbort();
+
+		const repo = this.container.git.getRepository(repoPath);
+		const resolved =
+			repo != null
+				? await resolveRecomposeScope(this.container, repo.git, {
+						branchName: branchName,
+						range: { base: baseCommitSha, head: headCommitSha },
+						includeWip: false,
+					})
+				: undefined;
+
+		if (resolved?.ok) {
+			void executeCommand('gitlens.showGraph', {
+				action: 'enter-compose',
+				target: { sha: uncommitted, worktreePath: repoPath },
+				composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
+				source: { source: 'rebaseEditor' },
+			});
+		} else {
+			void window.showErrorMessage(
+				`Unable to recompose: ${resolved?.message ?? 'Repository not found'}. The rebase was aborted.`,
+			);
+		}
 	}
 
 	@command('gitlens.pausedOperation.showConflicts:')

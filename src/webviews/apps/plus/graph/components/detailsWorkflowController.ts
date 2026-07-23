@@ -4,6 +4,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	ComposeResult,
@@ -219,7 +220,13 @@ export class DetailsWorkflowController implements ReactiveController {
 				// new-repo signals when the in-flight RPC resolves.
 				const activeMode = this.actions.state.activeMode.get();
 				if (activeMode === 'review' || activeMode === 'compose' || activeMode === 'resolve') {
-					this.hideMode(this.host.currentSelection(), { skipRefetch: true });
+					// Only tear down a mode anchored to a repo other than the incoming one — an
+					// enter-mode pendingAction can ride the repo switch itself (consumed just before
+					// this trigger observes the change) and already belongs to the new repo.
+					const modeRepo = this.actions.state.activeModeRepoPath.get();
+					if (modeRepo == null || graphRepo == null || normalizePath(modeRepo) !== normalizePath(graphRepo)) {
+						this.hideMode(this.host.currentSelection(), { skipRefetch: true });
+					}
 				}
 				if (this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get()) {
 					this.closeCompare();
@@ -256,7 +263,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	// region Mode transitions
 
-	toggleMode(mode: DetailsMode, selection: DetailsSelection): void {
+	toggleMode(mode: DetailsMode, selection: DetailsSelection, scopeOverride?: ScopeSelection): void {
 		const { sha, shas, repoPath } = selection;
 		const state = this.actions.state;
 		const resources = this.actions.resources;
@@ -266,24 +273,32 @@ export class DetailsWorkflowController implements ReactiveController {
 		// that destroys (single-click, no confirm — Restart already moved the result to a forward
 		// snapshot, so close discarding the backed entry is the user's natural follow-through).
 		if (state.activeMode.get() === mode) {
-			// If the engaged anchor's entry is `'backed'`, this is the destroy path
-			// (Restart-then-close). Otherwise just hide.
-			const engagedEntry = this.host.crossPaneState.runningOperations.get().get(
-				anchorKey({
-					sha: state.activeModeSha.get(),
-					shas: state.activeModeShas.get(),
-					repoPath: state.activeModeRepoPath.get(),
-				}),
-			)?.[mode];
-			if (engagedEntry?.execState === 'backed') {
-				this.destroyEngagedOperation(mode);
-			} else {
-				// User explicitly dismissed this mode on this anchor — forget so a return
-				// doesn't auto-restore it. The registry entry (if any) is left intact.
-				this.forgetMode(selection);
-				this.hideMode(selection);
+			const engagedSelection: DetailsSelection = {
+				sha: state.activeModeSha.get(),
+				shas: state.activeModeShas.get(),
+				repoPath: state.activeModeRepoPath.get(),
+			};
+			if (anchorKey(engagedSelection) === anchorKey(selection)) {
+				// If the engaged anchor's entry is `'backed'`, this is the destroy path
+				// (Restart-then-close). Otherwise just hide.
+				const engagedEntry = this.host.crossPaneState.runningOperations
+					.get()
+					.get(anchorKey(engagedSelection))?.[mode];
+				if (engagedEntry?.execState === 'backed') {
+					this.destroyEngagedOperation(mode);
+				} else {
+					// User explicitly dismissed this mode on this anchor — forget so a return
+					// doesn't auto-restore it. The registry entry (if any) is left intact.
+					this.forgetMode(selection);
+					this.hideMode(selection);
+				}
+				return;
 			}
-			return;
+
+			// Same mode requested on a DIFFERENT anchor (external enter request, e.g. a recompose
+			// riding a repo switch): a re-target, not a toggle — hide the engaged session (its
+			// registry entry stays intact) and fall through to enter on the new anchor.
+			this.hideMode(engagedSelection, { skipRefetch: true });
 		}
 
 		const isWip = this.actions.isWip(sha);
@@ -302,7 +317,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Initialize mode-specific state. Resolve has no commit/diff scope — it operates on the
 		// paused op's conflicted-file set read directly from `state.wip` — so skip scope building.
 		if (mode !== 'resolve') {
-			const scope = this.buildDefaultScope(sha, isWip, isMultiCommit);
+			const scope = scopeOverride ?? this.buildDefaultScope(sha, isWip, isMultiCommit, repoPath);
 			if (scope) {
 				state.scope.set(scope);
 				resources.scopeFiles.cancel();
@@ -372,7 +387,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		// the last-fetched repoPath catches that explicitly.
 		if (isWip && !state.branchCommitsFetching.get()) {
 			const lastFetchedRepoPath = this.actions.branchCommitsFetchedRepoPath();
-			if (state.branchCommits.get() == null || lastFetchedRepoPath !== repoPath) {
+			const fetchedFresh =
+				lastFetchedRepoPath != null &&
+				repoPath != null &&
+				normalizePath(lastFetchedRepoPath) === normalizePath(repoPath);
+			if (state.branchCommits.get() == null || !fetchedFresh) {
 				void this.actions.fetchBranchCommits(repoPath);
 			}
 		}
@@ -380,6 +399,54 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Project the engaged anchor's entry into the resource (or leave it idle for ENABLED /
 		// `'generating'` / `'backed'` cases — the panel reads `execState` from the entry).
 		this.projectEngagedAnchor(mode, { sha: sha, shas: shas, repoPath: repoPath });
+	}
+
+	/** Enter compose mode on the WIP anchor with a pre-seeded commit range (recompose). `shas` become
+	 *  the scope's includeShas; `includeWip` folds working/staged changes in when present. When compose
+	 *  is already open (idle) on this anchor, the scope is switched in place; an already-started plan is
+	 *  preserved rather than clobbered. */
+	enterComposeWithScope(selection: DetailsSelection, shas: readonly string[], includeWip: boolean): void {
+		const state = this.actions.state;
+		// Trust the WIP snapshot only when it belongs to this anchor's repo — on a cross-repo
+		// entry it can still hold the outgoing repo's changes. When stale/absent, fall back to
+		// including both areas: extra flags are harmless (the workdir source just collects
+		// nothing), while dropped ones would silently exclude the user's working changes.
+		const wip = state.wip.get();
+		const wipFresh =
+			wip != null &&
+			selection.repoPath != null &&
+			normalizePath(wip.repo.path) === normalizePath(selection.repoPath);
+		const files = wipFresh ? (wip.changes?.files ?? []) : undefined;
+		const scope: ScopeSelection = {
+			type: 'wip',
+			includeUnstaged: includeWip && (files?.some(f => !f.staged) ?? true),
+			includeStaged: includeWip && (files?.some(f => f.staged) ?? true),
+			includeShas: [...shas],
+		};
+
+		const engagedKey = anchorKey({
+			sha: state.activeModeSha.get(),
+			shas: state.activeModeShas.get(),
+			repoPath: state.activeModeRepoPath.get(),
+		});
+		const sameAnchor = state.activeMode.get() === 'compose' && engagedKey === anchorKey(selection);
+		if (sameAnchor) {
+			// A compose that already started (a run is registered) keeps its plan — don't clobber it.
+			const started = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose != null;
+			if (started) return;
+
+			// Idle on this anchor — switch the scope to the requested range in place.
+			state.scope.set(scope);
+			this.actions.resources.scopeFiles.cancel();
+			if (selection.repoPath) {
+				void this.actions.resources.scopeFiles.fetch(selection.repoPath, scope);
+			}
+			void this.actions.ensureBranchCommitsCover(selection.repoPath, shas);
+			return;
+		}
+
+		this.toggleMode('compose', selection, scope);
+		void this.actions.ensureBranchCommitsCover(selection.repoPath, shas);
 	}
 
 	/** Opens the compare sheet, seeded from the current selection (or explicit overrides from
@@ -2121,11 +2188,15 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	// region Private helpers
 
-	/** Build a default {@link ScopeSelection} for entering review/compose mode. */
+	/** Build a default {@link ScopeSelection} for entering review/compose mode. Only trusts WIP and
+	 *  branch-commit state that belongs to `repoPath` — on a cross-repo mode entry (e.g. a recompose
+	 *  that switches repos) both can still hold the outgoing repo's data, so the default defers and
+	 *  the arrival re-derive finalizes it once fresh data lands. */
 	private buildDefaultScope(
 		sha: string | undefined,
 		isWip: boolean,
 		isMultiCommit: boolean,
+		repoPath: string | undefined,
 	): ScopeSelection | undefined {
 		if (isMultiCommit && this.actions.state.commitFrom.get() && this.actions.state.commitTo.get()) {
 			return {
@@ -2136,7 +2207,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 		if (isWip) {
 			const wip = this.actions.state.wip.get();
-			const files = wip?.changes?.files ?? [];
+			const wipFresh =
+				wip != null && (repoPath == null || normalizePath(wip.repo.path) === normalizePath(repoPath));
+			const files = wipFresh ? (wip.changes?.files ?? []) : [];
 			const hasUnstaged = files.some(f => !f.staged);
 			const hasStaged = files.some(f => f.staged);
 
@@ -2150,24 +2223,30 @@ export class DetailsWorkflowController implements ReactiveController {
 				};
 			}
 
-			// No working/staged changes — fall back to unpushed commits if any.
-			const commits = this.actions.state.branchCommits.get();
-			const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
-			if (unpushedShas.length > 0) {
-				return { type: 'wip', includeUnstaged: false, includeStaged: false, includeShas: unpushedShas };
+			const commitsRepoPath = this.actions.branchCommitsFetchedRepoPath();
+			const commitsFresh =
+				repoPath == null ||
+				(commitsRepoPath != null && normalizePath(commitsRepoPath) === normalizePath(repoPath));
+			if (wipFresh && commitsFresh) {
+				// No working/staged changes — fall back to unpushed commits if any.
+				const commits = this.actions.state.branchCommits.get();
+				const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
+				if (unpushedShas.length > 0) {
+					return { type: 'wip', includeUnstaged: false, includeStaged: false, includeShas: unpushedShas };
+				}
+
+				// No unpushed — fall back to the most recent commit (HEAD = first entry, log is newest-first).
+				if (commits?.length) {
+					return {
+						type: 'wip',
+						includeUnstaged: false,
+						includeStaged: false,
+						includeShas: [commits[0].sha],
+					};
+				}
 			}
 
-			// No unpushed — fall back to the most recent commit (HEAD = first entry, log is newest-first).
-			if (commits?.length) {
-				return {
-					type: 'wip',
-					includeUnstaged: false,
-					includeStaged: false,
-					includeShas: [commits[0].sha],
-				};
-			}
-
-			// Commits not loaded yet — defer; fetchBranchCommits will re-derive once they arrive.
+			// WIP/commits for this repo not loaded yet — defer; the arrival re-derive finalizes.
 			return { type: 'wip', includeUnstaged: false, includeStaged: false, includeShas: [] };
 		}
 		if (sha) return { type: 'commit', sha: sha };

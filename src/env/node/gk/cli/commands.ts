@@ -9,6 +9,7 @@ import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { CompareWithCommandArgs } from '../../../../commands/compareWith.js';
+import type { ComposerCommandArgs } from '../../../../commands/composer.js';
 import type { Container } from '../../../../container.js';
 import { cherryPick, merge, rebase } from '../../../../git/actions/repository.js';
 import type { GlRepository } from '../../../../git/models/repository.js';
@@ -19,8 +20,6 @@ import type { StartReviewCommandArgs } from '../../../../plus/launchpad/startRev
 import type { StartWorkCommandArgs } from '../../../../plus/startWork/startWork.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { createCommandDecorator } from '../../../../system/decorators/command.js';
-import type { ComposerWebviewShowingArgs } from '../../../../webviews/plus/composer/registration.js';
-import type { WebviewPanelShowCommandArgs } from '../../../../webviews/webviewsController.js';
 import type { CliCommandRequest, CliCommandResponse } from './gkCliService.js';
 
 type CliCommand =
@@ -188,15 +187,11 @@ export class CliCommandHandlers implements Disposable {
 
 		const instructions = request?.args?.[0];
 
-		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
-			'gitlens.showComposerPage',
-			undefined,
-			{
-				repoPath: repo?.path,
-				source: { source: 'mcp', detail: 'mcp/wip/compose/open' },
-				autoComposeInstructions: instructions,
-			},
-		);
+		void executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
+			repoPath: repo?.path,
+			source: { source: 'mcp', detail: 'mcp/wip/compose/open' },
+			autoComposeInstructions: instructions,
+		});
 	}
 
 	@command('mcp/pr/review/start')

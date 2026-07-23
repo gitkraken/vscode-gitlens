@@ -22,6 +22,7 @@ import type {
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
+	GraphComposeScopeSeed,
 	GraphDisplayMode,
 	GraphMinimapMarkerTypes,
 	GraphShowAction,
@@ -1059,8 +1060,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		target?: { sha: string; worktreePath: string; filePaths?: string[] };
 		commitMessage?: string;
 		scopeBranch?: { branchName: string; upstreamName?: string };
+		composeInstructions?: string;
+		composeScope?: GraphComposeScopeSeed;
 	}): Promise<void> {
-		const { action, target, commitMessage, scopeBranch } = pending;
+		const { action, target, commitMessage, scopeBranch, composeInstructions, composeScope } = pending;
 		if (action === 'scope-to-branch') {
 			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope
 			// to the current branch (the welcome-page / generic `scope-to-branch` entry point).
@@ -1125,7 +1128,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			const panel = await this.waitForDetailsPanel();
 			const mode = action === 'enter-review' ? 'review' : action === 'enter-compose' ? 'compose' : 'resolve';
 			// `filePaths` (resolve only) scopes the run to specific conflicted files; undefined = all conflicts.
-			panel?.enterModeForWip(mode, repoPath, sha, target?.filePaths);
+			// `composeInstructions` (compose only) seeds the AI-instructions input; ignored by review/resolve.
+			// `composeScope` (compose only) is the resolved recompose commit-range seed; absent = working-changes compose.
+			panel?.enterModeForWip(mode, repoPath, sha, target?.filePaths, composeInstructions, composeScope);
 			return;
 		}
 

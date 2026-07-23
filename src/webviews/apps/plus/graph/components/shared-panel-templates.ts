@@ -1,5 +1,5 @@
 import type { TemplateResult } from 'lit';
-import { html } from 'lit';
+import { html, nothing } from 'lit';
 import { ref } from 'lit/directives/ref.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -13,10 +13,12 @@ export function renderLoadingState(text: string): TemplateResult {
 	</div>`;
 }
 
+/** Pass `retryEventName: undefined` for non-retryable errors (e.g. invalid compose scope, where
+ *  the same input fails identically) — only Go Back is offered. */
 export function renderErrorState(
 	errorMessage: string | undefined,
 	defaultMessage: string,
-	retryEventName: string,
+	retryEventName: string | undefined,
 	backEventName: string,
 ): TemplateResult {
 	const dispatch = (target: HTMLElement, name: string): void => {
@@ -62,9 +64,11 @@ export function renderErrorState(
 				@click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, backEventName)}
 				>Go Back</gl-button
 			>
-			<gl-button @click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, retryEventName)}
-				>Retry</gl-button
-			>
+			${retryEventName != null
+				? html`<gl-button @click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, retryEventName)}
+						>Retry</gl-button
+					>`
+				: nothing}
 		</div>
 	</div>`;
 }
