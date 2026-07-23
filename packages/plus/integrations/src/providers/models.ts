@@ -192,6 +192,29 @@ export interface ProviderOrganization {
 	name: string;
 	url: string;
 }
+
+/**
+ * Normalized repository shape returned by the ProviderBackend `listRepos` facade. GitLens-owned (carries
+ * no `@gitkraken/provider-apis` types), the repo analogue of {@link ProviderOrganization}. Named to avoid
+ * colliding with the unrelated local-clone `RepositoryShape` in `@gitlens/git/models/repositoryShape.js`.
+ * `namespace` is the owner/workspace/group identifier to pass back into repo-scoped reads (not a display
+ * name), matching {@link ProviderOrganization.name}.
+ */
+export interface ProviderRepositoryShape {
+	id: string;
+	namespace: string;
+	name: string;
+	/** Azure DevOps project; `undefined` for hosts without a project layer. */
+	project?: string;
+	/** Web (browser) URL, when the provider exposes it. */
+	url?: string;
+	/** HTTPS clone URL, when available. */
+	cloneUrlHttps?: string;
+	/** SSH clone URL, when available. */
+	cloneUrlSsh?: string;
+	/** Default branch name, when the provider reports it. */
+	defaultBranch?: string;
+}
 export const ProviderPullRequestReviewState = GitPullRequestReviewState;
 export const ProviderBuildStatusState = GitBuildStatusState;
 export type ProviderRequestFunction = RequestFunction;
@@ -911,6 +934,25 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 	};
 }
 
+/**
+ * Maps a raw provider-apis {@link ProviderRepository} to the GitLens-owned {@link ProviderRepositoryShape}
+ * the ProviderBackend `listRepos` facade surfaces, so consumers don't depend on the SDK repo type. The SDK's
+ * nullable fields (`webUrl`/`httpsUrl`/`sshUrl`/`defaultBranch`) collapse to `undefined`, matching the
+ * `?? undefined` convention in {@link toIssueShape}/{@link toAccount}.
+ */
+export function toProviderRepositoryShape(repo: ProviderRepository): ProviderRepositoryShape {
+	return {
+		id: repo.id,
+		namespace: repo.namespace,
+		name: repo.name,
+		project: repo.project ?? undefined,
+		url: repo.webUrl ?? undefined,
+		cloneUrlHttps: repo.httpsUrl ?? undefined,
+		cloneUrlSsh: repo.sshUrl ?? undefined,
+		defaultBranch: repo.defaultBranch?.name ?? undefined,
+	};
+}
+
 export function issueFilterToReason(filter: IssueFilter): 'authored' | 'assigned' | 'mentioned' {
 	switch (filter) {
 		case IssueFilter.Author:
@@ -1246,6 +1288,13 @@ export function fromProviderPullRequest(
 	provider: Provider,
 	options?: { project?: IssueProject },
 ): PullRequest {
+	const repository = pr.repository;
+	const repositoryName = repository?.name ?? '';
+	const repositoryOwner = repository?.owner?.login ?? '';
+	const repositoryRemoteInfo = repository?.remoteInfo;
+	const headRepository = pr.headRepository;
+	const headRepositoryRemoteInfo = headRepository?.remoteInfo;
+
 	return new PullRequest(
 		provider,
 		fromProviderAccount(pr.author),
@@ -1254,11 +1303,11 @@ export function fromProviderPullRequest(
 		pr.title,
 		pr.url ?? '',
 		{
-			owner: pr.repository.owner.login,
-			repo: pr.repository.name,
+			owner: repositoryOwner,
+			repo: repositoryName,
 			// This has to be here until we can take this information from ProviderPullRequest:
 			accessLevel: RepositoryAccessLevel.Write,
-			id: pr.repository.id,
+			id: repository?.id ?? '',
 		},
 		fromProviderPullRequestState(pr.state),
 		pr.createdDate,
@@ -1271,27 +1320,27 @@ export function fromProviderPullRequest(
 			base: {
 				branch: pr.baseRef?.name ?? '',
 				sha: pr.baseRef?.oid ?? '',
-				repo: pr.repository.name,
-				owner: pr.repository.owner.login,
+				repo: repositoryName,
+				owner: repositoryOwner,
 				exists: pr.baseRef != null,
-				url: pr.repository.remoteInfo?.cloneUrlHTTPS
-					? pr.repository.remoteInfo.cloneUrlHTTPS.replace(gitSuffixRegex, '')
+				url: repositoryRemoteInfo?.cloneUrlHTTPS
+					? repositoryRemoteInfo.cloneUrlHTTPS.replace(gitSuffixRegex, '')
 					: '',
-				cloneHttps: pr.repository.remoteInfo?.cloneUrlHTTPS || undefined,
-				cloneSsh: pr.repository.remoteInfo?.cloneUrlSSH || undefined,
+				cloneHttps: repositoryRemoteInfo?.cloneUrlHTTPS || undefined,
+				cloneSsh: repositoryRemoteInfo?.cloneUrlSSH || undefined,
 			},
 			head: {
 				branch: pr.headRef?.name ?? '',
 				sha: pr.headRef?.oid ?? '',
-				repo: pr.headRepository?.name ?? '',
-				owner: pr.headRepository?.owner.login ?? '',
+				repo: headRepository?.name ?? '',
+				owner: headRepository?.owner?.login ?? '',
 				exists: pr.headRef != null,
-				url: pr.headRepository?.remoteInfo?.cloneUrlHTTPS
-					? pr.headRepository.remoteInfo.cloneUrlHTTPS.replace(gitSuffixRegex, '')
+				url: headRepositoryRemoteInfo?.cloneUrlHTTPS
+					? headRepositoryRemoteInfo.cloneUrlHTTPS.replace(gitSuffixRegex, '')
 					: '',
-				cloneHttps: pr.headRepository?.remoteInfo?.cloneUrlHTTPS || undefined,
-				cloneSsh: pr.headRepository?.remoteInfo?.cloneUrlSSH || undefined,
-				isFork: pr.headRepository?.isFork,
+				cloneHttps: headRepositoryRemoteInfo?.cloneUrlHTTPS || undefined,
+				cloneSsh: headRepositoryRemoteInfo?.cloneUrlSSH || undefined,
+				isFork: headRepository?.isFork,
 			},
 			isCrossRepository: pr.isCrossRepository,
 		},
