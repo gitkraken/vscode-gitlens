@@ -2,7 +2,7 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { createFakeRuntime } from '../../__tests__/fakeRuntime.js';
 import { GitCloudHostIntegrationId } from '../../constants.js';
-import { createIntegrationManager } from '../../index.js';
+import { createIntegrationService as createIntegrationManager } from '../../integrationService.js';
 
 /**
  * Covers the page-number pagination surface added for read-API parity (#5435): getPagedResult must forward

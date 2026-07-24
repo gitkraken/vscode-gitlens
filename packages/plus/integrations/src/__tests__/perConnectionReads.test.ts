@@ -5,7 +5,7 @@ import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import { createIntegrationManager } from '../index.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**

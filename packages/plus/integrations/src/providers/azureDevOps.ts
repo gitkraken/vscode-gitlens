@@ -22,13 +22,13 @@ import type {
 	TokenWithInfo,
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, IntegrationKey, SearchMyIssuesOptions } from '../models/integration.js';
-import { toCollectionScopeFailure } from '../results.js';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,

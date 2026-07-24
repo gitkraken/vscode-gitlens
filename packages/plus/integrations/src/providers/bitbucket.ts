@@ -21,10 +21,10 @@ import type {
 	ProviderAuthenticationSession,
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import { toCollectionScopeFailure } from '../results.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type {
 	ProviderApiCollectionResult,

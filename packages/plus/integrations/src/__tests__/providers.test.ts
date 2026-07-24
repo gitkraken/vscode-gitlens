@@ -10,7 +10,7 @@ import {
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
-import { createIntegrationManager } from '../index.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 suite('@gitlens/integrations — per-provider construction', () => {
