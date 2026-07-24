@@ -68,6 +68,7 @@ import type {
 import {
 	fromProviderPullRequest,
 	IssueFilter,
+	PagingMode,
 	providersMetadata,
 	PullRequestFilter,
 	toProviderRepositoryShape,
@@ -903,10 +904,9 @@ export class IntegrationService implements Disposable {
 		if (filters == null || filters.length === 0) return { unsupported: false };
 
 		const supported = providersMetadata[id]?.supportedPullRequestFilters;
-		const effective = supported != null ? filters.filter(f => supported.includes(f)) : [];
-		if (effective.length === 0) return { unsupported: true };
+		if (supported == null || filters.some(f => !supported.includes(f))) return { unsupported: true };
 
-		return { filters: effective, unsupported: false };
+		return { filters: filters, unsupported: false };
 	}
 
 	/** Warning for a repo-scoped PR read whose requested filters the provider supports none of. */
@@ -1232,6 +1232,7 @@ export class IntegrationService implements Disposable {
 					// The provider registers no org-discovery hook (e.g. Bitbucket Data Center). Report it as
 					// explicitly unsupported rather than contributing a silent empty list that a caller can't
 					// tell apart from "this account has no orgs".
+					fetchFailed = true;
 					warnings.push({
 						providerId: id,
 						domain: domain,
@@ -1654,6 +1655,7 @@ export class IntegrationService implements Disposable {
 		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
 		// them to any captured thrown-error warning without discarding the partial result's items.
 		const warnings = warning != null ? [warning] : [];
+		let pageFetchFailed = warning != null && value == null;
 
 		// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor. When the caller
 		// explicitly asks for page N without supplying a continuation cursor, drain through the opaque cursors
@@ -1662,18 +1664,22 @@ export class IntegrationService implements Disposable {
 		// pages 1..N as "page N" would duplicate items for normal paged consumers.
 		if (
 			!accountWide &&
+			providersMetadata[options.providerId]?.pullRequestsPagingMode === PagingMode.Repos &&
 			options.page != null &&
 			options.page > 1 &&
 			options.cursor == null &&
-			paged.page.currentPage === 1 &&
-			paged.hasMore &&
-			paged.cursor != null &&
-			paged.cursor !== '{}'
+			paged.page.currentPage === 1
 		) {
-			let currentCursor: string | undefined = paged.cursor;
+			let currentCursor: string | undefined = paged.hasMore ? paged.cursor : undefined;
 			let currentPage = 1;
-			let currentHasMore: boolean = paged.hasMore;
+			let currentHasMore: boolean = paged.hasMore && currentCursor != null && currentCursor !== '{}';
 			let currentTruncated: boolean = paged.truncated;
+			if (pageFetchFailed) {
+				items = [];
+				currentPage = page;
+				currentCursor = undefined;
+				currentHasMore = false;
+			}
 			const fetchNext = (cursor: string) =>
 				this.runCaptured(options.providerId, domain, options.connectionId, () =>
 					integration.getMyPullRequestsForReposResult(
@@ -1694,6 +1700,10 @@ export class IntegrationService implements Disposable {
 				}
 
 				if (nextValue == null) {
+					pageFetchFailed = true;
+					items = [];
+					currentPage = page;
+					currentCursor = undefined;
 					currentHasMore = false;
 					break;
 				}
@@ -1740,7 +1750,7 @@ export class IntegrationService implements Disposable {
 			cursor: paged.cursor,
 			// A metadata failure means items are incomplete even when the read didn't throw; a thrown error with
 			// no recovered value is the pre-existing failure case.
-			fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
+			fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
 		};
 	}
 
@@ -1944,6 +1954,7 @@ export class IntegrationService implements Disposable {
 
 		let items = value?.values ?? [];
 		const warnings = warning != null ? [warning] : [];
+		let pageFetchFailed = warning != null && value == null;
 		let paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
 		let allMetadata = value?.metadata;
 
@@ -1953,18 +1964,22 @@ export class IntegrationService implements Disposable {
 		// successfully-read page's items while still merging warnings/metadata across the drained prefix; returning
 		// pages 1..N as "page N" would duplicate items for normal paged consumers.
 		if (
+			providersMetadata[options.providerId]?.issuesPagingMode === PagingMode.Repos &&
 			options.page != null &&
 			options.page > 1 &&
 			options.cursor == null &&
-			paged.page.currentPage === 1 &&
-			paged.hasMore &&
-			paged.cursor != null &&
-			paged.cursor !== '{}'
+			paged.page.currentPage === 1
 		) {
-			let currentCursor: string | undefined = paged.cursor;
+			let currentCursor: string | undefined = paged.hasMore ? paged.cursor : undefined;
 			let currentPage = 1;
-			let currentHasMore: boolean = paged.hasMore;
+			let currentHasMore: boolean = paged.hasMore && currentCursor != null && currentCursor !== '{}';
 			let currentTruncated: boolean = paged.truncated;
+			if (pageFetchFailed) {
+				items = [];
+				currentPage = page;
+				currentCursor = undefined;
+				currentHasMore = false;
+			}
 			const fetchNext = (cursor: string) =>
 				this.runCaptured(options.providerId, domain, options.connectionId, () =>
 					integration.getMyIssuesForReposAsShapesResult(
@@ -1985,6 +2000,10 @@ export class IntegrationService implements Disposable {
 				}
 
 				if (nextValue == null) {
+					pageFetchFailed = true;
+					items = [];
+					currentPage = page;
+					currentCursor = undefined;
 					currentHasMore = false;
 					break;
 				}
@@ -2029,7 +2048,7 @@ export class IntegrationService implements Disposable {
 			page: { ...paged.page, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
 			cursor: paged.cursor,
-			fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
+			fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
 		};
 	}
 
