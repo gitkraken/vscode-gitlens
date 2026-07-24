@@ -169,12 +169,18 @@ function patchTestVSCodeProductJson(vscodePath: string): void {
 /**
  * Force-kills an editor process tree by its main PID.
  *
- * Windows does not cascade termination to child processes, so a worker whose `electronApp.close()`
- * hangs or half-completes (timed-out or crashed editor) leaves orphaned renderer / GPU / utility /
- * spawned-`git` children behind — visible locally as a pile of stray `Cursor`/`Code`/`git`/
- * `chrome_crashpad_handler` processes after a run. Killing the tree from the still-live main PID
- * (`taskkill /T`) reaps them. A no-op when the process already exited cleanly (the happy path).
- * Scoped strictly to this instance's PID so it never touches the developer's own editor windows.
+ * Neither Windows nor POSIX cascades termination to child processes, so a worker whose
+ * `electronApp.close()` hangs or half-completes (timed-out or crashed editor) leaves orphaned
+ * renderer / GPU / utility / spawned-`git` children behind — visible locally as a pile of stray
+ * `Cursor`/`Code`/`git`/`chrome_crashpad_handler` processes after a run, and on CI as leaked sockets.
+ * Reap the whole tree, not just the main PID:
+ * - Windows: `taskkill /T` walks and kills the child tree from the still-live main PID.
+ * - POSIX: SIGKILL the process *group* (`-pid`). Playwright launches the editor detached, so it leads
+ *   its own group and its children (renderers/GPU/utility/language servers) share the group id; a lone
+ *   `kill pid` would leave them orphaned. Fall back to the single PID if it isn't a group leader
+ *   (`kill -pid` → ESRCH), which only matters for `pid` == its own group.
+ * A no-op when the process already exited cleanly (the happy path). Scoped strictly to this instance's
+ * PID/group so it never touches the developer's own editor windows.
  */
 function killProcessTree(pid: number | undefined): void {
 	if (pid == null) return;
@@ -183,7 +189,13 @@ function killProcessTree(pid: number | undefined): void {
 		if (process.platform === 'win32') {
 			execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
 		} else {
-			process.kill(pid, 'SIGKILL');
+			try {
+				// Negative pid targets the process group led by `pid` — reaps the editor's children too.
+				process.kill(-pid, 'SIGKILL');
+			} catch {
+				// Not a group leader (no group with that id) — fall back to the main process.
+				process.kill(pid, 'SIGKILL');
+			}
 		}
 	} catch {
 		// Already gone / no such process — nothing to clean up.
