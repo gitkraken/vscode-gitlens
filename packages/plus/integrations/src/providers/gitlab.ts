@@ -342,6 +342,20 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		};
 	}
 
+	protected override async getProviderRepositoriesForUser(
+		session: ProviderAuthenticationSession,
+		options?: { cursor?: string },
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
+		const api = await this.getProvidersApi();
+		// GitLab's membership read is already user-affiliated, so the account-wide walk is the unfiltered
+		// version of the per-org read above (which pages the same source and filters by namespace).
+		return api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
+			isPAT: this.isEnterprise,
+			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			cursor: options?.cursor,
+		});
+	}
+
 	protected override async searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: GitLabRepositoryDescriptor[],

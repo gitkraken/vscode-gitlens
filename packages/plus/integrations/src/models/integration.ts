@@ -81,6 +81,7 @@ type SyncReqUsecase = Exclude<
 	| 'getProjectsForResources'
 	| 'getPullRequest'
 	| 'getRepositoriesForOrg'
+	| 'getRepositoriesForUser'
 	| 'getPullRequestForBranch'
 	| 'getPullRequestForCommit'
 	| 'getPullRequestsForRepos'
