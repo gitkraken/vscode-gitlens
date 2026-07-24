@@ -27,6 +27,48 @@ export interface ProviderRepositoryInput {
 export type ProviderRepositoriesInput = (string | number)[] | ProviderRepositoryInput[];
 
 /**
+ * One provider slice in a pull-request sweep.
+ *
+ * A sweep accepts at most one target per provider because its failure attribution is provider-scoped.
+ * `domain` is a fallback for self-managed hosts whose authentication provider doesn't persist a configured
+ * connection; a configured `connectionId` domain takes precedence when both are supplied. It must come from
+ * the trusted authentication configuration, not repository or remote data.
+ */
+export interface ProviderSweepTarget {
+	providerId: IntegrationIds;
+	connectionId?: string;
+	domain?: string;
+}
+
+type ProviderSweepSelection =
+	| {
+			targets: readonly ProviderSweepTarget[];
+			providerIds?: never;
+			connectionId?: never;
+	  }
+	| {
+			targets?: never;
+			providerIds?: IntegrationIds[];
+			/**
+			 * Legacy single-provider selector. It is ignored when `providerIds` contains more than one provider;
+			 * use `targets` to select connections independently in a multi-provider sweep.
+			 */
+			connectionId?: string;
+	  };
+
+type PullRequestSweepCommonOptions = {
+	repos?: ProviderRepositoriesInput;
+	state?: PullRequestStateFilter[];
+	filters?: PullRequestFilter[];
+	forceSync?: boolean;
+	maxPages?: number;
+};
+
+export type PullRequestSweepOptions = PullRequestSweepCommonOptions & ProviderSweepSelection;
+
+export type ClosedPullRequestSweepOptions = Omit<PullRequestSweepCommonOptions, 'state'> & ProviderSweepSelection;
+
+/**
  * Public, provider-neutral integration facade. Provider clients and integration model instances remain private
  * implementation details so SDK changes don't expand this contract.
  */
@@ -72,6 +114,11 @@ export interface IntegrationManager {
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	listIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -96,23 +143,8 @@ export interface IntegrationManager {
 		itemsPerPage?: number;
 		connectionId?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
-	sweepPullRequests(options?: {
-		repos?: ProviderRepositoriesInput;
-		providerIds?: IntegrationIds[];
-		state?: PullRequestStateFilter[];
-		filters?: PullRequestFilter[];
-		forceSync?: boolean;
-		connectionId?: string;
-		maxPages?: number;
-	}): Promise<ProviderSweepResult<PullRequestShape>>;
-	sweepClosedPullRequests(options?: {
-		repos?: ProviderRepositoriesInput;
-		providerIds?: IntegrationIds[];
-		filters?: PullRequestFilter[];
-		forceSync?: boolean;
-		connectionId?: string;
-		maxPages?: number;
-	}): Promise<ProviderSweepResult<PullRequestShape>>;
+	sweepPullRequests(options?: PullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
+	sweepClosedPullRequests(options?: ClosedPullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	broadenIssues(options: {
 		orgs: { providerId: IntegrationIds; name: string; connectionId?: string }[];
 		page?: number;
