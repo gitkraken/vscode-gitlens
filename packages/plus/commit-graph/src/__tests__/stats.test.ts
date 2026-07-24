@@ -3,11 +3,14 @@ import {
 	changesChurnClamp,
 	changesMagnitude,
 	changesModeOrDefault,
+	changesStageForWidth,
 	changesTrackWidth,
 	computeChangesBarWidths,
 	computeChangesBipolarWidths,
+	computeChangesRingArcs,
 	computeChangesSquares,
 	formatChangesFiles,
+	formatChangesLines,
 } from '../stats.js';
 
 suite('stats — changesModeOrDefault', () => {
@@ -150,5 +153,80 @@ suite('stats — formatChangesFiles', () => {
 	test('caps at 999+', () => {
 		assert.strictEqual(formatChangesFiles(1000), '999+');
 		assert.strictEqual(formatChangesFiles(50_000), '999+');
+	});
+});
+
+suite('stats — changesStageForWidth', () => {
+	test('boundaries pick the wider stage at the threshold', () => {
+		assert.strictEqual(changesStageForWidth(110), 'full');
+		assert.strictEqual(changesStageForWidth(109), 'compact');
+		assert.strictEqual(changesStageForWidth(76), 'compact');
+		assert.strictEqual(changesStageForWidth(75), 'mini');
+		assert.strictEqual(changesStageForWidth(44), 'mini');
+		assert.strictEqual(changesStageForWidth(43), 'icon');
+	});
+
+	test('wide stays full, hairline stays icon', () => {
+		assert.strictEqual(changesStageForWidth(200), 'full');
+		assert.strictEqual(changesStageForWidth(0), 'icon');
+	});
+});
+
+suite('stats — formatChangesLines', () => {
+	test('exact when not compact, regardless of size', () => {
+		assert.strictEqual(formatChangesLines(0, false), '0');
+		assert.strictEqual(formatChangesLines(1840, false), '1840');
+		assert.strictEqual(formatChangesLines(123_456, false), '123456');
+	});
+
+	test('compact keeps sub-thousand counts exact', () => {
+		assert.strictEqual(formatChangesLines(0, true), '0');
+		assert.strictEqual(formatChangesLines(999, true), '999');
+	});
+
+	test('compact abbreviates thousands with a trimmed decimal', () => {
+		assert.strictEqual(formatChangesLines(1000, true), '1k');
+		assert.strictEqual(formatChangesLines(1840, true), '1.8k');
+		assert.strictEqual(formatChangesLines(5500, true), '5.5k');
+	});
+
+	test('compact drops the decimal at ten thousand and up', () => {
+		assert.strictEqual(formatChangesLines(12_000, true), '12k');
+		assert.strictEqual(formatChangesLines(123_400, true), '123k');
+	});
+});
+
+suite('stats — computeChangesRingArcs', () => {
+	test('zero churn: no sweep (add ends at 0, del starts at 360)', () => {
+		const arcs = computeChangesRingArcs(0, 0);
+		assert.strictEqual(arcs.addDeg, 0);
+		assert.strictEqual(arcs.delFromDeg, 360);
+	});
+
+	test('additions only: deletions arc is empty', () => {
+		const arcs = computeChangesRingArcs(changesChurnClamp, 0);
+		assert.strictEqual(arcs.addDeg, 360);
+		assert.strictEqual(arcs.delFromDeg, 360);
+	});
+
+	test('deletions only: additions arc is empty', () => {
+		const arcs = computeChangesRingArcs(0, changesChurnClamp);
+		assert.strictEqual(arcs.addDeg, 0);
+		assert.strictEqual(arcs.delFromDeg, 0);
+	});
+
+	test('mixed: total-churn sweep split by ratio, deletions on the far side of the axis', () => {
+		const arcs = computeChangesRingArcs(300, 100);
+		const sweep = changesMagnitude(400) * 360;
+		const addDeg = sweep * 0.75;
+		assert.ok(Math.abs(arcs.addDeg - addDeg) < 1e-9, `${arcs.addDeg} ≈ ${addDeg}`);
+		assert.ok(Math.abs(360 - arcs.delFromDeg - sweep * 0.25) < 1e-9);
+		// sweep is total-churn scaled (like bar), not each side independently
+		assert.ok(Math.abs(arcs.addDeg + (360 - arcs.delFromDeg) - sweep) < 1e-9);
+	});
+
+	test('sweep saturates at a full circle past the clamp', () => {
+		const arcs = computeChangesRingArcs(changesChurnClamp * 4, 0);
+		assert.strictEqual(arcs.addDeg, 360);
 	});
 });

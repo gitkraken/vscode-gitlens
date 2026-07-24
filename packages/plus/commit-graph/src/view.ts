@@ -191,13 +191,18 @@ export interface ZoneSpec {
 
 // minWidth floors: ref/author 32 and message 50 (flex) match the legacy gitkraken-components zones;
 // date (44) is tighter than the legacy 50 since it renders in ultra-compact form ("2d") when narrow;
-// changes (50) matches the legacy gitkraken-components CHANGES_ZONE_MIN_WIDTH;
+// changes (36) is below the legacy CHANGES_ZONE_MIN_WIDTH of 50 on purpose — the cell degrades to a
+// single centered glyph at that floor (see `changesStageForWidth`), so it stays useful where the old
+// full-width viz would have clipped. 36 = the 1.6rem glyph + the zone's 0.8rem×2 border-box padding +
+// ~0.2rem×2 breathing room, so the glyph never clips against the cell edges. The column also DEFAULTS to
+// this width (`width === minWidth`; see the host's `defaultGraphColumnsSettings`), so out of the box it
+// shows the compact glyph until the user widens it;
 // sha (44) keeps ~3 monospace chars + an ellipsis at the floor.
 export const defaultZones: readonly ZoneSpec[] = [
 	{ id: 'ref', label: 'Branches / Tags', width: 180, minWidth: 32 },
 	{ id: 'message', label: 'Message', width: 0, minWidth: 50, flex: true },
 	{ id: 'author', label: 'Author', width: 140, minWidth: 32 },
-	{ id: 'changes', label: 'Changes', width: 200, minWidth: 50, mode: 'bar' },
+	{ id: 'changes', label: 'Changes', width: 36, minWidth: 36, mode: 'bar' },
 	{ id: 'datetime', label: 'Date', width: 80, minWidth: 44 },
 	{ id: 'sha', label: 'SHA', width: 76, minWidth: 44 },
 ];

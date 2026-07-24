@@ -1432,6 +1432,20 @@ gl-lit-graph {
 		min-width: 0;
 		overflow: hidden;
 	}
+	// icon stage: a single centered glyph, no files segment or gap.
+	.gl-graph__changes--icon {
+		justify-content: center;
+		gap: 0;
+	}
+	// numbers' glyph is the bare files count — shrink + ellipsis it, else a centered overflow clips BOTH
+	// edges and "999+" reads as a legitimate "99".
+	.gl-graph__changes--icon .gl-graph__changes-files-count {
+		min-width: 0;
+		max-width: 100%;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
 	.gl-graph__changes-files {
 		display: inline-flex;
 		flex-shrink: 0;
@@ -1453,31 +1467,27 @@ gl-lit-graph {
 		font-variant-numeric: tabular-nums;
 		color: hsl(var(--muted-foreground));
 	}
-	// numbers mode: `+N` / `−N` in the added/deleted decoration colors, monospace + tabular so they align.
+	// numbers mode: `+N −N` in the added/deleted decoration colors, monospace + tabular so they align. It's
+	// ONE ellipsis unit (a single text run, not two flex children) — additions lead and never clip, and only
+	// the trailing deletions ellipsis once, instead of both sides truncating with their own `…`.
 	.gl-graph__changes-numbers {
-		display: inline-flex;
+		display: block;
 		flex-shrink: 1;
 		min-width: 0;
-		align-items: center;
-		gap: 0.7rem;
+		overflow: hidden;
 		font-family: var(--vscode-editor-font-family, monospace);
 		font-size: 1.15rem;
 		font-weight: 650;
 		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+		text-overflow: ellipsis;
 	}
 	.gl-graph__changes-added {
-		min-width: 0;
-		overflow: hidden;
 		color: var(--vscode-gitDecoration-addedResourceForeground);
-		white-space: nowrap;
-		text-overflow: ellipsis;
 	}
 	.gl-graph__changes-deleted {
-		min-width: 0;
-		overflow: hidden;
+		margin-inline-start: 0.7rem;
 		color: var(--vscode-gitDecoration-deletedResourceForeground);
-		white-space: nowrap;
-		text-overflow: ellipsis;
 	}
 
 	// squares mode: a leading total-churn number + five fixed cells (added / deleted / empty).
@@ -1579,6 +1589,51 @@ gl-lit-graph {
 		transform: translateY(-50%);
 		border-radius: 0.2rem 0 0 0.2rem;
 		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// icon stage — bar/bipolar collapse to the "churn ring": one total-churn sweep, additions arc clockwise
+	// from 12 o'clock (0 → --a), deletions arc counter-clockwise (--c → 360), the gap between them left as
+	// track. Add-vs-delete lives on opposite sides of the vertical axis, so it survives grayscale with no
+	// notch. Conic stops (`--a`/`--c`) ride cspStyleMap; the radial mask punches the donut hole.
+	.gl-graph__changes-ring {
+		flex: none;
+		width: 1.6rem;
+		height: 1.6rem;
+		border-radius: 50%;
+		background: conic-gradient(
+			from 0deg,
+			var(--color-graph-stats-added) 0deg var(--a, 0deg),
+			var(--color-graph-stats-track) var(--a, 0deg) var(--c, 360deg),
+			var(--color-graph-stats-deleted) var(--c, 360deg) 360deg
+		);
+		-webkit-mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
+		mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
+	}
+
+	// icon stage — squares collapses to the "segmented ring": the five diffstat cells wrapped clockwise from
+	// 12 o'clock (61° cells on a 72° pitch, 11° gaps), additions leading. Fixed geometry here; only the five
+	// colors (`--s0`…`--s4`) vary per row via cspStyleMap.
+	.gl-graph__changes-segring {
+		flex: none;
+		width: 1.6rem;
+		height: 1.6rem;
+		border-radius: 50%;
+		background: conic-gradient(
+			from 0deg,
+			transparent 0deg 5.5deg,
+			var(--s0, transparent) 5.5deg 66.5deg,
+			transparent 66.5deg 77.5deg,
+			var(--s1, transparent) 77.5deg 138.5deg,
+			transparent 138.5deg 149.5deg,
+			var(--s2, transparent) 149.5deg 210.5deg,
+			transparent 210.5deg 221.5deg,
+			var(--s3, transparent) 221.5deg 282.5deg,
+			transparent 282.5deg 293.5deg,
+			var(--s4, transparent) 293.5deg 354.5deg,
+			transparent 354.5deg 360deg
+		);
+		-webkit-mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
+		mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
 	}
 
 	// Colorblind-safe deletions ("minus notch"): a dash punches the row background through the fill so
@@ -2082,6 +2137,29 @@ gl-lit-graph {
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
+	}
+	.gl-graph__changes-mode-picker-icon {
+		flex: none;
+	}
+	// icon-stage variant: the full-size column identity icon pinned left, with the chevron trailing. The
+	// button sizes to its content and clips on the right, so at the narrow floor the chevron (and the
+	// hover-revealed filter beside it) yield first — the identity icon never shrinks or gets pushed off.
+	.gl-graph__changes-mode-picker-button--labeled {
+		justify-content: flex-start;
+		gap: 0.2rem;
+		width: auto;
+		min-width: 1.9rem;
+		max-width: 100%;
+		overflow: hidden;
+
+		.gl-graph__changes-mode-picker-icon {
+			--code-icon-size: 1.4rem;
+		}
+	}
+	.gl-graph__changes-mode-picker-chevron {
+		--code-icon-size: 1.2rem;
+		flex: none;
+		color: hsl(var(--muted-foreground));
 	}
 
 	// A glyph button: fixed 4rem × 2.6rem, the current mode brand-tinted + brand-bordered.

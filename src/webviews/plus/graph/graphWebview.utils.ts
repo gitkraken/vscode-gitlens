@@ -48,7 +48,7 @@ export const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	graph: { width: 150, mode: undefined, isHidden: false, order: 1 },
 	message: { width: 300, isHidden: false, order: 2, isFilterable: true },
 	author: { width: 32, isHidden: false, order: 3, isFilterable: true },
-	changes: { width: 200, isHidden: false, order: 4, isFilterable: true },
+	changes: { width: 36, isHidden: false, order: 4, isFilterable: true },
 	datetime: { width: 44, isHidden: false, order: 5, isFilterable: true },
 	sha: { width: 44, isHidden: false, order: 6, isFilterable: true },
 };
@@ -58,7 +58,7 @@ export const compactGraphColumnsSettings: GraphColumnsSettings = {
 	graph: { width: 150, mode: 'compact', isHidden: false },
 	author: { width: 32, isHidden: false, order: 2, isFilterable: true },
 	message: { width: 500, isHidden: false, order: 3, isFilterable: true },
-	changes: { width: 200, isHidden: false, order: 4, isFilterable: true },
+	changes: { width: 36, isHidden: false, order: 4, isFilterable: true },
 	datetime: { width: 130, isHidden: true, order: 5, isFilterable: true },
 	sha: { width: 130, isHidden: false, order: 6, isFilterable: true },
 };

@@ -15,7 +15,7 @@ import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js
 import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/laneClamp.js';
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
-import { changesModeOrDefault } from '@gitkraken/commit-graph/stats.js';
+import { changesModeOrDefault, changesStageForWidth } from '@gitkraken/commit-graph/stats.js';
 import type {
 	GraphPlacement,
 	RefsPlacement,
@@ -6954,14 +6954,18 @@ export class GlLitGraph extends LitElement {
 				const hostLabelReservePx = Math.min(zone.label.length * 7, 70) + 16;
 				const crumbsCollapsed = crumbCount > 0 && headerW - filtersPx - hostLabelReservePx < crumbCount * 55;
 				const crumbsPx = crumbCount * (crumbsCollapsed ? 22 : 55);
+				// At icon stage the Changes header drops its text label and shows the compact mode-picker button
+				// instead (the full-size column icon + a clippable chevron) — see the render branch below.
+				const changesIconStage = zone.id === 'changes' && changesStageForWidth(zone.width) === 'icon';
 				// Fixed reserve per control (22 each): a hidden-graph restore toggle, the ungrouped ref
 				// column's right-edge toggle, ACTIVE filter buttons — plus the crumbs at their stage size.
-				// Changes' mode chevron always renders inside the label (19px ≈ 1.2rem icon + 0.3rem gap +
-				// slack, graph.scss) — reserve its label-adjacent width so the text never crowds it out.
+				// Changes' mode chevron renders inside the label (19px ≈ 1.2rem icon + 0.3rem gap + slack,
+				// graph.scss) — reserve its label-adjacent width so the text never crowds it out. At icon stage
+				// the label is gone (just the compact picker button), so that reserve would over-count.
 				const controlsPx =
 					(graphControlHere && !graphCrumb ? 22 : 0) +
 					(hasRefsControl && !refsMember ? 22 : 0) +
-					(zone.id === 'changes' ? 19 : 0) +
+					(zone.id === 'changes' && !changesIconStage ? 19 : 0) +
 					filtersPx +
 					crumbsPx;
 				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, headerW - controlsPx);
@@ -7017,48 +7021,58 @@ export class GlLitGraph extends LitElement {
 												></code-icon>`}
 									</span>`
 								: nothing}
-							${filterOnly
-								? html`${this.renderFilterButton(zone, true, true)}${zone.id === 'changes'
-										? this.renderChangesModePickerButton()
-										: nothing}`
-								: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
-										<span
-											class="gl-graph__header-label${zone.id === 'changes'
-												? ' gl-graph__header-label--changes'
-												: ''}"
-											role="button"
-											tabindex="0"
-											aria-haspopup=${zone.id === 'changes' ? 'menu' : nothing}
-											aria-expanded=${zone.id === 'changes'
-												? this.changesModeAnchor != null
-													? 'true'
-													: 'false'
-												: nothing}
-											aria-label=${zone.id === 'changes'
-												? 'Changes column. Press Enter to change the visualization; Shift+Arrow Left/Right to reorder, or drag.'
-												: `${zone.label} column. Shift+Arrow Left/Right to reorder, or drag.`}
-											data-tooltip=${zone.id === 'changes'
-												? 'Change Visualization — or drag / Shift+Arrow to reorder'
-												: `Drag or press Shift+Arrow to reorder ${zone.label.toLowerCase()} column`}
-											data-roving-key="label:${zone.id}"
-											@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
-											>${labelAsIcon
-												? html`<code-icon
-														class="gl-graph__header-label-icon"
-														icon=${zoneHeaderIcons[zone.id]}
-													></code-icon>`
-												: zone.id === 'changes'
-													? html`<span class="gl-graph__header-label-text"
-															>${zone.label}</span
-														>`
-													: zone.label}${zone.id === 'changes'
-												? html`<code-icon
-														class="gl-graph__changes-mode-chevron"
-														icon="chevron-down"
-														aria-hidden="true"
-													></code-icon>`
-												: nothing}</span
-										>`}
+							${changesIconStage
+								? html`${filterable
+										? this.renderFilterButton(zone, filterActive, false)
+										: nothing}${this.renderChangesModePickerButton(
+										visibleZones,
+										i,
+										zoneHeaderIcons.changes,
+										true,
+									)}`
+								: filterOnly
+									? html`${this.renderFilterButton(zone, true, true)}${zone.id === 'changes'
+											? this.renderChangesModePickerButton(visibleZones, i)
+											: nothing}`
+									: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
+											<span
+												class="gl-graph__header-label${zone.id === 'changes'
+													? ' gl-graph__header-label--changes'
+													: ''}"
+												role="button"
+												tabindex="0"
+												aria-haspopup=${zone.id === 'changes' ? 'menu' : nothing}
+												aria-expanded=${zone.id === 'changes'
+													? this.changesModeAnchor != null
+														? 'true'
+														: 'false'
+													: nothing}
+												aria-label=${zone.id === 'changes'
+													? 'Changes column. Press Enter to change the visualization; Shift+Arrow Left/Right to reorder, or drag.'
+													: `${zone.label} column. Shift+Arrow Left/Right to reorder, or drag.`}
+												data-tooltip=${zone.id === 'changes'
+													? 'Change Visualization — or drag / Shift+Arrow to reorder'
+													: `Drag or press Shift+Arrow to reorder ${zone.label.toLowerCase()} column`}
+												data-roving-key="label:${zone.id}"
+												@keydown=${(e: KeyboardEvent) =>
+													this.onLabelKeydown(e, visibleZones, i)}
+												>${labelAsIcon
+													? html`<code-icon
+															class="gl-graph__header-label-icon"
+															icon=${zoneHeaderIcons[zone.id]}
+														></code-icon>`
+													: zone.id === 'changes'
+														? html`<span class="gl-graph__header-label-text"
+																>${zone.label}</span
+															>`
+														: zone.label}${zone.id === 'changes'
+													? html`<code-icon
+															class="gl-graph__changes-mode-chevron"
+															icon="chevron-down"
+															aria-hidden="true"
+														></code-icon>`
+													: nothing}</span
+											>`}
 							${zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
 								? this.renderRefsPlacementControl(true, visibleZones)
 								: nothing}
@@ -7447,33 +7461,43 @@ export class GlLitGraph extends LitElement {
 		></code-icon>`;
 	}
 
-	// Compact chevron-only picker entry, shown beside the filter button when the Changes column is too narrow
-	// (filter + narrow) for the full label — keeps the mode picker reachable (incl. keyboard). Same open path
-	// as the label; the button becomes the popover anchor.
-	private renderChangesModePickerButton(): TemplateResult {
+	// Compact picker entry, shown when the Changes column is too narrow for the full label — at icon stage
+	// (the body cell is a single glyph; `primaryIcon` = the column's own full-size `request-changes` icon,
+	// with `withChevron` appending the picker chevron) or the older filter-only floor (a lone `chevron-down`
+	// beside the filter button). Behaves like the label control: it does NOT stop the pointerdown, so a press
+	// arms the column reorder (drag) and a clean click opens the picker via `onColumnPointerUp` (no `@click`
+	// — a click under the cell's pointer capture is ambiguous); keyboard reuses `onLabelKeydown` for
+	// Enter/Space-to-open and Shift+Arrow-to-reorder. The `--labeled` variant pins the icon and lets the
+	// chevron clip on the right, so the identity icon never shrinks or yields (see graph.scss).
+	private renderChangesModePickerButton(
+		visibleZones: readonly ZoneSpec[],
+		i: number,
+		primaryIcon: string = 'chevron-down',
+		withChevron = false,
+	): TemplateResult {
 		return html`<button
-			class="gl-graph__changes-mode-picker-button"
+			class="gl-graph__changes-mode-picker-button${withChevron
+				? ' gl-graph__changes-mode-picker-button--labeled'
+				: ''}"
 			type="button"
 			aria-haspopup="menu"
 			aria-expanded=${this.changesModeAnchor != null ? 'true' : 'false'}
 			aria-label="Change Changes column visualization"
 			data-tooltip="Change Visualization"
 			draggable="false"
-			@pointerdown=${(e: Event) => e.stopPropagation()}
 			data-roving-key="changes-mode"
-			@click=${this.onChangesModePickerButtonClick}
+			@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
 		>
-			<code-icon icon="chevron-down"></code-icon>
+			<code-icon class="gl-graph__changes-mode-picker-icon" icon=${primaryIcon}></code-icon>
+			${withChevron
+				? html`<code-icon
+						class="gl-graph__changes-mode-picker-chevron"
+						icon="chevron-down"
+						aria-hidden="true"
+					></code-icon>`
+				: nothing}
 		</button>`;
 	}
-
-	private readonly onChangesModePickerButtonClick = (event: Event): void => {
-		event.stopPropagation();
-		const target = event.currentTarget;
-		if (target instanceof HTMLElement) {
-			this.toggleChangesModeMenu(target);
-		}
-	};
 
 	private get currentChangesMode(): ChangesColumnMode {
 		return changesModeOrDefault(this.getVisibleZones().find(z => z.id === 'changes')?.mode);
@@ -8281,7 +8305,7 @@ export class GlLitGraph extends LitElement {
 		// The Changes label control this press landed on (else null). A CLEAN click (pointerup with
 		// `started` still false — the same threshold gate the reorder uses) on it toggles the mode picker;
 		// any press that crosses the drag threshold reorders and never opens it. See `onColumnPointerUp`.
-		changesLabel: HTMLElement | null;
+		changesPickerAnchor: HTMLElement | null;
 		// The filterable zone whose filter button this press landed on (else null) — carried by the
 		// button's `data-filter-zone` (a grouped-refs crumb button filters `ref` from another column's
 		// cell, so it can't be inferred from `colId`). A clean click dispatches it; a drag reorders instead.
@@ -8321,11 +8345,15 @@ export class GlLitGraph extends LitElement {
 			// no active pointer to capture — the window listeners still drive the drag
 		}
 
-		// Record whether the press landed on the Changes label control so a clean click (no drag) can open
-		// the picker at pointerup. Only the label (text/icon + chevron) arms it — empty cell space doesn't.
-		const changesLabel =
+		// Record whether the press landed on the Changes picker control so a clean click (no drag) can open
+		// the picker at pointerup — the label (text/icon + chevron) at most widths, or the compact
+		// mode-picker button at icon stage. Either way the press also arms the reorder like the rest of the
+		// cell; empty cell space arms reorder but doesn't open the picker.
+		const changesPickerAnchor =
 			colId === 'changes' && event.target instanceof Element
-				? event.target.closest<HTMLElement>('.gl-graph__header-label--changes')
+				? event.target.closest<HTMLElement>(
+						'.gl-graph__header-label--changes, .gl-graph__changes-mode-picker-button',
+					)
 				: null;
 		// A press on a filter button arms the reorder like anywhere else on the cell; a clean click
 		// dispatches that button's zone at pointerup (the button has no `@click` — keyboard uses `@keydown`).
@@ -8347,7 +8375,7 @@ export class GlLitGraph extends LitElement {
 			target: -1,
 			pendingX: event.clientX,
 			rafId: null,
-			changesLabel: changesLabel,
+			changesPickerAnchor: changesPickerAnchor,
 			filterZone: filterZone,
 			base: null,
 		};
@@ -8610,7 +8638,7 @@ export class GlLitGraph extends LitElement {
 		const base = drag.base;
 		const colId = drag.colId;
 		const started = drag.started;
-		const changesLabel = drag.changesLabel;
+		const changesPickerAnchor = drag.changesPickerAnchor;
 		const filterZone = drag.filterZone;
 		// Recompute the drop slot from the RELEASE position (the last rAF may not have flushed, so
 		// `drag.target` can be a frame stale) using the pointerup's own clientX — where the user let go.
@@ -8622,8 +8650,8 @@ export class GlLitGraph extends LitElement {
 			// the mouse path this pointerup is the sole trigger — neither control has an `@click` (keyboard
 			// activation goes through the label's / filter button's `@keydown`).
 			if (!started) {
-				if (changesLabel != null) {
-					this.toggleChangesModeMenu(changesLabel);
+				if (changesPickerAnchor != null) {
+					this.toggleChangesModeMenu(changesPickerAnchor);
 				} else if (filterZone != null) {
 					this.dispatchFilterColumn(filterZone);
 				}

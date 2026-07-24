@@ -3,14 +3,22 @@ import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-grap
 import type { GraphCommit, ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 import type { LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
 import { graphEdgeFadePx, rowShiftedGutterWidth } from '@gitkraken/commit-graph/laneClamp.js';
-import type { ChangesColumnMode, RowStats } from '@gitkraken/commit-graph/stats.js';
+import type {
+	ChangesColumnMode,
+	ChangesColumnStage,
+	ChangesSquareFill,
+	RowStats,
+} from '@gitkraken/commit-graph/stats.js';
 import {
 	changesModeOrDefault,
+	changesStageForWidth,
 	changesTrackWidth,
 	computeChangesBarWidths,
 	computeChangesBipolarWidths,
+	computeChangesRingArcs,
 	computeChangesSquares,
 	formatChangesFiles,
+	formatChangesLines,
 } from '@gitkraken/commit-graph/stats.js';
 import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle, ZoneSpec } from '@gitkraken/commit-graph/view.js';
 import { relativeTime, rowGutterWidth, xForColumn } from '@gitkraken/commit-graph/view.js';
@@ -440,10 +448,14 @@ function changesAriaText(stats: RowStats): string {
 	return text;
 }
 
-// The Changes column's per-row cell: files count + hairline + the mode's magnitude viz. Pure fn of
-// (stats, mode); plain spans only (no per-row custom elements); absent stats = pending → `nothing`.
-// Memoized by (stats, mode): the SAME TemplateResult on a hit lets Lit skip the cell's subtree.
-const changesCellCache = new WeakMap<RowStats, Partial<Record<ChangesColumnMode, TemplateResult>>>();
+// The Changes column's per-row cell. As the column narrows it degrades through `changesStageForWidth`:
+// full (files icon + count + viz) → compact (count + viz) → mini (viz only) → icon (a single glyph). Pure
+// fn of (stats, mode, stage); plain spans only (no per-row custom elements); absent stats = pending →
+// `nothing`. Memoized by (stats, mode, stage): the SAME TemplateResult on a hit lets Lit skip the subtree.
+const changesCellCache = new WeakMap<
+	RowStats,
+	Partial<Record<`${ChangesColumnMode}:${ChangesColumnStage}`, TemplateResult>>
+>();
 function renderChangesCell(
 	zone: ZoneSpec,
 	row: ProcessedGraphRow,
@@ -455,34 +467,56 @@ function renderChangesCell(
 	if (stats == null) return nothing;
 
 	const mode = changesModeOrDefault(zone.mode);
-	let byMode = changesCellCache.get(stats);
-	const cached = byMode?.[mode];
+	// `zone.width` is the solved (live) render width by this point — see the author cell below.
+	const stage = changesStageForWidth(zone.width);
+	const key = `${mode}:${stage}` as const;
+	let byKey = changesCellCache.get(stats);
+	const cached = byKey?.[key];
 	if (cached != null) return cached;
 
-	// No data-tooltip here: a tooltip-bearing element suppresses the row hover card (tooltip exclusivity),
-	// and the stats already ride the row's aria-label + hover surface.
-	const result = html`<span class="gl-graph__changes"
-		><span class="gl-graph__changes-files"
-			><span class="codicon codicon-files gl-graph__changes-files-icon" aria-hidden="true"></span
-			><span class="gl-graph__changes-files-count">${formatChangesFiles(stats.files)}</span></span
-		>${renderChangesViz(mode, stats)}</span
-	>`;
-	byMode ??= {};
-	byMode[mode] = result;
-	changesCellCache.set(stats, byMode);
+	const result = renderChangesCellContent(mode, stage, stats);
+	byKey ??= {};
+	byKey[key] = result;
+	changesCellCache.set(stats, byKey);
 	return result;
+}
+
+// No data-tooltip anywhere in the cell: a tooltip-bearing element suppresses the row hover card (tooltip
+// exclusivity), and the stats already ride the row's aria-label + hover surface — including the files count
+// that the compact/mini/icon stages drop from view.
+function renderChangesCellContent(mode: ChangesColumnMode, stage: ChangesColumnStage, stats: RowStats): TemplateResult {
+	if (stage === 'icon') {
+		return html`<span class="gl-graph__changes gl-graph__changes--icon">${renderChangesGlyph(mode, stats)}</span>`;
+	}
+
+	// full keeps the files icon + count; compact keeps just the count; mini drops the files segment entirely.
+	const files =
+		stage === 'full'
+			? html`<span class="gl-graph__changes-files"
+					><span class="codicon codicon-files gl-graph__changes-files-icon" aria-hidden="true"></span
+					><span class="gl-graph__changes-files-count">${formatChangesFiles(stats.files)}</span></span
+				>`
+			: stage === 'compact'
+				? html`<span class="gl-graph__changes-files"
+						><span class="gl-graph__changes-files-count">${formatChangesFiles(stats.files)}</span></span
+					>`
+				: nothing;
+	// `compact` (any stage past full) lets the numbers mode abbreviate long counts so both sides keep fitting.
+	return html`<span class="gl-graph__changes">${files}${renderChangesViz(mode, stats, stage !== 'full')}</span>`;
 }
 
 // The mode-specific magnitude visualization inside the Changes cell. Segment widths flow through
 // `cspStyleMap` (the graph webview's CSP forbids inline style attributes); colors come from graph.scss.
-function renderChangesViz(mode: ChangesColumnMode, stats: RowStats): TemplateResult {
+function renderChangesViz(mode: ChangesColumnMode, stats: RowStats, compact: boolean): TemplateResult {
 	const { additions, deletions } = stats;
 	switch (mode) {
 		case 'numbers':
-			// U+2212 MINUS SIGN (not an ASCII hyphen) so the deletions read as a true minus at this weight.
+			// One ellipsis unit (see graph.scss): additions lead and never clip, deletions clip once at the end
+			// rather than each side ellipsing on its own. U+2212 MINUS SIGN (not an ASCII hyphen) so the
+			// deletions read as a true minus at this weight. `compact` abbreviates long counts (1840 → 1.8k).
 			return html`<span class="gl-graph__changes-numbers"
-				><span class="gl-graph__changes-added">+${additions}</span
-				><span class="gl-graph__changes-deleted">−${deletions}</span></span
+				><span class="gl-graph__changes-added">+${formatChangesLines(additions, compact)}</span
+				><span class="gl-graph__changes-deleted">−${formatChangesLines(deletions, compact)}</span></span
 			>`;
 		case 'squares': {
 			const squares = computeChangesSquares(additions, deletions);
@@ -527,6 +561,45 @@ function renderChangesViz(mode: ChangesColumnMode, stats: RowStats): TemplateRes
 			></span>`;
 		}
 	}
+}
+
+// The icon-stage glyph — each mode collapses to a single ~16px mark centered in the cell. `bar`/`bipolar`
+// → a churn ring: one total-churn sweep (bar-scaled) split into an additions arc clockwise from 12 o'clock
+// and a deletions arc counter-clockwise, so add-vs-delete is carried by SIDE, not hue (grayscale-safe, no
+// notch). `squares` → the five diffstat cells wrapped around the ring (additions leading clockwise).
+// `numbers` → just the files count (the same figure that leads the wider cell). Plain spans only; conic
+// stops + segment colors ride `cspStyleMap` custom props.
+function renderChangesGlyph(mode: ChangesColumnMode, stats: RowStats): TemplateResult {
+	const { additions, deletions } = stats;
+
+	if (mode === 'numbers') {
+		return html`<span class="gl-graph__changes-files-count">${formatChangesFiles(stats.files)}</span>`;
+	}
+
+	if (mode === 'squares') {
+		// Fixed 72°-pitch ring geometry lives in graph.scss; only the five segment colors vary per row.
+		const squares = computeChangesSquares(additions, deletions);
+		const colors: Record<string, string> = {};
+		for (let i = 0; i < squares.length; i++) {
+			colors[`--s${i}`] = changesSquareColor(squares[i]);
+		}
+		return html`<span class="gl-graph__changes-segring" style=${cspStyleMap(colors)}></span>`;
+	}
+
+	// 'bar' + 'bipolar' — the churn ring. `--a` ends the additions arc, `--c` starts the deletions arc.
+	const { addDeg, delFromDeg } = computeChangesRingArcs(additions, deletions);
+	return html`<span
+		class="gl-graph__changes-ring"
+		style=${cspStyleMap({ '--a': `${addDeg.toFixed(2)}deg`, '--c': `${delFromDeg.toFixed(2)}deg` })}
+	></span>`;
+}
+
+function changesSquareColor(fill: ChangesSquareFill): string {
+	return fill === 'added'
+		? 'var(--color-graph-stats-added)'
+		: fill === 'deleted'
+			? 'var(--color-graph-stats-deleted)'
+			: 'var(--color-graph-stats-track)';
 }
 
 /**
