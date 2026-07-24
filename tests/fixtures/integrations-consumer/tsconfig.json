@@ -6,6 +6,7 @@
 		"strict": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
+		"types": ["node"],
 		"declaration": false,
 		"sourceMap": true,
 		"outDir": "dist",

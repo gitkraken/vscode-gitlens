@@ -1418,8 +1418,8 @@ export function fromProviderIssue(
 ): Issue {
 	return new Issue(
 		integration,
-		issue.id,
-		issue.graphQLId,
+		issue.number,
+		issue.graphQLId ?? issue.id,
 		issue.title,
 		issue.url ?? '',
 		issue.createdDate,
