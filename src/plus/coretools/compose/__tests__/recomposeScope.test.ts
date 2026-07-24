@@ -18,6 +18,7 @@ function makeSvc(opts: {
 		while (stack.length) {
 			const sha = stack.pop()!;
 			if (seen.has(sha)) continue;
+
 			seen.add(sha);
 			stack.push(...(commits[sha] ?? []));
 		}
@@ -48,8 +49,10 @@ function makeSvc(opts: {
 				while (stack.length) {
 					const sha = stack.pop()!;
 					if (seen.has(sha)) continue;
+
 					seen.add(sha);
 					if (reachableFromA.has(sha)) return sha;
+
 					stack.push(...(commits[sha] ?? []));
 				}
 				return undefined;
