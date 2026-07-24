@@ -104,6 +104,29 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 		assert.equal(roundTrip.description, 'PR body');
 	});
 
+	test('number and current-account authorship survive normalization', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				id: 'provider-global-id',
+				number: 42,
+				author: {
+					id: 'me',
+					name: 'Me',
+					email: null,
+					username: 'me',
+					avatarUrl: null,
+					url: null,
+				},
+			}),
+			fakeProvider,
+			{ currentAccountId: 'me' },
+		);
+
+		assert.equal(pr.number, 42, 'the provider-visible PR number is not derived from its opaque id');
+		assert.equal(pr.authoredByMe, true, 'authorship is resolved against the selected provider account');
+		assert.equal(toProviderPullRequest(pr).number, 42, 'the provider-visible number survives a round-trip');
+	});
+
 	test('remoteInfo is left null when a ref carries only a partial clone URL pair', () => {
 		const roundTrip = toProviderPullRequest(
 			fromProviderPullRequest(
