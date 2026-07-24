@@ -44,9 +44,13 @@ const hasPinnedContextScript = `(() => {
 	return JSON.stringify(match ? match[1] : null);
 })()`;
 
+// New Lit engine: the "Jump to Pinned Branch" affordance is a floating pill
+// (gl-lit-graph.ts renderPinnedPill) rendered only when a branch is pinned AND its row is scrolled
+// off-screen. It carries aria-label="Jump to Pinned Branch" / class gl-graph__pinned-pill. Its mere
+// presence in the DOM means it's shown (renderPinnedPill returns `nothing` otherwise).
 const hasPinButtonScript = `(() => {
 	function find(root) {
-		const btn = root.querySelector('.jump-to-pinned-branch');
+		const btn = root.querySelector('.gl-graph__pinned-pill, [aria-label="Jump to Pinned Branch"]');
 		if (btn) return true;
 		for (const el of root.querySelectorAll('*')) {
 			if (el.shadowRoot && find(el.shadowRoot)) return true;
@@ -121,6 +125,47 @@ const test = base.extend({
 				await git.checkout('branch-c');
 				await git.commit('Commit on branch-c', 'branch-c.txt', 'branch-c change');
 				await git.checkout('main');
+
+				return repoDir;
+			},
+		},
+		{ scope: 'worker' },
+	],
+});
+
+// A taller graph for the jump-to-pinned pill: the pill only renders when the pinned branch's row is
+// loaded AND scrolled off-screen (gl-lit-graph.updatePinnedPillDirection). The branch tips are created
+// first, then ~40 commits are added on `main`, so on open (scrolled to the top / newest main commits)
+// the branch rows sit far below the viewport — loaded, but off-screen — which is exactly the pill's
+// trigger. Kept separate from the small fixture above, whose tests read the on-screen branch row's
+// +pinned context and therefore need those rows rendered.
+const testTall = base.extend({
+	vscodeOptions: [
+		{
+			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
+			setup: async () => {
+				const repoDir = await createTmpDir();
+				const git = new GitFixture(repoDir);
+				await git.init();
+
+				await git.commit('Initial commit', 'test.txt', 'content');
+
+				// Branch tips first (each with its own commit → distinct row), then bury them under many
+				// newer main commits so they render off-screen when the graph opens at the top.
+				await git.branch('branch-a');
+				await git.branch('branch-b');
+				await git.branch('branch-c');
+				await git.checkout('branch-a');
+				await git.commit('Commit on branch-a', 'branch-a.txt', 'branch-a change');
+				await git.checkout('branch-b');
+				await git.commit('Commit on branch-b', 'branch-b.txt', 'branch-b change');
+				await git.checkout('branch-c');
+				await git.commit('Commit on branch-c', 'branch-c.txt', 'branch-c change');
+				await git.checkout('main');
+
+				for (let i = 1; i <= 40; i++) {
+					await git.commit(`Main commit ${i}`, `main-${i}.txt`, `main change ${i}`);
+				}
 
 				return repoDir;
 			},
@@ -247,41 +292,63 @@ test.describe('Graph — Pin Branch to Edge', () => {
 		const pinnedAfter = await getPinnedRef(graphWebview!);
 		expect(pinnedAfter).toBeNull();
 	});
+});
 
-	test('should show jump-to-pinned-branch button only when pinned', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
-			state: 6,
-			planId: 'pro',
-		});
+// The jump-to-pinned pill needs the pinned row off-screen, which requires a taller graph than the
+// tests above (whose small fixture keeps branch rows on-screen to read their +pinned context).
+testTall.describe('Graph — Pin Branch to Edge — jump-to-pinned pill', () => {
+	testTall.describe.configure({ mode: 'serial' });
 
-		await vscode.gitlens.showCommitGraphView();
-		const graphWebview = await vscode.gitlens.commitGraphViewWebview;
-		expect(graphWebview).not.toBeNull();
-		await vscode.page.waitForTimeout(3000);
-
-		expect(await hasPinButton(graphWebview!)).toBe(false);
-
-		const stateInfo = await getGraphState(graphWebview!);
-		expect(stateInfo).not.toBeNull();
-
-		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToEdge', {
-			webview: stateInfo!.webviewId,
-			webviewInstance: stateInfo!.webviewInstanceId,
-			webviewItem: 'gitlens:branch',
-			webviewItemValue: {
-				type: 'branch',
-				ref: {
-					refType: 'branch',
-					repoPath: stateInfo!.repoPath,
-					ref: 'branch-c',
-					name: 'branch-c',
-					id: `${stateInfo!.repoPath}|heads/branch-c`,
-					remote: false,
-				},
-			},
-		});
-		await vscode.page.waitForTimeout(1500);
-
-		expect(await hasPinButton(graphWebview!)).toBe(true);
+	testTall.afterEach(async ({ vscode }) => {
+		await vscode.gitlens.resetUI();
 	});
+
+	testTall(
+		'shows the jump-to-pinned pill only when a branch is pinned and its row is off-screen',
+		async ({ vscode }) => {
+			using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+
+			await vscode.gitlens.showCommitGraphView();
+			const graphWebview = await vscode.gitlens.commitGraphViewWebview;
+			expect(graphWebview).not.toBeNull();
+			await vscode.page.waitForTimeout(3000);
+
+			// Not pinned yet → no pill.
+			expect(await hasPinButton(graphWebview!)).toBe(false);
+
+			const stateInfo = await getGraphState(graphWebview!);
+			expect(stateInfo).not.toBeNull();
+
+			// Pin branch-c: buried under 40 newer main commits, so its row is loaded but far below the
+			// viewport when the graph opens at the top.
+			await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToEdge', {
+				webview: stateInfo!.webviewId,
+				webviewInstance: stateInfo!.webviewInstanceId,
+				webviewItem: 'gitlens:branch',
+				webviewItemValue: {
+					type: 'branch',
+					ref: {
+						refType: 'branch',
+						repoPath: stateInfo!.repoPath,
+						ref: 'branch-c',
+						name: 'branch-c',
+						id: `${stateInfo!.repoPath}|heads/branch-c`,
+						remote: false,
+					},
+				},
+			});
+			await vscode.page.waitForTimeout(1000);
+
+			// The pinned row's off-screen direction is (re)computed on scroll; nudge the graph by a small
+			// delta (which keeps branch-c off-screen) so the engine evaluates it and renders the pill.
+			await graphWebview!.locator(':root').evaluate(() => {
+				(
+					document.querySelector('gl-lit-graph') as unknown as { scrollByDelta?: (d: number) => void }
+				)?.scrollByDelta?.(120);
+			});
+
+			// Pinned + off-screen → the floating "Jump to Pinned Branch" pill is shown.
+			await expect.poll(() => hasPinButton(graphWebview!), { timeout: 10000 }).toBe(true);
+		},
+	);
 });
