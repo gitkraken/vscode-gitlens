@@ -112,8 +112,86 @@ function isGraphQLRepoNotFoundError(ex: unknown): boolean {
 	return ex instanceof Error && repoNotFoundMessage.test(ex.message);
 }
 
+const trelloBaseUrl = 'https://api.trello.com';
+
+type TrelloMemberResponse = {
+	id: string;
+	username?: string | null;
+	fullName?: string | null;
+	avatarHash?: string | null;
+	avatarUrl?: string | null;
+};
+
+type TrelloCardResponse = {
+	id: string;
+	idShort: number;
+	name: string;
+	url: string;
+	dateLastActivity: string;
+	idList?: string | null;
+	badges?: {
+		comments?: number | null;
+		votes?: number | null;
+	};
+	members?: TrelloMemberResponse[];
+	labels?: Array<{ color: string | null; id: string; name: string }>;
+};
+
+function getTrelloAuthHeaders(appKey: string, token: string): Record<string, string> {
+	return {
+		Authorization: `OAuth oauth_consumer_key="${appKey}", oauth_token="${token}"`,
+	};
+}
+
+function getTrelloMemberAvatarUrl(member: TrelloMemberResponse): string | null {
+	if (member.avatarUrl != null) return member.avatarUrl;
+	if (member.avatarHash == null) return null;
+
+	return `https://trello-members.s3.amazonaws.com/${member.id}/${member.avatarHash}/50.png`;
+}
+
+function fromTrelloCard(
+	card: TrelloCardResponse,
+	trelloBoardListsById: Record<string, { name: string }>,
+): ProviderIssue {
+	const createdDate = new Date(1000 * parseInt(card.id.substring(0, 8), 16));
+	const list = card.idList != null ? trelloBoardListsById[card.idList] : undefined;
+
+	return {
+		id: card.id,
+		commentCount: card.badges?.comments ?? null,
+		number: String(card.idShort),
+		title: card.name,
+		url: card.url,
+		closedDate: null,
+		createdDate: new Date(createdDate.toISOString()),
+		author: null,
+		updatedDate: new Date(card.dateLastActivity),
+		assignees: (card.members ?? []).map(member => ({
+			id: member.id,
+			username: member.username ?? null,
+			name: member.fullName ?? null,
+			email: null,
+			avatarUrl: getTrelloMemberAvatarUrl(member),
+			url: null,
+		})),
+		description: null,
+		state: list != null ? { id: card.idList!, name: list.name, color: null } : null,
+		type: null,
+		repository: null,
+		upvoteCount: card.badges?.votes ?? null,
+		labels: (card.labels ?? []).map(label => ({
+			color: label.color,
+			description: null,
+			id: label.id,
+			name: label.name,
+		})),
+	};
+}
+
 export class ProvidersApi {
 	private readonly providers: Providers;
+	private readonly request: ProviderRequestFunction;
 
 	constructor(private readonly authenticationService: IntegrationAuthenticationService) {
 		const http = authenticationService.ctx.http;
@@ -132,6 +210,7 @@ export class ProvidersApi {
 
 			return parseFetchResponseForApi<T>(response);
 		};
+		this.request = customFetch;
 		const providerApis = createProviderApis({ request: customFetch });
 		this.providers = {
 			[GitCloudHostIntegrationId.GitHub]: {
@@ -413,9 +492,8 @@ export class ProvidersApi {
 		return base64(`PAT:${oauthToken}`);
 	}
 
-	private async ensureProviderTokenAndFunction<T extends IntegrationIds>(
+	private async ensureProviderToken<T extends IntegrationIds>(
 		tokenOptInfo: TokenOptInfo<T>,
-		providerFn: keyof ProviderInfo,
 	): Promise<{ provider: ProviderInfo; tokenWithInfo: TokenWithInfo<T> }> {
 		const providerId = tokenOptInfo.providerId;
 		const provider = this.providers[providerId];
@@ -436,6 +514,16 @@ export class ProvidersApi {
 		if (tokenWithInfo == null) {
 			throw new Error(`Not connected to provider ${providerId}`);
 		}
+
+		return { provider: provider, tokenWithInfo: tokenWithInfo };
+	}
+
+	private async ensureProviderTokenAndFunction<T extends IntegrationIds>(
+		tokenOptInfo: TokenOptInfo<T>,
+		providerFn: keyof ProviderInfo,
+	): Promise<{ provider: ProviderInfo; tokenWithInfo: TokenWithInfo<T> }> {
+		const { provider, tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+		const providerId = tokenOptInfo.providerId;
 
 		if (provider[providerFn] == null) {
 			throw new Error(`Provider with id ${providerId} does not support function: ${providerFn}`);
@@ -1470,6 +1558,31 @@ export class ProvidersApi {
 			};
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	async getTrelloCard(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Trello>,
+		appKey: string,
+		cardId: string,
+		options?: { trelloBoardListsById?: Record<string, { name: string }> },
+	): Promise<ProviderIssue | undefined> {
+		const { tokenWithInfo } = await this.ensureProviderToken(tokenOptInfo);
+
+		try {
+			const result = await this.request<TrelloCardResponse>({
+				url: `${trelloBaseUrl}/1/cards/${encodeURIComponent(cardId)}?members=true`,
+				headers: getTrelloAuthHeaders(appKey, tokenWithInfo.accessToken),
+			});
+
+			return fromTrelloCard(result.body, options?.trelloBoardListsById ?? {});
+		} catch (e) {
+			try {
+				return this.handleProviderError<ProviderIssue | undefined>(tokenWithInfo, e);
+			} catch (ex) {
+				if (RequestNotFoundError.is(ex)) return undefined;
+				throw ex;
+			}
 		}
 	}
 
