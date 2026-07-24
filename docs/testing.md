@@ -88,10 +88,9 @@ onboarding flags into `state.vscdb` does not lift them.
 
 The harness detects the wall in `baseTest.ts` (`assertWorkbenchReachable`) and fails the worker fixture
 fast with a clear message, instead of letting each UI-driven spec burn its full click timeout. But
-fail-fast alone does not bound the job: a failed
-worker fixture can't be reused, so Playwright relaunches the editor for the _next_ test into the same
-wall, and `retries` multiplies that — the job still burns its wall-clock and gets cancelled with zero
-useful signal. So login-walled forks are **excluded from the CI matrix** entirely via `editors.ts`
+fail-fast alone does not bound the job: a failed worker fixture can't be reused, so Playwright relaunches
+the editor for the _next_ test into the same wall, and `retries` multiplies that — the job still burns its
+wall-clock and gets cancelled with zero useful signal. So login-walled forks are **excluded from the CI matrix** entirely via `editors.ts`
 `runInCI: false` (the single source of truth the CI matrix derives from). They stay `experimental` and
 registered for local `--project=<id>` runs on an authenticated machine — and only there does anything
 exercise. Note the wall gates _every_ spec, not just the UI-driven ones: the `mcp*` specs depend on the
