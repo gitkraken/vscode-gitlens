@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { createFakeRuntime } from '../../__tests__/fakeRuntime.js';
 import { GitCloudHostIntegrationId } from '../../constants.js';
-import { createIntegrationManager } from '../../index.js';
+import { createIntegrationService as createIntegrationManager } from '../../integrationService.js';
 
 async function seedBitbucketPrimaryConnection(runtime: ReturnType<typeof createFakeRuntime>) {
 	await runtime.storage.store('integrations:configured', {

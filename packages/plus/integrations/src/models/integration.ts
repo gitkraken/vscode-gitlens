@@ -50,12 +50,18 @@ export type IntegrationResult<T> =
 	| undefined;
 
 /**
- * Account-wide issue read result. `truncated` is a provider-native incompleteness signal with no cursor
- * (GitHub's per-category cap, an Azure per-project backstop); `metadata` optionally carries structured
- * per-scope failures from a fan-out (Azure across projects) so the facade maps them to scope-aware warnings
- * + `fetchFailed`. Both are absent for a complete single-scope read.
+ * Account-wide issue read result. `truncated` is a provider-native incompleteness signal (GitHub's search
+ * ceiling, an Azure per-project backstop); cursor-capable providers also expose `cursor`/`hasMore`/`page`.
+ * `metadata` optionally carries structured per-scope failures from a fan-out (Azure across projects).
  */
-export type AccountWideIssuesResult = { values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata };
+export type AccountWideIssuesResult = {
+	values: IssueShape[];
+	truncated: boolean;
+	metadata?: CollectionMetadata;
+	cursor?: string;
+	hasMore?: boolean;
+	page?: number;
+};
 
 /**
  * Options for the account-wide issue read. `includeAllAssignees` drops the "assigned to me" scoping so the
@@ -63,7 +69,7 @@ export type AccountWideIssuesResult = { values: IssueShape[]; truncated: boolean
  * {@link GitHostIntegration.getMyIssuesForReposResult}'s toggle). Authored/mentioned categories, where a
  * provider has them, stay user-relative — they're meaningless without a user.
  */
-export type SearchMyIssuesOptions = { includeAllAssignees?: boolean };
+export type SearchMyIssuesOptions = { includeAllAssignees?: boolean; cursor?: string };
 
 type SyncReqUsecase = Exclude<
 	| 'getAccountForCommit'
@@ -621,12 +627,8 @@ export abstract class IntegrationBase<
 	): Promise<IssueShape[] | undefined>;
 
 	/**
-	 * Truncation-aware variant of {@link searchProviderMyIssues}. The default wraps the normalized read and
-	 * reports `truncated: false`; a provider whose account-wide search is capped without a cursor (GitHub)
-	 * overrides this to report when the read is incomplete, so the facade can surface it instead of publishing
-	 * a partial list as complete. `metadata` optionally carries structured per-scope failures from a fan-out
-	 * (Azure across projects) so the facade can warn on the failed scope and set `fetchFailed`; providers with
-	 * no fan-out (GitHub) leave it undefined.
+	 * Paging/truncation-aware variant of {@link searchProviderMyIssues}. The default wraps the normalized read
+	 * as a complete single page; providers with native cursors or fan-out metadata override it.
 	 */
 	protected async searchProviderMyIssuesWithTruncation(
 		session: ProviderAuthenticationSession,

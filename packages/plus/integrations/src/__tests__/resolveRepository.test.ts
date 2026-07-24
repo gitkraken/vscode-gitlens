@@ -9,7 +9,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
 import { AuthenticationError, RequestNotFoundError } from '../errors.js';
-import { createIntegrationManager } from '../index.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { ProviderRepository } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
@@ -18,7 +18,7 @@ import { createFakeRuntime } from './fakeRuntime.js';
 /**
  * Verifies `resolveRepository` (#5438): remote-URL → provider identity for every git host with a
  * `getRepo` client, config-driven custom-domain matching, and status mapping (resolved / not-found /
- * error / no-connection / unsupported) driven by the real per-provider `getRepoInfo` override.
+ * undetermined / unauthorized / unsupported-provider) driven by the real per-provider `getRepoInfo` override.
  */
 
 function primarySession(token: string, domain: string): ProviderAuthenticationSession {
@@ -209,10 +209,10 @@ suite('resolveRepository (#5438)', () => {
 		const manager = createIntegrationManager(runtime);
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://ghe.example.com/org/repo.git' });
-		// The custom domain matched → GHE inferred; unconnected here, so it degrades to no-connection
-		// (NOT unsupported, which would mean the matcher failed to recognize the host).
-		assert.notEqual(result.resolution.status, 'unsupported');
-		assert.equal(result.resolution.status, 'no-connection');
+		// The custom domain matched → GHE inferred; unconnected here, so it degrades to unauthorized
+		// (NOT unsupported-provider, which would mean the matcher recognized but cannot serve the host).
+		assert.notEqual(result.resolution.status, 'unsupported-provider');
+		assert.equal(result.resolution.status, 'unauthorized');
 
 		manager.dispose();
 	});
@@ -220,13 +220,13 @@ suite('resolveRepository (#5438)', () => {
 	test('matches a regex-based custom remote via getRemoteConfigs (not unsupported)', async () => {
 		const runtime = createFakeRuntime();
 		// A custom remote configured with `regex` (no `domain`) must still reach the matcher; otherwise the
-		// host resolves as `unsupported`.
+		// host resolves as `invalid-remote-url`.
 		runtime.config.getRemoteConfigs = () => [{ type: 'github', regex: 'ghe\\.example\\.com' }];
 		const manager = createIntegrationManager(runtime);
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://ghe.example.com/org/repo.git' });
-		assert.notEqual(result.resolution.status, 'unsupported');
-		assert.equal(result.resolution.status, 'no-connection');
+		assert.notEqual(result.resolution.status, 'invalid-remote-url');
+		assert.equal(result.resolution.status, 'unauthorized');
 
 		manager.dispose();
 	});
@@ -247,23 +247,50 @@ suite('resolveRepository (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('a self-managed connection for another host maps to host-mismatch', async () => {
+		const runtime = createFakeRuntime();
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ghe-a',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'https://ghe-a.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		const manager = createIntegrationManager(runtime);
+
+		const result = await manager.resolveRepository({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			connectionId: 'ghe-a',
+			remoteUrl: 'https://ghe-b.example.com/org/repo.git',
+		});
+		assert.equal(result.resolution.status, 'host-mismatch');
+		assert.equal(result.cliUnsupported, false);
+
+		manager.dispose();
+	});
+
 	test('an issue-tracker providerId is unsupported (no getRepo client)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const result = await manager.resolveRepository({
 			providerId: IssuesCloudHostIntegrationId.Jira,
 			remoteUrl: 'https://github.com/octocat/hello.git',
 		});
-		assert.equal(result.resolution.status, 'unsupported');
-		assert.equal(result.cliUnsupported, true);
+		assert.equal(result.resolution.status, 'unsupported-provider');
+		assert.equal(result.cliUnsupported, false);
 
 		manager.dispose();
 	});
 
-	test('an unparseable / unmatched URL is unsupported', async () => {
+	test('an unparseable / unmatched URL is invalid without disabling the resolver capability', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const result = await manager.resolveRepository({ remoteUrl: 'not a url' });
-		assert.equal(result.resolution.status, 'unsupported');
-		assert.equal(result.cliUnsupported, true);
+		assert.equal(result.resolution.status, 'invalid-remote-url');
+		assert.equal(result.cliUnsupported, false);
 
 		manager.dispose();
 	});
@@ -280,7 +307,7 @@ suite('resolveRepository (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('an auth failure maps to error with an auth warning', async () => {
+	test('an auth failure maps to unauthorized with an auth warning', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
 		stubGetRepo(gh, () =>
@@ -296,21 +323,21 @@ suite('resolveRepository (#5438)', () => {
 		);
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
-		assert.equal(result.resolution.status, 'error');
+		assert.equal(result.resolution.status, 'unauthorized');
 		assert.equal(result.resolution.warning?.kind, 'auth');
 		assert.equal(result.resolution.warning?.isAuth, true);
 
 		manager.dispose();
 	});
 
-	test('a connected-but-no-session read degrades to no-connection', async () => {
+	test('a connected-but-no-session read degrades to unauthorized', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		// Do NOT set a session: getRepoInfo resolves no session and returns undefined.
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		stubGetRepo(gh, () => Promise.resolve(repoResult));
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
-		assert.equal(result.resolution.status, 'no-connection');
+		assert.equal(result.resolution.status, 'unauthorized');
 
 		manager.dispose();
 	});
@@ -381,7 +408,7 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 		});
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
-		assert.equal(result.resolution.status, 'error');
+		assert.equal(result.resolution.status, 'undetermined');
 		assert.notEqual(result.resolution.warning, undefined);
 
 		manager.dispose();
@@ -399,7 +426,7 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 		});
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/secret.git' });
-		assert.equal(result.resolution.status, 'error');
+		assert.equal(result.resolution.status, 'undetermined');
 		assert.notEqual(result.resolution.warning, undefined);
 
 		manager.dispose();
@@ -422,7 +449,7 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 		});
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
-		assert.equal(result.resolution.status, 'error');
+		assert.equal(result.resolution.status, 'undetermined');
 		assert.notEqual(result.resolution.warning, undefined);
 
 		manager.dispose();
@@ -450,7 +477,7 @@ suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
 		});
 
 		const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/group/proj.git' });
-		assert.equal(result.resolution.status, 'error');
+		assert.equal(result.resolution.status, 'undetermined');
 		assert.notEqual(result.resolution.warning, undefined);
 
 		manager.dispose();

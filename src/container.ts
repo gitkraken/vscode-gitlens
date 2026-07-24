@@ -11,8 +11,8 @@ import {
 	getSupportedWorkspacesStorageProvider,
 	setTelemetryService,
 } from '@env/providers.js';
-import type { IntegrationManager } from '@gitlens/integrations/index.js';
-import { createIntegrationManager } from '@gitlens/integrations/index.js';
+import { createIntegrationService } from '@gitlens/integrations/integrationService.js';
+import type { IntegrationService } from '@gitlens/integrations/integrationService.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -99,8 +99,7 @@ export class Container {
 	static #proxy = new Proxy<Container>({} as Container, {
 		get: function (_target, prop) {
 			// In case anyone has cached this instance
-			// oxlint-disable-next-line typescript/no-unsafe-return
-			if (Container.#instance != null) return (Container.#instance as any)[prop];
+			if (Container.#instance != null) return Container.#instance[prop as keyof Container];
 
 			// Allow access to config before we are initialized
 			if (prop === 'config') return configuration.getAll();
@@ -616,10 +615,10 @@ export class Container {
 		return this._integrationContext;
 	}
 
-	private _integrations: IntegrationManager | undefined;
-	get integrations(): IntegrationManager {
+	private _integrations: IntegrationService | undefined;
+	get integrations(): IntegrationService {
 		if (this._integrations == null) {
-			this._disposables.push((this._integrations = createIntegrationManager(this.integrationContext)));
+			this._disposables.push((this._integrations = createIntegrationService(this.integrationContext)));
 		}
 		return this._integrations;
 	}

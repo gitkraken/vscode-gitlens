@@ -4,7 +4,7 @@ import type { Issue } from '@gitlens/git/models/issue.js';
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
-import { createIntegrationManager } from '../index.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderIssue } from '../providers/models.js';
 import {

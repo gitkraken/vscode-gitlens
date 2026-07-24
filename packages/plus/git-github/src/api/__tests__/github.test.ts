@@ -348,14 +348,18 @@ suite('GitHubApi.searchMyIssues', () => {
 
 	// Captures the GraphQL variables of the single searchMyIssues request and returns empty result sets so the
 	// method resolves; each category exposes `issueCount: 0` so the read is never reported truncated.
-	function captureVariables(): { config: GitHubApiConfig; getVariables: () => Record<string, string> } {
-		let variables: Record<string, string> = {};
+	function captureVariables(): { config: GitHubApiConfig; getVariables: () => Record<string, unknown> } {
+		let variables: Record<string, unknown> = {};
 		const config: GitHubApiConfig = {
 			isWeb: false,
 			fetch: async (_url: unknown, init?: { body?: string }) => {
-				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, string> };
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, unknown> };
 				variables = body.variables ?? {};
-				const empty = { issueCount: 0, nodes: [] };
+				const empty = {
+					issueCount: 0,
+					pageInfo: { endCursor: null, hasNextPage: false },
+					nodes: [],
+				};
 				return new Response(JSON.stringify({ data: { authored: empty, assigned: empty, mentioned: empty } }), {
 					status: 200,
 					headers: { 'content-type': 'application/json' },
@@ -373,9 +377,9 @@ suite('GitHubApi.searchMyIssues', () => {
 		await api.searchMyIssues(provider, token, {});
 
 		const vars = getVariables();
-		assert.match(vars.assigned, /assignee:@me/);
-		assert.match(vars.authored, /author:@me/);
-		assert.match(vars.mentioned, /mentions:@me/);
+		assert.match(String(vars.assigned), /assignee:@me/);
+		assert.match(String(vars.authored), /author:@me/);
+		assert.match(String(vars.mentioned), /mentions:@me/);
 	});
 
 	test('broadens the assigned category to any assignee when includeAllAssignees is set, keeping authored/mentioned user-relative', async () => {
@@ -385,9 +389,67 @@ suite('GitHubApi.searchMyIssues', () => {
 		await api.searchMyIssues(provider, token, { includeAllAssignees: true });
 
 		const vars = getVariables();
-		assert.match(vars.assigned, /assignee:\*/, 'assigned broadens to has-any-assignee');
-		assert.doesNotMatch(vars.assigned, /assignee:@me/, 'the @me binding is dropped from the assigned category');
-		assert.match(vars.authored, /author:@me/, 'authored stays user-relative');
-		assert.match(vars.mentioned, /mentions:@me/, 'mentioned stays user-relative');
+		assert.match(String(vars.assigned), /assignee:\*/, 'assigned broadens to has-any-assignee');
+		assert.doesNotMatch(
+			String(vars.assigned),
+			/assignee:@me/,
+			'the @me binding is dropped from the assigned category',
+		);
+		assert.match(String(vars.authored), /author:@me/, 'authored stays user-relative');
+		assert.match(String(vars.mentioned), /mentions:@me/, 'mentioned stays user-relative');
+	});
+
+	test('pages each issue category independently with an opaque composite cursor', async () => {
+		const variables: Record<string, unknown>[] = [];
+		let request = 0;
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, unknown> };
+				variables.push(body.variables ?? {});
+				const terminal = {
+					issueCount: 0,
+					pageInfo: { endCursor: null, hasNextPage: false },
+					nodes: [],
+				};
+				const data =
+					request++ === 0
+						? {
+								authored: terminal,
+								assigned: {
+									issueCount: 101,
+									pageInfo: { endCursor: 'assigned-next', hasNextPage: true },
+									nodes: [],
+								},
+								mentioned: terminal,
+							}
+						: {
+								assigned: {
+									issueCount: 101,
+									pageInfo: { endCursor: null, hasNextPage: false },
+									nodes: [],
+								},
+							};
+				return new Response(JSON.stringify({ data: data }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		const api = new GitHubApi(config);
+
+		const first = await api.searchMyIssues(provider, token, {});
+		assert.equal(first?.hasMore, true);
+		assert.equal(first?.page, 1);
+		assert.ok(first?.cursor);
+
+		const second = await api.searchMyIssues(provider, token, { cursor: first?.cursor });
+		assert.equal(second?.hasMore, false);
+		assert.equal(second?.page, 2);
+		assert.equal(variables[1].assignedCursor, 'assigned-next');
+		assert.equal(variables[1].includeAssigned, true);
+		assert.equal(variables[1].includeAuthored, false);
+		assert.equal(variables[1].includeMentioned, false);
 	});
 });

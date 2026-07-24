@@ -8,18 +8,11 @@
 // IntegrationAuthenticationService, etc.) are not part of the public API and
 // may be refactored without semver bumps.
 
-import { CloudIntegrationService } from './authentication/cloudIntegrationService.js';
-import { ConfiguredIntegrationService } from './authentication/configuredIntegrationService.js';
-import { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService.js';
 import type { IntegrationServiceContext } from './context.js';
-import { IntegrationService } from './integrationService.js';
+import { createIntegrationService } from './integrationService.js';
+import type { IntegrationManager } from './manager.js';
 
-/**
- * The public manager — what consumers get back from
- * {@link createIntegrationManager}. Identical shape to {@link IntegrationService}
- * for now (we may narrow this surface in a future major).
- */
-export type IntegrationManager = IntegrationService;
+export type { IntegrationManager, ProviderRepositoriesInput, ProviderRepositoryInput } from './manager.js';
 
 /**
  * Construct an `@gitlens/integrations` manager bound to the supplied runtime.
@@ -34,41 +27,7 @@ export type IntegrationManager = IntegrationService;
  * own VS Code subscriptions.
  */
 export function createIntegrationManager(ctx: IntegrationServiceContext): IntegrationManager {
-	const configured = new ConfiguredIntegrationService(ctx);
-	// The cloud token-exchange client is a pure package service (needs only `ctx`); construct it here
-	// rather than round-tripping through a host hook.
-	const cloud = new CloudIntegrationService(ctx);
-	// Cloud auth providers need to (re)initiate the connect flow that lives on the service, but the
-	// service is constructed after the auth service (it depends on it). Break the cycle here at the
-	// composition root with a lazy, readonly accessor — preserving constructor injection while
-	// keeping the flow in-package (no host round-trip).
-	let service: IntegrationService;
-	const auth = new IntegrationAuthenticationService(configured, ctx, () => service, cloud);
-	service = new IntegrationService(auth, configured, ctx);
-	// One-time cleanup of storage left behind by integration ids retired in the cloud-only refactor (the
-	// local self-managed `github-enterprise`/`gitlab-self-hosted` providers). Best-effort and guarded so it
-	// runs once; a no-op for consumers that never stored those ids.
-	void purgeRetiredIntegrationStorage(ctx, configured);
-	return service;
-}
-
-const retiredIntegrationsStorageKey = 'integrations:migrated:cloudOnly';
-async function purgeRetiredIntegrationStorage(
-	ctx: IntegrationServiceContext,
-	configured: ConfiguredIntegrationService,
-): Promise<void> {
-	if (ctx.storage.get<boolean>(retiredIntegrationsStorageKey)) return;
-
-	try {
-		await configured.purgeStoredConfiguration(['github-enterprise', 'gitlab-self-hosted']);
-		// Only mark the migration done once the purge fully succeeds. A partial/failed purge stays
-		// un-flagged so it retries (idempotently) on the next startup, rather than orphaning the
-		// retired-id config/secrets forever.
-		await ctx.storage.store(retiredIntegrationsStorageKey, true);
-	} catch {
-		// Best-effort cleanup: swallow so the failure doesn't reject the fire-and-forget caller; the
-		// unset flag guarantees a retry next startup.
-	}
+	return createIntegrationService(ctx);
 }
 
 // Re-exports for the public API surface.
@@ -84,11 +43,8 @@ export type {
 	IntegrationServiceHooks,
 	IntegrationStorageProvider,
 } from './context.js';
-export type { ApiClients } from './providers/apiClients.js';
 export type { Source } from './telemetry.js';
 export type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.js';
-export type { ConnectionStateChangeEvent, IntegrationConnectionChangeEvent } from './integrationService.js';
-export type { SearchMyPullRequestsOptions } from './models/gitHostIntegration.js';
 export type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 
 // Authentication contract — what `IntegrationServiceHooks.createAuthenticationProvider`
@@ -131,26 +87,22 @@ export {
 // Neutral pagination + warning result types the Kepler ProviderBackend adapter maps to its own DTOs.
 // These carry no `@gitkraken/provider-apis` types, so consumers depend only on `@gitkraken/core-gitlens`.
 export type {
+	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
 	ProviderPagedResult,
 	ProviderPageInfo,
 	ProviderResult,
 	ProviderSweepResult,
 	ProviderWarning,
+	ProviderOrganization,
+	ProviderRepositoryShape,
 	RepositoryIdentity,
 	RepositoryResolution,
 	RepositoryResolutionStatus,
 	ResolveRepositoryResult,
 } from './results.js';
-// GitLens-owned item shapes surfaced by the org/repo discovery read methods (`listOrgs`/`listProjects`/
-// `listRepos`). These carry no `@gitkraken/provider-apis` types, so consumers depend only on
-// `@gitkraken/core-gitlens`. PR/issue reads surface `PullRequestShape`/`IssueShape` from
-// `@gitlens/git/models` (reached via the `@gitkraken/core-gitlens/git/models/*` subpath), mirroring how
-// issues are already exposed; the raw provider-apis PR/repo/account/issue types are intentionally not
-// re-exported here.
-export type { ProviderOrganization, ProviderRepositoryShape } from './providers/models.js';
 // Runtime enums — re-exported as values (not `export type`) so consumers can read their members.
-export { IssueFilter, PullRequestFilter } from './providers/models.js';
+export { IssueFilter, PullRequestFilter } from './providerFilters.js';
 // Cross-provider PR/issue state filters (string unions in the git models).
 export type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 export type { IssueStateFilter } from '@gitlens/git/models/issue.js';

@@ -21,7 +21,7 @@ import {
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
 import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
-import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
+import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import type { IntegrationResult } from '@gitlens/integrations/models/integration.js';
 import { isMaybeGitHubPullRequestUrl } from '@gitlens/integrations/providers/github/github.utils.js';
