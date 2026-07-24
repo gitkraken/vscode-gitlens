@@ -17,6 +17,8 @@ interface TokenBackend {
 	connections: unknown;
 	/** Per-path token responses; return null to simulate a failed/absent token. */
 	token: (path: string) => unknown;
+	/** HTTP status for a failed token fetch (token() returned null). Defaults to 500 (transient). */
+	errorStatus?: number;
 }
 
 function createManager(backend: TokenBackend) {
@@ -32,7 +34,7 @@ function createManager(backend: TokenBackend) {
 		} else if (path.startsWith('v1/provider-tokens/')) {
 			const data = backend.token(path);
 			if (data == null) {
-				status = 500;
+				status = backend.errorStatus ?? 500;
 				payload = { error: 'boom' };
 			} else {
 				payload = { data: data };
@@ -910,13 +912,15 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
-	test('a failed forced re-sync drops the connection instead of leaving it token-less (#5497)', async () => {
-		// The backend still lists the connection (state = 'connected'), but every token fetch fails (500). A
-		// forced re-sync deletes the cloud secret up front while preserving the descriptor; the replacement
-		// fetch then fails. The descriptor (and its secret) must not be left behind reported as connected.
+	test('a terminal forced re-sync failure drops the connection instead of leaving it token-less (#5497)', async () => {
+		// The backend still lists the connection (state = 'connected'), but the token fetch fails terminally
+		// (404 — the token is genuinely gone). A forced re-sync deletes the cloud secret up front while
+		// preserving the descriptor; the replacement fetch then fails terminally. The descriptor (and its
+		// secret) must not be left behind reported as connected.
 		const { runtime, manager } = createManager({
 			connections: [{ tokenId: 'p1', provider: 'github', type: 'oauth', domain: 'github.com' }],
-			token: () => null, // every token fetch fails
+			token: () => null, // the token is gone
+			errorStatus: 404, // terminal: the connection no longer has a fetchable token
 		});
 		await runtime.storage.store('integrations:configured', {
 			github: [{ id: 'p1', cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
@@ -931,11 +935,61 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		assert.deepEqual(
 			manager.getConfigured(GitCloudHostIntegrationId.GitHub),
 			[],
-			'the token-less descriptor is removed after the failed forced re-sync',
+			'the token-less descriptor is removed after the terminal forced re-sync failure',
 		);
 		assert.ok(
 			(await runtime.storage.getSecret('integration.auth.cloud:github|p1')) == null,
 			'the deleted cloud secret is not restored',
+		);
+
+		manager.dispose();
+	});
+
+	test('a transient forced re-sync failure preserves the connection so it self-heals (#5569)', async () => {
+		// The backend still lists the connection, but the token fetch fails transiently (503). A forced re-sync
+		// deletes the cloud secret up front while preserving the descriptor; the replacement fetch then fails
+		// transiently. Unlike the terminal case (#5497), the descriptor must be KEPT so a healthy integration
+		// isn't disconnected by a momentary backend blip — it self-heals on the next successful sync (#5569).
+		let failing = true;
+		const { runtime, manager } = createManager({
+			connections: [{ tokenId: 'p1', provider: 'github', type: 'oauth', domain: 'github.com' }],
+			token: () =>
+				failing
+					? null
+					: { tokenId: 'p1', accessToken: 'fresh-p1', expiresIn: 3600, scopes: 'repo', type: 'oauth' },
+			errorStatus: 503, // transient: the backend momentarily can't serve the token
+		});
+		await runtime.storage.store('integrations:configured', {
+			github: [{ id: 'p1', cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|p1',
+			JSON.stringify({ id: 'p1', accessToken: 'old-p1', scopes: ['repo'], cloud: true, type: 'oauth' }),
+		);
+
+		await manager.refreshConnections();
+
+		assert.deepEqual(
+			manager.getConfigured(GitCloudHostIntegrationId.GitHub).map(c => c.id),
+			['p1'],
+			'the descriptor is preserved through a transient failure (not dropped)',
+		);
+
+		// The backend recovers: the next sync fetches a fresh token and re-hydrates the secret.
+		failing = false;
+		await manager.refreshConnections();
+
+		assert.deepEqual(
+			manager.getConfigured(GitCloudHostIntegrationId.GitHub).map(c => c.id),
+			['p1'],
+			'the connection is still configured after recovery',
+		);
+		const secret = await runtime.storage.getSecret('integration.auth.cloud:github|p1');
+		assert.ok(secret != null, 'the cloud secret is restored on the next successful sync (self-heal)');
+		assert.equal(
+			(JSON.parse(secret) as { accessToken: string }).accessToken,
+			'fresh-p1',
+			'the restored secret holds the freshly fetched token',
 		);
 
 		manager.dispose();
