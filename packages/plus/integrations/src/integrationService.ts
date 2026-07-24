@@ -16,11 +16,10 @@ import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { filterMap, flatten } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import type {
-	ConfiguredIntegrationsChangeEvent,
-	ConfiguredIntegrationService,
-} from './authentication/configuredIntegrationService.js';
-import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService.js';
+import { CloudIntegrationService } from './authentication/cloudIntegrationService.js';
+import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
+import { ConfiguredIntegrationService } from './authentication/configuredIntegrationService.js';
+import { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService.js';
 import type {
 	CloudIntegrationConnection,
 	ConfiguredIntegrationDescriptor,
@@ -31,6 +30,7 @@ import {
 	isSupportedCloudIntegrationId,
 	toIntegrationId,
 } from './authentication/models.js';
+import { mergeAssessmentInto } from './collectionMetadata.js';
 import type {
 	CloudGitSelfManagedHostIntegrationIds,
 	IntegrationIds,
@@ -44,7 +44,7 @@ import {
 	supportedOrderedCloudIssuesIntegrationIds,
 } from './constants.js';
 import type { AuthenticationSessionsChangeEvent, IntegrationServiceContext } from './context.js';
-import { RequestNotFoundError } from './errors.js';
+import { AuthenticationError, RequestNotFoundError } from './errors.js';
 import type { GitHostIntegration, SearchMyPullRequestsOptions } from './models/gitHostIntegration.js';
 import type {
 	Integration,
@@ -75,6 +75,7 @@ import {
 import type { ProvidersApi } from './providers/providersApi.js';
 import { mergeCollectionMetadata, parsePageCursor, toPageCursor } from './providers/utils/providerPaging.js';
 import type {
+	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
 	ProviderPagedResult,
 	ProviderPageInfo,
@@ -85,7 +86,7 @@ import type {
 	RepositoryResolution,
 	ResolveRepositoryResult,
 } from './results.js';
-import { appendDedupedWarning, mergeAssessmentInto, toProviderWarning } from './results.js';
+import { appendDedupedWarning, toProviderWarning } from './results.js';
 import type { Source } from './telemetry.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
@@ -95,11 +96,6 @@ import {
 	isGitSelfManagedHostIntegrationId,
 	isNonExpiringZeroTokenIntegrationId,
 } from './utils/integration.utils.js';
-
-export interface ConnectionStateChangeEvent {
-	key: string;
-	reason: 'connected' | 'disconnected';
-}
 
 /** @internal Event emitted when an integration connection state changes  */
 export interface IntegrationConnectionChangeEvent extends ConnectionStateChangeEvent {
@@ -831,12 +827,19 @@ export class IntegrationService implements Disposable {
 	 * error: the requested `connectionId` no longer resolves (deleted, or its authentication is invalid).
 	 * Consumers use this to tell a truly empty account apart from a broken connection.
 	 */
-	private noConnectionWarning(id: IntegrationIds, domain: string | undefined, connectionId: string): ProviderWarning {
+	private noConnectionWarning(
+		id: IntegrationIds,
+		domain: string | undefined,
+		connectionId?: string,
+	): ProviderWarning {
 		return {
 			providerId: id,
 			domain: domain,
 			connectionId: connectionId,
-			message: `Connection '${connectionId}' for '${id}' could not be resolved (deleted or invalid authentication).`,
+			message:
+				connectionId != null
+					? `Connection '${connectionId}' for '${id}' could not be resolved (deleted or invalid authentication).`
+					: `No active connection for '${id}' could be resolved.`,
 			kind: 'no-connection',
 			isAuth: false,
 		};
@@ -1747,7 +1750,7 @@ export class IntegrationService implements Disposable {
 	 * issues (translating `page` ↔ the provider's opaque cursor) and maps the raw provider issues to shapes.
 	 * With no `repos`, reads the current user's issues account-wide — the repo-scoped core rejects an empty
 	 * `repos` input for GitHub/Bitbucket/Azure, so route to the account-wide `searchMyIssues` core instead
-	 * (which is already user-scoped and returns shapes, but is a single unpaginated fan-out).
+	 * (which is already user-scoped and returns shapes; cursor-capable providers remain pageable).
 	 */
 	async listIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -1819,13 +1822,42 @@ export class IntegrationService implements Disposable {
 			}
 
 			// The repo-scoped core rejects empty repos (GitHub/Bitbucket/Azure); read the account-wide,
-			// already-user-scoped core instead. It returns normalized shapes and no resumable cursor, so this
-			// is reported as a single page — with `page.truncated` when the provider's search is capped.
-			const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-				integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId, {
-					includeAllAssignees: options.includeAllAssignees,
-				}),
-			);
+			// already-user-scoped core instead. GitHub exposes a composite cursor across its authored,
+			// assigned, and mentioned searches. Walk it internally when the caller supplies only page N.
+			const readAccountWidePage = (cursor: string | undefined) =>
+				this.runCaptured(options.providerId, domain, options.connectionId, () =>
+					integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId, {
+						includeAllAssignees: options.includeAllAssignees,
+						cursor: cursor,
+					}),
+				);
+			let { value, warning } = await readAccountWidePage(options.cursor);
+			if (options.cursor == null && page > 1 && value != null) {
+				let currentPage = value.page ?? 1;
+				while (currentPage < page && value.hasMore && value.cursor != null) {
+					const next = await readAccountWidePage(value.cursor);
+					value = next.value;
+					warning = next.warning;
+					if (value == null) break;
+
+					currentPage = value.page ?? currentPage + 1;
+				}
+
+				// A numbered page beyond the provider's terminal cursor is genuinely empty. Never return or
+				// relabel the last available page as the requested one.
+				if (value != null && currentPage < page) {
+					return {
+						items: [],
+						warnings: [],
+						page: {
+							currentPage: page,
+							itemsPerPage: 0,
+							truncated: value.truncated || undefined,
+						},
+						hasMore: false,
+					};
+				}
+			}
 
 			// GitHub, GitLab, and Azure implement an account-wide issue search; a provider that doesn't (Bitbucket
 			// exposes no issues at all, and `supportsIssues` already short-circuits it above) returns `undefined`
@@ -1880,8 +1912,13 @@ export class IntegrationService implements Disposable {
 			return {
 				items: items,
 				warnings: warnings,
-				page: { currentPage: 1, itemsPerPage: items.length, truncated: truncated || undefined },
-				hasMore: false,
+				page: {
+					currentPage: value?.page ?? (options.cursor != null ? page : 1),
+					itemsPerPage: items.length,
+					truncated: truncated || undefined,
+				},
+				hasMore: value?.hasMore ?? false,
+				cursor: value?.cursor,
 				fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
 			};
 		}
@@ -2325,11 +2362,13 @@ export class IntegrationService implements Disposable {
 		filters: PullRequestFilter[] | undefined,
 		connectionId: string | undefined,
 		maxPages: number,
+		attributeUnavailableProvider: boolean,
 	): Promise<{
 		items: ProviderPullRequest[];
 		warnings: ProviderWarning[];
 		fetchFailed: boolean;
 		truncated: boolean;
+		failedProvider: boolean;
 	}> {
 		const items: ProviderPullRequest[] = [];
 		const warnings: ProviderWarning[] = [];
@@ -2369,12 +2408,19 @@ export class IntegrationService implements Disposable {
 				appendDedupedWarning(warnings, warning);
 			}
 			if (value == null) {
+				const unavailable = warning == null && attributeUnavailableProvider;
+				if (unavailable) {
+					appendDedupedWarning(warnings, this.noConnectionWarning(id, domain, connectionId));
+				}
 				// `warning` set → a hard read failure (incomplete items); otherwise not connected / no session.
 				return {
 					items: items,
 					warnings: warnings,
-					fetchFailed: fetchFailed || warning != null,
+					fetchFailed: fetchFailed || warning != null || unavailable,
 					truncated: false,
+					// Only a top-level first-page rejection means the provider itself failed. A later-page or
+					// per-scope failure still yielded a usable provider slice and stays represented separately.
+					failedProvider: page === 1 && (warning != null || unavailable),
 				};
 			}
 
@@ -2400,18 +2446,36 @@ export class IntegrationService implements Disposable {
 				if (truncated && !assessment.truncated) {
 					appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Pull request'));
 				}
-				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: truncated };
+				return {
+					items: items,
+					warnings: warnings,
+					fetchFailed: fetchFailed,
+					truncated: truncated,
+					failedProvider: false,
+				};
 			}
 			if (page >= maxPages) {
 				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Pull request'));
-				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
+				return {
+					items: items,
+					warnings: warnings,
+					fetchFailed: fetchFailed,
+					truncated: true,
+					failedProvider: false,
+				};
 			}
 
 			const nextCursor = value.paging?.cursor;
 			if (nextCursor == null || nextCursor === '{}') {
 				// Provider says there is more but didn't return a usable cursor; stop rather than refetch the same page.
 				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Pull request'));
-				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
+				return {
+					items: items,
+					warnings: warnings,
+					fetchFailed: fetchFailed,
+					truncated: true,
+					failedProvider: false,
+				};
 			}
 
 			cursor = nextCursor;
@@ -2512,6 +2576,7 @@ export class IntegrationService implements Disposable {
 		maxPages?: number;
 	}): Promise<ProviderSweepResult<PullRequestShape>> {
 		const ids = options?.providerIds ?? supportedOrderedCloudIntegrationIds;
+		const attributeUnavailableProviders = options?.providerIds != null;
 		const singleProvider = ids.length === 1;
 		const maxPages = options?.maxPages ?? 100;
 		const repos = options?.repos ?? [];
@@ -2524,12 +2589,17 @@ export class IntegrationService implements Disposable {
 					// A requested connection that can't be resolved is a broken connection — surface it as a
 					// warning + fetchFailed rather than dropping the provider's slice silently.
 					const early = this.earlyReturnConnectionWarnings(id, connectionId);
-					if (early.warnings.length === 0) return undefined;
+					if (early.warnings.length === 0 && !attributeUnavailableProviders) return undefined;
 					return {
 						items: [] as PullRequestShape[],
-						warnings: early.warnings,
+						warnings:
+							early.warnings.length !== 0
+								? early.warnings
+								: [this.noConnectionWarning(id, undefined, connectionId)],
 						fetchFailed: true,
 						truncated: false,
+						providerId: id,
+						failedProvider: true,
 					};
 				}
 				if (isIssuesIntegration(integration)) return undefined;
@@ -2548,6 +2618,8 @@ export class IntegrationService implements Disposable {
 						warnings: [this.unsupportedFiltersWarning(id, domain, connectionId)],
 						fetchFailed: true,
 						truncated: false,
+						providerId: id,
+						failedProvider: true,
 					};
 				}
 
@@ -2560,15 +2632,21 @@ export class IntegrationService implements Disposable {
 					resolved.filters,
 					connectionId,
 					maxPages,
+					attributeUnavailableProviders,
 				);
 				// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
 				// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
-				return { ...drain, items: drain.items.map(pr => fromProviderPullRequest(pr, integration)) };
+				return {
+					...drain,
+					items: drain.items.map(pr => fromProviderPullRequest(pr, integration)),
+					providerId: id,
+				};
 			}),
 		);
 
 		const items: PullRequestShape[] = [];
 		const warnings: ProviderWarning[] = [];
+		const failedProviderIds = new Set<IntegrationIds>();
 		let fetchFailed = false;
 		let truncated = false;
 		for (const drain of results) {
@@ -2582,6 +2660,9 @@ export class IntegrationService implements Disposable {
 			}
 			if (drain.fetchFailed) {
 				fetchFailed = true;
+			}
+			if (drain.failedProvider) {
+				failedProviderIds.add(drain.providerId);
 			}
 			if (drain.truncated) {
 				truncated = true;
@@ -2606,6 +2687,7 @@ export class IntegrationService implements Disposable {
 			// `hasMore` re-run the identical sweep forever with no cursor to advance.
 			hasMore: false,
 			fetchFailed: fetchFailed || undefined,
+			failedProviderIds: [...failedProviderIds],
 		};
 	}
 
@@ -2641,7 +2723,71 @@ export class IntegrationService implements Disposable {
 		cursor?: string;
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>> {
-		const page = Math.max(1, options.page ?? 1);
+		const page = Math.max(1, Math.trunc(options.page ?? 1));
+
+		// Kepler's existing contract persists only a page number. When no opaque continuation was supplied,
+		// advance through prior pages internally so cursor-only providers still return the requested page.
+		// Each recursive call below carries a cursor, so it bypasses this block and performs exactly one round.
+		if (options.cursor == null && page > 1) {
+			let cursor: string | undefined;
+			let previous: ProviderBroadenResult<IssueShape> | undefined;
+			const traversalWarnings: ProviderWarning[] = [];
+			const broadenedProviderIds = new Set<IntegrationIds>();
+			let traversalFetchFailed = false;
+			let traversalTruncated = false;
+			for (let currentPage = 1; currentPage < page; currentPage++) {
+				previous = await this.broadenIssues({
+					...options,
+					page: currentPage,
+					cursor: cursor,
+					// A forced refresh belongs to the logical read, not every cursor-advancement round.
+					forceSync: currentPage === 1 ? options.forceSync : false,
+				});
+				for (const warning of previous.warnings) {
+					appendDedupedWarning(traversalWarnings, warning);
+				}
+				for (const providerId of previous.broadenedProviderIds) {
+					broadenedProviderIds.add(providerId);
+				}
+				traversalFetchFailed ||= previous.fetchFailed === true;
+				traversalTruncated ||= previous.page.truncated === true;
+				if (!previous.hasMore || previous.cursor == null) {
+					return {
+						items: [],
+						warnings: traversalWarnings,
+						page: {
+							currentPage: page,
+							itemsPerPage: 0,
+							truncated: traversalTruncated || undefined,
+						},
+						hasMore: false,
+						fetchFailed: traversalFetchFailed || undefined,
+						broadenedProviderIds: [...broadenedProviderIds],
+						fanOutCount: options.orgs.length,
+					};
+				}
+
+				cursor = previous.cursor;
+			}
+
+			const requested = await this.broadenIssues({ ...options, page: page, cursor: cursor, forceSync: false });
+			for (const warning of requested.warnings) {
+				appendDedupedWarning(traversalWarnings, warning);
+			}
+			for (const providerId of requested.broadenedProviderIds) {
+				broadenedProviderIds.add(providerId);
+			}
+			return {
+				...requested,
+				warnings: traversalWarnings,
+				page: {
+					...requested.page,
+					truncated: traversalTruncated || requested.page.truncated === true || undefined,
+				},
+				fetchFailed: traversalFetchFailed || requested.fetchFailed === true || undefined,
+				broadenedProviderIds: [...broadenedProviderIds],
+			};
+		}
 
 		const results = await Promise.all(
 			options.orgs.map(async org => {
@@ -2912,8 +3058,8 @@ export class IntegrationService implements Disposable {
 	/**
 	 * Resolves a repository from a remote URL to its provider identity, using core-gitlens' remote matcher
 	 * plus the provider's `getRepo` (the equivalent of `gk repo resolve`). Supports every provider whose
-	 * client exposes `getRepo`; issue trackers and unmatched URLs resolve as `unsupported` with
-	 * `cliUnsupported: true`. Status is mapped by error kind (not-found before auth), never throwing.
+	 * client exposes `getRepo`. Per-request outcomes preserve the distinctions Kepler needs for its
+	 * canonicalization policy; `cliUnsupported` remains false because this resolver operation is available.
 	 */
 	async resolveRepository(options: {
 		providerId?: IntegrationIds;
@@ -2921,7 +3067,10 @@ export class IntegrationService implements Disposable {
 		host?: string;
 		connectionId?: string;
 	}): Promise<ResolveRepositoryResult> {
-		const unsupported: ResolveRepositoryResult = { resolution: { status: 'unsupported' }, cliUnsupported: true };
+		const result = (status: RepositoryResolution['status']): ResolveRepositoryResult => ({
+			resolution: { status: status },
+			cliUnsupported: false,
+		});
 
 		const [scheme, parsedDomain, path] = parseGitRemoteUrl(options.remoteUrl);
 
@@ -2970,7 +3119,7 @@ export class IntegrationService implements Disposable {
 
 		const matcherDomain = options.host ?? parsedDomain;
 		const provider = createRemoteProviderMatcher(configs)(options.remoteUrl, matcherDomain, path, scheme);
-		if (provider == null) return unsupported;
+		if (provider == null) return result('invalid-remote-url');
 
 		let id = options.providerId ?? getIntegrationIdForRemote(provider);
 		// Custom Azure DevOps Server domains matched via getRemoteConfigs return undefined from
@@ -2979,16 +3128,16 @@ export class IntegrationService implements Disposable {
 		if (id == null && provider.id === 'azure-devops' && provider.custom) {
 			id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 		}
-		if (id == null) return unsupported;
+		if (id == null) return result('unsupported-provider');
 
 		// Azure DevOps Server is not supported by the shared provider-api getRepo routing; only the cloud Azure
 		// DevOps implementation handles project-scoped repo lookups. Resolving a server URL here would call the
 		// wrong backend and fail silently or misleadingly.
-		if (id === GitSelfManagedHostIntegrationId.AzureDevOpsServer) return unsupported;
+		if (id === GitSelfManagedHostIntegrationId.AzureDevOpsServer) return result('unsupported-provider');
 
 		const owner = provider.owner;
 		const name = provider.repoName;
-		if (owner == null || name == null) return unsupported;
+		if (owner == null || name == null) return result('invalid-remote-url');
 
 		// When pinning to a specific connection on a self-managed host, the connection's configured domain must
 		// match the host parsed from the URL. Otherwise we'd resolve `owner/repo` against a different host's
@@ -3001,7 +3150,7 @@ export class IntegrationService implements Disposable {
 			const connectionHost = hostFromDomain(this.getConfiguredConnectionDomain(id, options.connectionId));
 			const urlHost = hostFromDomain(provider.domain);
 			if (connectionHost != null && urlHost != null && connectionHost !== urlHost) {
-				return { resolution: { status: 'no-connection' }, cliUnsupported: false };
+				return result('host-mismatch');
 			}
 		}
 
@@ -3019,11 +3168,13 @@ export class IntegrationService implements Disposable {
 			integration = undefined;
 		}
 		if (integration == null) {
-			return { resolution: { status: 'no-connection' }, cliUnsupported: false };
+			return result('unauthorized');
 		}
 		// Issue trackers have no `getRepo` client; a git host without `getRepoFn` leaves `getRepoInfo`
-		// undefined. Either way core-gitlens can't resolve this host → unsupported.
-		if (isIssuesIntegration(integration) || integration.getRepoInfo == null) return unsupported;
+		// undefined. Either way this provider can't resolve repositories.
+		if (isIssuesIntegration(integration) || integration.getRepoInfo == null) {
+			return result('unsupported-provider');
+		}
 
 		// Azure repos are org + project scoped; the remote provider exposes project as `providerDesc.repoDomain`.
 		const project = provider.id === 'azure-devops' ? provider.providerDesc?.repoDomain : undefined;
@@ -3039,7 +3190,7 @@ export class IntegrationService implements Disposable {
 			if (repo == null) {
 				// `getRepoInfo` returns undefined only when no session could be resolved (not connected, or the
 				// requested connection is gone) — a real 404 throws below. So this is a connection gap.
-				return { resolution: { status: 'no-connection' }, cliUnsupported: false };
+				return result('unauthorized');
 			}
 
 			// Prefer the provider's canonical namespace/name (GitHub's REST/GraphQL lookup follows the 301
@@ -3069,9 +3220,14 @@ export class IntegrationService implements Disposable {
 			let resolution: RepositoryResolution;
 			if (ex instanceof RequestNotFoundError) {
 				resolution = { status: 'not-found' };
+			} else if (ex instanceof AuthenticationError) {
+				resolution = {
+					status: 'unauthorized',
+					warning: toProviderWarning(id, domain, options.connectionId, ex),
+				};
 			} else {
 				resolution = {
-					status: 'error',
+					status: 'undetermined',
 					warning: toProviderWarning(id, domain, options.connectionId, ex),
 				};
 			}
@@ -3620,6 +3776,32 @@ export class IntegrationService implements Disposable {
 	 */
 	async refreshConnections(): Promise<void> {
 		await this.syncCloudIntegrations(true);
+	}
+}
+
+/** Internal factory used by the GitLens host and integration tests that need the full service surface. */
+export function createIntegrationService(ctx: IntegrationServiceContext): IntegrationService {
+	const configured = new ConfiguredIntegrationService(ctx);
+	const cloud = new CloudIntegrationService(ctx);
+	let service: IntegrationService;
+	const auth = new IntegrationAuthenticationService(configured, ctx, () => service, cloud);
+	service = new IntegrationService(auth, configured, ctx);
+	void purgeRetiredIntegrationStorage(ctx, configured);
+	return service;
+}
+
+const retiredIntegrationsStorageKey = 'integrations:migrated:cloudOnly';
+async function purgeRetiredIntegrationStorage(
+	ctx: IntegrationServiceContext,
+	configured: ConfiguredIntegrationService,
+): Promise<void> {
+	if (ctx.storage.get<boolean>(retiredIntegrationsStorageKey)) return;
+
+	try {
+		await configured.purgeStoredConfiguration(['github-enterprise', 'gitlab-self-hosted']);
+		await ctx.storage.store(retiredIntegrationsStorageKey, true);
+	} catch {
+		// Best-effort cleanup retries on the next startup while the migration flag remains unset.
 	}
 }
 

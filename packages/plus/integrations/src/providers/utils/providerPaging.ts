@@ -1,5 +1,5 @@
 import type { CollectionCompleteness, CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
-import { toCollectionScopeFailure } from '../../results.js';
+import { toCollectionScopeFailure } from '../../collectionMetadata.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
 /**

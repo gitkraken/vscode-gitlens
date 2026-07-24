@@ -6,7 +6,7 @@ import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
-import { createIntegrationManager } from '../index.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type {
@@ -114,6 +114,7 @@ suite('sweep + broaden (#5438)', () => {
 		// as hasMore — a hasMore:true here would make a draining consumer re-run the identical sweep forever.
 		assert.equal(result.hasMore, false);
 		assert.equal(result.fetchFailed, undefined);
+		assert.deepEqual(result.failedProviderIds, [], 'truncation does not classify the provider as failed');
 		assert.equal(calls, 2);
 
 		manager.dispose();
@@ -182,6 +183,74 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
 		assert.equal(result.warnings[0].providerId, GitCloudHostIntegrationId.GitHub);
+		assert.deepEqual(
+			result.failedProviderIds,
+			[],
+			'a later-page failure keeps the usable provider slice out of failedProviderIds',
+		);
+
+		manager.dispose();
+	});
+
+	test('a first-page provider rejection is attributed through failedProviderIds', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => Promise.reject(new Error('provider down')),
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+		});
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(result.failedProviderIds, [GitCloudHostIntegrationId.GitHub]);
+
+		manager.dispose();
+	});
+
+	test('a later-page rejection after an empty first page is not attributed as a provider failure', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => {
+				calls++;
+				if (calls === 1) {
+					return Promise.resolve({
+						values: [],
+						paging: { more: true, cursor: 'next' },
+					});
+				}
+				return Promise.reject(new Error('provider down'));
+			},
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+		});
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(result.failedProviderIds, []);
+
+		manager.dispose();
+	});
+
+	test('an explicitly requested provider with no active session is attributed as failed', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+		});
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(result.failedProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.equal(result.warnings[0]?.kind, 'no-connection');
 
 		manager.dispose();
 	});
@@ -220,6 +289,11 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(result.fetchFailed, true, 'a structured SDK failure means the slice is incomplete');
 		assert.equal(result.page.allPages, false, 'allPages is false after any SDK failure');
 		assert.equal(result.page.truncated, true);
+		assert.deepEqual(
+			result.failedProviderIds,
+			[],
+			'a partial SDK scope failure is not a top-level provider rejection',
+		);
 		assert.equal(
 			result.warnings.some(w => w.kind === 'auth'),
 			true,
@@ -528,6 +602,59 @@ suite('sweep + broaden (#5438)', () => {
 			'org-a': JSON.stringify({ value: 'next-org-a', type: 'cursor' }),
 			'org-b': JSON.stringify({ value: 'next-org-b', type: 'cursor' }),
 		});
+
+		manager.dispose();
+	});
+
+	test('broadenIssues advances cursor-only providers when the caller supplies only page N', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = (org: string) =>
+			Promise.resolve({
+				value: {
+					values: [{ name: `${org}-repo`, namespace: org } as unknown as ProviderRepository],
+				},
+			});
+
+		const capturedCursors: Array<string | undefined> = [];
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: (
+					repos: ProviderReposInput,
+					options?: { cursor?: string },
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = (_repos, options) => {
+			capturedCursors.push(options?.cursor);
+			const secondPage = options?.cursor != null;
+			return Promise.resolve({
+				value: {
+					values: [{ id: secondPage ? 'page-2' : 'page-1' } as unknown as ProviderIssue],
+					paging: secondPage
+						? { more: false, cursor: '{}' }
+						: { more: true, cursor: JSON.stringify({ value: 'next', type: 'cursor' }) },
+				},
+			});
+		};
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
+			page: 2,
+		});
+		assert.deepEqual(capturedCursors, [undefined, JSON.stringify({ value: 'next', type: 'cursor' })]);
+		assert.deepEqual(
+			result.items.map(issue => issue.id),
+			['page-2'],
+			'only the requested page is returned',
+		);
+		assert.equal(result.page.currentPage, 2);
 
 		manager.dispose();
 	});

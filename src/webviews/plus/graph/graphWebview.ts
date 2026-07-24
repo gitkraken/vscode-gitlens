@@ -20,7 +20,7 @@ import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha, isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import type { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
-import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
+import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
 import { filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';

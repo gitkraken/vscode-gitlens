@@ -74,6 +74,12 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
 import type { Integration, IntegrationType } from '../models/integration.js';
+import { IssueFilter, PullRequestFilter } from '../providerFilters.js';
+
+export { IssueFilter, PullRequestFilter } from '../providerFilters.js';
+import type { ProviderRepositoryShape } from '../results.js';
+
+export type { ProviderOrganization, ProviderRepositoryShape } from '../results.js';
 import { getEntityIdentifierInput } from './utils.js';
 
 type GitBuildStatusState = GitBuildStatusStateType;
@@ -185,65 +191,11 @@ export type ProviderApiCollectionResult<T> = {
 	readonly metadata?: CollectionMetadata;
 };
 
-/**
- * Normalized org/workspace/group shape returned by `GitHostIntegration.getOrganizationsForUser`.
- * `name` is the identifier to pass back into `getRepositoriesForOrg` (GitHub login, Bitbucket
- * workspace slug, Azure DevOps org name, GitLab full namespace path) — not a display name; hosts
- * where those differ (Bitbucket, GitLab) must map to the identifier, not the human-readable label.
- * `providerId` attributes fan-out ProviderBackend reads to their source provider, and `org` carries
- * the parent org/resource for project-tier entries (Azure org, Jira site, etc.) when applicable.
- * NOTE: `org` is a display label (the parent resource's name, falling back to id/key), not a stable
- * key — two same-named resources are ambiguous under it. Consumers scoping follow-up reads should key
- * on the parent item from `listOrgs` (its `id`), not on this label.
- */
-export interface ProviderOrganization {
-	id: string;
-	providerId: IntegrationIds;
-	name: string;
-	org?: string;
-	url: string;
-}
-
-/**
- * Normalized repository shape returned by the ProviderBackend `listRepos` facade. GitLens-owned (carries
- * no `@gitkraken/provider-apis` types), the repo analogue of {@link ProviderOrganization}. Named to avoid
- * colliding with the unrelated local-clone `RepositoryShape` in `@gitlens/git/models/repositoryShape.js`.
- * `namespace` is the owner/workspace/group identifier to pass back into repo-scoped reads (not a display
- * name), matching {@link ProviderOrganization.name}.
- */
-export interface ProviderRepositoryShape {
-	id: string;
-	namespace: string;
-	name: string;
-	/** Azure DevOps project; `undefined` for hosts without a project layer. */
-	project?: string;
-	/** Web (browser) URL, when the provider exposes it. */
-	url?: string;
-	/** HTTPS clone URL, when available. */
-	cloneUrlHttps?: string;
-	/** SSH clone URL, when available. */
-	cloneUrlSsh?: string;
-	/** Default branch name, when the provider reports it. */
-	defaultBranch?: string;
-}
 export const ProviderPullRequestReviewState = GitPullRequestReviewState;
 export const ProviderBuildStatusState = GitBuildStatusState;
 export type ProviderRequestFunction = RequestFunction;
 export type ProviderRequestResponse<T> = Response<T>;
 export type ProviderRequestOptions = RequestOptions;
-
-export enum PullRequestFilter {
-	Author = 'author',
-	Assignee = 'assignee',
-	ReviewRequested = 'review-requested',
-	Mention = 'mention',
-}
-
-export enum IssueFilter {
-	Author = 'author',
-	Assignee = 'assignee',
-	Mention = 'mention',
-}
 
 export enum PagingMode {
 	Project = 'project',

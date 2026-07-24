@@ -12,7 +12,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
 import { AuthenticationError } from '../errors.js';
-import { createIntegrationManager } from '../index.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type {
@@ -892,8 +892,8 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		// GitHub caps each authored/assigned/mentioned category at 100 with no cursor; when the read is capped
-		// the facade must surface it as truncated + a warning, not a complete list.
+		// GitHub's search API has a provider ceiling even after cursor paging. When that ceiling is hit, the
+		// facade must surface it as truncated + a warning, not a complete list.
 		(
 			gh as unknown as {
 				searchMyIssuesWithTruncationResult: () => Promise<
@@ -909,6 +909,59 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			result.warnings.some(w => /truncat/i.test(w.message)),
 			'a warning explains the read was capped',
 		);
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage advances GitHub account-wide cursors when the caller supplies only page N', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const capturedCursors: Array<string | undefined> = [];
+		(
+			gh as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					resources: unknown,
+					cancellation: unknown,
+					connectionId: unknown,
+					options?: { cursor?: string },
+				) => Promise<
+					IntegrationResult<{
+						values: IssueShape[];
+						cursor?: string;
+						hasMore: boolean;
+						page: number;
+						truncated: boolean;
+					}>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult = (_resources, _cancellation, _connectionId, options) => {
+			capturedCursors.push(options?.cursor);
+			const secondPage = options?.cursor != null;
+			return Promise.resolve({
+				value: {
+					values: [{ id: secondPage ? 'page-2' : 'page-1' } as unknown as IssueShape],
+					cursor: secondPage ? undefined : 'account-wide-next',
+					hasMore: !secondPage,
+					page: secondPage ? 2 : 1,
+					truncated: false,
+				},
+			});
+		};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			page: 2,
+		});
+		assert.deepEqual(capturedCursors, [undefined, 'account-wide-next']);
+		assert.deepEqual(
+			result.items.map(issue => issue.id),
+			['page-2'],
+		);
+		assert.equal(result.page.currentPage, 2);
+		assert.equal(result.hasMore, false);
 
 		manager.dispose();
 	});

@@ -3,7 +3,7 @@ import { GitIssueState, GitPullRequestState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import { createFakeRuntime } from '../../__tests__/fakeRuntime.js';
 import { GitCloudHostIntegrationId } from '../../constants.js';
-import { createIntegrationManager } from '../../index.js';
+import { createIntegrationService as createIntegrationManager } from '../../integrationService.js';
 
 /**
  * Covers the open/closed/merged state selector (#5435) on the paginated read path: a PullRequestStateFilter /

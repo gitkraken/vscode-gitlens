@@ -1,6 +1,10 @@
-import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IntegrationIds } from './constants.js';
+
+export interface ConnectionStateChangeEvent {
+	key: string;
+	reason: 'connected' | 'disconnected';
+}
 
 /**
  * A per-provider, per-connection warning surfaced alongside (partial) read results. Consumers use
@@ -54,6 +58,11 @@ export interface ProviderPagedResult<T> extends ProviderResult<T> {
 export interface ProviderSweepResult<T> extends ProviderResult<T> {
 	page: ProviderPageInfo;
 	hasMore: boolean;
+	/**
+	 * Providers whose top-level read failed before returning any usable page. Partial per-scope failures stay
+	 * represented by `warnings` + `fetchFailed` and are intentionally excluded.
+	 */
+	failedProviderIds: IntegrationIds[];
 }
 
 export interface ProviderBroadenResult<T> extends ProviderPagedResult<T> {
@@ -61,7 +70,14 @@ export interface ProviderBroadenResult<T> extends ProviderPagedResult<T> {
 	fanOutCount: number;
 }
 
-export type RepositoryResolutionStatus = 'resolved' | 'not-found' | 'unsupported' | 'no-connection' | 'error';
+export type RepositoryResolutionStatus =
+	| 'resolved'
+	| 'not-found'
+	| 'unauthorized'
+	| 'unsupported-provider'
+	| 'invalid-remote-url'
+	| 'host-mismatch'
+	| 'undetermined';
 
 export interface RepositoryIdentity {
 	providerId: IntegrationIds;
@@ -89,8 +105,40 @@ export interface RepositoryResolution {
 
 export interface ResolveRepositoryResult {
 	resolution: RepositoryResolution;
-	/** True when core-gitlens can't resolve the host at all (the CLI equivalent is likewise unsupported). */
+	/**
+	 * Whether the resolver operation itself is unavailable. Per-request failures and unsupported providers
+	 * never set this; consumers may use it as a global capability latch.
+	 */
 	cliUnsupported: boolean;
+}
+
+/**
+ * Normalized org/workspace/group shape returned by the provider facade.
+ * `name` is the provider identifier to pass to follow-up reads, while `org` is an optional display label.
+ */
+export interface ProviderOrganization {
+	id: string;
+	providerId: IntegrationIds;
+	name: string;
+	org?: string;
+	url: string;
+}
+
+/** Normalized repository shape returned by the provider facade. */
+export interface ProviderRepositoryShape {
+	id: string;
+	namespace: string;
+	name: string;
+	/** Azure DevOps project; `undefined` for hosts without a project layer. */
+	project?: string;
+	/** Web (browser) URL, when the provider exposes it. */
+	url?: string;
+	/** HTTPS clone URL, when available. */
+	cloneUrlHttps?: string;
+	/** SSH clone URL, when available. */
+	cloneUrlSsh?: string;
+	/** Default branch name, when the provider reports it. */
+	defaultBranch?: string;
 }
 
 /**
@@ -125,67 +173,6 @@ export function toProviderWarning(
 	};
 }
 
-/**
- * Maps a caught GitLens request error to a structured {@link CollectionScopeFailure} kind, so a per-scope
- * rejection in a GitLens-side fan-out (where the SDK can't classify it — the provider methods throw GitLens
- * error classes, not HTTP status codes) is described with the same vocabulary as the SDK's own
- * `CollectionScopeFailure`. An unknown error maps to `provider` (a real, non-transient failure from a request
- * that rejected), never `unknown`.
- */
-export function toCollectionFailureKind(ex: unknown): CollectionScopeFailure['kind'] {
-	if (ex instanceof AuthenticationError) return 'authentication';
-	if (ex instanceof RequestRateLimitError) return 'rate-limit';
-	if (ex instanceof RequestNotFoundError) return 'not-found';
-	return 'provider';
-}
-
-/**
- * Builds a structured {@link CollectionScopeFailure} from a caught error and the scope it failed for, so a
- * GitLens-side fan-out can preserve successful siblings and report the failed scope in collection metadata
- * (which {@link assessCollectionMetadata} then maps to a scope-aware warning + `fetchFailed`).
- */
-export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'], ex: unknown): CollectionScopeFailure {
-	return {
-		scope: scope,
-		kind: toCollectionFailureKind(ex),
-		...(ex instanceof Error && ex.message ? { message: ex.message } : {}),
-	};
-}
-
-/** Maps a structured SDK failure kind to the neutral {@link ProviderWarning} discriminant. */
-function collectionFailureKindToWarningKind(kind: CollectionScopeFailure['kind']): ProviderWarning['kind'] {
-	switch (kind) {
-		case 'authentication':
-			return 'auth';
-		case 'rate-limit':
-			return 'rate-limit';
-		case 'not-found':
-			return 'not-found';
-		// `network`, `provider`, and `unknown` are non-actionable-by-kind; surface them as a generic warning.
-		default:
-			return 'other';
-	}
-}
-
-/** Builds a scope-aware warning message so a partial fan-out identifies which resource/project/repo failed. */
-function collectionFailureMessage(failure: CollectionScopeFailure): string {
-	const scope = failure.scope;
-	const parts: string[] = [];
-	if (scope?.resourceId != null) {
-		parts.push(`resource ${scope.resourceId}`);
-	}
-	if (scope?.projectId != null) {
-		parts.push(`project ${scope.projectId}`);
-	}
-	if (scope?.repositoryId != null) {
-		parts.push(`repository ${scope.repositoryId}`);
-	}
-
-	const scopeText = parts.length ? ` (${parts.join(', ')})` : '';
-	const detail = failure.message != null ? `: ${failure.message}` : '';
-	return `Failed to read ${failure.kind} scope${scopeText}${detail}`;
-}
-
 /** A stable key for deduplicating warnings accumulated across drained pages / fan-out scopes. */
 function providerWarningKey(warning: ProviderWarning): string {
 	return [warning.providerId, warning.connectionId ?? '', warning.domain ?? '', warning.kind, warning.message].join(
@@ -199,78 +186,4 @@ export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderW
 	if (into.some(existing => providerWarningKey(existing) === key)) return;
 
 	into.push(warning);
-}
-
-/**
- * Converts SDK collection {@link CollectionMetadata} into neutral ProviderBackend signals, without discarding
- * any successful items the caller already holds:
- *
- * - Each structured `failure` becomes a scope-aware {@link ProviderWarning} classified by kind.
- * - `failures.length > 0` sets `fetchFailed` (the collection is incomplete because part of the read failed).
- * - `partial`/`unknown` completeness sets `truncated`. When there is no structured failure to explain the
- *   incompleteness, a single generic warning is added; when failures exist, no duplicate generic warning is.
- *
- * Warnings are built with the caller's GitLens `providerId` (never `failure.scope.providerId`, which reports
- * `azure` for both cloud and server) and deduplicated so repeated failures across drain pages collapse.
- */
-export function assessCollectionMetadata(
-	providerId: IntegrationIds,
-	domain: string | undefined,
-	connectionId: string | undefined,
-	metadata: CollectionMetadata | undefined,
-): { warnings: ProviderWarning[]; fetchFailed: boolean; truncated: boolean } {
-	if (metadata == null) return { warnings: [], fetchFailed: false, truncated: false };
-
-	const warnings: ProviderWarning[] = [];
-	const failures = metadata.failures ?? [];
-	for (const failure of failures) {
-		const kind = collectionFailureKindToWarningKind(failure.kind);
-		appendDedupedWarning(warnings, {
-			providerId: providerId,
-			domain: domain,
-			connectionId: connectionId,
-			message: collectionFailureMessage(failure),
-			kind: kind,
-			isAuth: kind === 'auth',
-		});
-	}
-
-	const incomplete = metadata.completeness !== 'complete';
-	// Incompleteness with no structured failure to explain it still needs one warning so the caller can surface
-	// truncation; when failures already explain it, avoid a redundant second warning.
-	if (incomplete && failures.length === 0) {
-		appendDedupedWarning(warnings, {
-			providerId: providerId,
-			domain: domain,
-			connectionId: connectionId,
-			message:
-				metadata.completeness === 'partial'
-					? 'Some results were omitted; the read is incomplete'
-					: 'Result completeness could not be confirmed',
-			kind: 'other',
-			isAuth: false,
-		});
-	}
-
-	return { warnings: warnings, fetchFailed: failures.length > 0, truncated: incomplete };
-}
-
-/**
- * Convenience wrapper around {@link assessCollectionMetadata} for the common call-site pattern: assess the
- * metadata, append its warnings (deduped) into an existing `warnings` accumulator, and return the
- * `fetchFailed`/`truncated` flags for the caller to OR into its own. Keeps the four ProviderBackend read
- * paths that consume metadata from each re-implementing the same append-and-flag dance.
- */
-export function mergeAssessmentInto(
-	warnings: ProviderWarning[],
-	providerId: IntegrationIds,
-	domain: string | undefined,
-	connectionId: string | undefined,
-	metadata: CollectionMetadata | undefined,
-): { fetchFailed: boolean; truncated: boolean } {
-	const assessment = assessCollectionMetadata(providerId, domain, connectionId, metadata);
-	for (const warning of assessment.warnings) {
-		appendDedupedWarning(warnings, warning);
-	}
-	return { fetchFailed: assessment.fetchFailed, truncated: assessment.truncated };
 }

@@ -491,9 +491,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 
 	/**
-	 * GitHub's account-wide issue search caps each of authored/assigned/mentioned at 100 with no cursor, so the
-	 * result can be incomplete. This variant preserves the `truncated` flag the API reports (the abstract
-	 * {@link searchProviderMyIssues} contract can't carry it) so the facade can surface the incompleteness.
+	 * GitHub's account-wide issue search pages authored/assigned/mentioned independently behind one composite
+	 * cursor. This variant preserves that cursor and the provider's 1,000-result search ceiling signal.
 	 */
 	protected override async searchProviderMyIssuesWithTruncation(
 		session: ProviderAuthenticationSession,
@@ -516,6 +515,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				baseUrl: this.apiBaseUrl,
 				includeBody: true,
 				includeAllAssignees: options?.includeAllAssignees,
+				cursor: options?.cursor,
 			},
 			cancellation,
 		);
