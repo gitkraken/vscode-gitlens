@@ -41,20 +41,27 @@ pnpm run test -- "src/git/__tests__/**/*.test.ts"
 ```bash
 # Run all E2E tests
 pnpm run test:e2e
+```
 
-# Run specific test file
-pnpm run test:e2e -- tests/e2e/specs/quickWizard.test.ts
+To pass any Playwright **option** (`--grep`, `--headed`, `--project`, `--workers`, …), invoke Playwright
+directly via `pnpm exec` rather than `pnpm run test:e2e -- <option>`: pnpm forwards the literal `--` to
+Playwright, which then treats everything after it as positional (file) filters, so the option is silently
+ignored (this is why CI calls `pnpm exec playwright` too).
+
+```bash
+# Run a specific test file
+pnpm exec playwright test -c tests/e2e/playwright.config.ts tests/e2e/specs/quickWizard.test.ts
 
 # Run tests matching a pattern
-pnpm run test:e2e -- --grep "wizard"
+pnpm exec playwright test -c tests/e2e/playwright.config.ts --grep "wizard"
 
 # Run in headed mode (useful for debugging)
-pnpm run test:e2e -- --headed
+pnpm exec playwright test -c tests/e2e/playwright.config.ts --headed
 
 # Run against a specific editor (one Playwright project per editor; see tests/e2e/editors.ts).
 # VS Code is the default; a fork project only registers when its binary path env var is set.
-pnpm run test:e2e -- --project=vscode
-WINDSURF_E2E_PATH=/path/to/windsurf pnpm run test:e2e -- --project=windsurf
+pnpm exec playwright test -c tests/e2e/playwright.config.ts --project=vscode
+WINDSURF_E2E_PATH=/path/to/windsurf pnpm exec playwright test -c tests/e2e/playwright.config.ts --project=windsurf
 ```
 
 Editors that lack the UI surface a given spec needs (e.g. some forks) can opt that spec out with the
