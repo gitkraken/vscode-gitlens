@@ -11,7 +11,6 @@ export type { PullRequestState };
 
 export interface PullRequestShape extends IssueOrPullRequest {
 	readonly author: PullRequestMember;
-	readonly body?: string;
 	readonly mergedDate?: Date;
 	readonly refs?: PullRequestRefs;
 	readonly isDraft?: boolean;
@@ -25,6 +24,8 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly assignees?: PullRequestMember[];
 	readonly project?: IssueProject;
 	readonly stack?: PullRequestStackInfo;
+	readonly number?: number;
+	readonly authoredByMe?: boolean;
 }
 
 @loggable(i => i.id)
@@ -67,6 +68,8 @@ export class PullRequest implements PullRequestShape {
 		public readonly filesChanged?: number,
 		/** The pull request's description, as markdown. */
 		public readonly body?: string,
+		public readonly number?: number,
+		public readonly authoredByMe?: boolean,
 	) {}
 
 	get closed(): boolean {
