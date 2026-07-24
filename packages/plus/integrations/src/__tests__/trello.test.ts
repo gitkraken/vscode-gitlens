@@ -1,7 +1,8 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { Issue } from '@gitlens/git/models/issue.js';
-import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
+import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationManager } from '../index.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
@@ -36,9 +37,9 @@ function stubApi(integration: IssuesIntegration, api: Record<string, unknown>): 
 		Promise.resolve(api);
 }
 
-function fakeIssue(): ProviderIssue {
+function fakeIssue(overrides?: Partial<ProviderIssue>): ProviderIssue {
 	return {
-		id: '1',
+		id: 'card-1',
 		number: '1',
 		title: 'Card',
 		url: 'https://trello.com/c/1',
@@ -50,6 +51,7 @@ function fakeIssue(): ProviderIssue {
 		author: null,
 		assignees: [],
 		labels: [],
+		...overrides,
 	} as unknown as ProviderIssue;
 }
 
@@ -144,8 +146,44 @@ suite('Trello integration (#5438)', () => {
 		assert.equal(identifier.provider, 'trello');
 		assert.deepEqual(captured, {
 			resource: { id: 'b1', key: 'b1', owner: undefined, name: 'Board 1' },
-			id: '1',
+			id: 'card-1',
 		});
+		assert.equal(resolved?.id, '1');
+
+		manager.dispose();
+	});
+
+	test('cached Trello branch-association lookups fall back from idShort to the stable card id', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession('my-app-key');
+
+		stubApi(trello, {
+			getTrelloListsForBoard: () => Promise.resolve([{ id: 'l1', name: 'To Do' }]),
+			getTrelloIssuesForBoard: () =>
+				Promise.resolve({ values: [fakeIssue()], metadata: { completeness: 'complete' } }),
+		});
+
+		const issue = (await trello.getIssuesForProject({ key: 'b1', id: 'b1', name: 'Board 1' }))?.[0];
+		assert.ok(issue != null, 'a Trello issue was mapped');
+		if (issue == null) throw new Error('Expected a Trello issue');
+
+		const owner = getIssueOwner(issue);
+		assert.ok(owner != null, 'a Trello board owner descriptor can be derived');
+		if (owner == null) throw new Error('Expected a Trello owner descriptor');
+
+		const identifier = encodeIssueOrPullRequestForGitConfig({ ...issue, type: 'issue' } satisfies Issue, owner);
+		const peekedIds: string[] = [];
+		const resolved = await getIssueFromGitConfigEntityIdentifier(async () => undefined, identifier, {
+			cached: true,
+			peekCachedIssue: (_integration, resource, id) => {
+				assert.deepEqual(resource, { id: 'b1', key: 'b1', owner: undefined, name: 'Board 1' });
+				peekedIds.push(id);
+				return id === 'card-1' ? ({ ...issue, type: 'issue' } satisfies Issue) : undefined;
+			},
+		});
+
+		assert.deepEqual(peekedIds, ['1', 'card-1']);
 		assert.equal(resolved?.id, '1');
 
 		manager.dispose();
@@ -157,11 +195,17 @@ suite('Trello integration (#5438)', () => {
 		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession('my-app-key');
 
 		let boardReads = 0;
+		let cardReads = 0;
 		stubApi(trello, {
 			getTrelloListsForBoard: () => Promise.resolve([{ id: 'l1', name: 'To Do' }]),
 			getTrelloIssuesForBoard: () => {
 				boardReads++;
 				return Promise.resolve({ values: [fakeIssue()], metadata: { completeness: 'complete' } });
+			},
+			getTrelloCard: (_t: unknown, _appKey: string, cardId: string) => {
+				cardReads++;
+				assert.equal(cardId, 'card-1', 'identifier resolution uses the stable Trello card id');
+				return Promise.resolve(fakeIssue());
 			},
 		});
 
@@ -176,14 +220,123 @@ suite('Trello integration (#5438)', () => {
 		const identifier = encodeIssueOrPullRequestForGitConfig({ ...issue, type: 'issue' } satisfies Issue, owner);
 		const resolved = await getIssueFromGitConfigEntityIdentifier(id => manager.get(id), identifier);
 
-		assert.equal(boardReads, 2, 'the identifier resolution performs a real board read on cache miss');
+		assert.equal(boardReads, 1, 'only the initial project listing reads the board');
+		assert.equal(cardReads, 1, 'the cache miss resolves via a direct Trello card read');
 		assert.equal(resolved?.id, '1');
+		assert.equal(resolved?.nodeId, 'card-1');
+		assert.equal(resolved?.number, '1');
 		assert.deepEqual(resolved?.project, {
 			id: 'b1',
 			name: 'Board 1',
 			resourceId: 'b1',
 			resourceName: 'Board 1',
 		});
+
+		manager.dispose();
+	});
+
+	test('numeric Trello issue lookups fall back to a board scan when direct card lookup misses', async () => {
+		const runtime = createFakeRuntime();
+		const cardReadUrls: string[] = [];
+		runtime.http.fetch = url => {
+			cardReadUrls.push(url.toString());
+			return Promise.resolve(
+				new Response(JSON.stringify({ message: 'not found' }), {
+					status: 404,
+					statusText: 'Not Found',
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
+		};
+
+		const manager = createIntegrationManager(runtime);
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession('my-app-key');
+
+		let boardReads = 0;
+		const api = await (
+			trello as unknown as {
+				getProvidersApi: () => Promise<{ providers: Record<string, Record<string, unknown>> }>;
+			}
+		).getProvidersApi();
+		const provider = api.providers[IssuesCloudHostIntegrationId.Trello];
+		provider.getTrelloListsForBoardFn = () => Promise.resolve({ data: [{ id: 'l1', name: 'To Do' }] });
+		provider.getTrelloIssuesForBoardFn = () => {
+			boardReads++;
+			return Promise.resolve({
+				data: [fakeIssue({ id: 'card-7', number: '7' })],
+				metadata: { completeness: 'complete' },
+			});
+		};
+
+		const issue = await trello.getIssue({ key: 'b1', id: 'b1', name: 'Board 1' }, '7');
+
+		assert.equal(cardReadUrls.length, 1, 'the direct card lookup is attempted first');
+		assert.match(cardReadUrls[0], /\/1\/cards\/7\?members=true$/);
+		assert.equal(boardReads, 1, 'a numeric id falls back to the board scan for compatibility');
+		assert.equal(issue?.id, '7');
+		assert.equal(issue?.nodeId, 'card-7');
+		assert.equal(issue?.number, '7');
+		assert.deepEqual(issue?.project, {
+			id: 'b1',
+			name: 'Board 1',
+			resourceId: 'b1',
+			resourceName: 'Board 1',
+		});
+
+		manager.dispose();
+	});
+
+	test('direct Trello card lookups do not depend on the board-lists SDK function', async () => {
+		const runtime = createFakeRuntime();
+		const cardReadUrls: string[] = [];
+		runtime.http.fetch = url => {
+			cardReadUrls.push(url.toString());
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						id: '64b5abcd0000000000000000',
+						idShort: 7,
+						name: 'Card',
+						url: 'https://trello.com/c/7',
+						dateLastActivity: new Date(0).toISOString(),
+						labels: [{ color: null, id: 'label-1', name: 'Uncolored' }],
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				),
+			);
+		};
+
+		const manager = createIntegrationManager(runtime);
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+		const session = trelloSession('my-app-key');
+		(trello as unknown as { _session: ProviderAuthenticationSession })._session = session;
+
+		const api = await (
+			trello as unknown as {
+				getProvidersApi: () => Promise<{
+					getTrelloCard: (
+						token: TokenWithInfo<IssuesCloudHostIntegrationId.Trello>,
+						appKey: string,
+						cardId: string,
+					) => Promise<ProviderIssue | undefined>;
+					providers: Record<string, Record<string, unknown>>;
+				}>;
+			}
+		).getProvidersApi();
+		api.providers[IssuesCloudHostIntegrationId.Trello].getTrelloListsForBoardFn = undefined;
+
+		const issue = await api.getTrelloCard(
+			toTokenWithInfo(IssuesCloudHostIntegrationId.Trello, session),
+			'my-app-key',
+			'64b5abcd0000000000000000',
+		);
+
+		assert.equal(cardReadUrls.length, 1, 'the direct card lookup uses the custom Trello REST read');
+		assert.match(cardReadUrls[0], /\/1\/cards\/64b5abcd0000000000000000\?members=true$/);
+		assert.equal(issue?.id, '64b5abcd0000000000000000');
+		assert.equal(issue?.number, '7');
+		assert.deepEqual(issue?.labels, [{ color: null, description: null, id: 'label-1', name: 'Uncolored' }]);
 
 		manager.dispose();
 	});
