@@ -3572,55 +3572,104 @@ export class GitHubApi {
 			avatarSize?: number;
 			includeBody?: boolean;
 			includeAllAssignees?: boolean;
+			cursor?: string;
 		},
 		cancellation?: AbortSignal,
-	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+	): Promise<
+		| {
+				values: IssueShape[];
+				cursor?: string;
+				hasMore: boolean;
+				page: number;
+				truncated: boolean;
+		  }
+		| undefined
+	> {
 		const scope = getScopedLogger();
 
-		// A partial-data response can null an alias, and search nodes are nullable — a match that isn't an
-		// `Issue` comes back as `{}` because the inline fragment selects nothing
-		type SearchNodes = { issueCount: number; nodes: (GitHubIssue | null)[] | null } | null;
+		type SearchCategory = {
+			issueCount: number;
+			pageInfo?: {
+				endCursor?: string | null;
+				hasNextPage: boolean;
+			};
+			nodes: (GitHubIssue | null)[] | null;
+		};
 		interface SearchResult {
-			authored: SearchNodes;
-			assigned: SearchNodes;
-			mentioned: SearchNodes;
+			authored?: SearchCategory;
+			assigned?: SearchCategory;
+			mentioned?: SearchCategory;
+		}
+		interface SearchCursor {
+			page?: number;
+			authored?: string | null;
+			assigned?: string | null;
+			mentioned?: string | null;
+			truncated?: boolean;
 		}
 
-		const issueFragement = `${gqIssueFragment}${
-			options?.includeBody
-				? `
-			body
-			`
-				: ''
-		}`;
+		let cursor: SearchCursor | undefined;
+		if (options?.cursor != null) {
+			try {
+				cursor = JSON.parse(options.cursor) as SearchCursor;
+			} catch {}
+		}
+		const page = Math.max(1, Math.trunc(cursor?.page ?? 1));
+		const includeAuthored = cursor?.authored !== null;
+		const includeAssigned = cursor?.assigned !== null;
+		const includeMentioned = cursor?.mentioned !== null;
 
 		const query = `query searchMyIssues(
 				$authored: String!
 				$assigned: String!
 				$mentioned: String!
+				$authoredCursor: String
+				$assignedCursor: String
+				$mentionedCursor: String
+				$includeAuthored: Boolean!
+				$includeAssigned: Boolean!
+				$includeMentioned: Boolean!
 				$avatarSize: Int
 			) {
-				authored: search(first: 100, query: $authored, type: ISSUE) {
+				authored: search(first: 100, after: $authoredCursor, query: $authored, type: ISSUE)
+					@include(if: $includeAuthored) {
 					issueCount
+					pageInfo {
+						endCursor
+						hasNextPage
+					}
 					nodes {
 						... on Issue {
-							${issueFragement}
+							${gqIssueFragment}
+							${options?.includeBody ? 'body' : ''}
 						}
 					}
 				}
-				assigned: search(first: 100, query: $assigned, type: ISSUE) {
+				assigned: search(first: 100, after: $assignedCursor, query: $assigned, type: ISSUE)
+					@include(if: $includeAssigned) {
 					issueCount
+					pageInfo {
+						endCursor
+						hasNextPage
+					}
 					nodes {
 						... on Issue {
-							${issueFragement}
+							${gqIssueFragment}
+							${options?.includeBody ? 'body' : ''}
 						}
 					}
 				}
-				mentioned: search(first: 100, query: $mentioned, type: ISSUE) {
+				mentioned: search(first: 100, after: $mentionedCursor, query: $mentioned, type: ISSUE)
+					@include(if: $includeMentioned) {
 					issueCount
+					pageInfo {
+						endCursor
+						hasNextPage
+					}
 					nodes {
 						... on Issue {
-							${issueFragement}
+							${gqIssueFragment}
+							${options?.includeBody ? 'body' : ''}
 						}
 					}
 				}
@@ -3656,6 +3705,12 @@ export class GitHubApi {
 					authored: `${search} ${baseFilters} author:@me`.trim(),
 					assigned: `${search} ${baseFilters} ${assignedQualifier}`.trim(),
 					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
+					authoredCursor: cursor?.authored ?? undefined,
+					assignedCursor: cursor?.assigned ?? undefined,
+					mentionedCursor: cursor?.mentioned ?? undefined,
+					includeAuthored: includeAuthored,
+					includeAssigned: includeAssigned,
+					includeMentioned: includeMentioned,
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,
 				},
@@ -3663,7 +3718,7 @@ export class GitHubApi {
 				cancellation,
 			);
 
-			if (rsp == null) return { values: [], truncated: false };
+			if (rsp == null) return { values: [], hasMore: false, page: page, truncated: false };
 
 			// Map node-by-node so one unmappable issue can't discard the whole result set
 			const issues: IssueShape[] = [];
@@ -3686,16 +3741,39 @@ export class GitHubApi {
 				r => r.url,
 				(original, _current) => original,
 			);
-			// Each category is capped at 100 with no cursor; if any category's total exceeds what we fetched,
-			// there are more issues we can't page to, so report the read as truncated rather than a complete
-			// list. Use the query's `issueCount` (the true per-category total) rather than `nodes.length`, so a
-			// category with exactly 100 issues (all returned) isn't mislabeled as truncated.
-			const pageSize = 100;
+
+			const nextCategoryCursor = (category: SearchCategory | undefined): string | null => {
+				if (category?.pageInfo?.hasNextPage && category.pageInfo.endCursor) {
+					return category.pageInfo.endCursor;
+				}
+				return null;
+			};
+			const next: SearchCursor = {
+				page: page + 1,
+				authored: nextCategoryCursor(rsp.authored),
+				assigned: nextCategoryCursor(rsp.assigned),
+				mentioned: nextCategoryCursor(rsp.mentioned),
+			};
+			const hasMore = next.authored != null || next.assigned != null || next.mentioned != null;
+			// GitHub search exposes at most 1,000 results per category. Paging removes the previous 100-item
+			// truncation; only the upstream search ceiling or an unusable continuation remains incomplete.
+			const continuationMissing = [rsp.authored, rsp.assigned, rsp.mentioned].some(
+				category => category?.pageInfo?.hasNextPage === true && category.pageInfo.endCursor == null,
+			);
 			const truncated =
-				(rsp.authored?.issueCount ?? 0) > pageSize ||
-				(rsp.assigned?.issueCount ?? 0) > pageSize ||
-				(rsp.mentioned?.issueCount ?? 0) > pageSize;
-			return { values: [...results], truncated: truncated };
+				cursor?.truncated === true ||
+				(rsp.authored?.issueCount ?? 0) > 1000 ||
+				(rsp.assigned?.issueCount ?? 0) > 1000 ||
+				(rsp.mentioned?.issueCount ?? 0) > 1000 ||
+				continuationMissing;
+			next.truncated = truncated || undefined;
+			return {
+				values: [...results],
+				cursor: hasMore ? JSON.stringify(next) : undefined,
+				hasMore: hasMore,
+				page: page,
+				truncated: truncated,
+			};
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}

@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
-import { createIntegrationManager } from '../index.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 function cloudSession(id: string): ProviderAuthenticationSession {
