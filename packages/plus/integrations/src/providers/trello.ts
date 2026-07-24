@@ -176,11 +176,20 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			acc[list.id] = { name: list.name };
 			return acc;
 		}, {});
-		const issue = (
-			await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, resource.id, {
-				trelloBoardListsById: trelloBoardListsById,
-			})
-		)?.values.find(issue => issue.number === id || issue.id === id);
+
+		// Branch-association round-trips use the encoded entity identifier's stable Trello card id. Resolve that
+		// directly so large boards don't require a capped whole-board scan; keep a numeric idShort fallback so
+		// legacy/manual callers that still pass the board-local display number continue to resolve.
+		let issue = await api.getTrelloCard(tokenWithInfo, appKey, id, {
+			trelloBoardListsById: trelloBoardListsById,
+		});
+		if (issue == null && /^[0-9]+$/.test(id)) {
+			issue = (
+				await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, resource.id, {
+					trelloBoardListsById: trelloBoardListsById,
+				})
+			).values.find(issue => issue.number === id);
+		}
 
 		return issue != null
 			? fromProviderIssue(issue, this, {
