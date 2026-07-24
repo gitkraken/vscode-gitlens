@@ -43,7 +43,9 @@ suite('provider hierarchy results', () => {
 
 		const result = await integration.getOrganizationsForUser();
 
-		assert.deepEqual(result, { values: [{ id: '1', name: 'acme', url: 'https://github.com/acme' }] });
+		assert.deepEqual(result, {
+			values: [{ id: '1', providerId: 'github', name: 'acme', url: 'https://github.com/acme' }],
+		});
 	});
 
 	test('GitHub organization listing propagates truncation', async () => {
@@ -90,7 +92,7 @@ suite('provider hierarchy results', () => {
 		const result = await integration.getOrganizationsForUser();
 
 		assert.deepEqual(result, {
-			values: [{ id: '1', name: 'acme/platform', url: 'https://gitlab.com/acme/platform' }],
+			values: [{ id: '1', providerId: 'gitlab', name: 'acme/platform', url: 'https://gitlab.com/acme/platform' }],
 		});
 	});
 

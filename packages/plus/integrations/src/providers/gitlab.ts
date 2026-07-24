@@ -312,7 +312,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
 		});
 		return {
-			values: result.values.map(g => ({ id: g.id, name: g.fullPath, url: g.webUrl })),
+			values: result.values.map(g => ({ id: g.id, providerId: this.id, name: g.fullPath, url: g.webUrl })),
 			...(result.truncated ? { truncated: true } : {}),
 		};
 	}
