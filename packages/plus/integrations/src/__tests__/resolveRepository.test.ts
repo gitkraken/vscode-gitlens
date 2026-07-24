@@ -1,4 +1,6 @@
 import * as assert from 'node:assert/strict';
+import { GraphQLErrors } from '@gitkraken/provider-apis';
+import type { GraphQLError } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import {
@@ -10,6 +12,7 @@ import { AuthenticationError, RequestNotFoundError } from '../errors.js';
 import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { ProviderRepository } from '../providers/models.js';
+import type { ProvidersApi } from '../providers/providersApi.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -61,6 +64,29 @@ async function connectSelfManaged(
 	assert.ok(gh != null, `${id} integration should construct for ${domain}`);
 	(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t', domain);
 	return gh;
+}
+
+/**
+ * Overrides the real `getRepoFn` on the manager's `ProvidersApi` so the resolution goes through the
+ * actual `ProvidersApi.getRepo` (and its GraphQL not-found classification), NOT the pre-classified stub
+ * that `stubGetRepo` installs. This is what lets these tests feed the real SDK error shapes and verify
+ * they map to `not-found` (#5559).
+ */
+async function stubRealGetRepoFn(
+	manager: ReturnType<typeof createIntegrationManager>,
+	id: GitCloudHostIntegrationId,
+	impl: () => never,
+): Promise<void> {
+	const api = await (manager as unknown as { getProvidersApi: () => Promise<ProvidersApi> }).getProvidersApi();
+	const providers = (api as unknown as { providers: Record<string, { getRepoFn?: unknown } | undefined> }).providers;
+	const provider = providers[id];
+	assert.ok(provider != null, `provider ${id} should be registered on ProvidersApi`);
+	provider.getRepoFn = impl;
+}
+
+/** A GraphQL error entry as the SDK receives it from the provider's `body.errors`. */
+function graphQLError(type: string | undefined, message: string): GraphQLError {
+	return { type: type, message: message, path: ['repository'], locations: [] };
 }
 
 suite('resolveRepository (#5438)', () => {
@@ -305,6 +331,127 @@ suite('resolveRepository (#5438)', () => {
 		const repo = await az.getRepoInfo?.({ owner: 'myorg', name: 'myrepo', project: 'myproject' });
 		assert.equal(repo, undefined);
 		assert.equal(called, false, 'Azure DevOps Server should not call ProvidersApi.getRepo');
+
+		manager.dispose();
+	});
+});
+
+// #5559: GitHub/GitLab `getRepo` are GraphQL and never throw `RequestNotFoundError` for a missing repo —
+// they throw a `GraphQLErrors` (GitHub) or a bare `Error` (GitLab). These tests stub the REAL `getRepoFn`
+// with those SDK error shapes and go through the real `ProvidersApi.getRepo`, so they exercise the
+// classification the previous `RequestNotFoundError`-shaped stub could never reach.
+suite('resolveRepository — GraphQL not-found classification (#5559)', () => {
+	test('GitHub: a GraphQLErrors with a NOT_FOUND-typed entry maps to not-found', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitHub, () => {
+			throw new GraphQLErrors('Repository octocat/gone not found', [
+				graphQLError('NOT_FOUND', "Could not resolve to a Repository with the name 'octocat/gone'."),
+			]);
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
+		assert.equal(result.resolution.status, 'not-found');
+		assert.equal(result.resolution.warning, undefined);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a GraphQLErrors with no entries falls back to the not-found message', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		// The SDK throws with `body.errors` undefined when the node is simply null with no error array.
+		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitHub, () => {
+			throw new GraphQLErrors('Repository octocat/gone not found', undefined);
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
+		assert.equal(result.resolution.status, 'not-found');
+
+		manager.dispose();
+	});
+
+	test('GitHub: a GraphQLErrors with no entries but a non-repo message stays an error (narrow fallback)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		// An empty/undefined errors array for a reason other than a missing repo must not be swept into
+		// not-found: the message fallback is anchored to the repo-specific `Repository … not found` shape.
+		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitHub, () => {
+			throw new GraphQLErrors('Something else went wrong', undefined);
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
+		assert.equal(result.resolution.status, 'error');
+		assert.notEqual(result.resolution.warning, undefined);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a GraphQLErrors with a non-NOT_FOUND entry stays an error (never misclassified as not-found)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		// FORBIDDEN surfaces the null repository node too, so the SDK message is still "... not found"; the
+		// structured type must win so a permission error is not reported as a confident negative.
+		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitHub, () => {
+			throw new GraphQLErrors('Repository octocat/secret not found', [
+				graphQLError('FORBIDDEN', 'Resource not accessible by integration'),
+			]);
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/secret.git' });
+		assert.equal(result.resolution.status, 'error');
+		assert.notEqual(result.resolution.warning, undefined);
+
+		manager.dispose();
+	});
+
+	test('GitHub: a NOT_FOUND entry on a non-repository path stays an error (path-scoped)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		// A NOT_FOUND scoped to some other selection (were the query to grow one) must not be read as the
+		// repository being missing; only a `repository`-pathed NOT_FOUND is a real repo not-found.
+		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitHub, () => {
+			throw new GraphQLErrors('Something under a different field not found', [
+				{
+					type: 'NOT_FOUND',
+					message: 'Could not resolve node',
+					path: ['viewer', 'somethingElse'],
+					locations: [],
+				},
+			]);
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/gone.git' });
+		assert.equal(result.resolution.status, 'error');
+		assert.notEqual(result.resolution.warning, undefined);
+
+		manager.dispose();
+	});
+
+	test('GitLab: a bare Error("Repository <path> not found") maps to not-found', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connect(manager, GitCloudHostIntegrationId.GitLab, 'gitlab.com');
+		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitLab, () => {
+			throw new Error('Repository group/proj not found');
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/group/proj.git' });
+		assert.equal(result.resolution.status, 'not-found');
+		assert.equal(result.resolution.warning, undefined);
+
+		manager.dispose();
+	});
+
+	test('GitLab: an unrelated bare Error stays an error (message guard is specific)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		await connect(manager, GitCloudHostIntegrationId.GitLab, 'gitlab.com');
+		await stubRealGetRepoFn(manager, GitCloudHostIntegrationId.GitLab, () => {
+			throw new Error('Something else failed');
+		});
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/group/proj.git' });
+		assert.equal(result.resolution.status, 'error');
+		assert.notEqual(result.resolution.warning, undefined);
 
 		manager.dispose();
 	});
