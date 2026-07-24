@@ -964,6 +964,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.detailsPanelEl?.openCompareMode(params);
 	}
 
+	/** Routed from {@link GraphAppHost} when the extension pushes a selection — a host-initiated reveal
+	 *  (Show in Commit Graph, terminal links, deep links). The new engine doesn't auto-scroll on a plain
+	 *  selection, so bring the revealed row into view; the legacy engine scrolls on its own. */
+	ensureRowVisible(sha: string): void {
+		if (!this.graphState.config?.useNewEngine) return;
+		this.graph?.selectCommits([sha], { ensureVisible: true });
+	}
+
 	/** Routed from {@link GraphAppHost} when a graph context-menu action requests showing a
 	 *  file/folder in the graph's embedded Visual History. Switches to timeline display mode and
 	 *  pushes the scope down to `gl-graph-timeline` (which mounts on demand). */

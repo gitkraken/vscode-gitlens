@@ -1512,6 +1512,21 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 			case DidChangeSelectionNotification.is(msg):
 				this.updateState({ selectedRows: msg.params.selection });
+				// Host-initiated reveals (Show in Commit Graph, terminal links, deep links) push the
+				// selection here; user clicks aren't echoed back this way. Ask the app to scroll the
+				// revealed row into view — the new engine doesn't auto-scroll on a plain selection the
+				// way the legacy engine did.
+				{
+					const revealed = Object.keys(msg.params.selection ?? {})[0];
+					if (revealed != null) {
+						this.host.dispatchEvent(
+							new CustomEvent('gl-graph-request-ensure-row-visible', {
+								detail: revealed,
+								bubbles: true,
+							}),
+						);
+					}
+				}
 				break;
 
 			case DidRequestOpenCompareModeNotification.is(msg):

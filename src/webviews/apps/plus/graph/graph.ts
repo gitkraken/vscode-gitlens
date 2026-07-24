@@ -96,6 +96,10 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			this._handleRequestOpenTimelineScope as EventListener,
 		);
 		this.addEventListener('gl-graph-request-search', this._handleRequestSearch as EventListener);
+		this.addEventListener(
+			'gl-graph-request-ensure-row-visible',
+			this._handleRequestEnsureRowVisible as EventListener,
+		);
 	}
 
 	override disconnectedCallback(): void {
@@ -109,12 +113,20 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			this._handleRequestOpenTimelineScope as EventListener,
 		);
 		this.removeEventListener('gl-graph-request-search', this._handleRequestSearch as EventListener);
+		this.removeEventListener(
+			'gl-graph-request-ensure-row-visible',
+			this._handleRequestEnsureRowVisible as EventListener,
+		);
 		this._sidebarActions.dispose();
 		this._onboardingDismissals.dispose();
 	}
 
 	private _handleRequestOpenCompareMode = (e: CustomEvent<DidRequestOpenCompareModeParams>): void => {
 		this.appElement?.openCompareMode(e.detail);
+	};
+
+	private _handleRequestEnsureRowVisible = (e: CustomEvent<string>): void => {
+		this.appElement?.ensureRowVisible(e.detail);
 	};
 
 	private _handleRequestOpenTimelineScope = (e: CustomEvent<DidRequestOpenTimelineScopeParams>): void => {
