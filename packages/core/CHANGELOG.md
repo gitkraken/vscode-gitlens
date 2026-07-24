@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-24
+
 ### Added
 
 - Adds an account-wide issue read for GitLab and exposes `includeAllAssignees` on the account-wide seam &mdash; `GitHostIntegration.searchMyIssuesWithTruncationResult`/`IntegrationService.listIssuesPage` now serve GitLab (previously reported as unsupported, since GitLab's issue reads were repo-scoped only) via a new `getIssuesForCurrentUser` REST read (`GET /issues`, open issues only), and honor an `includeAllAssignees` toggle across GitHub (`assignee:@me` → `assignee:*`), GitLab (`scope=all`, no assignee), and Azure DevOps (a single unfiltered per-project drain); requires `@gitkraken/provider-apis` 0.53.0 ([#5535](https://github.com/gitkraken/vscode-gitlens/issues/5535)) (plus/integrations)
@@ -73,7 +75,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.4.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.0...HEAD
+[0.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.4.0...gitkraken:releases/core/v0.5.0
 [0.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.1...gitkraken:releases/core/v0.4.0
 [0.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.0...gitkraken:releases/core/v0.3.1
 [0.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.2.0...gitkraken:releases/core/v0.3.0
