@@ -22,6 +22,8 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly reviewRequests?: PullRequestReviewer[];
 	readonly assignees?: PullRequestMember[];
 	readonly project?: IssueProject;
+	readonly number?: number;
+	readonly authoredByMe?: boolean;
 }
 
 @loggable(i => i.id)
@@ -58,6 +60,8 @@ export class PullRequest implements PullRequestShape {
 		public readonly project?: IssueProject,
 		public readonly version?: number,
 		public readonly body?: string,
+		public readonly number?: number,
+		public readonly authoredByMe?: boolean,
 	) {}
 
 	get closed(): boolean {

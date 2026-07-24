@@ -1157,7 +1157,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	return {
 		id: pr.id,
 		graphQLId: pr.nodeId,
-		number: Number.parseInt(pr.id, 10),
+		number: pr.number ?? Number.parseInt(pr.id, 10),
 		title: pr.title,
 		description: pr.body ?? null,
 		url: pr.url,
@@ -1260,7 +1260,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 export function fromProviderPullRequest(
 	pr: ProviderPullRequest,
 	provider: Provider,
-	options?: { project?: IssueProject },
+	options?: { project?: IssueProject; currentAccountId?: string },
 ): PullRequest {
 	const repository = pr.repository;
 	const repositoryName = repository?.name ?? '';
@@ -1333,6 +1333,8 @@ export function fromProviderPullRequest(
 		options?.project,
 		pr.version,
 		pr.description ?? undefined,
+		pr.number,
+		options?.currentAccountId != null ? pr.author?.id === options.currentAccountId : undefined,
 	);
 }
 
@@ -1353,9 +1355,15 @@ export function fromProviderIssue(
 		issue.closedDate != null ? 'closed' : 'opened',
 		fromProviderAccount(issue.author),
 		issue.assignees?.map(fromProviderAccount) ?? undefined,
-		undefined, // TODO: issue repo
+		issue.repository != null
+			? {
+					owner: issue.repository.owner.login ?? '',
+					repo: issue.repository.name,
+					id: issue.repository.id,
+				}
+			: undefined,
 		issue.closedDate ?? undefined,
-		undefined,
+		issue.labels?.map(label => ({ name: label.name, color: label.color ?? undefined })),
 		issue.commentCount ?? undefined,
 		issue.upvoteCount ?? undefined,
 		issue.description ?? undefined,
@@ -1375,6 +1383,7 @@ export function fromProviderIssue(
 					}
 				: undefined,
 		issue.number,
+		issue.type ?? undefined,
 	);
 }
 
