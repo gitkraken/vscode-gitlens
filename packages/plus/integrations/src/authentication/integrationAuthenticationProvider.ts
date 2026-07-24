@@ -4,6 +4,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationIds } from '../constants.js';
 import type { Sources } from '../telemetry.js';
+import { areDomainsOnSameHost } from '../utils/domain.utils.js';
 import { isGitSelfManagedHostIntegrationId, isNonExpiringZeroTokenIntegrationId } from '../utils/integration.utils.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type { IntegrationAuthenticationService } from './integrationAuthenticationService.js';
@@ -288,6 +289,13 @@ export class CloudIntegrationAuthenticationProvider<
 					)
 				: undefined);
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
+		if (
+			session != null &&
+			isGitSelfManagedHostIntegrationId(this.authProviderId) &&
+			!areDomainsOnSameHost(session.domain, descriptor.domain)
+		) {
+			return undefined;
+		}
 
 		// GitHub, the cloud self-managed hosts, and Trello return `expiresIn: 0` for a token that never
 		// expires; left as 0 the session would be built with `expiresAt = now` and rejected as expired on the
@@ -302,6 +310,13 @@ export class CloudIntegrationAuthenticationProvider<
 				session.accessToken,
 				connectionId,
 			);
+			if (
+				session != null &&
+				isGitSelfManagedHostIntegrationId(this.authProviderId) &&
+				!areDomainsOnSameHost(session.domain, descriptor.domain)
+			) {
+				return undefined;
+			}
 		}
 
 		if (!session) return undefined;
@@ -317,7 +332,6 @@ export class CloudIntegrationAuthenticationProvider<
 			}
 		}
 
-		// TODO: Once we care about domains, we should try to match the domain here against ours, and if it fails, return undefined
 		return {
 			// Prefer the backend's per-connection token id (multi-account); fall back to the resolved
 			// primary/legacy connection id so existing single-connection storage keys are preserved.

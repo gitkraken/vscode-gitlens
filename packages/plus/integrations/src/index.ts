@@ -12,7 +12,14 @@ import type { IntegrationServiceContext } from './context.js';
 import { createIntegrationService } from './integrationService.js';
 import type { IntegrationManager } from './manager.js';
 
-export type { IntegrationManager, ProviderRepositoriesInput, ProviderRepositoryInput } from './manager.js';
+export type {
+	ClosedPullRequestSweepOptions,
+	IntegrationManager,
+	ProviderRepositoriesInput,
+	ProviderRepositoryInput,
+	ProviderSweepTarget,
+	PullRequestSweepOptions,
+} from './manager.js';
 
 /**
  * Construct an `@gitlens/integrations` manager bound to the supplied runtime.
