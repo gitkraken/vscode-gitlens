@@ -97,7 +97,13 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
 	// New Lit engine: each commit is a role="treeitem" row whose accessible name embeds the message
 	// (e.g. "Commit f5b4898, by You, 7s, Add greeting module"). Match by that name (substring) and
 	// filter to the visible instance so we skip recycled/off-screen rows the virtualizer keeps mounted.
-	const row = graphWebview.getByRole('treeitem', { name: messageText }).filter({ visible: true }).first();
+	// Scope to the graph tree so we don't match a details-panel file-tree treeitem (the details
+	// `gl-tree-view` also exposes role="treeitem").
+	const row = graphWebview
+		.getByRole('tree', { name: 'Commit graph' })
+		.getByRole('treeitem', { name: messageText })
+		.filter({ visible: true })
+		.first();
 	// A specific commit's row can take longer than the 10s MaxTimeout to paint on a heavily-contended
 	// CI runner (the virtualizer fills rows progressively; the oldest commit sits at the bottom), so
 	// give the row-paint the same 30s budget as waitForGraphRowsRendered rather than racing it.

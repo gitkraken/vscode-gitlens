@@ -40,11 +40,11 @@ export default defineConfig<CustomOptions>({
 			},
 			// Forks opt out of editor-incompatible specs via the `@no-fork` tag (see docs/testing.md).
 			grepInvert: e.id === 'vscode' ? undefined : /@no-fork/,
-			// All CI projects inherit the top-level retry budget. Login-walled forks (Cursor), whose
-			// deterministic sign-in-wall failures shouldn't be retried, are excluded from the CI matrix
-			// entirely via editors.ts `runInCI: false`, so no per-project retry override is needed here —
-			// and the experimental forks that DO run (Kiro/Positron) need the retries to recover from the
-			// transient render/launch contention flakes that a 4-worker CI runner induces.
+			// All CI projects inherit the top-level retry budget. Login-walled forks (Cursor and Kiro),
+			// whose deterministic sign-in-wall failures shouldn't be retried, are excluded from the CI
+			// matrix entirely via editors.ts `runInCI: false`, so no per-project retry override is needed
+			// here — and the experimental fork that DOES run (Positron) needs the retries to recover from
+			// the transient render/launch contention flakes that a multi-worker CI runner induces.
 		})),
 	testMatch: '*.test.ts',
 });

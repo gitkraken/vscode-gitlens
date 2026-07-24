@@ -93,8 +93,10 @@ worker fixture can't be reused, so Playwright relaunches the editor for the _nex
 wall, and `retries` multiplies that — the job still burns its wall-clock and gets cancelled with zero
 useful signal. So login-walled forks are **excluded from the CI matrix** entirely via `editors.ts`
 `runInCI: false` (the single source of truth the CI matrix derives from). They stay `experimental` and
-registered for local `--project=<id>` runs on an authenticated machine; only there do their UI specs (and,
-everywhere, extension-host `mcp*` specs) exercise anything.
+registered for local `--project=<id>` runs on an authenticated machine — and only there does anything
+exercise. Note the wall gates _every_ spec, not just the UI-driven ones: the `mcp*` specs depend on the
+same worker-scoped `vscode` fixture (via `mcpClient`), so `assertWorkbenchReachable` throwing fails them
+too. On a login-walled fork nothing runs — UI or `mcp*` — until the fork is authenticated.
 
 ## Interpreting Test Output
 

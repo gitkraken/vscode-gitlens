@@ -321,7 +321,10 @@ test.describe('Smoke Tests — Commit Graph view', () => {
 		// is either the Pro feature-gate ("Try GitLens Pro" / "Continue") for a signed-in Community user,
 		// or — for a signed-out user (the harness default) — the account-access gate ("Get Started with
 		// GitLens" with "Create Free Account" / "Sign In"). Accept any of them.
-		const featureGate = graphWebview!.locator('gl-feature-gate');
+		// Match only a *visible* gate (`:not([hidden])`): a hidden `gl-feature-gate` can sit in the DOM
+		// ahead of the account-access affordances, and `.or(...).first()` would otherwise resolve to that
+		// hidden element and fail the visibility assertion even though a later alternative is showing.
+		const featureGate = graphWebview!.locator('gl-feature-gate:not([hidden])');
 		const tryProButton = graphWebview!.getByRole('button', { name: /Try GitLens Pro/i });
 		const continueButton = graphWebview!.getByRole('button', { name: /Continue/i });
 		const getStartedHeading = graphWebview!.getByRole('heading', { name: /Get Started with GitLens/i });

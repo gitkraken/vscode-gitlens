@@ -9,7 +9,7 @@
  * - Split panel layout
  */
 import * as process from 'node:process';
-import type { FrameLocator } from '@playwright/test';
+import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
 
@@ -109,14 +109,29 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 }
 
 /**
+ * A graph commit row (role="treeitem") matched by its accessible name.
+ *
+ * New Lit engine: each commit is a role="treeitem" row whose accessible name embeds the message
+ * (e.g. "Commit f5b4898, by You, 7s, Add greeting module"), so we match by that name (substring).
+ * Scoped to the graph tree (role="tree", "Commit graph") so we don't match a details-panel file-tree
+ * treeitem — the details `gl-tree-view` also exposes role="treeitem", and once the panel is open an
+ * unscoped lookup could resolve to the wrong element. Filtered to the visible instance to skip
+ * recycled/off-screen rows the virtualizer keeps mounted.
+ */
+function commitRow(graphWebview: FrameLocator, messageText: string): Locator {
+	return graphWebview
+		.getByRole('tree', { name: 'Commit graph' })
+		.getByRole('treeitem', { name: messageText })
+		.filter({ visible: true })
+		.first();
+}
+
+/**
  * Select a commit row in the graph by clicking on its message text.
  * Graph rows are rendered by @gitkraken/gitkraken-components with commit messages as visible text.
  */
 async function selectCommitByMessage(graphWebview: FrameLocator, messageText: string): Promise<void> {
-	// New Lit engine: each commit is a role="treeitem" row whose accessible name embeds the message
-	// (e.g. "Commit f5b4898, by You, 7s, Add greeting module"). Match by that name (substring) and
-	// filter to the visible instance so we skip recycled/off-screen rows the virtualizer keeps mounted.
-	const row = graphWebview.getByRole('treeitem', { name: messageText }).filter({ visible: true }).first();
+	const row = commitRow(graphWebview, messageText);
 	await expect(row).toBeVisible({ timeout: MaxTimeout });
 	await row.click();
 }
@@ -477,10 +492,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		await waitForDetailsLoaded(graphWebview);
 
 		// Ctrl+Click second commit to multi-select
-		const secondCommit = graphWebview
-			.getByRole('treeitem', { name: 'Add utils module' })
-			.filter({ visible: true })
-			.first();
+		const secondCommit = commitRow(graphWebview, 'Add utils module');
 		await expect(secondCommit).toBeVisible({ timeout: MaxTimeout });
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
@@ -494,10 +506,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		// Multi-select two commits
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview
-			.getByRole('treeitem', { name: 'Add utils module' })
-			.filter({ visible: true })
-			.first();
+		const secondCommit = commitRow(graphWebview, 'Add utils module');
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		// Wait for compare panel
@@ -513,10 +522,7 @@ test.describe('Graph Details - Compare Mode', () => {
 	test('should show swap button in compare mode', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview
-			.getByRole('treeitem', { name: 'Add utils module' })
-			.filter({ visible: true })
-			.first();
+		const secondCommit = commitRow(graphWebview, 'Add utils module');
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
@@ -540,10 +546,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		// There is 1 commit in between: "Add math module"
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview
-			.getByRole('treeitem', { name: 'Add utils module' })
-			.filter({ visible: true })
-			.first();
+		const secondCommit = commitRow(graphWebview, 'Add utils module');
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
@@ -557,10 +560,7 @@ test.describe('Graph Details - Compare Mode', () => {
 	test('should exit compare mode by selecting a single commit', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview
-			.getByRole('treeitem', { name: 'Add utils module' })
-			.filter({ visible: true })
-			.first();
+		const secondCommit = commitRow(graphWebview, 'Add utils module');
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
@@ -576,10 +576,7 @@ test.describe('Graph Details - Compare Mode', () => {
 	test('should show changed files section in compare mode', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = graphWebview
-			.getByRole('treeitem', { name: 'Add utils module' })
-			.filter({ visible: true })
-			.first();
+		const secondCommit = commitRow(graphWebview, 'Add utils module');
 		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
