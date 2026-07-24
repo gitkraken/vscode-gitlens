@@ -66,10 +66,19 @@ export type RepositoryResolutionStatus = 'resolved' | 'not-found' | 'unsupported
 export interface RepositoryIdentity {
 	providerId: IntegrationIds;
 	domain: string;
+	/** The provider's canonical owner/namespace (follows renames), falling back to the parsed remote when omitted. */
 	owner: string;
+	/** The provider's canonical repo name (follows renames), falling back to the parsed remote when omitted. */
 	name: string;
 	project?: string;
+	/** The original input remote URL, so the caller can key the resolution back to the remote it asked about. */
 	remoteUrl: string;
+	/**
+	 * True when the provider's canonical owner/name differ from what the input remote URL carried — i.e. the
+	 * repo was renamed/moved host-side and the local remote is stale. Case-insensitive, mirroring gkcli's
+	 * `EqualFold` compare so hosts that echo the input casing (e.g. Bitbucket Server/Azure) aren't flagged.
+	 */
+	renamed: boolean;
 }
 
 export interface RepositoryResolution {

@@ -2993,13 +2993,25 @@ export class IntegrationService implements Disposable {
 				return { resolution: { status: 'no-connection' }, cliUnsupported: false };
 			}
 
+			// Prefer the provider's canonical namespace/name (GitHub's REST/GraphQL lookup follows the 301
+			// rename redirect, so a stale old name resolves to the new canonical identity), falling back to the
+			// parsed remote when the response omits them. `renamed` is a case-insensitive compare of input vs
+			// canonical, mirroring gkcli's `EqualFold`, so hosts that merely echo the input casing (e.g.
+			// Bitbucket Server/Azure) don't get spuriously flagged.
+			const canonicalOwner = repo.namespace || owner;
+			const canonicalName = repo.name || name;
+			const renamed =
+				canonicalOwner.toLowerCase() !== owner.toLowerCase() ||
+				canonicalName.toLowerCase() !== name.toLowerCase();
+
 			const identity: RepositoryIdentity = {
 				providerId: id,
 				domain: domain,
-				owner: owner,
-				name: name,
+				owner: canonicalOwner,
+				name: canonicalName,
 				project: project,
 				remoteUrl: options.remoteUrl,
+				renamed: renamed,
 			};
 			return { resolution: { status: 'resolved', identity: identity }, cliUnsupported: false };
 		} catch (ex) {

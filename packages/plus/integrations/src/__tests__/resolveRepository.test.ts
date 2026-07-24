@@ -88,6 +88,77 @@ suite('resolveRepository (#5438)', () => {
 		}
 	});
 
+	test('builds the identity from the canonical provider response, marking a rename', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		// The remote points at the stale `octocat/old-name`; the provider follows the 301 redirect and
+		// returns the canonical `octocat/hello`.
+		stubGetRepo(gh, () =>
+			Promise.resolve({ id: 'r1', namespace: 'octocat', name: 'hello' } as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/old-name.git' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.owner, 'octocat', 'owner comes from the canonical response');
+		assert.equal(result.resolution.identity?.name, 'hello', 'name comes from the canonical response');
+		assert.equal(result.resolution.identity?.renamed, true, 'a differing canonical name flags renamed');
+		assert.equal(
+			result.resolution.identity?.remoteUrl,
+			'https://github.com/octocat/old-name.git',
+			'remoteUrl keeps the original input',
+		);
+
+		manager.dispose();
+	});
+
+	test('flags renamed when only the owner changed (repo transferred between accounts)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		// The repo kept its name but moved to a new owner; the name-only rename test above keeps the owner
+		// constant, so this exercises the owner side of the OR compare.
+		stubGetRepo(gh, () =>
+			Promise.resolve({ id: 'r1', namespace: 'new-org', name: 'hello' } as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.owner, 'new-org', 'owner comes from the canonical response');
+		assert.equal(result.resolution.identity?.renamed, true, 'a differing canonical owner flags renamed');
+
+		manager.dispose();
+	});
+
+	test('does not flag renamed when the canonical identity differs only in casing', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		// Some hosts echo the input casing rather than a canonical one; a case-insensitive compare (matching
+		// gkcli's EqualFold) must not treat that as a rename.
+		stubGetRepo(gh, () =>
+			Promise.resolve({ id: 'r1', namespace: 'OctoCat', name: 'Hello' } as unknown as ProviderRepository),
+		);
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.renamed, false, 'a case-only difference is not a rename');
+
+		manager.dispose();
+	});
+
+	test('falls back to the parsed remote when the response omits owner/name (not renamed)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		// A response without namespace/name must not spuriously flag a rename against empty canonical values.
+		stubGetRepo(gh, () => Promise.resolve({ id: 'r1' } as unknown as ProviderRepository));
+
+		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(result.resolution.identity?.owner, 'octocat', 'owner falls back to the parsed remote');
+		assert.equal(result.resolution.identity?.name, 'hello', 'name falls back to the parsed remote');
+		assert.equal(result.resolution.identity?.renamed, false);
+
+		manager.dispose();
+	});
+
 	test('resolves an Azure DevOps repo, passing the parsed project through', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const az = await connect(manager, GitCloudHostIntegrationId.AzureDevOps, 'dev.azure.com');
