@@ -194,6 +194,46 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listPullRequestsPage reports a failed cursor-drained page without returning the previous page', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => {
+				calls += 1;
+				if (calls === 2) return Promise.reject(authError);
+
+				return Promise.resolve({
+					values: [providerPr('1')],
+					paging: { more: true, cursor: JSON.stringify({ value: 'NEXT', type: 'cursor' }) },
+				} satisfies PagedResult<ProviderPullRequest>);
+			},
+		});
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			page: 2,
+		});
+
+		assert.equal(calls, 2, 'the facade drains through the first-page cursor');
+		assert.deepEqual(result.items, [], 'the failed requested page does not reuse page 1 items');
+		assert.equal(result.page.currentPage, 2);
+		assert.equal(result.page.itemsPerPage, 0);
+		assert.equal(result.hasMore, false);
+		assert.equal(result.cursor, undefined);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].kind, 'auth');
+
+		manager.dispose();
+	});
+
 	test('a page-type next cursor is threaded back as an opaque continuation', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -778,6 +818,46 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(result.page.itemsPerPage, 2, 'itemsPerPage reflects the returned page after draining');
 		assert.equal(result.hasMore, false, 'hasMore reflects the final page');
 		assert.equal(result.warnings.length, 0);
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage reports a failed cursor-drained page without returning the previous page', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repos,
+			getIssuesForRepos: () => {
+				calls += 1;
+				if (calls === 2) return Promise.reject(authError);
+
+				return Promise.resolve({
+					values: [providerIssue('7')],
+					paging: { more: true, cursor: JSON.stringify({ value: 'NEXT', type: 'cursor' }) },
+				} satisfies PagedResult<ProviderIssue>);
+			},
+		});
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			page: 2,
+		});
+
+		assert.equal(calls, 2, 'the facade drains through the first-page cursor');
+		assert.deepEqual(result.items, [], 'the failed requested page does not reuse page 1 items');
+		assert.equal(result.page.currentPage, 2);
+		assert.equal(result.page.itemsPerPage, 0);
+		assert.equal(result.hasMore, false);
+		assert.equal(result.cursor, undefined);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].kind, 'auth');
 
 		manager.dispose();
 	});
@@ -2478,6 +2558,42 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listPullRequestsPage warns instead of dropping a partially unsupported filter set (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		let readCalled = false;
+		stubApi(gl, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repo,
+			getPullRequestsForRepo: () => {
+				readCalled = true;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+			getPullRequestsForRepos: () => {
+				readCalled = true;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			repos: [{ namespace: 'g', name: 'r' }],
+			filters: [PullRequestFilter.Author, PullRequestFilter.Mention],
+		});
+		assert.equal(readCalled, false, 'the read is skipped rather than dropping the unsupported filter');
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].kind, 'other');
+
+		manager.dispose();
+	});
+
 	test('listRepos with no org walks the user-affiliated GitHub repos (#5571)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -2712,6 +2828,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		// than return an empty list indistinguishable from a genuinely empty account.
 		const orgs = await manager.listOrgs({ providerId: GitSelfManagedHostIntegrationId.BitbucketServer });
 		assert.equal(orgs.items.length, 0);
+		assert.equal(orgs.fetchFailed, true);
 		assert.ok(
 			orgs.warnings.some(w => /not supported/i.test(w.message)),
 			'listOrgs reports discovery unsupported',
