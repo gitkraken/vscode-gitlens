@@ -45,6 +45,7 @@ import {
 } from './constants.js';
 import type { AuthenticationSessionsChangeEvent, IntegrationServiceContext } from './context.js';
 import { AuthenticationError, RequestNotFoundError } from './errors.js';
+import type { ClosedPullRequestSweepOptions, ProviderSweepTarget, PullRequestSweepOptions } from './manager.js';
 import type { GitHostIntegration, SearchMyPullRequestsOptions } from './models/gitHostIntegration.js';
 import type {
 	Integration,
@@ -89,6 +90,7 @@ import type {
 } from './results.js';
 import { appendDedupedWarning, toProviderWarning } from './results.js';
 import type { Source } from './telemetry.js';
+import { hostFromDomain } from './utils/domain.utils.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationIdForRemote,
@@ -804,15 +806,18 @@ export class IntegrationService implements Disposable {
 		domain: string | undefined,
 		connectionId: string | undefined,
 		fn: () => Promise<IntegrationResult<T>>,
+		options?: { warnOnMissingSession?: boolean },
 	): Promise<{ value?: T; warning?: ProviderWarning }> {
 		try {
 			const result = await fn();
 			if (result == null) {
 				// The read core returns undefined only when it couldn't resolve a session. For a per-connection
-				// read (`connectionId` supplied) that means the requested connection is gone — deleted or its auth
-				// is invalid — which must not be reported as an empty account. The primary path (no connectionId)
-				// legitimately yields nothing when the provider isn't connected, so leave it as an empty result.
-				return connectionId != null ? { warning: this.noConnectionWarning(id, domain, connectionId) } : {};
+				// or explicit-domain read that means the requested target is gone or its authentication is invalid,
+				// which must not be reported as an empty account. The untargeted primary path legitimately yields
+				// nothing when the provider isn't connected, so leave it as an empty result.
+				return connectionId != null || options?.warnOnMissingSession
+					? { warning: this.noConnectionWarning(id, domain, connectionId) }
+					: {};
 			}
 			if (result.error != null) {
 				return { value: result.value, warning: toProviderWarning(id, domain, connectionId, result.error) };
@@ -869,19 +874,21 @@ export class IntegrationService implements Disposable {
 
 	/**
 	 * Warnings for an early-returning read where the integration couldn't be resolved. When a specific
-	 * `connectionId` was requested (and the provider is a git host), a missing integration means that
-	 * connection is gone/invalid — surface a `no-connection` warning + `fetchFailed` so the caller can tell
-	 * it apart from a truly empty account. Without a `connectionId` (or for an issue tracker on a git-host
-	 * read), it's simply not connected, which stays a silent empty result.
+	 * `connectionId` or self-managed `domain` was requested, a missing integration means that target is
+	 * unavailable — surface a `no-connection` warning + `fetchFailed` so the caller can tell it apart from
+	 * a truly empty account. Without an explicit target, it's simply not connected, which stays a silent
+	 * empty result.
 	 */
 	private earlyReturnConnectionWarnings(
 		id: IntegrationIds,
 		connectionId: string | undefined,
+		domain?: string,
 	): { warnings: ProviderWarning[]; fetchFailed: boolean } {
-		if (connectionId == null) return { warnings: [], fetchFailed: false };
+		const requestedDomain = isGitSelfManagedHostIntegrationId(id) ? domain : undefined;
+		if (connectionId == null && requestedDomain == null) return { warnings: [], fetchFailed: false };
 
-		const domain = this.getConfiguredConnectionDomain(id, connectionId);
-		return { warnings: [this.noConnectionWarning(id, domain, connectionId)], fetchFailed: true };
+		const resolvedDomain = this.resolveDomainForRead(id, connectionId, requestedDomain);
+		return { warnings: [this.noConnectionWarning(id, resolvedDomain, connectionId)], fetchFailed: true };
 	}
 
 	/**
@@ -1130,25 +1137,44 @@ export class IntegrationService implements Disposable {
 		integration: Integration,
 		id: IntegrationIds,
 		connectionId: string | undefined,
+		domain?: string,
 	): string | undefined {
-		return connectionId != null ? this.getConfiguredConnectionDomain(id, connectionId) : integration.domain;
+		if (!isGitSelfManagedHostIntegrationId(id)) {
+			return connectionId != null ? this.getConfiguredConnectionDomain(id, connectionId) : integration.domain;
+		}
+
+		return this.resolveDomainForRead(id, connectionId, domain) ?? integration.domain;
 	}
 
 	/**
-	 * Resolves the right integration instance for a read, honoring `connectionId` for self-managed hosts where
-	 * the instance is domain-specific. Cloud providers have a single instance, so `connectionId` falls back to
-	 * the primary integration.
+	 * Resolves the right integration instance for a read. A configured connection domain takes precedence over
+	 * an explicit fallback domain; the latter lets external/manual authentication providers address a
+	 * self-managed host without persisting `ConfiguredIntegrationService` state.
 	 */
 	private async getIntegrationForRead(
 		id: IntegrationIds,
 		connectionId: string | undefined,
+		domain?: string,
 	): Promise<Integration | undefined> {
-		const domain = connectionId != null ? this.getConfiguredConnectionDomain(id, connectionId) : undefined;
+		const resolvedDomain = this.resolveDomainForRead(id, connectionId, domain);
 		try {
-			return await this.get(id, domain);
+			return await this.get(id, resolvedDomain);
 		} catch {
 			return undefined;
 		}
+	}
+
+	private resolveDomainForRead(
+		id: IntegrationIds,
+		connectionId: string | undefined,
+		domain: string | undefined,
+	): string | undefined {
+		if (!isGitSelfManagedHostIntegrationId(id)) return undefined;
+
+		return (
+			(connectionId != null ? this.getConfiguredConnectionDomain(id, connectionId) : undefined) ??
+			hostFromDomain(domain)
+		);
 	}
 
 	private async getCurrentAccountId(
@@ -1584,13 +1610,18 @@ export class IntegrationService implements Disposable {
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain when no configured connection supplies one. The value must come
+		 * from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		const page = Math.max(1, options.page ?? 1);
-		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
+		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
 		if (integration == null || isIssuesIntegration(integration)) {
-			// A supplied connectionId that no longer resolves is a broken connection, not an empty account —
+			// A supplied connection or domain that no longer resolves is a broken target, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
-			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
+			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
 			return {
 				items: [],
 				warnings: early.warnings,
@@ -1602,7 +1633,7 @@ export class IntegrationService implements Disposable {
 
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
-		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
+		const domain = this.domainForRead(integration, options.providerId, options.connectionId, options.domain);
 		// With no repos this is an account-wide "my PRs" read; the repo-scoped core rejects an empty `repos`
 		// input, so route to the account-wide, inherently user-scoped core instead (see drainPullRequests).
 		// That path is cursor-based and already user-scoped, so `pageSize` doesn't apply there and `filters`
@@ -1634,27 +1665,34 @@ export class IntegrationService implements Disposable {
 		const includeReviewRequested = accountWide
 			? (options.filters?.includes(PullRequestFilter.ReviewRequested) ?? false)
 			: false;
-		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-			accountWide
-				? integration.getMyPullRequestsForUserResult(
-						{ state: options.states, cursor: cursor, includeReviewRequested: includeReviewRequested },
-						options.connectionId,
-					)
-				: integration.getMyPullRequestsForReposResult(
-						options.repos ?? [],
-						// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo hosts (GitLab, Bitbucket,
-						// Azure), whose per-repo cursor path ignores a synthesized page-number cursor, still honor the
-						// requested page and page size instead of always returning page 1. `filters` scopes the read to
-						// the current user (the core resolves the account for these), so it returns the user's PRs.
-						{
-							state: options.states,
-							filters: resolvedFilters.filters,
-							cursor: cursor,
-							page: options.page,
-							pageSize: options.itemsPerPage,
-						},
-						options.connectionId,
-					),
+		const { value, warning } = await this.runCaptured(
+			options.providerId,
+			domain,
+			options.connectionId,
+			() =>
+				accountWide
+					? integration.getMyPullRequestsForUserResult(
+							{ state: options.states, cursor: cursor, includeReviewRequested: includeReviewRequested },
+							options.connectionId,
+						)
+					: integration.getMyPullRequestsForReposResult(
+							options.repos ?? [],
+							// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo hosts (GitLab, Bitbucket,
+							// Azure), whose per-repo cursor path ignores a synthesized page-number cursor, still honor the
+							// requested page and page size instead of always returning page 1. `filters` scopes the read to
+							// the current user (the core resolves the account for these), so it returns the user's PRs.
+							{
+								state: options.states,
+								filters: resolvedFilters.filters,
+								cursor: cursor,
+								page: options.page,
+								pageSize: options.itemsPerPage,
+							},
+							options.connectionId,
+						),
+			{
+				warnOnMissingSession: options.domain != null && isGitSelfManagedHostIntegrationId(options.providerId),
+			},
 		);
 
 		let items = value?.values ?? [];
@@ -1690,26 +1728,34 @@ export class IntegrationService implements Disposable {
 				currentHasMore = false;
 			}
 			const fetchNext = (cursor: string) =>
-				this.runCaptured(options.providerId, domain, options.connectionId, () =>
-					accountWide
-						? integration.getMyPullRequestsForUserResult(
-								{
-									state: options.states,
-									cursor: cursor,
-									includeReviewRequested: includeReviewRequested,
-								},
-								options.connectionId,
-							)
-						: integration.getMyPullRequestsForReposResult(
-								options.repos ?? [],
-								{
-									state: options.states,
-									filters: resolvedFilters.filters,
-									cursor: cursor,
-									pageSize: options.itemsPerPage,
-								},
-								options.connectionId,
-							),
+				this.runCaptured(
+					options.providerId,
+					domain,
+					options.connectionId,
+					() =>
+						accountWide
+							? integration.getMyPullRequestsForUserResult(
+									{
+										state: options.states,
+										cursor: cursor,
+										includeReviewRequested: includeReviewRequested,
+									},
+									options.connectionId,
+								)
+							: integration.getMyPullRequestsForReposResult(
+									options.repos ?? [],
+									{
+										state: options.states,
+										filters: resolvedFilters.filters,
+										cursor: cursor,
+										pageSize: options.itemsPerPage,
+									},
+									options.connectionId,
+								),
+					{
+						warnOnMissingSession:
+							options.domain != null && isGitSelfManagedHostIntegrationId(options.providerId),
+					},
 				);
 			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
 				const { value: nextValue, warning: nextWarning } = await fetchNext(currentCursor);
@@ -2620,39 +2666,29 @@ export class IntegrationService implements Disposable {
 	 * Sweeps the user's pull requests across providers by draining every page (an "all-pages" read),
 	 * returning the neutral sweep result with per-provider warnings. `truncated` is set when a provider
 	 * hit `maxPages` with more still available; `fetchFailed` when a drain aborted on a read error.
-	 * `connectionId` is honored only when `providerIds` resolves to a single provider (otherwise ambiguous).
+	 * `targets` selects a connection/domain independently for each provider. The legacy `connectionId` is
+	 * honored only when `providerIds` resolves to a single provider (otherwise ambiguous).
 	 */
-	async sweepPullRequests(options?: {
-		repos?: ProviderReposInput;
-		providerIds?: IntegrationIds[];
-		state?: PullRequestStateFilter[];
-		/** PR filters to apply; omit for the user-scoped default (see {@link listPullRequestsPage}). */
-		filters?: PullRequestFilter[];
-		forceSync?: boolean;
-		connectionId?: string;
-		maxPages?: number;
-	}): Promise<ProviderSweepResult<PullRequestShape>> {
-		const ids = options?.providerIds ?? supportedOrderedCloudIntegrationIds;
-		const attributeUnavailableProviders = options?.providerIds != null;
-		const singleProvider = ids.length === 1;
+	async sweepPullRequests(options?: PullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>> {
+		const { targets, attributeUnavailableProviders } = this.resolvePullRequestSweepTargets(options);
 		const maxPages = options?.maxPages ?? 100;
 		const repos = options?.repos ?? [];
 
 		const results = await Promise.all(
-			ids.map(async id => {
-				const connectionId = singleProvider ? options?.connectionId : undefined;
-				const integration = await this.getIntegrationForRead(id, connectionId);
+			targets.map(async target => {
+				const { providerId: id, connectionId, domain: requestedDomain } = target;
+				const integration = await this.getIntegrationForRead(id, connectionId, requestedDomain);
 				if (integration == null) {
 					// A requested connection that can't be resolved is a broken connection — surface it as a
 					// warning + fetchFailed rather than dropping the provider's slice silently.
-					const early = this.earlyReturnConnectionWarnings(id, connectionId);
+					const early = this.earlyReturnConnectionWarnings(id, connectionId, requestedDomain);
 					if (early.warnings.length === 0 && !attributeUnavailableProviders) return undefined;
 					return {
 						items: [] as PullRequestShape[],
 						warnings:
 							early.warnings.length !== 0
 								? early.warnings
-								: [this.noConnectionWarning(id, undefined, connectionId)],
+								: [this.noConnectionWarning(id, requestedDomain, connectionId)],
 						fetchFailed: true,
 						truncated: false,
 						providerId: id,
@@ -2663,7 +2699,7 @@ export class IntegrationService implements Disposable {
 
 				await this.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
 
-				const domain = this.domainForRead(integration, id, connectionId);
+				const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
 				// Resolve filters per provider so each drains only the user's PRs (default) using the filters
 				// that provider supports — a single shared set could be unsupported by one of them. Only relevant
 				// on the repo-scoped path; the account-wide drain (empty repos) ignores filters.
@@ -2753,18 +2789,46 @@ export class IntegrationService implements Disposable {
 		};
 	}
 
+	private resolvePullRequestSweepTargets(options: PullRequestSweepOptions | undefined): {
+		targets: readonly ProviderSweepTarget[];
+		attributeUnavailableProviders: boolean;
+	} {
+		if (options?.targets != null) {
+			if (options.providerIds != null || options.connectionId != null) {
+				throw new TypeError(
+					"Pull request sweep 'targets' cannot be combined with 'providerIds' or 'connectionId'",
+				);
+			}
+
+			const seenProviderIds = new Set<IntegrationIds>();
+			for (const target of options.targets) {
+				if (seenProviderIds.has(target.providerId)) {
+					throw new TypeError(
+						`Pull request sweep targets must contain at most one target per provider; duplicate '${target.providerId}'`,
+					);
+				}
+
+				seenProviderIds.add(target.providerId);
+			}
+
+			return { targets: options.targets, attributeUnavailableProviders: true };
+		}
+
+		const providerIds = options?.providerIds ?? supportedOrderedCloudIntegrationIds;
+		const connectionId = providerIds.length === 1 ? options?.connectionId : undefined;
+		return {
+			targets: providerIds.map(providerId => ({ providerId: providerId, connectionId: connectionId })),
+			attributeUnavailableProviders: options?.providerIds != null,
+		};
+	}
+
 	/**
 	 * Closed/merged counterpart of {@link sweepPullRequests}, feeding Kepler's Kanban "done" column. Applies
 	 * the native cross-provider state filter (`Closed` + `Merged`) so it works beyond GitHub.
 	 */
-	async sweepClosedPullRequests(options?: {
-		repos?: ProviderReposInput;
-		providerIds?: IntegrationIds[];
-		filters?: PullRequestFilter[];
-		forceSync?: boolean;
-		connectionId?: string;
-		maxPages?: number;
-	}): Promise<ProviderSweepResult<PullRequestShape>> {
+	async sweepClosedPullRequests(
+		options?: ClosedPullRequestSweepOptions,
+	): Promise<ProviderSweepResult<PullRequestShape>> {
 		return this.sweepPullRequests({
 			...options,
 			state: ['closed', 'merged'],
@@ -3864,26 +3928,6 @@ async function purgeRetiredIntegrationStorage(
 		await ctx.storage.store(retiredIntegrationsStorageKey, true);
 	} catch {
 		// Best-effort cleanup retries on the next startup while the migration flag remains unset.
-	}
-}
-
-/** Extracts the host from a backend connection domain (URL or bare host); undefined when unparseable/empty. */
-function hostFromDomain(domain: string | undefined): string | undefined {
-	const value = domain?.trim();
-	if (!value) return undefined;
-
-	if (/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) {
-		try {
-			return new URL(value).host || undefined;
-		} catch {
-			return undefined;
-		}
-	}
-
-	try {
-		return new URL(`https://${value}`).host || undefined;
-	} catch {
-		return undefined;
 	}
 }
 

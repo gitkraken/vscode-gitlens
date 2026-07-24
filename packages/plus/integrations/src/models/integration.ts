@@ -27,6 +27,8 @@ import { AuthenticationError, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import type { Sources } from '../telemetry.js';
+import { areDomainsOnSameHost } from '../utils/domain.utils.js';
+import { isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { GitHostIntegration } from './gitHostIntegration.js';
 import type { IssuesIntegration } from './issuesIntegration.js';
 
@@ -183,7 +185,13 @@ export abstract class IntegrationBase<
 		if (this._session === undefined) {
 			return this.ensureSession({ createIfNeeded: false, source: source });
 		}
-		return this._session ?? undefined;
+		return this._session != null && this.isSessionForIntegrationHost(this._session) ? this._session : undefined;
+	}
+
+	private isSessionForIntegrationHost(session: ProviderAuthenticationSession): boolean {
+		if (!isGitSelfManagedHostIntegrationId(this.id)) return true;
+
+		return areDomainsOnSameHost(this.domain, session.domain);
 	}
 
 	/**
@@ -217,7 +225,7 @@ export abstract class IntegrationBase<
 					{ ...this.authProviderDescriptor, connectionId: connectionId, cloud: true },
 					{ source: source },
 				);
-				return session ?? undefined;
+				return session != null && this.isSessionForIntegrationHost(session) ? session : undefined;
 			} catch (ex) {
 				scope?.error(ex);
 				return undefined;
@@ -228,7 +236,7 @@ export abstract class IntegrationBase<
 		if (!connected) return undefined;
 
 		await this.refreshSessionIfExpired(scope);
-		return this._session ?? undefined;
+		return this._session != null && this.isSessionForIntegrationHost(this._session) ? this._session : undefined;
 	}
 
 	@debug()
@@ -523,7 +531,11 @@ export abstract class IntegrationBase<
 			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const { createIfNeeded, forceNewSession, source, sync } = options;
-		if (this._session != null) return this._session;
+		if (this._session != null) {
+			if (this.isSessionForIntegrationHost(this._session)) return this._session;
+
+			this._session = null;
+		}
 		if (this.ctx.config.isIntegrationsEnabled?.() === false) return undefined;
 
 		if (createIfNeeded || sync) {
@@ -548,6 +560,9 @@ export abstract class IntegrationBase<
 
 			if (session?.expiresAt != null && session.expiresAt < new Date()) {
 				session = null;
+			}
+			if (session != null && !this.isSessionForIntegrationHost(session)) {
+				session = undefined;
 			}
 		} catch (ex) {
 			await this.ctx.storage.deleteWorkspace(this.connectedKey);
