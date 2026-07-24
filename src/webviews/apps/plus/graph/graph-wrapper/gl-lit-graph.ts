@@ -3534,8 +3534,15 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
+		// The `graph` zone (no card, tracks only) is the standalone graph column's cell OR — when the graph is
+		// grouped into a content column — the inline lane strip/fold gutter folded into that host cell. Both
+		// inline surfaces are `pointer-events: auto`, so the pointer lands on them (their lane-art SVGs are
+		// `pointer-events: none`); matching them keeps grouped-lane hover behaving like the column placement.
 		const zone: RowHoverZone =
-			node instanceof Element && node.closest('.gl-graph__zone--graph') != null ? 'graph' : 'content';
+			node instanceof Element &&
+			node.closest('.gl-graph__zone--graph, .gl-graph__gutter-viewport--inline, .gl-graph__fold-lane') != null
+				? 'graph'
+				: 'content';
 
 		if (sha === this.hoveredRowSha) {
 			// Same row — only a zone CHANGE reacts; staying within a zone is a no-op. No
