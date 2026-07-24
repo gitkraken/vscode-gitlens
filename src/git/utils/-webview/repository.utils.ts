@@ -1,10 +1,10 @@
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { millisecondsPerDay } from '@gitlens/git/utils/fetch.utils.js';
+import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { map } from '@gitlens/utils/iterable.js';
 import { areUrisEqual } from '@gitlens/utils/uri.js';
-import { getIntegrationIdForRemote } from '../../../plus/integrations/utils/-webview/integration.utils.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { UriMap } from '../../../system/-webview/uriMap.js';
 import type { GlRepository } from '../../models/repository.js';

@@ -18,8 +18,10 @@ export interface GitResultCache {
 	getOrCreate(
 		repoPath: string,
 		key: string,
-		factory: (cacheable: CacheController) => Promise<GitResult<unknown>>,
-		options?: { createTTL?: number; accessTTL?: number },
+		// `signal` is the aggregate cancellation — it fires only when every current caller has aborted.
+		// Bind shared work to it (not any single caller's signal) so one caller's abort can't reject riders.
+		factory: (cacheable: CacheController, signal?: AbortSignal) => Promise<GitResult<unknown>>,
+		options?: { createTTL?: number; accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitResult<unknown>>;
 }
 

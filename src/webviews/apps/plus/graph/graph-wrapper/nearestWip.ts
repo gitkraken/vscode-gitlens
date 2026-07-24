@@ -1,8 +1,8 @@
-import type { ColumnNumberBySha, GraphRow, ReadonlyGraphRow } from '@gitkraken/gitkraken-components';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
-import type { GraphWipMetadataBySha } from '../../../../plus/graph/protocol.js';
+import type { ColumnNumberBySha, GraphWipMetadataBySha, ReadonlyGraphRow } from '../../../../plus/graph/protocol.js';
 
-type Row = GraphRow | ReadonlyGraphRow;
+type Row = GitGraphRow | ReadonlyGraphRow;
 
 export interface WipCandidate {
 	sha: string;

@@ -3,6 +3,8 @@ import type { CancellationToken } from 'vscode';
 import { version as codeVersion, env, Uri, window } from 'vscode';
 import { fetch as _fetch } from '@env/fetch.js';
 import { getPlatform } from '@env/platform.js';
+import type { TokenInfo } from '@gitlens/integrations/authentication/models.js';
+import { toTokenInfo } from '@gitlens/integrations/authentication/models.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
@@ -27,8 +29,6 @@ import {
 	showGkRequestFailed500WarningMessage,
 	showGkRequestTimedOutWarningMessage,
 } from '../../messages.js';
-import type { TokenInfo } from '../integrations/authentication/models.js';
-import { toTokenInfo } from '../integrations/authentication/models.js';
 import type { UrlsProvider } from './urlsProvider.js';
 
 interface FetchOptions {

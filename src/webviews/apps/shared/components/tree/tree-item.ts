@@ -5,6 +5,7 @@ import { getAltKeySymbol } from '@env/platform.js';
 import { ModifierKeysController } from '../../controllers/modifier-keys.js';
 import { GlElement } from '../element.js';
 import type { TreeItemCheckedDetail, TreeItemSelectionDetail } from './base.js';
+import { treeItemFileDragDataType } from './base.js';
 import { treeItemStyles } from './tree.css.js';
 import '../actions/action-nav.js';
 import '../code-icon.js';
@@ -48,6 +49,22 @@ export class GlTreeItem extends GlElement {
 	@property()
 	checked: boolean | 'indeterminate' = false;
 
+	// When set, the checkbox is controlled by `checked` (model-driven): a user toggle doesn't
+	// optimistically flip it. See TreeItemBase.controlledCheck.
+	@property({ type: Boolean })
+	controlledCheck = false;
+
+	/**
+	 * When set, `selected` is fully controlled by the host (bound via `.selected`); `selectCore`
+	 * then skips the imperative self-select so it can't diverge from the host's controlled value.
+	 * The controlled `gl-tree-view` sets this and drives selection through a re-render; without it,
+	 * the imperative `this.selected = true` corrupts Lit's dirty-check and a later re-render/recycle
+	 * that binds the same committed value is skipped — leaving the selection highlight stuck. Left
+	 * off, the legacy `gl-tree` keeps managing selection imperatively via `select()`/`deselect()`.
+	 */
+	@property({ type: Boolean })
+	controlledSelection = false;
+
 	@property({ type: Boolean, reflect: true, attribute: 'disable-check' })
 	disableCheck = false;
 
@@ -61,6 +78,12 @@ export class GlTreeItem extends GlElement {
 
 	@property({ type: Boolean })
 	showIcon = true;
+
+	/** Opt-in: makes the row a native drag source that carries its file `path` on the drag (typed
+	 *  {@link treeItemFileDragDataType}). Off by default; set only by consumers that want file rows
+	 *  draggable (e.g. compose mode's file→commit move). Branch (folder) rows are never draggable. */
+	@property({ type: Boolean, attribute: 'draggable-item' })
+	draggableItem = false;
 
 	// Opts the host out of the single-line tree-row layout (fixed height, inline text, nowrap).
 	// Use when the default slot hosts a multi-line / card component; consumer drives row height
@@ -86,11 +109,11 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean, reflect: true })
 	focused = false;
 
-	@property({ type: Boolean, reflect: true, attribute: 'focused-inactive' })
-	focusedInactive = false;
-
 	@query('#button')
 	buttonEl!: HTMLButtonElement;
+
+	@query('#checkbox')
+	private checkboxEl?: HTMLInputElement;
 
 	get isHidden(): boolean {
 		return this.parentExpanded === false || (!this.branch && !this.expanded);
@@ -99,11 +122,13 @@ export class GlTreeItem extends GlElement {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.addEventListener('click', this.onComponentClick);
+		this.addEventListener('dragstart', this.onDragStart);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 		this.removeEventListener('click', this.onComponentClick);
+		this.removeEventListener('dragstart', this.onDragStart);
 	}
 
 	private readonly onComponentClick = (e: MouseEvent) => {
@@ -112,6 +137,22 @@ export class GlTreeItem extends GlElement {
 			altKey: e.altKey,
 		});
 	};
+
+	private readonly onDragStart = (e: DragEvent) => {
+		// Only file rows opt in; folders are never dragged. Payload is the file path.
+		if (!this.draggableItem || this.branch || e.dataTransfer == null) return;
+
+		e.dataTransfer.setData(treeItemFileDragDataType, this.path);
+		e.dataTransfer.effectAllowed = 'move';
+	};
+
+	private onChevronClick(e: MouseEvent) {
+		// The chevron is a dedicated expand/collapse affordance — stop the click from bubbling to the
+		// host's onComponentClick, which would fire the row's open/select action (e.g. focusing the
+		// graph to a worktree in the agents panel). Emit a toggle-only event instead.
+		e.stopPropagation();
+		this.emit('gl-tree-item-toggle');
+	}
 
 	private updateAttrs(changedProperties: Map<string, any>, force = false) {
 		// Only set aria-expanded on branch (parent) nodes, not end nodes
@@ -142,6 +183,11 @@ export class GlTreeItem extends GlElement {
 		if (changedProperties.has('level') || force) {
 			this.setAttribute('aria-level', this.level.toString());
 		}
+
+		if (changedProperties.has('draggableItem') || changedProperties.has('branch') || force) {
+			// Setting the native DOM property reflects the enumerated `draggable` attribute correctly.
+			this.draggable = this.draggableItem && !this.branch;
+		}
 	}
 
 	override firstUpdated(): void {
@@ -167,7 +213,11 @@ export class GlTreeItem extends GlElement {
 
 		if (this.branch) {
 			branching.push(
-				html`<code-icon class="branch" icon="${this.expanded ? 'chevron-down' : 'chevron-right'}"></code-icon>`,
+				html`<code-icon
+					class="branch"
+					icon="${this.expanded ? 'chevron-down' : 'chevron-right'}"
+					@click=${this.onChevronClick}
+				></code-icon>`,
 			);
 		}
 
@@ -187,6 +237,7 @@ export class GlTreeItem extends GlElement {
 				class="checkbox__input"
 				id="checkbox"
 				type="checkbox"
+				tabindex="-1"
 				.checked=${this.checked === true}
 				.indeterminate=${this.checked === 'indeterminate'}
 				?disabled=${this.disableCheck}
@@ -253,7 +304,12 @@ export class GlTreeItem extends GlElement {
 		quiet = false,
 	) {
 		this.emit('gl-tree-item-select');
-		this.selected = true;
+		// In controlled mode the host owns `selected` (bound via `.selected`) and re-renders in
+		// response to the select event; skip the imperative set so it can't diverge from Lit's
+		// dirty-check and leave the highlight stuck. See `controlledSelection`.
+		if (!this.controlledSelection) {
+			this.selected = true;
+		}
 
 		if (!quiet) {
 			window.requestAnimationFrame(() => {
@@ -279,6 +335,17 @@ export class GlTreeItem extends GlElement {
 
 	override focus(): void {
 		this.buttonEl.focus();
+	}
+
+	/** Move DOM focus onto this row's checkbox, if it has an enabled one; returns whether it did.
+	 *  The checkbox is `tabindex="-1"` so Tab can't walk it row-to-row — gl-tree-view drives it into
+	 *  its managed within-row Tab cycle via this method instead. */
+	focusCheckbox(): boolean {
+		const el = this.checkboxEl;
+		if (el == null || el.disabled) return false;
+
+		el.focus();
+		return true;
 	}
 
 	private onButtonClick(e: MouseEvent) {
@@ -350,7 +417,14 @@ export class GlTreeItem extends GlElement {
 			(e.target as HTMLInputElement).checked = false;
 		}
 		this._checkboxClickAlt = false;
-		this.checked = newChecked;
+		if (this.controlledCheck) {
+			// Controlled: the action may be blocked or cancelled (e.g. a conflict-stage confirm), so don't
+			// adopt the toggle optimistically — revert the input and let the model drive `checked` once the
+			// operation actually completes.
+			(e.target as HTMLInputElement).checked = this.checked === true;
+		} else {
+			this.checked = newChecked;
+		}
 
 		this.emit('gl-tree-item-checked', { node: this, checked: newChecked });
 	}
@@ -372,6 +446,7 @@ declare global {
 	interface GlobalEventHandlersEventMap {
 		'gl-tree-item-select': CustomEvent<undefined>;
 		'gl-tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
+		'gl-tree-item-toggle': CustomEvent<undefined>;
 		'gl-tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
 		'gl-tree-item-suspend-tooltip': CustomEvent<undefined>;
 		'gl-tree-item-resume-tooltip': CustomEvent<undefined>;

@@ -31,31 +31,29 @@ export class BitbucketServerRemoteProvider extends RemoteProvider {
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		if (this._autolinks === undefined) {
-			this._autolinks = [
-				...super.autolinks,
-				{
-					prefix: 'issue #',
-					url: this.issueLinkPattern,
-					alphanumeric: false,
-					ignoreCase: true,
-					title: `Open Issue #<num> on ${this.name}`,
+		this._autolinks ??= [
+			...super.autolinks,
+			{
+				prefix: 'issue #',
+				url: this.issueLinkPattern,
+				alphanumeric: false,
+				ignoreCase: true,
+				title: `Open Issue #<num> on ${this.name}`,
 
-					type: 'issue',
-					description: `${this.name} Issue #<num>`,
-				},
-				{
-					prefix: 'pull request #',
-					url: `${this.baseUrl}/pull-requests/<num>`,
-					alphanumeric: false,
-					ignoreCase: true,
-					title: `Open Pull Request #<num> on ${this.name}`,
+				type: 'issue',
+				description: `${this.name} Issue #<num>`,
+			},
+			{
+				prefix: 'pull request #',
+				url: `${this.baseUrl}/pull-requests/<num>`,
+				alphanumeric: false,
+				ignoreCase: true,
+				title: `Open Pull Request #<num> on ${this.name}`,
 
-					type: 'pullrequest',
-					description: `${this.name} Pull Request #<num>`,
-				},
-			];
-		}
+				type: 'pullrequest',
+				description: `${this.name} Pull Request #<num>`,
+			},
+		];
 		return this._autolinks;
 	}
 

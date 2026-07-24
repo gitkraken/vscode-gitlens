@@ -126,6 +126,10 @@ export const GitErrors = {
 	unsafeRepository:
 		/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m,
 	unstagedChanges: /You have unstaged changes/i,
+	// Matches both variants: with a lock reason (`..., lock reason: <reason>`) and without (`...;`)
+	worktreeLocked: /fatal:\s*cannot remove a locked working tree/i,
+	// Only matches the variant where Git reports a lock reason; the reason is free text, so capture the whole line
+	worktreeLockedReason: /cannot remove a locked working tree,[ \t]*lock reason:[ \t]*(.*)/i,
 } as const;
 
 export const GitWarnings = {
@@ -393,6 +397,8 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 	[
 		'worktree-delete',
 		[
+			// Must come first -- a locked worktree's lock reason is free text that can otherwise match the errors below
+			[GitErrors.worktreeLocked, 'locked'],
 			[GitErrors.mainWorkingTree, 'defaultWorkingTree'],
 			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
 			[GitErrors.failedToDeleteDirectoryNotEmpty, 'directoryNotEmpty'],
@@ -653,14 +659,29 @@ export class Git {
 			return options.caching.cache.getOrCreate(
 				options.caching.commonPath ?? options.cwd!,
 				gitCommand,
-				async cacheable => {
-					const result = await this.runCore<T>({ ...options, caching: undefined }, runArgs, gitCommand);
-					if (result.exitCode !== 0) {
+				async (cacheable, signal) => {
+					// Bind the shared spawn to the aggregate `signal` (fires only when ALL current callers
+					// abort), not this-caller's `options.cancellation` — otherwise a superseded caller's
+					// abort would kill the shared command and reject concurrent riders that never cancelled.
+					const result = await this.runCore<T>(
+						{ ...options, caching: undefined, cancellation: signal ?? options.cancellation },
+						runArgs,
+						gitCommand,
+					);
+					// Never cache a result that isn't a genuine command outcome. Under `errors: 'ignore'` a
+					// cancelled/aborted run RESOLVES an empty `{ exitCode: 0 }` (via SIGTERM kill it also
+					// carries `cancelled: true`; via a bare-abort queue splice it's `cancelled: false`), which
+					// — left cached — would be served as a real empty result for the full TTL (e.g. a valid
+					// merge-base read back as "none"). Invalidate on error, on cancellation, or whenever the
+					// aggregate signal aborted so the entry self-evicts instead of poisoning later callers.
+					if (result.exitCode !== 0 || result.cancelled || signal?.aborted) {
 						cacheable.invalidate();
 					}
 					return result;
 				},
-				options.caching.options,
+				// Forward this caller's cancellation so `getOrCreate` races each caller's own wait — an
+				// aborting caller rejects only itself, leaving the shared work (and its riders) intact.
+				{ ...options.caching.options, cancellation: options.cancellation },
 			);
 		}
 
@@ -826,13 +847,7 @@ export class Git {
 
 		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-		runArgs.unshift(
-			'-c',
-			'core.quotepath=false',
-			'-c',
-			'color.ui=false',
-			...(configs !== undefined ? configs : emptyArray),
-		);
+		runArgs.unshift('-c', 'core.quotepath=false', '-c', 'color.ui=false', ...(configs ?? emptyArray));
 
 		if (process.platform === 'win32') {
 			runArgs.unshift('-c', 'core.longpaths=true');
@@ -962,7 +977,7 @@ export class Git {
 		// Ensure cleanup happens immediately when the generator is explicitly closed (e.g., via break or return)
 		// This is called by JavaScript when the generator is abandoned, ensuring logGitCommand is called
 		// synchronously rather than waiting for garbage collection.
-		// eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
+		// oxlint-disable-next-line typescript/no-meaningless-void-operator
 		return void cleanup();
 	}
 

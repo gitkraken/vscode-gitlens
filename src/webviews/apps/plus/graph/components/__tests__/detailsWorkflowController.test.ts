@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import type { ReactiveController } from 'lit';
 import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
 	BranchComparisonOptions,
 	ComposeResult,
@@ -72,6 +73,7 @@ function createResources(): DetailsResources {
 	return {
 		commit: createResource(async (_signal, _repoPath: string, _sha: string) => undefined),
 		wip: createResource(async (_signal, _repoPath: string) => undefined),
+		pastAgentSessions: createResource(async (_signal, _worktreePath: string) => undefined),
 		compare: createResource(async (_signal, _repoPath: string, _fromSha: string, _toSha: string) => undefined),
 		branchCompareSummary: createResource(
 			async (
@@ -108,6 +110,7 @@ function createServices(overrides?: {
 		repository: {
 			onRepositoryChanged: () => noopUnsubscribe,
 			onRepositoryWorkingChanged: () => noopUnsubscribe,
+			onRepositoryOrWorktreeChanged: () => noopUnsubscribe,
 		},
 		graphInspect: {
 			reviewChanges: overrides?.reviewChanges ?? (async () => ({ error: { message: 'not implemented' } })),
@@ -155,11 +158,22 @@ class FakeHost implements DetailsWorkflowHost {
 	isWipSelection(): boolean {
 		return this._selection.sha === uncommitted;
 	}
+	branchSheetRefreshes = 0;
+	refreshBranchSheet(): void {
+		this.branchSheetRefreshes++;
+	}
 	currentSelection(): DetailsSelection {
 		return this._selection;
 	}
 	applyGeneratedCommitMessage(repoPath: string, message: string): void {
 		this.generatedMessages.push({ repoPath: repoPath, message: message });
+	}
+
+	/** Test-controlled snapshot returned by `readEngagedRefineState` — set by the capture-on-leave
+	 *  tests to simulate the live compose/resolve panel's posture + draft. */
+	engagedRefineState: { refineMode: boolean; refineDraft: string } | undefined = undefined;
+	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined {
+		return this.engagedRefineState;
 	}
 
 	addController(c: ReactiveController): void {
@@ -916,6 +930,161 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 1, 'registry survives panel disconnect');
 		assert.strictEqual(generatingCtl.signal.aborted, false, 'in-flight run keeps going across disconnect');
 	});
+
+	test('toggle-out captures the compose Refine posture + unsubmitted draft onto the preserved entry', () => {
+		// User has a ready compose plan, toggled Recompose on and typed a draft, then toggles the
+		// compose chip off. The entry survives (hideMode) and now carries the posture + draft so a
+		// return restores them. Also exercises the dedup guard: execState/result are unchanged, so
+		// without the refine-field comparison the write would be dropped.
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const result = makeComposeResult('capture-on-leave');
+		host.crossPaneState.runningOperations.set(new Map([[wipKey('/A'), makeComposeBucket('/A', result)]]));
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = { refineMode: true, refineDraft: 'merge commits 1 and 2' };
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		assert.strictEqual(state.activeMode.get(), null, 'panel hidden');
+		const surviving = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.ok(surviving, 'entry persists through toggle-out');
+		assert.strictEqual(surviving.result, result, 'result preserved');
+		assert.strictEqual(surviving.refineMode, true, 'refine posture captured despite unchanged execState/result');
+		assert.strictEqual(surviving.refineDraft, 'merge commits 1 and 2', 'refine draft captured');
+	});
+
+	test('capture-on-leave stores undefined for a closed gate / whitespace-only draft', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeComposeBucket('/A', makeComposeResult('x'))]]),
+		);
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = { refineMode: false, refineDraft: '   ' };
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(entry?.refineMode, undefined, 'closed gate stored as undefined');
+		assert.strictEqual(entry?.refineDraft, undefined, 'whitespace-only draft stored as undefined');
+	});
+
+	test('capture-on-leave no-ops when the live panel reports nothing (readEngagedRefineState undefined)', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeComposeBucket('/A', makeComposeResult('x'))]]),
+		);
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = undefined;
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.ok(entry, 'entry preserved');
+		assert.strictEqual(entry.refineMode, undefined);
+		assert.strictEqual(entry.refineDraft, undefined);
+	});
+
+	test('capture-on-leave no-ops when the engaged anchor has no registry entry', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		// No entry planted — the gate/draft belong to no persisted plan.
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = { refineMode: true, refineDraft: 'orphan' };
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		assert.strictEqual(
+			host.crossPaneState.runningOperations.get().get(wipKey('/A')),
+			undefined,
+			'no phantom entry created by capture',
+		);
+	});
+
+	test('switchAnchorWithinMode captures the OUTGOING anchor Refine state, leaves the incoming untouched', () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/parent',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		state.branchCommits.set([]);
+
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[wipKey('/A'), makeComposeBucket('/A', makeComposeResult('A-plan'))],
+				[wipKey('/B'), makeComposeBucket('/B', makeComposeResult('B-plan'))],
+			]),
+		);
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = { refineMode: true, refineDraft: 'A draft' };
+
+		controller.switchAnchorWithinMode({ sha: uncommitted, shas: undefined, repoPath: '/B' });
+
+		const a = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(a?.refineMode, true, 'outgoing /A captured its posture');
+		assert.strictEqual(a?.refineDraft, 'A draft', 'outgoing /A captured its draft');
+		const b = host.crossPaneState.runningOperations.get().get(wipKey('/B'))?.compose;
+		assert.strictEqual(b?.refineMode, undefined, 'incoming /B posture untouched');
+		assert.strictEqual(b?.refineDraft, undefined, 'incoming /B draft untouched');
+	});
+
+	test('a fresh compose run drops any captured Refine posture + draft from the entry', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		// Prior plan carries captured refine state.
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'complete' as const,
+							result: makeComposeResult('prior'),
+							refineMode: true,
+							refineDraft: 'stale draft',
+						},
+					},
+				],
+			]),
+		);
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		controller.runCompose('/A', 'new instructions', undefined, undefined, 0);
+
+		// The fresh generating entry (registered synchronously by dispatchOperation) drops the stale
+		// refine fields — a new run starts in the default posture with an empty box.
+		const generating = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(generating?.execState, 'generating');
+		assert.strictEqual(generating?.refineMode, undefined, 'refine posture dropped on fresh dispatch');
+		assert.strictEqual(generating?.refineDraft, undefined, 'refine draft dropped on fresh dispatch');
+	});
 });
 
 suite('DetailsActions.clearEnrichmentCaches', () => {
@@ -1341,6 +1510,7 @@ function createGenerateServices(calls: GenerateCall[]): ResolvedServices {
 		repository: {
 			onRepositoryChanged: () => noopUnsubscribe,
 			onRepositoryWorkingChanged: () => noopUnsubscribe,
+			onRepositoryOrWorktreeChanged: () => noopUnsubscribe,
 		},
 		graphInspect: {
 			reviewChanges: async () => ({ error: { message: 'not implemented' } }),
@@ -1512,5 +1682,137 @@ suite('DetailsWorkflowController.generateMessage', () => {
 		assert.strictEqual(reviewAbort.signal.aborted, true, 'review aborted');
 		assert.strictEqual(composeAbort.signal.aborted, true, 'compose aborted');
 		assert.strictEqual(genAbort.signal.aborted, true, 'generate-message aborted');
+	});
+});
+
+suite('DetailsWorkflowController.enterComposeWithScope — recompose seeding', () => {
+	/** WIP fixture whose `changes.files` carry only the `staged` flag the scope builder reads. */
+	function makeWipWithFiles(staged: readonly boolean[]): Wip {
+		return {
+			changes: { files: staged.map(s => ({ staged: s })) },
+			repositoryCount: 1,
+			repo: { uri: 'file:///A', name: 'A', path: '/A', isWorktree: false },
+		} as unknown as Wip;
+	}
+
+	/** Pin the branch-commits cache so toggleMode's WIP-side fetch gate is skipped (getBranchCommits unmocked). */
+	function pinBranchCommits(state: DetailsState, actions: DetailsActions, repoPath: string): void {
+		state.branchCommits.set([]);
+		actions['_branchCommitsFetchedRepoPath'] = repoPath;
+	}
+
+	test('seeds the scope with includeShas; includeWip=false forces both flags false even when a file exists', () => {
+		const { state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		pinBranchCommits(state, actions, '/A');
+		state.wip.set(makeWipWithFiles([false]));
+
+		controller.enterComposeWithScope({ sha: uncommitted, shas: undefined, repoPath: '/A' }, ['h', 'a', 'b'], false);
+
+		assert.strictEqual(state.activeMode.get(), 'compose');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a', 'b'],
+		});
+	});
+
+	test('includeWip=true folds staged + unstaged working changes into the scope', () => {
+		const { state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		pinBranchCommits(state, actions, '/A');
+		state.wip.set(makeWipWithFiles([true, false]));
+
+		controller.enterComposeWithScope({ sha: uncommitted, shas: undefined, repoPath: '/A' }, ['h', 'a'], true);
+
+		assert.strictEqual(state.activeMode.get(), 'compose');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: true,
+			includeShas: ['h', 'a'],
+		});
+	});
+
+	test('seeded includeShas survive a late branch-commits arrival (the includeShas-non-empty bail protects it)', async () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		// getBranchCommits resolves so fetchBranchCommits runs its late-re-derivation block to the guard.
+		const services = {
+			repository: {
+				onRepositoryChanged: () => () => {},
+				onRepositoryWorkingChanged: () => () => {},
+			},
+			graphInspect: {
+				getBranchCommits: async () => ({
+					commits: [{ sha: 'x', pushed: false }],
+					hasMore: false,
+				}),
+			},
+			telemetry: { sendEvent: () => Promise.resolve() },
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		pinBranchCommits(state, actions, '/A');
+		state.wip.set(makeWipWithFiles([false]));
+
+		controller.enterComposeWithScope({ sha: uncommitted, shas: undefined, repoPath: '/A' }, ['h', 'a'], false);
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a'],
+		});
+
+		// Drive the late-arriving branch-commits path directly; the seeded (non-empty) includeShas
+		// must bail the re-derivation instead of being clobbered by the default scope.
+		await actions.fetchBranchCommits('/A');
+
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a'],
+		});
+	});
+
+	test('compose WIP gate intact — toggleMode on a non-WIP commit selection still no-ops', () => {
+		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+
+		controller.toggleMode('compose', { sha: 'real-commit-sha', shas: undefined, repoPath: '/A' });
+
+		assert.strictEqual(state.activeMode.get(), null);
+	});
+
+	test('re-invoking with a new range while idle-composing switches the scope in place (no toggle-off)', () => {
+		const { state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		pinBranchCommits(state, actions, '/A');
+		state.wip.set(makeWipWithFiles([false]));
+		const sel = { sha: uncommitted, shas: undefined, repoPath: '/A' };
+
+		controller.enterComposeWithScope(sel, ['h', 'a'], false);
+		assert.strictEqual(state.activeMode.get(), 'compose');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a'],
+		});
+
+		// Still idle on the same WIP anchor (no run registered) → the new range replaces the scope
+		// rather than re-clicking a no-op or toggling compose off.
+		controller.enterComposeWithScope(sel, ['h', 'a', 'b'], false);
+		assert.strictEqual(state.activeMode.get(), 'compose', 'stays in compose mode');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a', 'b'],
+		});
 	});
 });

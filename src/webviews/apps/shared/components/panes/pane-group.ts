@@ -5,8 +5,8 @@ import { customElement } from 'lit/decorators.js';
 export class WebviewPaneGroup extends LitElement {
 	static override styles = css`
 		:host {
-			display: flex;
 			box-sizing: border-box;
+			display: flex;
 			flex-direction: column;
 		}
 

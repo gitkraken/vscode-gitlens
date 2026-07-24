@@ -4,6 +4,7 @@ export {
 	panelActionInputStyles,
 	panelErrorStyles,
 	panelHostStyles,
+	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
@@ -15,7 +16,7 @@ export const reviewModePanelStyles = css`
 	   mode animates in instead of popping. @keyframes sub-panel-enter is provided by
 	   subPanelEnterStyles in the component's styles array. */
 	:host {
-		animation: sub-panel-enter 0.2s ease-out;
+		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -28,38 +29,38 @@ export const reviewModePanelStyles = css`
 
 	.review-idle {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
+		gap: var(--gl-space-10);
 		align-items: center;
 		justify-content: center;
-		gap: 1rem;
-		padding: 2.4rem 1.2rem;
-		text-align: center;
-		flex: 1;
 		min-height: 0;
+		padding: var(--gl-space-24) var(--gl-space-12);
+		text-align: center;
 	}
 
 	.review-idle__scope {
 		display: flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
 		font-size: var(--gl-font-base);
-		color: var(--vscode-foreground);
 		font-weight: 500;
+		color: var(--vscode-foreground);
 	}
 
 	.review-idle__desc {
-		font-size: var(--gl-font-base);
-		color: var(--vscode-descriptionForeground);
-		line-height: 1.5;
 		max-width: 24rem;
+		font-size: var(--gl-font-base);
+		line-height: 1.5;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Review panel */
 
 	.review-panel {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
 		overflow: hidden;
 	}
@@ -67,20 +68,43 @@ export const reviewModePanelStyles = css`
 	/* Footer pinned beneath the scrollable results — keeps the review-level Send-to-AI / Copy
 	   actions reachable regardless of scroll position. Send-to-AI is the primary action and
 	   stretches to fill the row; Copy is a compact icon-only secondary button trailing it. */
-	/* Send (primary) + Copy (icon-only secondary) sit as a centered, adjacent pair. */
+
+	/* Send (primary) + Copy + Discard sit as a centered, adjacent group. */
 	.review-footer {
 		display: flex;
+		flex: none;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: center;
-		gap: 0.6rem;
-		padding: 0.8rem 1.2rem;
-		border-top: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
-		background: var(--gl-metadata-bar-bg, transparent);
-		flex: none;
+		padding: var(--gl-space-8) var(--gl-space-12);
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 	}
 
 	.review-footer__copy gl-button {
 		--button-padding-inline: 0.6rem;
+	}
+
+	/* Toggle-on treatment for the Follow-Up disclosure — VS Code's option-toggle tokens keep it
+	   legible across themes; state is driven by the same aria-expanded that screen readers hear. */
+	.review-footer__followup[aria-expanded='true'] {
+		--button-background: var(--vscode-inputOption-activeBackground);
+		--button-foreground: var(--vscode-inputOption-activeForeground);
+		--button-hover-background: var(--vscode-inputOption-activeBackground);
+		--button-border: var(--vscode-inputOption-activeBorder);
+	}
+
+	.review-footer__followup-chevron {
+		transition: transform 0.15s ease-in-out;
+	}
+
+	.review-footer__followup[aria-expanded='true'] .review-footer__followup-chevron {
+		transform: rotate(180deg);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.review-footer__followup-chevron {
+			transition: none;
+		}
 	}
 
 	/* Review results */
@@ -88,8 +112,8 @@ export const reviewModePanelStyles = css`
 	.review-results {
 		flex: 1;
 		min-height: 0;
+		padding: var(--gl-space-12);
 		overflow-y: auto;
-		padding: 1.2rem;
 	}
 
 	/* Framing header above the AI-generated review summary — provides a labeled gap from the
@@ -97,10 +121,10 @@ export const reviewModePanelStyles = css`
 
 	.review-header {
 		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.6rem 1.2rem;
 		flex: none;
+		gap: var(--gl-space-4);
+		align-items: center;
+		padding: var(--gl-space-6) var(--gl-space-12);
 	}
 
 	.review-header__back {
@@ -115,36 +139,36 @@ export const reviewModePanelStyles = css`
 
 	.review-header__count {
 		display: inline-flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
+		margin-left: auto;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		margin-left: auto;
 	}
 
 	.review-header__count-item {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
+		align-items: center;
 	}
 
 	.review-header__count-item > code-icon {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.85;
 	}
 
 	.review-header__actions {
 		display: inline-flex;
-		align-items: center;
-		gap: 0.2rem;
 		flex-shrink: 0;
-		margin-left: 0.4rem;
+		gap: var(--gl-space-2);
+		align-items: center;
+		margin-left: var(--gl-space-4);
 	}
 
 	.review-area__header-row {
 		display: flex;
 		align-items: center;
-		padding-right: 0.4rem;
+		padding-right: var(--gl-space-4);
 	}
 
 	.review-area__header-row > .review-area__header {
@@ -154,16 +178,16 @@ export const reviewModePanelStyles = css`
 
 	.review-area__actions {
 		display: inline-flex;
-		align-items: center;
-		gap: 0.2rem;
 		flex-shrink: 0;
+		gap: var(--gl-space-2);
+		align-items: center;
 	}
 
 	.review-finding__actions {
 		display: inline-flex;
-		align-items: center;
-		gap: 0.2rem;
 		flex-shrink: 0;
+		gap: var(--gl-space-2);
+		align-items: center;
 		margin-left: auto;
 	}
 
@@ -184,23 +208,23 @@ export const reviewModePanelStyles = css`
 	   bar in gl-details-multicommit-panel — keeps the result framing consistent across scopes. */
 	.review-metadata {
 		display: flex;
+		flex: none;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: space-between;
-		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
-		gap: 0.6rem;
-		flex: none;
 		min-height: var(--gl-metadata-bar-min-height);
+		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.review-metadata__left {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
 		flex: 1;
+		gap: 0.5rem;
+		align-items: center;
 		min-width: 0;
 		overflow: hidden;
 	}
@@ -211,15 +235,15 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-metadata__dots {
-		color: var(--color-foreground--50);
 		font-family: var(--vscode-editor-font-family, monospace);
+		color: var(--color-foreground--50);
 	}
 
 	.review-metadata__right {
 		display: flex;
-		align-items: center;
-		gap: 0.4rem;
 		flex-shrink: 0;
+		gap: var(--gl-space-4);
+		align-items: center;
 	}
 
 	.review-metadata__count {
@@ -228,51 +252,28 @@ export const reviewModePanelStyles = css`
 	}
 
 	.stale-banner {
-		margin-bottom: 0.8rem;
+		margin-bottom: var(--gl-space-8);
 	}
 
-	/* Wraps the loading branch so the categorizing animation can sit behind the spinner +
-	   cancel block. Stage takes the full panel height; foreground is top-anchored. */
-	.review-loading-stage {
-		position: relative;
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.review-loading-stage > gl-categorizing-loading-animation {
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		z-index: 0;
-	}
-
-	/* Loading state wrapper for the in-flight review — centers the shared spinner and the
-	   Cancel chip as a vertical column so the spinner stays visually anchored. */
+	/* Foreground extras layered on the shared .panel-loading-stage__foreground base — the in-flight
+	   review centers the spinner + Cancel chip as a vertical column so the spinner stays anchored. */
 	.review-loading-wrap {
-		position: relative;
-		z-index: 1;
-		display: flex;
-		flex-direction: column;
+		gap: var(--gl-space-10);
 		align-items: center;
-		gap: 1rem;
-		flex: none;
 	}
 
 	.review-cancel {
-		margin-bottom: 1.2rem;
+		margin-bottom: var(--gl-space-12);
 	}
 
 	/* Review scope toggle */
 
 	.review-scope__toggle {
 		display: flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
-		cursor: pointer;
 		font-size: inherit;
+		cursor: pointer;
 	}
 
 	.review-scope__toggle input[type='checkbox'] {
@@ -282,11 +283,11 @@ export const reviewModePanelStyles = css`
 	/* Review overview */
 
 	.review-overview {
-		padding: 0.8rem;
-		margin-bottom: 0.8rem;
+		padding: var(--gl-space-8);
+		margin-bottom: var(--gl-space-8);
 		line-height: 1.5;
-		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
-		border-radius: 0.4rem;
+		border: var(--gl-border-width) solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.review-overview__text {
@@ -296,7 +297,7 @@ export const reviewModePanelStyles = css`
 
 	.review-overview__hint {
 		display: block;
-		margin-top: 0.6rem;
+		margin-top: var(--gl-space-6);
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 	}
@@ -305,11 +306,11 @@ export const reviewModePanelStyles = css`
 
 	.review-clean {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
 		padding: 1.5rem 1rem;
-		color: var(--vscode-charts-green, #4ec9b0);
 		font-weight: 500;
+		color: var(--vscode-charts-green, #4ec9b0);
 	}
 
 	/* Review areas */
@@ -318,47 +319,47 @@ export const reviewModePanelStyles = css`
 	   1.3rem, normal weight, uppercase, foreground color. */
 	.review-areas__header-row {
 		display: flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.4rem 0;
+		padding: var(--gl-space-4) 0;
 	}
 
 	.review-areas__header {
 		flex: 1 1 auto;
 		min-width: 0;
-		font-size: 1.3rem;
+		font-size: var(--gl-font-base);
 		font-weight: normal;
-		text-transform: uppercase;
 		color: var(--vscode-foreground);
+		text-transform: uppercase;
 	}
 
 	.review-areas__actions {
 		display: inline-flex;
-		align-items: center;
-		gap: 0.2rem;
 		flex-shrink: 0;
+		gap: var(--gl-space-2);
+		align-items: center;
 	}
 
 	.review-area {
-		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
-		border-radius: 0.4rem;
-		margin-bottom: 0.6rem;
+		margin-bottom: var(--gl-space-6);
 		overflow: hidden;
+		border: var(--gl-border-width) solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.review-area__header {
 		display: flex;
-		align-items: center;
 		gap: 0.5rem;
+		align-items: center;
 		width: 100%;
-		padding: 0.6rem 0.8rem;
-		font-size: var(--gl-font-base);
+		padding: var(--gl-space-6) var(--gl-space-8);
 		font-family: var(--vscode-font-family);
+		font-size: var(--gl-font-base);
 		color: var(--vscode-foreground);
+		text-align: left;
+		cursor: pointer;
 		background: transparent;
 		border: none;
-		cursor: pointer;
-		text-align: left;
 	}
 
 	.review-area__header:hover {
@@ -366,7 +367,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__header:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 
@@ -405,37 +406,37 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__body {
-		padding: 0 0.8rem 0.8rem;
+		padding: 0 var(--gl-space-8) var(--gl-space-8);
 	}
 
 	.review-area__rationale {
+		margin-bottom: var(--gl-space-6);
 		font-size: var(--gl-font-base);
 		line-height: 1.4;
 		color: var(--vscode-descriptionForeground);
-		margin-bottom: 0.6rem;
 		overflow-wrap: anywhere;
 	}
 
 	.review-area__files {
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
-		margin-bottom: 0.6rem;
+		gap: var(--gl-space-2);
+		margin-bottom: var(--gl-space-6);
 	}
 
 	.review-area__file-link {
 		display: flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.2rem 0.4rem;
-		font-size: var(--gl-font-base);
+		padding: var(--gl-space-2) var(--gl-space-4);
 		font-family: var(--vscode-editor-font-family);
+		font-size: var(--gl-font-base);
 		color: var(--vscode-textLink-foreground);
+		text-align: left;
+		cursor: pointer;
 		background: transparent;
 		border: none;
-		cursor: pointer;
-		text-align: left;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	.review-area__file-link:hover {
@@ -449,9 +450,9 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__file-link-icon {
+		flex: 0 0 auto;
 		color: var(--vscode-foreground);
 		opacity: 0.7;
-		flex: 0 0 auto;
 	}
 
 	.review-area__file-link-text {
@@ -463,23 +464,23 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__file-link-lines {
-		color: var(--color-foreground--50, var(--vscode-descriptionForeground));
-		font-size: var(--gl-font-sm);
 		flex: 0 0 auto;
+		font-size: var(--gl-font-sm);
+		color: var(--color-foreground--50, var(--vscode-descriptionForeground));
 	}
 
 	.review-area__analyze-btn {
 		display: flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.4rem 0.8rem;
-		font-size: var(--gl-font-base);
+		padding: var(--gl-space-4) var(--gl-space-8);
 		font-family: var(--vscode-font-family);
+		font-size: var(--gl-font-base);
 		color: var(--vscode-button-foreground);
+		cursor: pointer;
 		background: var(--vscode-button-background);
 		border: none;
-		border-radius: 0.3rem;
-		cursor: pointer;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.review-area__analyze-btn:hover {
@@ -487,7 +488,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__analyze-btn:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: 0.1rem;
 	}
 
@@ -495,9 +496,9 @@ export const reviewModePanelStyles = css`
 	.review-area__error,
 	.review-area__clean {
 		display: flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.6rem;
+		padding: var(--gl-space-6);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-descriptionForeground);
 	}
@@ -511,19 +512,19 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__retry-btn {
+		font-family: inherit;
+		font-size: inherit;
 		color: var(--vscode-textLink-foreground);
+		text-decoration: underline;
+		cursor: pointer;
 		background: transparent;
 		border: none;
-		cursor: pointer;
-		text-decoration: underline;
-		font-size: inherit;
-		font-family: inherit;
 	}
 
 	.review-area__retry-btn:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: 0.1rem;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	/* Review findings */
@@ -531,8 +532,8 @@ export const reviewModePanelStyles = css`
 	.review-findings {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
-		margin-top: 0.6rem;
+		gap: var(--gl-space-6);
+		margin-top: var(--gl-space-6);
 	}
 
 	.review-finding {
@@ -543,10 +544,10 @@ export const reviewModePanelStyles = css`
 		   pattern above. */
 		display: flex;
 		flex-direction: column;
-		padding: 0.6rem 0.8rem;
-		background: var(--vscode-editor-inactiveSelectionBackground, rgba(255, 255, 255, 0.04));
-		border-radius: 0.3rem;
+		padding: var(--gl-space-6) var(--gl-space-8);
+		background: var(--vscode-editor-inactiveSelectionBackground, rgb(255 255 255 / 4%));
 		border-left: 3px solid transparent;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.review-finding[data-severity='critical'] {
@@ -563,26 +564,28 @@ export const reviewModePanelStyles = css`
 
 	.review-finding__header {
 		display: flex;
+		gap: 0.5rem;
+
 		/* baseline (not center) — the title wraps to multiple lines; with center alignment the
 		   badge floats up to the visual middle of the whole title block and reads as
 		   misaligned. Baseline locks the badge's text baseline to the title's first-line
 		   baseline so they look like they sit on the same line of text. */
 		align-items: baseline;
-		gap: 0.5rem;
-		margin-bottom: 0.4rem;
+		margin-bottom: var(--gl-space-4);
 	}
 
 	.review-finding__severity {
-		font-size: var(--gl-font-micro);
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		flex: 0 0 auto;
+
 		/* Symmetric vertical padding so the badge box stays balanced around the text — paired
 		   with baseline alignment above, this keeps the badge optically on the same line as
 		   the title text. */
 		padding: 0.15rem 0.4rem;
-		border-radius: 0.2rem;
-		flex: 0 0 auto;
+		font-size: var(--gl-font-micro);
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	/* Mix the badge background against the matching VS Code semantic foreground token so the
@@ -606,29 +609,29 @@ export const reviewModePanelStyles = css`
 	.review-finding__title {
 		flex: 1;
 		min-width: 0;
-		font-weight: 500;
 		font-size: var(--gl-font-base);
+		font-weight: 500;
 		overflow-wrap: anywhere;
 	}
 
 	.review-finding__description {
+		margin-bottom: var(--gl-space-4);
 		font-size: var(--gl-font-base);
 		line-height: 1.4;
 		color: var(--vscode-descriptionForeground);
-		margin-bottom: 0.4rem;
 		overflow-wrap: anywhere;
 	}
 
 	.review-finding__location {
 		display: flex;
-		align-items: center;
 		gap: 0.3rem;
-		font-size: var(--gl-font-sm);
+		align-items: center;
 		font-family: var(--vscode-editor-font-family);
+		font-size: var(--gl-font-sm);
 		color: var(--vscode-textLink-foreground);
+		cursor: pointer;
 		background: transparent;
 		border: none;
-		cursor: pointer;
 	}
 
 	/* Underline only the filename text on hover — without this scope, the rule applies to the
@@ -639,9 +642,9 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-finding__location-icon {
+		flex: 0 0 auto;
 		color: var(--vscode-foreground);
 		opacity: 0.7;
-		flex: 0 0 auto;
 	}
 
 	.review-finding__location-text {
@@ -653,18 +656,18 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-finding__location-lines {
-		color: var(--color-foreground--50, var(--vscode-descriptionForeground));
 		flex: 0 0 auto;
+		color: var(--color-foreground--50, var(--vscode-descriptionForeground));
 	}
 
 	.review-findings__dismissed {
+		padding: var(--gl-space-4);
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
+		text-align: center;
+		cursor: pointer;
 		background: transparent;
 		border: none;
-		cursor: pointer;
-		text-align: center;
-		padding: 0.4rem;
 	}
 
 	.review-findings__dismissed:hover {
@@ -672,41 +675,41 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-findings__dismissed:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	.review-areas {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 
 	.checkbox-header {
 		display: inline-flex;
-		padding-left: 2px;
+		padding-left: var(--gl-space-2);
 	}
 
 	.checkbox-header gl-checkbox {
 		--checkbox-foreground: var(--vscode-sideBarSectionHeader-foreground);
 		--checkbox-size: 1.6rem;
 		--checkbox-spacing: 0.6rem;
-		--checkbox-radius: 0.3rem;
 		--code-icon-size: 14px;
+
 		margin-block: 0;
 	}
 
 	.checkbox-header gl-checkbox::part(label) {
 		display: inline-flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
 	}
 
 	webview-pane [slot='title'] {
 		display: inline-flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
 	}
 
 	webview-pane {

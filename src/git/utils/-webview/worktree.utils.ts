@@ -77,7 +77,7 @@ export async function getWorktreeForBranch(
 /**
  * Returns the worktrees — other than the one at `repoPath` — whose HEAD reaches `sha`, i.e. the
  * worktrees that hold a working copy of the commit's files on a branch that contains the commit.
- * Used to surface "Open Worktree File" for commits whose branch lives in a sibling worktree.
+ * Used to surface the "(Worktree)" file actions for commits whose branch lives in a sibling worktree.
  */
 export async function getReachableWorktrees(
 	container: Container,
@@ -95,10 +95,72 @@ export async function getReachableWorktrees(
 	if (!candidates.length) return [];
 
 	const svc = container.git.getRepositoryService(repoPath);
+
+	// A worktree's checked-out branch tip IS its HEAD, so the set of refs containing the commit answers
+	// every branch worktree at once — one cached `for-each-ref --contains` instead of a `merge-base
+	// --is-ancestor` subprocess per worktree, which doesn't scale (a repo with ~100 worktrees spent
+	// longer spawning those than the rest of the details fetch took). Detached worktrees carry no branch,
+	// so they still need the per-worktree check — there are rarely any.
+	// Trust the ref set only when it's non-empty: `for-each-ref` runs with `errors: 'ignore'`, so a FAILED
+	// command resolves with empty stdout instead of throwing — an empty set is indistinguishable from a git
+	// failure, and reporting a reachable commit as unreachable would silently drop the "(Worktree)" actions.
+	// Falling back costs nothing in practice: a commit contained by no ref at all is rare (dangling or
+	// stash-only), whereas every commit in the graph is contained by at least its own branch.
+	const reachability = await svc.commits.getCommitReachability?.(sha, cancellation);
+	if (reachability?.refs.length) {
+		const reachableBranches = new Set(
+			reachability.refs.filter(r => r.refType === 'branch' && !r.remote).map(r => r.name),
+		);
+
+		const detached = candidates.filter(wt => wt.branch == null);
+		const reachableDetached = new Set<GitWorktree>();
+		if (detached.length) {
+			const results = await Promise.allSettled(
+				detached.map(wt => svc.commits.isAncestorOf(sha, wt.sha!, cancellation)),
+			);
+			for (const [i, wt] of detached.entries()) {
+				if (getSettledValue(results[i]) === true) {
+					reachableDetached.add(wt);
+				}
+			}
+		}
+
+		return candidates.filter(wt =>
+			wt.branch != null ? reachableBranches.has(wt.branch.name) : reachableDetached.has(wt),
+		);
+	}
+
+	// No usable ref set (unsupported provider, failed lookup, or a commit no ref contains) — fall back.
 	const results = await Promise.allSettled(
 		candidates.map(wt => svc.commits.isAncestorOf(sha, wt.sha!, cancellation)),
 	);
 	return candidates.filter((_wt, i) => getSettledValue(results[i]) === true);
+}
+
+/**
+ * Names of the branches checked out in worktrees other than `repoPath` — the git-free counterpart to
+ * {@link getReachableWorktrees}. A checked-out branch's tip IS that worktree's HEAD, so a commit whose
+ * reachable refs include one of these branches is necessarily an ancestor of that worktree's HEAD.
+ * Detached worktrees have no branch and so can't be answered this way (they need the git check).
+ */
+export function getSiblingWorktreeBranches(
+	worktrees: GitWorktree[] | undefined,
+	repoPath: string,
+): string[] | undefined {
+	if (worktrees == null || worktrees.length <= 1) return undefined;
+
+	const normalizedRepoPath = normalizePath(repoPath);
+
+	const branches: string[] = [];
+	for (const wt of worktrees) {
+		// Mirror `getReachableWorktrees`' candidate filter (incl. `sha != null`, which drops prunable
+		// worktrees) — otherwise the two can disagree about which worktrees are even eligible.
+		if (wt.type !== 'branch' || wt.branch == null || wt.sha == null) continue;
+		if (normalizePath(wt.path) === normalizedRepoPath) continue;
+
+		branches.push(wt.branch.name);
+	}
+	return branches.length ? branches : undefined;
 }
 
 export async function getWorktreesByBranch(

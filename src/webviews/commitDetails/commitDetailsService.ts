@@ -6,7 +6,7 @@
  *
  * Architecture:
  * - Backend is stateless - it only provides data and forwards events
- * - Webview owns all state (current commit, mode, pinned, navigation, etc.)
+ * - Webview owns all state (current commit, pinned, navigation, etc.)
  * - Webview subscribes to events and fetches data via RPC
  *
  * Sub-services are nested objects. On the webview side, resolve each
@@ -16,12 +16,12 @@
  * Service Layout:
  * - SharedWebviewServices: repositories, repository, config, storage,
  *   subscription, integrations, ai, autolinks, commands, telemetry, files, pullRequests
- * - inspect: view-specific commit/WIP queries, navigation, commit actions, AI ops
+ * - inspect: view-specific commit queries, navigation, commit actions, AI ops
  */
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { SharedWebviewServices } from '../rpc/services/common.js';
 import type { Unsubscribe } from '../rpc/services/types.js';
-import type { CommitDetails, Mode, Wip } from './protocol.js';
+import type { CommitDetails } from './protocol.js';
 
 // ============================================================
 // Event Types (used by subscription callbacks)
@@ -40,15 +40,6 @@ export interface CommitSelectionEvent {
 	passive?: boolean;
 }
 
-/**
- * Event fired when the host requests switching to WIP mode on an already-live webview.
- * (e.g., Launchpad or deep links opening review/WIP in the existing Inspect view)
- */
-export interface ShowWipEvent {
-	repoPath?: string;
-	inReview: boolean;
-}
-
 // ============================================================
 // Initial Context Types
 // ============================================================
@@ -58,16 +49,10 @@ export interface ShowWipEvent {
  * Contains only what's needed to know what data to fetch.
  */
 export interface InitialContext {
-	/** Current view mode */
-	mode: Mode;
 	/** Whether the view is pinned */
 	pinned: boolean;
-	/** Whether review mode is active (for WIP) */
-	inReview: boolean;
-	/** Initial commit info if in commit mode */
+	/** Initial commit info */
 	initialCommit?: { repoPath: string; sha: string };
-	/** Initial WIP repo path if in WIP mode */
-	initialWipRepoPath?: string;
 }
 
 // ============================================================
@@ -81,20 +66,13 @@ export type ExplainResult =
 	| { result: { summary: string; body: string }; error?: never }
 	| { error: { message: string } };
 
-/**
- * Result type for AI generate title/description operation.
- */
-export type GenerateResult =
-	| { title: string | undefined; description: string | undefined; error?: undefined }
-	| { error: { message: string } };
-
 // ============================================================
 // View-Specific Sub-Service: Inspect
 // ============================================================
 
 /**
  * Inspect service for Commit Details — the single view-specific sub-service
- * that owns commit/WIP queries, navigation, commit actions, and AI operations.
+ * that owns commit queries, navigation, commit actions, and AI operations.
  *
  * This replaces the old git/actions/navigation/ai sub-services with one
  * cohesive interface. Generic git operations (stage, unstage, fetch, push, pull,
@@ -110,12 +88,6 @@ export interface CommitInspectService {
 	 * View-specific: includes search context and passive flag.
 	 */
 	onCommitSelected(callback: (event: CommitSelectionEvent) => void): Unsubscribe;
-
-	/**
-	 * Fired when the host opens WIP mode on an already-live webview.
-	 * The webview should switch to WIP mode and fetch WIP data.
-	 */
-	onShowWip(callback: (event: ShowWipEvent) => void): Unsubscribe;
 
 	// ── Initialization ──
 
@@ -134,32 +106,11 @@ export interface CommitInspectService {
 	 */
 	getCommit(repoPath: string, sha: string, signal?: AbortSignal): Promise<CommitDetails | undefined>;
 
-	// ── WIP Queries ──
-
-	/**
-	 * Get core WIP state (working changes + branch info, no PR or code suggestions).
-	 * @param repoPath - Repository path (optional, uses best repo if not provided)
-	 * @param signal - Optional AbortSignal for cooperative cancellation
-	 */
-	getWipChanges(repoPath?: string, signal?: AbortSignal): Promise<Wip | undefined>;
-
 	/**
 	 * Pin or unpin the current view.
 	 * When pinned, the view won't follow line tracker changes.
 	 */
 	setPin(pin: boolean): Promise<void>;
-
-	/**
-	 * Switch between commit and WIP modes.
-	 */
-	switchMode(mode: Mode, repoPath?: string): Promise<void>;
-
-	/**
-	 * Toggle code review mode.
-	 * @param inReview - Whether to enter review mode
-	 * @param repoPath - Repository path (for telemetry)
-	 */
-	changeReviewMode(inReview: boolean, repoPath?: string): Promise<void>;
 
 	// ── Commit Actions ──
 
@@ -192,16 +143,10 @@ export interface CommitInspectService {
 
 	/**
 	 * Generate an AI explanation of a commit.
-	 * @param sha - Commit SHA (use 'wip' for uncommitted changes)
+	 * @param sha - Commit SHA
 	 * @param signal - Optional AbortSignal for cooperative cancellation
 	 */
 	explainCommit(repoPath: string, sha: string, prompt?: string, signal?: AbortSignal): Promise<ExplainResult>;
-
-	/**
-	 * Generate AI title and description for WIP changes.
-	 * @param signal - Optional AbortSignal for cooperative cancellation
-	 */
-	generateDescription(repoPath: string, signal?: AbortSignal): Promise<GenerateResult>;
 }
 
 // ============================================================

@@ -13,7 +13,7 @@ interface ConfigurationOverrides {
 export class Configuration implements Disposable {
 	static configure(context: ExtensionContext): void {
 		context.subscriptions.push(
-			// eslint-disable-next-line @typescript-eslint/no-use-before-define
+			// oxlint-disable-next-line typescript/no-use-before-define
 			workspace.onDidChangeConfiguration(configuration.onConfigurationChanged, configuration),
 		);
 	}
@@ -151,9 +151,13 @@ export class Configuration implements Disposable {
 		section: S,
 		scope?: ConfigurationScope | null,
 	): InspectWorkspaceConfiguration<V> | undefined {
-		return workspace
-			.getConfiguration(extensionPrefix, scope)
-			.inspect<V>(section === undefined ? extensionPrefix : section);
+		return (
+			workspace
+				.getConfiguration(extensionPrefix, scope)
+				// `section` is typed as required but can be undefined at runtime via untyped callers; don't broaden to null
+				// oxlint-disable-next-line typescript/prefer-nullish-coalescing
+				.inspect<V>(section === undefined ? extensionPrefix : section)
+		);
 	}
 
 	inspectAny<S extends string, T>(

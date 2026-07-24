@@ -87,7 +87,7 @@ export class ProductConfigProvider {
 					const data =
 						// prettier-ignore
 						(
-							// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- using @ts-ignore instead of @ts-expect-error because if `product.json` is found then @ts-expect-error will complain because its not an error anymore
+							// oxlint-disable-next-line typescript/ban-ts-comment -- using @ts-ignore instead of @ts-expect-error because if `product.json` is found then @ts-expect-error will complain because its not an error anymore
 							// @ts-ignore
 							await import(/* webpackChunkName: "product-config" */ '../../../product.json', {
 								with: { type: 'json' },
@@ -174,9 +174,9 @@ function createConfigValidator(): Validator<ConfigJson> {
 	const isState = Is.Enum<SubscriptionState>(
 		SubscriptionState.VerificationRequired,
 		SubscriptionState.Community,
-		// eslint-disable-next-line @typescript-eslint/no-deprecated -- allow deprecated states since we will just ignore them
+		// oxlint-disable-next-line typescript/no-deprecated -- allow deprecated states since we will just ignore them
 		SubscriptionState.DeprecatedPreview,
-		// eslint-disable-next-line @typescript-eslint/no-deprecated -- allow deprecated states since we will just ignore them
+		// oxlint-disable-next-line typescript/no-deprecated -- allow deprecated states since we will just ignore them
 		SubscriptionState.DeprecatedPreviewExpired,
 		SubscriptionState.Trial,
 		SubscriptionState.TrialExpired,
@@ -255,6 +255,7 @@ function createConfigValidator(): Validator<ConfigJson> {
 
 	return createValidator<ConfigJson>({
 		cli: Is.Optional(cliValidator),
+		// oxlint-disable-next-line typescript/no-deprecated
 		v: Is.Optional(Is.Number),
 		promos: Is.Optional(Is.Array(promoValidator)),
 		promosV2: Is.Optional(Is.Array(promoV2Validator)),

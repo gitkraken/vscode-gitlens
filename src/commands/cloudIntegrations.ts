@@ -1,4 +1,4 @@
-import type { SupportedCloudIntegrationIds } from '../constants.integrations.js';
+import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { command } from '../system/-webview/command.js';

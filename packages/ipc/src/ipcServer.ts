@@ -35,7 +35,7 @@ export async function createIpcServer<Request = unknown, Response = void>(): Pro
 				resolve(new IpcServer(serverUrl, port, token, server));
 			});
 		} catch (ex) {
-			// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+			// oxlint-disable-next-line typescript/prefer-promise-reject-errors
 			reject(ex);
 		}
 	});

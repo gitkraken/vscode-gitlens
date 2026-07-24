@@ -43,7 +43,7 @@ export function sequentialize<T extends (...args: any[]) => any>(
 	const getDedupingKey = options?.getDedupingKey;
 
 	return (_target: any, key: string, descriptor: PropertyDescriptor) => {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+		// oxlint-disable-next-line typescript/no-unsafe-function-type
 		let fn: Function | undefined;
 		if (typeof descriptor.value === 'function') {
 			fn = descriptor.value;
@@ -69,7 +69,7 @@ export function sequentialize<T extends (...args: any[]) => any>(
 			}
 
 			const state: SequentializeState | undefined = this[prop];
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			// oxlint-disable-next-line typescript/no-unsafe-return
 			const run = async () => await fn.apply(this, args);
 
 			// Compute the dedupe key once

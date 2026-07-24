@@ -220,7 +220,7 @@ export class SubscriptionService implements Disposable {
 
 					// Replace the next `onAuthenticationChanged` handler to avoid our own trigger below
 					const fn = this.onAuthenticationChanged;
-					// eslint-disable-next-line @typescript-eslint/require-await
+					// oxlint-disable-next-line typescript/require-await
 					this.onAuthenticationChanged = async () => {
 						this.onAuthenticationChanged = fn;
 					};
@@ -1206,24 +1206,22 @@ export class SubscriptionService implements Disposable {
 		if (!options?.force && this._session != null) return this._session;
 		if (this._session === null && !createIfNeeded) return undefined;
 
-		if (this._sessionPromise === undefined) {
-			this._sessionPromise = this.getOrCreateSession(createIfNeeded, source, {
-				signUp: options?.signUp,
-				signIn: options?.signIn,
-				context: options?.context,
-			}).then(
-				s => {
-					this._session = s;
-					this._sessionPromise = undefined;
-					return this._session;
-				},
-				() => {
-					this._session = null;
-					this._sessionPromise = undefined;
-					return this._session;
-				},
-			);
-		}
+		this._sessionPromise ??= this.getOrCreateSession(createIfNeeded, source, {
+			signUp: options?.signUp,
+			signIn: options?.signIn,
+			context: options?.context,
+		}).then(
+			s => {
+				this._session = s;
+				this._sessionPromise = undefined;
+				return this._session;
+			},
+			() => {
+				this._session = null;
+				this._sessionPromise = undefined;
+				return this._session;
+			},
+		);
 
 		const session = await this._sessionPromise;
 		return session ?? undefined;

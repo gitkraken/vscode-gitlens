@@ -7,6 +7,7 @@ import type {
 	GitGraphRowRemoteHead,
 	GitGraphRowStats,
 	GitGraphRowTag,
+	GraphRowProcessor,
 } from '@gitlens/git/models/graph.js';
 import type {
 	GitGraphSearch,
@@ -15,6 +16,14 @@ import type {
 	GitGraphSearchResultData,
 	GitGraphSearchResults,
 } from '@gitlens/git/models/graphSearch.js';
+import type {
+	GitGraphSession,
+	GitGraphSessionChangedChannels,
+	GitGraphSessionRefreshOptions,
+	GitGraphSessionRefreshResult,
+	GitGraphSessionSnapshot,
+	GraphSessionRestoreResult,
+} from '@gitlens/git/models/graphSession.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -22,6 +31,7 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import type { GitGraphSubProvider } from '@gitlens/git/providers/graph.js';
 import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
 import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
+import { appendRowsAtCursor, mergeAvatarsForward } from '@gitlens/git/utils/graph.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getSearchQueryComparisonKey, parseSearchQueryGitHubCommand } from '@gitlens/git/utils/search.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
@@ -34,6 +44,26 @@ const quoteRegex = /"/g;
 
 export class GraphGitSubProvider implements GitGraphSubProvider {
 	constructor(private readonly provider: GitHubGitProviderInternal) {}
+
+	async openGraphSession(
+		repoPath: string,
+		options?: {
+			rowProcessor?: GraphRowProcessor;
+			rev?: string;
+			limit?: number;
+			include?: { stats?: boolean };
+			restore?: GitGraphSessionSnapshot;
+			onRestore?: (result: GraphSessionRestoreResult) => void;
+		},
+		cancellation?: AbortSignal,
+	): Promise<GitGraphSession> {
+		// GitHub-backed graphs have no incremental machinery (and `getGraph` takes no row processor); the
+		// session is a thin window accumulator over full fetches. `rowProcessor` and `restore`/`onRestore`
+		// (there's no incremental restore path) are accepted for interface parity and ignored — always a full walk.
+		const session = new GraphSession(this, repoPath);
+		await session.initialize(options, cancellation);
+		return session;
+	}
 
 	@debug()
 	async getGraph(
@@ -507,5 +537,106 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 			throw new GitSearchError(ex);
 		}
+	}
+}
+
+/**
+ * GitHub-backed {@link GitGraphSession}: a thin window accumulator over {@link GraphGitSubProvider.getGraph}.
+ * There's no incremental head-walk yet, so every {@link refresh} is a full fetch (`path: 'full'`); the
+ * window accumulates across {@link more} via the shared cursor-anchored helper, and prior avatar URLs are
+ * carried forward write-once — matching the CLI session's observable window/avatar behavior.
+ */
+class GraphSession implements GitGraphSession {
+	// Assigned by `initialize` before the session is handed out; never read before then.
+	private _current!: GitGraph;
+	private _window: readonly GitGraphRow[] = [];
+
+	constructor(
+		private readonly provider: GraphGitSubProvider,
+		readonly repoPath: string,
+	) {}
+
+	get window(): readonly GitGraphRow[] {
+		return this._window;
+	}
+
+	get current(): GitGraph {
+		return this._current;
+	}
+
+	async initialize(
+		options?: { rev?: string; limit?: number; include?: { stats?: boolean } },
+		cancellation?: AbortSignal,
+	): Promise<void> {
+		const graph = await this.provider.getGraph(
+			this.repoPath,
+			options?.rev,
+			{ include: options?.include, limit: options?.limit },
+			cancellation,
+		);
+		this.apply(graph);
+	}
+
+	async refresh(
+		options?: GitGraphSessionRefreshOptions,
+		cancellation?: AbortSignal,
+	): Promise<GitGraphSessionRefreshResult> {
+		const prior = this._current;
+		let graph = await this.provider.getGraph(
+			this.repoPath,
+			options?.rev,
+			{ include: options?.include, limit: options?.limit },
+			cancellation,
+		);
+
+		// Host-serialization backstop: the host serializes refresh against more() per repo. Should a more() still
+		// land mid-refresh (`_current` swapped out from under this await), the rebuild predates that appended page
+		// — refresh carries newer repo truth so we still apply it, but when the accumulated window outran the
+		// rebuild the dropped page must re-page, not vanish. `paging.hasMore` is readonly, so re-wrap it truthful.
+		if (this._current !== prior && graph.paging != null && this._window.length > graph.rows.length) {
+			graph = { ...graph, paging: { ...graph.paging, hasMore: true } };
+		}
+
+		mergeAvatarsForward(prior.avatars, graph.avatars);
+		this.apply(graph);
+		// The GitHub provider always does a full walk (no incremental fast path), so every channel changed.
+		const changed: GitGraphSessionChangedChannels = {
+			rows: true,
+			reachability: true,
+			rowsStats: true,
+			avatars: true,
+			downstreams: true,
+		};
+		return { path: 'full', changed: changed };
+	}
+
+	async more(limit?: number, targetId?: string, cancellation?: AbortSignal): Promise<boolean> {
+		const prior = this._current;
+		const updated = await prior.more?.(limit ?? 0, targetId, cancellation);
+		if (this._current !== prior || updated == null) return false;
+		// A more() past the end returns a degenerate empty graph (no rows, no paging) — nothing to add, so don't
+		// let it REPLACE the accumulated window with empty.
+		if (updated.rows.length === 0 && updated.paging == null) return false;
+
+		mergeAvatarsForward(prior.avatars, updated.avatars);
+		this.apply(updated);
+		return true;
+	}
+
+	serialize(): GitGraphSessionSnapshot | undefined {
+		// No incremental restore path (no ref-tip gate / reachability table), so nothing worth persisting.
+		return undefined;
+	}
+
+	dispose(): void {
+		// No-op — the window lives entirely in memory.
+	}
+
+	/** Cursor-less graph IS the full window; a paged graph appends at its cursor. */
+	private apply(graph: GitGraph): void {
+		this._current = graph;
+		const startingCursor = graph.paging?.startingCursor;
+		this._window =
+			startingCursor == null ? graph.rows : appendRowsAtCursor(this._window, startingCursor, graph.rows);
 	}
 }

@@ -1,20 +1,103 @@
 // Shared design tokens. Applied at :root so custom properties inherit across shadow boundaries.
-// Consumed by both base.scss (graph / settings / welcome) and details-base.scss (commitDetails / rebase / timeline / etc.).
+// Reaches every webview app root — via base.scss (graph / settings), details-base.scss
+// (commitDetails / patchDetails), or a direct @use in the remaining app stylesheets
+// (home / timeline / rebase / welcome / composer).
+// Full reference (prefixes, the rem base, the elevation model): docs/webview-styling.md
 
 :root {
-	// Font-size scale (1rem = 10px via html font-size: 62.5%)
-	--gl-font-micro: 1rem; // 10px — tiny badge counts only
-	--gl-font-sm: 1.1rem; // 11px — secondary metadata, dates, stats, chips, tracking
-	--gl-font-base: 1.3rem; // 13px — primary body text, messages, controls
-	--gl-font-lg: 1.4rem; // 14px — emphasized headline (commit message subject)
+	// Font-size scale (1rem = 10px via html font-size: 62.5%). The 11/12/13 steps bridge to VS Code's
+	// bodyFontSize tokens (1.110+) and fall back to rem; micro/lg are bespoke (VS Code has no equivalent).
+	--gl-font-micro: 1rem; // 10px — tiny badge counts only (bespoke)
+	--gl-font-sm: var(--vscode-bodyFontSize-xSmall, 1.1rem); // 11px — secondary metadata, dates, stats, chips
+	--gl-font-md: var(--vscode-bodyFontSize-small, 1.2rem); // 12px — most-used; was --gl-font-small
+	--gl-font-base: var(--vscode-bodyFontSize, 1.3rem); // 13px — primary body text, messages, controls
+	--gl-font-lg: 1.4rem; // 14px — emphasized headline (commit message subject) (bespoke)
 
 	// Input max-width (AI input / action input)
 	--gl-max-input: 560px;
 
-	// Border radius for text-entry controls (inputs, textareas) — shared across all webviews
-	--gl-input-border-radius: 0.4rem;
+	// Radius scale — bridges to VS Code's cornerRadius tokens (1.110+), falls back to rem.
+	// sm (4px) is the control radius (buttons, inputs, diffs) — re-synced from a stale 3px to match VS Code.
+	--gl-radius-xs: var(--vscode-cornerRadius-xSmall, 0.2rem); // 2px
+	--gl-radius-sm: var(--vscode-cornerRadius-small, 0.4rem); // 4px — controls
+	--gl-radius-md: var(--vscode-cornerRadius-medium, 0.6rem); // 6px
+	--gl-radius-lg: var(--vscode-cornerRadius-large, 0.8rem); // 8px
+	--gl-radius-xl: var(--vscode-cornerRadius-xLarge, 1.2rem); // 12px
+	--gl-radius-circle: var(--vscode-cornerRadius-circle, 9999px);
+
+	// Border / outline thickness — bridges to VS Code's strokeThickness (1.110+).
+	--gl-border-width: var(--vscode-strokeThickness, 0.1rem); // 1px
+
+	// Border radius for text-entry controls (inputs, textareas) — aliased onto the control radius.
+	--gl-input-border-radius: var(--gl-radius-sm);
 
 	// Horizontal padding for detail panels (embedded + standalone). Component hosts may override.
 	--gl-panel-padding-left: 1.2rem;
 	--gl-panel-padding-right: 1.2rem;
+
+	// Spacing ramp — bridges to VS Code's spacing tokens (1.110+), falls back to rem.
+	// Named by px (1rem = 10px); maps to VS Code's spacing.size{px * 10}.
+	--gl-space-2: var(--vscode-spacing-size20, 0.2rem);
+	--gl-space-4: var(--vscode-spacing-size40, 0.4rem);
+	--gl-space-6: var(--vscode-spacing-size60, 0.6rem);
+	--gl-space-8: var(--vscode-spacing-size80, 0.8rem);
+	--gl-space-10: var(--vscode-spacing-size100, 1rem);
+	--gl-space-12: var(--vscode-spacing-size120, 1.2rem);
+	--gl-space-16: var(--vscode-spacing-size160, 1.6rem);
+	--gl-space-20: var(--vscode-spacing-size200, 2rem);
+	--gl-space-24: var(--vscode-spacing-size240, 2.4rem);
+	--gl-space-28: var(--vscode-spacing-size280, 2.8rem);
+	--gl-space-32: var(--vscode-spacing-size320, 3.2rem);
+	--gl-space-36: var(--vscode-spacing-size360, 3.6rem);
+	--gl-space-40: var(--vscode-spacing-size400, 4rem);
+
+	// Motion — duration tiers (semantic by speed, slow→fast) + easings. Bespoke: VS Code has no motion
+	// tokens to bridge. Long-running loop/effect timings (≥350ms: spinners, pulses, shimmers, scanners)
+	// stay literal — their duration is intrinsic to the effect, not a UI-transition speed.
+	--gl-duration-x-slow: 300ms; // deliberate / largest movement
+	--gl-duration-slow: 250ms;
+	--gl-duration-medium: 200ms; // default — most common transition
+	--gl-duration-fast: 150ms;
+	--gl-duration-x-fast: 100ms; // snappy micro-feedback (hover, focus, tint)
+	--gl-ease-out: ease-out;
+	--gl-ease-in: ease-in;
+	--gl-ease-in-out: ease-in-out;
+	--gl-ease-spin: cubic-bezier(0.53, 0.21, 0.29, 0.67); // codicon/glicon spin timing
+
+	// Z-index / stacking scale — semantic tiers for declarations that escape into a shared stacking
+	// context. The guard, the top-layer rule for modals, and the disjoint --wa-z-index-* band are
+	// in docs/webview-styling.md (Elevation).
+	--gl-z-buried: -2; // deepest tier — beneath even a `behind` layer
+	--gl-z-behind: -1; // decorative layer beneath its in-flow siblings
+	--gl-z-base: 0; // stacking-context anchor, not a raise (prefer `isolation: isolate`)
+	--gl-z-raised: 1; // lowest raise in a shared light-DOM context
+	--gl-z-sticky: 100; // pinned chrome (sticky headers, toolbars, rails, sashes)
+	--gl-z-cover: 200; // full-area blocking/dimming overlay (scrim) over a region
+	--gl-z-sheet: 300; // panel-scoped modal sheet (cross-shadow-root contract with `sticky` chrome)
+	--gl-z-popover: 400; // anchored interactive surface (menus, row-hovers, dropdowns)
+	--gl-z-tooltip: 500; // topmost in-document content — never occluded, even nested in a popover
+
+	// Elevation / shadow scale — tiers mirror --gl-z-* 1:1 and derive from --vscode-widget-shadow.
+	// Apply ONLY via the elevated-surface helper (Lit `elevatedSurface` / SCSS `@include
+	// elevated-surface`), never raw — every --gl-shadow-* vanishes in high-contrast, so the helper
+	// pairs each shadow with a border. Model + high-contrast contract: docs/webview-styling.md.
+	// private base — mixed from, never applied directly. No fallback on purpose: --vscode-widget-shadow
+	// is unset in high-contrast, so the color-mix tiers below compute invalid there and the shadow
+	// vanishes (the elevated-surface border takes over).
+	--gl-shadow-color: var(--vscode-widget-shadow);
+	--gl-shadow-raised:
+		0 1px 2px -1px color-mix(in srgb, var(--gl-shadow-color) 90%, transparent),
+		0 2px 4px -2px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
+	--gl-shadow-popover:
+		0 2px 6px -2px color-mix(in srgb, var(--gl-shadow-color) 90%, transparent),
+		0 6px 12px -4px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
+
+	// --gl-shadow-sheet casts UPWARD (negative Y) — for a bottom-anchored sheet
+	--gl-shadow-sheet:
+		0 -2px 6px -2px color-mix(in srgb, var(--gl-shadow-color) 85%, transparent),
+		0 -6px 16px -4px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
+	--gl-shadow-dialog:
+		0 4px 12px -4px color-mix(in srgb, var(--gl-shadow-color) 95%, transparent),
+		0 12px 28px -8px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
+	--gl-shadow-tooltip: 0 2px 8px var(--vscode-widget-shadow); // single-layer, byte-identical to VS Code's native hover
 }

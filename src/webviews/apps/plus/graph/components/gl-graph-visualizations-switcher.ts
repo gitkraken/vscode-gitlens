@@ -1,18 +1,22 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import type { VisualizationMode } from '../../../../plus/graph/protocol.js';
 import type { TreemapMode } from '../../../../plus/treemap/protocol.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
+import type { GraphVisualizationKey } from './visualizations.utils.js';
+import { getEffectiveVisualizationKey } from './visualizations.utils.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 /** Flat enumeration of the visualizations the switcher offers. Each entry collapses the two-axis
  *  (mode × treemapMode) state into a single key, so the UI is one tablist instead of two nested
  *  toggles. Add a new visualization by extending this map; the rest of the component derives icon,
- *  tooltip, and dispatch from the entry. */
-type VisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
+ *  tooltip, and dispatch from the entry. Aliased to the shared {@link GraphVisualizationKey} so the
+ *  switcher, the wrapper's routing, and the `closed` telemetry all name visualizations identically. */
+type VisualizationKey = GraphVisualizationKey;
 
 interface VisualizationConfig {
 	mode: VisualizationMode;
@@ -57,11 +61,11 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 	static override styles = css`
 		:host {
 			display: inline-flex;
+			gap: var(--gl-space-2);
 			align-items: center;
-			gap: 0.2rem;
-			padding: 0.2rem;
-			border-radius: 0.4rem;
+			padding: var(--gl-space-2);
 			background: var(--vscode-editorWidget-background, transparent);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.visualization-tablist {
@@ -69,17 +73,17 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		}
 
 		.visualization-button {
-			appearance: none;
-			background: none;
-			border: 1px solid transparent;
-			border-radius: 0.3rem;
-			padding: 0.4rem 0.6rem;
-			cursor: pointer;
-			font: inherit;
-			color: var(--vscode-descriptionForeground);
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
+			padding: var(--gl-space-4) var(--gl-space-6);
+			font: inherit;
+			color: var(--vscode-descriptionForeground);
+			appearance: none;
+			cursor: pointer;
+			background: none;
+			border: var(--gl-border-width) solid transparent;
+			border-radius: var(--gl-radius-sm);
 			--code-icon-size: 1.6rem;
 		}
 
@@ -99,13 +103,13 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		}
 
 		.visualization-button:focus-visible {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 1px;
 		}
 
 		.visualization-button:disabled {
-			opacity: 0.45;
 			cursor: not-allowed;
+			opacity: 0.45;
 		}
 	`;
 
@@ -127,14 +131,23 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		return repo?.virtual === true;
 	}
 
-	/** Map current `(mode, treemapMode)` state to the active switcher key. Treemap defaults to
-	 *  `files` when no mode is set so the switcher always has exactly one pressed button. */
+	/** Map current `(mode, treemapMode)` state to the active switcher key via the shared resolver, so
+	 *  the pressed tab, the wrapper's routing, and the `closed` telemetry can't drift. The switcher
+	 *  renders only when the flag is on (see `render`), so the gate is always satisfied here. */
 	private get activeKey(): VisualizationKey {
-		if (this.mode === 'timeline') return 'timeline';
-		return `treemap-${this.treemapMode}`;
+		return getEffectiveVisualizationKey(
+			this.mode,
+			this.treemapMode,
+			this.graphState.config?.experimentalVisualizationsEnabled === true,
+		);
 	}
 
 	private select(key: VisualizationKey): void {
+		// Clicking the already-active tab dispatches nothing today (both per-axis conditions below
+		// are false) — keep that contract explicit so the telemetry can't count no-op clicks.
+		const previous = this.activeKey;
+		if (key === previous) return;
+
 		const config = visualizationConfigs[key];
 		if (this.mode !== config.mode) {
 			this.dispatchEvent(
@@ -154,6 +167,14 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 				}),
 			);
 		}
+
+		// Emitted here (per click) rather than in graph-app's per-axis handlers — a single switch
+		// like timeline → Commits Treemap can dispatch BOTH events above, which would double-count
+		// the one user action.
+		emitTelemetrySentEvent<'graph/visualizations/modeChanged'>(this, {
+			name: 'graph/visualizations/modeChanged',
+			data: { 'mode.old': previous, 'mode.new': key, reason: 'user' },
+		});
 	}
 
 	private renderButton(
@@ -165,7 +186,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		const config = visualizationConfigs[key];
 		const selected = key === active;
 		const tooltipContent = disabled ? (disabledMessage ?? config.label) : config.label;
-		return html`<gl-tooltip placement="bottom" content=${tooltipContent} distance="6">
+		return html`<gl-tooltip placement="bottom" content=${tooltipContent} .distance=${6}>
 			<button
 				class="visualization-button"
 				role="tab"

@@ -1,7 +1,7 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -54,8 +54,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: inline-flex;
+				gap: var(--gl-space-8);
 				align-items: center;
-				gap: 0.8rem;
 			}
 
 			:host-context(.vscode-dark),
@@ -73,66 +73,71 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			.chip {
-				padding-right: 0.6rem;
-
-				font-size: 1.1rem;
+				padding-right: var(--gl-space-6);
+				font-size: var(--gl-font-sm);
 				font-weight: 400;
-				text-transform: uppercase;
 				line-height: 2rem;
+				text-transform: uppercase;
 				background-color: var(--gl-account-chip-color);
+			}
+
+			/* Avatar-only anchor: the right padding exists to balance the trailing plan-tier label,
+			   which compact mode drops. */
+			:host([compact]) .chip {
+				padding-right: 0;
 			}
 
 			.chip--outlined {
 				background-color: transparent;
-				border: 1px solid var(--gl-account-chip-color);
+				border: var(--gl-border-width) solid var(--gl-account-chip-color);
 			}
 
 			.chip__media {
-				flex: 0 0 auto;
 				display: flex;
+				flex: 0 0 auto;
 				align-items: center;
 				justify-content: center;
-				padding: 0.2rem;
+				padding: var(--gl-space-2);
 			}
 
 			img.chip__media {
 				width: 1.6rem;
 				aspect-ratio: 1 / 1;
-				border-radius: 50%;
 				background-color: var(--gl-account-chip-media-color);
+				border-radius: 50%;
 			}
 
 			.chip-group {
 				display: inline-flex;
 				flex-direction: row;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				cursor: pointer;
 			}
 
 			.account-info {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 			}
 
 			.row {
 				position: relative;
 				display: flex;
 				flex-direction: row;
-				gap: 0 0.6rem;
+				gap: 0 var(--gl-space-6);
 				align-items: center;
 			}
 
 			.row:last-of-type {
-				margin-bottom: 0.6rem;
+				margin-bottom: var(--gl-space-6);
 			}
 
 			.row__media {
-				flex: 0 0 auto;
-				width: 3.4rem;
 				display: flex;
+				flex: 0 0 auto;
 				align-items: center;
 				justify-content: center;
+				width: 3.4rem;
 			}
 
 			.row__media code-icon {
@@ -142,35 +147,35 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.row__media img {
 				width: 2rem;
 				aspect-ratio: 1 / 1;
-				border-radius: 50%;
 				background-color: var(--gl-account-account-media-color);
+				border-radius: 50%;
 			}
 
 			.details {
-				flex: 1;
 				display: flex;
+				flex: 1;
 				flex-direction: column;
 				justify-content: center;
 			}
 
 			.details__title {
-				font-size: 1.3rem;
-				font-weight: 600;
 				margin: 0;
+				font-size: var(--gl-font-base);
+				font-weight: 600;
 			}
 
 			.details__subtitle {
-				font-size: 1.1rem;
-				font-weight: 400;
 				margin: 0;
+				font-size: var(--gl-font-sm);
+				font-weight: 400;
 				color: var(--color-foreground--65);
 			}
 
 			.details__button {
-				flex: none;
 				display: flex;
-				gap: 0.2rem;
+				flex: none;
 				flex-direction: row;
+				gap: var(--gl-space-2);
 				align-items: center;
 				justify-content: center;
 			}
@@ -181,18 +186,19 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				justify-content: center;
 				width: 2.4rem;
 				height: 2.4rem;
-				line-height: 2.4rem;
-				font-size: 1rem;
+				margin-right: var(--gl-space-6);
+				font-size: var(--gl-font-micro);
 				font-weight: 600;
+				line-height: 2.4rem;
 				color: var(--color-foreground--65);
 				background-color: var(--vscode-toolbar-hoverBackground);
 				border-radius: 50%;
-				margin-right: 0.6rem;
 			}
 
 			.account-status > :first-child {
 				margin-block-start: 0;
 			}
+
 			.account-status > :last-child {
 				margin-block-end: 0;
 			}
@@ -203,18 +209,18 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			button-container .button-suffix {
 				display: inline-flex;
-				align-items: center;
-				white-space: nowrap;
 				gap: 0.2em;
-				margin-left: 0.4rem;
+				align-items: center;
+				margin-left: var(--gl-space-4);
+				white-space: nowrap;
 			}
 
 			.upgrade > * {
-				margin-block: 0.8rem 0;
+				margin-block: var(--gl-space-8) 0;
 			}
 
 			.upgrade ul {
-				padding-inline-start: 2rem;
+				padding-inline-start: var(--gl-space-20);
 			}
 
 			.upgrade li {
@@ -223,9 +229,10 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			.upgrade gl-promo::part(text) {
 				margin-block-start: 0;
+
 				/* border-radius: 0.3rem;
-				padding: 0.2rem 0.4rem;
-				background-color: var(--gl-account-chip-color); */
+		padding: var(--gl-space-2) var(--gl-space-4);
+		background-color: var(--gl-account-chip-color); */
 			}
 
 			.upgrade gl-promo:not([has-promo]) {
@@ -233,8 +240,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			.upgrade-button {
+				font-size: var(--gl-font-micro);
 				text-transform: uppercase;
-				font-size: 1rem;
 			}
 
 			@keyframes shimmer {
@@ -243,19 +250,24 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				}
 			}
 
+			/* Compact hosts get an avatar-only chip, so shrink the loading placeholder to match. */
+			:host([compact]) .chip--skeleton {
+				width: 2.4rem;
+			}
+
 			.chip--skeleton {
 				position: relative;
-				overflow: hidden;
 				width: 8rem;
 				height: 2.4rem;
-				background-color: var(--gl-account-chip-color);
+				overflow: hidden;
 				cursor: default;
+				background-color: var(--gl-account-chip-color);
 			}
 
 			.chip--skeleton::before {
-				content: '';
 				position: absolute;
 				inset: 0;
+				content: '';
 				background-image: linear-gradient(
 					to right,
 					transparent 0%,
@@ -264,7 +276,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					transparent 100%
 				);
 				transform: translateX(-100%);
-				animation: shimmer 2s ease-in-out infinite;
+				animation: shimmer 2s var(--gl-ease-in-out) infinite;
 			}
 		`,
 	];
@@ -278,11 +290,21 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		this._showUpgrade = value;
 	}
 
+	/** Compact presentation for space-constrained hosts (e.g. inlined in the Graph header, issue
+	 *  #5449): avatar-only anchor, no plan-tier label, no upgrade CTA — the popover still carries
+	 *  the full account content. Opt-in via attribute so existing hosts (Home) are unaffected. */
+	@property({ type: Boolean, reflect: true })
+	compact = false;
+
 	@query('#chip')
 	private _chip!: HTMLElement;
 
 	@query('gl-popover')
 	private _popover!: GlPopover;
+
+	/** Mirrors the popover's open state so the compact anchor's `aria-expanded` stays accurate. */
+	@state()
+	private _popoverOpen = false;
 
 	private get accountAvatar() {
 		return this.hasAccount && this._subscription.avatar.get();
@@ -364,12 +386,26 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			></span>`;
 		}
 
-		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
-				<span id="chip" slot="anchor" class="chip" tabindex="0">
+		return html`<gl-popover
+				placement="bottom"
+				trigger="hover focus click"
+				@gl-popover-show=${this.onPopoverShow}
+				@gl-popover-hide=${this.onPopoverHide}
+			>
+				<span
+					id="chip"
+					slot="anchor"
+					class="chip"
+					tabindex="0"
+					role=${this.compact ? 'button' : nothing}
+					aria-label=${this.compact ? `Account (${this.planTier})` : nothing}
+					aria-expanded=${this.compact ? this._popoverOpen : nothing}
+					@keydown=${this.onAnchorKeydown}
+				>
 					${this.accountAvatar
 						? html`<img class="chip__media" src=${this.accountAvatar} />`
 						: html`<code-icon class="chip__media" icon="gl-gitlens" size="16"></code-icon>`}
-					<span>${this.planTier}</span>
+					${this.compact ? nothing : html`<span>${this.planTier}</span>`}
 				</span>
 				<div slot="content" class="content" tabindex="-1">
 					<div class="header">
@@ -409,12 +445,30 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					${this.renderAccountInfo()} ${this.renderAccountState()}
 				</div>
 			</gl-popover>
-			${this.renderUpgradeContent()}`;
+			${this.compact ? nothing : this.renderUpgradeContent()}`;
 	}
 
 	show(): void {
 		void this._popover.show();
 		this.focus();
+	}
+
+	/** Enter/Space activation for the compact anchor's `role="button"` — a span doesn't synthesize
+	 *  clicks, so without this the advertised button semantics wouldn't work from the keyboard
+	 *  (e.g. reopening the popover after dismissing it with Escape). */
+	private onAnchorKeydown(e: KeyboardEvent) {
+		if (!this.compact || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+
+		e.preventDefault();
+		void (this._popover.open ? this._popover.hide() : this._popover.show());
+	}
+
+	private onPopoverShow() {
+		this._popoverOpen = true;
+	}
+
+	private onPopoverHide() {
+		this._popoverOpen = false;
 	}
 
 	private renderAccountInfo() {
@@ -682,7 +736,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 		this.showUpgrade = true;
 
-		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover focus click">
 			<span slot="anchor" class="chip chip--outlined" tabindex="0">
 				<span>Upgrade</span>
 			</span>

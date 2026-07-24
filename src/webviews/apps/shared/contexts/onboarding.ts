@@ -1,5 +1,5 @@
-import { createContext } from '@lit/context';
 import type { Signal } from '@lit-labs/signals';
+import { createContext } from '@lit/context';
 import { signalObject } from 'signal-utils/object';
 import type { WalkthroughContextKeys } from '../../../../constants.walkthroughs.js';
 import { createSignalGroup } from '../state.js';

@@ -65,9 +65,7 @@ export class VSCodeEvaluator {
 			| undefined;
 
 		// If not found in recent logs, wait for it
-		if (!match) {
-			match = await this.waitForLine(process, vscodeTestServerRegExp, timeout);
-		}
+		match ??= await this.waitForLine(process, vscodeTestServerRegExp, timeout);
 
 		const serverUrl = match[1];
 		return new VSCodeEvaluator(serverUrl);

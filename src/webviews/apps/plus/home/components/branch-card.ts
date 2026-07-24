@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -61,6 +61,7 @@ export const branchCardStyles = css`
 
 	gl-avatar-list {
 		--gl-avatar-size: 2.4rem;
+
 		margin-block: -0.4rem;
 	}
 
@@ -71,8 +72,9 @@ export const branchCardStyles = css`
 	.branch-item__container {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
+
 	.branch-item__container > * {
 		margin-block: 0;
 	}
@@ -80,8 +82,9 @@ export const branchCardStyles = css`
 	.branch-item__section {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
+
 	.branch-item__section > * {
 		margin-block: 0;
 	}
@@ -93,9 +96,9 @@ export const branchCardStyles = css`
 
 	.branch-item__actions {
 		display: flex;
-		align-items: center;
-		gap: 0.8rem;
 		flex-direction: row;
+		gap: var(--gl-space-8);
+		align-items: center;
 		justify-content: flex-end;
 		font-size: 0.9em;
 	}
@@ -106,16 +109,16 @@ export const branchCardStyles = css`
 	}
 
 	.branch-item__icon {
-		color: var(--vscode-descriptionForeground);
 		flex: none;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.branch-item__name {
 		flex-grow: 1;
-		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-weight: bold;
+		white-space: nowrap;
 	}
 
 	.branch-item__name--secondary {
@@ -129,18 +132,17 @@ export const branchCardStyles = css`
 
 	.branch-item__grouping {
 		display: inline-flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
 		max-width: 100%;
 		margin-block: 0;
 	}
 
 	.branch-item__agents {
 		display: flex;
-		flex-direction: row;
+		flex-flow: row wrap;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
-		flex-wrap: wrap;
 	}
 
 	.branch-item__agents code-icon {
@@ -149,10 +151,10 @@ export const branchCardStyles = css`
 
 	.branch-item__changes {
 		display: flex;
-		align-items: center;
-		gap: 1rem;
-		justify-content: flex-end;
 		flex-wrap: wrap;
+		gap: var(--gl-space-10);
+		align-items: center;
+		justify-content: flex-end;
 		white-space: nowrap;
 	}
 
@@ -162,20 +164,20 @@ export const branchCardStyles = css`
 
 	.branch-item__summary {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
 	}
 
 	.branch-item__collapsed-actions {
 		position: absolute;
-		z-index: var(--gl-branch-card-actions-zindex, 2);
 		right: 0.4rem;
 		bottom: 0.3rem;
-		padding: 0.4rem 0.6rem;
+		z-index: var(--gl-branch-card-actions-zindex, 2);
+		padding: var(--gl-space-4) var(--gl-space-6);
 		background-color: var(--gl-card-hover-background);
 	}
 
-	.branch-item:not(:focus-within):not(:hover) .branch-item__collapsed-actions {
+	.branch-item:not(:focus-within, :hover) .branch-item__collapsed-actions {
 		${srOnlyStyles}
 	}
 
@@ -183,12 +185,13 @@ export const branchCardStyles = css`
 		--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
 		--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 1.5%);
 	}
+
 	.work-item::part(base) {
 		margin-block-end: 0;
 	}
 
 	.branch-item__section.mb-1 {
-		margin-block: 0.4rem;
+		margin-block: var(--gl-space-4);
 	}
 
 	.branch-item__merge-target {
@@ -197,7 +200,7 @@ export const branchCardStyles = css`
 
 	.branch-item__row {
 		display: flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 	}
 
 	.branch-item__row [full] {
@@ -223,7 +226,7 @@ export const branchCardStyles = css`
 	}
 
 	.branch-item__category {
-		margin-inline-start: 0.6rem;
+		margin-inline-start: var(--gl-space-6);
 	}
 
 	.launchpad-grouping--mergeable {
@@ -241,7 +244,7 @@ export const branchCardStyles = css`
 	.wip__pill {
 		display: flex;
 		flex-direction: row;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 	}
 
 	.wip__tooltip {
@@ -778,8 +781,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 				)}
 				${this.renderAgentPillsRow()}
 				${when(
-					// TODO: this doesn't work properly. nothing is true, empty html template is true
-					actionsSection || mergeTargetStatus,
+					(actionsSection != null && actionsSection !== nothing) || mergeTargetStatus !== nothing,
 					() =>
 						html`<div class="branch-item__actions" slot="actions">
 							${mergeTargetStatus ?? nothing}${actionsSection ?? nothing}
@@ -886,7 +888,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 							this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
 								? html`<gl-button
 										class="branch-item__missing"
-										tooltip="Create a Pull Request with AI (Preview)"
+										tooltip="Create a Pull Request with AI"
 										appearance="secondary"
 										href="${this._webview.createCommandLink<CreatePullRequestCommandArgs>(
 											'gitlens.createPullRequest:',
@@ -1229,7 +1231,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				if (hasWip) {
 					actions.push(
 						html`<action-item
-							label="Explain Working Changes (Preview)"
+							label="Explain Working Changes"
 							icon="sparkle"
 							href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainWip:')}
 						></action-item>`,
@@ -1237,7 +1239,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				} else {
 					actions.push(
 						html`<action-item
-							label="Explain Branch Changes (Preview)"
+							label="Explain Branch Changes"
 							icon="sparkle"
 							href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
 						></action-item>`,
@@ -1256,7 +1258,7 @@ export class GlBranchCard extends GlBranchCardBase {
 			if (aiEnabled) {
 				actions.push(
 					html`<action-item
-						label="Explain Branch Changes (Preview)"
+						label="Explain Branch Changes"
 						icon="sparkle"
 						href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
 					></action-item>`,

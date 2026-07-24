@@ -8,7 +8,7 @@ import type {
 import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
 import { estimatedCharactersPerToken } from '@gitlens/ai/utils/ai.utils.js';
-import { parseReviewDetailResult, parseReviewResult } from '@gitlens/ai/utils/results.utils.js';
+import { parseReviewDetailResult, parseReviewResult, serializeReviewResult } from '@gitlens/ai/utils/results.utils.js';
 import { truncatePromptWithDiff } from '@gitlens/ai/utils/truncation.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { TelemetryEvents } from '../../../constants.telemetry.js';
@@ -53,6 +53,21 @@ export function getSinglePassTokenThreshold(model: AIModel | undefined): number 
 const reviewUserGuidanceHeader =
 	'The user provided the following focus areas for this review — prioritize these in your analysis:';
 
+export interface AIReviewFollowUpExchange {
+	/** The user guidance that produced `result` — for the first exchange (the initial run) the
+	 *  original guidance replayed into turn 1, for later exchanges that turn's refine guidance. */
+	readonly instructions?: string;
+	readonly result: AIReviewResult;
+}
+
+/** Prior completed exchanges of the review being followed up, oldest first. When provided, the
+ *  request becomes a multi-turn conversation: turn 1 is rebuilt for the current model, each
+ *  exchange is replayed (assistant result + the refine turn that followed it), and the incoming
+ *  `instructions` on the prompt context become the final refine turn instead of turn-1 guidance. */
+export interface AIReviewFollowUp {
+	readonly exchanges: readonly AIReviewFollowUpExchange[];
+}
+
 interface RunReviewSpec<TTemplate extends PromptTemplateType, TResult> {
 	promptTemplate: TTemplate;
 	progressTitleVerb: string;
@@ -68,6 +83,7 @@ async function runReview<TTemplate extends PromptTemplateType, TResult>(
 		| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<TTemplate>>),
 	sourceContext: AIReviewSourceContext,
 	spec: RunReviewSpec<TTemplate, TResult>,
+	followUp?: AIReviewFollowUp,
 	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
 ): Promise<AIResult<TResult> | 'cancelled' | undefined> {
 	const { context, ...source } = sourceContext;
@@ -81,26 +97,64 @@ async function runReview<TTemplate extends PromptTemplateType, TResult>(
 					promptContext = await promptContext(cancellation);
 				}
 
-				promptContext.instructions = mergeUserInstructions(
-					configuration.get('ai.reviewChanges.customInstructions'),
-					promptContext.instructions,
-					reviewUserGuidanceHeader,
-				);
+				const exchanges = followUp?.exchanges.length ? followUp.exchanges : undefined;
+				// In a follow-up the incoming instructions are the final refine turn's guidance;
+				// turn 1 replays the initial run's guidance instead. Never mutate `promptContext`
+				// — `getMessages` re-runs on retries
+				const refineInstructions = exchanges ? promptContext.instructions : undefined;
+				const templateContext = {
+					...promptContext,
+					instructions: mergeUserInstructions(
+						configuration.get('ai.reviewChanges.customInstructions'),
+						exchanges ? exchanges[0].instructions : promptContext.instructions,
+						reviewUserGuidanceHeader,
+					),
+				};
 
 				if (cancellation.isCancellationRequested) throw new CancellationError();
+
+				let history: AIChatMessage[] | undefined;
+				let turn1MaxInputTokens = maxInputTokens;
+				if (exchanges) {
+					// Replay each prior exchange (assistant result + the refine turn that followed
+					// it), ending with the current refine turn, then reserve their token budget
+					// before building turn 1
+					history = [];
+					for (let i = 0; i < exchanges.length; i++) {
+						history.push({ role: 'assistant', content: serializeReviewResult(exchanges[i].result) });
+
+						const instructions =
+							i + 1 < exchanges.length ? exchanges[i + 1].instructions : refineInstructions;
+						const { prompt } = await service.getPrompt(
+							'review-refine',
+							model,
+							{ instructions: instructions ?? '' },
+							maxInputTokens,
+							retries,
+							reporting,
+						);
+						history.push({ role: 'user', content: prompt });
+					}
+
+					const historyCharacters = history.reduce((sum, m) => sum + m.content.length, 0);
+					turn1MaxInputTokens = Math.max(
+						0,
+						maxInputTokens - Math.ceil(historyCharacters / estimatedCharactersPerToken),
+					);
+				}
 
 				const { prompt } = await service.getPrompt(
 					spec.promptTemplate,
 					model,
-					promptContext,
-					maxInputTokens,
+					templateContext,
+					turn1MaxInputTokens,
 					retries,
 					reporting,
 					spec.truncation,
 				);
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
-				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
+				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }, ...(history ?? [])];
 				return messages;
 			},
 			getProgressTitle: m => `${spec.progressTitleVerb} with ${m.name}...`,
@@ -151,8 +205,9 @@ export function reviewChanges(
 		| PromptTemplateContext<'review-changes'>
 		| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'review-changes'>>),
 	sourceContext: AIReviewSourceContext,
-	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
+	options?: { cancellation?: CancellationToken; progress?: ProgressOptions; followUp?: AIReviewFollowUp },
 ): Promise<AIResult<AIReviewResult> | 'cancelled' | undefined> {
+	const { followUp, ...rest } = options ?? {};
 	return runReview(
 		service,
 		promptContext,
@@ -164,7 +219,8 @@ export function reviewChanges(
 			truncation: truncatePromptWithDiff,
 			parse: content => parseReviewResult(content, 'single-pass'),
 		},
-		options,
+		followUp,
+		rest,
 	);
 }
 
@@ -175,8 +231,9 @@ export function reviewOverview(
 		| PromptTemplateContext<'review-overview'>
 		| ((cancellationToken: CancellationToken) => Promise<PromptTemplateContext<'review-overview'>>),
 	sourceContext: AIReviewSourceContext,
-	options?: { cancellation?: CancellationToken; progress?: ProgressOptions },
+	options?: { cancellation?: CancellationToken; progress?: ProgressOptions; followUp?: AIReviewFollowUp },
 ): Promise<AIResult<AIReviewResult> | 'cancelled' | undefined> {
+	const { followUp, ...rest } = options ?? {};
 	return runReview(
 		service,
 		promptContext,
@@ -188,7 +245,8 @@ export function reviewOverview(
 			truncation: undefined,
 			parse: content => parseReviewResult(content, 'two-pass'),
 		},
-		options,
+		followUp,
+		rest,
 	);
 }
 
@@ -213,6 +271,7 @@ export function reviewFocusArea(
 			truncation: truncatePromptWithDiff,
 			parse: content => parseReviewDetailResult(content, focusAreaId),
 		},
+		undefined,
 		options,
 	);
 }

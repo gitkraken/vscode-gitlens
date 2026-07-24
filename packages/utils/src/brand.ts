@@ -1,6 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/naming-convention
 declare const __brand: unique symbol;
-// eslint-disable-next-line @typescript-eslint/naming-convention
 declare const __base: unique symbol;
 
 type _Brand<Base, B> = { [__brand]: B; [__base]: Base };

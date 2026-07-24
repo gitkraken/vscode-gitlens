@@ -8,3 +8,5 @@ When creating or modifying Lit web components:
 - **Tooltips**: Must appear on both hover AND keyboard focus. Must be dismissible with Escape.
 - **Visual indicators**: Focus outlines must be visible. Do NOT use `outline: none` without providing an alternative visible indicator. Avoid double outlines from both `:focus` and `:focus-visible`.
 - **Color contrast**: Use VS Code theme CSS custom properties (`--vscode-*`). Do not hardcode colors.
+
+For reusable keyboard-navigation and focus-management patterns — roving tabindex groups, `aria-activedescendant` menus, overlay-covered controls, full-height focus bands, focus-follows-navigation, and decorations that clear the row focus ring — see [`webview-accessibility-patterns.md`](webview-accessibility-patterns.md).

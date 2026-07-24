@@ -67,6 +67,7 @@ Review all changes for: correctness, matching user expectations, high performanc
 - [ ] VS Code theming via CSS custom properties (`--vscode-*`)
 - [ ] Keyboard navigation and ARIA attributes
 - [ ] `disconnectedCallback()` cleanup for listeners
+- [ ] Z-index stays sane — a raw z-index climbing past ~100 is the signal to use a `--gl-z-*` tier token, `isolation: isolate`, or the top layer (`<dialog>.showModal()` / `[popover]`), not a bigger number (shadow-isolated internals keep small raw ordinals)
 
 ### Scope & Simplicity
 
@@ -105,16 +106,16 @@ For each modified symbol:
 - Search all import statements referencing the modified file
 - Search all call sites of modified functions
 - Search all implementations/overrides in subclasses
-- Check sub-providers:
-  - `src/env/node/git/sub-providers/` (15 sub-providers)
-  - `src/plus/integrations/providers/github/sub-providers/` (11 sub-providers)
-  - `src/git/sub-providers/` (shared)
+- Check per-operation git providers:
+  - `packages/git/src/providers/` (shared domain providers)
+  - `packages/git-cli/src/providers/` (CLI implementations)
+  - `src/plus/integrations/host/providers/` (host integrations, e.g. `githubGitProvider.ts`)
 
 ### 3. Platform Coverage
 
 - [ ] Node.js code path (`src/env/node/`)
 - [ ] Browser code path (`src/env/browser/`)
-- [ ] Shared code (`src/git/`, `src/system/`)
+- [ ] Shared code (`src/git/`, `src/system/`, `packages/`)
 
 ### 4. Error & UI Impact
 

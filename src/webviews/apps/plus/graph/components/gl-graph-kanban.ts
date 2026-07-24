@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
@@ -18,6 +18,7 @@ import {
 	sortAgentSessions,
 } from '../../../shared/agentUtils.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
@@ -100,65 +101,66 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				width: 100%;
 				height: 100%;
 				min-height: 0;
-				background-color: var(--vscode-editor-background);
 				color: var(--vscode-foreground);
+				background-color: var(--vscode-editor-background);
 				--gl-kanban-card-bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
 				--gl-kanban-card-border: var(--vscode-panel-border, transparent);
 				--gl-kanban-column-gap: 1.2rem;
-				--gl-kanban-card-radius: 0.4rem;
+				--gl-kanban-card-radius: var(--gl-radius-sm);
 			}
 
 			/* Section is a flex column so the header stays auto-sized at the top and the body
-			   gets the remaining height (via flex: 1 / min-height: 0). Without this, <section>'s
-			   default block layout produces a content-sized body that never overflows — both the
-			   horizontal column scroll and the per-column vertical scroll silently disappear. */
+	   gets the remaining height (via flex: 1 / min-height: 0). Without this, <section>'s
+	   default block layout produces a content-sized body that never overflows — both the
+	   horizontal column scroll and the per-column vertical scroll silently disappear. */
 			section {
 				display: flex;
-				flex-direction: column;
 				flex: 1 1 auto;
-				min-height: 0;
+				flex-direction: column;
 				width: 100%;
+				min-height: 0;
 			}
 
 			.header {
 				display: flex;
-				align-items: center;
-				gap: 0.8rem;
-				/* 0.6rem right so the close button sits at a tight inset matching the visualizations
-				 * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
-				 * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
-				padding: 0.4rem 0.6rem 0.4rem 1.2rem;
-				min-height: 3.2rem;
-				border-bottom: 1px solid var(--vscode-panel-border, transparent);
 				flex: none;
+				gap: var(--gl-space-8);
+				align-items: center;
+				min-height: 3.2rem;
+
+				/* 0.6rem right so the close button sits at a tight inset matching the visualizations
+		 * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
+		 * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
+				padding: var(--gl-space-4) var(--gl-space-6) var(--gl-space-4) var(--gl-space-12);
+				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border, transparent);
 			}
 
 			.header__title {
 				display: flex;
+				gap: var(--gl-space-8);
 				align-items: baseline;
-				gap: 0.8rem;
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				font-weight: 600;
 			}
 
 			.header__title h2 {
-				font: inherit;
-				margin: 0;
 				padding: 0;
-				font-size: 1.1rem;
+				margin: 0;
+				font: inherit;
+				font-size: var(--gl-font-sm);
 				font-weight: 600;
 				text-transform: uppercase;
 				white-space: nowrap;
 			}
 
 			.header__count {
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--65);
 			}
 
 			/* Experimental stamp uses the shared gl-badge with appearance=experimental. Sits inside
-			   .header__title, between the title h2 and the session count, signalling that the whole
-			   view (not just one control) is experimental. */
+	   .header__title, between the title h2 and the session count, signalling that the whole
+	   view (not just one control) is experimental. */
 			.header__experimental gl-badge {
 				--gl-badge-font-size: 0.95rem;
 			}
@@ -169,24 +171,24 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.hooks-banner {
 				/* No bottom margin — .body below has its own 1.2rem padding-top, so an extra
-				 * margin-bottom here would double up to 2.4rem of visual gap. */
+		 * margin-bottom here would double up to 2.4rem of visual gap. */
 				display: block;
-				margin: 1.2rem 1.2rem 0;
+				margin: var(--gl-space-12) var(--gl-space-12) 0;
 			}
 
 			.body {
-				flex: 1 1 auto;
 				display: grid;
-				grid-auto-flow: column;
+				flex: 1 1 auto;
 				grid-auto-columns: minmax(24rem, 1fr);
+				grid-auto-flow: column;
 				gap: var(--gl-kanban-column-gap);
-				padding: 1.2rem;
 				min-height: 0;
-				overflow-x: auto;
-				overflow-y: hidden;
+				padding: var(--gl-space-12);
+				overflow: auto hidden;
+
 				/* Hint to the browser to GPU-composite the scrolling layer. Without this, horizontal
-				   scroll of the kanban body forces a full document repaint per frame; with it the
-				   browser can scroll the existing layer's painted bitmap. */
+		   scroll of the kanban body forces a full document repaint per frame; with it the
+		   browser can scroll the existing layer's painted bitmap. */
 				will-change: scroll-position;
 			}
 
@@ -194,134 +196,141 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				min-height: 0;
-				background-color: color-mix(in srgb, var(--vscode-editor-background) 92%, transparent);
-				border: 1px solid var(--gl-kanban-card-border);
-				border-radius: var(--gl-kanban-card-radius);
-				overflow: hidden;
+
 				/* Paint isolation: confine column-internal repaints (card hover/scroll) so the
-				   browser doesn't re-layout the whole kanban body when one column scrolls or a
-				   card hover-state changes. contain:content enables layout, paint, and style
-				   containment but keeps the column's intrinsic size correct (no size). */
+		   browser doesn't re-layout the whole kanban body when one column scrolls or a
+		   card hover-state changes. contain:content enables layout, paint, and style
+		   containment but keeps the column's intrinsic size correct (no size). */
 				contain: content;
+				overflow: hidden;
+				background-color: color-mix(in srgb, var(--vscode-editor-background) 92%, transparent);
+				border: var(--gl-border-width) solid var(--gl-kanban-card-border);
+				border-radius: var(--gl-kanban-card-radius);
 			}
 
 			.column__heading {
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
-				padding: 0.8rem 1rem;
-				font-size: 1.1rem;
+				padding: var(--gl-space-8) var(--gl-space-10);
+				font-size: var(--gl-font-sm);
 				font-weight: 600;
-				border-bottom: 1px solid var(--gl-kanban-card-border);
+				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
-				color: var(--color-foreground--65);
+				border-bottom: var(--gl-border-width) solid var(--gl-kanban-card-border);
 			}
 
 			.column__heading[data-column='needs-input'] {
 				color: var(--gl-agent-waiting-color);
 			}
+
 			.column__heading[data-column='working'] {
 				color: var(--gl-agent-working-color);
 			}
 
 			.column__heading-label {
-				font: inherit;
-				margin: 0;
 				padding: 0;
+				margin: 0;
+				font: inherit;
 			}
 
 			.column__count {
 				margin-left: auto;
-				font-size: 1rem;
-				color: var(--color-foreground--65);
+				font-size: var(--gl-font-micro);
 				font-weight: 400;
+				color: var(--color-foreground--65);
 				text-transform: none;
 				letter-spacing: 0;
 			}
 
 			.column__list {
-				flex: 1 1 auto;
 				display: flex;
+				flex: 1 1 auto;
 				flex-direction: column;
-				gap: 0.8rem;
-				padding: 0.8rem;
-				overflow-y: auto;
+				gap: var(--gl-space-8);
 				min-height: 0;
+				padding: var(--gl-space-8);
+				overflow-y: auto;
+
 				/* Same GPU-composite hint as the body. Each column scrolls independently when its
-				   card list overflows; promoting the layer keeps per-column vertical scroll smooth. */
+		   card list overflows; promoting the layer keeps per-column vertical scroll smooth. */
 				will-change: scroll-position;
 			}
 
 			.column__empty {
-				color: var(--color-foreground--50);
+				padding: var(--gl-space-4) var(--gl-space-2);
+				font-size: var(--gl-font-sm);
 				font-style: italic;
-				padding: 0.4rem 0.2rem;
-				font-size: 1.1rem;
+				color: var(--color-foreground--50);
 			}
 
 			.card {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				padding: 0.9rem 1rem;
-				background-color: var(--gl-kanban-card-bg);
-				border: 1px solid var(--gl-kanban-card-border);
-				border-radius: var(--gl-kanban-card-radius);
-				box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
-				text-align: left;
-				color: inherit;
-				font: inherit;
-				cursor: pointer;
-				appearance: none;
+
 				/* Paint isolation: card hover (border-color + color-mix background change) repaints
-				   only this card's box, not its column or siblings. Without it, hover transitions
-				   thrashed visibly on scroll because the browser would re-evaluate paint regions
-				   across the column. */
+		   only this card's box, not its column or siblings. Without it, hover transitions
+		   thrashed visibly on scroll because the browser would re-evaluate paint regions
+		   across the column. */
 				contain: layout style paint;
+				font: inherit;
+				color: inherit;
+				text-align: left;
+				appearance: none;
+				cursor: pointer;
+				background-color: var(--gl-kanban-card-bg);
+				border: var(--gl-border-width) solid var(--gl-kanban-card-border);
+				border-radius: var(--gl-kanban-card-radius);
+				box-shadow: 0 1px 0 rgb(0 0 0 / 6%);
 			}
 
 			.card:hover {
-				border-color: var(--vscode-focusBorder, var(--gl-kanban-card-border));
 				background-color: var(--vscode-list-hoverBackground, var(--gl-kanban-card-bg));
+				border-color: var(--vscode-focusBorder, var(--gl-kanban-card-border));
 			}
 
 			.card:focus-visible {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 			}
 
 			.card[data-column='needs-input'] {
 				border-left: 2px solid var(--gl-agent-waiting-color);
 			}
+
 			.card[data-column='working'] {
 				border-left: 2px solid var(--gl-agent-working-color);
 			}
+
 			.card[data-column='idle'] {
 				border-left: 2px solid var(--gl-agent-idle-color);
 			}
+
 			.card[data-column='inactive'] {
 				border-left: 2px solid color-mix(in srgb, var(--gl-agent-idle-color) 50%, transparent);
 			}
 
 			.card__head {
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: baseline;
 				justify-content: space-between;
-				gap: 0.6rem;
 			}
 
 			.card__title {
-				font-size: 1.2rem;
-				font-weight: 600;
-				white-space: nowrap;
+				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				min-width: 0;
+				font-size: var(--gl-font-md);
+				font-weight: 600;
+				white-space: nowrap;
 			}
 
 			.card__phase {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				font-weight: 500;
 				color: var(--color-foreground--65);
 				white-space: nowrap;
@@ -330,28 +339,29 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			.card[data-column='needs-input'] .card__phase {
 				color: var(--gl-agent-waiting-color);
 			}
+
 			.card[data-column='working'] .card__phase {
 				color: var(--gl-agent-working-color);
 			}
 
 			/* 2nd row: subtitle on the left, Open Session icon button on the right. Always laid out
-			   even when the subtitle is missing so the Open Session stays visually anchored. */
+	   even when the subtitle is missing so the Open Session stays visually anchored. */
 			.card__sub-row {
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: center;
 				justify-content: space-between;
-				gap: 0.6rem;
 				min-height: 1.8rem;
 			}
 
 			.card__subtitle {
-				font-size: 1rem;
-				color: var(--color-foreground--65);
-				white-space: nowrap;
+				flex: 1 1 auto;
+				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				min-width: 0;
-				flex: 1 1 auto;
+				font-size: var(--gl-font-micro);
+				color: var(--color-foreground--65);
+				white-space: nowrap;
 			}
 
 			.card__open {
@@ -359,31 +369,31 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			.card__detail {
-				font-size: 1.1rem;
+				display: -webkit-box;
+				overflow: hidden;
+				-webkit-line-clamp: 3;
+				font-size: var(--gl-font-sm);
 				line-height: 1.4;
 				color: var(--vscode-foreground);
-				display: -webkit-box;
-				-webkit-line-clamp: 3;
 				-webkit-box-orient: vertical;
-				overflow: hidden;
 			}
 
 			.card__actions {
 				display: flex;
+				gap: var(--gl-space-4);
 				align-items: center;
-				gap: 0.4rem;
-				margin-top: 0.2rem;
 				justify-content: flex-end;
+				margin-top: var(--gl-space-2);
 			}
 
 			/* Permission actions (Allow / Deny / View Plan) cluster on the left when present;
-			   margin-right: auto pushes Open Session — the trailing child — to the far right. When
-			   no permission is pending, Open Session is alone and flex-end already right-aligns it. */
+	   margin-right: auto pushes Open Session — the trailing child — to the far right. When
+	   no permission is pending, Open Session is alone and flex-end already right-aligns it. */
 			.card__permission-actions {
 				display: flex;
-				align-items: center;
-				gap: 0.4rem;
 				flex-wrap: wrap;
+				gap: var(--gl-space-4);
+				align-items: center;
 				margin-right: auto;
 			}
 
@@ -392,14 +402,14 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			.empty-state {
-				flex: 1 1 auto;
 				display: flex;
+				flex: 1 1 auto;
 				flex-direction: column;
+				gap: var(--gl-space-6);
 				align-items: center;
 				justify-content: center;
-				gap: 0.6rem;
+				padding: var(--gl-space-20);
 				color: var(--color-foreground--65);
-				padding: 2rem;
 				text-align: center;
 			}
 
@@ -543,6 +553,29 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		this._lastFingerprint = this.computeFingerprint(this.graphState.agentSessions ?? []);
 	}
 
+	/** Impression telemetry — point-in-time snapshot, fired once per mount (the component mounts
+	 *  only while Kanban is the active display mode and remounts per activation, so first-render is
+	 *  one impression). `agentSessions` is a signal initialized to `[]` and populated asynchronously,
+	 *  so on a fast toggle before the first push the counts below may all read 0 and later arrivals
+	 *  do NOT re-fire — treat them as "what was visible at open", not a settled total. Mirrors the
+	 *  agents sidebar's `emitAgentsShownTelemetry` semantics (the same signal makes "not loaded" and
+	 *  "loaded but empty" indistinguishable, so deferring — as the treemap does on `data.root` — isn't
+	 *  possible here). */
+	protected override firstUpdated(): void {
+		const sessions = this.graphState.agentSessions ?? [];
+		const { buckets } = this.buildBuckets(sessions);
+		emitTelemetrySentEvent<'graph/kanban/shown'>(this, {
+			name: 'graph/kanban/shown',
+			data: {
+				'sessions.count': sessions.length,
+				'sessions.working.count': buckets.get('working')?.length ?? 0,
+				'sessions.needsInput.count': buckets.get('needs-input')?.length ?? 0,
+				'sessions.idle.count': buckets.get('idle')?.length ?? 0,
+				'sessions.inactive.count': buckets.get('inactive')?.length ?? 0,
+			},
+		});
+	}
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this._liveTickHandle = setInterval(() => {
@@ -582,11 +615,34 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		// catches Open Session (in `.card__sub-row`) AND the permission actions (`.card__actions`),
 		// regardless of which subtree they live in — so layout changes can't silently regress the
 		// guard the way `closest('.card__actions')` did when Open Session moved to the sub-row.
+		// The buttons handle their own activation (command links); this delegated listener only
+		// observes the composed click for telemetry — one listener instead of per-render closures.
 		const target = event.target as HTMLElement | null;
-		if (target?.closest('gl-button') != null) return;
+		const actionButton = target?.closest<HTMLElement>('gl-button');
+		if (actionButton != null) {
+			this.emitCardActionTelemetry(actionButton, sessionId);
+			return;
+		}
 
 		const session = (this.graphState.agentSessions ?? []).find(s => s.id === sessionId);
 		if (session == null) return;
+
+		const repo = this.effectiveRepo;
+		const family = repo == null ? undefined : (repo.commonPath ?? repo.path);
+		emitTelemetrySentEvent<'graph/kanban/sessionSelected'>(this, {
+			name: 'graph/kanban/sessionSelected',
+			data: {
+				'session.phase': session.phase,
+				'session.category': agentPhaseToCategory[session.phase],
+				'session.hasPendingPermission': session.pendingPermission != null,
+				// Same repo-family comparison the open-session gate in graph-app applies — a
+				// cross-repo card click is a no-op there, so this flag explains "dead" clicks.
+				'session.sameRepo': family != null && session.commonPath === family,
+				// Prefer the rendered card's column — recomputing via `columnIdForSession` could
+				// disagree with what the user actually saw (idle → inactive is a time threshold).
+				column: (card?.dataset.column as KanbanColumnId | undefined) ?? columnIdForSession(session),
+			},
+		});
 
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-kanban-open-session', {
@@ -600,6 +656,49 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}),
 		);
 	};
+
+	/** Telemetry for the card's inner action buttons, identified by `data-telemetry-action` —
+	 *  static attributes instead of per-button click closures (see `onCardClick`'s perf note). */
+	private emitCardActionTelemetry(button: HTMLElement, sessionId: string): void {
+		switch (button.dataset.telemetryAction) {
+			case 'open-session':
+				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
+					name: 'graph/kanban/sessionAction',
+					data: { action: 'openSession' },
+				});
+				break;
+
+			case 'open-plan':
+				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
+					name: 'graph/kanban/sessionAction',
+					data: { action: 'openPlanFile' },
+				});
+				break;
+
+			case 'permission-allow':
+			case 'permission-deny': {
+				const session = (this.graphState.agentSessions ?? []).find(s => s.id === sessionId);
+				emitTelemetrySentEvent<'graph/kanban/permissionResolved'>(this, {
+					name: 'graph/kanban/permissionResolved',
+					data: {
+						decision: button.dataset.telemetryAction === 'permission-allow' ? 'allow' : 'deny',
+						'permission.kind': session?.pendingPermission?.kind ?? 'unknown',
+					},
+				});
+				break;
+			}
+		}
+	}
+
+	/** Resolves the graph's selected repo exactly as the open-session gate does
+	 *  (`GraphApp.fallbackRepoFamily`): a stale/unmatched `selectedRepository` resolves to
+	 *  `undefined` (NO `?? repos[0]` fallback), so `session.sameRepo` can't report `true` for a
+	 *  click the gate would reject — the flag exists to explain those dead clicks. */
+	private get effectiveRepo() {
+		const repoId = this.graphState.selectedRepository;
+		const repos = this.graphState.repositories;
+		return repoId != null ? repos?.find(r => r.id === repoId) : repos?.[0];
+	}
 
 	private onCardKeydown = (event: KeyboardEvent): void => {
 		// Enter and Space activate the card as an "open WIP details" affordance, matching the
@@ -630,7 +729,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 							class="header__experimental"
 							placement="bottom"
 							content="This is an experimental feature"
-							distance="6"
+							.distance=${6}
 						>
 							<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
 						</gl-tooltip>
@@ -730,7 +829,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			@keydown=${this.onCardKeydown}
 		>
 			<div class="card__head">
-				<span class="card__title" title=${session.displayName}>${session.displayName}</span>
+				<gl-tooltip content=${session.displayName}
+					><span class="card__title">${session.displayName}</span></gl-tooltip
+				>
 				<span class="card__phase">${phaseLabel}${elapsed != null ? ` · ${elapsed}` : ''}</span>
 			</div>
 			<div class="card__sub-row">
@@ -741,6 +842,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					class="card__open"
 					appearance="toolbar"
 					tooltip="Open Session"
+					data-telemetry-action="open-session"
 					href=${createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id))}
 				>
 					<code-icon icon="link-external"></code-icon>
@@ -804,6 +906,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					appearance="secondary"
 					density="compact"
 					tooltip=${isPlan ? 'Approve Plan' : 'Allow'}
+					data-telemetry-action="permission-allow"
 					href=${createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
 						decision: 'allow' as const,
@@ -816,6 +919,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					appearance="secondary"
 					density="compact"
 					tooltip=${isPlan ? 'Reject Plan' : 'Deny'}
+					data-telemetry-action="permission-deny"
 					href=${createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
 						decision: 'deny' as const,
@@ -828,6 +932,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					? html`<gl-button
 							appearance="toolbar"
 							tooltip="View Plan"
+							data-telemetry-action="open-plan"
 							href=${createCommandLink(
 								'gitlens.agents.openPlanFile',
 								JSON.stringify(permission.planFilePath),

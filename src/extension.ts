@@ -1,5 +1,14 @@
 import type { ExtensionContext } from 'vscode';
-import { version as codeVersion, env, ExtensionMode, LogLevel, Uri, window, workspace } from 'vscode';
+import {
+	version as codeVersion,
+	ConfigurationTarget,
+	env,
+	ExtensionMode,
+	LogLevel,
+	Uri,
+	window,
+	workspace,
+} from 'vscode';
 import { isWeb } from '@env/platform.js';
 import { defaultResolver as envDefaultResolver } from '@env/resolver.js';
 import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
@@ -41,10 +50,10 @@ import { executeCommand, registerCommands } from './system/-webview/command.js';
 import { configuration, Configuration } from './system/-webview/configuration.js';
 import { setContext } from './system/-webview/context.js';
 import { Storage } from './system/-webview/storage.js';
+import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode.js';
 import { isTextDocument } from './system/-webview/vscode/documents.js';
 import { isTextEditor } from './system/-webview/vscode/editors.js';
 import { isWorkspaceFolder } from './system/-webview/vscode/workspaces.js';
-import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode.js';
 import './commands.js';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
@@ -197,7 +206,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}),
 	);
 
-	// await migrateSettings(context, previousVersion);
+	await migrateSettings(storage);
 
 	const container = Container.create(context, storage, prerelease, gitlensVersion, previousVersion);
 	once(container.onReady)(() => {
@@ -263,6 +272,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		upgrade: previousVersion != null && gitlensVersion !== previousVersion,
 		upgradedFrom: previousVersion != null && gitlensVersion !== previousVersion ? previousVersion : undefined,
 	});
+	setFeatureFlagTelemetryGlobalAttributes(container);
 
 	const api = new Api(container);
 	const mode = container.mode;
@@ -297,21 +307,80 @@ export function deactivate(): void {
 	Container.instance.deactivate();
 }
 
-// async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
-// 	if (previousVersion === undefined) return;
+// One-time settings migrations, each identified by a stable `id` and applied at most once per
+// install (tracked by id in the `settings:migrated` storage key). Append new entries — no
+// per-migration storage key, and no reliance on the install version (which spans two schemes:
+// stable `18.x` and date-based pre-release). Migrations MUST be idempotent (a fresh install runs
+// them as no-ops).
+const settingsMigrations: { id: string; migrate: () => Promise<void> }[] = [
+	{
+		// Move existing explicit `right`/`bottom` Commit Graph details locations onto the new
+		// width-aware `auto` default. Window-scoped, so only user/workspace can hold a value.
+		id: 'graph.details.location:auto',
+		migrate: async () => {
+			const inspect = configuration.inspect('graph.details.location');
+			const isPinned = (v: unknown) => v === 'right' || v === 'bottom';
+			if (isPinned(inspect?.globalValue)) {
+				await configuration.update('graph.details.location', 'auto', ConfigurationTarget.Global);
+			}
+			if (isPinned(inspect?.workspaceValue)) {
+				await configuration.update('graph.details.location', 'auto', ConfigurationTarget.Workspace);
+			}
+		},
+	},
+	{
+		// Replace the boolean `terminalLinks.showDetailsView` with the `terminalLinks.showIn` enum.
+		// Old default (`true` = show the Inspect view) maps to `inspect`; `false` maps to `quickpick`.
+		// Unset users fall through to the new `graph` default.
+		id: 'terminalLinks.showIn:enum',
+		migrate: async () => {
+			await configuration.migrate('terminalLinks.showDetailsView', 'terminalLinks.showIn', {
+				migrationFn: (v: unknown) => (v === false ? 'quickpick' : 'inspect'),
+			});
+		},
+	},
+];
 
-// 	const previous = fromString(previousVersion);
+async function migrateSettings(storage: Storage): Promise<void> {
+	const applied = new Set(storage.get('settings:migrated'));
 
-// 	try {
-// 		if (compare(previous, from(11, 0, 0)) !== 1) {
-// 		}
-// 	} catch (ex) {
-// 		Logger.error(ex, 'migrateSettings');
-// 	}
-// }
+	let changed = false;
+	for (const migration of settingsMigrations) {
+		if (applied.has(migration.id)) continue;
+
+		try {
+			await migration.migrate();
+			// Mark only on success — leave a failed migration unmarked so it retries next activation
+			// (migrations are idempotent).
+			applied.add(migration.id);
+			changed = true;
+		} catch (ex) {
+			Logger.error(ex, 'migrateSettings', migration.id);
+		}
+	}
+
+	if (changed) {
+		await storage.store('settings:migrated', [...applied]);
+	}
+}
 
 function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys | string)[]) {
-	context.globalState?.setKeysForSync([...keys, SyncedStorageKeys.Version, SyncedStorageKeys.PreReleaseVersion]);
+	context.globalState?.setKeysForSync([
+		...keys,
+		SyncedStorageKeys.ApprovedAvatarRemoteTemplates,
+		SyncedStorageKeys.Version,
+		SyncedStorageKeys.PreReleaseVersion,
+	]);
+}
+
+function setFeatureFlagTelemetryGlobalAttributes(container: Container): void {
+	const flags = container.featureFlags.getAllFlags();
+	if (Object.keys(flags).length === 0) return;
+
+	container.telemetry.setGlobalAttribute(
+		'featureFlags',
+		JSON.stringify(Object.fromEntries(Object.entries(flags).sort(([a], [b]) => a.localeCompare(b)))),
+	);
 }
 
 function registerBuiltInActionRunners(container: Container): void {

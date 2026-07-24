@@ -24,18 +24,15 @@ tests/**
 **/*.map
 **/*.pdn
 **/*.js.LICENSE.txt
-.eslintcache
 .DS_Store
 .browserslistrc
-.eslintignore
 .fantasticonrc.js
 .git-blame-ignore-revs
 .gitattributes
 .gitignore
 .mailmap
 .mcp.json
-.prettierignore
-.prettierrc
+.oxfmtrc.json
 .vscode-agent.json
 .vscode-test.mjs
 .yarnrc
@@ -48,7 +45,6 @@ contributions.json
 contributions.schema.json
 custom-elements.json
 custom-elements-manifest.config.mjs
-eslint.config.mjs
 pnpm-lock.yaml
 pnpm-workspace.yaml
 README.pre.md

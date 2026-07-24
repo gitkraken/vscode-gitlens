@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
+/* oxlint-disable typescript/no-restricted-imports -- TODO need to deal with sharing rich class shapes to webviews */
 import type { ConfigurationChangeEvent, Uri, WorkspaceFolder } from 'vscode';
 import { Disposable } from 'vscode';
 import type { GitDir, RepositoryChange, RepositoryWorkingTreeChangeEvent } from '@gitlens/git/models/repository.js';

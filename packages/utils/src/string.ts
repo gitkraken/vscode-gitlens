@@ -695,7 +695,7 @@ export async function interpolateAsync(template: string, context: object | undef
 			value = await value;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
+		// oxlint-disable-next-line typescript/restrict-plus-operands
 		result += template.slice(position, token.start) + (value ?? '');
 		position = token.end;
 	}

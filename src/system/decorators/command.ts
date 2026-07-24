@@ -42,7 +42,7 @@ export function createCommandDecorator<
 			// ES Decorator
 			if (contextOrKey && typeof contextOrKey === 'object' && 'kind' in contextOrKey) {
 				if (contextOrKey.kind !== 'method') {
-					// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+					// oxlint-disable-next-line typescript/restrict-template-expressions
 					throw new Error(`@command can only be used on methods, not on ${contextOrKey.kind}`);
 				}
 

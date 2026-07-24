@@ -1,14 +1,11 @@
-import type { GraphRow } from '@gitkraken/gitkraken-components';
-
 /**
- * Returns the committer-date for a graph row. The webview's `GraphRow` type from the components lib
- * doesn't surface `commitDate`, but the GitGraphRow source (`packages/git-cli/src/providers/graph.ts`)
- * always populates it with the committer date — `row.date` itself follows the user's commit-ordering
- * setting (committer or author). The minimap (and any timeline-anchored visual) should pin to
- * committer date so a rebased commit doesn't teleport backward to its original author date.
+ * Returns the committer-date for a graph row. The provider (`packages/git-cli/src/providers/graph.ts`)
+ * always populates `commitDate` with the committer date — `row.date` itself follows the user's
+ * commit-ordering setting (committer or author). The minimap (and any timeline-anchored visual) should
+ * pin to committer date so a rebased commit doesn't teleport backward to its original author date.
  */
-export function getCommitDateFromRow(row: GraphRow): number {
-	return (row as GraphRow & { commitDate?: number }).commitDate ?? row.date;
+export function getCommitDateFromRow(row: { date: number; commitDate?: number }): number {
+	return row.commitDate ?? row.date;
 }
 
 /**
@@ -25,8 +22,8 @@ export function getCommitDateFromRow(row: GraphRow): number {
  * builds the `+HEAD`/`+worktreeHEAD` token) and the inline adornment (`gl-graph.react`), so the two
  * surfaces can't drift on which worktree they'd undo — or on the leaf rule.
  *
- * `row.heads` is the components-lib `Head[]` type, which doesn't know about our `worktree` extension
- * — callers pass it through after a narrow cast to `GitGraphRowHead[]` (or the lean row-context head shape).
+ * Generic over the head shape so both the full `GitGraphRowHead[]` and the lean row-context head shape
+ * can be passed directly.
  */
 export function pickRowUndoTarget<T extends { isCurrentHead?: boolean; worktree?: { path: string } | undefined }>(
 	heads: ReadonlyArray<T> | undefined,

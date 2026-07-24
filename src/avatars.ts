@@ -1,6 +1,8 @@
-import { EventEmitter, Uri } from 'vscode';
+import type { MessageItem } from 'vscode';
+import { EventEmitter, Uri, window, workspace } from 'vscode';
 import { fetch } from '@env/fetch.js';
 import type { CommitAuthor } from '@gitlens/git/models/author.js';
+import { CustomRemoteProvider } from '@gitlens/git/remotes/custom.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { md5 } from '@gitlens/utils/crypto.js';
@@ -18,8 +20,6 @@ import {
 import { configuration } from './system/-webview/configuration.js';
 import { getContext } from './system/-webview/context.js';
 import type { ContactPresenceStatus } from './vsls/vsls.js';
-
-const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 let avatarCache: Map<string, Avatar> | undefined;
 const avatarQueue = new Map<string, Promise<Uri>>();
@@ -136,7 +136,7 @@ function getAvatarUriCore(
 	if (
 		!options?.cached &&
 		repoPathOrCommit != null &&
-		getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(
+		getContext('gitlens:repos:withRemotes')?.includes(
 			typeof repoPathOrCommit === 'string' ? repoPathOrCommit : repoPathOrCommit.repoPath,
 		)
 	) {
@@ -233,6 +233,7 @@ async function getAvatarUriFromRemoteProvider(
 
 	try {
 		let account: CommitAuthor | undefined;
+		let hasAvatarSource = false;
 		// if (typeof repoPathOrCommit === 'string') {
 		// 	const remote = await Container.instance.git.getRichRemoteProvider(repoPathOrCommit);
 		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
@@ -240,19 +241,40 @@ async function getAvatarUriFromRemoteProvider(
 		if (typeof repoPathOrCommit !== 'string') {
 			const remote = await getBestRemoteWithIntegration(repoPathOrCommit.repoPath);
 			if (remote != null && remoteSupportsIntegration(remote)) {
+				hasAvatarSource = true;
 				account = await (
 					await getRemoteIntegration(remote)
 				)?.getAccountForCommit(remote.provider.repoDesc, repoPathOrCommit.ref, {
 					avatarSize: size,
 				});
 			}
+
+			if (!account?.avatarUrl) {
+				const remoteWithProvider = await Container.instance.git
+					.getRepositoryService(repoPathOrCommit.repoPath)
+					.remotes.getBestRemoteWithProvider();
+
+				if (remoteWithProvider?.provider instanceof CustomRemoteProvider) {
+					const avatarUrl = getApprovedCustomRemoteAvatarUrl(remoteWithProvider.provider, email, size);
+					if (avatarUrl != null) {
+						avatar.uri = Uri.parse(avatarUrl);
+						avatar.timestamp = Date.now();
+						avatar.retries = 0;
+						avatarCache.set(`${md5(email.trim().toLowerCase())}:${size}`, { ...avatar });
+						_onDidFetchAvatar.fire({ email: email });
+						return avatar.uri;
+					}
+				}
+			}
 		}
 
 		if (account?.avatarUrl == null) {
-			// If we have no account assume that won't change (without a reset), so set the timestamp to "never expire"
-			avatar.uri = undefined;
-			avatar.timestamp = maxSmallIntegerV8;
-			avatar.retries = 0;
+			if (hasAvatarSource) {
+				// A provider was consulted but returned no avatar — permanently cache "no result"
+				avatar.uri = undefined;
+				avatar.timestamp = Infinity;
+				avatar.retries = 0;
+			}
 
 			return undefined;
 		}
@@ -336,6 +358,76 @@ export function getPresenceDataUri(status: ContactPresenceStatus): string {
 	}
 
 	return dataUri;
+}
+
+const promptedAvatarTemplates = new Set<string>();
+
+function getApprovedCustomRemoteAvatarUrl(
+	provider: CustomRemoteProvider,
+	email: string,
+	size: number,
+): string | undefined {
+	// Avatar templates from `gitlens.remotes` may originate from workspace settings
+	// — only honor them in a trusted workspace
+	if (!workspace.isTrusted) return undefined;
+
+	const template = provider.avatarUrlTemplate;
+	if (template == null) return undefined;
+
+	const approval = getAvatarTemplateApproval(template);
+	if (approval === 'allow') {
+		return provider.getUrlForAvatar(email, size);
+	}
+	if (approval === 'deny') {
+		return undefined;
+	}
+
+	// Unknown template — prompt the user (non-blocking) and fall through to fallback avatar
+	void promptForAvatarTemplateApproval(template);
+	return undefined;
+}
+
+function getAvatarTemplateApproval(template: string): 'allow' | 'deny' | undefined {
+	const approvals = Container.instance.storage.get('avatars:approvedRemoteTemplates');
+	if (approvals == null) return undefined;
+	return Object.hasOwn(approvals, template) ? approvals[template] : undefined;
+}
+
+async function setAvatarTemplateApproval(template: string, decision: 'allow' | 'deny'): Promise<void> {
+	const approvals: Record<string, 'allow' | 'deny'> = Object.create(null);
+	Object.assign(approvals, Container.instance.storage.get('avatars:approvedRemoteTemplates'));
+	approvals[template] = decision;
+	await Container.instance.storage.store('avatars:approvedRemoteTemplates', approvals);
+}
+
+async function promptForAvatarTemplateApproval(template: string): Promise<void> {
+	if (promptedAvatarTemplates.has(template)) return;
+
+	promptedAvatarTemplates.add(template);
+
+	const allow: MessageItem = { title: 'Allow' };
+	const deny: MessageItem = { title: 'Deny' };
+	const notNow: MessageItem = { title: 'Not Now', isCloseAffordance: true };
+
+	const result = await window.showInformationMessage(
+		`The \`gitlens.remotes\` setting in this workspace includes an avatar URL template that will be requested for every commit author.\n\nTemplate: ${template}\n\nDo you trust this workspace to make these requests?`,
+		allow,
+		deny,
+		notNow,
+	);
+
+	if (result === allow) {
+		await setAvatarTemplateApproval(template, 'allow');
+		resetAvatarCache('failed');
+	} else if (result === deny) {
+		await setAvatarTemplateApproval(template, 'deny');
+	}
+}
+
+export function resetApprovedAvatarTemplates(): Promise<void> {
+	promptedAvatarTemplates.clear();
+	resetAvatarCache('failed');
+	return Container.instance.storage.delete('avatars:approvedRemoteTemplates');
 }
 
 export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback'): void {

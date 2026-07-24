@@ -1,6 +1,8 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { pluralize } from '@gitlens/utils/string.js';
+import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
@@ -83,14 +85,15 @@ export class GlDetailsAgentStatus extends LitElement {
 		css`
 			:host {
 				display: block;
+
 				/* No local agent-phase color overrides — inherits the unified palette from
-				   theme.scss (--gl-agent-working-color / --gl-agent-waiting-color /
-				   --gl-agent-idle-color) so this card, the sidebar leaf, the tooltip, the
-				   status pill, and the WIP file decoration all share one set of phase colors. */
+		   theme.scss (--gl-agent-working-color / --gl-agent-waiting-color /
+		   --gl-agent-idle-color) so this card, the sidebar leaf, the tooltip, the
+		   status pill, and the WIP file decoration all share one set of phase colors. */
 
 				/* Cap tooltips in the agents pane so long content (Bash command strings, agent
-				   prompts) wraps inside a bounded box instead of escaping the narrow webview
-				   panel's right edge. */
+		   prompts) wraps inside a bounded box instead of escaping the narrow webview
+		   panel's right edge. */
 				--gl-tooltip-max-width: 28rem;
 			}
 
@@ -103,6 +106,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				100% {
 					opacity: 1;
 				}
+
 				50% {
 					opacity: 0.45;
 				}
@@ -124,86 +128,112 @@ export class GlDetailsAgentStatus extends LitElement {
 			.section {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
+
 				/* Tight bottom padding (vs. 0.6rem top) avoids a dead gap above the next
-				   section's intrinsic padding. Background inherits from the WIP details panel;
-				   the sticky heading paints its own opaque background to obscure scrolling cards. */
+		   section's intrinsic padding. Background inherits from the WIP details panel;
+		   the sticky heading paints its own opaque background to obscure scrolling cards. */
 				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.3rem var(--gl-panel-padding-left, 1.2rem);
 			}
 
 			/* Divider between this section and the WIP section lives on the split-panel sash
-			   (see .agent-status-split::part(divider) in graph.scss), not as a border here. */
+	   (see .agent-status-split::part(divider) in graph.scss), not as a border here. */
 			.section[data-expand='expanded'] {
-				padding-bottom: 0.8rem;
+				padding-bottom: var(--gl-space-8);
 			}
 
 			/* Heading doubles as the collapse toggle AND the at-a-glance phase summary —
-			   chevron + label on the left, dot cluster + counts on the right. The dots and counts
-			   remain visible in every state so the summary still informs at a glance even when
-			   most cards are filtered out.
+	   chevron + label on the left, dot cluster + counts on the right. The dots and counts
+	   remain visible in every state so the summary still informs at a glance even when
+	   most cards are filtered out.
 
-			   Sticky to the top of the scroll container ('.agent-status-split__top') so it stays
-			   visible while the cards list scrolls behind it. Negative horizontal margins +
-			   matching padding extend the heading's background over the section's horizontal
-			   padding so cards don't peek through the sides as they scroll past. Negative top
-			   margin + matching padding-top similarly covers the section's 'padding-top' zone. */
+	   Sticky to the top of the scroll container ('.agent-status-split__top') so it stays
+	   visible while the cards list scrolls behind it. Negative horizontal margins +
+	   matching padding extend the heading's background over the section's horizontal
+	   padding so cards don't peek through the sides as they scroll past. Negative top
+	   margin + matching padding-top similarly covers the section's 'padding-top' zone. */
 			.section__heading {
-				appearance: none;
 				position: sticky;
 				top: 0;
 				z-index: 1;
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
+				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
 				margin: -0.6rem calc(-1 * var(--gl-panel-padding-right, 1rem)) 0
 					calc(-1 * var(--gl-panel-padding-left, 1.2rem));
-				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
-				/* Match the WIP details panel background (same token the commit-box uses) so the
-				   sticky heading reads as continuous with the surrounding panel instead of as a
-				   tinted metadata-bar strip. */
-				background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
-				border: none;
 				font: inherit;
 				font-size: 0.85em;
 				font-weight: 600;
+				line-height: 1.2;
 				color: var(--vscode-descriptionForeground);
+				text-align: left;
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
-				cursor: pointer;
+
+				/* Match the WIP details panel background (same token the commit-box uses) so the
+		   sticky heading reads as continuous with the surrounding panel instead of as a
+		   tinted metadata-bar strip. */
+				background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+			}
+
+			/* Only the toggle is the button; the resume action is its sibling at the far right. */
+			.section__heading-toggle {
+				display: flex;
+				flex: 1;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
+				padding: 0;
+				font: inherit;
+				color: inherit;
 				text-align: left;
-				line-height: 1.2;
+				text-transform: inherit;
+				letter-spacing: inherit;
+				appearance: none;
+				cursor: pointer;
+				background: none;
+				border: none;
+			}
+
+			.section__heading-action {
+				flex: none;
 			}
 
 			.section__heading-chevron {
-				flex: none;
 				/* Pin the glyph to a fixed inline-flex square so the codicon's intrinsic em-box
-				   offsets center predictably against the text. */
+		   offsets center predictably against the text. */
 				display: inline-flex;
+				flex: none;
 				align-items: center;
 				justify-content: center;
 				width: 1.6rem;
 				height: 1.6rem;
 				font-size: 1.6rem;
 				line-height: 1;
+
 				/* Inherit so .section__heading:hover brightens chevron + text together. */
 				color: inherit;
+
 				/* Chevron-right for collapsed/partial (rotated via data-expand below); chevron-down
-				   for expanded (no rotation — set in the template). The shared transition animates
-				   the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
-				   is briefly missing. */
+		   for expanded (no rotation — set in the template). The shared transition animates
+		   the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
+		   is briefly missing. */
 				transform: rotate(0deg);
-				transition: transform 0.2s ease;
+				transition: transform var(--gl-duration-medium) ease;
 			}
 
 			.section__heading-chevron[data-expand='collapsed'] {
 				transform: rotate(0deg);
 			}
+
 			.section__heading-chevron[data-expand='partial'] {
 				transform: rotate(45deg);
 			}
+
 			/* No [data-expand='expanded'] rule — expanded uses the chevron-down glyph (set in
-			   the template), so the default 0deg from .section__heading-chevron keeps it
-			   upright without an explicit override. */
+	   the template), so the default 0deg from .section__heading-chevron keeps it
+	   upright without an explicit override. */
 
 			@media (prefers-reduced-motion: reduce) {
 				.section__heading-chevron {
@@ -221,21 +251,39 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__heading:focus-visible {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: 2px;
-				border-radius: 0.2rem;
+				border-radius: var(--gl-radius-xs);
+			}
+
+			/* Branch-sheet variant — the sheet's own .hub already supplies outer padding and
+	   scrolls the whole pane (no inner scroller for the heading to stick within), so the
+	   split-panel-scroller chrome below is wrong here and gets neutralized. */
+			:host([flat]) .section {
+				padding: 0;
+			}
+
+			:host([flat]) .section[data-expand='expanded'] {
+				padding-bottom: 0;
+			}
+
+			:host([flat]) .section__heading {
+				position: static;
+				margin: 0;
+				padding: 0;
+				background-color: transparent;
 			}
 
 			/* Cluster — dots + textual summary inside the heading row. */
 			.section__cluster {
 				display: inline-flex;
-				align-items: center;
-				gap: 0.6rem;
 				flex: none;
+				gap: var(--gl-space-6);
+				align-items: center;
 				font-size: 0.95em;
+				color: var(--vscode-foreground);
 				text-transform: none;
 				letter-spacing: 0;
-				color: var(--vscode-foreground);
 				white-space: nowrap;
 			}
 
@@ -245,16 +293,16 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__cluster-dot {
-				width: 1rem;
-				height: 1rem;
-				border-radius: 50%;
-				border: 2px solid var(--gl-metadata-bar-bg, var(--vscode-editor-background));
-				margin-left: -0.4rem;
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
+				width: 1rem;
+				height: 1rem;
+				margin-left: -0.4rem;
 				font-size: 0.7em;
 				color: var(--vscode-foreground);
+				border: 2px solid var(--gl-metadata-bar-bg, var(--vscode-editor-background));
+				border-radius: 50%;
 			}
 
 			.section__cluster-dot:first-child {
@@ -267,6 +315,7 @@ export class GlDetailsAgentStatus extends LitElement {
 
 			.section__cluster-dot--needs-input {
 				background-color: var(--gl-agent-waiting-color);
+
 				/* Subtle attention nudge so a waiting dot reads as the priority signal */
 				box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--gl-agent-waiting-color) 28%, transparent);
 			}
@@ -276,70 +325,171 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__cluster-dot--overflow {
+				color: var(--vscode-descriptionForeground);
 				background-color: var(--vscode-editor-background);
 				border-color: color-mix(in srgb, var(--vscode-descriptionForeground) 40%, transparent);
-				color: var(--vscode-descriptionForeground);
 			}
 
 			.section__cluster-summary strong {
-				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
+				color: var(--gl-agent-waiting-color);
 			}
 
 			.section__list {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
+			}
+
+			/* ---------- Past sessions ---------- */
+
+			.section__past {
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-4);
+				padding-top: var(--gl-space-4);
+				margin-top: var(--gl-space-4);
+				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+			}
+
+			.section__past-row {
+				display: flex;
+				gap: var(--gl-space-6);
+
+				/* Top-align so the dot centers on the first line (matching the live cards' idle dots),
+		   not on the whole title+prompt block. */
+				align-items: flex-start;
+
+				/* Cards inset their rail by their 0.3rem left border plus their padding; match it (and their
+		   column gap) so the rails line up down the column even though a past row has no card chrome. */
+				padding-left: calc(0.3rem + var(--gl-space-8));
+
+				/* One step dimmer than .card--idle's 0.85 — reads as "not running" rather than idle. */
+				opacity: 0.7;
+			}
+
+			/* Hollow ring (vs. the live cards' filled .card__dot disc) so a past row reads as
+	   "no process" at a glance, reusing the same idle phase color. Sits in a .card__rail so the
+	   body column lines up with the live cards above it. */
+			.section__past-dot {
+				flex: none;
+				width: 0.8rem;
+				height: 0.8rem;
+				background-color: transparent;
+				border: var(--gl-border-width) solid var(--gl-agent-idle-color);
+				border-radius: 50%;
+			}
+
+			.section__past-body {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				gap: var(--gl-space-2);
+				min-width: 0;
+			}
+
+			.section__past-title-row {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
+
+				/* Match the rail's box so the hollow dot centers on the name line. Without a chip in
+		   this row (unlike live cards) the bare text is shorter than the rail, leaving the dot low. */
+				min-height: 1.6em;
+			}
+
+			.section__past-name {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				font-weight: 600;
+				white-space: nowrap;
+			}
+
+			.section__past-prompt {
+				display: -webkit-box;
+				overflow: hidden;
+				-webkit-line-clamp: 2;
+				font-size: 0.9em;
+				font-style: italic;
+				color: var(--vscode-descriptionForeground);
+				-webkit-box-orient: vertical;
+			}
+
+			.section__past-footer {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				justify-content: flex-end;
+			}
+
+			.section__past-count {
+				margin-right: auto;
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.section__past-more {
+				--chip-text-transform: none;
+				margin-right: auto;
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.section__hover {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
-				padding: 0.2rem;
+				gap: var(--gl-space-6);
 				min-width: 24rem;
+
 				/* Bound the popover so long detail strings (errors, multi-line prompts) truncate
-				   via ellipsis instead of stretching the popover to the viewport edge. */
+		   via ellipsis instead of stretching the popover to the viewport edge. */
 				max-width: min(44rem, 60vw);
+				padding: var(--gl-space-2);
 			}
 
 			.section__hover-row {
 				display: grid;
+
 				/* minmax(0, 1fr) lets the column shrink below its min-content size, which is
-				   what allows text-overflow: ellipsis on the name/detail spans to engage. */
+		   what allows text-overflow: ellipsis on the name/detail spans to engage. */
 				grid-template-columns: auto minmax(0, 1fr) auto;
-				column-gap: 0.6rem;
-				row-gap: 0.1rem;
+				gap: 0.1rem 0.6rem;
 				align-items: center;
 			}
 
 			.section__hover-row + .section__hover-row {
-				padding-top: 0.6rem;
-				border-top: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+				padding-top: var(--gl-space-6);
+				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 			}
 
 			.section__hover-dot {
+				flex: none;
 				width: 0.7rem;
 				height: 0.7rem;
 				border-radius: 50%;
-				flex: none;
 			}
+
 			.section__hover-dot--working {
 				background-color: var(--gl-agent-working-color);
 			}
+
 			.section__hover-dot--needs-input {
 				background-color: var(--gl-agent-waiting-color);
 			}
+
 			.section__hover-dot--idle {
 				background-color: var(--gl-agent-idle-color);
 			}
 
 			.section__hover-name {
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-weight: 600;
+				white-space: nowrap;
 			}
 
 			.section__hover-phase {
@@ -351,144 +501,149 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__hover-phase--needs-input {
-				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
+				color: var(--gl-agent-waiting-color);
 			}
 
 			.section__hover-detail {
 				grid-column: 2 / -1;
 				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
 			}
 
 			/* Hover-row tool detail places the shared .agent-tool composite into the row's
-			   second grid cell — visual styling lives in the shared agentToolStyles. */
+	   second grid cell — visual styling lives in the shared agentToolStyles. */
 			.section__hover-tool {
 				grid-column: 2 / -1;
 			}
 
 			/* ---------- Card ----------
-			   Two-row grid: rail + body on top, action row spans the full body column on bottom.
-			   The actions always sit at the bottom of the card regardless of panel width.
-			   needs-input and working cards adopt the prior banner treatment (gradient bg +
-			   icon-circle in the rail) so each surfaces as actionable on its own. */
+	   Two-row grid: rail + body on top, action row spans the full body column on bottom.
+	   The actions always sit at the bottom of the card regardless of panel width.
+	   needs-input and working cards adopt the prior banner treatment (gradient bg +
+	   icon-circle in the rail) so each surfaces as actionable on its own. */
 			.card {
 				display: grid;
-				grid-template-columns: auto 1fr;
 				grid-template-rows: auto auto;
-				column-gap: 0.6rem;
-				row-gap: 0.4rem;
+				grid-template-columns: auto 1fr;
+				gap: var(--gl-space-4) var(--gl-space-6);
 				align-items: start;
-				padding: 0.6rem 0.8rem;
-				border-radius: 0.4rem;
+				padding: var(--gl-space-6) var(--gl-space-8);
 				background-color: var(--vscode-editor-background);
-				border: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+				border: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 				border-left: 3px solid var(--card-accent, var(--gl-agent-idle-color));
+				border-radius: var(--gl-radius-sm);
 				transition:
-					background 250ms ease,
-					border-left-color 250ms ease;
+					background var(--gl-duration-slow) ease,
+					border-left-color var(--gl-duration-slow) ease;
 			}
 
 			.card--needs-input {
 				--card-accent: var(--gl-agent-waiting-color);
+
 				background: linear-gradient(
 					to right,
 					color-mix(in srgb, var(--card-accent) 14%, var(--vscode-editor-background)),
 					color-mix(in srgb, var(--card-accent) 4%, var(--vscode-editor-background))
 				);
 			}
+
 			.card--working {
 				--card-accent: var(--gl-agent-working-color);
+
 				background: linear-gradient(
 					to right,
 					color-mix(in srgb, var(--card-accent) 14%, var(--vscode-editor-background)),
 					color-mix(in srgb, var(--card-accent) 4%, var(--vscode-editor-background))
 				);
 			}
+
 			.card--idle {
 				--card-accent: var(--gl-agent-idle-color);
+
 				opacity: 0.85;
 			}
 
 			/* Highlighted by an external trigger (e.g., sidebar agent leaf click). A subtle 1px
-			   inset outline reads as "you picked this one" without overwhelming the card's
-			   own gradient/accent treatment — the prior halo+border combo was too loud against
-			   needs-input/working cards that already carry a colored gradient. outline-offset
-			   -1px tucks the ring just inside the card border so the card's footprint stays
-			   stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
-			   forced-colors mode substitutes Highlight for the focusBorder token automatically. */
+	   inset outline reads as "you picked this one" without overwhelming the card's
+	   own gradient/accent treatment — the prior halo+border combo was too loud against
+	   needs-input/working cards that already carry a colored gradient. outline-offset
+	   -1px tucks the ring just inside the card border so the card's footprint stays
+	   stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
+	   forced-colors mode substitutes Highlight for the focusBorder token automatically. */
 			.card--selected {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 				opacity: 1;
 			}
 
 			.card__rail {
+				display: flex;
 				grid-row: 1;
 				grid-column: 1;
-				display: flex;
 				align-items: center;
 				justify-content: center;
+
 				/* Fixed rail width so the body column lines up across cards regardless of which
-				   indicator (icon-circle vs small dot) sits inside. */
+		   indicator (icon-circle vs small dot) sits inside. */
 				width: 2.4rem;
 				min-height: 1.6em;
 			}
 
 			/* Idle cards keep a small dot — the icon-circle treatment is reserved for actionable phases. */
 			.card__dot {
+				flex: none;
 				width: 0.8rem;
 				height: 0.8rem;
-				border-radius: 50%;
-				flex: none;
 				aspect-ratio: 1;
 				background-color: var(--card-accent);
+				border-radius: 50%;
 			}
 
 			/* Icon-circle for needs-input/working cards. Carries the banner's prior visual weight. */
 			.card__icon {
-				flex: none;
-				color: var(--card-accent);
-				font-size: 1.6em;
 				display: inline-flex;
+				flex: none;
 				align-items: center;
 				justify-content: center;
 				width: 2.4rem;
 				height: 2.4rem;
-				border-radius: 50%;
+				font-size: 1.6em;
+				color: var(--card-accent);
 				background-color: color-mix(in srgb, var(--card-accent) 18%, transparent);
+				border-radius: 50%;
 				transition:
-					color 250ms ease,
-					background-color 250ms ease;
+					color var(--gl-duration-slow) ease,
+					background-color var(--gl-duration-slow) ease;
 			}
 
 			.card__body {
-				grid-row: 1;
-				grid-column: 2;
-				min-width: 0;
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				grid-row: 1;
+				grid-column: 2;
+				gap: var(--gl-space-2);
+				min-width: 0;
 			}
 
 			.card__title-row {
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
 				min-width: 0;
 			}
 
 			.card__name {
 				flex: 1;
 				min-width: 0;
-				font-weight: 600;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				font-weight: 600;
+				white-space: nowrap;
 			}
 
 			.card__phase {
@@ -500,38 +655,38 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.card__phase--needs-input {
-				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
+				color: var(--gl-agent-waiting-color);
 			}
 
 			.card__detail {
+				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
 			}
 
 			.card__prompt {
-				font-size: 0.9em;
-				color: var(--vscode-descriptionForeground);
-				font-style: italic;
 				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
+				margin-top: var(--gl-space-2);
 				overflow: hidden;
-				margin-top: 0.2rem;
+				-webkit-line-clamp: 2;
+				font-size: 0.9em;
+				font-style: italic;
+				color: var(--vscode-descriptionForeground);
+				-webkit-box-orient: vertical;
 			}
 
 			.card__actions {
+				display: flex;
+				flex: none;
+				flex-direction: row;
 				grid-row: 2;
 				grid-column: 2;
-				display: flex;
-				flex-direction: row;
+				gap: 0.3rem;
 				align-items: center;
 				justify-content: flex-end;
-				gap: 0.3rem;
-				flex: none;
 			}
 		`,
 	];
@@ -590,20 +745,42 @@ export class GlDetailsAgentStatus extends LitElement {
 	/** When true, render only the dot-cluster + counts popover anchor — drop the chevron, "Agents"
 	 *  label, and the cards body. Used by surfaces (e.g. the treemap's Activity toolbar) that
 	 *  want the live-status glance but don't need the inline expanded view; per-session detail is
-	 *  still available via hover on the cluster. */
+	 *  still available via hover on the cluster. Past sessions never factor into this mode — see
+	 *  {@link render}. */
 	@property({ type: Boolean, reflect: true })
 	compact = false;
+
+	/** Past (resumable) sessions for the worktree — top few, most-recent first, plus the total
+	 *  count for the "N more past sessions" footer link. Rendered as a `.section__past` list,
+	 *  visible only while {@link expand} is `'expanded'` (past is never urgent enough to
+	 *  auto-surface). */
+	@property({ attribute: false })
+	pastSessions?: PastAgentSessionsResult;
+
+	/** The worktree the past sessions belong to — threaded into the "Resume Session…" footer
+	 *  button's `showResumeSessionPicker` command link. */
+	@property({ attribute: false })
+	worktreePath?: string;
+
+	/** Branch-sheet variant: neutralizes the panel-scroller-specific chrome (sticky heading,
+	 *  hardcoded panel padding) that's wrong inside the sheet's `.hub`. See the `:host([flat])`
+	 *  overrides below. */
+	@property({ type: Boolean, reflect: true })
+	flat = false;
 
 	/** Build a stable string capturing every input the component renders against. Identical
 	 *  fingerprint between two parent passes → skip the render entirely via {@link shouldUpdate}.
 	 *
 	 *  Fields included reflect what `renderCard`, `renderHoverRow`, `tally`, and the heading
 	 *  cluster consume:
-	 *  - `expand` and `selectedSessionId` — both shape the rendered tree.
+	 *  - `expand`, `selectedSessionId`, `flat`, `compact`, `worktreePath` — all shape the rendered
+	 *    tree (`compact` is reflected via `update()`, which never runs when `shouldUpdate` returns
+	 *    false; `worktreePath` feeds the heading and past-footer resume-picker links).
 	 *  - Per session: `id`, `phase`, `status`, `statusDetail` (running-tool surface), `displayName`,
 	 *    `lastPrompt` (card prompt + fallback line), `phaseSince` (ms, drives elapsed labels).
 	 *  - `pendingPermission` — encoded by {@link permissionFingerprint} so every needs-input
 	 *    variant's renderable fields contribute, not just kind/toolName.
+	 *  - `pastSessions.total` plus, per past row, `id`/`displayName`/`lastPrompt`/`lastActivity`.
 	 *
 	 *  Adding a new rendered field requires extending this fingerprint (or
 	 *  {@link permissionFingerprint}) or the component will silently fail to update when only
@@ -613,12 +790,24 @@ export class GlDetailsAgentStatus extends LitElement {
 		// even when session content is unchanged. Every user-typed string field goes through
 		// `fpField` so embedded `|` (shell pipes in statusDetail, free-form descriptions) and
 		// `\n` (multi-line prompts) can't collide via delimiter accidents.
-		const parts: string[] = [`t${this._tickGeneration}`, `e${this.expand}`, `s${fpField(this.selectedSessionId)}`];
+		const parts: string[] = [
+			`t${this._tickGeneration}`,
+			`e${this.expand}`,
+			`s${fpField(this.selectedSessionId)}`,
+			`f${this.flat ? 1 : 0}`,
+			`c${this.compact ? 1 : 0}`,
+			`w${fpField(this.worktreePath)}`,
+		];
 		const sessions = this.sessions ?? [];
 		for (const s of sessions) {
 			parts.push(
 				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${s.phaseSince.getTime()}|${permissionFingerprint(s.pendingPermission)}`,
 			);
+		}
+		const past = this.pastSessions;
+		parts.push(`p${past?.total ?? 0}`);
+		for (const p of past?.sessions ?? []) {
+			parts.push(`${p.id}|${fpField(p.displayName)}|${fpField(p.lastPrompt)}|${p.lastActivity}`);
 		}
 		return parts.join('\n');
 	}
@@ -665,12 +854,22 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	override render(): unknown {
 		const sessions = this.sessions;
-		if (sessions == null || sessions.length === 0) return nothing;
 
+		// Compact stays past-agnostic — the treemap toolbar passes no `pastSessions`, and this
+		// mode's cluster-only glance has no room for a past list anyway.
 		if (this.compact) {
+			if (sessions == null || sessions.length === 0) return nothing;
 			return this.renderClusterOnly(sessions);
 		}
-		return this.renderSection(sessions, this.tally(sessions));
+
+		const live = sessions ?? [];
+		// De-dup against live at render time: the host excludes live ids at fetch time, but after a
+		// resume the cached past list goes stale until the next fetch, and would otherwise paint twice.
+		const liveIds = new Set(live.map(s => s.id));
+		const past = this.pastSessions?.sessions.filter(p => !liveIds.has(p.id));
+		if (live.length === 0 && (past?.length ?? 0) === 0) return nothing;
+
+		return this.renderSection(live, this.tally(live), past);
 	}
 
 	/** Compact render: just the cluster + counts popover, no surrounding heading button or cards.
@@ -680,7 +879,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		const visibleDots = sessions.slice(0, maxClusterDots);
 		const overflow = sessions.length - visibleDots.length;
 		return html`
-			<gl-popover placement="bottom" hoist>
+			<gl-popover placement="bottom">
 				<span slot="anchor" class="section__cluster" tabindex="0" role="button" aria-label="Agent sessions">
 					<span class="section__cluster-dots">
 						${visibleDots.map(
@@ -706,9 +905,15 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	/* ---------- Section (heading + cards list) ---------- */
 
-	private renderSection(sessions: AgentSessionState[], counts: Record<AgentSessionCategory, number>): unknown {
+	private renderSection(
+		sessions: AgentSessionState[],
+		counts: Record<AgentSessionCategory, number>,
+		past: PastAgentSessionState[] | undefined,
+	): unknown {
 		const visibleCats = expandVisibleCategories[this.expand];
 		const visible = sessions.filter(s => visibleCats.has(agentPhaseToCategory[s.phase]));
+		// Past is never urgent — only surfaced once the user has explicitly expanded the section.
+		const showPast = this.expand === 'expanded';
 
 		return html`
 			<div class="section" data-expand=${this.expand}>
@@ -716,6 +921,94 @@ export class GlDetailsAgentStatus extends LitElement {
 				${visible.length > 0
 					? html`<div id="section__list" class="section__list">${visible.map(s => this.renderCard(s))}</div>`
 					: nothing}
+				${showPast ? this.renderPastSection(past) : nothing}
+			</div>
+		`;
+	}
+
+	/** "Past sessions" list — resumable sessions recovered from the worktree's transcript store,
+	 *  rendered only in `expanded` mode. Each row links its resume chip at `gitlens.agents.resumeSession`
+	 *  (the default extension-if-available-else-terminal resume); the footer's count links into the
+	 *  same searchable picker over the worktree's 100 most-recent sessions as the heading action. */
+	private renderPastSection(past: PastAgentSessionState[] | undefined): unknown {
+		if (!past?.length) return nothing;
+
+		const total = this.pastSessions?.total ?? past.length;
+		return html`
+			<div class="section__past">
+				${past.map(p => this.renderPastRow(p))} ${this.renderPastFooter(total, past.length)}
+			</div>
+		`;
+	}
+
+	private renderPastRow(session: PastAgentSessionState): unknown {
+		const elapsed = formatAgentElapsed(new Date(session.lastActivity));
+		const resumeHref = createCommandLink('gitlens.agents.resumeSession', {
+			sessionId: session.id,
+			cwd: session.cwd,
+		});
+		// Mirrors a live card's `{phase} · {elapsed}`. "Ended" is all we can honestly say — the store
+		// keeps no exit reason, only that nothing is running.
+		const stateContent = html`Ended${elapsed != null
+			? html` · <span class="agent-phase-elapsed">${elapsed}</span>`
+			: nothing}`;
+
+		return html`
+			<div class="section__past-row" data-session-id=${session.id}>
+				<div class="card__rail"><span class="section__past-dot"></span></div>
+				<div class="section__past-body">
+					<div class="section__past-title-row">
+						<gl-tooltip content=${session.displayName} placement="bottom">
+							<span class="section__past-name">${session.displayName}</span>
+						</gl-tooltip>
+						${elapsed != null
+							? html`<gl-tooltip content=${`Last active ${elapsed} ago`} placement="bottom">
+									<span class="card__phase">${stateContent}</span>
+								</gl-tooltip>`
+							: html`<span class="card__phase">${stateContent}</span>`}
+					</div>
+					${session.lastPrompt
+						? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
+								<span class="section__past-prompt">${session.lastPrompt}</span>
+							</gl-tooltip>`
+						: nothing}
+				</div>
+				<gl-action-chip
+					icon="debug-restart"
+					label="Resume Session"
+					overlay="tooltip"
+					href=${resumeHref}
+				></gl-action-chip>
+			</div>
+		`;
+	}
+
+	/** The count of past sessions the list can't show, linking into the same resume picker as the
+	 *  heading chip. Static (no link) when there's no worktree to scope the picker to. */
+	private renderPastFooter(total: number, shown: number): unknown {
+		if (total <= shown) return nothing;
+
+		const countText = pluralize('more past session', total - shown);
+		if (this.worktreePath == null) {
+			return html`
+				<div class="section__past-footer">
+					<span class="section__past-count">${countText}</span>
+				</div>
+			`;
+		}
+
+		return html`
+			<div class="section__past-footer">
+				<gl-action-chip
+					class="section__past-more"
+					icon="history"
+					label="${countText} — Resume Session…"
+					overlay="tooltip"
+					href=${createCommandLink('gitlens.agents.showResumeSessionPicker', {
+						worktreePath: this.worktreePath,
+					})}
+					><span>${countText}…</span></gl-action-chip
+				>
 			</div>
 		`;
 	}
@@ -725,44 +1018,63 @@ export class GlDetailsAgentStatus extends LitElement {
 		const visibleDots = sessions.slice(0, maxClusterDots);
 		const overflow = sessions.length - visibleDots.length;
 
+		// The row is a container, not the button: the resume action sits inside it, and a control
+		// nested in a <button> is invalid and unreachable by keyboard.
 		return html`
-			<button
-				type="button"
-				class="section__heading"
-				aria-controls="section__list"
-				aria-expanded=${state === 'expanded' ? 'true' : 'false'}
-				aria-label=${this.expandAriaLabel(state)}
-				@click=${this.onChevronClick}
-			>
-				<code-icon
-					class="section__heading-chevron"
-					icon=${state === 'expanded' ? 'chevron-down' : 'chevron-right'}
-					data-expand=${state}
-				></code-icon>
-				<span class="section__heading-label">Agents</span>
-				<gl-popover placement="bottom" hoist ?disabled=${state === 'expanded'}>
-					<span slot="anchor" class="section__cluster">
-						<span class="section__cluster-dots">
-							${visibleDots.map(
-								s =>
-									html`<span
-										class=${`section__cluster-dot section__cluster-dot--${agentPhaseToCategory[s.phase]}`}
-									></span>`,
-							)}
-							${overflow > 0
-								? html`<span
-										class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
-									>
-										+${overflow}
-									</span>`
-								: nothing}
+			<div class="section__heading">
+				<button
+					type="button"
+					class="section__heading-toggle"
+					aria-controls="section__list"
+					aria-expanded=${state === 'expanded' ? 'true' : 'false'}
+					aria-label=${this.expandAriaLabel(state)}
+					@click=${this.onChevronClick}
+				>
+					<code-icon
+						class="section__heading-chevron"
+						icon=${state === 'expanded' ? 'chevron-down' : 'chevron-right'}
+						data-expand=${state}
+					></code-icon>
+					<span class="section__heading-label">Agents</span>
+					<gl-popover placement="bottom" ?disabled=${state === 'expanded'}>
+						<span slot="anchor" class="section__cluster">
+							<span class="section__cluster-dots">
+								${visibleDots.map(
+									s =>
+										html`<span
+											class=${`section__cluster-dot section__cluster-dot--${agentPhaseToCategory[s.phase]}`}
+										></span>`,
+								)}
+								${overflow > 0
+									? html`<span
+											class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
+										>
+											+${overflow}
+										</span>`
+									: nothing}
+							</span>
+							<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
 						</span>
-						<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
-					</span>
-					<div slot="content" class="section__hover">${sessions.map(s => this.renderHoverRow(s))}</div>
-				</gl-popover>
-			</button>
+						<div slot="content" class="section__hover">${sessions.map(s => this.renderHoverRow(s))}</div>
+					</gl-popover>
+				</button>
+				${this.renderResumePickerAction()}
+			</div>
 		`;
+	}
+
+	/** Opens the picker over every session the worktree can resume — available whatever the section
+	 *  shows, so it hangs off the heading rather than the past list. */
+	private renderResumePickerAction(): unknown {
+		if (this.worktreePath == null) return nothing;
+
+		return html`<gl-action-chip
+			class="section__heading-action"
+			icon="history"
+			label="Resume Session…"
+			overlay="tooltip"
+			href=${createCommandLink('gitlens.agents.showResumeSessionPicker', { worktreePath: this.worktreePath })}
+		></gl-action-chip>`;
 	}
 
 	/** Chevron click — emits a `gl-agent-status-expand-request` with the next state in the

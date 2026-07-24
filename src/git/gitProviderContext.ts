@@ -115,11 +115,12 @@ export function createGitProviderContext(container: Container): GitServiceContex
 		},
 
 		remotes: {
-			getCustomProviders: async (repoPath: string) => {
+			getCustomProviders: (repoPath: string) => {
 				const repo = container.git.getRepository(repoPath);
 				const configuredRemotes = configuration.get('remotes', repo?.folder?.uri ?? null);
-				const configuredIntegrations = await container.integrations.getConfigured();
-				return buildRemoteProviderConfigs(configuredRemotes, configuredIntegrations);
+				const configuredIntegrations = container.integrations.getConfigured();
+				// `getConfigured` is synchronous; the RemotesProvider port is Promise-typed, so bridge here.
+				return Promise.resolve(buildRemoteProviderConfigs(configuredRemotes, configuredIntegrations));
 			},
 
 			getRepositoryInfo: (providerId, targetDesc) =>

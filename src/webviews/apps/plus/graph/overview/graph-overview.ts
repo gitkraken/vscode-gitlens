@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -24,6 +24,7 @@ import {
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
+import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import type { HostIpc } from '../../../shared/ipc.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
@@ -53,42 +54,41 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				width: 100%;
 				height: 100%;
 				overflow: hidden;
-				background-color: var(--color-graph-background);
+				font-size: var(--gl-font-md);
 				color: var(--vscode-foreground);
-				font-size: 1.2rem;
+				background-color: var(--color-graph-background);
 			}
 
 			.content {
 				flex: 1;
-				overflow-y: auto;
-				overflow-x: hidden;
-				padding: 0.4rem;
 				min-height: 0;
+				padding: var(--gl-space-4);
+				overflow: hidden auto;
 			}
 
 			.group {
-				margin-bottom: 1.6rem;
+				margin-bottom: var(--gl-space-16);
 			}
 
 			.group + .group {
-				padding-top: 0.8rem;
-				border-top: 1px solid var(--vscode-sideBarSectionHeader-border, transparent);
+				padding-top: var(--gl-space-8);
+				border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border, transparent);
 			}
 
 			.group__label {
-				font-size: 1.1rem;
+				padding-inline: var(--gl-space-4);
+				margin-block: 0 var(--gl-space-4);
+				font-size: var(--gl-font-sm);
 				font-weight: normal;
-				text-transform: uppercase;
 				color: var(--vscode-descriptionForeground);
-				padding-inline: 0.4rem;
-				margin-block: 0 0.4rem;
+				text-transform: uppercase;
 			}
 
 			.group__header {
 				display: flex;
+				gap: var(--gl-space-4);
 				align-items: center;
 				justify-content: space-between;
-				gap: 0.4rem;
 			}
 
 			.group__header .group__label {
@@ -101,16 +101,16 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 			.threshold-filter {
 				display: inline-flex;
+				gap: var(--gl-space-2);
 				align-items: center;
-				gap: 0.2rem;
+				padding: 0 var(--gl-space-4);
+				font-family: inherit;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--50);
+				white-space: nowrap;
+				cursor: pointer;
 				background: none;
 				border: none;
-				padding: 0 0.4rem;
-				font-family: inherit;
-				font-size: 1.1rem;
-				color: var(--color-foreground--50);
-				cursor: pointer;
-				white-space: nowrap;
 			}
 
 			.threshold-filter:hover {
@@ -118,24 +118,24 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			}
 
 			.threshold-filter:focus-visible {
-				outline: 1px solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--color-focus-border);
 			}
 
 			.threshold-filter code-icon {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 			}
 
 			.section {
-				margin-bottom: 0.6rem;
+				margin-bottom: var(--gl-space-6);
 			}
 
 			.section-label {
-				font-size: 1rem;
+				padding-inline: var(--gl-space-4);
+				margin-block: 0 var(--gl-space-2);
+				font-size: var(--gl-font-micro);
 				font-weight: normal;
-				text-transform: uppercase;
 				color: var(--vscode-descriptionForeground);
-				padding-inline: 0.4rem;
-				margin-block: 0 0.2rem;
+				text-transform: uppercase;
 				opacity: 0.8;
 			}
 
@@ -146,14 +146,14 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			.cards {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 			}
 
 			.empty {
-				padding: 0.6rem 0.8rem;
-				font-size: 1.1rem;
-				color: var(--vscode-descriptionForeground);
+				padding: var(--gl-space-6) var(--gl-space-8);
+				font-size: var(--gl-font-sm);
 				font-style: italic;
+				color: var(--vscode-descriptionForeground);
 			}
 		`,
 	];
@@ -197,24 +197,59 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	 *  (e.g. switching away from the overview panel and back) emits a fresh shown event. */
 	private _shownEmitted = false;
 
+	/** Whether the initial `GetOverviewRequest` has been issued this mount (once the panel is
+	 *  visible). Guards `updated()` from re-firing it every render while `overview` is still null. */
+	private _overviewRequested = false;
+	/** Last-seen sidebar visibility, for detecting the hidden→visible transition in `updated()`. */
+	private _wasVisible = false;
+
+	// Each card list (Current work / Recent) is its own vertical roving toolbar: one Tab stop per
+	// list, ArrowUp/Down (+ Home/End) rove between cards, keyed by branch id so the active stop
+	// survives the overview's frequent re-renders (selection/wip/enrichment ticks). The
+	// `<gl-graph-overview-card>` host is the focus target (it delegatesFocus to the inner gl-card).
+	private readonly _rovingActive = new RovingTabindexController(this, {
+		getItems: () => this.getCardItems('active'),
+		orientation: 'vertical',
+	});
+	private readonly _rovingRecent = new RovingTabindexController(this, {
+		getItems: () => this.getCardItems('recent'),
+		orientation: 'vertical',
+	});
+
+	private getCardItems(group: 'active' | 'recent'): { key: string; element: HTMLElement }[] {
+		const container = this.renderRoot.querySelector(`.cards[data-group="${group}"]`);
+		if (container == null) return [];
+		return [...container.querySelectorAll<HTMLElement>('[data-roving-key]')]
+			.filter(el => el.offsetParent != null)
+			.map(el => ({ key: el.dataset.rovingKey!, element: el }));
+	}
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
 		this.addEventListener('gl-graph-overview-card-request-wip-details', this.onWipDetailsRequested);
 
-		if (this._state.overview == null) {
-			void this._ipc.sendRequest(GetOverviewRequest, {
-				recentThreshold: this._state.overviewRecentThreshold,
-			});
-		} else {
-			// Force a re-fetch on remount/visibility-restore — the bulk push path is gone, so any
-			// drift accumulated while the overview panel was hidden (e.g. file edits in opened
-			// worktrees whose graph WIP rows are off-screen) is caught here. Reset the fingerprint
-			// dedup so `maybeRefetchOverviewData` actually fires. The host's `GetOverviewWipRequest`
-			// handler is cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
-			// resolve without any extra `git status` — only genuinely stale entries cost a fetch.
-			this._lastOverviewFingerprint = undefined;
-			this.maybeRefetchOverviewData(this._state.overview);
+		// Defer host-side fetching until the sidebar is actually visible — the overview stays mounted
+		// (just `inert`) while the sidebar is collapsed, so fetching on mount would do `git`-backed
+		// work the user never sees. `updated()` fires the deferred fetch on the hidden→visible
+		// transition (connectedCallback won't refire when the sidebar reopens).
+		this._wasVisible = this._state.sidebar?.visible === true;
+		if (this._wasVisible) {
+			if (this._state.overview == null) {
+				this._overviewRequested = true;
+				void this._ipc.sendRequest(GetOverviewRequest, {
+					recentThreshold: this._state.overviewRecentThreshold,
+				});
+			} else {
+				// Force a re-fetch on remount/visibility-restore — the bulk push path is gone, so any
+				// drift accumulated while the overview panel was hidden (e.g. file edits in opened
+				// worktrees whose graph WIP rows are off-screen) is caught here. Reset the fingerprint
+				// dedup so `maybeRefetchOverviewData` actually fires. The host's `GetOverviewWipRequest`
+				// handler is cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
+				// resolve without any extra `git status` — only genuinely stale entries cost a fetch.
+				this._lastOverviewFingerprint = undefined;
+				this.maybeRefetchOverviewData(this._state.overview);
+			}
 		}
 	}
 
@@ -222,6 +257,8 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		this.removeEventListener('gl-graph-overview-card-request-wip-details', this.onWipDetailsRequested);
 		this._recomputeSelectionDebounced.cancel();
 		this._shownEmitted = false;
+		this._overviewRequested = false;
+		this._wasVisible = false;
 		super.disconnectedCallback?.();
 	}
 
@@ -232,7 +269,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		this._wipData = {};
 		this._enrichmentData = {};
 		this._pendingWipDetails.clear();
-		this._state.overviewEnrichment = undefined;
+		this._state.resetOverviewEnrichment();
 		void this._ipc.sendRequest(GetOverviewRequest, { recentThreshold: this._state.overviewRecentThreshold });
 	}
 
@@ -275,8 +312,30 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 	override updated(_changedProperties: Map<string, unknown>): void {
 		const overview = this._state.overview;
-		if (overview != null) {
-			this.maybeRefetchOverviewData(overview);
+		const visible = this._state.sidebar?.visible === true;
+		const becameVisible = visible && !this._wasVisible;
+		this._wasVisible = visible;
+
+		// Gate host-side fetching on visibility — the overview stays mounted (just `inert`) while the
+		// sidebar is collapsed, so no `git`-backed work should run until it's actually shown.
+		if (visible) {
+			if (overview == null) {
+				// Deferred initial fetch: the panel became visible before any data arrived. Fire once
+				// (guarded) so repeated `updated()` passes don't spam the request while `overview` is null.
+				if (!this._overviewRequested) {
+					this._overviewRequested = true;
+					void this._ipc.sendRequest(GetOverviewRequest, {
+						recentThreshold: this._state.overviewRecentThreshold,
+					});
+				}
+			} else {
+				// On the hidden→visible transition, reset the fingerprint dedup to force a re-fetch that
+				// catches drift accumulated while hidden (mirrors the remount path in connectedCallback).
+				if (becameVisible) {
+					this._lastOverviewFingerprint = undefined;
+				}
+				this.maybeRefetchOverviewData(overview);
+			}
 		}
 
 		const pushedWip = this._state.overviewWip;
@@ -304,6 +363,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				data: {
 					'branches.active.count': overview.active.length,
 					'branches.recent.count': overview.recent.length,
+					recentThreshold: this._state.overviewRecentThreshold ?? 'OneWeek',
 				},
 			});
 		}
@@ -491,8 +551,10 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		if (enrichmentResult != null) {
 			this._enrichmentData = filterToKeys(enrichmentResult, keep);
 			// Expose enrichment via shared state so other consumers (e.g. the scope popover path
-			// in graph-app) can resolve merge-target refs for the selected branch.
-			this._state.overviewEnrichment = this._enrichmentData;
+			// in graph-app) can resolve merge-target refs for the selected branch. Published through
+			// the state provider rather than assigned directly so entries fetched additively for
+			// branches outside the overview (WIP-bar pills) survive this rebuild.
+			this._state.publishOverviewEnrichment(this._enrichmentData);
 		}
 	}
 
@@ -529,7 +591,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 					() => html`
 						<div class="group">
 							<div class="group__label">Current work</div>
-							${this.renderCards(overview.active)}
+							${this.renderCards(overview.active, 'active')}
 						</div>
 					`,
 				)}
@@ -543,7 +605,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								</div>
 								${this.renderRecentThresholdFilter()}
 							</div>
-							${this.renderCards(overview.recent)}
+							${this.renderCards(overview.recent, 'recent')}
 						</div>
 					`,
 				)}
@@ -572,6 +634,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	private onRecentThresholdSelected(threshold: OverviewRecentThreshold): void {
 		if ((this._state.overviewRecentThreshold ?? 'OneWeek') === threshold) return;
 
+		emitTelemetrySentEvent<'graph/overview/recentThresholdChanged'>(this, {
+			name: 'graph/overview/recentThresholdChanged',
+			data: { threshold: threshold },
+		});
+
 		// Let graph-app own the persisted signal + memento write (mirrors the timeline period
 		// flow); send the request here since this panel owns the overview fetch lifecycle.
 		this.dispatchEvent(
@@ -589,15 +656,24 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private renderCards(branches: GraphOverviewData['active']) {
+	private renderCards(branches: GraphOverviewData['active'], group: 'active' | 'recent') {
 		if (!branches.length) return nothing;
 
 		const sessionsByRepoAndWorktree = indexAgentSessionsByRepoAndWorktree(this._state.agentSessions);
 		const containsByRepo = this._selectionContainsByRepo;
 		const scopedBranchId = this._state.scope?.branchRef;
+		const roving = group === 'active' ? this._rovingActive : this._rovingRecent;
 
 		return html`
-			<div class="cards">
+			<div
+				class="cards"
+				data-group=${group}
+				role="toolbar"
+				aria-orientation="vertical"
+				aria-label=${group === 'active' ? 'Current work branches' : 'Recent branches'}
+				@keydown=${roving.onKeydown}
+				@focusin=${roving.onFocusin}
+			>
 				${repeat(
 					branches,
 					b => b.id,
@@ -618,9 +694,10 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								: undefined;
 						return html`
 							<gl-graph-overview-card
+								data-roving-key=${b.id}
 								.branch=${b}
 								.wip=${this._wipData[b.id]}
-								.enrichment=${this._enrichmentData[b.id]}
+								.enrichment=${this._state.overviewEnrichment?.[b.id]}
 								.agentSessions=${agentSessions}
 								.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
 								.scoped=${scopedBranchId != null && b.id === scopedBranchId}

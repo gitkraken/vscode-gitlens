@@ -21,7 +21,7 @@ Stress-test a proposed plan before implementation begins. Extract assumptions, v
 - **`--scope <path>`**: When provided, read `plan.md` from the given directory as the plan to challenge, and read `goals.md` from the same directory for context (success criteria, verified claims, constraints). Use the goals document to evaluate whether the plan actually delivers what was scoped. When `--scope` is absent, the skill works exactly as it does today (interactive, prompt-driven).
 - `deep-planning` formulates the best approach
 - **`challenge-plan`** stress-tests the chosen approach
-- `analyze` evaluates code paths and edge cases during/after implementation
+- `deep-review` evaluates code paths and edge cases after implementation
 
 ## Checklist
 
@@ -138,21 +138,3 @@ This classification is critical — a plan with 10 "minor" concerns is fine. A p
 
 If you found no blocking or significant concerns, say so explicitly and summarize what you verified plus the residual risks.
 ```
-
-## Red Flags — You're Not Being Adversarial Enough
-
-| Thought                                      | Reality                                                          |
-| -------------------------------------------- | ---------------------------------------------------------------- |
-| "The plan looks reasonable"                  | You haven't extracted assumptions yet. Do that first.            |
-| "I found 10 concerns, that's thorough"       | Did you classify severity? 10 minors ≠ 1 blocker.                |
-| "The plan says X, so X is true"              | Did you verify against actual code? Plans lie.                   |
-| "I listed the problems"                      | Did you propose fixes? Problems without solutions aren't useful. |
-| "This is a long review, it must be thorough" | Length ≠ thoroughness. Use the table. Prioritize blockers.       |
-
-## Anti-Patterns
-
-- **Equal-weight concerns**: Listing 15 concerns with no severity classification — the reader can't tell what matters
-- **Claim-trusting**: Accepting the plan's description of how code works without reading the code
-- **Problem-only review**: Finding issues without proposing fixes or alternatives
-- **Missing pre-mortem**: Only doing static analysis without imagining dynamic failure scenarios
-- **Rubber-stamping**: Declaring "no significant concerns" without showing what you verified, what assumptions you tested, and what residual risks remain

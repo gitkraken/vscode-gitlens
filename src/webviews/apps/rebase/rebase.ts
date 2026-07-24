@@ -37,6 +37,7 @@ import {
 	RecomposeCommand,
 	ReorderCommand,
 	ResolveAllConflictsCommand,
+	ResolveConflictsInGraphCommand,
 	RevealRefCommand,
 	SearchCommand,
 	ShiftEntriesCommand,
@@ -1558,6 +1559,17 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			<div class="conflict-panel__header">
 				<code-icon icon="warning" aria-hidden="true"></code-icon>
 				<span>${pluralize('conflicted file', conflictFiles.length)}</span>
+				${this.state?.aiAllowed
+					? html`<gl-button
+							appearance="toolbar"
+							density="compact"
+							tooltip="Resolve Conflicts in Commit Graph"
+							aria-label="Resolve Conflicts in Commit Graph"
+							@click=${this.onResolveConflictsInGraph}
+							><code-icon icon="gl-merge" slot="prefix" aria-hidden="true"></code-icon>Resolve
+							Conflicts</gl-button
+						>`
+					: nothing}
 				<gl-button
 					appearance="toolbar"
 					density="compact"
@@ -1707,6 +1719,10 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				break;
 		}
 	}
+
+	private onResolveConflictsInGraph = () => {
+		this._ipc.sendCommand(ResolveConflictsInGraphCommand, undefined);
+	};
 
 	private onStageAllCurrent = () => {
 		this._ipc.sendCommand(ResolveAllConflictsCommand, { resolution: 'current' });

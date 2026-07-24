@@ -7,9 +7,13 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./context.js": {
+			"types": "./dist/context.d.ts",
+			"default": "./dist/context.js"
+		},
+		"./models.js": {
+			"types": "./dist/models.d.ts",
+			"default": "./dist/models.js"
 		},
 		"./api/*.js": {
 			"types": "./dist/api/*.d.ts",
@@ -29,19 +33,19 @@
 	],
 	"scripts": {
 		"build": "tsc -b",
-		"clean": "pnpx rimraf --glob dist out .eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
-		"clean:lint": "pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
 		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
 	},
 	"dependencies": {
 		"@gitlens/git": "workspace:*",
 		"@gitlens/utils": "workspace:*",
-		"@octokit/graphql": "9.0.3",
-		"@octokit/request": "10.0.8",
-		"@octokit/request-error": "7.1.0",
-		"@octokit/types": "16.0.0"
+		"@octokit/graphql": "catalog:",
+		"@octokit/request": "catalog:",
+		"@octokit/request-error": "catalog:",
+		"@octokit/types": "catalog:"
 	},
 	"devDependencies": {
 		"@types/mocha": "catalog:",

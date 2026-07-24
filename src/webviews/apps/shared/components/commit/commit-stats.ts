@@ -2,7 +2,7 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
-import { pluralize } from '@gitlens/utils/string';
+import { pluralize } from '@gitlens/utils/string.js';
 import '../code-icon.js';
 import '../overlays/tooltip.js';
 
@@ -53,23 +53,23 @@ export class CommitStats extends LitElement {
 			display: inline-flex;
 			flex-direction: row;
 			align-items: center;
-			white-space: nowrap;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
+			white-space: nowrap;
 		}
 
 		:host([appearance='pill']) {
+			min-height: var(--commit-stats-pill-line-height, 1.5rem);
+			padding: var(--commit-stats-pill-padding, 0 0.8rem 0 0.6rem);
+			line-height: var(--commit-stats-pill-line-height, 1.5rem);
+			white-space: nowrap;
 			background-color: color-mix(
 				in srgb,
 				var(--vscode-sideBarSectionHeader-background) 90%,
 				var(--vscode-foreground) 10%
 			);
-			border: 1px solid color-mix(in srgb, transparent 80%, var(--color-foreground));
-			border-radius: 0.4rem;
-			padding: var(--commit-stats-pill-padding, 0 0.8rem 0 0.6rem);
-			white-space: nowrap;
-			line-height: var(--commit-stats-pill-line-height, 1.5rem);
-			min-height: var(--commit-stats-pill-line-height, 1.5rem);
+			border: var(--gl-border-width) solid color-mix(in srgb, transparent 80%, var(--color-foreground));
+			border-radius: var(--gl-radius-sm);
 		}
 
 		:host-context(.vscode-light):host([appearance='pill']),
@@ -88,19 +88,21 @@ export class CommitStats extends LitElement {
 		}
 
 		.stat + .stat {
-			margin-inline-start: 1rem;
+			margin-inline-start: var(--gl-space-10);
 		}
 
 		:host([symbol='icons']) .stat + .stat {
-			margin-inline-start: 0.8rem;
+			margin-inline-start: var(--gl-space-8);
 		}
 
 		.added {
 			color: var(--gl-stat-added);
 		}
+
 		.modified {
 			color: var(--gl-stat-modified);
 		}
+
 		.removed {
 			color: var(--gl-stat-removed);
 		}
@@ -112,7 +114,8 @@ export class CommitStats extends LitElement {
 		.icon {
 			--code-icon-size: 1.1rem;
 			--code-icon-v-align: middle;
-			margin-inline-end: 0.2rem;
+
+			margin-inline-end: var(--gl-space-2);
 			font-weight: 600;
 		}
 
@@ -122,7 +125,7 @@ export class CommitStats extends LitElement {
 		}
 
 		:host([appearance='pill']) .stat + .stat {
-			margin-inline-start: 0.8rem;
+			margin-inline-start: var(--gl-space-8);
 		}
 
 		:host([appearance='pill']) .icon {

@@ -1,11 +1,11 @@
 import { authentication, extensions } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch.js';
+import type { IntegrationAuthenticationSessionDescriptor } from '@gitlens/integrations/authentication/integrationAuthenticationProvider.js';
+import type { ProviderAuthenticationSession } from '@gitlens/integrations/authentication/models.js';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { sequentialize } from '@gitlens/utils/function.js';
 import { getScopedLogger, maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import type { IntegrationIds } from '../../../../constants.integrations.js';
 import type { Container } from '../../../../container.js';
-import type { IntegrationAuthenticationSessionDescriptor } from '../../../integrations/authentication/integrationAuthenticationProvider.js';
-import type { ProviderAuthenticationSession } from '../../../integrations/authentication/models.js';
 
 const failedAuthProviderIds = new Set<string>();
 

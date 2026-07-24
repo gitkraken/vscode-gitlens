@@ -146,6 +146,8 @@ export interface AiModelInfo {
 	readonly id: string;
 	readonly name: string;
 	readonly provider: { readonly id: string; readonly name: string };
+	/** Provider-supplied consumption-rate label (GitKraken AI only); undefined for other providers. */
+	readonly consumptionRateLabel?: string;
 }
 
 /**
@@ -203,6 +205,16 @@ export interface CommitSignatureShape {
 	fingerprint?: string;
 	trustLevel?: 'ultimate' | 'full' | 'marginal' | 'never' | 'unknown';
 	errorMessage?: string;
+}
+
+/**
+ * Provider-resolved avatars for a commit, as serialized URI strings. Fetched off the critical path —
+ * the core commit payload carries a synchronous cached-or-gravatar avatar, and this upgrades it.
+ * `committer` is only set when the committer differs from the author.
+ */
+export interface CommitAvatarsShape {
+	author?: string;
+	committer?: string;
 }
 
 // ============================================================
@@ -264,6 +276,50 @@ export interface SerializedGitBranch {
 export interface SerializedGitFileChange extends GitFileChangeShape {
 	readonly previousSha?: string;
 	readonly stats?: GitFileChangeStats;
+}
+
+// ============================================================
+// Conflict Details Types
+// ============================================================
+
+/** One commit that changed a conflicted file on one side (merge-base → side ref). */
+export interface ConflictDetailsCommit {
+	readonly sha: string;
+	readonly shortSha: string;
+	readonly message: string;
+	readonly author: string;
+	readonly authorEmail?: string;
+	readonly avatarUrl?: string;
+	/** Committer identity (avatar overlay + hover) — set only when the committer differs from the author. */
+	readonly committerAvatarUrl?: string;
+	readonly committerName?: string;
+	readonly committerEmail?: string;
+	/** Committer date as epoch ms — set only when the committer differs from the author. */
+	readonly committerDate?: number;
+	/** Author date as epoch ms (webview renders via `new Date(date)`). */
+	readonly date: number;
+}
+
+/** One side (current/incoming) of a conflict: its ref, how to render it, and the commits behind it. */
+export interface ConflictDetailsSide {
+	readonly ref: string;
+	/** Whether the side resolves to a branch (render a branch pill) or a bare commit (sha pill). */
+	readonly refKind: 'branch' | 'commit';
+	/** Branch name (when `refKind === 'branch'`) or commit sha (when `'commit'`) for the pill. */
+	readonly refName: string;
+	readonly commits: readonly ConflictDetailsCommit[];
+}
+
+/** Per-side history + stage affordances for a conflicted file, for the graph WIP Conflict Details sheet. */
+export interface ConflictDetails {
+	readonly path: string;
+	readonly status: string;
+	/** False when no merge-base is available — per-side commit history can't be computed. */
+	readonly hasMergeBase: boolean;
+	readonly canStageCurrent: boolean;
+	readonly canStageIncoming: boolean;
+	readonly current: ConflictDetailsSide;
+	readonly incoming: ConflictDetailsSide;
 }
 
 // ============================================================

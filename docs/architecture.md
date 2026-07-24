@@ -4,40 +4,7 @@ Detailed architecture documentation for the GitLens VS Code extension. For the d
 
 ## Testing Structure
 
-**Unit Tests**
-
-- Tests co-located with source files in `__tests__/` directories
-- Pattern: `src/path/to/__tests__/file.test.ts`
-- VS Code extension tests use `@vscode/test-cli`
-- Unit tests are built as part of the main build, but can be built directly: `pnpm run build:tests`
-
-```bash
-pnpm run test              # Run unit tests (VS Code extension tests)
-pnpm run build:tests       # Build unit tests
-pnpm run watch:tests       # Watch mode (includes unit tests)
-```
-
-**End-to-End (E2E) Tests**
-
-- E2E tests use Playwright in `tests/e2e/`
-  - Fixture setup and utilities in `tests/e2e/fixtures/`
-  - Page objects in `tests/e2e/pageObjects/`
-  - Test specs in `tests/e2e/specs/`
-- E2E tests are built as part of the main build, but can be built directly: `pnpm run bundle:e2e`
-
-```bash
-pnpm run test:e2e       # Run E2E tests
-pnpm run bundle:e2e     # Build E2E tests (production with DEBUG for account simulation)
-pnpm run watch          # Watch mode (includes E2E tests)
-```
-
-**AI Assistant Testing Guidelines**
-
-- **GitHub Copilot (VS Code)**: Has access to `runTests` and `testFailures` tools - use these for integrated test running and debugging
-- **Claude Code / Augment / Terminal-based tools**: Use the terminal commands above. See `docs/testing.md` for detailed patterns
-- Always run tests after making changes to verify correctness
-- For E2E test failures, check `tests/e2e/test-results/` for screenshots and traces
-- Parse test output looking for `FAIL`, `Error:`, `AssertionError:`, or failed `expect()` calls
+See `docs/testing.md` — test layout (`__tests__/` co-location, `tests/e2e/` structure), running patterns, output interpretation, and debugging.
 
 ## Core Architectural Patterns
 
@@ -51,16 +18,11 @@ pnpm run watch          # Watch mode (includes E2E tests)
 
 ### 2. Provider Pattern for Git Operations
 
-- `GitProviderService` manages multiple Git providers (local, remote, GitHub, etc.)
-- Allows environment-specific implementations:
-  - **LocalGitProvider** (`src/env/node/git/localGitProvider.ts`): Executes Git via `child_process` for Node.js
-  - **GitHubGitProvider** (`src/plus/integrations/providers/github/githubGitProvider.ts`): Uses GitHub API for browser
-- Each provider implements the `GitProvider` interface
-  - Both providers use a shared set of sub-providers (in `src/git/sub-providers/`) for specific Git operations
-  - LocalGitProvider uses 15 specialized sub-providers (in `src/env/node/git/sub-providers/`):
-    - `branches`, `commits`, `config`, `contributors`, `diff`, `graph`, `patch`, `refs`, `remotes`, `revision`, `staging`, `stash`, `status`, `tags`, `worktrees`
-  - GitHubGitProvider uses 11 specialized sub-providers (in `src/plus/integrations/providers/github/sub-providers/`):
-    - `branches`, `commits`, `config`, `contributors`, `diff`, `graph`, `refs`, `remotes`, `revision`, `status`, `tags`
+- `GitProviderService` (`src/git/gitProviderService.ts`) manages multiple Git providers
+- Environment-specific implementations:
+  - **CliGitProvider** (`packages/git-cli/src/cliGitProvider.ts`, host wrapper `GlCliGitProvider` in `src/env/node/git/cliGitProvider.ts`): executes Git via `child_process` for Node.js
+  - **GlGitHubGitProvider** (`src/plus/integrations/host/providers/githubGitProvider.ts`): uses the GitHub API for browser/web
+- Per-operation providers live in `packages/git/src/providers/` (`blame`, `branches`, `commits`, `config`, `contributors`, `diff`, `graph`, `operations`, `patch`, `pausedOperations`, `refs`, `remotes`, `revision`, `staging`, `stash`, `status`, `tags`, `worktrees`), with CLI implementations in `packages/git-cli/src/providers/`
 
 ### 3. Layered Architecture
 
@@ -73,7 +35,7 @@ Controllers (Webviews, Views, Annotations, CodeLens)
     ↓
 Services (Git, Telemetry, Storage, Integrations, AI, Subscription)
     ↓
-Git Providers (LocalGitProvider, GitHubGitProvider, etc.)
+Git Providers (CliGitProvider, GlGitHubGitProvider, etc.)
     ↓
 Git Execution (Node: child_process | Browser: APIs (GitHub))
 ```
@@ -100,6 +62,7 @@ Git Execution (Node: child_process | Browser: APIs (GitHub))
   - `PromiseCache`: In-flight request deduplication
   - `@memoize` decorator: Function result memoization
   - VS Code storage API: Persistent state across sessions
+- Beyond caching: lazy-load heavy services, debounce expensive operations, watch webview refresh performance, and monitor telemetry for performance regressions
 
 ## Major Services & Components
 
@@ -146,10 +109,10 @@ The extension supports both Node.js (desktop) and browser (web) environments:
 
 **Node.js Environment** (`src/env/node/`)
 
-- Uses `child_process` to execute Git commands via `Git.run()`
+- Uses `child_process` to execute Git commands via `Git.run()` (`packages/git-cli/src/exec/git.ts`)
 - Direct file system access
 - Full Git command support
-- Commands parsed by specialized parsers in `src/git/parsers/`
+- Output parsed by specialized parsers in `packages/git-cli/src/parsers/` and `packages/git/src/parsers/`
 
 **Browser Environment** (`src/env/browser/`)
 
@@ -230,19 +193,19 @@ For accessibility requirements when creating or modifying webviews, see `docs/ac
 - **Context keys**: `src/constants.context.ts`
 - **Telemetry events**: `src/constants.telemetry.ts`
 - **View IDs**: `src/constants.views.ts`
-- **AI providers**: `src/constants.ai.ts`
+- **AI providers**: `packages/plus/ai/src/constants.ts` (`@gitlens/ai/constants.js`)
 - **Storage keys**: `src/constants.storage.ts`
 
 ### Git Command Execution
 
-- All Git commands go through `Git.run()` in `src/env/node/git/git.ts`
+- All Git commands go through `Git.run()` in `packages/git-cli/src/exec/git.ts`
 - Commands are parsed and formatted consistently
-- Output is parsed by specialized parsers in `src/git/parsers/`
+- Output is parsed by specialized parsers in `packages/git-cli/src/parsers/` and `packages/git/src/parsers/`
 - Results cached in GitCache for performance
 
 ### Repository Models
 
-Strongly typed Git entities throughout the codebase (located in `src/git/models/`):
+Strongly typed Git entities throughout the codebase (located in `packages/git/src/models/`):
 
 - **Core models**: `GitBranch`, `GitCommit`, `GitTag`, `GitRemote`, `GitWorktree`
 - **Specialized models**: `GitStashCommit` (extends `GitCommit`), `GitStash`, `GitContributor`, `GitFile`, `GitDiff`
@@ -254,15 +217,13 @@ Strongly typed Git entities throughout the codebase (located in `src/git/models/
 ### Modifying Git Operations
 
 1. Find the relevant Git provider:
-   - Shared Git provider interface: `src/git/gitProvider.ts`
-   - Shared sub-operations: `src/git/sub-providers/`
-   - For Local (Node.js): `src/env/node/git/localGitProvider.ts`
-   - For Local sub-operations: `src/env/node/git/sub-providers/`
-   - For GitHub (browser): `src/plus/integrations/providers/github/githubGitProvider.ts`
-   - For GitHub sub-operations: `src/plus/integrations/providers/github/sub-providers/`
+   - Shared Git provider interface: `src/git/gitProvider.ts` (domain interface in `packages/git/src/`)
+   - Shared per-operation providers: `packages/git/src/providers/`
+   - For CLI (Node.js): `packages/git-cli/src/cliGitProvider.ts` + `packages/git-cli/src/providers/`
+   - For GitHub (browser): `src/plus/integrations/host/providers/githubGitProvider.ts`
 2. Update provider method with new logic
-3. Update Git command execution in `src/env/node/git/git.ts` if needed (for LocalGitProvider)
-4. Update parsers in `src/git/parsers/` if output format changes
-5. Update models in `src/git/models/` if data structure changes
+3. Update Git command execution in `packages/git-cli/src/exec/git.ts` if needed (for CliGitProvider)
+4. Update parsers in `packages/git-cli/src/parsers/` / `packages/git/src/parsers/` if output format changes
+5. Update models in `packages/git/src/models/` if data structure changes
 6. Consider caching implications (update `GitCache` if needed)
 7. Add tests in `__tests__/` directory

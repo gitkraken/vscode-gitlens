@@ -17,16 +17,16 @@ export class ActionItem extends LitElement {
 		:host {
 			box-sizing: border-box;
 			display: inline-flex;
-			justify-content: center;
 			align-items: center;
+			justify-content: center;
 			width: 2rem;
 			height: 2rem;
-			border-radius: 0.5rem;
-			color: var(--action-item-foreground, var(--vscode-icon-foreground));
-			padding: 0.2rem;
+			padding: var(--gl-space-2);
 			vertical-align: text-bottom;
+			color: var(--action-item-foreground, var(--vscode-icon-foreground));
 			text-decoration: none;
 			cursor: pointer;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.icon-wrapper {
@@ -49,11 +49,11 @@ export class ActionItem extends LitElement {
 
 		:host(:hover),
 		:host(:focus-within) {
-			background-color: var(--vscode-toolbar-hoverBackground);
+			background-color: var(--action-item-hover-background, var(--vscode-toolbar-hoverBackground));
 		}
 
 		:host(:active) {
-			background-color: var(--vscode-toolbar-activeBackground);
+			background-color: var(--action-item-active-background, var(--vscode-toolbar-activeBackground));
 		}
 
 		:host([disabled]) {
@@ -62,17 +62,19 @@ export class ActionItem extends LitElement {
 		}
 
 		a {
-			color: inherit;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			width: 100%;
 			height: 100%;
+			color: inherit;
 			text-decoration: none;
 		}
+
 		a:focus {
 			outline: none;
 		}
+
 		a:is(:hover, :focus, :active) {
 			text-decoration: none;
 		}

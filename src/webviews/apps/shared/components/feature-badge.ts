@@ -39,7 +39,7 @@ export class GlFeatureBadge extends LitElement {
 			:host {
 				/* position: relative; */
 				display: inline-block;
-				--gl-feature-badge-color: currentColor;
+				--gl-feature-badge-color: currentcolor;
 				--gl-feature-badge-border-color: var(--color-foreground--50);
 				--max-width: 40rem;
 			}
@@ -50,16 +50,16 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.badge {
-				color: var(--gl-feature-badge-color, currentColor);
-				cursor: help;
-				font-size: var(--gl-feature-badge-font-size, x-small);
-				font-variant: all-small-caps;
-				font-weight: 600;
-				border: 1px solid var(--gl-feature-badge-border-color, var(--color-foreground--50));
-				border-radius: 1rem;
-				padding: 0 0.8rem 0.1rem 0.8rem;
-				white-space: nowrap;
 				display: inline-block;
+				padding: 0 0.8rem 0.1rem;
+				font-size: var(--gl-feature-badge-font-size, x-small);
+				font-weight: 600;
+				font-variant: all-small-caps;
+				color: var(--gl-feature-badge-color, currentColor);
+				white-space: nowrap;
+				cursor: help;
+				border: var(--gl-border-width) solid var(--gl-feature-badge-border-color, var(--color-foreground--50));
+				border-radius: 1rem;
 			}
 
 			.badge:focus-visible {
@@ -67,39 +67,39 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.badge-icon {
+				margin-left: var(--gl-space-4);
 				font-weight: 400;
-				margin-left: 0.4rem;
 				white-space: nowrap;
 			}
 
 			.badge-popup {
 				display: flex;
 				flex-direction: column;
+				gap: var(--gl-space-6);
 				white-space: normal;
-				gap: 0.6rem;
 			}
 
 			.popup-header {
 				display: flex;
 				flex-direction: column;
-				margin-bottom: 0.4rem;
+				margin-bottom: var(--gl-space-4);
 			}
 
 			.popup-title {
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				font-weight: 600;
 			}
 
 			.popup-subtitle {
+				margin-top: var(--gl-space-6);
 				font-size: smaller;
-				margin-top: 0.6rem;
 			}
 
 			.popup-content {
 				display: flex;
 				flex-direction: column;
-				border-top: 1px solid var(--color-foreground--25);
-				padding-top: 0.6rem;
+				padding-top: var(--gl-space-6);
+				border-top: var(--gl-border-width) solid var(--color-foreground--25);
 			}
 
 			.popup-content p {
@@ -107,24 +107,24 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.popup-content .actions {
-				margin-top: 0.8rem;
-				margin-bottom: 0.6rem;
+				margin-top: var(--gl-space-8);
+				margin-bottom: var(--gl-space-6);
 			}
 
 			.popup-content .actions:first-child {
-				margin-bottom: 0.8rem;
+				margin-bottom: var(--gl-space-8);
 			}
 
 			.popup-content .actions :not(:first-child) {
-				margin-top: 0.4rem;
+				margin-top: var(--gl-space-4);
 			}
 
 			.popup-content .actions gl-button:not(:first-child) {
-				margin-top: 0.8rem;
+				margin-top: var(--gl-space-8);
 			}
 
 			.hint {
-				border-bottom: 1px dashed currentColor;
+				border-bottom: var(--gl-border-width) dashed currentcolor;
 			}
 		`,
 	];
@@ -159,7 +159,7 @@ export class GlFeatureBadge extends LitElement {
 
 	override render(): unknown {
 		return html`
-			<gl-popover placement=${this.placement} hoist>
+			<gl-popover placement=${this.placement}>
 				<span slot="anchor" class="badge" tabindex="0">${this.renderBadge()}</span>
 				<div slot="content" class="badge-popup" tabindex="-1">
 					${this.renderPopoverHeader()}${this.renderPopoverContent()}

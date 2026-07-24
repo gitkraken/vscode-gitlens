@@ -4,9 +4,13 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	ComposeResult,
+	ConflictSide,
+	ProposedCommit,
+	QueuedTakeSide,
 	ResolvedFileSummary,
 	ResolveResult,
 	ReviewResult,
@@ -76,6 +80,9 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	graphRepoPath(): string | undefined;
 	/** Returns true when the active selection is the WIP/uncommitted sha. */
 	isWipSelection(): boolean;
+	/** Refreshes an open branch sheet's enrichment. The sheet owns its own enrichment state and
+	 *  cache, so it isn't covered by `refreshWipBranchEnrichment`. No-op when no sheet is open. */
+	refreshBranchSheet(): void;
 	/** Snapshot of the host's current selection — used to seed `exitMode` when the
 	 *  controller forces a mode exit on repo change. */
 	currentSelection(): DetailsSelection;
@@ -88,6 +95,10 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	 *  worktree's persisted draft slot. Called by the controller from `onRunSettled` (and on
 	 *  re-engage after a disconnected settle) — never while the panel is disconnected. */
 	applyGeneratedCommitMessage(repoPath: string, message: string): void;
+	/** Reads the live compose/resolve panel's ready-state Refine posture + unsubmitted draft text, so
+	 *  the controller can persist them onto the engaged entry on mode-leave (see `hideMode`). Returns
+	 *  `undefined` when no refine-capable panel is mounted (e.g. review mode, or no active mode). */
+	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
 }
 
 /**
@@ -114,6 +125,13 @@ export class DetailsWorkflowController implements ReactiveController {
 	private _subscribedRepoPath: string | undefined;
 	private readonly _subscriptionGen = getScopedCounter();
 	private _subscriptionUnsubscribe: (() => void) | undefined;
+	/** `markBranchCompareStale` watch — keyed on the Compare side's effective path (the
+	 *  checked-out worktree when distinct from the graph's repo), not `host.repoPath`. Separate
+	 *  lifecycle from the fields above because this path can change independently of
+	 *  `host.repoPath` (Compare ref change, IWT toggle). See {@link ensureCompareWatchSubscription}. */
+	private _subscribedCompareWatchPath: string | undefined;
+	private readonly _compareWatchSubscriptionGen = getScopedCounter();
+	private _compareWatchSubscriptionUnsubscribe: (() => void) | undefined;
 	/** Tracks the graph's user-perceived repo so we can detect repo-selector switches that
 	 *  haven't yet propagated to `host.repoPath` (selection from the prior repo can mask the
 	 *  change until the user clicks a row in the new repo). `undefined` until the first
@@ -163,6 +181,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// against being reused without a refresh of its disposed-state flag.)
 		this._disconnected = false;
 		this.ensureSubscription(this.host.repoPath);
+		this.ensureCompareWatchSubscription(this.compareWatchPath());
 	}
 
 	hostDisconnected(): void {
@@ -174,6 +193,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// runs on teardown is owned by `gl-graph-app` (the registry owner), not the panel.
 		this._disconnected = true;
 		this.tearDownSubscription();
+		this.tearDownCompareWatchSubscription();
 	}
 
 	hostUpdate(): void {
@@ -200,7 +220,13 @@ export class DetailsWorkflowController implements ReactiveController {
 				// new-repo signals when the in-flight RPC resolves.
 				const activeMode = this.actions.state.activeMode.get();
 				if (activeMode === 'review' || activeMode === 'compose' || activeMode === 'resolve') {
-					this.hideMode(this.host.currentSelection(), { skipRefetch: true });
+					// Only tear down a mode anchored to a repo other than the incoming one — an
+					// enter-mode pendingAction can ride the repo switch itself (consumed just before
+					// this trigger observes the change) and already belongs to the new repo.
+					const modeRepo = this.actions.state.activeModeRepoPath.get();
+					if (modeRepo == null || graphRepo == null || normalizePath(modeRepo) !== normalizePath(graphRepo)) {
+						this.hideMode(this.host.currentSelection(), { skipRefetch: true });
+					}
 				}
 				if (this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get()) {
 					this.closeCompare();
@@ -215,23 +241,18 @@ export class DetailsWorkflowController implements ReactiveController {
 		// panel's `willUpdate → switchAnchorWithinMode` handles the activeMode transition for
 		// them, and the registry preserves each anchor's run across the jump.
 		if (this.host.repoPath !== this._subscribedRepoPath) {
-			const compareOpen = this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get();
-			const activeMode = this.actions.state.activeMode.get();
-			// Reset repo-scoped state only when nothing else has already handled it. `switchAnchorWithinMode`
-			// runs from `willUpdate` (before `hostUpdate`) and already calls `resetRepoScopedState` for the
-			// active-mode case — running it again here would clobber `branchCommitsFetching` back to false
-			// while the in-flight fetch is mid-air, leaving the picker in a "no items + not loading" state
-			// that renders as the empty splash. Compare-open uses the same skip rationale as before: the
-			// comparison is anchored to its own refs and shouldn't get its repo-scoped chips cleared.
-			if (!compareOpen && activeMode == null) {
-				// Invalidate every repo-scoped signal so the panel doesn't show the prior worktree's
-				// WIP / branch commits / enrichment chips while the new repo's fetches are in flight.
-				// `clearEnrichmentCaches` (called inside) handles cache + controller hygiene; this
-				// extends it to the state signals that the picker / mode panels read directly.
-				this.actions.resetRepoScopedState(this.host.repoPath);
-			}
+			// Fallback for render-target switches that never ran a fetch. The fetch prologues own this
+			// reset now — they clear the prior repo before seeding the new one — and this no-ops once
+			// they have (it's keyed off the same last-fetched repo), so the two can't fight. Skip
+			// conditions for an active mode / open compare sheet live in the method.
+			this.actions.resetRepoScopedStateOnSwitch(this.host.repoPath);
 			this.ensureSubscription(this.host.repoPath);
 		}
+
+		// Trigger 2b — compare-side worktree-aware staleness watch. Its effective path can change
+		// independently of `host.repoPath` (Compare ref change, IWT toggle), so it's re-evaluated
+		// on every render; `ensureCompareWatchSubscription` no-ops when the path hasn't changed.
+		this.ensureCompareWatchSubscription(this.compareWatchPath());
 
 		// (Trigger 3 — compose `{cancelled:true}` sentinel — removed. The sentinel now arrives via
 		// the operation's resolution and is handled by `onRunSettled`, which removes the entry +
@@ -242,7 +263,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	// region Mode transitions
 
-	toggleMode(mode: DetailsMode, selection: DetailsSelection): void {
+	toggleMode(mode: DetailsMode, selection: DetailsSelection, scopeOverride?: ScopeSelection): void {
 		const { sha, shas, repoPath } = selection;
 		const state = this.actions.state;
 		const resources = this.actions.resources;
@@ -252,24 +273,32 @@ export class DetailsWorkflowController implements ReactiveController {
 		// that destroys (single-click, no confirm — Restart already moved the result to a forward
 		// snapshot, so close discarding the backed entry is the user's natural follow-through).
 		if (state.activeMode.get() === mode) {
-			// If the engaged anchor's entry is `'backed'`, this is the destroy path
-			// (Restart-then-close). Otherwise just hide.
-			const engagedEntry = this.host.crossPaneState.runningOperations.get().get(
-				anchorKey({
-					sha: state.activeModeSha.get(),
-					shas: state.activeModeShas.get(),
-					repoPath: state.activeModeRepoPath.get(),
-				}),
-			)?.[mode];
-			if (engagedEntry?.execState === 'backed') {
-				this.destroyEngagedOperation(mode);
-			} else {
-				// User explicitly dismissed this mode on this anchor — forget so a return
-				// doesn't auto-restore it. The registry entry (if any) is left intact.
-				this.forgetMode(selection);
-				this.hideMode(selection);
+			const engagedSelection: DetailsSelection = {
+				sha: state.activeModeSha.get(),
+				shas: state.activeModeShas.get(),
+				repoPath: state.activeModeRepoPath.get(),
+			};
+			if (anchorKey(engagedSelection) === anchorKey(selection)) {
+				// If the engaged anchor's entry is `'backed'`, this is the destroy path
+				// (Restart-then-close). Otherwise just hide.
+				const engagedEntry = this.host.crossPaneState.runningOperations
+					.get()
+					.get(anchorKey(engagedSelection))?.[mode];
+				if (engagedEntry?.execState === 'backed') {
+					this.destroyEngagedOperation(mode);
+				} else {
+					// User explicitly dismissed this mode on this anchor — forget so a return
+					// doesn't auto-restore it. The registry entry (if any) is left intact.
+					this.forgetMode(selection);
+					this.hideMode(selection);
+				}
+				return;
 			}
-			return;
+
+			// Same mode requested on a DIFFERENT anchor (external enter request, e.g. a recompose
+			// riding a repo switch): a re-target, not a toggle — hide the engaged session (its
+			// registry entry stays intact) and fall through to enter on the new anchor.
+			this.hideMode(engagedSelection, { skipRefetch: true });
 		}
 
 		const isWip = this.actions.isWip(sha);
@@ -288,7 +317,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Initialize mode-specific state. Resolve has no commit/diff scope — it operates on the
 		// paused op's conflicted-file set read directly from `state.wip` — so skip scope building.
 		if (mode !== 'resolve') {
-			const scope = this.buildDefaultScope(sha, isWip, isMultiCommit);
+			const scope = scopeOverride ?? this.buildDefaultScope(sha, isWip, isMultiCommit, repoPath);
 			if (scope) {
 				state.scope.set(scope);
 				resources.scopeFiles.cancel();
@@ -316,6 +345,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			const composeHasValue = resources.compose.value.get() != null;
 			if (composeHasValue && this._composeFetchedForSelection !== newKey) {
 				resources.compose.reset();
+				this.compose.invalidateContinuation();
 				this.compose.invalidateSnapshot();
 				this.compose.invalidateErrorRecovery();
 				this._composeFetchedForSelection = undefined;
@@ -350,15 +380,18 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Remember this anchor's mode so a subsequent return restores it.
 		this.rememberMode(selection, mode);
 
-		// Fetch branch commits for the WIP scope picker when the current cache is missing or
-		// belongs to a different repo. Repo mismatch happens when the user switches between
-		// worktree-row anchors while in mode — `resetRepoScopedState` clears branchCommits AFTER
-		// `toggleMode` already evaluated the gate, leaving a window where the picker would
-		// render empty waiting for a fetch that never started. Checking the last-fetched
-		// repoPath catches that case explicitly.
+		// Fetch branch commits for the WIP scope picker when the current cache is missing or belongs to a
+		// different repo. Repo mismatch happens when the user switches between worktree-row anchors while
+		// in mode: no repo-scoped reset runs on that path — both the fetch prologue and the render-target
+		// trigger skip while a mode is active — so branchCommits can still hold the prior repo's. Checking
+		// the last-fetched repoPath catches that explicitly.
 		if (isWip && !state.branchCommitsFetching.get()) {
 			const lastFetchedRepoPath = this.actions.branchCommitsFetchedRepoPath();
-			if (state.branchCommits.get() == null || lastFetchedRepoPath !== repoPath) {
+			const fetchedFresh =
+				lastFetchedRepoPath != null &&
+				repoPath != null &&
+				normalizePath(lastFetchedRepoPath) === normalizePath(repoPath);
+			if (state.branchCommits.get() == null || !fetchedFresh) {
 				void this.actions.fetchBranchCommits(repoPath);
 			}
 		}
@@ -366,6 +399,54 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Project the engaged anchor's entry into the resource (or leave it idle for ENABLED /
 		// `'generating'` / `'backed'` cases — the panel reads `execState` from the entry).
 		this.projectEngagedAnchor(mode, { sha: sha, shas: shas, repoPath: repoPath });
+	}
+
+	/** Enter compose mode on the WIP anchor with a pre-seeded commit range (recompose). `shas` become
+	 *  the scope's includeShas; `includeWip` folds working/staged changes in when present. When compose
+	 *  is already open (idle) on this anchor, the scope is switched in place; an already-started plan is
+	 *  preserved rather than clobbered. */
+	enterComposeWithScope(selection: DetailsSelection, shas: readonly string[], includeWip: boolean): void {
+		const state = this.actions.state;
+		// Trust the WIP snapshot only when it belongs to this anchor's repo — on a cross-repo
+		// entry it can still hold the outgoing repo's changes. When stale/absent, fall back to
+		// including both areas: extra flags are harmless (the workdir source just collects
+		// nothing), while dropped ones would silently exclude the user's working changes.
+		const wip = state.wip.get();
+		const wipFresh =
+			wip != null &&
+			selection.repoPath != null &&
+			normalizePath(wip.repo.path) === normalizePath(selection.repoPath);
+		const files = wipFresh ? (wip.changes?.files ?? []) : undefined;
+		const scope: ScopeSelection = {
+			type: 'wip',
+			includeUnstaged: includeWip && (files?.some(f => !f.staged) ?? true),
+			includeStaged: includeWip && (files?.some(f => f.staged) ?? true),
+			includeShas: [...shas],
+		};
+
+		const engagedKey = anchorKey({
+			sha: state.activeModeSha.get(),
+			shas: state.activeModeShas.get(),
+			repoPath: state.activeModeRepoPath.get(),
+		});
+		const sameAnchor = state.activeMode.get() === 'compose' && engagedKey === anchorKey(selection);
+		if (sameAnchor) {
+			// A compose that already started (a run is registered) keeps its plan — don't clobber it.
+			const started = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose != null;
+			if (started) return;
+
+			// Idle on this anchor — switch the scope to the requested range in place.
+			state.scope.set(scope);
+			this.actions.resources.scopeFiles.cancel();
+			if (selection.repoPath) {
+				void this.actions.resources.scopeFiles.fetch(selection.repoPath, scope);
+			}
+			void this.actions.ensureBranchCommitsCover(selection.repoPath, shas);
+			return;
+		}
+
+		this.toggleMode('compose', selection, scope);
+		void this.actions.ensureBranchCommitsCover(selection.repoPath, shas);
 	}
 
 	/** Opens the compare sheet, seeded from the current selection (or explicit overrides from
@@ -606,7 +687,13 @@ export class DetailsWorkflowController implements ReactiveController {
 				this.actions.resources.compose.reset();
 				this.compose.invalidateSnapshot();
 				this.compose.invalidateErrorRecovery();
+				this.compose.invalidateContinuation();
 				this._composeFetchedForSelection = undefined;
+			} else if (wasMode === 'resolve') {
+				this.actions.resources.resolve.reset();
+				this.resolve.invalidateErrorRecovery();
+				this._resolveFetchedForSelection = undefined;
+				this.actions.state.resolveFocusedFilePaths.set(undefined);
 			}
 		}
 
@@ -623,6 +710,16 @@ export class DetailsWorkflowController implements ReactiveController {
 		// are running for the same anchor (the registry supports this); clearing both kinds'
 		// recovery on a hide that only ends one of them would silently erase the other's state.
 		const exitingMode = this.actions.state.activeMode.get();
+
+		// Capture the compose/resolve panel's Refine posture + unsubmitted draft onto the outgoing
+		// anchor's entry BEFORE the signals + panel are torn down, so toggling the chip off/on or
+		// switching rows restores them. `currentAnchor()` + the panel DOM still reflect the outgoing
+		// anchor here. `hideMode` is the single choke point for every preserve-leave (toggle-out,
+		// mode-switch, row-switch), so one capture here covers all of them. Fresh-result / discard /
+		// destroy / repo-switch paths remove the entry, so the `entry != null` guard no-ops there.
+		if (exitingMode === 'compose' || exitingMode === 'resolve') {
+			this.captureEngagedRefineState(exitingMode);
+		}
 
 		this.actions.state.activeMode.set(null);
 		this.actions.state.activeModeContext.set(null);
@@ -646,6 +743,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.review.invalidateErrorRecovery();
 		} else if (exitingMode === 'compose') {
 			this.compose.invalidateErrorRecovery();
+			this.compose.invalidateContinuation();
 		} else if (exitingMode === 'resolve') {
 			// The focused-file scope is an input of the engagement that set it (per-file/multi-select
 			// entry points) — clear it on exit so a later chip-initiated session defaults back to all
@@ -660,6 +758,25 @@ export class DetailsWorkflowController implements ReactiveController {
 		if (!options?.skipRefetch) {
 			this.refetchForSelection(selection);
 		}
+	}
+
+	/** Persist the outgoing compose/resolve panel's live Refine posture + unsubmitted draft onto its
+	 *  registry entry, so a later return to this anchor restores them. Reads the live panel through the
+	 *  host; no-ops when there's no entry (fresh result / discarded / destroyed / repo-switched away).
+	 *  Routed through {@link registerRunningOperation} — whose dedup guard compares the refine fields —
+	 *  so an unchanged snapshot (e.g. leaving with the gate closed) doesn't churn the registry. */
+	private captureEngagedRefineState(kind: 'compose' | 'resolve'): void {
+		const snapshot = this.host.readEngagedRefineState();
+		if (snapshot == null) return;
+
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.[kind];
+		if (entry == null) return;
+
+		this.registerRunningOperation({
+			...entry,
+			refineMode: snapshot.refineMode || undefined,
+			refineDraft: snapshot.refineDraft.trim() ? snapshot.refineDraft : undefined,
+		});
 	}
 
 	/** The workflow object for a mode — exposes the common `invalidateSnapshot`/`invalidateErrorRecovery`
@@ -742,6 +859,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		// gets rebuilt when the user clicks Back on it.
 		this.review.invalidateSnapshot();
 		this.compose.invalidateSnapshot();
+		// Resolve has no Resume snapshot (apply is terminal) — this is a deliberate no-op kept for
+		// uniformity so every mode's snapshot is invalidated on an anchor switch.
+		this.resolve.invalidateSnapshot();
 
 		// On row switch the mode does NOT follow — just hide. The prior anchor's `toggleMode`
 		// already called `rememberMode`, so returning to a remembered WIP anchor restores below.
@@ -878,6 +998,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 			this.actions.resources.review.mutate(enriched);
 		},
+		// Destructive discard from the ready state — throw away the findings and exit to the plain
+		// view. Review produces read-only findings with no host session (unlike resolve), so
+		// `destroyEngagedOperation` is the complete teardown: abort + remove entry + reset + hide.
+		discard: (): void => {
+			this.actions.sendTelemetryEvent('graphDetails/review/discarded');
+			this.destroyEngagedOperation('review');
+		},
 	};
 
 	runReview(
@@ -887,6 +1014,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		effectiveFilesCount: number,
 		selectedIds?: ReadonlySet<string>,
 		scopeItems?: ScopeItem[],
+		options?: { mode?: 'refine' },
 	): void {
 		const scope = this.actions.buildScopeFromPicker(selectedIds, scopeItems) ?? this.actions.state.scope.get();
 		if (!repoPath || !scope) return;
@@ -900,15 +1028,28 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.reviewPreErrorValue.set(
 			currentValue != null && 'result' in currentValue ? currentValue : undefined,
 		);
+		// Follow-up only when explicitly requested by the ready-state input AND there's a result
+		// to follow up on AND guidance to follow up with — an empty submit or a restart from idle
+		// is a fresh run, never a continuation
+		const refine =
+			options?.mode === 'refine' && instructions != null && currentValue != null && 'result' in currentValue;
 		this._reviewFetchedForSelection = this.selectionKey();
 		this.dispatchOperation(
 			'review',
 			instructions,
-			controller => this.actions.startReview(repoPath, scope, instructions, excludedFiles, controller.signal),
+			controller =>
+				this.actions.startReview(
+					repoPath,
+					scope,
+					instructions,
+					excludedFiles,
+					controller.signal,
+					refine ? { mode: 'refine' } : undefined,
+				),
 			{
 				excludedFilesCount: excludedFiles?.length ?? 0,
 				effectiveFilesCount: effectiveFilesCount,
-				refine: currentValue != null && 'result' in currentValue,
+				refine: refine,
 			},
 		);
 	}
@@ -918,6 +1059,11 @@ export class DetailsWorkflowController implements ReactiveController {
 	// region Compose workflow
 
 	readonly compose = {
+		// Discard a ready plan and exit compose mode — full teardown back to plain WIP details.
+		// Working-tree changes are untouched; only the in-memory plan + mode state are dropped.
+		discard: (): void => {
+			this.destroyEngagedOperation('compose');
+		},
 		back: (): void => {
 			// See `review.back` for rationale on the conditional transition. The original code
 			// transitioned the entry to `'backed'` unconditionally even when no snapshot was
@@ -978,8 +1124,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			// Pre-error value + action tracking consumed. Clearing `composeLastFailedAction` /
 			// `composeLastCommitAllIncludedIds` prevents a stale `'commit-all'` from steering a
 			// later `retryFromError` into the commit-all branch against a plan that's no longer
-			// in the resource. The prompt rides on the engaged entry's `prompt` field and survives
-			// through both branches via the spread / no-result re-register.
+			// in the resource. The prompt rides on the engaged entry's `prompt` field and
+			// survives through both branches via the spread / no-result re-register.
 			this.actions.state.composePreErrorValue.set(undefined);
 			this.actions.state.composeLastFailedAction.set(undefined);
 			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
@@ -1031,6 +1177,20 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.state.composePreErrorValue.set(undefined);
 			this.actions.state.composeLastFailedAction.set(undefined);
 			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
+		},
+		/** Drop the cross-call continuation state — the cacheKey that drives refine and the
+		 *  locked-commits set. Called on mode exit / destroy / anchor switch so a returning
+		 *  user enters cold compose instead of resuming a stale session. The host's cache is
+		 *  keyed per-repo and cleaned up on its own cold-start path; a stale key here is
+		 *  benign (the host treats it as a missing entry and runs cold) but clearing keeps the
+		 *  webview state truthful. */
+		invalidateContinuation: (): void => {
+			this.actions.state.composeCurrentCacheKey.set(undefined);
+			this.actions.state.composeRefineExcludedCommitIds.set(new Set());
+			// Drop any in-flight per-commit message regen handle too. The RPC's own
+			// `finally` clears it, but an anchor switch can leave the signal pointing at
+			// a commit that no longer belongs to the panel's current plan.
+			this.actions.state.composeRegeneratingCommitId.set(undefined);
 		},
 		// Wraps `composeCommitAll` so the registry entry stays in sync with the resource on
 		// apply failure. Without this, the action mutates only the resource (legacy of the
@@ -1087,15 +1247,301 @@ export class DetailsWorkflowController implements ReactiveController {
 				stale: stale,
 				duration: duration,
 			});
-			// Success path — the action cleared the resource + engagement signals but cannot
-			// reach the cross-pane registry. Remove the stale `'complete'` entry so the WIP-row
-			// adornment and chip overlay drop the pass icon (otherwise the row keeps signaling a
-			// compose result for a plan that has already been committed). Also forget the mode
-			// so a return-visit doesn't auto-restore compose on this anchor.
+
+			// The action cleared the resource + engagement signals but cannot reach the
+			// cross-pane registry. Remove the stale `'complete'` entry so the WIP-row adornment
+			// and chip overlay drop the pass icon (otherwise the row keeps signaling a compose
+			// result for a plan that has already been committed). Also forget the mode so a
+			// return-visit doesn't auto-restore compose on this anchor.
 			this.removeRunningOperation(anchorKey(engagedAnchor), 'compose');
 			this.forgetMode(engagedAnchor);
 		},
+		/**
+		 * Per-commit message regeneration. Calls the host's `regenerateProposedCommitMessage`
+		 * RPC against the cached plan's current cache key, then patches just the targeted
+		 * commit's `message` into both the resource and the engaged registry entry so the
+		 * panel mapping (entry's `result` shadows the resource) reflects the new message
+		 * immediately.
+		 *
+		 * The host also mutates its own cached plan; that keeps refine continuation honest —
+		 * a later refine sees the regenerated message in `priorPlan` and (if the commit is
+		 * locked) the library's locked-commit substitution preserves it verbatim.
+		 *
+		 * Concurrency: one in-flight regen at a time via `composeRegeneratingCommitId`. A
+		 * second click while busy is dropped; the panel also disables the icon during refine /
+		 * applying / loading states.
+		 */
+		regenerateCommitMessage: async (commitId: string): Promise<void> => {
+			if (!commitId) return;
+
+			// Drop the click if another regen is already in flight — the panel's render is the
+			// primary gate (disabled icon), but a second message can race the disabled state.
+			if (this.actions.state.composeRegeneratingCommitId.get() != null) return;
+
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
+			if (!repoPath || !cacheKey) return;
+
+			// Capture the engaged entry up front — an anchor switch / mode exit mid-call
+			// invalidates it; we'll re-resolve later and bail if it's gone.
+			const engagedAnchor = this.currentAnchor();
+			const engagedKey = anchorKey(engagedAnchor);
+
+			this.actions.state.composeRegeneratingCommitId.set(commitId);
+			const startedAt = performance.now();
+			try {
+				const result = await this.actions.services.graphInspect.regenerateProposedCommitMessage(
+					repoPath,
+					cacheKey,
+					commitId,
+					// No per-call abort signal yet — the host owns cancellation via its own
+					// `_aiCancellations` registry, and the user can't currently cancel a regen
+					// individually. Add an AbortController here if per-commit cancel becomes a
+					// requirement.
+					undefined,
+				);
+				if (this._disconnected) return;
+
+				// User exited compose / switched anchors while the call was in flight. The
+				// engaged entry no longer applies; drop the result rather than write into a
+				// foreign state. The host has already mutated its own cache — benign on next
+				// compose run (cache is per-repo and replaced on each generate).
+				const stillEngaged =
+					this.actions.state.activeMode.get() === 'compose' &&
+					this.actions.state.activeModeRepoPath.get() === repoPath &&
+					this.actions.state.composeCurrentCacheKey.get() === cacheKey;
+				if (!stillEngaged) return;
+
+				if ('cancelled' in result) {
+					this.actions.sendTelemetryEvent('graphDetails/compose/regenerateMessage/failed', {
+						'failure.reason': 'cancelled',
+						duration: performance.now() - startedAt,
+					});
+					return;
+				}
+				if ('error' in result) {
+					this.actions.sendTelemetryEvent('graphDetails/compose/regenerateMessage/failed', {
+						'failure.reason': 'error',
+						'failure.error.message': result.error.message,
+						duration: performance.now() - startedAt,
+					});
+					return;
+				}
+
+				// Patch the resource. The resource's value is the source of truth for the
+				// post-engagement projection; the registry entry's result shadows it for the
+				// panel mapping, so we update both.
+				const currentValue = this.actions.resources.compose.value.get();
+				if (currentValue == null || !('result' in currentValue)) return;
+
+				const patchedCommits = currentValue.result.commits.map(c =>
+					c.id === result.result.commitId ? { ...c, message: result.result.message } : c,
+				);
+				const patched = {
+					...currentValue,
+					result: { ...currentValue.result, commits: patchedCommits },
+				};
+				this.actions.resources.compose.mutate(patched);
+
+				const entry = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose;
+				if (entry?.execState === 'complete') {
+					this.registerRunningOperation({ ...entry, result: patched });
+				}
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/regenerateMessage/completed', {
+					duration: performance.now() - startedAt,
+				});
+			} catch (ex) {
+				if (this._disconnected) return;
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/regenerateMessage/failed', {
+					'failure.reason': 'error',
+					'failure.error.message': ex instanceof Error ? ex.message : String(ex),
+					duration: performance.now() - startedAt,
+				});
+			} finally {
+				if (!this._disconnected) {
+					// Only clear when we're still the in-flight regen — a parallel run (e.g.
+					// future per-commit concurrency) shouldn't have its handle stomped by a
+					// settling earlier call. Today only one is in flight at a time, so this
+					// reduces to a simple clear; the equality guard documents the invariant.
+					if (this.actions.state.composeRegeneratingCommitId.get() === commitId) {
+						this.actions.state.composeRegeneratingCommitId.set(undefined);
+					}
+				}
+			}
+		},
+
+		/**
+		 * Reorder the draft commits after a drag or keyboard move. `orderedDisplayIds` is the full
+		 * set of the plan's commit ids in the new **display** order (top row first). The resource is
+		 * reordered optimistically for a snappy render, then the new order is synced to the host's
+		 * cached plan so apply and any subsequent refine honor it. A sync failure (stale plan) reverts
+		 * the optimistic order — provided a newer reorder hasn't superseded ours in the meantime.
+		 */
+		reorderCommits: async (orderedDisplayIds: string[]): Promise<void> => {
+			if (!orderedDisplayIds.length) return;
+
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
+			if (!repoPath || !cacheKey) return;
+
+			const engagedKey = anchorKey(this.currentAnchor());
+
+			const currentValue = this.actions.resources.compose.value.get();
+			if (currentValue == null || !('result' in currentValue)) return;
+
+			// Resolve the new order against the current commits; bail if it isn't an exact
+			// permutation (a stale gesture racing a plan swap).
+			const byId = new Map(currentValue.result.commits.map(c => [c.id, c]));
+			if (orderedDisplayIds.length !== byId.size) return;
+
+			const reordered: ProposedCommit[] = [];
+			for (const id of orderedDisplayIds) {
+				const commit = byId.get(id);
+				if (commit == null) return;
+
+				reordered.push(commit);
+			}
+
+			const priorCommits = currentValue.result.commits;
+			// No-op if the order is unchanged.
+			if (reordered.every((c, i) => c === priorCommits[i])) return;
+
+			// Optimistically reorder the resource (drives the panel re-render) and shadow the
+			// running-operation entry, mirroring the regen patch below.
+			const patched = { ...currentValue, result: { ...currentValue.result, commits: reordered } };
+			this.actions.resources.compose.mutate(patched);
+			const entry = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose;
+			if (entry?.execState === 'complete') {
+				this.registerRunningOperation({ ...entry, result: patched });
+			}
+
+			const startedAt = performance.now();
+			try {
+				// The host's canonical order is tip-last; the display is reversed (newest first).
+				const libraryOrder = [...orderedDisplayIds].reverse();
+				const result = await this.actions.services.graphInspect.reorderProposedCommits(
+					repoPath,
+					cacheKey,
+					libraryOrder,
+				);
+				if (this._disconnected) return;
+
+				if ('error' in result) {
+					this.revertComposeReorder(engagedKey, reordered, priorCommits);
+					this.actions.sendTelemetryEvent('graphDetails/compose/reorder/failed', {
+						'plan.commits.count': reordered.length,
+						'failure.error.message': result.error.message,
+						duration: performance.now() - startedAt,
+					});
+					return;
+				}
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/reorder/completed', {
+					'plan.commits.count': reordered.length,
+					duration: performance.now() - startedAt,
+				});
+			} catch (ex) {
+				if (this._disconnected) return;
+
+				this.revertComposeReorder(engagedKey, reordered, priorCommits);
+				this.actions.sendTelemetryEvent('graphDetails/compose/reorder/failed', {
+					'plan.commits.count': reordered.length,
+					'failure.error.message': ex instanceof Error ? ex.message : String(ex),
+					duration: performance.now() - startedAt,
+				});
+			}
+		},
+
+		/**
+		 * Move the files in `paths` from one draft commit to another after a drag drop. `paths` is the
+		 * multi-selection when the dragged row is part of it, else just the dragged file. Unlike reorder,
+		 * this changes the affected commits' content (and may drop an emptied commit), so the host owns
+		 * the result: it returns the re-derived plan and we replace the resource `commits` wholesale (no
+		 * optimistic step — the recomputed files/stats/patch and prune can't be predicted locally).
+		 */
+		moveFile: async (fromCommitId: string, toCommitId: string, paths: string[]): Promise<void> => {
+			if (!fromCommitId || !toCommitId || fromCommitId === toCommitId || paths.length === 0) return;
+
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
+			if (!repoPath || !cacheKey) return;
+
+			const engagedKey = anchorKey(this.currentAnchor());
+			const startedAt = performance.now();
+			try {
+				const result = await this.actions.services.graphInspect.moveComposeFile(
+					repoPath,
+					cacheKey,
+					fromCommitId,
+					toCommitId,
+					paths,
+				);
+				if (this._disconnected) return;
+
+				const stillEngaged =
+					this.actions.state.activeMode.get() === 'compose' &&
+					this.actions.state.activeModeRepoPath.get() === repoPath &&
+					this.actions.state.composeCurrentCacheKey.get() === cacheKey;
+				if (!stillEngaged) return;
+
+				if ('error' in result) {
+					this.actions.sendTelemetryEvent('graphDetails/compose/moveFile/failed', {
+						'failure.error.message': result.error.message,
+						duration: performance.now() - startedAt,
+					});
+					return;
+				}
+
+				const currentValue = this.actions.resources.compose.value.get();
+				if (currentValue == null || !('result' in currentValue)) return;
+
+				const patched = {
+					...currentValue,
+					result: { ...currentValue.result, commits: result.result.commits },
+				};
+				this.actions.resources.compose.mutate(patched);
+				const entry = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose;
+				if (entry?.execState === 'complete') {
+					this.registerRunningOperation({ ...entry, result: patched });
+				}
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/moveFile/completed', {
+					'plan.commits.count': result.result.commits.length,
+					duration: performance.now() - startedAt,
+				});
+			} catch (ex) {
+				if (this._disconnected) return;
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/moveFile/failed', {
+					'failure.error.message': ex instanceof Error ? ex.message : String(ex),
+					duration: performance.now() - startedAt,
+				});
+			}
+		},
 	};
+
+	/**
+	 * Restore the pre-reorder commit order after a failed host sync — but only when our optimistic
+	 * array is still the live value. A newer reorder that landed while the sync was in flight owns
+	 * the resource now, so reverting would stomp it.
+	 */
+	private revertComposeReorder(
+		engagedKey: AnchorKey,
+		optimisticCommits: readonly ProposedCommit[],
+		priorCommits: ProposedCommit[],
+	): void {
+		const latest = this.actions.resources.compose.value.get();
+		if (latest == null || !('result' in latest) || latest.result.commits !== optimisticCommits) return;
+
+		const reverted = { ...latest, result: { ...latest.result, commits: priorCommits } };
+		this.actions.resources.compose.mutate(reverted);
+		const entry = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose;
+		if (entry?.execState === 'complete') {
+			this.registerRunningOperation({ ...entry, result: reverted });
+		}
+	}
 
 	runCompose(
 		repoPath: string | undefined,
@@ -1121,6 +1567,24 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.composeLastFailedAction.set('generate');
 		this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		this._composeFetchedForSelection = this.selectionKey();
+
+		// Refine continuation: a successfully-resolved prior plan in the resource + a tracked
+		// cache key means the user is refining. Cold start otherwise. Locked-commit ids and
+		// the prior key are forwarded as `startCompose` options; the host routes to
+		// `refinePlanForGraphDetails` when `mode === 'refine'`.
+		const priorCacheKey = this.actions.state.composeCurrentCacheKey.get();
+		const isRefine = priorCacheKey != null && currentValue != null && 'result' in currentValue;
+		const excludedCommitIds = isRefine ? this.actions.state.composeRefineExcludedCommitIds.get() : undefined;
+
+		// On refine, carry the prior entry's `basePrompt` so the original cold-start instructions
+		// keep driving the idle AI-input seed; the refine's own instructions still land on the
+		// entry's `prompt` for retry/recall. Cold-start passes undefined so dispatchOperation
+		// defaults `basePrompt` to `instructions`.
+		const priorComposeEntry = isRefine
+			? this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.compose
+			: undefined;
+		const basePrompt = isRefine ? priorComposeEntry?.basePrompt : undefined;
+
 		this.dispatchOperation(
 			'compose',
 			instructions,
@@ -1132,12 +1596,20 @@ export class DetailsWorkflowController implements ReactiveController {
 					excludedFiles,
 					aiExcludedFiles,
 					controller.signal,
+					isRefine
+						? {
+								priorCacheKey: priorCacheKey,
+								mode: 'refine' as const,
+								excludedCommitIds: excludedCommitIds?.size ? [...excludedCommitIds] : undefined,
+							}
+						: undefined,
 				),
 			{
 				excludedFilesCount: excludedFiles?.length ?? 0,
 				effectiveFilesCount: effectiveFilesCount,
-				refine: currentValue != null && 'result' in currentValue,
+				refine: isRefine,
 			},
+			basePrompt,
 		);
 	}
 
@@ -1154,8 +1626,10 @@ export class DetailsWorkflowController implements ReactiveController {
 		invalidateSnapshot: (): void => {
 			/* no-op */
 		},
+		// Resolve has no prior-result Resume/snapshot, so there's no error-recovery value to clear —
+		// a no-op kept for the uniform workflow surface (mirrors invalidateSnapshot above).
 		invalidateErrorRecovery: (): void => {
-			this.actions.state.resolvePreErrorValue.set(undefined);
+			/* no-op */
 		},
 		// "Go Back" from the error pane — resolve has no prior-result Resume, so land on clean idle
 		// (the conflicted-file list). Drop the error entry so the panel maps to idle.
@@ -1163,16 +1637,17 @@ export class DetailsWorkflowController implements ReactiveController {
 			const anchor = this.currentAnchor();
 			this.removeRunningOperation(anchorKey(anchor), 'resolve');
 			this.actions.resources.resolve.reset();
-			this.actions.state.resolvePreErrorValue.set(undefined);
 		},
 		// Retry after error — re-run with the same scope (single file or all) and the run's prompt.
+		// Read the scope off the entry (survives a row-switch-and-return that clears the signal),
+		// falling back to the signal for a never-settled run.
 		retryFromError: (): void => {
 			const entry = this.host.crossPaneState.runningOperations
 				.get()
 				.get(anchorKey(this.currentAnchor()))?.resolve;
 			this.runResolve(
 				this.actions.state.activeModeRepoPath.get(),
-				this.actions.state.resolveFocusedFilePaths.get(),
+				entry?.focusedFilePaths ?? this.actions.state.resolveFocusedFilePaths.get(),
 				entry?.prompt,
 			);
 		},
@@ -1258,6 +1733,28 @@ export class DetailsWorkflowController implements ReactiveController {
 				this.actions.state.resolveRetryingFiles.set(next);
 			}
 		},
+		// Manual take-side fallback for a skipped/errored row — queues the chosen side as a pending
+		// resolution (applied on Apply, dropped on Discard, like AI resolutions) and promotes the
+		// matching rows without re-running the AI. `resolveStagingFiles` drives the row's busy spinner.
+		takeSide: async (filePath: string, side: ConflictSide): Promise<void> => {
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			if (!repoPath) return;
+
+			const busy = this.actions.state.resolveStagingFiles;
+			busy.set(new Set(busy.get()).add(filePath));
+			try {
+				const result = await this.actions.takeConflictSide(repoPath, filePath, side);
+				if (this._disconnected) return;
+
+				if ('result' in result) {
+					this.promoteToResolved(result.result.resolved);
+				}
+			} finally {
+				const next = new Set(this.actions.state.resolveStagingFiles.get());
+				next.delete(filePath);
+				this.actions.state.resolveStagingFiles.set(next);
+			}
+		},
 	};
 
 	/** Replaces one file's resolution in the engaged resolve result (resource + registry entry) in
@@ -1281,6 +1778,49 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.resources.resolve.mutate(merged);
 	}
 
+	/** Promotes the take-side files the host just queued out of `skipped`/`errors` into `resolutions`
+	 *  (as synthetic summaries, so each row shows "kept current/took incoming/deleted") without an AI
+	 *  re-run. The host's `resolved` list is the source of truth — it includes the chosen file plus,
+	 *  for a rename/rename, the losing target queued as `deleted` — so the panel mirrors exactly what
+	 *  will be applied. These resolutions carry no `content`; the queued take-ours/theirs/deleted
+	 *  strategy is applied by the library on Apply. */
+	private promoteToResolved(resolved: readonly QueuedTakeSide[]): void {
+		if (resolved.length === 0) return;
+
+		const anchor = this.currentAnchor();
+		const key = anchorKey(anchor);
+		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.resolve;
+		const current = entry?.result ?? this.actions.resources.resolve.value.get();
+		if (current == null || !('result' in current)) return;
+
+		const byPath = new Map(resolved.map(r => [r.filePath, r]));
+		const summaries: ResolvedFileSummary[] = resolved.map(r => ({
+			filePath: r.filePath,
+			strategy: r.strategy,
+			reasoning: '',
+			confidence: 1,
+		}));
+
+		const resolutions = [...current.result.resolutions.filter(r => !byPath.has(r.filePath)), ...summaries];
+		const skipped = current.result.skipped?.filter(s => !byPath.has(s.filePath));
+		const errors = current.result.errors?.filter(e => !byPath.has(e.filePath));
+
+		const merged: ResolveResult = {
+			result: {
+				resolutions: resolutions,
+				skipped: skipped != null && skipped.length > 0 ? skipped : undefined,
+				errors: errors != null && errors.length > 0 ? errors : undefined,
+			},
+		};
+		if (entry != null) {
+			this.registerRunningOperation({ ...entry, result: merged });
+		}
+		this.actions.resources.resolve.mutate(merged);
+	}
+
+	/** Runs the resolver over `focusedFilePaths` — the user-checked subset from the idle file tree
+	 *  (the full conflict set when everything is checked). Stored on `resolveFocusedFilePaths` so the
+	 *  whole-run Refine and `retryFromError` re-run the same scope. */
 	runResolve(
 		repoPath: string | undefined,
 		focusedFilePaths: readonly string[] | undefined,
@@ -1290,24 +1830,28 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		this.actions.state.wipStale.set(false);
 		this.actions.state.resolveFocusedFilePaths.set(focusedFilePaths);
-		// Snapshot a prior result-bearing value for error recovery; kept symmetric with
-		// compose/review even though resolve has no Resume bar.
+		// A prior result-bearing value means this run is a Refine (re-resolve) rather than a fresh run
+		// — used only for the `refine` telemetry flag below.
 		const currentValue = this.actions.resources.resolve.value.get();
-		this.actions.state.resolvePreErrorValue.set(
-			currentValue != null && 'result' in currentValue ? currentValue : undefined,
-		);
 		this._resolveFetchedForSelection = this.selectionKey();
 		this.dispatchOperation(
 			'resolve',
 			instructions,
 			controller => this.actions.startResolve(repoPath, focusedFilePaths, instructions, controller.signal),
 			{
+				// `excludedFilesCount`/`effectiveFilesCount` are unused on the resolve telemetry path
+				// (see `fireRunTelemetry`, which reports `files.focused.count` + the per-strategy
+				// `result.*.count`s), so they stay 0 rather than carrying a misleading scope size.
+				// `focused`/`focusedCount` describe the scoped run — the checked subset; both fall to
+				// undefined/0 for a whole-run over all conflicts.
 				excludedFilesCount: 0,
 				effectiveFilesCount: 0,
 				refine: currentValue != null && 'result' in currentValue,
 				focused: focusedFilePaths != null && focusedFilePaths.length > 0,
 				focusedCount: focusedFilePaths?.length ?? 0,
 			},
+			undefined,
+			focusedFilePaths,
 		);
 	}
 
@@ -1319,9 +1863,12 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  same `(anchor, kind)`; clears the engaged resource; creates a fresh `AbortController`;
 	 *  invokes `start` (the direct-RPC call) with the controller's signal; registers a
 	 *  `'generating'` entry immediately so adornments + chip overlays show the spinner; wires the
-	 *  promise to `onRunSettled` with stale-guard. The `prompt` lands on the new entry so each
-	 *  anchor remembers what was submitted for its run — drives the AI-input seed on Restart and
-	 *  the prompt that `retryFromError` resubmits. */
+	 *  promise to `onRunSettled` with stale-guard. `prompt` lands on the entry as "last
+	 *  submitted" (drives `retryFromError` + Refine ArrowUp recall); `basePrompt` lands as
+	 *  "original cold-start instructions" (drives the AI-input seed on Restart). When
+	 *  `basePrompt` is undefined the entry's `basePrompt` defaults to `prompt` — correct for
+	 *  cold-start callers and modes without a refine concept (review/resolve). Refine callers
+	 *  pass the prior entry's `basePrompt` so the base survives across refines. */
 	private dispatchOperation(
 		kind: DetailsMode,
 		prompt: string | undefined,
@@ -1333,6 +1880,9 @@ export class DetailsWorkflowController implements ReactiveController {
 			focused?: boolean;
 			focusedCount?: number;
 		},
+		basePrompt?: string,
+		/** Resolve-only run scope, persisted on the entry so it survives anchor switches. */
+		focusedFilePaths?: readonly string[],
 	): void {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
@@ -1360,6 +1910,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			abortController: controller,
 			promise: promise,
 			prompt: prompt,
+			basePrompt: basePrompt ?? prompt,
+			focusedFilePaths: focusedFilePaths,
 		});
 
 		promise.then(
@@ -1401,8 +1953,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			controller.signal.aborted || (result != null && 'cancelled' in result && result.cancelled === true);
 		const isError = ex != null || (result != null && 'error' in result);
 
-		// Resolve has no scope picker, so it builds a focused-files + instructions + AI-model payload
-		// instead of the shared scope context that compose/review use.
+		// Resolve curates a checked conflict-file set (not a commit scope), so it builds a
+		// focused-files + instructions + AI-model payload instead of compose/review's scope context.
 		if (kind === 'resolve') {
 			const resolveBase = {
 				...this.actions.buildAIModelTelemetryContext(),
@@ -1636,11 +2188,15 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	// region Private helpers
 
-	/** Build a default {@link ScopeSelection} for entering review/compose mode. */
+	/** Build a default {@link ScopeSelection} for entering review/compose mode. Only trusts WIP and
+	 *  branch-commit state that belongs to `repoPath` — on a cross-repo mode entry (e.g. a recompose
+	 *  that switches repos) both can still hold the outgoing repo's data, so the default defers and
+	 *  the arrival re-derive finalizes it once fresh data lands. */
 	private buildDefaultScope(
 		sha: string | undefined,
 		isWip: boolean,
 		isMultiCommit: boolean,
+		repoPath: string | undefined,
 	): ScopeSelection | undefined {
 		if (isMultiCommit && this.actions.state.commitFrom.get() && this.actions.state.commitTo.get()) {
 			return {
@@ -1651,7 +2207,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 		if (isWip) {
 			const wip = this.actions.state.wip.get();
-			const files = wip?.changes?.files ?? [];
+			const wipFresh =
+				wip != null && (repoPath == null || normalizePath(wip.repo.path) === normalizePath(repoPath));
+			const files = wipFresh ? (wip.changes?.files ?? []) : [];
 			const hasUnstaged = files.some(f => !f.staged);
 			const hasStaged = files.some(f => f.staged);
 
@@ -1665,24 +2223,30 @@ export class DetailsWorkflowController implements ReactiveController {
 				};
 			}
 
-			// No working/staged changes — fall back to unpushed commits if any.
-			const commits = this.actions.state.branchCommits.get();
-			const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
-			if (unpushedShas.length > 0) {
-				return { type: 'wip', includeUnstaged: false, includeStaged: false, includeShas: unpushedShas };
+			const commitsRepoPath = this.actions.branchCommitsFetchedRepoPath();
+			const commitsFresh =
+				repoPath == null ||
+				(commitsRepoPath != null && normalizePath(commitsRepoPath) === normalizePath(repoPath));
+			if (wipFresh && commitsFresh) {
+				// No working/staged changes — fall back to unpushed commits if any.
+				const commits = this.actions.state.branchCommits.get();
+				const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
+				if (unpushedShas.length > 0) {
+					return { type: 'wip', includeUnstaged: false, includeStaged: false, includeShas: unpushedShas };
+				}
+
+				// No unpushed — fall back to the most recent commit (HEAD = first entry, log is newest-first).
+				if (commits?.length) {
+					return {
+						type: 'wip',
+						includeUnstaged: false,
+						includeStaged: false,
+						includeShas: [commits[0].sha],
+					};
+				}
 			}
 
-			// No unpushed — fall back to the most recent commit (HEAD = first entry, log is newest-first).
-			if (commits?.length) {
-				return {
-					type: 'wip',
-					includeUnstaged: false,
-					includeStaged: false,
-					includeShas: [commits[0].sha],
-				};
-			}
-
-			// Commits not loaded yet — defer; fetchBranchCommits will re-derive once they arrive.
+			// WIP/commits for this repo not loaded yet — defer; the arrival re-derive finalizes.
 			return { type: 'wip', includeUnstaged: false, includeStaged: false, includeShas: [] };
 		}
 		if (sha) return { type: 'commit', sha: sha };
@@ -1734,7 +2298,12 @@ export class DetailsWorkflowController implements ReactiveController {
 		// generate-message routes to the WIP input/draft, not a resource, so it skips the review/compose
 		// `_disconnected` resource-write bail below (teardown aborts these runs; the guard above drops late settles).
 		if (kind === 'generateMessage') {
-			this.settleGenerateMessage(anchor, result as GenerateMessageResult | undefined, ex);
+			this.settleGenerateMessage(
+				anchor,
+				current as Extract<RunningOperation, { kind: 'generateMessage' }>,
+				result as GenerateMessageResult | undefined,
+				ex,
+			);
 			return;
 		}
 
@@ -1781,16 +2350,30 @@ export class DetailsWorkflowController implements ReactiveController {
 			execState = 'complete';
 		}
 
+		// Compose-only: capture the new cacheKey from the host so refine + commit-to-here can
+		// thread the session back. Clears the post-commit "Committed N of M" banner once the
+		// follow-up plan has actually landed (the user has visible work to refine again).
+		if (kind === 'compose' && execState === 'complete' && value != null && 'result' in value) {
+			const composeValue = value as Extract<ComposeResult, { result: unknown }>;
+			const newCacheKey = (composeValue.result as { cacheKey?: string }).cacheKey;
+			if (newCacheKey != null) {
+				this.actions.state.composeCurrentCacheKey.set(newCacheKey);
+			}
+		}
+
 		// Always update the entry — drives adornment + chip overlay refresh even when not engaged.
-		// Carry forward the live entry's `prompt` so the run's prompt survives settlement and
-		// later seeds the AI input on Restart. `abortController` + `promise` are intentionally
-		// dropped: the run is settled, those fields are stale (per RunningOperationBase docs).
+		// Carry forward the live entry's `prompt` (seeds the AI input on Restart) and `focusedFilePaths`
+		// (resolve scope — so Refine/retry after a row-switch-and-return re-run the same subset instead
+		// of widening to all conflicts). `abortController` + `promise` are intentionally dropped: the run
+		// is settled, those fields are stale (per RunningOperationBase docs).
 		this.registerRunningOperation({
 			kind: kind,
 			anchor: anchor,
 			execState: execState,
 			result: value,
 			prompt: current.prompt,
+			basePrompt: current.basePrompt,
+			focusedFilePaths: current.focusedFilePaths,
 		} as RunningOperation);
 		// If still engaged, project the result into the panel-bound Resource.
 		this.projectIfEngaged(kind, anchor);
@@ -1800,13 +2383,31 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  decides) and remove the entry. Ephemeral — nothing is stored; errors land nothing. */
 	private settleGenerateMessage(
 		anchor: RunningOperationAnchor,
+		entry: Extract<RunningOperation, { kind: 'generateMessage' }>,
 		result: GenerateMessageResult | undefined,
 		ex: unknown,
 	): void {
 		const message = ex == null ? (result?.message ?? '') : '';
+		const duration = entry.startedAt != null ? performance.now() - entry.startedAt : undefined;
+		const context = entry.telemetryContext;
+
 		if (message) {
 			this.host.applyGeneratedCommitMessage(anchor.repoPath, message);
+			this.actions.sendTelemetryEvent('graph/wip/generateMessage/succeeded', {
+				amend: context?.amend,
+				hasExistingMessage: context?.hasExistingMessage,
+				duration: duration,
+				'result.length': message.length,
+			});
+		} else {
+			this.actions.sendTelemetryEvent('graph/wip/generateMessage/failed', {
+				amend: context?.amend,
+				hasExistingMessage: context?.hasExistingMessage,
+				duration: duration,
+				reason: ex != null ? 'error' : 'empty',
+			});
 		}
+
 		this.removeRunningOperation(anchorKey(anchor), 'generateMessage');
 	}
 
@@ -1821,10 +2422,32 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		const existing = this.host.crossPaneState.runningOperations.get().get(key)?.generateMessage;
 		if (existing?.execState === 'generating') {
+			const duration = existing.startedAt != null ? performance.now() - existing.startedAt : undefined;
 			existing.abortController?.abort();
 			this.removeRunningOperation(key, 'generateMessage');
+			this.actions.sendTelemetryEvent('graph/wip/generateMessage/cancelled', { duration: duration });
 			return;
 		}
+
+		const state = this.actions.state;
+		const wip = state.wip.get();
+		const files = wip?.changes?.files;
+		const currentMessage = state.commitMessage.get().trim();
+		const amend = state.amend.get();
+		const hasStagedFiles = files?.some(f => f.staged) ?? false;
+
+		const telemetryContext = {
+			amend: amend,
+			hasExistingMessage: currentMessage.length > 0,
+		};
+
+		this.actions.sendTelemetryEvent('graph/wip/generateMessage/started', {
+			...telemetryContext,
+			'message.length': currentMessage.length,
+			hasStagedFiles: hasStagedFiles,
+			'files.staged.count': files?.filter(f => f.staged).length ?? 0,
+			'files.total.count': files?.length ?? 0,
+		});
 
 		const controller = new AbortController();
 		const promise = this.startGenerateMessage(repoPath, controller.signal);
@@ -1834,6 +2457,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			execState: 'generating',
 			abortController: controller,
 			promise: promise,
+			startedAt: performance.now(),
+			telemetryContext: telemetryContext,
 		});
 		promise.then(
 			result => this.onRunSettled('generateMessage', anchor, controller, result, undefined),
@@ -1934,7 +2559,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			// cast so the dedup is uniform across kinds (undefined === undefined for generate-message).
 			(existing as { result?: unknown }).result === (op as { result?: unknown }).result &&
 			existing.abortController === op.abortController &&
-			existing.promise === op.promise
+			existing.promise === op.promise &&
+			// Include the captured Refine posture/draft so a refine-only update (same execState + result,
+			// written by `captureEngagedRefineState` on mode-leave) isn't dropped as a no-op.
+			existing.refineMode === op.refineMode &&
+			existing.refineDraft === op.refineDraft
 		) {
 			return;
 		}
@@ -1986,6 +2615,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		this._composeBackSnapshot = undefined;
 		this.actions.resources.review.reset();
 		this.actions.resources.compose.reset();
+		this.actions.resources.resolve.reset();
 		// Prior repo's anchors are gone — drop their remembered modes too.
 		const modes = this.host.crossPaneState.lastModeByAnchor;
 		if (modes.get().size > 0) {
@@ -2083,6 +2713,18 @@ export class DetailsWorkflowController implements ReactiveController {
 				};
 				touched = true;
 			}
+			const resolve = bucket.resolve;
+			if (resolve != null && resolve.execState !== 'orphaned' && removedRepoPaths.has(resolve.anchor.repoPath)) {
+				resolve.abortController?.abort();
+				nextBucket ??= { ...bucket };
+				nextBucket.resolve = {
+					...resolve,
+					execState: 'orphaned',
+					abortController: undefined,
+					promise: undefined,
+				};
+				touched = true;
+			}
 			const generateMessage = bucket.generateMessage;
 			if (generateMessage != null && removedRepoPaths.has(generateMessage.anchor.repoPath)) {
 				generateMessage.abortController?.abort();
@@ -2091,7 +2733,12 @@ export class DetailsWorkflowController implements ReactiveController {
 				touched = true;
 			}
 			if (nextBucket != null) {
-				if (nextBucket.review == null && nextBucket.compose == null && nextBucket.generateMessage == null) {
+				if (
+					nextBucket.review == null &&
+					nextBucket.compose == null &&
+					nextBucket.resolve == null &&
+					nextBucket.generateMessage == null
+				) {
 					next.delete(key);
 				} else {
 					next.set(key, nextBucket);
@@ -2133,24 +2780,19 @@ export class DetailsWorkflowController implements ReactiveController {
 			const unsubscribe = await subscribeAll([
 				() =>
 					this.actions.services.repository.onRepositoryChanged(repoPath, data => {
-						if (this.host.isWipSelection()) {
-							const relevant = data.changes.some(
-								c => c === 'gkConfig' || c === 'config' || c === 'heads' || c === 'remoteProviders',
-							);
-							if (relevant) {
-								this.actions.refreshWipBranchEnrichment();
-							}
-						}
+						const relevant = data.changes.some(
+							c => c === 'gkConfig' || c === 'config' || c === 'heads' || c === 'remoteProviders',
+						);
+						if (!relevant) return;
 
-						const compareRelevant = data.changes.some(c => c === 'index' || c === 'head' || c === 'heads');
-						if (compareRelevant) {
-							this.actions.markBranchCompareStale();
-						}
+						// The branch sheet fetches the same enrichment but owns its own state/cache, so the
+						// WIP refresh below doesn't cover it — refresh it regardless of the selection.
+						this.host.refreshBranchSheet();
+
+						if (!this.host.isWipSelection()) return;
+
+						this.actions.refreshWipBranchEnrichment();
 					}),
-				() =>
-					this.actions.services.repository.onRepositoryWorkingChanged(repoPath, () =>
-						this.actions.markBranchCompareStale(),
-					),
 			]);
 			if (typeof unsubscribe !== 'function') return;
 			if (gen !== this._subscriptionGen.current || this._subscribedRepoPath !== repoPath) {
@@ -2170,6 +2812,64 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Reset so a future reconnect treats the first hostUpdate as a fresh observation
 		// (no spurious mode exit on re-attach).
 		this._lastSeenGraphRepoPath = undefined;
+	}
+
+	/** The effective staleness-watch path: the Compare side's worktree when the comparison's
+	 *  rightRef is checked out in a worktree distinct from the graph's repo, else `host.repoPath`
+	 *  (already correct in that case — same repo the graph is showing). */
+	private compareWatchPath(): string | undefined {
+		// Only watch while a working-tree comparison is open — `markBranchCompareStale` drops every
+		// event unless the compare sheet/panel is open AND include-working-tree is on, so an
+		// always-on watch would hold an FS-watch lease (and shorten the shared working-tree debounce
+		// for other subscribers of the repo) for a callback that can't fire.
+		const compareOpen = this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get();
+		if (!compareOpen || !this.actions.state.branchCompareIncludeWorkingTree.get()) return undefined;
+
+		return this.actions.state.branchCompareRightRefWorktreePath.get() ?? this.host.repoPath;
+	}
+
+	/**
+	 * Keeps `markBranchCompareStale` wired to the Compare side's effective path rather than
+	 * `host.repoPath` — when the Compare ref is checked out in a secondary worktree, edits there
+	 * (not in the graph's current repo) are what should stale the comparison. Secondary worktrees
+	 * are typically not surfaced/registered `Repository` instances, so this goes through
+	 * `onRepositoryOrWorktreeChanged` (works by path + git dir directly) rather than
+	 * `onRepositoryChanged`/`onRepositoryWorkingChanged` (which require a registered `Repository`
+	 * and silently no-op otherwise). Separate lifecycle from {@link ensureSubscription} — this
+	 * path can change (Compare ref switch, IWT toggle) without `host.repoPath` changing.
+	 */
+	private ensureCompareWatchSubscription(path: string | undefined): void {
+		if (path === this._subscribedCompareWatchPath) return;
+
+		this._compareWatchSubscriptionUnsubscribe?.();
+		this._compareWatchSubscriptionUnsubscribe = undefined;
+		this._subscribedCompareWatchPath = path;
+
+		if (path == null) return;
+
+		const gen = this._compareWatchSubscriptionGen.next();
+		void (async () => {
+			const unsubscribe = await subscribeAll([
+				() =>
+					this.actions.services.repository.onRepositoryOrWorktreeChanged(path, () =>
+						this.actions.markBranchCompareStale(),
+					),
+			]);
+			if (typeof unsubscribe !== 'function') return;
+			if (gen !== this._compareWatchSubscriptionGen.current || this._subscribedCompareWatchPath !== path) {
+				unsubscribe();
+				return;
+			}
+
+			this._compareWatchSubscriptionUnsubscribe = unsubscribe;
+		})();
+	}
+
+	private tearDownCompareWatchSubscription(): void {
+		this._compareWatchSubscriptionGen.next();
+		this._compareWatchSubscriptionUnsubscribe?.();
+		this._compareWatchSubscriptionUnsubscribe = undefined;
+		this._subscribedCompareWatchPath = undefined;
 	}
 
 	// endregion

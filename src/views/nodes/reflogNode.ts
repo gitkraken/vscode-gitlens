@@ -77,12 +77,10 @@ export class ReflogNode
 
 	private _reflog: GitReflog | undefined;
 	private async getReflog() {
-		if (this._reflog === undefined) {
-			this._reflog = await this.repo.git.commits.getIncomingActivity?.({
-				all: true,
-				limit: this.limit ?? this.view.config.defaultItemLimit,
-			});
-		}
+		this._reflog ??= await this.repo.git.commits.getIncomingActivity?.({
+			all: true,
+			limit: this.limit ?? this.view.config.defaultItemLimit,
+		});
 
 		return this._reflog;
 	}

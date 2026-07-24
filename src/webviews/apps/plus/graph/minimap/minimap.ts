@@ -4,9 +4,11 @@ import { getCssVariable } from '@gitlens/utils/color.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
 import { capitalize, pluralize } from '@gitlens/utils/string.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
+import { elevatedSurface } from '../../../shared/components/styles/lit/elevation.css.js';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date.js';
 import type { Disposable } from '../../../shared/events.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
+import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 import { getDay } from './minimapData.js';
 import type { MinimapDrawState, MinimapLayout, MinimapTheme, MinimapViewModel } from './minimapRenderer.js';
 import {
@@ -21,8 +23,12 @@ import {
 	xToDay,
 	xToTimestamp,
 } from './minimapRenderer.js';
+import '../../../shared/components/code-icon.js';
 
-const brushThresholdPx = 3;
+// Click-vs-brush slop. At 3px, normal clicks (which carry a few px of incidental pointer movement)
+// crossed into "brush" and zoomed instead of selecting the day's commit. 6px lets clicks through while
+// still starting a brush on a deliberate horizontal drag.
+const brushThresholdPx = 6;
 const scrollbarHeightPx = 8;
 const scrollbarFadeStep = 0.18; // ~6 frames from 0→1 at 60fps
 
@@ -104,10 +110,7 @@ export interface GraphMinimapZoomChangeEventDetail {
 	zoomed: boolean;
 }
 
-// CSS-pixel conversion constants for `WheelEvent.deltaMode`. Browsers report wheel deltas in three
-// units (pixels / lines / pages); these convert the non-pixel modes to pixels so the graph scroller
-// can apply the delta without caring about the wheel source.
-const wheelLineHeightPx = 16;
+// Viewport extent (CSS px) for a `DOM_DELTA_PAGE` wheel — the per-page scroll step for the graph.
 const wheelPageHeightPx = 400;
 
 declare global {
@@ -126,8 +129,8 @@ declare global {
 export class GlGraphMinimap extends GlElement {
 	static override styles = css`
 		:host {
-			display: flex;
 			position: relative;
+			display: flex;
 			width: 100%;
 			height: 100%;
 			background: var(--color-graph-background);
@@ -135,8 +138,8 @@ export class GlGraphMinimap extends GlElement {
 
 		#canvas {
 			display: block;
-			height: 100%;
 			width: calc(100% - 2.5rem);
+			height: 100%;
 			cursor: pointer;
 		}
 
@@ -147,10 +150,10 @@ export class GlGraphMinimap extends GlElement {
 		#spinner {
 			position: absolute;
 			inset: 0;
-			display: flex;
-			justify-content: center;
-			align-items: center;
 			z-index: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
 		}
 
 		#spinner[aria-hidden='true'] {
@@ -158,24 +161,27 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip {
+			--gl-elevation: var(--gl-shadow-tooltip);
+			--gl-elevation-border-color: var(--color-hover-border);
+
 			position: absolute;
 			top: calc(100% + 4px);
 			left: 0;
 			z-index: 10;
-			user-select: none;
-			pointer-events: none;
+			display: flex;
+			visibility: hidden;
+			flex-direction: column;
 			min-width: 300px;
 			max-width: min(420px, calc(100% - 8px));
-			display: flex;
-			flex-direction: column;
 			padding: 0.5rem 1rem;
-			background-color: var(--color-hover-background);
-			color: var(--color-hover-foreground);
-			border: 1px solid var(--color-hover-border);
-			box-shadow: 0 2px 8px var(--vscode-widget-shadow);
 			font-size: var(--font-size);
+			color: var(--color-hover-foreground);
+			pointer-events: none;
+			user-select: none;
+			background-color: var(--color-hover-background);
 			opacity: 1;
-			visibility: hidden;
+
+			${elevatedSurface}
 		}
 
 		#tooltip[data-visible='true'] {
@@ -185,8 +191,8 @@ export class GlGraphMinimap extends GlElement {
 		#tooltip .header {
 			display: flex;
 			flex-direction: row;
+			gap: var(--gl-space-10);
 			justify-content: space-between;
-			gap: 1rem;
 		}
 
 		#tooltip .header--title {
@@ -195,16 +201,16 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .header--description {
-			font-weight: normal;
 			font-style: italic;
+			font-weight: normal;
 			overflow-wrap: anywhere;
 		}
 
 		#tooltip .refs > span {
-			white-space: nowrap;
 			max-width: 240px;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 
 		#tooltip .changes {
@@ -213,30 +219,28 @@ export class GlGraphMinimap extends GlElement {
 
 		#tooltip .results {
 			display: flex;
-			font-size: 12px;
+			flex-flow: row wrap;
 			gap: 0.5rem;
-			flex-direction: row;
-			flex-wrap: wrap;
-			margin: 0.5rem 0;
 			max-width: fit-content;
+			margin: 0.5rem 0;
+			font-size: var(--gl-font-md);
 		}
 
 		#tooltip .results .result {
-			border-radius: 3px;
-			padding: 0 4px;
-			background-color: var(--color-graph-minimap-tip-highlightBackground);
-			border: 1px solid var(--color-graph-minimap-tip-highlightBorder);
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-highlightForeground);
+			background-color: var(--color-graph-minimap-tip-highlightBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-highlightBorder);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		#tooltip .refs {
 			display: flex;
-			font-size: 12px;
+			flex-flow: row wrap;
 			gap: 0.5rem;
-			flex-direction: row;
-			flex-wrap: wrap;
-			margin: 0.5rem 0;
 			max-width: fit-content;
+			margin: 0.5rem 0;
+			font-size: var(--gl-font-md);
 		}
 
 		#tooltip .refs:empty {
@@ -244,63 +248,63 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .refs .branch {
-			border-radius: 3px;
-			padding: 0 4px;
-			background-color: var(--color-graph-minimap-tip-branchBackground);
-			border: 1px solid var(--color-graph-minimap-tip-branchBorder);
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-branchForeground);
+			background-color: var(--color-graph-minimap-tip-branchBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-branchBorder);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		#tooltip .refs .branch.current {
-			background-color: var(--color-graph-minimap-tip-headBackground);
-			border: 1px solid var(--color-graph-minimap-tip-headBorder);
 			color: var(--color-graph-minimap-tip-headForeground);
+			background-color: var(--color-graph-minimap-tip-headBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-headBorder);
 		}
 
 		#tooltip .refs .remote {
-			border-radius: 3px;
-			padding: 0 4px;
-			background-color: var(--color-graph-minimap-tip-remoteBackground);
-			border: 1px solid var(--color-graph-minimap-tip-remoteBorder);
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-remoteForeground);
+			background-color: var(--color-graph-minimap-tip-remoteBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-remoteBorder);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		#tooltip .refs .remote.current {
-			background-color: var(--color-graph-minimap-tip-upstreamBackground);
-			border: 1px solid var(--color-graph-minimap-tip-upstreamBorder);
 			color: var(--color-graph-minimap-tip-upstreamForeground);
+			background-color: var(--color-graph-minimap-tip-upstreamBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-upstreamBorder);
 		}
 
 		#tooltip .refs .stash {
-			border-radius: 3px;
-			padding: 0 4px;
-			background-color: var(--color-graph-minimap-tip-stashBackground);
-			border: 1px solid var(--color-graph-minimap-tip-stashBorder);
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-stashForeground);
+			background-color: var(--color-graph-minimap-tip-stashBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-stashBorder);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		#tooltip .refs .pull-request {
-			border-radius: 3px;
-			padding: 0 4px;
-			background-color: var(--color-graph-minimap-pullRequestBackground);
-			border: 1px solid var(--color-graph-minimap-pullRequestBorder);
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-pullRequestForeground);
+			background-color: var(--color-graph-minimap-pullRequestBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-pullRequestBorder);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		#tooltip .refs .tag {
-			border-radius: 3px;
-			padding: 0 4px;
-			background-color: var(--color-graph-minimap-tip-tagBackground);
-			border: 1px solid var(--color-graph-minimap-tip-tagBorder);
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-tagForeground);
+			background-color: var(--color-graph-minimap-tip-tagBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-tagBorder);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		#tooltip .refs .worktree {
-			border-radius: 3px;
-			padding: 0 4px;
-			background-color: var(--color-graph-minimap-tip-worktreeBackground);
-			border: 1px solid var(--color-graph-minimap-tip-worktreeBorder);
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-worktreeForeground);
+			background-color: var(--color-graph-minimap-tip-worktreeBackground);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-worktreeBorder);
+			border-radius: var(--gl-radius-sm);
 		}
 	`;
 
@@ -1074,11 +1078,18 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		if (this._brushing && this._pointerDownX != null && this._brushCurrentX != null) {
-			this.commitBrush(this._pointerDownX, this._brushCurrentX);
-			this._pointerDownX = undefined;
-			this._brushCurrentX = undefined;
+			const downX = this._pointerDownX;
+			const currentX = this._brushCurrentX;
 			this._brushing = false;
-			return;
+			this._brushCurrentX = undefined;
+			// A real brush (meaningful horizontal span) zooms; a degenerate one — pointer crossed the
+			// threshold then returned near the start — falls through to the bare-click path below so it
+			// still selects the day's commit instead of silently doing nothing.
+			if (Math.abs(currentX - downX) >= brushThresholdPx) {
+				this.commitBrush(downX, currentX);
+				this._pointerDownX = undefined;
+				return;
+			}
 		}
 
 		// Bare click — map against the active (possibly zoomed) view model.
@@ -1148,12 +1159,7 @@ export class GlGraphMinimap extends GlElement {
 	private onWheel = (e: WheelEvent) => {
 		if (this._viewModel == null) return;
 
-		const deltaY =
-			e.deltaMode === WheelEvent.DOM_DELTA_LINE
-				? e.deltaY * wheelLineHeightPx
-				: e.deltaMode === WheelEvent.DOM_DELTA_PAGE
-					? e.deltaY * wheelPageHeightPx
-					: e.deltaY;
+		const deltaY = normalizeWheelDelta(e.deltaMode, e.deltaY, wheelPageHeightPx);
 		if (deltaY === 0) return;
 
 		e.preventDefault();
@@ -1304,6 +1310,8 @@ export class GlGraphMinimap extends GlElement {
 		return html`
 			<canvas
 				id="canvas"
+				role="img"
+				aria-label="Repository activity minimap. Click or drag to navigate the graph."
 				@pointerdown=${this.onPointerDown}
 				@pointermove=${this.onPointerMove}
 				@pointerup=${this.onPointerUp}

@@ -22,13 +22,13 @@ export class GlCommitAuthor extends LitElement {
 		.author {
 			display: flex;
 			flex-direction: row;
+			gap: 0 var(--gl-space-6);
 			align-items: center;
-			gap: 0 0.6rem;
-			border-radius: 0.3rem;
 			cursor: pointer;
+			border-radius: var(--gl-radius-sm);
 
 			&:focus {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: 2px;
 			}
 		}
@@ -41,10 +41,10 @@ export class GlCommitAuthor extends LitElement {
 		.author-hover {
 			display: flex;
 			flex-direction: column;
+			gap: var(--gl-space-6);
 			align-items: center;
 			justify-content: center;
-			gap: 0.6rem;
-			margin: 0.6rem 0.2rem 0.2rem 0.2rem;
+			margin: var(--gl-space-6) var(--gl-space-2) var(--gl-space-2);
 		}
 
 		.author-hover img {
@@ -59,24 +59,24 @@ export class GlCommitAuthor extends LitElement {
 			width: 100%;
 			height: auto;
 			vertical-align: middle;
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.name {
 			flex: 1;
-			font-size: 1.3rem;
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-size: var(--gl-font-base);
+			white-space: nowrap;
 		}
 
 		.date {
-			font-size: 1.1rem;
-			color: var(--vscode-descriptionForeground, var(--color-foreground--50));
-			line-height: 1.4;
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-size: var(--gl-font-sm);
+			line-height: 1.4;
+			color: var(--vscode-descriptionForeground, var(--color-foreground--50));
+			white-space: nowrap;
 		}
 
 		:host([layout='stacked']) {
@@ -89,14 +89,14 @@ export class GlCommitAuthor extends LitElement {
 
 		:host([layout='stacked']) .name-group {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
-			min-width: 0;
+			flex-direction: column;
 			gap: 0.1rem;
+			min-width: 0;
 		}
 
 		gl-signature-badge {
-			margin-left: 0.4rem;
+			margin-left: var(--gl-space-4);
 			vertical-align: middle;
 		}
 
@@ -113,27 +113,27 @@ export class GlCommitAuthor extends LitElement {
 		}
 
 		.author-avatar {
+			flex-shrink: 0;
 			width: 32px;
 			height: 32px;
-			border-radius: 8px;
-			flex-shrink: 0;
+			border-radius: var(--gl-radius-lg);
 		}
 
 		.author-details {
 			display: flex;
+			flex: 1;
 			flex-direction: column;
 			gap: 0;
 			min-width: 0;
-			flex: 1;
 			line-height: normal;
 		}
 
 		.author-name-text {
-			font-weight: 500;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			white-space: nowrap;
+			font-weight: 500;
 			color: var(--vscode-foreground);
+			white-space: nowrap;
 		}
 
 		.author-email {
@@ -145,12 +145,12 @@ export class GlCommitAuthor extends LitElement {
 				max-width: 100%;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				white-space: nowrap;
 				vertical-align: bottom;
+				white-space: nowrap;
 			}
 
 			a:focus {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: 2px;
 			}
 		}
@@ -181,27 +181,27 @@ export class GlCommitAuthor extends LitElement {
 
 		.thumb-overlay {
 			position: absolute;
-			bottom: -2px;
 			right: -2px;
+			bottom: -2px;
 			width: 45%;
 			height: 45%;
-			border-radius: 50%;
-			border: 1.5px solid var(--vscode-sideBar-background, var(--color-background));
 			object-fit: cover;
+			border: 1.5px solid var(--vscode-sideBar-background, var(--color-background));
+			border-radius: 50%;
 		}
 
 		.thumb-overlay--icon {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			background-color: var(--vscode-sideBar-background, var(--color-background));
 			color: var(--vscode-descriptionForeground);
+			background-color: var(--vscode-sideBar-background, var(--color-background));
 		}
 
 		.committer-label {
+			font-size: 0.9em;
 			font-weight: 400;
 			color: var(--vscode-descriptionForeground);
-			font-size: 0.9em;
 		}
 	`;
 
@@ -235,6 +235,10 @@ export class GlCommitAuthor extends LitElement {
 
 	@property({ type: Object })
 	signature?: CommitSignatureShape;
+
+	/** Forwarded to the signature details so an unverified SSH signer can be added to this repo's allowed_signers. */
+	@property({ type: String })
+	repoPath?: string;
 
 	@property({ reflect: true })
 	layout?: 'stacked';
@@ -348,6 +352,7 @@ export class GlCommitAuthor extends LitElement {
 					? html`<gl-signature-details
 							.signature=${this.signature}
 							.committerEmail=${this.committerEmail}
+							.repoPath=${this.repoPath}
 						></gl-signature-details>`
 					: nothing}
 				${hasDates
@@ -379,7 +384,7 @@ export class GlCommitAuthor extends LitElement {
 		const dateLabel = this.authorDate ? this.formatDateLabel(this.authorDate) : undefined;
 
 		return html`
-			<gl-popover hoist placement="bottom" trigger="hover click focus">
+			<gl-popover placement="bottom" trigger="hover click focus">
 				<span slot="anchor" class="author" tabindex="0"
 					><span class="avatar">${this.renderAvatar()}</span>${this.layout === 'stacked'
 						? html`<span class="name-group"

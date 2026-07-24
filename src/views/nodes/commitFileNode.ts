@@ -136,19 +136,15 @@ export abstract class CommitFileNodeBase<
 
 	private _folderName: string | undefined;
 	get folderName(): string {
-		if (this._folderName === undefined) {
-			this._folderName = relativeDir(this.uri.relativePath);
-		}
+		this._folderName ??= relativeDir(this.uri.relativePath);
 		return this._folderName;
 	}
 
 	private _label: string | undefined;
 	get label(): string {
-		if (this._label === undefined) {
-			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
-				relativePath: this.relativePath,
-			});
-		}
+		this._label ??= StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
+			relativePath: this.relativePath,
+		});
 		return this._label;
 	}
 

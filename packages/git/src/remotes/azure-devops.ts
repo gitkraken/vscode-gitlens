@@ -18,10 +18,10 @@ const sshPathRegex = /^\/?v\d\//i;
 
 const azureSshUrlRegex = /^(?:[^@]+@)?([^:]+):v\d\//;
 
-const vstsHostnameRegex = /\.visualstudio\.com$/;
+const vstsHostnameSuffix = '.visualstudio.com';
 
 export function isVsts(domain: string): boolean {
-	return vstsHostnameRegex.test(domain);
+	return domain.endsWith(vstsHostnameSuffix);
 }
 
 function getVSTSOwner(url: URL): string {
@@ -53,7 +53,7 @@ export function parseAzureHttpsUrl(url: string): [owner: string, project: string
 export function parseAzureHttpsUrl(urlObj: URL): [owner: string, project: string, repo: string];
 export function parseAzureHttpsUrl(arg: URL | string): [owner: string, project: string, repo: string] {
 	const url = typeof arg === 'string' ? new URL(arg) : arg;
-	if (vstsHostnameRegex.test(url.hostname)) return parseVstsHttpsUrl(url);
+	if (url.hostname.endsWith(vstsHostnameSuffix)) return parseVstsHttpsUrl(url);
 	return parseAzureNewStyleUrl(url);
 }
 
@@ -113,33 +113,31 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider {
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
 	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		if (this._autolinks === undefined) {
-			// Strip off any `_git` part from the repo url
-			this._autolinks = [
-				...super.autolinks,
-				{
-					prefix: '#',
-					url: this.issueLinkPattern,
-					alphanumeric: false,
-					ignoreCase: false,
-					title: `Open Work Item #<num> on ${this.name}`,
+		// Strip off any `_git` part from the repo url
+		this._autolinks ??= [
+			...super.autolinks,
+			{
+				prefix: '#',
+				url: this.issueLinkPattern,
+				alphanumeric: false,
+				ignoreCase: false,
+				title: `Open Work Item #<num> on ${this.name}`,
 
-					type: 'issue',
-					description: `${this.name} Work Item #<num>`,
-				},
-				{
-					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
-					prefix: 'PR ',
-					url: `${this.baseUrl}/pullrequest/<num>`,
-					alphanumeric: false,
-					ignoreCase: false,
-					title: `Open Pull Request #<num> on ${this.name}`,
+				type: 'issue',
+				description: `${this.name} Work Item #<num>`,
+			},
+			{
+				// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
+				prefix: 'PR ',
+				url: `${this.baseUrl}/pullrequest/<num>`,
+				alphanumeric: false,
+				ignoreCase: false,
+				title: `Open Pull Request #<num> on ${this.name}`,
 
-					type: 'pullrequest',
-					description: `${this.name} Pull Request #<num>`,
-				},
-			];
-		}
+				type: 'pullrequest',
+				description: `${this.name} Pull Request #<num>`,
+			},
+		];
 		return this._autolinks;
 	}
 
@@ -195,9 +193,7 @@ export class AzureDevOpsRemoteProvider extends RemoteProvider {
 
 	private _displayPath: string | undefined;
 	override get displayPath(): string {
-		if (this._displayPath === undefined) {
-			this._displayPath = this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
-		}
+		this._displayPath ??= this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
 		return this._displayPath;
 	}
 

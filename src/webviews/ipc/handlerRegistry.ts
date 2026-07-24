@@ -8,7 +8,7 @@ export type IpcParams<T extends IpcCommand<any> | IpcRequest<any, any>> = IpcCal
 export type IpcResponse<T extends IpcRequest<any, any>> = IpcCallResponseParamsType<T>;
 
 /** Stores handler metadata per class constructor */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+// oxlint-disable-next-line typescript/no-unsafe-function-type
 const ipcHandlerRegistry = new WeakMap<Function, Map<string, IpcHandlerEntry>>();
 
 type IpcHandlerType = 'command' | 'request';
@@ -118,7 +118,7 @@ export async function dispatchIpcMessage(host: WebviewHost<any>, instance: objec
 	if (entry == null) return false;
 
 	// Get the method from the instance (ensures correct `this` binding)
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	// oxlint-disable-next-line typescript/no-unsafe-function-type
 	const handler = (instance as Record<string | symbol, Function>)[entry.propertyKey];
 	if (typeof handler !== 'function') return false;
 
@@ -134,7 +134,7 @@ export async function dispatchIpcMessage(host: WebviewHost<any>, instance: objec
 				throw new Error(`@ipcRequest handler "${String(entry.propertyKey)}" missing requestType`);
 			}
 
-			// eslint-disable-next-line no-case-declarations
+			// oxlint-disable-next-line no-case-declarations
 			const result = await handler.call(instance, e.params);
 			void host.respond(entry.requestType, e, result);
 			break;

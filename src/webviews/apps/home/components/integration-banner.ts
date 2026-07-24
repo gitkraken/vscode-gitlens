@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../commands/cloudIntegrations.js';
@@ -13,9 +13,13 @@ import '../../shared/components/button.js';
 import '../../shared/components/button-container.js';
 import '../../shared/components/card/card.js';
 
-export const integrationBannerTagName = 'gl-integration-banner';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-integration-banner']: GlIntegrationBanner;
+	}
+}
 
-@customElement(integrationBannerTagName)
+@customElement('gl-integration-banner')
 export class GlIntegrationBanner extends SignalWatcher(LitElement) {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -25,7 +29,7 @@ export class GlIntegrationBanner extends SignalWatcher(LitElement) {
 	static override styles = [
 		css`
 			gl-card::part(base) {
-				margin-block-end: 1.2rem;
+				margin-block-end: var(--gl-space-12);
 			}
 		`,
 	];
@@ -84,11 +88,5 @@ export class GlIntegrationBanner extends SignalWatcher(LitElement) {
 
 	override focus(): void {
 		this._button.focus();
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[integrationBannerTagName]: GlIntegrationBanner;
 	}
 }

@@ -93,38 +93,38 @@ export class GlTimelineHeader extends LitElement {
 			}
 
 			.header {
-				flex: none;
 				display: grid;
-				grid-template-columns: 1fr min-content;
-				align-items: center;
+				flex: none;
 				grid-template-areas: 'details toolbox';
-				margin: 0.5rem 1rem;
-				gap: 1rem;
+				grid-template-columns: 1fr min-content;
+				gap: var(--gl-space-10);
+				align-items: center;
 				min-width: 0;
+				margin: 0.5rem 1rem;
 				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 			}
 
 			:host([placement='editor']) .header {
-				margin-top: 1rem;
+				margin-top: var(--gl-space-10);
 				margin-right: 1.5rem;
 			}
 
 			/* When embedded inside the Graph webview's Visual History, the surrounding header
-			 * row already supplies horizontal/vertical padding and the visualization-switcher
-			 * sits to our left. Dropping our own margin keeps the two-visualization header
-			 * heights aligned so toggling between Timeline and Treemap doesn't jump the chart. */
+	 * row already supplies horizontal/vertical padding and the visualization-switcher
+	 * sits to our left. Dropping our own margin keeps the two-visualization header
+	 * heights aligned so toggling between Timeline and Treemap doesn't jump the chart. */
 			:host([host='graph']) .header {
 				margin: 0;
 			}
 
 			.details {
-				grid-area: details;
 				display: flex;
-				gap: 1rem;
+				grid-area: details;
+				gap: var(--gl-space-10);
 				align-items: center;
-				font-size: var(--font-size);
 				min-width: 0;
-				margin-right: 1rem;
+				margin-right: var(--gl-space-10);
+				font-size: var(--font-size);
 			}
 
 			.details gl-breadcrumbs {
@@ -137,123 +137,129 @@ export class GlTimelineHeader extends LitElement {
 			.breadcrumb-actions {
 				display: inline-flex;
 				align-items: center;
+
 				/* Slotted into <gl-breadcrumbs>; the host is display: flex with item orders
-				   at idx * 2. Push to the end of the chain via flex order. */
+		   at idx * 2. Push to the end of the chain via flex order. */
 				order: 9999;
-				margin-left: 0.4rem;
+				margin-left: var(--gl-space-4);
+
 				/* Match the breadcrumbs' compact density: smaller font, smaller icons, tighter
-			   button padding. The buttons sit visually adjacent to the crumb chain so they
-			   need to share its size scale or they look like a different control set. */
-				font-size: 1.2rem;
+	   button padding. The buttons sit visually adjacent to the crumb chain so they
+	   need to share its size scale or they look like a different control set. */
+				font-size: var(--gl-font-md);
 				--code-icon-size: 1.3rem;
 			}
 
 			.breadcrumb-actions gl-button {
 				--button-compact-padding: 0.1rem 0.3rem;
 				--button-line-height: 1.2;
+
 				/* Match the breadcrumb-item's fixed min-height so icon-only buttons (the Clear
-				   ×) and icon+text buttons (Choose) end up the same height regardless of
-				   content. Without this, the icon-only one is ~1.4px shorter. */
+		   ×) and icon+text buttons (Choose) end up the same height regardless of
+		   content. Without this, the icon-only one is ~1.4px shorter. */
 				min-height: 1.8rem;
 			}
 
 			/* Style hr inside slotted tooltip content (e.g. gl-ref-button's "Change Reference..."
-			   tooltip in the View Options popover). Browser default hr is a thick beveled line
-			   that looks wrong inside the dark tooltip body. */
+	   tooltip in the View Options popover). Browser default hr is a thick beveled line
+	   that looks wrong inside the dark tooltip body. */
 			[slot='tooltip'] hr {
+				margin: var(--gl-space-4) 0;
 				border: none;
-				border-top: 1px solid var(--color-foreground--25);
-				margin: 0.4rem 0;
+				border-top: var(--gl-border-width) solid var(--color-foreground--25);
 			}
 
 			.details__timeframe {
 				flex: 0 0 auto;
+				margin-right: var(--gl-space-4);
+				font-size: var(--gl-font-md);
 				color: var(--color-foreground--75);
-				user-select: none;
 				white-space: nowrap;
-				font-size: 1.2rem;
-				margin-right: 0.4rem;
+				user-select: none;
 			}
 
 			/* Pill renders as a popover-anchor button — strip default <button> chrome so it reads
-			   as the same compact label-with-chevron the static span renders, then add the hover/
-			   focus affordance to advertise interactivity. */
+	   as the same compact label-with-chevron the static span renders, then add the hover/
+	   focus affordance to advertise interactivity. */
 			.details__timeframe--button {
 				display: inline-flex;
+				gap: var(--gl-space-2);
 				align-items: center;
-				gap: 0.2rem;
-				background: transparent;
-				border: 1px solid transparent;
-				border-radius: 0.3rem;
 				padding: 0.1rem 0.4rem;
-				color: inherit;
 				font: inherit;
+				color: inherit;
 				cursor: pointer;
+				background: transparent;
+				border: var(--gl-border-width) solid transparent;
+				border-radius: var(--gl-radius-sm);
 				transition:
-					background 120ms ease,
-					border-color 120ms ease,
-					color 120ms ease;
+					background var(--gl-duration-x-fast) ease,
+					border-color var(--gl-duration-x-fast) ease,
+					color var(--gl-duration-x-fast) ease;
 			}
+
 			.details__timeframe--button:hover,
 			.details__timeframe--button:focus-visible {
-				background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 				color: var(--vscode-foreground);
 				outline: none;
+				background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 			}
+
 			.details__timeframe--button:focus-visible {
 				border-color: var(--vscode-focusBorder, transparent);
 			}
+
 			.details__timeframe--button code-icon {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				opacity: 0.75;
 			}
 
 			.config__help {
+				padding: 0 var(--gl-space-4);
+				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--50);
-				font-size: 1.1rem;
-				padding: 0 0.4rem;
 			}
 
 			.toolbox {
-				grid-area: toolbox;
-				align-items: center;
 				display: flex;
+				grid-area: toolbox;
 				gap: 0.3rem;
+				align-items: center;
 			}
 
 			.slice-toggle {
 				display: inline-flex;
-				align-items: center;
 				gap: 0;
+				align-items: center;
 			}
 
 			.config__content {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				min-width: 20rem;
-				padding: 0.4rem 0.2rem;
+				padding: var(--gl-space-4) var(--gl-space-2);
 			}
 
 			.config__content section {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
-				padding: 0.2rem 0.4rem;
+				gap: var(--gl-space-2);
+				padding: var(--gl-space-2) var(--gl-space-4);
 			}
 
 			.select-container {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 			}
 
 			.select {
-				background: var(--vscode-dropdown-background);
-				color: var(--vscode-dropdown-foreground);
-				border: 1px solid var(--vscode-dropdown-border, transparent);
-				padding: 0.2rem 0.4rem;
+				padding: var(--gl-space-2) var(--gl-space-4);
 				font: inherit;
+				color: var(--vscode-dropdown-foreground);
+				background: var(--vscode-dropdown-background);
+				border: var(--gl-border-width) solid var(--vscode-dropdown-border, transparent);
 			}
 		`,
 	];
@@ -550,7 +556,7 @@ export class GlTimelineHeader extends LitElement {
 	};
 
 	private renderConfigPopover() {
-		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover focus click">
 			<gl-button slot="anchor" appearance="toolbar" aria-label="Timeline Options">
 				<code-icon icon="settings"></code-icon>
 			</gl-button>
@@ -626,7 +632,7 @@ export class GlTimelineHeader extends LitElement {
 	private renderSliceByToggle() {
 		const disabled = !this.sliceBySupported;
 		const isAuthor = this.sliceBy === 'author';
-		return html`<gl-tooltip ?disabled=${!disabled} placement="bottom" distance="6">
+		return html`<gl-tooltip ?disabled=${!disabled} placement="bottom" .distance=${6}>
 			<span class="slice-toggle">
 				<gl-button
 					appearance="toolbar"

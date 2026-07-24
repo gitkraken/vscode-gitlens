@@ -79,7 +79,7 @@ export function registerCommand(
 
 			void Container.instance.usage.track(`command:${command}:executed`).catch();
 			if (options?.returnResult) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				// oxlint-disable-next-line typescript/no-unsafe-return
 				return callback.call(this, ...args);
 			}
 
@@ -128,7 +128,7 @@ export function registerWebviewCommand(
 
 			void Container.instance.usage.track(`command:${command}:executed`).catch();
 			if (options?.returnResult) {
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				// oxlint-disable-next-line typescript/no-unsafe-return
 				return callback.call(this, ...args);
 			}
 

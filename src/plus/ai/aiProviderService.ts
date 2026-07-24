@@ -8,7 +8,6 @@ import {
 	azureProviderDescriptor,
 	deepSeekProviderDescriptor,
 	geminiProviderDescriptor,
-	githubProviderDescriptor,
 	gitKrakenProviderDescriptor,
 	huggingFaceProviderDescriptor,
 	mistralProviderDescriptor,
@@ -112,10 +111,10 @@ export type AISourceContext<T> = Source & { context: T };
 /**
  * Identifies an operation that maintains its own remembered AI model, independent of the
  * global default. Picking a model from a scoped surface (the composer chip, the graph
- * compose/review mode chip) writes only to that scope's storage — the global `ai.model`
+ * compose/review/resolve mode chip) writes only to that scope's storage — the global `ai.model`
  * config and other features (commit messages, explain, etc.) are untouched.
  */
-export type AIModelScope = 'compose' | 'review';
+export type AIModelScope = 'compose' | 'review' | 'resolve';
 
 export interface AIModelChangeEvent {
 	readonly model: AIModel | undefined;
@@ -130,6 +129,8 @@ export function scopeForAction(action: AIActionType): AIModelScope | undefined {
 			return 'compose';
 		case 'review-changes':
 			return 'review';
+		case 'conflict-resolution':
+			return 'resolve';
 		default:
 			return undefined;
 	}
@@ -292,20 +293,6 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		},
 	],
 	[
-		'github',
-		{
-			...githubProviderDescriptor,
-			type: lazy(
-				async () =>
-					(
-						await loadChunk(
-							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/githubModelsProvider.js'),
-						)
-					).GitHubModelsProvider,
-			),
-		},
-	],
-	[
 		'deepseek',
 		{
 			...deepSeekProviderDescriptor,
@@ -426,12 +413,19 @@ export class AIProviderService implements AIService, Disposable {
 		return this._actions;
 	}
 
+	/** Whether AI is usable: enabled by the user AND allowed by the org. */
 	get allowed(): boolean {
-		return getContext('gitlens:gk:organization:ai:enabled', true);
+		return this.enabled && this.orgEnabled;
 	}
 
+	/** Whether the user has enabled AI features (`gitlens.ai.enabled` setting). */
 	get enabled(): boolean {
 		return configuration.get('ai.enabled', undefined, true);
+	}
+
+	/** Whether the org permits AI (GitKraken admin setting). Fail-open: defaults true until org settings load. */
+	get orgEnabled(): boolean {
+		return getContext('gitlens:gk:organization:ai:enabled', true);
 	}
 
 	constructor(
@@ -779,15 +773,15 @@ export class AIProviderService implements AIService, Disposable {
 		let models: readonly AIModel[];
 
 		const orgAIConfig = getOrgAIConfig();
-		const isComposeOrReviewScope = scope === 'compose' || scope === 'review';
+		const isScopedDefault = scope != null;
 
-		// First, use the GitKraken AI scope-preferred (compose/review), default, or first model
+		// First, use the GitKraken AI scope-preferred (compose/review/resolve), default, or first model
 		if (isProviderEnabledByOrg('gitkraken', orgAIConfig)) {
 			try {
 				const subscription = await this.container.subscription.getSubscription();
 				if (subscription.account?.verified) {
 					models = await this.getModels('gitkraken');
-					const scopedDefault = isComposeOrReviewScope
+					const scopedDefault = isScopedDefault
 						? models.find(m => m.id === 'gemini:gemini-3-flash-preview')
 						: undefined;
 					model = scopedDefault ?? models.find(m => m.default) ?? models[0];
@@ -1140,7 +1134,7 @@ export class AIProviderService implements AIService, Disposable {
 		let label;
 		switch (feature) {
 			case 'generate-searchQuery':
-				label = `AI-powered search (preview) ${suffix}`;
+				label = `AI-powered search ${suffix}`;
 				break;
 
 			default:
@@ -2186,7 +2180,7 @@ function isPrimaryAIProviderModel(model: AIModel): model is AIModel<AIPrimaryPro
 }
 
 function isAIModelScope(value: unknown): value is AIModelScope {
-	return value === 'compose' || value === 'review';
+	return value === 'compose' || value === 'review' || value === 'resolve';
 }
 
 function getPickerTitlesForScope(scope: AIModelScope | undefined): {
@@ -2217,6 +2211,20 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 			model: {
 				title: 'Select AI Model for Reviewing',
 				placeholder: 'Choose an AI model for reviewing',
+				scope: scope,
+			},
+		};
+	}
+	if (scope === 'resolve') {
+		return {
+			provider: {
+				title: 'Select AI Provider for Resolving Conflicts',
+				placeholder: 'Choose an AI provider for resolving conflicts',
+				scope: scope,
+			},
+			model: {
+				title: 'Select AI Model for Resolving Conflicts',
+				placeholder: 'Choose an AI model for resolving conflicts',
 				scope: scope,
 			},
 		};

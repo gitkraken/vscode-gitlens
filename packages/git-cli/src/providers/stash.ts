@@ -390,8 +390,9 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			params.push('--include-untracked');
 		}
 
-		// "--keep-index --include-untracked -- <pathspec>" hits a bug in git in some circumstances.
-		// Don't allow these flags together.
+		// `git stash push --keep-index --include-untracked -- <pathspec>` hits a bug in git when the
+		// pathspec names an untracked file: the restoring checkout can't match an untracked path in the
+		// index tree, so it fails and the staged changes are lost.
 		//
 		// $ mkdir stash-test && cd stash-test && git init
 		// $ echo a > a.txt
@@ -401,7 +402,13 @@ export class StashGitSubProvider implements GitStashSubProvider {
 		// $ git stash push --keep-index --include-untracked -- b.txt
 		// Saved working directory and index state WIP on main: 8a280fe init
 		// error: pathspec ':(prefix:0)b.txt' did not match any file(s) known to git
-		if (options?.keepIndex && !(params.includes('--include-untracked') && options?.pathspecs?.length)) {
+		//
+		// Only suppress --keep-index for that case — when the selection actually includes untracked
+		// files (`includeUntracked`) AND we're stashing by pathspec. Keying off `includeUntracked` (the
+		// caller's intent) rather than the `--include-untracked` flag is deliberate: we add
+		// `--include-untracked` to every pathspec push above as a safety net, but a tracked-only
+		// selection can — and must — still keep the index intact.
+		if (options?.keepIndex && !(options?.includeUntracked && options?.pathspecs?.length)) {
 			params.push('--keep-index');
 		}
 

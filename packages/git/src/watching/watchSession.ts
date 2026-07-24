@@ -45,6 +45,12 @@ export interface WatchSessionOptions {
 	 * global event forwarding without affecting lifecycle callbacks.
 	 */
 	readonly onDidFireRepoChange?: (event: WatcherRepoChangeEvent) => void;
+	/**
+	 * Called whenever a debounced working-tree change is dispatched to subscribers. Like
+	 * {@link onDidFireRepoChange}, does NOT count as a subscriber — used by WatchService for global
+	 * event forwarding (the single point that drives the cache's status clock for working-tree edits).
+	 */
+	readonly onDidFireWorkingTreeChange?: (repoPath: string) => void;
 }
 
 const defaultRepoDelay = 250;
@@ -82,6 +88,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 	private readonly lifecycle?: WatchSessionLifecycle;
 	private readonly onDidFireRepoChangeCallback?: (event: WatcherRepoChangeEvent) => void;
+	private readonly onDidFireWorkingTreeChangeCallback?: (repoPath: string) => void;
 
 	constructor(options: WatchSessionOptions) {
 		this.repoPath = options.repoPath;
@@ -91,6 +98,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.effectiveWorkingTreeMs = this.defaultWorkingTreeMs;
 		this.lifecycle = options.lifecycle;
 		this.onDidFireRepoChangeCallback = options.onDidFireRepoChange;
+		this.onDidFireWorkingTreeChangeCallback = options.onDidFireWorkingTreeChange;
 		this._suspended = options.suspended ?? false;
 	}
 
@@ -274,7 +282,12 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	fireChangeImmediate(...changes: RepositoryChange[]): void {
 		if (this._disposed || changes.length === 0) return;
 
-		this.repoEmitter.fire(new WatcherRepoChangeEvent(this.repoPath, changes));
+		const event = new WatcherRepoChangeEvent(this.repoPath, changes);
+		// Same contract as `flushRepo`: notify the global forwarder (which advances the cache's status clock) BEFORE
+		// subscribers. Skipping it here would route changes to subscribers that no one advanced the clock for —
+		// subscribers see them as session-routed and (correctly) don't re-advance, so the cache would go stale.
+		this.onDidFireRepoChangeCallback?.(event);
+		this.repoEmitter.fire(event);
 	}
 
 	/** Push interpreted repo changes into the pipeline */
@@ -321,8 +334,10 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		if (event == null) return;
 
 		this.pendingRepoEvent = undefined;
-		this.repoEmitter.fire(event);
+		// Advance any cache clock BEFORE notifying subscribers (same rationale as `flushWorkingTree`): a subscriber
+		// that synchronously reads status must see the post-change generation, not a joinable pre-change run.
 		this.onDidFireRepoChangeCallback?.(event);
+		this.repoEmitter.fire(event);
 	}
 
 	private scheduleRepoFlush(delayOverride?: number): void {
@@ -351,6 +366,9 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 		const paths = this.pendingWorkingTreePaths;
 		this.pendingWorkingTreePaths = new Set();
+		// Advance the cache's status clock (via WatchService's global forwarding) BEFORE notifying subscribers,
+		// so a subscriber that synchronously reads status sees the post-change generation, not a joinable pre-change run.
+		this.onDidFireWorkingTreeChangeCallback?.(this.repoPath);
 		this.workingTreeEmitter.fire({ repoPath: this.repoPath, paths: paths });
 	}
 

@@ -42,8 +42,7 @@ export function rowAdornmentTooltipFor(
 	hasResult: boolean = true,
 ): string {
 	const verb = kind === 'compose' ? 'Compose' : kind === 'review' ? 'Review' : 'Resolve';
-	const idle =
-		kind === 'compose' ? 'Compose Changes…' : kind === 'review' ? 'Review Changes…' : 'Resolve Conflicts with AI…';
+	const idle = kind === 'compose' ? 'Compose Changes…' : kind === 'review' ? 'Review Changes…' : 'Resolve Conflicts…';
 	const view = kind === 'resolve' ? 'View Resolutions' : `View ${verb}`;
 	switch (execState) {
 		case 'generating':

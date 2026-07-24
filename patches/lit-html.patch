@@ -1,0 +1,51 @@
+diff --git a/development/directive-helpers.js b/development/directive-helpers.js
+index b5f97da266bde05947e33250707dd8b8ec6cc977..a9f07eae81a608bc575684e10d4e3bf34f53766e 100644
+--- a/development/directive-helpers.js
++++ b/development/directive-helpers.js
+@@ -172,6 +172,11 @@ export const getCommittedValue = (part) => part._$committedValue;
+ export const removePart = (part) => {
+     part._$clear();
+     part._$startNode.remove();
++    // PATCHED (GitLens): also remove the part's end marker. `insertPart` creates BOTH markers for the
++    // part, but upstream removePart only removed content + start — leaking one comment node per removed
++    // keyed-repeat item. Under @lit-labs/virtualizer (thousands of item exits while scrolling) the leaked
++    // markers pile up in the host and its O(childNodes) `_children` walks degrade scrolling unboundedly.
++    part._$endNode.remove();
+ };
+ export const clearPart = (part) => {
+     part._$clear();
+diff --git a/directive-helpers.js b/directive-helpers.js
+index fba1a72321ceaba3af0b098c7447a3df05f82b57..dd5d95fa3dca5519cd90874ebab36ffe5d0ff206 100644
+--- a/directive-helpers.js
++++ b/directive-helpers.js
+@@ -3,5 +3,5 @@ import{_$LH as o}from"./lit-html.js";
+  * @license
+  * Copyright 2020 Google LLC
+  * SPDX-License-Identifier: BSD-3-Clause
+- */const{I:t}=o,i=o=>o,n=o=>null===o||"object"!=typeof o&&"function"!=typeof o,e={HTML:1,SVG:2,MATHML:3},l=(o,t)=>void 0===t?void 0!==o?._$litType$:o?._$litType$===t,d=o=>null!=o?._$litType$?.h,c=o=>void 0!==o?._$litDirective$,f=o=>o?._$litDirective$,r=o=>void 0===o.strings,s=()=>document.createComment(""),v=(o,n,e)=>{const l=o._$AA.parentNode,d=void 0===n?o._$AB:n._$AA;if(void 0===e){const i=l.insertBefore(s(),d),n=l.insertBefore(s(),d);e=new t(i,n,o,o.options)}else{const t=e._$AB.nextSibling,n=e._$AM,c=n!==o;if(c){let t;e._$AQ?.(o),e._$AM=o,void 0!==e._$AP&&(t=o._$AU)!==n._$AU&&e._$AP(t)}if(t!==d||c){let o=e._$AA;for(;o!==t;){const t=i(o).nextSibling;i(l).insertBefore(o,d),o=t}}}return e},u=(o,t,i=o)=>(o._$AI(t,i),o),m={},p=(o,t=m)=>o._$AH=t,M=o=>o._$AH,h=o=>{o._$AR(),o._$AA.remove()},j=o=>{o._$AR()};export{e as TemplateResultType,j as clearPart,M as getCommittedValue,f as getDirectiveClass,v as insertPart,d as isCompiledTemplateResult,c as isDirectiveResult,n as isPrimitive,r as isSingleExpression,l as isTemplateResult,h as removePart,u as setChildPartValue,p as setCommittedValue};
++ */const{I:t}=o,i=o=>o,n=o=>null===o||"object"!=typeof o&&"function"!=typeof o,e={HTML:1,SVG:2,MATHML:3},l=(o,t)=>void 0===t?void 0!==o?._$litType$:o?._$litType$===t,d=o=>null!=o?._$litType$?.h,c=o=>void 0!==o?._$litDirective$,f=o=>o?._$litDirective$,r=o=>void 0===o.strings,s=()=>document.createComment(""),v=(o,n,e)=>{const l=o._$AA.parentNode,d=void 0===n?o._$AB:n._$AA;if(void 0===e){const i=l.insertBefore(s(),d),n=l.insertBefore(s(),d);e=new t(i,n,o,o.options)}else{const t=e._$AB.nextSibling,n=e._$AM,c=n!==o;if(c){let t;e._$AQ?.(o),e._$AM=o,void 0!==e._$AP&&(t=o._$AU)!==n._$AU&&e._$AP(t)}if(t!==d||c){let o=e._$AA;for(;o!==t;){const t=i(o).nextSibling;i(l).insertBefore(o,d),o=t}}}return e},u=(o,t,i=o)=>(o._$AI(t,i),o),m={},p=(o,t=m)=>o._$AH=t,M=o=>o._$AH,h=o=>{o._$AR(),o._$AA.remove(),o._$AB.remove()},j=o=>{o._$AR()};export{e as TemplateResultType,j as clearPart,M as getCommittedValue,f as getDirectiveClass,v as insertPart,d as isCompiledTemplateResult,c as isDirectiveResult,n as isPrimitive,r as isSingleExpression,l as isTemplateResult,h as removePart,u as setChildPartValue,p as setCommittedValue};
+ //# sourceMappingURL=directive-helpers.js.map
+diff --git a/node/development/directive-helpers.js b/node/development/directive-helpers.js
+index 97d08df8560b8ae4827df236e43e4951e8075ff1..291cb71575736fdcb14246139f06558d6bdade13 100644
+--- a/node/development/directive-helpers.js
++++ b/node/development/directive-helpers.js
+@@ -168,6 +168,8 @@ const getCommittedValue = (part) => part._$committedValue;
+ const removePart = (part) => {
+     part._$clear();
+     part._$startNode.remove();
++    // PATCHED (GitLens): also remove the part's end marker (see development/directive-helpers.js).
++    part._$endNode.remove();
+ };
+ const clearPart = (part) => {
+     part._$clear();
+diff --git a/node/directive-helpers.js b/node/directive-helpers.js
+index fba1a72321ceaba3af0b098c7447a3df05f82b57..dd5d95fa3dca5519cd90874ebab36ffe5d0ff206 100644
+--- a/node/directive-helpers.js
++++ b/node/directive-helpers.js
+@@ -3,5 +3,5 @@ import{_$LH as o}from"./lit-html.js";
+  * @license
+  * Copyright 2020 Google LLC
+  * SPDX-License-Identifier: BSD-3-Clause
+- */const{I:t}=o,i=o=>o,n=o=>null===o||"object"!=typeof o&&"function"!=typeof o,e={HTML:1,SVG:2,MATHML:3},l=(o,t)=>void 0===t?void 0!==o?._$litType$:o?._$litType$===t,d=o=>null!=o?._$litType$?.h,c=o=>void 0!==o?._$litDirective$,f=o=>o?._$litDirective$,r=o=>void 0===o.strings,s=()=>document.createComment(""),v=(o,n,e)=>{const l=o._$AA.parentNode,d=void 0===n?o._$AB:n._$AA;if(void 0===e){const i=l.insertBefore(s(),d),n=l.insertBefore(s(),d);e=new t(i,n,o,o.options)}else{const t=e._$AB.nextSibling,n=e._$AM,c=n!==o;if(c){let t;e._$AQ?.(o),e._$AM=o,void 0!==e._$AP&&(t=o._$AU)!==n._$AU&&e._$AP(t)}if(t!==d||c){let o=e._$AA;for(;o!==t;){const t=i(o).nextSibling;i(l).insertBefore(o,d),o=t}}}return e},u=(o,t,i=o)=>(o._$AI(t,i),o),m={},p=(o,t=m)=>o._$AH=t,M=o=>o._$AH,h=o=>{o._$AR(),o._$AA.remove()},j=o=>{o._$AR()};export{e as TemplateResultType,j as clearPart,M as getCommittedValue,f as getDirectiveClass,v as insertPart,d as isCompiledTemplateResult,c as isDirectiveResult,n as isPrimitive,r as isSingleExpression,l as isTemplateResult,h as removePart,u as setChildPartValue,p as setCommittedValue};
++ */const{I:t}=o,i=o=>o,n=o=>null===o||"object"!=typeof o&&"function"!=typeof o,e={HTML:1,SVG:2,MATHML:3},l=(o,t)=>void 0===t?void 0!==o?._$litType$:o?._$litType$===t,d=o=>null!=o?._$litType$?.h,c=o=>void 0!==o?._$litDirective$,f=o=>o?._$litDirective$,r=o=>void 0===o.strings,s=()=>document.createComment(""),v=(o,n,e)=>{const l=o._$AA.parentNode,d=void 0===n?o._$AB:n._$AA;if(void 0===e){const i=l.insertBefore(s(),d),n=l.insertBefore(s(),d);e=new t(i,n,o,o.options)}else{const t=e._$AB.nextSibling,n=e._$AM,c=n!==o;if(c){let t;e._$AQ?.(o),e._$AM=o,void 0!==e._$AP&&(t=o._$AU)!==n._$AU&&e._$AP(t)}if(t!==d||c){let o=e._$AA;for(;o!==t;){const t=i(o).nextSibling;i(l).insertBefore(o,d),o=t}}}return e},u=(o,t,i=o)=>(o._$AI(t,i),o),m={},p=(o,t=m)=>o._$AH=t,M=o=>o._$AH,h=o=>{o._$AR(),o._$AA.remove(),o._$AB.remove()},j=o=>{o._$AR()};export{e as TemplateResultType,j as clearPart,M as getCommittedValue,f as getDirectiveClass,v as insertPart,d as isCompiledTemplateResult,c as isDirectiveResult,n as isPrimitive,r as isSingleExpression,l as isTemplateResult,h as removePart,u as setChildPartValue,p as setCommittedValue};
+ //# sourceMappingURL=directive-helpers.js.map

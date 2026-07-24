@@ -13,18 +13,28 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { repositoryChanges } from '@gitlens/git/models/repository.js';
 import type { CommitSignature } from '@gitlens/git/models/signature.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
-import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import {
+	getConflictCurrentRef,
+	getConflictIncomingRef,
+	resolveConflictFilePaths,
+} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import { getAvatarUri } from '../../../avatars.js';
 import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
+import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { ProviderNotSupportedError } from '../../../errors.js';
 import type { FeatureAccess, PlusFeatures } from '../../../features.js';
@@ -32,13 +42,18 @@ import * as BranchActions from '../../../git/actions/branch.js';
 import * as RepoActions from '../../../git/actions/repository.js';
 import * as StashActions from '../../../git/actions/stash.js';
 import { GitUri } from '../../../git/gitUri.js';
-import { getCommitSignature } from '../../../git/utils/-webview/commit.utils.js';
+import {
+	getCommitAuthorAvatarUri,
+	getCommitCommitterAvatarUri,
+	getCommitSignature,
+} from '../../../git/utils/-webview/commit.utils.js';
 import {
 	resolveAllConflicts as resolveAllConflictsHelper,
 	stageConflictResolution as stageConflictResolutionHelper,
 } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
+import { getReachableWorktrees } from '../../../git/utils/-webview/worktree.utils.js';
 import { executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
@@ -47,7 +62,11 @@ import type { ClassifiedCommitFailure, CommitResult } from './commitFailure.js';
 import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure.js';
 import { discardOneWith } from './discard.utils.js';
 import type {
+	CommitAvatarsShape,
 	CommitSignatureShape,
+	ConflictDetails,
+	ConflictDetailsCommit,
+	ConflictDetailsSide,
 	RepositoryChangeEventData,
 	SerializedGitBranch,
 	SerializedGitCommit,
@@ -137,6 +156,48 @@ export class RepositoryService {
 		return this.tracker != null ? this.tracker.track(unsubscribe) : unsubscribe;
 	}
 
+	/**
+	 * Like {@link onRepositoryChanged} + {@link onRepositoryWorkingChanged} combined into a
+	 * single signal, but works for a path that ISN'T a registered/opened `Repository` — e.g. a
+	 * secondary worktree GitLens hasn't surfaced, where no `GlRepository` instance exists so
+	 * `getRepository` returns `undefined` and both of the above silently no-op. Routes through
+	 * `GitRepositoryService.watch()`, which watches by path + git dir directly rather than
+	 * depending on a `GlRepository` model's watch lease (see that method's doc comment).
+	 * @param repoPath - Repository or worktree path to watch
+	 * @param callback - Called on index/head/heads structural changes or working-tree file edits
+	 * @returns Unsubscribe function that stops watching
+	 */
+	async onRepositoryOrWorktreeChanged(repoPath: string, callback: () => void): Promise<Unsubscribe> {
+		const epoch = this.tracker?.epoch;
+		const watcher = await this.container.git.getRepositoryService(repoPath).watch();
+		if (watcher == null) return () => {};
+
+		// The tracker was reset (RPC reconnect) while the watch acquisition was in flight — this
+		// subscription belongs to the superseded generation. Tracking it now would leak the watcher until
+		// the NEXT reset and double-deliver alongside the new generation's re-subscription; dispose instead.
+		if (this.tracker != null && this.tracker.epoch !== epoch) {
+			watcher.dispose();
+			return () => {};
+		}
+
+		const pendingKey = Symbol(`repositoryOrWorktreeChanged:${repoPath}`);
+		const buffered = bufferEventHandler<undefined>(this.buffer, pendingKey, callback, 'signal', undefined);
+		const disposable = Disposable.from(
+			watcher,
+			watcher.onDidChange(e => {
+				if (e.changed('index', 'head', 'heads')) {
+					buffered(undefined);
+				}
+			}),
+			watcher.onDidChangeWorkingTree(() => buffered(undefined)),
+		);
+		const unsubscribe = () => {
+			this.buffer?.removePending(pendingKey);
+			disposable.dispose();
+		};
+		return this.tracker != null ? this.tracker.track(unsubscribe) : unsubscribe;
+	}
+
 	// ============================================================
 	// Commit & Branch Queries
 	// ============================================================
@@ -184,6 +245,70 @@ export class RepositoryService {
 		signal?.throwIfAborted();
 		return signature != null ? serializeSignature(signature) : undefined;
 	}
+
+	/**
+	 * Resolves a commit's provider avatars. Deliberately off the critical path: on a cold cache in a repo
+	 * with remotes this hits the remote provider (a network fetch), so the core commit payload ships a
+	 * synchronous cached-or-gravatar avatar and the details panels upgrade to this when it lands.
+	 *
+	 * Resolves from the commit rather than from bare emails so the integration-supplied `avatarUrl` still
+	 * wins (`getCommitAuthorAvatarUri` short-circuits on it) — resolving by email alone would downgrade a
+	 * GitHub-provider avatar to a gravatar, since `getAvatarUri` always falls back rather than returning
+	 * nothing.
+	 */
+	async getCommitAvatars(
+		repoPath: string,
+		sha: string,
+		signal?: AbortSignal,
+	): Promise<CommitAvatarsShape | undefined> {
+		signal?.throwIfAborted();
+
+		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha, signal);
+		signal?.throwIfAborted();
+		if (commit == null) return undefined;
+
+		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
+		const [authorResult, committerResult] = await Promise.allSettled([
+			getCommitAuthorAvatarUri(commit, { size: 32 }),
+			hasDistinctCommitter ? getCommitCommitterAvatarUri(commit, { size: 32 }) : Promise.resolve(undefined),
+		]);
+		signal?.throwIfAborted();
+
+		return {
+			author: getSettledValue(authorResult)?.toString(true),
+			committer: hasDistinctCommitter ? getSettledValue(committerResult)?.toString(true) : undefined,
+		};
+	}
+
+	/**
+	 * Whether the commit is reachable from a sibling worktree (i.e. its files have a working copy
+	 * elsewhere). Gates the "(Worktree)" file actions in the details panels.
+	 */
+	async getReachableFromOtherWorktrees(repoPath: string, sha: string, signal?: AbortSignal): Promise<boolean> {
+		signal?.throwIfAborted();
+
+		const worktrees = await this.container.git.getRepository(repoPath)?.git.worktrees?.getWorktrees(signal);
+		signal?.throwIfAborted();
+		if (worktrees == null || worktrees.length <= 1) return false;
+
+		// `repoPath` MUST be part of the key: `getWorktrees` is family-wide, so every worktree in a family
+		// sees the same list, but the answer excludes the worktree AT `repoPath` — two repos in one family
+		// would otherwise collide on one key and be served each other's answer. Beyond that the answer can
+		// only change when a worktree's HEAD moves, so key on those too.
+		const key = `${repoPath}:${sha}:${worktrees.map(w => w.sha ?? '').join(',')}`;
+		const cached = this._reachableFromOtherWorktreesCache.get(key);
+		if (cached != null) return cached;
+
+		const reachable = (await getReachableWorktrees(this.container, repoPath, sha, signal)).length > 0;
+		// Check for abort BEFORE caching: an aborted run resolves to an empty list (the per-worktree checks
+		// are `allSettled`, so a cancelled check is indistinguishable from "not an ancestor"), and caching
+		// that would persist a phantom `false` for the rest of the session.
+		signal?.throwIfAborted();
+		this._reachableFromOtherWorktreesCache.set(key, reachable);
+		return reachable;
+	}
+
+	private readonly _reachableFromOtherWorktreesCache = new LruMap<string, boolean>(100);
 
 	async getFeatureAccess(feature: PlusFeatures, repoUri?: string): Promise<FeatureAccess> {
 		const access =
@@ -310,6 +435,99 @@ export class RepositoryService {
 			repoPath: file.repoPath,
 			showOptions: { preserveFocus: false, preview: true },
 		});
+	}
+
+	/**
+	 * Per-side details for the graph WIP Conflict Details sheet: for each side (current/incoming) the
+	 * ref, a display label, and the commits that changed the file from the merge-base to that side's
+	 * ref. Mirrors the tree-view `MergeConflictChangesNode` log logic. `status` is the file's two-char
+	 * conflict status, used to gate the stage-current/incoming affordances.
+	 */
+	async getConflictDetails(repoPath: string, filePath: string, status: string): Promise<ConflictDetails | undefined> {
+		const normalizedPath = normalizePath(filePath);
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
+		if (pausedStatus == null) {
+			Logger.warn('getConflictDetails: paused-operation status unavailable');
+			return undefined;
+		}
+
+		const mergeBase = pausedStatus.mergeBase;
+		const incomingRef = getConflictIncomingRef(pausedStatus) ?? pausedStatus.HEAD.ref;
+
+		// Rename-aware path per side (mirrors openConflictChanges / mergeConflictFileNode).
+		let currentPath = normalizedPath;
+		let incomingPath = normalizedPath;
+		if (mergeBase != null) {
+			const [currentFilesResult, incomingFilesResult] = await Promise.allSettled([
+				svc.diff.getDiffStatus(mergeBase, 'HEAD', { renameLimit: 0 }),
+				svc.diff.getDiffStatus(mergeBase, incomingRef, { renameLimit: 0 }),
+			]);
+			const currentFiles = getSettledValue(currentFilesResult);
+			const incomingFiles = getSettledValue(incomingFilesResult);
+			currentPath = resolveConflictFilePaths(currentFiles, incomingFiles, normalizedPath).rhsPath;
+			incomingPath = resolveConflictFilePaths(incomingFiles, currentFiles, normalizedPath).rhsPath;
+		}
+
+		const buildSide = async (
+			path: string,
+			ref: string,
+			display: GitReference | undefined,
+		): Promise<ConflictDetailsSide> => {
+			let commits: ConflictDetailsCommit[] = [];
+			if (mergeBase != null) {
+				const log = await svc.commits.getLogForPath(path, createRevisionRange(mergeBase, ref, '..'), {
+					isFolder: false,
+					renames: true,
+				});
+				if (log?.commits != null) {
+					commits = Array.from(log.commits.values(), c => {
+						const committerEmail = c.committer?.email;
+						// Distinct committer = different name OR email (mirrors gl-commit-author.hasDistinctCommitter).
+						const hasDistinctCommitter =
+							(c.committer?.name != null && c.committer.name !== c.author.name) ||
+							(committerEmail != null && committerEmail.toLowerCase() !== c.author.email?.toLowerCase());
+						return {
+							sha: c.sha,
+							shortSha: c.shortSha,
+							message: c.message ?? c.summary,
+							author: c.author.name,
+							authorEmail: c.author.email,
+							avatarUrl: getAvatarUri(c.author.email, undefined, { size: 32 }).toString(),
+							committerAvatarUrl: hasDistinctCommitter
+								? getAvatarUri(committerEmail, undefined, { size: 32 }).toString()
+								: undefined,
+							committerName: hasDistinctCommitter ? c.committer?.name : undefined,
+							committerEmail: hasDistinctCommitter ? committerEmail : undefined,
+							committerDate: hasDistinctCommitter ? c.committer?.date?.getTime() : undefined,
+							date: c.author.date.getTime(),
+						};
+					});
+				}
+			}
+			const refKind: 'branch' | 'commit' = display?.refType === 'branch' ? 'branch' : 'commit';
+			const refName = display == null ? ref : refKind === 'branch' ? display.name : display.ref;
+			return { ref: ref, refKind: refKind, refName: refName, commits: commits };
+		};
+
+		const [current, incoming] = await Promise.all([
+			buildSide(currentPath, 'HEAD', getConflictCurrentRef(pausedStatus)),
+			buildSide(incomingPath, incomingRef, pausedStatus.incoming),
+		]);
+
+		// The generic single-char 'U' carries no side semantics, so it can't be staged per-side.
+		const conflictStatus =
+			status !== 'U' && isConflictStatus(status) ? (status as GitFileConflictStatus) : undefined;
+
+		return {
+			path: normalizedPath,
+			status: status,
+			hasMergeBase: mergeBase != null,
+			canStageCurrent: conflictStatus != null ? canStageCurrent(conflictStatus) : false,
+			canStageIncoming: conflictStatus != null ? canStageIncoming(conflictStatus) : false,
+			current: current,
+			incoming: incoming,
+		};
 	}
 
 	/**
@@ -835,7 +1053,9 @@ export class RepositoryService {
 		options?: { all?: boolean; amend?: boolean },
 	): Promise<CommitResult> {
 		try {
-			await this.container.git.getRepositoryService(repoPath).ops?.commit(message, options);
+			await this.container.git
+				.getRepositoryService(repoPath)
+				.ops?.commit(message, { ...options, source: { source: 'graph' } satisfies Source });
 			return { status: 'committed' };
 		} catch (ex) {
 			const failure = classifyCommitFailure(ex);

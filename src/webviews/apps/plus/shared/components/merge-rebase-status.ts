@@ -12,6 +12,7 @@ import { webviewContext } from '../../../shared/contexts/webview.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/branch-name.js';
+import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/tooltip.js';
 
@@ -21,31 +22,38 @@ export class GlMergeConflictWarning extends LitElement {
 		css`
 			.status {
 				--action-item-foreground: #000;
+				/* Blend the action hover/active states into the banner instead of the generic
+				   grey toolbar hover. currentColor tracks --action-item-foreground, so the
+				   conflicts variant (white foreground) tints correctly without redeclaring. */
+				--action-item-hover-background: color-mix(in srgb, currentColor 12%, transparent);
+				--action-item-active-background: color-mix(in srgb, currentColor 22%, transparent);
+
 				box-sizing: border-box;
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
 				width: 100%;
 				max-width: 100%;
-				margin-block: 0;
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-				color: #000;
-				border-radius: 0.3rem;
 				padding: 0.1rem 0.4rem;
+				margin-block: 0;
+				color: #000;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+				border-radius: var(--gl-radius-sm);
 			}
 
 			:host([conflicts]) .status {
 				--action-item-foreground: #fff;
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
+
 				color: #fff;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 			}
 
 			.label {
 				flex: 1;
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				white-space: nowrap;
 			}
 
 			.icon,
@@ -54,11 +62,22 @@ export class GlMergeConflictWarning extends LitElement {
 				flex: none;
 			}
 
+			/* Read-only (mode) banner: baseline-align so the "(N/M)" step counter lines up with the
+			   status text. The branch-name chips inflate the label's line-box, so plain center-alignment
+			   leaves the counter sitting too low. Keep the warning icon centered. */
+			:host([readonly]) .status {
+				align-items: baseline;
+			}
+
+			:host([readonly]) .icon {
+				align-self: center;
+			}
+
 			.md-code {
-				background: var(--vscode-textCodeBlock-background);
-				border-radius: 3px;
-				padding: 0px 4px 2px 4px;
+				padding: 0 var(--gl-space-4) var(--gl-space-2);
 				font-family: var(--vscode-editor-font-family);
+				background: var(--vscode-textCodeBlock-background);
+				border-radius: var(--gl-radius-sm);
 			}
 
 			gl-commit-sha::part(label) {
@@ -78,13 +97,13 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			.link--conflicts {
-				margin-left: 1rem;
+				margin-left: var(--gl-space-10);
 			}
 
 			.ref-link {
 				color: inherit;
-				cursor: pointer;
 				text-decoration: none !important;
+				cursor: pointer;
 			}
 		`,
 	];
@@ -95,11 +114,17 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	conflicts = false;
 
-	/** Opt-in for the "Resolve Conflicts with AI" action (fires `ai-resolve-conflicts`). Only hosts
-	 *  that can route the event into a resolve flow (the graph WIP details) should enable it —
-	 *  otherwise the action would render as a dead button. */
+	/** Opt-in for routing the conflicts status text into Resolve Conflicts mode (fires
+	 *  `ai-resolve-conflicts`). Only hosts that can handle the event (the graph WIP details) should
+	 *  enable it; elsewhere the text falls back to revealing the conflicts. */
 	@property({ type: Boolean, attribute: 'ai-resolve' })
 	aiResolve = false;
+
+	/** Render the bar as a plain status read-out — no paused-op action buttons and no clickable
+	 *  conflicts text. Set by hosts that are in a mode (compose/review/resolve) so the bar doesn't
+	 *  compete with the mode's own controls. */
+	@property({ type: Boolean, attribute: 'readonly', reflect: true })
+	readOnly = false;
 
 	@property({ type: Object })
 	pausedOpStatus?: GitPausedOperationStatus;
@@ -165,7 +190,15 @@ export class GlMergeConflictWarning extends LitElement {
 	}
 
 	private renderConflictsLink(label: string) {
-		if (!this.conflicts) return label;
+		if (!this.conflicts || this.readOnly) return label;
+
+		// With AI resolve available (graph host), clicking the status text enters Resolve Conflicts mode.
+		// Elsewhere it falls back to revealing the conflicts in the tree / rebase editor.
+		if (this.aiResolve) {
+			return html`<gl-tooltip content="Resolve Conflicts">
+				<a href="#" class="link" @click=${this.onResolveWithAI}>${label}</a>
+			</gl-tooltip>`;
+		}
 
 		return html`<gl-tooltip content="Show Conflicts">
 			<a href="${this.onShowConflictsUrl}" class="link">${label}</a>
@@ -173,10 +206,17 @@ export class GlMergeConflictWarning extends LitElement {
 	}
 
 	private renderReference(ref: GitReference) {
+		const isBranch = ref.refType === 'branch';
+		const content = isBranch
+			? html`<gl-branch-name .name=${ref.name} .size=${12}></gl-branch-name>`
+			: html`<gl-commit-sha .sha=${ref.ref} .size=${12}></gl-commit-sha>`;
+
+		// Read-only: plain ref text, no jump-to-branch/commit link or tooltip.
+		if (this.readOnly) return content;
+
 		const webviewId = this._webview.webviewId;
 		const isInGraph = webviewId === 'gitlens.graph' || webviewId === 'gitlens.views.graph';
 
-		const isBranch = ref.refType === 'branch';
 		const tooltip = isInGraph
 			? isBranch
 				? 'Jump to Branch'
@@ -187,11 +227,7 @@ export class GlMergeConflictWarning extends LitElement {
 		const jumpUrl = this.createJumpUrl(ref);
 
 		return html`<gl-tooltip content=${tooltip}>
-			<a href=${jumpUrl} class="ref-link">
-				${isBranch
-					? html`<gl-branch-name .name=${ref.name} .size=${12}></gl-branch-name>`
-					: html`<gl-commit-sha .sha=${ref.ref} .size=${12}></gl-commit-sha>`}
-			</a>
+			<a href=${jumpUrl} class="ref-link">${content}</a>
 		</gl-tooltip>`;
 	}
 
@@ -208,20 +244,11 @@ export class GlMergeConflictWarning extends LitElement {
 	};
 
 	private renderActions() {
-		if (this.pausedOpStatus == null) return nothing;
+		if (this.pausedOpStatus == null || this.readOnly) return nothing;
 
 		const status = this.pausedOpStatus.type;
 
 		return html`<action-nav class="actions">
-			${when(
-				this.conflicts && this.aiResolve,
-				() =>
-					html`<action-item
-						label="Resolve Conflicts with AI"
-						icon="sparkle"
-						@click=${this.onResolveWithAI}
-					></action-item>`,
-			)}
 			${when(
 				status === 'rebase',
 				() =>

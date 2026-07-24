@@ -17,22 +17,22 @@ export class GlPrChip extends LitElement {
 
 		.chip {
 			display: inline-flex;
+			gap: var(--gl-space-4);
 			align-items: center;
-			gap: 0.4rem;
+			min-width: 0;
+			max-width: 100%;
 			height: 2rem;
-			padding: 0 0.4rem;
-			border-radius: 0.5rem;
+			padding: 0 var(--gl-space-4);
+			overflow: hidden;
 			color: inherit;
 			text-decoration: none;
 			cursor: pointer;
-			min-width: 0;
-			max-width: 100%;
-			overflow: hidden;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.chip:hover {
-			background-color: var(--vscode-toolbar-hoverBackground);
 			text-decoration: none;
+			background-color: var(--vscode-toolbar-hoverBackground);
 		}
 
 		.chip:active {
@@ -55,20 +55,23 @@ export class GlPrChip extends LitElement {
 		.chip--pr-opened .icon {
 			color: var(--vscode-gitlens-openPullRequestIconColor);
 		}
+
 		.chip--pr-closed .icon {
 			color: var(--vscode-gitlens-closedPullRequestIconColor);
 		}
+
 		.chip--pr-merged .icon {
 			color: var(--vscode-gitlens-mergedPullRequestIconColor);
 		}
+
 		.chip--pr-draft .icon {
 			color: var(--vscode-descriptionForeground);
 		}
 
 		.identifier {
 			flex: 0 0 auto;
-			color: var(--color-foreground--65);
 			font-size: var(--gl-font-sm);
+			color: var(--color-foreground--65);
 		}
 
 		.title {
@@ -77,8 +80,8 @@ export class GlPrChip extends LitElement {
 			max-width: 24rem;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			white-space: nowrap;
 			font-size: var(--gl-font-sm);
+			white-space: nowrap;
 		}
 	`;
 

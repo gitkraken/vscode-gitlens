@@ -1,4 +1,4 @@
-import { hostname, networkInterfaces, tmpdir } from 'os';
+import { homedir, hostname, networkInterfaces, tmpdir } from 'os';
 import { join } from 'path';
 import { platform, env as processEnv } from 'process';
 import { env, UIKind } from 'vscode';
@@ -33,6 +33,11 @@ export function getPlatform(): Platform {
 
 export function getTempFile(filename: string): string {
 	return join(tmpdir(), filename);
+}
+
+/** Returns the current user's home directory, or an empty string when unavailable (e.g. on the web). */
+export function getHomeDir(): string {
+	return homedir();
 }
 
 export function getAltKeySymbol(): string {

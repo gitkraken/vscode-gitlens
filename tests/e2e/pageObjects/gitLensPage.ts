@@ -333,6 +333,11 @@ export class GitLensPage extends VSCodePage {
 		return this.getGitLensWebview('Interactive Rebase', 'customEditor');
 	}
 
+	/** Commit Composer webview (editor panel, id `gitlens.composer`) */
+	async getCommitComposerWebview(timeout?: number): Promise<FrameLocator | null> {
+		return this.getGitLensWebview('Commit Composer', 'webviewPanel', timeout);
+	}
+
 	/**
 	 * Get a webview frame locator within a specific parent.
 	 * This avoids needing to know specific content inside the webview.

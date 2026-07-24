@@ -10,7 +10,7 @@ import type {
 	VirtualContentProvider,
 	VirtualParent,
 } from '../../../virtual/virtualContentProvider.js';
-import type { ComposerHunk } from '../composer/protocol.js';
+import type { ComposerHunk } from './compose/protocol.js';
 
 /** Namespace key for registration with {@link VirtualFileSystemService}. */
 export const GraphComposeVirtualNamespace = 'graph-compose';

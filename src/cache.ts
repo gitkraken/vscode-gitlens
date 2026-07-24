@@ -6,12 +6,12 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/mo
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
+import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { Disposable } from './api/gitlens.d.js';
 import type { Container } from './container.js';
-import type { GitHostIntegration } from './plus/integrations/models/gitHostIntegration.js';
-import type { IntegrationBase } from './plus/integrations/models/integration.js';
 
 type Caches = {
 	defaultBranch: { key: `repo:${string}`; value: DefaultBranch };
@@ -52,7 +52,7 @@ type ExpiryOptions = { expiryOverride?: boolean | number; expireOnError?: boolea
 export class CacheProvider implements Disposable {
 	private readonly _cache = new Map<`${Cache}:${CacheKey<Cache>}`, Cached<CacheResult<CacheValue<Cache>>>>();
 
-	// eslint-disable-next-line @typescript-eslint/no-useless-constructor
+	// oxlint-disable-next-line typescript/no-useless-constructor
 	constructor(_container: Container) {}
 
 	dispose(): void {
@@ -409,7 +409,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 		case 'prByBranch':
 		case 'prsById':
 		case 'prsBySha': {
-			if (value == null) return cache === 'prByBranch' ? defaultExpiresAt : 0 /* Never expires */;
+			if (value == null) return cache === 'prByBranch' ? defaultExpiresAt : 0; /* Never expires */
 
 			// Open prs expire after 1 hour, but closed/merge prs expire after 12 hours unless recently updated and then expire in 1 hour
 

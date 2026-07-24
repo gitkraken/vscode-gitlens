@@ -882,7 +882,7 @@ export class FileAnnotationController implements Disposable {
 			fontWeight: configuration.get('blame.fontWeight') || undefined,
 			format: cfg.format,
 			formatOptions: {
-				dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
+				dateFormat: cfg.dateFormat ?? configuration.get('defaultDateFormat'),
 				tokenOptions: tokenOptions,
 				source: { source: 'editor:hover' },
 			},

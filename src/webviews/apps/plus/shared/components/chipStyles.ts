@@ -8,12 +8,11 @@ export const chipStyles = css`
 
 	.chip {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
-
-		border-radius: 0.3rem;
-		padding: 0.2rem 0.4rem;
+		padding: var(--gl-space-2) var(--gl-space-4);
 		cursor: pointer;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.chip:focus-visible {
@@ -23,35 +22,35 @@ export const chipStyles = css`
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
-		padding-bottom: 0.4rem;
+		gap: var(--gl-space-4);
+		padding-bottom: var(--gl-space-4);
 	}
 
 	.header {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
 		width: 100%;
-		padding-bottom: 0.4rem;
+		padding-bottom: var(--gl-space-4);
 	}
 
 	.header__actions {
-		flex: none;
 		display: flex;
-		gap: 0.2rem;
+		flex: none;
 		flex-direction: row;
+		gap: var(--gl-space-2);
 		align-items: center;
 		justify-content: center;
 	}
 
 	.header__title {
 		flex: 1;
-		font-size: 1.5rem;
-		line-height: 1.7;
-		font-weight: 600;
 		margin: 0;
-		white-space: nowrap;
-		text-overflow: ellipsis;
 		overflow: hidden;
+		text-overflow: ellipsis;
+		font-size: 1.5rem;
+		font-weight: 600;
+		line-height: 1.7;
+		white-space: nowrap;
 	}
 `;

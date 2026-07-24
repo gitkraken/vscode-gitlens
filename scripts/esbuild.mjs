@@ -1,9 +1,9 @@
-import * as esbuild from 'esbuild';
-import { sassPlugin } from 'esbuild-sass-plugin';
 import * as fs from 'fs';
 import * as path from 'path';
-import { minify } from 'terser';
 import { fileURLToPath } from 'url';
+import * as esbuild from 'esbuild';
+import { sassPlugin } from 'esbuild-sass-plugin';
+import { minify } from 'terser';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.join(path.dirname(__filename), '..');
@@ -14,7 +14,6 @@ let index = args.indexOf('--mode');
 const mode = (index >= 0 ? args[index + 1] : undefined) || 'none';
 
 const watch = args.includes('--watch');
-const check = !args.includes('--no-check');
 
 /**
  * @param { 'node' | 'webworker' } target
@@ -23,39 +22,9 @@ const check = !args.includes('--no-check');
 async function buildExtension(target, mode) {
 	let plugins = [];
 
-	// let TypeCheckerPlugin;
-	// if (check) {
-	// 	({ EsbuildPlugin: TypeCheckerPlugin } = require('vite-esbuild-typescript-checker'));
-	// 	plugins.push(
-	// 		TypeCheckerPlugin({
-	// 			checker: {
-	// 				async: false,
-	// 				eslint: {
-	// 					enabled: true,
-	// 					files: 'src/**/*.ts',
-	// 					options: {
-	// 						// cache: true,
-	// 						cacheLocation: path.join(
-	// 							__dirname,
-	// 							target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
-	// 						),
-	// 						overrideConfigFile: path.join(
-	// 							__dirname,
-	// 							target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
-	// 						),
-	// 					},
-	// 				},
-	// 				formatter: 'basic',
-	// 				typescript: {
-	// 					configFile: target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
-	// 				},
-	// 			},
-	// 		}),
-	// 	);
-	// }
-
 	const alias = {
 		'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+		'@host': path.resolve(__dirname, 'src'),
 		// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),
 		// This dependency is very large, and isn't needed for our use-case

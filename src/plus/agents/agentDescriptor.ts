@@ -1,4 +1,4 @@
-import type { GkAgent } from '@env/gk/cli/agents.js';
+import type { GkAgent } from '../../agents/agentService.js';
 
 /**
  * Identifies an agent that can receive a prompt from Start Work / Start Review.

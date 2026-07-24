@@ -1233,7 +1233,7 @@ export abstract class ViewBase<
 		if (this._config == null) {
 			const cfg = { ...configuration.get('views') };
 			for (const view of viewsConfigKeys) {
-				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+				// oxlint-disable-next-line typescript/no-dynamic-delete
 				delete cfg[view];
 			}
 

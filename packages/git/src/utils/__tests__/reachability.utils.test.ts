@@ -155,5 +155,63 @@ suite('Reachability Utils Test Suite', () => {
 				reachableRefKey({ refType: 'branch', name: 'release', remote: false }),
 			);
 		});
+
+		test('distinguishes the current branch from the same branch not checked out', () => {
+			assert.notStrictEqual(
+				reachableRefKey({ refType: 'branch', name: 'main', remote: false, current: true }),
+				reachableRefKey({ refType: 'branch', name: 'main', remote: false }),
+			);
+		});
+	});
+
+	suite('seeded builder (generation continuation)', () => {
+		test('re-interning identical sets reproduces the seeded indices and keeps the id', () => {
+			const first = createReachabilityTableBuilder();
+			const setA = first.intern([{ refType: 'branch', name: 'main', remote: false, current: true }]);
+			const setB = first.intern([
+				{ refType: 'branch', name: 'main', remote: false, current: true },
+				{ refType: 'tag', name: 'v1' },
+			]);
+			const table = first.build()!;
+
+			const seeded = createReachabilityTableBuilder(table);
+			assert.strictEqual(
+				seeded.intern([{ refType: 'branch', name: 'main', remote: false, current: true }]),
+				setA,
+			);
+			assert.strictEqual(
+				seeded.intern([
+					{ refType: 'branch', name: 'main', remote: false, current: true },
+					{ refType: 'tag', name: 'v1' },
+				]),
+				setB,
+			);
+			const continued = seeded.build()!;
+			assert.strictEqual(continued.id, table.id);
+			assert.deepStrictEqual(continued.dictionary, table.dictionary);
+			assert.deepStrictEqual(continued.sets, table.sets);
+		});
+
+		test('new sets append past the seed instead of disturbing existing indices', () => {
+			const first = createReachabilityTableBuilder();
+			first.intern([{ refType: 'branch', name: 'main', remote: false }]);
+			const table = first.build()!;
+
+			const seeded = createReachabilityTableBuilder(table);
+			const added = seeded.intern([
+				{ refType: 'branch', name: 'main', remote: false },
+				{ refType: 'branch', name: 'feature', remote: false },
+			]);
+			assert.strictEqual(added, table.sets.length);
+			const continued = seeded.build()!;
+			assert.strictEqual(continued.sets.length, table.sets.length + 1);
+			assert.strictEqual(continued.dictionary.length, table.dictionary.length + 1);
+			// Decoding the appended set through the continued table yields both refs.
+			const decoded = decodeReachabilitySet(continued, added);
+			assert.deepStrictEqual(
+				decoded.map(r => r.name),
+				['main', 'feature'],
+			);
+		});
 	});
 });

@@ -5,7 +5,7 @@ import type { Container } from '../container.js';
 
 // prettier-ignore
 type _Serialized<T, TDate extends number | string = number, TExclude = never, TStringify = never> =
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	// oxlint-disable-next-line typescript/no-unsafe-function-type
 	T extends Error | Function | TExclude
 	? never
 	: T extends Date

@@ -38,16 +38,17 @@ export function syncAiExcluded(
 }
 
 /**
- * Drops exclusion entries whose paths are no longer in the current scoped file list, so stale
- * entries from a previous scope can't keep the panel disabled or misrepresent counts.
+ * Drops set entries whose paths are no longer in the current file list, so stale entries from a
+ * previous scope can't keep the panel disabled or misrepresent counts. Polarity-agnostic — used
+ * for both compose's user-exclusion set and resolve's conflict-inclusion set.
  *
  * Returns `undefined` when nothing was pruned, so callers can avoid no-op state writes.
  */
-export function pruneExcludedToFiles(
-	excluded: ReadonlySet<string>,
+export function prunePathsToFiles(
+	paths: ReadonlySet<string>,
 	files: readonly GitFileChangeShape[] | undefined,
 ): Set<string> | undefined {
-	if (excluded.size === 0) return undefined;
+	if (paths.size === 0) return undefined;
 	// Skip when `files` is missing or empty: the orchestrator routinely transitions `files`
 	// through `undefined`/`[]` during a refetch (scope change, anchor change), and pruning
 	// against an empty list would wipe every user exclusion just before the real list arrives.
@@ -57,7 +58,7 @@ export function pruneExcludedToFiles(
 	const current = new Set(files.map(f => f.path));
 	let changed = false;
 	const pruned = new Set<string>();
-	for (const path of excluded) {
+	for (const path of paths) {
 		if (current.has(path)) {
 			pruned.add(path);
 		} else {

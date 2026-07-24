@@ -10,28 +10,28 @@ export class MenuItem extends LitElement {
 		css`
 			:host {
 				display: block;
-				font-family: inherit;
-				border: none;
-				padding: 0 0.6rem;
-				cursor: pointer;
-				color: var(--vscode-menu-foreground);
-				background-color: var(--vscode-menu-background);
-				text-align: left;
 				height: auto;
+				padding: 0 var(--gl-space-6);
+				font-family: inherit;
 				line-height: 2.2rem;
+				color: var(--vscode-menu-foreground);
+				text-align: left;
+				cursor: pointer;
+				background-color: var(--vscode-menu-background);
+				border: none;
+				border-radius: var(--menu-item-radius, var(--gl-radius-sm));
 				-webkit-font-smoothing: auto;
-				border-radius: var(--menu-item-radius, 0.3rem);
 			}
 
 			:host([role='option']:hover:not([aria-selected='true'])),
 			:host([role='option']:focus-visible:not([aria-selected='true'])) {
 				color: var(--vscode-menu-selectionForeground);
+				outline: none;
 				background-color: color-mix(
 					in oklch,
 					var(--vscode-menu-selectionBackground) 50%,
 					var(--vscode-menu-background)
 				);
-				outline: none;
 			}
 
 			:host([disabled]) {
@@ -41,9 +41,9 @@ export class MenuItem extends LitElement {
 			}
 
 			:host([aria-selected='true']) {
-				opacity: 1;
 				color: var(--vscode-menu-selectionForeground);
 				background-color: var(--vscode-menu-selectionBackground);
+				opacity: 1;
 			}
 
 			:host([href]) {
@@ -52,9 +52,9 @@ export class MenuItem extends LitElement {
 
 			a {
 				display: block;
+				padding: 0 var(--gl-space-6);
 				color: inherit;
 				text-decoration: none;
-				padding: 0 0.6rem;
 			}
 		`,
 	];
@@ -66,7 +66,7 @@ export class MenuItem extends LitElement {
 	href?: string;
 
 	@property({ reflect: true })
-	// eslint-disable-next-line lit/no-native-attributes
+	// oxlint-disable-next-line lit/no-native-attributes
 	override role = 'option';
 
 	updateInteractiveState(): void {

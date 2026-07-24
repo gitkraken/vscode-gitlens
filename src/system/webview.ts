@@ -26,6 +26,11 @@ export function isWebviewContext(item: object | null | undefined): item is Webvi
 export interface WebviewItemContext<TValue = unknown> extends Partial<WebviewContext> {
 	webviewItem: string;
 	webviewItemValue: TValue;
+	/** Surface within the webview that produced this item context, for when the same `webviewItem`
+	 *  type appears on multiple surfaces (e.g. `gitlens:branch` on graph rows, the WIP header kebab,
+	 *  AND the graph sidebar). Invisible to menu `when` matching (which reads `webviewItem`); lets
+	 *  host handlers/telemetry attribute an invocation to the originating surface. */
+	webviewItemOrigin?: string;
 	/** Merged (least-common-denominator) `webviewItem` across a multi-selection — drives `.multi` menu `when` gating. */
 	webviewItems?: string;
 	/** Union of `+flag` additions across a multi-selection — drives `.multi` `when` for ops that apply to ANY selected item (Stage/Unstage/Discard), not only when every item qualifies. */

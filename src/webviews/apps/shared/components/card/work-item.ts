@@ -11,7 +11,7 @@ export class GlWorkUnit extends LitElement {
 			.work-item {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 			}
 
 			.work-item_content-empty {
@@ -21,9 +21,9 @@ export class GlWorkUnit extends LitElement {
 			.work-item__header {
 				display: flex;
 				flex-direction: row;
-				justify-content: space-between;
+				gap: var(--gl-space-8);
 				align-items: center;
-				gap: 0.8rem;
+				justify-content: space-between;
 			}
 
 			.work-item__main {
@@ -40,24 +40,23 @@ export class GlWorkUnit extends LitElement {
 			.work-item__content {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				max-height: 100px;
-
+				transition-duration: var(--gl-duration-medium);
 				transition-property: opacity, max-height, display;
-				transition-duration: 0.2s;
 				transition-behavior: allow-discrete;
 			}
 
 			:host(:not([expanded])) .work-item__content {
 				display: none;
-				opacity: 0;
 				max-height: 0;
+				opacity: 0;
 			}
 
 			gl-card::part(base) {
-				margin-block-end: 0;
 				padding-top: var(--gl-card-vertical-padding, 0.8rem);
 				padding-bottom: var(--gl-card-vertical-padding, 0.8rem);
+				margin-block-end: 0;
 			}
 		`,
 	];

@@ -33,6 +33,16 @@ export interface CopyWipPatchEventDetail {
 	uris?: readonly string[];
 }
 
+/** Detail of the `copy-commit-patch` custom event dispatched by the commit/stash file header's
+ *  Copy button. Copies the whole commit's diff (`getDiff(to, from)`), mirroring the existing
+ *  `CopyPatchToClipboardCommand` (`to: ref`, `from: ref^`). `from` is the parent sha; undefined
+ *  for a root commit, where the host falls back to `${to}^`. */
+export interface CopyCommitPatchEventDetail {
+	repoPath: string;
+	to: string;
+	from?: string;
+}
+
 // ============================================================
 // File Operations (fire-and-forget — backend opens editors)
 // ============================================================

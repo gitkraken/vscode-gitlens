@@ -2,6 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as checker from 'license-checker-rseidelsohn';
+import { getBundledPackageDirs } from './workspace.mjs';
 
 /** @typedef { { licenses: string; repository: string; licenseFile: string } } PackageInfo **/
 
@@ -41,12 +42,16 @@ async function generateThirdpartyNotices(packages) {
 			name = key;
 		}
 
-		if (name === 'gitlens' || name.startsWith('@gitkraken')) continue;
+		if (name === 'gitlens' || name.startsWith('@gitkraken') || name.startsWith('@gitlens/')) continue;
 		if (data.licenseFile == null) continue;
 
 		let license;
 		if (data.licenseFile.startsWith('https://')) {
 			const response = await fetch(data.licenseFile, { method: 'GET' });
+			// Without this, an error page's body is embedded verbatim as the licence text.
+			if (!response.ok) {
+				throw new Error(`Failed to fetch ${data.licenseFile}: ${response.status} ${response.statusText}`);
+			}
 			license = await response.text();
 		} else {
 			license = fs.readFileSync(data.licenseFile, 'utf8');
@@ -65,25 +70,38 @@ async function generateThirdpartyNotices(packages) {
 	fs.writeFileSync(path.join(process.cwd(), 'ThirdPartyNotices.txt'), content, 'utf8');
 }
 
-async function generate() {
-	const packages = await new Promise((resolve, reject) => {
-		checker.init(
-			{
-				direct: 0,
-				json: true,
-				production: true,
-				start: process.cwd(),
-			},
-			(err, packages) => {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(packages);
-				}
-			},
-		);
+/** @param {string} start */
+function collectDirectProductionPackages(start) {
+	return new Promise((resolve, reject) => {
+		checker.init({ direct: 0, json: true, production: true, start: start }, (err, packages) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(packages);
+			}
+		});
 	});
-	void generateThirdpartyNotices(packages);
+}
+
+async function generate() {
+	// The extension bundles the `@gitlens/*` packages from source, so their runtime dependencies
+	// (e.g. @octokit/* via @gitlens/git-github) ship in dist/ too. Scanning only the root manifest
+	// would omit their notices.
+	const roots = [process.cwd(), ...getBundledPackageDirs()];
+	// Each scan walks node_modules independently, so run them concurrently rather than nine-in-a-row.
+	const results = await Promise.allSettled(roots.map(start => collectDirectProductionPackages(start)));
+
+	const failure = results.find(result => result.status === 'rejected');
+	if (failure != null) throw failure.reason;
+
+	/** @type { { [key: string]: PackageInfo } } */
+	const packages = {};
+	for (const result of results) {
+		// Keyed by `name@version`, so shared dependencies collapse to one entry.
+		Object.assign(packages, result.value);
+	}
+
+	await generateThirdpartyNotices(packages);
 }
 
 void generate();

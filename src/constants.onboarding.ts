@@ -20,18 +20,29 @@ export const onboardingDefinitions = {
 		schema: '17.9.0',
 		scope: 'global',
 		reshowAfter: '17.9.0',
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+		// oxlint-disable-next-line typescript/no-unnecessary-type-assertion
 		state: undefined as unknown as { stepReached: number },
 	},
 
 	// Graph Visualizations Toggle (first-interaction callout)
 	'graph:visualizations:buttonCallout': { schema: '18.0.0', scope: 'global' },
 
+	// Graph Kanban Toggle (first-interaction callout)
+	'graph:kanban:buttonCallout': { schema: '18.2.0', scope: 'global' },
+
+	// Graph Layout Prompt (one-time layout choice on first entry to the Graph view)
+	'graph:layoutPrompt': { schema: '18.4.0', scope: 'global' },
+
 	// Graph Walkthrough Banner
 	'graph-walkthrough:banner': {
 		schema: '18.0.0',
 		scope: 'global',
 	},
+
+	// Details Header Toggles (first-interaction callouts)
+	'details:compose:buttonCallout': { schema: '18.2.0', scope: 'global' },
+	'details:review:buttonCallout': { schema: '18.2.0', scope: 'global' },
+	'details:compare:buttonCallout': { schema: '18.2.0', scope: 'global' },
 
 	// Views
 	'views:scmGrouped:welcome': { schema: '17.8.0', scope: 'global' },

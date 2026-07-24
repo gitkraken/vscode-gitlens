@@ -6,7 +6,6 @@
  */
 
 /** Namespace for Supertalk RPC messages to distinguish from existing IPC */
-// eslint-disable-next-line @typescript-eslint/naming-convention
 export const RPC_NAMESPACE = '__supertalk_rpc__';
 
 /** Wrapper for Supertalk messages sent over VS Code webview channel */

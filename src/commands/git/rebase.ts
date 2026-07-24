@@ -10,12 +10,9 @@ import { createDisposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../container.js';
+import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
-import {
-	isRebaseTodoEditorEnabled,
-	openRebaseEditor,
-	reopenRebaseTodoEditor,
-} from '../../git/utils/-webview/rebase.utils.js';
+import { isRebaseTodoEditorEnabled, reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
@@ -23,7 +20,6 @@ import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
-import { executeCommand } from '../../system/-webview/command.js';
 import { getHostEditorCommand } from '../../system/-webview/vscode.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
@@ -116,18 +112,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				updateRefs: updateRefs,
 			});
 			if (result?.conflicted) {
-				const openEditor = { title: 'Open Rebase Editor' };
-				void window
-					.showWarningMessage(
-						'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
-						openEditor,
-					)
-					.then(r => {
-						if (r === openEditor) {
-							void openRebaseEditor(this.container, state.repo.path);
-						}
-					});
-				void executeCommand('gitlens.showCommitsView');
+				void window.showWarningMessage(
+					'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
+				);
+				void showPausedOperationStatus(this.container, state.repo.path);
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the rebase
@@ -146,18 +134,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			if (RebaseError.is(ex, 'alreadyInProgress')) {
-				const openEditor = { title: 'Open Rebase Editor' };
-				void window
-					.showWarningMessage(
-						'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
-						openEditor,
-					)
-					.then(result => {
-						if (result === openEditor) {
-							void openRebaseEditor(this.container, state.repo.path);
-						}
-					});
-				void executeCommand('gitlens.showCommitsView');
+				void window.showWarningMessage(
+					'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
+				);
+				void showPausedOperationStatus(this.container, state.repo.path);
 				return;
 			}
 

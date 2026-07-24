@@ -9,15 +9,19 @@ import '@awesome.me/webawesome/dist/components/popup/popup.js';
 import '../code-icon.js';
 import '../shoelace-stub.js';
 
-export const tagName = 'gl-select';
-
 export interface SelectOption {
 	value: string;
 	label: string;
 	disabled?: boolean;
 }
 
-@customElement(tagName)
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-select']: GlSelect;
+	}
+}
+
+@customElement('gl-select')
 export class GlSelect extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -34,6 +38,14 @@ export class GlSelect extends LitElement {
 
 	@property({ type: Boolean, reflect: true })
 	disabled: boolean = false;
+
+	/**
+	 * Accessible name for the select. Forwarded to `wa-select`, whose internal
+	 * combobox is `aria-labelledby` its label element; rendered visually hidden
+	 * (compose any visible label outside the control).
+	 */
+	@property({ type: String })
+	label?: string;
 
 	@property({ type: String })
 	placeholder?: string;
@@ -80,6 +92,7 @@ export class GlSelect extends LitElement {
 				exportparts="combobox, display-input, expand-icon, listbox"
 				value=${this.value}
 				?disabled=${this.disabled}
+				label=${ifDefined(this.label)}
 				placeholder=${ifDefined(this.placeholder)}
 				size=${this.size}
 				@change=${this.handleChange}
@@ -113,11 +126,5 @@ export class GlSelect extends LitElement {
 	/** Closes the listbox. */
 	async hide(): Promise<void> {
 		await this.selectElement?.hide();
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSelect;
 	}
 }

@@ -9,9 +9,9 @@ body {
 // When menu-list is inside a popover, the popover body provides the visual
 // container (border, background, shadow). Strip menu-list's own chrome to avoid doubling.
 gl-popover[appearance='menu'] menu-list {
+	padding-bottom: 0;
 	background: none;
 	border: none;
-	padding-bottom: 0;
 }
 
 // Make gl-popover a proper flex child inside button groups
@@ -26,21 +26,21 @@ gl-popover[appearance='menu'] menu-list {
 
 .commit-action {
 	display: inline-flex;
-	justify-content: center;
 	align-items: center;
+	justify-content: center;
 	height: 21px;
-	border-radius: 0.25em;
-	color: inherit;
-	padding: 0.2rem;
+	padding: var(--gl-space-2);
 	vertical-align: text-bottom;
+	color: inherit;
 	text-decoration: none;
+	border-radius: 0.25em;
 
 	> * {
 		pointer-events: none;
 	}
 
 	&:focus {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 	}
 
@@ -51,6 +51,7 @@ gl-popover[appearance='menu'] menu-list {
 		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--lighten-15);
 		}
+
 		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--darken-15);
 		}
@@ -60,14 +61,15 @@ gl-popover[appearance='menu'] menu-list {
 		@include utils.dark-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--lighten-10);
 		}
+
 		@include utils.light-theme($selectorPostfix: ' &') {
 			background-color: var(--color-background--darken-10);
 		}
 	}
 
 	&.is-disabled {
-		opacity: 0.5;
 		pointer-events: none;
+		opacity: 0.5;
 	}
 
 	&.is-hidden {
@@ -78,19 +80,16 @@ gl-popover[appearance='menu'] menu-list {
 .top-details {
 	position: sticky;
 	top: 0;
-	z-index: 1;
+	z-index: var(--gl-z-sticky);
 	padding: {
-		top: 0.1rem;
-		left: var(--gitlens-gutter-width);
-		right: var(--gitlens-scrollbar-gutter-width);
-		bottom: 0.5rem;
+		inset: 0.1rem var(--gitlens-scrollbar-gutter-width) 0.5rem var(--gitlens-gutter-width);
 	}
+
 	background-color: var(--vscode-sideBar-background);
 
 	&__actionbar {
 		display: flex;
-		flex-direction: row;
-		flex-wrap: wrap;
+		flex-flow: row wrap;
 		align-items: center;
 		justify-content: space-between;
 
@@ -102,19 +101,19 @@ gl-popover[appearance='menu'] menu-list {
 		}
 
 		&--highlight {
-			padding: 0 4px 2px 4px;
-			border: 1px solid var(--color-background--level-15);
-			border-radius: 0.3rem;
-			font-family: var(--vscode-editor-font-family);
-			white-space: nowrap;
+			padding: 0 var(--gl-space-4) var(--gl-space-2);
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-family: var(--vscode-editor-font-family);
+			white-space: nowrap;
+			border: var(--gl-border-width) solid var(--color-background--level-15);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		&.is-pinned {
 			background-color: var(--color-alert-warningBackground);
+			border-radius: var(--gl-radius-sm);
 			box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
-			border-radius: 0.3rem;
 
 			.commit-action:hover,
 			.commit-action.is-active {
@@ -140,9 +139,9 @@ gl-popover[appearance='menu'] menu-list {
 }
 
 .title {
+	margin: var(--gl-space-2) 0 var(--gl-space-8);
 	font-size: 1.6rem;
 	font-weight: 600;
-	margin: 0.2rem 0 0.8rem;
 
 	&__badge {
 		float: right;
@@ -157,9 +156,9 @@ gl-popover[appearance='menu'] menu-list {
 .patch-base {
 	display: flex;
 	flex-direction: row;
-	justify-content: flex-end;
+	gap: var(--gl-space-4);
 	align-items: center;
-	gap: 0.4rem;
+	justify-content: flex-end;
 	padding: {
 		top: 0.1rem;
 		bottom: 0.1rem;
@@ -171,7 +170,7 @@ gl-popover[appearance='menu'] menu-list {
 }
 
 .section--action {
-	border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+	border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	padding: {
 		top: 1.5rem;
 		bottom: 1.5rem;
@@ -184,46 +183,46 @@ gl-popover[appearance='menu'] menu-list {
 
 .change-list {
 	display: flex;
-	flex-direction: column;
 	flex: 1;
+	flex-direction: column;
 	min-height: 0;
-	margin-bottom: 1rem;
+	margin-bottom: var(--gl-space-10);
 }
 
 // TODO: these form styles should be moved to a common location
 .message-input {
-	padding-top: 0.8rem;
+	padding-top: var(--gl-space-8);
 
 	&__control {
 		flex: 1;
-		border: 1px solid var(--vscode-input-border, transparent);
-		background: var(--vscode-input-background);
-		padding: 0.5rem;
-		font-size: 1.3rem;
-		line-height: 1.4;
 		width: 100%;
-		border-radius: var(--gl-input-border-radius);
-		color: var(--vscode-input-foreground);
+		padding: 0.5rem;
 		font-family: inherit;
+		font-size: var(--gl-font-base);
+		line-height: 1.4;
+		color: var(--vscode-input-foreground);
+		background: var(--vscode-input-background);
+		border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+		border-radius: var(--gl-input-border-radius);
 
 		&::placeholder {
 			color: var(--vscode-input-placeholderForeground);
 		}
 
 		&:invalid {
-			border-color: var(--vscode-inputValidation-errorBorder);
 			background-color: var(--vscode-inputValidation-errorBackground);
+			border-color: var(--vscode-inputValidation-errorBorder);
 		}
 
 		&:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
 
 		&:disabled {
-			opacity: 0.4;
-			cursor: not-allowed;
 			pointer-events: none;
+			cursor: not-allowed;
+			opacity: 0.4;
 		}
 
 		&--text {
@@ -238,42 +237,43 @@ gl-popover[appearance='menu'] menu-list {
 	}
 
 	&__select {
-		flex: 1;
 		position: relative;
 		display: flex;
+		flex: 1;
 		align-items: stretch;
 
 		&-icon {
 			position: absolute;
-			left: 0;
 			top: 0;
+			left: 0;
 			display: flex;
-			width: 2.4rem;
-			height: 100%;
 			align-items: center;
 			justify-content: center;
-			pointer-events: none;
+			width: 2.4rem;
+			height: 100%;
 			color: var(--vscode-foreground);
+			pointer-events: none;
 		}
+
 		&-caret {
 			position: absolute;
-			right: 0;
 			top: 0;
+			right: 0;
 			display: flex;
-			width: 2.4rem;
-			height: 100%;
 			align-items: center;
 			justify-content: center;
-			pointer-events: none;
+			width: 2.4rem;
+			height: 100%;
 			color: var(--vscode-foreground);
+			pointer-events: none;
 		}
 	}
 
 	&__select &__control {
 		box-sizing: border-box;
+		padding-right: var(--gl-space-24);
+		padding-left: var(--gl-space-24);
 		appearance: none;
-		padding-left: 2.4rem;
-		padding-right: 2.4rem;
 	}
 
 	&__menu {
@@ -285,8 +285,8 @@ gl-popover[appearance='menu'] menu-list {
 	&--group {
 		display: flex;
 		flex-direction: row;
+		gap: var(--gl-space-6);
 		align-items: stretch;
-		gap: 0.6rem;
 	}
 
 	&--with-menu {
@@ -295,9 +295,9 @@ gl-popover[appearance='menu'] menu-list {
 }
 
 textarea.message-input__control {
-	resize: vertical;
 	min-height: 4rem;
 	max-height: 40rem;
+	resize: vertical;
 }
 
 .user-selection-container {
@@ -307,10 +307,11 @@ textarea.message-input__control {
 
 .user-selection {
 	--gl-avatar-size: 2rem;
+
 	display: flex;
 	flex-direction: row;
+	gap: var(--gl-space-4);
 	align-items: center;
-	gap: 0.4rem;
 	height: 2.4rem;
 
 	&__avatar {
@@ -333,8 +334,8 @@ textarea.message-input__control {
 		color: var(--gl-patch-ghost-color);
 
 		gl-button::part(base) {
+			padding-block: var(--gl-space-4);
 			padding-right: 0;
-			padding-block: 0.4rem;
 		}
 
 		gl-button code-icon {
@@ -351,10 +352,12 @@ textarea.message-input__control {
 	&-spacing {
 		margin-bottom: 1.5rem;
 	}
+
 	&-deemphasize {
-		margin: 0.8rem 0 0.4rem;
+		margin: var(--gl-space-8) 0 var(--gl-space-4);
 		opacity: 0.7;
 	}
+
 	&-no-border {
 		--vscode-sideBarSectionHeader-border: transparent;
 	}
@@ -364,29 +367,29 @@ textarea.message-input__control {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
-	padding: 0.8rem 1.2rem;
+	padding: var(--gl-space-8) var(--gl-space-12);
 	line-height: 1.2;
+	color: var(--color-alert-foreground);
 	background-color: var(--color-alert-errorBackground);
 	border-left: 0.3rem solid var(--color-alert-errorBorder);
-	color: var(--color-alert-foreground);
 
 	code-icon {
-		margin-right: 0.4rem;
+		margin-right: var(--gl-space-4);
 		vertical-align: baseline;
 	}
 
 	&__content {
-		font-size: 1.2rem;
+		margin: 0;
+		font-size: var(--gl-font-md);
 		line-height: 1.2;
 		text-align: left;
-		margin: 0;
 	}
 }
 
 .commit-detail-panel {
-	height: 100vh;
 	display: flex;
 	flex-direction: column;
+	height: 100vh;
 	overflow: hidden;
 }
 
@@ -405,18 +408,18 @@ gl-patch-create {
 	height: 100%;
 
 	&__group {
-		min-height: 0;
-		flex: 1 1 auto;
 		display: flex;
+		flex: 1 1 auto;
 		flex-direction: column;
+		min-height: 0;
 		overflow: hidden;
 
 		webview-pane {
 			flex: none;
 
 			&[expanded] {
-				min-height: 0;
 				flex: 1;
+				min-height: 0;
 			}
 		}
 	}

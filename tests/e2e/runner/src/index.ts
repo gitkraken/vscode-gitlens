@@ -24,7 +24,7 @@ interface InvokeResponse {
 async function handleInvoke(body: InvokeRequest): Promise<InvokeResponse> {
 	try {
 		// Reconstruct the function from its string representation
-		// eslint-disable-next-line @typescript-eslint/no-implied-eval
+		// oxlint-disable-next-line typescript/no-implied-eval
 		const fn = new Function(`return ${body.fn}`)();
 		const result = await fn(vscode, ...(body.params ?? []));
 		return { result: result };
@@ -42,7 +42,7 @@ async function handleInvoke(body: InvokeRequest): Promise<InvokeResponse> {
 function readBody(req: IncomingMessage): Promise<string> {
 	return new Promise((resolve, reject) => {
 		let data = '';
-		// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
+		// oxlint-disable-next-line typescript/restrict-plus-operands
 		req.on('data', chunk => (data += chunk));
 		req.on('end', () => resolve(data));
 		req.on('error', reject);

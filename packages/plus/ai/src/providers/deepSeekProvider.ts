@@ -5,11 +5,26 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type DeepSeekModel = AIModel<typeof provider.id>;
 const models: DeepSeekModel[] = [
 	{
+		id: 'deepseek-v4-flash',
+		name: 'DeepSeek V4 Flash',
+		maxTokens: { input: 1000000, output: 65536 },
+		provider: provider,
+		default: true,
+		temperature: 0.0, // Recommended for Coding/Math
+	},
+	{
+		id: 'deepseek-v4-pro',
+		name: 'DeepSeek V4 Pro',
+		maxTokens: { input: 1000000, output: 65536 },
+		provider: provider,
+		temperature: 0.0, // Recommended for Coding/Math
+	},
+	{
 		id: 'deepseek-chat',
 		name: 'DeepSeek-V3',
 		maxTokens: { input: 65536, output: 8192 },
 		provider: provider,
-		default: true,
+		hidden: true,
 		temperature: 0.0, // Recommended for Coding/Math
 	},
 	{
@@ -17,6 +32,7 @@ const models: DeepSeekModel[] = [
 		name: 'DeepSeek-R1',
 		maxTokens: { input: 65536, output: 8192 },
 		provider: provider,
+		hidden: true,
 		temperature: 0.0, // Recommended for Coding/Math
 	},
 ];

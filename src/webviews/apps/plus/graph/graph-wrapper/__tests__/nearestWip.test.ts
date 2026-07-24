@@ -1,13 +1,13 @@
 import * as assert from 'assert';
-import type { ColumnNumberBySha, GraphRow } from '@gitkraken/gitkraken-components';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
-import type { GraphWipMetadataBySha } from '../../../../../plus/graph/protocol.js';
+import type { ColumnNumberBySha, GraphWipMetadataBySha } from '../../../../../plus/graph/protocol.js';
 import { createSecondaryWipSha } from '../../../../../plus/graph/protocol.js';
 import type { WipCandidate } from '../nearestWip.js';
 import { findNearestWipByAncestry, findWipInColumn } from '../nearestWip.js';
 
-function commit(sha: string, parents: string[] = []): GraphRow {
-	return { sha: sha, parents: parents, type: 'commit-node' } as unknown as GraphRow;
+function commit(sha: string, parents: string[] = []): GitGraphRow {
+	return { sha: sha, parents: parents, type: 'commit-node' } as unknown as GitGraphRow;
 }
 
 suite('findWipInColumn', () => {
@@ -26,7 +26,7 @@ suite('findWipInColumn', () => {
 	test('exact-anchor match: clicked commit IS a WIP anchor → that WIP, regardless of column', () => {
 		// feature WIP anchored at the clicked commit. Column would put feature in column 2, but
 		// the exact-anchor rule overrides — feature wins.
-		const rows: GraphRow[] = [commit('TOP'), commit('SELECTED'), commit('OLDER')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('SELECTED'), commit('OLDER')];
 		const columns: ColumnNumberBySha = { TOP: 0, SELECTED: 1, OLDER: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'SELECTED' }]);
 
@@ -36,7 +36,7 @@ suite('findWipInColumn', () => {
 	test('exact-anchor wins over column match', () => {
 		// primary anchored at TOP (column 1, same as SELECTED). feature anchored at SELECTED.
 		// Without exact-anchor, primary would win the column match. Exact-anchor returns feature.
-		const rows: GraphRow[] = [commit('TOP'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'SELECTED' }]);
 
@@ -45,7 +45,7 @@ suite('findWipInColumn', () => {
 
 	test('primary wins via exact-anchor when clicked commit IS branchʼs HEAD', () => {
 		// primaryAnchor == fromSha (clicked the current branch's tip). uncommitted wins.
-		const rows: GraphRow[] = [commit('HEAD'), commit('OLDER')];
+		const rows: GitGraphRow[] = [commit('HEAD'), commit('OLDER')];
 		const columns: ColumnNumberBySha = { HEAD: 1, OLDER: 1 };
 
 		assert.strictEqual(findWipInColumn('HEAD', rows, 'HEAD', undefined, columns), uncommitted);
@@ -54,7 +54,7 @@ suite('findWipInColumn', () => {
 	test('column match: only the same-column WIPs are considered', () => {
 		// primary anchor at TOP (column 0 — different lane). feature at MID (column 1 — same
 		// lane as SELECTED). feature wins; primary excluded.
-		const rows: GraphRow[] = [commit('TOP'), commit('MID'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('MID'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 0, MID: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'MID' }]);
 
@@ -66,7 +66,7 @@ suite('findWipInColumn', () => {
 		// the branch's tip is older than the click, so the click can't be in that branch's
 		// history. Even though column matches, this WIP should NOT be picked. Primary (TOP,
 		// row 0, above the click, same column) wins.
-		const rows: GraphRow[] = [commit('TOP'), commit('SELECTED'), commit('MID'), commit('OLD_TIP')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('SELECTED'), commit('MID'), commit('OLD_TIP')];
 		const columns: ColumnNumberBySha = { TOP: 1, SELECTED: 1, MID: 1, OLD_TIP: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'OLD_TIP' }]);
 
@@ -75,7 +75,7 @@ suite('findWipInColumn', () => {
 
 	test('only same-column WIP is BELOW the click → returns undefined (falls back to primary)', () => {
 		// No same-column WIP at-or-above the click. Returns undefined.
-		const rows: GraphRow[] = [commit('SELECTED'), commit('OLD_TIP')];
+		const rows: GitGraphRow[] = [commit('SELECTED'), commit('OLD_TIP')];
 		const columns: ColumnNumberBySha = { SELECTED: 1, OLD_TIP: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'OLD_TIP' }]);
 
@@ -88,7 +88,7 @@ suite('findWipInColumn', () => {
 		// should still be considered. Setup: feature's anchor is FARTHER UP than primary, so
 		// under the farthest-wins rule it must win — proving the keep-unknown filter let it
 		// through (if dropped, primary at NEAR would win).
-		const rows: GraphRow[] = [commit('FAR_NEW_ANCHOR'), commit('M'), commit('NEAR'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('FAR_NEW_ANCHOR'), commit('M'), commit('NEAR'), commit('SELECTED')];
 		// FAR_NEW_ANCHOR deliberately missing from columns (the partial-load scenario).
 		const columns: ColumnNumberBySha = { M: 1, NEAR: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'FAR_NEW_ANCHOR' }]);
@@ -106,7 +106,7 @@ suite('findWipInColumn', () => {
 		// when many feature branches share its first-parent chain without visually diverging.
 		// Without this preference, every mid-range click would jump to whichever feature has
 		// the newest tip rather than the lane's principal branch.
-		const rows: GraphRow[] = [commit('TOP'), commit('M'), commit('NEAR'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('M'), commit('NEAR'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, M: 1, NEAR: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'NEAR' }]);
 
@@ -116,7 +116,7 @@ suite('findWipInColumn', () => {
 	test('column match: exact-anchor still beats farthest (rule #1 wins regardless)', () => {
 		// SELECTED is feature's exact anchor; rule #1 returns feature even though primary's
 		// anchor is farther up the same column.
-		const rows: GraphRow[] = [commit('TOP'), commit('M'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('M'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, M: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'SELECTED' }]);
 
@@ -127,7 +127,7 @@ suite('findWipInColumn', () => {
 		// Secondary's anchor `MISSING` isn't in rows. The loop's `if (anchorIndex == null) continue`
 		// must skip it without crashing and without picking it. Primary at TOP (in column, above)
 		// wins by default.
-		const rows: GraphRow[] = [commit('TOP'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, SELECTED: 1, MISSING: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'MISSING' }]);
 
@@ -138,7 +138,7 @@ suite('findWipInColumn', () => {
 		// Primary and secondary both anchored at TOP (row 0, farthest from SELECTED at row 2).
 		// Without the tie-break helper, iteration order would decide (primary first → wins by
 		// luck). The deterministic helper guarantees primary wins on ties regardless of order.
-		const rows: GraphRow[] = [commit('TOP'), commit('M'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('M'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, M: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'TOP' }]);
 
@@ -148,7 +148,7 @@ suite('findWipInColumn', () => {
 	test('tie-break at farthest distance: lexicographically smaller sha wins between two secondaries', () => {
 		// No primary; two secondaries both anchored at FAR (row 0, farthest). featureWipSha and
 		// otherWipSha are both at distance 2 — the smaller sha wins deterministically.
-		const rows: GraphRow[] = [commit('FAR'), commit('M'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('FAR'), commit('M'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { FAR: 1, M: 1, SELECTED: 1 };
 		const m = meta([
 			{ sha: featureWipSha, parentSha: 'FAR' },
@@ -162,7 +162,7 @@ suite('findWipInColumn', () => {
 	test('exact-anchor tie-break: primary wins over secondary at the same anchor', () => {
 		// Detached worktree pinned at the same commit as the current branch's tip — both wips
 		// share `SELECTED` as their anchor. Primary always wins via the tie-break helper.
-		const rows: GraphRow[] = [commit('SELECTED'), commit('OLDER')];
+		const rows: GitGraphRow[] = [commit('SELECTED'), commit('OLDER')];
 		const columns: ColumnNumberBySha = { SELECTED: 1, OLDER: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'SELECTED' }]);
 
@@ -172,7 +172,7 @@ suite('findWipInColumn', () => {
 	test('off-lane WIPs ignored even if visually nearer; returns undefined when no in-column match', () => {
 		// Mirrors the user's 01e52bde report: SELECTED in column 1, both WIPs in columns 2 and 3.
 		// Neither is in the click's lane → undefined (caller falls back to primary).
-		const rows: GraphRow[] = [commit('TOP'), commit('DEBT'), commit('BUG'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('DEBT'), commit('BUG'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 0, DEBT: 2, BUG: 3, SELECTED: 1 };
 		const m = meta([
 			{ sha: featureWipSha, parentSha: 'DEBT' },
@@ -183,14 +183,14 @@ suite('findWipInColumn', () => {
 	});
 
 	test('returns undefined when columnsBySha is missing (caller falls back to BFS)', () => {
-		const rows: GraphRow[] = [commit('TOP'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('SELECTED')];
 		const m = meta([{ sha: featureWipSha, parentSha: 'TOP' }]);
 
 		assert.strictEqual(findWipInColumn('SELECTED', rows, 'TOP', m, undefined), undefined);
 	});
 
 	test('returns undefined when fromShaʼs column isnʼt known', () => {
-		const rows: GraphRow[] = [commit('TOP'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1 }; // SELECTED missing
 		const m = meta([{ sha: featureWipSha, parentSha: 'TOP' }]);
 
@@ -198,7 +198,7 @@ suite('findWipInColumn', () => {
 	});
 
 	test('returns undefined when fromSha isnʼt in rows', () => {
-		const rows: GraphRow[] = [commit('TOP')];
+		const rows: GitGraphRow[] = [commit('TOP')];
 		const columns: ColumnNumberBySha = { TOP: 1, MISSING: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'TOP' }]);
 
@@ -212,7 +212,7 @@ suite('findWipInColumn', () => {
 	});
 
 	test('no primaryAnchor and no metadata → undefined', () => {
-		const rows: GraphRow[] = [commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('SELECTED')];
 		const columns: ColumnNumberBySha = { SELECTED: 1 };
 
 		assert.strictEqual(findWipInColumn('SELECTED', rows, undefined, undefined, columns), undefined);
@@ -221,7 +221,7 @@ suite('findWipInColumn', () => {
 	test('secondary WIP with parentSha == "" (empty-string) is preserved and column-checked normally', () => {
 		// Empty-string parentSha is legal (brand-new repo with no commits). Should be added as
 		// a candidate. Its column would be looked up on '' which won't match → not picked.
-		const rows: GraphRow[] = [commit('TOP'), commit('SELECTED')];
+		const rows: GitGraphRow[] = [commit('TOP'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: '' }]);
 
@@ -232,7 +232,7 @@ suite('findWipInColumn', () => {
 
 suite('findNearestWipByAncestry', () => {
 	test('single WIP — picked regardless of fromSha relationship', () => {
-		const rows: GraphRow[] = [commit('A', ['B']), commit('B', ['C']), commit('C')];
+		const rows: GitGraphRow[] = [commit('A', ['B']), commit('B', ['C']), commit('C')];
 		const wips: WipCandidate[] = [{ sha: uncommitted, anchor: 'A' }];
 
 		assert.strictEqual(findNearestWipByAncestry('A', wips, rows), uncommitted);
@@ -242,7 +242,7 @@ suite('findNearestWipByAncestry', () => {
 
 	test('two WIPs — picks the one whose anchor has fromSha as ancestor', () => {
 		const secondarySha = createSecondaryWipSha('/repo/wt');
-		const rows: GraphRow[] = [
+		const rows: GitGraphRow[] = [
 			commit('A1', ['A2']),
 			commit('A2', ['A3']),
 			commit('A3'),
@@ -262,7 +262,7 @@ suite('findNearestWipByAncestry', () => {
 
 	test('fromSha not an ancestor of any WIP anchor — falls back to primary WIP', () => {
 		const secondarySha = createSecondaryWipSha('/repo/wt');
-		const rows: GraphRow[] = [
+		const rows: GitGraphRow[] = [
 			commit('A1', ['A2']),
 			commit('A2'),
 			commit('B1', ['B2']),
@@ -279,14 +279,14 @@ suite('findNearestWipByAncestry', () => {
 
 	test('fallback when no primary — returns the first WIP', () => {
 		const secondarySha = createSecondaryWipSha('/repo/wt');
-		const rows: GraphRow[] = [commit('B1'), commit('orphan')];
+		const rows: GitGraphRow[] = [commit('B1'), commit('orphan')];
 		const wips: WipCandidate[] = [{ sha: secondarySha, anchor: 'B1' }];
 
 		assert.strictEqual(findNearestWipByAncestry('orphan', wips, rows), secondarySha);
 	});
 
 	test('no WIPs — returns undefined', () => {
-		const rows: GraphRow[] = [commit('A', ['B']), commit('B')];
+		const rows: GitGraphRow[] = [commit('A', ['B']), commit('B')];
 		assert.strictEqual(findNearestWipByAncestry('A', [], rows), undefined);
 	});
 
@@ -297,7 +297,7 @@ suite('findNearestWipByAncestry', () => {
 
 	test('fromSha equals an anchor — distance 0 wins over deeper ancestors', () => {
 		const secondarySha = createSecondaryWipSha('/repo/wt');
-		const rows: GraphRow[] = [commit('A1', ['A2']), commit('A2'), commit('B1', ['B2']), commit('B2')];
+		const rows: GitGraphRow[] = [commit('A1', ['A2']), commit('A2'), commit('B1', ['B2']), commit('B2')];
 		const wips: WipCandidate[] = [
 			{ sha: uncommitted, anchor: 'A1' },
 			{ sha: secondarySha, anchor: 'B1' },

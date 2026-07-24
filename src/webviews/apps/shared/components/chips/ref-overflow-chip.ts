@@ -34,20 +34,20 @@ export class GlRefOverflowChip extends LitElement {
 
 		.chip {
 			display: inline-flex;
+			gap: var(--gl-space-4);
 			align-items: center;
-			gap: 0.4rem;
-			padding: 0.1rem 0.4rem;
-			border-radius: 0.3rem;
-			background-color: var(--vscode-badge-background);
-			color: var(--vscode-badge-foreground);
-			font-size: 0.85em;
-			white-space: nowrap;
 			max-width: 100%;
+			padding: 0.1rem 0.4rem;
 			overflow: hidden;
+			font-size: 0.85em;
+			color: var(--vscode-badge-foreground);
+			white-space: nowrap;
+			background-color: var(--vscode-badge-background);
+			border-radius: var(--gl-radius-sm);
 			opacity: 0.8;
 			transition:
-				opacity 0.3s ease-in-out,
-				color 0.3s ease-in-out;
+				opacity var(--gl-duration-x-slow) var(--gl-ease-in-out),
+				color var(--gl-duration-x-slow) var(--gl-ease-in-out);
 		}
 
 		.chip:hover,
@@ -61,11 +61,11 @@ export class GlRefOverflowChip extends LitElement {
 		}
 
 		.chip__label {
-			flex: 1 1 auto;
-			min-width: 0;
 			display: inline-flex;
+			flex: 1 1 auto;
+			gap: var(--gl-space-4);
 			align-items: center;
-			gap: 0.4rem;
+			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
@@ -77,14 +77,14 @@ export class GlRefOverflowChip extends LitElement {
 		}
 
 		.chip__ellipsis {
+			padding: 0 var(--gl-space-4);
 			opacity: 0.8;
-			padding: 0 0.4rem;
 		}
 
 		.chip__count {
-			padding-left: 0.4rem;
-			font-weight: 600;
+			padding-left: var(--gl-space-4);
 			font-size: 0.85em;
+			font-weight: 600;
 		}
 
 		.chip code-icon {
@@ -98,22 +98,22 @@ export class GlRefOverflowChip extends LitElement {
 		}
 
 		.tooltip-header {
-			padding-bottom: 0.6rem;
+			padding-bottom: var(--gl-space-6);
 			font-weight: 500;
 		}
 
 		.tooltip-list {
 			display: flex;
 			flex-direction: column;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			max-height: 300px;
 			overflow-y: auto;
 		}
 
 		.tooltip-item {
 			display: flex;
-			align-items: center;
 			gap: 0.5rem;
+			align-items: center;
 			padding: 0.3rem 0.4rem;
 			font-size: 0.95em;
 			line-height: 1.4;
@@ -121,8 +121,8 @@ export class GlRefOverflowChip extends LitElement {
 
 		.tooltip-item__icon {
 			flex-shrink: 0;
-			opacity: 0.8;
 			font-size: 1.1em;
+			opacity: 0.8;
 		}
 
 		.tooltip-item__name {

@@ -8,41 +8,41 @@ export const detailsWipHeaderStyles = css`
 
 	.graph-details-header__title-group {
 		display: flex;
-		align-items: center;
-		gap: 1.2rem;
-		min-width: 0;
 		flex: 1;
+		gap: var(--gl-space-12);
+		align-items: center;
+		min-width: 0;
 		--commit-stats-pill-line-height: 2rem;
 	}
 
 	.graph-details-header__wip-title {
 		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		min-width: 0;
-		font-weight: 500;
-		font-size: var(--gl-font-base);
 		flex: 0 1 auto;
+		gap: 0.5rem;
+		align-items: center;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		font-size: var(--gl-font-base);
+		font-weight: 500;
+		white-space: nowrap;
+	}
+
+	/* The label text. text-overflow:ellipsis needs a non-flex block, so the text lives in this
+	   inner span (the outer .graph-details-header__wip-title is inline-flex for the mode icon).
+	   This lets the label ELLIPSIZE as the panel narrows rather than clip or vanish. */
+	.graph-details-header__wip-title-text {
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
 	/* The stats pill is the informative part of the title row, so it never shrinks — the
-	   "Working Changes" label (static text) ellipsizes away first as the panel narrows. */
+	   "Working Changes" label ellipsizes (down to "…") first as the panel narrows, keeping the
+	   pill intact while still signalling there's a label there. */
 	.graph-details-header__title-group > gl-wip-stats {
 		flex: none;
-	}
-
-	/* Below this the leftover for the label is a useless sliver — drop it entirely so the pill
-	   keeps every remaining pixel (scoped via :has so mode-active titles, which have no pill
-	   beside them, keep their label). The pill itself never yields; on extreme widths its tail
-	   clips, and partial counts still beat none. The container is the host header's row (a
-	   flat-tree ancestor, so the query crosses the shadow boundary). */
-	@container gl-action-chip-host (max-width: 340px) {
-		.graph-details-header__title-group:has(gl-wip-stats) .graph-details-header__wip-title {
-			display: none;
-		}
 	}
 
 	/* Mode icon prefixed to the title in compose/review — same icon as the active chip
@@ -56,7 +56,7 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		padding: 0.4rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
 		background-color: var(--gl-metadata-bar-bg);
-		border-bottom: 1px solid var(--gl-metadata-bar-border);
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	.graph-details-header__paused-op > gl-merge-rebase-status {
@@ -64,11 +64,11 @@ export const detailsWipHeaderStyles = css`
 		min-width: 0;
 	}
 
-	/* The paused-op row trails the metadata strip; drop the prior row's bottom border so the
-	   chunk reads as one tinted strip with paused-op carrying the trailing border. */
-	.graph-details-header__branch-row:has(+ .graph-details-header__paused-op),
-	.graph-details-header__issues:has(+ .graph-details-header__paused-op) {
-		border-bottom: 0;
+	/* The paused-op row leads the metadata strip directly under the header, carrying the strip's
+	   top border; the branch row that follows drops its own top border so the chunk reads as one
+	   tinted strip rather than two rules butting together. */
+	.graph-details-header__paused-op + .graph-details-header__branch-row {
+		border-top: 0;
 	}
 
 	/* Secondary row beneath the WIP title — branch name, tracking pill, and branch ops.
@@ -77,32 +77,41 @@ export const detailsWipHeaderStyles = css`
 	   from gl-details-base.css.ts. */
 	.graph-details-header__branch-row {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
-		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
 		min-height: var(--gl-metadata-bar-min-height, 3.2rem);
+		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
 		background-color: var(--gl-metadata-bar-bg);
-		border-top: 1px solid var(--gl-metadata-bar-border);
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	/* When the issues row follows, drop the branch row's bottom border so the two rows
 	   read as a single tinted strip; the issues row carries the trailing border. */
 	.graph-details-header__branch-row:has(+ .graph-details-header__issues) {
-		padding-bottom: 0.4rem;
+		padding-bottom: var(--gl-space-4);
 	}
 
 	.branch-identity,
-	.branch-ops {
+	.branch-ops,
+	.branch-actions {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
 		min-height: 2.4rem;
 		--commit-stats-pill-line-height: 2rem;
 		--gl-pill-line-height: 2rem;
 		--gl-pill-min-height: 2rem;
 		--gl-pill-padding: 0 0.6rem;
 		--gl-pill-font-size: 1.1rem;
-		--gl-pill-border-radius: 0.4rem;
+		--gl-pill-border-radius: var(--gl-radius-sm);
+	}
+
+	/* Groups the back/forward nav buttons with the contextual jump chip into one "move around"
+	   cluster, slotted into the header's right-anchored actions next to Refresh. */
+	.nav-jump {
+		display: inline-flex;
+		gap: var(--gl-space-2);
+		align-items: center;
 	}
 
 	.branch-identity {
@@ -114,9 +123,16 @@ export const detailsWipHeaderStyles = css`
 	   preventing the chip from shrinking at narrow panel widths. */
 	.branch-identity > gl-tooltip {
 		display: flex;
+		flex: 0 1 auto;
 		align-items: center;
 		min-width: 0;
-		flex: 0 1 auto;
+	}
+
+	/* Primary branch actions (publish/pull/push, fetch, create branch) sit inline right after the
+	   branch name, left of the kebab. The .branch-ops cluster keeps the worktree-scoped actions
+	   (cloud patch, terminal, open worktree) anchored to the row's right edge. */
+	.branch-actions {
+		flex: 0 0 auto;
 	}
 
 	.branch-ops {
@@ -129,27 +145,33 @@ export const detailsWipHeaderStyles = css`
 	   count, "Generating…", commit/finding counts, or "Error". Pre-formatted by the host so
 	   we just render whatever string lands here. */
 	.mode-status {
-		flex: 0 0 auto;
-		margin-left: auto;
 		display: inline-flex;
+		flex: 0 0 auto;
+		gap: var(--gl-space-8);
 		align-items: center;
-		gap: 0.8rem;
-		font-size: var(--gl-font-small, 1.2rem);
-		color: var(--color-foreground--65);
+		margin-left: auto;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-size: var(--gl-font-md);
+		color: var(--color-foreground--65);
 		white-space: nowrap;
 	}
 
 	.mode-status__group {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
+		align-items: center;
+	}
+
+	/* Active AI model name in the generating snippet — the gl-tooltip carries the full "provider · model". */
+	.mode-status__model {
+		cursor: help;
 	}
 
 	.mode-status__group code-icon {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
+
 		opacity: 0.85;
 	}
 
@@ -157,27 +179,27 @@ export const detailsWipHeaderStyles = css`
 	   snapshot is present (forward-available state). The whole pill is the click target. */
 	.mode-status__resume {
 		display: inline-flex;
+		gap: var(--gl-space-8);
 		align-items: center;
-		gap: 0.8rem;
-		padding: 0.2rem 0.6rem;
+		padding: var(--gl-space-2) var(--gl-space-6);
 		font: inherit;
 		color: inherit;
+		cursor: pointer;
 		background: transparent;
 		border: none;
-		border-radius: 0.4rem;
-		cursor: pointer;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.mode-status__resume:hover {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.mode-status__resume:focus-visible {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.mode-status__resume-verb {
@@ -187,21 +209,33 @@ export const detailsWipHeaderStyles = css`
 	.mode-status__resume-arrow {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
+
 		opacity: 0.85;
 	}
 
 	.graph-details-header__branch-link {
 		display: inline-flex;
 		align-items: center;
-		text-decoration: none;
-		color: inherit;
 		min-width: 0;
+		color: inherit;
+		text-decoration: none;
 	}
 
 	.graph-details-header__branch {
+		flex: 0 1 auto;
 		min-width: 0;
 		max-width: 20rem;
-		flex: 0 1 auto;
+	}
+
+	/* In a mode the branch is a fully inert label: no appearance="button", so gl-branch-name adds
+	   no role/tabindex/hover/focus/pointer. This mirrors that button's resting box (padding, font,
+	   color, radius) so it looks identical while staying plain readable text — minus the chevron. */
+	gl-branch-name.graph-details-header__branch--static {
+		padding: var(--gl-space-2) var(--gl-space-4);
+		font-size: var(--gl-font-base);
+		color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
+		cursor: default;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.graph-details-header__merge-target {
@@ -229,20 +263,20 @@ export const detailsWipHeaderStyles = css`
 
 	.graph-details-header__issues {
 		display: flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
 		min-width: 0;
+		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
-		border-bottom: 1px solid var(--gl-metadata-bar-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 		--gl-chip-overflow-gap: 0.4rem;
 	}
 
-	/* When no issues row and no paused-op row follow, the branch row owns the trailing
-	   border instead. */
-	.graph-details-header__branch-row:not(:has(+ .graph-details-header__issues, + .graph-details-header__paused-op)) {
-		border-bottom: 1px solid var(--gl-metadata-bar-border);
+	/* When no issues row follows, the branch row owns the trailing border instead. (The paused-op
+	   row now leads the strip, so it never follows the branch row.) */
+	.graph-details-header__branch-row:not(:has(+ .graph-details-header__issues)) {
+		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	.graph-details-header__issues-chips {
@@ -254,8 +288,8 @@ export const detailsWipHeaderStyles = css`
 		display: inline-flex;
 		align-items: center;
 		min-width: 0;
-		border-radius: 0.5rem;
-		transition: background-color 150ms ease-out;
+		border-radius: var(--gl-radius-sm);
+		transition: background-color var(--gl-duration-fast) var(--gl-ease-out);
 	}
 
 	.issue-chip-group:hover,
@@ -272,17 +306,17 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		justify-content: center;
 		height: 2rem;
-		background: none;
-		border: none;
-		padding: 0 0.4rem;
+		padding: 0 var(--gl-space-4);
 		margin-left: -0.2rem;
 		color: var(--color-foreground--50);
 		cursor: pointer;
-		border-radius: 0 0.5rem 0.5rem 0;
+		background: none;
+		border: none;
+		border-radius: 0 var(--gl-radius-sm) var(--gl-radius-sm) 0;
 		opacity: 0;
 		transition:
-			opacity 150ms ease-out,
-			color 150ms ease-out;
+			opacity var(--gl-duration-fast) var(--gl-ease-out),
+			color var(--gl-duration-fast) var(--gl-ease-out);
 	}
 
 	.issue-chip-group:hover .issue-chip-group__remove,
@@ -296,7 +330,7 @@ export const detailsWipHeaderStyles = css`
 
 	.issue-chip-group__remove:focus-visible {
 		color: var(--vscode-errorForeground);
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 

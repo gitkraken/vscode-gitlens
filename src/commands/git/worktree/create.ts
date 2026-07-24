@@ -27,8 +27,8 @@ import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { isDescendant } from '../../../system/-webview/path.js';
-import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
+import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import type { OpenChatActionCommandArgs } from '../../openChatAction.js';
 import type { CustomStep } from '../../quick-wizard/models/steps.custom.js';
 import type {
@@ -218,6 +218,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						: undefined;
 
 				const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
+				const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
 				if (
 					(isRemoteBranch || isRevisionReference(state.reference) || state.worktree != null) &&
 					!state.flags.includes('-b')
@@ -358,6 +359,9 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
 						detach: state.flags.includes('--detach'),
 						force: state.flags.includes('--force'),
+						...(isRemoteBranch && state.createBranch !== remoteBranchName
+							? { noTracking: true }
+							: undefined),
 					});
 					state.result?.fulfill(worktree);
 

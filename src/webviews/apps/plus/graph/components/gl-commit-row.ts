@@ -13,6 +13,12 @@ export interface CommitRowData {
 	author: string;
 	authorEmail?: string;
 	avatarUrl?: string;
+	/** Committer identity — avatar overlaid on the author's bottom-right + shown in the hover card;
+	 *  set only when the committer differs from the author (mirrors gl-commit-author's convention). */
+	committerAvatarUrl?: string;
+	committerName?: string;
+	committerEmail?: string;
+	committerDate?: string;
 	date: string;
 	additions?: number;
 	deletions?: number;
@@ -29,14 +35,13 @@ export class GlCommitRow extends LitElement {
 
 		.row {
 			display: grid;
-			grid-template-columns: auto minmax(0, 1fr);
 			grid-template-areas:
 				'avatar message'
 				'avatar meta';
-			column-gap: 0.6rem;
-			row-gap: 0.1rem;
+			grid-template-columns: auto minmax(0, 1fr);
+			gap: 0.1rem 0.6rem;
 			min-width: 0;
-			padding: 0.2rem 0;
+			padding: var(--gl-space-2) 0;
 			line-height: 1.35;
 		}
 
@@ -46,14 +51,33 @@ export class GlCommitRow extends LitElement {
 		}
 
 		.avatar {
-			grid-area: avatar;
-			--gl-avatar-size: 2.4rem;
-			align-self: center;
+			position: relative;
 			flex-shrink: 0;
+			grid-area: avatar;
+			align-self: center;
+			--gl-avatar-size: 2.4rem;
+
+			width: var(--gl-avatar-size);
+			height: var(--gl-avatar-size);
+			/* collapse the inline-block baseline gap so the wrapper hugs the avatar exactly */
+			line-height: 0;
 		}
 
-		.avatar::part(avatar):hover {
+		.avatar__author::part(avatar):hover {
 			transform: none;
+		}
+
+		/* Committer avatar overlaid on the author's bottom-right (mirrors gl-commit-author) — the host
+	   only provides committerAvatarUrl when the committer differs from the author. */
+		.avatar__committer {
+			position: absolute;
+			right: -0.2rem;
+			bottom: -0.2rem;
+			width: 45%;
+			height: 45%;
+			object-fit: cover;
+			border: 0.15rem solid var(--vscode-sideBar-background, var(--color-background));
+			border-radius: 50%;
 		}
 
 		.msg {
@@ -61,25 +85,25 @@ export class GlCommitRow extends LitElement {
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			white-space: nowrap;
 			font-size: var(--gl-font-base);
 			font-weight: 500;
 			color: var(--vscode-foreground);
+			white-space: nowrap;
 		}
 
 		.meta {
-			grid-area: meta;
 			display: inline-flex;
+			grid-area: meta;
+			gap: var(--gl-space-6);
 			align-items: center;
-			gap: 0.6rem;
 			min-width: 0;
 			font-size: var(--gl-font-sm);
 			color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 		}
 
 		.sha {
-			font-family: var(--vscode-editor-font-family, monospace);
 			flex-shrink: 0;
+			font-family: var(--vscode-editor-font-family, monospace);
 		}
 
 		.author {
@@ -94,18 +118,18 @@ export class GlCommitRow extends LitElement {
 		}
 
 		/* Trailing group keeps the date and stats glued together at the row's right edge so the
-		   row reads "sha · author … date stats" rather than letting each tail piece independently
-		   absorb the remaining space (which would split them across the row). */
+	   row reads "sha · author … date stats" rather than letting each tail piece independently
+	   absorb the remaining space (which would split them across the row). */
 		.trailing {
 			display: inline-flex;
-			align-items: center;
-			gap: 0.6rem;
 			flex-shrink: 0;
+			gap: var(--gl-space-6);
+			align-items: center;
 		}
 
 		/* When the host opts into right-aligned date layout (date-position="right"), the leading
-		   dot is hidden and the trailing group is pushed to the far edge. Used by the multi-commit
-		   pole-card and ahead/behind list. */
+	   dot is hidden and the trailing group is pushed to the far edge. Used by the multi-commit
+	   pole-card and ahead/behind list. */
 		:host([date-position='right']) .trailing {
 			margin-left: auto;
 		}
@@ -116,9 +140,9 @@ export class GlCommitRow extends LitElement {
 
 		.stats {
 			display: inline-flex;
-			align-items: center;
-			gap: 0.4rem;
 			flex-shrink: 0;
+			gap: var(--gl-space-4);
+			align-items: center;
 			font-family: var(--vscode-editor-font-family, monospace);
 		}
 
@@ -161,7 +185,14 @@ export class GlCommitRow extends LitElement {
 		const isWip = commit.sha === uncommitted;
 
 		return html`<div class="row ${isWip ? 'row--wip' : ''}">
-			${commit.avatarUrl ? html`<gl-avatar class="avatar" .src=${commit.avatarUrl}></gl-avatar>` : nothing}
+			${commit.avatarUrl
+				? html`<span class="avatar">
+						<gl-avatar class="avatar__author" .src=${commit.avatarUrl}></gl-avatar>
+						${commit.committerAvatarUrl
+							? html`<img class="avatar__committer" src=${commit.committerAvatarUrl} alt="" />`
+							: nothing}
+					</span>`
+				: nothing}
 			<span class="msg">${headline}</span>
 			${isWip
 				? nothing

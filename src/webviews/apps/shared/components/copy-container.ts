@@ -4,12 +4,14 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GlTooltip } from './overlays/tooltip.js';
 import './overlays/tooltip.js';
 
-const tagName = 'gl-copy-container';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-copy-container']: GlCopyContainer;
+	}
+}
 
-@customElement(tagName)
+@customElement('gl-copy-container')
 export class GlCopyContainer extends LitElement {
-	static readonly tagName = tagName;
-
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
@@ -25,7 +27,7 @@ export class GlCopyContainer extends LitElement {
 		}
 
 		gl-tooltip:focus-visible {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 2px;
 		}
 
@@ -39,13 +41,13 @@ export class GlCopyContainer extends LitElement {
 			--copy-foreground: var(--vscode-foreground);
 			--copy-hover-background: var(--vscode-toolbar-hoverBackground);
 			--copy-border: transparent;
-			--copy-border-radius: var(--gk-action-radius, 0.3rem);
+			--copy-border-radius: var(--gl-radius-sm);
 			--copy-padding: 0 0.4rem;
 
-			border: 1px solid var(--copy-border);
-			border-radius: var(--copy-border-radius);
-			background: var(--copy-background);
 			color: var(--copy-foreground);
+			background: var(--copy-background);
+			border: var(--gl-border-width) solid var(--copy-border);
+			border-radius: var(--copy-border-radius);
 		}
 
 		:host([appearance='toolbar']:hover) {
@@ -53,17 +55,17 @@ export class GlCopyContainer extends LitElement {
 		}
 
 		:host([appearance='toolbar']:focus-within) {
-			outline: 1px solid var(--color-focus-border);
+			outline: var(--gl-border-width) solid var(--color-focus-border);
 			outline-offset: -1px;
 		}
 
 		:host([appearance='toolbar']) gl-tooltip {
-			padding: var(--copy-padding);
+			box-sizing: border-box;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			min-height: 2rem;
-			box-sizing: border-box;
+			padding: var(--copy-padding);
 		}
 
 		:host([disabled]) {

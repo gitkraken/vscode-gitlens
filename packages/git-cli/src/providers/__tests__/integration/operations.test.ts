@@ -254,6 +254,80 @@ suite('OperationsGitSubProvider signing', () => {
 			r.cleanup();
 		}
 	});
+
+	test('host signing override adds -S even when commit.gpgsign is false', async () => {
+		const failedCalls: Array<{ reason: SigningErrorReason; format: SigningFormat }> = [];
+		const signedCalls: unknown[] = [];
+		const r = createTestRepo({
+			config: { commits: {}, signing: { enabled: true } },
+			hooks: {
+				commits: {
+					onSigned: (...args) => signedCalls.push(args),
+					onSigningFailed: (reason, format) => failedCalls.push({ reason: reason, format: format }),
+				},
+			},
+		});
+		try {
+			// The helper leaves `commit.gpgsign=false` — without an explicit `-S` from the host
+			// override, git would never invoke the (broken) gpg program and the commit would
+			// succeed. A SigningError here is the proof that `-S` was passed.
+			execFileSync('git', ['config', 'gpg.format', 'openpgp'], { cwd: r.path, stdio: 'pipe' });
+			execFileSync('git', ['config', 'gpg.program', 'node --eval process.exit(1)'], {
+				cwd: r.path,
+				stdio: 'pipe',
+			});
+
+			writeFileSync(join(r.path, 'override.txt'), 'content\n');
+			execFileSync('git', ['add', 'override.txt'], { cwd: r.path, stdio: 'pipe' });
+
+			await assert.rejects(
+				() => r.provider.ops.commit(r.path, 'should attempt to sign via override'),
+				ex => SigningError.is(ex),
+				'Expected a SigningError — the override should force `-S` despite commit.gpgsign=false',
+			);
+
+			assert.strictEqual(failedCalls.length, 1, 'Expected onSigningFailed hook to fire exactly once');
+			assert.strictEqual(failedCalls[0].format, 'openpgp');
+			assert.strictEqual(signedCalls.length, 0, 'onSigned must not fire when signing fails');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('without the host override, broken signer config does not affect commits', async () => {
+		const calls: unknown[] = [];
+		const r = createTestRepo({
+			config: { commits: {}, signing: { enabled: false } },
+			hooks: {
+				commits: {
+					onSigned: (...args) => calls.push(args),
+					onSigningFailed: (...args) => calls.push(args),
+				},
+			},
+		});
+		try {
+			// Same broken gpg program as above, but no override and `commit.gpgsign=false` —
+			// the commit must go through without ever invoking the signer.
+			execFileSync('git', ['config', 'gpg.program', 'node --eval process.exit(1)'], {
+				cwd: r.path,
+				stdio: 'pipe',
+			});
+
+			writeFileSync(join(r.path, 'plain.txt'), 'content\n');
+			execFileSync('git', ['add', 'plain.txt'], { cwd: r.path, stdio: 'pipe' });
+
+			await r.provider.ops.commit(r.path, 'unsigned commit');
+
+			const log = execFileSync('git', ['log', '-1', '--format=%s'], {
+				cwd: r.path,
+				encoding: 'utf-8',
+			}).trim();
+			assert.strictEqual(log, 'unsigned commit');
+			assert.strictEqual(calls.length, 0, 'No signing hooks should fire for an unsigned commit');
+		} finally {
+			r.cleanup();
+		}
+	});
 });
 
 suite('OperationsGitSubProvider.push', () => {

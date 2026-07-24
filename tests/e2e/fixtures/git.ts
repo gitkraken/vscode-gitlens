@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-globals */
+/* oxlint-disable no-restricted-globals */
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -41,6 +41,15 @@ export class GitFixture {
 	 */
 	async clean(): Promise<void> {
 		await this.git('clean', undefined, '-fd');
+	}
+
+	/**
+	 * Set a repository-local git config value (e.g. `commit.gpgsign`, `true`).
+	 */
+	async config(key: string, value: string): Promise<void> {
+		// `--local` makes the documented repository scope explicit rather than relying on git's
+		// cwd-based default, so this never writes to global/system config if the environment shifts.
+		await this.git('config', undefined, '--local', key, value);
 	}
 
 	/**
@@ -170,6 +179,13 @@ export class GitFixture {
 			args.push('-m', message);
 		}
 		await this.git('merge', undefined, ...args);
+	}
+
+	/**
+	 * Abort an in-progress merge (e.g., to clear a conflicted merge state)
+	 */
+	async mergeAbort(): Promise<void> {
+		await this.git('merge', undefined, '--abort');
 	}
 
 	/**

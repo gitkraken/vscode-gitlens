@@ -137,9 +137,10 @@ export interface AgentPickerOptions {
  * descriptor, `'manual'` (empty-state opt-out), or `StepResultBreak` (back / close).
  */
 export async function* pickAgentStep(
+	container: Container,
 	options?: AgentPickerOptions & { showBackButton?: boolean },
 ): AsyncStepResultGenerator<PickAgentResult> {
-	const available = await getSupportedAgents();
+	const available = await getSupportedAgents(container);
 	let currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
 
 	const buildItems = (currentDefaultId: string | null): AgentItem[] => {
@@ -233,8 +234,11 @@ export async function* pickAgentStep(
  * toast action that fires AFTER the wizard has completed). Safe to call when no wizard is active.
  * DO NOT use from inside a wizard's continuation — use {@link pickAgentStep} instead.
  */
-export async function pickAgentStandalone(options?: AgentPickerOptions): Promise<AgentDescriptor | undefined> {
-	const available = await getSupportedAgents();
+export async function pickAgentStandalone(
+	container: Container,
+	options?: AgentPickerOptions,
+): Promise<AgentDescriptor | undefined> {
+	const available = await getSupportedAgents(container);
 	let currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
 
 	const qp = window.createQuickPick<AgentItem>();
@@ -327,8 +331,11 @@ export async function pickAgentStandalone(options?: AgentPickerOptions): Promise
  *
  * Returns the chosen descriptor, or `undefined` when the user dismisses the picker (no write).
  */
-export async function pickAndSetDefaultAgent(options?: AgentPickerOptions): Promise<AgentDescriptor | undefined> {
-	const available = await getSupportedAgents();
+export async function pickAndSetDefaultAgent(
+	container: Container,
+	options?: AgentPickerOptions,
+): Promise<AgentDescriptor | undefined> {
+	const available = await getSupportedAgents(container);
 	const currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
 
 	const qp = window.createQuickPick<AgentItem>();
@@ -457,7 +464,7 @@ export async function* resolveAgentFlow(
 
 		// resolveDefaultAgent only returns descriptors that pass the supported-agents filter,
 		// so no extra availability check is needed — runAgent re-validates at dispatch time.
-		const descriptor = await resolveDefaultAgent(persistedAgentId);
+		const descriptor = container != null ? await resolveDefaultAgent(container, persistedAgentId) : undefined;
 		if (descriptor == null) {
 			void container?.usage.track('action:gitlens.ai.openInAgent.useDefaultsFallback:happened');
 			return { kind: 'manual' };
@@ -481,7 +488,7 @@ export async function* resolveAgentFlow(
 
 		// Agent route: try persisted default first.
 		if (persistedAgentId != null) {
-			const descriptor = await resolveDefaultAgent(persistedAgentId);
+			const descriptor = container != null ? await resolveDefaultAgent(container, persistedAgentId) : undefined;
 			if (descriptor != null) {
 				return { kind: 'agent', descriptor: descriptor };
 			}
@@ -490,7 +497,7 @@ export async function* resolveAgentFlow(
 		}
 
 		// Need to pick an agent. Show back button only when we got here via the pre-picker.
-		const picked = yield* pickAgentStep({ showBackButton: route === 'ask' });
+		const picked = yield* pickAgentStep(container!, { showBackButton: route === 'ask' });
 		if (picked === StepResultBreak) {
 			// Back: when the pre-picker was shown, loop back to it. Otherwise cancel.
 			if (route === 'ask') continue;

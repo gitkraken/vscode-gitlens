@@ -23,26 +23,34 @@ type MergeTargetPromise = Promise<OverviewBranchMergeTarget | undefined> | undef
 
 const mergeTargetStyles = css`
 	.header__actions {
-		margin-top: 0.4rem;
+		margin-top: var(--gl-space-4);
 		margin-left: auto;
 	}
 
 	.content {
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 
 	:host-context(.vscode-dark),
 	:host-context(.vscode-high-contrast) {
-		--color-status--in-sync: #00bb00;
-		--color-merge--clean: #00bb00;
+		--color-status--in-sync: #0b0;
+		--color-merge--clean: #0b0;
 		--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 	}
 
 	:host-context(.vscode-light),
 	:host-context(.vscode-high-contrast-light) {
-		--color-status--in-sync: #00aa00;
-		--color-merge--clean: #00aa00;
+		--color-status--in-sync: #0a0;
+		--color-merge--clean: #0a0;
 		--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+	}
+
+	/* Compact indicator (branch hover): scale the whole composite to 80% so the merge-target glyph +
+	   status overlay keep their tuned alignment. transform, not smaller icon sizes, so the overlap
+	   margins scale with it. */
+	.chip.compact {
+		transform: scale(0.8);
+		transform-origin: left center;
 	}
 
 	.header__title > span {
@@ -58,12 +66,12 @@ const mergeTargetStyles = css`
 	}
 
 	.header__title p {
-		margin: 0.5rem 0 0 0;
+		margin: 0.5rem 0 0;
 	}
 
 	.header__subtitle {
-		font-size: 1.3rem;
-		margin: 0.2rem 0 0 0;
+		margin: var(--gl-space-2) 0 0;
+		font-size: var(--gl-font-base);
 	}
 
 	.status--conflict .icon,
@@ -90,8 +98,8 @@ const mergeTargetStyles = css`
 	}
 
 	.status--loading {
-		cursor: default;
 		color: var(--color-foreground--50);
+		cursor: default;
 	}
 
 	.status--merge-conflict {
@@ -111,26 +119,26 @@ const mergeTargetStyles = css`
 	}
 
 	.status-indicator {
+		margin-top: var(--gl-space-8);
 		margin-left: -0.5rem;
-		margin-top: 0.8rem;
 	}
 
 	.body {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		width: 100%;
 	}
 
 	.button-container {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
-		margin-top: 0.4rem;
-		margin-bottom: 0.4rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 		justify-content: center;
 		width: 100%;
+		margin-top: var(--gl-space-4);
+		margin-bottom: var(--gl-space-4);
 	}
 
 	.button-container gl-button {
@@ -138,7 +146,7 @@ const mergeTargetStyles = css`
 	}
 
 	p {
-		margin: 0 0.4rem;
+		margin: 0 var(--gl-space-4);
 	}
 
 	p code-icon,
@@ -147,31 +155,31 @@ const mergeTargetStyles = css`
 	}
 
 	details {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		padding: 0;
-		position: relative;
-		margin: 0 0.2rem 0.4rem;
+		margin: 0 var(--gl-space-2) var(--gl-space-4);
 		overflow: hidden;
-		border: 1px solid transparent;
 		color: var(--color-foreground--85);
+		border: var(--gl-border-width) solid transparent;
 	}
 
 	details[open] {
-		border-radius: 0.3rem;
-		border: 1px solid var(--vscode-sideBar-border);
+		border: var(--gl-border-width) solid var(--vscode-sideBar-border);
+		border-radius: var(--gl-radius-sm);
 	}
 
 	summary {
 		position: sticky;
 		top: 0;
+		z-index: 1;
+		padding: var(--gl-space-4) var(--gl-space-6);
 		color: var(--color-foreground);
 		cursor: pointer;
 		list-style: none;
-		transition: transform ease-in-out 0.1s;
-		padding: 0.4rem 0.6rem 0.4rem 0.6rem;
-		z-index: 1;
+		transition: transform var(--gl-ease-in-out) var(--gl-duration-x-fast);
 	}
 
 	summary:hover {
@@ -179,10 +187,10 @@ const mergeTargetStyles = css`
 	}
 
 	details[open] > summary {
-		color: var(--vscode-textLink-foreground);
-		border-radius: 0.3rem 0.3rem 0 0;
 		margin-left: 0;
+		color: var(--vscode-textLink-foreground);
 		background: var(--vscode-sideBar-background);
+		border-radius: var(--gl-radius-sm) var(--gl-radius-sm) 0 0;
 	}
 
 	details[open] > summary code-icon {
@@ -190,18 +198,16 @@ const mergeTargetStyles = css`
 	}
 
 	summary code-icon {
-		transition: transform 0.2s;
+		transition: transform var(--gl-duration-medium);
 	}
 
 	.files {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
-
+		gap: var(--gl-space-4);
 		max-height: 8rem;
+		padding: var(--gl-space-4) var(--gl-space-8);
 		overflow-y: auto;
-		padding: 0.4rem 0.8rem;
-
 		background: var(--vscode-sideBar-background);
 	}
 
@@ -236,6 +242,12 @@ export class GlMergeTargetStatus extends LitElement {
 
 	@property({ type: Boolean, reflect: true })
 	loading = false;
+
+	/** Compact presentation for tight surfaces (the branch hover): the indicator renders at 80% scale and
+	 *  opens a plain one-line tooltip instead of the full interactive popover (no push/compare/delete
+	 *  actions). Off by default so the overview card / home keep the rich popover. */
+	@property({ type: Boolean, reflect: true })
+	compact = false;
 
 	@state()
 	private _target: Awaited<MergeTargetPromise>;
@@ -316,11 +328,22 @@ export class GlMergeTargetStatus extends LitElement {
 		};
 	}
 
+	/** One-line status summary for the compact tooltip — a terse stand-in for the popover's rich header. */
+	private get compactStatusLabel(): string {
+		const target = this.target?.name ?? 'the merge target';
+		if (this.mergedStatus?.merged) return `Merged into ${target}`;
+		if (this.conflicts) return `Merging into ${target} will cause conflicts`;
+
+		const behind = this.status?.behind ?? 0;
+		if (behind > 0) return `${pluralize('commit', behind)} behind ${target}`;
+		return `Merges cleanly into ${target}`;
+	}
+
 	override render(): unknown {
 		if (!this.status && !this.conflicts) {
 			if (this.loading) {
 				return html`<gl-tooltip content="Checking merge target status…">
-					<span class="chip status--loading" aria-busy="true">
+					<span class="chip status--loading${this.compact ? ' compact' : ''}" aria-busy="true">
 						<code-icon class="icon" icon="gl-merge-target" size="18"></code-icon>
 						<code-icon class="status-indicator" icon="sync" size="12"></code-icon>
 					</span>
@@ -346,7 +369,17 @@ export class GlMergeTargetStatus extends LitElement {
 			status = 'in-sync';
 		}
 
-		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
+		// Compact: a plain tooltip with a one-line summary rather than the interactive popover.
+		if (this.compact) {
+			return html`<gl-tooltip content=${this.compactStatusLabel} placement="bottom">
+				<span class="chip status--${status} compact" tabindex="0"
+					><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
+					><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
+				</span>
+			</gl-tooltip>`;
+		}
+
+		return html`<gl-popover placement="bottom" trigger="hover click focus">
 			<span slot="anchor" class="chip status--${status}" tabindex="0"
 				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
 				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
@@ -679,7 +712,7 @@ export class GlMergeTargetUpgrade extends LitElement {
 				margin-inline: 0.5rem;
 
 				p {
-					margin-block: 1rem;
+					margin-block: var(--gl-space-10);
 					margin-inline: 0;
 				}
 			}
@@ -693,7 +726,7 @@ export class GlMergeTargetUpgrade extends LitElement {
 		const icon = 'warning';
 		const status = 'upgrade';
 
-		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover click focus">
 			<span slot="anchor" class="chip status--${status}" tabindex="0"
 				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
 				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>

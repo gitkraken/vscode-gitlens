@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -21,8 +21,6 @@ import '../../../shared/components/skeleton-loader.js';
 import './agent-session-card.js';
 import './branch-section.js';
 
-export const overviewTagName = 'gl-overview';
-
 type OverviewTab = 'recent' | 'agents';
 type AgentFilter = 'workspace' | 'all';
 
@@ -33,41 +31,52 @@ const recentThresholdItems: { value: OverviewRecentThreshold; label: string }[] 
 	{ value: 'OneMonth', label: '1 month' },
 ];
 
-@customElement(overviewTagName)
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-overview']: GlOverview;
+	}
+}
+
+@customElement('gl-overview')
 export class GlOverview extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
 		css`
 			:host {
 				display: block;
-				margin-bottom: 2.4rem;
+				margin-bottom: var(--gl-space-24);
 				color: var(--vscode-foreground);
 			}
 
 			/* Native <select> styling — used by the agents workspace/all filter. */
 			.select {
-				background: none;
-				outline: none;
-				border: none;
-				text-decoration: none !important;
 				font-weight: 500;
 				color: var(--color-foreground--25);
+				text-decoration: none !important;
+				outline: none;
+				background: none;
+				border: none;
 			}
+
 			.select option {
 				color: var(--vscode-foreground);
 				background-color: var(--vscode-dropdown-background);
 			}
+
 			.select option:checked {
 				color: var(--vscode-list-activeSelectionForeground);
 				background-color: var(--vscode-list-activeSelectionBackground);
 			}
+
 			.select:not(:disabled) {
-				cursor: pointer;
 				color: var(--color-foreground--50);
+				cursor: pointer;
 			}
+
 			.select:not(:disabled):focus {
-				outline: 1px solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--color-focus-border);
 			}
+
 			.select:not(:disabled):hover {
 				color: var(--vscode-foreground);
 				text-decoration: underline !important;
@@ -76,48 +85,52 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			/* Recent-timeframe filter — the gl-menu-popover anchor button. */
 			.threshold-filter {
 				display: inline-flex;
+				gap: var(--gl-space-2);
 				align-items: center;
-				gap: 0.2rem;
-				background: none;
-				border: none;
 				padding: 0;
 				font: inherit;
 				font-weight: 500;
 				color: var(--color-foreground--50);
-				cursor: pointer;
 				white-space: nowrap;
+				cursor: pointer;
+				background: none;
+				border: none;
 			}
+
 			.threshold-filter:hover:not(:disabled) {
 				color: var(--vscode-foreground);
 			}
+
 			.threshold-filter:focus-visible {
-				outline: 1px solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--color-focus-border);
 			}
+
 			.threshold-filter:disabled {
 				color: var(--color-foreground--25);
 				cursor: default;
 			}
+
 			.threshold-filter code-icon {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 			}
 
 			.tabs {
 				display: inline-flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 			}
 
 			.tab {
-				appearance: none;
-				background: none;
-				border: none;
 				padding: 0;
 				margin: 0;
-				cursor: pointer;
 				font-family: inherit;
 				font-size: inherit;
 				font-weight: normal;
-				text-transform: uppercase;
 				color: var(--vscode-descriptionForeground);
+				text-transform: uppercase;
+				appearance: none;
+				cursor: pointer;
+				background: none;
+				border: none;
 			}
 
 			.tab:hover {
@@ -516,11 +529,5 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				<skeleton-loader lines="3"></skeleton-loader>
 			</gl-section>
 		`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[overviewTagName]: GlOverview;
 	}
 }

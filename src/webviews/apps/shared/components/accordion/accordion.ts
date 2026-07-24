@@ -1,9 +1,13 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-const accordionTagName = 'gl-accordion';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-accordion']: GlAccordion;
+	}
+}
 
-@customElement(accordionTagName)
+@customElement('gl-accordion')
 export class GlAccordion extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -16,28 +20,28 @@ export class GlAccordion extends LitElement {
 			font-family: var(--vscode-font-family);
 			font-size: var(--vscode-font-size);
 			font-weight: var(--vscode-font-weight);
-			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
 			color: var(--vscode-foreground);
+			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
 		}
 
 		/*
-		details {
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
-			overflow: hidden;
-		}
-		*/
+	details {
+		border: var(--gl-border-width) solid var(--vscode-panel-border);
+		border-radius: var(--gl-radius-sm);
+		overflow: hidden;
+	}
+	*/
 
 		.header {
-			padding: 8px 12px;
-			background-color: var(--gl-accordion-header-background, var(--vscode-sideBar-background));
+			display: flex;
+			gap: var(--gl-space-6);
+			align-items: center;
+			padding: var(--gl-space-8) var(--gl-space-12);
 			cursor: pointer;
 			user-select: none;
-			list-style: none;
 			outline: none;
-			display: flex;
-			align-items: center;
-			gap: 0.6rem;
+			list-style: none;
+			background-color: var(--gl-accordion-header-background, var(--vscode-sideBar-background));
 		}
 
 		.header::-webkit-details-marker {
@@ -45,8 +49,8 @@ export class GlAccordion extends LitElement {
 		}
 
 		.label {
-			flex: 1;
 			display: block;
+			flex: 1;
 		}
 
 		.icon {
@@ -61,12 +65,12 @@ export class GlAccordion extends LitElement {
 		}
 
 		.header:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
 
 		.content {
-			padding: 12px;
+			padding: var(--gl-space-12);
 			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
 		}
 	`;
@@ -101,11 +105,5 @@ export class GlAccordion extends LitElement {
 				composed: true,
 			}),
 		);
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[accordionTagName]: GlAccordion;
 	}
 }

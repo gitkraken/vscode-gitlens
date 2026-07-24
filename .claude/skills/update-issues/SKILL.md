@@ -22,9 +22,11 @@ Read a triage, investigation, or prioritization report and apply the recommended
 
 Read the JSON file and determine report type:
 
-- Has `verdicts` array → **Triage decisions** (`DECISIONS-*.json`)
-- Has `investigations` array → **Investigation decisions** (`*-INVESTIGATION-DECISIONS.json`)
-- Has `resolutions` array → **Resolution decisions** (`RESOLUTIONS-*.json`)
+- Has `verdicts` array → **Triage decisions** (`YYYY-MM-DD-DECISIONS[-batch-N].json`)
+- Has `investigations` array → **Investigation decisions** (`YYYY-MM-DD-INVESTIGATION-DECISIONS.json`)
+- Has `resolutions` array → **Resolution decisions** (`YYYY-MM-DD-RESOLUTIONS.json`)
+
+Detect by JSON content, not filename — note `*-DECISIONS.json` also matches investigation files, so "most recent" filename lookups must check the arrays to pick the intended type.
 
 ### Stage 1 — Translate Recommendations to Actions
 

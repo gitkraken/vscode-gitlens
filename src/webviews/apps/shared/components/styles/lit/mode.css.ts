@@ -17,28 +17,32 @@ export const modeToggleStyles = css`
 	   status icon (loading / pass / etc.) — color is redundant when icons already
 	   differentiate. Error and orphaned states still override for semantic colorization. */
 	.mode-toggle--compose,
-	.mode-toggle--review {
+	.mode-toggle--review,
+	.mode-toggle--resolve {
 		--mode-toggle-accent: var(--color-highlight, var(--vscode-focusBorder));
 	}
 
 	.mode-toggle--has-status {
-		background: var(--mode-toggle-accent) !important;
-		border-radius: 0.4rem;
 		/* --vscode-button-foreground is the contrast-paired token for --vscode-button-background
 		   (which --color-highlight wraps), so it stays readable across light/dark themes — unlike
 		   hardcoded white, which falls below WCAG contrast on pale-accent light themes. */
 		color: var(--vscode-button-foreground, #fff) !important;
+		background: var(--mode-toggle-accent) !important;
+		border-radius: var(--gl-radius-sm);
 	}
+
 	.mode-toggle--has-status:hover {
 		/* Mix toward currentColor (the chip's text color above) rather than hardcoded white. In
 		   dark themes the text is white → mix lightens the accent; in light themes the text is
 		   dark → mix darkens the accent. Either way the hover state stays visibly distinct from
 		   the resting state, instead of fading into the page on light themes. */
-		background: color-mix(in srgb, var(--mode-toggle-accent) 85%, currentColor) !important;
+		background: color-mix(in srgb, var(--mode-toggle-accent) 85%, currentcolor) !important;
 	}
+
 	.mode-toggle--has-status[data-state='error'] {
 		--mode-toggle-accent: var(--vscode-errorForeground, var(--vscode-focusBorder));
 	}
+
 	.mode-toggle--has-status[data-state='orphaned'] {
 		--mode-toggle-accent: var(--color-foreground--50, var(--vscode-descriptionForeground));
 	}
@@ -61,8 +65,9 @@ export const modeToggleStyles = css`
 export const modeHeaderStyles = css`
 	.mode-header {
 		background-color: var(--mode-header-bg);
+
 		/* Exit transition (class removed): fast fade back to base */
-		transition: background-color 0.1s ease-out;
+		transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 	}
 
 	.mode-header--active {
@@ -71,8 +76,9 @@ export const modeHeaderStyles = css`
 			var(--mode-accent, var(--vscode-focusBorder)) var(--mode-header-tint, 50%),
 			var(--mode-header-bg, var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background))))
 		);
+
 		/* Enter transition (class added): slightly slower fade to tinted */
-		transition: background-color 0.15s ease-in;
+		transition: background-color var(--gl-duration-fast) var(--gl-ease-in);
 	}
 `;
 

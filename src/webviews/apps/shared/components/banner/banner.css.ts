@@ -14,29 +14,30 @@ export const bannerStyles = css`
 		/* Layout properties */
 		--gl-banner-padding: 1.2rem;
 		--gl-banner-gap: 0.8rem;
-		--gl-banner-border-radius: 0.4rem;
+		--gl-banner-border-radius: var(--gl-radius-sm);
 
 		/* Button customization - use 8px horizontal padding, keep original vertical padding */
 		--gl-banner-button-padding: 0.4rem 0.8rem;
 
 		display: block;
-		margin-block-end: 1.2rem;
+		margin-block-end: var(--gl-space-12);
 	}
 
 	.banner {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		padding: var(--gl-banner-padding);
-		border-radius: var(--gl-banner-border-radius);
-		position: relative;
-		overflow: hidden;
 		container-type: inline-size;
+		overflow: hidden;
+		border-radius: var(--gl-banner-border-radius);
 	}
 
 	/* Solid display mode - same as card background */
 	.banner--solid {
 		background-color: var(--gl-banner-primary-background);
-		border: 1px solid color-mix(in lab, var(--gl-banner-primary-background) 100%, var(--vscode-foreground) 12%);
+		border: var(--gl-border-width) solid
+			color-mix(in lab, var(--gl-banner-primary-background) 100%, var(--vscode-foreground) 12%);
 	}
 
 	/* Outline display mode - emphasis color outline with secondary background */
@@ -52,7 +53,7 @@ export const bannerStyles = css`
 			var(--gl-banner-primary-emphasis-background) 0%,
 			var(--gl-banner-secondary-emphasis-background) 100%
 		);
-		border: 1px solid
+		border: var(--gl-border-width) solid
 			color-mix(
 				in lab,
 				var(--gl-banner-primary-emphasis-background) 50%,
@@ -77,7 +78,7 @@ export const bannerStyles = css`
 				)
 				100%
 		);
-		border: 1px solid
+		border: var(--gl-border-width) solid
 			color-mix(
 				in lab,
 				color-mix(
@@ -92,21 +93,21 @@ export const bannerStyles = css`
 
 	/* Gradient purple display mode - matches the auto-composer container styling */
 	.banner--gradient-purple {
-		border: 1px solid var(--vscode-panel-border);
-		border-radius: 6px;
-		background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+		background: var(--gl-gradient-brand-subtle);
+		border: var(--gl-border-width) solid var(--vscode-panel-border);
+		border-radius: var(--gl-radius-md);
 	}
 
 	.banner--gradient-purple .banner__title {
-		font-size: 1.3rem;
-		color: var(--vscode-foreground);
+		font-size: var(--gl-font-base);
 		font-weight: normal;
+		color: var(--vscode-foreground);
 	}
 
 	.banner--gradient-purple .banner__body {
-		font-size: 1.2rem;
-		color: var(--vscode-descriptionForeground);
+		font-size: var(--gl-font-md);
 		line-height: 1.4;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.banner--gradient-purple .banner__body a {
@@ -131,15 +132,15 @@ export const bannerStyles = css`
 	.banner--responsive .banner__content {
 		display: flex;
 		flex-direction: column;
+		gap: var(--gl-banner-gap);
 		align-items: stretch;
 		text-align: left;
-		gap: var(--gl-banner-gap);
 	}
 
 	.banner--responsive .banner__text {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.banner--responsive .banner__title,
@@ -151,45 +152,45 @@ export const bannerStyles = css`
 	.banner--responsive .banner__buttons {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
-		margin-top: 0.8rem;
+		gap: var(--gl-space-8);
 		width: 100%;
+		margin-top: var(--gl-space-8);
 	}
 
 	.banner--responsive .banner__button {
+		flex: 1;
 		grid-column: unset;
+		justify-content: center;
 		justify-self: unset;
 		width: 100% !important;
 		min-width: 100% !important;
 		max-width: 100% !important;
-		justify-content: center;
-		flex: 1;
 	}
 
 	/* >= 500px: Three-group horizontal layout */
 	@container (min-width: 500px) {
 		.banner--responsive .banner__content {
 			flex-direction: row;
+			gap: var(--gl-space-16);
 			align-items: center;
-			gap: 1.6rem;
 		}
 
 		/* Group 1: Text content (left-aligned) */
 		.banner--responsive .banner__text {
 			flex: 1;
-			min-width: 0;
 			align-self: center;
+			min-width: 0;
 		}
 
 		/* Group 2: Buttons (content-sized) */
 		.banner--responsive .banner__buttons {
 			display: flex;
-			flex-direction: column;
-			gap: 0.8rem;
-			margin-top: 0;
-			width: auto;
 			flex-shrink: 0;
+			flex-direction: column;
+			gap: var(--gl-space-8);
 			align-self: center;
+			width: auto;
+			margin-top: 0;
 		}
 
 		.banner--responsive .banner__button {
@@ -202,34 +203,34 @@ export const bannerStyles = css`
 			position: static !important;
 			top: auto !important;
 			right: auto !important;
-			align-self: center;
 			flex-shrink: 0;
+			align-self: center;
 		}
 	}
 
 	.banner__title {
+		margin: 0;
 		font-size: 1.2em;
 		font-weight: bold;
 		color: var(--gl-banner-text-color);
-		margin: 0;
 		text-wrap: pretty;
 	}
 
 	.banner__body {
-		font-size: 1em;
-		color: var(--gl-banner-text-color);
 		margin: 0;
+		font-size: 1em;
 		line-height: 1.4;
+		color: var(--gl-banner-text-color);
 		text-wrap: pretty;
 	}
 
 	.banner__buttons {
 		display: grid;
 		grid-template-columns: 1fr auto 1fr;
-		gap: 0.8rem;
-		margin-top: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 		width: 100%;
+		margin-top: var(--gl-space-8);
 	}
 
 	.banner:not(.banner--gradient-purple) .banner__button--primary {
@@ -273,6 +274,7 @@ export const bannerStyles = css`
 		--button-foreground: var(--gl-banner-dim-text-color);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-dim-text-color) 15%, transparent);
 		--button-padding: 0.4rem;
+
 		z-index: 1;
 	}
 
@@ -336,7 +338,7 @@ export const bannerStyles = css`
 	}
 
 	/* Responsive adjustments */
-	@media (max-width: 640px) {
+	@media (width <= 640px) {
 		.banner__buttons {
 			flex-direction: column;
 			width: 100%;
@@ -348,14 +350,14 @@ export const bannerStyles = css`
 	}
 
 	/* More aggressive responsive layout for narrow sidebars */
-	@media (max-width: 400px) {
+	@media (width <= 400px) {
 		.banner__buttons {
 			display: flex;
 			flex-direction: column;
-			gap: 0.6rem;
-			margin-top: 0.8rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			width: 100%;
+			margin-top: var(--gl-space-8);
 		}
 
 		.banner__button--primary,
@@ -380,10 +382,10 @@ export const bannerStyles = css`
 	.banner__buttons[data-layout='column'] {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
-		margin-top: 0.8rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		width: 100%;
+		margin-top: var(--gl-space-8);
 	}
 
 	:host([data-banner-buttons-layout='column']) .banner__button--primary,

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* oxlint-disable typescript/no-unsafe-return */
 import { resolveProp } from './resolver.js';
 
 /** Keys for memoize version invalidation */
@@ -43,7 +43,7 @@ export function memoize<T extends (...args: any[]) => any>(
 	const opts = options ?? {};
 
 	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>): void => {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+		// oxlint-disable-next-line typescript/no-unsafe-function-type
 		let fn: Function | undefined;
 		let fnKey: string | undefined;
 

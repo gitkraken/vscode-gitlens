@@ -58,7 +58,7 @@ export class RepositoryRefChangeset implements RepositoryChangeset {
 	}
 
 	// private _files: Promise<{ files: Change['files'] }> | undefined;
-	// eslint-disable-next-line @typescript-eslint/require-await
+	// oxlint-disable-next-line typescript/require-await
 	async getChange(): Promise<Change> {
 		// let filesResult;
 		// if (this.expanded) {

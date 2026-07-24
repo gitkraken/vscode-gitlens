@@ -13,11 +13,9 @@ import { isDescendant, normalizePath, relative } from '@gitlens/utils/path.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { Draft } from '../../../../plus/drafts/models/drafts.js';
-import { createCommandLink } from '../../../../system/commands.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
 import type { DetailsItemTypedContext, DraftState, Wip } from '../../../commitDetails/protocol.js';
 import { buildFolderContext } from '../../../commitDetails/protocol.js';
-import type { ComposerCommandArgs } from '../../../plus/composer/registration.js';
 import type { Change } from '../../../plus/patchDetails/protocol.js';
 import type { TreeItemAction, TreeItemBase, TreeItemCheckedDetail } from '../../shared/components/tree/base.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
@@ -25,18 +23,24 @@ import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
 import { detailsWipPanelStyles } from './gl-details-wip-panel.css.js';
 import type { CreatePatchState, GenerateState } from './gl-inspect-patch.js';
+import '../../plus/graph/components/gl-details-wip-empty-pane.js';
+import '../../plus/shared/components/merge-rebase-status.js';
+import '../../shared/components/actions/action-nav.js';
+import '../../shared/components/avatar/avatar.js';
+import '../../shared/components/branch-name.js';
 import '../../shared/components/button.js';
 import '../../shared/components/button-container.js';
-import '../../shared/components/branch-name.js';
-import '../../shared/components/code-icon.js';
-import '../../shared/components/panes/pane-group.js';
-import '../../shared/components/avatar/avatar.js';
 import '../../shared/components/chips/action-chip.js';
+import '../../shared/components/code-icon.js';
 import '../../shared/components/commit/commit-stats.js';
+import '../../shared/components/formatted-date.js';
+import '../../shared/components/panes/pane-group.js';
 import '../../shared/components/pills/tracking.js';
+import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/tree/gl-wip-tree-pane.js';
-import '../../plus/shared/components/merge-rebase-status.js';
-import '../../plus/graph/components/gl-details-wip-empty-pane.js';
+import '../../shared/components/tree/tree.js';
+import '../../shared/components/tree/tree-item.js';
+import '../../shared/components/webview-pane.js';
 import './gl-inspect-patch.js';
 
 // Stable references for the inline tree-item actions so each render reuses the same objects
@@ -114,12 +118,43 @@ const stashAction: TreeItemAction = {
 	multiBehavior: 'batch',
 };
 
+// `single`: opens the conflicted row's two-sided details sheet — meaningless fanned out to other rows.
+const openConflictDetailsAction: TreeItemAction = {
+	icon: 'eye',
+	label: 'Conflict Details',
+	action: 'file-conflict-details',
+	multiBehavior: 'single',
+};
+// Per-row resolve action on a conflicted file — enters AI resolve mode focused on just that file.
+// `single`: resolve is row-specific; fanning it out would scope the wrong files.
+const resolveFileAction: TreeItemAction = {
+	icon: 'gl-merge',
+	label: 'Resolve Conflicts',
+	action: 'file-resolve-conflict',
+	multiBehavior: 'single',
+};
 const conflictedCheckboxActions: TreeItemAction[] = [
-	openFileAction,
+	openConflictDetailsAction,
 	openCurrentChangesAction,
 	openIncomingChangesAction,
 ];
 const conflictedActions: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
+// Graph host opt-in (`conflict-details`): adds the "Conflict Details" chip before Stage so the
+// stage action stays rightmost. Separate stable arrays keep gl-tree-item's identity diffing happy.
+const conflictedCheckboxActionsWithDetails: TreeItemAction[] = [...conflictedCheckboxActions];
+const conflictedActionsWithDetails: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
+// Resolve-enabled (graph host + aiEnabled): the resolve action sits right after the eye, keeping "Conflict
+// Details" leftmost and Stage rightmost.
+const conflictedCheckboxActionsWithDetailsResolve: TreeItemAction[] = [
+	openConflictDetailsAction,
+	resolveFileAction,
+	openCurrentChangesAction,
+	openIncomingChangesAction,
+];
+const conflictedActionsWithDetailsResolve: TreeItemAction[] = [
+	...conflictedCheckboxActionsWithDetailsResolve,
+	stageConflictAction,
+];
 const checkboxDiscardOnly: TreeItemAction[] = [openFileAction, stashAction, discardAction];
 const checkboxMixedActions: TreeItemAction[] = [
 	openFileAction,
@@ -175,6 +210,16 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	 * vouch that bulk resolve is supported (currently graph WIP + paused rebase). */
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
+
+	/** Opt-in for the per-row "Conflict Details" chip that opens the two-sided conflict sheet.
+	 *  Set true only by the graph host, which mounts the sheet and wires `file-conflict-details`. */
+	@property({ type: Boolean, attribute: 'conflict-details' })
+	conflictDetails = false;
+
+	/** Opt-in for the AI Resolve Conflicts entry points (toolbar button + per-row resolve action). Set true
+	 *  only by the graph host when `aiEnabled`; gates the affordances that route into resolve mode. */
+	@property({ type: Boolean, attribute: 'resolve-enabled' })
+	resolveEnabled = false;
 
 	/** Active agent sessions matched to this worktree (already filtered by the graph host).
 	 *  Used to compute per-file editing decorations — see {@link _agentTouchedFiles}. */
@@ -418,30 +463,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				description: this.generate?.description ?? this.patchCreateMetadata.description,
 			};
 		}
-	}
-
-	protected override renderChangedFilesSlottedContent(): TemplateResult<1> | typeof nothing {
-		if (this.variant === 'embedded' || !this.files?.length) return nothing;
-
-		return html`<div slot="before-tree" class="section section--actions">
-			<button-container>
-				<gl-button
-					full
-					.href=${createCommandLink<ComposerCommandArgs>('gitlens.composeCommits', {
-						repoPath: this.wip?.repo.path,
-						source: 'inspect',
-					})}
-					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"
-						><strong>Compose Commits</strong> (Preview)<br /><i
-							>Automatically or interactively organize changes into meaningful commits</i
-						></span
-					></gl-button
-				>
-				<gl-button appearance="secondary" href="command:workbench.view.scm" tooltip="Commit via SCM"
-					><code-icon rotate="45" icon="arrow-up"></code-icon
-				></gl-button>
-			</button-container>
-		</div>`;
 	}
 
 	private renderSecondaryAction(hasPrimary = true) {
@@ -755,6 +776,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				?checkable=${this.checkboxMode}
 				?multi-selectable=${true}
 				?bulk-conflict-actions=${this.bulkConflictActions}
+				?resolve-enabled=${this.resolveEnabled}
 				.showSearchBox=${this.showSearchBox}
 				.searchBoxFilter=${this.searchBoxFilter}
 				.fileActions=${this._getFileActions}
@@ -884,6 +906,14 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		// performs staging. Stage routes through the existing `file-stage` event, which prompts
 		// when unresolved conflict markers remain.
 		if (isConflictStatus(file.status)) {
+			if (this.conflictDetails) {
+				if (this.resolveEnabled) {
+					return this.checkboxMode
+						? conflictedCheckboxActionsWithDetailsResolve
+						: conflictedActionsWithDetailsResolve;
+				}
+				return this.checkboxMode ? conflictedCheckboxActionsWithDetails : conflictedActionsWithDetails;
+			}
 			return this.checkboxMode ? conflictedCheckboxActions : conflictedActions;
 		}
 
@@ -902,7 +932,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		return buildFolderContext(this.wip?.repo?.path, folder);
 	}
 
-	override getFileContext(file: File): string | undefined {
+	override getFileContext(file: File, options?: Partial<TreeItemBase>): string | undefined {
 		if (!this.wip?.repo?.path) return undefined;
 
 		// Two-char `XY` conflict statuses (UU/AA/UD/DU/AU/UA/DD) carry the side semantics
@@ -923,6 +953,12 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			webviewItem = `gitlens:file${modifiers.join('')}`;
 		} else {
 			webviewItem = file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged';
+			// Checkbox mode dedupes a mixed file (staged + unstaged) to its unstaged row; gl-wip-tree-pane
+			// flags that row via `options.mixed` (same source as the inline Stage/Unstage actions) so the
+			// context menu can offer the staged/combined diffs the single row otherwise can't reach.
+			if (options?.mixed) {
+				webviewItem += '+mixed';
+			}
 		}
 
 		const context: DetailsItemTypedContext = {

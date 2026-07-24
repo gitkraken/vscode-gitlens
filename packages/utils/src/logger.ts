@@ -217,7 +217,7 @@ class Logger {
 
 		const errorMessage = `  ${message ?? ''}${this.#toLoggableParams(false, params)}`;
 		if (ex != null) {
-			// eslint-disable-next-line @typescript-eslint/no-base-to-string
+			// oxlint-disable-next-line typescript/no-base-to-string
 			this.#output?.error(String(ex), errorMessage);
 		} else {
 			this.#output?.error(errorMessage);

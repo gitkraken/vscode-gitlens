@@ -63,6 +63,29 @@ suite('filter-match', () => {
 		test('no match returns false', () => {
 			assert.strictEqual(matchesTerms({ label: 'README.md' }, ['zzz']), false);
 		});
+
+		// File-tree leaves carry the basename in `label` and the full repo-relative path in
+		// `filterText` (see gl-file-tree-pane `fileToTreeModel`), so a query that spans a folder
+		// separator must match via `filterText`.
+		suite('relative-path search', () => {
+			const leaf = { label: 'foo.ts', filterText: 'src/webviews/foo.ts', description: '' };
+
+			test('matches a full relative path', () => {
+				assert.strictEqual(matchesTerms(leaf, ['src/webviews/foo.ts']), true);
+			});
+
+			test('matches a partial path spanning a separator', () => {
+				assert.strictEqual(matchesTerms(leaf, ['webviews/foo']), true);
+			});
+
+			test('still matches on the basename alone', () => {
+				assert.strictEqual(matchesTerms(leaf, ['foo.ts']), true);
+			});
+
+			test('without filterText a separator query cannot match (regression guard)', () => {
+				assert.strictEqual(matchesTerms({ label: 'foo.ts', description: '' }, ['src/webviews/foo.ts']), false);
+			});
+		});
 	});
 
 	suite('collectHighlightIndices', () => {

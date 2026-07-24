@@ -39,8 +39,6 @@ export function parseGitWorktrees(
 	let index: number;
 	let key: string;
 	let value: string;
-	let locked: string;
-	let prunable: string;
 	let main = true; // the first worktree is the main worktree
 
 	for (line of iterateByDelimiter(data, '\n')) {
@@ -54,7 +52,7 @@ export function parseGitWorktrees(
 		}
 
 		if (!key && entry != null) {
-			// eslint-disable-next-line no-loop-func
+			// oxlint-disable-next-line no-loop-func
 			const branch = entry.branch ? branches?.find(b => b.name === entry!.branch) : undefined;
 			const uri = fileUri(entry.path!);
 
@@ -96,13 +94,13 @@ export function parseGitWorktrees(
 			case 'detached':
 				entry.detached = true;
 				break;
+			// `value` is the whole reason, which is only present when the locker/Git provides one.
+			// Reasons with unusual characters (e.g. newlines) come through C-quoted, per `core.quotePath`
 			case 'locked':
-				[, locked] = value.split(' ', 2);
-				entry.locked = locked?.trim() || true;
+				entry.locked = value.trim() || true;
 				break;
 			case 'prunable':
-				[, prunable] = value.split(' ', 2);
-				entry.prunable = prunable?.trim() || true;
+				entry.prunable = value.trim() || true;
 				break;
 		}
 	}

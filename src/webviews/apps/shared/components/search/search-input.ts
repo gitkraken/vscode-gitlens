@@ -37,6 +37,7 @@ import {
 	structuredSearchAutocompleteCommand,
 } from './models.js';
 import '../button.js';
+import '../actions/action-nav.js';
 import '../autocomplete/autocomplete.js';
 import '../code-icon.js';
 import '../copy-container.js';
@@ -81,19 +82,18 @@ export class GlSearchInput extends GlElement {
 			--gl-search-input-foreground: var(--vscode-input-foreground);
 			--gl-search-input-border: var(--vscode-input-border, transparent);
 			--gl-search-input-placeholder: var(
-				--vscode-editor-placeholder\\\.foreground,
+				--vscode-editor-placeholder\\.foreground,
 				var(--vscode-input-placeholderForeground)
 			);
 			--gl-search-input-buttons-left: 1;
 			--gl-search-input-buttons-right: 4;
 
-			display: inline-flex;
-			flex-direction: row;
-			align-items: center;
-			gap: 0.4rem;
 			position: relative;
-
+			display: inline-flex;
 			flex: auto 1 1;
+			flex-direction: row;
+			gap: var(--gl-space-4);
+			align-items: center;
 		}
 
 		:host([data-ai-allowed]) {
@@ -114,25 +114,27 @@ export class GlSearchInput extends GlElement {
 
 		label {
 			display: flex;
-			justify-content: center;
+			gap: var(--gl-space-2);
 			align-items: center;
-			gap: 0.2rem;
+			justify-content: center;
 			width: 3.2rem;
 			height: 2.4rem;
 			color: var(--gl-search-input-foreground);
 			cursor: pointer;
-			border-radius: 3px;
+			border-radius: var(--gl-radius-sm);
 		}
+
 		label:hover {
 			background-color: var(--vscode-toolbar-hoverBackground);
 		}
+
 		label:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
 
 		.icon-small {
-			font-size: 1rem;
+			font-size: var(--gl-font-micro);
 		}
 
 		.field {
@@ -143,22 +145,21 @@ export class GlSearchInput extends GlElement {
 		input {
 			width: 100%;
 			height: 2.7rem;
-			background-color: var(--gl-search-input-background);
-			color: var(--gl-search-input-foreground);
-			border: 1px solid var(--gl-search-input-border);
-			border-radius: var(--gl-input-border-radius);
-			padding-top: 0;
-			padding-bottom: 1px;
-			padding-left: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
-			padding-right: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right)));
+			padding: 0 calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right))) 1px
+				calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
 			font-family: inherit;
 			font-size: inherit;
+			color: var(--gl-search-input-foreground);
+			background-color: var(--gl-search-input-background);
+			border: var(--gl-border-width) solid var(--gl-search-input-border);
+			border-radius: var(--gl-input-border-radius);
 		}
 
 		input:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
+
 		input::placeholder {
 			color: var(--gl-search-input-placeholder);
 		}
@@ -170,6 +171,7 @@ export class GlSearchInput extends GlElement {
 		input[aria-valid='false'] {
 			border-color: var(--vscode-inputValidation-errorBorder);
 		}
+
 		input[aria-valid='false']:focus {
 			outline-color: var(--vscode-inputValidation-errorBorder);
 		}
@@ -178,15 +180,18 @@ export class GlSearchInput extends GlElement {
 			position: absolute;
 			top: 100%;
 			left: 0;
+
+			/* Same tier as the gl-autocomplete dropdown (its display: contents host puts both in
+   this stacking context) — the tie keeps the later-in-DOM autocomplete on top, as before */
+			z-index: var(--gl-z-popover);
 			width: 100%;
-			padding: 0.4rem;
-			transform: translateY(-0.1rem);
-			z-index: 1000;
-			background-color: var(--vscode-inputValidation-infoBackground);
-			border: 1px solid var(--vscode-inputValidation-infoBorder);
-			color: var(--gl-search-input-foreground);
-			font-size: 1.2rem;
+			padding: var(--gl-space-4);
+			font-size: var(--gl-font-md);
 			line-height: 1.4;
+			color: var(--gl-search-input-foreground);
+			background-color: var(--vscode-inputValidation-infoBackground);
+			border: var(--gl-border-width) solid var(--vscode-inputValidation-infoBorder);
+			transform: translateY(-0.1rem);
 		}
 
 		input[aria-valid='false'] ~ .message {
@@ -203,42 +208,39 @@ export class GlSearchInput extends GlElement {
 
 		.input-highlight {
 			position: absolute;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			pointer-events: none;
-			white-space: pre;
-			overflow: hidden;
+			inset: 0;
 			box-sizing: border-box;
 			height: 2.7rem;
-			border: 1px solid transparent;
-			border-radius: var(--gl-input-border-radius);
+
+			/* Match input padding exactly, but using margins to ensure clipping */
+			margin: 0 calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right))) 1px
+				calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
+			overflow: hidden;
 			font-family: inherit;
 			font-size: inherit;
 			line-height: 2.7rem;
 			color: var(--gl-search-input-foreground);
-			/* Match input padding exactly, but using margins to ensure clipping */
-			margin-top: 0;
-			margin-bottom: 1px;
-			margin-left: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-left)));
-			margin-right: calc(0.7rem + calc(1.96rem * var(--gl-search-input-buttons-right)));
+			white-space: pre;
+			pointer-events: none;
+			border: var(--gl-border-width) solid transparent;
+			border-radius: var(--gl-input-border-radius);
 		}
 
 		/* CSS Custom Highlight API for operators */
 		::highlight(search-operators) {
-			color: var(--vscode-textLink-foreground);
 			font-weight: 600;
+			color: var(--vscode-textLink-foreground);
 		}
 
 		/* Input with transparent background and text to show overlay */
 		.input-container input {
 			position: relative;
 			z-index: 1;
-			background: transparent;
+
 			/* Make input text invisible so only overlay shows */
 			color: transparent;
 			caret-color: var(--gl-search-input-foreground);
+			background: transparent;
 		}
 
 		/* In natural language mode, show the input text normally */
@@ -255,30 +257,36 @@ export class GlSearchInput extends GlElement {
 			position: absolute;
 			top: 0.2rem;
 			right: 0.2rem;
+			z-index: 2; /* Above input and overlay */
 			display: inline-flex;
 			flex-direction: row;
 			gap: 0.1rem;
-			z-index: 2; /* Above input and overlay */
+		}
+
+		.controls action-nav {
+			display: contents;
 		}
 
 		.controls.controls__start {
 			--button-compact-padding: 0.4rem;
 			--button-line-height: 1;
 
-			left: 0.2rem;
 			right: auto;
+			left: 0.2rem;
 		}
 
 		button {
 			padding: 0;
 			color: var(--gl-search-input-foreground);
-			border: 1px solid transparent;
 			background: none;
+			border: var(--gl-border-width) solid transparent;
 		}
+
 		button:focus:not([disabled]) {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
+
 		button:not([disabled]) {
 			cursor: pointer;
 		}
@@ -290,20 +298,20 @@ export class GlSearchInput extends GlElement {
 
 		code {
 			display: inline-block;
-			backdrop-filter: brightness(1.3);
-			border-radius: 3px;
-			padding: 0px 4px;
+			padding: 0 var(--gl-space-4);
 			font-family: var(--vscode-editor-font-family);
+			border-radius: var(--gl-radius-sm);
+			backdrop-filter: brightness(1.3);
 		}
 
 		/* .popover {
-			margin-left: -0.25rem;
-		}
-		.popover::part(body) {
-			padding: 0 0 0.5rem 0;
-			font-size: var(--vscode-font-size);
-			background-color: var(--vscode-menu-background);
-		} */
+margin-left: -0.25rem;
+}
+.popover::part(body) {
+padding: 0 0 0.5rem 0;
+font-size: var(--vscode-font-size);
+background-color: var(--vscode-menu-background);
+} */
 
 		gl-copy-container {
 			--copy-padding: 0 0.1rem;
@@ -1447,28 +1455,30 @@ export class GlSearchInput extends GlElement {
 	override render(): unknown {
 		return html`<div class="field">
 				<div class="controls controls__start">
-					<gl-button
-						appearance="input"
-						role="checkbox"
-						aria-checked="${this.filter}"
-						tooltip="Filter Commits"
-						aria-label="Filter Commits"
-						@click="${this.handleFilterClick}"
-					>
-						<code-icon icon="list-filter"></code-icon>
-					</gl-button>
-					${this.aiAllowed
-						? html`<gl-button
-								appearance="input"
-								role="checkbox"
-								aria-checked="${this.naturalLanguage}"
-								tooltip="Natural Language Search (AI Preview)"
-								aria-label="Natural Language Search (AI Preview)"
-								@click="${this.handleNaturalLanguageClick}"
-							>
-								<code-icon icon="sparkle"></code-icon>
-							</gl-button>`
-						: nothing}
+					<action-nav role="toolbar" aria-label="Search mode">
+						<gl-button
+							appearance="input"
+							role="checkbox"
+							aria-checked="${this.filter}"
+							tooltip="Filter Commits"
+							aria-label="Filter Commits"
+							@click="${this.handleFilterClick}"
+						>
+							<code-icon icon="list-filter"></code-icon>
+						</gl-button>
+						${this.aiAllowed
+							? html`<gl-button
+									appearance="input"
+									role="checkbox"
+									aria-checked="${this.naturalLanguage}"
+									tooltip="Natural Language Search (AI Preview)"
+									aria-label="Natural Language Search (AI Preview)"
+									@click="${this.handleNaturalLanguageClick}"
+								>
+									<code-icon icon="sparkle"></code-icon>
+								</gl-button>`
+							: nothing}
+					</action-nav>
 				</div>
 				<div class="input-container">
 					<div class="input-highlight" aria-hidden="true">${this.renderHighlightedText()}</div>
@@ -1502,17 +1512,19 @@ export class GlSearchInput extends GlElement {
 				</div>
 			</div>
 			<div class="controls">
-				${this.value
-					? html`<gl-button
-							appearance="input"
-							tooltip="Clear"
-							aria-label="Clear"
-							@click="${this.handleClear}"
-						>
-							<code-icon icon="close"></code-icon>
-						</gl-button>`
-					: nothing}
-				${this.renderSearchOptions()}
+				<action-nav role="toolbar" aria-label="Search options">
+					${this.value
+						? html`<gl-button
+								appearance="input"
+								tooltip="Clear"
+								aria-label="Clear"
+								@click="${this.handleClear}"
+							>
+								<code-icon icon="close"></code-icon>
+							</gl-button>`
+						: nothing}
+					${this.renderSearchOptions()}
+				</action-nav>
 			</div>`;
 	}
 

@@ -10,4 +10,7 @@ export {
 	type PendingPermissionKind,
 	type PermissionDecision,
 	type PermissionSuggestion,
+	type ResumableAgentSession,
+	type ResumableSessionsOptions,
+	type ResumableSessionsResult,
 } from '@gitlens/agents/types.js';

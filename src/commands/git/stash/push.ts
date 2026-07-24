@@ -133,8 +133,11 @@ export class StashPushGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.InputMessage);
 
 				if (state.message == null) {
-					const scmRepo = await state.repo.git.getScmRepository();
-					state.message = scmRepo?.inputBox.value;
+					// Prefer the graph's WIP commit-box draft for this repo (persisted in `graph:wipDrafts`),
+					// then fall back to the SCM commit input box. Covers stashing from the graph and everywhere else.
+					const wipMessage =
+						this.container.storage.getWorkspace('graph:wipDrafts')?.[state.repo.path]?.message;
+					state.message = wipMessage || (await state.repo.git.getScmRepository())?.inputBox.value;
 				}
 
 				const result = yield* this.inputMessageStep(state, context);
@@ -245,10 +248,9 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			placeholder: 'Stash message',
 			value: state.message,
 			prompt: 'Please provide a stash message',
-			buttons:
-				this.container.ai.enabled && this.container.ai.allowed
-					? [QuickInputButtons.Back, GenerateStashMessageQuickInputButton]
-					: [QuickInputButtons.Back],
+			buttons: this.container.ai.allowed
+				? [QuickInputButtons.Back, GenerateStashMessageQuickInputButton]
+				: [QuickInputButtons.Back],
 			validate: (_value: string | undefined): [boolean, string | undefined] => [true, undefined],
 			onDidClickButton: async (input, button) => {
 				if (button === GenerateStashMessageQuickInputButton) {

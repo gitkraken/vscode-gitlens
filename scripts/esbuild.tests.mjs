@@ -1,9 +1,10 @@
 /** @typedef {import('esbuild').BuildOptions} BuildOptions **/
 /** @typedef {import('esbuild').WatchOptions} WatchOptions **/
 
-import * as esbuild from 'esbuild';
+import { rm } from 'node:fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import * as esbuild from 'esbuild';
 import { nodeExternalsPlugin } from 'esbuild-node-externals';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -35,7 +36,15 @@ async function buildTests(target) {
 		minify: false,
 		outdir: target === 'webworker' ? 'out/tests/browser' : 'out/tests',
 		platform: target === 'webworker' ? 'browser' : target,
-		plugins: [nodeExternalsPlugin()],
+		// Bundle the `@gitlens/*` workspace packages from source (via the aliases below) rather than
+		// externalizing them. Their published `dist/` is ESM that statically named-imports the CJS
+		// `@gitkraken/provider-apis` (getter-based exports) — which Node's ESM loader can't resolve,
+		// so loading the dist in the test host throws "does not provide an export named ...". Bundling
+		// from source lets esbuild resolve the CJS interop, matching the package's own test runner.
+		// `@gitkraken/commit-graph` is a vendored source-only package (extension-less internal
+		// imports), so it must bundle from source too — externalized, Node's ESM loader can't
+		// resolve it in the test host.
+		plugins: [nodeExternalsPlugin({ allowList: [/^@gitlens\//, /^@gitkraken\/commit-graph/] })],
 		sourcemap: true,
 		target: ['es2023', 'chrome124', 'node20.14.0'],
 		tsconfig: target === 'webworker' ? 'tsconfig.test.browser.json' : 'tsconfig.test.json',
@@ -48,8 +57,10 @@ async function buildTests(target) {
 		'@gitlens/git': path.resolve(__dirname, 'packages', 'git', 'src'),
 		'@gitlens/git-cli': path.resolve(__dirname, 'packages', 'git-cli', 'src'),
 		'@gitlens/git-github': path.resolve(__dirname, 'packages', 'plus', 'git-github', 'src'),
+		'@gitlens/integrations': path.resolve(__dirname, 'packages', 'plus', 'integrations', 'src'),
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
 		'@gitlens/agents': path.resolve(__dirname, 'packages', 'plus', 'agents', 'src'),
+		'@gitkraken/commit-graph': path.resolve(__dirname, 'packages', 'plus', 'commit-graph', 'src'),
 
 		// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),
@@ -63,6 +74,11 @@ async function buildTests(target) {
 		config.alias.path = 'path-browserify';
 		config.alias.os = 'os-browserify/browser';
 	}
+
+	// Clear stale bundles first: esbuild doesn't prune outputs, so tests that were renamed,
+	// deleted, or moved out of `src` (e.g. into a workspace package) would otherwise linger in
+	// `out/tests` and get picked up by the vscode-test runner.
+	await rm(path.join(__dirname, config.outdir), { recursive: true, force: true });
 
 	if (watch) {
 		const ctx = await esbuild.context(config);

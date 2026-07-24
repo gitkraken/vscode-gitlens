@@ -13,8 +13,8 @@ export class GlNavButtons extends LitElement {
 	static override styles = css`
 		:host {
 			display: inline-flex;
+			gap: var(--gl-space-2);
 			align-items: center;
-			gap: 0.2rem;
 		}
 	`;
 
@@ -26,14 +26,14 @@ export class GlNavButtons extends LitElement {
 		if (nav == null || nav.count <= 1) return nothing;
 
 		return html`<gl-action-chip
-				icon="arrow-left"
+				icon="chevron-left"
 				label="Go Back"
 				overlay="tooltip"
 				?disabled=${!nav.canBack}
 				@click=${this.onBack}
 			></gl-action-chip>
 			<gl-action-chip
-				icon="arrow-right"
+				icon="chevron-right"
 				label="Go Forward"
 				overlay="tooltip"
 				?disabled=${!nav.canForward}

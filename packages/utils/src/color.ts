@@ -344,15 +344,15 @@ export class Color {
 	static from(value: string | Color): Color {
 		if (value instanceof Color) return value;
 
-		return parseColor(value) || Color.red;
+		return parseColor(value) ?? Color.red;
 	}
 
 	static fromCssVariable(variable: string, css: { getPropertyValue(property: string): string }): Color {
-		return parseColor(getCssVariable(variable, css)) || Color.red;
+		return parseColor(getCssVariable(variable, css)) ?? Color.red;
 	}
 
 	static fromHex(hex: string): Color {
-		return parseHexColor(hex) || Color.red;
+		return parseHexColor(hex) ?? Color.red;
 	}
 
 	static equals(a: Color | null, b: Color | null): boolean {

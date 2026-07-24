@@ -12,20 +12,23 @@ export class GlSection extends LitElement {
 	static override styles = [
 		css`
 			.section {
-				margin-bottom: 1.2rem;
+				margin-bottom: var(--gl-space-12);
 			}
+
 			.section__header {
 				position: relative;
 				display: flex;
+				gap: var(--gl-space-8);
 				justify-content: space-between;
-				gap: 8px;
-				margin-block: 0 0.8rem;
+				margin-block: 0 var(--gl-space-8);
 			}
+
 			.section__heading {
-				min-width: 0;
 				flex: 1;
-				font-size: 1.3rem;
+				min-width: 0;
+				font-size: var(--gl-font-base);
 			}
+
 			.section__headline {
 				font-weight: normal;
 				text-transform: uppercase;
@@ -37,8 +40,8 @@ export class GlSection extends LitElement {
 
 			.section__loader {
 				position: absolute;
-				left: 0;
 				bottom: 0;
+				left: 0;
 			}
 		`,
 	];

@@ -3,6 +3,7 @@ import { rootSha } from '@gitlens/git/models/revision.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
 import { ComposeToolsIntegration } from '../../../../plus/coretools/compose/integration.js';
+import { coverCommitRange } from '../../../../plus/coretools/compose/recomposeScope.js';
 import type {
 	ComposeApplyPlan,
 	ComposeHunk,
@@ -10,12 +11,21 @@ import type {
 	ComposePlanResult,
 	ComposeProgressEvent,
 	ComposeSource,
+	RefineProgressEvent,
 	SigningConfig,
 	StashConflict,
 } from '../../../../plus/coretools/compose/types.js';
-import { applyComposePlan, cancellationTokenToSignal, composePlan } from '../../../../plus/coretools/compose/utils.js';
+import {
+	applyComposePlan,
+	cancellationTokenToSignal,
+	composePlan,
+	ComposeWorkflowInputError,
+	REDACTED_HUNK_CONTENT,
+	refinePlan,
+} from '../../../../plus/coretools/compose/utils.js';
 import type { ScopeSelection } from '../graphService.js';
-import { graphComposeStashPrefix } from './utils.js';
+import type { ComposerHunk } from './protocol.js';
+import { graphComposeStashPrefix, toComposerHunk } from './utils.js';
 
 export interface GeneratePlanForGraphDetailsInput {
 	svc: GitRepositoryService;
@@ -44,7 +54,9 @@ export interface GeneratePlanForGraphDetailsResult {
 export interface ApplyPlanForGraphDetailsInput {
 	svc: GitRepositoryService;
 	cacheKey: string;
-	/** When provided, only commits whose `id` is in this list are applied. `undefined` means all. */
+	/** When provided, only commits whose `id` is in this list are applied. Hunks belonging to
+	 *  omitted commits become unstaged workdir changes via the library's leftover-patch path.
+	 *  Undefined applies every commit. */
 	includedCommitIds?: readonly string[];
 	signing?: SigningConfig;
 	telemetrySource: Source;
@@ -58,18 +70,51 @@ export interface ApplyPlanForGraphDetailsResult {
 }
 
 /**
+ * Input for {@link GraphComposeIntegration.refinePlanForGraphDetails} — a chat-style follow-up
+ * to an existing cached plan. No re-collection, no re-analysis: a single AI continuation call
+ * that produces an updated plan from the prior session + the user's new instructions.
+ */
+export interface RefinePlanForGraphDetailsInput {
+	svc: GitRepositoryService;
+	/** Cache key from the prior `generatePlanForGraphDetails` (or earlier refine) call. */
+	priorCacheKey: string;
+	/** The user's refinement instructions — passed verbatim to the library. */
+	customInstructions?: string;
+	/**
+	 * Commit ids from the prior plan that the user has locked in the UI. The library
+	 * enforces that every locked commit appears in the AI's output (retries if missing)
+	 * and substitutes their content from the prior plan to keep id/message/hunks
+	 * byte-identical regardless of minor AI drift.
+	 */
+	excludedCommitIds?: readonly string[];
+	cancellation?: CancellationToken;
+	telemetrySource: Source;
+	suppressLargePromptWarning?: boolean;
+	onProgress?: (event: RefineProgressEvent) => void;
+}
+
+/** Cached scope info stamped onto the integration cache entry by the graph compose flow.
+ *  Read on refine so we can return the same downstream shape without re-running any git ops. */
+interface GraphCacheExtras {
+	headSha: string;
+	/** Newest commit of the rewritten range; below `headSha` for an interior range. */
+	tipSha: string;
+	rewriteFromSha: string;
+	selectedShas?: string[];
+	kind: 'wip-only' | 'wip+commits' | 'commits-only';
+}
+
+/**
  * Compose-tools integration specialized for the graph-details compose panel.
  *
- * Translates the graph's `ScopeSelection` (WIP-only, commits-only, WIP+commits)
- * into the library's `ComposeSource` shape, and returns the library `ComposePlan`
- * directly (the graph webview turns it into `ProposedCommit[]` via
- * `libraryPlanToProposedCommits` in `./utils.js`).
+ * Translates the graph's `ScopeSelection` (WIP-only, commits-only, WIP+commits) into the
+ * library's `ComposeSource` shape, and returns the library `ComposePlan` directly (the graph
+ * webview turns it into `ProposedCommit[]` via `libraryPlanToProposedCommits` in `./utils.js`).
  *
  * Lives in its own file (separate from `./utils.js`) so that the worker-targeted
- * `graphWebview.ts` can value-import the pure helpers from `utils.ts` without
- * dragging this class's transitive `node:child_process` dependency into the
- * worker bundle. The class itself is only value-imported by the env-routed
- * factory in `@env/coretools/composer.js`.
+ * `graphWebview.ts` can value-import the pure helpers from `utils.ts` without dragging this
+ * class's transitive `node:child_process` dependency into the worker bundle. The class itself
+ * is only value-imported by the env-routed factory in `@env/coretools/composer.js`.
  */
 export class GraphComposeIntegration extends ComposeToolsIntegration {
 	async generatePlanForGraphDetails(
@@ -84,10 +129,21 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			const resolved = await this.resolveGraphScope(input.svc, input.scope);
 			const source = this.scopeToComposeSource(input.scope, resolved);
 
+			await this.confirmInteriorRefsOrThrow(git, source);
+
 			const aiExcluded = input.aiExcludedFiles?.length ? new Set(input.aiExcludedFiles) : undefined;
 			const userExcluded = input.excludedFiles?.length
 				? new Set(input.excludedFiles.filter(p => !aiExcluded?.has(p)))
 				: undefined;
+			// An interior range's leftover hunks have nowhere to go — the commits above the range
+			// depend on the excluded content, and the worktree isn't the rewrite destination. The
+			// UI disables exclusion for interior scopes; guard the host path too.
+			if (userExcluded?.size && resolved.tipSha !== resolved.headSha) {
+				throw new ComposeWorkflowInputError(
+					'Compose scope is invalid: files cannot be excluded when the range has commits above it — the newer commits depend on the excluded changes',
+				);
+			}
+
 			const hunkFilter = userExcluded?.size
 				? (hunks: ComposeHunk[]) =>
 						hunks.filter(
@@ -108,9 +164,17 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				onBeforePrompt: onBeforePrompt,
 				hunkFilter: hunkFilter,
 				redactHunkContent: redactHunkContent,
+				overrideSafetyFailures: { interiorRefs: true },
 			});
 
 			const cacheKey = this.createCacheKey(input.svc.path);
+			const extras: GraphCacheExtras = {
+				headSha: resolved.headSha,
+				tipSha: resolved.tipSha,
+				rewriteFromSha: resolved.rewriteFromSha,
+				selectedShas: resolved.selectedShas,
+				kind: resolved.kind,
+			};
 			this._cache.set(cacheKey, {
 				plan: result.plan,
 				snapshot: result.snapshot,
@@ -118,6 +182,8 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				sourceHunks: result.source.hunks,
 				excludedFiles: userExcluded?.size ? [...userExcluded] : undefined,
 				aiExcludedFiles: input.aiExcludedFiles?.length ? [...input.aiExcludedFiles] : undefined,
+				session: result.session,
+				extras: extras,
 			});
 
 			return {
@@ -144,11 +210,116 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		}
 	}
 
+	/**
+	 * Refine an existing cached plan with new user instructions — chat-style continuation.
+	 *
+	 * NO git operations. NO re-collection. NO re-analysis. Reuses the cached session + plan
+	 * from the prior `generatePlanForGraphDetails` (or earlier refine) call and runs a single
+	 * AI call via `refinePlan` from `@gitkraken/compose-tools`. The cached snapshot is carried
+	 * forward unchanged so a subsequent `applyPlanForGraphDetails` can validate against it.
+	 *
+	 * Adds two GitLens-specific wrinkles on top of the library contract:
+	 *
+	 * 1. Builds a `clientContext` string with a UI-ordering note — the webview displays commits
+	 *    in REVERSE of the library's planning order, so positional references in user
+	 *    instructions ("merge commits 1 and 2") need explicit mapping. The note is appended to
+	 *    the library's refinement prompt verbatim.
+	 *
+	 * 2. Reconstructs the same `redactHunkContent` predicate used at original generate time so
+	 *    AI-excluded file content stays masked in the refinement prompt's references.
+	 */
+	async refinePlanForGraphDetails(input: RefinePlanForGraphDetailsInput): Promise<GeneratePlanForGraphDetailsResult> {
+		const prior = this._cache.get(input.priorCacheKey);
+		if (prior == null) {
+			throw new Error(
+				`No cached compose plan for key '${input.priorCacheKey}'. Call generatePlanForGraphDetails() first.`,
+			);
+		}
+
+		if (prior.session == null || prior.session.messages.length === 0) {
+			throw new Error(
+				`Cannot refine — prior compose session lacks message history. Regenerate a fresh plan first.`,
+			);
+		}
+
+		const priorExtras = prior.extras as GraphCacheExtras | undefined;
+		if (priorExtras == null) {
+			throw new Error(`Cannot refine — prior cache entry lacks scope metadata. Regenerate a fresh plan first.`);
+		}
+
+		const model = this.createAiModelPort(input.telemetrySource);
+		const { signal, dispose: disposeSignal } = cancellationTokenToSignal(input.cancellation);
+		const onBeforePrompt = this.buildLargePromptGate(input.suppressLargePromptWarning ?? false);
+
+		try {
+			const refined = await refinePlan({
+				session: prior.session,
+				priorPlan: prior.plan,
+				model: model,
+				instructions: input.customInstructions,
+				lockedCommits: input.excludedCommitIds,
+				clientContext: buildUiOrderingNote(prior.plan),
+				cancellation: signal,
+				onBeforePrompt: onBeforePrompt,
+				onProgress: input.onProgress,
+			});
+
+			const cacheKey = this.createCacheKey(input.svc.path);
+			this._cache.set(cacheKey, {
+				plan: refined.plan,
+				snapshot: prior.snapshot,
+				source: prior.source,
+				sourceHunks: prior.sourceHunks,
+				excludedFiles: prior.excludedFiles,
+				aiExcludedFiles: prior.aiExcludedFiles,
+				session: refined.session,
+				extras: priorExtras,
+			});
+
+			if (input.priorCacheKey !== cacheKey) {
+				this._cache.delete(input.priorCacheKey);
+			}
+
+			return {
+				cacheKey: cacheKey,
+				plan: refined.plan,
+				sourceHunks: prior.sourceHunks,
+				headSha: priorExtras.headSha,
+				rewriteFromSha: priorExtras.rewriteFromSha,
+				selectedShas: priorExtras.selectedShas,
+				kind: priorExtras.kind,
+				diffStats: {
+					fileCount: new Set(prior.sourceHunks.map(h => h.fileName)).size,
+					hunkCount: prior.sourceHunks.length,
+					addedLines: prior.sourceHunks.reduce((sum, h) => sum + h.additions, 0),
+					removedLines: prior.sourceHunks.reduce((sum, h) => sum + h.deletions, 0),
+				},
+				usage: {
+					inputTokens: refined.usage.inputTokens,
+					outputTokens: refined.usage.outputTokens,
+				},
+			};
+		} finally {
+			disposeSignal();
+		}
+	}
+
 	async applyPlanForGraphDetails(input: ApplyPlanForGraphDetailsInput): Promise<ApplyPlanForGraphDetailsResult> {
 		const cached = this._cache.get(input.cacheKey);
 		if (!cached) {
 			throw new Error(
 				`No cached compose plan for key '${input.cacheKey}'. Call generatePlanForGraphDetails() first.`,
+			);
+		}
+
+		// Interior ranges (tip below HEAD) can't partially apply: leftover hunks from omitted
+		// commits would land in the worktree, which isn't the rewrite destination, and the
+		// reparented commits above depend on the full range content. The UI hides subset-apply
+		// for interior scopes; guard the host path too.
+		const cachedExtras = cached.extras as GraphCacheExtras | undefined;
+		if (input.includedCommitIds != null && cachedExtras != null && cachedExtras.tipSha !== cachedExtras.headSha) {
+			throw new ComposeWorkflowInputError(
+				'Commits cannot be partially applied when the range has commits above it — apply the full plan instead',
 			);
 		}
 
@@ -159,12 +330,10 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			snapshot: cached.snapshot,
 		};
 
-		const applyCommitIds = input.includedCommitIds != null ? [...input.includedCommitIds] : undefined;
-
 		const stashLabel = `${graphComposeStashPrefix}${new Date().toISOString().replace(/[:.]/g, '-')}`;
 
 		// Reconstruct the same user-only hunkFilter the plan was generated with. The cached
-		// snapshot's diffHash was computed from the filtered hunk set; if we don't re-apply the
+		// snapshot's diffHash was computed from the filtered hunk set; without re-applying the
 		// filter at apply time, the library's drift check sees the fresh unfiltered diff and
 		// reports a false-positive SAFETY_CHECK_FAILED. aiexclude-masked files were NOT filtered
 		// (only their AI prompt content was masked), so they don't participate here.
@@ -181,10 +350,12 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				onProgress: input.onProgress,
 				signing: input.signing,
 				authorAttribution: 'plurality',
-				applyCommitIds: applyCommitIds,
+				applyCommitIds: input.includedCommitIds != null ? [...input.includedCommitIds] : undefined,
 				stashLabel: stashLabel,
 				hunkFilter: hunkFilter,
+				overrideSafetyFailures: { interiorRefs: true },
 			});
+
 			return {
 				commitShas: result.commitShas,
 				undoId: result.undoId,
@@ -195,13 +366,219 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		}
 	}
 
+	/**
+	 * Read the hunks belonging to a cached draft commit, converted to GitLens's `ComposerHunk`
+	 * shape and with content masked for any file in the original compose run's `aiExcludedFiles`.
+	 *
+	 * Used by the per-commit message-regen flow: the AI gets a masked view of excluded content
+	 * that matches the original compose run's prompt, so single-commit regen doesn't quietly
+	 * bypass an aiexclude rule the original compose honored.
+	 *
+	 * Returns `undefined` when the cache entry or commit id isn't found.
+	 */
+	getMaskedHunksForCachedCommit(
+		cacheKey: string,
+		commitId: string,
+	): { hunks: ComposerHunk[]; currentMessage: string } | undefined {
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return undefined;
+
+		const commit = cached.plan.allOrderedCommits.find(c => c.id === commitId);
+		if (commit == null) return undefined;
+
+		const indexSet = new Set(commit.hunkIndices);
+		const aiExcluded = cached.aiExcludedFiles?.length ? new Set(cached.aiExcludedFiles) : undefined;
+
+		const hunks: ComposerHunk[] = [];
+		for (const h of cached.sourceHunks) {
+			if (!indexSet.has(h.index)) continue;
+
+			const composerHunk = toComposerHunk(h);
+			if (aiExcluded?.has(h.fileName) || (h.originalFileName != null && aiExcluded?.has(h.originalFileName))) {
+				composerHunk.content = REDACTED_HUNK_CONTENT;
+			}
+			hunks.push(composerHunk);
+		}
+
+		return { hunks: hunks, currentMessage: commit.message };
+	}
+
+	/**
+	 * Mutate the cached plan's commit message in place. `branches[*].branchGroup.commits[*]`
+	 * and `grouping.branches[*].commits[*]` share the same object references with
+	 * `allOrderedCommits[*]` (the library builds the latter via `flatMap` over the former),
+	 * so one assignment propagates to every read site. Subsequent `refinePlan` calls' locked-
+	 * commit substitution will pick up the new message, and `applyComposePlan` writes it to
+	 * the resulting commit.
+	 *
+	 * Returns `false` when the cache entry or commit id isn't found.
+	 */
+	updateCachedPlanCommitMessage(cacheKey: string, commitId: string, message: string): boolean {
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return false;
+
+		const commit = cached.plan.allOrderedCommits.find(c => c.id === commitId);
+		if (commit == null) return false;
+
+		commit.message = message;
+		return true;
+	}
+
+	/**
+	 * Reorder the cached plan's commits to match `orderedCommitIds` (the plan's canonical
+	 * library order — tip last). Mutates `allOrderedCommits`, each branch's `orderedCommitIds`
+	 * and `branchGroup.commits`, and `ordering.branches[*].orderedCommitIds` so every read site
+	 * (apply, a subsequent refine's priorPlan) sees the new order. Existing commit objects are
+	 * reused — never rebuilt — so the shared references documented on {@link updateCachedPlanCommitMessage}
+	 * stay intact.
+	 *
+	 * `orderedCommitIds` must be an exact permutation of the cached plan's commit ids. Returns
+	 * `false` on cache miss or an id-set mismatch (a stale/desynced request — the caller surfaces
+	 * a recoverable "regenerate" state).
+	 */
+	reorderCachedPlan(cacheKey: string, orderedCommitIds: readonly string[]): boolean {
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return false;
+
+		const plan = cached.plan;
+		const byId = new Map(plan.allOrderedCommits.map(c => [c.id, c]));
+
+		// Reject anything that isn't an exact permutation of the current commit ids.
+		if (orderedCommitIds.length !== byId.size) return false;
+
+		const seen = new Set<string>();
+		for (const id of orderedCommitIds) {
+			if (!byId.has(id) || seen.has(id)) return false;
+
+			seen.add(id);
+		}
+
+		const newGlobalOrder = orderedCommitIds.map(id => byId.get(id)!);
+		plan.allOrderedCommits = newGlobalOrder;
+
+		// Reorder each branch within the new global order, preserving branch membership.
+		for (const branch of plan.branches) {
+			const members = new Set(branch.orderedCommitIds);
+			const orderedForBranch = newGlobalOrder.filter(c => members.has(c.id));
+			branch.orderedCommitIds = orderedForBranch.map(c => c.id);
+			// branchGroup.commits shares element refs with allOrderedCommits and is the same object
+			// as the matching grouping.branches entry — reorder in place to keep both consistent.
+			branch.branchGroup.commits = orderedForBranch;
+		}
+
+		// ordering.branches carries a parallel per-branch id list keyed by branchId.
+		for (const ordering of plan.ordering.branches) {
+			const branch = plan.branches.find(b => b.branchGroup.id === ordering.branchId);
+			if (branch != null) {
+				ordering.orderedCommitIds = [...branch.orderedCommitIds];
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Move every hunk belonging to any of `paths` (matched on `fileName`/`originalFileName` over the
+	 * source hunks) from the `fromCommitId` draft commit to `toCommitId`, in place on the cached plan.
+	 * All files move in a single mutation so the source commit is pruned only once it's truly empty —
+	 * looping the single-file path would prune it the moment the first file empties it and orphan the
+	 * rest. If the source commit is left empty it is pruned from `allOrderedCommits` and every shared
+	 * branch read site (empty commits hard-fail at apply). Mutates the shared `CommitSuggestion`
+	 * objects so apply / a subsequent refine see the change — see {@link reorderCachedPlan} for the
+	 * shared-reference discipline.
+	 *
+	 * Returns `false` on cache miss, unknown commit ids, `from === to`, empty `paths`, or when none of
+	 * the files have hunks in the source commit (nothing to move).
+	 */
+	moveFilesBetweenCommits(cacheKey: string, fromCommitId: string, toCommitId: string, paths: string[]): boolean {
+		if (fromCommitId === toCommitId || paths.length === 0) return false;
+
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return false;
+
+		const plan = cached.plan;
+		const from = plan.allOrderedCommits.find(c => c.id === fromCommitId);
+		const to = plan.allOrderedCommits.find(c => c.id === toCommitId);
+		if (from == null || to == null) return false;
+
+		// Hunk indices for these files (renames match either side of the move).
+		const pathSet = new Set(paths);
+		const fileIndices = new Set(
+			cached.sourceHunks
+				.filter(h => pathSet.has(h.fileName) || (h.originalFileName != null && pathSet.has(h.originalFileName)))
+				.map(h => h.index),
+		);
+		const movingSet = new Set(from.hunkIndices.filter(i => fileIndices.has(i)));
+		if (movingSet.size === 0) return false;
+
+		from.hunkIndices = from.hunkIndices.filter(i => !movingSet.has(i));
+		for (const i of movingSet) {
+			if (!to.hunkIndices.includes(i)) {
+				to.hunkIndices.push(i);
+			}
+		}
+
+		// Prune the source commit if it's now empty — empty commits fail at apply time.
+		if (from.hunkIndices.length === 0) {
+			this.removeCommitFromCachedPlan(plan, fromCommitId);
+		}
+
+		return true;
+	}
+
+	/** Remove a commit id from `allOrderedCommits` and every shared branch read site (branch
+	 *  `orderedCommitIds`/`branchGroup.commits` and `ordering.branches[*].orderedCommitIds`).
+	 *  `grouping.branches[i]` shares the `branchGroup` reference, so it prunes with it. */
+	private removeCommitFromCachedPlan(plan: ComposePlan, commitId: string): void {
+		plan.allOrderedCommits = plan.allOrderedCommits.filter(c => c.id !== commitId);
+		for (const branch of plan.branches) {
+			branch.orderedCommitIds = branch.orderedCommitIds.filter(id => id !== commitId);
+			branch.branchGroup.commits = branch.branchGroup.commits.filter(c => c.id !== commitId);
+		}
+		for (const ordering of plan.ordering.branches) {
+			ordering.orderedCommitIds = ordering.orderedCommitIds.filter(id => id !== commitId);
+		}
+	}
+
+	/** Snapshot the cached plan in the shape {@link libraryPlanToProposedCommits} consumes, so the
+	 *  webview can re-derive `ProposedCommit[]` after an in-place mutation (e.g. a file move).
+	 *  Returns `undefined` on cache miss. */
+	getCachedPlanResult(cacheKey: string):
+		| {
+				plan: ComposePlan;
+				sourceHunks: ComposeHunk[];
+				headSha: string;
+				rewriteFromSha: string;
+				kind: GraphCacheExtras['kind'];
+		  }
+		| undefined {
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return undefined;
+
+		const extras = cached.extras as GraphCacheExtras | undefined;
+		if (extras == null) return undefined;
+
+		return {
+			plan: cached.plan,
+			sourceHunks: cached.sourceHunks,
+			headSha: extras.headSha,
+			rewriteFromSha: extras.rewriteFromSha,
+			kind: extras.kind,
+		};
+	}
+
 	private async resolveGraphScope(
 		svc: GitRepositoryService,
 		scope: ScopeSelection,
 	): Promise<{
 		branchName: string;
 		headSha: string;
+		/** Newest commit of the covering range — the rewrite target's `to`. Below `headSha` for an
+		 *  interior range, where the engine reparents the commits above onto the rewritten chain. */
+		tipSha: string;
 		rewriteFromSha: string;
+		/** Oldest commit of the covering range — the rewrite base is its first parent. */
+		baseSha?: string;
 		selectedShas?: string[];
 		kind: 'wip-only' | 'wip+commits' | 'commits-only';
 	}> {
@@ -225,43 +602,36 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		const hasWip = scope.includeStaged || scope.includeUnstaged;
 
 		if (!hasShas) {
-			return { branchName: branch.name, headSha: headSha, rewriteFromSha: headSha, kind: 'wip-only' };
+			return {
+				branchName: branch.name,
+				headSha: headSha,
+				tipSha: headSha,
+				rewriteFromSha: headSha,
+				kind: 'wip-only',
+			};
 		}
 
-		const selectedSet = new Set(scope.includeShas);
-		const ordered: string[] = [];
-		let cursorSha: string | undefined = headCommit.sha;
-		let cursorParents: readonly string[] = headCommit.parents;
-		let collecting = false;
-		while (cursorSha != null && ordered.length < selectedSet.size) {
-			if (selectedSet.has(cursorSha)) {
-				ordered.push(cursorSha);
-				collecting = true;
-			} else if (collecting) {
-				throw new Error('Compose scope includeShas is not a contiguous first-parent range from HEAD');
-			}
-			const parentSha: string | undefined = cursorParents[0];
-			if (parentSha == null) break;
-
-			const parentCommit = await svc.commits.getCommit(parentSha);
-			cursorSha = parentCommit?.sha;
-			cursorParents = parentCommit?.parents ?? [];
-		}
-		if (ordered.length !== selectedSet.size) {
-			throw new Error('Compose scope includeShas references commits not reachable via first-parent from HEAD');
+		const covered = await coverCommitRange(svc, headSha, new Set(scope.includeShas));
+		if (!covered.ok) {
+			throw new ComposeWorkflowInputError(`Compose scope is invalid: ${covered.message}`);
 		}
 
-		const oldest = ordered.at(-1);
-		let rewriteFromSha = headSha;
-		if (oldest != null) {
-			const oldestCommit = await svc.commits.getCommit(oldest);
-			rewriteFromSha = oldestCommit?.parents[0] ?? rootSha;
+		// Working changes have no defined basis mid-range (the library's collect enforces this
+		// too). Unreachable via the picker — a contiguous slice including WIP always reaches the
+		// newest commit — but guard the seeded paths.
+		if (hasWip && covered.tipSha !== headSha) {
+			throw new ComposeWorkflowInputError(
+				'Compose scope is invalid: working changes can only be included when the range ends at the branch head',
+			);
 		}
+
 		return {
 			branchName: branch.name,
 			headSha: headSha,
-			rewriteFromSha: rewriteFromSha,
-			selectedShas: ordered,
+			tipSha: covered.tipSha,
+			rewriteFromSha: covered.baseParentSha ?? rootSha,
+			baseSha: covered.baseSha,
+			selectedShas: covered.shas,
 			kind: hasWip ? 'wip+commits' : 'commits-only',
 		};
 	}
@@ -271,7 +641,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		resolved: {
 			branchName: string;
 			headSha: string;
+			tipSha: string;
 			rewriteFromSha: string;
+			baseSha?: string;
 			selectedShas?: string[];
 			kind: string;
 		},
@@ -291,7 +663,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			};
 		}
 
-		const oldestSha = resolved.selectedShas?.at(-1);
+		// The resolver's chosen base commit — NOT derived from log order, which doesn't reliably
+		// put the range-base boundary commit last when merges (or skewed commit dates) are present.
+		const oldestSha = resolved.baseSha;
 		if (oldestSha == null) {
 			throw new Error('Compose scope includeShas resolved to an empty selection');
 		}
@@ -301,7 +675,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				type: 'commit-range',
 				branch: resolved.branchName,
 				from: oldestSha,
-				to: resolved.headSha,
+				to: resolved.tipSha,
 			};
 		}
 
@@ -309,7 +683,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			type: 'commit-range',
 			branch: resolved.branchName,
 			from: oldestSha,
-			to: resolved.headSha,
+			to: resolved.tipSha,
 			includeWorkdir: {
 				includeStaged: scope.includeStaged,
 				includeUnstaged: scope.includeUnstaged,
@@ -317,4 +691,23 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			},
 		};
 	}
+}
+
+/**
+ * Build the GitLens-specific UI-ordering note that gets passed to `refinePlan` as
+ * `clientContext`. The library doesn't know about the graph webview's reversed display order;
+ * this note tells the AI how the user perceives the commit ordering so positional references
+ * like "the first commit" resolve correctly.
+ */
+function buildUiOrderingNote(priorPlan: ComposePlan): string {
+	const commits = priorPlan.allOrderedCommits;
+	if (commits.length === 0) return '';
+
+	const uiOrdered = commits.toReversed();
+	const mapping = uiOrdered.map((c, i) => `${String(i + 1)}. [${c.id}] ${c.message.split('\n')[0]}`).join('\n');
+
+	return `UI ORDERING NOTE: In GitLens's graph compose panel, commits are displayed in REVERSE of your prior plan's allOrderedCommits order — newest at the top, labeled "commit 1". When the user says "the first commit" or "commit 1", they mean the TOP of the UI list (which is the LAST commit in your prior plan).
+
+UI label → commit id (in the order the user sees them):
+${mapping}`;
 }

@@ -422,6 +422,8 @@ declare global {
 		rowhovertrack: CustomEvent<{
 			graphZoneType: GraphZoneType;
 			graphRow: GraphRow;
+			// Minimap-day override for synthetic WIP rows; absent on the legacy GK's own dispatch (falls back to `graphRow.date`).
+			minimapDate?: number;
 		}>;
 		rowunhover: CustomEvent<{
 			graphZoneType: GraphZoneType;

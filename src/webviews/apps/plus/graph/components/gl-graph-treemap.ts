@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import type { GraphActivityDecay } from '../../../../../config.js';
@@ -21,6 +21,7 @@ import type {
 } from '../../../../plus/treemap/protocol.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { Disposable } from '../../../shared/events.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { periodLabels } from '../../timeline/components/header.js';
 import type {
 	GlTreemapChart,
@@ -29,6 +30,7 @@ import type {
 } from '../../treemap/components/treemap-chart.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
+import { classifyTreemapZoom, countFileLeaves } from './visualizations.utils.js';
 import './gl-details-agent-status.js';
 import './gl-graph-visualizations-switcher.js';
 import '../../treemap/components/treemap-chart.js';
@@ -167,17 +169,19 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.toolbar {
 			display: flex;
+			gap: var(--gl-space-8);
 			align-items: center;
-			/* 0.6rem horizontal so the switcher (left) and the close button (right) sit at matching
-			 * inset from the toolbar edges. Vertical kept at 0.4rem for the 32px toolbar height. */
-			padding: 0.4rem 0.6rem;
-			gap: 0.8rem;
 			min-height: 3.2rem;
-			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
+
+			/* 0.6rem horizontal so the switcher (left) and the close button (right) sit at matching
+		 * inset from the toolbar edges. Vertical kept at 0.4rem for the 32px toolbar height. */
+			padding: var(--gl-space-4) var(--gl-space-6);
+
 			/* Clip rather than overflow when content exceeds the toolbar width — at very narrow
-			 * widths even the shrunken description + pill may overflow the right edge. Clipping
-			 * keeps the right-edge controls anchored visually instead of pushing them off-screen. */
+		 * widths even the shrunken description + pill may overflow the right edge. Clipping
+		 * keeps the right-edge controls anchored visually instead of pushing them off-screen. */
 			overflow: hidden;
+			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
 		}
 
 		.toolbar gl-graph-visualizations-switcher {
@@ -185,28 +189,28 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		/* Shrink priority when the toolbar is too narrow to fit everything: counts collapse first
-		 * (description + agent-status, flex-shrink: 1000), then breadcrumbs (100), then the title
-		 * (10). The switcher, EXP badge, and .toolbar__right never shrink, so the close button
-		 * stays pinned to the right edge regardless of width. min-width: 0 lets each shrinkable
-		 * item collapse below its intrinsic width; text-overflow / overflow:hidden ellipsizes
-		 * gracefully on the way down. */
+	 * (description + agent-status, flex-shrink: 1000), then breadcrumbs (100), then the title
+	 * (10). The switcher, EXP badge, and .toolbar__right never shrink, so the close button
+	 * stays pinned to the right edge regardless of width. min-width: 0 lets each shrinkable
+	 * item collapse below its intrinsic width; text-overflow / overflow:hidden ellipsizes
+	 * gracefully on the way down. */
 		.toolbar__title {
 			/* Always rendered (FILES / COMMITS / AGENT ACTIVITY) so the user keeps the view label
-			 * even after zooming into the tree. Shrinks last via the priority chain above. */
+		 * even after zooming into the tree. Shrinks last via the priority chain above. */
 			flex: 0 10 auto;
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			text-transform: uppercase;
 			white-space: nowrap;
 		}
 
 		/* Breadcrumbs flex-grow to fill leftover toolbar space so the component's own ResizeObserver
-		 * sees width changes when the toolbar widens/narrows — that's what drives its outer-in
-		 * collapse algorithm to run and re-run. Shrinks faster than the title but slower than the
-		 * counts so the path stays readable as the toolbar tightens. */
+	 * sees width changes when the toolbar widens/narrows — that's what drives its outer-in
+	 * collapse algorithm to run and re-run. Shrinks faster than the title but slower than the
+	 * counts so the path stays readable as the toolbar tightens. */
 		.toolbar__crumbs {
 			flex: 1 100 0;
 			min-width: 0;
@@ -215,18 +219,18 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.toolbar__description {
 			/* Counts (e.g. "2,173 files" / "N commits · M files") sit after the breadcrumbs when
-			 * present, else right after the EXP badge. Shrinks fastest in the priority chain. */
+		 * present, else right after the EXP badge. Shrinks fastest in the priority chain. */
 			flex: 0 1000 auto;
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			color: var(--color-foreground--65);
 			white-space: nowrap;
 		}
 
 		/* Activity-mode counts (status pills + "N working · M idle"). Shares the shrink-first
-		 * priority with .toolbar__description so both collapse together as the toolbar narrows. */
+	 * priority with .toolbar__description so both collapse together as the toolbar narrows. */
 		.toolbar > gl-details-agent-status {
 			flex: 0 1000 auto;
 			min-width: 0;
@@ -234,31 +238,31 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		/* Matches the Visual History header's period pill — transparent background, tight padding —
-		 * so the same control reads consistently across both surfaces. Full-strength foreground (no
-		 * dimming) to match the rest of the toolbar text. */
+	 * so the same control reads consistently across both surfaces. Full-strength foreground (no
+	 * dimming) to match the rest of the toolbar text. */
 		.period-button {
 			display: inline-flex;
+			gap: var(--gl-space-2);
 			align-items: center;
-			gap: 0.2rem;
-			appearance: none;
-			background: transparent;
-			border: 1px solid transparent;
-			border-radius: 0.3rem;
 			padding: 0.1rem 0.4rem;
 			font: inherit;
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 			color: var(--vscode-foreground);
-			cursor: pointer;
 			white-space: nowrap;
+			appearance: none;
+			cursor: pointer;
+			background: transparent;
+			border: var(--gl-border-width) solid transparent;
+			border-radius: var(--gl-radius-sm);
 			transition:
-				background 120ms ease,
-				border-color 120ms ease;
+				background var(--gl-duration-x-fast) ease,
+				border-color var(--gl-duration-x-fast) ease;
 		}
 
 		.period-button:hover,
 		.period-button:focus-visible {
-			background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 			outline: none;
+			background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 		}
 
 		.period-button:focus-visible {
@@ -266,21 +270,22 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		.period-button code-icon {
-			font-size: 1rem;
+			font-size: var(--gl-font-micro);
 			opacity: 0.75;
 		}
 
 		.toolbar__right {
 			display: flex;
-			align-items: center;
-			gap: 0.8rem;
 			flex: none;
+			gap: var(--gl-space-8);
+			align-items: center;
 			min-width: 0;
+
 			/* Always pin to the toolbar's right edge regardless of what sits to our left.
-			 * Files / Commits mode rely on the breadcrumbs (flex 1) to push us right; Activity
-			 * mode renders no breadcrumbs AND no description, so without an explicit auto-margin
-			 * the right group would sit flush against the title. Auto-margin collapses to zero
-			 * when another flex-grow element is already absorbing the slack. */
+		 * Files / Commits mode rely on the breadcrumbs (flex 1) to push us right; Activity
+		 * mode renders no breadcrumbs AND no description, so without an explicit auto-margin
+		 * the right group would sit flush against the title. Auto-margin collapses to zero
+		 * when another flex-grow element is already absorbing the slack. */
 			margin-left: auto;
 		}
 
@@ -294,7 +299,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.hooks-banner {
 			display: block;
-			margin: 1.2rem;
+			margin: var(--gl-space-12);
 		}
 
 		gl-treemap-chart {
@@ -303,38 +308,38 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		/* Wraps the chart so the error overlay can absolute-position over it without unmounting the
-		 * chart. Keeping the chart mounted preserves its internal zoom path across an error →
-		 * retry-success window so the user lands back at their prior drill-down depth. */
+	 * chart. Keeping the chart mounted preserves its internal zoom path across an error →
+	 * retry-success window so the user lands back at their prior drill-down depth. */
 		.chart-container {
 			position: relative;
+			display: flex;
 			flex: 1 1 auto;
 			min-height: 0;
-			display: flex;
 		}
 
 		.overlay {
 			position: absolute;
 			inset: 0;
-			background: var(--vscode-editor-background, transparent);
 			display: flex;
 			flex-direction: column;
+			gap: var(--gl-space-12);
 			align-items: center;
 			justify-content: center;
-			gap: 1.2rem;
-			padding: 1rem;
-			text-align: center;
+			padding: var(--gl-space-10);
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+			text-align: center;
+			background: var(--vscode-editor-background, transparent);
 		}
 
 		.empty {
-			flex: 1 1 auto;
 			display: flex;
+			flex: 1 1 auto;
 			flex-direction: column;
+			gap: var(--gl-space-8);
 			align-items: center;
 			justify-content: center;
-			gap: 0.8rem;
+			padding: var(--gl-space-10);
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
-			padding: 1rem;
 			text-align: center;
 		}
 	`;
@@ -363,6 +368,10 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	 *  so this stays the single source of truth. */
 	@state()
 	private _zoomPath: TreemapNode[] = [];
+
+	/** `repoPath::mode` key of the last emitted `graph/treemap/shown` — dedups the impression
+	 *  against same-activation refetches (period/scope changes) while disconnect re-arms it. */
+	private _shownEmittedKey: string | undefined;
 
 	@query('gl-treemap-chart')
 	private _chart?: GlTreemapChart;
@@ -480,6 +489,8 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		this._virtualFallbackEmittedForRepo = undefined;
 		this._activeFilesCache = undefined;
 		this._repoFamilySessionsCache = undefined;
+		// Re-arm the impression telemetry so the next mount records a fresh `shown`.
+		this._shownEmittedKey = undefined;
 	}
 
 	override willUpdate(): void {
@@ -533,6 +544,12 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				composed: true,
 			}),
 		);
+		// The switcher emits `reason: 'user'` for its clicks; this forced flip is the only
+		// programmatic writer, so label it distinctly to keep user-action counts honest.
+		emitTelemetrySentEvent<'graph/visualizations/modeChanged'>(this, {
+			name: 'graph/visualizations/modeChanged',
+			data: { 'mode.old': 'treemap-commits', 'mode.new': 'treemap-files', reason: 'fallback' },
+		});
 	}
 
 	private readonly handleRetry = (): void => {
@@ -678,6 +695,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			this._dataRepoPath = repo.path;
 			this._lastFingerprint = fingerprint;
 			this._lastErrorFingerprint = undefined;
+			this.maybeEmitShownTelemetry(repo.path, result);
 		} catch {
 			if (this._abortController !== controller) return;
 
@@ -695,6 +713,31 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				this._loading = false;
 			}
 		}
+	}
+
+	/** Impression telemetry per (repo, mode) activation — deferred to data resolution so
+	 *  `files.count` is accurate (mirrors the branches sidebar panel's deferred `shown`).
+	 *  Same-activation refetches (period/scope changes) don't re-emit; a remount re-arms via
+	 *  `disconnectedCallback` so every fresh activation records an impression. */
+	private maybeEmitShownTelemetry(repoPath: string, data: TreemapData): void {
+		// The host returns a non-null wrapper `{ root: undefined }` when the repo isn't resolvable
+		// yet (same case the refresh dedup guards with `_data?.root != null`). Skip WITHOUT arming
+		// `_shownEmittedKey` so we don't record a phantom `files.count: 0` impression and then
+		// suppress the real one when actual data lands for this repo/mode.
+		if (data.root == null) return;
+
+		const key = `${repoPath}::${this.mode}`;
+		if (key === this._shownEmittedKey) return;
+
+		this._shownEmittedKey = key;
+		emitTelemetrySentEvent<'graph/treemap/shown'>(this, {
+			name: 'graph/treemap/shown',
+			data: {
+				mode: this.mode,
+				'files.count': countFileLeaves(data.root),
+				period: this.mode === 'commits' ? (this.graphState.timeline?.period ?? '1|Y') : undefined,
+			},
+		});
 	}
 
 	/** Per-file activity snapshot for files in the active repo family, surfaced from
@@ -960,8 +1003,13 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	 *  timeline share `graphState.timelinePeriod` so changing it in either viz keeps both in sync. */
 	private readonly onPeriodMenuSelect = (e: CustomEvent<{ value: string }>): void => {
 		const period = e.detail.value as TimelinePeriod;
-		if ((this.graphState.timeline?.period ?? '1|Y') === period) return;
+		const previous = this.graphState.timeline?.period ?? '1|Y';
+		if (previous === period) return;
 
+		emitTelemetrySentEvent<'graph/treemap/periodChanged'>(this, {
+			name: 'graph/treemap/periodChanged',
+			data: { 'period.old': previous, 'period.new': period },
+		});
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-timeline-config-change', {
 				detail: { period: period },
@@ -978,8 +1026,16 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	 *  round-trip rather than maintaining a parallel signal. */
 	private readonly onDecayMenuSelect = (e: CustomEvent<{ value: string }>): void => {
 		const decay = e.detail.value as GraphActivityDecay;
-		if (this.graphState.config?.activityDecay === decay) return;
+		// Default to '5m' to match the picker's own default (see render()), so `decay.old` reports
+		// the value the user actually saw selected and re-picking that default is caught as a no-op
+		// rather than emitting a phantom change from `undefined`.
+		const previous = this.graphState.config?.activityDecay ?? '5m';
+		if (previous === decay) return;
 
+		emitTelemetrySentEvent<'graph/treemap/decayChanged'>(this, {
+			name: 'graph/treemap/decayChanged',
+			data: { 'decay.old': previous, 'decay.new': decay },
+		});
 		this._ipc?.sendCommand(UpdateGraphConfigurationCommand, { changes: { activityDecay: decay } });
 	};
 
@@ -1029,7 +1085,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					class="toolbar__experimental"
 					placement="bottom"
 					content="This is an experimental feature"
-					distance="6"
+					.distance=${6}
 				>
 					<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
 				</gl-tooltip>
@@ -1065,7 +1121,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 								<gl-tooltip
 									slot="anchor"
 									placement="bottom"
-									distance="6"
+									.distance=${6}
 									content="How long files stay highlighted after the agent reads or edits them"
 								>
 									<button
@@ -1118,7 +1174,25 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	}
 
 	private readonly onChartZoomChange = (e: CustomEvent<TreemapZoomChangeDetail>): void => {
-		this._zoomPath = e.detail.path;
+		const previous = this._zoomPath;
+		const next = e.detail.path;
+		this._zoomPath = next;
+
+		// `auto` marks a chart-driven re-tie of the zoom path against refreshed data (rehydrate or
+		// reset), not a user gesture — skip telemetry for it, but still update `_zoomPath` above so the
+		// breadcrumbs and the next user zoom classify correctly. Without this, a refetch that drops the
+		// zoomed folder resets the path to root and would otherwise be counted as a user zoom-out.
+		if (e.detail.auto === true) return;
+
+		// The chart also re-emits an identical path when it rehydrates the preserved zoom by name after
+		// an error → retry cycle; `classifyTreemapZoom` reports `changed:false` for that.
+		const zoom = classifyTreemapZoom(previous, next);
+		if (!zoom.changed) return;
+
+		emitTelemetrySentEvent<'graph/treemap/zoomed'>(this, {
+			name: 'graph/treemap/zoomed',
+			data: { mode: this.mode, direction: zoom.direction, depth: zoom.depth },
+		});
 	};
 
 	/** Per-mode primary action for a file-leaf click. Folder clicks zoom (handled in the chart);
@@ -1131,10 +1205,12 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		switch (this.mode) {
 			case 'files':
+				this.emitFileClickTelemetry('files', 'open');
 				this.sendFileAction('open', absPath);
 				return;
 
 			case 'commits':
+				this.emitFileClickTelemetry('commits', 'history');
 				this.sendFileAction('history', absPath);
 				return;
 
@@ -1143,6 +1219,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				// last surface change the user sees — landing on the file matches the click intent
 				// while the kanban session detail quietly slides in beside it.
 				const session = this.findSessionForFile(absPath);
+				this.emitFileClickTelemetry('activity', 'open', session != null);
 				if (session != null) {
 					this.dispatchEvent(
 						new CustomEvent('gl-graph-kanban-open-session', {
@@ -1169,6 +1246,13 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			}
 		}
 	};
+
+	private emitFileClickTelemetry(mode: TreemapMode, action: 'open' | 'history', sessionFocused?: boolean): void {
+		emitTelemetrySentEvent<'graph/treemap/fileClicked'>(this, {
+			name: 'graph/treemap/fileClicked',
+			data: { mode: mode, action: action, 'session.focused': sessionFocused },
+		});
+	}
 
 	private sendFileAction(action: TreemapFileActionParams['action'], absPath: string): void {
 		// Send the repo-relative path + the repo it belongs to, so the host can scheme-preserve

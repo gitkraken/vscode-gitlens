@@ -33,12 +33,12 @@ import type { GlRepository } from './models/repository.js';
 // Merge the RepositoryService sub-provider interface onto GitRepositoryService
 // so that sub-provider properties (branches, commits, etc.) are recognized by TypeScript.
 // The actual property descriptors are copied from RepositoryService at construction time.
-// oxlint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+// oxlint-disable-next-line typescript/no-unsafe-declaration-merging
 export interface GitRepositoryService extends RepositoryService {}
 
 const skipOverlappingProperties = new Set(['path', 'provider', 'getAbsoluteUri', 'exec', 'run']);
 
-// oxlint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+// oxlint-disable-next-line typescript/no-unsafe-declaration-merging
 export class GitRepositoryService {
 	constructor(
 		private readonly _svc: GitProviderService,
@@ -116,6 +116,9 @@ export class GitRepositoryService {
 		const handle = this._svc.watchService.watch(this.path, gitDir);
 		if (handle == null) return undefined;
 
+		// No cache wiring here: BOTH channels are driven once, globally, at the watch session (see
+		// `GitProviderService`) — before the session notifies any subscriber. Subscribing the cache here too would
+		// advance the clock a second time, mid-notification, whenever this watch shares an open repo's session.
 		const wtSub = handle.session.subscribeToWorkingTree({ delayMs: opts?.workingTreeDelayMs ?? 500 });
 		const repoSub = handle.session.subscribe();
 
@@ -513,7 +516,10 @@ export class GitRepositoryService {
 
 	@gate()
 	@debug()
-	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }): Promise<void> {
+	async switch(
+		ref: string,
+		options?: { createBranch?: string | undefined; noTracking?: boolean; progress?: boolean },
+	): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.switchCore(ref, opts);
 
@@ -528,7 +534,7 @@ export class GitRepositoryService {
 		);
 	}
 
-	private async switchCore(ref: string, options?: { createBranch?: string }) {
+	private async switchCore(ref: string, options?: { createBranch?: string; noTracking?: boolean }) {
 		try {
 			await this.ops?.checkout(ref, options);
 		} catch (ex) {

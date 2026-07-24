@@ -113,9 +113,7 @@ class ConcatIterator<T> implements IterableIterator<T> {
 
 		while (this.sourceIndex < this.sources.length) {
 			// Initialize iterator for current source if needed
-			if (this.currentIterator === undefined) {
-				this.currentIterator = this.sources[this.sourceIndex][Symbol.iterator]();
-			}
+			this.currentIterator ??= this.sources[this.sourceIndex][Symbol.iterator]();
 
 			const result = this.currentIterator.next();
 			if (!result.done) {
@@ -708,9 +706,7 @@ class UnionIterator<T> implements IterableIterator<T> {
 			}
 
 			// Initialize iterator for current source if needed
-			if (this.currentIterator === undefined) {
-				this.currentIterator = source[Symbol.iterator]();
-			}
+			this.currentIterator ??= source[Symbol.iterator]();
 
 			const result = this.currentIterator.next();
 			if (!result.done) {

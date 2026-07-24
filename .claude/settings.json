@@ -31,9 +31,9 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "pnpm exec prettier --write --ignore-unknown \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0",
+						"command": "pnpm exec oxfmt \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0",
 						"timeout": 30,
-						"statusMessage": "Formatting with Prettier..."
+						"statusMessage": "Formatting code..."
 					}
 				]
 			}

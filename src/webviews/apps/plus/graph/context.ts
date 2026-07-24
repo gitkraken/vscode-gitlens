@@ -1,4 +1,5 @@
 import { createContext } from '@lit/context';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
@@ -43,15 +44,26 @@ export interface AppState extends State {
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
 	searchResults: GraphSearchResults | undefined;
 	searchResultsError: GraphSearchResultsError | undefined;
+	/** The active search's query, carried from the host so a rebooted/reconnected app can restore its
+	 *  search box (results ride their own channel; without this the box is blank after a reconnect). */
+	searchQuery: SearchQuery | undefined;
 	currentSearchId: number | undefined;
 	selectedRows: GraphSelectedRows | undefined;
 	visibleDays: { top: number; bottom: number } | undefined;
+	/**
+	 * Webview-only monotonic counter bumped whenever the host ships an authoritative refsMetadata REPLACE
+	 * (`refsMetadataReset`). An integration-flip STRIP preserves a non-empty upstream map, so the graph
+	 * component can't detect the reset by emptiness — it watches this token instead to re-arm its per-id
+	 * request dedup and re-request the dropped (PR/issue) types for visible rows. Not part of the host wire
+	 * contract (`State`); lives purely in the reducer→component signal path.
+	 */
+	refsMetadataResetToken: number;
 
 	/**
 	 * Publish a lazily-fetched merge target into `overviewEnrichment` for the given branchId. The graph
-	 * overview's enrichment IPC skips merge-target fetching; the overview card and click-to-scope path
-	 * fetch via `BranchesService.getMergeTargetStatus` and call this so the scope-anchor's
-	 * `reconcileScopeMergeTarget` hook backfills the tip SHA.
+	 * overview's enrichment IPC skips merge-target fetching; the click-to-scope path and the shared branch
+	 * hover (`gl-branch-hover`, backing both the overview card and the graph WIP-bar pills) fetch it and
+	 * call this so the scope-anchor's `reconcileScopeMergeTarget` hook backfills the tip SHA.
 	 */
 	mergeMergeTargetIntoEnrichment(branchId: string, mergeTarget: OverviewBranchMergeTarget | undefined): void;
 
@@ -61,6 +73,24 @@ export interface AppState extends State {
 	 * Deduped via a fingerprint of the branch ids — repeat calls for the same overview are a no-op.
 	 */
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void;
+
+	/**
+	 * Additively fetch enrichment for branch ids that may sit outside the overview's active/recent set —
+	 * a WIP-bar pill on a worktree whose branch missed the recency cut. Merges; never drops. Deduped
+	 * against what's already resolved or in flight, so re-hovering a pill is a no-op.
+	 */
+	ensureEnrichmentFetchedForBranches(branchIds: string[]): void;
+
+	/**
+	 * Publish an authoritative overview enrichment result. Drop-stale applies only within the overview's
+	 * own id set: entries fetched via `ensureEnrichmentFetchedForBranches` and locally-merged merge-targets
+	 * are carried forward.
+	 */
+	publishOverviewEnrichment(enrichment: NonNullable<AppState['overviewEnrichment']>): void;
+
+	/** Clear all enrichment state (shared record + overview fingerprint + additive WIP-bar tracking) as
+	 *  one unit. Both reset paths (scope-anchor invalidation, overview `refresh`) route through here. */
+	resetOverviewEnrichment(): void;
 
 	/**
 	 * Publish a freshly-picked scope to the `scope` signal — synchronously in its bare form
@@ -107,6 +137,16 @@ export interface AppState extends State {
 	 * `DidRequestWipRefetch`) seed the cache through an internal path that clears that flag.
 	 */
 	setWip(repoPath: string, wip: Wip): void;
+
+	/**
+	 * Ingest an AUTHORITATIVE `Wip` for `repoPath` — a `getWip` RPC response, produced by the host
+	 * from the same single `git status` as a push. Reconciles the same mirrors a push does (cache +
+	 * ordering high-water, badge stats, overview entry) and leaves the entry live: it is host truth,
+	 * not a local guess, so a revisit must not have to buy another `git status` to re-confirm it.
+	 * Use this for anything the host produced; {@link setWip} is only for optimistic local edits.
+	 * Ordering is the caller's to enforce.
+	 */
+	ingestWip(repoPath: string, wip: Wip): void;
 
 	/**
 	 * Reseed `workingTreeStats` (header / primary-row badge source) from a panel-driven `getWip`

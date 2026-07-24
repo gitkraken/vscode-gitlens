@@ -66,6 +66,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 
 						// Annotated tags: peeledObjectname is the commit SHA; objectname is the tag-object SHA.
 						// Lightweight tags: peeledObjectname is empty; objectname is already the commit SHA.
+						const annotated = Boolean(record.peeledObjectname);
 						const sha = record.peeledObjectname || record.objectname;
 
 						tags.push(
@@ -76,6 +77,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 								record.subject,
 								record.creatorDate ? new Date(record.creatorDate) : undefined,
 								record.authorDate ? new Date(record.authorDate) : undefined,
+								annotated,
 							),
 						);
 					}

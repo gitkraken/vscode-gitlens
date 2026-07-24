@@ -13,7 +13,7 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
@@ -27,6 +27,7 @@ import {
 	isRevisionRange,
 	isSha,
 } from '@gitlens/git/utils/revision.utils.js';
+import { chunk } from '@gitlens/utils/array.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
@@ -55,6 +56,7 @@ import type {
 	GitHubPullRequest,
 	GitHubPullRequestLite,
 	GitHubPullRequestState,
+	GitHubSshSigningKey,
 	GitHubTag,
 } from '../models.js';
 import {
@@ -65,11 +67,6 @@ import {
 } from '../models.js';
 import type { GitHubApiConfig } from './config.js';
 import type { GitHubTokenInfo } from './token.js';
-
-interface CancellationToken {
-	isCancellationRequested: boolean;
-	onCancellationRequested(fn: () => void): { dispose(): void };
-}
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
@@ -82,6 +79,9 @@ const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 const maxRequestRetries = 2;
 const requestRetryBaseDelay = 300; // ms
 const requestRetryMaxDelay = 2000; // ms
+
+/** How many email->login user searches to alias into a single GraphQL request (keeps query cost within limits). */
+const accountResolveBatchSize = 25;
 
 function isRetryableTransientError(ex: unknown): ex is RequestError {
 	// An aborted request is rethrown as the original `AbortError` (not a `RequestError`), so it is
@@ -137,10 +137,12 @@ baseRefOid
 headRefName
 headRefOid
 headRepository {
+	isFork
 	name
 	owner {
 		login
 	}
+	sshUrl
 	url
 }
 isCrossRepository
@@ -153,6 +155,7 @@ repository {
 	owner {
 		login
 	}
+	sshUrl
 	url
 	viewerPermission
 }
@@ -552,6 +555,61 @@ export class GitHubApi {
 
 			throw this.handleException(ex, provider, scope);
 		}
+	}
+
+	@trace({ args: (provider, token) => ({ provider: provider?.name, token: `<token:${token.microHash}>` }) })
+	async getAccountsForEmails(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		emails: string[],
+		options?: { baseUrl?: string },
+	): Promise<Map<string, string>> {
+		const scope = getScopedLogger();
+
+		// Resolves email -> login for many emails in one request via field aliasing, chunked to keep query cost within
+		// GitHub's limits. Each email is passed as a GraphQL variable (never interpolated into the query string) so an
+		// attacker-controllable commit email can't inject query structure. Keyed by lowercased email.
+		//
+		// This is intentionally best-effort: user-by-email search only matches accounts whose email is public, and the
+		// search API is subject to GitHub's separate search/secondary rate limits, so misses and per-batch failures are
+		// expected and tolerated. GitHub noreply addresses (the common case) are decoded locally by the caller without
+		// hitting this at all.
+		const result = new Map<string, string>();
+		if (emails.length === 0) return result;
+
+		interface QueryResult {
+			[alias: string]: { nodes?: ({ login: string | null } | null)[] | null } | null | undefined;
+		}
+
+		for (const batch of chunk(emails, accountResolveBatchSize)) {
+			const declarations = batch.map((_, i) => `$q${i}: String!`).join(', ');
+			const fields = batch
+				.map((_, i) => `e${i}: search(type: USER, query: $q${i}, first: 1) { nodes { ... on User { login } } }`)
+				.join('\n\t');
+			const query = `query getAccountsForEmails(${declarations}) {\n\t${fields}\n}`;
+
+			const variables: RequestParameters = { ...options };
+			batch.forEach((email, i) => {
+				variables[`q${i}`] = `in:email ${email}`;
+			});
+
+			try {
+				const rsp = await this.graphql<QueryResult>(provider, token, query, variables, scope);
+				if (rsp == null) continue;
+
+				batch.forEach((email, i) => {
+					const login = rsp[`e${i}`]?.nodes?.[0]?.login;
+					if (login) {
+						result.set(email.toLowerCase(), login);
+					}
+				});
+			} catch (ex) {
+				// Best-effort enrichment — a failed batch (e.g. query cost) shouldn't abort the others.
+				scope?.error(ex);
+			}
+		}
+
+		return result;
 	}
 
 	@trace({
@@ -959,7 +1017,7 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -1049,7 +1107,7 @@ export class GitHubApi {
 		options?: {
 			baseUrl?: string;
 		},
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined> {
 		const scope = getScopedLogger();
 
@@ -2343,6 +2401,64 @@ export class GitHubApi {
 		}
 	}
 
+	@trace({
+		args: (provider, token, username) => ({
+			provider: provider?.name,
+			token: `<token:${token.microHash}>`,
+			username: username,
+		}),
+	})
+	async getUserSshSigningKeys(
+		provider: Provider | undefined,
+		token: GitHubTokenInfo,
+		username: string,
+		options?: { baseUrl?: string },
+	): Promise<GitHubSshSigningKey[]> {
+		const scope = getScopedLogger();
+
+		// SSH signing keys are public, so this works for any user with the current token (no extra scope needed).
+		// TODO@eamodio implement pagination
+		try {
+			const rsp = await this.request(
+				provider,
+				token,
+				'GET /users/{username}/ssh_signing_keys',
+				{ username: username, per_page: 100, ...options },
+				scope,
+			);
+			return rsp?.data ?? [];
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return [];
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@trace({ args: (provider, token) => ({ provider: provider?.name, token: `<token:${token.microHash}>` }) })
+	async getCurrentUserSshSigningKeys(
+		provider: Provider | undefined,
+		token: GitHubTokenInfo,
+		options?: { baseUrl?: string },
+	): Promise<GitHubSshSigningKey[]> {
+		const scope = getScopedLogger();
+
+		// TODO@eamodio implement pagination
+		try {
+			const rsp = await this.request(
+				provider,
+				token,
+				'GET /user/ssh_signing_keys',
+				{ per_page: 100, ...options },
+				scope,
+			);
+			return rsp?.data ?? [];
+		} catch (ex) {
+			if (ex instanceof RequestNotFoundError) return [];
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
 	@trace({ args: (token, owner, repo) => ({ token: `<token:${token.microHash}>`, owner: owner, repo: repo }) })
 	async getDefaultBranchName(token: GitHubTokenInfo, owner: string, repo: string): Promise<string | undefined> {
 		const scope = getScopedLogger();
@@ -2965,10 +3081,9 @@ export class GitHubApi {
 		query: string,
 		variables: RequestParameters,
 		scope: ScopedLogger | undefined,
-		cancellation?: CancellationToken | undefined,
+		cancellation?: AbortSignal | undefined,
 	): Promise<T | undefined> {
 		const { accessToken, ...tokenInfo } = token;
-
 		// Only dedupe when no cancellation/request option is in play — sharing a promise that
 		// carries one caller's AbortSignal would let one cancellation cancel for everyone.
 		const dedupable = cancellation == null && variables?.request == null;
@@ -2988,16 +3103,12 @@ export class GitHubApi {
 
 		const run = async (): Promise<T | undefined> => {
 			try {
-				let aborter: AbortController | undefined;
 				if (cancellation != null) {
-					if (cancellation.isCancellationRequested) throw new CancellationError();
-
-					aborter = new AbortController();
-					cancellation.onCancellationRequested(() => aborter!.abort());
+					if (cancellation.aborted) throw new CancellationError();
 
 					variables = {
 						...variables,
-						request: { ...variables?.request, signal: aborter.signal },
+						request: { ...variables?.request, signal: cancellation },
 					};
 				}
 
@@ -3010,7 +3121,7 @@ export class GitHubApi {
 							this.getDefaults(accessToken, graphql)(query, variables),
 						),
 					retryable,
-					aborter?.signal,
+					cancellation,
 					scope,
 				);
 			} catch (ex) {
@@ -3071,17 +3182,15 @@ export class GitHubApi {
 		route: R,
 		options: (Endpoints[R]['parameters'] & RequestParameters) | undefined,
 		scope: ScopedLogger | undefined,
-		cancellation?: CancellationToken | undefined,
+		cancellation?: AbortSignal | undefined,
 	): Promise<Endpoints[R]['response']> {
 		const { accessToken } = token;
 		try {
 			let signal: AbortSignal | undefined;
 			if (cancellation != null) {
-				if (cancellation.isCancellationRequested) throw new CancellationError();
+				if (cancellation.aborted) throw new CancellationError();
 
-				const aborter = new AbortController();
-				cancellation.onCancellationRequested(() => aborter.abort());
-				signal = aborter.signal;
+				signal = cancellation;
 				options = { ...options, request: { ...options?.request, signal: signal } };
 			}
 
@@ -3329,8 +3438,9 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 			silent?: boolean;
+			state?: PullRequestStateFilter;
 		},
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
 
@@ -3392,12 +3502,27 @@ export class GitHubApi {
 				}
 			}
 
+			// Map the requested state to a GitHub search qualifier; `all` omits it, default stays open-only.
+			// `is:closed` alone also matches merged PRs, so pair it with `is:unmerged` to keep `closed` and
+			// `merged` disjoint (mirroring the paginated path's states=[Closed], which excludes merged).
+			const stateQualifier =
+				options?.state === 'closed'
+					? 'is:closed is:unmerged'
+					: options?.state === 'merged'
+						? 'is:merged'
+						: options?.state === 'all'
+							? ''
+							: 'is:open';
+
 			const rsp = await this.graphql<SearchResult>(
 				provider,
 				token,
 				query,
 				{
-					search: `is:open is:pr involves:@me archived:false ${search}`.trim(),
+					search: [stateQualifier, 'is:pr involves:@me archived:false', search]
+						.filter(Boolean)
+						.join(' ')
+						.trim(),
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,
 				},
@@ -3445,7 +3570,7 @@ export class GitHubApi {
 			avatarSize?: number;
 			includeBody?: boolean;
 		},
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
 		const scope = getScopedLogger();
 
@@ -3548,7 +3673,7 @@ export class GitHubApi {
 		provider: Provider,
 		token: GitHubTokenInfo,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
 
@@ -3618,7 +3743,7 @@ export class GitHubApi {
 		nodeId: string,
 		expectedSourceSha: string,
 		options?: { mergeMethod?: PullRequestMergeMethod; baseUrl?: string },
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<boolean> {
 		const scope = getScopedLogger();
 		interface QueryResult {

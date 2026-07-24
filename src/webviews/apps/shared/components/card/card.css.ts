@@ -9,16 +9,17 @@ export const cardStyles = css`
 	}
 
 	.card {
+		position: relative;
 		display: block;
 		flex-direction: column;
-		gap: 0.8rem;
-		padding: 0.8rem 1.2rem;
-		border-radius: 0.4rem;
-		border-inline-start: 0.3rem solid transparent;
+		gap: var(--gl-space-8);
+		padding: var(--gl-space-8) var(--gl-space-12);
+		margin-block-end: var(--gl-space-6);
+
 		/* border-inline-end: 0.3rem solid transparent; */
 		background-color: var(--gl-card-background, color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%));
-		margin-block-end: 0.6rem;
-		position: relative;
+		border-inline-start: 0.3rem solid transparent;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	:host-context(.vscode-dark) .card.is-base,
@@ -166,7 +167,7 @@ export const cardStyles = css`
 	}
 
 	.card--focusable:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 	}
 
 	.card__actions {

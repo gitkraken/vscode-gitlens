@@ -1,4 +1,4 @@
-/* eslint-disable no-template-curly-in-string */
+/* oxlint-disable no-template-curly-in-string */
 /**
  * File Blame Annotation E2E Tests
  *

@@ -1,5 +1,13 @@
 import { AbortAggregate, CancellationError, raceWithSignal } from './cancellation.js';
 
+/** Deletes `key` from `map` only if it still maps to `owner`. A `delete(key)` + fresh `getOrCreate` can install
+ *  a successor under the same key while our factory is in flight; our late settle must not evict the successor. */
+function deleteIfOwned<K, V>(map: Map<K, V>, key: K, owner: V): void {
+	if (map.get(key) === owner) {
+		map.delete(key);
+	}
+}
+
 interface CacheEntry<V> {
 	promise: Promise<V>;
 	accessed: number;
@@ -48,17 +56,20 @@ export class PromiseCache<K, V> {
 		this.options = { expireOnError: true, ...options };
 	}
 
+	/** Clears all entries. Like `delete`, does NOT dispose in-flight abort aggregates — that would detach a running
+	 *  op's cancellation (a later caller-abort couldn't cancel it); each factory's settle handler disposes its own. */
 	clear(): void {
-		for (const a of this.aborts.values()) {
-			a.dispose();
-		}
 		this.aborts.clear();
 		this.controllers.clear();
 		this.cache.clear();
 	}
 
+	/**
+	 * Removes a promise from the cache.
+	 *  Does NOT dispose the abort aggregate: while a factory is in flight, disposing would detach
+	 *  its callers' cancellation and orphan the underlying op (a later caller-abort could no longer cancel the
+	 *  running `git status`). The factory's own settle handler disposes the aggregate (see `getOrCreate`). */
 	delete(key: K): void {
-		this.aborts.get(key)?.dispose();
 		this.aborts.delete(key);
 		this.controllers.delete(key);
 		this.cache.delete(key);
@@ -154,13 +165,15 @@ export class PromiseCache<K, V> {
 
 		let entry = this.cache.get(key);
 		if (entry != null && !this.expired(entry, now)) {
-			// Update accessed time
-			entry.accessed = now;
-
-			// Cache hit — register this caller on the existing aggregate
+			// Cache hit — but don't join an entry whose aggregate has already permanently aborted (all prior
+			// callers cancelled, so the shared run is failing): that would hand this caller a doomed promise.
+			// Fall through to create a fresh entry; the doomed entry's late settle is `deleteIfOwned`-guarded.
 			const existingAborts = this.aborts.get(key);
-			const cleanup = existingAborts != null ? existingAborts.add(cancellation) : undefined;
-			return this.attachCallerLifecycle(entry.promise, cancellation, cleanup);
+			if (existingAborts == null || !existingAborts.signal.aborted) {
+				entry.accessed = now;
+				const cleanup = existingAborts != null ? existingAborts.add(cancellation) : undefined;
+				return this.attachCallerLifecycle(entry.promise, cancellation, cleanup);
+			}
 		}
 
 		const cacheable = new CacheController();
@@ -174,12 +187,14 @@ export class PromiseCache<K, V> {
 		const promise = factory(cacheable, abortAgg.signal);
 		void promise
 			.finally(() => {
+				// All three deletes are ownership-guarded — a hard `delete(key)` + fresh `getOrCreate` while our
+				// factory is in flight installs a successor under `key`; our late settle must not evict it.
 				if (cacheable.invalidated) {
-					this.cache.delete(key);
+					deleteIfOwned(this.cache, key, entry!);
 				}
 				abortAgg.dispose();
-				this.aborts.delete(key);
-				this.controllers.delete(key);
+				deleteIfOwned(this.aborts, key, abortAgg);
+				deleteIfOwned(this.controllers, key, cacheable);
 			})
 			// Swallow the cleanup chain's rejection so it doesn't surface as an unhandled rejection
 			// separate from the caller-facing promise's own handling (e.g. on cancellation).
@@ -189,20 +204,27 @@ export class PromiseCache<K, V> {
 			// Wrap the promise to handle errors with the onError callback
 			const errorHandled = promise.catch((ex: unknown) => {
 				const result = options.onError!(ex);
+				// A hard `delete(key)` + fresh `getOrCreate` while we were in flight installs a successor;
+				// don't clobber it. But an EMPTY key (our entry already evicted, e.g. by the invalidated-finally)
+				// still takes the fallback — preserving base behavior of caching the error fallback.
+				const occupant = this.cache.get(key);
+				const clobbersSuccessor = occupant != null && occupant !== entry;
 				if (result != null) {
 					// Replace the entry with a resolved fallback value for subsequent callers
-					const errorNow = Date.now();
-					this.cache.set(key, {
-						promise: Promise.resolve(result.value),
-						created: errorNow,
-						accessed: errorNow,
-						createTTL: result.createTTL ?? options.createTTL,
-						accessTTL: options.accessTTL,
-					});
+					if (!clobbersSuccessor) {
+						const errorNow = Date.now();
+						this.cache.set(key, {
+							promise: Promise.resolve(result.value),
+							created: errorNow,
+							accessed: errorNow,
+							createTTL: result.createTTL ?? options.createTTL,
+							accessTTL: options.accessTTL,
+						});
+					}
 					// suppress: return fallback to first caller; otherwise re-throw
 					if (result.suppress) return result.value;
 				} else {
-					this.cache.delete(key);
+					deleteIfOwned(this.cache, key, entry!);
 				}
 				throw ex;
 			});
@@ -219,14 +241,18 @@ export class PromiseCache<K, V> {
 			// Cache resolved undefined for subsequent callers, re-throw to first caller
 			const errorTTL = options.errorTTL;
 			const errorHandled = promise.catch((ex: unknown) => {
-				const errorNow = Date.now();
-				this.cache.set(key, {
-					promise: Promise.resolve(undefined as V),
-					created: errorNow,
-					accessed: errorNow,
-					createTTL: errorTTL,
-					accessTTL: options.accessTTL,
-				});
+				// Overwrite unless a successor now owns the key (empty key still takes it — see onError above).
+				const occupant = this.cache.get(key);
+				if (occupant == null || occupant === entry) {
+					const errorNow = Date.now();
+					this.cache.set(key, {
+						promise: Promise.resolve(undefined as V),
+						created: errorNow,
+						accessed: errorNow,
+						createTTL: errorTTL,
+						accessTTL: options.accessTTL,
+					});
+				}
 				throw ex;
 			});
 
@@ -249,7 +275,10 @@ export class PromiseCache<K, V> {
 			this.cache.set(key, entry);
 
 			if (options?.expireOnError ?? true) {
-				promise.catch(() => this.cache.delete(key));
+				// Ownership-guarded: a hard `delete(key)` + fresh `getOrCreate` replacing us while in flight must
+				// not have its entry evicted by our rejection.
+				const ourEntry = entry;
+				promise.catch(() => deleteIfOwned(this.cache, key, ourEntry));
 			}
 		}
 
@@ -339,7 +368,7 @@ export class PromiseCache<K, V> {
 		this.cache.set(key, entry);
 
 		if (this.options.expireOnError ?? true) {
-			promise.catch(() => this.cache.delete(key));
+			promise.catch(() => deleteIfOwned(this.cache, key, entry));
 		}
 	}
 }
@@ -379,10 +408,14 @@ export class PromiseMap<K, V> {
 
 		const cached = this.cache.get(key);
 		if (cached != null) {
-			// Cache hit — register this caller on the existing aggregate
-			const aborts = this.aborts.get(key);
-			const cleanup = aborts != null ? aborts.add(cancellation) : undefined;
-			return this.attachCallerLifecycle(cached, cancellation, cleanup);
+			// Cache hit — but don't join an entry whose aggregate has already permanently aborted (all prior
+			// callers cancelled, so the shared run is failing): joining hands this caller a doomed promise.
+			// Fall through to a fresh entry; the doomed entry's late settle is `deleteIfOwned`-guarded.
+			const existingAborts = this.aborts.get(key);
+			if (existingAborts == null || !existingAborts.signal.aborted) {
+				const cleanup = existingAborts != null ? existingAborts.add(cancellation) : undefined;
+				return this.attachCallerLifecycle(cached, cancellation, cleanup);
+			}
 		}
 
 		// Cache miss — always create the aggregate so subsequent callers (with or without signals)
@@ -395,16 +428,16 @@ export class PromiseMap<K, V> {
 
 		const promise = factory(cacheable, aborts.signal);
 
-		// Automatically remove failed promises from the cache
-		promise.catch(() => this.cache.delete(key));
+		// Automatically remove failed promises from the cache (ownership-guarded — see `deleteIfOwned`).
+		promise.catch(() => deleteIfOwned(this.cache, key, promise));
 		void promise
 			.finally(() => {
 				if (cacheable.invalidated) {
-					this.cache.delete(key);
+					deleteIfOwned(this.cache, key, promise);
 				}
 				aborts.dispose();
-				this.aborts.delete(key);
-				this.controllers.delete(key);
+				deleteIfOwned(this.aborts, key, aborts);
+				deleteIfOwned(this.controllers, key, cacheable);
 			})
 			// Swallow the cleanup chain's rejection so it doesn't surface as an unhandled rejection
 			// separate from the caller-facing promise's own handling (e.g. on cancellation).
@@ -461,10 +494,8 @@ export class PromiseMap<K, V> {
 	set(key: K, promise: Promise<V>): this {
 		this.cache.set(key, promise);
 
-		// Automatically remove failed promises from the cache
-		promise.catch(() => {
-			this.cache.delete(key);
-		});
+		// Automatically remove failed promises from the cache (ownership-guarded — see `deleteIfOwned`).
+		promise.catch(() => deleteIfOwned(this.cache, key, promise));
 
 		return this;
 	}
@@ -478,21 +509,20 @@ export class PromiseMap<K, V> {
 
 	/**
 	 * Removes a key from the cache.
-	 */
+	 *  Does NOT dispose the abort aggregate: while a factory is in flight, disposing would detach
+	 *  its callers' cancellation and orphan the underlying op (a later caller-abort could no longer cancel the
+	 *  running `git status`). The factory's own settle handler disposes the aggregate (see `getOrCreate`). */
 	delete(key: K): boolean {
-		this.aborts.get(key)?.dispose();
 		this.aborts.delete(key);
 		this.controllers.delete(key);
 		return this.cache.delete(key);
 	}
 
 	/**
-	 * Clears all entries from the cache.
+	 * Clears all entries. Like `delete`, does NOT dispose in-flight abort aggregates — that would detach a running
+	 * op's cancellation (a later caller-abort couldn't cancel it); each factory's settle handler disposes its own.
 	 */
 	clear(): void {
-		for (const a of this.aborts.values()) {
-			a.dispose();
-		}
 		this.aborts.clear();
 		this.controllers.clear();
 		this.cache.clear();

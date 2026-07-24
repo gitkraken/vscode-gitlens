@@ -1,6 +1,6 @@
-import { html, LitElement } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { categorizingLoadingAnimationStyles } from './gl-categorizing-loading-animation.css.js';
+import { ParticleLoadingAnimation } from './particleLoadingAnimation.js';
 
 export type CategorizingLoadingVariant = 'compose' | 'review';
 
@@ -14,11 +14,6 @@ interface Layout {
 	lensHalfWidth: number;
 }
 
-const maxParticles = 60;
-const spawnMinMs = 80;
-const spawnJitterMs = 90;
-const initialBurst = 6;
-
 const variantColorVars: Record<CategorizingLoadingVariant, [string, string, string]> = {
 	compose: ['--vscode-charts-purple', '--vscode-charts-blue', '--vscode-charts-green'],
 	review: ['--vscode-charts-green', '--vscode-charts-yellow', '--vscode-charts-red'],
@@ -29,8 +24,10 @@ const variantFallbacks: Record<CategorizingLoadingVariant, [string, string, stri
 	review: ['#4ade80', '#facc15', '#ef4444'],
 };
 
+/** "Categorizing" loader: particles drift down into a lens and get sorted into one of three
+ *  colored buckets. Shared by compose (purple/blue/green) and review (green/yellow/red). */
 @customElement('gl-categorizing-loading-animation')
-export class GlCategorizingLoadingAnimation extends LitElement {
+export class GlCategorizingLoadingAnimation extends ParticleLoadingAnimation {
 	static override styles = categorizingLoadingAnimationStyles;
 
 	/** Color palette to use. `compose` shows purple/blue/green (categorization),
@@ -38,50 +35,12 @@ export class GlCategorizingLoadingAnimation extends LitElement {
 	@property({ reflect: true })
 	variant: CategorizingLoadingVariant = 'compose';
 
-	@query('.stage') private stageEl!: HTMLDivElement;
-
-	private readonly _animations = new Set<Animation>();
-	private readonly _timers = new Set<ReturnType<typeof setTimeout>>();
-	private _resizeObserver?: ResizeObserver;
 	private _layout?: Layout;
 	private _colors: [string, string, string] = variantFallbacks.compose;
 	private _bucketEls: HTMLDivElement[] = [];
 	private _lensEl?: HTMLDivElement;
-	private _activeParticles = 0;
-	private _running = false;
-	private _scheduleRafId?: number;
 
-	override render(): unknown {
-		return html`<div class="stage" aria-hidden="true"></div>`;
-	}
-
-	override firstUpdated(): void {
-		// Bail entirely if reduced motion — :host is `display: none` via CSS, but also skip
-		// timer/observer setup so we don't burn cycles.
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-		this.readColors();
-		this.buildScaffold();
-
-		this._resizeObserver = new ResizeObserver(() => this.scheduleRelayout());
-		this._resizeObserver.observe(this);
-
-		this.relayout();
-		this.start();
-	}
-
-	override disconnectedCallback(): void {
-		this.stop();
-		this._resizeObserver?.disconnect();
-		this._resizeObserver = undefined;
-		if (this._scheduleRafId != null) {
-			cancelAnimationFrame(this._scheduleRafId);
-			this._scheduleRafId = undefined;
-		}
-		super.disconnectedCallback?.();
-	}
-
-	private readColors(): void {
+	protected override readColors(): void {
 		const styles = getComputedStyle(this);
 		const vars = variantColorVars[this.variant];
 		const fallbacks = variantFallbacks[this.variant];
@@ -92,7 +51,7 @@ export class GlCategorizingLoadingAnimation extends LitElement {
 		this._colors = [read(vars[0], fallbacks[0]), read(vars[1], fallbacks[1]), read(vars[2], fallbacks[2])];
 	}
 
-	private buildScaffold(): void {
+	protected override buildScaffold(): void {
 		const lens = document.createElement('div');
 		lens.className = 'lens';
 		const scanline = document.createElement('div');
@@ -110,21 +69,13 @@ export class GlCategorizingLoadingAnimation extends LitElement {
 		});
 	}
 
-	private scheduleRelayout(): void {
-		if (this._scheduleRafId != null) return;
-
-		this._scheduleRafId = requestAnimationFrame(() => {
-			this._scheduleRafId = undefined;
-			this.relayout();
-		});
-	}
-
-	private relayout(): void {
+	protected override relayout(): void {
 		const rect = this.getBoundingClientRect();
 		const width = rect.width;
 		const height = rect.height;
 		if (width < 10 || height < 10) {
 			this._layout = undefined;
+			this.toggleAttribute('data-ready', false);
 			return;
 		}
 
@@ -166,54 +117,13 @@ export class GlCategorizingLoadingAnimation extends LitElement {
 		this.toggleAttribute('data-ready', true);
 	}
 
-	private start(): void {
-		if (this._running) return;
-
-		this._running = true;
-		for (let i = 0; i < initialBurst; i++) {
-			this.scheduleSpawn(i * 120);
-		}
-		this.scheduleSpawn(initialBurst * 120);
-	}
-
-	private stop(): void {
-		this._running = false;
-		for (const t of this._timers) {
-			clearTimeout(t);
-		}
-		this._timers.clear();
-		for (const a of this._animations) {
-			try {
-				a.cancel();
-			} catch {
-				// already finished/cancelled
-			}
-		}
-		this._animations.clear();
-	}
-
-	private scheduleSpawn(delay: number): void {
-		if (!this._running) return;
-
-		const timer = setTimeout(() => {
-			this._timers.delete(timer);
-			if (!this._running) return;
-
-			void this.spawnParticle();
-			this.scheduleSpawn(spawnMinMs + Math.random() * spawnJitterMs);
-		}, delay);
-		this._timers.add(timer);
-	}
-
-	private async spawnParticle(): Promise<void> {
+	protected override async spawnParticle(): Promise<void> {
 		if (this._layout == null) return;
-		if (this._activeParticles >= maxParticles) return;
 
 		const layout = this._layout;
 		const particle = document.createElement('div');
 		particle.className = 'particle';
 		this.stageEl.appendChild(particle);
-		this._activeParticles++;
 
 		try {
 			const startX = layout.width / 2 + (Math.random() - 0.5) * layout.width * 0.85;
@@ -293,21 +203,7 @@ export class GlCategorizingLoadingAnimation extends LitElement {
 			// Animation cancelled (component disconnected) — fall through to cleanup.
 		} finally {
 			particle.remove();
-			this._activeParticles--;
 		}
-	}
-
-	private runAnimation(el: HTMLElement, keyframes: Keyframe[], options: KeyframeAnimationOptions): Promise<void> {
-		const animation = el.animate(keyframes, options);
-		this._animations.add(animation);
-		return animation.finished
-			.then(() => {
-				this._animations.delete(animation);
-			})
-			.catch((error: unknown) => {
-				this._animations.delete(animation);
-				throw error;
-			});
 	}
 }
 

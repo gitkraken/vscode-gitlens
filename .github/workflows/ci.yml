@@ -58,7 +58,7 @@ jobs:
               run: pnpm install --frozen-lockfile
 
             - name: Check formatting
-              run: pnpm run pretty:check
+              run: pnpm run fmt:check
 
             - name: Build (production)
               run: pnpm run bundle

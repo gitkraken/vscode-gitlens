@@ -35,6 +35,7 @@ export type GlCommandsDeprecated =
 type InternalGraphWebviewCommands =
 	| 'gitlens.deleteBranchOrWorktree:graph'
 	| 'gitlens.git.branch.setMergeTarget:graph'
+	| 'gitlens.git.branch.setUpstream:graph'
 	| 'gitlens.mergeIntoCurrent:graph'
 	| 'gitlens.openMergeTargetComparison:graph'
 	| 'gitlens.pausedOperation.abort:graph'
@@ -84,7 +85,9 @@ type InternalAgentCommands =
 	| 'gitlens.agents.installClaudeHook'
 	| 'gitlens.agents.uninstallClaudeHook'
 	| 'gitlens.agents.resolvePermission'
-	| 'gitlens.agents.openPlanFile';
+	| 'gitlens.agents.openPlanFile'
+	| 'gitlens.agents.resumeSession'
+	| 'gitlens.agents.showResumeSessionPicker';
 
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
@@ -135,6 +138,7 @@ type InternalWalkthroughCommands =
 type InternalWelcomeCommands =
 	| 'gitlens.welcome.openCommunityVsPro'
 	| 'gitlens.welcome.openHelpCenter'
+	| 'gitlens.welcome.openKepler'
 	| 'gitlens.welcome.plus.login'
 	| 'gitlens.welcome.plus.reactivate'
 	| 'gitlens.welcome.plus.signUp'
@@ -166,7 +170,6 @@ type InternalGlCommands =
 	| 'gitlens.regenerateMarkdownDocument'
 	| 'gitlens.runPromptInAgent'
 	| 'gitlens.sendToChat'
-	| 'gitlens.showComposerPage'
 	| 'gitlens.showInCommitGraphView'
 	| 'gitlens.onboarding.dismiss'
 	| 'gitlens.showQuickCommitDetails'

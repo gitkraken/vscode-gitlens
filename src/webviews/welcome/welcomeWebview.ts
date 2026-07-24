@@ -3,8 +3,9 @@ import { SubscriptionState } from '../../constants.subscription.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
+import { FeatureFlagKey } from '../../featureFlags/featureFlagService.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
-import { mcpRegistrationAllowed, needsCursorMcpCleanupNotice } from '../../plus/gk/utils/-webview/mcp.utils.js';
+import { needsCursorMcpCleanupNotice } from '../../plus/gk/utils/-webview/mcp.utils.js';
 import { registerCommand } from '../../system/-webview/command.js';
 import { getContext } from '../../system/-webview/context.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
@@ -126,7 +127,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 	}
 
 	private getMcpCanAutoRegister(): boolean {
-		return mcpRegistrationAllowed(this.container);
+		return this.container.gkMcp?.isRegistrationAllowed ?? false;
 	}
 
 	private isCliInstalled(): boolean {
@@ -141,14 +142,21 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		return needsCursorMcpCleanupNotice(this.container);
 	}
 
+	private getWelcomeTitleVariant(): string | undefined {
+		const showVariant = this.container.featureFlags.getFlag(FeatureFlagKey.WelcomeTitleVariant, false);
+		return showVariant ? 'Welcome' : undefined;
+	}
+
 	private async getState(): Promise<State> {
 		const subscription = await this.container.subscription.getSubscription();
+		const welcomeTitle = this.getWelcomeTitleVariant() || 'Get Started with GitLens';
 		const plusState = subscription?.state ?? SubscriptionState.Community;
 
 		return {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
 			hostAppName: env.appName,
+			welcomeTitle: welcomeTitle,
 			plusState: plusState,
 			walkthroughProgress: this.getWalkthroughProgress(),
 			graphWalkthroughProgress: this.getGraphWalkthroughProgress(),

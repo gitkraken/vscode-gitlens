@@ -42,6 +42,7 @@ export class GlWipStats extends LitElement {
 			.wip-clean-check {
 				--code-icon-size: 1.1rem;
 				--code-icon-v-align: middle;
+
 				color: var(--gl-stat-added);
 			}
 
@@ -50,15 +51,15 @@ export class GlWipStats extends LitElement {
 			}
 
 			.indicator-pill.pill {
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				text-transform: none;
 				user-select: none;
 			}
 
 			.indicator-pill.pill code-icon {
 				font-size: inherit !important;
-				line-height: inherit !important;
 				font-weight: inherit !important;
+				line-height: inherit !important;
 			}
 
 			.wip__tooltip {
@@ -68,21 +69,21 @@ export class GlWipStats extends LitElement {
 
 			.paused-op-badge {
 				display: inline-flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
 				padding: 0.1rem 0.4rem;
-				border-radius: 0.3rem;
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-				color: #000;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 600;
 				line-height: 2rem;
+				color: #000;
 				white-space: nowrap;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.paused-op-badge--conflicts {
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 				color: #fff;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 			}
 		`,
 	];
@@ -125,18 +126,12 @@ export class GlWipStats extends LitElement {
 
 			if (this.noTooltip) return visible;
 
-			// Tooltip: show the commit-stats pill when we have a breakdown, falling back to a
-			// generic message when only the dirty bit is known (cheap probes — upgrades on hover).
-			const hasBreakdown = added + modified + removed > 0;
-			const tooltipContent = hasBreakdown
-				? html`<commit-stats
-						added=${added || nothing}
-						modified=${modified || nothing}
-						removed=${removed || nothing}
-						symbol="icons"
-						appearance="pill"
-						no-tooltip
-					></commit-stats>`
+			// Tooltip: describe the breakdown in words via getWipTooltipParts so the tooltip adds
+			// detail over the icon pill instead of echoing it. Falls back to a generic message when
+			// only the dirty bit is known (cheap probes — upgrades on hover).
+			const parts = getWipTooltipParts({ added: added, changed: modified, deleted: removed });
+			const tooltipContent = parts.length
+				? `${parts.join(', ')} in the working tree`
 				: 'Working tree has changes';
 
 			return html`<gl-tooltip placement="bottom"
@@ -152,22 +147,29 @@ export class GlWipStats extends LitElement {
 		}
 
 		if (this.badge) {
-			const pill = html`<span class="indicator-pill pill pill--outlined" aria-label="No changes">
+			const pill = html`<span class="indicator-pill pill pill--outlined" aria-label="No working changes">
 				<code-icon class="wip-clean-check" icon="check"></code-icon>
 			</span>`;
 
 			if (this.noTooltip) return pill;
 
-			return html`<gl-tooltip placement="bottom">${pill}<span slot="content">No changes</span></gl-tooltip>`;
+			return html`<gl-tooltip placement="bottom"
+				>${pill}<span slot="content">No working changes</span></gl-tooltip
+			>`;
 		}
 
-		const pill = html`<commit-stats class="indicator-pill" appearance="pill" no-tooltip aria-label="No changes">
+		const pill = html`<commit-stats
+			class="indicator-pill"
+			appearance="pill"
+			no-tooltip
+			aria-label="No working changes"
+		>
 			<code-icon class="wip-clean-check" icon="check"></code-icon>
 		</commit-stats>`;
 
 		if (this.noTooltip) return pill;
 
-		return html`<gl-tooltip placement="bottom">${pill}<span slot="content">No changes</span></gl-tooltip>`;
+		return html`<gl-tooltip placement="bottom">${pill}<span slot="content">No working changes</span></gl-tooltip>`;
 	}
 
 	private renderPausedOp(pausedOp: GitPausedOperationStatus) {

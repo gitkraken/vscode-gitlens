@@ -26,7 +26,7 @@ Find the **best** approach to a task — not just a good one. Investigate the co
 
 - `brainstorming` answers "What are we building?"
 - `writing-plans` answers "What are the exact steps?"
-- `analyze` answers "Are there problems with this design?"
+- `challenge-plan` answers "Are there problems with this plan?"
 - **`deep-planning`** answers "What is the optimal technical approach, and why?"
 
 ## Checklist
@@ -155,23 +155,3 @@ Your analysis should be **scannable**. The comparison table is the centerpiece �
 [Which approach and why — 2-3 sentences]
 [Key risks to watch for]
 ```
-
-## Red Flags — You're Skipping the Hard Parts
-
-| Thought                                          | Reality                                                      |
-| ------------------------------------------------ | ------------------------------------------------------------ |
-| "The current pattern is fine, just extend it"    | Did you question WHY it's fine? Maybe it's not.              |
-| "I don't need to web search, I know this"        | Training knowledge ages. Search anyway.                      |
-| "There's obviously only one approach"            | Did you consider a fundamentally different one?              |
-| "Let me just list the approaches I can think of" | Investigate the codebase first. Approaches must be grounded. |
-| "This analysis needs to be thorough"             | Thorough ≠ verbose. Use the comparison table.                |
-| "I'll define success criteria later"             | Success criteria FIRST. You can't evaluate without them.     |
-
-## Anti-Patterns
-
-- **Pattern-bound thinking**: Proposing only variations within the existing architecture without considering alternatives
-- **Skipping research**: Relying on training knowledge for well-studied problem domains (caching, rate limiting, state management)
-- **Accepting status quo**: Not questioning why existing patterns exist or whether they're optimal
-- **Verbose analysis**: Writing 2000+ words when 800 would suffice. Use tables.
-- **Missing success criteria**: Evaluating approaches without defining what "good" means first
-- **Fake alternatives**: Manufacturing approaches that are obviously worse just to have multiple options

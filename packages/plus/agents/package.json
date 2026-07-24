@@ -7,9 +7,17 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./sanitizePrompt.js": {
+			"types": "./dist/sanitizePrompt.d.ts",
+			"default": "./dist/sanitizePrompt.js"
+		},
+		"./stateMachine.js": {
+			"types": "./dist/stateMachine.d.ts",
+			"default": "./dist/stateMachine.js"
+		},
+		"./types.js": {
+			"types": "./dist/types.d.ts",
+			"default": "./dist/types.js"
 		},
 		"./providers/*.js": {
 			"types": "./dist/providers/*.d.ts",
@@ -21,10 +29,10 @@
 	],
 	"scripts": {
 		"build": "tsc -b",
-		"clean": "pnpx rimraf --glob dist out **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
-		"clean:lint": "pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
 		"test": "mocha --require tsx --ui tdd --timeout 30000 --no-error-on-unmatched-pattern 'src/**/__tests__/**/*.test.ts'"
 	},
 	"dependencies": {

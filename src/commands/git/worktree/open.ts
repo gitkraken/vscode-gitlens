@@ -6,8 +6,8 @@ import type { GlRepository } from '../../../git/models/repository.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
-import { getWorkspaceFriendlyPath, openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
+import { getWorkspaceFriendlyPath, openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import type {
 	PartialStepState,
 	StepGenerator,

@@ -73,7 +73,7 @@ export class GlMarkdown extends LitElement {
 
 			code {
 				background: var(--vscode-textCodeBlock-background);
-				border-radius: 3px;
+				border-radius: var(--gl-radius-sm);
 				padding: 0px 4px 2px 4px;
 				font-family: var(--vscode-editor-font-family);
 			}

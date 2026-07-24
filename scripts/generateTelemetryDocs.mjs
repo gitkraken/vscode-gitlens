@@ -1,10 +1,11 @@
 // @ts-check
 /** @typedef {{ name: string; result: string; hidden: boolean; index?: number }} Prop */
 
-import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+// `typescript-6` is an alias for the 6.x JS compiler; 7.x is the native port and exposes no compiler API
+import * as ts from 'typescript-6';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.join(path.dirname(__filename), '..');
@@ -137,7 +138,13 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 
 					const propDocs = prop.getDocumentationComment(typeChecker);
 					if (propDocs.length > 0) {
-						propString += `${indent}  // ${propDocs.map(doc => doc.text).join(' ')}\n`;
+						// Collapse newlines from multi-line doc comments — the text follows a single
+						// `//`, so embedded newlines would leave continuation lines unprefixed
+						const text = propDocs
+							.map(doc => doc.text)
+							.join(' ')
+							.replace(/\s*\n\s*/g, ' ');
+						propString += `${indent}  // ${text}\n`;
 					}
 
 					const jsDocTags = getJSDocTags(prop);
@@ -238,7 +245,13 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 
 					const propDocs = prop.getDocumentationComment(typeChecker);
 					if (propDocs.length > 0) {
-						propString += `${indent}  // ${propDocs.map(doc => doc.text).join(' ')}\n`;
+						// Collapse newlines from multi-line doc comments — the text follows a single
+						// `//`, so embedded newlines would leave continuation lines unprefixed
+						const text = propDocs
+							.map(doc => doc.text)
+							.join(' ')
+							.replace(/\s*\n\s*/g, ' ');
+						propString += `${indent}  // ${text}\n`;
 					}
 
 					const jsDocTags = getJSDocTags(prop);
@@ -316,7 +329,7 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 	return result;
 }
 
-function getJSDocTags(/** @type {import('typescript').Symbol } */ symbol) {
+function getJSDocTags(/** @type {ts.Symbol } */ symbol) {
 	const tags = {};
 	const jsDocTags = symbol.getJsDocTags();
 	for (const tag of jsDocTags) {

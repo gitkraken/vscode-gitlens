@@ -3,11 +3,23 @@ import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { DraftPatchFileChange } from '../../../../../plus/drafts/models/drafts.js';
 
+/** `dataTransfer` type used when a draggable file row (opt-in `draggableFiles`) is dragged; the
+ *  payload is the row's file `path`. Consumers key their drop handling off this type. */
+export const treeItemFileDragDataType = 'application/x-gitlens-file-path';
+
 export interface TreeItemBase {
 	// node properties
 	branch: boolean;
 	expanded: boolean;
 	path: string;
+	/**
+	 * Optional unique identity for the row. Defaults to {@link path}. Grouped trees (e.g. WIP
+	 * Conflicts/Staged/Unstaged) build an independent folder hierarchy per group, so the same
+	 * folder/file `path` can appear under multiple groups — `key` disambiguates them so the tree's
+	 * path-keyed machinery (node map, virtualizer, selection, expansion) stays collision-free.
+	 * `path` remains the real file/folder path for display and file resolution.
+	 */
+	key?: string;
 
 	// parent
 	parentPath?: string;
@@ -20,6 +32,10 @@ export interface TreeItemBase {
 	checkable: boolean;
 	checked?: boolean | 'indeterminate';
 	disableCheck?: boolean;
+	/** When set, the checkbox is fully controlled by `checked` (model-driven): a user toggle does NOT
+	 *  optimistically flip the box — it stays put until the model updates. Use for checkboxes whose
+	 *  action can be blocked or cancelled (e.g. staging a conflicted file behind a confirm prompt). */
+	controlledCheck?: boolean;
 	checkableTooltip?: string;
 	/** Alt-action tooltip — surfaced only when the checkbox has a distinct alt+click behavior
 	 *  (currently set by `gl-file-tree-pane` for mixed-state files where alt+click flips to
@@ -69,17 +85,7 @@ export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
 	icon: string;
 }
 
-export type TreeItemDecorationKind =
-	| 'added'
-	| 'deleted'
-	| 'modified'
-	| 'untracked'
-	| 'renamed'
-	| 'conflict'
-	| 'muted'
-	| 'agent-working'
-	| 'agent-waiting'
-	| 'agent-idle';
+export type TreeItemDecorationKind = 'added' | 'deleted' | 'modified' | 'untracked' | 'renamed' | 'conflict' | 'muted';
 
 export interface TreeItemDecorationText extends TreeItemDecorationBase {
 	type: 'text';

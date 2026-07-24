@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions */
+/* oxlint-disable typescript/consistent-type-assertions */
 import assert from 'node:assert';
 import { URI } from 'vscode-uri';
 import type { GitConfigSubProvider } from '../providers/config.js';

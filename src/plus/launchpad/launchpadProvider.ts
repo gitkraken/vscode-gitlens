@@ -9,8 +9,8 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
-import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import {
 	getComparisonRefsForPullRequest,
@@ -19,6 +19,19 @@ import {
 	isMaybeNonSpecificPullRequestSearchUrl,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
+import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '@gitlens/integrations/constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
+import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
+import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
+import type { IntegrationResult } from '@gitlens/integrations/models/integration.js';
+import { isMaybeGitHubPullRequestUrl } from '@gitlens/integrations/providers/github/github.utils.js';
+import { isMaybeGitLabPullRequestUrl } from '@gitlens/integrations/providers/gitlab/gitlab.utils.js';
+import type { EnrichablePullRequest, ProviderActionablePullRequest } from '@gitlens/integrations/providers/models.js';
+import {
+	getActionablePullRequests,
+	supportsCodeSuggest,
+	toProviderPullRequestWithUniqueId,
+} from '@gitlens/integrations/providers/models.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
@@ -28,34 +41,19 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { TimedResult } from '@gitlens/utils/promise.js';
 import { getSettledValue, timedWithSlowThreshold } from '@gitlens/utils/promise.js';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
-import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../constants.integrations.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
 import type { Container } from '../../container.js';
 import { openComparisonChanges } from '../../git/actions/commit.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullRequest.utils.js';
-import { getCancellationTokenId } from '../../system/-webview/cancellation.js';
+import { getCancellationTokenId, toAbortSignal } from '../../system/-webview/cancellation.js';
 import { executeCommand, registerCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { setContext } from '../../system/-webview/context.js';
+import { getContext, setContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
-import { showInspectView } from '../../webviews/commitDetails/actions.js';
-import type { ShowWipArgs } from '../../webviews/commitDetails/protocol.js';
 import type { CodeSuggestionCounts, Draft } from '../drafts/models/drafts.js';
-import type { ConnectionStateChangeEvent } from '../integrations/integrationService.js';
-import type { GitHostIntegration } from '../integrations/models/gitHostIntegration.js';
-import type { IntegrationResult } from '../integrations/models/integration.js';
-import { isMaybeGitHubPullRequestUrl } from '../integrations/providers/github/github.utils.js';
-import { isMaybeGitLabPullRequestUrl } from '../integrations/providers/gitlab/gitlab.utils.js';
-import type { EnrichablePullRequest, ProviderActionablePullRequest } from '../integrations/providers/models.js';
-import {
-	getActionablePullRequests,
-	supportsCodeSuggest,
-	toProviderPullRequestWithUniqueId,
-} from '../integrations/providers/models.js';
 import {
 	convertIntegrationIdToEnrichProvider,
 	convertRemoteProviderIdToEnrichProvider,
@@ -72,26 +70,18 @@ import {
 	sharedCategoryToLaunchpadActionCategoryMap,
 } from './models/launchpad.js';
 
-export function getSuggestedActions(
-	category: LaunchpadActionCategory,
-	provider: ProviderReference,
-	isCurrentBranch: boolean,
-): LaunchpadAction[] {
+export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
+
+	// Offer an agent-driven PR review on every item, gated on AI being enabled (org + user setting).
+	if (getContext('gitlens:ai:allowed', true)) {
+		actions.push('start-review');
+	}
+
 	if (isCurrentBranch) {
-		actions.push('show-overview', 'open-changes');
-		if (supportsCodeSuggest(provider)) {
-			actions.push('code-suggest');
-		}
-
-		actions.push('open-in-graph');
+		actions.push('show-overview', 'open-changes', 'open-in-graph');
 	} else {
-		actions.push('open-worktree', 'switch');
-		if (supportsCodeSuggest(provider)) {
-			actions.push('switch-and-code-suggest');
-		}
-
-		actions.push('open-in-graph');
+		actions.push('open-worktree', 'switch', 'open-in-graph');
 	}
 	return actions;
 }
@@ -209,7 +199,11 @@ export class LaunchpadProvider implements Disposable {
 
 		const [prsResult, subscriptionResult] = await Promise.allSettled([
 			withDurationAndSlowEventOnTimeout(
-				this.container.integrations.getMyPullRequests(supportedLaunchpadIntegrations, cancellation, true),
+				this.container.integrations.getMyPullRequests(
+					supportedLaunchpadIntegrations,
+					toAbortSignal(cancellation),
+					true,
+				),
 				'getMyPullRequests',
 				this.container,
 			),
@@ -281,7 +275,7 @@ export class LaunchpadProvider implements Disposable {
 			integration: GitHostIntegration,
 		): Promise<undefined | TimedResult<PullRequest[] | undefined>> => {
 			const prs = await withDurationAndSlowEventOnTimeout(
-				integration?.searchPullRequests(search, undefined, cancellation),
+				integration?.searchPullRequests(search, undefined, toAbortSignal(cancellation)),
 				'searchPullRequests',
 				this.container,
 			);
@@ -480,27 +474,21 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
-	async switchTo(
-		item: LaunchpadItem,
-		options?: { openInWorktree?: boolean; startCodeSuggestion?: boolean },
-	): Promise<void> {
+	async switchTo(item: LaunchpadItem, options?: { openInWorktree?: boolean }): Promise<void> {
 		if (item.openRepository?.localBranch?.current) {
-			void showInspectView({
-				type: 'wip',
-				inReview: options?.startCodeSuggestion,
-				repository: item.openRepository.repo,
-				source: 'launchpad',
-			} satisfies ShowWipArgs);
+			void executeCommand('gitlens.showGraph', {
+				action: 'show-wip',
+				target: { sha: uncommitted, worktreePath: item.openRepository.repo.path },
+				source: { source: 'launchpad' },
+			});
 			return;
 		}
 
 		const deepLinkUrl = this.getItemBranchDeepLink(
 			item,
-			options?.startCodeSuggestion
-				? DeepLinkActionType.SwitchToAndSuggestPullRequest
-				: options?.openInWorktree
-					? DeepLinkActionType.SwitchToPullRequestWorktree
-					: DeepLinkActionType.SwitchToPullRequest,
+			options?.openInWorktree
+				? DeepLinkActionType.SwitchToPullRequestWorktree
+				: DeepLinkActionType.SwitchToPullRequest,
 		);
 		if (deepLinkUrl == null) return;
 
@@ -835,7 +823,6 @@ export class LaunchpadProvider implements Disposable {
 
 					const suggestedActions = getSuggestedActions(
 						actionableCategory,
-						item.provider,
 						openRepository?.localBranch?.current ?? false,
 					);
 

@@ -137,9 +137,10 @@ export interface GitServiceHooks {
 		/**
 		 * Called when a commit is signed successfully.
 		 *
-		 * Note: currently fired only from explicit-sign paths in the patch provider
-		 * (where signing is requested via `-S` and confirmed up front). Operations
-		 * that sign implicitly via `commit.gpgsign=true` (`commit`, `merge`, `pull`,
+		 * Note: currently fired only from explicit-sign paths — the patch provider's
+		 * `commit-tree -S` and the commit operation when the host signing override
+		 * (`config.signing.enabled`) adds `-S`. Operations that sign implicitly via
+		 * `commit.gpgsign=true` (`commit` without the override, `merge`, `pull`,
 		 * `rebase`, `revert`, `cherryPick`) do not fire this hook because the
 		 * library cannot cheaply confirm that signing actually occurred without an
 		 * extra `git config`/`log --show-signature` call.

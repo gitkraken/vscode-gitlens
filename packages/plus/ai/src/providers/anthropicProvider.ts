@@ -1,11 +1,26 @@
 import { anthropicProviderDescriptor as provider } from '../constants.js';
 import { AIError, AIErrorReason } from '../errors.js';
 import type { AIActionType, AIModel } from '../models/model.js';
+import type { AIChatMessage, AIChatMessageRole } from '../models/provider.js';
 import { getReducedMaxInputTokens } from '../utils/ai.utils.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
+	{
+		id: 'claude-opus-4-8',
+		name: 'Claude Opus 4.8',
+		maxTokens: { input: 1048576, output: 128000 },
+		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
+		id: 'claude-sonnet-5',
+		name: 'Claude Sonnet 5',
+		maxTokens: { input: 1048576, output: 128000 },
+		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
 	{
 		id: 'claude-haiku-4-5',
 		name: 'Claude Haiku 4.5',
@@ -21,15 +36,22 @@ const models: AnthropicModel[] = [
 		hidden: true,
 	},
 	{
+		id: 'claude-opus-4-7',
+		name: 'Claude Opus 4.7',
+		maxTokens: { input: 1048576, output: 128000 },
+		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
 		id: 'claude-sonnet-4-6',
 		name: 'Claude Sonnet 4.6',
-		maxTokens: { input: 204800, output: 64000 },
+		maxTokens: { input: 1048576, output: 64000 },
 		provider: provider,
 	},
 	{
 		id: 'claude-opus-4-6',
 		name: 'Claude Opus 4.6',
-		maxTokens: { input: 204800, output: 128000 },
+		maxTokens: { input: 1048576, output: 128000 },
 		provider: provider,
 	},
 	{
@@ -37,6 +59,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude Sonnet 4.5',
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-sonnet-4-5-20250929',
@@ -50,6 +73,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude Opus 4.5',
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-5-20251101',
@@ -91,6 +115,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude Sonnet 4',
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-sonnet-4-20250514',
@@ -245,6 +270,21 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 		return super.fetchCore(action, model, apiKey, request, signal);
 	}
 
+	protected override extractSystemPrompt(messages: AIChatMessage<AIChatMessageRole>[]): {
+		messages: AIChatMessage<AIChatMessageRole>[];
+		system?: string;
+	} {
+		// Anthropic's Messages API rejects `system`-role entries in `messages` and requires the initial
+		// system prompt in the top-level `system` field, so pull any such messages out.
+		const systemMessages = messages.filter(m => m.role === 'system');
+		if (!systemMessages.length) return { messages: messages };
+
+		return {
+			system: systemMessages.map(m => m.content).join('\n\n'),
+			messages: messages.filter(m => m.role !== 'system'),
+		};
+	}
+
 	protected override async handleFetchFailure<TAction extends AIActionType>(
 		rsp: Response,
 		action: TAction,
@@ -255,7 +295,9 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 		if (rsp.status !== 404 && rsp.status !== 429) {
 			let json;
 			try {
-				json = (await rsp.json()) as AnthropicError | undefined;
+				// Read from a clone so the body stays available for `super.handleFetchFailure` below;
+				// otherwise it re-reads the consumed body, loses Anthropic's error, and falls back to statusText.
+				json = (await rsp.clone().json()) as AnthropicError | undefined;
 			} catch {}
 
 			debugger;

@@ -5,12 +5,24 @@ export interface GitWorktreesSubProvider {
 	createWorktree(
 		repoPath: string,
 		path: string,
-		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+		options?: {
+			commitish?: string;
+			createBranch?: string;
+			detach?: boolean;
+			force?: boolean;
+			noTracking?: boolean;
+		},
 	): Promise<void>;
 	createWorktreeWithResult(
 		repoPath: string,
 		path: string,
-		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+		options?: {
+			commitish?: string;
+			createBranch?: string;
+			detach?: boolean;
+			force?: boolean;
+			noTracking?: boolean;
+		},
 	): Promise<GitWorktree | undefined>;
 	getWorktree(
 		repoPath: string,
@@ -19,5 +31,7 @@ export interface GitWorktreesSubProvider {
 	): Promise<GitWorktree | undefined>;
 	getWorktrees(repoPath: string, cancellation?: AbortSignal): Promise<GitWorktree[]>;
 	getWorktreesDefaultUri(repoPath: string): Uri | undefined;
-	deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void>;
+	/** Pass `force: 'locked'` to also override a locked worktree */
+	deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean | 'locked' }): Promise<void>;
+	unlockWorktree(repoPath: string, path: string | Uri): Promise<void>;
 }

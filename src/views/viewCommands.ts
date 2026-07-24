@@ -34,6 +34,7 @@ import type { ViewShowBranchComparison } from '../config.js';
 import type { GlCommands } from '../constants.commands.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
+import { browseAtRevision, executeGitCommand } from '../git/actions.js';
 import * as BranchActions from '../git/actions/branch.js';
 import * as CommitActions from '../git/actions/commit.js';
 import * as ContributorActions from '../git/actions/contributor.js';
@@ -43,7 +44,6 @@ import * as RepoActions from '../git/actions/repository.js';
 import * as StashActions from '../git/actions/stash.js';
 import * as TagActions from '../git/actions/tag.js';
 import * as WorktreeActions from '../git/actions/worktree.js';
-import { browseAtRevision, executeGitCommand } from '../git/actions.js';
 import { GitUri } from '../git/gitUri.js';
 import type { GlRepository } from '../git/models/repository.js';
 import { getBranchAssociatedPullRequest, getBranchRemote } from '../git/utils/-webview/branch.utils.js';
@@ -67,13 +67,13 @@ import {
 } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { getContext, setContext } from '../system/-webview/context.js';
+import { revealInFileExplorer } from '../system/-webview/vscode.js';
 import type { MergeEditorInputs } from '../system/-webview/vscode/editors.js';
 import { openMergeEditor } from '../system/-webview/vscode/editors.js';
 import { editorLineToDiffRange } from '../system/-webview/vscode/range.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
 import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
-import { revealInFileExplorer } from '../system/-webview/vscode.js';
 import { createCommandDecorator } from '../system/decorators/command.js';
 import { DeepLinkActionType } from '../uris/deepLinks/deepLink.js';
 import type { ShowInCommitGraphCommandArgs } from '../webviews/plus/graph/registration.js';
@@ -156,7 +156,7 @@ export class ViewCommands implements Disposable {
 		if (selection.length === 0) return;
 
 		const data = join(
-			// eslint-disable-next-line @typescript-eslint/await-thenable
+			// oxlint-disable-next-line typescript/await-thenable
 			filterMap(await Promise.allSettled(map(selection, n => n.toClipboard?.(type))), r =>
 				r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
 			),
@@ -180,7 +180,7 @@ export class ViewCommands implements Disposable {
 		if (!selection.length) return;
 
 		const urls = [
-			// eslint-disable-next-line @typescript-eslint/await-thenable
+			// oxlint-disable-next-line typescript/await-thenable
 			...filterMap(await Promise.allSettled(map(selection, n => n.getUrl?.())), r =>
 				r.status === 'fulfilled' && r.value?.trim() ? r.value : undefined,
 			),
@@ -542,6 +542,14 @@ export class ViewCommands implements Disposable {
 		return WorktreeActions.remove(node.repoPath, uris);
 	}
 
+	@command('gitlens.views.unlockWorktree')
+	@debug()
+	private async unlockWorktree(node: WorktreeNode) {
+		if (!node.is('worktree')) return undefined;
+
+		return WorktreeActions.unlock(node.worktree);
+	}
+
 	@command('gitlens.fetch:views')
 	@debug()
 	private fetch(
@@ -613,10 +621,14 @@ export class ViewCommands implements Disposable {
 		return executeCoreCommand('openInTerminal', Uri.file(node.repoPath));
 	}
 
-	@command('gitlens.views.openInIntegratedTerminal')
+	@command('gitlens.openInIntegratedTerminal:views')
 	@debug()
-	private openInIntegratedTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
-		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
+	private openInIntegratedTerminal(
+		node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode | WorktreeNode,
+	) {
+		if (!node.isAny('tracking-status', 'repository', 'repo-folder', 'worktree')) return Promise.resolve();
+		// worktree.uri preserves remote-dev schemes, unlike Uri.file(node.repoPath).
+		if (node.is('worktree')) return executeCoreCommand('openInIntegratedTerminal', node.worktree.uri);
 
 		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
 	}
@@ -634,7 +646,10 @@ export class ViewCommands implements Disposable {
 	private async continuePausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		await continuePausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
+		await continuePausedOperation(
+			this.container,
+			this.container.git.getRepositoryService(node.pausedOpStatus.repoPath),
+		);
 	}
 
 	@command('gitlens.views.pausedOperation.skip')
@@ -642,7 +657,10 @@ export class ViewCommands implements Disposable {
 	private async skipPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		await skipPausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
+		await skipPausedOperation(
+			this.container,
+			this.container.git.getRepositoryService(node.pausedOpStatus.repoPath),
+		);
 	}
 
 	@command('gitlens.views.pausedOperation.open')
@@ -1188,7 +1206,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
-	@command('gitlens.recomposeFromCommit:views')
+	@command('gitlens.ai.recomposeFromCommit:views')
 	@debug()
 	private recomposeFromCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return;
@@ -1205,7 +1223,7 @@ export class ViewCommands implements Disposable {
 			return;
 		}
 
-		void executeCommand<RecomposeFromCommitCommandArgs>('gitlens.recomposeFromCommit', {
+		void executeCommand<RecomposeFromCommitCommandArgs>('gitlens.ai.recomposeFromCommit', {
 			repoPath: node.repoPath,
 			commitSha: node.commit.sha,
 			branchName: branch.name,

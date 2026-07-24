@@ -1,9 +1,9 @@
-import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve, relative } from 'node:path';
-import { globSync } from 'glob';
 import { execSync } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
+import { dirname, join, resolve, relative } from 'node:path';
 import * as readline from 'node:readline/promises';
+import { fileURLToPath } from 'node:url';
+import { globSync } from 'glob';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const action = process.argv[2]; // 'link' | 'unlink'

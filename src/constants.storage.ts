@@ -1,16 +1,21 @@
 import type { AIProviderAndModel, AIProviders } from '@gitlens/ai/constants.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
+import type {
+	IntegrationIds,
+	StoredConfiguredIntegrationDescriptor,
+	StoredIntegrationConfigurations,
+} from '@gitlens/integrations/constants.js';
+import type { IntegrationConnectedKey } from '@gitlens/integrations/models/integration.js';
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
-import type { IntegrationIds } from './constants.integrations.js';
 import type { SubscriptionState } from './constants.subscription.js';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
 import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views.js';
 import type { Environment } from './container.js';
+import type { FeatureFlagMap } from './featureFlags/featureFlagService.js';
 import type { FeaturePreviews } from './features.js';
 import type { OnboardingStorage } from './onboarding/models/onboarding.js';
 import type { OrganizationSettings } from './plus/gk/models/organization.js';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
-import type { IntegrationConnectedKey } from './plus/integrations/models/integration.js';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
 import type {
 	GraphDisplayMode,
@@ -34,6 +39,7 @@ export type IntegrationAuthenticationKeys =
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
 	PreReleaseVersion = 'gitlens:synced:preVersion',
+	ApprovedAvatarRemoteTemplates = 'gitlens:avatars:approvedRemoteTemplates',
 }
 
 export type DeprecatedGlobalStorage = {
@@ -87,10 +93,14 @@ interface GlobalStorageCore {
 	avatars: [string, StoredAvatar][];
 	'ai:scope:compose:model': AIProviderAndModel;
 	'ai:scope:review:model': AIProviderAndModel;
+	'ai:scope:resolve:model': AIProviderAndModel;
+	'avatars:approvedRemoteTemplates': Record<string, 'allow' | 'deny'>;
 	'confirm:ai:generateCommits': boolean;
 	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	pendingWhatsNewOnFocus: boolean;
+	/** Ids of one-time settings migrations already applied (see `migrateSettings`). */
+	'settings:migrated': string[];
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;
 	'synced:version': string;
@@ -112,6 +122,7 @@ interface GlobalStorageCore {
 	'integrations:configured': StoredIntegrationConfigurations;
 	/** Unified onboarding/dismissible UI state */
 	'onboarding:state': OnboardingStorage;
+	'featureFlags:flags': FeatureFlagMap;
 }
 
 type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &
@@ -152,18 +163,10 @@ export interface StoredGkCLIInstallInfo {
 	version?: string;
 }
 
-export type StoredIntegrationConfigurations = Record<
-	IntegrationIds,
-	StoredConfiguredIntegrationDescriptor[] | undefined
->;
-
-export interface StoredConfiguredIntegrationDescriptor {
-	cloud: boolean;
-	integrationId: IntegrationIds;
-	domain?: string;
-	expiresAt?: string;
-	scopes: string;
-}
+// Re-export the canonical stored-configuration types (imported above) rather than redefining them here,
+// so the multi-account descriptor shape (id/primary/type/accountName) can't drift between the extension's
+// storage typing and the integrations package that owns it.
+export type { StoredConfiguredIntegrationDescriptor, StoredIntegrationConfigurations };
 
 export interface StoredProductConfig {
 	promos: StoredPromo[];
@@ -389,6 +392,8 @@ export interface StoredGraphColumn {
 	isHidden?: boolean;
 	mode?: string;
 	width?: number;
+	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	grouped?: boolean | string;
 }
 
 export interface StoredGraphState {

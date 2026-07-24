@@ -43,7 +43,7 @@ export class GlBranchIcon extends LitElement {
 		}
 
 		p + p {
-			margin-top: 0.4rem;
+			margin-top: var(--gl-space-4);
 		}
 
 		svg {

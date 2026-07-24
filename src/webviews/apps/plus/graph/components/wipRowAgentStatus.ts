@@ -54,19 +54,6 @@ export function pickWipRowAgentStatus(
 	return { category: worst, sessions: surviving };
 }
 
-/** Suffix glyph paired with the `robot` icon in the WIP row indicator. `idle` has no suffix —
- *  the bare robot in its color carries the meaning. */
-export function agentSuffixIconFor(category: AgentSessionCategory): string | undefined {
-	switch (category) {
-		case 'needs-input':
-			return 'warning';
-		case 'working':
-			return 'sync';
-		case 'idle':
-			return undefined;
-	}
-}
-
 /** Tooltip + aria-label for the WIP row indicator. Reused for both attributes so the spoken
  *  label matches the visible hint. */
 export function agentIndicatorTooltipFor(category: AgentSessionCategory): string {

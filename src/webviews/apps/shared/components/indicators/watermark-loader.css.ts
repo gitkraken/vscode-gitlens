@@ -2,22 +2,19 @@ import { css } from 'lit';
 
 export const baseStyles = css`
 	.container {
+		position: absolute;
+		inset: 5% 0 45%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		margin: auto;
-		position: absolute;
-		top: 5%;
-		bottom: 45%;
-		left: 0;
-		right: 0;
 	}
 
 	::slotted(p) {
-		padding-top: 1rem;
+		padding-top: var(--gl-space-10);
+		font-size: var(--gl-font-lg);
 		color: var(--color-foreground--75);
-		font-size: 1.4rem;
 	}
 
 	.watermark {
@@ -45,9 +42,11 @@ export const pulseStyles = css`
 		0% {
 			transform: scale(0.9);
 		}
+
 		50% {
 			transform: scale(1.05);
 		}
+
 		100% {
 			transform: scale(0.9);
 		}
@@ -57,7 +56,7 @@ export const pulseStyles = css`
 	   but the same animation on SVG sub-elements runs on the main thread. */
 	.watermark--pulse .watermark-piece {
 		transform: scale(0.9);
-		animation: pulse 1.8s ease-in-out infinite;
+		animation: pulse 1.8s var(--gl-ease-in-out) infinite;
 		will-change: transform;
 	}
 

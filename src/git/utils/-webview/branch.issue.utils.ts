@@ -2,18 +2,19 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { IssueResourceDescriptor, RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import type { IntegrationBase } from '@gitlens/integrations/models/integration.js';
+import type { GitConfigEntityIdentifier } from '@gitlens/integrations/providers/models.js';
+import {
+	decodeEntityIdentifiersFromGitConfig,
+	encodeIssueOrPullRequestForGitConfig,
+	getIssueFromGitConfigEntityIdentifier,
+} from '@gitlens/integrations/providers/utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { MaybePausedResult } from '@gitlens/utils/promise.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { GkConfigKeys } from '../../../constants.js';
 import type { Container } from '../../../container.js';
-import type { GitConfigEntityIdentifier } from '../../../plus/integrations/providers/models.js';
-import {
-	decodeEntityIdentifiersFromGitConfig,
-	encodeIssueOrPullRequestForGitConfig,
-	getIssueFromGitConfigEntityIdentifier,
-} from '../../../plus/integrations/providers/utils.js';
 
 export async function addAssociatedIssueToBranch(
 	container: Container,
@@ -76,7 +77,15 @@ export async function getAssociatedIssuesForBranch(
 					return (
 						await Promise.allSettled(
 							(associatedIssues ?? []).map(i =>
-								getIssueFromGitConfigEntityIdentifier(container, i, { cached: options?.cached }),
+								getIssueFromGitConfigEntityIdentifier(id => container.integrations.get(id), i, {
+									cached: options?.cached,
+									peekCachedIssue: (integration, resource, id) =>
+										container.cache.peekIssue(
+											id,
+											resource,
+											integration as IntegrationBase | undefined,
+										),
+								}),
 							),
 						)
 					)

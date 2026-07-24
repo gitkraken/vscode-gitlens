@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
+/* oxlint-disable typescript/no-unsafe-function-type */
 
 /**
  * Class decorator that adds a `toJSON()` method materializing all prototype getters into the

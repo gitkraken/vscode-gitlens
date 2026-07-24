@@ -145,9 +145,7 @@ export class QuickWizardRootStep implements QuickPickStep<QuickCommand> {
 
 	private async updateCommandUsage(id: string, timestamp: number) {
 		let usage = this.container.storage.getWorkspace(`gitComandPalette:usage`);
-		if (usage === undefined) {
-			usage = Object.create(null) as StoredRecentUsage;
-		}
+		usage ??= Object.create(null) as StoredRecentUsage;
 
 		usage[id] = timestamp;
 		await this.container.storage.storeWorkspace(`gitComandPalette:usage`, usage);

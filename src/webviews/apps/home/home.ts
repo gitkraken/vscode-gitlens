@@ -147,8 +147,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	// Per-resource in-flight gates. Concurrent callers receive the in-flight promise instead
 	// of triggering a `Resource.fetch()` that would cancel-and-restart the existing one (its
 	// default behavior is `cancelPrevious=true`). A trailing-edge re-fire after settle ensures
-	// the latest request gets fresh data. Same shape as Graph's `_wipNotifyInFlight` /
-	// `_wipNotifyDirty` pattern in graphWebview.ts.
+	// the latest request gets fresh data. Same shape as Graph's `CoalescedRun` pattern (`@gitlens/utils`).
 	//
 	// `replaceOverview` bypasses these gates — it explicitly cancels and force-fetches; the
 	// reset helper below clears in-flight tracking AND bumps the generation counters so any
@@ -445,7 +444,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// but Remote<T> types them as synchronous values. The lint rule correctly detects the
 		// thenable; the disable is required — this is how Supertalk property access works.
 
-		/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy properties are thenable at runtime */
+		/* oxlint-disable typescript/await-thenable -- Supertalk proxy properties are thenable at runtime */
 		const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal] =
 			await Promise.all([
 				subscription.subscriptionState,
@@ -454,7 +453,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				subscription.hasAccountState,
 				subscription.organizationsCountState,
 			]);
-		/* eslint-enable @typescript-eslint/await-thenable */
+		/* oxlint-enable typescript/await-thenable */
 
 		// Swap remote subscription context to use RemoteSignals directly (no bridge/copy)
 		this._subscriptionCtx?.setValue(
@@ -611,7 +610,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// `isDismissed` as a Promise, so each call must be awaited — synchronous `!` against
 		// a Promise is always `false`, which leaves banners stuck "dismissed" until an
 		// onDidChange event corrects them (and never corrects fresh, never-dismissed keys).
-		/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy method calls are thenable at runtime */
+		/* oxlint-disable typescript/await-thenable -- Supertalk proxy method calls are thenable at runtime */
 		const [integrationDismissed, mcpDismissed, hooksDismissed] = await Promise.all([
 			onboarding.isDismissed('home:integrationBanner'),
 			onboarding.isDismissed('mcp:banner'),

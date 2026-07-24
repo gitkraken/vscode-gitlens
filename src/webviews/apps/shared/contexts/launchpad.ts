@@ -1,5 +1,5 @@
-import { createContext } from '@lit/context';
 import type { Signal } from '@lit-labs/signals';
+import { createContext } from '@lit/context';
 import type { LaunchpadSummaryResult } from '../../../../plus/launchpad/launchpadIndicator.js';
 import { createSignalGroup } from '../state.js';
 

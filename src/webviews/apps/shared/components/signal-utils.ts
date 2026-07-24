@@ -124,7 +124,7 @@ export function signalState<T>(initialValue?: T, options?: { afterChange?: (targ
 	return (target: any, _fieldName: string, targetFields: { get?: () => T; set?: (v: T) => void }) => {
 		if (targetFields.get && targetFields.set) {
 			const signal = new Signal.State(initialValue);
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			// oxlint-disable-next-line typescript/no-unsafe-return
 			return {
 				get: function () {
 					return signal.get();
@@ -146,7 +146,7 @@ export const signalObjectState = <T extends Record<PropertyKey, unknown> | undef
 	return (target: any, _fieldName: string, targetFields: { get?: () => T; set?: (v: T) => void }) => {
 		if (targetFields.get && targetFields.set) {
 			const signal = signalObject(initialValue);
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			// oxlint-disable-next-line typescript/no-unsafe-return
 			return {
 				get: function () {
 					// Don't return {...signal} for optimization purpose

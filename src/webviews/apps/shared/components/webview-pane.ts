@@ -16,6 +16,7 @@ export class WebviewPane extends LitElement {
 			:host {
 				display: flex;
 				flex-direction: column;
+
 				/* background-color: var(--vscode-sideBar-background); */
 				min-height: 23px;
 			}
@@ -25,37 +26,37 @@ export class WebviewPane extends LitElement {
 			}
 
 			.header {
-				flex: none;
-				display: flex;
-				background-color: var(--vscode-sideBarSectionHeader-background);
-				color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
-				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 				position: relative;
+				display: flex;
+				flex: none;
+				color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+				background-color: var(--vscode-sideBarSectionHeader-background);
+				border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 			}
 
 			:host([collapsable]) .header:focus-within {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 			}
 
 			.label {
-				appearance: none;
 				display: flex;
 				flex-direction: row;
 				align-items: center;
 				width: 100%;
-				padding: 0;
-				border: none;
-				text-align: left;
-				font-family: var(--font-family);
-				font-size: 1.1rem;
-				line-height: 2.2rem;
 				height: 2.2rem;
-				background: transparent;
-				color: inherit;
-				outline: none;
+				padding: 0;
 				text-overflow: ellipsis;
+				font-family: var(--font-family);
+				font-size: var(--gl-font-sm);
+				line-height: 2.2rem;
+				color: inherit;
+				text-align: left;
+				appearance: none;
 				user-select: none;
+				outline: none;
+				background: transparent;
+				border: none;
 			}
 
 			:host([collapsable]) .label {
@@ -63,22 +64,22 @@ export class WebviewPane extends LitElement {
 			}
 
 			.title {
-				font-weight: bold;
-				text-transform: uppercase;
 				flex: 1;
-				min-width: 0;
 				width: 0;
+				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				font-weight: bold;
+				text-transform: uppercase;
 				white-space: nowrap;
 			}
 
 			:host(:not([collapsable])) .title {
-				margin-left: 0.8rem;
+				margin-left: var(--gl-space-8);
 			}
 
 			.subtitle {
-				margin-left: 1rem;
+				margin-left: var(--gl-space-10);
 			}
 
 			.subtitle::slotted(*) {
@@ -86,21 +87,22 @@ export class WebviewPane extends LitElement {
 			}
 
 			.icon {
+				margin: 0 var(--gl-space-2);
 				font-weight: normal;
-				margin: 0 0.2rem;
 			}
 
 			.content {
 				display: flex;
-				flex-direction: column;
 				flex: 1;
-				overflow: auto;
+				flex-direction: column;
 				min-height: 0;
+
 				/*
-			scrollbar-gutter: stable;
-			box-shadow: #000000 0 0.6rem 0.6rem -0.6rem inset;
-			*/
-				padding-top: 0.6rem;
+	scrollbar-gutter: stable;
+	box-shadow: #000000 0 0.6rem 0.6rem -0.6rem inset;
+	*/
+				padding-top: var(--gl-space-6);
+				overflow: auto;
 			}
 
 			:host([collapsable]:not([expanded])) .content,

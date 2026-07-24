@@ -51,6 +51,8 @@ export interface GitHubCommitRef {
 
 export type GitHubContributor = Endpoints['GET /repos/{owner}/{repo}/contributors']['response']['data'][0];
 
+export type GitHubSshSigningKey = Endpoints['GET /users/{username}/ssh_signing_keys']['response']['data'][0];
+
 export interface GitHubMember {
 	login: string;
 	avatarUrl: string;
@@ -137,10 +139,12 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 	headRefName: string;
 	headRefOid: string;
 	headRepository: {
+		isFork: boolean;
 		name: string;
 		owner: {
 			login: string;
 		};
+		sshUrl: string;
 		url: string;
 	};
 
@@ -155,6 +159,7 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 		owner: {
 			login: string;
 		};
+		sshUrl: string;
 		url: string;
 		viewerPermission: GitHubViewerPermission;
 	};
@@ -261,6 +266,9 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 				sha: pr.headRefOid,
 				branch: pr.headRefName,
 				url: pr.headRepository?.url,
+				cloneHttps: pr.headRepository != null ? `${pr.headRepository.url}.git` : undefined,
+				cloneSsh: pr.headRepository?.sshUrl,
+				isFork: pr.headRepository?.isFork,
 			},
 			base: {
 				exists: pr.repository != null,
@@ -269,6 +277,9 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 				sha: pr.baseRefOid,
 				branch: pr.baseRefName,
 				url: pr.repository?.url,
+				cloneHttps: pr.repository != null ? `${pr.repository.url}.git` : undefined,
+				cloneSsh: pr.repository?.sshUrl,
+				isFork: pr.repository?.isFork,
 			},
 			isCrossRepository: pr.isCrossRepository,
 		},
@@ -405,6 +416,9 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 				sha: pr.headRefOid,
 				branch: pr.headRefName,
 				url: pr.headRepository?.url,
+				cloneHttps: pr.headRepository != null ? `${pr.headRepository.url}.git` : undefined,
+				cloneSsh: pr.headRepository?.sshUrl,
+				isFork: pr.headRepository?.isFork,
 			},
 			base: {
 				exists: pr.repository != null,
@@ -413,6 +427,9 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 				sha: pr.baseRefOid,
 				branch: pr.baseRefName,
 				url: pr.repository?.url,
+				cloneHttps: pr.repository != null ? `${pr.repository.url}.git` : undefined,
+				cloneSsh: pr.repository?.sshUrl,
+				isFork: pr.repository?.isFork,
 			},
 			isCrossRepository: pr.isCrossRepository,
 		},

@@ -1,0 +1,138 @@
+import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
+import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../constants.js';
+import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { Integration, IntegrationConnectedKey } from '../models/integration.js';
+import { isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
+
+// These two domain checks live here (rather than in their provider modules) to
+// break a top-level circular import. The provider modules synchronously read
+// `providersMetadata[...]` at module init time, so importing from them while
+// `providers/models.ts` is still loading triggers a TDZ on `providersMetadata`.
+const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
+const bitbucketCloudDomainRegex = /^bitbucket\.org$/i;
+function isAzureCloudDomain(domain: string | undefined): boolean {
+	return domain != null && azureCloudDomainRegex.test(domain);
+}
+function isBitbucketCloudDomain(domain: string | undefined): boolean {
+	return domain != null && bitbucketCloudDomainRegex.test(domain);
+}
+
+const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
+	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
+	GitSelfManagedHostIntegrationId.BitbucketServer,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+] as const;
+
+export const supportedIntegrationIds: IntegrationIds[] = [
+	GitCloudHostIntegrationId.GitHub,
+	GitCloudHostIntegrationId.GitLab,
+	GitCloudHostIntegrationId.Bitbucket,
+	GitCloudHostIntegrationId.AzureDevOps,
+	IssuesCloudHostIntegrationId.Jira,
+	// Note: Trello is metadata-only (no auth provider), so it is intentionally absent — including it
+	// would make reset()'s ensureProvider() throw 'No authentication provider registered'.
+	...selfHostedIntegrationIds,
+] as const;
+
+export function convertRemoteProviderIdToIntegrationId(
+	remoteProviderId: RemoteProviderId,
+): GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId | undefined {
+	switch (remoteProviderId) {
+		case 'azure-devops':
+			return GitCloudHostIntegrationId.AzureDevOps;
+		case 'bitbucket':
+			return GitCloudHostIntegrationId.Bitbucket;
+		case 'github':
+			return GitCloudHostIntegrationId.GitHub;
+		case 'gitlab':
+			return GitCloudHostIntegrationId.GitLab;
+		case 'bitbucket-server':
+			return GitSelfManagedHostIntegrationId.BitbucketServer;
+		default:
+			return undefined;
+	}
+}
+
+export function getIntegrationConnectedKey<T extends IntegrationIds>(
+	id: T,
+	domain?: string,
+): IntegrationConnectedKey<T> {
+	if (isGitSelfManagedHostIntegrationId(id)) {
+		if (!domain) {
+			throw new Error(`Domain is required for self-managed integration ID: ${id}`);
+		}
+		return `connected:${id}:${domain}` as IntegrationConnectedKey<T>;
+	}
+
+	return `connected:${id}` as IntegrationConnectedKey<T>;
+}
+
+export function getIntegrationIdForRemote(
+	provider: RemoteProvider | undefined,
+): GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId | undefined {
+	switch (provider?.id) {
+		case 'azure-devops':
+			if (isAzureCloudDomain(provider.domain)) {
+				return GitCloudHostIntegrationId.AzureDevOps;
+			}
+			return provider.custom ? undefined : GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+		case 'bitbucket':
+		case 'bitbucket-server':
+			if (isBitbucketCloudDomain(provider.domain)) {
+				return GitCloudHostIntegrationId.Bitbucket;
+			}
+			return GitSelfManagedHostIntegrationId.BitbucketServer;
+		case 'github':
+			if (provider.domain != null && !isGitHubDotCom(provider.domain)) {
+				return GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+			}
+			return GitCloudHostIntegrationId.GitHub;
+		case 'gitlab':
+			if (provider.domain != null && !isGitLabDotCom(provider.domain)) {
+				return GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
+			}
+			return GitCloudHostIntegrationId.GitLab;
+		default:
+			return undefined;
+	}
+}
+
+export function isCloudGitSelfManagedHostIntegrationId(
+	id: IntegrationIds,
+): id is CloudGitSelfManagedHostIntegrationIds {
+	switch (id) {
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+			return true;
+		default:
+			return false;
+	}
+}
+
+export function isGitHostIntegration(integration: Integration): integration is GitHostIntegration {
+	return integration.type === 'git';
+}
+
+export function isGitCloudHostIntegrationId(id: IntegrationIds): id is GitCloudHostIntegrationId {
+	switch (id) {
+		case GitCloudHostIntegrationId.GitHub:
+		case GitCloudHostIntegrationId.GitLab:
+		case GitCloudHostIntegrationId.Bitbucket:
+		case GitCloudHostIntegrationId.AzureDevOps:
+			return true;
+		default:
+			return false;
+	}
+}
+
+export function isGitSelfManagedHostIntegrationId(id: IntegrationIds): id is GitSelfManagedHostIntegrationId {
+	return selfHostedIntegrationIds.includes(id as GitSelfManagedHostIntegrationId);
+}

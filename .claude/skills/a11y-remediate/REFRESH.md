@@ -6,7 +6,7 @@ The `a11y-remediate` skill references external specs (WCAG, WAI-ARIA) and consum
 
 1. **Hand-off compatibility check** — confirm `/a11y-audit`'s Layer 1 Summary still produces: scope boundary, plain-English status, fix confidence breakdown (with design-blocked vs technically-uncertain split), WCAG criteria affected, issue groups, safely-shippable-now and design-blocked tables, per-P0 reproduction recipes, items requiring runtime tooling. If the audit's output format drifts, update `references/output-format.md` (Section 3 template) and the detection spine Step 1.
 
-2. **Shared reference sync** — `references/wcag-criteria.md` is duplicated from `/a11y-audit/references/wcag-criteria.md`. Re-copy it after the audit skill's refresh runs.
+2. **Shared reference** — `wcag-criteria.md` is canonical in `.claude/skills/a11y-audit/references/` and refreshed there. No local copy or sync needed.
 
 3. **Update `staffing-translation.md` if velocity norms change** — if the industry or org's "engineer-days to sprint" conventions shift, update the formula.
 
@@ -20,4 +20,5 @@ The `a11y-remediate` skill references external specs (WCAG, WAI-ARIA) and consum
 - `deferral-risk.md` — user-harm vs commercial risk split, three scenarios, partial-ship warnings
 - `critical-path.md` — design decisions as serial blockers, forwardable decision message template
 - `output-format.md` — 10-section proposal structure, provenance rules
-- `wcag-criteria.md` — duplicated from audit skill (maintain sync)
+
+Shared (read from `.claude/skills/a11y-audit/references/`, refreshed there): `wcag-criteria.md`.

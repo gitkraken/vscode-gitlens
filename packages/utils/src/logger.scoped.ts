@@ -35,7 +35,7 @@ export function createLogScope(scopeId: number, prevScopeId: number | undefined,
 	let exitDetails: string[] | undefined;
 	let exitFailed: string | undefined;
 
-	// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+	// oxlint-disable-next-line typescript/consistent-type-assertions
 	const scope: ScopedLogger = {
 		scopeId: scopeId,
 		prevScopeId: prevScopeId,

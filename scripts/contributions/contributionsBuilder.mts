@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import { expand } from 'regex-to-strings';
 import type {
 	Command,
 	ContributionsJson,
@@ -13,8 +15,6 @@ import type {
 	View,
 	SubmenuLocations,
 } from './models';
-import * as fs from 'fs';
-import { expand } from 'regex-to-strings';
 import { ContextKeyExprType, Parser, type ContextKeyExpression } from './whenParser.mts';
 
 export const menuLocations: MenuLocations[] = [

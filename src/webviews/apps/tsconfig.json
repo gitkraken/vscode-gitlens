@@ -12,12 +12,12 @@
 			"@gitlens/ipc/*": ["../../../packages/ipc/src/*"],
 			"@gitlens/git/*": ["../../../packages/git/src/*"],
 			"@gitlens/git-github/*": ["../../../packages/plus/git-github/src/*"],
+			"@gitlens/integrations/*": ["../../../packages/plus/integrations/src/*"],
 			"@gitlens/ai/*": ["../../../packages/plus/ai/src/*"],
 			"@gitlens/agents/*": ["../../../packages/plus/agents/src/*"]
 		},
 		"useDefineForClassFields": false // Needed for lit decorators https://github.com/lit/lit/issues/3278 https://lit.dev/docs/tools/publishing/#publishing-modern-javascript
 	},
-	// Keep in sync with `src/eslint.config.mjs`
 	"include": [
 		"**/*",
 		"../ipc/models/ipc.ts",

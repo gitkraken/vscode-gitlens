@@ -64,8 +64,8 @@ export class GlAvatarGroup extends LitElement {
 			.avatar-group {
 				display: inline-flex;
 				flex-direction: row;
-				justify-content: center;
 				align-items: center;
+				justify-content: center;
 			}
 
 			.avatar-group ::slotted(*:not(:first-child)) {
@@ -79,8 +79,8 @@ export class GlAvatarGroup extends LitElement {
 
 			.avatar-group:focus-within ::slotted(*:focus),
 			.avatar-group:hover ::slotted(*:hover) {
-				opacity: 1;
 				z-index: var(--gl-avatar-selected-zindex, 1) !important;
+				opacity: 1;
 			}
 		`,
 	];

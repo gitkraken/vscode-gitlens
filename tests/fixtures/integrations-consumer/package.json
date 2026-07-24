@@ -1,0 +1,19 @@
+{
+	"name": "@gitlens/integrations-consumer-fixture",
+	"private": true,
+	"version": "0.0.0",
+	"description": "Proof-of-extraction: imports @gitlens/integrations as a real external consumer would.",
+	"type": "module",
+	"scripts": {
+		"build": "tsc -p tsconfig.json --noEmit",
+		"test": "tsc -p tsconfig.json --noEmit && node scripts/run.mjs"
+	},
+	"dependencies": {
+		"@gitlens/integrations": "workspace:*",
+		"@gitlens/utils": "workspace:*",
+		"@gitlens/git": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "catalog:"
+	}
+}

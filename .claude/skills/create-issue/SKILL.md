@@ -60,7 +60,7 @@ gh issue create --title "<title>" --body "<body>" --assignee @me --label "<label
 
 ## CHANGELOG Entry
 
-Format per `/changelog` skill. Map: Feature→Added, Enhancement→Changed, Bugfix→Fixed, Removal→Removed.
+Format per `/audit-commits` CHANGELOG conventions. Map: Feature→Added, Enhancement→Changed, Bugfix→Fixed, Removal→Removed.
 
 ## Safety
 

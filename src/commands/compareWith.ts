@@ -13,6 +13,9 @@ import type { CommandContext } from './commandContext.js';
 export interface CompareWithCommandArgs {
 	ref1?: string;
 	ref2?: string;
+	/** When provided (with both refs), skips the repository picker — used by callers without editor
+	 *  context, e.g. a terminal-link range comparison. */
+	repoPath?: string;
 }
 
 @command()
@@ -67,7 +70,8 @@ export class CompareWithCommand extends ActiveEditorCommand {
 					break;
 			}
 
-			const repoPath = (await getBestRepositoryOrShowPicker(this.container, uri, editor, title))?.path;
+			const repoPath =
+				args.repoPath ?? (await getBestRepositoryOrShowPicker(this.container, uri, editor, title))?.path;
 			if (!repoPath) return;
 
 			if (args.ref1 == null || args.ref2 == null) {

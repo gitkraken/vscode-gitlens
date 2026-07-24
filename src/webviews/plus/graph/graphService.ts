@@ -1,6 +1,8 @@
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
@@ -42,11 +44,37 @@ export type ResolvedFileSummary = {
 	virtualRef?: VirtualRefShape;
 };
 
-export type ResolveFileError = { filePath: string; message: string };
+/** Conflict-type info + which sides can be staged, attached to skipped/errored files so the resolve
+ *  panel can label them and offer the right manual take-side fallback actions. Optional throughout —
+ *  populated from `getConflictFileInfos`; absent when the file is no longer conflicted. */
+export type ConflictFallbackInfo = {
+	conflictStatus?: GitFileConflictStatus;
+	kind?: ConflictKind;
+	canStageCurrent?: boolean;
+	canStageIncoming?: boolean;
+	/** Original (pre-rename) path, for rename labels. */
+	renameOf?: string;
+};
+
+export type ResolveFileError = { filePath: string; message: string } & ConflictFallbackInfo;
 
 /** A conflicted file the resolver couldn't auto-resolve (e.g. binary or a marker-less conflict) —
  *  it still needs manual attention, but distinct from a failure: retrying won't help. */
-export type ResolveSkippedFile = { filePath: string; message: string };
+export type ResolveSkippedFile = { filePath: string; message: string } & ConflictFallbackInfo;
+
+/** Side to take when manually resolving a conflict from the resolve panel's fallback actions. */
+export type ConflictSide = 'current' | 'incoming' | 'delete';
+
+/** A queued take-side resolution — the file and the strategy it will be applied with on Apply. */
+export type QueuedTakeSide = {
+	filePath: string;
+	strategy: Extract<ConflictResolutionStrategy, 'take-ours' | 'take-theirs' | 'deleted'>;
+};
+
+/** Result of queuing a manual take-side resolution. `resolved` lists every file queued (the chosen
+ *  file, plus the losing target deleted for a rename/rename) so the panel can promote the matching
+ *  rows. Nothing is applied to the working tree until the user clicks Apply. */
+export type TakeConflictSideResult = { result: { resolved: QueuedTakeSide[] } } | { error: { message: string } };
 
 export type ResolveResult =
 	| {
@@ -81,6 +109,16 @@ export type ScopeSelection =
 	  };
 
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
+
+/**
+ * Continuation knobs for {@link GraphInspectService.reviewChanges}. `mode: 'refine'` means
+ * "follow up on the host-cached review conversation" — the prompt becomes a refine turn layered
+ * on the prior exchanges instead of a fresh run. Absent (or no cached conversation) means a
+ * fresh review.
+ */
+export type ReviewChangesOptions = {
+	mode?: 'refine';
+};
 
 export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { message: string } };
 
@@ -140,15 +178,57 @@ export type ComposeBaseCommit = {
 	selectedShas?: string[];
 };
 
+/**
+ * Refinement knobs for {@link composeChanges}. Present means "refine the cached plan
+ * identified by `priorCacheKey`" — the webview passes back the cache key tracked locally,
+ * plus any commits the user has locked in the UI. Absent means cold-start compose.
+ */
+export type ComposeChangesOptions = {
+	priorCacheKey?: string;
+	/** Mode marker — currently `'refine'` only. Reserved as a discriminator if other
+	 *  continuation flavors are added later. */
+	mode?: 'refine';
+	/** Commit ids the user has locked in the UI. Forwarded to the library's `refinePlan` as
+	 *  `lockedCommits` so the AI preserves them verbatim across the refinement. Ignored on
+	 *  cold start. */
+	excludedCommitIds?: readonly string[];
+};
+
 export type ComposeResult =
-	| { result: { commits: ProposedCommit[]; baseCommit: ComposeBaseCommit } }
+	| { result: { commits: ProposedCommit[]; baseCommit: ComposeBaseCommit; cacheKey?: string } }
+	| {
+			error: {
+				message: string;
+				/** `invalid-scope` = the selected scope cannot be rewritten (e.g. interior forks);
+				 *  retrying identically fails, so the UI offers scope adjustment instead. */
+				kind?: 'invalid-scope';
+			};
+	  }
+	| { cancelled: true };
+
+/** Result of {@link GraphInspectService.regenerateProposedCommitMessage}. On success the host has
+ *  already mutated its cached plan; the new message is returned for the webview to swap into its
+ *  rendered resource. */
+export type RegenerateProposedCommitMessageResult =
+	| { result: { commitId: string; message: string } }
 	| { error: { message: string } }
 	| { cancelled: true };
+
+/** Result of {@link GraphInspectService.reorderProposedCommits}. On success the host has already
+ *  reordered its cached plan to match; the webview keeps its optimistically-reordered array. */
+export type ReorderProposedCommitsResult = { result: true } | { error: { message: string } };
+
+/** Result of {@link GraphInspectService.moveComposeFile}. Unlike reorder, moving a file changes the
+ *  affected commits' content (and may drop an emptied commit), so the host returns the re-derived
+ *  `ProposedCommit[]` (display order) for the webview to swap in wholesale. */
+export type MoveComposeFileResult = { result: { commits: ProposedCommit[] } } | { error: { message: string } };
 
 export type ComposeCommitPlan = {
 	commits: ProposedCommit[];
 	base: ComposeBaseCommit;
-	/** When provided, only commits whose `id` is in this list are applied. `undefined` means all. */
+	/** When provided, only commits whose `id` is in this list are applied. Undefined means all.
+	 *  Excluded commits' hunks stay in the workdir as uncommitted changes (the library lays them
+	 *  back via `git apply` from its leftover-patch path). */
 	includedCommitIds?: readonly string[];
 };
 
@@ -196,6 +276,11 @@ export type BranchComparisonCommit = {
 	author: string;
 	authorEmail?: string;
 	avatarUrl?: string;
+	/** Committer identity (avatar overlay + hover) — set only when the committer differs from the author. */
+	committerAvatarUrl?: string;
+	committerName?: string;
+	committerEmail?: string;
+	committerDate?: string;
 	date: string;
 	additions?: number;
 	deletions?: number;
@@ -282,6 +367,14 @@ export interface GraphInspectService {
 		signal?: AbortSignal,
 	): Promise<ExplainResult>;
 	generateChangelogCompare(repoPath: string, fromRef: string, toRef: string, signal?: AbortSignal): Promise<void>;
+	/** Resolve the newest tag reachable from — and older than — the given tag, for a
+	 *  previous-tag → this-tag changelog default. Returns `undefined` when there's no prior tag. */
+	getPreviousTag(
+		repoPath: string,
+		tagName: string,
+		tagSha: string,
+		signal?: AbortSignal,
+	): Promise<string | undefined>;
 	getScopeFiles(repoPath: string, scope: ScopeSelection, signal?: AbortSignal): Promise<GitFileChangeShape[]>;
 	reviewChanges(
 		repoPath: string,
@@ -289,6 +382,7 @@ export interface GraphInspectService {
 		prompt?: string,
 		excludedFiles?: string[],
 		signal?: AbortSignal,
+		options?: ReviewChangesOptions,
 	): Promise<ReviewResult>;
 	reviewFocusArea(
 		repoPath: string,
@@ -327,8 +421,50 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		aiExcludedFiles?: string[],
 		signal?: AbortSignal,
+		options?: ComposeChangesOptions,
 	): Promise<ComposeResult>;
 	commitCompose(repoPath: string, plan: ComposeCommitPlan): Promise<CommitResult>;
+	/**
+	 * Regenerate the commit message for a single draft commit in the cached plan identified
+	 * by `cacheKey`. Uses GitLens's internal `ai.actions.generateCommitMessage` against a patch
+	 * rebuilt from the cached hunks (with AI-excluded file content re-masked, matching the
+	 * convention of the original compose run). The host mutates the cached plan's
+	 * `allOrderedCommits[i].message` in place so subsequent refines pick up the new message
+	 * via the locked-commit substitution path, and so apply uses the regenerated message.
+	 *
+	 * Independent of hunk assignments and other commits' messages — only the targeted commit's
+	 * message field changes.
+	 */
+	regenerateProposedCommitMessage(
+		repoPath: string,
+		cacheKey: string,
+		commitId: string,
+		signal?: AbortSignal,
+	): Promise<RegenerateProposedCommitMessageResult>;
+	/**
+	 * Reorder the draft commits in the cached plan identified by `cacheKey`. `orderedCommitIds`
+	 * is the full set of the plan's commit ids in the new **library** order (tip last). The host
+	 * reorders `allOrderedCommits` and the per-branch id lists in place so apply and any
+	 * subsequent refine honor the new sequence. Pure in-memory reorder — no AI, no git.
+	 */
+	reorderProposedCommits(
+		repoPath: string,
+		cacheKey: string,
+		orderedCommitIds: string[],
+	): Promise<ReorderProposedCommitsResult>;
+	/**
+	 * Move the files in `paths` from the `fromCommitId` draft commit to `toCommitId` in the cached
+	 * plan identified by `cacheKey` (reassigns those files' hunks in a single mutation). Emptied
+	 * source commits are pruned. The host re-derives and returns the affected plan's `ProposedCommit[]`
+	 * in display order.
+	 */
+	moveComposeFile(
+		repoPath: string,
+		cacheKey: string,
+		fromCommitId: string,
+		toCommitId: string,
+		paths: string[],
+	): Promise<MoveComposeFileResult>;
 	/** Streams human-readable progress messages while {@link composeChanges} runs. `undefined`
 	 *  fires when no compose is in flight (entry/exit clearing). */
 	readonly onComposeProgress: RpcEventSubscription<ComposeProgressUpdate | undefined>;
@@ -356,6 +492,12 @@ export interface GraphInspectService {
 	applyResolutions(repoPath: string, includedFilePaths?: readonly string[]): Promise<CommitResult>;
 	/** Drops the host-side cached resolve session for the repo without writing anything. */
 	discardResolutions(repoPath: string): Promise<void>;
+	/** Queues a manual take-side resolution for a single conflicted file — the fallback for files the
+	 *  AI resolver skipped or errored on. Like AI resolutions, it's cached as pending and only written
+	 *  to the working tree on {@link applyResolutions} (and dropped by {@link discardResolutions}); it
+	 *  does NOT touch the working tree immediately. Returns every file queued so the panel can promote
+	 *  the matching rows without re-running the AI. */
+	takeConflictSide(repoPath: string, filePath: string, side: ConflictSide): Promise<TakeConflictSideResult>;
 	/** Streams human-readable progress messages while {@link resolveConflicts} runs. `undefined`
 	 *  fires when no resolve is in flight (entry/exit clearing). */
 	readonly onResolveProgress: RpcEventSubscription<ResolveProgressUpdate | undefined>;
@@ -456,5 +598,9 @@ export interface GraphServices extends SharedWebviewServices {
 }
 
 export interface GraphLaunchpadService {
+	/** Fires when Launchpad items change (PR status updates, integration connection changes, etc.).
+	 *  The host impl (`LaunchpadService`) already exposes this; consumed by the graph header's
+	 *  Launchpad indicator to keep its counts fresh. */
+	readonly onLaunchpadChanged: RpcEventSubscription<undefined>;
 	getSummary(): Promise<LaunchpadSummaryResult | { error: Error } | undefined>;
 }

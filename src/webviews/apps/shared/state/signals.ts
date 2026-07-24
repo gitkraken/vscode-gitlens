@@ -188,6 +188,8 @@ export function createStateGroup(options?: {
 				const raw = source[key];
 				if (deserialize != null) {
 					const deserialized = deserialize(raw);
+					// Preserve an explicitly-deserialized null; only `undefined` means "no stored value" here
+					// oxlint-disable-next-line typescript/prefer-nullish-coalescing
 					return deserialized !== undefined ? deserialized : initialValue;
 				}
 

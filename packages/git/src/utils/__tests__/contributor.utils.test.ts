@@ -19,7 +19,9 @@ suite('Contributor Utils Test Suite', () => {
 			const now = Date.now();
 			const score = calculateContributionScore(
 				{ files: 1, additions: 100, deletions: 50 },
-				now, // ageInDays ~0
+				now, // ageInDays === 0
+				undefined,
+				now,
 			);
 			// recencyScore = exp(0) = 1
 			// impactScore = 100*0.8 + 50*1.2 = 80 + 60 = 140
@@ -82,10 +84,20 @@ suite('Contributor Utils Test Suite', () => {
 
 		test('additions and deletions contribute differently based on weights', () => {
 			const now = Date.now();
-			const additionsOnly = calculateContributionScore({ files: 1, additions: 100, deletions: 0 }, now);
-			const deletionsOnly = calculateContributionScore({ files: 1, additions: 0, deletions: 100 }, now);
+			const additionsOnly = calculateContributionScore(
+				{ files: 1, additions: 100, deletions: 0 },
+				now,
+				undefined,
+				now,
+			);
+			const deletionsOnly = calculateContributionScore(
+				{ files: 1, additions: 0, deletions: 100 },
+				now,
+				undefined,
+				now,
+			);
 			// additions: 100 * 0.8 = 80; deletions: 100 * 1.2 = 120
-			// Both get same recency multiplier (2.5 for ageInDays≈0)
+			// Both get same recency multiplier (2.5 for ageInDays === 0)
 			assert.ok(deletionsOnly > additionsOnly, 'Deletions should weigh more than additions');
 			assert.strictEqual(additionsOnly, 200); // 80 * 2.5
 			assert.strictEqual(deletionsOnly, 300); // 120 * 2.5

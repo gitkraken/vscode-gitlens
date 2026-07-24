@@ -73,17 +73,26 @@ const defaultSlicePalette: readonly string[] = [
 	'#26A69A',
 ];
 
-export const tagName = 'gl-timeline-chart';
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-timeline-chart': GlTimelineChart;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		'gl-commit-select': CustomEvent<CommitEventDetail>;
+		'gl-loading': CustomEvent<Promise<void>>;
+		'gl-load-more': CustomEvent<LoadMoreEventDetail>;
+		'gl-visible-range-changed': CustomEvent<VisibleRangeEventDetail>;
+	}
+}
 
 /**
  * Canvas-backed Visual File History chart. Owns the bubble swimlanes, volume histogram, slider footer,
  * and all interactions; the surrounding [timeline.ts](../timeline.ts) wires it to scope/period/sliceBy
  * state and forwards `gl-commit-select` selections to the host extension.
  */
-@customElement(tagName)
+@customElement('gl-timeline-chart')
 export class GlTimelineChart extends GlElement {
-	static readonly tagName = tagName;
-
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
@@ -91,17 +100,23 @@ export class GlTimelineChart extends GlElement {
 
 	static override styles = css`
 		:host {
+			position: relative;
 			display: flex;
 			flex-direction: column;
 			width: 100%;
 			height: 100%;
-			position: relative;
 			outline: none;
+
+			/* Trap the chart's internal z-ordinals (notice, tooltip, rail) so they can't compete
+		   with app-level chrome — e.g. the loading progress-indicator at raised(1), which the
+		   notice's z-index: 3 would otherwise cover and blur */
+			isolation: isolate;
+
 			/* Sizing constants shared between the canvas layout and the DOM rail overlay so the
-			   rail's bottom edge lines up with the canvas's swimlane bottom (= top of axis label
-			   strip). Keep in sync with the constants in timelineRenderer.ts:
-			   volumeHeightPx (64) + axisLabelStripHeightPx (20) = 84px bottom offset; headerPaddingPx
-			   (18) = top offset. */
+	   rail's bottom edge lines up with the canvas's swimlane bottom (= top of axis label
+	   strip). Keep in sync with the constants in timelineRenderer.ts:
+	   volumeHeightPx (64) + axisLabelStripHeightPx (20) = 84px bottom offset; headerPaddingPx
+	   (18) = top offset. */
 			--rail-left-offset: 8px;
 			--rail-column-width: 36px;
 			--rail-edge-padding: 4px;
@@ -113,44 +128,44 @@ export class GlTimelineChart extends GlElement {
 
 		.rail {
 			/* Overlays the canvas's left gutter. Avatars inside are positioned with absolute
-			   canvas-Y coords, and the Y2 axis ("Lines changed") is rendered at the bottom.
-			   The glass pane lives in ::before so text and avatars stay crisp above it. */
+	   canvas-Y coords, and the Y2 axis ("Lines changed") is rendered at the bottom.
+	   The glass pane lives in ::before so text and avatars stay crisp above it. */
 			position: absolute;
 			top: 0;
-			left: 0;
-			width: calc(var(--rail-left-offset, 8px) + var(--rail-column-width, 36px) + var(--rail-edge-padding, 4px));
 			bottom: var(--rail-bottom-offset, 84px);
-			pointer-events: none;
+			left: 0;
 			z-index: 2;
+			width: calc(var(--rail-left-offset, 8px) + var(--rail-column-width, 36px) + var(--rail-edge-padding, 4px));
 			overflow: visible;
+			pointer-events: none;
 		}
 
 		.rail::before {
-			content: '';
 			position: absolute;
 			inset: 0;
 			pointer-events: none;
+			content: '';
 			background: linear-gradient(90deg, var(--timeline-glass-start), var(--timeline-glass-end));
-			backdrop-filter: var(--timeline-glass-filter);
-			-webkit-backdrop-filter: var(--timeline-glass-filter);
-			border-right: 1px solid color-mix(in srgb, var(--vscode-widget-border) 32%, transparent);
+			border-right: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-widget-border) 32%, transparent);
 			box-shadow: inset -1px 0 0 color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+			-webkit-backdrop-filter: var(--timeline-glass-filter);
+			backdrop-filter: var(--timeline-glass-filter);
 		}
 
 		.rail__avatar {
 			position: absolute;
-			z-index: 1;
 			left: calc(var(--rail-left-offset, 8px) + var(--rail-column-width, 36px) / 2);
-			transform: translate(-50%, -50%);
-			cursor: pointer;
+			z-index: 1;
+			padding: var(--gl-space-2);
 			pointer-events: auto;
-			border-radius: 50%;
-			padding: 2px;
+			cursor: pointer;
 			background: transparent;
+			border-radius: 50%;
+			transform: translate(-50%, -50%);
 			transition:
-				transform 120ms ease-out,
-				opacity 120ms ease-out,
-				background 120ms ease-out;
+				transform var(--gl-duration-x-fast) var(--gl-ease-out),
+				opacity var(--gl-duration-x-fast) var(--gl-ease-out),
+				background var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
 		.rail__avatar gl-tooltip {
@@ -160,22 +175,23 @@ export class GlTimelineChart extends GlElement {
 		.rail__avatar gl-avatar {
 			display: block;
 			border-radius: 50%;
+
 			/* Slotted initials inherit color from gl-avatar's shadow .thumb--text rule (slot's own
-			   color wins over light-DOM cascade). The --gl-avatar-text-color custom property
-			   crosses the shadow boundary and pins the initials black against the slice color. */
+	   color wins over light-DOM cascade). The --gl-avatar-text-color custom property
+	   crosses the shadow boundary and pins the initials black against the slice color. */
 			--gl-avatar-text-color: #000;
 		}
 
 		.rail__avatar gl-avatar::part(avatar) {
+			font-weight: 700;
 			background: var(--rail-avatar-color, transparent);
 			box-shadow: 0 0 0 1.5px var(--rail-avatar-color, transparent);
-			font-weight: 700;
 		}
 
 		/* gl-avatar has its own untransitioned hover-scale (1.2) — the rail wraps it in a
-		   hover-scaled outer element, so the inner scale doubles up and snaps instantly while
-		   the outer one smoothly transitions, producing visible jank. Suppress the inner hover
-		   scale here; the outer .rail__avatar:hover owns the hover affordance. */
+   hover-scaled outer element, so the inner scale doubles up and snaps instantly while
+   the outer one smoothly transitions, producing visible jank. Suppress the inner hover
+   scale here; the outer .rail__avatar:hover owns the hover affordance. */
 		.rail__avatar gl-avatar::part(avatar):hover {
 			transform: none;
 		}
@@ -194,45 +210,47 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		.rail__avatar:hover {
-			transform: translate(-50%, -50%) scale(1.08);
 			z-index: 4;
+			transform: translate(-50%, -50%) scale(1.08);
 		}
 
 		/* Branch slice — rendered instead of an avatar when sliceBy='branch'. Default state is a
-		   24px circular badge in the slice color with a centered git-branch icon. Hover or
-		   chart-side activation expands max-width rightward to reveal the branch name as a
-		   pill that extends beyond the rail's right edge into the chart area. The rail itself
-		   has overflow: visible so the pill isn't clipped. */
+   24px circular badge in the slice color with a centered git-branch icon. Hover or
+   chart-side activation expands max-width rightward to reveal the branch name as a
+   pill that extends beyond the rail's right edge into the chart area. The rail itself
+   has overflow: visible so the pill isn't clipped. */
 		.rail__branch {
 			position: absolute;
-			z-index: 1;
+
 			/* Anchor the pill at a FIXED x — the icon's center lands where it would at the minimum
-			   36px column width (= rail-left-offset + 18px - 12px = rail-left-offset + 6px), which
-			   matches the author avatar's center at the same minimum rail. Anchoring to the *current*
-			   column-mid would re-center the icon every time the column grew and leave a gap to the
-			   left of the icon on widened rails — instead we keep the icon stationary and let only
-			   the pill's right edge expand into the freed-up column space. */
+	   36px column width (= rail-left-offset + 18px - 12px = rail-left-offset + 6px), which
+	   matches the author avatar's center at the same minimum rail. Anchoring to the *current*
+	   column-mid would re-center the icon every time the column grew and leave a gap to the
+	   left of the icon on widened rails — instead we keep the icon stationary and let only
+	   the pill's right edge expand into the freed-up column space. */
 			left: calc(var(--rail-left-offset, 8px) + 6px);
-			transform: translateY(-50%);
-			cursor: pointer;
-			pointer-events: auto;
-			height: 24px;
-			border-radius: 12px;
-			background: var(--rail-avatar-color, transparent);
-			color: #000;
+			z-index: 1;
 			display: inline-flex;
 			align-items: center;
-			overflow: hidden;
 			width: max-content;
+
 			/* Collapsed pill is icon-only (24px = a dot, matching author avatars) at the min 36px
-			   column width, and grows with --rail-column-width to reveal more of the branch name
-			   on widened rails. Pill-right tracks the column's right edge minus a small inset so it
-			   doesn't crowd the rail's edge padding. Hover/active still expands to 24rem for full
-			   reveal. */
+	   column width, and grows with --rail-column-width to reveal more of the branch name
+	   on widened rails. Pill-right tracks the column's right edge minus a small inset so it
+	   doesn't crowd the rail's edge padding. Hover/active still expands to 24rem for full
+	   reveal. */
 			max-width: calc(var(--rail-column-width, 36px) - 12px);
+			height: 24px;
+			overflow: hidden;
+			color: #000;
+			pointer-events: auto;
+			cursor: pointer;
+			background: var(--rail-avatar-color, transparent);
+			border-radius: var(--gl-radius-xl);
+			transform: translateY(-50%);
 			transition:
-				max-width 220ms ease-out,
-				opacity 120ms ease-out;
+				max-width var(--gl-duration-medium) var(--gl-ease-out),
+				opacity var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
 		.rail__branch gl-tooltip {
@@ -240,31 +258,31 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		.rail__branch-icon {
-			flex: 0 0 24px;
-			width: 24px;
-			height: 24px;
 			display: inline-flex;
+			flex: 0 0 24px;
 			align-items: center;
 			justify-content: center;
+			width: 24px;
+			height: 24px;
 			--code-icon-size: 14px;
 			--code-icon-v-align: unset;
 		}
 
 		.rail__branch-name {
 			flex: 0 1 auto;
-			padding: 0 0.8rem 0 0.2rem;
-			font-size: 1.1rem;
+			max-width: 22rem;
+			padding: 0 var(--gl-space-8) 0 var(--gl-space-2);
+			overflow: hidden;
+			text-overflow: ellipsis;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			white-space: nowrap;
-			text-overflow: ellipsis;
-			overflow: hidden;
-			max-width: 22rem;
 		}
 
 		.rail__branch:hover,
 		.rail__branch[data-active='true'] {
-			max-width: 24rem;
 			z-index: 4;
+			max-width: 24rem;
 		}
 
 		.rail__branch[data-dimmed='true'] {
@@ -281,60 +299,60 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		.rail-tooltip__meta {
-			color: var(--color-foreground--75);
-			font-size: 0.85em;
 			margin-top: 0.15rem;
+			font-size: 0.85em;
+			color: var(--color-foreground--75);
 		}
 
 		.rail-tooltip__hint {
-			color: var(--color-foreground--50);
-			font-size: 0.8em;
-			margin-top: 0.4rem;
 			max-width: 16rem;
+			margin-top: var(--gl-space-4);
+			font-size: 0.8em;
+			color: var(--color-foreground--50);
 		}
 
 		.rail__y2-title {
 			position: absolute;
 			left: calc(var(--rail-left-offset, 8px) + 2px);
-			transform: translate(-50%, -50%) rotate(-90deg);
+			z-index: 1;
+			font-size: var(--gl-font-micro);
 			color: var(--color-foreground--75);
-			font-size: 10px;
 			white-space: nowrap;
 			pointer-events: none;
-			z-index: 1;
+			transform: translate(-50%, -50%) rotate(-90deg);
 		}
 
 		.rail__y2-tick {
 			position: absolute;
 			right: -4px;
+			z-index: 1;
 			width: 4px;
 			height: 1px;
 			background: var(--color-foreground--85);
 			transform: translateY(-50%);
-			z-index: 1;
 		}
 
 		.rail__y2-label {
 			position: absolute;
 			right: 6px;
-			color: var(--color-foreground--75);
-			font-size: 10px;
-			white-space: nowrap;
-			transform: translateY(-50%);
-			pointer-events: none;
 			z-index: 1;
+			font-size: var(--gl-font-micro);
+			color: var(--color-foreground--75);
+			white-space: nowrap;
+			pointer-events: none;
+			transform: translateY(-50%);
 		}
 
 		.axis-overlay {
 			position: absolute;
 			left: 0;
-			width: 100%;
-			pointer-events: none;
 			z-index: 2;
+			width: 100%;
 			overflow: visible;
-			color: var(--axis-label-color);
-			font-size: 10px;
+			font-size: var(--gl-font-micro);
 			line-height: 12px;
+			color: var(--axis-label-color);
+			pointer-events: none;
 		}
 
 		.axis-overlay__glass {
@@ -346,10 +364,10 @@ export class GlTimelineChart extends GlElement {
 				color-mix(in srgb, var(--vscode-editor-background) 68%, transparent),
 				color-mix(in srgb, var(--vscode-editor-background) 56%, transparent)
 			);
-			backdrop-filter: var(--timeline-glass-filter);
-			-webkit-backdrop-filter: var(--timeline-glass-filter);
-			border-top: 1px solid color-mix(in srgb, var(--vscode-widget-border) 22%, transparent);
+			border-top: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-widget-border) 22%, transparent);
 			box-shadow: inset 0 1px 0 color-mix(in srgb, var(--vscode-foreground) 7%, transparent);
+			-webkit-backdrop-filter: var(--timeline-glass-filter);
+			backdrop-filter: var(--timeline-glass-filter);
 		}
 
 		.axis-overlay__baseline {
@@ -369,9 +387,9 @@ export class GlTimelineChart extends GlElement {
 		.axis-overlay__label {
 			position: absolute;
 			bottom: 4px;
-			color: var(--axis-label-color);
-			font-size: 10px;
+			font-size: var(--gl-font-micro);
 			line-height: 12px;
+			color: var(--axis-label-color);
 			white-space: nowrap;
 			transform: translateX(-50%);
 		}
@@ -387,27 +405,31 @@ export class GlTimelineChart extends GlElement {
 			background: color-mix(in srgb, var(--axis-scrollbar-track) 35%, transparent);
 		}
 
+		/* Thumb is translucent (but more opaque than the 35% track) so the date labels behind it stay
+		   readable. Themes whose scrollbar tokens are fully opaque -- e.g. Amethyst Dark's opaque
+		   purple hover slider -- would otherwise paint over the labels and blend into an unreadable
+		   smear. */
 		.axis-overlay__scrollbar-thumb {
 			position: absolute;
 			top: 0;
 			height: 100%;
-			background: var(--axis-scrollbar-thumb);
+			background: color-mix(in srgb, var(--axis-scrollbar-thumb) 55%, transparent);
 		}
 
 		#wrapper {
+			position: relative;
 			flex: 1 1 auto;
 			min-height: 0;
-			position: relative;
-			outline: none;
 			overflow: visible;
+			outline: none;
 		}
 
 		footer {
-			flex: 0 0 auto;
 			display: flex;
+			flex: 0 0 auto;
+			gap: var(--gl-space-8);
 			align-items: center;
-			margin: 0 1rem 0.4rem 1rem;
-			gap: 0.8rem;
+			margin: 0 var(--gl-space-10) var(--gl-space-4);
 		}
 
 		gl-chart-slider {
@@ -416,16 +438,16 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		gl-commit-sha-copy {
+			min-width: 7.5rem;
+			margin-left: var(--gl-space-12);
 			color: var(--color-foreground--75);
 			text-align: right;
-			min-width: 7.5rem;
-			margin-left: 1.2rem;
 		}
 
 		.actions {
 			display: flex;
+			gap: var(--gl-space-2);
 			align-items: center;
-			gap: 0.2rem;
 		}
 
 		canvas {
@@ -441,16 +463,16 @@ export class GlTimelineChart extends GlElement {
 
 		.tooltip {
 			position: absolute;
-			pointer-events: none;
-			background: var(--vscode-editorHoverWidget-background, var(--color-hover-background));
-			color: var(--vscode-editorHoverWidget-foreground, var(--color-hover-foreground));
-			border: 1px solid var(--vscode-editorHoverWidget-border, var(--color-hover-border));
-			border-radius: 3px;
-			padding: 6px 8px;
-			font-size: 11px;
-			max-width: 320px;
 			z-index: 10;
 			display: none;
+			max-width: 320px;
+			padding: var(--gl-space-6) var(--gl-space-8);
+			font-size: var(--gl-font-sm);
+			color: var(--vscode-editorHoverWidget-foreground, var(--color-hover-foreground));
+			pointer-events: none;
+			background: var(--vscode-editorHoverWidget-background, var(--color-hover-background));
+			border: var(--gl-border-width) solid var(--vscode-editorHoverWidget-border, var(--color-hover-border));
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.tooltip[data-visible='true'] {
@@ -458,14 +480,14 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		.tooltip .tooltip__author {
+			margin-bottom: var(--gl-space-2);
 			font-weight: 600;
-			margin-bottom: 2px;
 		}
 
 		.tooltip .tooltip__row {
 			display: flex;
-			gap: 6px;
-			margin-top: 2px;
+			gap: var(--gl-space-6);
+			margin-top: var(--gl-space-2);
 			color: var(--color-foreground--75);
 		}
 
@@ -478,8 +500,8 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		.tooltip .tooltip__message {
-			margin-top: 4px;
 			max-width: 300px;
+			margin-top: var(--gl-space-4);
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
@@ -489,6 +511,7 @@ export class GlTimelineChart extends GlElement {
 			from {
 				opacity: 0;
 			}
+
 			to {
 				opacity: 1;
 			}
@@ -497,28 +520,28 @@ export class GlTimelineChart extends GlElement {
 		.notice {
 			position: absolute;
 			inset: 0;
+			z-index: 3;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
 			justify-content: center;
-			padding: 10% 2rem 30% 2rem;
-			pointer-events: none;
+			padding: 10% 2rem 30%;
 			color: var(--color-foreground--75);
-			z-index: 3;
+			pointer-events: none;
 		}
 
 		/* Re-enable pointer events on interactive content rendered into the empty slot
-		   (e.g. the timeframe dropdown shown when no commits match). The .notice wrapper
-		   stays click-through so the canvas behind keeps receiving hover/brush events. */
+   (e.g. the timeframe dropdown shown when no commits match). The .notice wrapper
+   stays click-through so the canvas behind keeps receiving hover/brush events. */
 		::slotted([slot='empty']) {
 			pointer-events: auto;
 		}
 
 		.notice--blur {
-			backdrop-filter: blur(15px);
-			-webkit-backdrop-filter: blur(15px);
-			animation: notice-fade-in 0.2s ease-in forwards;
 			opacity: 0;
+			-webkit-backdrop-filter: blur(15px);
+			backdrop-filter: blur(15px);
+			animation: notice-fade-in var(--gl-duration-medium) var(--gl-ease-in) forwards;
 		}
 
 		:host([placement='view']) .notice--blur {
@@ -526,48 +549,52 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		/* "Loading older history" affordance — the rail-edge line + scanner are the entire signal,
-		   bounded vertically to the swimlane region (below the header padding, above the x-axis).
-		   Top offset clears the small headerPaddingPx; bottom offset clears the volume strip
-		   (volumeHeightPx = 64px) so the line ends exactly at the x-axis tick line. Both are
-		   pointer-events:none so the chart stays fully interactive while paging is in flight. */
+   bounded vertically to the swimlane region (below the header padding, above the x-axis).
+   Top offset clears the small headerPaddingPx; bottom offset clears the volume strip
+   (volumeHeightPx = 64px) so the line ends exactly at the x-axis tick line. Both are
+   pointer-events:none so the chart stays fully interactive while paging is in flight. */
 		.load-more-edge-line {
 			position: absolute;
+
 			/* Top sits at the host-set --load-more-top (the bottom of the breadcrumb header bar
-			   inside the chart-host coordinate system). Bottom anchors at --load-more-bottom
-			   (the X-axis baseline). Both are written by _ensureLayout from the actual layout
-			   measurements, so the indicator always spans exactly header bottom → axis bottom
-			   regardless of compact/full layouts. */
-			top: var(--load-more-top, 0px);
-			left: calc(var(--rail-left-offset, 8px) + var(--rail-column-width, 36px) + var(--rail-edge-padding, 4px));
-			width: 0.1rem;
+	   inside the chart-host coordinate system). Bottom anchors at --load-more-bottom
+	   (the X-axis baseline). Both are written by _ensureLayout from the actual layout
+	   measurements, so the indicator always spans exactly header bottom → axis bottom
+	   regardless of compact/full layouts. */
+			top: var(--load-more-top, 0);
 			bottom: var(--load-more-bottom, 6.4rem);
-			pointer-events: none;
+			left: calc(var(--rail-left-offset, 8px) + var(--rail-column-width, 36px) + var(--rail-edge-padding, 4px));
+
 			/* z-index: 1 (below the rail's z-index: 2) so the box-shadow that bleeds LEFT into
-			   the rail's column gets blurred by the rail's backdrop-filter — the glow appears
-			   to ripple through the frosted glass as the scanner moves. The line itself sits
-			   at left: rail-right-edge + 4px so the line's body is in the open chart area
-			   (not under the rail), only the shadow extends into the rail and gets blurred. */
+	   the rail's column gets blurred by the rail's backdrop-filter — the glow appears
+	   to ripple through the frosted glass as the scanner moves. The line itself sits
+	   at left: rail-right-edge + 4px so the line's body is in the open chart area
+	   (not under the rail), only the shadow extends into the rail and gets blurred. */
 			z-index: 1;
+			width: 0.1rem;
+
 			/* clip-path: inset(top right bottom left). 0 = clip at edge, negative = extend.
-			   - Top/bottom: clipped at 0 (no breadcrumb / volume-strip leak).
-			   - Right: -0.5rem — just enough to keep the thumb body fully visible. The thumb is
-			     wider than the 0.1rem line and centered on it via translate(-50%), so half of
-			     it extends past the line's right edge into the chart area; clipping at right:0
-			     would chop that half off. 0.5rem buffer fits the thumb without leaking the wide
-			     rail-side glow rightward into the chart bubbles.
-			   - Left: -100rem — huge, so the rail-side glow reaches across the rail unimpeded. */
+	   - Top/bottom: clipped at 0 (no breadcrumb / volume-strip leak).
+	   - Right: -0.5rem — just enough to keep the thumb body fully visible. The thumb is
+	     wider than the 0.1rem line and centered on it via translate(-50%), so half of
+	     it extends past the line's right edge into the chart area; clipping at right:0
+	     would chop that half off. 0.5rem buffer fits the thumb without leaking the wide
+	     rail-side glow rightward into the chart bubbles.
+	   - Left: -100rem — huge, so the rail-side glow reaches across the rail unimpeded. */
 			overflow: visible;
-			clip-path: inset(0 -0.5rem 0 -100rem);
+			pointer-events: none;
 			background: color-mix(in srgb, var(--vscode-progressBar-background, #0078d4) 60%, transparent);
 			box-shadow:
 				-0.4rem 0 1.2rem 0.1rem
 					color-mix(in srgb, var(--vscode-progressBar-background, #0078d4) 14%, transparent),
 				-1.4rem 0 2.6rem 0.3rem
 					color-mix(in srgb, var(--vscode-progressBar-background, #0078d4) 7%, transparent);
-			animation: load-more-edge-line-pulse 1.6s ease-in-out infinite;
+			clip-path: inset(0 -0.5rem 0 -100rem);
+			animation: load-more-edge-line-pulse 1.6s var(--gl-ease-in-out) infinite;
+
 			/* Hint the compositor that this element will animate so the browser promotes it to its
-			   own layer. Keeps the pulse and the inner scanner running on the GPU instead of
-			   triggering paint/layout on the chart canvas next to it. */
+	   own layer. Keeps the pulse and the inner scanner running on the GPU instead of
+	   triggering paint/layout on the chart canvas next to it. */
 			will-change: opacity;
 		}
 
@@ -576,28 +603,29 @@ export class GlTimelineChart extends GlElement {
 			100% {
 				opacity: 0.7;
 			}
+
 			50% {
 				opacity: 1;
 			}
 		}
 
 		/* Moving spotlight that scans top→bottom along the line. Slim, bright body so it reads as
-		   a sharp sliding indicator rather than a soft trail. Animation drives transform
-		   (translateY) instead of top — keeps it on the GPU compositor, no per-frame layout. */
+   a sharp sliding indicator rather than a soft trail. Animation drives transform
+   (translateY) instead of top — keeps it on the GPU compositor, no per-frame layout. */
 		.load-more-edge-line::after {
-			content: '';
 			position: absolute;
-			left: 50%;
 			top: 0;
+			left: 50%;
 			width: 0.25rem;
 			height: 7%;
-			border-radius: 0.2rem;
+			content: '';
+
 			/* Two-layer body, both with HARD edges (no gradient transitions): bottom is the
-			   solid brand color filling the whole thumb; top is a centered hot-spot in
-			   --vscode-editor-foreground (light on dark themes, dark on light themes) for an
-			   inner highlight. border-radius alone gives the thumb its rounded ends — there
-			   are no gradient fades at the edges so the thumb reads as a crisp solid object
-			   instead of a fuzzy ball. */
+	   solid brand color filling the whole thumb; top is a centered hot-spot in
+	   --vscode-editor-foreground (light on dark themes, dark on light themes) for an
+	   inner highlight. border-radius alone gives the thumb its rounded ends — there
+	   are no gradient fades at the edges so the thumb reads as a crisp solid object
+	   instead of a fuzzy ball. */
 			background:
 				linear-gradient(
 						180deg,
@@ -607,37 +635,43 @@ export class GlTimelineChart extends GlElement {
 					)
 					center / 100% 100% no-repeat,
 				var(--vscode-progressBar-background, #0078d4);
+			border-radius: var(--gl-radius-xs);
+
 			/* Inset brand-color rim wraps the editor-foreground hot-spot so the body reads as a
-			   bold layered "lit" object: brand-color shell with a bright contrast core. Then
-			   the dispersed rail-side bloom (offset far left) is softened by the rail's
-			   backdrop-filter. */
+	   bold layered "lit" object: brand-color shell with a bright contrast core. Then
+	   the dispersed rail-side bloom (offset far left) is softened by the rail's
+	   backdrop-filter. */
 			box-shadow:
 				inset 0 0 0 0.05rem var(--vscode-progressBar-background, #0078d4),
 				-1.5rem 0 3rem 0.4rem color-mix(in srgb, var(--vscode-progressBar-background, #0078d4) 55%, transparent),
 				-3rem 0 5rem 0.6rem color-mix(in srgb, var(--vscode-progressBar-background, #0078d4) 35%, transparent),
 				-5rem 0 7rem 0.8rem color-mix(in srgb, var(--vscode-progressBar-background, #0078d4) 18%, transparent);
-			animation: load-more-edge-scanner 1.4s ease-in-out infinite;
-			will-change: transform, opacity;
+
 			/* Center horizontally and start above the line; the keyframes drive translateY
-			   forward through the line. Setting transform here as the static base avoids a
-			   first-frame jump between unset and the keyframes starting transform. */
+	   forward through the line. Setting transform here as the static base avoids a
+	   first-frame jump between unset and the keyframes starting transform. */
 			transform: translate(-50%, -120%);
+			animation: load-more-edge-scanner 1.4s var(--gl-ease-in-out) infinite;
+			will-change: transform, opacity;
 		}
 
 		@keyframes load-more-edge-scanner {
 			0% {
-				transform: translate(-50%, -120%);
 				opacity: 0;
+				transform: translate(-50%, -120%);
 			}
+
 			15% {
 				opacity: 1;
 			}
+
 			85% {
 				opacity: 1;
 			}
+
 			100% {
-				transform: translate(-50%, 1000%);
 				opacity: 0;
+				transform: translate(-50%, 1000%);
 			}
 		}
 
@@ -646,9 +680,11 @@ export class GlTimelineChart extends GlElement {
 			.load-more-edge-line::after {
 				animation: none;
 			}
+
 			.load-more-edge-line {
 				opacity: 0.5;
 			}
+
 			.load-more-edge-line::after {
 				opacity: 0;
 			}
@@ -658,12 +694,12 @@ export class GlTimelineChart extends GlElement {
 			position: absolute;
 			width: 1px;
 			height: 1px;
-			margin: -1px;
 			padding: 0;
+			margin: -1px;
 			overflow: hidden;
-			clip: rect(0, 0, 0, 0);
 			white-space: nowrap;
 			border: 0;
+			clip-path: inset(50%);
 		}
 	`;
 
@@ -1163,7 +1199,7 @@ export class GlTimelineChart extends GlElement {
 					@pointerleave=${() => this._setSliceHover(undefined)}
 					@click=${(e: MouseEvent) => this._toggleSlice(i, e)}
 				>
-					<gl-tooltip placement="bottom-start" distance=${8}>
+					<gl-tooltip placement="bottom-start" .distance=${8}>
 						<span class="rail__branch-icon"><code-icon icon="git-branch"></code-icon></span>
 						<span class="rail__branch-name">${slice.name}</span>
 						<div slot="content">
@@ -1193,7 +1229,7 @@ export class GlTimelineChart extends GlElement {
 				@pointerleave=${() => this._setSliceHover(undefined)}
 				@click=${(e: MouseEvent) => this._toggleSlice(i, e)}
 			>
-				<gl-tooltip placement="right" distance=${10}>
+				<gl-tooltip placement="right" .distance=${10}>
 					<gl-avatar .src=${slice.avatarUrl}>${initials}</gl-avatar>
 					<div slot="content">
 						<div class="rail-tooltip__name">${displayName}</div>
@@ -2784,17 +2820,4 @@ export interface LoadMoreEventDetail {
 export interface VisibleRangeEventDetail {
 	oldest: number;
 	newest: number;
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		'gl-timeline-chart': GlTimelineChart;
-	}
-
-	interface GlobalEventHandlersEventMap {
-		'gl-commit-select': CustomEvent<CommitEventDetail>;
-		'gl-loading': CustomEvent<Promise<void>>;
-		'gl-load-more': CustomEvent<LoadMoreEventDetail>;
-		'gl-visible-range-changed': CustomEvent<VisibleRangeEventDetail>;
-	}
 }

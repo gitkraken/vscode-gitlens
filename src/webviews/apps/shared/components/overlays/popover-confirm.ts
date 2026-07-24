@@ -57,15 +57,15 @@ export class GlPopoverConfirm extends LitElement {
 			.confirm-popover {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				max-width: 28rem;
-				padding: 0.6rem 0.4rem;
+				padding: var(--gl-space-6) var(--gl-space-4);
 			}
 
 			.confirm-popover__header {
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: flex-start;
-				gap: 0.6rem;
 			}
 
 			.confirm-popover__icon {
@@ -75,22 +75,22 @@ export class GlPopoverConfirm extends LitElement {
 
 			.confirm-popover__title {
 				margin: 0;
+				font-size: var(--gl-font-base);
 				font-weight: 600;
-				font-size: 1.3rem;
 				line-height: 1.4;
 			}
 
 			.confirm-popover__message {
 				margin: 0;
-				color: var(--color-foreground--75, inherit);
 				line-height: 1.4;
+				color: var(--color-foreground--75, inherit);
 			}
 
 			.confirm-popover__actions {
 				display: flex;
+				gap: var(--gl-space-8);
 				justify-content: flex-end;
-				gap: 0.8rem;
-				margin-top: 0.4rem;
+				margin-top: var(--gl-space-4);
 			}
 		`,
 	];
@@ -152,7 +152,6 @@ export class GlPopoverConfirm extends LitElement {
 			<gl-popover
 				placement=${this.placement}
 				trigger="click"
-				hoist
 				@keydown=${this.onKeydown}
 				@gl-popover-show=${this.onPopoverShow}
 				@gl-popover-after-show=${this.onPopoverAfterShow}

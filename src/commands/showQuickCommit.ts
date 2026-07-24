@@ -4,8 +4,8 @@ import type { GitLog } from '@gitlens/git/models/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
-import { revealCommit } from '../git/actions/commit.js';
 import { executeGitCommand } from '../git/actions.js';
+import { revealCommit } from '../git/actions/commit.js';
 import { GitUri } from '../git/gitUri.js';
 import { getCommitGitUri } from '../git/utils/-webview/commit.utils.js';
 import {

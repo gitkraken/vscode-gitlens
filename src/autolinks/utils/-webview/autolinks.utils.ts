@@ -8,7 +8,7 @@ import {
 	numRegex,
 	serializeAutolink,
 } from '@gitlens/git/utils/autolink.utils.js';
-import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
+import { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { Autolink, RefSet } from '../../models/autolinks.js';
 
 // Re-export @gitlens/git functions that are identical

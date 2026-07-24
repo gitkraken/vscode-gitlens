@@ -102,7 +102,7 @@ export class GlFileTreePane extends LitElement {
 	 * When set, each file's tree model will include the returned contextData string.
 	 */
 	@property({ attribute: false })
-	fileContext?: (file: FileItem) => string | undefined;
+	fileContext?: (file: FileItem, options?: Partial<TreeItemBase>) => string | undefined;
 
 	/**
 	 * Optional callback to generate context data for folder tree items. When set, each folder's
@@ -111,6 +111,16 @@ export class GlFileTreePane extends LitElement {
 	 */
 	@property({ attribute: false })
 	folderContext?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
+
+	/**
+	 * Opaque token for the *inputs* of {@link fileContext} / {@link folderContext}. The callbacks
+	 * themselves can't trigger a rebuild (they're stable-bound and re-created per render — see the note
+	 * in `willUpdate`), but their results are baked into the cached tree model as `contextData`. Change
+	 * this whenever something the callbacks read changes, so the baked contexts are recomputed —
+	 * otherwise a late-arriving input (e.g. worktree reachability) never reaches the rows' menus.
+	 */
+	@property({ attribute: false })
+	contextRevision?: unknown;
 
 	// --- Generic grouping (replaces isUncommitted / staged-unstaged logic) ---
 
@@ -129,6 +139,17 @@ export class GlFileTreePane extends LitElement {
 	@property({ attribute: false })
 	orderBy?: WorkingFileSorting;
 
+	/**
+	 * When set (the WIP `gitlens.sortWorkingChangesBy: stage` mode), the list-layout sort floats files
+	 * staged → mixed → unstaged ahead of `orderBy`. List layout only, like `orderBy`.
+	 */
+	@property({ type: Boolean, attribute: 'sort-by-stage' })
+	sortByStage = false;
+
+	/** Paths with both staged + unstaged hunks; lets the stage sort rank a file as "mixed". */
+	@property({ attribute: false })
+	mixedPaths?: ReadonlySet<string>;
+
 	@property()
 	showIndentGuides?: 'none' | 'onHover' | 'always';
 
@@ -138,18 +159,7 @@ export class GlFileTreePane extends LitElement {
 	badge?: string | number;
 
 	@property({ attribute: false })
-	buttons?: ('layout' | 'search' | 'multi-diff')[];
-
-	/** Override the default `"Open All Changes"` label for the multi-diff button. Set by the WIP
-	 *  pane to surface smart `"Open Staged Changes"` wording when both staged + unstaged exist. */
-	@property({ attribute: 'multi-diff-label' })
-	multiDiffLabel?: string;
-
-	/** Companion alt-label for the multi-diff button. When set, the button uses gl-action-chip's
-	 *  built-in `alt-label` machinery so the tooltip composes a `Primary\n[Alt] Alt-action` hint,
-	 *  swaps live when Alt is held, and the aria-label stays clean (single action at a time). */
-	@property({ attribute: 'multi-diff-alt-label' })
-	multiDiffAltLabel?: string;
+	buttons?: ('layout' | 'search')[];
 
 	// --- Multi-select ---
 
@@ -161,6 +171,11 @@ export class GlFileTreePane extends LitElement {
 	 */
 	@property({ type: Boolean, attribute: 'multi-selectable' })
 	multiSelectable = false;
+
+	/** Opt-in: makes file rows draggable (native drag carrying the file `path`). Off by default;
+	 *  set by consumers that support dropping files elsewhere (e.g. compose file→commit move). */
+	@property({ type: Boolean, attribute: 'draggable-files' })
+	draggableFiles = false;
 
 	@state() private _selectedFiles: readonly FileItem[] = [];
 
@@ -260,6 +275,15 @@ export class GlFileTreePane extends LitElement {
 	searchBoxFilter?: boolean;
 
 	private _cachedTreeModel?: TreeModel[];
+	/**
+	 * Row identities (`key ?? path`) of folders the user has collapsed. The tree model is rebuilt
+	 * from scratch (default-expanded) on every `files`/preference change, so we re-apply this set
+	 * after each rebuild to keep collapse state across refreshes. Storing only collapsed *deviations*
+	 * (not expanded ids) means folders that first appear after a refresh default to expanded.
+	 * In-memory only — persists while this element lives (data refreshes, commit switches), resets on
+	 * a full webview reload.
+	 */
+	private readonly _collapsedIds = new Set<string>();
 	private _pendingScrollRestore?: number;
 	// Drives a re-render when alt is pressed/released so the header tooltip can swap between
 	// the primary and alt-action labels. Per-file checkbox tooltips swap inside `gl-tree-item`,
@@ -347,11 +371,15 @@ export class GlFileTreePane extends LitElement {
 		// Note: fileActions, fileContext, and folderContext are excluded — they're
 		// callbacks/arrays consumed during model creation but don't affect tree structure.
 		// Including them causes unnecessary rebuilds (losing expansion state) because
-		// callers often pass new references on every render.
+		// callers often pass new references on every render. When what those callbacks
+		// *read* changes, bump `contextRevision` instead.
 		if (
 			changedProperties.has('files') ||
+			changedProperties.has('contextRevision') ||
 			changedProperties.has('filesLayout') ||
 			changedProperties.has('orderBy') ||
+			changedProperties.has('sortByStage') ||
+			changedProperties.has('mixedPaths') ||
 			changedProperties.has('showFileIcons') ||
 			changedProperties.has('grouping') ||
 			changedProperties.has('checkable') ||
@@ -416,9 +444,34 @@ export class GlFileTreePane extends LitElement {
 				fileToModel: (file, opts, flat) => this.fileToTreeModel(file, opts, flat),
 				folderToContextData: this.folderContext,
 				orderBy: this.orderBy,
+				sortByStage: this.sortByStage,
+				mixedPaths: this.mixedPaths,
 			});
+			this.applyCollapsedState(this._cachedTreeModel);
 		}
 	}
+
+	/** Re-applies remembered folder collapse state onto a freshly-built (default-expanded) model. */
+	private applyCollapsedState(nodes: TreeModel[]): void {
+		if (this._collapsedIds.size === 0) return;
+
+		for (const node of nodes) {
+			if (node.branch && this._collapsedIds.has(node.key ?? node.path)) {
+				node.expanded = false;
+			}
+			if (node.children != null) {
+				this.applyCollapsedState(node.children);
+			}
+		}
+	}
+
+	private onTreeExpansionChanged = (e: CustomEvent<{ path: string; key: string; expanded: boolean }>): void => {
+		if (e.detail.expanded) {
+			this._collapsedIds.delete(e.detail.key);
+		} else {
+			this._collapsedIds.add(e.detail.key);
+		}
+	};
 
 	override updated(): void {
 		if (this._pendingScrollRestore != null) {
@@ -468,11 +521,6 @@ export class GlFileTreePane extends LitElement {
 		const effectiveBadge = this.badge ?? (fileCount > 0 ? fileCount : undefined);
 		const showLayout = this.buttons?.includes('layout') ?? true;
 		const showSearch = this.buttons?.includes('search') ?? true;
-		const showMultiDiff = (this.buttons?.includes('multi-diff') ?? false) && fileCount > 0;
-		// When multi-select is on and >1 file is selected, the multi-diff button becomes
-		// "Open Selected Changes" (primary) and demotes the full "Open All Changes" to its Alt.
-		const selectedCount = this._selectedFiles.length;
-		const showOpenSelected = showMultiDiff && this.multiSelectable && selectedCount > 1;
 		const showSearchBox = this.effectiveShowSearchBox;
 
 		return html`
@@ -486,23 +534,6 @@ export class GlFileTreePane extends LitElement {
 				<div class="header-actions" slot="actions">
 					<slot name="leading-actions" class="leading-actions"></slot>
 					<action-nav>
-						${showMultiDiff
-							? showOpenSelected
-								? html`<gl-action-chip
-										data-action="open-selected"
-										label="Open Selected Changes"
-										alt-label=${this.multiDiffLabel ?? 'Open All Changes'}
-										icon="diff-multiple"
-										@click=${this.onOpenSelectedChanges}
-									></gl-action-chip>`
-								: html`<gl-action-chip
-										data-action="multi-diff"
-										label=${this.multiDiffLabel ?? 'Open All Changes'}
-										alt-label=${this.multiDiffAltLabel ?? nothing}
-										icon="diff-multiple"
-										@click=${this.onOpenMultiDiff}
-									></gl-action-chip>`
-							: nothing}
 						${this.searchContext != null
 							? renderContextMatchVisibilityAction(
 									this._contextMatchVisibility,
@@ -694,46 +725,6 @@ export class GlFileTreePane extends LitElement {
 		);
 	}
 
-	private onOpenMultiDiff(e: Event) {
-		e.preventDefault();
-		e.stopPropagation();
-		this.dispatchEvent(
-			new CustomEvent('gl-file-tree-pane-open-multi-diff', {
-				detail: { altKey: (e as MouseEvent).altKey === true },
-				bubbles: true,
-				composed: true,
-			}),
-		);
-	}
-
-	private onOpenSelectedChanges(e: Event) {
-		e.preventDefault();
-		e.stopPropagation();
-
-		// Alt/Shift demotes to the full multi-diff ("Open All Changes") — the action this chip
-		// replaced. Mirrors gl-action-chip's alt/shift label swap. altKey:false picks the
-		// multi-diff's primary (open-all), not its own staged/unstaged alt.
-		const mouse = e as MouseEvent;
-		if (mouse.altKey === true || mouse.shiftKey === true) {
-			this.dispatchEvent(
-				new CustomEvent('gl-file-tree-pane-open-multi-diff', {
-					detail: { altKey: false },
-					bubbles: true,
-					composed: true,
-				}),
-			);
-			return;
-		}
-
-		this.dispatchEvent(
-			new CustomEvent('gl-file-tree-pane-open-selected-changes', {
-				detail: { files: this._selectedFiles },
-				bubbles: true,
-				composed: true,
-			}),
-		);
-	}
-
 	private onCycleContextMatchVisibility(e: Event) {
 		e.preventDefault();
 		e.stopPropagation();
@@ -893,15 +884,21 @@ export class GlFileTreePane extends LitElement {
 			level: 1,
 			checkable: this.checkable,
 			checked: false,
+			// Conflicted files stage behind a confirm prompt the user can cancel — keep their checkbox
+			// model-controlled so a click doesn't optimistically check it before the stage lands.
+			controlledCheck: conflicted,
 			icon: icon,
 			label: fileName,
+			// `label` is only the basename, so make the full repo-relative path searchable (exact-substring)
+			// — otherwise a query with a folder separator (e.g. `src/webviews/foo.ts`) matches nothing.
+			filterText: file.path,
 			description: `${flat === true ? filePath : ''}${file.status === 'R' ? ` ← ${file.originalPath}` : ''}`,
 			tooltip: tooltip,
 			priority: conflicted ? -1 : undefined,
 			context: [file],
 			actions: actions,
 			decorations: decorations.length > 0 ? decorations : undefined,
-			contextData: this.fileContext?.(file),
+			contextData: this.fileContext?.(file, options),
 			matched: isMatchedFile,
 			...options,
 			...checkableOverrides,
@@ -926,6 +923,7 @@ export class GlFileTreePane extends LitElement {
 			.dimUnmatched=${dimUnmatched}
 			?filterable=${this.effectiveShowSearchBox}
 			?multi-selectable=${this.multiSelectable}
+			?draggable-files=${this.draggableFiles}
 			filter-placeholder="Filter files..."
 			search-placeholder="Search files..."
 			empty-text=${emptyText}
@@ -934,6 +932,7 @@ export class GlFileTreePane extends LitElement {
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}
 			@gl-tree-generated-selection-changed=${this.onSelectionChanged}
+			@gl-tree-expansion-changed=${this.onTreeExpansionChanged}
 		></gl-tree-view>`;
 	}
 

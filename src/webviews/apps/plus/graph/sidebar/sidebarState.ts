@@ -202,8 +202,11 @@ export function createSidebarActions(): SidebarActions {
 			for (const [panel, r] of Object.entries(panels)) {
 				if (panel === actions.activePanel) continue;
 
-				r.cancel();
-				r.mutate(undefined);
+				// reset(), not mutate(undefined) — mutate marks the resource as resolved, so it
+				// reports status 'success' while holding no data. Consumers that gate on a settled
+				// status (e.g. the branches shown telemetry) would read that as "fetch landed,
+				// legitimately empty" instead of "nothing fetched yet".
+				r.reset();
 			}
 			actions.fetchCounts();
 
@@ -215,8 +218,10 @@ export function createSidebarActions(): SidebarActions {
 		},
 
 		refresh: function (panel: GraphSidebarPanel) {
-			panels[panel].cancel();
-			panels[panel].mutate(undefined);
+			// reset() (status → 'idle'), not mutate(undefined) (status → 'success') — see
+			// invalidateAll. The refetch arrives via the host round-trip: service.refresh →
+			// onSidebarRefresh → notifySidebarInvalidated → invalidateAll → fetchPanel.
+			panels[panel].reset();
 			service?.refresh(panel);
 		},
 

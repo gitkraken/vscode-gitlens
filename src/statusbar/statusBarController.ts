@@ -385,7 +385,7 @@ export class StatusBarController implements Disposable {
 			pr: Promise<PullRequest | undefined> | PullRequest | undefined,
 		) {
 			statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
-				dateFormat: cfg.dateFormat === null ? defaultDateFormat : cfg.dateFormat,
+				dateFormat: cfg.dateFormat ?? defaultDateFormat,
 				getBranchAndTagTips: getBranchAndTagTips,
 				messageTruncateAtNewLine: true,
 				pullRequest: pr,

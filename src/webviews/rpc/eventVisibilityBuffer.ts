@@ -18,8 +18,8 @@ import type { RpcEventSubscription, Unsubscribe } from './services/types.js';
 export type EventVisibilityKey = string | symbol;
 
 /**
- * Tracks outstanding RPC event subscriptions so they can be disposed on
- * reconnection or controller teardown.
+ * Tracks outstanding RPC event subscriptions so they can be cleaned up on
+ * reconnection (`reset`) or controller teardown (`dispose`).
  *
  * Without this, VS Code event listeners created by `createRpcEventSubscription`
  * leak when a webview refreshes — the old Supertalk Connection closes but
@@ -27,12 +27,33 @@ export type EventVisibilityKey = string | symbol;
  */
 export class SubscriptionTracker implements Disposable {
 	private _unsubscribes = new Set<Unsubscribe>();
+	private _disposed = false;
+	private _epoch = 0;
+
+	/**
+	 * Monotonic generation counter, bumped by every {@link reset}/{@link dispose}. An ASYNC subscription
+	 * method (one that awaits resource acquisition before `track()`) captures this before its await and
+	 * compares after — a mismatch means a reconnect reset the tracker mid-acquisition, so the resource
+	 * belongs to a superseded generation and must be disposed instead of tracked (tracking it would leak
+	 * it until the NEXT reset and double-deliver alongside the new generation's subscription).
+	 */
+	get epoch(): number {
+		return this._epoch;
+	}
 
 	/**
 	 * Register an unsubscribe function for tracking.
 	 * @returns A wrapped unsubscribe that also removes itself from the tracker.
 	 */
 	track(unsubscribe: Unsubscribe): () => void {
+		// Already torn down — e.g. the webview was disposed while an async subscription method
+		// (the only ones with an await between resource-acquisition and track) was in flight.
+		// `dispose()` won't run again, so track-then-forget would leak; dispose the resource now.
+		if (this._disposed) {
+			(unsubscribe as () => void)();
+			return () => {};
+		}
+
 		this._unsubscribes.add(unsubscribe);
 		return () => {
 			this._unsubscribes.delete(unsubscribe);
@@ -43,16 +64,24 @@ export class SubscriptionTracker implements Disposable {
 	}
 
 	/**
-	 * Dispose all tracked subscriptions.
-	 * Called on reconnection (before fresh Connection is created) and on teardown.
+	 * Disposes tracked subscriptions but stays usable — used on RPC reconnection so the next
+	 * generation's `track()` calls register normally instead of being torn down immediately by
+	 * a permanently-disposed tracker.
 	 */
-	dispose(): void {
+	reset(): void {
+		this._epoch++;
 		for (const unsub of this._unsubscribes) {
 			// Cast is safe: `Unsubscribe` is `(() => void) | Promise<() => void>` because the webview-client side
 			// receives it async over RPC, but host-side callers always produce a synchronous `() => void`.
 			(unsub as () => void)();
 		}
 		this._unsubscribes.clear();
+	}
+
+	/** Disposes tracked subscriptions and permanently disables the tracker. Called on final teardown. */
+	dispose(): void {
+		this._disposed = true;
+		this.reset();
 	}
 }
 
@@ -176,6 +205,11 @@ export function createRpcEvent<T>(key: string, mode: 'save-last' | 'signal', sig
  *
  * Standard pattern for the common case: Container event emitter → buffered handler → cleanup.
  * The `subscribe` function receives the already-buffered handler and returns a `Disposable`.
+ *
+ * The `subscribe` callback runs LAZILY — only when a client registers a handler, and once per
+ * registration. It must never be the sole updater of a bridged `Signal.State`: a webview that
+ * reads the signal without subscribing gets a permanently frozen value (#5513). Keep signals
+ * fresh with an eagerly-registered listener instead — see `SubscriptionService`'s constructor.
  *
  * For custom patterns (aggregation, handler maps, replay-on-subscribe), use `bufferEventHandler` directly.
  *

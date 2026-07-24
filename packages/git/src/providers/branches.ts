@@ -60,7 +60,12 @@ export interface GitBranchesSubProvider {
 	getDefaultBranchName(
 		repoPath: string | undefined,
 		remote?: string,
-		options?: { priority?: GitCommandPriority },
+		/**
+		 * `local`: resolve only from the local `refs/remotes/<remote>/HEAD` symref and never contact the
+		 * remote (no `remote set-head` / `ls-remote`). Returns `undefined` when it isn't resolved locally
+		 * yet. Use on latency-sensitive paths (e.g. the graph) where a network round-trip is unwanted.
+		 */
+		options?: { priority?: GitCommandPriority; local?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<string | undefined>;
 

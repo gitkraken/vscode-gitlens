@@ -116,6 +116,9 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 						sha: value.refs.head.sha,
 						branch: value.refs.head.branch,
 						url: value.refs.head.url,
+						cloneHttps: value.refs.head.cloneHttps,
+						cloneSsh: value.refs.head.cloneSsh,
+						isFork: value.refs.head.isFork,
 					},
 					base: {
 						exists: value.refs.base.exists,
@@ -124,6 +127,9 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 						sha: value.refs.base.sha,
 						branch: value.refs.base.branch,
 						url: value.refs.base.url,
+						cloneHttps: value.refs.base.cloneHttps,
+						cloneSsh: value.refs.base.cloneSsh,
+						isFork: value.refs.base.isFork,
 					},
 					isCrossRepository: value.refs.isCrossRepository,
 				}

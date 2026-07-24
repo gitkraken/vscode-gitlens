@@ -1,15 +1,14 @@
 import { chmod, mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, resolve, sep } from 'path';
-import { Uri, window } from 'vscode';
+import { Uri } from 'vscode';
 import { run } from '@gitlens/utils/env/node/exec.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { joinUriPath } from '@gitlens/utils/uri.js';
-import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { loadChunk } from '../../../../system/-webview/loadChunk.js';
-import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
+import { exists } from '../../../../system/-webview/vscode/uris.js';
 import { getPlatform, isWindows } from '../../platform.js';
 
 /**
@@ -109,19 +108,6 @@ export function resolveCLIExecutable(cliPath?: string | null): Promise<Uri | und
 	});
 }
 
-export function toMcpInstallProvider<T extends string | undefined>(appHostName: T): T {
-	switch (appHostName) {
-		case 'code':
-			return 'vscode' as T;
-		case 'code-insiders':
-			return 'vscode-insiders' as T;
-		case 'code-exploration':
-			return 'vscode-exploration' as T;
-		default:
-			return appHostName;
-	}
-}
-
 /**
  * Resolves the effective "insiders CLI" enabled state. When the setting is unset (`null`), it is
  * auto-enabled in pre-release and debugging builds; an explicit `true`/`false` always wins.
@@ -174,16 +160,6 @@ export async function getCLIVersions(cliPath?: string): Promise<{ proxy: string;
 
 		debugger;
 		throw ex;
-	}
-}
-
-export async function showManualMcpSetupPrompt(message: string): Promise<void> {
-	const learnMore = { title: 'View Setup Instructions' };
-	const cancel = { title: 'Cancel', isCloseAffordance: true };
-	const result = await window.showErrorMessage(message, { modal: true }, learnMore, cancel);
-
-	if (result === learnMore) {
-		void openUrl(urls.helpCenterMCP);
 	}
 }
 

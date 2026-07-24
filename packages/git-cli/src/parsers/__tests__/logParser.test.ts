@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { getCommitsLogParser } from '../logParser.js';
+import type { CommitsWithFilesLogParser, GraphLogParser } from '../logParser.js';
+import { getCommitsLogParser, getGraphParser } from '../logParser.js';
 
 /**
  * Tests for the log parser's file parsing logic with --raw and --numstat output.
@@ -353,5 +354,162 @@ suite('Log Parser - File Parsing Test Suite', () => {
 		const file = entries[0].files![0];
 		assert.strictEqual(file.path, 'src/renamed.ts', 'Should have clean new path');
 		assert.strictEqual(file.originalPath, 'src/original.ts', 'Should use clean originalPath from --raw');
+	});
+});
+
+suite('Log Parser - Batched Async Parsing Test Suite', () => {
+	function record(fields: string[]): string {
+		return `\x1E${fields.join('\x1D')}\x1D`;
+	}
+
+	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
+		for (const c of chunks) {
+			yield c;
+		}
+	}
+
+	async function collect<T>(it: AsyncGenerator<T>): Promise<T[]> {
+		const out: T[] = [];
+		for await (const v of it) {
+			out.push(v);
+		}
+		return out;
+	}
+
+	function chunk(s: string, size: number): string[] {
+		const out: string[] = [];
+		for (let i = 0; i < s.length; i += size) {
+			out.push(s.substring(i, i + size));
+		}
+		return out;
+	}
+
+	// The graph mapping has 8 fields: sha, author, authorEmail, authorDate, committerDate, parents, tips, message
+	const recs = [
+		record(['sha1', 'Alice', 'a@x.com', '100', '101', 'p1 p2', 'HEAD -> main', 'first commit\n\nbody line']),
+		record(['sha2', 'Bob', 'b@x.com', '200', '201', 'p3', '', 'second: with \x00 odd bytes']),
+		record(['sha3', 'Carol', 'c@x.com', '300', '301', '', 'tag: v1', 'third']),
+	];
+	const input = recs.join('');
+
+	test('batched parse equals per-record parse for every chunking', async () => {
+		const parser = getGraphParser() as GraphLogParser;
+		const expected = await collect(parser.parseAsync(streamOf([input])));
+		assert.strictEqual(expected.length, 3);
+
+		// Chunk sizes that split mid-record, mid-field, on separators, and single-byte
+		for (const size of [1, 3, 7, 16, 64, input.length]) {
+			const batches = await collect(parser.parseAsyncBatched!(streamOf(chunk(input, size))));
+			const flat = batches.flat();
+			assert.deepStrictEqual(flat, expected, `chunk size ${size} diverged`);
+		}
+	});
+
+	test('empty records are skipped and a trailing record without a final separator parses', async () => {
+		const parser = getGraphParser() as GraphLogParser;
+		// Double record-separator (empty record) + final record missing its trailing content boundary
+		const raw = `\x1E\x1E${record(['sha9', 'Dee', 'd@x.com', '900', '901', '', '', 'tail']).slice(1)}`;
+		const expected = await collect(parser.parseAsync(streamOf([raw])));
+		const batches = await collect(parser.parseAsyncBatched!(streamOf(chunk(raw, 5))));
+		assert.deepStrictEqual(batches.flat(), expected);
+	});
+});
+
+suite('Log Parser - Truncated Record Guard', () => {
+	function record(fields: string[]): string {
+		return `\x1E${fields.join('\x1D')}\x1D`;
+	}
+
+	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
+		for (const c of chunks) {
+			yield c;
+		}
+	}
+
+	async function collect<T>(it: AsyncGenerator<T>): Promise<T[]> {
+		const out: T[] = [];
+		for await (const v of it) {
+			out.push(v);
+		}
+		return out;
+	}
+
+	// Graph mapping has 8 fields: sha, author, authorEmail, authorDate, committerDate, parents, tips, message
+	const complete1 = record(['sha1', 'Alice', 'a@x.com', '100', '101', 'p1', 'HEAD -> main', 'first commit']);
+	const complete2 = record(['sha2', 'Bob', 'b@x.com', '200', '201', '', '', 'second commit']);
+	// All fields terminated except the last (message), which is missing its trailing separator - simulates a
+	// cancelled/early-closed stream that stopped mid-message.
+	const truncatedMidMessage = '\x1Esha3\x1DCarol\x1Dc@x.com\x1D300\x1D301\x1D\x1D\x1Dthird commit partial';
+	// Stream ends right after the sha field's separator - truncated well before the message.
+	const truncatedEarlyField = '\x1Esha4\x1D';
+
+	test('parseAsyncBatched drops a truncated mid-message tail, keeps preceding complete records', async () => {
+		const parser = getGraphParser() as GraphLogParser;
+		const batches = await collect(
+			parser.parseAsyncBatched!(streamOf([complete1 + complete2 + truncatedMidMessage])),
+		);
+		const flat = batches.flat();
+		assert.strictEqual(flat.length, 2, 'Truncated tail must be dropped');
+		assert.deepStrictEqual(
+			flat.map(e => e.sha),
+			['sha1', 'sha2'],
+		);
+	});
+
+	test('parseAsyncBatched control: a complete final record without a trailing record separator is parsed', async () => {
+		const parser = getGraphParser() as GraphLogParser;
+		const finalComplete = record(['sha3', 'Carol', 'c@x.com', '300', '301', '', '', 'third commit']);
+		const batches = await collect(parser.parseAsyncBatched!(streamOf([complete1 + complete2 + finalComplete])));
+		const flat = batches.flat();
+		assert.strictEqual(flat.length, 3, 'A genuinely complete trailing record must still be parsed');
+		assert.strictEqual(flat[2].message, 'third commit');
+	});
+
+	test('parseAsync drops a truncated mid-message tail, keeps preceding complete records', async () => {
+		const parser = getGraphParser() as GraphLogParser;
+		const entries = await collect(parser.parseAsync(streamOf([complete1 + complete2 + truncatedMidMessage])));
+		assert.strictEqual(entries.length, 2, 'Truncated tail must be dropped');
+		assert.deepStrictEqual(
+			entries.map(e => e.sha),
+			['sha1', 'sha2'],
+		);
+	});
+
+	test('parseAsync control: a complete final record without a trailing record separator is parsed', async () => {
+		const parser = getGraphParser() as GraphLogParser;
+		const finalComplete = record(['sha3', 'Carol', 'c@x.com', '300', '301', '', '', 'third commit']);
+		const entries = await collect(parser.parseAsync(streamOf([complete1 + complete2 + finalComplete])));
+		assert.strictEqual(entries.length, 3);
+		assert.strictEqual(entries[2].message, 'third commit');
+	});
+
+	test('parseAsync drops a record truncated right after the first field separator', async () => {
+		const parser = getGraphParser() as GraphLogParser;
+		const entries = await collect(parser.parseAsync(streamOf([complete1 + truncatedEarlyField])));
+		assert.strictEqual(entries.length, 1, 'Early truncation must be dropped');
+		assert.strictEqual(entries[0].sha, 'sha1');
+	});
+
+	test('parseAsync (commits with files/stats) drops a truncated trailing commit', async () => {
+		const parser = getCommitsLogParser(true) as CommitsWithFilesLogParser;
+		// commitsMapping has 10 fields: sha, author, authorEmail, authorDate, committer, committerEmail,
+		// committerDate, parents, tips, message
+		const completeCommit = record([
+			'sha1',
+			'Alice',
+			'a@x.com',
+			'100',
+			'Alice',
+			'a@x.com',
+			'101',
+			'',
+			'',
+			'first commit',
+		]);
+		const truncatedCommit =
+			'\x1Esha2\x1DBob\x1Db@x.com\x1D200\x1DBob\x1Db@x.com\x1D201\x1D\x1D\x1Dsecond commit partial';
+		const entries = await collect(parser.parseAsync(streamOf([completeCommit + truncatedCommit])));
+		assert.strictEqual(entries.length, 1, 'Truncated commit must be dropped');
+		assert.strictEqual(entries[0].sha, 'sha1');
 	});
 });

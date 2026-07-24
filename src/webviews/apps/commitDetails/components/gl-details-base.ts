@@ -1,15 +1,17 @@
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
-import { property } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { FileShowOptions, Preferences, State } from '../../../commitDetails/protocol.js';
 import type { OpenMultipleChangesArgs } from '../../shared/actions/file.js';
 import { renderCommitStatsIcons } from '../../shared/components/commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
+import { renderCopyChangesAction, renderOpenChangesAction } from '../../shared/components/tree/file-tree-utils.js';
 import { ContextMenuProxyController } from '../../shared/controllers/context-menu-proxy.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/chips/action-chip.js';
 import '../../shared/components/tree/gl-file-tree-pane.js';
 
 type Files = Mutable<NonNullable<NonNullable<State['commit']>['files']>>;
@@ -80,11 +82,23 @@ export class GlDetailsBase extends LitElement {
 	@property({ type: Boolean, attribute: 'search-box-filter' })
 	searchBoxFilter?: boolean;
 
+	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
+	@state() private _selectedFiles: readonly GitFileChangeShape[] = [];
+
 	protected _getFileActions = (file: File, opts?: Partial<TreeItemBase>) => this.getFileActions(file, opts);
-	protected _getFileContext = (file: File) => this.getFileContext(file);
+	protected _getFileContext = (file: File, opts?: Partial<TreeItemBase>) => this.getFileContext(file, opts);
 	protected _getFolderContext = (folder: { name: string; relativePath: string; repoPath?: string }) =>
 		this.getFolderContext(folder);
 	protected _onFileChecked = (e: CustomEvent) => this.onFileChecked(e);
+
+	/**
+	 * Token for whatever {@link getFileContext} / {@link getFolderContext} read beyond the file itself —
+	 * see `gl-file-tree-pane`'s `contextRevision`. Subclasses override when their context depends on state
+	 * that can arrive after the files do; otherwise the baked contexts never see it.
+	 */
+	protected get fileContextRevision(): unknown {
+		return undefined;
+	}
 
 	protected renderChangedFiles(
 		_mode: Mode,
@@ -95,9 +109,6 @@ export class GlDetailsBase extends LitElement {
 		},
 	): TemplateResult<1> {
 		const multiDiff = options?.multiDiff;
-		const buttons: ('layout' | 'search' | 'multi-diff')[] | undefined = multiDiff
-			? ['layout', 'search', 'multi-diff']
-			: undefined;
 
 		// Cold-cache transition: when the embedded panel has been handed a "lite" commit shell
 		// (files == null) while a full fetch is in flight, suppress the empty-text and render
@@ -115,23 +126,36 @@ export class GlDetailsBase extends LitElement {
 				.fileActions=${this._getFileActions}
 				.fileContext=${this._getFileContext}
 				.folderContext=${this._getFolderContext}
+				.contextRevision=${this.fileContextRevision}
 				.searchContext=${this.searchContext}
-				.buttons=${buttons}
 				?multi-selectable=${this.multiSelectable}
 				.showSearchBox=${this.showSearchBox}
 				.searchBoxFilter=${this.searchBoxFilter}
 				empty-text=${isLoadingEmpty ? '' : (this.emptyText ?? 'No Files')}
 				@file-checked=${this._onFileChecked}
-				@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
-				@gl-file-tree-pane-open-selected-changes=${multiDiff
-					? (e: CustomEvent<{ files: readonly GitFileChangeShape[] }>) =>
-							this.onOpenSelectedChanges(e, multiDiff)
-					: null}
+				@file-selection-changed=${(e: CustomEvent<{ files: readonly GitFileChangeShape[] }>) =>
+					(this._selectedFiles = e.detail?.files ?? [])}
 			>
 				${options?.stats
 					? html`<span class="commit-stats-subtitle" slot="subtitle"
 							>${this.renderCommitStats(options.stats)}</span
 						>`
+					: nothing}
+				${multiDiff != null && (this.files?.length ?? 0) > 0
+					? renderOpenChangesAction({
+							selectedCount: this._selectedFiles.length,
+							slot: 'leading-actions',
+							onOpenAll: () => this.onOpenMultiDiff(multiDiff),
+							onOpenSelected: () => this.onOpenSelectedChanges(multiDiff),
+						})
+					: nothing}
+				${multiDiff != null && !multiDiff.wip && (this.files?.length ?? 0) > 0
+					? renderCopyChangesAction({
+							repoPath: multiDiff.repoPath,
+							to: multiDiff.rhs,
+							from: multiDiff.lhs || undefined,
+							slot: 'leading-actions',
+						})
 					: nothing}
 				${isLoadingEmpty
 					? html`<div slot="before-tree" class="files-loading" aria-busy="true">
@@ -164,12 +188,16 @@ export class GlDetailsBase extends LitElement {
 		);
 	}
 
-	private onOpenSelectedChanges(
-		e: CustomEvent<{ files: readonly GitFileChangeShape[] }>,
-		refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string },
-	): void {
-		const files = e.detail?.files;
-		if (!files?.length) return;
+	private onOpenSelectedChanges(refs: {
+		repoPath: string;
+		lhs: string;
+		rhs: string;
+		wip?: boolean;
+		title?: string;
+	}): void {
+		const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
+		const files = (this.files ?? []).filter(f => selectedPaths.has(f.path));
+		if (!files.length) return;
 
 		this.dispatchEvent(
 			new CustomEvent('open-multiple-changes', {
@@ -214,7 +242,7 @@ export class GlDetailsBase extends LitElement {
 		return [];
 	}
 
-	protected getFileContext(_file: File): string | undefined {
+	protected getFileContext(_file: File, _options?: Partial<TreeItemBase>): string | undefined {
 		return undefined;
 	}
 

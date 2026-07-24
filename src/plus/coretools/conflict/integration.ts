@@ -1,12 +1,14 @@
 import { promises as fs } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { CancellationTokenSource } from 'vscode';
 import { applyResolutions, defaultVerifier, extractConflict, resolveConflict } from '@gitkraken/conflict-tools';
+import { CancellationTokenSource } from 'vscode';
 import type { AIChatMessage, AIChatMessageRole, AIProviderResponse } from '@gitlens/ai/models/provider.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import type { AiTokenUsage, GitExecOptions } from '../compose/types.js';
+import type { DetectedEncoding } from './encoding.js';
+import { decodeBuffer, detectEncoding, encodeContent } from './encoding.js';
 import type {
 	Conflict,
 	ConflictGitPort,
@@ -128,6 +130,32 @@ export class ConflictToolsIntegration {
 				if (args.signal?.aborted) return;
 
 				const { path: filePath, reason } = entries[i];
+
+				// A both-deleted (DD) file has no content on either side to keep — the only possible
+				// resolution is to delete it, so resolve it automatically rather than asking the user to
+				// confirm the obvious. A content-less `deleted` resolution is applied via `git rm` by the
+				// library's `applyResolutions` (the same shape a manual take-side delete queues). This also
+				// collapses the redundant original-path row of a rename/rename (git records it as DD).
+				// Extraction is skipped entirely — the working-tree file is absent, so it would throw ENOENT.
+				if (reason === 'both-deleted') {
+					const description = 'Deleted on both sides — removed automatically.';
+					resolutions.push({
+						filePath: filePath,
+						content: '',
+						strategy: 'deleted',
+						confidence: 1,
+						description: description,
+					});
+					args.onProgress?.({
+						type: 'resolution:applied',
+						filePath: filePath,
+						strategy: 'deleted',
+						confidence: 1,
+						description: description,
+					});
+					continue;
+				}
+
 				try {
 					// `reason` lets delete/modify conflicts extract as resolvable `delete-modify`
 					// conflicts (matching the library's sequential batch) instead of returning null.
@@ -267,28 +295,34 @@ function createConflictGitPort(svc: GitRepositoryService): ConflictGitPort {
 	return {
 		exec: run,
 		readFile: async (path: string): Promise<string> => {
-			// Library's parser splits on '\n' only and matches markers via startsWith — a CRLF file
-			// leaves '\r' on each marker line, breaking '=======\r' detection and surfacing the
-			// next '<<<<<<<' as a phantom nested marker. Normalize on read; the writer below restores
-			// the original EOL on (re-)write.
-			const raw = await fs.readFile(resolvePath(path), 'utf8');
-			return raw.replace(/\r\n/g, '\n');
+			// Read as bytes and decode by the file's actual encoding — a UTF-16/BOM file read as UTF-8
+			// is mojibake with no parseable markers, so it would be silently skipped. Then normalize
+			// EOL: the library's parser splits on '\n' only and matches markers via startsWith, so a
+			// CRLF file leaves '\r' on each marker line, breaking '=======\r' detection and surfacing
+			// the next '<<<<<<<' as a phantom nested marker. The writer below restores the original
+			// encoding + EOL on (re-)write.
+			const raw = await fs.readFile(resolvePath(path));
+			return decodeBuffer(raw).replace(/\r\n/g, '\n');
 		},
 		writeFile: async (path: string, content: string): Promise<void> => {
 			// The library composes content with '\n' only (it normalizes on read above), so write it
-			// back with the original file's line endings — otherwise a CRLF file silently flips to LF
-			// on batch resolution. Detect the existing on-disk EOL just before overwriting; this is
-			// self-contained, so it works even though `resolveAllParallel` and `applyBatch` use separate
-			// port instances. Normalize-then-convert avoids '\r\r\n' if content ever already had CRLF.
+			// back with the original file's encoding + line endings — otherwise a CRLF file silently
+			// flips to LF, or a UTF-16 file to UTF-8, on batch resolution. Detect both from the existing
+			// on-disk bytes just before overwriting; this is self-contained, so it works even though
+			// `resolveAllParallel` and `applyBatch` use separate port instances. Normalize-then-convert
+			// avoids '\r\r\n' if content ever already had CRLF.
 			const resolved = resolvePath(path);
+			let encoding: DetectedEncoding = { encoding: 'utf8', hasBom: false };
 			let crlf = false;
 			try {
-				crlf = (await fs.readFile(resolved, 'utf8')).includes('\r\n');
+				const existing = await fs.readFile(resolved);
+				encoding = detectEncoding(existing);
+				crlf = decodeBuffer(existing, encoding).includes('\r\n');
 			} catch {
-				// New file (no existing content) — default to LF.
+				// New file (no existing content) — default to UTF-8 / LF.
 			}
 			const out = crlf ? content.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n') : content;
-			await fs.writeFile(resolved, out, 'utf8');
+			await fs.writeFile(resolved, encodeContent(out, encoding));
 		},
 		// `force` makes the delete idempotent — a `deleted` resolution can meet an already-absent
 		// file (e.g. removed manually between generation and apply, while still unmerged in the

@@ -206,7 +206,7 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitCommit }>(
 	{ show }: { show: boolean } = { show: true },
 ): Iterable<ViewNode> {
 	if (!parent.view.config.showRelativeDateMarkers || !show) {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+		// oxlint-disable-next-line typescript/no-unsafe-return
 		return yield* iterable;
 	}
 

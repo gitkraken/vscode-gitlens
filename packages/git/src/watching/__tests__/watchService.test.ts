@@ -463,6 +463,41 @@ describe('RepositoryWatchService', () => {
 			handle2.dispose();
 			service.dispose();
 		});
+
+		it('routes a .gitignore change through the repo channel as an `ignores` change (fences closed worktrees)', async () => {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+				defaultWorkingTreeDelayMs: 30,
+			});
+
+			const globalReceived: WatcherRepoChangeEvent[] = [];
+			service.onDidChangeRepository(e => globalReceived.push(e));
+
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'));
+			assertHandle(handle);
+
+			// Subscribing to the working tree starts the WT watcher — the one that sees `.gitignore`.
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			const repoSub = handle.session.subscribe({ delayMs: 30 });
+
+			const wtWatcher = watchers.find(w => w.basePath === '/repo');
+			assert.ok(wtWatcher, 'working-tree watcher should exist');
+
+			wtWatcher.fire({ path: '/repo/.gitignore', reason: 'change' });
+			await delay(60);
+
+			// A closed secondary worktree has no `onGitIgnoreChanged` hook, so the ignore change must reach it as a
+			// repo change (like `info/exclude`) to advance its status clock.
+			const ignores = globalReceived.filter(e => e.repoPath === '/repo' && e.changed('ignores'));
+			assert.strictEqual(ignores.length, 1, 'a .gitignore change must produce exactly one `ignores` repo change');
+
+			wtSub.dispose();
+			repoSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
 	});
 
 	describe('suspendAll / resumeAll', () => {

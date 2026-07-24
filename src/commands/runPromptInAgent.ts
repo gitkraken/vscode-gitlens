@@ -55,11 +55,11 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		// so no extra availability check is needed here — `runAgent` re-validates at dispatch time.
 		const persistedId = configuration.get('ai.defaultAgent') ?? undefined;
 		if (persistedId != null) {
-			const descriptor = await resolveDefaultAgent(persistedId);
+			const descriptor = await resolveDefaultAgent(this.container, persistedId);
 			if (descriptor != null) return descriptor;
 		}
 
-		return pickAgentStandalone();
+		return pickAgentStandalone(this.container);
 	}
 
 	private async dispatch(descriptor: AgentDescriptor, args: RunPromptInAgentCommandArgs, retries = 0): Promise<void> {
@@ -96,7 +96,7 @@ export class RunPromptInAgentCommand extends GlCommandBase {
 		}
 
 		if (choice === pickAnotherAction) {
-			const picked = await pickAgentStandalone();
+			const picked = await pickAgentStandalone(this.container);
 			if (picked != null) {
 				// Reset the budget — a different agent gets a fresh allowance.
 				await this.dispatch(picked, args);

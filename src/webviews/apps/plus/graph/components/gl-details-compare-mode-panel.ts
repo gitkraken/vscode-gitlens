@@ -15,8 +15,10 @@ import type {
 	BranchComparisonContributor,
 	BranchComparisonFile,
 } from '../../../../plus/graph/graphService.js';
+import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
+import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { redispatch } from '../../../shared/components/element.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
 import {
@@ -26,10 +28,12 @@ import {
 	subPanelEnterStyles,
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
+import { renderCopyChangesAction, renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
+import type { GlCommitRowItem } from './gl-commit-row-item.js';
 import { compareModePanelStyles } from './gl-details-compare-mode-panel.css.js';
 import { panelActionInputStyles } from './shared-panel.css.js';
-import './gl-commit-row.js';
+import './gl-commit-row-item.js';
 import './gl-compare-ai-actions.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/badges/badge.js';
@@ -47,8 +51,6 @@ import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/webview-pane.js';
 import '../../../shared/components/split-panel/split-panel.js';
-import '../../../shared/components/tree/tree.js';
-import '../../../shared/components/tree/tree-item.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import '../../../shared/components/avatar/avatar.js';
 
@@ -61,6 +63,13 @@ export interface CompareRefsChangeRefDetail {
 export interface FileCompareBetweenDetail extends FileChangeListItemDetail {
 	lhsRef: string;
 	rhsRef: string;
+}
+
+/** True when a comparison side's commit list holds only the Working Changes pseudo-commit (no real
+ *  commits) — the side then surfaces its working files as the unscoped aggregate. Exported so the
+ *  surrounding details panel's `compareFileRef` shares the exact same recognition. */
+export function hasOnlyWip(commits: readonly BranchComparisonCommit[]): boolean {
+	return commits.length === 1 && commits[0]?.sha === uncommitted;
 }
 
 @customElement('gl-details-compare-mode-panel')
@@ -76,6 +85,13 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	@property({ attribute: 'branch-name' })
 	branchName?: string;
+
+	/** Graph-bottom-only: render the maximize/restore chip left of the compare Refresh. */
+	@property({ type: Boolean, attribute: 'show-maximize' })
+	showMaximize = false;
+	/** Drives the maximize chip's icon/label when `showMaximize` is true. */
+	@property({ type: Boolean })
+	maximized = false;
 
 	@property({ attribute: 'repo-path' })
 	repoPath?: string;
@@ -188,6 +204,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 	@property({ attribute: 'selected-commit-sha' })
 	selectedCommitSha?: string;
 
+	/** The commit row that currently holds the listbox's single tab stop (roving tabindex). Tracks
+	 *  the last-focused row; falls back to the selected/first row in `rovingShaFor`. */
+	@state()
+	private _activeCommitSha?: string;
+
 	@property({ attribute: 'active-view' })
 	activeView: 'files' | 'contributors' = 'files';
 
@@ -229,6 +250,9 @@ export class GlDetailsCompareModePanel extends LitElement {
 	@property({ type: Object })
 	orgSettings?: State['orgSettings'];
 
+	@property({ type: Object })
+	aiModel?: AiModelInfo;
+
 	@property({ type: Boolean })
 	explainBusy = false;
 
@@ -243,6 +267,9 @@ export class GlDetailsCompareModePanel extends LitElement {
 	 */
 	@state()
 	private _comparisonChanging = false;
+
+	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
+	@state() private _selectedFiles: readonly { path: string }[] = [];
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -338,6 +365,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 			.explainBusy=${this.explainBusy}
 			.generateChangelogBusy=${this.generateChangelogBusy}
 			.orgSettings=${this.orgSettings}
+			.aiModel=${this.aiModel}
 		></gl-compare-ai-actions>`;
 	}
 
@@ -410,7 +438,15 @@ export class GlDetailsCompareModePanel extends LitElement {
 		overallFiles: BranchComparisonFile[],
 	): BranchComparisonFile[] {
 		const sel = this.selectedCommitSha;
-		if (sel) return commits.find(c => c.sha === sel)?.files ?? [];
+		if (sel) {
+			const selected = commits.find(c => c.sha === sel);
+			if (selected != null) return selected.files ?? [];
+			// Selection points at a commit no longer present (e.g. it became WIP via a reset) — fall
+			// through to the unscoped aggregate rather than showing an empty, mislabeled pane.
+		}
+
+		// No real commits but a WIP pseudo-commit present → show its working files as the aggregate.
+		if (hasOnlyWip(commits)) return commits[0].files ?? [];
 
 		return overallFiles;
 	}
@@ -502,6 +538,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					: nothing}
 			</div>
 			<div class="compare-bar__actions">
+				${this.showMaximize ? renderDetailsMaximizeChip(this.maximized, false) : nothing}
 				<gl-action-chip
 					class="compare-refresh"
 					icon="refresh"
@@ -554,6 +591,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 		return this.aheadCommits[0]?.sha === uncommitted;
 	}
 
+	/** True when the Ahead side's only entry is the Working Changes pseudo-commit (no real
+	 *  commits) — the aggregate then shows the working files as `mergeBase → working`. */
+	private get aheadOnlyWip(): boolean {
+		return hasOnlyWip(this.aheadCommits);
+	}
+
 	private renderTab(tab: 'all' | 'ahead' | 'behind', label: string, count: number, tooltip: string) {
 		const isActive = this.activeTab === tab;
 		const isEmpty = count === 0 && !(tab === 'ahead' && this.aheadHasWip);
@@ -588,7 +631,9 @@ export class GlDetailsCompareModePanel extends LitElement {
 	}
 
 	private renderCommitList(commits: BranchComparisonCommit[]) {
-		if (commits.length === 0) {
+		// With no real commits, a lone Working Changes pseudo-commit is redundant with the aggregate
+		// (which shows its files directly) and is dropped from the list via the empty-state branch.
+		if (commits.length === 0 || hasOnlyWip(commits)) {
 			// Suppress "Up to date" / "No commits" while the comparison itself is changing — the
 			// panel-level progress strip + spinning tab badges already convey "calculating".
 			// Once the new comparison settles, the real empty message takes over. We don't suppress
@@ -621,8 +666,14 @@ export class GlDetailsCompareModePanel extends LitElement {
 			// Empty-side phrasing from the Compare side's perspective: "ahead of [base]" /
 			// "behind [base]" reads naturally and matches the natural git mental model. Only
 			// Ahead/Behind reach `renderCommitList`; the All Files tab uses `renderAllFilesTab`.
+			// Ahead + working changes present: the aggregate is showing those working files
+			// directly (see `filesForSelection`/`getActiveTabRefs`), so the message calls that out.
 			const emptyText =
-				this.activeTab === 'behind' ? `No commits behind ${baseLabel}` : `No commits ahead of ${baseLabel}`;
+				this.activeTab === 'behind'
+					? `No commits behind ${baseLabel}`
+					: this.aheadHasWip
+						? `No commits ahead of ${baseLabel}, showing working tree changes`
+						: `No commits ahead of ${baseLabel}`;
 			return html`<div
 				id="compare-tabpanel-${this.activeTab}"
 				class="compare-empty compare-empty--no-commits"
@@ -639,21 +690,79 @@ export class GlDetailsCompareModePanel extends LitElement {
 		// another row in the list, so scrolling reaches it naturally. `box-sizing: border-box`
 		// on the button (see CSS) keeps `width: 100%` honest so the button doesn't push past
 		// the scroll container and trigger a horizontal scrollbar.
+		const rovingSha = this.rovingShaFor(commits);
 		return html`<div
 			id="compare-tabpanel-${this.activeTab}"
 			class="compare-commits scrollable"
 			role="tabpanel"
 			aria-labelledby="compare-tab-${this.activeTab}"
 		>
-			<gl-tree>
+			<div
+				class="compare-listbox"
+				role="listbox"
+				aria-label="Comparison Commits"
+				@keydown=${this.handleCommitListKeydown}
+				@focusin=${this.handleCommitListFocusIn}
+			>
 				${repeat(
 					commits,
 					commit => commit.sha,
-					commit => this.renderCommitRow(commit),
+					commit => this.renderCommitRow(commit, rovingSha),
 				)}
-			</gl-tree>
+			</div>
 			${hasMore ? this.renderLoadMoreRow(loadingMore) : nothing}
 		</div>`;
+	}
+
+	/** The row that holds the listbox's single tab stop: the last-focused row if still present, else
+	 *  the active-scope row, else the first — so Tab always lands on a meaningful row. */
+	private rovingShaFor(commits: readonly BranchComparisonCommit[]): string | undefined {
+		if (this._activeCommitSha != null && commits.some(c => c.sha === this._activeCommitSha)) {
+			return this._activeCommitSha;
+		}
+		if (this.selectedCommitSha != null && commits.some(c => c.sha === this.selectedCommitSha)) {
+			return this.selectedCommitSha;
+		}
+		return commits[0]?.sha;
+	}
+
+	/** Roving focus across the flat single-select list (replaces the arrow-nav gl-tree once provided).
+	 *  Moves DOM focus only; activation (scope toggle) stays on Enter/Space/click via the option. */
+	private handleCommitListKeydown(e: KeyboardEvent) {
+		if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+
+		const rows = [...this.renderRoot.querySelectorAll<GlCommitRowItem>('.compare-commit')];
+		if (!rows.length) return;
+
+		const current = rows.indexOf(e.target as GlCommitRowItem);
+		let next: number;
+		switch (e.key) {
+			case 'ArrowDown':
+				next = current < 0 ? 0 : Math.min(current + 1, rows.length - 1);
+				break;
+			case 'ArrowUp':
+				next = current < 0 ? rows.length - 1 : Math.max(current - 1, 0);
+				break;
+			case 'Home':
+				next = 0;
+				break;
+			case 'End':
+				next = rows.length - 1;
+				break;
+			default:
+				return;
+		}
+
+		e.preventDefault();
+		rows[next].focus();
+	}
+
+	/** Sync the roving tab stop to whichever row last received focus (arrow, Tab, or click). */
+	private handleCommitListFocusIn(e: FocusEvent) {
+		const sha = (e.target as GlCommitRowItem | null)?.commit?.sha;
+		if (sha != null) {
+			this._activeCommitSha = sha;
+		}
 	}
 
 	/** "Load More" row that pulls the next page of commits for the active side. Styled to mirror
@@ -670,27 +779,22 @@ export class GlDetailsCompareModePanel extends LitElement {
 		</button>`;
 	}
 
-	private renderCommitRow(commit: BranchComparisonCommit) {
+	private renderCommitRow(commit: BranchComparisonCommit, rovingSha: string | undefined) {
 		const isSelected = this.selectedCommitSha === commit.sha;
 
-		// showIcon=false suppresses tree-item's empty 1.6rem icon column (+ 0.6rem button gap)
-		// — gl-commit-row has its own avatar slot, so the tree-item's icon column would just add
-		// dead space to the left of the avatar.
-		//
-		// `.selected` (property binding) drives gl-tree-item's internal `@state selected` field,
-		// which is what updates `aria-selected` and thus the default selection background. A
-		// `?selected` (attribute binding) would NOT — `@state` doesn't reflect from attribute, so
-		// the host's selected state would only ever flip TRUE (on user click) and never back to
-		// FALSE when the parent re-renders with a different/no scope.
-		return html`<gl-tree-item
-			rich
-			.showIcon=${false}
-			class="compare-commit ${isSelected ? 'compare-commit--selected' : ''}"
+		// `.selected` (property binding) drives gl-commit-row-item's reflected `selected` so the row's
+		// scope styling toggles back off when the parent re-renders with a different/no scope. The
+		// toggle-and-clear semantics live in `dispatchSelectCommit`. `selectable` renders the row as a
+		// listbox option; `.tabbable` gives only the roving row the single tab stop.
+		return html`<gl-commit-row-item
+			class="compare-commit"
+			selectable
 			.selected=${isSelected}
-			@gl-tree-item-selected=${() => this.dispatchSelectCommit(commit.sha)}
-		>
-			<gl-commit-row .commit=${commit} .preferences=${this.preferences}></gl-commit-row>
-		</gl-tree-item>`;
+			.tabbable=${commit.sha === rovingSha}
+			.commit=${commit}
+			.preferences=${this.preferences}
+			@gl-commit-row-item-select=${() => this.dispatchSelectCommit(commit.sha)}
+		></gl-commit-row-item>`;
 	}
 
 	private _getFileContext = (file: BranchComparisonFile) => this.getFileContext(file);
@@ -700,6 +804,27 @@ export class GlDetailsCompareModePanel extends LitElement {
 		const rightRef = this.rightRef;
 		const repoPath = this.repoPath;
 		if (!leftRef || !rightRef || !repoPath) return undefined;
+
+		// Working-tree rows (WIP scope, or the no-commits aggregate that shows working files) get the
+		// WIP file context so their right-click menu is the working-file menu (Stage/Unstage/Discard/
+		// working-diff Open Changes) instead of committed-comparison actions that could clobber the
+		// working changes. Guarded to the Ahead tab: `aheadOnlyWip` reads `aheadCommits` and is
+		// tab-agnostic, but the All tab's aggregate is `leftRef → working`, NOT `HEAD → working`, so a
+		// WIP context (sha: uncommitted → HEAD↔working) would be wrong there.
+		if (this.selectedCommitSha === uncommitted || (this.activeTab === 'ahead' && this.aheadOnlyWip)) {
+			const context: DetailsItemTypedContext = {
+				webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+				webviewItemValue: {
+					type: 'file',
+					path: file.path,
+					repoPath: file.repoPath || this.rightRefWorktreePath || repoPath,
+					sha: uncommitted,
+					staged: file.staged,
+					status: file.status,
+				},
+			};
+			return serializeWebviewItemContext(context);
+		}
 
 		// Per the file-context convention shared with multicommit/review-compare panels:
 		//   `sha` = rhs (newer / "to" side of the diff)
@@ -781,7 +906,6 @@ export class GlDetailsCompareModePanel extends LitElement {
 					.fileActions=${GlDetailsCompareModePanel._fileActions}
 					.fileContext=${this._getFileContext}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(folderRepoPath, folder)}
-					.buttons=${this.getMultiDiffRefs(files) ? ['layout', 'search', 'multi-diff'] : undefined}
 					?multi-selectable=${true}
 					selection-action="file-compare-range"
 					.showSearchBox=${this.showSearchBox}
@@ -793,10 +917,31 @@ export class GlDetailsCompareModePanel extends LitElement {
 					@file-compare-working=${this.redispatch}
 					@file-more-actions=${this.redispatch}
 					@change-files-layout=${this.redispatch}
-					@gl-file-tree-pane-open-multi-diff=${this.handleOpenMultiDiff}
-					@gl-file-tree-pane-open-selected-changes=${this.handleOpenSelectedChanges}
+					@file-selection-changed=${(e: CustomEvent<{ files: readonly { path: string }[] }>) =>
+						(this._selectedFiles = e.detail?.files ?? [])}
 				>
 					<span slot="title-content">${this.renderViewSelector()}</span>
+					${this.getMultiDiffRefs(files) != null
+						? renderOpenChangesAction({
+								selectedCount: this._selectedFiles.length,
+								slot: 'leading-actions',
+								onOpenAll: () => this.handleOpenMultiDiff(),
+								onOpenSelected: () => this.handleOpenSelectedChanges(),
+							})
+						: nothing}
+					${(() => {
+						// Copy-as-patch only applies to commit↔commit comparisons; the working-tree tabs
+						// (wip / rhs === '') aren't a committed diff the copy-commit-patch path can produce.
+						const refs = this.getMultiDiffRefs(files);
+						return refs != null && refs.wip !== true && refs.rhs !== ''
+							? renderCopyChangesAction({
+									repoPath: refs.repoPath,
+									to: refs.rhs,
+									from: refs.lhs || undefined,
+									slot: 'leading-actions',
+								})
+							: nothing;
+					})()}
 					${isLoadingEmpty
 						? html`<div slot="before-tree" class="compare-files--loading" aria-busy="true">
 								<code-icon icon="loading" modifier="spin"></code-icon>
@@ -1036,7 +1181,6 @@ export class GlDetailsCompareModePanel extends LitElement {
 			placement="bottom-start"
 			appearance="menu"
 			?arrow=${false}
-			hoist
 		>
 			<button slot="anchor" class="compare-view-trigger" type="button">
 				<span class="compare-view-trigger__label">${label}</span>
@@ -1131,6 +1275,10 @@ export class GlDetailsCompareModePanel extends LitElement {
 	 *  - **All tab + IWT on, unscoped**: `lhs = leftRef, rhs = ''` (S&C-style cumulative
 	 *    `base → working tree`). Gated to the All tab because Ahead/Behind file lists stay
 	 *    committed-only when IWT is on, so their direction must match their stat pills.
+	 *  - **Ahead tab, no real commits + IWT on** (`aheadOnlyWip`): `lhs = mergeBase, rhs = ''`.
+	 *    The aggregate is showing the working files directly (see `filesForSelection`); since
+	 *    ahead-count is 0 here, `mergeBase === rightRef === HEAD`, so this is the same diff as
+	 *    the WIP-scope case above, just unscoped.
 	 *  - **Ahead tab**: `lhs = mergeBase, rhs = rightRef` (what Compare added since divergence).
 	 *    Falls back to `lhs = leftRef` when no merge base exists (disjoint refs).
 	 *  - **Behind tab**: `lhs = mergeBase, rhs = leftRef` (what Base added since divergence).
@@ -1153,7 +1301,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		}
 
 		if (this.activeTab === 'ahead') {
-			return { lhs: this.mergeBase ?? leftRef, rhs: rightRef };
+			return { lhs: this.mergeBase ?? leftRef, rhs: this.aheadOnlyWip ? '' : rightRef };
 		}
 		if (this.activeTab === 'behind') {
 			return { lhs: this.mergeBase ?? rightRef, rhs: leftRef };
@@ -1210,10 +1358,10 @@ export class GlDetailsCompareModePanel extends LitElement {
 		);
 	};
 
-	private handleOpenSelectedChanges = (e: CustomEvent<{ files: readonly { path: string }[] }>): void => {
+	private handleOpenSelectedChanges = (): void => {
 		// Keep the typed BranchComparisonFile shapes from activeFiles, scoped to the selected paths,
 		// so the refs/title derivation matches "Open All Changes".
-		const selectedPaths = new Set(e.detail?.files?.map(f => f.path));
+		const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
 		const files = this.activeFiles.filter(f => selectedPaths.has(f.path));
 		const refs = this.getMultiDiffRefs(files);
 		if (!refs || !files.length) return;

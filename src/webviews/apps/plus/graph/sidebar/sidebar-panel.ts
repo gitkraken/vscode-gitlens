@@ -1,16 +1,18 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { URI } from 'vscode-uri';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlCommands } from '../../../../../constants.commands.js';
 import type { WebviewItemContext } from '../../../../../system/webview.js';
 import { serializeWebviewItemContext, withWebviewItemFlag } from '../../../../../system/webview.js';
+import { sidebarItemActions } from '../../../../plus/graph/graphSidebarActionTelemetry.js';
 import type {
 	DidGetSidebarDataParams,
 	GraphSidebarBranch,
@@ -28,12 +30,7 @@ import {
 	worktreeTooltip,
 	worktreeTooltipWithoutChangesLine,
 } from '../../../../plus/graph/sidebarTooltips.js';
-import {
-	agentPhaseToCategory,
-	describeAgentSession,
-	formatAgentElapsed,
-	getAgentPhaseLabel,
-} from '../../../shared/agentUtils.js';
+import { agentPhaseToCategory, describeAgentSession, formatAgentElapsed } from '../../../shared/agentUtils.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type {
 	TreeItemAction,
@@ -44,15 +41,19 @@ import type {
 	TreeModelFlat,
 } from '../../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
+import { getBranchLeafActions } from './branchActions.utils.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
+import { resolveSelectedTag } from './sidebarTelemetry.utils.js';
 import '../overview/graph-overview.js';
 import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/commit/wip-stats.js';
 import '../../../shared/components/markdown/markdown.js';
 import './agent-tooltip.js';
+import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/hooks-banner.js';
@@ -148,7 +149,10 @@ export interface SidebarItemScope {
 	upstreamName?: string;
 }
 
-type SidebarItemContext = [sha: string | undefined, scope?: SidebarItemScope, sessionId?: string];
+/** `name` is the item's unique full name (branch leaves populate it) — shas can collide across
+ *  branches pointing at the same commit, so telemetry resolves the clicked branch by name
+ *  (the name itself is not emitted). */
+type SidebarItemContext = [sha: string | undefined, scope?: SidebarItemScope, sessionId?: string, name?: string];
 
 interface LeafProps {
 	label: string;
@@ -221,6 +225,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					opacity: 0;
 					transform: translateX(-8px);
 				}
+
 				to {
 					opacity: 1;
 					transform: translateX(0);
@@ -228,37 +233,38 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			:host {
+				z-index: 1;
 				display: flex;
 				flex-direction: column;
 				height: 100%;
 				overflow: visible;
 				background-color: var(--color-view-background);
-				z-index: 1;
-				border-right: 1px solid transparent;
 				border-color: var(--vscode-sideBar-border, transparent);
+				border-right: var(--gl-border-width) solid transparent;
 			}
 
 			/* Play enter animations only when the parent signals the user-visible moment —
-			   the element is always mounted (inside the split-panel's start slot) so an
-			   unconditional animation would fire at 0 width where the user can't see it.
-			     [opening]   — sidebar went from hidden to visible (slide in from -8px X)
-			     [switching] — active panel changed while visible (slide in from 4px Y, matches
-			                   the sub-panel-enter used by review/compose/compare panes)
-			   The animation runs on the inner .panel — NOT the :host — so the host's solid
-			   background-color stays put and blocks the graph behind it during the animation
-			   (in overlay mode the host floats over the graph; an opacity/translate on the host
-			   would expose the graph through fade or at the gap left by the translate). */
+	   the element is always mounted (inside the split-panel's start slot) so an
+	   unconditional animation would fire at 0 width where the user can't see it.
+	     [opening]   — sidebar went from hidden to visible (slide in from -8px X)
+	     [switching] — active panel changed while visible (slide in from 4px Y, matches
+	                   the sub-panel-enter used by review/compose/compare panes)
+	   The animation runs on the inner .panel — NOT the :host — so the host's solid
+	   background-color stays put and blocks the graph behind it during the animation
+	   (in overlay mode the host floats over the graph; an opacity/translate on the host
+	   would expose the graph through fade or at the gap left by the translate). */
 			:host([opening]) .panel {
-				animation: panel-enter 0.2s ease-out;
+				animation: panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 			}
+
 			:host([switching]) .panel {
-				animation: sub-panel-enter 0.2s ease-out;
+				animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 			}
 
 			@media (prefers-reduced-motion: reduce) {
 				/* Near-zero duration, NOT animation:none, so the animationend event still
-				   fires — the internal handler depends on it to remove the opening / switching
-				   attribute. animation:none dispatches no event, so the attribute would stick. */
+		   fires — the internal handler depends on it to remove the opening / switching
+		   attribute. animation:none dispatches no event, so the attribute would stick. */
 				:host([opening]) .panel,
 				:host([switching]) .panel {
 					animation-duration: 0.01ms;
@@ -275,18 +281,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			.header {
 				position: relative;
 				display: flex;
-				align-items: center;
-				gap: 0.6rem;
-				padding: 0 0 0 0.4rem;
-				font-size: 1.1rem;
-				font-weight: 600;
-				text-transform: uppercase;
-				color: var(--color-view-header-foreground);
-				background-color: var(--color-view-background);
-				border-bottom: 1px solid transparent;
-				border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 				flex: none;
+				gap: var(--gl-space-6);
+				align-items: center;
 				min-height: 2.2rem;
+				padding: 0 0 0 var(--gl-space-4);
+				font-size: var(--gl-font-sm);
+				font-weight: 600;
+				color: var(--color-view-header-foreground);
+				text-transform: uppercase;
+				background-color: var(--color-view-background);
+				border-color: var(--vscode-sideBarSectionHeader-border, transparent);
+				border-bottom: var(--gl-border-width) solid transparent;
 			}
 
 			.header-title {
@@ -299,8 +305,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 			.header-actions {
 				display: flex;
-				align-items: center;
 				flex: none;
+				align-items: center;
 				text-transform: none;
 			}
 
@@ -310,8 +316,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 			.content {
 				flex: 1;
-				overflow: hidden;
 				min-height: 0;
+				overflow: hidden;
 			}
 
 			gl-tree-view {
@@ -322,66 +328,72 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			.loading {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
-				padding: 0.4rem 0;
+				gap: var(--gl-space-6);
+				padding: var(--gl-space-4) 0;
 			}
 
 			.skeleton {
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
-				padding: 0.2rem 1rem;
 				height: 2.2rem;
+				padding: var(--gl-space-2) var(--gl-space-10);
 			}
 
 			.skeleton-icon {
+				flex: none;
 				width: 16px;
 				height: 16px;
-				border-radius: 3px;
 				background: var(--vscode-foreground);
+				border-radius: var(--gl-radius-sm);
 				opacity: 0.07;
-				flex: none;
 			}
 
 			.skeleton-text {
 				height: 10px;
-				border-radius: 3px;
 				background: var(--vscode-foreground);
+				border-radius: var(--gl-radius-sm);
 				opacity: 0.07;
 			}
 
 			.loading .skeleton:nth-child(1) .skeleton-text {
 				width: 65%;
 			}
+
 			.loading .skeleton:nth-child(2) .skeleton-text {
 				width: 45%;
 			}
+
 			.loading .skeleton:nth-child(3) .skeleton-text {
 				width: 80%;
 			}
+
 			.loading .skeleton:nth-child(4) .skeleton-text {
 				width: 55%;
 			}
+
 			.loading .skeleton:nth-child(5) .skeleton-text {
 				width: 70%;
 			}
+
 			.loading .skeleton:nth-child(6) .skeleton-text {
 				width: 40%;
 			}
+
 			.loading .skeleton:nth-child(7) .skeleton-text {
 				width: 60%;
 			}
 
 			.empty {
-				padding: 1rem;
-				text-align: center;
+				padding: var(--gl-space-10);
+				font-size: var(--gl-font-md);
 				color: var(--vscode-descriptionForeground);
-				font-size: 1.2rem;
+				text-align: center;
 			}
 
 			.agents-banner {
 				flex: none;
-				padding: 0 0.4rem 0.4rem;
+				padding: 0 var(--gl-space-4) var(--gl-space-4);
 			}
 		`,
 	];
@@ -409,6 +421,39 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
 	private _pendingFocus = false;
+	private _agentsFilterActive = false;
+
+	/** Whether `graph/worktrees/shown` has been fired for the current worktrees activation. Reset
+	 *  on disconnect and on `activePanel` change so switching away and back emits a fresh event
+	 *  while re-renders from data mutations (e.g. WIP pushes) do not. */
+	private _worktreesShownEmitted = false;
+	/** Same guard as `_worktreesShownEmitted`, for `graph/stashes/shown`. */
+	private _stashesShownEmitted = false;
+	/** Same guard as `_worktreesShownEmitted`, for `graph/tags/shown`. */
+	private _tagsShownEmitted = false;
+
+	/** Same as `_worktreesShownEmitted`, for the remotes panel. */
+	private _remotesShownEmitted = false;
+
+	// Tracks that the branches panel was just shown and its `shown` telemetry is still owed —
+	// emitted once the switch-triggered fetch settles (see maybeEmitBranchesShownTelemetry).
+	private _branchesShownPending = false;
+
+	// The raw `gl-tree-filter-changed` event fires on every keystroke (only the tree's filter
+	// apply is debounced), so debounce the telemetry to emit once per settled query.
+	private readonly emitBranchesFilteredTelemetryDebounced = debounce(() => {
+		if (this.activePanel !== 'branches') return;
+
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/branches/filtered'>(this, {
+			name: 'graph/branches/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'branches.count': this.getBranchesCount(),
+			},
+		});
+	}, 500);
 
 	focusFilter(): void {
 		if (this.activePanel == null || this.activePanel === 'overview') {
@@ -437,6 +482,19 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this.shadowRoot?.addEventListener('animationend', this._handlePanelAnimationEnd);
 	}
 
+	override disconnectedCallback(): void {
+		this.emitWorktreesFilteredTelemetryDebounced.cancel();
+		this.emitBranchesFilteredTelemetryDebounced.cancel();
+		this.emitRemotesFilteredTelemetryDebounced.cancel();
+		this.emitStashesFilteredTelemetryDebounced.cancel();
+		this.emitTagsFilteredTelemetryDebounced.cancel();
+		this._worktreesShownEmitted = false;
+		this._remotesShownEmitted = false;
+		this._stashesShownEmitted = false;
+		this._tagsShownEmitted = false;
+		super.disconnectedCallback?.();
+	}
+
 	private readonly _handlePanelAnimationEnd = (e: Event): void => {
 		const name = (e as AnimationEvent).animationName;
 		if (name === 'panel-enter' || name === 'sub-panel-enter') {
@@ -447,8 +505,30 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		if (changedProperties.has('activePanel') && this._actions != null) {
+			// Reset the shown guards so switching away and back emits a fresh impression
+			// while intra-activation re-renders (WIP pushes, refresh) do not.
+			this._worktreesShownEmitted = false;
+			this._remotesShownEmitted = false;
+			this._stashesShownEmitted = false;
+			this._tagsShownEmitted = false;
+
+			// Cancel any pending filtered emits — filterText is shared across panels, so a trailing
+			// callback after a switch would report against the wrong (now-inactive) panel.
+			this.emitWorktreesFilteredTelemetryDebounced.cancel();
+			this.emitBranchesFilteredTelemetryDebounced.cancel();
+			this.emitRemotesFilteredTelemetryDebounced.cancel();
+			this.emitStashesFilteredTelemetryDebounced.cancel();
+			this.emitTagsFilteredTelemetryDebounced.cancel();
+
 			// Keep the actions module in sync so invalidateAll can refetch
 			this._actions.activePanel = this.activePanel;
+
+			// `_actions.filterText` is a single string shared across panels and survives panel
+			// switches (its only write is `handleFilterChanged`), while `_agentsFilterActive` is
+			// only maintained while agents is active. Re-sync from the actual filter here, or the
+			// empty↔non-empty transition detection in `handleFilterChanged` compares against a
+			// stale value — emitting duplicate "activated" or missing "deactivated" events.
+			this._agentsFilterActive = this._actions.filterText.length > 0;
 
 			// Always fetch on panel switch — data may be stale even if non-null.
 			// The Resource's cancelPrevious handles dedup.
@@ -456,6 +536,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			if (this.activePanel != null && this.activePanel !== 'overview' && this.activePanel !== 'agents') {
 				this._actions.fetchPanel(this.activePanel);
 			}
+
+			if (this.activePanel === 'agents') {
+				this.emitAgentsShownTelemetry();
+			}
+
+			// Defer the `shown` event until the branches data actually resolves (see
+			// maybeEmitBranchesShownTelemetry). Emitting synchronously here would drop the
+			// first-ever view (data still undefined) and report stale counts on later views
+			// (the Resource retains the prior fetch's value until the new one lands).
+			this._branchesShownPending = this.activePanel === 'branches';
 		}
 	}
 
@@ -463,6 +553,84 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (this._pendingFocus) {
 			this.focusFilter();
 		}
+
+		// Emit `shown` from the settled lifecycle (not render(), which Lit expects side-effect-free).
+		// The guards fire it once per panel activation — reset on disconnect and on `activePanel`
+		// change so a fresh impression is recorded then, but intra-activation re-renders (WIP pushes,
+		// refresh(), filter/expansion changes) do not re-emit.
+		this.emitWorktreesShownTelemetry();
+		this.emitRemotesShownTelemetry();
+		this.maybeEmitBranchesShownTelemetry();
+		this.emitStashesShownTelemetry();
+		this.emitTagsShownTelemetry();
+	}
+
+	private emitWorktreesShownTelemetry(): void {
+		if (this._worktreesShownEmitted || this.activePanel !== 'worktrees') return;
+
+		const resource = this._actions?.state.panels.worktrees;
+		// Wait for a successful fetch (mirrors maybeEmitBranchesShownTelemetry): on reactivation
+		// the resource still holds the previous visit's value while the switch-triggered fetch is
+		// in flight — emitting off that would report stale counts. 'idle' (webview boot, before
+		// the RPC service exists) and 'error' (a later retry may still succeed) also hold; the
+		// guard is only latched on emit, so this just delays until fresh data lands.
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
+		if (data?.panel !== 'worktrees') return;
+
+		this._worktreesShownEmitted = true;
+		emitTelemetrySentEvent<'graph/worktrees/shown'>(this, {
+			name: 'graph/worktrees/shown',
+			data: {
+				layout: data.layout ?? 'list',
+				'worktrees.count': data.items.length,
+			},
+		});
+	}
+
+	private emitStashesShownTelemetry(): void {
+		if (this._stashesShownEmitted || this.activePanel !== 'stashes') return;
+
+		const resource = this._actions?.state.panels.stashes;
+		// Wait for a successful fetch (mirrors emitWorktreesShownTelemetry): on reactivation the
+		// resource still holds the previous visit's value while the switch-triggered fetch is in
+		// flight — emitting off that would report stale counts.
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
+		if (data?.panel !== 'stashes') return;
+
+		this._stashesShownEmitted = true;
+		emitTelemetrySentEvent<'graph/stashes/shown'>(this, {
+			name: 'graph/stashes/shown',
+			data: {
+				'stashes.count': data.items.length,
+			},
+		});
+	}
+
+	private emitTagsShownTelemetry(): void {
+		if (this._tagsShownEmitted || this.activePanel !== 'tags') return;
+
+		const resource = this._actions?.state.panels.tags;
+		// Wait for a successful fetch (mirrors emitWorktreesShownTelemetry): on reactivation the
+		// resource still holds the previous visit's value while the switch-triggered fetch is in
+		// flight — emitting off that would report stale counts.
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
+		if (data?.panel !== 'tags') return;
+
+		this._tagsShownEmitted = true;
+		emitTelemetrySentEvent<'graph/tags/shown'>(this, {
+			name: 'graph/tags/shown',
+			data: {
+				layout: data.layout ?? 'list',
+				'tags.count': data.items.length,
+				'tags.annotated.count': data.items.filter(t => t.annotated).length,
+			},
+		});
 	}
 
 	override render(): unknown {
@@ -512,12 +680,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private renderHeader(config: PanelConfig, isLoading: boolean) {
-		const pinned = this._state.config?.sidebarPinned ?? true;
+		const pinned = this._state.config?.sidebarPinned ?? false;
 		const pinTooltip = pinned ? 'Unpin Side Bar' : 'Pin Side Bar';
 		const pinIcon = pinned ? 'pinned' : 'pin';
 		return html`<div class="header">
 			<span class="header-title">${config.title}</span>
-			<div class="header-actions">
+			<action-nav class="header-actions" role="toolbar" aria-label="${config.title} actions">
 				${config.actions?.map(
 					a =>
 						html`<gl-button
@@ -539,7 +707,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					@click=${this.handleTogglePinned}
 					><code-icon icon=${pinIcon}></code-icon
 				></gl-button>
-			</div>
+			</action-nav>
 			<progress-indicator position="bottom" ?active=${isLoading}></progress-indicator>
 		</div>`;
 	}
@@ -699,65 +867,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private toBranchLeaf(b: GraphSidebarBranch, isTree: boolean): LeafProps {
-		const actions: TreeItemAction[] = [];
-
-		if (b.tracking?.behind) {
-			actions.push({
-				icon: 'repo-pull',
-				label: 'Pull',
-				action: 'gitlens.graph.pull',
-				altIcon: 'repo-fetch',
-				altLabel: 'Fetch',
-				altAction: 'gitlens.fetch:graph',
-			});
-		} else if (b.tracking?.ahead) {
-			actions.push({ icon: 'repo-push', label: 'Push', action: 'gitlens.graph.push' });
-		} else if (b.upstream && !b.upstream.missing) {
-			actions.push({
-				icon: 'repo-fetch',
-				label: 'Fetch',
-				action: 'gitlens.fetch:graph',
-				altIcon: 'repo-pull',
-				altLabel: 'Pull',
-				altAction: 'gitlens.graph.pull',
-			});
-		}
-
-		if (b.current) {
-			actions.unshift({
-				icon: 'gl-switch',
-				label: 'Switch to Another Branch...',
-				action: 'gitlens.switchToAnotherBranch:graph',
-			});
-			actions.push({
-				icon: 'gl-compare-ref-working',
-				label: 'Compare with Working Tree',
-				action: 'gitlens.graph.compareWithWorking',
-			});
-		} else if (b.checkedOut) {
-			actions.push({
-				icon: 'empty-window',
-				label: 'Open Worktree in New Window...',
-				action: 'gitlens.openWorktreeInNewWindow:graph',
-				altIcon: 'window',
-				altLabel: 'Open Worktree...',
-				altAction: 'gitlens.openWorktree:graph',
-			});
-		} else {
-			actions.unshift({
-				icon: 'gl-switch',
-				label: 'Switch to Branch...',
-				action: 'gitlens.switchToBranch:graph',
-			});
-			actions.push({
-				icon: 'compare-changes',
-				label: 'Compare with HEAD',
-				action: 'gitlens.graph.compareBranchWithHead',
-				altIcon: 'gl-compare-ref-working',
-				altLabel: 'Compare with Working Tree',
-				altAction: 'gitlens.graph.compareWithWorking',
-			});
-		}
+		const actions = getBranchLeafActions(b);
 
 		return {
 			label: isTree ? (b.name.split('/').pop() ?? b.name) : b.name,
@@ -765,7 +875,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			tooltip: branchTooltip(b, this.dateFormat),
 			icon: { type: 'branch', status: b.status, worktree: b.worktree },
 			description: b.date != null ? fromNow(b.date) : undefined,
-			context: [b.sha] as SidebarItemContext,
+			context: [b.sha, undefined, undefined, b.name] as SidebarItemContext,
 			decorations: trackingDecorations(b.tracking, b.upstream?.missing),
 			actions: actions,
 			contextValue: b.context,
@@ -927,10 +1037,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private toAgentLeaf(session: AgentSessionState, anchor: { wipSha?: string; scope?: SidebarItemScope }): LeafProps {
 		const category = agentPhaseToCategory[session.phase];
 		const elapsed = formatAgentElapsed(session.phaseSince);
-		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		// Description = last prompt; otherwise the describeSession line for needs-input / working
 		// (`Awaiting: tool` / `Running tool`). The "Last active …" fallback is intentionally
-		// excluded — elapsed time already shows up on the phase decoration, no need to repeat it.
+		// excluded — elapsed time is already surfaced in the tooltip, no need to repeat it.
 		const description =
 			session.lastPrompt ||
 			describeAgentSession(session, category, elapsed, {
@@ -994,22 +1103,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			arguments: [session.id],
 		});
 
-		// Phase decoration uses agent-* kinds so the textual phase color matches the leaf's
-		// agent icon — both pulled from the shared `--gl-agent-*` palette in theme.scss.
-		const decorations: TreeItemDecoration[] = [
-			{
-				type: 'text',
-				label: phaseLabel + (elapsed != null ? ` · ${elapsed}` : ''),
-				kind:
-					category === 'needs-input'
-						? 'agent-waiting'
-						: category === 'working'
-							? 'agent-working'
-							: 'agent-idle',
-				position: 'before',
-			},
-		];
-
+		// Phase status is conveyed by the leaf's agent icon (glyph + `--gl-agent-*` color) and the
+		// tooltip — no redundant text decoration.
 		return {
 			label: session.displayName,
 			tooltip: html`<gl-agent-tooltip .sessionId=${session.id}></gl-agent-tooltip>`,
@@ -1017,7 +1112,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			icon: { type: 'agent', phase: session.phase },
 			description: description,
 			context: [sha, scope, session.id] as SidebarItemContext,
-			decorations: decorations,
 			actions: actions,
 		};
 	}
@@ -1256,6 +1350,41 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleFilterChanged = (e: CustomEvent<string>) => {
 		this._actions.filterText = e.detail;
+
+		if (this.activePanel === 'agents') {
+			const hasFilter = e.detail.length > 0;
+			if (hasFilter !== this._agentsFilterActive) {
+				this._agentsFilterActive = hasFilter;
+				emitTelemetrySentEvent<'graph/agents/filtered'>(this, {
+					name: 'graph/agents/filtered',
+					data: {
+						hasFilter: hasFilter,
+						'filter.length': e.detail.length,
+						'sessions.count': this._state.agentSessions?.length ?? 0,
+					},
+				});
+			}
+		}
+
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesFilteredTelemetryDebounced();
+		}
+
+		if (this.activePanel === 'branches') {
+			this.emitBranchesFilteredTelemetryDebounced();
+		}
+
+		if (this.activePanel === 'remotes') {
+			this.emitRemotesFilteredTelemetryDebounced();
+		}
+
+		if (this.activePanel === 'stashes') {
+			this.emitStashesFilteredTelemetryDebounced();
+		}
+
+		if (this.activePanel === 'tags') {
+			this.emitTagsFilteredTelemetryDebounced();
+		}
 	};
 
 	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
@@ -1270,13 +1399,155 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleAction(command: GlCommands, args?: unknown[]) {
+		if (this.activePanel === 'agents') {
+			const action =
+				command === 'gitlens.startWork'
+					? 'startWork'
+					: command === 'gitlens.startReview'
+						? 'startReview'
+						: undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/agents/headerAction'>(this, {
+					name: 'graph/agents/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
+		if (this.activePanel === 'worktrees') {
+			const action = command === 'gitlens.views.title.createWorktree' ? 'createWorktree' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/worktrees/headerAction'>(this, {
+					name: 'graph/worktrees/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
+		if (this.activePanel === 'branches') {
+			const action =
+				command === 'gitlens.switchToAnotherBranch:views'
+					? 'switchToBranch'
+					: command === 'gitlens.views.title.createBranch'
+						? 'createBranch'
+						: undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/branches/headerAction'>(this, {
+					name: 'graph/branches/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
+		if (this.activePanel === 'remotes') {
+			const action = command === 'gitlens.views.addRemote' ? 'addRemote' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/remotes/headerAction'>(this, {
+					name: 'graph/remotes/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
+		if (this.activePanel === 'stashes') {
+			const action =
+				command === 'gitlens.stashSave:views'
+					? 'stashAll'
+					: command === 'gitlens.stashesApply:views'
+						? 'applyStash'
+						: undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/stashes/headerAction'>(this, {
+					name: 'graph/stashes/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
+		if (this.activePanel === 'tags') {
+			const action = command === 'gitlens.views.title.createTag' ? 'createTag' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/tags/headerAction'>(this, {
+					name: 'graph/tags/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
 		this._actions?.executeAction(command, undefined, args);
 	}
 
 	private handleToggleLayout() {
 		if (this.activePanel == null) return;
 
-		this._actions?.toggleLayout(this.activePanel);
+		// Compute the panel layout before toggling — the service update is async, so the
+		// resource value still reflects the old layout here; invert it to get the new one.
+		const worktreesData =
+			this.activePanel === 'worktrees' ? this._actions?.state.panels.worktrees?.value.get() : undefined;
+		const worktreesNewLayout = worktreesData?.layout === 'tree' ? 'list' : 'tree';
+		const tagsData = this.activePanel === 'tags' ? this._actions?.state.panels.tags?.value.get() : undefined;
+		const tagsNewLayout = tagsData?.layout === 'tree' ? 'list' : 'tree';
+
+		const branchesData =
+			this.activePanel === 'branches' ? this._actions?.state.panels.branches?.value.get() : undefined;
+
+		const remotesData =
+			this.activePanel === 'remotes' ? this._actions?.state.panels.remotes?.value.get() : undefined;
+
+		this._actions.toggleLayout(this.activePanel);
+
+		if (this.activePanel === 'agents') {
+			emitTelemetrySentEvent<'graph/agents/layoutToggled'>(this, {
+				name: 'graph/agents/layoutToggled',
+				data: {
+					layout: this._actions.agentsLayout.get(),
+					'sessions.count': this._state.agentSessions?.length ?? 0,
+				},
+			});
+		}
+
+		if (this.activePanel === 'worktrees') {
+			emitTelemetrySentEvent<'graph/worktrees/layoutToggled'>(this, {
+				name: 'graph/worktrees/layoutToggled',
+				data: {
+					layout: worktreesNewLayout,
+					'worktrees.count': worktreesData?.items.length ?? 0,
+				},
+			});
+		}
+
+		// Only report the branches toggle when the current layout is known — predicting off
+		// undefined data would misreport 'tree'.
+		if (this.activePanel === 'branches' && branchesData?.layout != null) {
+			emitTelemetrySentEvent<'graph/branches/layoutToggled'>(this, {
+				name: 'graph/branches/layoutToggled',
+				data: {
+					layout: branchesData.layout === 'tree' ? 'list' : 'tree',
+					'branches.count': branchesData.items.length,
+				},
+			});
+		}
+
+		// Same reasoning for remotes — only report when the current layout is known.
+		if (this.activePanel === 'remotes' && remotesData?.layout != null) {
+			emitTelemetrySentEvent<'graph/remotes/layoutToggled'>(this, {
+				name: 'graph/remotes/layoutToggled',
+				data: {
+					layout: remotesData.layout === 'tree' ? 'list' : 'tree',
+					'remotes.count': remotesData.items.length,
+				},
+			});
+		}
+
+		if (this.activePanel === 'tags') {
+			emitTelemetrySentEvent<'graph/tags/layoutToggled'>(this, {
+				name: 'graph/tags/layoutToggled',
+				data: {
+					layout: tagsNewLayout,
+					'tags.count': tagsData?.items.length ?? 0,
+				},
+			});
+		}
 	}
 
 	private handleRefresh() {
@@ -1287,6 +1558,48 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				| null;
 			overview?.refresh?.();
 			return;
+		}
+
+		if (this.activePanel === 'agents') {
+			emitTelemetrySentEvent<'graph/agents/headerAction'>(this, {
+				name: 'graph/agents/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
+		if (this.activePanel === 'worktrees') {
+			emitTelemetrySentEvent<'graph/worktrees/headerAction'>(this, {
+				name: 'graph/worktrees/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
+		if (this.activePanel === 'branches') {
+			emitTelemetrySentEvent<'graph/branches/headerAction'>(this, {
+				name: 'graph/branches/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
+		if (this.activePanel === 'remotes') {
+			emitTelemetrySentEvent<'graph/remotes/headerAction'>(this, {
+				name: 'graph/remotes/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
+		if (this.activePanel === 'stashes') {
+			emitTelemetrySentEvent<'graph/stashes/headerAction'>(this, {
+				name: 'graph/stashes/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
+		if (this.activePanel === 'tags') {
+			emitTelemetrySentEvent<'graph/tags/headerAction'>(this, {
+				name: 'graph/tags/headerAction',
+				data: { action: 'refresh' },
+			});
 		}
 
 		this._actions?.refresh(this.activePanel);
@@ -1307,6 +1620,31 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const useAlt = e.detail.altKey && action.altAction != null;
 		const command = (useAlt ? action.altAction! : action.action) as GlCommands;
 		const args = useAlt ? action.altArguments : action.arguments;
+
+		if (this.activePanel === 'agents') {
+			this.emitAgentsTreeItemActionTelemetry(command, args);
+		}
+
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesTreeItemActionTelemetry(command, useAlt);
+		}
+
+		if (this.activePanel === 'branches') {
+			this.emitBranchesTreeItemActionTelemetry(command, useAlt);
+		}
+
+		if (this.activePanel === 'remotes') {
+			this.emitRemotesTreeItemActionTelemetry(command, useAlt);
+		}
+
+		if (this.activePanel === 'stashes') {
+			this.emitStashesTreeItemActionTelemetry(command, useAlt);
+		}
+
+		if (this.activePanel === 'tags') {
+			this.emitTagsTreeItemActionTelemetry(command, useAlt);
+		}
+
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
 	}
 
@@ -1318,6 +1656,23 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}
 
 		const context = e.detail.context;
+		const sessionId = context?.[2];
+
+		// Selecting a session is a real user event regardless of whether the graph can navigate to
+		// it, so emit before the `sha` guard below. Cross-repo (`!sameFamily`) and worktree-less
+		// sessions resolve to a null `wipSha` (`resolveAgentAnchor`) — i.e. `sha == null` — which is
+		// exactly the `session.sameRepo: false` case this event exists to measure. Emitting after
+		// the guard would drop those clicks and skew the `sameRepo` dimension to `true`.
+		if (this.activePanel === 'agents' && sessionId != null) {
+			this.emitAgentsSessionSelectedTelemetry(sessionId);
+		}
+
+		// Same reasoning for branches: an unborn branch (no commits yet) has no tip sha, but
+		// clicking it is still a real selection — and the emit resolves by name, not sha.
+		if (this.activePanel === 'branches') {
+			this.emitBranchesSelectedTelemetry(context?.[3]);
+		}
+
 		const sha = context?.[0];
 		if (sha == null) return;
 
@@ -1335,7 +1690,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			);
 		}
 
-		const sessionId = context?.[2];
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesSelectedTelemetry(sha);
+		}
+
+		if (this.activePanel === 'stashes') {
+			this.emitStashesSelectedTelemetry(sha);
+		}
+
+		if (this.activePanel === 'tags') {
+			this.emitTagsSelectedTelemetry(sha, e.detail.node?.path);
+		}
+
 		this.dispatchEvent(
 			new CustomEvent<GraphSidebarPanelSelectEventDetail>('gl-graph-sidebar-panel-select', {
 				detail: { sha: sha, sessionId: sessionId },
@@ -1355,6 +1721,357 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			paths.delete(e.detail.path);
 		}
 	};
+
+	private getRemotesData(): GraphSidebarRemote[] | undefined {
+		const data = this._actions?.state.panels.remotes?.value.get();
+		if (data?.panel !== 'remotes') return undefined;
+		return data.items;
+	}
+
+	private getRemotesCount(): number {
+		return this.getRemotesData()?.length ?? 0;
+	}
+
+	private emitRemotesShownTelemetry(): void {
+		if (this._remotesShownEmitted || this.activePanel !== 'remotes') return;
+
+		// Wait for a successful fetch (mirrors emitWorktreesShownTelemetry): on reactivation the
+		// resource still holds the previous visit's value while the switch-triggered fetch is in
+		// flight — emitting off that would report stale counts.
+		const resource = this._actions?.state.panels.remotes;
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
+		if (data?.panel !== 'remotes') return;
+
+		this._remotesShownEmitted = true;
+		emitTelemetrySentEvent<'graph/remotes/shown'>(this, {
+			name: 'graph/remotes/shown',
+			data: {
+				layout: data.layout ?? 'list',
+				'remotes.count': data.items.length,
+				'remotes.connected.count': data.items.filter(r => r.connected === true).length,
+				hasMultipleRemotes: data.items.length > 1,
+			},
+		});
+	}
+
+	private emitAgentsShownTelemetry(): void {
+		// Point-in-time snapshot: fired on the `activePanel → 'agents'` transition only. Sessions
+		// arrive asynchronously on `_state.agentSessions` (see `render`), so on first open the counts
+		// below may all read 0, and later arrivals don't re-fire this event. `agentSessions` is a
+		// signal initialized to `[]`, so "not yet loaded" and "loaded but empty" are indistinguishable
+		// here — treat the counts as "what was visible at open", not a settled total. Also no re-fire
+		// when the panel is re-revealed without an `activePanel` change: display-mode round trips
+		// (graph → kanban/visualizations → graph) hide/show the split but preserve the value, and
+		// rail re-clicks that set the same panel don't transition. Close/reopen does re-fire
+		// (`hideSidebar` clears `activePanel`).
+		const sessions = this._state.agentSessions ?? [];
+		let working = 0;
+		let needsInput = 0;
+		let idle = 0;
+		for (const s of sessions) {
+			const category = agentPhaseToCategory[s.phase];
+			if (category === 'working') {
+				working++;
+			} else if (category === 'needs-input') {
+				needsInput++;
+			} else {
+				idle++;
+			}
+		}
+
+		emitTelemetrySentEvent<'graph/agents/shown'>(this, {
+			name: 'graph/agents/shown',
+			data: {
+				layout: this._actions.agentsLayout.get(),
+				'sessions.count': sessions.length,
+				'sessions.working.count': working,
+				'sessions.needsInput.count': needsInput,
+				'sessions.idle.count': idle,
+			},
+		});
+	}
+
+	private getBranchesData(): GraphSidebarBranch[] | undefined {
+		const data = this._actions?.state.panels.branches?.value.get();
+		if (data?.panel !== 'branches') return undefined;
+		return data.items;
+	}
+
+	private getBranchesCount(): number {
+		return this.getBranchesData()?.length ?? 0;
+	}
+
+	private maybeEmitBranchesShownTelemetry(): void {
+		if (!this._branchesShownPending || this.activePanel !== 'branches') return;
+
+		const resource = this._actions?.state.panels.branches;
+		if (resource == null) return;
+
+		// Wait for a successful fetch so counts reflect the freshly shown panel rather than a
+		// stale prior fetch's value. Gate on status, not `loading`: at webview boot the panel can
+		// be restored before the RPC service exists, so fetchPanel no-ops and the resource sits
+		// at 'idle' with loading=false — the flag must survive until initialize() refetches.
+		// 'error' also keeps the flag: if a retry/refresh succeeds while the panel is still
+		// active, the impression should still count. The flag is consumed on first success and
+		// reset on every panel switch, so it can't double-emit.
+		if (resource.status.get() !== 'success') return;
+
+		this._branchesShownPending = false;
+		this.emitBranchesShownTelemetry();
+	}
+
+	private emitBranchesShownTelemetry(): void {
+		const data = this._actions?.state.panels.branches?.value.get();
+		if (data?.panel !== 'branches') return;
+
+		emitTelemetrySentEvent<'graph/branches/shown'>(this, {
+			name: 'graph/branches/shown',
+			data: {
+				layout: data.layout ?? 'list',
+				'branches.count': data.items.length,
+			},
+		});
+	}
+
+	private getWorktreesCount(): number {
+		const data = this._actions?.state.panels.worktrees?.value.get();
+		return data?.panel === 'worktrees' ? data.items.length : 0;
+	}
+
+	private readonly emitWorktreesFilteredTelemetryDebounced = debounce(() => {
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/worktrees/filtered'>(this, {
+			name: 'graph/worktrees/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'worktrees.count': this.getWorktreesCount(),
+			},
+		});
+	}, 500);
+
+	private readonly emitRemotesFilteredTelemetryDebounced = debounce(() => {
+		if (this.activePanel !== 'remotes') return;
+
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/remotes/filtered'>(this, {
+			name: 'graph/remotes/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'remotes.count': this.getRemotesCount(),
+			},
+		});
+	}, 500);
+
+	private getStashesCount(): number {
+		const data = this._actions?.state.panels.stashes?.value.get();
+		return data?.panel === 'stashes' ? data.items.length : 0;
+	}
+
+	private readonly emitStashesFilteredTelemetryDebounced = debounce(() => {
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/stashes/filtered'>(this, {
+			name: 'graph/stashes/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'stashes.count': this.getStashesCount(),
+			},
+		});
+	}, 500);
+
+	private getTagsCount(): number {
+		const data = this._actions?.state.panels.tags?.value.get();
+		return data?.panel === 'tags' ? data.items.length : 0;
+	}
+
+	private readonly emitTagsFilteredTelemetryDebounced = debounce(() => {
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/tags/filtered'>(this, {
+			name: 'graph/tags/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'tags.count': this.getTagsCount(),
+			},
+		});
+	}, 500);
+
+	private emitWorktreesSelectedTelemetry(wipSha: string): void {
+		const data = this._actions?.state.panels.worktrees?.value.get();
+		if (data?.panel !== 'worktrees') return;
+
+		const worktree = data.items.find(w => w.wipSha === wipSha);
+		if (worktree == null) return;
+
+		emitTelemetrySentEvent<'graph/worktrees/worktreeSelected'>(this, {
+			name: 'graph/worktrees/worktreeSelected',
+			data: {
+				isActive: worktree.opened,
+				isDefault: worktree.isDefault,
+				hasChanges: worktree.hasChanges === true,
+				hasUpstream: worktree.upstream != null,
+			},
+		});
+	}
+
+	private emitBranchesSelectedTelemetry(name: string | undefined): void {
+		// Resolve by name, not sha — branch tips routinely coincide (e.g. right after
+		// `git checkout -b`), and names are unique.
+		const branch = name != null ? this.getBranchesData()?.find(b => b.name === name) : undefined;
+		if (branch == null) return;
+
+		emitTelemetrySentEvent<'graph/branches/branchSelected'>(this, {
+			name: 'graph/branches/branchSelected',
+			data: {
+				isCurrent: branch.current,
+				// A missing upstream (deleted remote branch) is functionally "no upstream" — the
+				// leaf offers no upstream affordances for it, so don't count it as one
+				hasUpstream: branch.upstream != null && !branch.upstream.missing,
+				hasWorktree: branch.worktree === true,
+				isStarred: branch.starred === true,
+			},
+		});
+	}
+
+	private emitAgentsSessionSelectedTelemetry(sessionId: string): void {
+		const session = this._state.agentSessions?.find(s => s.id === sessionId);
+		if (session == null) return;
+
+		const category = agentPhaseToCategory[session.phase];
+		const graphAnchor = this.resolveGraphAnchorContext();
+		const sameRepo = graphAnchor != null && session.commonPath === graphAnchor.family;
+
+		emitTelemetrySentEvent<'graph/agents/sessionSelected'>(this, {
+			name: 'graph/agents/sessionSelected',
+			data: {
+				'session.phase': session.phase,
+				'session.category': category,
+				'session.hasPendingPermission': session.pendingPermission != null,
+				'session.sameRepo': sameRepo,
+				layout: this._actions.agentsLayout.get(),
+			},
+		});
+	}
+
+	private emitAgentsTreeItemActionTelemetry(command: string, args: unknown[] | undefined): void {
+		if (command === 'gitlens.agents.resolvePermission') {
+			const arg = args?.[0] as { sessionId?: string; decision?: string; alwaysAllow?: boolean } | undefined;
+			const session =
+				arg?.sessionId != null ? this._state.agentSessions?.find(s => s.id === arg.sessionId) : undefined;
+
+			emitTelemetrySentEvent<'graph/agents/permissionResolved'>(this, {
+				name: 'graph/agents/permissionResolved',
+				data: {
+					decision: (arg?.decision as 'allow' | 'deny') ?? 'allow',
+					alwaysAllow: arg?.alwaysAllow ?? false,
+					'permission.kind': session?.pendingPermission?.kind ?? 'unknown',
+				},
+			});
+			return;
+		}
+
+		let action: 'openSession' | 'openPlanFile' | 'openTerminal' | undefined;
+		if (command === 'gitlens.agents.openSession') {
+			action = 'openSession';
+		} else if (command === 'gitlens.agents.openPlanFile') {
+			action = 'openPlanFile';
+		} else if (command === 'gitlens.openInIntegratedTerminal:graph') {
+			action = 'openTerminal';
+		}
+
+		if (action != null) {
+			emitTelemetrySentEvent<'graph/agents/sessionAction'>(this, {
+				name: 'graph/agents/sessionAction',
+				data: { action: action },
+			});
+		}
+	}
+
+	private emitWorktreesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = sidebarItemActions.worktree[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/worktrees/worktreeAction'>(this, {
+			name: 'graph/worktrees/worktreeAction',
+			data: { action: action, alt: alt, location: 'inline' },
+		});
+	}
+
+	private emitBranchesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = sidebarItemActions.branch[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/branches/branchAction'>(this, {
+			name: 'graph/branches/branchAction',
+			data: { action: action, alt: alt, location: 'inline' },
+		});
+	}
+
+	private emitRemotesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = sidebarItemActions.remote[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/remotes/remoteAction'>(this, {
+			name: 'graph/remotes/remoteAction',
+			data: { action: action, alt: alt, location: 'inline' },
+		});
+	}
+
+	private emitStashesSelectedTelemetry(sha: string): void {
+		const data = this._actions?.state.panels.stashes?.value.get();
+		if (data?.panel !== 'stashes') return;
+
+		const stash = data.items.find(s => s.sha === sha);
+		if (stash == null) return;
+
+		emitTelemetrySentEvent<'graph/stashes/stashSelected'>(this, {
+			name: 'graph/stashes/stashSelected',
+			data: {
+				hasStashOnRef: stash.stashOnRef != null,
+			},
+		});
+	}
+
+	private emitTagsSelectedTelemetry(sha: string, path: string | undefined): void {
+		const data = this._actions?.state.panels.tags?.value.get();
+		if (data?.panel !== 'tags') return;
+
+		// Resolve by the clicked node's path (unique per tag) rather than sha, since tags can share
+		// a commit — see resolveSelectedTag for the path formats and sha fallback.
+		const tag = resolveSelectedTag(data.items, sha, path);
+		if (tag == null) return;
+
+		emitTelemetrySentEvent<'graph/tags/tagSelected'>(this, {
+			name: 'graph/tags/tagSelected',
+			data: {
+				annotated: tag.annotated,
+			},
+		});
+	}
+
+	private emitStashesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = sidebarItemActions.stash[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/stashes/stashAction'>(this, {
+			name: 'graph/stashes/stashAction',
+			data: { action: action, alt: alt, location: 'inline' },
+		});
+	}
+
+	private emitTagsTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = sidebarItemActions.tag[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/tags/tagAction'>(this, {
+			name: 'graph/tags/tagAction',
+			data: { action: action, alt: alt, location: 'inline' },
+		});
+	}
 }
 
 /**

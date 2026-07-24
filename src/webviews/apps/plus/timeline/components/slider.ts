@@ -5,13 +5,21 @@ import type { TimelineDatum } from '../../../../plus/timeline/protocol.js';
 import { GlElement } from '../../../shared/components/element.js';
 import '@awesome.me/webawesome/dist/components/slider/slider.js';
 
-const tagName = 'gl-chart-slider';
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-chart-slider': GlChartSlider;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		'gl-slider-change': CustomEvent<SliderChangeEventDetail>;
+	}
+}
 
 type WaTooltipLike = HTMLElement & { open: boolean; popup?: { reposition: () => void } };
 
-@customElement(tagName)
+@customElement('gl-chart-slider')
 export class GlChartSlider extends GlElement {
-	static readonly tagName = tagName;
+	static readonly tagName = 'gl-chart-slider';
 
 	static override styles = css`
 		:host {
@@ -19,9 +27,9 @@ export class GlChartSlider extends GlElement {
 		}
 
 		.slider-container {
-			width: 100%;
 			position: relative;
-			padding-bottom: 0.4rem;
+			width: 100%;
+			padding-bottom: var(--gl-space-4);
 		}
 
 		wa-slider {
@@ -35,8 +43,8 @@ export class GlChartSlider extends GlElement {
 		}
 
 		/* Indicator is anchored to max (= the working tree at the right edge) via indicator-offset,
-		   so it spans the selected commit to the working tree. Hidden by default (matches track),
-		   revealed in the accent color only while Shift is held. */
+	   so it spans the selected commit to the working tree. Hidden by default (matches track),
+	   revealed in the accent color only while Shift is held. */
 		wa-slider::part(indicator) {
 			background-color: transparent;
 		}
@@ -46,8 +54,8 @@ export class GlChartSlider extends GlElement {
 		}
 
 		/* WA's thumb defaults to var(--wa-form-control-activated-color) (background) + 2px
-		   border in var(--wa-color-surface-default) — neither token is defined since we
-		   don't ship WA's theme CSS, so the thumb is invisible without these overrides. */
+	   border in var(--wa-color-surface-default) — neither token is defined since we
+	   don't ship WA's theme CSS, so the thumb is invisible without these overrides. */
 		wa-slider::part(thumb) {
 			cursor: pointer;
 			background-color: var(--vscode-foreground);
@@ -203,16 +211,6 @@ export class GlChartSlider extends GlElement {
 
 		const date = new Date(this.data[index].date);
 		this.emit('gl-slider-change', { date: date, shift: this.shift, interim: e.type === 'input' });
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		'gl-chart-slider': GlChartSlider;
-	}
-
-	interface GlobalEventHandlersEventMap {
-		'gl-slider-change': CustomEvent<SliderChangeEventDetail>;
 	}
 }
 

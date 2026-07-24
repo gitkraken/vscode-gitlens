@@ -925,9 +925,11 @@ export class WorktreeCreateError extends GitCommandError<WorktreeCreateErrorDeta
 	}
 }
 
-export type WorktreeDeleteErrorReason = 'defaultWorkingTree' | 'directoryNotEmpty' | 'uncommittedChanges';
+export type WorktreeDeleteErrorReason = 'defaultWorkingTree' | 'directoryNotEmpty' | 'locked' | 'uncommittedChanges';
 interface WorktreeDeleteErrorDetails {
 	reason?: WorktreeDeleteErrorReason;
+	/** The reason the worktree was locked, when known and provided by the locker */
+	lockReason?: string;
 	gitCommand?: GitCommandContext;
 }
 
@@ -951,6 +953,8 @@ export class WorktreeDeleteError extends GitCommandError<WorktreeDeleteErrorDeta
 				return 'Cannot delete worktree because it is the default working tree';
 			case 'directoryNotEmpty':
 				return 'Unable to delete worktree because the directory is not empty';
+			case 'locked':
+				return 'Unable to delete worktree because it is locked';
 			case 'uncommittedChanges':
 				return 'Unable to delete worktree because there are uncommitted changes';
 			default:

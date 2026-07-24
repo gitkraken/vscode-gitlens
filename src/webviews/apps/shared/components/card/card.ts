@@ -3,9 +3,13 @@ import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { cardStyles } from './card.css.js';
 
-export const cardTagName = 'gl-card';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-card']: GlCard;
+	}
+}
 
-@customElement(cardTagName)
+@customElement('gl-card')
 export class GlCard extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -96,11 +100,5 @@ export class GlCard extends LitElement {
 		} else {
 			super.focus(options);
 		}
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[cardTagName]: GlCard;
 	}
 }

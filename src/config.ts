@@ -8,7 +8,6 @@ export interface Config {
 	readonly autolinks: AutolinkConfig[] | null;
 	readonly blame: BlameConfig;
 	readonly changes: ChangesConfig;
-	readonly cloudIntegrations: CloudIntegrationsConfig;
 	readonly cloudPatches: CloudPatchesConfig;
 	readonly codeLens: CodeLensConfig;
 	readonly currentLine: CurrentLineConfig;
@@ -47,6 +46,7 @@ export interface Config {
 	readonly sortTagsBy: TagSorting;
 	readonly sortRepositoriesBy: RepositoriesSorting;
 	readonly sortWorktreesBy: WorktreeSorting;
+	readonly sortWorkingChangesBy: WorkingChangesSorting;
 	readonly statusBar: StatusBarConfig;
 	readonly strings: StringsConfig;
 	readonly telemetry: TelemetryConfig;
@@ -93,6 +93,7 @@ export type ContributorSorting =
 	| 'score:asc';
 export type RepositoriesSorting = 'discovered' | 'lastFetched:desc' | 'lastFetched:asc' | 'name:asc' | 'name:desc';
 export type WorktreeSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
+export type WorkingChangesSorting = 'stage' | 'flat';
 export type CustomRemoteType =
 	| 'AzureDevOps'
 	| 'Bitbucket'
@@ -323,10 +324,6 @@ interface ChangesConfig {
 	/*readonly*/ toggleMode: AnnotationsToggleMode;
 }
 
-interface CloudIntegrationsConfig {
-	readonly enabled: boolean;
-}
-
 interface CloudPatchesConfig {
 	readonly enabled: boolean;
 	readonly experimental: {
@@ -423,16 +420,24 @@ export interface GraphConfig {
 	};
 	readonly avatars: boolean;
 	readonly branchesVisibility: GraphBranchesVisibility;
+	readonly changesColumn: {
+		readonly enabled: boolean;
+		readonly mode: 'numbers' | 'squares' | 'bar' | 'bipolar';
+	};
 	readonly commitOrdering: 'date' | 'author-date' | 'topo';
 	readonly dateFormat: DateTimeFormat | string | null;
 	readonly dateStyle: DateStyle | null;
 	readonly defaultItemLimit: number;
 	readonly details: {
-		readonly location: 'right' | 'bottom';
+		readonly location: 'auto' | 'right' | 'bottom';
+		readonly maximizeOnMode: boolean;
 	};
 	readonly dimMergeCommits: boolean;
 	readonly editorOpeningBehavior: 'auto' | 'active';
 	readonly experimental: {
+		readonly homeHeader: {
+			readonly enabled: boolean;
+		};
 		readonly kanban: {
 			readonly enabled: boolean;
 		};
@@ -440,11 +445,24 @@ export interface GraphConfig {
 			readonly enabled: boolean;
 			readonly activityDecay: GraphActivityDecay;
 		};
+		readonly useNewEngine: boolean;
+		readonly persistSession: boolean;
 	};
 	readonly highlightRowsOnRefHover: boolean;
 	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {
 		readonly enabled: boolean;
+	};
+	readonly lanes: {
+		readonly folding: {
+			readonly enabled: boolean;
+			readonly default: 'none' | 'all' | 'auto';
+		};
+		readonly density: 'expanded' | 'compact';
+		readonly grouped: {
+			readonly min: number;
+			readonly max: number;
+		};
 	};
 	readonly layout: 'editor' | 'panel';
 	readonly minimap: {
@@ -469,6 +487,7 @@ export interface GraphConfig {
 	readonly showGhostRefsOnRowHover: boolean;
 	readonly showRemoteNames: boolean;
 	readonly showUpstreamStatus: boolean;
+	readonly showWorkingTreeBadge: boolean;
 	readonly showWorktreeWipStats: boolean;
 	readonly sidebar: {
 		readonly enabled: boolean;
@@ -478,6 +497,8 @@ export interface GraphConfig {
 		readonly enabled: boolean;
 	};
 	readonly stickyTimeline: boolean;
+	readonly style: 'auto' | 'table' | 'list';
+	readonly timelineSeparators: boolean;
 }
 
 interface HeatmapConfig {
@@ -718,6 +739,7 @@ export interface RemotesUrlsConfig {
 	readonly fileInCommit: string;
 	readonly fileLine: string;
 	readonly fileRange: string;
+	readonly avatar?: string;
 }
 
 interface SigningConfig {
@@ -758,6 +780,8 @@ interface TerminalConfig {
 
 interface TerminalLinksConfig {
 	readonly enabled: boolean;
+	readonly showIn: 'graph' | 'inspect' | 'quickpick';
+	/** @deprecated use {@link showIn} */
 	readonly showDetailsView: boolean;
 }
 

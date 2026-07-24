@@ -13,7 +13,19 @@
 	// Brand accent gradient (GitKraken purple → blue) — Pro feature gates, promos, etc.
 	--gl-gradient-brand: linear-gradient(to right, #7900c9, #196fff);
 
+	// Subtle brand wash (magenta → blue @ ~10%) — low-emphasis feature-region backgrounds
+	// (auto-compose container, MCP/hooks buttons, matching promo banner). Static + decorative;
+	// drops out under forced-colors, where these surfaces carry their own border.
+	--gl-gradient-brand-subtle: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+
+	// AI accent gradient stops (violet → sky → cyan) — high-emphasis AI affordances
+	// (active-input shimmer borders, AI action buttons). Static + decorative; drop out under forced-colors.
+	--gl-ai-accent-1: #7c3aed;
+	--gl-ai-accent-2: #0ea5e9;
+	--gl-ai-accent-3: #06b6d4;
+
 	--color-background: var(--vscode-editor-background);
+
 	// Computed variants in code
 	--color-background--lighten-05: color-mix(in srgb, #fff 5%, var(--color-background));
 	--color-background--darken-05: color-mix(in srgb, #000 5%, var(--color-background));
@@ -29,6 +41,7 @@
 	--color-background--darken-50: color-mix(in srgb, #000 50%, var(--color-background));
 
 	--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
 	// Computed variants in code
 	--color-foreground--85: color-mix(in srgb, transparent 15%, var(--color-foreground));
 	--color-foreground--75: color-mix(in srgb, transparent 25%, var(--color-foreground));
@@ -37,11 +50,13 @@
 	--color-foreground--25: color-mix(in srgb, transparent 75%, var(--color-foreground));
 
 	--color-button-background: var(--vscode-button-background, transparent);
+
 	// Computed variants in code
 	--color-button-background--darken-30: color-mix(in srgb, #000 30%, var(--color-button-background));
 	--color-button-foreground: var(--vscode-button-foreground, var(--color-foreground));
 
 	--color-button-secondary-background: var(--vscode-button-secondaryBackground, transparent);
+
 	// Computed variants in code
 	--color-button-secondary-background--darken-30: color-mix(
 		in srgb,
@@ -50,6 +65,7 @@
 	);
 
 	--color-highlight: var(--vscode-button-background, var(--vscode-button-border));
+
 	// Computed variants in code
 	--color-highlight--75: color-mix(in srgb, transparent 25%, var(--color-highlight));
 	--color-highlight--50: color-mix(in srgb, transparent 50%, var(--color-highlight));
@@ -58,6 +74,7 @@
 	--color-focus-border: var(--vscode-focusBorder);
 
 	--color-link-foreground: var(--vscode-textLink-foreground);
+
 	// Computed variants in code
 	--color-link-foreground--darken-20: color-mix(in srgb, #000 20%, var(--color-link-foreground));
 	--color-link-foreground--lighten-20: color-mix(in srgb, #fff 20%, var(--color-link-foreground));
@@ -128,6 +145,8 @@
 	--gl-chip-tint-bg: 22%;
 	--gl-chip-tint-border: 50%;
 	--gl-chip-tint-hover: 32%;
+
+	--gitlens-gutter-width: 20px;
 }
 
 body[data-placement='view'] {
@@ -145,11 +164,16 @@ body[data-placement='panel'] {
 	--color-alert-neutralBackground: color-mix(in srgb, #fff 5%, var(--color-background));
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-neutralBackground));
 
+	/* Card surface defaults — shared by every card-rendering app. Component-scoped overrides
+	   (grouping items, branch work-items, graph cards) set these deeper in the tree and still win. */
+	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 6%);
+	--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 8%);
+
 	/* Force bright, vivid chip indicator colors on dark themes — themes vary widely on
 	   statusBarItem-* tokens (some are teal/cyan instead of blue/yellow). The bg uses the
 	   saturated hue (it's already translucent); text uses a lighter/brighter shade so it
 	   contrasts against the tinted bg. Same base hues as light theme for visual consistency. */
-	--gl-chip-filtered-color: #0099ff;
+	--gl-chip-filtered-color: #09f;
 	--gl-chip-filtered-text-color: #79c0ff;
 	--gl-chip-scoped-color: #f2cc60;
 	--gl-chip-scoped-text-color: #f2cc60;
@@ -162,6 +186,10 @@ body[data-placement='panel'] {
 	--color-alert-neutralBackground: color-mix(in srgb, #000 5%, var(--color-background));
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-neutralBackground));
 
+	/* Card surface defaults — light-theme variant of the dark-theme block above. */
+	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 4%);
+	--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 6%);
+
 	/* Force saturated, high-contrast stat colors on light backgrounds — many themes' gitDecoration
 	   colors are too pale to read against white surfaces (esp. inside chip backgrounds). */
 	--gl-stat-added: #2da44e;
@@ -171,7 +199,7 @@ body[data-placement='panel'] {
 	/* Light themes: pair a vibrant bg tint with a much darker text color for readability on white.
 	   Bump tint percentages so chips/rows pop with the same vibrance as dark themes — mixing 18%
 	   of any color into white just produces a pale wash. */
-	--gl-chip-filtered-color: #0099ff;
+	--gl-chip-filtered-color: #09f;
 	--gl-chip-filtered-text-color: #0550ae;
 	--gl-chip-scoped-color: #e89500;
 	--gl-chip-scoped-text-color: #4d3300;

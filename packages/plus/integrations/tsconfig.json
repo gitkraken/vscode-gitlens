@@ -1,0 +1,18 @@
+{
+	"extends": "../../../tsconfig.package.json",
+	"compilerOptions": {
+		"rootDir": "src",
+		"outDir": "dist",
+		"tsBuildInfoFile": "tsconfig.tsbuildinfo",
+		// `@gitkraken/provider-apis` ships CJS with getter-based named exports and a callable
+		// `default` (factory) export. Under `nodenext` the default import is typed as a
+		// non-callable namespace (TS2349 at `providers/providersApi.ts`). The `bundler` resolver
+		// matches what webpack (host) and esbuild (core bundle + tests) do at runtime, so the
+		// package's provider-apis imports type-check cast-free. This is the only justified
+		// divergence from the shared package tsconfig.
+		"module": "esnext",
+		"moduleResolution": "bundler"
+	},
+	"references": [{ "path": "../../utils" }, { "path": "../../git" }, { "path": "../git-github" }],
+	"include": ["src/**/*"]
+}

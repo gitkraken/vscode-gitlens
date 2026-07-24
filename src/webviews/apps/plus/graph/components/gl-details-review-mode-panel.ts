@@ -25,12 +25,14 @@ import {
 	subPanelEnterStyles,
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
-import { countIncludedFiles, pruneExcludedToFiles, syncAiExcluded } from './aiExclusion.js';
+import { renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
+import { countIncludedFiles, prunePathsToFiles, syncAiExcluded } from './aiExclusion.js';
 import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
 import {
 	panelActionInputStyles,
 	panelErrorStyles,
 	panelHostStyles,
+	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
@@ -97,6 +99,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		panelHostStyles,
 		panelActionInputStyles,
 		panelLoadingStyles,
+		panelLoadingStageStyles,
 		panelErrorStyles,
 		panelStaleBannerStyles,
 		panelScopeSplitStyles,
@@ -179,6 +182,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 	lastPrompt?: string;
 
 	@state() private _excludedFiles = new Set<string>();
+	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
+	@state() private _selectedFiles: readonly { path: string }[] = [];
 
 	/**
 	 * Pushed by the orchestrator from `state.reviewForwardAvailable`. True after the user clicked
@@ -215,6 +220,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@state() private _errorAreas = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
 
+	/** Explicit user toggle of the follow-up input; `undefined` = no override (see `refineOpen`). */
+	@state() private _refineExpanded?: boolean;
+
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
 			const result = syncAiExcluded(this.aiExcludedFiles, this._aiExcludedSet, this._excludedFiles);
@@ -227,10 +235,11 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		if (changedProperties.has('files')) {
-			const pruned = pruneExcludedToFiles(this._excludedFiles, this.files);
+			const pruned = prunePathsToFiles(this._excludedFiles, this.files);
 			if (pruned != null) {
 				this._excludedFiles = pruned;
 			}
+			this._selectedFiles = [];
 		}
 
 		// Per-result derived state (expand/dismiss/load/error sets) is keyed by area + finding
@@ -253,6 +262,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 				this._dismissedFindings = new Set();
 				this._loadingAreas = new Set();
 				this._errorAreas = new Set();
+				// Drop any explicit follow-up toggle; a fresh result falls back to the default
+				// (open when this run has a prompt to recall — see `refineOpen`).
+				this._refineExpanded = undefined;
 
 				// Auto-expand when there's only a single focus area on a freshly-set result.
 				// Runs against the just-cleared expanded set so a Forward/anchor-switch with a
@@ -308,7 +320,42 @@ export class GlDetailsReviewModePanel extends LitElement {
 			<div class="review-results scrollable">
 				${this.stale ? this.renderStaleBanner() : nothing} ${this.renderOverview()} ${this.renderFocusAreas()}
 			</div>
-			${this.renderReadyFooter()}`;
+			${this.renderReadyFooter()}${this.renderRefineInput()}`;
+	}
+
+	/** Disclosure state for the follow-up input: `undefined` follows the default (open once a
+	 *  refine has run — `lastPrompt` is set), `true`/`false` is an explicit user toggle that
+	 *  overrides the default until the next fresh result. */
+	get refineOpen(): boolean {
+		return this._refineExpanded ?? this.lastPrompt != null;
+	}
+
+	private renderRefineInput() {
+		if (!this.refineOpen) return nothing;
+
+		return html`<gl-ai-input
+			id="review-refine-input"
+			class="review-action-input"
+			multiline
+			active
+			rows="2"
+			button-label="Follow Up"
+			busy-label="Updating review…"
+			event-name="review-refine"
+			placeholder='Follow up — e.g. "Also check for error handling"'
+			.recall=${this.lastPrompt}
+		>
+			<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+		</gl-ai-input>`;
+	}
+
+	private async handleToggleRefine() {
+		const open = !this.refineOpen;
+		this._refineExpanded = open;
+		if (open) {
+			await this.updateComplete;
+			this.renderRoot.querySelector<HTMLElement>('#review-refine-input')?.focus();
+		}
 	}
 
 	private renderReadyFooter() {
@@ -333,15 +380,29 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<code-icon icon="copy"></code-icon>
 				</gl-button>
 			</gl-copy-container>
+			<gl-button
+				class="review-footer__followup"
+				appearance="secondary"
+				aria-expanded=${this.refineOpen ? 'true' : 'false'}
+				@click=${this.handleToggleRefine}
+			>
+				<code-icon icon="sparkle" slot="prefix"></code-icon>
+				Follow-Up
+				<code-icon class="review-footer__followup-chevron" icon="chevron-down" slot="suffix"></code-icon>
+			</gl-button>
+			<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
 		</div>`;
 	}
 
 	private renderLoadingWithCancel() {
 		// Animation sits behind the spinner/cancel as decoration; uses the review color triplet
 		// (green/yellow/red) and self-disables under prefers-reduced-motion.
-		return html`<div class="review-loading-stage">
-			<gl-categorizing-loading-animation variant="review"></gl-categorizing-loading-animation>
-			<div class="review-loading-wrap">
+		return html`<div class="panel-loading-stage">
+			<gl-categorizing-loading-animation
+				class="panel-loading-stage__anim"
+				variant="review"
+			></gl-categorizing-loading-animation>
+			<div class="panel-loading-stage__foreground review-loading-wrap">
 				${renderLoadingState('Analyzing changes...')}
 				<gl-button class="review-cancel" appearance="secondary" @click=${this.handleCancel}>Cancel</gl-button>
 			</div>
@@ -513,7 +574,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private renderIdleState() {
 		// Fallback: compute scope from files if not provided
-		const scope = this.scope || (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
+		const scope = this.scope ?? (this.files?.length ? { type: 'commit' as const, sha: '' } : undefined);
 		if (!scope) return nothing;
 
 		// Disable Start Review when there are no effectively-included files (after both user
@@ -567,6 +628,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private handleCancel = (): void => {
 		this.dispatchEvent(new CustomEvent('review-cancel', { bubbles: true, composed: true }));
+	};
+
+	private handleDiscard = (): void => {
+		this.dispatchEvent(new CustomEvent('review-discard', { bubbles: true, composed: true }));
 	};
 
 	private handleForward = (): void => {
@@ -632,10 +697,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 					@file-unstage=${this.redispatch}
 					@file-compare-working=${this.redispatch}
 					@file-open-on-remote=${this.redispatch}
+					@file-selection-changed=${(e: CustomEvent<{ files: readonly { path: string }[] }>) =>
+						(this._selectedFiles = e.detail?.files ?? [])}
 					@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
 						this.fileLayout = e.detail.layout;
 					}}
-				></gl-file-tree-pane>
+				>
+					${renderFiles.length > 0
+						? renderOpenChangesAction({
+								selectedCount: this._selectedFiles.length,
+								slot: 'leading-actions',
+								onOpenAll: () => this.onOpenScopeMultiDiff(renderFiles),
+								onOpenSelected: () => {
+									const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
+									this.onOpenScopeMultiDiff(renderFiles.filter(f => selectedPaths.has(f.path)));
+								},
+							})
+						: nothing}
+				</gl-file-tree-pane>
 			</webview-pane-group>
 		</div>`;
 	}
@@ -733,6 +812,19 @@ export class GlDetailsReviewModePanel extends LitElement {
 			this.dispatchEvent(new CustomEvent('review-forward-invalidate', { bubbles: true, composed: true }));
 		}
 	}
+
+	/** Opens the idle curation scope's change set as a multi-diff (via `scope-open-multi-diff`). */
+	private onOpenScopeMultiDiff = (files: readonly GitFileChangeShape[]): void => {
+		if (!files.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('scope-open-multi-diff', {
+				detail: { files: files },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private _scopeSplitSnap = ({ pos, size }: { pos: number; size: number }): number => {
 		const scopeEl = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');

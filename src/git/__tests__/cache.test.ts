@@ -3,7 +3,7 @@ import { Cache } from '@gitlens/git/cache.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitDir } from '@gitlens/git/models/repository.js';
 import { GitTag } from '@gitlens/git/models/tag.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { Uri } from '@gitlens/utils/uri.js';
@@ -282,7 +282,7 @@ suite('Cache Test Suite', () => {
 				true,
 				'sole caller cancellation must propagate to the factory aggregate even after unregister',
 			);
-			await assert.rejects(p, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p, (e: unknown) => isCancellationError(e));
 
 			// Resolve to unblock dangling reference cleanup
 			d.resolve({ values: [] });
@@ -307,7 +307,7 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 				};
 			};
 
@@ -339,7 +339,7 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 				};
 			};
 
@@ -369,7 +369,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+					values: [
+						new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+					],
 				};
 			};
 
@@ -399,7 +401,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+					values: [
+						new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+					],
 				};
 			};
 
@@ -433,7 +437,9 @@ suite('Cache Test Suite', () => {
 				factoryCallCount++;
 				factorySignal = signal;
 				return d.promise.then(r => ({
-					values: r.values.map(t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate)),
+					values: r.values.map(
+						t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate, t.annotated),
+					),
 				}));
 			};
 
@@ -449,10 +455,12 @@ suite('Cache Test Suite', () => {
 			await flush();
 			assert.strictEqual(factorySignal!.aborted, false, 'aggregate must not fire while p2 still waits');
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
 
 			d.resolve({
-				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+				values: [
+					new GitTag('/code/project', 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+				],
 			});
 			const result = await p2;
 			assert.strictEqual(result.values.length, 1);
@@ -472,7 +480,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+					values: [
+						new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+					],
 				};
 			};
 
@@ -498,7 +508,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): Promise<PagedResult<GitTag>> => {
 				factoryCallCount++;
 				return d.promise.then(r => ({
-					values: r.values.map(t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate)),
+					values: r.values.map(
+						t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate, t.annotated),
+					),
 				}));
 			};
 
@@ -517,7 +529,7 @@ suite('Cache Test Suite', () => {
 
 			// Existing waiter still resolves with the in-flight value
 			d.resolve({
-				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 			});
 			await p1;
 			await p2;
@@ -528,12 +540,14 @@ suite('Cache Test Suite', () => {
 			const p3 = cache.getTags('/code/project', (commonPath: string) => {
 				factoryCallCount++;
 				return d2.promise.then(r => ({
-					values: r.values.map(t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate)),
+					values: r.values.map(
+						t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate, t.annotated),
+					),
 				}));
 			});
 			assert.strictEqual(factoryCallCount, 2);
 			d2.resolve({
-				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 			});
 			await p3;
 		});
@@ -556,7 +570,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+					values: [
+						new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+					],
 				};
 			};
 
@@ -651,7 +667,7 @@ suite('Cache Test Suite', () => {
 			const factory2 = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 				};
 			};
 
@@ -686,7 +702,7 @@ suite('Cache Test Suite', () => {
 			const seedFactory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v0.1', 'aaa', 'Seed', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v0.1', 'aaa', 'Seed', undefined, undefined, false)],
 				};
 			};
 			await cache.getTags('/code/project-feature-a', seedFactory);
@@ -718,7 +734,7 @@ suite('Cache Test Suite', () => {
 			const freshFactory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v2.0', 'ccc', 'Fresh', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v2.0', 'ccc', 'Fresh', undefined, undefined, false)],
 				};
 			};
 			const resultB = await cache.getTags('/code/project-feature-b', freshFactory);
@@ -869,7 +885,7 @@ suite('Cache Test Suite', () => {
 				'aggregate must not fire while another waiter (p2) is active',
 			);
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
 
 			d.resolve({ values: [] });
 			const result = await p2;
@@ -899,7 +915,7 @@ suite('Cache Test Suite', () => {
 			await flush();
 
 			assert.strictEqual(factorySignal!.aborted, true, 'solo caller cancelling must fire the factory aggregate');
-			await assert.rejects(p, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p, (e: unknown) => isCancellationError(e));
 
 			// Resolve deferred to avoid dangling promise even though we've observed rejection
 			d.resolve({ values: [] });
@@ -939,8 +955,8 @@ suite('Cache Test Suite', () => {
 				'aggregate must fire once every cancellable waiter aborts',
 			);
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
-			await assert.rejects(p2, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
+			await assert.rejects(p2, (e: unknown) => isCancellationError(e));
 
 			d.resolve({ values: [] });
 		});
@@ -979,7 +995,7 @@ suite('Cache Test Suite', () => {
 
 			// Resolve factory so mapper can run.
 			d.resolve({ values: [{ name: 'main' } as unknown as GitBranch] });
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
 			const result = await p2;
 			assert.strictEqual(result.values.length, 1);
 
@@ -1029,8 +1045,8 @@ suite('Cache Test Suite', () => {
 			await flush();
 			assert.strictEqual(mapperSignal.aborted, true, 'mapper aggregate must fire once every caller aborts');
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
-			await assert.rejects(p2, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
+			await assert.rejects(p2, (e: unknown) => isCancellationError(e));
 
 			// Unblock mapper so its promise can settle and the test cleans up
 			mapperDeferred.resolve();
@@ -1063,7 +1079,7 @@ suite('Cache Test Suite', () => {
 			await flush();
 			assert.strictEqual(factorySignal!.aborted, false, 'permanent slot must keep aggregate alive');
 
-			await assert.rejects(cancellable, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(cancellable, (e: unknown) => isCancellationError(e));
 
 			d.resolve({ values: [] });
 			const result = await permanent;

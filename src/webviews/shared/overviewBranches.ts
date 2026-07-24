@@ -106,6 +106,20 @@ export interface OverviewBranchWip {
 	hasConflicts?: boolean;
 	conflictsCount?: number;
 	pausedOpStatus?: GitPausedOperationStatus;
+	/**
+	 * Set when an on-demand stats fetch settled without producing a breakdown (the request failed or was
+	 * cancelled), so the hover can show a terminal "Couldn't load changes" instead of a perpetual
+	 * "Loading changes…". Only meaningful while `workingTreeState` is absent. Supplied by the Graph's WIP
+	 * bar, which fetches breakdowns lazily per worktree; the overview's own loads never set it.
+	 */
+	statsUnavailable?: boolean;
+	/**
+	 * Whether the branch has unpushed commits but NO upstream to count them against. `gl-tracking-status`
+	 * renders nothing without an upstream, so without this the hover would silently drop the fact that a
+	 * never-published branch has work to push. Supplied by the Graph's WIP bar (a `rev-list --not --remotes`
+	 * presence probe — there's no count, only the bit).
+	 */
+	hasUnpublishedCommits?: boolean;
 }
 
 /** Enrichment data keyed by branch ID. Expensive — sourced from API calls and git log. */

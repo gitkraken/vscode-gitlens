@@ -1,17 +1,22 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
+import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
+import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
+import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/indicators/new-indicator.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
@@ -43,6 +48,8 @@ interface DisplayModeToggle {
 	 *  Lets us gate experimental modes (kanban) behind a config setting without changing the
 	 *  shape of the bottom-rail render path. */
 	requiresConfigFlag?: 'experimentalKanbanEnabled';
+	/** When set, the toggle carries a "new" dot until the user first interacts with it. */
+	onboardingKey?: OnboardingKeys;
 }
 
 const displayModeToggles: readonly DisplayModeToggle[] = [
@@ -52,6 +59,7 @@ const displayModeToggles: readonly DisplayModeToggle[] = [
 		activeTooltip: 'Show Commit Graph',
 		inactiveTooltip: 'Show Agent Kanban',
 		requiresConfigFlag: 'experimentalKanbanEnabled',
+		onboardingKey: 'graph:kanban:buttonCallout',
 	},
 ];
 
@@ -60,6 +68,7 @@ const visualizationsToggle: DisplayModeToggle = {
 	icon: 'pulse',
 	activeTooltip: 'Show Commit Graph',
 	inactiveTooltip: 'Show Visualizations',
+	onboardingKey: 'graph:visualizations:buttonCallout',
 };
 
 export interface GraphSidebarToggleEventDetail {
@@ -73,29 +82,48 @@ export interface GraphSidebarDisplayModeChangeEventDetail {
 @customElement('gl-graph-sidebar')
 export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	static override styles = css`
-		:focus,
-		:focus-within,
-		:focus-visible {
-			outline-color: var(--vscode-focusBorder);
+		/* Keyboard focus ring matching the bottom-rail gl-buttons, which outline a 26px icon-cell host
+		   that carries a border-radius (an outline only rounds if its own element does). The raw .item
+		   buttons are full rail width with a count stacked below, so outlining the button box clips at
+		   the left edge, stays square, and would enclose the count. Instead outline the .icon wrapper:
+		   padding grows it into a 2.6rem rounded cell and an equal negative margin cancels the layout
+		   shift, so the icon doesn't move but the outline (offset 2px) rounds and sits exactly like the
+		   gl-button ring. pointer-events stay on the button, not this decorative cell. */
+		.item .icon {
+			display: inline-flex;
+			padding: 0.5rem;
+			margin: -0.5rem;
+			border-radius: var(--gl-radius-sm);
+			pointer-events: none;
+		}
+		.item:focus-visible {
+			outline: none;
+		}
+		.item:focus-visible .icon {
+			${focusOutlineButton}
+			outline-offset: -1px;
 		}
 
 		.sidebar {
-			box-sizing: border-box;
 			position: relative;
+
+			/* Workspace-level pinned chrome — must stay below the feature gate's cover tier so the
+		   rail can't paint over (or take clicks through) the Pro gate's scrim */
+			z-index: var(--gl-z-sticky);
+			box-sizing: border-box;
 			display: flex;
 			flex-direction: column;
-			align-items: center;
 			gap: 1.4rem;
-			background-color: var(--color-view-background);
-			color: var(--color-view-foreground--65);
+			align-items: center;
 			width: 2.6rem;
-			font-size: 9px;
-			font-weight: 600;
 			height: 100%;
 			padding: 0.5rem 0;
-			z-index: 1040;
-			border-right: 1px solid transparent;
+			font-size: 9px;
+			font-weight: 600;
+			color: var(--color-view-foreground--65);
+			background-color: var(--color-view-background);
 			border-color: var(--vscode-sideBar-border, transparent);
+			border-right: var(--gl-border-width) solid transparent;
 		}
 
 		gl-tooltip {
@@ -103,26 +131,26 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Doubles the gap after the last group-1 icon (Agents) so the rail reads as two
-		   groups: Overview/Agents, then the view icons. 1.4rem here + the parent's 1.4rem
-		   flex gap = 2.8rem. (Applied on .item, not gl-tooltip, since gl-tooltip's host is
-		   display: contents and can't take margin.) */
+   groups: Overview/Agents, then the view icons. 1.4rem here + the parent's 1.4rem
+   flex gap = 2.8rem. (Applied on .item, not gl-tooltip, since gl-tooltip's host is
+   display: contents and can't take margin.) */
 		.item.group-end {
 			margin-bottom: 1.4rem;
 		}
 
 		.item {
 			position: relative;
-			width: 100%;
-			color: var(--color-view-foreground--65);
-			text-decoration: none;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
+			width: 100%;
+			padding: 0;
+			font: inherit;
+			color: var(--color-view-foreground--65);
+			text-decoration: none;
 			cursor: pointer;
 			background: none;
 			border: none;
-			padding: 0;
-			font: inherit;
 		}
 
 		.item:hover {
@@ -135,22 +163,22 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		.item.overview {
-			padding: 0.6rem 0;
+			padding: var(--gl-space-6) 0;
 		}
 
 		.indicator {
 			position: absolute;
-			left: 0;
 			top: 0;
+			left: 0;
 			width: 1px;
-			border-radius: 1px;
-			background-color: var(--color-view-foreground);
-			height: var(--indicator-height, 0px);
-			transform: translateY(var(--indicator-top, 0px));
-			transition:
-				transform 0.25s ease-in-out,
-				height 0.15s ease-in-out;
+			height: var(--indicator-height, 0);
 			pointer-events: none;
+			background-color: var(--color-view-foreground);
+			border-radius: 1px;
+			transform: translateY(var(--indicator-top, 0));
+			transition:
+				transform var(--gl-duration-slow) var(--gl-ease-in-out),
+				height var(--gl-duration-fast) var(--gl-ease-in-out);
 		}
 
 		.indicator.no-transition {
@@ -164,8 +192,8 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		.count {
+			margin-top: var(--gl-space-4);
 			color: var(--color-view-foreground--50);
-			margin-top: 0.4rem;
 		}
 
 		.count.error {
@@ -177,33 +205,34 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			flex: 1 1 auto;
 		}
 
-		.item.dimmed {
-			opacity: 0.4;
-		}
-
 		/* Visualization toggle — uses <gl-button> for the checked/unchecked styling. Sits at the
-		   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
+   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
 		.display-mode-toggle {
 			margin: 0 auto;
+		}
+
+		/* Must target the button itself: gl-button's own :host([appearance='toolbar']) declaration of
+   --button-foreground beats a value merely inherited from the gl-new-indicator wrapper. */
+		.display-mode-toggle gl-button {
 			--button-foreground: var(--color-view-foreground--65);
 		}
 
-		.display-mode-toggle:hover {
+		.display-mode-toggle:hover gl-button {
 			--button-foreground: var(--color-view-foreground);
 		}
 
 		/* Tighten the spacing between consecutive display-mode toggles so they read as one
-		   bottom-rail group (e.g., kanban + visualizations) rather than two unrelated buttons.
-		   Parent .sidebar has flex gap 1.4rem; -1rem margin-top brings the effective gap to 0.4rem.
-		   The first toggle keeps the parent's 1.4rem separation from the spacer above. */
+   bottom-rail group (e.g., kanban + visualizations) rather than two unrelated buttons.
+   Parent .sidebar has flex gap 1.4rem; -1rem margin-top brings the effective gap to 0.4rem.
+   The first toggle keeps the parent's 1.4rem separation from the spacer above. */
 		.display-mode-toggle + .display-mode-toggle {
 			margin-top: -1rem;
 		}
 
 		/* Keyboard-shortcuts action — shares the rail affordance with the display-mode toggles but
-		   opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
-		   the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
-		   the measured bottom block and folds nav icons into the … menu instead. */
+   opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
+   the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
+   the measured bottom block and folds nav icons into the … menu instead. */
 		.rail-action {
 			margin: 0 auto;
 			--button-foreground: var(--color-view-foreground--65);
@@ -214,35 +243,23 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Sit the action tight against the display-mode toggles above it (same -1rem pull the
-		   toggles use between themselves) so the bottom of the rail reads as one group. */
+   toggles use between themselves) so the bottom of the rail reads as one group. */
 		.display-mode-toggle + .rail-action {
 			margin-top: -1rem;
 		}
 
-		/* Pre-interaction discovery callout: paints the toggle with the primary VS Code button
-		   colors so it reads as a "click me" affordance. Once the user clicks it, the host
-		   dismisses the onboarding key and the class drops, reverting to the toolbar appearance.
-		   Overrides the gl-button shadow-DOM custom properties — outer-tree author rules outrank
-		   inner-tree author rules for inherited properties on the host. */
-		gl-button.display-mode-toggle.callout {
-			--button-background: var(--vscode-button-background);
-			--button-foreground: var(--vscode-button-foreground);
-			--button-hover-background: var(--vscode-button-hoverBackground);
-			--button-border: var(--vscode-button-background);
-		}
-
 		/* Responsive compaction (driven by recompute): hide counts and tighten spacing together. Scoped
-		   to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
+   to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
 		:host([compact]) .item .count {
 			display: none;
 		}
 
 		:host([compact]) .sidebar {
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 		}
 
 		:host([compact]) .item.group-end {
-			margin-bottom: 0.6rem;
+			margin-bottom: var(--gl-space-6);
 		}
 
 		:host([compact]) .item.overview {
@@ -265,28 +282,23 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		.overflow-menu-item {
 			display: flex;
 			flex-direction: row;
+			gap: var(--gl-space-8);
 			align-items: center;
-			gap: 0.8rem;
-			padding: 0.4rem 0.8rem;
+			padding: var(--gl-space-4) var(--gl-space-8);
+			font: inherit;
+			color: var(--vscode-foreground);
+			text-align: start;
+			white-space: nowrap;
+			cursor: pointer;
 			background: none;
 			border: none;
-			border-radius: 0.3rem;
-			color: var(--vscode-foreground);
-			font: inherit;
-			text-align: start;
-			cursor: pointer;
-			white-space: nowrap;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.overflow-menu-item:hover,
 		.overflow-menu-item:focus-visible {
-			background: var(--vscode-list-hoverBackground);
 			outline: none;
-		}
-
-		.overflow-menu-item[disabled] {
-			opacity: 0.5;
-			cursor: default;
+			background: var(--vscode-list-hoverBackground);
 		}
 
 		.overflow-menu-item-label {
@@ -330,6 +342,18 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 	@query('.sidebar') private sidebarEl?: HTMLElement;
 
+	/** The whole rail is ONE vertical roving toolbar: nav icons, the … overflow toggle, the
+	 *  bottom display-mode toggles and the shortcuts button share a single Tab stop, with
+	 *  ArrowUp/Down (+ Home/End) roving between them. Each focusable carries a stable
+	 *  `data-roving-key` so the active stop is restored across the rail's frequent re-renders
+	 *  (fold/compact recompute). */
+	private readonly roving = new RovingTabindexController(this, {
+		getItems: () => this.getRovingItems(),
+		orientation: 'vertical',
+		// Rest the tab stop on the ACTIVE panel's icon (Overview by default), not the last-focused control.
+		getDefaultKey: () => (this.activePanel != null ? `icon:${this.activePanel}` : 'icon:overview'),
+	});
+
 	/** When set, icons from this index onward are folded into the … overflow popover. */
 	@state() private overflowFromIndex: number | undefined;
 
@@ -352,7 +376,14 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		const isGraphMode = displayMode === 'graph';
 		const visible = this.visibleIcons;
 		const overflowAt = this.overflowFromIndex;
-		return html`<section class="sidebar">
+		return html`<section
+			class="sidebar"
+			role="toolbar"
+			aria-orientation="vertical"
+			aria-label="Graph side bar"
+			@keydown=${this.roving.onKeydown}
+			@focusin=${this.roving.onFocusin}
+		>
 			${isGraphMode && this.sidebarVisible && this.activePanel != null
 				? html`<div
 						class=${classMap({
@@ -373,16 +404,28 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 					t => t.requiresConfigFlag == null || this._state.config?.[t.requiresConfigFlag],
 				),
 				t => t.mode,
-				t => this.renderDisplayModeToggle(t, displayMode, false),
+				t => this.renderDisplayModeToggle(t, displayMode),
 			)}
-			${this.renderDisplayModeToggle(visualizationsToggle, displayMode, true)} ${this.renderShortcutsButton()}
+			${this.renderDisplayModeToggle(visualizationsToggle, displayMode)} ${this.renderShortcutsButton()}
 		</section>`;
+	}
+
+	/** The rail's focusable controls in top-to-bottom (DOM) order, VISIBLE only (folded icons live
+	 *  in the closed overflow popover and are excluded). The `data-roving-key` element is the focus
+	 *  target: the raw `<button>` for nav icons / the … toggle, and the delegatesFocus `<gl-button>`
+	 *  host for the display-mode toggles + shortcuts (its host tabindex drives roving). */
+	private getRovingItems(): { key: string; element: HTMLElement }[] {
+		const root = this.sidebarEl ?? this.renderRoot;
+		return [...root.querySelectorAll<HTMLElement>('[data-roving-key]')]
+			.filter(el => el.offsetParent != null)
+			.map(el => ({ key: el.dataset.rovingKey!, element: el }));
 	}
 
 	private renderShortcutsButton(): unknown {
 		return html`<gl-button
 			class="rail-action"
 			appearance="toolbar"
+			data-roving-key="shortcuts"
 			aria-label="Keyboard Shortcuts"
 			tooltip="Keyboard Shortcuts"
 			tooltipPlacement="right"
@@ -396,24 +439,23 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('gl-graph-sidebar-show-shortcuts', { bubbles: true, composed: true }));
 	}
 
-	private renderDisplayModeToggle(toggle: DisplayModeToggle, current: GraphDisplayMode, isVisualizations: boolean) {
+	private renderDisplayModeToggle(toggle: DisplayModeToggle, current: GraphDisplayMode) {
 		const isActive = current === toggle.mode;
 		const tooltip = isActive ? toggle.activeTooltip : toggle.inactiveTooltip;
-		// Onboarding callout is timeline-specific — only the visualizations toggle gets the painted
-		// "click me" affordance until the user has interacted with it for the first time.
-		const showCallout = isVisualizations && !this._state.visualizationsButtonCalloutDismissed;
-		return html`<gl-button
-			class=${classMap({ 'display-mode-toggle': true, callout: showCallout })}
-			appearance="toolbar"
-			role="switch"
-			aria-checked=${isActive ? 'true' : 'false'}
-			aria-label=${tooltip}
-			tooltip=${tooltip}
-			tooltipPlacement="right"
-			@click=${() => this.handleDisplayModeToggle(toggle)}
-		>
-			<code-icon icon=${toggle.icon}></code-icon>
-		</gl-button>`;
+		return html`<gl-new-indicator class="display-mode-toggle" key=${ifDefined(toggle.onboardingKey)}>
+			<gl-button
+				appearance="toolbar"
+				role="switch"
+				data-roving-key="displayMode:${toggle.mode}"
+				aria-checked=${isActive ? 'true' : 'false'}
+				aria-label=${tooltip}
+				tooltip=${tooltip}
+				tooltipPlacement="right"
+				@click=${() => this.handleDisplayModeToggle(toggle)}
+			>
+				<code-icon icon=${toggle.icon}></code-icon>
+			</gl-button>
+		</gl-new-indicator>`;
 	}
 
 	private handleDisplayModeToggle(toggle: DisplayModeToggle): void {
@@ -430,19 +472,6 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 				composed: true,
 			}),
 		);
-
-		// Any bottom-rail toggle click is enough evidence the user has discovered the group;
-		// dismiss the visualizations onboarding callout regardless of which button they hit.
-		// Previously only the visualizations toggle dismissed it, so a user who clicked kanban
-		// first kept seeing the "click me" affordance even after interacting with the group.
-		if (!this._state.visualizationsButtonCalloutDismissed) {
-			this.dispatchEvent(
-				new CustomEvent('gl-graph-sidebar-visualizations-callout-dismiss', {
-					bubbles: true,
-					composed: true,
-				}),
-			);
-		}
 
 		emitTelemetrySentEvent<'graph/action/sidebar'>(this, {
 			name: 'graph/action/sidebar',
@@ -653,8 +682,12 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		return Math.min(Math.max(k, 1), count - 2);
 	}
 
-	private renderIcon(icon: Icon, enabled: boolean) {
-		const isActive = enabled && this.sidebarVisible && this.activePanel === icon.type;
+	private renderIcon(icon: Icon, isGraphMode: boolean) {
+		// Gate only the active/pressed indicator on graph mode — no side panel is visibly open in
+		// visualization/kanban modes (and `sidebarVisible` is preserved across them). The icon itself
+		// stays clickable in every mode: from a visualization a click returns to the graph with this
+		// panel open (handled in graph-app's `handleSidebarToggle`).
+		const isActive = isGraphMode && this.sidebarVisible && this.activePanel === icon.type;
 
 		return html`<gl-tooltip placement="right" content="${icon.tooltip}">
 			<button
@@ -662,14 +695,13 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 					item: true,
 					active: isActive,
 					overview: icon.type === 'overview',
-					dimmed: !enabled,
 					'group-end': icon.type === 'agents',
 				})}
+				data-roving-key="icon:${icon.type}"
 				@click=${() => this.handleIconClick(icon)}
-				?disabled=${!enabled}
 				aria-pressed=${isActive}
 			>
-				<code-icon icon="${icon.icon}"></code-icon>
+				<span class="icon"><code-icon icon="${icon.icon}"></code-icon></span>
 				${this.renderIconCount(icon)}
 			</button>
 		</gl-tooltip>`;
@@ -690,42 +722,43 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		return renderCount(this._actions?.state.counts.get()?.[icon.type]);
 	}
 
-	private renderOverflow(overflowIcons: Icon[], enabled: boolean) {
+	private renderOverflow(overflowIcons: Icon[], isGraphMode: boolean) {
 		if (overflowIcons.length === 0) return nothing;
 
 		// Surface the active state on the … toggle when the active panel is folded away, so the
 		// rail indicator (which targets `.item.active`) lands on the toggle instead of going stale.
-		const containsActive = enabled && this.sidebarVisible && overflowIcons.some(i => i.type === this.activePanel);
+		const containsActive =
+			isGraphMode && this.sidebarVisible && overflowIcons.some(i => i.type === this.activePanel);
 		return html`<gl-popover
 			class="overflow-popover"
 			appearance="menu"
 			trigger="click focus"
 			placement="right-start"
-			distance="4"
+			.distance=${4}
 			.arrow=${false}
 		>
 			<button
 				slot="anchor"
 				class=${classMap({ item: true, 'overflow-toggle': true, active: containsActive })}
+				data-roving-key="overflow"
 				aria-label="More"
 			>
-				<code-icon icon="ellipsis"></code-icon>
+				<span class="icon"><code-icon icon="ellipsis"></code-icon></span>
 			</button>
 			<div slot="content" class="overflow-menu">
 				${repeat(
 					overflowIcons,
 					i => i.type,
-					i => this.renderOverflowItem(i, enabled),
+					i => this.renderOverflowItem(i, isGraphMode),
 				)}
 			</div>
 		</gl-popover>`;
 	}
 
-	private renderOverflowItem(icon: Icon, enabled: boolean) {
-		const isActive = enabled && this.sidebarVisible && this.activePanel === icon.type;
+	private renderOverflowItem(icon: Icon, isGraphMode: boolean) {
+		const isActive = isGraphMode && this.sidebarVisible && this.activePanel === icon.type;
 		return html`<button
 			class=${classMap({ 'overflow-menu-item': true, active: isActive })}
-			?disabled=${!enabled}
 			aria-pressed=${isActive}
 			@click=${(e: Event) => this.handleOverflowItemClick(icon, e)}
 		>

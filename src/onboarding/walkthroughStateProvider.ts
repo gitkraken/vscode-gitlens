@@ -99,6 +99,12 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 		},
 	],
 	[
+		'kepler',
+		{
+			usage: ['command:gitlens.welcome.openKepler:executed'],
+		},
+	],
+	[
 		'mcpFeatures',
 		{
 			usage: [
@@ -108,12 +114,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'action:gitlens.ai.openInAgent:happened',
 				'action:gitlens.mcp.bundledMcpDefinitionProvided:happened',
 			],
-		},
-	],
-	[
-		'homeView',
-		{
-			usage: ['homeView:shown', 'command:gitlens.showHomeView:executed'],
 		},
 	],
 ]);
@@ -286,11 +286,9 @@ export class WalkthroughStateProvider implements Disposable {
 			return;
 		}
 
-		if (!this._initPromise) {
-			this._initPromise = wait(1000).then(() => {
-				this._isInitialized = true;
-			});
-		}
+		this._initPromise ??= wait(1000).then(() => {
+			this._isInitialized = true;
+		});
 		await this._initPromise;
 	}
 

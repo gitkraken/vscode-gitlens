@@ -44,7 +44,7 @@ Inspect the target file and its imports. First match wins.
 
 If the target is in a package that is imported by multiple consumers (OR if the repo name suggests "components", "ui-kit", "shared-web-components", etc.), flag **Shared: yes, {library name}**. Shared status escalates Rule 8 (visual-regression) concern for semantic-element swaps.
 
-### Step 4 — Locale system (governs Rule 12 note in framework-specific.md — dropped from active rules)
+### Step 4 — Locale system
 
 Grep for locale/translation files under directories matching `locale|i18n|lang|translations`. Count the number of locale file candidates (`*.json`, `*.yaml`, `*.po`, `*.ftl`). If multiple locales exist AND a Fix requires a new translation key, note that key additions touch locale files — flag effort accordingly even if the ARIA change is small.
 
@@ -167,48 +167,13 @@ If any answer is "no" or "not sure," either bundle the missing piece, escalate E
 
 ## Pre-finalize pass (MANDATORY — before writing the report to disk)
 
-The per-Fix self-check catches issues as you write them. This pre-finalize pass catches what the per-Fix check missed. It is NOT optional. Run these three scans over the completed draft before writing the file.
+The per-Fix self-check catches issues as you write them. This pre-finalize pass catches what the per-Fix check missed. It is NOT optional. Run the three shared scans in `references/shared-discipline.md` (full procedures there) over the completed draft:
 
-### Scan 1 — Unverified symbols inside code the dev would copy
+1. **Unverified symbols inside code the dev would copy** — enforces Rule 4's sub-rule
+2. **Editing artifacts** — enforces Rule 10
+3. **Fix Confidence / Design Decision coherence** — enforces Rule 11
 
-For every code block in Layer 3 detailed findings (tsx, jsx, html, css — anything inside triple-backticks) whose issue has Fix Confidence `Medium` or `High`:
-
-- Grep the block for common unverified-symbol patterns: `className="sr-only"`, `className="visually-hidden"`, `className="btn-reset"`, any `translate('...')` call, any helper function name that wasn't cited earlier in the finding.
-- For each match: did you actually verify that symbol exists in the audited codebase, with a cited file path?
-- If NO: either (a) verify and cite it in the finding, (b) mark it `[unverified: <symbol>]` AND drop Fix Confidence to `Low` with a Design Decision block, or (c) rewrite the fix to not depend on the symbol.
-
-A `[unverified: ...]` tag alone is insufficient when the symbol appears inside the code diff — the developer will paste the code without reading the note below it. **The Low-confidence + Design-Decision-block conversion is mandatory in this case.** This is Rule 4's sub-rule; this scan enforces it.
-
-### Scan 2 — Editing artifacts
-
-Literally grep (case-insensitive) the entire draft for these strings:
-
-- `Actually,` / `Actually ` (as a standalone clause)
-- `Re-graded`
-- `Re-graded:`
-- `On reflection`
-- `Wait —`
-- `Reconsidering`
-- `(changed my mind)`
-- `(re-grading`
-- Any section that proposes one answer/grade and then rejects it within the same section (e.g., "Fix: `role="columnheader"`... but actually this would..."). This is harder to grep — scan each finding's Fix field and Design Decision block for any proposal-then-walk-back structure.
-
-For each match: **rewrite the affected section from scratch with one clean answer.** Do NOT just delete the artifact phrase; the surrounding logic was built around the walk-back and needs to be rewritten decisively. This is Rule 10; this scan enforces it.
-
-### Scan 3 — Fix Confidence / Design Decision coherence
-
-For every Layer 3 issue:
-
-- If **Fix Confidence is `Low`**: verify the Design Decision block is present with all five fields (Decision required, Typical owner, Input needed, Options, Downstream work). If only a free-form "options" list appears, rewrite to the block template.
-- If **Fix Confidence is `Medium` or `High`**: verify the Fix field contains a concrete code change AND does NOT contain "developer must verify the side effects of X", "confirm the semantic meaning of Y", or "grep consumer products to check Z". If any such handoff is present, either do the verification in the audit or drop Fix Confidence to `Low` with a Design Decision block. This is Rule 11.
-
-### If any scan finds something
-
-Fix it before writing the file. Do not write a draft-with-known-issues and leave them for the reader to catch.
-
----
-
-After all three scans pass, emit the calibration one-liner (detection spine) and then the full report.
+If any scan finds something, fix it before writing the file. Do not write a draft-with-known-issues and leave them for the reader to catch. After all three scans pass, emit the calibration one-liner (detection spine) and then the full report.
 
 ## Ambiguity handling
 
@@ -235,10 +200,7 @@ If you read a shared component, audit it fully — not just the parts exercised 
 
 ## Confirmed issues vs needs-verification — strict separation
 
-- **Confirmed issue** (goes in issue table + detailed findings): you can see the defect directly in the code. Missing `alt`, missing `aria-label`, inverted boolean, etc.
-- **Needs-verification item** (goes ONLY in "Items Requiring Runtime Tooling"): you suspect a problem but cannot confirm from code alone. Contrast ratios, focus behavior at runtime, tooltip keyboard accessibility in third-party components.
-
-**The test:** if a developer would need to open a browser to confirm the problem exists, it's a needs-verification item, NOT a confirmed issue. Do not put it in the issue table.
+Per `references/shared-discipline.md`: confirmed issues (defect visible directly in the code) go in the issue table; needs-verification items (a browser is required to confirm — contrast ratios, runtime focus behavior) go ONLY in "Items Requiring Runtime Tooling."
 
 ## Quick reference to output format
 

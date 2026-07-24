@@ -70,5 +70,14 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 
 	service.register(provider, () => true);
 
+	// Advance the provider cache's status generation clock from the watch session's global events — the standalone
+	// analogue of what the VS Code host wires in `GitProviderService`. Without this, a consumer that passes a
+	// `watchingProvider` and drives watch sessions gets FS events but a FROZEN clock, so `dedupeByStatusGeneration`
+	// degrades to the pre-change/post-change stale-join this branch exists to fix. Standalone has no `Repository`
+	// models, so there are no force-fired `closed`/`lastFetched` bypassing the session for the global repo event to
+	// miss. Subscriptions are torn down with the service (its `watchService`'s emitters are disposed on dispose).
+	service.watchService?.onDidChangeWorkingTree(repoPath => provider.cache.onWorkingTreeChanged(repoPath));
+	service.watchService?.onDidChangeRepository(e => provider.cache.onRepositoryChanged(e.repoPath, e.changes));
+
 	return service;
 }

@@ -110,9 +110,7 @@ export class GlTreeBase extends GlElement {
 		options: Partial<TreeItemBase> = { level: 1 },
 		repoPath?: string,
 	): TreeModel {
-		if (options.level === undefined) {
-			options.level = 1;
-		}
+		options.level ??= 1;
 
 		let model: TreeModel;
 		if (item.value == null) {

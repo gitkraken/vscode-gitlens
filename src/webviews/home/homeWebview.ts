@@ -7,6 +7,14 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getComparisonRefsForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import { sortBranches } from '@gitlens/git/utils/sorting.js';
+import type { ConfiguredIntegrationsChangeEvent } from '@gitlens/integrations/authentication/configuredIntegrationService.js';
+import {
+	isSupportedCloudIntegrationId,
+	supportedCloudIntegrationDescriptors,
+	supportedOrderedCloudIntegrationIds,
+} from '@gitlens/integrations/constants.js';
+import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
+import { providersMetadata } from '@gitlens/integrations/providers/models.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
 import { hasKeys } from '@gitlens/utils/object.js';
@@ -16,18 +24,15 @@ import type { AgentSessionState } from '../../agents/models/agentSessionState.js
 import { ActionRunnerType } from '../../api/actionRunners.js';
 import type { CreatePullRequestActionContext } from '../../api/gitlens.d.js';
 import { getAvatarUriFromGravatarEmail } from '../../avatars.js';
+import type { ComposerCommandArgs } from '../../commands/composer.js';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch.js';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip.js';
 import type { BranchGitCommandArgs } from '../../commands/git/branch.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
-import {
-	isSupportedCloudIntegrationId,
-	supportedCloudIntegrationDescriptors,
-	supportedOrderedCloudIntegrationIds,
-} from '../../constants.integrations.js';
 import { urls } from '../../constants.js';
 import type { HomeTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { executeGitCommand } from '../../git/actions.js';
 import { revealBranch } from '../../git/actions/branch.js';
 import { openComparisonChanges } from '../../git/actions/commit.js';
 import {
@@ -38,7 +43,6 @@ import {
 } from '../../git/actions/pausedOperation.js';
 import * as RepoActions from '../../git/actions/repository.js';
 import { revealWorktree } from '../../git/actions/worktree.js';
-import { executeGitCommand } from '../../git/actions.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import {
 	getBranchAssociatedPullRequest,
@@ -53,9 +57,6 @@ import { showPatchesView } from '../../plus/drafts/actions.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
-import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService.js';
-import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService.js';
-import { providersMetadata } from '../../plus/integrations/providers/models.js';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../quickpicks/repositoryPicker.js';
 import {
@@ -71,7 +72,6 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
 import { isWebviewContext } from '../../system/webview.js';
-import type { ComposerCommandArgs } from '../plus/composer/registration.js';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
 import type { Change } from '../plus/patchDetails/protocol.js';
 import * as branchRefCommands from '../plus/shared/branchRefCommands.js';
@@ -79,7 +79,8 @@ import type { TimelineCommandArgs } from '../plus/timeline/registration.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVisibilityBuffer.js';
 import { createRpcEvent, createRpcEventSubscription } from '../rpc/eventVisibilityBuffer.js';
 import { LaunchpadService } from '../rpc/launchpadService.js';
-import { createSharedServices, proxyServices } from '../rpc/services/common.js';
+import { createSharedServices } from '../rpc/services/common.js';
+import { proxyServices } from '../rpc/services/proxy.js';
 import { getBranchOverviewType, toOverviewBranch } from '../shared/overviewBranches.js';
 import { getOverviewEnrichment, getOverviewWip } from '../shared/overviewEnrichment.utils.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
@@ -326,11 +327,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
-		void this.onIntegrationsChangedCore();
+		this.onIntegrationsChangedCore();
 	}
 
 	private onIntegrationConnectionStateChanged(_e: ConnectionStateChangeEvent) {
-		void this.onIntegrationsChangedCore();
+		this.onIntegrationsChangedCore();
 	}
 
 	private async onChooseRepository() {
@@ -415,7 +416,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					}
 				}
 
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				// oxlint-disable-next-line typescript/no-unsafe-return
 				return handler.call(this, ...args);
 			};
 
@@ -623,13 +624,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async continuePausedOperation(pausedOpArgs: GitPausedOperationStatus) {
 		if (pausedOpArgs.type === 'revert') return;
 
-		await continuePausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
+		await continuePausedOperation(this.container, this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@command('gitlens.pausedOperation.skip:')
 	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async skipPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
-		await skipPausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
+		await skipPausedOperation(this.container, this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@command('gitlens.pausedOperation.open:')
@@ -649,9 +650,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@command('gitlens.pausedOperation.showConflicts:')
 	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
-		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, {
-			openRebaseEditor: pausedOpArgs.type === 'rebase',
-		});
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath);
 	}
 
 	@command('gitlens.createCloudPatch:')
@@ -990,13 +989,20 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private _integrationStates: IntegrationState[] | undefined;
 	private _defaultSupportedCloudIntegrations: IntegrationState[] | undefined;
 
-	private async getIntegrationStates(force = false) {
+	private getIntegrationStates(force = false) {
 		if (force || this._integrationStates == null) {
+			// A provider can have multiple connections (multi-account); surface one state per provider.
+			const seenIntegrationIds = new Set<string>();
 			const integrations: IntegrationState[] = [
-				...filterMap(await this.container.integrations.getConfigured(), i => {
+				...filterMap(this.container.integrations.getConfigured(), i => {
 					if (!isSupportedCloudIntegrationId(i.integrationId)) {
 						return undefined;
 					}
+					if (seenIntegrationIds.has(i.integrationId)) {
+						return undefined;
+					}
+
+					seenIntegrationIds.add(i.integrationId);
 
 					const supportedCloudDescriptor = supportedCloudIntegrationDescriptors.find(
 						item => item.id === i.integrationId,
@@ -1007,13 +1013,12 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 						icon: `gl-provider-${providersMetadata[i.integrationId].iconKey}`,
 						connected: true,
 						supports:
-							supportedCloudDescriptor?.supports != null
-								? supportedCloudDescriptor.supports
-								: providersMetadata[i.integrationId].type === 'git'
-									? ['prs', 'issues']
-									: providersMetadata[i.integrationId].type === 'issues'
-										? ['issues']
-										: [],
+							supportedCloudDescriptor?.supports ??
+							(providersMetadata[i.integrationId].type === 'git'
+								? ['prs', 'issues']
+								: providersMetadata[i.integrationId].type === 'issues'
+									? ['issues']
+									: []),
 						requiresPro: supportedCloudDescriptor?.requiresPro ?? false,
 					} satisfies IntegrationState;
 				}),
@@ -1118,8 +1123,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.host.badge = waiting > 0 ? { tooltip: `${waiting} agent(s) need attention`, value: waiting } : undefined;
 	}
 
-	private async onIntegrationsChangedCore() {
-		const integrations = await this.getIntegrationStates(true);
+	private onIntegrationsChangedCore() {
+		const integrations = this.getIntegrationStates(true);
 		if (integrations.some(i => i.connected)) {
 			void this.container.onboarding.dismiss('home:integrationBanner').catch();
 		}

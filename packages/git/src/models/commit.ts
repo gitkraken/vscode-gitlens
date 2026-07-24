@@ -479,7 +479,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	protected getChangedValue<T>(change: T | null | undefined, original: T | undefined): T | undefined {
-		return change === undefined ? original : change === null ? undefined : change;
+		return change === undefined ? original : (change ?? undefined);
 	}
 
 	@memoize({ resolver: (...args) => `${args[0]}|${args[1]}` })

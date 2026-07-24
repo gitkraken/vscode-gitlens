@@ -27,6 +27,22 @@ export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 	}
 }
 
+/** Corner-badge glyph overlaid on the `robot` identity icon. `idle` has no badge — the bare robot
+ *  in its color carries the meaning. Shared by the graph's WIP row indicator and the file tree's
+ *  agent decoration so both read the same. Callers holding an `AgentSessionPhase` must map through
+ *  {@link agentPhaseToCategory} first (`waiting` → `needs-input`). Pair `working`'s `sync` with
+ *  `modifier="spin"`. */
+export function agentSuffixIconFor(category: AgentSessionCategory): string | undefined {
+	switch (category) {
+		case 'needs-input':
+			return 'warning';
+		case 'working':
+			return 'sync';
+		case 'idle':
+			return undefined;
+	}
+}
+
 /** Kind-aware label for a needs-input phase. Surfaces "Plan ready" / "Question" / "Input needed"
  *  / "Permission" on chips, card phase labels, and status pills so the user can tell at a glance
  *  whether they need to read a plan, answer a question, or just allow a tool call. Falls back to
@@ -65,8 +81,21 @@ export function formatAgentElapsed(value: Date | number | undefined): string | u
 	if (minutes < 60) return `${minutes}m`;
 
 	const hours = Math.floor(minutes / 60);
-	const remainingMinutes = minutes % 60;
-	return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+	if (hours < 24) {
+		const remainingMinutes = minutes % 60;
+		return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+	}
+
+	// Past sessions can be days or weeks old; keep rolling so "3d" beats "72h".
+	const days = Math.floor(hours / 24);
+	if (days < 7) {
+		const remainingHours = hours % 24;
+		return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+	}
+
+	const weeks = Math.floor(days / 7);
+	const remainingDays = days % 7;
+	return remainingDays > 0 ? `${weeks}w ${remainingDays}d` : `${weeks}w`;
 }
 
 /** Per-session "what is it doing" line. Mirrors the contract used by the graph details panel:

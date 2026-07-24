@@ -197,21 +197,6 @@ const walkthroughSteps: WalkthroughStep[] = [
 	},
 
 	{
-		id: 'home-view',
-		walkthroughKey: 'homeView',
-		title: 'Streamline Workflow with the Home View',
-		body: html`
-			<p>
-				Streamline your workflow — effortlessly track, manage, and collaborate on your branches and pull
-				requests, all in one intuitive hub.
-			</p>
-			<div class="card-part--centered">
-				<gl-button href="command:gitlens.welcome.showHomeView">Open Home View</gl-button>
-			</div>
-		`,
-	},
-
-	{
 		id: 'ai-features',
 		walkthroughKey: 'aiFeatures',
 		title: 'Commit smarter, not harder',
@@ -237,7 +222,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				and model to fit your needs.
 			</p>
 			<div class="card-part--centered">
-				<gl-button href="command:gitlens.welcome.showComposer">Compose Commits with AI</gl-button>
+				<gl-button href="command:gitlens.welcome.showComposer">Compose Commits</gl-button>
 			</div>
 		`,
 	},
@@ -277,6 +262,26 @@ const walkthroughSteps: WalkthroughStep[] = [
 			<p>Stay in flow, ship faster, and never lose track of what matters.</p>
 			<div class="card-part--centered">
 				<gl-button href="command:gitlens.welcome.showLaunchpad">Open Launchpad</gl-button>
+			</div>
+		`,
+	},
+
+	{
+		id: 'kepler',
+		walkthroughKey: 'kepler',
+		title: 'Take your agent workflows further',
+		body: html`
+			<p>
+				GitLens helps you understand and review agent-generated work inside your IDE. Kepler, GitKraken's
+				Agentic Development Environment (ADE), gives you a dedicated workspace to coordinate AI agents, organize
+				Tasks, and manage complex development workflows from one place.
+			</p>
+			<p>
+				Start from an issue or pull request, and Kepler creates the environment, launches the agent, and keeps
+				related work organized in a single Task across repositories.
+			</p>
+			<div class="card-part--centered">
+				<gl-button href="command:gitlens.welcome.openKepler">Get Kepler</gl-button>
 			</div>
 		`,
 	},
@@ -383,7 +388,7 @@ const graphWalkthroughSteps: GraphWalkthroughStep[] = [
 	{
 		id: 'graph-ai-review',
 		graphWalkthroughKey: 'graphAiReview',
-		title: 'Review changes with AI in the details panel',
+		title: 'Review changes in the details panel',
 		body: html`
 			<p>
 				The new Review mode in the details panel reads through any commits or WIP and surfaces severity-tagged
@@ -452,7 +457,7 @@ const graphWalkthroughSteps: GraphWalkthroughStep[] = [
 
 @customElement('gl-welcome-page')
 export class GlWelcomePage extends LitElement {
-	static override styles = [scrollableBase, welcomeStyles];
+	static override styles = [scrollableBase, ...welcomeStyles];
 
 	@property({ type: Boolean })
 	closeable = false;
@@ -511,6 +516,10 @@ export class GlWelcomePage extends LitElement {
 		this.removeEventListener('click', this.handleClick);
 	}
 
+	private getWelcomeHeading(): string {
+		return this._state.welcomeTitle;
+	}
+
 	override render(): unknown {
 		if (!this._state) return nothing;
 
@@ -524,7 +533,7 @@ export class GlWelcomePage extends LitElement {
 		return html`
 			<div part="page" class="welcome scrollable">
 				<div class="section header">
-					<h1><gitlens-logo-circle></gitlens-logo-circle><span>Get Started with GitLens</span></h1>
+					<h1><gitlens-logo-circle></gitlens-logo-circle><span>${this.getWelcomeHeading()}</span></h1>
 					<p>
 						Supercharge Git and unlock untapped knowledge within your repo to better understand, write, and
 						review code.

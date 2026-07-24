@@ -10,61 +10,65 @@ export const graphScopePopoverStyles = css`
 
 	.mode-chip {
 		display: inline-flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.2rem 0.3rem 0.2rem 0.4rem;
-		background: transparent;
-		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
-		border: 1px solid transparent;
-		border-radius: 0.3rem;
-		font: inherit;
-		cursor: pointer;
-		max-width: 24rem;
 		min-width: 0;
+		max-width: 24rem;
+		padding: 0.2rem 0.3rem 0.2rem 0.4rem;
+		font: inherit;
+		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+		cursor: pointer;
+		background: transparent;
+		border: var(--gl-border-width) solid transparent;
+		border-radius: var(--gl-radius-sm);
 	}
+
 	.mode-chip:hover {
 		background: var(--color-graph-actionbar-selectedBackground);
 	}
+
 	.mode-chip:focus-visible {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 	}
 
 	.mode-chip--filtered {
-		background: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-bg), transparent);
 		color: var(--gl-chip-filtered-text-color);
+		background: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-bg), transparent);
 		border-color: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-border), transparent);
 	}
+
 	.mode-chip--filtered:hover {
 		background: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-hover), transparent);
 	}
 
 	.mode-chip--scoped {
-		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-bg), transparent);
 		color: var(--gl-chip-scoped-text-color);
+		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-bg), transparent);
 		border-color: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-border), transparent);
 	}
+
 	.mode-chip--scoped:hover {
 		background: color-mix(in srgb, var(--gl-chip-scoped-color) var(--gl-chip-tint-hover), transparent);
 	}
 
 	.mode-chip__icon {
 		flex: none;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 	}
 
 	.mode-chip__label {
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-size: var(--gl-font-md);
 		white-space: nowrap;
-		font-size: 1.2rem;
-		min-width: 0;
 	}
 
 	.mode-chip__chevron {
 		flex: none;
+		font-size: var(--gl-font-md);
 		opacity: 0.7;
-		font-size: 1.2rem;
 	}
 
 	.mode-chip__clear-tooltip {
@@ -78,17 +82,18 @@ export const graphScopePopoverStyles = css`
 		justify-content: center;
 		width: 1.6rem;
 		height: 1.6rem;
-		border-radius: 0.2rem;
-		margin-left: 0.2rem;
+		margin-left: var(--gl-space-2);
 		color: inherit;
-		opacity: 0.75;
 		cursor: pointer;
+		border-radius: var(--gl-radius-xs);
+		opacity: 0.75;
 	}
+
 	.mode-chip__clear:hover,
 	.mode-chip__clear:focus-visible {
-		background: color-mix(in srgb, currentColor 22%, transparent);
-		opacity: 1;
 		outline: none;
+		background: color-mix(in srgb, currentcolor 22%, transparent);
+		opacity: 1;
 	}
 
 	.mode-popover::part(body) {
@@ -98,10 +103,10 @@ export const graphScopePopoverStyles = css`
 
 	.mode-popover__content {
 		display: flex;
-		flex-direction: column;
-		padding: 0.2rem 0;
-		min-height: 0;
 		flex: 1 1 auto;
+		flex-direction: column;
+		min-height: 0;
+		padding: var(--gl-space-2) 0;
 	}
 
 	.mode-popover__content menu-divider {
@@ -110,14 +115,15 @@ export const graphScopePopoverStyles = css`
 
 	.mode-menu-item {
 		display: flex;
-		align-items: center;
 		gap: 0.3rem;
+		align-items: center;
 		padding: 0.3rem 0.8rem;
 	}
 
 	.mode-menu-item--current {
 		background: color-mix(in srgb, var(--vscode-list-activeSelectionBackground) 30%, transparent);
 	}
+
 	.mode-menu-item--current:hover {
 		background: var(--vscode-menu-selectionBackground);
 	}
@@ -127,21 +133,22 @@ export const graphScopePopoverStyles = css`
 		align-items: center;
 		justify-content: center;
 		width: 1.8rem;
-		font-size: 1.4rem;
 		margin-right: 0.5rem;
+		font-size: var(--gl-font-lg);
 		opacity: 0.9;
 	}
 
 	.mode-menu-item__label {
-		font-size: 1.2rem;
 		flex: 1;
 		min-width: 0;
+		font-size: var(--gl-font-md);
 	}
 
 	.mode-menu-item__info {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.6;
 	}
+
 	.mode-menu-item__info:hover {
 		opacity: 1;
 	}
@@ -150,13 +157,13 @@ export const graphScopePopoverStyles = css`
 		flex: 0 1 auto;
 		min-width: 0;
 		max-width: 16rem;
-		margin-right: 0.2rem;
+		margin-right: var(--gl-space-2);
 		color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
 	}
 
 	.mode-menu-item__chevron {
 		flex: none;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.7;
 	}
 
@@ -166,38 +173,45 @@ export const graphScopePopoverStyles = css`
 
 	.mode-popover__section-header {
 		display: flex;
+		gap: var(--gl-space-2);
 		align-items: center;
-		gap: 0.2rem;
-		padding: 0.2rem 0.8rem 0.1rem;
 		min-height: 1.8rem;
+		padding: 0.2rem 0.8rem 0.1rem;
 	}
+
 	.mode-popover__section-title {
 		flex: 1;
-		color: var(--vscode-menu-foreground, var(--color-foreground));
-		opacity: 0.75;
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		font-weight: 600;
+		color: var(--vscode-menu-foreground, var(--color-foreground));
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
+		opacity: 0.75;
 	}
+
 	.mode-popover__section-header gl-button {
 		--button-padding: 0.1rem;
 		--button-foreground: var(--vscode-menu-foreground, var(--vscode-foreground));
 		--button-hover-background: color-mix(in srgb, var(--vscode-menu-foreground) 18%, transparent);
+
 		opacity: 0.5;
 	}
+
 	.mode-popover__section-header gl-button.is-active {
 		--button-background: var(--vscode-menu-selectionBackground);
 		--button-foreground: var(--vscode-menu-selectionForeground);
 		--button-hover-background: color-mix(in srgb, var(--vscode-menu-selectionBackground) 80%, #000);
+
 		opacity: 1;
 	}
+
 	:host-context(.vscode-light) .mode-popover__section-header gl-button:not(.is-active),
 	:host-context(.vscode-high-contrast-light) .mode-popover__section-header gl-button:not(.is-active) {
 		opacity: 1;
 		--button-background: color-mix(in srgb, var(--vscode-menu-foreground) 25%, transparent);
 		--button-foreground: var(--vscode-menu-foreground);
 	}
+
 	@media (prefers-color-scheme: light) {
 		.mode-popover__section-header gl-button:not(.is-active) {
 			opacity: 1;
@@ -209,30 +223,34 @@ export const graphScopePopoverStyles = css`
 	.mode-popover__checkbox-item {
 		display: flex;
 		align-items: center;
-		padding: 0.3rem 0.8rem;
 		min-height: 2.2rem;
-		cursor: pointer;
-		border-radius: 0.3rem;
+		padding: 0.3rem 0.8rem;
 		color: var(--vscode-menu-foreground);
+		cursor: pointer;
+		border-radius: var(--gl-radius-sm);
 	}
+
 	.mode-popover__checkbox-item:hover {
-		background-color: var(--vscode-menu-selectionBackground);
 		color: var(--vscode-menu-selectionForeground);
+		background-color: var(--vscode-menu-selectionBackground);
 	}
+
 	.mode-popover__checkbox-item:has(gl-checkbox[disabled]) {
 		cursor: default;
 	}
+
 	.mode-popover__checkbox-item:has(gl-checkbox[disabled]):hover {
-		background-color: transparent;
 		color: var(--vscode-menu-foreground);
+		background-color: transparent;
 	}
+
 	.mode-popover__checkbox-item gl-checkbox {
 		display: block;
 		flex: 1;
-		margin: 0;
 		padding: 0;
-		font-size: 1.2rem;
-		--checkbox-foreground: currentColor;
+		margin: 0;
+		font-size: var(--gl-font-md);
+		--checkbox-foreground: currentcolor;
 		--checkbox-background: var(--vscode-checkbox-selectBackground);
 		--checkbox-border: var(--vscode-checkbox-selectBorder);
 		--checkbox-hover-background: var(--vscode-checkbox-selectBackground);
@@ -240,37 +258,38 @@ export const graphScopePopoverStyles = css`
 
 	.mode-popover__focus-pane {
 		display: flex;
-		flex-direction: column;
 		flex: 1 1 24rem;
+		flex-direction: column;
 		min-height: 12rem;
 		overflow: hidden;
-		border-top: 1px solid var(--vscode-menu-separatorBackground, color-mix(in srgb, currentColor 15%, transparent));
+		border-top: var(--gl-border-width) solid
+			var(--vscode-menu-separatorBackground, color-mix(in srgb, currentColor 15%, transparent));
 	}
 
 	.mode-popover__branches {
 		display: flex;
-		flex-direction: column;
 		flex: 1 1 auto;
+		flex-direction: column;
 		min-height: 10rem;
 		overflow: hidden;
 	}
 
 	.mode-popover__tree {
 		flex: 1;
-		min-height: 0;
 		height: 100%;
+		min-height: 0;
 		--gitlens-gutter-width: 0.8rem;
 	}
 
 	.mode-popover__empty {
-		padding: 0.8rem 1.2rem;
-		color: var(--color-foreground--65);
+		padding: var(--gl-space-8) var(--gl-space-12);
 		font-style: italic;
+		color: var(--color-foreground--65);
 	}
 
 	.mode-popover__empty--retry {
 		display: flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
 	}
 `;

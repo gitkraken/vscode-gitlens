@@ -10,17 +10,21 @@ export class GlTrackingPill extends LitElement {
 		baseStyles,
 		css`
 			.pill {
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				text-transform: none;
 				user-select: none;
 			}
 
 			.state {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.1rem;
+				align-items: center;
 				-webkit-font-smoothing: antialiased;
 				-moz-osx-font-smoothing: grayscale;
+				/* Off by default; a consumer (e.g. the graph ref pill) sets the duration so the ahead/behind
+				   colors fade IN SYNC with the surrounding pill's hover/selection transition instead of
+				   snapping back early. */
+				transition: color var(--gl-tracking-color-transition, 0s) ease-out;
 			}
 
 			.state--missing code-icon {
@@ -41,16 +45,17 @@ export class GlTrackingPill extends LitElement {
 
 			.state code-icon {
 				font-size: inherit !important;
-				line-height: inherit !important;
 				font-weight: inherit !important;
+				line-height: inherit !important;
+				transition: color var(--gl-tracking-color-transition, 0s) ease-out;
 			}
 
 			.working {
 				display: inline-block;
 				width: 1rem;
-				text-align: center;
-				vertical-align: text-bottom;
 				font-weight: normal;
+				vertical-align: text-bottom;
+				text-align: center;
 			}
 		`,
 	];

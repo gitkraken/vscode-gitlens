@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
@@ -36,29 +36,31 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				margin-bottom: 2.4rem;
+				margin-bottom: var(--gl-space-24);
 				color: var(--vscode-foreground);
 			}
+
 			.summary {
-				margin-bottom: 1rem;
+				margin-bottom: var(--gl-space-10);
 			}
 
 			.menu {
-				list-style: none;
-				padding-inline-start: 0;
-				margin-block-start: 0;
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
+				padding-inline-start: 0;
+				margin-block-start: 0;
+				list-style: none;
 			}
 
 			.launchpad-action {
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
 				color: inherit;
 				text-decoration: none;
 			}
+
 			.launchpad-action:hover {
 				text-decoration: none;
 			}
@@ -93,12 +95,12 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 			.loader {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.section-heading-actions {
-				flex: none;
 				display: flex;
+				flex: none;
 				align-items: center;
 			}
 

@@ -1,6 +1,6 @@
 ---
 name: modern-css
-description: Use when touching any CSS — new files, edits, audits, refactors, `<style>` blocks, CSS-in-JS, Tailwind config, design-token files, or reviewing CSS a teammate wrote. Applies to vanilla CSS, shadow DOM internals, web-component consumers, VS Code webviews, and framework-scoped styles. Skip signals — file imports `openai`/other non-CSS SDK, `.py`/`.go`/`.rs` files without embedded styles. Skipping when applicable ships miscalibrated output — wrong browser target, hardcoded values where tokens exist, cascade fights fixed with `!important`, shadow-DOM piercing selectors, viewport queries for component-internal layout, `transform: translateZ(0)` for layer promotion — that passes local checks but breaks in production browsers, themes, or shadow roots.
+description: Use when touching any CSS — new files, edits, audits, refactors, `<style>` blocks, CSS-in-JS, Tailwind config, design-token files, or reviewing CSS a teammate wrote. Applies to vanilla CSS, shadow DOM internals, web-component consumers, VS Code webviews, and framework-scoped styles. Skip only for files with no styles at all (e.g. `.py`/`.go`/`.rs` without embedded CSS).
 ---
 
 # Modern CSS
@@ -115,6 +115,8 @@ This is non-negotiable. It surfaces miscalibration before it corrupts output. Th
 - Never use viewport media queries for component-internal layout. Use container queries instead. Pages still use media queries; preference/capability media queries (`prefers-reduced-motion`, `hover`, etc.) are always media queries regardless. (→ `references/responsive.md`)
 - Never reach into shadow DOM from outside. Use `::part`, `::slotted`, or custom properties. (→ `references/selectors.md`)
 - Never use `transform: translateZ(0)` or permanent `will-change` for layer promotion. Use `isolation: isolate` or `contain` instead. (→ `references/performance.md`)
+- Never fix layering by escalating a raw z-index. A raw z-index climbing past ~100 is the signal to use a semantic tier token (`--gl-z-*` in GitLens webviews), `isolation: isolate` on the trapping ancestor, or the top layer (`<dialog>.showModal()` / `[popover]`) — not a bigger number. Shadow-isolated internals keep small raw ordinals (`1`/`2`/`3`). (→ `references/performance.md`)
+- In GitLens webviews, never apply a `--gl-shadow-*` elevation token raw — go through the `elevated-surface` helper (Lit `elevatedSurface` / SCSS `@include elevated-surface`), which pairs the shadow with the border that survives forced-colors (where every shadow renders as nothing). Tokens, tiers, and the elevation model live in `docs/webview-styling.md`.
 - Name custom properties by role, not appearance. `--color-accent`, not `--blue`. In component code, prefer semantic tokens over primitives. (→ `references/theming.md`)
 
 ## When to load which reference

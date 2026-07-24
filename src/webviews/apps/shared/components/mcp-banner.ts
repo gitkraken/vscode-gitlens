@@ -4,13 +4,17 @@ import { urls } from '../../../../constants.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import './banner/banner.js';
 
-export const mcpBannerTagName = 'gl-mcp-banner';
-
 export interface McpBannerSource {
 	source: string;
 }
 
-@customElement(mcpBannerTagName)
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-mcp-banner']: GlMcpBanner;
+	}
+}
+
+@customElement('gl-mcp-banner')
 export class GlMcpBanner extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -24,12 +28,12 @@ export class GlMcpBanner extends LitElement {
 			}
 
 			gl-banner {
-				margin-bottom: 1.2rem;
+				margin-bottom: var(--gl-space-12);
 			}
 
 			:host([layout='responsive']) gl-banner {
-				margin-bottom: 0;
 				width: 100%;
+				margin-bottom: 0;
 			}
 		`,
 	];
@@ -107,11 +111,5 @@ export class GlMcpBanner extends LitElement {
 				})}"
 			></gl-banner>
 		`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[mcpBannerTagName]: GlMcpBanner;
 	}
 }

@@ -21,16 +21,16 @@ export class GlBreadcrumbs extends LitElement {
 
 		:host {
 			display: flex;
-			flex-direction: row;
-			flex-wrap: nowrap;
-			align-items: center;
+			flex-flow: row nowrap;
 			gap: 0;
+			align-items: center;
+			width: 100%;
 			overflow: hidden;
+
 			/* Use VS Code's default font-size by default; density="compact" shrinks it. */
 			font-size: var(--vscode-font-size);
 			line-height: 1.4;
 			color: var(--vscode-descriptionForeground);
-			width: 100%;
 
 			--gl-breadcrumb-separator-content: '\\eab6'; /* chevron-right codicon */
 			--gl-breadcrumb-separator-font: codicon;
@@ -38,7 +38,7 @@ export class GlBreadcrumbs extends LitElement {
 		}
 
 		:host([density='compact']) {
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 		}
 
 		nav {
@@ -47,70 +47,64 @@ export class GlBreadcrumbs extends LitElement {
 
 		ol {
 			display: contents;
-			list-style: none;
-			margin: 0;
 			padding: 0;
+			margin: 0;
+			list-style: none;
 		}
 
 		.overflow-wrapper {
 			display: flex;
+			flex-shrink: 0;
 			align-items: center;
 			min-width: 0;
-			flex-shrink: 0;
 		}
 
 		.overflow-menu {
 			display: flex;
 			flex-direction: column;
+			gap: 0.1rem;
 			min-width: 16rem;
 			max-width: 32rem;
-			padding: 0.4rem 0.2rem;
-			gap: 0.1rem;
+			padding: var(--gl-space-4) var(--gl-space-2);
 		}
 
 		/* Style the cloned tooltip content from each menu row's tooltip — the source
-		   markup is text + hr + path, and the default browser hr style looks wrong
-		   in our dark tooltip body. */
+	   markup is text + hr + path, and the default browser hr style looks wrong
+	   in our dark tooltip body. */
 		.overflow-menu gl-tooltip hr {
+			margin: var(--gl-space-4) 0;
 			border: none;
-			border-top: 1px solid var(--color-foreground--25);
-			margin: 0.4rem 0;
-		}
-
-		/* Bump tooltip z-index above the popover menu's own stacking context so
-		   menu-row tooltips don't get clipped behind webview content. */
-		.overflow-menu gl-tooltip {
-			--wa-z-index-tooltip: 9999;
+			border-top: var(--gl-border-width) solid var(--color-foreground--25);
 		}
 
 		.overflow-menu-item {
 			display: flex;
 			flex-direction: row;
+			gap: var(--gl-space-6);
 			align-items: center;
-			gap: 0.6rem;
-			padding: 0.4rem 0.8rem;
-			background: none;
-			border: none;
-			border-radius: 0.3rem;
-			color: var(--vscode-foreground);
-			font: inherit;
-			text-align: start;
-			cursor: pointer;
-			white-space: nowrap;
+			padding: var(--gl-space-4) var(--gl-space-8);
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font: inherit;
+			color: var(--vscode-foreground);
+			text-align: start;
+			white-space: nowrap;
+			cursor: pointer;
+			background: none;
+			border: none;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.overflow-menu-item:hover,
 		.overflow-menu-item:focus-visible {
-			background: var(--vscode-list-hoverBackground);
 			outline: none;
+			background: var(--vscode-list-hoverBackground);
 		}
 
 		.overflow-menu-item-label {
+			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			min-width: 0;
 		}
 	`;
 
@@ -358,7 +352,7 @@ export class GlBreadcrumbs extends LitElement {
 		const first = run.items[0];
 		const foldedIcon = first?.foldable && first.icon ? first.icon : undefined;
 		return html`<span class="overflow-wrapper" style=${cspStyleMap({ order: String(order) })}>
-			<gl-popover appearance="menu" trigger="click focus" placement="bottom-start" .arrow=${false} distance="0">
+			<gl-popover appearance="menu" trigger="click focus" placement="bottom-start" .arrow=${false} .distance=${0}>
 				<gl-breadcrumb-item
 					slot="anchor"
 					appearance="ellipsis"
@@ -389,7 +383,7 @@ export class GlBreadcrumbs extends LitElement {
 
 		if (tooltipSource == null) return button;
 
-		return html`<gl-tooltip placement="right" distance="8">
+		return html`<gl-tooltip placement="right" .distance=${8}>
 			${button}
 			<span
 				slot="content"
@@ -414,26 +408,28 @@ export class GlBreadcrumbItem extends LitElement {
 
 			:host {
 				display: flex;
+				flex-shrink: var(--gl-breadcrumb-item-shrink, 1);
 				flex-direction: row;
 				align-items: center;
-				white-space: nowrap;
-				overflow: hidden;
 				min-width: 0;
-				flex-shrink: var(--gl-breadcrumb-item-shrink, 1);
+				overflow: hidden;
 				color: var(--vscode-descriptionForeground);
+
 				/* Defensive — section headings (e.g. Home) apply uppercase to their
-				   contents; reset here so crumbs always render in natural casing. */
+		   contents; reset here so crumbs always render in natural casing. */
 				text-transform: none;
+				white-space: nowrap;
 			}
 
 			/* density="compact" — set on the host by gl-breadcrumbs (propagated to each
-			   child on slotchange / density change). Shrinks icons and caps slotted
-			   toolbar widget heights so the row stays tight. The inner gl-button's
-			   --button-padding/--button-line-height live in compactBreadcrumbsConsumerStyles
-			   (must be in consumer scope to cross the shadow boundary). */
+	   child on slotchange / density change). Shrinks icons and caps slotted
+	   toolbar widget heights so the row stays tight. The inner gl-button's
+	   --button-padding/--button-line-height live in compactBreadcrumbsConsumerStyles
+	   (must be in consumer scope to cross the shadow boundary). */
 			:host([has-widget]) .breadcrumb-label {
 				overflow: visible;
 			}
+
 			:host([has-widget]) .separator {
 				margin-left: 0;
 			}
@@ -462,8 +458,8 @@ export class GlBreadcrumbItem extends LitElement {
 			}
 
 			:host([aria-current='page']) {
-				color: var(--vscode-foreground);
 				font-weight: 600;
+				color: var(--vscode-foreground);
 			}
 
 			:host([appearance='segment']) {
@@ -471,37 +467,39 @@ export class GlBreadcrumbItem extends LitElement {
 			}
 
 			:host([appearance='ellipsis']) {
-				min-width: 0;
 				flex-shrink: 0;
+				min-width: 0;
 				user-select: none;
 			}
 
 			.breadcrumb-item {
 				display: flex;
 				flex-direction: row;
+				gap: var(--gl-space-4);
 				align-items: center;
-				gap: 0.4rem;
-				white-space: nowrap;
-				overflow: hidden;
-				min-width: 0;
 				width: 100%;
-				/* Horizontal padding matches HALF the inside gap so that the visual
-				   space between elements is uniform — inside a crumb, gap supplies
-				   0.4rem between content and chevron; across crumbs, this item's
-				   padding-right (0.2rem) plus the next item's padding-left (0.2rem)
-				   sums to the same 0.4rem. */
-				padding: 0.1rem 0.2rem;
+				min-width: 0;
+
 				/* Fixed min-height keeps every crumb the same height regardless of
-				   slotted content size or collapsed state — without this, a collapsed
-				   icon-only crumb is shorter than a text crumb. */
+		   slotted content size or collapsed state — without this, a collapsed
+		   icon-only crumb is shorter than a text crumb. */
 				min-height: 1.8rem;
-				border-radius: 0.3rem;
+
+				/* Horizontal padding matches HALF the inside gap so that the visual
+		   space between elements is uniform — inside a crumb, gap supplies
+		   0.4rem between content and chevron; across crumbs, this item's
+		   padding-right (0.2rem) plus the next item's padding-left (0.2rem)
+		   sums to the same 0.4rem. */
+				padding: 0.1rem 0.2rem;
+				overflow: hidden;
+				font: inherit;
+				color: inherit;
+				text-align: start;
+				white-space: nowrap;
 				cursor: default;
 				background: none;
 				border: none;
-				color: inherit;
-				font: inherit;
-				text-align: start;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			button.breadcrumb-item {
@@ -514,37 +512,38 @@ export class GlBreadcrumbItem extends LitElement {
 
 			:host(:hover) .breadcrumb-item,
 			:host(:focus-within) .breadcrumb-item {
-				background: var(--vscode-toolbar-hoverBackground);
 				color: var(--vscode-foreground);
+				background: var(--vscode-toolbar-hoverBackground);
 			}
 
 			.icon {
-				flex-shrink: 0;
 				z-index: 2;
+				flex-shrink: 0;
 			}
 
 			.breadcrumb-label {
 				display: inline-block;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
 				min-width: 0;
 				max-width: 100%;
-				/* Generous line-height (1.4 ratio) ensures the label's line-box accommodates
-				   both descenders for plain-text crumbs AND the natural height of slotted
-				   gl-button widgets (gl-ref-button, gl-repo-button-group) without clipping
-				   them at overflow: hidden. With symmetric leading, the text x-height visual
-				   center sits at the line-box geometric center, aligning with centered icons
-				   under align-items: center. */
-				line-height: 1.4;
 				padding: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+
+				/* Generous line-height (1.4 ratio) ensures the label's line-box accommodates
+		   both descenders for plain-text crumbs AND the natural height of slotted
+		   gl-button widgets (gl-ref-button, gl-repo-button-group) without clipping
+		   them at overflow: hidden. With symmetric leading, the text x-height visual
+		   center sits at the line-box geometric center, aligning with centered icons
+		   under align-items: center. */
+				line-height: 1.4;
+				white-space: nowrap;
 			}
 
 			/* Use :host(:hover) instead of .breadcrumb-item:hover so hovering anywhere on the
-			   host (not just the inner button) reveals the label when [compact] is auto-set
-			   by the breadcrumbs host on overflow. */
-			:host([compact]:not(:hover):not(:focus-within)) .breadcrumb-label,
-			:host([appearance='ellipsis'][icon]:not(:hover):not(:focus-within)) .breadcrumb-label {
+	   host (not just the inner button) reveals the label when [compact] is auto-set
+	   by the breadcrumbs host on overflow. */
+			:host([compact]:not(:hover, :focus-within)) .breadcrumb-label,
+			:host([appearance='ellipsis'][icon]:not(:hover, :focus-within)) .breadcrumb-label {
 				max-width: 0;
 				padding: 0;
 				margin: 0;
@@ -555,32 +554,33 @@ export class GlBreadcrumbItem extends LitElement {
 				flex-shrink: 0;
 				align-items: center;
 				justify-content: center;
-				margin-left: -0.2rem;
 				width: var(--gl-breadcrumb-separator-size, 1rem);
 				height: var(--gl-breadcrumb-separator-size, 1rem);
+				margin-left: -0.2rem;
+
 				/* No additional margin — let the breadcrumb-item's gap supply the spacing
-				   on both sides (gap before the separator + the next item's padding-left
-				   after). Keeps spacing uniform throughout the chain. */
+		   on both sides (gap before the separator + the next item's padding-left
+		   after). Keeps spacing uniform throughout the chain. */
 				color: var(--vscode-descriptionForeground);
-				opacity: 0.5;
-				user-select: none;
 				-webkit-user-select: none;
+				user-select: none;
+				opacity: 0.5;
 				transition:
-					opacity 120ms ease,
-					color 120ms ease;
+					opacity var(--gl-duration-x-fast) ease,
+					color var(--gl-duration-x-fast) ease;
 			}
 
 			.separator::before {
-				content: var(--gl-breadcrumb-separator-content, '\\eab6');
 				font-family: var(--gl-breadcrumb-separator-font, codicon);
 				font-size: var(--gl-breadcrumb-separator-size, 1rem);
 				line-height: 1;
+				content: var(--gl-breadcrumb-separator-content, '\\eab6');
 			}
 
 			:host(:hover) .separator,
 			:host(:focus-within) .separator {
-				opacity: 1;
 				color: var(--vscode-foreground);
+				opacity: 1;
 			}
 
 			:host([aria-current='page']) .separator {
@@ -742,7 +742,7 @@ export class GlBreadcrumbItem extends LitElement {
 
 		const inner = html`${this.icon ? html`<code-icon class="icon" icon=${this.icon}></code-icon>` : nothing}
 			<slot name="start"></slot>
-			<gl-tooltip class="breadcrumb-tooltip" ?disabled=${!tooltipEnabled} placement="bottom" distance="6">
+			<gl-tooltip class="breadcrumb-tooltip" ?disabled=${!tooltipEnabled} placement="bottom" .distance=${6}>
 				<span class="breadcrumb-label" aria-label=${_truncated ? _labelText : nothing}>
 					<slot @slotchange=${this.onLabelSlotChange}></slot>
 				</span>
@@ -787,6 +787,7 @@ export const compactBreadcrumbsConsumerStyles = css`
 	gl-breadcrumbs[density='compact'] gl-breadcrumb-item gl-repo-button-group::part(label) {
 		--button-padding: 0 0.3rem;
 		--button-line-height: 1.2;
+
 		border: 0;
 	}
 `;

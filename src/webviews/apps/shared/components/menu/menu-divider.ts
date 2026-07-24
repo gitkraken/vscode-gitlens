@@ -10,8 +10,8 @@ export class MenuDivider extends LitElement {
 			:host {
 				display: block;
 				height: 0;
-				margin: 0.6rem;
-				border-top: 0.1rem solid var(--vscode-menu-separatorBackground);
+				margin: var(--gl-space-6);
+				border-top: var(--gl-border-width) solid var(--vscode-menu-separatorBackground);
 			}
 		`,
 	];

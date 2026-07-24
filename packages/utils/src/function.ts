@@ -8,7 +8,7 @@ const fnBodyRegex = /\(([\s\S]*)\)/;
 const fnBodyStripCommentsRegex = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/gm;
 const fnBodyStripParamDefaultValueRegex = /\s?=.*$/;
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+// oxlint-disable-next-line typescript/no-unsafe-function-type
 export function getParameters(fn: Function): string[] {
 	if (typeof fn !== 'function') throw new Error('Not supported');
 
@@ -73,7 +73,7 @@ export function partial<T extends (...args: any[]) => any, P extends any[]>(
 	fn: T,
 	...partialArgs: PartialArgs<Parameters<T>, P>
 ): (...rest: DropFirstN<Parameters<T>, P['length']>) => ReturnType<T> {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+	// oxlint-disable-next-line typescript/no-unsafe-return
 	return (...rest) => fn(...partialArgs, ...rest);
 }
 
@@ -93,7 +93,7 @@ export function sequentialize<T extends (...args: any[]) => Promise<any>>(fn: T)
 	let promise: Promise<unknown> | undefined;
 
 	return function (...args: any[]): Promise<any> {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+		// oxlint-disable-next-line typescript/no-unsafe-return
 		const run = async () => await fn(...args);
 		if (promise == null) {
 			promise = run();

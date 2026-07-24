@@ -52,13 +52,14 @@ import type {
 	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol.js';
 import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
+import { agentSuffixIconFor } from '../../../shared/agentUtils.js';
 import type { GlButton } from '../../../shared/components/button.js';
 import type { CodeIcon } from '../../../shared/components/code-icon.js';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react.jsx';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOperationStatus.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
-import { agentIndicatorTooltipFor, agentSuffixIconFor } from '../components/wipRowAgentStatus.js';
+import { agentIndicatorTooltipFor } from '../components/wipRowAgentStatus.js';
 import type { GraphStateProvider } from '../stateProvider.js';
 import { getCommitDateFromRow, pickRowUndoTarget } from '../utils/row.utils.js';
 import {
@@ -1004,6 +1005,22 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 									)}
 								</gl-button>
 							)}
+							{(resolveActive || (hasConflicts && interacting)) && (
+								<gl-button
+									onClick={() => initProps.onWipRowOpen?.({ target: 'resolve', row: row })}
+									tooltip={resolveTooltip}
+									aria-label={resolveTooltip}
+								>
+									<code-icon icon="gl-merge"></code-icon>
+									{resolveStatusIcon != null && (
+										<code-icon
+											slot="suffix"
+											icon={resolveStatusIcon}
+											modifier={resolveStatusIcon === 'loading' ? 'spin' : ''}
+										></code-icon>
+									)}
+								</gl-button>
+							)}
 							{(composeActive || interacting) && (
 								<gl-button
 									onClick={() => initProps.onWipRowOpen?.({ target: 'compose', row: row })}
@@ -1032,22 +1049,6 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 											slot="suffix"
 											icon={reviewStatusIcon}
 											modifier={reviewStatusIcon === 'loading' ? 'spin' : ''}
-										></code-icon>
-									)}
-								</gl-button>
-							)}
-							{(resolveActive || (hasConflicts && interacting)) && (
-								<gl-button
-									onClick={() => initProps.onWipRowOpen?.({ target: 'resolve', row: row })}
-									tooltip={resolveTooltip}
-									aria-label={resolveTooltip}
-								>
-									<code-icon icon="sparkle"></code-icon>
-									{resolveStatusIcon != null && (
-										<code-icon
-											slot="suffix"
-											icon={resolveStatusIcon}
-											modifier={resolveStatusIcon === 'loading' ? 'spin' : ''}
 										></code-icon>
 									)}
 								</gl-button>
@@ -1233,7 +1234,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			onShowMoreCommits={handleMoreCommits}
 			onGraphVisibleRowsChanged={handleOnGraphVisibleRowsChanged}
 			platform={clientPlatform}
-			refMetadataById={props.refsMetadata}
+			refMetadataById={props.refsMetadata as unknown as GraphContainerProps['refMetadataById']}
 			rowsStats={props.rowsStats}
 			rowsStatsLoading={props.rowsStatsLoading}
 			searchMode={props.searchMode ?? 'normal'}
@@ -1284,7 +1285,7 @@ function getActiveRowInfo(activeRow: string | undefined): { id: string; date: nu
 type LitElementProps<T> = React.HTMLAttributes<T> & Partial<Omit<T, keyof HTMLElement>>;
 
 declare global {
-	// eslint-disable-next-line @typescript-eslint/no-namespace
+	// oxlint-disable-next-line typescript/no-namespace
 	namespace React.JSX {
 		interface IntrinsicElements {
 			'gl-button': LitElementProps<GlButton>;
@@ -1294,7 +1295,7 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		// event map from react wrapped component
-		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig }>;
+		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig; revision?: number }>;
 		'graph-changegraphconfiguration': CustomEvent<UpdateGraphConfigurationParams['changes']>;
 		'graph-changerefsvisibility': CustomEvent<{ refs: GraphExcludedRef[]; visible: boolean }>;
 		'graph-changeselection': CustomEvent<{

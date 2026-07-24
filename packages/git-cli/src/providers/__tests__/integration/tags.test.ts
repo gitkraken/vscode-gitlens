@@ -43,6 +43,16 @@ suite('TagsSubProvider', () => {
 		assert.strictEqual(tag.sha, getHeadSha(repo.path));
 	});
 
+	test('getTags reports annotated vs lightweight tags', async () => {
+		const result = await repo.provider.tags.getTags(repo.path);
+		const byName = new Map(result.values.map(t => [t.name, t]));
+
+		// v1.0.0 and v2.0.0 were created with a message (annotated); v1.1.0 without (lightweight).
+		assert.strictEqual(byName.get('v1.0.0')?.annotated, true, 'v1.0.0 should be annotated');
+		assert.strictEqual(byName.get('v2.0.0')?.annotated, true, 'v2.0.0 should be annotated');
+		assert.strictEqual(byName.get('v1.1.0')?.annotated, false, 'v1.1.0 should be lightweight');
+	});
+
 	test('getTags supports filtering', async () => {
 		const result = await repo.provider.tags.getTags(repo.path, {
 			filter: t => t.name.startsWith('v1.'),

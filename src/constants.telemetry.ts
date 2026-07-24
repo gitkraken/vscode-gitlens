@@ -1,10 +1,10 @@
 import type { AIProviders } from '@gitlens/ai/constants.js';
 import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { GitContributionTiers } from '@gitlens/git/models/contributor.js';
+import type { IntegrationIds, SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { Flatten } from '@gitlens/utils/object.js';
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config.js';
 import type { GlCommands, GlCommandsDeprecated } from './constants.commands.js';
-import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations.js';
 import type { WalkthroughSteps } from './constants.js';
 import type { SubscriptionState } from './constants.subscription.js';
 import type {
@@ -38,6 +38,7 @@ export interface TelemetryGlobalContext extends SubscriptionEventData {
 	/** Cohort number between 1 and 100 to use for percentage-based rollouts */
 	'device.cohort': number;
 	enabled: boolean;
+	featureFlags: string;
 	prerelease: boolean;
 	install: boolean;
 	upgrade: boolean;
@@ -111,6 +112,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'agents/session/started': AgentProviderEvent;
 	/** Sent when an agent session ends */
 	'agents/session/ended': AgentProviderEvent;
+	/** Sent when a past agent session is resumed from its transcript */
+	'agents/sessionResumed': AgentSessionResumedEvent;
 	/** Sent when a permission request is resolved */
 	'agents/permission/resolved': AgentPermissionResolvedEvent;
 	/** Sent when a reconciliation poll (`list-sessions`) finds the polled session set differs from
@@ -193,45 +196,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the Inspect view is shown */
 	'commitDetails/shown': DetailsShownEvent;
-	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
-	'commitDetails/mode/changed': DetailsModeChangedEvent;
 	/** Sent when commit reachability is successfully loaded */
 	'commitDetails/reachability/loaded': DetailsReachabilityLoadedEvent;
 	/** Sent when commit reachability fails to load */
 	'commitDetails/reachability/failed': DetailsReachabilityFailedEvent;
-
-	/** Sent when the Commit Composer is first loaded with repo data */
-	'composer/loaded': ComposerLoadedEvent;
-	/** Sent when the Commit Composer is reloaded */
-	'composer/reloaded': ComposerLoadedEvent;
-	/** Sent when the user adds unstaged changes to draft commits in the Commit Composer */
-	'composer/action/includedUnstagedChanges': ComposerEvent;
-	/** Sent when the user uses auto-compose in the Commit Composer */
-	'composer/action/compose': ComposerGenerateCommitsEvent;
-	/** Sent when the user fails an auto-compose operation in the Commit Composer */
-	'composer/action/compose/failed': ComposerGenerateCommitsFailedEvent;
-	/** Sent when the user uses recompose in the Commit Composer */
-	'composer/action/recompose': ComposerGenerateCommitsEvent;
-	/** Sent when the user fails a recompose operation in the Commit Composer */
-	'composer/action/recompose/failed': ComposerGenerateCommitsFailedEvent;
-	/** Sent when the user uses generate commit message in the Commit Composer */
-	'composer/action/generateCommitMessage': ComposerGenerateCommitMessageEvent;
-	/** Sent when the user fails a generate commit message operation in the Commit Composer */
-	'composer/action/generateCommitMessage/failed': ComposerGenerateCommitMessageFailedEvent;
-	/** Sent when the user changes the AI model in the Commit Composer */
-	'composer/action/changeAiModel': ComposerEvent;
-	/** Sent when the user finishes and commits in the Commit Composer */
-	'composer/action/finishAndCommit': ComposerEvent;
-	/** Sent when the user fails to finish and commit in the Commit Composer */
-	'composer/action/finishAndCommit/failed': ComposerFinishAndCommitFailedEvent;
-	/** Sent when the user uses the undo button in the Commit Composer */
-	'composer/action/undo': ComposerEvent;
-	/** Sent when the user uses the reset button in the Commit Composer */
-	'composer/action/reset': ComposerEvent;
-	/** Sent when the user is warned that the working directory has changed in the Commit Composer */
-	'composer/warning/workingDirectoryChanged': ComposerEvent;
-	/** Sent when the user is warned that the index has changed in the Commit Composer */
-	'composer/warning/indexChanged': ComposerEvent;
 
 	/** Sent when a conflict-prone git command (merge, rebase, cherry-pick, revert, stash apply/pop) is run */
 	'gitCommand/run': GitCommandRunEvent;
@@ -246,7 +214,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when GitLens auto-fetch fires a `git fetch` for the visible Commit Graph */
 	'graph/autoFetch': GraphAutoFetchEvent;
 
-	/** Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph */
+	/** Sent when the user clicks the Focus Branch header button on the Commit Graph (plain-click focuses the current branch; alt-click opens the branch picker) */
 	'graph/action/jumpTo': GraphActionJumpToEvent;
 	/** Sent when the user clicks on the "Jump to HEAD"/"Jump to Reference" (alt) header button on the Commit Graph */
 	'graph/action/openRepoOnRemote': GraphContextEventData;
@@ -283,16 +251,172 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/wip/commit/succeeded': GraphWipCommitSucceededEvent;
 	/** Sent when a commit from the Graph's WIP panel fails (e.g. a hook rejection or signing failure) */
 	'graph/wip/commit/failed': GraphWipCommitFailedEvent;
+	/** Sent when the user toggles the "Amend Previous Commit" checkbox in the WIP panel */
+	'graph/wip/commit/amendToggled': GraphWipCommitAmendToggledEvent;
+	/** Sent when the user completes the co-author picker and trailers are appended to the commit message */
+	'graph/wip/commit/coauthorsAdded': GraphWipCommitCoauthorsAddedEvent;
+
+	/** Sent when the user clicks the sparkle button to generate an AI commit message */
+	'graph/wip/generateMessage/started': GraphWipGenerateMessageStartedEvent;
+	/** Sent when AI commit message generation completes with a non-empty message */
+	'graph/wip/generateMessage/succeeded': GraphWipGenerateMessageSucceededEvent;
+	/** Sent when AI commit message generation fails or returns an empty message */
+	'graph/wip/generateMessage/failed': GraphWipGenerateMessageFailedEvent;
+	/** Sent when the user cancels an in-flight AI commit message generation */
+	'graph/wip/generateMessage/cancelled': GraphWipGenerateMessageCancelledEvent;
+
+	/** Sent when the user triggers a branch action from the WIP panel header or next-steps */
+	'graph/wip/action': GraphWipActionEvent;
+
+	/** Sent when the user stages file(s) in the Graph's WIP panel */
+	'graph/wip/staging/stage': GraphWipStagingStageEvent;
+	/** Sent when the user unstages file(s) in the Graph's WIP panel */
+	'graph/wip/staging/unstage': GraphWipStagingUnstageEvent;
+	/** Sent when the user discards file changes from the Graph's WIP panel */
+	'graph/wip/staging/discard': GraphWipStagingDiscardEvent;
+	/** Sent when the user stashes specific file(s) from the Graph's WIP panel */
+	'graph/wip/staging/stash': GraphWipStagingStashEvent;
+	/** Sent when the user resolves conflict(s) by taking a side in the Graph's WIP panel */
+	'graph/wip/staging/resolveConflict': GraphWipStagingResolveConflictEvent;
+	/** Sent when any staging operation fails in the Graph's WIP panel */
+	'graph/wip/staging/failed': GraphWipStagingFailedEvent;
 
 	/** Sent when a virtual-FS-backed file (e.g. a Graph Compose proposed commit) is opened */
 	'graph/virtualFile/opened': GraphVirtualFileOpenedEvent;
 	/** Sent when opening a virtual-FS-backed file fails (e.g. the compose session is no longer registered) */
 	'graph/virtualFile/failed': GraphVirtualFileFailedEvent;
 
-	/** Sent when the Graph Overview panel becomes visible (mounted in the active sidebar slot) */
-	'graph/overview/shown': GraphOverviewShownEvent;
+	/** Sent when the Graph Overview panel becomes visible */
+	'graph/overview/shown': GraphSidebarOverviewShownEvent;
 	/** Sent when the user invokes an action item on a Graph Overview branch card */
-	'graph/overview/action': GraphOverviewActionEvent;
+	'graph/overview/action': GraphSidebarOverviewActionEvent;
+	/** Sent when the user changes the Recent timeframe threshold in the Graph Overview */
+	'graph/overview/recentThresholdChanged': GraphSidebarOverviewRecentThresholdChangedEvent;
+	/** Sent when the user clicks a branch card to scope the graph to that branch */
+	'graph/overview/branchSelected': GraphSidebarOverviewBranchSelectedEvent;
+	/** Sent when the rich hover popover opens for the first time on a branch card */
+	'graph/overview/hoverShown': GraphSidebarOverviewHoverShownEvent;
+	/** Sent when the user clicks a PR or issue link in the Graph Overview hover popover */
+	'graph/overview/linkClicked': GraphSidebarOverviewLinkClickedEvent;
+
+	/** Sent when the Agents sidebar panel becomes visible */
+	'graph/agents/shown': GraphSidebarAgentsShownEvent;
+	/** Sent when the user clicks an agent session leaf in the sidebar agents panel */
+	'graph/agents/sessionSelected': GraphSidebarAgentsSessionSelectedEvent;
+	/** Sent when the user resolves a permission (Allow/Deny/Always Allow) from the sidebar agents panel */
+	'graph/agents/permissionResolved': GraphSidebarAgentsPermissionResolvedEvent;
+	/** Sent when the user clicks Open Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel */
+	'graph/agents/sessionAction': GraphSidebarAgentsSessionActionEvent;
+	/** Sent when the user clicks a header action (Start Work, Start Review, Refresh) in the sidebar agents panel */
+	'graph/agents/headerAction': GraphSidebarAgentsHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar agents panel */
+	'graph/agents/layoutToggled': GraphSidebarAgentsLayoutToggledEvent;
+	/** Sent when the sidebar agents filter toggles between empty and non-empty (not on every keystroke) */
+	'graph/agents/filtered': GraphSidebarAgentsFilteredEvent;
+
+	/** Sent when the Worktrees sidebar panel becomes visible */
+	'graph/worktrees/shown': GraphSidebarWorktreesShownEvent;
+	/** Sent when the user clicks a worktree leaf in the sidebar worktrees panel */
+	'graph/worktrees/worktreeSelected': GraphSidebarWorktreesWorktreeSelectedEvent;
+	/** Sent when the user invokes an action on a worktree item, via inline hover-icon or right-click context menu (see `location`) */
+	'graph/worktrees/worktreeAction': GraphSidebarWorktreesWorktreeActionEvent;
+	/** Sent when the user clicks a header action (Create Worktree, Refresh) in the sidebar worktrees panel */
+	'graph/worktrees/headerAction': GraphSidebarWorktreesHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar worktrees panel */
+	'graph/worktrees/layoutToggled': GraphSidebarWorktreesLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar worktrees panel (debounced, not on every keystroke) */
+	'graph/worktrees/filtered': GraphSidebarWorktreesFilteredEvent;
+
+	/** Sent when the Branches sidebar panel becomes visible */
+	'graph/branches/shown': GraphSidebarBranchesShownEvent;
+	/** Sent when the user clicks a branch leaf in the sidebar branches panel */
+	'graph/branches/branchSelected': GraphSidebarBranchesBranchSelectedEvent;
+	/** Sent when the user invokes an action on a branch item, via inline hover-icon or right-click context menu (see `location`) */
+	'graph/branches/branchAction': GraphSidebarBranchesBranchActionEvent;
+	/** Sent when the user clicks a header action (Switch to Branch, Create Branch, Refresh) in the sidebar branches panel */
+	'graph/branches/headerAction': GraphSidebarBranchesHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar branches panel */
+	'graph/branches/layoutToggled': GraphSidebarBranchesLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar branches panel */
+	'graph/branches/filtered': GraphSidebarBranchesFilteredEvent;
+
+	/** Sent when the Remotes sidebar panel becomes visible */
+	'graph/remotes/shown': GraphSidebarRemotesShownEvent;
+	/** Sent when the user invokes an action on a remote item, via inline hover-icon or right-click context menu (see `location`) */
+	'graph/remotes/remoteAction': GraphSidebarRemotesRemoteActionEvent;
+	/** Sent when the user clicks a header action (Add Remote, Refresh) in the sidebar remotes panel */
+	'graph/remotes/headerAction': GraphSidebarRemotesHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar remotes panel */
+	'graph/remotes/layoutToggled': GraphSidebarRemotesLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar remotes panel (debounced, not on every keystroke) */
+	'graph/remotes/filtered': GraphSidebarRemotesFilteredEvent;
+
+	/** Sent when the Stashes sidebar panel becomes visible */
+	'graph/stashes/shown': GraphSidebarStashesShownEvent;
+	/** Sent when the user clicks a stash leaf in the sidebar stashes panel */
+	'graph/stashes/stashSelected': GraphSidebarStashesStashSelectedEvent;
+	/** Sent when the user invokes an action on a stash item, via inline hover-icon or right-click context menu (see `location`) */
+	'graph/stashes/stashAction': GraphSidebarStashesStashActionEvent;
+	/** Sent when the user clicks a header action (Stash All, Apply/Pop Stash, Refresh) in the sidebar stashes panel */
+	'graph/stashes/headerAction': GraphSidebarStashesHeaderActionEvent;
+	/** Sent when the user types in the filter box in the sidebar stashes panel */
+	'graph/stashes/filtered': GraphSidebarStashesFilteredEvent;
+
+	/** Sent when the Tags sidebar panel becomes visible */
+	'graph/tags/shown': GraphSidebarTagsShownEvent;
+	/** Sent when the user clicks a tag leaf in the sidebar tags panel */
+	'graph/tags/tagSelected': GraphSidebarTagsTagSelectedEvent;
+	/** Sent when the user invokes an action on a tag item, via inline hover-icon or right-click context menu (see `location`) */
+	'graph/tags/tagAction': GraphSidebarTagsTagActionEvent;
+	/** Sent when the user clicks a header action (Create Tag, Refresh) in the sidebar tags panel */
+	'graph/tags/headerAction': GraphSidebarTagsHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar tags panel */
+	'graph/tags/layoutToggled': GraphSidebarTagsLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar tags panel */
+	'graph/tags/filtered': GraphSidebarTagsFilteredEvent;
+
+	/** Sent when the one-time layout-choice prompt is shown on first entry to the Graph view */
+	'graph/layoutPrompt/shown': GraphLayoutPromptShownEvent;
+	/** Sent when the user answers (or closes) the one-time layout-choice prompt */
+	'graph/layoutPrompt/choice': GraphLayoutPromptChoiceEvent;
+
+	/** Sent when the user switches the active visualization via the switcher, or when a virtual repo forces a fallback from the Commits Treemap to the Files Treemap */
+	'graph/visualizations/modeChanged': GraphVisualizationsModeChangedEvent;
+	/** Sent when the Graph leaves Visualizations display mode (close button, sidebar rail, external search request, etc.) */
+	'graph/visualizations/closed': GraphVisualizationsClosedEvent;
+
+	/** Sent when the embedded Visual History (timeline) visualization becomes visible */
+	'graph/timeline/shown': GraphTimelineShownEvent;
+	/** Sent when the user selects a commit in the embedded Visual History chart (first-paint auto-selections excluded) */
+	'graph/timeline/commitSelected': GraphTimelineCommitSelectedEvent;
+	/** Sent when the user changes the period in the embedded Visual History header */
+	'graph/timeline/periodChanged': GraphTimelinePeriodChangedEvent;
+	/** Sent when the user changes the slice-by axis in the embedded Visual History header */
+	'graph/timeline/sliceByChanged': GraphTimelineSliceByChangedEvent;
+	/** Sent when the user changes the file/folder scope of the embedded Visual History (path picker, clear, or breadcrumb) */
+	'graph/timeline/scopeChanged': GraphTimelineScopeChangedEvent;
+
+	/** Sent when a treemap visualization becomes visible for a repo + mode and its data has loaded */
+	'graph/treemap/shown': GraphTreemapShownEvent;
+	/** Sent when the user zooms the treemap in or out (folder drill-down or breadcrumb) */
+	'graph/treemap/zoomed': GraphTreemapZoomedEvent;
+	/** Sent when the user clicks a file leaf in the treemap */
+	'graph/treemap/fileClicked': GraphTreemapFileClickedEvent;
+	/** Sent when the user changes the period in the Commits Treemap */
+	'graph/treemap/periodChanged': GraphTreemapPeriodChangedEvent;
+	/** Sent when the user changes the activity decay window in the Agent Activity Treemap */
+	'graph/treemap/decayChanged': GraphTreemapDecayChangedEvent;
+
+	/** Sent when the Agent Kanban becomes visible */
+	'graph/kanban/shown': GraphKanbanShownEvent;
+	/** Sent when the Graph leaves Kanban display mode (close button, sidebar rail, etc.) */
+	'graph/kanban/closed': GraphContextEventData;
+	/** Sent when the user clicks a session card in the Agent Kanban to open its worktree WIP */
+	'graph/kanban/sessionSelected': GraphKanbanSessionSelectedEvent;
+	/** Sent when the user clicks Open Session or View Plan on a kanban session card */
+	'graph/kanban/sessionAction': GraphKanbanSessionActionEvent;
+	/** Sent when the user resolves a permission (Allow/Deny or Approve/Reject) from a kanban session card */
+	'graph/kanban/permissionResolved': GraphKanbanPermissionResolvedEvent;
 
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
@@ -317,6 +441,17 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user generates an AI changelog for a comparison in Graph Details */
 	'graphDetails/compare/generateChangelog': GraphDetailsCompareGenerateChangelogEvent;
 
+	/** Sent when the user runs AI explain on a single commit in Graph Details */
+	'graphDetails/commit/explain': GraphDetailsCommitExplainEvent;
+	/** Sent when a single-commit AI explain completes successfully in Graph Details */
+	'graphDetails/commit/explain/completed': GraphDetailsCommitExplainEvent;
+	/** Sent when a single-commit AI explain fails in Graph Details */
+	'graphDetails/commit/explain/failed': GraphDetailsCommitExplainEvent;
+	/** Sent when a comparison AI explain completes successfully in Graph Details */
+	'graphDetails/compare/explain/completed': GraphDetailsCompareExplainEvent;
+	/** Sent when a comparison AI explain fails in Graph Details */
+	'graphDetails/compare/explain/failed': GraphDetailsCompareExplainEvent;
+
 	/** Sent when the user enters compose mode in the Graph Details panel */
 	'graphDetails/compose/opened': GraphDetailsComposeLifecycleEvent;
 	/** Sent when the user exits compose mode in the Graph Details panel (toggled off or destroyed) */
@@ -333,6 +468,18 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/compose/applyPlan/completed': GraphDetailsComposeApplyPlanEvent;
 	/** Sent when applying a compose plan fails */
 	'graphDetails/compose/applyPlan/failed': GraphDetailsComposeApplyPlanEvent;
+	/** Sent when a per-commit message regeneration completes successfully (icon button next to a draft commit) */
+	'graphDetails/compose/regenerateMessage/completed': GraphDetailsComposeRegenerateMessageEvent;
+	/** Sent when a per-commit message regeneration fails or is cancelled */
+	'graphDetails/compose/regenerateMessage/failed': GraphDetailsComposeRegenerateMessageFailedEvent;
+	/** Sent when the user reorders draft commits in the plan (drag-and-drop or keyboard) and the host sync completes */
+	'graphDetails/compose/reorder/completed': GraphDetailsComposeReorderEvent;
+	/** Sent when reordering draft commits fails to sync to the host (e.g. stale plan) */
+	'graphDetails/compose/reorder/failed': GraphDetailsComposeReorderFailedEvent;
+	/** Sent when the user drags a file from one draft commit to another and the host re-derive completes */
+	'graphDetails/compose/moveFile/completed': GraphDetailsComposeMoveFileEvent;
+	/** Sent when moving a file between draft commits fails (e.g. stale plan) */
+	'graphDetails/compose/moveFile/failed': GraphDetailsComposeMoveFileFailedEvent;
 	/** Sent when the user switches the AI model from the compose-mode chip in the Graph Details panel */
 	'graphDetails/compose/changeAiModel': GraphDetailsChangeAiModelEvent;
 
@@ -342,6 +489,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/review/closed': GraphDetailsReviewLifecycleEvent;
 	/** Sent when the user restarts a completed review (Back from result) */
 	'graphDetails/review/restarted': GraphDetailsReviewLifecycleEvent;
+	/** Sent when the user discards a completed review from the ready-state footer */
+	'graphDetails/review/discarded': GraphDetailsReviewLifecycleEvent;
 	/** Sent when a review generation completes successfully */
 	'graphDetails/review/generateReview/completed': GraphDetailsReviewGenerateReviewCompletedEvent;
 	/** Sent when a review generation is cancelled (user-clicked Cancel or host-side abort) */
@@ -375,6 +524,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/resolve/applyResolutions/failed': GraphDetailsResolveApplyEvent;
 	/** Sent when the user discards pending AI conflict resolutions without applying them */
 	'graphDetails/resolve/discarded': GraphDetailsResolveDiscardedEvent;
+	/** Sent when the user switches the AI model from the resolve-mode chip in the Graph Details panel */
+	'graphDetails/resolve/changeAiModel': GraphDetailsChangeAiModelEvent;
 
 	/** Sent when a Home command is executed */
 	'home/command': CommandEventData;
@@ -392,6 +543,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/action': LaunchpadActionEvent;
+	/** Sent when the manual-vs-agent flow resolves for a launchpad _Start Review with an Agent_ action */
+	'launchpad/agent/resolved': LaunchpadAgentResolvedEvent;
 	/** Sent when the user changes launchpad configuration settings */
 	'launchpad/configurationChanged': LaunchpadConfigurationChangedEvent;
 	/** Sent when the user expands/collapses a launchpad group */
@@ -424,9 +577,6 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when user selects agents for MCP installation */
 	'mcp/agents/selected': MCPAgentsSelectedEvent;
 
-	/** Sent when a PR review was started in the inspect overview */
-	openReviewMode: OpenReviewModeEvent;
-
 	'op/gate/deadlock': OperationGateDeadlockEvent;
 	'op/git/aborted': OperationGitAbortedEvent;
 	/** Sent when getGitDir resolves to a non-existent .git directory or rev-parse fails */
@@ -458,7 +608,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'rebaseEditor/action/switchToText': RebaseEditorCompletionEventData;
 	/** Sent when the user toggles the commit ordering (ascending/descending) */
 	'rebaseEditor/action/toggleOrdering': RebaseEditorToggleOrderingEvent;
-	/** Sent when the user opens the Commit Composer from the rebase editor */
+	/** Sent when the user aborts the rebase to recompose its commits inline in the Commit Graph */
 	'rebaseEditor/action/recompose': RebaseEditorCompletionEventData;
 	/** Sent when the user clicks to show conflicts */
 	'rebaseEditor/action/showConflicts': RebaseEditorContextEventData;
@@ -472,6 +622,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'rebaseEditor/action/stageConflict': RebaseEditorStageConflictEvent;
 	/** Sent when the user resolves all conflict files by taking one side */
 	'rebaseEditor/action/resolveAllConflicts': RebaseEditorResolveAllConflictsEvent;
+	/** Sent when the user opens the Commit Graph resolve mode from the conflict panel */
+	'rebaseEditor/action/resolveConflictsInGraph': RebaseEditorContextEventData;
 	/** Sent when the user reveals a ref (commit/branch) in graph or commit details */
 	'rebaseEditor/action/revealRef': RebaseEditorRevealRefEvent;
 
@@ -629,6 +781,14 @@ interface AgentPermissionResolvedEvent {
 	'agent.provider': string;
 	'permission.tool': string;
 	'permission.decision': string;
+}
+
+interface AgentSessionResumedEvent {
+	'agent.provider': string;
+	/** Where the resume was invoked from. */
+	'agent.resume.source': 'webview' | 'quickpick';
+	/** Where it landed — a terminal, or the agent's own editor extension. */
+	'agent.resume.target': 'extension' | 'terminal';
 }
 
 interface AgentSyncDiscrepancyEvent {
@@ -975,11 +1135,6 @@ interface CoreCommandEvent {
 
 type DetailsShownEvent = WebviewShownEventData & InspectShownEventData;
 
-type DetailsModeChangedEvent = InspectContextEventData & {
-	'mode.old': 'wip' | 'commit';
-	'mode.new': 'wip' | 'commit';
-};
-
 export type GraphDetailsMode = 'commit' | 'wip' | 'multicommit' | 'review' | 'compose' | 'resolve' | 'compare' | 'none';
 
 interface GraphDetailsShownEvent {
@@ -1026,6 +1181,8 @@ type GraphDetailsScopeEventData = {
 	'scope.includeUnstaged': boolean | undefined;
 	/** Number of commits included in the scope */
 	'scope.commits.count': number;
+	/** Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope). */
+	'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only' | undefined;
 	/** Effective number of files in the scope (post AI-ignore, pre user-exclusion) */
 	'scope.files.count': number;
 	/** Number of files the user has excluded from the scope */
@@ -1079,6 +1236,44 @@ interface GraphDetailsComposeApplyPlanEvent extends GraphContextEventData {
 	/** Whether the plan was stale (working changes diverged since it was generated) at apply time */
 	stale: boolean;
 	/** Time from apply click to settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsComposeRegenerateMessageEvent extends GraphContextEventData {
+	/** Time from icon click to settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsComposeRegenerateMessageFailedEvent extends GraphDetailsComposeRegenerateMessageEvent {
+	/** Why the run did not complete successfully */
+	'failure.reason': 'cancelled' | 'error';
+	/** Error message text — present only when `failure.reason` is `'error'` */
+	'failure.error.message'?: string;
+}
+
+interface GraphDetailsComposeReorderEvent extends GraphContextEventData {
+	/** Number of proposed commits in the plan being reordered */
+	'plan.commits.count': number;
+	/** Time from reorder gesture to host-sync settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsComposeReorderFailedEvent extends GraphDetailsComposeReorderEvent {
+	/** Error message text describing why the host sync failed */
+	'failure.error.message'?: string;
+}
+
+interface GraphDetailsComposeMoveFileEvent extends GraphContextEventData {
+	/** Number of proposed commits in the plan after the move (an emptied source commit is dropped) */
+	'plan.commits.count': number;
+	/** Time from the drop to host-re-derive settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsComposeMoveFileFailedEvent extends GraphContextEventData {
+	/** Error message text describing why the move failed */
+	'failure.error.message'?: string;
+	/** Time from the drop to failure in milliseconds */
 	duration: number;
 }
 
@@ -1247,7 +1442,7 @@ export type GraphShownTelemetryContext = GraphShownEventData;
 type GraphShownEvent = WebviewShownEventData & GraphShownEventData;
 
 interface GraphActionJumpToEvent extends GraphContextEventData {
-	target: 'HEAD' | 'choose';
+	alt: boolean;
 }
 
 interface GraphAutoFetchEvent extends GraphContextEventData {
@@ -1360,6 +1555,137 @@ interface GraphWipCommitFailedEvent extends GraphContextEventData, GraphWipCommi
 	hasOutput: boolean;
 }
 
+interface GraphWipCommitAmendToggledEvent extends GraphContextEventData {
+	/** New state of the amend toggle (true = amend on) */
+	enabled: boolean;
+	/** Whether the commit box had text when toggled */
+	hasMessage: boolean;
+}
+
+interface GraphWipCommitCoauthorsAddedEvent extends GraphContextEventData {
+	/** Number of co-authors selected */
+	count: number;
+}
+
+interface GraphWipGenerateMessageStartedEvent extends GraphContextEventData {
+	/** Whether amend mode was on at generation time */
+	amend: boolean;
+	/** Whether the commit box already had text (AI refine vs. blank-slate) */
+	hasExistingMessage: boolean;
+	/** Length of existing message (0 if blank) */
+	'message.length': number;
+	/** Whether files were staged */
+	hasStagedFiles: boolean;
+	/** Count of staged files */
+	'files.staged.count': number;
+	/** Total changed files in the working tree */
+	'files.total.count': number;
+}
+
+interface GraphWipGenerateMessageSucceededEvent extends GraphContextEventData {
+	/** Whether amend mode was on */
+	amend: boolean | undefined;
+	/** Whether there was prior text (refine flow) */
+	hasExistingMessage: boolean | undefined;
+	/** Wall-clock milliseconds from start to settlement; undefined if startedAt was missing */
+	duration: number | undefined;
+	/** Character length of the generated message */
+	'result.length': number;
+}
+
+interface GraphWipGenerateMessageFailedEvent extends GraphContextEventData {
+	/** Whether amend mode was on */
+	amend: boolean | undefined;
+	/** Whether there was prior text */
+	hasExistingMessage: boolean | undefined;
+	/** Milliseconds until failure; undefined if startedAt was missing */
+	duration: number | undefined;
+	/** Why the generation failed: 'error' = RPC/AI threw, 'empty' = AI returned an empty message */
+	reason: 'error' | 'empty';
+}
+
+interface GraphWipGenerateMessageCancelledEvent extends GraphContextEventData {
+	/** Milliseconds from start to cancellation; undefined if startedAt was missing */
+	duration: number | undefined;
+}
+
+export type GraphWipAction =
+	| 'push'
+	| 'forcePush'
+	| 'pull'
+	| 'fetch'
+	| 'publishBranch'
+	| 'switchBranch'
+	| 'createBranch'
+	| 'createPullRequest'
+	| 'createPullRequestWithAI'
+	| 'rebaseOntoMergeTarget'
+	| 'mergeMergeTarget'
+	| 'shareAsCloudPatch'
+	| 'copyPatch'
+	| 'stashSave'
+	| 'stashSaveStaged'
+	| 'stashSaveFiles'
+	| 'applyStash'
+	| 'createWorktree'
+	| 'startWork'
+	| 'startReview';
+
+interface GraphWipActionEvent extends GraphContextEventData {
+	/** Which action was triggered */
+	action: GraphWipAction;
+}
+
+export type GraphWipStagingScope = 'file' | 'files' | 'all';
+
+interface GraphWipStagingStageEvent extends GraphContextEventData {
+	/** Whether a single file, multi-select batch, or stage-all */
+	scope: GraphWipStagingScope;
+	/** Number of files being staged */
+	'files.count': number;
+	/** Whether the repo has conflicts at the time (stage-all prompts about conflict markers) */
+	hasConflicts: boolean;
+}
+
+interface GraphWipStagingUnstageEvent extends GraphContextEventData {
+	/** Whether a single file, multi-select batch, or unstage-all */
+	scope: GraphWipStagingScope;
+	/** Number of files being unstaged */
+	'files.count': number;
+}
+
+export type GraphWipStagingDiscardScope = 'file' | 'files' | 'staged' | 'unstaged';
+
+interface GraphWipStagingDiscardEvent extends GraphContextEventData {
+	/** Whether a single file, multi-select, discard-all-staged, or discard-all-unstaged */
+	scope: GraphWipStagingDiscardScope;
+	/** Number of files affected (available for file/files scope) */
+	'files.count': number | undefined;
+}
+
+interface GraphWipStagingStashEvent extends GraphContextEventData {
+	/** Whether a single file or multi-select batch */
+	scope: 'file' | 'files';
+	/** Number of files being stashed */
+	'files.count': number;
+}
+
+interface GraphWipStagingResolveConflictEvent extends GraphContextEventData {
+	/** Whether a single-file side pick or resolve-all-conflicts */
+	scope: 'file' | 'all';
+	/** Which side was chosen */
+	side: 'current' | 'incoming';
+}
+
+export type GraphWipStagingOperation = 'stage' | 'unstage' | 'discard' | 'stash' | 'resolveConflict';
+
+interface GraphWipStagingFailedEvent extends GraphContextEventData {
+	/** Which staging operation failed */
+	operation: GraphWipStagingOperation;
+	/** Scope of the failed operation */
+	scope: string;
+}
+
 export type GraphDetailsFileAction =
 	| 'open'
 	| 'openOnRemote'
@@ -1416,6 +1742,13 @@ interface GraphDetailsCompareGenerateChangelogEvent extends GraphContextEventDat
 	includeWorkingTree: boolean;
 }
 
+interface GraphDetailsCommitExplainEvent extends GraphContextEventData {
+	/** Whether the user supplied custom guidance */
+	hasCustomPrompt: boolean;
+	/** Whether the target is a stash entry rather than a regular commit */
+	isStash: boolean;
+}
+
 interface GraphVirtualFileOpenedEvent extends GraphContextEventData {
 	/** Which open operation the user triggered */
 	mode: GraphVirtualFileMode;
@@ -1431,14 +1764,16 @@ interface GraphVirtualFileFailedEvent extends GraphContextEventData {
 	'error.message'?: string;
 }
 
-interface GraphOverviewShownEvent extends GraphContextEventData {
+interface GraphSidebarOverviewShownEvent extends GraphContextEventData {
 	/** Number of branches in the "active" section at the time of show */
 	'branches.active.count': number;
 	/** Number of branches in the "recent" section at the time of show */
 	'branches.recent.count': number;
+	/** Active Recent timeframe threshold at the time of show */
+	recentThreshold: 'OneDay' | 'OneWeek' | 'OneMonth';
 }
 
-export type GraphOverviewActionName =
+export type GraphSidebarOverviewActionName =
 	| 'pull'
 	| 'push'
 	| 'fetch'
@@ -1448,14 +1783,433 @@ export type GraphOverviewActionName =
 	| 'compareWithHead'
 	| 'compareWithWorking'
 	| 'compareWithPr'
+	| 'openPrChanges'
+	| 'openChanges'
 	| 'other';
 
-interface GraphOverviewActionEvent extends GraphContextEventData {
-	name: GraphOverviewActionName;
+/** Which surface the shared branch hover was anchored on. The overview card and the Graph's WIP bar
+ *  pills render the same hover, so every hover-sourced event carries this to keep the two segmentable. */
+export type GraphBranchHoverSurface = 'overview' | 'wip-bar';
+
+interface GraphSidebarOverviewActionEvent extends GraphContextEventData {
+	name: GraphSidebarOverviewActionName;
 	/** Where on the card the action was invoked */
 	location: 'inline' | 'hover';
+	/** Which surface the hover was anchored on (always `overview` for `location: 'inline'`) */
+	surface: GraphBranchHoverSurface;
 	/** Whether the user held Alt/Shift to swap to the alt action */
 	alt: boolean;
+}
+
+interface GraphSidebarOverviewRecentThresholdChangedEvent extends GraphContextEventData {
+	/** New threshold value selected by the user */
+	threshold: 'OneDay' | 'OneWeek' | 'OneMonth';
+}
+
+interface GraphSidebarOverviewBranchSelectedEvent extends GraphContextEventData {
+	/** Whether the branch is the currently opened (active) branch */
+	isActive: boolean;
+	/** Whether the branch is checked out in a worktree */
+	isWorktree: boolean;
+	/** Whether the branch has an associated pull request */
+	hasPr: boolean;
+	/** Whether the branch has associated issues or autolinks */
+	hasIssues: boolean;
+	/** Whether the branch has uncommitted working tree changes */
+	hasWip: boolean;
+}
+
+interface GraphSidebarOverviewHoverShownEvent extends GraphContextEventData {
+	/** Which surface the hover was anchored on */
+	surface: GraphBranchHoverSurface;
+	/** Whether the branch is the currently opened (active) branch */
+	isActive: boolean;
+	/** Whether the branch is checked out in a worktree */
+	isWorktree: boolean;
+	/** Whether the branch has an associated pull request */
+	hasPr: boolean;
+	/** Whether the branch has associated issues or autolinks */
+	hasIssues: boolean;
+	/** Whether the branch has uncommitted working tree changes */
+	hasWip: boolean;
+	/** Whether the branch has active agent sessions */
+	hasAgents: boolean;
+}
+
+interface GraphSidebarOverviewLinkClickedEvent extends GraphContextEventData {
+	/** Which surface the hover was anchored on */
+	surface: GraphBranchHoverSurface;
+	/** Type of external link clicked */
+	type: 'pullrequest' | 'issue' | 'autolink';
+}
+
+interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'sessions.count': number;
+	'sessions.working.count': number;
+	'sessions.needsInput.count': number;
+	'sessions.idle.count': number;
+}
+
+interface GraphSidebarAgentsSessionSelectedEvent extends GraphContextEventData {
+	'session.phase': string;
+	'session.category': 'working' | 'needs-input' | 'idle';
+	'session.hasPendingPermission': boolean;
+	'session.sameRepo': boolean;
+	layout: 'list' | 'tree';
+}
+
+interface GraphSidebarAgentsPermissionResolvedEvent extends GraphContextEventData {
+	decision: 'allow' | 'deny';
+	alwaysAllow: boolean;
+	'permission.kind': string;
+}
+
+interface GraphSidebarAgentsSessionActionEvent extends GraphContextEventData {
+	action: 'openSession' | 'openPlanFile' | 'openTerminal';
+}
+
+interface GraphSidebarAgentsHeaderActionEvent extends GraphContextEventData {
+	action: 'startWork' | 'startReview' | 'refresh';
+}
+
+interface GraphSidebarAgentsLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'sessions.count': number;
+}
+
+interface GraphSidebarAgentsFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'sessions.count': number;
+}
+
+interface GraphSidebarWorktreesShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'worktrees.count': number;
+}
+
+interface GraphSidebarWorktreesWorktreeSelectedEvent extends GraphContextEventData {
+	isActive: boolean;
+	isDefault: boolean;
+	hasChanges: boolean;
+	hasUpstream: boolean;
+}
+
+export type GraphSidebarWorktreesActionName =
+	| 'pull'
+	| 'push'
+	| 'fetch'
+	| 'openWorktree'
+	| 'openWorktreeInNewWindow'
+	| 'delete'
+	| 'revealInExplorer'
+	| 'openInTerminal'
+	| 'copyWorkingChanges'
+	| 'rename'
+	| 'publish'
+	| 'setUpstream'
+	| 'changeUpstream'
+	| 'reset'
+	| 'rebaseOntoUpstream';
+
+interface GraphSidebarWorktreesWorktreeActionEvent extends GraphContextEventData {
+	action: GraphSidebarWorktreesActionName;
+	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
+}
+
+interface GraphSidebarWorktreesHeaderActionEvent extends GraphContextEventData {
+	action: 'createWorktree' | 'refresh';
+}
+
+interface GraphSidebarWorktreesLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'worktrees.count': number;
+}
+
+interface GraphSidebarWorktreesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'worktrees.count': number;
+}
+
+/** Fired when the branches panel becomes the active sidebar panel and its data has loaded.
+ *  Note: "shown" means mounted-active — in kanban/visualizations display modes the sidebar
+ *  split stays mounted but hidden, so a panel activation there still counts. The panel is
+ *  local-only (remote branches are filtered out host-side), so the count covers local branches. */
+interface GraphSidebarBranchesShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'branches.count': number;
+}
+
+interface GraphSidebarBranchesBranchSelectedEvent extends GraphContextEventData {
+	isCurrent: boolean;
+	hasUpstream: boolean;
+	hasWorktree: boolean;
+	isStarred: boolean;
+}
+
+export type GraphSidebarBranchesActionName =
+	| 'switch'
+	| 'fetch'
+	| 'pull'
+	| 'push'
+	| 'compareWithHead'
+	| 'compareWithWorking'
+	| 'openWorktree'
+	| 'openWorktreeInNewWindow'
+	| 'delete'
+	| 'rename'
+	| 'merge'
+	| 'rebaseOntoBranch'
+	| 'rebaseOntoUpstream'
+	| 'reset'
+	| 'publish'
+	| 'setUpstream'
+	| 'changeUpstream';
+
+interface GraphSidebarBranchesBranchActionEvent extends GraphContextEventData {
+	action: GraphSidebarBranchesActionName;
+	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
+}
+
+interface GraphSidebarBranchesHeaderActionEvent extends GraphContextEventData {
+	action: 'switchToBranch' | 'createBranch' | 'refresh';
+}
+
+interface GraphSidebarBranchesLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'branches.count': number;
+}
+
+interface GraphSidebarBranchesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	/** Total branches in the panel (the filter corpus), NOT the number of matches — matching
+	 *  happens inside the tree component and the match count isn't surfaced. */
+	'branches.count': number;
+}
+
+interface GraphSidebarRemotesShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'remotes.count': number;
+	/** Remotes whose integration is connected */
+	'remotes.connected.count': number;
+	hasMultipleRemotes: boolean;
+}
+
+export type GraphSidebarRemotesActionName =
+	| 'fetch'
+	| 'openOnRemote'
+	| 'copyUrl'
+	| 'connectIntegration'
+	| 'disconnectIntegration'
+	| 'openBranchesOnRemote'
+	| 'copyBranchesUrl'
+	| 'prune'
+	| 'remove'
+	| 'setDefault'
+	| 'unsetDefault';
+
+interface GraphSidebarRemotesRemoteActionEvent extends GraphContextEventData {
+	action: GraphSidebarRemotesActionName;
+	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
+}
+
+interface GraphSidebarRemotesHeaderActionEvent extends GraphContextEventData {
+	action: 'addRemote' | 'refresh';
+}
+
+interface GraphSidebarRemotesLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'remotes.count': number;
+}
+
+interface GraphSidebarRemotesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	/** Total remotes in the panel (the filter corpus), NOT the number of matches — matching
+	 *  happens inside the tree component and the match count isn't surfaced. */
+	'remotes.count': number;
+}
+
+interface GraphSidebarStashesShownEvent extends GraphContextEventData {
+	'stashes.count': number;
+}
+
+interface GraphSidebarStashesStashSelectedEvent extends GraphContextEventData {
+	/** Whether the stash carries the branch ref it was created on */
+	hasStashOnRef: boolean;
+}
+
+export type GraphSidebarStashesActionName = 'apply' | 'delete' | 'rename';
+
+interface GraphSidebarStashesStashActionEvent extends GraphContextEventData {
+	action: GraphSidebarStashesActionName;
+	/** Reserved for parity with other panels' item actions — no stash inline action defines an alt variant yet, so always false today */
+	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
+}
+
+interface GraphSidebarStashesHeaderActionEvent extends GraphContextEventData {
+	action: 'stashAll' | 'applyStash' | 'refresh';
+}
+
+interface GraphSidebarStashesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'stashes.count': number;
+}
+
+interface GraphSidebarTagsShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'tags.count': number;
+	/** Number of annotated tags (tag objects with their own metadata) vs lightweight refs */
+	'tags.annotated.count': number;
+}
+
+interface GraphSidebarTagsTagSelectedEvent extends GraphContextEventData {
+	/** Whether the selected tag is annotated (a tag object) vs a lightweight ref */
+	annotated: boolean;
+}
+
+export type GraphSidebarTagsActionName = 'switchTo' | 'delete' | 'createBranch' | 'reset';
+
+interface GraphSidebarTagsTagActionEvent extends GraphContextEventData {
+	action: GraphSidebarTagsActionName;
+	/** Reserved for parity with other panels' item actions — no tag inline action defines an alt variant yet, so always false today */
+	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
+}
+
+interface GraphSidebarTagsHeaderActionEvent extends GraphContextEventData {
+	action: 'createTag' | 'refresh';
+}
+
+interface GraphSidebarTagsLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'tags.count': number;
+}
+
+interface GraphSidebarTagsFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'tags.count': number;
+}
+
+/** Flat key identifying a Graph visualization — collapses the two-axis
+ *  (visualizationMode × treemapMode) state so one field names the active visualization,
+ *  matching the switcher's tab model. */
+export type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
+
+/** No dimensions beyond the shared graph context */
+type GraphLayoutPromptShownEvent = GraphContextEventData;
+
+interface GraphLayoutPromptChoiceEvent extends GraphContextEventData {
+	/** `dismissed` = closed the prompt without choosing (keeps the current layout, never re-asks) */
+	choice: 'sidebar' | 'panel' | 'dismissed';
+}
+
+interface GraphVisualizationsModeChangedEvent extends GraphContextEventData {
+	'mode.old': GraphVisualizationKey;
+	'mode.new': GraphVisualizationKey;
+	/** `fallback` when a virtual repo forced Commits → Files on mount (not a user action) */
+	reason: 'user' | 'fallback';
+}
+
+interface GraphVisualizationsClosedEvent extends GraphContextEventData {
+	mode: GraphVisualizationKey;
+}
+
+interface GraphTimelineShownEvent extends GraphContextEventData {
+	period: string;
+	sliceBy: 'author' | 'branch';
+	scoped: boolean;
+}
+
+interface GraphTimelineCommitSelectedEvent extends GraphContextEventData {
+	shift: boolean;
+}
+
+interface GraphTimelinePeriodChangedEvent extends GraphContextEventData {
+	'period.old': string;
+	'period.new': string;
+}
+
+interface GraphTimelineSliceByChangedEvent extends GraphContextEventData {
+	'sliceBy.old': 'author' | 'branch';
+	'sliceBy.new': 'author' | 'branch';
+}
+
+interface GraphTimelineScopeChangedEvent extends GraphContextEventData {
+	action: 'choose' | 'clear' | 'breadcrumb';
+	'scope.type'?: 'file' | 'folder';
+	/** Whether a file/folder scope is active AFTER this change */
+	scoped: boolean;
+}
+
+interface GraphTreemapShownEvent extends GraphContextEventData {
+	mode: 'files' | 'commits' | 'activity';
+	'files.count': number;
+	/** Only set in `commits` mode — the other modes have no period axis */
+	period?: string;
+}
+
+interface GraphTreemapZoomedEvent extends GraphContextEventData {
+	mode: 'files' | 'commits' | 'activity';
+	direction: 'in' | 'out';
+	/** Folder depth of the zoom target; 0 = back at the root */
+	depth: number;
+}
+
+interface GraphTreemapFileClickedEvent extends GraphContextEventData {
+	mode: 'files' | 'commits' | 'activity';
+	action: 'open' | 'history';
+	/** Only set in `activity` mode — whether the click also focused an agent session that touched the file */
+	'session.focused'?: boolean;
+}
+
+interface GraphTreemapPeriodChangedEvent extends GraphContextEventData {
+	'period.old': string;
+	'period.new': string;
+}
+
+interface GraphTreemapDecayChangedEvent extends GraphContextEventData {
+	'decay.old': string;
+	'decay.new': string;
+}
+
+interface GraphKanbanShownEvent extends GraphContextEventData {
+	'sessions.count': number;
+	'sessions.working.count': number;
+	'sessions.needsInput.count': number;
+	'sessions.idle.count': number;
+	'sessions.inactive.count': number;
+}
+
+interface GraphKanbanSessionSelectedEvent extends GraphContextEventData {
+	'session.phase': string;
+	'session.category': 'working' | 'needs-input' | 'idle';
+	'session.hasPendingPermission': boolean;
+	'session.sameRepo': boolean;
+	column: 'needs-input' | 'working' | 'idle' | 'inactive';
+}
+
+interface GraphKanbanSessionActionEvent extends GraphContextEventData {
+	action: 'openSession' | 'openPlanFile';
+}
+
+interface GraphKanbanPermissionResolvedEvent extends GraphContextEventData {
+	decision: 'allow' | 'deny';
+	'permission.kind': string;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;
@@ -1466,13 +2220,6 @@ interface HomeFailedEvent {
 	'error.detail'?: string;
 }
 
-type InspectWipContextEventData = {
-	'context.mode': 'wip';
-	'context.autolinks': number;
-	'context.inReview': boolean;
-	'context.codeSuggestions': number;
-} & Partial<RepositoryContext>;
-
 type InspectCommitContextEventData = {
 	'context.mode': 'commit';
 	'context.autolinks': number;
@@ -1481,7 +2228,7 @@ type InspectCommitContextEventData = {
 	'context.uncommitted': boolean;
 };
 
-type InspectContextEventData = WebviewTelemetryContext & (InspectWipContextEventData | InspectCommitContextEventData);
+type InspectContextEventData = WebviewTelemetryContext & InspectCommitContextEventData;
 
 type InspectShownEventData = InspectContextEventData & FlattenedContextConfig<Config['views']['commitDetails']>;
 
@@ -1489,124 +2236,10 @@ export type InspectTelemetryContext = InspectContextEventData;
 export type InspectShownTelemetryContext = InspectShownEventData;
 
 /** Telemetry context fields pushed from the Inspect webview to the host via RPC. */
-export type InspectWebviewTelemetryContext =
-	| Pick<InspectWipContextEventData, 'context.autolinks' | 'context.codeSuggestions'>
-	| Pick<InspectCommitContextEventData, 'context.autolinks' | 'context.type' | 'context.uncommitted'>;
-
-export type ComposerTelemetryContext = ComposerContextEventData;
-type ComposerContextEventData = WebviewTelemetryContext & ComposerSessionContextEventData;
-type ComposerContextSessionData = {
-	'context.session.start': string;
-	'context.session.duration': number | undefined;
-};
-type ComposerContextDiffData = {
-	'context.diff.files.count': number;
-	'context.diff.hunks.count': number;
-	'context.diff.lines.count': number;
-	'context.diff.hash': string;
-	'context.diff.staged.exists': boolean;
-	'context.diff.unstaged.exists': boolean;
-	'context.diff.unstaged.included': boolean;
-};
-type ComposerContextCommitsData = {
-	'context.commits.initialCount': number;
-	'context.commits.autoComposedCount': number | undefined;
-	'context.commits.composedCount': number | undefined;
-	'context.commits.finalCount': number | undefined;
-};
-type ComposerContextOnboardingData = {
-	'context.onboarding.dismissed': boolean;
-	'context.onboarding.stepReached': number | undefined;
-};
-type ComposerContextAIData = {
-	'context.ai.enabled.org': boolean;
-	'context.ai.enabled.config': boolean;
-	'context.ai.model.id': string | undefined;
-	'context.ai.model.name': string | undefined;
-	'context.ai.model.provider.id': AIProviders | undefined;
-	'context.ai.model.temperature': number | undefined;
-	'context.ai.model.maxTokens.input': number | undefined;
-	'context.ai.model.maxTokens.output': number | undefined;
-	'context.ai.model.default': boolean | undefined;
-	'context.ai.model.hidden': boolean | undefined;
-};
-type ComposerContextOperationData = {
-	'context.operations.generateCommits.count': number;
-	'context.operations.generateCommits.cancelled.count': number;
-	'context.operations.generateCommits.error.count': number;
-	'context.operations.generateCommits.feedback.upvote.count': number;
-	'context.operations.generateCommits.feedback.downvote.count': number;
-	'context.operations.generateCommitMessage.count': number;
-	'context.operations.generateCommitMessage.cancelled.count': number;
-	'context.operations.generateCommitMessage.error.count': number;
-	'context.operations.finishAndCommit.error.count': number;
-	'context.operations.undo.count': number;
-	'context.operations.redo.count': number;
-	'context.operations.reset.count': number;
-};
-type ComposerContextWarningsData = {
-	'context.warnings.workingDirectoryChanged': boolean;
-	'context.warnings.indexChanged': boolean;
-};
-type ComposerContextErrorsData = {
-	'context.errors.safety.count': number;
-	'context.errors.operation.count': number;
-};
-
-type ComposerSessionContextEventData = ComposerContextSessionData &
-	ComposerContextDiffData &
-	ComposerContextCommitsData &
-	ComposerContextOnboardingData &
-	ComposerContextAIData &
-	ComposerContextOperationData &
-	ComposerContextWarningsData &
-	ComposerContextErrorsData & {
-		'context.source': Sources | undefined;
-		'context.mode': 'experimental' | 'preview';
-	};
-
-type ComposerEvent = ComposerContextEventData;
-
-type ComposerLoadedEvent = ComposerContextEventData &
-	Partial<{
-		'failure.reason': 'error';
-		'failure.error.message': string;
-	}>;
-
-type ComposerGenerateCommitsEvent = ComposerContextEventData & {
-	'customInstructions.used': boolean;
-	'customInstructions.length': number;
-	'customInstructions.hash': string;
-	'customInstructions.setting.used': boolean;
-	'customInstructions.setting.length': number;
-	'customInstructions.commitMessage.setting.used': boolean;
-	'customInstructions.commitMessage.setting.length': number;
-};
-
-type ComposerActionFailureEventData =
-	| {
-			'failure.reason': 'cancelled';
-			'failure.error.message'?: never;
-	  }
-	| {
-			'failure.reason': 'error';
-			'failure.error.message': string;
-	  };
-
-type ComposerGenerateCommitsFailedEvent = ComposerGenerateCommitsEvent & ComposerActionFailureEventData;
-
-type ComposerGenerateCommitMessageEvent = ComposerContextEventData & {
-	'customInstructions.setting.used': boolean;
-	'customInstructions.setting.length': number;
-	overwriteExistingMessage: boolean;
-};
-
-type ComposerGenerateCommitMessageFailedEvent = ComposerGenerateCommitMessageEvent & ComposerActionFailureEventData;
-
-type ComposerFinishAndCommitFailedEvent = ComposerContextEventData & {
-	'failure.reason': 'error';
-	'failure.error.message': string;
-};
+export type InspectWebviewTelemetryContext = Pick<
+	InspectCommitContextEventData,
+	'context.autolinks' | 'context.type' | 'context.uncommitted'
+>;
 
 interface LaunchpadEventDataBase {
 	/** @order 1 */
@@ -1648,12 +2281,11 @@ type LaunchpadTitleActionEvent = LaunchpadEventData & {
 type LaunchpadActionEvent = LaunchpadEventData & {
 	action:
 		| 'open'
-		| 'code-suggest'
 		| 'merge'
 		| 'soft-open'
 		| 'switch'
 		| 'open-worktree'
-		| 'switch-and-code-suggest'
+		| 'start-review'
 		| 'show-overview'
 		| 'open-changes'
 		| 'open-in-graph'
@@ -1664,6 +2296,8 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 		| 'open-suggestion'
 		| 'open-suggestion-browser';
 } & Partial<Record<`item.${string}`, string | number | boolean>>;
+
+type LaunchpadAgentResolvedEvent = LaunchpadEventData & AgentResolvedEventData;
 
 interface LaunchpadConfigurationChangedEvent {
 	'config.launchpad.staleThreshold': number | null;
@@ -1702,16 +2336,6 @@ interface LaunchpadOperationSlowEvent {
 		| 'getEnrichedItems'
 		| 'getCodeSuggestionCounts';
 	duration: number;
-}
-
-interface OpenReviewModeEvent {
-	provider: string;
-	'repository.visibility': 'private' | 'public' | 'local' | undefined;
-	/** Provided for compatibility with other GK surfaces */
-	repoPrivacy: 'private' | 'public' | 'local' | undefined;
-	filesChanged: number;
-	/** Provided for compatibility with other GK surfaces */
-	source: Sources;
 }
 
 interface OperationGateDeadlockEvent {
@@ -1885,6 +2509,7 @@ export type RebaseEditorTelemetryEvent =
 	| 'rebaseEditor/action/resolveConflict'
 	| 'rebaseEditor/action/stageConflict'
 	| 'rebaseEditor/action/resolveAllConflicts'
+	| 'rebaseEditor/action/resolveConflictsInGraph'
 	| 'rebaseEditor/action/revealRef'
 	| 'rebaseEditor/entries/changed'
 	| 'rebaseEditor/entries/moved'
@@ -2170,6 +2795,7 @@ type WelcomeActionNames =
 	| 'open/home-view'
 	| 'open/help-center'
 	| 'open/help-center/community-vs-pro'
+	| 'open/kepler'
 	| 'open/launchpad'
 	| 'plus/login'
 	| 'plus/reactivate'
@@ -2205,17 +2831,12 @@ export type WebviewTelemetryEvents = {
 				? GraphTelemetryContext
 				: K extends `timeline/${string}`
 					? TimelineTelemetryContext
-					: K extends `composer/${string}`
-						? ComposerTelemetryContext
-						: K extends `rebaseEditor/${string}`
-							? RebaseEditorTelemetryContext
-							: WebviewTelemetryContext)
+					: K extends `rebaseEditor/${string}`
+						? RebaseEditorTelemetryContext
+						: WebviewTelemetryContext)
 	>;
 };
 
-export type LoginContext = 'start_trial';
-export type ConnectIntegrationContext = 'launchpad' | 'mcp';
-export type Context = LoginContext | ConnectIntegrationContext;
 /** Used to provide a "source context" to gk.dev for both tracking and customization purposes */
 export type TrackingContext = 'graph' | 'launchpad' | 'mcp' | 'visual_file_history' | 'worktrees';
 
@@ -2229,7 +2850,6 @@ export type Sources =
 	| 'cloud-patches'
 	| 'code-suggest'
 	| 'commandPalette'
-	| 'composer'
 	| 'deeplink'
 	| 'editor:hover'
 	| 'feature-badge'
@@ -2278,14 +2898,6 @@ export type Source = {
 	source: Sources;
 	correlationId?: string;
 	detail?: string | TelemetryEventData;
-};
-
-export const sourceToContext: { [source in Sources]?: Context } = {
-	launchpad: 'launchpad',
-};
-
-export const detailToContext: { [detail in string]?: Context } = {
-	mcp: 'mcp',
 };
 
 export type TrackedUsage = {

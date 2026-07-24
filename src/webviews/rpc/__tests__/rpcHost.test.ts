@@ -34,7 +34,7 @@ function createMockBridge() {
 						message.payload instanceof Uint8Array || message.payload instanceof ArrayBuffer
 							? decodeRpcPayload(message.payload)
 							: message.payload;
-					// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+					// oxlint-disable-next-line typescript/consistent-type-assertions
 					const event = { data: payload } as MessageEvent;
 					for (const listener of clientListeners) {
 						listener(event);
@@ -148,12 +148,12 @@ suite('RpcHost Integration Test Suite', () => {
 				const { services: remote, connection } = await connectClient(clientEndpoint, host);
 
 				const git = await remote.git;
-				// eslint-disable-next-line @typescript-eslint/await-thenable -- RPC proxy wraps all calls as promises at runtime despite sync static types
+				// oxlint-disable-next-line typescript/await-thenable -- RPC proxy wraps all calls as promises at runtime despite sync static types
 				const commit = await git.getCommit('abc123');
 				assert.deepStrictEqual(commit, { sha: 'abc123', message: 'Commit abc123' });
 
 				const config = await remote.config;
-				// eslint-disable-next-line @typescript-eslint/await-thenable -- RPC proxy wraps all calls as promises at runtime despite sync static types
+				// oxlint-disable-next-line typescript/await-thenable -- RPC proxy wraps all calls as promises at runtime despite sync static types
 				const value = await config.get('editor.fontSize');
 				assert.strictEqual(value, 'value-of-editor.fontSize');
 

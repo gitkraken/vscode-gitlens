@@ -4,12 +4,15 @@ import { checkboxBaseStyles } from '../checkbox/checkbox.css.js';
 import { GlElement } from '../element.js';
 import type { RadioGroup } from './radio-group.js';
 import { radioStyles } from './radio.css.js';
-
 import '../code-icon.js';
 
-export const tagName = 'gl-radio';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-radio']: Radio;
+	}
+}
 
-@customElement(tagName)
+@customElement('gl-radio')
 export class Radio extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...GlElement.shadowRootOptions,
@@ -57,11 +60,5 @@ export class Radio extends GlElement {
 			<div class="control">${this.renderCircle()}</div>
 			<slot class="label-text"></slot>
 		</label>`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: Radio;
 	}
 }

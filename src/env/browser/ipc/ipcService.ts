@@ -8,7 +8,7 @@ import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { Container } from '../../../container.js';
 
 export class IpcService implements Disposable {
-	// eslint-disable-next-line @typescript-eslint/no-useless-constructor
+	// oxlint-disable-next-line typescript/no-useless-constructor
 	constructor(_container: Container) {}
 
 	dispose(): void {}

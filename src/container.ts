@@ -1,18 +1,22 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import { IpcService } from '@env/ipc/ipcService.js';
+import type { GkCliService, GkMcpService } from '@env/providers.js';
 import {
 	getAgentSessionProviders,
-	getGkCliIntegrationProvider,
-	getMcpProviders,
+	getGkCliService,
+	getGkMcpService,
 	getSharedGKStorageLocationProvider,
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
 	setTelemetryService,
 } from '@env/providers.js';
+import type { IntegrationManager } from '@gitlens/integrations/index.js';
+import { createIntegrationManager } from '@gitlens/integrations/index.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { AgentService } from './agents/agentService.js';
 import { AgentStatusService } from './agents/agentStatusService.js';
 import { FileAnnotationController } from './annotations/fileAnnotationController.js';
 import { LineAnnotationController } from './annotations/lineAnnotationController.js';
@@ -27,6 +31,8 @@ import type { GlCommands } from './constants.commands.js';
 import { extensionPrefix } from './constants.js';
 import { MarkdownContentProvider } from './documents/markdown.js';
 import { EventBus } from './eventBus.js';
+import type { FeatureFlagService } from './featureFlags/featureFlagService.js';
+import { ConfigCatFeatureFlagService } from './featureFlags/featureFlagService.js';
 import { GitFileSystemProvider } from './git/fsProvider.js';
 import { GitProviderService } from './git/gitProviderService.js';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider.js';
@@ -44,14 +50,7 @@ import { ServerConnection } from './plus/gk/serverConnection.js';
 import { SubscriptionService } from './plus/gk/subscriptionService.js';
 import { UrlsProvider } from './plus/gk/urlsProvider.js';
 import { GraphStatusBarController } from './plus/graph/statusbar.js';
-import type { CloudIntegrationService } from './plus/integrations/authentication/cloudIntegrationService.js';
-import { ConfiguredIntegrationService } from './plus/integrations/authentication/configuredIntegrationService.js';
-import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthenticationService.js';
-import { IntegrationService } from './plus/integrations/integrationService.js';
-import type { AzureDevOpsApi } from './plus/integrations/providers/azure/azure.js';
-import type { BitbucketApi } from './plus/integrations/providers/bitbucket/bitbucket.js';
-import type { GitHubApi } from './plus/integrations/providers/github/github.js';
-import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab.js';
+import { createIntegrationServiceContext } from './plus/integrations/host/context.js';
 import { EnrichmentService } from './plus/launchpad/enrichmentService.js';
 import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator.js';
 import { LaunchpadProvider } from './plus/launchpad/launchpadProvider.js';
@@ -62,9 +61,8 @@ import { scheduleAddMissingCurrentWorkspaceRepos, WorkspacesService } from './pl
 import { StatusBarController } from './statusbar/statusBarController.js';
 import { executeCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
-import { onDidChangeContext, setContext } from './system/-webview/context.js';
+import { getContext, onDidChangeContext, setContext } from './system/-webview/context.js';
 import { Keyboard } from './system/-webview/keyboard.js';
-import { loadChunk } from './system/-webview/loadChunk.js';
 import type { Storage } from './system/-webview/storage.js';
 import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider.js';
 import { TelemetryService } from './telemetry/telemetry.js';
@@ -78,10 +76,7 @@ import { ViewFileDecorationProvider } from './views/viewDecorationProvider.js';
 import { Views } from './views/views.js';
 import { VirtualFileSystemService } from './virtual/virtualFileSystemService.js';
 import { VslsController } from './vsls/vsls.js';
-import {
-	registerComposerWebviewCommands,
-	registerComposerWebviewPanel,
-} from './webviews/plus/composer/registration.js';
+import { registerAllowedSignersWebviewPanel } from './webviews/allowedSigners/registration.js';
 import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './webviews/plus/graph/registration.js';
 import { registerPatchDetailsWebviewPanel } from './webviews/plus/patchDetails/registration.js';
 import {
@@ -100,7 +95,7 @@ export class Container {
 	static #proxy = new Proxy<Container>({} as Container, {
 		get: function (_target, prop) {
 			// In case anyone has cached this instance
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			// oxlint-disable-next-line typescript/no-unsafe-return
 			if (Container.#instance != null) return (Container.#instance as any)[prop];
 
 			// Allow access to config before we are initialized
@@ -194,6 +189,28 @@ export class Container {
 		},
 	};
 
+	private _agentService: AgentService | undefined;
+
+	get agents(): AgentService {
+		return (this._agentService ??= new AgentService());
+	}
+
+	private readonly _gkCliService: GkCliService | undefined;
+
+	/** The GitKraken CLI service — owns binary install/update/version, IPC publish, authentication.
+	 *  Returns `undefined` on browser builds (CLI is Node-only). */
+	get gkCli(): GkCliService | undefined {
+		return this._gkCliService;
+	}
+
+	private readonly _gkMcpService: GkMcpService | undefined;
+
+	/** The GitKraken MCP service — owns MCP host registration + user-facing setup flows.
+	 *  Returns `undefined` on browser builds (MCP is Node-only). */
+	get gkMcp(): GkMcpService | undefined {
+		return this._gkMcpService;
+	}
+
 	private _agentStatusService: AgentStatusService | undefined;
 
 	get agentStatus(): AgentStatusService | undefined {
@@ -278,10 +295,6 @@ export class Container {
 		this._disposables.push(registerGraphWebviewCommands(this, graphPanels));
 		this._disposables.push(new GraphStatusBarController(this));
 
-		const composerPanels = registerComposerWebviewPanel(webviews);
-		this._disposables.push(composerPanels);
-		this._disposables.push(registerComposerWebviewCommands(this, composerPanels));
-
 		const timelinePanels = registerTimelineWebviewPanel(webviews);
 		this._disposables.push(timelinePanels);
 		this._disposables.push(registerTimelineWebviewCommands(this, timelinePanels));
@@ -291,6 +304,8 @@ export class Container {
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
 		this._disposables.push(registerSettingsWebviewCommands(settingsPanels));
+
+		this._disposables.push(registerAllowedSignersWebviewPanel(webviews));
 
 		this._disposables.push(new ViewFileDecorationProvider());
 
@@ -304,15 +319,21 @@ export class Container {
 		this._disposables.push(this._onDidChangeAgentStatus, {
 			dispose: () => this._agentStatusService?.dispose(),
 		});
-		this.updateAgentStatusService();
+		this.updateAiStatus();
 
 		if (configuration.get('terminalLinks.enabled')) {
 			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
 
-		const cliIntegration = getGkCliIntegrationProvider(this);
-		if (cliIntegration != null) {
-			this._disposables.push(cliIntegration);
+		// Both are Node-only (undefined on browser builds); the MCP service takes the CLI service as a
+		// dependency so it can wire its install/IPC listeners at construction.
+		this._gkCliService = getGkCliService(this);
+		if (this._gkCliService != null) {
+			this._disposables.push(this._gkCliService);
+			this._gkMcpService = getGkMcpService(this, this._gkCliService);
+			if (this._gkMcpService != null) {
+				this._disposables.push(this._gkMcpService);
+			}
 		}
 
 		this._disposables.push(
@@ -339,12 +360,12 @@ export class Container {
 				}
 
 				if (configuration.changed(e, 'ai.enabled')) {
-					this.updateAgentStatusService();
+					this.updateAiStatus();
 				}
 			}),
 			onDidChangeContext(key => {
 				if (key === 'gitlens:gk:organization:ai:enabled') {
-					this.updateAgentStatusService();
+					this.updateAiStatus();
 				}
 			}),
 		);
@@ -377,7 +398,12 @@ export class Container {
 
 		this._ready = true;
 		this._readyAt = Date.now();
-		await Promise.allSettled([this.registerGitProviders(), this.registerMcpProviders()]);
+		try {
+			await this.registerGitProviders();
+		} catch (ex) {
+			// Don't let a provider registration failure abort activation — better degraded than dead
+			Logger.error(ex, 'Failed to register Git providers');
+		}
 		queueMicrotask(() => this._onReady.fire());
 	}
 
@@ -386,18 +412,14 @@ export class Container {
 		await this._git.registerProviders();
 	}
 
-	@debug()
-	private async registerMcpProviders(): Promise<void> {
-		const mcpProviders = await getMcpProviders(this);
-		if (mcpProviders != null) {
-			this._disposables.push(...mcpProviders);
-		}
-	}
+	private updateAiStatus(): void {
+		// Visibility gate: require a CONFIRMED org state so AI/agent commands don't flash on before org
+		// settings load. `ai.orgEnabled` stays fail-open (defaults true) for runtime feature-access checks.
+		const allowed = this.ai.enabled && getContext('gitlens:gk:organization:ai:enabled') === true;
+		void setContext('gitlens:ai:allowed', allowed);
 
-	private updateAgentStatusService(): void {
-		const enabled = this.ai.enabled && this.ai.allowed;
-		const providers = enabled ? getAgentSessionProviders(this) : [];
-		const canEnable = enabled && providers.length > 0;
+		const providers = allowed ? getAgentSessionProviders(this) : [];
+		const canEnable = allowed && providers.length > 0;
 
 		void setContext('gitlens:agents:enabled', canEnable);
 
@@ -469,32 +491,13 @@ export class Container {
 		return this._cache;
 	}
 
-	private _cloudIntegrations: Promise<CloudIntegrationService | undefined> | undefined;
-	get cloudIntegrations(): Promise<CloudIntegrationService | undefined> {
-		if (this._cloudIntegrations == null) {
-			async function load(this: Container) {
-				try {
-					const cloudIntegrations = new (
-						await loadChunk(
-							() =>
-								import(
-									/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationService.js'
-								),
-						)
-					).CloudIntegrationService(this, this._connection);
-					return cloudIntegrations;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._cloudIntegrations = load.call(this);
+	private _featureFlags: FeatureFlagService | undefined;
+	get featureFlags(): FeatureFlagService {
+		if (this._featureFlags == null) {
+			this._disposables.push((this._featureFlags = new ConfigCatFeatureFlagService(this)));
 		}
-
-		return this._cloudIntegrations;
+		return this._featureFlags;
 	}
-
 	private _drafts: DraftService | undefined;
 	get drafts(): DraftService {
 		if (this._drafts == null) {
@@ -587,128 +590,28 @@ export class Container {
 		return this._git;
 	}
 
-	private _azure: Promise<AzureDevOpsApi | undefined> | undefined;
-	get azure(): Promise<AzureDevOpsApi | undefined> {
-		if (this._azure == null) {
-			async function load(this: Container) {
-				try {
-					const azure = new (
-						await loadChunk(
-							() =>
-								import(
-									/* webpackChunkName: "integrations" */ './plus/integrations/providers/azure/azure.js'
-								),
-						)
-					).AzureDevOpsApi(this);
-					this._disposables.push(azure);
-					return azure;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._azure = load.call(this);
-		}
-
-		return this._azure;
-	}
-
-	private _bitbucket: Promise<BitbucketApi | undefined> | undefined;
-	get bitbucket(): Promise<BitbucketApi | undefined> {
-		if (this._bitbucket == null) {
-			async function load(this: Container) {
-				try {
-					const bitbucket = new (
-						await loadChunk(
-							() =>
-								import(
-									/* webpackChunkName: "integrations" */ './plus/integrations/providers/bitbucket/bitbucket.js'
-								),
-						)
-					).BitbucketApi(this);
-					this._disposables.push(bitbucket);
-					return bitbucket;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._bitbucket = load.call(this);
-		}
-
-		return this._bitbucket;
-	}
-
-	private _github: Promise<GitHubApi | undefined> | undefined;
-	get github(): Promise<GitHubApi | undefined> {
-		if (this._github == null) {
-			async function load(this: Container) {
-				try {
-					const { createGitHubApi } = await loadChunk(
-						() =>
-							import(
-								/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github.js'
-							),
-					);
-					const github = createGitHubApi();
-					this._disposables.push(github);
-					return github;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._github = load.call(this);
-		}
-
-		return this._github;
-	}
-
-	private _gitlab: Promise<GitLabApi | undefined> | undefined;
-	get gitlab(): Promise<GitLabApi | undefined> {
-		if (this._gitlab == null) {
-			async function load(this: Container) {
-				try {
-					const gitlab = new (
-						await loadChunk(
-							() =>
-								import(
-									/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab.js'
-								),
-						)
-					).GitLabApi(this);
-					this._disposables.push(gitlab);
-					return gitlab;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._gitlab = load.call(this);
-		}
-
-		return this._gitlab;
-	}
-
 	@memoize()
 	get id(): string {
 		return this._context.extension.id;
 	}
 
-	private _integrations: IntegrationService | undefined;
-	get integrations(): IntegrationService {
-		if (this._integrations == null) {
-			const configuredIntegrationService = new ConfiguredIntegrationService(this);
-			const authService = new IntegrationAuthenticationService(this, configuredIntegrationService);
+	// Single host context shared by every integrations consumer (the manager, the cloud service, and
+	// the provider-API getters). Unlike git's stateless context, this one eagerly registers VS Code
+	// listeners + emitters, so building one per getter (6×) leaked redundant subscriptions.
+	private _integrationContext: ReturnType<typeof createIntegrationServiceContext> | undefined;
+	private get integrationContext(): ReturnType<typeof createIntegrationServiceContext> {
+		if (this._integrationContext == null) {
 			this._disposables.push(
-				authService,
-				configuredIntegrationService,
-				(this._integrations = new IntegrationService(this, authService, configuredIntegrationService)),
+				(this._integrationContext = createIntegrationServiceContext(this, this._connection)),
 			);
+		}
+		return this._integrationContext;
+	}
+
+	private _integrations: IntegrationManager | undefined;
+	get integrations(): IntegrationManager {
+		if (this._integrations == null) {
+			this._disposables.push((this._integrations = createIntegrationManager(this.integrationContext)));
 		}
 		return this._integrations;
 	}
@@ -840,6 +743,11 @@ export class Container {
 	private readonly _usage: UsageTracker;
 	get usage(): UsageTracker {
 		return this._usage;
+	}
+
+	/** Shared `GitLens/<version> (...)` User-Agent for outbound HTTP, sourced from the GK server connection. */
+	get userAgent(): string {
+		return this._connection.userAgent;
 	}
 
 	private readonly _walkthrough: WalkthroughStateProvider;

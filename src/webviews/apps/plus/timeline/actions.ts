@@ -17,8 +17,8 @@ import type { RepositoryChange, RepositoryChangeEventData } from '../../../rpc/s
 import { fireAndForget } from '../../shared/actions/rpc.js';
 import { createTelemetryContextUpdater } from '../../shared/actions/telemetry.js';
 import type { Resource } from '../../shared/state/resource.js';
-import { isPseudoCommitDatum } from './components/chart/timelineData.js';
 import type { CommitEventDetail } from './components/chart.js';
+import { isPseudoCommitDatum } from './components/chart/timelineData.js';
 import type { TimelineState } from './state.js';
 
 /** Change types that don't affect timeline chart data. Denylist for forward compatibility — new types trigger refresh by default. */

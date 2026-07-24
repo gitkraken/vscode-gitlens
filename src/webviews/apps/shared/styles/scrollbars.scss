@@ -8,7 +8,7 @@
 }
 
 @mixin scrollableBase() {
-	@include scrollbarFix();
+	@include scrollbarFix;
 
 	body {
 		&.scrollable,

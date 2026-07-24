@@ -1,36 +1,55 @@
 import type { Remote } from '@eamodio/supertalk';
-import { consume, provide } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getAltKeySymbol } from '@env/platform.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { StashApplyCommandArgs } from '../../../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
-import type { GraphDetailsMode } from '../../../../../constants.telemetry.js';
+import type { GraphDetailsMode, GraphWipAction } from '../../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
-import type { GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
+import type { ConflictSide, GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
+import type {
+	GetWipLineStatsResponse,
+	GraphComposeScopeSeed,
+	GraphItemContext,
+	State,
+} from '../../../../plus/graph/protocol.js';
 import {
 	getSecondaryWipPath,
+	GetWipLineStatsRequest,
 	isSecondaryWipSha,
 	isWipSha,
 	UpdateWipDraftCommand,
 } from '../../../../plus/graph/protocol.js';
+import type { AiModelInfo, ConflictDetails } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
-import type { CopyWipPatchEventDetail, OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
+import type {
+	CopyCommitPatchEventDetail,
+	CopyWipPatchEventDetail,
+	OpenMultipleChangesArgs,
+} from '../../../shared/actions/file.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
+import type { GraphLaunchpadState } from '../graphLaunchpadState.js';
+import { graphLaunchpadContext } from '../graphLaunchpadState.js';
+import type { AnchorKey } from './anchorKey.js';
 import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
 import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
@@ -43,28 +62,35 @@ import { DetailsWorkflowController } from './detailsWorkflowController.js';
 import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
 import { expandVisibleCategories } from './gl-details-agent-status.js';
 import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
+import { hasOnlyWip } from './gl-details-compare-mode-panel.js';
+import type { GlDetailsComposeModePanel } from './gl-details-compose-mode-panel.js';
+import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.js';
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
 	ReviewOpenFileDetail,
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
+import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
+import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/split-panel/split-panel.js';
+import './gl-wip-conflict-sheet.js';
 import './gl-details-multicommit-panel.js';
 import './gl-details-compose-mode-panel.js';
 import './gl-details-review-mode-panel.js';
 import './gl-details-resolve-mode-panel.js';
 import './gl-commit-box.js';
-import './gl-details-compare-mode-panel.js';
 import './gl-details-wip-empty-pane.js';
 import './gl-details-wip-header.js';
+import './gl-graph-branch-sheet-pane.js';
 
 interface ResolvedContent {
 	content: ReturnType<typeof html> | typeof nothing;
@@ -110,6 +136,20 @@ function formatModeCounts(primary: number, files: number, primaryLabel: 'commits
 	</button>`;
 }
 
+/** "<verb> with <model>..." generating snippet for the mode-status row. The model name carries the
+ *  full "provider · model" in a gl-tooltip; falls back to the bare verb when no model is known. */
+function formatGeneratingStatus(verb: 'Composing' | 'Reviewing' | 'Resolving', model: AiModelInfo | undefined) {
+	if (model == null) return `${verb}...`;
+
+	const full = `${model.provider.name} · ${model.name}`;
+	// Wrap in a single element so the `.mode-status` flex `gap` doesn't insert space around the
+	// model name — inside, the verb/name/ellipsis flow as plain inline text.
+	return html`<span class="mode-status__generating"
+		>${verb} with <gl-tooltip content=${full}><span class="mode-status__model">${model.name}</span></gl-tooltip
+		>...</span
+	>`;
+}
+
 declare global {
 	interface GlobalEventHandlersEventMap {
 		'gl-graph-details-mode-changed': CustomEvent<{
@@ -118,6 +158,9 @@ declare global {
 		}>;
 	}
 }
+
+type PanelOrientation = 'horizontal' | 'vertical';
+const narrowPanelThreshold = 600;
 
 @customElement('gl-graph-details-panel')
 export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
@@ -128,8 +171,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: true })
 	private _graphState?: typeof graphStateContext.__context__;
 
+	// Shared Launchpad summary, owned/fetched by `gl-graph-app`. Read here only to feed the WIP
+	// empty pane — this panel no longer fetches it. `hasIntegrationsConnected` stays in
+	// `detailsState` (its other consumers — compare/multi-commit panels — still need it).
+	@consume({ context: graphLaunchpadContext, subscribe: true })
+	private _launchpadState?: GraphLaunchpadState;
+
 	@consume({ context: ipcContext })
 	private _ipc?: typeof ipcContext.__context__;
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
 
 	/** Provider lives on `gl-graph-app`. The workflow controller writes the running-modes
 	 *  registry through this; other panes (graph row component) read it for adornments. */
@@ -173,16 +225,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const mode = this._state.activeMode.get();
 		if (mode !== 'review' && mode !== 'compose' && mode !== 'resolve') return undefined;
 
+		return this._crossPaneState?.runningOperations.get().get(this.engagedAnchorKey)?.[mode];
+	}
+
+	/** Anchor key the engaged mode's registry entry is looked up under — the locked anchor for
+	 *  commit/multicommit contexts, else the current selection. */
+	private get engagedAnchorKey(): AnchorKey {
 		const ctx = this._state.activeModeContext.get();
 		const isLockedCommit = ctx === 'commit' || ctx === 'multicommit';
-		const key = isLockedCommit
+		return isLockedCommit
 			? anchorKey({
 					sha: this._state.activeModeSha.get(),
 					shas: this._state.activeModeShas.get(),
 					repoPath: this._state.activeModeRepoPath.get(),
 				})
 			: anchorKey({ sha: this.sha, shas: this.shas, repoPath: this.repoPath });
-		return this._crossPaneState?.runningOperations.get().get(key)?.[mode];
 	}
 
 	/** Per-mode exec state + has-result of the engaged anchor's entry — drives the suffix-icon
@@ -193,29 +250,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  entry, this reads from the current selection's anchor so the chip overlay continues to
 	 *  reflect the registry. */
 	private get engagedModeStatus():
-		| Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>>
+		| Partial<
+				Record<'review' | 'compose' | 'resolve', { execState: RunningOperationExecState; hasResult: boolean }>
+		  >
 		| undefined {
-		const ctx = this._state.activeModeContext.get();
-		const isLockedCommit = ctx === 'commit' || ctx === 'multicommit';
-		const key = isLockedCommit
-			? anchorKey({
-					sha: this._state.activeModeSha.get(),
-					shas: this._state.activeModeShas.get(),
-					repoPath: this._state.activeModeRepoPath.get(),
-				})
-			: anchorKey({ sha: this.sha, shas: this.shas, repoPath: this.repoPath });
-		const bucket = this._crossPaneState?.runningOperations.get().get(key);
+		const bucket = this._crossPaneState?.runningOperations.get().get(this.engagedAnchorKey);
 		if (bucket == null) return undefined;
 
-		const out: Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>> =
-			{};
+		const out: Partial<
+			Record<'review' | 'compose' | 'resolve', { execState: RunningOperationExecState; hasResult: boolean }>
+		> = {};
 		if (bucket.review != null) {
 			out.review = { execState: bucket.review.execState, hasResult: bucket.review.result != null };
 		}
 		if (bucket.compose != null) {
 			out.compose = { execState: bucket.compose.execState, hasResult: bucket.compose.result != null };
 		}
-		return out.review != null || out.compose != null ? out : undefined;
+		if (bucket.resolve != null) {
+			out.resolve = { execState: bucket.resolve.execState, hasResult: bucket.resolve.result != null };
+		}
+		return out.review != null || out.compose != null || out.resolve != null ? out : undefined;
 	}
 
 	@provide({ context: detailsStateContext })
@@ -246,20 +300,46 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		repoPath: string;
 		sha: string;
 		focusedFilePaths?: readonly string[];
+		composeInstructions?: string;
+		composeScope?: GraphComposeScopeSeed;
 	};
+
+	/** Seed value for the compose panel's idle AI-instructions input, delivered by an external
+	 *  entry point (e.g. the MCP compose tool's instructions) — parity with the retired standalone
+	 *  composer's `autoComposeInstructions`. Seed only; never triggers generation. Scoped to the
+	 *  anchor it was delivered for and cleared when compose deactivates (plus cancel/discard), so
+	 *  it can't resurface on a later manual entry; the engaged entry's `basePrompt` always wins
+	 *  when a session exists. */
+	@state()
+	private _composeSeedInstructions?: { anchorKey: AnchorKey; instructions: string };
 
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
 
-	/** User's dragged splitter position (1-99 %) for the agents/WIP split in `expanded` mode.
-	 *  Set only by pointer drag (see {@link _onAgentStatusSplitChange} / {@link _onAgentStatusSplitDragEnd});
-	 *  ResizeObserver / keyboard-driven `gl-split-panel-change` events deliberately don't write
-	 *  here so a container resize never silently latches the user-size mode. Cleared by the sash
-	 *  dbl-click reset; preserved across collapse cycles so re-expanding (chevron, WIP indicator,
-	 *  sidebar/kanban select) restores the user's last chosen size. `undefined` means "use the
-	 *  default expanded position" — see {@link agentStatusDefaultPct}. */
+	/** User's chosen splitter position (1-99 %) for the agents/WIP split in `expanded` mode.
+	 *  Set by pointer drag OR keyboard resize (see {@link _onAgentStatusSplitChange} /
+	 *  {@link _onAgentStatusSplitDragEnd}). Container resizes never write here because `gl-split-panel`
+	 *  no longer emits `gl-split-panel-change` on resize — it holds the primary panel's pixel width
+	 *  silently — so a resize can't latch the user-size mode. Cleared by the sash dbl-click reset;
+	 *  preserved across collapse cycles so re-expanding (chevron, WIP indicator, sidebar/kanban
+	 *  select) restores the user's last chosen size. `undefined` means "use the default expanded
+	 *  position" — see {@link agentStatusDefaultPct}. */
 	@state()
 	private _agentStatusSplitPosition?: number;
+
+	/** Per-file working-tree line stats (keyed by normalized path) for the WIP file rows. Fetched
+	 *  lazily via {@link GetWipLineStatsRequest} — only while the WIP file list is shown — since the
+	 *  every-tick `wip` push carries file status only, never line counts. */
+	@state()
+	private _wipFileStats?: GetWipLineStatsResponse;
+	/** The `wip` snapshot the current {@link _wipFileStats} were requested for. Reference-compared so
+	 *  each fresh working-tree push (a new `wip` object) triggers exactly one refetch, and re-selecting
+	 *  the same snapshot doesn't. */
+	private _wipFileStatsFetchedFor?: Wip;
+
+	/** Worktree path the past-agent-sessions resource was last fetched for — dedupes
+	 *  {@link updateWipPastSessions} so re-rendering the same WIP row doesn't refetch. */
+	private _lastPastSessionsPath?: string;
 
 	/** User's explicit choice for the agents-pane mode — collapsed (bar only) or expanded
 	 *  (all cards). Flipped by chevron clicks via {@link _onAgentStatusExpandRequest}. The
@@ -319,18 +399,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private readonly _onAgentStatusSplitChange = (e: CustomEvent<{ position: number }>) => {
-		// Only persist user drag while in `expanded` — collapsed/partial render via fit-content,
-		// not the position attribute, so writes there would silently overwrite the expanded-mode
-		// position with a value that never even drove a render.
+		// Only persist while in `expanded` — collapsed/partial render via fit-content, not the
+		// position attribute, so writes there would silently overwrite the expanded-mode position
+		// with a value that never even drove a render. Drag and keyboard resizes both persist here;
+		// container resizes don't reach this handler (split-panel holds the primary pixel width
+		// silently, with no emit on resize), so no `dragging` gate is needed.
 		if (this.agentStatusExpand !== 'expanded') return;
-
-		// Gate on `dragging` — this event also fires from split-panel's internal ResizeObserver
-		// (container resize) and keyboard nudges; recording those would clobber the user's
-		// intended size with whatever the layout engine just computed. The `dragging` attribute
-		// is the host's source of truth for "pointer is down on the divider". `drag-end` is the
-		// fallback for the final value when the change event misses it.
-		const splitPanel = e.currentTarget;
-		if (!(splitPanel instanceof HTMLElement) || !splitPanel.hasAttribute('dragging')) return;
 
 		this._agentStatusSplitPosition = e.detail.position;
 	};
@@ -442,12 +516,100 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@property({ attribute: false })
 	navigation?: NavigationState;
 
+	/** True when the details panel is docked bottom — gates the maximize/restore chip in every mode's
+	 *  toolbar. Forwarded to each mode sub-panel. */
+	@property({ type: Boolean, attribute: 'show-maximize' })
+	showMaximize = false;
+
+	/** Whether the panel is currently maximized — drives the maximize chip's icon/label. */
+	@property({ type: Boolean })
+	maximized = false;
+
 	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
 	}
 
 	private get isWip(): boolean {
 		return isWipSha(this.sha);
+	}
+
+	/** Lazily fetch the per-file WIP line stats when the WIP file list is shown, deduped per `wip`
+	 *  snapshot. Called from {@link updated} so it re-runs whenever the selection/mode/wip signals
+	 *  change.
+	 *
+	 *  TODO(revisit): refetch is driven by `wip`-reference changes, and the host dedups WIP pushes by
+	 *  `git status` content — which has no line info. So a pure line edit within an already-modified
+	 *  file (same status) won't refresh the `+N −M` until a file-set/status change, WIP re-select, or
+	 *  manual refresh. Making it update per-save means running the diff on every FS tick while the
+	 *  panel is open (host-driven); revisit if the staleness-during-editing proves annoying. */
+	private updateWipFileStats(): void {
+		// Only when the plain WIP file list is on screen (not review/compose/resolve modes) and there
+		// are files to diff — a clean tree has nothing to show and shouldn't cost a `git diff`.
+		const wip = this._state.activeMode.get() == null && this.isWip ? this._state.wip.get() : undefined;
+		const repoPath = wip?.repo?.path;
+		if (wip == null || !repoPath || (wip.changes?.files?.length ?? 0) === 0) {
+			// Left the WIP view (or nothing to show) — drop stale stats so re-entry refetches fresh.
+			if (this._wipFileStatsFetchedFor != null) {
+				this._wipFileStatsFetchedFor = undefined;
+				this._wipFileStats = undefined;
+			}
+			return;
+		}
+
+		if (this._wipFileStatsFetchedFor === wip) return;
+
+		// On a repo/worktree switch, drop the prior repo's numbers immediately so we never show them
+		// against the new tree; same-repo working-tree ticks update in place (no row flicker).
+		if (this._wipFileStatsFetchedFor?.repo?.path !== repoPath) {
+			this._wipFileStats = undefined;
+		}
+		this._wipFileStatsFetchedFor = wip;
+
+		void this._ipc?.sendRequest(GetWipLineStatsRequest, { repoPath: repoPath }).then(stats => {
+			// Ignore a response a newer snapshot (or a view change) has already superseded.
+			if (this._wipFileStatsFetchedFor === wip) {
+				this._wipFileStats = stats ?? undefined;
+			}
+		});
+	}
+
+	/** Lazily fetch the worktree's past (resumable) agent sessions while a WIP row is selected,
+	 *  mirroring {@link updateWipFileStats}. Dedupes on {@link _lastPastSessionsPath} so re-rendering
+	 *  the same worktree doesn't refetch; the `Resource` itself (a `SignalWatcher` dependency) drives
+	 *  the re-render once the fetch resolves. */
+	private updateWipPastSessions(): void {
+		if (!this.isWip) return;
+
+		const worktreePath = this._state.wip.get()?.repo?.path;
+		if (worktreePath == null || worktreePath === this._lastPastSessionsPath) return;
+
+		this._lastPastSessionsPath = worktreePath;
+		void this._actions?.resources.pastAgentSessions.fetch(worktreePath);
+	}
+
+	/** Attach the lazily-fetched per-file line stats to the WIP file rows so `gl-file-tree-pane`
+	 *  renders `+N −M` decorations. Returns the raw files unchanged until the stats arrive. */
+	private buildWipFiles(wip: Wip): Wip['changes'] {
+		const files = wip.changes?.files;
+		const stats = this._wipFileStats;
+		if (wip.changes == null || files == null || stats == null) return wip.changes;
+
+		return {
+			...wip.changes,
+			files: files.map(f => {
+				const s = stats[normalizePath(f.path)];
+				return s != null
+					? {
+							...f,
+							stats: {
+								additions: s.additions,
+								deletions: s.deletions,
+								changes: s.additions + s.deletions,
+							},
+						}
+					: f;
+			}),
+		};
 	}
 
 	/** Active mode used for telemetry — combines `activeMode` (review/compose), compare-sheet
@@ -466,6 +628,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** Last value reported via `gl-graph-details-mode-changed` — guards the dispatch in `updated()`
 	 *  so the event fires only on real transitions, not on re-renders that don't change the mode. */
 	private _lastNotifiedMode: GraphDetailsMode = 'none';
+
+	/** One-shot: set before a programmatic (ambient) mode entry so `updated()` skips the AI-input
+	 *  focus — keeps focus-on-entry for deliberate toggles only. Consumed every `updated()`. */
+	private _suppressModeFocusOnce = false;
 
 	/** Returns the effective context, respecting mode lock when active. */
 	private get effectiveContext(): DetailsContext {
@@ -529,9 +695,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return repos?.[0]?.path;
 	}
 
-	/** Paused-op banner "Resolve Conflicts with AI" — enters resolve mode for all conflicts on the
-	 *  shown WIP. Uses `enterModeForWip` (not `toggleMode`) so a click while resolve mode is already
-	 *  engaged re-focuses instead of exiting. */
+	/** Paused-op banner "Resolve Conflicts" text + the file-tree toolbar button — enters resolve mode
+	 *  for all conflicts on the shown WIP. Uses `enterModeForWip` (not `toggleMode`) so a click while
+	 *  resolve mode is already engaged re-focuses instead of exiting. */
 	private handleAiResolveConflicts = (): void => {
 		const repoPath = this._state.wip.get()?.repo.path ?? this.effectiveRepoPath;
 		if (!repoPath) return;
@@ -560,10 +726,36 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (mode !== 'review' && mode !== 'compose' && mode !== 'resolve') return;
 
 		this.suppressContentOverflow();
+		this._composeSeedInstructions = undefined;
 		// Telemetry for the cancelled outcome is emitted from the workflow controller's settled
 		// path so we don't double-emit when the host's abort propagates through onRunSettled.
 		this._workflow.cancelOperation(mode);
 	};
+
+	/** Handler for `compose-discard` — fired by the Discard button on a ready compose plan.
+	 *  Tears down the engaged compose operation and exits compose mode, returning to plain WIP
+	 *  details. The user's working-tree changes are untouched; only the proposed plan is discarded. */
+	private handleDiscardMode = (): void => {
+		if (this._state.activeMode.get() !== 'compose') return;
+
+		this.suppressContentOverflow();
+		this._composeSeedInstructions = undefined;
+		this._actions.sendTelemetryEvent('graphDetails/compose/closed');
+		this._workflow.compose.discard();
+	};
+
+	/** Toggle a commit's exclusion from the AI recompose. Excluded commits are forwarded to
+	 *  `refinePlan` as `lockedCommits` so the AI preserves them verbatim across refinements. */
+	private handleComposeRefineExcludeToggle(commitId: string, excluded: boolean): void {
+		const current = this._state.composeRefineExcludedCommitIds.get();
+		const next = new Set(current);
+		if (excluded) {
+			next.add(commitId);
+		} else {
+			next.delete(commitId);
+		}
+		this._state.composeRefineExcludedCommitIds.set(next);
+	}
 
 	/** External entry point — invoked when the extension requests entering compare mode with
 	 *  explicit left/right refs (e.g. from a sidebar tree compare action). The current graph
@@ -600,6 +792,81 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			includeWorkingTree: params.includeWorkingTree,
 		});
 		return true;
+	}
+
+	// ─── Branch/tag sheet (prototype) ───────────────────────────────────────────────────────────
+	// A click on a branch/tag ref pill toggles a sheet over the details content (mirrors the compare
+	// sheet's gl-detail-sheet treatment), scoped to the clicked ref. Content lives in
+	// `gl-graph-branch-sheet-pane`; this panel owns the open/close state + the Focus chrome action.
+	@state() private _branchSheet?: BranchSheetRef;
+
+	/** The `_graphState.rows` reference last seen by {@link willUpdate} — compared by identity to
+	 *  detect a host row push (repo/branch data changed) and bump {@link _branchSheetChangeStamp}. */
+	private _lastGraphRows?: State['rows'];
+	/** Monotonic stamp threaded down to `gl-graph-branch-sheet-pane` so an open sheet can refresh
+	 *  its enrichment in place when the graph's row/branch data changes underneath it. */
+	private _branchSheetChangeStamp = 0;
+
+	/** Optimistic pin-to-edge state for the open sheet's branch — seeded from the ref context's
+	 *  `+pinned` flag and flipped locally on toggle (the snapshot context can't refresh mid-open). */
+	@state() private _branchSheetPinned?: boolean;
+
+	/** Open the branch/tag sheet for `ref` (the graph owns the pinned/focus state + decides when to
+	 *  open vs close, so this just sets). */
+	openBranchSheet(ref: BranchSheetRef): void {
+		this._branchSheet = ref;
+		this._branchSheetPinned = undefined;
+	}
+
+	/** Close the branch/tag sheet. */
+	closeBranchSheet(): void {
+		this._branchSheet = undefined;
+	}
+
+	private handleCloseBranchSheet = (): void => {
+		this._branchSheet = undefined;
+	};
+
+	/** ⋮ in the sheet title → the same VS Code context menu as the graph row: synthesize a
+	 *  `contextmenu` at the chip so the host resolves its `data-vscode-context`. */
+	private handleBranchSheetKebabClick = (e: MouseEvent): void => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		const target = e.currentTarget as HTMLElement | null;
+		if (target == null) return;
+
+		const rect = target.getBoundingClientRect();
+		target.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				composed: true,
+				cancelable: true,
+				clientX: rect.left,
+				clientY: rect.bottom,
+				button: 2,
+			}),
+		);
+	};
+
+	private handleBranchSheetAction(action: string, ref: BranchSheetRef): void {
+		// Focus is a chrome action that reuses the existing scope pipeline; the sheet's content
+		// actions (switch/publish/sync/PR/merge-target) are self-contained in gl-graph-branch-sheet-pane.
+		if (action === 'focus') {
+			// Scope-to-branch resolves a LOCAL branch by name; a tag or remote ref name would resolve to a
+			// synthesized/non-existent local branch, so only focus local heads. (Remote-branch focus needs
+			// proper ref resolution — a follow-up.)
+			if (ref.refType !== 'head') return;
+
+			this.dispatchEvent(
+				new CustomEvent('gl-graph-scope-to-branch', {
+					detail: { branchName: ref.name },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+			this._branchSheet = undefined;
+		}
 	}
 
 	/** Entry point for the WIP-row agent indicator. Expands the agents section.
@@ -873,11 +1140,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		repoPath: string,
 		sha: string,
 		focusedFilePaths?: readonly string[],
+		composeInstructions?: string,
+		composeScope?: GraphComposeScopeSeed,
 	): void {
 		if (this._workflow == null) {
 			// Element mounted but async init (resolveDetailsActions → controller) hasn't finished —
 			// defer and apply once `_workflow` exists. Mirrors the `_pendingCompare` path.
-			this._pendingMode = { mode: mode, repoPath: repoPath, sha: sha, focusedFilePaths: focusedFilePaths };
+			this._pendingMode = {
+				mode: mode,
+				repoPath: repoPath,
+				sha: sha,
+				focusedFilePaths: focusedFilePaths,
+				composeInstructions: composeInstructions,
+				composeScope: composeScope,
+			};
 			return;
 		}
 
@@ -894,6 +1170,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			shas: undefined,
 			repoPath: repoPath,
 		};
+
+		if (mode === 'compose') {
+			this._composeSeedInstructions =
+				composeInstructions != null
+					? { anchorKey: anchorKey(selection), instructions: composeInstructions }
+					: undefined;
+		}
 		// Compare by full anchor key so primary↔secondary WIP re-clicks (which differ only in
 		// `repoPath` after both collapse to a `wip|...` key) stay distinct.
 		const engaged = anchorKey({
@@ -901,6 +1184,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			shas: this._state.activeModeShas.get(),
 			repoPath: this._state.activeModeRepoPath.get(),
 		});
+		// Recompose: a resolved commit-range seed always (re)applies the scope, so it must run
+		// before the re-click no-op guard below. enterComposeWithScope switches the scope in place
+		// when compose is still idle on this anchor, or preserves an already-started plan.
+		if (mode === 'compose' && composeScope != null) {
+			this._workflow.enterComposeWithScope(selection, composeScope.shas, composeScope.includeWip);
+			return;
+		}
+
+		// Re-clicking the same mode on the same anchor is a no-op (re-focus).
 		if (this._state.activeMode.get() === mode && engaged === anchorKey(selection)) return;
 
 		this._workflow.toggleMode(mode, selection);
@@ -919,28 +1211,47 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this;
 	}
 
+	private _resizeObserver?: ResizeObserver;
+	@state() private _preferredCompareOrientation: PanelOrientation = 'vertical';
+
+	/** Open state + lazily-fetched data for the WIP Conflict Details sheet (undefined = closed). */
+	@state()
+	private _conflictSheet?: {
+		detail: FileChangeListItemDetail;
+		fileName: string;
+		loading: boolean;
+		error: boolean;
+		details?: ConflictDetails;
+	};
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.addEventListener('switch-model', this.handleSwitchModel);
+		// Tracks panel width → preferred orientation for promoting the compare sheet to a pinned
+		// panel; the observer's initial callback seeds it, so no synchronous width read is needed.
+		this._resizeObserver = new ResizeObserver(entries => {
+			this._preferredCompareOrientation =
+				(entries[0]?.contentRect.width ?? this.clientWidth) >= narrowPanelThreshold ? 'horizontal' : 'vertical';
+		});
+		this._resizeObserver.observe(this);
 	}
 
 	private handleSwitchModel = (): void => {
-		// Switch-model is shared by both the review-mode and compose-mode chips in this panel
-		// — derive the scope from the active mode so each surface writes to its own scoped
+		// Switch-model is shared by the review-mode, compose-mode, and resolve-mode chips in this
+		// panel — derive the scope from the active mode so each surface writes to its own scoped
 		// Memento key. Falls back to the global default when no mode is active (e.g., when
 		// the chip is shown elsewhere).
 		const mode = this._state.activeMode.get();
-		const scope = mode === 'compose' || mode === 'review' ? mode : undefined;
+		const scope = mode === 'compose' || mode === 'review' || mode === 'resolve' ? mode : undefined;
 		this._actions?.switchAIModel(scope);
 	};
 
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 	private readonly _modifiers = new ModifierKeysController(this);
-	/** Timers stored so `disconnectedCallback` can cancel them — otherwise a fast open/close
+	/** Timer stored so `disconnectedCallback` can cancel it — otherwise a fast open/close
 	 *  cycle leaves the callback firing on a detached element with `style.overflow = ''` (no
 	 *  crash, but leaks DOM references for the timer's lifetime and stacks under rapid toggling). */
 	private _suppressContentOverflowTimer?: ReturnType<typeof setTimeout>;
-	private _suppressModePanelOverflowTimer?: ReturnType<typeof setTimeout>;
 	/** Debounced WIP-draft flush. Cleared on row swap (the new selection schedules its own). */
 	private _flushWipDraftTimer?: ReturnType<typeof setTimeout>;
 	/** Payload that will be sent when {@link _flushWipDraftTimer} fires — kept on the instance
@@ -981,32 +1292,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	}
 
-	/** Clamps the mode panel host's `overflow` to `hidden` for ~250ms so the transient
-	 *  scrollbar that appears during an in-mode anchor switch (new scope picker / loading
-	 *  placeholders briefly overflow before settling) can't reflow content width and read as
-	 *  a panel "jump". `.suppressContentOverflow()` above clamps `.details-content` in the
-	 *  *light DOM*; the mode panel's own `:host` scrollbar (its shadow root) doesn't honor
-	 *  that, so it gets its own inline-style clamp here. Pierces shadow DOM because the mode
-	 *  panel can render directly in light DOM (WIP anchor) or nested inside the commit panel's
-	 *  shadow root (commit/multicommit anchor's `subPanelContent`). */
-	private suppressModePanelOverflow(): void {
-		const panel = this.findModePanelDeep(this);
-		if (panel == null) return;
-
-		panel.style.overflow = 'hidden';
-		clearTimeout(this._suppressModePanelOverflowTimer);
-		this._suppressModePanelOverflowTimer = setTimeout(() => {
-			this._suppressModePanelOverflowTimer = undefined;
-			if (this.isConnected) {
-				panel.style.overflow = '';
-			}
-		}, 250);
-	}
-
 	private findModePanelDeep(root: ParentNode | ShadowRoot, depth = 0): HTMLElement | null {
 		if (depth > 6) return null;
 
-		const here = root.querySelector<HTMLElement>('gl-details-review-mode-panel, gl-details-compose-mode-panel');
+		const here = root.querySelector<HTMLElement>(
+			'gl-details-review-mode-panel, gl-details-compose-mode-panel, gl-details-resolve-mode-panel',
+		);
 		if (here != null) return here;
 
 		for (const el of root.querySelectorAll<HTMLElement>('*')) {
@@ -1046,10 +1337,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 		this.removeEventListener('switch-model', this.handleSwitchModel);
+		this._resizeObserver?.disconnect();
+		this._resizeObserver = undefined;
 		clearTimeout(this._suppressContentOverflowTimer);
 		this._suppressContentOverflowTimer = undefined;
-		clearTimeout(this._suppressModePanelOverflowTimer);
-		this._suppressModePanelOverflowTimer = undefined;
 		// Flush rather than cancel — closing the webview within the debounce window after a
 		// commit (which sets message='' + amend=false) would otherwise drop the `draft: null`
 		// IPC, leaving the just-committed message stale in the memento.
@@ -1065,7 +1356,33 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this.isWip;
 	}
 
+	/** Bumps the open sheet's stamp so it refetches — see {@link DetailsWorkflowController}.
+	 *  `_branchSheetChangeStamp` isn't reactive, so this needs an explicit `requestUpdate`. */
+	refreshBranchSheet(): void {
+		if (this._branchSheet == null) return;
+
+		this._branchSheetChangeStamp++;
+		this.requestUpdate();
+	}
+
 	override willUpdate(changedProperties: Map<string, unknown>): void {
+		// `_graphState` is a plain `@consume`d context value (no `@state()`), so its own changes
+		// don't show up in `changedProperties` — piggyback on whatever else triggered this cycle and
+		// reference-compare `rows` directly. Bumping ahead of `render()` (rather than in `updated()`)
+		// means the branch sheet pane sees the fresh stamp in the SAME cycle the rows changed.
+		if (this._graphState?.rows !== this._lastGraphRows) {
+			this._lastGraphRows = this._graphState?.rows;
+			this._branchSheetChangeStamp++;
+		}
+
+		// The externally-delivered compose seed is one-shot: once compose deactivates (toggle-off,
+		// mode/selection/repo switch, apply), drop it so a later manual entry starts empty. The
+		// seed is set just before the mode activates in the same update cycle, so an active
+		// compose never observes this clear.
+		if (this._composeSeedInstructions != null && this._state.activeMode.get() !== 'compose') {
+			this._composeSeedInstructions = undefined;
+		}
+
 		const selectionChanged =
 			changedProperties.has('sha') || changedProperties.has('shas') || changedProperties.has('repoPath');
 
@@ -1079,6 +1396,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// gets repopulated the next time we land on a WIP row with sessions.
 		if (selectionChanged && this._prevAgentSnapshot.size > 0) {
 			this._prevAgentSnapshot = new Map();
+		}
+
+		// A selection change moves the panel to a different commit; a stale sheet from the PRIOR ref
+		// would overlay and `?inert`-block the new content, so close it. BUT the pill click that opens
+		// the sheet ALSO selects the pill's own tip row in the same cycle — so close only when the new
+		// selection is a DIFFERENT row than the sheet ref's tip (else the sheet would never open unless
+		// the tip was already selected).
+		if (selectionChanged && this._branchSheet != null) {
+			const sheetSha = this._branchSheet.sha;
+			if (sheetSha == null || this.sha !== sheetSha) {
+				this._branchSheet = undefined;
+			}
 		}
 
 		// Locked-panel case: a commit/multi-commit running session keeps the details panel
@@ -1105,8 +1434,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			!isLockedCommitRunningOperation
 		) {
 			const activeMode = this._state.activeMode.get();
-			if (activeMode === 'review' || activeMode === 'compose') {
-				this.suppressModePanelOverflow();
+			if (activeMode === 'review' || activeMode === 'compose' || activeMode === 'resolve') {
+				// Ambient anchor-switch (not a deliberate toggle) - don't let a restored mode steal focus.
+				this._suppressModeFocusOnce = true;
 				this._workflow.switchAnchorWithinMode(this.currentSelection());
 			} else if (activeMode == null && this.isWip) {
 				// Auto-restore is gated to WIP rows: WIP has a stable identity (the branch's
@@ -1115,7 +1445,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// review just because the user reviewed it earlier in the session.
 				const remembered = this._workflow.getRememberedMode(this.currentSelection());
 				if (remembered != null) {
-					this.suppressModePanelOverflow();
+					// Ambient restore (WIP reselect), not a deliberate toggle - suppress the focus steal.
+					this._suppressModeFocusOnce = true;
 					this._workflow.toggleMode(remembered, this.currentSelection());
 				}
 			}
@@ -1228,6 +1559,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	override updated(changedProperties: Map<string, unknown>): void {
+		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
+		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
+		this.updateWipFileStats();
+		this.updateWipPastSessions();
+
+		// The branch sheet just closed (any path: Esc/X/scrim, the Focus action, the sheet's own
+		// close-request on a deleted branch, the selection-change auto-close above, OR a graph-
+		// initiated close like click-outside-dismiss round-tripping back through `closeBranchSheet`).
+		// Notify the graph so its click-pinned ref focus never outlives the sheet — see
+		// `GlLitGraph.clearRefFocus`, which is itself idempotent, so a graph-initiated close doesn't loop.
+		if (changedProperties.has('_branchSheet')) {
+			const wasOpen = (changedProperties.get('_branchSheet') as BranchSheetRef | undefined) != null;
+			if (wasOpen && this._branchSheet == null) {
+				this.dispatchEvent(new CustomEvent('gl-graph-branch-sheet-closed', { bubbles: true, composed: true }));
+			}
+		}
+
 		if (changedProperties.has('_remoteServices') && this._remoteServices != null && !this._servicesResolved) {
 			this._servicesResolved = true;
 			void this.resolveServices(this._remoteServices);
@@ -1379,13 +1727,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				}),
 			);
 
-			// Land caret in the AI input when the user enters compose/review. Defer one frame so
-			// the mode panel has rendered. Only fires on a fresh transition INTO the mode (not on
-			// re-renders within the mode), so it doesn't fight the user's own focus moves.
-			if (currentMode === 'compose' || currentMode === 'review') {
+			// Land caret in the AI input only on a DELIBERATE entry (a mode toggle). Programmatic entries
+			// — remembered-mode auto-restore on WIP reselect, anchor-switch — set the suppress flag so
+			// merely showing the panel never steals keyboard focus. Deferred one frame in focusModeAiInput.
+			if (
+				!this._suppressModeFocusOnce &&
+				(currentMode === 'compose' || currentMode === 'review' || currentMode === 'resolve')
+			) {
 				this.focusModeAiInput();
 			}
 		}
+		// One-shot: consume the suppression each cycle (switchAnchorWithinMode can net to the same mode
+		// with no transition) so it never leaks into a later deliberate entry.
+		this._suppressModeFocusOnce = false;
 
 		// Reflect `activeMode` to `data-mode` so descendants can pick up the per-mode accent
 		// color token (compose → purple, review → green) from `mode.css.ts`. The attribute is
@@ -1410,7 +1764,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  the snippet entirely. Reads from existing signals only; no new IPC.
 	 *
 	 *  Priority order — generating > error > backed > complete > scope-idle:
-	 *  - generating: "Generating…" / "Reviewing…"
+	 *  - generating: "Composing..." / "Reviewing..." / "Resolving..."
 	 *  - error:      "Error"
 	 *  - backed:     reuses the back-preview snapshot's counts
 	 *  - complete:   counts from the resolved resource value
@@ -1421,15 +1775,28 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (mode === 'resolve') {
 			const status =
 				this.engagedRunningOperation?.kind === 'resolve' ? this.engagedRunningOperation.execState : undefined;
-			if (status === 'generating') return this._state.resolveProgressMessage.get() ?? 'Resolving…';
+			if (status === 'generating') return formatGeneratingStatus('Resolving', this._state.aiModel.get());
 			if (status === 'error') return 'Error';
+
+			// Complete: show a resolved-files count in the identity row, mirroring compose/review's
+			// snippet (resolve has no Resume, so this is the plain non-clickable count only).
+			const value = this._actions?.resources?.resolve.value.get();
+			if (value != null && 'result' in value && value.result?.resolutions) {
+				const count = value.result.resolutions.filter(r => r.strategy !== 'skipped').length;
+				if (count > 0) {
+					return html`<span class="mode-status__group"
+						><code-icon icon="gl-merge"></code-icon>${count} ${count === 1 ? 'file' : 'files'}
+						resolved</span
+					>`;
+				}
+			}
 			return undefined;
 		}
 		if (mode !== 'compose' && mode !== 'review') return undefined;
 
 		const status = this.engagedModeStatus?.[mode]?.execState;
 		if (status === 'generating') {
-			return mode === 'compose' ? 'Generating…' : 'Reviewing…';
+			return formatGeneratingStatus(mode === 'compose' ? 'Composing' : 'Reviewing', this._state.aiModel.get());
 		}
 		if (status === 'error') return 'Error';
 
@@ -1565,16 +1932,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 
 		if (this._pendingMode != null) {
-			const { mode, repoPath, sha, focusedFilePaths } = this._pendingMode;
+			const { mode, repoPath, sha, focusedFilePaths, composeInstructions, composeScope } = this._pendingMode;
 			this._pendingMode = undefined;
-			this.enterModeForWip(mode, repoPath, sha, focusedFilePaths);
+			this.enterModeForWip(mode, repoPath, sha, focusedFilePaths, composeInstructions, composeScope);
 		}
 
 		void this._actions.fetchCapabilities();
-		// Fetched eagerly (not gated on isWip) because resolveServices runs once on
-		// connect — if the initial selection is a commit, a isWip guard would skip
-		// the fetch and it never re-runs when the user later selects a WIP row.
-		void this.fetchLaunchpadSummary(services);
 		if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, this.repoPath, this.commitLites);
 		} else {
@@ -1645,8 +2008,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// "Stale" covers both: cached content shown while loading, and current content shown while
 		// a background refresh is running.
 		const stale = resolved != null && (this.isLoading || current == null);
+		// Interaction guard: block pointer input ONLY while the shown content belongs to the
+		// *outgoing* selection (a different one is loading) — a click then would act on the wrong
+		// commit/worktree. When the current selection is merely refreshing (its own files/enrichment
+		// still streaming in), the content is correct, so it stays interactive. Implies `stale`.
+		const blockPointer = resolved != null && current == null;
 		const compareSheetOpen = this._state.compareSheetOpen.get();
 		const compareAsPanel = this._state.compareAsPanel.get();
+		const branchSheetRef = this._branchSheet;
 
 		// `.details-content` is the SCROLLING container — its content overflows and the user
 		// scrolls inside it. If we rendered the sheet as a child of `.details-content`, the
@@ -1660,8 +2029,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			aria-label=${resolved?.ariaLabel ?? 'Commit details'}
 			aria-busy=${resolved == null || stale}
 			aria-live="polite"
-			class=${stale ? 'details-content details-stale' : 'details-content'}
-			?inert=${compareSheetOpen}
+			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
+			?inert=${compareSheetOpen || this._conflictSheet != null || branchSheetRef != null}
 		>
 			${resolved != null
 				? resolved.content
@@ -1684,19 +2053,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const compareSheet = compareSheetOpen
 			? (() => {
-					// Sheet → pinned panel: default click always moves to beside (horizontal),
-					// Alt-click moves to below (vertical). Icon + tooltip preview the live action
-					// based on the alt-key state so the affordance reads correctly mid-press.
-					const labelFor = (o: 'horizontal' | 'vertical') =>
-						o === 'horizontal' ? 'Move Beside' : 'Move Below';
-					const iconFor = (o: 'horizontal' | 'vertical') =>
+					// Click pins to preferred orientation; Alt-click flips it.
+					// Icon + tooltip update live with the Alt-key so the affordance previews the actual action.
+					const labelFor = (o: PanelOrientation) => (o === 'horizontal' ? 'Move Beside' : 'Move Below');
+					const iconFor = (o: PanelOrientation) =>
 						o === 'horizontal' ? 'layout-sidebar-right' : 'layout-panel';
-					const effective: 'horizontal' | 'vertical' = this._modifiers.altKey ? 'vertical' : 'horizontal';
+					const preferred = this._preferredCompareOrientation;
+					const alternate = this.flipOrientation(preferred);
+					const effective = this._modifiers.altKey ? alternate : preferred;
 					const actionLabel = labelFor(effective);
 					const actionIcon = iconFor(effective);
 					const tooltipContent = this._modifiers.altKey
 						? actionLabel
-						: `${actionLabel}\n[${getAltKeySymbol()}] ${labelFor('vertical')}`;
+						: `${actionLabel}\n[${getAltKeySymbol()}] ${labelFor(alternate)}`;
 					return html`<gl-detail-sheet
 						aria-label="Compare"
 						sheet-title="Comparing References"
@@ -1715,8 +2084,156 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				})()
 			: nothing;
 
+		const conflictSheet =
+			this._conflictSheet != null
+				? html`<gl-wip-conflict-sheet
+						.details=${this._conflictSheet.details}
+						?loading=${this._conflictSheet.loading}
+						?error=${this._conflictSheet.error}
+						file-name=${this._conflictSheet.fileName}
+						.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+						.preferences=${this._state.preferences.get()}
+						@gl-detail-sheet-close=${this.handleCloseConflictDetails}
+						@conflict-open-changes=${this.handleConflictOpenChanges}
+						@conflict-stage=${this.handleConflictStage}
+						@conflict-open-commit=${this.handleConflictOpenCommit}
+						@conflict-open-file=${this.handleConflictOpenFile}
+						@conflict-resolve-ai=${this.handleConflictResolveAi}
+					></gl-wip-conflict-sheet>`
+				: nothing;
+
+		// Remote-qualify the title the same way the pane does ("origin/main", not "main") — `ref.name`
+		// alone is the bare branch name shared with its local tracking counterpart.
+		const branchSheetTitle =
+			branchSheetRef == null
+				? undefined
+				: branchSheetRef.refType === 'remote' && branchSheetRef.remote != null
+					? `${branchSheetRef.remote}/${branchSheetRef.name}`
+					: branchSheetRef.name;
+		const branchSheetKind =
+			branchSheetRef == null
+				? undefined
+				: branchSheetRef.refType === 'tag'
+					? 'Tag'
+					: branchSheetRef.refType === 'remote'
+						? 'Remote Branch'
+						: 'Branch';
+		const branchSheetIcon = branchSheetRef?.refType === 'tag' ? 'tag' : 'git-branch';
+		// The ref's typed graph context — payload for the chrome's Pin/Hide command links.
+		let branchSheetContext: GraphItemContext | undefined;
+		if (branchSheetRef?.context != null) {
+			try {
+				branchSheetContext = JSON.parse(branchSheetRef.context) as GraphItemContext;
+			} catch {
+				branchSheetContext = undefined;
+			}
+		}
+		const branchSheetIsPinned = this._branchSheetPinned ?? branchSheetRef?.context?.includes('+pinned') ?? false;
+		// "head" (local, incl. current/worktree) reuses the WIP header's static-branch color hook;
+		// remote/tag have no such hook yet (single consumer so far) — go straight to their own
+		// scroll-marker tokens.
+		const branchSheetTitleModifier =
+			branchSheetRef == null
+				? ''
+				: branchSheetRef.refType === 'tag'
+					? 'tag'
+					: branchSheetRef.refType === 'remote'
+						? 'remote'
+						: 'head';
+
+		// Compare and conflict sheets take precedence: never stack the branch sheet on top of either (two
+		// absolutely-positioned gl-detail-sheets would render two dimming scrims over the same host).
+		const branchSheet =
+			branchSheetRef != null && !compareSheetOpen && this._conflictSheet == null
+				? html`<gl-detail-sheet
+						class="branch-detail-sheet"
+						preserve-trigger-focus
+						aria-label=${branchSheetKind}
+						sheet-title=${branchSheetTitle}
+						close-label="Close"
+						@gl-detail-sheet-close=${this.handleCloseBranchSheet}
+					>
+						<span slot="title" class="branch-sheet-title branch-sheet-title--${branchSheetTitleModifier}">
+							<code-icon class="branch-sheet-title__icon" icon=${branchSheetIcon}></code-icon>
+							<gl-tooltip content=${branchSheetTitle} class="branch-sheet-title__name-tooltip">
+								<span class="branch-sheet-title__name">${branchSheetTitle}</span>
+							</gl-tooltip>
+							${branchSheetRef.context != null
+								? html`<gl-action-chip
+										class="branch-sheet-title__kebab"
+										icon="kebab-vertical"
+										label=${branchSheetRef.refType === 'tag'
+											? 'Show Tag Actions'
+											: 'Show Branch Actions'}
+										overlay="tooltip"
+										data-vscode-context=${branchSheetRef.context}
+										@click=${this.handleBranchSheetKebabClick}
+									></gl-action-chip>`
+								: nothing}
+						</span>
+						${branchSheetRef.refType === 'head'
+							? html`<gl-action-chip
+									slot="actions"
+									icon="target"
+									label="Focus on Branch"
+									overlay="tooltip"
+									@click=${() => this.handleBranchSheetAction('focus', branchSheetRef)}
+								></gl-action-chip>`
+							: nothing}
+						${branchSheetContext != null && branchSheetRef.refType !== 'tag'
+							? html`<gl-action-chip
+									slot="actions"
+									icon=${branchSheetIsPinned ? 'pinned' : 'pin'}
+									label=${branchSheetIsPinned ? 'Unpin Branch from Edge' : 'Pin Branch to Edge'}
+									overlay="tooltip"
+									href=${this._webview.createCommandLink<GraphItemContext>(
+										branchSheetIsPinned
+											? 'gitlens.graph.unpinBranchFromEdge'
+											: 'gitlens.graph.pinBranchToEdge',
+										branchSheetContext,
+									)}
+									@click=${() => {
+										// oxlint-disable-next-line lit/no-this-assign-in-render
+										this._branchSheetPinned = !branchSheetIsPinned;
+									}}
+								></gl-action-chip>`
+							: nothing}
+						${branchSheetContext != null
+							? html`<gl-action-chip
+									slot="actions"
+									icon="eye-closed"
+									label=${branchSheetRef.refType === 'tag' ? 'Hide Tag' : 'Hide Branch'}
+									overlay="tooltip"
+									href=${this._webview.createCommandLink<GraphItemContext>(
+										branchSheetRef.refType === 'tag'
+											? 'gitlens.graph.hideTag'
+											: branchSheetRef.refType === 'remote'
+												? 'gitlens.graph.hideRemoteBranch'
+												: 'gitlens.graph.hideLocalBranch',
+										branchSheetContext,
+									)}
+									@click=${this.handleCloseBranchSheet}
+								></gl-action-chip>`
+							: nothing}
+						<gl-graph-branch-sheet-pane
+							.ref=${branchSheetRef}
+							.services=${this._servicesResolved && this._actions != null
+								? this._actions.services
+								: undefined}
+							.repoPath=${this.effectiveRepoPath}
+							.dateFormat=${this._state.preferences.get()?.dateFormat}
+							.dateStyle=${this._state.preferences.get()?.dateStyle}
+							.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+							.aiModel=${this._state.aiModel.get()}
+							.orgSettings=${this._state.orgSettings.get()}
+							.changeStamp=${this._branchSheetChangeStamp}
+							@gl-graph-branch-sheet-close-request=${this.handleCloseBranchSheet}
+						></gl-graph-branch-sheet-pane>
+					</gl-detail-sheet>`
+				: nothing;
+
 		if (!compareAsPanel) {
-			return html`<div class="details-host">${detailsContent}${compareSheet}</div>`;
+			return html`<div class="details-host">${detailsContent}${compareSheet}${conflictSheet}${branchSheet}</div>`;
 		}
 
 		// Pinned compare: nested split panel inside the details host. Details on the start side,
@@ -1730,7 +2247,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.position=${position}
 			@gl-split-panel-change=${this.handleCompareSplitChange}
 		>
-			<div slot="start" class="compare-pinned-split__start">${detailsContent}</div>
+			<div slot="start" class="compare-pinned-split__start">${detailsContent}${conflictSheet}${branchSheet}</div>
 			<div slot="end" class="compare-pinned-split__end">
 				<div class="compare-pinned-host">
 					<header class="compare-pinned-host__header">
@@ -1761,28 +2278,38 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleOpenCompareAsPanel = (e: MouseEvent): void => {
-		// Sheet → pinned panel: default click always moves to beside (horizontal); Alt-click
-		// moves to below (vertical). The orientation preview in the sheet header tooltip mirrors
-		// this so the affordance reads correctly mid-press.
-		// Tell the sheet to skip its focus-restoration step on disconnect — the user is
-		// transitioning INTO the new pinned panel, not dismissing the sheet, so returning focus
-		// to whatever row was focused before the sheet opened is the wrong direction.
+		// Skip the sheet's focus-restoration — the user is transitioning INTO the panel,
+		// not dismissing the sheet.
 		const sheet = this.querySelector('gl-detail-sheet');
 		if (sheet != null) {
 			(sheet as { skipFocusRestore: boolean }).skipFocusRestore = true;
 		}
-		const target: 'horizontal' | 'vertical' = e.altKey ? 'vertical' : 'horizontal';
+
+		const preferred = this._preferredCompareOrientation;
+		const target = e.altKey ? this.flipOrientation(preferred) : preferred;
 		this._workflow.openCompareAsPanel(target);
 	};
 
+	private flipOrientation(o: PanelOrientation): PanelOrientation {
+		return o === 'horizontal' ? 'vertical' : 'horizontal';
+	}
+
 	private handleFlipCompareOrientation = (): void => {
-		const current = this._state.compareSplitOrientation.get();
-		this._state.compareSplitOrientation.set(current === 'horizontal' ? 'vertical' : 'horizontal');
+		this._state.compareSplitOrientation.set(this.flipOrientation(this._state.compareSplitOrientation.get()));
 	};
 
 	private handleCompareSplitChange = (e: CustomEvent<{ position: number }>): void => {
 		this._state.compareSplitPosition.set(e.detail.position);
 	};
+
+	/** Loading placeholder shown until `preferences` (the file layout) loads, so the tree never
+	 *  paints the wrong layout and flips. */
+	private renderFilesLoading() {
+		return html`<div class="commit-panel__files-loading" aria-busy="true">
+			<code-icon icon="loading" modifier="spin"></code-icon>
+			<span>Loading...</span>
+		</div>`;
+	}
 
 	private renderWip() {
 		const wip = this._state.wip.get();
@@ -1790,17 +2317,27 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const branchName = wip.branch?.name ?? 'unknown';
 		const activeMode = this._state.activeMode.get();
+		const preferences = this._state.preferences.get();
 		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
 		const aiCreatePrEnabled =
-			(this._state.preferences.get()?.aiEnabled ?? false) &&
+			(preferences?.aiEnabled ?? false) &&
 			(this._state.orgSettings.get()?.ai ?? false) &&
 			(wip.repo?.provider?.supportedFeatures?.createPullRequestWithDetails ?? false);
 		// Read the worktree-matched sessions from the cycle snapshot captured in `willUpdate` so
 		// the auto-partial trigger and the rendered card list agree on the same data within a
 		// single update. See `_cycleAgentSessions` for why this matters.
 		const worktreeAgentSessions = this._cycleAgentSessions;
+		// Past sessions are keyed by worktree path (see `updateWipPastSessions`) — only trust the
+		// resource's current value when it was fetched for THIS wip's worktree; otherwise a fetch
+		// for a just-left worktree is still in flight and its stale value must not paint here.
+		const wipWorktreePath = wip.repo?.path;
+		const pastAgentSessions =
+			this._lastPastSessionsPath === wipWorktreePath
+				? this._actions?.resources.pastAgentSessions.value.get()
+				: undefined;
+		const hasPastSessions = (pastAgentSessions?.sessions.length ?? 0) > 0;
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
-		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
+		const showAgentStatus = (worktreeAgentSessions != null || hasPastSessions) && activeMode == null;
 		// Tri-state of the agents pane drives both splitter availability and sizing:
 		//  - `collapsed` / `partial`: pane is content-sized via CSS `fit-content(<MAX>%)` (see
 		//                              `--auto-size` rule). Splitter inert. The `position`
@@ -1820,14 +2357,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const agentStatusPosition = this._agentStatusSplitPosition ?? agentStatusDefaultPct;
 		// `--auto-size` (fit-content fallback) applies only in collapsed/partial states — the
 		// section is non-draggable there and the intent is "snug to content". Expanded never uses
-		// it: the split-panel's default grid template (`min(--_start-size, …)`) reflects the
+		// it: the split-panel's default grid template (`min(--_start-size, ...)`) reflects the
 		// splitter position directly.
 		const useAutoSize = !agentStatusIsExpanded;
 		// Cards visible under the current expand state, derived right here from the truth
-		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed.
-		const agentStatusHasVisibleCards = worktreeAgentSessions?.some(s =>
-			expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
-		);
+		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed. Past rows
+		// only ever render when expanded (see `gl-details-agent-status`), so they only count there.
+		const agentStatusHasVisibleCards =
+			(worktreeAgentSessions?.some(s =>
+				expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
+			) ??
+				false) ||
+			(agentStatusExpand === 'expanded' && hasPastSessions);
 
 		const restContent =
 			activeMode === 'review'
@@ -1839,45 +2380,53 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						: hasChanges || hasPausedOp
 							? html`
 									<div class="commit-panel__files">
-										<gl-details-wip-panel
-											variant="embedded"
-											file-icons
-											checkbox-mode
-											?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type === 'rebase'}
-											?show-search-box=${this.showSearchBox}
-											?search-box-filter=${this.searchBoxFilter}
-											.wip=${wip}
-											.files=${wip.changes?.files}
-											.agentSessions=${worktreeAgentSessions}
-											.preferences=${this._state.preferences.get()}
-											.orgSettings=${this._state.orgSettings.get()}
-											.isUncommitted=${true}
-											.filesCollapsable=${false}
-											empty-text=${hasPausedOp && !hasChanges
-												? 'No conflicting or changed files'
-												: 'No working changes'}
-											@file-open=${this.handleFileOpen}
-											@file-compare-working=${this.handleFileCompareWorking}
-											@file-compare-previous=${this.handleFileComparePrevious}
-											@file-compare-wip=${this.handleFileCompareWipChanges}
-											@file-open-current=${this.handleFileOpenConflictCurrent}
-											@file-open-incoming=${this.handleFileOpenConflictIncoming}
-											@file-more-actions=${this.handleFileMoreActions}
-											@file-stage=${this.handleFileStage}
-											@file-unstage=${this.handleFileUnstage}
-											@file-discard=${this.handleFileDiscard}
-											@file-stash=${this.handleFileStash}
-											@discard-unstaged=${this.handleDiscardUnstaged}
-											@discard-staged=${this.handleDiscardStaged}
-											@stage-all=${this.handleStageAll}
-											@unstage-all=${this.handleUnstageAll}
-											@stash-save=${this.handleStashSave}
-											@resolve-all-current=${this.handleResolveAllCurrent}
-											@resolve-all-incoming=${this.handleResolveAllIncoming}
-											@change-files-layout=${this.handleChangeFilesLayout}
-											@open-multiple-changes=${this.handleOpenMultipleChanges}
-											@copy-wip-patch=${this.handleCopyWipPatch}
-										></gl-details-wip-panel>
+										${preferences != null
+											? html`<gl-details-wip-panel
+													variant="embedded"
+													file-icons
+													checkbox-mode
+													?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type ===
+													'rebase'}
+													?resolve-enabled=${preferences?.aiEnabled ?? false}
+													conflict-details
+													?show-search-box=${this.showSearchBox}
+													?search-box-filter=${this.searchBoxFilter}
+													.wip=${wip}
+													.files=${this.buildWipFiles(wip)?.files}
+													.agentSessions=${worktreeAgentSessions}
+													.preferences=${preferences}
+													.orgSettings=${this._state.orgSettings.get()}
+													.isUncommitted=${true}
+													.filesCollapsable=${false}
+													empty-text=${hasPausedOp && !hasChanges
+														? 'No conflicting or changed files'
+														: 'No working changes'}
+													@file-open=${this.handleFileOpen}
+													@file-compare-working=${this.handleFileCompareWorking}
+													@file-compare-previous=${this.handleFileComparePrevious}
+													@file-compare-wip=${this.handleFileCompareWipChanges}
+													@file-open-current=${this.handleFileOpenConflictCurrent}
+													@file-open-incoming=${this.handleFileOpenConflictIncoming}
+													@file-conflict-details=${this.handleOpenConflictDetails}
+													@file-resolve-conflict=${this.handleFileResolveConflict}
+													@file-more-actions=${this.handleFileMoreActions}
+													@file-stage=${this.handleFileStage}
+													@file-unstage=${this.handleFileUnstage}
+													@file-discard=${this.handleFileDiscard}
+													@file-stash=${this.handleFileStash}
+													@discard-unstaged=${this.handleDiscardUnstaged}
+													@discard-staged=${this.handleDiscardStaged}
+													@stage-all=${this.handleStageAll}
+													@unstage-all=${this.handleUnstageAll}
+													@stash-save=${this.handleStashSave}
+													@resolve-conflicts=${this.handleAiResolveConflicts}
+													@resolve-all-current=${this.handleResolveAllCurrent}
+													@resolve-all-incoming=${this.handleResolveAllIncoming}
+													@change-files-layout=${this.handleChangeFilesLayout}
+													@open-multiple-changes=${this.handleOpenMultipleChanges}
+													@copy-wip-patch=${this.handleCopyWipPatch}
+												></gl-details-wip-panel>`
+											: this.renderFilesLoading()}
 									</div>
 									<gl-commit-box
 										.message=${this._state.commitMessage.get()}
@@ -1887,8 +2436,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.branchName=${branchName}
 										.canCommit=${this._actions.canCommit()}
 										.disabledReason=${this._actions.canCommitReason()}
-										.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+										.aiEnabled=${preferences?.aiEnabled ?? false}
 										.commitError=${this._state.commitError.get()}
+										.signing=${wip.signing}
+										.aiModel=${this._state.aiModel.get()}
 										@message-change=${this.handleCommitMessageChange}
 										@amend-change=${this.handleAmendChange}
 										@commit=${this.handleCommit}
@@ -1905,8 +2456,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.pullRequest=${this._state.wipPullRequest.get()}
 										.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
 										.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
-										.launchpadSummary=${this._state.launchpadSummary.get()}
-										.launchpadSummaryLoading=${this._state.launchpadSummaryLoading.get()}
+										.launchpadSummary=${this._launchpadState?.summary.get()}
+										.launchpadSummaryLoading=${this._launchpadState?.loading.get() ?? false}
 										.mergeTargetStatus=${this._state.wipMergeTarget.get()}
 										show-launchpad
 										@switch-branch=${this.handleSwitchBranch}
@@ -1932,10 +2483,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			<gl-details-wip-header
 				.wip=${wip}
 				.currentRepoPath=${this.graphRepoPath()}
+				?show-maximize=${this.showMaximize}
+				?maximized=${this.maximized}
 				.navigation=${this.navigation}
 				.activeMode=${activeMode}
 				.modeStatus=${this.engagedModeStatus}
-				.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+				.aiEnabled=${preferences?.aiEnabled ?? false}
 				.loading=${this.isLoading}
 				.autolinks=${this._state.wipAutolinks.get()}
 				.issues=${this._state.wipIssues.get()}
@@ -1943,8 +2496,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.mergeTargetStatusLoading=${this._state.wipMergeTargetLoading.get()}
 				.pullRequest=${this._state.wipPullRequest.get()}
 				.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
-				.dateFormat=${this._state.preferences.get()?.dateFormat}
-				.dateStyle=${this._state.preferences.get()?.dateStyle}
+				.dateFormat=${preferences?.dateFormat}
+				.dateStyle=${preferences?.dateStyle}
 				.modeStatusText=${this.computeModeStatusText()}
 				.inResultsView=${this.inModeResultsView}
 				@toggle-mode=${this.handleToggleMode}
@@ -1954,7 +2507,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@refresh-wip=${this.handleRefreshWip}
 				@gl-jump-to-commit=${this.handleJumpToCommit}
 				@switch-branch=${this.handleSwitchBranch}
-				@create-branch=${this.handleCreateBranch}
 				@compare-with-merge-target=${this.handleCompareWithMergeTarget}
 				@publish-branch=${this.handlePublishBranch}
 				@pull=${this.handlePull}
@@ -1972,7 +2524,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							: ''} ${agentStatusHasVisibleCards ? '' : 'agent-status-split--no-cards'}"
 						orientation="vertical"
 						primary="start"
-						position="${agentStatusPosition}"
+						.position=${agentStatusPosition}
 						?disabled=${!agentStatusIsExpanded}
 						.snap=${this._agentStatusSplitSnap}
 						@gl-split-panel-change=${this._onAgentStatusSplitChange}
@@ -1982,6 +2534,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						<div slot="start" class="agent-status-split__top scrollable">
 							<gl-details-agent-status
 								.sessions=${worktreeAgentSessions}
+								.pastSessions=${pastAgentSessions}
+								.worktreePath=${wipWorktreePath}
 								.expand=${agentStatusExpand}
 								.selectedSessionId=${this._selectedAgentSessionId}
 								@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
@@ -2004,9 +2558,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				return;
 			}
 
-			const panel = this.querySelector<import('./gl-details-compose-mode-panel.js').GlDetailsComposeModePanel>(
-				'gl-details-compose-mode-panel',
-			);
+			const panel = this.querySelector<GlDetailsComposeModePanel>('gl-details-compose-mode-panel');
 			const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
 			const aiExcludedFiles = this._state.aiExcludedFiles.get();
 			this._workflow.runCompose(
@@ -2025,12 +2577,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// fall back to the resource for the resolved payload + idle case.
 		const composeEntry =
 			this.engagedRunningOperation?.kind === 'compose' ? this.engagedRunningOperation : undefined;
+		// The externally-delivered seed only prefills the anchor it was delivered for.
+		const seedInstructions =
+			this._composeSeedInstructions?.anchorKey === this.engagedAnchorKey
+				? this._composeSeedInstructions?.instructions
+				: undefined;
 		const composeResource = this._actions.resources.compose;
 		const composeValue = composeEntry?.result ?? composeResource.value.get();
 		const composeResult = composeValue && 'result' in composeValue ? composeValue.result : undefined;
 		const composeError =
 			(composeValue && 'error' in composeValue ? composeValue.error.message : undefined) ??
 			composeResource.error.get();
+		const composeErrorKind = composeValue && 'error' in composeValue ? composeValue.error.kind : undefined;
 		const mappedComposeStatus: 'idle' | 'loading' | 'ready' | 'error' =
 			composeEntry?.execState === 'generating'
 				? 'loading'
@@ -2053,6 +2611,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.commits=${composeResult?.commits}
 			.baseCommit=${composeResult?.baseCommit}
 			.errorMessage=${composeError}
+			.errorKind=${composeErrorKind}
 			.repoPath=${this.effectiveRepoPath}
 			.stale=${this._state.wipStale.get()}
 			.scope=${this._state.scope.get()}
@@ -2063,19 +2622,28 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${composeEntry?.prompt}
+			.basePrompt=${composeEntry?.basePrompt ?? seedInstructions}
+			.refineMode=${composeEntry?.refineMode ?? false}
+			.refineDraft=${composeEntry?.refineDraft}
 			.progressMessage=${this._state.composeProgressMessage.get()}
 			?applying=${this._state.composeApplying.get()}
 			?forward-available=${this._state.composeForwardAvailable.get()}
 			.backPreview=${this._state.composeBackPreview.get()}
+			.excludedCommitIds=${this._state.composeRefineExcludedCommitIds.get()}
+			.regeneratingCommitId=${this._state.composeRegeneratingCommitId.get()}
 			@compose-generate=${handleCompose}
 			@compose-refine=${handleCompose}
+			@compose-regen-message=${(e: CustomEvent<{ commitId: string }>) =>
+				void this._workflow.compose.regenerateCommitMessage(e.detail.commitId)}
+			@compose-reorder=${(e: CustomEvent<{ orderedCommitIds: string[] }>) =>
+				void this._workflow.compose.reorderCommits(e.detail.orderedCommitIds)}
+			@compose-move-file=${(e: CustomEvent<{ paths: string[]; fromCommitId: string; toCommitId: string }>) =>
+				void this._workflow.compose.moveFile(e.detail.fromCommitId, e.detail.toCommitId, e.detail.paths)}
 			@compose-forward=${() => this._workflow.compose.forward()}
 			@compose-forward-invalidate=${() => this._workflow.compose.invalidateSnapshot()}
 			@compose-error-back=${() => this._workflow.compose.backFromError()}
 			@compose-error-retry=${() => {
-				const panel = this.querySelector<
-					import('./gl-details-compose-mode-panel.js').GlDetailsComposeModePanel
-				>('gl-details-compose-mode-panel');
+				const panel = this.querySelector<GlDetailsComposeModePanel>('gl-details-compose-mode-panel');
 				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
 				const aiExcludedFiles = this._state.aiExcludedFiles.get();
 				this._workflow.compose.retryFromError(
@@ -2090,10 +2658,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				);
 			}}
 			@compose-cancel=${this.handleCancelMode}
+			@compose-discard=${this.handleDiscardMode}
 			@compose-commit-all=${(e: CustomEvent<{ includedCommitIds?: readonly string[] }>) =>
 				void this._workflow.compose.applyPlan(this.sha, this.graphReachability, e.detail?.includedCommitIds)}
-			@compose-open-composer=${() => this._actions.openComposer(this.effectiveRepoPath)}
+			@compose-refine-exclude-toggle=${(e: CustomEvent<{ commitId: string; excluded: boolean }>) =>
+				this.handleComposeRefineExcludeToggle(e.detail.commitId, e.detail.excluded)}
 			@compose-open-multi-diff=${this.handleComposeOpenMultiDiff}
+			@scope-open-multi-diff=${this.handleScopeOpenMultiDiff}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
 			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}
@@ -2125,12 +2696,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const activeView = this._state.branchCompareActiveView.get();
 
 		return html`<gl-details-compare-mode-panel
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			.branchName=${branch?.name}
 			.repoPath=${repoPath}
 			.preferences=${this._state.preferences.get()}
 			.orgSettings=${this._state.orgSettings.get()}
+			.aiModel=${this._state.aiModel.get()}
 			.explainBusy=${this._state.compareExplainBusy.get()}
 			.generateChangelogBusy=${this._state.compareGenerateChangelogBusy.get()}
 			.leftRef=${leftRef}
@@ -2200,6 +2774,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._actions.setBranchCompareActiveView(e.detail.view, repoPath)}
 			@request-enrichment=${() => this._actions.requestBranchCompareEnrichment(repoPath)}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
+			@copy-commit-patch=${this.handleCopyCommitPatch}
 			@gl-explain=${(e: CustomEvent<{ prompt?: string }>) =>
 				this._actions.branchCompareExplain(repoPath, e.detail?.prompt)}
 			@gl-generate-changelog=${() => this._actions.branchCompareGenerateChangelog(repoPath)}
@@ -2221,7 +2796,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		leftRef: string | undefined,
 		rightRef: string | undefined,
 	): { ref: string } | undefined {
-		const fallback = activeTab === 'behind' ? leftRef : rightRef;
+		// When the Ahead side shows only working files (no commits), unscoped inline row actions
+		// (Open File, Open Changes with Working File) must target the working tree — matching the
+		// single-click and right-click paths — not the committed rightRef.
+		let fallback: string | undefined;
+		if (activeTab === 'behind') {
+			fallback = leftRef;
+		} else if (activeTab === 'ahead' && hasOnlyWip(this._state.branchCompareAheadCommits.get())) {
+			fallback = uncommitted;
+		} else {
+			fallback = rightRef;
+		}
 		const ref = this._state.branchCompareSelectedCommitSha.get() ?? fallback;
 		return ref != null ? { ref: ref } : undefined;
 	}
@@ -2256,6 +2841,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?multi-selectable=${true}
 			compare-enabled
 			show-jump-to-nearest-wip
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?show-search-box=${this.showSearchBox}
 			?search-box-filter=${this.searchBoxFilter}
 			.navigation=${this.navigation}
@@ -2281,6 +2868,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.reachabilityState=${this._state.reachabilityState.get()}
 			.branchName=${commit.stashOnRef}
 			.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+			.aiModel=${this._state.aiModel.get()}
 			.activeMode=${activeMode}
 			.modeStatus=${this.engagedModeStatus}
 			.modeStatusText=${this.computeModeStatusText()}
@@ -2297,6 +2885,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@refresh-reachability=${() => this._actions.refreshReachability()}
 			@open-on-remote=${(e: CustomEvent<{ sha: string }>) =>
 				this._actions.openOnRemote(commit.repoPath ?? this.repoPath, e.detail.sha)}
+			@refresh-commit=${this.handleRefreshCommit}
 			@gl-stash-apply=${(e: CustomEvent<StashApplyCommandArgs>) =>
 				void this._actions.services.commands.execute('gitlens.stashesApply', e.detail)}
 			@change-files-layout=${this.handleChangeFilesLayout}
@@ -2304,6 +2893,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@mode-back=${this.handleModeBack}
 			@mode-refresh=${this.handleModeRefresh}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
+			@copy-commit-patch=${this.handleCopyCommitPatch}
 			@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
 			@gl-jump-to-nearest-wip=${this.handleJumpToNearestWip}
 		></gl-details-commit-panel>`;
@@ -2329,6 +2919,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return html`<gl-details-multicommit-panel
 			variant="embedded"
 			file-icons
+			?show-maximize=${this.showMaximize}
+			?maximized=${this.maximized}
 			?show-search-box=${this.showSearchBox}
 			?search-box-filter=${this.searchBoxFilter}
 			.commitFrom=${this._state.commitFrom.get()}
@@ -2337,6 +2929,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.stats=${this._state.compareStats.get()}
 			.preferences=${this._state.preferences.get()}
 			.orgSettings=${this._state.orgSettings.get()}
+			.aiModel=${this._state.aiModel.get()}
 			.autolinks=${this._state.compareAutolinks.get()}
 			.autolinksLoading=${this._state.compareAutolinksLoading.get()}
 			.autolinksEnabled=${this._state.autolinksEnabled.get()}
@@ -2407,6 +3000,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@mode-back=${this.handleModeBack}
 			@mode-refresh=${this.handleModeRefresh}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
+			@copy-commit-patch=${this.handleCopyCommitPatch}
 			@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
 		></gl-details-multicommit-panel>`;
 	}
@@ -2529,10 +3123,38 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				});
 			}}
 			@review-cancel=${this.handleCancelMode}
+			@review-discard=${() => {
+				// Clamp content overflow during the results→plain-view swap so the panel doesn't jump.
+				this.suppressContentOverflow();
+				this._workflow.review.discard();
+			}}
+			@review-refine=${(e: CustomEvent<{ prompt?: string }>) => {
+				// Same model gate as the initial run. A follow-up continues the conversation that
+				// produced the current findings against the same scope — in the ready state the
+				// scope picker isn't mounted, so `panel.selectedIds` is undefined and `runReview`
+				// falls back to the stored scope.
+				if (this._state.aiModel.get() == null) {
+					this._actions.switchAIModel('review');
+					return;
+				}
+
+				const panel = this.findReviewModePanel();
+				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
+				this._workflow.runReview(
+					this.effectiveRepoPath,
+					e.detail?.prompt,
+					excludedFiles,
+					this.getCurrentScopeFilesCount(),
+					panel?.selectedIds,
+					scopeItems ?? undefined,
+					{ mode: 'refine' },
+				);
+			}}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
 			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}
 			@file-open=${this.handleReviewFileOpen}
+			@scope-open-multi-diff=${this.handleScopeOpenMultiDiff}
 			@file-stage=${this.handleFileStage}
 			@file-unstage=${this.handleFileUnstage}
 			@file-compare-working=${this.handleFileCompareWorking}
@@ -2573,47 +3195,83 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.errors=${resolveData?.errors}
 			.skipped=${resolveData?.skipped}
 			.conflictedFiles=${conflictedFiles}
-			.focusedPaths=${this._state.resolveFocusedFilePaths.get()}
+			.focusedPaths=${resolveEntry?.focusedFilePaths ?? this._state.resolveFocusedFilePaths.get()}
+			.repoPath=${this.effectiveRepoPath}
+			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.progressMessage=${this._state.resolveProgressMessage.get()}
 			.aiModel=${this._state.aiModel.get()}
 			.retryingFiles=${this._state.resolveRetryingFiles.get()}
+			.stagingFiles=${this._state.resolveStagingFiles.get()}
 			.lastPrompt=${resolveEntry?.prompt}
+			.refineMode=${resolveEntry?.refineMode ?? false}
+			.refineDraft=${resolveEntry?.refineDraft}
 			@resolve-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose/review — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {
-					this._actions.switchAIModel();
+					this._actions.switchAIModel('resolve');
 					return;
 				}
 
-				// Optional pre-run guidance from the idle input — the host maps it to the resolver's
-				// `userGuidance`, same as the whole-run Refine feedback.
-				this._workflow.runResolve(
-					this.effectiveRepoPath,
-					this._state.resolveFocusedFilePaths.get(),
-					e.detail?.prompt,
-				);
+				// Scope the run to the idle tree's checked set (undefined = all conflicts). `null` means
+				// bail — panel missing or nothing checked (the idle input is also disabled at zero checked,
+				// so this is defense-in-depth for the curated-set invariant). The optional pre-run guidance
+				// is mapped to the resolver's `userGuidance`, same as the whole-run Refine feedback.
+				const run = this.getResolveRunScope();
+				if (run == null) return;
+
+				this._workflow.runResolve(this.effectiveRepoPath, run.scope, e.detail?.prompt);
 			}}
 			@resolve-view-diff=${(e: CustomEvent<{ filePath: string }>) =>
 				this.handleResolveViewDiff(e.detail.filePath)}
 			@resolve-open-file=${(e: CustomEvent<{ filePath: string }>) =>
 				this.handleResolveOpenFile(e.detail.filePath)}
 			@resolve-apply-all=${() => void this._workflow.resolve.applyResolutions()}
-			@resolve-discard=${() => this._workflow.resolve.discard()}
+			@resolve-discard=${() => {
+				// Clamp the content height during the results→plain-WIP swap so it doesn't jump,
+				// matching compose/review discard.
+				this.suppressContentOverflow();
+				this._workflow.resolve.discard();
+			}}
 			@resolve-cancel=${this.handleCancelMode}
 			@resolve-error-back=${() => this._workflow.resolve.backFromError()}
 			@resolve-error-retry=${() => this._workflow.resolve.retryFromError()}
 			@resolve-refine=${(e: CustomEvent<{ prompt?: string }>) => {
-				// Whole-run refine: re-resolve all conflicts with the feedback as global guidance.
+				// Whole-run refine: re-resolve the same scope that produced the current plan (stored in
+				// `resolveFocusedFilePaths` by the run), with the feedback as global guidance — so refine
+				// doesn't silently widen back to all conflicts after the user resolved a subset.
 				if (this._state.aiModel.get() == null) {
-					this._actions.switchAIModel();
+					this._actions.switchAIModel('resolve');
 					return;
 				}
 
-				this._workflow.runResolve(this.effectiveRepoPath, undefined, e.detail?.prompt);
+				this._workflow.runResolve(
+					this.effectiveRepoPath,
+					resolveEntry?.focusedFilePaths ?? this._state.resolveFocusedFilePaths.get(),
+					e.detail?.prompt,
+				);
 			}}
 			@resolve-retry-file=${(e: CustomEvent<{ filePath: string; prompt: string }>) =>
 				void this._workflow.resolve.retryFile(e.detail.filePath, e.detail.prompt)}
+			@resolve-take-side=${(e: CustomEvent<{ filePath: string; side: ConflictSide }>) =>
+				void this._workflow.resolve.takeSide(e.detail.filePath, e.detail.side)}
+			@change-files-layout=${this.handleChangeFilesLayout}
 		></gl-details-resolve-mode-panel>`;
+	}
+
+	/** The resolve run scope from the idle tree's checked set, or `null` to bail (panel missing /
+	 *  nothing checked). Mirrors compose's `this.querySelector` panel lookup — resolve renders directly
+	 *  in the panel template. When EVERY conflict is checked the scope is `undefined` ("resolve all")
+	 *  rather than a frozen full list — that preserves the host's `resolveAll` telemetry detail and lets
+	 *  a later Refine pick up conflicts that appear after the run; a strict subset returns its paths. */
+	private getResolveRunScope(): { scope: readonly string[] | undefined } | null {
+		const panel = this.querySelector<GlDetailsResolveModePanel>('gl-details-resolve-mode-panel');
+		if (panel == null) return null;
+
+		const checked = panel.includedFiles;
+		if (checked.size === 0) return null;
+
+		const total = panel.conflictedFiles?.length ?? 0;
+		return { scope: checked.size === total ? undefined : [...checked] };
 	}
 
 	/** Open a resolved file's AI-resolved-vs-conflicted diff (virtual FS, no disk write). */
@@ -2666,6 +3324,22 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.openFileByPath(e.detail.path, this.effectiveRepoPath, {
 			lhs: endpoints.lhs,
 			rhs: endpoints.rhs,
+		});
+	};
+
+	/** Opens the idle curation tree's files as a multi-diff in the scope's reference frame. */
+	private handleScopeOpenMultiDiff = (e: CustomEvent<{ files: readonly GitFileChangeShape[] }>) => {
+		const endpoints = getReviewDiffEndpoints(this._state.scope.get());
+		const repoPath = this.effectiveRepoPath;
+		if (!endpoints || !repoPath || !e.detail.files.length) return;
+
+		// The multi-diff action resolves the working tree from `rhs === ''` (the per-file
+		// diffWith path accepts `uncommitted`, this one doesn't).
+		this._actions.openMultipleChanges({
+			files: e.detail.files,
+			repoPath: repoPath,
+			lhs: endpoints.lhs,
+			rhs: endpoints.rhs === uncommitted ? '' : endpoints.rhs,
 		});
 	};
 
@@ -2792,33 +3466,80 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	};
 
-	private handleSwitchBranch = () => this._actions.switchBranch(this.effectiveRepoPath);
+	private handleRefreshCommit = () => {
+		// Mirror of the WIP refresh button for a single commit — `refetchCommitQuiet` resets the
+		// `fetchDetails` dedup key so a same-selection click always re-queries the host.
+		const repoPath = this.effectiveRepoPath;
+		if (repoPath == null || this.sha == null) return;
 
-	private handleCreateBranch = () => this._actions.createBranch(this.effectiveRepoPath);
+		void this._actions.refetchCommitQuiet(this.sha, repoPath, this.graphReachability, this.commitLite);
+	};
 
-	private handlePublishBranch = () => void this._actions.services.repository.publishBranch(this.effectiveRepoPath!);
+	private trackWipAction(action: GraphWipAction): void {
+		this._actions.sendTelemetryEvent('graph/wip/action', { action: action });
+	}
 
-	private handlePull = () => void this._actions.services.repository.pull(this.effectiveRepoPath!);
+	private handleSwitchBranch = () => {
+		this.trackWipAction('switchBranch');
+		this._actions.switchBranch(this.effectiveRepoPath);
+	};
 
-	private handlePush = () => void this._actions.services.repository.push(this.effectiveRepoPath!);
+	private handleCreateBranch = () => {
+		this.trackWipAction('createBranch');
+		this._actions.createBranch(this.effectiveRepoPath);
+	};
 
-	private handleForcePush = () => void this._actions.services.repository.push(this.effectiveRepoPath!, true);
+	private handlePublishBranch = () => {
+		this.trackWipAction('publishBranch');
+		void this._actions.services.repository.publishBranch(this.effectiveRepoPath!);
+	};
 
-	private handleFetch = () => void this._actions.services.repository.fetch(this.effectiveRepoPath!);
+	private handlePull = () => {
+		this.trackWipAction('pull');
+		void this._actions.services.repository.pull(this.effectiveRepoPath!);
+	};
 
-	private handleCreatePullRequest = () => this._actions.createPullRequest(this.effectiveRepoPath);
+	private handlePush = () => {
+		this.trackWipAction('push');
+		void this._actions.services.repository.push(this.effectiveRepoPath!);
+	};
 
-	private handleCreatePullRequestWithAI = () =>
+	private handleForcePush = () => {
+		this.trackWipAction('forcePush');
+		void this._actions.services.repository.push(this.effectiveRepoPath!, true);
+	};
+
+	private handleFetch = () => {
+		this.trackWipAction('fetch');
+		void this._actions.services.repository.fetch(this.effectiveRepoPath!);
+	};
+
+	private handleCreatePullRequest = () => {
+		this.trackWipAction('createPullRequest');
+		this._actions.createPullRequest(this.effectiveRepoPath);
+	};
+
+	private handleCreatePullRequestWithAI = () => {
+		this.trackWipAction('createPullRequestWithAI');
 		this._actions.createPullRequest(this.effectiveRepoPath, { describeWithAI: true });
+	};
 
-	private handleShareWipAsCloudPatch = () =>
+	private handleShareWipAsCloudPatch = () => {
+		this.trackWipAction('shareAsCloudPatch');
 		void this._actions.services.commands.executeScoped('gitlens.shareWipAsCloudPatch:graph', {
 			repoPath: this.effectiveRepoPath,
 		});
+	};
 
-	private handleRebaseOntoMergeTarget = () => this._actions.rebaseOntoMergeTarget();
+	private handleRebaseOntoMergeTarget = () => {
+		this.trackWipAction('rebaseOntoMergeTarget');
+		this._actions.rebaseOntoMergeTarget();
+	};
 
-	private handleMergeMergeTargetIntoCurrent = () => this._actions.mergeMergeTargetIntoCurrent();
+	private handleMergeMergeTargetIntoCurrent = () => {
+		this.trackWipAction('mergeMergeTarget');
+		this._actions.mergeMergeTargetIntoCurrent();
+	};
 
 	private handleReviewBranchChanges = () => this.enterBranchWorkMode('review');
 
@@ -2839,40 +3560,40 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleOpenPullRequestDetails = (e: CustomEvent<{ id: string; providerId: string | undefined }>) =>
 		this._actions.openPullRequestDetails(e.detail.id || undefined, e.detail.providerId);
 
-	private handleStashSave = (e: CustomEvent<{ onlyStaged?: boolean }>) =>
-		this._actions.stashSave(this.effectiveRepoPath, e.detail?.onlyStaged);
-
-	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
-		this._actions.startWork(e.detail?.showOpenInAgent);
-
-	private handleStartReview = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
-		this._actions.startPRReview(e.detail?.showOpenInAgent);
-
-	private handleCreatePr = () => this._actions.createPullRequest(this.effectiveRepoPath);
-
-	private handleApplyStash = () => this._actions.applyStash(this.effectiveRepoPath);
-
-	private handleNewWorktree = () => this._actions.createWorktree();
-
-	private async fetchLaunchpadSummary(services: Remote<GraphServices>): Promise<void> {
-		if (this._state.launchpadSummaryLoading.get()) return;
-
-		this._state.launchpadSummaryLoading.set(true);
-		try {
-			const launchpad = await services.launchpad;
-			const summary = await launchpad.getSummary();
-			this._state.launchpadSummary.set(summary);
-		} catch (ex) {
-			this._state.launchpadSummary.set({ error: ex instanceof Error ? ex : new Error(String(ex)) });
-		} finally {
-			this._state.launchpadSummaryLoading.set(false);
+	private handleStashSave = (e: CustomEvent<{ onlyStaged?: boolean; files?: FileChangeListItemDetail['files'] }>) => {
+		// Toolbar Stash with a multi-selection carries the selected files (same path as the inline
+		// `file-stash` batch action); otherwise it's the scope action (`onlyStaged` staged-vs-all).
+		if (e.detail?.files?.length) {
+			this.trackWipAction('stashSaveFiles');
+			this._actions.stashFiles([...e.detail.files]);
+		} else {
+			this.trackWipAction(e.detail?.onlyStaged ? 'stashSaveStaged' : 'stashSave');
+			this._actions.stashSave(this.effectiveRepoPath, e.detail?.onlyStaged);
 		}
-	}
+	};
+
+	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) => {
+		this.trackWipAction('startWork');
+		this._actions.startWork(e.detail?.showOpenInAgent);
+	};
+
+	private handleStartReview = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) => {
+		this.trackWipAction('startReview');
+		this._actions.startPRReview(e.detail?.showOpenInAgent);
+	};
+
+	private handleApplyStash = () => {
+		this.trackWipAction('applyStash');
+		this._actions.applyStash(this.effectiveRepoPath);
+	};
+
+	private handleNewWorktree = () => {
+		this.trackWipAction('createWorktree');
+		this._actions.createWorktree();
+	};
 
 	private handleRefreshLaunchpad = (): void => {
-		if (this._remoteServices == null) return;
-
-		void this.fetchLaunchpadSummary(this._remoteServices);
+		this._launchpadState?.refresh();
 	};
 
 	private handleCompareWithMergeTarget = (e: CustomEvent<{ leftRef: string; leftRefType: 'branch' | 'commit' }>) => {
@@ -2898,6 +3619,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleAmendChange = (e: CustomEvent<{ checked: boolean }>) => {
+		this._actions.sendTelemetryEvent('graph/wip/commit/amendToggled', {
+			enabled: e.detail.checked,
+			hasMessage: this._state.commitMessage.get().length > 0,
+		});
 		this._state.amend.set(e.detail.checked);
 		if (e.detail.checked) {
 			// Bind the amend intent to the HEAD it was authored against. If HEAD moves later
@@ -2934,6 +3659,22 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const existing = this._graphState?.wipDrafts?.[repoPath];
 		this.persistWipDraft(repoPath, { message: message, messageDirty: true, amend: existing?.amend });
+	}
+
+	/** {@link DetailsWorkflowHost.readEngagedRefineState} — read the live compose/resolve panel's
+	 *  ready-state Refine posture + unsubmitted draft, so the controller can persist them onto the
+	 *  engaged entry on mode-leave. Returns undefined when no refine-capable panel is mounted. */
+	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined {
+		const mode = this._state.activeMode.get();
+		if (mode === 'compose') {
+			const panel = this.querySelector<GlDetailsComposeModePanel>('gl-details-compose-mode-panel');
+			return panel != null ? { refineMode: panel.refineModeLive, refineDraft: panel.refineDraftLive } : undefined;
+		}
+		if (mode === 'resolve') {
+			const panel = this.querySelector<GlDetailsResolveModePanel>('gl-details-resolve-mode-panel');
+			return panel != null ? { refineMode: panel.refineModeLive, refineDraft: panel.refineDraftLive } : undefined;
+		}
+		return undefined;
 	}
 
 	/** Derive the `generating` spinner from the registry for the current WIP. Reading `runningOperations`
@@ -2989,6 +3730,90 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleFileOpenConflictIncoming = (e: CustomEvent<FileChangeListItemDetail>) => {
 		this._actions.openConflictChanges(e.detail, 'incoming');
+	};
+
+	private handleOpenConflictDetails = (e: CustomEvent<FileChangeListItemDetail>) => {
+		const detail = e.detail;
+		const fileName = detail.path.split('/').pop() || detail.path;
+		this._conflictSheet = { detail: detail, fileName: fileName, loading: true, error: false };
+		void this.loadConflictDetails(detail);
+	};
+
+	private async loadConflictDetails(detail: FileChangeListItemDetail): Promise<void> {
+		let details: ConflictDetails | undefined;
+		let error: boolean;
+		try {
+			details = await this._actions.getConflictDetails(detail.repoPath, detail.path, detail.status ?? '');
+			error = details == null;
+		} catch {
+			error = true;
+		}
+
+		// Stale-guard: ignore the result if the user closed the sheet or opened another file mid-flight.
+		const current = this._conflictSheet;
+		if (current == null || current.detail.repoPath !== detail.repoPath || current.detail.path !== detail.path) {
+			return;
+		}
+
+		this._conflictSheet = { ...current, loading: false, error: error, details: details };
+	}
+
+	private handleCloseConflictDetails = () => {
+		this._conflictSheet = undefined;
+	};
+
+	private handleConflictOpenChanges = (e: CustomEvent<ConflictSheetSideEventDetail>) => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		this._actions.openConflictChanges(conflict.detail, e.detail.side);
+	};
+
+	private handleConflictStage = (e: CustomEvent<ConflictSheetSideEventDetail>) => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		this._actions.stageConflictSide(
+			conflict.detail.repoPath,
+			conflict.detail.path,
+			conflict.detail.status ?? '',
+			e.detail.side,
+		);
+	};
+
+	private handleConflictOpenCommit = (e: CustomEvent<ConflictSheetCommitEventDetail>) => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		this._actions.openConflictCommit(conflict.detail.repoPath, conflict.detail.path, e.detail.sha);
+	};
+
+	private handleConflictOpenFile = () => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		this._actions.openFile(conflict.detail);
+	};
+
+	/** Header "Resolve Conflicts" — closes the sheet and enters resolve mode focused on this
+	 *  one file (mirrors the paused-op banner's resolve, but scoped to the sheet's file). */
+	private handleConflictResolveAi = () => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		const repoPath = conflict.detail.repoPath;
+		const filePath = conflict.detail.path;
+		this._conflictSheet = undefined;
+		this.enterModeForWip('resolve', repoPath, uncommitted, [filePath]);
+	};
+
+	/** Per-row resolve action on a conflicted file — enters resolve mode focused on just that file (mirrors
+	 *  {@link handleConflictResolveAi}, but sourced from the inline tree action's event detail). */
+	private handleFileResolveConflict = (e: CustomEvent<FileChangeListItemDetail>) => {
+		const { path, repoPath } = e.detail;
+		if (!repoPath || !path) return;
+
+		this.enterModeForWip('resolve', repoPath, uncommitted, [path]);
 	};
 
 	private handleFileStage = (e: CustomEvent<FileChangeListItemDetail>) => {
@@ -3059,7 +3884,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleCopyWipPatch = (e: CustomEvent<CopyWipPatchEventDetail>) => {
+		this.trackWipAction('copyPatch');
 		this._actions.copyWipPatchToClipboard(e.detail.repoPath, e.detail.scope, e.detail.uris);
+	};
+
+	private handleCopyCommitPatch = (e: CustomEvent<CopyCommitPatchEventDetail>) => {
+		this._actions.copyCommitPatchToClipboard(e.detail.repoPath, e.detail.to, e.detail.from);
 	};
 }
 

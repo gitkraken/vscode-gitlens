@@ -1,11 +1,11 @@
 import type { Disposable } from 'vscode';
 import { Uri, workspace } from 'vscode';
-import type { GitProviderDescriptor } from '@gitlens/git/providers/types.js';
-import type { GitResult, GitRunOptions, GitSpawnOptions } from '@gitlens/git/run.types.js';
 import type { CliGitProvider, CliGitProviderOptions } from '@gitlens/git-cli/cliGitProvider.js';
 import type { GitOptions } from '@gitlens/git-cli/exec/git.js';
 import { Git } from '@gitlens/git-cli/exec/git.js';
 import type { GitLocation } from '@gitlens/git-cli/exec/locator.js';
+import type { GitProviderDescriptor } from '@gitlens/git/providers/types.js';
+import type { GitResult, GitRunOptions, GitSpawnOptions } from '@gitlens/git/run.types.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScheme } from '@gitlens/utils/path.js';

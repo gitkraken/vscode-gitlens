@@ -6,9 +6,13 @@ import '../../../shared/components/card/card.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/pills/agent-status-pill.js';
 
-export const agentSessionCardTagName = 'gl-agent-session-card';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-agent-session-card']: GlAgentSessionCard;
+	}
+}
 
-@customElement(agentSessionCardTagName)
+@customElement('gl-agent-session-card')
 export class GlAgentSessionCard extends LitElement {
 	static override styles = [
 		css`
@@ -19,58 +23,57 @@ export class GlAgentSessionCard extends LitElement {
 			.content {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
-				padding: 0.4rem 0;
+				gap: var(--gl-space-4);
+				padding: var(--gl-space-4) 0;
 			}
 
 			.header {
 				display: inline-flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
 				max-width: 100%;
 				margin-block: 0;
 			}
 
 			.header__icon {
-				color: var(--vscode-descriptionForeground);
 				flex: none;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.header__name {
 				flex: 1;
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-weight: bold;
+				white-space: nowrap;
 			}
 
 			.details {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
 			}
 
 			.detail {
 				display: inline-flex;
+				gap: var(--gl-space-4);
 				align-items: center;
-				gap: 0.4rem;
 			}
 
 			.sessions {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.session {
 				display: flex;
-				flex-direction: row;
+				flex-flow: row wrap;
+				gap: var(--gl-space-4);
 				align-items: center;
-				gap: 0.4rem;
-				flex-wrap: wrap;
 			}
 
 			.session code-icon {
@@ -78,8 +81,8 @@ export class GlAgentSessionCard extends LitElement {
 			}
 
 			.session__name {
-				color: var(--vscode-descriptionForeground);
 				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.session__subagents {
@@ -164,11 +167,5 @@ export class GlAgentSessionCard extends LitElement {
 					: nothing}
 			</div>
 		`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[agentSessionCardTagName]: GlAgentSessionCard;
 	}
 }

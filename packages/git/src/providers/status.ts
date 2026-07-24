@@ -14,7 +14,7 @@ export interface GitWorkingChangesState {
 export interface GitStatusSubProvider {
 	getStatus(
 		repoPath: string | undefined,
-		options?: { priority?: GitCommandPriority },
+		options?: { priority?: GitCommandPriority; force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitStatus | undefined>;
 	getStatusForFile?(

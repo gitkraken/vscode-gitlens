@@ -452,7 +452,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		// Ctrl+Click second commit to multi-select
 		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
 		await expect(secondCommit).toBeVisible({ timeout: MaxTimeout });
-		await secondCommit.click({ modifiers: ['Control'] });
+		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		// Compare panel should appear with its header
 		const compareHeader = graphWebview.locator('.compare-header__title').first();
@@ -465,7 +465,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
 		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
-		await secondCommit.click({ modifiers: ['Control'] });
+		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		// Wait for compare panel
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
@@ -481,7 +481,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
 		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
-		await secondCommit.click({ modifiers: ['Control'] });
+		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
 
@@ -502,7 +502,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
 		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
-		await secondCommit.click({ modifiers: ['Control'] });
+		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
 
@@ -516,7 +516,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
 		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
-		await secondCommit.click({ modifiers: ['Control'] });
+		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
 
@@ -532,7 +532,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
 		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
-		await secondCommit.click({ modifiers: ['Control'] });
+		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
 

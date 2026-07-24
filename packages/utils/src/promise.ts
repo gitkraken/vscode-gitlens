@@ -177,7 +177,7 @@ export function cancellable<T>(
 				disposeCancellation?.dispose();
 				disposeTimeout?.dispose();
 
-				// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+				// oxlint-disable-next-line typescript/prefer-promise-reject-errors
 				reject(ex);
 			},
 		);
@@ -222,7 +222,7 @@ export function getDeferredPromiseIfPending<T>(deferred: Deferred<T> | undefined
 export type MaybePromiseArr<T> = (Promise<T | undefined> | T | undefined)[];
 
 export async function nonnullSettled<T>(arr: MaybePromiseArr<T>): Promise<T[]> {
-	// eslint-disable-next-line @typescript-eslint/await-thenable
+	// oxlint-disable-next-line typescript/await-thenable
 	const all = await Promise.allSettled(arr);
 	return all.map(r => getSettledValue(r)).filter(v => v != null);
 }
@@ -485,7 +485,7 @@ export async function pauseOnCancelOrTimeoutMapTuple<Id, T, U extends unknown[]>
 	}
 
 	const results = await Promise.all(
-		// eslint-disable-next-line @typescript-eslint/await-thenable
+		// oxlint-disable-next-line typescript/await-thenable
 		map(source, ([id, [promise, ...rest]]) =>
 			promise == null
 				? ([id, [undefined, ...rest]] as const)

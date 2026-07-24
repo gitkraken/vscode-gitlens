@@ -5,6 +5,7 @@ import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
@@ -33,7 +34,7 @@ import * as StashActions from '../../git/actions/stash.js';
 import { getReachableWorktrees } from '../../git/utils/-webview/worktree.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { showWorktreePicker } from '../../quickpicks/worktreePicker.js';
-import { executeCommand } from '../../system/-webview/command.js';
+import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
 import { getContext, setContext } from '../../system/-webview/context.js';
 import type { MergeEditorInputs } from '../../system/-webview/vscode/editors.js';
 import { openMergeEditor } from '../../system/-webview/vscode/editors.js';
@@ -88,6 +89,63 @@ export class DetailsFileCommands {
 		} else {
 			void openChanges(file, commit, { preserveFocus: true, preview: true, ...showOptions });
 		}
+		if (this.source != null) {
+			this.container.events.fire('file:selected', { uri: file.uri }, { source: this.source });
+		}
+	}
+
+	// --- Mixed WIP file (both staged + unstaged): the deduped row is the unstaged side, so the
+	// generic Open Changes can only reach index↔working. These three expose every diff. The row's
+	// `staged`/`status` come from the unstaged side; `openStagedChanges` overrides `staged` (same
+	// approach as the inline `file-compare-wip-staged` button). ---
+
+	@command('gitlens.openBothChanges:')
+	@debug()
+	openBothChanges(commit: GitCommit, file: GitFileChange, showOptions?: TextDocumentShowOptions): void {
+		// Combined diff of both the staged and unstaged changes to the file: HEAD ↔ working tree.
+		void openChangesWithWorking(
+			file,
+			{ repoPath: commit.repoPath, ref: 'HEAD' },
+			{ preserveFocus: true, preview: true, ...showOptions },
+		);
+		if (this.source != null) {
+			this.container.events.fire('file:selected', { uri: file.uri }, { source: this.source });
+		}
+	}
+
+	@command('gitlens.openUnstagedChanges:')
+	@debug()
+	openUnstagedChanges(commit: GitCommit, file: GitFileChange, showOptions?: TextDocumentShowOptions): void {
+		void openWipChanges(
+			{
+				repoPath: file.repoPath,
+				path: file.path,
+				originalPath: file.originalPath,
+				status: file.status,
+				staged: false,
+			},
+			commit.repoPath,
+			{ preserveFocus: true, preview: true, ...showOptions },
+		);
+		if (this.source != null) {
+			this.container.events.fire('file:selected', { uri: file.uri }, { source: this.source });
+		}
+	}
+
+	@command('gitlens.openStagedChanges:')
+	@debug()
+	openStagedChanges(commit: GitCommit, file: GitFileChange, showOptions?: TextDocumentShowOptions): void {
+		void openWipChanges(
+			{
+				repoPath: file.repoPath,
+				path: file.path,
+				originalPath: file.originalPath,
+				status: file.status,
+				staged: true,
+			},
+			commit.repoPath,
+			{ preserveFocus: true, preview: true, ...showOptions },
+		);
 		if (this.source != null) {
 			this.container.events.fire('file:selected', { uri: file.uri }, { source: this.source });
 		}
@@ -173,20 +231,12 @@ export class DetailsFileCommands {
 		file: GitFileChange,
 		showOptions?: TextDocumentShowOptions,
 	): Promise<void> {
-		const worktrees = await getReachableWorktrees(this.container, commit.repoPath, commit.sha);
-		if (!worktrees.length) return;
-
-		let worktree = worktrees[0];
-		if (worktrees.length > 1) {
-			const picked = await showWorktreePicker(
-				'Open Worktree File',
-				`Choose which worktree to open ${basename(file.path)} from`,
-				worktrees,
-			);
-			if (picked == null) return;
-
-			worktree = picked;
-		}
+		const worktree = await this.pickReachableWorktree(
+			commit,
+			'Open File (Worktree)',
+			`Choose which worktree to open ${basename(file.path)} from`,
+		);
+		if (worktree == null) return;
 
 		// Reuse "Open File", but root the working-file lookup at the worktree path: passing the sha
 		// makes `gitlens.openWorkingFile` resolve the working copy inside the worktree's folder.
@@ -201,6 +251,47 @@ export class DetailsFileCommands {
 		);
 	}
 
+	@command('gitlens.openChangesWithWorktreeFile:')
+	@debug()
+	async openChangesWithWorktreeFile(
+		commit: GitCommit,
+		file: GitFileChange,
+		showOptions?: TextDocumentShowOptions,
+	): Promise<void> {
+		const worktree = await this.pickReachableWorktree(
+			commit,
+			'Open Changes with Working File (Worktree)',
+			`Choose which worktree to compare ${basename(file.path)} against`,
+		);
+		if (worktree == null) return;
+
+		// Diff the committed file against its working copy in the sibling worktree that holds the branch:
+		// a Ref rooted at the worktree makes the whole diff resolve there (shared object db resolves the blob).
+		void openChangesWithWorking(
+			file,
+			{ repoPath: worktree.path, ref: commit.sha },
+			{
+				preserveFocus: true,
+				preview: true,
+				...showOptions,
+			},
+		);
+	}
+
+	// Resolves the sibling worktree to act on for a commit: the lone reachable worktree, else a picker;
+	// undefined if none reach the commit or the user cancels.
+	private async pickReachableWorktree(
+		commit: GitCommit,
+		title: string,
+		placeholder: string,
+	): Promise<GitWorktree | undefined> {
+		const worktrees = await getReachableWorktrees(this.container, commit.repoPath, commit.sha);
+		if (!worktrees.length) return undefined;
+		if (worktrees.length === 1) return worktrees[0];
+
+		return showWorktreePicker(title, placeholder, worktrees);
+	}
+
 	@command('gitlens.views.openFileRevision:')
 	@debug()
 	openFileRevision(commit: GitCommit, file: GitFileChange, showOptions?: TextDocumentShowOptions): void {
@@ -212,6 +303,15 @@ export class DetailsFileCommands {
 	openFileOnRemote(commit: GitCommit, file: GitFileChange): void {
 		void openFileOnRemote(file, commit);
 	}
+
+	@command('gitlens.revealFileInExplorer:')
+	@debug()
+	revealFileInExplorer(commit: GitCommit, file: GitFileChange): void {
+		// Always reveal the on-disk working-tree file (WIP rows are uncommitted) so the Explorer view
+		// selects a real file: URI — not a git: revision URI. getAbsoluteUri gives the working copy.
+		void executeCoreCommand('revealInExplorer', this.container.git.getAbsoluteUri(file.path, commit.repoPath));
+	}
+
 	@command('gitlens.views.stageFile:')
 	@debug()
 	async stageFile(commit: GitCommit, file: GitFileChange): Promise<void> {
@@ -671,8 +771,9 @@ export class DetailsFileCommands {
 	@multiCommand('gitlens.views.unstageFile.multi:')
 	@debug()
 	async unstageFilesMulti(items: ResolvedDetailsFile[]): Promise<void> {
-		// Mirror of stage: unstage only the `+staged` files in the selection.
-		const files = items.filter(i => i.webviewItem?.includes('+staged'));
+		// Mirror of stage: unstage only the files with staged content — `+staged` plus `+mixed`
+		// (the deduped mixed row carries `+unstaged+mixed` but still has a staged portion to unstage).
+		const files = items.filter(i => i.webviewItem?.includes('+staged') || i.webviewItem?.includes('+mixed'));
 		if (!files.length) return;
 
 		const svc = this.container.git.getRepositoryService(files[0].commit.repoPath);
@@ -703,6 +804,24 @@ export class DetailsFileCommands {
 			undefined,
 			true,
 		);
+	}
+
+	@multiCommand('gitlens.copyPatchToClipboard.multi:')
+	@debug()
+	copyPatchMulti(items: ResolvedDetailsFile[]): void {
+		// Same WIP union as stash: only files with working changes (excludes conflicts/committed).
+		const files = items.filter(i => i.webviewItem?.includes('+staged') || i.webviewItem?.includes('+unstaged'));
+		if (!files.length) return;
+
+		// Combined HEAD↔working patch of exactly the selected files (`to: uncommitted` captures both
+		// staged + unstaged; the command stages untracked files for the diff, like the single copyPatch).
+		const args: CreatePatchCommandArgs = {
+			repoPath: files[0].file.repoPath,
+			to: uncommitted,
+			title: 'Uncommitted Changes',
+			uris: files.map(i => i.file.uri),
+		};
+		void executeCommand<CreatePatchCommandArgs>('gitlens.copyPatchToClipboard', args);
 	}
 
 	@multiCommand('gitlens.openSelectedChanges.multi:')

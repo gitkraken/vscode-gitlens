@@ -69,6 +69,13 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		return this._onDidChangeRepository.event;
 	}
 
+	private readonly _onDidChangeWorkingTree = new Emitter<string>();
+	/** Global multiplexed working-tree change event (repo path) for ALL watched repos. Fires once per
+	 *  debounced flush per session — the single point that drives the cache's status clock for working-tree edits. */
+	get onDidChangeWorkingTree(): Event<string> {
+		return this._onDidChangeWorkingTree.event;
+	}
+
 	private readonly defaultRepoDelayMs?: number;
 	private readonly defaultWorkingTreeDelayMs?: number;
 	private readonly getIgnoreFilter?: (repoPath: string, gitDirPath: string) => GitIgnoreFilter | undefined;
@@ -113,6 +120,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		this.wtWatchers.clear();
 
 		this._onDidChangeRepository.dispose();
+		this._onDidChangeWorkingTree.dispose();
 	}
 
 	/**
@@ -163,6 +171,9 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				},
 				onDidFireRepoChange: (event): void => {
 					this._onDidChangeRepository.fire(event);
+				},
+				onDidFireWorkingTreeChange: (repoPath): void => {
+					this._onDidChangeWorkingTree.fire(repoPath);
 				},
 			});
 
@@ -331,7 +342,11 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				for (const h of watchHooks) {
 					h.onGitIgnoreChanged?.(repoPath);
 				}
-				// Don't push .gitignore itself as a working tree change
+				// Route the ignore-rule change through the repo channel as an `ignores` change (like `info/exclude`),
+				// so it reaches EVERY session subscriber — including a closed secondary worktree's `watch()` `repoSub`,
+				// which has no `onGitIgnoreChanged` hook and would otherwise keep a stale untracked-file list. Coalesces
+				// with any hook-fired `ignores` above, so open repos don't double. (.gitignore itself is not a WT change.)
+				session.pushRepoChanges(['ignores']);
 				return;
 			}
 

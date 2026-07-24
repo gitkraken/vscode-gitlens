@@ -182,7 +182,7 @@ export async function ensureAccess(
 ): Promise<boolean> {
 	const showPicker = options?.showPicker ?? false;
 
-	if (!container.ai.allowed) {
+	if (!container.ai.orgEnabled) {
 		if (showPicker) {
 			await window.showQuickPick([{ label: 'OK' }], {
 				title: 'AI is Disabled',

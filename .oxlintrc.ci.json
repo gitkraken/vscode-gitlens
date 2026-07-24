@@ -1,0 +1,53 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"extends": ["./.oxlintrc.json"],
+	// CI-only config (used by `lint:ci`): enables rules left off the everyday `.oxlintrc.json` purely
+	// for speed/cost — `anti-trojan-source/no-bidi` (jsPlugin load cost) and `e18e/ban-dependencies`
+	// (slow). NOTE: e18e/prefer-array-to-{reversed,sorted,spliced} are intentionally NOT here — oxlint
+	// jsPlugins get no type info (even with --type-aware), so they false-positive on iterator spreads
+	// like `[...map.values()].sort()`, so they can't be enforced accurately and are left off.
+	"jsPlugins": [{ "name": "anti-trojan-source", "specifier": "eslint-plugin-anti-trojan-source" }],
+	"rules": {
+		"anti-trojan-source/no-bidi": "error",
+		"e18e/ban-dependencies": "error"
+	},
+	// `extends` merges rules/plugins/options but NOT ignorePatterns — repeat them. Keep in sync with .oxlintrc.json.
+	"ignorePatterns": [
+		"**/.agents",
+		"!.claude/settings.json",
+		".claude/settings.local.json",
+		".claude/scheduled_tasks.lock",
+		".claude/worktrees/**/*",
+		".claude/*.lock",
+		"**/.codex",
+		"**/.DS_Store",
+		"**/.work/",
+		"**/.superpowers",
+		"**/.tasks",
+		"**/.vscode-clean/**/*",
+		"**/.vscode-test/**/*",
+		"**/.vscode-test-web/**/*",
+		"**/test-results/**/*",
+		"**/dist",
+		"**/out",
+		"**/node_modules",
+		"images/settings",
+		"**/.gitkraken-components.version",
+		"**/custom-elements.json",
+		"**/gitlens-*.vsix",
+		"**/product.json",
+		"**/tsconfig*.tsbuildinfo",
+		"**/*.code-workspace",
+		"**/localdev*.instructions.md",
+		"**/*.log",
+		"/*.*",
+		"/patches",
+		"/scripts",
+		"/src/@types",
+		"/packages/core",
+		"/packages/git/test-harness",
+		"/packages/git-cli/test-harness",
+		"/tests/e2e/runner/**",
+		"/tests/fixtures/**"
+	]
+}

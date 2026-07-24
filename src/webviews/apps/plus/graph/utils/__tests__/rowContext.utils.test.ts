@@ -1,8 +1,13 @@
 import * as assert from 'assert';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
 import type { GraphCommitContextValue } from '../../../../../plus/graph/protocol.js';
 import type { RowContextSource } from '../rowContext.utils.js';
-import { buildRowCommitContext, reduceCommonWebviewItemsContext } from '../rowContext.utils.js';
+import {
+	buildRowCommitContext,
+	computeSelectionContexts,
+	reduceCommonWebviewItemsContext,
+} from '../rowContext.utils.js';
 
 const primary = '/mock/repo';
 const wtA = { id: '/mock/repo|worktrees/feature-a', path: '/mock/repo.worktrees/feature-a' };
@@ -170,5 +175,92 @@ suite('reduceCommonWebviewItemsContext', () => {
 			reduceCommonWebviewItemsContext(['gitlens:commit+current', 'gitlens:branch+current']),
 			undefined,
 		);
+	});
+});
+
+suite('computeSelectionContexts', () => {
+	function graphRow(sha: string, overrides?: Partial<GitGraphRow>): GitGraphRow {
+		return {
+			sha: sha,
+			parents: [],
+			author: 'a',
+			email: 'a@example.com',
+			date: 0,
+			message: 'm',
+			type: 'commit-node',
+			contexts: { flags: GitGraphRowContextFlags.ReachableFromHead },
+			...overrides,
+		};
+	}
+
+	test('empty selection → undefined', () => {
+		assert.strictEqual(computeSelectionContexts([], primary, true), undefined);
+	});
+
+	test('single-row selection → undefined (no multi-select context)', () => {
+		assert.strictEqual(computeSelectionContexts([graphRow('a')], primary, true), undefined);
+	});
+
+	test('2-row selection → listMultiSelection + listDoubleSelection, both refs in webviewItemsValues', () => {
+		const contexts = computeSelectionContexts([graphRow('a'), graphRow('b')], primary, true);
+		const ctx = contexts?.get('commit-node');
+		assert.strictEqual(ctx?.listMultiSelection, true);
+		assert.strictEqual(ctx?.listDoubleSelection, true);
+		assert.strictEqual(ctx?.webviewItemsValues?.length, 2);
+	});
+
+	test('contiguous 3-row selection → listContiguousSelection true, listDoubleSelection false', () => {
+		const contexts = computeSelectionContexts([graphRow('a'), graphRow('b'), graphRow('c')], primary, true);
+		const ctx = contexts?.get('commit-node');
+		assert.strictEqual(ctx?.listMultiSelection, true);
+		assert.strictEqual(ctx?.listDoubleSelection, false);
+		assert.strictEqual(ctx?.listContiguousSelection, true);
+	});
+
+	test('non-contiguous selection → listContiguousSelection false', () => {
+		const contexts = computeSelectionContexts([graphRow('a'), graphRow('b'), graphRow('c')], primary, false);
+		assert.strictEqual(contexts?.get('commit-node')?.listContiguousSelection, false);
+	});
+
+	test('every row unique to the same single branch → listUniqueBranchSelection true', () => {
+		const rows = [
+			graphRow('a', {
+				heads: [{ name: 'feature', isCurrentHead: false }],
+				contexts: { flags: GitGraphRowContextFlags.UniqueToBranch },
+			}),
+			graphRow('b', {
+				heads: [{ name: 'feature', isCurrentHead: false }],
+				contexts: { flags: GitGraphRowContextFlags.UniqueToBranch },
+			}),
+		];
+		const contexts = computeSelectionContexts(rows, primary, true);
+		assert.strictEqual(contexts?.get('commit-node')?.listUniqueBranchSelection, true);
+	});
+
+	test('a row missing the UniqueToBranch flag → listUniqueBranchSelection false', () => {
+		const rows = [
+			graphRow('a', {
+				heads: [{ name: 'feature', isCurrentHead: false }],
+				contexts: { flags: GitGraphRowContextFlags.UniqueToBranch },
+			}),
+			graphRow('b'), // no UniqueToBranch flag
+		];
+		const contexts = computeSelectionContexts(rows, primary, true);
+		assert.strictEqual(contexts?.get('commit-node')?.listUniqueBranchSelection, false);
+	});
+
+	test('rows each unique but to different branches → listUniqueBranchSelection false', () => {
+		const rows = [
+			graphRow('a', {
+				heads: [{ name: 'feature-a', isCurrentHead: false }],
+				contexts: { flags: GitGraphRowContextFlags.UniqueToBranch },
+			}),
+			graphRow('b', {
+				heads: [{ name: 'feature-b', isCurrentHead: false }],
+				contexts: { flags: GitGraphRowContextFlags.UniqueToBranch },
+			}),
+		];
+		const contexts = computeSelectionContexts(rows, primary, true);
+		assert.strictEqual(contexts?.get('commit-node')?.listUniqueBranchSelection, false);
 	});
 });

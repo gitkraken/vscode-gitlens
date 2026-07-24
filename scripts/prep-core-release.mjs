@@ -1,10 +1,10 @@
 //@ts-check
 import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import { createInterface } from 'node:readline';
+import path from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
 
@@ -20,57 +20,87 @@ const versionRegex = /^\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[0-9A-Za-z.-]+)?$/;
 
 const currentVersion = JSON.parse(await readFile(corePackageJsonPath, 'utf8')).version;
 
-const rl = createInterface({
-	// @ts-ignore
-	input: process.stdin,
-	// @ts-ignore
-	output: process.stdout,
-});
+// Accept the version as the first CLI argument (e.g. `pnpm prep-core-release 0.3.1` or
+// `pnpm prep-core-release patch`); otherwise prompt for it interactively.
+const argSpec = process.argv[2]?.trim();
+if (argSpec) {
+	await prepRelease(argSpec);
+} else {
+	const rl = createInterface({
+		// @ts-ignore
+		input: process.stdin,
+		// @ts-ignore
+		output: process.stdout,
+	});
+	const answer = await rl.question(
+		`Enter the new core version (x.y.z, x.y.z-pre.N, or patch/minor/major; current is ${currentVersion}): `,
+	);
+	rl.close();
+	await prepRelease(answer.trim());
+}
 
-rl.question(
-	`Enter the new core version (format x.y.z or x.y.z-pre.N, current is ${currentVersion}): `,
-	async version => {
-		if (!versionRegex.test(version)) {
-			console.error('Invalid version number. Use x.y.z or x.y.z-<prerelease>.');
-			rl.close();
-			process.exitCode = 1;
-			return;
-		}
-		rl.close();
+/**
+ * Bumps packages/core to `spec`, updates its CHANGELOG, then commits and tags the release.
+ * @param {string} spec A concrete version (x.y.z / x.y.z-pre.N) or a `patch`/`minor`/`major` keyword.
+ */
+async function prepRelease(spec) {
+	if (spec !== 'patch' && spec !== 'minor' && spec !== 'major' && !versionRegex.test(spec)) {
+		console.error(`Invalid version "${spec}". Use x.y.z, x.y.z-<prerelease>, or one of: patch, minor, major.`);
+		process.exitCode = 1;
+		return;
+	}
 
-		// Update CHANGELOG.md: insert new section under [Unreleased], refresh unreleased link, add compare link.
-		await updateChangelog(version);
+	// Bump package.json's version first so `pnpm version` resolves `spec` — whether a concrete
+	// version or a `patch`/`minor`/`major` keyword — letting us read the result back for the
+	// changelog, commit message, and tag. `--no-git-tag-version` stops pnpm from making its own
+	// commit + tag (e.g. `0.3.1` / `v0.3.1`) and `--no-git-checks` lets it run on a non-clean tree;
+	// we stage, commit, and tag manually below so the version bump and changelog land together.
+	try {
+		const { stdout, stderr } = await execFileAsync(
+			'pnpm',
+			['version', spec, '--no-git-tag-version', '--no-git-checks'],
+			{ cwd: coreRoot },
+		);
+		if (stdout) process.stdout.write(stdout);
+		if (stderr) process.stderr.write(stderr);
+	} catch (err) {
+		console.error(`'pnpm version' failed: ${describeError(err)}`);
+		process.exitCode = 1;
+		return;
+	}
 
-		// pnpm version (delegating to npm version) only commits and tags when run at the workspace root,
-		// because npm's git-repo check looks for .git/ in the package directory and doesn't walk up.
-		// In packages/core/ it just rewrites package.json, so we stage, commit, and tag manually below.
-		try {
-			const { stdout, stderr } = await execFileAsync('pnpm', ['version', version], { cwd: coreRoot });
-			if (stdout) process.stdout.write(stdout);
-			if (stderr) process.stderr.write(stderr);
-		} catch (err) {
-			console.error(`'pnpm version' failed: ${err}`);
-			process.exitCode = 1;
-			return;
-		}
+	const newVersion = JSON.parse(await readFile(corePackageJsonPath, 'utf8')).version;
 
-		const tag = `releases/core/v${version}`;
-		const message = `Bumps core to v${version}`;
-		try {
-			await execFileAsync('git', ['add', coreChangelogPath, corePackageJsonPath], { cwd: repoRoot });
-			await execFileAsync('git', ['commit', '-m', message], { cwd: repoRoot });
-			await execFileAsync('git', ['tag', '-m', message, tag], { cwd: repoRoot });
-		} catch (err) {
-			console.error(`Unable to commit/tag release: ${err}`);
-			process.exitCode = 1;
-			return;
-		}
+	// Update CHANGELOG.md: insert new section under [Unreleased], refresh unreleased link, add compare link.
+	await updateChangelog(newVersion);
 
-		console.log(`\ncore v${version} is ready for release.`);
-		console.log(`\nNext: git push --follow-tags`);
-	},
-);
+	const tag = `releases/core/v${newVersion}`;
+	const message = `Bumps core to v${newVersion}`;
+	try {
+		await execFileAsync('git', ['add', coreChangelogPath, corePackageJsonPath], { cwd: repoRoot });
+		await execFileAsync('git', ['commit', '-m', message], { cwd: repoRoot });
+		await execFileAsync('git', ['tag', '-m', message, tag], { cwd: repoRoot });
+	} catch (err) {
+		console.error(`Unable to commit/tag release: ${describeError(err)}`);
+		process.exitCode = 1;
+		return;
+	}
 
+	console.log(`\ncore v${newVersion} is ready for release.`);
+	console.log(`\nNext: git push --follow-tags`);
+}
+
+/** @param {unknown} err */
+function describeError(err) {
+	if (err != null && typeof err === 'object') {
+		const e = /** @type {{ stderr?: string; stdout?: string; message?: string }} */ (err);
+		const detail = e.stderr?.trim() || e.stdout?.trim() || e.message;
+		if (detail) return detail;
+	}
+	return String(err);
+}
+
+/** @param {string} newVersion */
 async function updateChangelog(newVersion) {
 	let data = await readFile(coreChangelogPath, 'utf8');
 

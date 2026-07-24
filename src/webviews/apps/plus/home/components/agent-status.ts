@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { basename } from '@gitlens/utils/path.js';
@@ -16,15 +16,15 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				margin-bottom: 2.4rem;
+				margin-bottom: var(--gl-space-24);
 			}
 
 			.workspace-group {
-				margin-block-start: 0.4rem;
+				margin-block-start: var(--gl-space-4);
 			}
 
 			.workspace-group__label {
-				margin-block: 0 0.2rem;
+				margin-block: 0 var(--gl-space-2);
 				font-size: 0.9em;
 				font-weight: 600;
 				color: var(--vscode-descriptionForeground);
@@ -33,23 +33,23 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 			.sessions {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 			}
 
 			.session {
 				display: flex;
+				gap: var(--gl-space-6);
 				align-items: center;
-				gap: 0.6rem;
 				margin-block: 0;
 			}
 
 			.session__name {
 				flex: 1;
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				color: var(--vscode-foreground);
+				white-space: nowrap;
 			}
 
 			.session__subagents {
@@ -59,11 +59,11 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 
 			.session__context {
 				flex: none;
-				color: var(--vscode-descriptionForeground);
-				font-size: 0.9em;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
+				white-space: nowrap;
 			}
 		`,
 	];

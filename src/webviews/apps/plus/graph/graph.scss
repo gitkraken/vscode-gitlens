@@ -3,22 +3,3195 @@
 @use '../../shared/styles/utils';
 @use '../../shared/styles/icons/utils' as iconUtils;
 @use '../../shared/base';
-
 @include meta.load-css('../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css');
 
+// Experimental commit-graph engine (@gitkraken/commit-graph) — theme token fallbacks consumed by
+// the `gl-graph__*` rules below. VS Code → HSL token conversion is wired at runtime in `graph.ts`
+// (onThemeUpdated); this stylesheet provides the defaults before the bridge runs.
+@include meta.load-css('../../../../../node_modules/@gitkraken/commit-graph/graph-default-theme.css');
+
+// Experimental pure-Lit commit graph (gl-lit-graph). Replaces the prior React renderer;
+// light DOM, so these are plain descendant rules.
+gl-lit-graph {
+	// Column layout: the viewport takes all available space, the search-results footer (when shown) is
+	// a fixed-height row below it — added as a real flex sibling, not an overlay, so it never covers rows.
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+
+	.gl-graph__viewport {
+		position: relative;
+		// Flex column: header + virtualizer fit exactly, no overflow an ancestor scroll can steal.
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		width: 100%;
+		min-height: 0;
+		outline: none;
+
+		// No whole-viewport focus ring: the tree's keyboard focus is shown by the ACTIVE ROW's ring
+		// (`.gl-graph__row.is-focused::after`, brightened while the tree is `:focus-visible`) — the VS Code
+		// list model. A viewport ring here + the row ring produced two nested rectangles.
+	}
+
+	// The role=tree / tabindex=0 keyboard-nav focus host, wrapping ONLY the rows (`<lit-virtualizer>`).
+	// A flex child that fills the space below the header (a preceding sibling in the viewport, so it tabs
+	// first). Its `[tabindex]` bump suppresses the shared `[tabindex]:focus-visible` outline; keyboard
+	// focus is shown by the active ROW's ring instead (see the viewport comment above).
+	.gl-graph__tree {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+		outline: none;
+
+		&[tabindex]:focus-visible {
+			outline: none;
+		}
+	}
+
+	// Filter-search results footer — a slim bar below the (scrollable) viewport. A flex sibling of the
+	// viewport (see the host rule above), NOT part of the virtualizer's light-DOM content, so it can
+	// never affect row virtualization/layout. Mirrors the legacy graph's `.graph-footer__*` styling.
+	.gl-graph__search-footer {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.6rem 1.2rem;
+		background-color: var(--vscode-editorWidget-background);
+		border-top: var(--gl-border-width) solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+	}
+
+	.gl-graph__search-footer-message {
+		font-size: var(--gl-font-md);
+		font-style: italic;
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.gl-graph__search-footer-link {
+		padding: 0.2rem 0.5rem;
+		font-size: var(--gl-font-md);
+		color: var(--vscode-textLink-foreground);
+		background: none;
+		border: var(--gl-border-width) solid transparent;
+		border-radius: var(--gl-radius-sm);
+		cursor: pointer;
+		transition: color var(--gl-duration-medium) ease;
+
+		&:hover {
+			color: var(--vscode-textLink-activeForeground);
+			border-color: var(--vscode-textLink-activeForeground);
+		}
+
+		&:focus-visible {
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline-offset: 0;
+			border-color: var(--vscode-focusBorder);
+		}
+	}
+
+	// Loading / empty-state overlay centered over the (empty) lane viewport. Non-interactive so it never
+	// blocks the row surface once rows arrive; muted to read as secondary chrome.
+	.gl-graph__status {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		color: hsl(var(--muted-foreground));
+		font-size: 1.3rem;
+		pointer-events: none;
+	}
+
+	// Horizontal scrollbar for the graph column — a bottom overlay spanning the lane viewport (left/width
+	// from the host's --graph-col-left/--graph-col-vw). Shown only when the lanes overflow it; the thumb's
+	// size/offset come from --graph-hscroll-thumb/--graph-hscroll-left (rewritten on every scroll with no
+	// re-render). Styled to match VS Code's scrollbar slider, faint until the area is hovered/focused.
+	.gl-graph__hscroll {
+		position: absolute;
+		bottom: 0;
+		left: var(--graph-col-left, 0px);
+		width: var(--graph-col-vw, 0px);
+		height: 1rem;
+		z-index: 30;
+		opacity: 0.5;
+		transition: opacity 0.12s ease;
+
+		&:hover,
+		&:focus-visible,
+		&:focus-within {
+			opacity: 1;
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+	}
+	.gl-graph__hscroll-thumb {
+		position: absolute;
+		bottom: 0.2rem;
+		left: var(--graph-hscroll-left, 0px);
+		width: var(--graph-hscroll-thumb, 3rem);
+		height: 0.6rem;
+		border-radius: 0.3rem;
+		background-color: var(--vscode-scrollbarSlider-background);
+		cursor: grab;
+
+		&:hover {
+			background-color: var(--vscode-scrollbarSlider-hoverBackground);
+		}
+		&:active {
+			background-color: var(--vscode-scrollbarSlider-activeBackground);
+			cursor: grabbing;
+		}
+	}
+
+	// Scroll-rail markers: an overlay over the scrollbar track. Each marker maps a
+	// ref/stash/search/selection row to its fraction down the full list (top) AND its lane (left
+	// offset + lane color), echoing the graph so the user can spot branches/tags/matches at a
+	// glance. The rail passes pointer events through (so the scrollbar stays draggable); only the
+	// markers themselves are interactive — click jumps to the row, hover shows a rich tooltip.
+	.gl-graph__scroll-markers {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		width: 1.4rem;
+		// The whole rail is the hit surface — the host resolves the NEAREST marker to the cursor's y
+		// (dense markers merge visually, so per-row hit bands would overlap and be unreachable). Hover
+		// tooltips + click-to-jump work anywhere on the rail; a press-and-DRAG scrubs the scroller
+		// directly (the host drives scrollTop, so the native thumb under the rail follows the drag) —
+		// so hover, click-jump, and thumb-drag all coexist over the same strip. Wheel still passes through.
+		pointer-events: auto;
+		cursor: pointer;
+		z-index: 6;
+	}
+	// One full-rail-WIDTH interactive band per row (so hover/click anywhere across the rail at that
+	// row's y works — "the whole row", not just a lane box). The band is transparent; its lane ticks
+	// are painted as non-interactive children placed by --marker-left / --marker-width (% of the rail)
+	// in their TYPE's lane column(s), ordered lane 0 → 2.
+	.gl-graph__scroll-marker-band {
+		position: absolute;
+		left: 0;
+		width: 100%;
+		// Visual-only wrapper (the rail container owns pointer events + nearest-marker resolution); box
+		// ticks center on the row's y via translateY(-50%), so the band is offset up by half its height.
+		height: 1.2rem;
+		margin: 0;
+		margin-top: -0.6rem;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		pointer-events: none;
+	}
+	// The host marks the nearest band to the cursor `.is-hovered`; raise it so its expanded primary sits
+	// above adjacent rows' ticks.
+	.gl-graph__scroll-marker-band.is-hovered {
+		z-index: 10;
+	}
+	// Box height is computed per-shape in JS (clamped to `rowPx`) and passed as `--marker-height`
+	// (px); each tick is centered on the band's vertical mid-line via translateY(-50%). `block` ticks
+	// fill their lane(s); `fullLine`/`thinLine` set --marker-left/-width to span the full rail width.
+	.gl-graph__scroll-marker-box {
+		position: absolute;
+		top: 50%;
+		left: var(--marker-left, 0);
+		width: var(--marker-width, 33%);
+		height: var(--marker-height, 0.5rem);
+		transform: translateY(-50%);
+		border-radius: 0.1rem;
+		opacity: 0.9;
+		pointer-events: none;
+		transition:
+			left 100ms ease-out,
+			width 100ms ease-out,
+			opacity 100ms ease-out;
+	}
+	// Nearest band to the cursor (`.is-hovered`) → its PRIMARY marker (highest priority) expands
+	// horizontally to span the full rail in its own color, on top — matching the reference's full-width
+	// hover bar. Secondary ticks stay in their lanes (covered by the expanded primary).
+	.gl-graph__scroll-marker-band.is-hovered .gl-graph__scroll-marker-box.is-primary {
+		left: 0;
+		width: 100%;
+		opacity: 1;
+		z-index: 20;
+	}
+
+	// Floating "Scroll to HEAD" pill — appears bottom-right (just left of the scroll-marker rail) only
+	// when HEAD is off-screen. Green head color, tinted fill + border; fills on hover. Mirrors legacy.
+	.gl-graph__head-pill {
+		position: absolute;
+		bottom: 1.2rem;
+		right: calc(var(--gl-graph-scrollbar-width, 14px) + 0.8rem);
+		z-index: 12;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.3rem 1rem;
+		border-radius: 999px;
+		font-size: 1.1rem;
+		font-weight: 600;
+		line-height: 1;
+		cursor: pointer;
+		--head-pill-color: var(--color-graph-scroll-marker-head, #16c216);
+		color: var(--head-pill-color);
+		border: 1px solid var(--head-pill-color);
+		background-color: color-mix(in srgb, var(--head-pill-color) 10%, transparent);
+		// Blur whatever rows sit behind the (semi-transparent) pill so its label stays readable over
+		// busy graph content — matches the legacy head pill's frosted backdrop.
+		backdrop-filter: blur(0.4rem);
+		-webkit-backdrop-filter: blur(0.4rem);
+		box-shadow: 0 0.2rem 0.6rem var(--vscode-widget-shadow);
+		transition:
+			background-color 100ms ease-out,
+			color 100ms ease-out;
+
+		&:hover,
+		&:focus-visible {
+			background-color: var(--head-pill-color);
+			color: var(--vscode-editor-background, #1e1e1e);
+			outline: none;
+		}
+		code-icon {
+			font-size: 1.2rem;
+		}
+	}
+
+	// "Jump to Pinned Branch" pill — reuses the head-pill styling but stacks ABOVE it (so both can show
+	// at once without overlapping) and uses a distinct accent so it reads as a different affordance.
+	.gl-graph__pinned-pill {
+		bottom: calc(1.2rem + 2.6rem);
+		--head-pill-color: var(--vscode-focusBorder, #007fd4);
+		max-width: 24rem;
+
+		// The branch name can be long — keep the pill compact.
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	// Sticky-timeline pill (gitlens.graph.stickyTimeline) — rides the header/first-row seam, top-right,
+	// clear of the scroll-marker rail (same `--gl-graph-scrollbar-width` offset the head/pinned pills
+	// use). AT REST shows only the bucket label (muted); scrolling OR hovering widens the SAME pill in
+	// place — ONE JS-toggled class (`is-scroll-active`, set in gl-lit-graph's onScroll) combined with
+	// native `:hover` drives every child's reveal below, so the expand/collapse never re-renders.
+	.gl-graph__sticky-timeline {
+		position: absolute;
+		top: 2.5rem;
+		right: var(--gl-graph-scrollbar-width, 14px);
+		z-index: 15;
+		display: inline-flex;
+		align-items: center;
+		height: 1.9rem;
+		padding: 0 0.8rem;
+		font-size: 1.1rem;
+		font-weight: 600;
+		line-height: 1;
+		white-space: nowrap;
+		cursor: default;
+		background-color: var(--vscode-editorWidget-background);
+		border: var(--gl-border-width) solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+		border-radius: 0.5rem;
+		opacity: 1;
+		transition:
+			box-shadow 0.24s ease,
+			opacity 0.18s ease;
+
+		// State selectors nest FROM THE PILL DOWN (not `X &`, which — nested this deep under the
+		// `gl-lit-graph` host rule — expands `&` to the FULL ancestor chain and puts X in FRONT of it,
+		// compiling to `X gl-lit-graph .gl-graph__sticky-timeline-icon`: never matches real DOM, since
+		// `gl-lit-graph` is the outermost ancestor, not a descendant of the pill).
+		&.is-scroll-active,
+		&:hover {
+			box-shadow: 0 0.2rem 0.6rem var(--vscode-widget-shadow);
+
+			.gl-graph__sticky-timeline-icon {
+				max-width: 1.8rem;
+				margin-right: 0.6rem;
+				opacity: 1;
+			}
+
+			.gl-graph__sticky-timeline-label {
+				color: var(--vscode-foreground);
+			}
+
+			.gl-graph__sticky-timeline-span {
+				max-width: 16rem;
+				margin-left: 0.8rem;
+				opacity: 1;
+			}
+		}
+
+		// Yields to the row it's covering (selected/focused/hovered/persistent action buttons — see
+		// updateStickyTimelineYield). Declared LAST so it wins over `.is-scroll-active`/`:hover` above on
+		// tied specificity (two classes each) — scrolling can coincide with the top row needing its
+		// corner, and yield must win. `pointer-events: none` (inherited by the children below — none set
+		// their own) passes the pointer straight through to the row/buttons underneath: no flicker loop,
+		// since the row then stays hovered/selected until the pointer actually leaves it.
+		&.is-yielding {
+			pointer-events: none;
+			opacity: 0;
+		}
+	}
+
+	.gl-graph__sticky-timeline-icon {
+		display: inline-block;
+		max-width: 0;
+		margin-right: 0;
+		overflow: hidden;
+		font-size: 1.2rem;
+		color: var(--vscode-focusBorder);
+		opacity: 0;
+		transition:
+			max-width 0.28s ease,
+			opacity 0.2s ease,
+			margin-right 0.24s ease;
+	}
+
+	.gl-graph__sticky-timeline-label {
+		color: var(--vscode-descriptionForeground);
+		transition: color 0.2s ease;
+	}
+
+	.gl-graph__sticky-timeline-span {
+		display: inline-block;
+		max-width: 0;
+		margin-left: 0;
+		overflow: hidden;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--vscode-descriptionForeground);
+		opacity: 0;
+		transition:
+			max-width 0.28s ease,
+			opacity 0.2s ease,
+			margin-left 0.24s ease;
+	}
+
+	// Hidden singleton holding the synthetic-edge <defs> filter — kept out of flow.
+	.gl-graph__defs {
+		position: absolute;
+		width: 0;
+		height: 0;
+	}
+
+	// Visually-hidden polite live region for screen-reader announcements (lane collapse, paging).
+	.gl-graph__sr-live {
+		position: absolute;
+		width: 0.1rem;
+		height: 0.1rem;
+		margin: -0.1rem;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	// Shared delegated tooltip (single <gl-popover> retargeted on hover). Constrain width and
+	// allow long commit messages to wrap rather than render one very wide line.
+	.gl-graph__tooltip {
+		--max-width: 44rem;
+		// The cursor must NEVER land on the tooltip — it's anchored just above the jump glyph, so if it
+		// caught pointer events, nearing it would leave the anchor → the tooltip hides → the cursor's back
+		// on the anchor → it reopens → jitter. Pointer-events:none lets the cursor pass through it.
+		pointer-events: none;
+	}
+	// Scroll-marker (list) mode: a compact rail-anchored pill, NO arrow, matching the legacy
+	// `graph-scroll-marker-tooltip` (px→rem @ 1rem=10px). Tighter padding/radius/shadow + smaller
+	// type than the rich scalar tooltip; one icon+label row per marker, primary (lane-0) first.
+	.gl-graph__tooltip.is-list {
+		--max-width: 28rem;
+		--wa-tooltip-padding: 0.4rem 0.7rem;
+		--wa-tooltip-font-size: 1.1rem;
+		// Roomy enough that descenders (g/p/y) aren't clipped by the rows' overflow:hidden ellipsis.
+		--wa-tooltip-line-height: 1.5;
+		--wa-tooltip-border-radius: 0.3rem;
+
+		&::part(body) {
+			border: 0;
+			min-width: 0;
+			box-shadow: 0 0.2rem 0.6rem rgb(0 0 0 / 35%);
+			white-space: nowrap;
+		}
+	}
+	.gl-graph__tooltip-content {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		max-width: 44rem;
+		white-space: normal;
+		overflow-wrap: anywhere;
+
+		// Multi-marker (scroll-rail) mode: stack the markers as a vertical list. Scoped to .is-list so
+		// the scalar tooltips (row cells, lane-fold chips, WIP stats) keep their inline centered layout.
+		&.is-list {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.3rem;
+			max-width: 28rem;
+			white-space: nowrap;
+		}
+	}
+	.gl-graph__tooltip-row {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		// Long ref names ellipsize rather than forcing the pill wide (matches the legacy label rule).
+		overflow: hidden;
+
+		> span {
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+	}
+	.gl-graph__tooltip-icon {
+		flex-shrink: 0;
+		// Match the compact label type rather than code-icon's ~16px default (kept the pill too big).
+		font-size: 1.2rem;
+		opacity: 0.9;
+	}
+
+	// Column header (labels + drag-resize handles + drag-reorder). Ported from React ZoneHeader.
+	.gl-graph__header {
+		position: relative;
+		display: flex;
+		flex-shrink: 0;
+		height: 2.4rem;
+		// Match the body scroller's stable scrollbar lane so the header and row column edges align. The
+		// pinned settings gear sits over the trailing header cell's tail, which renders narrower to yield
+		// it room (header-only — body columns keep their full width to the scrollbar).
+		padding-inline-end: var(--gl-graph-scrollbar-width, 0px);
+		user-select: none;
+		border-bottom: 1px solid hsl(var(--border));
+		background: hsl(var(--background));
+		font-size: 1.1rem;
+		font-weight: 500;
+		color: hsl(var(--muted-foreground));
+		transition: box-shadow 120ms ease-out;
+
+		&.is-scrolled {
+			box-shadow: 0 0.2rem 0.4rem -0.2rem rgba(0, 0, 0, 0.4);
+		}
+	}
+	.gl-graph__header-cell {
+		position: relative;
+		display: flex;
+		align-items: center;
+		// `visible` so the right-edge resize handle (offset outside the cell) isn't clipped;
+		// the label truncates on its own via min-width: 0 + ellipsis.
+		overflow: visible;
+		box-sizing: border-box;
+		// The WHOLE cell is the reorder drag handle (pointer-drag); the resize handle + controls set their
+		// own cursor over their regions.
+		cursor: grab;
+
+		// The dragged column re-renders at the live drop position (the drag SIMULATES the drop). Mark it as
+		// the lifted one with a tinted background + brand ring so it reads as "this column, here" — not a
+		// faint ghost.
+		&.is-dragging {
+			background: hsl(var(--brand) / 0.16);
+			box-shadow: inset 0 0 0 1px hsl(var(--brand) / 0.6);
+		}
+		// Keyboard focus (focus-visible) on the column's draggable label rings the WHOLE cell, not just
+		// the text — and never on click (focus-visible is keyboard-only). A top-most inset ::after overlay
+		// rather than `outline`: the leftmost cell is flush against the viewport's left edge, which sits on
+		// the graph subtree's overflow-clip boundary, so a flush/`outline-offset: -1px` ring's leftmost pixel
+		// is clipped away (same reason the row ring below is an inset overlay). `inset: 1px` keeps it clear.
+		&:has(.gl-graph__header-label:focus-visible)::after {
+			content: '';
+			position: absolute;
+			inset: 1px;
+			z-index: 1;
+			box-shadow: inset 0 0 0 1px hsl(var(--brand));
+			pointer-events: none;
+		}
+	}
+	// The trailing header cell renders narrower than its body column (it yields its tail to the pinned
+	// gear). Clip it so a squeezed icon/label can't spill under the gear — safe for zone cells (the last
+	// zone renders no resize handle), but NOT for the graph cell, which always renders its own handle
+	// hanging outside the cell (clipping would sever it).
+	.gl-graph__header-cell:not(.gl-graph__header-cell--graph):not(:has(~ .gl-graph__header-cell)) {
+		overflow: hidden;
+	}
+	.gl-graph__header-label {
+		min-width: 0;
+		overflow: hidden;
+		padding: 0 0.8rem;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		cursor: grab;
+
+		&:active {
+			cursor: grabbing;
+		}
+		// The focus rect lives on the WHOLE cell (see `.gl-graph__header-cell:has(...)` above) and only on
+		// keyboard focus — so suppress the label's own outline entirely (no inner text rect, ever). The
+		// `[tabindex]` bump is required to outrank the shared `[tabindex]:focus-visible` outline rule, which
+		// would otherwise draw a second (inner) ring around the label text.
+		&[tabindex]:focus {
+			outline: none;
+		}
+	}
+	// Optical correction: centering a text box centers its font box (ascent >> descent), but all-caps only
+	// occupies the ascent — so caps render low against the icons. A 1px bottom pad centers cap-height
+	// instead. Not for the swap-in icon below: a block child, already exact.
+	.gl-graph__header-label:not(:has(.gl-graph__header-label-icon)),
+	.gl-graph__placement-toggle-label {
+		padding-bottom: 1px;
+	}
+	// Icon shown in place of a column-header text label when the column is too narrow for the text. It's
+	// the label's only child, so a block box lets the cell's `align-items: center` center the icon itself;
+	// the icon font's default inline-block + `vertical-align: middle` would instead center it on the text
+	// baseline's half-x-height, which sits below the cell's center axis.
+	.gl-graph__header-label-icon {
+		display: block;
+		--code-icon-size: 1.4rem;
+	}
+	// The GRAB target straddles the column boundary in the HEADER only (takes no flex width, so header
+	// columns line up with the rows). Pointer events live here — NOT over the list — so the divider
+	// never intercepts clicks/wheel on the row
+	// adornments + action buttons below (those stay on top + clickable).
+	.gl-graph__resize-handle {
+		position: absolute;
+		top: 0;
+		// 1.2rem hit area centered on the boundary (was 0.8rem, tight) so the grab/double-click target is
+		// comfortable; the visible divider is the separate `.gl-graph__resize-line` child (unchanged), so
+		// widening the hit area doesn't thicken the line.
+		right: -0.6rem;
+		z-index: 10;
+		width: 1.2rem;
+		height: 100%;
+		cursor: ew-resize;
+		// A touch-drag resizes the column instead of scrolling the list.
+		touch-action: none;
+		// No small default outline rect on keyboard focus — the affordance is the full-height splitter bar
+		// lighting up (see the `:focus-visible` branch of the resize-line rule below), identical to hover.
+		// The `[tabindex]` bump outranks the shared `[tabindex]:focus-visible` outline rule.
+		&[tabindex]:focus {
+			outline: none;
+		}
+	}
+	// The visible divider: a thin line CENTERED on the boundary that extends the FULL graph height over
+	// the list (VS Code sash look) but is `pointer-events: none` — purely visual, so it can't block the
+	// row adornments/actions beneath it (and wheel passes straight through to the scroller). Invisible
+	// until a deliberate hover of the header grab handle (0.2s delay avoids a flash on pass-through),
+	// then the theme's sash-hover color; stays lit while dragging (:active, held by pointer capture).
+	// Matches the shared `gl-split-panel` divider (the VS Code sash treatment used across our webviews):
+	// transparent until interaction, then the theme's sash-hover color; keyboard focus uses `focusBorder`.
+	.gl-graph__resize-line {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: var(--gl-split-panel-divider-width, 4px);
+		height: var(--gl-graph-viewport-height, 100%);
+		background-color: transparent;
+		pointer-events: none;
+		transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
+	}
+	// Keyboard focus presents the SAME affordance as hover/drag — the whole splitter bar highlights (not a
+	// small outline rect). Split into hover (delayed, avoids a flash on pass-through) / active / focus so
+	// each state matches gl-split-panel exactly.
+	.gl-graph__resize-handle:focus-visible .gl-graph__resize-line {
+		background-color: var(--vscode-focusBorder);
+	}
+	.gl-graph__resize-handle:hover .gl-graph__resize-line {
+		background-color: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));
+		transition-delay: 0.2s;
+	}
+	.gl-graph__resize-handle:active .gl-graph__resize-line {
+		background-color: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));
+	}
+
+	// lit-virtualizer owns the scrollbar (scroller attr); kill its estimated min-height so
+	// scroll stays inside it instead of spilling to the wrapper (mirrors tree-view.ts).
+	// `width: 100%` is required because the flow layout positions items absolutely and does
+	// not force their width — without it rows shrink to content and the columns collapse.
+	// `flex: 1 1 auto`, not `height: 100%`, which ignored the header's height and overflowed by it.
+	.gl-graph__virtualizer {
+		display: block;
+		width: 100%;
+		flex: 1 1 auto;
+		min-height: 0 !important;
+		contain: layout;
+		// Always reserve the scrollbar lane, even when the rows don't overflow — the scroll-marker rail
+		// and the "Scroll to HEAD" pill are positioned against `--gl-graph-scrollbar-width` (measured as
+		// `offsetWidth - clientWidth`), so without this a short list gives the lane back to the rows and
+		// the rail draws over them. It also pins that measurement to a constant, so a list that crosses
+		// the overflow threshold without a resize (scoping, filtering, paging in) can't leave a stale
+		// width behind and misalign the header from the rows.
+		scrollbar-gutter: stable;
+	}
+
+	// While scrolling, rows slide under a stationary cursor, so each row the pointer crosses would flash its
+	// hover-state transitions (dot grow, edge/raster brighten) as spurious fades trailing the scroll. Kill
+	// transitions on scrolling rows; genuine interaction on a settled row still animates.
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row,
+	.gl-graph__virtualizer.is-scrolling .gl-graph__row * {
+		transition: none !important;
+	}
+
+	.gl-graph__row {
+		position: relative;
+		display: flex;
+		width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+		align-items: stretch;
+		cursor: pointer;
+		// Interactive list rows (like VS Code lists): click/Shift-click selects ROWS, never text — so a
+		// Shift-click range-select doesn't also highlight the message/author text under the pointer.
+		user-select: none;
+		// `contain: layout` (not strict) so hoisted overlays/tooltips can still escape the row.
+		contain: layout;
+		transition: background-color 120ms ease-out;
+
+		// Scope-anchor resting tint: colorize the WHOLE anchor row by its role (target = colored, base =
+		// monochromatic muted, focal = brand) so the anchor reads across the row, not just at the marker.
+		// Declared before the state rules below so hover/highlight/selection still override it.
+		// Each resting tint also publishes `--row-rest-bg` (same value) so the row-actions strip + its status
+		// badge can reproduce the row's own background at rest rather than punching an untinted hole through
+		// it; source order here IS the precedence (anchor < inRefChain < highlighted).
+		&.is-anchor--target {
+			--row-rest-bg: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 12%, transparent);
+
+			background-color: var(--row-rest-bg);
+		}
+		&.is-anchor--fork {
+			--row-rest-bg: color-mix(in srgb, var(--vscode-descriptionForeground, #8b949e) 12%, transparent);
+
+			background-color: var(--row-rest-bg);
+		}
+		&.is-anchor--focal {
+			--row-rest-bg: hsl(var(--brand) / 0.1);
+
+			background-color: var(--row-rest-bg);
+		}
+
+		&:hover {
+			background-color: var(--vscode-list-hoverBackground);
+		}
+		// High-contrast parity with the old engine's forced-colors treatment: hover/selection rely on
+		// background tints alone above, which forced-colors themes can flatten to nothing — so HC also
+		// gets an explicit ring. `outline` (not `box-shadow`) so it never fights `.is-selected`'s own
+		// box-shadow ring below or the focus `::after` overlay; negative offset keeps it inset, matching
+		// the focus ring's clip behavior.
+		body.vscode-high-contrast &:hover,
+		body.vscode-high-contrast-light &:hover {
+			outline: 1px dashed var(--color-graph-contrast-border);
+			outline-offset: -1px;
+		}
+		// Lane-chain highlight (Alt-hold or click-pin): a brand tint so the branch's commits READ as
+		// highlighted against the dimmed rest — carries the emphasis on its own for the lighter transient
+		// dim (see `is-dimmed-soft`), not only as "the rows that didn't dim".
+		&.is-inRefChain {
+			--row-rest-bg: hsl(var(--brand) / 0.1);
+
+			background-color: var(--row-rest-bg);
+		}
+		// Active-search match (normal mode): the VS Code range-highlight color — the row-scale "line
+		// containing a search hit" tint (Quick Open/Find) — while non-matches dim (is-dimmed); char-level
+		// find/filter-match tints are too heavy across a full row. Falls back to a brand tint where the
+		// theme defines neither (e.g. high contrast). Before is-selected so a selected match still reads
+		// as selected.
+		&.is-highlighted {
+			--row-rest-bg: var(--vscode-editor-rangeHighlightBackground, hsl(var(--brand) / 0.2));
+
+			background-color: var(--row-rest-bg);
+			box-shadow: inset 0 0 0 1px var(--vscode-editor-rangeHighlightBorder, transparent);
+		}
+		&.is-selected {
+			// Component-scoped tokens (not the raw `--vscode-*` directly) so the window-unfocused override
+			// below is a single property swap, not a duplicated rule per consumer (this + the row-actions
+			// strip + its status badge, which inherit these through the row's descendants).
+			--row-selection-bg: var(--vscode-list-activeSelectionBackground);
+			--row-selection-fg: var(--vscode-list-activeSelectionForeground);
+			background-color: var(--row-selection-bg);
+			color: var(--row-selection-fg);
+		}
+		// High-contrast selection ring (old-engine parity: `--selected-row-border: 1px solid`). A
+		// `box-shadow` on the row itself (not the hover outline's `outline` above) — it paints alongside,
+		// never fights, the `.is-focused::after` overlay's own inset box-shadow when a row is both
+		// selected and focused.
+		body.vscode-high-contrast &.is-selected,
+		body.vscode-high-contrast-light &.is-selected {
+			box-shadow: inset 0 0 0 1px var(--color-graph-contrast-border);
+		}
+		// Focus/selection ring matching VS Code list rows, which use `outline-offset: -1px` — a 1px ring
+		// inset 1px on ALL sides. We can't use `outline`: the row is a stacking context whose positioned
+		// descendants (lane band/edge, anchor rail, action strip) paint over the row's own outline, so the
+		// ring is a TOP-MOST ::after overlay above those layers. `inset: 1px` reproduces VS Code's inset
+		// AND keeps the ring inside the scrollable virtualizer's overflow clip (the row is flush against
+		// its left edge, so a flush ring's leftmost pixel would land on the clip boundary and vanish).
+		&.is-focused::after {
+			content: '';
+			position: absolute;
+			inset: 1px;
+			z-index: 5;
+			// The SOLE focus indicator for the tree (no separate viewport ring). Inactive at rest (VS Code
+			// leaves inactive-focus rows ring-less unless the theme sets `--vscode-list-inactiveFocusOutline`),
+			// brightened to the active focus color whenever focus is anywhere IN the tree — the container OR a
+			// dived-into row control (pill / action button). `:focus-within` (not `:focus-visible`): the ring
+			// must stay while you're on the row's controls, and the container's programmatic focus isn't
+			// reliably `:focus-visible`.
+			box-shadow: inset 0 0 0 1px var(--vscode-list-inactiveFocusOutline, transparent);
+			pointer-events: none;
+		}
+		&.is-dimmed {
+			opacity: 0.35;
+		}
+		// Transient Alt-hold peek: a lighter dim that FADES IN (so a branch-wide dim doesn't flash the
+		// instant Alt goes down) and snaps back on release — the transition lives only on this class, so
+		// removing it is instant. Overrides the 0.35 above (declared after, always paired with is-dimmed).
+		&.is-dimmed-soft {
+			opacity: 0.6;
+			transition: opacity 120ms ease-out;
+		}
+
+		// Lane-color BAND (graph = its own column), BOUNDED to the gutter: a soft gradient that FADES IN
+		// from the node (`--row-node-x`, transparent) and ramps up toward the graph column's right edge
+		// (`--row-gutter-width`), terminating in a crisp lane-color LINE at that edge — the "edge". Subtle
+		// (low tint). `z-index:-1` so it paints BEHIND the lanes + message (an absolute pseudo-element
+		// would otherwise paint OVER the in-flow cells), but over the row's state background. Vertically
+		// inset so adjacent rows' bands leave a thin gap.
+		&.is-graph-band::before {
+			content: '';
+			position: absolute;
+			top: 0.1rem;
+			bottom: 0.1rem;
+			left: 0;
+			right: 0;
+			z-index: -1;
+			pointer-events: none;
+			// Gradient origin (the dot): the CSS-pinned node x (`--gutter-node-x`, see the row rule) plus
+			// the zones rendered before the lanes — the band always emanates from wherever the dot
+			// actually is (pinned or free) and animates with it during reveals.
+			--band-origin: calc(var(--row-lane-lead, 0px) + var(--gutter-node-x));
+			background-image:
+				linear-gradient(
+					90deg,
+					transparent calc(var(--row-band-edge) - 0.2rem),
+					var(--row-lane-color) calc(var(--row-band-edge) - 0.2rem),
+					var(--row-lane-color) var(--row-band-edge),
+					transparent var(--row-band-edge)
+				),
+				linear-gradient(
+					90deg,
+					transparent var(--band-origin),
+					color-mix(in srgb, var(--row-lane-color) 14%, transparent) calc(var(--row-band-edge) - 0.2rem),
+					transparent var(--row-band-edge)
+				);
+		}
+		// Column mode: confine the band to the graph column viewport (left/width set per row) so it never
+		// bleeds into adjacent columns. The origin tracks the pinned dot via `--gutter-node-x`.
+		&.is-graph-band.is-graph-column::before {
+			left: var(--row-graph-left);
+			width: var(--row-graph-width);
+			right: auto;
+		}
+		// Both graph + refs inlined into Message: there's no host-column boundary at the lanes' edge, so
+		// instead of a crisp colorized line, ONE continuous wash flows from the dot, ramps up across the
+		// lanes, holds through the (outlined) pills, then tapers off into the message's first letters. It's
+		// painted ENTIRELY on this single full-row pseudo-element (already `top/bottom: 0.1rem`, full row
+		// height, behind the content at `z-index: -1`) — so there are NO seams between layers and NO inner
+		// element (refs cell / message text) whose height varies by density to anchor against. The taper
+		// is a generous fixed distance past the lanes' edge so it covers typical pills and bleeds a few
+		// letters into the message; an unusually long pill keeps its own outline past the taper.
+		&.is-graph-band.is-graph-bleed::before {
+			// Spillover past the lanes/pills (`--row-band-edge`) into the message is deliberately kept
+			// subtle: it holds the ramp's peak AT the edge (continuous — no hard step), then falls off
+			// quicker at first and slower later (convex decay) so the wash dims fast just past the pills
+			// but never cuts hard against the message text.
+			background-image: linear-gradient(
+				90deg,
+				transparent var(--band-origin),
+				color-mix(in srgb, var(--row-lane-color) 8%, transparent) calc(var(--band-origin) + 0.5rem),
+				color-mix(in srgb, var(--row-lane-color) 18%, transparent) var(--row-band-edge),
+				color-mix(in srgb, var(--row-lane-color) 9%, transparent) calc(var(--row-band-edge) + 1.25rem),
+				color-mix(in srgb, var(--row-lane-color) 4%, transparent) calc(var(--row-band-edge) + 4rem),
+				color-mix(in srgb, var(--row-lane-color) 1.5%, transparent) calc(var(--row-band-edge) + 8.5rem),
+				transparent calc(var(--row-band-edge) + 13rem)
+			);
+		}
+		// Lane-color EDGE (graph inline/hidden): a thin solid bar of the lane color on the left. A
+		// pseudo-element (not box-shadow, which is-highlighted already uses) painted under the row's
+		// children — so the selection accent / scope anchor still sit on top of it when present.
+		&.is-graph-edge::before {
+			content: '';
+			position: absolute;
+			left: 0;
+			top: 0;
+			bottom: 0;
+			width: 0.2rem;
+			background-color: var(--row-lane-color);
+			pointer-events: none;
+		}
+	}
+
+	// Sticky-timeline bucket-boundary separator (gitlens.graph.timelineSeparators) — a real child element
+	// (NOT `.gl-graph__row::before`/`::after`: both are already claimed by the lane band/edge and the
+	// focus ring, and a row can be boundary + band/focused at once) rendered only on boundary rows (see
+	// `isBucketBoundary` in gl-lit-graph.ts/graph-row.ts). An absolutely-positioned 1px overlay — NOT a
+	// `border-top` — so it never touches row height/content flow (a top border shifts the content box by
+	// 1px even under `box-sizing: border-box`). The line spans the text zones but fades to transparent
+	// before it reaches the lane gutter (`--graph-col-left`/`--graph-col-vw`, published once per solve in
+	// `updateRenderState` — zeroed when the graph is hidden, so this degrades to a plain full-width line),
+	// so it never crosses the lane strokes/commit dots; ramps on BOTH sides handle the graph column sitting
+	// mid-row (`column` placement, reorderable) as gracefully as at an edge (ramp collapses to nothing when
+	// the excluded region starts/ends at 0%/100%). Static per layout, not per-scroll: the lane region here
+	// is the zone's VIEWPORT slot, not live per-scroll lane content position (`--graph-scroll-x` et al).
+	.gl-graph__row-timeline-sep {
+		--timeline-sep-color: var(--vscode-editorWidget-border, var(--vscode-widget-border));
+		--timeline-sep-ramp: 2rem;
+		--timeline-sep-mask: linear-gradient(
+			90deg,
+			black 0,
+			black calc(var(--graph-col-left, 0) - var(--timeline-sep-ramp)),
+			transparent var(--graph-col-left, 0),
+			transparent calc(var(--graph-col-left, 0) + var(--graph-col-vw, 0)),
+			black calc(var(--graph-col-left, 0) + var(--graph-col-vw, 0) + var(--timeline-sep-ramp)),
+			black 100%
+		);
+
+		position: absolute;
+		top: 0;
+		right: 0;
+		left: 0;
+		height: 0;
+		pointer-events: none;
+		// A real border (not a background line): at fractional display scaling Chromium device-snaps
+		// borders but antialiases backgrounds across 2 physical rows — the mask fades it over the lanes.
+		border-top: var(--gl-border-width) solid var(--timeline-sep-color);
+		-webkit-mask-image: var(--timeline-sep-mask);
+		mask-image: var(--timeline-sep-mask);
+	}
+	// Unfocused host window: dim the selection accent to VS Code's inactive tone (matches list/tree
+	// views losing focus). `windowFocused` is undefined/true when focused — see gl-lit-graph.ts, which
+	// toggles the class on `.gl-graph__viewport` (not the host tag — consumers own classes on that).
+	// A single custom-property override — the row-actions strip + its status badge below inherit
+	// `--row-selection-bg` through the row's descendants, so they need no override rule of their own.
+	.gl-graph__viewport.gl-graph--window-unfocused .gl-graph__row.is-selected {
+		--row-selection-bg: var(--vscode-list-inactiveSelectionBackground);
+		--row-selection-fg: var(--vscode-list-inactiveSelectionForeground);
+	}
+
+	// Active-row focus ring — brightened to the active focus color whenever focus is anywhere IN the tree
+	// (the container OR a dived-into row control: pill / action button). Standalone (NOT nested in the row
+	// block): `.gl-graph__tree` must stay a real ANCESTOR of the row — a `&`-prefixed nested form expands
+	// `& → .gl-graph__row`'s own ancestor chain AFTER `.gl-graph__tree`, which can never match. Inactive
+	// (dim/none) at rest via the `&.is-focused::after` default; `:focus-within` (not `:focus-visible`) keeps
+	// the ring while you're on the row's controls, and the container's programmatic focus isn't reliably
+	// `:focus-visible`.
+	.gl-graph__tree:focus-within .gl-graph__row.is-focused::after {
+		box-shadow: inset 0 0 0 1px var(--vscode-list-focusOutline);
+	}
+	// Graph (tree) unfocused within the window → inactive list-selection colors (same token swap as the
+	// window-unfocused override above, but for the graph losing keyboard focus while the window keeps it).
+	.gl-graph__viewport:not(:has(.gl-graph__tree:focus-within)) .gl-graph__row.is-selected {
+		--row-selection-bg: var(--vscode-list-inactiveSelectionBackground);
+		--row-selection-fg: var(--vscode-list-inactiveSelectionForeground);
+	}
+
+	// Row-action overlay: right-aligned button strip revealed on hover/selection/focus, fading the
+	// row content out behind it. Buttons carry data-row-action / data-wip-open (resolved by the click
+	// delegation). Hidden + non-interactive until revealed so it never blocks row clicks.
+	.gl-graph__row-actions {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		// No positive z-index: the strip is a positioned child so it already paints above the row's
+		// in-flow content (fading it), while staying BELOW the row's focus outline — so the selection
+		// ring stays continuous across the adornments instead of being clipped by them.
+		display: flex;
+		align-items: center;
+		gap: 0.2rem;
+		padding: 0 0.6rem 0 1.6rem;
+		opacity: 0;
+		// `visibility: hidden` (not opacity alone) so the strip leaves the TAB ORDER and the a11y tree at
+		// rest — opacity:0 keeps it focusable+exposed, which is exactly why the old `aria-hidden="true"`
+		// band-aid was needed (and which made the buttons focusable-but-hidden, an a11y anti-pattern).
+		// Delayed 120ms so it hides only AFTER the opacity fade-out; the active rule reveals it instantly.
+		visibility: hidden;
+		pointer-events: none;
+		// Two stacked layers so the strip is fully OPAQUE (VS Code list backgrounds are often
+		// semi-transparent): the row-state tint on top, an opaque base (graph bg) below — both fade in
+		// over 1.6rem so the left edge blends into the row instead of a hard cut. Content underneath is
+		// hidden once faded, so nothing shows through behind the buttons.
+		// The tint is the row's OWN resting one (`--row-rest-bg`, unset => transparent) so a `--has-persistent`
+		// strip — visible at rest, see below — disappears into the row instead of reading as a highlighted
+		// chip behind its always-on buttons, while staying opaque enough to still hide row content. The
+		// reveal rules below swap in the hover/selection tints.
+		background:
+			linear-gradient(to right, transparent, var(--row-rest-bg, transparent) 1.6rem),
+			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
+		transition:
+			opacity 120ms ease-out,
+			visibility 0s linear 120ms;
+	}
+	.gl-graph__row:hover .gl-graph__row-actions,
+	.gl-graph__row.is-focused .gl-graph__row-actions,
+	.gl-graph__row.is-selected .gl-graph__row-actions {
+		opacity: 1;
+		visibility: visible;
+		pointer-events: auto;
+		background:
+			linear-gradient(to right, transparent, var(--vscode-list-hoverBackground) 1.6rem),
+			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
+		transition:
+			opacity 120ms ease-out,
+			visibility 0s;
+	}
+	.gl-graph__row.is-selected .gl-graph__row-actions {
+		background:
+			linear-gradient(to right, transparent, var(--row-selection-bg) 1.6rem),
+			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
+	}
+	// Per-button visibility mode. When a row has at least one always-on button the strip carries
+	// `--has-persistent` and stays live so persistent buttons show at rest — gating EACH button
+	// individually instead of the whole-strip fade above. Reveal is pure CSS (a `display` toggle on the
+	// gated buttons), so hover/focus/selection costs zero JS. Rows whose buttons are all gated keep the
+	// whole-strip fade (this block doesn't apply). These rules sit after the default block so their
+	// equal-specificity `opacity`/`visibility` win the at-rest cascade.
+	.gl-graph__row-actions--has-persistent {
+		opacity: 1;
+		visibility: visible;
+		// Backdrop gaps must not eat row clicks; only the buttons themselves are interactive at rest.
+		pointer-events: none;
+		transition: none;
+	}
+	.gl-graph__row-actions--has-persistent .gl-graph__row-action {
+		pointer-events: auto;
+	}
+	// Gated buttons: hidden + out of the tab order / a11y tree at rest (`display:none` reserves no space,
+	// so the strip is only as wide as its persistent buttons until revealed)...
+	.gl-graph__row-actions--has-persistent .gl-graph__row-action--gated {
+		display: none;
+	}
+	// ...revealed for the row's interaction state (keep `.is-focused` so keyboard users reach them).
+	.gl-graph__row:hover .gl-graph__row-actions--has-persistent .gl-graph__row-action--gated,
+	.gl-graph__row.is-focused .gl-graph__row-actions--has-persistent .gl-graph__row-action--gated,
+	.gl-graph__row.is-selected .gl-graph__row-actions--has-persistent .gl-graph__row-action--gated {
+		display: inline-flex;
+	}
+	// Unpushed Push-to-Commit badge: colorized with the "ahead" decoration color so it reads as a badge
+	// at rest (matches the legacy `.unpushed-push-button`); hover still gets the toolbar bg.
+	.gl-graph__row-action.unpushed-push-button {
+		color: var(--branch-status-ahead-foreground);
+	}
+	// Agent indicator phase color. The `.agent-indicator` block further down is nested inside
+	// `.graph-row-actions` — the REACT renderer's container — so it can't reach this renderer's
+	// `.gl-graph__row-actions` rows; these rules are the Lit equivalent (the markup already carries
+	// `agent-indicator--${category}`). Compound selectors, like `.unpushed-push-button` above, so
+	// they outrank `.gl-graph__row-action`'s own `color` on specificity rather than source order.
+	// Tokens come from theme.scss, keeping this aligned with the tree decoration and status pill.
+	.gl-graph__row-action.agent-indicator--needs-input {
+		color: var(--gl-agent-waiting-color);
+	}
+	.gl-graph__row-action.agent-indicator--working {
+		color: var(--gl-agent-working-color);
+	}
+	.gl-graph__row-action.agent-indicator--idle {
+		color: var(--gl-agent-idle-color);
+	}
+	.gl-graph__row-action {
+		position: relative;
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 1.8rem;
+		height: 1.8rem;
+		padding: 0;
+		border: none;
+		border-radius: 0.3rem;
+		background: transparent;
+		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
+		cursor: pointer;
+
+		&:hover {
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+	}
+	// Compose/review operation status (loading/result) + the agent indicator's category icon — a small
+	// badge in the button's bottom-right corner, on an opaque chip so it reads over the main icon.
+	.gl-graph__row-action-status {
+		position: absolute;
+		right: -0.1rem;
+		bottom: -0.1rem;
+		font-size: 1.2rem;
+		border-radius: 50%;
+		// Opaque chip MATCHING the row bg (not the black editor bg) so it cleanly cuts the main icon's
+		// corner — same two-layer (row tint over the graph bg) as the strip itself, and tracking the same
+		// tints. A status badge only ever renders on an always-on button, so it's the resting tint here.
+		background:
+			linear-gradient(0deg, var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
+			hsl(var(--background));
+		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
+	}
+	// The agent badge IS the phase signal, so it takes the phase color from its button instead of the
+	// neutral foreground above — matching the file tree's agent decoration, and the React renderer,
+	// whose suffix icon already inherits the color from `.agent-indicator`. Scoped to the agent button:
+	// the compose/review/resolve badges sharing this class encode operation state (loading/pass/error),
+	// which must not read as an agent phase. Outranks the base rule on specificity, not source order.
+	.gl-graph__row-action--agent .gl-graph__row-action-status {
+		color: inherit;
+	}
+	.gl-graph__row:hover .gl-graph__row-action-status,
+	.gl-graph__row.is-focused .gl-graph__row-action-status {
+		background:
+			linear-gradient(0deg, var(--vscode-list-hoverBackground), var(--vscode-list-hoverBackground)),
+			hsl(var(--background));
+	}
+	.gl-graph__row.is-selected .gl-graph__row-action-status {
+		background: linear-gradient(0deg, var(--row-selection-bg), var(--row-selection-bg)), hsl(var(--background));
+	}
+
+	.gl-graph__anchor {
+		position: absolute;
+		left: 0;
+		top: 0;
+		height: 100%;
+		width: 0.2rem;
+		pointer-events: none;
+
+		&--focal {
+			width: 0.3rem;
+			background-color: hsl(var(--brand));
+		}
+		&--fork {
+			background-color: var(--vscode-descriptionForeground, #8b949e);
+		}
+		&--target {
+			background-color: var(--vscode-charts-purple, #b180d7);
+		}
+		// Target row that is ALSO the fork point (merge-base === target tip — a branch purely ahead of
+		// its target). Target look wins (colored), but the rail splits purple (target, top) over the
+		// muted base gray (fork, bottom) and widens, so both roles read at a glance; tooltip spells it out.
+		&--target.gl-graph__anchor--also-fork {
+			width: 3px;
+			background-color: transparent;
+			background-image: linear-gradient(
+				to bottom,
+				var(--vscode-charts-purple, #b180d7) 0,
+				var(--vscode-charts-purple, #b180d7) 50%,
+				var(--vscode-descriptionForeground, #8b949e) 50%,
+				var(--vscode-descriptionForeground, #8b949e) 100%
+			);
+		}
+		&--generic {
+			background-color: hsl(var(--status-warning));
+		}
+	}
+	// When the row is also selected, offset the anchor rail past the selection accent (3px)
+	// so both are visible (mirrors the React renderer's `left: isSelected ? 4 : 0`).
+	.gl-graph__row.is-selected .gl-graph__anchor {
+		left: 0.4rem;
+	}
+
+	// Scope-anchor marker pill (legacy "TARGET" parity) — a small colored chip before the branch pills
+	// so the anchor's meaning is legible without decoding the thin rail. Color matches the rail per kind.
+	.gl-graph__anchor-pill {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.3rem;
+		border-radius: 0.4rem;
+		// Dotted outline (no fill) — reads as a synthetic scope annotation, NOT a real ref pill (those
+		// are solid). border-color inherits the kind color via currentColor.
+		border: 1px dotted currentColor;
+		padding: 0.1rem 0.5rem;
+		font-size: 0.9rem;
+		font-weight: 600;
+		line-height: 1;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+		--code-icon-size: 1.1rem;
+
+		&--target {
+			color: var(--vscode-charts-purple, #b180d7);
+		}
+		&--fork {
+			color: var(--vscode-descriptionForeground, #8b949e);
+		}
+	}
+
+	// The lane-art surface + pinned node are ABSOLUTE children of the gutter viewport (the clip):
+	// the surface holds ALL lane art at absolute lane x and the compositor slides it as ONE unit via
+	// `--graph-gutter-scroll` — nothing inside it is ever rewritten after build. pointer-events: none so
+	// clicks fall through to row selection; the lane-collapse hit-target re-enables them.
+	.gl-graph__gutter-fade {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+	}
+	.gl-graph__gutter-surface {
+		position: absolute;
+		inset: 0 auto 0 0;
+		pointer-events: none;
+		transform: translateX(calc(-1 * var(--graph-gutter-scroll, 0px)));
+
+		> svg {
+			position: absolute;
+			top: 0;
+			left: 0;
+		}
+	}
+	.graph-gutter {
+		pointer-events: none;
+	}
+	// The commit node + its hit-target, PINNED into the viewport by pure CSS: the clamp keeps the dot at
+	// the fade inset when its lane scrolls past either edge — zero per-frame JS. `--gutter-node-x` is the
+	// dot's screen x (see the row rule below); the element is centered on it by shifting half its width.
+	.gl-graph__gutter-node {
+		position: absolute;
+		top: 0;
+		left: 0;
+		overflow: visible;
+		pointer-events: none;
+		translate: calc(var(--gutter-node-x, 0px) - 2.2rem) 0;
+		// Pinned dots dim: how far the dot's free position sits past either pin bound (0 when free),
+		// ramped over the fade width to 0.4 — `tan(atan2(y, x))` is exact y/x division, turning the px
+		// overshoot into the unitless ratio opacity needs. Derived from the same vars as the pin, so it
+		// tracks scroll and reveals with zero JS.
+		--gutter-node-free-x: calc(var(--row-lane-x, 0px) - var(--graph-gutter-scroll, 0px));
+		--gutter-node-over: max(
+			0px,
+			calc(var(--gutter-pin-x, 21px) - var(--gutter-node-free-x)),
+			calc(var(--gutter-node-free-x) - (var(--row-gutter-w, 0px) - var(--gutter-inset, 7px)))
+		);
+		--gutter-node-dim: clamp(0.4, calc(1 - tan(atan2(var(--gutter-node-over), 2.4rem)) * 0.6), 1);
+	}
+	// The dim applies to the node CONTENT only — the background carve stays opaque so sliding lanes never
+	// show through a dimmed node (element-level opacity made the carve translucent too, bleeding the lane
+	// lines through pinned avatars); the content fades toward the carve (the background) instead. The
+	// own-lane segments (`gl-graph__node-lane`, pinned with the dot) dim in step.
+	.gl-graph__gutter-node .commit-dot-glow > :not(.gl-graph__node-carve),
+	.gl-graph__gutter-node .gl-graph__node-lane {
+		opacity: var(--gutter-node-dim, 1);
+	}
+	// Promote both sliding gutter layers to compositor layers, but only while the gutter can h-scroll
+	// (`is-gutter-fading` = it overflows): they then slide at fractional px with no per-frame repaint,
+	// keeping the pinned dot from desyncing off its surface-drawn lane art. Scoped so idle rows pay none.
+	.gl-graph__virtualizer.is-gutter-fading .gl-graph__gutter-surface {
+		will-change: transform;
+	}
+	.gl-graph__virtualizer.is-gutter-fading .gl-graph__gutter-node {
+		will-change: translate;
+	}
+	.gl-graph__row {
+		// The dot's screen x: its absolute lane x, slid by the scroll offset, pinned inside
+		// [inset, viewport-width - inset] — the same expression the band origin consumes, so the band
+		// always emanates from wherever the dot actually is (pinned or free), and both animate together
+		// when a reveal transitions the offset var.
+		// Left pin = the FIRST-LANE x (`--gutter-pin-x`): a pinned dot lands on the lane grid, exactly
+		// where a lane-0 dot sits at rest. Right pin trails by the node clearance (`--gutter-inset`).
+		--gutter-node-x: clamp(
+			var(--gutter-pin-x, 21px),
+			calc(var(--row-lane-x, 0px) - var(--graph-gutter-scroll, 0px)),
+			calc(var(--row-gutter-w, 0px) - var(--gutter-inset, 7px))
+		);
+	}
+	.gl-graph__gutter-raster {
+		pointer-events: none;
+	}
+	// Selection-driven lane reveal: the reveal writes a new `--graph-gutter-scroll` and arms this class
+	// for the slide's duration — the surface translate, the pinned node, and the band origin all consume
+	// the SAME var, so everything glides together; interrupting mid-slide continues smoothly (CSS
+	// transitions retarget from the current position). Scoped by the class so ordinary h-scroll (per-frame
+	// var writes) is never eased.
+	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-surface {
+		transition: transform 180ms ease-out;
+	}
+	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-node {
+		transition: translate 180ms ease-out;
+	}
+	// The scroll var itself snaps (vars don't interpolate) — easing the dim keeps it in step with the
+	// sliding position instead of popping at reveal start. On the content (where the dim lives), not the svg.
+	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-node .commit-dot-glow > :not(.gl-graph__node-carve),
+	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-node .gl-graph__node-lane {
+		transition: opacity 180ms ease-out;
+	}
+	// Grouped rows' per-offset widths glide with the slide (same duration/easing) instead of snapping —
+	// a width snap while the lanes are still mid-slide reads as the layout breaking. Bounded layout cost:
+	// only while the reveal class is armed (~180ms), only the visible rows.
+	.gl-graph__virtualizer.is-lane-revealing .gl-graph__gutter-viewport--inline {
+		transition: width 180ms ease-out;
+	}
+	// The pass-through raster's own viewport-anchored svg (column placement + scrolling; see
+	// `renderGutterRasterLayer`). Absolute over the gutter viewport, BEHIND the live overlay svg. Its edge-fade
+	// mask DISSOLVES the outer graphEdgeFadePx (2.4rem) of the raster at each visible edge instead of the hard
+	// overflow clip — the `<image>` inside slides beneath this static mask via `--graph-gutter-scroll`, so the
+	// fade stays anchored to the viewport edges (not the moving image) and never touches the sibling overlay svg
+	// (pinned dots/stubs stay full-strength). Each edge's fade is gated OFF when nothing is hidden that way
+	// (scrollX 0 → left, scrollX max → right) via the `--gutter-fade-*-on` (0/1) vars the host maintains
+	// alongside `--graph-gutter-scroll`. Alpha gradient (transparent → opaque), no-repeat.
+	// Mask ONLY while a fade is genuinely active (host toggles `is-gutter-fading`) AND on rows wide
+	// enough to have hidden content (`is-row-fadeable`, the narrow-row guard — set by the ROW template so
+	// the cached gutter fragment stays width/offset-agnostic; see `rowFadeable` in graph-row.ts): a mask
+	// with fully-opaque stops is still a mask to the compositor — 60 rendered rows would each pay an
+	// isolated offscreen group even when nothing fades.
+	.gl-graph__virtualizer.is-gutter-fading .gl-graph__row.is-row-fadeable .gl-graph__gutter-fade {
+		--gl-gutter-mask: linear-gradient(
+			to right,
+			transparent 0,
+			#000 calc(var(--gutter-fade-left-on, 0) * 2.4rem),
+			#000 calc(100% - var(--gutter-fade-right-on, 0) * 2.4rem),
+			transparent 100%
+		);
+		-webkit-mask-image: var(--gl-gutter-mask);
+		mask-image: var(--gl-gutter-mask);
+		-webkit-mask-repeat: no-repeat;
+		mask-repeat: no-repeat;
+	}
+	.lane-hit-target {
+		pointer-events: all;
+		cursor: pointer;
+	}
+
+	.gl-graph__zone {
+		display: flex;
+		// border-box so the zone's declared width (from the persisted column setting) is the
+		// total cell width — otherwise the 0.8rem horizontal padding adds on top and the row
+		// columns render wider than (and misaligned with) the header cells.
+		box-sizing: border-box;
+		align-items: center;
+		overflow: hidden;
+		padding: 0 0.8rem;
+
+		&.is-flush {
+			padding-left: 0;
+		}
+	}
+
+	.gl-graph__refs {
+		display: flex;
+		// Pills shrink (label ellipsises) down to their leading icon; the grouped cap below is what bounds
+		// them against the message. Uncapped base = the dedicated Refs column / compact line 2, where the
+		// refs own the whole cell and there's no message to protect.
+		flex-shrink: 1;
+		min-width: 0;
+		// Separate the pills from the message text that follows in the same cell.
+		margin-right: 0.6rem;
+		align-items: center;
+		gap: 0.4rem;
+		overflow: hidden;
+	}
+	// Leading-icon guarantee: floor the zone so its overflow:hidden can never chop the pill's leading
+	// icon — border(0.1·2)+pad(0.8·2)+icon(1.2) = exactly 3rem. This is NOT a pill floor (the pill sizes
+	// itself, see `-main`), and NOT min-content — that sums in the anchor markers AND outranks the
+	// grouped cap below (min-width beats max-width), starving the message all over again.
+	.gl-graph__refs:has(.gl-graph__ref-pill) {
+		min-width: 3rem;
+	}
+	// The WIP stats badge is NOT a truncatable pill — it must always show in full. Inlined into the
+	// message column it shares `.gl-graph__refs`, whose shrink/clip is meant for branch pills; pin it to
+	// its content width (and drop the inline cap + overflow clip) so the message yields instead of the stats.
+	.gl-graph__refs:has(.gl-graph__wip-stats) {
+		flex-shrink: 0;
+		min-width: auto;
+		max-width: none;
+		overflow: visible;
+	}
+	// Pills sharing the message cell size to their CONTENT, not a flex-shrunk fraction. flex-shrink:0 makes
+	// the zone EXACTLY the pills' width, so each label's box matches its text — eliminating the sub-pixel
+	// rounding that tripped `text-overflow: ellipsis` a pixel early (a flex-shrunk zone lands on a fractional
+	// width whose floor is 1px under the text, so the name ellipsised with room to spare). The CAP is what
+	// makes pills yield — a bare `100% - 9rem` reserved the message only ~7 chars, so the pills ate the cell
+	// and never visibly shrank; the percentage splits it down the middle instead. `100% - 9rem` takes back
+	// over below an 18rem cell (of the zone's CONTENT box), where half would leave the message too little to
+	// read. Past the cap the pills truncate (hover reveals the full name). Tune the percentage to trade pill
+	// name vs message length — it's the only dial here. Scoped to ref-pill refs that precede a message — NOT
+	// the wip-stats refs (must never cap) nor the dedicated Refs column / compact line 2 (no message sibling).
+	.gl-graph__refs:has(.gl-graph__ref-pill):has(~ .gl-graph__message) {
+		flex-shrink: 0;
+		max-width: min(40%, calc(100% - 9rem));
+	}
+	// In the list (2-line) layout the pills sit on line 2 (before the sha/author/date); the line's flex
+	// gap already spaces them from the metadata, so drop the refs' trailing margin.
+	.gl-graph__list-line2 .gl-graph__refs {
+		margin-right: 0;
+	}
+	// Dedicated Refs column (refs placement = column): the pills own the whole cell, so drop the
+	// inline share-of-row cap + the trailing margin (no message follows them here) and let them fill it.
+	.gl-graph__zone--ref .gl-graph__refs {
+		max-width: 100%;
+		margin-right: 0;
+	}
+	.gl-graph__msg-adornments {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-right: 0.8rem;
+	}
+	.gl-graph__message {
+		// The message absorbs ALL the squeeze in this cell: the branch pills are flex-shrink:0 and capped
+		// (see the `.gl-graph__refs` rule above) so they size to their CONTENT, while the message shrinks/
+		// ellipsises into whatever's left. flex-shrink stays high so the message yields before the
+		// lane-collapse adornments do.
+		// min-width MUST stay 0. A floor here can't push the pills back (they're flex-shrink:0) — it only
+		// overflows the line, and the zone's overflow:hidden then chops the message's own `…` off, so it
+		// read as CLIPPED instead of ellipsised. The pills' cap above is what reserves the message its
+		// room; this side just has to yield. The cap can't do the arithmetic itself anyway — it can't see
+		// the refs' 0.6rem margin or the (variable, optional) `-msg-adornments` sharing this line.
+		min-width: 0;
+		flex: 1 1 auto;
+		flex-shrink: 100;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-size: 1.2rem;
+		color: hsl(var(--foreground));
+	}
+	.gl-graph__row.is-workdir .gl-graph__message {
+		font-weight: 600;
+		font-style: italic;
+	}
+	// Commit subject keeps the message's foreground color; the bullet separator + body are muted, so the
+	// subject reads first and the body recedes (matching the legacy graph). The whole line truncates in
+	// `.gl-graph__message`, so the body ellipsizes before the subject.
+	.gl-graph__message-body,
+	.gl-graph__message-sep {
+		color: hsl(var(--muted-foreground));
+	}
+	.gl-graph__message-sep {
+		margin: 0 0.4rem;
+	}
+	// Inline `code` chip — mirrors GlMarkdown's code styling but in light DOM so it inherits the row's
+	// truncation. No vertical padding so the chip never grows the expanded row height.
+	.gl-graph__message-code {
+		padding: 0 0.3rem;
+		border-radius: 0.3rem;
+		background: var(--vscode-textCodeBlock-background);
+		font-family: var(--vscode-editor-font-family);
+		font-size: 0.9em;
+	}
+	.gl-graph__avatar {
+		flex-shrink: 0;
+		width: 1.8rem;
+		height: 1.8rem;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+	// Initials fallback (no avatar image): a muted circle with the author's initials.
+	.gl-graph__avatar--initials {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.4));
+		color: hsl(var(--foreground));
+		font-size: 0.9rem;
+		font-weight: 600;
+		text-transform: uppercase;
+	}
+	.gl-graph__author {
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-size: 1.2rem;
+		color: hsl(var(--muted-foreground));
+	}
+	// Space the name from the avatar only when one precedes it. In avatar node-mode the graph node IS the
+	// avatar, so `renderAvatar` emits nothing and the name must sit flush — no phantom gap.
+	.gl-graph__avatar + .gl-graph__author {
+		margin-left: 0.8rem;
+	}
+	.gl-graph__date {
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-size: 1.1rem;
+		color: hsl(var(--muted-foreground));
+	}
+	.gl-graph__sha {
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 1.1rem;
+		color: hsl(var(--muted-foreground));
+	}
+
+	// Changes column: a unified cell (files count · magnitude viz). Bar/bipolar segment widths come from
+	// `stats.ts` math as PERCENTAGES via `cspStyleMap`, so the tracks flex responsively with the column.
+	.gl-graph__changes {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 1.1rem;
+		width: 100%;
+		min-width: 0;
+		overflow: hidden;
+	}
+	// icon stage: a single centered glyph, no files segment or gap.
+	.gl-graph__changes--icon {
+		justify-content: center;
+		gap: 0;
+	}
+	// numbers' glyph is the bare files count — shrink + ellipsis it, else a centered overflow clips BOTH
+	// edges and "999+" reads as a legitimate "99".
+	.gl-graph__changes--icon .gl-graph__changes-files-count {
+		min-width: 0;
+		max-width: 100%;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-files {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	// The files codicon glyph (font class from the globally-loaded codicons.scss). The `.codicon` compound
+	// selector matches the base `.codicon[class*='codicon-']` specificity but is scoped under gl-lit-graph,
+	// so it outranks it and can shrink the glyph from the base 16px to 12px.
+	.gl-graph__changes-files-icon.codicon {
+		flex-shrink: 0;
+		font-size: 1.2rem;
+		color: var(--color-graph-text-disabled);
+	}
+	.gl-graph__changes-files-count {
+		min-width: 1.6rem;
+		font-size: 1.15rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+		color: hsl(var(--muted-foreground));
+	}
+	// numbers mode: `+N −N` in the added/deleted decoration colors, monospace + tabular so they align. It's
+	// ONE ellipsis unit (a single text run, not two flex children) — additions lead and never clip, and only
+	// the trailing deletions ellipsis once, instead of both sides truncating with their own `…`.
+	.gl-graph__changes-numbers {
+		display: block;
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 1.15rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-added {
+		color: var(--vscode-gitDecoration-addedResourceForeground);
+	}
+	.gl-graph__changes-deleted {
+		margin-inline-start: 0.7rem;
+		color: var(--vscode-gitDecoration-deletedResourceForeground);
+	}
+
+	// squares mode: a leading total-churn number + five fixed cells (added / deleted / empty).
+	.gl-graph__changes-squares {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.gl-graph__changes-churn {
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 1.1rem;
+		font-variant-numeric: tabular-nums;
+		color: hsl(var(--muted-foreground));
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-squares-cells {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.2rem;
+	}
+	.gl-graph__changes-square {
+		width: 0.8rem;
+		height: 0.8rem;
+		flex-shrink: 0;
+		border-radius: 0.2rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-square--added {
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-square--deleted {
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// bar mode: a responsive track (flexes with the column) holding the churn-magnitude fill, segment
+	// widths as percentages of the track.
+	.gl-graph__changes-bar {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 3rem;
+		max-width: 20rem;
+		align-items: stretch;
+		height: 0.9rem;
+		overflow: hidden;
+		border-radius: 0.3rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-bar-added {
+		flex-shrink: 0;
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-bar-deleted {
+		flex-shrink: 0;
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// bipolar mode: a responsive bounds track with a center axis; added grows right, deleted grows left,
+	// each scaled independently to a half-track (segment widths as percentages).
+	.gl-graph__changes-bipolar {
+		position: relative;
+		flex: 1 1 auto;
+		min-width: 3rem;
+		max-width: 20rem;
+		height: 0.9rem;
+		overflow: hidden;
+		border-radius: 0.3rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-bipolar-axis,
+	.gl-graph__changes-mode-glyph-bipolar-axis {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		width: 0;
+		height: 100%;
+		// A real border, not a background line — crisp at fractional display scaling (see the timeline sep's note).
+		border-left: var(--gl-border-width) solid hsl(var(--border));
+	}
+	.gl-graph__changes-bipolar-added {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		height: 0.8rem;
+		transform: translateY(-50%);
+		border-radius: 0 0.2rem 0.2rem 0;
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-bipolar-deleted {
+		position: absolute;
+		top: 50%;
+		right: 50%;
+		height: 0.8rem;
+		transform: translateY(-50%);
+		border-radius: 0.2rem 0 0 0.2rem;
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// icon stage — bar/bipolar collapse to the "churn ring": one total-churn sweep, additions arc clockwise
+	// from 12 o'clock (0 → --a), deletions arc counter-clockwise (--c → 360), the gap between them left as
+	// track. Add-vs-delete lives on opposite sides of the vertical axis, so it survives grayscale with no
+	// notch. Conic stops (`--a`/`--c`) ride cspStyleMap; the radial mask punches the donut hole.
+	.gl-graph__changes-ring {
+		flex: none;
+		width: 1.6rem;
+		height: 1.6rem;
+		border-radius: 50%;
+		background: conic-gradient(
+			from 0deg,
+			var(--color-graph-stats-added) 0deg var(--a, 0deg),
+			var(--color-graph-stats-track) var(--a, 0deg) var(--c, 360deg),
+			var(--color-graph-stats-deleted) var(--c, 360deg) 360deg
+		);
+		-webkit-mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
+		mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
+	}
+
+	// icon stage — squares collapses to the "segmented ring": the five diffstat cells wrapped clockwise from
+	// 12 o'clock (61° cells on a 72° pitch, 11° gaps), additions leading. Fixed geometry here; only the five
+	// colors (`--s0`…`--s4`) vary per row via cspStyleMap.
+	.gl-graph__changes-segring {
+		flex: none;
+		width: 1.6rem;
+		height: 1.6rem;
+		border-radius: 50%;
+		background: conic-gradient(
+			from 0deg,
+			transparent 0deg 5.5deg,
+			var(--s0, transparent) 5.5deg 66.5deg,
+			transparent 66.5deg 77.5deg,
+			var(--s1, transparent) 77.5deg 138.5deg,
+			transparent 138.5deg 149.5deg,
+			var(--s2, transparent) 149.5deg 210.5deg,
+			transparent 210.5deg 221.5deg,
+			var(--s3, transparent) 221.5deg 282.5deg,
+			transparent 282.5deg 293.5deg,
+			var(--s4, transparent) 293.5deg 354.5deg,
+			transparent 354.5deg 360deg
+		);
+		-webkit-mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
+		mask: radial-gradient(closest-side, transparent 50%, #000 51.5%);
+	}
+
+	// Colorblind-safe deletions ("minus notch"): a dash punches the row background through the fill so
+	// add/delete survives red/green colorblindness without hue. Two layers because the row tint is
+	// semi-transparent; hover/selected need their own overrides below.
+	.gl-graph__changes-square--deleted,
+	.gl-graph__changes-bar-deleted,
+	.gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+		background-size: 50% 1.5px;
+		background-repeat: no-repeat;
+		background-position: center;
+	}
+	.gl-graph__row:hover .gl-graph__changes-square--deleted,
+	.gl-graph__row:hover .gl-graph__changes-bar-deleted,
+	.gl-graph__row:hover .gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--vscode-list-hoverBackground), var(--vscode-list-hoverBackground)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+	}
+	.gl-graph__row.is-selected .gl-graph__changes-square--deleted,
+	.gl-graph__row.is-selected .gl-graph__changes-bar-deleted,
+	.gl-graph__row.is-selected .gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--row-selection-bg), var(--row-selection-bg)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+	}
+
+	// Standalone graph column (placement = column): holds the fold strip + the gutter viewport, no
+	// padding (the SVG carries its own gutter padding), never shrinks.
+	.gl-graph__zone--graph {
+		flex-shrink: 0;
+		padding: 0;
+	}
+	// The gutter VIEWPORT holds the lane art sized to the column's lane area. The lane SVG is built at
+	// logical positions; the host's per-frame `applyClampOverlay` slides scrolled-past lanes' dots stuck
+	// to the edges + fades their connectors imperatively — `overflow: hidden` clips lanes not yet clamped
+	// in (e.g. the first frame after a row renders at logical positions, before the pass runs).
+	.gl-graph__gutter-viewport {
+		position: relative;
+		flex: 0 0 auto;
+		height: 100%;
+		overflow: hidden;
+	}
+	// Grouped/inline only: breathing room between the gutter's clip edge (where capped dots pin) and the
+	// content that follows; margin sits OUTSIDE the clip so the mask/clamp math is untouched. Kept tight —
+	// the row width already ends one pin-inset past the rightmost visible lane.
+	.gl-graph__gutter-viewport--inline {
+		margin-inline-end: 0.4rem;
+	}
+	// Avatar/letter-mode stash mark: the `inbox` codicon, white, drawn as SVG <text> centered in the
+	// lane-colored square. A dark drop-shadow keeps it legible on light lanes (no JS contrast needed).
+	.gl-graph__node-stash-glyph {
+		font-family: codicon;
+		font-size: 1.1rem;
+		fill: #fff;
+		filter: drop-shadow(0 0 0.05rem rgba(0, 0, 0, 0.8));
+		pointer-events: none;
+	}
+	// Graph-placement cycling control (Column / Inline / Hidden) in the header.
+	.gl-graph__header-cell--graph {
+		gap: 0.2rem;
+		padding-left: 0.4rem;
+	}
+	// Standalone graph column: the placement (map) toggle sits at the column's RIGHT edge (just inside
+	// the resize handle), past the label — not before it. When the graph is inlined into another column
+	// the toggle renders on the LEFT in that host column's header instead (the zone-header control).
+	.gl-graph__header-cell--graph .gl-graph__placement-toggle {
+		margin-left: auto;
+		margin-right: 0.6rem;
+	}
+	// Compact-density header: the stacked rows have no per-zone columns, so a single flex-fill details cell
+	// spans the content area (right of the graph cell, when the graph is its own column). Not a drag/reorder
+	// target, so it drops the header cell's grab cursor and keeps a small inset for any hosted control.
+	.gl-graph__header-cell--details {
+		flex: 1 1 auto;
+		min-width: 0;
+		padding-left: 0.4rem;
+		cursor: default;
+	}
+	// Refs column's placement toggle: same right-edge treatment as the graph's, via an explicit
+	// modifier (its header cell isn't `--graph`). When refs is inlined the toggle drops the modifier
+	// and renders on the left of the Message host header instead.
+	.gl-graph__placement-toggle--end {
+		margin-left: auto;
+		margin-right: 0.6rem;
+	}
+	// Settings gear pinned to the header's inline end, absolutely positioned over the tail the trailing
+	// header cell yields to it. It never consumes flex width, so header/body column edges align.
+	.gl-graph__header-settings {
+		position: absolute;
+		inset-inline-end: 0.3rem;
+		top: 50%;
+		transform: translateY(-50%);
+		margin: 0;
+	}
+	.gl-graph__placement-toggle {
+		// The icon is a flex item here, so its `vertical-align` is inert — `align-items` centers it.
+		--code-icon-size: 1.3rem;
+
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 1.8rem;
+		height: 1.8rem;
+		margin-right: 0.3rem;
+		padding: 0;
+		// A resting border + faint fill so these read as interactive toggle buttons (not just
+		// icons) — without it users miss them entirely.
+		border: 1px solid hsl(var(--border) / 0.6);
+		border-radius: 0.4rem;
+		background: hsl(var(--muted) / 0.18);
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		transition:
+			background-color 120ms ease-out,
+			border-color 120ms ease-out,
+			color 120ms ease-out;
+
+		&:hover {
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+			border-color: hsl(var(--border));
+			color: hsl(var(--foreground));
+		}
+		// Active/on state (refs Inline↔Column toggle + the lane-folding toggle): a brand tint so the
+		// "on" state reads as engaged (the placement/node-style toggles instead swap their icon).
+		&.is-active {
+			background: hsl(var(--brand) / 0.25);
+			border-color: hsl(var(--brand));
+			color: hsl(var(--foreground));
+		}
+		&:focus-visible {
+			outline: 1px solid hsl(var(--brand));
+			outline-offset: 1px;
+		}
+	}
+	// Labeled placement toggle ("Graph" + icon) — used only by the list header, whose single details cell
+	// has no other label to name the affordance.
+	.gl-graph__placement-toggle--labeled {
+		width: auto;
+		gap: 0.3rem;
+		padding: 0 0.5rem;
+	}
+	.gl-graph__placement-toggle-label {
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		// Match the column labels: a button's UA `font` shorthand blocks the header's weight/line-height
+		// from inheriting, which would render this label lighter than every real column header.
+		font-weight: 500;
+		line-height: 1.4;
+	}
+
+	// Breadcrumb "group member": a folded column's muted label + its placement toggle + a chevron, rendered
+	// at the head of its grouped HOST cell ahead of the host's own label (e.g. `Graph ⛶ › Message`). The
+	// label + chevron drop on narrow hosts (see `controlsPx`/`headerLabelFits`), leaving just the toggle.
+	.gl-graph__group-member {
+		display: inline-flex;
+		// Icon-only crumbs are fixed-size (column icon + toggle + chevron) — they never shrink or clip.
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.3rem;
+		overflow: hidden;
+
+		// Breathing room between successive crumbs — members are adjacent flex spans, so without this
+		// a member's chevron sits flush against the next member's label.
+		+ .gl-graph__group-member {
+			margin-inline-start: 0.5rem;
+		}
+		// The refs crumb hosts the refs filter button at its inline-START (before the label, matching the
+		// non-grouped columns). Idle it collapses to ~0 width but still owns a flex-gap slot — pull the
+		// following label back so the idle crumb shows no leading hole.
+		.gl-graph__filter-toggle {
+			margin-inline-end: -0.3rem;
+		}
+		// The toggle's base margin-right stacks with the crumb's gap + the chevron's margin (0.8rem on
+		// the toggle→chevron side vs 0.5rem everywhere else) — the flex gap alone spaces it here.
+		.gl-graph__placement-toggle {
+			margin-right: 0;
+		}
+	}
+	// Revealed (crumb hover/focus) or active, the crumb's filter rejoins the gap flow: drop the idle
+	// pull-back AND the global reveal's leading margin (the crumb's own gap already spaces it).
+	.gl-graph__group-member:hover .gl-graph__filter-toggle--member,
+	.gl-graph__group-member:has(:focus-visible) .gl-graph__filter-toggle--member,
+	.gl-graph__filter-toggle--member.is-active {
+		margin-inline-start: 0;
+		margin-inline-end: 0;
+	}
+	// Everything in a header cell EXCEPT the resize handle lives in this clipper: cell content can never
+	// spill into the neighboring header (the old overlap), while the handle — which hangs OUTSIDE the
+	// cell box — stays a direct cell child so it isn't severed.
+	.gl-graph__header-cell-content {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
+		align-items: center;
+		height: 100%;
+		overflow: hidden;
+	}
+	// Crumb-chip form of the placement toggle: the column's identity icon + the map icon in ONE button —
+	// the whole crumb is the ungroup hit target (same pattern as `--labeled`, icon instead of text).
+	.gl-graph__placement-toggle--crumb {
+		width: auto;
+		gap: 0.3rem;
+		padding: 0 0.5rem;
+	}
+	// Breadcrumb separator between a group member and the next crumb (or the host label). Every chevron
+	// gets 0.5rem of air on BOTH sides: left = the member's 0.3rem gap + 0.2rem here; right = the 0.5rem
+	// inter-member margin (above) or the host label's scoped 0.5rem padding (below).
+	.gl-graph__group-member-chevron {
+		--code-icon-size: 1.2rem;
+		flex-shrink: 0;
+		margin-inline-start: 0.2rem;
+		color: hsl(var(--muted-foreground));
+	}
+	// The host's own label follows the crumbs at the same 0.5rem the inter-member margin provides —
+	// its default 0.8rem label padding read as a wider, uneven gap after the last chevron.
+	.gl-graph__group-member ~ .gl-graph__header-label {
+		padding-inline-start: 0.5rem;
+	}
+
+	// Column-header filter button. Idle it collapses to zero width + transparent, so the label sits at its
+	// normal position (no reserved space). The reveal is entirely CSS-internal to the header cell — it
+	// never touches the JS zone-width solver (only an ACTIVE filter feeds the fit math, done in renderHeader).
+	.gl-graph__filter-toggle {
+		--code-icon-size: 1.3rem;
+
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 0;
+		height: 1.8rem;
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		border: 1px solid transparent;
+		border-radius: 0.4rem;
+		background: transparent;
+		color: hsl(var(--muted-foreground));
+		opacity: 0;
+		pointer-events: none;
+		cursor: pointer;
+		// Width + margin animate the label sliding right; opacity fades the icon in.
+		transition:
+			width var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			margin var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			opacity var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			background-color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			border-color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out);
+	}
+	// Reveal on cell hover / keyboard focus-within: expand to the ~22px footprint (sliding the label right)
+	// and fade in. Presentational only — the label-fit math (renderHeader) is unaffected by hover.
+	// Crumb-hosted filters (`--member`) are excluded: they reveal on their own CRUMB's hover below, so
+	// mousing anywhere on a wide host cell doesn't pop a filter inside the breadcrumb.
+	// Keyboard-origin focus only (`:focus-visible`, matching the header ring convention): the picker's
+	// close restores focus to the Changes label, and a plain `:focus-within` reveal made the filter icon
+	// pop in after every pointer-driven open/close. While the mode picker is OPEN the filter stays pinned
+	// (aria-expanded) — a mid-open collapse shifts the label and drags the anchored popover with it.
+	.gl-graph__header-cell:hover .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__header-cell:has(:focus-visible) .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__header-cell:has(.gl-graph__header-label--changes[aria-expanded='true'])
+		.gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__filter-toggle.is-active {
+		width: 1.8rem;
+		margin-inline-start: 0.4rem;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	// Crumb filter reveal: only when the pointer/focus is on that breadcrumb member itself. Margins stay
+	// 0 (the crumb's own gap spaces it — see the member margin rules above).
+	.gl-graph__group-member:hover .gl-graph__filter-toggle--member,
+	.gl-graph__group-member:focus-within .gl-graph__filter-toggle--member {
+		width: 1.8rem;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.gl-graph__filter-toggle:hover {
+		background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		border-color: hsl(var(--border));
+		color: hsl(var(--foreground));
+	}
+	.gl-graph__filter-toggle:focus-visible {
+		outline: 1px solid hsl(var(--brand));
+		outline-offset: 1px;
+	}
+	// Active filter: persistently shown + accent-toned so the "filtered" state reads at a glance (paired
+	// with the `filter-filled` icon set in renderFilterButton). Accent uses focusBorder for legibility.
+	.gl-graph__filter-toggle.is-active {
+		color: var(--vscode-focusBorder);
+	}
+	.gl-graph__filter-toggle.is-active:hover {
+		border-color: var(--vscode-focusBorder);
+		color: var(--vscode-focusBorder);
+	}
+	// Floor degradation: the button stands in for the column icon on an ultra-narrow active-filtered cell,
+	// so it's the cell's sole content — drop the reveal margin so it sits flush at the cell's inline-start.
+	.gl-graph__filter-toggle--floor {
+		margin-inline-start: 0;
+	}
+
+	// Combined Changes-column control: the CHANGES label + a trailing chevron form ONE pill that opens the
+	// mode picker. The label keeps its column-reorder role (drag + Arrow keys — see gl-lit-graph), so this is
+	// purely additive styling. The pill lights up on hover like the old standalone chevron did. Changes only.
+	.gl-graph__header-label--changes {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		border-radius: 0.4rem;
+		transition:
+			background-color 120ms ease-out,
+			color 120ms ease-out;
+
+		&:hover {
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+			color: hsl(var(--foreground));
+		}
+	}
+	// The label text truncates while the chevron stays put (its width is held by the 19px controlsPx reserve).
+	// In icon-collapsed mode the label icon stands in for the text and the chevron follows it.
+	.gl-graph__header-label-text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-mode-chevron {
+		--code-icon-size: 1.2rem;
+		flex-shrink: 0;
+		color: hsl(var(--muted-foreground));
+	}
+
+	// Loading spinner shown while the host computes diffstats. Absolutely pinned to the column header's
+	// inline-end (the cell is `position: relative`), vertically centered, and pointer-transparent so it never
+	// shadows the resize handle's hit zone. When Changes is the trailing column its cell is already narrowed
+	// by the gear's width (headerActionsPx), so this inline-end inset keeps the spinner clear of the gear.
+	// Centered via auto block margins, NOT translateY — the spin animation owns `transform`, and a
+	// translate here would fight it (the icon visibly bobbed instead of spinning).
+	.gl-graph__changes-header-spinner {
+		--code-icon-size: 1.3rem;
+		position: absolute;
+		inset-block: 0;
+		inset-inline-end: 0.6rem;
+		block-size: 1.3rem;
+		margin-block: auto;
+		pointer-events: none;
+		color: hsl(var(--muted-foreground));
+	}
+
+	// Dormant Changes column opt-in overlay — covers ONLY the rows area (top = header height 2.4rem) so the
+	// header stays interactive. `left`/`width` are set inline from the column's solved rect (see
+	// renderChangesOptInOverlay). The whole surface is the Show-Changes affordance; the Hide link intercepts.
+	.gl-graph__changes-optin {
+		position: absolute;
+		top: 2.4rem;
+		bottom: 0;
+		// The inline `width` is the column's exact solved px — keep padding/border inside it.
+		box-sizing: border-box;
+		z-index: var(--gl-z-raised);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.8rem;
+		padding: 1.2rem 1.4rem;
+		overflow: hidden;
+		text-align: center;
+		cursor: pointer;
+		background-color: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 40%, transparent);
+
+		&:hover {
+			border-color: var(--vscode-focusBorder);
+		}
+	}
+	.gl-graph__changes-optin-button {
+		height: 2.4rem;
+		padding: 0 1.2rem;
+		// Buttons don't inherit font — without these they render in the UA default (larger, wrong family).
+		font-family: inherit;
+		font-size: 1.2rem;
+		font-weight: 600;
+		white-space: nowrap;
+		color: var(--vscode-button-foreground);
+		background: var(--vscode-button-background);
+		border: none;
+		border-radius: 0.3rem;
+		cursor: pointer;
+
+		// Expand the button's hit area to the whole overlay (its nearest positioned ancestor) — hover/click
+		// anywhere on the dormant surface IS the button, so its gl-tooltip triggers + stays open while the
+		// tooltip itself anchors to the button's own rect (pseudo overflow doesn't grow it).
+		&::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+		}
+
+		&:hover {
+			background: var(--vscode-button-hoverBackground);
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0.2rem;
+		}
+	}
+	.gl-graph__changes-optin-hide {
+		// Positioned so it paints above the Show button's positioned full-surface `::before` and stays clickable.
+		position: relative;
+		padding: 0;
+		font-family: inherit;
+		font-size: 1rem;
+		color: hsl(var(--muted-foreground));
+		text-underline-offset: 0.2rem;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+
+		&:hover {
+			color: hsl(var(--foreground));
+			text-decoration: underline;
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0.2rem;
+		}
+	}
+	.gl-graph__changes-optin-help {
+		max-width: 18rem;
+		font-size: 1.1rem;
+		line-height: 1.45;
+		color: hsl(var(--muted-foreground));
+		// Let hover/clicks over the text fall through to the Show button's full-surface hit area.
+		pointer-events: none;
+	}
+	.gl-graph__changes-optin-sub {
+		max-width: 18rem;
+		font-size: 1rem;
+		color: var(--color-graph-text-disabled);
+		pointer-events: none;
+	}
+	// The narrow opt-in button's tooltip — the overlay's help stack (title/body/sub) reflowed into the tooltip.
+	.gl-graph__changes-optin-tooltip {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		max-width: 22rem;
+		white-space: normal;
+		text-align: center;
+	}
+	.gl-graph__changes-optin-tooltip-title {
+		font-weight: 600;
+	}
+	.gl-graph__changes-optin-tooltip-sub {
+		color: var(--color-graph-text-disabled);
+	}
+	// Matching faint tint on the dormant Changes header cell so header + overlay read as one dormant column.
+	.gl-graph__header-cell--changes-dormant {
+		background-color: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
+	}
+
+	// Changes mode-picker: a horizontal strip of 4 glyph buttons in a `gl-popover` menu. gl-popover owns the
+	// surface, positioning (flip/shift) + dismiss; this tightens the body padding and lays the glyphs out.
+	// gl-popover is Floating-UI `position: fixed` (NOT the native top layer) — the popup needs the popover
+	// z tier or graph chrome (sticky-timeline pill etc.) paints over it.
+	.gl-graph__changes-mode-popover::part(base__popup) {
+		z-index: var(--gl-z-popover);
+	}
+	.gl-graph__changes-mode-popover::part(body) {
+		padding: 0.4rem;
+	}
+	.gl-graph__changes-mode-strip {
+		display: flex;
+		gap: 0.3rem;
+	}
+
+	// Compact chevron-only picker entry (filter + narrow Changes column) — keeps the mode picker reachable.
+	.gl-graph__changes-mode-picker-button {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: 1.9rem;
+		height: 1.9rem;
+		padding: 0;
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		background: transparent;
+		border: none;
+		border-radius: 0.4rem;
+		--code-icon-size: 1.2rem;
+
+		&:hover {
+			color: hsl(var(--foreground));
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+	}
+	.gl-graph__changes-mode-picker-icon {
+		flex: none;
+	}
+	// icon-stage variant: the full-size column identity icon pinned left, with the chevron trailing. The
+	// button sizes to its content and clips on the right, so at the narrow floor the chevron (and the
+	// hover-revealed filter beside it) yield first — the identity icon never shrinks or gets pushed off.
+	.gl-graph__changes-mode-picker-button--labeled {
+		justify-content: flex-start;
+		gap: 0.2rem;
+		width: auto;
+		min-width: 1.9rem;
+		max-width: 100%;
+		overflow: hidden;
+
+		.gl-graph__changes-mode-picker-icon {
+			--code-icon-size: 1.4rem;
+		}
+	}
+	.gl-graph__changes-mode-picker-chevron {
+		--code-icon-size: 1.2rem;
+		flex: none;
+		color: hsl(var(--muted-foreground));
+	}
+
+	// A glyph button: fixed 4rem × 2.6rem, the current mode brand-tinted + brand-bordered.
+	.gl-graph__changes-mode-glyph {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 4rem;
+		height: 2.6rem;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 0.5rem;
+		background: transparent;
+		color: hsl(var(--foreground));
+		cursor: pointer;
+
+		&:hover {
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		}
+		&:focus-visible {
+			outline: 1px solid hsl(var(--brand));
+			outline-offset: 1px;
+		}
+		&.is-current {
+			background: hsl(var(--brand) / 0.16);
+			border-color: hsl(var(--brand));
+		}
+
+		@media (prefers-reduced-motion: no-preference) {
+			transition:
+				background-color 120ms ease-out,
+				border-color 120ms ease-out;
+		}
+	}
+
+	// numbers glyph: a stylized `+N −N` in the add/delete colors (the numbers mode degrades to a mnemonic
+	// at glyph scale — actual counts are illegible this small).
+	.gl-graph__changes-mode-glyph-numbers {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 0.85rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+	}
+	.gl-graph__changes-mode-glyph-added {
+		color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-deleted {
+		color: var(--color-graph-stats-deleted);
+	}
+
+	// squares glyph: five 4px cells (4 added / 1 deleted) — a fixed representative ratio.
+	.gl-graph__changes-mode-glyph-squares {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15rem;
+	}
+	.gl-graph__changes-mode-glyph-square {
+		width: 0.4rem;
+		height: 0.4rem;
+		border-radius: 0.1rem;
+		background: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-mode-glyph-square--added {
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-square--deleted {
+		background: var(--color-graph-stats-deleted);
+	}
+
+	// bar + bipolar glyphs share a 22px × 7px track. bar: left-aligned green+red fill. bipolar: a center
+	// axis with green growing right / red growing left. Fixed representative widths (glyph, not data).
+	.gl-graph__changes-mode-glyph-track {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		width: 2.2rem;
+		height: 0.7rem;
+		overflow: hidden;
+		border-radius: 0.2rem;
+		background: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-mode-glyph-bar-added {
+		height: 100%;
+		width: 0.7rem;
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-bar-deleted {
+		height: 100%;
+		width: 0.2rem;
+		background: var(--color-graph-stats-deleted);
+	}
+	.gl-graph__changes-mode-glyph-bipolar-added {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		width: 0.6rem;
+		height: 100%;
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-bipolar-deleted {
+		position: absolute;
+		top: 0;
+		right: 50%;
+		width: 0.3rem;
+		height: 100%;
+		background: var(--color-graph-stats-deleted);
+	}
+
+	// List style: 2-line stacked rows (line 1 = refs + message; line 2 = author · date · sha).
+	.gl-graph__list-content {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
+		flex-direction: column;
+		justify-content: center;
+		gap: 0.2rem;
+		overflow: hidden;
+		// Tight right padding so the right-aligned date hugs the edge (only the scrollbar/marker rail
+		// sits beyond); a bit more on the left to separate from the avatar/gutter.
+		padding: 0 0.3rem 0 0.6rem;
+	}
+	.gl-graph__list-line1 {
+		display: flex;
+		min-width: 0;
+		align-items: center;
+		gap: 0.4rem;
+		// Force an EVEN-integer line box (16px) for line 1. The content column centers line1 + gap(2px) +
+		// line2(20px) in the fixed row; with line1 at its natural 16.8px the sum is fractional and line2
+		// (the pills/sha/author) lands on a sub-pixel Y → blurry text. 16px keeps the sum even so line2
+		// snaps to a whole pixel. (Row-level grid alignment is handled separately by snapVirtualizerToPixelGrid.)
+		line-height: 1.6rem;
+	}
+	// Compact line 2: sha (monospace, left edge) + author, with the date pushed to the right edge.
+	.gl-graph__list-line2 {
+		display: flex;
+		min-width: 0;
+		align-items: center;
+		gap: 0.6rem;
+		font-size: 1rem;
+		color: hsl(var(--muted-foreground));
+
+		.gl-graph__sha {
+			flex-shrink: 0;
+			margin-left: 0;
+			font-size: 1rem;
+		}
+		.gl-graph__author {
+			min-width: 0;
+			margin-left: 0;
+			overflow: hidden;
+			font-size: 1rem;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+		}
+		.gl-graph__list-date {
+			flex-shrink: 0;
+			margin-left: auto;
+			font-size: 1rem;
+		}
+	}
+	// In list style the author avatar spans BOTH lines: a sibling of the 2-line content,
+	// vertically centered, slightly larger than the per-line avatar.
+	.gl-graph__row.is-list .gl-graph__avatar {
+		width: 2.4rem;
+		height: 2.4rem;
+		flex-shrink: 0;
+		align-self: center;
+		margin: 0 0.6rem 0 0.4rem;
+	}
+	// ── Lane-art polish (ported from the React inline <style>) ──
+	.commit-dot {
+		transform-box: fill-box;
+		transform-origin: center;
+		transition:
+			transform 120ms cubic-bezier(0.4, 0, 0.2, 1),
+			stroke-width 120ms ease-out;
+	}
+	// Static dotted-outline styling for the WIP circle (the per-node SVG only sets the dynamic lane
+	// `stroke` + geometry — same class-not-inline pattern as `.graph-edge`).
+	.gl-graph__node-outline {
+		// Transparent interior so the row's gradient shows through the WIP ring's middle (the dirty
+		// center dot, when present, floats inside with a gap). No bg-mask circle behind it either.
+		fill: none;
+		stroke-width: 1.75;
+		stroke-linecap: round;
+		stroke-dasharray: 0.1 3;
+	}
+	// Dot-mode stash node: a faintly-filled, solid-bordered square cross-hatched with diagonal lane
+	// lines. Lane color is set per-node; opacities + widths live here.
+	.gl-graph__node-stash-box {
+		fill-opacity: 0.16;
+		stroke-width: 1.25;
+	}
+	.gl-graph__node-stash-line {
+		stroke-width: 1;
+		stroke-opacity: 0.9;
+		stroke-linecap: round;
+		stroke-dasharray: 0.1 3; // dotted hatch — matches the dotted WIP outline (GitKraken stash look)
+	}
+	// WIP circle + stash square grow on hover/select, same as the commit dots (the inner group / the
+	// outline element carries `.commit-dot` for transform-box + transform-origin + the transition).
+	[role='treeitem']:hover .gl-graph__node-outline,
+	[role='treeitem'][aria-selected='true'] .gl-graph__node-outline,
+	[role='treeitem']:hover .commit-dot-stash,
+	[role='treeitem'][aria-selected='true'] .commit-dot-stash {
+		transform: scale(1.18);
+	}
+	.commit-dot-glow {
+		transition: filter 140ms ease-out;
+	}
+	// Identity (avatar/letter/stash-icon) nodes: the inner group scales up on hover to close the
+	// background-masked gap to the lane line — same treatment as the dot nodes.
+	.commit-dot-identity {
+		transform-box: fill-box;
+		transform-origin: center;
+		transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	[role='treeitem']:hover .commit-dot-identity,
+	[role='treeitem'][aria-selected='true'] .commit-dot-identity {
+		// Identity (avatar/letter/stash-icon) nodes are already near the row height at rest (avatar
+		// mode uses the max lane spacing), so the hover grow stays small — just enough to close the
+		// 1px bg-mask gap to the lane line — keeping the node inside the 24px row even when hovered.
+		transform: scale(1.1);
+	}
+	// Static edge styling (the per-edge SVG only sets the dynamic lane `stroke` + geometry).
+	// Overlay lane art. The raster (pass-through) lanes can't reach this class, so graph-gutter-raster.ts
+	// inlines the SAME stroke-width / stroke-opacity / dash values (rasterStrokeWidth etc.) — keep the two in
+	// lockstep (CSS can't import them): change one, change the other.
+	.graph-edge {
+		fill: none;
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		stroke-opacity: 0.78;
+		transition:
+			stroke-opacity 120ms ease-out,
+			stroke-width 120ms ease-out;
+
+		// Dotted lane line (workdir + synthetic edges) — near-zero dash + the round linecap.
+		&.is-dotted {
+			stroke-dasharray: 0.1 4;
+		}
+		// Synthetic (reachability) edges get the wavy displacement filter.
+		&.is-synthetic {
+			filter: url(#graph-wavy);
+		}
+		// Dashed lane line — the link jumps over commits hidden by a collapsed lane. Longer dashes
+		// than the dotted workdir/synthetic style so "folded commits live here" reads distinctly.
+		&.is-dashed {
+			stroke-dasharray: 5 4;
+		}
+	}
+
+	[role='treeitem']:hover .commit-dot-solid,
+	[role='treeitem'][aria-selected='true'] .commit-dot-solid {
+		transform: scale(1.4);
+	}
+	[role='treeitem']:hover .commit-dot-hollow,
+	[role='treeitem'][aria-selected='true'] .commit-dot-hollow {
+		stroke-width: 3.25;
+		transform: scale(1.15);
+	}
+	[role='treeitem']:hover .commit-dot-glow,
+	[role='treeitem'][aria-selected='true'] .commit-dot-glow {
+		// Brand-tinted glow reads clearly on dark themes (a white glow nearly vanished there).
+		filter: drop-shadow(0 0 3px hsl(var(--brand) / 0.55));
+	}
+	[role='treeitem']:hover .graph-edge {
+		stroke-opacity: 1;
+		stroke-width: 2.5;
+	}
+	[role='treeitem'][aria-selected='true'] .graph-edge {
+		stroke-opacity: 1;
+	}
+	// The pass-through lanes are baked into the raster `<image>` at the RESTING 0.78 stroke-opacity, so the
+	// `.graph-edge` hover-brighten above can't reach them — approximate it by lifting the whole bitmap
+	// (1 / 0.78 ≈ 1.28 maps 0.78 back to ~1.0). GPU-composited; no transition declared here (and the
+	// is-scrolling rule kills row transitions anyway) so it can't animate mid-scroll.
+	// Suppressed while actively scrolling: rows passing under a stationary cursor would otherwise create and
+	// destroy a filtered compositor layer per row per frame — real iGPU pressure; hover returns on settle.
+	.gl-graph__virtualizer:not(.is-scrolling) [role='treeitem']:hover .gl-graph__gutter-raster,
+	[role='treeitem'][aria-selected='true'] .gl-graph__gutter-raster {
+		filter: brightness(1.28);
+	}
+
+	// Ref pills (RefAdornmentProvider). Colors come from the --ref-* custom props set by refStyle()
+	// (NOT inline color/bg, so the :hover rule can win). At rest: lane-colored text + soft border;
+	// on hover: the pill FILLS with its lane color and the text flips to a readable contrast.
+	.gl-graph__ref-pill {
+		// NO min-width:0 and NO overflow:hidden — either one zeroes the flex auto-minimum, which let the
+		// pill collapse under its own rigid segments (jump button, PR/issue chips, +N badge) until they
+		// painted over the leading icon. Letting `min-width: auto` stand sizes the pill to its real
+		// content instead. It's a SOFT floor — max-width below clamps it (css-flexbox §4.5) — so a narrow
+		// refs zone still squeezes the pill and clips it at the zone's edge; that's fine, because `-main`
+		// can no longer collapse past its icon, so the segments can never overlap it. position:relative
+		// anchors the hover-expand overlay (`-expand`), which reveals the full name ON TOP of the message.
+		position: relative;
+		display: inline-flex;
+		max-width: 100%;
+		flex-shrink: 1;
+		align-items: center;
+		gap: 0.6rem;
+		border: 1px solid var(--ref-border, currentColor);
+		border-radius: 0.4rem;
+		// Vertical padding trimmed 1px/side (0.4→0.3rem) so the pill sits a touch shorter in the row.
+		padding: 0.3rem 0.8rem;
+		font-size: 1rem;
+		font-weight: 500;
+		line-height: 1;
+		white-space: nowrap;
+		color: var(--ref-color, hsl(var(--foreground)));
+		background-color: var(--ref-bg, transparent);
+		cursor: pointer;
+		transition:
+			color 150ms ease-out,
+			border-color 150ms ease-out,
+			background-color 150ms ease-out,
+			box-shadow 150ms ease-out;
+
+		// On hover the pill fills with its lane color; the per-lane black/white contrast color
+		// (`--ref-on-color`, WCAG luminance) keeps text + icon CRISP + readable on ANY lane. No
+		// text-shadow halo — it softened the glyph edges (and, being inherited, blurred the expand
+		// overlay too) — and no fixed white, which is low-contrast on light lanes (amber/gold/teal).
+		&:hover {
+			color: var(--ref-on-color, #fff);
+			background-color: var(--ref-color);
+			border-color: var(--ref-color);
+			box-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
+		}
+	}
+	.gl-graph__ref-pill-main {
+		// Grid, not flex: `minmax(0, 1fr)` zeroes the label track's min-content contribution — the one
+		// thing flex CAN'T express (a flex item contributes its own min-content, and the label is nowrap,
+		// so that's the WHOLE name; hence the fixed-rem floors this replaced). `-main`'s auto-minimum is
+		// therefore exactly icon + gap, so it can never collapse past its icon and let the trailing
+		// segments paint over it. The label still ellipsises — a 0-min track doesn't apply its item's
+		// auto-minimum, and the label owns its own overflow:hidden.
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		flex-shrink: 1;
+		align-items: center;
+	}
+	// Icon↔label spacing as a LABEL MARGIN, not `-main`'s grid `gap`: a gap doesn't collapse with its
+	// 0-width track, so it stranded 0.6rem of dead space between the icon and the divider at full
+	// compression. A margin rides with the label and vanishes with it. Scoped to `-main`'s label — the
+	// ghost pill's label is a direct flex child of the pill and takes the pill's own `gap` instead.
+	.gl-graph__ref-pill-main > .gl-graph__ref-pill-label {
+		margin-inline-start: 0.6rem;
+	}
+	.gl-graph__ref-pill-icon {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		// Size the ref codicon (git-branch / cloud / tag) to the pill text; color inherits the pill.
+		--code-icon-size: 1.2rem;
+	}
+	.gl-graph__ref-pill-label {
+		// Collapses to nothing — it's the only part of the pill that yields (it sits in `-main`'s 0-min
+		// grid track). The refs zone's 3rem floor keeps the leading icon itself from being clipped.
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		// overflow:hidden clips at the line box; with the pill's tight `line-height:1` that severs glyph
+		// descenders (g/y/p tails). Pad the clip box SYMMETRICALLY + pull it back with equal negative
+		// margins: the tails render, the pill height is unchanged, AND the text stays vertically centered
+		// (a bottom-only pad dropped the name ~1.5px below the icons).
+		padding-block: 0.3rem;
+		margin-block: -0.3rem;
+	}
+	// Overflow badges (`+N`, tag-glyph `+N`) — plain text in the lane color, NO box (the group divider
+	// below separates them; a filled chip read as a competing pill-in-a-pill).
+	.gl-graph__ref-pill-more {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		font-size: 0.9rem;
+		font-weight: 600;
+		line-height: 1;
+		color: var(--ref-color);
+	}
+	// Tag-overflow badge: the tag glyph + count, sitting right on its own count so it reads as "N tags"
+	// (distinct from the generic non-tag `+N`).
+	.gl-graph__ref-pill-more--tags {
+		gap: 0.2rem;
+		--code-icon-size: 1rem;
+	}
+	// The tag codicon's glyph reads high next to its count; push it down a hair so `🏷+N` sits level.
+	// (+0.2rem overshot to "too low"; ~1px reads level — tune if needed.)
+	.gl-graph__ref-pill-more--tags code-icon {
+		transform: translateY(0.1rem);
+	}
+	// The overflow badges as a group, divided from the rest of the pill by a lane-color rule (mirrors the
+	// upstream segment's divider) so `[name] | [upstream] | [+N]` read as distinct compartments. Use the
+	// SAME divider inset as `.gl-graph__ref-pill-upstream` (margin-left 0.1rem + padding-left 0.5rem) so the
+	// `| +N` rule keeps an even gap from whatever precedes it. A negative margin here cancelled the pill's
+	// flex gap and slammed the divider flush against the NAME when no upstream segment sat between them — the
+	// 1px rule then overlapped the last character of the branch name.
+	.gl-graph__ref-pill-more-group {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.4rem;
+		margin-left: 0.1rem;
+		padding-left: 0.5rem;
+		border-left: 1px solid var(--ref-border, currentColor);
+	}
+	// On hover the pill is filled, so flip the +N badge color to read on top of the fill. Same treatment
+	// for the badge inside the (lane-filled) expand overlay so the grouped pill's +N stays readable there.
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-more,
+	.gl-graph__ref-pill-expand .gl-graph__ref-pill-more {
+		color: var(--ref-on-color, #fff);
+	}
+	// Split-pill upstream segment: the tracking half (cloud/branch glyph of the linked ref + ahead/behind
+	// stats + a direction arrow), divided from the name by a lane-color rule. flex-shrink:0 so it never
+	// truncates (the name yields first). `line-height:1` + the children's capped sizes keep a combined
+	// pill the SAME height as a plain one. `border: 0` then `border-left` resets the <button> variant's
+	// UA borders (the out-of-sync segment is a <button>); `padding: 0 0 0 .5rem` likewise resets its UA
+	// padding while keeping the divider inset.
+	.gl-graph__ref-pill-upstream {
+		display: inline-flex;
+		// The in-sync segment shrinks FIRST (higher shrink than the name half) and well before the local
+		// name, so the local branch stays readable longest; its remote label ellipsises, then it floors at
+		// the cloud icon — leaving the `[name-icon] | [cloud-icon]` minimum with the divider intact. No
+		// min-width:0 — the auto-minimum IS that floor (the labelled shape gets it from the grid below;
+		// the icon-only and icon+stats shapes have nothing that shrinks anyway).
+		flex-shrink: 100;
+		align-items: center;
+		line-height: 1;
+		gap: 0.3rem;
+		margin-left: 0.1rem;
+		padding: 0 0 0 0.5rem;
+		border: 0;
+		border-left: 1px solid var(--ref-border, currentColor);
+	}
+	// Same 0-min label track as `-main`, but ONLY for the shape that HAS a label. Unscoped, this breaks the
+	// other two shapes sharing this class: the `--jump` button (icon + arrow [+ stats]) would wrap its last
+	// child to an implicit second row, and the no-jump stats shape would collapse its tracking pill into the
+	// 0-min track.
+	.gl-graph__ref-pill-upstream:has(> .gl-graph__ref-pill-upstream-label) {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		// Gap → label margin, same as `-main`: a grid gap survives its 0-width track and would strand
+		// dead space between the cloud icon and the next segment at full compression.
+		column-gap: 0;
+	}
+	// Out-of-sync: the WHOLE segment is a button that jumps to the counterpart's row. Reset the UA button
+	// chrome (keeping the base layout/divider) and STRETCH it to the full pill height, bleeding into the
+	// pill's vertical + right padding (the negative margins) so its hover highlight reads as a clean
+	// full-height band on the whole upstream side — not a floating inner tab. `0.4rem` right radius matches
+	// the pill's outer corner.
+	.gl-graph__ref-pill-upstream--jump {
+		appearance: none;
+		-webkit-appearance: none;
+		// Out-of-sync stays rigid: its stats + arrow are fixed-size and shouldn't clip, so the LOCAL name
+		// yields instead (overrides the base's shrink).
+		flex-shrink: 0;
+		min-width: auto;
+		// NOT stretched: the name|upstream divider is the base's `border-left`, which the browser snaps to the
+		// device-pixel grid so the 1px line stays crisp even though the segment's left edge sits at a sub-pixel
+		// x (an absolutely-positioned 1px line there rendered as a fuzzy double). The divider is therefore the
+		// segment's own (content) height — partial, matching the +N divider. The negative block margin keeps
+		// that taller-than-content box from growing the pill (it bleeds into the pill's vertical padding); the
+		// small padding gives the icons nudge room. position:relative anchors the full-height band (::before);
+		// isolation:isolate makes this a stacking context so the band's `z-index:-1` stays contained (above the
+		// pill's own background, below the icons/stats) instead of dropping behind an ancestor.
+		position: relative;
+		isolation: isolate;
+		margin-block: -0.3rem;
+		padding: 0.1rem 0.5rem;
+		background: transparent;
+		font: inherit;
+		color: inherit;
+		cursor: pointer;
+		transition: background-color 120ms ease-out;
+
+		// The hover band is a separate FULL-pill-height layer (the segment box itself is only content-height,
+		// to keep the border-divider partial). It bleeds vertically past the segment into the pill's padding so
+		// the highlight reaches the pill's top/bottom; z-index -1 keeps it behind the icons/stats but above the
+		// pill's own background. A CONTRAST tint (the pill keeps its lane hover-fill underneath) marks it as the
+		// lit-up jump sub-zone.
+		&::before {
+			content: '';
+			position: absolute;
+			inset-block: -0.3rem;
+			inset-inline: 0;
+			border-radius: 0 0.4rem 0.4rem 0;
+			background: transparent;
+			z-index: -1;
+			transition: background-color 120ms ease-out;
+		}
+		&:hover::before {
+			background: color-mix(in srgb, var(--ref-on-color, #fff) 16%, transparent);
+		}
+		&:focus-visible {
+			outline: none;
+		}
+		// Ring rides the full-pill-height `::before` band (same box as the hover highlight) so the focus rect
+		// hugs the pill's top/bottom edges instead of floating as a short inner box on the content.
+		&:focus-visible::before {
+			box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+		}
+		// A grouped-pill secondary row's jump reached via Left/Right — the menu cursor (`.is-cursor`) rides the
+		// same band since DOM focus stays on the anchor pill, so `:focus-visible` never fires here.
+		&.is-cursor::before {
+			box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+		}
+	}
+	// When the upstream segment is the LAST thing in the pill (no overflow-badge group after it), bleed its
+	// band into the pill's right padding so the highlight reaches the pill edge. With a badge group after
+	// it the segment keeps its box, so the band never overlaps the badges.
+	// (Hovering the jump side is a normal pill hover: the pill fills and the full-name overlay expands — no
+	// special suppression — so it always "counts" as hovering the pill.)
+	.gl-graph__ref-pill:not(:has(.gl-graph__ref-pill-more-group)) .gl-graph__ref-pill-upstream--jump {
+		margin-right: -0.8rem;
+		padding-right: 0.8rem;
+	}
+	.gl-graph__ref-pill-upstream-icon {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		--code-icon-size: 1.1rem;
+		opacity: 0.85;
+		// The link/jump codicons sit a touch high vs the stats/text; nudge the pair down to sit level.
+		// (~1px starting point — tune if needed.)
+		transform: translateY(0.1rem);
+		transition: transform 120ms ease-out;
+	}
+	// In-sync remote label (owner, or owner/branch when names differ). Secondary to the local name, so a
+	// touch dimmer; ellipsises as the segment shrinks (min-width:0 lets it go below its content width —
+	// without it the "…" would reserve the full untruncated width). The descender fix mirrors the name
+	// label's (overflow:hidden severs g/y/p tails at the tight line-height otherwise).
+	.gl-graph__ref-pill-upstream-label {
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		line-height: 1;
+		// Carries its own icon↔label spacing (see the grid rule above) so it vanishes with the label.
+		margin-inline-start: 0.3rem;
+		padding-block: 0.3rem;
+		margin-block: -0.3rem;
+		opacity: 0.85;
+	}
+	.gl-graph__ref-pill-tracking {
+		flex-shrink: 0;
+		line-height: 1;
+		// Match the pill's own text (was 0.9rem — the ahead/behind counts read cramped next to the
+		// 1.1rem cloud/jump glyphs); the inner arrows inherit this size.
+		font-size: 1rem;
+		--code-icon-size: 1.1rem;
+		// Sit the ahead/behind counts FLUSH in the ref pill: drop the shared tracking-pill's own chip
+		// background + padding (it otherwise reads as a dark box-in-a-box). The segment gap provides the
+		// horizontal spacing; the pill provides the vertical breathing.
+		--gl-pill-background: transparent;
+		--gl-pill-padding: 0;
+		// Fade the ahead/behind colors over the same 150ms as the pill's hover/selection transition so the
+		// colorization doesn't snap back before the pill un-fills (matches `.gl-graph__ref-pill` timing).
+		--gl-tracking-color-transition: 150ms;
+	}
+	// Colorized ahead/behind (green/red) only at REST. When HOVERED the stats follow the fill's contrast
+	// color; when the row is SELECTED they follow the pill's lane color — so the split pill reads as one
+	// coherent color instead of green/red fighting the fill / selection highlight. These are EXPLICIT colors
+	// (not the `currentColor` keyword): `currentColor` → color doesn't interpolate, so on unhover the stats
+	// snapped back to green BEFORE the pill background finished fading (an ugly flash); explicit color→color
+	// transitions in lockstep with the pill's 150ms background fade.
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-tracking {
+		--gl-tracking-ahead: var(--ref-on-color, #fff);
+		--gl-tracking-behind: var(--ref-on-color, #fff);
+		--gl-pill-foreground: var(--ref-on-color, #fff);
+	}
+	.gl-graph__row.is-selected .gl-graph__ref-pill-tracking {
+		--gl-tracking-ahead: var(--ref-color);
+		--gl-tracking-behind: var(--ref-color);
+		--gl-pill-foreground: var(--ref-color);
+	}
+	// ...but once the pill FILLS (hover / pinned / context-pinned) that lane color now EQUALS the fill, so
+	// the numbers vanish into it. The plain :hover rule above tries to restore the on-fill contrast color,
+	// but the is-selected rule ties it on specificity and wins by source order — so on a SELECTED row the
+	// hovered stats went invisible. Re-assert the contrast color for the filled states with a selected-row
+	// qualifier so it outranks is-selected. (`is-pinned`/`is-context-pinned` show the same filled overlay.)
+	.gl-graph__row.is-selected .gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-tracking,
+	.gl-graph__row.is-selected .gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-tracking,
+	.gl-graph__row.is-selected .gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-tracking {
+		--gl-tracking-ahead: var(--ref-on-color, #fff);
+		--gl-tracking-behind: var(--ref-on-color, #fff);
+		--gl-pill-foreground: var(--ref-on-color, #fff);
+	}
+	// Grouped-pill popover: a row FILLS with the lane color on hover OR the keyboard cursor (`.is-active`), so
+	// its ahead/behind stats must de-colorize to the contrast color too — otherwise the green/red counts fight
+	// the fill and vanish. Popover rows aren't `.gl-graph__ref-pill`, so the inline rule above never reached them.
+	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-pill-tracking {
+		--gl-tracking-ahead: var(--ref-on-color, #fff);
+		--gl-tracking-behind: var(--ref-on-color, #fff);
+		--gl-pill-foreground: var(--ref-on-color, #fff);
+	}
+	.gl-graph__ref-pill-jump-arrow {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		--code-icon-size: 1.1rem;
+		// Move down WITH the link icon (same nudge) so the pair stays level with the stats/text.
+		transform: translateY(0.1rem);
+		transition: transform 120ms ease-out;
+	}
+	// Jump-UP is a vertically-flipped download whose ink reads ~0.2rem higher than an unflipped glyph; the
+	// -0.1rem here = the same +0.1rem down nudge as the others MINUS that 0.2rem flip lift, so it lands level
+	// with the link icon. (translateY is applied in screen space AFTER the flip; overrides code-icon's
+	// `:host([flip='block'])` rotateX.)
+	.gl-graph__ref-pill-jump-arrow[flip='block'] {
+		transform: translateY(-0.1rem) rotateX(180deg);
+	}
+	// PR / issue chips: same divider treatment as the upstream segment — a compact, same-height
+	// addendum to the pill (icon + short label; a default gl-popover card on hover carries the
+	// details). Rendered ONLY on the inline primary pill, never in the +N popover rows.
+	.gl-graph__ref-pill-pr,
+	.gl-graph__ref-pill-issue {
+		position: relative;
+		// Contain the band's `z-index: -1` (below the icon/label, above the pill fill) — matches the jump.
+		isolation: isolate;
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		line-height: 1;
+		gap: 0.3rem;
+		margin-left: 0.1rem;
+		padding: 0 0 0 0.5rem;
+		border-left: 1px solid var(--ref-border, currentColor);
+		--code-icon-size: 1.1rem;
+		opacity: 0.85;
+		cursor: pointer;
+	}
+	// Full-pill-height band (parity with the upstream jump/status): the focus rect AND the hover highlight
+	// both ride it, bleeding into the pill's vertical padding so they hug the pill's top/bottom edges rather
+	// than a tight inner box on the icon. `z-index: -1` keeps it behind the icon/label, above the pill fill.
+	.gl-graph__ref-pill-pr::before,
+	.gl-graph__ref-pill-issue::before {
+		content: '';
+		position: absolute;
+		// Reach the pill's top/bottom FILL edges (not just the chip's short content box) so the hover highlight
+		// + focus rect span the full pill height like the jump — the chip's icon is shorter than the fill, so
+		// -0.5rem clears the ~0.3rem pill padding + 1px border + 1px overlay bleed each side.
+		inset-block: -0.5rem;
+		// Match the left gap (the chip's 0.5rem padding-left) on the right too, so the rect sits symmetric
+		// around the text — the chip has no padding-right, so extend the band 0.5rem past its right edge.
+		inset-inline: 0 -0.5rem;
+		border-radius: 0.3rem;
+		z-index: -1;
+		pointer-events: none;
+	}
+	// Hover highlight — parity with the upstream jump (a contrast tint marking the interactive sub-zone).
+	.gl-graph__ref-pill-pr:hover::before,
+	.gl-graph__ref-pill-issue:hover::before {
+		background: color-mix(in srgb, var(--ref-on-color, #fff) 16%, transparent);
+	}
+	// The icon + label live INSIDE the popover's anchor span (the host's `gap` can't reach them), so
+	// the anchor needs its own flex gap to keep them from running together.
+	.gl-graph__ref-pill-pr [slot='anchor'],
+	.gl-graph__ref-pill-issue [slot='anchor'] {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	// On the FILLED pill (hover, the expand overlay, and popover-row hover) the lane-color border-left
+	// blends into the lane fill → the split divider vanishes. Switch it to the contrast color so it stays
+	// visible against the fill.
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-upstream,
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-more-group,
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-pr,
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-issue,
+	.gl-graph__ref-pill-expand .gl-graph__ref-pill-upstream,
+	.gl-graph__ref-pill-expand .gl-graph__ref-pill-more-group,
+	.gl-graph__ref-pill-expand .gl-graph__ref-pill-pr,
+	.gl-graph__ref-pill-expand .gl-graph__ref-pill-issue,
+	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-pill-upstream {
+		border-left-color: color-mix(in srgb, var(--ref-on-color, #fff) 35%, transparent);
+	}
+	// Hover-card body for the PR/issue chips — a plain gl-popover card (no override, unlike the +N ref
+	// popover's transparent list style); just enough layout for the title to wrap.
+	.gl-graph__ref-metadata-card {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		max-width: 32rem;
+	}
+	.gl-graph__ref-metadata-card-title {
+		font-weight: 600;
+		white-space: normal;
+		overflow-wrap: break-word;
+	}
+	.gl-graph__ref-metadata-card-meta {
+		color: var(--vscode-descriptionForeground);
+		font-size: 1.1rem;
+	}
+	// Hover-expand overlay: a full-name copy of the pill, absolutely positioned over the in-flow
+	// (shrunk) pill, extending right over the message — no reflow because the flow box is untouched.
+	.gl-graph__ref-pill-expand {
+		position: absolute;
+		left: -1px;
+		top: -1px;
+		bottom: -1px;
+		display: none;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0 0.8rem;
+		border: 1px solid var(--ref-color);
+		border-radius: 0.4rem;
+		background-color: var(--ref-color);
+		// Per-ref black/white contrast color (WCAG luminance, computed in refStyle) so the filled chip
+		// reads cleanly on ANY lane — light (amber/gold) or dark — with no text-shadow halo.
+		color: var(--ref-on-color, #fff);
+		white-space: nowrap;
+		box-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.3);
+		z-index: 20;
+		// MUST receive pointer events: the overlay is a descendant of the pill, so hovering it keeps
+		// `.gl-graph__ref-pill:is(:hover, :focus-within)` alive across the FULL expansion. With `none`, the cursor falls
+		// through to the message behind once it leaves the original (shrunk) box and the pill collapses.
+		// Clicks still resolve correctly — they bubble to the pill (its `data-vscode-context` + row
+		// handlers), since the overlay sits inside it.
+		pointer-events: auto;
+	}
+	.gl-graph__ref-pill:is(:hover, :focus-within) {
+		z-index: 20;
+	}
+	// The fill (expand overlay) follows the pill's hover / focus-within, so it STAYS filled while focus is on
+	// one of the pill's inline sub-chips (upstream-jump / PR / issue) — matching hover instead of collapsing.
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-expand {
+		display: inline-flex;
+	}
+	// Keyboard focus mirrors hover and swaps the ugly UA `outline: auto` for a clean inset ring on the expand
+	// overlay — the visible expanded pill (the in-flow `-main` is visibility:hidden while expanded). Inset
+	// box-shadow follows the pill's rounded shape (a rectangular `outline` wouldn't).
+	.gl-graph__ref-pill:focus-visible {
+		outline: none;
+	}
+	// Suppress the pill's OWN ring once a grouped-pill secondary is cursored (`aria-activedescendant` set) —
+	// the ring moves to the active popover row instead; the pill stays filled/expanded, just unringed.
+	.gl-graph__ref-pill:focus-visible:not([aria-activedescendant]) .gl-graph__ref-pill-expand {
+		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+	}
+	// A focused sub-chip is covered by the fill overlay, so mirror its focus ring onto the matching expanded
+	// twin inside the overlay — the copy actually visible on the fill. (The in-flow copy still holds real
+	// focus; drop its UA outline since it sits hidden behind the fill.)
+	.gl-graph__ref-pill-upstream--jump:focus-visible,
+	.gl-graph__ref-pill-pr [slot='anchor']:focus-visible,
+	.gl-graph__ref-pill-issue [slot='anchor']:focus-visible {
+		outline: none;
+	}
+	// The jump's ring rides its full-pill-height `::before` band so the rect hugs the pill edges, not an inner box.
+	.gl-graph__ref-pill:has(.gl-graph__ref-pill-upstream--jump:focus-visible)
+		.gl-graph__ref-pill-expand
+		.gl-graph__ref-pill-upstream--jump::before {
+		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+	}
+	.gl-graph__ref-pill:has(.gl-graph__ref-pill-pr [slot='anchor']:focus-visible)
+		.gl-graph__ref-pill-expand
+		.gl-graph__ref-pill-pr::before,
+	.gl-graph__ref-pill:has(.gl-graph__ref-pill-issue [slot='anchor']:focus-visible)
+		.gl-graph__ref-pill-expand
+		.gl-graph__ref-pill-issue::before {
+		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+	}
+	// Hide the in-flow (shrunk) content while the overlay is shown (hover / focus-within) so they don't double up.
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-main {
+		visibility: hidden;
+	}
+	// The expand overlay is absolutely positioned and extends right over the message — but its
+	// ancestors clip with overflow:hidden (needed for truncation). While a ref pill is hovered,
+	// un-clip just that ancestor chain so the overlay can escape and paint on top.
+	.gl-graph__refs:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
+	.gl-graph__zone:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
+	.gl-graph__list-content:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
+	.gl-graph__list-line1:has(.gl-graph__ref-pill:is(:hover, :focus-within)) {
+		overflow: visible;
+	}
+	// Context-pinned (native context menu open over a pill — host adds `.is-context-pinned`, hover is
+	// lost when the menu steals focus) AND click-pinned (`.is-pinned`, the focus toggle) both keep the
+	// primary name revealed: mirror the :hover expand + un-clip rules for their lifetime.
+	.gl-graph__ref-pill.is-context-pinned,
+	.gl-graph__ref-pill.is-pinned {
+		z-index: 20;
+	}
+	.gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-expand,
+	.gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-expand {
+		display: inline-flex;
+	}
+	.gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-main,
+	.gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-main {
+		visibility: hidden;
+	}
+	.gl-graph__refs:has(.gl-graph__ref-pill.is-context-pinned),
+	.gl-graph__zone:has(.gl-graph__ref-pill.is-context-pinned),
+	.gl-graph__list-content:has(.gl-graph__ref-pill.is-context-pinned),
+	.gl-graph__list-line1:has(.gl-graph__ref-pill.is-context-pinned),
+	.gl-graph__refs:has(.gl-graph__ref-pill.is-pinned),
+	.gl-graph__zone:has(.gl-graph__ref-pill.is-pinned),
+	.gl-graph__list-content:has(.gl-graph__ref-pill.is-pinned),
+	.gl-graph__list-line1:has(.gl-graph__ref-pill.is-pinned) {
+		overflow: visible;
+	}
+
+	// Ghost ref pill (`showGhostRefsOnRowHover`): a faint placeholder for ref-less rows naming the
+	// branch/tag their lane belongs to (the lane-segment tip's ref), revealed on row hover/selection only
+	// — a real lane-colored pill (same `--ref-*` custom props, shared base class) faded to 50% opacity
+	// (legacy parity), plus a dashed border; never interactive.
+	.gl-graph__ref-pill--ghost {
+		display: none;
+		opacity: 0.5;
+		border-style: dashed;
+		cursor: default;
+		pointer-events: none;
+	}
+	.gl-graph__row:hover .gl-graph__ref-pill--ghost,
+	.gl-graph__row.is-selected .gl-graph__ref-pill--ghost {
+		display: inline-flex;
+	}
+
+	// Ref popover (multi-ref overflow). Hosted by <gl-popover>; the content slot is the list.
+	// The popover is the refs-zone flex item wrapping the pill, so it (and its anchor slot) must
+	// shrink + cap at 100% — otherwise the pill renders at its full natural width and the zone's
+	// overflow:hidden chops the +N badge off the right instead of the label truncating first.
+	.gl-graph__ref-popover {
+		min-width: 0;
+		max-width: 100%;
+		display: inline-flex;
+		z-index: 50;
+		// Let the wrapped pill's absolutely-positioned hover-expand overlay escape gl-popover's
+		// shadow-DOM anchor wrapper (which otherwise clips it → multi-ref pills wouldn't expand).
+		--gl-popover-anchor-overflow: visible;
+	}
+	// No solid popover surface — drop the menu background/border/shadow and frost the area behind so the
+	// outlined ref chips read as floating over a blurred graph rather than sitting in a box.
+	.gl-graph__ref-popover::part(body) {
+		// Fully transparent — no fill/border/shadow AND no blur on the container itself; the blur lives
+		// on each chip below, so there's no frosted rectangle / odd border around the list.
+		background-color: transparent;
+		border-color: transparent;
+		box-shadow: none;
+		padding: 0;
+	}
+	.gl-graph__ref-popover-anchor {
+		display: inline-flex;
+		min-width: 0;
+		max-width: 100%;
+		overflow: visible;
+	}
+	// NOTE: we deliberately do NOT keep the primary name-overlay shown while the popover is merely `[open]`
+	// (only while actually `:hover`ed). The popover lingers ~180ms after unhover (its hide-delay); keeping
+	// the FILLED overlay shown during that, while the stats revert to their green/red colorization, made a
+	// clash/flash on unhover. Letting the overlay hide on unhover (like a single pill) keeps it clean — the
+	// primary name just collapses to its truncated form once the pointer is on the +N list.
+	.gl-graph__refs:has(.gl-graph__ref-popover[open]),
+	.gl-graph__zone:has(.gl-graph__ref-popover[open]),
+	.gl-graph__list-content:has(.gl-graph__ref-popover[open]),
+	.gl-graph__list-line1:has(.gl-graph__ref-popover[open]) {
+		overflow: visible;
+	}
+	// The gl-popover body (`--wa-tooltip-padding: 0`) is the bordered, rounded container; the list
+	// + rows fill it edge-to-edge (no padding/gaps), and the body's `overflow: hidden` rounds the
+	// first/last rows' corners. Rows are flush menu-items — no per-row border/radius — so the hover
+	// fill spans the full width with no chopped edges.
+	.gl-graph__ref-popover-list {
+		display: flex;
+		min-width: 14rem;
+		max-width: 36rem;
+		flex-direction: column;
+		// Tight inset + gap so the outlined pill chips sit close together and snug to the anchor pill.
+		gap: 0.2rem;
+		padding: 0.2rem;
+	}
+	// Each popover ref is an outlined chip identical to the inline branch pill (same border via
+	// `--ref-border`, radius, padding, per-lane color). `align-self: stretch` makes every chip the
+	// full list width so they line up as a uniform stack (the list sizes to the widest name).
+	.gl-graph__ref-popover-row {
+		display: flex;
+		align-self: stretch;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.4rem 0.8rem;
+		border: 1px solid var(--ref-border, currentColor);
+		border-radius: 0.4rem;
+		// Frosted scrim: unlike the inline pills, these chips FLOAT over the graph rows, so a translucent
+		// editor-background wash (auto-adapts light/dark, flattens whatever band/content sits below) with a
+		// modest lane tint gives the lane-colored text a predictable, readable backdrop. Clipped to the
+		// chip's rounded box + blurred so the popover container itself stays fully transparent (no frosted
+		// rectangle behind the list). The scrim fill alone carries readability if the blur ever comes off.
+		background-color: color-mix(
+			in srgb,
+			var(--ref-color) 12%,
+			color-mix(in srgb, var(--vscode-editor-background) 65%, transparent)
+		);
+		backdrop-filter: blur(0.3rem);
+		-webkit-backdrop-filter: blur(0.3rem);
+		font-size: 1rem;
+		--code-icon-size: 1.2rem;
+		font-weight: 500;
+		white-space: nowrap;
+		color: var(--ref-color, hsl(var(--foreground)));
+		cursor: pointer;
+		transition:
+			color 120ms ease-out,
+			background-color 120ms ease-out,
+			border-color 120ms ease-out;
+
+		// Fill with the lane color on hover, matching the inline pill exactly: the per-lane black/white
+		// contrast color (`--ref-on-color`) keeps text + icon crisp on any lane — NO text-shadow halo.
+		// `.is-active` mirrors :hover for the keyboard cursor (grouped-pill menu, Arrow Up/Down).
+		&:hover,
+		&.is-active {
+			color: var(--ref-on-color, #fff);
+			background-color: var(--ref-color);
+			border-color: var(--ref-color);
+		}
+		// The focus rect rides the cursor ITEM (`.is-cursor`), not the fill (`.is-active`): a cursored row is
+		// filled its whole lifetime, but when Left/Right steps the cursor onto the row's jump the rect moves
+		// there and off the row. For a grouped pill the rect lives here, not on the anchor pill (kept filled,
+		// unringed). Not on `:hover` — mouse hover fills without a focus rect.
+		&.is-cursor {
+			box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+		}
+	}
+	.gl-graph__ref-popover-row-label {
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__ref-popover-row-head {
+		display: inline-flex;
+		align-items: center;
+		margin-left: auto;
+		border-radius: 0.2rem;
+		padding: 0.1rem 0.4rem;
+		font-size: 0.9rem;
+		font-weight: 600;
+		line-height: 1;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		background-color: color-mix(in srgb, var(--ref-color) 28%, transparent);
+		color: var(--ref-color);
+	}
+	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-popover-row-head {
+		background-color: color-mix(in srgb, var(--ref-on-color, #fff) 28%, transparent);
+		color: var(--ref-on-color, #fff);
+	}
+	// Working-changes stats badge (WipStatsAdornmentProvider) — the shared `<commit-stats>` pill (icons
+	// + add/edit/remove colors), identical to the WIP header / overview / Home cards.
+	.gl-graph__wip-stats {
+		display: inline-flex;
+		align-items: center;
+		// Match the inline branch pills' height (they sit on the same WIP row) — the shared
+		// <commit-stats> pill defaults to a shorter 1.5rem line box, which now reads noticeably
+		// shorter than the branch pills. Bump it so both pill types line up at the same height.
+		--commit-stats-pill-line-height: 1.8rem;
+	}
+	// In the dedicated Refs column a WIP row's stats badge sits at the column's trailing edge (near the
+	// message). Push only the badge wrapper (margin-left:auto) — NOT the whole flex cell — so that when
+	// the graph is inlined INTO the Refs column its lane gutter still sits at the left; justifying the
+	// whole cell (flex-end) used to shove the inlined lanes to the right too.
+	.gl-graph__row.is-workdir .gl-graph__zone--ref .gl-graph__refs {
+		margin-left: auto;
+	}
+
+	// Dedicated lane-fold strip at the lanes' left edge (IDE code-folding gutter). A fixed-width column
+	// (set inline to foldLaneWidthPx) holding the row's fold chevron, centered over the lane. The header
+	// variant is an empty spacer keeping the "Graph" controls aligned with the lanes below.
+	.gl-graph__fold-lane {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+	}
+
+	// Lane fold chevron. Lane color applied inline. Expanded lanes show a subtle at-rest chevron (the
+	// 0.6-opacity discoverability affordance) that brightens on hover; collapsed lanes show a full-
+	// opacity chevron so a fold hiding commits stays visible on a cold read.
+	.lane-fold-chevron {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 1.4rem;
+		height: 1.4rem;
+		border: 0;
+		border-radius: 0.2rem;
+		background: transparent;
+		padding: 0;
+		font: inherit;
+		cursor: pointer;
+		opacity: 0.6;
+		transition: opacity 150ms ease-out;
+
+		&.is-collapsed {
+			opacity: 1;
+		}
+		&:hover {
+			opacity: 1;
+		}
+		// `tabindex="-1"` (keyboard folds via Arrow Left/Right on the row), so the chevron only ever takes
+		// focus from a mouse click — which must NOT flash a ring (keep it lit, no outline). The glyph
+		// direction + aria-expanded carry the collapsed/expanded state. A keyboard focus (never, given
+		// tabindex=-1, but kept for a11y correctness) draws an inset ring so it can't clip in the fold strip.
+		&:focus {
+			opacity: 1;
+			outline: none;
+		}
+		&:focus-visible {
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline-offset: -0.2rem;
+		}
+	}
+}
+
 @mixin focusStyles() {
-	outline: 1px solid var(--vscode-focusBorder);
+	outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
 
 @include utils.dark-theme {
 	--popover-bg: var(--color-background--lighten-15);
+
 	// --titlebar-bg: var(--color-background--lighten-075);
 	--titlebar-bg: var(--color-background);
 }
 
 @include utils.light-theme {
 	--popover-bg: var(--color-background--darken-15);
+
 	// --titlebar-bg: var(--color-background--darken-075);
 	--titlebar-bg: var(--color-background);
 }
@@ -46,6 +3219,10 @@
 	--color-graph-stats-added: var(--vscode-gitlens-graphChangesColumnAddedColor);
 	--color-graph-stats-deleted: var(--vscode-gitlens-graphChangesColumnDeletedColor);
 	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
+	// Neutral "empty track" fill behind the Changes bars / bipolar axis / unfilled squares. Derived from
+	// the editor foreground (which flips with the theme) at low alpha, matching the `--color-graph-text-*`
+	// neutrals above so it reads as a subtle recess in both light + dark themes.
+	--color-graph-stats-track: color-mix(in srgb, transparent 82%, var(--color-graph-text-selected));
 
 	--color-graph-minimap-line0: var(--vscode-progressBar-background);
 	--color-graph-minimap-focusLine: var(--vscode-foreground);
@@ -112,12 +3289,13 @@
 
 	--color-graph-minimap-tip-worktreeBackground: var(--color-graph-minimap-marker-worktree);
 	--color-graph-minimap-tip-worktreeBorder: var(--color-graph-minimap-marker-worktree);
+
 	/* Violet bg is luminance-extreme in opposite directions per theme — using editor-background as
 	   the foreground inverts correctly in both. */
 	--color-graph-minimap-tip-worktreeForeground: var(--vscode-editor-background, var(--vscode-foreground));
 
 	--graph-stats-bar-height: 40%;
-	--graph-stats-bar-border-radius: 3px;
+	--graph-stats-bar-border-radius: var(--gl-radius-sm);
 
 	--branch-status-ahead-foreground: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
 	--branch-status-behind-foreground: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
@@ -154,6 +3332,13 @@
 
 // Light DOM
 body {
+	// formerly .graph-app
+	--fs-1: 1.1rem;
+	--fs-2: 1.3rem;
+
+	padding: 0;
+	overflow: hidden;
+
 	.vertical_scrollbar,
 	.horizontal_scrollbar {
 		border-color: transparent;
@@ -164,8 +3349,8 @@ body {
 	&:focus-within {
 		.vertical_scrollbar,
 		.horizontal_scrollbar {
-			transition: border-color 0.1s linear;
 			border-color: var(--vscode-scrollbarSlider-background);
+			transition: border-color var(--gl-duration-x-fast) linear;
 		}
 	}
 }
@@ -208,6 +3393,7 @@ body {
 
 a {
 	text-decoration: none;
+
 	&:hover {
 		text-decoration: underline;
 	}
@@ -216,8 +3402,10 @@ a {
 a,
 button:not([disabled]),
 [tabindex]:not([tabindex='-1']) {
-	&:focus {
-		@include focusStyles();
+	// Keyboard-only: a mouse click must not flash a focus ring (`:focus-visible` is keyboard/programmatic-
+	// keyboard only). This is the shared default; individual controls re-scope or suppress it below.
+	&:focus-visible {
+		@include focusStyles;
 	}
 }
 
@@ -488,20 +3676,20 @@ button:not([disabled]),
 .columns-settings {
 	--column-button-height: 19px;
 
-	appearance: none;
-	font-family: inherit;
-	background-color: transparent;
-	border: none;
-	color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
 	height: var(--column-button-height);
-	cursor: pointer;
-	background-color: var(--color-graph-actionbar-background);
+	font-family: inherit;
+	color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
 	text-align: left;
-	border-radius: 3px;
+	appearance: none;
+	cursor: pointer;
+	background-color: transparent;
+	background-color: var(--color-graph-actionbar-background);
+	border: none;
+	border-radius: var(--gl-radius-sm);
 
 	&:hover {
-		background-color: var(--vscode-toolbar-hoverBackground);
 		color: var(--color-foreground);
+		background-color: var(--vscode-toolbar-hoverBackground);
 	}
 
 	&:focus {
@@ -514,8 +3702,8 @@ button:not([disabled]),
 	}
 
 	code-icon {
-		font-size: 1.1rem;
 		position: relative;
+		font-size: var(--gl-font-sm);
 	}
 }
 
@@ -526,7 +3714,7 @@ button:not([disabled]),
 }
 
 .gk-graph.bs-tooltip {
-	z-index: 1040;
+	z-index: var(--gl-z-tooltip);
 }
 
 // header
@@ -668,23 +3856,22 @@ button:not([disabled]),
 
 // Light DOM
 .graph-icon {
-	font: normal normal normal 14px/1 codicon;
 	display: inline-block;
-	text-decoration: none;
-	text-rendering: auto;
+	font: normal normal normal 14px/1 codicon;
+	line-height: 2rem;
+	vertical-align: middle;
 	text-align: center;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-	user-select: none;
+	letter-spacing: normal;
+	text-decoration: none;
 	-webkit-user-select: none;
 	-ms-user-select: none;
-
-	vertical-align: middle;
-	line-height: 2rem;
-	letter-spacing: normal;
+	user-select: none;
+	text-rendering: auto;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 
 	&.mini-icon {
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		line-height: 1.6rem;
 	}
 }
@@ -694,136 +3881,180 @@ button:not([disabled]),
 	&--head {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('vm');
 		}
 	}
+
 	&--remote {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('cloud');
 		}
 	}
+
 	&--remote-github,
 	&--remote-githubEnterprise {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('github-inverted');
 		}
 	}
+
 	&--remote-gitlab,
 	&--remote-gitlabSelfHosted {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-gitlab');
 		}
 	}
+
 	&--remote-bitbucket,
 	&--remote-bitbucketServer {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-bitbucket');
 		}
 	}
+
 	&--remote-azureDevops {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-azdo');
 		}
 	}
+
 	&--tag {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('tag');
 		}
 	}
+
 	&--stash {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('inbox');
 		}
 	}
+
 	&--check {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('check');
 		}
 	}
+
 	&--warning {
 		color: #de9b43;
-		:before {
+
+		::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('warning');
 		}
 	}
+
 	&--added {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('add');
 		}
 	}
+
 	&--modified {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('edit');
 		}
 	}
+
 	&--deleted {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('dash');
 		}
 	}
+
 	&--renamed {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('file');
 		}
 	}
+
 	&--resolved {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('pass-filled');
 		}
 	}
+
 	&--hide {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('eye-closed');
 		}
 	}
+
 	&--show {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('eye');
 		}
 	}
+
 	&--pull-request {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('git-pull-request');
 		}
 	}
+
 	&--upstream-ahead {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('arrow-up');
 		}
 	}
+
 	&--upstream-behind {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('arrow-down');
 		}
 	}
+
 	&--settings {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('settings-gear');
 		}
 	}
+
 	&--branch {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('git-branch');
 		}
 	}
@@ -831,6 +4062,7 @@ button:not([disabled]),
 	&--graph {
 		&::before {
 			font-family: glicons;
+
 			@include iconUtils.glicon('graph');
 		}
 	}
@@ -838,6 +4070,7 @@ button:not([disabled]),
 	&--commit {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('git-commit');
 		}
 	}
@@ -845,6 +4078,7 @@ button:not([disabled]),
 	&--author {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('account');
 		}
 	}
@@ -852,6 +4086,7 @@ button:not([disabled]),
 	&--datetime {
 		&::before {
 			font-family: glicons;
+
 			@include iconUtils.glicon('clock');
 		}
 	}
@@ -859,6 +4094,7 @@ button:not([disabled]),
 	&--message {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('comment');
 		}
 	}
@@ -866,6 +4102,7 @@ button:not([disabled]),
 	&--changes {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('request-changes');
 		}
 	}
@@ -873,6 +4110,7 @@ button:not([disabled]),
 	&--files {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('file');
 		}
 	}
@@ -880,6 +4118,7 @@ button:not([disabled]),
 	&--worktree {
 		&::before {
 			font-family: glicons;
+
 			@include iconUtils.glicon('worktrees-view');
 		}
 	}
@@ -887,6 +4126,7 @@ button:not([disabled]),
 	&--pin {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('pinned');
 		}
 	}
@@ -895,6 +4135,7 @@ button:not([disabled]),
 	&--issue-githubEnterprise {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('issues');
 		}
 	}
@@ -903,6 +4144,7 @@ button:not([disabled]),
 	&--issue-gitlabSelfHosted {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('issues');
 		}
 	}
@@ -910,14 +4152,16 @@ button:not([disabled]),
 	&--issue-jiraCloud,
 	&--issue-jiraServer {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-jira');
 		}
 	}
 
 	&--issue-linear {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-linear');
 		}
 	}
@@ -925,6 +4169,7 @@ button:not([disabled]),
 	&--issue-azureDevops {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('issues');
 		}
 	}
@@ -932,6 +4177,7 @@ button:not([disabled]),
 	&--issue-bitbucket {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('issues');
 		}
 	}
@@ -939,6 +4185,7 @@ button:not([disabled]),
 	&--filter {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('filter');
 		}
 	}
@@ -946,6 +4193,7 @@ button:not([disabled]),
 	&--undefined-icon {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('blank');
 		}
 	}
@@ -959,7 +4207,7 @@ button:not([disabled]),
 	justify-content: center;
 	width: 1.6rem;
 	height: 1.6rem;
-	font-size: 1.4rem;
+	font-size: var(--gl-font-lg);
 	line-height: 1;
 }
 
@@ -972,6 +4220,7 @@ button:not([disabled]),
 	align-items: center;
 	height: 100%;
 }
+
 .gk-graph .graph-header .header-columns-icons {
 	top: 0;
 	bottom: 0;
@@ -984,10 +4233,12 @@ button:not([disabled]),
 	.columns-filter {
 		order: 0;
 	}
+
 	.columns-settings {
 		order: 1;
 	}
 }
+
 .gk-graph .graph-header .columns-filter-icon {
 	display: flex;
 	align-items: center;
@@ -995,6 +4246,7 @@ button:not([disabled]),
 	height: auto !important;
 	margin-bottom: 0 !important;
 }
+
 .gk-graph .graph-header .columns-btn {
 	align-items: center;
 	margin-top: 0;
@@ -1013,13 +4265,13 @@ button:not([disabled]),
 // `.columns-btn.columns-filter` matches the library's `.columns-btn.small-btn` specificity
 // so our padding wins on every variant (incl. the ref column's non-small-btn filter).
 .gk-graph .graph-header .columns-btn.columns-filter {
+	padding: var(--gl-space-2);
 	margin-right: 0.3rem;
-	padding: 0.2rem;
 	cursor: pointer;
 
 	&:not(.filtering) {
 		opacity: 0;
-		transition: opacity 120ms ease;
+		transition: opacity var(--gl-duration-x-fast) ease;
 
 		&:hover {
 			background-color: var(--vscode-toolbar-hoverBackground);
@@ -1039,6 +4291,7 @@ button:not([disabled]),
 		}
 	}
 }
+
 .gk-graph .graph-header:hover .columns-filter:not(.filtering),
 .gk-graph .graph-header .columns-filter:not(.filtering):focus-visible,
 .gk-graph .graph-header .columns-filter:not(.filtering):focus-within {
@@ -1049,8 +4302,8 @@ button:not([disabled]),
 // tinted but otherwise transparent fill, which gets lost over dense lane/SHA content.
 // Skip hover/focus since the library already swaps to an opaque background there.
 .gk-graph .graph-component .graph-head-pill:not(:hover):not(:focus-visible) {
-	backdrop-filter: blur(0.6rem) saturate(1.2);
-	-webkit-backdrop-filter: blur(0.6rem) saturate(1.2);
+	backdrop-filter: blur(0.3rem) saturate(1.2);
+	-webkit-backdrop-filter: blur(0.3rem) saturate(1.2);
 }
 
 // header - move to graph.css.ts
@@ -1125,15 +4378,6 @@ button:not([disabled]),
 // 	margin-right: 0.4rem;
 // }
 
-// formerly .graph-app
-body {
-	--fs-1: 1.1rem;
-	--fs-2: 1.3rem;
-
-	padding: 0;
-	overflow: hidden;
-}
-
 // might not need this
 gl-graph-app,
 gl-graph-app-wc,
@@ -1174,7 +4418,7 @@ web-graph {
 
 	&__gate {
 		// top: 40px; /* height of the header bar */
-		padding-top: 40px;
+		padding-top: var(--gl-space-40);
 	}
 
 	// header
@@ -1203,7 +4447,7 @@ web-graph {
 }
 
 // Light DOM
-.gk-graph:not(.ref-zone):not([role='tooltip']) {
+.gk-graph:not(.ref-zone, [role='tooltip']) {
 	// flex: 1 1 auto;
 	position: relative;
 }
@@ -1219,58 +4463,56 @@ web-graph {
 		--sash-size: 4px;
 		--sash-hover-size: 4px;
 
-		border-right: none !important;
+		z-index: var(--gl-z-sticky);
 		width: var(--sash-size) !important;
 		height: 100vh !important;
-		z-index: 1000;
+		border-right: none !important;
 
-		&:after {
-			content: '';
-			border-left: 1px solid var(--titlebar-fg);
+		&::after {
 			position: absolute;
 			top: 0.3rem;
 			left: 0.1rem;
-			height: 1.6rem;
 			width: var(--sash-size);
+			height: 1.6rem;
+			content: '';
+			border-left: var(--gl-border-width) solid var(--titlebar-fg);
 			opacity: 0.3;
-
-			transition: border-color 0.1s ease-out;
+			transition: border-color var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
-		&:before {
-			content: '';
-			pointer-events: none;
+		&::before {
 			position: absolute;
-			width: 100%;
-			height: 100vh;
-			transition: background-color 0.1s ease-out;
-			background: transparent;
-
-			width: var(--sash-hover-size);
 			left: calc(50% - var(--sash-hover-size) / 2);
+			width: 100%;
+			width: var(--sash-hover-size);
+			height: 100vh;
+			pointer-events: none;
+			content: '';
+			background: transparent;
+			transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
 		&:hover,
 		&:active {
-			&:before {
-				transition-delay: 0.2s;
+			&::before {
 				background-color: var(--vscode-sash-hoverBorder);
+				transition-delay: 0.2s;
 			}
 
-			&:after {
-				transition-delay: 0.2s;
+			&::after {
 				border-left-color: var(--vscode-sash-hoverBorder);
+				transition-delay: 0.2s;
 			}
 		}
 
-		&:active:after {
-			content: '';
+		&:active::after {
 			position: absolute;
 			top: 0;
 			left: -100vw;
+			z-index: var(--gl-z-sticky);
 			width: 200vw;
 			height: 100vh;
-			z-index: 1000;
+			content: '';
 		}
 	}
 
@@ -1284,17 +4526,17 @@ web-graph {
 	}
 
 	.columns-btn.spinner {
-		margin-right: 0.6rem;
+		margin-right: var(--gl-space-6);
 	}
 
 	.button {
+		color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
 		background-color: var(--color-graph-actionbar-background);
-		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 
 		&:hover {
-			background-color: var(--vscode-toolbar-hoverBackground);
 			color: var(--color-foreground);
+			background-color: var(--vscode-toolbar-hoverBackground);
 		}
 
 		&:focus {
@@ -1303,13 +4545,13 @@ web-graph {
 
 		&.active,
 		&.active:hover {
-			background-color: var(--vscode-toolbar-activeBackground);
 			color: var(--color-foreground);
+			background-color: var(--vscode-toolbar-activeBackground);
 		}
 	}
 
 	.graph-icon {
-		color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
+		color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
 	}
 }
 
@@ -1323,49 +4565,51 @@ web-graph {
 // overflow:hidden at minimum width.
 .gk-graph .ref-zone > .flex:has(> .merge-target-ref-node),
 .gk-graph .ref-zone > .flex:has(> .merge-base-ref-node) {
-	container-type: inline-size;
 	container-name: refcol;
+	container-type: inline-size;
 }
 
 .gk-graph .ref-zone .merge-base-ref-node,
 .gk-graph .ref-zone .merge-target-ref-node {
 	flex-shrink: 0;
-	white-space: nowrap;
-	font-size: 0;
-	margin-left: 0;
-	padding: 0 4px;
 	align-items: center;
+	padding: 0 var(--gl-space-4);
+	margin-left: 0;
+	font-size: 0;
+	white-space: nowrap;
 
 	&::before {
-		font-size: 13px;
-		line-height: 1;
 		display: inline-block;
+		font-size: var(--gl-font-base);
+		line-height: 1;
 	}
 }
 
 .gk-graph .ref-zone .merge-target-ref-node::before {
-	font-family: 'glicons';
+	font-family: glicons;
+
 	@include iconUtils.glicon('merge-target');
 }
 
 .gk-graph .ref-zone .merge-base-ref-node::before {
 	font-family: codicon;
+
 	@include iconUtils.codicon('git-branch');
 }
 
 @container refcol (min-width: 100px) {
 	.gk-graph .ref-zone .merge-base-ref-node,
 	.gk-graph .ref-zone .merge-target-ref-node {
-		font-size: 11px;
-		padding: 0 6px;
-		gap: 4px;
+		gap: var(--gl-space-4);
+		padding: 0 var(--gl-space-6);
+		font-size: var(--gl-font-sm);
 	}
 }
 
 // Light DOM
 .graph-app:not(:hover) {
 	.gk-graph .graph-header {
-		& .resizable-handle.horizontal:before {
+		& .resizable-handle.horizontal::before {
 			display: none;
 		}
 	}
@@ -1385,25 +4629,25 @@ web-graph {
 
 	& .graph-adjust-commit-count {
 		display: flex;
-		width: calc(100cqw - var(--graph-column-scrollbar-thickness));
 		align-items: center;
 		justify-content: center;
+		width: calc(100cqw - var(--graph-column-scrollbar-thickness));
 	}
 
 	& .changes-zone.changes-bar .changes-sub-bar.deleted {
-		margin-left: 2px;
+		margin-left: var(--gl-space-2);
 	}
 
 	& .wip-stats-pill {
+		font-weight: 600;
 		background-color: color-mix(
 			in srgb,
 			var(--vscode-sideBarSectionHeader-background) 90%,
 			var(--vscode-foreground) 10%
 		);
-		border: 1px solid
+		border: var(--gl-border-width) solid
 			color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 100%, var(--vscode-foreground) 70%) !important;
-		border-radius: 0.4rem;
-		font-weight: 600;
+		border-radius: var(--gl-radius-sm);
 
 		& .graph-icon {
 			font-weight: 600;
@@ -1414,21 +4658,24 @@ web-graph {
 	& .wip-stats-pill__item--added {
 		color: var(--gl-stat-added) !important;
 	}
+
 	& .wip-stats-pill__item--modified {
 		color: var(--gl-stat-modified) !important;
 	}
+
 	& .wip-stats-pill__item--deleted {
 		color: var(--gl-stat-removed) !important;
 	}
+
 	& .wip-stats-pill__check {
 		color: var(--gl-stat-added) !important;
 	}
 
 	// Graph footer styles
 	& .graph-footer__message {
-		color: var(--vscode-descriptionForeground);
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		font-style: italic;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	& .graph-footer__message + .graph-footer__link {
@@ -1436,14 +4683,14 @@ web-graph {
 	}
 
 	& .graph-footer__link {
-		color: var(--vscode-textLink-foreground);
-		cursor: pointer;
-		font-size: 1.2rem;
-		text-decoration: none;
-		transition: color 0.2s ease;
 		padding: 0.2rem 0.5rem;
-		border: 1px solid transparent;
-		border-radius: 0.4rem;
+		font-size: var(--gl-font-md);
+		color: var(--vscode-textLink-foreground);
+		text-decoration: none;
+		cursor: pointer;
+		border: var(--gl-border-width) solid transparent;
+		border-radius: var(--gl-radius-sm);
+		transition: color var(--gl-duration-medium) ease;
 
 		&:hover {
 			color: var(--vscode-textLink-activeForeground);
@@ -1451,9 +4698,9 @@ web-graph {
 		}
 
 		&:focus-visible {
-			border-color: var(--vscode-focusBorder) !important;
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 0;
+			border-color: var(--vscode-focusBorder) !important;
 		}
 	}
 }
@@ -1466,8 +4713,8 @@ web-graph {
 // Light DOM
 .gk-graph .tooltip,
 .gk-graph.tooltip {
-	font-size: var(--vscode-font-size) !important;
 	font-family: var(--vscode-font-family) !important;
+	font-size: var(--vscode-font-size) !important;
 	font-weight: normal !important;
 	line-height: 19px !important;
 
@@ -1475,22 +4722,26 @@ web-graph {
 		opacity: 1;
 	}
 
-	&.tooltip-arrow:after {
+	&.tooltip-arrow::after {
 		background-color: var(--color-hover-background) !important;
 		border-right-color: var(--color-hover-border) !important;
 		border-bottom-color: var(--color-hover-border) !important;
 	}
 
 	&-inner {
+		padding: 4px 10px 5px !important;
 		font-size: var(--vscode-font-size) !important;
-		padding: 4px 10px 5px 10px !important;
 		color: var(--color-hover-foreground) !important;
-		background-color: var(--color-hover-background) !important;
-		border: 1px solid var(--color-hover-border) !important;
-		border-radius: 0 !important;
-		box-shadow: 0 2px 8px var(--vscode-widget-shadow) !important;
 		text-align: start !important;
 		white-space: break-spaces !important;
+		background-color: var(--color-hover-background) !important;
+		border: var(--gl-border-width) solid var(--color-hover-border) !important;
+		border-radius: 0 !important;
+
+		// Light-DOM vendor tooltip (web-graph): needs `!important` to beat the library's own styles,
+		// so it can't go through the helper. The `!important` border above is the HC fallback.
+		// stylelint-disable-next-line declaration-property-value-disallowed-list
+		box-shadow: var(--gl-shadow-tooltip) !important;
 	}
 }
 
@@ -1500,22 +4751,35 @@ web-graph {
 	display: flex;
 	flex-direction: column;
 	height: 100vh;
-	overflow: hidden;
 	padding: 0.1rem;
+	overflow: hidden;
+
+	// Account + integrations bar (issue #5411): sits above the graph header so account/integrations
+	// state is available when the Graph is the main GitLens panel. When the view is vertically
+	// constrained, the row is dropped and compact chips render inline in the graph header instead —
+	// see `headerInlineEnterPx`/`_headerInlineMode` in graph-app.ts (issue #5449).
+	&__account-bar {
+		position: relative;
+		z-index: var(--gl-z-sticky);
+		flex: none;
+		min-width: 0;
+		padding: var(--gl-space-4) var(--gl-space-6);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border, transparent);
+	}
 
 	&__header {
-		flex: none;
-		z-index: 101;
 		position: relative;
+		z-index: var(--gl-z-sticky);
+		flex: none;
 	}
 
 	&__workspace {
 		position: relative;
 		flex: 1;
 		overflow: hidden;
-		z-index: 0;
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
+		isolation: isolate;
 	}
 
 	&__panes {
@@ -1554,13 +4818,13 @@ web-graph {
 	}
 
 	&__graph-content {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		position: relative;
-		z-index: 0;
+		isolation: isolate;
 
 		// display: flex overrides the UA [hidden] rule; re-assert it.
 		&[hidden] {
@@ -1569,9 +4833,10 @@ web-graph {
 
 		gl-graph-minimap-container {
 			position: relative;
+
 			// Above the gitkraken-components graph internals, which use z-indexes up to 16 —
 			// ensures the minimap's Billboard.js tooltips and settings popover render over the graph.
-			z-index: 100;
+			z-index: var(--gl-z-sticky);
 		}
 
 		.graph__minimap-split {
@@ -1581,10 +4846,10 @@ web-graph {
 
 		.graph__graph-column {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
-			min-height: 0;
+			flex-direction: column;
 			height: 100%;
+			min-height: 0;
 			overflow: hidden;
 		}
 
@@ -1595,12 +4860,22 @@ web-graph {
 			height: 100%;
 		}
 
+		// gl-lit-graph must stay flex, not block — block collapses the viewport (a flex child) to
+		// 0 height since the search-results footer is a flex sibling below it (see host rule above).
+		gl-graph-wrapper > gl-lit-graph {
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+			min-height: 0;
+		}
+
 		gl-graph-wrapper {
 			flex: 1;
 			min-height: 0;
 			overflow: hidden;
 		}
 	}
+
 	&__graph-root {
 		width: 100%;
 		height: 100%;
@@ -1608,33 +4883,32 @@ web-graph {
 
 	&__details-pane {
 		// Provide the CSS variables that details-base.scss normally sets on :root
-		--gitlens-gutter-width: 20px;
 		--gitlens-scrollbar-gutter-width: 10px;
 		--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 
-		height: 100%;
-		overflow: hidden;
-		background-color: var(--vscode-sideBar-background, var(--color-background));
-		color: var(--vscode-sideBar-foreground, var(--color-foreground));
 		display: flex;
 		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
 		font-size: var(--font-size);
+		color: var(--vscode-sideBar-foreground, var(--color-foreground));
+		background-color: var(--vscode-sideBar-background, var(--color-background));
 
 		.graph__details-split[orientation='horizontal'] & {
-			border-left: 1px solid var(--vscode-sideBar-border);
+			border-left: var(--gl-border-width) solid var(--vscode-sideBar-border);
 		}
 
 		.graph__details-split[orientation='vertical'] & {
-			border-top: 1px solid var(--vscode-sideBar-border);
+			border-top: var(--gl-border-width) solid var(--vscode-sideBar-border);
 		}
 
 		gl-graph-details-panel {
+			position: relative;
 			display: flex;
-			flex-direction: column;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			overflow: hidden;
-			position: relative;
 		}
 
 		// Single accent for both modes — the title verb ("Composing Changes" / "Reviewing
@@ -1643,7 +4917,8 @@ web-graph {
 		// vocabulary. `--color-highlight` is GitLens's brand accent (wraps the VS Code button
 		// background), with `--vscode-focusBorder` as a safety fallback.
 		gl-graph-details-panel[data-mode='compose'],
-		gl-graph-details-panel[data-mode='review'] {
+		gl-graph-details-panel[data-mode='review'],
+		gl-graph-details-panel[data-mode='resolve'] {
 			--mode-accent: var(--color-highlight, var(--vscode-focusBorder));
 		}
 
@@ -1655,22 +4930,70 @@ web-graph {
 		// it would scroll along with the content. Hosting the sheet as a sibling of
 		// `.details-content` keeps the sheet header pinned to the top of the panel.
 		.details-host {
-			display: flex;
-			flex-direction: column;
-			flex: 1;
-			min-height: 0;
 			position: relative;
+			display: flex;
+			flex: 1;
+			flex-direction: column;
+			min-height: 0;
 			overflow: hidden;
 		}
 
-		.details-content {
+		// Branch sheet: don't fully take over the details panel — leave a gap at the top so the focused
+		// commit/WIP stays visible underneath. Keep the host full (`inset: 0`) so the scrim still dims
+		// the ENTIRE panel (including that peeking commit); offset only the sheet PANEL itself so the
+		// dimmed commit shows above it. (Offsetting the whole host would drag the scrim down with it,
+		// leaving the commit un-dimmed.)
+		gl-detail-sheet.branch-detail-sheet::part(sheet) {
+			margin-top: 7rem;
+		}
+
+		// Branch sheet header identity — icon + (remote-qualified) name + a ref-kind badge, slotted
+		// into gl-detail-sheet's title slot in place of the plain sheet-title string.
+		.branch-sheet-title {
 			display: flex;
-			flex-direction: column;
+			gap: 0.6rem;
+			align-items: center;
+			min-width: 0;
+
+			&--head {
+				color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
+			}
+
+			&--remote {
+				color: var(--vscode-gitlens-graphScrollMarkerRemoteBranchesColor, inherit);
+			}
+
+			&--tag {
+				color: var(--vscode-gitlens-graphScrollMarkerTagsColor, inherit);
+			}
+
+			// The tooltip host is display: contents, so the name span itself is the flex item —
+			// shrinkable but not growing, keeping the kebab directly after the name's end.
+			&__name-tooltip {
+				min-width: 0;
+			}
+
+			&__name {
+				flex: 0 1 auto;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			&__kebab {
+				flex: none;
+			}
+		}
+
+		.details-content {
+			position: relative;
+			display: flex;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			overflow-y: auto;
 			scrollbar-gutter: auto;
-			position: relative;
 			border-color: transparent;
 			transition: border-color 1s linear;
 		}
@@ -1683,7 +5006,7 @@ web-graph {
 		.details-content gl-commit-box {
 			position: sticky;
 			bottom: 0;
-			z-index: 1;
+			z-index: var(--gl-z-raised);
 			background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
 		}
 
@@ -1699,8 +5022,8 @@ web-graph {
 		gl-details-review-mode-panel,
 		gl-details-compose-mode-panel {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			overflow: visible;
 		}
@@ -1719,68 +5042,83 @@ web-graph {
 		.compare-pinned-split__start,
 		.compare-pinned-split__end {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
-			min-height: 0;
+			flex-direction: column;
 			min-width: 0;
+			min-height: 0;
 			overflow: hidden;
+			// Positioned containing block so the branch sheet (gl-detail-sheet, position: absolute;
+			// inset: 0) anchors to this non-scrolling host — same role .details-host plays in the
+			// non-panel layout.
+			position: relative;
 		}
 
 		.compare-pinned-host {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			background: var(--vscode-sideBar-background, var(--color-background));
-			border-left: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
+			border-left: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.compare-pinned-host__header {
-			flex: 0 0 auto;
+			box-sizing: border-box;
 			display: flex;
+			flex: 0 0 auto;
+			gap: var(--gl-space-8);
 			align-items: center;
 			justify-content: space-between;
-			gap: 0.8rem;
-			padding: 0.8rem 0.8rem 0.8rem 1.6rem;
-			border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 			min-height: 4.2rem;
+			padding: var(--gl-space-8) var(--gl-space-8) var(--gl-space-8) var(--gl-space-16);
 			background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
-			box-sizing: border-box;
+			border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.compare-pinned-host__title {
 			flex: 1 1 auto;
 			min-width: 0;
-			font-size: 1.4rem;
-			font-weight: 600;
-			color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-size: var(--gl-font-lg);
+			font-weight: 600;
+			color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
 			white-space: nowrap;
 		}
 
 		.compare-pinned-host__actions {
-			flex: 0 0 auto;
 			display: inline-flex;
+			flex: 0 0 auto;
+			gap: var(--gl-space-2);
 			align-items: center;
-			gap: 0.2rem;
 		}
 
 		.compare-pinned-host__body {
-			flex: 1 1 auto;
-			min-height: 0;
 			display: flex;
+			flex: 1 1 auto;
 			flex-direction: column;
+			min-height: 0;
 			overflow: hidden;
 		}
 
 		.commit-panel {
 			&__files {
 				display: flex;
-				flex-direction: column;
 				flex: 1;
+				flex-direction: column;
 				min-height: 100px;
 				overflow: visible;
+			}
+
+			// Placeholder while preferences (the file layout) load; matches `&__files` sizing to avoid a jump.
+			&__files-loading {
+				display: flex;
+				flex: 1;
+				gap: var(--gl-space-6);
+				align-items: center;
+				justify-content: center;
+				min-height: 100px;
+				color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 			}
 		}
 
@@ -1829,10 +5167,10 @@ web-graph {
 					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border)),
 					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border))
 				);
-				background-size: 100% 1px;
-				background-position: center;
 				background-repeat: no-repeat;
-				transition: background-color 0.1s ease-out;
+				background-position: center;
+				background-size: 100% 1px;
+				transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 			}
 
 			&:not([disabled])::part(divider):hover,
@@ -1842,7 +5180,7 @@ web-graph {
 					var(--vscode-sash-hoverBorder, var(--vscode-focusBorder))
 				);
 				background-size: 100% 100%;
-				transition: background-color 0.1s ease-out 0.2s;
+				transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out) 0.2s;
 			}
 
 			&__top {
@@ -1851,22 +5189,26 @@ web-graph {
 				overflow-y: auto;
 			}
 
-			// Bottom slot is a non-scrolling flex column: the file panel (.commit-panel__files)
-			// fills the available height and scrolls internally via webview-pane's `.content`,
-			// while `gl-commit-box` sits flex-pinned at the bottom — outside the scroll. This is
-			// why files don't disappear "behind" the commit box: they never share a scroll
-			// region with it.
+			// Bottom slot scrolls only as a fallback. With changes, the file panel
+			// (.commit-panel__files) fills the available height and scrolls internally via
+			// webview-pane's `.content`, while `gl-commit-box` sits flex-pinned at the bottom —
+			// outside that scroll — so files never disappear "behind" the commit box. Without
+			// changes, `gl-details-wip-empty-pane` has no internal scroller of its own, and the
+			// split panel fills `.details-content` exactly (so its scrollbar never engages), so
+			// `overflow-y: auto` here is the only thing keeping the empty hub reachable. Keep
+			// `overflow-x: hidden` — leaving it `visible` computes to `auto` and yields a phantom
+			// horizontal scrollbar.
 			&__bottom {
 				display: flex;
 				flex-direction: column;
 				min-height: 0;
-				overflow: hidden;
+				overflow: hidden auto;
 			}
 
 			&__bottom .commit-panel__files {
 				display: flex;
-				flex-direction: column;
 				flex: 1;
+				flex-direction: column;
 				min-height: 0;
 				overflow: hidden;
 			}
@@ -1892,6 +5234,7 @@ web-graph {
 		opacity: 0;
 		transform: translateX(8px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateX(0);
@@ -1903,6 +5246,7 @@ web-graph {
 		opacity: 0;
 		transform: translateY(8px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0);
@@ -1910,8 +5254,8 @@ web-graph {
 }
 
 .details-opening {
-	animation: details-fade-in 0.2s ease-out;
 	overflow: hidden;
+	animation: details-fade-in var(--gl-duration-medium) var(--gl-ease-out);
 
 	&.-vertical {
 		animation-name: details-fade-in-vertical;
@@ -1923,6 +5267,7 @@ web-graph {
 	100% {
 		opacity: 0.15;
 	}
+
 	50% {
 		opacity: 0.25;
 	}
@@ -1931,35 +5276,35 @@ web-graph {
 .details-skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: 1.2rem;
-	padding: 1.2rem;
+	gap: var(--gl-space-12);
+	padding: var(--gl-space-12);
 
 	&__header {
 		display: flex;
+		gap: var(--gl-space-8);
 		align-items: center;
-		gap: 0.8rem;
 	}
 
 	&__avatar {
 		width: 32px;
 		height: 32px;
-		border-radius: 50%;
 		background: var(--color-foreground);
-		animation: skeleton-pulse 1.5s ease-in-out infinite;
+		border-radius: 50%;
+		animation: skeleton-pulse 1.5s var(--gl-ease-in-out) infinite;
 	}
 
 	&__lines {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0.5rem;
-		flex: 1;
 	}
 
 	&__line {
 		height: 10px;
-		border-radius: 3px;
 		background: var(--color-foreground);
-		animation: skeleton-pulse 1.5s ease-in-out infinite;
+		border-radius: var(--gl-radius-sm);
+		animation: skeleton-pulse 1.5s var(--gl-ease-in-out) infinite;
 	}
 
 	&__line--short {
@@ -1969,6 +5314,7 @@ web-graph {
 	&__lines > &__line:nth-child(1) {
 		width: 60%;
 	}
+
 	&__lines > &__line:nth-child(2) {
 		width: 40%;
 	}
@@ -1976,18 +5322,20 @@ web-graph {
 	&__body > &__line:nth-child(1) {
 		width: 90%;
 	}
+
 	&__body > &__line:nth-child(2) {
 		width: 70%;
 	}
+
 	&__body > &__line:nth-child(3) {
 		width: 50%;
 	}
 
 	&__bar {
 		height: 28px;
-		border-radius: 4px;
 		background: var(--color-foreground);
-		animation: skeleton-pulse 1.5s ease-in-out infinite;
+		border-radius: var(--gl-radius-sm);
+		animation: skeleton-pulse 1.5s var(--gl-ease-in-out) infinite;
 	}
 
 	&__body {
@@ -2001,22 +5349,30 @@ web-graph {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 2rem 1.2rem;
+	padding: var(--gl-space-20) var(--gl-space-12);
+	font-size: var(--gl-font-md);
 	color: var(--vscode-descriptionForeground, var(--color-foreground--50));
-	font-size: 1.2rem;
 }
 
 .details-stale {
+	// Passive "refreshing" dim while the current selection's own data streams in — the panel stays
+	// interactive (Explain input, file-tree search, file rows) so a background load never locks it.
 	opacity: 0.85;
+	transition: opacity 0.5s var(--gl-ease-out) 0.5s;
+}
+
+// Interaction guard, only while the shown content belongs to the OUTGOING selection (a different one
+// is loading) — block input so a click can't act on the wrong commit/worktree. Always co-occurs with
+// `.details-stale` (set together in gl-graph-details-panel render).
+.details-replacing {
 	pointer-events: none;
-	transition: opacity 0.5s ease-out 0.5s;
 }
 
 .graph-row-actions {
 	display: flex;
-	height: 100%;
-	font-size: 1.3rem;
 	gap: 0.3rem;
+	height: 100%;
+	font-size: var(--gl-font-base);
 
 	gl-button {
 		height: 100%;
@@ -2040,6 +5396,7 @@ web-graph {
 	.agent-indicator {
 		--agent-indicator-color: inherit;
 		--button-gap: 0;
+
 		color: var(--agent-indicator-color);
 
 		&--needs-input {
@@ -2060,9 +5417,9 @@ web-graph {
 	*,
 	*::before,
 	*::after {
+		transition-duration: 0.01ms !important;
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
 	}
 }
 

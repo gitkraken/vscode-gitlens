@@ -14,38 +14,45 @@ export class HuggingFaceProvider extends OpenAICompatibleProviderBase<typeof pro
 	};
 
 	async getModels(): Promise<readonly AIModel<typeof provider.id>[]> {
-		const query = new URLSearchParams({
-			filter: 'text-generation,conversational',
-			inference: 'warm',
-			sort: 'trendingScore',
-			limit: '30',
-		});
-		const rsp = await this.context.fetch(`https://huggingface.co/api/models?${query.toString()}`, {
+		// Hugging Face Inference Providers OpenAI-compatible model list (router replaced the retired serverless API)
+		const url = 'https://router.huggingface.co/v1/models';
+		const rsp = await this.context.fetch(url, {
 			headers: {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',
 			},
 			method: 'GET',
 		});
+		if (!rsp.ok) {
+			throw new Error(`Getting models (${url}) failed: ${rsp.status} (${rsp.statusText})`);
+		}
 
-		type ModelsResponse = { id: string }[];
+		type ModelsResponse = {
+			data: {
+				id: string;
+				architecture?: { output_modalities?: string[] };
+				providers?: { status?: string; context_length?: number }[];
+			}[];
+		};
 
-		const results = (await rsp.json()) as ModelsResponse;
-		const models = results.map<HuggingFaceModel>(
-			r =>
-				({
-					id: r.id,
-					name: r.id.split('/').pop()!,
-					maxTokens: { input: 4096, output: 4096 },
+		const result = (await rsp.json()) as ModelsResponse;
+		return result.data
+			.filter(
+				m => m.architecture?.output_modalities?.includes('text') && m.providers?.some(p => p.status === 'live'),
+			)
+			.map<HuggingFaceModel>(m => {
+				const contextLength = m.providers?.find(p => p.status === 'live')?.context_length;
+				return {
+					id: m.id,
+					name: m.id,
+					maxTokens: { input: contextLength || 8192, output: 4096 },
 					provider: provider,
 					temperature: null,
-				}) satisfies HuggingFaceModel,
-		);
-
-		return models;
+				} satisfies HuggingFaceModel;
+			});
 	}
 
-	protected getUrl(model: AIModel<typeof provider.id>): string {
-		return `https://api-inference.huggingface.co/models/${model.id}/v1/chat/completions`;
+	protected getUrl(_model: AIModel<typeof provider.id>): string {
+		return 'https://router.huggingface.co/v1/chat/completions';
 	}
 }

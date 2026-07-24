@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
@@ -26,8 +26,10 @@ import { linkStyles, ruleStyles } from '../../shared/components/vscode.css.js';
 import { branchCardStyles, GlBranchCardBase } from './branch-card.js';
 import type { ActiveOverviewState } from './overviewState.js';
 import { activeOverviewStateContext } from './overviewState.js';
+import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/breadcrumbs.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/skeleton-loader.js';
 import '../../../shared/components/card/card.js';
@@ -42,10 +44,15 @@ import '../../../shared/components/repo-button-group.js';
 import '../../../shared/components/rich/issue-icon.js';
 import '../../../shared/components/rich/pr-icon.js';
 import '../../shared/components/merge-rebase-status.js';
+import './branch-section.js';
 
-export const activeWorkTagName = 'gl-active-work';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-active-work']: GlActiveWork;
+	}
+}
 
-@customElement(activeWorkTagName)
+@customElement('gl-active-work')
 export class GlActiveWork extends SignalWatcher(LitElement) {
 	@consume({ context: subscriptionContext, subscribe: true })
 	private _subscription!: SubscriptionContextState;
@@ -67,7 +74,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 			:host {
 				display: block;
-				margin-bottom: 2.4rem;
+				margin-bottom: var(--gl-space-24);
 				color: var(--vscode-foreground);
 			}
 
@@ -76,18 +83,19 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			}
 
 			gl-section::part(header) {
-				margin-block-end: 0.2rem;
+				margin-block-end: var(--gl-space-2);
 			}
 
 			.section-heading-actions {
-				flex: none;
 				display: flex;
+				flex: none;
 				align-items: center;
 			}
 
 			.section-heading-action {
 				--button-padding: 0.2rem;
 				--button-line-height: 1.2rem;
+
 				/* margin-block: -1rem; */
 			}
 
@@ -108,11 +116,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			}
 
 			/* Style hr inside any slotted tooltip — the default browser hr renders too
-			   bright and without proper spacing inside the dark tooltip body. */
+	   bright and without proper spacing inside the dark tooltip body. */
 			[slot='tooltip'] hr {
+				margin: var(--gl-space-4) 0;
 				border: none;
-				border-top: 1px solid var(--color-foreground--25);
-				margin: 0.4rem 0;
+				border-top: var(--gl-border-width) solid var(--color-foreground--25);
 			}
 		`,
 	];
@@ -279,7 +287,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 declare global {
 	interface HTMLElementTagNameMap {
-		[activeWorkTagName]: GlActiveWork;
+		['gl-active-branch-card']: GlBranchCardBase;
 	}
 }
 
@@ -292,12 +300,12 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			:host {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 			}
 
 			span.branch-item__missing {
-				color: var(--vscode-descriptionForeground);
 				font-style: italic;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			gl-work-item {
@@ -351,7 +359,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					html`<menu-item
 						?disabled=${isFetching}
 						href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainWip:')}
-						>Explain Working Changes (Preview)</menu-item
+						>Explain Working Changes</menu-item
 					>`,
 				);
 			}
@@ -360,7 +368,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				html`<menu-item
 					?disabled=${isFetching}
 					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
-					>Explain Branch Changes (Preview)</menu-item
+					>Explain Branch Changes</menu-item
 				>`,
 			);
 
@@ -394,7 +402,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			trigger="click focus"
 			placement="bottom-end"
 			.arrow=${false}
-			distance="0"
+			.distance=${0}
 		>
 			<gl-button slot="anchor" appearance="toolbar" tooltipPlacement="top" aria-label="Additional Actions">
 				<code-icon icon="ellipsis"></code-icon>
@@ -428,7 +436,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					appearance="secondary"
 					density="compact"
 					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"
-						><strong>Compose Commits</strong> (Preview)<br /><i
+						><strong>Compose Commits</strong><br /><i
 							>Automatically or interactively organize changes into meaningful commits</i
 						></span
 					></gl-button

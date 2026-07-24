@@ -18,12 +18,12 @@ export class ActionChip extends LitElement {
 		css`
 			:host {
 				display: inline-flex;
-				justify-content: center;
 				align-items: center;
-				vertical-align: text-bottom;
-				border-radius: 0.5rem;
-				max-width: 100%;
+				justify-content: center;
 				min-width: 0;
+				max-width: 100%;
+				vertical-align: text-bottom;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			* {
@@ -50,10 +50,12 @@ export class ActionChip extends LitElement {
 			.chip__icon-active {
 				display: none;
 			}
+
 			.chip:hover:has(.chip__icon-active) .chip__icon,
 			.chip:focus-visible:has(.chip__icon-active) .chip__icon {
 				display: none;
 			}
+
 			.chip:hover .chip__icon-active,
 			.chip:focus-visible .chip__icon-active {
 				display: inline-flex;
@@ -61,27 +63,28 @@ export class ActionChip extends LitElement {
 
 			.chip {
 				display: inline-flex;
-				justify-content: center;
+				gap: var(--gl-space-4);
 				align-items: center;
-				gap: 0.2rem;
-				/* vertical-align: middle; */
-				color: inherit;
-				max-width: 100%;
+				justify-content: center;
 				min-width: 2rem;
 				max-width: 100%;
 				height: 2rem;
+				padding: var(--gl-space-2);
+				overflow: hidden;
+				font: inherit;
+
+				/* vertical-align: middle; */
 				color: inherit;
-				padding: 0.2rem;
 				text-decoration: none;
 				cursor: pointer;
 				background: none;
 				border: none;
-				font: inherit;
-				overflow: hidden;
 			}
+
 			.chip:hover {
 				text-decoration: none;
 			}
+
 			.chip:focus {
 				outline: none;
 			}
@@ -91,13 +94,20 @@ export class ActionChip extends LitElement {
 			}
 
 			::slotted(*) {
-				padding-inline-end: 0.2rem;
+				padding-inline-end: var(--gl-space-2);
 				vertical-align: middle;
 				text-transform: var(--chip-text-transform, capitalize);
 			}
+
+			/* Optically center the label against the icon — text sits slightly low in its line-box
+			   under flex centering, so nudge it up a hair. Excludes the suffix icon (centered fine). */
+			::slotted(:not([slot='suffix'])) {
+				margin-block-start: -0.1rem;
+			}
+
 			/* Drop the trailing inline padding for suffix-slotted icons — the asymmetric box
-			   shifts the rotation axis off the glyph's visual center, so a spinning loading
-			   codicon wobbles. Flex gap already spaces this from the preceding label. */
+	   shifts the rotation axis off the glyph's visual center, so a spinning loading
+	   codicon wobbles. Flex gap already spaces this from the preceding label. */
 			::slotted([slot='suffix']) {
 				padding-inline-end: 0;
 			}
@@ -106,14 +116,15 @@ export class ActionChip extends LitElement {
 				min-width: 0;
 				max-width: 100%;
 			}
+
 			:host([truncate]) ::slotted(*) {
 				display: inline-block;
-				max-width: 100%;
 				min-width: 0;
+				max-width: 100%;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				white-space: nowrap;
 				vertical-align: middle;
+				white-space: nowrap;
 			}
 		`,
 	];
@@ -138,6 +149,9 @@ export class ActionChip extends LitElement {
 
 	@property()
 	icon = '';
+
+	@property()
+	iconFlip?: 'inline' | 'block';
 
 	@property({ attribute: 'alt-icon' })
 	altIcon?: string;
@@ -184,7 +198,7 @@ export class ActionChip extends LitElement {
 		}
 
 		if (this.overlay === 'popover') {
-			return html`<gl-popover hoist
+			return html`<gl-popover
 				>${this.renderContent()}
 				<div slot="content">${handleUnsafeOverlayContent(this.label)}</div></gl-popover
 			>`;
@@ -200,6 +214,7 @@ export class ActionChip extends LitElement {
 				class="chip__icon"
 				part="icon"
 				icon="${icon}"
+				flip="${ifDefined(this.iconFlip)}"
 				modifier="${ifDefined(icon === 'loading' ? 'spin' : '')}"
 			></code-icon
 			>${this.activeIcon

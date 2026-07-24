@@ -366,12 +366,15 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async getDefaultBranchName(
 		repoPath: string | undefined,
 		remote?: string,
-		// `priority` is unused — the GitHub provider doesn't go through the local git command
-		// queue, so the priority signal has no effect here. Accepted for interface compatibility.
-		_options?: { priority?: GitCommandPriority },
+		// `priority` is unused — the GitHub provider doesn't go through the local git command queue, so the
+		// priority signal has no effect here. `local` asks for a network-free resolution (the graph's hot
+		// path): a remote repo has no local symref to read, so honor that contract by returning undefined
+		// rather than making the API round-trip the caller explicitly asked to avoid.
+		options?: { priority?: GitCommandPriority; local?: boolean },
 		_cancellation?: AbortSignal,
 	): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
+		if (options?.local) return undefined;
 
 		remote ??= 'origin';
 

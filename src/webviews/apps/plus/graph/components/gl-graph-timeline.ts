@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -15,8 +15,9 @@ import type {
 } from '../../../../plus/timeline/protocol.js';
 import { periodToMs } from '../../../../plus/timeline/utils/period.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
-import { isPseudoCommitDatum } from '../../timeline/components/chart/timelineData.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { CommitEventDetail, LoadMoreEventDetail } from '../../timeline/components/chart.js';
+import { isPseudoCommitDatum } from '../../timeline/components/chart/timelineData.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import '../../timeline/components/chart.js';
 import '../../timeline/components/header.js';
@@ -41,25 +42,26 @@ export interface GlGraphTimelineConfigChangeDetail {
 export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	static override styles = css`
 		:host {
+			position: relative;
 			display: flex;
 			flex-direction: column;
 			width: 100%;
 			height: 100%;
-			position: relative;
 			overflow: hidden;
 		}
 
 		.header-row {
 			display: flex;
-			align-items: center;
-			gap: 0.6rem;
 			flex: none;
-			/* 0.6rem horizontal so the switcher (left) and close button (right) sit at matching
-			 * tight insets — same chrome as the Treemap visualization toolbar. */
-			padding: 0.4rem 0.6rem;
-			min-height: 3.2rem;
+			gap: var(--gl-space-6);
+			align-items: center;
 			min-width: 0;
-			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
+			min-height: 3.2rem;
+
+			/* 0.6rem horizontal so the switcher (left) and close button (right) sit at matching
+		 * tight insets — same chrome as the Treemap visualization toolbar. */
+			padding: var(--gl-space-4) var(--gl-space-6);
+			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
 		}
 
 		.header-row gl-graph-visualizations-switcher {
@@ -67,12 +69,12 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		}
 
 		/* Matches the treemap toolbar's title — uppercase, dim, fixed-width — so the visualization
-		 * label anchors both header rows identically. Sits between the icon switcher and the
-		 * shared timeline header so the standalone Visual History webview (which doesn't use this
-		 * file) keeps its existing chrome. */
+	 * label anchors both header rows identically. Sits between the icon switcher and the
+	 * shared timeline header so the standalone Visual History webview (which doesn't use this
+	 * file) keeps its existing chrome. */
 		.header-row__title {
 			flex: none;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			text-transform: uppercase;
 			white-space: nowrap;
@@ -84,12 +86,12 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		}
 
 		.empty {
-			flex: 1 1 auto;
 			display: flex;
+			flex: 1 1 auto;
 			align-items: center;
 			justify-content: center;
+			padding: var(--gl-space-10);
 			color: var(--color-foreground--65);
-			padding: 1rem;
 			text-align: center;
 		}
 
@@ -739,6 +741,21 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		return this._datumByShaCache.get(sha);
 	}
 
+	/** Impression telemetry — fires once per mount. The component only mounts while the embedded
+	 *  Visual History is the active visualization, and remounts on every activation (mode switch
+	 *  or display-mode entry), so first-render is exactly one impression. The externally-pushed
+	 *  `scope` is adopted into `_localScope` in `willUpdate`, so `scoped` is accurate here. */
+	protected override firstUpdated(): void {
+		emitTelemetrySentEvent<'graph/timeline/shown'>(this, {
+			name: 'graph/timeline/shown',
+			data: {
+				period: this.period,
+				sliceBy: this.effectiveSliceBy,
+				scoped: this._localScope != null,
+			},
+		});
+	}
+
 	private onChartCommitSelected = (e: CustomEvent<CommitEventDetail>): void => {
 		// Skip interim slider scrubs — only commit on release. Mirrors the standalone Visual History
 		// debounce behavior so transient hovers don't churn the details panel.
@@ -746,6 +763,14 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 
 		const sha = e.detail.id;
 		if (sha == null) return;
+
+		// First-paint auto-selections are forwarded to the details panel but are not user actions.
+		if (e.detail.auto !== true) {
+			emitTelemetrySentEvent<'graph/timeline/commitSelected'>(this, {
+				name: 'graph/timeline/commitSelected',
+				data: { shift: e.detail.shift },
+			});
+		}
 
 		const repoPath = this.effectiveRepo?.path ?? '';
 		const datum = this.datumBySha(sha);
@@ -773,10 +798,29 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	}
 
 	private onHeaderPeriodChange = (e: CustomEvent<{ period: TimelinePeriod }>): void => {
+		const previous = this.period;
+		if (e.detail.period !== previous) {
+			emitTelemetrySentEvent<'graph/timeline/periodChanged'>(this, {
+				name: 'graph/timeline/periodChanged',
+				data: { 'period.old': previous, 'period.new': e.detail.period },
+			});
+		}
 		this.dispatchConfigChange({ period: e.detail.period });
 	};
 
 	private onHeaderSliceByChange = (e: CustomEvent<{ sliceBy: TimelineSliceBy }>): void => {
+		// Compare the EFFECTIVE slice-by before and after (what the chart actually renders), not the
+		// raw pick. When slicing is forced to 'author' (repo scope, a virtual repo, or not viewing all
+		// branches) the picked value is ignored by the chart, so a pick that leaves the effective value
+		// unchanged must not be counted — matching this guard's stated intent.
+		const previous = this.effectiveSliceBy;
+		const next = this.sliceBySupportedEffective && this.showAllBranchesEffective ? e.detail.sliceBy : 'author';
+		if (next !== previous) {
+			emitTelemetrySentEvent<'graph/timeline/sliceByChanged'>(this, {
+				name: 'graph/timeline/sliceByChanged',
+				data: { 'sliceBy.old': previous, 'sliceBy.new': next },
+			});
+		}
 		this.dispatchConfigChange({ sliceBy: e.detail.sliceBy });
 	};
 
@@ -799,13 +843,26 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		});
 		if (result?.picked == null) return;
 
-		this._localScope = { type: result.picked.type, relativePath: result.picked.relativePath };
+		const next = { type: result.picked.type, relativePath: result.picked.relativePath };
+		// Guard no-op re-picks (same path chosen again) so telemetry only records real changes —
+		// matches onHeaderChangeScope / period / sliceBy, which all bail on identical values.
+		if (this._localScope?.type === next.type && this._localScope.relativePath === next.relativePath) return;
+
+		this._localScope = next;
+		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+			name: 'graph/timeline/scopeChanged',
+			data: { action: 'choose', 'scope.type': next.type, scoped: true },
+		});
 	};
 
 	private onHeaderClearScope = (): void => {
 		if (this._localScope == null) return;
 
 		this._localScope = undefined;
+		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+			name: 'graph/timeline/scopeChanged',
+			data: { action: 'clear', scoped: false },
+		});
 	};
 
 	/** Folder-crumb click in the path. Standalone Visual History routes this to `actions.changeScope`;
@@ -819,6 +876,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (type === 'repo' || !value) {
 			if (this._localScope != null) {
 				this._localScope = undefined;
+				emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+					name: 'graph/timeline/scopeChanged',
+					data: { action: 'breadcrumb', scoped: false },
+				});
 			}
 			return;
 		}
@@ -827,6 +888,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (this._localScope?.type === next.type && this._localScope.relativePath === next.relativePath) return;
 
 		this._localScope = next;
+		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+			name: 'graph/timeline/scopeChanged',
+			data: { action: 'breadcrumb', 'scope.type': type, scoped: true },
+		});
 	};
 
 	override render(): unknown {

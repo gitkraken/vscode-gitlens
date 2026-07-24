@@ -19,89 +19,20 @@
 		{
 			"type": "npm",
 			"script": "build",
-			"group": "build",
-			"problemMatcher": ["$ts-checker-webpack", "$ts-checker-eslint-webpack"]
-		},
-		{
-			"type": "npm",
-			"script": "lint",
-			"group": "build",
-			"problemMatcher": ["$eslint-stylish"]
-		},
-		{
-			"type": "npm",
-			"script": "watch",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			},
-			"isBackground": true,
 			"presentation": {
-				"group": "watchers"
+				"group": "watchers",
+				"reveal": "silent"
 			},
-			"problemMatcher": [
-				{
-					"owner": "typescript",
-					"source": "ts",
-					"applyTo": "closedDocuments",
-					"fileLocation": ["relative", "${cwd}"],
-					"severity": "error",
-					"pattern": [
-						{
-							"kind": "location",
-							"regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
-							"severity": 1,
-							"file": 2,
-							"line": 3,
-							"column": 4
-						},
-						{
-							"regexp": "\\s*TS(\\d+):\\s*(.*)$",
-							"code": 1,
-							"message": 2
-						}
-					],
-					"background": {
-						"activeOnStart": true,
-						"beginsPattern": "\\[build\\] Compilation starting",
-						"endsPattern": "\\[build\\] Compiled (successfully|with problems)"
-					}
-				},
-				{
-					"owner": "eslint",
-					"source": "eslint",
-					"applyTo": "closedDocuments",
-					"fileLocation": ["relative", "${cwd}"],
-					"severity": "warning",
-					"pattern": [
-						{
-							"kind": "location",
-							"regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
-							"severity": 1,
-							"file": 2,
-							"line": 3,
-							"column": 4
-						},
-						{
-							"regexp": "\\s*(@typescript-eslint\\/.+):\\s*(.*)$",
-							"code": 1,
-							"message": 2
-						}
-					],
-					"background": {
-						"activeOnStart": true,
-						"beginsPattern": "\\[build\\] Compilation starting",
-						"endsPattern": "\\[build\\] Compiled (successfully|with problems)"
-					}
-				}
-			]
+			"problemMatcher": ["$ts-checker-webpack"]
 		},
 		{
 			"type": "npm",
-			"script": "watch:quick",
-			"group": {
-				"kind": "build"
-			},
+			"script": "watch",
+			"group": "build",
 			"isBackground": true,
 			"presentation": {
 				"group": "watchers"

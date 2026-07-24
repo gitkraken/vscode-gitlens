@@ -123,6 +123,8 @@ Also apply the component-audit carry-over rules:
 
 If a task spans multiple situations (typical — most flow audits involve landmarks + headings + focus), load all matching references.
 
+**Shared references:** `aria-patterns.md` and `wcag-criteria.md` are canonical in `.claude/skills/a11y-audit/references/` — read them from there. All other references are local to this skill's `references/`.
+
 ## Severity calibration
 
 | Severity | Test                                                                                      |
@@ -161,32 +163,16 @@ If any answer is "no" or "not sure," either bundle the missing piece, escalate E
 
 ## Pre-finalize pass (MANDATORY — before writing the report to disk)
 
-The per-Fix self-check catches issues as you write them. This pre-finalize pass catches what the per-Fix check missed. Not optional. Run these scans over the complete draft.
+The per-Fix self-check catches issues as you write them. This pre-finalize pass catches what the per-Fix check missed. Not optional.
 
-### Scan 1 — Unverified symbols inside code diffs
+First run the two shared scans in `.claude/skills/a11y-audit/references/shared-discipline.md` (full procedures there) over the complete draft:
 
-For every code block in Layer 3 detailed findings (tsx, jsx, html, css — anything inside triple-backticks) whose finding has Fix Confidence `Medium` or `High`:
+1. **Unverified symbols inside code diffs**
+2. **Editing artifacts**
 
-- Grep the block for unverified-symbol patterns: `className="sr-only"`, `className="visually-hidden"`, `className="skip-link"`, any `translate('...')` call, any helper / context / hook name that wasn't cited earlier in the finding.
-- For each match: did you actually verify that symbol exists in the audited codebase, with a cited file path?
-- If NO: either (a) verify and cite it in the finding, (b) mark it `[unverified: <symbol>]` AND drop Fix Confidence to `Low` with a Design Decision block, or (c) rewrite the fix to not depend on the symbol.
+Then run these flow-specific scans:
 
-A `[unverified: ...]` tag alone is insufficient when the symbol appears inside the code diff. **Low-confidence + Design-Decision-block conversion is mandatory in this case.**
-
-### Scan 2 — Editing artifacts
-
-Literally grep (case-insensitive) the entire draft for:
-
-- `Actually,` / `Actually ` (as a standalone clause)
-- `Re-graded` / `Re-graded:`
-- `On reflection`
-- `Wait —`
-- `Reconsidering`
-- `(changed my mind)` / `(re-grading`
-
-For each match: **rewrite the affected section from scratch with one clean answer.** Do NOT just delete the artifact phrase; the surrounding logic was built around the walk-back and needs rewriting decisively.
-
-### Scan 3 — Cross-component claims name both sides
+### Scan — Cross-component claims name both sides
 
 Every finding whose scope is "cross-component" (Layer 3 Components-involved field lists 2+ components) MUST have a Cross-Component Trace that:
 
@@ -207,14 +193,11 @@ For every finding tagged "Focus flow" in Layer 3:
 
 If the finding uses abstract phrasing ("restore focus to the triggering element") without pinning down which element, rewrite it with specific references.
 
-### Scan 5 — Fix Confidence / Design Decision coherence
+### Scan — Fix Confidence / Design Decision coherence
 
-For every Layer 3 finding:
+Run the shared coherence scan from `.claude/skills/a11y-audit/references/shared-discipline.md` over every Layer 3 finding.
 
-- If **Fix Confidence is `Low`**: verify the Design Decision block has all five fields (Decision required, Typical owner, Input needed, Options, Downstream work). If only a free-form "options" list appears, rewrite to the block template.
-- If **Fix Confidence is `Medium` or `High`**: verify the Fix field contains concrete code changes AND does NOT contain "developer must verify the runtime side effects", "confirm the behavior of X", or "grep consumer products." If any such handoff is present, either do the verification in the audit or drop Fix Confidence to Low.
-
-### Scan 6 — Finding numbering uses `F` prefix
+### Scan — Finding numbering uses `F` prefix
 
 Grep for finding identifiers in Layer 2, Layer 3, and any cross-references. Every flow finding MUST use `F1, F2, F3, ...` (not `#1, #2, #3, ...`). The `F` prefix distinguishes flow findings from component findings in cross-audit remediation rollups.
 
@@ -255,10 +238,7 @@ Also: if the view uses a shared shell, audit the shell for its landmark and skip
 
 ## Confirmed issues vs needs-verification — strict separation
 
-- **Confirmed issue** (goes in findings table + detailed findings): you can see the composition defect directly in the code. Two `<nav>`s without labels, a `<h1>` → `<h3>` skip, a dialog that calls `.focus()` on open but never on close.
-- **Needs-verification item** (goes ONLY in "Items Requiring Runtime Tooling"): you suspect a composition problem but cannot confirm from code alone. Tab order at runtime (especially with portals or CSS reordering), actual focus landing position after dialog close, announcement timing of live regions.
-
-**The test:** if the reader would need to open a browser and interact with the view to confirm the problem, it's a needs-verification item, NOT a confirmed issue.
+Per `.claude/skills/a11y-audit/references/shared-discipline.md`: confirmed issues (composition defect visible directly in the code — unlabeled duplicate `<nav>`s, heading skips, focus-in without restore) go in the findings table; needs-verification items (a browser is required to confirm — runtime tab order with portals, focus landing position, live-region timing) go ONLY in "Items Requiring Runtime Tooling."
 
 ## Hand-off to `/a11y-remediate`
 

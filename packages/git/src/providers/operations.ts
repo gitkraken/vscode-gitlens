@@ -28,7 +28,7 @@ export interface GitOperationsSubProvider {
 	checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string | undefined },
+		options?: { createBranch?: string | undefined; noTracking?: boolean },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void>;
 	cherryPick(

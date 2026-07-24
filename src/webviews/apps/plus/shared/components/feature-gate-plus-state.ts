@@ -15,10 +15,12 @@ import { getFeaturePreviewStatus } from '../../../../../features.js';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GlButton } from '../../../shared/components/button.js';
+import { featureGateCompactThreshold } from '../../../shared/components/feature-gate.css.js';
 import type { PromosContext } from '../../../shared/contexts/promos.js';
 import { promosContext } from '../../../shared/contexts/promos.js';
 import { linkStyles } from './vscode.css.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
 import '../../../shared/components/promo.js';
 
 declare global {
@@ -29,13 +31,16 @@ declare global {
 	// interface GlobalEventHandlersEventMap {}
 }
 
+/**
+ * @tag gl-feature-gate-plus-state
+ *
+ * @slot feature
+ */
 @customElement('gl-feature-gate-plus-state')
 export class GlFeatureGatePlusState extends LitElement {
 	static override styles = [
 		css`
 			:host {
-				--gk-action-radius: 0.3rem;
-
 				--link-foreground: var(--vscode-textLink-foreground);
 				--link-foreground-active: var(--vscode-textLink-activeForeground);
 			}
@@ -55,30 +60,65 @@ export class GlFeatureGatePlusState extends LitElement {
 				max-width: 300px;
 			}
 
-			@container (max-width: 600px) {
+			/* Collapses the CTA to a block, centered button in narrow default-appearance gates.
+			   A deliberate literal — this threshold is independent of the compact threshold shared
+			   via featureGateCompactThreshold (and of the alert dialog's same-valued width cap). */
+			@container (max-width: 60rem) {
 				:host([appearance='default']) gl-button:not(.inline) {
 					display: block;
-					margin-left: auto;
 					margin-right: auto;
+					margin-left: auto;
 				}
 			}
 
 			:host([appearance='alert']) gl-button:not(.inline) {
 				display: block;
-				margin-left: auto;
 				margin-right: auto;
+				margin-left: auto;
 			}
 
-			:host-context([appearance='alert']) p:first-child {
+			/* .trial's first paragraph is excluded: wrapping the trailing paragraphs made it a
+			   :first-child, which would newly zero its top margin at every size — full-size
+			   spacing must stay as it was before the wrapper existed. */
+			:host([appearance='alert']) p:first-child:not(.trial p) {
 				margin-top: 0;
 			}
 
-			:host-context([appearance='alert']) p:last-child {
+			:host([appearance='alert']) p:last-child {
 				margin-bottom: 0;
 			}
 
 			.centered {
 				text-align: center;
+			}
+
+			/* Centering lives on the wrapper (not the paragraphs) because the compact mode below
+			   turns the paragraphs inline — text-align only aligns content of block containers. */
+			.trial {
+				text-align: center;
+			}
+
+			/* Vertically constrained alert gates (e.g. the bottom panel): compact the action zone so
+			   it costs less height — tighter paragraph/rule rhythm, and the trial message + promo
+			   collapse onto a single line. The normal-height dialog keeps its default spacing.
+			   Only the TrialExpired branch has a .trial wrapper: it's the sole state that renders
+			   two trailing paragraphs — every other state ends with a single one, so there's
+			   nothing to collapse. */
+			@container (max-height: ${featureGateCompactThreshold}) {
+				:host([appearance='alert']) p,
+				:host([appearance='alert']) hr {
+					margin-block: var(--gl-space-6);
+				}
+
+				:host([appearance='alert']) .trial p {
+					display: inline;
+				}
+
+				:host([appearance='alert']) .trial gl-promo,
+				:host([appearance='alert']) .trial gl-promo::part(text) {
+					display: inline;
+					margin: 0;
+				}
 			}
 
 			.preview-image {
@@ -106,19 +146,20 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			.hint {
-				border-bottom: 1px dashed currentColor;
+				border-bottom: var(--gl-border-width) dashed currentcolor;
 			}
 
 			hr {
 				border: none;
-				border-top: 1px solid color-mix(in srgb, var(--section-border-color) 20%, transparent);
+				border-top: var(--gl-border-width) solid
+					color-mix(in srgb, var(--section-border-color) 20%, transparent);
 			}
 		`,
 		linkStyles,
 	];
 
 	@query('gl-button')
-	private readonly button!: GlButton;
+	private readonly button?: GlButton;
 
 	@property()
 	appearance?: 'alert' | 'default';
@@ -147,15 +188,26 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property()
 	webroot?: string;
 
-	protected override firstUpdated(): void {
-		if (this.appearance === 'alert') {
-			queueMicrotask(() => this.button.focus());
-		}
+	private _ctaPrimed = false;
+
+	protected override updated(): void {
+		// Prime the CTA for Enter — once, on the first update that actually renders a button
+		// (`state` can arrive after the first render, which emits nothing until then). Don't
+		// scroll it into view: in constrained placements the button sits far below the fold and
+		// scrolling to it hides the gate's title/context. The latch keeps later reactive updates
+		// (e.g. a subscription refresh) from stealing focus the user has since moved.
+		if (this._ctaPrimed || this.appearance !== 'alert') return;
+
+		const button = this.button;
+		if (button == null) return;
+
+		this._ctaPrimed = true;
+		queueMicrotask(() => button.focus({ preventScroll: true }));
 	}
 
 	override render(): unknown {
 		const hidden = this.state == null;
-		// eslint-disable-next-line lit/no-this-assign-in-render
+		// oxlint-disable-next-line lit/no-this-assign-in-render
 		this.hidden = hidden;
 		if (hidden) return undefined;
 
@@ -228,11 +280,13 @@ export class GlFeatureGatePlusState extends LitElement {
 						>
 					</p>
 					<hr />
-					<p class="centered">
-						Your trial has ended — upgrade to keep ${this.featureWithArticleIfNeeded ?? 'all Pro features'}
-						unlocked.
-					</p>
-					<p class="centered">${this.renderPromo()}</p>`;
+					<div class="trial">
+						<p>
+							Your trial has ended — upgrade to keep
+							${this.featureWithArticleIfNeeded ?? 'all Pro features'} unlocked.
+						</p>
+						<p>${this.renderPromo()}</p>
+					</div>`;
 
 			case SubscriptionState.TrialReactivationEligible:
 				return html`<slot name="feature"></slot>

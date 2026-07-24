@@ -156,9 +156,7 @@ export async function showAIModelPicker(
 		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);
 	} else {
 		const scopedDefaultModelId =
-			provider === 'gitkraken' && (scope === 'compose' || scope === 'review')
-				? 'gemini:gemini-3-flash-preview'
-				: undefined;
+			provider === 'gitkraken' && scope != null ? 'gemini:gemini-3-flash-preview' : undefined;
 		const useScopedDefault = scopedDefaultModelId != null && current?.provider !== provider;
 
 		for (const m of models) {
@@ -167,9 +165,17 @@ export async function showAIModelPicker(
 			const matchesCurrent = m.provider.id === current?.provider && m.id === current?.model;
 			const picked = matchesCurrent || (useScopedDefault && m.id === scopedDefaultModelId);
 
+			const badges: string[] = [];
+			if (m.consumptionRateLabel) {
+				badges.push(m.consumptionRateLabel);
+			}
+			if (m.default) {
+				badges.push('recommended');
+			}
+
 			items.push({
 				label: m.name,
-				description: m.default ? '  recommended' : undefined,
+				description: badges.length ? `  ${badges.join('  ')}` : undefined,
 				iconPath: matchesCurrent ? new ThemeIcon('check') : new ThemeIcon('blank'),
 				model: m,
 				picked: picked,

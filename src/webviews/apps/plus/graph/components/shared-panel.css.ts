@@ -6,8 +6,8 @@ export const panelHostStyles = [
 	css`
 		:host {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			overflow-y: auto;
 			border-color: transparent;
@@ -31,6 +31,7 @@ export const panelActionInputStyles = css`
 		max-width: var(--gl-max-input);
 		margin: 0.2rem auto;
 	}
+
 	.review-action-input {
 		margin: 0.6rem auto 0.8rem;
 	}
@@ -38,13 +39,13 @@ export const panelActionInputStyles = css`
 	/* Wraps the AI input so adjacent affordances can sit below it. */
 	.review-input-row {
 		display: flex;
+		flex: none;
 		flex-direction: column;
 		align-items: stretch;
-		flex: none;
 	}
 
 	.review-input-row > .review-action-input {
-		margin-bottom: 0.2rem;
+		margin-bottom: var(--gl-space-2);
 	}
 `;
 
@@ -54,18 +55,18 @@ export const panelActionInputStyles = css`
 export const resumeBarStyles = css`
 	.resume-bar {
 		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.4rem 0.8rem;
-		margin: 0.6rem 0.6rem 0 0.6rem;
 		flex: none;
-		background: transparent;
-		color: var(--vscode-foreground);
-		border: 1px solid var(--vscode-button-border);
-		border-radius: 0.3rem;
-		cursor: pointer;
+		gap: var(--gl-space-4);
+		align-items: center;
+		padding: var(--gl-space-4) var(--gl-space-8);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
 		font: inherit;
+		color: var(--vscode-foreground);
 		text-align: left;
+		cursor: pointer;
+		background: transparent;
+		border: var(--gl-border-width) solid var(--vscode-button-border);
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.resume-bar:hover {
@@ -73,7 +74,7 @@ export const resumeBarStyles = css`
 	}
 
 	.resume-bar:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 
@@ -84,29 +85,29 @@ export const resumeBarStyles = css`
 
 	.resume-bar__count {
 		display: inline-flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
+		margin-left: auto;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		margin-left: auto;
 	}
 
 	.resume-bar__count-item {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
+		align-items: center;
 	}
 
 	.resume-bar__count-item > code-icon {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.85;
 	}
 
 	.resume-bar__arrow {
 		flex-shrink: 0;
-		font-size: 1.4rem;
+		margin-left: var(--gl-space-4);
+		font-size: var(--gl-font-lg);
 		opacity: 0.85;
-		margin-left: 0.4rem;
 	}
 
 	/* When no preview data is available, the arrow follows the title directly — push it
@@ -120,9 +121,9 @@ export const panelLoadingStyles = css`
 	.review-loading {
 		display: flex;
 		flex-direction: column;
+		gap: var(--gl-space-10);
 		align-items: center;
 		justify-content: center;
-		gap: 1rem;
 		padding: 3rem 1rem 0;
 		color: var(--vscode-descriptionForeground);
 	}
@@ -136,16 +137,46 @@ export const panelLoadingStyles = css`
 	}
 `;
 
+/* Loading "stage" shared by the compose/review/resolve mode panels: a full-height relative
+   container with the background particle animation pinned behind a top-anchored foreground.
+   The animation is targeted by the `__anim` class (not its tag) so the rule is agnostic to which
+   loader sits inside. Consumers add their own foreground spacing (gap/align) as needed. */
+export const panelLoadingStageStyles = css`
+	.panel-loading-stage {
+		position: relative;
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.panel-loading-stage__anim {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		pointer-events: none;
+	}
+
+	.panel-loading-stage__foreground {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex: none;
+		flex-direction: column;
+	}
+`;
+
 export const panelStaleBannerStyles = css`
 	.stale-banner {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
-		padding: 0.6rem 0.8rem;
+		padding: var(--gl-space-6) var(--gl-space-8);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-editorWarning-foreground, #cca700);
-		background-color: var(--vscode-editorWarning-background, rgba(204, 167, 0, 0.1));
-		border-radius: 0.4rem;
+		background-color: var(--vscode-editorWarning-background, rgb(204 167 0 / 10%));
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.stale-banner code-icon {
@@ -161,6 +192,7 @@ export const panelScopeSplitStyles = css`
 		min-height: 0;
 		overflow: hidden;
 		--gl-split-panel-divider-width: 4px;
+
 		/* Always use fit-content so the scope area can't expand past its content.
 		   Keeping the same CSS formula during drag avoids pixel jumps. */
 		--gl-split-panel-start-size: fit-content(var(--_start-size, 40%));
@@ -171,37 +203,37 @@ export const panelScopeSplitStyles = css`
 		   default content-box) they render outside the grid track, pushing the picker ~13px past
 		   the split divider so the two overlap. */
 		box-sizing: border-box;
-		height: 100%;
-		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
-		padding: 0.6rem;
+		height: 100%;
+		padding: var(--gl-space-6);
+		overflow: hidden;
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.scope-split__files {
-		height: 100%;
 		display: flex;
 		flex-direction: column;
+		height: 100%;
 		overflow: hidden;
 	}
 
 	.scope-files {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
 	}
 
 	.scope-files__tree {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
+		padding-right: var(--gl-space-6);
+		padding-left: var(--gl-space-6);
+		margin-top: var(--gl-space-4);
 		overflow: hidden;
-		margin-top: 0.4rem;
-		padding-left: 0.6rem;
-		padding-right: 0.6rem;
 	}
 
 	.scope-files__tree webview-pane-group {
@@ -215,26 +247,27 @@ export const panelErrorStyles = css`
 	.panel-error {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
-		padding: 1rem 1.2rem;
-		margin: 0.8rem 1.2rem;
+		gap: var(--gl-space-8);
+		padding: var(--gl-space-10) var(--gl-space-12);
+		margin: var(--gl-space-8) var(--gl-space-12);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-foreground);
-		background: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.08));
-		border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
-		border-radius: 0.4rem;
+		background: var(--vscode-inputValidation-errorBackground, rgb(255 0 0 / 8%));
+		border: var(--gl-border-width) solid
+			var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.panel-error__header {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
 	}
 
 	.panel-error__icon {
 		flex-shrink: 0;
+		font-size: var(--gl-font-lg);
 		color: var(--vscode-editorError-foreground);
-		font-size: 1.4rem;
 	}
 
 	.panel-error__title {
@@ -243,14 +276,14 @@ export const panelErrorStyles = css`
 	}
 
 	.panel-error__message {
-		color: var(--vscode-foreground);
 		line-height: 1.4;
-		word-break: break-word;
+		color: var(--vscode-foreground);
+		overflow-wrap: anywhere;
 	}
 
 	.panel-error__actions {
 		display: flex;
+		gap: var(--gl-space-6);
 		justify-content: flex-end;
-		gap: 0.6rem;
 	}
 `;

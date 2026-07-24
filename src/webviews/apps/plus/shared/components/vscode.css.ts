@@ -2,16 +2,16 @@ import { css } from 'lit';
 
 export const linkStyles = css`
 	a {
-		border: 0;
-		color: var(--link-foreground);
 		font-weight: 400;
-		outline: none;
+		color: var(--link-foreground);
 		text-decoration: var(--link-decoration-default, none);
+		outline: none;
+		border: 0;
 	}
 
 	a:focus-visible {
-		outline: 1px solid var(--color-focus-border);
-		border-radius: 0.2rem;
+		outline: var(--gl-border-width) solid var(--color-focus-border);
+		border-radius: var(--gl-radius-xs);
 	}
 
 	a:hover {
@@ -23,6 +23,6 @@ export const linkStyles = css`
 export const ruleStyles = css`
 	hr {
 		border: none;
-		border-top: 1px solid var(--color-foreground--25);
+		border-top: var(--gl-border-width) solid var(--color-foreground--25);
 	}
 `;

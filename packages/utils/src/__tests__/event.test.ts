@@ -46,7 +46,7 @@ suite('Emitter Test Suite', () => {
 		let receivedContext: any;
 
 		emitter.event(function (this: any) {
-			// oxlint-disable-next-line @typescript-eslint/no-this-alias
+			// oxlint-disable-next-line typescript/no-this-alias
 			receivedContext = this;
 		}, context);
 

@@ -28,6 +28,8 @@ export interface GitGraphRowHead {
 	 *  Producers MUST set this whenever they set `worktree`; do not read it from GitLens code,
 	 *  read `worktree.id` instead. */
 	worktreeId?: string;
+	/** True when this head is the repository's default branch. */
+	isDefault?: boolean;
 }
 
 export interface GitGraphRowRemoteHead {
@@ -38,6 +40,9 @@ export interface GitGraphRowRemoteHead {
 	avatarUrl?: string;
 	context?: string | object;
 	current?: boolean;
+	/** True when this remote ref IS the repository's default branch and no local branch tracks it (no
+	 *  local checkout) — so the default-branch tier still applies for remote-only defaults. */
+	isDefault?: boolean;
 	hostingServiceType?: GkProviderId;
 }
 
@@ -168,6 +173,36 @@ export interface GitGraph {
 	readonly reachableFromHEAD?: ReadonlySet<string>;
 
 	/**
+	 * Ref tips as of this walk: canonical refname (`refs/heads/…`, `refs/remotes/…`, `refs/tags/…`) →
+	 * PEELED tip sha (annotated tags map to the commit their badge sits on). Captured so the host can seed
+	 * the NEXT rebuild's {@link GraphIncrementalSeed.tips} — the map the R6b fast path diffs against to find
+	 * the structural changes that force a full fallback. The CLI provider populates it on both paths (full
+	 * walk + fast path); the GitHub provider leaves it undefined.
+	 */
+	readonly refTips?: ReadonlyMap<string, string>;
+
+	/**
+	 * Fingerprint of every SIDE INPUT row construction embeds into row decorations as of this walk —
+	 * default branch, per-branch upstreams, HEAD's upstream, remote urls/providers, worktree assignments,
+	 * and the current user. These can all change WITHOUT moving any ref tip (`git remote set-head`,
+	 * `branch --set-upstream-to`, `worktree add`, remote/user config edits), and the R6b fast path reuses
+	 * prior rows wholesale (only flags/reachability are re-derived) — so it must compare this against the
+	 * seed's and fall back to a full walk on ANY change. The CLI provider populates it on both paths; the
+	 * GitHub provider leaves it undefined.
+	 */
+	readonly decorationFingerprint?: string;
+
+	/**
+	 * Whether the repo was a SHALLOW clone (a `$GIT_DIR/shallow` file was present) as of this walk. Captured
+	 * so the host can seed the NEXT rebuild's {@link GraphIncrementalSeed.shallow}: an un-shallow (or
+	 * re-shallow) while the graph is closed passes every ref-tip gate — the branch tips don't move — yet
+	 * changes what history exists BELOW the loaded window, so a stale-false `hasMore` would hide the newly
+	 * deepened commits. The R6b fast path falls back on any change. The CLI provider populates it on both
+	 * paths (full walk + fast path); the GitHub provider leaves it undefined.
+	 */
+	readonly shallow?: boolean;
+
+	/**
 	 * SHAs on the first-parent chain from HEAD up to (excluding) the first merge commit — i.e. the
 	 * commits a plain interactive rebase can safely rewrite. Empty when HEAD itself is a merge. Used by
 	 * the graph's history-rewriting commands (squash/drop/reword/modify) to validate selections.
@@ -237,6 +272,114 @@ export interface GitGraph {
 }
 
 export type GitGraphRowsStats = Map<string, GitGraphRowStats>;
+
+/**
+ * Seed for the R6b incremental head-walk fast path. Carries the prior generation's walk artifacts so a
+ * repo-change rebuild can walk ONLY the changed head region, stitch the cached tail, and re-derive
+ * flags/reachability in memory — instead of re-walking every loaded row.
+ *
+ * R6a status: the Node provider ACCEPTS this option but IGNORES it, falling through to the full ordered
+ * walk (so a seeded rebuild is byte-equivalent to an unseeded one). It is threaded now purely so the
+ * equivalence harness can pin the shape and R6b can light up the fast path without an interface change.
+ * The GitHub provider ignores it structurally (it never lists the option).
+ */
+export interface GraphIncrementalSeed {
+	/**
+	 * Prior generation's emitted rows, in walk order. R6b stitches the unchanged tail from these once the
+	 * streamed head region CONVERGES with them (K consecutive shas aligned at a stable offset), and reads
+	 * their parent lists to re-derive reachability/flags in memory (no git) over the stitched window.
+	 */
+	readonly rows: readonly GitGraphRow[];
+	/**
+	 * Ref tips as of the prior walk: canonical refname (e.g. `refs/heads/main`, `refs/remotes/origin/main`,
+	 * `refs/tags/v1`) → tip sha. R6b enumerates the new commits via `git log --all --not <these shas>`
+	 * (cheap, exact) and diffs this map against the current tips to detect the structural changes that force
+	 * a full fallback: any ref DELETION (key gone) or a NON-fast-forward move (old tip not an ancestor of the
+	 * new tip).
+	 */
+	readonly tips: ReadonlyMap<string, string>;
+	/**
+	 * Ordering the prior rows were walked in. The convergence + date-boundary reasoning R6b relies on is only
+	 * sound for `date` order in v1; a seed whose ordering is `author-date`/`topo`, or that disagrees with the
+	 * current walk's ordering, is discarded (full fallback).
+	 */
+	readonly ordering: 'date' | 'author-date' | 'topo';
+	/**
+	 * Prior generation's reachability table, to CONTINUE (same role as the sub-provider's `reachabilitySeed`)
+	 * so rows retained across the rebuild keep stable {@link GitGraphRowContexts.reachabilityIndex} values and
+	 * only appended entries ship. R6b decides whether the stitched window extends this builder or needs a
+	 * fresh generation; see `createReachabilityTableBuilder`.
+	 */
+	readonly reachability?: GraphReachabilityTable;
+	/**
+	 * Prior generation's per-sha stats (immutable per sha), so the deferred stats query recomputes only the
+	 * new shas — same role as `rowsStatsSeed`.
+	 */
+	readonly rowsStats?: GitGraphRowsStats;
+	/**
+	 * Whether the prior generation had more rows below its loaded window (`paging.hasMore`). The fast path
+	 * can only reconstruct rows the seed carries; when the seed was a partial (paged) load and no new commit
+	 * pushes the window past its limit, `hasMore` must still be reported so the caller keeps paging. Absent ⇒
+	 * treated as `false` (the seed loaded the full history).
+	 */
+	readonly hasMore?: boolean;
+	/**
+	 * The `graph.onlyFollowFirstParent` setting the prior rows were walked under. When first-parent is on the
+	 * emitted rows carry sliced (first-parent-only) parents, which the in-memory re-derivation can't expand
+	 * back to the full parent set the walk propagates reachability through — so a seed built under (or a
+	 * current config of) first-parent forces a full fallback. Absent ⇒ treated as `false`.
+	 */
+	readonly onlyFollowFirstParent?: boolean;
+	/**
+	 * Whether the repo was a SHALLOW clone when the prior rows were walked. R6b falls back to a full walk on
+	 * ANY change vs. the current state (shallow→unshallowed, unshallowed→shallow): an un-shallow deepens
+	 * history below the loaded window while every branch tip stays put, so the cached tail / stale-false
+	 * `hasMore` would hide the newly deepened commits. Absent ⇒ treated as `false` (not shallow).
+	 */
+	readonly shallow?: boolean;
+	/**
+	 * {@link GitGraph.decorationFingerprint} of the prior walk. R6b falls back to a full walk on ANY change:
+	 * reused rows keep their embedded decorations (upstream/worktree/default/remote/user metadata), so a
+	 * metadata-only change — one that moves no ref tip — would otherwise ship stale pills indefinitely.
+	 * Absent (e.g. an old persisted snapshot) ⇒ never matches ⇒ safe full fallback.
+	 */
+	readonly decorationFingerprint?: string;
+}
+
+/**
+ * Which path a seeded {@link GitGraphSubProvider.getGraph} call took: the R6b incremental head-walk fast
+ * path, or a full ordered walk (with the gate/boundary `reason` that forced it). Reported via the
+ * `onIncrementalResult` option so the host can log it and the equivalence harness can assert it. Purely
+ * observational — it never changes the returned graph.
+ */
+export interface IncrementalGraphOutcome {
+	readonly path: 'fast' | 'fallback';
+	readonly reason?: IncrementalGraphFallbackReason;
+	/** Fast path only: how many NEW commit rows the incremental enumeration added at the head. */
+	readonly added?: number;
+}
+
+export type IncrementalGraphFallbackReason =
+	| 'no-row-processor'
+	| 'ordering-not-date'
+	| 'rev-outside-seed'
+	| 'first-parent'
+	| 'limit-exceeds-seed'
+	| 'ref-deleted'
+	| 'ref-non-fast-forward'
+	| 'replace-refs-changed'
+	| 'shallow-changed'
+	| 'stash-changed'
+	| 'stash-window-conflict'
+	| 'date-boundary'
+	// A decoration side input changed without moving any ref tip (default branch, an upstream, a worktree
+	// assignment, a remote's url/provider, the current user) — reused rows would keep stale embedded
+	// decorations, so the walk must rebuild them. See `GitGraph.decorationFingerprint`.
+	| 'metadata-changed'
+	// The fast path threw (spawn/arg limits on huge ref sets, queue overflow, transient git errors) —
+	// never an eligibility gate. The fast path must never fail where the full walk it accelerates
+	// would succeed, so any unexpected error degrades to the full walk (cancellation still propagates).
+	| 'error';
 
 /**
  * Processes a single graph row — mutates the row in place.

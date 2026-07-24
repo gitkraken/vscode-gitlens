@@ -9,15 +9,23 @@ const styles = css`
 		display: inline-flex;
 		align-items: baseline;
 		max-width: 100%;
-		white-space: nowrap;
+		margin-inline-end: var(--gl-space-2);
 		overflow: hidden;
 		text-overflow: ellipsis;
-		margin-inline-end: 0.2rem;
+		white-space: nowrap;
 	}
 
 	:host(:focus) {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: 2px;
+	}
+
+	/* Neutral/grey counterpart to gl-branch-name's pill — same shape, muted (not branch-colored). */
+	:host([appearance='pill']) {
+		padding: 0.1rem 0.6rem;
+		color: var(--vscode-foreground);
+		background-color: color-mix(in srgb, var(--vscode-descriptionForeground) 18%, transparent);
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.label--uncommitted {
@@ -25,14 +33,17 @@ const styles = css`
 	}
 
 	.icon {
-		margin-right: 0.3rem;
 		align-self: center;
+		margin-right: 0.3rem;
 	}
 `;
 
 @customElement('gl-commit-sha')
 export class GlCommitSha extends LitElement {
 	static override styles = styles;
+
+	@property({ reflect: true })
+	appearance?: 'pill';
 
 	@property({ type: String })
 	sha?: string;

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* oxlint-disable typescript/no-unsafe-return */
 import { getParameters } from '../function.js';
 import { getDurationMilliseconds, hrtime } from '../hrtime.js';
 import type { LogLevel } from '../logger.js';
@@ -38,9 +38,9 @@ interface LogOptions<T extends (...args: any[]) => any> {
 }
 
 // Using Function type to support classes with private/protected constructors
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+// oxlint-disable-next-line typescript/no-unsafe-function-type
 export function logName<T>(fn: (c: T, name: string) => string): (target: Function & { prototype: T }) => void {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	// oxlint-disable-next-line typescript/no-unsafe-function-type
 	return (target: (abstract new (...args: any[]) => T) | (Function & { prototype: T })): void =>
 		void customLoggableNameFns.set(target, fn);
 }
@@ -54,7 +54,7 @@ export function logName<T>(fn: (c: T, name: string) => string): (target: Functio
  * Defaults to `id` if the instance has one, otherwise just `ClassName`.
  */
 export function loggable<T extends object>(fn?: (instance: T) => string) {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	// oxlint-disable-next-line typescript/no-unsafe-function-type
 	return (target: (abstract new (...args: any[]) => T) | (Function & { prototype: T })): void => {
 		target.prototype.toLoggable = function (this: T): string {
 			const name = getLoggableName(this);
@@ -105,7 +105,7 @@ function log<T extends (...arg: any[]) => any>(
 		logLevel === 'trace' ? Logger.trace : logLevel === 'debug' ? Logger.debug : Logger.info;
 
 	return (_target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+		// oxlint-disable-next-line typescript/no-unsafe-function-type
 		let fn: Function | undefined;
 		let fnKey: string | undefined;
 		if (typeof descriptor.value === 'function') {

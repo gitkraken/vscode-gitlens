@@ -334,6 +334,27 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(innerUnsub.callCount, 1);
 		});
 
+		test('should bump epoch on reset and dispose so late async registrations are detectable', () => {
+			const tracker = new SubscriptionTracker();
+			// The async-subscription ordering this guards: capture epoch → await resource acquisition →
+			// a reconnect reset()s the tracker mid-flight → the acquisition resolves. The epoch mismatch
+			// is what tells the subscription its generation was superseded (see
+			// `RepositoryRpcService.onRepositoryOrWorktreeChanged`).
+			const epochBefore = tracker.epoch;
+			tracker.reset();
+			assert.notStrictEqual(tracker.epoch, epochBefore, 'reset should bump the epoch');
+
+			const epochAfterReset = tracker.epoch;
+			tracker.dispose();
+			assert.notStrictEqual(tracker.epoch, epochAfterReset, 'dispose should bump the epoch');
+
+			// An unchanged tracker keeps its epoch stable — same-generation registrations stay valid.
+			const stable = new SubscriptionTracker();
+			const e = stable.epoch;
+			stable.track(sinon.spy());
+			assert.strictEqual(stable.epoch, e, 'track must not bump the epoch');
+		});
+
 		test('should call all tracked unsubscribes on dispose', () => {
 			const tracker = new SubscriptionTracker();
 			const unsub1 = sinon.spy();
@@ -423,6 +444,14 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(cb1.firstCall.args[0], 'hello');
 			assert.strictEqual(cb2.callCount, 1);
 			assert.strictEqual(cb2.firstCall.args[0], 'hello');
+		});
+
+		test('fire is a safe no-op with no subscribers (eager-independence — #5513)', () => {
+			// SubscriptionService's eager listener fires on every change regardless of whether a client
+			// has subscribed, keeping the bridged signal fresh either way (#5513) — so fire() must not
+			// depend on there being any handlers.
+			const event = createRpcEvent<string>('key', 'save-last');
+			assert.doesNotThrow(() => event.fire('no-subscribers'));
 		});
 
 		test('fire should not invoke unsubscribed handlers', () => {

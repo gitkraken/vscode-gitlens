@@ -1,6 +1,6 @@
-import { createContext } from '@lit/context';
 import type { Signal } from '@lit-labs/signals';
 import { signal as litSignal } from '@lit-labs/signals';
+import { createContext } from '@lit/context';
 import type { AnchorKey } from './components/anchorKey.js';
 import type { RunningOperationBucket } from './components/detailsState.js';
 
@@ -34,6 +34,7 @@ export function abortRunningOperations(state: GraphCrossPaneState): void {
 	for (const bucket of current.values()) {
 		bucket.review?.abortController?.abort();
 		bucket.compose?.abortController?.abort();
+		bucket.resolve?.abortController?.abort();
 		bucket.generateMessage?.abortController?.abort();
 	}
 	if (current.size > 0) {

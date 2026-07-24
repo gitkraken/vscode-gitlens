@@ -4,7 +4,7 @@ import { ContextValues } from './abstract/viewNode.js';
 import { CommitNode } from './commitNode.js';
 
 export class RebaseCommitNode extends CommitNode {
-	// eslint-disable-next-line @typescript-eslint/require-await
+	// oxlint-disable-next-line typescript/require-await
 	override async getTreeItem(): Promise<TreeItem> {
 		const item = new TreeItem(
 			`Paused at commit ${this.commit.shortSha}`,

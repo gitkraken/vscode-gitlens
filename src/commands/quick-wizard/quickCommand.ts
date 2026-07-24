@@ -113,7 +113,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	}
 
 	async previous(): Promise<QuickPickStep | QuickInputStep | undefined> {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+		// oxlint-disable-next-line typescript/no-unsafe-return
 		return (await this.next(Directive.Back)).value;
 	}
 

@@ -4,6 +4,7 @@ export {
 	panelActionInputStyles,
 	panelErrorStyles,
 	panelHostStyles,
+	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
@@ -11,49 +12,51 @@ export {
 } from './shared-panel.css.js';
 
 export const composeModePanelStyles = css`
-	/* Slide-up entrance with overflow pinned to hidden until animationend so the inner
-	   scroll containers don't flicker a scrollbar as the transform settles. After the
-	   animation completes, :host([data-anim-done]) below restores overflow-y: auto. */
+	/* Scrollable at rest; the sub-panel-enter keyframe pins overflow hidden for the duration of the
+	   slide-up so the inner scroll containers can't flash a scrollbar as the transform settles (see
+	   subPanelEnterStyles). No JS latch needed — the animation's lifetime is the gate. */
 	:host {
-		animation: sub-panel-enter 0.2s ease-out;
-		overflow: hidden;
-	}
-
-	:host([data-anim-done]) {
 		overflow-y: auto;
+		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		:host {
 			animation: none;
-			overflow-y: auto;
 		}
 	}
 
 	.compose-panel {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
 	}
 
 	.stale-banner {
-		margin: 0.4rem 1.2rem 0;
+		margin: var(--gl-space-4) var(--gl-space-12) 0;
 	}
 
 	.compose-plan {
-		flex: 1;
-		min-height: 0;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
+		min-height: 0;
+
+		/* Commit = green, recompose = orange — authored in OKLCH at the SAME lightness (0.6) so the
+		   pair reads as one system (only the hue differs). Shared by the per-commit checkmarks and
+		   the recompose submit so the orange stays identical between them. Fixed rather than
+		   relative-from-token, which drifted the orange much darker. */
+		--gl-compose-commit-accent: oklch(0.6 0.15 150);
+		--gl-compose-recompose-accent: oklch(0.6 0.13 62);
 	}
 
 	.compose-plan__header {
 		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.4rem 0.8rem;
 		flex: none;
+		gap: var(--gl-space-4);
+		align-items: center;
+		padding: var(--gl-space-4) var(--gl-space-8);
 	}
 
 	.compose-plan__back {
@@ -68,21 +71,21 @@ export const composeModePanelStyles = css`
 
 	.compose-plan__count {
 		display: inline-flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
+		margin-left: auto;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		margin-left: auto;
 	}
 
 	.compose-plan__count-item {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
+		align-items: center;
 	}
 
 	.compose-plan__count-item > code-icon {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.85;
 	}
 
@@ -90,35 +93,8 @@ export const composeModePanelStyles = css`
 	   Compose or Refine call without waiting on the AI to resolve. */
 	.compose-cancel {
 		align-self: center;
-		margin-top: 1rem;
-		margin-bottom: 1.2rem;
-	}
-
-	/* Wraps the loading branch so the vertical-stream animation can sit behind the spinner +
-	   progress text + cancel block. The stage takes the full available panel height; the
-	   foreground sits on top, top-anchored. */
-	.compose-loading-stage {
-		position: relative;
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.compose-loading-stage > gl-categorizing-loading-animation {
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		z-index: 0;
-	}
-
-	.compose-loading-foreground {
-		position: relative;
-		z-index: 1;
-		display: flex;
-		flex-direction: column;
-		flex: none;
+		margin-top: var(--gl-space-10);
+		margin-bottom: var(--gl-space-12);
 	}
 
 	.compose-plan__list {
@@ -132,6 +108,7 @@ export const composeModePanelStyles = css`
 	.compose-plan__split {
 		flex: 1;
 		min-height: 0;
+
 		/* Size the start track to the commits list (capped at the drag position) instead of a
 		   fixed 50%, so a short list doesn't leave the divider + border-bottom floating in empty
 		   space far below the last commit. Mirrors panelScopeSplitStyles' .scope-split. */
@@ -150,29 +127,136 @@ export const composeModePanelStyles = css`
 	/* Border on the bottom of the scope section (proposed-commits list) so the divider
 	   sits flush against it. */
 	.compose-plan__split-start {
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
-	/* Commit All row is always anchored to the top of the right pane, above the file-tree-pane.
-	   Fixed-height row so the file pane fills the rest of the column. */
-	.compose-plan__commit-all {
-		flex: none;
+	/* Unified action zone pinned to the bottom of the panel: the "Recompose Changes" gate on top,
+	   then the primary action + Discard — a full-width Commit button in commit posture, or the
+	   detached refine input (its own submit + slotted Discard) in refine posture — then the hint. */
+	.compose-plan__actions {
+		container: compose-actions / inline-size;
 		display: flex;
-		padding: 0.6rem 1.2rem;
+		flex: none;
+		flex-direction: column;
+		gap: var(--gl-space-8);
+		padding: var(--gl-space-8) var(--gl-space-12) var(--gl-space-10);
 	}
 
-	.compose-plan__commit-all > gl-button {
+	.compose-plan__gate {
+		align-self: flex-start;
+	}
+
+	/* gl-checkbox brings its own margin-block, leaving a roomy gap under the gate. Once the panel is
+	   wide enough that the left-aligned gate label and the right-anchored model tab can't collide,
+	   drop that bottom margin to pull the input up tight. Narrower than this, keep the margin so the
+	   tab drops clear below the gate row instead of overlapping it. */
+	@container compose-actions (min-width: 44rem) {
+		.compose-plan__gate {
+			margin-bottom: 0;
+		}
+	}
+
+	.compose-plan__action-row {
+		display: flex;
+		gap: var(--gl-space-8);
+		align-items: center;
+	}
+
+	.compose-plan__action-row > .compose-plan__commit {
+		flex: 1;
+		min-width: 0;
+	}
+
+	/* aria-disabled (not native disabled) keeps the commit button hoverable so its "why" tooltip
+	   shows; dim it ourselves since gl-button only styles the native disabled state. */
+	.compose-plan__commit[aria-disabled='true'] {
+		cursor: default;
+		opacity: 0.4;
+	}
+
+	/* Orange-tint the detached recompose submit with the SAME accent as the recompose checkmarks
+	   (green/blue is reserved for commit). Custom props pierce the shadow boundary; gl-ai-input
+	   falls back to --vscode-button-* when unset. */
+	.compose-plan__actions gl-ai-input {
+		--gl-ai-submit-bg: var(--gl-compose-recompose-accent);
+		--gl-ai-submit-hover-bg: color-mix(in srgb, #000 15%, var(--gl-compose-recompose-accent));
+	}
+
+	/* The refine input self-insets/-centres via panelActionInputStyles; inside the already-padded
+	   action zone that doubles the inset, so pin it flush to the zone's content box. */
+	.compose-plan__actions > gl-ai-input.review-action-input {
 		width: 100%;
+		max-width: none;
+		margin: 0;
 	}
 
 	.compose-commit {
+		position: relative;
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: flex-start;
-		gap: 0.6rem;
 		padding: 0.5rem 1.2rem;
 		cursor: pointer;
 		border-left: 2px solid transparent;
-		transition: background 0.1s;
+		transition: background var(--gl-duration-x-fast);
+	}
+
+	/* Drag-reorder affordance: a gripper revealed in the row's left gutter on hover/focus. Absolutely
+	   positioned so it never shifts the row layout; only rendered while reorder is enabled. */
+	.compose-commit__grip {
+		position: absolute;
+		top: 0.7rem;
+		left: 0.2rem;
+		display: inline-flex;
+		align-items: center;
+		color: var(--vscode-descriptionForeground);
+		cursor: grab;
+		opacity: 0;
+		transition: opacity var(--gl-duration-x-fast);
+	}
+
+	.compose-commit__grip code-icon {
+		font-size: 1.3rem;
+	}
+
+	.compose-commit:hover .compose-commit__grip,
+	.compose-commit:focus-within .compose-commit__grip {
+		opacity: 0.6;
+	}
+
+	.compose-commit.dragging {
+		opacity: 0.4;
+	}
+
+	.compose-commit.dragging .compose-commit__grip {
+		cursor: grabbing;
+	}
+
+	/* Drop indicator: a bar at the top (insert before) or bottom (insert after) of the target row,
+	   mirroring the rebase editor's reorder cue. */
+	.compose-commit--drag-over::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		right: 0;
+		left: 0;
+		z-index: 10;
+		height: 0.2rem;
+		pointer-events: none;
+		background-color: var(--vscode-focusBorder);
+	}
+
+	.compose-commit--drag-over-bottom::before {
+		top: auto;
+		bottom: 0;
+	}
+
+	/* File→commit drop target: highlight the whole destination commit row while a file is dragged
+	   over it (distinct from the reorder edge-bar, which marks an insert position between rows). */
+	.compose-commit--file-drop-target {
+		background: var(--vscode-list-dropBackground);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
 	}
 
 	.compose-commit:hover {
@@ -180,7 +264,7 @@ export const composeModePanelStyles = css`
 	}
 
 	.compose-commit:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 
@@ -189,36 +273,57 @@ export const composeModePanelStyles = css`
 		   on both light and dark themes (the previous hardcoded rgba(86,156,214,0.08) was
 		   invisible on light themes and produced an unintended blue cast on non-default themes). */
 		background: var(--vscode-list-activeSelectionBackground);
-		border-left-color: var(--vscode-charts-purple, #7c3aed);
+		border-left-color: var(--gl-agent-working-color);
 	}
 
-	.compose-commit--excluded .compose-commit__num,
-	.compose-commit--excluded .compose-commit__info {
+	/* Dim the "held back" rows so the greyed row + empty checkmark both signal the row is being
+	   skipped: commit posture dims the excluded rows, recompose posture dims the locked rows.
+	   Neither adds a left-edge accent — that's reserved for selection (.compose-commit--selected). */
+	.compose-plan:not(.compose-plan--refine) .compose-commit--excluded .compose-commit__num,
+	.compose-plan:not(.compose-plan--refine) .compose-commit--excluded .compose-commit__info,
+	.compose-plan--refine .compose-commit--refine-excluded .compose-commit__num,
+	.compose-plan--refine .compose-commit--refine-excluded .compose-commit__info {
 		opacity: 0.45;
 	}
 
 	.compose-commit__num {
 		flex-shrink: 0;
+		min-width: 1.4rem;
 		font-size: var(--gl-font-sm);
 		font-weight: 700;
 		color: var(--vscode-charts-green, #4ec9b0);
-		min-width: 1.4rem;
 		text-align: center;
 	}
 
 	.compose-commit__info {
-		flex: 1;
-		min-width: 0;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0.15rem;
+		min-width: 0;
+	}
+
+	/* Message + per-commit regen icon share a row. The popover flexes to fill; the icon stays
+	   pinned at the trailing edge as a compact toolbar button. Without an explicit min-width:0
+	   on the popover, the icon would push the text past the row's edge instead of letting it
+	   ellipsize. */
+	.compose-commit__message-row {
+		display: flex;
+		gap: var(--gl-space-4);
+		align-items: center;
+		min-width: 0;
+	}
+
+	.compose-commit__message-row gl-popover.compose-commit__message {
+		flex: 1;
+		min-width: 0;
 	}
 
 	/* Commit message — single-line summary with a dimmed body continuation (graph-row style).
 	   The gl-popover anchor carries the inline message; hover reveals the full markdown. */
 	gl-popover.compose-commit__message {
 		--hide-delay: 100ms;
-		--wa-z-index-tooltip: 10000;
+
 		display: flex;
 		min-width: 0;
 		overflow: hidden;
@@ -247,8 +352,8 @@ export const composeModePanelStyles = css`
 	}
 
 	.compose-commit__message-body {
+		margin-left: var(--gl-space-8);
 		color: color-mix(in srgb, var(--vscode-descriptionForeground) 75%, transparent);
-		margin-left: 0.8rem;
 	}
 
 	.compose-commit__stats {
@@ -264,12 +369,17 @@ export const composeModePanelStyles = css`
 		color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
 	}
 
-	/* Include/exclude toggle — gl-button skinned as a checkbox.
-	   Checked (included): solid green fill, white checkmark.
-	   Unchecked (excluded): dimmed border with a dimmed checkmark, transparent fill.
-	   Hover previews the post-click state via the gl-button hover-background var. */
-	.compose-commit__action {
+	/* Single per-commit checkmark. Top-aligned so it lines up with the row number and the inline
+	   regen icon on the message line (the row is flex-start). */
+	.compose-commit__actions {
+		display: flex;
 		flex-shrink: 0;
+	}
+
+	/* Both toggles share the same chrome (size, icon scale, hover semantics) and only diverge
+	   on the active-color palette. Defined here as the base; the --lock / --include modifiers
+	   set the accent and active-state styling below. */
+	.compose-commit__action {
 		--button-padding: 0.3rem;
 		--button-padding-inline: 0.3rem;
 		--button-width: 2rem;
@@ -277,67 +387,113 @@ export const composeModePanelStyles = css`
 		--button-gap: 0;
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: middle;
-		--check-green: color-mix(in srgb, #000 35%, var(--vscode-testing-iconPassed, #73c991));
-		/* --vscode-button-foreground is the contrast-paired token for --vscode-button-background
-		   and resolves to white on most themes; falling back to literal white preserves the
-		   original intent on themes that don't define the variable. */
-		--button-foreground: var(--vscode-button-foreground, #fff);
-		--button-background: var(--check-green);
-		--button-border: var(--check-green);
-		--button-hover-background: color-mix(in srgb, #000 50%, var(--vscode-testing-iconPassed, #73c991));
 	}
 
-	.compose-commit__action--excluded {
-		--button-foreground: var(--color-foreground--50);
+	/* Regen-message icon — lives inline with the commit message (not in the right-side actions
+	   cluster) and stays subtle: dimmed by default, full opacity on hover/focus. The spinning
+	   icon during regen carries enough visual weight without a colored fill, so this variant
+	   keeps the toolbar-button look and avoids competing with the lock/include accent colors. */
+	.compose-commit__action--regen {
+		flex-shrink: 0;
+		opacity: 0.65;
+	}
+
+	.compose-commit__action--regen:hover:not([disabled]),
+	.compose-commit__action--regen:focus-within:not([disabled]) {
+		opacity: 1;
+	}
+
+	.compose-commit__action--regen[disabled] {
+		opacity: 0.35;
+	}
+
+	/* Single per-commit checkmark. One shape; the checked state sets the fill and the posture sets
+	   the colour: commit uses the standard checkbox palette (matches the gate + every other
+	   checkbox), recompose fills orange. The check glyph uses --vscode-checkbox-foreground so it
+	   flips with the theme and stays legible on either fill (light & dark). */
+	.compose-commit__check {
+		--button-padding: 0.3rem;
+		--button-padding-inline: 0.3rem;
+		--button-width: 2rem;
+		--button-line-height: 1;
+		--button-gap: 0;
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: middle;
+
+		/* Checked fill: green in commit, orange in recompose (both dark enough that the white check
+		   stays legible on the fill and the deepened hover). */
+		--check-accent: var(--gl-compose-commit-accent);
+	}
+
+	.compose-plan--refine .compose-commit__check {
+		--check-accent: var(--gl-compose-recompose-accent);
+	}
+
+	/* Always render the check glyph so the box keeps a constant size; hide it (space reserved) when
+	   unchecked instead of removing it, which collapsed the button height. */
+	.compose-commit__check--off code-icon {
+		visibility: hidden;
+	}
+
+	/* Checked — accent fill + white check; hover deepens the fill (check stays legible). */
+	.compose-commit__check--on {
+		--button-foreground: var(--vscode-button-foreground, #fff);
+		--button-background: var(--check-accent);
+		--button-border: var(--check-accent);
+		--button-hover-background: color-mix(in srgb, #000 25%, var(--check-accent));
+	}
+
+	/* Empty — dim outline; hover previews the accent fill + border. */
+	.compose-commit__check--off {
+		--button-foreground: var(--vscode-button-foreground, #fff);
 		--button-background: transparent;
 		--button-border: var(--color-foreground--50);
-		--button-hover-background: var(--check-green);
+		--button-hover-background: color-mix(in srgb, var(--check-accent) 22%, transparent);
 	}
 
-	.compose-commit__action--excluded:hover {
-		--button-foreground: var(--vscode-button-foreground, #fff);
-		--button-border: var(--check-green);
+	.compose-commit__check--off:hover {
+		--button-border: var(--check-accent);
 	}
 
 	.compose-base {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
-		padding: 0.4rem 1.2rem 0.6rem;
+		padding: var(--gl-space-4) var(--gl-space-12) var(--gl-space-6);
+		margin-top: var(--gl-space-4);
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		border-top: 1px dashed var(--vscode-sideBarSectionHeader-border);
-		margin-top: 0.4rem;
+		border-top: var(--gl-border-width) dashed var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.compose-base__marker {
-		font-size: 1.4rem;
+		flex-shrink: 0;
 		min-width: 1.4rem;
+		font-size: var(--gl-font-lg);
 		text-align: center;
 		opacity: 0.7;
-		flex-shrink: 0;
 	}
 
 	.compose-base__body {
-		flex: 1;
-		min-width: 0;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0.1rem;
+		min-width: 0;
 	}
 
 	.compose-base__headline {
-		color: var(--vscode-foreground);
-		opacity: 0.75;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		color: var(--vscode-foreground);
 		white-space: nowrap;
+		opacity: 0.75;
 	}
 
 	.compose-base__meta {
 		display: inline-flex;
+		gap: var(--gl-space-4);
 		align-items: center;
-		gap: 0.4rem;
 		min-width: 0;
 		font-size: var(--gl-font-micro);
 	}
@@ -363,13 +519,13 @@ export const composeModePanelStyles = css`
 
 	.compose-base__tag {
 		flex-shrink: 0;
+		padding: 0.1rem 0.4rem;
 		font-size: var(--gl-font-micro);
+		color: var(--vscode-descriptionForeground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		padding: 0.1rem 0.4rem;
-		border-radius: 0.3rem;
 		background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-		color: var(--vscode-descriptionForeground);
+		border-radius: var(--gl-radius-sm);
 	}
 
 	/* When the splitter is in play, the file-tree-pane sits in a flex column inside the

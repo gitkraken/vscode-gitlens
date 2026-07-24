@@ -88,7 +88,10 @@ export class ShowViewCommand extends GlCommandBase {
 				await this.waitForRepo();
 				return this.container.views.showView('fileHistory');
 			case 'gitlens.showGraphView':
-				await this.waitForRepoOrNotify('the Commit Graph');
+				// The Commit Graph shows its own in-view empty state (Open a Folder / Clone / Start a New
+				// Project) when there's no repo, so skip the redundant "No repository detected" notification —
+				// just wait for discovery so we don't flash the empty state before repos are known.
+				await this.waitForRepo();
 				return this.container.views.graph.show(undefined, ...(args as GraphWebviewShowingArgs));
 			case 'gitlens.showHomeView':
 				return this.container.views.home.show(undefined, ...(args as HomeWebviewShowingArgs));

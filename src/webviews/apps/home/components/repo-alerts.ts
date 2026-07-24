@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
@@ -32,11 +32,12 @@ export class GlRepoAlerts extends SignalWatcher(LitElement) {
 			}
 
 			gl-button.is-basic {
-				max-width: 300px;
 				width: 100%;
+				max-width: 300px;
 			}
+
 			gl-button.is-basic + gl-button.is-basic {
-				margin-top: 1rem;
+				margin-top: var(--gl-space-10);
 			}
 		`,
 	];

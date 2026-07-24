@@ -1,5 +1,5 @@
 import { css, html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { getAltKeySymbol, getCmdKeySymbol, getShiftKeySymbol, isMac } from '@env/platform.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/dialog.js';
@@ -17,76 +17,131 @@ type Chord = string[];
 type Shortcut = { chords: Chord[]; description: string };
 type ShortcutGroup = { title: string; shortcuts: Shortcut[] };
 
-// Mirrors the verified handlers: gitkraken-components GraphContainer keydown (navigation),
-// gl-graph.react (open), search-box/search-input (search), gl-commit-box (commit), hover/minimap (Esc).
-const groups: ShortcutGroup[] = [
-	{
-		title: 'Navigation',
-		shortcuts: [
-			{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
-			{ chords: [['←'], ['→']], description: 'Select next / previous commit (non-topological)' },
-			{
-				chords: [
-					[shift, '↑'],
-					[shift, '↓'],
-				],
-				description: 'Extend selection up / down',
-			},
-			{
-				chords: [
-					[ctrlOrCmd, '↑'],
-					[ctrlOrCmd, '↓'],
-				],
-				description: 'Select topologically (follow branch lineage)',
-			},
-			{
-				chords: [
-					[alt, '↑'],
-					[alt, '↓'],
-				],
-				description: 'Select previous / next branching point',
-			},
-			{ chords: [['Home'], ['End']], description: 'Select first / last commit' },
-			{ chords: [['PgUp'], ['PgDn']], description: 'Move selection up / down a page' },
-			{
-				chords: [
-					[alt, 'PgUp'],
-					[alt, 'PgDn'],
-				],
-				description: 'Select previous / next ref',
-			},
-			{ chords: [['H']], description: 'Select HEAD commit' },
-		],
-	},
-	{
-		title: 'Open',
-		shortcuts: [
-			{ chords: [['Enter']], description: 'Open the selected commit' },
-			{ chords: [['Space']], description: 'Open commit, keep focus in graph' },
-		],
-	},
-	{
-		title: 'Search',
-		shortcuts: [
-			{ chords: [[ctrlOrCmd, 'F']], description: 'Focus the search box' },
-			{
-				chords: isMac ? [['F3'], [ctrlOrCmd, 'G']] : [['F3']],
-				description: 'Go to next match (hold Shift for previous)',
-			},
-			{ chords: [['Enter'], [shift, 'Enter']], description: 'Next / previous match (in search box)' },
-			{ chords: [['↑'], ['↓']], description: 'Search history & autocomplete (in search box)' },
-			{ chords: [['Esc']], description: 'Cancel the search' },
-		],
-	},
-	{
-		title: 'Commit',
-		shortcuts: [{ chords: [[ctrlOrCmd, 'Enter']], description: 'Commit staged changes (in commit box)' }],
-	},
-	{
-		title: 'Other',
-		shortcuts: [{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' }],
-	},
-];
+// Chrome shared by both graph engines — search-box/search-input, gl-commit-box, and the
+// hover/minimap Escape handlers all live outside the swapped renderer, so their bindings don't vary.
+const openGroup: ShortcutGroup = {
+	title: 'Open',
+	shortcuts: [
+		{ chords: [['Enter']], description: 'Open the selected commit' },
+		{ chords: [['Space']], description: 'Open commit, keep focus in graph' },
+	],
+};
+const searchGroup: ShortcutGroup = {
+	title: 'Search',
+	shortcuts: [
+		{ chords: [[ctrlOrCmd, 'F']], description: 'Focus the search box' },
+		{
+			chords: isMac ? [['F3'], [ctrlOrCmd, 'G']] : [['F3']],
+			description: 'Go to next match (hold Shift for previous)',
+		},
+		{ chords: [['Enter'], [shift, 'Enter']], description: 'Next / previous match (in search box)' },
+		{ chords: [['↑'], ['↓']], description: 'Search history & autocomplete (in search box)' },
+		{ chords: [['Esc']], description: 'Cancel the search' },
+	],
+};
+const commitGroup: ShortcutGroup = {
+	title: 'Commit',
+	shortcuts: [{ chords: [[ctrlOrCmd, 'Enter']], description: 'Commit staged changes (in commit box)' }],
+};
+// Split per-engine: the lane-highlight hold modifier differs (new engine = Alt-hover; old = Ctrl/Cmd
+// dim), while the Esc row is shared chrome present in both.
+const litOtherGroup: ShortcutGroup = {
+	title: 'Other',
+	shortcuts: [
+		{ chords: [[alt]], description: 'Hold while hovering a row or ref to highlight its branch lane' },
+		{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' },
+	],
+};
+const legacyOtherGroup: ShortcutGroup = {
+	title: 'Other',
+	shortcuts: [
+		{ chords: [[ctrlOrCmd]], description: "Hold to dim rows outside the selected commit's lane" },
+		{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' },
+	],
+};
+
+// New engine — mirrors the Lit graph's `onKeydown` (navigation + open + fold).
+const litNavigationGroup: ShortcutGroup = {
+	title: 'Navigation',
+	shortcuts: [
+		{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
+		{ chords: [['←'], ['→']], description: 'Collapse / expand the focused branch lane' },
+		{
+			chords: [
+				[shift, '↑'],
+				[shift, '↓'],
+			],
+			description: 'Extend selection up / down',
+		},
+		{
+			chords: [
+				[ctrlOrCmd, '↑'],
+				[ctrlOrCmd, '↓'],
+			],
+			description: 'Select topologically (follow branch lineage)',
+		},
+		{
+			chords: [
+				[alt, '↑'],
+				[alt, '↓'],
+			],
+			description: 'Select previous / next branching point',
+		},
+		{ chords: [['Home'], ['End']], description: 'Select first / last commit' },
+		{ chords: [['PgUp'], ['PgDn']], description: 'Move selection up / down a page' },
+		{
+			chords: [
+				[alt, 'PgUp'],
+				[alt, 'PgDn'],
+			],
+			description: 'Select previous / next ref',
+		},
+		{ chords: [['H']], description: 'Select HEAD commit (hold Shift for its upstream)' },
+		{ chords: [['Esc']], description: 'Clear selection' },
+	],
+};
+const litGroups: ShortcutGroup[] = [litNavigationGroup, openGroup, searchGroup, commitGroup, litOtherGroup];
+
+// Old engine — mirrors gitkraken-components GraphContainer's keydown handler.
+const legacyNavigationGroup: ShortcutGroup = {
+	title: 'Navigation',
+	shortcuts: [
+		{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
+		{ chords: [['←'], ['→']], description: 'Select next / previous commit (non-topological)' },
+		{
+			chords: [
+				[shift, '↑'],
+				[shift, '↓'],
+			],
+			description: 'Extend selection up / down',
+		},
+		{
+			chords: [
+				[ctrlOrCmd, '↑'],
+				[ctrlOrCmd, '↓'],
+			],
+			description: 'Select topologically (follow branch lineage)',
+		},
+		{
+			chords: [
+				[alt, '↑'],
+				[alt, '↓'],
+			],
+			description: 'Select previous / next branching point',
+		},
+		{ chords: [['Home'], ['End']], description: 'Select first / last commit' },
+		{ chords: [['PgUp'], ['PgDn']], description: 'Move selection up / down a page' },
+		{
+			chords: [
+				[alt, 'PgUp'],
+				[alt, 'PgDn'],
+			],
+			description: 'Select previous / next ref',
+		},
+		{ chords: [['H']], description: 'Select HEAD commit (hold Shift for its upstream)' },
+	],
+};
+const legacyGroups: ShortcutGroup[] = [legacyNavigationGroup, openGroup, searchGroup, commitGroup, legacyOtherGroup];
 
 @customElement('gl-graph-keyboard-shortcuts')
 export class GlGraphKeyboardShortcuts extends LitElement {
@@ -108,15 +163,15 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 
 		.header {
 			display: flex;
+			gap: var(--gl-space-16);
 			align-items: center;
 			justify-content: space-between;
-			gap: 1.6rem;
 		}
 
 		.header h2 {
 			display: flex;
+			gap: var(--gl-space-8);
 			align-items: center;
-			gap: 0.8rem;
 			margin: 0;
 			font-size: 1.5rem;
 			font-weight: 600;
@@ -126,51 +181,52 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			padding: 0.4rem;
+			padding: var(--gl-space-4);
 			color: inherit;
+			cursor: pointer;
 			background: none;
 			border: none;
-			border-radius: 0.3rem;
-			cursor: pointer;
+			border-radius: var(--gl-radius-sm);
 		}
+
 		.close:hover {
 			background: var(--vscode-toolbar-hoverBackground);
 		}
 
 		.groups {
 			column-count: 2;
-			column-gap: 2.4rem;
+			column-gap: var(--gl-space-24);
 		}
 
 		.group {
+			margin-bottom: var(--gl-space-12);
 			break-inside: avoid;
-			margin-bottom: 1.2rem;
 		}
+
 		.group:last-child {
 			margin-bottom: 0;
 		}
 
 		.group h3 {
-			margin: 0 0 0.4rem;
-			font-size: 1.1rem;
+			margin: 0 0 var(--gl-space-4);
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
+			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			text-transform: uppercase;
 			letter-spacing: 0.05rem;
-			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 		}
 
 		.rows {
 			display: grid;
 			grid-template-columns: max-content 1fr;
-			column-gap: 1rem;
-			row-gap: 0.4rem;
+			gap: var(--gl-space-4) var(--gl-space-10);
 			align-items: baseline;
 		}
 
 		.keys {
 			display: inline-flex;
 			flex-wrap: wrap;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 		}
 
 		kbd {
@@ -178,30 +234,34 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			min-width: 1.6rem;
 			padding: 0.1rem 0.4rem;
 			font-family: inherit;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			line-height: 1.5;
-			text-align: center;
 			color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
+			text-align: center;
 			background-color: var(--vscode-keybindingLabel-background, var(--vscode-toolbar-hoverBackground));
-			border: 1px solid var(--vscode-keybindingLabel-border, transparent);
+			border: var(--gl-border-width) solid var(--vscode-keybindingLabel-border, transparent);
 			border-bottom-color: var(
 				--vscode-keybindingLabel-bottomBorder,
 				var(--vscode-keybindingLabel-border, transparent)
 			);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.desc {
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 			color: var(--color-foreground--75, var(--vscode-foreground));
 		}
 
 		.footnote {
 			margin: 0;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 		}
 	`;
+
+	/** Which engine's bindings to document — the dialog is shared chrome, the graph renderer isn't. */
+	@property({ type: Boolean })
+	useNewEngine = false;
 
 	@state()
 	private open = false;
@@ -215,6 +275,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 	}
 
 	override render(): unknown {
+		const groups = this.useNewEngine ? litGroups : legacyGroups;
 		return html`<gl-dialog
 			class="shortcuts-dialog"
 			modal

@@ -14,28 +14,29 @@ export const detailsWipPanelStyles = css`
 		overflow: hidden;
 		--gl-split-panel-divider-width: 12px;
 	}
+
 	:host([variant='embedded']) .split--auto-size:not([dragging]) {
 		--gl-split-panel-start-size: fit-content(var(--_start-size, 25%));
 	}
 
 	:host([variant='embedded']) .msg-slot {
+		display: flex;
+		flex-direction: column;
 		height: 100%;
 		min-height: 4.4rem;
 		overflow: hidden;
-		display: flex;
-		flex-direction: column;
 	}
 
 	/* File list wrapper */
 	:host([variant='embedded']) .files {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
+		padding-right: var(--gl-space-6);
+		padding-left: var(--gl-space-6);
+		margin-top: var(--gl-space-4);
 		overflow: hidden;
-		margin-top: 0.4rem;
-		padding-left: 0.6rem;
-		padding-right: 0.6rem;
 	}
 
 	/* Explain input override */
@@ -44,109 +45,112 @@ export const detailsWipPanelStyles = css`
 		width: 0;
 		min-width: 0;
 		max-width: none;
-		margin: 0;
 		padding: 0.4rem 0.7rem;
-		font-size: var(--vscode-font-size);
+		margin: 0;
 		font-family: var(--vscode-font-family);
+		font-size: var(--vscode-font-size);
 		color: var(--vscode-input-foreground);
+		outline: none;
 		background: transparent;
 		border: none !important;
-		outline: none;
 	}
+
 	:host([variant='embedded']) .explain-input::placeholder {
 		color: var(--vscode-input-placeholderForeground);
 	}
 
 	/* Child Shadow DOM component overrides */
+
 	/* !important is required: webview-pane's own .header rule (specificity 0,1,0) outranks this
 	   ::part() selector, so without it webview-pane's default border-top bleeds through. */
 	:host([variant='embedded']) webview-pane::part(header) {
-		border-top: none !important;
 		padding-right: calc(var(--gl-panel-padding-right) - 0.4rem);
 		background-color: inherit;
+		border-top: none !important;
 	}
 
 	:host([variant='embedded']) webview-pane [slot='title'] {
 		display: inline-flex;
+		gap: var(--gl-space-6);
 		align-items: center;
-		gap: 0.6rem;
 	}
 
 	/* ── WIP-specific embedded header ── */
 	:host([variant='embedded']) .header {
 		display: flex;
-		flex-direction: column;
 		flex: none;
+		flex-direction: column;
 		background-color: var(--vscode-sideBarSectionHeader-background, var(--color-background--level-05));
 	}
 
 	:host([variant='embedded']) .header__identity {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
 		padding: 0.8rem var(--gl-panel-padding-right) 0.4rem var(--gl-panel-padding-left);
-		gap: 0.6rem;
 	}
 
 	:host([variant='embedded']) .header__wip-icon {
 		--code-icon-size: 24px;
-		width: 3.2rem;
+
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		flex-shrink: 0;
+		width: 3.2rem;
 		color: var(--color-foreground--50);
 	}
 
 	:host([variant='embedded']) .header__wip-title {
-		font-weight: 500;
 		font-size: var(--gl-font-base);
+		font-weight: 500;
 		color: var(--vscode-gitlens-decorations-worktreeUncommittedForeground, #e2c08d);
 	}
 
 	:host([variant='embedded']) .header__wip-subtitle {
+		display: flex;
+		gap: 0.3rem;
+		align-items: center;
 		font-size: var(--gl-font-sm);
 		color: var(--color-foreground--50);
-		display: flex;
-		align-items: center;
-		gap: 0.3rem;
 	}
 
 	:host([variant='embedded']) .header__identity-left {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0.1rem;
 		min-width: 0;
-		flex: 1;
 	}
 
 	:host([variant='embedded']) .header__identity-right {
 		display: flex;
-		align-items: center;
-		gap: 0.2rem;
 		flex-shrink: 0;
+		gap: var(--gl-space-2);
+		align-items: center;
 	}
 
 	:host([variant='embedded']) .header__branch-row {
 		display: flex;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.2rem 1rem 0.6rem 1.2rem;
-		gap: 0.6rem;
+		padding: var(--gl-space-2) var(--gl-space-10) var(--gl-space-6) var(--gl-space-12);
 	}
 
 	:host([variant='embedded']) .header__branch-pill {
-		font-size: var(--gl-font-base);
 		max-width: 20rem;
+		font-size: var(--gl-font-base);
 	}
 
 	.paused-op {
 		display: flex;
 		align-items: center;
-		padding: 0.4rem 1rem;
+		padding: var(--gl-space-4) var(--gl-space-10);
 	}
 
 	:host([variant='embedded']) .header .paused-op {
-		padding: 0.2rem 1rem 0.6rem 1.2rem;
+		padding: var(--gl-space-2) var(--gl-space-10) var(--gl-space-6) var(--gl-space-12);
 	}
 
 	.paused-op > gl-merge-rebase-status {
@@ -165,10 +169,10 @@ export const detailsWipPanelStyles = css`
 
 	/* Split panel divider */
 	:host([variant='embedded']) .split::part(divider) {
-		background-color: transparent !important;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0.4rem 0;
+		padding: var(--gl-space-4) 0;
+		background-color: transparent !important;
 	}
 `;

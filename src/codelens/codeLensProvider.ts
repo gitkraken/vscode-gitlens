@@ -223,9 +223,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 					);
 				}
 				if (!dirty && cfg.authors.enabled) {
-					if (blameForRangeFn === undefined) {
-						blameForRangeFn = once(() => this.container.git.getBlameRange(blame!, gitUri, blameRange));
-					}
+					blameForRangeFn ??= once(() => this.container.git.getBlameRange(blame!, gitUri, blameRange));
 
 					const fileSymbol = new SymbolInformation(
 						gitUri.fileName,
@@ -412,9 +410,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 				}
 
 				if (multiline && !dirty) {
-					if (blameForRangeFn === undefined) {
-						blameForRangeFn = once(() => this.container.git.getBlameRange(blame!, gitUri!, blameRange));
-					}
+					blameForRangeFn ??= once(() => this.container.git.getBlameRange(blame!, gitUri!, blameRange));
 					lenses.push(
 						new GitAuthorsCodeLens(
 							document.languageId,
@@ -452,7 +448,7 @@ export class GitCodeLensProvider implements CodeLensProvider, Disposable {
 	resolveCodeLens(lens: CodeLens, token: CancellationToken): CodeLens | Promise<CodeLens> {
 		if (lens instanceof GitRecentChangeCodeLens) return this.resolveGitRecentChangeCodeLens(lens, token);
 		if (lens instanceof GitAuthorsCodeLens) return this.resolveGitAuthorsCodeLens(lens, token);
-		// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+		// oxlint-disable-next-line typescript/prefer-promise-reject-errors
 		return Promise.reject<CodeLens>(undefined);
 	}
 

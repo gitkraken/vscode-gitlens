@@ -1,7 +1,5 @@
-import type { GraphRefOptData, ReadonlyGraphRow, SelectCommitsOptions } from '@gitkraken/gitkraken-components';
-import { refTypes } from '@gitkraken/gitkraken-components';
-import { consume } from '@lit/context';
 import { computed, SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -15,25 +13,23 @@ import { debounce } from '@gitlens/utils/decorators/debounce.js';
 import { hasTruthyKeys } from '@gitlens/utils/object.js';
 import { wait } from '@gitlens/utils/promise.js';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
-import { GlyphChars } from '../../../../constants.js';
 import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
-import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
-import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type {
-	DidChooseRefParams,
 	GraphColumnName,
 	GraphExcludedRef,
 	GraphExcludeRefs,
+	GraphRefOptData,
 	GraphSearchResults,
+	GraphSelectedRows,
+	ReadonlyGraphRow,
+	SelectCommitsOptions,
 	State,
 } from '../../../plus/graph/protocol.js';
 import {
-	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	CloseGraphWalkthroughBannerCommand,
 	EnsureRowRequest,
-	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
 	SearchCancelCommand,
 	SearchOpenInViewCommand,
@@ -54,17 +50,20 @@ import { ModifierKeysController } from '../../shared/controllers/modifier-keys.j
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
 import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-popover.js';
+import type { GlGraphScopePopover } from './components/gl-graph-scope-popover.js';
 import { graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
-import { isGraphSearchResultsError } from './stateProvider.js';
+import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProvider.js';
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
+import '../shared/components/account-chip.js';
+import '../shared/components/integrations-chip.js';
 import '../../shared/components/branch-name.js';
-import '../../shared/components/shoelace-stub.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/menu/menu-divider.js';
 import '../../shared/components/menu/menu-item.js';
 import '../../shared/components/menu/menu-label.js';
 import '../../shared/components/progress.js';
@@ -74,9 +73,12 @@ import '../../shared/components/radio/radio.js';
 import '../../shared/components/radio/radio-group.js';
 import '../../shared/components/ref-button.js';
 import '../../shared/components/repo-button-group.js';
+import '../../shared/components/actions/action-nav.js';
 import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/search/search-box.js';
+import '../../shared/components/shoelace-stub.js';
 import './actions/gitActionsButtons.js';
+import './components/gl-graph-launchpad-indicator.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -141,6 +143,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				top: 0;
 			}
 
+			.inline-chip {
+				flex: none;
+				align-self: center;
+			}
+
 			.mcp-tooltip::part(body),
 			.hooks-tooltip::part(body) {
 				--max-width: 320px;
@@ -158,14 +165,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 			.action-button--mcp,
 			.action-button--hooks {
-				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
-				border: 1px solid var(--vscode-panel-border);
+				background: var(--gl-gradient-brand-subtle);
+				border: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
 			.action-button--graph-walkthrough {
-				background: var(--vscode-button-background);
 				color: var(--vscode-button-foreground);
-				border: 1px solid var(--vscode-button-background);
+				background: var(--vscode-button-background);
+				border: var(--gl-border-width) solid var(--vscode-button-background);
 			}
 
 			.action-button--graph-walkthrough:hover {
@@ -179,28 +186,36 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 			.graph-walkthrough-tooltip__title {
 				display: flex;
+				gap: 1ch;
 				align-items: center;
 				justify-content: space-between;
-				gap: 1ch;
-				margin-block-end: 0.4rem;
+				margin-block-end: var(--gl-space-4);
 			}
 
 			.graph-walkthrough-tooltip__actions {
 				display: flex;
+				gap: var(--gl-space-8);
 				align-items: center;
-				gap: 0.8rem;
-				margin-block-start: 0.8rem;
+				margin-block-start: var(--gl-space-8);
 			}
 
-			/* Search is meaningless in Timeline mode — visually dim it and let \`inert\` block focus
-			   + interactions natively (instead of removing it from the row entirely). */
+			/* Search is meaningless in Timeline mode — visually dim it and let \\\`inert\\\` block focus
+	   + interactions natively (instead of removing it from the row entirely). */
 			.search-box--disabled {
-				opacity: 0.5;
 				cursor: not-allowed;
+				opacity: 0.5;
 			}
 
 			.minimap-toggle-icon {
 				transform: rotate(180deg);
+			}
+
+			/* Create/Start menu rows: icon + label as an inline-flex pair. Color is inherited so the
+			   icon follows the menu-item's hover/selection foreground (no override). */
+			.action-menu__item {
+				display: inline-flex;
+				gap: var(--gl-space-6);
+				align-items: center;
 			}
 		`,
 	];
@@ -228,15 +243,28 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	getCommits?: (shas: string[]) => ReadonlyGraphRow[];
 	// Function to select commits on the graph, passed from graph-app
 	selectCommits?: (shas: string[], options?: SelectCommitsOptions) => ReadonlyGraphRow[];
+	// Awaits the graph flushing pending renders (so post-load visibility reads are accurate), from graph-app
+	ensureGraphRendered?: () => Promise<void>;
 
 	@property({ type: Boolean, attribute: 'details-visible' })
 	detailsVisible = false;
+
+	/** The resolved details side (`right`/`bottom`) from `GraphApp.effectiveDetailsLocation` — already
+	 *  accounts for `auto` width resolution, so the toggle reflects where the panel actually is. */
+	@property({ attribute: 'details-effective-location' })
+	detailsEffectiveLocation: 'right' | 'bottom' = 'right';
 
 	@property({ type: Boolean, attribute: 'minimap-visible' })
 	minimapVisible = true;
 
 	@property({ type: Boolean, attribute: 'has-selected-commit' })
 	hasSelectedCommit = false;
+
+	/** When set, the account/integrations chips render inline at the end of the header's right group
+	 *  instead of the standalone account bar row above (issue #5449). Driven by GraphApp's
+	 *  height-based mode tracking; only ever true while the experimental home header is enabled. */
+	@property({ type: Boolean, attribute: 'account-bar-inline' })
+	accountBarInline = false;
 
 	get hasFilters() {
 		// Scope mode forces first-parent rendering, so it always counts as a filter.
@@ -268,6 +296,25 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			this._lastRepoPath = currentRepo;
 			this.ensuredIds.clear();
 			this.pendingEnsureRequests.clear();
+		}
+
+		// Restore the search box after a reboot/reconnect where an active search's query didn't reach the
+		// box (the host carries it on `graphState.searchQuery`). Set the box display via the element's own
+		// `setExternalSearchQuery` — NOT the header's same-named method, which also RE-RUNS the search. The
+		// guard fires only when the local box is empty and the search is live (results present OR still
+		// searching), so it never clobbers an in-progress user query nor revives a just-cancelled search.
+		if (
+			shouldRestoreSearchQuery(
+				this._searchQuery?.query,
+				this.graphState.searchQuery,
+				this.graphState.searchResults != null,
+				this.graphState.searching,
+			)
+		) {
+			const restored = this.graphState.searchQuery!;
+			this._searchQuery = restored;
+			this.searchEl?.setExternalSearchQuery(restored);
+			this.updateActiveFilterColumns();
 		}
 
 		super.updated(changedProperties);
@@ -323,22 +370,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		this.graphState.activeFilterColumns = active;
 	}
 
-	private async onJumpToRefPromise(alt: boolean): Promise<DidChooseRefParams | undefined> {
-		try {
-			const repoName = this.graphState.repositories?.[0]?.name ?? '';
-			const rsp: DidChooseRefParams = alt
-				? await this._ipc.sendRequest(ChooseRefRequest, {
-						title: `Jump to Reference ${GlyphChars.Dot} ${repoName}`,
-						placeholder: 'Choose a reference to jump to',
-					})
-				: await this._ipc.sendRequest(JumpToHeadRequest, undefined);
-			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: alt } });
-			return rsp;
-		} catch {
-			return undefined;
-		}
-	}
-
 	private handleSidebarToggled() {
 		this.dispatchEvent(new CustomEvent('toggle-sidebar', { bubbles: true, composed: true }));
 	}
@@ -353,21 +384,36 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		);
 	}
 
-	private async handleJumpToRef(e: MouseEvent) {
-		const ref = await this.onJumpToRefPromise(e.altKey);
-		if (ref != null) {
-			await this.jumpToSha(ref.sha);
+	private handleJumpToRef(e: MouseEvent) {
+		// Alt: open the scope menu into the Focus Branch pane so the user can pick a branch to focus.
+		if (e.altKey) {
+			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: true } });
+			void this.scopePopoverEl?.openToFocusBranch();
+			return;
+		}
+
+		// Plain: focus (scope) the graph onto the current branch. Only record the action when it
+		// actually proceeds — a no-op click (e.g. detached HEAD, no current branch) shouldn't count.
+		if (this.scopeToCurrentBranch()) {
+			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: false } });
 		}
 	}
 
-	private async jumpToSha(sha: string) {
-		const id = await this.ensureSearchResultRow(sha);
-		if (id == null) return;
+	private scopeToCurrentBranch(): boolean {
+		const branch = this.graphState.branch;
+		if (branch == null) return false;
 
-		const rows = this.selectCommits?.([id], { ensureVisible: true });
-		if (rows?.[0]?.hidden) {
-			this._searchResultHidden = true;
-		}
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-scope-to-branch', {
+				detail: {
+					branchName: branch.name,
+					upstreamName: branch.upstream?.missing ? undefined : branch.upstream?.name,
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+		return true;
 	}
 
 	private onGraphWalkthroughBannerDismiss(e: Event): void {
@@ -548,6 +594,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
+	// Auto-reveal the first search match (new-search entry point only — next/prev navigation already
+	// reveals its own target via executeNavigation, so calling this there would double-reveal).
+	private revealFirstSearchMatch(selectedRows: GraphSelectedRows | undefined): void {
+		const firstSha = selectedRows != null ? Object.keys(selectedRows)[0] : undefined;
+		if (firstSha != null) {
+			this.selectCommits?.([firstSha], { ensureVisible: true });
+		}
+	}
+
 	private async startSearch() {
 		if (!this.searchValid) {
 			this.cancelSearch(false);
@@ -575,6 +630,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				this.graphState.searchMode = this._searchQuery.filter ? 'filter' : 'normal';
 				if (rsp.selectedRows != null) {
 					this.graphState.selectedRows = rsp.selectedRows;
+					this.revealFirstSearchMatch(rsp.selectedRows);
 				}
 			}
 		} catch {
@@ -658,6 +714,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				this.graphState.searchResultsResponse = rsp.results;
 				if (rsp.selectedRows != null) {
 					this.graphState.selectedRows = rsp.selectedRows;
+					this.revealFirstSearchMatch(rsp.selectedRows);
 				}
 			}
 
@@ -951,7 +1008,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 		while (performance.now() - startTime < maxWaitMs) {
 			const rows = this.getCommits?.([id]);
-			if (rows != null) return rows;
+			if (rows != null && rows.length > 0) {
+				// Flush the graph's pending render before returning, so a follow-up visibility read
+				// (getCommits/selectCommits → isRowDisplayed) sees the just-paged row, not a stale displayRows.
+				await this.ensureGraphRendered?.();
+				return rows;
+			}
 
 			await wait(50);
 		}
@@ -996,6 +1058,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@query('gl-search-box')
 	private readonly searchEl!: GlSearchBox;
 
+	@query('gl-graph-scope-popover')
+	private readonly scopePopoverEl!: GlGraphScopePopover | null;
+
 	override render() {
 		const repo = this.graphState.repositories?.find(repo => repo.id === this.graphState.selectedRepository);
 
@@ -1010,7 +1075,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private renderTitlebarHeaderRow(repo: RepositoryShape | undefined) {
 		const hasMultipleRepositories = (this.graphState.repositories?.length ?? 0) > 1;
 
-		const { allowed, branch, branchState, config, lastFetched, loading, state, subscription } = this.graphState;
+		const { allowed, branch, branchState, config, lastFetched, loading, state } = this.graphState;
 
 		return html`<div class="titlebar__row titlebar__row--wrap">
 			<div class="titlebar__group">
@@ -1079,23 +1144,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							<code-icon icon="target"></code-icon>
 							<span slot="tooltip">
 								${this._modifiers.altKey
-									? html`Jump to Reference...`
-									: html`Jump to HEAD<br />[${getAltKeySymbol()}] Jump to Reference...`}
+									? html`Focus on a Branch...`
+									: html`Focus on Current Branch<br />[${getAltKeySymbol()}] Focus on a Branch...`}
 							</span>
 						</gl-button>
-						<gl-button
-							appearance="toolbar"
-							href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
-								command: 'branch',
-								confirm: true,
-								state: { subcommand: 'create', reference: branch },
-							})}
-						>
-							<code-icon icon="custom-start-work"></code-icon>
-							<span slot="tooltip">
-								Create New Branch from <gl-branch-name .name=${branch?.name}></gl-branch-name>
-							</span>
-						</gl-button>
+						${this.renderCreateMenu()}
 					`,
 				)}
 			</div>
@@ -1171,40 +1224,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-popover>
 					`,
 				)}
-				${this.renderGraphWalkthroughBanner(state)}
-				<gl-button
-					appearance="toolbar"
-					href=${`command:gitlens.showLaunchpad?${encodeURIComponent(
-						JSON.stringify({
-							source: 'graph',
-						} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-					)}`}
-				>
-					<code-icon icon="rocket"></code-icon>
-					<span slot="tooltip">
-						<strong>Launchpad</strong> &mdash; organizes your pull requests into actionable groups to help
-						you focus and keep your team unblocked
-					</span>
-				</gl-button>
-				<gl-button
-					appearance="toolbar"
-					href=${'command:gitlens.showHomeView'}
-					aria-label=${`Open GitLens Home View`}
-				>
-					<code-icon icon=${'gl-gitlens'} aria-hidden="true"></code-icon>
-					<span slot="tooltip">
-						<strong>GitLens Home</strong> — track, manage, and collaborate on your branches and pull
-						requests, all in one intuitive hub
-					</span>
-				</gl-button>
+				${this.renderGraphWalkthroughBanner(state)} ${this.renderStartMenu()}
+				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
 				${when(
-					subscription == null || !isSubscriptionPaid(subscription),
-					() => html`
-						<gl-feature-badge
-							.source=${{ source: 'graph', detail: 'badge' } as const}
-							.subscription=${subscription}
-						></gl-feature-badge>
-					`,
+					this.accountBarInline,
+					// Last in the RIGHT group on purpose: when the row is also width-constrained, the row's
+					// overflow policy (see titlebar__row--wrap in header.css.ts) pushes trailing content past
+					// the right edge — the chips clip away first (whole, reappearing when widened) rather
+					// than displacing the header's primary controls. Accepted degradation; verified live.
+					() => html`<gl-account-chip class="inline-chip" compact></gl-account-chip>
+						<gl-integrations-chip class="inline-chip" compact></gl-integrations-chip>`,
 				)}
 			</div>
 		</div>`;
@@ -1245,6 +1274,79 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		`;
 	}
 
+	private renderCreateMenu() {
+		// `reference: branch` preserves the prior single-button behavior — create from the branch
+		// currently shown in the graph, not a generic picker default.
+		const branch = this.graphState.branch;
+		return html`<gl-popover
+			appearance="menu"
+			placement="bottom-start"
+			trigger="click focus"
+			?arrow=${false}
+			.distance=${0}
+		>
+			<gl-tooltip slot="anchor" placement="bottom">
+				<button type="button" class="action-button" aria-haspopup="true" aria-label="Create">
+					<code-icon icon="add"></code-icon>
+					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
+				</button>
+				<span slot="content">Create</span>
+			</gl-tooltip>
+			<div slot="content">
+				<menu-item
+					href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
+						command: 'branch',
+						confirm: true,
+						state: { subcommand: 'create', reference: branch },
+					})}
+				>
+					<span class="action-menu__item"><code-icon icon="git-branch"></code-icon>Create Branch…</span>
+				</menu-item>
+				<menu-item href=${createCommandLink('gitlens.views.createWorktree')}>
+					<span class="action-menu__item"><code-icon icon="gl-worktree"></code-icon>Create Worktree…</span>
+				</menu-item>
+				<menu-divider></menu-divider>
+				<menu-item
+					href=${createCommandLink('gitlens.stashesApply', { repoPath: this.graphState.selectedRepository })}
+				>
+					<span class="action-menu__item"><code-icon icon="gl-stash-pop"></code-icon>Apply / Pop Stash…</span>
+				</menu-item>
+			</div>
+		</gl-popover>`;
+	}
+
+	private renderStartMenu() {
+		// Source shapes mirror the WIP details actions (detailsActions.ts): startWork takes a bare
+		// `source`, startReview takes a nested `{ source }`.
+		// `bottom-end` (vs Create's `bottom-start`) because Start lives in the right-side group near
+		// the viewport edge — right-aligning the dropdown keeps it on-screen.
+		return html`<gl-popover
+			appearance="menu"
+			placement="bottom-end"
+			trigger="click focus"
+			?arrow=${false}
+			.distance=${0}
+		>
+			<gl-tooltip slot="anchor" placement="bottom">
+				<button type="button" class="action-button" aria-haspopup="true" aria-label="Start New">
+					<code-icon icon="gl-start-new"></code-icon>
+					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
+				</button>
+				<span slot="content">Start New</span>
+			</gl-tooltip>
+			<div slot="content">
+				<menu-item href=${createCommandLink('gitlens.startWork', { source: 'graph-header' })}>
+					<span class="action-menu__item"><code-icon icon="issues"></code-icon>Start Work on an Issue…</span>
+				</menu-item>
+				<menu-item href=${createCommandLink('gitlens.startReview', { source: { source: 'graph-header' } })}>
+					<span class="action-menu__item"
+						><code-icon icon="git-pull-request"></code-icon>Start Review on a PR…</span
+					>
+				</menu-item>
+			</div>
+		</gl-popover>`;
+	}
+
 	private renderHiddenRefs(excludeRefs: GraphExcludeRefs | undefined) {
 		if (!hasTruthyKeys(excludeRefs)) return nothing;
 
@@ -1253,7 +1355,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			placement="bottom-start"
 			trigger="click focus"
 			?arrow=${false}
-			distance=${0}
+			.distance=${0}
 		>
 			<gl-tooltip placement="top" slot="anchor">
 				<button type="button" id="hiddenRefs" class="action-button">
@@ -1360,7 +1462,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							</span>
 						`,
 					)}
-					<span class="button-group">
+					<action-nav class="button-group" role="toolbar" aria-label="Graph layout">
 						${when(
 							config?.sidebar,
 							() => html`
@@ -1397,10 +1499,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							></code-icon>
 						</gl-button>
 						${(() => {
-							const currentLocation = config?.detailsLocation ?? 'right';
+							// Source the side from the resolved effective location (handles `auto`); Alt+Click
+							// pins to the opposite side, so the alt preview/label use that opposite.
+							const currentLocation = this.detailsEffectiveLocation;
 							const altLocation = currentLocation === 'bottom' ? 'right' : 'bottom';
-							const effectiveLocation = this._modifiers.altKey ? altLocation : currentLocation;
-							const isBottom = effectiveLocation === 'bottom';
+							const previewLocation = this._modifiers.altKey ? altLocation : currentLocation;
+							const isBottom = previewLocation === 'bottom';
 							const baseLabel = this.detailsVisible ? 'Hide Details Panel' : 'Show Details Panel';
 							const altLabel = `Show Details Panel on ${altLocation === 'bottom' ? 'Bottom' : 'Right'}`;
 							const tooltip = this._modifiers.altKey
@@ -1423,7 +1527,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								></code-icon>
 							</gl-button>`;
 						})()}
-					</span>
+					</action-nav>
 				</div>
 			</div>
 		`;
@@ -1437,12 +1541,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 }
 
-// TODO: this should be exported by the graph library
 export function compareGraphRefOpts(a: GraphRefOptData, b: GraphRefOptData): number {
 	const comparationResult = a.name.localeCompare(b.name);
 	if (comparationResult === 0) {
 		// If names are equals
-		if (a.type === refTypes.REMOTE) {
+		if (a.type === 'remote') {
 			return -1;
 		}
 	}

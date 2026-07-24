@@ -130,9 +130,14 @@ export class KeyboardNavController implements ReactiveController {
 		}
 
 		if (this.followsFocus) {
-			// In multi mode, don't collapse the selection onto a non-member (e.g. a folder cursor) —
-			// mirrors the host's branch guard. Single mode still highlights folders via setSingle.
-			if (this.multi && !this.options.selection.canSelect(id)) return;
+			// In multi mode the cursor can land on a non-member (a folder). It can't become a selection
+			// member, but selection-follows-focus still means "collapse to the cursor" — so clear the set
+			// rather than leaving the prior file selected behind the folder cursor (mirrors a plain click
+			// on a folder, which clears). Single mode highlights folders directly via setSingle.
+			if (this.multi && !this.options.selection.canSelect(id)) {
+				this.options.selection.clear();
+				return;
+			}
 
 			// Single mode (and multi plain-arrow, VS Code-style) collapses selection to the cursor.
 			this.options.selection.setSingle(id);

@@ -18,23 +18,30 @@ export const linkBase = css`
 export const actionButton = css`
 	.action-button {
 		position: relative;
+		box-sizing: border-box;
 		appearance: none;
 		font-family: inherit;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		line-height: 2.2rem;
 		// background-color: var(--color-graph-actionbar-background);
 		background-color: transparent;
 		border: none;
 		color: var(--vscode-foreground);
+		text-decoration: none;
 		padding: 0 0.75rem;
 		cursor: pointer;
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 		height: auto;
+
+		/* Match the taller gl-button/ref-button controls in the header (~2.6rem). The bare line-height
+		   only yields ~2.2rem, leaving these buttons visibly shorter than their neighbors. */
+		min-height: 2.6rem;
 
 		display: grid;
 		grid-auto-flow: column;
 		grid-gap: 0.5rem;
 		gap: 0.5rem;
+		align-items: center;
 		max-width: fit-content;
 	}
 
@@ -51,7 +58,7 @@ export const actionButton = css`
 	}
 
 	.action-button[aria-checked] {
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 	}
 
 	.action-button[aria-checked='true'] {
@@ -80,7 +87,7 @@ export const actionButton = css`
 
 	.action-button__more,
 	.action-button__more.codicon[class*='codicon-'] {
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		margin-right: -0.25rem;
 	}
 
