@@ -118,8 +118,10 @@ async function exitResolveMode(webview: FrameLocator): Promise<void> {
 			.first()
 			.isVisible()
 			.catch(() => false))
-	)
+	) {
 		return;
+	}
+
 	// The resolve-mode header re-renders while the conflicted WIP is being watched, detaching the close
 	// chip between actionability and click (a single click races that re-render). Retry a forced click
 	// until the resolve panel is actually hidden rather than relying on one stable click landing.
