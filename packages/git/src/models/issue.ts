@@ -14,6 +14,7 @@ export interface IssueShape extends IssueOrPullRequest {
 	labels?: IssueLabel[];
 	body?: string;
 	project?: IssueProject;
+	issueType?: string;
 }
 
 @loggable(i => i.id)
@@ -40,6 +41,7 @@ export class Issue implements IssueShape {
 		public readonly body?: string,
 		public readonly project?: IssueProject,
 		public readonly number?: string,
+		public readonly issueType?: string,
 	) {}
 
 	static is(issue: unknown): issue is Issue {
