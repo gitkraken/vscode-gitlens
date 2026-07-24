@@ -3,7 +3,7 @@ import type { LineRange } from '@gitlens/git/models/lineRange.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
-import { isSha } from '@gitlens/git/utils/revision.utils.js';
+import { isShaWithOptionalRevisionSuffix, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { pad, splitSingle } from '@gitlens/utils/string.js';
 import { areUrisEqual } from '@gitlens/utils/uri.js';
@@ -13,6 +13,7 @@ import { GitUri } from '../git/gitUri.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { showReferencePicker } from '../quickpicks/referencePicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
+import { configuration } from '../system/-webview/configuration.js';
 import { StatusFileNode } from '../views/nodes/statusFileNode.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
@@ -213,7 +214,14 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					branchOrTag: args.branchOrTag ?? 'HEAD',
 					fileName: gitUri.relativePath,
 					range: range,
-					sha: sha ?? undefined,
+					sha:
+						sha != null &&
+						args.clipboard &&
+						configuration.get('advanced.abbreviateShaOnCopy') &&
+						isShaWithOptionalRevisionSuffix(sha) &&
+						!isUncommitted(sha)
+							? shortenRevision(sha)
+							: (sha ?? undefined),
 				},
 				repoPath: gitUri.repoPath,
 				remotes: remotes,
