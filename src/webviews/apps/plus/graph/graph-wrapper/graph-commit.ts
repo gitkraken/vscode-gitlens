@@ -172,6 +172,10 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			current: h.isCurrentHead,
 			upstreamName: h.upstream?.name,
 			upstreamId: h.upstream?.id,
+			// DELIBERATELY the deprecated `worktreeId`, NOT the canonical `h.worktree?.id`: the host leaves
+			// `worktreeId` undefined for the MAIN worktree while `worktree` is always set, and the ordering
+			// tier this feeds means "checked out in ANOTHER worktree" (see `sortRowRefs`). Switching to the
+			// canonical field would silently promote the main checkout into that tier.
 			worktreeId: h.worktreeId,
 			isDefault: h.isDefault,
 			context: pillContextFor('head', h.name),
@@ -305,11 +309,66 @@ export function isRefHidden(
 }
 
 /**
- * Picks the ghost-ref pill's primary ref from a lane-tip commit's refs: prefers a local head, then a
- * remote, then a tag (first match per kind — commitRefs already lists heads/remotes/tags in that
- * order). Hidden refs (Hide Branch / Hide Remotes·Tags·Stashes) are skipped so the ghost never
- * surfaces a ref the user explicitly hid. Returns `undefined` when the tip has no visible ref at all —
- * the caller never falls back to a sha.
+ * True when `remote` is the upstream that `head` tracks. Prefers the exact ref-id match (a local and
+ * its remote share a `name`, so the id disambiguates); falls back to the full `owner/name` for legacy
+ * rows that don't carry ids. Used both for the primary-ref tiering below and to combine an in-sync
+ * pair into one pill.
+ */
+export function isUpstreamRemoteOf(remote: GraphCommitRef, head: GraphCommitRef | undefined): boolean {
+	if (head == null || remote.kind !== 'remote' || head.kind !== 'head') return false;
+	if (head.upstreamId != null && remote.id != null) return head.upstreamId === remote.id;
+	if (head.upstreamName == null) return false;
+
+	const full = remote.owner != null ? `${remote.owner}/${remote.name}` : remote.name;
+	return head.upstreamName === full || head.upstreamName === remote.name;
+}
+
+/**
+ * Order a row's refs for display, primary first: current ref → current upstream → worktree ref →
+ * worktree upstream → default branch → local → remote → tag. Ties break on the BARE name then the
+ * remote owner — never the rendered label, so the order can't shift when
+ * `gitlens.graph.showRemoteNames` toggles and same-named remotes from different owners stay
+ * adjacent. The upstream tiers match a remote ref to the current/worktree head's upstream;
+ * they (and the worktree/default tiers) activate as the host carries `upstream` / `worktreeId` / a
+ * default flag (additive, legacy-safe) — until then those refs simply fall through to local/remote/tag,
+ * which is what virtual/GitHub repos get since their provider ships none of those fields.
+ *
+ * Shared by the ref pill (`refAdornmentProvider`) and the lane-tip ghost ref so the two can't name
+ * different branches for the same row.
+ */
+export function sortRowRefs(refs: readonly GraphCommitRef[]): GraphCommitRef[] {
+	if (refs.length < 2) return refs.slice();
+
+	const currentHead = refs.find(r => r.kind === 'head' && r.current);
+	const worktreeHeads = refs.filter(r => r.kind === 'head' && r.worktreeId != null);
+	const tier = (r: GraphCommitRef): number => {
+		if (r.kind === 'head') {
+			if (r.current) return 0; // the current checkout
+			if (r.worktreeId != null) return 2; // checked out in another worktree
+			if (r.isDefault) return 4; // the repo's default branch
+			return 5; // local branch
+		}
+		if (r.kind === 'remote') {
+			if (isUpstreamRemoteOf(r, currentHead)) return 1; // upstream of the current branch
+			if (worktreeHeads.some(h => isUpstreamRemoteOf(r, h))) return 3; // upstream of a worktree branch
+			if (r.isDefault) return 4; // the repo's default branch (remote-only — no local checkout)
+			return 6; // remote branch
+		}
+
+		return 7; // tag
+	};
+
+	return refs.toSorted(
+		(a, b) => tier(a) - tier(b) || a.name.localeCompare(b.name) || (a.owner ?? '').localeCompare(b.owner ?? ''),
+	);
+}
+
+/**
+ * Picks the ghost-ref pill's primary ref from a lane-tip commit's refs — the SAME `sortRowRefs` ranking
+ * the row's ref pill uses, so the ghost label and the pill can never name different branches. Hidden
+ * refs (Hide Branch / Hide Remotes·Tags·Stashes) are skipped so the ghost never surfaces a ref the user
+ * explicitly hid. Returns `undefined` when the tip has no visible ref at all — the caller never falls
+ * back to a sha.
  */
 export function pickGhostRef(
 	refs: readonly GraphCommitRef[] | undefined,
@@ -319,21 +378,10 @@ export function pickGhostRef(
 ): GraphCommitRef | undefined {
 	if (refs == null || refs.length === 0) return undefined;
 
-	let head: GraphCommitRef | undefined;
-	let remote: GraphCommitRef | undefined;
-	let tag: GraphCommitRef | undefined;
-	for (const r of refs) {
-		if (isRefHidden(r, excludeTypes, excludeRefs, downstreams)) continue;
+	const visible = refs.filter(r => !isRefHidden(r, excludeTypes, excludeRefs, downstreams));
+	if (visible.length === 0) return undefined;
 
-		if (r.kind === 'head') {
-			head ??= r;
-		} else if (r.kind === 'remote') {
-			remote ??= r;
-		} else {
-			tag ??= r;
-		}
-	}
-	return head ?? remote ?? tag;
+	return sortRowRefs(visible)[0];
 }
 
 /**

@@ -16,11 +16,13 @@ import type {
 import type { StyleInfo } from '../../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
 import type { GraphCommitRef, GraphCommitView } from '../graph-commit.js';
-import { isRefHidden } from '../graph-commit.js';
+import { isRefHidden, isUpstreamRemoteOf, sortRowRefs } from '../graph-commit.js';
 import '../../../../shared/components/code-icon.js';
 import '../../../../shared/components/overlays/popover.js';
 import '../../../../shared/components/pills/tracking.js';
 
+/** The pill's view model. Field names mirror `GraphCommitRef` so the shared ref helpers
+ *  (`sortRowRefs`, `isUpstreamRemoteOf`) accept either shape without an adapter. */
 export interface ParsedRef {
 	kind: 'head' | 'remote' | 'tag';
 	name: string;
@@ -73,11 +75,16 @@ export interface RefPillHooks {
 	getShowRemoteNames: () => boolean;
 }
 
-// Map the structured commit refs to the pill's view model. A plain projection — NO lossy parsing of
-// git-log token strings (the old `parseRefs` heuristic is gone); the metadata arrives intact from
-// `toGraphCommit`, so the primary-ref ordering can be exact.
+// Map the structured commit refs to the pill's view model, ALREADY in display order. A plain
+// projection — NO lossy parsing of git-log token strings (the old `parseRefs` heuristic is gone); the
+// metadata arrives intact from `toGraphCommit`, so the primary-ref ordering can be exact.
+//
+// Ordering happens HERE rather than at render because `sortRowRefs` depends only on the ref data —
+// so it rides the per-commit projection cache (once per commit, not once per render), and every
+// consumer of the projection (pills, popover, the a11y description) sees the same order for free.
+// The one order input that ISN'T ref data — the click-pinned ref — stays at render (`promotePinned`).
 function toParsedRefs(refs: readonly GraphCommitRef[]): ParsedRef[] {
-	return refs.map(r => ({
+	return sortRowRefs(refs).map(r => ({
 		kind: r.kind,
 		name: r.name,
 		id: r.id,
@@ -174,55 +181,13 @@ export function createRefAdornmentProvider(
 		describeForA11y: function (_row: ProcessedGraphRow, parsed?: ParsedRef[]): string | null {
 			if (!parsed || parsed.length === 0) return null;
 
-			return parsed.map(r => describeRef(r, hooks)).join(', ');
+			// Announce in the SAME order the pills render: `parsed` is already display-sorted, and the pin
+			// is re-applied here so a screen reader hears the pinned ref first, exactly as it's drawn.
+			return promotePinned(parsed, getPinnedRefKey?.())
+				.map(r => describeRef(r, hooks))
+				.join(', ');
 		},
 	};
-}
-
-/**
- * Pick the row's primary ref (shown on the pill; the rest go in the popover). Priority, primary
- * first: current ref → current upstream → worktree ref → worktree upstream → default branch → local
- * → remote → tag. Ties break by name for a stable pick. The upstream tiers match a remote ref to the
- * current/worktree head's upstream; they (and the worktree/default tiers) activate as the host
- * carries `Head.upstream` / `worktreeId` / a default flag (additive, legacy-safe) — until then those
- * refs simply fall through to local/remote/tag.
- */
-// True when `remote` is the upstream that `head` tracks. Prefers the exact ref-id match (a local and
-// its remote share a `name`, so the id disambiguates); falls back to the full `owner/name` for legacy
-// rows that don't carry ids. Used both for primary-ref tiering and to combine an in-sync pair's pills.
-function isUpstreamRemoteOf(remote: ParsedRef, head: ParsedRef | undefined): boolean {
-	if (head == null || remote.kind !== 'remote' || head.kind !== 'head') return false;
-	if (head.upstreamId != null && remote.id != null) return head.upstreamId === remote.id;
-	if (head.upstreamName == null) return false;
-
-	const full = remote.owner != null ? `${remote.owner}/${remote.name}` : remote.name;
-	return head.upstreamName === full || head.upstreamName === remote.name;
-}
-
-function pickPrimaryFirst(parsed: ParsedRef[], showRemoteNames: boolean): ParsedRef[] {
-	const currentHead = parsed.find(r => r.kind === 'head' && r.current);
-	const worktreeHeads = parsed.filter(r => r.kind === 'head' && r.worktreeId != null);
-	const isUpstreamOf = isUpstreamRemoteOf;
-	const tier = (r: ParsedRef): number => {
-		if (r.kind === 'head') {
-			if (r.current) return 0; // the current checkout
-			if (r.worktreeId != null) return 2; // checked out in another worktree
-			if (r.isDefault) return 4; // the repo's default branch
-			return 5; // local branch
-		}
-		if (r.kind === 'remote') {
-			if (isUpstreamOf(r, currentHead)) return 1; // upstream of the current branch
-			if (worktreeHeads.some(h => isUpstreamOf(r, h))) return 3; // upstream of a worktree branch
-			if (r.isDefault) return 4; // the repo's default branch (remote-only — no local checkout)
-			return 6; // remote branch
-		}
-
-		return 7; // tag
-	};
-
-	return parsed.toSorted(
-		(a, b) => tier(a) - tier(b) || chipLabel(a, showRemoteNames).localeCompare(chipLabel(b, showRemoteNames)),
-	);
 }
 
 /**
@@ -248,9 +213,10 @@ function refStyle(color: string, isHead: boolean, _variant: 'pill' | 'row'): Sty
 /**
  * Move the click-pinned ref to the front so it becomes the inline pill (the previous primary drops
  * into the +N popover). No-op when nothing is pinned, the pinned ref isn't on this row, or it's
- * already primary. Matches by name (the pin model is name-keyed).
+ * already primary. Matches on `refPillKey` (kind + owner + name), so pinning `origin/main` doesn't also
+ * match the local `main` it tracks.
  */
-function promotePinned(sorted: ParsedRef[], pinnedRefKey?: string): ParsedRef[] {
+export function promotePinned(sorted: ParsedRef[], pinnedRefKey?: string): ParsedRef[] {
 	if (pinnedRefKey == null || sorted.length < 2) return sorted;
 
 	const idx = sorted.findIndex(r => refPillKey(r) === pinnedRefKey);
@@ -389,7 +355,9 @@ function renderRefPill(
 	hooks?: RefPillHooks,
 ): TemplateResult {
 	const showRemoteNames = hooks?.getShowRemoteNames() === true;
-	const sorted = promotePinned(pickPrimaryFirst(parsed, showRemoteNames), pinnedRefKey);
+	// `parsed` already arrives in `sortRowRefs` display order (see `toParsedRefs`); only the pin —
+	// runtime state, not ref data — is applied here.
+	const sorted = promotePinned(parsed, pinnedRefKey);
 	const primary = sorted[0];
 	const isHead = primary.current === true;
 	const primaryContext = primary.context;
