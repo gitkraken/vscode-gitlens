@@ -80,6 +80,14 @@ suite('graph ref ordering — sortRowRefs tiers', () => {
 });
 
 suite('graph ref ordering — tie-breaks', () => {
+	test('tags collate numerically, so v1.9.0 precedes v1.10.0', () => {
+		const refs = [tag('v10.0.0'), tag('v1.10.0'), tag('v2.0.0'), tag('v1.9.0')];
+		assert.deepStrictEqual(
+			sortRowRefs(refs).map(r => r.name),
+			['v1.9.0', 'v1.10.0', 'v2.0.0', 'v10.0.0'],
+		);
+	});
+
 	test('same-named remotes from different owners tie-break on owner', () => {
 		const refs = [remote('upstream', 'foo'), remote('origin', 'foo')];
 		assert.deepStrictEqual(keys(sortRowRefs(refs)), ['remote:origin/foo', 'remote:upstream/foo']);

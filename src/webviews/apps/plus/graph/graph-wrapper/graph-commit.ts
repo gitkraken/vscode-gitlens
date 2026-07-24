@@ -325,10 +325,10 @@ export function isUpstreamRemoteOf(remote: GraphCommitRef, head: GraphCommitRef 
 
 /**
  * Order a row's refs for display, primary first: current ref → current upstream → worktree ref →
- * worktree upstream → default branch → local → remote → tag. Ties break on the BARE name then the
- * remote owner — never the rendered label, so the order can't shift when
- * `gitlens.graph.showRemoteNames` toggles and same-named remotes from different owners stay
- * adjacent. The upstream tiers match a remote ref to the current/worktree head's upstream;
+ * worktree upstream → default branch → local → remote → tag. Ties break on the BARE name (numeric
+ * collation, so `v1.9.0` precedes `v1.10.0`) then the remote owner — never the rendered label, so the
+ * order can't shift when `gitlens.graph.showRemoteNames` toggles and same-named remotes from different
+ * owners stay adjacent. The upstream tiers match a remote ref to the current/worktree head's upstream;
  * they (and the worktree/default tiers) activate as the host carries `upstream` / `worktreeId` / a
  * default flag (additive, legacy-safe) — until then those refs simply fall through to local/remote/tag,
  * which is what virtual/GitHub repos get since their provider ships none of those fields.
@@ -359,7 +359,10 @@ export function sortRowRefs(refs: readonly GraphCommitRef[]): GraphCommitRef[] {
 	};
 
 	return refs.toSorted(
-		(a, b) => tier(a) - tier(b) || a.name.localeCompare(b.name) || (a.owner ?? '').localeCompare(b.owner ?? ''),
+		(a, b) =>
+			tier(a) - tier(b) ||
+			a.name.localeCompare(b.name, undefined, { numeric: true }) ||
+			(a.owner ?? '').localeCompare(b.owner ?? ''),
 	);
 }
 
