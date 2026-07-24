@@ -190,10 +190,14 @@ export type ProviderApiCollectionResult<T> = {
  * `name` is the identifier to pass back into `getRepositoriesForOrg` (GitHub login, Bitbucket
  * workspace slug, Azure DevOps org name, GitLab full namespace path) — not a display name; hosts
  * where those differ (Bitbucket, GitLab) must map to the identifier, not the human-readable label.
+ * `providerId` attributes fan-out ProviderBackend reads to their source provider, and `org` carries
+ * the parent org/resource for project-tier entries (Azure org, Jira site, etc.) when applicable.
  */
 export interface ProviderOrganization {
 	id: string;
+	providerId: IntegrationIds;
 	name: string;
+	org?: string;
 	url: string;
 }
 
