@@ -192,6 +192,9 @@ export type ProviderApiCollectionResult<T> = {
  * where those differ (Bitbucket, GitLab) must map to the identifier, not the human-readable label.
  * `providerId` attributes fan-out ProviderBackend reads to their source provider, and `org` carries
  * the parent org/resource for project-tier entries (Azure org, Jira site, etc.) when applicable.
+ * NOTE: `org` is a display label (the parent resource's name, falling back to id/key), not a stable
+ * key — two same-named resources are ambiguous under it. Consumers scoping follow-up reads should key
+ * on the parent item from `listOrgs` (its `id`), not on this label.
  */
 export interface ProviderOrganization {
 	id: string;
