@@ -18,11 +18,11 @@ export interface EditorConfig {
 	runInCI?: boolean;
 	/**
 	 * Playwright worker count for this editor's CI job (defaults to the config's CI value when omitted).
-	 * Heavier forks (Positron) thrash a limited CI runner when several Electron instances launch at once —
-	 * webviews/views then exceed their load timeouts (graph rows, file-tree paint, activity-bar view
-	 * registration). Even at 2 workers a CI run still saw broad first-attempt flakiness plus a couple of
-	 * specs exhausting all retries, so Positron runs single-worker: fewer workers trade wall-clock for the
-	 * resources each instance needs to render in time.
+	 * Heavier forks (Positron) thrash a limited CI runner when the default worker count launches that many
+	 * Electron instances at once — webviews/views then exceed their load timeouts (graph rows, file-tree
+	 * paint), so Positron runs with a reduced count to trade wall-clock for the resources each instance
+	 * needs. (Single-worker was tried and did not clear the residual flakiness — a live check confirmed the
+	 * features render fine on Positron — so it wasn't worth the extra wall-clock; 2 is the balance.)
 	 */
 	ciWorkers?: number;
 }
@@ -37,7 +37,7 @@ export const editors: EditorConfig[] = [
 	// runnable locally on an authenticated machine. See baseTest.ts `assertWorkbenchReachable` and docs/testing.md.
 	{ id: 'kiro', name: 'Kiro', experimental: true, envVar: 'KIRO_E2E_PATH', runInCI: false },
 	{ id: 'cursor', name: 'Cursor', experimental: true, envVar: 'CURSOR_E2E_PATH', runInCI: false },
-	{ id: 'positron', name: 'Positron', experimental: true, envVar: 'POSITRON_E2E_PATH', ciWorkers: 1 },
+	{ id: 'positron', name: 'Positron', experimental: true, envVar: 'POSITRON_E2E_PATH', ciWorkers: 2 },
 ];
 
 /** Editors included in the CI matrix (see {@link EditorConfig.runInCI}). */
