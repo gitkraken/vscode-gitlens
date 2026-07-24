@@ -1,5 +1,11 @@
-import ProviderApis from '@gitkraken/provider-apis';
-import type { CollectionMetadata, GitPullRequestState, TrelloBoard, TrelloList } from '@gitkraken/provider-apis';
+import ProviderApis, { GraphQLErrors } from '@gitkraken/provider-apis';
+import type {
+	CollectionMetadata,
+	GitPullRequestState,
+	GraphQLError,
+	TrelloBoard,
+	TrelloList,
+} from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
@@ -18,6 +24,7 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 	RequestRateLimitError,
+	toError,
 } from '../errors.js';
 import type {
 	GetIssueFn,
@@ -68,6 +75,42 @@ import { collectProviderPagedResult } from './utils/providerPaging.js';
 type ProviderApisFactory = typeof ProviderApis;
 const createProviderApis: ProviderApisFactory =
 	(ProviderApis as ProviderApisFactory & { default?: ProviderApisFactory }).default ?? ProviderApis;
+
+// Both GitHub and GitLab `getRepo` throw a missing-repo error whose message is exactly
+// `Repository <x> not found`. Anchoring to that shape (rather than a loose `not found` substring) keeps
+// the message fallbacks from misclassifying unrelated GraphQL/transport failures as a confident negative.
+const repoNotFoundMessage = /^Repository .+ not found$/i;
+
+// `handleProviderError` classifies not-found by HTTP status (404/410/422), which only works for the
+// REST `getRepo` clients (Bitbucket, Bitbucket Server, Azure DevOps). GitHub and GitLab `getRepo` are
+// GraphQL: a missing repo comes back as HTTP 200 with a null node, and the SDK throws an unclassified
+// error with no `response.status`, so it would otherwise fall through to the generic error bucket. This
+// detects the SDK's not-found shapes so `getRepo` can rethrow them as `RequestNotFoundError`, keeping the
+// facade's by-type mapping intact.
+function isGraphQLRepoNotFoundError(ex: unknown): boolean {
+	// GitHub throws `GraphQLErrors`. The SDK reports the null repository node with the same
+	// `Repository <x> not found` message regardless of the underlying cause, so a `FORBIDDEN` or
+	// `RATE_LIMITED` GraphQL error would also surface with that message. Trust the structured error type
+	// when entries are present (only `NOT_FOUND` is a real not-found), and fall back to the repo-specific
+	// message only when there are no entries to disambiguate (a bare null node).
+	if (ex instanceof GraphQLErrors) {
+		const errors = ex.graphQLErrors;
+		// Scope NOT_FOUND to the `repository` field: `getRepo`'s query only selects that node today, but
+		// were it to grow other selections that can emit NOT_FOUND, an unscoped check would misclassify
+		// them. Tolerate a missing `path` so we degrade to the current behavior if the SDK stops populating
+		// it, rather than silently regressing to `error`.
+		if (errors?.length) {
+			return errors.some(
+				(e: GraphQLError) => e.type === 'NOT_FOUND' && (e.path == null || e.path.includes('repository')),
+			);
+		}
+		return repoNotFoundMessage.test(ex.message);
+	}
+
+	// GitLab's `getRepo` throws a plain Error; match its not-found message specifically so unrelated
+	// bare Errors (network/parse failures) still reach the generic error bucket.
+	return ex instanceof Error && repoNotFoundMessage.test(ex.message);
+}
 
 export class ProvidersApi {
 	private readonly providers: Providers;
@@ -571,6 +614,7 @@ export class ProvidersApi {
 				);
 				return result?.data;
 			} catch (e) {
+				if (isGraphQLRepoNotFoundError(e)) throw new RequestNotFoundError(toError(e));
 				return this.handleProviderError<ProviderRepository>(tokenWithInfo, e);
 			}
 		} else {
@@ -584,6 +628,7 @@ export class ProvidersApi {
 				);
 				return result?.data;
 			} catch (e) {
+				if (isGraphQLRepoNotFoundError(e)) throw new RequestNotFoundError(toError(e));
 				return this.handleProviderError<ProviderRepository>(tokenWithInfo, e);
 			}
 		}
