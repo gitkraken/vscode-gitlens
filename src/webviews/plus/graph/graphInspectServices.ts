@@ -17,6 +17,7 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri } from '../../../avatars.js';
+import type { ContinueRebaseWithAiCommandArgs } from '../../../commands/autoRebase.js';
 import { openExplainDocument } from '../../../commands/explainBase.js';
 import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
@@ -70,12 +71,15 @@ import {
 	GraphComposeVirtualNamespace,
 } from './graphComposeVirtualContentProvider.js';
 import {
+	AutoRebaseVirtualNamespace,
 	GraphResolveVirtualContentProvider,
 	GraphResolveVirtualNamespace,
 	ResolveVirtualSide,
 } from './graphResolveVirtualContentProvider.js';
 import { getScopeFiles } from './graphScopeService.js';
 import type {
+	AutoRebaseSummaryResult,
+	AutoRebaseSummaryStep,
 	BranchCommitEntry,
 	BranchCommitsOptions,
 	BranchCommitsResult,
@@ -90,9 +94,11 @@ import type {
 	ResolvedFileSummary,
 	ResolveFileError,
 	ResolveProgressUpdate,
+	ResolveResult,
 	ResolveSkippedFile,
 	ScopeSelection,
 	TakeConflictSideResult,
+	UndoAutoRebaseResult,
 	VirtualRefShape,
 } from './graphService.js';
 
@@ -149,6 +155,16 @@ export class GraphInspectServices {
 		sessionId?: string;
 	};
 	private _conflictToolsForGraph?: ConflictToolsIntegration;
+	/** Virtual FS sessions backing the auto-rebase summary sheet's per-step before/after diffs.
+	 *  A second provider instance (namespace `auto-rebase`) so summary sessions never collide with
+	 *  live resolve sessions. Lazy-initialized on first summary fetch. */
+	private _autoRebaseVirtual?: {
+		readonly provider: GraphResolveVirtualContentProvider;
+		readonly registration: Disposable;
+		/** Session id of the run whose step sessions are currently registered — when a different run's
+		 *  summary is fetched, the prior run's sessions are released rather than accumulated. */
+		runId?: string;
+	};
 	/** Cached full AI resolutions per repo (keyed by repoPath) — holds the resolved `content` for a
 	 *  later `applyResolutions`, plus the virtual session id so it can be ended on discard/apply. */
 	private readonly _activeResolveSessions = new Map<
@@ -214,6 +230,11 @@ export class GraphInspectServices {
 			this._resolveVirtual.provider.dispose();
 			this._resolveVirtual.registration.dispose();
 			this._resolveVirtual = undefined;
+		}
+		if (this._autoRebaseVirtual != null) {
+			this._autoRebaseVirtual.provider.dispose();
+			this._autoRebaseVirtual.registration.dispose();
+			this._autoRebaseVirtual = undefined;
 		}
 	}
 
@@ -1443,42 +1464,11 @@ export class GraphInspectServices {
 						);
 						const resolutions: ConflictToolsResolution[] = result.resolutions;
 
-						// Enrich skipped/errored files with conflict-type info so the panel can label them and
-						// offer the right manual take-side fallback. One cheap `ls-files --unmerged` (+ diff for
-						// rename detection); only matters when there are files to enrich. Best-effort: an
-						// enrichment failure must not throw away the AI resolutions we already computed — fall
-						// back to unlabeled rows.
-						const needInfos = result.errors.length > 0 || (result.skipped?.length ?? 0) > 0;
-						const infos = needInfos ? await getConflictFileInfos(svc).catch(() => undefined) : undefined;
-						const fallbackInfo = (filePath: string): ConflictFallbackInfo => {
-							const info = infos?.get(filePath);
-							if (info == null) return {};
-							return {
-								conflictStatus: info.conflictStatus,
-								kind: info.kind,
-								canStageCurrent: info.canStageCurrent,
-								canStageIncoming: info.canStageIncoming,
-								renameOf: info.renameOf,
-							};
-						};
-
-						const errors: ResolveFileError[] = result.errors.map(e => ({
-							filePath: e.filePath,
-							message: e.error.message,
-							...fallbackInfo(e.filePath),
-						}));
-						const skipped: ResolveSkippedFile[] = (result.skipped ?? []).map(s => {
-							const info = fallbackInfo(s.filePath);
-							// A skipped file that would otherwise classify as plain text is binary/unsupported by
-							// inference (it was skipped precisely because no markers were parseable).
-							const kind = info.kind == null || info.kind === 'text' ? 'binary' : info.kind;
-							return {
-								filePath: s.filePath,
-								message: getConflictKindLabel(kind, info.renameOf).description,
-								...info,
-								kind: kind,
-							};
-						});
+						const { errors, skipped } = await this.enrichUnresolvedFiles(
+							repoPath,
+							result.errors.map(e => ({ filePath: e.filePath, message: e.error.message })),
+							result.skipped ?? [],
+						);
 
 						if (resolveSignal?.aborted) return { cancelled: true };
 
@@ -1486,48 +1476,14 @@ export class GraphInspectServices {
 						// is applied, so "View diff" can show resolved-vs-conflicted. `applyResolutions` runs
 						// later (and may never run if the user discards), so capture now while the markers are
 						// still on disk.
-						const previewable = resolutions.filter(r => r.strategy !== 'skipped');
 						const conflictedContents = await integration.readWorkingFiles(
 							svc,
-							previewable.map(r => r.filePath),
+							resolutions.filter(r => r.strategy !== 'skipped').map(r => r.filePath),
 						);
-
-						const { provider } = this.getOrCreateResolveVirtual();
-						const sessionId = provider.startSession(
-							{
-								repoPath: repoPath,
-								files: previewable
-									.filter(r => conflictedContents.has(r.filePath))
-									.map(r => ({
-										path: r.filePath,
-										conflictedContent: conflictedContents.get(r.filePath)!,
-										resolvedContent: r.content,
-									})),
-							},
-							this._resolveVirtual!.sessionId,
-						);
-						this._resolveVirtual!.sessionId = sessionId;
-
-						// Cache the full resolutions (with `content`) for a later `applyResolutions`.
-						this._activeResolveSessions.set(repoPath, { resolutions: resolutions, sessionId: sessionId });
 
 						logResolutionUsage(resolutions, 'graph.resolveConflicts');
 
-						const summaries: ResolvedFileSummary[] = resolutions.map(r => ({
-							filePath: r.filePath,
-							strategy: r.strategy,
-							reasoning: r.description,
-							confidence: r.confidence,
-							note: r.note,
-							virtualRef:
-								r.strategy !== 'skipped' && conflictedContents.has(r.filePath)
-									? {
-											namespace: GraphResolveVirtualNamespace,
-											sessionId: sessionId,
-											commitId: ResolveVirtualSide.resolved,
-										}
-									: undefined,
-						}));
+						const summaries = this.seedResolveSession(repoPath, resolutions, conflictedContents);
 
 						return {
 							result: {
@@ -1777,6 +1733,189 @@ export class GraphInspectServices {
 					}
 				},
 				onResolveProgress: this._resolveProgressEvent.subscribe(buffer, tracker),
+				getSeededResolveSession: async (repoPath: string): Promise<ResolveResult | undefined> => {
+					// The escalated session lingers if its rebase is ended outside the service (external
+					// abort, or a manual continue/finish) — nothing transitions it off `escalated`. Only
+					// adopt the one-shot handoff if that same rebase is still paused here (orig-head
+					// matches), so a stale handoff can't seed — and clobber the AI conversation of — an
+					// unrelated later resolve in this repo.
+					const session = this.container.autoRebase.getSession(repoPath);
+					if (session?.phase !== 'escalated') return undefined;
+
+					const svc = this.container.git.getRepositoryService(repoPath);
+					const status = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
+					if (status?.type !== 'rebase' || !status.isPaused || status.source.ref !== session.preRun.headSha) {
+						return undefined;
+					}
+
+					const handoff = this.container.autoRebase.takeEscalationHandoff(repoPath);
+					if (handoff == null) return undefined;
+
+					// Adopt the run's AI conversation so per-file retries and Refine stay in the same
+					// billed session; flush any unrelated conversation being replaced.
+					const existingConversation = this._resolveConversationIds.get(repoPath);
+					if (existingConversation != null && existingConversation !== handoff.sessionId) {
+						void this.container.ai.flushBYOKUsage(existingConversation);
+					}
+					this._resolveConversationIds.set(repoPath, handoff.sessionId);
+
+					const summaries = this.seedResolveSession(
+						repoPath,
+						handoff.resolutions,
+						handoff.conflictedContents,
+					);
+					const { errors, skipped } = await this.enrichUnresolvedFiles(
+						repoPath,
+						handoff.errors,
+						handoff.skipped,
+					);
+
+					// Mark the result as mid-run so the panel offers "Apply & Resume with AI". The
+					// session stays `escalated` after the one-shot handoff, so its escalation info is
+					// still readable here.
+					const escalation = this.container.autoRebase.getSession(repoPath)?.escalation;
+
+					return {
+						result: {
+							resolutions: summaries,
+							errors: errors.length > 0 ? errors : undefined,
+							skipped: skipped.length > 0 ? skipped : undefined,
+							autoRebase: {
+								sessionId: handoff.sessionId,
+								stepNumber: escalation?.stepNumber,
+								totalSteps: escalation?.totalSteps,
+							},
+						},
+					};
+				},
+				getAutoRebaseSummary: async (repoPath: string): Promise<AutoRebaseSummaryResult | undefined> => {
+					const session = this.container.autoRebase.getSession(repoPath);
+					if (session == null) return undefined;
+
+					const terminalOutcomes = {
+						completed: 'completed',
+						escalated: 'escalated',
+						aborted: 'aborted',
+						failed: 'failed',
+						undone: 'undone',
+					} as const;
+					const outcome = terminalOutcomes[session.phase as keyof typeof terminalOutcomes];
+					if (outcome == null) {
+						return { error: { message: 'The automatic rebase is still running.' } };
+					}
+
+					const validation = await this.container.autoRebase.canUndo(repoPath);
+					// A dirty tree that's only the autostash (reapplied/left-in-stash) is still undoable —
+					// `undo()` stashes before resetting. Only genuine user changes truly block it.
+					const undoable =
+						outcome === 'completed' &&
+						(validation.ok || (validation.reason === 'dirty' && validation.recoverable === true));
+					// Whether that recoverable-dirty path applies, so the confirm can warn it'll stash first.
+					const undoWillStash =
+						!validation.ok && validation.reason === 'dirty' && validation.recoverable === true;
+
+					// (Re-)register the per-step virtual diff sessions — the webview may not have
+					// existed when the run finished, so they're built lazily on each summary fetch
+					// (deterministic ids make a re-fetch replace rather than accumulate).
+					const { provider } = this.getOrCreateAutoRebaseVirtual(session.id);
+					const steps: AutoRebaseSummaryStep[] = session.steps.map(step => {
+						const virtualSessionId = `${session.id}:step-${step.stepNumber}`;
+						const previewable = step.files.filter(
+							f => f.conflictedContent != null && f.resolvedContent != null,
+						);
+						if (previewable.length > 0) {
+							provider.startSession({
+								repoPath: repoPath,
+								sessionId: virtualSessionId,
+								files: previewable.map(f => ({
+									path: f.path,
+									conflictedContent: f.conflictedContent!,
+									resolvedContent: f.resolvedContent!,
+								})),
+							});
+						}
+						return {
+							step: step.stepNumber,
+							totalSteps: step.totalSteps,
+							commit: { sha: step.commit.sha, message: step.commit.message },
+							kind: step.kind,
+							files: step.files.map(f => ({
+								filePath: f.path,
+								strategy: f.strategy,
+								reasoning: f.description,
+								confidence: f.confidence,
+								note: f.note,
+								virtualRef:
+									f.conflictedContent != null && f.resolvedContent != null
+										? {
+												namespace: AutoRebaseVirtualNamespace,
+												sessionId: virtualSessionId,
+												commitId: ResolveVirtualSide.resolved,
+											}
+										: undefined,
+							})),
+						};
+					});
+
+					this.container.telemetry.sendEvent('autoRebase/summary/shown', {
+						takeover: session.mode === 'takeover',
+						'steps.count': session.steps.length,
+						duration: Date.now() - session.preRun.startedAt,
+					});
+
+					return {
+						summary: {
+							sessionId: session.id,
+							branch: session.preRun.branch,
+							upstream: session.preRun.upstream,
+							preRebaseSha: session.preRun.headSha,
+							postRebaseSha: session.postRun?.headSha,
+							totalSteps: session.steps[0]?.totalSteps ?? 0,
+							outcome: outcome,
+							undoable: undoable,
+							undoWillStash: undoWillStash,
+							undoRefusal: undoable
+								? undefined
+								: outcome === 'undone'
+									? 'This rebase was already undone.'
+									: outcome !== 'completed'
+										? 'The rebase did not complete.'
+										: !validation.ok
+											? validation.message
+											: undefined,
+							autostash: session.postRun?.autostash,
+							steps: steps,
+						},
+					};
+				},
+				undoAutoRebase: async (repoPath: string, sessionId: string): Promise<UndoAutoRebaseResult> => {
+					const session = this.container.autoRebase.getSession(repoPath);
+					if (session == null || session.id !== sessionId) {
+						return { error: { message: 'The automatic rebase session is no longer available.' } };
+					}
+
+					const result = await this.container.autoRebase.undo(repoPath);
+					if (!result.ok) return { error: { message: result.message } };
+
+					return {
+						result: {
+							restoredTo: result.restoredTo,
+							warning:
+								result.warning === 'changes-left-in-stash'
+									? 'Your working changes were left in the stash.'
+									: undefined,
+						},
+					};
+				},
+				resumeAutoRebase: (repoPath: string): Promise<void> => {
+					// Delegate to the command so the Pro-plan gate + progress notification are reused;
+					// fire-and-forget (the takeover runs the rest of the rebase on its own progress).
+					void executeCommand<ContinueRebaseWithAiCommandArgs>('gitlens.ai.continueRebase', {
+						repoPath: repoPath,
+						source: 'graph',
+					});
+					return Promise.resolve();
+				},
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
 					// Phase 1 — counts + the unified All Files diff + the merge base. Smallest payload
 					// to land the user on a useful panel; per-side commits + their files are fetched
@@ -2141,6 +2280,22 @@ export class GraphInspectServices {
 		return this._resolveVirtual;
 	}
 
+	/** Lazy-init the auto-rebase summary's virtual content provider (namespace `auto-rebase`). */
+	private getOrCreateAutoRebaseVirtual(runId?: string): { provider: GraphResolveVirtualContentProvider } {
+		if (this._autoRebaseVirtual == null) {
+			const provider = new GraphResolveVirtualContentProvider(AutoRebaseVirtualNamespace);
+			const registration = this.container.virtualFs.registerProvider(provider);
+			this._autoRebaseVirtual = { provider: provider, registration: registration, runId: runId };
+		} else if (runId != null && this._autoRebaseVirtual.runId !== runId) {
+			// A different run's summary — release the previous run's step sessions (each retains every
+			// previewable file's full before/after contents) instead of leaking them for the webview's
+			// lifetime. Re-fetching the same run reuses its sessions (deterministic ids).
+			this._autoRebaseVirtual.provider.endAllSessions();
+			this._autoRebaseVirtual.runId = runId;
+		}
+		return this._autoRebaseVirtual;
+	}
+
 	private async getOrCreateConflictToolsForGraph(): Promise<ConflictToolsIntegration | undefined> {
 		if (this._conflictToolsForGraph == null) {
 			// Lazily import the node-only conflict-tools integration on demand (browser resolves to a
@@ -2177,6 +2332,97 @@ export class GraphInspectServices {
 
 		this._activeResolveSessions.delete(repoPath);
 		this._resolveVirtual?.provider.endSession(session.sessionId);
+	}
+
+	/**
+	 * Seeds the repo's resolve session — starts the virtual diff session and caches the full
+	 * resolutions (with `content`) for a later `applyResolutions` — and returns the per-file
+	 * summaries the panel renders. Shared by the resolve run and the automatic rebase's
+	 * escalation handoff.
+	 */
+	private seedResolveSession(
+		repoPath: string,
+		resolutions: ConflictToolsResolution[],
+		conflictedContents: Map<string, string>,
+	): ResolvedFileSummary[] {
+		const previewable = resolutions.filter(r => r.strategy !== 'skipped');
+		const { provider } = this.getOrCreateResolveVirtual();
+		const sessionId = provider.startSession(
+			{
+				repoPath: repoPath,
+				files: previewable
+					.filter(r => conflictedContents.has(r.filePath))
+					.map(r => ({
+						path: r.filePath,
+						conflictedContent: conflictedContents.get(r.filePath)!,
+						resolvedContent: r.content,
+					})),
+			},
+			this._resolveVirtual!.sessionId,
+		);
+		this._resolveVirtual!.sessionId = sessionId;
+
+		this._activeResolveSessions.set(repoPath, { resolutions: resolutions, sessionId: sessionId });
+
+		return resolutions.map(r => ({
+			filePath: r.filePath,
+			strategy: r.strategy,
+			reasoning: r.description,
+			confidence: r.confidence,
+			note: r.note,
+			virtualRef:
+				r.strategy !== 'skipped' && conflictedContents.has(r.filePath)
+					? {
+							namespace: GraphResolveVirtualNamespace,
+							sessionId: sessionId,
+							commitId: ResolveVirtualSide.resolved,
+						}
+					: undefined,
+		}));
+	}
+
+	/**
+	 * Enriches files the resolver couldn't handle with conflict-type info so the panel can label
+	 * them and offer the right manual take-side fallback. One cheap `ls-files --unmerged` (+ diff
+	 * for rename detection); only runs when there are files to enrich. Best-effort: an enrichment
+	 * failure must not throw away the AI resolutions already computed — fall back to unlabeled rows.
+	 */
+	private async enrichUnresolvedFiles(
+		repoPath: string,
+		errors: readonly { filePath: string; message: string }[],
+		skipped: readonly { filePath: string; reason: string }[],
+	): Promise<{ errors: ResolveFileError[]; skipped: ResolveSkippedFile[] }> {
+		const needInfos = errors.length > 0 || skipped.length > 0;
+		const infos = needInfos
+			? await getConflictFileInfos(this.container.git.getRepositoryService(repoPath)).catch(() => undefined)
+			: undefined;
+		const fallbackInfo = (filePath: string): ConflictFallbackInfo => {
+			const info = infos?.get(filePath);
+			if (info == null) return {};
+			return {
+				conflictStatus: info.conflictStatus,
+				kind: info.kind,
+				canStageCurrent: info.canStageCurrent,
+				canStageIncoming: info.canStageIncoming,
+				renameOf: info.renameOf,
+			};
+		};
+
+		return {
+			errors: errors.map(e => ({ filePath: e.filePath, message: e.message, ...fallbackInfo(e.filePath) })),
+			skipped: skipped.map(s => {
+				const info = fallbackInfo(s.filePath);
+				// A skipped file that would otherwise classify as plain text is binary/unsupported by
+				// inference (it was skipped precisely because no markers were parseable).
+				const kind = info.kind == null || info.kind === 'text' ? 'binary' : info.kind;
+				return {
+					filePath: s.filePath,
+					message: getConflictKindLabel(kind, info.renameOf).description,
+					...info,
+					kind: kind,
+				};
+			}),
+		};
 	}
 
 	private async onTimelineChoosePath(params: ChoosePathParams): Promise<DidChoosePathParams> {

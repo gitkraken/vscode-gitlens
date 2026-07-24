@@ -1,5 +1,6 @@
 import './commands/addAuthors.js';
 import './commands/ai.js';
+import './commands/autoRebase.js';
 import './commands/browseRepoAtRevision.js';
 import './commands/closeUnchangedFiles.js';
 import './commands/cloudIntegrations.js';

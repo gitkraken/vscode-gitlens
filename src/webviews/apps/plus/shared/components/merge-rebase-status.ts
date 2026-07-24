@@ -5,6 +5,7 @@ import { when } from 'lit/directives/when.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import type { ContinueRebaseWithAiCommandArgs } from '../../../../../commands/autoRebase.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { ShowInCommitGraphCommandArgs } from '../../../../plus/graph/registration.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
@@ -120,6 +121,11 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Boolean, attribute: 'ai-resolve' })
 	aiResolve = false;
 
+	/** Opt-in for showing a "Resume with AI" action on a paused rebase — re-engages automatic rebase
+	 *  (takeover) to finish the remaining steps. Only enabled by hosts where AI is allowed (graph). */
+	@property({ type: Boolean, attribute: 'ai-resume' })
+	aiResume = false;
+
 	/** Render the bar as a plain status read-out — no paused-op action buttons and no clickable
 	 *  conflicts text. Set by hosts that are in a mode (compose/review/resolve) so the bar doesn't
 	 *  compete with the mode's own controls. */
@@ -143,6 +149,13 @@ export class GlMergeConflictWarning extends LitElement {
 
 	private get onOpenEditorUrl() {
 		return this.createPausedOperationCommandLink('open');
+	}
+
+	private get onContinueWithAiUrl() {
+		return createCommandLink<ContinueRebaseWithAiCommandArgs>('gitlens.ai.continueRebase', {
+			repoPath: this.pausedOpStatus?.repoPath,
+			source: 'graph',
+		});
 	}
 
 	private get onShowConflictsUrl() {
@@ -247,6 +260,14 @@ export class GlMergeConflictWarning extends LitElement {
 		if (this.pausedOpStatus == null || this.readOnly) return nothing;
 
 		const status = this.pausedOpStatus.type;
+		// "Continue with AI" is offered only while the rebase actually has conflicts to resolve — there
+		// it's the single continue affordance (standard resume icon), since plain "Continue" is already
+		// hidden by the conflicts check below. A rebase paused without conflicts (an interactive
+		// edit/break, or once resolutions are staged) keeps plain "Continue" so it can still be advanced
+		// — AI has nothing to resolve there, and the takeover would only escalate.
+		const aiRebase = status === 'rebase' && this.aiResume && this.conflicts;
+		// Plain `<op> --continue` is valid once a rebase has no unresolved conflicts.
+		const canContinue = status !== 'revert' && !(status === 'rebase' && this.conflicts);
 
 		return html`<action-nav class="actions">
 			${when(
@@ -259,10 +280,17 @@ export class GlMergeConflictWarning extends LitElement {
 					></action-item>`,
 			)}
 			${when(
-				status !== 'revert' && !(status === 'rebase' && this.conflicts),
-				() => html`
-					<action-item label="Continue" icon="gl-continue" href=${this.onContinueUrl}></action-item>
-				`,
+				canContinue,
+				() => html`<action-item label="Continue" icon="gl-continue" href=${this.onContinueUrl}></action-item>`,
+			)}
+			${when(
+				aiRebase,
+				() =>
+					html`<action-item
+						label="Continue with AI"
+						href=${this.onContinueWithAiUrl}
+						icon="gl-continue"
+					></action-item>`,
 			)}
 			${when(
 				status !== 'merge',

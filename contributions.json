@@ -41,6 +41,30 @@
 			"label": "Uninstall Claude Hooks",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
 		},
+		"gitlens.ai.autoRebase": {
+			"label": "Rebase with AI Conflict Resolution...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
+		},
+		"gitlens.ai.autoRebase.undo": {
+			"label": "Undo Automatic Rebase"
+		},
+		"gitlens.ai.continueRebase": {
+			"label": "Continue Rebase with AI",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
+		},
+		"gitlens.ai.continueRebase:views": {
+			"label": "Continue Rebase with AI",
+			"icon": "$(gitlens-merge)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
+						"group": "1_gitlens_ai",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.ai.enable": {
 			"label": "Enable AI Features...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"

@@ -46,6 +46,7 @@ import { getVirtualFsErrorReason } from '../../../../../virtual/virtualFsError.j
 import { defaultViewFilesConfig } from '../../../../commitDetails/protocol.js';
 import type { CommitDetails, CommitSignatureShape, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
+	AutoRebaseSummaryResult,
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
 	BranchComparisonOptions,
@@ -59,6 +60,7 @@ import type {
 	ReviewResult,
 	ScopeSelection,
 	TakeConflictSideResult,
+	UndoAutoRebaseResult,
 } from '../../../../plus/graph/graphService.js';
 import { isWipSha } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
@@ -733,6 +735,30 @@ export class DetailsActions {
 		signal: AbortSignal,
 	): Promise<ResolveResult> {
 		return this.services.graphInspect.resolveConflicts(repoPath, focusedFilePaths, instructions, signal);
+	}
+
+	/** One-shot pickup of an automatic rebase's escalation handoff — the host seeds the resolve
+	 *  session with the escalated step's already-computed resolutions and returns them, so the
+	 *  panel opens directly in its ready state. `undefined` when there's nothing to hand off. */
+	fetchSeededResolveSession(repoPath: string): Promise<ResolveResult | undefined> {
+		return this.services.graphInspect.getSeededResolveSession(repoPath);
+	}
+
+	/** Fetch the automatic rebase summary for the repo's session (`undefined` = no session). Also
+	 *  (re)registers the host-side virtual diff sessions backing each file's View Changes. */
+	fetchAutoRebaseSummary(repoPath: string): Promise<AutoRebaseSummaryResult | undefined> {
+		return this.services.graphInspect.getAutoRebaseSummary(repoPath);
+	}
+
+	/** Undo a completed automatic rebase — validated host-side (refuses if the branch has moved). */
+	undoAutoRebase(repoPath: string, sessionId: string): Promise<UndoAutoRebaseResult> {
+		return this.services.graphInspect.undoAutoRebase(repoPath, sessionId);
+	}
+
+	/** Re-engage automatic rebase (takeover) to finish the remaining steps after an escalation was
+	 *  resolved manually. Fire-and-forget — resolves once triggered, not when the rebase finishes. */
+	resumeAutoRebase(repoPath: string): Promise<void> {
+		return this.services.graphInspect.resumeAutoRebase(repoPath);
 	}
 
 	/** Re-resolves a single file with user feedback (per-file retry). See {@link startResolve}. */

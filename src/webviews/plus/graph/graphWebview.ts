@@ -1152,7 +1152,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.repository = repo ?? this.repository;
 			}
 			let rowId: string | undefined;
-			if (arg.action !== 'scope-to-branch') {
+			// `show-rebase-summary` opens a selection-decoupled sheet (it fetches by worktree path, not
+			// the selected row), so don't move the user's selection when opening it.
+			if (arg.action !== 'scope-to-branch' && arg.action !== 'show-rebase-summary') {
 				// Select the row the action targets: an uncommitted target maps to its worktree's WIP
 				// row (primary 'work-dir-changes' or a secondary worktree's synthetic sha), a real
 				// target selects its commit sha, and no target falls back to the primary WIP row.

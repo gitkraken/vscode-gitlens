@@ -6,6 +6,7 @@ export type ContributedCommands =
 	| ContributedPaletteCommands
 	| ContributedOrphansOrInternalCommands
 	| 'gitlens.addAuthors'
+	| 'gitlens.ai.continueRebase:views'
 	| 'gitlens.ai.explainBranch:graph'
 	| 'gitlens.ai.explainBranch:views'
 	| 'gitlens.ai.explainCommit:graph'
@@ -927,6 +928,8 @@ export type ContributedPaletteCommands =
 	| 'gitlens.agents.openSession'
 	| 'gitlens.agents.switchDefaultAgent'
 	| 'gitlens.agents.uninstallClaudeHook'
+	| 'gitlens.ai.autoRebase'
+	| 'gitlens.ai.continueRebase'
 	| 'gitlens.ai.enable'
 	| 'gitlens.ai.explainBranch'
 	| 'gitlens.ai.explainCommit'
@@ -1196,6 +1199,7 @@ export type ContributedKeybindingCommands =
  * Either their contribution point is missing or are simply internal and should be removed at some point
  */
 export type ContributedOrphansOrInternalCommands =
+	| 'gitlens.ai.autoRebase.undo'
 	| 'gitlens.graph.commitViaSCM'
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.openFolderHistoryInGraph'

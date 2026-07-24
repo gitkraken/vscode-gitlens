@@ -14,6 +14,7 @@ import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js'
 import type { GlRepository } from '../../git/models/repository.js';
 import { isRebaseTodoEditorEnabled, reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
+import { startAutoRebaseWithProgress } from '../../plus/coretools/conflict/autoRebaseProgress.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -60,7 +61,9 @@ interface Context extends StepsContext<StepNames> {
 	title: string;
 }
 
-type Flags = '--interactive' | '--update-refs';
+/** `ai-resolve` is an internal pseudo-flag (never passed to git) — it routes execution through the
+ *  automatic rebase service, which resolves any conflicts with AI end-to-end. */
+type Flags = '--interactive' | '--update-refs' | 'ai-resolve';
 interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	destination: GitReference;
@@ -89,6 +92,20 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	private async execute(state: StepState<State<GlRepository>>) {
 		const interactive = state.flags.includes('--interactive');
 		const updateRefs = state.flags.includes('--update-refs');
+
+		if (state.flags.includes('ai-resolve')) {
+			this.container.telemetry.sendEvent('gitCommand/run', { command: 'rebase' });
+			const svc = this.container.git.getRepositoryService(state.repo.path);
+			// The wizard always rebases the current branch — pass it explicitly so the progress
+			// title and session record carry the branch name.
+			const branch = (await svc.branches.getBranch())?.name;
+			return startAutoRebaseWithProgress(this.container, svc, {
+				upstream: state.destination.ref,
+				branch: branch,
+				updateRefs: updateRefs,
+				source: { source: 'quick-wizard' },
+			});
+		}
 
 		// If the editor is not enabled, listen for the rebase todo file to be opened and then reopen it with our editor
 		const disposable =
@@ -326,6 +343,24 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			return StepResultBreak;
 		}
 
+		const subscription = await this.container.subscription.getSubscription();
+		const isTrialOrPaid = isSubscriptionTrialOrPaidFromState(subscription?.state);
+		// Automatic rebase is offered only to trial/paid users with AI enabled (settings + org policy).
+		const aiOffered = isTrialOrPaid && this.container.ai.enabled && this.container.ai.orgEnabled;
+
+		// If the wizard was seeded with the AI pseudo-flag (`gitlens.ai.autoRebase`) but AI isn't
+		// actually offered here, strip it — otherwise `aiSeeded` below would suppress the normal
+		// `picked` defaults (nothing preselected, so default-Enter silently runs a non-AI rebase) and
+		// `execute()` would route an ineligible user straight to the auto-rebase service.
+		if (!aiOffered && state.flags.includes('ai-resolve')) {
+			state.flags = state.flags.filter(f => f !== 'ai-resolve');
+		}
+
+		// When the wizard was seeded with the AI pseudo-flag, let the AI item's flags-equality
+		// `picked` win — otherwise the plain/interactive defaults would steal the selection and
+		// default-Enter would silently run a non-AI rebase.
+		const aiSeeded = state.flags.includes('ai-resolve');
+
 		const items: FlagsQuickPickItem<Flags>[] = [
 			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
 				label: `Interactive ${this.title}`,
@@ -335,7 +370,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 					label: false,
 				})}`,
-				picked: behind === 0,
+				picked: behind === 0 && !aiSeeded,
 			}),
 			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive', '--update-refs'], {
 				label: `Interactive ${this.title} & Update Branches`,
@@ -355,7 +390,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
 						label: false,
 					})}`,
-					picked: true,
+					picked: !aiSeeded,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--update-refs'], {
 					label: `${this.title} & Update Branches`,
@@ -367,9 +402,31 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			);
 		}
 
+		// Automatic rebase — AI resolves conflicts at every paused step, stopping for review only
+		// when confidence is low. Offered to trial/paid users with AI enabled (settings + org policy).
+		if (aiOffered) {
+			items.push(
+				createFlagsQuickPickItem<Flags>(state.flags, ['ai-resolve'], {
+					label: `${this.title} with AI Conflict Resolution`,
+					description: 'resolves conflicts automatically (Preview)',
+					detail: `Will update ${getReferenceLabel(context.branch, {
+						label: false,
+					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
+						label: false,
+					})}, resolving any conflicts with AI and pausing for review only when confidence is low`,
+				}),
+				createFlagsQuickPickItem<Flags>(state.flags, ['ai-resolve', '--update-refs'], {
+					label: `${this.title} with AI Conflict Resolution & Update Branches`,
+					description: '--update-refs · resolves conflicts automatically (Preview)',
+					detail: `Will update ${getReferenceLabel(context.branch, {
+						label: false,
+					})} and any branches pointing to rebased commits, resolving any conflicts with AI`,
+				}),
+			);
+		}
+
 		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
-		const subscription = await this.container.subscription.getSubscription();
-		if (isSubscriptionTrialOrPaidFromState(subscription?.state)) {
+		if (isTrialOrPaid) {
 			potentialConflict = state.repo.git.commits
 				.getLogShas(`${state.destination.ref}..${context.branch.name}`, { merges: false, reverse: true })
 				.then(shas =>

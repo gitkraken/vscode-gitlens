@@ -4682,6 +4682,18 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.autoRebase.confidenceThreshold": {
+						"type": "number",
+						"default": 0.8,
+						"minimum": 0,
+						"maximum": 1,
+						"markdownDescription": "Specifies the minimum AI confidence (0–1) required to automatically apply a conflict resolution during an automatic rebase; below this the rebase pauses and hands off to the conflict resolution panel for your review",
+						"scope": "window",
+						"order": 205,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.openInAgent": {
 						"type": "string",
 						"enum": [
@@ -6740,6 +6752,25 @@
 				"command": "gitlens.agents.uninstallClaudeHook",
 				"title": "Uninstall Claude Hooks",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.ai.autoRebase",
+				"title": "Rebase with AI Conflict Resolution...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.ai.autoRebase.undo",
+				"title": "Undo Automatic Rebase"
+			},
+			{
+				"command": "gitlens.ai.continueRebase",
+				"title": "Continue Rebase with AI",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.ai.continueRebase:views",
+				"title": "Continue Rebase with AI",
+				"icon": "$(gitlens-merge)"
 			},
 			{
 				"command": "gitlens.ai.enable",
@@ -12758,6 +12789,22 @@
 				{
 					"command": "gitlens.agents.uninstallClaudeHook",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+				},
+				{
+					"command": "gitlens.ai.autoRebase",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
+				},
+				{
+					"command": "gitlens.ai.autoRebase.undo",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ai.continueRebase",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
+				},
+				{
+					"command": "gitlens.ai.continueRebase:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.ai.enable",
@@ -21575,6 +21622,11 @@
 					"command": "gitlens.views.pausedOperation.open",
 					"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection",
 					"group": "inline@-1"
+				},
+				{
+					"command": "gitlens.ai.continueRebase:views",
+					"when": "viewItem =~ /gitlens:paused-operation:rebase\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
+					"group": "1_gitlens_ai@1"
 				},
 				{
 					"command": "gitlens.views.pausedOperation.open",

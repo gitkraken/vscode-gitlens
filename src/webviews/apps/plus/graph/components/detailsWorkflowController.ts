@@ -399,6 +399,12 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Project the engaged anchor's entry into the resource (or leave it idle for ENABLED /
 		// `'generating'` / `'backed'` cases — the panel reads `execState` from the entry).
 		this.projectEngagedAnchor(mode, { sha: sha, shas: shas, repoPath: repoPath });
+
+		// An automatic rebase that escalated leaves its already-computed resolutions with the
+		// host — pick them up so the panel opens in its ready state instead of idle.
+		if (mode === 'resolve') {
+			void this.seedResolveFromEscalation(repoPath);
+		}
 	}
 
 	/** Enter compose mode on the WIP anchor with a pre-seeded commit range (recompose). `shas` become
@@ -1807,6 +1813,9 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		const merged: ResolveResult = {
 			result: {
+				// Preserve top-level fields (notably `autoRebase`, which drives "Apply & Resume with AI")
+				// — a manual take-side must not strip the mid-rebase handoff off the result.
+				...current.result,
 				resolutions: resolutions,
 				skipped: skipped != null && skipped.length > 0 ? skipped : undefined,
 				errors: errors != null && errors.length > 0 ? errors : undefined,
@@ -1853,6 +1862,29 @@ export class DetailsWorkflowController implements ReactiveController {
 			undefined,
 			focusedFilePaths,
 		);
+	}
+
+	/**
+	 * Picks up an automatic rebase's escalation handoff (one-shot): the host seeds the resolve
+	 * session with the escalated step's already-computed resolutions and returns them, and the
+	 * panel opens directly in its ready state — low-confidence reasoning auto-expanded, per-file
+	 * retry/take-side/Apply/Discard all behaving as after a normal run. No-op when there's
+	 * nothing to hand off or a result is already showing.
+	 */
+	private async seedResolveFromEscalation(repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+		if (this.actions.resources.resolve.value.get() != null) return;
+
+		const seeded = await this.actions.fetchSeededResolveSession(repoPath);
+		if (seeded == null) return;
+
+		// The mode may have moved on (or a run started) while fetching — don't clobber it. The
+		// host-side session stays seeded either way, so Apply/retry still work after a re-entry.
+		if (this.actions.state.activeMode.get() !== 'resolve') return;
+		if (this.actions.resources.resolve.value.get() != null) return;
+
+		this._resolveFetchedForSelection = this.selectionKey();
+		this.actions.resources.resolve.mutate(seeded);
 	}
 
 	// endregion
