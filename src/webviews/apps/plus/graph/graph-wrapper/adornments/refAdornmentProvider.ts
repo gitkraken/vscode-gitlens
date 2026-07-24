@@ -27,9 +27,9 @@ export interface ParsedRef {
 	/** Stable ref id — keys upstream tracking metadata + locates the ref's row for the jump. */
 	id?: string;
 	/** True when this head is the current checkout (HEAD). */
-	isHead?: boolean;
+	current?: boolean;
 	/** Set when kind === 'remote'; the remote alias (e.g. "origin"). */
-	remote?: string;
+	owner?: string;
 	/** The head's upstream branch identifier (drives the upstream ordering tiers). */
 	upstreamName?: string;
 	/** A head's upstream ref id — links a local branch to the remote it tracks (split pill). */
@@ -81,8 +81,8 @@ function toParsedRefs(refs: readonly GraphCommitRef[]): ParsedRef[] {
 		kind: r.kind,
 		name: r.name,
 		id: r.id,
-		isHead: r.kind === 'head' ? r.current : undefined,
-		remote: r.kind === 'remote' ? r.owner : undefined,
+		current: r.kind === 'head' ? r.current : undefined,
+		owner: r.kind === 'remote' ? r.owner : undefined,
 		upstreamName: r.upstreamName,
 		upstreamId: r.upstreamId,
 		worktreeId: r.worktreeId,
@@ -97,8 +97,8 @@ function toParsedRefs(refs: readonly GraphCommitRef[]): ParsedRef[] {
  * `origin/main`, so name alone can't identify a pill — that broke click-pinning a split pill). Kind +
  * remote owner + name disambiguates: `head:main`, `remote:origin/main`, `tag:v1`.
  */
-export function refPillKey(ref: { kind: string; name: string; remote?: string | null }): string {
-	return ref.kind === 'remote' ? `remote:${ref.remote ?? ''}/${ref.name}` : `${ref.kind}:${ref.name}`;
+export function refPillKey(ref: { kind: string; name: string; owner?: string | null }): string {
+	return ref.kind === 'remote' ? `remote:${ref.owner ?? ''}/${ref.name}` : `${ref.kind}:${ref.name}`;
 }
 
 /** Live ref-visibility filter state (Hide branch / Hide Remotes·Tags), read fresh each rebuild.
@@ -195,17 +195,17 @@ function isUpstreamRemoteOf(remote: ParsedRef, head: ParsedRef | undefined): boo
 	if (head.upstreamId != null && remote.id != null) return head.upstreamId === remote.id;
 	if (head.upstreamName == null) return false;
 
-	const full = remote.remote != null ? `${remote.remote}/${remote.name}` : remote.name;
+	const full = remote.owner != null ? `${remote.owner}/${remote.name}` : remote.name;
 	return head.upstreamName === full || head.upstreamName === remote.name;
 }
 
 function pickPrimaryFirst(parsed: ParsedRef[], showRemoteNames: boolean): ParsedRef[] {
-	const currentHead = parsed.find(r => r.kind === 'head' && r.isHead);
+	const currentHead = parsed.find(r => r.kind === 'head' && r.current);
 	const worktreeHeads = parsed.filter(r => r.kind === 'head' && r.worktreeId != null);
 	const isUpstreamOf = isUpstreamRemoteOf;
 	const tier = (r: ParsedRef): number => {
 		if (r.kind === 'head') {
-			if (r.isHead) return 0; // the current checkout
+			if (r.current) return 0; // the current checkout
 			if (r.worktreeId != null) return 2; // checked out in another worktree
 			if (r.isDefault) return 4; // the repo's default branch
 			return 5; // local branch
@@ -332,8 +332,8 @@ function renderPrChip(pr: PullRequestMetadata, ref: ParsedRef, expanded: boolean
 			data-ref-id=${ref.id ?? nothing}
 			data-ref-name=${ref.name}
 			data-ref-kind=${ref.kind}
-			data-ref-remote=${ref.remote ?? nothing}
-			data-ref-is-head=${ref.isHead ? 'true' : nothing}
+			data-ref-remote=${ref.owner ?? nothing}
+			data-ref-is-head=${ref.current ? 'true' : nothing}
 			data-vscode-context=${ref.context ?? nothing}
 		>
 			<code-icon icon=${pullRequestIcon(pr.state)}></code-icon>${expanded ? html`<span>${label}</span>` : nothing}
@@ -368,8 +368,8 @@ function renderIssueChip(issue: IssueMetadata, ref: ParsedRef, expanded: boolean
 			data-ref-id=${ref.id ?? nothing}
 			data-ref-name=${ref.name}
 			data-ref-kind=${ref.kind}
-			data-ref-remote=${ref.remote ?? nothing}
-			data-ref-is-head=${ref.isHead ? 'true' : nothing}
+			data-ref-remote=${ref.owner ?? nothing}
+			data-ref-is-head=${ref.current ? 'true' : nothing}
 			data-vscode-context=${ref.context ?? nothing}
 		>
 			<code-icon icon="issues"></code-icon>${expanded ? html`<span>${label}</span>` : nothing}
@@ -391,7 +391,7 @@ function renderRefPill(
 	const showRemoteNames = hooks?.getShowRemoteNames() === true;
 	const sorted = promotePinned(pickPrimaryFirst(parsed, showRemoteNames), pinnedRefKey);
 	const primary = sorted[0];
-	const isHead = primary.isHead === true;
+	const isHead = primary.current === true;
 	const primaryContext = primary.context;
 	// In-sync combine: when a head's upstream remote is ALSO on this row (same commit ⇒ in sync), fold it
 	// into that head's upstream segment instead of listing it separately — so the pair reads as one
@@ -461,8 +461,8 @@ function renderRefPill(
 		data-ref-name=${primary.name}
 		data-ref-key=${refPillKey(primary)}
 		data-ref-kind=${primary.kind}
-		data-ref-remote=${primary.remote ?? nothing}
-		data-ref-is-head=${primary.isHead ? 'true' : nothing}
+		data-ref-remote=${primary.owner ?? nothing}
+		data-ref-is-head=${primary.current ? 'true' : nothing}
 		data-vscode-context=${primaryContext ?? nothing}
 	>
 		<span class="gl-graph__ref-pill-main">
@@ -572,7 +572,7 @@ function renderUpstreamSegment(
 	// alone when the branch names match (`origin`), or the full `owner/branch` when the upstream branch
 	// name differs (`origin/trunk`).
 	if (upstreamOnRow != null) {
-		const owner = upstreamOnRow.remote ?? '';
+		const owner = upstreamOnRow.owner ?? '';
 		const full = owner.length > 0 ? `${owner}/${upstreamOnRow.name}` : upstreamOnRow.name;
 		const label = upstreamOnRow.name === ref.name ? owner : full;
 		const tip = `Up to date with ${full}`;
@@ -665,7 +665,7 @@ function renderPopoverRefRow(
 	hooks?: RefPillHooks,
 	upstreamOnRow?: ParsedRef,
 ): TemplateResult {
-	const isHead = parsed.isHead === true;
+	const isHead = parsed.current === true;
 	// Same split/combine treatment as the primary pill: in-sync upstream folds in (cloud + sync), an
 	// out-of-sync counterpart shows ahead/behind + a jump button.
 	const upstreamSegment =
@@ -682,8 +682,8 @@ function renderPopoverRefRow(
 		data-ref-name=${parsed.name}
 		data-ref-key=${refPillKey(parsed)}
 		data-ref-kind=${parsed.kind}
-		data-ref-remote=${parsed.remote ?? nothing}
-		data-ref-is-head=${parsed.isHead ? 'true' : nothing}
+		data-ref-remote=${parsed.owner ?? nothing}
+		data-ref-is-head=${parsed.current ? 'true' : nothing}
 		data-vscode-context=${context ?? nothing}
 	>
 		${renderRefIcon(parsed)}
@@ -724,7 +724,7 @@ function renderRefIcon(ref: ParsedRef): TemplateResult {
 		icon = 'tag';
 	} else if (ref.kind === 'remote') {
 		icon = remoteRefIcon(ref.hostingServiceType);
-	} else if (ref.worktreeId != null && ref.isHead !== true) {
+	} else if (ref.worktreeId != null && ref.current !== true) {
 		icon = 'gl-worktree-filled';
 	} else {
 		icon = 'vm';
@@ -736,7 +736,7 @@ function renderRefIcon(ref: ParsedRef): TemplateResult {
 // setting is on, in which case it's qualified with the remote (`origin/main`). `describeRef`'s a11y
 // description always keeps the full qualifier regardless — screen readers should keep it unambiguous.
 function chipLabel(ref: ParsedRef, showRemoteNames: boolean): string {
-	if (ref.kind === 'remote' && showRemoteNames) return `${ref.remote}/${ref.name}`;
+	if (ref.kind === 'remote' && showRemoteNames) return `${ref.owner}/${ref.name}`;
 
 	return ref.name;
 }
@@ -746,9 +746,9 @@ function describeRef(ref: ParsedRef, hooks?: RefPillHooks): string {
 	if (ref.kind === 'tag') {
 		description = `tag ${ref.name}`;
 	} else if (ref.kind === 'remote') {
-		description = `remote ${ref.remote}/${ref.name}`;
+		description = `remote ${ref.owner}/${ref.name}`;
 	} else {
-		description = ref.isHead ? `HEAD on ${ref.name}` : `branch ${ref.name}`;
+		description = ref.current ? `HEAD on ${ref.name}` : `branch ${ref.name}`;
 	}
 
 	const pr = hooks?.getPullRequests(ref)?.[0];

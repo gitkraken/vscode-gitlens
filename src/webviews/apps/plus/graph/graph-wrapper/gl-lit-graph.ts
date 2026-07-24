@@ -3392,9 +3392,7 @@ export class GlLitGraph extends LitElement {
 	// counterpart is in view — the counterpart's sha (head ↔ upstream remote, remote ↔ tracking local),
 	// so highlighting shows both sides of the divergence. Just `[sha]` when there's no in-view counterpart.
 	private pinnedChainShas(key: string, sha: string): string[] {
-		const ref = this.getCommitBySha(sha)?.commitRefs.find(
-			r => refPillKey({ kind: r.kind, name: r.name, remote: r.owner }) === key,
-		);
+		const ref = this.getCommitBySha(sha)?.commitRefs.find(r => refPillKey(r) === key);
 		const counterpart =
 			ref?.kind === 'head' && ref.upstreamId != null
 				? this.refRowIndex.get(ref.upstreamId)?.sha
@@ -4900,7 +4898,7 @@ export class GlLitGraph extends LitElement {
 				// Prefer the rendered unique key; fall back to composing it (via the shared refPillKey, so
 				// the format can't drift) — a local branch and the remote it tracks share `name`, so the
 				// kind/owner-qualified key is what keeps them from colliding for pinning.
-				const key = el.dataset.refKey ?? refPillKey({ kind: kind, name: name, remote: remote });
+				const key = el.dataset.refKey ?? refPillKey({ kind: kind, name: name, owner: remote });
 				// `context` is the host-serialized `data-vscode-context` for this SAME element (the pill
 				// root, a popover row, or a PR/issue chip anchor all carry both together) — the host's
 				// double-click handler gates on `ref.context` even for a metadata (PR/issue/upstream) click.
