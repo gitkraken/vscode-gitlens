@@ -127,8 +127,8 @@ function commitRow(graphWebview: FrameLocator, messageText: string): Locator {
 }
 
 /**
- * Select a commit row in the graph by clicking on its message text.
- * Graph rows are rendered by @gitkraken/gitkraken-components with commit messages as visible text.
+ * Select a commit row in the graph by clicking it, located by its message via its accessible name
+ * (see {@link commitRow} for how rows are matched under the new Lit engine).
  */
 async function selectCommitByMessage(graphWebview: FrameLocator, messageText: string): Promise<void> {
 	const row = commitRow(graphWebview, messageText);
