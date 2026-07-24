@@ -344,6 +344,20 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		});
 	}
 
+	protected override async getProviderRepositoriesForUser(
+		session: ProviderAuthenticationSession,
+		options?: { cursor?: string },
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
+		const api = await this.getProvidersApi();
+		// `/user/repos` with the full affiliation set: the user's own repos, collaborations, and org-member
+		// repos — matching gkcli's org-less `provider repos github` walk (not every repo of every org).
+		return api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
+			affiliations: ['owner', 'collaborator', 'organization_member'],
+			baseUrl: this.apiBaseUrl,
+			cursor: options?.cursor,
+		});
+	}
+
 	public override async getRepoInfo(repo: {
 		owner: string;
 		name: string;

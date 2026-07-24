@@ -1426,7 +1426,13 @@ export class IntegrationService implements Disposable {
 	 */
 	async listRepos(options: {
 		providerId: IntegrationIds;
-		org: string;
+		/**
+		 * Org/workspace/group to scope to. Omitted = the account-wide, user-affiliated walk (the org-less
+		 * `gk provider repos <provider>` equivalent) for hosts with a native user-repos read (GitHub, GitLab);
+		 * hosts without one (Bitbucket, Azure DevOps) report the org-less read as unsupported so the caller
+		 * fans out per org instead.
+		 */
+		org?: string;
 		project?: string;
 		page?: number;
 		cursor?: string;
@@ -1450,9 +1456,15 @@ export class IntegrationService implements Disposable {
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
 
-		if (!integration.supportsRepositoryDiscovery) {
-			// No repo-discovery hook (e.g. Bitbucket Data Center) — report unsupported rather than a silent
-			// empty page indistinguishable from "this org has no repos".
+		const accountWide = options.org == null;
+		const supported = accountWide
+			? integration.supportsUserRepositoryDiscovery
+			: integration.supportsRepositoryDiscovery;
+		if (!supported) {
+			// No matching repo-discovery hook — org-scoped (e.g. Bitbucket Data Center) or account-wide (e.g.
+			// Bitbucket/Azure, whose repos can only be walked per workspace/org). Report unsupported rather than
+			// a silent empty page indistinguishable from "no repos"; for the account-wide case the caller should
+			// fan out per org from listOrgs instead.
 			return {
 				items: [],
 				warnings: [
@@ -1460,7 +1472,9 @@ export class IntegrationService implements Disposable {
 						providerId: options.providerId,
 						domain: domain,
 						connectionId: options.connectionId,
-						message: `Repository discovery is not supported by '${options.providerId}'.`,
+						message: accountWide
+							? `Account-wide repository discovery is not supported by '${options.providerId}'; list repositories per org instead.`
+							: `Repository discovery is not supported by '${options.providerId}'.`,
 						kind: 'other',
 						isAuth: false,
 					},
@@ -1471,13 +1485,19 @@ export class IntegrationService implements Disposable {
 			};
 		}
 
+		const org = options.org;
 		const cursor = options.cursor ?? this.pageToCursor(page);
 		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-			integration.getRepositoriesForOrgResult(options.org, {
-				project: options.project,
-				cursor: cursor,
-				connectionId: options.connectionId,
-			}),
+			org == null
+				? integration.getRepositoriesForUserResult({
+						cursor: cursor,
+						connectionId: options.connectionId,
+					})
+				: integration.getRepositoriesForOrgResult(org, {
+						project: options.project,
+						cursor: cursor,
+						connectionId: options.connectionId,
+					}),
 		);
 
 		const items = value?.values ?? [];
