@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { GitPullRequestMergeableState, GitPullRequestState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
@@ -47,7 +48,7 @@ function stubApi(gh: GitHostIntegration, api: Record<string, unknown>): void {
 	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
 }
 
-function providerPr(id: string): ProviderPullRequest {
+function providerPr(id: string, overrides?: Partial<ProviderPullRequest>): ProviderPullRequest {
 	return {
 		id: id,
 		number: Number(id),
@@ -78,6 +79,7 @@ function providerPr(id: string): ProviderPullRequest {
 		headCommit: null,
 		mergeableState: GitPullRequestMergeableState.Unknown,
 		permissions: null,
+		...overrides,
 	};
 }
 
@@ -396,6 +398,103 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(result.page.truncated, true, 'GitHub search truncation is surfaced on the page');
 		assert.equal(result.warnings.length, 1, 'a generic truncation warning is emitted when no metadata explains it');
 		assert.equal(result.warnings[0].kind, 'other');
+
+		manager.dispose();
+	});
+
+	test('listPullRequestsPage drains account-wide cursors to page N and resolves authorship', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const author = {
+			id: 'me',
+			name: 'Me',
+			email: null,
+			username: 'me',
+			avatarUrl: null,
+			url: null,
+		};
+		const capturedCursors: Array<string | undefined> = [];
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					cursor?: string;
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = options => {
+			capturedCursors.push(options?.cursor);
+			const secondPage = options?.cursor != null;
+			return Promise.resolve({
+				value: {
+					values: [
+						providerPr(secondPage ? 'opaque-2' : 'opaque-1', {
+							number: secondPage ? 102 : 101,
+							author: author,
+						}),
+					],
+					paging: secondPage
+						? { more: false, cursor: '{}' }
+						: { more: true, cursor: JSON.stringify({ value: 'next', type: 'cursor' }) },
+				},
+			});
+		};
+		(
+			gh as unknown as {
+				getCurrentAccount: () => Promise<{ id: string }>;
+			}
+		).getCurrentAccount = () => Promise.resolve({ id: 'me' });
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			page: 2,
+		});
+
+		assert.deepEqual(capturedCursors, [undefined, JSON.stringify({ value: 'next', type: 'cursor' })]);
+		assert.deepEqual(
+			result.items.map(pr => ({ id: pr.id, number: pr.number, authoredByMe: pr.authoredByMe })),
+			[{ id: 'opaque-2', number: 102, authoredByMe: true }],
+		);
+		assert.equal(result.page.currentPage, 2);
+		assert.equal(result.hasMore, false);
+
+		manager.dispose();
+	});
+
+	test('listPullRequestsPage returns an empty account-wide page beyond the terminal cursor', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = () => {
+			calls++;
+			return Promise.resolve({
+				value: {
+					values: [providerPr('1')],
+					paging: { more: false, cursor: '{}' },
+				},
+			});
+		};
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			page: 2,
+		});
+
+		assert.equal(calls, 1, 'a terminal account-wide page is not re-fetched');
+		assert.deepEqual(result.items, [], 'the terminal page is not reused as page 2');
+		assert.equal(result.page.currentPage, 2);
+		assert.equal(result.hasMore, false);
+		assert.equal(result.cursor, undefined);
 
 		manager.dispose();
 	});
@@ -1042,6 +1141,70 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		);
 		assert.equal(result.page.currentPage, 2);
 		assert.equal(result.hasMore, false);
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage preserves prefix metadata when the requested account-wide page is beyond the terminal cursor', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const capturedCursors: Array<string | undefined> = [];
+		(
+			gh as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					resources: unknown,
+					cancellation: unknown,
+					connectionId: unknown,
+					options?: { cursor?: string },
+				) => Promise<
+					IntegrationResult<{
+						values: IssueShape[];
+						cursor?: string;
+						hasMore: boolean;
+						page: number;
+						truncated: boolean;
+						metadata?: CollectionMetadata;
+					}>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult = (_resources, _cancellation, _connectionId, options) => {
+			capturedCursors.push(options?.cursor);
+			const secondPage = options?.cursor != null;
+			return Promise.resolve({
+				value: {
+					values: [{ id: secondPage ? 'page-2' : 'page-1' } as unknown as IssueShape],
+					cursor: secondPage ? undefined : 'account-wide-next',
+					hasMore: !secondPage,
+					page: secondPage ? 2 : 1,
+					truncated: false,
+					metadata: secondPage
+						? { completeness: 'complete' }
+						: {
+								completeness: 'partial',
+								failures: [{ kind: 'authentication', scope: { repositoryId: 'octocat/broken' } }],
+							},
+				},
+			});
+		};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			page: 3,
+		});
+
+		assert.deepEqual(capturedCursors, [undefined, 'account-wide-next']);
+		assert.deepEqual(result.items, [], 'the terminal page is not reused as page 3');
+		assert.equal(result.page.currentPage, 3);
+		assert.equal(result.page.truncated, true, 'prefix incompleteness survives the terminal page');
+		assert.equal(result.hasMore, false);
+		assert.equal(result.cursor, undefined);
+		assert.equal(result.fetchFailed, true, 'the prefix scope failure keeps the aggregate incomplete');
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].kind, 'auth');
+		assert.match(result.warnings[0].message, /octocat\/broken/);
 
 		manager.dispose();
 	});

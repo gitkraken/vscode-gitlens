@@ -1151,6 +1151,18 @@ export class IntegrationService implements Disposable {
 		}
 	}
 
+	private async getCurrentAccountId(
+		integration: GitHostIntegration,
+		connectionId: string | undefined,
+	): Promise<string | undefined> {
+		try {
+			return (await integration.getCurrentAccount({ connectionId: connectionId }))?.id;
+		} catch {
+			// Authorship is optional enrichment; don't turn a successful PR read into a failure if identity lookup fails.
+			return undefined;
+		}
+	}
+
 	/**
 	 * Forces a real session refresh before a read when `forceSync` is set, so the read consumes a freshly
 	 * exchanged token rather than a possibly-stale cached one. Both paths refresh, by different mechanisms: a
@@ -1552,8 +1564,8 @@ export class IntegrationService implements Disposable {
 	/**
 	 * Reads one page of pull requests for the given git-host provider. With `repos`, reads those repos'
 	 * PRs (translating `page` ↔ the provider's opaque cursor) and applies `filters` if given. With no
-	 * `repos`, reads the current user's PRs account-wide (already user-scoped, cursor-continued) — there
-	 * `filters`/`page`/`pageSize` don't apply.
+	 * `repos`, reads the current user's PRs account-wide (already user-scoped and cursor-continued), walking
+	 * opaque cursors internally when only `page` is supplied; `filters`/`pageSize` don't narrow that path.
 	 */
 	async listPullRequestsPage(options: {
 		providerId: IntegrationIds;
@@ -1593,11 +1605,10 @@ export class IntegrationService implements Disposable {
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
 		// With no repos this is an account-wide "my PRs" read; the repo-scoped core rejects an empty `repos`
 		// input, so route to the account-wide, inherently user-scoped core instead (see drainPullRequests).
-		// That path is cursor-based and already user-scoped, so `page`/`pageSize` don't apply there and `filters`
-		// don't narrow it (only `ReviewRequested` toggles the opt-in reviewer slice below) — continuation is via
-		// the opaque `cursor` only. Do NOT synthesize a page-number cursor for it: the underlying query (e.g.
-		// GitHub `involves:`) ignores a page number and returns its first page, which would then be mislabeled
-		// as page N.
+		// That path is cursor-based and already user-scoped, so `pageSize` doesn't apply there and `filters`
+		// don't narrow it (only `ReviewRequested` toggles the opt-in reviewer slice below). A page-only request
+		// is handled by walking opaque continuations below. Do NOT synthesize a page-number cursor for it: the
+		// underlying query (e.g. GitHub `involves:`) ignores a page number and returns its first page.
 		const accountWide = (options.repos?.length ?? 0) === 0;
 		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
 
@@ -1647,9 +1658,8 @@ export class IntegrationService implements Disposable {
 		);
 
 		let items = value?.values ?? [];
-		// Account-wide reads have no meaningful page number (cursor-only), so report page 1 rather than
-		// echoing a requested page the provider never applied; repo-scoped reads report the requested page
-		// unless the provider reports its own.
+		// Cursor-only account-wide reads start at page 1; a page-only request is advanced through opaque
+		// continuations below. Repo-scoped reads report the requested page unless the provider reports its own.
 		let paged = this.toProviderPageInfo(items.length, value?.paging);
 		let allMetadata = value?.metadata;
 		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
@@ -1657,14 +1667,13 @@ export class IntegrationService implements Disposable {
 		const warnings = warning != null ? [warning] : [];
 		let pageFetchFailed = warning != null && value == null;
 
-		// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor. When the caller
-		// explicitly asks for page N without supplying a continuation cursor, drain through the opaque cursors
-		// so the returned `currentPage` actually reflects N instead of misreporting page 1. Keep only the last
-		// successfully-read page's items while still merging warnings/metadata across the drained prefix; returning
-		// pages 1..N as "page N" would duplicate items for normal paged consumers.
+		// Cursor-only reads ignore a synthesized page-number cursor. When the caller explicitly asks for page N
+		// without supplying a continuation cursor, drain through the opaque cursors so the returned `currentPage`
+		// actually reflects N instead of misreporting page 1. Keep only the last successfully-read page's items
+		// while still merging warnings/metadata across the drained prefix; returning pages 1..N as "page N" would
+		// duplicate items for normal paged consumers.
 		if (
-			!accountWide &&
-			providersMetadata[options.providerId]?.pullRequestsPagingMode === PagingMode.Repos &&
+			(accountWide || providersMetadata[options.providerId]?.pullRequestsPagingMode === PagingMode.Repos) &&
 			options.page != null &&
 			options.page > 1 &&
 			options.cursor == null &&
@@ -1682,16 +1691,25 @@ export class IntegrationService implements Disposable {
 			}
 			const fetchNext = (cursor: string) =>
 				this.runCaptured(options.providerId, domain, options.connectionId, () =>
-					integration.getMyPullRequestsForReposResult(
-						options.repos ?? [],
-						{
-							state: options.states,
-							filters: resolvedFilters.filters,
-							cursor: cursor,
-							pageSize: options.itemsPerPage,
-						},
-						options.connectionId,
-					),
+					accountWide
+						? integration.getMyPullRequestsForUserResult(
+								{
+									state: options.states,
+									cursor: cursor,
+									includeReviewRequested: includeReviewRequested,
+								},
+								options.connectionId,
+							)
+						: integration.getMyPullRequestsForReposResult(
+								options.repos ?? [],
+								{
+									state: options.states,
+									filters: resolvedFilters.filters,
+									cursor: cursor,
+									pageSize: options.itemsPerPage,
+								},
+								options.connectionId,
+							),
 				);
 			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
 				const { value: nextValue, warning: nextWarning } = await fetchNext(currentCursor);
@@ -1713,16 +1731,26 @@ export class IntegrationService implements Disposable {
 				allMetadata = mergeCollectionMetadata(allMetadata, nextValue.metadata);
 				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? nextItems.length, nextValue.paging);
 				currentPage++;
+				currentTruncated = currentTruncated || nextPaged.truncated;
 				const nextCursor = nextPaged.cursor;
 				if (nextCursor == null || nextCursor === currentCursor || nextCursor === '{}') {
 					// Provider didn't advance the cursor; stop to avoid an infinite loop.
+					currentCursor = undefined;
 					currentHasMore = false;
 					break;
 				}
 
 				currentCursor = nextCursor;
 				currentHasMore = nextPaged.hasMore;
-				currentTruncated = nextPaged.truncated;
+			}
+
+			if (currentPage < options.page) {
+				// The requested page is beyond the terminal cursor. Returning the last available page would
+				// duplicate data and misrepresent it as page N.
+				items = [];
+				currentPage = page;
+				currentCursor = undefined;
+				currentHasMore = false;
 			}
 
 			paged = {
@@ -1741,9 +1769,12 @@ export class IntegrationService implements Disposable {
 		if (truncated && warnings.length === 0) {
 			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId, 'Pull request'));
 		}
+		const currentAccountId = items.some(pr => pr.author != null)
+			? await this.getCurrentAccountId(integration, options.connectionId)
+			: undefined;
 		return {
 			// Normalize the raw provider-apis PRs to the GitLens-owned shape at the surface boundary.
-			items: items.map(pr => fromProviderPullRequest(pr, integration)),
+			items: items.map(pr => fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId })),
 			warnings: warnings,
 			page: { ...paged.page, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
@@ -1841,39 +1872,47 @@ export class IntegrationService implements Disposable {
 						cursor: cursor,
 					}),
 				);
-			let { value, warning } = await readAccountWidePage(options.cursor);
+			const first = await readAccountWidePage(options.cursor);
+			let value = first.value;
+			const warnings = first.warning != null ? [first.warning] : [];
+			let allMetadata = value?.metadata;
+			let pageFetchFailed = first.warning != null && value == null;
+			let currentPage = value?.page ?? 1;
+			let currentTruncated = value?.truncated ?? false;
+			let requestedPageMissing = false;
 			if (options.cursor == null && page > 1 && value != null) {
-				let currentPage = value.page ?? 1;
 				while (currentPage < page && value.hasMore && value.cursor != null) {
 					const next = await readAccountWidePage(value.cursor);
-					value = next.value;
-					warning = next.warning;
-					if (value == null) break;
+					if (next.warning != null) {
+						appendDedupedWarning(warnings, next.warning);
+					}
+					if (next.value == null) {
+						pageFetchFailed = pageFetchFailed || next.warning != null;
+						value = undefined;
+						requestedPageMissing = true;
+						break;
+					}
 
+					value = next.value;
+					allMetadata = mergeCollectionMetadata(allMetadata, value.metadata);
+					currentTruncated = currentTruncated || value.truncated;
 					currentPage = value.page ?? currentPage + 1;
 				}
 
 				// A numbered page beyond the provider's terminal cursor is genuinely empty. Never return or
 				// relabel the last available page as the requested one.
-				if (value != null && currentPage < page) {
-					return {
-						items: [],
-						warnings: [],
-						page: {
-							currentPage: page,
-							itemsPerPage: 0,
-							truncated: value.truncated || undefined,
-						},
-						hasMore: false,
-					};
+				if (currentPage < page) {
+					requestedPageMissing = true;
 				}
+			} else if (options.cursor == null && page > 1) {
+				requestedPageMissing = true;
 			}
 
 			// GitHub, GitLab, and Azure implement an account-wide issue search; a provider that doesn't (Bitbucket
 			// exposes no issues at all, and `supportsIssues` already short-circuits it above) returns `undefined`
 			// with no error. Surface that as an explicit unsupported warning + fetchFailed rather than a silent
 			// empty success — the caller must fall back (e.g. broadenIssues over repos).
-			if (value == null && warning == null) {
+			if (value == null && warnings.length === 0) {
 				return {
 					items: [],
 					warnings: [
@@ -1892,8 +1931,7 @@ export class IntegrationService implements Disposable {
 				};
 			}
 
-			const items = value?.values ?? [];
-			const warnings = warning != null ? [warning] : [];
+			const items = requestedPageMissing ? [] : (value?.values ?? []);
 			// Fold in structured per-scope failures from the account-wide fan-out (e.g. Azure across projects):
 			// scope-aware warnings + `fetchFailed` when a scope failed, without discarding the successful items.
 			const assessment = mergeAssessmentInto(
@@ -1901,14 +1939,14 @@ export class IntegrationService implements Disposable {
 				options.providerId,
 				domain,
 				options.connectionId,
-				value?.metadata,
+				allMetadata,
 			);
 			// An account-wide search that couldn't confirm completeness (a provider cap with no cursor, or a
 			// per-scope backstop/failure) is incomplete and can't be paged; report it as truncated (+ a
 			// provider-neutral warning, unless a structured failure already explains it) rather than a complete
 			// list. Don't hard-code GitHub's "100 per category" cap here — Azure reaches this via a per-project
 			// backstop, and other providers may cap differently.
-			const truncated = (value?.truncated ?? false) || assessment.truncated;
+			const truncated = currentTruncated || assessment.truncated;
 			if (truncated && warnings.length === 0) {
 				warnings.push({
 					providerId: options.providerId,
@@ -1923,13 +1961,13 @@ export class IntegrationService implements Disposable {
 				items: items,
 				warnings: warnings,
 				page: {
-					currentPage: value?.page ?? (options.cursor != null ? page : 1),
+					currentPage: requestedPageMissing ? page : (value?.page ?? (options.cursor != null ? page : 1)),
 					itemsPerPage: items.length,
 					truncated: truncated || undefined,
 				},
-				hasMore: value?.hasMore ?? false,
-				cursor: value?.cursor,
-				fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
+				hasMore: requestedPageMissing ? false : (value?.hasMore ?? false),
+				cursor: requestedPageMissing ? undefined : value?.cursor,
+				fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
 			};
 		}
 
@@ -2653,11 +2691,16 @@ export class IntegrationService implements Disposable {
 					maxPages,
 					attributeUnavailableProviders,
 				);
+				const currentAccountId = drain.items.some(pr => pr.author != null)
+					? await this.getCurrentAccountId(integration, connectionId)
+					: undefined;
 				// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
 				// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
 				return {
 					...drain,
-					items: drain.items.map(pr => fromProviderPullRequest(pr, integration)),
+					items: drain.items.map(pr =>
+						fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId }),
+					),
 					providerId: id,
 				};
 			}),
