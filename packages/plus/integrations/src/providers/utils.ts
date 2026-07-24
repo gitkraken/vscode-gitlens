@@ -366,20 +366,27 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		owner: identifier.metadata.owner.owner,
 		name: identifier.metadata.owner.name,
 	};
+	const remoteLookupId =
+		identifier.provider === EntityIdentifierProviderType.Trello ? identifier.entityId : identifier.metadata.id;
 
 	// Cache-only read (no remote fetch). The package can't reach the host cache directly, so defer to the
 	// host-supplied reader; without one, honor the no-fetch contract by returning undefined. The cache key
 	// is resource+id (the integration only affects the etag), so peek even when the integration is
 	// unresolvable — a still-cached issue must survive an unconfigured/disconnected integration.
 	if (options?.cached) {
-		return options.peekCachedIssue?.(integration, resource, identifier.metadata.id);
+		const cachedIssue = options.peekCachedIssue?.(integration, resource, identifier.metadata.id);
+		if (cachedIssue != null || identifier.provider !== EntityIdentifierProviderType.Trello) {
+			return cachedIssue;
+		}
+
+		return options.peekCachedIssue?.(integration, resource, identifier.entityId);
 	}
 
 	if (integration == null) {
 		return undefined;
 	}
 
-	return integration.getIssue(resource, identifier.metadata.id);
+	return integration.getIssue(resource, remoteLookupId);
 }
 
 export function getIssueOwner(
