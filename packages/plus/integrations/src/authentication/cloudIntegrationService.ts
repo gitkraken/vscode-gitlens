@@ -34,6 +34,24 @@ interface GKProviderToken {
 	domain?: string;
 }
 
+/**
+ * Whether the backend definitively answered that this connection has no fetchable token, so it can be
+ * cleanly disconnected (#5497). Everything else is retryable — notably 401/403, which reject our GK
+ * *account* token rather than the connection. The asymmetry is deliberate: a wrongly-kept descriptor
+ * self-corrects on the next sync, a wrongly-dropped one needs a manual reconnect (#5569).
+ */
+function isTerminalStatus(status: number): boolean {
+	switch (status) {
+		case 400: // e.g. a non-uuid token id (#5497)
+		case 404:
+		case 410:
+		case 422:
+			return true;
+		default:
+			return false;
+	}
+}
+
 function toSession(data: GKProviderToken): CloudIntegrationAuthenticationSession {
 	// Normalize the backend's `tokenId` onto our `id` so callers get a stable per-connection identity.
 	return {
@@ -102,6 +120,14 @@ export class CloudIntegrationService {
 		return connections;
 	}
 
+	/**
+	 * Fetches a connection's token, refreshing it first when `refreshToken` is given; `connectionId` targets
+	 * a specific connection (multi-account) rather than the provider's primary.
+	 *
+	 * Resolves `undefined` ONLY on a terminal failure (see {@link isTerminalStatus}, or an ok response with
+	 * no `data`), which callers may treat as "the connection is gone" (#5497). THROWS on every other
+	 * failure, which they must catch and treat as retryable instead of disconnecting (#5569).
+	 */
 	async getConnectionSession(
 		id: IntegrationIds,
 		refreshToken?: string,
@@ -159,9 +185,22 @@ export class CloudIntegrationService {
 					const data = ((await newTokenRsp.json()) as { data?: GKProviderToken })?.data;
 					return data != null ? toSession(data) : undefined;
 				}
+
+				// Report the fallback's own status (as a get, not a refresh) — it's what decides the outcome.
+				this.ctx.hooks?.connection?.onConnectionFetchFailed?.({
+					id: id,
+					code: newTokenRsp.status,
+					refreshing: false,
+				});
+
+				if (isTerminalStatus(newTokenRsp.status)) return undefined;
+
+				throw new Error(`Retryable failure (${newTokenRsp.status}) refreshing ${id} token from cloud`);
 			}
 
-			return undefined;
+			if (isTerminalStatus(tokenRsp.status)) return undefined;
+
+			throw new Error(`Retryable failure (${tokenRsp.status}) getting ${id} token from cloud`);
 		}
 
 		const data = ((await tokenRsp.json()) as { data?: GKProviderToken })?.data;
