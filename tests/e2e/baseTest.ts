@@ -50,87 +50,44 @@ async function waitForGitLensActivation(evaluate: VSCodeEvaluator['evaluate'], t
 }
 
 /**
- * Dismisses editor-specific onboarding overlays that intercept pointer events on the workbench.
- * Kiro renders a `<kiro-sign-in-page>` shadow-DOM overlay on first launch that sits above the
- * workbench and swallows clicks (the extension host still runs beneath it); clicking its "Skip All"
- * button removes it. Best-effort and a no-op on editors without such an overlay (e.g. VS Code).
- */
-async function dismissOnboardingOverlays(page: Page): Promise<void> {
-	// The overlay can appear a beat after activation, so poll briefly.
-	for (let attempt = 0; attempt < 20; attempt++) {
-		const result = await page
-			.evaluate(() => {
-				const host = document.querySelector('kiro-sign-in-page');
-				if (host == null) return 'absent';
-
-				const roots: (Element | ShadowRoot)[] = [host.shadowRoot ?? host];
-				while (roots.length) {
-					const root = roots.pop()!;
-					for (const el of [...root.querySelectorAll('*')]) {
-						if (
-							(el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button') &&
-							/^skip all$/i.test((el.textContent ?? '').trim())
-						) {
-							(el as HTMLElement).click();
-
-							return 'dismissed';
-						}
-
-						if (el.shadowRoot != null) {
-							roots.push(el.shadowRoot);
-						}
-					}
-				}
-
-				return 'pending';
-			})
-			// A thrown evaluate (e.g. execution context briefly torn down during startup) is transient —
-			// treat it as 'pending' and keep polling, not 'absent', so a slightly-late overlay isn't missed.
-			.catch(() => 'pending' as const);
-
-		if (result === 'absent') return;
-
-		if (result === 'dismissed') {
-			await page
-				.locator('kiro-sign-in-page')
-				.waitFor({ state: 'detached', timeout: 5000 })
-				.catch(() => {});
-
-			return;
-		}
-
-		await new Promise(resolve => setTimeout(resolve, 250));
-	}
-}
-
-/**
  * Some VS Code forks hard-gate their entire workbench behind a full-screen sign-in wall on a fresh
  * (unauthenticated) profile — every CI run and every harness-created temp profile is such a profile.
- * Cursor shows `.onboarding-v2-overlay` ("Sign Up / Log In", "Cursor's AI features require you to be
- * logged in"): there is no "continue without an account" affordance, Escape does nothing, and the
- * workbench stays in `nomaineditorarea nosidebar`, so every pointer event is swallowed and UI-driven
- * specs would each burn their full 30s click timeout before failing (a ~20-min job that gets cancelled).
- * We can't bypass it — it requires a real auth token we won't (and CI can't) carry, and seeding the
- * non-auth onboarding flags into `state.vscdb` does not lift it (verified).
+ * Both walls were confirmed by launching the fork on a fresh profile and dumping the overlay's DOM:
+ * - Cursor: `.onboarding-v2-overlay` ("Sign Up / Log In", "Cursor's AI features require you to be
+ *   logged in") — no "continue without an account" affordance, workbench stuck in `nomaineditorarea
+ *   nosidebar`.
+ * - Kiro: `kiro-sign-in-page` — a full-screen "Sign in" page ("By signing in, you agree to the AWS
+ *   Customer Agreement, Service Terms, and Privacy Notice"), the only action being AWS Builder ID
+ *   sign-in. No skip / continue-without-account affordance exists.
+ *
+ * Neither can be bypassed — each needs a real auth token we won't (and CI can't) carry, and seeding
+ * the non-auth onboarding flags into `state.vscdb` does not lift them (verified). Every pointer event
+ * is swallowed, so UI-driven specs would each burn their full 30s click timeout before failing.
  *
  * So detect it and fail fast with a clear message. On such a login-walled fork this throws during the
  * (worker-scoped) `vscode` fixture setup, turning each doomed UI spec into an immediate, self-explanatory
- * failure instead of a 30s-per-click timeout. Login-walled forks are `experimental` (informational /
- * continue-on-error in CI), so a fast red is the honest outcome. No-op on VS Code and forks that reach a
- * normal workbench (Windsurf).
+ * failure instead of a 30s-per-click timeout. These forks are also excluded from the CI matrix entirely
+ * (`editors.ts` `runInCI: false`) — fail-fast alone doesn't bound the job, since a thrown worker fixture
+ * can't be reused, so each retry relaunches the editor into the same wall until the job is cancelled.
+ * They stay `experimental` and locally runnable (`--project=<id>` on an authenticated machine). No-op on
+ * VS Code and forks that reach a normal workbench (Windsurf/Positron).
  */
 async function assertWorkbenchReachable(page: Page, editorId: string): Promise<void> {
 	if (editorId === 'vscode') return;
 
-	// Cursor's sign-in wall. Add other forks' login-overlay selectors here if they surface the same way.
-	const signInWall = await page.locator('.onboarding-v2-overlay').count();
-	if (signInWall > 0) {
-		throw new Error(
-			`E2E editor "${editorId}" is showing a sign-in wall (.onboarding-v2-overlay) on this fresh ` +
-				`profile and its workbench is unreachable — UI-driven specs cannot run without an authenticated ` +
-				`account (see docs/testing.md). This is a known structural limitation of the fork, not a product ` +
-				`or harness bug.`,
-		);
+	// Overlays that gate the whole workbench and swallow every click: Cursor's `.onboarding-v2-overlay`
+	// and Kiro's `kiro-sign-in-page`, both hard login walls with no dismiss affordance (verified against a
+	// fresh-profile DOM dump). Fail fast with a clear message instead of letting each UI spec burn its full
+	// click timeout.
+	for (const selector of ['.onboarding-v2-overlay', 'kiro-sign-in-page']) {
+		if ((await page.locator(selector).count()) > 0) {
+			throw new Error(
+				`E2E editor "${editorId}" is showing a sign-in overlay (${selector}) on this fresh profile and ` +
+					`its workbench is unreachable — UI-driven specs cannot run without dismissing it or an ` +
+					`authenticated account (see docs/testing.md). This is a known structural limitation of the ` +
+					`fork, not a product or harness bug.`,
+			);
+		}
 	}
 }
 
@@ -264,6 +221,15 @@ const defaultUserSettings: Record<string, unknown> = {
 	'gitlens.telemetry.enabled': false,
 	// Skip onboarding/welcome screens — ephemeral test environments shouldn't show welcome views
 	'gitlens.advanced.skipOnboarding': true,
+
+	// Quiet VS Code's built-in Git extension. These tests drive git through the CLI + GitLens (never
+	// the built-in SCM UI), but the built-in extension watches `.git` and periodically refreshes/
+	// fetches — grabbing `.git/index.lock` mid-operation. Under a 4-worker CI runner that contends with
+	// the CLI `git rebase`/merge the specs run, hanging them to the test timeout (the rebase.test.ts
+	// flake). Disabling its background activity removes the lock contention without affecting GitLens.
+	'git.autorefresh': false,
+	'git.autofetch': false,
+	'git.autoStash': false,
 
 	// Associate git-rebase-todo files with GitLens rebase editor
 	// TODO: is this needed?
@@ -459,13 +425,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				// forks like Cursor whose customized UI has no standard activity bar to key off of.
 				await waitForGitLensActivation(evaluate);
 
-				// Clear any editor onboarding overlay (e.g. Kiro's sign-in page) that would block UI clicks.
-				await dismissOnboardingOverlays(page);
-
 				// Fail fast (with a clear message) on a login-walled fork whose workbench is unreachable on a
-				// fresh profile (e.g. Cursor's sign-in wall) instead of letting every UI spec burn its click
-				// timeout. Must come after the dismiss attempt above so a genuinely-dismissable overlay isn't
-				// mistaken for a hard wall.
+				// fresh profile (Cursor's or Kiro's sign-in wall) instead of letting every UI spec burn its
+				// click timeout.
 				await assertWorkbenchReachable(page, editorId);
 
 				// On editors with a standard activity bar, also wait for the GitLens tab to paint so

@@ -66,7 +66,7 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
 
-	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphWebview!.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
 	await waitForGraphRowsRendered(graphWebview!);
 	// Let the initial auto-selected-commit details render first: opening the details panel reflows the
 	// virtualized grid, and clicking a row mid-reflow races that layout pass (the row reports "not
@@ -86,7 +86,7 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
-	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphWebview!.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
 	await waitForGraphRowsRendered(graphWebview!);
 	// Settle the grid before the next test clicks a row (see openGraphWithPro).
 	await waitForDetailsLoaded(graphWebview!);
@@ -94,34 +94,43 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 }
 
 async function selectCommitByMessage(graphWebview: FrameLocator, messageText: string): Promise<void> {
-	// Scope to the virtualized graph grid so we match the row's message cell — not a copy of the same
-	// text rendered in the details panel — and filter to the visible instance so we skip recycled/
-	// off-screen row nodes react-virtualized keeps mounted (the fork webview render race).
-	const messageEl = graphWebview
-		.locator('.ReactVirtualized__Grid')
-		.getByText(messageText, { exact: true })
+	// New Lit engine: each commit is a role="treeitem" row whose accessible name embeds the message
+	// (e.g. "Commit f5b4898, by You, 7s, Add greeting module"). Match by that name (substring) and
+	// filter to the visible instance so we skip recycled/off-screen rows the virtualizer keeps mounted.
+	// Scope to the graph tree so we don't match a details-panel file-tree treeitem (the details
+	// `gl-tree-view` also exposes role="treeitem").
+	const row = graphWebview
+		.getByRole('tree', { name: 'Commit graph' })
+		.getByRole('treeitem', { name: messageText })
 		.filter({ visible: true })
 		.first();
-	await expect(messageEl).toBeVisible({ timeout: MaxTimeout });
-	// The graph grid (`#commit-message-zone`) owns row selection via event delegation, so it is the
-	// topmost hit-test target over the message cell — a normal click reports "grid intercepts pointer
-	// events". On slower fork webviews (Positron) the virtualized row also stays perpetually "not
-	// stable" within the actionability window, so a plain click times out. Force the click at the
-	// confirmed-visible row's coordinates (the grid handles selection exactly as a real click would);
-	// if the row genuinely moved, the wrong commit is selected and the downstream assertion fails —
-	// so this can't turn into a false pass.
-	await messageEl.click({ force: true });
+	// A specific commit's row can take longer than the 10s MaxTimeout to paint on a heavily-contended
+	// CI runner (the virtualizer fills rows progressively; the oldest commit sits at the bottom), so
+	// give the row-paint the same 30s budget as waitForGraphRowsRendered rather than racing it.
+	await expect(row).toBeVisible({ timeout: 30000 });
+	// On slower fork webviews (Positron) the virtualized row can stay perpetually "not stable" within
+	// the actionability window, so a plain click times out. Force the click at the confirmed-visible
+	// row's coordinates (the engine handles selection exactly as a real click would); if the row
+	// genuinely moved, the wrong commit is selected and the downstream assertion fails — so this can't
+	// turn into a false pass.
+	await row.click({ force: true });
 }
 
 /**
- * Wait until the virtualized graph rows have painted their commit-message cells. The column headers
- * ("BRANCH / TAG") render before the react-virtualized grid finishes its first layout pass, so gating
- * readiness on the header alone races the row paint on slower webviews (VS Code forks) — the window
- * where a row message resolves in the DOM but reports `hidden`. Gate on a visible row message cell.
+ * Wait until the new Lit engine has painted commit rows. The tree container (role="tree",
+ * aria-label "Commit graph") mounts before the virtualizer paints its role="treeitem" rows, so
+ * gating readiness on the container alone races the row paint on slower webviews (VS Code forks) —
+ * the window where a row resolves in the DOM but reports `hidden`. Gate on the first visible treeitem.
  */
 async function waitForGraphRowsRendered(graphWebview: FrameLocator): Promise<void> {
+	// Scope to the graph tree so we don't match a details-panel file-tree treeitem (the details
+	// `gl-tree-view` also exposes role="treeitem"); graph rows are descendants of this tree.
 	await expect(
-		graphWebview.locator('.ReactVirtualized__Grid .message-zone--summary').filter({ visible: true }).first(),
+		graphWebview
+			.getByRole('tree', { name: 'Commit graph' })
+			.getByRole('treeitem')
+			.filter({ visible: true })
+			.first(),
 	).toBeVisible({ timeout: 30000 });
 }
 
