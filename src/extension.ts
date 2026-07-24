@@ -328,6 +328,17 @@ const settingsMigrations: { id: string; migrate: () => Promise<void> }[] = [
 			}
 		},
 	},
+	{
+		// Replace the boolean `terminalLinks.showDetailsView` with the `terminalLinks.showIn` enum.
+		// Old default (`true` = show the Inspect view) maps to `inspect`; `false` maps to `quickpick`.
+		// Unset users fall through to the new `graph` default.
+		id: 'terminalLinks.showIn:enum',
+		migrate: async () => {
+			await configuration.migrate('terminalLinks.showDetailsView', 'terminalLinks.showIn', {
+				migrationFn: (v: unknown) => (v === false ? 'quickpick' : 'inspect'),
+			});
+		},
+	},
 ];
 
 async function migrateSettings(storage: Storage): Promise<void> {

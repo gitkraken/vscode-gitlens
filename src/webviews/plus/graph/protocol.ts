@@ -505,6 +505,9 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		composeInstructions?: string;
 		composeScope?: GraphComposeScopeSeed;
 	};
+	/** A two-ref compare seeded by a cold show request (e.g. a terminal-link range). Consumed on
+	 *  bootstrap by the app, mirroring {@link pendingAction}; warm shows notify directly instead. */
+	pendingCompare?: DidRequestOpenCompareModeParams;
 	/** Per-worktree commit drafts for this repo's WIP rows, keyed by worktree fsPath (== `repoPath`
 	 *  for the primary WIP, == the secondary worktree's fsPath for each secondary WIP row).
 	 *  Restored on WIP row selection; mutated via {@link UpdateWipDraftCommand}. */
@@ -1611,6 +1614,10 @@ export const DidRequestOpenCompareModeNotification = new IpcNotification<DidRequ
 	scope,
 	'compareMode/didRequestOpen',
 );
+
+/** The two-ref seed for opening the Graph's compare mode from a show request (e.g. a terminal-link
+ *  range). Mirrors {@link DidRequestOpenCompareModeParams} without the repoPath (supplied on show). */
+export type GraphCompareSeed = Omit<DidRequestOpenCompareModeParams, 'repoPath'>;
 
 export interface DidRequestOpenTimelineScopeParams {
 	type: 'file' | 'folder';

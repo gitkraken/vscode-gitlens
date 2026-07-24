@@ -68,10 +68,15 @@ export const integrationsCategories: SettingsCategory[] = [
 		},
 		controls: [
 			{
-				kind: 'check',
-				key: 'terminalLinks.showDetailsView',
-				label: 'Show Inspect view for commit links',
+				kind: 'select',
+				key: 'terminalLinks.showIn',
+				label: 'Open commit and ref links in',
 				enabledWhen: 'terminalLinks.enabled',
+				options: [
+					{ value: 'graph', label: 'the Commit Graph (default)' },
+					{ value: 'inspect', label: 'the Inspect view' },
+					{ value: 'quickpick', label: 'a quick pick' },
+				],
 			},
 		],
 	},

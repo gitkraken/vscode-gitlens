@@ -312,6 +312,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor pendingAction: AppState['pendingAction'];
 
 	@signalState()
+	accessor pendingCompare: AppState['pendingCompare'];
+
+	@signalState()
 	accessor wipDrafts: State['wipDrafts'];
 
 	@signalState()

@@ -1686,6 +1686,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			void this.updateComplete.then(() => this.consumePendingAction(pendingAction));
 		}
 
+		// Handle a cold-show compare request (e.g. a terminal-link range) — warm shows arrive via
+		// DidRequestOpenCompareModeNotification instead. Mirrors the pendingAction handling above.
+		const pendingCompare = this.graphState.pendingCompare;
+		if (pendingCompare != null) {
+			this.graphState.pendingCompare = undefined;
+			void this.updateComplete.then(() => this.openCompareMode(pendingCompare));
+		}
+
 		if (this._pendingScopeToBranch && this.graphState.branch != null) {
 			void this.updateComplete.then(() => this.scopeToBranch());
 		}

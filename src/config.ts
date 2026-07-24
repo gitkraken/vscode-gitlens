@@ -780,6 +780,8 @@ interface TerminalConfig {
 
 interface TerminalLinksConfig {
 	readonly enabled: boolean;
+	readonly showIn: 'graph' | 'inspect' | 'quickpick';
+	/** @deprecated use {@link showIn} */
 	readonly showDetailsView: boolean;
 }
 

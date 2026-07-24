@@ -28,6 +28,7 @@ import type {
 } from '../../webviewsController.js';
 import type {
 	GraphActionTarget,
+	GraphCompareSeed,
 	GraphComposeScopeSeed,
 	GraphShowAction,
 	GraphSidebarPanel,
@@ -38,6 +39,7 @@ export type GraphWebviewShowingArgs = [
 	| GlRepository
 	| { ref: GitReference; source?: Source }
 	| { repository: GlRepository; search?: SearchQuery; source?: Source }
+	| { repository: GlRepository; compare: GraphCompareSeed; source?: Source }
 	| { sidebarPanel: GraphSidebarPanel; source?: Source }
 	| {
 			action: GraphShowAction;
@@ -55,6 +57,13 @@ export type ShowInCommitGraphCommandArgs =
 			repository: GlRepository;
 			search?: SearchQuery;
 			selectSha?: string;
+			preserveFocus?: boolean;
+			source?: Source;
+			viewColumn?: ViewColumn;
+	  }
+	| {
+			repository: GlRepository;
+			compare: GraphCompareSeed;
 			preserveFocus?: boolean;
 			source?: Source;
 			viewColumn?: ViewColumn;

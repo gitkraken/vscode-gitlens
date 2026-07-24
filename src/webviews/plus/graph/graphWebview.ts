@@ -169,6 +169,7 @@ import type {
 	ChooseGraphLayoutParams,
 	CloseGraphWalkthroughBannerParams,
 	DidGetSidebarDataParams,
+	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
 	emptySetMarker,
@@ -180,6 +181,7 @@ import type {
 	GraphColumnName,
 	GraphColumnsConfig,
 	GraphColumnsSettings,
+	GraphCompareSeed,
 	GraphComponentConfig,
 	GraphComposeScopeSeed,
 	GraphDisplayMode,
@@ -242,6 +244,7 @@ import {
 	DidInvalidateScopeAnchorsNotification,
 	DidRequestActiveSidebarPanelNotification,
 	DidRequestGraphActionNotification,
+	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
 	DidRequestSearchNotification,
 	DidRequestWipRefetchNotification,
@@ -318,6 +321,10 @@ function hasRepository(arg: any): arg is { repository: GlRepository; search?: Se
 
 function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: SearchQuery; selectSha?: string } {
 	return hasRepository(arg) && arg.search != null;
+}
+
+function hasCompare(arg: any): arg is { repository: GlRepository; compare: GraphCompareSeed; source?: Source } {
+	return arg?.compare != null && arg?.repository != null;
 }
 
 function hasSidebarPanel(arg: any): arg is { sidebarPanel: GraphSidebarPanel } {
@@ -1017,6 +1024,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				composeScope?: GraphComposeScopeSeed;
 		  }
 		| undefined;
+	private _pendingCompare: DidRequestOpenCompareModeParams | undefined;
 
 	async onShowing(
 		loading: boolean,
@@ -1064,6 +1072,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 
 				this.revealRow(id);
+			}
+		} else if (hasCompare(arg)) {
+			const repoChanged = this._repository !== arg.repository;
+			this.repository = arg.repository;
+			const params: DidRequestOpenCompareModeParams = { repoPath: arg.repository.path, ...arg.compare };
+			// Cold show / repo swap / not-yet-ready must route through the state bootstrap (a bare
+			// notification would be wiped by `clearPendingIpcNotifications`); a warm same-repo show
+			// notifies directly. Mirrors the search path below and the `pendingAction` mechanism.
+			if (loading || repoChanged || !this.host.ready) {
+				this._pendingCompare = params;
+			} else {
+				void this.host.notify(DidRequestOpenCompareModeNotification, params);
 			}
 		} else if (hasRepository(arg)) {
 			const repoChanged = this._repository !== arg.repository;
@@ -4447,6 +4467,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				visible: storedPanels?.minimap?.visible ?? true,
 			},
 			pendingAction: this._pendingAction,
+			pendingCompare: this._pendingCompare,
 			wipDrafts: this._wip.sliceWipDraftsForPanel(),
 			timeline: {
 				period: storedGraphState?.timeline?.period,
@@ -4459,6 +4480,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 		this._pendingSidebarPanel = undefined;
 		this._pendingAction = undefined;
+		this._pendingCompare = undefined;
 		return result;
 	}
 
