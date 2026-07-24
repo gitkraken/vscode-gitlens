@@ -1268,8 +1268,13 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 		const result = await manager.listOrgs({ providerId: IssuesCloudHostIntegrationId.Linear });
 		assert.deepEqual(result.items, [
-			{ id: 'id1', name: 'Name1', url: 'https://linear.app/id1' },
-			{ id: 'k2', name: 'k2', url: '' },
+			{
+				id: 'id1',
+				providerId: IssuesCloudHostIntegrationId.Linear,
+				name: 'Name1',
+				url: 'https://linear.app/id1',
+			},
+			{ id: 'k2', providerId: IssuesCloudHostIntegrationId.Linear, name: 'k2', url: '' },
 		]);
 		assert.equal(result.warnings.length, 0);
 
@@ -1294,7 +1299,14 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getOrganizationsForUserResult = () =>
 			Promise.resolve({
 				value: {
-					values: [{ id: 'ws-1', name: 'acme', url: 'https://bitbucket.org/acme' }],
+					values: [
+						{
+							id: 'ws-1',
+							providerId: GitCloudHostIntegrationId.Bitbucket,
+							name: 'acme',
+							url: 'https://bitbucket.org/acme',
+						},
+					],
 					metadata: {
 						completeness: 'partial',
 						failures: [{ kind: 'authentication', scope: { resourceId: 'ws-bad' } }],
@@ -1303,7 +1315,14 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			});
 
 		const result = await manager.listOrgs({ providerId: GitCloudHostIntegrationId.Bitbucket });
-		assert.deepEqual(result.items, [{ id: 'ws-1', name: 'acme', url: 'https://bitbucket.org/acme' }]);
+		assert.deepEqual(result.items, [
+			{
+				id: 'ws-1',
+				providerId: GitCloudHostIntegrationId.Bitbucket,
+				name: 'acme',
+				url: 'https://bitbucket.org/acme',
+			},
+		]);
 		assert.equal(result.fetchFailed, true, 'metadata failures mark the read incomplete');
 		assert.ok(
 			result.warnings.some(w => w.kind === 'auth'),
@@ -1334,7 +1353,14 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		});
 
 		const result = await manager.listOrgs({ providerId: GitCloudHostIntegrationId.Bitbucket });
-		assert.deepEqual(result.items, [{ id: 'ws-1', name: 'acme', url: 'https://bitbucket.org/acme' }]);
+		assert.deepEqual(result.items, [
+			{
+				id: 'ws-1',
+				providerId: GitCloudHostIntegrationId.Bitbucket,
+				name: 'acme',
+				url: 'https://bitbucket.org/acme',
+			},
+		]);
 		assert.notEqual(result.fetchFailed, true, 'a backstop is truncation, not a read failure');
 		assert.ok(
 			result.warnings.some(w => /incomplete|omitted|completeness/i.test(w.message)),
@@ -1387,14 +1413,63 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
 
 		(
+			linear as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () =>
+			Promise.resolve({ value: [{ key: 'linear-org', id: 'org-1', name: 'Linear Org' }] });
+
+		(
 			linear as unknown as {
-				getProjectsForUserWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+				getProjectsForResourcesWithMetadataResult: (
+					resources: ResourceDescriptor[],
+				) => Promise<{ value: { values: ResourceDescriptor[] } }>;
 			}
-		).getProjectsForUserWithMetadataResult = () =>
-			Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
+		).getProjectsForResourcesWithMetadataResult = resources => {
+			assert.deepEqual(resources, [{ key: 'linear-org', id: 'org-1', name: 'Linear Org' }]);
+			return Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
+		};
 
 		const result = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Linear });
-		assert.deepEqual(result.items, [{ id: 'p1', name: 'Project One', url: '' }]);
+		assert.deepEqual(result.items, [
+			{
+				id: 'p1',
+				providerId: IssuesCloudHostIntegrationId.Linear,
+				name: 'Project One',
+				org: 'Linear Org',
+				url: '',
+			},
+		]);
+
+		manager.dispose();
+	});
+
+	test('listProjects does not synthesize a parent org for Trello boards, which are already the project scope', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+
+		const boards: ResourceDescriptor[] = [
+			{ key: 'board-1', id: 'board-1', name: 'Board One' },
+			{ key: 'board-2', id: 'board-2', name: 'Board Two' },
+		];
+		(
+			trello as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: boards });
+		(
+			trello as unknown as {
+				getProjectsForResourcesWithMetadataResult: (
+					resources: ResourceDescriptor[],
+				) => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = resources => {
+			assert.deepEqual(resources, boards);
+			return Promise.resolve({ value: { values: boards } });
+		};
+
+		const result = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Trello });
+		assert.deepEqual(result.items, [
+			{ id: 'board-1', providerId: IssuesCloudHostIntegrationId.Trello, name: 'Board One', url: '' },
+			{ id: 'board-2', providerId: IssuesCloudHostIntegrationId.Trello, name: 'Board Two', url: '' },
+		]);
 
 		manager.dispose();
 	});
@@ -1417,7 +1492,15 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getProjectsForOrgResult = () =>
 			Promise.resolve({
 				value: {
-					values: [{ id: 'p1', name: 'Proj', url: 'https://dev.azure.com/org/Proj' }],
+					values: [
+						{
+							id: 'p1',
+							providerId: GitCloudHostIntegrationId.AzureDevOps,
+							name: 'Proj',
+							org: 'org',
+							url: 'https://dev.azure.com/org/Proj',
+						},
+					],
 					metadata: {
 						completeness: 'partial',
 						failures: [{ kind: 'authentication', scope: { projectId: 'broken' } }],
@@ -1426,7 +1509,15 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			});
 
 		const result = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
-		assert.deepEqual(result.items, [{ id: 'p1', name: 'Proj', url: 'https://dev.azure.com/org/Proj' }]);
+		assert.deepEqual(result.items, [
+			{
+				id: 'p1',
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				name: 'Proj',
+				org: 'org',
+				url: 'https://dev.azure.com/org/Proj',
+			},
+		]);
 		assert.equal(result.fetchFailed, true, 'metadata failures mark the read incomplete');
 		assert.ok(
 			result.warnings.some(w => w.kind === 'auth'),
@@ -1462,7 +1553,179 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 		const result = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Jira, org: 'org-2' });
 		assert.deepEqual(capturedResources, [resources[1]]);
-		assert.deepEqual(result.items, [{ id: 'p1', name: 'Project One', url: '' }]);
+		assert.deepEqual(result.items, [
+			{
+				id: 'p1',
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				name: 'Project One',
+				org: 'Org Two',
+				url: '',
+			},
+		]);
+
+		manager.dispose();
+	});
+
+	test('listProjects attributes Jira projects to their parent resource by resourceId when multiple resources are present', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		const resources: ResourceDescriptor[] = [
+			{ key: 'alpha', id: 'site-1', name: 'Alpha Site' },
+			{ key: 'beta', id: 'site-2', name: 'Beta Site' },
+		];
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: resources });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: (
+					resources: ResourceDescriptor[],
+				) => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = scopedResources => {
+			assert.deepEqual(scopedResources, resources);
+			return Promise.resolve({
+				value: {
+					values: [{ key: 'proj-1', id: 'proj-1', name: 'Project One', resourceId: 'site-2' }],
+				},
+			});
+		};
+
+		const result = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Jira });
+		assert.deepEqual(result.items, [
+			{
+				id: 'proj-1',
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				name: 'Project One',
+				org: 'Beta Site',
+				url: '',
+			},
+		]);
+
+		manager.dispose();
+	});
+
+	test('listOrgs and listProjects use the same resource label fallback when a resource has no name', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		const resources: ResourceDescriptor[] = [{ key: 'site-key', id: 'site-id' }];
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: resources });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({
+				value: { values: [{ key: 'proj-key', id: 'proj-id', name: 'Project', resourceId: 'site-id' }] },
+			});
+
+		const orgs = await manager.listOrgs({ providerId: IssuesCloudHostIntegrationId.Jira });
+		const projects = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Jira });
+
+		assert.equal(orgs.items[0]?.name, 'site-id');
+		assert.equal(projects.items[0]?.org, 'site-id');
+
+		manager.dispose();
+	});
+
+	test('listOrgs/listProjects preserve provider attribution and project parent orgs across fan-out reads', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+
+		(github as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('gh');
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('az'),
+			domain: 'dev.azure.com',
+		};
+
+		(
+			github as unknown as {
+				getOrganizationsForUserResult: () => Promise<{ value: { values: ProviderOrganization[] } }>;
+			}
+		).getOrganizationsForUserResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{
+							id: 'gh-org',
+							providerId: GitCloudHostIntegrationId.GitHub,
+							name: 'octo',
+							url: 'https://github.com/octo',
+						},
+					],
+				},
+			});
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () =>
+			Promise.resolve({ value: [{ key: 'jira-site', id: 'site-1', name: 'Jira Site' }] });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: (
+					resources: ResourceDescriptor[],
+				) => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = resources => {
+			assert.deepEqual(resources, [{ key: 'jira-site', id: 'site-1', name: 'Jira Site' }]);
+			return Promise.resolve({ value: { values: [{ key: 'proj', id: 'jira-proj', name: 'Platform' }] } });
+		};
+		(
+			azure as unknown as {
+				getProjectsForOrgResult: (org?: string) => Promise<{ value: PagedResult<ProviderOrganization> }>;
+			}
+		).getProjectsForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{
+							id: 'az-proj',
+							providerId: GitCloudHostIntegrationId.AzureDevOps,
+							name: 'Services',
+							org: 'acme',
+							url: 'https://dev.azure.com/acme/Services',
+						},
+					],
+				},
+			});
+
+		const orgs = await manager.listOrgs();
+		assert.ok(
+			orgs.items.some(item => item.providerId === GitCloudHostIntegrationId.GitHub && item.name === 'octo'),
+			'aggregated org items retain their provider attribution',
+		);
+		assert.ok(
+			orgs.items.some(item => item.providerId === IssuesCloudHostIntegrationId.Jira && item.name === 'Jira Site'),
+			'issue-tracker org items retain their provider attribution',
+		);
+
+		const projects = await manager.listProjects();
+		assert.ok(
+			projects.items.some(
+				item =>
+					item.providerId === IssuesCloudHostIntegrationId.Jira &&
+					item.name === 'Platform' &&
+					item.org === 'Jira Site',
+			),
+			'aggregated Jira project items retain the parent org',
+		);
+		assert.ok(
+			projects.items.some(
+				item =>
+					item.providerId === GitCloudHostIntegrationId.AzureDevOps &&
+					item.name === 'Services' &&
+					item.org === 'acme',
+			),
+			'aggregated Azure project items retain the parent org',
+		);
 
 		manager.dispose();
 	});
@@ -1605,10 +1868,30 @@ suite('ProviderBackend surface facade (#5438)', () => {
 				getProjectsForOrgResult: (org?: string) => Promise<{ value: PagedResult<ProviderOrganization> }>;
 			}
 		).getProjectsForOrgResult = () =>
-			Promise.resolve({ value: { values: [{ id: 'p1', name: 'Proj', url: 'https://dev.azure.com/org/Proj' }] } });
+			Promise.resolve({
+				value: {
+					values: [
+						{
+							id: 'p1',
+							providerId: GitCloudHostIntegrationId.AzureDevOps,
+							name: 'Proj',
+							org: 'org',
+							url: 'https://dev.azure.com/org/Proj',
+						},
+					],
+				},
+			});
 
 		const result = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
-		assert.deepEqual(result.items, [{ id: 'p1', name: 'Proj', url: 'https://dev.azure.com/org/Proj' }]);
+		assert.deepEqual(result.items, [
+			{
+				id: 'p1',
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				name: 'Proj',
+				org: 'org',
+				url: 'https://dev.azure.com/org/Proj',
+			},
+		]);
 
 		manager.dispose();
 	});

@@ -1067,12 +1067,55 @@ export class IntegrationService implements Disposable {
 	/**
 	 * Maps an issue-tracker resource descriptor to the unified {@link ProviderOrganization} org shape.
 	 * The base `ResourceDescriptor` only guarantees `key`, so read `id`/`name` off the concrete
-	 * `IssueResourceDescriptor` (falling back to `key`) and synthesize `url` when absent, rather than
-	 * widening the shared `ProviderOrganization.url` to optional.
+	 * `IssueResourceDescriptor` (falling back through `id`, then `key`) and synthesize `url` when absent,
+	 * rather than widening the shared `ProviderOrganization.url` to optional.
 	 */
-	private resourceToOrg(resource: ResourceDescriptor): ProviderOrganization {
+	private resourceToOrg(
+		providerId: IntegrationIds,
+		resource: ResourceDescriptor,
+		org?: string,
+	): ProviderOrganization {
 		const typed = resource as IssueResourceDescriptor & { url?: string };
-		return { id: typed.id ?? resource.key, name: typed.name ?? resource.key, url: typed.url ?? '' };
+		return {
+			id: typed.id ?? resource.key,
+			providerId: providerId,
+			name: this.resourceLabel(resource),
+			...(org != null ? { org: org } : {}),
+			url: typed.url ?? '',
+		};
+	}
+
+	private resourceLabel(resource: ResourceDescriptor): string {
+		const typed = resource as IssueResourceDescriptor;
+		return typed.name ?? typed.id ?? resource.key;
+	}
+
+	private orgForProject(
+		providerId: IntegrationIds,
+		project: ResourceDescriptor,
+		resources: ResourceDescriptor[],
+	): string | undefined {
+		if (providerId === IssuesCloudHostIntegrationId.Trello) return undefined;
+
+		const typedProject = project as IssueResourceDescriptor & { resourceId?: string };
+		const parentMatch = [typedProject.resourceId, typedProject.id, project.key]
+			.filter((value): value is string => value != null)
+			.map(candidate => resources.find(resource => this.resourceMatchesOrg(resource, candidate)))
+			.find((resource): resource is ResourceDescriptor => resource != null);
+
+		return parentMatch != null
+			? this.resourceLabel(parentMatch)
+			: resources.length === 1
+				? this.resourceLabel(resources[0])
+				: undefined;
+	}
+
+	private withProviderContext(providerId: IntegrationIds, item: ProviderOrganization): ProviderOrganization {
+		return {
+			...item,
+			providerId: providerId,
+			...(item.org != null ? { org: item.org } : {}),
+		};
 	}
 
 	private resourceMatchesOrg(resource: ResourceDescriptor, org: string): boolean {
@@ -1173,7 +1216,7 @@ export class IntegrationService implements Disposable {
 						integration.getResourcesForUserResult(connectionId),
 					);
 					if (resources != null) {
-						items.push(...resources.map(r => this.resourceToOrg(r)));
+						items.push(...resources.map(r => this.resourceToOrg(id, r)));
 					}
 					if (warning != null) {
 						warnings.push(warning);
@@ -1199,7 +1242,7 @@ export class IntegrationService implements Disposable {
 						integration.getOrganizationsForUserResult(connectionId),
 					);
 					if (value != null) {
-						items.push(...value.values);
+						items.push(...value.values.map(org => this.withProviderContext(id, org)));
 						if (value.truncated) {
 							warnings.push({
 								providerId: id,
@@ -1250,11 +1293,11 @@ export class IntegrationService implements Disposable {
 	}
 
 	/**
-	 * Lists the projects visible to the user, unified into the {@link ProviderOrganization} `{ id, name, url }`
-	 * shape. Covers issue-tracker providers (Jira/Linear, which expose projects under their resources) *and*
-	 * git hosts that have a project tier (Azure DevOps, whose repos are org + project scoped). Scoped to
-	 * `providerId` when given, else fanned out over both the supported issue trackers and Azure DevOps.
-	 * Providers with no project tier (GitHub, GitLab, Bitbucket) contribute nothing.
+	 * Lists the projects visible to the user, unified into the {@link ProviderOrganization}
+	 * `{ providerId, id, name, org?, url }` shape. Covers issue-tracker providers (Jira/Linear, which expose
+	 * projects under their resources) *and* git hosts that have a project tier (Azure DevOps, whose repos are
+	 * org + project scoped). Scoped to `providerId` when given, else fanned out over both the supported issue
+	 * trackers and Azure DevOps. Providers with no project tier (GitHub, GitLab, Bitbucket) contribute nothing.
 	 */
 	async listProjects(options?: {
 		providerId?: IntegrationIds;
@@ -1305,7 +1348,7 @@ export class IntegrationService implements Disposable {
 						}
 					}
 					if (projects != null) {
-						items.push(...projects.values);
+						items.push(...projects.values.map(project => this.withProviderContext(id, project)));
 
 						if (mergeAssessmentInto(warnings, id, domain, connectionId, projects.metadata).fetchFailed) {
 							fetchFailed = true;
@@ -1314,54 +1357,40 @@ export class IntegrationService implements Disposable {
 					return { items: items, warnings: warnings, fetchFailed: fetchFailed };
 				}
 
-				if (org != null) {
-					const { value: resources, warning: resourcesWarning } = await this.runCaptured(
+				const { value: resources, warning: resourcesWarning } = await this.runCaptured(
+					id,
+					domain,
+					connectionId,
+					() => integration.getResourcesForUserResult(connectionId),
+				);
+				if (resourcesWarning != null) {
+					warnings.push(resourcesWarning);
+					if (resources == null) {
+						fetchFailed = true;
+					}
+				}
+
+				const scopedResources =
+					org != null ? resources?.filter(resource => this.resourceMatchesOrg(resource, org)) : resources;
+				if (scopedResources != null && scopedResources.length !== 0) {
+					const { value: projects, warning: projectsWarning } = await this.runCaptured(
 						id,
 						domain,
 						connectionId,
-						() => integration.getResourcesForUserResult(connectionId),
+						() => integration.getProjectsForResourcesWithMetadataResult(scopedResources, connectionId),
 					);
-					if (resourcesWarning != null) {
-						warnings.push(resourcesWarning);
-						if (resources == null) {
-							fetchFailed = true;
-						}
-					}
-					const resource = resources?.find(r => this.resourceMatchesOrg(r, org));
-					if (resource != null) {
-						const { value: projects, warning: projectsWarning } = await this.runCaptured(
-							id,
-							domain,
-							connectionId,
-							() => integration.getProjectsForResourcesWithMetadataResult([resource], connectionId),
-						);
-						if (projectsWarning != null) {
-							warnings.push(projectsWarning);
-							if (projects == null) {
-								fetchFailed = true;
-							}
-						}
-						if (projects != null) {
-							items.push(...projects.values.map(p => this.resourceToOrg(p)));
-						}
-						// Fold in per-resource completeness/failures so a partial fan-out warns and marks fetchFailed
-						// without dropping the resources that succeeded.
-						if (mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata).fetchFailed) {
-							fetchFailed = true;
-						}
-					}
-				} else {
-					const { value: projects, warning } = await this.runCaptured(id, domain, connectionId, () =>
-						integration.getProjectsForUserWithMetadataResult(connectionId),
-					);
-					if (warning != null) {
-						warnings.push(warning);
+					if (projectsWarning != null) {
+						warnings.push(projectsWarning);
 						if (projects == null) {
 							fetchFailed = true;
 						}
 					}
 					if (projects != null) {
-						items.push(...projects.values.map(p => this.resourceToOrg(p)));
+						items.push(
+							...projects.values.map(project =>
+								this.resourceToOrg(id, project, this.orgForProject(id, project, scopedResources)),
+							),
+						);
 					}
 					if (mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata).fetchFailed) {
 						fetchFailed = true;

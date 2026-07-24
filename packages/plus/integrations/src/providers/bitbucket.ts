@@ -283,7 +283,12 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (workspaces == null) return undefined;
 
 		return {
-			values: workspaces.values.map(w => ({ id: w.id, name: w.slug, url: `https://bitbucket.org/${w.slug}` })),
+			values: workspaces.values.map(w => ({
+				id: w.id,
+				providerId: this.id,
+				name: w.slug,
+				url: `https://bitbucket.org/${w.slug}`,
+			})),
 			...(workspaces.metadata != null ? { metadata: workspaces.metadata } : {}),
 		};
 	}

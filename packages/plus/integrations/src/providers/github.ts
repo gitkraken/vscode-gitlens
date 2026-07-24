@@ -324,6 +324,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		return {
 			values: result.values.map(o => ({
 				id: o.id,
+				providerId: this.id,
 				name: o.username,
 				url: `https://${this.domain}/${o.username}`,
 			})),
