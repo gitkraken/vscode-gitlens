@@ -44,19 +44,21 @@ execFileSync(process.execPath, [mocha, '--ui', 'tdd', '--timeout', '30000', `${o
 	cwd: packageRoot,
 });
 
-// Keep the package's external-consumer boundary test in the standard integrations test flow so
-// `pnpm run test:packages` catches public-facade regressions too.
+// Build the package before exercising any external-consumer boundary. Both the fixture and the direct
+// facade smoke test import the published `@gitlens/integrations/*` exports, which resolve through this
+// package's `dist/` folder in the workspace link; without a fresh build they'd type-check/runtime-fail on
+// a clean checkout even when the sources themselves are correct.
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-execFileSync(pnpm, ['--filter', '@gitlens/integrations-consumer-fixture', 'test'], {
-	stdio: 'inherit',
-	cwd: workspaceRoot,
-});
-
-// Build the package before importing the published facade so the smoke test validates the current sources,
-// not a stale or missing dist/ directory from a prior run.
 execFileSync(pnpm, ['build'], {
 	stdio: 'inherit',
 	cwd: packageRoot,
+});
+
+// Keep the package's external-consumer boundary test in the standard integrations test flow so
+// `pnpm run test:packages` catches public-facade regressions too.
+execFileSync(pnpm, ['--filter', '@gitlens/integrations-consumer-fixture', 'test'], {
+	stdio: 'inherit',
+	cwd: workspaceRoot,
 });
 
 // Smoke-test the published ESM facade directly under Node too. Bundled tests/fixtures can mask CommonJS named
