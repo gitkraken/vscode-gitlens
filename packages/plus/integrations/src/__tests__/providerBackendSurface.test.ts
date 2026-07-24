@@ -2425,6 +2425,121 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listRepos with no org walks the user-affiliated GitHub repos (#5571)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let capturedAffiliations: string[] | undefined;
+		let orgReadCalled = false;
+		stubApi(gh, {
+			getReposForCurrentUser: (_t: unknown, opts: { affiliations?: string[] }) => {
+				capturedAffiliations = opts.affiliations;
+				return Promise.resolve({
+					values: [
+						{ id: 'r1', namespace: 'me', name: 'personal' } as unknown as ProviderRepository,
+						{ id: 'r2', namespace: 'octo', name: 'collab' } as unknown as ProviderRepository,
+					],
+					paging: { more: false, cursor: '{}' },
+				});
+			},
+			getReposForOrg: () => {
+				orgReadCalled = true;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		const result = await manager.listRepos({ providerId: GitCloudHostIntegrationId.GitHub });
+
+		assert.deepEqual(
+			capturedAffiliations,
+			['owner', 'collaborator', 'organization_member'],
+			'the account-wide walk requests the full gkcli-parity affiliation set',
+		);
+		assert.equal(orgReadCalled, false, 'the org-scoped read is not used for the account-wide walk');
+		assert.deepEqual(
+			result.items.map(r => `${r.namespace}/${r.name}`),
+			['me/personal', 'octo/collab'],
+			'user-affiliated repos across owners are returned',
+		);
+		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+
+	test('listRepos with no org reports unsupported for hosts without a user-affiliated read (#5571)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		// Bitbucket repos can only be walked per workspace; an org-less read must say so (so the caller fans
+		// out per org) instead of returning a silent empty page or misusing the org-scoped hook.
+		let orgReadCalled = false;
+		(
+			bb as unknown as {
+				getRepositoriesForOrgResult: () => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = () => {
+			orgReadCalled = true;
+			return Promise.resolve({ value: { values: [], paging: { more: false, cursor: '{}' } } });
+		};
+
+		const result = await manager.listRepos({ providerId: GitCloudHostIntegrationId.Bitbucket });
+
+		assert.equal(orgReadCalled, false, 'the org-scoped read is not silently substituted');
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.items.length, 0);
+		assert.ok(
+			result.warnings.some(w => /account-wide repository discovery is not supported/i.test(w.message)),
+			'the unsupported account-wide walk is reported explicitly',
+		);
+
+		manager.dispose();
+	});
+
+	test('listRepos with no org threads the continuation cursor through the user-affiliated walk (#5571)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const seenCursors: (string | undefined)[] = [];
+		stubApi(gh, {
+			getReposForCurrentUser: (_t: unknown, opts: { cursor?: string }) => {
+				seenCursors.push(opts.cursor);
+				return Promise.resolve({
+					values: [{ id: 'r1', namespace: 'me', name: 'repo' } as unknown as ProviderRepository],
+					paging: {
+						more: seenCursors.length === 1,
+						cursor: seenCursors.length === 1 ? JSON.stringify({ value: 2, type: 'page' }) : '{}',
+					},
+				});
+			},
+		});
+
+		const first = await manager.listRepos({ providerId: GitCloudHostIntegrationId.GitHub });
+		assert.equal(first.hasMore, true);
+		assert.ok(first.cursor != null, 'a resumable cursor is returned');
+
+		const second = await manager.listRepos({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			cursor: first.cursor,
+		});
+		assert.equal(second.hasMore, false);
+		assert.equal(
+			seenCursors[1],
+			JSON.stringify({ value: 2, type: 'page' }),
+			'the continuation cursor reaches the provider read',
+		);
+
+		manager.dispose();
+	});
+
 	test('listRepos reports the requested page and a resumable next-page cursor for numbered-page hosts (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
