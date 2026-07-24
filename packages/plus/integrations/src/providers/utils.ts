@@ -375,10 +375,19 @@ export async function getIssueFromGitConfigEntityIdentifier(
 	// unresolvable — a still-cached issue must survive an unconfigured/disconnected integration.
 	if (options?.cached) {
 		const cachedIssue = options.peekCachedIssue?.(integration, resource, identifier.metadata.id);
-		if (cachedIssue != null || identifier.provider !== EntityIdentifierProviderType.Trello) {
+		if (
+			cachedIssue != null ||
+			(identifier.provider !== EntityIdentifierProviderType.Trello &&
+				identifier.provider !== EntityIdentifierProviderType.Linear)
+		) {
 			return cachedIssue;
 		}
 
+		// Two id generations coexist for these providers: Trello identifiers persisted before the stable-id
+		// switch carry the board-local `idShort` in `metadata.id` while the cache is keyed by the stable card
+		// id (`entityId`); Linear identifiers persisted before `Issue.id` became the human identifier carry
+		// the UUID in `metadata.id` while fresh cache entries key by the identifier — and vice versa, the
+		// UUID always survives in `entityId` (via `nodeId`). Peeking both keys resolves either generation.
 		return options.peekCachedIssue?.(integration, resource, identifier.entityId);
 	}
 
