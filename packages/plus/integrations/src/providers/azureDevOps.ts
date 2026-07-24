@@ -320,7 +320,12 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (orgs == null) return undefined;
 
 		return {
-			values: orgs.map(o => ({ id: o.id, name: o.name, url: `${this.apiBaseUrl}/${o.name}` })),
+			values: orgs.map(o => ({
+				id: o.id,
+				providerId: this.id,
+				name: o.name,
+				url: `${this.apiBaseUrl}/${o.name}`,
+			})),
 		};
 	}
 
@@ -343,7 +348,9 @@ export abstract class AzureDevOpsIntegrationBase<
 		return {
 			values: projects.values.map(p => ({
 				id: p.id,
+				providerId: this.id,
 				name: p.name,
+				org: p.resourceName,
 				url: `${this.apiBaseUrl}/${p.resourceName}/${p.name}`,
 			})),
 			...(projects.metadata != null ? { metadata: projects.metadata } : {}),
