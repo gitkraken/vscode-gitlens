@@ -522,7 +522,9 @@ export type GetReposForWorkspaceFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderRepository[]; pageInfo?: PageInfo }>;
 export type GetReposForCurrentUserFn = (
-	input: PagingInput,
+	// `affiliations` narrows GitHub's `/user/repos` read (owner/collaborator/organization_member);
+	// GitLab's equivalent read ignores it.
+	input: PagingInput & { affiliations?: ('owner' | 'collaborator' | 'organization_member')[] },
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderRepository[]; pageInfo?: PageInfo }>;
 export type GetGroupsForCurrentUserFn = (

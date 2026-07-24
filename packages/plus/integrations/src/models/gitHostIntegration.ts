@@ -312,6 +312,14 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
+	 * Whether this git host implements the account-wide user-affiliated repository read
+	 * ({@link getProviderRepositoriesForUser}) — the org-less `gk provider repos <provider>` equivalent.
+	 */
+	get supportsUserRepositoryDiscovery(): boolean {
+		return this.getProviderRepositoriesForUser != null;
+	}
+
+	/**
 	 * Whether this git host exposes issues on the ProviderBackend surface. Most git hosts do; a host whose
 	 * issue tracker is deprecated (Bitbucket Cloud, superseded by dedicated issue integrations like Jira)
 	 * overrides this to false, so the facade reports issues as unsupported instead of serving a partial or
@@ -431,6 +439,43 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		org: string,
 		options?: { project?: string; cursor?: string },
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined>;
+
+	/**
+	 * Result-returning account-wide, user-affiliated repository read (the org-less
+	 * `gk provider repos <provider>` equivalent): repositories the user owns, collaborates on, or can
+	 * access through org membership — NOT every repo of every org. Optional: providers without a native
+	 * user-affiliated listing (Bitbucket workspaces, Azure orgs, which require an org/workspace scope)
+	 * leave the hook undefined and the facade reports the read as unsupported so callers fan out per org.
+	 */
+	@trace()
+	async getRepositoriesForUserResult(options?: {
+		cursor?: string;
+		connectionId?: string;
+	}): Promise<IntegrationResult<ProviderHierarchyResult<ProviderRepository> | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(options?.connectionId, scope);
+		if (session == null) return undefined;
+
+		if (this.getProviderRepositoriesForUser == null) {
+			return undefined;
+		}
+
+		const start = performance.now();
+		try {
+			const result = await this.getProviderRepositoriesForUser(session, options);
+			this.resetRequestExceptionCount('getRepositoriesForUser');
+			return { value: result, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getRepositoriesForUser', ex, { scope: scope });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	protected getProviderRepositoriesForUser?(
+		session: ProviderAuthenticationSession,
+		options?: { cursor?: string },
 	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined>;
 
 	async mergePullRequest(pr: PullRequest, options?: { mergeMethod?: PullRequestMergeMethod }): Promise<boolean> {

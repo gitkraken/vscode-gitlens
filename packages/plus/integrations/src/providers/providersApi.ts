@@ -229,6 +229,7 @@ export class ProvidersApi {
 				) as GetIssuesForReposFn,
 				getOrgsForCurrentUserFn: providerApis.github.getOrgsForCurrentUser.bind(providerApis.github),
 				getReposForOrgFn: providerApis.github.getReposForOrg.bind(providerApis.github),
+				getReposForCurrentUserFn: providerApis.github.getReposForCurrentUser.bind(providerApis.github),
 			},
 			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise],
@@ -246,6 +247,7 @@ export class ProvidersApi {
 				) as GetIssuesForReposFn,
 				getOrgsForCurrentUserFn: providerApis.github.getOrgsForCurrentUser.bind(providerApis.github),
 				getReposForOrgFn: providerApis.github.getReposForOrg.bind(providerApis.github),
+				getReposForCurrentUserFn: providerApis.github.getReposForCurrentUser.bind(providerApis.github),
 			},
 			[GitCloudHostIntegrationId.GitLab]: {
 				...providersMetadata[GitCloudHostIntegrationId.GitLab],
@@ -1136,9 +1138,17 @@ export class ProvidersApi {
 
 	async getReposForCurrentUser(
 		tokenOptInfo: TokenWithInfo<
-			GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
+			| GitCloudHostIntegrationId.GitHub
+			| GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+			| GitCloudHostIntegrationId.GitLab
+			| GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
 		>,
-		options?: GetReposOptions & { isPAT?: boolean; baseUrl?: string },
+		options?: GetReposOptions & {
+			/** GitHub `/user/repos` affiliation filter; ignored by GitLab's membership read. */
+			affiliations?: ('owner' | 'collaborator' | 'organization_member')[];
+			isPAT?: boolean;
+			baseUrl?: string;
+		},
 	): Promise<PagedResult<ProviderRepository>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -1146,7 +1156,7 @@ export class ProvidersApi {
 		);
 
 		return this.getPagedResult<ProviderRepository>(
-			{},
+			options?.affiliations != null ? { affiliations: options.affiliations } : {},
 			provider.getReposForCurrentUserFn,
 			tokenWithInfo,
 			options?.cursor,
