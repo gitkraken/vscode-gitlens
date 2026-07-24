@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, ThemeColor, window } from 'vscode';
 import type { GitCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
-import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
+import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
 import { once } from '@gitlens/utils/event.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
 import { wait } from '@gitlens/utils/promise.js';

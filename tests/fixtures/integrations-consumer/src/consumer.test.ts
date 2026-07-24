@@ -10,10 +10,6 @@
 import * as assert from 'node:assert/strict';
 import {
 	createIntegrationManager,
-	createManualTokenAuthProvider,
-	GitCloudHostIntegrationId,
-	GitSelfManagedHostIntegrationId,
-	IssuesCloudHostIntegrationId,
 	type ConfigChangeEvent,
 	type IntegrationServiceContext,
 	type IntegrationStorageProvider,
@@ -107,71 +103,29 @@ async function main(): Promise<void> {
 
 	await check('manager constructs from a vanilla-Node runtime', () => {
 		const manager = createIntegrationManager(buildRuntime());
+		const providerModelsStayPrivate: 'get' extends keyof typeof manager ? false : true = true;
+		const providerClientsStayPrivate: 'apis' extends keyof typeof manager ? false : true = true;
 		assert.ok(manager);
-		assert.equal(typeof manager.get, 'function');
+		assert.equal(providerModelsStayPrivate, true);
+		assert.equal(providerClientsStayPrivate, true);
+		assert.equal(typeof manager.getConfigured, 'function');
+		assert.equal(typeof manager.listPullRequestsPage, 'function');
+		assert.equal(typeof manager.resolveRepository, 'function');
 		assert.equal(typeof manager.dispose, 'function');
 		manager.dispose();
 	});
 
-	await check('manager.get works for every cloud provider id', async () => {
+	await check('manager exposes only neutral connection descriptors', () => {
 		const manager = createIntegrationManager(buildRuntime());
-		const cloudIds = [
-			GitCloudHostIntegrationId.GitHub,
-			GitCloudHostIntegrationId.GitLab,
-			GitCloudHostIntegrationId.Bitbucket,
-			GitCloudHostIntegrationId.AzureDevOps,
-			IssuesCloudHostIntegrationId.Jira,
-			IssuesCloudHostIntegrationId.Linear,
-		];
-		for (const id of cloudIds) {
-			const integration = await manager.get(id);
-			assert.ok(integration, `expected ${id} integration to construct`);
-			assert.equal(integration.id, id);
-		}
+		assert.deepEqual(manager.getConfigured(), []);
 		manager.dispose();
 	});
 
-	await check('self-managed providers accept an explicit domain', async () => {
+	await check('repository resolution classifies malformed input without exposing provider clients', async () => {
 		const manager = createIntegrationManager(buildRuntime());
-		const integration = await manager.get(
-			GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
-			'enterprise.example.com',
-		);
-		assert.ok(integration);
-		manager.dispose();
-	});
-
-	await check('createManualTokenAuthProvider plugs in via the hook', async () => {
-		const ctx = buildRuntime();
-		ctx.hooks!.createAuthenticationProvider = async ({ id }) =>
-			id === GitCloudHostIntegrationId.GitHub
-				? createManualTokenAuthProvider({
-						id: id,
-						token: 'fixture-pat-abc',
-						account: { id: 'me', label: 'Fixture Token' },
-						scopes: ['repo'],
-					})
-				: undefined;
-		const manager = createIntegrationManager(ctx);
-		const integration = await manager.get(GitCloudHostIntegrationId.GitHub);
-		assert.ok(integration);
-		// Manual-token providers always report a session as available.
-		assert.equal(await integration.isConnected(), true);
-		manager.dispose();
-	});
-
-	await check('connectCloudIntegrations invokes typed telemetry hooks', async () => {
-		const started: Array<{ integrationIds: readonly string[] | undefined }> = [];
-		const ctx: IntegrationServiceContext = {
-			...buildRuntime(),
-			hooks: { connection: { onStarted: e => started.push({ integrationIds: e.integrationIds }) } },
-		};
-		const manager = createIntegrationManager(ctx);
-		await manager.connectCloudIntegrations(
-			{ integrationIds: [GitCloudHostIntegrationId.GitHub] },
-			{ source: 'fixture' },
-		);
-		assert.ok(started.length >= 1, 'connection.onStarted should fire');
+		const result = await manager.resolveRepository({ remoteUrl: 'not a remote' });
+		assert.equal(result.resolution.status, 'invalid-remote-url');
+		assert.equal(result.cliUnsupported, false);
 		manager.dispose();
 	});
 

@@ -15,6 +15,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { toError } from '../errors.js';
@@ -42,7 +43,6 @@ import {
 	toProviderPullRequestStates,
 } from '../providers/models.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
-import { toCollectionScopeFailure } from '../results.js';
 import type { IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 

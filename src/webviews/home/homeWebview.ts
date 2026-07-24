@@ -13,7 +13,7 @@ import {
 	supportedCloudIntegrationDescriptors,
 	supportedOrderedCloudIntegrationIds,
 } from '@gitlens/integrations/constants.js';
-import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
+import type { ConnectionStateChangeEvent } from '@gitlens/integrations/index.js';
 import { providersMetadata } from '@gitlens/integrations/providers/models.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
