@@ -321,6 +321,12 @@ function renderPrChip(pr: PullRequestMetadata, ref: ParsedRef, expanded: boolean
 	>
 		<span
 			slot="anchor"
+			role="button"
+			tabindex=${
+				// Only the in-flow copy roves; the expanded-twin copy sits in an aria-hidden subtree, where a
+				// click-focusable element would put focus inside hidden-from-AT content.
+				expanded ? nothing : '-1'
+			}
 			aria-label="Pull request ${label}"
 			data-ref-metadata-type="pullRequest"
 			data-ref-id=${ref.id ?? nothing}
@@ -352,6 +358,11 @@ function renderIssueChip(issue: IssueMetadata, ref: ParsedRef, expanded: boolean
 	>
 		<span
 			slot="anchor"
+			role="button"
+			tabindex=${
+				// Same as the PR chip: rove only the in-flow copy, never the aria-hidden expanded twin.
+				expanded ? nothing : '-1'
+			}
 			aria-label="Issue ${label}"
 			data-ref-metadata-type="issue"
 			data-ref-id=${ref.id ?? nothing}
@@ -443,6 +454,10 @@ function renderRefPill(
 	const pill = html`<span
 		class="gl-graph__ref-pill"
 		style=${cspStyleMap(refStyle(color, isHead, 'pill'))}
+		role="button"
+		tabindex="-1"
+		aria-label=${describeRef(primary, hooks)}
+		aria-haspopup=${restCount > 0 ? 'menu' : nothing}
 		data-ref-name=${primary.name}
 		data-ref-key=${refPillKey(primary)}
 		data-ref-kind=${primary.kind}
@@ -481,7 +496,7 @@ function renderRefPill(
 		style=${cspStyleMap({ '--show-delay': '120ms', '--hide-delay': '180ms', '--wa-tooltip-padding': '0' })}
 	>
 		<span slot="anchor" class="gl-graph__ref-popover-anchor">${pill}</span>
-		<div slot="content" class="gl-graph__ref-popover-list" @mousedown=${stopEvent}>
+		<div slot="content" class="gl-graph__ref-popover-list" role="menu" @mousedown=${stopEvent}>
 			${rest.map(r => renderPopoverRefRow(r, color, r.context, fromSha, hooks, popoverUpstreamFor.get(r)))}
 		</div>
 	</gl-popover>`;
@@ -548,6 +563,7 @@ function renderUpstreamSegment(
 	fromSha: Sha,
 	hooks?: RefPillHooks,
 	upstreamOnRow?: ParsedRef,
+	jumpId?: string,
 ): TemplateResult | typeof nothing {
 	if (hooks == null) return nothing;
 
@@ -616,8 +632,10 @@ function renderUpstreamSegment(
 	// renders "Jump to <cloud|vm icon> <branch>" inline (data-tooltip-action + -icon); the aria-label
 	// spells the side out (Upstream/Local) for screen readers, since the glyph isn't readable.
 	return html`<button
+		id=${jumpId ?? nothing}
 		class="gl-graph__ref-pill-upstream gl-graph__ref-pill-upstream--jump"
 		type="button"
+		tabindex="-1"
 		aria-label=${tip.aria}
 		data-tooltip-action="Jump to"
 		data-tooltip-icon=${linkIcon}
@@ -650,11 +668,16 @@ function renderPopoverRefRow(
 	const isHead = parsed.isHead === true;
 	// Same split/combine treatment as the primary pill: in-sync upstream folds in (cloud + sync), an
 	// out-of-sync counterpart shows ahead/behind + a jump button.
-	const upstreamSegment = fromSha != null ? renderUpstreamSegment(parsed, fromSha, hooks, upstreamOnRow) : nothing;
+	const upstreamSegment =
+		fromSha != null
+			? renderUpstreamSegment(parsed, fromSha, hooks, upstreamOnRow, `ref-menuitem-${refPillKey(parsed)}-jump`)
+			: nothing;
 
 	return html`<div
 		class="gl-graph__ref-popover-row"
 		style=${cspStyleMap(refStyle(color, isHead, 'row'))}
+		role="menuitem"
+		id=${`ref-menuitem-${refPillKey(parsed)}`}
 		aria-label=${describeRef(parsed, hooks)}
 		data-ref-name=${parsed.name}
 		data-ref-key=${refPillKey(parsed)}

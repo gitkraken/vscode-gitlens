@@ -728,6 +728,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					? html`<button
 							class="gl-graph__row-action gl-graph__row-action--persistent gl-graph__row-action--agent agent-indicator--${agent.category}"
 							type="button"
+							tabindex="-1"
 							data-wip-open="agents"
 							data-tooltip=${agentTip}
 							aria-label=${agentTip}
@@ -743,6 +744,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 								? 'gl-graph__row-action--persistent'
 								: 'gl-graph__row-action--gated'}"
 							type="button"
+							tabindex="-1"
 							data-wip-open="resolve"
 							data-tooltip=${resolveTip}
 							aria-label=${resolveTip}
@@ -757,6 +759,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 						? 'gl-graph__row-action--persistent'
 						: 'gl-graph__row-action--gated'}"
 					type="button"
+					tabindex="-1"
 					data-wip-open="compose"
 					data-tooltip=${composeTip}
 					aria-label=${composeTip}
@@ -767,6 +770,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 						? 'gl-graph__row-action--persistent'
 						: 'gl-graph__row-action--gated'}"
 					type="button"
+					tabindex="-1"
 					data-wip-open="review"
 					data-tooltip=${reviewTip}
 					aria-label=${reviewTip}
@@ -778,6 +782,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 				><button
 					class="gl-graph__row-action gl-graph__row-action--gated"
 					type="button"
+					tabindex="-1"
 					data-row-action="stash-save"
 					data-tooltip="Stash All Changes..."
 					aria-label="Stash All Changes..."
@@ -787,6 +792,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					? html`<button
 							class="gl-graph__row-action gl-graph__row-action--gated"
 							type="button"
+							tabindex="-1"
 							data-jump-sha=${ctx.commit.parents[0]}
 							data-tooltip="Jump to Branch Tip"
 							aria-label="Jump to Branch Tip"
@@ -800,6 +806,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			actions = html`<button
 					class="gl-graph__row-action gl-graph__row-action--gated"
 					type="button"
+					tabindex="-1"
 					data-row-action="stash-apply"
 					data-tooltip="Apply / Pop Stash..."
 					aria-label="Apply / Pop Stash..."
@@ -808,6 +815,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 				><button
 					class="gl-graph__row-action gl-graph__row-action--gated"
 					type="button"
+					tabindex="-1"
 					data-row-action="stash-drop"
 					data-tooltip="Drop Stash..."
 					aria-label="Drop Stash..."
@@ -829,6 +837,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					? html`<button
 							class="gl-graph__row-action gl-graph__row-action--gated"
 							type="button"
+							tabindex="-1"
 							data-row-action="undo-commit"
 							data-worktree-path=${undo.worktreePath ?? nothing}
 							data-tooltip=${undoLabel}
@@ -839,6 +848,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					: nothing}<button
 					class="gl-graph__row-action gl-graph__row-action--gated"
 					type="button"
+					tabindex="-1"
 					data-row-action="open-changes"
 					data-tooltip="Open All Changes (Alt: with Working Tree)"
 					aria-label="Open All Changes"
@@ -848,6 +858,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					? html`<button
 							class="gl-graph__row-action gl-graph__row-action--gated"
 							type="button"
+							tabindex="-1"
 							data-jump-nearest-wip="true"
 							data-tooltip="Jump to Working Changes"
 							aria-label="Jump to Working Changes"
@@ -858,6 +869,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					? html`<button
 							class="gl-graph__row-action gl-graph__row-action--persistent unpushed-push-button"
 							type="button"
+							tabindex="-1"
 							data-row-action="push-to-commit"
 							data-tooltip="Push to Commit..."
 							aria-label="Push to Commit..."

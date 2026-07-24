@@ -250,6 +250,12 @@ export class GlDetailSheet extends LitElement {
 	 *  scrim, X close) leaves this `false` so focus correctly returns to the trigger element. */
 	skipFocusRestore = false;
 
+	/** When `true`, the sheet does NOT auto-focus itself on open, leaving focus on the trigger — e.g. a
+	 *  graph ref pill acting as a toggle (Enter opens, Enter again closes, without ever moving focus into
+	 *  the sheet). Focus can still be moved in with Tab; Esc still closes (document-level listener). */
+	@property({ type: Boolean, attribute: 'preserve-trigger-focus' })
+	preserveTriggerFocus = false;
+
 	@query('.sheet')
 	private sheetEl!: HTMLElement;
 
@@ -277,16 +283,18 @@ export class GlDetailSheet extends LitElement {
 		// can't double-fire.
 		document.addEventListener('keydown', this.handleDocumentKeyDown, true);
 
-		// Focus the sheet itself so keyboard users land here on open. We do NOT trap focus —
-		// sibling elements outside the host parent (e.g. the graph beside the details panel)
-		// remain fully interactive. Guard against a rapid open/close cycle: if the sheet
-		// disconnects within the frame, the rAF still fires; the `isConnected` check drops `this`
-		// for GC instead of holding it for an extra frame.
-		requestAnimationFrame(() => {
-			if (!this.isConnected) return;
+		// Focus the sheet itself so keyboard users land here on open (unless `preserveTriggerFocus`, where a
+		// toggle trigger like a graph ref pill keeps focus so a second activation can CLOSE the sheet). We do
+		// NOT trap focus — sibling elements outside the host parent (e.g. the graph beside the details panel)
+		// remain fully interactive. Guard against a rapid open/close cycle: if the sheet disconnects within
+		// the frame the rAF still fires; the `isConnected` check drops `this` for GC.
+		if (!this.preserveTriggerFocus) {
+			requestAnimationFrame(() => {
+				if (!this.isConnected) return;
 
-			this.sheetEl?.focus({ preventScroll: true });
-		});
+				this.sheetEl?.focus({ preventScroll: true });
+			});
+		}
 	}
 
 	override disconnectedCallback(): void {

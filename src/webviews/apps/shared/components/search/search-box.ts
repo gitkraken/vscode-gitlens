@@ -1,5 +1,5 @@
 import type { TemplateResult } from 'lit';
-import { css, html } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
@@ -12,6 +12,7 @@ import { DOM } from '../../dom.js';
 import { GlElement } from '../element.js';
 import type { GlSearchInput, SearchModeChangeEventDetail, SearchNavigationEventDetail } from './search-input.js';
 import '../button.js';
+import '../actions/action-nav.js';
 import '../code-icon.js';
 import '../overlays/tooltip.js';
 import './search-input.js';
@@ -58,6 +59,10 @@ export class GlSearchBox extends GlElement {
 
 		.search-navigation:focus {
 			outline: 0;
+		}
+
+		.search-navigation action-nav {
+			display: contents;
 		}
 
 		.count {
@@ -324,7 +329,37 @@ export class GlSearchBox extends GlElement {
 		this.emit('gl-search-cancel', { preserveResults: this.total > 0 });
 	}
 
-	private get resultsHtml() {
+	/** The optional stop (while searching) / resume (while paused) button that leads the roving navigation group. */
+	private get progressButton() {
+		if (this.searching) {
+			return html`<gl-button
+				class="search-button"
+				appearance="toolbar"
+				tooltip="Stop Searching"
+				@click="${this.handleCancel}"
+			>
+				<code-icon class="search-button__spinner" icon="loading" modifier="spin"></code-icon>
+				<code-icon class="search-button__stop" icon="stop-circle"></code-icon>
+			</gl-button>`;
+		}
+
+		// Show play button when search is paused with more results
+		if (!this.searching && this.resultsHasMore) {
+			return html`<gl-button
+				class="search-button"
+				appearance="toolbar"
+				tooltip="Resume Search"
+				@click="${() => this.emit('gl-search-resume')}"
+			>
+				<code-icon icon="play-circle"></code-icon>
+			</gl-button>`;
+		}
+
+		return nothing;
+	}
+
+	/** The non-focusable results count, rendered OUTSIDE the roving navigation group. */
+	private get resultsCount() {
 		// Determine the display state based on searching and results
 		const hasResults = this.total > 0;
 		const isSearching = this.searching;
@@ -365,45 +400,6 @@ export class GlSearchBox extends GlElement {
 			countText = html`<span></span>`;
 		}
 
-		// Show combined spinner/stop button when actively searching
-		if (isSearching) {
-			return html`<gl-button
-					class="search-button"
-					appearance="toolbar"
-					tooltip="Stop Searching"
-					@click="${this.handleCancel}"
-				>
-					<code-icon class="search-button__spinner" icon="loading" modifier="spin"></code-icon>
-					<code-icon class="search-button__stop" icon="stop-circle"></code-icon>
-				</gl-button>
-				<gl-tooltip
-					placement="top"
-					?disabled="${!tooltip}"
-					class="count${!hasResults && this.valid && isComplete ? ' error' : ''}"
-					>${countText}<span slot="content">${tooltip}</span></gl-tooltip
-				>`;
-		}
-
-		// Show play button when search is paused with more results
-		const isPaused = !isSearching && this.resultsHasMore;
-		if (isPaused) {
-			return html`<gl-button
-					class="search-button"
-					appearance="toolbar"
-					tooltip="Resume Search"
-					@click="${() => this.emit('gl-search-resume')}"
-				>
-					<code-icon icon="play-circle"></code-icon>
-				</gl-button>
-				<gl-tooltip
-					placement="top"
-					?disabled="${!tooltip}"
-					class="count${!hasResults && this.valid && isComplete ? ' error' : ''}"
-					>${countText}<span slot="content">${tooltip}</span></gl-tooltip
-				>`;
-		}
-
-		// Not searching - just show results
 		return html`<gl-tooltip
 			placement="top"
 			?disabled="${!tooltip}"
@@ -444,46 +440,49 @@ export class GlSearchBox extends GlElement {
 			${when(
 				this.resultsLoaded || this.searching,
 				() =>
-					html`<div class="search-navigation" aria-label="Search navigation">
-						${this.resultsHtml}
-						<gl-tooltip>
-							<button
-								type="button"
-								class="button ${this.navigating === 'previous' ? 'navigating' : ''}"
-								?disabled="${!this.hasResults || this.isAtFirstResult}"
-								@click="${this.handlePrevious}"
-							>
-								<code-icon
-									icon="arrow-up"
-									aria-label="Previous Match (Shift+Enter)&#10;First Match (Shift+Click)"
-								></code-icon>
-							</button>
-							<span slot="content">Previous Match (Shift+Enter)<br />First Match (Shift+Click)</span>
-						</gl-tooltip>
-						<gl-tooltip>
-							<button
-								type="button"
-								class="button ${this.navigating === 'next' ? 'navigating' : ''}"
-								?disabled="${!this.hasResults || this.isAtLastResult}"
-								@click="${this.handleNext}"
-							>
-								<code-icon
-									icon="arrow-down"
-									aria-label="Next Match (Enter)&#10;Last Match (Shift+Click)"
-								></code-icon>
-							</button>
-							<span slot="content">Next Match (Enter)<br />Last Match (Shift+Click)</span>
-						</gl-tooltip>
-						<gl-tooltip content="Show Results in Side Bar">
-							<button
-								type="button"
-								class="button"
-								?disabled="${!this.hasResults}"
-								@click="${this.handleOpenInView}"
-							>
-								<code-icon icon="link-external" aria-label="Show Results in Side Bar"></code-icon>
-							</button>
-						</gl-tooltip>
+					html`<div class="search-navigation">
+						${this.resultsCount}
+						<action-nav role="toolbar" aria-label="Search navigation">
+							${this.progressButton}
+							<gl-tooltip>
+								<button
+									type="button"
+									class="button ${this.navigating === 'previous' ? 'navigating' : ''}"
+									?disabled="${!this.hasResults || this.isAtFirstResult}"
+									@click="${this.handlePrevious}"
+								>
+									<code-icon
+										icon="arrow-up"
+										aria-label="Previous Match (Shift+Enter)&#10;First Match (Shift+Click)"
+									></code-icon>
+								</button>
+								<span slot="content">Previous Match (Shift+Enter)<br />First Match (Shift+Click)</span>
+							</gl-tooltip>
+							<gl-tooltip>
+								<button
+									type="button"
+									class="button ${this.navigating === 'next' ? 'navigating' : ''}"
+									?disabled="${!this.hasResults || this.isAtLastResult}"
+									@click="${this.handleNext}"
+								>
+									<code-icon
+										icon="arrow-down"
+										aria-label="Next Match (Enter)&#10;Last Match (Shift+Click)"
+									></code-icon>
+								</button>
+								<span slot="content">Next Match (Enter)<br />Last Match (Shift+Click)</span>
+							</gl-tooltip>
+							<gl-tooltip content="Show Results in Side Bar">
+								<button
+									type="button"
+									class="button"
+									?disabled="${!this.hasResults}"
+									@click="${this.handleOpenInView}"
+								>
+									<code-icon icon="link-external" aria-label="Show Results in Side Bar"></code-icon>
+								</button>
+							</gl-tooltip>
+						</action-nav>
 					</div>`,
 			)}`;
 	}

@@ -9,6 +9,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
 import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
+import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
@@ -341,6 +342,18 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 	@query('.sidebar') private sidebarEl?: HTMLElement;
 
+	/** The whole rail is ONE vertical roving toolbar: nav icons, the … overflow toggle, the
+	 *  bottom display-mode toggles and the shortcuts button share a single Tab stop, with
+	 *  ArrowUp/Down (+ Home/End) roving between them. Each focusable carries a stable
+	 *  `data-roving-key` so the active stop is restored across the rail's frequent re-renders
+	 *  (fold/compact recompute). */
+	private readonly roving = new RovingTabindexController(this, {
+		getItems: () => this.getRovingItems(),
+		orientation: 'vertical',
+		// Rest the tab stop on the ACTIVE panel's icon (Overview by default), not the last-focused control.
+		getDefaultKey: () => (this.activePanel != null ? `icon:${this.activePanel}` : 'icon:overview'),
+	});
+
 	/** When set, icons from this index onward are folded into the … overflow popover. */
 	@state() private overflowFromIndex: number | undefined;
 
@@ -363,7 +376,14 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		const isGraphMode = displayMode === 'graph';
 		const visible = this.visibleIcons;
 		const overflowAt = this.overflowFromIndex;
-		return html`<section class="sidebar">
+		return html`<section
+			class="sidebar"
+			role="toolbar"
+			aria-orientation="vertical"
+			aria-label="Graph side bar"
+			@keydown=${this.roving.onKeydown}
+			@focusin=${this.roving.onFocusin}
+		>
 			${isGraphMode && this.sidebarVisible && this.activePanel != null
 				? html`<div
 						class=${classMap({
@@ -390,10 +410,22 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		</section>`;
 	}
 
+	/** The rail's focusable controls in top-to-bottom (DOM) order, VISIBLE only (folded icons live
+	 *  in the closed overflow popover and are excluded). The `data-roving-key` element is the focus
+	 *  target: the raw `<button>` for nav icons / the … toggle, and the delegatesFocus `<gl-button>`
+	 *  host for the display-mode toggles + shortcuts (its host tabindex drives roving). */
+	private getRovingItems(): { key: string; element: HTMLElement }[] {
+		const root = this.sidebarEl ?? this.renderRoot;
+		return [...root.querySelectorAll<HTMLElement>('[data-roving-key]')]
+			.filter(el => el.offsetParent != null)
+			.map(el => ({ key: el.dataset.rovingKey!, element: el }));
+	}
+
 	private renderShortcutsButton(): unknown {
 		return html`<gl-button
 			class="rail-action"
 			appearance="toolbar"
+			data-roving-key="shortcuts"
 			aria-label="Keyboard Shortcuts"
 			tooltip="Keyboard Shortcuts"
 			tooltipPlacement="right"
@@ -414,6 +446,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			<gl-button
 				appearance="toolbar"
 				role="switch"
+				data-roving-key="displayMode:${toggle.mode}"
 				aria-checked=${isActive ? 'true' : 'false'}
 				aria-label=${tooltip}
 				tooltip=${tooltip}
@@ -664,6 +697,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 					overview: icon.type === 'overview',
 					'group-end': icon.type === 'agents',
 				})}
+				data-roving-key="icon:${icon.type}"
 				@click=${() => this.handleIconClick(icon)}
 				aria-pressed=${isActive}
 			>
@@ -706,6 +740,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			<button
 				slot="anchor"
 				class=${classMap({ item: true, 'overflow-toggle': true, active: containsActive })}
+				data-roving-key="overflow"
 				aria-label="More"
 			>
 				<span class="icon"><code-icon icon="ellipsis"></code-icon></span>

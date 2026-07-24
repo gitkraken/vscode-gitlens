@@ -45,11 +45,12 @@ const laneGap = 1;
 const stashGlyph = String.fromCharCode(0xea98);
 
 // Node size is FIXED per mode (NOT coupled to lane spacing). Density changes the GAP between lanes,
-// not the node size: DOTS render at 10px (radius 5); AVATAR/letter identity nodes at 20px (radius 10 —
-// capped so that even WITH the hover/select grow, see `.commit-dot-identity` in graph.scss, the node
-// stays inside the 24px expanded row with a ~1px gap).
+// not the node size: DOTS render at 10px (radius 5); AVATAR/letter identity nodes at 18px (radius 9 —
+// capped so that even WITH the hover/select grow (see `.commit-dot-identity` in graph.scss, ×1.1 → 19.8px)
+// the node clears the row's inset focus ring (`.gl-graph__row.is-focused::after`, ~20px interior of the
+// 24px row) instead of being clipped by it — and it shows a touch more lane line between nodes).
 const dotNodeRadius = 5;
-const avatarNodeRadius = 10;
+const avatarNodeRadius = 9;
 
 // Fixed node radius for the mode. (No longer takes a columnWidth — the resize no longer respaces.)
 export function nodeRadiusFor(mode: NodeStyle['mode']): number {
@@ -67,7 +68,7 @@ const laneGapExpanded = 6;
 // node-to-node, it's node-to-adjacent-lane-LINE. Compact packs to that — node radius plus a small,
 // visually-tuned gap that clears the node's 1px bg-mask and the lane line's 1px half-stroke with a
 // little breath. Dots get `r + laneGap + 4` (10px); the larger avatar/letter identity node gets 1px
-// more air (16px). Expanded stays diameter-based for an airier fan.
+// more air (15px). Expanded stays diameter-based for an airier fan.
 export function laneSpacing(density: 'compact' | 'expanded', mode: NodeStyle['mode']): number {
 	const r = nodeRadiusFor(mode);
 	if (density === 'expanded') return 2 * r + laneGapExpanded;

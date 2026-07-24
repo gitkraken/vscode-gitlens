@@ -105,6 +105,14 @@ declare global {
 
 @customElement('gl-graph-overview-card')
 export class GlGraphOverviewCard extends LitElement {
+	// Delegate focus so the parent's roving toolbar can drive the card as a single tab stop: a
+	// roving `tabindex` set on this host gates the whole card in/out of the Tab order, and
+	// `host.focus()` (arrow-key roving) lands on the inner focusable `gl-card`.
+	static override shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
 	static override styles = css`
 		:host {
 			display: block;

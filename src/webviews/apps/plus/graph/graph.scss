@@ -30,23 +30,24 @@ gl-lit-graph {
 		min-height: 0;
 		outline: none;
 
-		// Keyboard-only focus ring. The shared `[tabindex]:focus-visible` rule paints a plain `outline`
-		// here, but with the scroller filling the viewport that outline clips at its overflow edges (only
-		// the right/bottom edges survive). Suppress it (the `[tabindex]` bump outranks the shared rule) and
-		// redraw the ring as a top-most inset overlay that paints on ALL four edges — above the header,
-		// rows, and scroll overlays. `inset: 1px` (not 0): the viewport is flush against the graph subtree's
-		// overflow:hidden ancestors, so a flush ring's leftmost pixel lands on that clip boundary and
-		// vanishes — the 1px inset keeps all four edges inside it (same fix as the row ring below).
+		// No whole-viewport focus ring: the tree's keyboard focus is shown by the ACTIVE ROW's ring
+		// (`.gl-graph__row.is-focused::after`, brightened while the tree is `:focus-visible`) — the VS Code
+		// list model. A viewport ring here + the row ring produced two nested rectangles.
+	}
+
+	// The role=tree / tabindex=0 keyboard-nav focus host, wrapping ONLY the rows (`<lit-virtualizer>`).
+	// A flex child that fills the space below the header (a preceding sibling in the viewport, so it tabs
+	// first). Its `[tabindex]` bump suppresses the shared `[tabindex]:focus-visible` outline; keyboard
+	// focus is shown by the active ROW's ring instead (see the viewport comment above).
+	.gl-graph__tree {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+		outline: none;
+
 		&[tabindex]:focus-visible {
 			outline: none;
-		}
-		&:focus-visible::after {
-			content: '';
-			position: absolute;
-			inset: 1px;
-			z-index: 40;
-			pointer-events: none;
-			box-shadow: inset 0 0 0 var(--gl-border-width) var(--vscode-focusBorder);
 		}
 	}
 
@@ -729,7 +730,13 @@ gl-lit-graph {
 			position: absolute;
 			inset: 1px;
 			z-index: 5;
-			box-shadow: inset 0 0 0 1px var(--vscode-list-focusOutline);
+			// The SOLE focus indicator for the tree (no separate viewport ring). Inactive at rest (VS Code
+			// leaves inactive-focus rows ring-less unless the theme sets `--vscode-list-inactiveFocusOutline`),
+			// brightened to the active focus color whenever focus is anywhere IN the tree — the container OR a
+			// dived-into row control (pill / action button). `:focus-within` (not `:focus-visible`): the ring
+			// must stay while you're on the row's controls, and the container's programmatic focus isn't
+			// reliably `:focus-visible`.
+			box-shadow: inset 0 0 0 1px var(--vscode-list-inactiveFocusOutline, transparent);
 			pointer-events: none;
 		}
 		&.is-dimmed {
@@ -859,6 +866,23 @@ gl-lit-graph {
 	// A single custom-property override — the row-actions strip + its status badge below inherit
 	// `--row-selection-bg` through the row's descendants, so they need no override rule of their own.
 	.gl-graph__viewport.gl-graph--window-unfocused .gl-graph__row.is-selected {
+		--row-selection-bg: var(--vscode-list-inactiveSelectionBackground);
+		--row-selection-fg: var(--vscode-list-inactiveSelectionForeground);
+	}
+
+	// Active-row focus ring — brightened to the active focus color whenever focus is anywhere IN the tree
+	// (the container OR a dived-into row control: pill / action button). Standalone (NOT nested in the row
+	// block): `.gl-graph__tree` must stay a real ANCESTOR of the row — a `&`-prefixed nested form expands
+	// `& → .gl-graph__row`'s own ancestor chain AFTER `.gl-graph__tree`, which can never match. Inactive
+	// (dim/none) at rest via the `&.is-focused::after` default; `:focus-within` (not `:focus-visible`) keeps
+	// the ring while you're on the row's controls, and the container's programmatic focus isn't reliably
+	// `:focus-visible`.
+	.gl-graph__tree:focus-within .gl-graph__row.is-focused::after {
+		box-shadow: inset 0 0 0 1px var(--vscode-list-focusOutline);
+	}
+	// Graph (tree) unfocused within the window → inactive list-selection colors (same token swap as the
+	// window-unfocused override above, but for the graph losing keyboard focus while the window keeps it).
+	.gl-graph__viewport:not(:has(.gl-graph__tree:focus-within)) .gl-graph__row.is-selected {
 		--row-selection-bg: var(--vscode-list-inactiveSelectionBackground);
 		--row-selection-fg: var(--vscode-list-inactiveSelectionForeground);
 	}
@@ -2461,7 +2485,7 @@ gl-lit-graph {
 	}
 	// On hover the pill is filled, so flip the +N badge color to read on top of the fill. Same treatment
 	// for the badge inside the (lane-filled) expand overlay so the grouped pill's +N stays readable there.
-	.gl-graph__ref-pill:hover .gl-graph__ref-pill-more,
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-more,
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-more {
 		color: var(--ref-on-color, #fff);
 	}
@@ -2547,8 +2571,17 @@ gl-lit-graph {
 			background: color-mix(in srgb, var(--ref-on-color, #fff) 16%, transparent);
 		}
 		&:focus-visible {
-			outline: 1px solid var(--vscode-focusBorder);
-			outline-offset: -1px;
+			outline: none;
+		}
+		// Ring rides the full-pill-height `::before` band (same box as the hover highlight) so the focus rect
+		// hugs the pill's top/bottom edges instead of floating as a short inner box on the content.
+		&:focus-visible::before {
+			box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+		}
+		// A grouped-pill secondary row's jump reached via Left/Right — the menu cursor (`.is-cursor`) rides the
+		// same band since DOM focus stays on the anchor pill, so `:focus-visible` never fires here.
+		&.is-cursor::before {
+			box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
 		}
 	}
 	// When the upstream segment is the LAST thing in the pill (no overflow-badge group after it), bleed its
@@ -2609,7 +2642,7 @@ gl-lit-graph {
 	// (not the `currentColor` keyword): `currentColor` → color doesn't interpolate, so on unhover the stats
 	// snapped back to green BEFORE the pill background finished fading (an ugly flash); explicit color→color
 	// transitions in lockstep with the pill's 150ms background fade.
-	.gl-graph__ref-pill:hover .gl-graph__ref-pill-tracking {
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-tracking {
 		--gl-tracking-ahead: var(--ref-on-color, #fff);
 		--gl-tracking-behind: var(--ref-on-color, #fff);
 		--gl-pill-foreground: var(--ref-on-color, #fff);
@@ -2624,17 +2657,17 @@ gl-lit-graph {
 	// but the is-selected rule ties it on specificity and wins by source order — so on a SELECTED row the
 	// hovered stats went invisible. Re-assert the contrast color for the filled states with a selected-row
 	// qualifier so it outranks is-selected. (`is-pinned`/`is-context-pinned` show the same filled overlay.)
-	.gl-graph__row.is-selected .gl-graph__ref-pill:hover .gl-graph__ref-pill-tracking,
+	.gl-graph__row.is-selected .gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-tracking,
 	.gl-graph__row.is-selected .gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-tracking,
 	.gl-graph__row.is-selected .gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-tracking {
 		--gl-tracking-ahead: var(--ref-on-color, #fff);
 		--gl-tracking-behind: var(--ref-on-color, #fff);
 		--gl-pill-foreground: var(--ref-on-color, #fff);
 	}
-	// Grouped-pill popover: a row FILLS with the lane color on hover (mirrors the inline pill), so its
-	// ahead/behind stats must de-colorize to the contrast color too — otherwise the green/red counts fight
-	// the fill. Popover rows aren't `.gl-graph__ref-pill`, so the inline :hover rule above never reached them.
-	.gl-graph__ref-popover-row:hover .gl-graph__ref-pill-tracking {
+	// Grouped-pill popover: a row FILLS with the lane color on hover OR the keyboard cursor (`.is-active`), so
+	// its ahead/behind stats must de-colorize to the contrast color too — otherwise the green/red counts fight
+	// the fill and vanish. Popover rows aren't `.gl-graph__ref-pill`, so the inline rule above never reached them.
+	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-pill-tracking {
 		--gl-tracking-ahead: var(--ref-on-color, #fff);
 		--gl-tracking-behind: var(--ref-on-color, #fff);
 		--gl-pill-foreground: var(--ref-on-color, #fff);
@@ -2660,6 +2693,9 @@ gl-lit-graph {
 	// details). Rendered ONLY on the inline primary pill, never in the +N popover rows.
 	.gl-graph__ref-pill-pr,
 	.gl-graph__ref-pill-issue {
+		position: relative;
+		// Contain the band's `z-index: -1` (below the icon/label, above the pill fill) — matches the jump.
+		isolation: isolate;
 		display: inline-flex;
 		flex-shrink: 0;
 		align-items: center;
@@ -2672,6 +2708,29 @@ gl-lit-graph {
 		opacity: 0.85;
 		cursor: pointer;
 	}
+	// Full-pill-height band (parity with the upstream jump/status): the focus rect AND the hover highlight
+	// both ride it, bleeding into the pill's vertical padding so they hug the pill's top/bottom edges rather
+	// than a tight inner box on the icon. `z-index: -1` keeps it behind the icon/label, above the pill fill.
+	.gl-graph__ref-pill-pr::before,
+	.gl-graph__ref-pill-issue::before {
+		content: '';
+		position: absolute;
+		// Reach the pill's top/bottom FILL edges (not just the chip's short content box) so the hover highlight
+		// + focus rect span the full pill height like the jump — the chip's icon is shorter than the fill, so
+		// -0.5rem clears the ~0.3rem pill padding + 1px border + 1px overlay bleed each side.
+		inset-block: -0.5rem;
+		// Match the left gap (the chip's 0.5rem padding-left) on the right too, so the rect sits symmetric
+		// around the text — the chip has no padding-right, so extend the band 0.5rem past its right edge.
+		inset-inline: 0 -0.5rem;
+		border-radius: 0.3rem;
+		z-index: -1;
+		pointer-events: none;
+	}
+	// Hover highlight — parity with the upstream jump (a contrast tint marking the interactive sub-zone).
+	.gl-graph__ref-pill-pr:hover::before,
+	.gl-graph__ref-pill-issue:hover::before {
+		background: color-mix(in srgb, var(--ref-on-color, #fff) 16%, transparent);
+	}
 	// The icon + label live INSIDE the popover's anchor span (the host's `gap` can't reach them), so
 	// the anchor needs its own flex gap to keep them from running together.
 	.gl-graph__ref-pill-pr [slot='anchor'],
@@ -2683,15 +2742,15 @@ gl-lit-graph {
 	// On the FILLED pill (hover, the expand overlay, and popover-row hover) the lane-color border-left
 	// blends into the lane fill → the split divider vanishes. Switch it to the contrast color so it stays
 	// visible against the fill.
-	.gl-graph__ref-pill:hover .gl-graph__ref-pill-upstream,
-	.gl-graph__ref-pill:hover .gl-graph__ref-pill-more-group,
-	.gl-graph__ref-pill:hover .gl-graph__ref-pill-pr,
-	.gl-graph__ref-pill:hover .gl-graph__ref-pill-issue,
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-upstream,
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-more-group,
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-pr,
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-issue,
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-upstream,
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-more-group,
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-pr,
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-issue,
-	.gl-graph__ref-popover-row:hover .gl-graph__ref-pill-upstream {
+	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-pill-upstream {
 		border-left-color: color-mix(in srgb, var(--ref-on-color, #fff) 35%, transparent);
 	}
 	// Hover-card body for the PR/issue chips — a plain gl-popover card (no override, unlike the +N ref
@@ -2732,29 +2791,64 @@ gl-lit-graph {
 		box-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.3);
 		z-index: 20;
 		// MUST receive pointer events: the overlay is a descendant of the pill, so hovering it keeps
-		// `.gl-graph__ref-pill:hover` alive across the FULL expansion. With `none`, the cursor falls
+		// `.gl-graph__ref-pill:is(:hover, :focus-within)` alive across the FULL expansion. With `none`, the cursor falls
 		// through to the message behind once it leaves the original (shrunk) box and the pill collapses.
 		// Clicks still resolve correctly — they bubble to the pill (its `data-vscode-context` + row
 		// handlers), since the overlay sits inside it.
 		pointer-events: auto;
 	}
-	.gl-graph__ref-pill:hover {
+	.gl-graph__ref-pill:is(:hover, :focus-within) {
 		z-index: 20;
 	}
-	.gl-graph__ref-pill:hover .gl-graph__ref-pill-expand {
+	// The fill (expand overlay) follows the pill's hover / focus-within, so it STAYS filled while focus is on
+	// one of the pill's inline sub-chips (upstream-jump / PR / issue) — matching hover instead of collapsing.
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-expand {
 		display: inline-flex;
 	}
-	// Hide the in-flow (shrunk) content while the overlay is shown, so they don't double up.
-	.gl-graph__ref-pill:hover .gl-graph__ref-pill-main {
+	// Keyboard focus mirrors hover and swaps the ugly UA `outline: auto` for a clean inset ring on the expand
+	// overlay — the visible expanded pill (the in-flow `-main` is visibility:hidden while expanded). Inset
+	// box-shadow follows the pill's rounded shape (a rectangular `outline` wouldn't).
+	.gl-graph__ref-pill:focus-visible {
+		outline: none;
+	}
+	// Suppress the pill's OWN ring once a grouped-pill secondary is cursored (`aria-activedescendant` set) —
+	// the ring moves to the active popover row instead; the pill stays filled/expanded, just unringed.
+	.gl-graph__ref-pill:focus-visible:not([aria-activedescendant]) .gl-graph__ref-pill-expand {
+		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+	}
+	// A focused sub-chip is covered by the fill overlay, so mirror its focus ring onto the matching expanded
+	// twin inside the overlay — the copy actually visible on the fill. (The in-flow copy still holds real
+	// focus; drop its UA outline since it sits hidden behind the fill.)
+	.gl-graph__ref-pill-upstream--jump:focus-visible,
+	.gl-graph__ref-pill-pr [slot='anchor']:focus-visible,
+	.gl-graph__ref-pill-issue [slot='anchor']:focus-visible {
+		outline: none;
+	}
+	// The jump's ring rides its full-pill-height `::before` band so the rect hugs the pill edges, not an inner box.
+	.gl-graph__ref-pill:has(.gl-graph__ref-pill-upstream--jump:focus-visible)
+		.gl-graph__ref-pill-expand
+		.gl-graph__ref-pill-upstream--jump::before {
+		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+	}
+	.gl-graph__ref-pill:has(.gl-graph__ref-pill-pr [slot='anchor']:focus-visible)
+		.gl-graph__ref-pill-expand
+		.gl-graph__ref-pill-pr::before,
+	.gl-graph__ref-pill:has(.gl-graph__ref-pill-issue [slot='anchor']:focus-visible)
+		.gl-graph__ref-pill-expand
+		.gl-graph__ref-pill-issue::before {
+		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+	}
+	// Hide the in-flow (shrunk) content while the overlay is shown (hover / focus-within) so they don't double up.
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-main {
 		visibility: hidden;
 	}
 	// The expand overlay is absolutely positioned and extends right over the message — but its
 	// ancestors clip with overflow:hidden (needed for truncation). While a ref pill is hovered,
 	// un-clip just that ancestor chain so the overlay can escape and paint on top.
-	.gl-graph__refs:has(.gl-graph__ref-pill:hover),
-	.gl-graph__zone:has(.gl-graph__ref-pill:hover),
-	.gl-graph__list-content:has(.gl-graph__ref-pill:hover),
-	.gl-graph__list-line1:has(.gl-graph__ref-pill:hover) {
+	.gl-graph__refs:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
+	.gl-graph__zone:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
+	.gl-graph__list-content:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
+	.gl-graph__list-line1:has(.gl-graph__ref-pill:is(:hover, :focus-within)) {
 		overflow: visible;
 	}
 	// Context-pinned (native context menu open over a pill — host adds `.is-context-pinned`, hover is
@@ -2888,10 +2982,19 @@ gl-lit-graph {
 
 		// Fill with the lane color on hover, matching the inline pill exactly: the per-lane black/white
 		// contrast color (`--ref-on-color`) keeps text + icon crisp on any lane — NO text-shadow halo.
-		&:hover {
+		// `.is-active` mirrors :hover for the keyboard cursor (grouped-pill menu, Arrow Up/Down).
+		&:hover,
+		&.is-active {
 			color: var(--ref-on-color, #fff);
 			background-color: var(--ref-color);
 			border-color: var(--ref-color);
+		}
+		// The focus rect rides the cursor ITEM (`.is-cursor`), not the fill (`.is-active`): a cursored row is
+		// filled its whole lifetime, but when Left/Right steps the cursor onto the row's jump the rect moves
+		// there and off the row. For a grouped pill the rect lives here, not on the anchor pill (kept filled,
+		// unringed). Not on `:hover` — mouse hover fills without a focus rect.
+		&.is-cursor {
+			box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
 		}
 	}
 	.gl-graph__ref-popover-row-label {
@@ -2913,7 +3016,7 @@ gl-lit-graph {
 		background-color: color-mix(in srgb, var(--ref-color) 28%, transparent);
 		color: var(--ref-color);
 	}
-	.gl-graph__ref-popover-row:hover .gl-graph__ref-popover-row-head {
+	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-popover-row-head {
 		background-color: color-mix(in srgb, var(--ref-on-color, #fff) 28%, transparent);
 		color: var(--ref-on-color, #fff);
 	}

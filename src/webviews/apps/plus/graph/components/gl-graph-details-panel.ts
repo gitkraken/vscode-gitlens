@@ -2147,6 +2147,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			branchSheetRef != null && !compareSheetOpen && this._conflictSheet == null
 				? html`<gl-detail-sheet
 						class="branch-detail-sheet"
+						preserve-trigger-focus
 						aria-label=${branchSheetKind}
 						sheet-title=${branchSheetTitle}
 						close-label="Close"

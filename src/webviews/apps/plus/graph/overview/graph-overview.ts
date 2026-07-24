@@ -24,6 +24,7 @@ import {
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
+import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import type { HostIpc } from '../../../shared/ipc.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
@@ -201,6 +202,27 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	private _overviewRequested = false;
 	/** Last-seen sidebar visibility, for detecting the hidden→visible transition in `updated()`. */
 	private _wasVisible = false;
+
+	// Each card list (Current work / Recent) is its own vertical roving toolbar: one Tab stop per
+	// list, ArrowUp/Down (+ Home/End) rove between cards, keyed by branch id so the active stop
+	// survives the overview's frequent re-renders (selection/wip/enrichment ticks). The
+	// `<gl-graph-overview-card>` host is the focus target (it delegatesFocus to the inner gl-card).
+	private readonly _rovingActive = new RovingTabindexController(this, {
+		getItems: () => this.getCardItems('active'),
+		orientation: 'vertical',
+	});
+	private readonly _rovingRecent = new RovingTabindexController(this, {
+		getItems: () => this.getCardItems('recent'),
+		orientation: 'vertical',
+	});
+
+	private getCardItems(group: 'active' | 'recent'): { key: string; element: HTMLElement }[] {
+		const container = this.renderRoot.querySelector(`.cards[data-group="${group}"]`);
+		if (container == null) return [];
+		return [...container.querySelectorAll<HTMLElement>('[data-roving-key]')]
+			.filter(el => el.offsetParent != null)
+			.map(el => ({ key: el.dataset.rovingKey!, element: el }));
+	}
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -569,7 +591,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 					() => html`
 						<div class="group">
 							<div class="group__label">Current work</div>
-							${this.renderCards(overview.active)}
+							${this.renderCards(overview.active, 'active')}
 						</div>
 					`,
 				)}
@@ -583,7 +605,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								</div>
 								${this.renderRecentThresholdFilter()}
 							</div>
-							${this.renderCards(overview.recent)}
+							${this.renderCards(overview.recent, 'recent')}
 						</div>
 					`,
 				)}
@@ -634,15 +656,24 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private renderCards(branches: GraphOverviewData['active']) {
+	private renderCards(branches: GraphOverviewData['active'], group: 'active' | 'recent') {
 		if (!branches.length) return nothing;
 
 		const sessionsByRepoAndWorktree = indexAgentSessionsByRepoAndWorktree(this._state.agentSessions);
 		const containsByRepo = this._selectionContainsByRepo;
 		const scopedBranchId = this._state.scope?.branchRef;
+		const roving = group === 'active' ? this._rovingActive : this._rovingRecent;
 
 		return html`
-			<div class="cards">
+			<div
+				class="cards"
+				data-group=${group}
+				role="toolbar"
+				aria-orientation="vertical"
+				aria-label=${group === 'active' ? 'Current work branches' : 'Recent branches'}
+				@keydown=${roving.onKeydown}
+				@focusin=${roving.onFocusin}
+			>
 				${repeat(
 					branches,
 					b => b.id,
@@ -663,6 +694,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								: undefined;
 						return html`
 							<gl-graph-overview-card
+								data-roving-key=${b.id}
 								.branch=${b}
 								.wip=${this._wipData[b.id]}
 								.enrichment=${this._state.overviewEnrichment?.[b.id]}

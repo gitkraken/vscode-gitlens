@@ -79,6 +79,7 @@ import type {
 import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
+import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
@@ -656,9 +657,14 @@ export class GlLitGraph extends LitElement {
 	private renderedLaneWindow: LaneWindow | undefined;
 
 	private virtualizerRef: Ref<LitVirtualizer> = createRef();
-	// The `role=tree`, tabindex=0 viewport — the keyboard-nav focus target. Held so the host can route
-	// programmatic `focus()` (graph open / sidebar select) here; the element itself (light DOM) isn't focusable.
+	// The outer viewport — a plain layout/delegation container (header + rows tree + overlays). Not the
+	// focus/tree host: `role=tree`/`tabindex`/keyboard nav live on the inner `.gl-graph__tree` (treeRef)
+	// so the header, a preceding sibling, tabs FIRST. Kept for click/pointer delegation + overlay geometry.
 	private viewportRef: Ref<HTMLElement> = createRef();
+	// The `role=tree`, tabindex=0 rows host — the keyboard-nav focus target, wrapping ONLY the rows
+	// (`<lit-virtualizer>`). Held so the host can route programmatic `focus()` (graph open / sidebar
+	// select) here; the element itself (light DOM) isn't otherwise focusable.
+	private treeRef: Ref<HTMLElement> = createRef();
 	private resizeObserver?: ResizeObserver;
 	// Stable `keyFunction` + `layout` so the virtualizer never re-runs its (async) layout-config
 	// chain on incidental updates. `renderItem` is deliberately RE-created each render (see
@@ -2775,6 +2781,15 @@ export class GlLitGraph extends LitElement {
 		}
 		this.scrollToSha(sha, 'center');
 		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
+
+		// Land keyboard focus ON the jumped-to row: focus the tree — dropping the pill / sub-chip that triggered
+		// the jump (collapsing its fill + closing any grouped popover) — and pin the focus index to the target so
+		// Arrow nav continues from there. `indexBySha` may still be empty when the reveal awaits a lane expand.
+		this.treeRef.value?.focus();
+		const idx = this.indexBySha.get(sha);
+		if (idx != null) {
+			this.focusIndex = idx;
+		}
 	}
 
 	// Lazily request ref metadata (ahead/behind, PRs, issues) for the tracked refs in view that don't
@@ -3184,7 +3199,25 @@ export class GlLitGraph extends LitElement {
 		// just-opened menu from its own programmatic focus is noise, not help.
 		if (target.closest('.gl-graph__changes-mode-strip') != null) return;
 
-		this.showTooltipForTarget(target);
+		// A focused pill sub-chip is hidden behind the expand overlay; anchor to its visible twin instead.
+		this.showTooltipForTarget(this.expandedTwinIfCovered(target));
+	}
+
+	/** When `target` is a pill sub-chip covered by the (shown) expand overlay, return its visible twin inside
+	 *  `.gl-graph__ref-pill-expand` so a keyboard tooltip anchors to what's on screen, not the covered copy. */
+	private expandedTwinIfCovered(target: HTMLElement): HTMLElement {
+		const pill = target.closest<HTMLElement>('.gl-graph__ref-pill');
+		if (pill == null || target.closest('.gl-graph__ref-pill-expand') != null) return target;
+
+		const expand = pill.querySelector<HTMLElement>('.gl-graph__ref-pill-expand');
+		if (expand == null || getComputedStyle(expand).display === 'none') return target;
+
+		// Only the upstream segment (jump / status) carries a `data-tooltip` inside a pill; its twin is in -expand.
+		const twin = target.classList.contains('gl-graph__ref-pill-upstream')
+			? expand.querySelector<HTMLElement>('.gl-graph__ref-pill-upstream')
+			: null;
+
+		return twin ?? target;
 	}
 
 	private readonly onPointerOutTooltip = (event: PointerEvent): void => {
@@ -4367,12 +4400,7 @@ export class GlLitGraph extends LitElement {
 				class="gl-graph__viewport scrollable${this.windowFocused === false
 					? ' gl-graph--window-unfocused'
 					: ''}"
-				role="tree"
-				aria-label="Commit graph"
-				aria-multiselectable="true"
-				aria-activedescendant=${this._activeRowId ?? nothing}
-				tabindex="0"
-				@keydown=${this.onKeydown}
+				@keydown=${this.handleViewportKeydown}
 				@focusin=${this.onFocusIn}
 				@click=${this.onClick}
 				@dblclick=${this.onDblClick}
@@ -4382,23 +4410,44 @@ export class GlLitGraph extends LitElement {
 				@pointerleave=${this.onPointerLeave}
 			>
 				${header}
-				<lit-virtualizer
-					${ref(this.virtualizerRef)}
-					id="gl-graph-lanes"
-					class="gl-graph__virtualizer scrollable"
-					scroller
-					.items=${this.displayRows}
-					.keyFunction=${this.rowKey}
-					.layout=${this.fixedRowLayout}
-					.renderItem=${renderItem}
-					@rangeChanged=${this.onRangeChanged}
-					@wheel=${
-						// PASSIVE (see graphWheelListener) so vertical wheel scrolling never blocks on the main
-						// thread. Only column placement pans the lanes with the wheel, so only attach it there
-						// (and only when the lanes actually overflow).
-						this.graphPlacement === 'column' && this.maxGraphScrollX > 0 ? this.graphWheelListener : nothing
-					}
-				></lit-virtualizer>
+				<div
+					${ref(this.treeRef)}
+					class="gl-graph__tree"
+					role="tree"
+					aria-label="Commit graph"
+					aria-multiselectable="true"
+					aria-activedescendant=${this._activeRowId ?? nothing}
+					tabindex="0"
+					@keydown=${this.onKeydown}
+				>
+					<lit-virtualizer
+						${ref(this.virtualizerRef)}
+						id="gl-graph-lanes"
+						class="gl-graph__virtualizer scrollable"
+						scroller
+						tabindex=${
+							// Opt the scroller OUT of Chromium's keyboard-focusable-scroll-containers: since every
+							// row control is tabindex=-1, the scroller has no focusable descendant, so Chromium
+							// would otherwise auto-add it to the tab order — a spurious "graph body" stop where
+							// Up/Down natively scroll (not navigate) and a default UA outline shows. The tree
+							// wrapper (tabindex=0) is the real keyboard host; keyboard scrolling rides row nav.
+							'-1'
+						}
+						.items=${this.displayRows}
+						.keyFunction=${this.rowKey}
+						.layout=${this.fixedRowLayout}
+						.renderItem=${renderItem}
+						@rangeChanged=${this.onRangeChanged}
+						@wheel=${
+							// PASSIVE (see graphWheelListener) so vertical wheel scrolling never blocks on the main
+							// thread. Only column placement pans the lanes with the wheel, so only attach it there
+							// (and only when the lanes actually overflow).
+							this.graphPlacement === 'column' && this.maxGraphScrollX > 0
+								? this.graphWheelListener
+								: nothing
+						}
+					></lit-virtualizer>
+				</div>
 				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderPinnedPill()}${this.renderHeadPill()}${this.renderStickyTimeline()}${this.renderHScrollbar()}${this.renderChangesModePopover()}
 			</div>
 			${this.renderSearchFooter()}
@@ -4939,6 +4988,21 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
+		// A PR/issue chip opens its PR/issue on a SINGLE click (its own action) — resolve the metadata surface
+		// first and route it to the host's open (the same detail the dblclick path builds), then stop before
+		// the ref-pill branch handling below. (A double-click on the chip is inert — see `onDblClick`.)
+		const clickedMetadata = this.resolveRefMetadata(event);
+		if (clickedMetadata != null && (clickedMetadata.type === 'pullRequest' || clickedMetadata.type === 'issue')) {
+			const metaRef = this.resolveRef(event);
+			if (metaRef != null) {
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-refdoubleclick', { detail: { ...metaRef, metadata: clickedMetadata } }),
+				);
+				event.stopPropagation();
+				return;
+			}
+		}
+
 		// A click on a branch/tag ref pill toggles "focus" on that ref — pin it expanded + dim the rows
 		// outside its first-parent chain (the dim is click-driven now, not hover) — AND opens/toggles
 		// the branch sheet in the details panel. It then FALLS THROUGH (no early return) to the selection
@@ -5015,6 +5079,20 @@ export class GlLitGraph extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: mode, rangeShas: rangeShas } }),
 		);
+
+		// A row-BODY click (not a control) leaves focus on the virtualizer scroll container — it's the nearest
+		// click-focusable ancestor, since the row controls are tabindex=-1 (and the virtualizer itself is
+		// tabindex=-1 to stay out of the tab order). That makes Up/Down scroll natively and Tab skip past the
+		// row controls to the trailing overlays. Redirect to the tree (the keyboard-nav host) so arrow nav +
+		// the Tab-dive work. A click that landed on a control (pill / action) keeps that control's focus.
+		if (document.activeElement === this.virtualizerRef.value) {
+			this.treeRef.value?.focus({ focusVisible: false });
+			// Focusing the tree runs onFocusIn's realign (focusIndex ← first SELECTED row), but this click's
+			// new selection hasn't round-tripped from the host yet, so re-pin to the just-clicked row.
+			if (idx != null) {
+				this.focusIndex = idx;
+			}
+		}
 	};
 
 	private onDblClick = (event: MouseEvent): void => {
@@ -5027,7 +5105,13 @@ export class GlLitGraph extends LitElement {
 		if (ref != null) {
 			event.stopPropagation();
 			const metadata = this.resolveRefMetadata(event);
-			this.dispatchEvent(new CustomEvent('gl-graph-refdoubleclick', { detail: { ...ref, metadata: metadata } }));
+			// PR/issue chips open on a SINGLE click (see `onClick`); don't also fire the open on double-click. A
+			// plain ref double-click (metadata == null) still routes here — the checkout / pull-push path.
+			if (metadata?.type !== 'pullRequest' && metadata?.type !== 'issue') {
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-refdoubleclick', { detail: { ...ref, metadata: metadata } }),
+				);
+			}
 			return;
 		}
 
@@ -5167,78 +5251,459 @@ export class GlLitGraph extends LitElement {
 		return tip != null ? this.indexBySha.get(tip) : undefined;
 	}
 
-	private onKeydown = (event: KeyboardEvent): void => {
-		// Only handle keys that originate from the tree container itself (the activedescendant focus
-		// host). Interactive descendants — row-action buttons, column-header labels/resize handles — are
-		// focusable and bubble their keydown here; handling them would preventDefault their native
-		// activation (Enter/Space → click) or fire a row action against the wrong target. Let them run.
-		if (event.target !== event.currentTarget) return;
+	// ————— Managed row-control focus (roving toolbar groups per active row) —————
+	// The tree is an aria-activedescendant single tab stop; a row's interactive controls are NOT in the tab
+	// order (tabindex=-1) and are reached only by "diving" from the tree. They form TWO separate roving
+	// groups in visual order — REFS (ref pills, left) then ACTIONS (row-action buttons, right):
+	//   Tab from the tree → the first group's first control; Tab → the next group; Tab past the last leaves
+	//   the graph. Arrow Left/Right + Home/End rove within a group. Enter/Space activate (pills via a
+	//   synthesized click the delegation handles; action <button>s natively). Esc / Shift+Tab retreat.
+	// A grouped (multi-ref) pill also acts as a menu button: Enter fires its primary ref, while Arrow
+	// Up/Down move an `aria-activedescendant` cursor over the open popover's ref rows and Enter on a
+	// cursored row activates THAT ref — focus stays on the pill (the popover content is hoisted out of the
+	// tree, so we never move real focus into it).
 
-		const last = this.displayRows.length - 1;
-		if (last < 0) return;
+	/** The rendered DOM element for the active (focusIndex) row, or null when it's virtualized out. */
+	private activeRowElement(): HTMLElement | null {
+		const sha = this.displayRows[this.focusIndex]?.sha;
+		if (sha == null) return null;
 
-		let next: number;
+		return this.querySelector<HTMLElement>(`#${CSS.escape(`graph-row-${sha}`)}`);
+	}
+
+	/** A row's visible, interactive controls for a group, in visual (left→right = DOM) order. Refs = each
+	 *  pill PLUS its inline sub-chips (upstream-jump / PR / issue, which all carry `data-ref-metadata-type`),
+	 *  so Left/Right roves the whole refs row: pill → jump → PR → issue → next pill. Actions = the row-action
+	 *  buttons. Excluded: controls hidden at rest (display:none / visibility:hidden); those in an aria-hidden
+	 *  subtree (the hover-expand overlay's duplicate chips, ghost anchor pills); and a grouped pill's open
+	 *  popover CONTENT rows (`.gl-graph__ref-popover-list`) — those are the Up/Down menu, not Left/Right
+	 *  stops — while keeping the anchor pill + its inline sub-chips. */
+	private rowGroupControls(rowEl: Element, group: 'refs' | 'actions'): HTMLElement[] {
+		const selector = group === 'refs' ? '.gl-graph__ref-pill, [data-ref-metadata-type]' : '.gl-graph__row-action';
+		return [...rowEl.querySelectorAll<HTMLElement>(selector)].filter(
+			el =>
+				// Focusable only: `[data-ref-metadata-type]` also matches the NON-jump upstream status span
+				// (no tabindex), which would wedge the rove — `.focus()` no-ops on it, so Left/Right can't
+				// step past it to the PR/issue chips that follow.
+				el.matches('button, [tabindex]') &&
+				el.offsetParent != null &&
+				getComputedStyle(el).visibility !== 'hidden' &&
+				el.closest('[aria-hidden="true"]') == null &&
+				el.closest('.gl-graph__ref-popover-list') == null,
+		);
+	}
+
+	/** The displayRows index of the row containing a managed control, or undefined. */
+	private rowIndexOf(control: HTMLElement): number | undefined {
+		const sha = control.closest<HTMLElement>('.gl-graph__row')?.dataset.sha;
+		return sha != null ? this.indexBySha.get(sha) : undefined;
+	}
+
+	/** Which group a focused control belongs to, or null. Actions first (a pill never nests an action). */
+	private controlGroup(control: HTMLElement): 'refs' | 'actions' | null {
+		if (control.closest('.gl-graph__row-action') != null) return 'actions';
+		if (control.closest('.gl-graph__ref-pill') != null) return 'refs';
+
+		return null;
+	}
+
+	/** Move focus into the active row's FIRST non-empty group (refs, else actions). Returns false when the
+	 *  active row isn't rendered or has no controls (caller lets Tab fall through / leave the graph). */
+	private enterActiveRowGroup(): boolean {
+		const rowEl = this.activeRowElement();
+		if (rowEl == null) return false;
+
+		for (const group of ['refs', 'actions'] as const) {
+			const controls = this.rowGroupControls(rowEl, group);
+			if (controls.length > 0) {
+				controls[0].focus({ preventScroll: true });
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/** Rove focus within a control's own group. `where`: +1 / -1 step, or 'first' / 'last'. */
+	private roveRowControls(current: HTMLElement, where: number | 'first' | 'last'): void {
+		const rowEl = current.closest('.gl-graph__row');
+		const group = this.controlGroup(current);
+		if (rowEl == null || group == null) return;
+
+		const controls = this.rowGroupControls(rowEl, group);
+		const i = controls.indexOf(current);
+		if (i < 0) return;
+
+		const n = controls.length;
+		const nextIdx = where === 'first' ? 0 : where === 'last' ? n - 1 : Math.max(0, Math.min(n - 1, i + where));
+		controls[nextIdx]?.focus({ preventScroll: true });
+	}
+
+	/** Move to the adjacent group's edge control (`dir` +1 forward / -1 back). Returns true if it moved;
+	 *  false lets Tab/Shift+Tab fall through (forward past the last group leaves the graph, back before the
+	 *  first retreats to the tree — both are the browser default since controls are tabindex=-1). */
+	private moveToAdjacentGroup(current: HTMLElement, dir: 1 | -1): boolean {
+		const rowEl = current.closest('.gl-graph__row');
+		const group = this.controlGroup(current);
+		if (rowEl == null || group == null) return false;
+
+		const order = ['refs', 'actions'] as const;
+		for (let gi = order.indexOf(group) + dir; gi >= 0 && gi < order.length; gi += dir) {
+			const controls = this.rowGroupControls(rowEl, order[gi]);
+			if (controls.length > 0) {
+				(dir === 1 ? controls[0] : controls.at(-1))?.focus({ preventScroll: true });
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private handleRowControlKeydown(event: KeyboardEvent, control: HTMLElement): void {
+		const group = this.controlGroup(control);
+
+		// A grouped pill claims the menu keys for its WHOLE area — the pill itself AND its inline sub-chips
+		// (PR/issue/upstream-jump). On the PILL: Up/Down move the popover cursor, Enter activates the cursored
+		// ref, Escape clears it. On a SUB-CHIP: Up/Down STILL navigate the group's menu — focus returns to the
+		// pill (the menu anchor) so the cursor tracks the focused element and Enter can activate it — while
+		// Enter/Left/Right stay with the sub-chip. handleGroupedPillKeydown returns true when it consumed the
+		// key (and false for a single pill, whose Up/Down then falls through to row nav below).
+		if (group === 'refs') {
+			if (control.classList.contains('gl-graph__ref-pill')) {
+				if (this.handleGroupedPillKeydown(event, control)) return;
+			} else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+				const pill = control.closest<HTMLElement>('.gl-graph__ref-pill');
+				if (pill != null && this.groupedPillRows(pill).length > 0) {
+					pill.focus();
+					if (this.handleGroupedPillKeydown(event, pill)) return;
+				}
+			}
+		}
+
+		// Up/Down navigate ROWS from any other focused control (single pill, sub-chip, action button) — the
+		// grouped-pill menu above claims them only for a grouped pill. Return to the tree (the row-browsing
+		// host) on the adjacent row, matching the tree's own arrow nav.
+		if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+			// Adjacent to the CONTROL's row: focusing the tree runs onFocusIn's realign (focusIndex ← first
+			// SELECTED row), which diverges from this row after a Shift+Arrow range — re-pin it after.
+			const rowIdx = this.rowIndexOf(control);
+			this.treeRef.value?.focus();
+			if (rowIdx != null) {
+				this.focusIndex = rowIdx;
+			}
+			this.navigateRows(event);
+			return;
+		}
+
+		// Any remaining key moves focus off this control; clear a grouped pill's lingering menu cursor first
+		// (roving away otherwise leaves a stale `.is-active` row + dangling `aria-activedescendant`).
+		if (control.classList.contains('gl-graph__ref-pill')) {
+			this.clearGroupedPillCursor(control);
+		}
+
 		switch (event.key) {
-			case 'ArrowDown': {
-				// Alt = next branching point; Ctrl/Cmd = follow first-parent lineage; plain = next row.
-				const t = event.altKey
-					? this.findBranchingPointIndex(this.focusIndex, 1)
-					: event.ctrlKey || event.metaKey
-						? this.findTopologicalRowIndex(this.focusIndex, 1)
-						: Math.min(last, this.focusIndex + 1);
-				if (t == null) {
-					event.preventDefault();
-					return;
-				}
-
-				next = t;
+			case 'ArrowRight':
+				this.roveRowControls(control, 1);
+				event.preventDefault();
 				break;
-			}
-			case 'ArrowUp': {
-				const t = event.altKey
-					? this.findBranchingPointIndex(this.focusIndex, -1)
-					: event.ctrlKey || event.metaKey
-						? this.findTopologicalRowIndex(this.focusIndex, -1)
-						: Math.max(0, this.focusIndex - 1);
-				if (t == null) {
-					event.preventDefault();
-					return;
-				}
-
-				next = t;
+			case 'ArrowLeft':
+				this.roveRowControls(control, -1);
+				event.preventDefault();
 				break;
-			}
-			case 'PageDown': {
-				// Alt = jump to the next ref row; plain = move a page.
-				const t = event.altKey
-					? this.findRefRowIndex(this.focusIndex, 1)
-					: Math.min(last, this.focusIndex + this.pageStep());
-				if (t == null) {
-					event.preventDefault();
-					return;
-				}
-
-				next = t;
-				break;
-			}
-			case 'PageUp': {
-				const t = event.altKey
-					? this.findRefRowIndex(this.focusIndex, -1)
-					: Math.max(0, this.focusIndex - this.pageStep());
-				if (t == null) {
-					event.preventDefault();
-					return;
-				}
-
-				next = t;
-				break;
-			}
 			case 'Home':
-				next = 0;
+				this.roveRowControls(control, 'first');
+				event.preventDefault();
 				break;
 			case 'End':
-				next = last;
+				this.roveRowControls(control, 'last');
+				event.preventDefault();
 				break;
+			case 'Tab':
+				// Cross groups: refs → actions (Tab), actions → refs (Shift+Tab). No adjacent group FORWARD
+				// leaves the graph (browser default → the trailing overlays). No adjacent group BACKWARD
+				// retreats to the tree — done EXPLICITLY because the browser's Shift+Tab from a focused
+				// tabindex=-1 control can rove backward through the sibling -1 controls instead of stepping out.
+				if (this.moveToAdjacentGroup(control, event.shiftKey ? -1 : 1)) {
+					event.preventDefault();
+				} else if (event.shiftKey) {
+					this.treeRef.value?.focus();
+					event.preventDefault();
+				}
+				break;
+			case 'Enter':
+			case ' ':
+				// Non-button ref controls (pills + PR/issue chip anchors are <span role=button>) synthesize the
+				// single click the delegation routes: a pill → togglePinnedRef + gl-graph-open-branch + select; a
+				// PR/issue chip → its own open (see `onClick`). Native <button>s (row actions, the upstream-jump
+				// chip whose Enter IS its jump) fire their own click on Enter/Space — leave those to the browser.
+				if (group === 'refs' && control.tagName !== 'BUTTON') {
+					control.click();
+					event.preventDefault();
+				}
+				break;
+			case 'Escape':
+				// Explicit "back out" to the tree (the nav host). Shift+Tab does the same via the browser.
+				this.treeRef.value?.focus();
+				event.preventDefault();
+				break;
+		}
+	}
+
+	// ——— Grouped (multi-ref) pill menu: an aria-activedescendant cursor over the open popover's rows ———
+
+	/** The `.gl-graph__ref-popover-row` menu items for a grouped pill (light-DOM children of its
+	 *  `gl-popover`, present regardless of hoist / open state), or [] for a plain single pill. */
+	private groupedPillRows(pill: HTMLElement): HTMLElement[] {
+		const popover = pill.closest('.gl-graph__ref-popover');
+		if (popover == null) return [];
+
+		return [...popover.querySelectorAll<HTMLElement>('.gl-graph__ref-popover-row')];
+	}
+
+	/** Handle Up/Down/Left/Right/Enter/Escape for a grouped pill's menu. Up/Down move the ROW cursor; once a
+	 *  row is cursored Left/Right rove ITS items (the ref, then its jump action) — exiting to an adjacent pill
+	 *  is via Up-past-top / Escape, not Left/Right. Returns true when the key was consumed. */
+	private handleGroupedPillKeydown(event: KeyboardEvent, pill: HTMLElement): boolean {
+		const rows = this.groupedPillRows(pill);
+		if (rows.length === 0) return false;
+
+		const activeRow = rows.find(r => r.classList.contains('is-active')) ?? null;
+		const activeRowIdx = activeRow != null ? rows.indexOf(activeRow) : -1;
+
+		switch (event.key) {
+			case 'ArrowDown':
+				this.setGroupedPillCursor(pill, rows, Math.min(rows.length - 1, activeRowIdx + 1));
+				event.preventDefault();
+				return true;
+			case 'ArrowUp':
+				// Up from the first row (or with no cursor) clears back to the pill itself.
+				this.setGroupedPillCursor(pill, rows, activeRowIdx <= 0 ? -1 : activeRowIdx - 1);
+				event.preventDefault();
+				return true;
+			case 'ArrowRight':
+			case 'ArrowLeft': {
+				// No cursor yet → let Left/Right rove between pills (fall through). With a row cursored they
+				// rove WITHIN it (ref → jump), clamped at the ends so the cursor never leaves the row here.
+				if (activeRow == null) return false;
+
+				const items = this.groupedRowItems(activeRow);
+				const curIdx = Math.max(
+					0,
+					items.findIndex(el => el.classList.contains('is-cursor')),
+				);
+				const nextIdx = event.key === 'ArrowRight' ? curIdx + 1 : curIdx - 1;
+				if (nextIdx >= 0 && nextIdx < items.length) {
+					this.setRowItemCursor(pill, rows, activeRow, nextIdx);
+				}
+				event.preventDefault();
+				return true;
+			}
+			case 'Enter':
+			case ' ':
+				// Activate the cursored item — the row = its ref, a sub-action = its jump; no cursor → fall
+				// through to the pill's primary.
+				if (activeRow != null) {
+					const items = this.groupedRowItems(activeRow);
+					(items.find(el => el.classList.contains('is-cursor')) ?? activeRow).click();
+					this.clearGroupedPillCursor(pill);
+					event.preventDefault();
+					return true;
+				}
+
+				return false;
+			case 'Escape':
+				// First Escape (cursor set) clears it; a second (no cursor) falls through to exit the group.
+				if (activeRow != null) {
+					this.clearGroupedPillCursor(pill);
+					event.preventDefault();
+					return true;
+				}
+
+				return false;
+			default:
+				return false;
+		}
+	}
+
+	/** Items rovable within a cursored popover row, in visual order: the row itself (its primary ref) then its
+	 *  interactive sub-actions (the upstream-jump button). Left/Right step through these. */
+	private groupedRowItems(row: HTMLElement): HTMLElement[] {
+		return [row, ...row.querySelectorAll<HTMLElement>('.gl-graph__ref-pill-upstream--jump')];
+	}
+
+	/** Row-level cursor (Up/Down): select `rows[rowIdx]` with the cursor on its FIRST item (the primary ref);
+	 *  `rowIdx < 0` clears back to the anchor pill. */
+	private setGroupedPillCursor(pill: HTMLElement, rows: HTMLElement[], rowIdx: number): void {
+		if (rowIdx < 0) {
+			this.clearGroupedPillCursor(pill);
+			return;
+		}
+
+		this.setRowItemCursor(pill, rows, rows[rowIdx], 0);
+	}
+
+	/** Point the cursor at `groupedRowItems(row)[itemIdx]`: the row FILLS (`is-active`) for its whole cursored
+	 *  lifetime; the focus RECT (`is-cursor`) + `aria-activedescendant` ride the specific item (row primary at
+	 *  0, else a sub-action). DOM focus stays on the pill — this menu is an aria-activedescendant surface. */
+	private setRowItemCursor(pill: HTMLElement, rows: HTMLElement[], row: HTMLElement, itemIdx: number): void {
+		const items = this.groupedRowItems(row);
+		const item = items[Math.max(0, Math.min(items.length - 1, itemIdx))];
+
+		for (const r of rows) {
+			r.classList.toggle('is-active', r === row);
+		}
+		const popover = pill.closest<GlPopover>('gl-popover.gl-graph__ref-popover');
+		if (popover != null) {
+			// The popover may be closed here — Escape's document-level hide, a popup blur, or the focus
+			// trigger's show-delay still pending — so force it open (as pinRefPill does): a cursor on a
+			// hidden menu reads as dead arrow keys and points aria-activedescendant at invisible content.
+			popover.open = true;
+			for (const el of popover.querySelectorAll('.is-cursor')) {
+				el.classList.remove('is-cursor');
+			}
+		}
+		item.classList.add('is-cursor');
+		pill.setAttribute('aria-activedescendant', item.id);
+
+		// Keyboard tooltip parity: the aria-activedescendant cursor fires no focusin (DOM focus stays on the
+		// pill), so surface the cursored item's delegated tooltip (e.g. the jump's "Jump to …") explicitly.
+		this.showTooltipForTarget(item);
+
+		// Manual scrollTop, NOT `scrollIntoView`: the latter walks EVERY scroll ancestor and would nudge the
+		// graph viewport / outer panels (the nested-scroll-webview pitfall). Scroll only the popover list.
+		const list = row.closest<HTMLElement>('.gl-graph__ref-popover-list');
+		if (list == null) return;
+
+		const listRect = list.getBoundingClientRect();
+		const rowRect = row.getBoundingClientRect();
+		if (rowRect.top < listRect.top) {
+			list.scrollTop -= listRect.top - rowRect.top;
+		} else if (rowRect.bottom > listRect.bottom) {
+			list.scrollTop += rowRect.bottom - listRect.bottom;
+		}
+	}
+
+	private clearGroupedPillCursor(pill: HTMLElement): void {
+		const popover = pill.closest('.gl-graph__ref-popover');
+		if (popover != null) {
+			for (const el of popover.querySelectorAll('.is-active, .is-cursor')) {
+				el.classList.remove('is-active', 'is-cursor');
+			}
+		}
+
+		pill.removeAttribute('aria-activedescendant');
+		this.scheduleHideTooltip();
+	}
+
+	/** The managed row control (pill / action button) that currently holds focus, or null. Tracked by
+	 *  ELEMENT (not a boolean) so the recycle corral can tell a "row unmounted → focus fell to <body>" drop
+	 *  (the element is gone from the DOM) apart from focus the user moved elsewhere (element still present). */
+	private _managedFocusEl: HTMLElement | null = null;
+
+	/** Rows are keyed by sha and unmount when scrolled beyond the virtualizer overhang, with no built-in
+	 *  focus restore. If a managed control had focus and its row just recycled out (its element left the DOM
+	 *  and focus dropped to <body>), pull focus back to the tree so keyboard nav isn't stranded outside the
+	 *  graph. Called from `onRangeChanged`. A control still in the DOM means the user moved focus off it
+	 *  deliberately (a dead-zone click, another webview) — leave it, don't yank focus back. */
+	private recaptureFocusIfStranded(): void {
+		const el = this._managedFocusEl;
+		if (el == null) return;
+
+		// Focus moved somewhere valid (still on the control, or on to another element) — not a strand.
+		if (document.activeElement !== document.body) return;
+
+		// Deliberate blur leaves the control in the DOM; only a recycle removes it. Recapture just the latter.
+		if (this.contains(el)) return;
+
+		this._managedFocusEl = null;
+		this.treeRef.value?.focus();
+	}
+
+	/** Focusable overlay elements rendered AFTER the tree inside the viewport (changes opt-in Show/Hide,
+	 *  the HEAD / pinned "scroll to" pills, the horizontal scrollbar), in DOM order. Forward Tab off the
+	 *  last row control lands on the first of these; this list lets Shift+Tab from it come back. */
+	private trailingFocusables(): HTMLElement[] {
+		const viewport = this.viewportRef.value;
+		const tree = this.treeRef.value;
+		if (viewport == null || tree == null) return [];
+
+		return [...viewport.querySelectorAll<HTMLElement>('button:not([tabindex="-1"]), [tabindex="0"]')].filter(
+			el =>
+				!tree.contains(el) &&
+				(tree.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 &&
+				el.offsetParent != null,
+		);
+	}
+
+	/** The active row's LAST managed control (last group's last control — actions if present, else refs). */
+	private activeRowLastControl(): HTMLElement | null {
+		const rowEl = this.activeRowElement();
+		if (rowEl == null) return null;
+
+		for (const group of ['actions', 'refs'] as const) {
+			const controls = this.rowGroupControls(rowEl, group);
+			if (controls.length > 0) return controls.at(-1) ?? null;
+		}
+
+		return null;
+	}
+
+	private handleViewportKeydown = (event: KeyboardEvent): void => {
+		// Re-entry: Shift+Tab from ANY trailing overlay (the HEAD-jump / pinned pills, the changes-opt-in
+		// Show/Hide buttons, the hscrollbar) returns straight to the active row's last managed control, rather
+		// than stepping back through the other overlays to the tree. Row controls are `tabindex=-1`, so the
+		// browser would otherwise skip them and strand focus on the tree — making the row groups one-way
+		// (forward Tab reaches the overlays; Shift+Tab couldn't come back). Bubbled keydowns from the tree /
+		// header / row-controls fall out here (they're never in `trailing`).
+		if (event.key !== 'Tab' || !event.shiftKey || !(event.target instanceof HTMLElement)) return;
+
+		if (!this.trailingFocusables().includes(event.target)) return;
+
+		const last = this.activeRowLastControl();
+		if (last == null) return;
+
+		event.preventDefault();
+		last.focus({ preventScroll: true });
+	};
+
+	private onKeydown = (event: KeyboardEvent): void => {
+		// Managed row-control focus: keydown bubbled from a `tabindex=-1` control we moved focus onto (a
+		// row-action button). Own the roving + exit keys; Enter/Space fall through to native <button>
+		// activation (the delegated onClick turns data-row-action into the host event), and Tab/Shift+Tab
+		// fall through to the browser — the controls are tabindex=-1, so forward Tab leaves the graph and
+		// Shift+Tab retreats to the tree container. (The column header is a preceding SIBLING of the tree,
+		// so its keys never bubble here — it has its own headerRoving toolbar.)
+		if (event.target !== event.currentTarget) {
+			const control =
+				event.target instanceof Element
+					? // Sub-chips (upstream-jump / PR / issue = `[data-ref-metadata-type]`) resolve to
+						// THEMSELVES, not the pill that contains them, so each is its own rove stop.
+						event.target.closest<HTMLElement>(
+							'.gl-graph__row-action, [data-ref-metadata-type], .gl-graph__ref-pill',
+						)
+					: null;
+			if (control != null) {
+				this.handleRowControlKeydown(event, control);
+			}
+			return;
+		}
+
+		// Tab dives into the active row's controls (a single roving tab stop); Shift+Tab falls through so
+		// focus retreats to the header (the preceding tab stops). If the active row has no controls, let
+		// Tab fall through too (it leaves the graph).
+		if (event.key === 'Tab' && !event.shiftKey && this.enterActiveRowGroup()) {
+			event.preventDefault();
+			return;
+		}
+
+		if (this.displayRows.length === 0) return;
+
+		// Row movement (Arrow Up/Down [Alt = branching point, Ctrl/Cmd = topological lineage], Page Up/Down
+		// [Alt = ref row], Home/End; Shift extends a range) — shared with the row controls so Up/Down navigate
+		// rows from a focused pill/action too.
+		if (this.navigateRows(event)) return;
+
+		switch (event.key) {
 			case 'Enter':
 			case ' ': {
 				const sha = this.displayRows[this.focusIndex]?.sha;
@@ -5327,15 +5792,87 @@ export class GlLitGraph extends LitElement {
 						event.preventDefault();
 					}
 				}
-				return;
 			}
+		}
+	};
+
+	/** Row navigation shared by the focused tree container and a focused row control (Up/Down navigate rows
+	 *  from a pill/action too). Arrow Up/Down (Alt = next branching point, Ctrl/Cmd = first-parent lineage),
+	 *  Page Up/Down (Alt = ref row), Home/End; Shift extends a range selection from the anchor. Returns true
+	 *  when it consumed a navigation key (callers stop) — false leaves the key for the caller's own handling. */
+	private navigateRows(event: KeyboardEvent): boolean {
+		const last = this.displayRows.length - 1;
+		if (last < 0) return false;
+
+		let next: number;
+		switch (event.key) {
+			case 'ArrowDown': {
+				// Alt = next branching point; Ctrl/Cmd = follow first-parent lineage; plain = next row.
+				const t = event.altKey
+					? this.findBranchingPointIndex(this.focusIndex, 1)
+					: event.ctrlKey || event.metaKey
+						? this.findTopologicalRowIndex(this.focusIndex, 1)
+						: Math.min(last, this.focusIndex + 1);
+				if (t == null) {
+					event.preventDefault();
+					return true;
+				}
+
+				next = t;
+				break;
+			}
+			case 'ArrowUp': {
+				const t = event.altKey
+					? this.findBranchingPointIndex(this.focusIndex, -1)
+					: event.ctrlKey || event.metaKey
+						? this.findTopologicalRowIndex(this.focusIndex, -1)
+						: Math.max(0, this.focusIndex - 1);
+				if (t == null) {
+					event.preventDefault();
+					return true;
+				}
+
+				next = t;
+				break;
+			}
+			case 'PageDown': {
+				// Alt = jump to the next ref row; plain = move a page.
+				const t = event.altKey
+					? this.findRefRowIndex(this.focusIndex, 1)
+					: Math.min(last, this.focusIndex + this.pageStep());
+				if (t == null) {
+					event.preventDefault();
+					return true;
+				}
+
+				next = t;
+				break;
+			}
+			case 'PageUp': {
+				const t = event.altKey
+					? this.findRefRowIndex(this.focusIndex, -1)
+					: Math.max(0, this.focusIndex - this.pageStep());
+				if (t == null) {
+					event.preventDefault();
+					return true;
+				}
+
+				next = t;
+				break;
+			}
+			case 'Home':
+				next = 0;
+				break;
+			case 'End':
+				next = last;
+				break;
 			default:
-				return;
+				return false;
 		}
 
 		event.preventDefault();
 		const targetSha = this.displayRows[next]?.sha;
-		if (targetSha == null) return;
+		if (targetSha == null) return true;
 
 		const multiEnabled = this.config?.multiSelectionMode !== false;
 		if (event.shiftKey && multiEnabled) {
@@ -5373,7 +5910,8 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 		this.revealIndexNearest(next);
-	};
+		return true;
+	}
 
 	// On Tab-in, align the active descendant with the current selection so the screen reader
 	// announces the selected row rather than a stale focus index. Fires once per focus gesture.
@@ -5385,13 +5923,24 @@ export class GlLitGraph extends LitElement {
 	 *  focus ring off on first render; it still appears on real keyboard use, since Chromium re-evaluates
 	 *  :focus-visible on subsequent keydown even without a re-focus. Callers may pass an explicit override. */
 	override focus(options?: FocusOptions): void {
-		this.viewportRef.value?.focus({ focusVisible: false, ...options });
+		this.treeRef.value?.focus({ focusVisible: false, ...options });
 	}
 
 	private onFocusIn = (event: FocusEvent): void => {
 		// Keyboard parity for the pointer tooltip path — a focused `data-tooltip` element (incl. the mode
-		// picker's glyph buttons) shows the same delegated tooltip.
+		// picker's glyph buttons) shows the same delegated tooltip. Runs for focus ANYWHERE in the
+		// viewport (header controls, row controls) — this handler is bound on the outer viewport.
 		this.showTooltipForFocus(event);
+
+		// Track WHICH managed row control (pill / action button) holds focus, so the recycle corral
+		// (recaptureFocusIfStranded) can tell a row-unmount focus drop apart from a deliberate move.
+		this._managedFocusEl =
+			event.target instanceof HTMLElement && this.controlGroup(event.target) != null ? event.target : null;
+
+		// The active-descendant realign below is only for focus landing on the tree container itself
+		// (Tab-in / programmatic focus). Focus on the header, or on a row's managed controls, must not
+		// re-derive the row focus index.
+		if (event.target !== this.treeRef.value) return;
 
 		if (this.selectedShas.size === 0) return;
 
@@ -5416,7 +5965,7 @@ export class GlLitGraph extends LitElement {
 		// A skipped reveal self-heals: the next arrow-key press moves the selection, which scrolls it into view.
 		// The focusIndex realignment above stays unconditional so aria-activedescendant tracks the selection
 		// on every focus gesture (screen-reader announce), however focus arrived.
-		if (this.viewportRef.value?.matches(':focus-visible') !== true) return;
+		if (this.treeRef.value?.matches(':focus-visible') !== true) return;
 
 		const related = event.relatedTarget;
 		if (related instanceof Node && this.contains(related)) return;
@@ -5454,6 +6003,10 @@ export class GlLitGraph extends LitElement {
 		const { first, last } = event as Event & { first: number; last: number };
 		const rows = this.displayRows;
 		if (rows.length === 0) return;
+
+		// A managed-focus row may have just recycled out of the window — pull focus back to the tree before
+		// it strands on <body>.
+		this.recaptureFocusIfStranded();
 
 		// Streaming: prefetch the next page BEFORE the loaded end scrolls into view, so it's already in
 		// flight when the user arrives (rather than hitting a loading wall). The trigger distance grows
@@ -5641,6 +6194,31 @@ export class GlLitGraph extends LitElement {
 				optin.style.visibility = 'visible';
 			}
 		}
+		// The header roving toolbar's tabindex sweep now runs via `headerRoving` (RovingTabindexController's
+		// hostUpdated), so nothing to do here.
+	}
+
+	// ————— Header roving toolbar —————
+	// The header (`role="toolbar"`) is ONE tab stop: exactly one control holds `tabindex="0"` (rest -1),
+	// plain Arrow Left/Right roves between controls (Home/End = ends), and each control's OWN Shift+Arrow
+	// does its action (labels reorder, resize handles resize); Enter/Space activate natively. Roving is the
+	// shared `RovingTabindexController` (as in the sidebar/overview): each control carries a stable
+	// `data-roving-key`, so the tab stop survives the header's frequent re-renders AND column reorders; the
+	// controller ignores modified arrows, so Shift+Arrow still reaches the controls' reorder/resize handlers.
+	private readonly headerRoving = new RovingTabindexController(this, {
+		getItems: () => this.getHeaderRovingItems(),
+		orientation: 'horizontal',
+	});
+
+	/** The header's roving controls (column labels, resize handles, filter/placement/settings buttons) in
+	 *  visual (DOM) order; visible only. Keyed by the stable `data-roving-key` each render site sets. */
+	private getHeaderRovingItems(): { key: string; element: HTMLElement }[] {
+		const header = this.querySelector('.gl-graph__header');
+		if (header == null) return [];
+
+		return [...header.querySelectorAll<HTMLElement>('[data-roving-key]')]
+			.filter(el => el.offsetParent != null && getComputedStyle(el).visibility !== 'hidden')
+			.map(el => ({ key: el.dataset.rovingKey!, element: el }));
 	}
 
 	/** True when `sha` is currently rendered (present in `displayRows`); false when it's loaded but
@@ -6182,7 +6760,13 @@ export class GlLitGraph extends LitElement {
 		// The group/inline toggle combines a column into the one on its RIGHT, so it's meaningless on the
 		// last column (nothing to group with) — hidden there for both the graph and the refs column.
 		const graphIsLastColumn = gutterWidth > 0 && this.graphVisibleSlot === visibleZones.length;
-		return html`<div class="gl-graph__header" role="group" aria-label="Graph columns">
+		return html`<div
+			class="gl-graph__header"
+			role="toolbar"
+			aria-label="Graph columns"
+			@keydown=${this.headerRoving.onKeydown}
+			@focusin=${this.headerRoving.onFocusin}
+		>
 			${gutterWidth > 0 && this.graphVisibleSlot === 0
 				? this.renderGraphHeaderCell(gutterWidth, graphIsLastColumn)
 				: nothing}
@@ -6313,11 +6897,12 @@ export class GlLitGraph extends LitElement {
 													: 'false'
 												: nothing}
 											aria-label=${zone.id === 'changes'
-												? 'Changes column. Press Enter to change the visualization; use Arrow Left/Right to reorder, or drag.'
-												: `${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
+												? 'Changes column. Press Enter to change the visualization; Shift+Arrow Left/Right to reorder, or drag.'
+												: `${zone.label} column. Shift+Arrow Left/Right to reorder, or drag.`}
 											data-tooltip=${zone.id === 'changes'
-												? 'Change Visualization — or drag / Arrow keys to reorder'
-												: `Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
+												? 'Change Visualization — or drag / Shift+Arrow to reorder'
+												: `Drag or press Shift+Arrow to reorder ${zone.label.toLowerCase()} column`}
+											data-roving-key="label:${zone.id}"
 											@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
 											>${labelAsIcon
 												? html`<code-icon
@@ -6352,8 +6937,9 @@ export class GlLitGraph extends LitElement {
 									aria-valuenow=${zone.width}
 									aria-valuemin=${zone.minWidth}
 									aria-valuemax="800"
-									data-tooltip=${`Drag to resize, or double-click to fit the ${fitTargetLabel.toLowerCase()} column to its contents`}
+									data-tooltip=${`Drag or Shift+Arrow to resize, or double-click to fit the ${fitTargetLabel.toLowerCase()} column to its contents`}
 									@pointerdown=${(e: PointerEvent) => this.onResizeStart(e, visibleZones, i)}
+									data-roving-key="resize:${zone.id}"
 									@keydown=${(e: KeyboardEvent) => this.onResizeKeydown(e, visibleZones, i)}
 								>
 									<span class="gl-graph__resize-line"></span>
@@ -6389,6 +6975,7 @@ export class GlLitGraph extends LitElement {
 			aria-label=${ariaLabel}
 			data-tooltip=${tooltip}
 			data-filter-zone=${zone.id}
+			data-roving-key="filter:${zone.id}"
 			draggable="false"
 			@keydown=${(e: KeyboardEvent) => this.onFilterButtonKeydown(e, zone.id)}
 		>
@@ -6423,7 +7010,13 @@ export class GlLitGraph extends LitElement {
 	// to just the details cell (which hosts the graph group/restore control) + the gear.
 	private renderListHeader(): TemplateResult {
 		const graphIsColumn = this.graphPlacement === 'column';
-		return html`<div class="gl-graph__header gl-graph__header--list" role="group" aria-label="Graph columns">
+		return html`<div
+			class="gl-graph__header gl-graph__header--list"
+			role="toolbar"
+			aria-label="Graph columns"
+			@keydown=${this.headerRoving.onKeydown}
+			@focusin=${this.headerRoving.onFocusin}
+		>
 			${graphIsColumn ? this.renderGraphHeaderCell(this.gutterWidth, false) : nothing}
 			<div
 				class="gl-graph__header-cell gl-graph__header-cell--details"
@@ -6460,8 +7053,9 @@ export class GlLitGraph extends LitElement {
 				class="gl-graph__header-label"
 				role="button"
 				tabindex="0"
-				aria-label="Graph column. Use Arrow Left/Right to reorder, or drag."
-				data-tooltip="Drag or press Arrow keys to reorder the graph column"
+				aria-label="Graph column. Shift+Arrow Left/Right to reorder, or drag."
+				data-tooltip="Drag or press Shift+Arrow to reorder the graph column"
+				data-roving-key="label:graph"
 				@keydown=${this.onGraphLabelKeydown}
 				>${labelAsIcon
 					? html`<code-icon class="gl-graph__header-label-icon" icon="gl-graph"></code-icon>`
@@ -6476,8 +7070,9 @@ export class GlLitGraph extends LitElement {
 				aria-valuenow=${Math.round(totalWidth)}
 				aria-valuemin=${Math.round(foldLaneWidth + gutterPadding * 1.5 + this.columnWidth)}
 				aria-valuemax=${Math.round(foldLaneWidth + gutterWidth)}
-				data-tooltip="Drag or press Arrow keys to resize the graph column (scrolls when narrower than the lanes)"
+				data-tooltip="Drag or press Shift+Arrow to resize the graph column (scrolls when narrower than the lanes)"
 				@pointerdown=${this.onGraphResizeStart}
+				data-roving-key="resize:graph"
 				@keydown=${this.onGraphResizeKeydown}
 			>
 				<span class="gl-graph__resize-line"></span>
@@ -6522,6 +7117,7 @@ export class GlLitGraph extends LitElement {
 			data-tooltip=${title}
 			draggable="false"
 			@pointerdown=${(e: Event) => e.stopPropagation()}
+			data-roving-key="placement:graph"
 			@click=${this.togglePlacement}
 		>
 			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon>` : nothing}${labeled
@@ -6614,6 +7210,7 @@ export class GlLitGraph extends LitElement {
 			data-tooltip=${title}
 			draggable="false"
 			@pointerdown=${(e: Event) => e.stopPropagation()}
+			data-roving-key="placement:refs"
 			@click=${this.toggleRefsPlacement}
 		>
 			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon> ` : nothing}<code-icon
@@ -6674,6 +7271,7 @@ export class GlLitGraph extends LitElement {
 			draggable="false"
 			data-vscode-context=${this.settingsContext}
 			@pointerdown=${(e: Event) => e.stopPropagation()}
+			data-roving-key="settings"
 			@click=${this.openHeaderContextMenu}
 		>
 			<code-icon icon="settings-gear"></code-icon>
@@ -6724,6 +7322,7 @@ export class GlLitGraph extends LitElement {
 			data-tooltip="Change Visualization"
 			draggable="false"
 			@pointerdown=${(e: Event) => e.stopPropagation()}
+			data-roving-key="changes-mode"
 			@click=${this.onChangesModePickerButtonClick}
 		>
 			<code-icon icon="chevron-down"></code-icon>
@@ -7352,10 +7951,11 @@ export class GlLitGraph extends LitElement {
 	// immediately (no drag state), matching `onResizeKeydown`'s keyboard resize for the other columns.
 	private onGraphResizeKeydown = (event: KeyboardEvent): void => {
 		const dir = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
-		if (dir === 0) return;
+		// Resize is Shift+Arrow so plain Arrow roves the header toolbar (headerRoving).
+		if (dir === 0 || !event.shiftKey) return;
 
 		event.preventDefault();
-		const step = (event.shiftKey ? 16 : 4) * dir;
+		const step = 4 * dir;
 		this.graphViewportWidth = this.graphColumnWidth + step;
 		this.applyGraphScroll();
 		this.persistColumnsConfig();
@@ -7960,7 +8560,8 @@ export class GlLitGraph extends LitElement {
 	// clamped to [0, visibleZoneCount]. Mirrors the zone label's Arrow-key reorder.
 	private onGraphLabelKeydown = (event: KeyboardEvent): void => {
 		const dir = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
-		if (dir === 0) return;
+		// Reorder is Shift+Arrow so plain Arrow roves the header toolbar (headerRoving).
+		if (dir === 0 || !event.shiftKey) return;
 
 		event.preventDefault();
 		// Move one VISIBLE slot, then store it back as an anchor (so it survives later hide/inline).
@@ -7988,10 +8589,11 @@ export class GlLitGraph extends LitElement {
 	// Same visible-list resize + merge-back as the pointer drag, persisted immediately.
 	private onResizeKeydown(event: KeyboardEvent, visibleZones: readonly ZoneSpec[], visibleIdx: number): void {
 		const dir = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
-		if (dir === 0) return;
+		// Resize is Shift+Arrow so plain Arrow roves the header toolbar (headerRoving).
+		if (dir === 0 || !event.shiftKey) return;
 
 		event.preventDefault();
-		const step = (event.shiftKey ? 40 : 8) * dir;
+		const step = 8 * dir;
 		// Same boundary trade as the pointer drag, applied once and persisted immediately. Commits the
 		// FULL result set (zero-sum — see zonesWithSolvedWidths); a floored no-op press commits nothing.
 		const result = dragResizeZone(visibleZones, visibleIdx, step);
@@ -8028,6 +8630,9 @@ export class GlLitGraph extends LitElement {
 			this.toggleChangesModeMenu(event.currentTarget);
 			return;
 		}
+
+		// Reorder is Shift+Arrow so plain Arrow roves the header toolbar (headerRoving).
+		if (!event.shiftKey) return;
 
 		let toVisible: number;
 		if (event.key === 'ArrowRight') {

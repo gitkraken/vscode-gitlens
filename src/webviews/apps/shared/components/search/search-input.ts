@@ -37,6 +37,7 @@ import {
 	structuredSearchAutocompleteCommand,
 } from './models.js';
 import '../button.js';
+import '../actions/action-nav.js';
 import '../autocomplete/autocomplete.js';
 import '../code-icon.js';
 import '../copy-container.js';
@@ -260,6 +261,10 @@ export class GlSearchInput extends GlElement {
 			display: inline-flex;
 			flex-direction: row;
 			gap: 0.1rem;
+		}
+
+		.controls action-nav {
+			display: contents;
 		}
 
 		.controls.controls__start {
@@ -1450,28 +1455,30 @@ background-color: var(--vscode-menu-background);
 	override render(): unknown {
 		return html`<div class="field">
 				<div class="controls controls__start">
-					<gl-button
-						appearance="input"
-						role="checkbox"
-						aria-checked="${this.filter}"
-						tooltip="Filter Commits"
-						aria-label="Filter Commits"
-						@click="${this.handleFilterClick}"
-					>
-						<code-icon icon="list-filter"></code-icon>
-					</gl-button>
-					${this.aiAllowed
-						? html`<gl-button
-								appearance="input"
-								role="checkbox"
-								aria-checked="${this.naturalLanguage}"
-								tooltip="Natural Language Search (AI Preview)"
-								aria-label="Natural Language Search (AI Preview)"
-								@click="${this.handleNaturalLanguageClick}"
-							>
-								<code-icon icon="sparkle"></code-icon>
-							</gl-button>`
-						: nothing}
+					<action-nav role="toolbar" aria-label="Search mode">
+						<gl-button
+							appearance="input"
+							role="checkbox"
+							aria-checked="${this.filter}"
+							tooltip="Filter Commits"
+							aria-label="Filter Commits"
+							@click="${this.handleFilterClick}"
+						>
+							<code-icon icon="list-filter"></code-icon>
+						</gl-button>
+						${this.aiAllowed
+							? html`<gl-button
+									appearance="input"
+									role="checkbox"
+									aria-checked="${this.naturalLanguage}"
+									tooltip="Natural Language Search (AI Preview)"
+									aria-label="Natural Language Search (AI Preview)"
+									@click="${this.handleNaturalLanguageClick}"
+								>
+									<code-icon icon="sparkle"></code-icon>
+								</gl-button>`
+							: nothing}
+					</action-nav>
 				</div>
 				<div class="input-container">
 					<div class="input-highlight" aria-hidden="true">${this.renderHighlightedText()}</div>
@@ -1505,17 +1512,19 @@ background-color: var(--vscode-menu-background);
 				</div>
 			</div>
 			<div class="controls">
-				${this.value
-					? html`<gl-button
-							appearance="input"
-							tooltip="Clear"
-							aria-label="Clear"
-							@click="${this.handleClear}"
-						>
-							<code-icon icon="close"></code-icon>
-						</gl-button>`
-					: nothing}
-				${this.renderSearchOptions()}
+				<action-nav role="toolbar" aria-label="Search options">
+					${this.value
+						? html`<gl-button
+								appearance="input"
+								tooltip="Clear"
+								aria-label="Clear"
+								@click="${this.handleClear}"
+							>
+								<code-icon icon="close"></code-icon>
+							</gl-button>`
+						: nothing}
+					${this.renderSearchOptions()}
+				</action-nav>
 			</div>`;
 	}
 

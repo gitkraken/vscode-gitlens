@@ -53,6 +53,7 @@ import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/commit/wip-stats.js';
 import '../../../shared/components/markdown/markdown.js';
 import './agent-tooltip.js';
+import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/hooks-banner.js';
@@ -684,7 +685,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const pinIcon = pinned ? 'pinned' : 'pin';
 		return html`<div class="header">
 			<span class="header-title">${config.title}</span>
-			<div class="header-actions">
+			<action-nav class="header-actions" role="toolbar" aria-label="${config.title} actions">
 				${config.actions?.map(
 					a =>
 						html`<gl-button
@@ -706,7 +707,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					@click=${this.handleTogglePinned}
 					><code-icon icon=${pinIcon}></code-icon
 				></gl-button>
-			</div>
+			</action-nav>
 			<progress-indicator position="bottom" ?active=${isLoading}></progress-indicator>
 		</div>`;
 	}

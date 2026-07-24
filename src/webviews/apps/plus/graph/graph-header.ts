@@ -73,6 +73,7 @@ import '../../shared/components/radio/radio.js';
 import '../../shared/components/radio/radio-group.js';
 import '../../shared/components/ref-button.js';
 import '../../shared/components/repo-button-group.js';
+import '../../shared/components/actions/action-nav.js';
 import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/search/search-box.js';
 import '../../shared/components/shoelace-stub.js';
@@ -1461,7 +1462,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							</span>
 						`,
 					)}
-					<span class="button-group">
+					<action-nav class="button-group" role="toolbar" aria-label="Graph layout">
 						${when(
 							config?.sidebar,
 							() => html`
@@ -1526,7 +1527,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								></code-icon>
 							</gl-button>`;
 						})()}
-					</span>
+					</action-nav>
 				</div>
 			</div>
 		`;
