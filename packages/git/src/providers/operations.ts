@@ -113,6 +113,7 @@ export interface GitOperationsSubProvider {
 			messageEditor?: string;
 			onto?: string;
 			updateRefs?: boolean;
+			committerDateIsAuthorDate?: boolean;
 			source?: unknown;
 		},
 		runOptions?: GitOperationRunOptions,

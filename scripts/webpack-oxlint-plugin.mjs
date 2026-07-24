@@ -1,5 +1,4 @@
 import { spawn } from 'child_process';
-import path from 'path';
 
 const OXLINT_PLUGIN = 'OxLintWebpackPlugin';
 const CHILD_PROCESS_MAX_FILES = 10;
@@ -73,8 +72,10 @@ export class OxLintWebpackPlugin {
 	executeLinter(args) {
 		return new Promise((resolve, reject) => {
 			// Run with type-aware checks enabled natively
+			const isWin32 = process.platform === 'win32';
 			const lintProcess = spawn('oxlint', ['-f', this.format, '--type-aware', '--type-check', ...args], {
 				cwd: this.context,
+				shell: isWin32,
 				env: {
 					FORCE_COLOR: '1',
 					...process.env,
