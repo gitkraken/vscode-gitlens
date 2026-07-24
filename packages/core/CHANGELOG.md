@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes `IntegrationService.resolveRepository` misclassifying a nonexistent GitHub/GitLab repository as a generic `error` instead of `not-found` &mdash; those providers' `getRepo` clients are GraphQL, so a missing repo returns HTTP 200 with a null node and the SDK throws an error with no `response.status` (a `GraphQLErrors` for GitHub, a bare `Error` for GitLab) that `ProvidersApi.handleProviderError`'s status-based mapping never recognized. `ProvidersApi.getRepo` now detects the SDK's not-found shapes (GitHub's `NOT_FOUND`-typed GraphQL error, GitLab's `Repository … not found` message) and rethrows them as `RequestNotFoundError` so the resolution reports `not-found` ([#5559](https://github.com/gitkraken/vscode-gitlens/issues/5559)) (plus/integrations)
 - Fixes GitLab self-hosted repo-scoped reads (issues and pull requests) 404ing &mdash; `getSelfManagedApiBaseUrl` was producing a URL with a redundant `/api` segment, which then caused the provider SDK to double-append its own path; it now correctly strips these segments so the final request URL is correct ([#5526](https://github.com/gitkraken/vscode-gitlens/issues/5526)) (plus/integrations)
 
 ### Changed
