@@ -311,16 +311,21 @@ export function isRefHidden(
 /**
  * True when `remote` is the upstream that `head` tracks. Prefers the exact ref-id match (a local and
  * its remote share a `name`, so the id disambiguates); falls back to the full `owner/name` for legacy
- * rows that don't carry ids. Used both for the primary-ref tiering below and to combine an in-sync
- * pair into one pill.
+ * rows that don't carry ids, and finally — only for a head with NO upstream configured at all — to a
+ * bare name match. That last fallback pairs an untracked local with a same-named remote sitting on the
+ * SAME commit (so they're in sync by definition) into one pill instead of two, matching the legacy
+ * engine's name-keyed grouping. Configured tracking always wins, so a local tracking `upstream/foo` is
+ * never hijacked by a co-located `origin/foo`.
  */
 export function isUpstreamRemoteOf(remote: GraphCommitRef, head: GraphCommitRef | undefined): boolean {
 	if (head == null || remote.kind !== 'remote' || head.kind !== 'head') return false;
 	if (head.upstreamId != null && remote.id != null) return head.upstreamId === remote.id;
-	if (head.upstreamName == null) return false;
+	if (head.upstreamName != null) {
+		const full = remote.owner != null ? `${remote.owner}/${remote.name}` : remote.name;
+		return head.upstreamName === full || head.upstreamName === remote.name;
+	}
 
-	const full = remote.owner != null ? `${remote.owner}/${remote.name}` : remote.name;
-	return head.upstreamName === full || head.upstreamName === remote.name;
+	return head.upstreamId == null && remote.name === head.name;
 }
 
 /**

@@ -102,7 +102,17 @@ suite('graph ref ordering — tie-breaks', () => {
 });
 
 suite('graph ref ordering — upstream pairing', () => {
-	test('matches the tracked remote by id, never a same-named remote from another owner', () => {
+	test('pairs an UNTRACKED local with its same-named remote on the same commit', () => {
+		const local = head('foo');
+		const origin = remote('origin', 'foo');
+		assert.strictEqual(isUpstreamRemoteOf(origin, local), true);
+	});
+
+	test('does not pair an untracked local with a differently-named remote', () => {
+		assert.strictEqual(isUpstreamRemoteOf(remote('origin', 'bar'), head('foo')), false);
+	});
+
+	test('configured tracking wins — a local tracking upstream/foo is not hijacked by origin/foo', () => {
 		const local = trackedHead('foo', 'upstream');
 		assert.strictEqual(isUpstreamRemoteOf(remote('upstream', 'foo'), local), true);
 		assert.strictEqual(isUpstreamRemoteOf(remote('origin', 'foo'), local), false);
