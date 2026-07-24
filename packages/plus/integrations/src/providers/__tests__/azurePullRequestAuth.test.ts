@@ -4,7 +4,7 @@ import { base64 } from '@gitlens/utils/base64.js';
 import { createFakeRuntime } from '../../__tests__/fakeRuntime.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../../constants.js';
-import { createIntegrationManager } from '../../index.js';
+import { createIntegrationService as createIntegrationManager } from '../../integrationService.js';
 
 type CapturedAzureOptions = {
 	token?: string;

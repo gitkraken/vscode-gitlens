@@ -6,7 +6,7 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import { createIntegrationManager } from '../index.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { AzureProjectDescriptor, AzureRemoteRepositoryDescriptor } from '../providers/azure/models.js';
 import type { ProviderPullRequest, ProviderRepoInput } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
