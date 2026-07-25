@@ -7236,6 +7236,7 @@ export class GlLitGraph extends LitElement {
 						<span class="gl-graph__header-cell-content">
 							${graphControlHere
 								? html`<span class="gl-graph__group-member">
+										${graphCrumb ? this.renderQuickRefreshButton(true) : nothing}
 										${this.renderPlacementControl(
 											false,
 											graphCrumb && !crumbsCollapsed ? 'gl-graph' : undefined,
@@ -7399,6 +7400,67 @@ export class GlLitGraph extends LitElement {
 		this.dispatchFilterColumn(zoneId);
 	}
 
+	// Quick Refresh. The graph column has no filter, so this takes that slot and matches the filter button
+	// in every respect: same class (idle-collapsed, revealed on hover/focus, hence never in the header's
+	// deterministic width math — only ACTIVE filters feed that, see `renderHeader`), same position AHEAD of
+	// the label (the reveal widens it and slides the label right), and the same `--member` variant when the
+	// graph is GROUPED, where it rides the crumb and reveals with it exactly as the refs filter does.
+	// Like the filter button it is DRAG-THROUGH — no `@click`, so the press still bubbles to the cell and
+	// can reorder the column; a clean click is resolved in `onColumnPointerUp` by hit-testing this class.
+	/** Assistive tech that activates a button by SYNTHESIZING a click gets no pointerdown/pointerup pair, so
+	 *  the drag-through pointer path this control uses would never fire and the button was inert for it.
+	 *  `detail === 0` is the tell: a real pointer click carries its click count, a synthesized one carries 0 —
+	 *  so physical clicks still fall through to `onColumnPointerUp` and can't double-activate here. */
+	private onQuickRefreshClick = (event: MouseEvent): void => {
+		if (event.detail !== 0) return;
+
+		event.stopPropagation();
+		this.relayoutLanes();
+	};
+
+	private renderQuickRefreshButton(member = false): TemplateResult {
+		return html`<button
+			class="gl-graph__filter-toggle gl-graph__quick-refresh${member ? ' gl-graph__filter-toggle--member' : ''}"
+			type="button"
+			aria-label="Quick Refresh"
+			data-tooltip="Quick Refresh"
+			data-roving-key="quick-refresh:graph"
+			draggable="false"
+			@keydown=${this.onQuickRefreshKeydown}
+			@click=${this.onQuickRefreshClick}
+		>
+			<code-icon icon="refresh"></code-icon>
+		</button>`;
+	}
+
+	private onQuickRefreshKeydown = (event: KeyboardEvent): void => {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+
+		event.preventDefault();
+		event.stopPropagation();
+		this.relayoutLanes();
+	};
+
+	// Lay the lanes out cold, discarding the sticky columns carried across updates: clearing the prior engine
+	// input is what makes the next recompute classify as `initial` (that is the only field the classifier
+	// reads); the stability token is cleared alongside it so the two can't drift if that ever changes. Cold
+	// means it re-runs the
+	// engine from scratch instead of taking the payload/append fast paths. The result is what reopening the
+	// graph produces — the workaround this replaces — but entirely webview-side: no refetch and no host
+	// round-trip. Deliberately layout-only: folds, scope, columns and selection are left alone.
+	private relayoutLanes(): void {
+		if (this.rows == null || this.rows.length === 0) return;
+
+		this._engineStability = undefined;
+		this._priorEngineSourceRows = undefined;
+		this.recomputeRows(this.lastIdLength);
+		this.recomputeLaneDerivations();
+		this.rebuildProviders();
+		this.invalidateAdornments();
+		this.requestUpdate();
+		this.announce('Lanes re-laid out.');
+	}
+
 	// Compact-density header. The stacked 2-line rows have no per-zone columns, so instead of the full
 	// column header we render a reduced bar: the Graph column cell (its placement/node/density controls +
 	// resize handle, width `graphColumnWidth`) when the graph is its own column — aligned with the row's
@@ -7446,6 +7508,7 @@ export class GlLitGraph extends LitElement {
 			style=${cspStyleMap({ width: `${cellWidth}px`, minWidth: `${cellWidth}px` })}
 			@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, 'graph')}
 		>
+			${this.renderQuickRefreshButton()}
 			<span
 				class="gl-graph__header-label"
 				role="button"
@@ -8555,6 +8618,10 @@ export class GlLitGraph extends LitElement {
 		// button's `data-filter-zone` (a grouped-refs crumb button filters `ref` from another column's
 		// cell, so it can't be inferred from `colId`). A clean click dispatches it; a drag reorders instead.
 		filterZone: ZoneId | null;
+		// True when this press landed on the graph header's Quick Refresh button (hit-tested by class — it
+		// carries no per-zone value, so unlike `filterZone` there is no dataset payload to read).
+		// Same drag-through contract as `filterZone`: a clean click re-lays out the lanes, a drag reorders.
+		quickRefresh: boolean;
 		// Snapshot taken when the drag begins (threshold crossed). The tentative order is always recomputed
 		// FROM this base, and the pointer is hit-tested against these frozen column edges — so the columns
 		// shifting underneath never feeds back into the targeting. Restored verbatim on cancel.
@@ -8609,6 +8676,9 @@ export class GlLitGraph extends LitElement {
 						| undefined) ?? null)
 				: null;
 
+		const quickRefresh =
+			event.target instanceof Element && event.target.closest('.gl-graph__quick-refresh') != null;
+
 		this.columnDrag = {
 			pointerId: event.pointerId,
 			colId: colId,
@@ -8622,6 +8692,7 @@ export class GlLitGraph extends LitElement {
 			rafId: null,
 			changesPickerAnchor: changesPickerAnchor,
 			filterZone: filterZone,
+			quickRefresh: quickRefresh,
 			base: null,
 		};
 		window.addEventListener('pointermove', this.onColumnPointerMove);
@@ -8885,13 +8956,15 @@ export class GlLitGraph extends LitElement {
 		const started = drag.started;
 		const changesPickerAnchor = drag.changesPickerAnchor;
 		const filterZone = drag.filterZone;
+		const quickRefresh = drag.quickRefresh;
 		// Recompute the drop slot from the RELEASE position (the last rAF may not have flushed, so
 		// `drag.target` can be a frame stale) using the pointerup's own clientX — where the user let go.
 		const target = base != null ? this.columnDropTargetFor(base, event.clientX) : drag.target;
 		this.endColumnDrag();
 		if (!started || base == null) {
-			// A clean click (never crossed the drag threshold) toggles the Changes picker or dispatches a
-			// column filter; a started drag latches `base != null` and falls through here, so it can't. For
+			// A clean click (never crossed the drag threshold) toggles the Changes picker, dispatches a column
+			// filter, or re-lays out the lanes; a started drag latches `base != null` and falls through here,
+			// so it can't. For
 			// the mouse path this pointerup is the sole trigger — neither control has an `@click` (keyboard
 			// activation goes through the label's / filter button's `@keydown`).
 			if (!started) {
@@ -8899,6 +8972,8 @@ export class GlLitGraph extends LitElement {
 					this.toggleChangesModeMenu(changesPickerAnchor);
 				} else if (filterZone != null) {
 					this.dispatchFilterColumn(filterZone);
+				} else if (quickRefresh) {
+					this.relayoutLanes();
 				}
 			}
 			return;

@@ -1707,6 +1707,14 @@ gl-lit-graph {
 		margin-left: auto;
 		margin-right: 0.6rem;
 	}
+
+	// Unlike the zone headers — whose filter button sits in the gapless `header-cell-content` — this cell is
+	// a flex row WITH a gap, so the idle (zero-width) Quick Refresh button still owns a gap slot and would
+	// indent the "Graph" label past every other column header. Cancel that slot, exactly as the refs crumb
+	// does for its own filter button below.
+	.gl-graph__header-cell--graph .gl-graph__quick-refresh {
+		margin-inline-end: -0.2rem;
+	}
 	// Compact-density header: the stacked rows have no per-zone columns, so a single flex-fill details cell
 	// spans the content area (right of the graph cell, when the graph is its own column). Not a drag/reorder
 	// target, so it drops the header cell's grab cursor and keeps a small inset for any hosted control.
