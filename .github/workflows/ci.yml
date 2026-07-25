@@ -106,9 +106,6 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
-            - name: Build test files
-              run: pnpm run build:tests
-
             - name: Run unit tests
               run: xvfb-run -a pnpm run test
 
