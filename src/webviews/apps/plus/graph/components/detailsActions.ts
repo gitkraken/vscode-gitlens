@@ -231,9 +231,16 @@ interface CommitEnrichmentCacheEntry {
 
 const wipEnrichmentCacheLimit = 8;
 const commitEnrichmentCacheLimit = 32;
+/** How long the selection must hold still before a burst asks the host for the authoritative commit. Key
+ *  repeat runs at roughly a third of this, so a held arrow key resolves to one fetch at the end. */
+const commitFetchSettleMs = 100;
 
 export class DetailsActions {
 	private _lastFetchedKey?: string;
+	/** When the selection last changed, so an isolated one can skip the settle wait and a burst can extend it. */
+	private _lastSelectionAt = 0;
+	/** Bumped per selection so only the newest waiter may fetch, even if an older one holds the same key. */
+	private _selectionGeneration = 0;
 	/** The repo whose data the fetched signals currently hold. Assigned only where a fetch actually seeds, and never
 	 *  cleared — a fetch that bails seeds nothing, so what's held (and therefore this description of it) is unchanged.
 	 *  Lets a reset tell "stale value from the prior repo" apart from "value this cycle's fetch just seeded for the
@@ -811,6 +818,37 @@ export class DetailsActions {
 		}
 	}
 
+	/**
+	 * Gate the commit fetch on the selection holding still, so rapid navigation doesn't spawn a host
+	 * `git log` per keypress. Leading edge: an isolated selection (a click, a single arrow press) goes
+	 * straight through, so nothing gets slower in the common case. Inside a burst it waits, then reports
+	 * whether this selection is still the current one — a superseded one returns false and never asks.
+	 */
+	private async settleBeforeCommitFetch(key: string): Promise<boolean> {
+		const now = Date.now();
+		// Measured against the previous SELECTION, not the previous permitted fetch. Keying it off the fetch
+		// made this a throttle: the timestamp only advanced when a fetch was allowed through, so a sustained
+		// key repeat re-armed the leading edge every window and started git work every ~100ms.
+		const idle = now - this._lastSelectionAt >= commitFetchSettleMs;
+		this._lastSelectionAt = now;
+		// Claimed per SELECTION, not per key. Navigating away and back inside one window (A -> B -> C -> B)
+		// leaves two waiters holding the same key, and a key check alone passes BOTH once the selection
+		// returns to B — so the second fetch starts and immediately cancels the first, which is the exact
+		// wasted git work this gate exists to prevent. Only the newest selection keeps its claim.
+		const generation = ++this._selectionGeneration;
+		if (idle) return true;
+
+		// Inside a burst: wait for the selection to actually stop moving. Every newer selection pushes
+		// `_lastSelectionAt` forward and so extends this wait, leaving exactly one fetch, at the end.
+		for (;;) {
+			const remaining = commitFetchSettleMs - (Date.now() - this._lastSelectionAt);
+			if (remaining <= 0) return this._selectionGeneration === generation && this._lastFetchedKey === key;
+
+			await new Promise(resolve => setTimeout(resolve, remaining));
+			if (this._selectionGeneration !== generation) return false;
+		}
+	}
+
 	async fetchDetails(
 		sha: string | undefined,
 		repoPath: string | undefined,
@@ -1011,6 +1049,14 @@ export class DetailsActions {
 					}
 				}
 			} else {
+				// Every selection used to ask the host for the commit immediately, and the host answers by
+				// running `git log` — so holding an arrow key spawned one subprocess per keypress, each
+				// cancelled by the next a few ms after it had already started (measured: 20 spawns for 20
+				// presses, 16 thrown away mid-flight). Let a burst settle first. The shell above already
+				// painted from the eager lite, so only the authoritative payload (files/stats) waits, and a
+				// superseded selection now costs no git work at all instead of a killed subprocess.
+				if (!(await this.settleBeforeCommitFetch(key))) return;
+
 				await this.resources.commit.fetch(repoPath, sha);
 
 				if (this._lastFetchedKey !== key) return;
