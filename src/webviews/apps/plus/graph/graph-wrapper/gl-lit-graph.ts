@@ -2190,6 +2190,9 @@ export class GlLitGraph extends LitElement {
 			this._priorEngineSourceRows = undefined;
 			this._priorEngineSynthetic = undefined;
 			this._priorEnginePinnedSha = undefined;
+			// Also cleared here: a stale identity outlives the empty state and makes the next rows a
+			// non-switch, skipping the deliberate cold relayout a scope switch is supposed to take.
+			this._priorScopeIdentity = undefined;
 			this._pendingViewportTop = undefined;
 			this._pendingViewportTopIndex = undefined;
 			this._viewportTopSha = undefined;
