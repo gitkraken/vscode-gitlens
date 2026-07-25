@@ -115,4 +115,34 @@ suite('engine/process processCommitsAndSegments', () => {
 		const relaid = processCommitsAndSegments(skewed, { stableFrom: cold.stability });
 		assert.strictEqual(relaid.rows.find(r => r.sha === 'P')?.column, 0, 'the real row must win the stub');
 	});
+
+	// A scope that resolved NO anchors yields an empty synthetic set, which marks no edges and so cannot
+	// change any output. The guards must therefore test SIZE, not nullness — a bare non-null set used to
+	// disable suffix reconciliation (and, on the paging path, the append-resume), turning every scoped
+	// update into a full O(total) re-run for nothing.
+	test('an empty syntheticChildren set does not disable suffix reconciliation', () => {
+		const base = [commit('A', ['B']), commit('B', ['C']), commit('C', [])];
+		const prior = processCommitsAndSegments(base);
+		const next = [commit('N', ['A']), ...base];
+
+		const reconcileArg = { priorRows: prior.rows };
+		const withEmptyScope = processCommitsAndSegments(next, {
+			stableFrom: prior.stability,
+			syntheticChildren: new Set<string>(),
+			reconcile: reconcileArg,
+		});
+		const unscoped = processCommitsAndSegments(next, { stableFrom: prior.stability, reconcile: reconcileArg });
+
+		assert.ok(withEmptyScope.reconciled != null, 'an empty scope set must still reconcile');
+		assert.deepStrictEqual(
+			withEmptyScope.reconciled,
+			unscoped.reconciled,
+			'an empty scope set must reconcile exactly as an unscoped run does',
+		);
+		assert.deepStrictEqual(
+			withEmptyScope.rows.map(r => r.column),
+			unscoped.rows.map(r => r.column),
+			'and produce the same layout',
+		);
+	});
 });

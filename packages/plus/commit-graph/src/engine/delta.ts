@@ -105,3 +105,63 @@ export function isHistoryRewrite<T extends RowTopology>(prior: readonly T[] | un
 	}
 	return false;
 }
+
+/**
+ * The anchor-role change {@link isHistoryRewrite} cannot see. A fast-forward merge, a branch checkout, a
+ * `reset`, or a checkout of a branch that was previously HIDDEN all move HEAD onto history the prior
+ * layout did not place on the trunk. No commit is rewritten (so it isn't a rewrite), but the trunk
+ * RE-ROOTS: sticky columns keep the now-current branch on its old side lane, leaving the base lane with a
+ * gap. The area-based renormalize backstop cannot catch it — the misroute is local and equal-width — and
+ * neither can any lane-shape test, because a branch beside an empty lane is also what an ordinary
+ * side-lane gap looks like. So the decision has to be made from REFS, here. Callers drop `stableFrom`
+ * (lay out cold, == reopening the graph) when this returns true.
+ *
+ * The test: walk the new HEAD's first-parent chain back to the first commit the PRIOR layout already
+ * contained — the "anchor" the new HEAD hangs off — and re-root iff that anchor was NOT on the prior
+ * trunk. One rule, and it separates every case exactly:
+ *
+ *  - ordinary commit / pull fast-forward → the anchor is the old HEAD (or its trunk), so sticky is kept
+ *    and lane stability survives the most common updates;
+ *  - fast-forward merge / checkout / reset onto a loaded side-lane commit → the anchor is that commit
+ *    itself, off-trunk → drop;
+ *  - checkout of a HIDDEN branch → its commits are new, but the chain lands on the visible ancestor it
+ *    forks from; if that sits off-trunk the revealed chain would INHERIT its stale side lane → drop;
+ *  - checkout to a commit on the prior trunk → anchor is on-trunk → keep (a same-lane move).
+ *
+ * Pure over caller-supplied lookups, so the walk lives here (tested) while the caller keeps the data:
+ * `firstParentOf(sha)` = that commit's first parent among the FRESH rows; `wasLaidOut(sha)` = the prior
+ * layout contained it; `isOnPriorTrunk(sha)` = it sat on the prior HEAD's first-parent chain. The lookups
+ * are consulted in cheapest-first order and only as far as an answer needs, so callers can make the
+ * expensive ones (`isOnPriorTrunk` in particular) lazy.
+ */
+export function isTrunkReroot(
+	priorHeadSha: string | undefined,
+	newHeadSha: string | undefined,
+	lookups: {
+		firstParentOf: (sha: string) => string | undefined;
+		wasLaidOut: (sha: string) => boolean;
+		isOnPriorTrunk: (sha: string) => boolean;
+	},
+): boolean {
+	if (newHeadSha == null || newHeadSha === priorHeadSha) return false;
+
+	// Walk to the anchor: the nearest first-parent ancestor (inclusive) the prior layout already had.
+	// `seen` guards only against malformed input — a commit DAG cannot cycle.
+	let anchor: string | undefined = newHeadSha;
+	const seen = new Set<string>();
+	while (anchor != null && !lookups.wasLaidOut(anchor)) {
+		seen.add(anchor);
+		anchor = lookups.firstParentOf(anchor);
+		if (anchor != null && seen.has(anchor)) return false;
+	}
+
+	// No recognizable ancestor means the visible history is wholly different — `isHistoryRewrite` owns
+	// that case; treat it as not-a-re-root rather than guessing.
+	if (anchor == null) return false;
+	// The prior HEAD tips its own trunk, so an anchor that IS the prior HEAD can never be a re-root. This
+	// is the ordinary-commit and pull-fast-forward path: answer here, without ever asking for (and having
+	// the caller build) the prior trunk chain.
+	if (anchor === priorHeadSha) return false;
+
+	return !lookups.isOnPriorTrunk(anchor);
+}

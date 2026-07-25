@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { classifyRowsDelta, isHistoryRewrite } from '../delta.js';
+import { classifyRowsDelta, isHistoryRewrite, isTrunkReroot } from '../delta.js';
 import type { RowTopology } from '../delta.js';
 
 function row(sha: string, parents: string[], type = 'commit-node', date = 0): RowTopology {
@@ -136,5 +136,83 @@ suite('engine/delta isHistoryRewrite', () => {
 		const prior = [wip('A'), ...history()];
 		const next = [wip('A2'), row('A2', ['B']), ...history().slice(1)];
 		assert.strictEqual(isHistoryRewrite(prior, next), true);
+	});
+});
+
+suite('engine/delta isTrunkReroot', () => {
+	// Prior layout: trunk HEAD→P1→P2 on the base lane, side branch S1→S2 on a higher lane. Fresh (not yet
+	// laid out) commits: N on the trunk, F1→F2 fetched above it, and H1 on the side branch (a revealed
+	// hidden branch).
+	const onTrunk = new Set(['HEAD', 'P1', 'P2']);
+	const laidOut = new Set([...onTrunk, 'S1', 'S2']);
+	const freshParents = new Map<string, string>([
+		['N', 'HEAD'],
+		['F1', 'F2'],
+		['F2', 'HEAD'],
+		['H1', 'H2'],
+		['H2', 'S1'],
+	]);
+	// Counts how often the expensive trunk lookup is consulted, so the tests can assert it is SKIPPED on
+	// the everyday paths (the consumer builds an O(rows) chain behind it).
+	let trunkLookups = 0;
+	const reroot = (priorHead: string | undefined, newHead: string | undefined) => {
+		trunkLookups = 0;
+		return isTrunkReroot(priorHead, newHead, {
+			firstParentOf: sha => freshParents.get(sha),
+			wasLaidOut: sha => laidOut.has(sha),
+			isOnPriorTrunk: sha => {
+				trunkLookups++;
+				return onTrunk.has(sha);
+			},
+		});
+	};
+
+	test('HEAD onto an already-loaded off-trunk commit (ff-merge/checkout) → true', () => {
+		assert.strictEqual(reroot('HEAD', 'S1'), true);
+	});
+
+	test('a checkout of a HIDDEN branch, anchored to an off-trunk ancestor → true', () => {
+		// H1 and H2 were never laid out, so the walk has to run through BOTH before it lands on S1 — whose
+		// stale side lane the revealed chain would otherwise inherit.
+		assert.strictEqual(reroot('HEAD', 'H1'), true);
+	});
+
+	test('an ordinary new commit on the trunk → false, without consulting the trunk chain', () => {
+		assert.strictEqual(reroot('HEAD', 'N'), false);
+		assert.strictEqual(trunkLookups, 0, 'the anchor IS the prior HEAD — the O(rows) walk must be skipped');
+	});
+
+	test('a pull fast-forward onto freshly fetched commits → false, also without the trunk chain', () => {
+		// F1's chain runs through F2 to the old HEAD, so the trunk merely extended.
+		assert.strictEqual(reroot('HEAD', 'F1'), false);
+		assert.strictEqual(trunkLookups, 0, 'anchoring on the prior HEAD must short-circuit');
+	});
+
+	test('a self-referencing parent (malformed input) terminates → false', () => {
+		const loop = new Map<string, string>([['X', 'X']]);
+		assert.strictEqual(
+			isTrunkReroot('HEAD', 'X', {
+				firstParentOf: sha => loop.get(sha),
+				wasLaidOut: sha => laidOut.has(sha),
+				isOnPriorTrunk: sha => onTrunk.has(sha),
+			}),
+			false,
+		);
+	});
+
+	test('HEAD unchanged → false', () => {
+		assert.strictEqual(reroot('HEAD', 'HEAD'), false);
+	});
+
+	test('HEAD onto a loaded commit still ON the trunk (checkout to a trunk ancestor) → false', () => {
+		assert.strictEqual(reroot('HEAD', 'P2'), false);
+	});
+
+	test('no current HEAD → false', () => {
+		assert.strictEqual(reroot('HEAD', undefined), false);
+	});
+
+	test('no recognizable ancestor (wholly different history) → false, the rewrite check owns it', () => {
+		assert.strictEqual(reroot('HEAD', 'UNKNOWN'), false);
 	});
 });

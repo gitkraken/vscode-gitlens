@@ -116,6 +116,12 @@ export function processCommitsAndSegments(
 		/** Explicit sticky-column hints (sha → column) — the low-level escape hatch; most callers pass
 		 *  `stableFrom` instead. See `computeColumnsAndSegments`. */
 		preferredColumns?: ReadonlyMap<Sha, number>;
+		/** Skip renormalize's cold-comparison pass. The caller owns this decision because both reasons to
+		 *  skip are facts only it has: the update left topology IDENTICAL (so the sticky columns are a proven
+		 *  fixpoint and cold cannot differ), or only a SUBSET of rows is on screen (so `laneArea`, which sums
+		 *  over every row, would be ranking layouts by rows the user cannot see). Leaving it unset is always
+		 *  safe — it only costs the wasted pass. */
+		skipRenormalize?: boolean;
 		/**
 		 * Prefix-change reconciliation: the layout still runs over everything (it's the cheap pass —
 		 * segments/unloaded columns must be exact), but the EDGE pass — the expensive one — stops as
@@ -152,7 +158,9 @@ export function processCommitsAndSegments(
 	if (
 		resume != null &&
 		options?.pinnedShas == null &&
-		options?.syntheticChildren == null &&
+		// Size, not nullness: an EMPTY synthetic set marks no edges, so it cannot change the output — and
+		// treating it as "scoped" would needlessly drop this whole page-in to a full re-run.
+		(options?.syntheticChildren?.size ?? 0) === 0 &&
 		commits.length > resume.commitCount &&
 		resume.commitCount > 0 &&
 		resume.priorRows[resume.commitCount - 1]?.sha === commits[resume.commitCount - 1]?.hash
@@ -208,7 +216,12 @@ export function processCommitsAndSegments(
 	// when the run is already preference-less (a cold open / paging append is optimal by construction) or
 	// pinned (a pinned layout isn't comparable to an unpinned cold one).
 	let renormalized = false;
-	if (preferredColumns != null && preferredColumns.size > 0 && options?.pinnedShas == null) {
+	if (
+		preferredColumns != null &&
+		preferredColumns.size > 0 &&
+		options?.pinnedShas == null &&
+		options?.skipRenormalize !== true
+	) {
 		const cold = computeColumnsAndSegments(rows);
 		if (cold.laneArea + rows.length < layout.laneArea) {
 			layout = cold;
@@ -223,7 +236,7 @@ export function processCommitsAndSegments(
 	let splice:
 		| { prior: readonly ProcessedGraphRow[]; priorStart: number; nextStart: number; reused: number }
 		| undefined;
-	if (options?.reconcile != null && options.syntheticChildren == null && options.pinnedShas == null) {
+	if (options?.reconcile != null && (options.syntheticChildren?.size ?? 0) === 0 && options.pinnedShas == null) {
 		const aligned = alignRowsSuffixByLayout(
 			options.reconcile.priorRows,
 			processed,

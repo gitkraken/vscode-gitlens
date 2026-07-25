@@ -97,6 +97,37 @@ suite('engine/renormalize', () => {
 		);
 	});
 
+	// `skipRenormalize` lets the caller suppress the comparison when it can only waste work (identical
+	// topology ⇒ the sticky columns are a proven fixpoint) or do harm (a scoped view, where the whole-graph
+	// area metric ranks layouts by off-screen rows). Uses the degraded fixture above — where renormalize
+	// demonstrably DOES fire — so the flag's effect is actually observable.
+	test('skipRenormalize suppresses the renormalize comparison', () => {
+		const base: GraphCommit[] = [];
+		for (let s = 0; s < 3; s++) {
+			for (let i = 1; i <= 25; i++) {
+				base.push(commit(`S${s}_${i}`, [i < 25 ? `S${s}_${i + 1}` : 'T40']));
+			}
+		}
+		for (let i = 1; i <= 50; i++) {
+			base.push(commit(`T${i}`, i < 50 ? [`T${i + 1}`] : []));
+		}
+		const prior = processCommitsAndSegments(base);
+		const next: GraphCommit[] = [];
+		for (let i = 1; i <= 20; i++) {
+			next.push(commit(`N${i}`, [i < 20 ? `N${i + 1}` : 'T45']));
+		}
+		const full = [...next, ...base];
+
+		const normal = processCommitsAndSegments(full, { stableFrom: prior.stability });
+		assert.strictEqual(normal.renormalized, true, 'fixture: this layout does renormalize by default');
+
+		const suppressed = processCommitsAndSegments(full, {
+			stableFrom: prior.stability,
+			skipRenormalize: true,
+		});
+		assert.notStrictEqual(suppressed.renormalized, true, 'the flag must skip the comparison entirely');
+	});
+
 	// laneArea must rank two layouts the same way the true edge-pass gutter does, or the compare-and-adopt
 	// step would pick the wrong candidate.
 	test('laneArea agrees with the true gutter on which layout is tighter', () => {
