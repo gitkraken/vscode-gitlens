@@ -552,7 +552,8 @@ export class GlLitGraph extends LitElement {
 	@property({ type: Object }) excludeTypes?: GraphExcludeTypes;
 	// Per-upstream-name → tracking local branch names (packages/git-cli's `downstreamMap`, keyed
 	// `${remoteOwner}/${branchName}`). Lets a tracked remote survive the "Hide Remote Branches" toggle
-	// (isRefHidden) and drives the `upstream` scroll-rail marker — see graph-commit.ts's isTrackedUpstream.
+	// (isRefHidden). It no longer feeds the `upstream` scroll-rail marker — that follows HEAD's own upstream
+	// (`ref.current`), not every remote some local branch happens to track.
 	@property({ type: Object }) downstreams?: GraphDownstreams;
 	// Branches-visibility narrowing (Current/Smart/Favorited). When set, only commits reachable from an
 	// included ref tip stay visible; empty/undefined means "all branches". Applied client-side (the host

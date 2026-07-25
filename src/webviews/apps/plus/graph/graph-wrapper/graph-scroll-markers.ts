@@ -7,7 +7,7 @@ import type {
 	GraphScrollMarkerTypes,
 } from '../../../../plus/graph/protocol.js';
 import type { GraphCommitView } from './graph-commit.js';
-import { isRefHidden, isTrackedUpstream } from './graph-commit.js';
+import { isRefHidden } from './graph-commit.js';
 
 /**
  * Marker box shape (matches the reference graph's per-type metadata). `block` fills its lane(s);
@@ -126,8 +126,8 @@ export interface ScrollMarkerInputs {
 	excludeTypes?: GraphExcludeTypes;
 	/** Hide-by-id filter — drops the matching ref's marker. */
 	excludeRefs?: GraphExcludeRefs;
-	/** Tracked-upstream lookup (packages/git-cli's `downstreamMap`) — drives the `upstream` marker and
-	 *  the Hide-Remote-Branches exception `isRefHidden` applies. */
+	/** Tracked-upstream lookup (packages/git-cli's `downstreamMap`) — drives the Hide-Remote-Branches
+	 *  exception `isRefHidden` applies. */
 	downstreams?: GraphDownstreams;
 	/** Lazily-fetched ref metadata — drives the `pullRequests` marker. */
 	refsMetadata?: GraphRefsMetadata | null;
@@ -224,11 +224,16 @@ export function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[]
 					push(i, 'localBranches', ref.name);
 				}
 			} else if (ref.kind === 'remote') {
-				if (wantsRemote) {
+				// HEAD's upstream: emit ONLY the upstream marker, mirroring the current-head rule above, so
+				// the rail shows a single mark. `current` on a remote means "this ref IS HEAD's upstream"
+				// (the provider sets it from `headRefUpstreamName`) — which is what the marker means. Keying
+				// off `isTrackedUpstream` instead marked EVERY remote that any local branch tracks.
+				if (ref.current) {
+					if (wantsUpstream) {
+						push(i, 'upstream', ref.owner ? `${ref.owner}/${ref.name}` : ref.name);
+					}
+				} else if (wantsRemote) {
 					push(i, 'remoteBranches', ref.owner ? `${ref.owner}/${ref.name}` : ref.name);
-				}
-				if (wantsUpstream && isTrackedUpstream(ref, downstreams)) {
-					push(i, 'upstream', ref.owner ? `${ref.owner}/${ref.name}` : ref.name);
 				}
 			} else if (wantsTags) {
 				push(i, 'tags', ref.name);
