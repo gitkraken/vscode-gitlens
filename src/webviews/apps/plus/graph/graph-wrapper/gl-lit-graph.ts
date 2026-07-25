@@ -3270,18 +3270,25 @@ export class GlLitGraph extends LitElement {
 		if (scroller.scrollTop !== target) {
 			scroller.scrollTop = target;
 		}
+		// Mirror the write into the tracked position rather than waiting for the scroller's own scroll event
+		// (which doesn't fire until the next rendering opportunity) — until it lands, `revealIndexNearest`
+		// would judge visibility from the pre-anchor offset and a rows update would measure its insert-above
+		// correction from it.
+		const landed = scroller.scrollTop;
+		this.trackViewportTop(landed);
 
 		// Rows arriving ABOVE the viewport push the target PAST the current scroll maximum, and the child
 		// virtualizer has not grown its spacer yet at this point — the write clamps short and the viewport
 		// jumps anyway, which is the whole thing this exists to prevent. Re-assert once the child commits.
 		// One retry only, and it re-checks the reveal guard because a jump-to-row can be armed in between.
-		if (scroller.scrollTop !== target) {
+		if (landed !== target) {
 			void scroller.updateComplete.then(() => {
 				if (this._scrollAnchorGeneration !== generation || this._pendingRevealSha != null) return;
 
 				const el = this.virtualizerRef.value;
 				if (el != null && el.scrollTop !== target) {
 					el.scrollTop = target;
+					this.trackViewportTop(el.scrollTop);
 				}
 			});
 		}
@@ -4875,7 +4882,11 @@ export class GlLitGraph extends LitElement {
 		// Per-row pixel span on the rail (`rowPx`): the rail spans the viewport height (less the
 		// header), and `topPct = index/total` maps the FULL list into it — so each row gets
 		// railHeightPx / totalRowCount px. Drives each box's clamped height (matching the reference).
-		const viewportPx = this.virtualizerRef.value?.clientHeight ?? 0;
+		// Cached height, NOT a live `clientHeight` — this runs inside render(), and a live read there forces
+		// a synchronous layout on every update (same reason the viewport-height var and the minimap day-range
+		// use the cache). Fall back to a live read only while the cache is unprimed, so a first paint that
+		// already has rows still lays the rail out correctly; `firstUpdated` primes it right after.
+		const viewportPx = this.scrollerClientHeight || (this.virtualizerRef.value?.clientHeight ?? 0);
 		const railPx = Math.max(0, viewportPx - headerHeightPx);
 		const total = this._renderCtx?.total ?? rows.length;
 		const rowPx = total > 0 ? railPx / total : 0;
@@ -6665,7 +6676,13 @@ export class GlLitGraph extends LitElement {
 		const padding = Math.max(0, Math.min(this.config?.scrollRowPadding ?? 0, Math.floor(visibleRows / 2) - 1));
 		const rowTop = idx * rowHeight;
 		const rowBottom = rowTop + rowHeight;
-		const scrollTop = scroller.scrollTop;
+		// TRACKED position, not a live `scroller.scrollTop`. This runs from the keydown handler with the
+		// update's mutations still pending, so a live read forces a synchronous layout — the dominant cost
+		// of this method during rapid navigation, paid whether the scroller ends up moving or not. The same
+		// read is nearly free once the DOM has settled, which is why it never showed up as a forced-layout
+		// hotspot at rest. `onScroll` mirrors every scroll into `_viewportScrollTop` ahead of its own
+		// early-return, and each write below re-syncs it, so the tracked value is exact here.
+		const scrollTop = this._viewportScrollTop;
 		if (padding <= 0) {
 			// Already fully on-screen → leave it put, same as the 'center' path in flushPendingReveal;
 			// `scrollToIndex` isn't a guaranteed no-op for an already-visible row (lit-virtualizer can still
@@ -6674,6 +6691,11 @@ export class GlLitGraph extends LitElement {
 
 			this._scrollAnchorGeneration++;
 			scroller.scrollToIndex(idx, 'nearest');
+			// `scrollToIndex` lands asynchronously, and its scroll event is what would otherwise refresh the
+			// tracked position — mirror the minimal scroll 'nearest' resolves to, so the NEXT keypress can't
+			// judge visibility from a stale value and skip a reveal it owed. If the virtualizer lands a hair
+			// differently, its scroll event corrects this on arrival.
+			this.trackViewportTop(Math.max(0, rowTop < scrollTop ? rowTop : rowBottom - viewportHeight));
 			return;
 		}
 
@@ -6683,10 +6705,14 @@ export class GlLitGraph extends LitElement {
 		const padPx = padding * rowHeight;
 		if (rowTop < scrollTop + padPx) {
 			this._scrollAnchorGeneration++;
-			scroller.scrollTop = Math.max(0, rowTop - padPx);
+			const target = Math.max(0, rowTop - padPx);
+			scroller.scrollTop = target;
+			this.trackViewportTop(target);
 		} else if (rowBottom > scrollTop + viewportHeight - padPx) {
 			this._scrollAnchorGeneration++;
-			scroller.scrollTop = rowBottom - viewportHeight + padPx;
+			const target = rowBottom - viewportHeight + padPx;
+			scroller.scrollTop = target;
+			this.trackViewportTop(target);
 		}
 	}
 
@@ -6747,7 +6773,13 @@ export class GlLitGraph extends LitElement {
 		const generation = ++this._revealGeneration;
 		this._scrollAnchorGeneration++;
 		scroller.scrollTop = centered;
-		if (scroller.scrollTop === centered) return;
+		// Mirror the jump into the tracked position immediately. The scroller's own scroll event would do it,
+		// but not until the next rendering opportunity — and until then `revealIndexNearest` would judge
+		// visibility from the PRE-jump offset, and a rows update landing in that window would compute its
+		// insert-above correction from it and re-park the viewport where the jump moved it from.
+		const landed = scroller.scrollTop;
+		this.trackViewportTop(landed);
+		if (landed === centered) return;
 
 		// The write didn't take: a row that just paged in (displayRows GREW this same update — e.g.
 		// jumpToRefRow's EnsureRow round-trip) can sit past the child virtualizer's PRE-growth spacer height,
@@ -6765,6 +6797,7 @@ export class GlLitGraph extends LitElement {
 			const el = this.virtualizerRef.value;
 			if (el != null && el.scrollTop !== centered) {
 				el.scrollTop = centered;
+				this.trackViewportTop(el.scrollTop);
 			}
 		});
 	}
@@ -6779,7 +6812,14 @@ export class GlLitGraph extends LitElement {
 
 		scroller.removeEventListener('scroll', this.onScroll);
 		scroller.addEventListener('scroll', this.onScroll, { passive: true });
-		if (scroller.scrollTop > 4) {
+		// Prime the tracked position from the live one. `connectedCallback` clears `wasScrolled` on every
+		// (re-)connect because the scroller resets to top, but the tracked scroll position kept its
+		// pre-disconnect value — harmless while `revealIndexNearest` read the DOM, a real bug now that it
+		// trusts the tracked value, since the first reveal after a reconnect would judge visibility against
+		// a stale offset. This read is free: it's the same one the `wasScrolled` check below already does.
+		const scrollTop = scroller.scrollTop;
+		this.trackViewportTop(scrollTop);
+		if (scrollTop > 4) {
 			this.wasScrolled = true;
 			this.querySelector('.gl-graph__header')?.classList.add('is-scrolled');
 		}
