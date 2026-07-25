@@ -204,18 +204,37 @@ gl-lit-graph {
 		border-radius: 0.1rem;
 		opacity: 0.9;
 		pointer-events: none;
+		// Slides out on the sticky-timeline's curve rather than snapping: that pill reveals its icon/span
+		// with `max-width`+`margin` over 0.24-0.28s ease, so the rail matching those durations makes the two
+		// edge surfaces feel like one behaviour. Opacity leads slightly (0.2s, same as the pill's) so the
+		// colour lands before the tick finishes travelling.
 		transition:
-			left 100ms ease-out,
-			width 100ms ease-out,
-			opacity 100ms ease-out;
+			left 0.24s ease,
+			width 0.24s ease,
+			height 0.24s ease,
+			opacity 0.2s ease,
+			box-shadow 0.24s ease;
 	}
-	// Nearest band to the cursor (`.is-hovered`) → its PRIMARY marker (highest priority) expands
-	// horizontally to span the full rail in its own color, on top — matching the reference's full-width
-	// hover bar. Secondary ticks stay in their lanes (covered by the expanded primary).
+	// Nearest band to the cursor (`.is-hovered`) → its PRIMARY marker (highest priority) slides out to span
+	// the full rail in its own color, on top — matching the reference's full-width hover bar. Secondary
+	// ticks stay in their lanes (covered by the expanded primary). The shadow is the sticky timeline's own
+	// lift, so the marker reads as rising off the rail instead of merely getting wider.
 	.gl-graph__scroll-marker-band.is-hovered .gl-graph__scroll-marker-box.is-primary {
-		left: 0;
-		width: 100%;
+		// Slides OUT of the rail to the left, past its own edge, rather than merely filling the rail's
+		// 1.4rem width. Filling alone did move the `block` shapes (most markers), but imperceptibly: on a
+		// dense rail `--marker-height` clamps to a 2px floor, and a 2px hairline widening inside a 1.4rem
+		// rail reads as nothing even when the transition runs perfectly (measured doing exactly that). It
+		// also did nothing whatsoever for `selection`, already drawn full-width as a `fullLine`. Travelling
+		// past the rail edge AND thickening is what makes the motion legible.
+		// The rail doesn't clip (no `overflow`), and the marker's z-index keeps it above the rows it crosses.
+		left: -1.6rem;
+		width: calc(100% + 1.6rem);
+		// Thickens slightly as it slides. On a dense rail `--marker-height` clamps to its 2px floor, and a
+		// 2px line growing sideways is imperceptible no matter how well the transition runs. Kept to 2x that
+		// floor: enough to read as movement, not so much that it swamps the rows either side of it.
+		height: 0.4rem;
 		opacity: 1;
+		box-shadow: 0 0.2rem 0.6rem var(--vscode-widget-shadow);
 		z-index: 20;
 	}
 
@@ -399,12 +418,13 @@ gl-lit-graph {
 		pointer-events: none;
 	}
 	// Scroll-marker (list) mode: a compact rail-anchored pill, NO arrow, matching the legacy
-	// `graph-scroll-marker-tooltip` (px→rem @ 1rem=10px). Tighter padding/radius/shadow + smaller
-	// type than the rich scalar tooltip; one icon+label row per marker, primary (lane-0) first.
+	// `graph-scroll-marker-tooltip` (px→rem @ 1rem=10px). Tighter padding/radius/shadow than the rich
+	// scalar tooltip; one icon+label row per marker, primary (lane-0) first. Type size is NOT overridden —
+	// it inherits the same `--wa-tooltip-font-size` every other tooltip uses, so the rail doesn't read a
+	// size smaller than the rest of the graph's tooltips.
 	.gl-graph__tooltip.is-list {
-		--max-width: 28rem;
+		--max-width: 44rem;
 		--wa-tooltip-padding: 0.4rem 0.7rem;
-		--wa-tooltip-font-size: 1.1rem;
 		// Roomy enough that descenders (g/p/y) aren't clipped by the rows' overflow:hidden ellipsis.
 		--wa-tooltip-line-height: 1.5;
 		--wa-tooltip-border-radius: 0.3rem;
@@ -414,6 +434,17 @@ gl-lit-graph {
 			min-width: 0;
 			box-shadow: 0 0.2rem 0.6rem rgb(0 0 0 / 35%);
 			white-space: nowrap;
+			// The cursor must NEVER land on this tooltip. The host sets `pointer-events: none`, but the
+			// popover's own body rule re-enables it (`pointer-events: all`), so a body that reaches the
+			// cursor takes the pointer off the rail — which fires the rail's `pointerleave`, hides the
+			// tooltip and shrinks the marker, putting the cursor back on the rail so it reopens: a visible
+			// flicker loop. Re-assert the host's intent here, where it actually applies.
+			pointer-events: none;
+			// Slides out of the rail instead of popping. `gl-popover` shows by toggling `hidden` on the body
+			// (popover.ts), so there is no state change for a `transition` to hook — a keyframe animation runs
+			// on the newly-shown element instead. Travels from the rail toward its resting spot, matching the
+			// sticky timeline's drawer motion and the same shape `details-fade-in` already uses.
+			animation: gl-graph-marker-tooltip-in var(--gl-duration-fast, 0.24s) var(--gl-ease-out, ease-out);
 		}
 	}
 	.gl-graph__tooltip-content {
@@ -431,7 +462,10 @@ gl-lit-graph {
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 0.3rem;
-			max-width: 28rem;
+			// Same ceiling as the scalar tooltip above — the rail's labels are ref names, which are usually
+			// short, so a tighter cap only truncated names that had room to render in full. It still caps, so
+			// a pathological ref can't stretch the pill across the view.
+			max-width: 44rem;
 			white-space: nowrap;
 		}
 	}
@@ -440,9 +474,16 @@ gl-lit-graph {
 		align-items: center;
 		gap: 0.4rem;
 		// Long ref names ellipsize rather than forcing the pill wide (matches the legacy label rule).
+		// `min-width: 0` on BOTH levels is what makes that actually happen: a flex item defaults to
+		// `min-width: auto`, so it refuses to shrink below its content's intrinsic width and the text
+		// clipped at the pill's edge with no ellipsis instead of truncating. `max-width: 100%` keeps a row
+		// from pushing past the content box it's a column item of.
+		max-width: 100%;
+		min-width: 0;
 		overflow: hidden;
 
 		> span {
+			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
@@ -5234,6 +5275,18 @@ web-graph {
 	&[disabled]::part(divider) {
 		pointer-events: none;
 		cursor: default;
+	}
+}
+
+@keyframes gl-graph-marker-tooltip-in {
+	from {
+		opacity: 0;
+		transform: translateX(0.8rem);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateX(0);
 	}
 }
 

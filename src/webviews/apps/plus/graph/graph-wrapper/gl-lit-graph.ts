@@ -5053,6 +5053,11 @@ export class GlLitGraph extends LitElement {
 		if (this.draggingColumn) return;
 
 		const container = event.currentTarget as HTMLElement;
+		// The rail overlays the rows and claims the pointer, but the row hovercard doesn't dismiss itself for
+		// that — so it stayed open behind the marker's own tooltip, showing one row while the rail described a
+		// different one. End the row hover for any movement on the rail; `endRowHover` no-ops when none is
+		// active, so this costs nothing on the common path.
+		this.endRowHover(container);
 
 		// Drag-scrub: dragging the full rail height scrolls the full content (matching a native thumb
 		// drag's range); relative to the press point, so there's no grab-snap. The native thumb tracks
