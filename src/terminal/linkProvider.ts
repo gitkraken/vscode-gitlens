@@ -159,11 +159,13 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			const base = side.replace(/[~^].*$/, '');
 			if (!base) return undefined;
 			if (base.toUpperCase() === 'HEAD' || shaRegex.test(base)) return 'commit';
+
 			// TODO@eamodio handle paging
 			branchResults ??= await svc.branches.getBranches(undefined, toAbortSignal(token)).catch(() => undefined);
 			if (branchResults?.values.some(r => r.name === base || getBranchNameWithoutRemote(r.name) === base)) {
 				return 'branch';
 			}
+
 			// TODO@eamodio handle paging
 			tagResults ??= await svc.tags.getTags(undefined, toAbortSignal(token)).catch(() => undefined);
 			return tagResults?.values.some(r => r.name === base) ? 'tag' : undefined;
@@ -189,6 +191,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			// Only link ranges whose BOTH sides resolve to a ref (branch/tag/HEAD/sha) — skips file paths.
 			const leftRefType = await rangeSideRefType(left);
 			if (leftRefType == null) continue;
+
 			const rightRefType = await rangeSideRefType(right);
 			if (rightRefType == null) continue;
 
