@@ -15,7 +15,7 @@ import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js
 import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/laneClamp.js';
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
-import { changesModeOrDefault, changesStageForWidth } from '@gitkraken/commit-graph/stats.js';
+import { changesFitWidth, changesModeOrDefault, changesStageForWidth } from '@gitkraken/commit-graph/stats.js';
 import type {
 	GraphPlacement,
 	RefsPlacement,
@@ -38,7 +38,7 @@ import {
 	xForColumn,
 } from '@gitkraken/commit-graph/view.js';
 import type { PropertyValues, TemplateResult } from 'lit';
-import { html, LitElement, nothing } from 'lit';
+import { html, LitElement, nothing, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Ref } from 'lit/directives/ref.js';
 import { createRef, ref } from 'lit/directives/ref.js';
@@ -115,7 +115,7 @@ import {
 	spliceDroppedRows,
 } from './graph-lane-collapse.js';
 import type { RowRenderContext } from './graph-row.js';
-import { hasPersistentRowActions, renderRow } from './graph-row.js';
+import { hasPersistentRowActions, renderChangesCellContent, renderRow } from './graph-row.js';
 import { computeInScopeShas, computeScopeAnchors, computeScopeProjection } from './graph-scope.js';
 import type { ScopeAnchors, ScopeProjection } from './graph-scope.js';
 import type { RowMarkers, ScrollMarker } from './graph-scroll-markers.js';
@@ -8422,14 +8422,29 @@ export class GlLitGraph extends LitElement {
 		);
 		if (cells.length === 0) return;
 
-		// The date column renders the ultra-compact "2d" stub whenever it's ≤ shortDateWidth, so measuring
-		// the rendered cells would fit it to that stub. Instead measure the NORMAL date string so the fit
-		// always sizes for the full date (which also lifts the column out of short mode, > shortDateWidth).
-		// Falls back to the DOM path when the formatter or resolvable dates are unavailable.
-		const content =
-			zone.id === 'datetime'
-				? (this.measureDatetimeContent(cells) ?? this.measureDomContent(cells))
-				: this.measureDomContent(cells);
+		// Three columns render WIDTH-DEPENDENT content, so measuring them as-rendered fits the column to
+		// whatever degraded form it currently shows — the fit can then never lift it back into a richer
+		// form, and (worse) the shrunken result is persisted as the column's preferred. Each one measures
+		// its CANONICAL (widest) content instead; every other column measures the DOM directly. All three
+		// fall back to the DOM path when their inputs aren't resolvable.
+		//  • datetime — shows the "2d" stub at ≤ shortDateWidth; measure the NORMAL date string.
+		//  • author   — drops the name for an avatar at min width; measure with the name restored.
+		//  • changes  — degrades through full → compact → mini → icon; measure the `full` stage.
+		let content: number;
+		switch (zone.id) {
+			case 'datetime':
+				content = this.measureDatetimeContent(cells) ?? this.measureDomContent(cells);
+				break;
+			case 'author':
+				content = this.measureAuthorContent(cells) ?? this.measureDomContent(cells);
+				break;
+			case 'changes':
+				content = this.measureChangesContent(cells) ?? this.measureDomContent(cells);
+				break;
+			default:
+				content = this.measureDomContent(cells);
+				break;
+		}
 		if (content <= 0) return;
 
 		// Round up + a hair so the fitted content isn't immediately re-truncated by sub-pixel rounding.
@@ -8440,6 +8455,10 @@ export class GlLitGraph extends LitElement {
 		const preferredWidth = this.zones.find(z => z.id === zone.id)?.width;
 		if (width === preferredWidth && width === zone.width) return;
 
+		// The fit becomes the zone's new PREFERRED width, so a fit measured off width-dependent content is
+		// permanent — it survives the resize that caused the degradation. Any future cell whose content
+		// varies with its column's width needs a canonical measurement in the switch above, not a DOM fit.
+		//
 		// Commit like a drag does — zero-sum against the CURRENT solved snapshot: the fitted zone takes its
 		// fit width, every other fixed zone freezes at its solved width, and the elastic fill's committed
 		// width hands over the growth delta. Without that last part, a deficit layout re-seeds the fill at
@@ -8532,6 +8551,98 @@ export class GlLitGraph extends LitElement {
 		if (matched === 0) return undefined;
 
 		return maxText + (Number.isFinite(padding) ? padding : 0);
+	}
+
+	// Author-column fit target: the avatar + NAME, even while the column is collapsed to the bare avatar
+	// (`renderAuthor` drops the name at min width). The rendered cells then hold nothing to fit, so the plain
+	// DOM measurement returns ~the avatar's width — which crushes the column to its floor AND persists that
+	// as its preferred, so a later widening never restores it. Transiently append each row's real author name
+	// so the measurement inherits the live font, the avatar's adjacent-sibling gap and the cell padding, then
+	// delegate to `measureDomContent`. Returns undefined (→ plain DOM path) when the names are already
+	// rendered or no cell resolves to a commit.
+	private measureAuthorContent(cells: readonly HTMLElement[]): number | undefined {
+		// Not collapsed — the cells already carry their names, so the plain DOM measurement is the right one.
+		if (cells.some(cell => cell.querySelector('.gl-graph__author') != null)) return undefined;
+
+		// The collapsed cell FORCES the avatar on even in avatar node-mode, where the EXPANDED cell renders
+		// none (see `renderAvatar`) — so there it must be excluded from the fit, along with the 0.8rem
+		// adjacent-sibling gap it would otherwise still contribute (`display: none` leaves the sibling
+		// relationship, and with it the margin, intact).
+		const keepAvatar = this.nodeSizingMode === 'compact';
+		const probes: HTMLElement[] = [];
+		const avatars: HTMLElement[] = [];
+		for (const cell of cells) {
+			const rowId = cell.closest('[id^="graph-row-"]')?.id;
+			const sha = rowId?.slice('graph-row-'.length);
+			const author = sha != null ? this.getCommitBySha(sha)?.author : undefined;
+			if (!author) continue;
+
+			const probe = document.createElement('span');
+			probe.className = 'gl-graph__author';
+			probe.textContent = author;
+			if (!keepAvatar) {
+				probe.style.marginLeft = '0';
+				for (const avatar of cell.querySelectorAll<HTMLElement>('.gl-graph__avatar')) {
+					avatar.style.display = 'none';
+					avatars.push(avatar);
+				}
+			}
+			cell.append(probe);
+			probes.push(probe);
+		}
+		if (probes.length === 0) return undefined;
+
+		const content = this.measureDomContent(cells);
+		for (const probe of probes) {
+			probe.remove();
+		}
+		for (const avatar of avatars) {
+			avatar.style.display = '';
+		}
+		return content;
+	}
+
+	// Changes-column fit target: the `full` stage rendered with a DESIGN-SIZE track. The rendered cells can't
+	// supply this — the cell degrades full → compact → mini → icon as the column narrows, and in bar/bipolar
+	// the track is a contentless flex filler that always contributes its CSS `min-width` floor, so a plain DOM
+	// fit shrinks the column a stage every time and can never grow it (at the default 36px it can't move at
+	// all). Take the larger of `changesFitWidth` (the canonical full-stage width — the bound that matters for
+	// bar/bipolar) and a probe render of the full stage's REAL content (which `numbers` with 5-digit counts
+	// genuinely exceeds). The probe is one out-of-flow cell appended to the host: all Changes styling is
+	// scoped under the `gl-lit-graph` selector rather than the row, so it inherits the real font/padding/gaps.
+	// Returns undefined (→ DOM fallback) when no stats have arrived yet.
+	private measureChangesContent(cells: readonly HTMLElement[]): number | undefined {
+		const rowsStats = this.rowsStats;
+		if (rowsStats == null) return undefined;
+
+		const mode = this.currentChangesMode;
+		const probe = document.createElement('div');
+		probe.className = 'gl-graph__zone gl-graph__zone--changes';
+		// Out of flow + unpainted so the transient renders can't reflow or flash the rows around it.
+		probe.style.position = 'absolute';
+		probe.style.visibility = 'hidden';
+		probe.style.pointerEvents = 'none';
+		probe.style.width = 'max-content';
+		probe.style.minWidth = '0';
+		this.append(probe);
+
+		// Only the RENDERED rows' stats — same bound as every other fit measurement (and `rowsStats` can
+		// cover far more rows than are on screen).
+		let content = 0;
+		try {
+			for (const cell of cells) {
+				const rowId = cell.closest('[id^="graph-row-"]')?.id;
+				const sha = rowId?.slice('graph-row-'.length);
+				const stats = sha != null ? rowsStats[sha] : undefined;
+				if (stats == null) continue;
+
+				render(renderChangesCellContent(mode, 'full', stats), probe);
+				content = Math.max(content, probe.offsetWidth);
+			}
+		} finally {
+			probe.remove();
+		}
+		return Math.max(changesFitWidth, content);
 	}
 
 	// Drag the graph-column resize handle to set its displayed width (`graphViewportWidth`). Lanes keep

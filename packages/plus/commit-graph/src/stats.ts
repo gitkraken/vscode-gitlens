@@ -52,6 +52,22 @@ const sqrtChurnClamp = Math.sqrt(changesChurnClamp);
 /** Pixel width of the bar/bipolar track. */
 export const changesTrackWidth = 78;
 
+// The `full` stage's cell chrome around the viz track, mirroring graph.scss: the zone's 0.8rem×2
+// padding, the 1.2rem files icon, its 0.4rem gap to the count, the count's 1.6rem min-width, and the
+// 1.1rem gap before the track.
+const changesFullStageChrome = 16 + 12 + 4 + 16 + 11;
+
+/**
+ * Fit-to-content target for the Changes column: the width at which the `full` stage renders with a
+ * DESIGN-SIZE track ({@link changesTrackWidth}) instead of the CSS `min-width` floor its flex track
+ * collapses to when the column is narrow. In `bar`/`bipolar` the track is a contentless flex filler,
+ * so a DOM fit-to-content measurement can never reach this on its own — it would measure the floor and
+ * shrink the column a stage every time. Callers take the max of this and the measured `full`-stage
+ * content (`numbers` with 5-digit counts genuinely wants more). Lands above {@link changesStageFull}
+ * by construction, so fitting always resolves to the `full` stage.
+ */
+export const changesFitWidth = changesFullStageChrome + changesTrackWidth;
+
 /** Square-root-scaled magnitude (0..1) for a churn amount, clamped at {@link changesChurnClamp}. */
 export function changesMagnitude(churn: number): number {
 	if (churn <= 0) return 0;

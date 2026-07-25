@@ -484,7 +484,13 @@ function renderChangesCell(
 // No data-tooltip anywhere in the cell: a tooltip-bearing element suppresses the row hover card (tooltip
 // exclusivity), and the stats already ride the row's aria-label + hover surface — including the files count
 // that the compact/mini/icon stages drop from view.
-function renderChangesCellContent(mode: ChangesColumnMode, stage: ChangesColumnStage, stats: RowStats): TemplateResult {
+// Exported for the autosize fit probe (`measureChangesContent`), which renders the `full` stage off to the
+// side to measure content the live cells don't currently show.
+export function renderChangesCellContent(
+	mode: ChangesColumnMode,
+	stage: ChangesColumnStage,
+	stats: RowStats,
+): TemplateResult {
 	if (stage === 'icon') {
 		return html`<span class="gl-graph__changes gl-graph__changes--icon">${renderChangesGlyph(mode, stats)}</span>`;
 	}

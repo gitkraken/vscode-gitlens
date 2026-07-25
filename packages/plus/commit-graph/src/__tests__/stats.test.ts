@@ -1,9 +1,11 @@
 import * as assert from 'assert';
 import {
 	changesChurnClamp,
+	changesFitWidth,
 	changesMagnitude,
 	changesModeOrDefault,
 	changesStageForWidth,
+	changesStageFull,
 	changesTrackWidth,
 	computeChangesBarWidths,
 	computeChangesBipolarWidths,
@@ -169,6 +171,21 @@ suite('stats — changesStageForWidth', () => {
 	test('wide stays full, hairline stays icon', () => {
 		assert.strictEqual(changesStageForWidth(200), 'full');
 		assert.strictEqual(changesStageForWidth(0), 'icon');
+	});
+});
+
+suite('stats — changesFitWidth', () => {
+	test('resolves to the full stage', () => {
+		// The whole point of the autosize fit: land in `full`, never a degraded stage.
+		assert.strictEqual(changesStageForWidth(changesFitWidth), 'full');
+		assert.ok(changesFitWidth > changesStageFull);
+	});
+
+	test('leaves room for a design-size track', () => {
+		// The fit must clear the track's full width plus the cell chrome around it — a fit that merely
+		// cleared `changesStageFull` would still render the track at its CSS min-width floor.
+		assert.ok(changesFitWidth > changesTrackWidth);
+		assert.strictEqual(changesFitWidth - changesTrackWidth, 59);
 	});
 });
 
