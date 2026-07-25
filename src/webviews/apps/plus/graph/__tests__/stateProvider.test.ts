@@ -14,6 +14,8 @@ import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewB
 import type { AppState } from '../context.js';
 import type { GraphSearchControlState } from '../stateProvider.js';
 import {
+	applyScopeAnchorPatch,
+	isScopeAnchorStale,
 	mergeWipMetadata,
 	reconcileScopeMergeTarget,
 	reduceGraphSearchControlState,
@@ -341,6 +343,167 @@ function makeEnrichment(branchRef: string, sha: string): GetOverviewEnrichmentRe
 		},
 	};
 }
+
+suite('isScopeAnchorStale', () => {
+	const anchored: GraphScope = {
+		branchRef: '/repo|heads/feature',
+		branchName: 'feature',
+		focalBranchTipSha: 'F1',
+		mergeBase: { sha: 'M1', date: 1 },
+		mergeTargetTipSha: 'M2',
+	};
+
+	test('returns false when there is no anchor to compare against', () => {
+		assert.strictEqual(isScopeAnchorStale(anchored, undefined), false);
+	});
+
+	test('returns false for a bare scope — nothing resolved can be stale', () => {
+		const bare: GraphScope = { branchRef: anchored.branchRef, branchName: 'feature', focalBranchTipSha: 'F1' };
+		assert.strictEqual(
+			isScopeAnchorStale(bare, { mergeBase: undefined, mergeTargetTipSha: undefined, focalBranchTipSha: 'F2' }),
+			false,
+		);
+	});
+
+	test('returns false when the resolver agrees with the live anchors', () => {
+		assert.strictEqual(
+			isScopeAnchorStale(anchored, {
+				mergeBase: { sha: 'M1', date: 1 },
+				mergeTargetTipSha: 'M2',
+				focalBranchTipSha: 'F1',
+			}),
+			false,
+		);
+	});
+
+	test('returns true when the resolver places the merge base elsewhere', () => {
+		assert.strictEqual(
+			isScopeAnchorStale(anchored, {
+				mergeBase: { sha: 'M3', date: 2 },
+				mergeTargetTipSha: 'M3',
+				focalBranchTipSha: 'F1',
+			}),
+			true,
+		);
+	});
+
+	test('returns true when the focal branch tip moved (rebase/amend/reset)', () => {
+		// The resolver bails to a focal-tip-only answer when there's no merge target. Without this
+		// signal the pre-rewrite mergeBase/mergeTargetTipSha ride along and keep marking the wrong rows.
+		assert.strictEqual(
+			isScopeAnchorStale(anchored, {
+				mergeBase: undefined,
+				mergeTargetTipSha: undefined,
+				focalBranchTipSha: 'F2',
+			}),
+			true,
+		);
+	});
+
+	test('returns false when the live scope was never stamped with a focal tip', () => {
+		// Nothing to compare — an unstamped scope must not be torn down on the strength of a guess.
+		const { focalBranchTipSha: _, ...unstamped } = anchored;
+		assert.strictEqual(
+			isScopeAnchorStale(unstamped, {
+				mergeBase: undefined,
+				mergeTargetTipSha: undefined,
+				focalBranchTipSha: 'F2',
+			}),
+			false,
+		);
+	});
+});
+
+suite('applyScopeAnchorPatch', () => {
+	const anchored: GraphScope = {
+		branchRef: '/repo|heads/feature',
+		branchName: 'feature',
+		focalBranchTipSha: 'F1',
+		mergeBase: { sha: 'M1', date: 1 },
+		mergeTargetTipSha: 'M2',
+	};
+	const loaded = (sha: string) => ['F1', 'F2', 'M1', 'M2'].includes(sha);
+
+	test('an ordinary commit whose resolve comes back focal-tip-only keeps the merge base', () => {
+		// The resolver bails to a focal-tip-only answer for several reasons, some transient (a cold
+		// `getBranchMergeTargetInfo` timing out). A plain commit advances the tip without rewriting
+		// anything, so staleness fires with no replacement in hand — dropping there would bare a
+		// perfectly good scope and expand the view, with no rebase involved.
+		const result = applyScopeAnchorPatch(
+			anchored,
+			{ mergeBase: undefined, mergeTargetTipSha: undefined, focalBranchTipSha: 'F2' },
+			loaded,
+		);
+		assert.deepStrictEqual(result?.mergeBase, { sha: 'M1', date: 1 });
+		assert.strictEqual(result?.mergeTargetTipSha, 'M2');
+		assert.strictEqual(result?.focalBranchTipSha, 'F2');
+	});
+
+	test('an amend keeps the merge base and target — a rewrite that moves neither anchor', () => {
+		// Amending replaces the tip commit but leaves the fork point and the target tip exactly where
+		// they were, so both anchors are still correct and must survive.
+		const result = applyScopeAnchorPatch(
+			anchored,
+			{ mergeBase: { sha: 'M1', date: 1 }, mergeTargetTipSha: 'M2', focalBranchTipSha: 'F1amend' },
+			loaded,
+		);
+		assert.deepStrictEqual(result?.mergeBase, { sha: 'M1', date: 1 });
+		assert.strictEqual(result?.mergeTargetTipSha, 'M2');
+		assert.strictEqual(result?.focalBranchTipSha, 'F1amend');
+	});
+
+	test('a rebase that moves the merge base replaces both anchors', () => {
+		const result = applyScopeAnchorPatch(
+			anchored,
+			{ mergeBase: { sha: 'M2', date: 2 }, mergeTargetTipSha: 'M2', focalBranchTipSha: 'F2' },
+			loaded,
+		);
+		assert.deepStrictEqual(result?.mergeBase, { sha: 'M2', date: 2 });
+		assert.strictEqual(result?.mergeTargetTipSha, 'M2');
+	});
+
+	test('a moved merge base is applied even when it is not yet loaded', () => {
+		// Keeping a wrong-but-loaded boundary re-roots the view around pre-rewrite history for good;
+		// the fresh one self-corrects because `onScopeAnchorsUnreachable` pages straight to it.
+		const result = applyScopeAnchorPatch(
+			anchored,
+			{ mergeBase: { sha: 'M9', date: 9 }, mergeTargetTipSha: 'M9', focalBranchTipSha: 'F2' },
+			loaded,
+		);
+		assert.deepStrictEqual(result?.mergeBase, { sha: 'M9', date: 9 });
+	});
+
+	test('an unloaded merge base that did NOT move is not applied — the guard still holds', () => {
+		const sameBaseUnloaded: GraphScope = { ...anchored, mergeBase: { sha: 'M9', date: 9 } };
+		const result = applyScopeAnchorPatch(
+			sameBaseUnloaded,
+			{ mergeBase: { sha: 'M9', date: 9 }, mergeTargetTipSha: 'M9', focalBranchTipSha: 'F1' },
+			loaded,
+		);
+		assert.strictEqual(result, undefined);
+	});
+
+	test('a rebase whose resolve bails leaves the stale anchors in place (known gap)', () => {
+		// Indistinguishable from the ordinary-commit case above: focal-tip-only, tip moved, no
+		// replacement offered. Closing it needs the host to distinguish "couldn't resolve" from
+		// "no merge target exists"; until then the stale anchors survive to the next good resolve.
+		const result = applyScopeAnchorPatch(
+			anchored,
+			{ mergeBase: undefined, mergeTargetTipSha: undefined, focalBranchTipSha: 'REBASED' },
+			loaded,
+		);
+		assert.deepStrictEqual(result?.mergeBase, { sha: 'M1', date: 1 });
+	});
+
+	test('returns undefined when nothing changed', () => {
+		const result = applyScopeAnchorPatch(
+			anchored,
+			{ mergeBase: { sha: 'M1', date: 1 }, mergeTargetTipSha: 'M2', focalBranchTipSha: 'F1' },
+			loaded,
+		);
+		assert.strictEqual(result, undefined);
+	});
+});
 
 suite('filterSecondariesForScope', () => {
 	const branchRef = '/repo|heads/feature';

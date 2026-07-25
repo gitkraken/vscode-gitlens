@@ -191,7 +191,7 @@ export function shouldRestoreSearchQuery(
 }
 
 /** Lightweight scope anchor returned by `ResolveGraphScopeRequest` and cached webview-side. */
-type ResolvedScopeAnchor = {
+export type ResolvedScopeAnchor = {
 	mergeBase: { sha: string; date: number } | undefined;
 	mergeTargetTipSha: string | undefined;
 	focalBranchTipSha: string | undefined;
@@ -210,6 +210,99 @@ function stripUnpairedMergeTarget(scope: GraphScope): GraphScope {
 
 	const { mergeTargetTipSha: _, ...rest } = scope;
 	return rest;
+}
+
+/**
+ * True when a freshly-resolved anchor shows the live scope's anchors may describe pre-rewrite history:
+ * the resolver placed the merge base elsewhere, or the focal branch tip moved since they were resolved
+ * (rebase / amend / reset). Deliberately CONSERVATIVE on the tip — an amend rewrites history while
+ * leaving the merge base where it was, so tip movement has to count, which means an ordinary commit
+ * trips this too. Callers must therefore treat it as "re-examine these anchors", not "discard them":
+ * acting on it without a replacement in hand would bare a perfectly good scope. Anchors are SHAs, so a
+ * rewrite leaves them behind as ordinary commits —
+ * still present in the loaded rows, still anchoring the fork-point / merge-target markers and bounding
+ * the scope walk at the wrong commit. The guards that otherwise protect a working anchor from a
+ * transient re-resolve key off this to know when letting go is the correct move.
+ */
+export function isScopeAnchorStale(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): boolean {
+	if (anchor == null || (scope.mergeBase == null && scope.mergeTargetTipSha == null)) return false;
+	if (anchor.mergeBase != null && scope.mergeBase != null && anchor.mergeBase.sha !== scope.mergeBase.sha) {
+		return true;
+	}
+
+	return (
+		anchor.focalBranchTipSha != null &&
+		scope.focalBranchTipSha != null &&
+		anchor.focalBranchTipSha !== scope.focalBranchTipSha
+	);
+}
+
+/**
+ * Folds a freshly-resolved anchor into the live scope, or returns `undefined` when nothing should
+ * change (the caller then leaves `this.scope` untouched rather than assigning a no-op spread that
+ * would re-zoom the minimap for nothing). Split out of `patchScopeAnchor` so the replacement rules —
+ * which decide whether a rebase's stale anchors are dropped and whether an ordinary commit keeps a
+ * working one — are directly testable; `isShaLoaded` is the caller's loaded-rows probe.
+ */
+export function applyScopeAnchorPatch(
+	scope: GraphScope,
+	anchor: ResolvedScopeAnchor,
+	isShaLoaded: (sha: string) => boolean,
+): GraphScope | undefined {
+	// Host couldn't resolve any field — nothing to fold in.
+	if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null && anchor.focalBranchTipSha == null) {
+		return undefined;
+	}
+
+	// History may have moved under the live anchors — see `isScopeAnchorStale`. Only actionable
+	// alongside a replacement, hence `replacesAnchors` below.
+	const stale = isScopeAnchorStale(scope, anchor);
+
+	// Positive evidence that the live merge BASE is wrong, as opposed to the weaker `stale` signal, which
+	// also fires when the focal tip merely advanced (an ordinary commit does that — see `isScopeAnchorStale`).
+	const mergeBaseMoved =
+		anchor.mergeBase != null && scope.mergeBase != null && anchor.mergeBase.sha !== scope.mergeBase.sha;
+
+	// Merge base resolved but not loaded — applying it would put the bundle scope walk on an unloaded
+	// boundary; see `publishResolvedScope`. Bypassed only when the base has demonstrably MOVED: there,
+	// keeping the wrong-but-loaded boundary re-roots the view around pre-rewrite history for good while the
+	// fresh one self-corrects (`onScopeAnchorsUnreachable` pages straight to it). A tip that merely advanced
+	// says nothing about the boundary, so the guard has to keep holding for it.
+	if (!mergeBaseMoved && anchor.mergeBase != null && !isShaLoaded(anchor.mergeBase.sha)) return undefined;
+
+	// Skip if every patchable field already matches — prevents a redundant signal update that
+	// would re-zoom the minimap needlessly.
+	const mergeBaseSame =
+		scope.mergeBase?.sha === anchor.mergeBase?.sha && scope.mergeBase?.date === anchor.mergeBase?.date;
+	// `mergeTargetTipSha` may also be supplied by enrichment via `reconcileScopeMergeTarget`.
+	// Only overwrite when the resolver returned a value AND it differs — `undefined` from the
+	// resolver shouldn't clobber an enrichment-supplied SHA.
+	const targetTipSame = anchor.mergeTargetTipSha == null || anchor.mergeTargetTipSha === scope.mergeTargetTipSha;
+	const focalTipSame = anchor.focalBranchTipSha == null || anchor.focalBranchTipSha === scope.focalBranchTipSha;
+	if (mergeBaseSame && targetTipSame && focalTipSame) return undefined;
+
+	const next: GraphScope = { ...scope };
+	// Drop anchors the fresh resolve replaces — the resolver answers with both or neither, so a leftover
+	// would otherwise ride along under the new tip (and enrichment can re-supply a target tip once
+	// refetched). Gated on the resolve actually CARRYING anchor data: staleness also fires when the focal
+	// tip merely advanced — an ordinary commit does that — and a focal-tip-only answer (no merge target,
+	// or a partial resolve) offers no replacement, so dropping there would silently bare a working scope
+	// with no rewrite involved.
+	const replacesAnchors = anchor.mergeBase != null || anchor.mergeTargetTipSha != null;
+	if (stale && replacesAnchors) {
+		delete next.mergeBase;
+		delete next.mergeTargetTipSha;
+	}
+	if (anchor.mergeBase != null && (stale || !mergeBaseSame)) {
+		next.mergeBase = anchor.mergeBase;
+	}
+	if (anchor.mergeTargetTipSha != null && (stale || !targetTipSame)) {
+		next.mergeTargetTipSha = anchor.mergeTargetTipSha;
+	}
+	if (anchor.focalBranchTipSha != null && !focalTipSame) {
+		next.focalBranchTipSha = anchor.focalBranchTipSha;
+	}
+	return next;
 }
 
 /**
@@ -956,16 +1049,29 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			// anchor's boundary is itself stale (e.g., rows re-paged past it), the GK scope walk
 			// on an unloaded boundary would expose every first-parent ancestor of the focal
 			// branch (see `isShaLoaded` docs). In that case bare is the safer state.
+			// Nor preserve anchors the resolver has superseded — those mark the wrong rows and bound the
+			// walk at the wrong commit. Staleness ALONE isn't enough to justify that, though: it also
+			// fires when the focal tip merely advanced (an ordinary commit does exactly that), and in this
+			// branch the fresh anchor carries no usable replacement, so dropping to bare would discard a
+			// working scope for nothing. Require the resolver to actually offer replacements — the same
+			// gate `applyScopeAnchorPatch` gets from `replacesAnchors`.
 			const current = this.scope;
+			const supersededByReplacement =
+				current != null &&
+				(anchor?.mergeBase != null || anchor?.mergeTargetTipSha != null) &&
+				isScopeAnchorStale(current, anchor);
 			if (
 				current?.branchRef === pending.branchRef &&
 				current.mergeBase != null &&
-				this.isShaLoaded(current.mergeBase.sha)
+				this.isShaLoaded(current.mergeBase.sha) &&
+				!supersededByReplacement
 			) {
 				return;
 			}
 
-			this.scope = stripUnpairedMergeTarget(pending);
+			const bare = stripUnpairedMergeTarget(pending);
+			this.scope =
+				anchor?.focalBranchTipSha != null ? { ...bare, focalBranchTipSha: anchor.focalBranchTipSha } : bare;
 			return;
 		}
 
@@ -978,6 +1084,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		if (anchor?.mergeTargetTipSha != null) {
 			next.mergeTargetTipSha = anchor.mergeTargetTipSha;
 		}
+		// Carry the tip the anchors were resolved against: it stamps them for `isScopeAnchorStale`, and
+		// the popover's "branch tip isn't in the loaded rows" fallback drains on it (see `graph-app.ts`).
+		if (anchor?.focalBranchTipSha != null) {
+			next.focalBranchTipSha = anchor.focalBranchTipSha;
+		}
 		this.scope = next;
 	}
 
@@ -989,11 +1100,25 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		// Cache hit — patch and return without IPC.
 		if (this._mergeBaseCache.has(cacheKey)) {
-			this.patchScopeAnchor(scope, this._mergeBaseCache.get(cacheKey));
+			this.applyResolvedAnchor(scope, this._mergeBaseCache.get(cacheKey));
 			return;
 		}
 
 		const anchor = await this.fetchScopeAnchor(repoPath, scope, cacheKey);
+		this.applyResolvedAnchor(scope, anchor);
+	}
+
+	/** Route a resolved anchor to whichever writeback owns this scope right now. A scope still awaiting its
+	 *  first publication is NOT `this.scope`, so `patchScopeAnchor` would drop the result on the floor and
+	 *  the bare publish would stand — which made the invalidation retry a race on who finished first. Either
+	 *  order is now safe: resolving first publishes the anchored scope (and the superseded original bails on
+	 *  the cleared pending), publishing first leaves the retry to patch the now-live scope. */
+	private applyResolvedAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
+		if (this._pendingScope?.branchRef === scope.branchRef) {
+			this.publishResolvedScope(scope, anchor);
+			return;
+		}
+
 		this.patchScopeAnchor(scope, anchor);
 	}
 
@@ -1184,43 +1309,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	private patchScopeAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
 		if (anchor == null) return;
-		// Host couldn't resolve any field — leave the live scope alone rather than assigning a
-		// no-op spread that would re-zoom the minimap for nothing.
-		if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null && anchor.focalBranchTipSha == null) {
-			return;
-		}
-
-		// Merge base resolved but not loaded — applying it would put the bundle scope walk on
-		// an unloaded boundary; see `publishResolvedScope`.
-		if (anchor.mergeBase != null && !this.isShaLoaded(anchor.mergeBase.sha)) return;
 
 		// Only patch if the live scope still points at the same branch (user may have re-scoped
 		// or cleared while the resolve was in flight).
 		const current = this.scope;
 		if (current?.branchRef !== scope.branchRef) return;
 
-		// Skip if every patchable field already matches — prevents a redundant signal update that
-		// would re-zoom the minimap needlessly.
-		const mergeBaseSame =
-			current.mergeBase?.sha === anchor.mergeBase?.sha && current.mergeBase?.date === anchor.mergeBase?.date;
-		// `mergeTargetTipSha` may also be supplied by enrichment via `reconcileScopeMergeTarget`.
-		// Only overwrite when the resolver returned a value AND it differs — `undefined` from the
-		// resolver shouldn't clobber an enrichment-supplied SHA.
-		const targetTipSame =
-			anchor.mergeTargetTipSha == null || anchor.mergeTargetTipSha === current.mergeTargetTipSha;
-		const focalTipSame = anchor.focalBranchTipSha == null || anchor.focalBranchTipSha === current.focalBranchTipSha;
-		if (mergeBaseSame && targetTipSame && focalTipSame) return;
+		const next = applyScopeAnchorPatch(current, anchor, sha => this.isShaLoaded(sha));
+		if (next == null) return;
 
-		const next: GraphScope = { ...current };
-		if (anchor.mergeBase != null && !mergeBaseSame) {
-			next.mergeBase = anchor.mergeBase;
-		}
-		if (anchor.mergeTargetTipSha != null && !targetTipSame) {
-			next.mergeTargetTipSha = anchor.mergeTargetTipSha;
-		}
-		if (anchor.focalBranchTipSha != null && !focalTipSame) {
-			next.focalBranchTipSha = anchor.focalBranchTipSha;
-		}
 		this.scope = next;
 	}
 
@@ -1334,6 +1431,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				const liveScope = this.scope;
 				if (liveScope?.branchRef.startsWith(prefix)) {
 					void this.resolveScopeMergeBase(liveScope);
+				}
+				// The scope still awaiting its FIRST resolution needs the same treatment. Its in-flight
+				// resolve is about to lose the generation check bumped above and return no anchors, and it is
+				// not yet `this.scope`, so the retry above can't reach it — without this it publishes bare and
+				// nothing ever re-drives it, leaving the minimap unanchored until the user re-scopes.
+				const pendingScope = this._pendingScope;
+				if (pendingScope != null && pendingScope !== liveScope && pendingScope.branchRef.startsWith(prefix)) {
+					void this.resolveScopeMergeBase(pendingScope);
 				}
 				break;
 			}
