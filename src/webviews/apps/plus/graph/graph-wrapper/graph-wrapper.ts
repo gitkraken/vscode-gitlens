@@ -76,7 +76,11 @@ import {
 	serializeWipContext,
 } from '../utils/rowContext.utils.js';
 import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
-import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow } from '../utils/wip.utils.js';
+import {
+	filterSecondariesForScopeAndVisibility,
+	isScopeFocalHead,
+	shouldShowPrimaryWipRow,
+} from '../utils/wip.utils.js';
 import type { GlGraph } from './gl-graph.js';
 import type { GraphWrapperTheming } from './gl-graph.react.jsx';
 import type { WipCandidate } from './nearestWip.js';
@@ -450,22 +454,26 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	};
 
 	// Cache keyed by (rows, wipMetadataBySha, scope, branchesVisibility,
-	// includeOnlyRefs, branch.id, useNewEngine) — any reference change invalidates. Scope must be in the key
-	// because `filterSecondariesForScopeAndVisibility` reads `scope.branchRef`/`upstreamRef`/
+	// includeOnlyRefs, branch.id + name, useNewEngine) — any reference change invalidates. Scope must be in
+	// the key because `filterSecondariesForScopeAndVisibility` reads `scope.branchRef`/`upstreamRef`/
 	// `additionalBranchRefs` AND switches off the visibility filter entirely when scope is active,
 	// AND `shouldShowPrimaryWipRow` reads `scope.branchRef` to enforce the "primary WIP belongs
 	// only to the focal branch when focal === current" convention; `branchesVisibility` +
-	// `includeOnlyRefs` + `currentBranchId` must also be in the key because the WIP-visibility
-	// helpers read them when the scope picker is in a non-`all` mode (current/smart/favorited/agents)
-	// AND when no scope is active. `useNewEngine` must also be in the key because it gates whether
-	// the primary WIP row is synthesized here at all (see `getDecoratedRows` below).
+	// `includeOnlyRefs` + `currentBranchId`/`currentBranchName` must also be in the key because the
+	// WIP-visibility helpers read them (the name feeds the detached-HEAD check) when the scope picker is
+	// in a non-`all` mode (current/smart/favorited/agents) AND when no scope is active. `useNewEngine`
+	// must also be in the key because it gates whether the primary WIP row is synthesized here at all
+	// (see `getDecoratedRows` below).
 	private _decoratedRowsCache?: {
 		rows: GitGraphRow[] | undefined;
 		wipMetadataBySha: GraphWipMetadataBySha | undefined;
 		scope: GraphScope | undefined;
 		branchesVisibility: typeof graphStateContext.__context__.branchesVisibility;
 		includeOnlyRefs: typeof graphStateContext.__context__.includeOnlyRefs;
+		// Keyed on the branch's id + name rather than the `branch` object: the host re-creates that
+		// object on every full-state push, so caching on its identity would defeat the memo entirely.
 		currentBranchId: string | undefined;
+		currentBranchName: string | undefined;
 		useNewEngine: boolean;
 		result: { rows: GitGraphRow[] | undefined; showPrimary: boolean };
 	};
@@ -495,7 +503,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const scope = graphState.scope;
 		const branchesVisibility = graphState.branchesVisibility;
 		const includeOnlyRefs = graphState.includeOnlyRefs;
-		const currentBranchId = graphState.branch?.id;
+		const currentBranch = graphState.branch;
+		const currentBranchId = currentBranch?.id;
+		const currentBranchName = currentBranch?.name;
 		const useNewEngine = graphState.config?.useNewEngine === true;
 
 		const cached = this._decoratedRowsCache;
@@ -507,6 +517,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			cached.branchesVisibility === branchesVisibility &&
 			cached.includeOnlyRefs === includeOnlyRefs &&
 			cached.currentBranchId === currentBranchId &&
+			cached.currentBranchName === currentBranchName &&
 			cached.useNewEngine === useNewEngine
 		) {
 			// Return the cached `result` object identity-stable. The render boundary still
@@ -519,7 +530,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			return cached.result;
 		}
 
-		const showPrimary = shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, currentBranchId, scope);
+		// Only consulted when the branch payload is missing — a known branch answers authoritatively.
+		const scopeFocalIsHead = currentBranch == null ? isScopeFocalHead(rows, scope) : undefined;
+		const showPrimary = shouldShowPrimaryWipRow(
+			branchesVisibility,
+			includeOnlyRefs,
+			currentBranch,
+			scope,
+			scopeFocalIsHead,
+		);
 
 		const filteredMetadata = filterSecondariesForScopeAndVisibility(
 			wipMetadataBySha,
@@ -539,7 +558,27 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			// already be a primary work-dir row from a previous pass. Strip it to avoid duplicates —
 			// we inject our own primary below with the same role.
 			const realRows = rows[0]?.type === 'work-dir-changes' ? rows.slice(1) : rows;
-			const headRefSha = realRows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha ?? realRows[0]?.sha;
+			// Anchor the primary on the SAME row the scope re-root projection roots its spine at — that
+			// walk resolves the focal tip by branch NAME (`computeScopeAnchors`) while this one uses the
+			// `isCurrentHead` flag, and `computeScopeProjection` drops any workdir row whose parent isn't
+			// on the resulting spine. With a KNOWN branch, the scope gate in `shouldShowPrimaryWipRow`
+			// guarantees focal === current, so both resolve the same row — preferring the name match makes
+			// that agreement structural instead of coincidental. With an UNKNOWN branch the gate was
+			// skipped, so nothing established focal === current — require the branch here too, falling
+			// back to `isCurrentHead`: that anchors at true HEAD (still the focal tip when the scope IS
+			// the current branch) and lets the projection drop the row when the scope isn't.
+			//
+			// The positional fallback is unscoped-only, where it's the long-standing behavior and there's
+			// no projection to mis-place the row against. Under a scope it would only be reached with the
+			// branch unknown or the focal tip not yet loaded, and guessing a lane there is exactly how the
+			// row lands somewhere it doesn't belong — a parentless row the projection drops is the honest
+			// outcome instead.
+			const headRefSha =
+				(showPrimary && scope?.branchName != null && currentBranch != null
+					? realRows.find(r => r.heads?.some(h => h.name === scope.branchName))?.sha
+					: undefined) ??
+				realRows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha ??
+				(scope == null ? realRows[0]?.sha : undefined);
 
 			const primary: GitGraphRow = {
 				sha: 'work-dir-changes',
@@ -623,6 +662,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			branchesVisibility: branchesVisibility,
 			includeOnlyRefs: includeOnlyRefs,
 			currentBranchId: currentBranchId,
+			currentBranchName: currentBranchName,
 			useNewEngine: useNewEngine,
 			result: result,
 		};

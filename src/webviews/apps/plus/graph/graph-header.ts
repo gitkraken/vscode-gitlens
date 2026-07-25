@@ -401,7 +401,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	private scopeToCurrentBranch(): boolean {
 		const branch = this.graphState.branch;
-		if (branch == null) return false;
+		// Detached HEAD has no branch to focus: scoping on the synthesized `(sha…)` name builds a
+		// `branchRef` matching no row and no branch id, so the view doesn't visibly scope AND the primary
+		// WIP row goes away (`shouldShowPrimaryWipRow`). No-op, so the caller skips telemetry too.
+		// The host's flag, not a name test — `(release)` is a legal branch name.
+		if (branch == null || branch.detached) return false;
 
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-scope-to-branch', {

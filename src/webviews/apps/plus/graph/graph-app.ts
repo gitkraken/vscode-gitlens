@@ -98,7 +98,7 @@ import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js'
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
-import { shouldShowPrimaryWipRow } from './utils/wip.utils.js';
+import { isScopeFocalHead, shouldShowPrimaryWipRow } from './utils/wip.utils.js';
 import './empty-state.js';
 import './access-account.js';
 import './gate.js';
@@ -2559,14 +2559,25 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (this.effectiveDisplayMode !== 'graph') return;
 
 		const scope = this.graphState.scope;
-		if (scope != null && scope.branchRef !== this.graphState.branch?.id) {
-			const wouldShow = shouldShowPrimaryWipRow(
-				this.graphState.branchesVisibility,
-				this.graphState.includeOnlyRefs,
-				this.graphState.branch?.id,
-				undefined,
-			);
-			if (!wouldShow) return;
+		const { branchesVisibility, includeOnlyRefs, branch } = this.graphState;
+		// Only clear the scope when the WIP row isn't actually rendered under it — and ask the very
+		// predicate the wrapper renders by rather than re-deriving it. The old `scope.branchRef !==
+		// branch?.id` re-derivation drifted the moment that predicate stopped treating an unknown branch
+		// as a mismatch: it kept clearing the scope for a row that was already on screen. It also read
+		// "match" for a detached HEAD scoped from the overview (a detached id is SHA-keyed, so both sides
+		// agreed) and skipped the clear for a row the gate hides — foreclosed now that `setScope` rejects
+		// detached scopes at creation, so that leg is defense-in-depth against relaxing THAT guard.
+		// Same rows-derived signal the wrapper feeds the predicate — omitting it here answered a different
+		// question from the one that decided what's on screen, so an unknown branch with a loaded
+		// off-HEAD focal had the wrapper hiding the row while this believed it existed and tried to
+		// select it.
+		const scopeFocalIsHead = branch == null ? isScopeFocalHead(this.graphState.rows, scope) : undefined;
+		if (
+			scope != null &&
+			!shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, branch, scope, scopeFocalIsHead)
+		) {
+			// Nothing to jump to if it wouldn't render unscoped either — leave the scope alone.
+			if (!shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, branch, undefined)) return;
 
 			this.graphState.clearScope();
 		}
@@ -3008,6 +3019,26 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		scope: NonNullable<typeof this.graphState.scope>,
 		source: 'popover' | 'overview-card',
 	): Promise<void> {
+		// A detached HEAD is a `current` branch, so `getOverviewData` lists it and the Focus Branch
+		// popover / overview cards route it here like any other branch. Its `branchName` is the
+		// synthesized `(sha…)` label, which matches no row's head — the scope resolves nothing and only
+		// hides the primary WIP row. Guarded here because this is the single choke point every entry
+		// point funnels through (header, popover, overview card, sidebar, `scope-to-branch` command).
+		//
+		// Identified by the detached branch's own id, NOT by testing the name for `(…)`: `(release)` is a
+		// legal branch name, and a name test locked users out of focusing it at all.
+		// Matched against the detached branch's OWN id and name — never a `(…)` name test, which would
+		// reject the legal branch `(release)`. Both are needed: the overview path builds `branchRef` from
+		// `branch.id` (SHA-keyed when detached) while `scopeToBranch` builds it from `branch.name` (the
+		// synthesized `(sha…)` label), so an id-only check let the name-built path straight through.
+		const currentBranch = this.graphState.branch;
+		if (
+			currentBranch?.detached &&
+			(scope.branchRef === currentBranch.id || scope.branchName === currentBranch.name)
+		) {
+			return;
+		}
+
 		// Skip re-assignment when structurally equal so GraphContainer doesn't re-evaluate
 		// scope highlighting on unrelated graph updates.
 		const current = this.graphState.scope;

@@ -54,6 +54,43 @@ export function filterSecondariesForScope(
 }
 
 /**
+ * Answers, from the rows alone, whether the scope's focal branch tip is the row HEAD points at —
+ * the question `scope.branchRef === branch.id` is only ever a proxy for. `isCurrentHead` comes from
+ * the rows' `%D` decoration, which travels on a different channel from `state.branch`, so this still
+ * resolves while the branch payload is missing (see {@link shouldShowPrimaryWipRow}).
+ *
+ * Reads the FOCAL head's own `isCurrentHead`, not the row's — branches sharing a tip put several
+ * heads on one row, so "some head here is current" would let a scope on `feature` inherit `main`'s
+ * answer (and with it `main`'s working changes) whenever the two point at the same commit.
+ *
+ * Returns `undefined` only when genuinely undecidable: no scope, or the focal tip row isn't loaded
+ * AND no loaded row claims HEAD. If the focal tip is missing but some other row IS HEAD, that's
+ * proof enough the focal branch isn't it, so the answer is `false` rather than a shrug — otherwise
+ * the caller defaults to showing and leaks the current branch's WIP under the unloaded scope.
+ */
+export function isScopeFocalHead(
+	rows: readonly { heads?: { name: string; isCurrentHead?: boolean }[] }[] | undefined,
+	scope: GraphScope | undefined,
+): boolean | undefined {
+	if (rows == null || scope?.branchName == null) return undefined;
+
+	let sawCurrentHead = false;
+	for (const row of rows) {
+		const heads = row.heads;
+		if (heads == null || heads.length === 0) continue;
+
+		const focalHead = heads.find(h => h.name === scope.branchName);
+		if (focalHead != null) return focalHead.isCurrentHead === true;
+
+		if (!sawCurrentHead && heads.some(h => h.isCurrentHead)) {
+			sawCurrentHead = true;
+		}
+	}
+
+	return sawCurrentHead ? false : undefined;
+}
+
+/**
  * Determines whether the primary "Working Changes" row (for the current worktree's branch)
  * should render under the active scope + `branchesVisibility` filters.
  *
@@ -62,8 +99,16 @@ export function filterSecondariesForScope(
  * anchored to HEAD, so it only "belongs" to the scoped branch when the scoped branch is the
  * one HEAD points at — see `getOverviewBranchSelectionSha` for the matching selection-side
  * convention. `additionalBranchRefs` deliberately does NOT count: the primary WIP only
- * attributes to the focal branch. In a detached-HEAD-plus-scope state this returns false —
- * with no current branch there's nothing to attribute the WIP to.
+ * attributes to the focal branch. A detached HEAD hides it too — no branch to attribute to.
+ *
+ * The scope check needs a KNOWN current branch: `state.branch` ships only on full-state pushes and
+ * writes through unguarded (an errored `getBranch()` sends `branch: undefined`) while `scope` is a
+ * webview-local signal, so the two can disagree for a push. Treating unknown as a mismatch deleted the
+ * row until the next full state, and only while scoped — so instead the caller answers the same
+ * question straight from the rows via `scopeFocalIsHead`: is the scope's focal branch tip the row HEAD
+ * points at? That's what `branch.id` was ever a proxy for, and the rows carry it independently of the
+ * branch payload. Only when the rows can't answer either do we fall through to the visibility checks
+ * (which already default to showing).
  *
  * `branchesVisibility` check (runs after scope):
  * - `'all'` (and absent): always show.
@@ -73,28 +118,40 @@ export function filterSecondariesForScope(
  *   (i.e. an active agent is running on the current branch's worktree).
  *
  * Empty `{}` is treated as "no filter" — same convention as `filterSecondariesForIncludeOnlyRefs`.
- * If the current branch id is unknown (detached HEAD under a non-`'all'` `branchesVisibility`
- * filter with no `scope` active), defaults to showing the primary — the user's local WIP
+ * If the current branch id is unknown, defaults to showing the primary — the user's local WIP
  * still matters even when there's no branch to match against.
  */
 export function shouldShowPrimaryWipRow(
 	branchesVisibility: GraphBranchesVisibility | undefined,
 	includeOnlyRefs: GraphIncludeOnlyRefs | undefined,
-	currentBranchId: string | undefined,
+	currentBranch: { id?: string; name: string; detached?: boolean } | undefined,
 	scope: GraphScope | undefined,
+	scopeFocalIsHead?: boolean,
 ): boolean {
+	const currentBranchId = currentBranch?.id;
+
 	// Scope guard runs first — the Working Changes row is anchored to HEAD, so it only
 	// "belongs" to the scoped branch when the scoped branch is the one HEAD points at.
 	// Without this gate, the GK component keeps the primary WIP in any descendant-branch
 	// scope (HEAD's sha is in the visible ancestor set) and surfaces the current branch's
 	// WIP under a branch it doesn't belong to. `additionalBranchRefs` deliberately does
 	// NOT count — convention is "focal branch only" (matches `getOverviewBranchSelectionSha`).
-	// Detached HEAD under an active scope returns false too — no branch to attribute WIP to.
-	if (scope != null && scope.branchRef !== currentBranchId) return false;
+	if (scope != null) {
+		if (currentBranch != null) {
+			// Detached HEAD points at no branch, so nothing for the scoped branch to claim. The host's
+			// resolved flag, never a name test — a detached name is the synthesized `(sha…)` label, but
+			// `(release)` is a legal branch name that the same test would wrongly condemn.
+			if (currentBranch.detached) return false;
+			if (scope.branchRef !== currentBranchId) return false;
+		} else if (scopeFocalIsHead != null) {
+			// Branch unknown, but the rows answer the same question directly.
+			if (!scopeFocalIsHead) return false;
+		}
+	}
 
 	if (branchesVisibility == null || branchesVisibility === 'all') return true;
 	if (includeOnlyRefs == null) return true;
-	if (currentBranchId == null) return true; // detached HEAD fallback — keep primary visible
+	if (currentBranchId == null) return true; // unknown current branch — keep primary visible
 	if (!hasKeys(includeOnlyRefs)) return true; // empty `{}` = "no filter"
 	return includeOnlyRefs[currentBranchId] != null;
 }

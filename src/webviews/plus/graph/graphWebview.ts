@@ -4395,6 +4395,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				sha: branch.sha,
 				id: branch.id,
 				upstream: branch.upstream,
+				detached: branch.detached,
 			},
 			branchState: branchState,
 			lastFetched: new Date(getSettledValue(lastFetchedResult)!),

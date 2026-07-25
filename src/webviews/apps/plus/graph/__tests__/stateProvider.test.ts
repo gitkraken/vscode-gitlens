@@ -28,6 +28,7 @@ import {
 	filterSecondariesForIncludeOnlyRefs,
 	filterSecondariesForScope,
 	filterSecondariesForScopeAndVisibility,
+	isScopeFocalHead,
 	shouldShowPrimaryWipRow,
 } from '../utils/wip.utils.js';
 
@@ -683,41 +684,99 @@ suite('filterSecondariesForIncludeOnlyRefs', () => {
 	});
 });
 
+suite('isScopeFocalHead', () => {
+	const headRow = { heads: [{ name: 'focal', isCurrentHead: true }] };
+	const plainRow = { heads: [{ name: 'focal', isCurrentHead: false }] };
+	const otherRow = { heads: [{ name: 'other', isCurrentHead: true }] };
+	const bareRow = {};
+
+	test('true when the focal branch tip row is also HEAD', () => {
+		assert.strictEqual(isScopeFocalHead([bareRow, headRow], scopeFor('/repo|heads/focal')), true);
+	});
+
+	test('false when the focal branch tip row is loaded but is not HEAD', () => {
+		assert.strictEqual(isScopeFocalHead([otherRow, plainRow], scopeFor('/repo|heads/focal')), false);
+	});
+
+	test('false when the focal tip row carries no isCurrentHead flag at all', () => {
+		assert.strictEqual(isScopeFocalHead([{ heads: [{ name: 'focal' }] }], scopeFor('/repo|heads/focal')), false);
+	});
+
+	test("undefined when nothing is loaded that can answer — 'can't tell', not 'isn't HEAD'", () => {
+		// The distinction that matters: answering `false` here would hide the WIP row for the very
+		// case the whole fix exists for (scoped to the current branch, tip not yet paged in).
+		assert.strictEqual(
+			isScopeFocalHead(
+				[bareRow, { heads: [{ name: 'other', isCurrentHead: false }] }],
+				scopeFor('/repo|heads/focal'),
+			),
+			undefined,
+		);
+	});
+
+	test("false when the focal tip isn't loaded but another row IS HEAD", () => {
+		// A loaded row claiming HEAD is proof enough that the unloaded focal branch isn't it. Returning
+		// `undefined` here let the caller default to showing, leaking the current branch's working
+		// changes under a scope they don't belong to.
+		assert.strictEqual(isScopeFocalHead([bareRow, otherRow], scopeFor('/repo|heads/focal')), false);
+	});
+
+	test('reads the FOCAL head, not any head sharing its row', () => {
+		// `main` and `focal` on the same commit: `main` is HEAD, the scope is on `focal`. Asking "is any
+		// head on this row current" answers for `main` and hands `main`'s working changes to `focal`.
+		const sharedTip = {
+			heads: [
+				{ name: 'main', isCurrentHead: true },
+				{ name: 'focal', isCurrentHead: false },
+			],
+		};
+		assert.strictEqual(isScopeFocalHead([sharedTip], scopeFor('/repo|heads/focal')), false);
+		assert.strictEqual(isScopeFocalHead([sharedTip], scopeFor('/repo|heads/main')), true);
+	});
+
+	test('undefined when there is no scope or no rows', () => {
+		assert.strictEqual(isScopeFocalHead([headRow], undefined), undefined);
+		assert.strictEqual(isScopeFocalHead(undefined, scopeFor('/repo|heads/focal')), undefined);
+	});
+});
+
 suite('shouldShowPrimaryWipRow', () => {
 	const currentBranchId = '/repo|heads/feature';
+	const currentBranch = branchFor(currentBranchId);
+	// What `GitBranch` actually produces for a detached HEAD: the id is keyed by SHA (not by name),
+	// the name is the synthesized `(sha…)` label, and `detached` is set. The guard reads the FLAG —
+	// see the `(release)` test below for why the name can't stand in for it.
+	const detachedBranch = { id: '/repo|heads/1a2b3c4d5e6f7a8b', name: '(1a2b3c4...)', detached: true };
 
 	test("returns true when branchesVisibility is 'all'", () => {
 		assert.strictEqual(
-			shouldShowPrimaryWipRow('all', refsFor('/repo|heads/other'), currentBranchId, undefined),
+			shouldShowPrimaryWipRow('all', refsFor('/repo|heads/other'), currentBranch, undefined),
 			true,
 		);
 	});
 
 	test('returns true when branchesVisibility is undefined', () => {
 		assert.strictEqual(
-			shouldShowPrimaryWipRow(undefined, refsFor('/repo|heads/other'), currentBranchId, undefined),
+			shouldShowPrimaryWipRow(undefined, refsFor('/repo|heads/other'), currentBranch, undefined),
 			true,
 		);
 	});
 
 	test('returns true when includeOnlyRefs is undefined', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('agents', undefined, currentBranchId, undefined), true);
+		assert.strictEqual(shouldShowPrimaryWipRow('agents', undefined, currentBranch, undefined), true);
 	});
 
 	test('returns true when includeOnlyRefs is empty {} (no-filter sentinel)', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('smart', {}, currentBranchId, undefined), true);
+		assert.strictEqual(shouldShowPrimaryWipRow('smart', {}, currentBranch, undefined), true);
 	});
 
 	test('returns true when currentBranchId is in the include set', () => {
-		assert.strictEqual(
-			shouldShowPrimaryWipRow('agents', refsFor(currentBranchId), currentBranchId, undefined),
-			true,
-		);
+		assert.strictEqual(shouldShowPrimaryWipRow('agents', refsFor(currentBranchId), currentBranch, undefined), true);
 	});
 
 	test('returns false when currentBranchId is not in the include set (agents mode w/ no agent on current)', () => {
 		assert.strictEqual(
-			shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), currentBranchId, undefined),
+			shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), currentBranch, undefined),
 			false,
 		);
 	});
@@ -727,14 +786,14 @@ suite('shouldShowPrimaryWipRow', () => {
 			shouldShowPrimaryWipRow(
 				'agents',
 				{ ['gk.empty-set-marker' satisfies typeof emptySetMarker]: {} as unknown as GraphIncludeOnlyRef },
-				currentBranchId,
+				currentBranch,
 				undefined,
 			),
 			false,
 		);
 	});
 
-	test('returns true when currentBranchId is unknown (detached HEAD fallback)', () => {
+	test('returns true when the current branch is unknown', () => {
 		assert.strictEqual(shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), undefined, undefined), true);
 	});
 
@@ -742,22 +801,75 @@ suite('shouldShowPrimaryWipRow', () => {
 		// Pin with branchesVisibility === 'all' so a regression in guard ordering re-introduces
 		// the leak Eric reported (primary WIP appearing under a descendant branch's scope).
 		assert.strictEqual(
-			shouldShowPrimaryWipRow('all', undefined, currentBranchId, scopeFor('/repo|heads/descendant')),
+			shouldShowPrimaryWipRow('all', undefined, currentBranch, scopeFor('/repo|heads/descendant')),
 			false,
 		);
 	});
 
 	test('returns true when scope is undefined (no scope active)', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('all', undefined, currentBranchId, undefined), true);
+		assert.strictEqual(shouldShowPrimaryWipRow('all', undefined, currentBranch, undefined), true);
 	});
 
 	test('returns true when scope.branchRef equals currentBranchId', () => {
-		assert.strictEqual(shouldShowPrimaryWipRow('all', undefined, currentBranchId, scopeFor(currentBranchId)), true);
+		assert.strictEqual(shouldShowPrimaryWipRow('all', undefined, currentBranch, scopeFor(currentBranchId)), true);
 	});
 
 	test('returns false when scope is active and HEAD is detached', () => {
 		assert.strictEqual(
-			shouldShowPrimaryWipRow('all', undefined, undefined, scopeFor('/repo|heads/anything')),
+			shouldShowPrimaryWipRow('all', undefined, detachedBranch, scopeFor('/repo|heads/anything')),
+			false,
+		);
+	});
+
+	test('returns false when scope is active and HEAD is detached even if branchRef matches its id', () => {
+		// A detached id is SHA-keyed, so nothing normally builds a matching `branchRef` — but the
+		// hide must come from the detached NAME, not from the mismatch happening to fire.
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('all', undefined, detachedBranch, scopeFor(detachedBranch.id)),
+			false,
+		);
+	});
+
+	test('a parenthesized branch name is NOT treated as detached', () => {
+		// `isDetachedHead` matches any `(…)` name, but `(release)` is a legal git branch (verified with
+		// `git check-ref-format --branch`). Using that test here locked such a branch out of being
+		// focused and hid its WIP row, so the guard reads the host's resolved `detached` flag instead.
+		const parenBranch = { id: '/repo|heads/(release)', name: '(release)', detached: false };
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('all', undefined, parenBranch, scopeFor('/repo|heads/(release)')),
+			true,
+		);
+	});
+
+	test('returns true when scope is active but the current branch is unknown and the rows cannot tell', () => {
+		// Regression guard: `state.branch` only ships on full-state pushes and is written through
+		// unguarded, so an errored `getBranch()` sends `branch: undefined` while the webview-local
+		// `scope` stays put. Treating that as a mismatch deleted the WIP row until the next full
+		// state — and ONLY while scoped, which is what made it look intermittent.
+		assert.strictEqual(shouldShowPrimaryWipRow('all', undefined, undefined, scopeFor('/repo|heads/focal')), true);
+	});
+
+	test('unknown branch + rows say the focal tip IS HEAD → show', () => {
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('all', undefined, undefined, scopeFor('/repo|heads/focal'), true),
+			true,
+		);
+	});
+
+	test('unknown branch + rows say the focal tip is NOT HEAD → hide', () => {
+		// Without this the transient showed the current branch's WIP under an unrelated scoped branch —
+		// the descendant-scope leak, just via a missing branch instead of a mismatched one. The rows
+		// answer the question the branch id was only ever a proxy for.
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('all', undefined, undefined, scopeFor('/repo|heads/focal'), false),
+			false,
+		);
+	});
+
+	test('a known branch ignores the rows-derived signal', () => {
+		// The branch payload is authoritative when present; `scopeFocalIsHead` is strictly a fallback.
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('all', undefined, currentBranch, scopeFor('/repo|heads/other'), true),
 			false,
 		);
 	});
@@ -769,7 +881,7 @@ suite('shouldShowPrimaryWipRow', () => {
 			shouldShowPrimaryWipRow(
 				'all',
 				undefined,
-				currentBranchId,
+				currentBranch,
 				scopeFor('/repo|heads/focal', { additionalBranchRefs: [currentBranchId] }),
 			),
 			false,
@@ -778,7 +890,7 @@ suite('shouldShowPrimaryWipRow', () => {
 
 	test('scope guard precedes branchesVisibility — agents mode with off-scope focal still hides', () => {
 		assert.strictEqual(
-			shouldShowPrimaryWipRow('agents', refsFor(currentBranchId), currentBranchId, scopeFor('/repo|heads/other')),
+			shouldShowPrimaryWipRow('agents', refsFor(currentBranchId), currentBranch, scopeFor('/repo|heads/other')),
 			false,
 		);
 	});
@@ -891,6 +1003,13 @@ function refsFor(...ids: string[]): GraphIncludeOnlyRefs {
 		result[id] = { id: id, name: name, type: type };
 	}
 	return result;
+}
+
+/** The `{ id, name }` current-branch shape `shouldShowPrimaryWipRow` takes, with the name derived
+ *  from the ref id's tail (`'{repoPath}|heads/{name}'`) the way a non-detached branch pairs them. */
+function branchFor(id: string): { id: string; name: string } {
+	const slash = id.lastIndexOf('/');
+	return { id: id, name: slash >= 0 ? id.slice(slash + 1) : id };
 }
 
 function scopeFor(branchRef: string, opts?: { additionalBranchRefs?: string[] }): GraphScope {

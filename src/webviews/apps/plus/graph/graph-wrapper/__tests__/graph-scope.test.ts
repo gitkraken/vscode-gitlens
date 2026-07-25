@@ -59,6 +59,20 @@ function project(scope: GraphScope) {
 	};
 }
 
+/** Same fixture with a WIP row on top, anchored at `parentSha` — the webview synthesizes this row
+ *  client-side (`getDecoratedRows`), so it reaches the projection like any other row. */
+function projectWithWip(scope: GraphScope, parentSha: Sha) {
+	const wipRows: ProcessedGraphRow[] = [
+		{ sha: 'work-dir-changes', parents: [parentSha], kind: 'workdir', column: 1, edges: {}, edgeColumnMax: 0 },
+		...processedRows,
+	];
+	const projection = computeScopeProjection(wipRows, scope, computeScopeAnchors(rows, scope), new Set());
+	return {
+		projection: projection,
+		wipVisible: projection == null || !projection.dropped.has('work-dir-changes'),
+	};
+}
+
 suite('computeScopeAnchors + computeScopeProjection', () => {
 	test('anchors resolved against the current history mark the fork point and bound the spine at it', () => {
 		const { anchors, projection, visible } = project(scopeTo('M3', 'M3'));
@@ -83,6 +97,23 @@ suite('computeScopeAnchors + computeScopeProjection', () => {
 		assert.deepStrictEqual([...(anchors.forkPointShas ?? [])], ['M1']);
 		assert.deepStrictEqual([...(anchors.mergeTargetShas ?? [])], ['M2']);
 		assert.deepStrictEqual(visible, ['F2', 'F1', 'M3', 'M2', 'M1', 'M0']);
+	});
+
+	test('the WIP row survives when anchored at the focal tip', () => {
+		// `getDecoratedRows` resolves the WIP row's anchor by the `isCurrentHead` flag while the spine
+		// walk resolves the focal tip by branch NAME. They must land on the same row — this pins the
+		// case where they agree, which is the only one the projection keeps.
+		const { wipVisible } = projectWithWip(scopeTo('M3', 'M3'), 'F2');
+		assert.strictEqual(wipVisible, true);
+	});
+
+	test('the WIP row is dropped when anchored off the focal spine', () => {
+		// The failure this guards: with no `isCurrentHead` row loaded, `getDecoratedRows` used to fall
+		// back to `realRows[0]`, which under scope is often the merge-target tip — inside the fold, not
+		// on the spine — and the row silently vanished. The projection genuinely can't keep it there;
+		// the fix is upstream (anchor on the same row the spine is rooted at), so pin the drop.
+		const { wipVisible } = projectWithWip(scopeTo('M3', 'M3'), 'M2');
+		assert.strictEqual(wipVisible, false);
 	});
 
 	test('a merge base outside the loaded rows is surfaced as unreachable (drives the targeted page)', () => {

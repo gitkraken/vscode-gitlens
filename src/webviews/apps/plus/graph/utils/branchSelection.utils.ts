@@ -93,7 +93,7 @@ function willRenderPrimaryWipRow(
 ): boolean {
 	if (branchesVisibility == null || branchesVisibility === 'all') return true;
 	if (includeOnlyRefs == null) return true;
-	if (currentBranchId == null) return true; // detached HEAD fallback — match `shouldShowPrimaryWipRow`
+	if (currentBranchId == null) return true; // unknown current branch — match `shouldShowPrimaryWipRow`
 	if (!hasKeys(includeOnlyRefs)) return true;
 	return includeOnlyRefs[currentBranchId] != null;
 }

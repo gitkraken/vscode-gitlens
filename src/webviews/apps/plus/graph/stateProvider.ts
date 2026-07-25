@@ -2242,6 +2242,18 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// the `_pinned` set stays bounded (size 1) and stale primaries can eventually evict.
 		if (this.selectedRepository !== prevSelectedRepo) {
 			if (prevSelectedRepo != null) {
+				// Scope is webview-local, so a repo switch would otherwise carry it over — and none of it
+				// resolves here: `branchRef` embeds the old repo path (`getBranchId`) and the anchors are
+				// SHAs from the old history. Left alone it silently hides the primary WIP row (the
+				// `branchRef` can't match the new repo's branch id) while the view still LOOKS scoped
+				// whenever the new repo shares the branch name.
+				//
+				// Both calls are needed. `clearScope` bails early when nothing is published yet, which is
+				// exactly the state a first `setScope` is in while its anchor IPC is still in flight —
+				// leaving `_pendingScope` set, so the resolve lands after the switch and
+				// `publishResolvedScope` installs the OLD repo's scope here. Each no-ops on its own.
+				this.cancelPendingScope();
+				this.clearScope();
 				this._wips.unpin(prevSelectedRepo);
 			}
 			if (this.selectedRepository != null) {
