@@ -3,7 +3,18 @@ import type { GitBranch, GitTrackingUpstream } from '../models/branch.js';
 import type { GitBranchReference, GitReference } from '../models/reference.js';
 import { shortenRevision } from './revision.utils.js';
 
-const detachedHEADRegex = /^(HEAD|\(.*\))$/;
+/**
+ * The names git uses where a branch name would go when HEAD isn't on a branch — `(HEAD detached
+ * at|from <rev>)`, `(no branch)`, `(no branch, rebasing <name>)`, `(no branch, bisect started on
+ * <name>)`, and `git status --porcelain=v2`'s `branch.head` token `(detached)` — plus bare `HEAD`
+ * and our own {@link formatDetachedHeadName} output (`(<rev>...)`).
+ *
+ * Deliberately NOT "anything parenthesized": parentheses are legal in ref names, so `(release)`,
+ * `v1.0(rc)` and `feat/(wip)` are all real branches a user can be on. Matching those made
+ * `GitBranch` rewrite a genuine branch's `name` to the synthesized `(sha…)` label and re-key its
+ * `id` by SHA, which corrupts its identity for every downstream consumer.
+ */
+const detachedHEADRegex = /^(?:HEAD|\(detached\)|\(HEAD detached (?:at|from) .+\)|\(no branch.*\)|\(.+\.\.\.\))$/;
 
 export function formatDetachedHeadName(sha: string): string {
 	return `(${shortenRevision(sha)}...)`;

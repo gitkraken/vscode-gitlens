@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import { GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
+import { formatDetachedHeadName } from '@gitlens/git/utils/branch.utils.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { parseGitStatus } from '../statusParser.js';
 
@@ -178,6 +179,23 @@ suite('Status Parser Test Suite', () => {
 		assert.strictEqual(result.upstream?.state.ahead, 2, 'Should parse ahead count');
 		assert.strictEqual(result.upstream?.state.behind, 1, 'Should parse behind count');
 		assert.strictEqual(result.upstream?.missing, false, 'Should not be missing when branch.ab is present');
+	});
+
+	test('V2: detached HEAD — branch.head is the literal `(detached)` token', () => {
+		// Git prints `# branch.head (detached)` for ANY non-branch HEAD (plain detached, rebase,
+		// bisect). `GitStatus` must classify it as detached and swap in the synthesized `(sha…)`
+		// label — regression guard for the `isDetachedHead` narrowing that dropped this token.
+		const data = ['# branch.oid abc1234def5678', '# branch.head (detached)'].join('\n');
+
+		const result = parseGitStatus(data, repoPath, 2, getUri);
+
+		assert.ok(result, 'Should return a status');
+		assert.strictEqual(result.detached, true, 'Should be detached');
+		assert.strictEqual(
+			result.branch,
+			formatDetachedHeadName('abc1234def5678'),
+			'Should synthesize the detached label from the SHA',
+		);
 	});
 
 	test('V2: missing upstream when no branch.ab header', () => {

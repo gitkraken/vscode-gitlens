@@ -158,5 +158,29 @@ suite('Branch Utils Test Suite', () => {
 		test('returns true for detached-at message in parentheses', () => {
 			assert.strictEqual(isDetachedHead('(HEAD detached at abc1234)'), true);
 		});
+
+		test('returns true for the rest of git’s "no branch" states', () => {
+			assert.strictEqual(isDetachedHead('(HEAD detached from abc1234)'), true);
+			assert.strictEqual(isDetachedHead('(no branch)'), true);
+			assert.strictEqual(isDetachedHead('(no branch, rebasing feature)'), true);
+			assert.strictEqual(isDetachedHead('(no branch, bisect started on main)'), true);
+		});
+
+		test("returns true for porcelain v2's branch.head token", () => {
+			// `git status --porcelain=v2 --branch` prints `# branch.head (detached)` for ANY
+			// non-branch HEAD (plain detached, rebase, bisect) and the status parser passes the
+			// token through verbatim — `GitStatus.detached` depends on this match.
+			assert.strictEqual(isDetachedHead('(detached)'), true);
+		});
+
+		test('returns false for real branch names that happen to be parenthesized', () => {
+			// Parentheses are legal in ref names — all three are branches `git check-ref-format
+			// --branch` accepts and a user can be checked out on. Treating them as detached made
+			// `GitBranch` rewrite the name to the synthesized `(sha…)` label and re-key the id by SHA,
+			// corrupting the branch's identity everywhere downstream.
+			assert.strictEqual(isDetachedHead('(release)'), false);
+			assert.strictEqual(isDetachedHead('v1.0(rc)'), false);
+			assert.strictEqual(isDetachedHead('feat/(wip)'), false);
+		});
 	});
 });
