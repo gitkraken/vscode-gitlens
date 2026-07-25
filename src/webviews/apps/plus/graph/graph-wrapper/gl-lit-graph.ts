@@ -1618,6 +1618,26 @@ export class GlLitGraph extends LitElement {
 			this.recomputeDisplayRows();
 		}
 
+		// Rows inserted ABOVE the viewport shift every row down one index WITHOUT changing `scrollTop`, so the
+		// commit the user was reading silently slides out of the top slot and a newer one takes its place
+		// (measured: one commit arriving moves the content exactly one row while the scrollbar never budges).
+		// Correct by the row-index DELTA of the row we were parked on — a count, not a measurement, so this
+		// costs no layout. Paging and payload pushes resolve to a delta of 0 and are left completely alone;
+		// an earlier attempt at this that MEASURED on every push thrashed layout and starved paging.
+		if (rowsChanged && this.wasScrolled && this._viewportTopSha != null && this.rowHeight > 0) {
+			const nowAt = this.indexBySha.get(this._viewportTopSha);
+			if (nowAt != null && nowAt !== this._viewportTopIndex) {
+				this._pendingViewportTop = Math.max(
+					0,
+					this._viewportScrollTop + (nowAt - this._viewportTopIndex) * this.rowHeight,
+				);
+				// The new index is committed only when the correction is actually APPLIED (a reveal can
+				// preempt it). Advancing it here would strand `_viewportTopIndex` ahead of the unmoved
+				// `_viewportScrollTop`, so the next update's delta would silently omit this shift.
+				this._pendingViewportTopIndex = nowAt;
+			}
+		}
+
 		// The pinned ref's lane chain (and a held-Alt transient chain) was walked against the rows loaded
 		// at the time — now bounded precisely at the merge base, so a branch's older commits that page in
 		// later would otherwise arrive dimmed (outside the frozen set). Re-walk against the fresh rows. A
@@ -2142,12 +2162,30 @@ export class GlLitGraph extends LitElement {
 
 	private recomputeRows(idLength: number): void {
 		const rows = this.rows;
+		// A DIRECT repo swap lands here with rows already present, so the empty-rows reset below never runs
+		// and the previous repo's tracked viewport row would survive into the new graph — where an
+		// overlapping sha (a shared commit, a fork, the same repo opened twice) resolves and re-parks the
+		// viewport at the old repo's position. Drop the tracking on identity change.
+		if (this.repoPath !== this._lastScrollRepoPath) {
+			this._lastScrollRepoPath = this.repoPath;
+			this._pendingViewportTop = undefined;
+			this._pendingViewportTopIndex = undefined;
+			this._viewportTopSha = undefined;
+			this._viewportTopIndex = 0;
+			this._viewportScrollTop = 0;
+		}
+
 		if (rows == null || rows.length === 0) {
 			this._engineResume = undefined;
 			this._engineStability = undefined;
 			this._priorEngineSourceRows = undefined;
 			this._priorEngineSynthetic = undefined;
 			this._priorEnginePinnedSha = undefined;
+			this._pendingViewportTop = undefined;
+			this._pendingViewportTopIndex = undefined;
+			this._viewportTopSha = undefined;
+			this._viewportTopIndex = 0;
+			this._viewportScrollTop = 0;
 			this.commits = [];
 			this.processedRows = [];
 			this.segments = [];
@@ -3254,6 +3292,18 @@ export class GlLitGraph extends LitElement {
 	 *  Reveals keep their own counter ({@link _revealGeneration}) for their own retry: an anchor must yield to
 	 *  a reveal, but not the reverse, so the two are deliberately not shared. */
 	private _scrollAnchorGeneration = 0;
+	/** The display row sitting at the viewport top, the index it sat at, and the scroll position it was seen
+	 *  at — all tracked from scroll EVENTS, whose `scrollTop` is free (reading it off the element would force
+	 *  layout). This is what lets a rows update correct for insertions above the viewport by ARITHMETIC
+	 *  instead of measurement. */
+	private _viewportTopSha?: string;
+	private _viewportTopIndex = 0;
+	private _viewportScrollTop = 0;
+	/** Scroll position to restore after rows were inserted above the viewport, and the index the tracked
+	 *  row moved to — both applied together in updated(), so a preempted correction commits neither. */
+	private _pendingViewportTop?: number;
+	private _pendingViewportTopIndex?: number;
+
 	/** The repo the pending scroll state belongs to — a swap reuses this element, so it must invalidate. */
 	private _lastScrollRepoPath?: string;
 
@@ -6495,6 +6545,8 @@ export class GlLitGraph extends LitElement {
 		// arriving/reordering (fetch, commit, scope switch, rebase) — so the swap doesn't shift the viewport
 		// (runs before flushPendingReveal — a reveal, if armed, wins and clears this anchor).
 		this.applyPendingScrollAnchor();
+		// Same idea for rows arriving above the viewport, but computed by row count rather than measured.
+		this.applyPendingViewportTop();
 		// A reveal requested before its row was loaded (host EnsureRow round-trip) fires here once the
 		// row lands in displayRows.
 		this.flushPendingReveal();
@@ -6823,6 +6875,7 @@ export class GlLitGraph extends LitElement {
 			this.settleSkeletonScroll();
 		}
 		this.trackScrollVelocity(scrollTop);
+		this.trackViewportTop(scrollTop);
 
 		// Rows passing under a stationary cursor flip hover-driven state while scrolling — suppress row
 		// transitions so those don't fire as spurious fades trailing the scroll; a short settle re-enables
@@ -6852,6 +6905,67 @@ export class GlLitGraph extends LitElement {
 		this.wasScrolled = scrolled;
 		this.querySelector('.gl-graph__header')?.classList.toggle('is-scrolled', scrolled);
 	};
+
+	// Remember which display row the viewport is parked on, from a scroll event's own `scrollTop`. Cheap:
+	// one divide and an array index, no DOM reads. `rowHeight` is uniform here, which is what makes the
+	// index arithmetic exact.
+	private trackViewportTop(scrollTop: number): void {
+		this._viewportScrollTop = scrollTop;
+
+		const rowHeight = this.rowHeight;
+		if (rowHeight <= 0) return;
+
+		const rows = this.displayRows;
+		const index = Math.max(0, Math.min(rows.length - 1, Math.floor(scrollTop / rowHeight)));
+		this._viewportTopIndex = index;
+		this._viewportTopSha = rows[index]?.sha;
+	}
+
+	// Re-park the viewport after rows were inserted above it. A pure write — the target was computed from a
+	// row-index delta and the scroll position tracked off scroll events, so nothing here measures the DOM.
+	// A deliberate reveal still wins; it owns the viewport until it has flushed.
+	private applyPendingViewportTop(): void {
+		const target = this._pendingViewportTop;
+		if (target == null) return;
+
+		const index = this._pendingViewportTopIndex;
+		this._pendingViewportTop = undefined;
+		this._pendingViewportTopIndex = undefined;
+		// Supersede any retry still in flight, including one scheduled by a cleanly-landing application —
+		// same reasoning as `applyPendingScrollAnchor`, whose generation this deliberately shares so a reveal
+		// or an anchor correction and this one can't fight each other across frames.
+		const generation = ++this._scrollAnchorGeneration;
+		// Bailing leaves `_viewportTopIndex` where it was, so the shift this correction skipped is still
+		// carried in the NEXT update's delta (or superseded outright once the reveal scrolls and re-tracks).
+		if (this._pendingRevealSha != null) return;
+
+		const scroller = this.virtualizerRef.value;
+		if (scroller == null) return;
+
+		scroller.scrollTop = target;
+		if (index != null) {
+			this._viewportTopIndex = index;
+		}
+		// Only mirror what the scroller ACTUALLY took. Rows arriving above a viewport near the old scroll
+		// maximum push the target past it before the child virtualizer has grown its spacer, so the write
+		// clamps short — recording the unreachable target would leave every later delta measured from a
+		// position the viewport never occupied.
+		this._viewportScrollTop = scroller.scrollTop;
+
+		// Clamped short → re-assert once the child commits its new size, exactly like the anchor path. One
+		// retry, re-checking the reveal guard because a jump-to-row can be armed in between.
+		if (scroller.scrollTop !== target) {
+			void scroller.updateComplete.then(() => {
+				if (this._scrollAnchorGeneration !== generation || this._pendingRevealSha != null) return;
+
+				const el = this.virtualizerRef.value;
+				if (el != null && el.scrollTop !== target) {
+					el.scrollTop = target;
+					this._viewportScrollTop = el.scrollTop;
+				}
+			});
+		}
+	}
 
 	// Toggles `is-scrolling` on the virtualizer for the duration of an active scroll (idempotent add per event;
 	// a trailing debounce removes it once scrolling settles). See onScroll for why.
