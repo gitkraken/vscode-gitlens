@@ -235,7 +235,14 @@ export class GlSplitPanel extends LitElement {
 			}
 		});
 		void this.updateComplete.then(() => {
-			this._resizeObserver!.observe(this);
+			// This continuation runs a microtask later, by which point the panel may already have
+			// disconnected — `disconnectedCallback` clears the observer, so the non-null assertion this
+			// replaces threw `undefined.observe` on a connect/disconnect inside one update cycle. Nothing
+			// below (observing, seeding size/closed state, re-snapping) means anything for a detached
+			// panel, so bail rather than guard each step.
+			if (this._resizeObserver == null) return;
+
+			this._resizeObserver.observe(this);
 			const rect = this.getBoundingClientRect();
 			this._size = Math.round(this.isHorizontal ? rect.width : rect.height);
 			this._observedOrientation = this.orientation;
