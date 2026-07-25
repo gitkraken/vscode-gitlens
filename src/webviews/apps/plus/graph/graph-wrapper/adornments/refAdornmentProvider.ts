@@ -544,8 +544,15 @@ function renderUpstreamSegment(
 		const full = owner.length > 0 ? `${owner}/${upstreamOnRow.name}` : upstreamOnRow.name;
 		const label = upstreamOnRow.name === ref.name ? owner : full;
 		const tip = `Up to date with ${full}`;
+		// Provider glyph (GitHub/GitLab/…) when the remote's hosting service is known, exactly like the
+		// standalone remote pill's own icon (`renderRefIcon` → `remoteRefIcon`) — this combined segment IS
+		// that remote, so it shouldn't fall back to the generic cloud when we can be specific.
+		// `remoteRefIcon` already returns `cloud` when the provider is unknown.
 		return html`<span class="gl-graph__ref-pill-upstream" aria-label=${tip} data-tooltip=${tip}>
-			<code-icon class="gl-graph__ref-pill-upstream-icon" icon="cloud"></code-icon>
+			<code-icon
+				class="gl-graph__ref-pill-upstream-icon"
+				icon=${remoteRefIcon(upstreamOnRow.hostingServiceType)}
+			></code-icon>
 			${label.length > 0 ? html`<span class="gl-graph__ref-pill-upstream-label">${label}</span>` : nothing}
 		</span>`;
 	}
