@@ -319,6 +319,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	@property({ attribute: false })
 	anchorShas?: readonly string[];
 
+	/** The current branch's merge-target tip + name (pulled client-side via the scope-anchor pipeline) —
+	 *  forwarded straight through to `<gl-lit-graph>`, the one row-marker leg the client can't derive
+	 *  locally. HEAD + the upstream tip are computed in gl-lit-graph. New-engine only. */
+	@property({ attribute: false })
+	rowMarkerMergeTarget?: { sha: string; name?: string };
+
 	// Derived-highlight bookkeeping (see `getSelectedRowsProp`):
 	// - `_lastDerivedHighlight`: the anchor's projected highlight from the last render — the basis the
 	//   `onSelectionChanged` discriminator uses to tell an ECHO of our own prop from genuine user INTENT.
@@ -983,6 +989,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				.pinnedRef=${graphState.pinnedRef}
 				.scope=${graphState.scope}
 				.wipMetadataBySha=${graphState.wipMetadataBySha}
+				.rowMarkerMergeTarget=${this.rowMarkerMergeTarget}
 				.workingTreeStats=${showPrimary ? graphState.workingTreeStats : undefined}
 				.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 				.agentStatusByRowSha=${this.getAgentStatusByRowSha()}

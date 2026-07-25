@@ -1,3 +1,4 @@
+import { colorForColumn } from '@gitkraken/commit-graph/colors.js';
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
 import { classifyRowsDelta, isHistoryRewrite, isTrunkReroot } from '@gitkraken/commit-graph/engine/delta.js';
@@ -87,16 +88,23 @@ import { ModifierKeysController } from '../../../shared/controllers/modifier-key
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
+import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
+import { isPrimaryWipRow, rowMarkerRolesFor } from '../utils/rowMarker.utils.js';
 import { createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 import type { LaneCollapseChipContext } from './adornments/laneCollapseAdornmentProvider.js';
-import type { ParsedRef } from './adornments/refAdornmentProvider.js';
-import { createRefAdornmentProvider, refPillKey } from './adornments/refAdornmentProvider.js';
+import type { ParsedRef, RefPillHooks } from './adornments/refAdornmentProvider.js';
+import {
+	createRefAdornmentProvider,
+	refPillKey,
+	renderRefPill,
+	toParsedRefs,
+} from './adornments/refAdornmentProvider.js';
 import { createWipStatsAdornmentProvider } from './adornments/wipStatsAdornmentProvider.js';
 import type { WipStats } from './adornments/wipStatsAdornmentProvider.js';
-import type { GraphCommitView } from './graph-commit.js';
+import type { GraphCommitRef, GraphCommitView } from './graph-commit.js';
 import { columnsToZones, pickGhostRef, toGraphCommit, zonesToColumnsConfig } from './graph-commit.js';
 import type { FixedSizeLayoutSpecifier } from './graph-fixed-layout.js';
 import { fixedSizeVertical } from './graph-fixed-layout.js';
@@ -431,6 +439,12 @@ interface RenderCtx {
 	/** Secondary (per-worktree) WIP rows' metadata, keyed by their synthetic sha — same source for
 	 *  their conflict state. */
 	wipMetadataBySha?: GraphWipMetadataBySha;
+	/** The current worktree's row-marker tips (HEAD / upstream / merge-target shas + target name) — the
+	 *  SAME object on every row; drives the left-edge rail on the (≤3) rows those tips land on. */
+	rowMarkerTips?: RowMarkerTips;
+	/** Prebuilt row-marker ref pill for the primary WIP row (built once per render from the HEAD row's
+	 *  refs), threaded to the row so it never re-derives it. Undefined when the pill shouldn't show. */
+	wipRowMarkerPill?: TemplateResult;
 }
 
 // Changes-column mode picker: the four visualizations as an ordered glyph strip. Labels drive the
@@ -528,6 +542,11 @@ export class GlLitGraph extends LitElement {
 	@property({ type: Object }) scope?: GraphScope;
 	@property({ type: Object }) wipMetadataBySha?: GraphWipMetadataBySha;
 	@property({ type: Object }) workingTreeStats?: GraphWorkingTreeStats;
+	// The current branch's merge-target tip + name, pulled client-side via the scope-anchor pipeline. HEAD
+	// and the upstream tip are derived locally (from `this.headSha` and `refRowIndex`); this is the only leg
+	// the client can't compute itself. Drives the merge-target role on the rail + the ref pill's target
+	// segment. Absent until the pull lands / when there's no real target (default branch, detached).
+	@property({ attribute: false }) rowMarkerMergeTarget?: { sha: string; name?: string };
 	// Per-row WIP state for the row-action buttons: running compose/review operations (status icons)
 	// and attached AI-agent status (the agent indicator). Drive the buttons' live updates.
 	@property({ attribute: false }) runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
@@ -867,6 +886,11 @@ export class GlLitGraph extends LitElement {
 			// Jump to Working Changes action. `wipAnchorShas` holds workdir rows' first-parent anchors.
 			hasWipRow: this.wipAnchorShas.has(row.sha),
 			avatarVscodeContext: commit.avatarVscodeContext,
+			// The SAME tips object for every row (a reference, no per-row derivation): each row resolves its
+			// own HEAD/upstream/target role by sha — 3 compares for the rows that play none. The prebuilt WIP
+			// pill (built once per render) rides along and is placed only on the primary WIP row.
+			rowMarkerTips: c.rowMarkerTips,
+			wipRowMarkerPill: c.wipRowMarkerPill,
 		});
 	}
 
@@ -1148,19 +1172,21 @@ export class GlLitGraph extends LitElement {
 	private lastRefsMetadataResetToken = 0;
 	private lastDownstreamsRef?: GraphDownstreams;
 	// Pinned-aware: the click-pinned ref is promoted to the inline pill (see createRefAdornmentProvider).
-	// Split-pill hooks read live state (metadata/row positions), so they're getters, never cached.
+	// Split-pill hooks read live state (metadata/row positions/row-marker tips), so they're getters, never
+	// cached. Held as a field so the WIP-row pill (`buildWipRowMarkerPill`) reuses the exact same hooks.
+	private readonly refPillHooks: RefPillHooks = {
+		getUpstream: ref => this.getUpstreamStats(ref),
+		resolveJump: (ref, fromSha) => this.resolveRefJump(ref, fromSha),
+		onJumpToRef: sha => this.jumpToRefRow(sha),
+		getPullRequests: ref => (ref.id != null ? (this.refsMetadata?.[ref.id]?.pullRequest ?? undefined) : undefined),
+		getIssues: ref => (ref.id != null ? (this.refsMetadata?.[ref.id]?.issue ?? undefined) : undefined),
+		getUpstreamMetadataId: ref => this.getUpstreamMetadataId(ref),
+		getShowRemoteNames: () => this.config?.showRemoteNamesOnRefs === true,
+		getRowMarkerTips: () => this._rowMarkerTips,
+	};
 	private refsProvider = createRefAdornmentProvider(
 		() => this._pinnedRefKey,
-		{
-			getUpstream: ref => this.getUpstreamStats(ref),
-			resolveJump: (ref, fromSha) => this.resolveRefJump(ref, fromSha),
-			onJumpToRef: sha => this.jumpToRefRow(sha),
-			getPullRequests: ref =>
-				ref.id != null ? (this.refsMetadata?.[ref.id]?.pullRequest ?? undefined) : undefined,
-			getIssues: ref => (ref.id != null ? (this.refsMetadata?.[ref.id]?.issue ?? undefined) : undefined),
-			getUpstreamMetadataId: ref => this.getUpstreamMetadataId(ref),
-			getShowRemoteNames: () => this.config?.showRemoteNamesOnRefs === true,
-		},
+		this.refPillHooks,
 		() => ({ excludeTypes: this.excludeTypes, excludeRefs: this.excludeRefs, downstreams: this.downstreams }),
 		this.getCommitBySha,
 	);
@@ -1288,6 +1314,12 @@ export class GlLitGraph extends LitElement {
 		this.emitMoreRows.cancel();
 		this.announceLoadingMore.cancel();
 		this.cancelPendingPillActivation();
+		if (this._flashRailTimer != null) {
+			clearTimeout(this._flashRailTimer);
+			this._flashRailTimer = undefined;
+		}
+		this._flashRailEl = undefined;
+		this.cancelSelectFlash();
 		this.resizeDragCleanup?.();
 		this.resizeDragCleanup = undefined;
 		// Tear down any in-flight column-reorder drag (window listeners, rAF, pointer capture, cursor) so
@@ -1496,6 +1528,9 @@ export class GlLitGraph extends LitElement {
 		if (selectionChanged) {
 			this.lastSelectedRowsRef = this.selectedRows;
 			this.selectedShas = new Set(this.selectedRows != null ? Object.keys(this.selectedRows) : []);
+			// Flash the newly-selected tip row's rail in updated() (the DOM — and any reveal-scroll — settle
+			// only after render).
+			this._selectFlashPending = true;
 		}
 
 		if (changed.has('config') || this.config !== this.lastConfigRef) {
@@ -1684,6 +1719,10 @@ export class GlLitGraph extends LitElement {
 		// skip even that. (Pin changes evict directly in togglePinnedRef/clearPinnedRef so the ref
 		// provider can promote the pinned ref to the inline pill — `_pinnedRefKey` is a private
 		// @state, not a `changed.has` key.)
+		// The merge-target pull lands async (after the initial paint), and it drives the HEAD pill's role +
+		// target segment — so evict cached adornments when it moves so the HEAD pill re-resolves with it.
+		// (HEAD + upstream tips derive from rows/refRowIndex/refsMetadata, already covered above.)
+		const rowMarkerChanged = changed.has('rowMarkerMergeTarget');
 		if (
 			rowsChanged ||
 			laneInputsChanged ||
@@ -1691,7 +1730,8 @@ export class GlLitGraph extends LitElement {
 			refsMetadataChanged ||
 			excludeChanged ||
 			downstreamsChanged ||
-			showRemoteNamesChanged
+			showRemoteNamesChanged ||
+			rowMarkerChanged
 		) {
 			this.invalidateAdornments();
 		}
@@ -1960,6 +2000,10 @@ export class GlLitGraph extends LitElement {
 		// Resolved once here — rows + the hscrollbar lead below both read this single value (no per-row
 		// recompute, no desync).
 		const graphHostId = this.graphHostIdFor(visibleZones);
+		// RowMarker tips (HEAD / upstream / merge-target shas + target name) — computed ONCE per render
+		// and cached on the instance so the ref-pill role hook reads it without recomputing per pill.
+		const tips = this.computeRowMarkerTips();
+		this._rowMarkerTips = tips;
 		this._renderCtx = {
 			total: rows.length,
 			rowHeight: this.rowHeight,
@@ -2012,6 +2056,8 @@ export class GlLitGraph extends LitElement {
 			agentStatusByRowSha: this.agentStatusByRowSha,
 			workingTreeStats: this.workingTreeStats,
 			wipMetadataBySha: this.wipMetadataBySha,
+			rowMarkerTips: tips,
+			wipRowMarkerPill: this.buildWipRowMarkerPill(tips),
 		};
 		// Horizontal-scrollbar geometry (CSSOM, so the thumb tracks scroll without extra reflow). Left
 		// edge = the fixed zones before the lanes + the fold strip (matches graph-row's `graphLeadOffset`
@@ -3436,6 +3482,21 @@ export class GlLitGraph extends LitElement {
 			this.deactivateModifierChain();
 		}
 
+		// The row-marker rail hover-expands on its own and must NOT open the row's rich hover card — but it
+		// DOES carry its own tooltip (the roles spelled out + the merge target's name, which the expanded pill
+		// has no room for). So cancel the row hover like any affordance, then show the rail's own tooltip. Its
+		// CSS `:hover` expand is independent of this (driven by the pointer being over it, not this handler).
+		if (event.target instanceof Element && event.target.closest('.gl-graph__row-marker-rail') != null) {
+			this.cancelRowHover();
+			const railTarget = this.closestTooltipTarget(event.target);
+			if (railTarget != null) {
+				this.showTooltipForTarget(railTarget);
+			} else {
+				this.scheduleHideTooltip();
+			}
+			return;
+		}
+
 		const target = this.closestTooltipTarget(event.target);
 		// Row entry → rich hover (only when NOT over a small affordance with its own tooltip, and
 		// not over a ref pill, which has its own popover). Keeps tooltip + rich hover exclusive.
@@ -3744,16 +3805,21 @@ export class GlLitGraph extends LitElement {
 	// re-apply it to the pinned pill (by its UNIQUE `data-ref-key`) and strip it from any stale pill.
 	// Keyed by `data-ref-key`, NOT `data-ref-name`: a local branch and the remote it tracks share a
 	// name, so name-matching tagged the wrong pill (the split pill wouldn't stay expanded on click).
+	// The WIP row's row-marker PROXY pill (`data-jump-sha`) renders the HEAD row's refs, so it carries the
+	// SAME `data-ref-key` — and sits earlier in the DOM. Excluded from both halves below, or it would steal
+	// the pin from the real pill and the clicked pill would never stay expanded.
 	private reconcilePinnedRefPill(): void {
 		const key = this._pinnedRefKey;
 		for (const el of this.querySelectorAll('.gl-graph__ref-pill.is-pinned')) {
-			if (!(el instanceof HTMLElement) || el.dataset.refKey !== key) {
+			if (!(el instanceof HTMLElement) || el.dataset.refKey !== key || el.dataset.jumpSha != null) {
 				el.classList.remove('is-pinned');
 			}
 		}
 		if (key == null) return;
 
-		const pinned = this.querySelector(`.gl-graph__ref-pill[data-ref-key="${CSS.escape(key)}"]`);
+		const pinned = this.querySelector(
+			`.gl-graph__ref-pill[data-ref-key="${CSS.escape(key)}"]:not([data-jump-sha])`,
+		);
 		pinned?.classList.add('is-pinned');
 	}
 
@@ -3781,6 +3847,87 @@ export class GlLitGraph extends LitElement {
 	// hover; sliding back onto the lanes hides any open/pending card without dropping row-hover/
 	// minimap tracking. Also (re)targets the Alt-hold lane-chain dim (`activateModifierChain`)
 	// when a NEW row is entered while Alt is already held.
+	// One row-marker-rail flash at a time — the node currently wearing `.is-flash` and its removal timer.
+	private _flashRailEl: HTMLElement | undefined;
+	private _flashRailTimer: ReturnType<typeof setTimeout> | undefined;
+	// Set in willUpdate when the selection changed; consumed in updated() (the DOM reflects the new selection
+	// + any reveal-scroll only after render), so a select can flash the newly-selected tip row's rail.
+	private _selectFlashPending = false;
+
+	// Briefly reveal a tip row's row-marker rail as an attention cue — the CSSOM `.is-flash` toggle (added
+	// here, removed after a short timeout), NOT `@state`, so it never triggers a render. A new flash clears
+	// the prior node + timer. Band `:hover` holds the rail open independently (see graph.scss), so hovering
+	// the bar keeps it out while a plain row hover/select only flashes it in and out. Fires on hover-ENTER
+	// and select only — off the scroll path.
+	private flashRowMarkerRail(railEl: HTMLElement | null | undefined): void {
+		if (this._flashRailTimer != null) {
+			clearTimeout(this._flashRailTimer);
+			this._flashRailTimer = undefined;
+		}
+		if (this._flashRailEl != null && this._flashRailEl !== railEl) {
+			this._flashRailEl.classList.remove('is-flash');
+		}
+		this._flashRailEl = railEl ?? undefined;
+		if (railEl == null) return;
+
+		railEl.classList.add('is-flash');
+		this._flashRailTimer = setTimeout(() => {
+			this._flashRailTimer = undefined;
+			this._flashRailEl?.classList.remove('is-flash');
+			this._flashRailEl = undefined;
+		}, 1400);
+	}
+
+	/** The rendered rail belonging to `sha`'s row, if the virtualizer has stamped that row yet. Only row marker
+	 *  rows carry one (a handful in the DOM), so this scan is bounded regardless of how many rows are loaded. */
+	private findRowMarkerRail(sha: string): HTMLElement | undefined {
+		for (const el of this.renderRoot.querySelectorAll<HTMLElement>('.gl-graph__row-marker-rail')) {
+			if (el.closest<HTMLElement>('.gl-graph__row')?.dataset.sha === sha) return el;
+		}
+		return undefined;
+	}
+
+	/** Whether `sha`'s row SHOULD carry a rail — its own worktree row-marker roles, or a scope anchor. Gates the
+	 *  select-flash retry below so selecting an ordinary commit (the overwhelming majority) never schedules a
+	 *  single wasted frame. Allocation-free: a bitmask compare plus one Set lookup. */
+	private expectsRowMarkerRail(sha: string): boolean {
+		return rowMarkerRolesFor(sha, this._rowMarkerTips) !== 0 || this.scopeAnchors.anchorShas?.has(sha) === true;
+	}
+
+	private _selectFlashRaf: number | undefined;
+
+	/** Flash `sha`'s rail once its row exists. `@lit-labs/virtualizer` runs its OWN async update cycle, so a
+	 *  row selected + revealed this tick is frequently NOT in the DOM when our `updated()` runs — querying once
+	 *  and giving up silently drops the flash for good (the same edge-consuming race a previous fix on this
+	 *  branch hit from the enter-view side, which needed exactly this kind of bounded re-arm; it reproduces on
+	 *  real hardware but not in a starved VM). Retries across frames, capped, and only for rows that actually
+	 *  have a rail to show. */
+	private scheduleSelectFlash(sha: string, attempt = 0): void {
+		this.cancelSelectFlash();
+
+		const rail = this.findRowMarkerRail(sha);
+		if (rail != null) {
+			this.flashRowMarkerRail(rail);
+			return;
+		}
+		if (attempt >= 20) return;
+
+		this._selectFlashRaf = requestAnimationFrame(() => {
+			this._selectFlashRaf = undefined;
+			// The selection may have moved on while we waited — drop the stale flash rather than firing it late.
+			if (this.selectedShas.size !== 1 || !this.selectedShas.has(sha)) return;
+
+			this.scheduleSelectFlash(sha, attempt + 1);
+		});
+	}
+
+	private cancelSelectFlash(): void {
+		if (this._selectFlashRaf == null) return;
+
+		cancelAnimationFrame(this._selectFlashRaf);
+		this._selectFlashRaf = undefined;
+	}
+
 	private handleRowHover(event: PointerEvent): void {
 		const node = event.target;
 		if (node instanceof Element && node.closest('[data-ref-name]') != null) {
@@ -3841,6 +3988,12 @@ export class GlLitGraph extends LitElement {
 		// reached here), not `hoveredRowSha` — so no CSSOM poke is needed on this card-only transition.
 		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
 		this.startRowHover(sha, zone, event, rowEl, true);
+		// Brief attention flash of this row's row-marker rail on hover-ENTER (only tip rows carry one). The
+		// timeout collapses it even while still hovering; the band's own :hover holds it if you're on the bar.
+		const rowMarkerRail = rowEl.querySelector<HTMLElement>('.gl-graph__row-marker-rail');
+		if (rowMarkerRail != null) {
+			this.flashRowMarkerRail(rowMarkerRail);
+		}
 		// Modifier already held when a NEW row is entered (row→row retargets same as pill→pill).
 		if (event.altKey) {
 			this.activateModifierChain();
@@ -3883,6 +4036,10 @@ export class GlLitGraph extends LitElement {
 		const zone = this.hoveredRowZone;
 		this.hoveredRowSha = undefined;
 		this.hoveredRowZone = undefined;
+		// Leaving the row ends its row-marker-rail flash NOW rather than letting the timeout run on after the
+		// pointer is gone — clearing the class reverses the same CSS transition, so it still glides shut. The
+		// rail's own `:hover` is independent, so moving ONTO the rail (which routes here first) keeps it open.
+		this.flashRowMarkerRail(undefined);
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
 		);
@@ -6585,6 +6742,24 @@ export class GlLitGraph extends LitElement {
 
 	protected override updated(changed: PropertyValues): void {
 		super.updated(changed);
+		// Consume a pending select-flash: briefly reveal the newly-selected tip row's rail. Only tip rows carry
+		// a rail (a handful in the DOM), so scan those and match the selected row's sha. Selecting something
+		// else — or deselecting, or a multi-select — resolves to NOTHING, and passing that `undefined` through
+		// CLEARS whatever rail is still flashing, so the previous row collapses (via the same transition)
+		// instead of holding its flash out for the rest of the timeout.
+		if (this._selectFlashPending) {
+			this._selectFlashPending = false;
+			const selected = this.selectedShas.size === 1 ? this.selectedShas.values().next().value : undefined;
+			const rail = selected != null ? this.findRowMarkerRail(selected) : undefined;
+			if (rail == null && selected != null && this.expectsRowMarkerRail(selected)) {
+				// The row owns a rail but the virtualizer hasn't stamped it yet — retry across frames instead
+				// of dropping the flash (see scheduleSelectFlash).
+				this.scheduleSelectFlash(selected);
+			} else {
+				this.cancelSelectFlash();
+				this.flashRowMarkerRail(rail);
+			}
+		}
 		// Re-apply the click-pinned ref-pill expand class to the live DOM after each render.
 		this.reconcilePinnedRefPill();
 		// Re-assert the scroll position captured across a row-set change — a lane collapse/expand, or rows
@@ -7147,6 +7322,99 @@ export class GlLitGraph extends LitElement {
 		}
 	}
 
+	// The HEAD row's own head ref — several local branches can share the HEAD commit, so prefer the
+	// checked-out one, else the first. Its `upstreamId` locates the upstream tip row (below). Undefined
+	// until the HEAD row has landed.
+	private rowMarkerHeadRef(): GraphCommitRef | undefined {
+		const headSha = this.headSha;
+		if (headSha == null) return undefined;
+
+		const refs = this.getCommitBySha(headSha)?.commitRefs;
+		if (refs == null) return undefined;
+
+		let head: GraphCommitRef | undefined;
+		for (const ref of refs) {
+			if (ref.kind !== 'head') continue;
+			if (ref.current === true) return ref;
+
+			head ??= ref;
+		}
+		return head;
+	}
+
+	// Per-render cache of the current worktree's row-marker tips (HEAD / upstream / merge-target shas +
+	// target name). Written once in `updateRenderState`; read by the ref-pill role hook per pill so it
+	// never recomputes.
+	private _rowMarkerTips?: RowMarkerTips;
+
+	// Build the row-marker tips from the client's own scalars: HEAD from `this.headSha`, the upstream tip
+	// from the HEAD ref's `upstreamId` via `refRowIndex` (the same walk `H`-jump uses), and the merge-target
+	// from the scope-anchor pull (`rowMarkerMergeTarget`). Returns undefined when the row plays none of
+	// them (nothing to mark).
+	private computeRowMarkerTips(): RowMarkerTips | undefined {
+		const headSha = this.headSha;
+		const target = this.rowMarkerMergeTarget;
+
+		let upstreamSha: string | undefined;
+		if (headSha != null) {
+			const upstreamId = this.rowMarkerHeadRef()?.upstreamId;
+			upstreamSha = upstreamId != null ? this.refRowIndex.get(upstreamId)?.sha : undefined;
+		}
+
+		if (headSha == null && upstreamSha == null && target?.sha == null) return undefined;
+
+		return { headSha: headSha, upstreamSha: upstreamSha, targetSha: target?.sha, targetName: target?.name };
+	}
+
+	// Whether the primary WIP row's row-marker pill should render, and the data it needs (HEAD refs + lane
+	// color). Rendered only when HEAD has been pushed DOWN the list: suppressed when the HEAD commit row
+	// sits directly below the WIP row (adjacent — HEAD is already right there), and undefined when the HEAD
+	// row isn't loaded. Structural (row-index) checks only — no viewport math. Shared by the pill build and
+	// the sticky-timeline yield check so both read the same decision.
+	private wipRowMarkerPillTarget(
+		tips: RowMarkerTips | undefined,
+	): { headRefs: readonly GraphCommitRef[]; column: number } | undefined {
+		const headSha = tips?.headSha;
+		if (headSha == null) return undefined;
+
+		const wipIdx = this.processedIndexBySha.get('work-dir-changes');
+		if (wipIdx == null) return undefined;
+
+		const headIdx = this.processedIndexBySha.get(headSha);
+		if (headIdx == null || headIdx === wipIdx + 1) return undefined;
+
+		const headRefs = this.getCommitBySha(headSha)?.commitRefs;
+		if (headRefs == null || headRefs.length === 0) return undefined;
+
+		return { headRefs: headRefs, column: this.processedRows[headIdx]?.column ?? 0 };
+	}
+
+	// The primary WIP row's row-marker pill: the CURRENT branch's ref pill (sourced from the HEAD row's
+	// refs), right-anchored, role-forced to HEAD (so it carries the green emphasis + the merge-target
+	// segment) and reused verbatim from `renderRefPill` — one pill language everywhere. `muted` softens the
+	// inversion so it reads as secondary to the real HEAD-row pill; `jumpSha` makes a click JUMP to the HEAD
+	// tip (scroll + select) without pinning — the WIP row is far from HEAD, so the pill is a navigation aid.
+	private buildWipRowMarkerPill(tips: RowMarkerTips | undefined): TemplateResult | undefined {
+		const target = this.wipRowMarkerPillTarget(tips);
+		if (target == null) return undefined;
+
+		// ONLY the checked-out branch's ref — not every ref on the HEAD commit. Two reasons: this pill stands
+		// for "the branch your working changes sit on", so a co-located tag or second branch isn't what it
+		// means; and a multi-ref pill renders a `<gl-popover>` whose content is a SIBLING of the pill (not a
+		// descendant), so `data-jump-sha` isn't in a popover click's `composedPath` — such a click would fall
+		// through to the pin path and open a branch sheet keyed to the WIP row's synthetic sha, breaking this
+		// pill's jump-only contract. One ref ⇒ bare pill, no popover, no such path.
+		const currentHead = target.headRefs.find(r => r.kind === 'head' && r.current === true);
+		return renderRefPill(
+			toParsedRefs(currentHead != null ? [currentHead] : target.headRefs),
+			colorForColumn(target.column),
+			undefined,
+			'work-dir-changes',
+			this.refPillHooks,
+			{ role: 'head', expandAnchor: 'right', muted: true, jumpSha: tips?.headSha },
+		);
+	}
+
 	// `gitlens.graph.stickyTimeline` OFF → clear (hides the pill/hairlines). Otherwise reclassifies
 	// `topMs` (the topmost visible row's workdir-normalized date) and writes @state ONLY when the
 	// group's KEY actually changes — mirrors `updateHeadPillDirection`'s edge-crossing gate. The window
@@ -7261,7 +7529,14 @@ export class GlLitGraph extends LitElement {
 		const wipAgent = row.kind === 'workdir' ? this.agentStatusByRowSha?.get(row.sha) : undefined;
 		const wipOperation = row.kind === 'workdir' ? this.runningOperationByRowSha?.get(row.sha) : undefined;
 		const isUnpushed = row.kind === 'workdir' ? undefined : this.getCommitBySha(row.sha)?.isUnpublished;
-		return hasPersistentRowActions(row.kind, wipAgent, wipOperation, isUnpushed);
+		// The primary WIP row's row-marker pill keeps the strip live at rest, and it rides exactly where the
+		// sticky-timeline pill sits — so the timeline must yield to it like any other persistent member. Same
+		// "will the pill render" decision the render loop makes (`wipRowMarkerPillTarget`).
+		// Reuses the per-render tips cache (this runs on the SCROLL path — recomputing would allocate and
+		// re-walk `refRowIndex` every frame the WIP row is topmost).
+		const hasRowMarkerDecorator =
+			isPrimaryWipRow(row.kind, row.sha) && this.wipRowMarkerPillTarget(this._rowMarkerTips) != null;
+		return hasPersistentRowActions(row.kind, wipAgent, wipOperation, isUnpushed, hasRowMarkerDecorator);
 	}
 
 	// Exact date span for a group's elapsed window [lo, hi) — short month + day, en dash between; the

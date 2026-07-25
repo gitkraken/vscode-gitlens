@@ -542,6 +542,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 
 export interface BranchState extends GitTrackingState {
 	upstream?: string;
+	/** Tip sha of the current branch's upstream, when tracked and resolvable (in-memory branch-map
+	 *  lookup, ~free). Feeds the overview bar's upstream jump leg — including to an unpushed/unloaded
+	 *  tip the client's `refRowIndex` can't see. Absent for detached / local-only / missing upstream. */
+	upstreamSha?: string;
 	provider?: {
 		name: string;
 		icon?: string;
@@ -1033,6 +1037,10 @@ export interface ResolvedGraphScope extends GraphScope {
 	 * that aren't already in active/recent.
 	 */
 	resolvedMergeTargetTipSha?: string;
+	/** Resolved merge-target branch NAME (e.g. `main`, `origin/main`), paired with
+	 *  `resolvedMergeTargetTipSha`. Drives row marker's merge-target labeling (rail/ref-pill segment) so
+	 *  the client doesn't need a second lookup to name the tip. */
+	resolvedMergeTargetName?: string;
 	/** Resolved focal-branch tip SHA, looked up by the scope-anchor resolver. Mirrors the
 	 *  `resolvedMergeTargetTipSha` shape — distinct response field so the patcher can tell
 	 *  "resolver had no answer" (`undefined`) from "value already on the scope". */

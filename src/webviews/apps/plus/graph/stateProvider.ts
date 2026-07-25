@@ -194,6 +194,11 @@ export function shouldRestoreSearchQuery(
 export type ResolvedScopeAnchor = {
 	mergeBase: { sha: string; date: number } | undefined;
 	mergeTargetTipSha: string | undefined;
+	/** Merge-target branch name paired with `mergeTargetTipSha` — row-marker labels the target tip from it.
+	 *  OPTIONAL (`?:`), unlike its siblings' `| undefined`: those predate this field and every existing
+	 *  constructor omits it entirely, so requiring the key would break callers that legitimately have no
+	 *  target to name — a name only exists when `mergeTargetTipSha` does. */
+	mergeTargetName?: string;
 	focalBranchTipSha: string | undefined;
 };
 
@@ -329,6 +334,14 @@ export function reconcileScopeMergeTarget(
 	const sha = enrichment?.[scope.branchRef]?.mergeTarget?.sha;
 	if (sha == null || sha === scope.mergeTargetTipSha) return scope;
 	return { ...scope, mergeTargetTipSha: sha };
+}
+
+/** The row marker's merge target as carried by a resolved anchor — undefined when the anchor named no
+ *  target tip (detached, the default branch, or a resolve that bailed). */
+function rowMarkerTargetFromAnchor(anchor: ResolvedScopeAnchor | undefined): AppState['rowMarkerMergeTarget'] {
+	return anchor?.mergeTargetTipSha != null
+		? { sha: anchor.mergeTargetTipSha, name: anchor.mergeTargetName }
+		: undefined;
 }
 
 function getSearchResultModel(searchResults: State['searchResults']): {
@@ -578,6 +591,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor scope: AppState['scope'];
 
 	@signalState()
+	accessor rowMarkerMergeTarget: AppState['rowMarkerMergeTarget'];
+
+	@signalState()
 	accessor useNaturalLanguageSearch: State['useNaturalLanguageSearch'] | undefined;
 
 	@signalState()
@@ -616,12 +632,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState<AppState['overviewEnrichment']>(undefined, {
 		// When enrichment arrives (or refreshes) for the currently-scoped branch, backfill the
 		// scope's `mergeTargetTipSha` so the graph's merge-target anchor appears without requiring
-		// the user to re-scope.
+		// the user to re-scope. The row-marker target rides the same correction — it resolves through a
+		// PR-timeout fallback that enrichment's settled answer supersedes.
 		afterChange: (target: GraphStateProvider, value) => {
 			const next = reconcileScopeMergeTarget(target.scope, value);
 			if (next !== target.scope) {
 				target.scope = next;
 			}
+			target.reconcileRowMarkerMergeTarget(value);
 		},
 	})
 	accessor overviewEnrichment: AppState['overviewEnrichment'];
@@ -1126,6 +1144,117 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this.patchScopeAnchor(scope, anchor);
 	}
 
+	/** Branch id whose row-marker merge-target we last kicked off — the per-branch dedup so repeated
+	 *  `ensureRowMarkerMergeTarget` calls (one per render) don't re-issue the IPC. Cleared on ref-move
+	 *  invalidation so the next call re-resolves. */
+	private _rowMarkerBranchId: string | undefined;
+	/** Monotonic token discriminating the LATEST row-marker resolve. The branch id alone can't tell a
+	 *  superseded resolve apart after an invalidation re-arm for the SAME branch: the stale in-flight
+	 *  resolve (blanked to undefined by the anchor generation guard) could land after the fresh one and
+	 *  clobber the signal until the next invalidation. */
+	private _rowMarkerRequestId = 0;
+	/** Branch id the PUBLISHED `rowMarkerMergeTarget` describes — distinct from `_rowMarkerBranchId`, which
+	 *  invalidation blanks to re-arm. Lets a branch change tell "this value is about another branch" (blank
+	 *  it) apart from a re-arm on the same branch (keep it, so the ref-pill adornments don't churn). */
+	private _rowMarkerTargetBranchId: string | undefined;
+
+	ensureRowMarkerMergeTarget(): void {
+		const branch = this._state.branch;
+		// Detached / no branch — no branch to resolve a merge target for.
+		if (branch?.id == null || branch.name == null) {
+			this._rowMarkerBranchId = undefined;
+			this._rowMarkerRequestId++;
+			this.publishRowMarkerMergeTarget(undefined, undefined);
+			return;
+		}
+
+		// Already resolving/resolved for this branch — cache + `_mergeBasePromises` dedupe the IPC, but this
+		// guard also avoids re-touching the signal every render.
+		if (branch.id === this._rowMarkerBranchId) return;
+
+		// Resolved BEFORE latching the dedup, so an unusable branch id doesn't wedge it permanently. Blank
+		// as we go: a branch that can't name its repo can never resolve, so leaving a previous branch's
+		// target published would strand a wrong (and jumpable) tip on the rail.
+		const repoPath = branch.repoPath;
+		if (!repoPath) {
+			this._rowMarkerRequestId++;
+			this.publishRowMarkerMergeTarget(undefined, undefined);
+			return;
+		}
+
+		this._rowMarkerBranchId = branch.id;
+		const requestId = ++this._rowMarkerRequestId;
+
+		// Cache hit (e.g. scoping already resolved this branch's anchor) — publish synchronously, no IPC;
+		// the same cache-first idiom as `setScope`/`resolveScopeMergeBase`. Invalidation deletes the entry,
+		// so a re-arm after a ref move still refetches.
+		if (this._mergeBaseCache.has(branch.id)) {
+			this.publishRowMarkerMergeTarget(rowMarkerTargetFromAnchor(this._mergeBaseCache.get(branch.id)), branch.id);
+			return;
+		}
+
+		// Blank another branch's target before the async resolve — until it lands, the overview bar's jump
+		// leg and the row adornments would otherwise still point at the PREVIOUS branch's target. Skipped on
+		// an invalidation re-arm for the same branch: that value still describes this branch, so blanking it
+		// would churn the ref-pill adornments (and blink the leg) for nothing.
+		if (this._rowMarkerTargetBranchId !== branch.id) {
+			this.publishRowMarkerMergeTarget(undefined, undefined);
+		}
+
+		// Route through the SAME scope-anchor pipeline scoping uses (shared cache, dedup, generation guard)
+		// — keyed on the branch id so a later scope-to-current reuses this resolve. The minimal scope carries
+		// only what the host resolver reads (`branchName`).
+		const scope: GraphScope = { branchName: branch.name, branchRef: branch.id };
+		void this.fetchScopeAnchor(repoPath, scope, branch.id).then(anchor => {
+			// A newer resolve superseded this one while it was in flight (branch switch, detach, or an
+			// invalidation re-arm for the SAME branch) — drop the stale answer.
+			if (requestId !== this._rowMarkerRequestId) return;
+
+			this.publishRowMarkerMergeTarget(rowMarkerTargetFromAnchor(anchor), branch.id);
+		});
+	}
+
+	/**
+	 * Re-anchor the row-marker merge target from overview enrichment, the same correction
+	 * `reconcileScopeMergeTarget` applies to the scope. The host's anchor resolve caps PR lookup at 100ms
+	 * and falls back to the base/default branch, so a slow PR API leaves the row-marker on a target that
+	 * isn't the PR's base — and the two rails would then mark two different rows, since the graph unions
+	 * the row-marker target with the scope's. Enrichment carries the settled answer, so it wins: latch the
+	 * dedup and bump the request id so an in-flight fallback resolve can't land on top of it.
+	 */
+	private reconcileRowMarkerMergeTarget(enrichment: AppState['overviewEnrichment']): void {
+		const branch = this._state.branch;
+		if (branch?.id == null) return;
+
+		const mergeTarget = enrichment?.[branch.id]?.mergeTarget;
+		if (mergeTarget == null) return;
+		// Same rule the host's resolver applies: a target tip that IS the branch tip means there's no real
+		// merge to mark. Blank rather than leave the fallback's target standing — enrichment has just said
+		// there's nothing to point at.
+		if (mergeTarget.sha === branch.sha) {
+			this._rowMarkerRequestId++;
+			this.publishRowMarkerMergeTarget(undefined, branch.id);
+			return;
+		}
+
+		this._rowMarkerBranchId = branch.id;
+		this._rowMarkerRequestId++;
+		this.publishRowMarkerMergeTarget({ sha: mergeTarget.sha, name: mergeTarget.name }, branch.id);
+	}
+
+	/** Writes the `rowMarkerMergeTarget` signal only when the tip actually changed — a re-resolve that
+	 *  lands on the same target must not churn identity (every write invalidates the graph's ref-pill
+	 *  adornments downstream). `branchId` records which branch the published value describes; pass
+	 *  `undefined` when blanking. */
+	private publishRowMarkerMergeTarget(target: AppState['rowMarkerMergeTarget'], branchId: string | undefined): void {
+		this._rowMarkerTargetBranchId = branchId;
+
+		const current = this.rowMarkerMergeTarget;
+		if (current?.sha === target?.sha && current?.name === target?.name) return;
+
+		this.rowMarkerMergeTarget = target;
+	}
+
 	/**
 	 * Shared anchor IPC + cache write used by both the initial `setScope` flow and the re-resolve
 	 * flow (`resolveScopeMergeBase`, invoked from `DidInvalidateScopeAnchorsNotification`). Dedupes
@@ -1154,6 +1283,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						: {
 								mergeBase: r.scope.mergeBase,
 								mergeTargetTipSha: r.scope.resolvedMergeTargetTipSha,
+								mergeTargetName: r.scope.resolvedMergeTargetName,
 								focalBranchTipSha: r.scope.resolvedFocalBranchTipSha,
 							},
 				)
@@ -1444,6 +1574,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				if (pendingScope != null && pendingScope !== liveScope && pendingScope.branchRef.startsWith(prefix)) {
 					void this.resolveScopeMergeBase(pendingScope);
 				}
+
+				// Re-arm row marker's merge-target resolve for the current branch — the tip may have moved.
+				this._rowMarkerBranchId = undefined;
+				this.ensureRowMarkerMergeTarget();
 				break;
 			}
 
@@ -1456,9 +1590,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				});
 				break;
 			case DidChangeBranchStateNotification.is(msg):
-				this.updateState({
-					branchState: msg.params.branchState,
-				});
+				this.updateState({ branchState: msg.params.branchState });
 				break;
 
 			case DidChangeHostWindowFocusNotification.is(msg):

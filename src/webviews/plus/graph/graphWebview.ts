@@ -313,6 +313,9 @@ interface ResolvedScopeAnchor {
 	focalBranchTipSha?: string;
 	mergeBase?: { sha: string; date: number };
 	mergeTargetTipSha?: string;
+	/** Merge-target branch name (e.g. `main`), paired with `mergeTargetTipSha`. Set whenever a real
+	 *  merge target is resolved — lets row-marker label the target tip without a second lookup. */
+	mergeTargetName?: string;
 }
 
 function hasRepository(arg: any): arg is { repository: GlRepository; search?: SearchQuery; selectSha?: string } {
@@ -2941,6 +2944,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					...params.scope,
 					mergeBase: anchor?.mergeBase,
 					resolvedMergeTargetTipSha: anchor?.mergeTargetTipSha,
+					resolvedMergeTargetName: anchor?.mergeTargetName,
 					resolvedFocalBranchTipSha: anchor?.focalBranchTipSha,
 				},
 			};
@@ -3069,6 +3073,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			focalBranchTipSha: focalBranchTipSha,
 			mergeBase: { sha: mergeBaseSha, date: committerDate.getTime() },
 			mergeTargetTipSha: mergeTargetTipSha,
+			mergeTargetName: targetName,
 		};
 	}
 
@@ -4320,6 +4325,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						branchState.pr = serializePullRequest(pr);
 					}
 				}
+			}
+
+			// RowMarker: the current branch's upstream tip sha, for the overview bar's upstream jump leg.
+			// In-memory branch-map lookup (the same source `computeScopeAnchor` uses), falling back to a
+			// cheap single-branch fetch — no merge-target work here (that's pulled client-side via the
+			// scope-anchor pipeline). Absent for detached / local-only / missing upstream.
+			const upstreamName = branch.upstream != null && !branch.upstream.missing ? branch.upstream.name : undefined;
+			if (upstreamName != null) {
+				branchState.upstreamSha =
+					this._data.session?.current.branches.get(upstreamName)?.sha ??
+					(
+						await this.container.git
+							.getRepositoryService(branch.repoPath)
+							.branches.getBranch(upstreamName, toAbortSignal(cancellation.token))
+					)?.sha;
 			}
 		}
 

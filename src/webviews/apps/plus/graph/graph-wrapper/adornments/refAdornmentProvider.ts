@@ -15,6 +15,8 @@ import type {
 } from '../../../../../plus/graph/protocol.js';
 import type { StyleInfo } from '../../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
+import type { RowMarkerRole, RowMarkerTips } from '../../utils/rowMarker.utils.js';
+import { primaryRowMarkerRole, rowMarkerRolesFor } from '../../utils/rowMarker.utils.js';
 import type { GraphCommitRef, GraphCommitView } from '../graph-commit.js';
 import { isRefHidden, isUpstreamRemoteOf, sortRowRefs } from '../graph-commit.js';
 import '../../../../shared/components/code-icon.js';
@@ -73,6 +75,10 @@ export interface RefPillHooks {
 	/** `gitlens.graph.showRemoteNames` — when false (the default), a remote pill's label is the bare
 	 *  branch name instead of `remote/name`. Read fresh (config can change at runtime). */
 	getShowRemoteNames: () => boolean;
+	/** The current worktree's row-marker tips (HEAD / upstream / merge-target shas + target name), read
+	 *  live. A pill on a tip row takes that role's emphasis (`--row-marker-<role>` class); the HEAD pill also
+	 *  gets the merge-target jump segment. Undefined until the client builds the tips. */
+	getRowMarkerTips?: () => RowMarkerTips | undefined;
 }
 
 // Map the structured commit refs to the pill's view model, ALREADY in display order. A plain
@@ -83,7 +89,9 @@ export interface RefPillHooks {
 // so it rides the per-commit projection cache (once per commit, not once per render), and every
 // consumer of the projection (pills, popover, the a11y description) sees the same order for free.
 // The one order input that ISN'T ref data — the click-pinned ref — stays at render (`promotePinned`).
-function toParsedRefs(refs: readonly GraphCommitRef[]): ParsedRef[] {
+//
+// Exported for the WIP row's row-marker pill (`buildWipRowMarkerPill`), which projects the HEAD row's refs.
+export function toParsedRefs(refs: readonly GraphCommitRef[]): ParsedRef[] {
 	return sortRowRefs(refs).map(r => ({
 		kind: r.kind,
 		name: r.name,
@@ -347,12 +355,27 @@ function renderIssueChip(issue: IssueMetadata, ref: ParsedRef, expanded: boolean
 	</gl-popover>`;
 }
 
-function renderRefPill(
+/** RowMarker options for the pill. `role` forces the role emphasis (the WIP-row pill, which sits on a
+ *  different sha than HEAD, passes `'head'`); otherwise the role is derived from `fromSha` against the
+ *  live tips. `expandAnchor: 'right'` right-anchors the hover-expand overlay (the WIP row's far-right slot
+ *  clips a left-anchored one). `muted` softens the role emphasis to a tint (the WIP-row pill, so it reads
+ *  as secondary to the real on-tip-row pill). `jumpSha` makes a plain click JUMP to that sha (scroll +
+ *  select) instead of pinning — rendered as `data-jump-sha`, which onClick handles early (jump +
+ *  stopPropagation), so the WIP pill navigates to the branch tip without opening its sheet. */
+export interface RefPillRowMarker {
+	role?: RowMarkerRole;
+	expandAnchor?: 'left' | 'right';
+	muted?: boolean;
+	jumpSha?: Sha;
+}
+
+export function renderRefPill(
 	parsed: ParsedRef[],
 	color: string,
 	pinnedRefKey?: string,
 	fromSha?: Sha,
 	hooks?: RefPillHooks,
+	rowMarker?: RefPillRowMarker,
 ): TemplateResult {
 	const showRemoteNames = hooks?.getShowRemoteNames() === true;
 	// `parsed` already arrives in `sortRowRefs` display order (see `toParsedRefs`); only the pin —
@@ -361,6 +384,26 @@ function renderRefPill(
 	const primary = sorted[0];
 	const isHead = primary.current === true;
 	const primaryContext = primary.context;
+
+	// RowMarker role emphasis: a pill on a HEAD / upstream / merge-target tip row takes that role's fill
+	// (color via the `--row-marker-<role>` class in graph.scss; the border stays the lane color). Derived from
+	// `fromSha` against the live tips, unless the caller forces it (the WIP-row pill).
+	const tips = hooks?.getRowMarkerTips?.();
+	const derivedRoleMask =
+		rowMarker?.role == null && tips != null && fromSha != null ? rowMarkerRolesFor(fromSha, tips) : 0;
+	const role = rowMarker?.role ?? (derivedRoleMask !== 0 ? primaryRowMarkerRole(derivedRoleMask) : undefined);
+	// The HEAD pill also carries the merge-target jump segment (the current branch's target, from the tips).
+	const targetSha = role === 'head' ? tips?.targetSha : undefined;
+	const targetSegment = targetSha != null ? renderTargetSegment(targetSha, tips?.targetName, hooks, false) : nothing;
+	const targetSegmentExpanded =
+		targetSha != null ? renderTargetSegment(targetSha, tips?.targetName, hooks, true) : nothing;
+	// Only HEAD and upstream take the colored emphasis — a merge-target (or base) row's pill stays an ORDINARY
+	// lane-colored ref pill. Those rows are already called out by the rail + their marker chip, and recoloring
+	// the branch pill there implied the pill itself was the target rather than just sitting on that commit.
+	const emphasisRole = role === 'head' || role === 'upstream' ? role : undefined;
+	const rowMarkerClass = `${emphasisRole != null ? ` gl-graph__ref-pill--row-marker-${emphasisRole}` : ''}${
+		emphasisRole != null && rowMarker?.muted === true ? ' gl-graph__ref-pill--row-marker-muted' : ''
+	}${rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''}`;
 	// In-sync combine: when a head's upstream remote is ALSO on this row (same commit ⇒ in sync), fold it
 	// into that head's upstream segment instead of listing it separately — so the pair reads as one
 	// combined pill. Applied to the PRIMARY pill and (below) to each head in the +N popover alike.
@@ -419,13 +462,18 @@ function renderRefPill(
 						: nothing}</span
 				>`
 			: nothing;
+	// The WIP-row pill is a PROXY for the HEAD branch pill shown on the WIP row: `data-jump-sha` makes a click
+	// JUMP to the HEAD tip (scroll + select) via the same path the WIP row's "Jump to Branch Tip" button uses
+	// — onClick handles it early (jump + stopPropagation), so the pill navigates to the branch WITHOUT pinning
+	// or opening its sheet.
 	const pill = html`<span
-		class="gl-graph__ref-pill"
+		class="gl-graph__ref-pill${rowMarkerClass}"
 		style=${cspStyleMap(refStyle(color, isHead, 'pill'))}
 		role="button"
 		tabindex="-1"
 		aria-label=${describeRef(primary, hooks)}
 		aria-haspopup=${restCount > 0 ? 'menu' : nothing}
+		data-jump-sha=${rowMarker?.jumpSha ?? nothing}
 		data-ref-name=${primary.name}
 		data-ref-key=${refPillKey(primary)}
 		data-ref-kind=${primary.kind}
@@ -437,11 +485,11 @@ function renderRefPill(
 			<span class="gl-graph__ref-pill-icon">${renderRefIcon(primary)}</span>
 			<span class="gl-graph__ref-pill-label">${chipLabel(primary, showRemoteNames)}</span>
 		</span>
-		${upstreamSegment}${prChip}${issueChip}${moreBadge}
+		${upstreamSegment}${targetSegment}${prChip}${issueChip}${moreBadge}
 		<span class="gl-graph__ref-pill-expand" aria-hidden="true"
 			><span class="gl-graph__ref-pill-icon">${renderRefIcon(primary)}</span
 			><span class="gl-graph__ref-pill-expand-label">${chipLabel(primary, showRemoteNames)}</span
-			>${upstreamSegment}${prChipExpanded}${issueChipExpanded}${moreBadge}</span
+			>${upstreamSegment}${targetSegmentExpanded}${prChipExpanded}${issueChipExpanded}${moreBadge}</span
 		>
 	</span>`;
 
@@ -632,6 +680,40 @@ function renderUpstreamSegment(
 	</button>`;
 }
 
+/**
+ * The HEAD pill's merge-target segment (the split-pill idiom, purple `--row-marker-target` styling): at rest
+ * the `gl-merge-target` glyph alone; the hover-expand overlay copy (`expanded`) reveals the target's name.
+ * The whole segment is a jump button to the target tip (`hooks.onJumpToRef`) — the target sha comes from
+ * the load-time scope pull, so there's no hover-fetch. Reuses the `-upstream` classes for its divider +
+ * sizing; the `-target` class recolors it.
+ */
+function renderTargetSegment(
+	sha: Sha,
+	name: string | undefined,
+	hooks: RefPillHooks | undefined,
+	expanded: boolean,
+): TemplateResult {
+	const label = name != null && name.length > 0 ? name : 'Merge Target';
+	const tip = `Jump to Merge Target ${label}`;
+	return html`<button
+		class="gl-graph__ref-pill-upstream gl-graph__ref-pill-upstream--jump gl-graph__ref-pill-target"
+		type="button"
+		tabindex="-1"
+		aria-label=${tip}
+		data-ref-metadata-type="target"
+		data-tooltip-action="Jump to Merge Target"
+		data-tooltip=${label}
+		@click=${(e: Event) => {
+			e.stopPropagation();
+			hooks?.onJumpToRef(sha);
+		}}
+	>
+		<code-icon class="gl-graph__ref-pill-upstream-icon" icon="gl-merge-target"></code-icon>${expanded
+			? html`<span class="gl-graph__ref-pill-target-label">${label}</span>`
+			: nothing}
+	</button>`;
+}
+
 function renderPopoverRefRow(
 	parsed: ParsedRef,
 	color: string,
@@ -688,8 +770,8 @@ function remoteRefIcon(hostingServiceType: GkProviderId | undefined): string {
 }
 
 // Ref codicons: `vm` for a local branch/HEAD (the "local machine" counterpart to the remote cloud),
-// `cloud`/a provider glicon for remote, `tag` for tags. The CURRENT head (isHead) keeps the plain `vm`
-// glyph (conveyed instead by the filled pill); a NON-current head checked out in another worktree swaps
+// `cloud`/a provider glicon for remote, `tag` for tags. The CURRENT head (`current`) uses `vm-active` so the
+// current branch stands out (on top of the filled pill); a NON-current head checked out in another worktree swaps
 // to the worktree glyph (old-engine parity: `worktreeId` — see `GitGraphRowHead.worktreeId` — is what
 // GKC's bundled renderer reads to make the same swap). `code-icon` inherits the pill's color (lane /
 // white-on-hover).
@@ -701,6 +783,8 @@ function renderRefIcon(ref: ParsedRef): TemplateResult {
 		icon = remoteRefIcon(ref.hostingServiceType);
 	} else if (ref.worktreeId != null && ref.current !== true) {
 		icon = 'gl-worktree-filled';
+	} else if (ref.current === true) {
+		icon = 'vm-active';
 	} else {
 		icon = 'vm';
 	}

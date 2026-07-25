@@ -71,12 +71,17 @@ import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
 import type { GraphLayoutPromptChoiceEventDetail } from './components/gl-graph-layout-prompt.js';
 import type {
+	OverviewBarItem,
+	OverviewBarJumpDetail,
+	OverviewBarSelectDetail,
+	OverviewBarStatsNeededDetail,
+} from './components/gl-graph-overview-bar.js';
+import type {
 	GlGraphTimelineCommitSelectDetail,
 	GlGraphTimelineConfigChangeDetail,
 } from './components/gl-graph-timeline.js';
 import type { GraphTreemapModeChangeDetail } from './components/gl-graph-treemap.js';
 import type { GraphVisualizationModeChangeDetail } from './components/gl-graph-visualizations.js';
-import type { WipBarItem, WipBarSelectDetail, WipBarStatsNeededDetail } from './components/gl-graph-wip-bar.js';
 import { getEffectiveVisualizationKey } from './components/visualizations.utils.js';
 import { pickWipRowAgentStatus } from './components/wipRowAgentStatus.js';
 import type { AppState } from './context.js';
@@ -117,7 +122,7 @@ import './components/gl-graph-details-panel.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-keyboard-shortcuts.js';
 import './components/gl-graph-layout-prompt.js';
-import './components/gl-graph-wip-bar.js';
+import './components/gl-graph-overview-bar.js';
 import './components/gl-graph-timeline.js';
 import './components/gl-graph-visualizations.js';
 
@@ -1214,7 +1219,30 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private handleWipBarSelect = async (e: CustomEvent<WipBarSelectDetail>): Promise<void> => {
+	/** Force the graph into `graph` display mode so a row can actually be revealed. Returns true when it
+	 *  switched — the caller must then await a render before asking the (newly mounted) graph to reveal
+	 *  anything. Shared by the overview bar's pill selection and its row-marker jumps. */
+	private ensureGraphDisplayMode(): boolean {
+		const gs = this.graphState;
+		if (gs.displayMode === 'graph') return false;
+
+		gs.displayMode = 'graph';
+		this.persistState();
+		return true;
+	}
+
+	/** A row-marker-leg jump: reveal + select a HEAD / upstream / merge-target tip. Deliberately just
+	 *  the reveal — unlike a pill select it never opens the WIP details panel, since the user asked to
+	 *  look somewhere, not to work on that worktree's changes. */
+	private handleOverviewBarJump = async (e: CustomEvent<OverviewBarJumpDetail>): Promise<void> => {
+		if (this.ensureGraphDisplayMode()) {
+			// Wait for the graph to mount after the mode switch before asking it to reveal a row.
+			await this.updateComplete;
+		}
+		this.graph?.ensureAndSelectCommit(e.detail.sha);
+	};
+
+	private handleOverviewBarSelect = async (e: CustomEvent<OverviewBarSelectDetail>): Promise<void> => {
 		const { id, repoPath } = e.detail;
 		// Bar is a global WIP affordance; clicking it always lands the user in graph mode
 		// so the corresponding WIP row is visible (matches the stated user intent: "select that
@@ -1223,10 +1251,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Snapshot pre-state — `persistState()` can flow back through host and flip visibility
 		// between the mode switch and the visibility check, so capture both up front.
 		const wasVisible = gs.details?.visible === true;
-		if (gs.displayMode !== 'graph') {
-			gs.displayMode = 'graph';
-			this.persistState();
-		}
+		this.ensureGraphDisplayMode();
 		// Drop the active scope when the clicked WIP isn't part of it, so the worktree's row
 		// materializes in the now-unscoped graph and `ensureAndSelectCommit` below can reveal it.
 		// Leave the scope untouched when the pill already matches it. Uses the canonical clear
@@ -1270,7 +1295,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	/** Resolves once the active scope has cleared (or a safety timeout elapses). Used after a
-	 *  scope-clearing WIP-bar click: the clear lands via a host round-trip, so this lets the
+	 *  scope-clearing overview-bar click: the clear lands via a host round-trip, so this lets the
 	 *  subsequent `ensureAndSelectCommit` run against the settled unscoped state rather than racing
 	 *  the reload. Polls with `setTimeout` (not RAF) so it still resolves if the webview is hidden. */
 	private waitForScopeCleared(timeoutMs = 2000): Promise<void> {
@@ -1317,7 +1342,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  Skips when `graph.showWorktreeWipStats` is off: hover isn't selection, so it mustn't trigger a
 	 *  per-worktree `git status` (clicking still reveals the breakdown). Backstop to the bar's own
 	 *  `statsOnHover` suppression. */
-	private handleWipBarStatsNeeded = (e: CustomEvent<WipBarStatsNeededDetail>): void => {
+	private handleOverviewBarStatsNeeded = (e: CustomEvent<OverviewBarStatsNeededDetail>): void => {
 		const { id } = e.detail;
 		if (id === uncommitted || this._wipStatsInFlight.has(id)) return;
 		if (this.graphState.config?.showWorktreeWipStats === false) return;
@@ -1329,23 +1354,25 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		void this.fetchSelectedWorktreeWipStats(id).finally(() => this._wipStatsInFlight.delete(id));
 	};
 
-	/** Last array handed to the bar. `wipBarItems` re-runs on every GraphApp render (selection, scroll,
-	 *  search, resize, agent ticks — none of which touch the WIP bar), and a fresh array each time fails
-	 *  Lit's `Object.is` check, re-rendering every pill. Returning the previous array when the content is
-	 *  unchanged makes those renders free. */
-	private _wipBarItemsCache: readonly WipBarItem[] = [];
+	/** Last array handed to the bar. `overviewBarItems` re-runs on every GraphApp render (selection,
+	 *  scroll, search, resize, agent ticks — none of which touch the bar), and a fresh array each time
+	 *  fails Lit's `Object.is` check, re-rendering every pill. Returning the previous array when the
+	 *  content is unchanged makes those renders free. */
+	private _overviewBarItemsCache: readonly OverviewBarItem[] = [];
 
-	private get wipBarItems(): readonly WipBarItem[] {
-		const next = this.buildWipBarItems();
-		const prev = this._wipBarItemsCache;
+	private get overviewBarItems(): readonly OverviewBarItem[] {
+		const next = this.buildOverviewBarItems();
+		const prev = this._overviewBarItemsCache;
 
 		// Preserve identity PER ITEM, not just for the whole array: reuse each prior item object whose
 		// content is unchanged. Without this, one pill changing (e.g. another worktree's agent tick)
 		// reallocates the whole array, handing every OTHER pill's already-open hover a fresh `.wip`
-		// reference — which churns that hover's settle timer every unrelated tick. Content-compared, not
-		// identity-compared: nothing in a WipBarItem is derived from the clock, so equal content really
-		// means "nothing changed" (an earlier cut carried a sub-minute `lastActivity` string that would
-		// have defeated this on every tick while an agent worked — precisely when the bar is busiest).
+		// reference — which churns that hover's settle timer every unrelated tick. `areEqual` is a deep
+		// compare, so it covers the nested `wip` and `row marker` payloads too. Content-compared, not
+		// identity-compared: nothing in an OverviewBarItem is derived from the clock, so equal content
+		// really means "nothing changed" (an earlier cut carried a sub-minute `lastActivity` string that
+		// would have defeated this on every tick while an agent worked — precisely when the bar is
+		// busiest; the row-marker legs are shas + counts, so they hold that property).
 		const prevById = new Map(prev.map(item => [item.id, item]));
 		const merged = next.map(item => {
 			const prior = prevById.get(item.id);
@@ -1355,32 +1382,30 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// re-rendering on unrelated GraphApp renders (selection, scroll, search, resize).
 		if (merged.length === prev.length && merged.every((item, i) => item === prev[i])) return prev;
 
-		this._wipBarItemsCache = merged;
+		this._overviewBarItemsCache = merged;
 		return merged;
 	}
 
-	/** Computes the bar's WIP entries. The bar exists to surface OTHER worktrees' working changes, so it
-	 *  returns an empty array — hiding the bar — unless at least one secondary worktree qualifies. When it
-	 *  does, the primary worktree is the first entry (always, even when clean) as a stable anchor, followed
-	 *  by one entry per secondary, most-recent first. Agent state is resolved per-worktree via the
+	/** Computes the bar's entries. The bar is the persistent row-marker home, so the primary worktree is
+	 *  ALWAYS the first entry — it carries the current branch's HEAD / upstream / merge-target jumps even
+	 *  when nothing else qualifies. Secondaries follow, one per worktree that has working changes or
+	 *  unpushed commits, most-recent first. Agent state is resolved per-worktree via the
 	 *  session-by-worktree index. */
-	private buildWipBarItems(): readonly WipBarItem[] {
+	private buildOverviewBarItems(): readonly OverviewBarItem[] {
 		const gs = this.graphState;
 		const fallbackRepoPath = this.fallbackRepoPath;
 		if (fallbackRepoPath == null) return [];
 
-		// The bar is a GLOBAL working-changes affordance: it surfaces every worktree that has working
-		// changes, independent of the graph's active scope / branchesVisibility. (The in-graph WIP
-		// rows ARE scope/visibility-filtered — see `getDecoratedRows` — so the bar can intentionally
-		// show worktrees the graph has filtered out.)
+		// The bar is a GLOBAL affordance: it surfaces every worktree that has working changes,
+		// independent of the graph's active scope / branchesVisibility. (The in-graph WIP rows ARE
+		// scope/visibility-filtered — see `getDecoratedRows` — so the bar can intentionally show
+		// worktrees the graph has filtered out.)
 
 		// Secondary worktrees — one pill per worktree that has working changes OR unpushed commits, NOT
 		// scope/visibility filtered (unlike the graph's WIP rows). A worktree is "dirty" by its fetched
 		// `workDirStats` when present, else by the host's cheap `hasChanges` probe — so the pill appears
 		// before the full breakdown is fetched (lazily, on hover). Ordered by HEAD commit date, most-recent
-		// first (`parentDate`). Built FIRST so we can bail before the primary/agent work: the bar's whole
-		// reason to exist is to surface these, so when none qualify we return [] (the bar renders nothing)
-		// — a lone primary pill would be redundant with the graph's WIP row + details panel.
+		// first (`parentDate`). Unlike the primary, a secondary earns its pill only by qualifying here.
 		const wipMetadata = gs.wipMetadataBySha;
 		const secondaries =
 			wipMetadata != null
@@ -1396,7 +1421,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						.filter(({ meta, dirty }) => dirty || meta.hasUnpushed === true)
 						.sort((a, b) => (b.meta.parentDate ?? 0) - (a.meta.parentDate ?? 0))
 				: [];
-		if (secondaries.length === 0) return [];
 
 		const now = Date.now();
 
@@ -1404,7 +1428,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// lookup) instead of re-scanning every session per worktree — mirrors `getAgentStatusByRowSha`
 		// in graph-wrapper so the bar and the in-graph WIP rows surface the same indicator.
 		const sessionIndex = indexAgentSessionsByRepoAndWorktree(gs.agentSessions);
-		const pickAgent = (repoPath: string): Pick<WipBarItem, 'agent' | 'agentCount'> => {
+		const pickAgent = (repoPath: string): Pick<OverviewBarItem, 'agent' | 'agentCount'> => {
 			const status = pickWipRowAgentStatus(
 				matchAgentSessionsForWorktree(sessionIndex, { repoPath: repoPath, worktreePath: repoPath }),
 				now,
@@ -1414,15 +1438,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return { agent: status.category, agentCount: status.sessions.length };
 		};
 
-		const items: WipBarItem[] = [];
+		const items: OverviewBarItem[] = [];
 
 		// Primary worktree's WIP — ALWAYS the first entry, even when the primary is clean (no changes /
-		// unpushed / agent), so it stays a stable anchor as secondaries come and go. `workingTreeStats` is
-		// computed independent of the graph's filters; WorkDirStats fields are FILE counts
-		// (added/modified/deleted files). A detached HEAD falls back to the worktree basename. Unpushed
-		// comes free from `branchState.ahead` (tracked branch); a primary on a local-only branch is
-		// intentionally NOT probed — those commits are already visible in the main graph, unlike a hidden
-		// secondary's.
+		// unpushed / agent): it's the row-marker anchor, carrying the current branch's HEAD / upstream /
+		// merge-target jumps, and it stays put as secondaries come and go. `workingTreeStats` is computed
+		// independent of the graph's filters; WorkDirStats fields are FILE counts (added/modified/deleted
+		// files). A detached HEAD falls back to the worktree basename. Unpushed comes free from
+		// `branchState.ahead` (tracked branch); a primary on a local-only branch is intentionally NOT
+		// probed — those commits are already visible in the main graph, unlike a hidden secondary's.
 		const primary = gs.workingTreeStats;
 		const primaryDirty = primary != null && (primary.added > 0 || primary.modified > 0 || primary.deleted > 0);
 		const primaryAhead = gs.branchState?.ahead ?? 0;
@@ -1434,6 +1458,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// The current branch is always `active` in the overview, so the hover resolves it from there and
 			// needs no `branchModel` fallback.
 			branchId: gs.branch?.id,
+			// HEAD leg ← the host-supplied current-branch tip (reactive); upstream leg ← the `upstreamSha`
+			// scalar (jumps even to an unpushed/unloaded upstream tip); merge-target leg ← the client-pulled
+			// `rowMarkerMergeTarget` (async, absent on the default branch / detached).
+			headSha: gs.branch?.sha,
+			upstreamSha: gs.branchState?.upstreamSha,
+			upstreamName: gs.branchState?.upstream,
+			targetSha: gs.rowMarkerMergeTarget?.sha,
+			targetName: gs.rowMarkerMergeTarget?.name,
+			ahead: primaryAhead,
+			behind: gs.branchState?.behind,
 			wip: {
 				hasChanges: primaryDirty,
 				...(primary != null && primaryDirty
@@ -1468,6 +1502,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				// lands in `state.overview` when the worktree is open or its last commit is recent — without
 				// it, a dirty worktree on an older branch would hover with nothing to show.
 				branchModel: meta.branch,
+				// A secondary worktree gets NO row-marker legs (and so no `ahead`): its WIP row already sits ON
+				// its branch tip, so a "jump to branch" is pointless (only the primary can be far from HEAD);
+				// upstream/merge-target tips would also cost a git call per worktree on load. Its unpushed
+				// commits ride the pill's `↑` indicator instead, which an `ahead` here would suppress (the pill
+				// hides the number-less arrow when a leg is already counting it). Clicking the pill selects its
+				// WIP row; the count itself lives in the hover.
 				wip: {
 					hasChanges: dirty,
 					// Absent until the breakdown is fetched on hover — the pill renders from the dirty bit.
@@ -1516,6 +1556,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
+
+		// Kick the row-marker merge-target resolve for the current branch (self-deduping per branch id, so
+		// this is a no-op once resolved / while in flight). `graphState` is a `@consume`d context, so a
+		// branch change never lands in `changedProperties` — drive it every render and let the guard filter.
+		this.graphState.ensureRowMarkerMergeTarget();
 
 		// Attach the `.graph` size observer as soon as the graph tree exists — it isn't rendered on the
 		// first update when the account-access screen replaces it (signed out), and `firstUpdated` won't
@@ -2167,9 +2212,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private renderGraphContent(slot?: 'end') {
 		// Compute once per render — getter allocates a fresh array, and we read it twice
 		// (visibility check + binding). Local var dedupes the work and gives the bar a stable
-		// reference identity within a single render cycle. The getter returns [] unless a secondary
-		// worktree's WIP qualifies, so an empty array is the bar's hide condition.
-		const wipItems = this.wipBarItems;
+		// reference identity within a single render cycle. The getter returns [] only when there's no
+		// repo to anchor the primary pill to, so an empty array is the bar's hide condition.
+		const overviewItems = this.overviewBarItems;
 		// `_selectedCommit.sha` is normalized to `uncommitted` for ALL WIP selections (the graph
 		// collapses secondary WIP rows to `uncommitted` at selection time), so the selected worktree
 		// is identified by `repoPath`, not `sha`. Resolve the selected pill by repoPath so selecting a
@@ -2177,23 +2222,25 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const selectedCommit = this._selectedCommit;
 		const selectedWipId =
 			selectedCommit != null && isWipSha(selectedCommit.sha)
-				? wipItems.find(i => i.repoPath === selectedCommit.repoPath)?.id
+				? overviewItems.find(i => i.repoPath === selectedCommit.repoPath)?.id
 				: undefined;
 		return html`
 			<div class="graph__graph-column" slot=${ifDefined(slot)}>
-				${wipItems.length > 0
+				${overviewItems.length > 0
 					? html`
-							<gl-graph-wip-bar
-								.items=${wipItems}
+							<gl-graph-overview-bar
+								.items=${overviewItems}
 								.selectedId=${selectedWipId}
 								.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
-								@gl-graph-wip-bar-select=${this.handleWipBarSelect}
-								@gl-graph-wip-bar-stats-needed=${this.handleWipBarStatsNeeded}
-							></gl-graph-wip-bar>
+								@gl-graph-overview-bar-jump=${this.handleOverviewBarJump}
+								@gl-graph-overview-bar-select=${this.handleOverviewBarSelect}
+								@gl-graph-overview-bar-stats-needed=${this.handleOverviewBarStatsNeeded}
+							></gl-graph-overview-bar>
 						`
 					: nothing}
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}
+					.rowMarkerMergeTarget=${this.graphState.rowMarkerMergeTarget}
 					@gl-graph-change-column-mode=${this.handleGraphChangeColumnMode}
 					@gl-graph-change-selection=${this.handleGraphSelectionChanged}
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}

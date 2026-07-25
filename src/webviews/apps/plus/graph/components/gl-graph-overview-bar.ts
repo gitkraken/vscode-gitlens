@@ -1,22 +1,25 @@
-import type { PropertyValues } from 'lit';
+import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { OverviewBranch, OverviewBranchWip } from '../../../../shared/overviewBranches.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { shortRefName } from '../utils/rowMarker.utils.js';
 import { normalizeWheelDelta } from '../utils/wheel.utils.js';
-import { wipBarStyles } from './gl-graph-wip-bar.css.js';
+import { overviewBarStyles } from './gl-graph-overview-bar.css.js';
 import './gl-branch-hover.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
+import '../../../shared/components/overlays/tooltip.js';
 
-export interface WipBarItem {
+export interface OverviewBarItem {
 	/** The WIP's sha (`uncommitted` for the primary worktree; `worktree-wip::<path>` for secondaries). */
 	id: string;
 	/** User-visible branch name (already extracted from refs / falls back to worktree label). */
@@ -46,28 +49,60 @@ export interface WipBarItem {
 	 *  a single session is already implied by the icon. */
 	agentCount?: number;
 	isPrimary?: boolean;
+	/** This worktree's HEAD tip sha — the HEAD jump leg. Primary: `branch.sha`; secondary: `parentSha`. */
+	headSha?: string;
+	/** The current branch's upstream tip sha — the upstream jump leg. Primary only (host `upstreamSha`);
+	 *  secondaries aren't probed, so their upstream leg degrades to a non-interactive count. */
+	upstreamSha?: string;
+	/** The upstream branch name (`origin/main`) — labels the upstream leg's jump tooltip. Primary only. */
+	upstreamName?: string;
+	/** The current branch's merge-target tip sha — the merge-target jump leg. Primary only (from the
+	 *  client-pulled `rowMarkerMergeTarget`); absent on the default branch / detached. */
+	targetSha?: string;
+	/** The merge-target branch name (`main`) — labels the merge-target leg. Primary only. */
+	targetName?: string;
+	/** Commits ahead of the upstream — PRIMARY only (`branchState.ahead`), since only the primary renders
+	 *  row-marker legs. Setting it on a secondary would suppress that pill's number-less `↑` indicator
+	 *  with no leg to count in its place. */
+	ahead?: number;
+	/** Commits behind the upstream. Primary only — secondaries aren't probed for it. */
+	behind?: number;
 	/** Serialized `data-vscode-context` for this WIP's right-click menu — `gitlens:wip` for the primary
 	 *  worktree, `gitlens:wip+worktree` for a secondary. Built host-side (see `serializeWipContext`) so a
 	 *  pill opens the identical menu as the in-graph WIP row and the details header. */
 	context?: string;
 }
 
-export interface WipBarSelectDetail {
+export interface OverviewBarSelectDetail {
 	id: string;
 	branch: string;
 	repoPath: string;
 }
 
-export interface WipBarStatsNeededDetail {
+export interface OverviewBarStatsNeededDetail {
 	/** The hovered/focused pill's WIP sha — the host computes its full breakdown on demand. */
 	id: string;
 }
 
-@customElement('gl-graph-wip-bar')
-export class GlGraphWipBar extends LitElement {
-	static override styles = [boxSizingBase, focusableBaseStyles, wipBarStyles];
+export interface OverviewBarJumpDetail {
+	/** The tip to reveal + select — a HEAD, upstream, or merge-target commit. */
+	sha: string;
+}
 
-	@property({ attribute: false }) items: readonly WipBarItem[] = [];
+/** The non-zero half(ves) of a tracking state — `2 ahead, 1 behind` — or `up to date` when in sync. Only
+ *  ever a tooltip suffix, so the zeros the leg itself renders don't get repeated back as words. */
+function formatTracking(ahead: number, behind: number): string {
+	if (ahead > 0 && behind > 0) return `${ahead} ahead, ${behind} behind`;
+	if (ahead > 0) return `${ahead} ahead`;
+	if (behind > 0) return `${behind} behind`;
+	return 'up to date';
+}
+
+@customElement('gl-graph-overview-bar')
+export class GlGraphOverviewBar extends LitElement {
+	static override styles = [boxSizingBase, focusableBaseStyles, overviewBarStyles];
+
+	@property({ attribute: false }) items: readonly OverviewBarItem[] = [];
 	@property({ attribute: false }) selectedId: string | undefined;
 	/** False = host's `graph.showWorktreeWipStats` opt-out: don't fetch stats on hover (no
 	 *  per-worktree `git status`); show a static "has changes" tooltip, not "Loading…". Breakdown
@@ -103,18 +138,6 @@ export class GlGraphWipBar extends LitElement {
 		this.selectWipById(id, e);
 	};
 
-	private readonly onItemKeyDown = (e: KeyboardEvent): void => {
-		if (e.key !== 'Enter' && e.key !== ' ') return;
-
-		if (e.key === ' ') {
-			e.preventDefault();
-		}
-		const id = (e.currentTarget as HTMLElement).dataset.id;
-		if (id == null) return;
-
-		this.selectWipById(id, e);
-	};
-
 	private selectWipById(id: string, e: Event): void {
 		e.stopPropagation();
 		const item = this.items.find(i => i.id === id);
@@ -122,13 +145,30 @@ export class GlGraphWipBar extends LitElement {
 
 		this.selectedId = id;
 		this.dispatchEvent(
-			new CustomEvent<WipBarSelectDetail>('gl-graph-wip-bar-select', {
+			new CustomEvent<OverviewBarSelectDetail>('gl-graph-overview-bar-select', {
 				detail: { id: item.id, branch: item.branch, repoPath: item.repoPath },
 				bubbles: true,
 				composed: true,
 			}),
 		);
 	}
+
+	/** A row-marker leg → reveal + select that tip in the graph. Deliberately NOT a pill select: a jump
+	 *  never opens the WIP details panel, and never moves `selectedId` (which tracks the selected
+	 *  worktree, not the viewport). */
+	private readonly onLegClick = (e: MouseEvent): void => {
+		const sha = (e.currentTarget as HTMLElement).dataset.sha;
+		if (sha == null) return;
+
+		e.stopPropagation();
+		this.dispatchEvent(
+			new CustomEvent<OverviewBarJumpDetail>('gl-graph-overview-bar-jump', {
+				detail: { sha: sha },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	/** Hover/focus on a stats-less pill → ask the host to compute them. Fires on the leading edge
 	 *  (before the popover's open delay) so the breakdown is ready when the hover shows; graph-app
@@ -146,7 +186,7 @@ export class GlGraphWipBar extends LitElement {
 		if (item == null || item.wip?.workingTreeState != null || item.hasWorkingChanges !== true) return;
 
 		this.dispatchEvent(
-			new CustomEvent<WipBarStatsNeededDetail>('gl-graph-wip-bar-stats-needed', {
+			new CustomEvent<OverviewBarStatsNeededDetail>('gl-graph-overview-bar-stats-needed', {
 				detail: { id: id },
 				bubbles: true,
 				composed: true,
@@ -248,22 +288,116 @@ export class GlGraphWipBar extends LitElement {
 		super.disconnectedCallback?.();
 	}
 
+	// Keyboard model: two roving groups.
+	// Mirrors how the graph's rows expose their own controls (a single tab stop that you "dive" out of
+	// into managed-focus buttons):
+	//  1. PILLS — every `.pill__main` button; one roving tab stop for the whole bar. Left/Right and
+	//     Home/End move between worktrees; Enter/Space select (native <button> activation → the existing
+	//     reveal-WIP-row + open-details behavior).
+	//  2. LEGS — a pill's row-marker jump buttons, all `tabindex="-1"`, reachable only by Tabbing into
+	//     the focused pill. Left/Right + Home/End rove them, Enter/Space activate natively, and
+	//     Shift+Tab / Escape retreat to the pill.
+	// Tab forward past the legs (or from a pill with none) falls through and leaves the bar — the browser
+	// default, since no leg is in the tab order.
+
+	/** The owning chip's jump legs, in visual (DOM) order. Non-interactive indicator legs are excluded
+	 *  (no `--jump`), so arrow keys never land on something that can't be activated. */
+	private legsFor(el: HTMLElement): HTMLElement[] {
+		const chip = el.closest('.pill');
+		return chip != null ? [...chip.querySelectorAll<HTMLElement>('.pill__leg--jump')] : [];
+	}
+
 	private readonly onPillsKeyDown = (e: KeyboardEvent): void => {
-		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+		const target = e.target as HTMLElement | null;
+		if (target == null) return;
+
+		if (target.classList.contains('pill__leg--jump')) {
+			this.onLegKeyDown(e, target);
+			return;
+		}
+		if (!target.classList.contains('pill__main')) return;
 
 		const count = this.items.length;
-		if (count === 0) return;
+		switch (e.key) {
+			case 'ArrowLeft':
+			case 'ArrowRight': {
+				if (count === 0) return;
 
-		e.preventDefault();
-		const dir = e.key === 'ArrowLeft' ? -1 : 1;
-		this.focusedPillIndex = (this.focusedPillIndex + dir + count) % count;
-		this.pendingFocusUpdate = true;
+				e.preventDefault();
+				const dir = e.key === 'ArrowLeft' ? -1 : 1;
+				this.focusedPillIndex = (this.focusedPillIndex + dir + count) % count;
+				this.pendingFocusUpdate = true;
+				break;
+			}
+			case 'Home':
+			case 'End':
+				if (count === 0) return;
+
+				e.preventDefault();
+				this.focusedPillIndex = e.key === 'Home' ? 0 : count - 1;
+				this.pendingFocusUpdate = true;
+				break;
+			case 'Tab': {
+				// Dive into this pill's row-marker legs. Shift+Tab — and a pill with no legs — falls
+				// through, leaving the bar.
+				if (e.shiftKey) return;
+
+				const legs = this.legsFor(target);
+				if (legs.length === 0) return;
+
+				e.preventDefault();
+				this.moveFocusTo(legs[0]);
+				break;
+			}
+		}
 	};
+
+	private onLegKeyDown(e: KeyboardEvent, leg: HTMLElement): void {
+		const legs = this.legsFor(leg);
+		const i = legs.indexOf(leg);
+		if (i < 0) return;
+
+		switch (e.key) {
+			case 'ArrowLeft':
+			case 'ArrowRight': {
+				e.preventDefault();
+				const next = Math.max(0, Math.min(legs.length - 1, i + (e.key === 'ArrowLeft' ? -1 : 1)));
+				this.moveFocusTo(legs[next]);
+				break;
+			}
+			case 'Home':
+			case 'End':
+				e.preventDefault();
+				this.moveFocusTo(e.key === 'Home' ? legs[0] : legs.at(-1));
+				break;
+			case 'Escape':
+			case 'Tab': {
+				// Retreat to the owning pill. Tabbing FORWARD past the legs falls through (leaves the bar).
+				if (e.key === 'Tab' && !e.shiftKey) return;
+
+				const main = leg.closest('.pill')?.querySelector<HTMLElement>('.pill__main');
+				if (main == null) return;
+
+				e.preventDefault();
+				this.moveFocusTo(main);
+				break;
+			}
+		}
+	}
+
+	/** Move managed focus. Keyboard focus owns the scroll position — `focus()` scrolls the control into
+	 *  view, so cancel any in-flight wheel pan first or its RAF would yank scrollLeft back. */
+	private moveFocusTo(el: HTMLElement | undefined): void {
+		if (el == null) return;
+
+		this.cancelWheelPan();
+		el.focus();
+	}
 
 	protected override willUpdate(changedProperties: PropertyValues<this>): void {
 		// Keep the roving tab stop valid and aligned with selection. Without this, two states break
 		// keyboard access: (1) when `items` shrinks below `focusedPillIndex`, no pill matches the
-		// index so every pill renders `tabindex="-1"` and the listbox drops out of the Tab order; and
+		// index so every pill renders `tabindex="-1"` and the bar drops out of the Tab order; and
 		// (2) the tab stop should land on the selected pill (WAI-ARIA APG), not always index 0. Only
 		// the tab stop moves here — actual focus is moved solely by arrow-key navigation (`updated`).
 		if (changedProperties.has('selectedId') && this.selectedId != null) {
@@ -287,24 +421,25 @@ export class GlGraphWipBar extends LitElement {
 	protected override updated(): void {
 		if (!this.pendingFocusUpdate) return;
 
-		// Keyboard focus owns the scroll position: `focus()` scrolls the pill into view, so cancel any
-		// in-flight wheel pan first or its RAF would yank scrollLeft back and fight the focus scroll.
-		this.cancelWheelPan();
-		const el = this.shadowRoot?.querySelector<HTMLElement>(`.pill[data-index="${this.focusedPillIndex}"]`);
-		el?.focus();
+		this.moveFocusTo(
+			this.shadowRoot?.querySelector<HTMLElement>(`.pill__main[data-index="${this.focusedPillIndex}"]`) ??
+				undefined,
+		);
 		this.pendingFocusUpdate = false;
 	}
 
 	override render(): unknown {
-		// Roving tabindex (one focusable item at a time) is the chosen listbox keyboard pattern;
-		// see WAI-ARIA APG. Don't mix with aria-activedescendant.
+		// `toolbar`, not `listbox`: each pill now owns interactive row-marker jump buttons, and `option`
+		// makes its children presentational — the jumps would be dropped from the a11y tree entirely.
+		// A toolbar is the ARIA-valid composite for a roving-tabindex strip of controls and permits both
+		// the per-pill `group` and its buttons; which worktree is selected rides on `aria-current`.
 		return html`
 			<div class="bar" @wheel=${this.wheelListener}>
 				<div
 					class="pills"
-					role="listbox"
+					role="toolbar"
 					aria-orientation="horizontal"
-					aria-label="Working changes"
+					aria-label="Overview"
 					@keydown=${this.onPillsKeyDown}
 				>
 					${repeat(
@@ -317,12 +452,15 @@ export class GlGraphWipBar extends LitElement {
 		`;
 	}
 
-	private renderPill(item: WipBarItem, index: number): unknown {
+	private renderPill(item: OverviewBarItem, index: number): unknown {
 		const isFocused = index === this.focusedPillIndex;
 		const isSelected = this.selectedId === item.id;
 		const hasAgent = item.agent != null;
 		const isDirty = item.hasWorkingChanges === true;
-		const isUnpushed = item.hasUnpushed === true;
+		const ahead = item.ahead ?? 0;
+		// The number-less `↑` and the upstream leg's `N↑` state the same fact, so show the arrow only when
+		// no leg is counting it — a local-only branch, where `ahead` is undefined (nothing to count against).
+		const isUnpushed = item.hasUnpushed === true && ahead === 0;
 		const agentCount = item.agentCount ?? 0;
 		const classes = classMap({
 			pill: true,
@@ -337,54 +475,167 @@ export class GlGraphWipBar extends LitElement {
 		// number-less. The one exception is the agent count, shown only when a worktree is running MORE
 		// than one session — a single session is already implied by the robot itself. (Same rule and
 		// icon+count idiom as the overview card's agents indicator.)
+		//
+		// The chip is a `group` around TWO things: the selectable `.pill__main` button (the roving tab
+		// stop, and the branch hover's anchor) and the always-visible row-marker legs. The hover anchors
+		// to the main button only, so hovering a leg shows that leg's own tooltip instead. Right-click
+		// context sits on the chip so the WIP menu opens from anywhere in it, legs included.
 		return html`
-			<gl-popover
-				trigger="hover focus-visible"
-				placement="bottom"
+			<span
+				class=${classes}
+				role="group"
+				aria-label=${item.branch}
 				data-id=${item.id}
-				@gl-popover-show=${this.onHoverShow}
-				@gl-popover-after-hide=${this.onHoverHide}
+				data-vscode-context=${ifDefined(item.context)}
 			>
-				<span
-					slot="anchor"
-					class=${classes}
+				<gl-popover
+					trigger="hover focus-visible"
+					placement="bottom"
 					data-id=${item.id}
-					data-index=${index}
-					data-vscode-context=${ifDefined(item.context)}
-					@click=${this.onItemClick}
-					@keydown=${this.onItemKeyDown}
-					@mouseenter=${this.onPillHover}
-					@focus=${this.onPillHover}
-					role="option"
-					aria-selected=${isSelected}
-					tabindex=${isFocused ? '0' : '-1'}
+					@gl-popover-show=${this.onHoverShow}
+					@gl-popover-after-hide=${this.onHoverHide}
 				>
-					${isDirty ? html`<span class="pill__dot"></span>` : nothing}${isUnpushed
-						? html`<code-icon class="pill__unpushed-icon" icon="arrow-up"></code-icon>`
-						: nothing}${hasAgent
-						? html`<span class="pill__agent"
-								><code-icon class="pill__agent-icon" icon="robot"></code-icon>${when(
-									agentCount > 1,
-									() => html`<span class="pill__agent-count">${agentCount}</span>`,
-								)}</span
-							>`
-						: nothing}${item.branch}
-				</span>
-				${when(
-					this.hoverShownIds.has(item.id),
-					() => html`<gl-branch-hover
-						slot="content"
-						surface="wip-bar"
-						.branchId=${item.branchId}
-						.fallbackBranch=${item.branchModel}
-						.label=${item.branch}
-						.wip=${item.wip}
-						.wipDetails=${this.statsOnHover}
-						.open=${this.openHoverId === item.id}
-					></gl-branch-hover>`,
-				)}
-			</gl-popover>
+					<button
+						slot="anchor"
+						class="pill__main"
+						type="button"
+						data-id=${item.id}
+						data-index=${index}
+						@click=${this.onItemClick}
+						@mouseenter=${this.onPillHover}
+						@focus=${this.onPillHover}
+						aria-current=${isSelected ? 'true' : nothing}
+						tabindex=${isFocused ? '0' : '-1'}
+					>
+						${isDirty ? html`<span class="pill__dot"></span>` : nothing}${isUnpushed
+							? html`<code-icon class="pill__unpushed-icon" icon="arrow-up"></code-icon>`
+							: nothing}${hasAgent
+							? html`<span class="pill__agent"
+									><code-icon class="pill__agent-icon" icon="robot"></code-icon>${when(
+										agentCount > 1,
+										() => html`<span class="pill__agent-count">${agentCount}</span>`,
+									)}</span
+								>`
+							: nothing}${item.branch}
+					</button>
+					${when(
+						this.hoverShownIds.has(item.id),
+						() => html`<gl-branch-hover
+							slot="content"
+							surface="wip-bar"
+							.branchId=${item.branchId}
+							.fallbackBranch=${item.branchModel}
+							.label=${item.branch}
+							.wip=${item.wip}
+							.wipDetails=${this.statsOnHover}
+							.open=${this.openHoverId === item.id}
+						></gl-branch-hover>`,
+					)}
+				</gl-popover>
+				${this.renderRowMarkers(item)}
+			</span>
 		`;
+	}
+
+	/** The always-visible row-marker legs — the HEAD tip and the upstream ahead/behind — in that fixed
+	 *  order so every pill reads the same way. A leg with a resolvable tip sha is a jump button; one without
+	 *  (a secondary worktree's upstream, which isn't probed) degrades to a plain count indicator. The
+	 *  merge-target leg follows when its tip resolves (it is pulled asynchronously, so it appears a beat later). */
+	private renderRowMarkers(item: OverviewBarItem): unknown {
+		// RowMarker legs are PRIMARY-only: a secondary worktree's WIP row already sits on its branch, so it
+		// has no row markers to point at — and its lone ahead-count leg otherwise flickers in and out as the
+		// worktree metadata re-resolves. (The primary's legs come from stable host-supplied tips.)
+		if (item.isPrimary !== true) return nothing;
+
+		const ahead = item.ahead ?? 0;
+		const behind = item.behind ?? 0;
+		const headSha = item.headSha;
+		const upstreamSha = item.upstreamSha;
+		// A resolvable upstream tip earns a jump leg even at 0/0; otherwise only an ahead count earns one —
+		// the leg can render just `N↑` without a tip, so a behind-only state would show a meaningless `0↑`.
+		const showUpstream = upstreamSha != null || ahead > 0;
+		if (headSha == null && !showUpstream && item.targetSha == null && item.targetName == null) return nothing;
+
+		// Tooltips NAME the row-marker role ("HEAD", "upstream", "merge target") rather than just the ref, so a
+		// leg says what it IS and not only where it goes — the glyphs alone don't carry that. Same vocabulary
+		// as the on-row rail's tooltip, and the ref is kept in parentheses. The "Jump to" prefix is promised
+		// only when the leg can actually perform one (`renderLeg` renders a static indicator without a sha).
+		const upstreamName = item.upstreamName != null ? shortRefName(item.upstreamName) : undefined;
+		const upstreamLabel =
+			upstreamSha != null
+				? `Jump to Upstream${upstreamName != null ? ` (${upstreamName})` : ''} — ${formatTracking(ahead, behind)}`
+				: `Upstream — ${pluralize('unpushed commit', ahead)}`;
+
+		return html`<span class="pill__legs"
+			>${headSha != null
+				? this.renderLeg(
+						'head',
+						headSha,
+						`Jump to HEAD (${item.branch})`,
+						// Legs are primary-only (see the bail above), so this is always the CURRENT worktree's
+						// HEAD — the same `vm-active` glyph the graph's current-branch ref pill uses.
+						html`<code-icon icon="vm-active"></code-icon>`,
+					)
+				: nothing}${showUpstream
+				? this.renderLeg(
+						'upstream',
+						upstreamSha,
+						upstreamLabel,
+						html`<span class="pill__leg-count">${ahead}<code-icon icon="arrow-up"></code-icon></span
+							>${upstreamSha != null
+								? html`<span class="pill__leg-count"
+										>${behind}<code-icon icon="arrow-down"></code-icon
+									></span>`
+								: nothing}`,
+					)
+				: nothing}${item.targetSha != null || item.targetName != null
+				? this.renderLeg(
+						'target',
+						item.targetSha,
+						item.targetName != null
+							? `Jump to Merge Target (${shortRefName(item.targetName)})`
+							: 'Merge Target',
+						html`<code-icon icon="gl-merge-target"></code-icon>${item.targetName != null
+								? html`<span class="pill__leg-label">${shortRefName(item.targetName)}</span>`
+								: nothing}`,
+					)
+				: nothing}</span
+		>`;
+	}
+
+	/** One leg — a managed-focus jump button when its tip sha is known, else a static indicator. Only the
+	 *  button carries `--jump`, which is what the keyboard model treats as a roving stop, so an indicator
+	 *  is never an arrow-key destination.
+	 *
+	 *  Wrapped in `<gl-tooltip>` (not the pill's `<gl-popover>`, which is reserved for the rich branch
+	 *  hover): a native `title` never shows on keyboard focus and can't be dismissed with Escape, both of
+	 *  which the tooltip does — and the legs ARE keyboard destinations. `gl-tooltip` is `display: contents`,
+	 *  so the leg itself stays the flex item of `.pill__legs`. `aria-label` stays on the control and mirrors
+	 *  the tooltip text, so the leg reads the same whether or not the tooltip is rendered. */
+	private renderLeg(
+		kind: 'head' | 'upstream' | 'target',
+		sha: string | undefined,
+		label: string,
+		content: TemplateResult,
+	): TemplateResult {
+		if (sha == null) {
+			return html`<gl-tooltip content=${label} placement="bottom"
+				><span class="pill__leg pill__leg--${kind}" aria-label=${label} role="img">${content}</span></gl-tooltip
+			>`;
+		}
+
+		return html`<gl-tooltip content=${label} placement="bottom"
+			><button
+				class="pill__leg pill__leg--${kind} pill__leg--jump"
+				type="button"
+				tabindex="-1"
+				data-sha=${sha}
+				aria-label=${label}
+				@click=${this.onLegClick}
+			>
+				${content}
+			</button></gl-tooltip
+		>`;
 	}
 
 	// Stable handlers (bound once) that read the pill id off the popover's `data-id`, so the template
@@ -413,6 +664,6 @@ export class GlGraphWipBar extends LitElement {
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'gl-graph-wip-bar': GlGraphWipBar;
+		'gl-graph-overview-bar': GlGraphOverviewBar;
 	}
 }

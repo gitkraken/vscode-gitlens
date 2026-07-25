@@ -110,6 +110,18 @@ export interface AppState extends State {
 	 */
 	resolveScopeMergeBase(scope: GraphScope): Promise<void>;
 
+	/** The current branch's merge-target tip + name — row marker's merge-target role/segment. Resolved
+	 *  async on load (and re-resolved on ref move) via the shared scope-anchor pipeline, so it lands after
+	 *  the initial paint and is absent when there's no real target (default branch / detached). */
+	rowMarkerMergeTarget: { sha: string; name?: string } | undefined;
+
+	/**
+	 * Resolve (or refresh) `rowMarkerMergeTarget` for the current branch through the shared
+	 * scope-anchor cache. Idempotent + self-deduping per branch id, so callers can invoke it freely
+	 * (e.g. every render); a ref-move invalidation re-arms it. Non-blocking — the tip lands later.
+	 */
+	ensureRowMarkerMergeTarget(): void;
+
 	/**
 	 * Defer clearing the current scope until the next `DidChangeRefsVisibilityNotification` lands —
 	 * coalesces the scope clear with the filter visibility update so a mode/filter change produces

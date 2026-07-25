@@ -1009,6 +1009,21 @@ gl-lit-graph {
 	.gl-graph__row-actions--has-persistent .gl-graph__row-action {
 		pointer-events: auto;
 	}
+	// The WIP row's row-marker decorator is a reused ref pill (not a `.gl-graph__row-action`), so restore
+	// its interactivity under the strip's at-rest `pointer-events: none`. The right margin holds it off the
+	// action buttons that reveal to its right on hover/selection.
+	.gl-graph__row-actions--has-row-marker .gl-graph__ref-pill {
+		pointer-events: auto;
+		margin-inline-end: 0.6rem;
+	}
+
+	// Row-marker decorator present (only the primary WIP row's jump pill sets this — tip rows' rails are
+	// not strip members): drop the strip's at-rest backdrop. The pill carries its own chrome, so nothing
+	// needs fading behind it — the row keeps its date/sha readable until the buttons actually reveal, at
+	// which point the reveal rules above (higher specificity) restore the standard gradient.
+	.gl-graph__row-actions--has-row-marker {
+		background: none;
+	}
 	// Gated buttons: hidden + out of the tab order / a11y tree at rest (`display:none` reserves no space,
 	// so the strip is only as wide as its persistent buttons until revealed)...
 	.gl-graph__row-actions--has-persistent .gl-graph__row-action--gated {
@@ -1097,50 +1112,14 @@ gl-lit-graph {
 		background: linear-gradient(0deg, var(--row-selection-bg), var(--row-selection-bg)), hsl(var(--background));
 	}
 
-	.gl-graph__anchor {
-		position: absolute;
-		left: 0;
-		top: 0;
-		height: 100%;
-		width: 0.2rem;
-		pointer-events: none;
+	// NOTE: the scope anchor's own thin left-edge rail (`.gl-graph__anchor`) is GONE — its roles are folded
+	// into the row-marker rail below (`scopeAnchorRoles`/`combineRowMarkerRoles`), so a scoped graph draws
+	// ONE left-edge indicator instead of two misaligned ones marking the same row in the same purple. The
+	// per-row resting TINT (`.is-anchor--*` above) and the inline marker chips (`.gl-graph__anchor-pill`)
+	// are unchanged — only the duplicate rail went away.
 
-		&--focal {
-			width: 0.3rem;
-			background-color: hsl(var(--brand));
-		}
-		&--fork {
-			background-color: var(--vscode-descriptionForeground, #8b949e);
-		}
-		&--target {
-			background-color: var(--vscode-charts-purple, #b180d7);
-		}
-		// Target row that is ALSO the fork point (merge-base === target tip — a branch purely ahead of
-		// its target). Target look wins (colored), but the rail splits purple (target, top) over the
-		// muted base gray (fork, bottom) and widens, so both roles read at a glance; tooltip spells it out.
-		&--target.gl-graph__anchor--also-fork {
-			width: 3px;
-			background-color: transparent;
-			background-image: linear-gradient(
-				to bottom,
-				var(--vscode-charts-purple, #b180d7) 0,
-				var(--vscode-charts-purple, #b180d7) 50%,
-				var(--vscode-descriptionForeground, #8b949e) 50%,
-				var(--vscode-descriptionForeground, #8b949e) 100%
-			);
-		}
-		&--generic {
-			background-color: hsl(var(--status-warning));
-		}
-	}
-	// When the row is also selected, offset the anchor rail past the selection accent (3px)
-	// so both are visible (mirrors the React renderer's `left: isSelected ? 4 : 0`).
-	.gl-graph__row.is-selected .gl-graph__anchor {
-		left: 0.4rem;
-	}
-
-	// Scope-anchor marker pill (legacy "TARGET" parity) — a small colored chip before the branch pills
-	// so the anchor's meaning is legible without decoding the thin rail. Color matches the rail per kind.
+	// Scope-anchor marker pill — a small colored chip before the branch pills, so the anchor's meaning is
+	// legible without decoding the thin rail (legacy "TARGET" parity). Color matches the rail per kind.
 	.gl-graph__anchor-pill {
 		display: inline-flex;
 		flex-shrink: 0;
@@ -1150,19 +1129,244 @@ gl-lit-graph {
 		// Dotted outline (no fill) — reads as a synthetic scope annotation, NOT a real ref pill (those
 		// are solid). border-color inherits the kind color via currentColor.
 		border: 1px dotted currentColor;
-		padding: 0.1rem 0.5rem;
+		// Height MATCHES the branch ref pill it sits beside, and by construction rather than a tuned number:
+		// in both pills the ICON is the tallest box (1.2rem > the text's line-height:1 em box), so identical
+		// icon size + identical block padding + a 1px border on each ⇒ identical total height (1.2 + 0.6 +
+		// 2px). Only the DECORATIVE differences remain (dotted border, uppercase, smaller 0.9rem text), so
+		// the chip still reads as an annotation without sitting short next to the branch pills.
+		padding: 0.3rem 0.5rem;
 		font-size: 0.9rem;
 		font-weight: 600;
 		line-height: 1;
 		text-transform: uppercase;
 		letter-spacing: 0.02em;
-		--code-icon-size: 1.1rem;
+		--code-icon-size: 1.2rem;
 
 		&--target {
 			color: var(--vscode-charts-purple, #b180d7);
 		}
 		&--fork {
 			color: var(--vscode-descriptionForeground, #8b949e);
+		}
+	}
+
+	// Muted connector band tying the bar to the row's node dot: a thin horizontal band at the row's vertical
+	// center, from the bar's right edge across to the dot center. Geometry is the row's own STATIC vars — the
+	// dot's x-from-row-left is `--row-graph-left + --row-lane-lead + --row-lane-x` (the same lead+lane math the
+	// lane band uses), so `left` starts just past the bar and `width` reaches the dot. Uses the LOGICAL
+	// `--row-lane-x` (not the h-scroll-tracked `--gutter-node-x`), so it never rewrites on scroll; `z-index:-1`
+	// paints it over the row's state background but behind the lane art (like `.is-graph-band`). Non-interactive.
+	.gl-graph__row-marker-connector {
+		position: absolute;
+		left: calc(var(--row-graph-left, 0px) + 0.3rem);
+		top: 0;
+		width: max(0px, calc(var(--row-lane-lead, 0px) + var(--row-lane-x, 0px) - 0.3rem));
+		height: 100%;
+		z-index: -1;
+		pointer-events: none;
+	}
+
+	.gl-graph__row-marker-connector--head {
+		background-color: color-mix(in srgb, var(--gl-row-marker-head) 30%, transparent);
+	}
+
+	.gl-graph__row-marker-connector--upstream {
+		background-color: color-mix(in srgb, var(--gl-row-marker-upstream) 30%, transparent);
+	}
+
+	.gl-graph__row-marker-connector--target {
+		background-color: color-mix(in srgb, var(--gl-row-marker-target) 30%, transparent);
+	}
+
+	.gl-graph__row-marker-connector--focal {
+		background-color: color-mix(in srgb, var(--gl-row-marker-focal) 30%, transparent);
+	}
+
+	.gl-graph__row-marker-connector--base {
+		background-color: color-mix(in srgb, var(--gl-row-marker-base) 30%, transparent);
+	}
+
+	// On-row row-marker indicator (HEAD / upstream / merge-target rows) — a colored VERTICAL BAR pinned at
+	// the left edge of the graph column (`--row-graph-left`), a direct child of the row (sibling of the anchor
+	// rail), NOT a strip member. AT REST a thin role-colored bar (a grouped row splits it into equal role
+	// segments, top→bottom). It EXPANDS rightward over the lanes into a role-COLORED pill (each segment filled
+	// with its role color) — a bold continuation of the bar — on two PURE-CSS triggers (no JS, nothing on the
+	// scroll path; see the flash rules below). Decorative (`aria-hidden`) — the roles ride the row's aria-label.
+	.gl-graph__row-marker-rail {
+		position: absolute;
+		left: var(--row-graph-left, 0);
+		top: 0;
+		display: flex;
+		align-items: stretch;
+		height: 100%;
+		// A transparent hit zone wider than the ~0.3rem bar so the indicator is hoverable — kept minimal so it
+		// clears the first lane dot (~1.7rem from the lane origin); a click here has no `data-sha`, so it walks
+		// up to the row and selects it (lane-collapse dots sit further right and stay clickable).
+		min-width: 1.4rem;
+		overflow: hidden;
+		// Above the lane art (z 0) AND above the row's focus ring (`is-focused::after`, z 5) so the bar and its
+		// flyout read ON TOP of the focus rect instead of being clipped under it (still below the
+		// sticky-timeline pill at 15).
+		z-index: 6;
+		pointer-events: auto;
+		border-radius: 0.3rem;
+		background-color: transparent;
+		transition: box-shadow 0.24s ease;
+	}
+
+	// The resting bar: a thin vertical stack of role swatches (one when a single role; split equally when the
+	// row plays several). Stays visible as a colored left spine when the pill expands.
+	.gl-graph__row-marker-rail-bar {
+		display: flex;
+		flex: 0 0 0.3rem;
+		flex-direction: column;
+		align-self: stretch;
+		width: 0.3rem;
+		overflow: hidden;
+		// No radius of its own — the rail's `overflow:hidden` + `border-radius` rounds only the OUTER corners
+		// (left of the bar, right of the expanded pill), so the bar→pill junction stays square and flush.
+	}
+
+	.gl-graph__row-marker-rail-swatch {
+		flex: 1 1 0;
+		min-height: 0;
+	}
+
+	.gl-graph__row-marker-rail-swatch--head {
+		background-color: var(--gl-row-marker-head);
+	}
+
+	.gl-graph__row-marker-rail-swatch--upstream {
+		background-color: var(--gl-row-marker-upstream);
+	}
+
+	.gl-graph__row-marker-rail-swatch--target {
+		background-color: var(--gl-row-marker-target);
+	}
+
+	// Scope-anchor roles, folded into the same rail: the focal branch tip keeps the scope's brand color and
+	// the fork point / merge base its muted grey, so scoping reads exactly as it did — just in one rail.
+	.gl-graph__row-marker-rail-swatch--focal {
+		background-color: var(--gl-row-marker-focal);
+	}
+
+	.gl-graph__row-marker-rail-swatch--base {
+		background-color: var(--gl-row-marker-base);
+	}
+
+	// The expand-out pill content — collapsed by max-width (not display) at rest so it animates in place and
+	// the resting rail reserves nothing for it beyond the bar. Reveals to the RIGHT of the bar on expand.
+	.gl-graph__row-marker-rail-pill {
+		display: grid;
+		grid-template-columns: 0fr;
+		align-items: stretch;
+		font-size: 0.9rem;
+		font-weight: 600;
+		line-height: 1;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+		white-space: nowrap;
+		// Slide via a grid track 0fr → 1fr (animates to the content's EXACT width — no front-load). Easing +
+		// duration match the sticky-timeline pill EXACTLY (`ease`, 0.28s) so it glides the same way. Pure
+		// transition — reversing on un-hover slides it back IN; NO keyframe (a keyframe on this same property
+		// fought the transition, which is what made it jump / never slide back).
+		transition: grid-template-columns 0.28s ease;
+		--code-icon-size: 1.1rem;
+	}
+
+	// The single grid item — clips the content as the track collapses. `min-width: 0` lets the track reach 0.
+	.gl-graph__row-marker-rail-pill-inner {
+		display: flex;
+		align-items: stretch;
+		min-width: 0;
+		overflow: hidden;
+		// Fade the content with the slide, matching the sticky-timeline span (`opacity 0.2s ease`).
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+
+	// One segment per role the row plays — a row that is BOTH HEAD and its (in-sync) upstream stays ONE pill
+	// with two compartments. Each fills with its ROLE color and knocks its text out in the editor background
+	// (a token that contrasts the charts color in BOTH themes — the charts palette is defined to be legible
+	// against it), so the pill reads as a bold continuation of the bar rather than muted widget chrome.
+	.gl-graph__row-marker-rail-seg {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		padding: 0 0.6rem;
+		color: var(--vscode-editor-background);
+	}
+
+	// Divider between grouped segments — a translucent knockout hairline so it reads on any role fill.
+	.gl-graph__row-marker-rail-seg + .gl-graph__row-marker-rail-seg {
+		border-left: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-editor-background) 45%, transparent);
+	}
+
+	// Spacing as a child MARGIN, not a flex `gap`: a gap wouldn't collapse against the (max-width:0) content
+	// at rest and would strand dead space in the resting bar.
+	.gl-graph__row-marker-rail-label {
+		margin-left: 0.4rem;
+	}
+
+	// Per-role fill (the same charts tokens as the swatch bar), so the expanded segment is a continuation of
+	// its swatch. Text/icon stay knocked out (the seg `color` above).
+	.gl-graph__row-marker-rail-seg--head {
+		background-color: var(--gl-row-marker-head);
+	}
+
+	.gl-graph__row-marker-rail-seg--upstream {
+		background-color: var(--gl-row-marker-upstream);
+	}
+
+	.gl-graph__row-marker-rail-seg--target {
+		background-color: var(--gl-row-marker-target);
+	}
+
+	.gl-graph__row-marker-rail-seg--focal {
+		background-color: var(--gl-row-marker-focal);
+	}
+
+	.gl-graph__row-marker-rail-seg--base {
+		background-color: var(--gl-row-marker-base);
+	}
+
+	// Expand ONLY on hovering the indicator ITSELF (its widened hit zone) — not the row — so it neither reads as
+	// a row hover nor triggers the row's commit hover-card (the rail also stops its own pointer events in
+	// gl-lit-graph so the card stays closed). Pure CSS transition, no keyframe: hovering slides the pill out,
+	// un-hovering reverses the SAME transition to slide it back in — identical `ease`/0.28s glide to the
+	// sticky-timeline pill, consistent every time.
+	.gl-graph__row-marker-rail:hover {
+		box-shadow:
+			0 0 0 var(--gl-border-width) var(--vscode-editorWidget-border, var(--vscode-widget-border)),
+			0 0.2rem 0.6rem var(--vscode-widget-shadow);
+	}
+
+	.gl-graph__row-marker-rail:hover .gl-graph__row-marker-rail-pill {
+		grid-template-columns: 1fr;
+	}
+
+	.gl-graph__row-marker-rail:hover .gl-graph__row-marker-rail-pill-inner {
+		opacity: 1;
+	}
+
+	// Auto-show flash: a brief timed reveal driven by a `.is-flash` class the row toggles (on hover-ENTER of a
+	// tip row and on selecting one — both event-driven, off the scroll path, CSSOM-only like the sticky
+	// timeline). It glides the pill open, then — when the timeout clears the class — back closed via the SAME
+	// transition. Band `:hover` above still HOLDS it open, so hovering the bar/band keeps it out while a plain
+	// row hover or a select only flashes it in and out.
+	.gl-graph__row-marker-rail.is-flash .gl-graph__row-marker-rail-pill {
+		grid-template-columns: 1fr;
+	}
+
+	.gl-graph__row-marker-rail.is-flash .gl-graph__row-marker-rail-pill-inner {
+		opacity: 1;
+	}
+
+	// Reduced motion: expand instantly on hover, no glide.
+	@media (prefers-reduced-motion: reduce) {
+		.gl-graph__row-marker-rail-pill,
+		.gl-graph__row-marker-rail-pill-inner {
+			transition: none;
 		}
 	}
 
@@ -2547,6 +2751,133 @@ gl-lit-graph {
 			box-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
 		}
 	}
+
+	// Row-marker role emphasis: a pill on a HEAD / upstream tip row is INVERTED — the role color becomes its
+	// resting FILL with the text/icon knocked out in the editor background (the same theme-safe knockout the
+	// rail segments use — the charts palette is defined to be legible against it), so a HEAD/upstream pill
+	// reads as filled where an ordinary ref pill is hollow. The border keeps the lane color (`--ref-border`,
+	// from refStyle) so the commit's lane stays legible. HEAD → green (+ its `vm-active` icon), upstream →
+	// blue; the merge-target row keeps a subtle purple tint (it's rarely a standalone tip pill). Colors are
+	// theme tokens, keyed by role here (never inlined in TS). NOTE: fill strength is the part most likely to
+	// want live tuning (see spec).
+	// DIRECT background-color/color/border-color, NOT the `--ref-*` custom props: refStyle() sets those props
+	// INLINE on the pill, and an inline custom prop beats a class's custom-prop override — so a `--ref-bg:`
+	// here would be dead (which is exactly why the earlier tint never showed). A real `background-color`
+	// declaration has no inline competitor, so it wins over the base rule's `var(--ref-bg)`. Both rest AND
+	// :hover set them (the base `:hover` fills via `var(--ref-color)`, so the role must re-assert on hover).
+	// The role fill, per role — everything below reads `--row-marker-fill`, so the two roles differ by ONE line.
+	.gl-graph__ref-pill--row-marker-head {
+		--row-marker-fill: var(--gl-row-marker-head);
+	}
+	.gl-graph__ref-pill--row-marker-upstream {
+		--row-marker-fill: var(--gl-row-marker-upstream);
+	}
+
+	// ROLE FILL INSIDE, LANE RING AROUND: the role color owns the pill's interior and the lane color becomes
+	// its ring, so the commit's lane stays readable WITHOUT the fill having to change. Critically the role
+	// holds through :hover / :focus-within / selection — previously the pill flipped from its role color to
+	// the lane color mid-interaction, which is the jarring part: hover swapped the meaning of the color.
+	.gl-graph__ref-pill--row-marker-head,
+	.gl-graph__ref-pill--row-marker-upstream {
+		background-color: var(--row-marker-fill);
+		// Solid lane color, NOT the alpha'd `--ref-border` — the ring has to carry the lane on its own now.
+		border-color: var(--ref-color);
+		color: var(--vscode-editor-background);
+
+		&:hover {
+			background-color: var(--row-marker-fill);
+			border-color: var(--ref-color);
+			color: var(--vscode-editor-background);
+		}
+
+		// The hover-expand overlay is a SEPARATE filled box painted on top of the pill, and it fills with
+		// `--ref-color` (the lane) — so without this the pill still visibly flipped to the lane color the
+		// moment it expanded, even though the resting pill above no longer does.
+		.gl-graph__ref-pill-expand {
+			background-color: var(--row-marker-fill);
+			border-color: var(--ref-color);
+			color: var(--vscode-editor-background);
+		}
+
+		// The inner segments' hover rule knocks text out in `--ref-on-color`, which is the contrast color
+		// computed for the LANE fill — wrong now that the fill is the role color. Knock them out against the
+		// role fill instead, matching the pill's own text.
+		&:is(:hover, :focus-within) .gl-graph__ref-pill-upstream,
+		&:is(:hover, :focus-within) .gl-graph__ref-pill-more-group,
+		&:is(:hover, :focus-within) .gl-graph__ref-pill-more,
+		.gl-graph__ref-pill-expand .gl-graph__ref-pill-more {
+			color: var(--vscode-editor-background);
+		}
+	}
+	// NOTE: there is deliberately NO `--row-marker-target` (or `-focal`/`-base`) pill rule — a merge-target / base
+	// row's branch pill stays an ORDINARY lane-colored ref pill (the rail + marker chip already call the row
+	// out; recoloring the pill implied the PILL was the target rather than a branch sitting on that commit).
+	// Only HEAD and upstream take emphasis, and `renderRefPill` only ever emits those two classes.
+
+	// The split-segment divider (`border-left` = `--ref-border` = the lane color) vanishes into the inverted
+	// pill's solid fill — knock it out in the editor background so the separator between name and the
+	// merge-target / upstream / +N segment reads. Excludes the muted pill (handled greyscale below).
+	.gl-graph__ref-pill--row-marker-head:not(.gl-graph__ref-pill--row-marker-muted),
+	.gl-graph__ref-pill--row-marker-upstream {
+		.gl-graph__ref-pill-upstream,
+		.gl-graph__ref-pill-more-group {
+			border-left-color: color-mix(in srgb, var(--vscode-editor-background) 50%, transparent);
+		}
+	}
+
+	// Muted variant (the WIP-row pill): GREYSCALE + neutral, so it reads as a plain secondary decorator next
+	// to the fully-inverted, role-colored pill on the HEAD row. Single class (role-agnostic) that wins over
+	// the role classes by source order; direct properties (an inline `--ref-*` would clobber a custom prop).
+	.gl-graph__ref-pill--row-marker-muted {
+		background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+		border-color: color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
+		color: var(--vscode-descriptionForeground, var(--vscode-foreground));
+
+		// …but once you interact with it, it takes its ROLE color (HEAD green) like any other emphasis pill —
+		// grey is only its RESTING, secondary state. Same fill + lane ring as the rules above, so hovering the
+		// WIP pill and hovering the real HEAD-row pill land on the same appearance.
+		&:hover {
+			background-color: var(--row-marker-fill);
+			border-color: var(--ref-color);
+			color: var(--vscode-editor-background);
+		}
+
+		.gl-graph__ref-pill-expand {
+			background-color: var(--row-marker-fill);
+			border-color: var(--ref-color);
+			color: var(--vscode-editor-background);
+		}
+
+		// The split segments (merge-target glyph + upstream) track the pill's OWN color in every mode — no
+		// special colorization — so the whole chip reads as one unit at rest and on hover alike. Only the
+		// divider is toned to a neutral hairline (it otherwise reads lane-bright).
+		.gl-graph__ref-pill-target,
+		.gl-graph__ref-pill-upstream {
+			color: inherit;
+		}
+		.gl-graph__ref-pill-upstream,
+		.gl-graph__ref-pill-more-group {
+			border-left-color: color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
+		}
+	}
+
+	// The HEAD pill's merge-target jump segment — purple, reusing the split-upstream segment chrome (divider,
+	// sizing, hover). Icon-only at rest; the name reveals in the hover-expand overlay copy.
+	.gl-graph__ref-pill-target {
+		color: var(--vscode-charts-purple, #b180d7);
+	}
+	.gl-graph__ref-pill-target-label {
+		margin-inline-start: 0.4rem;
+	}
+
+	// Right-anchored hover-expand overlay: the WIP row's far-right slot clips a left-anchored overlay
+	// (the default extends rightward over the message), so this variant pins the overlay's RIGHT edge to the
+	// pill and lets it grow LEFTWARD instead.
+	.gl-graph__ref-pill--expand-right .gl-graph__ref-pill-expand {
+		right: -1px;
+		left: auto;
+	}
+
 	.gl-graph__ref-pill-main {
 		// Grid, not flex: `minmax(0, 1fr)` zeroes the label track's min-content contribution — the one
 		// thing flex CAN'T express (a flex item contributes its own min-content, and the label is nowrap,
@@ -3276,6 +3607,27 @@ gl-lit-graph {
 	// the editor foreground (which flips with the theme) at low alpha, matching the `--color-graph-text-*`
 	// neutrals above so it reads as a subtle recess in both light + dark themes.
 	--color-graph-stats-track: color-mix(in srgb, transparent 82%, var(--color-graph-text-selected));
+
+	// ROW-MARKER role palette — the one place the "where am I" vocabulary's colors are defined, so the rail,
+	// the ref-pill emphasis, and the overview bar's legs can never drift. Inherited custom properties pierce
+	// shadow DOM, so the overview-bar component reads these too.
+	//
+	// HEAD and its UPSTREAM are one branch in two places, so they're one hue FAMILY — a synced branch (where
+	// they collapse onto the same row) then reads as a single coherent unit instead of two unrelated colors
+	// jammed together, with upstream shifted COOLER rather than merely dimmed (dimming reads as "disabled",
+	// and upstream isn't less important than HEAD, just elsewhere).
+	//
+	// Both alias the SCROLL-MARKER tokens rather than the charts palette, so the graph says the same thing in
+	// one color everywhere: the marker on the scroll rail, the minimap tick, the row's rail, and the ref pill
+	// are all one row-marker. Those tokens are also user-themeable (`gitlens.graphScrollMarkerHeadColor` /
+	// `…UpstreamColor`), so a customized theme carries through here for free — which a `--vscode-charts-*`
+	// derivation could not do, and a color-mix against `charts-blue` would actively drift away from.
+	// Merge target / focus / base are genuinely different KINDS of thing, so they keep their own hues.
+	--gl-row-marker-head: var(--color-graph-scroll-marker-head);
+	--gl-row-marker-upstream: var(--color-graph-scroll-marker-upstream);
+	--gl-row-marker-target: var(--vscode-charts-purple, #b180d7);
+	--gl-row-marker-focal: hsl(var(--brand));
+	--gl-row-marker-base: var(--vscode-descriptionForeground, #8b949e);
 
 	--color-graph-minimap-line0: var(--vscode-progressBar-background);
 	--color-graph-minimap-focusLine: var(--vscode-foreground);

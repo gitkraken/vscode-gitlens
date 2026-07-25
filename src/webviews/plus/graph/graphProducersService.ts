@@ -671,6 +671,16 @@ export class GraphProducersService {
 			if (existingPr != null) {
 				branchState.pr = existingPr;
 			}
+
+			// Preserve the upstream tip sha for the same reason — the fast path never computes it (only the
+			// full state build does), so without this the overview bar's upstream jump leg would lose its
+			// target on every branch-state-only pass. The next full build refreshes it. ONLY for the SAME
+			// upstream: after a branch switch the previous branch's tip is a wrong (and jumpable) answer,
+			// so drop it and let the full build supply the new one.
+			const last = this._lastSentBranchState;
+			if (last?.upstreamSha != null && last.upstream === branchState.upstream) {
+				branchState.upstreamSha = last.upstreamSha;
+			}
 		}
 
 		if (cancellation.token.isCancellationRequested) return;

@@ -1,6 +1,6 @@
 import { css } from 'lit';
 
-export const wipBarStyles = css`
+export const overviewBarStyles = css`
 	:host {
 		display: block;
 		flex: 0 0 auto;
@@ -36,24 +36,26 @@ export const wipBarStyles = css`
 		padding: var(--gl-space-6) var(--gl-space-8);
 	}
 
-	/* The popover wraps each pill in an anchor box, so the pill is no longer the flex item — restore
-	   its sizing there. (gl-popover's own [slot='anchor'] is width: fit-content.) */
-	gl-popover {
-		flex: 0 0 auto;
-	}
-
+	/* The chip is the flex item; the popover only wraps the chip's main button (so hovering an
+	   row-marker leg shows that leg's own tooltip instead of the branch hover). */
 	.pill {
 		display: inline-flex;
+		flex: 0 0 auto;
 		gap: 0.35rem;
 		align-items: center;
 		padding: 0.15rem 0.55rem;
 		font-size: 1.05rem;
 		line-height: 1.5;
 		white-space: nowrap;
-		cursor: pointer;
 		background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
 		border: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
 		border-radius: var(--gl-radius-sm);
+	}
+
+	/* The popover wraps the main button in an anchor box, so that button is no longer the flex item —
+	   restore its sizing there. (gl-popover's own [slot='anchor'] is width: fit-content.) */
+	gl-popover {
+		flex: 0 0 auto;
 	}
 
 	/* Give icons the same line box as the text so flex centering is exact — must inherit BOTH (a unitless
@@ -73,11 +75,24 @@ export const wipBarStyles = css`
 		border-color: var(--vscode-focusBorder);
 	}
 
-	/* Fully inset: the popover's anchor wrapper is overflow: hidden, so an outline drawn even 1px
-	   outside the pill's border box would be clipped to a hairline on one side. */
 	.pill--selected {
 		outline: 2px solid var(--vscode-focusBorder);
 		outline-offset: -2px;
+	}
+
+	/* The selectable part of the chip: the roving tab stop, and the only control that opens the branch
+	   hover. Unstyled as a button — the chip carries the visuals. */
+	.pill__main {
+		display: inline-flex;
+		gap: 0.35rem;
+		align-items: center;
+		padding: 0;
+		font: inherit;
+		color: inherit;
+		white-space: nowrap;
+		cursor: pointer;
+		background: none;
+		border: none;
 	}
 
 	.pill__dot {
@@ -103,7 +118,7 @@ export const wipBarStyles = css`
 	/* Unpushed indicator — shares the canonical ahead/unpublished color (theme.scss :root token), the
 	   same one the scope pane uses for unpushed commits. */
 	.pill__unpushed-icon {
-		color: var(--gl-tracking-ahead, #4ec9b0);
+		color: var(--gl-tracking-ahead);
 	}
 
 	/* Pill icon shares the canonical agent palette (theme.scss :root tokens, always present in webviews —
@@ -118,5 +133,66 @@ export const wipBarStyles = css`
 
 	.pill--agent-needs-input .pill__agent {
 		color: var(--gl-agent-waiting-color);
+	}
+
+	/* ROW-MARKER LEGS — always visible at rest (a deliberate product decision: the bar is the persistent
+	   "where am I" home, so its jumps must not be hover-reveal). Separated from the branch name by a hair-
+	   line so the chip still reads as one unit. */
+	.pill__legs {
+		display: inline-flex;
+		gap: 0.3rem;
+		align-items: center;
+		padding-inline-start: 0.35rem;
+		border-inline-start: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
+	}
+
+	.pill__leg {
+		display: inline-flex;
+		gap: 0.2rem;
+		align-items: center;
+		padding: 0 0.2rem;
+		font: inherit;
+		font-variant-numeric: tabular-nums;
+		line-height: inherit;
+		color: inherit;
+		background: none;
+		border: none;
+		border-radius: var(--gl-radius-xs);
+	}
+
+	.pill__leg--jump {
+		cursor: pointer;
+	}
+
+	.pill__leg--jump:hover {
+		background: color-mix(in srgb, currentcolor 20%, transparent);
+	}
+
+	/* Kind colors follow the graph's own row-marker-role vocabulary: HEAD green, upstream a cooler green (same branch, elsewhere), merge-target purple. */
+	.pill__leg--head {
+		color: var(--gl-row-marker-head, var(--vscode-charts-green));
+	}
+
+	.pill__leg--upstream {
+		color: var(--gl-row-marker-upstream, var(--vscode-charts-blue));
+	}
+
+	.pill__leg--target {
+		color: var(--gl-row-marker-target, var(--vscode-charts-purple));
+	}
+
+	/* The merge-target leg names its branch (e.g. main) — ellipsize if long. */
+	.pill__leg-label {
+		max-width: 12rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* Ahead and behind read as one figure each — icon glued to its own count. */
+	.pill__leg-count {
+		display: inline-flex;
+		gap: 0.1rem;
+		align-items: center;
 	}
 `;

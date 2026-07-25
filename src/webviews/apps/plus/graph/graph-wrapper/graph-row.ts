@@ -34,6 +34,17 @@ import type { RunningOperationBucket } from '../components/detailsState.js';
 import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOperationStatus.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { agentIndicatorTooltipFor } from '../components/wipRowAgentStatus.js';
+import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
+import {
+	combineRowMarkerRoles,
+	isPrimaryWipRow,
+	primaryRowMarkerRole,
+	rowMarkerRolesAriaLabel,
+	rowMarkerRolesFor,
+	rowMarkerRoleSpecs,
+	rowMarkerRolesTooltip,
+	scopeAnchorRoles,
+} from '../utils/rowMarker.utils.js';
 import type { GutterCache } from './graph-gutter-cache.js';
 import type { NodeStyle } from './graph-gutter.js';
 import { nodeRadiusFor } from './graph-gutter.js';
@@ -144,6 +155,18 @@ export interface RowRenderContext {
 	/** Commit/merge-only: a WIP/workdir row sits on this commit (it's a worktree branch tip) — gates the
 	 *  Jump to Working Changes action (the inverse of the WIP row's Jump to Branch Tip). */
 	hasWipRow?: boolean;
+	/** The current worktree's row-marker tips (HEAD / upstream / merge-target shas + the target name). The
+	 *  SAME object on every row — rows resolve their own role from it by sha (`rowMarkerRolesFor`, a
+	 *  no-alloc bitmask check), so only the handful of marked rows render the left-edge rail — up to 5 when a scope
+	 *  is active (HEAD / upstream / target / focus / base). Undefined until the
+	 *  client builds it (from `this.headSha` + the upstream/merge-target tips) — the rail then renders
+	 *  nothing. */
+	rowMarkerTips?: RowMarkerTips;
+	/** Prebuilt row-marker ref pill for the PRIMARY WIP row (`renderRefPill` sourced from the HEAD row's
+	 *  refs, right-anchored). gl-lit-graph builds it once per render and threads it here; `renderRowActions`
+	 *  places it as the leading strip member on the primary WIP row only. Undefined when it shouldn't show
+	 *  (HEAD row unloaded, or HEAD directly adjacent to the WIP row). */
+	wipRowMarkerPill?: TemplateResult;
 	/** Right-click context for the author avatar zone (contributor menu) — stamped on the avatar element
 	 *  itself so it's NEARER than the row's own `commit.contextData` and wins there. */
 	avatarVscodeContext?: string;
@@ -224,27 +247,16 @@ function cachedInitials(name: string): string {
 	return value;
 }
 
-function anchorTitle(kind: RowRenderContext['anchorKind'], alsoFork?: boolean): string {
-	switch (kind) {
-		case 'focal':
-			return 'Focus branch tip';
-		case 'fork':
-			return 'Fork point';
-		case 'target':
-			return alsoFork === true ? 'Merge target & fork point' : 'Merge target';
-		default:
-			return 'Scope anchor';
-	}
-}
-
-// Scope-anchor marker pills (legacy "TARGET" parity): a labeled, colored chip rendered BEFORE the
-// branch pills so the thin rail isn't the only cue for what an anchor row is. Target wins as the primary
-// label; when a row is also the fork point a "Base" chip follows. The focal tip is skipped — its own
-// branch pill already names it.
+// Scope-anchor marker pills: a labeled, colored chip rendered BEFORE the branch pills so the thin rail
+// isn't the only cue for what a row is (legacy "TARGET" parity). Target wins as the primary label; when a
+// row is also the fork point a "Base" chip follows. The focal tip is skipped — its own branch pill already
+// names it. Inert (never a control): these annotate the row the user is already looking at.
 function anchorMarkerPill(kind: 'fork' | 'target', icon: string, label: string): TemplateResult {
+	const tooltip = label === 'Target' ? 'Merge Target' : 'Fork Point (Base)';
 	return html`<span
 		class="gl-graph__anchor-pill gl-graph__anchor-pill--${kind}"
-		data-tooltip=${label === 'Target' ? 'Merge target' : 'Fork point (base)'}
+		aria-hidden="true"
+		data-tooltip=${tooltip}
 		><code-icon icon=${icon}></code-icon><span class="gl-graph__anchor-pill-label">${label}</span></span
 	>`;
 }
@@ -253,7 +265,7 @@ function renderAnchorMarkers(ctx: RowRenderContext): TemplateResult | typeof not
 	if (!ctx.isAnchor) return nothing;
 
 	if (ctx.anchorKind === 'target') {
-		const target = anchorMarkerPill('target', 'target', 'Target');
+		const target = anchorMarkerPill('target', 'gl-merge-target', 'Target');
 		return ctx.anchorAlsoFork ? html`${target}${anchorMarkerPill('fork', 'git-merge', 'Base')}` : target;
 	}
 	if (ctx.anchorKind === 'fork') {
@@ -262,8 +274,59 @@ function renderAnchorMarkers(ctx: RowRenderContext): TemplateResult | typeof not
 	return nothing;
 }
 
+/** The on-row row-marker indicator: a colored VERTICAL BAR pinned at the left edge of the graph column
+ *  (`--row-graph-left`), rendered as a direct child of the row (a sibling of the anchor rail), NOT a member
+ *  of the row-action strip. One bar carries every role the row plays — so a row that is HEAD *and* its
+ *  (in-sync) upstream splits the bar into equal role-colored segments (top→bottom in spec order), not two
+ *  stacked pins. A muted connector band (`gl-graph__row-marker-connector`) runs from the bar across to the row's
+ *  node dot to tie the indicator to its commit (see graph.scss for the `--row-lane-lead + --row-lane-x` math).
+ *
+ *  At REST it's a thin (~0.3rem) colored bar. It EXPANDS rightward over the lanes into a role-COLORED pill
+ *  (each segment filled with its role color + knockout text), a bold continuation of the bar, on two PURE-CSS
+ *  triggers (no JS, nothing on the scroll path — see graph.scss): row hover runs a one-shot ~1.4s flash
+ *  (auto-expand then auto-collapse), and hovering the indicator's own widened hit zone holds it open. All
+ *  state is CSS.
+ *
+ *  Decorative: the roles ride the row's `aria-label`, so this stays out of the a11y tree. */
+function renderRowMarkerRail(roles: number, targetName: string | undefined): TemplateResult {
+	// The connector takes the primary role's color, so a grouped row's band reads as its dominant role
+	// rather than trying to stripe. Always defined here (callers pass a non-0 mask).
+	const primary = primaryRowMarkerRole(roles);
+	// Hover tooltip: the roles spelled out (+ the merge target's branch name), which the expanded pill has no
+	// room for. Stays `aria-hidden` — the roles already ride the row's own aria-label, so this is a pointer
+	// affordance only, not a second announcement.
+	const tooltip = rowMarkerRolesTooltip(roles, targetName);
+	return html`<div
+			class="gl-graph__row-marker-connector gl-graph__row-marker-connector--${primary}"
+			aria-hidden="true"
+		></div>
+		<div class="gl-graph__row-marker-rail" aria-hidden="true" data-tooltip=${tooltip}>
+			<span class="gl-graph__row-marker-rail-bar"
+				>${rowMarkerRoleSpecs.map(spec =>
+					(roles & spec.flag) === 0
+						? nothing
+						: html`<span
+								class="gl-graph__row-marker-rail-swatch gl-graph__row-marker-rail-swatch--${spec.role}"
+							></span>`,
+				)}</span
+			><span class="gl-graph__row-marker-rail-pill"
+				><span class="gl-graph__row-marker-rail-pill-inner"
+					>${rowMarkerRoleSpecs.map(spec =>
+						(roles & spec.flag) === 0
+							? nothing
+							: html`<span
+									class="gl-graph__row-marker-rail-seg gl-graph__row-marker-rail-seg--${spec.role}"
+									><code-icon icon=${spec.icon}></code-icon
+									><span class="gl-graph__row-marker-rail-label">${spec.label}</span></span
+								>`,
+					)}</span
+				></span
+			>
+		</div>`;
+}
+
 /** A single ref-chip container for the first content column (inline refs), with any scope-anchor
- *  marker pills prepended before the branch/tag pills, and an optional resolved ghost ref appended. */
+ *  marker prepended before the branch/tag pills, and an optional resolved ghost ref appended. */
 function renderInlineRefs(
 	row: ProcessedGraphRow,
 	refs: readonly TemplateResult[],
@@ -276,7 +339,7 @@ function renderInlineRefs(
 }
 
 /** Whether the row has a scope-anchor marker to show (so the refs cell renders even with no branch pills). */
-function hasAnchorMarker(ctx: RowRenderContext): boolean {
+function hasMarkerPills(ctx: RowRenderContext): boolean {
 	return ctx.isAnchor === true && (ctx.anchorKind === 'target' || ctx.anchorKind === 'fork');
 }
 
@@ -677,7 +740,7 @@ function renderZoneContent(
 
 			// Dedicated Refs column: the same ref pills that otherwise render inline, in their own cell.
 			const refs = ctx.refsContent ?? [];
-			if (refs.length > 0 || hasAnchorMarker(ctx)) return renderInlineRefs(row, refs, ctx);
+			if (refs.length > 0 || hasMarkerPills(ctx)) return renderInlineRefs(row, refs, ctx);
 
 			return wantsGhostRef(row, ctx) ? renderInlineRefs(row, refs, ctx, ctx.ghostRef) : nothing;
 		}
@@ -740,18 +803,22 @@ function renderActionStatus(icon: string | null | undefined, spin: boolean): Tem
 		: nothing;
 }
 
-/** Whether a row's action strip has a PERSISTENT button (agent attached, an active resolve/compose/
- *  review op, or an unpushed commit) — i.e. it switches to per-button `--has-persistent` mode instead of
- *  the whole-strip hover/focus/selected fade. NOT simply `kind === 'workdir'` — a workdir row with no
- *  agent/active op is JUST as hover-gated as a commit row. Exported so callers outside the row template
- *  (the sticky-timeline pill's yield-to-row check) read the EXACT same decision `renderRowActions` makes
- *  below, rather than re-deriving/drifting from it. */
+/** Whether a row's action strip has a PERSISTENT member (a row-marker decorator, an agent attached, an
+ *  active resolve/compose/review op, or an unpushed commit) — i.e. it switches to per-button
+ *  `--has-persistent` mode instead of the whole-strip hover/focus/selected fade. NOT simply
+ *  `kind === 'workdir'` — a workdir row with no agent/active op is JUST as hover-gated as a commit row.
+ *  Exported so callers outside the row template (the sticky-timeline pill's yield-to-row check) read the
+ *  EXACT same decision `renderRowActions` makes below, rather than re-deriving/drifting from it. */
 export function hasPersistentRowActions(
 	kind: ProcessedGraphRow['kind'],
 	wipAgent: WipRowAgentStatus | undefined,
 	wipOperation: RunningOperationBucket | undefined,
 	isUnpushed: boolean | undefined,
+	hasRowMarker?: boolean,
 ): boolean {
+	// The row-marker decorator (the primary WIP row's jump pill) is always shown, so its strip is live.
+	if (hasRowMarker === true) return true;
+
 	if (kind === 'workdir') {
 		return (
 			wipAgent != null ||
@@ -772,13 +839,23 @@ export function hasPersistentRowActions(
 // the live resolve/compose/review operation + agent status.
 //
 // Per-button visibility (matches the legacy adornment): each button is `--persistent` (always shown) or
-// `--gated` (revealed only on row hover/focus/selected). When a row has ANY persistent button the strip
+// `--gated` (revealed only on row hover/focus/selected). When a row has ANY persistent member the strip
 // adds `--has-persistent` and switches to per-button mode (CSS, zero JS); otherwise it keeps the whole-
-// strip fade. Persistent cases: an active agent, an active resolve/compose/review operation, the
-// unpushed badge.
+// strip fade. Persistent cases: the row-marker decorator, an active agent, an active resolve/compose/
+// review operation, the unpushed badge.
+//
+// The row-marker decorator leads the strip (leftmost): ONLY the primary WIP row's combined jump pill. The
+// on-row tip indicator (HEAD / upstream / merge-target rows) is NOT a strip member — it renders as a
+// left-edge rail (`renderRowMarkerRail`) sibling of the anchor, so it never contends with these buttons.
+// Being a strip member (not a floating overlay) is what puts the WIP pill at the row's far right AND keeps
+// it clear of the buttons: they reveal to its right.
 function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult {
 	let actions: TemplateResult;
 	let hasPersistent = false;
+	// Prebuilt by gl-lit-graph (the current branch's ref pill, right-anchored, sourced from the HEAD row);
+	// present only on the primary WIP row and only when it should show (HEAD row loaded + not adjacent).
+	const decorator = isPrimaryWipRow(row.kind, row.sha) ? ctx.wipRowMarkerPill : undefined;
+	const hasDecorator = decorator != null;
 	switch (row.kind) {
 		case 'workdir': {
 			const op = ctx.wipOperation;
@@ -963,8 +1040,14 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// Gated buttons leave the tab order + a11y tree at rest (whole-strip `visibility:hidden` in default
 	// mode; per-button `display:none` in `--has-persistent` mode) and become reachable on hover/focus/
 	// selected; persistent buttons are always present + reachable. So no aria-hidden is needed.
-	return html`<div class="gl-graph__row-actions ${hasPersistent ? 'gl-graph__row-actions--has-persistent' : ''}">
-		${actions}
+	// `--has-row-marker` drops the strip's at-rest backdrop: the WIP jump pill carries its own opaque chrome, so
+	// the primary WIP row keeps its content readable until the buttons actually reveal.
+	return html`<div
+		class="gl-graph__row-actions ${hasPersistent || hasDecorator
+			? 'gl-graph__row-actions--has-persistent'
+			: ''}${hasDecorator ? ' gl-graph__row-actions--has-row-marker' : ''}"
+	>
+		${decorator ?? nothing}${actions}
 	</div>`;
 }
 
@@ -983,6 +1066,18 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		changesStats != null && ctx.zones.some(z => z.id === 'changes') ? changesAriaText(changesStats) : '';
 	// Zero-churn rows produce empty text — no dangling ", " on the label.
 	const changesAriaSuffix = changesText ? `, ${changesText}` : '';
+	// RowMarker roles this row plays — the worktree's own (HEAD / upstream / merge target) FOLDED with the
+	// scope anchor's (focus / base; the scope's target shares the merge-target flag), as a bit mask. One rail
+	// renders the union, so a scoped graph doesn't draw two misaligned left-edge rails marking the same row.
+	// 0 for every row but the handful the two vocabularies point at, so the rest pay a few compares and
+	// nothing else. Skeleton rows skip it with the rest of the extras (the settle swap fills it in).
+	const rowMarkerRoles = ctx.skeleton
+		? 0
+		: combineRowMarkerRoles(
+				rowMarkerRolesFor(row.sha, ctx.rowMarkerTips),
+				scopeAnchorRoles(ctx.isAnchor, ctx.anchorKind, ctx.anchorAlsoFork),
+			);
+	const rowMarkerAriaPrefix = rowMarkerRoles !== 0 ? `${rowMarkerRolesAriaLabel(rowMarkerRoles)}. ` : '';
 
 	const nodeStyle: NodeStyle = {
 		mode: ctx.nodeMode,
@@ -1114,7 +1209,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// Ghost pills only ever render in the dedicated Refs column (`renderZoneContent` case 'ref') — inline
 	// placement (here) never reserves layout space for one on a ref-less row.
 	const inlineRefs =
-		ctx.skeleton !== true && ctx.refsPlacement !== 'hidden' && (hasRefs || hasAnchorMarker(ctx)) && !refsInColumn
+		ctx.skeleton !== true && ctx.refsPlacement !== 'hidden' && (hasRefs || hasMarkerPills(ctx)) && !refsInColumn
 			? renderInlineRefs(row, refs, ctx)
 			: nothing;
 
@@ -1252,6 +1347,9 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		body = cells;
 	}
 
+	// NOTE: the scope anchor's roles now ride `rowMarkerAriaPrefix` (folded into the same mask), so there's no
+	// separate anchor branch in `aria-label` below — it would announce the same fact twice ("Target. Merge
+	// target. …").
 	return html`<div
 		id="graph-row-${row.sha}"
 		class=${rowClasses}
@@ -1263,9 +1361,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		aria-expanded=${ctx.laneTipSha === row.sha ? (ctx.laneCollapsed ? 'false' : 'true') : nothing}
 		aria-label=${ctx.skeleton
 			? ctx.commit.message
-			: ctx.isAnchor && ctx.anchorKind != null
-				? `${anchorTitle(ctx.anchorKind, ctx.anchorAlsoFork)}. ${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`
-				: `${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`}
+			: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`}
 		data-sha=${row.sha}
 		data-index=${ctx.index}
 		data-focused=${ctx.isFocused || nothing}
@@ -1284,15 +1380,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			'--row-graph-width': `${isGraphColumn ? ctx.graphColumnWidth : 0}px`,
 		})}
 	>
-		${ctx.isAnchor
-			? html`<span
-					class="gl-graph__anchor gl-graph__anchor--${ctx.anchorKind ?? 'generic'}${ctx.anchorAlsoFork
-						? ' gl-graph__anchor--also-fork'
-						: ''}"
-					aria-hidden="true"
-					data-tooltip=${anchorTitle(ctx.anchorKind, ctx.anchorAlsoFork)}
-				></span>`
-			: nothing}
+		${rowMarkerRoles !== 0 ? renderRowMarkerRail(rowMarkerRoles, ctx.rowMarkerTips?.targetName) : nothing}
 		${ctx.isBucketBoundary ? html`<div class="gl-graph__row-timeline-sep" aria-hidden="true"></div>` : nothing}
 		${leadingGraph}${body}${ctx.skeleton ? nothing : renderRowActions(row, ctx)}
 	</div>`;
