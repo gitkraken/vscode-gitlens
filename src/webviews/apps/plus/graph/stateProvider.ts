@@ -964,6 +964,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 */
 	async setScope(scope: GraphScope): Promise<void> {
 		this._pendingScope = scope;
+		// A pending `deferScopeClear` was armed to retire the scope this call REPLACES; leaving it set
+		// means the next `DidChangeRefsVisibilityNotification` clears the scope we're installing right
+		// now instead — the user picks a branch and the focus silently evaporates a moment later.
+		this._scopeClearDeferred = false;
 
 		const repoPath = scope.branchRef.split('|', 2)[0];
 		if (!repoPath) {
