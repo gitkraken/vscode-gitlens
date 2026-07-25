@@ -1397,12 +1397,16 @@ gl-lit-graph {
 		font-weight: 600;
 		font-style: italic;
 	}
-	// Commit subject keeps the message's foreground color; the bullet separator + body are muted, so the
-	// subject reads first and the body recedes (matching the legacy graph). The whole line truncates in
-	// `.gl-graph__message`, so the body ellipsizes before the subject.
+	// Commit subject keeps the message's foreground color; the bullet separator + body recede to 60% of it,
+	// so the subject reads first (matching the legacy graph's `.message-zone--body { opacity: .6 }`). The
+	// whole line truncates in `.gl-graph__message`, so the body ellipsizes before the subject.
+	// Dimmed RELATIVE to the row (`currentcolor` in `color` resolves to the inherited value), not pinned to
+	// `--muted-foreground` — an absolute color can't follow states that repaint the row's foreground, e.g.
+	// `.is-selected`'s `--row-selection-fg`. `color-mix` rather than `opacity` so the `-code` chip keeps its
+	// background at full strength.
 	.gl-graph__message-body,
 	.gl-graph__message-sep {
-		color: hsl(var(--muted-foreground));
+		color: color-mix(in srgb, transparent 40%, currentcolor);
 	}
 	.gl-graph__message-sep {
 		margin: 0 0.4rem;

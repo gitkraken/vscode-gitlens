@@ -1,5 +1,6 @@
 import { LANE_PALETTE, setLanePalette } from '@gitkraken/commit-graph/colors.js';
-import { Color, formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
+import type { Color } from '@gitlens/utils/color.js';
+import { formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
 
 /**
  * Maps the VS Code theme onto the CSS custom properties consumed by the commit-graph
@@ -8,6 +9,12 @@ import { Color, formatHex, getCssVariable, parseColor } from '@gitlens/utils/col
  * commit-graph expects each token as an HSL triplet (e.g. `217 91% 60%`) so its Tailwind utility
  * classes can compose `hsl(var(--brand))` and `hsl(var(--brand) / 0.12)`. VS Code provides
  * raw color values, so we resolve them via getComputedStyle and convert to HSL components.
+ *
+ * Translucent theme colors are composited onto the editor background FIRST (see `toHslTriplet`). The
+ * triplet has no room for alpha — consumers append their own `/ N` — so dropping it instead collapsed
+ * dim tokens onto their solid counterparts: VS Code defines dark `descriptionForeground` as
+ * `transparent(foreground, 0.7)`, so `--muted-foreground` came out identical to (or brighter than)
+ * `--foreground` and nothing muted actually looked muted. Flattening yields the color VS Code paints.
  *
  * Vars set on `:root`:
  *   --brand            selection / focus / HEAD chip
@@ -40,8 +47,13 @@ export function applyGraphThemeVariables(): boolean {
 		'--status-warning': ['--vscode-editorWarning-foreground', '--vscode-list-warningForeground'],
 	};
 
+	// Resolved once for the whole pass — the surface every one of these tokens is ultimately painted on.
+	// `parseColor` (not `Color.from`, which falls back to RED) so an unresolvable background stays null and
+	// simply skips the compositing.
+	const background = parseColor(getCssVariable('--vscode-editor-background', computed));
+
 	for (const [themeVar, vscodeCandidates] of Object.entries(tokens)) {
-		const triplet = resolveTriplet(computed, vscodeCandidates);
+		const triplet = resolveTriplet(computed, vscodeCandidates, background);
 		if (triplet != null) {
 			root.setProperty(themeVar, triplet);
 		}
@@ -79,21 +91,33 @@ function applyLanePalette(computed: CSSStyleDeclaration): boolean {
 	return setLanePalette(resolved);
 }
 
-function resolveTriplet(computed: CSSStyleDeclaration, candidates: readonly string[]): string | undefined {
+function resolveTriplet(
+	computed: CSSStyleDeclaration,
+	candidates: readonly string[],
+	background: Color | null,
+): string | undefined {
 	for (const variable of candidates) {
 		const value = getCssVariable(variable, computed);
 		if (!value) continue;
 
-		const triplet = toHslTriplet(value);
+		const triplet = toHslTriplet(value, background);
 		if (triplet != null) return triplet;
 	}
 	return undefined;
 }
 
-function toHslTriplet(value: string): string | undefined {
+function toHslTriplet(value: string, background: Color | null): string | undefined {
 	try {
-		const color = Color.from(value);
+		// `parseColor` (not `Color.from`) so an unparseable value returns null and `resolveTriplet` falls
+		// through to the next candidate, instead of silently pinning the token to `Color.red`.
+		let color = parseColor(value);
 		if (color == null) return undefined;
+
+		// `makeOpaque` no-ops when the color is already opaque or the background isn't, so this is safe to
+		// apply unconditionally.
+		if (background != null) {
+			color = color.makeOpaque(background);
+		}
 
 		const { h, s, l } = color.hsla;
 		return `${h} ${(s * 100).toFixed(1)}% ${(l * 100).toFixed(1)}%`;
