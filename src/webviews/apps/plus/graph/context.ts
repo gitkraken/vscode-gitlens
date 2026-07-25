@@ -93,12 +93,11 @@ export interface AppState extends State {
 	resetOverviewEnrichment(): void;
 
 	/**
-	 * Publish a freshly-picked scope to the `scope` signal — synchronously in its bare form
-	 * (without `mergeBase` / `mergeTargetTipSha`) so the graph component's scope filter activates
-	 * before any concurrent scroll-to-commit / select-row work. The anchor is resolved
-	 * asynchronously via IPC and applied afterward; if the resolved merge base isn't in the
-	 * loaded rows (stale or deep target), the bare scope stays and the foreign-ref heuristic
-	 * bounds visibility.
+	 * Publish a freshly-picked scope to the `scope` signal — exactly ONE write per call, after the
+	 * anchor IPC settles: anchored when it yields a merge base that's in the loaded rows, bare
+	 * otherwise. Resolves once that write has landed, so callers can sequence a scroll-to-commit /
+	 * select-row against the settled scope. A bare-then-anchored two-step is deliberately avoided —
+	 * the two produce different visible sets, which reads as commits jumping.
 	 */
 	setScope(scope: GraphScope): Promise<void>;
 
