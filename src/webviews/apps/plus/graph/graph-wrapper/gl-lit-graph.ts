@@ -1241,7 +1241,15 @@ export class GlLitGraph extends LitElement {
 			this.measureScrollbarWidth();
 			// Cache the scroller viewport height — it only changes on resize, so per-frame readers (the
 			// minimap day-range) use the cache instead of forcing layout with a live clientHeight read.
-			this.scrollerClientHeight = this.virtualizerRef.value?.clientHeight ?? 0;
+			const scrollerHeight = this.virtualizerRef.value?.clientHeight ?? 0;
+			if (scrollerHeight !== this.scrollerClientHeight) {
+				this.scrollerClientHeight = scrollerHeight;
+				// Not a reactive property, and a HEIGHT-only resize changes no other one — so nothing would
+				// re-render. The scroll markers care: their positions are inline styles committed at render
+				// time from this value, while hit-testing reads it live, so the drawn scale would stay on the
+				// old height while the hit-test moved to the new one and hovering would pick a neighbour.
+				this.requestUpdate();
+			}
 			// A resize can shift the chrome above the row list onto/off a fractional boundary.
 			this.snapVirtualizerToPixelGrid();
 		});
@@ -4887,7 +4895,12 @@ export class GlLitGraph extends LitElement {
 		// use the cache). Fall back to a live read only while the cache is unprimed, so a first paint that
 		// already has rows still lays the rail out correctly; `firstUpdated` primes it right after.
 		const viewportPx = this.scrollerClientHeight || (this.virtualizerRef.value?.clientHeight ?? 0);
-		const railPx = Math.max(0, viewportPx - headerHeightPx);
+		// The rail is `top: 2.4rem; bottom: 0` inside the viewport, so its box already IS the scroller's
+		// height — the header offset is spent by `top`. `scrollerClientHeight` excludes the header too, so
+		// subtracting it again drew the whole rail one header short: every marker crept upward in proportion
+		// to its index, reaching a full ~24px at the bottom. `nearestScrollMarker` measures the rail's REAL
+		// height, so past the 8px magnet the lower rail hovered a different marker or none at all.
+		const railPx = viewportPx;
 		const total = this._renderCtx?.total ?? rows.length;
 		const rowPx = total > 0 ? railPx / total : 0;
 		// When the list DOESN'T fill the viewport (e.g. a scoped re-root with only a handful of rows),
@@ -4964,7 +4977,11 @@ export class GlLitGraph extends LitElement {
 		// Match renderScrollMarkers' positioning (real pixel row when the list doesn't fill the rail,
 		// else the index/total mapping) so click-magnet hit-testing lines up with where bands actually are.
 		const total = this._renderCtx?.total ?? this.scrollMarkerRows.length;
-		const rowPx = total > 0 ? rect.height / total : 0;
+		// Scale off the SAME value `renderScrollMarkers` draws with, not this rect's height. They agree today,
+		// but deriving the scale from two independent sources is exactly what let the drawn and hit-tested
+		// positions drift apart. `rect` is still needed for `top` (client → rail-relative), which no cached
+		// value can supply. Falls back to the measured height while the cache is unprimed.
+		const rowPx = total > 0 ? (this.scrollerClientHeight || rect.height) / total : 0;
 		const rowHeight = this._renderCtx?.rowHeight ?? 0;
 		const markerRowPx = rowHeight > 0 ? Math.min(rowHeight, rowPx) : rowPx;
 		const clickPx = clientY - rect.top;
