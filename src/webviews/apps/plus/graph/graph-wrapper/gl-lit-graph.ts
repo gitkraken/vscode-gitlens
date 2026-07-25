@@ -2838,6 +2838,21 @@ export class GlLitGraph extends LitElement {
 				this.toggleLane(tip);
 			}
 		}
+		// STILL not loaded (not just hidden in a collapsed lane) — a bare `scrollToSha` would queue a reveal
+		// that never fires, because nothing pages the row in: the row simply isn't in `rows` and no request
+		// asks the host for it. Route through the same `gl-jump-to-commit` path the WIP row's jump button
+		// uses (→ graph-wrapper's `ensureAndSelectCommit` → `EnsureRowRequest` + a queued reveal), which
+		// loads it and then selects + reveals. That handler owns selection, so we're done here.
+		if (!this.indexBySha.has(sha)) {
+			// Same tree-focus handoff the loaded path does below — it drops the pill / sub-chip that triggered
+			// the jump (collapsing its fill, closing any grouped popover), which is visible behavior, not just
+			// focus bookkeeping. `focusIndex` is deliberately NOT set: the row isn't loaded, so there's no
+			// index to pin — exactly as the loaded path's own `idx != null` guard already handled.
+			this.treeRef.value?.focus();
+			document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha } }));
+			return;
+		}
+
 		this.scrollToSha(sha, 'center');
 		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
 
@@ -4870,7 +4885,7 @@ export class GlLitGraph extends LitElement {
 			index = Math.round(((clientY - rect.top) / rect.height) * total);
 		}
 
-		scroller.scrollTop = Math.max(0, index * this.rowHeight - scroller.clientHeight / 2);
+		this.centerRowAt(index);
 	}
 
 	// ─── Interaction (delegated; rows carry no per-row listeners) ──────────────
@@ -6467,7 +6482,55 @@ export class GlLitGraph extends LitElement {
 		const viewTop = scroller.scrollTop;
 		if (top >= viewTop && top + this.rowHeight <= viewTop + scroller.clientHeight) return;
 
-		scroller.scrollToIndex(idx, 'center');
+		this.centerRowAt(idx);
+	}
+
+	private _revealGeneration = 0;
+
+	/**
+	 * Scroll the row at `idx` to the vertical CENTER of the viewport — the single source of the centering
+	 * math, shared by every "jump to a row" affordance (reveal, scroll-marker rail, HEAD pill, pinned pill)
+	 * so they can't drift apart.
+	 *
+	 * The row's MIDPOINT lands on the viewport's midpoint: `top - (clientHeight - rowHeight) / 2`. Note this
+	 * is NOT `top - clientHeight / 2`, which centers the row's TOP EDGE and therefore sits half a row high.
+	 *
+	 * Writes `scrollTop` directly rather than calling the virtualizer's `scrollToIndex(idx, 'center')`, which
+	 * defers until it has measured the target and can settle short — or not at all — for an index far outside
+	 * the rendered range (the "jump sometimes doesn't land" flakiness). Rows are a fixed `rowHeight` here, so
+	 * the offset is exact arithmetic; `revealIndexNearest` already does its own scrollTop math the same way.
+	 */
+	private centerRowAt(idx: number): void {
+		const scroller = this.virtualizerRef.value;
+		if (scroller == null) return;
+
+		const centered = Math.max(0, idx * this.rowHeight - Math.max(0, (scroller.clientHeight - this.rowHeight) / 2));
+		// Stamped BEFORE the write, so every center — including one that lands cleanly and schedules no retry
+		// of its own — supersedes a retry still in flight. Stamping only on the clamped path below would leave
+		// the earlier generation current, and that earlier retry would then re-assert its stale target over
+		// this reveal.
+		const generation = ++this._revealGeneration;
+		scroller.scrollTop = centered;
+		if (scroller.scrollTop === centered) return;
+
+		// The write didn't take: a row that just paged in (displayRows GREW this same update — e.g.
+		// jumpToRefRow's EnsureRow round-trip) can sit past the child virtualizer's PRE-growth spacer height,
+		// because updated() fires before that child resizes its spacer (the same race
+		// `applyPendingScrollAnchor` guards against). The browser then clamps us short — reproducing the very
+		// "settle short" flakiness this replaces. Re-assert once the child's own update lands.
+		//
+		// The generation stamped above is what the retry checks: `_pendingRevealSha` alone can't detect
+		// supersession, because it is CLEARED before the write — a second reveal armed AND flushed before this
+		// promise settles would leave it undefined again, and re-asserting the older target then would drag the
+		// viewport backward, which is the jump this exists to prevent.
+		void scroller.updateComplete.then(() => {
+			if (this._revealGeneration !== generation || this._pendingRevealSha != null) return;
+
+			const el = this.virtualizerRef.value;
+			if (el != null && el.scrollTop !== centered) {
+				el.scrollTop = centered;
+			}
+		});
 	}
 
 	// Attach the scroll handler PASSIVELY (so it never blocks the compositor on a scroll frame —
@@ -6862,7 +6925,7 @@ export class GlLitGraph extends LitElement {
 
 		// Jump to (center) HEAD AND select it — same selection path a row click uses, so the details
 		// panel opens on HEAD too. Move the focus anchor with it (matches replace-click behavior).
-		scroller.scrollTop = Math.max(0, idx * this.rowHeight - scroller.clientHeight / 2);
+		this.centerRowAt(idx);
 		this.focusIndex = idx;
 		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: headSha, mode: 'replace' } }));
 	};
@@ -6876,7 +6939,7 @@ export class GlLitGraph extends LitElement {
 		if (idx == null) return;
 
 		// Jump to (center) the pinned branch AND select it (same path as the HEAD pill).
-		scroller.scrollTop = Math.max(0, idx * this.rowHeight - scroller.clientHeight / 2);
+		this.centerRowAt(idx);
 		this.focusIndex = idx;
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-changeselection', { detail: { sha: pinnedSha, mode: 'replace' } }),
