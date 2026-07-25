@@ -2113,7 +2113,16 @@ export class GlLitGraph extends LitElement {
 	// warning) are always kept and follow their own visibility rules. Returns `rows` unchanged when
 	// nothing narrows the ref set (the 'all' default) so the common case stays zero-cost.
 	private filterRowsByRefVisibility(rows: readonly GitGraphRow[]): readonly GitGraphRow[] {
-		const includeOnly = this.includeOnlyRefs;
+		// Focusing a branch is explicit intent and outranks the implicit `branchesVisibility` include
+		// set — the same rule the WIP rows follow (`filterSecondariesForScopeAndVisibility`,
+		// `shouldShowPrimaryWipRow`). Without it the scope chip reads "Showing X Only" while the mode
+		// quietly filters X's own commits out from under it, leaving the projection unable to resolve
+		// its focal tip: focused in name, unfocused on screen.
+		//
+		// Only the mode-derived include set is waived. `excludeRefs` and the type toggles are explicit
+		// per-ref/per-type hiding, so they keep applying — same line `filterSecondariesForScope` draws.
+		// Nothing here mutates the mode, so unfocusing simply resumes filtering against it.
+		const includeOnly = this.scope != null ? undefined : this.includeOnlyRefs;
 		const excludeRefs = this.excludeRefs;
 		const includeActive = includeOnly != null && Object.keys(includeOnly).length > 0;
 		const excludeActive = excludeRefs != null && Object.keys(excludeRefs).length > 0;

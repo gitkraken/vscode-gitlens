@@ -110,7 +110,11 @@ export function isScopeFocalHead(
  * branch payload. Only when the rows can't answer either do we fall through to the visibility checks
  * (which already default to showing).
  *
- * `branchesVisibility` check (runs after scope):
+ * An established focal === current SHORT-CIRCUITS to visible: focusing a branch is explicit intent
+ * and outranks the implicit `branchesVisibility` filter, matching what
+ * `filterSecondariesForScopeAndVisibility` already does for worktree WIP rows.
+ *
+ * `branchesVisibility` check (runs after scope, and only when focus didn't already decide):
  * - `'all'` (and absent): always show.
  * - `'current'`, `'smart'`, `'favorited'`: these modes always include the current branch by
  *   construction, so this returns true in normal cases.
@@ -137,16 +141,28 @@ export function shouldShowPrimaryWipRow(
 	// WIP under a branch it doesn't belong to. `additionalBranchRefs` deliberately does
 	// NOT count — convention is "focal branch only" (matches `getOverviewBranchSelectionSha`).
 	if (scope != null) {
+		let focalIsCurrent: boolean;
 		if (currentBranch != null) {
 			// Detached HEAD points at no branch, so nothing for the scoped branch to claim. The host's
 			// resolved flag, never a name test — a detached name is the synthesized `(sha…)` label, but
 			// `(release)` is a legal branch name that the same test would wrongly condemn.
 			if (currentBranch.detached) return false;
 			if (scope.branchRef !== currentBranchId) return false;
-		} else if (scopeFocalIsHead != null) {
+
+			focalIsCurrent = true;
+		} else {
 			// Branch unknown, but the rows answer the same question directly.
-			if (!scopeFocalIsHead) return false;
+			if (scopeFocalIsHead === false) return false;
+
+			focalIsCurrent = scopeFocalIsHead === true;
 		}
+
+		// Focusing a branch is explicit user intent and outranks the implicit `branchesVisibility`
+		// filter — the same rule `filterSecondariesForScopeAndVisibility` already applies to worktree
+		// WIP rows. Without it, focusing your own branch under `agents` mode still hid your working
+		// changes whenever no agent happened to be running on it. Only once focal === current is
+		// actually established; "can't tell" falls through to the visibility checks below.
+		if (focalIsCurrent) return true;
 	}
 
 	if (branchesVisibility == null || branchesVisibility === 'all') return true;

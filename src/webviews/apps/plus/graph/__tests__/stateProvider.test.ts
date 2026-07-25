@@ -894,6 +894,34 @@ suite('shouldShowPrimaryWipRow', () => {
 			false,
 		);
 	});
+
+	test('focusing the current branch outranks branchesVisibility', () => {
+		// Focus is explicit intent; `branchesVisibility` is an implicit filter. Without this, focusing
+		// your own branch under `agents` mode still hid your working changes whenever no agent happened
+		// to be running on it — and the include set is idle-threshold driven, so it lapsed on a timer.
+		// Matches the exemption `filterSecondariesForScopeAndVisibility` already gives worktree rows.
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), currentBranch, scopeFor(currentBranchId)),
+			true,
+		);
+	});
+
+	test('focus outranks branchesVisibility on the rows-derived path too', () => {
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), undefined, scopeFor(currentBranchId), true),
+			true,
+		);
+	});
+
+	test('an unestablished focal (rows cannot tell) does NOT short-circuit visibility', () => {
+		// Focus only wins once focal === current is actually established. Here it isn't, so the
+		// visibility checks still run — they happen to pass on the unknown-branch fallback, but the
+		// point is that the short-circuit didn't fire.
+		assert.strictEqual(
+			shouldShowPrimaryWipRow('agents', refsFor('/repo|heads/other'), undefined, scopeFor(currentBranchId)),
+			true,
+		);
+	});
 });
 
 suite('filterSecondariesForScopeAndVisibility', () => {
