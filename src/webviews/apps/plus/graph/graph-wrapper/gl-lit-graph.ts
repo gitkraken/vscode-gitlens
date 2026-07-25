@@ -1,7 +1,7 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
-import { classifyRowsDelta, isHistoryRewrite } from '@gitkraken/commit-graph/engine/delta.js';
-import { collectReachable } from '@gitkraken/commit-graph/engine/layout.js';
+import { classifyRowsDelta, isHistoryRewrite, isTrunkReroot } from '@gitkraken/commit-graph/engine/delta.js';
+import { collectReachable, identifyFirstParentChain } from '@gitkraken/commit-graph/engine/layout.js';
 import {
 	buildChildrenBySha,
 	collectLaneChain,
@@ -172,6 +172,19 @@ function headerLabelFits(label: string, areaPx: number): boolean {
 const headerActionPx = 24;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+/** Content equality for the scope's synthetic-edge set. Must not be an identity compare: the set is
+ *  rebuilt on every update, so equal-but-fresh is the normal case. */
+function shaSetsEqual(a: ReadonlySet<string> | undefined, b: ReadonlySet<string> | undefined): boolean {
+	if (a === b) return true;
+	if (a == null || b == null) return false;
+	if (a.size !== b.size) return false;
+
+	for (const sha of a) {
+		if (!b.has(sha)) return false;
+	}
+	return true;
+}
 
 // Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
 // attached to the DOM. Used to size the date column to its NORMAL (non-compact) format on autosize.
@@ -877,6 +890,20 @@ export class GlLitGraph extends LitElement {
 	private _engineStability?: GraphStability;
 	private _priorEngineSourceRows?: readonly GitGraphRow[];
 	private _priorEngineIdLength?: number;
+	/** The scope (synthetic-edge) set and pin the HELD engine output was produced with. A payload-only
+	 *  update can reuse that output verbatim only while both still match — the columns are scope-independent,
+	 *  but the edges are not. Compared by CONTENT: `recomputeScope` rebuilds the set on every update, so a
+	 *  fresh-but-equal Set is the normal case and an identity compare would never hit. */
+	private _priorEngineSynthetic?: ReadonlySet<string>;
+	private _priorEnginePinnedSha?: string;
+	/** The user's scope INTENT (which refs they chose to look at) that the held output was produced under —
+	 *  deliberately NOT the anchors it resolved to. Switching scope restructures the view wholesale, which
+	 *  makes it the natural moment to also refresh the layout; the resolved anchors, by contrast, move on
+	 *  every commit, and refreshing on those would reintroduce the churn scoping is supposed to avoid. */
+	private _priorScopeIdentity?: string;
+	/** Memo for the serialized scope identity, keyed on the scope object it was derived from. */
+	private _scopeIdentityFor?: GraphScope;
+	private _scopeIdentity?: string;
 	// True when the LAST recomputeRows took the payload-only path (engine + topology derivations
 	// skipped). willUpdate reads it (same synchronous update) to route a payload change to the light
 	// displayRows refresh (ref indexes + upstream requests) instead of the full lane re-derivation.
@@ -2119,6 +2146,8 @@ export class GlLitGraph extends LitElement {
 			this._engineResume = undefined;
 			this._engineStability = undefined;
 			this._priorEngineSourceRows = undefined;
+			this._priorEngineSynthetic = undefined;
+			this._priorEnginePinnedSha = undefined;
 			this.commits = [];
 			this.processedRows = [];
 			this.segments = [];
@@ -2141,7 +2170,30 @@ export class GlLitGraph extends LitElement {
 		// reachable from any visible ref tip so hidden branches' commits AND lanes disappear, not just
 		// their pills. Threads through the engine over the reduced set (no orphaned lane reservations).
 		const sourceRows = this.filterRowsByRefVisibility(stashFiltered);
-		const synthetic = this.scopeAnchors.syntheticChildren;
+		// An EMPTY anchor set is not a scope: `computeScopeAnchors` returns a Set whenever a scope is set,
+		// even when it resolved nothing, and a bare non-null set would otherwise disable the engine's
+		// append-resume and suffix reconciliation for free (they gate on scope, and empty synthetic edges
+		// change no output). Normalize it away here so every downstream gate sees the truth.
+		const syntheticAnchors = this.scopeAnchors.syntheticChildren;
+		const synthetic = syntheticAnchors != null && syntheticAnchors.size > 0 ? syntheticAnchors : undefined;
+		// Which refs the user scoped to — `branchRef`/`additionalBranchRefs` are their choice, while
+		// `focalBranchTipSha`/`mergeTargetTipSha`/`mergeBase` are resolved values that advance with the repo.
+		// Keying on the choice is what separates "the user switched view" (refresh) from "the anchors
+		// re-resolved" (stay stable).
+		// Serialized structurally: ref names may contain commas (and most other punctuation), so a joined
+		// string is not injective — two different ref sets could collide and silently suppress the refresh.
+		// The additional refs are set-like, so canonicalize their order; reordering them isn't a scope change.
+		// Memoized on the scope OBJECT: it holds a stable reference across the far more frequent rows-only
+		// updates, so the sort + stringify would otherwise run on every host push for an unchanged scope.
+		if (this._scopeIdentityFor !== this.scope) {
+			this._scopeIdentityFor = this.scope;
+			this._scopeIdentity =
+				this.scope != null
+					? JSON.stringify([this.scope.branchRef, [...(this.scope.additionalBranchRefs ?? [])].sort()])
+					: undefined;
+		}
+		const scopeIdentity = this._scopeIdentity;
+		const scopeSwitched = scopeIdentity !== this._priorScopeIdentity;
 		// Pin the branch (gitlens.graph.pinBranchToEdge) to the leftmost lane(s) via the engine's
 		// `pinnedShas`. Resolved here so the jump-pill target + the layout share one source.
 		const pinnedSha = this.resolvePinnedSha(sourceRows);
@@ -2166,7 +2218,24 @@ export class GlLitGraph extends LitElement {
 		// payload-DERIVED topology anchors — headSha (the HEAD flag rides on refs) and the trunk it
 		// selects — are recomputed first; if the trunk moved (clean-tree checkout), the segment maps'
 		// trunk exclusion changes, so fall through to the full path instead.
-		if (resumable && this._engineResume != null && delta.kind === 'payload') {
+		//
+		// Gated on the HELD OUTPUT still being valid — same scope set, same pin, same idLength — rather than
+		// on `resumable` (which additionally requires no scope at all). Reusing `resumable` here meant a
+		// scoped session took the full engine path on EVERY payload push, re-laying-out cold and minting new
+		// row objects each time; the columns don't depend on scope, only the edges do, so an unchanged scope
+		// set is the real precondition.
+		// `!scopeSwitched` as well: two different scopes can resolve to the SAME anchor set (re-scoping between
+		// branches that still share a tip and merge base), which would let the fast path reuse the held output
+		// and quietly skip the deliberate cold relayout a scope switch is supposed to take. The output would
+		// still be correct — the engine inputs really are identical — but the switch is the one moment where a
+		// relayout is free to the user, and the only thing that clears drift accumulated while scoped (where
+		// `skipRenormalize` suppresses the backstop).
+		const payloadReusable =
+			!scopeSwitched &&
+			idLength === this._priorEngineIdLength &&
+			pinnedSha === this._priorEnginePinnedSha &&
+			shaSetsEqual(synthetic, this._priorEngineSynthetic);
+		if (payloadReusable && this.processedRows.length > 0 && delta.kind === 'payload') {
 			const headSha = rows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha;
 			if (computeTrunkSegmentTip(this.segments, this.processedRows, headSha) === this.trunkSegmentTip) {
 				this.headSha = headSha;
@@ -2183,6 +2252,13 @@ export class GlLitGraph extends LitElement {
 			prior != null &&
 			priorCommits.length === prior.length &&
 			delta.kind === 'append';
+
+		// Current HEAD row (WIP rows carry no heads, so this finds the real HEAD commit). Reused for the
+		// trunk-reroot check below and the post-pass HEAD/trunk assignment; skipped on the append (paging)
+		// path, which neither re-roots nor recomputes HEAD from the full window. The ROW (not just the sha)
+		// is kept so the re-root check can take its first parent without indexing anything.
+		const newHeadRow = isAppend ? undefined : rows.find(r => r.heads?.some(h => h.isCurrentHead));
+		const newHeadSha = newHeadRow?.sha;
 
 		let processed: readonly ProcessedGraphRow[];
 		let segments: readonly LaneSegment[];
@@ -2205,13 +2281,64 @@ export class GlLitGraph extends LitElement {
 			// below. The engine's opaque token carries that hint; how it's derived (below-window stubs vs real
 			// rows) is an engine detail we deliberately don't reach into.
 			//
-			// BUT sticky columns are only a valid fixpoint across a PREPEND (top insertion). A history
-			// rewrite (rebase/amend/squash) changes surviving commits' DAG roles, so reproducing their
-			// prior columns drags lanes to the wrong column — and equal-area misroutes slip past the
-			// engine's area-based renormalize backstop. So on a rewrite, lay out cold (== reopening the
-			// graph, the known-correct recovery); prepends keep stability.
+			// BUT sticky columns are only a valid fixpoint across a PREPEND with an unchanged trunk anchor.
+			// Two ways that breaks, both invisible to the engine's area-based renormalize backstop:
+			//  - a history REWRITE (rebase/amend/squash) changes surviving commits' DAG roles, so reproducing
+			//    their prior columns drags lanes to the wrong column;
+			//  - a TRUNK RE-ROOT (ff-merge/checkout/reset) moves HEAD onto an already-loaded commit that is
+			//    NOT on the current trunk, so sticky keeps the now-current branch on its old side lane and
+			//    gaps lane 0 (the topology is unchanged, so `isHistoryRewrite` can't see it).
+			// Drop `stableFrom` for either — lay out cold (== reopening the graph, the known-correct
+			// recovery); an ordinary prepend keeps stability. Both tests are EXACT (refs + prior layout),
+			// deliberately: the engine sees only topology, so any lane-shape heuristic there cannot tell a
+			// re-root from an ordinary side-lane gap and would reshuffle lanes on plain fetches.
+			// All three lookups are built LAZILY, and `isTrunkReroot` consults them cheapest-first and only as
+			// far as it must: an unchanged HEAD (every fetch, every WIP edit) costs one comparison, and an
+			// ordinary commit resolves on the head row's own first parent, allocating nothing. Walking any
+			// further — a multi-commit pull fast-forward, or a revealed branch — indexes the fresh rows once.
+			// The prior trunk chain is built whenever the anchor is anything OTHER than the prior HEAD, which
+			// includes verdicts that come back false (a checkout to a commit already on the trunk).
+			let freshParents: Map<string, readonly string[]> | undefined;
+			let priorTrunkChain: ReadonlySet<string> | undefined;
+			const trunkReroot = isTrunkReroot(this.headSha, newHeadSha, {
+				firstParentOf: sha => {
+					// The head's own first parent comes off the row we already found — no index needed, which
+					// is what keeps the ordinary-commit path allocation-free.
+					if (newHeadRow?.sha === sha) return newHeadRow.parents[0];
+
+					// Deeper: the head hangs off other fresh commits (a pull fast-forward, or a branch whose
+					// commits were hidden until this checkout revealed them). Index the fresh rows once.
+					freshParents ??= new Map(sourceRows.map(r => [r.sha, r.parents]));
+					return freshParents.get(sha)?.[0];
+				},
+				wasLaidOut: sha => this.cachedProcessedIndexBySha?.has(sha) === true,
+				// Prior trunk = prior HEAD's first-parent chain (the DAG property `isTrunkReroot` documents),
+				// NOT the lane-collapse segment: lane 0 can split across segments and a <2-commit HEAD lane
+				// emits none, so a segment lookup would misread a same-trunk checkout as a re-root.
+				isOnPriorTrunk: sha => {
+					const priorHead = this.headSha;
+					if (priorHead == null) return false;
+
+					priorTrunkChain ??= identifyFirstParentChain(this.processedRows, [priorHead]);
+					return priorTrunkChain.has(sha);
+				},
+			});
+			// `payload` qualifies as well as `replace`: identical topology makes the prior columns a proven
+			// fixpoint, so reproducing them is exactly right — refusing to (which is what every update inside
+			// a scoped session used to do) throws the layout to cold and permutes lanes, changing both the
+			// position AND the colour of a large share of the visible rows. The rewrite check is skipped for
+			// `payload` because identical topology cannot be a rewrite; `trunkReroot` still applies, and is
+			// what keeps a clean-tree checkout (a payload delta that moves HEAD) correct.
+			//
+			// SWITCHING scope is the deliberate exception: the view restructures wholesale at that moment, so
+			// it's the one point where a relayout costs the user nothing — and taking it here is what lets
+			// everything INSIDE a scoped session stay sticky and skip the renormalize backstop, since any
+			// drift accumulated while scoped is cleared on the way out.
 			const stableFrom =
-				delta.kind === 'replace' && this.processedRows.length > 0 && !isHistoryRewrite(prior, sourceRows)
+				this.processedRows.length > 0 &&
+				!trunkReroot &&
+				!scopeSwitched &&
+				(delta.kind === 'payload' || (delta.kind === 'replace' && !isHistoryRewrite(prior, sourceRows)))
 					? this._engineStability
 					: undefined;
 			// Prefix change (fetch/new commits/rebase): hand the prior rows to the engine so its edge
@@ -2223,6 +2350,12 @@ export class GlLitGraph extends LitElement {
 				syntheticChildren: synthetic ?? undefined,
 				pinnedShas: pinnedSha != null ? [pinnedSha] : undefined,
 				stableFrom: stableFrom,
+				// Skip the renormalize backstop when it can only waste work or do harm: identical topology
+				// makes the sticky columns a proven fixpoint, and while SCOPED its whole-graph area metric
+				// ranks layouts by rows that aren't on screen — measured, it reshuffles the visible rows
+				// against their own interest far more often than for it. Switching scope relayouts cold
+				// anyway, so drift can't outlive the scoped session.
+				skipRenormalize: delta.kind === 'payload' || synthetic != null,
 				reconcile:
 					delta.kind === 'replace' && this.processedRows.length > 0
 						? {
@@ -2242,6 +2375,11 @@ export class GlLitGraph extends LitElement {
 		}
 		this._priorEngineSourceRows = sourceRows;
 		this._priorEngineIdLength = idLength;
+		// Record what this engine output was produced with, so the payload fast path above can tell whether
+		// the held output is still valid on the next update.
+		this._priorEngineSynthetic = synthetic;
+		this._priorEnginePinnedSha = pinnedSha;
+		this._priorScopeIdentity = scopeIdentity;
 		this.commits = commits;
 		this.lastRowsDeltaAppendOnly = isAppend;
 
@@ -2256,7 +2394,7 @@ export class GlLitGraph extends LitElement {
 		const firstNew = isAppend ? prior.length : 0;
 		const priorTrunk = this.trunkSegmentTip;
 		if (!isAppend) {
-			this.headSha = rows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha;
+			this.headSha = newHeadSha;
 			this.trunkSegmentTip = computeTrunkSegmentTip(segments, processed, this.headSha);
 		} else if (this.headSha == null) {
 			for (let i = firstNew; i < sourceRows.length; i++) {
@@ -3007,8 +3145,9 @@ export class GlLitGraph extends LitElement {
 		}
 	}
 
-	// Restore target (scrollTop px) captured across a lane collapse/expand, applied in updated(); see
-	// captureLaneScrollAnchor / resolveLaneScrollAnchorTop / applyPendingScrollAnchor.
+	// Restore target (scrollTop px) captured across a row-set change — a lane collapse/expand, or a
+	// rows/scope update — applied in updated(); see captureLaneScrollAnchor / resolveLaneScrollAnchorTop /
+	// applyPendingScrollAnchor.
 	private _pendingScrollAnchorTop?: number;
 
 	// Topmost-row index for a scrollTop: floor(scrollTop/rowHeight), clamped into [0, rowCount-1] — "which
@@ -3021,7 +3160,8 @@ export class GlLitGraph extends LitElement {
 		return Math.max(0, Math.min(rowCount - 1, Math.floor(scrollTop / this.rowHeight)));
 	}
 
-	// Snapshot the row pinned at the viewport's top edge BEFORE a lane collapse/expand swaps displayRows:
+	// Snapshot the row pinned at the viewport's top edge BEFORE anything swaps displayRows (a lane
+	// collapse/expand, or a rows/scope update that inserts, drops or reorders rows):
 	// the topmost row intersecting `scrollTop` plus the pixels the viewport has scrolled INTO it. Returns
 	// the OLD row list by reference (still valid after the swap reassigns `this.displayRows`) so the resolve
 	// pass can walk upward for a surviving anchor if the pinned row was folded away.
@@ -3070,11 +3210,18 @@ export class GlLitGraph extends LitElement {
 	// the spacer shrinks (unavoidable — too few rows below to hold the position); that is the best-preserved
 	// result. Expanding a lane ABOVE the viewport (rare — keyboard-only, its chevron is off-screen) can be
 	// clamped short here since the spacer hasn't grown yet; the common expand-in-view case anchors exactly.
+	// A GROWING list (rows paged/fetched in above the viewport) needs the retry below whenever the new target
+	// lands past the pre-growth maximum — i.e. when the viewport sat close enough to the bottom of the loaded
+	// rows for the inserted ones to push it there. With more headroom than that, the first write just lands.
 	private applyPendingScrollAnchor(): void {
 		const target = this._pendingScrollAnchorTop;
 		if (target == null) return;
 
 		this._pendingScrollAnchorTop = undefined;
+		// Every application supersedes any retry still in flight — including one that lands CLEANLY, which
+		// schedules no retry of its own. Bumping only when a retry is scheduled would leave the older
+		// generation current, so that older retry would still pass its guard and drag the viewport back.
+		const generation = ++this._scrollAnchorGeneration;
 
 		// A deliberate reveal wins (scrollToSha also clears this) — don't fight a jump-to-row.
 		if (this._pendingRevealSha != null) return;
@@ -3085,7 +3232,30 @@ export class GlLitGraph extends LitElement {
 		if (scroller.scrollTop !== target) {
 			scroller.scrollTop = target;
 		}
+
+		// Rows arriving ABOVE the viewport push the target PAST the current scroll maximum, and the child
+		// virtualizer has not grown its spacer yet at this point — the write clamps short and the viewport
+		// jumps anyway, which is the whole thing this exists to prevent. Re-assert once the child commits.
+		// One retry only, and it re-checks the reveal guard because a jump-to-row can be armed in between.
+		if (scroller.scrollTop !== target) {
+			void scroller.updateComplete.then(() => {
+				if (this._scrollAnchorGeneration !== generation || this._pendingRevealSha != null) return;
+
+				const el = this.virtualizerRef.value;
+				if (el != null && el.scrollTop !== target) {
+					el.scrollTop = target;
+				}
+			});
+		}
 	}
+
+	/** Bumped by every anchor application AND by every deliberate reveal write, so a pending anchor retry can
+	 *  tell the position it captured has been superseded — by a newer anchor or by the user jumping somewhere.
+	 *  Reveals keep their own counter ({@link _revealGeneration}) for their own retry: an anchor must yield to
+	 *  a reveal, but not the reverse, so the two are deliberately not shared. */
+	private _scrollAnchorGeneration = 0;
+	/** The repo the pending scroll state belongs to — a swap reuses this element, so it must invalidate. */
+	private _lastScrollRepoPath?: string;
 
 	// Visually-hidden polite live region for screen-reader announcements (lane collapse, paging).
 	// Written via the cached element ref (CSSOM textContent — no host re-render).
@@ -6321,8 +6491,9 @@ export class GlLitGraph extends LitElement {
 		super.updated(changed);
 		// Re-apply the click-pinned ref-pill expand class to the live DOM after each render.
 		this.reconcilePinnedRefPill();
-		// Re-assert the scroll position captured across a lane collapse/expand so the swap doesn't shift the
-		// viewport (runs before flushPendingReveal — a reveal, if armed, wins and clears this anchor).
+		// Re-assert the scroll position captured across a row-set change — a lane collapse/expand, or rows
+		// arriving/reordering (fetch, commit, scope switch, rebase) — so the swap doesn't shift the viewport
+		// (runs before flushPendingReveal — a reveal, if armed, wins and clears this anchor).
 		this.applyPendingScrollAnchor();
 		// A reveal requested before its row was loaded (host EnsureRow round-trip) fires here once the
 		// row lands in displayRows.
@@ -6413,8 +6584,11 @@ export class GlLitGraph extends LitElement {
 	 *  off-screen, so revealing an already-visible row (e.g. a search hit on screen) doesn't jump.
 	 *  If the row isn't loaded yet, the reveal is deferred until it appears. */
 	scrollToSha(sha: string, position: 'center' | 'nearest' = 'center'): void {
-		// A deliberate reveal takes precedence over a pending lane-collapse scroll anchor.
+		// A deliberate reveal takes precedence over a pending lane-collapse scroll anchor — and over any
+		// anchor RETRY already in flight, which would otherwise land after the reveal (its `_pendingRevealSha`
+		// guard reads false once the reveal has flushed) and undo it.
 		this._pendingScrollAnchorTop = undefined;
+		this._scrollAnchorGeneration++;
 		this._pendingRevealSha = sha;
 		this._pendingRevealPosition = position;
 		this.flushPendingReveal();
@@ -6446,14 +6620,20 @@ export class GlLitGraph extends LitElement {
 			// nudge it), so skip the call entirely rather than rely on that.
 			if (rowTop >= scrollTop && rowBottom <= scrollTop + viewportHeight) return;
 
+			this._scrollAnchorGeneration++;
 			scroller.scrollToIndex(idx, 'nearest');
 			return;
 		}
 
+		// Bumped per WRITE, not on entry: both branches below can decline to scroll (the row already sits
+		// inside the padding), and cancelling a pending anchor retry when we never moved would strand the
+		// viewport where the row-set change left it.
 		const padPx = padding * rowHeight;
 		if (rowTop < scrollTop + padPx) {
+			this._scrollAnchorGeneration++;
 			scroller.scrollTop = Math.max(0, rowTop - padPx);
 		} else if (rowBottom > scrollTop + viewportHeight - padPx) {
+			this._scrollAnchorGeneration++;
 			scroller.scrollTop = rowBottom - viewportHeight + padPx;
 		}
 	}
@@ -6468,6 +6648,9 @@ export class GlLitGraph extends LitElement {
 		const idx = this.indexBySha.get(sha);
 		if (idx == null) return; // not loaded/visible yet — keep pending; updated() retries on next render
 
+		// Supersede any in-flight anchor retry before dropping the guard it checks, or it could fire after
+		// this reveal has scrolled and put the viewport back where the anchor wanted it.
+		this._scrollAnchorGeneration++;
 		this._pendingRevealSha = undefined;
 
 		if (this._pendingRevealPosition === 'nearest') {
@@ -6510,6 +6693,7 @@ export class GlLitGraph extends LitElement {
 		// the earlier generation current, and that earlier retry would then re-assert its stale target over
 		// this reveal.
 		const generation = ++this._revealGeneration;
+		this._scrollAnchorGeneration++;
 		scroller.scrollTop = centered;
 		if (scroller.scrollTop === centered) return;
 
@@ -6519,7 +6703,7 @@ export class GlLitGraph extends LitElement {
 		// `applyPendingScrollAnchor` guards against). The browser then clamps us short — reproducing the very
 		// "settle short" flakiness this replaces. Re-assert once the child's own update lands.
 		//
-		// The generation stamped above is what the retry checks: `_pendingRevealSha` alone can't detect
+		// The generation stamped above is what a retry checks: `_pendingRevealSha` alone can't detect
 		// supersession, because it is CLEARED before the write — a second reveal armed AND flushed before this
 		// promise settles would leave it undefined again, and re-asserting the older target then would drag the
 		// viewport backward, which is the jump this exists to prevent.

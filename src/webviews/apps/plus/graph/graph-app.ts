@@ -969,6 +969,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  selection, so bring the revealed row into view; the legacy engine scrolls on its own. */
 	ensureRowVisible(sha: string): void {
 		if (!this.graphState.config?.useNewEngine) return;
+
 		this.graph?.selectCommits([sha], { ensureVisible: true });
 	}
 
