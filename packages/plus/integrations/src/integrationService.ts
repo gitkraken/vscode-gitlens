@@ -3502,7 +3502,16 @@ export class IntegrationService implements Disposable {
 				).ProvidersApi(authenticationService);
 			}
 
-			this._providersApi = load();
+			// Never keep a rejected promise cached: a single failure (a module-resolution error, a transient
+			// construction failure) would otherwise poison every `ProvidersApi` read for the lifetime of the
+			// service, so consumers get instant empty results with no way to recover short of a restart.
+			const loading = (this._providersApi = load());
+			void loading.catch(() => {
+				// Only clear our own attempt, so a newer load already in flight isn't dropped
+				if (this._providersApi === loading) {
+					this._providersApi = undefined;
+				}
+			});
 		}
 
 		return this._providersApi;
