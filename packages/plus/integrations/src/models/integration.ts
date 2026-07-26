@@ -530,6 +530,8 @@ export abstract class IntegrationBase<
 					source?: Sources;
 			  },
 	): Promise<ProviderAuthenticationSession | undefined> {
+		const scope = getScopedLogger();
+
 		const { createIfNeeded, forceNewSession, source, sync } = options;
 		if (this._session != null) {
 			if (this.isSessionForIntegrationHost(this._session)) return this._session;
@@ -596,7 +598,18 @@ export abstract class IntegrationBase<
 			queueMicrotask(() => {
 				this._onDidChange.fire();
 				this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'connected' });
-				void this.providerOnConnect?.();
+				// Fired detached, so there is no caller left to catch anything: every implementor is async, and
+				// a rejection would surface as a process-level unhandled rejection in the host. It is a
+				// best-effort warm-up, so swallow the failure with a warning instead.
+				void (async () => {
+					try {
+						await this.providerOnConnect?.();
+					} catch (ex) {
+						scope?.warn(
+							`Failed to run providerOnConnect for ${this.key}: ${ex instanceof Error ? ex.message : String(ex)}`,
+						);
+					}
+				})();
 			});
 		}
 
