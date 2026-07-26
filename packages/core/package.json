@@ -288,6 +288,7 @@
 		"build": "node scripts/bundle.mjs",
 		"bundle": "node scripts/bundle.mjs",
 		"clean": "pnpx rimraf --glob dist src LICENSE LICENSE.plus *.tgz",
-		"prepack": "node scripts/bundle.mjs"
+		"prepack": "node scripts/bundle.mjs",
+		"verify:esm": "node scripts/verify-esm.mjs"
 	}
 }

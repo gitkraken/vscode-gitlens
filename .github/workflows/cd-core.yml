@@ -60,6 +60,11 @@ jobs:
             - name: Bundle core package
               run: pnpm --filter @gitkraken/core-gitlens run bundle
 
+            # Consumers load this package with Node's own CJS->ESM interop, not a bundler's. A release is
+            # the last place to discover that a module cannot even be linked there.
+            - name: Verify bundle loads under Node ESM
+              run: pnpm --filter @gitkraken/core-gitlens run verify:esm
+
             - name: Pack tarball (artifact)
               run: pnpm --filter @gitkraken/core-gitlens pack --pack-destination packages/core
 

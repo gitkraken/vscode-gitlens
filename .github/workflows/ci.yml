@@ -112,6 +112,9 @@ jobs:
             - name: Run package unit tests
               run: pnpm run test:packages
 
+            - name: Build test files
+              run: pnpm run build:tests
+
             - name: Run unit tests
               run: xvfb-run -a pnpm run test
 
@@ -119,6 +122,16 @@ jobs:
             # here so the provider suites that exercise actual git behavior still gate CI.
             - name: Run integration tests
               run: pnpm --filter ./packages/git-cli run test:integration
+
+            # The package tests are bundled by esbuild, so they resolve CommonJS dependencies through a
+            # bundler's interop and never exercise Node's. Bundle and load the published tree the way an
+            # external Node ESM consumer does, so an import that only a bundler can link fails here rather
+            # than in a consumer.
+            - name: Bundle core package
+              run: pnpm --filter @gitkraken/core-gitlens run bundle
+
+            - name: Verify core package loads under Node ESM
+              run: pnpm --filter @gitkraken/core-gitlens run verify:esm
 
     derive-matrix:
         name: Derive editor matrix
