@@ -3910,6 +3910,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			'highlights',
 			'head',
 			'upstream',
+			'mergeTarget',
 			...configuration.get('graph.scrollMarkers.additionalTypes'),
 		];
 

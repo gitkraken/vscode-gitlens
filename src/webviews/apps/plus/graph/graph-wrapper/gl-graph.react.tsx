@@ -9,6 +9,7 @@ import type {
 	GraphColumnSetting,
 	GraphColumnsSettings,
 	GraphContainerProps,
+	GraphMarkerType,
 	GraphPlatform,
 	GraphRef,
 	GraphRefGroup,
@@ -1183,7 +1184,11 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			onlyFirstParent={props.scope != null ? true : Boolean(config.onlyFollowFirstParent)}
 			downstreamsByUpstream={props.downstreams}
 			enabledRefMetadataTypes={config.enabledRefMetadataTypes}
-			enabledScrollMarkerTypes={config.scrollMarkerTypes}
+			enabledScrollMarkerTypes={config.scrollMarkerTypes?.filter(
+				// `mergeTarget` is a new-engine marker this component doesn't know — drop it rather than widen
+				// its type. Goes away with this wrapper.
+				(t): t is GraphMarkerType => t !== 'mergeTarget',
+			)}
 			enableShowHideRefsOptions
 			enableMultiSelection={config.multiSelectionMode !== false}
 			excludeRefsById={props.excludeRefs}

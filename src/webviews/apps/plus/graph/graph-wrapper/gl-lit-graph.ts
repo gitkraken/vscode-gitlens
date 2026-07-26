@@ -127,7 +127,12 @@ import { hasPersistentRowActions, renderChangesCellContent, renderRow } from './
 import { computeInScopeShas, computeScopeAnchors, computeScopeProjection } from './graph-scope.js';
 import type { ScopeAnchors, ScopeProjection } from './graph-scope.js';
 import type { RowMarkers, ScrollMarker } from './graph-scroll-markers.js';
-import { buildSelectionScrollMarkers, computeScrollMarkers, groupScrollMarkersByRow } from './graph-scroll-markers.js';
+import {
+	buildMergeTargetScrollMarkers,
+	buildSelectionScrollMarkers,
+	computeScrollMarkers,
+	groupScrollMarkersByRow,
+} from './graph-scroll-markers.js';
 
 type LitVirtualizer = HTMLElement & {
 	items: readonly unknown[];
@@ -1004,12 +1009,15 @@ export class GlLitGraph extends LitElement {
 	// markers (so hover/click hits the whole row + one tooltip lists every marker, in lane order).
 	private scrollMarkers: readonly ScrollMarker[] = [];
 	private scrollMarkerRows: readonly RowMarkers[] = [];
-	// Non-selection markers (the full-row-scan output), cached so a selection-only change merges
-	// selection markers on top instead of rescanning the rendered rows.
+	// Row-scanned markers, cached so a selection/merge-target change merges its markers on top instead of
+	// rescanning the rendered rows.
 	private baseScrollMarkers: readonly ScrollMarker[] = [];
 	private lastSearchResultsRef?: DidSearchParams['results'];
 	private lastSearchModeRef?: GraphSearchMode;
 	private lastScrollMarkerTypesRef?: GraphScrollMarkerTypes[];
+	// Identity of the scope's merge-target anchors at the last marker recompute — the deferred row marker
+	// pull is caught by `changed.has('rowMarkerMergeTarget')`, but the scope's set has no such signal.
+	private lastMergeTargetShasRef?: ReadonlySet<string>;
 	// Cached set of search-matched shas (undefined = no active search). Rebuilt only when
 	// `searchResults` changes (see willUpdate) — read by dim/highlight + the filter-mode row filter.
 	private _searchMatchedShas?: ReadonlySet<string>;
@@ -1759,10 +1767,16 @@ export class GlLitGraph extends LitElement {
 			excludeChanged ||
 			refsMetadataChanged ||
 			downstreamsChanged;
-		if (baseMarkerInputsChanged || selectionChanged) {
+		// The merge target lands AFTER the first paint (the scope-anchor pull) and moves again on a ref
+		// invalidation — so it triggers the O(1) patch, never the row rescan. `scopeAnchors` is rewritten by
+		// the lane derivation above, so its identity is a valid change signal by here.
+		const mergeTargetShas = this.scopeAnchors.mergeTargetShas;
+		const mergeTargetChanged = rowMarkerChanged || mergeTargetShas !== this.lastMergeTargetShasRef;
+		if (baseMarkerInputsChanged || selectionChanged || mergeTargetChanged) {
 			this.lastSearchResultsRef = this.searchResults;
 			this.lastScrollMarkerTypesRef = markerTypes;
-			// Selection alone patches on top of the cached base markers — no row rescan.
+			this.lastMergeTargetShasRef = mergeTargetShas;
+			// Selection/merge-target alone patch on top of the cached base markers — no row rescan.
 			this.recomputeScrollMarkers(!baseMarkerInputsChanged);
 		}
 
@@ -2609,11 +2623,12 @@ export class GlLitGraph extends LitElement {
 		this.recomputeDisplayRows();
 	}
 
-	// Recompute the scroll-rail markers from the rendered rows + search/selection state. The base
-	// (ref/stash/WIP/search) markers need a full pass over the rendered rows, so they're cached and
-	// rebuilt only when their inputs change; a selection-only change patches on top via the display
-	// index — O(selection) — so click/keyboard selection never rescans the graph.
-	private recomputeScrollMarkers(selectionOnly = false): void {
+	// Recompute the scroll-rail markers from the rendered rows + search/selection/merge-target state. The
+	// base (ref/stash/WIP/search) markers need a full pass over the rendered rows, so they're cached and
+	// rebuilt only when their inputs change; a selection or merge-target change patches on top via the
+	// display index — O(selection) / O(targets) — so neither a click nor the deferred merge-target resolve
+	// ever rescans the graph.
+	private recomputeScrollMarkers(patchOnly = false): void {
 		const types = this.config?.scrollMarkerTypes;
 		if (types == null || types.length === 0 || this.displayRows.length === 0) {
 			this.baseScrollMarkers = [];
@@ -2623,7 +2638,7 @@ export class GlLitGraph extends LitElement {
 		}
 
 		const enabled = new Set(types);
-		if (!selectionOnly) {
+		if (!patchOnly) {
 			// In filter mode every rendered row is already a match, so the search-highlight marker would
 			// paint a band on the entire rail (and re-render that full-rail DOM on every paging update while
 			// scrolling). Suppress it — mirrors the dim/highlight suppression in renderRowItem. Reuse the
@@ -2643,7 +2658,16 @@ export class GlLitGraph extends LitElement {
 		}
 
 		const selection = buildSelectionScrollMarkers(this.selectedShas, this.indexBySha, enabled);
-		this.scrollMarkers = selection.length > 0 ? [...this.baseScrollMarkers, ...selection] : this.baseScrollMarkers;
+		const mergeTarget = buildMergeTargetScrollMarkers(
+			this.mergeTargetShas(),
+			this.indexBySha,
+			enabled,
+			this.rowMarkerMergeTarget?.name,
+		);
+		this.scrollMarkers =
+			selection.length > 0 || mergeTarget.length > 0
+				? [...this.baseScrollMarkers, ...selection, ...mergeTarget]
+				: this.baseScrollMarkers;
 		this.scrollMarkerRows = groupScrollMarkersByRow(this.scrollMarkers);
 	}
 
@@ -7340,6 +7364,20 @@ export class GlLitGraph extends LitElement {
 			head ??= ref;
 		}
 		return head;
+	}
+
+	// The merge-target tips the scroll rail marks: the current branch's resolved target (the deferred
+	// row-marker pull) UNIONED with the active scope's anchors — the same two sources the row's row-marker rail
+	// folds onto its single `target` flag, so the two rails can never disagree. Undefined when neither
+	// exists (the common case), and the sets are 1-2 entries, so the union costs nothing worth caching.
+	private mergeTargetShas(): ReadonlySet<string> | undefined {
+		const sha = this.rowMarkerMergeTarget?.sha;
+		const scoped = this.scopeAnchors.mergeTargetShas;
+		if (sha == null) return scoped;
+		if (scoped == null || scoped.size === 0) return new Set([sha]);
+		if (scoped.has(sha)) return scoped;
+
+		return new Set([...scoped, sha]);
 	}
 
 	// Per-render cache of the current worktree's row-marker tips (HEAD / upstream / merge-target shas +

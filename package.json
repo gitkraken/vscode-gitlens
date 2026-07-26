@@ -6528,6 +6528,16 @@
 				}
 			},
 			{
+				"id": "gitlens.graphScrollMarkerMergeTargetColor",
+				"description": "Specifies the color marking the merge target on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#652d90",
+					"highContrastLight": "#652d90",
+					"dark": "#b180d7",
+					"highContrast": "#b180d7"
+				}
+			},
+			{
 				"id": "gitlens.graphMinimapMarkerHighlightsColor",
 				"description": "Specifies the color marking highlights (matches) on the minimap of the _Commit Graph_",
 				"defaults": {

@@ -3617,15 +3617,15 @@ gl-lit-graph {
 	// jammed together, with upstream shifted COOLER rather than merely dimmed (dimming reads as "disabled",
 	// and upstream isn't less important than HEAD, just elsewhere).
 	//
-	// Both alias the SCROLL-MARKER tokens rather than the charts palette, so the graph says the same thing in
-	// one color everywhere: the marker on the scroll rail, the minimap tick, the row's rail, and the ref pill
+	// All three alias the SCROLL-MARKER tokens rather than the charts palette, so the graph says the same thing
+	// in one color everywhere: the marker on the scroll rail, the minimap tick, the row's rail, and the ref pill
 	// are all one row-marker. Those tokens are also user-themeable (`gitlens.graphScrollMarkerHeadColor` /
-	// `…UpstreamColor`), so a customized theme carries through here for free — which a `--vscode-charts-*`
-	// derivation could not do, and a color-mix against `charts-blue` would actively drift away from.
-	// Merge target / focus / base are genuinely different KINDS of thing, so they keep their own hues.
+	// `…UpstreamColor` / `…MergeTargetColor`), so a customized theme carries through here for free — which a
+	// `--vscode-charts-*` derivation could not do, and a color-mix against `charts-blue` would actively drift
+	// away from. Focus / base are genuinely different KINDS of thing, so they keep their own hues.
 	--gl-row-marker-head: var(--color-graph-scroll-marker-head);
 	--gl-row-marker-upstream: var(--color-graph-scroll-marker-upstream);
-	--gl-row-marker-target: var(--vscode-charts-purple, #b180d7);
+	--gl-row-marker-target: var(--color-graph-scroll-marker-merge-target);
 	--gl-row-marker-focal: hsl(var(--brand));
 	--gl-row-marker-base: var(--vscode-descriptionForeground, #8b949e);
 
@@ -3636,6 +3636,7 @@ gl-lit-graph {
 	--color-graph-scroll-marker-head: var(--vscode-gitlens-graphScrollMarkerHeadColor);
 	--color-graph-minimap-marker-upstream: var(--vscode-gitlens-graphMinimapMarkerUpstreamColor);
 	--color-graph-scroll-marker-upstream: var(--vscode-gitlens-graphScrollMarkerUpstreamColor);
+	--color-graph-scroll-marker-merge-target: var(--vscode-gitlens-graphScrollMarkerMergeTargetColor);
 	--color-graph-minimap-marker-worktree: var(--vscode-gitlens-graphMinimapMarkerWorktreeColor);
 	--color-graph-minimap-marker-highlights: var(--vscode-gitlens-graphMinimapMarkerHighlightsColor);
 	--color-graph-scroll-marker-highlights: var(--vscode-gitlens-graphScrollMarkerHighlightsColor);

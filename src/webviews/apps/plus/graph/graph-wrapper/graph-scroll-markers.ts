@@ -6,6 +6,7 @@ import type {
 	GraphRefsMetadata,
 	GraphScrollMarkerTypes,
 } from '../../../../plus/graph/protocol.js';
+import { shortRefName } from '../utils/rowMarker.utils.js';
 import type { GraphCommitView } from './graph-commit.js';
 import { isRefHidden } from './graph-commit.js';
 
@@ -50,8 +51,10 @@ interface MarkerLane {
 }
 
 // Per-type priority: higher = primary (drawn on top where lanes overlap + expands on hover + leads the
-// tooltip). Order (highest→lowest): selection > highlights > wip > head > upstream > stashes >
-// pullRequests > localBranches > remoteBranches > tags.
+// tooltip). Order (highest→lowest): selection > highlights > wip > head > upstream > mergeTarget >
+// stashes > pullRequests > localBranches > remoteBranches > tags. The row-marker trio keeps its own
+// precedence (HEAD > upstream > merge target — see `primaryRowMarkerRole`) so the rail and the row's
+// row-marker rail agree on which one leads.
 const markerLanes: Readonly<Record<GraphScrollMarkerTypes, MarkerLane>> = {
 	stashes: {
 		lanes: [0],
@@ -67,26 +70,35 @@ const markerLanes: Readonly<Record<GraphScrollMarkerTypes, MarkerLane>> = {
 		shape: 'block',
 		priority: 3,
 	},
-	wip: { lanes: [0, 1], color: 'var(--color-graph-scroll-marker-wip)', icon: 'pencil', shape: 'block', priority: 8 },
+	wip: { lanes: [0, 1], color: 'var(--color-graph-scroll-marker-wip)', icon: 'pencil', shape: 'block', priority: 9 },
 	head: {
 		lanes: [0, 1],
 		color: 'var(--color-graph-scroll-marker-head)',
 		icon: 'git-branch',
 		shape: 'block',
-		priority: 7,
+		priority: 8,
 	},
 	highlights: {
 		lanes: [1],
 		color: 'var(--color-graph-scroll-marker-highlights)',
 		icon: 'search',
 		shape: 'block',
-		priority: 9,
+		priority: 10,
 	},
 	upstream: {
 		lanes: [1, 2],
 		color: 'var(--color-graph-scroll-marker-upstream)',
 		icon: 'cloud',
 		shape: 'block',
+		priority: 7,
+	},
+	// A single row, at most — so it spans the full rail as a thin rule rather than competing for a lane
+	// column with the per-ref blocks. Same hue as the row's row-marker rail + the HEAD pill's target segment.
+	mergeTarget: {
+		lanes: [0, 1, 2],
+		color: 'var(--color-graph-scroll-marker-merge-target)',
+		icon: 'gl-merge-target',
+		shape: 'thinLine',
 		priority: 6,
 	},
 	tags: { lanes: [2], color: 'var(--color-graph-scroll-marker-tags)', icon: 'tag', shape: 'block', priority: 1 },
@@ -109,7 +121,7 @@ const markerLanes: Readonly<Record<GraphScrollMarkerTypes, MarkerLane>> = {
 		color: 'var(--color-graph-scroll-marker-selection)',
 		icon: 'check',
 		shape: 'fullLine',
-		priority: 10,
+		priority: 11,
 	},
 };
 
@@ -157,9 +169,10 @@ function laneBox(type: GraphScrollMarkerTypes): {
  * a row with both a tag and a local branch yields two boxes in their respective lane columns
  * (rather than one ambiguous blob).
  *
- * Selection markers are deliberately NOT built here — this full-row scan runs only when the
- * rendered rows / ref filters / search change; selection changes patch via
- * {@link buildSelectionScrollMarkers} (O(selection), not O(rows)) and merge on top.
+ * Selection + merge-target markers are deliberately NOT built here — this full-row scan runs only when
+ * the rendered rows / ref filters / search change; those two patch via
+ * {@link buildSelectionScrollMarkers} / {@link buildMergeTargetScrollMarkers} (O(selection) and
+ * O(targets), not O(rows)) and merge on top.
  */
 export function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[] {
 	const { rows, getCommit, enabled, searchShas, excludeTypes, excludeRefs, downstreams, refsMetadata } = inputs;
@@ -293,6 +306,51 @@ export function buildSelectionScrollMarkers(
 			color: box.color,
 			index: index,
 			label: 'Selected',
+			icon: box.icon,
+			shape: box.shape,
+			priority: box.priority,
+		});
+	}
+	return markers;
+}
+
+/**
+ * Merge-target markers alone — the same O(1)-per-sha patch as {@link buildSelectionScrollMarkers}, and for
+ * the same reason: the target resolves AFTER the first paint (the scope-anchor pull) and can move again on
+ * a ref invalidation, so it must never cost a rescan of the rendered rows.
+ *
+ * `targetShas` unions the current branch's resolved target with the active scope's, so the rail can't
+ * disagree with the row's row-marker rail. A sha whose row isn't loaded is skipped — the marker appears if and
+ * when that row pages in (the rail doesn't page the graph on its own).
+ */
+export function buildMergeTargetScrollMarkers(
+	targetShas: ReadonlySet<string> | undefined,
+	indexBySha: ReadonlyMap<string, number>,
+	enabled: ReadonlySet<GraphScrollMarkerTypes>,
+	targetName?: string,
+): ScrollMarker[] {
+	if (!enabled.has('mergeTarget') || targetShas == null || targetShas.size === 0) return [];
+
+	const box = laneBox('mergeTarget');
+	// Only the CURRENT branch's target carries a name (the scope protocol ships the tip sha alone), so a
+	// scope-only target reads as the bare role — the same information the row's rail has.
+	const label =
+		targetName != null && targetName.length > 0 ? `Merge Target (${shortRefName(targetName)})` : 'Merge Target';
+
+	const markers: ScrollMarker[] = [];
+	const seen = new Set<number>();
+	for (const sha of targetShas) {
+		const index = indexBySha.get(sha);
+		// RowMarker and scope can resolve to the SAME row — one marker, or the row's tooltip lists it twice.
+		if (index == null || seen.has(index)) continue;
+
+		seen.add(index);
+		markers.push({
+			leftPct: box.leftPct,
+			widthPct: box.widthPct,
+			color: box.color,
+			index: index,
+			label: label,
 			icon: box.icon,
 			shape: box.shape,
 			priority: box.priority,
