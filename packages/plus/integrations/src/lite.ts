@@ -111,7 +111,6 @@ export function createTokenScopedGitHostIntegration(
 	const host = stripScheme(rawDomain);
 	const provider = createProviderStub(id, host, http.ignoreSSLErrors ?? false);
 	const tokenInfo = buildTokenWithInfo(id, token);
-	const baseUrl = resolveApiBaseUrl(id, rawDomain, host);
 
 	const wrapForForcedInsecureSSL: NonNullable<TokenScopedHttpConfig['wrapForForcedInsecureSSL']> =
 		// `Promise.resolve().then(fn)` (not `Promise.resolve(fn())`) so a synchronous throw in `fn` surfaces as
@@ -126,6 +125,8 @@ export function createTokenScopedGitHostIntegration(
 			wrapForForcedInsecureSSL: wrapForForcedInsecureSSL,
 		};
 		const api = new GitHubApi(config);
+		// GitHub is the one family whose base URL can legitimately be absent — see `resolveGitHubApiBaseUrl`.
+		const baseUrl = resolveGitHubApiBaseUrl(id, host);
 		return {
 			getRepositoryMetadata: (owner, repo, cancellation) =>
 				api.getRepositoryMetadata(provider, tokenInfo, owner, repo, { baseUrl: baseUrl }, cancellation),
@@ -137,6 +138,7 @@ export function createTokenScopedGitHostIntegration(
 	}
 
 	// GitLab, Bitbucket, and Azure DevOps share the `ProviderApiConfig` client shape and identical read signatures.
+	const baseUrl = resolveApiBaseUrl(id, rawDomain, host);
 	const config = toProviderApiConfig(http, wrapForForcedInsecureSSL);
 	const api =
 		id === GitCloudHostIntegrationId.GitLab || id === GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
@@ -190,15 +192,32 @@ function stripScheme(domain: string): string {
 }
 
 /**
- * Mirrors the per-provider `apiBaseUrl` getters on the `GitHostIntegration` subclasses. `rawDomain` may
- * carry a scheme (only Azure DevOps Server honors it); `host` is the bare host used everywhere else.
+ * GitHub's base URL, which `@gitkraken/provider-apis` derives BOTH the REST and the GraphQL endpoint from by
+ * appending GitHub Enterprise's paths (`/api/v3`, `/api/graphql`). Cloud must therefore pass nothing rather than
+ * `https://api.github.com`, which would build `https://api.github.com/api/graphql` and get a 404; omitting it is
+ * what selects the cloud endpoints. Mirrors the cloud `GitHubIntegration.apiBaseUrl` getter.
  */
-function resolveApiBaseUrl(id: TokenScopedGitHostId, rawDomain: string, host: string): string {
+function resolveGitHubApiBaseUrl(
+	id: GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	host: string,
+): string | undefined {
+	return id === GitCloudHostIntegrationId.GitHub ? undefined : `https://${host}/api/v3`;
+}
+
+/**
+ * Mirrors the per-provider `apiBaseUrl` getters on the `GitHostIntegration` subclasses, for every family whose
+ * base URL is always concrete (GitHub's is not — see {@link resolveGitHubApiBaseUrl}). `rawDomain` may carry a
+ * scheme (only Azure DevOps Server honors it); `host` is the bare host used everywhere else.
+ */
+function resolveApiBaseUrl(
+	id: Exclude<
+		TokenScopedGitHostId,
+		GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+	>,
+	rawDomain: string,
+	host: string,
+): string {
 	switch (id) {
-		case GitCloudHostIntegrationId.GitHub:
-			return 'https://api.github.com';
-		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-			return `https://${host}/api/v3`;
 		case GitCloudHostIntegrationId.GitLab:
 			return 'https://gitlab.com/api';
 		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
