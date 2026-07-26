@@ -454,26 +454,26 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	};
 
 	// Cache keyed by (rows, wipMetadataBySha, scope, branchesVisibility,
-	// includeOnlyRefs, branch.id + name, useNewEngine) — any reference change invalidates. Scope must be in
-	// the key because `filterSecondariesForScopeAndVisibility` reads `scope.branchRef`/`upstreamRef`/
+	// includeOnlyRefs, branch.id + detached, useNewEngine) — any reference change invalidates. Scope must be
+	// in the key because `filterSecondariesForScopeAndVisibility` reads `scope.branchRef`/`upstreamRef`/
 	// `additionalBranchRefs` AND switches off the visibility filter entirely when scope is active,
 	// AND `shouldShowPrimaryWipRow` reads `scope.branchRef` to enforce the "primary WIP belongs
 	// only to the focal branch when focal === current" convention; `branchesVisibility` +
-	// `includeOnlyRefs` + `currentBranchId`/`currentBranchName` must also be in the key because the
-	// WIP-visibility helpers read them (the name feeds the detached-HEAD check) when the scope picker is
-	// in a non-`all` mode (current/smart/favorited/agents) AND when no scope is active. `useNewEngine`
-	// must also be in the key because it gates whether the primary WIP row is synthesized here at all
-	// (see `getDecoratedRows` below).
+	// `includeOnlyRefs` + `currentBranchId`/`currentBranchDetached` must also be in the key because the
+	// WIP-visibility helpers read them (`detached` feeds the detached-HEAD check; the branch's `name` is
+	// never read) when the scope picker is in a non-`all` mode (current/smart/favorited/agents) AND when
+	// no scope is active. `useNewEngine` must also be in the key because it gates whether the primary WIP
+	// row is synthesized here at all (see `getDecoratedRows` below).
 	private _decoratedRowsCache?: {
 		rows: GitGraphRow[] | undefined;
 		wipMetadataBySha: GraphWipMetadataBySha | undefined;
 		scope: GraphScope | undefined;
 		branchesVisibility: typeof graphStateContext.__context__.branchesVisibility;
 		includeOnlyRefs: typeof graphStateContext.__context__.includeOnlyRefs;
-		// Keyed on the branch's id + name rather than the `branch` object: the host re-creates that
+		// Keyed on the branch's id + detached rather than the `branch` object: the host re-creates that
 		// object on every full-state push, so caching on its identity would defeat the memo entirely.
 		currentBranchId: string | undefined;
-		currentBranchName: string | undefined;
+		currentBranchDetached: boolean | undefined;
 		useNewEngine: boolean;
 		result: { rows: GitGraphRow[] | undefined; showPrimary: boolean };
 	};
@@ -505,7 +505,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const includeOnlyRefs = graphState.includeOnlyRefs;
 		const currentBranch = graphState.branch;
 		const currentBranchId = currentBranch?.id;
-		const currentBranchName = currentBranch?.name;
+		const currentBranchDetached = currentBranch?.detached;
 		const useNewEngine = graphState.config?.useNewEngine === true;
 
 		const cached = this._decoratedRowsCache;
@@ -517,7 +517,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			cached.branchesVisibility === branchesVisibility &&
 			cached.includeOnlyRefs === includeOnlyRefs &&
 			cached.currentBranchId === currentBranchId &&
-			cached.currentBranchName === currentBranchName &&
+			cached.currentBranchDetached === currentBranchDetached &&
 			cached.useNewEngine === useNewEngine
 		) {
 			// Return the cached `result` object identity-stable. The render boundary still
@@ -662,7 +662,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			branchesVisibility: branchesVisibility,
 			includeOnlyRefs: includeOnlyRefs,
 			currentBranchId: currentBranchId,
-			currentBranchName: currentBranchName,
+			currentBranchDetached: currentBranchDetached,
 			useNewEngine: useNewEngine,
 			result: result,
 		};
@@ -1138,6 +1138,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				rows: this.graphState.rows,
 				branchesVisibility: this.graphState.branchesVisibility,
 				includeOnlyRefs: this.graphState.includeOnlyRefs,
+				scope: this.graphState.scope,
+				currentBranch: branch,
 			},
 		);
 	}

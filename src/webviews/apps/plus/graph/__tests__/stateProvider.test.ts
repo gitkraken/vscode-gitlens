@@ -831,7 +831,7 @@ suite('shouldShowPrimaryWipRow', () => {
 	});
 
 	test('a parenthesized branch name is NOT treated as detached', () => {
-		// `isDetachedHead` matches any `(…)` name, but `(release)` is a legal git branch (verified with
+		// The old `isDetachedHead` matched any `(…)` name, but `(release)` is a legal git branch (verified with
 		// `git check-ref-format --branch`). Using that test here locked such a branch out of being
 		// focused and hid its WIP row, so the guard reads the host's resolved `detached` flag instead.
 		const parenBranch = { id: '/repo|heads/(release)', name: '(release)', detached: false };
@@ -1075,6 +1075,11 @@ suite('getOverviewBranchSelectionSha', () => {
 			rows: undefined,
 			branchesVisibility: 'all',
 			includeOnlyRefs: undefined,
+			scope: undefined,
+			// The cascade's case 3 now asks `shouldShowPrimaryWipRow` directly, which answers for the
+			// branch HEAD points at — so the default pairs with `branchFor()`'s id, i.e. the picked
+			// branch IS the current one. Only read when the picked branch is `opened`.
+			currentBranch: { id: branchId, name: 'feature' },
 			...overrides,
 		};
 	}
@@ -1161,12 +1166,37 @@ suite('getOverviewBranchSelectionSha', () => {
 		assert.strictEqual(result, uncommitted);
 	});
 
-	test("case 3: branch.opened under 'agents' visibility BUT branchId NOT in includeOnlyRefs → tip (regression guard)", () => {
+	test("case 3: UNSCOPED, branch.opened under 'agents' visibility BUT branchId NOT in includeOnlyRefs → tip (regression guard)", () => {
 		// Without this gate the helper would return `uncommitted` and `ensureAndSelectCommit`
-		// would retry 10 RAFs against a primary WIP row the wrapper never injected.
+		// would retry 10 RAFs against a primary WIP row the wrapper never injected. Unscoped only —
+		// with a scope on this branch, focus outranks visibility and the row DOES render (below).
 		const result = getOverviewBranchSelectionSha(
 			branchFor({ opened: true }),
 			ctxFor({ branchesVisibility: 'agents', includeOnlyRefs: refsFor('/repo|heads/other') }),
+		);
+		assert.strictEqual(result, tipSha);
+	});
+
+	test("case 3: SCOPED to the opened branch under 'agents' with branchId NOT in includeOnlyRefs → uncommitted", () => {
+		// Focus outranks `branchesVisibility` (`shouldShowPrimaryWipRow`'s short-circuit), so the
+		// wrapper renders the primary WIP row and the selection must land on it — not the tip.
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ opened: true }),
+			ctxFor({
+				branchesVisibility: 'agents',
+				includeOnlyRefs: refsFor('/repo|heads/other'),
+				scope: scopeFor(branchId),
+			}),
+		);
+		assert.strictEqual(result, uncommitted);
+	});
+
+	test('case 3: SCOPED to ANOTHER branch → tip even under `all` visibility', () => {
+		// A foreign scope always hides the primary WIP row (the scope gate), so `uncommitted`
+		// would be unselectable — fall to the tip.
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ opened: true }),
+			ctxFor({ branchesVisibility: 'all', scope: scopeFor('/repo|heads/other') }),
 		);
 		assert.strictEqual(result, tipSha);
 	});

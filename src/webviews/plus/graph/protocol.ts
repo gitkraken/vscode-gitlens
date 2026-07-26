@@ -407,8 +407,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchesVisibility?: GraphBranchesVisibility;
 	/** `detached` is carried alongside the reference because `GitBranchReference` can't express it and
-	 *  the name can't stand in for it: a detached branch's `name` is the synthesized `(sha…)` label, and
-	 *  `(release)` is a legal branch name that `isDetachedHead` would also match. */
+	 *  the name can't stand in for it: a detached branch's `name` is the synthesized `(sha…)` label, yet
+	 *  `(release)` is a legal branch name — shape can't classify, only the host's resolved flag can. */
 	branch?: GitBranchReference & { detached: boolean };
 	branchState?: BranchState;
 	lastFetched?: Date;

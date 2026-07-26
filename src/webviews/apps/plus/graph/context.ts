@@ -93,11 +93,13 @@ export interface AppState extends State {
 	resetOverviewEnrichment(): void;
 
 	/**
-	 * Publish a freshly-picked scope to the `scope` signal — exactly ONE write per call, after the
-	 * anchor IPC settles: anchored when it yields a merge base that's in the loaded rows, bare
-	 * otherwise. Resolves once that write has landed, so callers can sequence a scroll-to-commit /
-	 * select-row against the settled scope. A bare-then-anchored two-step is deliberately avoided —
-	 * the two produce different visible sets, which reads as commits jumping.
+	 * Publish a freshly-picked scope to the `scope` signal — at most ONE write per call (never a
+	 * bare-then-anchored two-step; the two produce different visible sets, which reads as commits
+	 * jumping), after the anchor IPC settles: anchored when it yields a merge base that's in the
+	 * loaded rows, bare otherwise. A superseded or invalid call writes nothing. Resolves once the
+	 * publish attempt settles, so callers can sequence a scroll-to-commit / select-row against the
+	 * settled scope — re-checking `scope` after the await, since a superseding call owns the final
+	 * value.
 	 */
 	setScope(scope: GraphScope): Promise<void>;
 

@@ -1291,11 +1291,19 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	/** Whether a clicked WIP pill's worktree is part of the active graph scope. The primary WIP
-	 *  (`uncommitted`) matches when the scoped branch is HEAD's branch; a secondary matches when its
+	 *  (`uncommitted`) matches when its row renders under the scope; a secondary matches when its
 	 *  worktree branch is the scope's focal or one of its additional refs. Detached secondaries (no
 	 *  `branchRef`) never match a branch scope. */
 	private isWipPillInScope(id: string, scope: NonNullable<typeof this.graphState.scope>): boolean {
-		if (id === uncommitted) return scope.branchRef === this.graphState.branch?.id;
+		if (id === uncommitted) {
+			// Ask the predicate the wrapper renders by, with the same rows-derived fallback — the old
+			// `scope.branchRef === branch?.id` re-derivation treated a transiently-unknown branch as a
+			// mismatch and cleared the scope (plus reset filters) for a row already on screen. Same
+			// drift `handleJumpToWip` had.
+			const { branchesVisibility, includeOnlyRefs, branch } = this.graphState;
+			const scopeFocalIsHead = branch == null ? isScopeFocalHead(this.graphState.rows, scope) : undefined;
+			return shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, branch, scope, scopeFocalIsHead);
+		}
 
 		const branchRef = this.graphState.wipMetadataBySha?.[id]?.branchRef;
 		if (branchRef == null) return false;
@@ -2892,6 +2900,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			rows: this.graphState.rows,
 			branchesVisibility: this.graphState.branchesVisibility,
 			includeOnlyRefs: this.graphState.includeOnlyRefs,
+			scope: this.graphState.scope,
+			currentBranch: this.graphState.branch,
 		});
 	}
 
@@ -2967,6 +2977,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			rows: this.graphState.rows,
 			branchesVisibility: this.graphState.branchesVisibility,
 			includeOnlyRefs: this.graphState.includeOnlyRefs,
+			scope: this.graphState.scope,
+			currentBranch: this.graphState.branch,
 		});
 		if (sha != null && sha !== '') {
 			// If the helper returned the tip and tip isn't loaded, the IPC `EnsureRowRequest`
@@ -3025,9 +3037,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// hides the primary WIP row. Guarded here because this is the single choke point every entry
 		// point funnels through (header, popover, overview card, sidebar, `scope-to-branch` command).
 		//
-		// Identified by the detached branch's own id, NOT by testing the name for `(…)`: `(release)` is a
-		// legal branch name, and a name test locked users out of focusing it at all.
-		// Matched against the detached branch's OWN id and name — never a `(…)` name test, which would
+		// Matched against the detached branch's OWN id and name — never a `(…)` shape test, which would
 		// reject the legal branch `(release)`. Both are needed: the overview path builds `branchRef` from
 		// `branch.id` (SHA-keyed when detached) while `scopeToBranch` builds it from `branch.name` (the
 		// synthesized `(sha…)` label), so an id-only check let the name-built path straight through.
