@@ -92,7 +92,12 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	ID,
 	GitHubRepositoryDescriptor
 > {
-	protected abstract get apiBaseUrl(): string;
+	/**
+	 * Base URL handed to `@gitkraken/provider-apis`, which derives BOTH the REST and the GraphQL endpoint from it
+	 * by appending GitHub Enterprise's paths. Only a GHE instance base belongs here; cloud passes `undefined`,
+	 * the sole value that selects the cloud endpoints (see the cloud subclass).
+	 */
+	protected abstract get apiBaseUrl(): string | undefined;
 
 	protected override async getProviderAccountForCommit(
 		session: ProviderAuthenticationSession,
@@ -369,7 +374,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		const session = await this.resolveReadSession(repo.connectionId, undefined);
 		if (session == null) return undefined;
 
-		// `apiBaseUrl` is api.github.com for cloud and the GHE instance base for enterprise (inherited override).
+		// `apiBaseUrl` is undefined for cloud (which is what selects the cloud endpoints) and the GHE instance base
+		// for enterprise (inherited override).
 		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
 			baseUrl: this.apiBaseUrl,
 		});
@@ -593,8 +599,15 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 		return metadata.domain;
 	}
 
-	protected override get apiBaseUrl(): string {
-		return 'https://api.github.com';
+	protected override get apiBaseUrl(): string | undefined {
+		// Undefined on purpose, NOT 'https://api.github.com'. `@gitkraken/provider-apis` treats this value as an
+		// *enterprise* base and derives both endpoints from it by appending GitHub Enterprise's paths:
+		// `getRESTBaseUrl` appends `/api/v3` and `getGraphQLEndpoint` appends `/api/graphql` (githubHelpers.ts).
+		// Handing it the cloud host therefore built `https://api.github.com/api/graphql`, which GitHub answers
+		// 404 — every cloud GraphQL read (orgs, repos, PR/issue search) failed as `not-found`. Omitting it is
+		// what selects the cloud endpoints (`GITHUB_API_URL` / `GITHUB_GRAPHQL_API_URL`), so cloud must pass
+		// nothing and only GHE passes its instance base.
+		return undefined;
 	}
 
 	override access(): Promise<boolean> {
