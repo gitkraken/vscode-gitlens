@@ -1,8 +1,9 @@
-import ProviderApis, { GraphQLErrors } from '@gitkraken/provider-apis';
+import ProviderApis from '@gitkraken/provider-apis';
 import type {
 	CollectionMetadata,
 	GitPullRequestState,
 	GraphQLError,
+	GraphQLErrors,
 	TrelloBoard,
 	TrelloList,
 } from '@gitkraken/provider-apis';
@@ -81,6 +82,17 @@ const createProviderApis: ProviderApisFactory =
 // the message fallbacks from misclassifying unrelated GraphQL/transport failures as a confident negative.
 const repoNotFoundMessage = /^Repository .+ not found$/i;
 
+// Duck-typed rather than `ex instanceof GraphQLErrors`, because importing the class as a value makes this
+// module unloadable from plain Node ESM consumers: `@gitkraken/provider-apis` is CommonJS and declares its
+// exports through getters, which Node's `cjs-module-lexer` cannot see, so the only named exports it can
+// synthesize are `default` and `module.exports`. Bundled hosts (webpack/esbuild) bind the named export
+// fine, but the published package keeps third-party deps external, so the named import survives into
+// consumers and breaks linking there. The SDK's constructor always assigns `graphQLErrors` (defaulting to
+// `[]`) and it is the only SDK error carrying that field, so the shape check is unambiguous.
+function isGraphQLErrors(ex: unknown): ex is GraphQLErrors {
+	return ex instanceof Error && Array.isArray((ex as Partial<GraphQLErrors>).graphQLErrors);
+}
+
 // `handleProviderError` classifies not-found by HTTP status (404/410/422), which only works for the
 // REST `getRepo` clients (Bitbucket, Bitbucket Server, Azure DevOps). GitHub and GitLab `getRepo` are
 // GraphQL: a missing repo comes back as HTTP 200 with a null node, and the SDK throws an unclassified
@@ -93,7 +105,7 @@ function isGraphQLRepoNotFoundError(ex: unknown): boolean {
 	// `RATE_LIMITED` GraphQL error would also surface with that message. Trust the structured error type
 	// when entries are present (only `NOT_FOUND` is a real not-found), and fall back to the repo-specific
 	// message only when there are no entries to disambiguate (a bare null node).
-	if (ex instanceof GraphQLErrors) {
+	if (isGraphQLErrors(ex)) {
 		const errors = ex.graphQLErrors;
 		// Scope NOT_FOUND to the `repository` field: `getRepo`'s query only selects that node today, but
 		// were it to grow other selections that can emit NOT_FOUND, an unscoped check would misclassify
