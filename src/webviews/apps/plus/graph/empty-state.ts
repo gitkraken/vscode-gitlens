@@ -79,7 +79,7 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 			.description {
 				margin-block: var(--gl-space-8) 0;
 				font-size: var(--gl-font-base);
-				line-height: 1.5;
+				line-line-height: 1.5;
 				color: var(--vscode-descriptionForeground);
 				text-wrap: pretty;
 			}
@@ -184,6 +184,7 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 				.groups {
 					display: flex;
 					flex-direction: row;
+					gap: var(--gl-space-8);
 				}
 
 				.group {
@@ -191,15 +192,6 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 				}
 			}
 		`,
-	];
-
-			/* .container {
-				display: flex;
-				flex-direction: column;
-				inline-size: 100%;
-				max-width: 42rem;
-			} */
-
 			.hero {
 				inline-size: 100%;
 				max-width: 42ch;
@@ -319,6 +311,7 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 				.groups {
 					display: flex;
 					flex-direction: row;
+					gap: var(--gl-space-8);
 				}
 
 				.group {
@@ -421,16 +414,18 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 								href: createCommandLink('gitlens.startWork', { source: 'graph' }),
 								icon: 'issues',
 								title: l10n.t('Start Work on an Issue'),
-								description: l10n.t('Pick an issue — clone and branch automatically'),
+								description: l10n.t('Pick an issue to start a branch from'),
 								accent: 'issue',
 							})}
-							${this.renderAction({
-								href: createCommandLink('gitlens.startReview', { source: { source: 'graph' } }),
-								icon: 'git-pull-request',
-								title: l10n.t('Start Review on a PR'),
-								description: l10n.t('Check out a pull request to review it'),
-								accent: 'pr',
-							})}
+							${when(!this.graphState.isWeb, () =>
+								this.renderAction({
+									href: createCommandLink('gitlens.startReview', { source: { source: 'graph' } }),
+									icon: 'git-pull-request',
+									title: l10n.t('Start Review on a PR'),
+									description: l10n.t('Check out a pull request to review it'),
+									accent: 'pr',
+								}),
+							)}
 						</div>
 					</div>
 				</div>
