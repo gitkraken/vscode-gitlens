@@ -92,7 +92,7 @@ function parseArgs(argv) {
 		} else if (arg === '-l' || arg === '--list') {
 			opts.list = true;
 		} else if (arg === '-b' || arg === '--build') {
-			opts.build = buildScripts.quick;
+			opts.build = buildScripts.full;
 		} else if (arg.startsWith('--build=')) {
 			const target = arg.slice('--build='.length);
 			const script = buildScripts[target];
