@@ -1420,7 +1420,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			const startedAt = performance.now();
 			try {
 				// The host's canonical order is tip-last; the display is reversed (newest first).
-				const libraryOrder = [...orderedDisplayIds].reverse();
+				const libraryOrder = orderedDisplayIds.toReversed();
 				const result = await this.actions.services.graphInspect.reorderProposedCommits(
 					repoPath,
 					cacheKey,

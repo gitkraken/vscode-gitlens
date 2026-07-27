@@ -855,50 +855,60 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const total = resolvedCount + needCount;
 
 		return html`
-			${total > 0
-				? html`<div class="resolve-progress">
-						<span class="resolve-progress__text">
-							<span class="resolve-progress__done">${resolvedCount} of ${total} resolved</span>
-							${needCount > 0
-								? html`<span class="resolve-progress__sep">·</span
-										><span class="resolve-progress__need">${needCount} need your input</span>`
-								: nothing}
-						</span>
-						<span class="resolve-progress__bar" aria-hidden="true">
-							<span
-								class="resolve-progress__bar-seg resolve-progress__bar-seg--done"
-								style=${cspStyleMap({ 'flex-grow': String(resolvedCount) })}
-							></span>
-							<span
-								class="resolve-progress__bar-seg resolve-progress__bar-seg--need"
-								style=${cspStyleMap({ 'flex-grow': String(needCount) })}
-							></span>
-						</span>
-					</div>`
-				: nothing}
+			${
+				total > 0
+					? html`<div class="resolve-progress">
+							<span class="resolve-progress__text">
+								<span class="resolve-progress__done">${resolvedCount} of ${total} resolved</span>
+								${
+									needCount > 0
+										? html`<span class="resolve-progress__sep">·</span
+												><span class="resolve-progress__need"
+													>${needCount} need your input</span
+												>`
+										: nothing
+								}
+							</span>
+							<span class="resolve-progress__bar" aria-hidden="true">
+								<span
+									class="resolve-progress__bar-seg resolve-progress__bar-seg--done"
+									style=${cspStyleMap({ 'flex-grow': String(resolvedCount) })}
+								></span>
+								<span
+									class="resolve-progress__bar-seg resolve-progress__bar-seg--need"
+									style=${cspStyleMap({ 'flex-grow': String(needCount) })}
+								></span>
+							</span>
+						</div>`
+					: nothing
+			}
 			<div class="resolve-results scrollable">
-				${resolvedCount > 0
-					? this.renderSection(
-							'resolved',
-							'Resolved',
-							resolvedCount,
-							'pass',
-							repeat(
-								resolutions,
-								r => r.filePath,
-								r => this.renderResolution(r),
-							),
-						)
-					: nothing}
-				${needCount > 0
-					? this.renderSection(
-							'needs',
-							'Needs your input',
-							needCount,
-							'warning',
-							this.renderNeedsBody(skipped, errors),
-						)
-					: nothing}
+				${
+					resolvedCount > 0
+						? this.renderSection(
+								'resolved',
+								'Resolved',
+								resolvedCount,
+								'pass',
+								repeat(
+									resolutions,
+									r => r.filePath,
+									r => this.renderResolution(r),
+								),
+							)
+						: nothing
+				}
+				${
+					needCount > 0
+						? this.renderSection(
+								'needs',
+								'Needs your input',
+								needCount,
+								'warning',
+								this.renderNeedsBody(skipped, errors),
+							)
+						: nothing
+				}
 			</div>
 			<div class="resolve-ready-actions">
 				<gl-checkbox
@@ -908,47 +918,49 @@ export class GlDetailsResolveModePanel extends LitElement {
 				>
 					<code-icon icon="wand"></code-icon> Refine Resolutions
 				</gl-checkbox>
-				${this._refineMode
-					? keyed(
-							this.repoPath,
-							html`<gl-ai-input
-								appearance="detached"
-								class="resolve-refine-input"
-								multiline
-								rows="2"
-								button-label="Refine Resolutions"
-								busy-label="Re-resolving…"
-								event-name="resolve-refine"
-								placeholder='Refine all — e.g. "prefer incoming for generated files"'
-								.recall=${this.lastPrompt}
-								.value=${this.refineDraft}
-							>
-								<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+				${
+					this._refineMode
+						? keyed(
+								this.repoPath,
+								html`<gl-ai-input
+									appearance="detached"
+									class="resolve-refine-input"
+									multiline
+									rows="2"
+									button-label="Refine Resolutions"
+									busy-label="Re-resolving…"
+									event-name="resolve-refine"
+									placeholder='Refine all — e.g. "prefer incoming for generated files"'
+									.recall=${this.lastPrompt}
+									.value=${this.refineDraft}
+								>
+									<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+									<gl-button
+										slot="actions"
+										appearance="secondary"
+										@click=${() => this.emit('resolve-discard')}
+										>Discard</gl-button
+									>
+								</gl-ai-input>`,
+							)
+						: html`<div class="resolve-apply-row">
 								<gl-button
-									slot="actions"
-									appearance="secondary"
-									@click=${() => this.emit('resolve-discard')}
+									class="resolve-apply"
+									full
+									aria-disabled=${applicable === 0 ? 'true' : nothing}
+									tooltip=${applicable === 0 ? 'No resolutions ready to apply' : nothing}
+									@click=${() => {
+										if (applicable === 0) return;
+
+										this.emit('resolve-apply-all');
+									}}
+									>${applyLabel}</gl-button
+								>
+								<gl-button appearance="secondary" @click=${() => this.emit('resolve-discard')}
 									>Discard</gl-button
 								>
-							</gl-ai-input>`,
-						)
-					: html`<div class="resolve-apply-row">
-							<gl-button
-								class="resolve-apply"
-								full
-								aria-disabled=${applicable === 0 ? 'true' : nothing}
-								tooltip=${applicable === 0 ? 'No resolutions ready to apply' : nothing}
-								@click=${() => {
-									if (applicable === 0) return;
-
-									this.emit('resolve-apply-all');
-								}}
-								>${applyLabel}</gl-button
-							>
-							<gl-button appearance="secondary" @click=${() => this.emit('resolve-discard')}
-								>Discard</gl-button
-							>
-						</div>`}
+							</div>`
+				}
 			</div>
 		`;
 	}
@@ -976,11 +988,13 @@ export class GlDetailsResolveModePanel extends LitElement {
 				<span class="resolve-section__label">${label}</span>
 				<span class="resolve-section__count">${count}</span>
 			</button>
-			${expanded
-				? html`<ul class="resolve-files">
-						${body}
-					</ul>`
-				: nothing}
+			${
+				expanded
+					? html`<ul class="resolve-files">
+							${body}
+						</ul>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -1032,17 +1046,19 @@ export class GlDetailsResolveModePanel extends LitElement {
 				</span>
 				<span class="resolve-file__path">${r.filePath}</span>
 				${this.renderConfidence(confidenceLevel(r.confidence))}
-				${canViewDiff
-					? html`<gl-button
-							appearance="toolbar"
-							class="resolve-file__view"
-							aria-label="View resolved changes for ${r.filePath}"
-							@click=${() => this.emit('resolve-view-diff', { filePath: r.filePath })}
-						>
-							<code-icon icon="diff"></code-icon
-							><span class="resolve-file__view-label">View Changes</span>
-						</gl-button>`
-					: nothing}
+				${
+					canViewDiff
+						? html`<gl-button
+								appearance="toolbar"
+								class="resolve-file__view"
+								aria-label="View resolved changes for ${r.filePath}"
+								@click=${() => this.emit('resolve-view-diff', { filePath: r.filePath })}
+							>
+								<code-icon icon="diff"></code-icon
+								><span class="resolve-file__view-label">View Changes</span>
+							</gl-button>`
+						: nothing
+				}
 				<gl-tooltip content=${retrying ? 'Re-resolving…' : 'Retry with feedback'}>
 					<gl-button
 						appearance="toolbar"
@@ -1058,34 +1074,38 @@ export class GlDetailsResolveModePanel extends LitElement {
 					</gl-button>
 				</gl-tooltip>
 			</div>
-			${r.reasoning
-				? html`<button
-							class="resolve-file__why"
-							aria-expanded=${reasonOpen}
-							@click=${() => this.toggleReason(r.filePath)}
+			${
+				r.reasoning
+					? html`<button
+								class="resolve-file__why"
+								aria-expanded=${reasonOpen}
+								@click=${() => this.toggleReason(r.filePath)}
+							>
+								<code-icon class="resolve-file__why-chevron" icon="chevron-right"></code-icon>Why this
+								resolution
+							</button>
+							${reasonOpen ? html`<p class="resolve-file__reasoning">${r.reasoning}</p>` : nothing}`
+					: nothing
+			}
+			${
+				expanded
+					? html`<gl-ai-input
+							class="resolve-file__feedback"
+							multiline
+							active
+							floating-footer
+							rows="1"
+							button-label="Retry"
+							busy-label="Re-resolving…"
+							event-name="resolve-row-retry"
+							placeholder='What was wrong? e.g. "keep the new import, drop the old one"'
+							.busy=${retrying}
+							@resolve-row-retry=${(e: CustomEvent<{ prompt?: string }>) => this.onRowRetry(r.filePath, e)}
 						>
-							<code-icon class="resolve-file__why-chevron" icon="chevron-right"></code-icon>Why this
-							resolution
-						</button>
-						${reasonOpen ? html`<p class="resolve-file__reasoning">${r.reasoning}</p>` : nothing}`
-				: nothing}
-			${expanded
-				? html`<gl-ai-input
-						class="resolve-file__feedback"
-						multiline
-						active
-						floating-footer
-						rows="1"
-						button-label="Retry"
-						busy-label="Re-resolving…"
-						event-name="resolve-row-retry"
-						placeholder='What was wrong? e.g. "keep the new import, drop the old one"'
-						.busy=${retrying}
-						@resolve-row-retry=${(e: CustomEvent<{ prompt?: string }>) => this.onRowRetry(r.filePath, e)}
-					>
-						<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-					</gl-ai-input>`
-				: nothing}
+							<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+						</gl-ai-input>`
+					: nothing
+			}
 		</li>`;
 	}
 
@@ -1154,7 +1174,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 	 *  keep — taking a side keeps that name and deletes the other (the host resolves the pair). */
 	private renderRenameGroup(renameOf: string, group: readonly ResolveSkippedFile[]): unknown {
 		// Current side first, then incoming, so the order is stable regardless of how git listed them.
-		const ordered = [...group].sort((a, b) => (a.canStageCurrent ? 0 : 1) - (b.canStageCurrent ? 0 : 1));
+		const ordered = group.toSorted((a, b) => (a.canStageCurrent ? 0 : 1) - (b.canStageCurrent ? 0 : 1));
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
 				<span class="resolve-file__badge resolve-file__badge--warn" title="Needs manual resolution">
@@ -1218,12 +1238,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
 				<code-icon class="resolve-file__error" icon="error"></code-icon>
-				${badge != null
-					? html`<span class="resolve-file__badge resolve-file__badge--warn" title="Conflict type"
-							><code-icon icon=${badge.icon} size="11"></code-icon
-							><span class="resolve-file__badge-text">${badge.label}</span></span
-						>`
-					: nothing}
+				${
+					badge != null
+						? html`<span class="resolve-file__badge resolve-file__badge--warn" title="Conflict type"
+								><code-icon icon=${badge.icon} size="11"></code-icon
+								><span class="resolve-file__badge-text">${badge.label}</span></span
+							>`
+						: nothing
+				}
 				<span class="resolve-file__path">${e.filePath}</span>
 				${this.renderFallbackActions(e)}
 			</div>

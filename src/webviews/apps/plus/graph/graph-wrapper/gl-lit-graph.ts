@@ -2308,7 +2308,7 @@ export class GlLitGraph extends LitElement {
 			this._scopeIdentityFor = this.scope;
 			this._scopeIdentity =
 				this.scope != null
-					? JSON.stringify([this.scope.branchRef, [...(this.scope.additionalBranchRefs ?? [])].sort()])
+					? JSON.stringify([this.scope.branchRef, (this.scope.additionalBranchRefs ?? []).toSorted()])
 					: undefined;
 		}
 		const scopeIdentity = this._scopeIdentity;
@@ -4837,13 +4837,15 @@ export class GlLitGraph extends LitElement {
 					><span class="gl-graph__changes-optin-tooltip-sub">Enable once for all repos.</span></span
 				>
 			</gl-tooltip>
-			${narrow
-				? nothing
-				: html`<span class="gl-graph__changes-optin-help"
-							>Computes diff stats for loaded commits in the background — can be intensive in very large
-							repos.</span
-						>
-						<span class="gl-graph__changes-optin-sub">Enable once for all repos.</span>`}
+			${
+				narrow
+					? nothing
+					: html`<span class="gl-graph__changes-optin-help"
+								>Computes diff stats for loaded commits in the background — can be intensive in very
+								large repos.</span
+							>
+							<span class="gl-graph__changes-optin-sub">Enable once for all repos.</span>`
+			}
 		</div>`;
 	}
 
@@ -4918,9 +4920,9 @@ export class GlLitGraph extends LitElement {
 			${renderWavyFilterDefs()}
 			<div
 				${ref(this.viewportRef)}
-				class="gl-graph__viewport scrollable${this.windowFocused === false
-					? ' gl-graph--window-unfocused'
-					: ''}"
+				class="gl-graph__viewport scrollable${
+					this.windowFocused === false ? ' gl-graph--window-unfocused' : ''
+				}"
 				@keydown=${this.handleViewportKeydown}
 				@focusin=${this.onFocusIn}
 				@click=${this.onClick}
@@ -4993,22 +4995,31 @@ export class GlLitGraph extends LitElement {
 				<span
 					slot="content"
 					class="gl-graph__tooltip-content${this.tooltipEntries.length > 0 ? ' is-list' : ''}"
-					>${this.tooltipContent ??
-					(this.tooltipEntries.length > 0
-						? this.tooltipEntries.map(
-								e =>
-									html`<span class="gl-graph__tooltip-row"
-										>${e.icon.length > 0
-											? html`<code-icon
-													class="gl-graph__tooltip-icon"
-													icon=${e.icon}
-												></code-icon>`
-											: nothing}<span>${e.label}</span></span
-									>`,
-							)
-						: html`${this.tooltipIcon.length > 0
-								? html`<code-icon class="gl-graph__tooltip-icon" icon=${this.tooltipIcon}></code-icon>`
-								: nothing}${this.tooltipText}`)}</span
+					>${
+						this.tooltipContent ??
+						(this.tooltipEntries.length > 0
+							? this.tooltipEntries.map(
+									e =>
+										html`<span class="gl-graph__tooltip-row"
+											>${
+												e.icon.length > 0
+													? html`<code-icon
+															class="gl-graph__tooltip-icon"
+															icon=${e.icon}
+														></code-icon>`
+													: nothing
+											}<span>${e.label}</span></span
+										>`,
+								)
+							: html`${
+									this.tooltipIcon.length > 0
+										? html`<code-icon
+												class="gl-graph__tooltip-icon"
+												icon=${this.tooltipIcon}
+											></code-icon>`
+										: nothing
+								}${this.tooltipText}`)
+					}</span
 				>
 			</gl-popover>
 		`;
@@ -5123,9 +5134,9 @@ export class GlLitGraph extends LitElement {
 				row => this.displayRows[row.index]?.sha ?? row.index,
 				row => {
 					return html`<div
-						class="gl-graph__scroll-marker-band${row.index === this.hoveredMarkerIndex
-							? ' is-hovered'
-							: ''}"
+						class="gl-graph__scroll-marker-band${
+							row.index === this.hoveredMarkerIndex ? ' is-hovered' : ''
+						}"
 						data-marker-index=${row.index}
 						aria-hidden="true"
 						style=${cspStyleMap({ top: `${row.index * markerRowPx}px` })}
@@ -7652,9 +7663,11 @@ export class GlLitGraph extends LitElement {
 			@keydown=${this.headerRoving.onKeydown}
 			@focusin=${this.headerRoving.onFocusin}
 		>
-			${gutterWidth > 0 && this.graphVisibleSlot === 0
-				? this.renderGraphHeaderCell(gutterWidth, graphIsLastColumn)
-				: nothing}
+			${
+				gutterWidth > 0 && this.graphVisibleSlot === 0
+					? this.renderGraphHeaderCell(gutterWidth, graphIsLastColumn)
+					: nothing
+			}
 			${visibleZones.map((zone, i) => {
 				const isLast = i === visibleZones.length - 1;
 				// The trailing HEADER cell yields its tail to the pinned gear — header-only: the BODY column
@@ -7727,127 +7740,162 @@ export class GlLitGraph extends LitElement {
 				const changesDormant =
 					zone.id === 'changes' && this.changesColumnEnabled === false && !this._changesEnableRequested;
 				return html`<div
-						class="gl-graph__header-cell${this.dragColId === zone.id ? ' is-dragging' : ''}${changesDormant
-							? ' gl-graph__header-cell--changes-dormant'
-							: ''}"
+						class="gl-graph__header-cell${this.dragColId === zone.id ? ' is-dragging' : ''}${
+							changesDormant ? ' gl-graph__header-cell--changes-dormant' : ''
+						}"
 						data-col-id=${zone.id}
 						data-vscode-context=${this.columnsContext ?? nothing}
 						style=${cspStyleMap(style)}
 						@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, zone.id)}
 					>
 						<span class="gl-graph__header-cell-content">
-							${graphControlHere
-								? html`<span class="gl-graph__group-member">
-										${graphCrumb ? this.renderQuickRefreshButton(true) : nothing}
-										${this.renderPlacementControl(
-											false,
-											graphCrumb && !crumbsCollapsed ? 'gl-graph' : undefined,
-										)}
-										${graphCrumb && !crumbsCollapsed
-											? html`<code-icon
-													class="gl-graph__group-member-chevron"
-													icon="chevron-right"
-												></code-icon>`
-											: nothing}
-									</span>`
-								: nothing}
-							${refsMember
-								? html`<span class="gl-graph__group-member">
-										${refsCrumbFilterable
-											? this.renderFilterButton(refsCrumbZone, refsCrumbFilterActive, false, true)
-											: nothing}
-										${this.renderRefsPlacementControl(
-											false,
+							${
+								graphControlHere
+									? html`<span class="gl-graph__group-member">
+											${graphCrumb ? this.renderQuickRefreshButton(true) : nothing}
+											${this.renderPlacementControl(
+												false,
+												graphCrumb && !crumbsCollapsed ? 'gl-graph' : undefined,
+											)}
+											${
+												graphCrumb && !crumbsCollapsed
+													? html`<code-icon
+															class="gl-graph__group-member-chevron"
+															icon="chevron-right"
+														></code-icon>`
+													: nothing
+											}
+										</span>`
+									: nothing
+							}
+							${
+								refsMember
+									? html`<span class="gl-graph__group-member">
+											${
+												refsCrumbFilterable
+													? this.renderFilterButton(
+															refsCrumbZone,
+															refsCrumbFilterActive,
+															false,
+															true,
+														)
+													: nothing
+											}
+											${this.renderRefsPlacementControl(
+												false,
+												visibleZones,
+												crumbsCollapsed ? undefined : zoneHeaderIcons.ref,
+											)}
+											${
+												crumbsCollapsed
+													? nothing
+													: html`<code-icon
+															class="gl-graph__group-member-chevron"
+															icon="chevron-right"
+														></code-icon>`
+											}
+										</span>`
+									: nothing
+							}
+							${
+								changesIconStage
+									? html`${
+											filterable ? this.renderFilterButton(zone, filterActive, false) : nothing
+										}${this.renderChangesModePickerButton(
 											visibleZones,
-											crumbsCollapsed ? undefined : zoneHeaderIcons.ref,
-										)}
-										${crumbsCollapsed
-											? nothing
-											: html`<code-icon
-													class="gl-graph__group-member-chevron"
-													icon="chevron-right"
-												></code-icon>`}
-									</span>`
-								: nothing}
-							${changesIconStage
-								? html`${filterable
-										? this.renderFilterButton(zone, filterActive, false)
-										: nothing}${this.renderChangesModePickerButton(
-										visibleZones,
-										i,
-										zoneHeaderIcons.changes,
-										true,
-									)}`
-								: filterOnly
-									? html`${this.renderFilterButton(zone, true, true)}${zone.id === 'changes'
-											? this.renderChangesModePickerButton(visibleZones, i)
-											: nothing}`
-									: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
-											<span
-												class="gl-graph__header-label${zone.id === 'changes'
-													? ' gl-graph__header-label--changes'
-													: ''}"
-												role="button"
-												tabindex="0"
-												aria-haspopup=${zone.id === 'changes' ? 'menu' : nothing}
-												aria-expanded=${zone.id === 'changes'
-													? this.changesModeAnchor != null
-														? 'true'
-														: 'false'
-													: nothing}
-												aria-label=${zone.id === 'changes'
-													? 'Changes column. Press Enter to change the visualization; Shift+Arrow Left/Right to reorder, or drag.'
-													: `${zone.label} column. Shift+Arrow Left/Right to reorder, or drag.`}
-												data-tooltip=${zone.id === 'changes'
-													? 'Change Visualization — or drag / Shift+Arrow to reorder'
-													: `Drag or press Shift+Arrow to reorder ${zone.label.toLowerCase()} column`}
-												data-roving-key="label:${zone.id}"
-												@keydown=${(e: KeyboardEvent) =>
-													this.onLabelKeydown(e, visibleZones, i)}
-												>${labelAsIcon
-													? html`<code-icon
-															class="gl-graph__header-label-icon"
-															icon=${zoneHeaderIcons[zone.id]}
-														></code-icon>`
-													: zone.id === 'changes'
-														? html`<span class="gl-graph__header-label-text"
-																>${zone.label}</span
-															>`
-														: zone.label}${zone.id === 'changes'
-													? html`<code-icon
-															class="gl-graph__changes-mode-chevron"
-															icon="chevron-down"
-															aria-hidden="true"
-														></code-icon>`
-													: nothing}</span
-											>`}
-							${zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
-								? this.renderRefsPlacementControl(true, visibleZones)
-								: nothing}
+											i,
+											zoneHeaderIcons.changes,
+											true,
+										)}`
+									: filterOnly
+										? html`${this.renderFilterButton(zone, true, true)}${
+												zone.id === 'changes'
+													? this.renderChangesModePickerButton(visibleZones, i)
+													: nothing
+											}`
+										: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
+												<span
+													class="gl-graph__header-label${
+														zone.id === 'changes' ? ' gl-graph__header-label--changes' : ''
+													}"
+													role="button"
+													tabindex="0"
+													aria-haspopup=${zone.id === 'changes' ? 'menu' : nothing}
+													aria-expanded=${
+														zone.id === 'changes'
+															? this.changesModeAnchor != null
+																? 'true'
+																: 'false'
+															: nothing
+													}
+													aria-label=${
+														zone.id === 'changes'
+															? 'Changes column. Press Enter to change the visualization; Shift+Arrow Left/Right to reorder, or drag.'
+															: `${zone.label} column. Shift+Arrow Left/Right to reorder, or drag.`
+													}
+													data-tooltip=${
+														zone.id === 'changes'
+															? 'Change Visualization — or drag / Shift+Arrow to reorder'
+															: `Drag or press Shift+Arrow to reorder ${zone.label.toLowerCase()} column`
+													}
+													data-roving-key="label:${zone.id}"
+													@keydown=${(e: KeyboardEvent) =>
+														this.onLabelKeydown(e, visibleZones, i)}
+													>${
+														labelAsIcon
+															? html`<code-icon
+																	class="gl-graph__header-label-icon"
+																	icon=${zoneHeaderIcons[zone.id]}
+																></code-icon>`
+															: zone.id === 'changes'
+																? html`<span class="gl-graph__header-label-text"
+																		>${zone.label}</span
+																	>`
+																: zone.label
+													}${
+														zone.id === 'changes'
+															? html`<code-icon
+																	class="gl-graph__changes-mode-chevron"
+																	icon="chevron-down"
+																	aria-hidden="true"
+																></code-icon>`
+															: nothing
+													}</span
+												>`
+							}
+							${
+								zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
+									? this.renderRefsPlacementControl(true, visibleZones)
+									: nothing
+							}
 						</span>
 						${zone.id === 'changes' ? this.renderChangesLoading(headerW, filterOnly, labelAsIcon) : nothing}
-						${isLast
-							? nothing
-							: html`<div
-									class="gl-graph__resize-handle"
-									role="separator"
-									aria-orientation="vertical"
-									tabindex="0"
-									aria-label=${`Resize ${zone.label} column`}
-									aria-valuenow=${zone.width}
-									aria-valuemin=${zone.minWidth}
-									aria-valuemax="800"
-									data-tooltip=${`Drag or Shift+Arrow to resize, or double-click to fit the ${fitTargetLabel.toLowerCase()} column to its contents`}
-									@pointerdown=${(e: PointerEvent) => this.onResizeStart(e, visibleZones, i)}
-									data-roving-key="resize:${zone.id}"
-									@keydown=${(e: KeyboardEvent) => this.onResizeKeydown(e, visibleZones, i)}
-								>
-									<span class="gl-graph__resize-line"></span>
-								</div>`}
+						${
+							isLast
+								? nothing
+								: html`<div
+										class="gl-graph__resize-handle"
+										role="separator"
+										aria-orientation="vertical"
+										tabindex="0"
+										aria-label=${`Resize ${zone.label} column`}
+										aria-valuenow=${zone.width}
+										aria-valuemin=${zone.minWidth}
+										aria-valuemax="800"
+										data-tooltip=${`Drag or Shift+Arrow to resize, or double-click to fit the ${fitTargetLabel.toLowerCase()} column to its contents`}
+										@pointerdown=${(e: PointerEvent) => this.onResizeStart(e, visibleZones, i)}
+										data-roving-key="resize:${zone.id}"
+										@keydown=${(e: KeyboardEvent) => this.onResizeKeydown(e, visibleZones, i)}
+									>
+										<span class="gl-graph__resize-line"></span>
+									</div>`
+						}
 					</div>
-					${gutterWidth > 0 && this.graphVisibleSlot === i + 1
-						? this.renderGraphHeaderCell(gutterWidth, graphIsLastColumn)
-						: nothing}`;
+					${
+						gutterWidth > 0 && this.graphVisibleSlot === i + 1
+							? this.renderGraphHeaderCell(gutterWidth, graphIsLastColumn)
+							: nothing
+					}`;
 			})}
 			${this.renderSettingsControl()}
 		</div>`;
@@ -7867,9 +7915,9 @@ export class GlLitGraph extends LitElement {
 		const tooltip = active ? `Edit ${zone.label} Filter` : `Filter by ${zone.label}`;
 		const ariaLabel = tooltip;
 		return html`<button
-			class="gl-graph__filter-toggle${active ? ' is-active' : ''}${floor
-				? ' gl-graph__filter-toggle--floor'
-				: ''}${member ? ' gl-graph__filter-toggle--member' : ''}"
+			class="gl-graph__filter-toggle${active ? ' is-active' : ''}${
+				floor ? ' gl-graph__filter-toggle--floor' : ''
+			}${member ? ' gl-graph__filter-toggle--member' : ''}"
 			type="button"
 			aria-pressed=${active ? 'true' : 'false'}
 			aria-label=${ariaLabel}
@@ -8003,9 +8051,9 @@ export class GlLitGraph extends LitElement {
 		// + handle) — same narrow-column behavior as the zone headers.
 		const labelAsIcon = !headerLabelFits('Graph', cellWidth - 22);
 		return html`<div
-			class="gl-graph__header-cell gl-graph__header-cell--graph${this.dragColId === 'graph'
-				? ' is-dragging'
-				: ''}"
+			class="gl-graph__header-cell gl-graph__header-cell--graph${
+				this.dragColId === 'graph' ? ' is-dragging' : ''
+			}"
 			data-vscode-context=${this.columnsContext ?? nothing}
 			style=${cspStyleMap({ width: `${cellWidth}px`, minWidth: `${cellWidth}px` })}
 			@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, 'graph')}
@@ -8019,9 +8067,11 @@ export class GlLitGraph extends LitElement {
 				data-tooltip="Drag or press Shift+Arrow to reorder the graph column"
 				data-roving-key="label:graph"
 				@keydown=${this.onGraphLabelKeydown}
-				>${labelAsIcon
-					? html`<code-icon class="gl-graph__header-label-icon" icon="gl-graph"></code-icon>`
-					: 'Graph'}</span
+				>${
+					labelAsIcon
+						? html`<code-icon class="gl-graph__header-label-icon" icon="gl-graph"></code-icon>`
+						: 'Graph'
+				}</span
 			>${isLast ? nothing : this.renderPlacementControl()}
 			<div
 				class="gl-graph__resize-handle"
@@ -8070,9 +8120,9 @@ export class GlLitGraph extends LitElement {
 				? `Ungroup Graph from ${targetName}`
 				: `Group Graph with ${targetName}`;
 		return html`<button
-			class="gl-graph__placement-toggle${labeled ? ' gl-graph__placement-toggle--labeled' : ''}${identityIcon
-				? ' gl-graph__placement-toggle--crumb'
-				: ''}"
+			class="gl-graph__placement-toggle${labeled ? ' gl-graph__placement-toggle--labeled' : ''}${
+				identityIcon ? ' gl-graph__placement-toggle--crumb' : ''
+			}"
 			type="button"
 			aria-pressed=${grouped ? 'true' : 'false'}
 			aria-label=${title}
@@ -8082,9 +8132,9 @@ export class GlLitGraph extends LitElement {
 			data-roving-key="placement:graph"
 			@click=${this.togglePlacement}
 		>
-			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon>` : nothing}${labeled
-				? html`<span class="gl-graph__placement-toggle-label">Graph</span>`
-				: nothing}<code-icon icon=${icon}></code-icon>
+			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon>` : nothing}${
+				labeled ? html`<span class="gl-graph__placement-toggle-label">Graph</span>` : nothing
+			}<code-icon icon=${icon}></code-icon>
 		</button>`;
 	}
 
@@ -8163,9 +8213,9 @@ export class GlLitGraph extends LitElement {
 				? `Group Branches / Tags with ${targetName}`
 				: `Ungroup Branches / Tags from ${targetName}`;
 		return html`<button
-			class="gl-graph__placement-toggle${atEnd ? ' gl-graph__placement-toggle--end' : ''}${identityIcon
-				? ' gl-graph__placement-toggle--crumb'
-				: ''}"
+			class="gl-graph__placement-toggle${atEnd ? ' gl-graph__placement-toggle--end' : ''}${
+				identityIcon ? ' gl-graph__placement-toggle--crumb' : ''
+			}"
 			type="button"
 			aria-pressed=${isColumn ? 'false' : 'true'}
 			aria-label=${title}
@@ -8286,9 +8336,9 @@ export class GlLitGraph extends LitElement {
 		withChevron = false,
 	): TemplateResult {
 		return html`<button
-			class="gl-graph__changes-mode-picker-button${withChevron
-				? ' gl-graph__changes-mode-picker-button--labeled'
-				: ''}"
+			class="gl-graph__changes-mode-picker-button${
+				withChevron ? ' gl-graph__changes-mode-picker-button--labeled' : ''
+			}"
 			type="button"
 			aria-haspopup="menu"
 			aria-expanded=${this.changesModeAnchor != null ? 'true' : 'false'}
@@ -8299,13 +8349,15 @@ export class GlLitGraph extends LitElement {
 			@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
 		>
 			<code-icon class="gl-graph__changes-mode-picker-icon" icon=${primaryIcon}></code-icon>
-			${withChevron
-				? html`<code-icon
-						class="gl-graph__changes-mode-picker-chevron"
-						icon="chevron-down"
-						aria-hidden="true"
-					></code-icon>`
-				: nothing}
+			${
+				withChevron
+					? html`<code-icon
+							class="gl-graph__changes-mode-picker-chevron"
+							icon="chevron-down"
+							aria-hidden="true"
+						></code-icon>`
+					: nothing
+			}
 		</button>`;
 	}
 
