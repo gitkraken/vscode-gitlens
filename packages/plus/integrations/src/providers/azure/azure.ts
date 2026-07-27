@@ -738,7 +738,8 @@ export class AzureDevOpsApi implements Disposable {
 					return (await rsp.json()) as T;
 				}
 
-				throw new ProviderFetchError('AzureDevOps', rsp);
+				// Reads the body so the 403 branch below can tell a throttled request from a permission failure.
+				throw await ProviderFetchError.fromResponse('AzureDevOps', rsp);
 			} finally {
 				sw?.stop();
 			}

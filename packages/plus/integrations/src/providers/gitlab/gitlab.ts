@@ -1140,7 +1140,8 @@ $search: String!
 					return data;
 				}
 
-				throw new ProviderFetchError('GitLab', rsp);
+				// Reads the body so the 403 branch below can tell a throttled request from a permission failure.
+				throw await ProviderFetchError.fromResponse('GitLab', rsp);
 			} finally {
 				const match = /(^[^({\n]+)/.exec(query);
 				const message = ` ${match?.[1].trim() ?? query}`;
@@ -1189,7 +1190,8 @@ $search: String!
 					return (await rsp.json()) as T;
 				}
 
-				throw new ProviderFetchError('GitLab', rsp);
+				// Reads the body so the 403 branch below can tell a throttled request from a permission failure.
+				throw await ProviderFetchError.fromResponse('GitLab', rsp);
 			} finally {
 				sw?.stop();
 			}
