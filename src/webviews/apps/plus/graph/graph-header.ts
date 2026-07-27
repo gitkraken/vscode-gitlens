@@ -1154,7 +1154,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								}
 							</span>
 						</gl-button>
-						${this.renderCreateMenu()}
 					`,
 				)}
 			</div>
@@ -1280,52 +1279,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		`;
 	}
 
-	private renderCreateMenu() {
-		// `reference: branch` preserves the prior single-button behavior — create from the branch
-		// currently shown in the graph, not a generic picker default.
-		const branch = this.graphState.branch;
-		return html`<gl-popover
-			appearance="menu"
-			placement="bottom-start"
-			trigger="click focus"
-			?arrow=${false}
-			.distance=${0}
-		>
-			<gl-tooltip slot="anchor" placement="bottom">
-				<button type="button" class="action-button" aria-haspopup="true" aria-label="Create">
-					<code-icon icon="add"></code-icon>
-					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
-				</button>
-				<span slot="content">Create</span>
-			</gl-tooltip>
-			<div slot="content">
-				<menu-item
-					href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
-						command: 'branch',
-						confirm: true,
-						state: { subcommand: 'create', reference: branch },
-					})}
-				>
-					<span class="action-menu__item"><code-icon icon="git-branch"></code-icon>Create Branch…</span>
-				</menu-item>
-				<menu-item href=${createCommandLink('gitlens.views.createWorktree')}>
-					<span class="action-menu__item"><code-icon icon="gl-worktree"></code-icon>Create Worktree…</span>
-				</menu-item>
-				<menu-divider></menu-divider>
-				<menu-item
-					href=${createCommandLink('gitlens.stashesApply', { repoPath: this.graphState.selectedRepository })}
-				>
-					<span class="action-menu__item"><code-icon icon="gl-stash-pop"></code-icon>Apply / Pop Stash…</span>
-				</menu-item>
-			</div>
-		</gl-popover>`;
-	}
-
 	private renderStartMenu() {
 		// Source shapes mirror the WIP details actions (detailsActions.ts): startWork takes a bare
 		// `source`, startReview takes a nested `{ source }`.
 		// `bottom-end` (vs Create's `bottom-start`) because Start lives in the right-side group near
 		// the viewport edge — right-aligning the dropdown keeps it on-screen.
+		// `reference: branch` preserves the prior single-button behavior — create from the branch
+		// currently shown in the graph, not a generic picker default.
+		const branch = this.graphState.branch;
 		return html`<gl-popover
 			appearance="menu"
 			placement="bottom-end"
@@ -1348,6 +1309,25 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					<span class="action-menu__item"
 						><code-icon icon="git-pull-request"></code-icon>Start Review on a PR…</span
 					>
+				</menu-item>
+				<menu-divider></menu-divider>
+				<menu-item
+					href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
+						command: 'branch',
+						confirm: true,
+						state: { subcommand: 'create', reference: branch },
+					})}
+				>
+					<span class="action-menu__item"><code-icon icon="git-branch"></code-icon>Create Branch…</span>
+				</menu-item>
+				<menu-item href=${createCommandLink('gitlens.views.createWorktree')}>
+					<span class="action-menu__item"><code-icon icon="gl-worktree"></code-icon>Create Worktree…</span>
+				</menu-item>
+				<menu-divider></menu-divider>
+				<menu-item
+					href=${createCommandLink('gitlens.stashesApply', { repoPath: this.graphState.selectedRepository })}
+				>
+					<span class="action-menu__item"><code-icon icon="gl-stash-pop"></code-icon>Apply / Pop Stash…</span>
 				</menu-item>
 			</div>
 		</gl-popover>`;
