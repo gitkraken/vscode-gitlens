@@ -22,10 +22,11 @@ import {
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	isRateLimitResponse,
 	RequestClientError,
 	RequestNotFoundError,
-	RequestRateLimitError,
 	toError,
+	toRateLimitError,
 } from '../errors.js';
 import type {
 	GetIssueFn,
@@ -555,44 +556,29 @@ export class ProvidersApi {
 		}
 
 		if (error?.response?.status != null) {
-			switch (error.response.status) {
+			const status: number = error.response.status;
+			switch (status) {
 				case 404: // Not found
 				case 410: // Gone
 				case 422: // Unprocessable Entity
 					throw new RequestNotFoundError(error);
+				case 429: // Too Many Requests
+					throw toRateLimitError(error, token);
 				case 401: // Unauthorized
-					if (error.message?.includes('rate limit')) {
-						let resetAt: number | undefined;
-
-						const reset = error.response?.headers?.['x-ratelimit-reset'];
-						if (reset != null) {
-							resetAt = parseInt(reset, 10);
-							if (Number.isNaN(resetAt)) {
-								resetAt = undefined;
-							}
-						}
-
-						throw new RequestRateLimitError(error, token, resetAt);
-					}
-					throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, error);
 				case 403: // Forbidden
-					throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, error);
-				case 429: {
-					// Too Many Requests
-					let resetAt: number | undefined;
-
-					const reset = error.response.headers?.['x-ratelimit-reset'];
-					if (reset != null) {
-						resetAt = parseInt(reset, 10);
-						if (Number.isNaN(resetAt)) {
-							resetAt = undefined;
-						}
+					// A throttled request arrives on both statuses depending on the host (see
+					// `isRateLimitResponse`); 403 previously skipped the check, so every provider going through the
+					// SDK reported a rate limit as `auth` and asked the user to reconnect a healthy account.
+					if (isRateLimitResponse({ status: status, message: error.message })) {
+						throw toRateLimitError(error, token);
 					}
-
-					throw new RequestRateLimitError(error, token, resetAt);
-				}
+					throw new AuthenticationError(
+						tokenInfo,
+						status === 401 ? AuthenticationErrorReason.Unauthorized : AuthenticationErrorReason.Forbidden,
+						error,
+					);
 				default:
-					if (error.response.status >= 400 && error.response.status < 500) {
+					if (status >= 400 && status < 500) {
 						throw new RequestClientError(error);
 					}
 			}

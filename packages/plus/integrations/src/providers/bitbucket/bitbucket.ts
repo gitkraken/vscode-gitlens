@@ -12,14 +12,16 @@ import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
-import type { TokenInfo, TokenWithInfo } from '../../authentication/models.js';
+import type { TokenWithInfo } from '../../authentication/models.js';
 import type { IntegrationServiceContext } from '../../context.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	isRateLimitResponse,
 	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
+	toRateLimitError,
 } from '../../errors.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
@@ -792,7 +794,7 @@ export class BitbucketApi implements Disposable {
 		scope?: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
 	): Promise<T | undefined> {
-		const { accessToken, ...tokenInfo } = token;
+		const { accessToken } = token;
 		const url = `${baseUrl}/${route}`;
 
 		let rsp: Response;
@@ -820,7 +822,7 @@ export class BitbucketApi implements Disposable {
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, tokenInfo, ex, scope);
+				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				this.config.onError?.(`Bitbucket request failed: ${ex.message}`);
 			}
@@ -831,12 +833,13 @@ export class BitbucketApi implements Disposable {
 
 	private handleRequestError(
 		provider: Provider | undefined,
-		tokenInfo: TokenInfo,
+		token: TokenWithInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: ScopedLogger | undefined,
 	): void {
 		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
 
+		const { accessToken, ...tokenInfo } = token;
 		switch (ex.status) {
 			case 404: // Not found
 			case 410: // Gone
@@ -844,21 +847,14 @@ export class BitbucketApi implements Disposable {
 				throw new RequestNotFoundError(ex);
 			case 401: // Unauthorized
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, ex);
+			case 429: // Too Many Requests
+				throw toRateLimitError(ex, accessToken);
 			case 403: // Forbidden
-				// TODO: Learn the Bitbucket API docs and put it in order:
-				// 	if (ex.message.includes('rate limit')) {
-				// 		let resetAt: number | undefined;
+				// Bitbucket returns 403 for both a permission failure and a throttled request ("API rate limit
+				// exceeded"), so the message is the discriminant. Reporting a throttle as `auth` would prompt the
+				// user to re-authenticate a healthy connection instead of retrying (see `isRateLimitResponse`).
+				if (isRateLimitResponse(ex)) throw toRateLimitError(ex, accessToken);
 
-				// 		const reset = ex.response?.headers?.get('x-ratelimit-reset');
-				// 		if (reset != null) {
-				// 			resetAt = parseInt(reset, 10);
-				// 			if (Number.isNaN(resetAt)) {
-				// 				resetAt = undefined;
-				// 			}
-				// 		}
-
-				// 		throw new RequestRateLimitError(ex, token, resetAt);
-				// 	}
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
 				scope?.error(ex);
