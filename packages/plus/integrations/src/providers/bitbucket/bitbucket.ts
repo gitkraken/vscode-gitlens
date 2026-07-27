@@ -816,7 +816,8 @@ export class BitbucketApi implements Disposable {
 					return (await rsp.json()) as T;
 				}
 
-				throw new ProviderFetchError('Bitbucket', rsp);
+				// Reads the body so the 403 branch below can tell a throttled request from a permission failure.
+				throw await ProviderFetchError.fromResponse('Bitbucket', rsp);
 			} finally {
 				sw?.stop();
 			}
