@@ -378,9 +378,12 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 	/** Never resolves a virtual repository: Start Work ends in a branch creation the read-only virtual
 	 *  provider doesn't implement, so a virtual repo would silently no-op rather than fail. */
-	protected async getIssueRepositoryIfExists(issue: IssueShape | Issue): Promise<GlRepository | undefined> {
+	protected async getIssueRepositoryIfExists(
+		issue: IssueShape | Issue,
+		options?: { promptIfNeeded?: boolean; skipVirtual?: boolean },
+	): Promise<GlRepository | undefined> {
 		try {
-			return await getOrOpenIssueRepository(this.container, issue, { skipVirtual: true });
+			return await getOrOpenIssueRepository(this.container, issue, { skipVirtual: true, ...options });
 		} catch {
 			return undefined;
 		}

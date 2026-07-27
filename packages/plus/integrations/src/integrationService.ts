@@ -619,7 +619,8 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				]) {
 			const integration = await this.get(integrationId);
 			const isInvalidIntegration =
-				options?.openRepositoriesOnly &&
+				options?.openRepositoriesOnly === true &&
+
 				((integrationId !== GitCloudHostIntegrationId.AzureDevOps &&
 					(isGitCloudHostIntegrationId(integrationId) || isGitSelfManagedHostIntegrationId(integrationId)) &&
 					!openRemotesByIntegrationId.has(integrationId)) ||

@@ -84,7 +84,8 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 	): AsyncStepResultGenerator<void> {
 		const issue = state.item.issue;
 		const hasOpenRepos = this.hasOpenRepositories;
-		let repo = issue && (await this.getIssueRepositoryIfExists(issue));
+		let repo =
+			issue && (await this.getIssueRepositoryIfExists(issue, hasOpenRepos ? undefined : { skipVirtual: true }));
 
 		// No open repositories and none could be located/opened for this issue — the branch wizard's
 		// repo picker only lists `openRepositories` (empty here) and would dead-end on a Cancel-only
