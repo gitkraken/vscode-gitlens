@@ -258,7 +258,6 @@ When the session model is Opus or Fable, **default to dispatching the mechanical
 | _(sidebar)_                     | Commit Graph Inspect | `gl-commit-details-app` | `gitlens.views.graphDetails.refresh`  |
 | `gitlens.showTimelinePage`      | Visual History       | `gl-timeline-app`       | `gitlens.timeline.refresh`            |
 | `gitlens.showTimelineView`      | Visual File History  | `gl-timeline-app`       | `gitlens.views.timeline.refresh`      |
-| `gitlens.showComposerPage`      | Commit Composer      | `gl-composer-app`       | `gitlens.composer.refresh`            |
 | `gitlens.showPatchDetailsPage`  | Patch                | `gl-patch-details-app`  | `gitlens.patchDetails.refresh`        |
 | `gitlens.showSettingsPage`      | GitLens Settings     | `gl-settings-app`       | `gitlens.settings.refresh`            |
 
