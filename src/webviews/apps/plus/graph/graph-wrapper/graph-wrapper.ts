@@ -1008,6 +1008,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				.repoPath=${this.getRepoPath()}
 				.columnsContext=${graphState.context?.header}
 				.settingsContext=${graphState.context?.settings}
+				.scrollMarkersContext=${graphState.context?.scrollMarkers}
 				.excludeRefs=${graphState.excludeRefs}
 				.excludeTypes=${graphState.excludeTypes}
 				.includeOnlyRefs=${graphState.includeOnlyRefs}

@@ -1784,6 +1784,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void this.notifyDidChangeColumns();
 		}
 
+		// Same one-way-menu problem as `graph.lanes.density` above: the marker-toggle context items are
+		// only emitted while `enabled` is on, so flipping it from the settings page (not via a toggle
+		// command, which refreshes on its own) would leave the gear submenu and the rail menu empty.
+		if (configuration.changed(e, 'graph.scrollMarkers.enabled')) {
+			void this.notifyDidChangeScrollMarkers();
+		}
+
 		// Enabling the Changes column's stats consent starts the stats-bearing rebuild with the same eager
 		// spinner flow as un-hiding the column; the component-config re-send (catch-all below) flips the
 		// webview out of its dormant overlay. Disabling needs no rebuild — already-loaded stats just go unused.
@@ -3183,6 +3190,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const columnSettings = this.getColumnSettings(columns);
 		return this.host.notify(DidChangeScrollMarkersNotification, {
 			context: this.getGraphSettingsIconContext(columnSettings),
+			scrollMarkersContext: this.getScrollMarkersContext(),
 		});
 	}
 
@@ -3772,6 +3780,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	// The marker rail's own right-click menu — the SAME toggle commands the gear's "Scroll Markers"
+	// submenu carries, but flattened (no column items, so no submenu to nest them under).
+	private getScrollMarkersContext(): string {
+		return serializeWebviewItemContext<GraphItemContext>({
+			webviewItem: 'gitlens:graph:scrollMarkers',
+			webviewItemValue: this.getScrollMarkerContextItems().join(','),
+		});
+	}
+
 	private getColumnContextItems(columnSettings: GraphColumnsSettings): string[] {
 		const contextItems: string[] = [];
 		// Old column settings that didn't get cleaned up can mess with calculation of only visible column.
@@ -3802,25 +3819,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private getSettingsIconContextItems(columnSettings?: GraphColumnsSettings): string[] {
 		const contextItems: string[] = columnSettings != null ? this.getColumnContextItems(columnSettings) : [];
-
-		if (configuration.get('graph.scrollMarkers.enabled')) {
-			const configurableScrollMarkerTypes: GraphScrollMarkersAdditionalTypes[] = [
-				'localBranches',
-				'remoteBranches',
-				'stashes',
-				'tags',
-				'pullRequests',
-				'wip',
-			];
-			const enabledScrollMarkerTypes = configuration.get('graph.scrollMarkers.additionalTypes');
-			for (const type of configurableScrollMarkerTypes) {
-				contextItems.push(
-					`scrollMarker:${type}:${enabledScrollMarkerTypes.includes(type) ? 'enabled' : 'disabled'}`,
-				);
-			}
-		}
-
+		contextItems.push(...this.getScrollMarkerContextItems());
 		return contextItems;
+	}
+
+	// Shared by the gear's submenu and the rail's flattened menu, so both read the same state.
+	private getScrollMarkerContextItems(): string[] {
+		if (!configuration.get('graph.scrollMarkers.enabled')) return [];
+
+		const configurableScrollMarkerTypes: GraphScrollMarkersAdditionalTypes[] = [
+			'localBranches',
+			'remoteBranches',
+			'stashes',
+			'tags',
+			'pullRequests',
+			'wip',
+		];
+		const enabledScrollMarkerTypes = configuration.get('graph.scrollMarkers.additionalTypes');
+		return configurableScrollMarkerTypes.map(
+			type => `scrollMarker:${type}:${enabledScrollMarkerTypes.includes(type) ? 'enabled' : 'disabled'}`,
+		);
 	}
 
 	private getBranchesVisibility(filters: StoredGraphFilters | undefined): GraphBranchesVisibility {
@@ -4451,6 +4469,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			context: {
 				header: this.getColumnHeaderContext(columnSettings),
 				settings: this.getGraphSettingsIconContext(columnSettings),
+				scrollMarkers: this.getScrollMarkersContext(),
 			},
 			excludeRefs: refsVisibility.excludeRefs,
 			excludeTypes: refsVisibility.excludeTypes,

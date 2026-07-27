@@ -564,9 +564,12 @@ export class GlLitGraph extends LitElement {
 	// Host-serialized `data-vscode-context` JSON strings (the single source of truth, matching the
 	// host's exact token format). `columnsContext` (gitlens:graph:columns) drives the column-header
 	// right-click menu; `settingsContext` (gitlens:graph:settings) drives the header gear's menu
-	// (columns + scroll-marker toggles). Both update via DidChangeColumns / DidChangeScrollMarkers.
+	// (columns + scroll-marker toggles); `scrollMarkersContext` (gitlens:graph:scrollMarkers) drives the
+	// marker rail's own right-click menu — the same toggles, flattened, without the column items. All
+	// update via DidChangeColumns / DidChangeScrollMarkers.
 	@property({ type: String }) columnsContext?: string;
 	@property({ type: String }) settingsContext?: string;
+	@property({ type: String }) scrollMarkersContext?: string;
 	// Ref-visibility filters (Hide branch / Hide Remotes·Tags·Stashes). Applied client-side, matching
 	// the legacy engine: hidden heads/remotes/tags drop from the ref pills + scroll-rail markers (the
 	// current HEAD is always kept), and `excludeTypes.stashes` drops stash rows from the engine input.
@@ -5096,8 +5099,14 @@ export class GlLitGraph extends LitElement {
 	// the row's y-band highlights all its markers (in lane order) + shows one tooltip listing them all,
 	// and a click jumps to the row. Lets the user spot branches/tags/matches without scrolling.
 	private renderScrollMarkers(): TemplateResult | typeof nothing {
+		// Gate on the marker types being ENABLED, not on there being markers to draw: the rail is also the
+		// right-click target for its own toggle menu, so it has to exist while the graph has no refs to mark
+		// (or the user has turned every additional type off) — otherwise re-enabling a type from the rail is
+		// unreachable exactly when you'd want it. With the master toggle off there's no rail (and no menu) at
+		// all; the settings page owns that switch. Mirrors `recomputeScrollMarkers`' own guard.
+		if (!this.config?.scrollMarkerTypes?.length) return nothing;
+
 		const rows = this.scrollMarkerRows;
-		if (rows.length === 0) return nothing;
 
 		// The header (now present in both densities) sits above the scroller, so offset the rail down by
 		// the header height to keep tick fractions aligned with the rows below it.
@@ -5130,12 +5139,14 @@ export class GlLitGraph extends LitElement {
 		return html`<div
 			class="gl-graph__scroll-markers"
 			style=${cspStyleMap({ top: railTop })}
+			data-vscode-context=${this.scrollMarkersContext ?? nothing}
 			@pointerdown=${this.onScrollMarkerPointerDown}
 			@pointerup=${this.onScrollMarkerPointerUp}
 			@pointercancel=${this.onScrollMarkerPointerCancel}
 			@pointermove=${this.onScrollMarkerPointerMove}
 			@pointerleave=${this.onScrollMarkerPointerLeave}
 			@pointerover=${this.stopPointerOver}
+			@contextmenu=${this.onScrollMarkerContextMenu}
 		>
 			${repeat(
 				rows,
@@ -5322,6 +5333,16 @@ export class GlLitGraph extends LitElement {
 	};
 
 	private readonly onScrollMarkerPointerLeave = (): void => {
+		if (this.hoveredMarkerIndex != null) {
+			this.hoveredMarkerIndex = undefined;
+		}
+		this.scheduleHideTooltip();
+	};
+
+	// Right-click on the rail opens VS Code's native menu from `data-vscode-context` — deliberately NOT
+	// preventDefault'd. Only drop the marker tooltip, which would otherwise float over the open menu (the
+	// rail never gets a pointerleave while the menu has the pointer).
+	private readonly onScrollMarkerContextMenu = (): void => {
 		if (this.hoveredMarkerIndex != null) {
 			this.hoveredMarkerIndex = undefined;
 		}

@@ -123,6 +123,8 @@ export interface GraphContexts {
 	graph?: SerializedGraphItemContext;
 	header?: SerializedGraphItemContext;
 	settings?: SerializedGraphItemContext;
+	/** The scroll-marker rail's own (flattened) toggle menu — see `gitlens:graph:scrollMarkers`. */
+	scrollMarkers?: SerializedGraphItemContext;
 }
 
 /** Working-tree change counts for the WIP row. */
@@ -1524,6 +1526,7 @@ export const DidChangeColumnsNotification = new IpcNotification<DidChangeColumns
 
 export interface DidChangeScrollMarkersParams {
 	context?: string;
+	scrollMarkersContext?: string;
 }
 export const DidChangeScrollMarkersNotification = new IpcNotification<DidChangeScrollMarkersParams>(
 	scope,

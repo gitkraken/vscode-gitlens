@@ -4090,6 +4090,13 @@
 						"group": "4_settings",
 						"order": 1
 					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:localBranches:enabled\\b/",
+						"group": "1_markers",
+						"order": 1
+					}
 				]
 			}
 		},
@@ -4100,6 +4107,13 @@
 					{
 						"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:localBranches:disabled\\b/",
 						"group": "4_settings",
+						"order": 1
+					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:localBranches:disabled\\b/",
+						"group": "1_markers",
 						"order": 1
 					}
 				]
@@ -4114,6 +4128,13 @@
 						"group": "4_settings",
 						"order": 3
 					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:pullRequests:enabled\\b/",
+						"group": "1_markers",
+						"order": 3
+					}
 				]
 			}
 		},
@@ -4124,6 +4145,13 @@
 					{
 						"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:pullRequests:disabled\\b/",
 						"group": "4_settings",
+						"order": 3
+					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:pullRequests:disabled\\b/",
+						"group": "1_markers",
 						"order": 3
 					}
 				]
@@ -4138,6 +4166,13 @@
 						"group": "4_settings",
 						"order": 2
 					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:remoteBranches:enabled\\b/",
+						"group": "1_markers",
+						"order": 2
+					}
 				]
 			}
 		},
@@ -4148,6 +4183,13 @@
 					{
 						"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:remoteBranches:disabled\\b/",
 						"group": "4_settings",
+						"order": 2
+					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:remoteBranches:disabled\\b/",
+						"group": "1_markers",
 						"order": 2
 					}
 				]
@@ -4162,6 +4204,13 @@
 						"group": "4_settings",
 						"order": 4
 					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:enabled\\b/",
+						"group": "1_markers",
+						"order": 4
+					}
 				]
 			}
 		},
@@ -4172,6 +4221,13 @@
 					{
 						"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:disabled\\b/",
 						"group": "4_settings",
+						"order": 4
+					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:disabled\\b/",
+						"group": "1_markers",
 						"order": 4
 					}
 				]
@@ -4186,6 +4242,13 @@
 						"group": "4_settings",
 						"order": 5
 					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:enabled\\b/",
+						"group": "1_markers",
+						"order": 5
+					}
 				]
 			}
 		},
@@ -4196,6 +4259,13 @@
 					{
 						"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:disabled\\b/",
 						"group": "4_settings",
+						"order": 5
+					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:disabled\\b/",
+						"group": "1_markers",
 						"order": 5
 					}
 				]
@@ -4210,6 +4280,13 @@
 						"group": "4_settings",
 						"order": 6
 					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:wip:enabled\\b/",
+						"group": "1_markers",
+						"order": 6
+					}
 				]
 			}
 		},
@@ -4220,6 +4297,13 @@
 					{
 						"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:wip:disabled\\b/",
 						"group": "4_settings",
+						"order": 6
+					}
+				],
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:scrollMarkers\\b/ && webviewItemValue =~ /\\bscrollMarker:wip:disabled\\b/",
+						"group": "1_markers",
 						"order": 6
 					}
 				]

@@ -1747,7 +1747,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 			}
 			case DidChangeScrollMarkersNotification.is(msg):
-				this.updateState({ context: { ...this._state.context, settings: msg.params.context } });
+				this.updateState({
+					context: {
+						...this._state.context,
+						settings: msg.params.context,
+						scrollMarkers: msg.params.scrollMarkersContext,
+					},
+				});
 				break;
 
 			case DidSearchNotification.is(msg):
