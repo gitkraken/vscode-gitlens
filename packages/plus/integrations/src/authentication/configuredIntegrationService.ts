@@ -10,6 +10,7 @@ import type {
 } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { providersMetadata } from '../providers/models.js';
+import { areDomainsOnSameHost, hostFromDomain } from '../utils/domain.utils.js';
 import { isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider.js';
 import type {
@@ -63,6 +64,7 @@ export class ConfiguredIntegrationService implements Disposable {
 
 				const descriptors = configured.map(d => ({
 					...d,
+					domain: this.normalizeConfiguredDomain(id, d.domain),
 					// Backfill a stable connection id for pre-multi-account stored data: the domain for
 					// self-managed hosts, or the provider's canonical domain for cloud (which is the legacy
 					// secret-key session id), so existing secrets keep resolving with zero migration. Fall back
@@ -96,7 +98,8 @@ export class ConfiguredIntegrationService implements Disposable {
 		if (options?.domain != null || options?.cloud != null) {
 			for (const descriptor of configured) {
 				if (
-					(options?.domain != null && descriptor.domain !== options.domain) ||
+					(options?.domain != null &&
+						!this.domainsMatch(id ?? descriptor.integrationId, descriptor.domain, options.domain)) ||
 					(options?.cloud === true && !descriptor.cloud) ||
 					(options?.cloud === false && descriptor.cloud)
 				) {
@@ -130,6 +133,10 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	private async addOrUpdateConfigured(descriptor: ConfiguredIntegrationDescriptor): Promise<void> {
+		descriptor = {
+			...descriptor,
+			domain: this.normalizeConfiguredDomain(descriptor.integrationId, descriptor.domain),
+		};
 		const descriptors = this.configured.get(descriptor.integrationId) ?? [];
 		// Key connections by their stable id (+ cloud, to preserve legacy local/cloud coexistence) so
 		// multiple accounts on the same provider+domain no longer overwrite each other.
@@ -341,7 +348,9 @@ export class ConfiguredIntegrationService implements Disposable {
 		const descriptors = this.configured.get(id);
 		const connectionIds = [
 			...new Set(
-				(domain != null ? descriptors?.filter(c => c.domain === domain) : descriptors)?.map(c => c.id) ?? [],
+				(domain != null ? descriptors?.filter(c => this.domainsMatch(id, c.domain, domain)) : descriptors)?.map(
+					c => c.id,
+				) ?? [],
 			),
 		];
 		if (connectionIds.length) {
@@ -461,7 +470,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		descriptor: ConfiguredIntegrationDescriptor,
 		domain: string | undefined,
 	): boolean {
-		return !isGitSelfManagedHostIntegrationId(id) || descriptor.domain === domain;
+		return !isGitSelfManagedHostIntegrationId(id) || this.domainsMatch(id, descriptor.domain, domain);
 	}
 
 	/**
@@ -522,7 +531,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		domain: string | undefined,
 		cloud: boolean | undefined,
 	): ConfiguredIntegrationDescriptor[] | undefined {
-		const candidates = this.configured.get(id)?.filter(c => c.domain === domain);
+		const candidates = this.configured.get(id)?.filter(c => this.domainsMatch(id, c.domain, domain));
 		if (cloud == null || candidates == null) return candidates;
 
 		const scoped = candidates.filter(c => c.cloud === cloud);
@@ -580,6 +589,21 @@ export class ConfiguredIntegrationService implements Disposable {
 	private _addedIds = new Set<IntegrationIds>();
 	private _removedIds = new Set<IntegrationIds>();
 	private _fireChangeDebounced?: () => void;
+
+	private normalizeConfiguredDomain(id: IntegrationIds, domain: string | undefined): string | undefined {
+		if (!isGitSelfManagedHostIntegrationId(id)) return domain;
+
+		return hostFromDomain(domain) ?? domain;
+	}
+
+	private domainsMatch(id: IntegrationIds, first: string | undefined, second: string | undefined): boolean {
+		if (first === second) return true;
+		if (!isGitSelfManagedHostIntegrationId(id)) return false;
+		if (first == null || second == null) return false;
+
+		return areDomainsOnSameHost(first, second);
+	}
+
 	private fireChange(added?: IntegrationIds, removed?: IntegrationIds) {
 		this._fireChangeDebounced ??= debounce(() => {
 			const added = [...this._addedIds];
