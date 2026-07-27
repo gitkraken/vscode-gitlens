@@ -16,7 +16,12 @@ import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js
 import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/laneClamp.js';
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
-import { changesFitWidth, changesModeOrDefault, changesStageForWidth } from '@gitkraken/commit-graph/stats.js';
+import {
+	changesFitWidth,
+	changesModeOrDefault,
+	changesStageCompact,
+	changesStageForWidth,
+} from '@gitkraken/commit-graph/stats.js';
 import type {
 	GraphPlacement,
 	RefsPlacement,
@@ -4807,19 +4812,29 @@ export class GlLitGraph extends LitElement {
 		if (zone == null) return nothing;
 
 		const narrow = zone.width < 150;
+		// The overlay degrades with width like the column's cells do (changesStageForWidth), but on its OWN
+		// threshold: the "Show" text button is ~57px, so it can't fit until well past the cells' 44px icon
+		// stage — below `changesStageCompact` it renders as a bare glyph and the tooltip carries all the copy.
+		const collapsed = zone.width < changesStageCompact;
 		// `gl-tooltip` is `display: contents`, so its slotted buttons stay flex items of the overlay stack.
 		// wa-popup anchors to the FIRST slotted element (the Show button), while the button's `::before`
 		// expands its hit area to the whole overlay surface (see graph.scss) — hover/click anywhere on the
 		// dormant column triggers the button + its tooltip, but the tooltip stays pinned above the button.
 		return html`<div
 			${ref(this.changesOptInRef)}
-			class="gl-graph__changes-optin"
+			class="gl-graph__changes-optin${narrow ? ' gl-graph__changes-optin--narrow' : ''}${
+				collapsed ? ' gl-graph__changes-optin--collapsed' : ''
+			}"
 			style=${cspStyleMap({ width: `${zone.width}px`, visibility: 'hidden' })}
 			@click=${this.onChangesOptInClick}
 		>
 			<gl-tooltip placement="top" show-delay="280">
-				<button type="button" class="gl-graph__changes-optin-button" aria-label="Show Changes Column">
-					Show
+				<button
+					type="button"
+					class="gl-graph__changes-optin-button${collapsed ? ' gl-graph__changes-optin-button--icon' : ''}"
+					aria-label="Show Changes Column"
+				>
+					${collapsed ? html`<code-icon icon="eye"></code-icon>` : 'Show'}
 				</button>
 				<button
 					type="button"
