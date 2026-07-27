@@ -2751,14 +2751,17 @@ export class DetailsActions {
 			.map(i => i.id);
 
 		if (current.type === 'wip') {
-			// A selection containing unstaged must also carry staged — unstaged diffs are
-			// index-relative, so composing unstaged without staged is ill-defined. The picker
-			// enforces this; normalize here as a backstop.
+			// Compose-only: a selection containing unstaged must also carry staged — unstaged diffs
+			// are index-relative, so composing unstaged without staged is ill-defined. The picker
+			// enforces this for compose; normalize here as a backstop. Review has no such
+			// restriction — its diff calls handle staged/unstaged independently.
 			const includeUnstaged = selectedIds.has('unstaged');
+			const isCompose = this.state.activeMode.get() === 'compose';
 			return {
 				type: 'wip',
 				includeStaged:
-					selectedIds.has('staged') || (includeUnstaged && scopeItems.some(i => i.id === 'staged')),
+					selectedIds.has('staged') ||
+					(isCompose && includeUnstaged && scopeItems.some(i => i.id === 'staged')),
 				includeUnstaged: includeUnstaged,
 				includeShas: pickedShas,
 			};

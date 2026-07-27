@@ -1552,8 +1552,17 @@ export class DetailsWorkflowController implements ReactiveController {
 		selectedIds?: ReadonlySet<string>,
 		scopeItems?: ScopeItem[],
 	): void {
-		const scope = this.actions.buildScopeFromPicker(selectedIds, scopeItems) ?? this.actions.state.scope.get();
+		let scope = this.actions.buildScopeFromPicker(selectedIds, scopeItems) ?? this.actions.state.scope.get();
 		if (!repoPath || !scope) return;
+
+		if (scope.type === 'wip' && scope.includeUnstaged && !scope.includeStaged) {
+			const wip = this.actions.state.wip.get();
+			const wipFresh = wip != null && normalizePath(wip.repo.path) === normalizePath(repoPath);
+			const hasStaged = wipFresh && (wip.changes?.files?.some(f => f.staged) ?? false);
+			if (hasStaged) {
+				scope = { ...scope, includeStaged: true };
+			}
+		}
 
 		this.actions.state.scope.set(scope);
 		this.actions.state.wipStale.set(false);
