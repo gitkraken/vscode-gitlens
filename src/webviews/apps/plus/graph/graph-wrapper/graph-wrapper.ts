@@ -334,8 +334,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	//   CONTENT (not reference) because the host re-ships an identical `selectedRows` (new object) on every
 	//   full-state push — a re-ship must not re-arm the request. A user click never changes the host value.
 	// - `_derivedHighlightCache`: identity-cache so an unrelated re-render returns the SAME highlight object
-	//   (the GK `isSelectedBySha` prop diffs by identity, so a fresh object would churn the row grid).
+	//   (the GK `isSelectedBySha` prop diffs by identity, so a fresh object would churn the row grid). It
+	//   misses on a new `decoratedRows` — i.e. on every rows push, when the grid is busiest — and is skipped
+	//   outright while a request is pending, which is what `_lastSelectedRowsProp` backstops.
+	// - `_lastSelectedRowsProp`: the object last RETURNED by `getSelectedRowsProp`, kept so a content-equal
+	//   re-projection is handed back with its identity intact. Distinct from `_lastDerivedHighlight`, which
+	//   tracks the ANCHOR's projection specifically (the pending branch legitimately returns something else).
 	private _lastDerivedHighlight?: GraphSelectedRows;
+	private _lastSelectedRowsProp?: GraphSelectedRows;
 	private _lastSeenHostSelection?: GraphSelectedRows;
 	private _pendingHostSelectedRows?: GraphSelectedRows;
 	private _derivedHighlightCache?: {
@@ -863,11 +869,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return shas;
 	}
 
-	/** Derives the GK `isSelectedBySha` prop from the inspection anchor each render (the single source
-	 *  of truth), with a transient pass-through for a fresh host-initiated select-request. The derived
-	 *  highlight is `anchorShas ∩ renderableRows`, so it goes empty when the anchor row is filtered out
-	 *  (graph shows nothing, details persist). A host request (cold-start, search, deep-link) is surfaced
-	 *  until the GK echo adopts it as the anchor, after which `derived` matches and takes over. */
 	/** Defensive copy of the rows handed to <gl-graph> (the GK mutates `rows[0]` — its auto-primary WIP
 	 *  unshift/shift), re-sliced ONLY when `decoratedRows` actually changes. Selection-only renders reuse
 	 *  the same array reference so the GraphContainer doesn't re-index all rows. A WIP-injection toggle
@@ -882,7 +883,31 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return sliced;
 	}
 
+	/** Identity guard over {@link computeSelectedRowsProp}: hand back the SAME object whenever the newly
+	 *  computed projection has equal CONTENT, so the prop's identity survives (a) a rows push, which
+	 *  invalidates `_derivedHighlightCache` through `decoratedRows` even though the selection never moved,
+	 *  and (b) a pending host request, which bypasses that cache on EVERY render. Consumers diff this prop
+	 *  by identity: the GK grid re-renders its rows on a new object, and `<gl-lit-graph>` read a re-ship as
+	 *  a change of selection — which flashed the row-marker rail on every graph update. Cheap: `areEqual`'s
+	 *  `a === b` fast path covers the steady state, and the records hold 0-1 keys. */
 	private getSelectedRowsProp(
+		decoratedRows: GitGraphRow[] | undefined,
+		showPrimary: boolean,
+	): GraphSelectedRows | undefined {
+		const next = this.computeSelectedRowsProp(decoratedRows, showPrimary);
+		const prev = this._lastSelectedRowsProp;
+		if (next !== prev && areEqual(next, prev)) return prev;
+
+		this._lastSelectedRowsProp = next;
+		return next;
+	}
+
+	/** Derives the GK `isSelectedBySha` prop from the inspection anchor each render (the single source
+	 *  of truth), with a transient pass-through for a fresh host-initiated select-request. The derived
+	 *  highlight is `anchorShas ∩ renderableRows`, so it goes empty when the anchor row is filtered out
+	 *  (graph shows nothing, details persist). A host request (cold-start, search, deep-link) is surfaced
+	 *  until the GK echo adopts it as the anchor, after which `derived` matches and takes over. */
+	private computeSelectedRowsProp(
 		decoratedRows: GitGraphRow[] | undefined,
 		showPrimary: boolean,
 	): GraphSelectedRows | undefined {

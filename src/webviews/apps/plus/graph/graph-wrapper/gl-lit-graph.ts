@@ -996,6 +996,12 @@ export class GlLitGraph extends LitElement {
 	// Cached selection set (rebuilt only when `selectedRows` changes — not allocated per render).
 	private selectedShas: ReadonlySet<string> = new Set();
 	private lastSelectedRowsRef?: GraphSelectedRows;
+	// The selection we last armed a row-marker-rail flash for — the single selected sha, or `undefined` for
+	// none/multi (which CLEARS a flash rather than starting one). A re-shipped `selectedRows` object is NOT a
+	// change of selection, so the flash compares the selection itself rather than the prop's reference. Keyed
+	// on the sha — NOT on `selectedShas`, which the keyboard paths in `handleKeyDown` pre-write optimistically
+	// ahead of the host echo, so the echo that actually carries the flash would read as a no-op.
+	private lastFlashSelectionSha?: string;
 	// Date formatters honoring the user's dateStyle/dateFormat config (rebuilt on config change).
 	// `formatDateShortFn` is the ultra-compact variant used when the date column is too narrow.
 	private formatDateFn?: (date: number) => string;
@@ -1538,8 +1544,12 @@ export class GlLitGraph extends LitElement {
 			this.lastSelectedRowsRef = this.selectedRows;
 			this.selectedShas = new Set(this.selectedRows != null ? Object.keys(this.selectedRows) : []);
 			// Flash the newly-selected tip row's rail in updated() (the DOM — and any reveal-scroll — settle
-			// only after render).
-			this._selectFlashPending = true;
+			// only after render) — but ONLY on a real change of selection (see `lastFlashSelectionSha`).
+			const flashSha = this.selectedShas.size === 1 ? this.selectedShas.values().next().value : undefined;
+			if (flashSha !== this.lastFlashSelectionSha) {
+				this.lastFlashSelectionSha = flashSha;
+				this._selectFlashPending = true;
+			}
 		}
 
 		if (changed.has('config') || this.config !== this.lastConfigRef) {
