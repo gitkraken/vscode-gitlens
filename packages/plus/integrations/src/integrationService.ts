@@ -16,6 +16,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { filterMap, flatten } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { mapBounded } from '@gitlens/utils/promise.js';
 import { CloudIntegrationService } from './authentication/cloudIntegrationService.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import { ConfiguredIntegrationService } from './authentication/configuredIntegrationService.js';
@@ -45,7 +46,12 @@ import {
 } from './constants.js';
 import type { AuthenticationSessionsChangeEvent, IntegrationServiceContext } from './context.js';
 import { AuthenticationError, RequestNotFoundError } from './errors.js';
-import type { ClosedPullRequestSweepOptions, ProviderSweepTarget, PullRequestSweepOptions } from './manager.js';
+import type {
+	ClosedPullRequestSweepOptions,
+	ProviderBroadenOrg,
+	ProviderSweepTarget,
+	PullRequestSweepOptions,
+} from './manager.js';
 import type { GitHostIntegration, SearchMyPullRequestsOptions } from './models/gitHostIntegration.js';
 import type {
 	Integration,
@@ -107,6 +113,14 @@ export interface IntegrationConnectionChangeEvent extends ConnectionStateChangeE
 }
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
+
+/**
+ * Concurrency cap for the facade's data-driven fan-outs (per provider, per org, per project). These lists are
+ * caller-supplied and unbounded — an account with 50 orgs would otherwise open 50 concurrent upstream reads,
+ * each of which may itself drain several pages — so cap the width instead of letting the data set it. 6 matches
+ * the cap gkcli applied to the same fan-outs.
+ */
+const providerFanOutConcurrency = 6;
 
 export class IntegrationService implements Disposable {
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
@@ -257,6 +271,14 @@ export class IntegrationService implements Disposable {
 	get(id: GitSelfManagedHostIntegrationId, domain: string): Promise<GitHostIntegration | undefined>;
 	get<T extends IntegrationIds>(id: T, domain?: string): Promise<IntegrationById<T> | undefined>;
 	async get<T extends IntegrationIds>(id: T, domain?: string): Promise<IntegrationById<T> | undefined> {
+		// Normalize to a bare host before anything keys off it. Callers pass a self-managed domain in both shapes
+		// — a full URL from a stored session/descriptor, a bare host from `hostFromDomain` — and the cache key is
+		// `${id}:${domain}`, so the same host arriving in two shapes would build two instances (and two
+		// "primaries") for one host.
+		if (isGitSelfManagedHostIntegrationId(id)) {
+			domain = hostFromDomain(domain) ?? domain;
+		}
+
 		let integration = this.getCached(id, domain);
 		if (integration == null) {
 			switch (id) {
@@ -1032,6 +1054,48 @@ export class IntegrationService implements Disposable {
 		};
 	}
 
+	/**
+	 * Whether a read targeted only by an explicit self-managed `domain` (no `connectionId`) must treat a
+	 * session-less core result as a broken target instead of an empty account. Without this, a self-managed host
+	 * addressed only by domain — the manual-token/external-auth case `domain` exists to cover — returns an empty
+	 * success with no warning and no `fetchFailed`, indistinguishable from "this host has nothing".
+	 */
+	private warnOnMissingSessionForDomain(id: IntegrationIds, domain: string | undefined): boolean {
+		return domain != null && isGitSelfManagedHostIntegrationId(id);
+	}
+
+	/**
+	 * Filters out the provider paging layer's empty-cursor sentinel. `providersApi` seeds its next-cursor with
+	 * `'{}'` and leaves it there when the SDK reports another page without an `endCursor`, so `'{}'` means
+	 * "no usable continuation" and must never be threaded back as one.
+	 */
+	private usableCursor(cursor: string | undefined): string | undefined {
+		return cursor == null || cursor === '{}' ? undefined : cursor;
+	}
+
+	/**
+	 * Reconciles a provider's `hasMore` with the continuation it actually handed back. A provider can report
+	 * `hasNextPage: true` while omitting the `endCursor` (the paging layer surfaces that as the sentinel `'{}'`,
+	 * which {@link toProviderPageInfo} drops), leaving `hasMore: true` with no cursor — a consumer that pages
+	 * while `hasMore` would then re-request the same page forever. Prefer the real provider cursor; else
+	 * synthesize the next page number, but only for a read the provider actually advances by page number
+	 * (`nextPage` omitted for cursor-only reads, which ignore it and answer with their first page again); else
+	 * report the read as terminal-but-incomplete (`hasMore: false` + `truncated`), matching {@link listRepos}
+	 * and {@link broadenIssues}.
+	 */
+	private resolveContinuation(
+		paged: { hasMore: boolean; cursor?: string; truncated: boolean },
+		nextPage: number | undefined,
+	): { hasMore: boolean; cursor?: string; truncated: boolean } {
+		if (!paged.hasMore) return { hasMore: false, cursor: undefined, truncated: paged.truncated };
+		if (paged.cursor != null) return { hasMore: true, cursor: paged.cursor, truncated: paged.truncated };
+
+		const synthesized = nextPage != null ? this.pageToCursor(nextPage) : undefined;
+		if (synthesized != null) return { hasMore: true, cursor: synthesized, truncated: paged.truncated };
+
+		return { hasMore: false, cursor: undefined, truncated: true };
+	}
+
 	private getBroadenIssuesCursor(
 		cursor: string | undefined,
 		org: { providerId: IntegrationIds; name: string; connectionId?: string },
@@ -1201,8 +1265,19 @@ export class IntegrationService implements Disposable {
 
 		return (
 			(connectionId != null ? this.getConfiguredConnectionDomain(id, connectionId) : undefined) ??
-			hostFromDomain(domain)
+			hostFromDomain(domain) ??
+			// With no explicit target, pin the primary configured host rather than leaving the domain undefined:
+			// `get(id, undefined)` falls back to `findCachedById`, which returns the FIRST entry by Map insertion
+			// order. With two hosts of the same provider that makes the instance depend on which host happened to
+			// be constructed first, so orgs/repos could come from one host and PRs from another in the same UI.
+			this.primaryConfiguredDomain(id)
 		);
+	}
+
+	/** The primary configured host for a self-managed provider (first configured when none is flagged primary). */
+	private primaryConfiguredDomain(id: IntegrationIds): string | undefined {
+		const configured = this.getConfigured(id);
+		return (configured.find(c => c.primary) ?? configured[0])?.domain;
 	}
 
 	private async getCurrentAccountId(
@@ -1255,91 +1330,104 @@ export class IntegrationService implements Disposable {
 	async listOrgs(options?: {
 		providerId?: IntegrationIds;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data. Only
+		 * meaningful with a single `providerId` (a fan-out spans hosts).
+		 */
+		domain?: string;
 	}): Promise<ProviderResult<ProviderOrganization>> {
 		const ids = options?.providerId != null ? [options.providerId] : supportedOrderedCloudIntegrationIds;
 		const singleProvider = ids.length === 1;
 		const connectionId = singleProvider ? options?.connectionId : undefined;
+		const requestedDomain = singleProvider ? options?.domain : undefined;
 
-		const results = await Promise.all(
-			ids.map(async id => {
-				const integration = await this.getIntegrationForRead(id, connectionId);
-				if (integration == null) {
-					// A specifically requested connection that can't be resolved is a broken connection, not a
-					// provider with no orgs — surface it (warning + fetchFailed) instead of dropping the id
-					// silently, so a caller can tell it apart from an account that genuinely has no orgs.
-					const early = this.earlyReturnConnectionWarnings(id, connectionId);
-					return {
-						items: [] as ProviderOrganization[],
-						warnings: early.warnings,
-						fetchFailed: early.fetchFailed,
-					};
+		const results = await mapBounded(ids, providerFanOutConcurrency, async id => {
+			const integration = await this.getIntegrationForRead(id, connectionId, requestedDomain);
+			if (integration == null) {
+				// A specifically requested connection that can't be resolved is a broken connection, not a
+				// provider with no orgs — surface it (warning + fetchFailed) instead of dropping the id
+				// silently, so a caller can tell it apart from an account that genuinely has no orgs.
+				const early = this.earlyReturnConnectionWarnings(id, connectionId, requestedDomain);
+				return {
+					items: [] as ProviderOrganization[],
+					warnings: early.warnings,
+					fetchFailed: early.fetchFailed,
+				};
+			}
+
+			const items: ProviderOrganization[] = [];
+			const warnings: ProviderWarning[] = [];
+			let fetchFailed = false;
+			const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
+			const warnOnMissingSession = this.warnOnMissingSessionForDomain(id, requestedDomain);
+			if (isIssuesIntegration(integration)) {
+				// Issue trackers expose "resources" (Jira sites, Linear orgs, …) as their org analogue.
+				const { value: resources, warning } = await this.runCaptured(
+					id,
+					domain,
+					connectionId,
+					() => integration.getResourcesForUserResult(connectionId),
+					{ warnOnMissingSession: warnOnMissingSession },
+				);
+				if (resources != null) {
+					items.push(...resources.map(r => this.resourceToOrg(id, r)));
 				}
-
-				const items: ProviderOrganization[] = [];
-				const warnings: ProviderWarning[] = [];
-				let fetchFailed = false;
-				const domain = this.domainForRead(integration, id, connectionId);
-				if (isIssuesIntegration(integration)) {
-					// Issue trackers expose "resources" (Jira sites, Linear orgs, …) as their org analogue.
-					const { value: resources, warning } = await this.runCaptured(id, domain, connectionId, () =>
-						integration.getResourcesForUserResult(connectionId),
-					);
-					if (resources != null) {
-						items.push(...resources.map(r => this.resourceToOrg(id, r)));
-					}
-					if (warning != null) {
-						warnings.push(warning);
-						// A warning with no value is a hard read failure, not an empty account.
-						if (resources == null) {
-							fetchFailed = true;
-						}
-					}
-				} else if (!integration.supportsOrganizationDiscovery) {
-					// The provider registers no org-discovery hook (e.g. Bitbucket Data Center). Report it as
-					// explicitly unsupported rather than contributing a silent empty list that a caller can't
-					// tell apart from "this account has no orgs".
-					fetchFailed = true;
-					warnings.push({
-						providerId: id,
-						domain: domain,
-						connectionId: connectionId,
-						message: `Organization discovery is not supported by '${id}'.`,
-						kind: 'other',
-						isAuth: false,
-					});
-				} else {
-					const { value, warning } = await this.runCaptured(id, domain, connectionId, () =>
-						integration.getOrganizationsForUserResult(connectionId),
-					);
-					if (value != null) {
-						items.push(...value.values.map(org => this.withProviderContext(id, org)));
-						if (value.truncated) {
-							warnings.push({
-								providerId: id,
-								domain: domain,
-								connectionId: connectionId,
-								message:
-									'Organization listing was truncated before the upstream results were exhausted.',
-								kind: 'other',
-								isAuth: false,
-							});
-						}
-
-						if (mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata).fetchFailed) {
-							fetchFailed = true;
-						}
-					}
-					if (warning != null) {
-						warnings.push(warning);
-						if (value == null) {
-							fetchFailed = true;
-						}
+				if (warning != null) {
+					warnings.push(warning);
+					// A warning with no value is a hard read failure, not an empty account.
+					if (resources == null) {
+						fetchFailed = true;
 					}
 				}
+			} else if (!integration.supportsOrganizationDiscovery) {
+				// The provider registers no org-discovery hook (e.g. Bitbucket Data Center). Report it as
+				// explicitly unsupported rather than contributing a silent empty list that a caller can't
+				// tell apart from "this account has no orgs".
+				fetchFailed = true;
+				warnings.push({
+					providerId: id,
+					domain: domain,
+					connectionId: connectionId,
+					message: `Organization discovery is not supported by '${id}'.`,
+					kind: 'other',
+					isAuth: false,
+				});
+			} else {
+				const { value, warning } = await this.runCaptured(
+					id,
+					domain,
+					connectionId,
+					() => integration.getOrganizationsForUserResult(connectionId),
+					{ warnOnMissingSession: warnOnMissingSession },
+				);
+				if (value != null) {
+					items.push(...value.values.map(org => this.withProviderContext(id, org)));
+					if (value.truncated) {
+						warnings.push({
+							providerId: id,
+							domain: domain,
+							connectionId: connectionId,
+							message: 'Organization listing was truncated before the upstream results were exhausted.',
+							kind: 'other',
+							isAuth: false,
+						});
+					}
 
-				return { items: items, warnings: warnings, fetchFailed: fetchFailed };
-			}),
-		);
+					if (mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata).fetchFailed) {
+						fetchFailed = true;
+					}
+				}
+				if (warning != null) {
+					warnings.push(warning);
+					if (value == null) {
+						fetchFailed = true;
+					}
+				}
+			}
+
+			return { items: items, warnings: warnings, fetchFailed: fetchFailed };
+		});
 
 		const items: ProviderOrganization[] = [];
 		const warnings: ProviderWarning[] = [];
@@ -1373,6 +1461,12 @@ export class IntegrationService implements Disposable {
 		providerId?: IntegrationIds;
 		org?: string;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data. Only
+		 * meaningful with a single `providerId` (a fan-out spans hosts).
+		 */
+		domain?: string;
 	}): Promise<ProviderResult<ProviderOrganization>> {
 		const ids =
 			options?.providerId != null
@@ -1384,92 +1478,105 @@ export class IntegrationService implements Disposable {
 					];
 		const singleProvider = ids.length === 1;
 		const connectionId = singleProvider ? options?.connectionId : undefined;
+		const requestedDomain = singleProvider ? options?.domain : undefined;
 
-		const results = await Promise.all(
-			ids.map(async id => {
-				const integration = await this.getIntegrationForRead(id, connectionId);
-				if (integration == null) {
-					// A requested connection that can't be resolved is a broken connection, not a provider with
-					// no projects — surface it (warning + fetchFailed) instead of dropping the id silently.
-					const early = this.earlyReturnConnectionWarnings(id, connectionId);
-					return {
-						items: [] as ProviderOrganization[],
-						warnings: early.warnings,
-						fetchFailed: early.fetchFailed,
-					};
+		const results = await mapBounded(ids, providerFanOutConcurrency, async id => {
+			const integration = await this.getIntegrationForRead(id, connectionId, requestedDomain);
+			if (integration == null) {
+				// A requested connection that can't be resolved is a broken connection, not a provider with
+				// no projects — surface it (warning + fetchFailed) instead of dropping the id silently.
+				const early = this.earlyReturnConnectionWarnings(id, connectionId, requestedDomain);
+				return {
+					items: [] as ProviderOrganization[],
+					warnings: early.warnings,
+					fetchFailed: early.fetchFailed,
+				};
+			}
+
+			const items: ProviderOrganization[] = [];
+			const warnings: ProviderWarning[] = [];
+			let fetchFailed = false;
+			const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
+			const org = options?.org;
+			const warnOnMissingSession = this.warnOnMissingSessionForDomain(id, requestedDomain);
+
+			// Git hosts with a project tier (Azure DevOps) read projects through their own hierarchy hook,
+			// scoped to `org` when given. Non-Azure git hosts have no project tier and return undefined.
+			if (!isIssuesIntegration(integration)) {
+				// Check the capability first, like listOrgs/listRepos/listIssuesPage do. Without it, a host
+				// with no project tier returns `undefined` from a successful read, which `runCaptured` can't
+				// tell apart from an unresolvable session — turning a healthy provider into a `no-connection`
+				// warning + `fetchFailed` (and, in Kepler, a spurious reconnect prompt).
+				if (!integration.supportsProjectDiscovery) {
+					return { items: items, warnings: warnings, fetchFailed: false };
 				}
 
-				const items: ProviderOrganization[] = [];
-				const warnings: ProviderWarning[] = [];
-				let fetchFailed = false;
-				const domain = this.domainForRead(integration, id, connectionId);
-				const org = options?.org;
-
-				// Git hosts with a project tier (Azure DevOps) read projects through their own hierarchy hook,
-				// scoped to `org` when given. Non-Azure git hosts have no project tier and return undefined.
-				if (!isIssuesIntegration(integration)) {
-					const { value: projects, warning } = await this.runCaptured(id, domain, connectionId, () =>
-						integration.getProjectsForOrgResult(org, connectionId),
-					);
-					if (warning != null) {
-						warnings.push(warning);
-						if (projects == null) {
-							fetchFailed = true;
-						}
-					}
-					if (projects != null) {
-						items.push(...projects.values.map(project => this.withProviderContext(id, project)));
-
-						if (mergeAssessmentInto(warnings, id, domain, connectionId, projects.metadata).fetchFailed) {
-							fetchFailed = true;
-						}
-					}
-					return { items: items, warnings: warnings, fetchFailed: fetchFailed };
-				}
-
-				const { value: resources, warning: resourcesWarning } = await this.runCaptured(
+				const { value: projects, warning } = await this.runCaptured(
 					id,
 					domain,
 					connectionId,
-					() => integration.getResourcesForUserResult(connectionId),
+					() => integration.getProjectsForOrgResult(org, connectionId),
+					{ warnOnMissingSession: warnOnMissingSession },
 				);
-				if (resourcesWarning != null) {
-					warnings.push(resourcesWarning);
-					if (resources == null) {
+				if (warning != null) {
+					warnings.push(warning);
+					if (projects == null) {
 						fetchFailed = true;
 					}
 				}
+				if (projects != null) {
+					items.push(...projects.values.map(project => this.withProviderContext(id, project)));
 
-				const scopedResources =
-					org != null ? resources?.filter(resource => this.resourceMatchesOrg(resource, org)) : resources;
-				if (scopedResources != null && scopedResources.length !== 0) {
-					const { value: projects, warning: projectsWarning } = await this.runCaptured(
-						id,
-						domain,
-						connectionId,
-						() => integration.getProjectsForResourcesWithMetadataResult(scopedResources, connectionId),
-					);
-					if (projectsWarning != null) {
-						warnings.push(projectsWarning);
-						if (projects == null) {
-							fetchFailed = true;
-						}
-					}
-					if (projects != null) {
-						items.push(
-							...projects.values.map(project =>
-								this.resourceToOrg(id, project, this.orgForProject(id, project, scopedResources)),
-							),
-						);
-					}
-					if (mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata).fetchFailed) {
+					if (mergeAssessmentInto(warnings, id, domain, connectionId, projects.metadata).fetchFailed) {
 						fetchFailed = true;
 					}
 				}
-
 				return { items: items, warnings: warnings, fetchFailed: fetchFailed };
-			}),
-		);
+			}
+
+			const { value: resources, warning: resourcesWarning } = await this.runCaptured(
+				id,
+				domain,
+				connectionId,
+				() => integration.getResourcesForUserResult(connectionId),
+				{ warnOnMissingSession: warnOnMissingSession },
+			);
+			if (resourcesWarning != null) {
+				warnings.push(resourcesWarning);
+				if (resources == null) {
+					fetchFailed = true;
+				}
+			}
+
+			const scopedResources =
+				org != null ? resources?.filter(resource => this.resourceMatchesOrg(resource, org)) : resources;
+			if (scopedResources != null && scopedResources.length !== 0) {
+				const { value: projects, warning: projectsWarning } = await this.runCaptured(
+					id,
+					domain,
+					connectionId,
+					() => integration.getProjectsForResourcesWithMetadataResult(scopedResources, connectionId),
+				);
+				if (projectsWarning != null) {
+					warnings.push(projectsWarning);
+					if (projects == null) {
+						fetchFailed = true;
+					}
+				}
+				if (projects != null) {
+					items.push(
+						...projects.values.map(project =>
+							this.resourceToOrg(id, project, this.orgForProject(id, project, scopedResources)),
+						),
+					);
+				}
+				if (mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata).fetchFailed) {
+					fetchFailed = true;
+				}
+			}
+
+			return { items: items, warnings: warnings, fetchFailed: fetchFailed };
+		});
 
 		const items: ProviderOrganization[] = [];
 		const warnings: ProviderWarning[] = [];
@@ -1508,6 +1615,11 @@ export class IntegrationService implements Disposable {
 		cursor?: string;
 		itemsPerPage?: number;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
 	}): Promise<ProviderPagedResult<ProviderRepositoryShape>> {
 		const page = Math.max(1, options.page ?? 1);
 		if (this.isIssueProviderId(options.providerId)) {
@@ -1527,11 +1639,11 @@ export class IntegrationService implements Disposable {
 			};
 		}
 
-		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
+		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
 		if (integration == null) {
-			// A supplied connectionId that no longer resolves is a broken connection, not an empty account —
+			// A supplied connection or domain that no longer resolves is a broken target, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
-			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
+			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
 			return {
 				items: [],
 				warnings: early.warnings,
@@ -1557,7 +1669,7 @@ export class IntegrationService implements Disposable {
 			};
 		}
 
-		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
+		const domain = this.domainForRead(integration, options.providerId, options.connectionId, options.domain);
 
 		const accountWide = options.org == null;
 		const supported = accountWide
@@ -1590,17 +1702,22 @@ export class IntegrationService implements Disposable {
 
 		const org = options.org;
 		const cursor = options.cursor ?? this.pageToCursor(page);
-		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-			org == null
-				? integration.getRepositoriesForUserResult({
-						cursor: cursor,
-						connectionId: options.connectionId,
-					})
-				: integration.getRepositoriesForOrgResult(org, {
-						project: options.project,
-						cursor: cursor,
-						connectionId: options.connectionId,
-					}),
+		const { value, warning } = await this.runCaptured(
+			options.providerId,
+			domain,
+			options.connectionId,
+			() =>
+				org == null
+					? integration.getRepositoriesForUserResult({
+							cursor: cursor,
+							connectionId: options.connectionId,
+						})
+					: integration.getRepositoriesForOrgResult(org, {
+							project: options.project,
+							cursor: cursor,
+							connectionId: options.connectionId,
+						}),
+			{ warnOnMissingSession: this.warnOnMissingSessionForDomain(options.providerId, options.domain) },
 		);
 
 		const items = value?.values ?? [];
@@ -1737,11 +1854,14 @@ export class IntegrationService implements Disposable {
 		const accountWide = (options.repos?.length ?? 0) === 0;
 		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
 
-		// Resolve repo-scoped filters up front so an unsupported set is caught before the read: falling through
-		// unfiltered would return every PR in the repos rather than the user's.
-		const resolvedFilters = accountWide
-			? { unsupported: false as boolean, filters: undefined }
-			: this.resolvePullRequestFilters(options.providerId, options.filters);
+		// Resolve filters up front so an unsupported set is caught before the read: on the repo-scoped path
+		// falling through unfiltered would return every PR in the repos rather than the user's. The account-wide
+		// path is already user-scoped, so an unsupported filter can't widen it — but it is still validated, and
+		// on the same terms as the sweep: `ReviewRequested` derives the opt-in reviewer slice below, so accepting
+		// a set the provider doesn't support would silently serve a differently-scoped result (e.g.
+		// `[ReviewRequested, Mention]` on GitLab, which has no `Mention`, would include the reviewer slice here
+		// while the sweep drops it).
+		const resolvedFilters = this.resolvePullRequestFilters(options.providerId, options.filters);
 		if (resolvedFilters.unsupported) {
 			return {
 				items: [],
@@ -1785,7 +1905,7 @@ export class IntegrationService implements Disposable {
 							options.connectionId,
 						),
 			{
-				warnOnMissingSession: options.domain != null && isGitSelfManagedHostIntegrationId(options.providerId),
+				warnOnMissingSession: this.warnOnMissingSessionForDomain(options.providerId, options.domain),
 			},
 		);
 
@@ -1846,10 +1966,7 @@ export class IntegrationService implements Disposable {
 									},
 									options.connectionId,
 								),
-					{
-						warnOnMissingSession:
-							options.domain != null && isGitSelfManagedHostIntegrationId(options.providerId),
-					},
+					{ warnOnMissingSession: this.warnOnMissingSessionForDomain(options.providerId, options.domain) },
 				);
 			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
 				const { value: nextValue, warning: nextWarning } = await fetchNext(currentCursor);
@@ -1902,10 +2019,16 @@ export class IntegrationService implements Disposable {
 		}
 
 		const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
+		// Never advertise `hasMore` without a continuation the caller can act on. The account-wide read and
+		// PagingMode.Repos hosts are cursor-only (they ignore a page-number cursor and re-answer page 1), so
+		// there's no page to synthesize for them; a page-numbered repo-scoped host can be advanced by page.
+		const pageAdvanceable =
+			!accountWide && providersMetadata[options.providerId]?.pullRequestsPagingMode !== PagingMode.Repos;
+		const continuation = this.resolveContinuation(paged, pageAdvanceable ? paged.page.currentPage + 1 : undefined);
 		// A single-page provider read that couldn't confirm completeness sets `paging.truncated`; surface it
 		// as a terminal `page.truncated` (not `hasMore`, which has no cursor to advance) so the caller knows
 		// the page may be incomplete. Metadata incompleteness is an independent source of the same signal.
-		const truncated = paged.truncated || assessment.truncated;
+		const truncated = continuation.truncated || assessment.truncated;
 		if (truncated && warnings.length === 0) {
 			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId, 'Pull request'));
 		}
@@ -1916,9 +2039,15 @@ export class IntegrationService implements Disposable {
 			// Normalize the raw provider-apis PRs to the GitLens-owned shape at the surface boundary.
 			items: items.map(pr => fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId })),
 			warnings: warnings,
-			page: { ...paged.page, truncated: truncated || undefined },
-			hasMore: paged.hasMore,
-			cursor: paged.cursor,
+			// The account-wide read can't take a page size, so don't echo the requested `itemsPerPage` as if it
+			// had been applied — report what came back.
+			page: {
+				...paged.page,
+				itemsPerPage: accountWide ? items.length : paged.page.itemsPerPage,
+				truncated: truncated || undefined,
+			},
+			hasMore: continuation.hasMore,
+			cursor: continuation.cursor,
 			// A metadata failure means items are incomplete even when the read didn't throw; a thrown error with
 			// no recovered value is the pre-existing failure case.
 			fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
@@ -1943,6 +2072,11 @@ export class IntegrationService implements Disposable {
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>> {
 		const page = Math.max(1, options.page ?? 1);
 		if (this.isIssueProviderId(options.providerId)) {
@@ -1962,11 +2096,11 @@ export class IntegrationService implements Disposable {
 			};
 		}
 
-		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
+		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
 		if (integration == null) {
-			// A supplied connectionId that no longer resolves is a broken connection, not an empty account —
+			// A supplied connection or domain that no longer resolves is a broken target, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
-			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
+			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
 			return {
 				items: [],
 				warnings: early.warnings,
@@ -1994,7 +2128,8 @@ export class IntegrationService implements Disposable {
 
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
-		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
+		const domain = this.domainForRead(integration, options.providerId, options.connectionId, options.domain);
+		const warnOnMissingSession = this.warnOnMissingSessionForDomain(options.providerId, options.domain);
 
 		// A git host whose issue tracker is deprecated (Bitbucket, superseded by dedicated issue integrations)
 		// reports issues as explicitly unsupported rather than serving a partial/legacy source or a silent empty.
@@ -2039,11 +2174,16 @@ export class IntegrationService implements Disposable {
 			// already-user-scoped core instead. GitHub exposes a composite cursor across its authored,
 			// assigned, and mentioned searches. Walk it internally when the caller supplies only page N.
 			const readAccountWidePage = (cursor: string | undefined) =>
-				this.runCaptured(options.providerId, domain, options.connectionId, () =>
-					integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId, {
-						includeAllAssignees: options.includeAllAssignees,
-						cursor: cursor,
-					}),
+				this.runCaptured(
+					options.providerId,
+					domain,
+					options.connectionId,
+					() =>
+						integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId, {
+							includeAllAssignees: options.includeAllAssignees,
+							cursor: cursor,
+						}),
+					{ warnOnMissingSession: warnOnMissingSession },
 				);
 			const first = await readAccountWidePage(options.cursor);
 			let value = first.value;
@@ -2054,8 +2194,14 @@ export class IntegrationService implements Disposable {
 			let currentTruncated = value?.truncated ?? false;
 			let requestedPageMissing = false;
 			if (options.cursor == null && page > 1 && value != null) {
-				while (currentPage < page && value.hasMore && value.cursor != null) {
-					const next = await readAccountWidePage(value.cursor);
+				// Guard against the empty-cursor sentinel: a provider that claims another page without handing
+				// back a usable cursor would otherwise be re-read with `'{}'` and answer with page 1 again.
+				for (
+					let nextCursor = this.usableCursor(value.cursor);
+					currentPage < page && value.hasMore && nextCursor != null;
+					nextCursor = this.usableCursor(value.cursor)
+				) {
+					const next = await readAccountWidePage(nextCursor);
 					if (next.warning != null) {
 						appendDedupedWarning(warnings, next.warning);
 					}
@@ -2070,6 +2216,11 @@ export class IntegrationService implements Disposable {
 					allMetadata = mergeCollectionMetadata(allMetadata, value.metadata);
 					currentTruncated = currentTruncated || value.truncated;
 					currentPage = value.page ?? currentPage + 1;
+					// A provider that hands back the same cursor isn't advancing; stop rather than loop forever.
+					if (this.usableCursor(value.cursor) === nextCursor) {
+						currentTruncated = true;
+						break;
+					}
 				}
 
 				// A numbered page beyond the provider's terminal cursor is genuinely empty. Never return or
@@ -2119,7 +2270,18 @@ export class IntegrationService implements Disposable {
 			// provider-neutral warning, unless a structured failure already explains it) rather than a complete
 			// list. Don't hard-code GitHub's "100 per category" cap here — Azure reaches this via a per-project
 			// backstop, and other providers may cap differently.
-			const truncated = currentTruncated || assessment.truncated;
+			// The account-wide read is cursor-only (its composite cursor spans several provider searches, so a
+			// page number can't address it): `hasMore` without a real cursor is a dead end, so report it as
+			// terminal-but-incomplete rather than inviting the caller to page forever.
+			const continuation = this.resolveContinuation(
+				{
+					hasMore: requestedPageMissing ? false : (value?.hasMore ?? false),
+					cursor: requestedPageMissing ? undefined : this.usableCursor(value?.cursor),
+					truncated: currentTruncated,
+				},
+				undefined,
+			);
+			const truncated = continuation.truncated || assessment.truncated;
 			if (truncated && warnings.length === 0) {
 				warnings.push({
 					providerId: options.providerId,
@@ -2138,29 +2300,34 @@ export class IntegrationService implements Disposable {
 					itemsPerPage: items.length,
 					truncated: truncated || undefined,
 				},
-				hasMore: requestedPageMissing ? false : (value?.hasMore ?? false),
-				cursor: requestedPageMissing ? undefined : value?.cursor,
+				hasMore: continuation.hasMore,
+				cursor: continuation.cursor,
 				fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
 			};
 		}
 
 		const cursor = options.cursor ?? this.pageToCursor(page);
-		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-			// The shapes seam returns normalized IssueShape (and lets a provider whose only issue client already
-			// yields shapes — Bitbucket — serve this path without a raw ProviderIssue round-trip).
-			integration.getMyIssuesForReposAsShapesResult(
-				options.repos ?? [],
-				// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo/Project hosts honor the
-				// requested page and page size rather than ignoring a synthesized page-number cursor.
-				{
-					filters: options.filters,
-					includeAllAssignees: options.includeAllAssignees,
-					cursor: cursor,
-					page: options.page,
-					pageSize: options.itemsPerPage,
-				},
-				options.connectionId,
-			),
+		const { value, warning } = await this.runCaptured(
+			options.providerId,
+			domain,
+			options.connectionId,
+			() =>
+				// The shapes seam returns normalized IssueShape (and lets a provider whose only issue client already
+				// yields shapes — Bitbucket — serve this path without a raw ProviderIssue round-trip).
+				integration.getMyIssuesForReposAsShapesResult(
+					options.repos ?? [],
+					// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo/Project hosts honor the
+					// requested page and page size rather than ignoring a synthesized page-number cursor.
+					{
+						filters: options.filters,
+						includeAllAssignees: options.includeAllAssignees,
+						cursor: cursor,
+						page: options.page,
+						pageSize: options.itemsPerPage,
+					},
+					options.connectionId,
+				),
+			{ warnOnMissingSession: warnOnMissingSession },
 		);
 
 		let items = value?.values ?? [];
@@ -2193,17 +2360,22 @@ export class IntegrationService implements Disposable {
 				currentHasMore = false;
 			}
 			const fetchNext = (cursor: string) =>
-				this.runCaptured(options.providerId, domain, options.connectionId, () =>
-					integration.getMyIssuesForReposAsShapesResult(
-						options.repos ?? [],
-						{
-							filters: options.filters,
-							includeAllAssignees: options.includeAllAssignees,
-							cursor: cursor,
-							pageSize: options.itemsPerPage,
-						},
-						options.connectionId,
-					),
+				this.runCaptured(
+					options.providerId,
+					domain,
+					options.connectionId,
+					() =>
+						integration.getMyIssuesForReposAsShapesResult(
+							options.repos ?? [],
+							{
+								filters: options.filters,
+								includeAllAssignees: options.includeAllAssignees,
+								cursor: cursor,
+								pageSize: options.itemsPerPage,
+							},
+							options.connectionId,
+						),
+					{ warnOnMissingSession: warnOnMissingSession },
 				);
 			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
 				drainedCursorInternally = true;
@@ -2256,10 +2428,19 @@ export class IntegrationService implements Disposable {
 		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
 		// them to any captured thrown-error warning without discarding the partial result's items.
 		const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
+		// Never advertise `hasMore` without a continuation. PagingMode.Repos hosts are cursor-only (a page-number
+		// cursor is ignored and answers page 1 again), so there's no page to synthesize for them; page-numbered
+		// hosts can be advanced by page.
+		const continuation = this.resolveContinuation(
+			paged,
+			providersMetadata[options.providerId]?.issuesPagingMode !== PagingMode.Repos
+				? paged.page.currentPage + 1
+				: undefined,
+		);
 		// A provider read that couldn't confirm completeness (e.g. Bitbucket's single-page repo issue read
 		// that dropped a repo) sets `paging.truncated`; surface it as a terminal `page.truncated` so a partial
 		// page isn't published as complete. Metadata incompleteness is an independent source of the same signal.
-		const truncated = paged.truncated || assessment.truncated;
+		const truncated = continuation.truncated || assessment.truncated;
 		if (truncated && warnings.length === 0) {
 			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId, 'Issue'));
 		}
@@ -2267,8 +2448,8 @@ export class IntegrationService implements Disposable {
 			items: items,
 			warnings: warnings,
 			page: { ...paged.page, truncated: truncated || undefined },
-			hasMore: paged.hasMore,
-			cursor: paged.cursor,
+			hasMore: continuation.hasMore,
+			cursor: continuation.cursor,
 			fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
 		};
 	}
@@ -2290,6 +2471,9 @@ export class IntegrationService implements Disposable {
 	 * per-provider drains); if a single project exceeds it, its extra issues can't be paged from here, but that
 	 * incompleteness IS surfaced as `page.truncated` (Jira/Linear report the backstop hit) rather than passed
 	 * off as a complete read.
+	 *
+	 * Takes no `domain`, unlike the git-host reads: every issue-tracker provider is cloud-only
+	 * ({@link IssuesCloudHostIntegrationId}), so there is no self-managed host to address.
 	 */
 	async listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -2440,14 +2624,12 @@ export class IntegrationService implements Disposable {
 		let accountLookupFailed = false;
 		if (options.includeAllAssignees !== true) {
 			usersByResourceId = new Map<string, string>();
-			const accounts = await Promise.all(
-				scopedResources.map(async resource => ({
-					resource: resource,
-					...(await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-						integration.getAccountForResourceResult(resource, options.connectionId),
-					)),
-				})),
-			);
+			const accounts = await mapBounded(scopedResources, providerFanOutConcurrency, async resource => ({
+				resource: resource,
+				...(await this.runCaptured(options.providerId, domain, options.connectionId, () =>
+					integration.getAccountForResourceResult(resource, options.connectionId),
+				)),
+			}));
 
 			for (const { resource, value: account, warning: accountWarning } of accounts) {
 				const user = account?.username ?? account?.name ?? undefined;
@@ -2509,17 +2691,15 @@ export class IntegrationService implements Disposable {
 			return emptyPage(projectDiscoveryFailed || accountLookupFailed, projectDiscoveryTruncated);
 		}
 
-		const perProject = await Promise.all(
-			scopedProjects.map(project =>
-				this.runCaptured(options.providerId, domain, options.connectionId, () =>
-					integration.getIssuesForProjectWithTruncationResult(
-						project,
-						{
-							user: userForProject(project),
-							filters: options.filters,
-						},
-						options.connectionId,
-					),
+		const perProject = await mapBounded(scopedProjects, providerFanOutConcurrency, project =>
+			this.runCaptured(options.providerId, domain, options.connectionId, () =>
+				integration.getIssuesForProjectWithTruncationResult(
+					project,
+					{
+						user: userForProject(project),
+						filters: options.filters,
+					},
+					options.connectionId,
 				),
 			),
 		);
@@ -2811,96 +2991,99 @@ export class IntegrationService implements Disposable {
 		const maxPages = options?.maxPages ?? 100;
 		const repos = options?.repos ?? [];
 
-		const results = await Promise.all(
-			targets.map(async target => {
-				const { providerId: id, connectionId, domain: requestedDomain } = target;
-				if (this.isIssueProviderId(id)) {
-					return {
-						items: [] as PullRequestShape[],
-						warnings: [
-							this.gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps'),
-						],
-						fetchFailed: true,
-						truncated: false,
-						providerId: id,
-						failedProvider: true,
-					};
-				}
-
-				const integration = await this.getIntegrationForRead(id, connectionId, requestedDomain);
-				if (integration == null) {
-					// A requested connection that can't be resolved is a broken connection — surface it as a
-					// warning + fetchFailed rather than dropping the provider's slice silently.
-					const early = this.earlyReturnConnectionWarnings(id, connectionId, requestedDomain);
-					if (early.warnings.length === 0 && !attributeUnavailableProviders) return undefined;
-					return {
-						items: [] as PullRequestShape[],
-						warnings:
-							early.warnings.length !== 0
-								? early.warnings
-								: [this.noConnectionWarning(id, requestedDomain, connectionId)],
-						fetchFailed: true,
-						truncated: false,
-						providerId: id,
-						failedProvider: true,
-					};
-				}
-				if (!isGitHostIntegration(integration)) {
-					return {
-						items: [] as PullRequestShape[],
-						warnings: [
-							this.gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps'),
-						],
-						fetchFailed: true,
-						truncated: false,
-						providerId: id,
-						failedProvider: true,
-					};
-				}
-				await this.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
-
-				const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
-				// Resolve filters per provider so each drains only the user's PRs (default) using the filters
-				// that provider supports — a single shared set could be unsupported by one of them. Only relevant
-				// on the repo-scoped path; the account-wide drain (empty repos) ignores filters.
-				const resolved = this.resolvePullRequestFilters(id, options?.filters);
-				if (resolved.unsupported && repos.length > 0) {
-					// Don't drain unfiltered (would return every PR); report a warning and contribute nothing.
-					return {
-						items: [] as PullRequestShape[],
-						warnings: [this.unsupportedFiltersWarning(id, domain, connectionId)],
-						fetchFailed: true,
-						truncated: false,
-						providerId: id,
-						failedProvider: true,
-					};
-				}
-
-				const drain = await this.drainPullRequests(
-					integration,
-					id,
-					domain,
-					repos,
-					options?.state,
-					resolved.filters,
-					connectionId,
-					maxPages,
-					attributeUnavailableProviders,
-				);
-				const currentAccountId = drain.items.some(pr => pr.author != null)
-					? await this.getCurrentAccountId(integration, connectionId)
-					: undefined;
-				// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
-				// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
+		const results = await mapBounded(targets, providerFanOutConcurrency, async target => {
+			const { providerId: id, connectionId, domain: requestedDomain } = target;
+			if (this.isIssueProviderId(id)) {
 				return {
-					...drain,
-					items: drain.items.map(pr =>
-						fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId }),
-					),
+					items: [] as PullRequestShape[],
+					warnings: [
+						this.gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps'),
+					],
+					fetchFailed: true,
+					truncated: false,
 					providerId: id,
+					failedProvider: true,
 				};
-			}),
-		);
+			}
+
+			const integration = await this.getIntegrationForRead(id, connectionId, requestedDomain);
+			if (integration == null) {
+				// A requested connection that can't be resolved is a broken connection — surface it as a
+				// warning + fetchFailed rather than dropping the provider's slice silently.
+				const early = this.earlyReturnConnectionWarnings(id, connectionId, requestedDomain);
+				if (early.warnings.length === 0 && !attributeUnavailableProviders) return undefined;
+				return {
+					items: [] as PullRequestShape[],
+					warnings:
+						early.warnings.length !== 0
+							? early.warnings
+							: [this.noConnectionWarning(id, requestedDomain, connectionId)],
+					fetchFailed: true,
+					truncated: false,
+					providerId: id,
+					failedProvider: true,
+				};
+			}
+
+			if (!isGitHostIntegration(integration)) {
+				return {
+					items: [] as PullRequestShape[],
+					warnings: [
+						this.gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps'),
+					],
+					fetchFailed: true,
+					truncated: false,
+					providerId: id,
+					failedProvider: true,
+				};
+			}
+
+			await this.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
+
+			const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
+			// Resolve filters per provider so each drains only the user's PRs (default) using the filters
+			// that provider supports — a single shared set could be unsupported by one of them. Validated on
+			// both paths: repo-scoped would otherwise drain unfiltered, and while the account-wide drain
+			// (empty repos) is already user-scoped, `ReviewRequested` still derives its opt-in reviewer slice
+			// from the set, so silently ignoring an unsupported set would serve a differently-scoped result
+			// than the caller asked for (and than `listPullRequestsPage` returns).
+			const resolved = this.resolvePullRequestFilters(id, options?.filters);
+			if (resolved.unsupported) {
+				// Don't drain unfiltered (would return every PR); report a warning and contribute nothing.
+				return {
+					items: [] as PullRequestShape[],
+					warnings: [this.unsupportedFiltersWarning(id, domain, connectionId)],
+					fetchFailed: true,
+					truncated: false,
+					providerId: id,
+					failedProvider: true,
+				};
+			}
+
+			const drain = await this.drainPullRequests(
+				integration,
+				id,
+				domain,
+				repos,
+				options?.states,
+				resolved.filters,
+				connectionId,
+				maxPages,
+				attributeUnavailableProviders,
+			);
+			const currentAccountId = drain.items.some(pr => pr.author != null)
+				? await this.getCurrentAccountId(integration, connectionId)
+				: undefined;
+			// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
+			// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
+			return {
+				...drain,
+				items: drain.items.map(pr =>
+					fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId }),
+				),
+				providerId: id,
+			};
+		});
 
 		const items: PullRequestShape[] = [];
 		const warnings: ProviderWarning[] = [];
@@ -2992,7 +3175,7 @@ export class IntegrationService implements Disposable {
 	): Promise<ProviderSweepResult<PullRequestShape>> {
 		return this.sweepPullRequests({
 			...options,
-			state: ['closed', 'merged'],
+			states: ['closed', 'merged'],
 		});
 	}
 
@@ -3001,11 +3184,12 @@ export class IntegrationService implements Disposable {
 	 * repositories, then reads that org's issues. A per-org failure becomes a warning without failing the
 	 * whole fan-out. `broadenedProviderIds` lists the distinct providers whose issue read resolved (even
 	 * if every issue duplicated a baseline), and `fanOutCount` is the number of org work items spawned.
-	 * Each org may carry its own `connectionId` to target a specific account (the fan-out spans providers, so
-	 * the connection is scoped per org rather than globally).
+	 * Each org may carry its own `connectionId` (and, for a self-managed host with no configured connection, its
+	 * own `domain`) to target a specific account — the fan-out spans providers, so the target is scoped per org
+	 * rather than globally.
 	 */
 	async broadenIssues(options: {
-		orgs: { providerId: IntegrationIds; name: string; connectionId?: string }[];
+		orgs: ProviderBroadenOrg[];
 		page?: number;
 		cursor?: string;
 		forceSync?: boolean;
@@ -3076,144 +3260,158 @@ export class IntegrationService implements Disposable {
 			};
 		}
 
-		const results = await Promise.all(
-			options.orgs.map(async org => {
-				const connectionId = org.connectionId;
-				if (this.isIssueProviderId(org.providerId)) {
-					return {
-						items: [] as IssueShape[],
-						warnings: [
-							this.gitHostOnlySurfaceWarning(org.providerId, undefined, connectionId, 'issue broadening'),
-						],
-						broadenedProviderIds: [] as IntegrationIds[],
-						providerId: org.providerId,
-						org: org.name,
-						connectionId: connectionId,
-						nextCursor: undefined,
-						hasMore: false,
-						exhausted: false,
-						fetchFailed: true,
-						truncated: false,
-					};
-				}
+		const results = await mapBounded(options.orgs, providerFanOutConcurrency, async org => {
+			const connectionId = org.connectionId;
+			const requestedDomain = org.domain;
+			if (this.isIssueProviderId(org.providerId)) {
+				return {
+					items: [] as IssueShape[],
+					warnings: [
+						this.gitHostOnlySurfaceWarning(
+							org.providerId,
+							requestedDomain,
+							connectionId,
+							'issue broadening',
+						),
+					],
+					broadenedProviderIds: [] as IntegrationIds[],
+					providerId: org.providerId,
+					org: org.name,
+					connectionId: connectionId,
+					nextCursor: undefined,
+					hasMore: false,
+					exhausted: false,
+					fetchFailed: true,
+					truncated: false,
+				};
+			}
 
-				const integration = await this.getIntegrationForRead(org.providerId, connectionId);
-				if (integration == null) {
-					// A requested connection that can't be resolved is a broken connection — surface it as a
-					// warning + fetchFailed rather than dropping the org silently.
-					const early = this.earlyReturnConnectionWarnings(org.providerId, connectionId);
-					if (early.warnings.length === 0) return undefined;
-					return {
-						items: [] as IssueShape[],
-						warnings: early.warnings,
-						broadenedProviderIds: [] as IntegrationIds[],
-						providerId: org.providerId,
-						org: org.name,
-						connectionId: connectionId,
-						nextCursor: undefined,
-						hasMore: false,
-						exhausted: false,
-						fetchFailed: true,
-						truncated: false,
-					};
-				}
-				if (!isGitHostIntegration(integration)) {
-					return {
-						items: [] as IssueShape[],
-						warnings: [
-							this.gitHostOnlySurfaceWarning(org.providerId, undefined, connectionId, 'issue broadening'),
-						],
-						broadenedProviderIds: [] as IntegrationIds[],
-						providerId: org.providerId,
-						org: org.name,
-						connectionId: connectionId,
-						nextCursor: undefined,
-						hasMore: false,
-						exhausted: false,
-						fetchFailed: true,
-						truncated: false,
-					};
-				}
-				// A git host whose issue tracker is deprecated (Bitbucket) exposes no issues here — surface a
-				// warning + fetchFailed and skip it (no repo drain), so broadening never serves a legacy source.
-				if (!integration.supportsIssues) {
-					return {
-						items: [] as IssueShape[],
-						warnings: [
-							this.issuesUnsupportedWarning(
-								org.providerId,
-								this.domainForRead(integration, org.providerId, connectionId),
-								connectionId,
-							),
-						],
-						broadenedProviderIds: [] as IntegrationIds[],
-						providerId: org.providerId,
-						org: org.name,
-						connectionId: connectionId,
-						nextCursor: undefined,
-						hasMore: false,
-						exhausted: false,
-						fetchFailed: true,
-						truncated: false,
-					};
-				}
+			const integration = await this.getIntegrationForRead(org.providerId, connectionId, requestedDomain);
+			if (integration == null) {
+				// A requested connection or domain that can't be resolved is a broken target — surface it as a
+				// warning + fetchFailed rather than dropping the org silently.
+				const early = this.earlyReturnConnectionWarnings(org.providerId, connectionId, requestedDomain);
+				if (early.warnings.length === 0) return undefined;
+				return {
+					items: [] as IssueShape[],
+					warnings: early.warnings,
+					broadenedProviderIds: [] as IntegrationIds[],
+					providerId: org.providerId,
+					org: org.name,
+					connectionId: connectionId,
+					nextCursor: undefined,
+					hasMore: false,
+					exhausted: false,
+					fetchFailed: true,
+					truncated: false,
+				};
+			}
+			if (!isGitHostIntegration(integration)) {
+				return {
+					items: [] as IssueShape[],
+					warnings: [
+						this.gitHostOnlySurfaceWarning(
+							org.providerId,
+							requestedDomain,
+							connectionId,
+							'issue broadening',
+						),
+					],
+					broadenedProviderIds: [] as IntegrationIds[],
+					providerId: org.providerId,
+					org: org.name,
+					connectionId: connectionId,
+					nextCursor: undefined,
+					hasMore: false,
+					exhausted: false,
+					fetchFailed: true,
+					truncated: false,
+				};
+			}
+			// A git host whose issue tracker is deprecated (Bitbucket) exposes no issues here — surface a
+			// warning + fetchFailed and skip it (no repo drain), so broadening never serves a legacy source.
+			if (!integration.supportsIssues) {
+				return {
+					items: [] as IssueShape[],
+					warnings: [
+						this.issuesUnsupportedWarning(
+							org.providerId,
+							this.domainForRead(integration, org.providerId, connectionId, requestedDomain),
+							connectionId,
+						),
+					],
+					broadenedProviderIds: [] as IntegrationIds[],
+					providerId: org.providerId,
+					org: org.name,
+					connectionId: connectionId,
+					nextCursor: undefined,
+					hasMore: false,
+					exhausted: false,
+					fetchFailed: true,
+					truncated: false,
+				};
+			}
 
-				// An org a prior round already drained must not be re-read: cursor-only providers would answer a
-				// fresh page-1 request with their first page again, duplicating issues across rounds. Skip it
-				// before any work (including the repo drain) and keep it marked exhausted so it stays skipped
-				// for the rest of the fan-out.
-				if (this.isBroadenIssuesOrgExhausted(options.cursor, org, options.orgs.length)) {
-					return {
-						items: [],
-						warnings: [] as ProviderWarning[],
-						broadenedProviderIds: [] as IntegrationIds[],
-						providerId: org.providerId,
-						org: org.name,
-						connectionId: connectionId,
-						nextCursor: undefined,
-						hasMore: false,
-						exhausted: true,
-						fetchFailed: false,
-						truncated: false,
-					};
-				}
+			// An org a prior round already drained must not be re-read: cursor-only providers would answer a
+			// fresh page-1 request with their first page again, duplicating issues across rounds. Skip it
+			// before any work (including the repo drain) and keep it marked exhausted so it stays skipped
+			// for the rest of the fan-out.
+			if (this.isBroadenIssuesOrgExhausted(options.cursor, org, options.orgs.length)) {
+				return {
+					items: [],
+					warnings: [] as ProviderWarning[],
+					broadenedProviderIds: [] as IntegrationIds[],
+					providerId: org.providerId,
+					org: org.name,
+					connectionId: connectionId,
+					nextCursor: undefined,
+					hasMore: false,
+					exhausted: true,
+					fetchFailed: false,
+					truncated: false,
+				};
+			}
 
-				await this.forceRefreshIfRequested(integration, options.forceSync, connectionId);
+			await this.forceRefreshIfRequested(integration, options.forceSync, connectionId);
 
-				const domain = this.domainForRead(integration, org.providerId, connectionId);
-				const reposDrain = await this.drainRepositories(
-					integration,
-					org.providerId,
-					domain,
-					org.name,
-					undefined,
-					connectionId,
-					100,
-				);
-				const warnings: ProviderWarning[] = [...reposDrain.warnings];
-				const fetchFailed = reposDrain.fetchFailed;
-				const truncated = reposDrain.truncated;
+			const domain = this.domainForRead(integration, org.providerId, connectionId, requestedDomain);
+			const reposDrain = await this.drainRepositories(
+				integration,
+				org.providerId,
+				domain,
+				org.name,
+				undefined,
+				connectionId,
+				100,
+			);
+			const warnings: ProviderWarning[] = [...reposDrain.warnings];
+			const fetchFailed = reposDrain.fetchFailed;
+			const truncated = reposDrain.truncated;
 
-				const repos: ProviderReposInput = reposDrain.repos.map(r => ({ ...r }));
-				if (repos.length === 0) {
-					return {
-						items: [],
-						warnings: warnings,
-						broadenedProviderIds: [] as IntegrationIds[],
-						providerId: org.providerId,
-						org: org.name,
-						connectionId: connectionId,
-						nextCursor: undefined,
-						hasMore: false,
-						exhausted: false,
-						fetchFailed: fetchFailed,
-						truncated: truncated,
-					};
-				}
+			const repos: ProviderReposInput = reposDrain.repos.map(r => ({ ...r }));
+			if (repos.length === 0) {
+				return {
+					items: [],
+					warnings: warnings,
+					broadenedProviderIds: [] as IntegrationIds[],
+					providerId: org.providerId,
+					org: org.name,
+					connectionId: connectionId,
+					nextCursor: undefined,
+					hasMore: false,
+					exhausted: false,
+					fetchFailed: fetchFailed,
+					truncated: truncated,
+				};
+			}
 
-				// Broaden = "all visible": drop the assigned-to-me filter so unassigned issues are included.
-				const cursor = this.getBroadenIssuesCursor(options.cursor, org, page, options.orgs.length);
-				const issuesCaptured = await this.runCaptured(org.providerId, domain, connectionId, () =>
+			// Broaden = "all visible": drop the assigned-to-me filter so unassigned issues are included.
+			const cursor = this.getBroadenIssuesCursor(options.cursor, org, page, options.orgs.length);
+			const issuesCaptured = await this.runCaptured(
+				org.providerId,
+				domain,
+				connectionId,
+				() =>
 					// Normalized shapes seam (uniform with listIssuesPage; serves Bitbucket via its override).
 					integration.getMyIssuesForReposAsShapesResult(
 						repos,
@@ -3223,54 +3421,56 @@ export class IntegrationService implements Disposable {
 						},
 						connectionId,
 					),
-				);
-				if (issuesCaptured.warning != null) {
-					warnings.push(issuesCaptured.warning);
-				}
-				const issuesAssessment = mergeAssessmentInto(
-					warnings,
-					org.providerId,
-					domain,
-					connectionId,
-					issuesCaptured.value?.metadata,
-				);
-				const issuesFetchFailed =
-					issuesAssessment.fetchFailed || (issuesCaptured.warning != null && issuesCaptured.value == null);
-				const items: IssueShape[] = [];
-				let hasMore = false;
-				let nextCursor: string | undefined;
-				// Carry a truncation signal from the issue read too: a provider that couldn't confirm it drained
-				// a repo (`paging.truncated`) means this org's issues may be incomplete, on top of any repo-drain
-				// truncation already captured above.
-				let issuesTruncated = false;
-				if (issuesCaptured.value != null) {
-					items.push(...issuesCaptured.value.values);
-					const paged = this.toProviderPageInfo(
-						issuesCaptured.value.values.length,
-						issuesCaptured.value.paging,
-					);
-					hasMore = paged.hasMore;
-					nextCursor = paged.cursor;
-					issuesTruncated = paged.truncated || issuesAssessment.truncated;
-				}
+				{ warnOnMissingSession: this.warnOnMissingSessionForDomain(org.providerId, requestedDomain) },
+			);
+			if (issuesCaptured.warning != null) {
+				warnings.push(issuesCaptured.warning);
+			}
+			const issuesAssessment = mergeAssessmentInto(
+				warnings,
+				org.providerId,
+				domain,
+				connectionId,
+				issuesCaptured.value?.metadata,
+			);
+			const issuesFetchFailed =
+				issuesAssessment.fetchFailed || (issuesCaptured.warning != null && issuesCaptured.value == null);
+			const items: IssueShape[] = [];
+			let hasMore = false;
+			let nextCursor: string | undefined;
+			// Carry a truncation signal from the issue read too: a provider that couldn't confirm it drained
+			// a repo (`paging.truncated`) means this org's issues may be incomplete, on top of any repo-drain
+			// truncation already captured above.
+			let issuesTruncated = false;
+			if (issuesCaptured.value != null) {
+				items.push(...issuesCaptured.value.values);
+				const paged = this.toProviderPageInfo(issuesCaptured.value.values.length, issuesCaptured.value.paging);
+				// An org that reports another page but no usable cursor can't be resumed: it would neither be
+				// recorded in the composite cursor nor marked exhausted, so the next round would re-read its
+				// page 1 and repeat every issue. Treat it as terminal-but-incomplete (which also marks the org
+				// exhausted below, since `exhausted` keys off `!hasMore`).
+				const continuation = this.resolveContinuation(paged, undefined);
+				hasMore = continuation.hasMore;
+				nextCursor = continuation.cursor;
+				issuesTruncated = continuation.truncated || issuesAssessment.truncated;
+			}
 
-				return {
-					items: items,
-					warnings: warnings,
-					broadenedProviderIds: issuesCaptured.value != null ? [org.providerId] : ([] as IntegrationIds[]),
-					providerId: org.providerId,
-					org: org.name,
-					connectionId: connectionId,
-					nextCursor: nextCursor,
-					hasMore: hasMore,
-					// Exhausted once a successful read reports no more pages — recorded in the cursor so later
-					// rounds skip it while other orgs keep paging.
-					exhausted: issuesCaptured.value != null && !hasMore,
-					fetchFailed: fetchFailed || issuesFetchFailed,
-					truncated: truncated || issuesTruncated,
-				};
-			}),
-		);
+			return {
+				items: items,
+				warnings: warnings,
+				broadenedProviderIds: issuesCaptured.value != null ? [org.providerId] : ([] as IntegrationIds[]),
+				providerId: org.providerId,
+				org: org.name,
+				connectionId: connectionId,
+				nextCursor: nextCursor,
+				hasMore: hasMore,
+				// Exhausted once a successful read reports no more pages — recorded in the cursor so later
+				// rounds skip it while other orgs keep paging.
+				exhausted: issuesCaptured.value != null && !hasMore,
+				fetchFailed: fetchFailed || issuesFetchFailed,
+				truncated: truncated || issuesTruncated,
+			};
+		});
 
 		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
@@ -3386,6 +3586,12 @@ export class IntegrationService implements Disposable {
 		remoteUrl: string;
 		host?: string;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain used to select the integration instance. Used only when the requested
+		 * connection has no configured domain; it must come from the trusted authentication configuration, not
+		 * repository or remote data.
+		 */
+		domain?: string;
 	}): Promise<ResolveRepositoryResult> {
 		const result = (status: RepositoryResolution['status']): ResolveRepositoryResult => ({
 			resolution: { status: status },
@@ -3459,36 +3665,57 @@ export class IntegrationService implements Disposable {
 		const name = provider.repoName;
 		if (owner == null || name == null) return result('invalid-remote-url');
 
-		// When pinning to a specific connection on a self-managed host, the connection's configured domain must
-		// match the host parsed from the URL. Otherwise we'd resolve `owner/repo` against a different host's
-		// account — and if that host happens to have the same owner/repo, return a confidently wrong identity.
-		if (options.connectionId != null && isGitSelfManagedHostIntegrationId(id)) {
-			// Normalize BOTH sides before comparing: the stored connection domain is usually a full URL
-			// (`https://git.example.com`), while `urlHost` is already a bare host. Comparing the raw stored
-			// value against the normalized host would fail on scheme/trailing-slash alone and wrongly reject a
-			// correctly-configured connection as `no-connection`.
-			const connectionHost = hostFromDomain(this.getConfiguredConnectionDomain(id, options.connectionId));
-			const urlHost = hostFromDomain(provider.domain);
-			if (connectionHost != null && urlHost != null && connectionHost !== urlHost) {
-				return result('host-mismatch');
+		// On a self-managed host, resolve only against a TRUSTED host: the pinned connection's configured
+		// domain, the explicit `domain`, or — when neither was supplied — a configured host matching the
+		// remote's. That last case keeps `remoteUrl` (repository-supplied) out of the trusted path: it selects
+		// among hosts the user already authenticated and can never introduce a new one. Resolving `owner/repo`
+		// against some other host's account would, if that host has the same owner/repo, return a confidently
+		// wrong identity — and would seed the domain-keyed integration cache (never evicted before dispose) with
+		// an entry derived from repository data.
+		const urlHost = hostFromDomain(provider.domain);
+		// Normalize BOTH sides before comparing: a stored connection domain is usually a full URL
+		// (`https://git.example.com`) while `urlHost` is already a bare host, so a raw compare would fail on
+		// scheme/trailing-slash alone and wrongly reject a correctly-configured connection.
+		let trustedHost =
+			options.connectionId != null || options.domain != null
+				? hostFromDomain(this.resolveDomainForRead(id, options.connectionId, options.domain))
+				: undefined;
+		if (isGitSelfManagedHostIntegrationId(id)) {
+			const configuredHosts = this.getConfigured(id).map(c => hostFromDomain(c.domain));
+			if (trustedHost == null && urlHost != null) {
+				trustedHost = configuredHosts.find(host => host === urlHost);
 			}
+			// A configured host that doesn't match the remote's is a genuine mismatch. With nothing configured
+			// there is no host to mismatch against — it's simply not connected, so fall through to the
+			// `unauthorized` path below (still WITHOUT resolving by the URL domain, so repo data can't seed the
+			// cache).
+			if (trustedHost == null && configuredHosts.length !== 0) return result('host-mismatch');
+			if (trustedHost != null && urlHost != null && trustedHost !== urlHost) return result('host-mismatch');
 		}
 
 		let integration: Integration | undefined;
 		try {
-			// When a specific connection is requested, resolve the instance by the connection's configured
-			// domain (as `getIntegrationForRead` does): `resolveReadSession` looks the session up against the
-			// instance's domain-scoped descriptor, so selecting the instance by the URL domain could miss the
-			// session and degrade to `no-connection`.
-			integration =
-				options.connectionId != null
-					? await this.getIntegrationForRead(id, options.connectionId)
-					: await this.get(id, provider.domain);
+			// Resolve the instance through the trusted target (as `getIntegrationForRead` does):
+			// `resolveReadSession` looks the session up against the instance's domain-scoped descriptor, so
+			// selecting the instance by the URL domain could miss the session and degrade to `no-connection`.
+			integration = isGitSelfManagedHostIntegrationId(id)
+				? trustedHost != null
+					? await this.getIntegrationForRead(id, options.connectionId, trustedHost)
+					: undefined
+				: await this.get(id, provider.domain);
 		} catch {
 			integration = undefined;
 		}
 		if (integration == null) {
-			return result('unauthorized');
+			// Attach a warning, as the thrown-AuthenticationError branch below does: a consumer driving auth
+			// recovery off `warning.kind` would otherwise get nothing for an unresolvable target.
+			return {
+				resolution: {
+					status: 'unauthorized',
+					warning: this.noConnectionWarning(id, provider.domain, options.connectionId),
+				},
+				cliUnsupported: false,
+			};
 		}
 		// Issue trackers have no `getRepo` client; a git host without `getRepoFn` leaves `getRepoInfo`
 		// undefined. Either way this provider can't resolve repositories.
@@ -3500,6 +3727,11 @@ export class IntegrationService implements Disposable {
 		const project = provider.id === 'azure-devops' ? provider.providerDesc?.repoDomain : undefined;
 		const domain = provider.domain;
 
+		// Azure's lookup is project-scoped and returns `undefined` without one, which the connection-gap branch
+		// below would misreport as `unauthorized` (driving a pointless reconnect). A remote URL that carries no
+		// project simply can't address an Azure repo.
+		if (provider.id === 'azure-devops' && project == null) return result('invalid-remote-url');
+
 		try {
 			const repo = await integration.getRepoInfo({
 				owner: owner,
@@ -3509,8 +3741,17 @@ export class IntegrationService implements Disposable {
 			});
 			if (repo == null) {
 				// `getRepoInfo` returns undefined only when no session could be resolved (not connected, or the
-				// requested connection is gone) — a real 404 throws below. So this is a connection gap.
-				return result('unauthorized');
+				// requested connection is gone) — a real 404 throws below. So this is a connection gap. Attach a
+				// warning so a consumer driving auth recovery off `warning.kind` sees the same signal it gets from
+				// the thrown-AuthenticationError branch below; without it, the most common unauthorized case is
+				// silent.
+				return {
+					resolution: {
+						status: 'unauthorized',
+						warning: this.noConnectionWarning(id, domain, options.connectionId),
+					},
+					cliUnsupported: false,
+				};
 			}
 
 			// Prefer the provider's canonical namespace/name (GitHub's REST/GraphQL lookup follows the 301

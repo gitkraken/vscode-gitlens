@@ -56,9 +56,23 @@ type ProviderSweepSelection =
 			connectionId?: string;
 	  };
 
+/**
+ * One org slice in an issue-broadening fan-out. `domain` is a fallback for self-managed hosts whose
+ * authentication provider doesn't persist a configured connection; a configured `connectionId` domain takes
+ * precedence when both are supplied. It must come from the trusted authentication configuration, not
+ * repository or remote data.
+ */
+export interface ProviderBroadenOrg {
+	providerId: IntegrationIds;
+	name: string;
+	connectionId?: string;
+	domain?: string;
+}
+
 type PullRequestSweepCommonOptions = {
 	repos?: ProviderRepositoriesInput;
-	state?: PullRequestStateFilter[];
+	/** Named `states` to match {@link IntegrationManager.listPullRequestsPage}; a mismatch here read as silently ignored. */
+	states?: PullRequestStateFilter[];
 	filters?: PullRequestFilter[];
 	forceSync?: boolean;
 	maxPages?: number;
@@ -66,7 +80,7 @@ type PullRequestSweepCommonOptions = {
 
 export type PullRequestSweepOptions = PullRequestSweepCommonOptions & ProviderSweepSelection;
 
-export type ClosedPullRequestSweepOptions = Omit<PullRequestSweepCommonOptions, 'state'> & ProviderSweepSelection;
+export type ClosedPullRequestSweepOptions = Omit<PullRequestSweepCommonOptions, 'states'> & ProviderSweepSelection;
 
 /**
  * Public, provider-neutral integration facade. Provider clients and integration model instances remain private
@@ -89,11 +103,15 @@ export interface IntegrationManager {
 	listOrgs(options?: {
 		providerId?: IntegrationIds;
 		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. Requires a single `providerId`. */
+		domain?: string;
 	}): Promise<ProviderResult<ProviderOrganization>>;
 	listProjects(options?: {
 		providerId?: IntegrationIds;
 		org?: string;
 		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. Requires a single `providerId`. */
+		domain?: string;
 	}): Promise<ProviderResult<ProviderOrganization>>;
 	listRepos(options: {
 		providerId: IntegrationIds;
@@ -101,8 +119,14 @@ export interface IntegrationManager {
 		project?: string;
 		page?: number;
 		cursor?: string;
+		/**
+		 * Requested page size. Advisory: the repos read core is cursor-only and takes no page size, so the
+		 * provider's own size is what applies — `page.itemsPerPage` reports what was actually returned.
+		 */
 		itemsPerPage?: number;
 		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
 	}): Promise<ProviderPagedResult<ProviderRepositoryShape>>;
 	listPullRequestsPage(options: {
 		providerId: IntegrationIds;
@@ -111,6 +135,11 @@ export interface IntegrationManager {
 		filters?: PullRequestFilter[];
 		page?: number;
 		cursor?: string;
+		/**
+		 * Requested page size, honored on the repo-scoped path. The account-wide read (no `repos`) is
+		 * cursor-based and takes no page size, so it is ignored there — `page.itemsPerPage` reports what was
+		 * actually returned rather than echoing the request.
+		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
@@ -130,7 +159,10 @@ export interface IntegrationManager {
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
+	/** Issue trackers are cloud-only, so this read takes no `domain`. */
 	listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
 		org?: string;
@@ -140,13 +172,18 @@ export interface IntegrationManager {
 		forceSync?: boolean;
 		page?: number;
 		cursor?: string;
+		/**
+		 * Page size in PROJECTS, not issues (default 20): these providers have no cross-project issue cursor, so
+		 * a page is a window of projects, each drained in full. Supplying it (or `page`/`cursor`) opts into
+		 * pagination; omitting all three aggregates every matched project in one page.
+		 */
 		itemsPerPage?: number;
 		connectionId?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
 	sweepPullRequests(options?: PullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	sweepClosedPullRequests(options?: ClosedPullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	broadenIssues(options: {
-		orgs: { providerId: IntegrationIds; name: string; connectionId?: string }[];
+		orgs: ProviderBroadenOrg[];
 		page?: number;
 		cursor?: string;
 		forceSync?: boolean;
@@ -156,5 +193,12 @@ export interface IntegrationManager {
 		remoteUrl: string;
 		host?: string;
 		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain used to select the integration instance. Used only when the requested
+		 * connection has no configured domain; it must come from the trusted authentication configuration, not
+		 * repository or remote data. Without it, an unpinned self-managed read falls back to the domain parsed
+		 * from `remoteUrl`, which is repository-supplied.
+		 */
+		domain?: string;
 	}): Promise<ResolveRepositoryResult>;
 }
