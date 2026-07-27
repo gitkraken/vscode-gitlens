@@ -449,36 +449,44 @@ export class GlCommitsScopePane extends LitElement {
 				${this.renderDot(item.state)}
 				${!isLast ? html`<span class="scope-row__connector scope-row__connector--below"></span>` : nothing}
 			</span>
-			${isMergeBase || item.state === 'uncommitted'
-				? html`<span class="scope-row__label">${item.label}</span>`
-				: html`<gl-tooltip class="scope-row__label" content=${item.label} placement="bottom-start"
-						><span class="scope-row__label-text">${item.label}</span></gl-tooltip
-					>`}
-			${hasStats
-				? html`<commit-stats
-						class="scope-row__stats"
-						.added=${item.additions || undefined}
-						.modified=${item.modified || undefined}
-						.removed=${item.deletions || undefined}
-						symbol="icons"
-					></commit-stats>`
-				: item.fileCount != null
+			${
+				isMergeBase || item.state === 'uncommitted'
+					? html`<span class="scope-row__label">${item.label}</span>`
+					: html`<gl-tooltip class="scope-row__label" content=${item.label} placement="bottom-start"
+							><span class="scope-row__label-text">${item.label}</span></gl-tooltip
+						>`
+			}
+			${
+				hasStats
 					? html`<commit-stats
 							class="scope-row__stats"
-							.modified=${item.fileCount}
+							.added=${item.additions || undefined}
+							.modified=${item.modified || undefined}
+							.removed=${item.deletions || undefined}
 							symbol="icons"
 						></commit-stats>`
-					: nothing}
-			${!isMergeBase && item.date != null
-				? html`<formatted-date class="scope-row__date" .date=${new Date(item.date)} short></formatted-date>`
-				: nothing}
-			${!isMergeBase && item.avatarUrl
-				? html`<gl-avatar
-						class="scope-row__avatar"
-						.src=${item.avatarUrl}
-						.name=${item.author ?? ''}
-					></gl-avatar>`
-				: nothing}
+					: item.fileCount != null
+						? html`<commit-stats
+								class="scope-row__stats"
+								.modified=${item.fileCount}
+								symbol="icons"
+							></commit-stats>`
+						: nothing
+			}
+			${
+				!isMergeBase && item.date != null
+					? html`<formatted-date class="scope-row__date" .date=${new Date(item.date)} short></formatted-date>`
+					: nothing
+			}
+			${
+				!isMergeBase && item.avatarUrl
+					? html`<gl-avatar
+							class="scope-row__avatar"
+							.src=${item.avatarUrl}
+							.name=${item.author ?? ''}
+						></gl-avatar>`
+					: nothing
+			}
 			${isMergeBase ? html`<span class="scope-row__base-tag">Base</span>` : nothing}
 		</div>`;
 	}
