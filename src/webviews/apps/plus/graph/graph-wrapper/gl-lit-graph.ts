@@ -886,6 +886,7 @@ export class GlLitGraph extends LitElement {
 			hasConflicts:
 				row.kind === 'workdir' && !isSecondaryWipSha(row.sha) ? c.workingTreeStats?.hasConflicts : undefined,
 			isUnpushed: commit.isUnpublished,
+			isUnpulled: commit.isUnpulled,
 			undoTarget: commit.undo,
 			// A WIP/workdir row sits on this commit (it's a worktree branch tip) — gates the inverse
 			// Jump to Working Changes action. `wipAnchorShas` holds workdir rows' first-parent anchors.
@@ -7573,11 +7574,13 @@ export class GlLitGraph extends LitElement {
 
 	// The same `--has-persistent` decision `renderRowActions` makes (see `hasPersistentRowActions`),
 	// re-derived for an arbitrary row OUTSIDE the render loop — a WIP row's agent/operation status and a
-	// commit row's unpushed state live in plain fields/the payload plane, not just the per-render RenderCtx.
+	// commit row's unpushed/unpulled state live in plain fields/the payload plane, not just the per-render
+	// RenderCtx.
 	private topRowHasPersistentActions(row: ProcessedGraphRow): boolean {
 		const wipAgent = row.kind === 'workdir' ? this.agentStatusByRowSha?.get(row.sha) : undefined;
 		const wipOperation = row.kind === 'workdir' ? this.runningOperationByRowSha?.get(row.sha) : undefined;
-		const isUnpushed = row.kind === 'workdir' ? undefined : this.getCommitBySha(row.sha)?.isUnpublished;
+		// One payload lookup for both tracking flags — this runs on the SCROLL path.
+		const commit = row.kind === 'workdir' ? undefined : this.getCommitBySha(row.sha);
 		// The primary WIP row's row-marker pill keeps the strip live at rest, and it rides exactly where the
 		// sticky-timeline pill sits — so the timeline must yield to it like any other persistent member. Same
 		// "will the pill render" decision the render loop makes (`wipRowMarkerPillTarget`).
@@ -7585,7 +7588,14 @@ export class GlLitGraph extends LitElement {
 		// re-walk `refRowIndex` every frame the WIP row is topmost).
 		const hasRowMarkerDecorator =
 			isPrimaryWipRow(row.kind, row.sha) && this.wipRowMarkerPillTarget(this._rowMarkerTips) != null;
-		return hasPersistentRowActions(row.kind, wipAgent, wipOperation, isUnpushed, hasRowMarkerDecorator);
+		return hasPersistentRowActions(
+			row.kind,
+			wipAgent,
+			wipOperation,
+			commit?.isUnpublished,
+			commit?.isUnpulled,
+			hasRowMarkerDecorator,
+		);
 	}
 
 	// Exact date span for a group's elapsed window [lo, hi) — short month + day, en dash between; the

@@ -1040,6 +1040,18 @@ gl-lit-graph {
 	.gl-graph__row-action.unpushed-push-button {
 		color: var(--branch-status-ahead-foreground);
 	}
+	// Unpulled indicator: the read-only mirror of the push badge — a commit on HEAD's upstream that isn't in
+	// the local branch. Colorized with the "behind" decoration color (the Pull button family's). Unlike the
+	// push badge it's a span, not a button, so it takes no hover chrome and no pointer cursor — it exists
+	// only to be seen and to carry a tooltip.
+	.gl-graph__row-action.unpulled-indicator {
+		color: var(--branch-status-behind-foreground);
+		cursor: default;
+
+		&:hover {
+			background: transparent;
+		}
+	}
 	// Agent indicator phase color. The `.agent-indicator` block further down is nested inside
 	// `.graph-row-actions` — the REACT renderer's container — so it can't reach this renderer's
 	// `.gl-graph__row-actions` rows; these rules are the Lit equivalent (the markup already carries

@@ -149,6 +149,10 @@ export interface RowRenderContext {
 	/** Commit/merge-only: the commit is ahead of HEAD's upstream — drives the always-on Push-to-Commit
 	 *  indicator (and flips the row-action strip into per-button mode so the indicator shows at rest). */
 	isUnpushed?: boolean;
+	/** Commit/merge-only: the commit is on HEAD's upstream but not on HEAD — drives the always-on unpulled
+	 *  indicator (same strip slot + per-button mode as {@link isUnpushed}, but read-only). Mutually
+	 *  exclusive with `isUnpushed`. */
+	isUnpulled?: boolean;
 	/** Commit/merge-only: resolved Undo Commit target (leaf worktree HEAD), when undo is offered. The
 	 *  optional `worktreePath` routes the undo to a non-active worktree; `branchName` labels the button. */
 	undoTarget?: { worktreePath?: string; branchName?: string };
@@ -809,8 +813,14 @@ function renderActionStatus(icon: string | null | undefined, spin: boolean): Tem
 		: nothing;
 }
 
+// Copy for the read-only unpulled indicator, shared by its pointer tooltip and the row `aria-label` suffix
+// so the two surfaces can't drift. The indicator itself is `aria-hidden`, so the suffix IS its only
+// screen-reader presence.
+const unpulledTooltip = 'Not yet pulled from the upstream';
+const unpulledAriaText = 'not yet pulled';
+
 /** Whether a row's action strip has a PERSISTENT member (a row-marker decorator, an agent attached, an
- *  active resolve/compose/review op, or an unpushed commit) — i.e. it switches to per-button
+ *  active resolve/compose/review op, or an unpushed/unpulled commit) — i.e. it switches to per-button
  *  `--has-persistent` mode instead of the whole-strip hover/focus/selected fade. NOT simply
  *  `kind === 'workdir'` — a workdir row with no agent/active op is JUST as hover-gated as a commit row.
  *  Exported so callers outside the row template (the sticky-timeline pill's yield-to-row check) read the
@@ -820,6 +830,7 @@ export function hasPersistentRowActions(
 	wipAgent: WipRowAgentStatus | undefined,
 	wipOperation: RunningOperationBucket | undefined,
 	isUnpushed: boolean | undefined,
+	isUnpulled: boolean | undefined,
 	hasRowMarker?: boolean,
 ): boolean {
 	// The row-marker decorator (the primary WIP row's jump pill) is always shown, so its strip is live.
@@ -834,7 +845,7 @@ export function hasPersistentRowActions(
 		);
 	}
 	if (kind === 'stash') return false;
-	return isUnpushed === true;
+	return isUnpushed === true || isUnpulled === true;
 }
 
 // Row-action strip (right-aligned): per row kind — workdir gets Resolve (conflicts only) / Compose /
@@ -886,7 +897,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 
 			// Active compose/review stay visible at rest so their status icon reads; idle ones reveal on
 			// interaction. The agent indicator is always visible when present.
-			hasPersistent = hasPersistentRowActions(row.kind, agent, op, undefined);
+			hasPersistent = hasPersistentRowActions(row.kind, agent, op, undefined, undefined);
 
 			actions = html`${
 					agent != null
@@ -996,12 +1007,15 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			break;
 		default: {
 			// commit / merge: Undo Commit (leaf worktree tip only) + Open All Changes (Alt = with working
-			// tree, resolved in the click handler) + the always-on unpushed Push-to-Commit badge. The push
-			// badge is persistent and rendered LAST so it stays pinned to the right edge while the gated
-			// actions grow leftward; on pushed rows the whole strip stays hover-only (no persistent button).
+			// tree, resolved in the click handler) + the always-on unpushed Push-to-Commit badge OR the
+			// always-on unpulled indicator. Both are persistent and rendered LAST so they stay pinned to the
+			// right edge while the gated actions grow leftward; on rows that are neither, the whole strip
+			// stays hover-only (no persistent member). They share the trailing slot because they're mutually
+			// exclusive by construction — a commit can't be both ahead-of-upstream-only and upstream-only.
 			const undo = ctx.undoTarget;
 			const isUnpushed = ctx.isUnpushed === true;
-			hasPersistent = hasPersistentRowActions(row.kind, undefined, undefined, isUnpushed);
+			const isUnpulled = ctx.isUnpulled === true;
+			hasPersistent = hasPersistentRowActions(row.kind, undefined, undefined, isUnpushed, isUnpulled);
 			const undoLabel = undo?.branchName != null ? `Undo Commit on ${undo.branchName}` : 'Undo Commit';
 
 			actions = html`${
@@ -1053,6 +1067,19 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 								<code-icon icon="cloud-upload"></code-icon>
 							</button>`
 						: nothing
+				}${
+					// Read-only mirror of the push badge — a span, not a button: nothing to click, nothing to
+					// focus. It stays `aria-hidden` and the fact rides the ROW's aria-label instead (see
+					// `unpulledAriaSuffix` in `renderRow`), so it adds no tab stop to the roving-tabindex tree.
+					isUnpulled
+						? html`<span
+								class="gl-graph__row-action gl-graph__row-action--persistent unpulled-indicator"
+								data-tooltip=${unpulledTooltip}
+								aria-hidden="true"
+							>
+								<code-icon icon="cloud-download"></code-icon>
+							</span>`
+						: nothing
 				}`;
 		}
 	}
@@ -1085,6 +1112,10 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		changesStats != null && ctx.zones.some(z => z.id === 'changes') ? changesAriaText(changesStats) : '';
 	// Zero-churn rows produce empty text — no dangling ", " on the label.
 	const changesAriaSuffix = changesText ? `, ${changesText}` : '';
+	// The unpulled indicator is `aria-hidden` (it's a pointer affordance, not a control), so its meaning
+	// rides the row label instead — same treatment the row-marker rail gets. The unpushed badge needs no
+	// equivalent: it's a real button carrying its own accessible name.
+	const unpulledAriaSuffix = !ctx.skeleton && ctx.isUnpulled === true ? `, ${unpulledAriaText}` : '';
 	// RowMarker roles this row plays — the worktree's own (HEAD / upstream / merge target) FOLDED with the
 	// scope anchor's (focus / base; the scope's target shares the merge-target flag), as a bit mask. One rail
 	// renders the union, so a scoped graph doesn't draw two misaligned left-edge rails marking the same row.
@@ -1381,7 +1412,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		aria-label=${
 			ctx.skeleton
 				? ctx.commit.message
-				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`
+				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}${unpulledAriaSuffix}`
 		}
 		data-sha=${row.sha}
 		data-index=${ctx.index}

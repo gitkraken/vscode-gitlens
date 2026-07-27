@@ -13,6 +13,7 @@ import type {
 import { pickRowUndoTarget } from '../utils/row.utils.js';
 import {
 	isUnpublishedRow,
+	isUnpulledRow,
 	needsDynamicRowContext,
 	rowHasChildren,
 	serializeRowAvatarContext,
@@ -71,6 +72,9 @@ export interface GraphCommitView extends GraphCommit {
 	/** Commit/merge-only: the commit is ahead of HEAD's upstream — drives the at-rest Push-to-Commit
 	 *  indicator (the colorized unpushed badge). False for WIP/stash rows. */
 	isUnpublished: boolean;
+	/** Commit/merge-only: the commit is on HEAD's upstream but not on HEAD — drives the at-rest unpulled
+	 *  indicator (the read-only mirror of the unpushed badge). False for WIP/stash rows. */
+	isUnpulled: boolean;
 	/** Resolved Undo Commit target for a leaf tip (active or single owning worktree), when undo is
 	 *  offered. `worktreePath`/`branchName` are set only when a non-active worktree owns the tip; an
 	 *  active-worktree HEAD yields an empty object (undo targets the active workspace). `undefined`
@@ -240,6 +244,7 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 		contextData: rowContext,
 		refContexts: refContexts,
 		isUnpublished: isUnpublishedRow(row),
+		isUnpulled: isUnpulledRow(row),
 		undo: undo,
 	};
 	if (needsLazyRowContext) {

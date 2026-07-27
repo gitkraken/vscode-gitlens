@@ -252,6 +252,81 @@ suite('GlGraphRowProcessor', () => {
 		});
 	});
 
+	// `Unpulled` is the exact mirror of `Unpublished` over the same two reachability sets: on HEAD's
+	// upstream tip but NOT on HEAD (i.e. `HEAD..@{u}`). It drives the graph's read-only unpulled indicator
+	// and — unlike `Unpublished` — has no webview-item token.
+	suite('Unpulled flag on commit rows', () => {
+		test('sets the Unpulled bit when reachable from the upstream but not from HEAD', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const row = createRow();
+			processor.processRow(
+				row,
+				createMockContext({
+					reachableFromHEAD: new Set<string>(), // HEAD hasn't reached this commit yet
+					reachableFromHeadUpstream: new Set([row.sha]),
+				}),
+			);
+
+			const flags = row.contexts?.flags ?? 0;
+			assert.ok((flags & GitGraphRowContextFlags.Unpulled) !== 0, `expected Unpulled bit set in flags ${flags}`);
+		});
+
+		test('does not set the Unpulled bit when the commit is reachable from HEAD', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const row = createRow();
+			processor.processRow(
+				row,
+				createMockContext({
+					reachableFromHEAD: new Set([row.sha]),
+					reachableFromHeadUpstream: new Set([row.sha]), // on both → already pulled
+				}),
+			);
+
+			const flags = row.contexts?.flags ?? 0;
+			assert.ok((flags & GitGraphRowContextFlags.Unpulled) === 0, `unexpected Unpulled bit in flags ${flags}`);
+		});
+
+		test('does not set the Unpulled bit when HEAD has no upstream', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const row = createRow();
+			// reachableFromHeadUpstream undefined ⇒ no upstream to be behind ⇒ nothing flagged, even though
+			// the commit is off HEAD (e.g. it sits on some unrelated local branch).
+			processor.processRow(row, createMockContext({ reachableFromHEAD: new Set<string>() }));
+
+			const flags = row.contexts?.flags ?? 0;
+			assert.ok((flags & GitGraphRowContextFlags.Unpulled) === 0, `unexpected Unpulled bit in flags ${flags}`);
+		});
+
+		test('never sets Unpublished and Unpulled together', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			// Every combination of the two membership sets — the pair is mutually exclusive by construction,
+			// so no input may produce both bits (the shared indicator slot in the row-action strip relies on it).
+			for (const onHead of [false, true]) {
+				for (const onUpstream of [false, true]) {
+					const row = createRow();
+					processor.processRow(
+						row,
+						createMockContext({
+							reachableFromHEAD: onHead ? new Set([row.sha]) : new Set<string>(),
+							reachableFromHeadUpstream: onUpstream ? new Set([row.sha]) : new Set<string>(),
+						}),
+					);
+
+					const flags = row.contexts?.flags ?? 0;
+					assert.ok(
+						(flags & GitGraphRowContextFlags.Unpublished) === 0 ||
+							(flags & GitGraphRowContextFlags.Unpulled) === 0,
+						`both bits set for onHead=${onHead} onUpstream=${onUpstream} (flags ${flags})`,
+					);
+				}
+			}
+		});
+	});
+
 	// The host ships `+rewriteable` as the `RewriteableFromHead` bit in `contexts.flags`; the webview
 	// turns the bit into the `+rewriteable` webview-item token (`buildRowCommitContext`) that gates the
 	// history-rewriting commands (squash/drop/reword/modify). A commit is rewriteable when it's on the

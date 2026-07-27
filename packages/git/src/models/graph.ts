@@ -66,6 +66,9 @@ export interface GitGraphRowTag {
  * the first merge commit, so a plain (non-`--rebase-merges`) interactive rebase can safely rewrite it;
  * gates squash/drop/reword/modify. Strictly narrower than `+current` (reachable-from-HEAD includes a
  * merge's other-parent ancestry, which is NOT safely rewriteable).
+ * Bit 5: unpulled/behind-the-upstream — the exact mirror of bit 3: on HEAD's upstream tip but NOT on HEAD
+ * (i.e. `HEAD..@{u}`). Drives the graph's read-only unpulled indicator; it has no `webviewItem` segment
+ * (no command gates on it). Mutually exclusive with `Unpublished` by construction.
  * (`+HEAD` derives from `row.heads[].isCurrentHead`; contributor `+current` from `row.isCurrentUser`.)
  */
 export const enum GitGraphRowContextFlags {
@@ -75,6 +78,7 @@ export const enum GitGraphRowContextFlags {
 	HasChildren = 1 << 2,
 	Unpublished = 1 << 3,
 	RewriteableFromHead = 1 << 4,
+	Unpulled = 1 << 5,
 }
 
 /**

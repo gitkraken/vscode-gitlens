@@ -56,6 +56,13 @@ export function isUnpublishedRow(row: RowContextSource): boolean {
 	return ((row.contexts?.flags ?? 0) & ContextFlags.Unpublished) !== 0;
 }
 
+/** True when the commit is on HEAD's upstream but NOT on HEAD — the behind/unpulled mirror of
+ *  {@link isUnpublishedRow}. Drives the graph's read-only unpulled indicator; unlike `+unpublished` it has
+ *  no context segment (no command gates on it), so the flag bit is the only consumer. */
+export function isUnpulledRow(row: RowContextSource): boolean {
+	return ((row.contexts?.flags ?? 0) & ContextFlags.Unpulled) !== 0;
+}
+
 /**
  * Builds the `gitlens:commit…` webview-item context for a commit row from its fields + `contexts.flags`.
  * Mirrors exactly what the host serialized pre-strip: `+HEAD`/`+worktreeHEAD` from `row.heads`,

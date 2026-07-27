@@ -27,18 +27,22 @@ export function computeGraphRowContextFlags(
 			if (r.refType === 'branch' && !r.remote && ++localBranches > 1) break;
 		}
 	}
-	// Unpublished = reachable from HEAD but not from HEAD's upstream tip. `reachableFromHeadUpstream` is
-	// undefined when HEAD has no upstream, so nothing is ever flagged in that case.
-	const isUnpublished =
-		ctx.reachableFromHeadUpstream != null &&
-		ctx.reachableFromHEAD.has(sha) &&
-		!ctx.reachableFromHeadUpstream.has(sha);
+	// Unpublished (ahead) = reachable from HEAD but not from HEAD's upstream tip. Unpulled (behind) is its
+	// exact mirror over the same two sets: on the upstream tip but not on HEAD, i.e. `HEAD..@{u}`. Both are
+	// derived from `reachableFromHeadUpstream`, which is undefined when HEAD has no upstream — so neither
+	// is ever flagged in that case, and the two can never both be set for one sha.
+	const upstream = ctx.reachableFromHeadUpstream;
+	const reachableFromHead = ctx.reachableFromHEAD.has(sha);
+	const onUpstream = upstream?.has(sha) ?? false;
+	const isUnpublished = upstream != null && reachableFromHead && !onUpstream;
+	const isUnpulled = onUpstream && !reachableFromHead;
 	return (
-		(ctx.reachableFromHEAD.has(sha) ? GitGraphRowContextFlags.ReachableFromHead : 0) |
+		(reachableFromHead ? GitGraphRowContextFlags.ReachableFromHead : 0) |
 		(ctx.rewriteableFromHEAD.has(sha) ? GitGraphRowContextFlags.RewriteableFromHead : 0) |
 		(localBranches === 1 ? GitGraphRowContextFlags.UniqueToBranch : 0) |
 		(ctx.tipShasWithChildren.has(sha) ? GitGraphRowContextFlags.HasChildren : 0) |
-		(isUnpublished ? GitGraphRowContextFlags.Unpublished : 0)
+		(isUnpublished ? GitGraphRowContextFlags.Unpublished : 0) |
+		(isUnpulled ? GitGraphRowContextFlags.Unpulled : 0)
 	);
 }
 
