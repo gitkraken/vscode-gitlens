@@ -2268,7 +2268,7 @@ gl-lit-graph {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-start;
 		gap: 0.8rem;
 		padding: 1.2rem 1.4rem;
 		overflow: hidden;
@@ -2277,8 +2277,29 @@ gl-lit-graph {
 		background-color: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
 		border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 40%, transparent);
 
+		// Flex spacers at 1:2 park the stack in the upper third of the rows area rather than dead center —
+		// closer to the header it belongs to. Both shrink to 0 on a short rows area, so it never clips. The
+		// container `gap` applies around them too (+0.8rem each side), so the split is approximate.
+		// Unpositioned, so the Show button's absolute `::before` hit area still paints over them.
+		&::before {
+			content: '';
+			flex: 1 1 0;
+		}
+		&::after {
+			content: '';
+			flex: 2 1 0;
+		}
+
 		&:hover {
 			border-color: var(--vscode-focusBorder);
+		}
+
+		// Narrow stages: the default inline padding starves the button of the column's already-scarce width.
+		&.gl-graph__changes-optin--narrow {
+			padding-inline: 0.6rem;
+		}
+		&.gl-graph__changes-optin--collapsed {
+			padding-inline: 0.2rem;
 		}
 	}
 	.gl-graph__changes-optin-button {
@@ -2310,6 +2331,25 @@ gl-lit-graph {
 		&:focus-visible {
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: 0.2rem;
+		}
+	}
+	// Collapsed stage: a 2.4rem square glyph instead of the ~57px "Show" text button, which can't fit the
+	// column at its 36px default (= its min) without being clipped by the overlay's `overflow: hidden`.
+	.gl-graph__changes-optin-button--icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.4rem;
+		padding: 0;
+
+		> code-icon {
+			--code-icon-size: 1.4rem;
+			flex: none;
+		}
+
+		// The default 0.2rem offset gets shaved by the overlay's clip at this width.
+		&:focus-visible {
+			outline-offset: 0.1rem;
 		}
 	}
 	.gl-graph__changes-optin-hide {
