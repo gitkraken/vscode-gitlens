@@ -1099,11 +1099,7 @@
 					},
 					"gitlens.graph.scrollMarkers.additionalTypes": {
 						"type": "array",
-						"default": [
-							"localBranches",
-							"stashes",
-							"wip"
-						],
+						"default": [],
 						"items": {
 							"type": "string",
 							"enum": [
