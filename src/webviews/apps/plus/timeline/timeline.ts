@@ -231,25 +231,29 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 					@gl-timeline-header-clear-scope=${this.onHeaderClearScope}
 					@gl-timeline-header-change-scope=${this.onHeaderChangeScope}
 				>
-					${this.placement === 'view'
-						? html`<gl-button
-								slot="toolbox"
-								appearance="toolbar"
-								href="command:gitlens.views.timeline.openInTab"
-								tooltip="Open in Editor"
-								aria-label="Open in Editor"
-							>
-								<code-icon icon="link-external"></code-icon>
-							</gl-button>`
-						: nothing}
-					${subscription == null || !isSubscriptionPaid(subscription)
-						? html`<gl-feature-badge
-								slot="toolbox"
-								placement="bottom"
-								.source=${{ source: 'timeline' as const, detail: 'badge' }}
-								.subscription=${subscription}
-							></gl-feature-badge>`
-						: nothing}
+					${
+						this.placement === 'view'
+							? html`<gl-button
+									slot="toolbox"
+									appearance="toolbar"
+									href="command:gitlens.views.timeline.openInTab"
+									tooltip="Open in Editor"
+									aria-label="Open in Editor"
+								>
+									<code-icon icon="link-external"></code-icon>
+								</gl-button>`
+							: nothing
+					}
+					${
+						subscription == null || !isSubscriptionPaid(subscription)
+							? html`<gl-feature-badge
+									slot="toolbox"
+									placement="bottom"
+									.source=${{ source: 'timeline' as const, detail: 'badge' }}
+									.subscription=${subscription}
+								></gl-feature-badge>`
+							: nothing
+					}
 				</gl-timeline-header>
 
 				<main class="timeline">${this.renderChart()}</main>
@@ -368,10 +372,12 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 		const dataPromise = this.getChartDataPromise(datasetResult?.dataset);
 
 		const emptySlot = html`<div slot="empty">
-			${s.scope.get() == null
-				? html`<p>Something went wrong</p>
-						<p>Please close this tab and try again</p>`
-				: html`<p>No commits found for the specified time period</p>`}
+			${
+				s.scope.get() == null
+					? html`<p>Something went wrong</p>
+							<p>Please close this tab and try again</p>`
+					: html`<p>No commits found for the specified time period</p>`
+			}
 		</div>`;
 
 		const datasetLoading = this._datasetResource?.loading.get() ?? false;

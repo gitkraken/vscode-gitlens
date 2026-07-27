@@ -278,17 +278,19 @@ export class GlCommitAuthor extends LitElement {
 			if (this.hasDistinctCommitter) {
 				return html`<span class="avatar-with-overlay">
 					<img class="thumb" src="${this.avatarUrl}" alt="${this.name}" />
-					${this.committerAvatarUrl?.length
-						? html`<img
-								class="thumb-overlay"
-								src="${this.committerAvatarUrl}"
-								alt="${this.committerName ?? ''}"
-							/>`
-						: html`<code-icon
-								class="thumb-overlay thumb-overlay--icon"
-								icon="person"
-								size="10"
-							></code-icon>`}
+					${
+						this.committerAvatarUrl?.length
+							? html`<img
+									class="thumb-overlay"
+									src="${this.committerAvatarUrl}"
+									alt="${this.committerName ?? ''}"
+								/>`
+							: html`<code-icon
+									class="thumb-overlay thumb-overlay--icon"
+									icon="person"
+									size="10"
+								></code-icon>`
+					}
 				</span>`;
 			}
 			return html`<img class="thumb" src="${this.avatarUrl}" alt="${this.name}" />`;
@@ -316,66 +318,90 @@ export class GlCommitAuthor extends LitElement {
 		return html`
 			<div class="popover-content">
 				<div class="author-info">
-					${this.avatarUrl?.length
-						? html`<img class="author-avatar" src="${this.avatarUrl}" alt="${this.name}" />`
-						: nothing}
+					${
+						this.avatarUrl?.length
+							? html`<img class="author-avatar" src="${this.avatarUrl}" alt="${this.name}" />`
+							: nothing
+					}
 					<div class="author-details">
 						<div class="author-name-text">${this.name}</div>
-						${this.email
-							? html`<span class="author-email"><a href="mailto:${this.email}">${this.email}</a></span>`
-							: nothing}
+						${
+							this.email
+								? html`<span class="author-email"
+										><a href="mailto:${this.email}">${this.email}</a></span
+									>`
+								: nothing
+						}
 					</div>
 				</div>
-				${this.hasDistinctCommitter
-					? html`<div class="author-info">
-							${this.committerAvatarUrl?.length
-								? html`<img
-										class="author-avatar"
-										src="${this.committerAvatarUrl}"
-										alt="${this.committerName}"
-									/>`
-								: nothing}
-							<div class="author-details">
-								<div class="author-name-text">
-									${this.committerName}
-									<span class="committer-label">(committer)</span>
+				${
+					this.hasDistinctCommitter
+						? html`<div class="author-info">
+								${
+									this.committerAvatarUrl?.length
+										? html`<img
+												class="author-avatar"
+												src="${this.committerAvatarUrl}"
+												alt="${this.committerName}"
+											/>`
+										: nothing
+								}
+								<div class="author-details">
+									<div class="author-name-text">
+										${this.committerName}
+										<span class="committer-label">(committer)</span>
+									</div>
+									${
+										this.committerEmail
+											? html`<span class="author-email"
+													><a href="mailto:${this.committerEmail}"
+														>${this.committerEmail}</a
+													></span
+												>`
+											: nothing
+									}
 								</div>
-								${this.committerEmail
-									? html`<span class="author-email"
-											><a href="mailto:${this.committerEmail}">${this.committerEmail}</a></span
-										>`
-									: nothing}
-							</div>
-						</div>`
-					: nothing}
-				${hasSignature
-					? html`<gl-signature-details
-							.signature=${this.signature}
-							.committerEmail=${this.committerEmail}
-							.repoPath=${this.repoPath}
-						></gl-signature-details>`
-					: nothing}
-				${hasDates
-					? html`<div class="popover-dates">
-							${datesMatch
-								? html`<span class="popover-date"
-										>${fromNow(this.committerDate!)}
-										(${this.formatDateFull(this.committerDate!)})</span
-									>`
-								: html`${this.authorDate
+							</div>`
+						: nothing
+				}
+				${
+					hasSignature
+						? html`<gl-signature-details
+								.signature=${this.signature}
+								.committerEmail=${this.committerEmail}
+								.repoPath=${this.repoPath}
+							></gl-signature-details>`
+						: nothing
+				}
+				${
+					hasDates
+						? html`<div class="popover-dates">
+								${
+									datesMatch
 										? html`<span class="popover-date"
-												>Authored ${fromNow(this.authorDate)}
-												(${this.formatDateFull(this.authorDate)})</span
+												>${fromNow(this.committerDate!)}
+												(${this.formatDateFull(this.committerDate!)})</span
 											>`
-										: nothing}
-									${this.committerDate
-										? html`<span class="popover-date"
-												>Committed ${fromNow(this.committerDate)}
-												(${this.formatDateFull(this.committerDate)})</span
-											>`
-										: nothing}`}
-						</div>`
-					: nothing}
+										: html`${
+												this.authorDate
+													? html`<span class="popover-date"
+															>Authored ${fromNow(this.authorDate)}
+															(${this.formatDateFull(this.authorDate)})</span
+														>`
+													: nothing
+											}
+											${
+												this.committerDate
+													? html`<span class="popover-date"
+															>Committed ${fromNow(this.committerDate)}
+															(${this.formatDateFull(this.committerDate)})</span
+														>`
+													: nothing
+											}`
+								}
+							</div>`
+						: nothing
+				}
 			</div>
 		`;
 	}
@@ -386,13 +412,15 @@ export class GlCommitAuthor extends LitElement {
 		return html`
 			<gl-popover placement="bottom" trigger="hover click focus">
 				<span slot="anchor" class="author" tabindex="0"
-					><span class="avatar">${this.renderAvatar()}</span>${this.layout === 'stacked'
-						? html`<span class="name-group"
-								><span class="name">${this.name}${this.renderSignatureBadge()}</span>${dateLabel
-									? html`<span class="date">${dateLabel}</span>`
-									: nothing}</span
-							>`
-						: html`<span class="name">${this.name}</span>${this.renderSignatureBadge()}`}</span
+					><span class="avatar">${this.renderAvatar()}</span>${
+						this.layout === 'stacked'
+							? html`<span class="name-group"
+									><span class="name">${this.name}${this.renderSignatureBadge()}</span>${
+										dateLabel ? html`<span class="date">${dateLabel}</span>` : nothing
+									}</span
+								>`
+							: html`<span class="name">${this.name}</span>${this.renderSignatureBadge()}`
+					}</span
 				>
 				<div slot="content">${this.renderPopoverContent()}</div>
 			</gl-popover>

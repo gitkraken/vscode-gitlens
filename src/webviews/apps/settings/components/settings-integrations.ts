@@ -183,18 +183,20 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 				${integrations.map(i => this.renderIntegrationRow(i))}
 			</ul>
 			<div class="panel-actions">
-				${!anyConnected
-					? html`<gl-button
-							href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-								'gitlens.plus.cloudIntegrations.connect',
-								{
-									integrationIds: integrations.map(i => i.id as SupportedCloudIntegrationIds),
-									source: { source: 'settings', detail: 'integrations' },
-								},
-							)}"
-							>Connect Integrations</gl-button
-						>`
-					: nothing}
+				${
+					!anyConnected
+						? html`<gl-button
+								href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+									'gitlens.plus.cloudIntegrations.connect',
+									{
+										integrationIds: integrations.map(i => i.id as SupportedCloudIntegrationIds),
+										source: { source: 'settings', detail: 'integrations' },
+									},
+								)}"
+								>Connect Integrations</gl-button
+							>`
+						: nothing
+				}
 				<gl-button
 					appearance="secondary"
 					href="${createCommandLink<ManageCloudIntegrationsCommandArgs>(
@@ -223,57 +225,62 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 			<span class="row__content">
 				<span class="row__title">
 					<span>${integration.name}</span>
-					${showProBadge
-						? html`<gl-feature-badge
-								placement="right"
-								.source=${{ source: 'settings', detail: 'integrations' } as const}
-								.subscription=${this._state.subscription.get()}
-								cloud
-							></gl-feature-badge>`
-						: nothing}
+					${
+						showProBadge
+							? html`<gl-feature-badge
+									placement="right"
+									.source=${{ source: 'settings', detail: 'integrations' } as const}
+									.subscription=${this._state.subscription.get()}
+									cloud
+								></gl-feature-badge>`
+							: nothing
+					}
 				</span>
 				<span class="row__details">${getIntegrationDetails(integration)}</span>
 			</span>
 			<span class="row__actions">
-				${showLock
-					? html`<gl-button
-							appearance="secondary"
-							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: 'pro',
-								source: 'settings',
-								detail: 'integrations',
-							})}"
-							tooltip="Unlock ${integration.name} features with GitLens Pro"
-							><code-icon icon="lock" slot="prefix" aria-hidden="true"></code-icon> Unlock with
-							Pro</gl-button
-						>`
-					: integration.connected
-						? html`<span class="row__status"
-									><code-icon icon="check" aria-hidden="true"></code-icon> Connected</span
-								>
-								<gl-button
-									appearance="secondary"
-									href="${createCommandLink<ManageCloudIntegrationsCommandArgs>(
-										'gitlens.plus.cloudIntegrations.manage',
-										{ source: { source: 'settings', detail: 'integrations' } },
-									)}"
-									tooltip="Manage ${integration.name}"
-									aria-label="Manage ${integration.name}"
-									><code-icon icon="gear" slot="prefix" aria-hidden="true"></code-icon>
-									Manage</gl-button
-								>`
-						: html`<gl-button
+				${
+					showLock
+						? html`<gl-button
 								appearance="secondary"
-								href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-									'gitlens.plus.cloudIntegrations.connect',
-									{
-										integrationIds: [integration.id as SupportedCloudIntegrationIds],
-										source: { source: 'settings', detail: 'integrations' },
-									},
-								)}"
-								tooltip="Connect ${integration.name}"
-								><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Connect</gl-button
-							>`}
+								href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+									plan: 'pro',
+									source: 'settings',
+									detail: 'integrations',
+								})}"
+								tooltip="Unlock ${integration.name} features with GitLens Pro"
+								><code-icon icon="lock" slot="prefix" aria-hidden="true"></code-icon> Unlock with
+								Pro</gl-button
+							>`
+						: integration.connected
+							? html`<span class="row__status"
+										><code-icon icon="check" aria-hidden="true"></code-icon> Connected</span
+									>
+									<gl-button
+										appearance="secondary"
+										href="${createCommandLink<ManageCloudIntegrationsCommandArgs>(
+											'gitlens.plus.cloudIntegrations.manage',
+											{ source: { source: 'settings', detail: 'integrations' } },
+										)}"
+										tooltip="Manage ${integration.name}"
+										aria-label="Manage ${integration.name}"
+										><code-icon icon="gear" slot="prefix" aria-hidden="true"></code-icon>
+										Manage</gl-button
+									>`
+							: html`<gl-button
+									appearance="secondary"
+									href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+										'gitlens.plus.cloudIntegrations.connect',
+										{
+											integrationIds: [integration.id as SupportedCloudIntegrationIds],
+											source: { source: 'settings', detail: 'integrations' },
+										},
+									)}"
+									tooltip="Connect ${integration.name}"
+									><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon>
+									Connect</gl-button
+								>`
+				}
 			</span>
 		</li>`;
 	}

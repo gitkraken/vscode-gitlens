@@ -525,17 +525,21 @@ export class GlDetailsCompareModePanel extends LitElement {
 					></gl-branch-name>
 					<span slot="content">${rightTooltip}</span>
 				</gl-tooltip>
-				${showWorkingTreeToggle
-					? html`<gl-action-chip
-							class=${this.includeWorkingTree
-								? 'compare-wt-toggle compare-wt-toggle--active'
-								: 'compare-wt-toggle'}
-							icon="edit"
-							label="${this.includeWorkingTree ? 'Exclude' : 'Include'} Working Tree Changes"
-							overlay="tooltip"
-							@click=${this.dispatchToggleWorkingTree}
-						></gl-action-chip>`
-					: nothing}
+				${
+					showWorkingTreeToggle
+						? html`<gl-action-chip
+								class=${
+									this.includeWorkingTree
+										? 'compare-wt-toggle compare-wt-toggle--active'
+										: 'compare-wt-toggle'
+								}
+								icon="edit"
+								label="${this.includeWorkingTree ? 'Exclude' : 'Include'} Working Tree Changes"
+								overlay="tooltip"
+								@click=${this.dispatchToggleWorkingTree}
+							></gl-action-chip>`
+						: nothing
+				}
 			</div>
 			<div class="compare-bar__actions">
 				${this.showMaximize ? renderDetailsMaximizeChip(this.maximized, false) : nothing}
@@ -621,9 +625,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 			>
 				<span class="compare-tab__label">${label}</span>
 				<span class="compare-tab__count">
-					${this._comparisonChanging
-						? html`<code-icon icon="sync" class="compare-tab__count-spinner"></code-icon>`
-						: count}
+					${
+						this._comparisonChanging
+							? html`<code-icon icon="sync" class="compare-tab__count-spinner"></code-icon>`
+							: count
+					}
 				</span>
 			</button>
 			<span slot="content">${tooltip}</span>
@@ -921,14 +927,16 @@ export class GlDetailsCompareModePanel extends LitElement {
 						(this._selectedFiles = e.detail?.files ?? [])}
 				>
 					<span slot="title-content">${this.renderViewSelector()}</span>
-					${this.getMultiDiffRefs(files) != null
-						? renderOpenChangesAction({
-								selectedCount: this._selectedFiles.length,
-								slot: 'leading-actions',
-								onOpenAll: () => this.handleOpenMultiDiff(),
-								onOpenSelected: () => this.handleOpenSelectedChanges(),
-							})
-						: nothing}
+					${
+						this.getMultiDiffRefs(files) != null
+							? renderOpenChangesAction({
+									selectedCount: this._selectedFiles.length,
+									slot: 'leading-actions',
+									onOpenAll: () => this.handleOpenMultiDiff(),
+									onOpenSelected: () => this.handleOpenSelectedChanges(),
+								})
+							: nothing
+					}
 					${(() => {
 						// Copy-as-patch only applies to commit↔commit comparisons; the working-tree tabs
 						// (wip / rhs === '') aren't a committed diff the copy-commit-patch path can produce.
@@ -942,49 +950,57 @@ export class GlDetailsCompareModePanel extends LitElement {
 								})
 							: nothing;
 					})()}
-					${isLoadingEmpty
-						? html`<div slot="before-tree" class="compare-files--loading" aria-busy="true">
-								<code-icon icon="loading" modifier="spin"></code-icon>
-								<span>Loading changes…</span>
-							</div>`
-						: nothing}
-					${isScoped
-						? (() => {
-								const isWipScope = this.selectedCommitSha === uncommitted;
-								const label = isWipScope ? 'Working' : this.selectedCommitSha!.substring(0, 7);
-								const icon = isWipScope ? 'edit' : 'git-commit';
-								const clearLabel = isWipScope ? 'Clear Working Changes Filter' : 'Clear Commit Filter';
-								const headerTooltip = isWipScope
-									? 'Showing Only Working Changes'
-									: 'Showing Only Commit Changes';
-								return html`<gl-tooltip slot="header-badge" placement="top">
-									<span class="compare-scope-tag">
-										<code-icon icon=${icon}></code-icon>
-										${label}
-										<gl-tooltip placement="bottom">
-											<button
-												class="compare-scope-tag__close"
-												aria-label=${clearLabel}
-												@click=${(e: MouseEvent) => {
-													e.stopPropagation();
-													this.dispatchSelectCommit(this.selectedCommitSha!);
-												}}
-											>
-												<code-icon icon="close"></code-icon>
-											</button>
-											<span slot="content">${clearLabel}</span>
-										</gl-tooltip>
-									</span>
-									<span slot="content">${headerTooltip}</span>
-								</gl-tooltip>`;
-							})()
-						: nothing}
-					${stats != null && (stats.additions > 0 || stats.deletions > 0)
-						? html`<span slot="header-badge" class="compare-stats">
-								<span class="compare-stats__additions">+${stats.additions.toLocaleString()}</span>
-								<span class="compare-stats__deletions">−${stats.deletions.toLocaleString()}</span>
-							</span>`
-						: nothing}
+					${
+						isLoadingEmpty
+							? html`<div slot="before-tree" class="compare-files--loading" aria-busy="true">
+									<code-icon icon="loading" modifier="spin"></code-icon>
+									<span>Loading changes…</span>
+								</div>`
+							: nothing
+					}
+					${
+						isScoped
+							? (() => {
+									const isWipScope = this.selectedCommitSha === uncommitted;
+									const label = isWipScope ? 'Working' : this.selectedCommitSha!.substring(0, 7);
+									const icon = isWipScope ? 'edit' : 'git-commit';
+									const clearLabel = isWipScope
+										? 'Clear Working Changes Filter'
+										: 'Clear Commit Filter';
+									const headerTooltip = isWipScope
+										? 'Showing Only Working Changes'
+										: 'Showing Only Commit Changes';
+									return html`<gl-tooltip slot="header-badge" placement="top">
+										<span class="compare-scope-tag">
+											<code-icon icon=${icon}></code-icon>
+											${label}
+											<gl-tooltip placement="bottom">
+												<button
+													class="compare-scope-tag__close"
+													aria-label=${clearLabel}
+													@click=${(e: MouseEvent) => {
+														e.stopPropagation();
+														this.dispatchSelectCommit(this.selectedCommitSha!);
+													}}
+												>
+													<code-icon icon="close"></code-icon>
+												</button>
+												<span slot="content">${clearLabel}</span>
+											</gl-tooltip>
+										</span>
+										<span slot="content">${headerTooltip}</span>
+									</gl-tooltip>`;
+								})()
+							: nothing
+					}
+					${
+						stats != null && (stats.additions > 0 || stats.deletions > 0)
+							? html`<span slot="header-badge" class="compare-stats">
+									<span class="compare-stats__additions">+${stats.additions.toLocaleString()}</span>
+									<span class="compare-stats__deletions">−${stats.deletions.toLocaleString()}</span>
+								</span>`
+							: nothing
+					}
 				</gl-file-tree-pane>
 			</webview-pane-group>
 		</div>`;
@@ -1049,58 +1065,67 @@ export class GlDetailsCompareModePanel extends LitElement {
 		// component's "+N" overflow affordance instead of wrapping the strip onto multiple rows.
 		return html`<div class="compare-enrichment">
 			<gl-chip-overflow>
-				${hasChips
-					? nothing
-					: isLoadingEmpty
-						? html`<span slot="prefix" class="compare-enrichment__loading" aria-busy="true">
-								<code-icon icon="loading" modifier="spin"></code-icon>
-								<span>Loading autolinks…</span>
-							</span>`
-						: renderLearnAboutAutolinks({
+				${
+					hasChips
+						? nothing
+						: isLoadingEmpty
+							? html`<span slot="prefix" class="compare-enrichment__loading" aria-busy="true">
+									<code-icon icon="loading" modifier="spin"></code-icon>
+									<span>Loading autolinks…</span>
+								</span>`
+							: renderLearnAboutAutolinks({
+									hasIntegrationsConnected: this.hasIntegrationsConnected,
+									hasAccount: this.hasAccount,
+									showLabel: true,
+									slotName: 'prefix',
+								})
+				}
+				${
+					hasAutolinks
+						? autolinks.map(autolink => {
+								const name =
+									autolink.description ?? autolink.title ?? `${autolink.prefix}${autolink.id}`;
+								return html`<gl-autolink-chip
+									type="autolink"
+									name=${name}
+									url=${autolink.url}
+									identifier="${autolink.prefix}${autolink.id}"
+									openOnRemote
+								></gl-autolink-chip>`;
+							})
+						: nothing
+				}
+				${
+					hasEnriched
+						? enriched.map(
+								item =>
+									html`<gl-autolink-chip
+										type=${item.type === 'pullrequest' ? 'pr' : 'issue'}
+										name=${item.title}
+										url=${item.url}
+										identifier="#${item.id}"
+										status=${item.state}
+										.date=${item.closed ? item.closedDate : item.createdDate}
+										.dateFormat=${this.preferences?.dateFormat}
+										.dateStyle=${this.preferences?.dateStyle}
+										.itemId=${item.id}
+										.providerId=${item.provider?.id}
+										?details=${item.type === 'pullrequest'}
+										openOnRemote
+									></gl-autolink-chip>`,
+							)
+						: nothing
+				}
+				${this.renderAutolinksPopover(autolinks, enriched)} ${this.renderEnrichButton()}
+				${
+					hasChips
+						? renderLearnAboutAutolinks({
 								hasIntegrationsConnected: this.hasIntegrationsConnected,
 								hasAccount: this.hasAccount,
-								showLabel: true,
-								slotName: 'prefix',
-							})}
-				${hasAutolinks
-					? autolinks.map(autolink => {
-							const name = autolink.description ?? autolink.title ?? `${autolink.prefix}${autolink.id}`;
-							return html`<gl-autolink-chip
-								type="autolink"
-								name=${name}
-								url=${autolink.url}
-								identifier="${autolink.prefix}${autolink.id}"
-								openOnRemote
-							></gl-autolink-chip>`;
-						})
-					: nothing}
-				${hasEnriched
-					? enriched.map(
-							item =>
-								html`<gl-autolink-chip
-									type=${item.type === 'pullrequest' ? 'pr' : 'issue'}
-									name=${item.title}
-									url=${item.url}
-									identifier="#${item.id}"
-									status=${item.state}
-									.date=${item.closed ? item.closedDate : item.createdDate}
-									.dateFormat=${this.preferences?.dateFormat}
-									.dateStyle=${this.preferences?.dateStyle}
-									.itemId=${item.id}
-									.providerId=${item.provider?.id}
-									?details=${item.type === 'pullrequest'}
-									openOnRemote
-								></gl-autolink-chip>`,
-						)
-					: nothing}
-				${this.renderAutolinksPopover(autolinks, enriched)} ${this.renderEnrichButton()}
-				${hasChips
-					? renderLearnAboutAutolinks({
-							hasIntegrationsConnected: this.hasIntegrationsConnected,
-							hasAccount: this.hasAccount,
-							slotName: 'suffix',
-						})
-					: nothing}
+								slotName: 'suffix',
+							})
+						: nothing
+				}
 			</gl-chip-overflow>
 		</div>`;
 	}
@@ -1113,38 +1138,44 @@ export class GlDetailsCompareModePanel extends LitElement {
 		let needsDivider = false;
 
 		return html`<div slot="popover">
-			${enrichedPrs.length > 0
-				? html`<menu-label>Pull Requests</menu-label> ${enrichedPrs.map(
-							pr =>
-								html`<menu-item href=${pr.url}>
-									<code-icon icon="git-pull-request"></code-icon> #${pr.id}
-									${pr.title ? ` — ${pr.title}` : ''}
-								</menu-item>`,
-						)}${((needsDivider = true), nothing)}`
-				: nothing}
-			${enrichedIssues.length > 0
-				? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
-						<menu-label>Issues</menu-label>
-						${enrichedIssues.map(
-							issue =>
-								html`<menu-item href=${issue.url}>
-									<code-icon icon="issues"></code-icon> #${issue.id}
-									${issue.title ? ` — ${issue.title}` : ''}
-								</menu-item>`,
-						)}${((needsDivider = true), nothing)}`
-				: nothing}
-			${autolinks.length > 0
-				? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
-						<menu-label>Autolinks</menu-label>
-						${autolinks.map(
-							a =>
-								html`<menu-item href=${a.url}>
-									<code-icon icon="link"></code-icon> ${a.prefix}${a.id}${a.provider?.name
-										? ` on ${a.provider.name}`
-										: ''}
-								</menu-item>`,
-						)}`
-				: nothing}
+			${
+				enrichedPrs.length > 0
+					? html`<menu-label>Pull Requests</menu-label> ${enrichedPrs.map(
+								pr =>
+									html`<menu-item href=${pr.url}>
+										<code-icon icon="git-pull-request"></code-icon> #${pr.id}
+										${pr.title ? ` — ${pr.title}` : ''}
+									</menu-item>`,
+							)}${((needsDivider = true), nothing)}`
+					: nothing
+			}
+			${
+				enrichedIssues.length > 0
+					? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
+							<menu-label>Issues</menu-label>
+							${enrichedIssues.map(
+								issue =>
+									html`<menu-item href=${issue.url}>
+										<code-icon icon="issues"></code-icon> #${issue.id}
+										${issue.title ? ` — ${issue.title}` : ''}
+									</menu-item>`,
+							)}${((needsDivider = true), nothing)}`
+					: nothing
+			}
+			${
+				autolinks.length > 0
+					? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
+							<menu-label>Autolinks</menu-label>
+							${autolinks.map(
+								a =>
+									html`<menu-item href=${a.url}>
+										<code-icon icon="link"></code-icon> ${a.prefix}${a.id}${
+											a.provider?.name ? ` on ${a.provider.name}` : ''
+										}
+									</menu-item>`,
+							)}`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -1245,15 +1276,19 @@ export class GlDetailsCompareModePanel extends LitElement {
 				</div>
 				<div class="compare-contributor__stats">
 					<span>${commits.toLocaleString()} ${commits === 1 ? 'commit' : 'commits'}</span>
-					${files > 0
-						? html`<span>${files.toLocaleString()} ${files === 1 ? 'file' : 'files'}</span>`
-						: nothing}
-					${additions > 0 || deletions > 0
-						? html`<span class="compare-contributor__diffstat">
-								<span class="compare-contributor__additions">+${additions.toLocaleString()}</span>
-								<span class="compare-contributor__deletions">−${deletions.toLocaleString()}</span>
-							</span>`
-						: nothing}
+					${
+						files > 0
+							? html`<span>${files.toLocaleString()} ${files === 1 ? 'file' : 'files'}</span>`
+							: nothing
+					}
+					${
+						additions > 0 || deletions > 0
+							? html`<span class="compare-contributor__diffstat">
+									<span class="compare-contributor__additions">+${additions.toLocaleString()}</span>
+									<span class="compare-contributor__deletions">−${deletions.toLocaleString()}</span>
+								</span>`
+							: nothing
+					}
 				</div>
 			</div>
 		</div>`;

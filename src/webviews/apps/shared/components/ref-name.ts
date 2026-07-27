@@ -80,13 +80,15 @@ export class GlRefName extends LitElement {
 				break;
 		}
 
-		return html`${this.icon
-				? html`<code-icon
-						class="icon${className ? ` ${className}` : ''}"
-						icon="${icon}"
-						size="${this.size}"
-					></code-icon>`
-				: nothing}<span class="label">${this.ref.name}</span>`;
+		return html`${
+				this.icon
+					? html`<code-icon
+							class="icon${className ? ` ${className}` : ''}"
+							icon="${icon}"
+							size="${this.size}"
+						></code-icon>`
+					: nothing
+			}<span class="label">${this.ref.name}</span>`;
 	}
 }
 

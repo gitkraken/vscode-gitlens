@@ -108,33 +108,41 @@ export class GlDetailsHeader extends LitElement {
 				<div class="details-header__content">
 					<slot></slot>
 				</div>
-				${isModeActive
-					? html`<div class="details-header__spacer"></div>
-							<div class="details-header__actions">${this.renderCloseButton()}</div>`
-					: html`<div class="details-header__spacer"></div>
-							${hasCenter
-								? html`<div class="details-header__center">
-											${this.modes?.length
-												? html`<div class="details-header__modes">
-														${this.renderModeToggles()}
-													</div>`
-												: nothing}${this.renderCompareToggle()}
-										</div>
-										${
-											// Trailing spacer only when the actions slot has content — otherwise the
-											// center group right-aligns against the empty anchor (comparison panel)
-											// instead of floating center-right against zero width.
-											this.hasActions ? html`<div class="details-header__spacer"></div>` : nothing
-										}`
-								: nothing}
-							<slot
-								name="actions"
-								class=${classMap({
-									'details-header__actions-secondary': true,
-									'has-actions': this.hasActions,
-								})}
-								@slotchange=${this.onActionsSlotChange}
-							></slot>`}
+				${
+					isModeActive
+						? html`<div class="details-header__spacer"></div>
+								<div class="details-header__actions">${this.renderCloseButton()}</div>`
+						: html`<div class="details-header__spacer"></div>
+								${
+									hasCenter
+										? html`<div class="details-header__center">
+													${
+														this.modes?.length
+															? html`<div class="details-header__modes">
+																	${this.renderModeToggles()}
+																</div>`
+															: nothing
+													}${this.renderCompareToggle()}
+												</div>
+												${
+													// Trailing spacer only when the actions slot has content — otherwise the
+													// center group right-aligns against the empty anchor (comparison panel)
+													// instead of floating center-right against zero width.
+													this.hasActions
+														? html`<div class="details-header__spacer"></div>`
+														: nothing
+												}`
+										: nothing
+								}
+								<slot
+									name="actions"
+									class=${classMap({
+										'details-header__actions-secondary': true,
+										'has-actions': this.hasActions,
+									})}
+									@slotchange=${this.onActionsSlotChange}
+								></slot>`
+				}
 			</div>
 			<slot name="secondary"></slot>
 			<progress-indicator position="bottom" ?active=${this.loading}></progress-indicator>
@@ -189,13 +197,15 @@ export class GlDetailsHeader extends LitElement {
 				@click=${() => this.handleToggleMode(mode)}
 			>
 				${showText ? html`<span class="mode-toggle__text">${config.text}</span>` : nothing}
-				${showSuffixOverlay
-					? html`<code-icon
-							slot="suffix"
-							icon=${overlayIcon}
-							modifier=${overlayIcon === 'loading' ? 'spin' : ''}
-						></code-icon>`
-					: nothing}
+				${
+					showSuffixOverlay
+						? html`<code-icon
+								slot="suffix"
+								icon=${overlayIcon}
+								modifier=${overlayIcon === 'loading' ? 'spin' : ''}
+							></code-icon>`
+						: nothing
+				}
 			</gl-action-chip>`;
 
 			return html`<gl-new-indicator key=${ifDefined(config.onboardingKey)}>${chip}</gl-new-indicator>`;

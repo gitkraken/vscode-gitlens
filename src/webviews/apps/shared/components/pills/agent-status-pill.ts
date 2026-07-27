@@ -701,32 +701,38 @@ export class GlAgentStatusPill extends LitElement {
 				<span class="hover-header__text">${session.displayName}</span>
 				${elapsed != null ? html`<span class="hover-header__elapsed">${elapsed}</span>` : nothing}
 			</div>
-			${session.lastPrompt
-				? html`
-						<div class="hover-section">
-							<span class="hover-section__label">Last Prompt</span>
-							<span class="hover-prompt">${session.lastPrompt}</span>
-						</div>
-					`
-				: nothing}
-			${stickyTool != null
-				? html`
-						<div class="hover-section">
-							<span class="hover-section__label">Current Tool</span>
-							<span class="hover-section__value">${stickyTool}</span>
-						</div>
-					`
-				: nothing}
-			${omitActions
-				? nothing
-				: html`
-						<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
-							<gl-button appearance="secondary" full density="compact" href=${openHref}>
-								<code-icon icon="link-external" slot="prefix"></code-icon>
-								Open Session
-							</gl-button>
-						</div>
-					`}
+			${
+				session.lastPrompt
+					? html`
+							<div class="hover-section">
+								<span class="hover-section__label">Last Prompt</span>
+								<span class="hover-prompt">${session.lastPrompt}</span>
+							</div>
+						`
+					: nothing
+			}
+			${
+				stickyTool != null
+					? html`
+							<div class="hover-section">
+								<span class="hover-section__label">Current Tool</span>
+								<span class="hover-section__value">${stickyTool}</span>
+							</div>
+						`
+					: nothing
+			}
+			${
+				omitActions
+					? nothing
+					: html`
+							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
+								<gl-button appearance="secondary" full density="compact" href=${openHref}>
+									<code-icon icon="link-external" slot="prefix"></code-icon>
+									Open Session
+								</gl-button>
+							</div>
+						`
+			}
 		`;
 	}
 
@@ -768,54 +774,60 @@ export class GlAgentStatusPill extends LitElement {
 				<span class="hover-header__text">${session.displayName}</span>
 				${elapsed != null ? html`<span class="hover-header__elapsed">${elapsed}</span>` : nothing}
 			</div>
-			${permission != null
-				? html`
-						<div class="hover-section">
-							<span class="hover-section__label">Request</span>
-							<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>
-						</div>
-					`
-				: nothing}
-			${session.lastPrompt
-				? html`
-						<div class="hover-section">
-							<span class="hover-section__label">Last Prompt</span>
-							<span class="hover-prompt">${session.lastPrompt}</span>
-						</div>
-					`
-				: nothing}
-			${omitActions
-				? nothing
-				: canResolve
+			${
+				permission != null
 					? html`
-							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
-								<div class="hover-actions__row">
-									<gl-button full density="compact" href=${allowHref!}>
-										<code-icon icon="check" slot="prefix"></code-icon>
-										${allowLabel}
-									</gl-button>
-									<gl-button
-										appearance="secondary"
-										full
-										density="compact"
-										variant="danger"
-										href=${denyHref!}
-									>
-										<code-icon icon="x" slot="prefix"></code-icon>
-										${denyLabel}
-									</gl-button>
-									${this.renderMoreActionsMenu(openHref, alwaysAllowHref)}
-								</div>
+							<div class="hover-section">
+								<span class="hover-section__label">Request</span>
+								<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>
 							</div>
 						`
-					: html`
-							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
-								<gl-button appearance="secondary" full density="compact" href=${openHref}>
-									<code-icon icon="link-external" slot="prefix"></code-icon>
-									Open Session
-								</gl-button>
+					: nothing
+			}
+			${
+				session.lastPrompt
+					? html`
+							<div class="hover-section">
+								<span class="hover-section__label">Last Prompt</span>
+								<span class="hover-prompt">${session.lastPrompt}</span>
 							</div>
-						`}
+						`
+					: nothing
+			}
+			${
+				omitActions
+					? nothing
+					: canResolve
+						? html`
+								<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
+									<div class="hover-actions__row">
+										<gl-button full density="compact" href=${allowHref!}>
+											<code-icon icon="check" slot="prefix"></code-icon>
+											${allowLabel}
+										</gl-button>
+										<gl-button
+											appearance="secondary"
+											full
+											density="compact"
+											variant="danger"
+											href=${denyHref!}
+										>
+											<code-icon icon="x" slot="prefix"></code-icon>
+											${denyLabel}
+										</gl-button>
+										${this.renderMoreActionsMenu(openHref, alwaysAllowHref)}
+									</div>
+								</div>
+							`
+						: html`
+								<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
+									<gl-button appearance="secondary" full density="compact" href=${openHref}>
+										<code-icon icon="link-external" slot="prefix"></code-icon>
+										Open Session
+									</gl-button>
+								</div>
+							`
+			}
 		`;
 	}
 
@@ -827,12 +839,14 @@ export class GlAgentStatusPill extends LitElement {
 			<gl-popover placement="bottom-end" trigger="click">
 				<action-item slot="anchor" label="More actions" icon="ellipsis"></action-item>
 				<div slot="content" class="more-menu" role="menu" @mousedown=${this.onActionMouseDown}>
-					${alwaysAllowHref != null
-						? html`<a class="more-menu__item" role="menuitem" href=${alwaysAllowHref}>
-								<code-icon icon="check-all"></code-icon>
-								<span>Always Allow</span>
-							</a>`
-						: nothing}
+					${
+						alwaysAllowHref != null
+							? html`<a class="more-menu__item" role="menuitem" href=${alwaysAllowHref}>
+									<code-icon icon="check-all"></code-icon>
+									<span>Always Allow</span>
+								</a>`
+							: nothing
+					}
 					<a class="more-menu__item" role="menuitem" href=${openHref}>
 						<code-icon icon="link-external"></code-icon>
 						<span>Open Session</span>
@@ -850,24 +864,28 @@ export class GlAgentStatusPill extends LitElement {
 				<span class="hover-header__dot hover-header__dot--idle"></span>
 				<span class="hover-header__text">${session.displayName}</span>
 			</div>
-			${session.lastPrompt
-				? html`
-						<div class="hover-section">
-							<span class="hover-section__label">Last Prompt</span>
-							<span class="hover-prompt">${session.lastPrompt}</span>
-						</div>
-					`
-				: nothing}
-			${omitActions
-				? nothing
-				: html`
-						<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
-							<gl-button appearance="secondary" full density="compact" href=${openHref}>
-								<code-icon icon="link-external" slot="prefix"></code-icon>
-								Open Session
-							</gl-button>
-						</div>
-					`}
+			${
+				session.lastPrompt
+					? html`
+							<div class="hover-section">
+								<span class="hover-section__label">Last Prompt</span>
+								<span class="hover-prompt">${session.lastPrompt}</span>
+							</div>
+						`
+					: nothing
+			}
+			${
+				omitActions
+					? nothing
+					: html`
+							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
+								<gl-button appearance="secondary" full density="compact" href=${openHref}>
+									<code-icon icon="link-external" slot="prefix"></code-icon>
+									Open Session
+								</gl-button>
+							</div>
+						`
+			}
 		`;
 	}
 }

@@ -1448,9 +1448,11 @@ export class GlTreemapChart extends LitElement {
 		// signal soft refreshes, but the structure is in place if it ever does.
 		if (!hasData) {
 			return html`<div class="empty">
-				${this.loading
-					? html`<gl-watermark-loader pulse><p>Loading…</p></gl-watermark-loader>`
-					: html`<gl-watermark-loader><p>No files to visualize</p></gl-watermark-loader>`}
+				${
+					this.loading
+						? html`<gl-watermark-loader pulse><p>Loading…</p></gl-watermark-loader>`
+						: html`<gl-watermark-loader><p>No files to visualize</p></gl-watermark-loader>`
+				}
 			</div>`;
 		}
 
@@ -1466,54 +1468,64 @@ export class GlTreemapChart extends LitElement {
 		// `gl-treemap-zoom-change` whenever it shifts, so the wrapper's crumbs follow.
 		return html`
 			<canvas id="treemap-canvas" role="img" aria-label="File tree treemap"></canvas>
-			${this.mode === 'activity' && this._focusedPulses.length > 0
-				? html`<div class="pulse-layer" aria-hidden="true">
-						${repeat(
-							this._focusedPulses,
-							p => p.key,
-							p =>
-								html`<div
-									class="activity-pulse activity-pulse--${p.kind}"
-									style=${cspStyleMap({
-										left: `${p.x}px`,
-										top: `${p.y}px`,
-										width: `${p.w}px`,
-										height: `${p.h}px`,
-										// Broadcast echo tracks the leaf's own width/height (floored) so it starts ≈
-										// the leaf's shape and expands beyond at any zoom.
-										'--echo-w': `${Math.max(p.w, 20)}px`,
-										'--echo-h': `${Math.max(p.h, 20)}px`,
-										'--pulse-period': `${livePulsePeriodMs}ms`,
-									})}
-								>
-									${p.big ? html`<span class="activity-pulse-label">${p.name}</span>` : nothing}
-								</div>`,
-						)}
-					</div>`
-				: nothing}
-			${this.loading
-				? html`<div class="notice notice--blur">
-						<gl-watermark-loader pulse><p>Loading…</p></gl-watermark-loader>
-					</div>`
-				: nothing}
-			${showActivityHint
-				? html`<div class="activity-hint">
-						<code-icon icon="robot"></code-icon>
-						<span>Waiting for agent activity — files will light up here as agents read or edit them</span>
-					</div>`
-				: nothing}
-			${this._tooltipPos.visible
-				? html`<div
-						id="treemap-tooltip"
-						class="tooltip"
-						style=${cspStyleMap({
-							left: `${this._tooltipPos.x + 12}px`,
-							top: `${this._tooltipPos.y - 8}px`,
-						})}
-					>
-						${this._tooltipText}
-					</div>`
-				: nothing}
+			${
+				this.mode === 'activity' && this._focusedPulses.length > 0
+					? html`<div class="pulse-layer" aria-hidden="true">
+							${repeat(
+								this._focusedPulses,
+								p => p.key,
+								p =>
+									html`<div
+										class="activity-pulse activity-pulse--${p.kind}"
+										style=${cspStyleMap({
+											left: `${p.x}px`,
+											top: `${p.y}px`,
+											width: `${p.w}px`,
+											height: `${p.h}px`,
+											// Broadcast echo tracks the leaf's own width/height (floored) so it starts ≈
+											// the leaf's shape and expands beyond at any zoom.
+											'--echo-w': `${Math.max(p.w, 20)}px`,
+											'--echo-h': `${Math.max(p.h, 20)}px`,
+											'--pulse-period': `${livePulsePeriodMs}ms`,
+										})}
+									>
+										${p.big ? html`<span class="activity-pulse-label">${p.name}</span>` : nothing}
+									</div>`,
+							)}
+						</div>`
+					: nothing
+			}
+			${
+				this.loading
+					? html`<div class="notice notice--blur">
+							<gl-watermark-loader pulse><p>Loading…</p></gl-watermark-loader>
+						</div>`
+					: nothing
+			}
+			${
+				showActivityHint
+					? html`<div class="activity-hint">
+							<code-icon icon="robot"></code-icon>
+							<span
+								>Waiting for agent activity — files will light up here as agents read or edit them</span
+							>
+						</div>`
+					: nothing
+			}
+			${
+				this._tooltipPos.visible
+					? html`<div
+							id="treemap-tooltip"
+							class="tooltip"
+							style=${cspStyleMap({
+								left: `${this._tooltipPos.x + 12}px`,
+								top: `${this._tooltipPos.y - 8}px`,
+							})}
+						>
+							${this._tooltipText}
+						</div>`
+					: nothing
+			}
 		`;
 	}
 }

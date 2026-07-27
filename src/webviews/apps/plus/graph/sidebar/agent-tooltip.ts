@@ -184,12 +184,14 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 				</span>
 			</div>
 
-			${folderPath != null
-				? html`<div class="identity-line">
-						<code-icon icon="folder"></code-icon>
-						<span class="identity-line__value"><code>${folderPath}</code></span>
-					</div>`
-				: nothing}
+			${
+				folderPath != null
+					? html`<div class="identity-line">
+							<code-icon icon="folder"></code-icon>
+							<span class="identity-line__value"><code>${folderPath}</code></span>
+						</div>`
+					: nothing
+			}
 			${this.renderBranchLine(wt)} ${this.renderSections(session, category)}
 		`;
 	}
@@ -218,9 +220,9 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		return html`<div class="identity-line">
 			<code-icon icon="git-branch"></code-icon>
 			<span class="identity-line__value">
-				<code>${label}</code>${wt.branch?.upstreamName
-					? html` <span class="upstream">⇆ ${wt.branch.upstreamName}</span>`
-					: nothing}
+				<code>${label}</code>${
+					wt.branch?.upstreamName ? html` <span class="upstream">⇆ ${wt.branch.upstreamName}</span>` : nothing
+				}
 			</span>
 		</div>`;
 	}

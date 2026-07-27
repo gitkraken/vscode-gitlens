@@ -1139,17 +1139,19 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							<div slot="tooltip">
 								Switch Branch...
 								<hr />
-								<gl-branch-name .name=${branch?.name}></gl-branch-name>${branchState?.worktree
-									? html`<i> (in a worktree)</i> `
-									: ''}
+								<gl-branch-name .name=${branch?.name}></gl-branch-name>${
+									branchState?.worktree ? html`<i> (in a worktree)</i> ` : ''
+								}
 							</div>
 						</gl-ref-button>
 						<gl-button class="jump-to-ref" appearance="toolbar" @click=${this.handleJumpToRef}>
 							<code-icon icon="target"></code-icon>
 							<span slot="tooltip">
-								${this._modifiers.altKey
-									? html`Focus on a Branch...`
-									: html`Focus on Current Branch<br />[${getAltKeySymbol()}] Focus on a Branch...`}
+								${
+									this._modifiers.altKey
+										? html`Focus on a Branch...`
+										: html`Focus on Current Branch<br />[${getAltKeySymbol()}] Focus on a Branch...`
+								}
 							</span>
 						</gl-button>
 						${this.renderCreateMenu()}
@@ -1472,21 +1474,27 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							() => html`
 								<gl-button
 									appearance="toolbar"
-									tooltip=${(this.graphState.sidebar?.visible ?? false) &&
-									this.graphState.sidebar?.activePanel != null
-										? 'Hide Side Bar'
-										: 'Show Side Bar'}
-									aria-label=${(this.graphState.sidebar?.visible ?? false) &&
-									this.graphState.sidebar?.activePanel != null
-										? 'Hide Side Bar'
-										: 'Show Side Bar'}
+									tooltip=${
+										(this.graphState.sidebar?.visible ?? false) &&
+										this.graphState.sidebar?.activePanel != null
+											? 'Hide Side Bar'
+											: 'Show Side Bar'
+									}
+									aria-label=${
+										(this.graphState.sidebar?.visible ?? false) &&
+										this.graphState.sidebar?.activePanel != null
+											? 'Hide Side Bar'
+											: 'Show Side Bar'
+									}
 									@click=${this.handleSidebarToggled}
 								>
 									<code-icon
-										icon=${(this.graphState.sidebar?.visible ?? false) &&
-										this.graphState.sidebar?.activePanel != null
-											? 'layout-sidebar-left'
-											: 'layout-sidebar-left-off'}
+										icon=${
+											(this.graphState.sidebar?.visible ?? false) &&
+											this.graphState.sidebar?.activePanel != null
+												? 'layout-sidebar-left'
+												: 'layout-sidebar-left-off'
+										}
 									></code-icon>
 								</gl-button>
 							`,
@@ -1521,13 +1529,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								@click=${this.handleToggleDetails}
 							>
 								<code-icon
-									icon=${isBottom
-										? this.detailsVisible || this._modifiers.altKey
-											? 'layout-panel'
-											: 'layout-panel-off'
-										: this.detailsVisible || this._modifiers.altKey
-											? 'layout-sidebar-right'
-											: 'layout-sidebar-right-off'}
+									icon=${
+										isBottom
+											? this.detailsVisible || this._modifiers.altKey
+												? 'layout-panel'
+												: 'layout-panel-off'
+											: this.detailsVisible || this._modifiers.altKey
+												? 'layout-sidebar-right'
+												: 'layout-sidebar-right-off'
+									}
 								></code-icon>
 							</gl-button>`;
 						})()}

@@ -416,14 +416,18 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 			>
 				<code-icon icon="close" aria-hidden="true"></code-icon>
 			</button>
-			${invalid.prefix
-				? html`<span id=${prefixErrorId} class="rule__error">Add a prefix to match, e.g. TICKET-</span>`
-				: nothing}
-			${invalid.url
-				? html`<span id=${urlErrorId} class="rule__error"
-						>Add <code>&lt;num&gt;</code> to the URL so the reference value is linked.</span
-					>`
-				: nothing}
+			${
+				invalid.prefix
+					? html`<span id=${prefixErrorId} class="rule__error">Add a prefix to match, e.g. TICKET-</span>`
+					: nothing
+			}
+			${
+				invalid.url
+					? html`<span id=${urlErrorId} class="rule__error"
+							>Add <code>&lt;num&gt;</code> to the URL so the reference value is linked.</span
+						>`
+					: nothing
+			}
 		</div>`;
 	}
 

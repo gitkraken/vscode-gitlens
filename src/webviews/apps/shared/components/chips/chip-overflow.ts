@@ -222,22 +222,24 @@ export class GlChipOverflow extends LitElement {
 				><slot name="suffix" @slotchange=${this.handleNamedSlotChange}></slot></span
 			><span class="prefix ${this._prefixEmpty ? 'is-empty' : ''}"
 				><slot name="prefix" @slotchange=${this.handleNamedSlotChange}></slot></span
-			><slot @slotchange=${this.handleSlotChange}></slot>${this._overflowCount > 0
-				? html`<span class="overflow-host"
-						><gl-popover trigger="click" placement="bottom-start" appearance="menu">
-							<button
-								slot="anchor"
-								class="overflow-chip"
-								part="overflow-chip"
-								aria-label="${this._overflowCount} more items"
-							>
-								+${this._overflowCount}
-							</button>
-							<div slot="content" class="overflow-popover scrollable" part="popover">
-								<slot name="popover"></slot>
-							</div> </gl-popover
-					></span>`
-				: nothing}
+			><slot @slotchange=${this.handleSlotChange}></slot>${
+				this._overflowCount > 0
+					? html`<span class="overflow-host"
+							><gl-popover trigger="click" placement="bottom-start" appearance="menu">
+								<button
+									slot="anchor"
+									class="overflow-chip"
+									part="overflow-chip"
+									aria-label="${this._overflowCount} more items"
+								>
+									+${this._overflowCount}
+								</button>
+								<div slot="content" class="overflow-popover scrollable" part="popover">
+									<slot name="popover"></slot>
+								</div> </gl-popover
+						></span>`
+					: nothing
+			}
 		</div>`;
 	}
 

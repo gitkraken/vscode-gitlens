@@ -238,9 +238,11 @@ export class GlFeatureGatePlusState extends LitElement {
 
 				return html`<slot name="feature"></slot>
 					<p class="centered">
-						${this.featureRestriction === 'private-repos'
-							? 'Unlock this feature for privately hosted repos with '
-							: 'Unlock this feature with '} <a href="${urls.communityVsPro}">GitLens Pro</a>.
+						${
+							this.featureRestriction === 'private-repos'
+								? 'Unlock this feature for privately hosted repos with '
+								: 'Unlock this feature with '
+						} <a href="${urls.communityVsPro}">GitLens Pro</a>.
 					</p>
 					<p class="actions-row">
 						<gl-button
@@ -265,9 +267,11 @@ export class GlFeatureGatePlusState extends LitElement {
 			case SubscriptionState.TrialExpired:
 				return html`<slot name="feature"></slot>
 					<p class="centered">
-						${this.featureRestriction === 'private-repos'
-							? 'Unlock this feature for privately hosted repos with '
-							: 'Unlock this feature with '} <a href="${urls.communityVsPro}">GitLens Pro</a>.
+						${
+							this.featureRestriction === 'private-repos'
+								? 'Unlock this feature for privately hosted repos with '
+								: 'Unlock this feature with '
+						} <a href="${urls.communityVsPro}">GitLens Pro</a>.
 					</p>
 					<p class="actions-row">
 						<gl-button

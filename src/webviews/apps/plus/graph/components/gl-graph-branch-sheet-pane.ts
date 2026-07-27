@@ -481,11 +481,13 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const icon = ref.refType === 'tag' ? 'tag' : 'git-branch';
 		return html`<div class="identity">
 			<div class="identity__name"><code-icon icon=${icon}></code-icon><span>${ref.name}</span></div>
-			${ref.sha != null
-				? html`<div class="identity__tip">
-						Tip <code-icon icon="git-commit" size="12"></code-icon> ${ref.sha.slice(0, 7)}
-					</div>`
-				: nothing}
+			${
+				ref.sha != null
+					? html`<div class="identity__tip">
+							Tip <code-icon icon="git-commit" size="12"></code-icon> ${ref.sha.slice(0, 7)}
+						</div>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -606,12 +608,14 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 		return html`<div class="metadata">
 			<div class="strip-row">
-				${hasAny
-					? html`<gl-chip-overflow max-rows="1" class="issues-chips">
-							${associated.map(i => this.renderIssueChip(i, true))}
-							${patternAutolinks.map(i => this.renderIssueChip(i, false))}
-						</gl-chip-overflow>`
-					: nothing}
+				${
+					hasAny
+						? html`<gl-chip-overflow max-rows="1" class="issues-chips">
+								${associated.map(i => this.renderIssueChip(i, true))}
+								${patternAutolinks.map(i => this.renderIssueChip(i, false))}
+							</gl-chip-overflow>`
+						: nothing
+				}
 				${this.renderAssociateIssue(branch.reference, hasAny)}
 				<div class="branch-ops">
 					${this.renderPullRequest()}
@@ -733,12 +737,14 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				${this.renderUpstreamCard(branch)}${this.renderMergeTargetCard(branch)}
 			</div>
 			${this.renderAiBand(branch)} ${this.renderAgentSessions(branch)}
-			${steps.length > 0
-				? html`<section class="section">
-						<h3 class="section__heading">Next steps</h3>
-						${steps.map(step => this.renderStep(step))}
-					</section>`
-				: nothing}
+			${
+				steps.length > 0
+					? html`<section class="section">
+							<h3 class="section__heading">Next steps</h3>
+							${steps.map(step => this.renderStep(step))}
+						</section>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -1280,9 +1286,9 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	}
 
 	private renderStep(step: SheetStep): TemplateResult {
-		const primaryInner = html`${step.actionPrefixIcon
-			? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>`
-			: nothing}${step.actionLabel}`;
+		const primaryInner = html`${
+			step.actionPrefixIcon ? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>` : nothing
+		}${step.actionLabel}`;
 		const primary = step.loading
 			? html`<gl-button
 					class="next-step__action"

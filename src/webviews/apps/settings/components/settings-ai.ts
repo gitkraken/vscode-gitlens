@@ -201,8 +201,10 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 			<span class="row__content">
 				<span class="row__title">${model?.provider.name ?? 'AI Provider & Model'}</span>
 				<span class="row__details"
-					>${model?.name ??
-					(failed ? 'Couldn’t load the current model' : 'Select an AI model to enable AI features')}</span
+					>${
+						model?.name ??
+						(failed ? 'Couldn’t load the current model' : 'Select an AI model to enable AI features')
+					}</span
 				>
 			</span>
 			<span class="row__actions">
@@ -228,57 +230,63 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 			<span class="row__content">
 				<span class="row__title">GitKraken MCP</span>
 				<span class="row__details"
-					>${mcp.settingEnabled
-						? 'Leverage Git & Integrations in AI chats'
-						: 'GitKraken MCP has been disabled via settings'}</span
+					>${
+						mcp.settingEnabled
+							? 'Leverage Git & Integrations in AI chats'
+							: 'GitKraken MCP has been disabled via settings'
+					}</span
 				>
 			</span>
 			<span class="row__actions">
-				${!mcp.settingEnabled
-					? html`<gl-button
-							appearance="secondary"
-							href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
-								source: 'settings',
-								detail: 'integrations',
-							})}"
-							tooltip="Re-enable GitKraken MCP"
-							><code-icon icon="unlock" slot="prefix" aria-hidden="true"></code-icon> Re-enable</gl-button
-						>`
-					: mcp.installed
+				${
+					!mcp.settingEnabled
 						? html`<gl-button
-									appearance="secondary"
-									href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
-										source: 'settings',
-										detail: 'integrations',
-									})}"
-									tooltip="Connect More Agents"
-									><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Connect
-									Agents</gl-button
-								>
-								<gl-button
-									appearance="secondary"
-									href="${createCommandLink<Source>('gitlens.ai.mcp.reinstall', {
-										source: 'settings',
-										detail: 'integrations',
-									})}"
-									tooltip="Reinstall GitKraken MCP"
-									><code-icon icon="sync" slot="prefix" aria-hidden="true"></code-icon>
-									Reinstall</gl-button
-								>
-								<span class="row__status"
-									><code-icon icon="check" aria-hidden="true"></code-icon> Installed${mcp.bundled
-										? ' (bundled)'
-										: ''}</span
-								>`
-						: html`<gl-button
 								appearance="secondary"
 								href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
 									source: 'settings',
 									detail: 'integrations',
 								})}"
-								tooltip="Install GitKraken MCP"
-								><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Install</gl-button
-							>`}
+								tooltip="Re-enable GitKraken MCP"
+								><code-icon icon="unlock" slot="prefix" aria-hidden="true"></code-icon>
+								Re-enable</gl-button
+							>`
+						: mcp.installed
+							? html`<gl-button
+										appearance="secondary"
+										href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
+											source: 'settings',
+											detail: 'integrations',
+										})}"
+										tooltip="Connect More Agents"
+										><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Connect
+										Agents</gl-button
+									>
+									<gl-button
+										appearance="secondary"
+										href="${createCommandLink<Source>('gitlens.ai.mcp.reinstall', {
+											source: 'settings',
+											detail: 'integrations',
+										})}"
+										tooltip="Reinstall GitKraken MCP"
+										><code-icon icon="sync" slot="prefix" aria-hidden="true"></code-icon>
+										Reinstall</gl-button
+									>
+									<span class="row__status"
+										><code-icon icon="check" aria-hidden="true"></code-icon> Installed${
+											mcp.bundled ? ' (bundled)' : ''
+										}</span
+									>`
+							: html`<gl-button
+									appearance="secondary"
+									href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
+										source: 'settings',
+										detail: 'integrations',
+									})}"
+									tooltip="Install GitKraken MCP"
+									><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon>
+									Install</gl-button
+								>`
+				}
 			</span>
 		</li>`;
 	}
@@ -314,26 +322,30 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 			<span class="row__content">
 				<span class="row__title">GitKraken Claude Code Hooks</span>
 				<span class="row__details"
-					>${claude.installed
-						? 'Installed — Claude surfaces agent status'
-						: 'Configure Claude to surface agent status'}</span
+					>${
+						claude.installed
+							? 'Installed — Claude surfaces agent status'
+							: 'Configure Claude to surface agent status'
+					}</span
 				>
 			</span>
 			<span class="row__actions">
-				${claude.installed
-					? html`<gl-button
-							appearance="secondary"
-							href="${createCommandLink('gitlens.agents.uninstallClaudeHook')}"
-							tooltip="Uninstall Claude Hooks"
-							><code-icon icon="debug-disconnect" slot="prefix" aria-hidden="true"></code-icon>
-							Uninstall</gl-button
-						>`
-					: html`<gl-button
-							appearance="secondary"
-							href="${createCommandLink('gitlens.agents.installClaudeHook')}"
-							tooltip="Install Claude Hooks"
-							><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Install</gl-button
-						>`}
+				${
+					claude.installed
+						? html`<gl-button
+								appearance="secondary"
+								href="${createCommandLink('gitlens.agents.uninstallClaudeHook')}"
+								tooltip="Uninstall Claude Hooks"
+								><code-icon icon="debug-disconnect" slot="prefix" aria-hidden="true"></code-icon>
+								Uninstall</gl-button
+							>`
+						: html`<gl-button
+								appearance="secondary"
+								href="${createCommandLink('gitlens.agents.installClaudeHook')}"
+								tooltip="Install Claude Hooks"
+								><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Install</gl-button
+							>`
+				}
 			</span>
 		</li>`;
 	}

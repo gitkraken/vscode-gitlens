@@ -292,56 +292,66 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 						<div class="header__text">
 							<h2 class="header__title" id="category-title">
 								${category.name}
-								${category.pro
-									? html`<gl-feature-badge
-											.source=${{ source: 'settings', detail: 'header' } as const}
-											.subscription=${this._state.subscription.get()}
-										></gl-feature-badge>`
-									: nothing}
+								${
+									category.pro
+										? html`<gl-feature-badge
+												.source=${{ source: 'settings', detail: 'header' } as const}
+												.subscription=${this._state.subscription.get()}
+											></gl-feature-badge>`
+										: nothing
+								}
 							</h2>
 							<p class="header__hint">${linkify(category.hint)}</p>
 						</div>
-						${category.master != null
-							? html`<gl-switch
-									size="large"
-									.checked=${masterOn && !masterDisabledByOrg}
-									?disabled=${masterDisabledByOrg}
-									label="Enable ${category.name}"
-									hint=${ifDefined(
-										masterDisabledByOrg
-											? 'AI features have been disabled by your GitKraken admin.'
-											: undefined,
-									)}
-									@gl-change-value=${(e: Event) => {
-										void this.actions?.applyCheck(
-											category.master!,
-											(e.target as HTMLElement & { checked: boolean }).checked,
-										);
-									}}
-								></gl-switch>`
-							: nothing}
+						${
+							category.master != null
+								? html`<gl-switch
+										size="large"
+										.checked=${masterOn && !masterDisabledByOrg}
+										?disabled=${masterDisabledByOrg}
+										label="Enable ${category.name}"
+										hint=${ifDefined(
+											masterDisabledByOrg
+												? 'AI features have been disabled by your GitKraken admin.'
+												: undefined,
+										)}
+										@gl-change-value=${(e: Event) => {
+											void this.actions?.applyCheck(
+												category.master!,
+												(e.target as HTMLElement & { checked: boolean }).checked,
+											);
+										}}
+									></gl-switch>`
+								: nothing
+						}
 					</div>
-					${category.command != null
-						? html`<p class="header__tip">
-								<code-icon icon="bell" aria-hidden="true"></code-icon>
-								<span
-									>Tip — run
-									<a href=${createCommandLink(category.command.command)}>${category.command.label}</a>
-									to override this for the current window.</span
-								>
-							</p>`
-						: nothing}
+					${
+						category.command != null
+							? html`<p class="header__tip">
+									<code-icon icon="bell" aria-hidden="true"></code-icon>
+									<span
+										>Tip — run
+										<a href=${createCommandLink(category.command.command)}
+											>${category.command.label}</a
+										>
+										to override this for the current window.</span
+									>
+								</p>`
+							: nothing
+					}
 				</div>
 
-				${category.preview != null
-					? html`<div class="preview" role="region" aria-label="Live preview">
-							<h3 class="preview__label">Live preview</h3>
-							<gl-settings-preview
-								kind=${category.preview}
-								.actions=${this.actions}
-							></gl-settings-preview>
-						</div>`
-					: nothing}
+				${
+					category.preview != null
+						? html`<div class="preview" role="region" aria-label="Live preview">
+								<h3 class="preview__label">Live preview</h3>
+								<gl-settings-preview
+									kind=${category.preview}
+									.actions=${this.actions}
+								></gl-settings-preview>
+							</div>`
+						: nothing
+				}
 
 				<div class="controls">
 					${category.controls.map(
@@ -366,11 +376,13 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 						>
 						and search for <code>${this.settingsSearch}</code></span
 					>
-					${category.learnMoreUrl != null
-						? html`<a href=${category.learnMoreUrl} aria-label="Learn more about ${category.name}"
-								>Learn more</a
-							>`
-						: nothing}
+					${
+						category.learnMoreUrl != null
+							? html`<a href=${category.learnMoreUrl} aria-label="Learn more about ${category.name}"
+									>Learn more</a
+								>`
+							: nothing
+					}
 				</p>
 			</section>
 		`;

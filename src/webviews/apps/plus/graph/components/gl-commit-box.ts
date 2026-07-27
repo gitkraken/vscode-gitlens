@@ -71,12 +71,14 @@ export class GlCommitBox extends LitElement {
 				${this.renderAmendToggle()}
 				<div class="options-group">
 					${this.renderSigningIndicator()}
-					${this.aiEnabled
-						? html`<gl-button appearance="secondary" @click=${this.onCompose}>
-								<code-icon class="compose-icon" icon="wand" slot="prefix"></code-icon>
-								Compose
-							</gl-button>`
-						: nothing}
+					${
+						this.aiEnabled
+							? html`<gl-button appearance="secondary" @click=${this.onCompose}>
+									<code-icon class="compose-icon" icon="wand" slot="prefix"></code-icon>
+									Compose
+								</gl-button>`
+							: nothing
+					}
 				</div>
 			</div>
 			${this.renderTextarea()} ${this.renderActionBar()}
@@ -116,12 +118,14 @@ export class GlCommitBox extends LitElement {
 
 		return html`
 			<div class="message">
-				${this.aiEnabled
-					? html`<svg class="working-ring" aria-hidden="true">
-							<rect class="working-ring-base" pathLength="100"></rect>
-							<rect class="working-ring-highlight" pathLength="100"></rect>
-						</svg>`
-					: nothing}
+				${
+					this.aiEnabled
+						? html`<svg class="working-ring" aria-hidden="true">
+								<rect class="working-ring-base" pathLength="100"></rect>
+								<rect class="working-ring-highlight" pathLength="100"></rect>
+							</svg>`
+						: nothing
+				}
 				<textarea
 					class="textarea ${this.commitError ? 'has-error' : ''}"
 					.value=${this.message}
@@ -167,15 +171,19 @@ export class GlCommitBox extends LitElement {
 					aria-busy=${this.generating ? 'true' : 'false'}
 					@click=${this.onGenerateMessage}
 				>
-					${this.generating
-						? html`<code-icon icon="loading" modifier="spin"></code-icon>`
-						: html`<code-icon icon="sparkle"></code-icon>`}
+					${
+						this.generating
+							? html`<code-icon icon="loading" modifier="spin"></code-icon>`
+							: html`<code-icon icon="sparkle"></code-icon>`
+					}
 				</gl-button>
 				<div slot="content" class="generate-popover">
 					<span class="generate-popover__action">${label}</span>
-					${!this.generating && this.aiModel != null
-						? html`<gl-ai-model-chip .model=${this.aiModel}></gl-ai-model-chip>`
-						: nothing}
+					${
+						!this.generating && this.aiModel != null
+							? html`<gl-ai-model-chip .model=${this.aiModel}></gl-ai-model-chip>`
+							: nothing
+					}
 				</div>
 			</gl-popover>
 		`;
@@ -209,9 +217,11 @@ export class GlCommitBox extends LitElement {
 						tooltip=${this.canCommit && !this.committing ? enabledTooltip : ''}
 						@click=${this.onCommit}
 					>
-						${this.committing
-							? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Committing…`
-							: html`${label}&nbsp;<gl-branch-name .name=${branch}></gl-branch-name>`}
+						${
+							this.committing
+								? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Committing…`
+								: html`${label}&nbsp;<gl-branch-name .name=${branch}></gl-branch-name>`
+						}
 					</gl-button>
 				</span>
 			</gl-tooltip>

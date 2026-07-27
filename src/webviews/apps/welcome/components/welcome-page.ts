@@ -559,8 +559,10 @@ export class GlWelcomePage extends LitElement {
 								<gl-walkthrough-step
 									class="card"
 									stepId=${step.id}
-									.completed=${step.walkthroughKey != null &&
-									this._state.walkthroughProgress?.state[step.walkthroughKey] === true}
+									.completed=${
+										step.walkthroughKey != null &&
+										this._state.walkthroughProgress?.state[step.walkthroughKey] === true
+									}
 								>
 									<h1 slot="title">${step.title}</h1>
 									${step.body}
@@ -602,8 +604,9 @@ export class GlWelcomePage extends LitElement {
 							<gl-walkthrough-step
 								class="card"
 								stepId=${step.id}
-								.completed=${this._state.graphWalkthroughProgress?.state[step.graphWalkthroughKey] ===
-								true}
+								.completed=${
+									this._state.graphWalkthroughProgress?.state[step.graphWalkthroughKey] === true
+								}
 							>
 								<h1 slot="title">${step.title}</h1>
 								${step.body}

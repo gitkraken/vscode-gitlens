@@ -1466,18 +1466,20 @@ background-color: var(--vscode-menu-background);
 						>
 							<code-icon icon="list-filter"></code-icon>
 						</gl-button>
-						${this.aiAllowed
-							? html`<gl-button
-									appearance="input"
-									role="checkbox"
-									aria-checked="${this.naturalLanguage}"
-									tooltip="Natural Language Search (AI Preview)"
-									aria-label="Natural Language Search (AI Preview)"
-									@click="${this.handleNaturalLanguageClick}"
-								>
-									<code-icon icon="sparkle"></code-icon>
-								</gl-button>`
-							: nothing}
+						${
+							this.aiAllowed
+								? html`<gl-button
+										appearance="input"
+										role="checkbox"
+										aria-checked="${this.naturalLanguage}"
+										tooltip="Natural Language Search (AI Preview)"
+										aria-label="Natural Language Search (AI Preview)"
+										@click="${this.handleNaturalLanguageClick}"
+									>
+										<code-icon icon="sparkle"></code-icon>
+									</gl-button>`
+								: nothing
+						}
 					</action-nav>
 				</div>
 				<div class="input-container">
@@ -1513,16 +1515,18 @@ background-color: var(--vscode-menu-background);
 			</div>
 			<div class="controls">
 				<action-nav role="toolbar" aria-label="Search options">
-					${this.value
-						? html`<gl-button
-								appearance="input"
-								tooltip="Clear"
-								aria-label="Clear"
-								@click="${this.handleClear}"
-							>
-								<code-icon icon="close"></code-icon>
-							</gl-button>`
-						: nothing}
+					${
+						this.value
+							? html`<gl-button
+									appearance="input"
+									tooltip="Clear"
+									aria-label="Clear"
+									@click="${this.handleClear}"
+								>
+									<code-icon icon="close"></code-icon>
+								</gl-button>`
+							: nothing
+					}
 					${this.renderSearchOptions()}
 				</action-nav>
 			</div>`;
@@ -1624,16 +1628,20 @@ background-color: var(--vscode-menu-background);
 			@gl-autocomplete-select="${this.handleAutocompleteSelect}"
 			@gl-autocomplete-cancel="${this.hideAutocomplete}"
 		>
-			${hasDescription
-				? html`<div slot="description">
-						${this.cursorOperator
-							? html`${this.cursorOperator.description}${this.renderOperatorExample(this.cursorOperator)}`
-							: this.naturalLanguage
-								? this.renderNaturalLanguageDescription()
-								: html`Combine filters to build powerful searches, e.g.
-										<code>@me after:1.week.ago file:*.ts</code>`}
-					</div>`
-				: nothing}
+			${
+				hasDescription
+					? html`<div slot="description">
+							${
+								this.cursorOperator
+									? html`${this.cursorOperator.description}${this.renderOperatorExample(this.cursorOperator)}`
+									: this.naturalLanguage
+										? this.renderNaturalLanguageDescription()
+										: html`Combine filters to build powerful searches, e.g.
+												<code>@me after:1.week.ago file:*.ts</code>`
+							}
+						</div>`
+					: nothing
+			}
 		</gl-autocomplete>`;
 	}
 
@@ -1682,12 +1690,12 @@ background-color: var(--vscode-menu-background);
 				appearance="input"
 				role="checkbox"
 				aria-checked="${this.matchCaseOverride}"
-				tooltip="Match Case${this.matchCaseOverride && !this.matchCase
-					? ' (always on without regular expressions)'
-					: ''}"
-				aria-label="Match Case${this.matchCaseOverride && !this.matchCase
-					? ' (always on without regular expressions)'
-					: ''}"
+				tooltip="Match Case${
+					this.matchCaseOverride && !this.matchCase ? ' (always on without regular expressions)' : ''
+				}"
+				aria-label="Match Case${
+					this.matchCaseOverride && !this.matchCase ? ' (always on without regular expressions)' : ''
+				}"
 				?disabled="${!this.matchRegex}"
 				@click="${this.handleMatchCase}"
 			>
@@ -1697,12 +1705,12 @@ background-color: var(--vscode-menu-background);
 				appearance="input"
 				role="checkbox"
 				aria-checked="${this.matchWholeWordOverride}"
-				tooltip="Match Whole Word${this.matchWholeWordOverride && !this.matchWholeWord
-					? ' (requires regular expressions)'
-					: ''}"
-				aria-label="Match Whole Word${this.matchWholeWordOverride && !this.matchWholeWord
-					? ' (requires regular expressions)'
-					: ''}"
+				tooltip="Match Whole Word${
+					this.matchWholeWordOverride && !this.matchWholeWord ? ' (requires regular expressions)' : ''
+				}"
+				aria-label="Match Whole Word${
+					this.matchWholeWordOverride && !this.matchWholeWord ? ' (requires regular expressions)' : ''
+				}"
 				?disabled="${!this.matchRegex}"
 				@click="${this.handleMatchWholeWord}"
 			>

@@ -260,11 +260,13 @@ export class GlRebaseConflictIndicator extends LitElement {
 						<div class="popover">
 							<p class="popover__title">No Conflicts Detected</p>
 							<p class="popover__message">This rebase should complete without conflicts.</p>
-							${this.stale
-								? html`<p class="popover__message popover__message--warning">
-										Detection may be stale. Rebase plan was modified after conflict check.
-									</p>`
-								: nothing}
+							${
+								this.stale
+									? html`<p class="popover__message popover__message--warning">
+											Detection may be stale. Rebase plan was modified after conflict check.
+										</p>`
+									: nothing
+							}
 						</div>
 					</div>
 				</gl-popover>
@@ -283,11 +285,13 @@ export class GlRebaseConflictIndicator extends LitElement {
 					<div class="popover">
 						<p class="popover__title">No Conflicts Detected</p>
 						<p class="popover__message">This rebase should complete without conflicts.</p>
-						${this.stale
-							? html`<p class="popover__message popover__message--warning">
-									Detection may be stale. Rebase plan was modified after conflict check.
-								</p>`
-							: nothing}
+						${
+							this.stale
+								? html`<p class="popover__message popover__message--warning">
+										Detection may be stale. Rebase plan was modified after conflict check.
+									</p>`
+								: nothing
+						}
 					</div>
 				</div>
 			</gl-popover>
@@ -316,11 +320,13 @@ export class GlRebaseConflictIndicator extends LitElement {
 							<ul class="popover__files scrollable">
 								${files.map(file => html`<li class="popover__file">${file.path}</li>`)}
 							</ul>
-							${this.stale
-								? html`<p class="popover__message popover__message--warning">
-										Detection may be stale. Rebase plan was modified after conflict check.
-									</p>`
-								: nothing}
+							${
+								this.stale
+									? html`<p class="popover__message popover__message--warning">
+											Detection may be stale. Rebase plan was modified after conflict check.
+										</p>`
+									: nothing
+							}
 						</div>
 					</div>
 				</gl-popover>
@@ -332,9 +338,11 @@ export class GlRebaseConflictIndicator extends LitElement {
 				<div slot="anchor" class="indicator indicator--conflict ${staleClass}" tabindex="0">
 					${this.renderStateIcon('warning')}
 					<span class="indicator__content"
-						>${this.checking
-							? 'Detecting Conflicts'
-							: html`${conflictCount} Conflict${conflictCount === 1 ? '' : 's'} Detected`}</span
+						>${
+							this.checking
+								? 'Detecting Conflicts'
+								: html`${conflictCount} Conflict${conflictCount === 1 ? '' : 's'} Detected`
+						}</span
 					>
 				</div>
 				<div slot="content">
@@ -346,11 +354,13 @@ export class GlRebaseConflictIndicator extends LitElement {
 						<ul class="popover__files scrollable">
 							${files.map(file => html`<li class="popover__file">${file.path}</li>`)}
 						</ul>
-						${this.stale
-							? html`<p class="popover__message popover__message--warning">
-									Detection may be stale. Rebase plan was modified after conflict check.
-								</p>`
-							: nothing}
+						${
+							this.stale
+								? html`<p class="popover__message popover__message--warning">
+										Detection may be stale. Rebase plan was modified after conflict check.
+									</p>`
+								: nothing
+						}
 					</div>
 				</div>
 			</gl-popover>

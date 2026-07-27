@@ -139,12 +139,14 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 					</gl-button>
 				</div>
 				<div class="popover__body">
-					${connected !== true
-						? html`<p class="welcome">
-								Launchpad organizes your pull requests into actionable groups to help you focus and keep
-								your team unblocked.
-							</p>`
-						: nothing}
+					${
+						connected !== true
+							? html`<p class="welcome">
+									Launchpad organizes your pull requests into actionable groups to help you focus and
+									keep your team unblocked.
+								</p>`
+							: nothing
+					}
 					<gl-launchpad-summary
 						.summary=${this.summary}
 						?has-integrations-connected=${connected === true}

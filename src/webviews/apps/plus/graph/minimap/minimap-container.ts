@@ -449,29 +449,31 @@ export class GlGraphMinimapContainer extends GlElement {
 						</menu-item>
 					</div>
 				</gl-popover>
-				${this.zoomed
-					? html`<gl-tooltip placement="left" content="Exit Zoom">
-							<button
-								type="button"
-								class="minimap-settings__trigger"
-								aria-label="Exit Zoom"
-								@click=${this.handleExitZoom}
-							>
-								<code-icon icon="zoom-out" size="16"></code-icon>
-							</button>
-						</gl-tooltip>`
-					: this.scopeWindow != null
-						? html`<gl-tooltip placement="left" content="Zoom to Scope">
+				${
+					this.zoomed
+						? html`<gl-tooltip placement="left" content="Exit Zoom">
 								<button
 									type="button"
 									class="minimap-settings__trigger"
-									aria-label="Zoom to Scope"
-									@click=${this.handleEnterZoom}
+									aria-label="Exit Zoom"
+									@click=${this.handleExitZoom}
 								>
-									<code-icon icon="zoom-in" size="16"></code-icon>
+									<code-icon icon="zoom-out" size="16"></code-icon>
 								</button>
 							</gl-tooltip>`
-						: nothing}
+						: this.scopeWindow != null
+							? html`<gl-tooltip placement="left" content="Zoom to Scope">
+									<button
+										type="button"
+										class="minimap-settings__trigger"
+										aria-label="Zoom to Scope"
+										@click=${this.handleEnterZoom}
+									>
+										<code-icon icon="zoom-in" size="16"></code-icon>
+									</button>
+								</gl-tooltip>`
+							: nothing
+				}
 			</div>`;
 	}
 

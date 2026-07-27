@@ -60,20 +60,17 @@ export class GlRefButton extends LitElement {
 			href=${ifDefined(this.href)}
 			?disabled=${this.disabled}
 			truncate
-			>${this.ref == null
-				? html`<slot name="empty">&lt;missing&gt;</slot>`
-				: html`<gl-ref-name
-						part="label"
-						?icon=${this.icon}
-						.ref=${this.ref}
-						.size=${this.size}
-						?worktree=${this.worktree}
-					></gl-ref-name>`}<code-icon
-				slot="suffix"
-				class="picker-icon"
-				icon="chevron-down"
-				size="10"
-			></code-icon
+			>${
+				this.ref == null
+					? html`<slot name="empty">&lt;missing&gt;</slot>`
+					: html`<gl-ref-name
+							part="label"
+							?icon=${this.icon}
+							.ref=${this.ref}
+							.size=${this.size}
+							?worktree=${this.worktree}
+						></gl-ref-name>`
+			}<code-icon slot="suffix" class="picker-icon" icon="chevron-down" size="10"></code-icon
 			><slot name="tooltip" slot="tooltip"></slot
 		></gl-button>`;
 	}

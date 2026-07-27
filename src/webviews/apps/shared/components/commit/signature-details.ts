@@ -180,9 +180,11 @@ export class GlSignatureDetails extends LitElement {
 					></gl-signature-badge>
 					<div class="signature-status-text">
 						<div class="signature-status-message">
-							${info.text}${info.description
-								? html`<span class="signature-status-description">${info.description}</span>`
-								: nothing}
+							${info.text}${
+								info.description
+									? html`<span class="signature-status-description">${info.description}</span>`
+									: nothing
+							}
 						</div>
 						${info.detail ? html`<div class="signature-status-detail">${info.detail}</div>` : nothing}
 						${this.renderKeyLine()} ${this.renderAddAction()}

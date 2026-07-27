@@ -453,13 +453,13 @@ export function renderRefPill(
 	const moreBadge =
 		otherCount > 0 || tagCount > 0
 			? html`<span class="gl-graph__ref-pill-more-group" aria-hidden="true"
-					>${otherCount > 0
-						? html`<span class="gl-graph__ref-pill-more">+${otherCount}</span>`
-						: nothing}${tagCount > 0
-						? html`<span class="gl-graph__ref-pill-more gl-graph__ref-pill-more--tags"
-								><code-icon icon="tag"></code-icon>+${tagCount}</span
-							>`
-						: nothing}</span
+					>${otherCount > 0 ? html`<span class="gl-graph__ref-pill-more">+${otherCount}</span>` : nothing}${
+						tagCount > 0
+							? html`<span class="gl-graph__ref-pill-more gl-graph__ref-pill-more--tags"
+									><code-icon icon="tag"></code-icon>+${tagCount}</span
+								>`
+							: nothing
+					}</span
 				>`
 			: nothing;
 	// The WIP-row pill is a PROXY for the HEAD branch pill shown on the WIP row: `data-jump-sha` makes a click
@@ -708,9 +708,9 @@ function renderTargetSegment(
 			hooks?.onJumpToRef(sha);
 		}}
 	>
-		<code-icon class="gl-graph__ref-pill-upstream-icon" icon="gl-merge-target"></code-icon>${expanded
-			? html`<span class="gl-graph__ref-pill-target-label">${label}</span>`
-			: nothing}
+		<code-icon class="gl-graph__ref-pill-upstream-icon" icon="gl-merge-target"></code-icon>${
+			expanded ? html`<span class="gl-graph__ref-pill-target-label">${label}</span>` : nothing
+		}
 	</button>`;
 }
 

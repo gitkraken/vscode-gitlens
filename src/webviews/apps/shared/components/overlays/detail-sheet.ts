@@ -344,15 +344,17 @@ export class GlDetailSheet extends LitElement {
 					</div>
 					<div class="sheet__actions" part="actions">
 						<slot name="actions"></slot>
-						${this.dismissible
-							? html`<gl-action-chip
-									icon="close"
-									label=${this.closeLabel}
-									overlay="tooltip"
-									aria-label=${this.closeLabel}
-									@click=${this.requestClose}
-								></gl-action-chip>`
-							: nothing}
+						${
+							this.dismissible
+								? html`<gl-action-chip
+										icon="close"
+										label=${this.closeLabel}
+										overlay="tooltip"
+										aria-label=${this.closeLabel}
+										@click=${this.requestClose}
+									></gl-action-chip>`
+								: nothing
+						}
 					</div>
 				</header>
 				<div class="sheet__body" part="body">

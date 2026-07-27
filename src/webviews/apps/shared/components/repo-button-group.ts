@@ -369,66 +369,78 @@ export class GlRepoButtonGroup extends GlElement {
 
 		return html`
 			${this.renderProviderIcon()}
-			${this.hasMultipleRepositories
-				? html`<span class="truncated-button__sizer" aria-hidden="true">${this.displayName}</span>
-						<gl-button
-							class="truncated-button__compact-sizer"
-							appearance="toolbar"
-							aria-hidden="true"
-							?disabled=${true}
-						>
-							${this.icon
-								? html`<code-icon
-										slot="prefix"
-										class="repo-icon-fallback"
-										icon="gl-repository"
-										aria-hidden="true"
-									></code-icon>`
-								: nothing}
-							<code-icon
-								slot="suffix"
-								class="picker-icon"
-								icon="chevron-down"
+			${
+				this.hasMultipleRepositories
+					? html`<span class="truncated-button__sizer" aria-hidden="true">${this.displayName}</span>
+							<gl-button
+								class="truncated-button__compact-sizer"
+								appearance="toolbar"
 								aria-hidden="true"
-							></code-icon>
-						</gl-button>`
-				: nothing}
-			${hideLabel
-				? nothing
-				: html`<gl-button
-						class=${showRepoIconFallback
-							? 'truncated-button truncated-button--icon-fallback'
-							: 'truncated-button'}
-						part="label"
-						appearance="toolbar"
-						?disabled=${this.disabled}
-						truncate
-						@click=${(event: MouseEvent) =>
-							this.emit('gl-click', {
-								event: event,
-								part: 'label',
-								repository: this.repository!,
-							})}
-					>
-						${showRepoIconFallback
-							? html`<code-icon
-									slot="prefix"
-									class="repo-icon-fallback"
-									icon="gl-repository"
-									aria-hidden="true"
-								></code-icon>`
-							: nothing}
-						<span class="truncated-button__label">${this.displayName}</span>
-						${this.hasMultipleRepositories
-							? html`<code-icon
+								?disabled=${true}
+							>
+								${
+									this.icon
+										? html`<code-icon
+												slot="prefix"
+												class="repo-icon-fallback"
+												icon="gl-repository"
+												aria-hidden="true"
+											></code-icon>`
+										: nothing
+								}
+								<code-icon
 									slot="suffix"
 									class="picker-icon"
 									icon="chevron-down"
 									aria-hidden="true"
-								></code-icon>`
-							: nothing}
-						<slot name="tooltip" slot="tooltip">${this.displayName}</slot>
-					</gl-button>`}
+								></code-icon>
+							</gl-button>`
+					: nothing
+			}
+			${
+				hideLabel
+					? nothing
+					: html`<gl-button
+							class=${
+								showRepoIconFallback
+									? 'truncated-button truncated-button--icon-fallback'
+									: 'truncated-button'
+							}
+							part="label"
+							appearance="toolbar"
+							?disabled=${this.disabled}
+							truncate
+							@click=${(event: MouseEvent) =>
+								this.emit('gl-click', {
+									event: event,
+									part: 'label',
+									repository: this.repository!,
+								})}
+						>
+							${
+								showRepoIconFallback
+									? html`<code-icon
+											slot="prefix"
+											class="repo-icon-fallback"
+											icon="gl-repository"
+											aria-hidden="true"
+										></code-icon>`
+									: nothing
+							}
+							<span class="truncated-button__label">${this.displayName}</span>
+							${
+								this.hasMultipleRepositories
+									? html`<code-icon
+											slot="suffix"
+											class="picker-icon"
+											icon="chevron-down"
+											aria-hidden="true"
+										></code-icon>`
+									: nothing
+							}
+							<slot name="tooltip" slot="tooltip">${this.displayName}</slot>
+						</gl-button>`
+			}
 		`;
 	}
 

@@ -865,11 +865,15 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				<div class="header__identity-left">
 					<span class="header__wip-title">Working Changes</span>
 					<span class="header__wip-subtitle">
-						${this.worktreePath
-							? html`<code-icon icon="folder"></code-icon> ${this.worktreePath}`
-							: html`${stagedCount > 0 || unstagedCount > 0
-									? `${stagedCount} staged · ${unstagedCount} unstaged`
-									: 'No changes'}`}
+						${
+							this.worktreePath
+								? html`<code-icon icon="folder"></code-icon> ${this.worktreePath}`
+								: html`${
+										stagedCount > 0 || unstagedCount > 0
+											? `${stagedCount} staged · ${unstagedCount} unstaged`
+											: 'No changes'
+									}`
+						}
 					</span>
 				</div>
 				<div class="header__identity-right">
@@ -885,16 +889,20 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				</div>
 			</div>
 			<div class="header__branch-row">
-				${branchName
-					? html`<gl-branch-name
-							class="header__branch-pill"
-							appearance="pill"
-							.name=${branchName}
-						></gl-branch-name>`
-					: nothing}
-				${filesCount > 0
-					? html`<commit-stats modified="${filesCount}" symbol="icons" appearance="pill"></commit-stats>`
-					: nothing}
+				${
+					branchName
+						? html`<gl-branch-name
+								class="header__branch-pill"
+								appearance="pill"
+								.name=${branchName}
+							></gl-branch-name>`
+						: nothing
+				}
+				${
+					filesCount > 0
+						? html`<commit-stats modified="${filesCount}" symbol="icons" appearance="pill"></commit-stats>`
+						: nothing
+				}
 			</div>
 			${this.renderPausedOpStatus()}
 		</div>`;

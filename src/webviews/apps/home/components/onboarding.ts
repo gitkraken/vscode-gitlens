@@ -59,16 +59,18 @@ export class GlOnboarding extends SignalWatcher(LitElement) {
 		const progress = this._onboarding.walkthroughProgress.get();
 		if (progress == null) return undefined;
 
-		return html`${this.isWalkthroughComplete
-				? html`<gl-button
-						@click=${this.onDismissWalkthrough}
-						class="walkthrough-progress__button"
-						appearance="toolbar"
-						tooltip="Dismiss"
-						aria-label="Dismiss"
-						><code-icon icon="x"></code-icon
-					></gl-button>`
-				: nothing}
+		return html`${
+				this.isWalkthroughComplete
+					? html`<gl-button
+							@click=${this.onDismissWalkthrough}
+							class="walkthrough-progress__button"
+							appearance="toolbar"
+							tooltip="Dismiss"
+							aria-label="Dismiss"
+							><code-icon icon="x"></code-icon
+						></gl-button>`
+					: nothing
+			}
 			<gl-tooltip placement="bottom">
 				<a class="walkthrough-progress" href=${createCommandLink('gitlens.showWelcomeView')}>
 					<header class="walkthrough-progress__title">

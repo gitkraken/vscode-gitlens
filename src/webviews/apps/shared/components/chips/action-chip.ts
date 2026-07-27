@@ -217,9 +217,15 @@ export class ActionChip extends LitElement {
 				flip="${ifDefined(this.iconFlip)}"
 				modifier="${ifDefined(icon === 'loading' ? 'spin' : '')}"
 			></code-icon
-			>${this.activeIcon
-				? html`<code-icon class="chip__icon-active" part="active-icon" icon="${this.activeIcon}"></code-icon>`
-				: nothing}`;
+			>${
+				this.activeIcon
+					? html`<code-icon
+							class="chip__icon-active"
+							part="active-icon"
+							icon="${this.activeIcon}"
+						></code-icon>`
+					: nothing
+			}`;
 
 		const href = this.effectiveHref;
 		const ariaLabel = this.effectiveLabel;

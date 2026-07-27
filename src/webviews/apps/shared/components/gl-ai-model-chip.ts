@@ -134,19 +134,23 @@ export class GlAiModelChip extends LitElement {
 					<code-icon icon="chevron-down" class="chip__chevron" aria-hidden="true"></code-icon>
 				</button>
 				<span slot="content"
-					>${canonical != null
-						? html`Switch AI Model
-								<hr />
-								${canonical}`
-						: 'Choose AI Model'}</span
+					>${
+						canonical != null
+							? html`Switch AI Model
+									<hr />
+									${canonical}`
+							: 'Choose AI Model'
+					}</span
 				>
 			</gl-tooltip>
-			${model?.consumptionRateLabel
-				? html`<span class="chip__rate"
-						><code-icon icon="zap" class="chip__rate-icon" aria-hidden="true"></code-icon
-						>${model.consumptionRateLabel}</span
-					>`
-				: nothing}`;
+			${
+				model?.consumptionRateLabel
+					? html`<span class="chip__rate"
+							><code-icon icon="zap" class="chip__rate-icon" aria-hidden="true"></code-icon
+							>${model.consumptionRateLabel}</span
+						>`
+					: nothing
+			}`;
 	}
 
 	private onClick = (e: Event): void => {

@@ -375,11 +375,13 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				<code-icon icon=${icon}></code-icon>
 			</span>
 			<span class="mode-menu-item__label">${label}</span>
-			${description != null
-				? html`<gl-tooltip placement="right" content=${description}>
-						<code-icon class="mode-menu-item__info" icon="info"></code-icon>
-					</gl-tooltip>`
-				: nothing}
+			${
+				description != null
+					? html`<gl-tooltip placement="right" content=${description}>
+							<code-icon class="mode-menu-item__info" icon="info"></code-icon>
+						</gl-tooltip>`
+					: nothing
+			}
 		</menu-item>`;
 	}
 
@@ -389,9 +391,9 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		const expanded = this._focusBranchExpanded;
 
 		return html`<menu-item
-				class="mode-menu-item mode-menu-item--focus ${isCurrent ? 'mode-menu-item--current' : ''} ${expanded
-					? 'mode-menu-item--expanded'
-					: ''}"
+				class="mode-menu-item mode-menu-item--focus ${isCurrent ? 'mode-menu-item--current' : ''} ${
+					expanded ? 'mode-menu-item--expanded' : ''
+				}"
 				aria-expanded=${expanded ? 'true' : 'false'}
 				@click=${this.handleFocusBranchRowClick}
 			>
@@ -399,13 +401,15 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					<code-icon icon="target"></code-icon>
 				</span>
 				<span class="mode-menu-item__label">Focus Branch</span>
-				${scopedName != null
-					? html`<gl-branch-name
-							class="mode-menu-item__branch"
-							.name=${scopedName}
-							.size=${11}
-						></gl-branch-name>`
-					: nothing}
+				${
+					scopedName != null
+						? html`<gl-branch-name
+								class="mode-menu-item__branch"
+								.name=${scopedName}
+								.size=${11}
+							></gl-branch-name>`
+						: nothing
+				}
 				<code-icon
 					class="mode-menu-item__chevron"
 					icon=${expanded ? 'chevron-down' : 'chevron-right'}

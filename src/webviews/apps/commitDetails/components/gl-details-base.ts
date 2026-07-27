@@ -136,33 +136,41 @@ export class GlDetailsBase extends LitElement {
 				@file-selection-changed=${(e: CustomEvent<{ files: readonly GitFileChangeShape[] }>) =>
 					(this._selectedFiles = e.detail?.files ?? [])}
 			>
-				${options?.stats
-					? html`<span class="commit-stats-subtitle" slot="subtitle"
-							>${this.renderCommitStats(options.stats)}</span
-						>`
-					: nothing}
-				${multiDiff != null && (this.files?.length ?? 0) > 0
-					? renderOpenChangesAction({
-							selectedCount: this._selectedFiles.length,
-							slot: 'leading-actions',
-							onOpenAll: () => this.onOpenMultiDiff(multiDiff),
-							onOpenSelected: () => this.onOpenSelectedChanges(multiDiff),
-						})
-					: nothing}
-				${multiDiff != null && !multiDiff.wip && (this.files?.length ?? 0) > 0
-					? renderCopyChangesAction({
-							repoPath: multiDiff.repoPath,
-							to: multiDiff.rhs,
-							from: multiDiff.lhs || undefined,
-							slot: 'leading-actions',
-						})
-					: nothing}
-				${isLoadingEmpty
-					? html`<div slot="before-tree" class="files-loading" aria-busy="true">
-							<code-icon icon="loading" modifier="spin"></code-icon>
-							<span>Loading…</span>
-						</div>`
-					: nothing}
+				${
+					options?.stats
+						? html`<span class="commit-stats-subtitle" slot="subtitle"
+								>${this.renderCommitStats(options.stats)}</span
+							>`
+						: nothing
+				}
+				${
+					multiDiff != null && (this.files?.length ?? 0) > 0
+						? renderOpenChangesAction({
+								selectedCount: this._selectedFiles.length,
+								slot: 'leading-actions',
+								onOpenAll: () => this.onOpenMultiDiff(multiDiff),
+								onOpenSelected: () => this.onOpenSelectedChanges(multiDiff),
+							})
+						: nothing
+				}
+				${
+					multiDiff != null && !multiDiff.wip && (this.files?.length ?? 0) > 0
+						? renderCopyChangesAction({
+								repoPath: multiDiff.repoPath,
+								to: multiDiff.rhs,
+								from: multiDiff.lhs || undefined,
+								slot: 'leading-actions',
+							})
+						: nothing
+				}
+				${
+					isLoadingEmpty
+						? html`<div slot="before-tree" class="files-loading" aria-busy="true">
+								<code-icon icon="loading" modifier="spin"></code-icon>
+								<span>Loading…</span>
+							</div>`
+						: nothing
+				}
 				${this.renderChangedFilesSlottedContent()}
 			</gl-file-tree-pane>
 		`;

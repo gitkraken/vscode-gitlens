@@ -423,46 +423,50 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 					@input=${this.handleInput}
 					@keydown=${this.handleKeyDown}
 				/>
-				${tokens != null
-					? html`<gl-popover trigger="click" placement="bottom-end">
-							<button
-								slot="anchor"
-								type="button"
-								class="tokens-trigger"
-								aria-label="Insert a token"
-								?disabled=${this.disabled}
-							>
-								<code-icon icon="chevron-down" aria-hidden="true"></code-icon>
-							</button>
-							<div slot="content" class="tokens" role="group" aria-label="Available tokens">
-								<h3 class="tokens__title">Insert token</h3>
-								${tokens.map(t => {
-									// Commit tokens insert wrapped in `${…}`; date tokens insert bare
-									// oxlint-disable-next-line prefer-template -- a template literal would need `\${` escaping, which is harder to read
-									const text = tokenMode === 'date' ? t.token : '${' + t.token + '}';
-									// Plain action buttons (insert on click) — not listbox options,
-									// which would imply arrow-key selection semantics
-									return html`<button
-										type="button"
-										class="token"
-										@click=${() => this.insertToken(text)}
-									>
-										<code>${text}</code><span>${t.label}</span>
-									</button>`;
-								})}
-								<span class="tokens__hint">
-									<a href=${tokensDocsUrl} title="Open formatting docs">Learn more</a>
-									about formatting options
-								</span>
-							</div>
-						</gl-popover>`
-					: nothing}
+				${
+					tokens != null
+						? html`<gl-popover trigger="click" placement="bottom-end">
+								<button
+									slot="anchor"
+									type="button"
+									class="tokens-trigger"
+									aria-label="Insert a token"
+									?disabled=${this.disabled}
+								>
+									<code-icon icon="chevron-down" aria-hidden="true"></code-icon>
+								</button>
+								<div slot="content" class="tokens" role="group" aria-label="Available tokens">
+									<h3 class="tokens__title">Insert token</h3>
+									${tokens.map(t => {
+										// Commit tokens insert wrapped in `${…}`; date tokens insert bare
+										// oxlint-disable-next-line prefer-template -- a template literal would need `\${` escaping, which is harder to read
+										const text = tokenMode === 'date' ? t.token : '${' + t.token + '}';
+										// Plain action buttons (insert on click) — not listbox options,
+										// which would imply arrow-key selection semantics
+										return html`<button
+											type="button"
+											class="token"
+											@click=${() => this.insertToken(text)}
+										>
+											<code>${text}</code><span>${t.label}</span>
+										</button>`;
+									})}
+									<span class="tokens__hint">
+										<a href=${tokensDocsUrl} title="Open formatting docs">Learn more</a>
+										about formatting options
+									</span>
+								</div>
+							</gl-popover>`
+						: nothing
+				}
 			</div>
-			${d.preview != null
-				? html`<p class="example" aria-live="polite" aria-atomic="true">
-						<span>Example:</span>
-						<span class="example__text">${this._example || '—'}</span>
-					</p>`
-				: nothing}`;
+			${
+				d.preview != null
+					? html`<p class="example" aria-live="polite" aria-atomic="true">
+							<span>Example:</span>
+							<span class="example__text">${this._example || '—'}</span>
+						</p>`
+					: nothing
+			}`;
 	}
 }

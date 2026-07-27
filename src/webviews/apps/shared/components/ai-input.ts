@@ -613,9 +613,9 @@ export class GlAiInput extends LitElement {
 
 	private renderActionButton() {
 		return html`<gl-tooltip
-			content=${this.disabled && this.disabledReason
-				? this.disabledReason
-				: (this.buttonTooltip ?? this.buttonLabel)}
+			content=${
+				this.disabled && this.disabledReason ? this.disabledReason : (this.buttonTooltip ?? this.buttonLabel)
+			}
 			placement="bottom"
 			><button
 				class="action-btn"
@@ -627,12 +627,14 @@ export class GlAiInput extends LitElement {
 				?disabled=${this.busy}
 				@click=${this.onSubmit}
 			>
-				${this.busy
-					? html`<code-icon icon="loading" modifier="spin"></code-icon>`
-					: html`<span class="icon-slider"
-							><code-icon class="icon-sparkle" icon="sparkle"></code-icon
-							><code-icon class="icon-send" icon="send"></code-icon
-						></span>`}
+				${
+					this.busy
+						? html`<code-icon icon="loading" modifier="spin"></code-icon>`
+						: html`<span class="icon-slider"
+								><code-icon class="icon-sparkle" icon="sparkle"></code-icon
+								><code-icon class="icon-send" icon="send"></code-icon
+							></span>`
+				}
 				<span class="action-label">${this.buttonLabel}</span>
 			</button></gl-tooltip
 		>`;
@@ -640,9 +642,9 @@ export class GlAiInput extends LitElement {
 
 	private renderDetachedButton() {
 		return html`<gl-tooltip
-			content=${this.disabled && this.disabledReason
-				? this.disabledReason
-				: (this.buttonTooltip ?? this.buttonLabel)}
+			content=${
+				this.disabled && this.disabledReason ? this.disabledReason : (this.buttonTooltip ?? this.buttonLabel)
+			}
 			placement="top"
 			><button
 				class="detached-btn"

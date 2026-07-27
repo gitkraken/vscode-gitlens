@@ -127,19 +127,21 @@ export class GitActionsButtons extends LitElement {
 		}
 
 		return html`Jump to WIP
-		${this.hasWorkingChanges
-			? html`
-					<hr />
-					Working Changes
-					<br />
-					${stats!.added ? html`${pluralize('file', stats!.added)} added<br />` : nothing}
-					${stats!.modified ? html`${pluralize('file', stats!.modified)} modified<br />` : nothing}
-					${stats!.deleted ? html`${pluralize('file', stats!.deleted)} deleted<br />` : nothing}
-				`
-			: html`
-					<hr />
-					No changes
-				`}`;
+		${
+			this.hasWorkingChanges
+				? html`
+						<hr />
+						Working Changes
+						<br />
+						${stats!.added ? html`${pluralize('file', stats!.added)} added<br />` : nothing}
+						${stats!.modified ? html`${pluralize('file', stats!.modified)} modified<br />` : nothing}
+						${stats!.deleted ? html`${pluralize('file', stats!.deleted)} deleted<br />` : nothing}
+					`
+				: html`
+						<hr />
+						No changes
+					`
+		}`;
 	}
 
 	override render() {
@@ -150,12 +152,14 @@ export class GitActionsButtons extends LitElement {
 				.fetchedText=${this.fetchedText}
 				.branchName=${this.branchName}
 			></gl-push-pull-button>
-			${this.branchState != null && this.branchState.upstream == null
-				? html`<gl-publish-button
-						.branchState=${this.branchState}
-						.branchName=${this.branchName}
-					></gl-publish-button>`
-				: nothing}
+			${
+				this.branchState != null && this.branchState.upstream == null
+					? html`<gl-publish-button
+							.branchState=${this.branchState}
+							.branchName=${this.branchName}
+						></gl-publish-button>`
+					: nothing
+			}
 			<gl-fetch-button
 				.branchState=${this.branchState}
 				.fetchedText=${this.fetchedText}
@@ -180,18 +184,20 @@ export class GitActionsButtons extends LitElement {
 				</a>
 				<span slot="content">${this.renderWipTooltip()}</span>
 			</gl-tooltip>
-			${this.hasWorkingChanges
-				? html`<gl-button
-						appearance="toolbar"
-						href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
-							repoPath: this.state.selectedRepository,
-						})}
-						aria-label="Stash Changes..."
-						tooltip="Stash Changes..."
-					>
-						<code-icon icon="gl-stash-save"></code-icon>
-					</gl-button>`
-				: nothing}
+			${
+				this.hasWorkingChanges
+					? html`<gl-button
+							appearance="toolbar"
+							href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
+								repoPath: this.state.selectedRepository,
+							})}
+							aria-label="Stash Changes..."
+							tooltip="Stash Changes..."
+						>
+							<code-icon icon="gl-stash-save"></code-icon>
+						</gl-button>`
+					: nothing
+			}
 		`;
 	}
 }
@@ -377,20 +383,26 @@ export class GlFetchButton extends LitElement {
 				>
 					<code-icon class="action-button__icon" icon="repo-fetch"></code-icon>
 					<span class="action-button__text"
-						><span class="action-button__label">Fetch</span>${this.fetchedTextShort
-							? html` <span class="action-button__small">(${this.fetchedTextShort})</span>`
-							: ''}</span
+						><span class="action-button__label">Fetch</span>${
+							this.fetchedTextShort
+								? html` <span class="action-button__small">(${this.fetchedTextShort})</span>`
+								: ''
+						}</span
 					>
 				</a>
 				<div slot="content" class="fetch-popover__menu" role="menu">
 					<div class="fetch-popover__info">
 						Fetch from
-						${this.upstream}${this.branchState?.provider?.name
-							? html` on ${this.branchState.provider.name}`
-							: nothing}
-						${this.fetchedText
-							? html`<div class="fetch-popover__info-secondary">Last fetched ${this.fetchedText}</div>`
-							: nothing}
+						${this.upstream}${
+							this.branchState?.provider?.name ? html` on ${this.branchState.provider.name}` : nothing
+						}
+						${
+							this.fetchedText
+								? html`<div class="fetch-popover__info-secondary">
+										Last fetched ${this.fetchedText}
+									</div>`
+								: nothing
+						}
 					</div>
 					<menu-divider class="fetch-popover__divider"></menu-divider>
 					${this.renderAutoFetchRow()}
@@ -577,39 +589,51 @@ export class PushPullButton extends LitElement {
 					${label}
 					<span>
 						<span class="pill action-button__pill">
-							${this.isBehind
-								? html`<span>${this.branchState.behind}<code-icon icon="arrow-down"></code-icon></span>`
-								: ''}
-							${this.isAhead
-								? html`<span>${this.branchState.ahead}<code-icon icon="arrow-up"></code-icon></span>`
-								: ''}
+							${
+								this.isBehind
+									? html`<span
+											>${this.branchState.behind}<code-icon icon="arrow-down"></code-icon
+										></span>`
+									: ''
+							}
+							${
+								this.isAhead
+									? html`<span
+											>${this.branchState.ahead}<code-icon icon="arrow-up"></code-icon
+										></span>`
+									: ''
+							}
 						</span>
 					</span>
 				</a>
 				<div slot="content">
 					${this.renderTooltipContent(action)}
-					${this.fetchedText
-						? html`<hr />
-								Last fetched ${this.fetchedText}`
-						: ''}
+					${
+						this.fetchedText
+							? html`<hr />
+									Last fetched ${this.fetchedText}`
+							: ''
+					}
 				</div>
 			</gl-tooltip>
-			${this.isAhead && this.isBehind
-				? html`
-						<gl-button
-							appearance="toolbar"
-							href=${this._webview.createCommandLink('gitlens.graph.pushWithForce')}
-							aria-label="Force Push"
-							tooltipPlacement="top"
-						>
-							<code-icon icon="repo-force-push" aria-hidden="true"></code-icon>
-							<span slot="tooltip">
-								Force Push ${pluralize('commit', this.branchState?.ahead)} to ${this.upstream}
-								${this.branchState?.provider?.name ? html` on ${this.branchState.provider.name}` : ''}
-							</span>
-						</gl-button>
-					`
-				: ''}
+			${
+				this.isAhead && this.isBehind
+					? html`
+							<gl-button
+								appearance="toolbar"
+								href=${this._webview.createCommandLink('gitlens.graph.pushWithForce')}
+								aria-label="Force Push"
+								tooltipPlacement="top"
+							>
+								<code-icon icon="repo-force-push" aria-hidden="true"></code-icon>
+								<span slot="tooltip">
+									Force Push ${pluralize('commit', this.branchState?.ahead)} to ${this.upstream}
+									${this.branchState?.provider?.name ? html` on ${this.branchState.provider.name}` : ''}
+								</span>
+							</gl-button>
+						`
+					: ''
+			}
 		`;
 	}
 }

@@ -1833,13 +1833,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				)}
 				<div class="graph__workspace">
 					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
-					${noRepos
-						? html`<gl-graph-empty-state class="graph__empty-state"></gl-graph-empty-state>`
-						: html`
-								<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
-								<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
-								<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
-							`}
+					${
+						noRepos
+							? html`<gl-graph-empty-state class="graph__empty-state"></gl-graph-empty-state>`
+							: html`
+									<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
+									<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
+									<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
+								`
+					}
 				</div>
 			</div>
 		`;
@@ -1973,15 +1975,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 								.useNewEngine=${this.graphState.config?.useNewEngine === true}
 							></gl-graph-keyboard-shortcuts>`,
 				)}
-				${this.graphState.config?.sidebar
-					? this.renderSidebarSplit(!isGraphMode)
-					: html`<div class="graph__graph-content" ?hidden=${!isGraphMode}>${this.renderGraphMain()}</div>`}
-				${displayMode === 'visualizations'
-					? html`<div class="graph__graph-content">${this.renderVisualizationsMain()}</div>`
-					: nothing}
-				${displayMode === 'kanban'
-					? html`<div class="graph__graph-content">${this.renderKanbanMain()}</div>`
-					: nothing}
+				${
+					this.graphState.config?.sidebar
+						? this.renderSidebarSplit(!isGraphMode)
+						: html`<div class="graph__graph-content" ?hidden=${!isGraphMode}>
+								${this.renderGraphMain()}
+							</div>`
+				}
+				${
+					displayMode === 'visualizations'
+						? html`<div class="graph__graph-content">${this.renderVisualizationsMain()}</div>`
+						: nothing
+				}
+				${
+					displayMode === 'kanban'
+						? html`<div class="graph__graph-content">${this.renderKanbanMain()}</div>`
+						: nothing
+				}
 				${when(
 					this.shouldShowLayoutPrompt,
 					// Living inside the graph subtree means the no-repo empty state skips the prompt —
@@ -2196,9 +2206,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.refMetadata=${this.graphState.refsMetadata}
 					.searchResults=${this.graphState.searchResults}
 					.scopeWindow=${this.deriveScopeWindow()}
-					.visibleDays=${this.graphState.visibleDays
-						? { ...this.graphState.visibleDays } // Need to clone the object since it is a signal proxy
-						: undefined}
+					.visibleDays=${
+						this.graphState.visibleDays
+							? { ...this.graphState.visibleDays } // Need to clone the object since it is a signal proxy
+							: undefined
+					}
 					.wipMetadataBySha=${this.graphState.wipMetadataBySha}
 					@gl-graph-minimap-selected=${this.handleMinimapDaySelected}
 					@gl-graph-minimap-config-change=${this.handleMinimapConfigChange}
@@ -2226,18 +2238,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				: undefined;
 		return html`
 			<div class="graph__graph-column" slot=${ifDefined(slot)}>
-				${overviewItems.length > 0
-					? html`
-							<gl-graph-overview-bar
-								.items=${overviewItems}
-								.selectedId=${selectedWipId}
-								.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
-								@gl-graph-overview-bar-jump=${this.handleOverviewBarJump}
-								@gl-graph-overview-bar-select=${this.handleOverviewBarSelect}
-								@gl-graph-overview-bar-stats-needed=${this.handleOverviewBarStatsNeeded}
-							></gl-graph-overview-bar>
-						`
-					: nothing}
+				${
+					overviewItems.length > 0
+						? html`
+								<gl-graph-overview-bar
+									.items=${overviewItems}
+									.selectedId=${selectedWipId}
+									.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
+									@gl-graph-overview-bar-jump=${this.handleOverviewBarJump}
+									@gl-graph-overview-bar-select=${this.handleOverviewBarSelect}
+									@gl-graph-overview-bar-stats-needed=${this.handleOverviewBarStatsNeeded}
+								></gl-graph-overview-bar>
+							`
+						: nothing
+				}
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}
 					.rowMarkerMergeTarget=${this.graphState.rowMarkerMergeTarget}

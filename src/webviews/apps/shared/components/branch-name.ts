@@ -133,9 +133,9 @@ export class GlBranchName extends LitElement {
 	override render(): unknown {
 		const icon = this.icon ?? (this.worktree ? 'gl-worktree' : 'git-branch');
 		return html`<code-icon class="icon" icon="${icon}" size="${this.size}"></code-icon
-			><span class="label">${this.name ?? '<missing>'}</span>${this.chevron
-				? html`<code-icon class="chevron" icon="chevron-down" size="12"></code-icon>`
-				: nothing}`;
+			><span class="label">${this.name ?? '<missing>'}</span>${
+				this.chevron ? html`<code-icon class="chevron" icon="chevron-down" size="12"></code-icon>` : nothing
+			}`;
 	}
 }
 

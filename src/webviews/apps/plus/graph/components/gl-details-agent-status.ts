@@ -888,13 +888,15 @@ export class GlDetailsAgentStatus extends LitElement {
 									class=${`section__cluster-dot section__cluster-dot--${agentPhaseToCategory[s.phase]}`}
 								></span>`,
 						)}
-						${overflow > 0
-							? html`<span
-									class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
-								>
-									+${overflow}
-								</span>`
-							: nothing}
+						${
+							overflow > 0
+								? html`<span
+										class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
+									>
+										+${overflow}
+									</span>`
+								: nothing
+						}
 					</span>
 					<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
 				</span>
@@ -918,9 +920,13 @@ export class GlDetailsAgentStatus extends LitElement {
 		return html`
 			<div class="section" data-expand=${this.expand}>
 				${this.renderSectionHeading(sessions, counts)}
-				${visible.length > 0
-					? html`<div id="section__list" class="section__list">${visible.map(s => this.renderCard(s))}</div>`
-					: nothing}
+				${
+					visible.length > 0
+						? html`<div id="section__list" class="section__list">
+								${visible.map(s => this.renderCard(s))}
+							</div>`
+						: nothing
+				}
 				${showPast ? this.renderPastSection(past) : nothing}
 			</div>
 		`;
@@ -949,9 +955,9 @@ export class GlDetailsAgentStatus extends LitElement {
 		});
 		// Mirrors a live card's `{phase} · {elapsed}`. "Ended" is all we can honestly say — the store
 		// keeps no exit reason, only that nothing is running.
-		const stateContent = html`Ended${elapsed != null
-			? html` · <span class="agent-phase-elapsed">${elapsed}</span>`
-			: nothing}`;
+		const stateContent = html`Ended${
+			elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : nothing
+		}`;
 
 		return html`
 			<div class="section__past-row" data-session-id=${session.id}>
@@ -961,17 +967,21 @@ export class GlDetailsAgentStatus extends LitElement {
 						<gl-tooltip content=${session.displayName} placement="bottom">
 							<span class="section__past-name">${session.displayName}</span>
 						</gl-tooltip>
-						${elapsed != null
-							? html`<gl-tooltip content=${`Last active ${elapsed} ago`} placement="bottom">
-									<span class="card__phase">${stateContent}</span>
-								</gl-tooltip>`
-							: html`<span class="card__phase">${stateContent}</span>`}
+						${
+							elapsed != null
+								? html`<gl-tooltip content=${`Last active ${elapsed} ago`} placement="bottom">
+										<span class="card__phase">${stateContent}</span>
+									</gl-tooltip>`
+								: html`<span class="card__phase">${stateContent}</span>`
+						}
 					</div>
-					${session.lastPrompt
-						? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
-								<span class="section__past-prompt">${session.lastPrompt}</span>
-							</gl-tooltip>`
-						: nothing}
+					${
+						session.lastPrompt
+							? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
+									<span class="section__past-prompt">${session.lastPrompt}</span>
+								</gl-tooltip>`
+							: nothing
+					}
 				</div>
 				<gl-action-chip
 					icon="debug-restart"
@@ -1045,13 +1055,15 @@ export class GlDetailsAgentStatus extends LitElement {
 											class=${`section__cluster-dot section__cluster-dot--${agentPhaseToCategory[s.phase]}`}
 										></span>`,
 								)}
-								${overflow > 0
-									? html`<span
-											class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
-										>
-											+${overflow}
-										</span>`
-									: nothing}
+								${
+									overflow > 0
+										? html`<span
+												class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
+											>
+												+${overflow}
+											</span>`
+										: nothing
+								}
 							</span>
 							<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
 						</span>
@@ -1171,9 +1183,9 @@ export class GlDetailsAgentStatus extends LitElement {
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const permission = session.pendingPermission;
 		const phaseLabel = getAgentPhaseLabel(category, permission);
-		const phaseContent = html`${phaseLabel}${elapsed != null
-			? html` · <span class="agent-phase-elapsed">${elapsed}</span>`
-			: nothing}`;
+		const phaseContent = html`${phaseLabel}${
+			elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : nothing
+		}`;
 		const phaseTooltip = elapsed != null ? `Last active ${elapsed} ago` : undefined;
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
 		// Resolve actions surface whenever a pending permission exists. Peer-discovered sessions
@@ -1194,11 +1206,13 @@ export class GlDetailsAgentStatus extends LitElement {
 						<gl-tooltip content=${session.displayName} placement="bottom">
 							<span class="card__name">${session.displayName}</span>
 						</gl-tooltip>
-						${phaseTooltip != null
-							? html`<gl-tooltip content=${phaseTooltip} placement="bottom">
-									<span class=${`card__phase card__phase--${category}`}>${phaseContent}</span>
-								</gl-tooltip>`
-							: html`<span class=${`card__phase card__phase--${category}`}>${phaseContent}</span>`}
+						${
+							phaseTooltip != null
+								? html`<gl-tooltip content=${phaseTooltip} placement="bottom">
+										<span class=${`card__phase card__phase--${category}`}>${phaseContent}</span>
+									</gl-tooltip>`
+								: html`<span class=${`card__phase card__phase--${category}`}>${phaseContent}</span>`
+						}
 						<gl-action-chip
 							class="card__open"
 							icon="link-external"
@@ -1208,11 +1222,13 @@ export class GlDetailsAgentStatus extends LitElement {
 						></gl-action-chip>
 					</div>
 					${this.renderCardDetail(session, category, elapsed)}
-					${session.lastPrompt
-						? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
-								<span class="card__prompt">${session.lastPrompt}</span>
-							</gl-tooltip>`
-						: nothing}
+					${
+						session.lastPrompt
+							? html`<gl-tooltip content=${session.lastPrompt} placement="bottom">
+									<span class="card__prompt">${session.lastPrompt}</span>
+								</gl-tooltip>`
+							: nothing
+					}
 				</div>
 				${canResolve ? html`<div class="card__actions">${this.renderCardActions(session)}</div>` : nothing}
 			</div>
@@ -1307,12 +1323,14 @@ export class GlDetailsAgentStatus extends LitElement {
 				<code-icon icon="check" slot="prefix"></code-icon>
 				${allowLabel}
 			</gl-button>
-			${showAlwaysAllow && alwaysAllowHref != null
-				? html`<gl-button appearance="secondary" density="compact" href=${alwaysAllowHref}>
-						<code-icon icon="check-all" slot="prefix"></code-icon>
-						Always Allow
-					</gl-button>`
-				: nothing}
+			${
+				showAlwaysAllow && alwaysAllowHref != null
+					? html`<gl-button appearance="secondary" density="compact" href=${alwaysAllowHref}>
+							<code-icon icon="check-all" slot="prefix"></code-icon>
+							Always Allow
+						</gl-button>`
+					: nothing
+			}
 			<gl-button appearance="secondary" density="compact" href=${denyHref}>
 				<code-icon icon="x" slot="prefix"></code-icon>
 				${denyLabel}

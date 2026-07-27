@@ -403,25 +403,33 @@ export class GlAutocomplete extends LitElement {
 						aria-selected="${isSelected}"
 						@mousedown="${(e: MouseEvent) => this.handleItemMouseDown(e, index, item)}"
 					>
-						${item.icon
-							? html`<div class="autocomplete-item__icon">
-									<code-icon icon="${item.icon}"></code-icon>
-								</div>`
-							: nothing}
+						${
+							item.icon
+								? html`<div class="autocomplete-item__icon">
+										<code-icon icon="${item.icon}"></code-icon>
+									</div>`
+								: nothing
+						}
 						<div class="autocomplete-item__content">
 							<div class="autocomplete-item__header">
 								<div class="autocomplete-item__primary">
-									${item.match
-										? this.highlightMatches(item.label, item.match.matchedIndices)
-										: item.label}
+									${
+										item.match
+											? this.highlightMatches(item.label, item.match.matchedIndices)
+											: item.label
+									}
 								</div>
-								${item.description
-									? html`<div class="autocomplete-item__secondary">${item.description}</div>`
-									: nothing}
+								${
+									item.description
+										? html`<div class="autocomplete-item__secondary">${item.description}</div>`
+										: nothing
+								}
 							</div>
-							${item.detail
-								? html`<div class="autocomplete-item__secondary">${item.detail}</div>`
-								: nothing}
+							${
+								item.detail
+									? html`<div class="autocomplete-item__secondary">${item.detail}</div>`
+									: nothing
+							}
 						</div>
 					</div>`;
 				},

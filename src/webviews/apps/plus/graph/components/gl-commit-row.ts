@@ -185,32 +185,38 @@ export class GlCommitRow extends LitElement {
 		const isWip = commit.sha === uncommitted;
 
 		return html`<div class="row ${isWip ? 'row--wip' : ''}">
-			${commit.avatarUrl
-				? html`<span class="avatar">
-						<gl-avatar class="avatar__author" .src=${commit.avatarUrl}></gl-avatar>
-						${commit.committerAvatarUrl
-							? html`<img class="avatar__committer" src=${commit.committerAvatarUrl} alt="" />`
-							: nothing}
-					</span>`
-				: nothing}
+			${
+				commit.avatarUrl
+					? html`<span class="avatar">
+							<gl-avatar class="avatar__author" .src=${commit.avatarUrl}></gl-avatar>
+							${
+								commit.committerAvatarUrl
+									? html`<img class="avatar__committer" src=${commit.committerAvatarUrl} alt="" />`
+									: nothing
+							}
+						</span>`
+					: nothing
+			}
 			<span class="msg">${headline}</span>
-			${isWip
-				? nothing
-				: html`<span class="meta">
-						<span class="sha">${commit.shortSha}</span>
-						<span class="dot" aria-hidden="true">·</span>
-						<span class="author">${commit.author}</span>
-						<span class="trailing">
-							<span class="dot dot--before-date" aria-hidden="true">·</span>
-							<formatted-date
-								class="date"
-								.date=${new Date(commit.date)}
-								.format=${this.preferences?.dateFormat}
-								.dateStyle=${this.preferences?.dateStyle ?? 'relative'}
-							></formatted-date>
-							${this.renderStats(commit)}
-						</span>
-					</span>`}
+			${
+				isWip
+					? nothing
+					: html`<span class="meta">
+							<span class="sha">${commit.shortSha}</span>
+							<span class="dot" aria-hidden="true">·</span>
+							<span class="author">${commit.author}</span>
+							<span class="trailing">
+								<span class="dot dot--before-date" aria-hidden="true">·</span>
+								<formatted-date
+									class="date"
+									.date=${new Date(commit.date)}
+									.format=${this.preferences?.dateFormat}
+									.dateStyle=${this.preferences?.dateStyle ?? 'relative'}
+								></formatted-date>
+								${this.renderStats(commit)}
+							</span>
+						</span>`
+			}
 		</div>`;
 	}
 

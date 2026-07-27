@@ -101,12 +101,14 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		// existence the moment WIP arrived, shifting `Start New` down — the very layout flip
 		// this scaffold was reshaped to avoid.
 		return html`<div class="hub">
-			${hasSteps
-				? html`<section class="section">
-						<h3 class="section__heading">Next steps</h3>
-						${allSteps.map(step => this.renderNextStep(step))}
-					</section>`
-				: nothing}
+			${
+				hasSteps
+					? html`<section class="section">
+							<h3 class="section__heading">Next steps</h3>
+							${allSteps.map(step => this.renderNextStep(step))}
+						</section>`
+					: nothing
+			}
 			${branch != null && this.aiEnabled && hasDiverged ? this.renderAiWorkflows(ahead) : nothing}
 			${this.showLaunchpad ? this.renderLaunchpadSection() : nothing} ${this.renderStartNewSection()}
 		</div>`;
@@ -193,9 +195,9 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	}
 
 	private renderNextStep(step: NextStep) {
-		const primaryInner = html`${step.actionPrefixIcon
-			? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>`
-			: nothing}${step.actionLabel}`;
+		const primaryInner = html`${
+			step.actionPrefixIcon ? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>` : nothing
+		}${step.actionLabel}`;
 		const primary = step.loading
 			? html`<gl-button
 					class="next-step__action"
@@ -251,15 +253,17 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				<gl-button class="ai-button" appearance="secondary" @click=${() => this.emit('ai-summarize-branch')}>
 					<code-icon icon="sparkle"></code-icon>Summarize Branch
 				</gl-button>
-				${ahead > 0
-					? html`<gl-button
-							class="ai-button"
-							appearance="secondary"
-							@click=${() => this.emit('ai-review-unpushed')}
-						>
-							<code-icon icon="sparkle"></code-icon>Review ${pluralize('Unpushed Commit', ahead)}
-						</gl-button>`
-					: nothing}
+				${
+					ahead > 0
+						? html`<gl-button
+								class="ai-button"
+								appearance="secondary"
+								@click=${() => this.emit('ai-review-unpushed')}
+							>
+								<code-icon icon="sparkle"></code-icon>Review ${pluralize('Unpushed Commit', ahead)}
+							</gl-button>`
+						: nothing
+				}
 				<gl-button class="ai-button" appearance="secondary" @click=${() => this.emit('ai-changelog')}>
 					<code-icon icon="sparkle"></code-icon>Generate Changelog Entry
 				</gl-button>

@@ -174,10 +174,12 @@ export class GlRefOverflowChip extends LitElement {
 			<span class="chip chip--range" tabindex="0">
 				<span class="chip__label">
 					<code-icon icon=${first.icon ?? icon}></code-icon>${first.name}
-					${this.range
-						? html`<span class="chip__ellipsis">...</span>
-								<code-icon icon=${last.icon ?? icon}></code-icon>${last.name}`
-						: nothing}
+					${
+						this.range
+							? html`<span class="chip__ellipsis">...</span>
+									<code-icon icon=${last.icon ?? icon}></code-icon>${last.name}`
+							: nothing
+					}
 				</span>
 				<span class="chip__count">+${count}</span>
 			</span>

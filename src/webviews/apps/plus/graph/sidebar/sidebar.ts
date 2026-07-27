@@ -384,14 +384,16 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			@keydown=${this.roving.onKeydown}
 			@focusin=${this.roving.onFocusin}
 		>
-			${isGraphMode && this.sidebarVisible && this.activePanel != null
-				? html`<div
-						class=${classMap({
-							indicator: true,
-							'no-transition': this._suppressTransition,
-						})}
-					></div>`
-				: nothing}
+			${
+				isGraphMode && this.sidebarVisible && this.activePanel != null
+					? html`<div
+							class=${classMap({
+								indicator: true,
+								'no-transition': this._suppressTransition,
+							})}
+						></div>`
+					: nothing
+			}
 			${repeat(
 				overflowAt == null ? visible : visible.slice(0, overflowAt),
 				i => i.type,

@@ -1343,23 +1343,29 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					${preservesMerges ? this.renderPreservesMergesBanner() : nothing} ${this.renderCloseWarningBanner()}
 				</div>
 				<div class="content">
-					${this.hasConflictPanel
-						? html`<gl-split-panel
-								class="conflict-split"
-								orientation="vertical"
-								primary="end"
-								.position=${this._splitPosition ?? 0}
-								.snap=${this._conflictPanelSnap}
-								@gl-split-panel-change=${this.onSplitPanelChange}
-							>
-								${!isEmptyOrNoop
-									? html`<div slot="start" class="entries-panel">${this.renderEntries()}</div>`
-									: html`<div slot="start" class="entries-empty">No commits to rebase</div>`}
-								${this.renderConflictPanel()}
-							</gl-split-panel>`
-						: !isEmptyOrNoop
-							? this.renderEntries()
-							: html`<div class="entries-empty">No commits to rebase</div>`}
+					${
+						this.hasConflictPanel
+							? html`<gl-split-panel
+									class="conflict-split"
+									orientation="vertical"
+									primary="end"
+									.position=${this._splitPosition ?? 0}
+									.snap=${this._conflictPanelSnap}
+									@gl-split-panel-change=${this.onSplitPanelChange}
+								>
+									${
+										!isEmptyOrNoop
+											? html`<div slot="start" class="entries-panel">
+													${this.renderEntries()}
+												</div>`
+											: html`<div slot="start" class="entries-empty">No commits to rebase</div>`
+									}
+									${this.renderConflictPanel()}
+								</gl-split-panel>`
+							: !isEmptyOrNoop
+								? this.renderEntries()
+								: html`<div class="entries-empty">No commits to rebase</div>`
+					}
 				</div>
 				${this.renderFooter()}
 			</div>
@@ -1369,9 +1375,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private renderEntries(): unknown {
 		return html`<lit-virtualizer
 			role="list"
-			class="entries scrollable ${this.ascending ? 'ascending' : 'descending'}${this.rebaseStatus?.hasConflicts
-				? ' has-conflicts'
-				: ''}"
+			class="entries scrollable ${this.ascending ? 'ascending' : 'descending'}${
+				this.rebaseStatus?.hasConflicts ? ' has-conflicts' : ''
+			}"
 			autofocus
 			@click=${this.onListClick}
 			@keydown=${this.onListKeyDown}
@@ -1433,9 +1439,9 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			const conflictCount = result?.status === 'conflicts' ? (result.conflict?.shas?.length ?? 0) : 0;
 			if (conflictCount) {
 				return html`<gl-tooltip
-					content="Potential conflicts detected in ${conflictCount} remaining commit${conflictCount > 1
-						? 's'
-						: ''}"
+					content="Potential conflicts detected in ${conflictCount} remaining commit${
+						conflictCount > 1 ? 's' : ''
+					}"
 				>
 					<span class="conflict-summary warning">
 						<code-icon icon="warning"></code-icon>
@@ -1541,11 +1547,13 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		return html`<div class="rebase-banner ${pauseReason === 'conflict' ? 'has-conflicts' : ''}">
 			<code-icon icon="${icon}"></code-icon>
 			<span class="rebase-status">${statusContent}</span>
-			${pauseReason === 'conflict'
-				? html`<gl-tooltip content="Show Conflicts">
-						<a class="rebase-action-link" href="${this.showConflictsCommandUrl}">Show conflicts</a>
-					</gl-tooltip>`
-				: nothing}
+			${
+				pauseReason === 'conflict'
+					? html`<gl-tooltip content="Show Conflicts">
+							<a class="rebase-action-link" href="${this.showConflictsCommandUrl}">Show conflicts</a>
+						</gl-tooltip>`
+					: nothing
+			}
 			<span class="rebase-progress">(${status.currentStep}/${status.totalSteps})</span>
 			<span class="rebase-remaining">${status.totalSteps - status.currentStep} remaining</span>
 		</div>`;
@@ -1559,17 +1567,19 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			<div class="conflict-panel__header">
 				<code-icon icon="warning" aria-hidden="true"></code-icon>
 				<span>${pluralize('conflicted file', conflictFiles.length)}</span>
-				${this.state?.aiAllowed
-					? html`<gl-button
-							appearance="toolbar"
-							density="compact"
-							tooltip="Resolve Conflicts in Commit Graph"
-							aria-label="Resolve Conflicts in Commit Graph"
-							@click=${this.onResolveConflictsInGraph}
-							><code-icon icon="gl-merge" slot="prefix" aria-hidden="true"></code-icon>Resolve
-							Conflicts</gl-button
-						>`
-					: nothing}
+				${
+					this.state?.aiAllowed
+						? html`<gl-button
+								appearance="toolbar"
+								density="compact"
+								tooltip="Resolve Conflicts in Commit Graph"
+								aria-label="Resolve Conflicts in Commit Graph"
+								@click=${this.onResolveConflictsInGraph}
+								><code-icon icon="gl-merge" slot="prefix" aria-hidden="true"></code-icon>Resolve
+								Conflicts</gl-button
+							>`
+						: nothing
+				}
 				<gl-button
 					appearance="toolbar"
 					density="compact"
@@ -1589,12 +1599,12 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				<gl-button
 					appearance="toolbar"
 					density="compact"
-					tooltip="${this._conflictFilesLayout === 'tree'
-						? 'Switch to List Layout'
-						: 'Switch to Tree Layout'}"
-					aria-label="${this._conflictFilesLayout === 'tree'
-						? 'Switch to List Layout'
-						: 'Switch to Tree Layout'}"
+					tooltip="${
+						this._conflictFilesLayout === 'tree' ? 'Switch to List Layout' : 'Switch to Tree Layout'
+					}"
+					aria-label="${
+						this._conflictFilesLayout === 'tree' ? 'Switch to List Layout' : 'Switch to Tree Layout'
+					}"
 					@click=${this.onToggleConflictFilesLayout}
 					><code-icon icon="${this._conflictFilesLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
 				></gl-button>
@@ -1852,24 +1862,28 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					class="clickable"
 				></gl-branch-name>
 			</gl-tooltip>
-			${this.state.onto
-				? html`<span class="header-onto"
-						>onto
-						<gl-tooltip content=${revealTooltip}>
-							<gl-commit-sha
-								.sha=${this.state.onto.sha}
-								tabindex="0"
-								@click=${this.onOntoClick}
-								@keydown=${this.onOntoKeydown}
-								class="clickable"
-							></gl-commit-sha>
-						</gl-tooltip>
-					</span>`
-				: nothing}
+			${
+				this.state.onto
+					? html`<span class="header-onto"
+							>onto
+							<gl-tooltip content=${revealTooltip}>
+								<gl-commit-sha
+									.sha=${this.state.onto.sha}
+									tabindex="0"
+									@click=${this.onOntoClick}
+									@keydown=${this.onOntoKeydown}
+									class="clickable"
+								></gl-commit-sha>
+							</gl-tooltip>
+						</span>`
+					: nothing
+			}
 			<span class="header-count"
-				>${this.isRebasing
-					? `${doneCommitCount}/${totalCommitCount} commits`
-					: pluralize('commit', pendingCommitCount)}</span
+				>${
+					this.isRebasing
+						? `${doneCommitCount}/${totalCommitCount} commits`
+						: pluralize('commit', pendingCommitCount)
+				}</span
 			>
 		`;
 	}
@@ -2066,13 +2080,15 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			>
 				<span
 					>Start Rebase
-					${icon
-						? html`<code-icon
-								slot="label"
-								icon=${icon}
-								modifier=${ifDefined(icon === 'loading' ? 'spin' : undefined)}
-							></code-icon>`
-						: nothing}</span
+					${
+						icon
+							? html`<code-icon
+									slot="label"
+									icon=${icon}
+									modifier=${ifDefined(icon === 'loading' ? 'spin' : undefined)}
+								></code-icon>`
+							: nothing
+					}</span
 				>
 				<span slot="suffix" class="button-shortcut">Ctrl+Enter</span>
 			</gl-button>

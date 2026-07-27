@@ -336,11 +336,13 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 		}
 
 		return html`${liveRegion}
-			${query
-				? html`<p class="results-count">
-						${matches.length} ${matches.length === 1 ? 'category' : 'categories'}
-					</p>`
-				: nothing}
+			${
+				query
+					? html`<p class="results-count">
+							${matches.length} ${matches.length === 1 ? 'category' : 'categories'}
+						</p>`
+					: nothing
+			}
 			<div role="listbox" aria-label="Settings categories" @keydown=${this.handleKeyDown}>
 				${Array.from(
 					groups.entries(),
@@ -368,22 +370,28 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			tabindex=${category.id === tabStopId ? 0 : -1}
 			@click=${() => this.onSelect?.(category.id)}
 		>
-			${on === undefined
-				? html`<span class="item__pip item__pip--placeholder" aria-hidden="true"></span>`
-				: html`<span class="item__pip ${on ? 'item__pip--on' : ''}" aria-hidden="true"></span>`}
+			${
+				on === undefined
+					? html`<span class="item__pip item__pip--placeholder" aria-hidden="true"></span>`
+					: html`<span class="item__pip ${on ? 'item__pip--on' : ''}" aria-hidden="true"></span>`
+			}
 			<code-icon icon=${category.icon} aria-hidden="true"></code-icon>
 			<span class="item__name">${category.name}</span>
-			${category.pro
-				? html`<gl-feature-badge
-						.source=${{ source: 'settings', detail: 'nav' } as const}
-						.subscription=${this._state.subscription.get()}
-					></gl-feature-badge>`
-				: nothing}
-			${count
-				? html`<span class="item__count" aria-label=${count.aria}>${count.label}</span>`
-				: on !== undefined
-					? html`<span class="sr-only">${on ? 'On' : 'Off'}</span>`
-					: nothing}
+			${
+				category.pro
+					? html`<gl-feature-badge
+							.source=${{ source: 'settings', detail: 'nav' } as const}
+							.subscription=${this._state.subscription.get()}
+						></gl-feature-badge>`
+					: nothing
+			}
+			${
+				count
+					? html`<span class="item__count" aria-label=${count.aria}>${count.label}</span>`
+					: on !== undefined
+						? html`<span class="sr-only">${on ? 'On' : 'Off'}</span>`
+						: nothing
+			}
 		</button>`;
 	}
 }

@@ -144,30 +144,34 @@ export class GlAgentPromptDetail extends LitElement {
 
 		return html`
 			<div class="caption-row">
-				${content.caption
-					? content.captionTooltip
-						? html`<gl-tooltip content=${content.captionTooltip} placement="bottom">
-								<span class="caption">${content.caption}</span>
-							</gl-tooltip>`
-						: html`<span class="caption">${content.caption}</span>`
-					: nothing}
-				${content.planActions != null
-					? html`<span class="caption-actions">
-							<gl-action-chip
-								icon="tasklist"
-								label="View Plan"
-								overlay="tooltip"
-								href=${content.planActions.openHref}
-							></gl-action-chip>
-							<gl-copy-container
-								class="caption-copy"
-								.content=${content.planActions.copyContent}
-								copyLabel="Copy Plan Path"
-							>
-								<code-icon icon="copy"></code-icon>
-							</gl-copy-container>
-						</span>`
-					: nothing}
+				${
+					content.caption
+						? content.captionTooltip
+							? html`<gl-tooltip content=${content.captionTooltip} placement="bottom">
+									<span class="caption">${content.caption}</span>
+								</gl-tooltip>`
+							: html`<span class="caption">${content.caption}</span>`
+						: nothing
+				}
+				${
+					content.planActions != null
+						? html`<span class="caption-actions">
+								<gl-action-chip
+									icon="tasklist"
+									label="View Plan"
+									overlay="tooltip"
+									href=${content.planActions.openHref}
+								></gl-action-chip>
+								<gl-copy-container
+									class="caption-copy"
+									.content=${content.planActions.copyContent}
+									copyLabel="Copy Plan Path"
+								>
+									<code-icon icon="copy"></code-icon>
+								</gl-copy-container>
+							</span>`
+						: nothing
+				}
 			</div>
 		`;
 	}

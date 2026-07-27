@@ -309,37 +309,41 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 		return html`
 			${hasSubPanel ? nothing : this.renderHiddenNotice()} ${this.renderEmbeddedAuthorHeader()}
-			${hasSubPanel
-				? html`${this.renderEmbeddedMetadataBar()}
-						<div class="sub-panel-enter">${this.subPanelContent}</div>`
-				: html`${this.renderEmbeddedMetadataBar()}
-					${hasMessage
-						? html`<gl-split-panel
-								orientation="vertical"
-								primary="start"
-								class="split ${this._userAdjustedSplitter ? '' : 'split--auto-size'}"
-								.position=${this._messagePanelHeight ?? 25}
-								.snap=${this._messagePanelSnap}
-								@gl-split-panel-change=${this._onMessagePanelChange}
-								@gl-split-panel-drag-end=${this._onMessagePanelDragEnd}
-								@gl-split-panel-dblclick=${this._onDividerDblClick}
-							>
-								<div slot="start" class="msg-slot">${this.renderEmbeddedMessage()}</div>
-								<div slot="divider" class="split__handle"></div>
-								<div slot="end" class="bottom-section">
-									${this.renderEmbeddedAutolinks()} ${this.renderEmbeddedExplainInput()}
-									<div class="files">
+			${
+				hasSubPanel
+					? html`${this.renderEmbeddedMetadataBar()}
+							<div class="sub-panel-enter">${this.subPanelContent}</div>`
+					: html`${this.renderEmbeddedMetadataBar()}
+						${
+							hasMessage
+								? html`<gl-split-panel
+										orientation="vertical"
+										primary="start"
+										class="split ${this._userAdjustedSplitter ? '' : 'split--auto-size'}"
+										.position=${this._messagePanelHeight ?? 25}
+										.snap=${this._messagePanelSnap}
+										@gl-split-panel-change=${this._onMessagePanelChange}
+										@gl-split-panel-drag-end=${this._onMessagePanelDragEnd}
+										@gl-split-panel-dblclick=${this._onDividerDblClick}
+									>
+										<div slot="start" class="msg-slot">${this.renderEmbeddedMessage()}</div>
+										<div slot="divider" class="split__handle"></div>
+										<div slot="end" class="bottom-section">
+											${this.renderEmbeddedAutolinks()} ${this.renderEmbeddedExplainInput()}
+											<div class="files">
+												<webview-pane-group flexible>
+													${this.renderChangedFiles(fileMode, renderOpts)}
+												</webview-pane-group>
+											</div>
+										</div>
+									</gl-split-panel>`
+								: html`<div class="files">
 										<webview-pane-group flexible>
 											${this.renderChangedFiles(fileMode, renderOpts)}
 										</webview-pane-group>
-									</div>
-								</div>
-							</gl-split-panel>`
-						: html`<div class="files">
-								<webview-pane-group flexible>
-									${this.renderChangedFiles(fileMode, renderOpts)}
-								</webview-pane-group>
-							</div>`}`}
+									</div>`
+						}`
+			}
 		`;
 	}
 
@@ -415,42 +419,52 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			?in-results-view=${this.inResultsView}
 		>
 			${headerContent}
-			${this.activeMode == null &&
-			((this.navigation?.count ?? 0) > 1 || (this.showJumpToNearestWip && !isStash && !this.isUncommitted))
-				? html`<span slot="actions" class="nav-jump">
-						<gl-nav-buttons .navigation=${this.navigation}></gl-nav-buttons>
-						${this.showJumpToNearestWip && !isStash && !this.isUncommitted
-							? html`<gl-action-chip
-									icon="download"
-									iconFlip="block"
-									label="Jump to Working Changes"
-									overlay="tooltip"
-									@click=${this.onJumpToNearestWipClick}
-								></gl-action-chip>`
-							: nothing}
-					</span>`
-				: nothing}
-			${this.activeMode == null && this.showPin
-				? html`<gl-action-chip
-						slot="actions"
-						class="pin-action${this.pinned ? ' pinned' : ''}"
-						icon=${this.pinned ? 'gl-pinned-filled' : 'pin'}
-						label=${this.pinned
-							? 'Unpin this Commit\nRestores Automatic Following'
-							: 'Pin this Commit\nSuspends Automatic Following'}
-						overlay="tooltip"
-						@click=${this.onTogglePin}
-					></gl-action-chip>`
-				: nothing}
-			${this.activeMode == null && this.showGraphAction
-				? html`<gl-action-chip
-						slot="actions"
-						icon="gl-graph"
-						label="Open in Commit Graph"
-						overlay="tooltip"
-						@click=${this.onOpenInGraph}
-					></gl-action-chip>`
-				: nothing}
+			${
+				this.activeMode == null &&
+				((this.navigation?.count ?? 0) > 1 || (this.showJumpToNearestWip && !isStash && !this.isUncommitted))
+					? html`<span slot="actions" class="nav-jump">
+							<gl-nav-buttons .navigation=${this.navigation}></gl-nav-buttons>
+							${
+								this.showJumpToNearestWip && !isStash && !this.isUncommitted
+									? html`<gl-action-chip
+											icon="download"
+											iconFlip="block"
+											label="Jump to Working Changes"
+											overlay="tooltip"
+											@click=${this.onJumpToNearestWipClick}
+										></gl-action-chip>`
+									: nothing
+							}
+						</span>`
+					: nothing
+			}
+			${
+				this.activeMode == null && this.showPin
+					? html`<gl-action-chip
+							slot="actions"
+							class="pin-action${this.pinned ? ' pinned' : ''}"
+							icon=${this.pinned ? 'gl-pinned-filled' : 'pin'}
+							label=${
+								this.pinned
+									? 'Unpin this Commit\nRestores Automatic Following'
+									: 'Pin this Commit\nSuspends Automatic Following'
+							}
+							overlay="tooltip"
+							@click=${this.onTogglePin}
+						></gl-action-chip>`
+					: nothing
+			}
+			${
+				this.activeMode == null && this.showGraphAction
+					? html`<gl-action-chip
+							slot="actions"
+							icon="gl-graph"
+							label="Open in Commit Graph"
+							overlay="tooltip"
+							@click=${this.onOpenInGraph}
+						></gl-action-chip>`
+					: nothing
+			}
 			${this.activeMode == null && this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
 			${when(
 				this.activeMode == null,
@@ -510,25 +524,29 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							></gl-action-chip>`,
 					)}
 					${this.isUncommitted ? nothing : this.renderMoreActionsButton()}
-					${isStash
-						? this.branchName
-							? html`<gl-tooltip content="Stashed on ${this.branchName}">
-									<span class="metadata-bar__branch-indicator">
-										<gl-branch-name
-											class="metadata-bar__branch"
-											.name=${this.branchName}
-										></gl-branch-name>
-									</span>
-								</gl-tooltip>`
-							: nothing
-						: !this.isUncommitted
-							? this.renderBranchIndicator()
-							: nothing}
+					${
+						isStash
+							? this.branchName
+								? html`<gl-tooltip content="Stashed on ${this.branchName}">
+										<span class="metadata-bar__branch-indicator">
+											<gl-branch-name
+												class="metadata-bar__branch"
+												.name=${this.branchName}
+											></gl-branch-name>
+										</span>
+									</gl-tooltip>`
+								: nothing
+							: !this.isUncommitted
+								? this.renderBranchIndicator()
+								: nothing
+					}
 				</div>
 				<div class="metadata-bar__right">
-					${this.modeStatusText
-						? html`<span class="mode-status">${this.modeStatusText}</span>`
-						: this.renderCommitStats(commit.stats)}
+					${
+						this.modeStatusText
+							? html`<span class="mode-status">${this.modeStatusText}</span>`
+							: this.renderCommitStats(commit.stats)
+					}
 				</div>
 			</div>
 			${this._reachabilityExpanded ? html`<div class="reachability">${this.renderReachability()}</div>` : nothing}`;
@@ -715,9 +733,11 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		// Loaded with refs — show the primary ref name + count
 		if (primaryRef) {
 			return html`<gl-tooltip
-				content="${this._reachabilityExpanded
-					? 'Hide All Branches & Tags Containing this Commit'
-					: 'Show All Branches & Tags Containing this Commit'}"
+				content="${
+					this._reachabilityExpanded
+						? 'Hide All Branches & Tags Containing this Commit'
+						: 'Show All Branches & Tags Containing this Commit'
+				}"
 			>
 				<button
 					class="metadata-bar__branch-indicator"
@@ -1088,40 +1108,46 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		if (autolinks.length === 0 && prs.length === 0 && issues.length === 0) return nothing;
 
 		return html`<div slot="popover">
-			${prs.length > 0
-				? html`<menu-label>Pull Requests</menu-label> ${prs.map(
-							pr =>
-								html`<menu-item href=${pr.url}>
-									<code-icon icon="git-pull-request"></code-icon> #${pr.id}${pr.title
-										? ` — ${pr.title}`
-										: ''}
-								</menu-item>`,
-						)}`
-				: nothing}
-			${issues.length > 0
-				? html`${prs.length > 0 ? html`<menu-divider></menu-divider>` : nothing}
-						<menu-label>Issues</menu-label>
-						${issues.map(
-							issue =>
-								html`<menu-item href=${issue.url}>
-									<code-icon icon="issues"></code-icon> #${issue.id}${issue.title
-										? ` — ${issue.title}`
-										: ''}
-								</menu-item>`,
-						)}`
-				: nothing}
-			${autolinks.length > 0
-				? html`${prs.length > 0 || issues.length > 0 ? html`<menu-divider></menu-divider>` : nothing}
-						<menu-label>Autolinks</menu-label>
-						${autolinks.map(
-							a =>
-								html`<menu-item href=${a.url}>
-									<code-icon icon="link"></code-icon> ${a.prefix}${a.id}${a.title
-										? ` — ${a.title}`
-										: ''}
-								</menu-item>`,
-						)}`
-				: nothing}
+			${
+				prs.length > 0
+					? html`<menu-label>Pull Requests</menu-label> ${prs.map(
+								pr =>
+									html`<menu-item href=${pr.url}>
+										<code-icon icon="git-pull-request"></code-icon> #${pr.id}${
+											pr.title ? ` — ${pr.title}` : ''
+										}
+									</menu-item>`,
+							)}`
+					: nothing
+			}
+			${
+				issues.length > 0
+					? html`${prs.length > 0 ? html`<menu-divider></menu-divider>` : nothing}
+							<menu-label>Issues</menu-label>
+							${issues.map(
+								issue =>
+									html`<menu-item href=${issue.url}>
+										<code-icon icon="issues"></code-icon> #${issue.id}${
+											issue.title ? ` — ${issue.title}` : ''
+										}
+									</menu-item>`,
+							)}`
+					: nothing
+			}
+			${
+				autolinks.length > 0
+					? html`${prs.length > 0 || issues.length > 0 ? html`<menu-divider></menu-divider>` : nothing}
+							<menu-label>Autolinks</menu-label>
+							${autolinks.map(
+								a =>
+									html`<menu-item href=${a.url}>
+										<code-icon icon="link"></code-icon> ${a.prefix}${a.id}${
+											a.title ? ` — ${a.title}` : ''
+										}
+									</menu-item>`,
+							)}`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -1135,16 +1161,18 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		return html`<div class="reachability-summary">
 				${this.renderReachabilityChip('branch', branches)} ${this.renderReachabilityChip('tag', tags)}
 			</div>
-			${this.reachability.partial
-				? html`<gl-tooltip content="Load All Branches &amp; Tags">
-						<button
-							class="reachability__load-all"
-							aria-label="Load all branches and tags"
-							@click=${() => this.dispatchEvent(new CustomEvent('load-reachability'))}
-						>
-							<code-icon icon="sync"></code-icon></button
-					></gl-tooltip>`
-				: nothing}`;
+			${
+				this.reachability.partial
+					? html`<gl-tooltip content="Load All Branches &amp; Tags">
+							<button
+								class="reachability__load-all"
+								aria-label="Load all branches and tags"
+								@click=${() => this.dispatchEvent(new CustomEvent('load-reachability'))}
+							>
+								<code-icon icon="sync"></code-icon></button
+						></gl-tooltip>`
+					: nothing
+			}`;
 	}
 
 	private renderReachabilityChip(type: 'branch' | 'tag', refs: NonNullable<typeof this.reachability>['refs']) {
@@ -1161,11 +1189,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 				icon="${icon}"
 				label="Commit on 1 ${refTypeLabel}: ${first.name}"
 				overlay="tooltip"
-				class="reachability-range-chip reachability-range-chip--${first.refType === 'branch'
-					? first.remote
-						? 'remote-branch'
-						: 'local-branch'
-					: 'tag'}${first.current ? ' reachability-range-chip--current' : ''}"
+				class="reachability-range-chip reachability-range-chip--${
+					first.refType === 'branch' ? (first.remote ? 'remote-branch' : 'local-branch') : 'tag'
+				}${first.current ? ' reachability-range-chip--current' : ''}"
 				><span class="reachability-range-chip__label">${first.name}</span></gl-action-chip
 			>`;
 		}
@@ -1176,10 +1202,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		return html`<gl-popover placement="bottom" trigger="hover focus click" class="reachability-range-chip-wrapper">
 			<gl-action-chip
 				slot="anchor"
-				class="reachability-range-chip reachability-range-chip--range reachability-range-chip--${type ===
-				'branch'
-					? 'local-branch'
-					: 'tag'}"
+				class="reachability-range-chip reachability-range-chip--range reachability-range-chip--${
+					type === 'branch' ? 'local-branch' : 'tag'
+				}"
 				><span class="reachability-range-chip__label">
 					<code-icon icon="${icon}"></code-icon>${first.name}
 					<span class="reachability-range-chip__ellipsis">...</span>

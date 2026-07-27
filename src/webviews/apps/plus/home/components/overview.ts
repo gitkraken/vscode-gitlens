@@ -420,11 +420,13 @@ export class GlOverview extends SignalWatcher(LitElement) {
 					<option value="workspace" ?selected=${this._agentFilter === 'workspace'}>workspace</option>
 					<option value="all" ?selected=${this._agentFilter === 'all'}>all</option>
 				</select>
-				${branches.length > 0 || unrepresentedSessions.length > 0
-					? html`${branches.length > 0
-							? this.renderBranchCards(branches, repository.path)
-							: nothing}${this.renderAgentSessionCards(unrepresentedSessions)}`
-					: html`<p>No agent sessions</p>`}
+				${
+					branches.length > 0 || unrepresentedSessions.length > 0
+						? html`${
+								branches.length > 0 ? this.renderBranchCards(branches, repository.path) : nothing
+							}${this.renderAgentSessionCards(unrepresentedSessions)}`
+						: html`<p>No agent sessions</p>`
+				}
 			</gl-section>
 		`;
 	}

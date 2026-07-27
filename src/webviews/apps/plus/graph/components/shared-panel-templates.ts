@@ -64,11 +64,13 @@ export function renderErrorState(
 				@click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, backEventName)}
 				>Go Back</gl-button
 			>
-			${retryEventName != null
-				? html`<gl-button @click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, retryEventName)}
-						>Retry</gl-button
-					>`
-				: nothing}
+			${
+				retryEventName != null
+					? html`<gl-button @click=${(e: Event) => dispatch(e.currentTarget as HTMLElement, retryEventName)}
+							>Retry</gl-button
+						>`
+					: nothing
+			}
 		</div>
 	</div>`;
 }

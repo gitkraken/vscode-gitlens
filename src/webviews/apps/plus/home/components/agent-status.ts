@@ -128,17 +128,21 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 			<div class="session">
 				<gl-agent-status-pill .session=${session}></gl-agent-status-pill>
 				<span class="session__name">${session.displayName}</span>
-				${context != null
-					? html`<span class="session__context" title=${context.tooltip ?? context.text}
-							>${context.text}</span
-						>`
-					: nothing}
-				${session.subagentCount > 0
-					? html`<span class="session__subagents">
-							<code-icon icon="organization"></code-icon>
-							${session.subagentCount}
-						</span>`
-					: nothing}
+				${
+					context != null
+						? html`<span class="session__context" title=${context.tooltip ?? context.text}
+								>${context.text}</span
+							>`
+						: nothing
+				}
+				${
+					session.subagentCount > 0
+						? html`<span class="session__subagents">
+								<code-icon icon="organization"></code-icon>
+								${session.subagentCount}
+							</span>`
+						: nothing
+				}
 			</div>
 		`;
 	}

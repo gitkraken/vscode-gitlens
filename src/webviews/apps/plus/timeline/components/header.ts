@@ -489,16 +489,18 @@ export class GlTimelineHeader extends LitElement {
 		// Clear (×) sits adjacent to the breadcrumbs it ejects; Choose follows as the
 		// always-available "open picker" action.
 		return html`<span class="breadcrumb-actions">
-			${canClear
-				? html`<gl-button
-						appearance="toolbar"
-						density="compact"
-						@click=${this.onClearScope}
-						tooltip="Clear File / Folder Filter"
-						aria-label="Clear File / Folder Filter"
-						><code-icon icon="close"></code-icon
-					></gl-button>`
-				: nothing}
+			${
+				canClear
+					? html`<gl-button
+							appearance="toolbar"
+							density="compact"
+							@click=${this.onClearScope}
+							tooltip="Clear File / Folder Filter"
+							aria-label="Clear File / Folder Filter"
+							><code-icon icon="close"></code-icon
+						></gl-button>`
+					: nothing
+			}
 			<gl-button
 				appearance="toolbar"
 				density="compact"

@@ -206,15 +206,17 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 					<div class="header__brand">
 						<gl-icon-cube appearance="brand" icon="gl-gitlens" aria-hidden="true"></gl-icon-cube>
 						<h1 class="header__title">GitLens Settings</h1>
-						${s.version.get()
-							? html`<a
-									class="header__version"
-									href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md"
-									aria-label="GitLens ${s.version.get()} — open the CHANGELOG"
-									title="Open the CHANGELOG"
-									>v${s.version.get()}</a
-								>`
-							: nothing}
+						${
+							s.version.get()
+								? html`<a
+										class="header__version"
+										href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md"
+										aria-label="GitLens ${s.version.get()} — open the CHANGELOG"
+										title="Open the CHANGELOG"
+										>v${s.version.get()}</a
+									>`
+								: nothing
+						}
 					</div>
 					<div class="header__search">
 						<code-icon icon="search" aria-hidden="true"></code-icon>
@@ -230,57 +232,62 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 							@keydown=${this.handleSearchKeyDown}
 						/>
 					</div>
-					${scopes.length > 1
-						? html`<div class="header__scope">
-								<span id="scope-label">Save for</span>
-								<gl-segmented-control
-									label="Save settings for"
-									.options=${scopes.map(([value, label]) => ({ value: value, label: label }))}
-									.value=${s.scope.get()}
-									@gl-change-value=${(e: Event) =>
-										this._actions?.setScope(
-											((e.target as HTMLElement & { value?: string }).value ?? 'user') as
-												| 'user'
-												| 'workspace',
-										)}
-								></gl-segmented-control>
-							</div>`
-						: nothing}
+					${
+						scopes.length > 1
+							? html`<div class="header__scope">
+									<span id="scope-label">Save for</span>
+									<gl-segmented-control
+										label="Save settings for"
+										.options=${scopes.map(([value, label]) => ({ value: value, label: label }))}
+										.value=${s.scope.get()}
+										@gl-change-value=${(e: Event) =>
+											this._actions?.setScope(
+												((e.target as HTMLElement & { value?: string }).value ?? 'user') as
+													| 'user'
+													| 'workspace',
+											)}
+									></gl-segmented-control>
+								</div>`
+							: nothing
+					}
 				</header>
-				${s.loading.get()
-					? s.error.get() != null
-						? html`<div class="body body--error" role="alert">
-								<code-icon icon="error" aria-hidden="true"></code-icon>
-								<span>
-									GitLens Settings couldn’t load — ${s.error.get()}.
-									<a href="command:workbench.action.reloadWindow">Reload the window</a> to try again.
-								</span>
-							</div>`
-						: html`<div class="body body--loading">
-								<div class="body--loading__nav" aria-hidden="true">
-									<skeleton-loader lines="12"></skeleton-loader>
-								</div>
-								<div class="body--loading__detail" aria-hidden="true">
-									<skeleton-loader lines="6"></skeleton-loader>
-								</div>
-							</div>`
-					: html`<gl-split-panel
-							class="body"
-							primary="start"
-							.position=${s.navPosition.get()}
-							.snap=${navSnap}
-							@gl-split-panel-change=${(e: CustomEvent<{ position: number }>) =>
-								s.navPosition.set(e.detail.position)}
-						>
-							<gl-settings-nav
-								slot="start"
-								class="body__nav"
-								.onSelect=${(id: string) => this._actions?.selectCategory(id)}
-							></gl-settings-nav>
-							<main slot="end" class="body__detail">
-								<gl-settings-detail .actions=${this._actions}></gl-settings-detail>
-							</main>
-						</gl-split-panel>`}
+				${
+					s.loading.get()
+						? s.error.get() != null
+							? html`<div class="body body--error" role="alert">
+									<code-icon icon="error" aria-hidden="true"></code-icon>
+									<span>
+										GitLens Settings couldn’t load — ${s.error.get()}.
+										<a href="command:workbench.action.reloadWindow">Reload the window</a> to try
+										again.
+									</span>
+								</div>`
+							: html`<div class="body body--loading">
+									<div class="body--loading__nav" aria-hidden="true">
+										<skeleton-loader lines="12"></skeleton-loader>
+									</div>
+									<div class="body--loading__detail" aria-hidden="true">
+										<skeleton-loader lines="6"></skeleton-loader>
+									</div>
+								</div>`
+						: html`<gl-split-panel
+								class="body"
+								primary="start"
+								.position=${s.navPosition.get()}
+								.snap=${navSnap}
+								@gl-split-panel-change=${(e: CustomEvent<{ position: number }>) =>
+									s.navPosition.set(e.detail.position)}
+							>
+								<gl-settings-nav
+									slot="start"
+									class="body__nav"
+									.onSelect=${(id: string) => this._actions?.selectCategory(id)}
+								></gl-settings-nav>
+								<main slot="end" class="body__detail">
+									<gl-settings-detail .actions=${this._actions}></gl-settings-detail>
+								</main>
+							</gl-split-panel>`
+				}
 			</div>`;
 	}
 }

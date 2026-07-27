@@ -402,44 +402,48 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					aria-expanded=${this.compact ? this._popoverOpen : nothing}
 					@keydown=${this.onAnchorKeydown}
 				>
-					${this.accountAvatar
-						? html`<img class="chip__media" src=${this.accountAvatar} />`
-						: html`<code-icon class="chip__media" icon="gl-gitlens" size="16"></code-icon>`}
+					${
+						this.accountAvatar
+							? html`<img class="chip__media" src=${this.accountAvatar} />`
+							: html`<code-icon class="chip__media" icon="gl-gitlens" size="16"></code-icon>`
+					}
 					${this.compact ? nothing : html`<span>${this.planTier}</span>`}
 				</span>
 				<div slot="content" class="content" tabindex="-1">
 					<div class="header">
 						<span class="header__title">${this.planName}</span>
 						<span class="header__actions">
-							${this.hasAccount
-								? html`<gl-button
-											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.plus.validate', {
-												source: 'account',
-											})}"
-											tooltip="Synchronize Status"
-											aria-label="Synchronize Status"
-											><code-icon icon="sync"></code-icon
-										></gl-button>
-										<gl-button
-											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.plus.manage', {
-												source: 'account',
-											})}"
-											tooltip="Manage Account"
-											aria-label="Manage Account"
-											><code-icon icon="gear"></code-icon
-										></gl-button>
-										<gl-button
-											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.plus.logout', {
-												source: 'account',
-											})}"
-											tooltip="Sign Out"
-											aria-label="Sign Out"
-											><code-icon icon="sign-out"></code-icon
-										></gl-button>`
-								: nothing}
+							${
+								this.hasAccount
+									? html`<gl-button
+												appearance="toolbar"
+												href="${createCommandLink<Source>('gitlens.plus.validate', {
+													source: 'account',
+												})}"
+												tooltip="Synchronize Status"
+												aria-label="Synchronize Status"
+												><code-icon icon="sync"></code-icon
+											></gl-button>
+											<gl-button
+												appearance="toolbar"
+												href="${createCommandLink<Source>('gitlens.plus.manage', {
+													source: 'account',
+												})}"
+												tooltip="Manage Account"
+												aria-label="Manage Account"
+												><code-icon icon="gear"></code-icon
+											></gl-button>
+											<gl-button
+												appearance="toolbar"
+												href="${createCommandLink<Source>('gitlens.plus.logout', {
+													source: 'account',
+												})}"
+												tooltip="Sign Out"
+												aria-label="Sign Out"
+												><code-icon icon="sign-out"></code-icon
+											></gl-button>`
+									: nothing
+							}
 						</span>
 					</div>
 					${this.renderAccountInfo()} ${this.renderAccountState()}
@@ -481,9 +485,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		return html`<div class="account-info">
 			<span class="row">
 				<span class="row__media"
-					>${avatar
-						? html`<img src=${avatar} />`
-						: html`<code-icon icon="gl-gitlens" size="20"></code-icon>`}</span
+					>${
+						avatar ? html`<img src=${avatar} />` : html`<code-icon icon="gl-gitlens" size="20"></code-icon>`
+					}</span
 				>
 				<span class="details"
 					><p class="details__title">${this.accountName}</p>
@@ -527,44 +531,48 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 						<span class="row__media"><code-icon icon="unlock" size="20"></code-icon></span>
 						<span class="details"
 							><p class="details__title">
-								${this.subscription != null && isSubscriptionTrial(this.subscription)
-									? html`${getSubscriptionPlanName(this.effectivePlanId)} plan
-											<span class="details__subtitle">(trial)</span>`
-									: html`${getSubscriptionPlanName(this.planId)} plan`}
+								${
+									this.subscription != null && isSubscriptionTrial(this.subscription)
+										? html`${getSubscriptionPlanName(this.effectivePlanId)} plan
+												<span class="details__subtitle">(trial)</span>`
+										: html`${getSubscriptionPlanName(this.planId)} plan`
+								}
 							</p></span
 						>
-						${this.subscription != null &&
-						isSubscriptionPaid(this.subscription) &&
-						compareSubscriptionPlans(this.planId, 'advanced') < 0
-							? html`<div class="details__button">
-									<gl-button
-										appearance="secondary"
-										href="${createCommandLink<SubscriptionUpgradeCommandArgs>(
-											'gitlens.plus.upgrade',
-											{
-												plan: 'advanced',
-												source: 'account',
-												detail: {
-													location: 'plan-section:upgrade-button',
-													organization: sub?.activeOrganization?.id,
+						${
+							this.subscription != null &&
+							isSubscriptionPaid(this.subscription) &&
+							compareSubscriptionPlans(this.planId, 'advanced') < 0
+								? html`<div class="details__button">
+										<gl-button
+											appearance="secondary"
+											href="${createCommandLink<SubscriptionUpgradeCommandArgs>(
+												'gitlens.plus.upgrade',
+												{
 													plan: 'advanced',
+													source: 'account',
+													detail: {
+														location: 'plan-section:upgrade-button',
+														organization: sub?.activeOrganization?.id,
+														plan: 'advanced',
+													},
 												},
-											},
-										)}"
-										aria-label="Upgrade to Advanced"
-										><span class="upgrade-button">Upgrade</span>${this.renderPromo(
-											'advanced',
-											'icon',
-											'suffix',
-										)}
-										<span slot="tooltip"
-											>Upgrade to the Advanced plan for access to self-hosted integrations,
-											advanced AI features @ 1M tokens/week, and more
-											${this.renderPromo('advanced', 'info')}
-										</span>
-									</gl-button>
-								</div>`
-							: nothing}
+											)}"
+											aria-label="Upgrade to Advanced"
+											><span class="upgrade-button">Upgrade</span>${this.renderPromo(
+												'advanced',
+												'icon',
+												'suffix',
+											)}
+											<span slot="tooltip"
+												>Upgrade to the Advanced plan for access to self-hosted integrations,
+												advanced AI features @ 1M tokens/week, and more
+												${this.renderPromo('advanced', 'info')}
+											</span>
+										</gl-button>
+									</div>`
+								: nothing
+						}
 					</span>`,
 			)}
 		</div>`;
@@ -604,14 +612,16 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				const days = this.trialDaysRemaining;
 
 				return html`<div class="account-status">
-					${this.isReactivatedTrial
-						? html`<p>
-								<code-icon icon="megaphone"></code-icon>
-								See
-								<a href="${urls.releaseNotes}">what's new</a>
-								in GitLens.
-							</p>`
-						: nothing}
+					${
+						this.isReactivatedTrial
+							? html`<p>
+									<code-icon icon="megaphone"></code-icon>
+									See
+									<a href="${urls.releaseNotes}">what's new</a>
+									in GitLens.
+								</p>`
+							: nothing
+					}
 					<p>
 						You have
 						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>

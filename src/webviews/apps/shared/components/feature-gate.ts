@@ -98,15 +98,17 @@ export class GlFeatureGate extends LitElement {
 						<slot name="feature" slot="feature"></slot>
 					</gl-feature-gate-plus-state>
 				</div>
-				${this.allowRepoSwitch
-					? html`<gl-button
-							class="switch-repos"
-							appearance="toolbar"
-							tooltip="Switch to a different repository"
-							@click=${this.onSwitchRepos}
-							><code-icon icon="gl-switch" slot="prefix"></code-icon> Switch Repos</gl-button
-						>`
-					: nothing}
+				${
+					this.allowRepoSwitch
+						? html`<gl-button
+								class="switch-repos"
+								appearance="toolbar"
+								tooltip="Switch to a different repository"
+								@click=${this.onSwitchRepos}
+								><code-icon icon="gl-switch" slot="prefix"></code-icon> Switch Repos</gl-button
+							>`
+						: nothing
+				}
 			</dialog>
 		`;
 	}

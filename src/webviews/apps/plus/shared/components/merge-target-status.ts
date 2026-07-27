@@ -442,9 +442,11 @@ export class GlMergeTargetStatus extends LitElement {
 								)}"
 								><span
 									>Delete
-									${this.branch.worktree != null && !this.branch.worktree.isDefault
-										? 'Worktree'
-										: 'Branch'}
+									${
+										this.branch.worktree != null && !this.branch.worktree.isDefault
+											? 'Worktree'
+											: 'Branch'
+									}
 									${renderBranchName(this.branch.name, this.branch.worktree != null)}</span
 								></gl-button
 							>
@@ -471,9 +473,11 @@ export class GlMergeTargetStatus extends LitElement {
 							)}"
 							><span
 								>Delete
-								${this.branch.worktree != null && !this.branch.worktree.isDefault
-									? 'Worktree'
-									: 'Branch'}
+								${
+									this.branch.worktree != null && !this.branch.worktree.isDefault
+										? 'Worktree'
+										: 'Branch'
+								}
 								${renderBranchName(this.branch.name, this.branch.worktree != null)}</span
 							></gl-button
 						>
@@ -484,13 +488,15 @@ export class GlMergeTargetStatus extends LitElement {
 		if (this.conflicts) {
 			return html`${this.renderHeader('Potential Conflicts with Merge Target', 'warning', 'warning')}
 				<div class="body">
-					${this.status
-						? html`<p>
-								Your current branch ${renderBranchName(this.branch.name)} is
-								${pluralize('commit', this.status.behind)} behind its merge target
-								${this.renderInlineTargetEdit(this.target)}.
-							</p>`
-						: nothing}
+					${
+						this.status
+							? html`<p>
+									Your current branch ${renderBranchName(this.branch.name)} is
+									${pluralize('commit', this.status.behind)} behind its merge target
+									${this.renderInlineTargetEdit(this.target)}.
+								</p>`
+							: nothing
+					}
 					<div class="button-container">
 						<gl-button
 							full
@@ -550,13 +556,15 @@ export class GlMergeTargetStatus extends LitElement {
 								><span>Merge ${target} into ${renderBranchName(this.branch.name)}</span></gl-button
 							>
 						</div>
-						${this.conflictError
-							? html`<p class="status--merge-unknown">
-									<code-icon icon="error"></code-icon> Unable to detect conflicts.
-								</p>`
-							: html`<p class="status--merge-clean">
-									<code-icon icon="check"></code-icon> Merging will not cause conflicts.
-								</p>`}
+						${
+							this.conflictError
+								? html`<p class="status--merge-unknown">
+										<code-icon icon="error"></code-icon> Unable to detect conflicts.
+									</p>`
+								: html`<p class="status--merge-clean">
+										<code-icon icon="check"></code-icon> Merging will not cause conflicts.
+									</p>`
+						}
 					</div>`;
 			}
 
@@ -599,41 +607,43 @@ export class GlMergeTargetStatus extends LitElement {
 		const targetRef = this.targetBranchRef;
 
 		return html`<span class="header__actions"
-			>${branchRef && targetRef
-				? html`<gl-button
-							href="${this._webview.createCommandLink<BranchAndTargetRefs>(
-								'gitlens.git.branch.setMergeTarget:',
-								{
-									...branchRef,
-									mergeTargetId: targetRef.branchId,
-									mergeTargetName: targetRef.branchName,
-								},
-							)}"
-							appearance="toolbar"
-							><code-icon icon="pencil"></code-icon
-							><span slot="tooltip"
-								>Change Merge Target<br />${renderBranchName(this.target?.name)}</span
-							></gl-button
-						><gl-button
-							href="${this._webview.createCommandLink<BranchAndTargetRefs>(
-								'gitlens.openMergeTargetComparison:',
-								{
-									...branchRef,
-									mergeTargetId: targetRef.branchId,
-									mergeTargetName: targetRef.branchName,
-								},
-							)}"
-							appearance="toolbar"
-							@click=${(e: MouseEvent) => this.onCompareClick(e, targetRef.branchName)}
-							><code-icon icon="git-compare"></code-icon>
-							<span slot="tooltip"
-								>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)}
-								<code-icon icon="arrow-both" size="12"></code-icon> ${renderBranchName(
-									this.target?.name,
-								)}</span
-							>
-						</gl-button>`
-				: nothing}<gl-button
+			>${
+				branchRef && targetRef
+					? html`<gl-button
+								href="${this._webview.createCommandLink<BranchAndTargetRefs>(
+									'gitlens.git.branch.setMergeTarget:',
+									{
+										...branchRef,
+										mergeTargetId: targetRef.branchId,
+										mergeTargetName: targetRef.branchName,
+									},
+								)}"
+								appearance="toolbar"
+								><code-icon icon="pencil"></code-icon
+								><span slot="tooltip"
+									>Change Merge Target<br />${renderBranchName(this.target?.name)}</span
+								></gl-button
+							><gl-button
+								href="${this._webview.createCommandLink<BranchAndTargetRefs>(
+									'gitlens.openMergeTargetComparison:',
+									{
+										...branchRef,
+										mergeTargetId: targetRef.branchId,
+										mergeTargetName: targetRef.branchName,
+									},
+								)}"
+								appearance="toolbar"
+								@click=${(e: MouseEvent) => this.onCompareClick(e, targetRef.branchName)}
+								><code-icon icon="git-compare"></code-icon>
+								<span slot="tooltip"
+									>Compare Branch with Merge Target<br />${renderBranchName(this.branch.name)}
+									<code-icon icon="arrow-both" size="12"></code-icon> ${renderBranchName(
+										this.target?.name,
+									)}</span
+								>
+							</gl-button>`
+					: nothing
+			}<gl-button
 				href="${this._webview.createCommandLink<BranchRef>('gitlens.fetch:', this.targetBranchRef)}"
 				appearance="toolbar"
 				><code-icon icon="repo-fetch"></code-icon>

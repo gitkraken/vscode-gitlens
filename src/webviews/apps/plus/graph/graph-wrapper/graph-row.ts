@@ -480,10 +480,12 @@ function renderMessageContent(message: string): TemplateResult {
 
 	const { summary, body } = splitCommitMessage(message);
 	const bodyText = body ? body.replace(/\s+/g, ' ').trim() : '';
-	result = html`<span class="gl-graph__message-subject">${renderInlineMarkup(summary)}</span>${bodyText
-			? html`<span class="gl-graph__message-sep">•</span
-					><span class="gl-graph__message-body">${renderInlineMarkup(bodyText)}</span>`
-			: nothing}`;
+	result = html`<span class="gl-graph__message-subject">${renderInlineMarkup(summary)}</span>${
+			bodyText
+				? html`<span class="gl-graph__message-sep">•</span
+						><span class="gl-graph__message-body">${renderInlineMarkup(bodyText)}</span>`
+				: nothing
+		}`;
 	messageContentCache.set(message, result);
 	return result;
 }
@@ -745,9 +747,11 @@ function renderZoneContent(
 			return wantsGhostRef(row, ctx) ? renderInlineRefs(row, refs, ctx, ctx.ghostRef) : nothing;
 		}
 		case 'message':
-			return html`${ctx.messageAdornments?.length
-					? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
-					: nothing}<span class="gl-graph__message">${renderMessageContent(ctx.commit.message)}</span>`;
+			return html`${
+					ctx.messageAdornments?.length
+						? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
+						: nothing
+				}<span class="gl-graph__message">${renderMessageContent(ctx.commit.message)}</span>`;
 		case 'author':
 			return renderAuthor(row, ctx, zone.width <= zone.minWidth);
 		case 'datetime':
@@ -786,9 +790,11 @@ function renderListBody(
 	return html`${inlineGutter}${renderAvatar(row, ctx)}
 		<div class="gl-graph__list-content">
 			<div class="gl-graph__list-line1">
-				${ctx.messageAdornments?.length
-					? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
-					: nothing}
+				${
+					ctx.messageAdornments?.length
+						? html`<span class="gl-graph__msg-adornments">${ctx.messageAdornments}</span>`
+						: nothing
+				}
 				<span class="gl-graph__message">${renderMessageContent(ctx.commit.message)}</span>
 			</div>
 			${line2}
@@ -882,51 +888,56 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			// interaction. The agent indicator is always visible when present.
 			hasPersistent = hasPersistentRowActions(row.kind, agent, op, undefined);
 
-			actions = html`${agent != null
-					? html`<button
-							class="gl-graph__row-action gl-graph__row-action--persistent gl-graph__row-action--agent agent-indicator--${agent.category}"
-							type="button"
-							tabindex="-1"
-							data-wip-open="agents"
-							data-tooltip=${agentTip}
-							aria-label=${agentTip}
-						>
-							<code-icon icon="robot"></code-icon>${renderActionStatus(
-								agentIcon,
-								agent.category === 'working',
-							)}
-						</button>`
-					: nothing}${showResolve
-					? html`<button
-							class="gl-graph__row-action ${resolveActive
-								? 'gl-graph__row-action--persistent'
-								: 'gl-graph__row-action--gated'}"
-							type="button"
-							tabindex="-1"
-							data-wip-open="resolve"
-							data-tooltip=${resolveTip}
-							aria-label=${resolveTip}
-						>
-							<code-icon icon="gl-merge"></code-icon>${renderActionStatus(
-								resolveStatus,
-								resolveStatus === 'loading',
-							)}
-						</button>`
-					: nothing}<button
-					class="gl-graph__row-action ${composeActive
-						? 'gl-graph__row-action--persistent'
-						: 'gl-graph__row-action--gated'}"
+			actions = html`${
+					agent != null
+						? html`<button
+								class="gl-graph__row-action gl-graph__row-action--persistent gl-graph__row-action--agent agent-indicator--${agent.category}"
+								type="button"
+								tabindex="-1"
+								data-wip-open="agents"
+								data-tooltip=${agentTip}
+								aria-label=${agentTip}
+							>
+								<code-icon icon="robot"></code-icon>${renderActionStatus(
+									agentIcon,
+									agent.category === 'working',
+								)}
+							</button>`
+						: nothing
+				}${
+					showResolve
+						? html`<button
+								class="gl-graph__row-action ${
+									resolveActive ? 'gl-graph__row-action--persistent' : 'gl-graph__row-action--gated'
+								}"
+								type="button"
+								tabindex="-1"
+								data-wip-open="resolve"
+								data-tooltip=${resolveTip}
+								aria-label=${resolveTip}
+							>
+								<code-icon icon="gl-merge"></code-icon>${renderActionStatus(
+									resolveStatus,
+									resolveStatus === 'loading',
+								)}
+							</button>`
+						: nothing
+				}<button
+					class="gl-graph__row-action ${
+						composeActive ? 'gl-graph__row-action--persistent' : 'gl-graph__row-action--gated'
+					}"
 					type="button"
 					tabindex="-1"
 					data-wip-open="compose"
 					data-tooltip=${composeTip}
 					aria-label=${composeTip}
 				>
-					<code-icon icon="wand"></code-icon>${renderActionStatus(composeStatus, composeStatus === 'loading')}</button
+					<code-icon icon="wand"></code-icon
+					>${renderActionStatus(composeStatus, composeStatus === 'loading')}</button
 				><button
-					class="gl-graph__row-action ${reviewActive
-						? 'gl-graph__row-action--persistent'
-						: 'gl-graph__row-action--gated'}"
+					class="gl-graph__row-action ${
+						reviewActive ? 'gl-graph__row-action--persistent' : 'gl-graph__row-action--gated'
+					}"
 					type="button"
 					tabindex="-1"
 					data-wip-open="review"
@@ -946,18 +957,20 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					aria-label="Stash All Changes..."
 				>
 					<code-icon icon="gl-stash-save"></code-icon></button
-				>${ctx.commit.parents[0] != null
-					? html`<button
-							class="gl-graph__row-action gl-graph__row-action--gated"
-							type="button"
-							tabindex="-1"
-							data-jump-sha=${ctx.commit.parents[0]}
-							data-tooltip="Jump to Branch Tip"
-							aria-label="Jump to Branch Tip"
-						>
-							<code-icon icon="download"></code-icon>
-						</button>`
-					: nothing}`;
+				>${
+					ctx.commit.parents[0] != null
+						? html`<button
+								class="gl-graph__row-action gl-graph__row-action--gated"
+								type="button"
+								tabindex="-1"
+								data-jump-sha=${ctx.commit.parents[0]}
+								data-tooltip="Jump to Branch Tip"
+								aria-label="Jump to Branch Tip"
+							>
+								<code-icon icon="download"></code-icon>
+							</button>`
+						: nothing
+				}`;
 			break;
 		}
 		case 'stash':
@@ -991,19 +1004,21 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			hasPersistent = hasPersistentRowActions(row.kind, undefined, undefined, isUnpushed);
 			const undoLabel = undo?.branchName != null ? `Undo Commit on ${undo.branchName}` : 'Undo Commit';
 
-			actions = html`${undo != null
-					? html`<button
-							class="gl-graph__row-action gl-graph__row-action--gated"
-							type="button"
-							tabindex="-1"
-							data-row-action="undo-commit"
-							data-worktree-path=${undo.worktreePath ?? nothing}
-							data-tooltip=${undoLabel}
-							aria-label=${undoLabel}
-						>
-							<code-icon icon="discard"></code-icon>
-						</button>`
-					: nothing}<button
+			actions = html`${
+					undo != null
+						? html`<button
+								class="gl-graph__row-action gl-graph__row-action--gated"
+								type="button"
+								tabindex="-1"
+								data-row-action="undo-commit"
+								data-worktree-path=${undo.worktreePath ?? nothing}
+								data-tooltip=${undoLabel}
+								aria-label=${undoLabel}
+							>
+								<code-icon icon="discard"></code-icon>
+							</button>`
+						: nothing
+				}<button
 					class="gl-graph__row-action gl-graph__row-action--gated"
 					type="button"
 					tabindex="-1"
@@ -1012,29 +1027,33 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					aria-label="Open All Changes"
 				>
 					<code-icon icon="diff-multiple"></code-icon></button
-				>${ctx.hasWipRow === true
-					? html`<button
-							class="gl-graph__row-action gl-graph__row-action--gated"
-							type="button"
-							tabindex="-1"
-							data-jump-nearest-wip="true"
-							data-tooltip="Jump to Working Changes"
-							aria-label="Jump to Working Changes"
-						>
-							<code-icon icon="download" flip="block"></code-icon>
-						</button>`
-					: nothing}${isUnpushed
-					? html`<button
-							class="gl-graph__row-action gl-graph__row-action--persistent unpushed-push-button"
-							type="button"
-							tabindex="-1"
-							data-row-action="push-to-commit"
-							data-tooltip="Push to Commit..."
-							aria-label="Push to Commit..."
-						>
-							<code-icon icon="cloud-upload"></code-icon>
-						</button>`
-					: nothing}`;
+				>${
+					ctx.hasWipRow === true
+						? html`<button
+								class="gl-graph__row-action gl-graph__row-action--gated"
+								type="button"
+								tabindex="-1"
+								data-jump-nearest-wip="true"
+								data-tooltip="Jump to Working Changes"
+								aria-label="Jump to Working Changes"
+							>
+								<code-icon icon="download" flip="block"></code-icon>
+							</button>`
+						: nothing
+				}${
+					isUnpushed
+						? html`<button
+								class="gl-graph__row-action gl-graph__row-action--persistent unpushed-push-button"
+								type="button"
+								tabindex="-1"
+								data-row-action="push-to-commit"
+								data-tooltip="Push to Commit..."
+								aria-label="Push to Commit..."
+							>
+								<code-icon icon="cloud-upload"></code-icon>
+							</button>`
+						: nothing
+				}`;
 		}
 	}
 	// Gated buttons leave the tab order + a11y tree at rest (whole-strip `visibility:hidden` in default
@@ -1043,9 +1062,9 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// `--has-row-marker` drops the strip's at-rest backdrop: the WIP jump pill carries its own opaque chrome, so
 	// the primary WIP row keeps its content readable until the buttons actually reveal.
 	return html`<div
-		class="gl-graph__row-actions ${hasPersistent || hasDecorator
-			? 'gl-graph__row-actions--has-persistent'
-			: ''}${hasDecorator ? ' gl-graph__row-actions--has-row-marker' : ''}"
+		class="gl-graph__row-actions ${
+			hasPersistent || hasDecorator ? 'gl-graph__row-actions--has-persistent' : ''
+		}${hasDecorator ? ' gl-graph__row-actions--has-row-marker' : ''}"
 	>
 		${decorator ?? nothing}${actions}
 	</div>`;
@@ -1359,9 +1378,11 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		aria-setsize=${ctx.total}
 		aria-selected=${ctx.isSelected}
 		aria-expanded=${ctx.laneTipSha === row.sha ? (ctx.laneCollapsed ? 'false' : 'true') : nothing}
-		aria-label=${ctx.skeleton
-			? ctx.commit.message
-			: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`}
+		aria-label=${
+			ctx.skeleton
+				? ctx.commit.message
+				: `${rowMarkerAriaPrefix}${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`
+		}
 		data-sha=${row.sha}
 		data-index=${ctx.index}
 		data-focused=${ctx.isFocused || nothing}

@@ -670,11 +670,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		return html`<div class="panel">
 			${this.renderHeader(config, isLoading)}
 			<div class="content">
-				${hasError
-					? html`<div class="empty">Failed to load data</div>`
-					: data != null
-						? this.renderTreeContent(config, data)
-						: this.renderSkeleton()}
+				${
+					hasError
+						? html`<div class="empty">Failed to load data</div>`
+						: data != null
+							? this.renderTreeContent(config, data)
+							: this.renderSkeleton()
+				}
 			</div>
 		</div>`;
 	}
@@ -767,16 +769,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			@gl-tree-generated-item-selected=${this.handleTreeItemSelected}
 			@gl-tree-generated-item-action-clicked=${this.handleTreeItemAction}
 			@gl-tree-expansion-changed=${this.handleTreeExpansionChanged}
-			>${hasLayout
-				? html`<gl-button
-						slot="filter-actions"
-						appearance="toolbar"
-						density="compact"
-						tooltip="${currentLayout === 'tree' ? 'View as List' : 'View as Tree'}"
-						@click=${this.handleToggleLayout}
-						><code-icon icon="${currentLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
-					></gl-button>`
-				: nothing}</gl-tree-view
+			>${
+				hasLayout
+					? html`<gl-button
+							slot="filter-actions"
+							appearance="toolbar"
+							density="compact"
+							tooltip="${currentLayout === 'tree' ? 'View as List' : 'View as Tree'}"
+							@click=${this.handleToggleLayout}
+							><code-icon icon="${currentLayout === 'tree' ? 'list-flat' : 'list-tree'}"></code-icon
+						></gl-button>`
+					: nothing
+			}</gl-tree-view
 		>`;
 	}
 
@@ -964,18 +968,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const hasBreakdown = wts != null && added + changed + deleted > 0;
 		const tooltip =
 			w.hasChanges != null
-				? html`<gl-markdown density="compact" .markdown=${tooltipMarkdown}></gl-markdown> ${hasBreakdown
-							? html`<commit-stats
-									added=${added || nothing}
-									modified=${changed || nothing}
-									removed=${deleted || nothing}
-									symbol="icons"
-									appearance="pill"
-									no-tooltip
-								></commit-stats>`
-							: html`<span class="tooltip-fallback"
-									>${w.hasChanges ? 'Has Uncommitted Changes' : 'No Uncommitted Changes'}</span
-								>`}`
+				? html`<gl-markdown density="compact" .markdown=${tooltipMarkdown}></gl-markdown> ${
+							hasBreakdown
+								? html`<commit-stats
+										added=${added || nothing}
+										modified=${changed || nothing}
+										removed=${deleted || nothing}
+										symbol="icons"
+										appearance="pill"
+										no-tooltip
+									></commit-stats>`
+								: html`<span class="tooltip-fallback"
+										>${w.hasChanges ? 'Has Uncommitted Changes' : 'No Uncommitted Changes'}</span
+									>`
+						}`
 				: worktreeTooltip(w);
 
 		return {

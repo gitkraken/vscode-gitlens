@@ -571,11 +571,13 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 		// rather than a perpetual "Loading…".
 		if (dirty && workingTreeState == null) {
 			return html`<span class="wip-status"
-				>${!this.wipDetails
-					? 'Has working changes'
-					: this.wip.statsUnavailable === true
-						? "Couldn't load changes"
-						: 'Loading changes…'}</span
+				>${
+					!this.wipDetails
+						? 'Has working changes'
+						: this.wip.statsUnavailable === true
+							? "Couldn't load changes"
+							: 'Loading changes…'
+				}</span
 			>`;
 		}
 

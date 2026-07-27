@@ -935,17 +935,19 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 					@gl-timeline-header-clear-scope=${this.onHeaderClearScope}
 					@gl-timeline-header-change-scope=${this.onHeaderChangeScope}
 				>
-					${this.placement === 'view'
-						? html`<gl-button
-								slot="toolbox"
-								appearance="toolbar"
-								href="command:gitlens.views.graph.openTimelineInTab"
-								tooltip="Open in Editor"
-								aria-label="Open in Editor"
-							>
-								<code-icon icon="link-external"></code-icon>
-							</gl-button>`
-						: nothing}
+					${
+						this.placement === 'view'
+							? html`<gl-button
+									slot="toolbox"
+									appearance="toolbar"
+									href="command:gitlens.views.graph.openTimelineInTab"
+									tooltip="Open in Editor"
+									aria-label="Open in Editor"
+								>
+									<code-icon icon="link-external"></code-icon>
+								</gl-button>`
+							: nothing
+					}
 					<gl-button
 						slot="toolbox"
 						appearance="toolbar"

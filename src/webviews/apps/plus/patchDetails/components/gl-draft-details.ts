@@ -222,20 +222,22 @@ export class GlDraftDetails extends GlTreeBase {
 							>
 						</span>
 					</p>
-					${markdown
-						? html`<div class="ai-content" data-region="commit-explanation">
-								<gl-markdown
-									class="ai-content__summary scrollable"
-									markdown="${markdown}"
-								></gl-markdown>
-							</div>`
-						: this.explain?.error
-							? html`<div class="ai-content has-error" data-region="commit-explanation">
-									<p class="ai-content__summary scrollable">
-										${this.explain.error.message ?? 'Error retrieving content'}
-									</p>
+					${
+						markdown
+							? html`<div class="ai-content" data-region="commit-explanation">
+									<gl-markdown
+										class="ai-content__summary scrollable"
+										markdown="${markdown}"
+									></gl-markdown>
 								</div>`
-							: undefined}
+							: this.explain?.error
+								? html`<div class="ai-content has-error" data-region="commit-explanation">
+										<p class="ai-content__summary scrollable">
+											${this.explain.error.message ?? 'Error retrieving content'}
+										</p>
+									</div>`
+								: undefined
+					}
 				</div>
 			</webview-pane>
 		`;
@@ -359,9 +361,9 @@ export class GlDraftDetails extends GlTreeBase {
 												>
 													<code-icon
 														icon="check"
-														class="user-selection__check ${selectionRole === value
-															? 'is-active'
-															: ''}"
+														class="user-selection__check ${
+															selectionRole === value ? 'is-active' : ''
+														}"
 													></code-icon>
 													${label}
 												</menu-item>`,

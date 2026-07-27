@@ -160,16 +160,20 @@ export class GlPopoverConfirm extends LitElement {
 				<slot name="anchor" slot="anchor"></slot>
 				<div slot="content" class="confirm-popover" role="alertdialog" aria-labelledby="confirm-title">
 					<div class="confirm-popover__header">
-						${this.showIcon
-							? html`<slot name="icon">
-									<code-icon class="confirm-popover__icon" icon=${this.icon}></code-icon>
-								</slot>`
-							: nothing}
+						${
+							this.showIcon
+								? html`<slot name="icon">
+										<code-icon class="confirm-popover__icon" icon=${this.icon}></code-icon>
+									</slot>`
+								: nothing
+						}
 						<h4 id="confirm-title" class="confirm-popover__title">${this.heading}</h4>
 					</div>
-					${this.message
-						? html`<p class="confirm-popover__message">${unsafeHTML(this.message)}</p>`
-						: nothing}
+					${
+						this.message
+							? html`<p class="confirm-popover__message">${unsafeHTML(this.message)}</p>`
+							: nothing
+					}
 					<div class="confirm-popover__actions">
 						<gl-button
 							class="cancel-button"

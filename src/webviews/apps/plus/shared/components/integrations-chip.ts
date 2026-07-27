@@ -308,15 +308,17 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				aria-label=${this.compact ? `Integrations (${anyConnected ? 'connected' : 'not connected'})` : nothing}
 				aria-expanded=${this.compact ? this._popoverOpen : nothing}
 				@keydown=${this.onAnchorKeydown}
-				>${this.compact
-					? html`<span class="integration status--${anyConnected ? 'connected' : 'disconnected'}"
-							><code-icon icon="plug"></code-icon
-						></span>`
-					: html`${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${integrations
-							.filter(createStatusIconFilter(integrations))
-							.map(i =>
-								this.renderIntegrationStatus(i),
-							)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`}</span
+				>${
+					this.compact
+						? html`<span class="integration status--${anyConnected ? 'connected' : 'disconnected'}"
+								><code-icon icon="plug"></code-icon
+							></span>`
+						: html`${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${integrations
+								.filter(createStatusIconFilter(integrations))
+								.map(i =>
+									this.renderIntegrationStatus(i),
+								)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`
+				}</span
 			>
 			<div slot="content" class="content">
 				<div class="header">
@@ -346,30 +348,30 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 					></span>
 				</div>
 				<div class="integrations">
-					${!anyConnected
-						? html`<p>
-									Connect hosting services like <strong>GitHub</strong> and issue trackers like
-									<strong>Jira</strong> to track progress and take action on PRs and issues related to
-									your branches.
-								</p>
-								<button-container>
-									<gl-button
-										full
-										href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-											'gitlens.plus.cloudIntegrations.connect',
-											{
-												integrationIds: this.integrations.map(
-													i => i.id as SupportedCloudIntegrationIds,
-												),
-												source: { source: 'home', detail: 'integrations' },
-											},
-										)}"
-										>Connect Integrations</gl-button
-									>
-								</button-container>`
-						: this.integrations.map(i =>
-								this.renderIntegrationRow(i),
-							)}${this.renderAIRow()}${this.renderMcpRow()}${this.renderDefaultAgentRow()}${this.renderHooksRow()}
+					${
+						!anyConnected
+							? html`<p>
+										Connect hosting services like <strong>GitHub</strong> and issue trackers like
+										<strong>Jira</strong> to track progress and take action on PRs and issues
+										related to your branches.
+									</p>
+									<button-container>
+										<gl-button
+											full
+											href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+												'gitlens.plus.cloudIntegrations.connect',
+												{
+													integrationIds: this.integrations.map(
+														i => i.id as SupportedCloudIntegrationIds,
+													),
+													source: { source: 'home', detail: 'integrations' },
+												},
+											)}"
+											>Connect Integrations</gl-button
+										>
+									</button-container>`
+							: this.integrations.map(i => this.renderIntegrationRow(i))
+					}${this.renderAIRow()}${this.renderMcpRow()}${this.renderDefaultAgentRow()}${this.renderHooksRow()}
 				</div>
 			</div>
 		</gl-popover>`;
@@ -395,57 +397,61 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		const showLock = integration.requiresPro && !this.isProAccount;
 		const showProBadge = integration.requiresPro && !this.isPaidAccount;
 		return html`<div
-			class="integration-row status--${integration.connected ? 'connected' : 'disconnected'}${showLock
-				? ' is-locked'
-				: ''}"
+			class="integration-row status--${integration.connected ? 'connected' : 'disconnected'}${
+				showLock ? ' is-locked' : ''
+			}"
 		>
 			<span class="integration__icon"><code-icon icon="${integration.icon}"></code-icon></span>
 			<span class="integration__content">
 				<span class="integration__title">
 					<span>${integration.name}</span>
-					${showProBadge
-						? html` <gl-feature-badge
-								placement="right"
-								.source=${{ source: 'home', detail: 'integrations' } as const}
-								cloud
-							></gl-feature-badge>`
-						: nothing}
+					${
+						showProBadge
+							? html` <gl-feature-badge
+									placement="right"
+									.source=${{ source: 'home', detail: 'integrations' } as const}
+									cloud
+								></gl-feature-badge>`
+							: nothing
+					}
 				</span>
 				<span class="integration__details">${getIntegrationDetails(integration)}</span>
 			</span>
 			<span class="integration__actions">
-				${showLock
-					? html`<gl-button
-							appearance="toolbar"
-							href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-								plan: 'pro',
-								source: 'home',
-								detail: 'integrations',
-							})}"
-							tooltip="Unlock ${integration.name} features with GitLens Pro"
-							aria-label="Unlock ${integration.name} features with GitLens Pro"
-							><code-icon class="status-indicator" icon="lock"></code-icon
-						></gl-button>`
-					: integration.connected
-						? html`<gl-tooltip
-								class="status-indicator status--connected"
-								placement="bottom"
-								content="Connected"
-								><code-icon class="status-indicator" icon="check"></code-icon
-							></gl-tooltip>`
-						: html`<gl-button
+				${
+					showLock
+						? html`<gl-button
 								appearance="toolbar"
-								href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-									'gitlens.plus.cloudIntegrations.connect',
-									{
-										integrationIds: [integration.id as SupportedCloudIntegrationIds],
-										source: { source: 'home', detail: 'integrations' },
-									},
-								)}"
-								tooltip="Connect ${integration.name}"
-								aria-label="Connect ${integration.name}"
-								><code-icon icon="plug"></code-icon
-							></gl-button>`}
+								href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+									plan: 'pro',
+									source: 'home',
+									detail: 'integrations',
+								})}"
+								tooltip="Unlock ${integration.name} features with GitLens Pro"
+								aria-label="Unlock ${integration.name} features with GitLens Pro"
+								><code-icon class="status-indicator" icon="lock"></code-icon
+							></gl-button>`
+						: integration.connected
+							? html`<gl-tooltip
+									class="status-indicator status--connected"
+									placement="bottom"
+									content="Connected"
+									><code-icon class="status-indicator" icon="check"></code-icon
+								></gl-tooltip>`
+							: html`<gl-button
+									appearance="toolbar"
+									href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
+										'gitlens.plus.cloudIntegrations.connect',
+										{
+											integrationIds: [integration.id as SupportedCloudIntegrationIds],
+											source: { source: 'home', detail: 'integrations' },
+										},
+									)}"
+									tooltip="Connect ${integration.name}"
+									aria-label="Connect ${integration.name}"
+									><code-icon icon="plug"></code-icon
+								></gl-button>`
+				}
 			</span>
 		</div>`;
 	}
@@ -469,59 +475,69 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		const icon = connectedAndEnabled ? 'sparkle-filled' : 'sparkle'; // TODO: Provider?
 
 		return html`<div
-			class="integration-row integration-row--ai status--${connectedAndEnabled
-				? 'connected'
-				: 'disconnected'}${showLock ? ' is-locked' : ''}"
+			class="integration-row integration-row--ai status--${
+				connectedAndEnabled ? 'connected' : 'disconnected'
+			}${showLock ? ' is-locked' : ''}"
 		>
 			<span class="integration__icon"><code-icon icon="${icon}"></code-icon></span>
-			${this.aiEnabled
-				? html`<span class="integration__content">
-							${model?.provider.name
-								? html`<span class="integration__title">
-										<span>${model.provider.name}</span>
-										${showProBadge
-											? html` <gl-feature-badge
-													placement="right"
-													.source=${{ source: 'home', detail: 'integrations' } as const}
-													cloud
-												></gl-feature-badge>`
-											: nothing}
-									</span>`
-								: html`<span class="integration_details">Select AI model to enable AI features</span>`}
-							${model?.name ? html`<span class="integration__details">${model.name}</span>` : nothing}
-						</span>
-						<span class="integration__actions">
-							<gl-button
-								appearance="toolbar"
-								href="${createCommandLink<Source>('gitlens.ai.switchProvider', {
-									source: 'home',
-									detail: 'integrations',
-								})}"
-								tooltip="Switch AI Provider/Model"
-								aria-label="Switch AI Provider/Model"
-								><code-icon icon="arrow-swap"></code-icon
-							></gl-button>
-						</span>`
-				: html`<span class="integration__content">
-							<span class="integration_details"
-								>GitLens AI features have been
-								disabled${!this.ai.enabled ? ' via settings' : ' by your GitKraken admin'}</span
-							>
-						</span>
-						${!this.ai.enabled
-							? html` <span class="integration__actions">
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.ai.enable', {
-											source: 'home',
-											detail: 'integrations',
-										})}"
-										tooltip="Re-enable AI Features"
-										aria-label="Re-enable AI Features"
-										><code-icon icon="unlock"></code-icon
-									></gl-button>
-								</span>`
-							: nothing}`}
+			${
+				this.aiEnabled
+					? html`<span class="integration__content">
+								${
+									model?.provider.name
+										? html`<span class="integration__title">
+												<span>${model.provider.name}</span>
+												${
+													showProBadge
+														? html` <gl-feature-badge
+																placement="right"
+																.source=${{ source: 'home', detail: 'integrations' } as const}
+																cloud
+															></gl-feature-badge>`
+														: nothing
+												}
+											</span>`
+										: html`<span class="integration_details"
+												>Select AI model to enable AI features</span
+											>`
+								}
+								${model?.name ? html`<span class="integration__details">${model.name}</span>` : nothing}
+							</span>
+							<span class="integration__actions">
+								<gl-button
+									appearance="toolbar"
+									href="${createCommandLink<Source>('gitlens.ai.switchProvider', {
+										source: 'home',
+										detail: 'integrations',
+									})}"
+									tooltip="Switch AI Provider/Model"
+									aria-label="Switch AI Provider/Model"
+									><code-icon icon="arrow-swap"></code-icon
+								></gl-button>
+							</span>`
+					: html`<span class="integration__content">
+								<span class="integration_details"
+									>GitLens AI features have been
+									disabled${!this.ai.enabled ? ' via settings' : ' by your GitKraken admin'}</span
+								>
+							</span>
+							${
+								!this.ai.enabled
+									? html` <span class="integration__actions">
+											<gl-button
+												appearance="toolbar"
+												href="${createCommandLink<Source>('gitlens.ai.enable', {
+													source: 'home',
+													detail: 'integrations',
+												})}"
+												tooltip="Re-enable AI Features"
+												aria-label="Re-enable AI Features"
+												><code-icon icon="unlock"></code-icon
+											></gl-button>
+										</span>`
+									: nothing
+							}`
+			}
 		</div>`;
 	}
 
@@ -540,92 +556,102 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 		return html`<div class="integration-row integration-row--mcp status--${active ? 'connected' : 'disconnected'}">
 			<span class="integration__icon"><code-icon icon="mcp"></code-icon></span>
-			${mcpEnabled
-				? mcp.installed
-					? html`<span class="integration__content">
-								<span class="integration__title">GitKraken MCP</span>
-								<span class="integration__details">Leverage Git &amp; Integrations in AI chats</span>
-							</span>
-							<span class="integration__actions">
-								<gl-button
-									appearance="toolbar"
-									href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
-										source: 'home',
-										detail: 'integrations',
-									})}"
-									tooltip="Connect More Agents"
-									aria-label="Connect More Agents"
-									><code-icon icon="plug"></code-icon
-								></gl-button>
-								<gl-button
-									appearance="toolbar"
-									href="${createCommandLink<Source>('gitlens.ai.mcp.reinstall', {
-										source: 'home',
-										detail: 'integrations',
-									})}"
-									tooltip="Reinstall GitKraken MCP"
-									aria-label="Reinstall GitKraken MCP"
-									><code-icon icon="sync"></code-icon
-								></gl-button>
-								<gl-tooltip
-									class="status-indicator status--connected"
-									placement="bottom"
-									content="Installed${mcp.bundled ? ' (bundled)' : ''}"
-									><code-icon class="status-indicator" icon="check"></code-icon
-								></gl-tooltip>
-							</span>`
-					: html`<span class="integration__content">
-								<span class="integration__title">GitKraken MCP</span>
-								<span class="integration__details">Leverage Git &amp; Integrations in AI chats</span>
-							</span>
-							<span class="integration__actions">
-								<gl-button
-									appearance="toolbar"
-									href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
-										source: 'home',
-										detail: 'integrations',
-									})}"
-									tooltip="Install GitKraken MCP"
-									aria-label="Install GitKraken MCP"
-									><code-icon icon="plug"></code-icon
-								></gl-button>
-							</span>`
-				: !this.aiEnabled
-					? html`<span class="integration__content">
-								<span class="integration_details"
-									>GitKraken MCP has been
-									disabled${!this.ai.enabled ? ' via settings' : ' by your GitKraken admin'}</span
-								>
-							</span>
-							${!this.ai.enabled
-								? html` <span class="integration__actions">
-										<gl-button
-											appearance="toolbar"
-											href="${createCommandLink<Source>('gitlens.ai.enable', {
-												source: 'home',
-												detail: 'integrations',
-											})}"
-											tooltip="Re-enable AI Features"
-											aria-label="Re-enable AI Features"
-											><code-icon icon="unlock"></code-icon
-										></gl-button>
-									</span>`
-								: nothing}`
-					: html`<span class="integration__content">
-								<span class="integration_details">GitKraken MCP has been disabled via settings</span>
-							</span>
-							<span class="integration__actions">
-								<gl-button
-									appearance="toolbar"
-									href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
-										source: 'home',
-										detail: 'integrations',
-									})}"
-									tooltip="Re-enable MCP"
-									aria-label="Re-enable MCP"
-									><code-icon icon="unlock"></code-icon
-								></gl-button>
-							</span>`}
+			${
+				mcpEnabled
+					? mcp.installed
+						? html`<span class="integration__content">
+									<span class="integration__title">GitKraken MCP</span>
+									<span class="integration__details"
+										>Leverage Git &amp; Integrations in AI chats</span
+									>
+								</span>
+								<span class="integration__actions">
+									<gl-button
+										appearance="toolbar"
+										href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
+											source: 'home',
+											detail: 'integrations',
+										})}"
+										tooltip="Connect More Agents"
+										aria-label="Connect More Agents"
+										><code-icon icon="plug"></code-icon
+									></gl-button>
+									<gl-button
+										appearance="toolbar"
+										href="${createCommandLink<Source>('gitlens.ai.mcp.reinstall', {
+											source: 'home',
+											detail: 'integrations',
+										})}"
+										tooltip="Reinstall GitKraken MCP"
+										aria-label="Reinstall GitKraken MCP"
+										><code-icon icon="sync"></code-icon
+									></gl-button>
+									<gl-tooltip
+										class="status-indicator status--connected"
+										placement="bottom"
+										content="Installed${mcp.bundled ? ' (bundled)' : ''}"
+										><code-icon class="status-indicator" icon="check"></code-icon
+									></gl-tooltip>
+								</span>`
+						: html`<span class="integration__content">
+									<span class="integration__title">GitKraken MCP</span>
+									<span class="integration__details"
+										>Leverage Git &amp; Integrations in AI chats</span
+									>
+								</span>
+								<span class="integration__actions">
+									<gl-button
+										appearance="toolbar"
+										href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
+											source: 'home',
+											detail: 'integrations',
+										})}"
+										tooltip="Install GitKraken MCP"
+										aria-label="Install GitKraken MCP"
+										><code-icon icon="plug"></code-icon
+									></gl-button>
+								</span>`
+					: !this.aiEnabled
+						? html`<span class="integration__content">
+									<span class="integration_details"
+										>GitKraken MCP has been
+										disabled${!this.ai.enabled ? ' via settings' : ' by your GitKraken admin'}</span
+									>
+								</span>
+								${
+									!this.ai.enabled
+										? html` <span class="integration__actions">
+												<gl-button
+													appearance="toolbar"
+													href="${createCommandLink<Source>('gitlens.ai.enable', {
+														source: 'home',
+														detail: 'integrations',
+													})}"
+													tooltip="Re-enable AI Features"
+													aria-label="Re-enable AI Features"
+													><code-icon icon="unlock"></code-icon
+												></gl-button>
+											</span>`
+										: nothing
+								}`
+						: html`<span class="integration__content">
+									<span class="integration_details"
+										>GitKraken MCP has been disabled via settings</span
+									>
+								</span>
+								<span class="integration__actions">
+									<gl-button
+										appearance="toolbar"
+										href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
+											source: 'home',
+											detail: 'integrations',
+										})}"
+										tooltip="Re-enable MCP"
+										aria-label="Re-enable MCP"
+										><code-icon icon="unlock"></code-icon
+									></gl-button>
+								</span>`
+			}
 		</div>`;
 	}
 
@@ -643,9 +669,9 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 		const agent = this.ai.defaultAgent;
 		return html`<div
-			class="integration-row integration-row--default-agent status--${agent != null
-				? 'connected'
-				: 'disconnected'}"
+			class="integration-row integration-row--default-agent status--${
+				agent != null ? 'connected' : 'disconnected'
+			}"
 		>
 			<span class="integration__icon"><code-icon icon="robot"></code-icon></span>
 			<span class="integration__content">

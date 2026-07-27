@@ -747,13 +747,15 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 						<code-icon icon="close"></code-icon>
 					</gl-button>
 				</div>
-				${(this.graphState.canInstallClaudeHook ?? false) && !(this.graphState.hooksBannerCollapsed ?? true)
-					? html`<gl-hooks-banner
-							class="hooks-banner"
-							source="graph-kanban"
-							layout="responsive"
-						></gl-hooks-banner>`
-					: nothing}
+				${
+					(this.graphState.canInstallClaudeHook ?? false) && !(this.graphState.hooksBannerCollapsed ?? true)
+						? html`<gl-hooks-banner
+								class="hooks-banner"
+								source="graph-kanban"
+								layout="responsive"
+							></gl-hooks-banner>`
+						: nothing
+				}
 				${sessions.length === 0 ? this.renderEmpty() : this.renderColumns(sessionsByColumn)}
 			</section>
 		`;
@@ -793,13 +795,15 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				>
 			</header>
 			<div class="column__list scrollable">
-				${sessions.length === 0
-					? html`<p class="column__empty">Nothing here</p>`
-					: repeat(
-							sessions,
-							s => s.id,
-							s => this.renderCard(s, column.id),
-						)}
+				${
+					sessions.length === 0
+						? html`<p class="column__empty">Nothing here</p>`
+						: repeat(
+								sessions,
+								s => s.id,
+								s => this.renderCard(s, column.id),
+							)
+				}
 			</div>
 		</section>`;
 	}
@@ -835,9 +839,11 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				<span class="card__phase">${phaseLabel}${elapsed != null ? ` · ${elapsed}` : ''}</span>
 			</div>
 			<div class="card__sub-row">
-				${subtitle != null
-					? html`<span class="card__subtitle">${subtitle}</span>`
-					: html`<span class="card__subtitle"></span>`}
+				${
+					subtitle != null
+						? html`<span class="card__subtitle">${subtitle}</span>`
+						: html`<span class="card__subtitle"></span>`
+				}
 				<gl-button
 					class="card__open"
 					appearance="toolbar"
@@ -928,19 +934,21 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					<code-icon icon="x"></code-icon>
 					${isPlan ? 'Reject' : 'Deny'}
 				</gl-button>
-				${isPlan && permission.planFilePath != null
-					? html`<gl-button
-							appearance="toolbar"
-							tooltip="View Plan"
-							data-telemetry-action="open-plan"
-							href=${createCommandLink(
-								'gitlens.agents.openPlanFile',
-								JSON.stringify(permission.planFilePath),
-							)}
-						>
-							<code-icon icon="tasklist"></code-icon>
-						</gl-button>`
-					: nothing}
+				${
+					isPlan && permission.planFilePath != null
+						? html`<gl-button
+								appearance="toolbar"
+								tooltip="View Plan"
+								data-telemetry-action="open-plan"
+								href=${createCommandLink(
+									'gitlens.agents.openPlanFile',
+									JSON.stringify(permission.planFilePath),
+								)}
+							>
+								<code-icon icon="tasklist"></code-icon>
+							</gl-button>`
+						: nothing
+				}
 			</div>
 		</div>`;
 	}

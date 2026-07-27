@@ -240,74 +240,85 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		const showMetadataBar = this.activeMode !== 'compose';
 
 		return html`
-			${isInitialLoad
-				? html`<div class="details-loading" aria-busy="true" aria-live="polite">Loading...</div>`
-				: html`
-						${this.renderCompareHeader()} ${showMetadataBar ? this.renderMetadataBar() : nothing}
-						${cache(
-							hasSubPanel
-								? html`<div class="sub-panel-enter">${this.subPanelContent}</div>`
-								: html`<div class="compare-section">
-											${this.renderPoles()} ${this.renderAutolinksRow()} ${this.renderAIActions()}
-										</div>
-										<div class="compare-files">
-											<webview-pane-group flexible>
-												<gl-file-tree-pane
-													.files=${this.files}
-													.filesLayout=${this.preferences?.files}
-													.showIndentGuides=${this.preferences?.indentGuides}
-													.collapsable=${this.filesCollapsable}
-													?show-file-icons=${this.fileIcons}
-													.fileActions=${GlDetailsMultiCommitPanel._fileActions}
-													.fileContext=${this.getFileContext}
-													.folderContext=${(folder: { relativePath: string }) =>
-														buildFolderContext(this.commitTo?.repoPath, folder)}
-													.searchContext=${this.searchContext}
-													.showSearchBox=${this.showSearchBox}
-													.searchBoxFilter=${this.searchBoxFilter}
-													empty-text=${filesLoadingEmpty ? '' : 'No Files'}
-													?multi-selectable=${true}
-													@file-compare-previous=${this.handleFileCompareBetween}
-													@file-open=${this.redispatch}
-													@file-compare-working=${this.redispatch}
-													@file-more-actions=${this.redispatch}
-													@change-files-layout=${this.redispatch}
-													@file-selection-changed=${this.handleFileSelectionChanged}
-												>
-													${this.getMultiDiffRefs() != null
-														? renderOpenChangesAction({
-																selectedCount: this._selectedFiles.length,
-																slot: 'leading-actions',
-																onOpenAll: () => this.handleOpenMultiDiff(),
-																onOpenSelected: () => this.handleOpenSelectedChanges(),
-															})
-														: nothing}
-													${(() => {
-														const refs = this.getMultiDiffRefs();
-														return refs != null
-															? renderCopyChangesAction({
-																	repoPath: refs.repoPath,
-																	to: refs.rhs,
-																	from: refs.lhs || undefined,
-																	slot: 'leading-actions',
-																})
-															: nothing;
-													})()}
-													${filesLoadingEmpty
-														? html`<div
-																slot="before-tree"
-																class="compare-files--loading"
-																aria-busy="true"
-															>
-																<code-icon icon="loading" modifier="spin"></code-icon>
-																<span>Loading changes…</span>
-															</div>`
-														: nothing}
-												</gl-file-tree-pane>
-											</webview-pane-group>
-										</div>`,
-						)}
-					`}
+			${
+				isInitialLoad
+					? html`<div class="details-loading" aria-busy="true" aria-live="polite">Loading...</div>`
+					: html`
+							${this.renderCompareHeader()} ${showMetadataBar ? this.renderMetadataBar() : nothing}
+							${cache(
+								hasSubPanel
+									? html`<div class="sub-panel-enter">${this.subPanelContent}</div>`
+									: html`<div class="compare-section">
+												${this.renderPoles()} ${this.renderAutolinksRow()}
+												${this.renderAIActions()}
+											</div>
+											<div class="compare-files">
+												<webview-pane-group flexible>
+													<gl-file-tree-pane
+														.files=${this.files}
+														.filesLayout=${this.preferences?.files}
+														.showIndentGuides=${this.preferences?.indentGuides}
+														.collapsable=${this.filesCollapsable}
+														?show-file-icons=${this.fileIcons}
+														.fileActions=${GlDetailsMultiCommitPanel._fileActions}
+														.fileContext=${this.getFileContext}
+														.folderContext=${(folder: { relativePath: string }) =>
+															buildFolderContext(this.commitTo?.repoPath, folder)}
+														.searchContext=${this.searchContext}
+														.showSearchBox=${this.showSearchBox}
+														.searchBoxFilter=${this.searchBoxFilter}
+														empty-text=${filesLoadingEmpty ? '' : 'No Files'}
+														?multi-selectable=${true}
+														@file-compare-previous=${this.handleFileCompareBetween}
+														@file-open=${this.redispatch}
+														@file-compare-working=${this.redispatch}
+														@file-more-actions=${this.redispatch}
+														@change-files-layout=${this.redispatch}
+														@file-selection-changed=${this.handleFileSelectionChanged}
+													>
+														${
+															this.getMultiDiffRefs() != null
+																? renderOpenChangesAction({
+																		selectedCount: this._selectedFiles.length,
+																		slot: 'leading-actions',
+																		onOpenAll: () => this.handleOpenMultiDiff(),
+																		onOpenSelected: () =>
+																			this.handleOpenSelectedChanges(),
+																	})
+																: nothing
+														}
+														${(() => {
+															const refs = this.getMultiDiffRefs();
+															return refs != null
+																? renderCopyChangesAction({
+																		repoPath: refs.repoPath,
+																		to: refs.rhs,
+																		from: refs.lhs || undefined,
+																		slot: 'leading-actions',
+																	})
+																: nothing;
+														})()}
+														${
+															filesLoadingEmpty
+																? html`<div
+																		slot="before-tree"
+																		class="compare-files--loading"
+																		aria-busy="true"
+																	>
+																		<code-icon
+																			icon="loading"
+																			modifier="spin"
+																		></code-icon>
+																		<span>Loading changes…</span>
+																	</div>`
+																: nothing
+														}
+													</gl-file-tree-pane>
+												</webview-pane-group>
+											</div>`,
+							)}
+						`
+			}
 		`;
 	}
 
@@ -430,12 +441,14 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 			?in-results-view=${this.inResultsView}
 		>
 			<span class="compare-header__title">
-				${this.activeMode === 'review'
-					? html`<span>
-							<code-icon class="compare-header__mode-icon" icon="checklist"></code-icon>
-							Reviewing Comparison
-						</span>`
-					: html`Comparing References`}
+				${
+					this.activeMode === 'review'
+						? html`<span>
+								<code-icon class="compare-header__mode-icon" icon="checklist"></code-icon>
+								Reviewing Comparison
+							</span>`
+						: html`Comparing References`
+				}
 			</span>
 			${this.activeMode == null && this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
 		</gl-details-header>`;
@@ -469,9 +482,11 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 				></gl-commit-sha-copy>
 			</div>
 			<div class="compare-metadata__right">
-				${this.modeStatusText
-					? html`<span class="mode-status">${this.modeStatusText}</span>`
-					: this.renderCommitStats(this.stats)}
+				${
+					this.modeStatusText
+						? html`<span class="mode-status">${this.modeStatusText}</span>`
+						: this.renderCommitStats(this.stats)
+				}
 			</div>
 		</div>`;
 	}
@@ -493,11 +508,13 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 					</gl-tooltip>
 					<div class="compare-middle__rule"></div>
 				</div>
-				${this.betweenCount > 0
-					? html`<span class="compare-middle__count"
-							>${pluralize('commit', this.betweenCount)} in between</span
-						>`
-					: nothing}
+				${
+					this.betweenCount > 0
+						? html`<span class="compare-middle__count"
+								>${pluralize('commit', this.betweenCount)} in between</span
+							>`
+						: nothing
+				}
 			</div>
 			${this.renderPoleCard(this.commitTo, this.signatureTo)}
 		</div>`;
@@ -588,58 +605,67 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 
 		return html`<div class="compare-enrichment">
 			<gl-chip-overflow max-rows="1">
-				${hasChips
-					? nothing
-					: isLoadingEmpty
-						? html`<span slot="prefix" class="compare-enrichment__loading" aria-busy="true">
-								<code-icon icon="loading" modifier="spin"></code-icon>
-								<span>Loading autolinks…</span>
-							</span>`
-						: renderLearnAboutAutolinks({
+				${
+					hasChips
+						? nothing
+						: isLoadingEmpty
+							? html`<span slot="prefix" class="compare-enrichment__loading" aria-busy="true">
+									<code-icon icon="loading" modifier="spin"></code-icon>
+									<span>Loading autolinks…</span>
+								</span>`
+							: renderLearnAboutAutolinks({
+									hasIntegrationsConnected: this.hasIntegrationsConnected,
+									hasAccount: this.hasAccount,
+									showLabel: true,
+									slotName: 'prefix',
+								})
+				}
+				${
+					hasAutolinks
+						? autolinks.map(autolink => {
+								const name =
+									autolink.description ?? autolink.title ?? `${autolink.prefix}${autolink.id}`;
+								return html`<gl-autolink-chip
+									type="autolink"
+									name=${name}
+									url=${autolink.url}
+									identifier="${autolink.prefix}${autolink.id}"
+									openOnRemote
+								></gl-autolink-chip>`;
+							})
+						: nothing
+				}
+				${
+					hasEnriched
+						? enriched.map(
+								item =>
+									html`<gl-autolink-chip
+										type=${item.type === 'pullrequest' ? 'pr' : 'issue'}
+										name=${item.title}
+										url=${item.url}
+										identifier="#${item.id}"
+										status=${item.state}
+										.date=${item.closed ? item.closedDate : item.createdDate}
+										.dateFormat=${this.preferences?.dateFormat}
+										.dateStyle=${this.preferences?.dateStyle}
+										.itemId=${item.id}
+										.providerId=${item.provider?.id}
+										?details=${item.type === 'pullrequest'}
+										openOnRemote
+									></gl-autolink-chip>`,
+							)
+						: nothing
+				}
+				${this.renderAutolinksPopover(autolinks, enriched)} ${this.renderEnrichButton()}
+				${
+					hasChips
+						? renderLearnAboutAutolinks({
 								hasIntegrationsConnected: this.hasIntegrationsConnected,
 								hasAccount: this.hasAccount,
-								showLabel: true,
-								slotName: 'prefix',
-							})}
-				${hasAutolinks
-					? autolinks.map(autolink => {
-							const name = autolink.description ?? autolink.title ?? `${autolink.prefix}${autolink.id}`;
-							return html`<gl-autolink-chip
-								type="autolink"
-								name=${name}
-								url=${autolink.url}
-								identifier="${autolink.prefix}${autolink.id}"
-								openOnRemote
-							></gl-autolink-chip>`;
-						})
-					: nothing}
-				${hasEnriched
-					? enriched.map(
-							item =>
-								html`<gl-autolink-chip
-									type=${item.type === 'pullrequest' ? 'pr' : 'issue'}
-									name=${item.title}
-									url=${item.url}
-									identifier="#${item.id}"
-									status=${item.state}
-									.date=${item.closed ? item.closedDate : item.createdDate}
-									.dateFormat=${this.preferences?.dateFormat}
-									.dateStyle=${this.preferences?.dateStyle}
-									.itemId=${item.id}
-									.providerId=${item.provider?.id}
-									?details=${item.type === 'pullrequest'}
-									openOnRemote
-								></gl-autolink-chip>`,
-						)
-					: nothing}
-				${this.renderAutolinksPopover(autolinks, enriched)} ${this.renderEnrichButton()}
-				${hasChips
-					? renderLearnAboutAutolinks({
-							hasIntegrationsConnected: this.hasIntegrationsConnected,
-							hasAccount: this.hasAccount,
-							slotName: 'suffix',
-						})
-					: nothing}
+								slotName: 'suffix',
+							})
+						: nothing
+				}
 			</gl-chip-overflow>
 		</div>`;
 	}
@@ -652,38 +678,44 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		let needsDivider = false;
 
 		return html`<div slot="popover">
-			${enrichedPrs.length > 0
-				? html`<menu-label>Pull Requests</menu-label> ${enrichedPrs.map(
-							pr =>
-								html`<menu-item href=${pr.url}>
-									<code-icon icon="git-pull-request"></code-icon> #${pr.id}
-									${pr.title ? ` — ${pr.title}` : ''}
-								</menu-item>`,
-						)}${((needsDivider = true), nothing)}`
-				: nothing}
-			${enrichedIssues.length > 0
-				? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
-						<menu-label>Issues</menu-label>
-						${enrichedIssues.map(
-							issue =>
-								html`<menu-item href=${issue.url}>
-									<code-icon icon="issues"></code-icon> #${issue.id}
-									${issue.title ? ` — ${issue.title}` : ''}
-								</menu-item>`,
-						)}${((needsDivider = true), nothing)}`
-				: nothing}
-			${autolinks.length > 0
-				? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
-						<menu-label>Autolinks</menu-label>
-						${autolinks.map(
-							a =>
-								html`<menu-item href=${a.url}>
-									<code-icon icon="link"></code-icon> ${a.prefix}${a.id}${a.provider?.name
-										? ` on ${a.provider.name}`
-										: ''}
-								</menu-item>`,
-						)}`
-				: nothing}
+			${
+				enrichedPrs.length > 0
+					? html`<menu-label>Pull Requests</menu-label> ${enrichedPrs.map(
+								pr =>
+									html`<menu-item href=${pr.url}>
+										<code-icon icon="git-pull-request"></code-icon> #${pr.id}
+										${pr.title ? ` — ${pr.title}` : ''}
+									</menu-item>`,
+							)}${((needsDivider = true), nothing)}`
+					: nothing
+			}
+			${
+				enrichedIssues.length > 0
+					? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
+							<menu-label>Issues</menu-label>
+							${enrichedIssues.map(
+								issue =>
+									html`<menu-item href=${issue.url}>
+										<code-icon icon="issues"></code-icon> #${issue.id}
+										${issue.title ? ` — ${issue.title}` : ''}
+									</menu-item>`,
+							)}${((needsDivider = true), nothing)}`
+					: nothing
+			}
+			${
+				autolinks.length > 0
+					? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
+							<menu-label>Autolinks</menu-label>
+							${autolinks.map(
+								a =>
+									html`<menu-item href=${a.url}>
+										<code-icon icon="link"></code-icon> ${a.prefix}${a.id}${
+											a.provider?.name ? ` on ${a.provider.name}` : ''
+										}
+									</menu-item>`,
+							)}`
+					: nothing
+			}
 		</div>`;
 	}
 

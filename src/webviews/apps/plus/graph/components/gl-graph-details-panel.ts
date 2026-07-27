@@ -2032,23 +2032,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
 			?inert=${compareSheetOpen || this._conflictSheet != null || branchSheetRef != null}
 		>
-			${resolved != null
-				? resolved.content
-				: html`<div class="details-skeleton">
-						<div class="details-skeleton__header">
-							<div class="details-skeleton__avatar"></div>
-							<div class="details-skeleton__lines">
+			${
+				resolved != null
+					? resolved.content
+					: html`<div class="details-skeleton">
+							<div class="details-skeleton__header">
+								<div class="details-skeleton__avatar"></div>
+								<div class="details-skeleton__lines">
+									<div class="details-skeleton__line"></div>
+									<div class="details-skeleton__line details-skeleton__line--short"></div>
+								</div>
+							</div>
+							<div class="details-skeleton__bar"></div>
+							<div class="details-skeleton__body">
+								<div class="details-skeleton__line"></div>
 								<div class="details-skeleton__line"></div>
 								<div class="details-skeleton__line details-skeleton__line--short"></div>
 							</div>
-						</div>
-						<div class="details-skeleton__bar"></div>
-						<div class="details-skeleton__body">
-							<div class="details-skeleton__line"></div>
-							<div class="details-skeleton__line"></div>
-							<div class="details-skeleton__line details-skeleton__line--short"></div>
-						</div>
-					</div>`}
+						</div>`
+			}
 		</div>`;
 
 		const compareSheet = compareSheetOpen
@@ -2158,68 +2160,78 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							<gl-tooltip content=${branchSheetTitle} class="branch-sheet-title__name-tooltip">
 								<span class="branch-sheet-title__name">${branchSheetTitle}</span>
 							</gl-tooltip>
-							${branchSheetRef.context != null
-								? html`<gl-action-chip
-										class="branch-sheet-title__kebab"
-										icon="kebab-vertical"
-										label=${branchSheetRef.refType === 'tag'
-											? 'Show Tag Actions'
-											: 'Show Branch Actions'}
-										overlay="tooltip"
-										data-vscode-context=${branchSheetRef.context}
-										@click=${this.handleBranchSheetKebabClick}
-									></gl-action-chip>`
-								: nothing}
+							${
+								branchSheetRef.context != null
+									? html`<gl-action-chip
+											class="branch-sheet-title__kebab"
+											icon="kebab-vertical"
+											label=${
+												branchSheetRef.refType === 'tag'
+													? 'Show Tag Actions'
+													: 'Show Branch Actions'
+											}
+											overlay="tooltip"
+											data-vscode-context=${branchSheetRef.context}
+											@click=${this.handleBranchSheetKebabClick}
+										></gl-action-chip>`
+									: nothing
+							}
 						</span>
-						${branchSheetRef.refType === 'head'
-							? html`<gl-action-chip
-									slot="actions"
-									icon="target"
-									label="Focus on Branch"
-									overlay="tooltip"
-									@click=${() => this.handleBranchSheetAction('focus', branchSheetRef)}
-								></gl-action-chip>`
-							: nothing}
-						${branchSheetContext != null && branchSheetRef.refType !== 'tag'
-							? html`<gl-action-chip
-									slot="actions"
-									icon=${branchSheetIsPinned ? 'pinned' : 'pin'}
-									label=${branchSheetIsPinned ? 'Unpin Branch from Edge' : 'Pin Branch to Edge'}
-									overlay="tooltip"
-									href=${this._webview.createCommandLink<GraphItemContext>(
-										branchSheetIsPinned
-											? 'gitlens.graph.unpinBranchFromEdge'
-											: 'gitlens.graph.pinBranchToEdge',
-										branchSheetContext,
-									)}
-									@click=${() => {
-										// oxlint-disable-next-line lit/no-this-assign-in-render
-										this._branchSheetPinned = !branchSheetIsPinned;
-									}}
-								></gl-action-chip>`
-							: nothing}
-						${branchSheetContext != null
-							? html`<gl-action-chip
-									slot="actions"
-									icon="eye-closed"
-									label=${branchSheetRef.refType === 'tag' ? 'Hide Tag' : 'Hide Branch'}
-									overlay="tooltip"
-									href=${this._webview.createCommandLink<GraphItemContext>(
-										branchSheetRef.refType === 'tag'
-											? 'gitlens.graph.hideTag'
-											: branchSheetRef.refType === 'remote'
-												? 'gitlens.graph.hideRemoteBranch'
-												: 'gitlens.graph.hideLocalBranch',
-										branchSheetContext,
-									)}
-									@click=${this.handleCloseBranchSheet}
-								></gl-action-chip>`
-							: nothing}
+						${
+							branchSheetRef.refType === 'head'
+								? html`<gl-action-chip
+										slot="actions"
+										icon="target"
+										label="Focus on Branch"
+										overlay="tooltip"
+										@click=${() => this.handleBranchSheetAction('focus', branchSheetRef)}
+									></gl-action-chip>`
+								: nothing
+						}
+						${
+							branchSheetContext != null && branchSheetRef.refType !== 'tag'
+								? html`<gl-action-chip
+										slot="actions"
+										icon=${branchSheetIsPinned ? 'pinned' : 'pin'}
+										label=${branchSheetIsPinned ? 'Unpin Branch from Edge' : 'Pin Branch to Edge'}
+										overlay="tooltip"
+										href=${this._webview.createCommandLink<GraphItemContext>(
+											branchSheetIsPinned
+												? 'gitlens.graph.unpinBranchFromEdge'
+												: 'gitlens.graph.pinBranchToEdge',
+											branchSheetContext,
+										)}
+										@click=${() => {
+											// oxlint-disable-next-line lit/no-this-assign-in-render
+											this._branchSheetPinned = !branchSheetIsPinned;
+										}}
+									></gl-action-chip>`
+								: nothing
+						}
+						${
+							branchSheetContext != null
+								? html`<gl-action-chip
+										slot="actions"
+										icon="eye-closed"
+										label=${branchSheetRef.refType === 'tag' ? 'Hide Tag' : 'Hide Branch'}
+										overlay="tooltip"
+										href=${this._webview.createCommandLink<GraphItemContext>(
+											branchSheetRef.refType === 'tag'
+												? 'gitlens.graph.hideTag'
+												: branchSheetRef.refType === 'remote'
+													? 'gitlens.graph.hideRemoteBranch'
+													: 'gitlens.graph.hideLocalBranch',
+											branchSheetContext,
+										)}
+										@click=${this.handleCloseBranchSheet}
+									></gl-action-chip>`
+								: nothing
+						}
 						<gl-graph-branch-sheet-pane
 							.ref=${branchSheetRef}
-							.services=${this._servicesResolved && this._actions != null
-								? this._actions.services
-								: undefined}
+							.services=${
+								this._servicesResolved && this._actions != null ? this._actions.services : undefined
+							}
 							.repoPath=${this.effectiveRepoPath}
 							.dateFormat=${this._state.preferences.get()?.dateFormat}
 							.dateStyle=${this._state.preferences.get()?.dateStyle}
@@ -2380,53 +2392,58 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						: hasChanges || hasPausedOp
 							? html`
 									<div class="commit-panel__files">
-										${preferences != null
-											? html`<gl-details-wip-panel
-													variant="embedded"
-													file-icons
-													checkbox-mode
-													?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type ===
-													'rebase'}
-													?resolve-enabled=${preferences?.aiEnabled ?? false}
-													conflict-details
-													?show-search-box=${this.showSearchBox}
-													?search-box-filter=${this.searchBoxFilter}
-													.wip=${wip}
-													.files=${this.buildWipFiles(wip)?.files}
-													.agentSessions=${worktreeAgentSessions}
-													.preferences=${preferences}
-													.orgSettings=${this._state.orgSettings.get()}
-													.isUncommitted=${true}
-													.filesCollapsable=${false}
-													empty-text=${hasPausedOp && !hasChanges
-														? 'No conflicting or changed files'
-														: 'No working changes'}
-													@file-open=${this.handleFileOpen}
-													@file-compare-working=${this.handleFileCompareWorking}
-													@file-compare-previous=${this.handleFileComparePrevious}
-													@file-compare-wip=${this.handleFileCompareWipChanges}
-													@file-open-current=${this.handleFileOpenConflictCurrent}
-													@file-open-incoming=${this.handleFileOpenConflictIncoming}
-													@file-conflict-details=${this.handleOpenConflictDetails}
-													@file-resolve-conflict=${this.handleFileResolveConflict}
-													@file-more-actions=${this.handleFileMoreActions}
-													@file-stage=${this.handleFileStage}
-													@file-unstage=${this.handleFileUnstage}
-													@file-discard=${this.handleFileDiscard}
-													@file-stash=${this.handleFileStash}
-													@discard-unstaged=${this.handleDiscardUnstaged}
-													@discard-staged=${this.handleDiscardStaged}
-													@stage-all=${this.handleStageAll}
-													@unstage-all=${this.handleUnstageAll}
-													@stash-save=${this.handleStashSave}
-													@resolve-conflicts=${this.handleAiResolveConflicts}
-													@resolve-all-current=${this.handleResolveAllCurrent}
-													@resolve-all-incoming=${this.handleResolveAllIncoming}
-													@change-files-layout=${this.handleChangeFilesLayout}
-													@open-multiple-changes=${this.handleOpenMultipleChanges}
-													@copy-wip-patch=${this.handleCopyWipPatch}
-												></gl-details-wip-panel>`
-											: this.renderFilesLoading()}
+										${
+											preferences != null
+												? html`<gl-details-wip-panel
+														variant="embedded"
+														file-icons
+														checkbox-mode
+														?bulk-conflict-actions=${
+															wip.changes?.pausedOpStatus?.type === 'rebase'
+														}
+														?resolve-enabled=${preferences?.aiEnabled ?? false}
+														conflict-details
+														?show-search-box=${this.showSearchBox}
+														?search-box-filter=${this.searchBoxFilter}
+														.wip=${wip}
+														.files=${this.buildWipFiles(wip)?.files}
+														.agentSessions=${worktreeAgentSessions}
+														.preferences=${preferences}
+														.orgSettings=${this._state.orgSettings.get()}
+														.isUncommitted=${true}
+														.filesCollapsable=${false}
+														empty-text=${
+															hasPausedOp && !hasChanges
+																? 'No conflicting or changed files'
+																: 'No working changes'
+														}
+														@file-open=${this.handleFileOpen}
+														@file-compare-working=${this.handleFileCompareWorking}
+														@file-compare-previous=${this.handleFileComparePrevious}
+														@file-compare-wip=${this.handleFileCompareWipChanges}
+														@file-open-current=${this.handleFileOpenConflictCurrent}
+														@file-open-incoming=${this.handleFileOpenConflictIncoming}
+														@file-conflict-details=${this.handleOpenConflictDetails}
+														@file-resolve-conflict=${this.handleFileResolveConflict}
+														@file-more-actions=${this.handleFileMoreActions}
+														@file-stage=${this.handleFileStage}
+														@file-unstage=${this.handleFileUnstage}
+														@file-discard=${this.handleFileDiscard}
+														@file-stash=${this.handleFileStash}
+														@discard-unstaged=${this.handleDiscardUnstaged}
+														@discard-staged=${this.handleDiscardStaged}
+														@stage-all=${this.handleStageAll}
+														@unstage-all=${this.handleUnstageAll}
+														@stash-save=${this.handleStashSave}
+														@resolve-conflicts=${this.handleAiResolveConflicts}
+														@resolve-all-current=${this.handleResolveAllCurrent}
+														@resolve-all-incoming=${this.handleResolveAllIncoming}
+														@change-files-layout=${this.handleChangeFilesLayout}
+														@open-multiple-changes=${this.handleOpenMultipleChanges}
+														@copy-wip-patch=${this.handleCopyWipPatch}
+													></gl-details-wip-panel>`
+												: this.renderFilesLoading()
+										}
 									</div>
 									<gl-commit-box
 										.message=${this._state.commitMessage.get()}
@@ -2517,33 +2534,35 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@remove-associated-issue=${this.handleRemoveAssociatedIssue}
 				@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
 			></gl-details-wip-header>
-			${showAgentStatus
-				? html`<gl-split-panel
-						class="agent-status-split ${useAutoSize
-							? 'agent-status-split--auto-size'
-							: ''} ${agentStatusHasVisibleCards ? '' : 'agent-status-split--no-cards'}"
-						orientation="vertical"
-						primary="start"
-						.position=${agentStatusPosition}
-						?disabled=${!agentStatusIsExpanded}
-						.snap=${this._agentStatusSplitSnap}
-						@gl-split-panel-change=${this._onAgentStatusSplitChange}
-						@gl-split-panel-drag-end=${this._onAgentStatusSplitDragEnd}
-						@gl-split-panel-dblclick=${this._onAgentStatusSplitDblClick}
-					>
-						<div slot="start" class="agent-status-split__top scrollable">
-							<gl-details-agent-status
-								.sessions=${worktreeAgentSessions}
-								.pastSessions=${pastAgentSessions}
-								.worktreePath=${wipWorktreePath}
-								.expand=${agentStatusExpand}
-								.selectedSessionId=${this._selectedAgentSessionId}
-								@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
-							></gl-details-agent-status>
-						</div>
-						<div slot="end" class="agent-status-split__bottom scrollable">${restContent}</div>
-					</gl-split-panel>`
-				: restContent}
+			${
+				showAgentStatus
+					? html`<gl-split-panel
+							class="agent-status-split ${
+								useAutoSize ? 'agent-status-split--auto-size' : ''
+							} ${agentStatusHasVisibleCards ? '' : 'agent-status-split--no-cards'}"
+							orientation="vertical"
+							primary="start"
+							.position=${agentStatusPosition}
+							?disabled=${!agentStatusIsExpanded}
+							.snap=${this._agentStatusSplitSnap}
+							@gl-split-panel-change=${this._onAgentStatusSplitChange}
+							@gl-split-panel-drag-end=${this._onAgentStatusSplitDragEnd}
+							@gl-split-panel-dblclick=${this._onAgentStatusSplitDblClick}
+						>
+							<div slot="start" class="agent-status-split__top scrollable">
+								<gl-details-agent-status
+									.sessions=${worktreeAgentSessions}
+									.pastSessions=${pastAgentSessions}
+									.worktreePath=${wipWorktreePath}
+									.expand=${agentStatusExpand}
+									.selectedSessionId=${this._selectedAgentSessionId}
+									@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
+								></gl-details-agent-status>
+							</div>
+							<div slot="end" class="agent-status-split__bottom scrollable">${restContent}</div>
+						</gl-split-panel>`
+					: restContent
+			}
 		`;
 	}
 
@@ -2730,10 +2749,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.aheadLoadingMore=${this._state.branchCompareAheadLoadingMore.get()}
 			.behindLoadingMore=${this._state.branchCompareBehindLoadingMore.get()}
 			.allFiles=${allFiles}
-			.loading=${this._actions.resources.branchCompareSummary.loading.get() ||
-			this._actions.resources.branchCompareSide.loading.get()}
-			.errorMessage=${this._actions.resources.branchCompareSummary.error.get() ??
-			this._actions.resources.branchCompareSide.error.get()}
+			.loading=${
+				this._actions.resources.branchCompareSummary.loading.get() ||
+				this._actions.resources.branchCompareSide.loading.get()
+			}
+			.errorMessage=${
+				this._actions.resources.branchCompareSummary.error.get() ??
+				this._actions.resources.branchCompareSide.error.get()
+			}
 			.activeTab=${activeTab}
 			.selectedCommitSha=${this._state.branchCompareSelectedCommitSha.get()}
 			.activeView=${activeView}

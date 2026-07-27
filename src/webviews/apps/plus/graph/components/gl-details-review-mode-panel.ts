@@ -496,11 +496,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 					icon="git-commit"
 				></gl-commit-sha-copy>
 			</div>
-			${includedCount > 0
-				? html`<div class="review-metadata__right">
-						<span class="review-metadata__count">${pluralize('commit', includedCount)} selected</span>
-					</div>`
-				: nothing}
+			${
+				includedCount > 0
+					? html`<div class="review-metadata__right">
+							<span class="review-metadata__count">${pluralize('commit', includedCount)} selected</span>
+						</div>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -582,27 +584,29 @@ export class GlDetailsReviewModePanel extends LitElement {
 		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
 
 		return html`
-			${scope.type === 'wip'
-				? html`<gl-split-panel
-						orientation="vertical"
-						primary="start"
-						class="scope-split"
-						position="40"
-						.snap=${this._scopeSplitSnap}
-					>
-						<div slot="start" class="scope-split__picker">
-							<gl-commits-scope-pane
-								.items=${this.scopeItems}
-								.selection=${this.scopeSelectionIds()}
-								?loading=${this.scopeLoading}
-								mode="review"
-							></gl-commits-scope-pane>
-						</div>
-						<div slot="end" class="scope-split__files">
-							<div class="scope-files">${this.renderFileCuration()}</div>
-						</div>
-					</gl-split-panel>`
-				: html`<div class="scope-files">${this.renderFileCuration()}</div>`}
+			${
+				scope.type === 'wip'
+					? html`<gl-split-panel
+							orientation="vertical"
+							primary="start"
+							class="scope-split"
+							position="40"
+							.snap=${this._scopeSplitSnap}
+						>
+							<div slot="start" class="scope-split__picker">
+								<gl-commits-scope-pane
+									.items=${this.scopeItems}
+									.selection=${this.scopeSelectionIds()}
+									?loading=${this.scopeLoading}
+									mode="review"
+								></gl-commits-scope-pane>
+							</div>
+							<div slot="end" class="scope-split__files">
+								<div class="scope-files">${this.renderFileCuration()}</div>
+							</div>
+						</gl-split-panel>`
+					: html`<div class="scope-files">${this.renderFileCuration()}</div>`
+			}
 			<div class="review-input-row">
 				${keyed(
 					this.lastPrompt,
@@ -703,17 +707,19 @@ export class GlDetailsReviewModePanel extends LitElement {
 						this.fileLayout = e.detail.layout;
 					}}
 				>
-					${renderFiles.length > 0
-						? renderOpenChangesAction({
-								selectedCount: this._selectedFiles.length,
-								slot: 'leading-actions',
-								onOpenAll: () => this.onOpenScopeMultiDiff(renderFiles),
-								onOpenSelected: () => {
-									const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
-									this.onOpenScopeMultiDiff(renderFiles.filter(f => selectedPaths.has(f.path)));
-								},
-							})
-						: nothing}
+					${
+						renderFiles.length > 0
+							? renderOpenChangesAction({
+									selectedCount: this._selectedFiles.length,
+									slot: 'leading-actions',
+									onOpenAll: () => this.onOpenScopeMultiDiff(renderFiles),
+									onOpenSelected: () => {
+										const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
+										this.onOpenScopeMultiDiff(renderFiles.filter(f => selectedPaths.has(f.path)));
+									},
+								})
+							: nothing
+					}
 				</gl-file-tree-pane>
 			</webview-pane-group>
 		</div>`;
@@ -852,9 +858,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 		return html`<div class="review-overview">
 			<div class="review-overview__text">${this.result.overview}</div>
-			${this.result.mode === 'two-pass'
-				? html`<span class="review-overview__hint">Select a focus area below to get detailed findings.</span>`
-				: nothing}
+			${
+				this.result.mode === 'two-pass'
+					? html`<span class="review-overview__hint"
+							>Select a focus area below to get detailed findings.</span
+						>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -932,20 +942,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 						class="review-area__chevron"
 					></code-icon>
 					<gl-tooltip
-						content=${area.severity === 'critical'
-							? 'Critical Issue'
-							: area.severity === 'warning'
-								? 'Warning (Non-Critical)'
-								: 'Suggestion'}
+						content=${
+							area.severity === 'critical'
+								? 'Critical Issue'
+								: area.severity === 'warning'
+									? 'Warning (Non-Critical)'
+									: 'Suggestion'
+						}
 						placement="bottom-start"
 					>
 						<span class="review-area__severity review-area__severity--${area.severity}">
 							<code-icon
-								icon=${area.severity === 'critical'
-									? 'error'
-									: area.severity === 'warning'
-										? 'warning'
-										: 'info'}
+								icon=${
+									area.severity === 'critical'
+										? 'error'
+										: area.severity === 'warning'
+											? 'warning'
+											: 'info'
+								}
 							></code-icon>
 						</span>
 					</gl-tooltip>
@@ -954,62 +968,77 @@ export class GlDetailsReviewModePanel extends LitElement {
 				</button>
 				${this.renderFocusAreaActions(area, { isAnalyzed: isAnalyzed })}
 			</div>
-			${isExpanded
-				? html`<div class="review-area__body">
-						<div class="review-area__rationale">${area.rationale}</div>
-						<div class="review-area__files">
-							${area.files.map(f => {
-								// Split off a trailing `:line` or `:start-end` so the line range gets a
-								// muted color (it's a locator, not part of the path).
-								const match = f.match(/^(.+?)(:\d+(?:-\d+)?)?$/);
-								const path = match?.[1] ?? f;
-								const lineRange = match?.[2] ?? '';
-								return html`<button
-									class="review-area__file-link"
-									@click=${() => this.handleOpenFile(f)}
-								>
-									<code-icon class="review-area__file-link-icon" icon="go-to-file"></code-icon>
-									<span class="review-area__file-link-text">${path}</span>
-									${lineRange
-										? html`<span class="review-area__file-link-lines">${lineRange}</span>`
-										: nothing}
-								</button>`;
-							})}
-						</div>
-						${needsAnalyze
-							? html`<button
-									class="review-area__analyze-btn"
-									@click=${() => this.handleAnalyzeArea(area)}
-								>
-									<code-icon icon="search"></code-icon>
-									Review Files
-								</button>`
-							: nothing}
-						${isLoading
-							? html`<div class="review-area__loading" aria-live="polite">
-									<code-icon icon="loading" modifier="spin"></code-icon>
-									Reviewing files...
-								</div>`
-							: nothing}
-						${hasError
-							? html`<div class="review-area__error" role="alert">
-									<code-icon icon="error"></code-icon>
-									Failed to review files.
-									<button class="review-area__retry-btn" @click=${() => this.handleAnalyzeArea(area)}>
-										Retry
-									</button>
-								</div>`
-							: nothing}
-						${hasFindings
-							? this.renderFindings(area.findings, area)
-							: isAnalyzed && !isLoading && !hasError
-								? html`<div class="review-area__clean" aria-live="polite">
-										<code-icon icon="pass"></code-icon>
-										No issues found in these files.
-									</div>`
-								: nothing}
-					</div>`
-				: nothing}
+			${
+				isExpanded
+					? html`<div class="review-area__body">
+							<div class="review-area__rationale">${area.rationale}</div>
+							<div class="review-area__files">
+								${area.files.map(f => {
+									// Split off a trailing `:line` or `:start-end` so the line range gets a
+									// muted color (it's a locator, not part of the path).
+									const match = f.match(/^(.+?)(:\d+(?:-\d+)?)?$/);
+									const path = match?.[1] ?? f;
+									const lineRange = match?.[2] ?? '';
+									return html`<button
+										class="review-area__file-link"
+										@click=${() => this.handleOpenFile(f)}
+									>
+										<code-icon class="review-area__file-link-icon" icon="go-to-file"></code-icon>
+										<span class="review-area__file-link-text">${path}</span>
+										${
+											lineRange
+												? html`<span class="review-area__file-link-lines">${lineRange}</span>`
+												: nothing
+										}
+									</button>`;
+								})}
+							</div>
+							${
+								needsAnalyze
+									? html`<button
+											class="review-area__analyze-btn"
+											@click=${() => this.handleAnalyzeArea(area)}
+										>
+											<code-icon icon="search"></code-icon>
+											Review Files
+										</button>`
+									: nothing
+							}
+							${
+								isLoading
+									? html`<div class="review-area__loading" aria-live="polite">
+											<code-icon icon="loading" modifier="spin"></code-icon>
+											Reviewing files...
+										</div>`
+									: nothing
+							}
+							${
+								hasError
+									? html`<div class="review-area__error" role="alert">
+											<code-icon icon="error"></code-icon>
+											Failed to review files.
+											<button
+												class="review-area__retry-btn"
+												@click=${() => this.handleAnalyzeArea(area)}
+											>
+												Retry
+											</button>
+										</div>`
+									: nothing
+							}
+							${
+								hasFindings
+									? this.renderFindings(area.findings, area)
+									: isAnalyzed && !isLoading && !hasError
+										? html`<div class="review-area__clean" aria-live="polite">
+												<code-icon icon="pass"></code-icon>
+												No issues found in these files.
+											</div>`
+										: nothing
+							}
+						</div>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -1054,11 +1083,13 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 		return html`<div class="review-findings">
 			${visible.map(f => this.renderFinding(f, area))}
-			${dismissedCount > 0
-				? html`<button class="review-findings__dismissed" @click=${this.handleShowDismissed}>
-						${dismissedCount} dismissed finding${dismissedCount > 1 ? 's' : ''}
-					</button>`
-				: nothing}
+			${
+				dismissedCount > 0
+					? html`<button class="review-findings__dismissed" @click=${this.handleShowDismissed}>
+							${dismissedCount} dismissed finding${dismissedCount > 1 ? 's' : ''}
+						</button>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -1105,22 +1136,28 @@ export class GlDetailsReviewModePanel extends LitElement {
 				</span>
 			</div>
 			<div class="review-finding__description">${finding.description}</div>
-			${finding.filePath
-				? html`<button
-						class="review-finding__location"
-						@click=${() => this.handleOpenFile(finding.filePath!, finding.lineRange?.start)}
-					>
-						<code-icon class="review-finding__location-icon" icon="go-to-file"></code-icon>
-						<span class="review-finding__location-text">${finding.filePath}</span>
-						${finding.lineRange
-							? html`<span class="review-finding__location-lines"
-									>:${finding.lineRange.start}${finding.lineRange.end !== finding.lineRange.start
-										? `-${finding.lineRange.end}`
-										: ''}</span
-								>`
-							: nothing}
-					</button>`
-				: nothing}
+			${
+				finding.filePath
+					? html`<button
+							class="review-finding__location"
+							@click=${() => this.handleOpenFile(finding.filePath!, finding.lineRange?.start)}
+						>
+							<code-icon class="review-finding__location-icon" icon="go-to-file"></code-icon>
+							<span class="review-finding__location-text">${finding.filePath}</span>
+							${
+								finding.lineRange
+									? html`<span class="review-finding__location-lines"
+											>:${finding.lineRange.start}${
+												finding.lineRange.end !== finding.lineRange.start
+													? `-${finding.lineRange.end}`
+													: ''
+											}</span
+										>`
+									: nothing
+							}
+						</button>`
+					: nothing
+			}
 		</div>`;
 	}
 

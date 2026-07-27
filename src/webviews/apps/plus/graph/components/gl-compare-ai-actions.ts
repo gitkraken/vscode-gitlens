@@ -194,9 +194,11 @@ export class GlCompareAIActions extends LitElement {
 					aria-busy=${busy ? 'true' : nothing}
 					@click=${this.onGenerateChangelog}
 				>
-					${busy
-						? html`<code-icon icon="loading" modifier="spin"></code-icon>`
-						: html`<code-icon icon="list-unordered"></code-icon>`}
+					${
+						busy
+							? html`<code-icon icon="loading" modifier="spin"></code-icon>`
+							: html`<code-icon icon="list-unordered"></code-icon>`
+					}
 				</button></gl-tooltip
 			>
 		</div>`;
@@ -206,9 +208,9 @@ export class GlCompareAIActions extends LitElement {
 		if (!this.scopeLabel) return nothing;
 
 		const inner = html`<code-icon icon="target" size="12"></code-icon
-			><span class="scope-chip__label">${this.scopeLabel}</span>${this.scopeSwitchable
-				? html`<code-icon icon="chevron-down" size="12"></code-icon>`
-				: nothing}`;
+			><span class="scope-chip__label">${this.scopeLabel}</span>${
+				this.scopeSwitchable ? html`<code-icon icon="chevron-down" size="12"></code-icon>` : nothing
+			}`;
 
 		if (this.scopeSwitchable) {
 			return html`<gl-tooltip content="Switch what the AI reads" placement="bottom" slot="footer">

@@ -159,29 +159,37 @@ export class GlSignerRow extends LitElement {
 	override render(): unknown {
 		const s = this.signer;
 		const content = html`
-			${this.present
-				? html`<code-icon
-						class="in-file-icon"
-						icon="pass-filled"
-						title="Already in your allowed_signers"
-					></code-icon>`
-				: html`<gl-checkbox
-						.checked=${this.included}
-						@gl-change-value=${this.onToggle}
-						@click=${(e: Event) => e.stopPropagation()}
-					></gl-checkbox>`}
-			${s.avatarUrl
-				? html`<img class="avatar" src=${s.avatarUrl} alt="" />`
-				: html`<code-icon class="avatar" icon="account"></code-icon>`}
+			${
+				this.present
+					? html`<code-icon
+							class="in-file-icon"
+							icon="pass-filled"
+							title="Already in your allowed_signers"
+						></code-icon>`
+					: html`<gl-checkbox
+							.checked=${this.included}
+							@gl-change-value=${this.onToggle}
+							@click=${(e: Event) => e.stopPropagation()}
+						></gl-checkbox>`
+			}
+			${
+				s.avatarUrl
+					? html`<img class="avatar" src=${s.avatarUrl} alt="" />`
+					: html`<code-icon class="avatar" icon="account"></code-icon>`
+			}
 			<div class="identity">
 				<span class="name">${s.name ?? s.email}</span>
 				<span class="email">${s.email}</span>
 				<span class="keyinfo" title="${s.keyType} ${s.keyData}">${s.keyType} · ${s.fingerprint}</span>
 			</div>
 			<div class="details">
-				${s.commitCount
-					? html`<span class="count">${s.commitCount} signed commit${s.commitCount === 1 ? '' : 's'}</span>`
-					: nothing}
+				${
+					s.commitCount
+						? html`<span class="count"
+								>${s.commitCount} signed commit${s.commitCount === 1 ? '' : 's'}</span
+							>`
+						: nothing
+				}
 				${this.renderProviderIndicator()}
 			</div>
 		`;

@@ -304,35 +304,43 @@ export class GlWipTreePane extends LitElement {
 		>
 			<span class="subtitle-stats" slot="subtitle">${this.renderStats()}</span>
 			${this.renderResolveConflictsAction(files)}${this.renderConflictBulkActions(files)}
-			${files.length > 0
-				? html`<div class="wip-actions" slot="leading-actions">
-						${hasConflicts
-							? nothing
-							: html`${this.renderDiscardUnstagedAction(files)}
-									<gl-action-chip
-										icon="gl-stash-save"
-										label=${hasSelection ? 'Stash Selected Changes' : stashScopeLabel}
-										alt-label=${hasSelection
-											? stashScopeLabel
-											: hasStagedAndUnstaged
-												? 'Stash All Changes'
-												: nothing}
-										@click=${this.onStashSave}
-									>
-										<span class="stash-label">Stash</span>
-									</gl-action-chip>`}
-						${multiDiff
-							? renderOpenChangesAction({
-									label: multiDiffLabel,
-									altLabel: multiDiffAltLabel,
-									selectedCount: this._selectedFiles.length,
-									onOpenAll: (altKey: boolean) => this.onOpenMultiDiff(multiDiff, altKey),
-									onOpenSelected: () => this.onOpenSelectedChanges(multiDiff),
-								})
-							: nothing}
-						${this.renderCopyPatchButton(hasStagedAndUnstaged, hasSelection)}
-					</div>`
-				: nothing}
+			${
+				files.length > 0
+					? html`<div class="wip-actions" slot="leading-actions">
+							${
+								hasConflicts
+									? nothing
+									: html`${this.renderDiscardUnstagedAction(files)}
+											<gl-action-chip
+												icon="gl-stash-save"
+												label=${hasSelection ? 'Stash Selected Changes' : stashScopeLabel}
+												alt-label=${
+													hasSelection
+														? stashScopeLabel
+														: hasStagedAndUnstaged
+															? 'Stash All Changes'
+															: nothing
+												}
+												@click=${this.onStashSave}
+											>
+												<span class="stash-label">Stash</span>
+											</gl-action-chip>`
+							}
+							${
+								multiDiff
+									? renderOpenChangesAction({
+											label: multiDiffLabel,
+											altLabel: multiDiffAltLabel,
+											selectedCount: this._selectedFiles.length,
+											onOpenAll: (altKey: boolean) => this.onOpenMultiDiff(multiDiff, altKey),
+											onOpenSelected: () => this.onOpenSelectedChanges(multiDiff),
+										})
+									: nothing
+							}
+							${this.renderCopyPatchButton(hasStagedAndUnstaged, hasSelection)}
+						</div>`
+					: nothing
+			}
 			<slot name="before-tree" slot="before-tree"></slot>
 		</gl-file-tree-pane>`;
 	}

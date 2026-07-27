@@ -461,9 +461,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 		// The pushed-commit warning derives from the scope (stable across idle→ready), so render it
 		// once at the top — the user sees it while selecting a pushed range AND while reviewing the plan.
 		return html`<div class="compose-panel">
-			${this.hasPushedInScope() ? this.renderPushedCommitWarning() : nothing}${this.isInteriorScope
-				? this.renderInteriorScopeNotice()
-				: nothing}${this.renderContent()}
+			${this.hasPushedInScope() ? this.renderPushedCommitWarning() : nothing}${
+				this.isInteriorScope ? this.renderInteriorScopeNotice() : nothing
+			}${this.renderContent()}
 		</div>`;
 	}
 
@@ -632,17 +632,19 @@ export class GlDetailsComposeModePanel extends LitElement {
 						this.fileLayout = e.detail.layout;
 					}}
 				>
-					${files.length > 0
-						? renderOpenChangesAction({
-								selectedCount: this._idleSelectedFiles.length,
-								slot: 'leading-actions',
-								onOpenAll: () => this.onOpenScopeMultiDiff(files),
-								onOpenSelected: () => {
-									const selectedPaths = new Set(this._idleSelectedFiles.map(f => f.path));
-									this.onOpenScopeMultiDiff(files.filter(f => selectedPaths.has(f.path)));
-								},
-							})
-						: nothing}
+					${
+						files.length > 0
+							? renderOpenChangesAction({
+									selectedCount: this._idleSelectedFiles.length,
+									slot: 'leading-actions',
+									onOpenAll: () => this.onOpenScopeMultiDiff(files),
+									onOpenSelected: () => {
+										const selectedPaths = new Set(this._idleSelectedFiles.map(f => f.path));
+										this.onOpenScopeMultiDiff(files.filter(f => selectedPaths.has(f.path)));
+									},
+								})
+							: nothing
+					}
 				</gl-file-tree-pane>
 			</webview-pane-group>
 		</div>`;
@@ -796,44 +798,46 @@ export class GlDetailsComposeModePanel extends LitElement {
 			>
 				<code-icon icon="wand"></code-icon> Recompose Changes
 			</gl-checkbox>
-			${this._refineMode
-				? keyed(
-						this.repoPath,
-						html`<gl-ai-input
-							appearance="detached"
-							class="review-action-input compose-plan__refine-input"
-							multiline
-							rows="2"
-							button-label=${refineButtonLabel}
-							?disabled=${refineCount === 0}
-							disabled-reason="Include Changes to Recompose"
-							busy-label="Recomposing…"
-							event-name="compose-refine"
-							placeholder='Recompose — e.g. "Merge commits 1 and 2, they&apos;re related"'
-							.recall=${this.lastPrompt}
-							.value=${this.refineDraft}
-						>
-							<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-							<gl-button slot="actions" appearance="secondary" @click=${this.handleDiscard}
-								>Discard</gl-button
+			${
+				this._refineMode
+					? keyed(
+							this.repoPath,
+							html`<gl-ai-input
+								appearance="detached"
+								class="review-action-input compose-plan__refine-input"
+								multiline
+								rows="2"
+								button-label=${refineButtonLabel}
+								?disabled=${refineCount === 0}
+								disabled-reason="Include Changes to Recompose"
+								busy-label="Recomposing…"
+								event-name="compose-refine"
+								placeholder='Recompose — e.g. "Merge commits 1 and 2, they&apos;re related"'
+								.recall=${this.lastPrompt}
+								.value=${this.refineDraft}
 							>
-						</gl-ai-input>`,
-					)
-				: html`<div class="compose-plan__action-row">
-						<gl-button
-							class="compose-plan__commit"
-							full
-							aria-disabled=${includedCount === 0 ? 'true' : nothing}
-							tooltip=${includedCount === 0 ? 'Include a change set to commit' : nothing}
-							@click=${() => {
-								if (includedCount === 0) return;
+								<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+								<gl-button slot="actions" appearance="secondary" @click=${this.handleDiscard}
+									>Discard</gl-button
+								>
+							</gl-ai-input>`,
+						)
+					: html`<div class="compose-plan__action-row">
+							<gl-button
+								class="compose-plan__commit"
+								full
+								aria-disabled=${includedCount === 0 ? 'true' : nothing}
+								tooltip=${includedCount === 0 ? 'Include a change set to commit' : nothing}
+								@click=${() => {
+									if (includedCount === 0) return;
 
-								this.handleCommitAll();
-							}}
-							>${commitButtonLabel}</gl-button
-						>
-						<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
-					</div>`}
+									this.handleCommitAll();
+								}}
+								>${commitButtonLabel}</gl-button
+							>
+							<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
+						</div>`
+			}
 		</div>`;
 
 		const listEl = html`<div
@@ -922,9 +926,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 		const reorderEnabled = this.reorderEnabled;
 		return html`<div
-			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isExcluded
-				? 'compose-commit--excluded'
-				: ''} ${isRefineExcluded ? 'compose-commit--refine-excluded' : ''}"
+			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${
+				isExcluded ? 'compose-commit--excluded' : ''
+			} ${isRefineExcluded ? 'compose-commit--refine-excluded' : ''}"
 			role="button"
 			tabindex="0"
 			data-commit-id=${commit.id}
@@ -979,9 +983,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 			<div class="compose-commit__actions">
 				<gl-tooltip placement="left">
 					<gl-button
-						class="compose-commit__check ${isChecked
-							? 'compose-commit__check--on'
-							: 'compose-commit__check--off'}"
+						class="compose-commit__check ${
+							isChecked ? 'compose-commit__check--on' : 'compose-commit__check--off'
+						}"
 						?disabled=${commitCheckBlocked}
 						aria-pressed=${isChecked ? 'true' : 'false'}
 						aria-label=${checkLabel}
@@ -1015,14 +1019,18 @@ export class GlDetailsComposeModePanel extends LitElement {
 					<span class="compose-base__headline">${headline}</span>
 					<span class="compose-base__meta">
 						<span class="compose-base__sha">${shortSha}</span>
-						${base.author
-							? html`<span class="compose-base__dot" aria-hidden="true">·</span>
-									<span class="compose-base__author">${base.author}</span>`
-							: nothing}
-						${dateLabel
-							? html`<span class="compose-base__dot" aria-hidden="true">·</span>
-									<span class="compose-base__date">${dateLabel}</span>`
-							: nothing}
+						${
+							base.author
+								? html`<span class="compose-base__dot" aria-hidden="true">·</span>
+										<span class="compose-base__author">${base.author}</span>`
+								: nothing
+						}
+						${
+							dateLabel
+								? html`<span class="compose-base__dot" aria-hidden="true">·</span>
+										<span class="compose-base__date">${dateLabel}</span>`
+								: nothing
+						}
 					</span>
 				</div>
 				<span class="compose-base__tag">base</span>
@@ -1061,14 +1069,16 @@ export class GlDetailsComposeModePanel extends LitElement {
 				this.fileLayout = e.detail.layout;
 			}}
 		>
-			${files.length > 0
-				? renderOpenChangesAction({
-						selectedCount: this._selectedFiles.length,
-						slot: 'leading-actions',
-						onOpenAll: () => this.onOpenMultiDiff(),
-						onOpenSelected: () => this.onOpenSelectedChanges(),
-					})
-				: nothing}
+			${
+				files.length > 0
+					? renderOpenChangesAction({
+							selectedCount: this._selectedFiles.length,
+							slot: 'leading-actions',
+							onOpenAll: () => this.onOpenMultiDiff(),
+							onOpenSelected: () => this.onOpenSelectedChanges(),
+						})
+					: nothing
+			}
 		</gl-file-tree-pane>`;
 	}
 

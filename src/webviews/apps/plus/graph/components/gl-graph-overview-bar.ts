@@ -507,16 +507,20 @@ export class GlGraphOverviewBar extends LitElement {
 						aria-current=${isSelected ? 'true' : nothing}
 						tabindex=${isFocused ? '0' : '-1'}
 					>
-						${isDirty ? html`<span class="pill__dot"></span>` : nothing}${isUnpushed
-							? html`<code-icon class="pill__unpushed-icon" icon="arrow-up"></code-icon>`
-							: nothing}${hasAgent
-							? html`<span class="pill__agent"
-									><code-icon class="pill__agent-icon" icon="robot"></code-icon>${when(
-										agentCount > 1,
-										() => html`<span class="pill__agent-count">${agentCount}</span>`,
-									)}</span
-								>`
-							: nothing}${item.branch}
+						${isDirty ? html`<span class="pill__dot"></span>` : nothing}${
+							isUnpushed
+								? html`<code-icon class="pill__unpushed-icon" icon="arrow-up"></code-icon>`
+								: nothing
+						}${
+							hasAgent
+								? html`<span class="pill__agent"
+										><code-icon class="pill__agent-icon" icon="robot"></code-icon>${when(
+											agentCount > 1,
+											() => html`<span class="pill__agent-count">${agentCount}</span>`,
+										)}</span
+									>`
+								: nothing
+						}${item.branch}
 					</button>
 					${when(
 						this.hoverShownIds.has(item.id),
@@ -568,39 +572,48 @@ export class GlGraphOverviewBar extends LitElement {
 				: `Upstream — ${pluralize('unpushed commit', ahead)}`;
 
 		return html`<span class="pill__legs"
-			>${headSha != null
-				? this.renderLeg(
-						'head',
-						headSha,
-						`Jump to HEAD (${item.branch})`,
-						// Legs are primary-only (see the bail above), so this is always the CURRENT worktree's
-						// HEAD — the same `vm-active` glyph the graph's current-branch ref pill uses.
-						html`<code-icon icon="vm-active"></code-icon>`,
-					)
-				: nothing}${showUpstream
-				? this.renderLeg(
-						'upstream',
-						upstreamSha,
-						upstreamLabel,
-						html`<span class="pill__leg-count">${ahead}<code-icon icon="arrow-up"></code-icon></span
-							>${upstreamSha != null
-								? html`<span class="pill__leg-count"
-										>${behind}<code-icon icon="arrow-down"></code-icon
-									></span>`
-								: nothing}`,
-					)
-				: nothing}${item.targetSha != null || item.targetName != null
-				? this.renderLeg(
-						'target',
-						item.targetSha,
-						item.targetName != null
-							? `Jump to Merge Target (${shortRefName(item.targetName)})`
-							: 'Merge Target',
-						html`<code-icon icon="gl-merge-target"></code-icon>${item.targetName != null
-								? html`<span class="pill__leg-label">${shortRefName(item.targetName)}</span>`
-								: nothing}`,
-					)
-				: nothing}</span
+			>${
+				headSha != null
+					? this.renderLeg(
+							'head',
+							headSha,
+							`Jump to HEAD (${item.branch})`,
+							// Legs are primary-only (see the bail above), so this is always the CURRENT worktree's
+							// HEAD — the same `vm-active` glyph the graph's current-branch ref pill uses.
+							html`<code-icon icon="vm-active"></code-icon>`,
+						)
+					: nothing
+			}${
+				showUpstream
+					? this.renderLeg(
+							'upstream',
+							upstreamSha,
+							upstreamLabel,
+							html`<span class="pill__leg-count">${ahead}<code-icon icon="arrow-up"></code-icon></span>${
+									upstreamSha != null
+										? html`<span class="pill__leg-count"
+												>${behind}<code-icon icon="arrow-down"></code-icon
+											></span>`
+										: nothing
+								}`,
+						)
+					: nothing
+			}${
+				item.targetSha != null || item.targetName != null
+					? this.renderLeg(
+							'target',
+							item.targetSha,
+							item.targetName != null
+								? `Jump to Merge Target (${shortRefName(item.targetName)})`
+								: 'Merge Target',
+							html`<code-icon icon="gl-merge-target"></code-icon>${
+									item.targetName != null
+										? html`<span class="pill__leg-label">${shortRefName(item.targetName)}</span>`
+										: nothing
+								}`,
+						)
+					: nothing
+			}</span
 		>`;
 	}
 

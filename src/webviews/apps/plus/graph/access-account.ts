@@ -357,11 +357,13 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 						Synchronize Status
 					</gl-button>
 				</div>
-				${this.syncChecked && !this.syncing
-					? html`<p class="sync-status" role="status">
-							Not verified yet &mdash; check your inbox for the link.
-						</p>`
-					: nothing}
+				${
+					this.syncChecked && !this.syncing
+						? html`<p class="sync-status" role="status">
+								Not verified yet &mdash; check your inbox for the link.
+							</p>`
+						: nothing
+				}
 			</div>
 		`;
 	}

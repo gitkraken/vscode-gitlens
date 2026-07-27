@@ -33,9 +33,11 @@ export class GlNewIndicator extends SignalWatcher(LitElement) {
 
 	override render(): unknown {
 		const show = this.key != null && this._dismissals?.get(this.key) === false;
-		return html`<slot></slot>${show
-				? html`<span class="dot${this.pulse ? ' indicator--pulse' : ''}" aria-hidden="true"></span>`
-				: nothing}`;
+		return html`<slot></slot>${
+				show
+					? html`<span class="dot${this.pulse ? ' indicator--pulse' : ''}" aria-hidden="true"></span>`
+					: nothing
+			}`;
 	}
 }
 

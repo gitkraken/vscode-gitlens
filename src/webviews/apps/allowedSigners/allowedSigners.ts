@@ -215,24 +215,30 @@ export class GlAllowedSignersApp extends GlAppHost<State> {
 		const addCount = this.signersToAdd.length;
 
 		return html`
-			${error
-				? html`<div class="notice notice--error" role="alert">
-						<code-icon icon="error"></code-icon>
-						<span>Couldn't finish discovering signers: ${error}</span>
-					</div>`
-				: nothing}
-			${verifying
-				? html`<div class="verifying" aria-busy="true">
-						<code-icon icon="loading" modifier="spin"></code-icon>
-						<span>Checking your connected integration for verified keys…</span>
-					</div>`
-				: nothing}
-			${!hasNodeHost
-				? html`<div class="notice">
-						<code-icon icon="warning"></code-icon>
-						<span>Writing an allowed_signers file isn't supported in this environment.</span>
-					</div>`
-				: nothing}
+			${
+				error
+					? html`<div class="notice notice--error" role="alert">
+							<code-icon icon="error"></code-icon>
+							<span>Couldn't finish discovering signers: ${error}</span>
+						</div>`
+					: nothing
+			}
+			${
+				verifying
+					? html`<div class="verifying" aria-busy="true">
+							<code-icon icon="loading" modifier="spin"></code-icon>
+							<span>Checking your connected integration for verified keys…</span>
+						</div>`
+					: nothing
+			}
+			${
+				!hasNodeHost
+					? html`<div class="notice">
+							<code-icon icon="warning"></code-icon>
+							<span>Writing an allowed_signers file isn't supported in this environment.</span>
+						</div>`
+					: nothing
+			}
 
 			<div class="toolbar">
 				<div class="field">
@@ -249,47 +255,55 @@ export class GlAllowedSignersApp extends GlAppHost<State> {
 					Point <code>gpg.ssh.allowedSignersFile</code> at this file
 				</gl-checkbox>
 
-				${this.setConfig
-					? html`<gl-radio-group
-							class="options"
-							.value=${this.configScope}
-							@gl-change-value=${this.onScopeChange}
-						>
-							<gl-radio value="global">Global (all repositories)</gl-radio>
-							<gl-radio value="local">This repository only</gl-radio>
-						</gl-radio-group>`
-					: nothing}
+				${
+					this.setConfig
+						? html`<gl-radio-group
+								class="options"
+								.value=${this.configScope}
+								@gl-change-value=${this.onScopeChange}
+							>
+								<gl-radio value="global">Global (all repositories)</gl-radio>
+								<gl-radio value="local">This repository only</gl-radio>
+							</gl-radio-group>`
+						: nothing
+				}
 			</div>
 
-			${signers.length === 0
-				? html`<div class="empty">
-						No SSH signers were found.
-						${integrationConnected
-							? html`No SSH-signed commits were found in this repository.`
-							: html`Connect a GitHub or GitLab integration, or sign commits with SSH, to discover
-								signers.`}
-					</div>`
-				: html`<div class="list" @gl-toggle-signer=${this.onToggleSigner}>
-						${newSigners.map(
-							s => html`<gl-signer-row
-								.signer=${s}
-								.included=${this.isIncluded(s)}
-								.provider=${provider}
-								.integrationConnected=${integrationConnected}
-							></gl-signer-row>`,
-						)}
-						${inFileSigners.length
-							? html`<div class="list__group">Already in your allowed_signers</div>
-									${inFileSigners.map(
-										s => html`<gl-signer-row
-											.signer=${s}
-											?present=${true}
-											.provider=${provider}
-											.integrationConnected=${integrationConnected}
-										></gl-signer-row>`,
-									)}`
-							: nothing}
-					</div>`}
+			${
+				signers.length === 0
+					? html`<div class="empty">
+							No SSH signers were found.
+							${
+								integrationConnected
+									? html`No SSH-signed commits were found in this repository.`
+									: html`Connect a GitHub or GitLab integration, or sign commits with SSH, to discover
+										signers.`
+							}
+						</div>`
+					: html`<div class="list" @gl-toggle-signer=${this.onToggleSigner}>
+							${newSigners.map(
+								s => html`<gl-signer-row
+									.signer=${s}
+									.included=${this.isIncluded(s)}
+									.provider=${provider}
+									.integrationConnected=${integrationConnected}
+								></gl-signer-row>`,
+							)}
+							${
+								inFileSigners.length
+									? html`<div class="list__group">Already in your allowed_signers</div>
+											${inFileSigners.map(
+												s => html`<gl-signer-row
+													.signer=${s}
+													?present=${true}
+													.provider=${provider}
+													.integrationConnected=${integrationConnected}
+												></gl-signer-row>`,
+											)}`
+									: nothing
+							}
+						</div>`
+			}
 
 			<div class="actions">
 				<gl-button
@@ -312,9 +326,11 @@ export class GlAllowedSignersApp extends GlAppHost<State> {
 		if (this.saving || !hasNodeHost || addCount > 0 || this.state.signers.length === 0) return nothing;
 
 		return html`<span class="status"
-			>${newCount === 0
-				? 'All discovered signers are already in your allowed_signers.'
-				: 'Select signers to add.'}</span
+			>${
+				newCount === 0
+					? 'All discovered signers are already in your allowed_signers.'
+					: 'Select signers to add.'
+			}</span
 		>`;
 	}
 }

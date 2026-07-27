@@ -182,11 +182,13 @@ export class GlMergeConflictWarning extends LitElement {
 		return html`<span class="label"
 				>${this.renderConflictsLink(label)} ${this.renderReference(pausedOpStatus.incoming)}
 				${strings.directionality} ${this.renderReference(pausedOpStatus.current ?? pausedOpStatus.onto)}</span
-			>${started
-				? html`<span class="steps"
-						>(${pausedOpStatus.steps.current.number}/${pausedOpStatus.steps.total})</span
-					>`
-				: nothing}`;
+			>${
+				started
+					? html`<span class="steps"
+							>(${pausedOpStatus.steps.current.number}/${pausedOpStatus.steps.total})</span
+						>`
+					: nothing
+			}`;
 	}
 
 	private renderConflictsLink(label: string) {

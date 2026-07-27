@@ -799,20 +799,22 @@ export class GlTreeView extends GlElement {
 					<span class="tree-icon-agent-anchor">
 						<code-icon
 							icon="robot"
-							class="tree-icon-agent tree-icon-agent--${decoration.phase} ${badge != null
-								? 'tree-icon-agent--badged'
-								: ''}"
+							class="tree-icon-agent tree-icon-agent--${decoration.phase} ${
+								badge != null ? 'tree-icon-agent--badged' : ''
+							}"
 							aria-label=${ifDefined(tooltip)}
 						></code-icon>
-						${badge != null
-							? html`<code-icon
-									icon=${badge}
-									size="12"
-									modifier=${category === 'working' ? 'spin' : ''}
-									class="tree-icon-agent tree-icon-agent--${decoration.phase} tree-icon-agent__badge"
-									aria-hidden="true"
-								></code-icon>`
-							: nothing}
+						${
+							badge != null
+								? html`<code-icon
+										icon=${badge}
+										size="12"
+										modifier=${category === 'working' ? 'spin' : ''}
+										class="tree-icon-agent tree-icon-agent--${decoration.phase} tree-icon-agent__badge"
+										aria-hidden="true"
+									></code-icon>`
+								: nothing
+						}
 					</span>
 					<span slot="content">${tooltip}</span>
 				</gl-tooltip>`;
@@ -956,9 +958,11 @@ export class GlTreeView extends GlElement {
 					aria-haspopup="tree"
 					aria-autocomplete="list"
 					aria-activedescendant=${activeDescendant || nothing}
-					placeholder="${this.searchBoxFilter
-						? this.filterPlaceholder
-						: (this.searchPlaceholder ?? this.filterPlaceholder)}"
+					placeholder="${
+						this.searchBoxFilter
+							? this.filterPlaceholder
+							: (this.searchPlaceholder ?? this.filterPlaceholder)
+					}"
 					.value=${this._filter.query}
 					@input=${this.handleFilterInput}
 					@keydown=${this.handleFilterKeydown}
@@ -995,51 +999,60 @@ export class GlTreeView extends GlElement {
 
 		return html`
 			${this.renderFilterBar(activeDescendant)}
-			${hasItems
-				? html`<div
-						${ref(this.scrollableRef)}
-						id="tree-list"
-						class="scrollable"
-						tabindex="0"
-						role="tree"
-						aria-label=${this.ariaLabel}
-						aria-multiselectable=${this.multiSelectable ? 'true' : 'false'}
-						aria-activedescendant=${activeDescendant || nothing}
-						@keydown=${this.handleContainerKeydown}
-						@focus=${this.handleContainerFocus}
-					>
-						<lit-virtualizer
+			${
+				hasItems
+					? html`<div
+							${ref(this.scrollableRef)}
+							id="tree-list"
 							class="scrollable"
-							${ref(this.virtualizerRef)}
-							.items=${this.treeItems}
-							.keyFunction=${(item: TreeModelFlat) => nodeId(item)}
-							.layout=${flow({ direction: 'vertical' })}
-							.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
-							scroller
-						></lit-virtualizer>
-					</div>`
-				: showNoResults
-					? html`<div class="no-results">No results found</div>`
-					: html`<div class="no-results">${this.emptyText}</div>`}
-			${this._hoverOpen && this._hoveredTooltip
-				? html`<gl-popover
-						class="hover-popover"
-						?open=${this._hoverOpen}
-						.anchor=${this._hoveredAnchor}
-						placement="right-start"
-						flip-fallback-placements="bottom-start top-start"
-						trigger="manual"
-						.distance=${12}
-						@mouseenter=${this.onHoverPopoverEnter}
-						@mouseleave=${() => this.onTreeItemUnhover()}
-					>
-						<div slot="content" class="hover-content">
-							${typeof this._hoveredTooltip === 'string'
-								? html`<gl-markdown density="compact" .markdown=${this._hoveredTooltip}></gl-markdown>`
-								: this._hoveredTooltip}
-						</div>
-					</gl-popover>`
-				: nothing}
+							tabindex="0"
+							role="tree"
+							aria-label=${this.ariaLabel}
+							aria-multiselectable=${this.multiSelectable ? 'true' : 'false'}
+							aria-activedescendant=${activeDescendant || nothing}
+							@keydown=${this.handleContainerKeydown}
+							@focus=${this.handleContainerFocus}
+						>
+							<lit-virtualizer
+								class="scrollable"
+								${ref(this.virtualizerRef)}
+								.items=${this.treeItems}
+								.keyFunction=${(item: TreeModelFlat) => nodeId(item)}
+								.layout=${flow({ direction: 'vertical' })}
+								.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
+								scroller
+							></lit-virtualizer>
+						</div>`
+					: showNoResults
+						? html`<div class="no-results">No results found</div>`
+						: html`<div class="no-results">${this.emptyText}</div>`
+			}
+			${
+				this._hoverOpen && this._hoveredTooltip
+					? html`<gl-popover
+							class="hover-popover"
+							?open=${this._hoverOpen}
+							.anchor=${this._hoveredAnchor}
+							placement="right-start"
+							flip-fallback-placements="bottom-start top-start"
+							trigger="manual"
+							.distance=${12}
+							@mouseenter=${this.onHoverPopoverEnter}
+							@mouseleave=${() => this.onTreeItemUnhover()}
+						>
+							<div slot="content" class="hover-content">
+								${
+									typeof this._hoveredTooltip === 'string'
+										? html`<gl-markdown
+												density="compact"
+												.markdown=${this._hoveredTooltip}
+											></gl-markdown>`
+										: this._hoveredTooltip
+								}
+							</div>
+						</gl-popover>`
+					: nothing
+			}
 		`;
 	}
 

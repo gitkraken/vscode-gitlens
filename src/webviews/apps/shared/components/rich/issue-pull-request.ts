@@ -218,19 +218,23 @@ export class IssuePullRequest extends GlElement {
 				this.details === true || this.openOnRemote === true,
 				() => html`
 					<p class="details">
-						${this.details
-							? html`<gl-button
-									appearance="toolbar"
-									tooltip="Open Details"
-									@click=${() => this.onDetailsClicked()}
-									><code-icon icon="eye"></code-icon
-								></gl-button>`
-							: nothing}
-						${this.openOnRemote && this.url
-							? html`<gl-button appearance="toolbar" tooltip="Open on Remote" href=${this.url}
-									><code-icon icon="globe"></code-icon
-								></gl-button>`
-							: nothing}
+						${
+							this.details
+								? html`<gl-button
+										appearance="toolbar"
+										tooltip="Open Details"
+										@click=${() => this.onDetailsClicked()}
+										><code-icon icon="eye"></code-icon
+									></gl-button>`
+								: nothing
+						}
+						${
+							this.openOnRemote && this.url
+								? html`<gl-button appearance="toolbar" tooltip="Open on Remote" href=${this.url}
+										><code-icon icon="globe"></code-icon
+									></gl-button>`
+								: nothing
+						}
 					</p>
 				`,
 			)}

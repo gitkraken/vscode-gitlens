@@ -219,36 +219,42 @@ export class GlRebaseEntryElement extends LitElement {
 			>
 				<span class="entry-graph" aria-hidden="true"></span>
 
-				${!isBase
-					? html`<div class="entry-action">
-							<gl-select
-								class="action-select"
-								value=${action}
-								.options=${this.availableActions.map(a => ({ value: a, label: a }))}
-								@change=${this.onActionChanged}
-								?disabled=${isDone}
-							></gl-select>
-						</div>`
-					: nothing}
+				${
+					!isBase
+						? html`<div class="entry-action">
+								<gl-select
+									class="action-select"
+									value=${action}
+									.options=${this.availableActions.map(a => ({ value: a, label: a }))}
+									@change=${this.onActionChanged}
+									?disabled=${isDone}
+								></gl-select>
+							</div>`
+						: nothing
+				}
 				<gl-popover class="entry-message" placement="bottom-start" trigger="hover">
 					<span slot="anchor" class="entry-message-content">${this.renderMessage(message)}</span>
 					<span slot="content"
-						>${this.hasConflict
-							? html`<span class="popover-conflict-header">
-									<code-icon icon="warning"></code-icon>
-									This commit will cause conflicts
-									<hr />
-								</span>`
-							: nothing}${this.renderPopoverMessage(message)}</span
+						>${
+							this.hasConflict
+								? html`<span class="popover-conflict-header">
+										<code-icon icon="warning"></code-icon>
+										This commit will cause conflicts
+										<hr />
+									</span>`
+								: nothing
+						}${this.renderPopoverMessage(message)}</span
 					>
 				</gl-popover>
 				${!isBase && updateRefs?.length ? this.renderUpdateRefBadges(updateRefs) : nothing}
 				${this.renderAvatar(author, committer)}
-				${commit?.formattedDate
-					? html`<gl-tooltip class="entry-date" hide-on-click .content=${commit.date ?? ''}>
-							<span class="entry-date-content">${commit.formattedDate}</span>
-						</gl-tooltip>`
-					: nothing}
+				${
+					commit?.formattedDate
+						? html`<gl-tooltip class="entry-date" hide-on-click .content=${commit.date ?? ''}>
+								<span class="entry-date-content">${commit.formattedDate}</span>
+							</gl-tooltip>`
+						: nothing
+				}
 
 				<gl-tooltip
 					class="entry-sha"
@@ -306,17 +312,23 @@ export class GlRebaseEntryElement extends LitElement {
 					></gl-select>
 				</div>
 
-				${action === 'exec' && command
-					? html`<gl-tooltip class="entry-message" hide-on-click placement="bottom-start" .content=${command}
-							><span class="entry-message-content"
-								>${description} <code>${command}</code></span
-							></gl-tooltip
-						>`
-					: description
-						? html`<span class="entry-message"
-								><span class="entry-message-content">${description}</span></span
+				${
+					action === 'exec' && command
+						? html`<gl-tooltip
+								class="entry-message"
+								hide-on-click
+								placement="bottom-start"
+								.content=${command}
+								><span class="entry-message-content"
+									>${description} <code>${command}</code></span
+								></gl-tooltip
 							>`
-						: nothing}
+						: description
+							? html`<span class="entry-message"
+									><span class="entry-message-content">${description}</span></span
+								>`
+							: nothing
+				}
 			</div>
 		`;
 	}

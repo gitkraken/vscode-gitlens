@@ -526,32 +526,38 @@ export class GlFileTreePane extends LitElement {
 		return html`
 			<webview-pane exportparts="header, content" .collapsable=${this.collapsable} expanded flexible>
 				<span slot="title"
-					>${this.checkable
-						? this.renderCheckboxTitle(fileCount, effectiveBadge)
-						: this.renderTitle(effectiveBadge)}</span
+					>${
+						this.checkable
+							? this.renderCheckboxTitle(fileCount, effectiveBadge)
+							: this.renderTitle(effectiveBadge)
+					}</span
 				>
 				<slot name="subtitle" slot="subtitle"></slot>
 				<div class="header-actions" slot="actions">
 					<slot name="leading-actions" class="leading-actions"></slot>
 					<action-nav>
-						${this.searchContext != null
-							? renderContextMatchVisibilityAction(
-									this._contextMatchVisibility,
-									this.searchContext.matchedFiles?.length ?? 0,
-									fileCount,
-									e => this.onCycleContextMatchVisibility(e),
-								)
-							: nothing}
+						${
+							this.searchContext != null
+								? renderContextMatchVisibilityAction(
+										this._contextMatchVisibility,
+										this.searchContext.matchedFiles?.length ?? 0,
+										fileCount,
+										e => this.onCycleContextMatchVisibility(e),
+									)
+								: nothing
+						}
 						${showLayout ? renderLayoutAction(this.fileLayout, e => this.onToggleFilesLayout(e)) : nothing}
-						${showSearch
-							? html`<gl-action-chip
-									data-action="search"
-									label="${showSearchBox ? 'Hide Search' : 'Show Search'}"
-									icon="search"
-									class="${showSearchBox ? 'active-toggle' : ''}"
-									@click=${this.onToggleSearch}
-								></gl-action-chip>`
-							: nothing}
+						${
+							showSearch
+								? html`<gl-action-chip
+										data-action="search"
+										label="${showSearchBox ? 'Hide Search' : 'Show Search'}"
+										icon="search"
+										class="${showSearchBox ? 'active-toggle' : ''}"
+										@click=${this.onToggleSearch}
+									></gl-action-chip>`
+								: nothing
+						}
 						<slot name="actions"></slot>
 					</action-nav>
 				</div>
@@ -563,11 +569,13 @@ export class GlFileTreePane extends LitElement {
 
 	private renderTitle(badge?: string | number): TemplateResult {
 		return html`<slot name="title-content"><span class="file-tree-pane__title">${this.header}</span></slot
-			>${badge != null
-				? html`<gl-badge appearance="filled"
-						><span class="checkbox-header__badge-text">${badge}</span></gl-badge
-					>`
-				: nothing}<slot name="header-badge"></slot>`;
+			>${
+				badge != null
+					? html`<gl-badge appearance="filled"
+							><span class="checkbox-header__badge-text">${badge}</span></gl-badge
+						>`
+					: nothing
+			}<slot name="header-badge"></slot>`;
 	}
 
 	private renderCheckboxTitle(_fileCount: number, badge?: string | number): TemplateResult {
@@ -689,9 +697,11 @@ export class GlFileTreePane extends LitElement {
 						>`;
 
 		return html`<span class="checkbox-header" @click=${(e: Event) => e.stopPropagation()}>
-			${tooltipText
-				? html`<gl-tooltip placement="bottom" content=${tooltipText}>${checkbox}</gl-tooltip>`
-				: checkbox}
+			${
+				tooltipText
+					? html`<gl-tooltip placement="bottom" content=${tooltipText}>${checkbox}</gl-tooltip>`
+					: checkbox
+			}
 			<span class="checkbox-header__label">${label}<slot name="header-badge"></slot></span>
 		</span>`;
 	}

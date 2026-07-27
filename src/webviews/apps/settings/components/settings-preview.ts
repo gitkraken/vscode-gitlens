@@ -534,11 +534,13 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				<span class="tab"><code-icon icon="file" aria-hidden="true"></code-icon> supercharge.ts</span>
 			</div>
 			${content}
-			${off
-				? html`<div class="off-overlay">
-						<span><code-icon icon="eye-closed" aria-hidden="true"></code-icon>${off}</span>
-					</div>`
-				: nothing}
+			${
+				off
+					? html`<div class="off-overlay">
+							<span><code-icon icon="eye-closed" aria-hidden="true"></code-icon>${off}</span>
+						</div>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -590,11 +592,13 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				${sampleCode.map(line => {
 					const containerLens = on && line.container && scopes.includes('containers');
 					const blockLens = on && line.fn && scopes.includes('blocks');
-					return html`${containerLens
-						? html`<div class="codelens ${fileLens ? 'codelens--spaced' : ''}">${lens}</div>`
-						: nothing}${blockLens
-						? html`<div class="codelens codelens--block">${lens}</div>`
-						: nothing}${this.renderCodeLine(line)}`;
+					return html`${
+						containerLens
+							? html`<div class="codelens ${fileLens ? 'codelens--spaced' : ''}">${lens}</div>`
+							: nothing
+					}${
+						blockLens ? html`<div class="codelens codelens--block">${lens}</div>` : nothing
+					}${this.renderCodeLine(line)}`;
 				})}
 			</div>`,
 			on ? undefined : 'Git CodeLens is off',
@@ -637,25 +641,33 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 					const showBlame = !(compact && row.same);
 					return html`<div class="line ${row.current && highlight ? 'line--current' : ''}">
 						<span class="blame-gutter">
-							${heatmap && heatmapLeft
+							${
+								heatmap && heatmapLeft
+									? html`<span
+											class="blame-gutter__heat"
+											style=${cspStyleMap({ background: heatColor(row.heat) })}
+										></span>`
+									: nothing
+							}
+							${
+								avatars && showBlame
+									? html`<span class="avatar ${row.who === 'You' ? '' : 'avatar--other'}"></span>`
+									: nothing
+							}
+							${
+								showBlame
+									? html`<span class="blame-gutter__text">${row.who}, ${row.ago}</span>`
+									: nothing
+							}
+						</span>
+						${
+							heatmap && !heatmapLeft
 								? html`<span
-										class="blame-gutter__heat"
+										class="heat-bar"
 										style=${cspStyleMap({ background: heatColor(row.heat) })}
 									></span>`
-								: nothing}
-							${avatars && showBlame
-								? html`<span class="avatar ${row.who === 'You' ? '' : 'avatar--other'}"></span>`
-								: nothing}
-							${showBlame
-								? html`<span class="blame-gutter__text">${row.who}, ${row.ago}</span>`
-								: nothing}
-						</span>
-						${heatmap && !heatmapLeft
-							? html`<span
-									class="heat-bar"
-									style=${cspStyleMap({ background: heatColor(row.heat) })}
-								></span>`
-							: nothing}
+								: nothing
+						}
 						<span class="line__number">${i + 1}</span>
 						<span>${this.renderSyntax(sampleCode[Math.min(i, sampleCode.length - 1)].text)}</span>
 					</div>`;
@@ -683,32 +695,36 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 										: null,
 							})}
 						>
-							${gutter && row.current
-								? html`<span
-										class="heat-bar"
-										style=${cspStyleMap({
-											background: 'var(--gl-stat-modified, var(--vscode-charts-yellow))',
-										})}
-									></span>`
-								: html`<span
-										class="heat-bar"
-										style=${cspStyleMap({ background: 'transparent' })}
-									></span>`}
+							${
+								gutter && row.current
+									? html`<span
+											class="heat-bar"
+											style=${cspStyleMap({
+												background: 'var(--gl-stat-modified, var(--vscode-charts-yellow))',
+											})}
+										></span>`
+									: html`<span
+											class="heat-bar"
+											style=${cspStyleMap({ background: 'transparent' })}
+										></span>`
+							}
 							<span class="line__number">${i + 1}</span>
 							<span>${this.renderSyntax(sampleCode[Math.min(i, sampleCode.length - 1)].text)}</span>
 						</div>`,
 				)}
-				${overview
-					? html`<div class="overview-ruler">
-							<span
-								class="overview-ruler__mark"
-								style=${cspStyleMap({
-									background: 'var(--gl-stat-modified, var(--vscode-charts-yellow))',
-									marginTop: '3.4rem',
-								})}
-							></span>
-						</div>`
-					: nothing}
+				${
+					overview
+						? html`<div class="overview-ruler">
+								<span
+									class="overview-ruler__mark"
+									style=${cspStyleMap({
+										background: 'var(--gl-stat-modified, var(--vscode-charts-yellow))',
+										marginTop: '3.4rem',
+									})}
+								></span>
+							</div>`
+						: nothing
+				}
 			</div>`,
 		);
 	}
@@ -727,27 +743,31 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 							class="line"
 							style=${cspStyleMap({ opacity: fade ? String(1 - row.heat * 0.6) : null })}
 						>
-							${gutter
-								? html`<span
-										class="heat-bar"
-										style=${cspStyleMap({ background: heatColor(row.heat) })}
-									></span>`
-								: nothing}
+							${
+								gutter
+									? html`<span
+											class="heat-bar"
+											style=${cspStyleMap({ background: heatColor(row.heat) })}
+										></span>`
+									: nothing
+							}
 							<span class="line__number">${i + 1}</span>
 							<span>${this.renderSyntax(sampleCode[Math.min(i, sampleCode.length - 1)].text)}</span>
 						</div>`,
 				)}
-				${overview
-					? html`<div class="overview-ruler">
-							${sampleBlameRows.map(
-								row =>
-									html`<span
-										class="overview-ruler__mark"
-										style=${cspStyleMap({ background: heatColor(row.heat) })}
-									></span>`,
-							)}
-						</div>`
-					: nothing}
+				${
+					overview
+						? html`<div class="overview-ruler">
+								${sampleBlameRows.map(
+									row =>
+										html`<span
+											class="overview-ruler__mark"
+											style=${cspStyleMap({ background: heatColor(row.heat) })}
+										></span>`,
+								)}
+							</div>`
+						: nothing
+				}
 			</div>`,
 		);
 	}
@@ -768,20 +788,22 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				<code-icon icon="search" aria-hidden="true"></code-icon>
 				<code-icon icon="filter" aria-hidden="true"></code-icon>
 			</div>
-			${minimap
-				? html`<div class="graph-minimap" aria-hidden="true">
-						${graphMinimapBars.map(
-							(h, i) =>
-								html`<span
-									class="graph-minimap__bar"
-									style=${cspStyleMap({
-										height: `${h}px`,
-										background: laneColors[i % laneColors.length],
-									})}
-								></span>`,
-						)}
-					</div>`
-				: nothing}
+			${
+				minimap
+					? html`<div class="graph-minimap" aria-hidden="true">
+							${graphMinimapBars.map(
+								(h, i) =>
+									html`<span
+										class="graph-minimap__bar"
+										style=${cspStyleMap({
+											height: `${h}px`,
+											background: laneColors[i % laneColors.length],
+										})}
+									></span>`,
+							)}
+						</div>`
+					: nothing
+			}
 			<div class="graph-rows">
 				<svg width="64" height=${rows.length * rowHeight} class="graph-svg" aria-hidden="true">
 					${rows.map((row, i) => {
@@ -808,21 +830,25 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 							class="graph-row ${dimMerges && row.merge ? 'graph-row--dimmed' : ''}"
 							style=${cspStyleMap({ top: `${i * rowHeight}px` })}
 						>
-							${row.ref
-								? html`<span
-										class="graph-row__ref"
-										style=${cspStyleMap({
-											border: `var(--gl-border-width) solid color-mix(in srgb, ${laneColors[row.lane]} 60%, transparent)`,
-											background: `color-mix(in srgb, ${laneColors[row.lane]} 16%, transparent)`,
-											color: laneColors[row.lane],
-										})}
-										><code-icon icon=${row.refIcon} size="10" aria-hidden="true"></code-icon
-										>${row.ref}</span
-									>`
-								: nothing}
-							${avatars
-								? html`<span class="avatar ${row.who === 'you' ? '' : 'avatar--other'}"></span>`
-								: nothing}
+							${
+								row.ref
+									? html`<span
+											class="graph-row__ref"
+											style=${cspStyleMap({
+												border: `var(--gl-border-width) solid color-mix(in srgb, ${laneColors[row.lane]} 60%, transparent)`,
+												background: `color-mix(in srgb, ${laneColors[row.lane]} 16%, transparent)`,
+												color: laneColors[row.lane],
+											})}
+											><code-icon icon=${row.refIcon} size="10" aria-hidden="true"></code-icon
+											>${row.ref}</span
+										>`
+									: nothing
+							}
+							${
+								avatars
+									? html`<span class="avatar ${row.who === 'you' ? '' : 'avatar--other'}"></span>`
+									: nothing
+							}
 							<span class="graph-row__message">${row.message}</span>
 						</div>`,
 				)}
@@ -847,12 +873,14 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 		return html`<div class="hover-card">
 			<div class="hover-card__header">
-				${avatars
-					? html`<span
-							class="hover-card__avatar"
-							style=${cspStyleMap({ width: `${avatarSize}px`, height: `${avatarSize}px` })}
-						></span>`
-					: nothing}
+				${
+					avatars
+						? html`<span
+								class="hover-card__avatar"
+								style=${cspStyleMap({ width: `${avatarSize}px`, height: `${avatarSize}px` })}
+							></span>`
+						: nothing
+				}
 				<span>
 					<strong>Eric Amodio</strong>, 9 years ago via <span class="preview-link">PR #1</span>
 					<span class="muted">(May 6, 2016)</span><br />
@@ -866,12 +894,14 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				<code-icon icon="history" size="13"></code-icon>
 				<code-icon icon="globe" size="13"></code-icon>
 			</div>
-			${diff
-				? html`<div class="hover-card__diff">
-						<div class="diff-removed">- return code;</div>
-						<div class="diff-added">+ return optimize(parse(code));</div>
-					</div>`
-				: nothing}
+			${
+				diff
+					? html`<div class="hover-card__diff">
+							<div class="diff-removed">- return code;</div>
+							<div class="diff-added">+ return optimize(parse(code));</div>
+						</div>`
+					: nothing
+			}
 		</div>`;
 	}
 }

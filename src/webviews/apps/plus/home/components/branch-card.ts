@@ -850,16 +850,20 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 			<div class="branch-item__agents">
 				<code-icon icon="robot"></code-icon>
 				${needsInput.map(s => html`<gl-agent-status-pill .session=${s}></gl-agent-status-pill>`)}
-				${working.length > 0
-					? html`<gl-agent-status-pill
-							.summary=${{ category: 'working', sessions: working }}
-						></gl-agent-status-pill>`
-					: nothing}
-				${idle.length > 0
-					? html`<gl-agent-status-pill
-							.summary=${{ category: 'idle', sessions: idle }}
-						></gl-agent-status-pill>`
-					: nothing}
+				${
+					working.length > 0
+						? html`<gl-agent-status-pill
+								.summary=${{ category: 'working', sessions: working }}
+							></gl-agent-status-pill>`
+						: nothing
+				}
+				${
+					idle.length > 0
+						? html`<gl-agent-status-pill
+								.summary=${{ category: 'idle', sessions: idle }}
+							></gl-agent-status-pill>`
+						: nothing
+				}
 			</div>
 		`;
 	}
@@ -883,25 +887,27 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 								<code-icon icon="git-pull-request" slot="prefix"></code-icon>
 								<span>Create a Pull Request</span>
 							</gl-button>
-							${this._subscription.orgSettings.get().ai &&
-							this._aiCtx.state.get().enabled &&
-							this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
-								? html`<gl-button
-										class="branch-item__missing"
-										tooltip="Create a Pull Request with AI"
-										appearance="secondary"
-										href="${this._webview.createCommandLink<CreatePullRequestCommandArgs>(
-											'gitlens.createPullRequest:',
-											{
-												ref: this.branchRef,
-												describeWithAI: true,
-												source: { source: 'home', detail: 'create-pr' },
-											},
-										)}"
-									>
-										<code-icon icon="sparkle"></code-icon>
-									</gl-button>`
-								: nothing}
+							${
+								this._subscription.orgSettings.get().ai &&
+								this._aiCtx.state.get().enabled &&
+								this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
+									? html`<gl-button
+											class="branch-item__missing"
+											tooltip="Create a Pull Request with AI"
+											appearance="secondary"
+											href="${this._webview.createCommandLink<CreatePullRequestCommandArgs>(
+												'gitlens.createPullRequest:',
+												{
+													ref: this.branchRef,
+													describeWithAI: true,
+													source: { source: 'home', detail: 'create-pr' },
+												},
+											)}"
+										>
+											<code-icon icon="sparkle"></code-icon>
+										</gl-button>`
+									: nothing
+							}
 						</button-container>
 					</div>
 				`;
@@ -967,14 +973,16 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 					</gl-tooltip>
 				</p>
 			</div>
-			${groupIconString
-				? html`<span
-						class="branch-item__summary launchpad-grouping--${getLaunchpadItemGrouping(group)}"
-						slot="summary"
-						><gl-tooltip placement="bottom" content="${groupLabel}"
-							><code-icon icon="${groupIconString}"></code-icon></gl-tooltip
-					></span>`
-				: nothing}`;
+			${
+				groupIconString
+					? html`<span
+							class="branch-item__summary launchpad-grouping--${getLaunchpadItemGrouping(group)}"
+							slot="summary"
+							><gl-tooltip placement="bottom" content="${groupLabel}"
+								><code-icon icon="${groupIconString}"></code-icon></gl-tooltip
+						></span>`
+					: nothing
+			}`;
 	}
 
 	protected renderMergeTargetStatus(): TemplateResult | NothingType {

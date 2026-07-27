@@ -1128,13 +1128,15 @@ export class GlTimelineChart extends GlElement {
 					@wheel=${this._onWheel}
 				></canvas>
 				${this._renderRail()} ${this._renderAxisOverlay()}
-				${showLoadMoreIndicator
-					? html`<div
-							class="load-more-edge-line"
-							aria-label="Loading older history"
-							role="progressbar"
-						></div>`
-					: nothing}
+				${
+					showLoadMoreIndicator
+						? html`<div
+								class="load-more-edge-line"
+								aria-label="Loading older history"
+								role="progressbar"
+							></div>`
+						: nothing
+				}
 				<div id="tooltip" class="tooltip"></div>
 				${this._renderA11yLive()}
 			</div>
@@ -1276,11 +1278,16 @@ export class GlTimelineChart extends GlElement {
 				});
 
 				y2Axis = html`
-					${showTitle
-						? html`<div class="rail__y2-title" style=${cspStyleMap({ top: `${(baselineY + farY) / 2}px` })}>
-								Lines changed
-							</div>`
-						: nothing}
+					${
+						showTitle
+							? html`<div
+									class="rail__y2-title"
+									style=${cspStyleMap({ top: `${(baselineY + farY) / 2}px` })}
+								>
+									Lines changed
+								</div>`
+							: nothing
+					}
 					${y2Ticks}
 				`;
 			}
@@ -1351,25 +1358,27 @@ export class GlTimelineChart extends GlElement {
 							></div>
 							<div class="axis-overlay__label" style=${cspStyleMap({ left: left })}>${tick.label}</div>`;
 			})}
-			${scrollbar != null
-				? html`<div
-						class="axis-overlay__scrollbar"
-						style=${cspStyleMap({
-							left: `${scrollbar.trackX}px`,
-							top: `${scrollbar.trackY - lo.axisStripTop}px`,
-							width: `${scrollbar.trackWidth}px`,
-							height: `${scrollbar.trackHeight}px`,
-						})}
-					>
-						<div
-							class="axis-overlay__scrollbar-thumb"
+			${
+				scrollbar != null
+					? html`<div
+							class="axis-overlay__scrollbar"
 							style=${cspStyleMap({
-								left: `${scrollbar.thumbX - scrollbar.trackX}px`,
-								width: `${scrollbar.thumbWidth}px`,
+								left: `${scrollbar.trackX}px`,
+								top: `${scrollbar.trackY - lo.axisStripTop}px`,
+								width: `${scrollbar.trackWidth}px`,
+								height: `${scrollbar.trackHeight}px`,
 							})}
-						></div>
-					</div>`
-				: nothing}
+						>
+							<div
+								class="axis-overlay__scrollbar-thumb"
+								style=${cspStyleMap({
+									left: `${scrollbar.thumbX - scrollbar.trackX}px`,
+									width: `${scrollbar.thumbWidth}px`,
+								})}
+							></div>
+						</div>`
+					: nothing
+			}
 		</div>`;
 	}
 
@@ -1436,16 +1445,18 @@ export class GlTimelineChart extends GlElement {
 			></gl-chart-slider>
 			<gl-commit-sha-copy .sha=${sha} .size=${16}></gl-commit-sha-copy>
 			<div class="actions">
-				${this._zoomed
-					? html`<gl-button
-							appearance="toolbar"
-							@click=${(e: MouseEvent) => (e.shiftKey || e.altKey ? this.resetZoom() : this._zoomBy(-1))}
-							aria-label="Zoom Out"
-						>
-							<code-icon icon="zoom-out"></code-icon>
-							<span slot="tooltip">Zoom Out<br />${getAltKeySymbol()} Reset Zoom</span>
-						</gl-button>`
-					: nothing}
+				${
+					this._zoomed
+						? html`<gl-button
+								appearance="toolbar"
+								@click=${(e: MouseEvent) => (e.shiftKey || e.altKey ? this.resetZoom() : this._zoomBy(-1))}
+								aria-label="Zoom Out"
+							>
+								<code-icon icon="zoom-out"></code-icon>
+								<span slot="tooltip">Zoom Out<br />${getAltKeySymbol()} Reset Zoom</span>
+							</gl-button>`
+						: nothing
+				}
 				<gl-button
 					appearance="toolbar"
 					@click=${() => this._zoomBy(0.5)}

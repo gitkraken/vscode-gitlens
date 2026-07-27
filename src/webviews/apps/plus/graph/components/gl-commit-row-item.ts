@@ -185,13 +185,15 @@ export class GlCommitRowItem extends LitElement {
 	}
 
 	private renderAnchor(commit: CommitRowData): unknown {
-		const inner = html`${this.signature != null
-				? html`<gl-signature-badge
-						class="item__signature"
-						.signature=${this.signature}
-						.committerEmail=${this.committerEmail}
-					></gl-signature-badge>`
-				: nothing}
+		const inner = html`${
+				this.signature != null
+					? html`<gl-signature-badge
+							class="item__signature"
+							.signature=${this.signature}
+							.committerEmail=${this.committerEmail}
+						></gl-signature-badge>`
+					: nothing
+			}
 			<gl-commit-row
 				.commit=${commit}
 				.preferences=${this.preferences}

@@ -232,16 +232,18 @@ export class GlWipConflictSheet extends LitElement {
 				<code-icon icon="warning"></code-icon>
 				<span class="title__name">Conflict · ${this.fileName}</span>
 			</span>
-			${this.aiEnabled
-				? html`<gl-action-chip
-						slot="actions"
-						icon="gl-merge"
-						label="Resolve Conflicts (Preview)"
-						overlay="tooltip"
-						@click=${this.onResolveAi}
-						><span>Resolve Conflicts</span></gl-action-chip
-					>`
-				: nothing}
+			${
+				this.aiEnabled
+					? html`<gl-action-chip
+							slot="actions"
+							icon="gl-merge"
+							label="Resolve Conflicts (Preview)"
+							overlay="tooltip"
+							@click=${this.onResolveAi}
+							><span>Resolve Conflicts</span></gl-action-chip
+						>`
+					: nothing
+			}
 			<gl-action-chip
 				slot="actions"
 				icon="go-to-file"
@@ -298,14 +300,16 @@ export class GlWipConflictSheet extends LitElement {
 						overlay="tooltip"
 						@click=${() => this.emitSide('conflict-open-changes', side)}
 					></gl-action-chip>
-					${canStage
-						? html`<gl-action-chip
-								icon="check"
-								label="Stage ${label} Changes"
-								overlay="tooltip"
-								@click=${() => this.emitSide('conflict-stage', side)}
-							></gl-action-chip>`
-						: nothing}
+					${
+						canStage
+							? html`<gl-action-chip
+									icon="check"
+									label="Stage ${label} Changes"
+									overlay="tooltip"
+									@click=${() => this.emitSide('conflict-stage', side)}
+								></gl-action-chip>`
+							: nothing
+					}
 				</div>
 			</header>
 			<div class="side__scroll">${this.renderCommits(data, details.hasMergeBase)}</div>

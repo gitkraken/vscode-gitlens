@@ -1090,50 +1090,56 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
 				</gl-tooltip>
 				${hasCrumbs ? this.renderBreadcrumbs() : nothing} ${this.renderDescription()}
-				${showAgentCluster
-					? html`<gl-details-agent-status compact .sessions=${sessions}></gl-details-agent-status>`
-					: nothing}
+				${
+					showAgentCluster
+						? html`<gl-details-agent-status compact .sessions=${sessions}></gl-details-agent-status>`
+						: nothing
+				}
 				<div class="toolbar__right">
-					${showPeriodPicker
-						? html`<gl-menu-popover
-								placement="bottom-end"
-								keep-open-on-select
-								.items=${periodItems}
-								@gl-menu-select=${this.onPeriodMenuSelect}
-							>
-								<button
-									slot="anchor"
-									class="period-button"
-									type="button"
-									aria-label="Change time range"
-								>
-									${periodLabels[period]}<code-icon icon="chevron-down"></code-icon>
-								</button>
-							</gl-menu-popover>`
-						: nothing}
-					${showDecayPicker
-						? html`<gl-menu-popover
-								placement="bottom-end"
-								keep-open-on-select
-								.items=${decayItems}
-								@gl-menu-select=${this.onDecayMenuSelect}
-							>
-								<gl-tooltip
-									slot="anchor"
-									placement="bottom"
-									.distance=${6}
-									content="How long files stay highlighted after the agent reads or edits them"
+					${
+						showPeriodPicker
+							? html`<gl-menu-popover
+									placement="bottom-end"
+									keep-open-on-select
+									.items=${periodItems}
+									@gl-menu-select=${this.onPeriodMenuSelect}
 								>
 									<button
+										slot="anchor"
 										class="period-button"
 										type="button"
-										aria-label="How long files stay highlighted after the agent reads or edits them"
+										aria-label="Change time range"
 									>
-										${decayLabels[decay]}<code-icon icon="chevron-down"></code-icon>
+										${periodLabels[period]}<code-icon icon="chevron-down"></code-icon>
 									</button>
-								</gl-tooltip>
-							</gl-menu-popover>`
-						: nothing}
+								</gl-menu-popover>`
+							: nothing
+					}
+					${
+						showDecayPicker
+							? html`<gl-menu-popover
+									placement="bottom-end"
+									keep-open-on-select
+									.items=${decayItems}
+									@gl-menu-select=${this.onDecayMenuSelect}
+								>
+									<gl-tooltip
+										slot="anchor"
+										placement="bottom"
+										.distance=${6}
+										content="How long files stay highlighted after the agent reads or edits them"
+									>
+										<button
+											class="period-button"
+											type="button"
+											aria-label="How long files stay highlighted after the agent reads or edits them"
+										>
+											${decayLabels[decay]}<code-icon icon="chevron-down"></code-icon>
+										</button>
+									</gl-tooltip>
+								</gl-menu-popover>`
+							: nothing
+					}
 					<gl-button
 						appearance="toolbar"
 						tooltip="Close Visualizations"
@@ -1144,15 +1150,17 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					</gl-button>
 				</div>
 			</div>
-			${mode === 'activity' &&
-			(this.graphState.canInstallClaudeHook ?? false) &&
-			!(this.graphState.hooksBannerCollapsed ?? true)
-				? html`<gl-hooks-banner
-						class="hooks-banner"
-						source="graph-treemap"
-						layout="responsive"
-					></gl-hooks-banner>`
-				: nothing}
+			${
+				mode === 'activity' &&
+				(this.graphState.canInstallClaudeHook ?? false) &&
+				!(this.graphState.hooksBannerCollapsed ?? true)
+					? html`<gl-hooks-banner
+							class="hooks-banner"
+							source="graph-treemap"
+							layout="responsive"
+						></gl-hooks-banner>`
+					: nothing
+			}
 			<div class="chart-container">
 				<gl-treemap-chart
 					.data=${this.effectiveData}
@@ -1163,12 +1171,14 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					@gl-treemap-zoom-change=${this.onChartZoomChange}
 					@gl-treemap-file-click=${this.onChartFileClick}
 				></gl-treemap-chart>
-				${this._error
-					? html`<div class="overlay" role="alert">
-							<p>Failed to load treemap data</p>
-							<gl-button appearance="secondary" @click=${this.handleRetry}>Retry</gl-button>
-						</div>`
-					: nothing}
+				${
+					this._error
+						? html`<div class="overlay" role="alert">
+								<p>Failed to load treemap data</p>
+								<gl-button appearance="secondary" @click=${this.handleRetry}>Retry</gl-button>
+							</div>`
+						: nothing
+				}
 			</div>
 		`;
 	}
