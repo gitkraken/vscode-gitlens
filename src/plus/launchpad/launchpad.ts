@@ -1,4 +1,4 @@
-import type { CancellationToken, QuickPick, QuickPickItem } from 'vscode';
+import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, l10n, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
 import { getStackedMergeCount } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
