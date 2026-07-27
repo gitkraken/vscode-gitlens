@@ -41,151 +41,11 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 				overflow: auto;
 			}
 
-			.container {
-				display: flex;
-				flex-direction: column;
-				gap: var(--gl-space-16);
-				align-items: center;
-				width: 100%;
-				max-width: 36rem;
-				text-align: center;
-			}
-
-			.icon {
-				color: var(--vscode-descriptionForeground);
-			}
-
-			.icon code-icon {
-				font-size: 4rem;
-			}
-
-			.hero {
-				inline-size: 100%;
-				max-width: 42ch;
-				margin-inline: auto;
-				text-align: center;
-			}
-
-			.logo {
-				margin-block: var(--gl-space-4) var(--gl-space-10);
-				transform: scale(1.22);
-			}
-
-			.title {
-				margin-block: 0;
-				font-size: var(--gl-font-lg);
-				font-weight: 600;
-				color: var(--color-foreground);
-			}
-
-			.description {
-				margin-block: var(--gl-space-8) 0;
-				font-size: var(--gl-font-base);
-				line-height: 1.5;
-				color: var(--vscode-descriptionForeground);
-				text-wrap: pretty;
-			}
-
-			.actions {
-				display: flex;
-				flex-direction: column;
-				gap: var(--gl-space-8);
-				width: 100%;
-				margin-top: var(--gl-space-8);
-			}
-
-			.groups {
-				margin-block-start: var(--gl-space-12);
-			}
-
-			.group {
-				display: flex;
-				flex-direction: column;
-				inline-size: 100%;
-				max-width: 42ch;
-				margin-block-start: var(--gl-space-8);
-			}
-
-			.group__label {
-				padding: var(--gl-space-6) var(--gl-space-10);
-				margin: 0;
-				font-size: var(--gl-font-sm);
-				font-weight: 600;
-				color: var(--color-foreground--50);
-				text-transform: uppercase;
-				letter-spacing: 0.08em;
-			}
-
-			.action {
-				display: flex;
-				gap: var(--gl-space-10);
-				align-items: center;
-				padding: var(--gl-space-6) var(--gl-space-10);
-				color: inherit;
-				text-decoration: none;
-				cursor: pointer;
-				border-radius: var(--gl-radius-sm);
-			}
-
-			.action:hover {
-				text-decoration: none;
-				background: var(--vscode-list-hoverBackground);
-			}
-
-			.action:focus-visible {
-				outline: 1px solid var(--vscode-focusBorder);
-				outline-offset: -1px;
-			}
-
-			.action__icon {
-				flex: none;
-				color: var(--color-foreground--85);
-			}
-
-			.action__icon.is-issue {
-				color: var(--vscode-gitlens-openAutolinkedIssueIconColor);
-			}
-
-			.action__icon.is-pr {
-				color: var(--vscode-gitlens-mergedPullRequestIconColor);
-			}
-
-			.action__body {
-				display: flex;
-				flex-direction: column;
-				gap: var(--gl-space-2);
-				min-width: 0;
-			}
-
-			.action__title {
-				font-size: var(--gl-font-base);
-				color: var(--color-foreground);
-			}
-
-			.action__desc {
-				font-size: var(--gl-font-sm);
-				color: var(--color-foreground--65);
-			}
-
-			@media (height <= 360px) {
-				.scroller {
-					padding-block: var(--gl-space-12);
-				}
-
-				.logo {
-					margin-block: 0 var(--gl-space-6);
-					transform: none;
-				}
-
-				.groups {
-					margin-block-start: var(--gl-space-6);
-				}
-			}
-
 			@media (height <= 440px) and (width > 600px) {
 				.groups {
 					display: flex;
 					flex-direction: row;
+					gap: var(--gl-space-8);
 				}
 
 				.group {
@@ -195,13 +55,6 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 		`,
 	];
 
-			/* .container {
-				display: flex;
-				flex-direction: column;
-				inline-size: 100%;
-				max-width: 42rem;
-			} */
-
 			.hero {
 				inline-size: 100%;
 				max-width: 42ch;
@@ -321,6 +174,7 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 				.groups {
 					display: flex;
 					flex-direction: row;
+					gap: var(--gl-space-8);
 				}
 
 				.group {
@@ -420,19 +274,23 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 						<div class="group" role="group" aria-labelledby="label-your-work">
 							<h2 class="group__label" id="label-your-work">${l10n.t('Start from your work')}</h2>
 							${this.renderAction({
+								${this.renderAction({
 									href: createCommandLink('gitlens.startWork', { source: 'graph' }),
 									icon: 'issues',
 									title: l10n.t('Start Work on an Issue'),
-									description: l10n.t('Pick an issue — clone and branch automatically'),
+									description: l10n.t('Pick an issue to start a branch from'),
 									accent: 'issue',
 								})}
-							${this.renderAction({
+							${when(!this.graphState.isWeb, () =>
+								this.renderAction({
 									href: createCommandLink('gitlens.startReview', { source: { source: 'graph' } }),
 									icon: 'git-pull-request',
 									title: l10n.t('Start Review on a PR'),
 									description: l10n.t('Check out a pull request to review it'),
 									accent: 'pr',
-								})}
+								}),
+							)}
+
 						</div>
 					</div>
 				</div>
