@@ -39,20 +39,22 @@ import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
-import '../../../shared/components/code-icon.js';
+import '../../../shared/components/actions/action-item.js';
+import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/avatar/avatar-list.js';
+import '../../../shared/components/branch-icon.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
+import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/formatted-date.js';
 import '../../../shared/components/overlays/tooltip.js';
+import '../../../shared/components/pills/agent-status-pill.js';
 import '../../../shared/components/pills/tracking-status.js';
 import '../../../shared/components/rich/issue-icon.js';
 import '../../../shared/components/rich/pr-icon.js';
-import '../../../shared/components/actions/action-item.js';
-import '../../../shared/components/actions/action-nav.js';
-import '../../../shared/components/branch-icon.js';
 import '../../shared/components/merge-target-status.js';
-import '../../../shared/components/pills/agent-status-pill.js';
 
 export const branchCardStyles = css`
 	* {
