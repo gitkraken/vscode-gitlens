@@ -573,30 +573,35 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		) as GitCloudHostIntegrationId[];
 		const openRemotesByIntegrationId = new Map<IntegrationIds, ResourceDescriptor[]>();
 		let hasOpenAzureRepository = false;
-		for (const remote of await this.ctx.repositories.getOpenRemotes()) {
-			const remoteIntegration = await this.getByRemote(remote);
-			if (remoteIntegration == null) continue;
+		if (options?.openRepositoriesOnly) {
+			for (const remote of await this.ctx.repositories.getOpenRemotes()) {
+				const remoteIntegration = await this.getByRemote(remote);
+				if (remoteIntegration == null) continue;
 
-			if (remoteIntegration.id === GitCloudHostIntegrationId.AzureDevOps) {
-				hasOpenAzureRepository = true;
-			}
-			for (const integrationId of hostingIntegrationIds?.length
-				? hostingIntegrationIds
-				: [...Object.values(GitCloudHostIntegrationId), ...Object.values(GitSelfManagedHostIntegrationId)]) {
-				if (
-					remoteIntegration.id === integrationId &&
-					remote.provider?.owner != null &&
-					remote.provider?.repoName != null
-				) {
-					const descriptor = {
-						key: `${remote.provider.owner}/${remote.provider.repoName}`,
-						owner: remote.provider.owner,
-						name: remote.provider.repoName,
-					};
-					if (openRemotesByIntegrationId.has(integrationId)) {
-						openRemotesByIntegrationId.get(integrationId)?.push(descriptor);
-					} else {
-						openRemotesByIntegrationId.set(integrationId, [descriptor]);
+				if (remoteIntegration.id === GitCloudHostIntegrationId.AzureDevOps) {
+					hasOpenAzureRepository = true;
+				}
+				for (const integrationId of hostingIntegrationIds?.length
+					? hostingIntegrationIds
+					: [
+							...Object.values(GitCloudHostIntegrationId),
+							...Object.values(GitSelfManagedHostIntegrationId),
+						]) {
+					if (
+						remoteIntegration.id === integrationId &&
+						remote.provider?.owner != null &&
+						remote.provider?.repoName != null
+					) {
+						const descriptor = {
+							key: `${remote.provider.owner}/${remote.provider.repoName}`,
+							owner: remote.provider.owner,
+							name: remote.provider.repoName,
+						};
+						if (openRemotesByIntegrationId.has(integrationId)) {
+							openRemotesByIntegrationId.get(integrationId)?.push(descriptor);
+						} else {
+							openRemotesByIntegrationId.set(integrationId, [descriptor]);
+						}
 					}
 				}
 			}
@@ -610,11 +615,11 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 				]) {
 			const integration = await this.get(integrationId);
 			const isInvalidIntegration =
-				(options?.openRepositoriesOnly &&
-					integrationId !== GitCloudHostIntegrationId.AzureDevOps &&
+				options?.openRepositoriesOnly === true &&
+				((integrationId !== GitCloudHostIntegrationId.AzureDevOps &&
 					(isGitCloudHostIntegrationId(integrationId) || isGitSelfManagedHostIntegrationId(integrationId)) &&
 					!openRemotesByIntegrationId.has(integrationId)) ||
-				(integrationId === GitCloudHostIntegrationId.AzureDevOps && !hasOpenAzureRepository);
+					(integrationId === GitCloudHostIntegrationId.AzureDevOps && !hasOpenAzureRepository));
 			if (integration == null || isInvalidIntegration) {
 				continue;
 			}

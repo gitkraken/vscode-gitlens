@@ -303,7 +303,9 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 					// Auto-select issue if issueUrl is provided
 					if (state.issueUrl) {
 						if (context.result == null) {
-							await updateContextItems(this.container, context);
+							await updateContextItems(this.container, context, {
+								openRepositoriesOnly: this.openRepositoriesOnly,
+							});
 						}
 						preSelecteditem = context.result?.items.find(item => item.issue.url === state.issueUrl);
 
@@ -364,9 +366,17 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 	protected abstract continuation?(state: StartWorkStepState, context: StartWorkContext): StepGenerator;
 
-	protected async getIssueRepositoryIfExists(issue: IssueShape | Issue): Promise<GlRepository | undefined> {
+	/** Whether the issue list should be scoped to issues of currently-open repositories. */
+	protected get openRepositoriesOnly(): boolean {
+		return true;
+	}
+
+	protected async getIssueRepositoryIfExists(
+		issue: IssueShape | Issue,
+		options?: { promptIfNeeded?: boolean; skipVirtual?: boolean },
+	): Promise<GlRepository | undefined> {
 		try {
-			return await getOrOpenIssueRepository(this.container, issue);
+			return await getOrOpenIssueRepository(this.container, issue, options);
 		} catch {
 			return undefined;
 		}
@@ -442,6 +452,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		context: StartWorkContext,
 	): AsyncStepResultGenerator<StartWorkItem> {
 		const hasDisconnectedIntegrations = [...context.connectedIntegrations.values()].some(c => !c);
+		const openRepositoriesOnly = this.openRepositoriesOnly;
 
 		const buildStartWorkQuickPickItem = (i: StartWorkItem) => {
 			const onWebButton = i.issue.url ? getOpenOnWebQuickInputButton(i.issue.provider.id) : undefined;
@@ -490,7 +501,9 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				}
 
 				return {
-					placeholder: 'No issues found for your open repositories.',
+					placeholder: !openRepositoriesOnly
+						? 'No issues found for your connected integrations.'
+						: 'No issues found for your open repositories.',
 					items: [
 						hasDisconnectedIntegrations ? connectMoreIntegrationsItem : manageIntegrationsItem,
 						createDirectiveQuickPickItem(Directive.Cancel),
@@ -511,7 +524,7 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 		const updateItems = async (quickpick: QuickPick<any>) => {
 			quickpick.busy = true;
 			try {
-				await updateContextItems(this.container, context);
+				await updateContextItems(this.container, context, { openRepositoriesOnly: openRepositoriesOnly });
 				const { items, placeholder } = getItemsAndPlaceholder(this.overrides?.placeholders?.issueSelection);
 				quickpick.placeholder = placeholder;
 				quickpick.items = items;
@@ -707,14 +720,20 @@ function repeatSpaces(count: number) {
 	return ' '.repeat(count);
 }
 
-async function updateContextItems(container: Container, context: StartWorkContext) {
+async function updateContextItems(
+	container: Container,
+	context: StartWorkContext,
+	options?: { openRepositoriesOnly?: boolean },
+) {
 	context.connectedIntegrations = await getConnectedIntegrations(container);
 	const connectedIntegrations = [...context.connectedIntegrations.keys()].filter(integrationId =>
 		Boolean(context.connectedIntegrations.get(integrationId)),
 	);
 	// Don't cache a failed fetch — reopening the picker has to be able to retry
 	if (context.result == null || context.result.error != null) {
-		const result = await container.integrations.getMyIssues(connectedIntegrations, { openRepositoriesOnly: true });
+		const result = await container.integrations.getMyIssues(connectedIntegrations, {
+			openRepositoriesOnly: options?.openRepositoriesOnly ?? true,
+		});
 		context.result = {
 			items: result?.value?.map(i => ({ issue: i })) ?? [],
 			error: result?.error,

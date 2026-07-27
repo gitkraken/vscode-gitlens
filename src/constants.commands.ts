@@ -183,6 +183,7 @@ export type CoreCommands =
 	| 'openInIntegratedTerminal'
 	| 'openInTerminal'
 	| 'reopenActiveEditorWith' // Requires VS Code 1.100 or later
+	| 'remoteHub.openRepository'
 	| 'revealFileInOS'
 	| 'revealInExplorer'
 	| 'revealLine'
