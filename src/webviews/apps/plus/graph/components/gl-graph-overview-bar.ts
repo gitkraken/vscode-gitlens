@@ -526,6 +526,7 @@ export class GlGraphOverviewBar extends LitElement {
 							.branchId=${item.branchId}
 							.fallbackBranch=${item.branchModel}
 							.label=${item.branch}
+							.worktreePath=${item.repoPath}
 							.wip=${item.wip}
 							.wipDetails=${this.statsOnHover}
 							.open=${this.openHoverId === item.id}

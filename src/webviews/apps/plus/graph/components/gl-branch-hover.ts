@@ -123,6 +123,13 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 	 *  worktree). The WIP bar passes the pill's label; the overview card never needs it. */
 	@property() label?: string;
 
+	/** Worktree path of the anchor this hover is mounted on — when set it is THE key for resolving agent
+	 *  sessions, taking precedence over anything derived from the branch. The WIP pill resolves its own
+	 *  robot indicator by exactly this key (`pickAgent`), so sharing it is what keeps the two in lock-step;
+	 *  without it a pill can show a robot while its hover shows no agents (a detached worktree resolves no
+	 *  `OverviewBranch` at all). The overview card passes none — it always supplies `fallbackBranch`. */
+	@property() worktreePath?: string;
+
 	/** False when the anchor's host has opted out of per-worktree `git status` on hover
 	 *  (`graph.showWorktreeWipStats`). Suppresses the WIP-details upgrade and switches the pending-stats
 	 *  message to a static one — enrichment and merge-target aren't what that setting is about. */
@@ -158,18 +165,26 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 
 	private get agentSessions(): AgentSessionState[] | undefined {
 		const branch = this.branch;
-		if (branch == null) return undefined;
 
+		// Agents live in a worktree, not on a branch, so the anchor's own path wins when it has one: the WIP
+		// bar's robot resolves by exactly this key (`pickAgent(item.repoPath)`), so keying off it is what
+		// guarantees a pill and its hover can never disagree — including while `overview` still carries a
+		// stale worktree for the branch, or hasn't been pushed yet. Overview cards pass none and fall
+		// through to the branch below, unchanged.
+		//
 		// Graph strips the default worktree from `worktreesByBranch`, so an `opened` branch with no
 		// `worktree` is the default worktree's HEAD — match it via `repoPath`. A non-`opened` branch with
 		// no worktree isn't checked out anywhere, so no agent can be running on it; skipping the match
 		// keeps the matcher's `worktreePath ?? repoPath` fallback from false-matching it to the default
 		// worktree's session. (Mirrors `graph-overview`'s matching so the card sees the same set.)
-		const worktreePath = branch.worktree?.path ?? (branch.opened ? branch.repoPath : undefined);
+		const worktreePath =
+			this.worktreePath ?? branch?.worktree?.path ?? (branch?.opened === true ? branch.repoPath : undefined);
 		if (worktreePath == null) return undefined;
 
 		return matchAgentSessionsForWorktree(this._graphState?.agentSessions, {
-			repoPath: branch.repoPath,
+			// Unused by the matcher whenever `worktreePath` is set (it keys on `worktreePath ?? repoPath`),
+			// so the branchless path can safely pass the worktree path for both.
+			repoPath: branch?.repoPath ?? worktreePath,
 			worktreePath: worktreePath,
 		});
 	}
@@ -371,25 +386,30 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 	}
 
 	/** Fallback for a detached worktree, where no `OverviewBranch` resolves: header label + the working
-	 *  changes we can render from `wip` alone. No PR/agents/actions — those all need a branch. */
+	 *  changes we can render from `wip` alone, plus any agents running in the worktree. No PR/actions —
+	 *  those genuinely need a branch, but agents are keyed by worktree path (see `agentSessions`) and the
+	 *  anchor's robot indicator shows them here, so the hover has to agree. */
 	private renderDegraded() {
 		const label = this.label;
-		if (label == null && this.wip == null) return nothing;
+		// Render once and let `renderAgents()` own the emptiness test, so the bail can't drift from it.
+		const agents = this.renderAgents();
+		if (label == null && this.wip == null && agents === nothing) return nothing;
 
 		return html`
-			<div class="section">
-				${when(
-					label != null,
-					() => html`<div class="row">
+			${when(
+				label != null,
+				() => html`<div class="section">
+					<div class="row">
 						<span class="icon"><code-icon icon="gl-worktree"></code-icon></span>
 						<span class="name name--bold">${label}</span>
-					</div>`,
-				)}
-			</div>
+					</div>
+				</div>`,
+			)}
 			${when(
 				this.wip != null,
 				() => html`<div class="section"><div class="status-group">${this.renderWipStats()}</div></div>`,
 			)}
+			${agents}
 		`;
 	}
 
