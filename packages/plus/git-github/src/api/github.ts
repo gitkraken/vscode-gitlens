@@ -101,6 +101,31 @@ function isRetryableTransientError(ex: unknown): ex is RequestError {
 	}
 }
 
+/**
+ * When a rate-limited request may be retried, as a UTC epoch in seconds, or `undefined` when the response says
+ * nothing useful. Header precedence follows GitHub's own guidance
+ * (docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api): `retry-after` wins when present —
+ * it is the only one a secondary limit reliably sets — and `x-ratelimit-reset` covers the primary limit.
+ */
+function rateLimitResetAt(ex: RequestError): number | undefined {
+	const headers = ex.response?.headers;
+	if (headers == null) return undefined;
+
+	// `retry-after` is a delay in seconds, not an epoch, so it has to be added to now to compare with `resetAt`.
+	const retryAfter = toPositiveInt(headers['retry-after']);
+	if (retryAfter != null) return Math.floor(Date.now() / 1000) + retryAfter;
+
+	return toPositiveInt(headers['x-ratelimit-reset']);
+}
+
+function toPositiveInt(value: string | number | undefined): number | undefined {
+	if (value == null) return undefined;
+
+	const parsed = typeof value === 'number' ? value : parseInt(value, 10);
+	// Rejects NaN and a nonsensical negative/zero, either of which would present as an already-elapsed reset.
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 function getRequestRetryDelay(attempt: number): number {
 	// Exponential backoff with equal jitter, capped — spreads retries so a brief upstream blip
 	// isn't hammered by every in-flight request landing on the same schedule.
@@ -3294,22 +3319,18 @@ export class GitHubApi {
 			case 410: // Gone
 			case 422: // Unprocessable Entity
 				throw new RequestNotFoundError(ex);
-			// case 429: //Too Many Requests
+			case 429: // Too Many Requests
+				// GitHub returns "a `403` or `429` response" for BOTH its primary and secondary rate limits
+				// (docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api). 429 is unambiguous —
+				// unlike 403, it is never a permission failure — so it needs no message check.
+				throw new RequestRateLimitError(ex, accessToken, rateLimitResetAt(ex));
 			case 401: // Unauthorized
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, ex);
 			case 403: // Forbidden
+				// The other status the rate limits arrive on, but 403 is also a plain permission failure, so here
+				// the message is the discriminant.
 				if (ex.message.includes('rate limit')) {
-					let resetAt: number | undefined;
-
-					const reset = ex.response?.headers?.['x-ratelimit-reset'];
-					if (reset != null) {
-						resetAt = parseInt(reset, 10);
-						if (Number.isNaN(resetAt)) {
-							resetAt = undefined;
-						}
-					}
-
-					throw new RequestRateLimitError(ex, accessToken, resetAt);
+					throw new RequestRateLimitError(ex, accessToken, rateLimitResetAt(ex));
 				}
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error

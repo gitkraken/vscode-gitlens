@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { suite, test } from 'mocha';
+import { AuthenticationError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
@@ -451,5 +452,126 @@ suite('GitHubApi.searchMyIssues', () => {
 		assert.equal(variables[1].includeAssigned, true);
 		assert.equal(variables[1].includeAuthored, false);
 		assert.equal(variables[1].includeMentioned, false);
+	});
+});
+
+// GitHub documents "a `403` or `429` response" for BOTH its primary and secondary rate limits
+// (docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api). Only 403 was handled: `case 429`
+// was commented out, so a throttled request fell through to the generic 4xx branch and surfaced as a
+// `RequestClientError`. Downstream that reads as a generic failure rather than a retryable throttle — it drops
+// the "temporary" framing and, in consumers that hold a snapshot on retryable failures, discards a good one.
+suite('GitHubApi rate limit classification', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	function failingConfig(status: number, body: unknown, headers?: Record<string, string>): GitHubApiConfig {
+		return {
+			isWeb: false,
+			fetch: async () =>
+				new Response(JSON.stringify(body), {
+					status: status,
+					headers: { 'content-type': 'application/json', ...headers },
+				}),
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+	}
+
+	async function captureError(config: GitHubApiConfig): Promise<unknown> {
+		const api = new GitHubApi(config);
+		try {
+			await api.getPullRequest(provider, token, 'octo', 'repo', 1);
+			return undefined;
+		} catch (ex) {
+			return ex;
+		}
+	}
+
+	test('maps a 429 to a rate limit rather than a generic client error', async () => {
+		const ex = await captureError(
+			failingConfig(429, { message: 'You have exceeded a secondary rate limit' }, { 'retry-after': '60' }),
+		);
+
+		assert.ok(ex instanceof RequestRateLimitError, `expected RequestRateLimitError, got ${String(ex)}`);
+	});
+
+	test('maps a 429 even when the body says nothing about a rate limit', async () => {
+		// 429 is unambiguous — unlike 403 it is never a permission failure — so it must not depend on the wording.
+		const ex = await captureError(failingConfig(429, { message: 'Too Many Requests' }));
+
+		assert.ok(ex instanceof RequestRateLimitError, `expected RequestRateLimitError, got ${String(ex)}`);
+	});
+
+	test('prefers retry-after over x-ratelimit-reset for the reset time', async () => {
+		const before = Math.floor(Date.now() / 1000);
+		const ex = await captureError(
+			failingConfig(
+				429,
+				{ message: 'rate limit' },
+				// A stale reset epoch alongside a fresh retry-after: GitHub's guidance is that retry-after wins.
+				{ 'retry-after': '60', 'x-ratelimit-reset': '1' },
+			),
+		);
+
+		assert.ok(ex instanceof RequestRateLimitError);
+		assert.ok(
+			ex.resetAt != null && ex.resetAt >= before + 60 && ex.resetAt <= before + 61 + 2,
+			`resetAt was ${String(ex.resetAt)}, expected ~${before + 60}`,
+		);
+	});
+
+	test('falls back to x-ratelimit-reset when retry-after is absent', async () => {
+		const ex = await captureError(
+			failingConfig(429, { message: 'rate limit' }, { 'x-ratelimit-reset': '1893456000' }),
+		);
+
+		assert.ok(ex instanceof RequestRateLimitError);
+		assert.equal(ex.resetAt, 1893456000);
+	});
+
+	test('leaves resetAt undefined for an unusable header rather than an elapsed epoch', async () => {
+		// A NaN or negative parse used to become a reset time in the past, which reads as "retry immediately".
+		const cases: Record<string, string>[] = [{ 'x-ratelimit-reset': 'soon' }, { 'x-ratelimit-reset': '-5' }, {}];
+		for (const headers of cases) {
+			const ex = await captureError(failingConfig(429, { message: 'rate limit' }, headers));
+
+			assert.ok(ex instanceof RequestRateLimitError);
+			assert.equal(ex.resetAt, undefined, `headers ${JSON.stringify(headers)}`);
+		}
+	});
+
+	test('still classifies the 403 form of a rate limit', async () => {
+		const ex = await captureError(
+			failingConfig(
+				403,
+				{ message: 'API rate limit exceeded for user ID 1' },
+				{ 'x-ratelimit-reset': '1893456000' },
+			),
+		);
+
+		assert.ok(ex instanceof RequestRateLimitError, `expected RequestRateLimitError, got ${String(ex)}`);
+		assert.equal(ex.resetAt, 1893456000);
+	});
+
+	test('still treats a plain 403 as an authentication failure', async () => {
+		// The 429 case must not widen what counts as a throttle: a permission failure still has to reach the
+		// reconnect path.
+		const ex = await captureError(failingConfig(403, { message: 'Resource not accessible by integration' }));
+
+		assert.ok(ex instanceof AuthenticationError, `expected AuthenticationError, got ${String(ex)}`);
 	});
 });
