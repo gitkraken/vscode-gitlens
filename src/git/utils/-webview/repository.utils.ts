@@ -1,8 +1,10 @@
 import type { QuickPickItem } from 'vscode';
 import { l10n, ProgressLocation, Uri, window } from 'vscode';
+import { isWeb } from '@env/platform.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { millisecondsPerDay } from '@gitlens/git/utils/fetch.utils.js';
+import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
@@ -240,12 +242,15 @@ export async function locateOrCloneRepository(
 /**
  * Prompts (standalone quick pick — do NOT use inside a quick-wizard flow, it collides with the
  * wizard's live picker) to locate or clone a repository, then adds and returns it.
- * Throws {@link CancellationError} on any user cancellation.
+ * Throws {@link CancellationError} on any user cancellation. Throws on web, since cloning or
+ * locating a local repository isn't supported there.
  */
 export async function promptToLocateOrCloneRepository(
 	container: Container,
 	options: { title: string; placeholder: string; name: string; remoteUrl?: string },
 ): Promise<GlRepository> {
+	if (isWeb) throw new Error('Cloning or locating a local repository is not supported on the web');
+
 	type OpenAction = 'clone' | 'folder';
 	const items: (QuickPickItem & { action?: OpenAction })[] = [];
 	// Only offer cloning when we have a usable remote url (mirrors the deep-link prompt) — truthiness,
