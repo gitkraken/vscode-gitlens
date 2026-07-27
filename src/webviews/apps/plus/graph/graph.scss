@@ -2757,7 +2757,8 @@ gl-lit-graph {
 	// rail segments use — the charts palette is defined to be legible against it), so a HEAD/upstream pill
 	// reads as filled where an ordinary ref pill is hollow. The border keeps the lane color (`--ref-border`,
 	// from refStyle) so the commit's lane stays legible. HEAD → green (+ its `vm-active` icon), upstream →
-	// blue; the merge-target row keeps a subtle purple tint (it's rarely a standalone tip pill). Colors are
+	// the deeper green of the same family; the merge-target row keeps a subtle purple tint (it's rarely a
+	// standalone tip pill). Colors are
 	// theme tokens, keyed by role here (never inlined in TS). NOTE: fill strength is the part most likely to
 	// want live tuning (see spec).
 	// DIRECT background-color/color/border-color, NOT the `--ref-*` custom props: refStyle() sets those props
@@ -3660,8 +3661,19 @@ gl-lit-graph {
 	//
 	// HEAD and its UPSTREAM are one branch in two places, so they're one hue FAMILY — a synced branch (where
 	// they collapse onto the same row) then reads as a single coherent unit instead of two unrelated colors
-	// jammed together, with upstream shifted COOLER rather than merely dimmed (dimming reads as "disabled",
-	// and upstream isn't less important than HEAD, just elsewhere).
+	// jammed together. They separate on LIGHTNESS at equal chroma: upstream is the DEEPER green, not a
+	// desaturated one. That axis matters — the first pass separated them on chroma at equal lightness, which
+	// is exactly what "dimmed/disabled" looks like, and left the pair only ~0.07 apart in OKLab (every other
+	// marker here sits 0.24–0.40 from HEAD). Lightness is also the one channel every kind of color blindness
+	// preserves, so the split survives deuter-/prot-/tritanopia where a hue shift into blue/teal would not.
+	//
+	// Upstream's depth is capped by the knockout: the ref pill and the expanded rail segment fill with this
+	// color and knock their text out in `--vscode-editor-background`, so the DARK-theme value has to stay
+	// light enough to clear 4.5:1 against both the editor (#1f1f1f) and panel (#181818) backgrounds — which
+	// also keeps the minimap tick and scroll marker legible as marks. Going deeper lands in a dead zone where
+	// neither a dark nor a light knockout passes; deeper still would need a per-role knockout and would dim
+	// those markers to ~3:1. Light themes have no such ceiling (deeper only helps white text), so the light
+	// value goes further down than the dark one.
 	//
 	// All three alias the SCROLL-MARKER tokens rather than the charts palette, so the graph says the same thing
 	// in one color everywhere: the marker on the scroll rail, the minimap tick, the row's rail, and the ref pill

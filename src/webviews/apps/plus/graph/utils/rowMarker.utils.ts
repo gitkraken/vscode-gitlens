@@ -8,7 +8,7 @@ import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
  *
  * The roles the current worktree navigates by:
  *   - `head`     — the worktree HEAD tip (green, `vm-active` — the current local branch)
- *   - `upstream` — the upstream tracking tip (blue, ahead/behind)
+ *   - `upstream` — the upstream tracking tip (deeper green, ahead/behind)
  *   - `target`   — the merge-target tip (purple, `gl-merge-target`)
  *
  * …plus the two SCOPE-anchor roles, folded in here so a scoped graph shows ONE left-edge rail instead of

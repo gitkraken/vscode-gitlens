@@ -152,7 +152,6 @@ export const overviewBarStyles = css`
 		align-items: center;
 		padding: 0 0.2rem;
 		font: inherit;
-		font-variant-numeric: tabular-nums;
 		line-height: inherit;
 		color: inherit;
 		background: none;
@@ -168,31 +167,27 @@ export const overviewBarStyles = css`
 		background: color-mix(in srgb, currentcolor 20%, transparent);
 	}
 
-	/* Kind colors follow the graph's own row-marker-role vocabulary: HEAD green, upstream a cooler green (same branch, elsewhere), merge-target purple. */
+	/* Kind colors follow the graph's own row-marker-role vocabulary: HEAD green, upstream the deeper green of
+	   the same family (same branch, elsewhere), merge-target purple. The fallbacks collapse head and upstream
+	   onto one charts token — there's no darker-green counterpart in that palette — which is fine because they
+	   only fire if the whole --gl-row-marker-* chain is missing, at which point the emphasis is already gone. */
 	.pill__leg--head {
 		color: var(--gl-row-marker-head, var(--vscode-charts-green));
 	}
 
 	.pill__leg--upstream {
-		color: var(--gl-row-marker-upstream, var(--vscode-charts-blue));
+		color: var(--gl-row-marker-upstream, var(--vscode-charts-green));
 	}
 
 	.pill__leg--target {
 		color: var(--gl-row-marker-target, var(--vscode-charts-purple));
 	}
 
-	/* The merge-target leg names its branch (e.g. main) — ellipsize if long. */
+	/* The upstream and merge-target legs name their ref (e.g. origin, main) — ellipsize if long. */
 	.pill__leg-label {
 		max-width: 12rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-
-	/* Ahead and behind read as one figure each — icon glued to its own count. */
-	.pill__leg-count {
-		display: inline-flex;
-		gap: 0.1rem;
-		align-items: center;
 	}
 `;

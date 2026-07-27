@@ -1464,10 +1464,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			headSha: gs.branch?.sha,
 			upstreamSha: gs.branchState?.upstreamSha,
 			upstreamName: gs.branchState?.upstream,
+			providerIcon: gs.branchState?.provider?.icon,
 			targetSha: gs.rowMarkerMergeTarget?.sha,
 			targetName: gs.rowMarkerMergeTarget?.name,
 			ahead: primaryAhead,
-			behind: gs.branchState?.behind,
 			wip: {
 				hasChanges: primaryDirty,
 				...(primary != null && primaryDirty
@@ -1505,9 +1505,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				// A secondary worktree gets NO row-marker legs (and so no `ahead`): its WIP row already sits ON
 				// its branch tip, so a "jump to branch" is pointless (only the primary can be far from HEAD);
 				// upstream/merge-target tips would also cost a git call per worktree on load. Its unpushed
-				// commits ride the pill's `↑` indicator instead, which an `ahead` here would suppress (the pill
-				// hides the number-less arrow when a leg is already counting it). Clicking the pill selects its
-				// WIP row; the count itself lives in the hover.
+				// commits ride the pill's `↑` indicator instead, which an `ahead` here would suppress (that
+				// suppression exists for the primary, whose upstream leg names the remote). Clicking the pill
+				// selects its WIP row; the counts themselves live in the hover.
 				wip: {
 					hasChanges: dirty,
 					// Absent until the breakdown is fetched on hover — the pill renders from the dirty bit.

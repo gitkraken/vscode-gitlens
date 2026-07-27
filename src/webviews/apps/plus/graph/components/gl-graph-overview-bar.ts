@@ -5,7 +5,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
-import { pluralize } from '@gitlens/utils/string.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import type { OverviewBranch, OverviewBranchWip } from '../../../../shared/overviewBranches.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
@@ -52,21 +52,23 @@ export interface OverviewBarItem {
 	/** This worktree's HEAD tip sha — the HEAD jump leg. Primary: `branch.sha`; secondary: `parentSha`. */
 	headSha?: string;
 	/** The current branch's upstream tip sha — the upstream jump leg. Primary only (host `upstreamSha`);
-	 *  secondaries aren't probed, so their upstream leg degrades to a non-interactive count. */
+	 *  secondaries aren't probed, so their upstream leg degrades to a non-interactive indicator. */
 	upstreamSha?: string;
-	/** The upstream branch name (`origin/main`) — labels the upstream leg's jump tooltip. Primary only. */
+	/** The upstream branch name (`origin/main`) — labels the upstream leg and its tooltip. Primary only. */
 	upstreamName?: string;
+	/** The upstream remote's hosting-provider icon key (`github`, `gitlab`, … or `cloud` when unknown) —
+	 *  the upstream leg's glyph. Primary only, from the host's `branchState.provider`. */
+	providerIcon?: string;
 	/** The current branch's merge-target tip sha — the merge-target jump leg. Primary only (from the
 	 *  client-pulled `rowMarkerMergeTarget`); absent on the default branch / detached. */
 	targetSha?: string;
 	/** The merge-target branch name (`main`) — labels the merge-target leg. Primary only. */
 	targetName?: string;
 	/** Commits ahead of the upstream — PRIMARY only (`branchState.ahead`), since only the primary renders
-	 *  row-marker legs. Setting it on a secondary would suppress that pill's number-less `↑` indicator
-	 *  with no leg to count in its place. */
+	 *  row-marker legs. Never rendered as a number: it keeps the upstream leg alive when the tip can't be
+	 *  resolved, and suppresses the pill's `↑` (a tracked branch's counts belong to the hover). Setting it on a
+	 *  secondary would suppress that pill's `↑` for nothing. */
 	ahead?: number;
-	/** Commits behind the upstream. Primary only — secondaries aren't probed for it. */
-	behind?: number;
 	/** Serialized `data-vscode-context` for this WIP's right-click menu — `gitlens:wip` for the primary
 	 *  worktree, `gitlens:wip+worktree` for a secondary. Built host-side (see `serializeWipContext`) so a
 	 *  pill opens the identical menu as the in-graph WIP row and the details header. */
@@ -89,13 +91,11 @@ export interface OverviewBarJumpDetail {
 	sha: string;
 }
 
-/** The non-zero half(ves) of a tracking state — `2 ahead, 1 behind` — or `up to date` when in sync. Only
- *  ever a tooltip suffix, so the zeros the leg itself renders don't get repeated back as words. */
-function formatTracking(ahead: number, behind: number): string {
-	if (ahead > 0 && behind > 0) return `${ahead} ahead, ${behind} behind`;
-	if (ahead > 0) return `${ahead} ahead`;
-	if (behind > 0) return `${behind} behind`;
-	return 'up to date';
+/** A remote's hosting-provider glicon, or the `cloud` codicon for an unrecognized/absent provider (there is
+ *  no `gl-provider-cloud`). Same normalization the host already applies (`'remote'` → `'cloud'`) and the same
+ *  idiom as `gl-repo-button-group`'s provider icon. */
+function providerIconName(icon: string | undefined): string {
+	return icon == null || icon === 'cloud' || icon === 'remote' ? 'cloud' : `gl-provider-${icon}`;
 }
 
 @customElement('gl-graph-overview-bar')
@@ -458,8 +458,9 @@ export class GlGraphOverviewBar extends LitElement {
 		const hasAgent = item.agent != null;
 		const isDirty = item.hasWorkingChanges === true;
 		const ahead = item.ahead ?? 0;
-		// The number-less `↑` and the upstream leg's `N↑` state the same fact, so show the arrow only when
-		// no leg is counting it — a local-only branch, where `ahead` is undefined (nothing to count against).
+		// The arrow is for worktrees whose unpushed work would otherwise go unsaid — a local-only branch,
+		// where `ahead` is undefined (there's nothing to count against). A TRACKED branch already names its
+		// upstream on its leg, and its tracking state belongs to the pill's hover, so it gets no arrow.
 		const isUnpushed = item.hasUnpushed === true && ahead === 0;
 		const agentCount = item.agentCount ?? 0;
 		const classes = classMap({
@@ -542,22 +543,23 @@ export class GlGraphOverviewBar extends LitElement {
 		`;
 	}
 
-	/** The always-visible row-marker legs — the HEAD tip and the upstream ahead/behind — in that fixed
-	 *  order so every pill reads the same way. A leg with a resolvable tip sha is a jump button; one without
-	 *  (a secondary worktree's upstream, which isn't probed) degrades to a plain count indicator. The
-	 *  merge-target leg follows when its tip resolves (it is pulled asynchronously, so it appears a beat later). */
+	/** The always-visible row-marker legs — HEAD, upstream, merge target — in that fixed order so every pill
+	 *  reads the same way. Each names what it points AT: a glyph, plus its ref for the upstream and the target.
+	 *  A leg with a resolvable tip sha is a jump button; one without degrades to a static indicator (the target
+	 *  resolves asynchronously, so it appears a beat later). Tracking counts are deliberately absent — they live
+	 *  in the pill's hover, and repeating them here left the upstream as the one leg that never named its ref. */
 	private renderRowMarkers(item: OverviewBarItem): unknown {
 		// RowMarker legs are PRIMARY-only: a secondary worktree's WIP row already sits on its branch, so it
-		// has no row markers to point at — and its lone ahead-count leg otherwise flickers in and out as the
+		// has no row markers to point at — and its lone upstream leg otherwise flickers in and out as the
 		// worktree metadata re-resolves. (The primary's legs come from stable host-supplied tips.)
 		if (item.isPrimary !== true) return nothing;
 
 		const ahead = item.ahead ?? 0;
-		const behind = item.behind ?? 0;
 		const headSha = item.headSha;
 		const upstreamSha = item.upstreamSha;
-		// A resolvable upstream tip earns a jump leg even at 0/0; otherwise only an ahead count earns one —
-		// the leg can render just `N↑` without a tip, so a behind-only state would show a meaningless `0↑`.
+		// A resolvable upstream tip earns a jump leg; without one, unpushed commits still earn a static leg.
+		// Keyed on the tip — never merely on having an upstream — so a MISSING (`[gone]`) upstream, which forces
+		// ahead/behind to 0 and resolves no tip, renders no leg naming a remote branch that isn't there.
 		const showUpstream = upstreamSha != null || ahead > 0;
 		if (headSha == null && !showUpstream && item.targetSha == null && item.targetName == null) return nothing;
 
@@ -566,10 +568,18 @@ export class GlGraphOverviewBar extends LitElement {
 		// as the on-row rail's tooltip, and the ref is kept in parentheses. The "Jump to" prefix is promised
 		// only when the leg can actually perform one (`renderLeg` renders a static indicator without a sha).
 		const upstreamName = item.upstreamName != null ? shortRefName(item.upstreamName) : undefined;
-		const upstreamLabel =
-			upstreamSha != null
-				? `Jump to Upstream${upstreamName != null ? ` (${upstreamName})` : ''} — ${formatTracking(ahead, behind)}`
-				: `Upstream — ${pluralize('unpushed commit', ahead)}`;
+		const upstreamRef = upstreamName != null ? ` (${upstreamName})` : '';
+		const upstreamLabel = upstreamSha != null ? `Jump to Upstream${upstreamRef}` : `Upstream${upstreamRef}`;
+		// The remote alone (`origin`) when the upstream tracks a same-named branch — the pill already shows that
+		// name. Otherwise the full `origin/other`. Same rule as the graph ref pills' upstream segment, so the
+		// two surfaces agree.
+		let upstreamLegLabel = upstreamName;
+		if (upstreamName != null) {
+			const remote = getRemoteNameFromBranchName(upstreamName);
+			if (remote.length > 0 && getBranchNameWithoutRemote(upstreamName) === item.branch) {
+				upstreamLegLabel = remote;
+			}
+		}
 
 		return html`<span class="pill__legs"
 			>${
@@ -589,11 +599,9 @@ export class GlGraphOverviewBar extends LitElement {
 							'upstream',
 							upstreamSha,
 							upstreamLabel,
-							html`<span class="pill__leg-count">${ahead}<code-icon icon="arrow-up"></code-icon></span>${
-									upstreamSha != null
-										? html`<span class="pill__leg-count"
-												>${behind}<code-icon icon="arrow-down"></code-icon
-											></span>`
+							html`<code-icon icon=${providerIconName(item.providerIcon)}></code-icon>${
+									upstreamLegLabel != null
+										? html`<span class="pill__leg-label">${upstreamLegLabel}</span>`
 										: nothing
 								}`,
 						)
