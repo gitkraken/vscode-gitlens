@@ -43,6 +43,11 @@ test.describe('Review & Compose Sub-Panels', () => {
 
 	let graphWebview: FrameLocator;
 	let dispose: (() => Promise<void>) | undefined;
+	// Tracks whether beforeAll maximized the panel, so afterAll restores the non-maximized baseline.
+	// `toggleMaximizedPanel` is a stateful toggle and the VS Code instance is worker-scoped and reused
+	// across spec files, so an unrestored maximize would leak into later specs on the same worker
+	// (mirrors graphDetails.test.ts).
+	let panelMaximized = false;
 
 	async function ensureDetailsPanelOpen(): Promise<void> {
 		const toggleButton = graphWebview.locator('gl-button[aria-label$="Details Panel"]').first();
@@ -109,6 +114,14 @@ test.describe('Review & Compose Sub-Panels', () => {
 
 		await vscode.gitlens.showCommitGraphView();
 		await vscode.gitlens.panel.open();
+		// Maximize the panel so the graph has room to paint its rows. In a short (non-maximized) bottom
+		// panel the graph tree lays out but reports `hidden`, so the readiness gate below times out
+		// (mirrors openGraphWithPro in graphDetails/treeView). Guard the stateful toggle on
+		// `panelMaximized` so it only fires from the non-maximized baseline, which afterAll restores.
+		if (!panelMaximized) {
+			await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
+			panelMaximized = true;
+		}
 
 		const wv = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 60000);
 		expect(wv).not.toBeNull();
@@ -131,6 +144,13 @@ test.describe('Review & Compose Sub-Panels', () => {
 	test.afterAll(async ({ vscode }) => {
 		await dispose?.();
 		await vscode.gitlens.resetUI();
+		// Restore the non-maximized baseline so the one-time maximize above doesn't leak into other
+		// specs running later on the same worker-scoped VS Code instance (resetUI keeps the panel
+		// maximized). Mirrors graphDetails.test.ts.
+		if (panelMaximized) {
+			await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
+			panelMaximized = false;
+		}
 	});
 
 	test.beforeEach(async () => {
