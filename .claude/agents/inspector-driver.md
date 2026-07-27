@@ -27,7 +27,7 @@ then call them directly.
 ## GitLens webview reference (root elements)
 
 - Graph → `gl-graph-app` — **commit rows/messages render on canvas, NOT in the DOM.** Read commit/git data via the `evaluate` (extension-host `vscode` API) bridge, not by scraping graph DOM.
-- Home → `gl-home-app` (may not hydrate unless it's the active/visible view). Inspect / Commit Details → `gl-commit-details-app`. Timeline → `gl-timeline-app`. Settings → `gl-settings-app`. Composer → `gl-composer-app`.
+- Home → `gl-home-app` (may not hydrate unless it's the active/visible view). Inspect / Commit Details → `gl-commit-details-app`. Timeline → `gl-timeline-app`. Settings → `gl-settings-app`.
 
 ## Return format
 

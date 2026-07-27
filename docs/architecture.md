@@ -52,7 +52,7 @@ Git Execution (Node: child_process | Browser: APIs (GitHub))
 - **State Management**: Context providers with Lit reactive patterns and signals
 - **Major webviews**:
   - **Community**: Commit Details, Rebase, Settings
-  - **Pro** (`apps/plus/`): Home (includes Launchpad), Commit Graph, Timeline, Patch Details, Commit Composer
+  - **Pro** (`apps/plus/`): Home (includes Launchpad), Commit Graph, Timeline, Patch Details
 - Webviews bundled separately from extension (separate webpack config)
 
 ### 5. Caching Strategy
