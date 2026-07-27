@@ -1901,7 +1901,11 @@ export class GraphCommands {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return WorktreeActions.copyChangesToWorktree('working-tree', ref.repoPath);
+		// Copy FROM the row's own worktree — a sidebar worktree row's `ref.repoPath` is the graph's repo
+		return WorktreeActions.copyChangesToWorktree(
+			'working-tree',
+			this.getGraphItemWorktreePath(item) ?? ref.repoPath,
+		);
 	}
 
 	@command('gitlens.ai.explainUnpushed:')
@@ -2127,7 +2131,9 @@ export class GraphCommands {
 		const worktree = await this.getGraphItemWorktree(item);
 
 		await executeCommand<ExplainWipCommandArgs>('gitlens.ai.explainWip', {
-			repoPath: worktree?.repoPath ?? ref.repoPath,
+			// When the worktree can't be resolved (e.g. a session without worktree data), the context's
+			// path still names the row's worktree — a sidebar row's `ref.repoPath` is the graph's repo
+			repoPath: worktree?.repoPath ?? this.getGraphItemWorktreePath(item) ?? ref.repoPath,
 			worktreePath: worktree?.path,
 			source: { source: 'graph', context: { type: 'wip' } },
 		});
@@ -2597,7 +2603,7 @@ export class GraphCommands {
 		// inline Compose-button path (`handleWipRowOpen`) so context-menu and button stay aligned.
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-compose',
-			target: { sha: uncommitted, worktreePath: ref.repoPath },
+			target: { sha: uncommitted, worktreePath: this.getGraphItemWorktreePath(item) ?? ref.repoPath },
 		});
 	}
 
@@ -2693,6 +2699,16 @@ export class GraphCommands {
 			default:
 				return isGraphItemRefContext(item) ? item.webviewItemValue.ref : undefined;
 		}
+	}
+
+	/** The worktree path a row's working-changes commands must act on. A SIDEBAR worktree row's
+	 *  `ref.repoPath` is the GRAPH's repo, never that worktree, so only `worktreePath` names the right one;
+	 *  a graph WIP row sets both to its own worktree, so preferring this changes nothing there. */
+	private getGraphItemWorktreePath(item?: GraphItemContext | unknown): string | undefined {
+		if (!isGraphItemRefContext(item)) return undefined;
+
+		const value = item.webviewItemValue;
+		return 'worktreePath' in value ? value.worktreePath : undefined;
 	}
 
 	private async getGraphItemWorktree(item?: GraphItemContext | unknown): Promise<GitWorktree | undefined> {
