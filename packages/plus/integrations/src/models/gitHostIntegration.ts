@@ -312,6 +312,15 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
+	 * Whether this git host has a project tier between org and repo ({@link getProviderProjectsForOrg}). Only
+	 * Azure DevOps does; the facade uses this to skip the read entirely rather than call a core that returns
+	 * `undefined` for a session-less reason and be misread as a broken connection.
+	 */
+	get supportsProjectDiscovery(): boolean {
+		return this.getProviderProjectsForOrg != null;
+	}
+
+	/**
 	 * Whether this git host implements the account-wide user-affiliated repository read
 	 * ({@link getProviderRepositoriesForUser}) — the org-less `gk provider repos <provider>` equivalent.
 	 */

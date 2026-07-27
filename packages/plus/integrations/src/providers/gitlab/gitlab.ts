@@ -19,10 +19,11 @@ import type { IntegrationServiceContext } from '../../context.js';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	isRateLimitResponse,
 	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
-	RequestRateLimitError,
+	toRateLimitError,
 } from '../../errors.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
@@ -1217,23 +1218,15 @@ $search: String!
 			case 410: // Gone
 			case 422: // Unprocessable Entity
 				throw new RequestNotFoundError(ex);
-			// case 429: //Too Many Requests
+			case 429: // Too Many Requests
+				throw toRateLimitError(ex, accessToken);
 			case 401: // Unauthorized
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, ex);
 			case 403: // Forbidden
-				if (ex.message.includes('rate limit exceeded')) {
-					let resetAt: number | undefined;
+				// GitLab returns 403 for both a permission failure and a throttled request, so the message is the
+				// discriminant (see `isRateLimitResponse`, shared with Bitbucket/Azure).
+				if (isRateLimitResponse(ex)) throw toRateLimitError(ex, accessToken);
 
-					const reset = ex.response?.headers?.get('x-ratelimit-reset');
-					if (reset != null) {
-						resetAt = parseInt(reset, 10);
-						if (Number.isNaN(resetAt)) {
-							resetAt = undefined;
-						}
-					}
-
-					throw new RequestRateLimitError(ex, accessToken, resetAt);
-				}
 				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
 				scope?.error(ex);
