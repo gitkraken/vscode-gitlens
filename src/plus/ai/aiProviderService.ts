@@ -23,6 +23,7 @@ import type {
 	AIActionType,
 	AIModel,
 	AIModelDescriptor,
+	AIProviderDescriptor,
 	AIProviderDescriptorWithConfiguration,
 } from '@gitlens/ai/models/model.js';
 import type {
@@ -327,6 +328,15 @@ if (DEBUG) {
 				(await import(/* webpackChunkName: "__debug__" */ './__debug__simulatorProvider.js')).SimulatorProvider,
 		),
 	});
+}
+
+function getOrgEnabledProviderDescriptors(): AIProviderDescriptorWithType[] {
+	const orgAIConfig = getOrgAIConfig();
+	return [...supportedAIProviders.values()].filter(p => isProviderEnabledByOrg(p.id, orgAIConfig));
+}
+
+function getOrgEnabledProviders(): AIProviderDescriptor[] {
+	return getOrgEnabledProviderDescriptors().map(p => ({ ...p, type: undefined }));
 }
 
 export interface AIRequestProvider {
@@ -875,9 +885,26 @@ export class AIProviderService implements AIService, Disposable {
 
 			const titles = getPickerTitlesForScope(scope);
 
+			// If a provider is already selected, skip the provider step and go straight to the
+			// model picker — it leads with a "Change AI Provider" entry (see `showAIModelPicker`)
+			// so switching providers stays one pick away.
+			let skippedProviderPicker = false;
+			if (
+				chosenProviderId == null &&
+				cfg?.provider != null &&
+				supportedAIProviders.has(cfg.provider) &&
+				isProviderEnabledByOrg(cfg.provider)
+			) {
+				chosenProviderId = cfg.provider;
+				skippedProviderPicker = true;
+			}
+
 			while (true) {
-				chosenProviderId ??= (await showAIProviderPicker(this.container, cfg, source, titles.provider))
-					?.provider;
+				if (chosenProviderId == null) {
+					skippedProviderPicker = false;
+					chosenProviderId = (await showAIProviderPicker(this.container, cfg, source, titles.provider))
+						?.provider;
+				}
 				if (chosenProviderId == null) {
 					chosenModel = undefined;
 					break;
@@ -901,6 +928,7 @@ export class AIProviderService implements AIService, Disposable {
 						source,
 						titles.model,
 						scope,
+						skippedProviderPicker ? { availableProviders: getOrgEnabledProviders() } : undefined,
 					);
 					if (result == null || (isDirective(result) && result !== Directive.Back)) {
 						chosenModel = undefined;
@@ -943,10 +971,9 @@ export class AIProviderService implements AIService, Disposable {
 	}
 
 	async getProvidersConfiguration(): Promise<Map<AIProviders, AIProviderDescriptorWithConfiguration>> {
-		const orgAiConfig = getOrgAIConfig();
 		const promises = await Promise.allSettled(
 			map(
-				[...supportedAIProviders.values()].filter(p => isProviderEnabledByOrg(p.id, orgAiConfig)),
+				getOrgEnabledProviderDescriptors(),
 				async p =>
 					[
 						p.id,

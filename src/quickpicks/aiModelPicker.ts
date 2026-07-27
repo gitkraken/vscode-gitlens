@@ -1,8 +1,14 @@
 import type { Disposable, QuickInputButton, QuickPickItem } from 'vscode';
 import { QuickInputButtons, ThemeIcon, window } from 'vscode';
 import type { AIProviders } from '@gitlens/ai/constants.js';
-import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration } from '@gitlens/ai/models/model.js';
+import type {
+	AIModel,
+	AIModelDescriptor,
+	AIProviderDescriptor,
+	AIProviderDescriptorWithConfiguration,
+} from '@gitlens/ai/models/model.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import { capitalize } from '@gitlens/utils/string.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import type { AIModelScope } from '../plus/ai/aiProviderService.js';
@@ -11,7 +17,7 @@ import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
 import { createQuickPickSeparator } from './items/common.js';
 import type { DirectiveQuickPickItem } from './items/directive.js';
-import { Directive, isDirectiveQuickPickItem } from './items/directive.js';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive.js';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;
@@ -61,11 +67,12 @@ export async function showAIProviderPicker(
 
 	try {
 		const pickedProvider =
-			(current?.provider ?? providers.get('gitkraken')?.configured)
+			current?.provider ??
+			(providers.get('gitkraken')?.configured
 				? 'gitkraken'
 				: providers.get('vscode')?.configured
 					? 'vscode'
-					: undefined;
+					: undefined);
 
 		let addedRequiredKeySeparator = false;
 		while (true) {
@@ -132,6 +139,35 @@ export async function showAIProviderPicker(
 	}
 }
 
+// Preferred display order for the most recognizable BYO-key providers named in the switch-provider
+// detail line; any remaining enabled ones are covered by "and more".
+const featuredKeyProviders: AIProviders[] = ['openai', 'anthropic', 'gemini', 'ollama'];
+
+function getSwitchProviderDetail(providers: readonly AIProviderDescriptor[]): string | undefined {
+	const primaries = providers.filter(p => p.primary).map(p => p.name);
+	const keyProviders = providers.filter(p => !p.primary);
+
+	const choices = [...primaries];
+	if (keyProviders.length) {
+		let named = featuredKeyProviders.map(id => keyProviders.find(p => p.id === id)?.name).filter(n => n != null);
+		if (!named.length) {
+			named = keyProviders.slice(0, featuredKeyProviders.length).map(p => p.name);
+		}
+
+		choices.push(
+			`bring your own key — ${named.join(', ')}${keyProviders.length > named.length ? ', and more' : ''}`,
+		);
+	}
+
+	if (!choices.length) return undefined;
+	if (choices.length === 1) {
+		return primaries.length ? `Choose ${choices[0]}` : capitalize(choices[0]);
+	}
+
+	const last = choices.pop()!;
+	return `Choose ${choices.join(', ')}${choices.length > 1 ? ',' : ''} or ${last}`;
+}
+
 export async function showAIModelPicker(
 	container: Container,
 	provider: AIProviders,
@@ -139,12 +175,33 @@ export async function showAIModelPicker(
 	source?: Source,
 	titles?: { title?: string; placeholder?: string },
 	scope?: AIModelScope,
+	options?: { availableProviders: readonly AIProviderDescriptor[] },
 ): Promise<ModelQuickPickItem | Directive | undefined> {
 	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
 	const models = (await container.ai.getModels(provider)) ?? [];
+	const currentProviderName =
+		options?.availableProviders.find(p => p.id === provider)?.name ?? models[0]?.provider.name;
 
 	const items: Array<ModelQuickPickItem | DirectiveQuickPickItem> = [];
+
+	// When the provider step was skipped (a provider is already selected), lead with an
+	// entry that navigates back to the provider picker so switching providers is still
+	// discoverable. Omitted when there are no other providers to switch to.
+	if (options != null) {
+		const detail = getSwitchProviderDetail(options.availableProviders.filter(p => p.id !== provider));
+		if (currentProviderName != null && detail != null) {
+			items.push(
+				createDirectiveQuickPickItem(Directive.Back, false, {
+					label: 'Change AI Provider',
+					description: `  ${currentProviderName}`,
+					detail: `      ${detail}`,
+					iconPath: new ThemeIcon('arrow-swap'),
+				}),
+				createQuickPickSeparator<DirectiveQuickPickItem>('Models'),
+			);
+		}
+	}
 
 	if (!models.length) {
 		items.push({
@@ -194,8 +251,13 @@ export async function showAIModelPicker(
 				quickpick.onDidHide(() => resolve(undefined)),
 				quickpick.onDidAccept(() => {
 					if (quickpick.activeItems.length !== 0) {
-						if (!isDirectiveQuickPickItem(quickpick.activeItems[0])) {
-							resolve(quickpick.activeItems[0]);
+						const [active] = quickpick.activeItems;
+						if (isDirectiveQuickPickItem(active)) {
+							if (active.directive !== Directive.Noop) {
+								resolve(active.directive);
+							}
+						} else {
+							resolve(active);
 						}
 					}
 				}),
@@ -206,12 +268,16 @@ export async function showAIModelPicker(
 				}),
 			);
 
-			quickpick.title = titles?.title ?? 'Select AI Model';
+			const title = titles?.title ?? 'Select AI Model';
+			quickpick.title = currentProviderName != null ? `${title} • ${currentProviderName}` : title;
 			quickpick.placeholder = titles?.placeholder ?? 'Choose an AI model to use';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.items = items;
-			quickpick.activeItems = items.filter(i => i.picked);
+			// If nothing is picked (e.g. a stale/removed model id), focus the first model rather
+			// than letting the default focus land on the leading "Change AI Provider" back-entry
+			const picked = items.filter(i => i.picked);
+			quickpick.activeItems = picked.length ? picked : items.filter(i => 'model' in i).slice(0, 1);
 			quickpick.buttons = [QuickInputButtons.Back];
 
 			quickpick.show();
