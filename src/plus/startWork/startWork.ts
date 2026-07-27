@@ -1,12 +1,24 @@
+import { window } from 'vscode';
+import { isWeb } from '@env/platform.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
-import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
+import type { AsyncStepResultGenerator, StepSelection } from '../../commands/quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
 import { getSteps } from '../../commands/quick-wizard/utils/quickWizard.utils.js';
+import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
 import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import type { GlRepository } from '../../git/models/repository.js';
+import { locateOrCloneRepository } from '../../git/utils/-webview/repository.utils.js';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
+import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
+import { executeCoreCommand } from '../../system/-webview/command.js';
 import type { AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
 import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
@@ -46,6 +58,10 @@ export interface StartWorkCommandArgs {
 export class StartWorkCommand extends StartWorkBaseCommand {
 	overrides?: undefined;
 
+	protected override get openRepositoriesOnly(): boolean {
+		return this.container.git.openRepositoryCount > 0;
+	}
+
 	constructor(container: Container, args?: StartWorkCommandArgs) {
 		super(container, { ...args, command: 'startWork' });
 
@@ -66,7 +82,30 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 		context: StartWorkContext,
 	): AsyncStepResultGenerator<void> {
 		const issue = state.item.issue;
-		const repo = issue && (await this.getIssueRepositoryIfExists(issue));
+		const hasOpenRepos = this.openRepositoriesOnly;
+		let repo =
+			issue && (await this.getIssueRepositoryIfExists(issue, hasOpenRepos ? undefined : { skipVirtual: true }));
+
+		// No open repositories and none could be located/opened for this issue — the branch wizard's
+		// repo picker only lists `openRepositories` (empty here) and would dead-end on a Cancel-only
+		// picker. Offer a way to get a repository open instead of proceeding to the wizard.
+		if (repo == null && !hasOpenRepos) {
+			// Hard contract (mirrors startReview): never pop an interactive prompt when running
+			// unattended (MCP/CLI pass useDefaults) — fail deterministically instead.
+			if (state.useDefaults) {
+				const message = `No local repository found${
+					issue.repository != null ? ` for ${issue.repository.owner}/${issue.repository.repo}` : ''
+				}. Please clone the repository first.`;
+				state.result?.cancel(new Error(message));
+				void window.showErrorMessage(`Failed to start work: ${message}`);
+				return;
+			}
+
+			const located = yield* this.pickNoRepositoryFoundStep(state, context, issue);
+			if (located === StepResultBreak || located == null) return;
+
+			repo = located;
+		}
 
 		// Determine defaults when useDefaults is enabled
 		let defaultReference = undefined;
@@ -121,6 +160,12 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			chatAction = { type: 'startWork', issue: issue, instructions: state.instructions };
 		}
 
+		// When useDefaults is true, set repo directly to skip picker.
+		// Otherwise, use suggestedRepo to hint at the picker. Also set repo directly when
+		// there are no open repositories — a located-but-closed repo is added closed and
+		// never appears in the picker's openRepositories list, so a suggestion would dead-end.
+		const skipRepoPicker = state.useDefaults || !hasOpenRepos;
+
 		yield* getSteps(
 			this.container,
 			{
@@ -128,10 +173,8 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 				confirm: state.useDefaults ? false : undefined,
 				state: {
 					subcommand: 'create',
-					// When useDefaults is true, set repo directly to skip picker
-					// Otherwise, use suggestedRepo to hint at the picker
-					repo: state.useDefaults ? repo : undefined,
-					suggestedRepo: state.useDefaults ? undefined : repo,
+					repo: skipRepoPicker ? repo : undefined,
+					suggestedRepo: skipRepoPicker ? undefined : repo,
 					reference: defaultReference,
 					name: state.useDefaults ? branchName : undefined,
 					suggestedName: branchName,
@@ -160,6 +203,97 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 			context,
 			this.startedFrom,
 		);
+	}
+
+	/**
+	 * Offers a way forward when no repository is open and none could be located/opened for the
+	 * selected issue — cloning, choosing a local folder, or (on the web) opening a remote
+	 * repository. Cloning/choosing a folder locates-or-adds the repository and returns it so the
+	 * wizard can continue into branch creation; `undefined` ends the wizard.
+	 */
+	private async *pickNoRepositoryFoundStep(
+		state: StartWorkStepState,
+		context: StartWorkContext,
+		issue: IssueShape,
+	): AsyncStepResultGenerator<GlRepository | undefined> {
+		type NoRepositoryAction = 'clone' | 'folder' | 'open-remote';
+
+		const name = issue.repository != null ? `${issue.repository.owner}/${issue.repository.repo}` : undefined;
+		const remoteUrl = issue.repository?.url;
+
+		const items: (DirectiveQuickPickItem | QuickPickItemOfT<NoRepositoryAction>)[] = [];
+
+		if (!isWeb && remoteUrl != null) {
+			items.push(
+				createQuickPickItemOfT<NoRepositoryAction>(
+					{
+						label: 'Clone Repository...',
+						detail: `Clone ${name} to start work on this issue`,
+					},
+					'clone',
+				),
+			);
+		}
+
+		if (!isWeb) {
+			items.push(
+				createQuickPickItemOfT<NoRepositoryAction>(
+					{
+						label: 'Choose a Local Folder...',
+						detail: 'Choose a folder containing the repository for this issue',
+					},
+					'folder',
+				),
+			);
+		} else {
+			items.push(
+				createQuickPickItemOfT<NoRepositoryAction>(
+					{
+						label: 'Open a Remote Repository...',
+						detail: 'Work with a repository without cloning it locally',
+					},
+					'open-remote',
+				),
+			);
+		}
+
+		items.push(createDirectiveQuickPickItem(Directive.Cancel));
+
+		const step = createPickStep<QuickPickItemOfT<NoRepositoryAction>>({
+			title: context.title,
+			placeholder: `Unable to locate a local repository for ${name ?? 'this issue'}, choose how to find it`,
+			items: items,
+		});
+
+		const selection: StepSelection<typeof step> = yield step;
+		if (!canPickStepContinue(step, state, selection)) return undefined;
+
+		const action = selection[0].item;
+		switch (action) {
+			case 'clone':
+			case 'folder': {
+				// Freeze the step while the native dialog/clone runs — otherwise losing focus hides
+				// the quickpick and the wizard machinery resolves the step as cancelled, tearing the
+				// wizard down before branch creation can continue.
+				using _frozen = step.freeze?.();
+				try {
+					return await locateOrCloneRepository(this.container, action, {
+						name: name ?? 'this issue',
+						remoteUrl: remoteUrl,
+					});
+				} catch (ex) {
+					if (!isCancellationError(ex)) {
+						void window.showErrorMessage(
+							`Failed to start work: ${ex instanceof Error ? ex.message : String(ex)}`,
+						);
+					}
+					return undefined;
+				}
+			}
+			case 'open-remote':
+				void executeCoreCommand('remoteHub.openRepository');
+				return undefined;
+		}
 	}
 
 	private sendAgentResolvedTelemetry(result: ResolveAgentFlowResult, context: StartWorkContext) {
