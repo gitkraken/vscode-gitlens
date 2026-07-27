@@ -118,6 +118,44 @@ suite('ConfiguredIntegrationService — multi-account (#5430)', () => {
 		assert.equal(session.accessToken, 'ent');
 	});
 
+	test('reads a legacy self-managed full-url session by host while normalizing the configured domain', async () => {
+		const runtime = createFakeRuntime();
+		await runtime.storage.store('integrations:configured', {
+			'cloud-github-enterprise': [
+				{
+					cloud: true,
+					integrationId: 'cloud-github-enterprise',
+					domain: 'https://gh.example.com/api/v3',
+					scopes: 'repo',
+				},
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|https://gh.example.com/api/v3',
+			JSON.stringify({
+				id: 'https://gh.example.com/api/v3',
+				accessToken: 'ent',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'https://gh.example.com/api/v3',
+			}),
+		);
+
+		const service = new ConfiguredIntegrationService(runtime);
+		const session = await service.getStoredSession(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, {
+			domain: 'gh.example.com',
+			scopes: ['repo'],
+		});
+
+		assert.ok(session != null, 'legacy full-url session resolves from the normalized host scope');
+		assert.equal(session.accessToken, 'ent');
+		assert.equal(
+			service.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise)[0].domain,
+			'gh.example.com',
+		);
+	});
+
 	test('getConfiguredConnectionId returns undefined for a legacy self-managed connection keyed by domain', async () => {
 		const runtime = createFakeRuntime();
 		// Legacy/migrated single connection: hydration backfills the descriptor id from the domain, so
