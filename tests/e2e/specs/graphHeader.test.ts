@@ -18,7 +18,7 @@
 import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
-import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { test as base, createTmpDir, expect, GitFixture, MaxTimeout, ShortTimeout } from '../baseTest.js';
 
 let git: GitFixture;
 
@@ -41,6 +41,23 @@ async function openGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	// signal that the header is up.
 	await expect.poll(() => headerButton(webview!, 'Create').count(), { timeout: 30000 }).toBeGreaterThan(0);
 	return webview!;
+}
+
+/**
+ * Open a header dropdown (a `click focus`-triggered gl-popover) and keep it open. Re-issues the
+ * click only while the popover is still closed, so an initial click swallowed during a layout
+ * reflow retries without toggling an already-open menu shut. Bounded by the existing MaxTimeout.
+ */
+async function openHeaderMenu(webview: FrameLocator, label: string, commandInside: string): Promise<void> {
+	const button = headerButton(webview, label);
+	const popover = webview.locator(`gl-popover:has([href*="command:${commandInside}"])`);
+	const item = commandLink(webview, commandInside);
+	await expect(async () => {
+		if ((await popover.getAttribute('open')) == null) {
+			await button.click();
+		}
+		await expect(item).toBeVisible({ timeout: ShortTimeout });
+	}).toPass({ timeout: MaxTimeout });
 }
 
 /** Ensure the graph's details panel is expanded (it may start collapsed). */
@@ -115,11 +132,8 @@ test.describe('Graph — Header menus', () => {
 
 		const createButton = headerButton(webview, 'Create');
 		await expect(createButton).toHaveAttribute('aria-haspopup', 'true');
-		await createButton.click();
+		await openHeaderMenu(webview, 'Create', 'gitlens.git.branch');
 
-		await expect(commandLink(webview, 'gitlens.git.branch')).toBeVisible({
-			timeout: MaxTimeout,
-		});
 		await expect(commandLink(webview, 'gitlens.views.createWorktree')).toBeVisible();
 		await expect(commandLink(webview, 'gitlens.stashesApply')).toBeVisible();
 	});
@@ -134,11 +148,8 @@ test.describe('Graph — Header menus', () => {
 
 		const startButton = headerButton(webview, 'Start New');
 		await expect(startButton).toHaveAttribute('aria-haspopup', 'true');
-		await startButton.click();
+		await openHeaderMenu(webview, 'Start New', 'gitlens.startWork');
 
-		await expect(commandLink(webview, 'gitlens.startWork')).toBeVisible({
-			timeout: MaxTimeout,
-		});
 		await expect(commandLink(webview, 'gitlens.startReview')).toBeVisible();
 	});
 

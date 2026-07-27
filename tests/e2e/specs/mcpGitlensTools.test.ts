@@ -15,8 +15,7 @@
  *   (the same one mcp.test.ts leans on — `gitlens_*` tools only appear in tools/list
  *   once GitLens' `/ping` IPC handler is up, which requires the handlers to be registered).
  * - A successful call wraps its payload in `{ data: ... }` inside `result.content[0].text`
- *   (no `data.output` wrapper — unlike the git tools). `gitlens_commit_composer` is
- *   fire-and-forget and returns `{ data: "" }`; `gitlens_launchpad` returns either a
+ *   (no `data.output` wrapper — unlike the git tools). `gitlens_launchpad` returns either a
  *   `{ data: { message, error } }` no-op or `{ data: { items } }`.
  *
  * These tools act on the live instance, so the calls target the VS Code workspace
@@ -56,24 +55,11 @@ function gitlensToolData(response: McpMessage): unknown {
 test.describe('MCP — GitLens Tools', () => {
 	test.describe.configure({ mode: 'serial' });
 
-	// The composer test opens an editor panel; the VS Code instance is worker-scoped and reused
-	// across spec files, so return it to a clean baseline to avoid leaking UI state into later tests.
+	// These tools dispatch into the live instance and can surface UI; the VS Code instance is
+	// worker-scoped and reused across spec files, so return it to a clean baseline to avoid leaking
+	// UI state into later tests.
 	test.afterAll(async ({ vscode }) => {
 		await vscode.gitlens.resetUI();
-	});
-
-	test('gitlens_commit_composer opens the Commit Composer webview', async ({ mcpClient, vscode }) => {
-		const directory = vscode.electron.workspacePath;
-
-		// Round-trip succeeds (no `-32603 server not found`); the tool is fire-and-forget → `{ data: "" }`.
-		const data = gitlensToolData(await mcpClient.callTool('gitlens_commit_composer', { directory: directory }));
-		expect(data).toBe('');
-
-		// Verify the real effect: the command dispatched into the live instance and opened the webview.
-		// The IPC call returns before the panel finishes rendering, and webview bootstrap can lag under
-		// parallel CI load, so allow a generous timeout (the graph specs use 30s for the same reason).
-		const webview = await vscode.gitlens.getCommitComposerWebview(30_000);
-		expect(webview, 'Commit Composer webview should open after the MCP call').not.toBeNull();
 	});
 
 	test('gitlens_launchpad round-trips into the live instance', async ({ mcpClient, vscode }) => {

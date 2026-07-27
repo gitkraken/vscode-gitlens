@@ -24,7 +24,7 @@ export class SecondarySidebar {
 	}
 
 	async close(): Promise<void> {
-		await this.vscode.executeCommand('workbench.action.closeAuxiliaryBar');
+		await this.vscode.executeCommandIfAvailable('workbench.action.closeAuxiliaryBar');
 
 		// if (!(await this.isVisible())) return;
 
@@ -33,7 +33,7 @@ export class SecondarySidebar {
 	}
 
 	async open(): Promise<void> {
-		await this.vscode.executeCommand('workbench.action.focusAuxiliaryBar');
+		await this.vscode.executeCommandIfAvailable('workbench.action.focusAuxiliaryBar');
 
 		// if (await this.isVisible()) return;
 

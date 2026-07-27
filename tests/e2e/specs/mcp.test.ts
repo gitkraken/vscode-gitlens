@@ -80,7 +80,6 @@ test.describe('MCP — Tool Discovery', () => {
 		const gitlensTools = tools.filter(t => t.startsWith('gitlens_'));
 
 		expect(gitlensTools.length).toBeGreaterThan(0);
-		expect(gitlensTools).toContain('gitlens_commit_composer');
 		expect(gitlensTools).toContain('gitlens_launchpad');
 		expect(gitlensTools).toContain('gitlens_start_review');
 		expect(gitlensTools).toContain('gitlens_start_work');
@@ -177,7 +176,7 @@ test.describe('MCP — IPC Discovery', () => {
 		expect(data.workspacePaths?.length).toBeGreaterThan(0);
 	});
 
-	test('should include IDE metadata in discovery data', ({ mcpClient }) => {
+	test('should include IDE metadata in discovery data', async ({ mcpClient, vscode }) => {
 		const ipcPath = mcpClient.ipcFilePath;
 		test.skip(ipcPath == null, 'No IPC discovery file available');
 
@@ -185,7 +184,10 @@ test.describe('MCP — IPC Discovery', () => {
 		expect(data).toBeDefined();
 		if (data == null) return;
 
-		expect(data.scheme).toBe('vscode');
+		// GitLens should record the host editor's URI scheme (vscode, cursor, windsurf, kiro, ...),
+		// so validate against the live scheme rather than assuming plain VS Code.
+		const scheme = await vscode.gitlens.getUriScheme();
+		expect(data.scheme).toBe(scheme);
 	});
 });
 

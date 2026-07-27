@@ -24,10 +24,19 @@ export class ActivityBar {
 	}
 
 	/**
-	 * Get a tab by its accessible name
+	 * Get a tab by its accessible name.
+	 *
+	 * The name normally resolves on the `role="tab"` element itself. On some VS Code forks (Positron)
+	 * that element renders with an empty `aria-label` and the accessible name lives only on its inner
+	 * `.action-label` anchor, so a plain `getByRole('tab', { name })` matches nothing there. Fall back to
+	 * the tab that *contains* a descendant carrying that name (the inner anchor exists on VS Code too, so
+	 * this resolves on every editor); `.first()` keeps a single element for `.click()`/`getAttribute`.
 	 */
 	getTab(name: string | RegExp, exact = true): Locator {
-		return this.container.getByRole('tab', { name: name, exact: exact });
+		return this.container
+			.getByRole('tab', { name: name, exact: exact })
+			.or(this.container.getByRole('tab').filter({ has: this.page.getByLabel(name, { exact: exact }) }))
+			.first();
 	}
 
 	/**

@@ -64,13 +64,14 @@ async function openGraphOnBranch(vscode: VSCodeInstance, branch: string): Promis
 
 /**
  * Open the Fetch button's popover (auto-fetch settings) and wait for its content (the settings
- * gear) to be visible. Uses focus rather than hover: the anchor is a focusable `<a href>` and the
- * popover's `hover focus` trigger shows immediately on focus — avoiding the hover path's 500ms
- * `--show-delay` and the mouseout-hide race if a late reflow shifts the anchor out from under the
- * (stationary) hover pointer.
+ * gear) to be visible. Uses hover rather than focus (matching graphHeader.test.ts's popover flow):
+ * the popover's `hover focus` trigger opens on real mouse events, which work in the headless CI
+ * Electron/Xvfb window. Programmatic `.focus()` is a no-op there — the window never gains OS focus,
+ * so no `focus` event fires and the popover never opens. `--show-delay` (500ms) fits well within
+ * `MaxTimeout`, and the popover's hover-bridge keeps it open while the pointer rests on the anchor.
  */
 async function openFetchPopover(webview: FrameLocator): Promise<void> {
-	await fetchLink(webview).focus();
+	await fetchLink(webview).hover();
 	await expect(webview.locator('gl-button[aria-label="Open Git Auto-fetch Settings"]').first()).toBeVisible({
 		timeout: MaxTimeout,
 	});
