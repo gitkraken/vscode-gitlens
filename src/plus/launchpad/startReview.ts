@@ -4,6 +4,7 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
@@ -31,7 +32,7 @@ import { ensureAccessStep } from '../../commands/quick-wizard/steps/access.js';
 import { StepsController } from '../../commands/quick-wizard/stepsController.js';
 import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
 import { proBadge } from '../../constants.js';
-import type { Source } from '../../constants.telemetry.js';
+import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import type { ConnectMoreIntegrationsItem } from '../../quickpicks/integrationPicker.js';
 import {
@@ -51,7 +52,7 @@ import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/age
 import { ensureIntegrationConnectAllowed } from '../integrations/utils/-webview/integration.utils.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import { getLaunchpadItemIdHash, supportedLaunchpadIntegrations } from './launchpadProvider.js';
-import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
+import { startReviewFromLaunchpadItemDetached } from './utils/-webview/startReview.utils.js';
 
 export interface StartReviewTelemetryContext {
 	instance: number;
@@ -61,7 +62,7 @@ export interface StartReviewTelemetryContext {
 
 export interface StartReviewCommandArgs {
 	readonly command: 'startReview';
-	source?: Source;
+	source?: Sources | Source;
 
 	// Pre-select PR by URL (skips PR picker)
 	prUrl?: string;
@@ -160,7 +161,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 			description: 'Start a review for a pull request',
 		});
 
-		this.source = args?.source ?? { source: 'commandPalette' };
+		this.source = typeof args?.source === 'object' ? args.source : { source: args?.source ?? 'commandPalette' };
 
 		if (this.container.telemetry.enabled) {
 			this.telemetryContext = {
@@ -270,37 +271,51 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 					// Auto-select PR if prUrl is provided
 					if (state.prUrl && state.useDefaults) {
-						// Lookup the LaunchpadItem from the URL, then execute the review
+						// Lookup the LaunchpadItem from the URL - this can throw synchronously before
+						// the review starts, so it keeps its own try/catch
+						let launchpadItem: LaunchpadItem;
 						try {
-							const launchpadItem = await this.lookupLaunchpadItem(state.prUrl);
-							if (launchpadItem == null) {
+							const found = await this.lookupLaunchpadItem(state.prUrl);
+							if (found == null) {
 								throw new Error(`No PR found matching '${state.prUrl}'`);
 							}
 
-							const agentDispatch = yield* this.resolveAgentDispatch(state, context);
-							if (agentDispatch === StepResultBreak || agentDispatch === 'cancel') {
-								state.result?.cancel(new Error('Start Review cancelled'));
-								return;
-							}
-
-							const reviewResult = await startReviewFromLaunchpadItem(
-								this.container,
-								launchpadItem,
-								state.instructions,
-								agentDispatch.openChatOnComplete,
-								state.useDefaults,
-								agentDispatch.agent,
-							);
-							state.result?.fulfill(reviewResult);
-							steps.markStepsComplete();
-							return;
+							launchpadItem = found;
 						} catch (ex) {
 							state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
-							void window.showErrorMessage(
-								`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
-							);
+							// Silently ignore user cancellation (e.g. dismissing the locate/clone prompt)
+							if (!isCancellationError(ex)) {
+								void window.showErrorMessage(
+									`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
+								);
+							}
 							return StepResultBreak;
 						}
+
+						const agentDispatch = yield* this.resolveAgentDispatch(state, context);
+						if (agentDispatch === StepResultBreak || agentDispatch === 'cancel') {
+							state.result?.cancel(new Error('Start Review cancelled'));
+							return;
+						}
+
+						// Detach the review from the wizard lifetime: complete the wizard before any of the
+						// review's own UI (progress, locate/clone prompt) can appear — a standalone quick pick
+						// shown while the wizard's picker is still live silently tears the wizard down
+						// (unfrozen onDidHide). The detached promise settles the result deferred; clear
+						// state.result so the steps' finally doesn't cancel it as still-pending.
+						const result = state.result;
+						state.result = undefined;
+						startReviewFromLaunchpadItemDetached(
+							this.container,
+							launchpadItem,
+							state.instructions,
+							agentDispatch.openChatOnComplete,
+							state.useDefaults,
+							agentDispatch.agent,
+							result,
+						);
+						steps.markStepsComplete();
+						return;
 					}
 
 					// Otherwise, show the PR picker
@@ -329,30 +344,28 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 				assertsStartReviewStepState(state);
 
 				// Execute the review using the LaunchpadItem directly (avoids redundant PR lookup)
-				try {
-					const agentDispatch = yield* this.resolveAgentDispatch(state, context);
-					if (agentDispatch === StepResultBreak || agentDispatch === 'cancel') {
-						state.result?.cancel(new Error('Start Review cancelled'));
-						return;
-					}
-
-					const reviewResult = await startReviewFromLaunchpadItem(
-						this.container,
-						state.item.launchpadItem,
-						state.instructions,
-						agentDispatch.openChatOnComplete,
-						state.useDefaults,
-						agentDispatch.agent,
-					);
-					state.result?.fulfill(reviewResult);
-				} catch (ex) {
-					state.result?.cancel(ex instanceof Error ? ex : new Error(String(ex)));
-					void window.showErrorMessage(
-						`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`,
-					);
-					return StepResultBreak;
+				const agentDispatch = yield* this.resolveAgentDispatch(state, context);
+				if (agentDispatch === StepResultBreak || agentDispatch === 'cancel') {
+					state.result?.cancel(new Error('Start Review cancelled'));
+					return;
 				}
 
+				// Detach the review from the wizard lifetime: complete the wizard before any of the review's
+				// own UI (progress, locate/clone prompt) can appear — a standalone quick pick shown while the
+				// wizard's picker is still live silently tears the wizard down (unfrozen onDidHide). The
+				// detached promise settles the result deferred; clear state.result so the steps' finally
+				// doesn't cancel it as still-pending.
+				const result = state.result;
+				state.result = undefined;
+				startReviewFromLaunchpadItemDetached(
+					this.container,
+					state.item.launchpadItem,
+					state.instructions,
+					agentDispatch.openChatOnComplete,
+					state.useDefaults,
+					agentDispatch.agent,
+					result,
+				);
 				steps.markStepsComplete();
 			}
 		} finally {

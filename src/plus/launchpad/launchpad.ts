@@ -1,5 +1,5 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { commands, QuickInputButtons, ThemeIcon, Uri, window } from 'vscode';
+import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '@gitlens/integrations/providers/models.js';
@@ -67,7 +67,7 @@ import {
 } from './launchpadProvider.js';
 import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad.js';
 import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad.js';
-import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
+import { startReviewFromLaunchpadItemDetached } from './utils/-webview/startReview.utils.js';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';
@@ -473,18 +473,17 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		if (flow.kind === 'cancel') return;
 
 		const agent = flow.kind === 'agent' ? flow.descriptor : undefined;
-		try {
-			await startReviewFromLaunchpadItem(
-				this.container,
-				state.item,
-				undefined,
-				flow.kind === 'agent',
-				false,
-				agent,
-			);
-		} catch (ex) {
-			void window.showErrorMessage(`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`);
-		}
+		// Detach the review from the wizard lifetime, mirroring the sibling fire-and-forget actions in
+		// the switch above (e.g. `switchTo`) — a standalone quick pick shown while the wizard's picker is
+		// still live silently tears the wizard down (unfrozen onDidHide).
+		startReviewFromLaunchpadItemDetached(
+			this.container,
+			state.item,
+			undefined,
+			flow.kind === 'agent',
+			false,
+			agent,
+		);
 	}
 
 	private *pickLaunchpadItemStep(
