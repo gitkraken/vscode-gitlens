@@ -180,6 +180,8 @@
 		// Import rules
 		"import/consistent-type-specifier-style": ["error", "prefer-top-level"],
 		"import/default": "off",
+		// The schema warning here is oxlint schema/parser drift — the shape below is what the parser actually wants.
+		// Don't wrap the extensions in `pattern`: that re-roots option lookup and silently disables `checkTypeImports`.
 		"import/extensions": ["error", "ignorePackages", { "js": "always", "ts": "never", "checkTypeImports": true }],
 		"import/named": "off",
 		"import/namespace": "off",
@@ -188,7 +190,7 @@
 		"import/no-cycle": "off",
 		// "import/no-deprecated": "off",
 		"import/no-default-export": "error",
-		"import/no-duplicates": ["error", { "prefer-inline": false }],
+		"import/no-duplicates": ["error", { "preferInline": false }],
 		"import/no-dynamic-require": "error",
 		"import/no-named-as-default": "off",
 		"import/no-named-as-default-member": "off",
@@ -593,9 +595,12 @@
 				"no-restricted-globals": "off",
 				"no-restricted-imports": "off",
 				"no-unused-vars": "off",
+				"no-useless-computed-key": "off",
+				"e18e/prefer-array-to-reversed": "off",
+				"e18e/prefer-array-to-sorted": "off",
+				"e18e/prefer-array-to-spliced": "off",
 				"typescript/no-floating-promises": "off",
-				"typescript/require-await": "off",
-				"no-useless-computed-key": "off"
+				"typescript/require-await": "off"
 			},
 			"env": { "node": true }
 		},

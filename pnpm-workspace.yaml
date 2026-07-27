@@ -33,11 +33,11 @@ catalog:
     # Only @gitlens/utils depends on this, but it flows into the published @gitkraken/core-gitlens
     # manifest, which must never carry a version of its own to drift from.
     fast-string-truncated-width: 3.0.3
-    ignore: 7.0.5
+    ignore: 7.0.6
     mocha: 11.7.6
-    sinon: 22.0.0
+    sinon: 22.1.0
     tinybench: 6.0.2
-    tsx: 4.22.4
+    tsx: 4.23.1
     # 7.x is the native port: it ships `tsc` only — no `typescript.js` API and no `tsserver.js`. The
     # editor therefore uses VS Code's bundled TypeScript (hence no `js/ts.tsdk.path` in
     # .vscode/settings.json), and @custom-elements-manifest/analyzer keeps its own 5.4.x for the
@@ -60,54 +60,49 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - '@oxfmt/binding-android-arm-eabi@0.60.0'
-    - '@oxfmt/binding-android-arm64@0.60.0'
-    - '@oxfmt/binding-darwin-arm64@0.60.0'
-    - '@oxfmt/binding-darwin-x64@0.60.0'
-    - '@oxfmt/binding-freebsd-x64@0.60.0'
-    - '@oxfmt/binding-linux-arm-gnueabihf@0.60.0'
-    - '@oxfmt/binding-linux-arm-musleabihf@0.60.0'
-    - '@oxfmt/binding-linux-arm64-gnu@0.60.0'
-    - '@oxfmt/binding-linux-arm64-musl@0.60.0'
-    - '@oxfmt/binding-linux-ppc64-gnu@0.60.0'
-    - '@oxfmt/binding-linux-riscv64-gnu@0.60.0'
-    - '@oxfmt/binding-linux-riscv64-musl@0.60.0'
-    - '@oxfmt/binding-linux-s390x-gnu@0.60.0'
-    - '@oxfmt/binding-linux-x64-gnu@0.60.0'
-    - '@oxfmt/binding-linux-x64-musl@0.60.0'
-    - '@oxfmt/binding-openharmony-arm64@0.60.0'
-    - '@oxfmt/binding-win32-arm64-msvc@0.60.0'
-    - '@oxfmt/binding-win32-ia32-msvc@0.60.0'
-    - '@oxfmt/binding-win32-x64-msvc@0.60.0'
-    - '@oxlint/binding-android-arm-eabi@1.75.0'
-    - '@oxlint/binding-android-arm64@1.75.0'
-    - '@oxlint/binding-darwin-arm64@1.75.0'
-    - '@oxlint/binding-darwin-x64@1.75.0'
-    - '@oxlint/binding-freebsd-x64@1.75.0'
-    - '@oxlint/binding-linux-arm-gnueabihf@1.75.0'
-    - '@oxlint/binding-linux-arm-musleabihf@1.75.0'
-    - '@oxlint/binding-linux-arm64-gnu@1.75.0'
-    - '@oxlint/binding-linux-arm64-musl@1.75.0'
-    - '@oxlint/binding-linux-ppc64-gnu@1.75.0'
-    - '@oxlint/binding-linux-riscv64-gnu@1.75.0'
-    - '@oxlint/binding-linux-riscv64-musl@1.75.0'
-    - '@oxlint/binding-linux-s390x-gnu@1.75.0'
-    - '@oxlint/binding-linux-x64-gnu@1.75.0'
-    - '@oxlint/binding-linux-x64-musl@1.75.0'
-    - '@oxlint/binding-openharmony-arm64@1.75.0'
-    - '@oxlint/binding-win32-arm64-msvc@1.75.0'
-    - '@oxlint/binding-win32-ia32-msvc@1.75.0'
-    - '@oxlint/binding-win32-x64-msvc@1.75.0'
-    - '@oxlint/plugins@1.75.0'
-    - oxfmt@0.60.0
-    - oxlint@1.75.0
-    - '@oxlint-tsgolint/darwin-arm64@7.0.2001'
-    - '@oxlint-tsgolint/darwin-x64@7.0.2001'
-    - '@oxlint-tsgolint/linux-arm64@7.0.2001'
-    - '@oxlint-tsgolint/linux-x64@7.0.2001'
-    - '@oxlint-tsgolint/win32-arm64@7.0.2001'
-    - '@oxlint-tsgolint/win32-x64@7.0.2001'
-    - oxlint-tsgolint@7.0.2001
+    - '@e18e/eslint-plugin@0.6.0'
+    - postcss@8.5.23
+    - '@oxfmt/binding-android-arm-eabi@0.61.0'
+    - '@oxfmt/binding-android-arm64@0.61.0'
+    - '@oxfmt/binding-darwin-arm64@0.61.0'
+    - '@oxfmt/binding-darwin-x64@0.61.0'
+    - '@oxfmt/binding-freebsd-x64@0.61.0'
+    - '@oxfmt/binding-linux-arm-gnueabihf@0.61.0'
+    - '@oxfmt/binding-linux-arm-musleabihf@0.61.0'
+    - '@oxfmt/binding-linux-arm64-gnu@0.61.0'
+    - '@oxfmt/binding-linux-arm64-musl@0.61.0'
+    - '@oxfmt/binding-linux-ppc64-gnu@0.61.0'
+    - '@oxfmt/binding-linux-riscv64-gnu@0.61.0'
+    - '@oxfmt/binding-linux-riscv64-musl@0.61.0'
+    - '@oxfmt/binding-linux-s390x-gnu@0.61.0'
+    - '@oxfmt/binding-linux-x64-gnu@0.61.0'
+    - '@oxfmt/binding-linux-x64-musl@0.61.0'
+    - '@oxfmt/binding-openharmony-arm64@0.61.0'
+    - '@oxfmt/binding-win32-arm64-msvc@0.61.0'
+    - '@oxfmt/binding-win32-ia32-msvc@0.61.0'
+    - '@oxfmt/binding-win32-x64-msvc@0.61.0'
+    - '@oxlint/binding-android-arm-eabi@1.76.0'
+    - '@oxlint/binding-android-arm64@1.76.0'
+    - '@oxlint/binding-darwin-arm64@1.76.0'
+    - '@oxlint/binding-darwin-x64@1.76.0'
+    - '@oxlint/binding-freebsd-x64@1.76.0'
+    - '@oxlint/binding-linux-arm-gnueabihf@1.76.0'
+    - '@oxlint/binding-linux-arm-musleabihf@1.76.0'
+    - '@oxlint/binding-linux-arm64-gnu@1.76.0'
+    - '@oxlint/binding-linux-arm64-musl@1.76.0'
+    - '@oxlint/binding-linux-ppc64-gnu@1.76.0'
+    - '@oxlint/binding-linux-riscv64-gnu@1.76.0'
+    - '@oxlint/binding-linux-riscv64-musl@1.76.0'
+    - '@oxlint/binding-linux-s390x-gnu@1.76.0'
+    - '@oxlint/binding-linux-x64-gnu@1.76.0'
+    - '@oxlint/binding-linux-x64-musl@1.76.0'
+    - '@oxlint/binding-openharmony-arm64@1.76.0'
+    - '@oxlint/binding-win32-arm64-msvc@1.76.0'
+    - '@oxlint/binding-win32-ia32-msvc@1.76.0'
+    - '@oxlint/binding-win32-x64-msvc@1.76.0'
+    - '@oxlint/plugins@1.76.0'
+    - oxfmt@0.61.0
+    - oxlint@1.76.0
 
 overrides:
     '@opentelemetry/core@<2.8.0': ^2.8.0
