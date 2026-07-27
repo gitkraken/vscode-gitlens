@@ -971,7 +971,7 @@ export class GraphCommands {
 		const type = pausedOpArgs?.type ?? (await svc.pausedOps?.getPausedOperationStatus?.())?.type;
 		if (type == null || type === 'revert') return;
 
-		await continuePausedOperation(this.container, svc);
+		await continuePausedOperation(this.container, svc, { source: 'graph' });
 	}
 
 	@command('gitlens.pausedOperation.open:')
@@ -1000,13 +1000,13 @@ export class GraphCommands {
 		if (repoPath == null) return;
 
 		const svc = this.container.git.getRepositoryService(repoPath);
-		await skipPausedOperation(this.container, svc);
+		await skipPausedOperation(this.container, svc, { source: 'graph' });
 	}
 
 	@command('gitlens.pausedOperation.showConflicts:')
 	@debug()
 	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
-		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath);
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, { source: { source: 'graph' } });
 	}
 
 	@command('gitlens.graph.stageConflictCurrentChanges:')

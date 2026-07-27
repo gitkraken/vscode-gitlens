@@ -1131,28 +1131,40 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		} else if (hasAction(arg)) {
 			const { target } = arg;
-			// Switch to the target's repository so a cold show lands on the right repo (and the
-			// primary-vs-secondary WIP comparison below resolves correctly). Mirrors the ref path.
+			// Switch to the target's repository only when it belongs to a DIFFERENT repo family, so a
+			// cold show lands on the right repo (and the primary-vs-secondary WIP comparison below
+			// resolves correctly). A worktree of the shown repo already has its own WIP row in the
+			// graph, so switching to it would tear down the user's selection/search/scope (see the
+			// `repository` setter) for a row that's already on screen. Reveals that would land on a
+			// scoped-out row unscope client-side instead.
 			let deferredForRepoSwitch = false;
 			if (target != null) {
 				const repo = await this.container.git.getOrAddRepository(Uri.file(target.worktreePath), {
 					opened: false,
 					detectNested: true,
 				});
-				// A warm show that switches repositories must not notify immediately — the webview
-				// would consume the action against the outgoing repo's context and the mode entry
-				// no-ops. Stash the action BEFORE the switch so the setter's state rebuild delivers
-				// it together with the new repo's state, same as a cold show.
-				if (!loading && repo != null && repo !== this.repository) {
-					this._pendingAction = {
-						action: arg.action,
-						target: arg.target,
-						composeInstructions: arg.composeInstructions,
-						composeScope: arg.composeScope,
-					};
-					deferredForRepoSwitch = true;
+				const current = this.repository;
+				// `commonPath ?? path` is the repo family key — see `RepositoryShape.commonPath`.
+				if (
+					repo != null &&
+					repo !== current &&
+					(current == null || (repo.commonPath ?? repo.path) !== (current.commonPath ?? current.path))
+				) {
+					// A warm show that switches repositories must not notify immediately — the webview
+					// would consume the action against the outgoing repo's context and the mode entry
+					// no-ops. Stash the action BEFORE the switch so the setter's state rebuild delivers
+					// it together with the new repo's state, same as a cold show.
+					if (!loading) {
+						this._pendingAction = {
+							action: arg.action,
+							target: arg.target,
+							composeInstructions: arg.composeInstructions,
+							composeScope: arg.composeScope,
+						};
+						deferredForRepoSwitch = true;
+					}
+					this.repository = repo;
 				}
-				this.repository = repo ?? this.repository;
 			}
 			let rowId: string | undefined;
 			if (arg.action !== 'scope-to-branch') {

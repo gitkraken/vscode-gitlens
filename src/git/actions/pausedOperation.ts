@@ -22,18 +22,27 @@ export async function abortPausedOperation(svc: GitRepositoryService, options?: 
 	}
 }
 
-export async function continuePausedOperation(container: Container, svc: GitRepositoryService): Promise<void> {
-	return continuePausedOperationCore(container, svc);
+export async function continuePausedOperation(
+	container: Container,
+	svc: GitRepositoryService,
+	source?: Source,
+): Promise<void> {
+	return continuePausedOperationCore(container, svc, false, source);
 }
 
-export async function skipPausedOperation(container: Container, svc: GitRepositoryService): Promise<void> {
-	return continuePausedOperationCore(container, svc, true);
+export async function skipPausedOperation(
+	container: Container,
+	svc: GitRepositoryService,
+	source?: Source,
+): Promise<void> {
+	return continuePausedOperationCore(container, svc, true, source);
 }
 
 async function continuePausedOperationCore(
 	container: Container,
 	svc: GitRepositoryService,
 	skip: boolean = false,
+	source?: Source,
 ): Promise<void> {
 	try {
 		return await svc.pausedOps?.continuePausedOperation?.(skip ? { skip: true } : undefined);
@@ -58,10 +67,10 @@ async function continuePausedOperationCore(
 				cancelItem,
 			);
 			if (result === skipItem) {
-				return void continuePausedOperationCore(container, svc, true);
+				return void continuePausedOperationCore(container, svc, true, source);
 			}
 
-			void showPausedOperationStatus(container, svc.path);
+			void showPausedOperationStatus(container, svc.path, { source: source });
 
 			return;
 		}
@@ -77,7 +86,7 @@ async function continuePausedOperationCore(
 
 		if (PausedOperationContinueError.is(ex, 'conflicts') || PausedOperationContinueError.is(ex, 'unmergedFiles')) {
 			void window.showWarningMessage(ex.message);
-			void showPausedOperationStatus(container, svc.path);
+			void showPausedOperationStatus(container, svc.path, { source: source });
 			return;
 		}
 

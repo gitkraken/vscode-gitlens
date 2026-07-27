@@ -649,6 +649,7 @@ export class ViewCommands implements Disposable {
 		await continuePausedOperation(
 			this.container,
 			this.container.git.getRepositoryService(node.pausedOpStatus.repoPath),
+			{ source: 'view' },
 		);
 	}
 
@@ -660,6 +661,7 @@ export class ViewCommands implements Disposable {
 		await skipPausedOperation(
 			this.container,
 			this.container.git.getRepositoryService(node.pausedOpStatus.repoPath),
+			{ source: 'view' },
 		);
 	}
 

@@ -88,7 +88,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
 				);
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the revert
@@ -110,7 +110,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to revert. A revert is already in progress. Continue or abort the current revert first.',
 				);
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
 			}
 

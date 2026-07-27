@@ -147,7 +147,9 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		// when accessible, rebase editor otherwise); only interactive pauses (todo editing /
 		// edit / reword / break) always open the rebase editor below.
 		if (hasConflicts) {
-			await showPausedOperationStatus(this.container, repoPath);
+			await showPausedOperationStatus(this.container, repoPath, {
+				source: { source: 'rebaseEditor', detail: 'auto-open' },
+			});
 			return;
 		}
 

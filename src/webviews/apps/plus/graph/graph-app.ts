@@ -103,7 +103,11 @@ import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js'
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
-import { isScopeFocalHead, shouldShowPrimaryWipRow } from './utils/wip.utils.js';
+import {
+	filterSecondariesForScopeAndVisibility,
+	isScopeFocalHead,
+	shouldShowPrimaryWipRow,
+} from './utils/wip.utils.js';
 import './empty-state.js';
 import './access-account.js';
 import './gate.js';
@@ -297,10 +301,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** The GRAPH-ROW sha(s) of the current inspection anchor, for the wrapper's derived highlight
 	 *  (`highlight = anchorShas ∩ renderableRows`). `undefined` in alt modes (the graph is hidden, so
 	 *  nothing to highlight) — the alt slot drives details independently. Multi-select carries real
-	 *  commit shas (WIP rows are excluded from compare). For the single anchor the row sha is derived
-	 *  from `(sha, repoPath)`: a real sha is itself; `uncommitted` maps to the primary `work-dir-changes`
-	 *  row when its repoPath is the opened repo, else to the secondary worktree's synthetic row sha
-	 *  (`repoPath` IS the worktree path for a secondary WIP, so the reconstruction is exact). */
+	 *  commit shas (WIP rows are excluded from compare); the single anchor goes through
+	 *  {@link toGraphRowSha}. */
 	private get activeAnchorShas(): readonly string[] | undefined {
 		if (this.effectiveDisplayMode !== 'graph') return undefined;
 		if (this._selectedCommits != null) return this._selectedCommits.shas;
@@ -308,18 +310,25 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const single = this._selectedCommit;
 		if (single == null) return undefined;
 
-		if (single.sha !== uncommitted) return [single.sha];
+		return [this.toGraphRowSha(single.sha, single.repoPath)];
+	}
 
-		// A WIP anchor is the SECONDARY-worktree row only when its repoPath differs from the opened
-		// repo's. Guard on a resolved `fallbackRepoPath`: during a repo-switch/reload tick it can be
-		// transiently undefined, and treating that as "different" would mis-map a PRIMARY WIP anchor to
-		// a `worktree-wip::` sha that matches no row (dropping the highlight). Default to the primary row.
+	/** The GRAPH-ROW sha for an anchor `(sha, repoPath)`: a real sha is itself; `uncommitted` maps to
+	 *  the primary `work-dir-changes` row when its repoPath is the opened repo, else to the secondary
+	 *  worktree's synthetic row sha (`repoPath` IS the worktree path for a secondary WIP, so the
+	 *  reconstruction is exact).
+	 *
+	 *  A WIP anchor is the SECONDARY-worktree row only when its repoPath differs from the opened
+	 *  repo's. Guard on a resolved `fallbackRepoPath`: during a repo-switch/reload tick it can be
+	 *  transiently undefined, and treating that as "different" would mis-map a PRIMARY WIP anchor to a
+	 *  `worktree-wip::` sha that matches no row (dropping the highlight). Default to the primary row. */
+	private toGraphRowSha(sha: string, repoPath: string): string {
+		if (sha !== uncommitted) return sha;
+
 		const fallbackRepoPath = this.fallbackRepoPath;
-		const rowSha =
-			fallbackRepoPath != null && single.repoPath !== '' && single.repoPath !== fallbackRepoPath
-				? createSecondaryWipSha(single.repoPath)
-				: ('work-dir-changes' satisfies GitGraphRowType);
-		return [rowSha];
+		return fallbackRepoPath != null && repoPath !== '' && repoPath !== fallbackRepoPath
+			? createSecondaryWipSha(repoPath)
+			: ('work-dir-changes' satisfies GitGraphRowType);
 	}
 
 	private get fallbackRepoPath(): string | undefined {
@@ -1103,7 +1112,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// normalizes `uncommitted`→the WIP row and retries across frames until it's injected. Skip for
 		// compare (it drives its own range selection).
 		if (action !== 'open-compare') {
-			this.graph?.ensureAndSelectCommit(sha);
+			// The row sha, not the raw target sha — the host no longer switches repositories for a
+			// worktree of the shown repo, so a WIP target on another worktree is that worktree's
+			// SECONDARY row. `ensureAndSelectCommit` only normalizes `uncommitted` to the PRIMARY row,
+			// so handing it the raw sha would select the wrong worktree's working changes.
+			const rowSha = this.toGraphRowSha(sha, repoPath);
+			if (sha === uncommitted) {
+				this.unscopeToRevealWip(rowSha);
+			}
+			this.graph?.ensureAndSelectCommit(rowSha);
 		}
 
 		const showDetails = () => {
@@ -1333,6 +1350,37 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const branchRef = this.graphState.wipMetadataBySha?.[id]?.branchRef;
 		if (branchRef == null) return false;
 		return scope.branchRef === branchRef || scope.additionalBranchRefs?.includes(branchRef) === true;
+	}
+
+	/** Drops an active scope that would hide the WIP row a reveal is about to select. The host only
+	 *  switches repositories across repo families now, so a worktree of the shown repo is revealed in
+	 *  place — which makes the scope the one remaining thing that can put the target row off screen.
+	 *  Asks {@link isWipPillInScope} (the predicate the wrapper renders by) rather than re-deriving
+	 *  the rule. No-ops when the row already renders, and when it wouldn't render unscoped either —
+	 *  there'd be nothing to reveal, and the details panel still opens on the target regardless.
+	 *
+	 *  Takes the GRAPH-ROW sha from {@link toGraphRowSha}; `isWipPillInScope` keys the primary row by
+	 *  `uncommitted` rather than `'work-dir-changes'`, so translate back for that one case. */
+	private unscopeToRevealWip(rowSha: string): void {
+		const scope = this.graphState.scope;
+		if (scope == null) return;
+
+		const id = rowSha === 'work-dir-changes' ? uncommitted : rowSha;
+		if (this.isWipPillInScope(id, scope)) return;
+
+		const { branchesVisibility, includeOnlyRefs, branch, wipMetadataBySha } = this.graphState;
+		const rendersUnscoped =
+			id === uncommitted
+				? shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, branch, undefined)
+				: filterSecondariesForScopeAndVisibility(
+						wipMetadataBySha,
+						undefined,
+						branchesVisibility,
+						includeOnlyRefs,
+					)?.[id] != null;
+		if (!rendersUnscoped) return;
+
+		this.graphState.clearScope();
 	}
 
 	/** In-flight set so repeated hovers over a stats-less pill fire at most one fetch per worktree. */

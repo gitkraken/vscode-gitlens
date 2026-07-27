@@ -97,7 +97,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to cherry-pick due to conflicts. Resolve the conflicts before continuing, or abort the cherry-pick.',
 				);
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the cherry-pick
@@ -119,7 +119,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to cherry-pick. A cherry-pick is already in progress. Continue or abort the current cherry-pick first.',
 				);
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
 			}
 
@@ -145,10 +145,10 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					cancel,
 				);
 				if (result === skip) {
-					return void skipPausedOperation(this.container, state.repo.git);
+					return void skipPausedOperation(this.container, state.repo.git, { source: 'quick-wizard' });
 				}
 
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
 			}
 

@@ -115,7 +115,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to rebase due to conflicts. Resolve the conflicts before continuing, or abort the rebase.',
 				);
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the rebase
@@ -137,7 +137,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to rebase. A rebase is already in progress. Continue or abort the current rebase first.',
 				);
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
 			}
 

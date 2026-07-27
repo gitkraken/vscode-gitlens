@@ -106,7 +106,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to merge due to conflicts. Resolve the conflicts before continuing, or abort the merge.',
 				);
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the merge
@@ -128,7 +128,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to merge. A merge is already in progress. Continue or abort the current merge first.',
 				);
-				void showPausedOperationStatus(this.container, state.repo.path);
+				void showPausedOperationStatus(this.container, state.repo.path, { source: { source: 'quick-wizard' } });
 				return;
 			}
 
