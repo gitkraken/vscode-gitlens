@@ -961,6 +961,57 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssuesPage returns an empty requested repo page past the terminal cursor and preserves earlier truncation', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const seenCursors: Array<string | undefined> = [];
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repos,
+			getIssuesForRepos: (_t: unknown, _r: unknown, opts: { cursor?: string }) => {
+				seenCursors.push(opts.cursor);
+				calls += 1;
+				if (calls === 1) {
+					return Promise.resolve({
+						values: [providerIssue('7')],
+						paging: {
+							more: true,
+							cursor: JSON.stringify({ value: 'NEXT', type: 'cursor' }),
+							truncated: true,
+						},
+					} satisfies PagedResult<ProviderIssue>);
+				}
+
+				return Promise.resolve({
+					values: [providerIssue('8')],
+					paging: { more: false, cursor: '{}' },
+				} satisfies PagedResult<ProviderIssue>);
+			},
+		});
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			page: 3,
+		});
+
+		assert.deepEqual(seenCursors, [
+			JSON.stringify({ value: 3, type: 'page' }),
+			JSON.stringify({ value: 'NEXT', type: 'cursor' }),
+		]);
+		assert.deepEqual(result.items, [], 'the terminal repo page is not reused as page 3');
+		assert.equal(result.page.currentPage, 3);
+		assert.equal(result.page.truncated, true, 'earlier truncation survives the terminal-page miss');
+		assert.equal(result.hasMore, false);
+		assert.equal(result.cursor, undefined);
+
+		manager.dispose();
+	});
+
 	test('listIssuesPage mirrors the page→cursor round-trip and warning mapping', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -1545,6 +1596,42 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		);
 		assert.equal(result.fetchFailed, true);
 		assert.ok(result.warnings.some(w => /includeAllAssignees/i.test(w.message)));
+
+		manager.dispose();
+	});
+
+	test('listRepos reports issue providers as unsupported on the git-host surface', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+
+		const result = await manager.listRepos({ providerId: IssuesCloudHostIntegrationId.Jira });
+
+		assert.equal(result.items.length, 0);
+		assert.equal(result.fetchFailed, true);
+		assert.ok(result.warnings.some(w => /repository discovery is not supported/i.test(w.message)));
+
+		manager.dispose();
+	});
+
+	test('listPullRequestsPage reports issue providers as unsupported on the git-host surface', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+
+		const result = await manager.listPullRequestsPage({ providerId: IssuesCloudHostIntegrationId.Linear });
+
+		assert.equal(result.items.length, 0);
+		assert.equal(result.fetchFailed, true);
+		assert.ok(result.warnings.some(w => /pull request reads is not supported/i.test(w.message)));
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage reports issue providers as unsupported on the repo-issues surface', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+
+		const result = await manager.listIssuesPage({ providerId: IssuesCloudHostIntegrationId.Trello });
+
+		assert.equal(result.items.length, 0);
+		assert.equal(result.fetchFailed, true);
+		assert.ok(result.warnings.some(w => /repository issue reads is not supported/i.test(w.message)));
 
 		manager.dispose();
 	});

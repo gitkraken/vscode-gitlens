@@ -274,6 +274,65 @@ suite('resolveRepository (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('a pinned self-managed connection with a legacy full-url domain resolves via the normalized host api base', async () => {
+		const runtime = createFakeRuntime();
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ghe-a',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'https://ghe-a.example.com/api/v3',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		await runtime.storage.storeSecret(
+			`integration.auth.cloud:${GitSelfManagedHostIntegrationId.CloudGitHubEnterprise}|ghe-a`,
+			JSON.stringify({
+				id: 'ghe-a',
+				accessToken: 't',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-a.example.com',
+			}),
+		);
+		const manager = createIntegrationManager(runtime);
+		const gh = await connectSelfManaged(
+			manager,
+			GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			'ghe-a.example.com',
+		);
+
+		let baseUrl: string | undefined;
+		(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () =>
+			Promise.resolve({
+				getRepo: (
+					_token: unknown,
+					_owner: string,
+					_name: string,
+					_project: string | undefined,
+					opts?: { baseUrl?: string },
+				) => {
+					baseUrl = opts?.baseUrl;
+					return Promise.resolve(repoResult);
+				},
+			});
+
+		const result = await manager.resolveRepository({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			connectionId: 'ghe-a',
+			remoteUrl: 'https://ghe-a.example.com/org/repo.git',
+		});
+
+		assert.equal(result.resolution.status, 'resolved');
+		assert.equal(baseUrl, 'https://ghe-a.example.com/api/v3');
+
+		manager.dispose();
+	});
+
 	test('an issue-tracker providerId is unsupported (no getRepo client)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const result = await manager.resolveRepository({

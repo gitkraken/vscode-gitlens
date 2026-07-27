@@ -96,6 +96,7 @@ import {
 	getIntegrationIdForRemote,
 	isCloudGitSelfManagedHostIntegrationId,
 	isGitCloudHostIntegrationId,
+	isGitHostIntegration,
 	isGitSelfManagedHostIntegrationId,
 	isNonExpiringZeroTokenIntegrationId,
 } from './utils/integration.utils.js';
@@ -851,6 +852,33 @@ export class IntegrationService implements Disposable {
 		};
 	}
 
+	private isIssueProviderId(id: IntegrationIds): boolean {
+		switch (id) {
+			case IssuesCloudHostIntegrationId.Jira:
+			case IssuesCloudHostIntegrationId.Linear:
+			case IssuesCloudHostIntegrationId.Trello:
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	private gitHostOnlySurfaceWarning(
+		id: IntegrationIds,
+		domain: string | undefined,
+		connectionId: string | undefined,
+		surface: string,
+	): ProviderWarning {
+		return {
+			providerId: id,
+			domain: domain,
+			connectionId: connectionId,
+			message: `${surface} is not supported by '${id}'; use a git-host integration instead.`,
+			kind: 'other',
+			isAuth: false,
+		};
+	}
+
 	/**
 	 * Builds a warning for a drain that stopped short of completeness (hit a page backstop, or a single-page
 	 * read that couldn't confirm it drained everything). `truncated`/`allPages` already carry this on the
@@ -1482,8 +1510,25 @@ export class IntegrationService implements Disposable {
 		connectionId?: string;
 	}): Promise<ProviderPagedResult<ProviderRepositoryShape>> {
 		const page = Math.max(1, options.page ?? 1);
+		if (this.isIssueProviderId(options.providerId)) {
+			return {
+				items: [],
+				warnings: [
+					this.gitHostOnlySurfaceWarning(
+						options.providerId,
+						undefined,
+						options.connectionId,
+						'repository discovery',
+					),
+				],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
+			};
+		}
+
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
-		if (integration == null || isIssuesIntegration(integration)) {
+		if (integration == null) {
 			// A supplied connectionId that no longer resolves is a broken connection, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
 			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
@@ -1493,6 +1538,22 @@ export class IntegrationService implements Disposable {
 				page: { currentPage: page, itemsPerPage: 0 },
 				hasMore: false,
 				fetchFailed: early.fetchFailed || undefined,
+			};
+		}
+		if (!isGitHostIntegration(integration)) {
+			return {
+				items: [],
+				warnings: [
+					this.gitHostOnlySurfaceWarning(
+						options.providerId,
+						undefined,
+						options.connectionId,
+						'repository discovery',
+					),
+				],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
 			};
 		}
 
@@ -1617,8 +1678,25 @@ export class IntegrationService implements Disposable {
 		domain?: string;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		const page = Math.max(1, options.page ?? 1);
+		if (this.isIssueProviderId(options.providerId)) {
+			return {
+				items: [],
+				warnings: [
+					this.gitHostOnlySurfaceWarning(
+						options.providerId,
+						undefined,
+						options.connectionId,
+						'pull request reads',
+					),
+				],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
+			};
+		}
+
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
-		if (integration == null || isIssuesIntegration(integration)) {
+		if (integration == null) {
 			// A supplied connection or domain that no longer resolves is a broken target, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
 			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
@@ -1628,6 +1706,22 @@ export class IntegrationService implements Disposable {
 				page: { currentPage: page, itemsPerPage: 0 },
 				hasMore: false,
 				fetchFailed: early.fetchFailed || undefined,
+			};
+		}
+		if (!isGitHostIntegration(integration)) {
+			return {
+				items: [],
+				warnings: [
+					this.gitHostOnlySurfaceWarning(
+						options.providerId,
+						undefined,
+						options.connectionId,
+						'pull request reads',
+					),
+				],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
 			};
 		}
 
@@ -1851,8 +1945,25 @@ export class IntegrationService implements Disposable {
 		connectionId?: string;
 	}): Promise<ProviderPagedResult<IssueShape>> {
 		const page = Math.max(1, options.page ?? 1);
+		if (this.isIssueProviderId(options.providerId)) {
+			return {
+				items: [],
+				warnings: [
+					this.gitHostOnlySurfaceWarning(
+						options.providerId,
+						undefined,
+						options.connectionId,
+						'repository issue reads',
+					),
+				],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
+			};
+		}
+
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
-		if (integration == null || isIssuesIntegration(integration)) {
+		if (integration == null) {
 			// A supplied connectionId that no longer resolves is a broken connection, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
 			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
@@ -1862,6 +1973,22 @@ export class IntegrationService implements Disposable {
 				page: { currentPage: page, itemsPerPage: 0 },
 				hasMore: false,
 				fetchFailed: early.fetchFailed || undefined,
+			};
+		}
+		if (!isGitHostIntegration(integration)) {
+			return {
+				items: [],
+				warnings: [
+					this.gitHostOnlySurfaceWarning(
+						options.providerId,
+						undefined,
+						options.connectionId,
+						'repository issue reads',
+					),
+				],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
 			};
 		}
 
@@ -2058,6 +2185,7 @@ export class IntegrationService implements Disposable {
 			let currentPage = 1;
 			let currentHasMore: boolean = paged.hasMore && currentCursor != null && currentCursor !== '{}';
 			let currentTruncated: boolean = paged.truncated;
+			let drainedCursorInternally = false;
 			if (pageFetchFailed) {
 				items = [];
 				currentPage = page;
@@ -2078,6 +2206,7 @@ export class IntegrationService implements Disposable {
 					),
 				);
 			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
+				drainedCursorInternally = true;
 				const { value: nextValue, warning: nextWarning } = await fetchNext(currentCursor);
 				if (nextWarning != null) {
 					warnings.push(nextWarning);
@@ -2097,15 +2226,23 @@ export class IntegrationService implements Disposable {
 				allMetadata = mergeCollectionMetadata(allMetadata, nextValue.metadata);
 				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? nextItems.length, nextValue.paging);
 				currentPage++;
+				currentTruncated = currentTruncated || nextPaged.truncated;
 				const nextCursor = nextPaged.cursor;
 				if (nextCursor == null || nextCursor === currentCursor || nextCursor === '{}') {
+					currentCursor = undefined;
 					currentHasMore = false;
 					break;
 				}
 
 				currentCursor = nextCursor;
 				currentHasMore = nextPaged.hasMore;
-				currentTruncated = nextPaged.truncated;
+			}
+
+			if (drainedCursorInternally && currentPage < options.page) {
+				items = [];
+				currentPage = page;
+				currentCursor = undefined;
+				currentHasMore = false;
 			}
 
 			paged = {
@@ -2677,6 +2814,19 @@ export class IntegrationService implements Disposable {
 		const results = await Promise.all(
 			targets.map(async target => {
 				const { providerId: id, connectionId, domain: requestedDomain } = target;
+				if (this.isIssueProviderId(id)) {
+					return {
+						items: [] as PullRequestShape[],
+						warnings: [
+							this.gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps'),
+						],
+						fetchFailed: true,
+						truncated: false,
+						providerId: id,
+						failedProvider: true,
+					};
+				}
+
 				const integration = await this.getIntegrationForRead(id, connectionId, requestedDomain);
 				if (integration == null) {
 					// A requested connection that can't be resolved is a broken connection — surface it as a
@@ -2695,8 +2845,18 @@ export class IntegrationService implements Disposable {
 						failedProvider: true,
 					};
 				}
-				if (isIssuesIntegration(integration)) return undefined;
-
+				if (!isGitHostIntegration(integration)) {
+					return {
+						items: [] as PullRequestShape[],
+						warnings: [
+							this.gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps'),
+						],
+						fetchFailed: true,
+						truncated: false,
+						providerId: id,
+						failedProvider: true,
+					};
+				}
 				await this.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
 
 				const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
@@ -2814,7 +2974,8 @@ export class IntegrationService implements Disposable {
 			return { targets: options.targets, attributeUnavailableProviders: true };
 		}
 
-		const providerIds = options?.providerIds ?? supportedOrderedCloudIntegrationIds;
+		const providerIds =
+			options?.providerIds ?? supportedOrderedCloudIntegrationIds.filter(id => !this.isIssueProviderId(id));
 		const connectionId = providerIds.length === 1 ? options?.connectionId : undefined;
 		return {
 			targets: providerIds.map(providerId => ({ providerId: providerId, connectionId: connectionId })),
@@ -2918,6 +3079,24 @@ export class IntegrationService implements Disposable {
 		const results = await Promise.all(
 			options.orgs.map(async org => {
 				const connectionId = org.connectionId;
+				if (this.isIssueProviderId(org.providerId)) {
+					return {
+						items: [] as IssueShape[],
+						warnings: [
+							this.gitHostOnlySurfaceWarning(org.providerId, undefined, connectionId, 'issue broadening'),
+						],
+						broadenedProviderIds: [] as IntegrationIds[],
+						providerId: org.providerId,
+						org: org.name,
+						connectionId: connectionId,
+						nextCursor: undefined,
+						hasMore: false,
+						exhausted: false,
+						fetchFailed: true,
+						truncated: false,
+					};
+				}
+
 				const integration = await this.getIntegrationForRead(org.providerId, connectionId);
 				if (integration == null) {
 					// A requested connection that can't be resolved is a broken connection — surface it as a
@@ -2938,8 +3117,23 @@ export class IntegrationService implements Disposable {
 						truncated: false,
 					};
 				}
-				if (isIssuesIntegration(integration)) return undefined;
-
+				if (!isGitHostIntegration(integration)) {
+					return {
+						items: [] as IssueShape[],
+						warnings: [
+							this.gitHostOnlySurfaceWarning(org.providerId, undefined, connectionId, 'issue broadening'),
+						],
+						broadenedProviderIds: [] as IntegrationIds[],
+						providerId: org.providerId,
+						org: org.name,
+						connectionId: connectionId,
+						nextCursor: undefined,
+						hasMore: false,
+						exhausted: false,
+						fetchFailed: true,
+						truncated: false,
+					};
+				}
 				// A git host whose issue tracker is deprecated (Bitbucket) exposes no issues here — surface a
 				// warning + fetchFailed and skip it (no repo drain), so broadening never serves a legacy source.
 				if (!integration.supportsIssues) {
@@ -3538,7 +3732,7 @@ export class IntegrationService implements Disposable {
 					.getConfigured(id, { cloud: true })
 					.map(c => c.domain)
 					.filter((domain): domain is string => domain != null && domain.length > 0)) {
-					domains.add(domain);
+					domains.add(hostFromDomain(domain) ?? domain);
 				}
 
 				if (domains.size !== 0) {
@@ -3574,7 +3768,8 @@ export class IntegrationService implements Disposable {
 		domainsById: Map<IntegrationIds, Set<string>>,
 	): 'connected' | 'disconnected' {
 		if (isCloudGitSelfManagedHostIntegrationId(integration.id)) {
-			return domainsById.get(integration.id)?.has(integration.domain) ? 'connected' : 'disconnected';
+			const host = hostFromDomain(integration.domain) ?? integration.domain;
+			return domainsById.get(integration.id)?.has(host) ? 'connected' : 'disconnected';
 		}
 
 		return connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected';
@@ -3607,7 +3802,9 @@ export class IntegrationService implements Disposable {
 		const fallbackByDomain = new Map<string | undefined, string>();
 
 		for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
-			const domain = isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined;
+			const domain = isGitSelfManagedHostIntegrationId(id)
+				? (hostFromDomain(descriptor.domain) ?? descriptor.domain)
+				: undefined;
 			if (!fallbackByDomain.has(domain)) {
 				fallbackByDomain.set(domain, descriptor.id);
 			}
