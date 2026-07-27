@@ -6,7 +6,11 @@ import type { PagedResult } from '@gitlens/utils/paging.js';
 import { createManualTokenAuthProvider } from '../authentication/manualTokenProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { PullRequestSweepOptions } from '../manager.js';
@@ -1155,6 +1159,52 @@ suite('sweep + broaden (#5438)', () => {
 			['closed', 'merged'],
 			'the closed sweep state reaches the account-wide core',
 		);
+
+		manager.dispose();
+	});
+
+	test('sweepPullRequests reports issue providers as unsupported instead of dropping them silently', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		stubApi(gh, {
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			isRepoIdsInput: () => false,
+			getPullRequestsForRepos: () =>
+				Promise.resolve({
+					values: [providerPr('1')],
+					paging: { more: false, cursor: '{}' },
+				} satisfies PagedResult<ProviderPullRequest>),
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub, IssuesCloudHostIntegrationId.Jira],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['1'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(result.failedProviderIds, [IssuesCloudHostIntegrationId.Jira]);
+		assert.ok(result.warnings.some(w => /pull request sweeps is not supported/i.test(w.message)));
+
+		manager.dispose();
+	});
+
+	test('broadenIssues reports issue providers as unsupported instead of dropping them silently', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: IssuesCloudHostIntegrationId.Linear, name: 'linear-org' }],
+			page: 1,
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(result.broadenedProviderIds, []);
+		assert.ok(result.warnings.some(w => /issue broadening is not supported/i.test(w.message)));
 
 		manager.dispose();
 	});
