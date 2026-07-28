@@ -96,6 +96,18 @@ export interface IntegrationManager {
 		id?: IntegrationIds,
 		options?: { cloud?: boolean; domain?: string },
 	): ConfiguredIntegrationDescriptor[];
+	/**
+	 * The `filters` a provider accepts on `listPullRequestsPage`/`listIssuesPage` and the sweeps.
+	 *
+	 * The filter contract is all-or-nothing: a set containing even one unsupported filter is refused (empty
+	 * `items` + a warning + `fetchFailed`) rather than narrowed, because falling through to an unfiltered read
+	 * would return every pull request instead of the user's. Intersect against this before the read so a
+	 * cross-provider filter set never turns into a failed page. Static per provider — no connection required.
+	 *
+	 * Empty means no filter of that kind is expressible (issue trackers have no pull requests; Bitbucket exposes
+	 * no issues), which means "pass no filters", not "error".
+	 */
+	getSupportedFilters(providerId: IntegrationIds): { pullRequests: PullRequestFilter[]; issues: IssueFilter[] };
 	refreshConnections(): Promise<void>;
 	setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void>;
 	deleteConnection(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void>;
