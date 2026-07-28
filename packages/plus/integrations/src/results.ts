@@ -28,9 +28,29 @@ export interface ProviderWarning {
 export interface ProviderPageInfo {
 	currentPage: number;
 	itemsPerPage: number;
-	/** True when the read drained every page (a sweep), rather than returning a single page. */
+	/**
+	 * A COMPLETENESS assertion, not a mode flag: `true` only when a sweep drained every page of every target
+	 * without truncating or failing (`!truncated && !fetchFailed`). Set exclusively by `sweepPullRequests` /
+	 * `sweepClosedPullRequests` and absent on every paged read, so `allPages !== true` does NOT by itself mean
+	 * "this was a single page".
+	 *
+	 * This is the signal to gate on before caching a sweep as authoritative: unlike `truncated` it is `false`
+	 * for BOTH kinds of incompleteness, so it can't be misread as a benign cap.
+	 */
 	allPages?: boolean;
-	/** True when a sweep stopped at its `maxPages` cap with more pages still available. */
+	/**
+	 * True when the read stopped before it could confirm it had everything. Deliberately does NOT distinguish
+	 * WHY, and a consumer must not assume it means a provider ceiling — a sweep sets it from three different
+	 * origins:
+	 * - a provider-side ceiling or per-scope backstop propagated from below (e.g. GitHub Search's 1000-result
+	 *   cap): the missing items are NOT reachable, so this really is "complete to the provider's limit";
+	 * - the sweep's OWN `maxPages` cap (default 100) with a usable cursor still in hand: the missing items ARE
+	 *   reachable and were simply not fetched — raise `maxPages` to get them;
+	 * - the provider reporting another page but handing back no usable cursor: not reachable.
+	 *
+	 * Only the second is recoverable, and a sweep exposes no continuation cursor, so treating a truncated sweep
+	 * as a complete set silently drops reachable data in that case. Prefer `allPages` for the cache decision.
+	 */
 	truncated?: boolean;
 }
 
