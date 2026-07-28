@@ -823,7 +823,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						(branchId === branchIdOfMainWorktree ? mainWorktree : undefined);
 					const worktreeRef =
 						worktree != null
-							? { id: getWorktreeId(repoPath, worktree.name), path: worktree.path }
+							? {
+									id: getWorktreeId(repoPath, worktree.name),
+									path: worktree.path,
+									isDefault: worktree.isDefault === true,
+								}
 							: undefined;
 					refHeads.push({
 						id: branchId,
@@ -834,7 +838,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								? { name: branch.upstream.name, id: getBranchId(repoPath, true, branch.upstream.name) }
 								: undefined,
 						worktree: worktreeRef,
-						worktreeId: worktree?.isDefault === false ? worktreeRef?.id : undefined,
 						isDefault: defaultLocalName != null && tip === defaultLocalName,
 					});
 				}

@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { createWipRowId } from '../../../../../plus/graph/protocol.js';
 import type { RowMarkerTips } from '../rowMarker.utils.js';
 import {
 	combineRowMarkerRoles,
@@ -159,15 +160,19 @@ suite('shortRefName', () => {
 });
 
 suite('isPrimaryWipRow', () => {
-	test('primary workdir row → true', () => {
-		assert.strictEqual(isPrimaryWipRow('workdir', 'work-dir-changes'), true);
+	test("the selected repo's workdir row → true", () => {
+		assert.strictEqual(isPrimaryWipRow('workdir', createWipRowId('/repo'), '/repo'), true);
 	});
 
-	test('secondary worktree WIP row → false', () => {
-		assert.strictEqual(isPrimaryWipRow('workdir', 'worktree-wip::/repo.worktrees/a'), false);
+	test('a peer worktree WIP row → false', () => {
+		assert.strictEqual(isPrimaryWipRow('workdir', createWipRowId('/repo.worktrees/a'), '/repo'), false);
 	});
 
 	test('non-workdir rows → false', () => {
-		assert.strictEqual(isPrimaryWipRow('commit', 'aaa'), false);
+		assert.strictEqual(isPrimaryWipRow('commit', 'aaa', '/repo'), false);
+	});
+
+	test('unresolved selected repo path → false', () => {
+		assert.strictEqual(isPrimaryWipRow('workdir', createWipRowId('/repo'), undefined), false);
 	});
 });

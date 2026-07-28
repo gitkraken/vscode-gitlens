@@ -20,7 +20,8 @@ import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 export interface OverviewBarItem {
-	/** The WIP's sha (`uncommitted` for the primary worktree; `worktree-wip::<path>` for secondaries). */
+	/** The WIP's id: `uncommitted` for the graph's own worktree, its `wipMetadataBySha` row id (see
+	 *  `createWipRowId`) for a peer worktree. */
 	id: string;
 	/** User-visible branch name (already extracted from refs / falls back to worktree label). */
 	branch: string;

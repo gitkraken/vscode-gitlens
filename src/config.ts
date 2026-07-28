@@ -444,10 +444,8 @@ export interface GraphConfig {
 			readonly enabled: boolean;
 			readonly activityDecay: GraphActivityDecay;
 		};
-		readonly useNewEngine: boolean;
 		readonly persistSession: boolean;
 	};
-	readonly highlightRowsOnRefHover: boolean;
 	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {
 		readonly enabled: boolean;

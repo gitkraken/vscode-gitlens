@@ -459,13 +459,10 @@ export class GraphProducersService {
 	 * nothing populated to preserve.
 	 */
 	private updateRefsMetadataForIntegrationChange(drop: readonly GraphRefMetadataType[]): void {
-		// The legacy <gl-graph> has no reset-token plumbing — only a wholesale wipe makes GKC re-request the
-		// stripped types. Preserve the upstream-keeping strip ONLY for the new engine, which honors the token.
-		const useNewEngine = configuration.get('graph.experimental.useNewEngine') === true;
-		if (useNewEngine && this.isRefsMetadataEnabled && this._refsMetadata != null) {
+		if (this.isRefsMetadataEnabled && this._refsMetadata != null) {
 			this._refsMetadata = stripRefsMetadataTypes(this._refsMetadata, drop);
 		} else {
-			// Legacy engine, or the feature is off (→ `null`) / on-but-unpopulated (→ `undefined`): full wipe.
+			// The feature is off (→ `null`) or on-but-unpopulated (→ `undefined`): full wipe.
 			this.resetRefsMetadata();
 		}
 

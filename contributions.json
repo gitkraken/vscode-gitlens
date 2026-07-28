@@ -4338,7 +4338,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:expanded\\b/",
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /lanes:density:expanded\\b/",
 						"group": "2_columns",
 						"order": 3
 					}
@@ -4350,7 +4350,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:compact\\b/",
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /lanes:density:compact\\b/",
 						"group": "2_columns",
 						"order": 3
 					}
@@ -4364,7 +4364,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 						"group": "1_style",
 						"order": 1
 					}
@@ -4378,7 +4378,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 						"group": "1_style",
 						"order": 2
 					}
@@ -4392,7 +4392,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 						"group": "1_style",
 						"order": 3
 					}

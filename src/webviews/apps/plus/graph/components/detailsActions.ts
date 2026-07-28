@@ -62,7 +62,7 @@ import type {
 	TakeConflictSideResult,
 	UndoAutoRebaseResult,
 } from '../../../../plus/graph/graphService.js';
-import { isWipSha } from '../../../../plus/graph/protocol.js';
+import { isWipSelectionSha } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { ConflictDetails } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
@@ -520,8 +520,10 @@ export class DetailsActions {
 		return shas != null && shas.length >= 2;
 	}
 
+	/** A WIP selection carries EITHER the `uncommitted` revision (the graph's own selection path
+	 *  normalizes to it) or a synthetic WIP row id (alt-mode / host-action slots). */
 	isWip(sha?: string): boolean {
-		return isWipSha(sha);
+		return isWipSelectionSha(sha);
 	}
 
 	fromSha(shas: string[] | undefined, swapped: boolean): string | undefined {

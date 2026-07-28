@@ -21,10 +21,10 @@ import {
 } from '../utils/rowContext.utils.js';
 
 /**
- * Framework-agnostic data-shaping helpers shared by the Lit graph host: GitLens `GitGraphRow`
- * → commit-graph `GraphCommit` conversion and the legacy `GraphZoneType` ↔ commit-graph `ZoneId`
- * column-name translation. Lifted verbatim from the React adapter (`gl-lit-graph.react.tsx`)
- * so the engine sees identical input and persisted column settings stay interoperable.
+ * Lit-free data-shaping helpers shared by the graph host, its adornment providers, and the
+ * scroll-marker builder: GitLens `GitGraphRow` → commit-graph `GraphCommit`, and persisted
+ * `GraphColumnsSettings` ↔ engine `ZoneSpec[]`. Kept out of the element so every consumer shapes
+ * rows the same way and the conversions stay unit-testable without a DOM.
  */
 
 /**
@@ -48,16 +48,17 @@ export interface GraphCommitRef {
 	/** A head's upstream ref id (e.g. `<repo>|remotes/origin/main`) — links a local branch to the
 	 * remote it tracks (matched against a remote ref's `id` to find + jump to its row). */
 	upstreamId?: string;
-	/** Set when this head is checked out in another worktree (for the worktree ordering tiers). */
-	worktreeId?: string;
+	/** Set only when the branch is checked out in a worktree OTHER than the default one — the
+	 *  ref-ordering tier and the worktree glyph both mean "checked out elsewhere". */
+	secondaryWorktreeId?: string;
 	/** True when this head is the repo's default branch. */
 	isDefault?: boolean;
 	/** Remote-only: the hosting provider, when known — drives the ref pill's provider icon. */
 	hostingServiceType?: GkProviderId;
 	/** JSON-stringified `data-vscode-context` for this ref's pill (right-click menu). For a grouped ref
 	 *  this MERGES the ref's own item context (`webviewItem…`) with its refGROUP context
-	 *  (`webviewItemGroup…`) so the pill exposes BOTH the branch/remote actions AND "Hide All" — parity
-	 *  with the legacy engine, which stamped the two contexts on stacked elements. */
+	 *  (`webviewItemGroup…`) so the pill exposes BOTH the branch/remote actions AND "Hide All" — the pill
+	 *  is a single element, so there's no wrapper to carry the group keys separately. */
 	context?: string;
 	/** The ref's INDIVIDUAL serialized context — never the refGROUP keys `context` may also carry for
 	 *  grouped refs. The branch sheet's kebab + action links need row-menu parity for THIS ref
@@ -101,9 +102,9 @@ function serializeContext(value: unknown): string | undefined {
  * Merge a ref's own item context (`webviewItem`/`webviewItemValue`) with its refGROUP context
  * (`webviewItemGroup`/`webviewItemGroupValue`) into a single `data-vscode-context` object. The keys don't
  * collide, so a grouped pill's right-click menu exposes BOTH the branch/remote `when` clauses AND the
- * refGroup "Hide All" — matching the legacy engine, which stamped the two on stacked DOM elements (VS Code
- * merges `data-vscode-context` up the ancestor chain). Falls back to the group context (prior behavior) if
- * either isn't valid JSON.
+ * refGroup "Hide All". VS Code merges `data-vscode-context` up the ancestor chain, but the pill renders as
+ * ONE element — nothing above it carries the group keys — so they have to be merged here. Falls back to the
+ * group context (prior behavior) if either isn't valid JSON.
  */
 function mergeSerializedContexts(individual: string, group: string): string {
 	try {
@@ -114,7 +115,7 @@ function mergeSerializedContexts(individual: string, group: string): string {
 }
 
 /**
- * Convert a GitLens `GitGraphRow` into the commit-graph `GraphCommit` shape `processCommits` expects.
+ * Convert a GitLens `GitGraphRow` into the commit-graph `GraphCommit` shape `processCommitsAndSegments` expects.
  * `idLength` carries `gitlens.advanced.abbreviatedShaLength` into the rendered `shortHash`.
  */
 export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string): GraphCommitView {
@@ -176,11 +177,9 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			current: h.isCurrentHead,
 			upstreamName: h.upstream?.name,
 			upstreamId: h.upstream?.id,
-			// DELIBERATELY the deprecated `worktreeId`, NOT the canonical `h.worktree?.id`: the host leaves
-			// `worktreeId` undefined for the MAIN worktree while `worktree` is always set, and the ordering
-			// tier this feeds means "checked out in ANOTHER worktree" (see `sortRowRefs`). Switching to the
-			// canonical field would silently promote the main checkout into that tier.
-			worktreeId: h.worktreeId,
+			// The ordering tier and glyph mean "checked out in ANOTHER worktree" (see `sortRowRefs`), so
+			// the default worktree's own checkout must NOT qualify.
+			secondaryWorktreeId: h.worktree != null && !h.worktree.isDefault ? h.worktree.id : undefined,
 			isDefault: h.isDefault,
 			context: pillContextFor('head', h.name),
 			refContext: serializeContext(h.context),
@@ -212,7 +211,7 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 	}
 
 	const kind: 'commit' | 'merge' | 'stash' | 'workdir' =
-		row.type === 'work-dir-changes' || row.type === 'merge-conflict-node'
+		row.type === 'work-dir-changes'
 			? 'workdir'
 			: row.type === 'stash-node'
 				? 'stash'
@@ -220,9 +219,9 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 					? 'merge'
 					: 'commit';
 
-	// Inline row-action data, computed at the single git→view bridge (mirrors the legacy React
-	// adornment's per-row logic via the SAME shared utils, so the two surfaces can't drift). For
-	// non-commit rows these naturally resolve to false/undefined (no qualifying heads / flags).
+	// Inline row-action data, computed once here at the single git→view bridge (from the shared utils)
+	// rather than per-render, so every consumer of the view row gets the same answer. For non-commit
+	// rows these naturally resolve to false/undefined (no qualifying heads / flags).
 	const { currentHead, worktreeHead } = pickRowUndoTarget(row.heads, rowHasChildren(row));
 	const undo =
 		currentHead != null || worktreeHead != null
@@ -237,7 +236,6 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 		authorEmail: row.email,
 		date: row.date,
 		parents: row.parents,
-		refs: [],
 		commitRefs: commitRefs,
 		kind: kind,
 		type: row.type,
@@ -292,11 +290,10 @@ export function isTrackedUpstream(ref: GraphCommitRef, downstreams: GraphDownstr
 }
 
 /**
- * Whether a ref pill/scroll-marker should be hidden by the active visibility filters. Mirrors the
- * legacy engine's `getFilteredHeads/RemotesForGraphRow`: the current HEAD branch is ALWAYS kept;
- * otherwise a ref is hidden when it's listed by id (`excludeRefs`) or its type is excluded
- * (`excludeTypes`) — EXCEPT a remote that's a tracked upstream survives the type-level "Hide Remote
- * Branches" toggle (hiding it would silently break the split-pill's upstream segment). Label-level
+ * Whether a ref pill/scroll-marker should be hidden by the active visibility filters. The current HEAD
+ * branch is ALWAYS kept; otherwise a ref is hidden when it's listed by id (`excludeRefs`) or its type is
+ * excluded (`excludeTypes`) — EXCEPT a remote that's a tracked upstream survives the type-level "Hide
+ * Remote Branches" toggle (hiding it would silently break the split-pill's upstream segment). Label-level
  * only — commit rows are never removed by this (stash-ROW hiding via `excludeTypes.stashes` is
  * handled separately on the row set).
  */
@@ -339,7 +336,7 @@ export function isUpstreamRemoteOf(remote: GraphCommitRef, head: GraphCommitRef 
  * collation, so `v1.9.0` precedes `v1.10.0`) then the remote owner — never the rendered label, so the
  * order can't shift when `gitlens.graph.showRemoteNames` toggles and same-named remotes from different
  * owners stay adjacent. The upstream tiers match a remote ref to the current/worktree head's upstream;
- * they (and the worktree/default tiers) activate as the host carries `upstream` / `worktreeId` / a
+ * they (and the worktree/default tiers) activate as the host carries `upstream` / `worktree` / a
  * default flag (additive, legacy-safe) — until then those refs simply fall through to local/remote/tag,
  * which is what virtual/GitHub repos get since their provider ships none of those fields.
  *
@@ -350,11 +347,11 @@ export function sortRowRefs(refs: readonly GraphCommitRef[]): GraphCommitRef[] {
 	if (refs.length < 2) return refs.slice();
 
 	const currentHead = refs.find(r => r.kind === 'head' && r.current);
-	const worktreeHeads = refs.filter(r => r.kind === 'head' && r.worktreeId != null);
+	const worktreeHeads = refs.filter(r => r.kind === 'head' && r.secondaryWorktreeId != null);
 	const tier = (r: GraphCommitRef): number => {
 		if (r.kind === 'head') {
 			if (r.current) return 0; // the current checkout
-			if (r.worktreeId != null) return 2; // checked out in another worktree
+			if (r.secondaryWorktreeId != null) return 2; // checked out in another worktree
 			if (r.isDefault) return 4; // the repo's default branch
 			return 5; // local branch
 		}

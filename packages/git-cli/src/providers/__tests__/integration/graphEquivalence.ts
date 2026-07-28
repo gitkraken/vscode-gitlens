@@ -200,7 +200,7 @@ export function assertGraphsEquivalent(
  * Strips `reachabilityIndex` (compared via decoded membership) and the stripped `reachability` transient, then
  * JSON-normalizes so `key: undefined` and an absent key compare equal. That last step matters for R7c: a
  * restore's REUSED rows are round-tripped through JSON (persistence drops undefined-valued keys like a
- * remote-less head's `upstream`/`worktreeId`), while a fresh walk emits them explicitly — semantically
+ * remote-less head's `upstream`/`worktree`), while a fresh walk emits them explicitly — semantically
  * identical. Benign for fresh-vs-fresh comparisons (both sides normalize the same way).
  */
 function normalizeRow(row: GitGraphRow): unknown {

@@ -175,16 +175,6 @@ suite('GraphRowsSyncReceiver', () => {
 		assert.strictEqual(r.beginResync(), true, 'a fresh gap after recovery can resync again');
 	});
 
-	test('an absent sync stamp applies with legacy semantics and never moves the baseline', () => {
-		const r = new GraphRowsSyncReceiver();
-		r.initFromBootstrap(stamp(0, 4));
-
-		assert.deepStrictEqual(r.classify(undefined), { action: 'apply', snapshot: false });
-		r.commit(undefined);
-		assert.strictEqual(r.generation, 0);
-		assert.strictEqual(r.lastApplied, 4, 'a legacy (no-sync) push does not advance the baseline');
-	});
-
 	test('only the rows channel (commit) advances the baseline — a re-delivered bootstrap-seq push drops', () => {
 		// Single-writer discipline: a mid-session full-State push also carries `sync` (bootstrap-frozen),
 		// but the reducer never routes it through the receiver — only `DidChangeRows` calls `commit`. If

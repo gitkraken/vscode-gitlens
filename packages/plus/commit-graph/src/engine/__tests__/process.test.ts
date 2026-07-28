@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { processCommits, processCommitsAndSegments } from '../process.js';
+import { processCommitsAndSegments } from '../process.js';
 import type { GraphCommit } from '../types.js';
 
 function commit(hash: string, parents: string[], extra?: Partial<GraphCommit>): GraphCommit {
@@ -11,15 +11,14 @@ function commit(hash: string, parents: string[], extra?: Partial<GraphCommit>): 
 		authorEmail: 'test@example.com',
 		date: Date.parse('2026-01-01T00:00:00Z'),
 		parents: parents,
-		refs: [],
 		...extra,
 	};
 }
 
-suite('engine/process processCommits', () => {
+suite('engine/process processCommitsAndSegments', () => {
 	test('infers merge kind from parent count and aligns rows 1:1 with the input commits', () => {
 		const commits = [commit('M', ['A', 'B']), commit('A', ['C']), commit('B', ['C']), commit('C', [])];
-		const rows = processCommits(commits);
+		const { rows } = processCommitsAndSegments(commits);
 
 		assert.strictEqual(rows[0].kind, 'merge'); // two parents → merge
 		assert.strictEqual(rows[1].kind, 'commit'); // one parent → commit
@@ -33,30 +32,30 @@ suite('engine/process processCommits', () => {
 	});
 
 	test('consumer-supplied kind (workdir/stash) overrides the parent-count heuristic', () => {
-		const rows = processCommits([commit('W', ['A'], { kind: 'workdir' }), commit('A', [])]);
+		const { rows } = processCommitsAndSegments([commit('W', ['A'], { kind: 'workdir' }), commit('A', [])]);
 		assert.strictEqual(rows[0].kind, 'workdir');
 	});
 
 	test('carries the epoch-ms date through untouched for the layout tie-break', () => {
 		const ms = Date.parse('2026-01-01T00:00:00Z');
-		const rows = processCommits([commit('A', [], { date: ms })]);
+		const { rows } = processCommitsAndSegments([commit('A', [], { date: ms })]);
 		assert.strictEqual(rows[0].date, ms);
 	});
 
 	test('a non-finite date maps to 0 rather than NaN', () => {
-		const rows = processCommits([commit('A', [], { date: Number.NaN })]);
+		const { rows } = processCommitsAndSegments([commit('A', [], { date: Number.NaN })]);
 		assert.strictEqual(rows[0].date, 0);
 	});
 
 	test('does not mutate the input commits array or its elements', () => {
 		const commits = [commit('M', ['A', 'B']), commit('A', ['C']), commit('B', ['C']), commit('C', [])];
 		const snapshot = JSON.parse(JSON.stringify(commits));
-		processCommits(commits);
+		processCommitsAndSegments(commits);
 		assert.deepStrictEqual(commits, snapshot);
 	});
 });
 
-suite('engine/process processCommitsAndSegments', () => {
+suite('engine/process processCommitsAndSegments — segments', () => {
 	test('returns rows, fold segments, and unloaded columns together', () => {
 		const result = processCommitsAndSegments([commit('A', ['B']), commit('B', ['C']), commit('C', [])]);
 		assert.strictEqual(result.rows.length, 3);

@@ -21,7 +21,7 @@ import type {
 	GraphSidebarTag,
 	GraphSidebarWorktree,
 } from '../../../../plus/graph/protocol.js';
-import { createWipSha } from '../../../../plus/graph/protocol.js';
+import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import {
 	branchTooltip,
 	remoteTooltip,
@@ -1031,8 +1031,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// to wiring up a wrong family.
 		const sameFamily = graph != null && session.commonPath === graph.family;
 		if (!sameFamily) return {};
+		// The row id keys off the SESSION's worktree, never `commonPath` — a session on the main
+		// worktree has `worktreePath === commonPath`, and keying off the latter would point at
+		// whichever worktree the graph is showing instead of the session's own.
 		return {
-			wipSha: worktreePath != null ? createWipSha(worktreePath, graph.repoPath) : undefined,
+			wipSha: worktreePath != null ? createWipRowId(worktreePath) : undefined,
 			scope:
 				session.worktree?.branch != null
 					? { branchName: session.worktree.branch.name, upstreamName: session.worktree.branch.upstreamName }

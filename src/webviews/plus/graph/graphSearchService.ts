@@ -1,6 +1,6 @@
 import type { CancellationTokenSource } from 'vscode';
 import { GitSearchError } from '@gitlens/git/errors.js';
-import type { GitGraph, GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -23,7 +23,7 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { SelectedRowState } from './graphWebview.js';
-import { DidSearchNotification } from './protocol.js';
+import { createWipRowId, DidSearchNotification } from './protocol.js';
 import type {
 	DidSearchParams,
 	GraphSearchMode,
@@ -460,7 +460,7 @@ export class GraphSearchService {
 		// `now` is the primary row's REAL position, not a fallback: the graph places work-dir changes at
 		// the start of the timeline rather than against a commit, so anything time-positioned should
 		// put it at the newest edge.
-		results.set('work-dir-changes' satisfies GitGraphRowType, { i: i++, date: now });
+		results.set(createWipRowId(this.repository.path), { i: i++, date: now });
 		for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
 			// Secondary WIP rows ARE anchored to a commit (their worktree HEAD), so date them there —
 			// the minimap already places its worktree markers by `parentSha`, and dating these at "now"
@@ -479,7 +479,7 @@ export class GraphSearchService {
 		};
 		this._search = updateSearchMode(this.container, search);
 
-		this.context.setSelectedRows('work-dir-changes' satisfies GitGraphRowType);
+		this.context.setSelectedRows(primaryWipRowId);
 		const selectedRows = this.context.getConvertedSelectedRows();
 
 		const resultData = this.getSearchResultsData(this._search) ?? {

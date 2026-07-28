@@ -41,7 +41,6 @@
 		"**/out",
 		"**/node_modules",
 		"images/settings",
-		"**/.gitkraken-components.version",
 		"**/custom-elements.json",
 		"**/gitlens-*.vsix",
 		"**/product.json",
@@ -280,7 +279,7 @@
 	},
 	"overrides": [
 		{
-			"files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
+			"files": ["**/*.ts", "**/*.mts", "**/*.cts"],
 			"rules": {
 				"constructor-super": "off",
 				"getter-return": "off",
@@ -377,11 +376,6 @@
 							"vm",
 							"zlib",
 							{
-								"name": "react-dom",
-								"importNames": ["Container"],
-								"message": "Use our Container instead"
-							},
-							{
 								"name": "vscode",
 								"importNames": ["CancellationError"],
 								"message": "Use our CancellationError instead"
@@ -461,11 +455,6 @@
 					"error",
 					{
 						"paths": [
-							{
-								"name": "react-dom",
-								"importNames": ["Container"],
-								"message": "Use our Container instead"
-							},
 							{
 								"name": "vscode",
 								"importNames": ["CancellationError"],
@@ -647,6 +636,35 @@
 			}
 		},
 		{
+			// The commit-graph engine is deliberately host- and renderer-agnostic, which was convention
+			// only — nothing failed if a GitLens type crept in. These bans make the boundary real. Scoped
+			// to this package alone: the sibling plus packages legitimately import `@gitlens/*`.
+			"files": ["packages/plus/commit-graph/src/**/*"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [{ "name": "vscode", "message": "Packages must not import vscode" }],
+						"patterns": [
+							{
+								"group": ["@gitlens/*", "@gitlens/**", "@gitkraken/*", "@gitkraken/**"],
+								"message": "The commit-graph engine must not depend on GitLens or the host. Make the module generic over the package's own row types and inject an accessor from the consumer instead — see `scope.ts`'s heads predicate."
+							},
+							{
+								"group": ["**/container.js", "**/container"],
+								"importNames": ["Container"],
+								"message": "Packages must not import Container"
+							},
+							{
+								"group": ["**/-webview/**/*"],
+								"message": "Packages must not import -webview modules"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
 			"files": ["packages/plus/integrations/src/**/*"],
 			"rules": {
 				"no-restricted-imports": [
@@ -722,11 +740,6 @@
 							"util",
 							"vm",
 							"zlib",
-							{
-								"name": "react-dom",
-								"importNames": ["Container"],
-								"message": "Use our Container instead"
-							},
 							{
 								"name": "vscode",
 								"importNames": ["CancellationError"],

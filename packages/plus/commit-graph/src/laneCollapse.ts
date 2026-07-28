@@ -1,6 +1,5 @@
-import { carriedEdgesEqual, collapsedLinkKey, computeEdges } from '@gitkraken/commit-graph/engine/edges.js';
-import type { LaneSegment, ProcessedGraphRow, RowEdges, Sha } from '@gitkraken/commit-graph/engine/types.js';
-import type { GitGraphRow } from '@gitlens/git/models/graph.js';
+import { carriedEdgesEqual, collapsedLinkKey, computeEdges } from './engine/edges.js';
+import type { LaneSegment, ProcessedGraphRow, RowEdges, Sha } from './engine/types.js';
 
 /**
  * Walk the segment list and return the tip-sha of the segment whose `commitShas` includes
@@ -624,27 +623,4 @@ export function compactColumns<T extends ProcessedGraphRow>(rows: readonly T[]):
 
 		return { ...r, column: colMap.get(r.column) ?? 0, edges: edges, edgeColumnMax: max };
 	});
-}
-
-/**
- * Branch-hint resolver — gives the chip a "+N in feat-foo" label when the segment's tip
- * happens to carry a head ref. Prefers a non-current head, falling back to the first head,
- * then to the first remote's `owner/name` (or bare `name`). Returns `undefined` for unreffed
- * tips, in which case the chip just shows "+N".
- *
- * Takes a pre-built sha→row map, not the raw rows array — this runs once per collapsed-lane tip
- * (potentially many per adornment-resolve pass), so the caller builds the index once per rows
- * generation instead of this doing an O(rows) `.find()` per tip.
- */
-export function branchHintFor(rowBySha: ReadonlyMap<Sha, GitGraphRow> | undefined, tipSha: Sha): string | undefined {
-	const row = rowBySha?.get(tipSha);
-	if (row == null) return undefined;
-
-	const head = row.heads?.find(h => !h.isCurrentHead) ?? row.heads?.[0];
-	if (head != null) return head.name;
-
-	const remote = row.remotes?.[0];
-	if (remote != null) return remote.owner ? `${remote.owner}/${remote.name}` : remote.name;
-
-	return undefined;
 }

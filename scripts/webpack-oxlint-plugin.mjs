@@ -80,13 +80,7 @@ export class OxLintWebpackPlugin {
 				compilation.hooks.succeedModule.tap(this.key, ({ resource }) => {
 					if (resource) {
 						const [file] = resource.split('?');
-						if (
-							(file.endsWith('.ts') ||
-								file.endsWith('.tsx') ||
-								file.endsWith('.js') ||
-								file.endsWith('.jsx')) &&
-							!file.includes('node_modules')
-						) {
+						if ((file.endsWith('.ts') || file.endsWith('.js')) && !file.includes('node_modules')) {
 							files.push(file);
 						}
 					}

@@ -47,7 +47,7 @@ suite('graph ref ordering — sortRowRefs tiers', () => {
 			head('main', { isDefault: true }),
 			{ ...trackedHead('current', 'origin'), current: true },
 			remote('origin', 'current'),
-			{ ...trackedHead('wt', 'origin'), worktreeId: 'wt1' },
+			{ ...trackedHead('wt', 'origin'), secondaryWorktreeId: 'wt1' },
 		];
 
 		assert.deepStrictEqual(keys(sortRowRefs(refs)), [

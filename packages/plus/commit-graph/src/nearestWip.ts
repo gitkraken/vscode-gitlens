@@ -1,12 +1,32 @@
-import type { GitGraphRow } from '@gitlens/git/models/graph.js';
-import { uncommitted } from '@gitlens/git/models/revision.js';
-import type { ColumnNumberBySha, GraphWipMetadataBySha, ReadonlyGraphRow } from '../../../../plus/graph/protocol.js';
+import type { Sha } from './engine/types.js';
 
-type Row = GitGraphRow | ReadonlyGraphRow;
+/**
+ * Minimum row shape the WIP search reads — a sha plus its parent links. Consumers pass their own row
+ * type; any superset works.
+ */
+export interface WipSearchRow {
+	sha: Sha;
+	parents?: readonly Sha[];
+}
+
+/** Map of commit sha → the column (lane) index it was laid out in. */
+export type ColumnNumberBySha = Readonly<Record<Sha, number>>;
+
+/**
+ * Minimum WIP-metadata shape the search reads — each WIP row's first-parent anchor, keyed by the WIP
+ * row's own sha. Consumers pass their own metadata record; any superset works.
+ */
+export type WipMetadataBySha = Readonly<Record<Sha, { readonly parentSha?: Sha }>>;
 
 export interface WipCandidate {
-	sha: string;
-	anchor: string;
+	sha: Sha;
+	anchor: Sha;
+	/**
+	 * True for the host's PRIMARY working-changes row — the one the caller falls back to when no WIP
+	 * matches. Host-supplied because the primary's sha is a host sentinel the engine doesn't know.
+	 * Wins every tie-break, so the picked WIP never depends on metadata iteration order.
+	 */
+	primary?: boolean;
 }
 
 /**
@@ -20,28 +40,28 @@ export interface WipCandidate {
  *     commit, pick the one whose anchor is closest by row distance. The WIP's own row column
  *     and its anchor's column are the same by construction (the synthetic WIP row inherits
  *     the anchor's lane), so anchor column is the canonical lane signal.
- *  3. **Otherwise → undefined.** Caller falls back to the primary WIP (`uncommitted`). No
- *     attempt to pick across lanes — clicking a commit on an unrelated lane shouldn't trigger
- *     a jump to a branch in a different visual lane.
+ *  3. **Otherwise → undefined.** Caller falls back to the primary WIP. No attempt to pick
+ *     across lanes — clicking a commit on an unrelated lane shouldn't trigger a jump to a
+ *     branch in a different visual lane.
  *
  * Returns undefined when `columnsBySha` is missing entirely or when `fromSha`'s column isn't
  * yet known (column data hasn't been computed for the clicked row). The caller should fall
  * through to a non-column-aware strategy in that case.
  */
 export function findWipInColumn(
-	fromSha: string,
-	rows: readonly Row[] | undefined,
-	primaryAnchor: string | undefined,
-	wipMetadataBySha: GraphWipMetadataBySha | undefined,
+	fromSha: Sha,
+	rows: readonly WipSearchRow[] | undefined,
+	primary: WipCandidate | undefined,
+	wipMetadataBySha: WipMetadataBySha | undefined,
 	columnsBySha: ColumnNumberBySha | undefined,
-): string | undefined {
+): Sha | undefined {
 	if (rows == null || rows.length === 0) return undefined;
 	if (columnsBySha == null) return undefined;
 
 	const fromColumn = columnsBySha[fromSha];
 	if (fromColumn == null) return undefined;
 
-	const rowIndexBySha = new Map<string, number>();
+	const rowIndexBySha = new Map<Sha, number>();
 	for (let i = 0; i < rows.length; i++) {
 		rowIndexBySha.set(rows[i].sha, i);
 	}
@@ -52,8 +72,8 @@ export function findWipInColumn(
 	// — git doesn't let two worktrees share a HEAD — but kept for symmetry with iteration
 	// order of the column-distance loop below).
 	const wips: WipCandidate[] = [];
-	if (primaryAnchor != null) {
-		wips.push({ sha: uncommitted, anchor: primaryAnchor });
+	if (primary != null) {
+		wips.push(primary);
 	}
 	if (wipMetadataBySha != null) {
 		for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
@@ -86,13 +106,13 @@ export function findWipInColumn(
 	// that feature is a side-extension of the lane's principal branch.
 	//
 	// Filters:
-	// - **Column**: an anchor whose column isn't yet in `columnsBySha` (GK emits columns only
-	//   for visible rows, or hasn't recomputed after a fresh secondary load) is treated as
+	// - **Column**: an anchor whose column isn't yet in `columnsBySha` (columns are emitted only
+	//   for visible rows, or haven't been recomputed after a fresh secondary load) is treated as
 	//   "lane unknown — keep" rather than silently dropped, so partial-column-load doesn't
 	//   lose valid in-lane WIPs.
 	// - **Above-only**: a WIP whose anchor is BELOW (older than) the click means the branch
 	//   tip is past the click — the click can't be in that branch's history. Skip.
-	let best: { sha: string; distance: number } | undefined;
+	let best: { sha: Sha; distance: number; primary?: boolean } | undefined;
 	for (const wip of wips) {
 		const anchorColumn = columnsBySha[wip.anchor];
 		if (anchorColumn != null && anchorColumn !== fromColumn) continue;
@@ -105,9 +125,10 @@ export function findWipInColumn(
 		if (
 			best == null ||
 			distance > best.distance ||
-			(distance === best.distance && preferOver(wip, { sha: best.sha, anchor: wip.anchor }))
+			(distance === best.distance &&
+				preferOver(wip, { sha: best.sha, anchor: wip.anchor, primary: best.primary }))
 		) {
-			best = { sha: wip.sha, distance: distance };
+			best = { sha: wip.sha, distance: distance, primary: wip.primary };
 		}
 	}
 
@@ -115,43 +136,42 @@ export function findWipInColumn(
 }
 
 /**
- * Stable tie-break for two WIP candidates with the same range/distance score. Primary
- * (`uncommitted`) always wins over a secondary; among two secondaries the lexicographically
- * smaller `sha` wins. Together these eliminate dependence on `wipMetadataBySha` insertion
- * order — a host-side re-ordering of the metadata object can't flip the picked WIP between
- * renders for the same click.
+ * Stable tie-break for two WIP candidates with the same range/distance score. The primary WIP
+ * always wins over a secondary; among two secondaries the lexicographically smaller `sha` wins.
+ * Together these eliminate dependence on `wipMetadataBySha` insertion order — a host-side
+ * re-ordering of the metadata object can't flip the picked WIP between renders for the same click.
  */
 function preferOver(candidate: WipCandidate, current: WipCandidate): boolean {
 	if (candidate.sha === current.sha) return false;
-	if (candidate.sha === uncommitted) return true;
-	if (current.sha === uncommitted) return false;
+	if (candidate.primary) return true;
+	if (current.primary) return false;
 	return candidate.sha < current.sha;
 }
 
 /**
- * Defensive fallback for the brief window where `onColumnsCalculated` hasn't fired yet (e.g.
+ * Defensive fallback for the brief window where the column map hasn't been published yet (e.g.
  * first paint after launch, immediately after a scope change). Walks each WIP's parent chain
  * looking for `fromSha` and picks the closest in BFS-ancestor distance. Without this, every
  * click during the column-load gap would blindly snap to the primary WIP.
  *
- * Falls back to the primary WIP (`uncommitted`) if present in `wips`, else the first wip,
- * when no candidate's chain reaches `fromSha`. Returns undefined only when `wips` is empty.
+ * Falls back to the primary WIP if present in `wips`, else the first wip, when no candidate's
+ * chain reaches `fromSha`. Returns undefined only when `wips` is empty.
  */
 export function findNearestWipByAncestry(
-	fromSha: string,
+	fromSha: Sha,
 	wips: readonly WipCandidate[],
-	rows: readonly Row[] | undefined,
-): string | undefined {
+	rows: readonly WipSearchRow[] | undefined,
+): Sha | undefined {
 	if (wips.length === 0) return undefined;
 
-	const rowsBySha = new Map<string, Row>();
+	const rowsBySha = new Map<Sha, WipSearchRow>();
 	if (rows != null) {
 		for (const row of rows) {
 			rowsBySha.set(row.sha, row);
 		}
 	}
 
-	let best: { sha: string; distance: number } | undefined;
+	let best: { sha: Sha; distance: number } | undefined;
 	for (const wip of wips) {
 		const distance = bfsAncestorDistance(wip.anchor, fromSha, rowsBySha, rowsBySha.size);
 		if (distance === -1) continue;
@@ -162,23 +182,23 @@ export function findNearestWipByAncestry(
 	}
 
 	if (best != null) return best.sha;
-	return wips.find(w => w.sha === uncommitted)?.sha ?? wips[0].sha;
+	return wips.find(w => w.primary)?.sha ?? wips[0].sha;
 }
 
 function bfsAncestorDistance(
-	start: string,
-	target: string,
-	rowsBySha: ReadonlyMap<string, Row>,
+	start: Sha,
+	target: Sha,
+	rowsBySha: ReadonlyMap<Sha, WipSearchRow>,
 	maxVisit: number,
 ): number {
 	if (start === target) return 0;
 
-	const visited = new Set<string>([start]);
-	let frontier: string[] = [start];
+	const visited = new Set<Sha>([start]);
+	let frontier: Sha[] = [start];
 	let distance = 0;
 	while (frontier.length > 0 && visited.size <= maxVisit) {
 		distance++;
-		const next: string[] = [];
+		const next: Sha[] = [];
 		for (const sha of frontier) {
 			const row = rowsBySha.get(sha);
 			if (row == null) continue;

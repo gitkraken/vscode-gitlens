@@ -1,5 +1,5 @@
 import { css, html, LitElement } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { getAltKeySymbol, getCmdKeySymbol, getShiftKeySymbol, isMac } from '@env/platform.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/dialog.js';
@@ -17,13 +17,13 @@ type Chord = string[];
 type Shortcut = { chords: Chord[]; description: string };
 type ShortcutGroup = { title: string; shortcuts: Shortcut[] };
 
-// Chrome shared by both graph engines — search-box/search-input, gl-commit-box, and the
-// hover/minimap Escape handlers all live outside the swapped renderer, so their bindings don't vary.
+// Chrome bindings — owned by search-box/search-input, gl-commit-box, and the hover/minimap Escape
+// handlers rather than the graph rows, so they stay in effect regardless of what the graph renders.
 const openGroup: ShortcutGroup = {
 	title: 'Open',
 	shortcuts: [
 		{ chords: [['Enter']], description: 'Open the selected commit' },
-		{ chords: [['Space']], description: 'Open commit, keep focus in graph' },
+		{ chords: [['Space']], description: 'Select commit, keep focus in graph' },
 	],
 };
 const searchGroup: ShortcutGroup = {
@@ -43,9 +43,8 @@ const commitGroup: ShortcutGroup = {
 	title: 'Commit',
 	shortcuts: [{ chords: [[ctrlOrCmd, 'Enter']], description: 'Commit staged changes (in commit box)' }],
 };
-// Split per-engine: the lane-highlight hold modifier differs (new engine = Alt-hover; old = Ctrl/Cmd
-// dim), while the Esc row is shared chrome present in both.
-const litOtherGroup: ShortcutGroup = {
+// Not derivable from the graph's `onKeydown` — Alt is a hold modifier, and Esc is chrome (hover/error/minimap).
+const otherGroup: ShortcutGroup = {
 	title: 'Other',
 	shortcuts: [
 		{
@@ -55,16 +54,9 @@ const litOtherGroup: ShortcutGroup = {
 		{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' },
 	],
 };
-const legacyOtherGroup: ShortcutGroup = {
-	title: 'Other',
-	shortcuts: [
-		{ chords: [[ctrlOrCmd]], description: "Hold to dim rows outside the selected commit's lane" },
-		{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' },
-	],
-};
 
-// New engine — mirrors the Lit graph's `onKeydown` (navigation + open + fold).
-const litNavigationGroup: ShortcutGroup = {
+// Mirrors the graph's `onKeydown` (navigation + open + fold) — keep in sync when its bindings change.
+const navigationGroup: ShortcutGroup = {
 	title: 'Navigation',
 	shortcuts: [
 		{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
@@ -103,48 +95,7 @@ const litNavigationGroup: ShortcutGroup = {
 		{ chords: [['Esc']], description: 'Clear selection' },
 	],
 };
-const litGroups: ShortcutGroup[] = [litNavigationGroup, openGroup, searchGroup, commitGroup, litOtherGroup];
-
-// Old engine — mirrors gitkraken-components GraphContainer's keydown handler.
-const legacyNavigationGroup: ShortcutGroup = {
-	title: 'Navigation',
-	shortcuts: [
-		{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
-		{ chords: [['←'], ['→']], description: 'Select next / previous commit (non-topological)' },
-		{
-			chords: [
-				[shift, '↑'],
-				[shift, '↓'],
-			],
-			description: 'Extend selection up / down',
-		},
-		{
-			chords: [
-				[ctrlOrCmd, '↑'],
-				[ctrlOrCmd, '↓'],
-			],
-			description: 'Select topologically (follow branch lineage)',
-		},
-		{
-			chords: [
-				[alt, '↑'],
-				[alt, '↓'],
-			],
-			description: 'Select previous / next branching point',
-		},
-		{ chords: [['Home'], ['End']], description: 'Select first / last commit' },
-		{ chords: [['PgUp'], ['PgDn']], description: 'Move selection up / down a page' },
-		{
-			chords: [
-				[alt, 'PgUp'],
-				[alt, 'PgDn'],
-			],
-			description: 'Select previous / next ref',
-		},
-		{ chords: [['H']], description: 'Select HEAD commit (hold Shift for its upstream)' },
-	],
-};
-const legacyGroups: ShortcutGroup[] = [legacyNavigationGroup, openGroup, searchGroup, commitGroup, legacyOtherGroup];
+const shortcutGroups: ShortcutGroup[] = [navigationGroup, openGroup, searchGroup, commitGroup, otherGroup];
 
 @customElement('gl-graph-keyboard-shortcuts')
 export class GlGraphKeyboardShortcuts extends LitElement {
@@ -262,10 +213,6 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 		}
 	`;
 
-	/** Which engine's bindings to document — the dialog is shared chrome, the graph renderer isn't. */
-	@property({ type: Boolean })
-	useNewEngine = false;
-
 	@state()
 	private open = false;
 
@@ -278,7 +225,6 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 	}
 
 	override render(): unknown {
-		const groups = this.useNewEngine ? litGroups : legacyGroups;
 		return html`<gl-dialog
 			class="shortcuts-dialog"
 			modal
@@ -293,7 +239,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 						<code-icon icon="close"></code-icon>
 					</button>
 				</header>
-				<div class="groups">${groups.map(g => this.renderGroup(g))}</div>
+				<div class="groups">${shortcutGroups.map(g => this.renderGroup(g))}</div>
 				<p class="footnote">Shortcuts apply while the Commit Graph has focus.</p>
 			</div>
 		</gl-dialog>`;

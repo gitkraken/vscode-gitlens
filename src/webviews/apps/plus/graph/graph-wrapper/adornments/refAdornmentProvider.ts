@@ -40,7 +40,7 @@ export interface ParsedRef {
 	/** A head's upstream ref id — links a local branch to the remote it tracks (split pill). */
 	upstreamId?: string;
 	/** Set when this head is checked out in another worktree. */
-	worktreeId?: string;
+	secondaryWorktreeId?: string;
 	/** True when this head is the repo's default branch. */
 	isDefault?: boolean;
 	/** Remote-only: the hosting provider, when known — drives the ref pill's provider icon. */
@@ -101,7 +101,7 @@ export function toParsedRefs(refs: readonly GraphCommitRef[]): ParsedRef[] {
 		owner: r.kind === 'remote' ? r.owner : undefined,
 		upstreamName: r.upstreamName,
 		upstreamId: r.upstreamId,
-		worktreeId: r.worktreeId,
+		secondaryWorktreeId: r.secondaryWorktreeId,
 		isDefault: r.isDefault,
 		hostingServiceType: r.hostingServiceType,
 		context: r.context,
@@ -442,7 +442,7 @@ export function renderRefPill(
 		upstreamSegment = fromSha != null ? renderUpstreamSegment(primary, fromSha, hooks, upstreamOnRow) : nothing;
 	}
 
-	// PR/issue chips: first item only (parity with the legacy graph, which shows a single badge per pill).
+	// PR/issue chips: first item only — a pill has room for a single badge of each kind.
 	// Rendered twice — icon-only for the resting pill, icon+label for the hover-expand overlay copy below.
 	const prMeta = firstRefMetadata(hooks, (h, r) => h.getPullRequests(r), primary, upstreamOnRow);
 	const prChip = prMeta != null ? renderPrChip(prMeta.item, prMeta.ref, false) : nothing;
@@ -846,16 +846,15 @@ function remoteRefIcon(hostingServiceType: GkProviderId | undefined): string {
 // Ref codicons: `vm` for a local branch/HEAD (the "local machine" counterpart to the remote cloud),
 // `cloud`/a provider glicon for remote, `tag` for tags. The CURRENT head (`current`) uses `vm-active` so the
 // current branch stands out (on top of the filled pill); a NON-current head checked out in another worktree swaps
-// to the worktree glyph (old-engine parity: `worktreeId` — see `GitGraphRowHead.worktreeId` — is what
-// GKC's bundled renderer reads to make the same swap). `code-icon` inherits the pill's color (lane /
-// white-on-hover).
+// to the worktree glyph (`secondaryWorktreeId`, derived from `GitGraphRowHead.worktree`). `code-icon`
+// inherits the pill's color (lane / white-on-hover).
 function renderRefIcon(ref: ParsedRef): TemplateResult {
 	let icon: string;
 	if (ref.kind === 'tag') {
 		icon = 'tag';
 	} else if (ref.kind === 'remote') {
 		icon = remoteRefIcon(ref.hostingServiceType);
-	} else if (ref.worktreeId != null && ref.current !== true) {
+	} else if (ref.secondaryWorktreeId != null && ref.current !== true) {
 		icon = 'gl-worktree-filled';
 	} else if (ref.current === true) {
 		icon = 'vm-active';

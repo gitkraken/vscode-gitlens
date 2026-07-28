@@ -382,7 +382,7 @@ function getExtensionConfig(target, mode, env) {
 				{
 					exclude: /\.d\.ts$/,
 					include: [path.join(__dirname, 'src'), path.join(__dirname, 'packages')],
-					test: /\.tsx?$/,
+					test: /\.ts$/,
 					use: {
 						loader: 'esbuild-loader',
 						options: {
@@ -410,7 +410,7 @@ function getExtensionConfig(target, mode, env) {
 				// This dependency is unnecessary for our use-case
 				'whatwg-url': path.resolve(__dirname, 'patches', 'whatwg-url.js'),
 			},
-			extensionAlias: { '.js': ['.ts', '.js'], '.jsx': ['.tsx', '.jsx'] },
+			extensionAlias: { '.js': ['.ts', '.js'] },
 			fallback: {
 				'../../../product.json': false,
 				...(target === 'webworker'
@@ -425,7 +425,7 @@ function getExtensionConfig(target, mode, env) {
 					: {}),
 			},
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
-			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+			extensions: ['.ts', '.js', '.json'],
 		},
 		ignoreWarnings: [
 			// Ignore dynamic require warning for platform-agnostic async_hooks detection
@@ -709,7 +709,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				{
 					exclude: /\.d\.ts$/,
 					include: [path.join(__dirname, 'src'), path.join(__dirname, 'packages')],
-					test: /\.tsx?$/,
+					test: /\.ts$/,
 					use: [
 						{
 							loader: 'esbuild-loader',
@@ -745,20 +745,14 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 				'signal-polyfill': path.resolve(__dirname, 'node_modules', 'signal-polyfill'),
 				...getLibraryAliases(),
 				...getUtilsEnvAliases('webworker'),
-				react: path.resolve(__dirname, 'node_modules', 'react'),
-				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
 				...overrides.alias,
 			},
-			extensionAlias: { '.js': ['.ts', '.js'], '.jsx': ['.tsx', '.jsx'] },
+			extensionAlias: { '.js': ['.ts', '.js'] },
 			fallback: { path: require.resolve('path-browserify') },
-			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+			extensions: ['.ts', '.js', '.json'],
 			modules: [basePath, 'node_modules'],
 			conditionNames: ['browser', 'import', 'module', 'default'],
 		},
-		ignoreWarnings: [
-			// Ignore warnings about findDOMNode being removed from React 19
-			{ module: /@gitkraken[\\/]gitkraken-components/, message: /export 'findDOMNode'/ },
-		],
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' }, // enables logging required for problem matchers
 		stats: stats,
@@ -1369,7 +1363,7 @@ class CustomElementsManifestPlugin {
 		let max = 0;
 		try {
 			for (const entry of fs.readdirSync(this.#sourcesDir, { recursive: true, withFileTypes: true })) {
-				if (!entry.isFile() || !/\.tsx?$/.test(entry.name)) continue;
+				if (!entry.isFile() || !/\.ts$/.test(entry.name)) continue;
 				try {
 					const m = fs.statSync(path.join(entry.parentPath, entry.name)).mtimeMs;
 					if (m > max) max = m;
@@ -1412,7 +1406,7 @@ class CustomElementsManifestPlugin {
 				}
 			} else {
 				const changed = [...(compiler.modifiedFiles ?? []), ...(compiler.removedFiles ?? [])];
-				const relevant = changed.some(f => f.includes(this.#sourcePrefix) && /\.tsx?$/.test(f));
+				const relevant = changed.some(f => f.includes(this.#sourcePrefix) && /\.ts$/.test(f));
 				if (!relevant) {
 					callback();
 					return;

@@ -1,8 +1,7 @@
 import * as assert from 'assert';
-import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
-import type { GitGraphRow } from '@gitlens/git/models/graph.js';
-import type { GraphScope } from '../../../../../plus/graph/protocol.js';
-import { computeScopeAnchors, computeScopeProjection } from '../graph-scope.js';
+import type { ProcessedGraphRow, Sha } from '../engine/types.js';
+import type { FocalScope } from '../scope.js';
+import { computeScopeAnchors, computeScopeProjection } from '../scope.js';
 
 // Shared fixture: `feature` rebased onto `main`, newest -> oldest.
 //   F2 -> F1 -> M3 (main tip) -> M2 -> M1 -> M0
@@ -16,20 +15,26 @@ const parentsBySha: Record<Sha, Sha[]> = {
 };
 const shas = Object.keys(parentsBySha);
 
-const rows = shas.map(sha => {
-	const row: Partial<GitGraphRow> = {
-		sha: sha,
-		parents: parentsBySha[sha],
-		type: 'commit-node',
-		heads:
-			sha === 'F2'
-				? [{ id: 'h-feature', name: 'feature', isCurrentHead: true }]
-				: sha === 'M3'
-					? [{ id: 'h-main', name: 'main', isCurrentHead: false }]
-					: undefined,
-	};
-	return row as GitGraphRow;
-});
+/** Host row shape: the scope math's minimum (sha + parents) plus the ref metadata the injected
+ *  heads predicate reads — the engine never sees `heads` itself. */
+interface HostRow {
+	sha: Sha;
+	parents: Sha[];
+	heads?: { id: string; name: string; isCurrentHead: boolean }[];
+}
+
+const rows: HostRow[] = shas.map(sha => ({
+	sha: sha,
+	parents: parentsBySha[sha],
+	heads:
+		sha === 'F2'
+			? [{ id: 'h-feature', name: 'feature', isCurrentHead: true }]
+			: sha === 'M3'
+				? [{ id: 'h-main', name: 'main', isCurrentHead: false }]
+				: undefined,
+}));
+
+const hasHead = (row: HostRow, branchName: string): boolean => row.heads?.some(h => h.name === branchName) ?? false;
 
 const processedRows: ProcessedGraphRow[] = shas.map(sha => ({
 	sha: sha,
@@ -40,7 +45,14 @@ const processedRows: ProcessedGraphRow[] = shas.map(sha => ({
 	edgeColumnMax: 0,
 }));
 
-function scopeTo(mergeBaseSha: Sha | undefined, mergeTargetTipSha: Sha | undefined): GraphScope {
+/** Host scope shape: the scope math's minimum plus the extra fields a consumer carries — the math
+ *  reads only the minimum, so any superset works. */
+interface HostScope extends FocalScope {
+	branchRef: string;
+	mergeBase?: { sha: Sha; date: number };
+}
+
+function scopeTo(mergeBaseSha: Sha | undefined, mergeTargetTipSha: Sha | undefined): HostScope {
 	return {
 		branchName: 'feature',
 		branchRef: '/repo|heads/feature',
@@ -49,8 +61,8 @@ function scopeTo(mergeBaseSha: Sha | undefined, mergeTargetTipSha: Sha | undefin
 	};
 }
 
-function project(scope: GraphScope) {
-	const anchors = computeScopeAnchors(rows, scope);
+function project(scope: HostScope) {
+	const anchors = computeScopeAnchors(rows, scope, hasHead);
 	const projection = computeScopeProjection(processedRows, scope, anchors, new Set());
 	return {
 		anchors: anchors,
@@ -59,17 +71,18 @@ function project(scope: GraphScope) {
 	};
 }
 
-/** Same fixture with a WIP row on top, anchored at `parentSha` — the webview synthesizes this row
- *  client-side (`getDecoratedRows`), so it reaches the projection like any other row. */
-function projectWithWip(scope: GraphScope, parentSha: Sha) {
+/** Same fixture with a WIP row on top, anchored at `parentSha` — the consumer synthesizes this row
+ *  client-side, so it reaches the projection like any other row. */
+function projectWithWip(scope: HostScope, parentSha: Sha) {
+	const wipRowId = 'wip::/repo';
 	const wipRows: ProcessedGraphRow[] = [
-		{ sha: 'work-dir-changes', parents: [parentSha], kind: 'workdir', column: 1, edges: {}, edgeColumnMax: 0 },
+		{ sha: wipRowId, parents: [parentSha], kind: 'workdir', column: 1, edges: {}, edgeColumnMax: 0 },
 		...processedRows,
 	];
-	const projection = computeScopeProjection(wipRows, scope, computeScopeAnchors(rows, scope), new Set());
+	const projection = computeScopeProjection(wipRows, scope, computeScopeAnchors(rows, scope, hasHead), new Set());
 	return {
 		projection: projection,
-		wipVisible: projection == null || !projection.dropped.has('work-dir-changes'),
+		wipVisible: projection == null || !projection.dropped.has(wipRowId),
 	};
 }
 

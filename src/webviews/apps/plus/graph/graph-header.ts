@@ -342,8 +342,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	/**
 	 * Parses the current search query and writes the set of columns whose operator is
-	 * currently present into graph state. Consumed by gl-graph.react.tsx to flip each
-	 * column's `isFilterActive` flag before passing settings to GraphContainer.
+	 * currently present into graph state, which drives each column's filter affordance.
 	 *
 	 * Long-form normalization (per searchOperatorsToLongFormMap): `since:`→`after:`,
 	 * `until:`→`before:`. Both map to the datetime column.
@@ -1343,7 +1342,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			.distance=${0}
 		>
 			<gl-tooltip placement="top" slot="anchor">
-				<button type="button" id="hiddenRefs" class="action-button">
+				<button type="button" class="action-button">
 					<code-icon icon=${`eye-closed`}></code-icon>
 					${Object.values(excludeRefs ?? {}).length}
 					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>

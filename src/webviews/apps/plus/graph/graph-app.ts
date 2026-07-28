@@ -33,14 +33,12 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import {
 	ChooseGraphLayoutCommand,
-	createSecondaryWipSha,
-	createWipSha,
+	createWipRowId,
 	EnableChangesColumnCommand,
 	GetRowHoverRequest,
-	getSecondaryWipPath,
+	getWipRowWorktreePath,
 	GetWipStatsRequest,
-	isSecondaryWipSha,
-	isWipSha,
+	isWipSelectionSha,
 	ResetGraphFiltersCommand,
 	TrackGraphDetailsCompareModeCommand,
 	TrackGraphDetailsComposeModeCommand,
@@ -364,25 +362,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const single = this._selectedCommit;
 		if (single == null) return undefined;
 
-		return [this.toGraphRowSha(single.sha, single.repoPath)];
+		const rowSha = this.toGraphRowSha(single.sha, single.repoPath);
+		return rowSha != null ? [rowSha] : undefined;
 	}
 
-	/** The GRAPH-ROW sha for an anchor `(sha, repoPath)`: a real sha is itself; `uncommitted` maps to
-	 *  the primary `work-dir-changes` row when its repoPath is the opened repo, else to the secondary
-	 *  worktree's synthetic row sha (`repoPath` IS the worktree path for a secondary WIP, so the
-	 *  reconstruction is exact).
+	/** The GRAPH-ROW sha for an anchor `(sha, repoPath)`: a real sha is itself; `uncommitted` maps to the
+	 *  WIP row of the worktree it belongs to — `repoPath` IS that worktree's path, so the reconstruction
+	 *  is exact.
 	 *
-	 *  A WIP anchor is the SECONDARY-worktree row only when its repoPath differs from the opened
-	 *  repo's. Guard on a resolved `fallbackRepoPath`: during a repo-switch/reload tick it can be
-	 *  transiently undefined, and treating that as "different" would mis-map a PRIMARY WIP anchor to a
-	 *  `worktree-wip::` sha that matches no row (dropping the highlight). Default to the primary row. */
-	private toGraphRowSha(sha: string, repoPath: string): string {
+	 *  Prefers the anchor's own `repoPath`; during a repo-switch/reload tick it can be transiently empty,
+	 *  so it falls back to the graph's selected repo — its own WIP row is the only one nameable then.
+	 *  With neither there is no row id to anchor on, so this returns `undefined`. */
+	private toGraphRowSha(sha: string, repoPath: string): string | undefined {
 		if (sha !== uncommitted) return sha;
 
-		const fallbackRepoPath = this.fallbackRepoPath;
-		return fallbackRepoPath != null && repoPath !== '' && repoPath !== fallbackRepoPath
-			? createSecondaryWipSha(repoPath)
-			: ('work-dir-changes' satisfies GitGraphRowType);
+		const worktreePath = repoPath !== '' ? repoPath : this.fallbackRepoPath;
+		return worktreePath != null ? createWipRowId(worktreePath) : undefined;
 	}
 
 	private get fallbackRepoPath(): string | undefined {
@@ -530,9 +525,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	/**
 	 * Last observed non-zero size of the top-level `.graph` element, used to freeze it
-	 * across editor-tab hide/show transitions. Without this freeze the external GK
-	 * GraphContainer's internal ResizeObserver sees the iframe's layout collapse to 0 (and
-	 * then re-expand on restore), producing a visible re-layout cascade. VS Code applies
+	 * across editor-tab hide/show transitions. Without this freeze the graph's
+	 * ResizeObservers (the row virtualizer's, and `gl-lit-graph`'s own lane-window ones) see
+	 * the iframe's layout collapse to 0 (and then re-expand on restore), producing a visible
+	 * re-layout cascade. VS Code applies
 	 * `display: none` to the webview iframe even with `retainContextWhenHidden: true` —
 	 * that flag preserves the iframe content but not its layout visibility.
 	 */
@@ -557,7 +553,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// Use `borderBoxSize` (not `contentRect`) so the snapshot matches what
 			// `style.width/height` sets when applied with `box-sizing: border-box`. Using
 			// contentRect would leave a 2× padding gap (.graph has `padding: 0.1rem`), which
-			// cascades into a visible 2–10px row jump in the GK GraphContainer on restore.
+			// cascades into a visible 2–10px row jump on restore.
 			const box = entries[0]?.borderBoxSize?.[0];
 			if (box == null) return;
 
@@ -994,7 +990,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	onWebviewVisibilityChanged(visible: boolean): void {
 		// Freeze the layout across the hide/show cycle so the ResizeObserver cascade that
 		// VS Code's iframe resize (down to ~300x150 then back) produces does NOT propagate
-		// into the GK GraphContainer. The IPC `visible=false` arrives with ~1.5s of headroom
+		// into the graph. The IPC `visible=false` arrives with ~1.5s of headroom
 		// before the queued RO callbacks fire, so we can apply explicit pixel dimensions +
 		// `contain: size layout` to `.graph` and the cascade sees zero delta. `document.
 		// visibilitychange` doesn't fire for editor-tab transitions in VS Code webviews,
@@ -1017,7 +1013,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				}
 			} else if (graph.style.contain !== '') {
 				// Release on the next animation frame so the frozen box is still in effect
-				// when the GraphContainer's internal RO runs its first post-restore callback
+				// when the graph's ResizeObservers run their first post-restore callback
 				// (same size → no-op), then drops back to natural sizing for live
 				// drag-resizes.
 				if (this._releaseSuspensionRafId != null) {
@@ -1051,11 +1047,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	/** Routed from {@link GraphAppHost} when the extension pushes a selection — a host-initiated reveal
-	 *  (Show in Commit Graph, terminal links, deep links). The new engine doesn't auto-scroll on a plain
-	 *  selection, so bring the revealed row into view; the legacy engine scrolls on its own. */
+	 *  (Show in Commit Graph, terminal links, deep links). The graph doesn't auto-scroll on a plain
+	 *  selection, so bring the revealed row into view. */
 	ensureRowVisible(sha: string): void {
-		if (!this.graphState.config?.useNewEngine) return;
-
 		this.graph?.selectCommits([sha], { ensureVisible: true });
 	}
 
@@ -1200,11 +1194,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// worktree of the shown repo, so a WIP target on another worktree is that worktree's
 			// SECONDARY row. `ensureAndSelectCommit` only normalizes `uncommitted` to the PRIMARY row,
 			// so handing it the raw sha would select the wrong worktree's working changes.
+			// No row id is nameable during the transient repo-switch tick, so there's nothing to select.
 			const rowSha = this.toGraphRowSha(sha, repoPath);
-			if (sha === uncommitted) {
-				this.unscopeToRevealWip(rowSha);
+			if (rowSha != null) {
+				if (sha === uncommitted) {
+					this.unscopeToRevealWip(rowSha);
+				}
+				this.graph?.ensureAndSelectCommit(rowSha);
 			}
-			this.graph?.ensureAndSelectCommit(rowSha);
 		}
 
 		const showDetails = () => {
@@ -1395,11 +1392,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (scopeCleared) {
 			await this.waitForScopeCleared();
 		}
-		// Select + reveal the WIP row in the graph itself — the bar's stated intent. The `id` is the
-		// row's sha (`uncommitted` for the primary, `worktree-wip::<path>` for secondaries);
-		// `ensureAndSelectCommit` normalizes/handles both and retries through the render + scope
-		// catch-up. The `openWipDetails` await above ensures the graph is mounted (e.g. after the
-		// displayMode switch) before we call it.
+		// Select + reveal the WIP row in the graph itself — the bar's stated intent. The `id` is
+		// `uncommitted` for the graph's own worktree and the peer's WIP row id otherwise;
+		// `ensureAndSelectCommit` handles both and retries through the render + scope catch-up. The
+		// `openWipDetails` await above ensures the graph is mounted (e.g. after the displayMode
+		// switch) before we call it.
 		this.graph?.ensureAndSelectCommit(id);
 	};
 
@@ -1686,10 +1683,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	): Promise<void> => {
 		const { target, row } = e.detail;
 		const fallbackRepoPath = this.fallbackRepoPath ?? '';
-		// For secondary WIP rows the worktree path is encoded in the sha (`worktree-wip::<path>`);
-		// extract it. Primary WIP and any other row types resolve to the primary (fallback) repo.
-		const isSecondary = isSecondaryWipSha(row.sha);
-		const repoPath = isSecondary ? getSecondaryWipPath(row.sha) : fallbackRepoPath;
+		// A WIP row's synthetic sha encodes its own worktree path; any other row type resolves to the
+		// graph's (fallback) repo.
+		const repoPath = getWipRowWorktreePath(row.sha) ?? fallbackRepoPath;
 		const sha = row.type === ('work-dir-changes' satisfies GitGraphRowType) ? uncommitted : row.sha;
 		await this.openWipDetails(repoPath, sha, target, target === 'agents' ? 'request-agents' : 'request-mode');
 	};
@@ -1933,7 +1929,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const minimapVisible = this.minimapShown;
 		const { single, multi } = this.activeSelection;
 		// No repository open: render only the empty state — skip the header and the whole graph subtree
-		// (React GraphContainer + minimap + sidebar + details) rather than mounting them just to paint the
+		// (graph + minimap + sidebar + details) rather than mounting them just to paint the
 		// empty state over the top. `repositories` is `undefined` during the initial load window, so `=== 0`
 		// stays false until an actual `[]` arrives and the graph still renders while loading. This
 		// intentionally mounts/unmounts the graph subtree on the no-repo↔repo transition — acceptable here
@@ -2086,7 +2082,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const displayMode = this.effectiveDisplayMode;
 		const isGraphMode = displayMode === 'graph';
 		// Always render the graph subtree to avoid the cascade of remounts (split-panels +
-		// React root + GK GraphContainer) that produces a visible "smaller, then bigger"
+		// graph subtree) that produces a visible "smaller, then bigger"
 		// resize when returning from Visual History. Mirrors the always-render pattern used
 		// by `renderDetailsPanel`. Alternate-mode bodies still mount/unmount on demand.
 		// `gl-graph-kanban-open-session` is listened for at the pane-body level (not on
@@ -2110,9 +2106,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 								@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
 								@gl-graph-sidebar-show-shortcuts=${this.handleShowShortcuts}
 							></gl-graph-sidebar>
-							<gl-graph-keyboard-shortcuts
-								.useNewEngine=${this.graphState.config?.useNewEngine === true}
-							></gl-graph-keyboard-shortcuts>`,
+							<gl-graph-keyboard-shortcuts></gl-graph-keyboard-shortcuts>`,
 				)}
 				${
 					this.graphState.config?.sidebar
@@ -2228,19 +2222,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			const graphFamily = this.fallbackRepoFamily;
 			if (commonPath == null || graphFamily == null || commonPath !== graphFamily) return;
 
-			// `createWipSha` compares `worktreePath` against the GRAPH'S selected repo path (not
-			// commonPath) to decide primary-vs-secondary. Passing commonPath here would return
-			// `uncommitted` whenever `worktreePath === commonPath` — true for any session on the
-			// main worktree (where `resolveGitInfo` sets commonPath = repo.path) — and the details
-			// panel would then paint the graph's primary WIP (i.e., the currently-viewed worktree)
-			// instead of the clicked session's worktree. Mirrors sidebar-panel.ts `resolveAgentAnchor`.
-			const graphRepoPath = this.fallbackRepoPath;
-			if (graphRepoPath == null) return;
+			// Require the graph to have a resolved repo — the details panel can't reconcile a WIP anchor
+			// against a graph that hasn't settled on one yet.
+			if (this.fallbackRepoPath == null) return;
 
+			// The row id keys off the SESSION's worktree, never `commonPath`: a session on the main
+			// worktree has `worktreePath === commonPath`, and keying off the latter would point at
+			// whichever worktree the graph is showing. Mirrors sidebar-panel.ts `resolveAgentAnchor`.
 			const repoPath = worktreePath ?? commonPath;
 			if (repoPath == null || repoPath === '') return;
 
-			const sha = worktreePath != null ? createWipSha(worktreePath, graphRepoPath) : uncommitted;
+			const sha = worktreePath != null ? createWipRowId(worktreePath) : uncommitted;
 
 			// Write the alt-mode slot — kanban's `activeSelection` reads it directly. We deliberately
 			// do NOT call `graph?.ensureAndSelectCommit(sha)` here: the graph is hidden in kanban
@@ -2371,7 +2363,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// secondary WIP highlights its own pill instead of the primary's.
 		const selectedCommit = this._selectedCommit;
 		const selectedWipId =
-			selectedCommit != null && isWipSha(selectedCommit.sha)
+			selectedCommit != null && isWipSelectionSha(selectedCommit.sha)
 				? overviewItems.find(i => i.repoPath === selectedCommit.repoPath)?.id
 				: undefined;
 		return html`
@@ -2405,7 +2397,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-row-hover=${this.handleGraphRowHover}
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
 					@gl-graph-wip-row-open=${this.handleWipRowOpen}
-					@row-action-hover=${this.handleGraphRowActionHover}
 					@rowhoverstart=${this.handleGraphRowHoverStart}
 					@rowhovertrack=${this.handleGraphRowHoverTrack}
 				></gl-graph-wrapper>
@@ -2692,7 +2683,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			const selectionCount = multi != null ? multi.shas.length : single != null ? 1 : 0;
 			const selectedSha = single?.sha;
 			const effectivelyUncommitted =
-				isWipSha(selectedSha) || (single == null && multi == null && this.fallbackRepoPath != null);
+				isWipSelectionSha(selectedSha) || (single == null && multi == null && this.fallbackRepoPath != null);
 			if (effectivelyUncommitted && this._nextStepsShownWhileHidden) {
 				this._nextStepsShownWhileHidden = false;
 				this._ipc.sendCommand(TrackGraphDetailsWipShownCommand, undefined);
@@ -3307,7 +3298,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		// Skip re-assignment when structurally equal so GraphContainer doesn't re-evaluate
+		// Skip re-assignment when structurally equal so the graph doesn't re-evaluate
 		// scope highlighting on unrelated graph updates.
 		const current = this.graphState.scope;
 		if (
@@ -3548,9 +3539,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// history of what the details panel showed — Back from WIP returns to the prior commit.
 			this.recordNavSelection(sha, repoPath, commits?.[active.id]);
 
-			// When `graph.showWorktreeWipStats` is disabled, secondary worktree WIP rows start
-			// stats-less. Force-fetch stats for the selected row so it populates its pill.
-			if (isSecondaryWipSha(active.id) && this.graphState.config?.showWorktreeWipStats === false) {
+			// When `graph.showWorktreeWipStats` is disabled, PEER worktree WIP rows start stats-less
+			// (the graph's own rides `workingTreeStats`). Force-fetch stats for the selected row so
+			// it populates its pill.
+			const selectedWorktreePath = getWipRowWorktreePath(active.id);
+			if (
+				selectedWorktreePath != null &&
+				selectedWorktreePath !== fallbackRepoPath &&
+				this.graphState.config?.showWorktreeWipStats === false
+			) {
 				void this.fetchSelectedWorktreeWipStats(active.id);
 			}
 		}
@@ -3597,7 +3594,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// Carry the recorded commit shell so the details panel paints from cache — including when
 			// the row has been paged out of the graph — then re-select the row in the graph.
 			this._selectedCommit = { sha: target.sha, repoPath: target.repoPath, commitLite: target.commitLite };
-			this.graph?.ensureAndSelectCommit(target.sha);
+			// WIP selections are recorded as the bare `uncommitted` revision + the worktree they came from;
+			// re-select THAT worktree's row, or `ensureAndSelectCommit` maps the revision to our own WIP row.
+			this.graph?.ensureAndSelectCommit(
+				target.sha === uncommitted && target.repoPath ? createWipRowId(target.repoPath) : target.sha,
+			);
 		}
 	}
 
@@ -3607,10 +3608,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	/**
 	 * Fetches working-tree stats for a single secondary-worktree WIP row and writes them into
-	 * `wipMetadataBySha` so the GK component's pill renders. Used when `graph.showWorktreeWipStats`
-	 * is disabled — the server's `onGetWipStats` ignores non-`force` calls in that mode, and the GK
-	 * component's `requestedMissingWipStats` dedup is persistent, so this is the only way to show
-	 * stats for a row once the user opts in by selecting it.
+	 * `wipMetadataBySha` so the row's stats pill renders. Used when `graph.showWorktreeWipStats`
+	 * is disabled — the host's `onGetWipStats` ignores non-`force` calls in that mode, and the
+	 * graph's visible-scan dedup never re-asks for an unchanged missing set, so this is the only
+	 * way to show stats for a row once the user opts in by selecting it.
 	 */
 	private async fetchSelectedWorktreeWipStats(sha: string): Promise<void> {
 		const existing = this.graphState.wipMetadataBySha;
@@ -3736,8 +3737,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (graphZoneType === 'ref') return;
 
 		this.minimapEl?.select(minimapDate ?? graphRow.date, true);
-		// Old-engine event detail is typed with the GKC row shape; the runtime object is the native row.
-		this.graphHover?.onRowChanged(graphRow as unknown as GitGraphRow);
+		this.graphHover?.onRowChanged(graphRow);
 	}
 
 	private handleGraphRowUnhover({
@@ -3748,10 +3748,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleGraphRowHoverStart() {
 		this.graphHover.resetUnhoverTimer();
-	}
-
-	private handleGraphRowActionHover() {
-		this.graphHover.hide();
 	}
 
 	private async getRowHoverPromise(row: GitGraphRow) {

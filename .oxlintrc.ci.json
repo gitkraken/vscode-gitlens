@@ -32,7 +32,6 @@
 		"**/out",
 		"**/node_modules",
 		"images/settings",
-		"**/.gitkraken-components.version",
 		"**/custom-elements.json",
 		"**/gitlens-*.vsix",
 		"**/product.json",

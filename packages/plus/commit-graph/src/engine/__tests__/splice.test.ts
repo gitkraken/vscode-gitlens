@@ -11,7 +11,6 @@ function commit(hash: string, parents: string[], kind?: CommitKind, date = 0): G
 		authorEmail: 'test@example.com',
 		date: date,
 		parents: parents,
-		refs: [],
 		kind: kind,
 	};
 }

@@ -1,7 +1,7 @@
 import * as assert from 'assert';
-import { processCommitsAndSegments } from '@gitkraken/commit-graph/engine/process.js';
-import { reconcileRowsSuffix } from '@gitkraken/commit-graph/engine/reconcile.js';
-import type { GraphCommit, LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
+import { processCommitsAndSegments } from '../engine/process.js';
+import { reconcileRowsSuffix } from '../engine/reconcile.js';
+import type { GraphCommit, LaneSegment, ProcessedGraphRow, Sha } from '../engine/types.js';
 import {
 	appendDroppedRows,
 	applyDroppedRows,
@@ -10,7 +10,7 @@ import {
 	computeSegmentMaps,
 	computeTrunkSegmentTip,
 	spliceDroppedRows,
-} from '../graph-lane-collapse.js';
+} from '../laneCollapse.js';
 
 function commit(hash: string, parents: string[]): GraphCommit {
 	return {
@@ -21,7 +21,6 @@ function commit(hash: string, parents: string[]): GraphCommit {
 		authorEmail: 'test@example.com',
 		date: 0,
 		parents: parents,
-		refs: [],
 	};
 }
 
@@ -116,7 +115,7 @@ function assertCollapseAppendMatchesFull(commits: readonly GraphCommit[]): void 
 	}
 }
 
-suite('graph-lane-collapse incremental append equivalence', () => {
+suite('laneCollapse incremental append equivalence', () => {
 	test('completed side branch in the prefix, trunk extends through the append', () => {
 		assertCollapseAppendMatchesFull([
 			commit('M', ['A', 'X1']),
@@ -251,7 +250,7 @@ function assertCollapseSpliceMatchesFull(
 	return true;
 }
 
-suite('graph-lane-collapse prefix-splice equivalence', () => {
+suite('laneCollapse prefix-splice equivalence', () => {
 	// Trunk + one completed side branch (collapsed under the frozen set).
 	const base = [
 		commit('M', ['A', 'X1']),

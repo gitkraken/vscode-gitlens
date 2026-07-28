@@ -47,6 +47,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Removes the _Pro_ feature badge from the _Commit Graph_ header &mdash; the _Start New_ menu now occupies that area ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
 - Removes the AI terms confirmation prompt &mdash; AI features no longer interrupt your first use to ask you to accept, and the now-purposeless _AI Confirmations..._ option is gone from _GitLens: Reset Stored Data..._; the large prompt warning (`gitlens.ai.largePromptWarningThreshold`) is unaffected
+- Removes the `gitlens.graph.highlightRowsOnRefHover` setting &mdash; hovering a branch or tag no longer highlights its associated rows; click a reference to pin it and highlight its lineage instead
 
 ## [18.3.0] - 2026-07-09
 

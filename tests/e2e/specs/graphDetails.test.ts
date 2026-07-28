@@ -80,9 +80,8 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
 
-	// Wait for the graph to render. The new Lit engine (gitlens.graph.experimental.useNewEngine,
-	// default true) renders the graph as a role="tree" (aria-label "Commit graph") of role="treeitem"
-	// rows; gate readiness on the tree container.
+	// The graph renders as a role="tree" (aria-label "Commit graph") of role="treeitem" rows, so gate
+	// readiness on the tree container.
 	await expect(graphWebview!.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
 	// ...and the rows to actually paint (the tree mounts before the virtualizer paints rows).
 	await waitForGraphRowsRendered(graphWebview!);
@@ -539,9 +538,9 @@ test.describe('Graph Details - Compare Mode', () => {
 	});
 
 	test('should show between-count for non-adjacent commits', async () => {
-		// Skipped: the new default graph engine doesn't wire `rawBetweenCount` to the compare panel,
-		// so the "N commits in between" count is never shown for non-adjacent commits. Tracked in #5547.
-		test.skip(true, 'New engine gap: compare between-count not wired (#5547)');
+		// Skipped: the graph doesn't wire `rawBetweenCount` to the compare panel, so the
+		// "N commits in between" count is never shown for non-adjacent commits. Tracked in #5547.
+		test.skip(true, 'Unimplemented: compare panel between-count not wired (#5547)');
 		// Select "Add greeting module" (2nd commit) and "Add utils module" (4th commit)
 		// There is 1 commit in between: "Add math module"
 		await selectCommitByMessage(graphWebview, 'Add greeting module');

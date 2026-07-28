@@ -28,10 +28,9 @@ import type {
 	State,
 } from '../../../../plus/graph/protocol.js';
 import {
-	getSecondaryWipPath,
 	GetWipLineStatsRequest,
-	isSecondaryWipSha,
-	isWipSha,
+	getWipRowWorktreePath,
+	isWipSelectionSha,
 	UpdateWipDraftCommand,
 } from '../../../../plus/graph/protocol.js';
 import type { AiModelInfo, ConflictDetails } from '../../../../rpc/services/types.js';
@@ -539,7 +538,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private get isWip(): boolean {
-		return isWipSha(this.sha);
+		return isWipSelectionSha(this.sha);
 	}
 
 	/** Lazily fetch the per-file WIP line stats when the WIP file list is shown, deduped per `wip`
@@ -985,14 +984,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return true;
 	}
 
-	/** Maps a graph-row sha to the worktree fsPath it represents. For the primary WIP
-	 *  (sha === `uncommitted`) the worktree path is the active repo path; for secondary
-	 *  worktree WIPs the path is embedded in the synthetic sha by `createSecondaryWipSha`. */
+	/** Maps a WIP selection sha to the worktree fsPath it represents. The `uncommitted` revision means
+	 *  "this panel's repo"; a synthetic WIP row id carries its worktree path (see `createWipRowId`). */
 	private computeWorktreePathFromSha(sha: string | undefined): string | undefined {
 		if (sha == null) return undefined;
 		if (sha === uncommitted) return this.effectiveRepoPath;
-		if (isSecondaryWipSha(sha)) return getSecondaryWipPath(sha);
-		return undefined;
+		return getWipRowWorktreePath(sha);
 	}
 
 	/** Restore the commit-form signals for `worktreePath` from the persisted draft (if any), or
@@ -1706,7 +1703,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const prevSha = changedProperties.has('sha')
 					? (changedProperties.get('sha') as string | undefined)
 					: this.sha;
-				const prevWasWip = isWipSha(prevSha);
+				const prevWasWip = isWipSelectionSha(prevSha);
 				const repoChanged =
 					changedProperties.has('repoPath') && changedProperties.get('repoPath') !== this.repoPath;
 
@@ -3861,10 +3858,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleCompose = () => this._workflow.toggleMode('compose', this.currentSelection());
 
-	/** Single-commit selection's ref + stash hint — `commitLite` carries `stashNumber` from the graph row. */
+	/**
+	 * Single-commit selection's ref + stash hint — `commitLite` carries `stashNumber` from the graph row.
+	 *
+	 * A WIP selection crosses into the git-revision domain here, so it must be the `uncommitted` REVISION,
+	 * never a `wip::<path>` row id. Downstream file actions match the working tree by exact equality
+	 * against `uncommitted`; a row id misses that and falls through to resolving it as a commit, which
+	 * quietly finds nothing — the action then does nothing at all, with no error.
+	 */
 	private get currentRef(): { ref: string; stash?: boolean } | undefined {
 		if (this.sha == null) return undefined;
-		return { ref: this.sha, stash: this.commitLite?.stashNumber != null };
+
+		return {
+			ref: isWipSelectionSha(this.sha) ? uncommitted : this.sha,
+			stash: this.commitLite?.stashNumber != null,
+		};
 	}
 
 	private handleFileOpen = (e: CustomEvent<FileChangeListItemDetail>) => {

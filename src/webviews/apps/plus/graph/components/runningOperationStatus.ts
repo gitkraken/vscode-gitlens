@@ -11,7 +11,7 @@ import type { RunningOperationExecState } from './detailsState.js';
  *  - `'error'` → `'error'`
  *  - `'orphaned'` → `'warning'`
  *
- *  Used by both the WIP-row adornment buttons (`gl-graph.react.tsx`) and the details-header
+ *  Used by both the WIP-row adornment buttons and the details-header
  *  toggle chips (`gl-details-header.ts`) so the visual language is shared. `hasResult` defaults
  *  to `true` for backward compatibility with callers that haven't been threaded through. */
 export function statusIconFor(execState: RunningOperationExecState, hasResult: boolean = true): string | null {

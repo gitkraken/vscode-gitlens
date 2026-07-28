@@ -6,13 +6,14 @@ import type {
 	GraphRefsMetadata,
 	GraphScrollMarkerTypes,
 } from '../../../../plus/graph/protocol.js';
+import { isPrimaryWipRowId } from '../../../../plus/graph/protocol.js';
 import { shortRefName } from '../utils/rowMarker.utils.js';
 import type { GraphCommitView } from './graph-commit.js';
 import { isRefHidden } from './graph-commit.js';
 
 /**
- * Marker box shape (matches the reference graph's per-type metadata). `block` fills its lane(s);
- * `fullLine`/`thinLine` span the full rail width as a thin horizontal rule (used for selection).
+ * Marker box shape, assigned per marker type. `block` fills its lane(s); `fullLine`/`thinLine` span
+ * the full rail width as a thin horizontal rule (used for selection).
  */
 export type ScrollMarkerShape = 'block' | 'fullLine' | 'thinLine';
 
@@ -20,7 +21,7 @@ export type ScrollMarkerShape = 'block' | 'fullLine' | 'thinLine';
  * A single scroll-rail marker box. Position + size are FRACTIONS of the rail so the renderer maps
  * them to `left`/`width` percentages within its TYPE's dedicated lane column(s) (vertical position
  * comes from `index`); the rail is divided into `laneCount` columns — markers are constrained to
- * their lane(s), matching the reference graph. `color` is the per-type theme color; `index` drives
+ * their lane(s). `color` is the per-type theme color; `index` drives
  * click-to-jump + vertical placement; `label` is the tooltip; `shape` drives the rendered box height
  * (see ScrollMarkerShape).
  */
@@ -30,16 +31,17 @@ export interface ScrollMarker {
 	color: string;
 	index: number;
 	label: string;
-	/** Codicon name for the tooltip (conveys the marker type at a glance, like the legacy graph). */
+	/** Codicon name for the tooltip — conveys the marker type at a glance. */
 	icon: string;
 	shape: ScrollMarkerShape;
-	/** Type priority (higher = primary; drawn on top + expands on hover). Mirrors the reference `oz`. */
+	/** Type priority (higher = primary; drawn on top + expands on hover). */
 	priority: number;
 }
 
-// The marker rail is divided into laneCount fixed columns; each marker TYPE owns one or more of
-// them (mirrors gitkraken-components' `GRAPH_SCROLL_MARKER_LANES` + per-type lane map). Color +
-// lanes per type match the reference so both engines read identically.
+// The marker rail is divided into laneCount fixed columns; each marker TYPE owns one or more of them.
+// The assignment is FIXED (never packed to fill gaps) so a type keeps the same horizontal position all
+// the way down the rail — markers stay comparable row-to-row, and where types share a lane the higher
+// `priority` draws on top rather than either one shifting sideways.
 const laneCount = 3;
 
 interface MarkerLane {
@@ -143,6 +145,8 @@ export interface ScrollMarkerInputs {
 	downstreams?: GraphDownstreams;
 	/** Lazily-fetched ref metadata — drives the `pullRequests` marker. */
 	refsMetadata?: GraphRefsMetadata | null;
+	/** The graph's own repo path — identifies the primary WIP row (peers are other worktrees). */
+	repoPath?: string;
 }
 
 function laneBox(type: GraphScrollMarkerTypes): {
@@ -175,7 +179,8 @@ function laneBox(type: GraphScrollMarkerTypes): {
  * O(targets), not O(rows)) and merge on top.
  */
 export function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[] {
-	const { rows, getCommit, enabled, searchShas, excludeTypes, excludeRefs, downstreams, refsMetadata } = inputs;
+	const { rows, getCommit, enabled, searchShas, excludeTypes, excludeRefs, downstreams, refsMetadata, repoPath } =
+		inputs;
 	const total = rows.length;
 	if (total <= 0 || enabled.size === 0) return [];
 
@@ -227,8 +232,8 @@ export function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[]
 			if (isRefHidden(ref, excludeTypes, excludeRefs, downstreams)) continue;
 
 			if (ref.kind === 'head') {
-				// Current-head branch: emit ONLY the head marker (matches the reference — a current head
-				// is categorized as head, not also a local branch — so the rail shows a single mark).
+				// Current-head branch: emit ONLY the head marker — a current head is categorized as head,
+				// not also a local branch — so the rail shows a single mark.
 				if (ref.current) {
 					if (wantsHead) {
 						push(i, 'head', ref.name.length > 0 ? `HEAD → ${ref.name}` : 'HEAD');
@@ -267,9 +272,8 @@ export function computeScrollMarkers(inputs: ScrollMarkerInputs): ScrollMarker[]
 		if (wantsWip && row.kind === 'workdir') {
 			// The workdir row's message is already "Working Changes (<worktree>)" for secondary
 			// worktrees; the PRIMARY workdir is just "Working Changes" — append the current branch.
-			const hasName = commit.message.includes('(');
 			const label =
-				!hasName && currentBranchName != null && currentBranchName.length > 0
+				isPrimaryWipRowId(row.sha, repoPath) && currentBranchName != null && currentBranchName.length > 0
 					? `${commit.message} (${currentBranchName})`
 					: commit.message;
 			push(i, 'wip', label);

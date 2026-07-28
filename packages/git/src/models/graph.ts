@@ -5,13 +5,7 @@ import type { GitRemote } from './remote.js';
 import type { GkProviderId } from './repositoryIdentities.js';
 import type { GitWorktree } from './worktree.js';
 
-export type GitGraphRowType =
-	| 'commit-node'
-	| 'merge-node'
-	| 'stash-node'
-	| 'work-dir-changes'
-	| 'merge-conflict-node'
-	| 'unsupported-rebase-warning-node';
+export type GitGraphRowType = 'commit-node' | 'merge-node' | 'stash-node' | 'work-dir-changes';
 
 export interface GitGraphRowHead {
 	id?: string;
@@ -19,15 +13,12 @@ export interface GitGraphRowHead {
 	isCurrentHead: boolean;
 	context?: string | object;
 	upstream?: { name: string; id: string };
-	/** Set when this branch is checked out in a (non-default) worktree. Grouped so producers can't
-	 *  half-populate id-without-path or vice versa. GitLens consumers should read this field. */
-	worktree?: { id: string; path: string };
-	/** Upstream-component-compatibility mirror of `worktree?.id`. The bundled
-	 *  `@gitkraken/gitkraken-components` library still reads `worktreeId` to switch between
-	 *  WORKTREE and HEAD ref-badge styling — keeping it populated preserves the visual cue.
-	 *  Producers MUST set this whenever they set `worktree`; do not read it from GitLens code,
-	 *  read `worktree.id` instead. */
-	worktreeId?: string;
+	/** Set when this branch is checked out in ANY worktree, including the default one. Grouped so
+	 *  producers can't half-populate id-without-path or vice versa. Consumers that mean "checked out
+	 *  somewhere other than here" — the ref-ordering tier and the worktree glyph — must test
+	 *  `isDefault` too; the default worktree's checkout is the ordinary case, not a worktree badge.
+	 *  Note `isDefault` here describes the WORKTREE; the sibling `isDefault` below describes the BRANCH. */
+	worktree?: { id: string; path: string; isDefault: boolean };
 	/** True when this head is the repository's default branch. */
 	isDefault?: boolean;
 }
@@ -81,10 +72,7 @@ export const enum GitGraphRowContextFlags {
 	Unpulled = 1 << 5,
 }
 
-/**
- * Context data attached to graph row regions for command/menu handling.
- * Structurally compatible with @gitkraken/gitkraken-components RowContexts.
- */
+/** Context data attached to graph rows for command/menu handling. */
 export interface GitGraphRowContexts {
 	/** Compact replacement for the serialized commit `row`/`avatar` contexts; see {@link GitGraphRowContextFlags}. */
 	flags?: GitGraphRowContextFlags;
@@ -94,16 +82,11 @@ export interface GitGraphRowContexts {
 	 * webview rebuilds `row.reachability` from the shared table. Absent ⇒ no reachability for this row.
 	 */
 	reachabilityIndex?: number;
+	/** Serialized right-click context. Built here only for stash rows; commit rows ship {@link flags}
+	 *  instead and have theirs rebuilt on demand (see `rowContext.utils`). */
 	row?: string | object;
-	ref?: string | object;
+	/** Serialized context per grouped-ref name, for the group's own menu. */
 	refGroups?: Record<string, string | object>;
-	graph?: string | object;
-	avatar?: string | object;
-	message?: string | object;
-	author?: string | object;
-	date?: string | object;
-	sha?: string | object;
-	stats?: string | object;
 }
 
 export interface GitGraphRowStats {
@@ -134,7 +117,7 @@ export interface GraphReachabilityTable {
 	readonly sets: string[];
 }
 
-/** Library-owned graph row type. Structurally compatible with @gitkraken/gitkraken-components GraphRow. */
+/** Library-owned graph row type. */
 export interface GitGraphRow {
 	sha: string;
 	parents: string[];
@@ -282,10 +265,9 @@ export type GitGraphRowsStats = Map<string, GitGraphRowStats>;
  * repo-change rebuild can walk ONLY the changed head region, stitch the cached tail, and re-derive
  * flags/reachability in memory — instead of re-walking every loaded row.
  *
- * R6a status: the Node provider ACCEPTS this option but IGNORES it, falling through to the full ordered
- * walk (so a seeded rebuild is byte-equivalent to an unseeded one). It is threaded now purely so the
- * equivalence harness can pin the shape and R6b can light up the fast path without an interface change.
- * The GitHub provider ignores it structurally (it never lists the option).
+ * The CLI provider consumes this on its incremental fast path, degrading to the full ordered walk
+ * whenever any gate below rejects the seed. The GitHub provider ignores it structurally (it never
+ * lists the option).
  */
 export interface GraphIncrementalSeed {
 	/**

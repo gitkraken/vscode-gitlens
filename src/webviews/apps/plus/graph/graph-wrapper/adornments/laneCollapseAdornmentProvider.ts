@@ -3,6 +3,7 @@ import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
 import '../../../../shared/components/code-icon.js';
 
@@ -31,6 +32,33 @@ export interface LaneCollapseAdornmentOptions {
 	hiddenCountByTipSha?: ReadonlyMap<Sha, number>;
 	/** Optional branch-hint resolver — typically the segment tip's branch name when reffed. */
 	branchHint?: (tipSha: Sha) => string | undefined;
+}
+
+/**
+ * GitLens implementation of {@link LaneCollapseAdornmentOptions.branchHint} — gives the chip a
+ * "+N in feat-foo" label when the segment's tip happens to carry a head ref. Prefers a non-current
+ * head, falling back to the first head, then to the first remote's `owner/name` (or bare `name`).
+ * Returns `undefined` for unreffed tips, in which case the chip just shows "+N".
+ *
+ * Lives app-side (not in `@gitkraken/commit-graph/laneCollapse.js` with the rest of the collapse
+ * math) because it is the only part that reads GitLens ref metadata — the engine takes the label
+ * as an injected resolver instead of learning about heads/remotes.
+ *
+ * Takes a pre-built sha→row map, not the raw rows array — this runs once per collapsed-lane tip
+ * (potentially many per adornment-resolve pass), so the caller builds the index once per rows
+ * generation instead of this doing an O(rows) `.find()` per tip.
+ */
+export function branchHintFor(rowBySha: ReadonlyMap<Sha, GitGraphRow> | undefined, tipSha: Sha): string | undefined {
+	const row = rowBySha?.get(tipSha);
+	if (row == null) return undefined;
+
+	const head = row.heads?.find(h => !h.isCurrentHead) ?? row.heads?.[0];
+	if (head != null) return head.name;
+
+	const remote = row.remotes?.[0];
+	if (remote != null) return remote.owner ? `${remote.owner}/${remote.name}` : remote.name;
+
+	return undefined;
 }
 
 /**

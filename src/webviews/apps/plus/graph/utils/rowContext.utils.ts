@@ -202,8 +202,8 @@ export function serializeWipContext(worktreePath: string, secondary: boolean, ha
 }
 
 /** True when every row is reachable from exactly one local branch AND they all agree on that same
- *  branch — mirrors the React adapter's `checkUniqueBranchSelection`. Any row missing the flag (e.g. a
- *  WIP row, which carries no flags at all) fails the whole selection, matching the original early-exit. */
+ *  branch. Any row missing the flag (e.g. a WIP row, which carries no flags at all) fails the whole
+ *  selection — the `.multi` menu entries this gates only apply to a single-branch selection. */
 function isUniqueToBranchSelection(rows: readonly GitGraphRow[]): boolean {
 	if (rows.length === 0) return false;
 
@@ -229,7 +229,7 @@ function parsedSelectionItem(row: GitGraphRow, repoPath: string): GraphItemConte
 	return needsDynamicRowContext(row) ? buildRowCommitContext(row, repoPath) : undefined;
 }
 
-/** Per-row-type multi-selection context — mirrors the React adapter's `computeSelectionContext`.
+/** Per-row-type multi-selection context.
  *  `webviewItems`/`webviewItemsValues` boil the type-group's own contexts down to a least-common-
  *  denominator string + the full per-row value list (multi-commit commands read the latter for every
  *  selected ref). The `list*Selection` flags gate `.multi` menu entries; `listContiguousSelection` and
@@ -246,8 +246,8 @@ export interface GraphSelectionContext {
 /**
  * Builds the per-row-type selection contexts for a multi-row right-click. `contiguous` is the caller-
  * computed display-order contiguity of `selectedRows` (this function is topology-agnostic — the caller
- * knows the render order). Returns `undefined` for a selection of 0 or 1 rows, matching the React
- * adapter's early exit (no multi-select context applies to a single selection).
+ * knows the render order). Returns `undefined` for a selection of 0 or 1 rows — no multi-select
+ * context applies to a single selection.
  */
 export function computeSelectionContexts(
 	selectedRows: readonly GitGraphRow[],

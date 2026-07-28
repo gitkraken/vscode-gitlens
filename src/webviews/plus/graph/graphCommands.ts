@@ -113,7 +113,11 @@ import type {
 	GraphScopeBranch,
 	GraphSelection,
 } from './protocol.js';
-import { createWipSha, DidRequestGraphActionNotification, DidRequestOpenCompareModeNotification } from './protocol.js';
+import {
+	createWipRowId,
+	DidRequestGraphActionNotification,
+	DidRequestOpenCompareModeNotification,
+} from './protocol.js';
 import type { ShowInCommitGraphCommandArgs } from './registration.js';
 
 type GraphItemRefs<T> = {
@@ -1027,11 +1031,12 @@ export class GraphCommands {
 		const value = item?.webviewItemValue;
 		if (value?.type !== 'file' || !value.path || !value.repoPath) return;
 
-		// Enter the WIP details resolve mode scoped to this one conflicted file. The webview routes
-		// via `enterModeForWip('resolve', repoPath, uncommitted, filePaths)`.
+		// Enter the WIP details resolve mode scoped to this one conflicted file. Target that worktree's
+		// WIP ROW id — a bare `uncommitted` would select the graph's own primary WIP row instead.
+		const wipRowId = createWipRowId(value.repoPath);
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-resolve',
-			target: { sha: uncommitted, worktreePath: value.repoPath, filePaths: [value.path] },
+			target: { sha: wipRowId, worktreePath: value.repoPath, filePaths: [value.path] },
 		});
 	}
 
@@ -1048,9 +1053,12 @@ export class GraphCommands {
 			.filter(v => v?.type === 'file' && Boolean(v.path) && Boolean(v.repoPath));
 		if (files.length === 0) return;
 
+		// Target the worktree's WIP ROW id — a bare `uncommitted` would select the primary WIP row.
+		const worktreePath = files[0].repoPath;
+		const wipRowId = createWipRowId(worktreePath);
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-resolve',
-			target: { sha: uncommitted, worktreePath: files[0].repoPath, filePaths: files.map(f => f.path) },
+			target: { sha: wipRowId, worktreePath: worktreePath, filePaths: files.map(f => f.path) },
 		});
 	}
 
@@ -1063,10 +1071,12 @@ export class GraphCommands {
 		const repoPath = ref?.repoPath ?? this.repository?.path;
 		if (repoPath == null) return;
 
-		// Enter resolve mode for all conflicts (no `filePath`).
+		// Enter resolve mode for all conflicts (no `filePath`). Target that worktree's WIP ROW id — a
+		// bare `uncommitted` would select the graph's own primary WIP row instead.
+		const wipRowId = createWipRowId(repoPath);
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-resolve',
-			target: { sha: uncommitted, worktreePath: repoPath },
+			target: { sha: wipRowId, worktreePath: repoPath },
 		});
 	}
 
@@ -2390,18 +2400,17 @@ export class GraphCommands {
 
 		// Seed the co-author into the graph's WIP commit box rather than the SCM input box. Mirror
 		// undoCommit: select the WIP row, persist the draft, and notify the webview to show WIP with
-		// the message — but APPEND to the existing draft instead of replacing it. See undoCommit for
-		// the createWipSha second-arg invariant (distinguishes primary vs secondary WIP).
-		const wipSha = createWipSha(repoPath, this.repository?.path);
+		// the message — but APPEND to the existing draft instead of replacing it.
+		const wipRowId = createWipRowId(repoPath);
 		const existing = this.container.storage.getWorkspace('graph:wipDrafts')?.[repoPath];
 		const message = appendCoauthorsToMessage(existing?.message ?? '', [coauthor]);
 
 		this.context.writeWipDraftToStorage(repoPath, { ...existing, message: message, messageDirty: true });
-		this.context.setSelectedRows(wipSha);
+		this.context.setSelectedRows(wipRowId);
 		void this.context.notifyDidChangeSelection();
 		void this.host.notify(DidRequestGraphActionNotification, {
 			action: 'show-wip',
-			target: { sha: wipSha, worktreePath: repoPath },
+			target: { sha: wipRowId, worktreePath: repoPath },
 			commitMessage: message,
 		});
 	}
@@ -2597,13 +2606,15 @@ export class GraphCommands {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return;
 
-		// Open the in-graph compose mode for the row that was right-clicked. For a secondary WIP
-		// row `ref.repoPath` is that worktree's path; for the primary it's the main repo path.
-		// The webview routes via `enterModeForWip(compose, repoPath, uncommitted)` — matching the
-		// inline Compose-button path (`handleWipRowOpen`) so context-menu and button stay aligned.
+		// Open the in-graph compose mode for the row that was right-clicked. For a WIP row `ref.repoPath`
+		// is already that worktree's path, but a sidebar worktree row's is the graph's repo — take the
+		// context's `worktreePath` first. Target that worktree's WIP ROW id — a bare `uncommitted` would
+		// select the graph's own primary WIP row instead, regardless of `worktreePath`.
+		const worktreePath = this.getGraphItemWorktreePath(item) ?? ref.repoPath;
+		const wipRowId = createWipRowId(worktreePath);
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-compose',
-			target: { sha: uncommitted, worktreePath: this.getGraphItemWorktreePath(item) ?? ref.repoPath },
+			target: { sha: wipRowId, worktreePath: worktreePath },
 		});
 	}
 
@@ -2612,11 +2623,12 @@ export class GraphCommands {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return;
 
-		// Mirrors `composeCommits` but enters the review mode instead — the webview routes via
-		// `enterModeForWip('review', repoPath, uncommitted)`, matching the in-header `review` chip.
+		// Mirrors `composeCommits` but enters the review mode instead, matching the in-header `review`
+		// chip — same WIP ROW id targeting so a secondary worktree's row is the one selected.
+		const wipRowId = createWipRowId(ref.repoPath);
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-review',
-			target: { sha: uncommitted, worktreePath: ref.repoPath },
+			target: { sha: wipRowId, worktreePath: ref.repoPath },
 		});
 	}
 

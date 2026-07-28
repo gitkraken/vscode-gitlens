@@ -1,17 +1,13 @@
 @use 'sass:meta';
 @use '../../shared/styles/theme';
 @use '../../shared/styles/utils';
-@use '../../shared/styles/icons/utils' as iconUtils;
 @use '../../shared/base';
-@include meta.load-css('../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css');
-
-// Experimental commit-graph engine (@gitkraken/commit-graph) — theme token fallbacks consumed by
-// the `gl-graph__*` rules below. VS Code → HSL token conversion is wired at runtime in `graph.ts`
+// Commit-graph engine (@gitkraken/commit-graph) — theme token fallbacks consumed by the
+// `gl-graph__*` rules below. VS Code → HSL token conversion is wired at runtime in `graph.ts`
 // (onThemeUpdated); this stylesheet provides the defaults before the bridge runs.
 @include meta.load-css('../../../../../node_modules/@gitkraken/commit-graph/graph-default-theme.css');
 
-// Experimental pure-Lit commit graph (gl-lit-graph). Replaces the prior React renderer;
-// light DOM, so these are plain descendant rules.
+// The commit graph (gl-lit-graph) renders into the light DOM, so these are plain descendant rules.
 gl-lit-graph {
 	// Column layout: the viewport takes all available space, the search-results footer (when shown) is
 	// a fixed-height row below it — added as a real flex sibling, not an overlay, so it never covers rows.
@@ -53,7 +49,7 @@ gl-lit-graph {
 
 	// Filter-search results footer — a slim bar below the (scrollable) viewport. A flex sibling of the
 	// viewport (see the host rule above), NOT part of the virtualizer's light-DOM content, so it can
-	// never affect row virtualization/layout. Mirrors the legacy graph's `.graph-footer__*` styling.
+	// never affect row virtualization/layout.
 	.gl-graph__search-footer {
 		display: flex;
 		flex: 0 0 auto;
@@ -216,7 +212,7 @@ gl-lit-graph {
 			box-shadow 0.24s ease;
 	}
 	// Nearest band to the cursor (`.is-hovered`) → its PRIMARY marker (highest priority) slides out to span
-	// the full rail in its own color, on top — matching the reference's full-width hover bar. Secondary
+	// the full rail in its own color, on top, so the hovered row reads as one bar. Secondary
 	// ticks stay in their lanes (covered by the expanded primary). The shadow is the sticky timeline's own
 	// lift, so the marker reads as rising off the rail instead of merely getting wider.
 	.gl-graph__scroll-marker-band.is-hovered .gl-graph__scroll-marker-box.is-primary {
@@ -717,7 +713,7 @@ gl-lit-graph {
 		&:hover {
 			background-color: var(--vscode-list-hoverBackground);
 		}
-		// High-contrast parity with the old engine's forced-colors treatment: hover/selection rely on
+		// High-contrast forced-colors treatment: hover/selection rely on
 		// background tints alone above, which forced-colors themes can flatten to nothing — so HC also
 		// gets an explicit ring. `outline` (not `box-shadow`) so it never fights `.is-selected`'s own
 		// box-shadow ring below or the focus `::after` overlay; negative offset keeps it inset, matching
@@ -1036,7 +1032,7 @@ gl-lit-graph {
 		display: inline-flex;
 	}
 	// Unpushed Push-to-Commit badge: colorized with the "ahead" decoration color so it reads as a badge
-	// at rest (matches the legacy `.unpushed-push-button`); hover still gets the toolbar bg.
+	// at rest; hover still gets the toolbar bg.
 	.gl-graph__row-action.unpushed-push-button {
 		color: var(--branch-status-ahead-foreground);
 	}
@@ -1052,10 +1048,7 @@ gl-lit-graph {
 			background: transparent;
 		}
 	}
-	// Agent indicator phase color. The `.agent-indicator` block further down is nested inside
-	// `.graph-row-actions` — the REACT renderer's container — so it can't reach this renderer's
-	// `.gl-graph__row-actions` rows; these rules are the Lit equivalent (the markup already carries
-	// `agent-indicator--${category}`). Compound selectors, like `.unpushed-push-button` above, so
+	// Agent indicator phase color. Compound selectors, like `.unpushed-push-button` above, so
 	// they outrank `.gl-graph__row-action`'s own `color` on specificity rather than source order.
 	// Tokens come from theme.scss, keeping this aligned with the tree decoration and status pill.
 	.gl-graph__row-action.agent-indicator--needs-input {
@@ -1107,7 +1100,7 @@ gl-lit-graph {
 		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
 	}
 	// The agent badge IS the phase signal, so it takes the phase color from its button instead of the
-	// neutral foreground above — matching the file tree's agent decoration, and the React renderer,
+	// neutral foreground above — matching the file tree's agent decoration,
 	// whose suffix icon already inherits the color from `.agent-indicator`. Scoped to the agent button:
 	// the compose/review/resolve badges sharing this class encode operation state (loading/pass/error),
 	// which must not read as an agent phase. Outranks the base rule on specificity, not source order.
@@ -1614,8 +1607,8 @@ gl-lit-graph {
 		font-style: italic;
 	}
 	// Commit subject keeps the message's foreground color; the bullet separator + body recede to 60% of it,
-	// so the subject reads first (matching the legacy graph's `.message-zone--body { opacity: .6 }`). The
-	// whole line truncates in `.gl-graph__message`, so the body ellipsizes before the subject.
+	// so the subject reads first. The whole line truncates in `.gl-graph__message`, so the body
+	// ellipsizes before the subject.
 	// Dimmed RELATIVE to the row (`currentcolor` in `color` resolves to the inherited value), not pinned to
 	// `--muted-foreground` — an absolute color can't follow states that repaint the row's foreground, e.g.
 	// `.is-selected`'s `--row-selection-fg`. `color-mix` rather than `opacity` so the `-code` chip keeps its
@@ -3716,26 +3709,13 @@ gl-lit-graph {
 :root {
 	--titlebar-fg: var(--color-foreground--65);
 	--color-graph-contrast-border: var(--vscode-list-focusOutline);
-	--color-graph-selected-row: var(--vscode-list-activeSelectionBackground);
-	--color-graph-hover-row: var(--vscode-list-hoverBackground);
-	--color-graph-text-selected-row: var(--vscode-list-activeSelectionForeground);
-	--color-graph-text-dimmed-selected: color-mix(
-		in srgb,
-		transparent 50%,
-		var(--vscode-list-activeSelectionForeground)
-	);
 	--color-graph-text-selected: var(--vscode-editor-foreground, var(--vscode-foreground));
-	--color-graph-text-dimmed: color-mix(in srgb, transparent 80%, var(--color-graph-text-selected));
 	--color-graph-actionbar-selectedBackground: var(--vscode-toolbar-hoverBackground);
 
-	--color-graph-text-hovered: var(--vscode-list-hoverForeground);
-	--color-graph-text-normal: color-mix(in srgb, transparent 15%, var(--color-graph-text-selected));
-	--color-graph-text-secondary: color-mix(in srgb, transparent 35%, var(--color-graph-text-selected));
 	--color-graph-text-disabled: color-mix(in srgb, transparent 50%, var(--color-graph-text-selected));
 
 	--color-graph-stats-added: var(--vscode-gitlens-graphChangesColumnAddedColor);
 	--color-graph-stats-deleted: var(--vscode-gitlens-graphChangesColumnDeletedColor);
-	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
 	// Neutral "empty track" fill behind the Changes bars / bipolar axis / unfilled squares. Derived from
 	// the editor foreground (which flips with the theme) at low alpha, matching the `--color-graph-text-*`
 	// neutrals above so it reads as a subtle recess in both light + dark themes.
@@ -3844,9 +3824,6 @@ gl-lit-graph {
 	   the foreground inverts correctly in both. */
 	--color-graph-minimap-tip-worktreeForeground: var(--vscode-editor-background, var(--vscode-foreground));
 
-	--graph-stats-bar-height: 40%;
-	--graph-stats-bar-border-radius: var(--gl-radius-sm);
-
 	--branch-status-ahead-foreground: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
 	--branch-status-behind-foreground: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
 	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
@@ -3870,14 +3847,6 @@ gl-lit-graph {
 	--color-graph-actionbar-background: color-mix(in srgb, #000 5%, var(--color-background));
 	--color-graph-background1: color-mix(in srgb, #000 5%, var(--color-background));
 	--color-graph-background2: color-mix(in srgb, #000 10%, var(--color-background));
-
-	.graph-container .wip-stats-pill {
-		background-color: color-mix(
-			in srgb,
-			var(--vscode-sideBarSectionHeader-background) 96%,
-			var(--vscode-foreground) 4%
-		);
-	}
 }
 
 // Light DOM
@@ -3888,32 +3857,12 @@ body {
 
 	padding: 0;
 	overflow: hidden;
-
-	.vertical_scrollbar,
-	.horizontal_scrollbar {
-		border-color: transparent;
-		transition: border-color 1s linear;
-	}
-
-	&:hover,
-	&:focus-within {
-		.vertical_scrollbar,
-		.horizontal_scrollbar {
-			border-color: var(--vscode-scrollbarSlider-background);
-			transition: border-color var(--gl-duration-x-fast) linear;
-		}
-	}
 }
 
 :focus,
 :focus-within,
 :focus-visible {
 	outline-color: var(--vscode-focusBorder);
-}
-
-.gk-graph .graph-container:focus,
-.gk-graph .graph-container:focus-within {
-	outline: none;
 }
 
 ::-webkit-scrollbar {
@@ -4222,51 +4171,6 @@ button:not([disabled]),
 // 	}
 // }
 
-// used by graph component
-.columns-settings {
-	--column-button-height: 19px;
-
-	height: var(--column-button-height);
-	font-family: inherit;
-	color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
-	text-align: left;
-	appearance: none;
-	cursor: pointer;
-	background-color: transparent;
-	background-color: var(--color-graph-actionbar-background);
-	border: none;
-	border-radius: var(--gl-radius-sm);
-
-	&:hover {
-		color: var(--color-foreground);
-		background-color: var(--vscode-toolbar-hoverBackground);
-	}
-
-	&:focus {
-		@include focusStyles;
-	}
-
-	&[disabled] {
-		pointer-events: none;
-		opacity: 0.5;
-	}
-
-	code-icon {
-		position: relative;
-		font-size: var(--gl-font-sm);
-	}
-}
-
-// Light DOM
-.gk-graph:not(.ref-zone, .bs-tooltip) {
-	width: 100%;
-	height: 100%;
-}
-
-.gk-graph.bs-tooltip {
-	z-index: var(--gl-z-tooltip);
-}
-
 // header
 // .flex-gap {
 // 	display: flex;
@@ -4404,458 +4308,6 @@ button:not([disabled]),
 // 	}
 // }
 
-// Light DOM
-.graph-icon {
-	display: inline-block;
-	font: normal normal normal 14px/1 codicon;
-	line-height: 2rem;
-	vertical-align: middle;
-	text-align: center;
-	letter-spacing: normal;
-	text-decoration: none;
-	-webkit-user-select: none;
-	-ms-user-select: none;
-	user-select: none;
-	text-rendering: auto;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-
-	&.mini-icon {
-		font-size: var(--gl-font-micro);
-		line-height: 1.6rem;
-	}
-}
-
-// Light DOM
-.icon {
-	&--head {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('vm');
-		}
-	}
-
-	&--remote {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('cloud');
-		}
-	}
-
-	&--remote-github,
-	&--remote-githubEnterprise {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('github-inverted');
-		}
-	}
-
-	&--remote-gitlab,
-	&--remote-gitlabSelfHosted {
-		&::before {
-			font-family: glicons;
-
-			@include iconUtils.glicon('provider-gitlab');
-		}
-	}
-
-	&--remote-bitbucket,
-	&--remote-bitbucketServer {
-		&::before {
-			font-family: glicons;
-
-			@include iconUtils.glicon('provider-bitbucket');
-		}
-	}
-
-	&--remote-azureDevops {
-		&::before {
-			font-family: glicons;
-
-			@include iconUtils.glicon('provider-azdo');
-		}
-	}
-
-	&--tag {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('tag');
-		}
-	}
-
-	&--stash {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('inbox');
-		}
-	}
-
-	&--check {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('check');
-		}
-	}
-
-	&--warning {
-		color: #de9b43;
-
-		::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('warning');
-		}
-	}
-
-	&--added {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('add');
-		}
-	}
-
-	&--modified {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('edit');
-		}
-	}
-
-	&--deleted {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('dash');
-		}
-	}
-
-	&--renamed {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('file');
-		}
-	}
-
-	&--resolved {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('pass-filled');
-		}
-	}
-
-	&--hide {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('eye-closed');
-		}
-	}
-
-	&--show {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('eye');
-		}
-	}
-
-	&--pull-request {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('git-pull-request');
-		}
-	}
-
-	&--upstream-ahead {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('arrow-up');
-		}
-	}
-
-	&--upstream-behind {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('arrow-down');
-		}
-	}
-
-	&--settings {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('settings-gear');
-		}
-	}
-
-	&--branch {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('git-branch');
-		}
-	}
-
-	&--graph {
-		&::before {
-			font-family: glicons;
-
-			@include iconUtils.glicon('graph');
-		}
-	}
-
-	&--commit {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('git-commit');
-		}
-	}
-
-	&--author {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('account');
-		}
-	}
-
-	&--datetime {
-		&::before {
-			font-family: glicons;
-
-			@include iconUtils.glicon('clock');
-		}
-	}
-
-	&--message {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('comment');
-		}
-	}
-
-	&--changes {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('request-changes');
-		}
-	}
-
-	&--files {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('file');
-		}
-	}
-
-	&--worktree {
-		&::before {
-			font-family: glicons;
-
-			@include iconUtils.glicon('worktrees-view');
-		}
-	}
-
-	&--pin {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('pinned');
-		}
-	}
-
-	&--issue-github,
-	&--issue-githubEnterprise {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('issues');
-		}
-	}
-
-	&--issue-gitlab,
-	&--issue-gitlabSelfHosted {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('issues');
-		}
-	}
-
-	&--issue-jiraCloud,
-	&--issue-jiraServer {
-		&::before {
-			font-family: glicons;
-
-			@include iconUtils.glicon('provider-jira');
-		}
-	}
-
-	&--issue-linear {
-		&::before {
-			font-family: glicons;
-
-			@include iconUtils.glicon('provider-linear');
-		}
-	}
-
-	&--issue-azureDevops {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('issues');
-		}
-	}
-
-	&--issue-bitbucket {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('issues');
-		}
-	}
-
-	&--filter {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('filter');
-		}
-	}
-
-	&--undefined-icon {
-		&::before {
-			font-family: codicon;
-
-			@include iconUtils.codicon('blank');
-		}
-	}
-}
-
-// Header icons render at the library's expected metrics, not the global `.graph-icon`
-// `14px / line-height: 2rem` which would stretch the header row.
-.gk-graph .graph-header .graph-icon {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.6rem;
-	height: 1.6rem;
-	font-size: var(--gl-font-lg);
-	line-height: 1;
-}
-
-// Vertically center every header item (zone icon, filter button, label) in the row.
-// `:has()` covers both `.resizable > .contents > div > .columns-btn` and `.is-last-header
-// > div > .columns-btn`. `.columns-filter-icon` uses `!important` to beat the library's
-// inline `height: 22px; margin-bottom: 2px` (which overflows the padded filter button).
-.gk-graph .graph-header div:has(> .columns-btn) {
-	display: flex;
-	align-items: center;
-	height: 100%;
-}
-
-.gk-graph .graph-header .header-columns-icons {
-	top: 0;
-	bottom: 0;
-	display: flex;
-	align-items: center;
-
-	// Swap rendered order so the filter funnel appears before the settings gear.
-	// The library renders settings first in the DOM; the parent is already flex,
-	// so `order` reorders them without touching the external component.
-	.columns-filter {
-		order: 0;
-	}
-
-	.columns-settings {
-		order: 1;
-	}
-}
-
-.gk-graph .graph-header .columns-filter-icon {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	height: auto !important;
-	margin-bottom: 0 !important;
-}
-
-.gk-graph .graph-header .columns-btn {
-	align-items: center;
-	margin-top: 0;
-}
-
-// In narrow columns (compact mode shrinks zone buttons to a few px) the GitLens override
-// at L1290 `justify-content: center` would center a 16px icon inside a 5px box, overflowing
-// left and getting clipped by `.contents { overflow: hidden }`. Pin to icon width.
-.gk-graph .graph-header .columns-btn.small-btn.justify-start {
-	min-width: 1.6rem;
-}
-
-// Filter button: hidden until header hover/focus or `.filtering` (active filter). Active
-// state is signalled by the filled glyph alone — `.button.active`'s background and the
-// library's `--text-selected` recolor are both overridden away.
-// `.columns-btn.columns-filter` matches the library's `.columns-btn.small-btn` specificity
-// so our padding wins on every variant (incl. the ref column's non-small-btn filter).
-.gk-graph .graph-header .columns-btn.columns-filter {
-	padding: var(--gl-space-2);
-	margin-right: 0.3rem;
-	cursor: pointer;
-
-	&:not(.filtering) {
-		opacity: 0;
-		transition: opacity var(--gl-duration-x-fast) ease;
-
-		&:hover {
-			background-color: var(--vscode-toolbar-hoverBackground);
-		}
-	}
-
-	&.filtering,
-	&.filtering:hover {
-		background-color: transparent;
-
-		.columns-filter-icon {
-			color: inherit;
-
-			.icon--filter::before {
-				@include iconUtils.codicon('filter-filled');
-			}
-		}
-	}
-}
-
-.gk-graph .graph-header:hover .columns-filter:not(.filtering),
-.gk-graph .graph-header .columns-filter:not(.filtering):focus-visible,
-.gk-graph .graph-header .columns-filter:not(.filtering):focus-within {
-	opacity: 1;
-}
-
-// Frost the graph rows behind the floating HEAD pill — the library paints it with a 10%
-// tinted but otherwise transparent fill, which gets lost over dense lane/SHA content.
-// Skip hover/focus since the library already swaps to an opaque background there.
-.gk-graph .graph-component .graph-head-pill:not(:hover):not(:focus-visible) {
-	backdrop-filter: blur(0.3rem) saturate(1.2);
-	-webkit-backdrop-filter: blur(0.3rem) saturate(1.2);
-}
-
 // header - move to graph.css.ts
 // .titlebar {
 // 	background: var(--titlebar-bg);
@@ -4928,371 +4380,8 @@ button:not([disabled]),
 // 	margin-right: 0.4rem;
 // }
 
-// might not need this
-gl-graph-app,
-gl-graph-app-wc,
-// gl-graph-wrapper,
-web-graph {
+gl-graph-app {
 	display: contents;
-}
-
-// don't see usage
-.graph-app {
-	// --fs-1: 1.1rem;
-	// --fs-2: 1.3rem;
-
-	// padding: 0;
-	// overflow: hidden;
-
-	// &__container {
-	// 	display: flex;
-	// 	flex-direction: column;
-	// 	height: calc(100vh - 2px); // shoot me -- the 2px is to stop the vertical scrollbar from showing up
-	// 	gap: 0;
-	// 	padding: 0.1rem;
-	// }
-
-	// &__banners {
-	// 	flex: none;
-	// 	padding: 0.5rem;
-	// 	z-index: 2000;
-
-	// 	&:empty {
-	// 		display: none;
-	// 	}
-
-	// 	> *:not(:first-child) {
-	// 		margin-top: 0.5rem;
-	// 	}
-	// }
-
-	&__gate {
-		// top: 40px; /* height of the header bar */
-		padding-top: var(--gl-space-40);
-	}
-
-	// header
-	// &__header {
-	// 	flex: none;
-	// 	z-index: 101;
-	// 	// width: fit-content;
-	// 	position: relative;
-	// }
-
-	// &__footer {
-	// 	flex: none;
-	// }
-
-	// &__main {
-	// 	flex: 1 1 auto;
-	// 	overflow: hidden;
-	// 	position: relative;
-	// 	display: flex;
-	// }
-
-	// &__main.is-gated {
-	// 	position: relative;
-	// 	pointer-events: none;
-	// }
-}
-
-// Light DOM
-.gk-graph:not(.ref-zone, [role='tooltip']) {
-	// flex: 1 1 auto;
-	position: relative;
-}
-
-// Add when graph ref-zone "container" changes
-// .gk-graph.ref-zone {
-// 	position: absolute;
-// }
-
-// Light DOM
-.gk-graph .graph-header {
-	& .resizable-handle.horizontal {
-		--sash-size: 4px;
-		--sash-hover-size: 4px;
-
-		z-index: var(--gl-z-sticky);
-		width: var(--sash-size) !important;
-		height: 100vh !important;
-		border-right: none !important;
-
-		&::after {
-			position: absolute;
-			top: 0.3rem;
-			left: 0.1rem;
-			width: var(--sash-size);
-			height: 1.6rem;
-			content: '';
-			border-left: var(--gl-border-width) solid var(--titlebar-fg);
-			opacity: 0.3;
-			transition: border-color var(--gl-duration-x-fast) var(--gl-ease-out);
-		}
-
-		&::before {
-			position: absolute;
-			left: calc(50% - var(--sash-hover-size) / 2);
-			width: 100%;
-			width: var(--sash-hover-size);
-			height: 100vh;
-			pointer-events: none;
-			content: '';
-			background: transparent;
-			transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
-		}
-
-		&:hover,
-		&:active {
-			&::before {
-				background-color: var(--vscode-sash-hoverBorder);
-				transition-delay: 0.2s;
-			}
-
-			&::after {
-				border-left-color: var(--vscode-sash-hoverBorder);
-				transition-delay: 0.2s;
-			}
-		}
-
-		&:active::after {
-			position: absolute;
-			top: 0;
-			left: -100vw;
-			z-index: var(--gl-z-sticky);
-			width: 200vw;
-			height: 100vh;
-			content: '';
-		}
-	}
-
-	.columns-btn {
-		margin-top: 0.1rem;
-	}
-
-	.columns-btn.small-btn.justify-start {
-		display: inline-flex;
-		justify-content: center;
-	}
-
-	.columns-btn.spinner {
-		margin-right: var(--gl-space-6);
-	}
-
-	.button {
-		color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
-		background-color: var(--color-graph-actionbar-background);
-		border-radius: var(--gl-radius-sm);
-
-		&:hover {
-			color: var(--color-foreground);
-			background-color: var(--vscode-toolbar-hoverBackground);
-		}
-
-		&:focus {
-			@include focusStyles;
-		}
-
-		&.active,
-		&.active:hover {
-			color: var(--color-foreground);
-			background-color: var(--vscode-toolbar-activeBackground);
-		}
-	}
-
-	.graph-icon {
-		color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
-	}
-}
-
-// Reformat the third-party graph component's TARGET/BASE pills:
-//   - Default state shows "<icon> TARGET" / "<icon> BASE".
-//   - When the ref column is shrunk, the pill collapses to icon-only.
-// The pill itself stays flex-shrink: 0 so it never gets squished; the
-// container query on the .flex parent (which has the column-width inline
-// style) drives the icon-only ↔ icon+text mode swap. Padding/margin are
-// tightened so the dashed right border doesn't clip against the parent's
-// overflow:hidden at minimum width.
-.gk-graph .ref-zone > .flex:has(> .merge-target-ref-node),
-.gk-graph .ref-zone > .flex:has(> .merge-base-ref-node) {
-	container-name: refcol;
-	container-type: inline-size;
-}
-
-.gk-graph .ref-zone .merge-base-ref-node,
-.gk-graph .ref-zone .merge-target-ref-node {
-	flex-shrink: 0;
-	align-items: center;
-	padding: 0 var(--gl-space-4);
-	margin-left: 0;
-	font-size: 0;
-	white-space: nowrap;
-
-	&::before {
-		display: inline-block;
-		font-size: var(--gl-font-base);
-		line-height: 1;
-	}
-}
-
-.gk-graph .ref-zone .merge-target-ref-node::before {
-	font-family: glicons;
-
-	@include iconUtils.glicon('merge-target');
-}
-
-.gk-graph .ref-zone .merge-base-ref-node::before {
-	font-family: codicon;
-
-	@include iconUtils.codicon('git-branch');
-}
-
-@container refcol (min-width: 100px) {
-	.gk-graph .ref-zone .merge-base-ref-node,
-	.gk-graph .ref-zone .merge-target-ref-node {
-		gap: var(--gl-space-4);
-		padding: 0 var(--gl-space-6);
-		font-size: var(--gl-font-sm);
-	}
-}
-
-// Light DOM
-.graph-app:not(:hover) {
-	.gk-graph .graph-header {
-		& .resizable-handle.horizontal::before {
-			display: none;
-		}
-	}
-}
-
-// Light DOM
-.graph-container {
-	container-type: inline-size;
-
-	& .resizable-handle.horizontal {
-		display: none;
-	}
-
-	& .node.stash-node .graph-icon {
-		transform: translateY(-2px);
-	}
-
-	& .graph-adjust-commit-count {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: calc(100cqw - var(--graph-column-scrollbar-thickness));
-	}
-
-	& .changes-zone.changes-bar .changes-sub-bar.deleted {
-		margin-left: var(--gl-space-2);
-	}
-
-	& .wip-stats-pill {
-		font-weight: 600;
-		background-color: color-mix(
-			in srgb,
-			var(--vscode-sideBarSectionHeader-background) 90%,
-			var(--vscode-foreground) 10%
-		);
-		border: var(--gl-border-width) solid
-			color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 100%, var(--vscode-foreground) 70%) !important;
-		border-radius: var(--gl-radius-sm);
-
-		& .graph-icon {
-			font-weight: 600;
-		}
-	}
-
-	/* Package default selector chain is 5 classes; `!important` is the simplest reliable beat. */
-	& .wip-stats-pill__item--added {
-		color: var(--gl-stat-added) !important;
-	}
-
-	& .wip-stats-pill__item--modified {
-		color: var(--gl-stat-modified) !important;
-	}
-
-	& .wip-stats-pill__item--deleted {
-		color: var(--gl-stat-removed) !important;
-	}
-
-	& .wip-stats-pill__check {
-		color: var(--gl-stat-added) !important;
-	}
-
-	// Graph footer styles
-	& .graph-footer__message {
-		font-size: var(--gl-font-md);
-		font-style: italic;
-		color: var(--vscode-descriptionForeground);
-	}
-
-	& .graph-footer__message + .graph-footer__link {
-		margin-left: 0.5rem;
-	}
-
-	& .graph-footer__link {
-		padding: 0.2rem 0.5rem;
-		font-size: var(--gl-font-md);
-		color: var(--vscode-textLink-foreground);
-		text-decoration: none;
-		cursor: pointer;
-		border: var(--gl-border-width) solid transparent;
-		border-radius: var(--gl-radius-sm);
-		transition: color var(--gl-duration-medium) ease;
-
-		&:hover {
-			color: var(--vscode-textLink-activeForeground);
-			border-color: var(--vscode-textLink-activeForeground);
-		}
-
-		&:focus-visible {
-			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
-			outline-offset: 0;
-			border-color: var(--vscode-focusBorder) !important;
-		}
-	}
-}
-
-// don't see usage
-.mr-loose {
-	margin-right: 0.5rem;
-}
-
-// Light DOM
-.gk-graph .tooltip,
-.gk-graph.tooltip {
-	font-family: var(--vscode-font-family) !important;
-	font-size: var(--vscode-font-size) !important;
-	font-weight: normal !important;
-	line-height: 19px !important;
-
-	&.show {
-		opacity: 1;
-	}
-
-	&.tooltip-arrow::after {
-		background-color: var(--color-hover-background) !important;
-		border-right-color: var(--color-hover-border) !important;
-		border-bottom-color: var(--color-hover-border) !important;
-	}
-
-	&-inner {
-		padding: 4px 10px 5px !important;
-		font-size: var(--vscode-font-size) !important;
-		color: var(--color-hover-foreground) !important;
-		text-align: start !important;
-		white-space: break-spaces !important;
-		background-color: var(--color-hover-background) !important;
-		border: var(--gl-border-width) solid var(--color-hover-border) !important;
-		border-radius: 0 !important;
-
-		// Light-DOM vendor tooltip (web-graph): needs `!important` to beat the library's own styles,
-		// so it can't go through the helper. The `!important` border above is the HC fallback.
-		// stylelint-disable-next-line declaration-property-value-disallowed-list
-		box-shadow: var(--gl-shadow-tooltip) !important;
-	}
 }
 
 // light DOM
@@ -5383,8 +4472,7 @@ web-graph {
 		gl-graph-minimap-container {
 			position: relative;
 
-			// Above the gitkraken-components graph internals, which use z-indexes up to 16 —
-			// ensures the minimap's Billboard.js tooltips and settings popover render over the graph.
+			// Ensures the minimap's Billboard.js tooltips and settings popover render over the graph.
 			z-index: var(--gl-z-sticky);
 		}
 
@@ -5403,8 +4491,7 @@ web-graph {
 		}
 
 		// Light DOM custom elements default to display:inline — force block for flex sizing
-		gl-graph-wrapper,
-		gl-graph-wrapper > gl-graph {
+		gl-graph-wrapper {
 			display: block;
 			height: 100%;
 		}
@@ -5423,11 +4510,6 @@ web-graph {
 			min-height: 0;
 			overflow: hidden;
 		}
-	}
-
-	&__graph-root {
-		width: 100%;
-		height: 100%;
 	}
 
 	&__details-pane {
@@ -5927,51 +5009,6 @@ web-graph {
 // `.details-stale` (set together in gl-graph-details-panel render).
 .details-replacing {
 	pointer-events: none;
-}
-
-.graph-row-actions {
-	display: flex;
-	gap: 0.3rem;
-	height: 100%;
-	font-size: var(--gl-font-base);
-
-	gl-button {
-		height: 100%;
-	}
-
-	// The unpushed indicator IS the Push to Commit action on commits ahead of HEAD's upstream:
-	// a toolbar button colorized with the "ahead" decoration color so it reads as a badge at rest
-	// while staying live and clickable (hover gets the usual toolbar background). The row's
-	// `dynamic: 'interaction'` adornment keeps it present at rest, so no CSS reveal hack is needed.
-	.unpushed-push-button {
-		color: var(--branch-status-ahead-foreground);
-	}
-
-	// Agent indicator — leftmost button on a WIP row when the worktree has at least one
-	// surfacing agent. Color drives both the main `robot` glyph and the suffix modifier so
-	// the dot of color reads as a status badge rather than two unrelated icons. Tokens come
-	// from theme.scss so this stays aligned with gl-details-agent-status, the status pill,
-	// and the WIP file decoration. `--button-gap: 0` collapses the slot gap inside gl-button
-	// so the robot and its phase suffix sit flush, reading as a single status badge rather
-	// than two adjacent icons.
-	.agent-indicator {
-		--agent-indicator-color: inherit;
-		--button-gap: 0;
-
-		color: var(--agent-indicator-color);
-
-		&--needs-input {
-			--agent-indicator-color: var(--gl-agent-waiting-color);
-		}
-
-		&--working {
-			--agent-indicator-color: var(--gl-agent-working-color);
-		}
-
-		&--idle {
-			--agent-indicator-color: var(--gl-agent-idle-color);
-		}
-	}
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -208,9 +208,12 @@ test.describe('Graph — Conflict Resolution', () => {
 	});
 
 	test('conflicted file exposes the +conflict context in the WIP details', async ({ vscode }) => {
-		// Skipped: under the new default graph engine the conflicted WIP details file rows don't expose
-		// the per-file `gitlens:file+conflict` context (only the WIP row's `+hasConflicts`). Tracked in #5548.
-		test.skip(true, 'New engine gap: per-file +conflict context not exposed (#5548)');
+		// Skipped: the graph's WIP details file rows carry only `gitlens:file+staged`/`+unstaged` — the
+		// per-file `gitlens:file+conflict` context (with the `+canStageCurrent`/`+canStageIncoming`
+		// modifiers) is built only by the Inspect webview's WIP panel. Tracked in #5548. Note the
+		// assertions below are unverified: on a cold start `openGraphWithConflict` times out waiting for
+		// the WIP row itself, so implementing the context also needs that readiness gate made reliable.
+		test.skip(true, 'Unimplemented: per-file +conflict context not exposed on WIP details (#5548)');
 		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);

@@ -14,7 +14,6 @@ function commit(hash: string, parents: string[], date: number): GraphCommit {
 		authorEmail: 'test@example.com',
 		date: date,
 		parents: parents,
-		refs: [],
 	};
 }
 

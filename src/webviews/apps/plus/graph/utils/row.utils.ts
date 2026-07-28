@@ -19,8 +19,8 @@ export function getCommitDateFromRow(row: { date: number; commitDate?: number })
  *   HEADs on the same sha are ambiguous (no way to pick one), so we surface no undo affordance there.
  *
  * Shared by the on-demand right-click context builder (`rowContext.utils.buildRowCommitContext`, which
- * builds the `+HEAD`/`+worktreeHEAD` token) and the inline adornment (`gl-graph.react`), so the two
- * surfaces can't drift on which worktree they'd undo — or on the leaf rule.
+ * builds the `+HEAD`/`+worktreeHEAD` token) and the inline row adornment, so the two surfaces can't
+ * drift on which worktree they'd undo — or on the leaf rule.
  *
  * Generic over the head shape so both the full `GitGraphRowHead[]` and the lean row-context head shape
  * can be passed directly.

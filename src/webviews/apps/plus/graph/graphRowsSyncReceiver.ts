@@ -59,6 +59,8 @@ export class GraphRowsSyncReceiver {
 	 * and re-seeding from a State push would desync the delta sequence.
 	 */
 	initFromBootstrap(sync: GraphRowsSyncStamp | undefined): void {
+		// Bootstrap `State` legitimately omits the stamp on its no-repo / not-allowed variants, which
+		// carry no rows plane at all — leave the baseline at its initial value for those.
 		if (sync == null) return;
 
 		this._generation = sync.generation;
@@ -68,10 +70,8 @@ export class GraphRowsSyncReceiver {
 	/**
 	 * Classify an incoming rows-plane message. Does NOT advance the baseline — the caller applies the
 	 * message first (a splice may still fail its guards) and then calls {@link commit} on success.
-	 * `sync` absent (pre-R1b hosts) → `apply` with legacy semantics and no baseline movement.
 	 */
-	classify(sync: GraphRowsSyncStamp | undefined): RowsSyncOutcome {
-		if (sync == null) return { action: 'apply', snapshot: false };
+	classify(sync: GraphRowsSyncStamp): RowsSyncOutcome {
 		// Stale generation (post-repo-swap straggler) — drop FIRST, even a snapshot: a repo-A snapshot must
 		// never rebase repo-B's baseline. A same-or-newer-generation snapshot still applies unconditionally.
 		if (sync.generation < this._generation) return { action: 'drop' };
@@ -87,12 +87,9 @@ export class GraphRowsSyncReceiver {
 
 	/**
 	 * Advance the baseline after a message applied successfully. A snapshot rebases BOTH values (its
-	 * generation may be new) and clears the outstanding-resync flag; a contiguous delta advances the seq;
-	 * a legacy (no-sync) push is a no-op (defensive tolerance).
+	 * generation may be new) and clears the outstanding-resync flag; a contiguous delta advances the seq.
 	 */
-	commit(sync: GraphRowsSyncStamp | undefined): void {
-		if (sync == null) return;
-
+	commit(sync: GraphRowsSyncStamp): void {
 		this._generation = sync.generation;
 		this._lastApplied = sync.seq;
 		if (sync.snapshot) {

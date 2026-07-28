@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import type { GitGraphRow, GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
 import { appendRowsLedger, buildRowsLedger, diffRowsAgainstLedger, fingerprintRow } from '../graphRowsSplice.js';
+import { createWipRowId } from '../protocol.js';
 
 function row(sha: string, options?: Partial<GitGraphRow>): GitGraphRow {
 	return {
@@ -51,8 +52,8 @@ suite('graphRowsSplice', () => {
 		});
 
 		test('work-dir rows fingerprint their date (re-stamped per walk)', () => {
-			const a = row('work-dir-changes', { type: 'work-dir-changes', date: 1 });
-			const b = row('work-dir-changes', { type: 'work-dir-changes', date: 2 });
+			const a = row(createWipRowId('/repo'), { type: 'work-dir-changes', date: 1 });
+			const b = row(createWipRowId('/repo'), { type: 'work-dir-changes', date: 2 });
 			assert.notStrictEqual(fingerprintRow(a), fingerprintRow(b));
 		});
 	});

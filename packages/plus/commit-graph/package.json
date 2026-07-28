@@ -22,9 +22,21 @@
 			"types": "./src/laneClamp.ts",
 			"default": "./src/laneClamp.ts"
 		},
+		"./laneCollapse.js": {
+			"types": "./src/laneCollapse.ts",
+			"default": "./src/laneCollapse.ts"
+		},
+		"./nearestWip.js": {
+			"types": "./src/nearestWip.ts",
+			"default": "./src/nearestWip.ts"
+		},
 		"./paging.js": {
 			"types": "./src/paging.ts",
 			"default": "./src/paging.ts"
+		},
+		"./scope.js": {
+			"types": "./src/scope.ts",
+			"default": "./src/scope.ts"
 		},
 		"./stats.js": {
 			"types": "./src/stats.ts",

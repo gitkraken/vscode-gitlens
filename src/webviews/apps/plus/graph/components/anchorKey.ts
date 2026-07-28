@@ -1,4 +1,4 @@
-import { isWipSha } from '../../../../plus/graph/protocol.js';
+import { isWipSelectionSha } from '../../../../plus/graph/protocol.js';
 
 /** Stable per-anchor key. Branded so loose strings can't flow in by mistake.
  *
@@ -23,7 +23,10 @@ export function anchorKey(selection: AnchorSelection): AnchorKey {
 		return `multicommit|${repoPath}|${selection.shas.toSorted().join(',')}` as AnchorKey;
 	}
 
+	// A WIP selection carries EITHER the `uncommitted` revision (graph-row selections normalize to it,
+	// distinguished by `repoPath`) or a synthetic WIP row id (alt-mode/host-action slots) — both are the
+	// same anchor.
 	const sha = selection.sha ?? '';
-	if (isWipSha(sha)) return `wip|${repoPath}` as AnchorKey;
+	if (isWipSelectionSha(sha)) return `wip|${repoPath}` as AnchorKey;
 	return `commit|${repoPath}|${sha}` as AnchorKey;
 }

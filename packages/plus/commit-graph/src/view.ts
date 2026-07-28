@@ -51,31 +51,6 @@ export function relativeTimeShort(date: number): string {
 	return `${Math.floor(days / 365)}y`;
 }
 
-/**
- * Bucket a commit's date (epoch ms) into a human-readable scroll-position label. Used by the
- * sticky overlay so the user always knows roughly where in time they are while
- * scrolling. Buckets get coarser as we go further back to keep the label set short.
- */
-export function bucketLabel(date: number): string {
-	if (!Number.isFinite(date)) return '';
-
-	const ms = Date.now() - date;
-	const minute = 60_000;
-	const hour = 60 * minute;
-	const day = 24 * hour;
-	if (ms < hour) return 'In the last hour';
-	if (ms < day) return 'Today';
-	if (ms < 2 * day) return 'Yesterday';
-	if (ms < 7 * day) return 'This week';
-	if (ms < 30 * day) return 'This month';
-	if (ms < 90 * day) return 'Last 3 months';
-	if (ms < 365 * day) return 'This year';
-
-	// Older than a year: show the year so labels stay informative.
-	const year = new Date(date).getFullYear();
-	return Number.isNaN(year) ? 'Older' : String(year);
-}
-
 // Geometry
 
 export const rowHeightTable = 24; // `table` style: tight single-line rows (was 30 — too much vertical gap)
@@ -84,16 +59,7 @@ export const nodeRadius = 5;
 export const nodeRadiusRef = 6;
 export const nodeRadiusWorkdir = 7;
 export const columnWidth = 18;
-export const minColumnWidth = 8; // floor for lane compression when many lanes are visible
 export const gutterPadding = 8;
-/**
- * Gutter cannot exceed this fraction of the container width. Prevents a 10-lane
- * rainbow fan from eating half the row. Over-cap → lanes compress toward minColumnWidth.
- */
-export const maxGutterFraction = 0.35;
-/** Absolute ceiling on gutter width regardless of container size. */
-export const maxGutterPx = 320;
-export const scrollMarkerWidth = 10;
 
 /** Container width (px) below which the `auto` graph style switches from `table` to `list` (the
  *  panel is too narrow for the columns). */
@@ -116,52 +82,6 @@ export function xForColumn(column: number, columnWidth: number): number {
 export function rowGutterWidth(row: ProcessedGraphRow, columnWidth: number): number {
 	const max = Math.max(row.column, row.edgeColumnMax);
 	return gutterPadding * 2 + (max + 1) * columnWidth;
-}
-
-/**
- * Given the lane count and available horizontal space, pick a column width that fits
- * the lane fan under `maxGutterFraction` of the container. Never narrower than
- * `minColumnWidth` — past that point lanes stay at the floor and the gutter is
- * just wider-than-target (acceptable; the trade-off is readability of dense fans).
- */
-export function resolveColumnWidth(maxColumn: number, containerWidth: number): number {
-	if (containerWidth <= 0) return columnWidth;
-
-	const laneCount = maxColumn + 1;
-	const budget = Math.min(maxGutterPx, containerWidth * maxGutterFraction);
-	const forLanes = budget - gutterPadding * 2;
-	const ideal = forLanes / laneCount;
-	if (ideal >= columnWidth) return columnWidth;
-	return Math.max(minColumnWidth, ideal);
-}
-
-// Edge stroke styling
-
-export interface StrokeProps {
-	stroke: string;
-	strokeWidth: number;
-	strokeDasharray?: string;
-	strokeLinecap: 'round';
-	strokeLinejoin?: 'round';
-	filter?: string;
-	className?: string;
-}
-
-export function strokeProps(kind: string, color: string): StrokeProps {
-	return {
-		stroke: color,
-		strokeWidth: 2,
-		strokeDasharray: dashForKind(kind),
-		strokeLinecap: 'round',
-		strokeLinejoin: 'round',
-		className: 'graph-edge',
-		...(kind === 'synthetic-edge' ? { filter: 'url(#graph-wavy)' } : {}),
-	};
-}
-
-export function dashForKind(kind: string): string | undefined {
-	if (kind === 'synthetic-edge' || kind === 'workdir') return '2 3';
-	return undefined;
 }
 
 // Multi-zone column layout
@@ -268,7 +188,7 @@ function fillZoneIndex(zones: readonly ZoneSpec[]): number {
 }
 
 /** True when `zone` is the active fill zone for this set. */
-export function isFillZone(zone: ZoneSpec, zones: readonly ZoneSpec[]): boolean {
+function isFillZone(zone: ZoneSpec, zones: readonly ZoneSpec[]): boolean {
 	return zones[fillZoneIndex(zones)]?.id === zone.id;
 }
 
@@ -480,11 +400,7 @@ export function reorderZones(zones: readonly ZoneSpec[], fromIdx: number, toIdx:
 	return next;
 }
 
-// Search + graph style modes
-
-// Reserved: not yet consumed by the GitLens renderer (search currently uses a filter/normal axis,
-// not dim/collapse). Kept as forward-looking view vocabulary.
-export type SearchMode = 'dim' | 'collapse';
+// Graph style modes
 
 /**
  * Graph style (row layout):
@@ -512,17 +428,3 @@ export type GraphPlacement = 'column' | 'grouped' | 'hidden';
  * possible future divergence.
  */
 export type RefsPlacement = GraphPlacement;
-
-// Reserved: not yet consumed by the GitLens renderer (commit actions run as host VS Code commands,
-// not this flat enum). Kept as forward-looking view vocabulary.
-export type CommitAction = 'copy-sha' | 'copy-short-sha' | 'copy-message' | 'view-diff' | 'cherry-pick';
-
-// Scroll markers
-
-export type ScrollMarkerKind = 'head' | 'branch' | 'tag' | 'stash';
-
-export interface ScrollMarker {
-	sha: string;
-	kind: ScrollMarkerKind;
-	label?: string;
-}

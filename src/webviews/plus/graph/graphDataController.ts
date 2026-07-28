@@ -8,7 +8,7 @@ import type {
 	GitGraphSessionChangedChannels,
 	GraphSessionRestoreResult,
 } from '@gitlens/git/models/graphSession.js';
-import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
@@ -28,7 +28,7 @@ import { GraphSessionStore } from './graphSessionStore.js';
 import type { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { SelectedRowState } from './graphWebview.js';
 import { computeAdaptivePageLimit } from './graphWebview.utils.js';
-import { DidChangeNotification, DidSearchNotification, isSecondaryWipSha } from './protocol.js';
+import { DidChangeNotification, DidSearchNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
 import type {
 	BranchState,
 	DidSearchParams,
@@ -395,11 +395,12 @@ export class GraphDataController {
 			}
 		}
 
-		// A secondary-worktree synthetic sha (`worktree-wip::<path>`) isn't a real revision — passing it makes
-		// the provider run a `git log -n1 'worktree-wip::…'` that always fails + a defensive 10× over-walk; pass
-		// `undefined` instead. Real shas (and the primary `uncommitted`, which the provider short-circuits) pass
+		// `rev` is a git REVISION, so a synthetic WIP row id has to be translated back to the working tree's
+		// revision here — passing the row id itself makes the provider run a `git log -n1 'wip::…'` that
+		// always fails + a defensive 10× over-walk. The provider short-circuits `uncommitted` (no resolve,
+		// untargeted walk), which is what a WIP anchor wants: there is no commit to page to. Real shas pass
 		// through so off-screen anchors still page in.
-		const rev = rebuildAnchorSha ?? (isSecondaryWipSha(this._selectedId) ? undefined : this._selectedId);
+		const rev = rebuildAnchorSha ?? (isWipRowId(this._selectedId) ? uncommitted : this._selectedId);
 		return { rev: rev, limit: limit };
 	}
 
@@ -664,10 +665,16 @@ export class GraphDataController {
 	 *  reach it. `getGraph` caps the targeted walk at `defaultItemLimit*10`, so a deeper "Open in Commit
 	 *  Graph" target opened against a CLOSED graph would never load. Keeps the normal cold-start view
 	 *  (we don't shrink `getGraph`'s limit) and only resumes — uncapped (`limit: 0`) — from the frontier
-	 *  to the target when needed. WIP/uncommitted/already-loaded targets and a fully-paged graph no-op. */
+	 *  to the target when needed. WIP/already-loaded targets and a fully-paged graph no-op. */
 	async ensureSelectedTargetLoaded(): Promise<boolean> {
 		const id = this._selectedId;
-		if (id == null || isSecondaryWipSha(id) || isUncommitted(id)) return false;
+		// Rejects BOTH working-changes namespaces — a `wip::<path>` row id and the bare `uncommitted`
+		// revision, which other GitLens surfaces can still hand us (a working-changes file node routed
+		// through "Open File History in Graph"). Neither is a commit, so the walk below could never find
+		// one: it runs `limit: 0` with a sha that never matches, and the defensive `limit * 10` cap only
+		// applies when `limit` is non-zero — so it would enumerate the entire repository, on every
+		// `getState`, forever.
+		if (id == null || isWipSelectionSha(id)) return false;
 		if (
 			this._graphSession == null ||
 			this._graphSession.current.ids.has(id) ||
@@ -726,6 +733,11 @@ export class GraphDataController {
 		params: IpcParams<typeof EnsureRowRequest>,
 	): Promise<{ id: string | undefined; error?: string }> {
 		if (this._graphSession == null) return { id: undefined };
+		// WIP rows are synthesized client-side and have no commit behind them, so there is nothing to
+		// load and `updateGraphWithMoreRows` below runs UNCAPPED for the id. The webview guards its own
+		// callers, but this is the boundary that has to hold — search seeds WIP row ids into its results
+		// (`graphSearchService`), and the header's ensure-a-search-result path forwards any id it gets.
+		if (isWipRowId(params.id)) return { id: undefined };
 
 		try {
 			if (this._graphSession.current.ids.has(params.id)) {

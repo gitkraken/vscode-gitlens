@@ -22,8 +22,7 @@ export interface AppState extends State {
 	activeRow: string | undefined;
 	/**
 	 * Columns whose search operator is currently present in the search query, derived from
-	 * the parsed search query. Used by gl-graph.react.tsx to set `isFilterActive` on each
-	 * column before passing settings to GraphContainer.
+	 * the parsed search query. Drives each column's header filter affordance.
 	 */
 	activeFilterColumns: ReadonlySet<GraphColumnName>;
 	agentSessions: AgentSessionState[];

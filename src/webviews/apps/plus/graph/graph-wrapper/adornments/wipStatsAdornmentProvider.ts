@@ -26,8 +26,8 @@ import '../../../../shared/components/commit/wip-stats.js';
  */
 
 /**
- * Stats payload for a single workdir/WIP row. Matches the legacy `WorkDirStats` shape so
- * consumers can pass through the host-supplied stats without translation.
+ * Stats payload for a single workdir/WIP row. Mirrors the wire `WorkDirStats` shape so consumers
+ * can pass through the host-supplied stats without translation.
  */
 export interface WipStats {
 	added?: number;

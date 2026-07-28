@@ -57,14 +57,16 @@ import '../../../shared/components/code-icon.js';
  * resolve `data-sha` / ref pills / `data-lane-tip` from `composedPath`), so this stays a pure
  * render function with no per-row closures — required for cheap virtualizer recycling.
  *
- * lit-virtualizer positions the row element itself, so (unlike the React renderer's absolute
- * `top`) we set only `height` here.
+ * lit-virtualizer positions the row element itself, so this sets only `height` — never `top` or
+ * any other positioning, which would fight the virtualizer.
  */
 
 export interface RowRenderContext {
 	/** The row's commit payload (message/author/date/context). Engine rows are topology-only —
 	 *  the host resolves the aligned commit and passes it here so payload swaps never touch rows. */
 	commit: GraphCommit;
+	/** The graph's own (selected) repo path — identifies which WIP row is the primary one. */
+	repoPath?: string;
 	index: number;
 	total: number;
 	rowHeight: number;
@@ -871,7 +873,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	let hasPersistent = false;
 	// Prebuilt by gl-lit-graph (the current branch's ref pill, right-anchored, sourced from the HEAD row);
 	// present only on the primary WIP row and only when it should show (HEAD row loaded + not adjacent).
-	const decorator = isPrimaryWipRow(row.kind, row.sha) ? ctx.wipRowMarkerPill : undefined;
+	const decorator = isPrimaryWipRow(row.kind, row.sha, ctx.repoPath) ? ctx.wipRowMarkerPill : undefined;
 	const hasDecorator = decorator != null;
 	switch (row.kind) {
 		case 'workdir': {

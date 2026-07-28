@@ -25,7 +25,7 @@ import type {
 	WorkDirStats,
 } from '../../../plus/graph/protocol.js';
 import {
-	createSecondaryWipSha,
+	createWipRowId,
 	DidChangeAgentSessionsNotification,
 	DidChangeBranchStateNotification,
 	DidChangeCanInstallClaudeHook,
@@ -203,12 +203,12 @@ export type ResolvedScopeAnchor = {
 };
 
 /**
- * Returns the scope without `mergeTargetTipSha` when `mergeBase` isn't set. Without the paired
- * `mergeBase`, the gitkraken-components scope walk falls into a "target tip without merge base"
- * path that only terminates when the target's ancestors are loaded — for a stale target tip
- * many years back in history, those aren't loaded and the walk exposes every first-parent
- * ancestor of the focal branch. Leaving the scope bare keeps the foreign-ref heuristic active,
- * which bounds visibility against currently-loaded refs.
+ * Returns the scope without `mergeTargetTipSha` when `mergeBase` isn't set. An unpaired target tip
+ * can't re-root anything (`computeScopeProjection` bails without a loaded merge base), so all it does
+ * is land in the scope walk's `unreachable` set — which `onScopeAnchorsUnreachable` answers by paging
+ * toward it. For a stale target tip many years back in history that means paging deep into unrelated
+ * history for an anchor that will never be used. Leaving the scope bare keeps the foreign-ref
+ * heuristic active, which bounds visibility against currently-loaded refs.
  */
 function stripUnpairedMergeTarget(scope: GraphScope): GraphScope {
 	if (scope.mergeBase != null || scope.mergeTargetTipSha == null) return scope;
@@ -317,12 +317,11 @@ export function applyScopeAnchorPatch(
  *
  * Skips the backfill when the scope has neither `mergeBase` nor a prior `mergeTargetTipSha` —
  * the bare scope state that `setScope` leaves behind when the anchor IPC bailed or its merge
- * base wasn't in the loaded rows. Promoting just a `mergeTargetTipSha` onto a bare scope pushes
- * the gitkraken-components scope walk into its "target tip without merge base" path, which can
- * only terminate when the target's ancestors are already loaded; for a stale target tip many
- * years back in history, those aren't loaded and the walk exposes every first-parent ancestor
- * of the focal branch. Leaving the scope bare keeps the foreign-ref heuristic active, which
- * bounds visibility against currently-loaded refs.
+ * base wasn't in the loaded rows. Promoting just a `mergeTargetTipSha` onto a bare scope gives the
+ * scope walk an anchor it can't re-root on (no merge base) but will report unreachable, which the
+ * unreachable-anchor handler answers by paging toward it — deep into unrelated history for a stale
+ * target tip. Leaving the scope bare keeps the foreign-ref heuristic active, which bounds
+ * visibility against currently-loaded refs.
  */
 export function reconcileScopeMergeTarget(
 	scope: AppState['scope'],
@@ -1046,11 +1045,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * Publishes a scope ONCE — anchored if the resolved anchor is usable, bare otherwise. Used by
 	 * the no-bare-flash path (cache hit / fast IPC) AND the cache-miss path.
 	 *
-	 * Why an unloaded `mergeBase` falls through to bare: the gitkraken-components scope walk
-	 * requires the boundary to be loaded in order to terminate, and a "not loaded" merge base
-	 * means the walk would expose every first-parent ancestor of the focal branch. The bare
-	 * scope keeps the foreign-ref heuristic active, which bounds visibility against currently-
-	 * loaded refs.
+	 * Why an unloaded `mergeBase` falls through to bare: re-rooting needs the boundary in the loaded
+	 * window (`computeScopeProjection` returns undefined without it), so an anchored scope whose base
+	 * isn't loaded buys nothing and only feeds the unreachable-anchor paging path. The bare scope
+	 * keeps the foreign-ref heuristic active, which bounds visibility against currently-loaded refs.
 	 *
 	 * Preserve-anchored guard: if `this.scope` is already anchored for the same `branchRef` and
 	 * the new anchor would be a bare downgrade (host bailed OR merge base no longer loaded
@@ -1768,8 +1766,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ selectedRows: msg.params.selection });
 				// Host-initiated reveals (Show in Commit Graph, terminal links, deep links) push the
 				// selection here; user clicks aren't echoed back this way. Ask the app to scroll the
-				// revealed row into view — the new engine doesn't auto-scroll on a plain selection the
-				// way the legacy engine did.
+				// revealed row into view — the graph doesn't auto-scroll on a plain selection.
 				{
 					const revealed = Object.keys(msg.params.selection ?? {})[0];
 					if (revealed != null) {
@@ -1978,7 +1975,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// `DidChangeWorkingTreeNotification` branch above.
 					const wipMetadataBySha = this.wipMetadataBySha;
 					if (stats != null && wipMetadataBySha != null) {
-						const secondarySha = createSecondaryWipSha(repoPath);
+						const secondarySha = createWipRowId(repoPath);
 						const prevSecondary = wipMetadataBySha[secondarySha];
 						if (prevSecondary != null) {
 							updates.wipMetadataBySha = {
@@ -2199,7 +2196,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			// Secondary worktree: branchRef is pre-computed host-side with the MAIN repo path,
 			// which is the format overview entries are keyed by. If metadata hasn't loaded yet,
 			// skip — the next event for this worktree will recover once metadata lands.
-			const secondarySha = createSecondaryWipSha(repoPath);
+			const secondarySha = createWipRowId(repoPath);
 			branchId = this.wipMetadataBySha?.[secondarySha]?.branchRef;
 			if (branchId == null) return;
 		}

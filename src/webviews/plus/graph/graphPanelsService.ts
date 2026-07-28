@@ -54,7 +54,7 @@ import type {
 	GraphStashContextValue,
 	GraphTagContextValue,
 } from './protocol.js';
-import { createWipSha, DidChangeOverviewNotification, sidebarItemOrigin } from './protocol.js';
+import { createWipRowId, DidChangeOverviewNotification, sidebarItemOrigin } from './protocol.js';
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read
@@ -554,10 +554,9 @@ export class GraphPanelsService {
 				webviewItem += '+detached';
 			}
 
-			// The graph row this worktree's WIP anchors to — must mirror `getWipMetadataBySha`:
-			// the worktree at the graph's repo path is the primary `uncommitted` row, others get a
-			// secondary-wip sha (only when they actually have a row, i.e. non-bare with a sha).
-			const wipSha = w.type === 'bare' ? undefined : createWipSha(w.path, graph.repoPath);
+			// The graph row this worktree's WIP anchors to — one path-keyed id per worktree, mirroring
+			// `getWipMetadataBySha` (only when a row can exist at all, i.e. non-bare).
+			const wipSha = w.type === 'bare' ? undefined : createWipRowId(w.path);
 
 			// Base context — `+working` is appended in the webview when the async hasChanges resolves.
 			const context: GraphSidebarWorktree['context'] =

@@ -47,36 +47,12 @@ function isMutableRowType(type: string): boolean {
 export function fingerprintRow(row: GitGraphRow): string | undefined {
 	const mutableType = isMutableRowType(row.type);
 	const ctx = row.contexts;
-	const hasOtherContext =
-		ctx != null &&
-		(ctx.row !== undefined ||
-			ctx.ref !== undefined ||
-			ctx.refGroups !== undefined ||
-			ctx.graph !== undefined ||
-			ctx.avatar !== undefined ||
-			ctx.message !== undefined ||
-			ctx.author !== undefined ||
-			ctx.date !== undefined ||
-			ctx.sha !== undefined ||
-			ctx.stats !== undefined);
+	const hasOtherContext = ctx != null && (ctx.row !== undefined || ctx.refGroups !== undefined);
 	if (row.heads == null && row.remotes == null && row.tags == null && !hasOtherContext && !mutableType) {
 		return undefined;
 	}
 
-	const ctxRest = hasOtherContext
-		? [
-				ctx.row,
-				ctx.ref,
-				ctx.refGroups,
-				ctx.graph,
-				ctx.avatar,
-				ctx.message,
-				ctx.author,
-				ctx.date,
-				ctx.sha,
-				ctx.stats,
-			]
-		: undefined;
+	const ctxRest = hasOtherContext ? [ctx.row, ctx.refGroups] : undefined;
 	return JSON.stringify(
 		mutableType
 			? [row.heads, row.remotes, row.tags, ctxRest, row.date, row.stats]

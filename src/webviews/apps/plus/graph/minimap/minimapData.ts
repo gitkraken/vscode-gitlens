@@ -89,7 +89,7 @@ export function aggregate(input: MinimapAggregateInput): MinimapAggregate {
 		const row = rows[i];
 		// WIP rows represent the working tree, not commits. Their `date` is `Date.now()` (set in
 		// `graph-wrapper.ts`), so bucketing them would bump today's commit count and let `stat.sha`
-		// resolve to a non-commit SHA (`'work-dir-changes'` / `'worktree-wip::…'`) on click.
+		// resolve to a non-commit SHA (a synthetic `wip::<worktreePath>` row id) on click.
 		if (row.type === 'work-dir-changes') continue;
 
 		// Always use committer date for the minimap (the GitGraphRow source populates `commitDate`

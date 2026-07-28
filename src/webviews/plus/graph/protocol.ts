@@ -3,10 +3,7 @@ import type { GitTrackingState } from '@gitlens/git/models/branch.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type {
 	GitGraphRow,
-	GitGraphRowHead,
-	GitGraphRowRemoteHead,
 	GitGraphRowStats,
-	GitGraphRowTag,
 	GitGraphRowType,
 	GraphReachabilityTable,
 } from '@gitlens/git/models/graph.js';
@@ -54,40 +51,54 @@ import type { Wip } from './detailsProtocol.js';
 
 export type { Wip };
 
-/** Prefix for synthetic row ids + shas that represent a secondary-worktree WIP row. */
-const secondaryWipShaPrefix = 'worktree-wip::';
+/** Prefix for synthetic row ids representing a worktree's working-changes (WIP) row. */
+const wipRowIdPrefix = 'wip::';
 
-export function createSecondaryWipSha(path: string): string {
-	return `${secondaryWipShaPrefix}${path}`;
+/** Synthetic row id for a worktree's WIP row — ONE scheme for every worktree, primary included.
+ *  Never the `uncommitted` revision: that stays a git revision, translated at the boundaries. */
+export function createWipRowId(worktreePath: string): string {
+	return `${wipRowIdPrefix}${worktreePath}`;
 }
 
-export function createWipSha(path: string, selectedRepoPath: string | undefined): string {
-	return path === selectedRepoPath ? uncommitted : createSecondaryWipSha(path);
+export function isWipRowId(id: string | undefined): boolean {
+	return id?.startsWith(wipRowIdPrefix) ?? false;
 }
 
-export function getSecondaryWipPath(sha: string): string {
-	return sha.slice(secondaryWipShaPrefix.length);
+/** Decodes the worktree path; `undefined` when `id` isn't a WIP row id. */
+export function getWipRowWorktreePath(id: string | undefined): string | undefined {
+	return isWipRowId(id) ? id!.slice(wipRowIdPrefix.length) : undefined;
 }
 
-export function isSecondaryWipSha(sha: string | undefined): boolean {
-	return sha?.startsWith(secondaryWipShaPrefix) ?? false;
+/** True when the id is the WIP row of the graph's own (selected) worktree. */
+export function isPrimaryWipRowId(id: string | undefined, selectedRepoPath: string | undefined): boolean {
+	return id != null && selectedRepoPath != null && id === createWipRowId(selectedRepoPath);
 }
 
-export function isWipSha(sha: string | undefined): boolean {
-	return sha === uncommitted || isSecondaryWipSha(sha);
+/**
+ * True when a *selection* sha denotes working changes, in either namespace.
+ *
+ * Selection shas are not row ids: `handleGraphSelectionChanged` collapses a WIP row selection to the
+ * `uncommitted` REVISION (the worktree it belongs to is carried alongside, in `repoPath`), because the
+ * details panel and every command downstream of it want a git ref. The alt-mode and host-action paths
+ * write a WIP ROW ID into the same field instead. Both therefore arrive, and anything testing
+ * "is this selection working changes?" must accept either — use {@link isWipRowId} alone only where
+ * the value is known to be a row id.
+ */
+export function isWipSelectionSha(sha: string | undefined): boolean {
+	return sha === uncommitted || isWipRowId(sha);
 }
 
 // Graph wire types — native replacements for the shapes formerly imported from
-// `@gitkraken/gitkraken-components`. The host produces these and ships them over IPC; both the new
-// (`@gitkraken/commit-graph`) and old engines consume structurally-compatible data.
+// `@gitkraken/gitkraken-components`. The host produces these and ships them over IPC to the
+// `@gitkraken/commit-graph` engine.
 
 /** A serialized `data-vscode-context` payload (JSON string) or its pre-serialization object form. */
 export type SerializedGraphItemContext = string | object;
 
-/** Ref kinds the graph recognizes (mirrors the old engine's `refTypes` values). */
+/** Ref kinds the graph recognizes. */
 export type GraphRefType = 'head' | 'remote' | 'tag' | 'worktree';
 
-/** The old engine's column/zone identifiers (kept for event-payload compatibility). */
+/** Column/zone identifiers the graph's event payloads carry — kept verbatim for wire compatibility. */
 export type GraphZoneType = 'ref' | 'graph' | 'message' | 'author' | 'datetime' | 'sha' | 'changes';
 
 /** Compact ref descriptor used by the include/exclude ref filters. */
@@ -111,7 +122,6 @@ export type IncludeOnlyRefsById = Record<string, GraphRefOptData>;
 export interface GraphColumnSetting {
 	width: number;
 	isFilterable?: boolean;
-	isFilterActive?: boolean;
 	isHidden: boolean;
 	mode?: string;
 	order?: number;
@@ -120,7 +130,6 @@ export interface GraphColumnSetting {
 }
 
 export interface GraphContexts {
-	graph?: SerializedGraphItemContext;
 	header?: SerializedGraphItemContext;
 	settings?: SerializedGraphItemContext;
 	/** The scroll-marker rail's own (flattened) toggle menu — see `gitlens:graph:scrollMarkers`. */
@@ -133,7 +142,6 @@ export interface WorkDirStats {
 	deleted: number;
 	modified: number;
 	renamed?: number;
-	context?: SerializedGraphItemContext;
 }
 
 // Ref enrichment metadata (ahead/behind, PRs, issues) attached to refs.
@@ -193,7 +201,6 @@ export interface GraphRef {
 	fullName?: string;
 	isCurrentHead?: boolean;
 	upstream?: { name: string; id: string };
-	worktreeId?: string;
 	owner?: string;
 	avatarUrl?: string;
 	url?: string;
@@ -203,9 +210,9 @@ export interface GraphRef {
 	message?: string;
 }
 
-/** Filter-state sentinel: `{ [emptySetMarker]: true }` means "filtering applied, zero matches". */
+/** Filter-state sentinel: a one-entry `{ [emptySetMarker]: … }` map means "filtering applied, zero
+ *  matches", which the WIP-visibility helpers distinguish from an empty `{}` ("no filter"). */
 export const emptySetMarker = 'gk.empty-set-marker' as const;
-export type EmptySetMarker = typeof emptySetMarker;
 
 /** Options for the graph component's `selectCommits`. */
 export interface SelectCommitsOptions {
@@ -219,15 +226,10 @@ export interface SelectCommitsOptions {
 export interface ReadonlyGraphRow extends Readonly<GitGraphRow> {
 	readonly rowIndex?: number;
 	readonly hasRefs?: boolean;
-	/** Old-engine output field (row filtered out); absent on the new engine. */
+	/** True when the row is loaded but not displayed (collapsed lane, search filter, scope drop) —
+	 *  drives the "result hidden" warning. Populated by the wrapper's selection APIs. */
 	readonly hidden?: boolean;
 }
-
-/** Map of commit sha → its column (lane) index. */
-export type ColumnNumberBySha = Record<string, number>;
-
-/** Map of CSS custom-property name → value, used to theme the graph component. */
-export type CssVariables = Record<string, string>;
 
 export type {
 	GetOverviewEnrichmentResponse,
@@ -252,15 +254,11 @@ export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
 export type GraphDownstreams = Record</*upstreamName*/ string, /*downstreamNames*/ string[]>;
 
 export type GraphRefMetadata = RefMetadata | null;
-export type GraphUpstreamMetadata = UpstreamMetadata | null;
 export type GraphRefsMetadata = Record</* id */ string, GraphRefMetadata>;
 export type GraphRefMetadataItem = RefMetadataItem;
 export type GraphRefMetadataType = RefMetadataType;
 export type GraphMissingRefsMetadataType = RefMetadataType;
 export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ GraphMissingRefsMetadataType[]>;
-export type GraphPullRequestMetadata = PullRequestMetadata;
-
-export type GraphRefMetadataTypes = 'upstream' | 'pullRequest' | 'issue';
 export type GraphSearchMode = 'normal' | 'filter';
 
 export interface GraphSelection {
@@ -668,25 +666,6 @@ export interface GraphRowsSplice {
 
 export type GraphRepository = RepositoryShape;
 
-export interface GraphCommitIdentity {
-	name: string;
-	email: string | undefined;
-	date: number;
-}
-export interface GraphCommit {
-	sha: string;
-	author: GraphCommitIdentity;
-	message: string;
-	parents: string[];
-	committer: GraphCommitIdentity;
-	type: GitGraphRowType;
-
-	avatarUrl: string | undefined;
-}
-export type GraphRemote = GitGraphRowRemoteHead;
-export type GraphTag = GitGraphRowTag;
-export type GraphBranch = GitGraphRowHead;
-
 export type GraphAutoFetchMode = 'off' | 'vscode' | 'gitlens';
 
 export interface GraphComponentConfig {
@@ -710,28 +689,18 @@ export interface GraphComponentConfig {
 	 *  read/edit heat fades after the last tool call. Resolved host-side from `activityDecay` so
 	 *  the renderer doesn't need its own string→ms helper. */
 	activityDecayMs?: number;
-	/**
-	 * When true, the graph webview renders using the experimental `@gitkraken/commit-graph`
-	 * engine (vendored from commit-graph) instead of `@gitkraken/gitkraken-components`.
-	 *
-	 * Backed by the user setting `gitlens.graph.experimental.useNewEngine`.
-	 */
-	useNewEngine?: boolean;
-	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	/**
-	 * Whether lane folding is available at all in the new (commit-graph) graph engine. When off there is
-	 * no fold strip and no chevrons, every lane stays expanded, and both {@link lanesFoldingDefault} and
-	 * manual folds are ignored.
+	 * Whether lane folding is available at all in the Commit Graph. When off there is no fold strip and no
+	 * chevrons, every lane stays expanded, and both {@link lanesFoldingDefault} and manual folds are ignored.
 	 *
 	 * Backed by the user setting `gitlens.graph.lanes.folding.enabled`.
 	 */
 	lanesFoldingEnabled?: boolean;
 	/**
-	 * Which lanes are folded by default in the new (commit-graph) graph engine. `'none'` keeps every
-	 * lane expanded on load; `'all'` folds every foldable lane segment into a chip; `'auto'` folds lanes
-	 * whose tip is reachable from HEAD via first-parent only ("merged & done"). The segment containing
-	 * HEAD is never auto-folded.
+	 * Which lanes are folded by default in the Commit Graph. `'none'` keeps every lane expanded on load;
+	 * `'all'` folds every foldable lane segment into a chip; `'auto'` folds lanes whose tip is reachable
+	 * from HEAD via first-parent only ("merged & done"). The segment containing HEAD is never auto-folded.
 	 *
 	 * Backed by the user setting `gitlens.graph.lanes.folding.default`. Manual folds during a session
 	 * override this default per-segment until the webview is reloaded. Ignored when
@@ -739,24 +708,24 @@ export interface GraphComponentConfig {
 	 */
 	lanesFoldingDefault?: 'none' | 'all' | 'auto';
 	/**
-	 * Lane spacing density in the new (commit-graph) graph engine. `'expanded'` leaves a clear
-	 * gap between lanes; `'compact'` packs them tightly together.
+	 * Lane spacing density in the Commit Graph's graph column. `'expanded'` leaves a clear gap between
+	 * lanes; `'compact'` packs them tightly together.
 	 *
 	 * Backed by the user setting `gitlens.graph.lanes.density`.
 	 */
 	lanesDensity?: 'expanded' | 'compact';
 	/**
-	 * Minimum number of lanes shown inline when the graph is grouped into another column (new engine) —
-	 * always shown when the graph has that many, however narrow the view.
+	 * Minimum number of lanes shown inline when the graph is grouped into another column — always shown
+	 * when the graph has that many, however narrow the view.
 	 *
 	 * Backed by the user setting `gitlens.graph.lanes.grouped.min`.
 	 */
 	lanesGroupedMin?: number;
 	/**
 	 * Maximum share of the row's width (percent) the inline lanes may take when the graph is grouped into
-	 * another column (new engine) — wider views show more lanes automatically; a row that fans out past
-	 * the resulting cap clips to it (extra lanes collapse to the edge). `lanesGroupedMin` wins when it
-	 * needs more room than this allows.
+	 * another column — wider views show more lanes automatically; a row that fans out past the resulting
+	 * cap clips to it (extra lanes collapse to the edge). `lanesGroupedMin` wins when it needs more room
+	 * than this allows.
 	 *
 	 * Backed by the user setting `gitlens.graph.lanes.grouped.max`.
 	 */
@@ -780,9 +749,9 @@ export interface GraphComponentConfig {
 	sidebarPinned?: boolean;
 	stickyTimeline?: boolean;
 	/**
-	 * Graph style (row layout) in the new (commit-graph) graph engine. `'table'` uses the single-line
-	 * column layout; `'list'` uses the stacked 2-line layout; `'auto'` (default) switches to `'list'`
-	 * automatically when the panel is too narrow for the columns.
+	 * Graph style (row layout) of the Commit Graph. `'table'` uses the single-line column layout; `'list'`
+	 * uses the stacked 2-line layout; `'auto'` (default) switches to `'list'` automatically when the panel
+	 * is too narrow for the columns.
 	 *
 	 * Backed by the user setting `gitlens.graph.style`.
 	 */
@@ -1297,8 +1266,8 @@ export interface GraphSidebarWorktree {
 	isDefault: boolean;
 	locked: boolean;
 	opened: boolean;
-	/** The graph row id this worktree's WIP anchors to: `uncommitted` for the graph's primary
-	 *  worktree, a secondary-wip sha for others, or undefined when the worktree has no WIP row. */
+	/** The graph row id this worktree's WIP anchors to (see `createWipRowId`), or undefined when
+	 *  the worktree has no WIP row. */
 	wipSha?: string;
 	hasChanges?: boolean;
 	/**
@@ -1596,9 +1565,9 @@ export interface DidChangeRowsParams {
 	/**
 	 * Sequencing stamp from the rows-plane publisher (R1). Present once the publisher owns this channel:
 	 * the webview applies a delta iff `generation === current && seq === lastApplied + 1`, drops
-	 * stale-generation messages, and rebases both on a `snapshot`. Optional during the migration.
+	 * stale-generation messages, and rebases both on a `snapshot`.
 	 */
-	sync?: GraphRowsSyncStamp;
+	sync: GraphRowsSyncStamp;
 }
 export interface GraphRowsSyncStamp {
 	/** Bumps on graph identity change (repo swap / graph clear); stale-generation messages are dropped. */

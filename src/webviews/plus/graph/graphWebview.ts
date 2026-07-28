@@ -215,8 +215,7 @@ import {
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	CloseGraphWalkthroughBannerCommand,
-	createSecondaryWipSha,
-	createWipSha,
+	createWipRowId,
 	DidChangeAgentSessionsNotification,
 	DidChangeBranchStateNotification,
 	DidChangeCanInstallClaudeHook,
@@ -263,11 +262,11 @@ import {
 	GetOverviewWipDetailedRequest,
 	GetOverviewWipRequest,
 	GetRowHoverRequest,
-	getSecondaryWipPath,
 	GetWipLineStatsRequest,
+	getWipRowWorktreePath,
 	GetWipStatsRequest,
 	GraphSyncResyncCommand,
-	isSecondaryWipSha,
+	isWipRowId,
 	OpenPullRequestDetailsCommand,
 	ProxyAvatarsCommand,
 	ResetGraphFiltersCommand,
@@ -813,7 +812,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// The publisher recovers with a snapshot on the next trigger; warn so storms/soaks can
 					// assert on delivery health from the persisted log.
 					Logger.warn(
-						`GraphSyncPublisher: rows-plane send failed (gen=${params.sync?.generation}, seq=${params.sync?.seq}, snapshot=${params.sync?.snapshot === true}); will recover via snapshot`,
+						`GraphSyncPublisher: rows-plane send failed (gen=${params.sync.generation}, seq=${params.sync.seq}, snapshot=${params.sync.snapshot === true}); will recover via snapshot`,
 					);
 				}
 				return ok;
@@ -1054,14 +1053,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			let id = arg.ref.ref;
 			let isWipRow = false;
 			if (isUncommitted(id)) {
-				// The uncommitted revision isn't a real commit — it maps to a synthetic WIP row. Select
-				// the row for the matching worktree: the shown repo's own working tree is the primary
-				// 'work-dir-changes' row; any other worktree path uses its per-path secondary WIP sha
-				// (the graph surfaces one WIP row per worktree). See createSecondaryWipSha.
-				id =
-					arg.ref.repoPath === this.repository?.path
-						? 'work-dir-changes'
-						: createSecondaryWipSha(arg.ref.repoPath);
+				// The uncommitted revision isn't a real commit — it maps to the synthetic WIP row of the
+				// worktree it belongs to (the graph surfaces one WIP row per worktree, all keyed by path).
+				// See `createWipRowId`.
+				id = createWipRowId(arg.ref.repoPath);
 				isWipRow = true;
 			} else if (!isSha(id)) {
 				id = (await this.container.git.getRepositoryService(arg.ref.repoPath).revision.resolveRevision(id)).sha;
@@ -1096,14 +1091,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// Repository-only args (e.g. the SCM "Show Commit Graph" button or a repo-folder node)
 			// just switch repos; only run the search-specific work when a search is also present.
 			if (hasSearchQuery(arg)) {
-				if (arg.selectSha) {
-					this.setSelectedRows(arg.selectSha);
+				// Callers can hand us the `uncommitted` REVISION (e.g. Open File History on a
+				// working-changes file node) — no rendered row carries it, so map it to this
+				// worktree's synthetic WIP row id or the selection never highlights.
+				const selectSha =
+					arg.selectSha != null && isUncommitted(arg.selectSha)
+						? createWipRowId(arg.repository.path)
+						: arg.selectSha;
+				if (selectSha) {
+					this.setSelectedRows(selectSha);
 
 					if (this._data.session != null) {
-						if (this._data.session.current.ids.has(arg.selectSha)) {
+						// Synthetic WIP rows can't be paged in; selecting + notifying is enough.
+						if (isWipRowId(selectSha) || this._data.session.current.ids.has(selectSha)) {
 							void this.notifyDidChangeSelection();
 						} else {
-							this.revealRow(arg.selectSha);
+							this.revealRow(selectSha);
 						}
 					}
 				}
@@ -1122,7 +1125,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (loading || repoChanged || !this.host.ready) {
 					this._searchRequest = arg.search;
 				} else {
-					this.notifyRequestSearch({ search: arg.search, selectSha: arg.selectSha });
+					this.notifyRequestSearch({ search: arg.search, selectSha: selectSha });
 				}
 			}
 		} else if (hasSidebarPanel(arg)) {
@@ -1177,15 +1180,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				arg.action !== 'show-rebase-summary'
 			) {
 				// Select the row the action targets: an uncommitted target maps to its worktree's WIP
-				// row (primary 'work-dir-changes' or a secondary worktree's synthetic sha), a real
-				// target selects its commit sha, and no target falls back to the primary WIP row.
-				rowId = 'work-dir-changes';
+				// row, a real target selects its commit sha, and no target falls back to the shown
+				// repo's own WIP row.
 				if (target != null) {
-					rowId = isUncommitted(target.sha)
-						? target.worktreePath === this.repository?.path
-							? 'work-dir-changes'
-							: createSecondaryWipSha(target.worktreePath)
-						: target.sha;
+					rowId = isUncommitted(target.sha) ? createWipRowId(target.worktreePath) : target.sha;
+				} else {
+					const graphRepoPath = this.repository?.path ?? this._data.session?.repoPath;
+					rowId = graphRepoPath != null ? createWipRowId(graphRepoPath) : undefined;
 				}
 				this.setSelectedRows(rowId);
 			}
@@ -1203,11 +1204,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// commits select via the lightweight selection notification; an unloaded commit pages
 				// in (which carries the selection along).
 				if (rowId != null && this._data.session != null) {
-					if (
-						rowId === 'work-dir-changes' ||
-						isSecondaryWipSha(rowId) ||
-						this._data.session.current.ids.has(rowId)
-					) {
+					if (isWipRowId(rowId) || this._data.session.current.ids.has(rowId)) {
 						void this.notifyDidChangeSelection();
 					} else {
 						this.revealRow(rowId);
@@ -1531,22 +1528,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (params.shas.length === 0) return response;
 
 		try {
-			// When the user has disabled per-worktree WIP stats, short-circuit the library-triggered
-			// missing-stats calls. The GK component's `requestedMissingWipStats` dedup marks each sha
-			// as "asked" on first request and never re-asks, so leaving `workDirStats` undefined keeps
-			// the stats pill hidden. Selection-driven fetches pass `force: true` to bypass the gate.
+			// When the user has disabled per-worktree WIP stats, short-circuit the graph-triggered
+			// missing-stats calls. The graph's visible-scan dedup never re-asks for an unchanged
+			// missing set, so leaving `workDirStats` undefined keeps the stats pill hidden.
+			// Selection-driven fetches pass `force: true` to bypass the gate.
 			if (!params.force && !configuration.get('graph.showWorktreeWipStats')) {
 				return response;
 			}
 
 			const cancellation = this.createCancellation('wipStats');
 			const signal = toAbortSignal(cancellation.token);
+			const primaryRepoPath = this.repository?.path ?? this._data.session?.repoPath;
 
 			await Promise.allSettled(
 				params.shas.map(async sha => {
-					if (!isSecondaryWipSha(sha)) return;
+					// Peer worktrees only — the primary's stats ride the `workingTreeStats` channel and
+					// have no `wipMetadataBySha` entry for the client to write them into.
+					const path = getWipRowWorktreePath(sha);
+					if (path == null || path === primaryRepoPath) return;
 
-					const path = getSecondaryWipPath(sha);
 					const svc = this.container.git.getRepositoryService(path);
 
 					// Fetch the paused-op status in parallel with the cached status read so the
@@ -1773,12 +1773,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (configuration.changed(e, 'graph.experimental.visualizations.enabled')) {
 			this.subscribeToTreemapInvalidations();
-		}
-
-		// `computeScopeAnchor` branches on this setting, but `_scopeAnchorCache` is keyed per-branch
-		// only — toggling it without invalidating would keep serving anchors computed under the old engine.
-		if (configuration.changed(e, 'graph.experimental.useNewEngine')) {
-			this.invalidateScopeAnchors();
 		}
 
 		if (configuration.changed(e, 'graph.showWorkingTreeBadge')) {
@@ -2416,8 +2410,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					let commit;
 					let secondaryWorktree;
 					try {
-						const isSecondaryWip = params.type === 'work-dir-changes' && isSecondaryWipSha(id);
-						const hoverRepoPath = isSecondaryWip ? getSecondaryWipPath(id) : this._data.session.repoPath;
+						const wipWorktreePath =
+							params.type === 'work-dir-changes' ? getWipRowWorktreePath(id) : undefined;
+						const isSecondaryWip =
+							wipWorktreePath != null && wipWorktreePath !== this._data.session.repoPath;
+						const hoverRepoPath = isSecondaryWip ? wipWorktreePath : this._data.session.repoPath;
 						const svc = this.container.git.getRepositoryService(hoverRepoPath);
 						switch (params.type) {
 							case 'work-dir-changes':
@@ -2712,10 +2709,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const primaryRepoPath = this._data.session?.repoPath;
 		if (primaryRepoPath == null) return;
 
+		// A WIP row's synthetic id encodes its own worktree path (the primary's resolves back to
+		// `primaryRepoPath`); every other row type acts on the graph's repo.
 		const rowRepoPath =
-			params.row.type === 'work-dir-changes' && isSecondaryWipSha(params.row.id)
-				? getSecondaryWipPath(params.row.id)
-				: primaryRepoPath;
+			(params.row.type === 'work-dir-changes' ? getWipRowWorktreePath(params.row.id) : undefined) ??
+			primaryRepoPath;
 
 		switch (params.action) {
 			case 'undo-commit': {
@@ -3083,20 +3081,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, targetName);
 		if (mergeBaseSha == null) return { focalBranchTipSha: focalBranchTipSha };
 
-		// Target tip is already an ancestor of the focal branch — focal merely descends from target,
-		// with no real divergence; the merge-base equals the target tip. Common when scoping to a
-		// feature branch that's 1+ commits ahead of its merge target with no merges-back.
-		//
-		// This bail exists ONLY for the LEGACY GK component: letting it through trips its
-		// `shouldHideWipRowForScope` into hiding every worktree's WIP on the scoped branch. The NEW Lit
-		// engine doesn't have that bug, and its scope re-root projection REQUIRES the merge-base to fire
-		// — without it, the most common scoped-branch case silently degrades to dim-only with no
-		// re-root. So keep the merge-base for the new engine (the merge-target fold simply collapses to
-		// nothing and the focal spine = the branch's ahead-of-target commits).
-		if (mergeBaseSha === mergeTargetTipSha && configuration.get('graph.experimental.useNewEngine') !== true) {
-			return { focalBranchTipSha: focalBranchTipSha };
-		}
-
 		// Prefer the cheap dates-only lookup on desktop (git-cli); fall back to a full commit fetch
 		// for providers that don't implement it (e.g. the GitHub provider used in vscode.dev).
 		const dates = await svc.commits.getCommitDates?.(mergeBaseSha);
@@ -3134,13 +3118,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private fireSelectionChanged(id: string | undefined, type: GitGraphRowType | undefined) {
 		if (this.repository == null) return;
 
-		// Secondary-WIP rows live in peer worktrees; the synthetic id encodes the worktree path.
-		// Use it (not the primary repo path) so fallback-to-activeSelection commands operate on
-		// the worktree the user actually clicked.
-		const repoPath =
-			type === 'work-dir-changes' && id != null && isSecondaryWipSha(id)
-				? getSecondaryWipPath(id)
-				: this.repository.path;
+		// A WIP row's synthetic id encodes its own worktree path — use it (not the graph's repo path)
+		// so fallback-to-activeSelection commands operate on the worktree the user actually clicked.
+		const repoPath = (type === 'work-dir-changes' ? getWipRowWorktreePath(id) : undefined) ?? this.repository.path;
 		const commit = this.getRevisionReference(repoPath, id, type);
 		this._selection = commit != null ? [commit] : undefined;
 	}
@@ -3917,8 +3897,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			activityDecayMs: activityDecayToMs(
 				configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m',
 			),
-			useNewEngine: configuration.get('graph.experimental.useNewEngine'),
-			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 			lanesFoldingEnabled: configuration.get('graph.lanes.folding.enabled'),
 			lanesFoldingDefault: configuration.get('graph.lanes.folding.default'),
@@ -4066,15 +4044,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Cold-start default: seed the WIP selection only on a FRESH webview/repo (`_selectedId == null`).
 		// Once any intent sets the anchor, getState never re-asserts WIP — the webview owns the anchor and
-		// there is no reconciliation to pull a default row back in. The seed rides the `selectedRows` prop
-		// and the GK echoes it into the webview anchor.
+		// there is no reconciliation to pull a default row back in. The seed rides the `selectedRows` prop,
+		// which the webview echoes into its anchor.
 		if (
 			searchRequest == null &&
 			this._selectedId == null &&
 			configuration.get('graph.initialRowSelection') === 'wip'
 		) {
 			selectionChanged = true;
-			this.setSelectedRows(uncommitted);
+			this.setSelectedRows(createWipRowId(this.repository.path));
 		}
 
 		const columns = this.getColumns();
@@ -4891,20 +4869,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.setSelectedRows(undefined);
 	}
 
+	/** Records the anchor row + the highlight map. `id` is always a ROW id — a commit/stash sha or a
+	 *  synthetic WIP row id (`createWipRowId`); the `uncommitted` revision never gets this far. */
 	private setSelectedRows(id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) {
-		// _selectedId should always be a "real" SHA
-		let selectedId = id;
-		if (id === ('work-dir-changes' satisfies GitGraphRowType)) {
-			selectedId = uncommitted;
-		}
-		if (this._selectedId !== selectedId) {
-			this._selectedId = selectedId;
-		}
-
-		// _selectedRows should always be a "virtual" row type
-		if (id === uncommitted) {
-			id = 'work-dir-changes' satisfies GitGraphRowType;
-		}
+		this._selectedId = id;
 
 		if (selection != null) {
 			this._selectedRows = Object.fromEntries(selection.map(r => [r.id, { selected: true, hidden: r.hidden }]));
@@ -5002,29 +4970,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const targetRepoPath = worktreePath ?? ref.repoPath;
 		const targetRef: GitRevisionReference = { ...ref, repoPath: targetRepoPath };
 
-		// `createWipSha` needs the graph's anchor repo path to distinguish the primary
-		// 'work-dir-changes' sha from a secondary `worktree-wip::<path>` sha. NEVER coalesce the
-		// second arg to `targetRepoPath` — `createWipSha(p, p)` collapses to `uncommitted` and we'd
-		// emit a primary-WIP sha for what is actually a secondary worktree. Use the bound
-		// repository's path rather than the graph session's — the Repository is set when the
-		// webview activates, well before graph data loads, and is always present by the time the
-		// context-menu reaches this command.
-		const wipSha = createWipSha(targetRepoPath, this.repository?.path);
+		const wipRowId = createWipRowId(targetRepoPath);
 
 		await undoCommit(this.container, targetRef, {
 			onBeforeReset: message => {
 				// Batch the selection move, draft seed, and details-panel open before the reset
 				// fires its file-watcher event, so the webview sees one coherent transition rather
 				// than three across the refresh boundary. The WIP selection rides the `selectedRows`
-				// prop and the GK echoes it into the webview anchor. `writeWipDraftToStorage` is the
+				// prop, which the webview echoes into its anchor. `writeWipDraftToStorage` is the
 				// durable mirror of the webview-side flush so the message persists across sessions
 				// even if the user never edits.
 				this._wip.writeWipDraftToStorage(targetRepoPath, { message: message, messageDirty: true });
-				this.setSelectedRows(wipSha);
+				this.setSelectedRows(wipRowId);
 				void this.notifyDidChangeSelection();
 				void this.host.notify(DidRequestGraphActionNotification, {
 					action: 'show-wip',
-					target: { sha: wipSha, worktreePath: targetRepoPath },
+					target: { sha: wipRowId, worktreePath: targetRepoPath },
 					commitMessage: message,
 				});
 			},
@@ -5040,13 +5001,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return { viewColumn: ViewColumn.Beside, sourceViewColumn: this.host.viewColumn };
 	}
 
-	// Stats for the Changes column are consent-gated on the new engine; the legacy engine keeps its
-	// pre-consent behavior (visible column = stats) until it is deleted.
+	/** Stats for the Changes column are consent-gated: a visible-but-dormant column ships no stats. */
 	private isChangesColumnStatsEnabled(): boolean {
-		return (
-			configuration.get('graph.changesColumn.enabled') ||
-			configuration.get('graph.experimental.useNewEngine') === false
-		);
+		return configuration.get('graph.changesColumn.enabled');
 	}
 
 	@debug()

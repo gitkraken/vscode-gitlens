@@ -14,7 +14,20 @@ import type { ReconciledSuffix } from '@gitkraken/commit-graph/engine/reconcile.
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
 import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/laneClamp.js';
+import {
+	appendDroppedRows,
+	applyDroppedRows,
+	compactColumns,
+	composeEffectiveCollapsed,
+	computeDefaultCollapsedSet,
+	computeDroppedShas,
+	computeSegmentMaps,
+	computeTrunkSegmentTip,
+	spliceDroppedRows,
+} from '@gitkraken/commit-graph/laneCollapse.js';
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
+import type { ScopeAnchors, ScopeProjection } from '@gitkraken/commit-graph/scope.js';
+import { computeInScopeShas, computeScopeAnchors, computeScopeProjection } from '@gitkraken/commit-graph/scope.js';
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import {
 	changesFitWidth,
@@ -86,7 +99,7 @@ import type {
 	GraphWipMetadataBySha,
 	GraphWorkingTreeStats,
 } from '../../../../plus/graph/protocol.js';
-import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
+import { createWipRowId, isWipRowId } from '../../../../plus/graph/protocol.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
@@ -95,7 +108,7 @@ import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow, rowMarkerRolesFor } from '../utils/rowMarker.utils.js';
-import { createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
+import { branchHintFor, createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
@@ -115,22 +128,8 @@ import type { FixedSizeLayoutSpecifier } from './graph-fixed-layout.js';
 import { fixedSizeVertical } from './graph-fixed-layout.js';
 import { GutterCache, gutterEpochSignature } from './graph-gutter-cache.js';
 import { laneSpacing, nodeRadiusFor, renderGutterSvg, renderWavyFilterDefs } from './graph-gutter.js';
-import {
-	appendDroppedRows,
-	applyDroppedRows,
-	branchHintFor,
-	compactColumns,
-	composeEffectiveCollapsed,
-	computeDefaultCollapsedSet,
-	computeDroppedShas,
-	computeSegmentMaps,
-	computeTrunkSegmentTip,
-	spliceDroppedRows,
-} from './graph-lane-collapse.js';
 import type { RowRenderContext } from './graph-row.js';
 import { hasPersistentRowActions, renderChangesCellContent, renderRow } from './graph-row.js';
-import { computeInScopeShas, computeScopeAnchors, computeScopeProjection } from './graph-scope.js';
-import type { ScopeAnchors, ScopeProjection } from './graph-scope.js';
 import type { RowMarkers, ScrollMarker } from './graph-scroll-markers.js';
 import {
 	buildMergeTargetScrollMarkers,
@@ -190,6 +189,12 @@ function headerLabelFits(label: string, areaPx: number): boolean {
 const headerActionPx = 24;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+/** Injected into `computeScopeAnchors` so the engine can resolve the focal branch's tip without
+ *  knowing about GitLens ref metadata — the scope math only asks "does this row carry that head?". */
+function rowHasHead(row: GitGraphRow, branchName: string): boolean {
+	return row.heads?.some(h => h.name === branchName) ?? false;
+}
 
 /** Content equality for the scope's synthetic-edge set. Must not be an identity compare: the set is
  *  rebuilt on every update, so equal-but-fresh is the normal case. */
@@ -444,7 +449,7 @@ interface RenderCtx {
 	/** sha → running compose/review operation + agent status for the workdir rows' action buttons. */
 	runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
 	agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
-	/** Primary WIP row's conflict state — drives the Resolve action for the `work-dir-changes` row. */
+	/** The graph's own worktree's WIP row conflict state — drives that row's inline Resolve action. */
 	workingTreeStats?: GraphWorkingTreeStats;
 	/** Secondary (per-worktree) WIP rows' metadata, keyed by their synthetic sha — same source for
 	 *  their conflict state. */
@@ -494,14 +499,12 @@ const changesModeGlyphs: Record<ChangesColumnMode, TemplateResult> = {
 };
 
 /**
- * Pure-Lit commit graph host — the React-free replacement for `<gl-lit-graph>`. Owns the
- * `<lit-virtualizer>` row list, the engine pipeline (GitGraphRow → GraphCommitView →
- * `processCommitsAndSegments`), container-focus keyboard nav, and the delegated interaction
- * model. Emits the same `gl-graph-*` events `<gl-graph-wrapper>` already consumes so it is a
- * drop-in for the React path.
+ * The commit graph renderer. Owns the `<lit-virtualizer>` row list, the engine pipeline
+ * (GitGraphRow → GraphCommitView → `processCommitsAndSegments`), container-focus keyboard nav,
+ * and the delegated interaction model. Emits the `gl-graph-*` events `<gl-graph-wrapper>` consumes.
  *
- * Light DOM (`createRenderRoot` returns `this`) — matches `<gl-lit-graph>` so VS Code's
- * native `data-vscode-context` menu resolution works and global `graph.scss` styles apply.
+ * Light DOM (`createRenderRoot` returns `this`) so VS Code's native `data-vscode-context` menu
+ * resolution works and global `graph.scss` styles apply.
  *
  * Wired: refs + WIP-stat + lane-collapse adornments, minimap day-range, WIP-stat loading +
  * avatar backfill, scope anchors / in-scope dimming / synthetic edges, lane-collapse
@@ -540,7 +543,7 @@ export class GlLitGraph extends LitElement {
 	// arrive, so this keeps lanes treated as "search active" across that gap (see searchActive below).
 	@property({ type: Boolean }) searching = false;
 	// 'normal' = highlight matches + dim non-matches; 'filter' = show only matches. Drives row
-	// highlight/dim (normal) and the displayRows filter (filter). Matches the legacy graph's behavior.
+	// highlight/dim (normal) and the displayRows filter (filter).
 	@property({ type: String }) searchMode?: GraphSearchMode;
 	@property({ type: Object }) config?: GraphComponentConfig;
 	@property({ type: Object }) columns?: GraphColumnsSettings;
@@ -575,9 +578,9 @@ export class GlLitGraph extends LitElement {
 	@property({ type: String }) columnsContext?: string;
 	@property({ type: String }) settingsContext?: string;
 	@property({ type: String }) scrollMarkersContext?: string;
-	// Ref-visibility filters (Hide branch / Hide Remotes·Tags·Stashes). Applied client-side, matching
-	// the legacy engine: hidden heads/remotes/tags drop from the ref pills + scroll-rail markers (the
-	// current HEAD is always kept), and `excludeTypes.stashes` drops stash rows from the engine input.
+	// Ref-visibility filters (Hide branch / Hide Remotes·Tags·Stashes). Applied client-side: hidden
+	// heads/remotes/tags drop from the ref pills + scroll-rail markers (the current HEAD is always
+	// kept), and `excludeTypes.stashes` drops stash rows from the engine input.
 	// The host re-pushes these via DidChangeRefsVisibility WITHOUT re-querying rows, so the filtering is
 	// the webview's responsibility.
 	@property({ type: Object }) excludeRefs?: GraphExcludeRefs;
@@ -798,8 +801,8 @@ export class GlLitGraph extends LitElement {
 		// + a small scan over the tip's refs — cheap enough per ref-less row with no caching.
 		// `segmentByCommit` excludes the trunk segment (laneTipSha stays undefined there — lane-fold/
 		// split-pill jump must not treat trunk as collapsible), so fall back to the trunk tip for ghost
-		// resolution ONLY — a ref-less trunk row still ghosts the nearest descendant tip's branch,
-		// matching the legacy engine. `laneTipSha` itself (the fold hit-target) is untouched.
+		// resolution ONLY — a ref-less trunk row still ghosts the nearest descendant tip's branch.
+		// `laneTipSha` itself (the fold hit-target) is untouched.
 		const ghostTipSha = laneTipSha ?? c.trunkTipSha;
 		const ghostRefSource =
 			!skeleton && c.showGhostRefs && ghostTipSha != null && row.kind !== 'workdir' && row.kind !== 'stash'
@@ -831,6 +834,7 @@ export class GlLitGraph extends LitElement {
 			stickyTimelineGroupKeyFor(row.date, this.nowMs) !== stickyTimelineGroupKeyFor(prevRowDate, this.nowMs);
 		return renderRow(row, {
 			commit: commit,
+			repoPath: this.repoPath,
 			index: index,
 			isBucketBoundary: isBucketBoundary,
 			total: c.total,
@@ -889,10 +893,11 @@ export class GlLitGraph extends LitElement {
 			wipState: c.wipStateBySha.get(row.sha),
 			wipOperation: row.kind === 'workdir' ? c.runningOperationByRowSha?.get(row.sha) : undefined,
 			wipAgent: row.kind === 'workdir' ? c.agentStatusByRowSha?.get(row.sha) : undefined,
-			// Inline Resolve is gated to the PRIMARY WIP row (legacy parity) — secondary worktrees
-			// surface conflicts via the details-header chip instead.
-			hasConflicts:
-				row.kind === 'workdir' && !isSecondaryWipSha(row.sha) ? c.workingTreeStats?.hasConflicts : undefined,
+			// Inline Resolve is gated to the graph's OWN worktree's WIP row (legacy parity) — peer
+			// worktrees surface conflicts via the details-header chip instead.
+			hasConflicts: isPrimaryWipRow(row.kind, row.sha, this.repoPath)
+				? c.workingTreeStats?.hasConflicts
+				: undefined,
 			isUnpushed: commit.isUnpublished,
 			isUnpulled: commit.isUnpulled,
 			undoTarget: commit.undo,
@@ -1169,8 +1174,8 @@ export class GlLitGraph extends LitElement {
 		this.reportAvatarLoadError(email, url);
 	};
 	// Records a broken avatar URL (row/gutter fall back to initials on the next render) and batches
-	// (email → url) pairs for ~150ms before asking the host to re-serve them through its avatar proxy —
-	// mirrors the legacy `<gl-graph>` React adapter's `avatarErrorBatch`.
+	// (email → url) pairs for ~150ms before asking the host to re-serve them through its avatar proxy,
+	// so a screenful of broken avatars costs one round trip instead of one per row.
 	private readonly reportAvatarLoadError = (email: string, url: string): void => {
 		if (this.failedAvatarUrls.has(url)) return;
 
@@ -1229,10 +1234,12 @@ export class GlLitGraph extends LitElement {
 	private providersRegistered = false;
 	private lastWipStatsRef?: GraphWorkingTreeStats;
 	private lastWipMetaRef?: GraphWipMetadataBySha;
+	/** `repoPath` at the last WIP-stats rebuild — the graph's own WIP row is keyed by it. */
+	private lastWipRepoPath?: string;
 
 	// Visible-range bookkeeping (drives minimap day-range + WIP-stat loading + avatar backfill). The scan is
-	// debounced trailing (mirrors the React adapter's 350ms `wipShasSettleDelayMs`) so rapid arrow/scroll past
-	// WIP rows doesn't fire IPC per frame; the dedup keys skip no-op dispatches.
+	// debounced trailing so rapid arrow/scroll past WIP rows doesn't fire IPC per frame; the dedup keys skip
+	// no-op dispatches.
 	private static readonly wipSettleDelayMs = 350;
 	private readonly scanVisibleRangeDebounced = debounce(
 		(first: number, last: number): void => this.scanVisibleRange(first, last),
@@ -1728,10 +1735,13 @@ export class GlLitGraph extends LitElement {
 		}
 
 		const wipChanged =
-			this.workingTreeStats !== this.lastWipStatsRef || this.wipMetadataBySha !== this.lastWipMetaRef;
+			this.workingTreeStats !== this.lastWipStatsRef ||
+			this.wipMetadataBySha !== this.lastWipMetaRef ||
+			this.repoPath !== this.lastWipRepoPath;
 		if (wipChanged) {
 			this.lastWipStatsRef = this.workingTreeStats;
 			this.lastWipMetaRef = this.wipMetadataBySha;
+			this.lastWipRepoPath = this.repoPath;
 			this.rebuildWipStatsProvider();
 		}
 
@@ -2166,7 +2176,7 @@ export class GlLitGraph extends LitElement {
 	// Scope anchors + in-scope chain. Runs before recomputeRows (syntheticChildren is an input
 	// to the engine) and emits the unreachable-anchors paging signal.
 	private recomputeScope(): void {
-		const anchors = computeScopeAnchors(this.rows, this.scope);
+		const anchors = computeScopeAnchors(this.rows, this.scope, rowHasHead);
 		this.scopeAnchors = anchors;
 		this.inScopeShas = computeInScopeShas(this.rows, this.scope, anchors.focalTipShas, anchors.mergeTargetShas);
 		this.emitUnreachableAnchors(anchors.unreachableAnchors);
@@ -2302,7 +2312,7 @@ export class GlLitGraph extends LitElement {
 		}
 
 		// `excludeTypes.stashes` hides stash ROWS (not just a label) — drop them from the engine input so
-		// the layout + edges thread without them (no dangling lanes), matching the legacy engine.
+		// the layout + edges thread without them (no dangling lanes).
 		const stashFiltered = this.excludeTypes?.stashes === true ? rows.filter(r => r.type !== 'stash-node') : rows;
 		// Branches-visibility (Current/Smart/Favorited) + hidden-ref filtering: drop commit rows not
 		// reachable from any visible ref tip so hidden branches' commits AND lanes disappear, not just
@@ -2588,7 +2598,7 @@ export class GlLitGraph extends LitElement {
 
 	// Search/config/collapse-dependent lane derivations (default-mode + manual → effectiveCollapsed,
 	// segment maps), then the rendered displayRows. Rows-only inputs (headSha/trunkSegmentTip) are
-	// cached by recomputeRows. Mirrors the React adapter's chain of useMemos.
+	// cached by recomputeRows, so this only re-runs when search/config/collapse actually change.
 	// `refreshDefaultCollapse` re-derives the default-collapse set; when false (paging appends,
 	// manual fold toggles) the frozen set carries over so scrolling never auto-folds rows away.
 	private recomputeLaneDerivations(refreshDefaultCollapse = false): void {
@@ -2673,6 +2683,7 @@ export class GlLitGraph extends LitElement {
 				excludeRefs: this.excludeRefs,
 				downstreams: this.downstreams,
 				refsMetadata: this.refsMetadata,
+				repoPath: this.repoPath,
 			});
 		}
 
@@ -4198,8 +4209,8 @@ export class GlLitGraph extends LitElement {
 	private rebuildWipStatsProvider(): void {
 		const out = new Map<Sha, WipStats>();
 		const wts = this.workingTreeStats;
-		if (wts != null) {
-			out.set('work-dir-changes', {
+		if (wts != null && this.repoPath != null) {
+			out.set(createWipRowId(this.repoPath), {
 				added: wts.added,
 				modified: wts.modified,
 				deleted: wts.deleted,
@@ -4710,7 +4721,7 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// Date formatter honoring `gitlens.graph.dateStyle` / `gitlens.defaultDateFormat`, falling
-	// back to relative time (mirrors the React adapter). Rebuilt only when config changes. When
+	// back to relative time. Rebuilt only when config changes. When
 	// `short` is set and the effective style is relative, returns the ultra-compact form ("2d");
 	// absolute styles can't meaningfully shrink a custom format, so they ignore `short`.
 	private buildFormatDate(short: boolean): (date: number) => string {
@@ -4889,17 +4900,17 @@ export class GlLitGraph extends LitElement {
 		this.applyZones(this.zones.map(z => (z.id === 'changes' ? { ...z, hidden: true } : z)));
 	};
 
-	// Filter-search results footer (mirrors the legacy graph's `renderFooter`, filter mode only — the
-	// normal/highlight mode's "Load more commits…" affordance isn't ported here). A sibling BELOW the
-	// viewport div (not inside the virtualizer's scroll content), so it never affects row virtualization.
+	// Filter-search results footer — filter mode only, since normal/highlight mode leaves every row in
+	// place and has nothing to report. A sibling BELOW the viewport div (not inside the virtualizer's
+	// scroll content), so it never affects row virtualization.
 	private renderSearchFooter(): TemplateResult | typeof nothing {
 		if (this.searchMode !== 'filter') return nothing;
 
 		const sr = this.searchResults;
 		if (sr == null || !('count' in sr)) return nothing;
 
-		// "No results" reads even while a background page load is in flight (matches the legacy footer) —
-		// every other state needs the load settled first so the counts it reports are stable.
+		// "No results" reads even while a background page load is in flight — every other state needs the
+		// load settled first so the counts it reports are stable.
 		if (sr.count === 0) {
 			return html`<div class="gl-graph__search-footer">
 				<span class="gl-graph__search-footer-message">No results found</span>
@@ -5055,7 +5066,7 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// Floating "Scroll to HEAD" pill (bottom-right) shown only when the current HEAD commit is off
-	// screen — the arrow points toward it; clicking jumps to (centers) HEAD. Mirrors the legacy graph.
+	// screen — the arrow points toward it; clicking jumps to (centers) HEAD.
 	private renderHeadPill(): TemplateResult | typeof nothing {
 		const dir = this.headPillDirection;
 		if (dir == null) return nothing;
@@ -5073,8 +5084,7 @@ export class GlLitGraph extends LitElement {
 
 	// Floating "Jump to Pinned Branch" pill — shown only when a branch is pinned (gitlens.graph.
 	// pinBranchToEdge) AND its row is scrolled off-screen; the arrow points toward it, clicking
-	// centers + selects it. Mirrors the HEAD pill (the new-engine equivalent of the legacy header
-	// "Jump to Pinned Branch" zone action).
+	// centers + selects it. Mirrors the HEAD pill above.
 	private renderPinnedPill(): TemplateResult | typeof nothing {
 		const dir = this.pinnedPillDirection;
 		if (dir == null || this.pinnedSha == null) return nothing;
@@ -5129,7 +5139,7 @@ export class GlLitGraph extends LitElement {
 
 		// Per-row pixel span on the rail (`rowPx`): the rail spans the viewport height (less the
 		// header), and `topPct = index/total` maps the FULL list into it — so each row gets
-		// railHeightPx / totalRowCount px. Drives each box's clamped height (matching the reference).
+		// railHeightPx / totalRowCount px. Drives each box's clamped height.
 		// Cached height, NOT a live `clientHeight` — this runs inside render(), and a live read there forces
 		// a synchronous layout on every update (same reason the viewport-height var and the minimap day-range
 		// use the cache). Fall back to a live read only while the cache is unprimed, so a first paint that
@@ -5180,7 +5190,7 @@ export class GlLitGraph extends LitElement {
 					>
 						${row.entries.map((e, idx) => {
 							// Block ticks fill their lane(s); fullLine/thinLine span the whole rail width as a
-							// thin rule. Heights track `rowPx` (clamped), matching the reference per-shape math.
+							// thin rule. Heights track `rowPx`, clamped per shape.
 							// Block ticks are sized to rowPx MINUS a 1px gap, so adjacent rows' ticks don't
 							// squish/merge (down to a 2px floor — past that the rail is too dense to gap).
 							const isLine = e.shape === 'fullLine' || e.shape === 'thinLine';
@@ -6736,6 +6746,7 @@ export class GlLitGraph extends LitElement {
 
 		const meta = this.wipMetadataBySha;
 		const knownAvatars = this.avatars;
+		const primaryWipRowId = this.repoPath != null ? createWipRowId(this.repoPath) : undefined;
 		const lo = Math.max(0, first);
 		const hi = Math.min(rows.length - 1, last);
 		const visibleWip: Record<string, true> = {};
@@ -6745,7 +6756,9 @@ export class GlLitGraph extends LitElement {
 			const commit = this.getCommitBySha(rows[i].sha);
 			if (commit == null) continue;
 
-			if (rows[i].kind === 'workdir' && isSecondaryWipSha(rows[i].sha)) {
+			// Peer worktrees only — the graph's own WIP row's stats ride `workingTreeStats`, and it has no
+			// `wipMetadataBySha` entry to fill.
+			if (rows[i].kind === 'workdir' && isWipRowId(rows[i].sha) && rows[i].sha !== primaryWipRowId) {
 				visibleWip[rows[i].sha] = true;
 				const m = meta?.[rows[i].sha];
 				if (m != null && (m.workDirStats == null || m.workDirStatsStale === true)) {
@@ -6910,10 +6923,9 @@ export class GlLitGraph extends LitElement {
 	// an O(rows) rebuild each time.
 	private _columnsByShaCache?: { rows: readonly ProcessedGraphRow[]; columns: Record<string, number> };
 
-	/** Sha → lane (column) index for every processed row — the new engine's equivalent of the legacy
-	 *  GK component's `onColumnsCalculated` map. The wrapper's jump-to-nearest-WIP reads this (via
-	 *  `querySelector('gl-lit-graph')`) instead of its own `_columnsBySha`, which only the legacy
-	 *  engine populates. */
+	/** Sha → lane (column) index for every processed row. Exposed because the lane a row occupies is a
+	 *  layout output only this element knows; the wrapper's jump-to-nearest-WIP reads it (via
+	 *  `querySelector('gl-lit-graph')`) to pick the WIP sharing the clicked commit's visual lane. */
 	getColumnsBySha(): Record<string, number> | undefined {
 		if (this.processedRows.length === 0) return undefined;
 
@@ -6950,7 +6962,7 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// `scrollToIndex(idx, 'nearest')` replacement that also honors `gitlens.graph.scrollRowPadding` —
-	// rows of margin kept from the viewport edge (matches the legacy GKC prop, unread until now). Used
+	// rows of margin kept from the viewport edge. Used
 	// by every 'nearest' reveal (keyboard nav, jump-to-HEAD/-sha, focus-in ensure-visible, the
 	// pending-reveal retry below) — deliberate-reveal-only, NEVER the scroll hot path, so the one live
 	// `scrollTop` read below is fine (mirrors the plain-visibility checks these same call sites already
@@ -7473,7 +7485,9 @@ export class GlLitGraph extends LitElement {
 		const headSha = tips?.headSha;
 		if (headSha == null) return undefined;
 
-		const wipIdx = this.processedIndexBySha.get('work-dir-changes');
+		if (this.repoPath == null) return undefined;
+
+		const wipIdx = this.processedIndexBySha.get(createWipRowId(this.repoPath));
 		if (wipIdx == null) return undefined;
 
 		const headIdx = this.processedIndexBySha.get(headSha);
@@ -7512,20 +7526,28 @@ export class GlLitGraph extends LitElement {
 				? this.getCommitBySha(upstreamSha)?.commitRefs.find(r => r.id === primary.upstreamId)
 				: undefined;
 
-		return renderRefPill(parsed, colorForColumn(target.column), undefined, 'work-dir-changes', this.refPillHooks, {
-			role: 'head',
-			expandAnchor: 'right',
-			muted: true,
-			jumpSha: tips?.headSha,
-			upstream:
-				primary.upstreamName != null
-					? {
-							name: primary.upstreamName,
-							hostingServiceType: upstreamRef?.hostingServiceType,
-							jumpSha: upstreamSha,
-						}
-					: undefined,
-		});
+		return renderRefPill(
+			parsed,
+			colorForColumn(target.column),
+			undefined,
+			// `wipRowMarkerPillTarget` returned a target, so `repoPath` is set.
+			createWipRowId(this.repoPath!),
+			this.refPillHooks,
+			{
+				role: 'head',
+				expandAnchor: 'right',
+				muted: true,
+				jumpSha: tips?.headSha,
+				upstream:
+					primary.upstreamName != null
+						? {
+								name: primary.upstreamName,
+								hostingServiceType: upstreamRef?.hostingServiceType,
+								jumpSha: upstreamSha,
+							}
+						: undefined,
+			},
+		);
 	}
 
 	// `gitlens.graph.stickyTimeline` OFF → clear (hides the pill/hairlines). Otherwise reclassifies
@@ -7650,7 +7672,8 @@ export class GlLitGraph extends LitElement {
 		// Reuses the per-render tips cache (this runs on the SCROLL path — recomputing would allocate and
 		// re-walk `refRowIndex` every frame the WIP row is topmost).
 		const hasRowMarkerDecorator =
-			isPrimaryWipRow(row.kind, row.sha) && this.wipRowMarkerPillTarget(this._rowMarkerTips) != null;
+			isPrimaryWipRow(row.kind, row.sha, this.repoPath) &&
+			this.wipRowMarkerPillTarget(this._rowMarkerTips) != null;
 		return hasPersistentRowActions(
 			row.kind,
 			wipAgent,
@@ -8253,7 +8276,7 @@ export class GlLitGraph extends LitElement {
 	// Resolve the render style from the graph column `mode` + the `gitlens.graph.avatars` setting. The
 	// graph column's right-click "Compact" toggle sets `mode: 'compact'` (→ dots); any other value,
 	// including the default `undefined` (NOT compact), shows avatars — real avatars when avatars are
-	// enabled, else letters (initials). Mirrors the legacy GraphContainer's compact-vs-avatar behavior.
+	// enabled, else letters (initials).
 	private get effectiveNodeStyle(): 'dots' | 'avatars' | 'letters' {
 		if (this.columns?.graph?.mode === 'compact') return 'dots';
 
@@ -9886,6 +9909,7 @@ declare global {
 	}
 
 	interface GlobalEventHandlersEventMap {
+		'gl-graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig; revision?: number }>;
 		'gl-graph-lanetoggle': CustomEvent<{ tipSha: string }>;
 		'gl-graph-mouseleave': CustomEvent<void>;
 	}

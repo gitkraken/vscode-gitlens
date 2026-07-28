@@ -62,11 +62,6 @@ export const viewsCategories: SettingsCategory[] = [
 			},
 			{
 				kind: 'check',
-				key: 'graph.highlightRowsOnRefHover',
-				label: 'Highlight associated rows when hovering over a branch',
-			},
-			{
-				kind: 'check',
 				key: 'graph.dimMergeCommits',
 				label: 'Dim merge commit rows',
 			},

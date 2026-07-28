@@ -1,5 +1,5 @@
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
-import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
+import { isPrimaryWipRowId } from '../../../../plus/graph/protocol.js';
 
 /**
  * RowMarker ("where am I") vocabulary shared by the left-edge rail (on-row indicator) and the ref
@@ -162,11 +162,15 @@ export function shortRefName(ref: string): string {
 	return name.replace(/^(refs\/)?(heads|remotes|tags)\//, '');
 }
 
-/** The primary worktree's WIP row — the only row that may carry the row-marker ref pill. A secondary
- *  worktree's WIP row (`worktree-wip::…`) carries no row marker. Used by the pill placement AND the
- *  sticky-timeline yield check so both read the same decision. */
-export function isPrimaryWipRow(kind: ProcessedGraphRow['kind'], sha: string): boolean {
-	return kind === 'workdir' && !isSecondaryWipSha(sha);
+/** The graph's own worktree's WIP row — the only row that may carry the row-marker ref pill. A peer
+ *  worktree's WIP row carries no row marker. Used by the pill placement AND the sticky-timeline yield
+ *  check so both read the same decision. */
+export function isPrimaryWipRow(
+	kind: ProcessedGraphRow['kind'],
+	sha: string,
+	selectedRepoPath: string | undefined,
+): boolean {
+	return kind === 'workdir' && isPrimaryWipRowId(sha, selectedRepoPath);
 }
 
 /** Screen-reader prefix for a row playing one or more row-marker roles ("HEAD, Upstream"). Built for

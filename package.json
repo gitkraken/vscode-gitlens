@@ -1286,7 +1286,7 @@
 					"gitlens.graph.lanes.folding.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether lane folding is enabled in the _Commit Graph_. When enabled, collapsible lane segments show expand/collapse chevrons in a fold strip alongside the graph. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"markdownDescription": "Specifies whether lane folding is enabled in the _Commit Graph_. When enabled, collapsible lane segments show expand/collapse chevrons in a fold strip alongside the graph",
 						"scope": "window",
 						"order": 705
 					},
@@ -1303,7 +1303,7 @@
 							"Fold every foldable lane segment into a chip on graph load",
 							"Fold lane segments whose tip is reachable from HEAD via first-parent (\"merged & done\") on graph load; the segment containing HEAD is never auto-folded"
 						],
-						"markdownDescription": "Specifies which lanes are folded by default in the _Commit Graph_. Manual folds during a session override this default per-segment until the webview is reloaded. Requires `#gitlens.graph.lanes.folding.enabled#`. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"markdownDescription": "Specifies which lanes are folded by default in the _Commit Graph_. Manual folds during a session override this default per-segment until the webview is reloaded. Requires `#gitlens.graph.lanes.folding.enabled#`",
 						"scope": "window",
 						"order": 706
 					},
@@ -1318,7 +1318,7 @@
 							"Space lanes airily for easier tracing of branch lines",
 							"Pack lanes tightly to fit more branches in a narrower graph column"
 						],
-						"markdownDescription": "Specifies the horizontal spacing of lanes in the graph column of the _Commit Graph_. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"markdownDescription": "Specifies the horizontal spacing of lanes in the graph column of the _Commit Graph_",
 						"scope": "window",
 						"order": 707
 					},
@@ -1326,7 +1326,7 @@
 						"type": "number",
 						"default": 10,
 						"minimum": 1,
-						"markdownDescription": "Specifies the minimum number of lanes the _Commit Graph_ shows inline when the graph is grouped into another column (when the graph has that many). Each row's lanes hug their own branch lines; a row that fans out past the lane cap clips to it, with the extra lanes collapsed to the edge. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"markdownDescription": "Specifies the minimum number of lanes the _Commit Graph_ shows inline when the graph is grouped into another column (when the graph has that many). Each row's lanes hug their own branch lines; a row that fans out past the lane cap clips to it, with the extra lanes collapsed to the edge",
 						"scope": "window",
 						"order": 708
 					},
@@ -1335,7 +1335,7 @@
 						"default": 40,
 						"minimum": 5,
 						"maximum": 100,
-						"markdownDescription": "Specifies the maximum share of the row's width (as a percentage) the inline lanes may take in the _Commit Graph_ when the graph is grouped into another column — wider views show more lanes automatically. `#gitlens.graph.lanes.grouped.min#` wins when it needs more room than this allows. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"markdownDescription": "Specifies the maximum share of the row's width (as a percentage) the inline lanes may take in the _Commit Graph_ when the graph is grouped into another column — wider views show more lanes automatically. `#gitlens.graph.lanes.grouped.min#` wins when it needs more room than this allows",
 						"scope": "window",
 						"order": 709
 					},
@@ -1352,7 +1352,7 @@
 							"Table: single-line rows with columns (message, author, date, sha)",
 							"List: stacked two-line rows with no columns"
 						],
-						"markdownDescription": "Specifies the style (row layout) of the _Commit Graph_ — `table` (single-line rows with columns) or `list` (stacked two-line rows). `auto` switches to `list` when the panel is too narrow for the columns. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"markdownDescription": "Specifies the style (row layout) of the _Commit Graph_ — `table` (single-line rows with columns) or `list` (stacked two-line rows). `auto` switches to `list` when the panel is too narrow for the columns",
 						"scope": "window",
 						"order": 710
 					},
@@ -1396,13 +1396,6 @@
 						"scope": "window",
 						"order": 750
 					},
-					"gitlens.graph.highlightRowsOnRefHover": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to highlight rows associated with the branch / tag when hovering over it in the _Commit Graph_",
-						"scope": "window",
-						"order": 751
-					},
 					"gitlens.graph.stickyTimeline": {
 						"type": "boolean",
 						"default": true,
@@ -1413,7 +1406,7 @@
 					"gitlens.graph.timelineSeparators": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show separator lines between date groups in the _Commit Graph_. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"markdownDescription": "Specifies whether to show separator lines between date groups in the _Commit Graph_",
 						"scope": "window",
 						"order": 753
 					},
@@ -1489,16 +1482,6 @@
 						"markdownDescription": "(Experimental) Specifies whether to enable the Treemap visualization modes (Files, Commits, Agent Activity) alongside the Visual History timeline on the _Commit Graph_. When disabled, only the timeline visualization is available.",
 						"scope": "window",
 						"order": 1105,
-						"tags": [
-							"experimental"
-						]
-					},
-					"gitlens.graph.experimental.useNewEngine": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "(Experimental) Specifies whether to render the _Commit Graph_ with the new Lit-based engine (`@gitkraken/commit-graph`). Disable to fall back to the legacy renderer.",
-						"scope": "window",
-						"order": 1110,
 						"tags": [
 							"experimental"
 						]
@@ -27730,17 +27713,17 @@
 				},
 				{
 					"command": "gitlens.graph.setStyleAuto",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 					"group": "1_style@1"
 				},
 				{
 					"command": "gitlens.graph.setStyleList",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 					"group": "1_style@2"
 				},
 				{
 					"command": "gitlens.graph.setStyleTable",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 					"group": "1_style@3"
 				},
 				{
@@ -27755,12 +27738,12 @@
 				},
 				{
 					"command": "gitlens.graph.setLaneDensityToCompact",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:expanded\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /lanes:density:expanded\\b/",
 					"group": "2_columns@3"
 				},
 				{
 					"command": "gitlens.graph.setLaneDensityToExpanded",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:compact\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /lanes:density:compact\\b/",
 					"group": "2_columns@3"
 				},
 				{
@@ -29668,8 +29651,6 @@
 		"generate:licenses": "node ./scripts/generateLicenses.mjs",
 		"fmt": "oxfmt",
 		"fmt:check": "oxfmt --check",
-		"graph:link": "node ./scripts/linkComponents.mjs link",
-		"graph:unlink": "node ./scripts/linkComponents.mjs unlink",
 		"icons:apply": "node ./scripts/applyIconsContribution.mjs",
 		"icons:export": "node ./scripts/export-codicons.mjs",
 		"icons:svgo": "svgo -q -f ./images/icons/ --config svgo.config.js",
@@ -29713,7 +29694,6 @@
 		"@gitkraken/commit-graph": "workspace:*",
 		"@gitkraken/compose-tools": "0.6.0",
 		"@gitkraken/conflict-tools": "0.2.3",
-		"@gitkraken/gitkraken-components": "13.0.0-vnext.38",
 		"@gitkraken/provider-apis": "catalog:",
 		"@gitkraken/shared-tools": "0.2.0",
 		"@gitlens/agents": "workspace:*",
@@ -29727,7 +29707,6 @@
 		"@lit-labs/signals": "0.3.0",
 		"@lit-labs/virtualizer": "2.1.1",
 		"@lit/context": "1.1.6",
-		"@lit/react": "1.0.8",
 		"@opentelemetry/api": "1.9.1",
 		"@opentelemetry/exporter-trace-otlp-http": "0.221.0",
 		"@opentelemetry/resources": "2.10.0",
@@ -29735,7 +29714,6 @@
 		"@opentelemetry/semantic-conventions": "1.43.0",
 		"@vscode/codicons": "0.0.45",
 		"diff2html": "3.4.56",
-		"dragula": "3.7.3",
 		"driver.js": "1.4.0",
 		"fflate": "0.8.3",
 		"ignore": "catalog:",
@@ -29743,8 +29721,6 @@
 		"marked": "18.0.7",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
-		"react": "19.2.7",
-		"react-dom": "19.2.7",
 		"signal-polyfill": "0.2.2",
 		"signal-utils": "0.21.1",
 		"slug": "12.0.1",
@@ -29762,8 +29738,6 @@
 		"@swc/core": "1.15.46",
 		"@types/mocha": "catalog:",
 		"@types/node": "20.16.15",
-		"@types/react": "19.2.17",
-		"@types/react-dom": "19.2.3",
 		"@types/sinon": "catalog:",
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.9",
@@ -29830,7 +29804,7 @@
 		"zod": "4.4.3"
 	},
 	"lint-staged": {
-		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"
+		"*.{ts,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"
 	},
 	"packageManager": "pnpm@11.17.0",
 	"postcss-lit": {
@@ -29845,7 +29819,6 @@
 						"decoratorsBeforeExport": true
 					}
 				],
-				"jsx",
 				"decoratorAutoAccessors"
 			]
 		}

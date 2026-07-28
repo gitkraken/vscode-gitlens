@@ -35,7 +35,7 @@
 			"query": "state:open repo:${owner}/${repository} sort:updated-desc"
 		}
 	],
-	"[html][javascript][json][jsonc][markdown][scss][svg][typescript][typescriptreact]": {
+	"[html][javascript][json][jsonc][markdown][scss][svg][typescript]": {
 		"editor.defaultFormatter": "oxc.oxc-vscode"
 	},
 	"js/ts.preferences.importModuleSpecifier": "project-relative",

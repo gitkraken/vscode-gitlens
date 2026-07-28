@@ -13,7 +13,7 @@
 
 import { computeEdges } from './edges.js';
 import type { GraphLayoutSnapshot } from './layout.js';
-import { appendColumnsAndSegments, computeColumns, computeColumnsAndSegments } from './layout.js';
+import { appendColumnsAndSegments, computeColumnsAndSegments } from './layout.js';
 import type { ReconciledSuffix } from './reconcile.js';
 import { alignRowsSuffixByLayout } from './reconcile.js';
 import type { GraphCommit, GraphRow, LaneSegment, ProcessedGraphRow, RowEdges, Sha } from './types.js';
@@ -72,29 +72,8 @@ function commitToGraphRow(commit: GraphCommit): GraphRow {
 	};
 }
 
-export function processCommits(
-	commits: readonly GraphCommit[],
-	options?: {
-		/** Ordered branch heads to pin to successive columns (0, 1, 2, …) — see `assignPinnedColumns`. */
-		pinnedShas?: readonly Sha[];
-		/**
-		 * Shas whose outgoing edges should be marked as synthetic — the renderer styles them
-		 * with the wavy SVG filter so the user sees that the lane segment is bridging an
-		 * unloaded gap (typical use: scoped views where the actual parent chain is filtered
-		 * out and we want to imply continuity to the merge-base anchor).
-		 */
-		syntheticChildren?: ReadonlySet<Sha>;
-	},
-): ProcessedGraphRow[] {
-	const rows: GraphRow[] = commits.map(commitToGraphRow);
-	const processed = computeColumns(rows, options);
-	computeEdges(processed, options?.syntheticChildren ? { syntheticChildren: options.syntheticChildren } : undefined);
-	return processed;
-}
-
 /**
- * Same as `processCommits` but also returns the lane segments identified during layout.
- * Use this when the renderer needs to support lane-collapse — the `segments` array lets
+ * Lays out the commits and returns the lane segments identified during layout — the `segments` array lets
  * the caller filter rows into a chip-collapsed view without re-running the engine.
  *
  * Edge computation must happen over the FULL row set (not a pre-filtered one) because

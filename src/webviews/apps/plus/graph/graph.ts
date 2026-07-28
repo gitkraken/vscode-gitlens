@@ -158,9 +158,8 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	}
 
 	protected override onThemeUpdated(e: ThemeChangeEvent) {
-		// Refresh the commit-graph graph engine's HSL token vars so the experimental engine picks up
-		// theme switches. Cheap (~7 getComputedStyle reads + Color.from conversions) and idempotent
-		// when the experimental engine isn't selected — the vars just remain unused.
+		// Refresh the graph engine's HSL token vars so lane colors follow theme switches. Cheap
+		// (~7 getComputedStyle reads + Color.from conversions) and idempotent.
 		// `onThemeUpdated` is invoked once at startup (before the initial render) AND on every later
 		// theme change (see appBase.ts) — so the lane palette is already correct before `gl-lit-graph`
 		// ever renders; the event below only matters for a THEME CHANGE while the graph is open, to

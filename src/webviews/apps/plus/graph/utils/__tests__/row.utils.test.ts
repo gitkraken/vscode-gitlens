@@ -2,12 +2,12 @@ import * as assert from 'assert';
 import type { GitGraphRowHead } from '@gitlens/git/models/graph.js';
 import { pickRowUndoTarget } from '../row.utils.js';
 
-function head(name: string, isCurrentHead = false, worktree?: { id: string; path: string }): GitGraphRowHead {
+function head(name: string, isCurrentHead = false, worktree?: GitGraphRowHead['worktree']): GitGraphRowHead {
 	return { name: name, id: `/mock/repo|heads/${name}`, isCurrentHead: isCurrentHead, worktree: worktree };
 }
 
-const wtA = { id: '/mock/repo|worktrees/feature-a', path: '/mock/repo.worktrees/feature-a' };
-const wtB = { id: '/mock/repo|worktrees/feature-b', path: '/mock/repo.worktrees/feature-b' };
+const wtA = { id: '/mock/repo|worktrees/feature-a', path: '/mock/repo.worktrees/feature-a', isDefault: false };
+const wtB = { id: '/mock/repo|worktrees/feature-b', path: '/mock/repo.worktrees/feature-b', isDefault: false };
 
 suite('pickRowUndoTarget', () => {
 	test('active-worktree HEAD (leaf) → currentHead, no worktreeHead', () => {

@@ -2,7 +2,7 @@ import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { GraphIncludeOnlyRefs, GraphScope, GraphWipMetadataBySha } from '../../../../plus/graph/protocol.js';
-import { createSecondaryWipSha } from '../../../../plus/graph/protocol.js';
+import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import { isScopeFocalHead, shouldShowPrimaryWipRow } from './wip.utils.js';
 
 export interface SelectionContext {
@@ -55,7 +55,7 @@ export function getOverviewBranchSelectionSha(branch: SelectionBranch, ctx: Sele
 	const loadedShas: Set<string> | undefined = rows != null ? new Set(rows.map(r => r.sha)) : undefined;
 
 	if (branch.worktree != null && branch.worktree.path !== branch.repoPath) {
-		const wipSha = createSecondaryWipSha(branch.worktree.path);
+		const wipSha = createWipRowId(branch.worktree.path);
 		const meta = wipMetadataBySha?.[wipSha];
 		// Require BOTH a known anchor AND the anchor in loaded rows — without metadata we can't
 		// promise the synthetic row exists in `decoratedRows`, and the `meta == null` short-

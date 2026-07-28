@@ -49,12 +49,11 @@ import type {
 	SyncWipWatchesCommand,
 } from './protocol.js';
 import {
-	createSecondaryWipSha,
+	createWipRowId,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidRequestWipRefetchNotification,
-	getSecondaryWipPath,
-	isSecondaryWipSha,
+	getWipRowWorktreePath,
 } from './protocol.js';
 
 /**
@@ -114,7 +113,7 @@ export class GraphWipService {
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _pendingWorktreeChanges?: Parameters<typeof getWorktreeHasWorkingChanges>[1][];
 
-	/** Per-secondary-WIP filesystem watchers, keyed by synthetic `worktree-wip::<path>` sha. */
+	/** Per-secondary-WIP filesystem watchers, keyed by the worktree's synthetic WIP row id. */
 	private readonly _wipWatches = new Map<string, Disposable>();
 
 	/** Pending watcher-disposal timers; entries here mean "watcher is lingering past viewport exit". */
@@ -243,9 +242,11 @@ export class GraphWipService {
 			// nothing ever tears down.
 			if (this._disposed) break;
 			if (this._wipWatches.has(sha)) continue;
-			if (!isSecondaryWipSha(sha)) continue;
 
-			const path = getSecondaryWipPath(sha);
+			// Peer worktrees only — the graph's own repo is already watched by the primary WIP channel.
+			const path = getWipRowWorktreePath(sha);
+			if (path == null || path === this.repository?.path) continue;
+
 			const repo = await this.container.git.getOrAddRepository(Uri.file(path), {
 				opened: false,
 				detectNested: true,
@@ -840,7 +841,7 @@ export class GraphWipService {
 							repoPath: repo.path,
 						}
 					: undefined;
-			result[createSecondaryWipSha(wt.path)] = {
+			result[createWipRowId(wt.path)] = {
 				repoPath: wt.path,
 				parentSha: wt.sha,
 				// HEAD commit date (epoch ms) — `GitWorktree.date` is `branch.date`, no extra git
@@ -1153,14 +1154,6 @@ export class GraphWipService {
 			hasConflicts: status?.hasConflicts,
 			conflictsCount: status?.hasConflicts ? status.conflicts.length : undefined,
 			pausedOpStatus: pausedOpStatus,
-			context: serializeWebviewItemContext<GraphItemContext>({
-				webviewItem: `gitlens:wip${status?.hasConflicts ? '+hasConflicts' : ''}`,
-				webviewItemValue: {
-					type: 'commit',
-					ref: this.context.getRevisionReference(this.repository.path, uncommitted, 'work-dir-changes')!,
-					worktreePath: this.repository.path,
-				},
-			}),
 		};
 	}
 

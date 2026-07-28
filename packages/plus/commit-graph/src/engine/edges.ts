@@ -279,7 +279,7 @@ export function computeEdges(
 
 // Hashing (identical to GKC's buildEdgeHash)
 
-export function buildStartingOrEndingEdgeHash(
+function buildStartingOrEndingEdgeHash(
 	edgeColumn: number,
 	nodeColumn: number,
 	kind: EdgeKind | undefined,
@@ -288,7 +288,7 @@ export function buildStartingOrEndingEdgeHash(
 	return `${edgeColumn}_${nodeColumn}_${kind ?? '+'}${isCompact ? '_c' : ''}`;
 }
 
-export function buildPassThroughEdgeHash(column: number, kind: EdgeKind | undefined, isCompact?: boolean): string {
+function buildPassThroughEdgeHash(column: number, kind: EdgeKind | undefined, isCompact?: boolean): string {
 	return `${column}_${kind ?? '+'}${isCompact ? '_c' : ''}`;
 }
 

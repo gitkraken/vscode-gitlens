@@ -124,17 +124,6 @@ export interface GraphScope {
 }
 
 /**
- * Hint to the layout that these shas should each get their own reserved lane. Used to
- * render stacked branches with distinct lanes/colors.
- *
- * Reserved: not yet consumed by the GitLens renderer. Kept as forward-looking engine vocabulary.
- */
-export interface StackHint {
-	/** Ordered list of shas to pin to successive low-numbered columns (column 0, 1, 2, ...). */
-	pinnedShas: readonly Sha[];
-}
-
-/**
  * Minimum commit shape the view layer + default adornments rely on. Consumers extend this
  * with their own commit type; any superset of these fields works. Stable API contract —
  * additions are non-breaking, renames are not.
@@ -155,12 +144,6 @@ export interface GraphCommit {
 	 * rows (`'workdir'`) and stash rows (`'stash'`) which can't be inferred from `parents`.
 	 */
 	kind?: CommitKind;
-	/**
-	 * Decoration strings in the `git log %D` shape:
-	 *   `["HEAD -> main", "origin/main", "tag: v1.0"]`
-	 * The default ref adornment also tolerates space-tokenized variants.
-	 */
-	refs: string[];
 	/**
 	 * Opaque, host-supplied serialized context payload for the row. The renderer decides
 	 * how (and whether) to emit it — the engine treats it as an inert string.

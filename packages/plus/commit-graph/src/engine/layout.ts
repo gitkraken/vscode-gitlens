@@ -861,6 +861,9 @@ export function appendColumnsAndSegments(
  * `process.ts`'s `stableFrom` token handles that ordering internally, so consumers pass the opaque token
  * rather than assembling `preferredColumns` themselves.
  */
+// KEPT deliberately despite having no in-repo production caller: this is the low-level escape hatch
+// `engine/process.js` documents for a consumer that already holds `GraphRow[]` and wants columns
+// without segments. Its own tests are the only callers today — do not read that as dead.
 export function computeColumns(
 	rows: readonly GraphRow[],
 	options?: { pinnedShas?: readonly Sha[] },

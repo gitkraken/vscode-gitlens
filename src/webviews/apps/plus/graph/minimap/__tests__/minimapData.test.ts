@@ -348,7 +348,7 @@ suite('minimapData Test Suite', () => {
 			markerTypes: ['worktree'],
 			dataType: 'commits',
 			wipMetadataBySha: {
-				'worktree-wip::/wt-a': {
+				'wip::/wt-a': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-a',
 					label: 'wt-a',
@@ -371,7 +371,7 @@ suite('minimapData Test Suite', () => {
 			markerTypes: ['worktree'],
 			dataType: 'commits',
 			wipMetadataBySha: {
-				'worktree-wip::/wt-missing': {
+				'wip::/wt-missing': {
 					parentSha: 'unknown-sha',
 					repoPath: '/wt-missing',
 					label: 'wt-missing',
@@ -390,12 +390,12 @@ suite('minimapData Test Suite', () => {
 			markerTypes: ['worktree'],
 			dataType: 'commits',
 			wipMetadataBySha: {
-				'worktree-wip::/wt-a': {
+				'wip::/wt-a': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-a',
 					label: 'wt-a',
 				},
-				'worktree-wip::/wt-b': {
+				'wip::/wt-b': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-b',
 					label: 'wt-b',
@@ -418,7 +418,7 @@ suite('minimapData Test Suite', () => {
 			markerTypes: [],
 			dataType: 'commits',
 			wipMetadataBySha: {
-				'worktree-wip::/wt-a': {
+				'wip::/wt-a': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-a',
 					label: 'wt-a',
@@ -432,7 +432,7 @@ suite('minimapData Test Suite', () => {
 		const result = aggregate({
 			rows: [
 				row({
-					sha: 'work-dir-changes',
+					sha: 'wip::/repo',
 					date: day2,
 					parents: ['head'],
 					type: 'work-dir-changes',
@@ -453,7 +453,7 @@ suite('minimapData Test Suite', () => {
 
 	test('WIP row alone produces no buckets', () => {
 		const result = aggregate({
-			rows: [row({ sha: 'work-dir-changes', date: day1, parents: [], type: 'work-dir-changes' })],
+			rows: [row({ sha: 'wip::/repo', date: day1, parents: [], type: 'work-dir-changes' })],
 			rowsStats: undefined,
 			refMetadata: undefined,
 			downstreams: undefined,
@@ -468,7 +468,7 @@ suite('minimapData Test Suite', () => {
 		const result = aggregate({
 			rows: [
 				row({
-					sha: 'worktree-wip::/wt-a',
+					sha: 'wip::/wt-a',
 					date: day2,
 					parents: ['parent-a'],
 					type: 'work-dir-changes',
@@ -481,7 +481,7 @@ suite('minimapData Test Suite', () => {
 			markerTypes: ['worktree'],
 			dataType: 'commits',
 			wipMetadataBySha: {
-				'worktree-wip::/wt-a': {
+				'wip::/wt-a': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-a',
 					label: 'wt-a',

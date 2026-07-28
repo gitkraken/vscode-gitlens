@@ -233,7 +233,7 @@ export class GlGraphHover extends GlElement {
 		this._showCoreDebounced?.cancel();
 
 		if (relatedTarget != null && relatedTarget instanceof HTMLElement) {
-			if (relatedTarget.classList.contains('resizable-handle')) {
+			if (relatedTarget.classList.contains('gl-graph__resize-handle')) {
 				this.unhoverTimer = setTimeout(() => this.hide(), 500);
 				return;
 			}

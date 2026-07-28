@@ -1,10 +1,40 @@
-import { identifyFirstParentChain } from '@gitkraken/commit-graph/engine/layout.js';
-import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
-import type { GitGraphRow } from '@gitlens/git/models/graph.js';
-import type { GraphScope } from '../../../../plus/graph/protocol.js';
+import { identifyFirstParentChain } from './engine/layout.js';
+import type { LaneSegment, ProcessedGraphRow, Sha } from './engine/types.js';
 
 /**
- * Scope anchor sets derived from the active {@link GraphScope}. We categorize anchors into
+ * Minimum row shape the scope math reads — a sha plus its parent links. Consumers pass their own row
+ * type; any superset works. Ref metadata (which branch heads a row carries) is NOT part of the shape:
+ * it reaches the focal-tip resolution through the injected {@link ScopeHeadsPredicate} instead.
+ */
+export interface ScopeRow {
+	sha: Sha;
+	parents: readonly Sha[];
+}
+
+/**
+ * Minimum scope shape the scope math reads — the focal branch's name plus its resolved fork point and
+ * merge-target tip. Consumers pass their own scope type; any superset works.
+ *
+ * Distinct from the engine's `GraphScope` (a data-layer row filter) — this describes the
+ * "focused on one branch" view the anchors + re-root projection are derived from.
+ */
+export interface FocalScope {
+	/** Name of the focal branch, matched against a row's heads via {@link ScopeHeadsPredicate}. */
+	branchName?: string;
+	/** Merge-base where the focal branch diverged from its parent line. */
+	mergeBase?: { sha: Sha };
+	/** Tip of the merge target (typically main/develop). Its ancestors are NOT walked. */
+	mergeTargetTipSha?: Sha;
+}
+
+/**
+ * Host-injected "does this row carry the focal branch's head ref?" test — the engine has no ref model
+ * of its own, so the focal tip is resolved by asking the consumer about its own row metadata.
+ */
+export type ScopeHeadsPredicate<T> = (row: T, branchName: string) => boolean;
+
+/**
+ * Scope anchor sets derived from the active {@link FocalScope}. We categorize anchors into
  * three semantic classes so the renderer can render distinct visuals per type
  * (legacy GKC parity: fork-point diamond vs merge-target ring vs focal-tip rail):
  *   • focalTip — the head commit of the focal branch
@@ -15,11 +45,11 @@ import type { GraphScope } from '../../../../plus/graph/protocol.js';
  * are the source of wavy synthetic edges to unloaded ancestors.
  */
 export interface ScopeAnchors {
-	anchorShas?: ReadonlySet<string>;
-	focalTipShas?: ReadonlySet<string>;
-	forkPointShas?: ReadonlySet<string>;
-	mergeTargetShas?: ReadonlySet<string>;
-	syntheticChildren?: ReadonlySet<string>;
+	anchorShas?: ReadonlySet<Sha>;
+	focalTipShas?: ReadonlySet<Sha>;
+	forkPointShas?: ReadonlySet<Sha>;
+	mergeTargetShas?: ReadonlySet<Sha>;
+	syntheticChildren?: ReadonlySet<Sha>;
 	unreachableAnchors?: ReadonlySet<string>;
 }
 
@@ -28,9 +58,10 @@ export interface ScopeAnchors {
  * present-in-rows vs unreachable (the latter surfaced to the host to trigger paging).
  * Returns empty anchors when scope or rows are absent.
  */
-export function computeScopeAnchors(
-	rows: readonly GitGraphRow[] | undefined,
-	scope: GraphScope | undefined,
+export function computeScopeAnchors<T extends ScopeRow>(
+	rows: readonly T[] | undefined,
+	scope: FocalScope | undefined,
+	hasHead: ScopeHeadsPredicate<T>,
 ): ScopeAnchors {
 	if (scope == null || rows == null || rows.length === 0) {
 		return {
@@ -43,9 +74,9 @@ export function computeScopeAnchors(
 		};
 	}
 
-	const focalTip = new Set<string>();
-	const forkPoint = new Set<string>();
-	const mergeTarget = new Set<string>();
+	const focalTip = new Set<Sha>();
+	const forkPoint = new Set<Sha>();
+	const mergeTarget = new Set<Sha>();
 	const unreachable = new Set<string>();
 	if (scope.mergeBase?.sha) {
 		if (rows.some(r => r.sha === scope.mergeBase!.sha)) {
@@ -67,7 +98,7 @@ export function computeScopeAnchors(
 	if (scope.branchName) {
 		let resolved = false;
 		for (const r of rows) {
-			if (r.heads?.some(h => h.name === scope.branchName)) {
+			if (hasHead(r, scope.branchName)) {
 				focalTip.add(r.sha);
 				resolved = true;
 				break;
@@ -79,7 +110,7 @@ export function computeScopeAnchors(
 		}
 	}
 
-	const anchors = new Set<string>([...focalTip, ...forkPoint, ...mergeTarget]);
+	const anchors = new Set<Sha>([...focalTip, ...forkPoint, ...mergeTarget]);
 	return {
 		anchorShas: anchors,
 		focalTipShas: focalTip.size > 0 ? focalTip : undefined,
@@ -98,11 +129,11 @@ export function computeScopeAnchors(
  * context the focal branch will be merged into.
  */
 export function computeInScopeShas(
-	rows: readonly GitGraphRow[] | undefined,
-	scope: GraphScope | undefined,
-	focalTipShas: ReadonlySet<string> | undefined,
-	mergeTargetShas: ReadonlySet<string> | undefined,
-): ReadonlySet<string> | undefined {
+	rows: readonly ScopeRow[] | undefined,
+	scope: FocalScope | undefined,
+	focalTipShas: ReadonlySet<Sha> | undefined,
+	mergeTargetShas: ReadonlySet<Sha> | undefined,
+): ReadonlySet<Sha> | undefined {
 	if (scope == null || rows == null || rows.length === 0) return undefined;
 	if (focalTipShas == null || focalTipShas.size === 0) return undefined;
 
@@ -111,8 +142,8 @@ export function computeInScopeShas(
 		heads.push(...mergeTargetShas);
 	}
 
-	// `GitGraphRow` already carries sha + parents at the top level and the chain walk reads only
-	// those, so pass rows straight through — no projected-array allocation per scope recompute.
+	// The rows already carry sha + parents at the top level and the chain walk reads only those, so
+	// pass rows straight through — no projected-array allocation per scope recompute.
 	return identifyFirstParentChain(rows, heads);
 }
 
@@ -163,7 +194,7 @@ function firstParentChainUntil(
  */
 export function computeScopeProjection(
 	rows: readonly ProcessedGraphRow[] | undefined,
-	scope: GraphScope | undefined,
+	scope: FocalScope | undefined,
 	anchors: ScopeAnchors,
 	manuallyExpanded: ReadonlySet<Sha>,
 ): ScopeProjection | undefined {
