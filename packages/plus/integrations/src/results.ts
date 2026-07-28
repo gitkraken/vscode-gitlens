@@ -26,6 +26,23 @@ export interface ProviderWarning {
 }
 
 export interface ProviderPageInfo {
+	/**
+	 * The 1-based POSITION of the returned page. One convention across every paged read, page-number and
+	 * cursor paging alike, so a `getNextPageParam`-style consumer can key off it uniformly:
+	 * - the page number the provider itself reported, when it reports one (authoritative);
+	 * - else the position the caller addressed: the page encoded in a threaded page cursor, or the `page`
+	 *   supplied alongside an opaque cursor (1 when the caller supplied no `page`);
+	 * - else, for a read that can be advanced by page number, the requested `page` — the provider either
+	 *   honored it or the internal drain reached it (see the paging contract on `IntegrationManager`);
+	 * - else 1: a cursor-only read with no cursor threaded back ignores a requested page number and answers
+	 *   with its first page, so echoing the request would mislabel page 1 as page N.
+	 *
+	 * A page past the provider's terminal cursor still reports the requested `page` with empty `items` — an
+	 * empty page N, never page N-1 relabeled.
+	 *
+	 * Continue a cursor-paged read from `cursor`, NOT from `currentPage + 1`: a cursor-only host can't be
+	 * addressed by number, so this is a position label and not always a resumable request parameter.
+	 */
 	currentPage: number;
 	itemsPerPage: number;
 	/**
