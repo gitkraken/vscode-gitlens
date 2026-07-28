@@ -38,9 +38,13 @@ import { IssueFilter, providersMetadata, toProviderPullRequest } from './models.
 import type { ProvidersApi } from './providersApi.js';
 
 /**
- * Page size for GitHub's account-wide search reads. 100 is the maximum GitHub's search connection accepts
- * (and what `GitHubApi.searchMyPullRequestsPage` already caps itself to); the SDK's own fallback is 15, which
- * is far too small for a read the sweep drains page by page.
+ * Page size for GitHub's account-wide search reads: the maximum GitHub's search connection accepts, and what
+ * `GitHubApi.searchMyPullRequestsPage` already caps itself to.
+ *
+ * Requested explicitly rather than left to the SDK's own fallback. That fallback is also 100 as of
+ * `@gitkraken/provider-apis` 0.54.0 (it was 15 before, which cost a drained sweep ~7x the round trips it needs),
+ * so this is now a pin rather than an override — it keeps the size this read is tuned for from silently tracking
+ * a shared SDK default that other reads may want smaller.
  */
 const githubSearchMaxPageSize = 100;
 
@@ -486,8 +490,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			baseUrl: this.apiBaseUrl,
 			cursor: options?.cursor,
-			// GitHub's search allows 100 per page but the SDK defaults to 15, and this read gets drained page by
-			// page by the sweep, so the default turned one sweep into ~7x the round trips it needs.
+			// The sweep drains this read page by page, so it asks for the largest page the search allows.
 			pageSize: githubSearchMaxPageSize,
 		});
 		return result ?? undefined;

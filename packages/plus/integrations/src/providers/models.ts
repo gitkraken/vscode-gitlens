@@ -716,9 +716,10 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
-		// The account-wide read is `scope=assigned_to_me` + `assigneeUsername` — assignee is the only axis the SDK
-		// input exposes, so an author/mention narrow can't be expressed (see `supportedAccountWideIssueFilters`).
-		supportedAccountWideIssueFilters: [IssueFilter.Assignee],
+		// The account-wide read drains one `scope=assigned_to_me` pass and one `scope=all` + `authorUsername` pass,
+		// unioned, so either axis is expressible on its own. Mention is absent because GitLab's REST issue read has
+		// no first-class mention filter to narrow with.
+		supportedAccountWideIssueFilters: [IssueFilter.Assignee, IssueFilter.Author],
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
 	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
@@ -737,9 +738,10 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
-		// The account-wide read is `scope=assigned_to_me` + `assigneeUsername` — assignee is the only axis the SDK
-		// input exposes, so an author/mention narrow can't be expressed (see `supportedAccountWideIssueFilters`).
-		supportedAccountWideIssueFilters: [IssueFilter.Assignee],
+		// The account-wide read drains one `scope=assigned_to_me` pass and one `scope=all` + `authorUsername` pass,
+		// unioned, so either axis is expressible on its own. Mention is absent because GitLab's REST issue read has
+		// no first-class mention filter to narrow with.
+		supportedAccountWideIssueFilters: [IssueFilter.Assignee, IssueFilter.Author],
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
 	[GitCloudHostIntegrationId.Bitbucket]: {
