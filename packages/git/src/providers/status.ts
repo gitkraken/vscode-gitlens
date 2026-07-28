@@ -37,6 +37,7 @@ export interface GitStatusSubProvider {
 			unstaged?: boolean;
 			untracked?: boolean;
 			throwOnError?: boolean;
+			priority?: GitCommandPriority;
 		},
 		cancellation?: AbortSignal,
 	): Promise<boolean>;

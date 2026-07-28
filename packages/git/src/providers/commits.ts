@@ -8,6 +8,7 @@ import type { GitRevisionRange } from '../models/revision.js';
 import type { SearchQuery } from '../models/search.js';
 import type { CommitSignature, SshSignedCommit } from '../models/signature.js';
 import type { GitUser } from '../models/user.js';
+import type { GitCommandPriority } from '../run.types.js';
 import type { DiffRange } from './types.js';
 
 export interface LeftRightCommitCountResult {
@@ -82,6 +83,16 @@ export interface GitCommitsSubProvider {
 	 *  Cheap early-exit probe (`rev-list --not --remotes <rev> -n 1`) — it does NOT count them. Returns
 	 *  `undefined` when it can't be determined. */
 	hasUnpublishedCommits?(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<boolean | undefined>;
+	/** Batched form of {@link hasUnpublishedCommits}: returns the subset of `shas` with commits not reachable
+	 *  from any remote-tracking ref, in ONE walk rather than a spawn per sha. Pass tips from any worktrees of
+	 *  the same repo — the object store and `refs/remotes` are shared, so a single `repoPath` covers them all.
+	 *  Callers should skip this when the repo has no remotes (every local commit would qualify). */
+	filterUnpublishedShas?(
+		repoPath: string,
+		shas: readonly string[],
+		options?: { priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<Set<string>>;
 	/** Cheap author/committer date lookup for a single revision. Skips the full commit parse (no files, parents, or message) — use when only the dates are needed. Pass a full SHA so caching stays correct (commits are immutable; refs are not). */
 	getCommitDates?(
 		repoPath: string,

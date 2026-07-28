@@ -1,7 +1,8 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import type { TestRepo } from './helpers.js';
-import { addCommit, createTestRepo, getHeadSha } from './helpers.js';
+import { addCommit, cloneTestRepo, createTestRepo, getHeadSha } from './helpers.js';
 
 suite('CommitsSubProvider', () => {
 	let repo: TestRepo;
@@ -110,6 +111,89 @@ suite('CommitsSubProvider', () => {
 			assert.ok(spy.callCount > 0, 'a failed lookup must be retried, not served from cache');
 		} finally {
 			spy.restore();
+		}
+	});
+});
+
+// `filterUnpublishedShas` decides whether the graph's WIP bar shows an unpushed indicator for a
+// worktree, and it answers for a whole batch at once — so a wrong answer here is wrong for every
+// worktree in the batch, not one.
+suite('CommitsSubProvider.filterUnpublishedShas', () => {
+	let origin: TestRepo;
+	let clone: TestRepo;
+
+	setup(() => {
+		origin = createTestRepo();
+		addCommit(origin.path, 'a.txt', 'a', 'Published commit');
+		clone = cloneTestRepo(origin.path);
+	});
+
+	teardown(() => {
+		clone.cleanup();
+		origin.cleanup();
+	});
+
+	test('separates unpublished tips from published ones', async () => {
+		const published = getHeadSha(clone.path);
+		addCommit(clone.path, 'b.txt', 'b', 'Local only');
+		const unpublished = getHeadSha(clone.path);
+
+		const result = await clone.provider.commits.filterUnpublishedShas(clone.path, [published, unpublished]);
+
+		assert.strictEqual(result.has(unpublished), true, 'a local-only tip is unpublished');
+		assert.strictEqual(result.has(published), false, 'a tip on the remote is published');
+		assert.strictEqual(result.size, 1, 'only the tips asked about are reported, not their ancestors');
+	});
+
+	test('a duplicate tip across worktrees is reported once', async () => {
+		addCommit(clone.path, 'b.txt', 'b', 'Local only');
+		const sha = getHeadSha(clone.path);
+
+		// Sibling worktrees checked out at the same commit pass the same sha; the walk must not care.
+		const result = await clone.provider.commits.filterUnpublishedShas(clone.path, [sha, sha, sha]);
+
+		assert.deepStrictEqual([...result], [sha]);
+	});
+
+	test('an empty set makes no call at all', async () => {
+		const spy = sinon.spy(clone.provider.git, 'run');
+		try {
+			const result = await clone.provider.commits.filterUnpublishedShas(clone.path, []);
+
+			assert.strictEqual(result.size, 0);
+			assert.strictEqual(
+				spy.getCalls().filter(c => c.args.includes('rev-list')).length,
+				0,
+				'no shas means no walk',
+			);
+		} finally {
+			spy.restore();
+		}
+	});
+
+	test('a failed walk throws rather than reporting everything as published', async () => {
+		addCommit(clone.path, 'b.txt', 'b', 'Local only');
+		const sha = getHeadSha(clone.path);
+
+		// The shape that matters: `errors: 'ignore'` would resolve this empty, which is indistinguishable
+		// from "nothing is unpublished" — a confident wrong `hasUnpushed: false` for the whole batch.
+		const real = clone.provider.git.run.bind(clone.provider.git);
+		const stub = sinon
+			.stub(clone.provider.git, 'run')
+			.callsFake(async (options: GitRunOptions, ...args: readonly (string | undefined)[]) => {
+				if (!args.includes('rev-list')) return real(options, ...args);
+
+				const failed: GitResult = {
+					stdout: '',
+					stderr: undefined,
+					completion: { status: 'failed', reason: 'unstarted', error: new Error('walk never ran') },
+				};
+				return failed;
+			});
+		try {
+			await assert.rejects(clone.provider.commits.filterUnpublishedShas(clone.path, [sha]));
+		} finally {
+			stub.restore();
 		}
 	});
 });

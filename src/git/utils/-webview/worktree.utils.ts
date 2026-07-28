@@ -1,6 +1,7 @@
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
 import { PageableResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
@@ -213,19 +214,14 @@ export async function getWorktreeStatus(container: Container, worktree: GitWorkt
 export async function getWorktreeHasWorkingChanges(
 	container: Container,
 	worktree: GitWorktree,
-	options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean; throwOnError?: boolean },
+	options?: {
+		staged?: boolean;
+		unstaged?: boolean;
+		untracked?: boolean;
+		throwOnError?: boolean;
+		priority?: GitCommandPriority;
+	},
 ): Promise<boolean | undefined> {
 	if (worktree.type === 'bare') return undefined;
 	return container.git.getRepositoryService(worktree.uri.fsPath).status?.hasWorkingChanges(options);
-}
-
-/** Whether the worktree's checked-out tip has commits not on any remote (unpushed). Cheap early-exit
- *  probe — for LOCAL-ONLY branches; tracked branches get their ahead count for free from the upstream
- *  state. Returns `undefined` for detached/bare worktrees or when the provider can't determine it. */
-export async function getWorktreeHasUnpublishedCommits(
-	container: Container,
-	worktree: GitWorktree,
-): Promise<boolean | undefined> {
-	if (worktree.type !== 'branch' || worktree.sha == null) return undefined;
-	return container.git.getRepositoryService(worktree.uri.fsPath).commits.hasUnpublishedCommits?.(worktree.sha);
 }

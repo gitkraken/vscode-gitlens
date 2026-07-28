@@ -286,7 +286,13 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	@debug()
 	hasWorkingChanges(
 		repoPath: string,
-		options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean; throwOnError?: boolean },
+		options?: {
+			staged?: boolean;
+			unstaged?: boolean;
+			untracked?: boolean;
+			throwOnError?: boolean;
+			priority?: GitCommandPriority;
+		},
 		cancellation?: AbortSignal,
 	): Promise<boolean> {
 		const scope = getScopedLogger();
@@ -296,16 +302,28 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		const untracked = options?.untracked ?? true;
 		// `throwOnError` is in the key because it changes the RESULT on git failure (throw vs `false`) — a
 		// throwing caller must not join, and be silently satisfied by, a non-throwing caller's graceful run.
+		// `priority` is in the key for a different reason: it doesn't change the answer, but a joiner INHERITS
+		// the in-flight run's scheduling. `GitQueue` refuses to start background work while anything is
+		// waiting at normal/interactive, so letting a foreground caller (the overview's dirty pill, the
+		// Worktrees view) join a `background` probe would strand it for the whole graph load. Splitting the
+		// two lanes costs at most one extra spawn; joining costs unbounded foreground latency.
 		const throwOnError = options?.throwOnError ?? false;
+		const priority = options?.priority ?? 'default';
 
 		return this.dedupeByStatusGeneration(
 			repoPath,
-			`hasWorkingChanges:${staged}:${unstaged}:${untracked}:${throwOnError}`,
+			`hasWorkingChanges:${staged}:${unstaged}:${untracked}:${throwOnError}:${priority}`,
 			async (correlationKey, signal) => {
 				try {
 					if (staged || unstaged) {
 						const result = await this.git.run(
-							{ cwd: repoPath, cancellation: signal, errors: 'ignore', correlationKey: correlationKey },
+							{
+								cwd: repoPath,
+								cancellation: signal,
+								errors: 'ignore',
+								correlationKey: correlationKey,
+								...(options?.priority != null ? { priority: options.priority } : undefined),
+							},
 							'diff',
 							'--quiet',
 							staged && unstaged ? 'HEAD' : staged ? '--staged' : undefined,
@@ -322,7 +340,10 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 						}
 					}
 
-					// Check for untracked files
+					// Check for untracked files. NOTE: this runs through `git.stream`, which spawns directly
+					// and never enters the queue — so `priority` above doesn't reach it. Only clean worktrees
+					// get this far (a dirty one already returned above), and callers fanning out across many
+					// worktrees are expected to bound their own concurrency.
 					if (untracked) {
 						const hasUntracked = await this.hasUntrackedFiles(repoPath, signal);
 						if (hasUntracked) {

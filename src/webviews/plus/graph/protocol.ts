@@ -1825,9 +1825,16 @@ export interface DidChangeWorkingTreeParams {
 	 *  freshest `wip` payload by repo. Always set by the host. */
 	repoPath: string;
 }
+// `silent` — background enrichment the user isn't waiting on: FS-tick pushes, and the secondary-WIP
+// probe's progressive pushes, which arrive in a queue over the life of the fan-out. Without this each
+// slow send re-opens the view's progress indicator, so that queue strobes it (same reasoning as
+// `DidFetchNotification` above).
 export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWorkingTreeParams>(
 	scope,
 	'workingTree/didChange',
+	undefined,
+	undefined,
+	true,
 );
 
 export const DidSearchNotification = new IpcNotification<DidSearchParams>(scope, 'didSearch');

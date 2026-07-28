@@ -44,6 +44,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			unstaged?: boolean;
 			untracked?: boolean;
 			throwOnError?: boolean;
+			priority?: GitCommandPriority;
 		},
 		_cancellation?: AbortSignal,
 	): Promise<boolean> {

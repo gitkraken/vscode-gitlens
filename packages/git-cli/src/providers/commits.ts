@@ -24,11 +24,13 @@ import type {
 	SearchCommitsResult,
 } from '@gitlens/git/providers/commits.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
+import type { GitCommandPriority } from '@gitlens/git/run.types.js';
 import { createUncommittedChangesCommit } from '@gitlens/git/utils/commit.utils.js';
 import { isRevisionRange, isSha, isUncommitted, isUncommittedStaged } from '@gitlens/git/utils/revision.utils.js';
 import { parseSearchQueryGitCommand } from '@gitlens/git/utils/search.utils.js';
 import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
+import { chunk as chunkArray } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
@@ -37,7 +39,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { isFolderGlob, normalizePath, splitPath, stripFolderGlob } from '@gitlens/utils/path.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
-import { escapeRegex } from '@gitlens/utils/string.js';
+import { escapeRegex, iterateByDelimiter } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
@@ -67,6 +69,8 @@ import { convertStashesToStdin } from './stash.js';
 
 const emptyPromise: Promise<GitBlame | ParsedGitDiffHunks | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
+/** Keeps `filterUnpublishedShas` well inside Windows' ~32K command-line cap (40 hex chars + separator each). */
+const maxShasPerRevListSpawn = 500;
 
 export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	constructor(
@@ -180,6 +184,70 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		}
 
 		return result.stdout.trim().length > 0;
+	}
+
+	@debug({
+		args: (repoPath, shas) => ({ repoPath: repoPath, shas: `${shas.length} value(s)` }),
+		exit: r => `${r.size} unpublished`,
+	})
+	async filterUnpublishedShas(
+		repoPath: string,
+		shas: readonly string[],
+		options?: { priority?: GitCommandPriority },
+		cancellation?: AbortSignal,
+	): Promise<Set<string>> {
+		const unpublished = new Set<string>();
+		if (!shas.length) return unpublished;
+
+		// One walk answers every sha: `<shas…> --not --remotes` yields the commits reachable from any of them
+		// but not from any remote-tracking ref, so a sha is unpublished exactly when it appears in the output.
+		// Callers pass tips from sibling worktrees — safe from a single `cwd` because the object store and
+		// `refs/remotes` are shared across a repo's worktrees (unlike the index/working tree, which are not).
+		//
+		// NOT `--no-walk`: it "has no effect if a range is specified", and `--not --remotes` makes this a range,
+		// so it would silently walk anyway and return the whole unpublished history instead of just these tips.
+		// The walk is bounded by divergence from the remotes, not by repo size; callers skip this entirely when
+		// the repo has no remotes (where every local commit would qualify).
+		// Chunked so a repo with a very large number of worktrees can't overflow the platform's argument
+		// limit (Windows' `CreateProcess` caps the whole command line at ~32K characters).
+		// Deliberately NOT `errors: 'ignore'`: this answers for EVERY sha at once, so a swallowed failure
+		// would return an empty set that the caller can't distinguish from "nothing is unpublished" — and
+		// would then publish `hasUnpushed: false` across every worktree in the batch. `ignore` can't even be
+		// made safe with an exit-code check: a queue-full or spawn failure resolves as `exitCode: 0` with
+		// empty stdout (git.ts:806). Let it throw so the caller degrades to "unknown" and omits the field,
+		// leaving the client's last-known value in place.
+		for (const chunk of chunkArray([...shas], maxShasPerRevListSpawn)) {
+			const result = await this.git.run(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					...(options?.priority != null ? { priority: options.priority } : undefined),
+				},
+				'rev-list',
+				...chunk,
+				'--not',
+				'--remotes',
+				'--',
+			);
+			// Anything but a clean exit leaves empty stdout, which this function would otherwise read as
+			// "every sha is published" — publishing a definite, wrong `hasUnpushed: false` for the whole
+			// batch. Dropping `errors: 'ignore'` was not enough on its own: a stderr matching `GitWarnings`
+			// (a repo path that briefly vanished, an unknown rev) is swallowed by the default handler and
+			// resolves rather than throwing. Rethrow so the caller degrades to "unknown".
+			if (result.completion.status !== 'exited') throw result.completion.error;
+			if (cancellation?.aborted) throw new CancellationError();
+
+			const candidates = new Set(chunk);
+			for (const line of iterateByDelimiter(result.stdout, '\n')) {
+				const sha = line.trim();
+				// The walk emits ancestors too; keep only the tips we were asked about.
+				if (sha.length && candidates.has(sha)) {
+					unpublished.add(sha);
+				}
+			}
+		}
+
+		return unpublished;
 	}
 
 	@debug({ exit: true })

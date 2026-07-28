@@ -28,10 +28,7 @@ import { getBranchRemote } from '../../../git/utils/-webview/branch.utils.js';
 import { formatCommitStats } from '../../../git/utils/-webview/commit.utils.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
-import {
-	getWorktreeHasUnpublishedCommits,
-	getWorktreeHasWorkingChanges,
-} from '../../../git/utils/-webview/worktree.utils.js';
+import { getWorktreeHasWorkingChanges } from '../../../git/utils/-webview/worktree.utils.js';
 import { toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
@@ -800,25 +797,58 @@ export class GraphWipService {
 			const changesMap = new Map<string, boolean | undefined>();
 			const unpushedMap = new Map<string, boolean | undefined>();
 			const hasRemotes = (await repo.git.remotes.getRemotes(undefined, toAbortSignal(cancellation))).length > 0;
+			const targets = worktrees.filter(wt => wt.type !== 'bare' && wt.path !== repo.path);
+
+			// One walk answers every local-only worktree instead of a spawn each: they share the repo's
+			// object store and `refs/remotes`, so a single `cwd` covers them all. Runs CONCURRENTLY with the
+			// dirty fan-out below rather than inside it — interleaved, one slow walk stalled every dirty
+			// probe queued behind it, and the dirty bit is what the bar renders first.
+			const unpushedProbe = async (): Promise<void> => {
+				if (!hasRemotes) return;
+
+				const localOnly = targets.filter(wt => wt.branch?.upstream == null && wt.sha != null);
+				if (!localOnly.length) return;
+
+				try {
+					const unpublished = await this.container.git
+						.getRepositoryService(repo.path)
+						.commits.filterUnpublishedShas?.(
+							[...new Set(localOnly.map(wt => wt.sha!))],
+							{ priority: 'background' },
+							toAbortSignal(cancellation),
+						);
+					if (unpublished == null) return;
+
+					for (const wt of localOnly) {
+						unpushedMap.set(wt.path, unpublished.has(wt.sha!));
+					}
+				} catch {
+					// Isolated on purpose: `filterUnpublishedShas` throws rather than report a wrong `false`
+					// for the whole batch, and an escaping throw here would abort the dirty fan-out too.
+					// Leaving the map unset degrades to "unknown", which omits the field.
+				}
+			};
+
 			// Bounded concurrency ON PURPOSE: an all-at-once fan-out across many worktrees spawns a
 			// git-process storm (`diff --quiet` + `ls-files` each) that starves whatever else is
-			// touching the repo — most visibly the graph's own rows walk during a load.
-			const targets = worktrees.filter(wt => wt.type !== 'bare' && wt.path !== repo.path);
+			// touching the repo — most visibly the graph's own rows walk during a load. `background`
+			// priority so the queue yields it to anything user-initiated.
 			const probeConcurrency = 4;
 			let nextTarget = 0;
-			await Promise.allSettled(
-				Array.from({ length: Math.min(probeConcurrency, targets.length) }, async () => {
+			await Promise.allSettled([
+				unpushedProbe(),
+				...Array.from({ length: Math.min(probeConcurrency, targets.length) }, async () => {
 					while (nextTarget < targets.length) {
 						if (cancellation?.isCancellationRequested) return;
 
 						const wt = targets[nextTarget++];
-						changesMap.set(wt.path, await getWorktreeHasWorkingChanges(this.container, wt));
-						if (hasRemotes && wt.branch != null && wt.branch.upstream == null) {
-							unpushedMap.set(wt.path, await getWorktreeHasUnpublishedCommits(this.container, wt));
-						}
+						changesMap.set(
+							wt.path,
+							await getWorktreeHasWorkingChanges(this.container, wt, { priority: 'background' }),
+						);
 					}
 				}),
-			);
+			]);
 			hasChangesByPath = changesMap;
 			hasUnpushedByPath = unpushedMap;
 		}
