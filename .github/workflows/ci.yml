@@ -109,6 +109,11 @@ jobs:
             - name: Run unit tests
               run: xvfb-run -a pnpm run test
 
+            # Excluded from `pnpm run test` because they spawn real git against temp repos; run them
+            # here so the provider suites that exercise actual git behavior still gate CI.
+            - name: Run integration tests
+              run: pnpm --filter ./packages/git-cli run test:integration
+
     derive-matrix:
         name: Derive editor matrix
         runs-on: ubuntu-latest

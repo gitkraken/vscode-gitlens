@@ -46,7 +46,9 @@
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
 		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
-		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
+		"test": "pnpm run test:mocha && pnpm run test:node",
+		"test:mocha": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/**/__tests__/**/*.node.test.ts'",
+		"test:node": "node --import tsx --test 'src/**/__tests__/**/*.node.test.ts'"
 	},
 	"dependencies": {
 		"fast-string-truncated-width": "catalog:",
