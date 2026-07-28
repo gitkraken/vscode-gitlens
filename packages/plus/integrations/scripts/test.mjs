@@ -47,18 +47,21 @@ execFileSync(process.execPath, [mocha, '--ui', 'tdd', '--timeout', '30000', `${o
 	cwd: packageRoot,
 });
 
-// Build the package before exercising any external-consumer boundary. Both the fixture and the direct
-// facade smoke test import the published `@gitlens/integrations/*` exports, which resolve through this
-// package's `dist/` folder in the workspace link; without a fresh build they'd type-check/runtime-fail on
-// a clean checkout even when the sources themselves are correct.
+// Build the package before exercising any external-consumer boundary. The direct facade smoke test imports
+// this package's published exports, while the fixture imports the flattened Core package.
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 execFileSync(pnpm, ['build'], {
 	stdio: 'inherit',
 	cwd: packageRoot,
 });
 
-// Keep the package's external-consumer boundary test in the standard integrations test flow so
-// `pnpm run test:packages` catches public-facade regressions too.
+// Generate Core's flattened exports before running the workspace fixture. CI additionally installs the packed
+// tarball via packages/core/scripts/verify-package.mjs, which catches pack-time manifest/export regressions.
+execFileSync(pnpm, ['--filter', '@gitkraken/core-gitlens', 'bundle'], {
+	stdio: 'inherit',
+	cwd: workspaceRoot,
+});
+
 execFileSync(pnpm, ['--filter', '@gitlens/integrations-consumer-fixture', 'test'], {
 	stdio: 'inherit',
 	cwd: workspaceRoot,

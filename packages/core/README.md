@@ -24,8 +24,8 @@ import { Repository } from '@gitkraken/core-gitlens/git/models/repository.js';
 import { CliGitProvider } from '@gitkraken/core-gitlens/git-cli/cliGitProvider.js';
 
 // Plus subpaths (proprietary)
-import { GitHubProvider } from '@gitkraken/core-gitlens/plus/git-github/providers/githubProvider.js';
-import { AiService } from '@gitkraken/core-gitlens/plus/ai/service.js';
+import type { GitHubGitProviderInternal } from '@gitkraken/core-gitlens/plus/git-github/providers/githubProvider.js';
+import { OpenAIProvider } from '@gitkraken/core-gitlens/plus/ai/providers/openaiProvider.js';
 ```
 
 All exports are fully typed and source-mapped back to the original TypeScript sources shipped in `src/`.
