@@ -2968,9 +2968,10 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			domain: 'bitbucket.org',
 		};
 
-		// Bitbucket applies the requested page but reports no currentPage and no cursor. The facade must still
-		// report the requested page (not a stuck 1) and synthesize a next-page cursor when hasMore — otherwise
-		// a currentPage+1 consumer loops on page 2 forever.
+		// Bitbucket applies the requested page but echoes no `currentPage`; it reports its successor as
+		// `nextPage`, which the paging layer surfaces as a `type:'page'` cursor (see `getPagedResult`). The facade
+		// must still report the requested page (not a stuck 1) and hand back that resumable cursor — otherwise a
+		// currentPage+1 consumer loops on page 2 forever.
 		(
 			bb as unknown as {
 				getRepositoriesForOrgResult: (
@@ -2982,7 +2983,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			Promise.resolve({
 				value: {
 					values: [{ name: 'r', namespace: 'org' } as unknown as ProviderRepository],
-					paging: { more: true, cursor: '{}' },
+					paging: { more: true, cursor: JSON.stringify({ value: 3, type: 'page' }), nextPage: 3 },
 				},
 			});
 
@@ -2996,7 +2997,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(
 			result.cursor,
 			JSON.stringify({ value: 3, type: 'page' }),
-			'a resumable next-page cursor is synthesized',
+			'the provider next-page cursor is threaded back',
 		);
 
 		manager.dispose();
@@ -3025,7 +3026,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			Promise.resolve({
 				value: {
 					values: [{ name: 'r', namespace: 'org' } as unknown as ProviderRepository],
-					paging: { more: true, cursor: '{}' },
+					paging: { more: true, cursor: JSON.stringify({ value: 3, type: 'page' }), nextPage: 3 },
 				},
 			});
 
