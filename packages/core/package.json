@@ -276,7 +276,7 @@
 		}
 	},
 	"dependencies": {
-		"@gitkraken/provider-apis": "catalog:",
+		"@gitkraken/provider-apis": "link:/Users/julianmesa/Projects/provider-apis-package-js.worktrees/provider-apis-package-js-providers-api-main-e0718bbd",
 		"@octokit/graphql": "catalog:",
 		"@octokit/request": "catalog:",
 		"@octokit/request-error": "catalog:",
@@ -290,6 +290,7 @@
 		"bundle": "node scripts/bundle.mjs",
 		"clean": "pnpx rimraf --glob dist src LICENSE LICENSE.plus *.tgz",
 		"prepack": "node scripts/bundle.mjs",
-		"verify:esm": "node scripts/verify-esm.mjs"
+		"verify:esm": "node scripts/verify-esm.mjs",
+		"verify:package": "node scripts/verify-package.mjs"
 	}
 }

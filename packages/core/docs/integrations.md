@@ -15,11 +15,11 @@ never leaks `@gitkraken/provider-apis` types, so a consumer depends on this pack
 
 ## 1. Entry points
 
-| Subpath                                              | Use it for                                                                  |
-| ---------------------------------------------------- | --------------------------------------------------------------------------- |
-| `@gitkraken/core-gitlens/plus/integrations/index.js` | The session-managed facade: `createIntegrationManager` + every public type. |
-| `@gitkraken/core-gitlens/plus/integrations/lite.js`  | Stateless, token-scoped single reads (no storage/auth lifecycle). See §10.  |
-| `@gitkraken/core-gitlens/git/models/*.js`            | The returned models (`PullRequestShape`, `IssueShape`, …).                  |
+| Subpath                                              | Use it for                                                                         |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `@gitkraken/core-gitlens/plus/integrations/index.js` | The session-managed facade: manager factory, public types, and connection helpers. |
+| `@gitkraken/core-gitlens/plus/integrations/lite.js`  | Stateless, token-scoped single reads (no storage/auth lifecycle). See §10.         |
+| `@gitkraken/core-gitlens/git/models/*.js`            | The returned models (`PullRequestShape`, `IssueShape`, …).                         |
 
 Everything else under `plus/integrations/**` is internal. `IntegrationService`, the `GitHostIntegration`
 models, and the provider clients are deliberately **not** on the facade: they change without a semver bump.
@@ -31,22 +31,24 @@ models, and the provider clients are deliberately **not** on the facade: they ch
 
 ## 2. Building the runtime
 
-`createIntegrationManager(ctx)` takes one argument: an `IntegrationServiceContext`. It is the **single**
-cross-boundary contract — the package never imports `vscode` and has no ambient globals.
+`createIntegrationManager(ctx)` takes one argument: an `IntegrationManagerContext`. It is the **single**
+cross-boundary contract — the package never imports `vscode` and has no ambient globals. The full GitLens
+extension host can continue to pass its `IntegrationServiceContext`; it is structurally compatible.
 
-| Provider       | Required | What it must do                                                                                                                                                           |
-| -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage`      | yes      | Global + workspace key/value, plus a secret store (tokens land here).                                                                                                     |
-| `account`      | yes      | The GitKraken account and the GK-cloud connect/manage round-trips. Return `undefined` from `getAccount` if you don't use GK cloud (see below).                            |
-| `config`       | yes      | `getRemoteConfigs()` (self-managed hosts, SSL/protocol overrides), launchpad knobs, a change event.                                                                       |
-| `http`         | yes      | `fetch` + `wrapForForcedInsecureSSL` + `isWeb` + a User-Agent string.                                                                                                     |
-| `cache`        | yes      | Cross-call cache. Only `getCurrentAccount` is on the facade's read paths; the rest serve the per-commit / per-branch enrichment reads a facade-only consumer never calls. |
-| `repositories` | yes      | `getOpenRemotes()`; used only by the "across open repos" helpers. `async () => []` is fine.                                                                               |
-| `hooks`        | no       | Auth strategy override, reauth/disconnect prompts, outbound behavioral events.                                                                                            |
+| Provider       | Required | What it must do                                                                                                                                                    |
+| -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `storage`      | yes      | Global + workspace key/value, plus a secret store (tokens land here).                                                                                              |
+| `account`      | yes      | The GitKraken account and the GK-cloud connect/manage round-trips. Return `undefined` from `getAccount` if you don't use GK cloud (see below).                     |
+| `config`       | yes      | `getRemoteConfigs()` (self-managed hosts, SSL/protocol overrides), launchpad knobs, a change event.                                                                |
+| `http`         | yes      | `fetch` + `wrapForForcedInsecureSSL` + `isWeb` + a User-Agent string.                                                                                              |
+| `cache`        | no       | Cross-call cache. Omit it for correct uncached reads. A long-lived consumer should implement `getCurrentAccount` caching to deduplicate provider identity lookups. |
+| `repositories` | yes      | `getOpenRemotes()`; used only by the "across open repos" helpers. `async () => []` is fine.                                                                        |
+| `hooks`        | no       | Auth strategy override, reauth/disconnect prompts, outbound behavioral events.                                                                                     |
 
-A complete, type-checked, dependency-free example lives in
+A complete, type-checked, dependency-free example (including the optional-cache path) lives in
 [`tests/fixtures/integrations-consumer/src/consumer.test.ts`](https://github.com/gitkraken/vscode-gitlens/blob/core/tests/fixtures/integrations-consumer/src/consumer.test.ts).
-It runs in CI, so it can't rot: **copy that file's `buildRuntime()` as your starting point.**
+It runs against the packed artifact in CI, so it catches missing exports as well as source-level mistakes:
+use that file's `buildRuntime()` as your starting point.
 
 ### Authentication
 
@@ -90,6 +92,8 @@ Three knobs, in precedence order, select **which account and which host** a read
 `domain` **must** come from your trusted authentication configuration, never from repository or remote data:
 it selects which credentials a read uses, and `resolveRepository` deliberately refuses to resolve a
 self-managed remote against a host the user hasn't authenticated (`host-mismatch`).
+Use the facade's `hostFromDomain()` when comparing a stored URL-shaped domain with a remote host; this is the
+same normalization used internally for connection selection.
 
 Use `getConfigured(id?, { cloud?, domain? })` to enumerate connections, `setPrimaryConnection` /
 `deleteConnection` to manage them. Both mutations validate that `connectionId` belongs to the requested
@@ -114,9 +118,9 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `resolveRepository`          | `ResolveRepositoryResult` | Remote URL → canonical provider identity (the `gk repo resolve` equivalent).          |
 | `getSupportedFilters`        | filter capability table   | Static, connection-free. See §7.                                                      |
 
-A provider that cannot serve a surface says so explicitly — an `unsupported` warning + `fetchFailed`, never a
-silent empty page. That distinction is the whole point of the result shape: an empty `items` with no warning
-means "this account genuinely has nothing".
+A provider that cannot serve a surface says so explicitly — a warning explaining that the operation is
+unsupported plus `fetchFailed`, never a silent empty page. That distinction is the whole point of the result
+shape: an empty `items` with no warning means "this account genuinely has nothing".
 
 ## 5. Paging
 
@@ -159,18 +163,22 @@ Invariants worth relying on:
 A per-provider (or per-connection, or per-scope) failure degrades to a **warning attached to a partial
 result** instead of rejecting the call. One provider's expired token never blanks the other providers' data.
 
-`ProviderWarning.kind` is the programmatic discriminant — branch on it, don't sniff `message`:
+`ProviderWarning.kind` (also exported as `ProviderWarningKind`) carries the classifications the facade can
+prove from structured errors:
 
-| `kind`          | Meaning                                                | Reasonable response                         |
-| --------------- | ------------------------------------------------------ | ------------------------------------------- |
-| `auth`          | Token rejected (401/403 that isn't a throttle).        | Prompt to reconnect that connection.        |
-| `rate-limit`    | Throttled (429, or a 403 whose body says so).          | Back off and retry; keep the last snapshot. |
-| `not-found`     | 404/410/422 on the requested scope.                    | Drop that scope; don't reconnect.           |
-| `no-connection` | The requested `connectionId`/`domain` doesn't resolve. | Re-resolve the target or re-authenticate.   |
-| `other`         | Everything else, incl. "unsupported on this provider". | Surface as a soft, non-actionable notice.   |
+| `kind`          | Meaning                                                                                       | Reasonable response                                                                         |
+| --------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `auth`          | Token rejected (401/403 that isn't a throttle).                                               | Prompt to reconnect that connection.                                                        |
+| `rate-limit`    | Throttled (429, or a 403 whose body says so).                                                 | Back off and retry; keep the last snapshot.                                                 |
+| `not-found`     | 404/410/422 on the requested scope.                                                           | Drop that scope; don't reconnect.                                                           |
+| `no-connection` | The requested `connectionId`/`domain` doesn't resolve.                                        | Re-resolve the target or re-authenticate.                                                   |
+| `other`         | Catch-all: unsupported input, truncation, upstream/network failure, or an unclassified error. | Preserve the warning and use the result flags; do not assume it is benign or non-retryable. |
 
 `isAuth` is a convenience mirror of `kind === 'auth'`. **Collapsing `kind` into that boolean loses the
 rate-limit and not-found distinctions**, which then have to be re-derived from raw provider prose.
+Conversely, `other` is intentionally not a complete failure taxonomy. Treat `message` as display/diagnostic
+text rather than a stable protocol; use `fetchFailed`, `page.truncated`, and `page.allPages` for completeness
+and keep unknown failures conservative.
 
 | Flag                | Says                                                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -213,9 +221,9 @@ It's a _capability_ table, not a recommendation: passing fewer filters than list
 already-user-scoped read they add nothing.
 
 On the account-wide issue read, `filters` **replaces** the provider's own definition of "my issues"
-(GitHub unions authored ∪ assigned ∪ mentioned; Azure and GitLab drain assigned ∪ authored), so
+(GitHub authored ∪ assigned ∪ mentioned; Azure assigned ∪ authored; GitLab assigned-to-me), so
 `[Assignee]` means `assignee:@me` wherever it's expressible. `includeAllAssignees`
-does the opposite (drops the user scope); passing both is refused as contradictory.
+does the opposite (drops the user scope); passing both on that account-wide read is refused as contradictory.
 
 Bitbucket Cloud's expensive account-wide reviewer fan-out is a separate breadth option:
 `includeReviewRequested: true`. It is not a narrowing `PullRequestFilter`.
@@ -239,7 +247,7 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✓    |
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |  ✓   |   ✓    |   ✓    |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  ✗   |   ✗    |   ✗    |
-| `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |   ✓ cloud / ✗ Server    |  ✗   |   ✗    |   ✗    |
+| `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
 
 Repo-scoped PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab `Author, Assignee,
 ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure `Author, Assignee,
@@ -272,7 +280,8 @@ Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Aut
 - **Azure DevOps** — org + project scoped. Repo-scoped reads accept one org per call. Account-wide reads
   drain every project of every org and return one aggregate page; a failed project becomes a scoped warning
   while its siblings survive. Only Azure can narrow an account-wide issue read by `org`/`project`.
-  `resolveRepository` needs a project in the remote URL, and **Azure DevOps Server isn't supported** there.
+  `resolveRepository` needs a project in the remote URL. Azure DevOps Server uses the trusted connection's
+  domain/protocol as `baseUrl`; the remote host must match that configured connection.
 - **Jira / Linear / Trello** — paged by **project**, not by issue: `itemsPerPage` counts projects (default
   20), each drained in full. Passing none of `page`/`cursor`/`itemsPerPage` aggregates every matched project
   in one page. A single project exceeding its internal drain backstop shows up as `page.truncated`.
@@ -283,7 +292,10 @@ Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Aut
   back partial (`fetchFailed`) shifts the following windows — restart the read rather than paging on from it.
 
 The same warning holds for `IssueShape.id` generally: it's the provider's **display** number/key (rendered
-as `#{id}`, used for branch names). `nodeId` is the stable global id — correlate on that.
+as `#{id}`, used for branch names). `nodeId` is the stable provider-native id, but its uniqueness scope is
+provider-specific (Azure work-item ids are organization-scoped). For cross-scope correlation, key by
+provider/domain plus repository or project identity and `nodeId`; `url` is also unique for the provider reads
+that require one.
 
 ## 10. Token-scoped reads (`lite.js`)
 
@@ -308,24 +320,26 @@ and Azure DevOps (+ Server). **Not** Bitbucket Data Center. A self-managed id re
 
 ## 11. Checklist for a new consumer
 
-1. Copy `buildRuntime()` from the consumer fixture; implement `storage` for real and
-   `cache.getCurrentAccount` for real.
+1. Start from `buildRuntime()` in the consumer fixture; implement `storage` for real. Add
+   `cache.getCurrentAccount` when the manager is long-lived or provider identity reads are frequent.
 2. Pick an auth strategy (§2) and verify `getConfigured()` reflects your connections.
 3. Thread `connectionId` through every read if you support multiple accounts per provider.
 4. Persist the **opaque `cursor`**, not just a page number (§5).
-5. Branch on `warning.kind`, and gate caching on `fetchFailed` / `page.allPages` (§6).
+5. Branch on specific `warning.kind` values, handle `other` conservatively, and gate caching on
+   `fetchFailed` / `page.allPages` (§6).
 6. Intersect repo-scoped and account-wide `filters` against their distinct `getSupportedFilters` fields (§7).
 7. Treat "unsupported" as a first-class outcome per provider (§8) — don't render it as an error.
 8. `dispose()` the manager with the owning scope.
 
 ## 12. Development and publication prerequisite
 
-The current `core` branch depends on provider behavior beyond the registry's `@gitkraken/provider-apis`
-0.53.0: GitLab author filtering and PR state forwarding, GitHub search-completeness metadata, and Bitbucket
-Data Center page normalization. Until those provider changes are merged and released, local integration
-testing may use the combined provider-apis worktree as a temporary substitute only; the repository must not
-encode that local link.
+The current `core` branch depends on the provider fixes used by this facade: GitLab author filtering and PR
+state forwarding, GitHub search-completeness metadata, Bitbucket Data Center page normalization, and
+self-managed Azure project-scoped repository lookup. During coordinated development, a local
+`provider-apis` worktree/link may temporarily supply those fixes; that link is a test setup, not a publishable
+dependency contract.
 
-Before publication, bump the workspace catalog/lockfile to the released provider-apis version containing
-those fixes. Do not publish or bump `@gitkraken/core-gitlens` until that dependency bump is in place and the
-Kepler migration has been verified end to end.
+Before publication, replace any local link with the released `@gitkraken/provider-apis` version containing
+the verified fixes and regenerate the workspace catalog/lockfile. Do not publish or bump
+`@gitkraken/core-gitlens` until that dependency is released and the Kepler migration has been verified end to
+end against the packed artifact.

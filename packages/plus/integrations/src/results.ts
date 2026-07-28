@@ -13,6 +13,8 @@ export interface ConnectionStateChangeEvent {
  * `kind` is the programmatic discriminant (a rate-limit is retryable, a 404 is not, an auth failure
  * needs re-connection); `isAuth` is retained as a convenience mirror of `kind === 'auth'`.
  */
+export type ProviderWarningKind = 'auth' | 'rate-limit' | 'not-found' | 'no-connection' | 'other';
+
 export interface ProviderWarning {
 	providerId: IntegrationIds;
 	/** Disambiguates connections on self-managed hosts (where one provider id spans multiple domains). */
@@ -20,7 +22,7 @@ export interface ProviderWarning {
 	/** The specific token/connection the read was pinned to, when a `connectionId` was supplied. */
 	connectionId?: string;
 	message: string;
-	kind: 'auth' | 'rate-limit' | 'not-found' | 'no-connection' | 'other';
+	kind: ProviderWarningKind;
 	/** Convenience mirror of `kind === 'auth'`. */
 	isAuth: boolean;
 }
