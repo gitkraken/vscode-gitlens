@@ -33,7 +33,9 @@
  *       --build-cmd=<cmd> Custom build command to run in the worktree
  *       --force           Launch even if dist/ looks unbuilt
  *       --folder=<path>   Folder to open (overrides [folder-to-open]; default: the
- *                         worktree). Lets you override the folder while using the
+ *                         worktree). Accepts a URI too — `vscode-vfs://github/owner/repo`
+ *                         opens a virtual repo, passed through as `--folder-uri`.
+ *                         Lets you override the folder while using the
  *                         current worktree (i.e. without passing <worktree>).
  *       --profile=<name>  VS Code profile (default: "Debugging (GitLens)")
  *       --sandbox         Use a fresh throwaway profile (--profile-temp)
@@ -372,7 +374,22 @@ async function main() {
 	}
 
 	const worktree = realpathSync(chosen.path);
-	const openTarget = opts.open != null ? path.resolve(process.cwd(), opts.open) : worktree;
+	// A non-file URI (`vscode-vfs://github/owner/repo`, `vscode-remote://…`) must be passed through
+	// untouched and via `--folder-uri`; `path.resolve` would mangle it into `<cwd>/vscode-vfs:/…` and the
+	// dev host would open a folder that doesn't exist. Plain paths still resolve relative to the cwd.
+	const openIsUri = opts.open != null && /^[a-z][a-z0-9+.-]*:\/\//i.test(opts.open);
+	// A virtual workspace runs the WEB extension host, so this script — which launches a desktop/node dev
+	// host — can open the window but the extension will never activate for it. Say so rather than launching
+	// something that looks right and silently does nothing.
+	if (openIsUri && opts.open.startsWith('vscode-vfs:') && !opts.web) {
+		console.warn(
+			`⚠ ${opts.open} is a VIRTUAL workspace — it needs the web extension host, which this script does not launch.\n` +
+				'  `pnpm run web` runs the web host, but note @vscode/test-web bundles no RemoteHub/GitHub\n' +
+				'  Repositories extension, so a `vscode-vfs://github/...` folder has no filesystem provider there\n' +
+				'  and the repo will not be discovered. Real virtual testing needs vscode.dev.',
+		);
+	}
+	const openTarget = opts.open == null ? worktree : openIsUri ? opts.open : path.resolve(process.cwd(), opts.open);
 
 	// Build (opt-in) — install deps first if missing, since a never-installed
 	// worktree can't build.
@@ -415,7 +432,7 @@ async function main() {
 	const codeArgs = [opts.reuse ? '--reuse-window' : '--new-window', `--extensionDevelopmentPath=${worktree}`];
 	if (opts.web) codeArgs.push('--extensionDevelopmentKind=web');
 	codeArgs.push(opts.sandbox ? '--profile-temp' : `--profile=${opts.profile}`);
-	codeArgs.push(openTarget);
+	codeArgs.push(openIsUri ? `--folder-uri=${openTarget}` : openTarget);
 
 	console.log(`\n→ ${path.basename(worktree)}  (${worktree})`);
 	console.log(`  ${codeBin} ${codeArgs.map(a => (a.includes(' ') ? JSON.stringify(a) : a)).join(' ')}\n`);
