@@ -627,7 +627,24 @@ export interface ProviderMetadata {
 	pullRequestsPagingMode?: PagingMode;
 	scopes: string[];
 	supportedPullRequestFilters?: PullRequestFilter[];
+	/** Filters the REPO-scoped issue read can express. */
 	supportedIssueFilters?: IssueFilter[];
+	/**
+	 * Filters the ACCOUNT-WIDE issue read can express, which is NOT the same set as
+	 * {@link ProviderMetadata.supportedIssueFilters}: the two reads are different provider queries.
+	 *
+	 * Unfiltered, each provider's account-wide read is that provider's own definition of "my issues" — GitHub/GHE
+	 * union authored + assigned + mentioned, Azure drains assigned + authored, GitLab reads assigned-to-me. All
+	 * but GitLab's are WIDER than "assigned to me", and a consumer replacing a narrower tool (`gk`'s
+	 * `assignee:@me`) has no way to narrow them from the outside — the fan-out happens inside the provider.
+	 *
+	 * A filter listed here narrows that read server-side. Absent/empty means the read can't be narrowed at all,
+	 * so the facade refuses a filtered request rather than serving the unnarrowed union as if it had been
+	 * filtered. GitLab lists only `Assignee` because the SDK's account-wide input exposes `scope` +
+	 * `assigneeUsername` and nothing for author/mention; expressing those needs a `@gitkraken/provider-apis`
+	 * change, not a change here.
+	 */
+	supportedAccountWideIssueFilters?: IssueFilter[];
 }
 
 export type Providers = Record<IntegrationIds, ProviderInfo>;
@@ -651,6 +668,9 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
+		// one composite cursor, so any subset of them is expressible.
+		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
 	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
@@ -670,6 +690,9 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
+		// one composite cursor, so any subset of them is expressible.
+		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
 	[GitCloudHostIntegrationId.GitLab]: {
@@ -688,6 +711,9 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
+		// The account-wide read is `scope=assigned_to_me` + `assigneeUsername` — assignee is the only axis the SDK
+		// input exposes, so an author/mention narrow can't be expressed (see `supportedAccountWideIssueFilters`).
+		supportedAccountWideIssueFilters: [IssueFilter.Assignee],
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
 	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
@@ -706,6 +732,9 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
+		// The account-wide read is `scope=assigned_to_me` + `assigneeUsername` — assignee is the only axis the SDK
+		// input exposes, so an author/mention narrow can't be expressed (see `supportedAccountWideIssueFilters`).
+		supportedAccountWideIssueFilters: [IssueFilter.Assignee],
 		scopes: ['api', 'read_user', 'read_repository'],
 	},
 	[GitCloudHostIntegrationId.Bitbucket]: {
@@ -744,6 +773,9 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'name' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		// The account-wide read drains one (project × assignee) and one (project × author) query per project, so
+		// either axis is expressible on its own. There is no mention query to narrow to.
+		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
 	[GitSelfManagedHostIntegrationId.AzureDevOpsServer]: {
@@ -762,6 +794,9 @@ export const providersMetadata: ProvidersMetadata = {
 		],
 		// Use 'name' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		// The account-wide read drains one (project × assignee) and one (project × author) query per project, so
+		// either axis is expressible on its own. There is no mention query to narrow to.
+		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
 	},
 	[IssuesCloudHostIntegrationId.Jira]: {
