@@ -1465,6 +1465,12 @@ export class ProvidersApi {
 			// Forwarded to the provider fn (GitLab's account-wide REST read); Linear ignores them.
 			scope?: 'assigned_to_me' | 'all';
 			assigneeUsername?: string;
+			/**
+			 * Narrows to issues authored by this user. Honored as of `@gitkraken/provider-apis` 0.54.0
+			 * (`author_username`); it composes with `assigneeUsername` as AND, so a caller wanting the UNION of the
+			 * two relationships must read each separately (see GitLab's account-wide issue read).
+			 */
+			authorUsername?: string;
 			pageSize?: number;
 			isPAT?: boolean;
 			baseUrl?: string;
@@ -1478,6 +1484,7 @@ export class ProvidersApi {
 			{
 				scope: options?.scope,
 				assigneeUsername: options?.assigneeUsername,
+				authorUsername: options?.authorUsername,
 				page: options?.page,
 				pageSize: options?.pageSize,
 			},
