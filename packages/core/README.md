@@ -35,7 +35,7 @@ All exports are fully typed and source-mapped back to the original TypeScript so
 Reading provider data (pull requests, issues, orgs, projects, repos, repository identity) goes through the
 provider-neutral facade at `plus/integrations/index.js`. It has its own guide — runtime wiring, the paging and
 warning contracts, the filter capability table, and a per-provider capability matrix:
-[`docs/core-gitlens-integrations.md`](https://github.com/gitkraken/vscode-gitlens/blob/main/docs/core-gitlens-integrations.md).
+[`docs/integrations.md`](./docs/integrations.md).
 
 ### Node vs browser
 
