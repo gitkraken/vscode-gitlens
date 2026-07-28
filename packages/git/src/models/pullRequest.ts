@@ -133,7 +133,12 @@ export interface PullRequestComparisonRefs {
 
 export interface PullRequestMember {
 	id: string;
-	name: string;
+	/**
+	 * Absent when the provider exposes no display name for the member — same contract as `IssueMember.name`: a
+	 * fallback invented here can't be told apart from a real name downstream, so each consumer picks its own
+	 * presentation.
+	 */
+	name?: string;
 	avatarUrl?: string;
 	url?: string;
 }

@@ -877,14 +877,15 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 		state: issue.closedDate != null ? 'closed' : 'opened',
 		author: {
 			id: issue.author?.id ?? '',
-			name: issue.author?.name ?? '',
+			// An absent name stays absent, matching {@link fromProviderAccount}; see `IssueMember.name`.
+			name: issue.author?.name ?? undefined,
 			avatarUrl: issue.author?.avatarUrl ?? undefined,
 			url: issue.author?.url ?? undefined,
 		},
 		assignees:
 			issue.assignees?.map(assignee => ({
 				id: assignee.id ?? '',
-				name: assignee.name ?? '',
+				name: assignee.name ?? undefined,
 				avatarUrl: assignee.avatarUrl ?? undefined,
 				url: assignee.url ?? undefined,
 			})) ?? [],
@@ -1409,7 +1410,12 @@ export function toProviderAccount(account: PullRequestMember | IssueMember): Pro
 export function fromProviderAccount(account: ProviderAccount | null): PullRequestMember | IssueMember {
 	return {
 		id: account?.id ?? '',
-		name: account?.name ?? 'unknown',
+		// An absent name stays absent. `'unknown'` was a display fallback invented in the provider layer, and a
+		// consumer couldn't tell it apart from a member genuinely named that — so it couldn't be undone where a
+		// name-shaped placeholder is wrong (rendering an avatar-only chip, or building an AI prompt, where
+		// `Assignees: unknown` reads as a real assignee). It also disagreed with {@link toIssueShape}, which
+		// collapsed the same absent name to `''` — same facade method, two fallbacks. Both now emit `undefined`.
+		name: account?.name ?? undefined,
 		avatarUrl: account?.avatarUrl ?? undefined,
 		// `url` is optional, so an absent one must be `undefined`, not `''`. `''` passes a `!= null` presence
 		// check and renders as a link to nowhere, and it disagreed with {@link toIssueShape} — which already

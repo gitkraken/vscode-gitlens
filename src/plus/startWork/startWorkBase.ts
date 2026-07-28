@@ -398,7 +398,9 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				label: i.issue.title.length > 60 ? `${i.issue.title.substring(0, 60)}...` : i.issue.title,
 				description: `\u00a0 ${i.issue.repository ? `${i.issue.repository.owner}/${i.issue.repository.repo}#` : ''}${i.issue.id} \u00a0`,
 				// The spacing here at the beginning is used to align the description with the title. Otherwise it starts under the avatar icon:
-				detail: `      ${fromNow(i.issue.updatedDate)} by @${i.issue.author.name}${hoverContent}`,
+				// An issue whose author the provider exposes no name for drops the `by @…` attribution rather than
+				// rendering `by @undefined` — the provider layer deliberately doesn't invent a placeholder name.
+				detail: `      ${fromNow(i.issue.updatedDate)}${i.issue.author.name != null ? ` by @${i.issue.author.name}` : ''}${hoverContent}`,
 				iconPath: i.issue.author?.avatarUrl != null ? Uri.parse(i.issue.author.avatarUrl) : undefined,
 				item: i,
 				picked: i.issue.id === state.item?.issue.id,
