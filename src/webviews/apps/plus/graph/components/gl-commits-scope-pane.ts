@@ -3,7 +3,12 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { commitsScopePaneStyles } from './gl-commits-scope-pane.css.js';
 import type { ScopeMode } from './gl-commits-scope-pane.utils.js';
-import { getMinEndIndex, resolveEndIndex, resolveStartIndex } from './gl-commits-scope-pane.utils.js';
+import {
+	getMinEndIndex,
+	resolveEndIndex,
+	resolveSelectionRange,
+	resolveStartIndex,
+} from './gl-commits-scope-pane.utils.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/commit/commit-stats.js';
@@ -64,6 +69,9 @@ export class GlCommitsScopePane extends LitElement {
 	// flip an offscreen flag → proxy renders → user sees a flash before the rAF
 	// scrolls things back into place.
 	private _pendingKeyboardFocus: 'row-end' | 'row-end-keep-viewport' | 'handle-start' | 'handle-end' | undefined;
+	// Non-reactive: set in `syncSelectionRange()` when the controlled `selection` can no longer be
+	// honored, consumed in `updated()` to re-emit `scope-change` (post-render, avoiding re-entrancy).
+	private _pendingScopeReconcile = false;
 	private _dragAc: AbortController | undefined;
 	private _scrollAc: AbortController | undefined;
 	private _previousBodyCursor: string | undefined;
@@ -173,6 +181,16 @@ export class GlCommitsScopePane extends LitElement {
 	}
 
 	override updated(changedProperties: Map<string, unknown>): void {
+		// The controlled `selection` no longer resolved against `items` (a scoped row disappeared),
+		// so `syncSelectionRange()` dropped the stale IDs and flagged a reconcile. Re-emit now, post
+		// render, with the effective (fallback) selection so the host reconciles the stored scope and
+		// refetches the scoped file list. Emitting here (not in `willUpdate`) avoids re-entering the
+		// update cycle; the host's `scopeSelectionEqual` guard prevents a re-emit loop.
+		if (this._pendingScopeReconcile) {
+			this._pendingScopeReconcile = false;
+			this.emitScopeChange();
+		}
+
 		// Only re-scroll when items go from empty → populated (late branchCommits arrival).
 		// Skip during user drag, and skip on selection-only changes — that would yank the
 		// viewport after every drag end.
@@ -239,10 +257,13 @@ export class GlCommitsScopePane extends LitElement {
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		// When the items list changes (e.g. WIP tick reorders / adds / removes commits), drop
 		// any stored range IDs that no longer resolve so the picker silently falls back to its
-		// auto-derived defaults instead of clamping to a stale ID. We deliberately do NOT
-		// re-emit `scope-change` here — only user drag (`_onDragEnd`) is a legitimate emit
-		// site. Re-emitting on every items-ref change couples unrelated graph-state ticks to
-		// scope-file refetches and the host-graph re-render path.
+		// auto-derived defaults instead of clamping to a stale ID. A benign items-ref change that
+		// still resolves must stay silent — re-emitting `scope-change` on every such tick would
+		// couple unrelated graph-state ticks to scope-file refetches and the host-graph re-render
+		// path. The ONE exception is a controlled `selection` that can no longer be honored (a
+		// scoped row disappeared): `syncSelectionRange()` flags a reconcile so `updated()` re-emits
+		// with the effective (fallback) selection, keeping the stored scope and file list in sync
+		// with what the picker actually shows. User drag (`_onDragEnd`) is the only other emit site.
 		if ((changedProperties.has('items') || changedProperties.has('selection')) && !this._dragging) {
 			if (this.selection != null) {
 				this.syncSelectionRange();
@@ -283,21 +304,27 @@ export class GlCommitsScopePane extends LitElement {
 			return;
 		}
 
-		const selected = new Set(this.selection);
-		let start = -1;
-		let end = -1;
-		for (let i = 0; i < this.items.length; i++) {
-			if (!selected.has(this.items[i].id)) continue;
-
-			if (start === -1) {
-				start = i;
+		const range = resolveSelectionRange(this.items, this.selection);
+		if (range == null) {
+			// The controlled selection doesn't resolve against the current items. Only reconcile when
+			// there ARE items to fall back to — i.e. a scoped row genuinely disappeared (e.g.
+			// everything was staged/unstaged while the picker was open). An empty `items` list is the
+			// transient "scope rows haven't loaded yet" state (initial mount / repo switch); emitting
+			// there would clobber the stored scope to an empty selection before the rows arrive, and
+			// that empty scope wouldn't self-heal once they do. Leave the stored IDs untouched and
+			// wait for items — a later sync resolves against the loaded rows.
+			if (this.items.length > 0) {
+				// Drop the stale stored IDs so the picker falls back to its auto-derived defaults, and
+				// flag a reconcile so `updated()` re-emits the effective selection back to the host.
+				this._userRangeStartId = undefined;
+				this._userRangeEndId = undefined;
+				this._pendingScopeReconcile = true;
 			}
-			end = i;
+			return;
 		}
-		if (start === -1 || end === -1) return;
 
-		this._userRangeStartId = this.items[start].id;
-		this._userRangeEndId = this.items[end].id;
+		this._userRangeStartId = this.items[range.start].id;
+		this._userRangeEndId = this.items[range.end].id;
 	}
 
 	/** Effective start: resolves stored ID to index, falls back to default-start. */

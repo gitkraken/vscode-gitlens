@@ -3261,6 +3261,19 @@ export class DetailsActions {
 		this.state.wip.set(wip);
 		if (this.state.activeMode.get() != null) {
 			this.state.wipStale.set(true);
+
+			// A working-tree change can move the files inside the current wip scope (or drop a
+			// staged/unstaged row entirely). Refetch the scoped file list so the curation list and
+			// the eventual run stay in agreement with the picker. Scoped to the active mode's repo so
+			// a background repo's wip tick can't clobber the foreground scope's file list, and to wip
+			// scopes since commit/compare scopes don't shift on a working-tree tick. (The picker
+			// separately re-emits scope-change when its selection can no longer be honored, which
+			// reconciles the stored scope *identity*; this covers identity-stable ticks whose file
+			// set moved.)
+			const scope = this.state.scope.get();
+			if (scope?.type === 'wip' && repoPath === this.state.activeModeRepoPath.get()) {
+				void this.resources.scopeFiles.fetch(repoPath, scope);
+			}
 		}
 		const branchName = wip.branch?.name;
 		if (branchName != null && prev?.branch?.name !== branchName) {

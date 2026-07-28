@@ -82,3 +82,33 @@ export function resolveEndIndex(
 	}
 	return Math.max(raw, getMinEndIndex(mode, items, rangeStart));
 }
+
+/**
+ * Scans `items` for the contiguous range spanned by `selection` (a set of item IDs) and returns
+ * the first/last matching indices — or `undefined` when none of the selected IDs resolve against
+ * the current items. That happens when a working-changes row disappears out from under the stored
+ * selection (e.g. the user stages/unstages everything while the picker is open), so callers treat
+ * `undefined` as "the stored selection can no longer be honored" and fall back to the auto-derived
+ * default range ({@link getDefaultStart}/{@link getDefaultEnd}).
+ */
+export function resolveSelectionRange(
+	items: readonly ScopeItem[],
+	selection: readonly string[] | undefined,
+): { start: number; end: number } | undefined {
+	if (!selection?.length) return undefined;
+
+	const selected = new Set(selection);
+	let start = -1;
+	let end = -1;
+	for (let i = 0; i < items.length; i++) {
+		if (!selected.has(items[i].id)) continue;
+
+		if (start === -1) {
+			start = i;
+		}
+		end = i;
+	}
+	if (start === -1 || end === -1) return undefined;
+
+	return { start: start, end: end };
+}

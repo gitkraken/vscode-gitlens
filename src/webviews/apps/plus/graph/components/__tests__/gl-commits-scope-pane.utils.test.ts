@@ -5,6 +5,7 @@ import {
 	getDefaultStart,
 	getMinEndIndex,
 	resolveEndIndex,
+	resolveSelectionRange,
 	resolveStartIndex,
 } from '../gl-commits-scope-pane.utils.js';
 
@@ -119,6 +120,53 @@ suite('gl-commits-scope-pane range/floor utils', () => {
 
 		test('falls back to the default start when no id is given', () => {
 			assert.strictEqual(resolveStartIndex([commitB, unstaged, staged], undefined), 1);
+		});
+	});
+
+	suite('resolveSelectionRange', () => {
+		test('undefined selection resolves to undefined', () => {
+			assert.strictEqual(resolveSelectionRange([unstaged], undefined), undefined);
+		});
+
+		test('empty selection resolves to undefined', () => {
+			assert.strictEqual(resolveSelectionRange([unstaged], []), undefined);
+		});
+
+		test('contiguous selection resolves to its first/last indices', () => {
+			assert.deepStrictEqual(resolveSelectionRange([unstaged, staged, commitA], ['unstaged', 'staged']), {
+				start: 0,
+				end: 1,
+			});
+		});
+
+		test('single-row selection resolves to a one-index range', () => {
+			assert.deepStrictEqual(resolveSelectionRange([unstaged, staged, commitA], ['staged']), {
+				start: 1,
+				end: 1,
+			});
+		});
+
+		test('sparse selection spans from the first to the last matching index', () => {
+			assert.deepStrictEqual(resolveSelectionRange([unstaged, staged, commitA], ['unstaged', 'a']), {
+				start: 0,
+				end: 2,
+			});
+		});
+
+		test('a scoped row that disappeared resolves to undefined', () => {
+			// Repro of #5588: the picker was scoped unstaged-only, then everything was staged, so the
+			// `unstaged` row no longer exists — the stored selection can no longer be honored.
+			assert.strictEqual(resolveSelectionRange([staged, commitA], ['unstaged']), undefined);
+		});
+
+		test('a selection with no matching id resolves to undefined', () => {
+			assert.strictEqual(resolveSelectionRange([staged], ['nope']), undefined);
+		});
+
+		test('a non-empty selection against empty items resolves to undefined', () => {
+			// The picker distinguishes this "rows not loaded yet" case (empty items) from a genuine
+			// row-disappeared miss (items present, none match) by guarding its reconcile on items.length.
+			assert.strictEqual(resolveSelectionRange([], ['unstaged']), undefined);
 		});
 	});
 });
