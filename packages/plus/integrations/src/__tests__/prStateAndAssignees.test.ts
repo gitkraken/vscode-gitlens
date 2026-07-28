@@ -153,24 +153,26 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('GitLab reports a state-filtered ACCOUNT-WIDE sweep as failed rather than silently empty', async () => {
+	test("GitLab's ACCOUNT-WIDE sweep forwards states to the SDK aggregator", async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
 		(gl as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		// The account-wide read (no `repos`) routes to the SDK's `getPullRequestsAssociatedWithUser`, which
-		// accepts no `states` and forwards none to the three per-association queries it fans out to — so each
-		// falls back to GitLab's `state: opened` default and the read can only ever return OPEN merge requests.
-		// Post-filtering those against a terminal state set discards every row, which used to surface as a
-		// SUCCESSFUL, complete, empty page: the closed/merged "done" sweep showed nothing at all for GitLab and
-		// nothing said so. The read must fail loudly instead.
-		let called = false;
+		// The account-wide read (no `repos`) routes to the SDK's `getPullRequestsAssociatedWithUser`, which as of
+		// `@gitkraken/provider-apis` 0.54.0 forwards `states` to all three per-association queries and narrows
+		// after normalization for a set GitLab's single-valued `state:` argument can't express.
+		//
+		// Before that it accepted no `states` at all, so every query fell back to `state: opened` and a
+		// closed/merged request came back with only OPEN merge requests — which this read had to refuse outright,
+		// because post-filtering them produced an empty page the sweep would publish as a complete, successful,
+		// genuinely-empty result (the Kanban "done" column silently showed nothing for GitLab).
+		let capturedStates: GitPullRequestState[] | undefined | 'unset' = 'unset';
 		stubApi(gl, {
 			isRepoIdsInput: () => false,
 			getCurrentUser: () => Promise.resolve({ username: 'me', id: 'me' }),
-			getPullRequestsForUser: () => {
-				called = true;
+			getPullRequestsForUser: (_t: unknown, _u: unknown, opts: { states?: GitPullRequestState[] }) => {
+				capturedStates = opts.states;
 				return Promise.resolve({ values: [], paging: undefined } satisfies PagedResult<ProviderPullRequest>);
 			},
 		});
@@ -179,13 +181,13 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 			providerIds: [GitCloudHostIntegrationId.GitLab],
 		});
 
-		assert.equal(called, false, 'the unfilterable read is not issued at all');
-		assert.deepEqual(result.items, []);
-		assert.equal(result.fetchFailed, true, 'the slice is reported incomplete, not empty-and-complete');
-		assert.equal(result.page.allPages, false, 'so a consumer cannot cache it as authoritative');
-		assert.deepEqual(result.failedProviderIds, [GitCloudHostIntegrationId.GitLab]);
-		assert.equal(result.warnings.length, 1, 'and the reason is attributable to the provider');
-		assert.match(result.warnings[0].message, /cannot be filtered by state/);
+		assert.deepEqual(
+			capturedStates,
+			[GitPullRequestState.Closed, GitPullRequestState.Merged],
+			'the terminal state set reaches the provider instead of being refused',
+		);
+		assert.equal(result.fetchFailed, undefined, 'and the slice is a real read, not a reported failure');
+		assert.deepEqual(result.failedProviderIds, []);
 
 		manager.dispose();
 	});

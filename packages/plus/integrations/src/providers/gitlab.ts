@@ -22,7 +22,6 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -37,6 +36,7 @@ import type {
 	ProviderRepository,
 } from './models.js';
 import {
+	IssueFilter,
 	ProviderPullRequestReviewState,
 	providersMetadata,
 	toIssueShape,
@@ -433,29 +433,17 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const username = (await this.getProviderCurrentAccount(session))?.username;
 		if (username == null) return undefined;
 
-		const states = toProviderPullRequestStates(options?.state);
-		// A state-filtered account-wide read is NOT expressible here, and post-filtering can't fake it. The SDK's
-		// `getPullRequestsAssociatedWithUser` accepts no `states` and forwards none to the three per-association
-		// queries it fans out to, so each one falls back to GitLab's `state: opened` default. Filtering the
-		// resulting OPEN merge requests against a terminal state set therefore discards every row and returns an
-		// empty page — which the sweep would publish as a successful, complete, genuinely-empty result (the
-		// closed/merged "done" sweep silently showed nothing at all for GitLab). Fail loudly instead so the facade
-		// surfaces a warning + `fetchFailed` and the consumer keeps its previous snapshot.
-		//
-		// The real fix belongs in `@gitkraken/provider-apis`: thread `states` through
-		// `getPullRequestsAssociatedWithUser` into `getPullRequestsForUser`, whose
-		// `getMergeRequestStateArgument` already handles a state set. Until then this read stays open-only.
-		if (states != null) {
-			throw new IntegrationReadUnavailableError(
-				this.name,
-				`account-wide pull request reads cannot be filtered by state (requested: ${states.join(', ')}); the provider's user query is open-only`,
-			);
-		}
-
 		const api = await this.getProvidersApi();
+		// `states` reaches all three per-association queries as of `@gitkraken/provider-apis` 0.54.0, and the SDK
+		// narrows after normalization for a set GitLab's single-valued `state:` argument can't express (e.g.
+		// closed+merged, where it queries every state and filters). Before that the aggregator dropped `states`
+		// entirely, so each query fell back to `state: opened` and a terminal-state request came back with only
+		// OPEN merge requests — which this read had to refuse outright, because post-filtering them left an empty
+		// page that the sweep would publish as a successful, complete, genuinely-empty result.
 		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			isPAT: this.isEnterprise,
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			states: toProviderPullRequestStates(options?.state),
 			cursor: options?.cursor,
 		});
 		if (result == null) return undefined;
@@ -523,10 +511,11 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	 * a defensive backstop — a hit backstop is reported as `truncated` so the facade surfaces an incomplete read
 	 * rather than publishing a partial list as complete.
 	 *
-	 * `options.filters` needs no handling here: assigned-to-me IS this read, and it's the only axis the SDK input
-	 * exposes (`scope` + `assigneeUsername`), so `[Assignee]` is already what runs and the facade refuses anything
-	 * else (see `ProviderMetadata.supportedAccountWideIssueFilters`). Author/mention would need a
-	 * `@gitkraken/provider-apis` change to `GetIssuesForCurrentUserInput`, not a change here.
+	 * `options.filters` selects which relationships to read: `Assignee` (the default when omitted) and `Author`,
+	 * each its own drain, unioned by url — see the comment on `passes` for why they can't be one request. Mention
+	 * is absent because GitLab's REST read exposes no first-class mention filter, and approximating it via `search`
+	 * would return a different set than asked for; the facade refuses it
+	 * (see `ProviderMetadata.supportedAccountWideIssueFilters`).
 	 */
 	protected override async searchProviderMyIssuesWithTruncation(
 		session: ProviderAuthenticationSession,
@@ -553,49 +542,74 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		// drop distinct issues. `url` is globally unique. Matches the GitHub/GitLab account-wide PR reads.
 		const issuesByUrl = new Map<string, IssueShape>();
 		let truncated = false;
-		let cursor: string | undefined;
-		for (let page = 1; ; page++) {
-			if (cancellation?.aborted) throw new CancellationError();
 
-			const result = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
-				scope: options?.includeAllAssignees ? 'all' : 'assigned_to_me',
-				assigneeUsername: username,
-				isPAT: this.isEnterprise,
-				baseUrl: baseUrl,
-				cursor: cursor,
-			});
-			if (cancellation?.aborted) throw new CancellationError();
+		// One drain PER requested relationship, unioned by url. The account-wide filter contract is a union
+		// (`authored ∪ assigned`, matching GitHub's three searches and Azure's two drains), and GitLab can express
+		// only one relationship per REST call: `assignee_username` and `author_username` on the same request
+		// compose with AND, so a single combined call would return the intersection — issues the user both opened
+		// and is assigned to — instead of either set. Overlap between the passes is collapsed by the url map.
+		const passes: { scope: 'assigned_to_me' | 'all'; assigneeUsername?: string; authorUsername?: string }[] = [];
+		if (options?.includeAllAssignees) {
+			// Broadens past "mine" entirely: every visible issue, any assignee. Contradicts `filters`, which the
+			// facade refuses before reaching here.
+			passes.push({ scope: 'all' });
+		} else {
+			const filters = options?.filters;
+			// Assignee is this read's default relationship, so it runs unless the caller narrowed to author alone.
+			if (filters == null || filters.length === 0 || filters.includes(IssueFilter.Assignee)) {
+				passes.push({ scope: 'assigned_to_me', assigneeUsername: username });
+			}
+			// `scope: 'all'` is required for the author axis: paired with `assigned_to_me` GitLab would intersect
+			// the two rather than read authored issues.
+			if (filters?.includes(IssueFilter.Author)) {
+				passes.push({ scope: 'all', authorUsername: username });
+			}
+		}
 
-			for (const issue of result.values) {
-				const shape = toIssueShape(issue, this);
-				if (shape != null && !issuesByUrl.has(shape.url)) {
-					issuesByUrl.set(shape.url, shape);
+		for (const pass of passes) {
+			let cursor: string | undefined;
+			for (let page = 1; ; page++) {
+				if (cancellation?.aborted) throw new CancellationError();
+
+				const result = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
+					...pass,
+					isPAT: this.isEnterprise,
+					baseUrl: baseUrl,
+					cursor: cursor,
+				});
+				if (cancellation?.aborted) throw new CancellationError();
+
+				for (const issue of result.values) {
+					const shape = toIssueShape(issue, this);
+					if (shape != null && !issuesByUrl.has(shape.url)) {
+						issuesByUrl.set(shape.url, shape);
+					}
 				}
-			}
 
-			// A page that couldn't confirm completeness (SDK metadata incompleteness) means the read is already
-			// incomplete, independent of the backstop below.
-			if (result.paging?.truncated) {
-				truncated = true;
-			}
+				// A page that couldn't confirm completeness (SDK metadata incompleteness) means the read is already
+				// incomplete, independent of the backstop below.
+				if (result.paging?.truncated) {
+					truncated = true;
+				}
 
-			if (!(result.paging?.more ?? false)) {
-				break;
-			}
+				if (!(result.paging?.more ?? false)) {
+					break;
+				}
 
-			const paging = result.paging;
-			const nextCursor = paging?.cursor;
-			if (nextCursor == null || nextCursor === '{}' || nextCursor === cursor) {
-				truncated = true;
-				break;
-			}
+				const paging = result.paging;
+				const nextCursor = paging?.cursor;
+				if (nextCursor == null || nextCursor === '{}' || nextCursor === cursor) {
+					truncated = true;
+					break;
+				}
 
-			if (page >= maxPages) {
-				truncated = true;
-				break;
-			}
+				if (page >= maxPages) {
+					truncated = true;
+					break;
+				}
 
-			cursor = nextCursor;
+				cursor = nextCursor;
+			}
 		}
 
 		return { values: [...issuesByUrl.values()], truncated: truncated };
