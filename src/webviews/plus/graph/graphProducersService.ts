@@ -317,27 +317,30 @@ export class GraphProducersService {
 					issues => issues.value,
 				);
 				if (!issues?.length) {
-					issues = await getBranchEnrichedAutolinks(this.container, branch).then(async enrichedAutolinks => {
-						if (enrichedAutolinks == null) return undefined;
+					const enrichedAutolinks = await getBranchEnrichedAutolinks(this.container, branch);
+					if (enrichedAutolinks != null) {
+						const settled = await Promise.allSettled(
+							Array.from(
+								enrichedAutolinks.values(),
+								async ([issueOrPullRequestPromise]) => issueOrPullRequestPromise ?? undefined,
+							),
+						);
 
-						// `allSettled`, NOT `all`: each of these is its own provider round-trip, and `all` rejects
-						// on the first failure while leaving every OTHER in-flight rejection unhandled — which
-						// surfaces as a bare "rejected promise not handled" with no stack. A single autolink
-						// that fails to resolve should drop that one issue, not the whole branch's metadata.
-						return (
-							await Promise.allSettled(
-								Array.from(
-									enrichedAutolinks.values(),
-									async ([issueOrPullRequestPromise]) => issueOrPullRequestPromise ?? undefined,
-								),
-							)
-						)
+						// A rejected lookup is a TRANSIENT failure, not an answer — bail without recording one.
+						// The `metadata.issue = null` below is authoritative ("this branch has no issues") and
+						// the webview's per-id dedup treats it as resolved, so a blip would stick until an
+						// unrelated invalidation. Leaving the entry unset lets the next request retry. Applies to
+						// PARTIAL failures too: publishing the ones that did resolve reads as the complete set,
+						// silently dropping the rest.
+						if (settled.some(r => r.status === 'rejected')) return;
+
+						issues = settled
 							.map(r => getSettledValue(r))
 							.filter<IssueShape>(
 								(a?: unknown): a is IssueShape =>
 									a != null && a instanceof Object && 'type' in a && a.type === 'issue',
 							);
-					});
+					}
 
 					if (!issues?.length) {
 						metadata.issue = null;
