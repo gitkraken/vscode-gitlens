@@ -13,9 +13,9 @@ import type { ScopeSelection } from '../graphService.js';
 type DiffForScopeResult = { diff: string; message: string; context: string } | undefined;
 type GetDiffForScope = (repoPath: string, scope: ScopeSelection, signal?: AbortSignal) => Promise<DiffForScopeResult>;
 
-function invoke(fakeThis: unknown, scope: ScopeSelection): Promise<DiffForScopeResult> {
+function invoke(fakeThis: unknown, scope: ScopeSelection, signal?: AbortSignal): Promise<DiffForScopeResult> {
 	const fn = (GraphInspectServices.prototype as unknown as { getDiffForScope: GetDiffForScope }).getDiffForScope;
-	return fn.call(fakeThis, '/repo', scope, undefined);
+	return fn.call(fakeThis, '/repo', scope, signal);
 }
 
 function wipScope(o: { includeUnstaged?: boolean; includeStaged?: boolean }): ScopeSelection {
@@ -29,20 +29,24 @@ function wipScope(o: { includeUnstaged?: boolean; includeStaged?: boolean }): Sc
 
 function createMocks(opts: {
 	untracked?: string[];
+	untrackedError?: Error;
 	unstagedDiff?: string;
 	unstagedError?: Error;
 	stagedDiff?: string;
 	noStaging?: boolean;
+	abortOnStage?: AbortController;
 }) {
 	// Shared, ordered log so tests can assert the exact stage → diff → unstage sequence.
 	const order: string[] = [];
 
 	const getUntrackedFiles = sinon.stub().callsFake(async () => {
 		order.push('getUntracked');
+		if (opts.untrackedError != null) throw opts.untrackedError;
 		return (opts.untracked ?? []).map(p => ({ path: p }));
 	});
 	const stageFiles = sinon.stub().callsFake(async () => {
 		order.push('stage');
+		opts.abortOnStage?.abort();
 	});
 	const unstageFiles = sinon.stub().callsFake(async () => {
 		order.push('unstage');
@@ -155,5 +159,29 @@ suite('graphInspectServices — getDiffForScope untracked handling (#5586)', () 
 		sinon.assert.notCalled(m.unstageFiles);
 		assert.deepStrictEqual(m.order, ['diff:unstaged']);
 		assert.ok(result?.diff.includes('tracked.txt'), 'the unstaged diff is still produced');
+	});
+
+	test('degrades to the plain unstaged diff when untracked enumeration fails', async () => {
+		const m = createMocks({
+			untrackedError: new Error('git status failed'),
+			unstagedDiff: 'diff --git a/tracked.txt b/tracked.txt\n',
+		});
+
+		const result = await invoke(m.fakeThis, wipScope({ includeUnstaged: true }));
+
+		sinon.assert.notCalled(m.stageFiles);
+		sinon.assert.notCalled(m.unstageFiles);
+		assert.deepStrictEqual(m.order, ['getUntracked', 'diff:unstaged']);
+		assert.ok(result?.diff.includes('tracked.txt'), 'the review still covers the tracked change');
+	});
+
+	test('honors cancellation after staging without running the unstaged diff', async () => {
+		const ac = new AbortController();
+		const m = createMocks({ untracked: ['new.txt'], unstagedDiff: 'x', abortOnStage: ac });
+
+		await assert.rejects(invoke(m.fakeThis, wipScope({ includeUnstaged: true }), ac.signal));
+
+		// Staging ran and was cleaned up, but the abort was honored before the diff was requested.
+		assert.deepStrictEqual(m.order, ['getUntracked', 'stage', 'unstage']);
 	});
 });

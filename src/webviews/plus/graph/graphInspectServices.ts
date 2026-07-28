@@ -2438,10 +2438,16 @@ export class GraphInspectServices {
 				// Untracked files never appear in `git diff` (working-vs-index); intent-to-add stages them so
 				// the unstaged diff includes their contents. Mirrors patches.ts. Unstaged before the staged
 				// diff below so intent-to-add entries can't also surface there as empty new-file headers.
-				// Skipped entirely without a staging provider (e.g. virtual repos) — there's nothing to stage into.
+				// Skipped without a staging provider (e.g. virtual repos) — there's nothing to stage into.
+				// Best-effort: failing to enumerate or stage untracked files falls back to the plain unstaged
+				// diff rather than sinking the whole review.
 				if (svc.staging != null) {
-					untrackedPaths = (await svc.status.getUntrackedFiles(signal)).map(f => f.path);
-					if (untrackedPaths.length) {
+					try {
+						untrackedPaths = (await svc.status.getUntrackedFiles(signal)).map(f => f.path);
+					} catch (ex) {
+						Logger.error(ex, `Failed to enumerate untracked files for review`);
+					}
+					if (untrackedPaths?.length) {
 						signal?.throwIfAborted();
 						try {
 							await svc.staging.stageFiles(untrackedPaths, { intentToAdd: true });
@@ -2450,6 +2456,8 @@ export class GraphInspectServices {
 						}
 					}
 				}
+				// Honor cancellation after any index mutation and before the (potentially expensive) diff.
+				signal?.throwIfAborted();
 
 				const d = await svc.diff?.getDiff?.(uncommitted);
 				signal?.throwIfAborted();
