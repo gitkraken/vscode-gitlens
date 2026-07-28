@@ -248,6 +248,12 @@ export interface GetPullRequestsForUserOptions {
 	baseUrl?: string;
 	// PR states to include; when omitted the provider returns its default (open only).
 	states?: GitPullRequestState[];
+	/**
+	 * Items to request per page. Worth setting explicitly on an account-wide read that gets DRAINED: each
+	 * provider falls back to its own historical page size when this is omitted, and GitHub's is 15
+	 * (`MAX_PR_PAGE_SIZE`), so a drain pays ~7x the round trips of the 100 its search actually allows.
+	 */
+	pageSize?: number;
 }
 
 export interface GetPullRequestsForUserInput extends GetPullRequestsForUserOptions {

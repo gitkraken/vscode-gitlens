@@ -34,8 +34,15 @@ import type {
 	ProviderPullRequest,
 	ProviderRepository,
 } from './models.js';
-import { IssueFilter, providersMetadata, toProviderPullRequest, toProviderPullRequestStates } from './models.js';
+import { IssueFilter, providersMetadata, toProviderPullRequest } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+
+/**
+ * Page size for GitHub's account-wide search reads. 100 is the maximum GitHub's search connection accepts
+ * (and what `GitHubApi.searchMyPullRequestsPage` already caps itself to); the SDK's own fallback is 15, which
+ * is far too small for a read the sweep drains page by page.
+ */
+const githubSearchMaxPageSize = 100;
 
 type GitHubPullRequestStateCursor = Partial<Record<PullRequestStateFilter, string>>;
 
@@ -470,22 +477,20 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		if (username == null) return undefined;
 
 		const api = await this.getProvidersApi();
-		const states = toProviderPullRequestStates(options?.state);
+		// Only reachable with NO requested state (the branch above owns every state-filtered read), so there is
+		// deliberately no `states` to forward: the SDK's `involves:` search applies its own `is:open` default
+		// qualifier, which is exactly the unfiltered "my open PRs" this path is for. Nor could a state be
+		// honored here — `getPullRequestsAssociatedWithUser` doesn't accept one — which is why the state-filtered
+		// read goes through `searchMyPullRequestsPage` instead of post-filtering a page that never contained the
+		// requested states.
 		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			baseUrl: this.apiBaseUrl,
-			states: states,
 			cursor: options?.cursor,
+			// GitHub's search allows 100 per page but the SDK defaults to 15, and this read gets drained page by
+			// page by the sweep, so the default turned one sweep into ~7x the round trips it needs.
+			pageSize: githubSearchMaxPageSize,
 		});
-		if (result == null) return undefined;
-
-		// The SDK's account-wide `involves:` search (getPullRequestsAssociatedWithUser) drops the `states`
-		// input entirely — it never reaches the query's state qualifier — so the read comes back with every
-		// state. Filter client-side to honor the requested states (e.g. the closed+merged "done" sweep, which
-		// would otherwise include open PRs).
-		if (states != null) {
-			return { ...result, values: result.values.filter(pr => states.includes(pr.state)) };
-		}
-		return result;
+		return result ?? undefined;
 	}
 
 	protected override async searchProviderMyIssues(
