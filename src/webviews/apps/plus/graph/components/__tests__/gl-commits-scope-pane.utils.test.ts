@@ -162,5 +162,11 @@ suite('gl-commits-scope-pane range/floor utils', () => {
 		test('a selection with no matching id resolves to undefined', () => {
 			assert.strictEqual(resolveSelectionRange([staged], ['nope']), undefined);
 		});
+
+		test('a non-empty selection against empty items resolves to undefined', () => {
+			// The picker distinguishes this "rows not loaded yet" case (empty items) from a genuine
+			// row-disappeared miss (items present, none match) by guarding its reconcile on items.length.
+			assert.strictEqual(resolveSelectionRange([], ['unstaged']), undefined);
+		});
 	});
 });

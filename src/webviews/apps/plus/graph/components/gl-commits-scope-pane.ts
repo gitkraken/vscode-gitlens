@@ -306,13 +306,20 @@ export class GlCommitsScopePane extends LitElement {
 
 		const range = resolveSelectionRange(this.items, this.selection);
 		if (range == null) {
-			// The controlled selection no longer resolves to any current item — a scoped row
-			// disappeared (e.g. everything was staged/unstaged while the picker was open). Drop the
-			// stale stored IDs so the picker falls back to its auto-derived defaults, and flag a
-			// reconcile so `updated()` re-emits the effective selection back to the host.
-			this._userRangeStartId = undefined;
-			this._userRangeEndId = undefined;
-			this._pendingScopeReconcile = true;
+			// The controlled selection doesn't resolve against the current items. Only reconcile when
+			// there ARE items to fall back to — i.e. a scoped row genuinely disappeared (e.g.
+			// everything was staged/unstaged while the picker was open). An empty `items` list is the
+			// transient "scope rows haven't loaded yet" state (initial mount / repo switch); emitting
+			// there would clobber the stored scope to an empty selection before the rows arrive, and
+			// that empty scope wouldn't self-heal once they do. Leave the stored IDs untouched and
+			// wait for items — a later sync resolves against the loaded rows.
+			if (this.items.length > 0) {
+				// Drop the stale stored IDs so the picker falls back to its auto-derived defaults, and
+				// flag a reconcile so `updated()` re-emits the effective selection back to the host.
+				this._userRangeStartId = undefined;
+				this._userRangeEndId = undefined;
+				this._pendingScopeReconcile = true;
+			}
 			return;
 		}
 
