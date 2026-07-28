@@ -22,6 +22,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
+import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -432,23 +433,36 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const username = (await this.getProviderCurrentAccount(session))?.username;
 		if (username == null) return undefined;
 
-		const api = await this.getProvidersApi();
 		const states = toProviderPullRequestStates(options?.state);
+		// A state-filtered account-wide read is NOT expressible here, and post-filtering can't fake it. The SDK's
+		// `getPullRequestsAssociatedWithUser` accepts no `states` and forwards none to the three per-association
+		// queries it fans out to, so each one falls back to GitLab's `state: opened` default. Filtering the
+		// resulting OPEN merge requests against a terminal state set therefore discards every row and returns an
+		// empty page — which the sweep would publish as a successful, complete, genuinely-empty result (the
+		// closed/merged "done" sweep silently showed nothing at all for GitLab). Fail loudly instead so the facade
+		// surfaces a warning + `fetchFailed` and the consumer keeps its previous snapshot.
+		//
+		// The real fix belongs in `@gitkraken/provider-apis`: thread `states` through
+		// `getPullRequestsAssociatedWithUser` into `getPullRequestsForUser`, whose
+		// `getMergeRequestStateArgument` already handles a state set. Until then this read stays open-only.
+		if (states != null) {
+			throw new IntegrationReadUnavailableError(
+				this.name,
+				`account-wide pull request reads cannot be filtered by state (requested: ${states.join(', ')}); the provider's user query is open-only`,
+			);
+		}
+
+		const api = await this.getProvidersApi();
 		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			isPAT: this.isEnterprise,
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
-			states: states,
 			cursor: options?.cursor,
 		});
 		if (result == null) return undefined;
 
 		// GitLab's user query returns PRs the user is involved in; keep only those they authored, are
-		// assigned to, or are a requested reviewer on, matching the "my pull requests" scope. The SDK's
-		// account-wide read (getPullRequestsAssociatedWithUser) also drops the `states` input, so filter by
-		// state client-side too (e.g. the closed+merged "done" sweep would otherwise include open MRs).
+		// assigned to, or are a requested reviewer on, matching the "my pull requests" scope.
 		const values = result.values.filter(pr => {
-			if (states != null && !states.includes(pr.state)) return false;
-
 			const isAssignee = pr.assignees?.some(a => a.username === username);
 			const isRequestedReviewer = pr.reviews?.some(
 				// Match only reviews assigned to the current user; a bare `state === ReviewRequested`
