@@ -263,14 +263,18 @@ export function getPullRequestTooltip(
 	}
 
 	const linkTitle = ` "Open Pull Request \\#${pullRequest.id} on ${pullRequest.provider.name}"`;
+	// A provider can report a pull request with no author (a deleted account, or a host with no per-item
+	// creator), which normalizes to an absent `url`. Interpolating it produced a link to nowhere, so fall back
+	// to plain text.
+	const author = pullRequest.author.url
+		? `[@${pullRequest.author.name}](${pullRequest.author.url} "Open @${pullRequest.author.name} on ${pullRequest.provider.name}")`
+		: `@${pullRequest.author.name}`;
 	tooltip.appendMarkdown(
 		`${getIssueOrPullRequestMarkdownIcon(pullRequest)} [**${pullRequest.title.trim()}**](${
 			pullRequest.url
-		}${linkTitle}) \\\n[${context?.idPrefix ?? ''}#${pullRequest.id}](${pullRequest.url}${linkTitle}) by [@${
-			pullRequest.author.name
-		}](${pullRequest.author.url} "Open @${pullRequest.author.name} on ${
-			pullRequest.provider.name
-		}") was ${pullRequest.state.toLowerCase()} ${PullRequest.formatDateFromNow(pullRequest)}`,
+		}${linkTitle}) \\\n[${context?.idPrefix ?? ''}#${pullRequest.id}](${
+			pullRequest.url
+		}${linkTitle}) by ${author} was ${pullRequest.state.toLowerCase()} ${PullRequest.formatDateFromNow(pullRequest)}`,
 	);
 	return tooltip;
 }

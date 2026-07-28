@@ -1411,7 +1411,12 @@ export function fromProviderAccount(account: ProviderAccount | null): PullReques
 		id: account?.id ?? '',
 		name: account?.name ?? 'unknown',
 		avatarUrl: account?.avatarUrl ?? undefined,
-		url: account?.url ?? '',
+		// `url` is optional, so an absent one must be `undefined`, not `''`. `''` passes a `!= null` presence
+		// check and renders as a link to nowhere, and it disagreed with {@link toIssueShape} — which already
+		// collapses to `undefined` — even though BOTH mappers feed `listIssuesPage` (the repo-scoped path goes
+		// through `toIssueShape`, Azure's account-wide path through {@link fromProviderIssue}). Same facade
+		// method, two shapes. Matches {@link toProviderRepositoryShape}, which collapses every absent optional.
+		url: account?.url ?? undefined,
 	};
 }
 
