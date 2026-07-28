@@ -1084,6 +1084,44 @@ export class IntegrationService implements Disposable {
 		};
 	}
 
+	/**
+	 * Whether the provider's `page` INPUT means a 1-based page number, so the facade may hand it a synthesized
+	 * page-number cursor at all. Distinct from {@link IntegrationService.isPageNumberAdvanceable}, which asks
+	 * whether the provider then ACTS on it — a provider can safely ignore a page number without misreading it.
+	 *
+	 * Listed exhaustively over the enum rather than tested as `mode != null`, so adding a mode is a decision
+	 * here instead of silently inheriting "safe".
+	 *
+	 * The excluded case is a provider with NO declared mode: Bitbucket Data Center falls through to the plain
+	 * repos read and its API consumes `page` as a `start` ITEM OFFSET, so a synthesized page 3 asked for
+	 * `start=3` — a window overlapping page 1 — instead of the third page. Treating "no mode declared" as
+	 * "reads a page number" inferred a capability from missing data, the same mistake `listRepos` made by
+	 * reading an absent cursor as evidence of a numbered host.
+	 *
+	 * Withholding the synthesized cursor there costs nothing: the provider reports its own next-offset cursor,
+	 * which the facade threads back verbatim, so cursor paging still advances correctly. Only an unthreaded jump
+	 * to page N is refused, and that was returning wrong data. See GKDEV-3578 for the SDK-side fix.
+	 */
+	private interpretsPageInputAsPageNumber(mode: PagingMode | undefined): boolean {
+		return mode === PagingMode.Repo || mode === PagingMode.Project || mode === PagingMode.Repos;
+	}
+
+	/**
+	 * Whether a repo-scoped read for this provider ADVANCES on a page number, so `page.currentPage` may echo the
+	 * request and a next-page number is a usable continuation.
+	 *
+	 * Named positively rather than as `!== PagingMode.Repos`, because two cases must be excluded and that test
+	 * only catches the first:
+	 * - `PagingMode.Repos` (GitHub/GHE): cursor-only. It accepts the page number and ignores it, answering with
+	 *   page 1 — harmless to send (see {@link IntegrationService.interpretsPageInputAsPageNumber}) but never a
+	 *   continuation, which is why the internal drain exists for it.
+	 * - no declared mode (Bitbucket Data Center): reinterprets the number as an offset, so it neither honors nor
+	 *   safely ignores it.
+	 */
+	private isPageNumberAdvanceable(mode: PagingMode | undefined): boolean {
+		return mode === PagingMode.Repo || mode === PagingMode.Project;
+	}
+
 	/** Encodes a 1-based page number as the opaque cursor the provider paging layer understands. */
 	private pageToCursor(page: number | undefined): string | undefined {
 		if (page == null || page <= 1) return undefined;
@@ -1978,7 +2016,16 @@ export class IntegrationService implements Disposable {
 		// is handled by walking opaque continuations below. Do NOT synthesize a page-number cursor for it: the
 		// underlying query (e.g. GitHub `involves:`) ignores a page number and returns its first page.
 		const accountWide = (options.repos?.length ?? 0) === 0;
-		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
+		// Synthesize a page-number cursor only for a host whose `page` input actually means a page number. A
+		// PagingMode.Repos host still gets it (it ignores the number harmlessly, and the drain below walks to the
+		// requested page), but a host with NO declared mode must not: Bitbucket Data Center reads `page` as a
+		// `start` item offset, so sending 3 asked for `start=3` — a window overlapping page 1 — instead of the
+		// third page. See `interpretsPageInputAsPageNumber`.
+		const cursor =
+			accountWide ||
+			!this.interpretsPageInputAsPageNumber(providersMetadata[options.providerId]?.pullRequestsPagingMode)
+				? options.cursor
+				: (options.cursor ?? this.pageToCursor(page));
 
 		// Resolve filters up front so an unsupported set is caught before the read: on the repo-scoped path
 		// falling through unfiltered would return every PR in the repos rather than the user's. The account-wide
@@ -2145,11 +2192,12 @@ export class IntegrationService implements Disposable {
 		}
 
 		const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
-		// Never advertise `hasMore` without a continuation the caller can act on. The account-wide read and
-		// PagingMode.Repos hosts are cursor-only (they ignore a page-number cursor and re-answer page 1), so
-		// there's no page to synthesize for them; a page-numbered repo-scoped host can be advanced by page.
+		// Never advertise `hasMore` without a continuation the caller can act on. The account-wide read has no
+		// page to synthesize, and neither does a host that doesn't honor a page number — see
+		// {@link IntegrationService.isPageNumberAdvanceable} for which do and why absence of a declared mode
+		// does NOT count as one.
 		const pageAdvanceable =
-			!accountWide && providersMetadata[options.providerId]?.pullRequestsPagingMode !== PagingMode.Repos;
+			!accountWide && this.isPageNumberAdvanceable(providersMetadata[options.providerId]?.pullRequestsPagingMode);
 		const continuation = this.resolveContinuation(paged, pageAdvanceable ? paged.page.currentPage + 1 : undefined);
 		// A single-page provider read that couldn't confirm completeness sets `paging.truncated`; surface it
 		// as a terminal `page.truncated` (not `hasMore`, which has no cursor to advance) so the caller knows
@@ -2543,7 +2591,11 @@ export class IntegrationService implements Disposable {
 			};
 		}
 
-		const cursor = options.cursor ?? this.pageToCursor(page);
+		// Same rule as the repo-scoped PR read: only synthesize a page-number cursor for a host whose `page` input
+		// means a page number, never for one that reinterprets it (see `interpretsPageInputAsPageNumber`).
+		const cursor = this.interpretsPageInputAsPageNumber(providersMetadata[options.providerId]?.issuesPagingMode)
+			? (options.cursor ?? this.pageToCursor(page))
+			: options.cursor;
 		const { value, warning } = await this.runCaptured(
 			options.providerId,
 			domain,
@@ -2665,14 +2717,14 @@ export class IntegrationService implements Disposable {
 		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
 		// them to any captured thrown-error warning without discarding the partial result's items.
 		const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
-		// Never advertise `hasMore` without a continuation. PagingMode.Repos hosts are cursor-only (a page-number
-		// cursor is ignored and answers page 1 again), so there's no page to synthesize for them; page-numbered
-		// hosts can be advanced by page.
+		// Never advertise `hasMore` without a continuation the caller can act on, and only synthesize a page
+		// number for a host that reads it as one (see `isPageNumberAdvanceable`).
+		const issuesPageAdvanceable = this.isPageNumberAdvanceable(
+			providersMetadata[options.providerId]?.issuesPagingMode,
+		);
 		const continuation = this.resolveContinuation(
 			paged,
-			providersMetadata[options.providerId]?.issuesPagingMode !== PagingMode.Repos
-				? paged.page.currentPage + 1
-				: undefined,
+			issuesPageAdvanceable ? paged.page.currentPage + 1 : undefined,
 		);
 		// A provider read that couldn't confirm completeness (e.g. Bitbucket's single-page repo issue read
 		// that dropped a repo) sets `paging.truncated`; surface it as a terminal `page.truncated` so a partial
@@ -2692,7 +2744,7 @@ export class IntegrationService implements Disposable {
 					providerPage: paged.page.currentPage,
 					requestedPage: page,
 					suppliedCursor: options.cursor,
-					pageAdvanceable: providersMetadata[options.providerId]?.issuesPagingMode !== PagingMode.Repos,
+					pageAdvanceable: issuesPageAdvanceable,
 				}),
 				truncated: truncated || undefined,
 			},

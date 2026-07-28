@@ -287,6 +287,62 @@ suite('facade contract regressions', () => {
 		manager.dispose();
 	});
 
+	test('a host with no declared paging mode is never handed a synthesized page number', async () => {
+		const runtime = createFakeRuntime();
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.BitbucketServer]: [
+				{
+					id: 'bbs-1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.BitbucketServer,
+					domain: 'https://bbs.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		const manager = createIntegrationManager(runtime);
+		const bbs = await manager.get(GitSelfManagedHostIntegrationId.BitbucketServer, 'bbs.example.com');
+		(bbs as unknown as { _session: ProviderAuthenticationSession })._session = primarySession(
+			't',
+			'bbs.example.com',
+		);
+
+		assert.equal(
+			providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer]?.pullRequestsPagingMode,
+			undefined,
+			'guard: this host declares no paging mode',
+		);
+
+		// Bitbucket Data Center consumes the `page` input as a `start` ITEM OFFSET, not a page number, so a
+		// synthesized page 3 asked for `start=3` — items 3..52 with the default window, i.e. an almost complete
+		// overlap with page 1 — while reporting it as the third page. Withholding the synthesized cursor makes it
+		// answer page 1 honestly; its own next-offset cursor still pages correctly when threaded back.
+		let capturedCursor: string | undefined | 'unset' = 'unset';
+		(
+			bbs as unknown as {
+				getMyPullRequestsForReposResult: (
+					repos: unknown,
+					options?: { cursor?: string },
+				) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForReposResult = (_repos: unknown, options?: { cursor?: string }) => {
+			capturedCursor = options?.cursor;
+			return Promise.resolve({ value: { values: [providerPr], paging: { more: false, cursor: '{}' } } });
+		};
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+			repos: [{ namespace: 'proj', name: 'repo' }],
+			page: 3,
+		});
+
+		assert.equal(capturedCursor, undefined, 'no page-number cursor is synthesized for an offset-paged host');
+		assert.equal(result.page.currentPage, 1, 'and the unapplied page is not echoed as if it had been honored');
+
+		manager.dispose();
+	});
+
 	test('PagingMode.Repos issue reads synthesize no page cursor (they ignore page numbers)', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
