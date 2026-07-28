@@ -84,6 +84,22 @@ async function stubRealGetRepoFn(
 	provider.getRepoFn = impl;
 }
 
+async function stubRealGetRepoOfProjectFn(
+	manager: ReturnType<typeof createIntegrationManager>,
+	id: GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+	impl: (
+		input: { namespace: string; name: string; project: string },
+		options: { token?: string; isPAT?: boolean; baseUrl?: string },
+	) => Promise<{ data: ProviderRepository }>,
+): Promise<void> {
+	const api = await (manager as unknown as { getProvidersApi: () => Promise<ProvidersApi> }).getProvidersApi();
+	const providers = (api as unknown as { providers: Record<string, { getRepoOfProjectFn?: unknown } | undefined> })
+		.providers;
+	const provider = providers[id];
+	assert.ok(provider != null, `provider ${id} should be registered on ProvidersApi`);
+	provider.getRepoOfProjectFn = impl;
+}
+
 /** A GraphQL error entry as the SDK receives it from the provider's `body.errors`. */
 function graphQLError(type: string | undefined, message: string): GraphQLError {
 	return { type: type, message: message, path: ['repository'], locations: [] };
@@ -401,22 +417,29 @@ suite('resolveRepository (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('Azure DevOps Server getRepoInfo degrades to undefined instead of calling the unsupported repo route', async () => {
+	test('resolves Azure DevOps Server through the project-scoped provider route and configured base URL', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
-		const az = await connectSelfManaged(
+		await connectSelfManaged(manager, GitSelfManagedHostIntegrationId.AzureDevOpsServer, 'ado-server.example.com');
+		let capturedInput: { namespace: string; name: string; project: string } | undefined;
+		let capturedOptions: { token?: string; isPAT?: boolean; baseUrl?: string } | undefined;
+		await stubRealGetRepoOfProjectFn(
 			manager,
 			GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-			'ado-server.example.com',
+			(input, options) => {
+				capturedInput = input;
+				capturedOptions = options;
+				return Promise.resolve({ data: repoResult });
+			},
 		);
-		let called = false;
-		stubGetRepo(az, () => {
-			called = true;
-			return Promise.reject(new Error('unexpected getRepo call'));
-		});
 
-		const repo = await az.getRepoInfo?.({ owner: 'myorg', name: 'myrepo', project: 'myproject' });
-		assert.equal(repo, undefined);
-		assert.equal(called, false, 'Azure DevOps Server should not call ProvidersApi.getRepo');
+		const result = await manager.resolveRepository({
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			domain: 'ado-server.example.com',
+			remoteUrl: 'https://ado-server.example.com/myorg/myproject/_git/myrepo',
+		});
+		assert.equal(result.resolution.status, 'resolved');
+		assert.deepEqual(capturedInput, { namespace: 'myorg', name: 'myrepo', project: 'myproject' });
+		assert.equal(capturedOptions?.baseUrl, 'https://ado-server.example.com');
 
 		manager.dispose();
 	});

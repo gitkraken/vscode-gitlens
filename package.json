@@ -29665,7 +29665,7 @@
 		"@gitkraken/compose-tools": "0.6.0",
 		"@gitkraken/conflict-tools": "0.2.3",
 		"@gitkraken/gitkraken-components": "13.0.0-vnext.38",
-		"@gitkraken/provider-apis": "catalog:",
+		"@gitkraken/provider-apis": "link:/Users/julianmesa/Projects/provider-apis-package-js.worktrees/provider-apis-package-js-providers-api-main-e0718bbd",
 		"@gitkraken/shared-tools": "0.2.0",
 		"@gitlens/agents": "workspace:*",
 		"@gitlens/ai": "workspace:*",

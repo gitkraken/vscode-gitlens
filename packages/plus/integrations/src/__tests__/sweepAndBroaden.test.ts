@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { GitPullRequestMergeableState, GitPullRequestState } from '@gitkraken/provider-apis';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { createManualTokenAuthProvider } from '../authentication/manualTokenProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -1063,6 +1064,98 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('broadenIssues keeps cursors separate for same-named orgs on different self-managed hosts', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const providerId = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const gheA = await manager.get(providerId, 'https://ghe-a.example.com/api/v3');
+		const gheB = await manager.get(providerId, 'https://ghe-b.example.com/api/v3');
+		assert.ok(gheA);
+		assert.ok(gheB);
+
+		for (const [integration, domain] of [
+			[gheA, 'ghe-a.example.com'],
+			[gheB, 'ghe-b.example.com'],
+		] as const) {
+			(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession(`token-${domain}`),
+				domain: domain,
+			};
+			(
+				integration as unknown as {
+					getRepositoriesForOrgResult: (
+						org: string,
+					) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+				}
+			).getRepositoriesForOrgResult = org =>
+				Promise.resolve({
+					value: {
+						values: [
+							{
+								id: `${domain}-repo`,
+								name: 'repo',
+								namespace: org,
+								webUrl: null,
+								httpsUrl: null,
+								sshUrl: null,
+								defaultBranch: null,
+								permissions: null,
+							} satisfies ProviderRepository,
+						],
+					},
+				});
+		}
+
+		let round = 0;
+		const captured: Record<number, Record<string, string | undefined>> = {};
+		const stubIssues = (integration: GitHostIntegration, domain: string) => {
+			(
+				integration as unknown as {
+					getMyIssuesForReposAsShapesResult: (
+						repos: ProviderReposInput,
+						options?: { cursor?: string },
+					) => Promise<IntegrationResult<PagedResult<IssueShape>>>;
+				}
+			).getMyIssuesForReposAsShapesResult = (_repos, options) => {
+				(captured[round] ??= {})[domain] = options?.cursor;
+				return Promise.resolve({
+					value: {
+						values: [],
+						paging: {
+							more: true,
+							cursor: JSON.stringify({ value: `next-${domain}`, type: 'cursor' }),
+						},
+					},
+				});
+			};
+		};
+		stubIssues(gheA, 'ghe-a.example.com');
+		stubIssues(gheB, 'ghe-b.example.com');
+
+		const orgs = [
+			{ providerId: providerId, name: 'acme', domain: 'https://ghe-a.example.com/api/v3' },
+			{ providerId: providerId, name: 'acme', domain: 'https://ghe-b.example.com/api/v3' },
+		];
+		const first = await manager.broadenIssues({ orgs: orgs, page: 1 });
+		const parsed = JSON.parse(first.cursor!) as {
+			cursors: { domain?: string; cursor: string }[];
+		};
+		assert.deepEqual(parsed.cursors.map(entry => entry.domain).sort(), ['ghe-a.example.com', 'ghe-b.example.com']);
+
+		round = 1;
+		await manager.broadenIssues({ orgs: orgs, page: 2, cursor: first.cursor });
+		assert.equal(
+			captured[1]['ghe-a.example.com'],
+			JSON.stringify({ value: 'next-ghe-a.example.com', type: 'cursor' }),
+		);
+		assert.equal(
+			captured[1]['ghe-b.example.com'],
+			JSON.stringify({ value: 'next-ghe-b.example.com', type: 'cursor' }),
+		);
+
+		manager.dispose();
+	});
+
 	test('broadenIssues skips an exhausted org on later rounds instead of re-fetching its first page', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
@@ -1941,6 +2034,84 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(seenCursors.filter(c => c == null).length, 2, 'two first-page reads');
 		assert.equal(seenCursors.filter(c => c === '2').length, 2, 'two second-page reads (the cursor is threaded)');
 		assert.equal(result?.value?.truncated, false, 'a fully drained read is not truncated');
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide issue read keeps same-id work items from different organizations', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		stubApi(azure, {
+			getIssuesForAzureProject: (_t: unknown, org: string) =>
+				Promise.resolve({
+					values: [
+						{
+							id: '42',
+							number: '42',
+							title: `Work item in ${org}`,
+							url: `https://dev.azure.com/${org}/_workitems/edit/42`,
+							createdDate: new Date(0),
+							updatedDate: new Date(1),
+							closedDate: null,
+							author: null,
+							assignees: [],
+							labels: [],
+							repository: null,
+							commentCount: 0,
+							upvoteCount: 0,
+							description: null,
+							type: 'Bug',
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: false, cursor: '{}' },
+				}),
+		});
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () =>
+			Promise.resolve([
+				{ id: 'org-a', name: 'Org A' },
+				{ id: 'org-b', name: 'Org B' },
+			]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{
+					values: { id: string; resourceId: string; resourceName: string; name: string }[];
+				}>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({
+				values: [
+					{ id: 'project-a', resourceId: 'org-a', resourceName: 'org-a', name: 'project' },
+					{ id: 'project-b', resourceId: 'org-b', resourceName: 'org-b', name: 'project' },
+				],
+			});
+
+		const result = await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					r?: unknown,
+					c?: unknown,
+					id?: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<IntegrationResult<{ values: IssueShape[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult(undefined, undefined, undefined, { includeAllAssignees: true });
+
+		assert.deepEqual(
+			result?.value?.values.map(issue => issue.url).sort(),
+			['https://dev.azure.com/org-a/_workitems/edit/42', 'https://dev.azure.com/org-b/_workitems/edit/42'],
+			'organization-scoped numeric ids do not collapse across organizations',
+		);
 
 		manager.dispose();
 	});

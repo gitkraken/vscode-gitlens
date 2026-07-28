@@ -30,6 +30,13 @@ suite('issue mapping', () => {
 				},
 			],
 			number: '42',
+			project: {
+				id: 'project-id',
+				key: null,
+				name: 'Payments',
+				namespace: 'acme',
+				resourceId: 'org-id',
+			},
 			repository: {
 				id: 'repo-id',
 				name: 'repo',
@@ -44,10 +51,21 @@ suite('issue mapping', () => {
 		};
 
 		const issue = fromProviderIssue(providerIssue, fakeIntegration);
+		const shape = toIssueShape(providerIssue, fakeIntegration);
+		assert.ok(shape != null);
 
 		assert.deepEqual(issue.repository, { owner: 'octocat', repo: 'repo', id: 'repo-id' });
+		assert.deepEqual(shape.repository, issue.repository);
 		assert.deepEqual(issue.labels, [{ name: 'bug', color: '#ff0000' }]);
+		assert.deepEqual(shape.project, {
+			id: 'project-id',
+			name: 'Payments',
+			resourceId: 'org-id',
+			resourceName: 'acme',
+		});
+		assert.deepEqual(shape.project, issue.project);
 		assert.equal(issue.issueType, 'Bug');
+		assert.equal(shape.issueType, 'Bug');
 	});
 
 	/**
@@ -84,5 +102,7 @@ suite('issue mapping', () => {
 		assert.equal(shape.author.url, undefined, 'toIssueShape leaves an absent author url absent');
 		assert.equal(issue.assignees?.[0].url, undefined);
 		assert.equal(shape.assignees?.[0].url, undefined);
+		assert.equal(shape.project, undefined, 'an absent provider project is not fabricated with empty fields');
+		assert.equal(shape.issueType, undefined);
 	});
 });

@@ -688,7 +688,12 @@ export class ProvidersApi {
 		options?: { isPAT?: boolean; baseUrl?: string },
 	): Promise<ProviderRepository | undefined> {
 		const providerId = tokenOptInfo.providerId;
-		if (providerId === GitCloudHostIntegrationId.AzureDevOps && project != null) {
+		const isAzureDevOps =
+			providerId === GitCloudHostIntegrationId.AzureDevOps ||
+			providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+		if (isAzureDevOps) {
+			if (project == null) return undefined;
+
 			const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 				tokenOptInfo,
 				'getRepoOfProjectFn',
@@ -1756,10 +1761,37 @@ async function parseFetchResponseForApi<T>(response: Response): Promise<Provider
 
 	// throw an error if the response is not ok
 	if (!response.ok) {
-		const error = new Error(response.statusText);
+		const status = `(${response.status})${response.statusText ? ` ${response.statusText}` : ''}.`;
+		const detail = getProviderResponseBodyMessage(body);
+		const error = new Error(detail != null ? `${status} ${detail}` : status);
 		Object.assign(error, { response: result });
 		throw error;
 	}
 
 	return result;
+}
+
+const maxProviderErrorBodyLength = 500;
+
+/** Extracts the useful provider prose from an already-parsed SDK response body. */
+function getProviderResponseBodyMessage(body: unknown): string | undefined {
+	let message: string | undefined;
+	if (typeof body === 'string') {
+		message = body;
+	} else if (body != null && typeof body === 'object') {
+		const { message: direct, error } = body as { message?: unknown; error?: unknown };
+		if (typeof direct === 'string') {
+			message = direct;
+		} else if (typeof error === 'string') {
+			message = error;
+		} else if (error != null && typeof error === 'object') {
+			const nested = (error as { message?: unknown }).message;
+			if (typeof nested === 'string') {
+				message = nested;
+			}
+		}
+	}
+
+	message = message?.trim();
+	return message ? message.slice(0, maxProviderErrorBodyLength) : undefined;
 }

@@ -8,9 +8,7 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { Event } from '@gitlens/utils/event.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
-import type { ConfiguredIntegrationService } from './authentication/configuredIntegrationService.js';
 import type { IntegrationAuthenticationProvider } from './authentication/integrationAuthenticationProvider.js';
-import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService.js';
 import type { IntegrationIds } from './constants.js';
 import type { GitHostIntegration } from './models/gitHostIntegration.js';
 import type { IntegrationBase } from './models/integration.js';
@@ -325,11 +323,7 @@ export interface IntegrationServiceHooks {
 	 * cloud-OAuth provider. GitLens omits this — the package builds its cloud providers internally; an
 	 * external consumer can plug in any auth strategy here.
 	 */
-	createAuthenticationProvider?(args: {
-		id: IntegrationIds;
-		auth: IntegrationAuthenticationService;
-		configured: ConfiguredIntegrationService;
-	}): Promise<IntegrationAuthenticationProvider | undefined>;
+	createAuthenticationProvider?(args: { id: IntegrationIds }): Promise<IntegrationAuthenticationProvider | undefined>;
 
 	/**
 	 * Outbound behavioral events, nested by domain — mirroring `@gitlens/git`'s `GitServiceHooks`. The

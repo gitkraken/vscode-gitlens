@@ -84,7 +84,7 @@
 		"dist"
 	],
 	"dependencies": {
-		"@gitkraken/provider-apis": "catalog:",
+		"@gitkraken/provider-apis": "link:/Users/julianmesa/Projects/provider-apis-package-js.worktrees/provider-apis-package-js-providers-api-main-e0718bbd",
 		"@gitlens/git": "workspace:*",
 		"@gitlens/git-github": "workspace:*",
 		"@gitlens/utils": "workspace:*"

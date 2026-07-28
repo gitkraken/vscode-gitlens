@@ -245,6 +245,32 @@ suite('assessCollectionMetadata (#5438)', () => {
 		);
 	});
 
+	test('provider-classified HTTP failures recover auth, rate-limit, and not-found kinds', () => {
+		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			failures: [
+				{
+					kind: 'provider',
+					scope: { repositoryId: 'throttled' },
+					message: '(403) Forbidden. API rate limit exceeded',
+				},
+				{
+					kind: 'provider',
+					scope: { repositoryId: 'forbidden' },
+					message: '(403) Forbidden. Missing repository permission',
+				},
+				{ kind: 'provider', scope: { repositoryId: 'gone' }, message: '(410) Gone.' },
+				{ kind: 'provider', scope: { repositoryId: 'invalid' }, message: '(422) Unprocessable Entity.' },
+			],
+		});
+
+		assert.deepEqual(
+			result.warnings.map(w => w.kind),
+			['rate-limit', 'auth', 'not-found', 'not-found'],
+		);
+		assert.equal(result.warnings[1].isAuth, true);
+	});
+
 	test('network/provider/unknown failures map to the generic "other" kind, not a truncation-only read', () => {
 		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
 			completeness: 'partial',

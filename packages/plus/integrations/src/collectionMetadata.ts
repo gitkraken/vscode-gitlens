@@ -1,6 +1,7 @@
 import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IntegrationIds } from './constants.js';
+import { isRateLimitResponse } from './errors.js';
 import type { ProviderWarning } from './results.js';
 import { appendDedupedWarning } from './results.js';
 
@@ -36,6 +37,37 @@ function collectionFailureKindToWarningKind(kind: CollectionScopeFailure['kind']
 	}
 }
 
+function getCollectionFailureStatus(message: string | undefined): number | undefined {
+	if (message == null) return undefined;
+
+	const match = /\((\d{3})\)/.exec(message) ?? /^(?:HTTP\s+)?(\d{3})\b/i.exec(message.trim());
+	return match != null ? Number(match[1]) : undefined;
+}
+
+function toCollectionFailureWarningKind(failure: CollectionScopeFailure): ProviderWarning['kind'] {
+	const mapped = collectionFailureKindToWarningKind(failure.kind);
+	if (mapped !== 'other' || (failure.kind !== 'provider' && failure.kind !== 'unknown')) return mapped;
+
+	// provider-apis currently groups several HTTP statuses under `provider` in partial fan-outs. The custom
+	// fetch adapter retains the status in `message`, so recover the same neutral classification the thrown-error
+	// path exposes instead of downgrading these structured failures to `other`.
+	const status = getCollectionFailureStatus(failure.message);
+	switch (status) {
+		case 401:
+			return 'auth';
+		case 403:
+			return isRateLimitResponse({ status: status, message: failure.message }) ? 'rate-limit' : 'auth';
+		case 404:
+		case 410:
+		case 422:
+			return 'not-found';
+		case 429:
+			return 'rate-limit';
+		default:
+			return mapped;
+	}
+}
+
 function collectionFailureMessage(failure: CollectionScopeFailure): string {
 	const scope = failure.scope;
 	const parts: string[] = [];
@@ -66,7 +98,7 @@ export function assessCollectionMetadata(
 	const warnings: ProviderWarning[] = [];
 	const failures = metadata.failures ?? [];
 	for (const failure of failures) {
-		const kind = collectionFailureKindToWarningKind(failure.kind);
+		const kind = toCollectionFailureWarningKind(failure);
 		appendDedupedWarning(warnings, {
 			providerId: providerId,
 			domain: domain,

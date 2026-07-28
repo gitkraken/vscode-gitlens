@@ -133,6 +133,9 @@ jobs:
             - name: Verify core package loads under Node ESM
               run: pnpm --filter @gitkraken/core-gitlens run verify:esm
 
+            - name: Verify packed core package as an external consumer
+              run: pnpm --filter @gitkraken/core-gitlens run verify:package
+
     derive-matrix:
         name: Derive editor matrix
         runs-on: ubuntu-latest

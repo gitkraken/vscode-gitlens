@@ -222,12 +222,16 @@ async function rewriteSourceMaps() {
 		const fileDir = dirname(file);
 
 		map.sources = map.sources.map(source => {
-			// tsc emits paths relative to the emitted dist file, e.g. "../src/foo.ts"
+			// tsc emits paths relative to the emitted file, so the number of parent segments varies
+			// with the file's depth (e.g. "../src/foo.ts" or "../../src/models/foo.ts").
 			// We need them relative to the new file location pointing into packages/core/src/<destPkg>/
-			const m = /^\.\.\/src\/(.+)$/.exec(source);
+			const m = /^(?:\.\.\/)+src\/(.+)$/.exec(source);
 			if (!m) return source;
 			const pathWithinSrc = m[1];
 			const absTarget = join(srcPkgRoot, pathWithinSrc);
+			if (!existsSync(absTarget)) {
+				throw new Error(`Source map target does not exist for ${relative(coreRoot, file)}: ${absTarget}`);
+			}
 			let rel = relative(fileDir, absTarget).split(sep).join('/');
 			if (!rel.startsWith('.')) rel = './' + rel;
 			return rel;

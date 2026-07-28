@@ -22,6 +22,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes incomplete provider reads being reported inconsistently across hosts: GitLab relationship fan-out now
+  preserves successful slices when another slice fails, Azure issue deduplication is scoped by organization and
+  project, self-managed broaden cursors include the provider domain, page-only repository reads advance opaque
+  cursors, and SDK truncation/error metadata survives normalization (plus/integrations)
+- Fixes the provider fetch adapter discarding non-success response bodies, which prevented throttled `403`
+  responses and partial collection failures from retaining their structured warning kind; issue mapping now also
+  preserves repository identity and provider issue type consistently across both public mappers (plus/integrations)
+- Fixes bundled source maps pointing at nonexistent `dist/src/*` paths when emitted files were nested more than
+  one directory deep; the bundle now rewrites every source depth to the shipped `src/*` tree and fails if a target
+  source is absent (core)
+- Fixes `resolveRepository` reporting every Azure DevOps Server remote as unsupported even though
+  `provider-apis` supports project-scoped repository lookup with a self-managed `baseUrl`; server resolution
+  now uses the same Azure route as cloud and preserves the configured host/protocol (plus/integrations)
 - Fixes public integration connection management hiding an authoritative refresh failure and accepting a
   `connectionId` owned by another provider for primary/delete mutations; foreground refresh now rejects while
   preserving the last known configuration, and mutations validate provider ownership before reaching the token
@@ -38,6 +51,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Adds a consumer-specific `IntegrationManagerContext` whose cache is optional, exports the shared domain
+  normalizer from the integrations facade, and removes internal authentication/configuration services from
+  the custom-auth hook contract; expands the consumer guide with the exact warning and self-managed Azure
+  semantics (plus/integrations, core)
 - Separates repo-scoped and account-wide pull-request filter capabilities: account-wide native "my PRs" unions
   no longer accept repo-only `filters`, while Bitbucket's expensive reviewer expansion is exposed explicitly as
   `includeReviewRequested`; the integration consumer guide and parity record now ship in the package tarball

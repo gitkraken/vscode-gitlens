@@ -8,9 +8,38 @@
 // IntegrationAuthenticationService, etc.) are not part of the public API and
 // may be refactored without semver bumps.
 
-import type { IntegrationServiceContext } from './context.js';
+import { CacheController } from '@gitlens/utils/promiseCache.js';
+import type { IntegrationCacheProvider, IntegrationServiceContext } from './context.js';
 import { createIntegrationService } from './integrationService.js';
 import type { IntegrationManager } from './manager.js';
+
+type UncachedValue<T> = Promise<T | undefined> | T | undefined;
+type UncachedLoader<T> = (cacheable: CacheController) => { value: UncachedValue<T> };
+
+function loadUncached<T>(loader: UncachedLoader<T>): UncachedValue<T> {
+	return loader(new CacheController()).value;
+}
+
+const uncachedIntegrationCacheProvider: IntegrationCacheProvider = {
+	getRepositoryMetadata: (_repo, _integration, loader) => loadUncached(loader),
+	getRepositoryDefaultBranch: (_repo, _integration, loader) => loadUncached(loader),
+	getPullRequestForSha: (_sha, _repo, _integration, loader) => loadUncached(loader),
+	getPullRequestForBranch: (_branch, _repo, _integration, loader) => loadUncached(loader),
+	getPullRequest: (_id, _resource, _integration, loader) => loadUncached(loader),
+	getIssueOrPullRequest: (_id, _type, _resource, _integration, loader) => loadUncached(loader),
+	getIssue: (_id, _resource, _integration, loader) => loadUncached(loader),
+	getCurrentAccount: (_integration, loader) => loadUncached(loader),
+};
+
+/**
+ * Consumer-facing runtime for {@link createIntegrationManager}.
+ *
+ * The full extension host supplies an {@link IntegrationServiceContext}. External consumers may omit
+ * `cache`; reads then execute their loaders directly without cross-call caching.
+ */
+export type IntegrationManagerContext = Omit<IntegrationServiceContext, 'cache'> & {
+	readonly cache?: IntegrationCacheProvider;
+};
 
 export type {
 	ClosedPullRequestSweepOptions,
@@ -37,8 +66,11 @@ export type {
  * containing scope) to release every cached integration plus the runtime's
  * own VS Code subscriptions.
  */
-export function createIntegrationManager(ctx: IntegrationServiceContext): IntegrationManager {
-	return createIntegrationService(ctx);
+export function createIntegrationManager(ctx: IntegrationManagerContext): IntegrationManager {
+	return createIntegrationService({
+		...ctx,
+		cache: ctx.cache ?? uncachedIntegrationCacheProvider,
+	});
 }
 
 // Re-exports for the public API surface.
@@ -78,6 +110,9 @@ export type {
 // Provider-id mapping helpers for consumers bridging their own provider ids to `IntegrationIds`
 // (e.g. mapping multi-account connections from `getConfigured` back to a provider) and vice versa.
 export { toCloudIntegrationType, toIntegrationId } from './authentication/models.js';
+// Domain normalization is part of connection selection and repository resolution; consumers should use the
+// same implementation rather than importing an internal utility subpath or maintaining a divergent copy.
+export { areDomainsOnSameHost, hostFromDomain } from './utils/domain.utils.js';
 
 // Convenience: wrap a static access token (env var, CLI flag, secret manager)
 // as an `IntegrationAuthenticationProvider`. For OAuth/refresh flows, implement
@@ -105,6 +140,7 @@ export type {
 	ProviderResult,
 	ProviderSweepResult,
 	ProviderWarning,
+	ProviderWarningKind,
 	ProviderOrganization,
 	ProviderRepositoryShape,
 	RepositoryIdentity,

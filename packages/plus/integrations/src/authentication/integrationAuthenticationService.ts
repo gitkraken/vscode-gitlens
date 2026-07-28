@@ -113,8 +113,6 @@ export class IntegrationAuthenticationService implements Disposable {
 		// the package constructs its own cloud providers below (so GitLens's cloud auth needs no host hook).
 		const hostProvider = await this.ctx.hooks?.createAuthenticationProvider?.({
 			id: providerId,
-			auth: this,
-			configured: this.configuredIntegrationService,
 		});
 		if (hostProvider != null) {
 			this.providers.set(providerId, hostProvider);

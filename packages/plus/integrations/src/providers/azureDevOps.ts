@@ -56,7 +56,7 @@ import {
 import type { ProvidersApi } from './providersApi.js';
 import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from './utils/providerPaging.js';
 
-function getAzureRepositoryIdentity(repo: AzureRepositoryDescriptor): {
+function getAzureRepositoryIdentity(repo: Pick<AzureRepositoryDescriptor, 'owner' | 'name' | 'project'>): {
 	resourceName: string;
 	projectName?: string;
 	repositoryName: string;
@@ -602,8 +602,8 @@ export abstract class AzureDevOpsIntegrationBase<
 		project?: string;
 		connectionId?: string;
 	}): Promise<ProviderRepository | undefined> {
-		if (repo.project == null) return undefined;
-		if (this.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer) return undefined;
+		const identity = getAzureRepositoryIdentity(repo);
+		if (identity.projectName == null) return undefined;
 
 		const api = await this.getProvidersApi();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
@@ -611,7 +611,13 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (session == null) return undefined;
 
 		const { tokenWithInfo, options } = this.getApiOptions(session);
-		return api.getRepo(tokenWithInfo, repo.owner, repo.name, repo.project, options);
+		return api.getRepo(
+			tokenWithInfo,
+			identity.resourceName,
+			identity.repositoryName,
+			identity.projectName,
+			options,
+		);
 	}
 
 	protected override async getProviderRepositoryMetadata(
@@ -984,7 +990,12 @@ export abstract class AzureDevOpsIntegrationBase<
 		const drain = async (
 			p: AzureProjectDescriptor,
 			filter: { assigneeLogins?: string[]; authorLogin?: string },
-		): Promise<{ issues: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata }> => {
+		): Promise<{
+			issues: IssueShape[];
+			projectKey: string;
+			truncated: boolean;
+			metadata?: CollectionMetadata;
+		}> => {
 			const result = await collectProviderPagedResult(
 				cursor =>
 					api.getIssuesForAzureProject(tokenWithInfo, p.resourceName, p.name, {
@@ -997,6 +1008,9 @@ export abstract class AzureDevOpsIntegrationBase<
 			);
 			return {
 				issues: result.values.map(i => fromProviderIssue(i, this as any, { project: p })),
+				// Azure work-item ids are organization-scoped. Include both org and project so the
+				// assigned/authored passes dedupe the same item without collapsing another org's item.
+				projectKey: `${p.resourceId}:${p.id}`,
 				truncated: result.truncated ?? false,
 				metadata: result.metadata,
 			};
@@ -1039,8 +1053,9 @@ export abstract class AzureDevOpsIntegrationBase<
 			}
 
 			for (const issue of outcome.issues) {
-				if (!issuesById.has(issue.id)) {
-					issuesById.set(issue.id, issue);
+				const key = `${outcome.projectKey}:${issue.nodeId ?? issue.id}`;
+				if (!issuesById.has(key)) {
+					issuesById.set(key, issue);
 				}
 			}
 		}
