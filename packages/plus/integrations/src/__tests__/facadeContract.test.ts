@@ -287,7 +287,7 @@ suite('facade contract regressions', () => {
 		manager.dispose();
 	});
 
-	test('a host with no declared paging mode is never handed a synthesized page number', async () => {
+	test('a numbered host with no declared paging mode is advanced by page number', async () => {
 		const runtime = createFakeRuntime();
 		await runtime.storage.store('integrations:configured', {
 			[GitSelfManagedHostIntegrationId.BitbucketServer]: [
@@ -314,10 +314,14 @@ suite('facade contract regressions', () => {
 			'guard: this host declares no paging mode',
 		);
 
-		// Bitbucket Data Center consumes the `page` input as a `start` ITEM OFFSET, not a page number, so a
-		// synthesized page 3 asked for `start=3` — items 3..52 with the default window, i.e. an almost complete
-		// overlap with page 1 — while reporting it as the third page. Withholding the synthesized cursor makes it
-		// answer page 1 honestly; its own next-offset cursor still pages correctly when threaded back.
+		// Bitbucket Data Center declares no paging mode but DOES page by number: as of provider-apis 0.54.0 it
+		// converts `page` into the REST `start` offset itself (`start = (page - 1) * limit`) and reports `nextPage`
+		// as a page number. So the facade must synthesize a page-number cursor for it and report the requested
+		// page — absence of a declared mode is not evidence that a host can't be advanced by number.
+		//
+		// Before 0.54.0 it consumed `page` as a raw `start` offset, so page 3 asked for `start=3` and returned a
+		// window overlapping page 1; this facade withheld the cursor to avoid that, and this test asserted the
+		// opposite of what it asserts now.
 		let capturedCursor: string | undefined | 'unset' = 'unset';
 		(
 			bbs as unknown as {
@@ -337,8 +341,12 @@ suite('facade contract regressions', () => {
 			page: 3,
 		});
 
-		assert.equal(capturedCursor, undefined, 'no page-number cursor is synthesized for an offset-paged host');
-		assert.equal(result.page.currentPage, 1, 'and the unapplied page is not echoed as if it had been honored');
+		assert.equal(
+			capturedCursor,
+			JSON.stringify({ value: 3, type: 'page' }),
+			'a page-number cursor is synthesized for a numbered host',
+		);
+		assert.equal(result.page.currentPage, 3, 'and the requested page is reported, not a stuck 1');
 
 		manager.dispose();
 	});
