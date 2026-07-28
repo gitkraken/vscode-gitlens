@@ -3066,6 +3066,57 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssuesPage reports Bitbucket Data Center issues as unsupported, like Bitbucket Cloud', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bbs = await manager.get(GitSelfManagedHostIntegrationId.BitbucketServer, 'https://bb.example.com');
+		(bbs as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bb.example.com',
+		};
+
+		// Bitbucket Data Center has no issue tracker at all (issues live in Jira), and its metadata already
+		// declares no issue filters. Both halves of that capability answer have to agree: with `supportsIssues`
+		// left at its default `true`, the read reached a provider registering no issue client and surfaced the
+		// SDK's own `does not support function: getIssuesForReposFn` as an opaque `kind: 'other'` warning — a
+		// different failure shape than Bitbucket Cloud's for the same missing capability.
+		for (const repos of [[{ namespace: 'proj', name: 'repo' }], undefined]) {
+			const result = await manager.listIssuesPage({
+				providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+				...(repos != null ? { repos: repos } : {}),
+				domain: 'bb.example.com',
+			});
+			assert.equal(result.items.length, 0, 'no issues are returned for a non-issue provider');
+			assert.equal(result.fetchFailed, true);
+			assert.ok(
+				result.warnings.some(w => /issues are not supported/i.test(w.message)),
+				'issues are reported as unsupported',
+			);
+			assert.ok(
+				!result.warnings.some(w => /does not support function/i.test(w.message)),
+				'the SDK-internal failure never reaches the consumer',
+			);
+		}
+
+		// Same for the broaden fan-out, which must skip the org outright rather than drain every one of its
+		// repositories before failing on the issue read.
+		const broadened = await manager.broadenIssues({
+			orgs: [
+				{
+					providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+					name: 'proj',
+					domain: 'bb.example.com',
+				},
+			],
+		});
+		assert.equal(broadened.items.length, 0);
+		assert.equal(broadened.fetchFailed, true);
+		assert.deepEqual(broadened.broadenedProviderIds, []);
+		assert.ok(broadened.warnings.some(w => /issues are not supported/i.test(w.message)));
+
+		manager.dispose();
+	});
+
 	test('a provider without discovery hooks (Bitbucket Data Center) reports unsupported, not empty (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
