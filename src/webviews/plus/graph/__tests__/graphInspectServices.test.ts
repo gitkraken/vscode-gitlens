@@ -32,6 +32,7 @@ function createMocks(opts: {
 	unstagedDiff?: string;
 	unstagedError?: Error;
 	stagedDiff?: string;
+	noStaging?: boolean;
 }) {
 	// Shared, ordered log so tests can assert the exact stage → diff → unstage sequence.
 	const order: string[] = [];
@@ -61,7 +62,8 @@ function createMocks(opts: {
 	const svc = {
 		diff: { getDiff: getDiff },
 		status: { getUntrackedFiles: getUntrackedFiles },
-		staging: { stageFiles: stageFiles, unstageFiles: unstageFiles },
+		// `staging` is optional on the repo service (e.g. virtual repos lack it).
+		staging: opts.noStaging ? undefined : { stageFiles: stageFiles, unstageFiles: unstageFiles },
 		branches: { getBranch: sinon.stub().resolves(undefined) },
 	};
 
@@ -137,5 +139,21 @@ suite('graphInspectServices — getDiffForScope untracked handling (#5586)', () 
 		sinon.assert.notCalled(m.stageFiles);
 		sinon.assert.notCalled(m.unstageFiles);
 		assert.deepStrictEqual(m.order, ['diff:staged']);
+	});
+
+	test('skips the untracked query entirely when there is no staging provider', async () => {
+		const m = createMocks({
+			noStaging: true,
+			untracked: ['new.txt'],
+			unstagedDiff: 'diff --git a/tracked.txt b/tracked.txt\n',
+		});
+
+		const result = await invoke(m.fakeThis, wipScope({ includeUnstaged: true }));
+
+		sinon.assert.notCalled(m.getUntrackedFiles);
+		sinon.assert.notCalled(m.stageFiles);
+		sinon.assert.notCalled(m.unstageFiles);
+		assert.deepStrictEqual(m.order, ['diff:unstaged']);
+		assert.ok(result?.diff.includes('tracked.txt'), 'the unstaged diff is still produced');
 	});
 });

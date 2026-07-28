@@ -2438,12 +2438,16 @@ export class GraphInspectServices {
 				// Untracked files never appear in `git diff` (working-vs-index); intent-to-add stages them so
 				// the unstaged diff includes their contents. Mirrors patches.ts. Unstaged before the staged
 				// diff below so intent-to-add entries can't also surface there as empty new-file headers.
-				untrackedPaths = (await svc.status.getUntrackedFiles()).map(f => f.path);
-				if (untrackedPaths?.length) {
-					try {
-						await svc.staging?.stageFiles(untrackedPaths, { intentToAdd: true });
-					} catch (ex) {
-						Logger.error(ex, `Failed to stage (${untrackedPaths.length}) untracked files for review`);
+				// Skipped entirely without a staging provider (e.g. virtual repos) — there's nothing to stage into.
+				if (svc.staging != null) {
+					untrackedPaths = (await svc.status.getUntrackedFiles(signal)).map(f => f.path);
+					if (untrackedPaths.length) {
+						signal?.throwIfAborted();
+						try {
+							await svc.staging.stageFiles(untrackedPaths, { intentToAdd: true });
+						} catch (ex) {
+							Logger.error(ex, `Failed to stage (${untrackedPaths.length}) untracked files for review`);
+						}
 					}
 				}
 
