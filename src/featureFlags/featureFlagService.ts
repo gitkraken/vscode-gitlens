@@ -20,11 +20,6 @@ export interface FeatureFlagService {
 	getAllFlags(): FeatureFlagMap;
 }
 
-const _featureFlagKeys: ReadonlySet<string> = new Set<FeatureFlagKey>(Object.values(FeatureFlagKey));
-export function isFeatureFlagKey(key: string): key is FeatureFlagKey {
-	return _featureFlagKeys.has(key);
-}
-
 /**
  * ConfigCat's getClient() requires an SDK key parameter,
  * but since this service operates in offline mode with a prefetched config,
@@ -135,22 +130,47 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 				cache: cache,
 				defaultUser: { identifier: vscodeEnv.machineId },
 				offline: true,
+				// Route the SDK's own diagnostics into GitLens' debug channel rather than letting its default
+				// console logger write to the extension host output. Asking for a key by name (below) logs an
+				// SDK error when the shared config doesn't define it — which happens whenever GitLens' flag
+				// list and the deployed config drift (flag retired server-side, or a new key shipped ahead of
+				// the rollout). That's a config-drift signal for us, not something to surface on every
+				// activation — exactly the per-startup noise the per-key evaluation was meant to remove.
+				logger: {
+					log: (level, eventId, message) => {
+						// Only the per-key "setting not found" case (event 1001) is the expected drift noise.
+						// Route everything else at error level through `Logger.error`, or a genuine SDK failure
+						// (config fetch rejected, bad SDK key) would be invisible at default verbosity — the
+						// opposite of what silencing the noise was for.
+						if (eventId !== 1001 && level === sdk.LogLevel.Error) {
+							Logger.error(undefined, scope, `ConfigCat: ${String(message)}`);
+							return;
+						}
+
+						Logger.debug(scope, `ConfigCat: ${String(message)}`);
+					},
+				},
 			});
 
 			await client.waitForReady();
 			await client.forceRefreshAsync();
 
-			const values = await client.getAllValuesAsync();
+			// Evaluate ONLY the keys GitLens actually reads. `getAllValuesAsync()` evaluates every setting in
+			// the shared GitKraken config — dozens belong to other products and target by `User.Email`, which
+			// this client deliberately doesn't supply (see `defaultUser` below). Each of those logs a
+			// "User.Email attribute is missing" warning to the extension host on every startup, and their
+			// values are discarded here anyway. Evaluation is offline against the prefetched config, so this
+			// loop does no I/O.
 			const flags: Partial<Record<FeatureFlagKey, FeatureFlagValue>> = {};
 
-			for (const { settingKey, settingValue } of values) {
+			for (const key of Object.values(FeatureFlagKey)) {
+				const settingValue = await client.getValueAsync(key, undefined);
 				if (
-					isFeatureFlagKey(settingKey) &&
-					(typeof settingValue === 'boolean' ||
-						typeof settingValue === 'number' ||
-						typeof settingValue === 'string')
+					typeof settingValue === 'boolean' ||
+					typeof settingValue === 'number' ||
+					typeof settingValue === 'string'
 				) {
-					flags[settingKey] = settingValue;
+					flags[key] = settingValue;
 				}
 			}
 
