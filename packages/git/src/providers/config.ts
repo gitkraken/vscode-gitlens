@@ -13,6 +13,8 @@ export type GitCoreConfigKeys =
 	| 'gpg.ssh.program'
 	| 'gpg.ssh.allowedSignersFile'
 	| 'init.defaultBranch'
+	/** `pull.rebase` — whether `git pull` rebases instead of merging; also accepts `merges`/`interactive` */
+	| 'pull.rebase'
 	| 'user.email'
 	| 'user.name'
 	| 'user.signingkey';
@@ -22,7 +24,9 @@ export type GitConfigKeys =
 	/** `vscode-merge-base` — value determined by VS Code that is used to determine the merge base for the current branch. Once `gk-merge-base` is determined, we stop using `vscode-merge-base` */
 	| `branch.${string}.vscode-merge-base`
 	/** `github-pr-owner-number` — value determined by VS Code/GitHub PR extension that is used to determine the PR number for the current branch */
-	| `branch.${string}.github-pr-owner-number`;
+	| `branch.${string}.github-pr-owner-number`
+	/** `rebase` — per-branch override of `pull.rebase`; takes precedence over the repository-wide setting */
+	| `branch.${string}.rebase`;
 
 export type GkConfigKeys =
 	/** `gk-merge-base` — the branch that the current branch was created from (the original base at branch creation time) */
