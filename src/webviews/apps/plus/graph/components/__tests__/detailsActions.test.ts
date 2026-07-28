@@ -453,6 +453,102 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.wipStale.get(), false);
 	});
 
+	// A working-tree change (WIP tick) while a wip-scope mode is open must refetch the scoped file
+	// list, or the curation list (and the eventual run) stays pinned to the pre-change file set.
+	function wipFor(repoPath: string): Wip {
+		return {
+			changes: undefined,
+			repositoryCount: 1,
+			repo: { uri: `file://${repoPath}`, name: 'repo', path: repoPath, isWorktree: false },
+			stats: { added: 0, deleted: 0, modified: 0 },
+		};
+	}
+
+	function scopeFilesRecorder(sink: Array<[string, ScopeSelection]>) {
+		return createResource(async (_signal, repoPath: string, scope: ScopeSelection) => {
+			sink.push([repoPath, scope]);
+			return [];
+		});
+	}
+
+	const wipScope: ScopeSelection = { type: 'wip', includeStaged: true, includeUnstaged: false, includeShas: [] };
+
+	test('applyWipPayload refetches scope files on a wip-scope mode tick for the active repo', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set(wipScope);
+
+		const fetches: Array<[string, ScopeSelection]> = [];
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wipFor('/repo') })),
+			scopeFiles: scopeFilesRecorder(fetches),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		await actions.refetchWipQuiet('/repo');
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(fetches, [['/repo', wipScope]]);
+	});
+
+	test('applyWipPayload does not refetch scope files when no mode is active', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set(wipScope);
+
+		const fetches: Array<[string, ScopeSelection]> = [];
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wipFor('/repo') })),
+			scopeFiles: scopeFilesRecorder(fetches),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		await actions.refetchWipQuiet('/repo');
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(fetches, []);
+	});
+
+	test('applyWipPayload does not refetch scope files for a non-wip scope', async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeRepoPath.set('/repo');
+		state.scope.set({ type: 'commit', sha: 'abc' });
+
+		const fetches: Array<[string, ScopeSelection]> = [];
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wipFor('/repo') })),
+			scopeFiles: scopeFilesRecorder(fetches),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		await actions.refetchWipQuiet('/repo');
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(fetches, []);
+	});
+
+	test("applyWipPayload does not refetch scope files for a background repo's tick", async () => {
+		const state = createDetailsState();
+		state.activeMode.set('review');
+		state.activeModeRepoPath.set('/foreground');
+		state.scope.set(wipScope);
+
+		const fetches: Array<[string, ScopeSelection]> = [];
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wipFor('/background') })),
+			scopeFiles: scopeFilesRecorder(fetches),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		await actions.refetchWipQuiet('/background');
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		assert.deepStrictEqual(fetches, []);
+	});
+
 	// WIP payloads race: a refresh response and host pushes can arrive in either order relative to the working tree
 	// they reflect. Ordering is by the host's `revision` marker (assigned at read-start), never by arrival.
 	const wipRepo = { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false };
