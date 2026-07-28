@@ -71,13 +71,13 @@ import type {
 	ProviderReposInput,
 	ProviderRepository,
 	ProviderRepositoryShape,
+	PullRequestFilter,
 } from './providers/models.js';
 import {
 	fromProviderPullRequest,
 	IssueFilter,
 	PagingMode,
 	providersMetadata,
-	PullRequestFilter,
 	toProviderRepositoryShape,
 } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
@@ -552,8 +552,7 @@ export class IntegrationService implements Disposable {
 	 * `issues` and `issuesAccountWide` are separate because the repo-scoped and account-wide issue reads are
 	 * different provider queries with different filter surfaces, and the same `filters` input is validated against
 	 * whichever one the read uses (`repos` present or not). `issuesAccountWide` is generally the narrower of the
-	 * two: GitLab, for instance, can express `Assignee` account-wide but nothing else, because the SDK's
-	 * account-wide input has no author/mention axis.
+	 * two: GitLab, for instance, can express `Assignee` and `Author` account-wide, but not `Mention`.
 	 *
 	 * That split describes the GIT-HOST reads only. An issue tracker (Jira/Linear/Trello) has neither — its issues
 	 * live under resource → project — so it reports its filters under `issues`, which is what
@@ -567,12 +566,16 @@ export class IntegrationService implements Disposable {
 	 */
 	getSupportedFilters(providerId: IntegrationIds): {
 		pullRequests: PullRequestFilter[];
+		pullRequestsAccountWide: PullRequestFilter[];
 		issues: IssueFilter[];
 		issuesAccountWide: IssueFilter[];
 	} {
 		const metadata = providersMetadata[providerId];
 		return {
 			pullRequests: [...(metadata?.supportedPullRequestFilters ?? [])],
+			// Native account-wide "my PRs" queries expose provider-defined unions, not independently selectable
+			// relationship axes. Keep this empty until a provider can narrow every advertised member at source.
+			pullRequestsAccountWide: [],
 			issues: [...(metadata?.supportedIssueFilters ?? [])],
 			issuesAccountWide: [...(metadata?.supportedAccountWideIssueFilters ?? [])],
 		};
@@ -1052,6 +1055,23 @@ export class IntegrationService implements Disposable {
 			message: `The requested account-wide issue filters (${filters.join(', ')}) are not supported by '${id}'${
 				supported.length ? ` (supported: ${supported.join(', ')})` : ''
 			}; skipped to avoid returning a wider result than requested.`,
+			kind: 'other',
+			isAuth: false,
+		};
+	}
+
+	/** Warning for an account-wide PR read that can't independently express the requested repo-scoped filters. */
+	private unsupportedAccountWidePullRequestFiltersWarning(
+		id: IntegrationIds,
+		domain: string | undefined,
+		connectionId: string | undefined,
+		filters: PullRequestFilter[],
+	): ProviderWarning {
+		return {
+			providerId: id,
+			domain: domain,
+			connectionId: connectionId,
+			message: `The requested account-wide pull request filters (${filters.join(', ')}) are not supported by '${id}'; skipped to avoid returning a wider result than requested.`,
 			kind: 'other',
 			isAuth: false,
 		};
@@ -1918,8 +1938,8 @@ export class IntegrationService implements Disposable {
 	/**
 	 * Reads one page of pull requests for the given git-host provider. With `repos`, reads those repos'
 	 * PRs (translating `page` ↔ the provider's opaque cursor) and applies `filters` if given. With no
-	 * `repos`, reads the current user's PRs account-wide (already user-scoped and cursor-continued), walking
-	 * opaque cursors internally when only `page` is supplied; `filters`/`pageSize` don't narrow that path.
+	 * `repos`, reads the current user's provider-defined PR set account-wide, walking opaque cursors internally
+	 * when only `page` is supplied; `filters` are refused and `pageSize` is ignored on that path.
 	 */
 	async listPullRequestsPage(options: {
 		providerId: IntegrationIds;
@@ -1927,12 +1947,15 @@ export class IntegrationService implements Disposable {
 		states?: PullRequestStateFilter[];
 		/**
 		 * PR filters to narrow a repo-scoped read to the current user (e.g. `[Author, Assignee,
-		 * ReviewRequested]`). Narrowed to what the provider supports. On the account-wide (no-repos) path the
-		 * read is already user-scoped, so these don't narrow it — except `ReviewRequested`, which opts into the
-		 * review-requested slice on backends whose native account-wide query returns authored PRs only (see
-		 * {@link GitHostIntegration.getMyPullRequestsForUserResult}).
+		 * ReviewRequested]`). Account-wide provider queries expose a provider-defined relationship union and
+		 * cannot honor these filters independently, so a non-empty set is refused on that path.
 		 */
 		filters?: PullRequestFilter[];
+		/**
+		 * Account-wide only: include review-requested PRs when the provider's native "my PRs" query omits them.
+		 * This extends the provider-native result; it is not a narrowing filter.
+		 */
+		includeReviewRequested?: boolean;
 		page?: number;
 		cursor?: string;
 		itemsPerPage?: number;
@@ -1997,38 +2020,38 @@ export class IntegrationService implements Disposable {
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId, options.domain);
 		// With no repos this is an account-wide "my PRs" read; the repo-scoped core rejects an empty `repos`
 		// input, so route to the account-wide, inherently user-scoped core instead (see drainPullRequests).
-		// That path is cursor-based and already user-scoped, so `pageSize` doesn't apply there and `filters`
-		// don't narrow it (only `ReviewRequested` toggles the opt-in reviewer slice below). A page-only request
-		// is handled by walking opaque continuations below. Do NOT synthesize a page-number cursor for it: the
-		// underlying query (e.g. GitHub `involves:`) ignores a page number and returns its first page.
+		// That provider-defined path takes no `pageSize`. A page-only request is handled by walking any opaque
+		// continuations it supplies below. Do NOT synthesize a page-number cursor for it: cursor-based queries
+		// (e.g. GitHub `involves:`) ignore a page number and would return their first page.
 		const accountWide = (options.repos?.length ?? 0) === 0;
 		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
 
-		// Resolve filters up front so an unsupported set is caught before the read: on the repo-scoped path
-		// falling through unfiltered would return every PR in the repos rather than the user's. The account-wide
-		// path is already user-scoped, so an unsupported filter can't widen it — but it is still validated, and
-		// on the same terms as the sweep: `ReviewRequested` derives the opt-in reviewer slice below, so accepting
-		// a set the provider doesn't support would silently serve a differently-scoped result (e.g.
-		// `[ReviewRequested, Mention]` on GitLab, which has no `Mention`, would include the reviewer slice here
-		// while the sweep drops it).
-		const resolvedFilters = this.resolvePullRequestFilters(options.providerId, options.filters);
+		// Account-wide provider queries expose provider-defined relationship unions, so even a filter supported by
+		// the repo-scoped query cannot be applied independently there. Refuse it instead of returning a wider set.
+		const accountWideFiltersUnsupported = accountWide && (options.filters?.length ?? 0) !== 0;
+		const resolvedFilters = accountWide
+			? { filters: undefined, unsupported: accountWideFiltersUnsupported }
+			: this.resolvePullRequestFilters(options.providerId, options.filters);
 		if (resolvedFilters.unsupported) {
 			return {
 				items: [],
-				warnings: [this.unsupportedFiltersWarning(options.providerId, domain, options.connectionId)],
+				warnings: [
+					accountWide
+						? this.unsupportedAccountWidePullRequestFiltersWarning(
+								options.providerId,
+								domain,
+								options.connectionId,
+								options.filters ?? [],
+							)
+						: this.unsupportedFiltersWarning(options.providerId, domain, options.connectionId),
+				],
 				page: { currentPage: page, itemsPerPage: 0 },
 				hasMore: false,
 				fetchFailed: true,
 			};
 		}
 
-		// The account-wide read is inherently user-scoped, so repo-scoped `filters` don't narrow it — but the
-		// review-requested slice is opt-in on backends whose native account-wide query returns authored PRs only
-		// (Bitbucket fans out per-repo for it). Honor `PullRequestFilter.ReviewRequested` as that opt-in so a
-		// caller pays the fan-out cost only when it deliberately asks for review-requested PRs.
-		const includeReviewRequested = accountWide
-			? (options.filters?.includes(PullRequestFilter.ReviewRequested) ?? false)
-			: false;
+		const includeReviewRequested = accountWide ? (options.includeReviewRequested ?? false) : false;
 		const { value, warning } = await this.runCaptured(
 			options.providerId,
 			domain,
@@ -3053,6 +3076,7 @@ export class IntegrationService implements Disposable {
 		repos: ProviderReposInput,
 		state: PullRequestStateFilter[] | undefined,
 		filters: PullRequestFilter[] | undefined,
+		includeReviewRequested: boolean,
 		connectionId: string | undefined,
 		maxPages: number,
 		attributeUnavailableProvider: boolean,
@@ -3072,14 +3096,8 @@ export class IntegrationService implements Disposable {
 		let fetchFailed = false;
 
 		// With no repos this is an account-wide "my PRs" sweep. The repo-scoped core rejects an empty `repos`
-		// input (`isRepoIdsInput([])` is true → "Unsupported input"), so read the account-wide, inherently
-		// user-scoped core instead; `filters` don't narrow it (the provider query is already user-scoped), but
-		// `ReviewRequested` opts into the reviewer slice on backends whose native account-wide read is
-		// authored-only (Bitbucket fans out per-repo for it), so honor it as that opt-in.
+		// input, so read the provider-native account-wide core instead.
 		const accountWide = repos.length === 0;
-		const includeReviewRequested = accountWide
-			? (filters?.includes(PullRequestFilter.ReviewRequested) ?? false)
-			: false;
 
 		for (;;) {
 			page++;
@@ -3314,18 +3332,24 @@ export class IntegrationService implements Disposable {
 			await this.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
 
 			const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
-			// Resolve filters per provider so each drains only the user's PRs (default) using the filters
-			// that provider supports — a single shared set could be unsupported by one of them. Validated on
-			// both paths: repo-scoped would otherwise drain unfiltered, and while the account-wide drain
-			// (empty repos) is already user-scoped, `ReviewRequested` still derives its opt-in reviewer slice
-			// from the set, so silently ignoring an unsupported set would serve a differently-scoped result
-			// than the caller asked for (and than `listPullRequestsPage` returns).
-			const resolved = this.resolvePullRequestFilters(id, options?.filters);
+			const accountWide = repos.length === 0;
+			const accountWideFiltersUnsupported = accountWide && (options?.filters?.length ?? 0) !== 0;
+			const resolved = accountWide
+				? { filters: undefined, unsupported: accountWideFiltersUnsupported }
+				: this.resolvePullRequestFilters(id, options?.filters);
 			if (resolved.unsupported) {
-				// Don't drain unfiltered (would return every PR); report a warning and contribute nothing.
 				return {
 					items: [] as PullRequestShape[],
-					warnings: [this.unsupportedFiltersWarning(id, domain, connectionId)],
+					warnings: [
+						accountWide
+							? this.unsupportedAccountWidePullRequestFiltersWarning(
+									id,
+									domain,
+									connectionId,
+									options?.filters ?? [],
+								)
+							: this.unsupportedFiltersWarning(id, domain, connectionId),
+					],
 					fetchFailed: true,
 					truncated: false,
 					providerId: id,
@@ -3339,7 +3363,8 @@ export class IntegrationService implements Disposable {
 				domain,
 				repos,
 				options?.states,
-				resolved.filters,
+				accountWide ? undefined : resolved.filters,
+				accountWide ? (options?.includeReviewRequested ?? false) : false,
 				connectionId,
 				maxPages,
 				attributeUnavailableProviders,
@@ -4309,6 +4334,16 @@ export class IntegrationService implements Disposable {
 		return isGitSelfManagedHostIntegrationId(id) ? this.getCached(id, domain) : this.findCachedById(id);
 	}
 
+	private getConfiguredCloudConnection(id: IntegrationIds, connectionId: string): ConfiguredIntegrationDescriptor {
+		const connection = this.configuredIntegrationService
+			.getConfigured(id, { cloud: true })
+			.find(c => c.id === connectionId);
+		if (connection == null) {
+			throw new Error(`Connection '${connectionId}' is not configured for '${id}'`);
+		}
+		return connection;
+	}
+
 	private getConfiguredConnectionDomain(id: IntegrationIds, connectionId: string): string | undefined {
 		if (!isGitSelfManagedHostIntegrationId(id)) return undefined;
 		return this.configuredIntegrationService.getConfigured(id).find(c => c.id === connectionId)?.domain;
@@ -4341,7 +4376,7 @@ export class IntegrationService implements Disposable {
 
 	@gate()
 	@trace()
-	private async syncCloudIntegrations(forceConnect: boolean) {
+	private async syncCloudIntegrations(forceConnect: boolean): Promise<Set<IntegrationIds> | undefined> {
 		const scope = getScopedLogger();
 		const connectedIntegrations = new Set<IntegrationIds>();
 		const domainsById = new Map<IntegrationIds, Set<string>>();
@@ -4566,31 +4601,31 @@ export class IntegrationService implements Disposable {
 	 * if the backend switch fails so the caller can surface it (local state stays untouched).
 	 */
 	async setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void> {
-		const domain = this.getConfiguredConnectionDomain(id, connectionId);
+		const connection = this.getConfiguredCloudConnection(id, connectionId);
 		if (!(await this.authenticationService.cloudIntegrations.setPrimaryConnection(id, connectionId))) {
 			throw new Error(`Failed to set primary connection '${connectionId}' for '${id}'`);
 		}
 
 		await this.configuredIntegrationService.setPrimaryConnection(id, connectionId);
-		this.getCachedForDomain(id, domain)?.switchConnection();
+		this.getCachedForDomain(id, connection.domain)?.switchConnection();
 	}
 
 	/**
 	 * Removes a single connection for a provider by its backend token id. The backend removes the
 	 * connection (auto-promoting a secondary to primary when the removed one was primary); we then mirror
 	 * that locally and refresh any warm model. Unlike {@link IntegrationBase.disconnect}, this targets one
-	 * account. This always talks to the cloud backend, so the local mirror defaults to cloud-scoped too —
-	 * pass `cloud: false` only if a caller genuinely needs to also drop a local PAT sharing the same id.
+	 * account. This always talks to the cloud backend, so the local mirror is cloud-scoped and preserves any
+	 * local PAT that happens to share the same id.
 	 * Throws if the backend delete fails so the caller can surface it (local state stays untouched).
 	 */
-	async deleteConnection(id: IntegrationIds, connectionId: string, cloud: boolean = true): Promise<void> {
-		const domain = this.getConfiguredConnectionDomain(id, connectionId);
+	async deleteConnection(id: IntegrationIds, connectionId: string): Promise<void> {
+		const connection = this.getConfiguredCloudConnection(id, connectionId);
 		if (!(await this.authenticationService.cloudIntegrations.disconnectConnection(id, connectionId))) {
 			throw new Error(`Failed to delete connection '${connectionId}' for '${id}'`);
 		}
 
-		await this.configuredIntegrationService.deleteConnection(id, connectionId, cloud);
-		this.getCachedForDomain(id, domain)?.switchConnection();
+		await this.configuredIntegrationService.deleteConnection(id, connectionId, true);
+		this.getCachedForDomain(id, connection.domain)?.switchConnection();
 	}
 
 	/**
@@ -4621,10 +4656,14 @@ export class IntegrationService implements Disposable {
 	 * Forces a refresh of connected cloud integrations from the backend (equivalent to a "--sync" list),
 	 * reconciling local state (multi-account connections, primary flags, account names) so a subsequent
 	 * {@link getConfigured} reflects the latest server-side connections. Intended for consumers that need
-	 * an up-to-date connection list on demand.
+	 * an up-to-date connection list on demand. Rejects when the authoritative backend connection list cannot
+	 * be read, so callers never mistake stale local state for a successful refresh.
 	 */
 	async refreshConnections(): Promise<void> {
-		await this.syncCloudIntegrations(true);
+		const connected = await this.syncCloudIntegrations(true);
+		if (connected == null) {
+			throw new Error('Failed to refresh provider connections');
+		}
 	}
 }
 

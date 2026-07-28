@@ -163,13 +163,11 @@ suite('facade contract regressions', () => {
 			return Promise.resolve({ value: { values: [providerPr] } });
 		};
 
-		// GitHub supports Author/Assignee/ReviewRequested/Mention, so use a provider-unsupported combination:
-		// Bitbucket has no Assignee filter.
-		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
-		(bb as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t', 'bitbucket.org');
+		// Author is valid for GitHub's repo-scoped query, but its account-wide query is a provider-defined
+		// relationship union and cannot independently narrow to authored PRs.
 		const result = await manager.listPullRequestsPage({
-			providerId: GitCloudHostIntegrationId.Bitbucket,
-			filters: [PullRequestFilter.Assignee],
+			providerId: GitCloudHostIntegrationId.GitHub,
+			filters: [PullRequestFilter.Author],
 		});
 
 		assert.equal(read, false, 'the unsupported set must not fall through to a differently-scoped read');

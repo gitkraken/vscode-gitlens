@@ -1512,7 +1512,7 @@ suite('sweep + broaden (#5438)', () => {
 		// the good repo's reviewer PR still survives. Opt into the reviewer slice (#5551) so the fan-out runs.
 		const result = await manager.sweepPullRequests({
 			providerIds: [GitCloudHostIntegrationId.Bitbucket],
-			filters: [PullRequestFilter.ReviewRequested],
+			includeReviewRequested: true,
 			connectionId: undefined,
 		});
 
@@ -1641,7 +1641,7 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('sweepPullRequests does not fan out the Bitbucket reviewer slice without the ReviewRequested filter (#5551)', async () => {
+	test('sweepPullRequests does not fan out the Bitbucket reviewer slice without includeReviewRequested (#5551)', async () => {
 		const runtime = createFakeRuntime();
 		let repoDiscoveryCalls = 0;
 		const { manager } = await bitbucketForReviewerSlice(runtime, {
