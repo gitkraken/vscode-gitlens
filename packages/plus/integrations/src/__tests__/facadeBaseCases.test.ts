@@ -13,7 +13,9 @@ import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../cons
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
+import { IssueFilter, PullRequestFilter } from '../providerFilters.js';
 import type {
+	ProviderAzureProject,
 	ProviderGitHubOrganization,
 	ProviderGitLabGroup,
 	ProviderHierarchyResult,
@@ -1326,6 +1328,213 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		assert.equal(result.cursor, undefined);
 		assert.deepEqual(result.warnings, []);
 		assert.equal(result.fetchFailed, undefined);
+
+		manager.dispose();
+	});
+});
+
+/**
+ * `getSupportedFilters` (added today alongside the rest of the filter-validation machinery, de8310e64 "expose
+ * the supported filter table on the facade") lets a caller intersect its filter set against a provider BEFORE
+ * issuing a read, since `listPullRequestsPage`/`listIssuesPage` (and the sweeps) validate `filters`
+ * all-or-nothing: a set containing even one filter the provider can't express is refused whole — empty
+ * `items`, a warning, `fetchFailed` — indistinguishable from a real failure.
+ *
+ * The accessor returns THREE arrays, not two: `issues` (the repo-scoped issue read's filters) and
+ * `issuesAccountWide` (the account-wide read's — a different provider query, so a different, generally
+ * narrower, surface) split apart by a follow-up commit already on `core` by the time this was written
+ * (`listIssuesPage` account-wide filtering). An issue tracker (Jira/Linear/Trello) has neither read split that
+ * way — it reports everything under `issues` and leaves `issuesAccountWide` empty.
+ *
+ * facadeSupportedFilters.test.ts (added alongside `getSupportedFilters` itself) already pins this exhaustively:
+ * every provider against every member of both filter enums, via membership checks (`.includes`, and the read
+ * core's own `providerSupportsPullRequestFilters`/`providerSupportsIssueFilters` guard) — plus a "returns
+ * copies" test and a handful of per-provider contrasts. What none of its four tests do is deepEqual a
+ * provider's COMPLETE advertised shape in one shot, the way every other method in this file is pinned: a
+ * future edit that reordered or dropped-and-re-added a member would still satisfy every `.includes` check
+ * there and slip through undetected, and none of its assertions ever mention `issuesAccountWide` at all. These
+ * three cases close that gap for one representative of each shape the table takes, reached only through the
+ * public facade (`createIntegrationManager`) — never by importing `providers/models.js`'s `providersMetadata`
+ * directly.
+ */
+suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', () => {
+	test("reports GitHub's complete PR and issue filter sets", async () => {
+		// GitHub supports every member of both enums, on both issue reads: the "nothing is missing" case, and
+		// the one a caller is likeliest to assume every other provider matches (it doesn't — see below).
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+
+		assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub), {
+			pullRequests: [
+				PullRequestFilter.Author,
+				PullRequestFilter.Assignee,
+				PullRequestFilter.ReviewRequested,
+				PullRequestFilter.Mention,
+			],
+			issues: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+			issuesAccountWide: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		});
+
+		manager.dispose();
+	});
+
+	test("reports Bitbucket's narrower PR set (no Assignee/Mention) and no issue filters at all", async () => {
+		// Contrast case: Bitbucket's reviewer filter is keyed by account id rather than username (see
+		// providers/models.ts), so it never advertises Assignee, and it has no Mention filter either — a
+		// strict subset of GitHub's PR set. Its issue tracker is separately deprecated in favor of dedicated
+		// issue integrations (`supportsIssues` is false), so `providersMetadata` declares neither
+		// `supportedIssueFilters` nor `supportedAccountWideIssueFilters` for it; the facade must collapse both
+		// absences to `[]`, not `undefined`.
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+
+		assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.Bitbucket), {
+			pullRequests: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+			issues: [],
+			issuesAccountWide: [],
+		});
+
+		manager.dispose();
+	});
+
+	test("reports Linear's issue-tracker-only, Assignee-only filter set", async () => {
+		// Contrast case for the other axis: Linear is an issue tracker, so `pullRequests` is empty — not
+		// merely narrowed, like Bitbucket's, but entirely absent — and it scopes "my issues" client-side by the
+		// viewer's stable id, with no author/mention equivalent (see providers/models.ts). Being a tracker
+		// rather than a git host, its one filterable read reports under `issues`; `issuesAccountWide` (the
+		// git-host account-wide split) stays empty even though Linear itself is very much filterable — pinning
+		// that gap matters because reading a tracker's capability off `issuesAccountWide` would silently
+		// under-report it as unfilterable. None of facadeSupportedFilters.test.ts's four tests names Linear
+		// outside its generic "every provider" loop, which only ever checks membership, never this shape whole.
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+
+		assert.deepEqual(manager.getSupportedFilters(IssuesCloudHostIntegrationId.Linear), {
+			pullRequests: [],
+			issues: [IssueFilter.Assignee],
+			issuesAccountWide: [],
+		});
+
+		manager.dispose();
+	});
+});
+
+/**
+ * `listIssuesPage({ org, project })` (a9379a43b "add project-scoped issue reads for git hosts", added today)
+ * lets a git host with a project tier (Azure DevOps) narrow its account-wide issue read to one org/project,
+ * instead of fanning out over every project of every org and forcing the caller to filter client-side.
+ *
+ * Julian's own tests for this commit — the "listIssuesPage project scoping" suite appended to
+ * providerBackendSurface.test.ts, and the new providers/__tests__/azureProjectScopedIssues.test.ts — already
+ * pin the scoping mechanics thoroughly: org/project reach the account-wide core, a host with no project tier is
+ * refused (warning + `fetchFailed`) rather than served an unscoped list, only the requested project is drained,
+ * discovery is itself scoped by org before it runs, and a scope that matches nothing is a successful empty
+ * page. But every fixture across both files is a bare `{ id: 'wi-1' }`/`{ id, title, url }` cast — none of them
+ * drives a scoped read through the real raw-provider-apis hooks and asserts the complete mapped `IssueShape`,
+ * the gap every other test in this file exists to close for its own method. This test fills that one gap: a
+ * real org+project discovery followed by a real per-project drain (`getCurrentUser` → `getAzureResourcesForUser`
+ * → `getAzureProjectsForResource` → `getIssuesForAzureProject`, exactly as production calls them), asserting the
+ * complete `IssueShape` in one deepEqual — including that `project` comes from the DISCOVERED project
+ * descriptor, not from anything the raw work item itself carries (unlike the repo-scoped/broadened issue cases
+ * above, whose `project` defaults to an empty placeholder when there is no project tier to populate).
+ */
+suite('listIssuesPage project scoping — base-case trunk (a9379a43b)', () => {
+	test('a project-scoped read on a git host with a project tier returns the complete IssueShape, with no warnings', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		stubApi(azure, {
+			getCurrentUser: () => Promise.resolve(fakeAccount('me', 'Keanu Reeves')),
+			getAzureResourcesForUser: () => Promise.resolve([{ id: 'org-1', name: 'contoso' }]),
+			getAzureProjectsForResource: () =>
+				Promise.resolve({
+					values: [{ id: 'proj-1', name: 'Website', namespace: 'contoso' }],
+					paging: { more: false, cursor: '{}' },
+				} satisfies PagedResult<ProviderAzureProject>),
+			getIssuesForAzureProject: () =>
+				Promise.resolve({
+					values: [
+						providerIssue('501', {
+							title: 'Investigate flaky release pipeline',
+							description: 'The release pipeline fails intermittently on step 4.\n\nSeen on build 812.',
+							url: 'https://dev.azure.com/contoso/Website/_workitems/edit/501',
+							type: 'Bug',
+							createdDate: new Date('2026-01-01T00:00:00.000Z'),
+							updatedDate: new Date('2026-01-02T00:00:00.000Z'),
+							author: fakeAccount('author-1', 'Ada Lovelace', {
+								avatarUrl: 'https://avatars.example/ada.png',
+								url: 'https://dev.azure.com/contoso/_apis/GraphProfile/MemberAvatars/ada',
+							}),
+							assignees: [fakeAccount('me', 'Keanu Reeves')],
+							labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
+							commentCount: 2,
+							upvoteCount: 0,
+						}),
+					],
+					paging: { more: false, cursor: '{}' },
+				} satisfies PagedResult<ProviderIssue>),
+		});
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			org: 'contoso',
+			project: 'Website',
+		});
+
+		assert.equal(result.items.length, 1);
+		const [item] = result.items;
+		assert.deepEqual(
+			projectIssueShape(item),
+			{
+				type: 'issue',
+				// Azure has no separate opaque id/GraphQL id: the work item's `id` and `number` are the same
+				// value, so id and nodeId coincide here (unlike Jira/Linear's node-id-vs-key split above).
+				id: '501',
+				nodeId: '501',
+				title: 'Investigate flaky release pipeline',
+				url: 'https://dev.azure.com/contoso/Website/_workitems/edit/501',
+				state: 'opened',
+				closed: false,
+				createdDate: new Date('2026-01-01T00:00:00.000Z'),
+				updatedDate: new Date('2026-01-02T00:00:00.000Z'),
+				closedDate: undefined,
+				commentsCount: 2,
+				thumbsUpCount: 0,
+				author: {
+					id: 'author-1',
+					name: 'Ada Lovelace',
+					avatarUrl: 'https://avatars.example/ada.png',
+					url: 'https://dev.azure.com/contoso/_apis/GraphProfile/MemberAvatars/ada',
+				},
+				assignees: [{ id: 'me', name: 'Keanu Reeves', avatarUrl: undefined, url: undefined }],
+				// Azure work items are project-scoped, not repo-scoped: unlike a git host's repo-scoped issue
+				// read, there is no repository to populate.
+				repository: undefined,
+				labels: [{ color: 'd73a4a', name: 'bug' }],
+				body: 'The release pipeline fails intermittently on step 4.\n\nSeen on build 812.',
+				// The project descriptor comes from what org+project DISCOVERY resolved (resourceId/resourceName
+				// are the org's id/name) — the raw work item fixture above carries no `project` field at all.
+				project: { id: 'proj-1', name: 'Website', resourceId: 'org-1', resourceName: 'contoso' },
+				// Work item TYPE (Bug/Task/...) surviving as issueType is new coverage: every other fixture in
+				// this file leaves it unset, so issueType has never been pinned as anything but undefined before.
+				issueType: 'Bug',
+			},
+			'a project-scoped read maps every IssueShape field, not just id',
+		);
+		assert.equal(item.provider.id, GitCloudHostIntegrationId.AzureDevOps);
+
+		assert.equal(result.page.currentPage, 1);
+		assert.equal(result.page.itemsPerPage, 1);
+		assert.equal(result.page.truncated, undefined);
+		assert.equal(result.hasMore, false);
+		assert.equal(result.cursor, undefined);
+		assert.deepEqual(result.warnings, [], 'a supported, matched scope carries no warning');
+		assert.equal(result.fetchFailed, undefined, 'a successful scoped read leaves fetchFailed unset');
 
 		manager.dispose();
 	});
