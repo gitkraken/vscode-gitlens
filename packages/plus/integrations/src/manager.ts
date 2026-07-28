@@ -127,8 +127,19 @@ export interface IntegrationManager {
 	 *
 	 * Empty means no filter of that kind is expressible (issue trackers have no pull requests; Bitbucket exposes
 	 * no issues), which means "pass no filters", not "error".
+	 *
+	 * `issues` covers the repo-scoped issue read; `issuesAccountWide` covers the account-wide one (no `repos`).
+	 * They differ because they are different provider queries — GitLab can express `Assignee` account-wide and
+	 * nothing else — and `listIssuesPage` validates against whichever the read uses.
+	 *
+	 * This is a capability table, not a recommendation: a consumer matching another tool's behavior may pass fewer
+	 * filters than are listed, or none where the underlying read is already scoped.
 	 */
-	getSupportedFilters(providerId: IntegrationIds): { pullRequests: PullRequestFilter[]; issues: IssueFilter[] };
+	getSupportedFilters(providerId: IntegrationIds): {
+		pullRequests: PullRequestFilter[];
+		issues: IssueFilter[];
+		issuesAccountWide: IssueFilter[];
+	};
 	refreshConnections(): Promise<void>;
 	setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void>;
 	deleteConnection(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void>;
@@ -199,7 +210,20 @@ export interface IntegrationManager {
 		 */
 		org?: string;
 		project?: string;
+		/**
+		 * Narrows to the requested relationship(s), validated against `getSupportedFilters().issues` on the
+		 * repo-scoped path and `.issuesAccountWide` on the account-wide one.
+		 *
+		 * On the account-wide path this REPLACES the provider's own definition of "my issues" — GitHub/GHE union
+		 * authored + assigned + mentioned, Azure drains assigned + authored, GitLab reads assigned-to-me — so
+		 * `[Assignee]` gets `assignee:@me` semantics wherever it's expressible. Narrowing must happen here rather
+		 * than on the returned page: the excluded items still counted toward the provider's paging, so filtering
+		 * afterward leaves `items` describing a different result set than `hasMore`/`cursor`.
+		 *
+		 * A set the provider can't express server-side is refused whole (warning + `fetchFailed`), never widened.
+		 */
 		filters?: IssueFilter[];
+		/** Broadens to every assignee. Contradicts `filters`; passing both is refused. */
 		includeAllAssignees?: boolean;
 		/**
 		 * Requested 1-based page. Without a `cursor` this may cost O(page) upstream requests on a cursor-only
