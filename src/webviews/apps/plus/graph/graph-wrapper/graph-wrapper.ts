@@ -215,7 +215,15 @@ function wipRowMessage(label: string | undefined): string {
 // embedded gl-commit-author doesn't flash its `person` fallback icon between selections; if the
 // email isn't yet in the map, the full fetch will supply the URL.
 function buildCommitLite(
-	row: { sha: string; parents: string[]; author: string; email: string; date: number; message: string },
+	row: {
+		sha: string;
+		parents: string[];
+		author: string;
+		email: string;
+		date: number;
+		message: string;
+		stashNumber?: string;
+	},
 	repoPath: string,
 	avatars: GraphAvatars | undefined,
 ): CommitDetails {
@@ -228,6 +236,10 @@ function buildCommitLite(
 		author: { name: row.author, email: row.email, date: date, avatar: avatar },
 		committer: { name: row.author, email: row.email, date: date, avatar: avatar },
 		parents: row.parents,
+		// Carries the stash hint the details panel's `currentRef` reads to route file actions as stash
+		// operations. Without it a selected stash resolves as an ordinary commit, which finds nothing and
+		// leaves the action doing nothing at all — silently.
+		stashNumber: row.stashNumber,
 		repoPath: repoPath,
 	};
 }

@@ -8,11 +8,39 @@ import type { GitWorktree } from './worktree.js';
 export type GitGraphRowType = 'commit' | 'merge' | 'stash' | 'workdir';
 
 export interface GitGraphRowHead {
+	/**
+	 * Stable ref id. **Its presence is the provider-tier marker** — the one signal separating a ref that
+	 * can be acted on from a lean, name-only one, now that neither carries a serialized context.
+	 *
+	 * The CLI provider stamps an id on every ref it emits (`git-cli/providers/graph.ts:781`, `:805`,
+	 * `:836`); the GitHub provider never does, because it has no branch metadata to key
+	 * (`git-github/providers/github/graph.ts:231`, `:239`). So `id == null` means "this ref came from a
+	 * provider that computes nothing beyond a name", and every id-keyed feature — ref metadata, exclusions,
+	 * pinning, PR/issue lookup — must degrade rather than guess. Consumers already do this; it is written
+	 * down here because until now it was an accident of two providers rather than a stated contract.
+	 *
+	 * ⚠ An id means the ref is **identifiable and actionable** — it does NOT mean its enrichment is
+	 * complete. The CLI resolves branches, remotes and worktrees with `Promise.allSettled`
+	 * (`git-cli/providers/graph.ts:546`) and still synthesizes ids when any of those settle rejected, so an
+	 * id-bearing ref can carry a missing `starred`/`upstream` that means "not computed" rather than "no".
+	 * Treat every optional field as enrichment that may be absent, and never report a capability from its
+	 * absence. If a consumer ever needs to tell "unavailable" from "false", that wants one graph-level
+	 * completeness flag, not a per-ref field on every row.
+	 */
 	id?: string;
 	name: string;
 	isCurrentHead: boolean;
 	context?: string | object;
-	upstream?: { name: string; id: string };
+	/**
+	 * The tracked upstream. `missing`/`state` are optional here while {@link GitTrackingUpstream} makes
+	 * them required, and the difference is meaningful: absent means the producer did NOT compute them
+	 * (the GitHub provider has no branch metadata at all), NOT "present and false/zero". Consumers must
+	 * treat `undefined` as unknown rather than folding it into the negative case.
+	 */
+	upstream?: { name: string; id: string; missing?: boolean; state?: { ahead: number; behind: number } };
+	/** Starred (a GitKraken branch disposition). Structured so `+starred` stops being baked into the
+	 *  serialized context at row-build time, where starring a branch left the label stale. */
+	starred?: boolean;
 	/** Set when this branch is checked out in ANY worktree, including the default one. Grouped so
 	 *  producers can't half-populate id-without-path or vice versa. Consumers that mean "checked out
 	 *  somewhere other than here" — the ref-ordering tier and the worktree glyph — must test
@@ -24,6 +52,7 @@ export interface GitGraphRowHead {
 }
 
 export interface GitGraphRowRemoteHead {
+	/** Stable ref id; see {@link GitGraphRowHead.id} — its presence is the provider-tier marker. */
 	id?: string;
 	name: string;
 	url?: string;
@@ -35,9 +64,12 @@ export interface GitGraphRowRemoteHead {
 	 *  local checkout) — so the default-branch tier still applies for remote-only defaults. */
 	isDefault?: boolean;
 	hostingServiceType?: GkProviderId;
+	/** See {@link GitGraphRowHead.starred}. */
+	starred?: boolean;
 }
 
 export interface GitGraphRowTag {
+	/** Stable ref id; see {@link GitGraphRowHead.id} — its presence is the provider-tier marker. */
 	id?: string;
 	name: string;
 	annotated: boolean;
@@ -132,6 +164,8 @@ export interface GitGraphRow {
 	tags?: GitGraphRowTag[];
 	contexts?: GitGraphRowContexts;
 	stats?: GitGraphRowStats;
+	/** Stash rows only: the `{n}` of `stash@{n}`, so consumers stop parsing it back out of the message. */
+	stashNumber?: string;
 	/**
 	 * Transient, set only for the duration of {@link GraphRowProcessor.processRow} (the row processor's
 	 * `+unique` decision reads it). The provider strips it before pushing the row and records the

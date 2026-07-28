@@ -2274,8 +2274,12 @@ export class GlLitGraph extends LitElement {
 		const state = this.engineSession.update({
 			identity: this.repoPath,
 			sourceRows: sourceRows,
-			toCommit: row => toGraphCommit(row, idLength, this.repoPath),
-			payloadKey: idLength,
+			toCommit: row => toGraphCommit(row, idLength, this.repoPath, this.pinnedRef?.id),
+			// The pinned ref joins the payload key so pinning REBUILDS the ref contexts instead of leaving
+			// `+pinned` as whatever it was when the rows last changed. Same pin the host means — both read
+			// `filtersByRepo.pinnedRef.id`. A payload-key change remaps the payload only; the layout is
+			// untouched, and pinning is a user click rather than a stream event.
+			payloadKey: `${idLength}|${this.pinnedRef?.id ?? ''}`,
 			headSha: rows.find(row => row.heads?.some(head => head.isCurrentHead))?.sha,
 			pinnedShas: pinnedSha != null ? [pinnedSha] : undefined,
 			syntheticChildren: this.scopeAnchors.syntheticChildren,

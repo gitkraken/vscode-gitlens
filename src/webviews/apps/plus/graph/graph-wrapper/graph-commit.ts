@@ -10,6 +10,11 @@ import type {
 	GraphExcludeRefs,
 	GraphExcludeTypes,
 } from '../../../../plus/graph/protocol.js';
+import {
+	serializeBranchRefContext,
+	serializeRemoteBranchRefContext,
+	serializeTagRefContext,
+} from '../utils/refContext.utils.js';
 import { pickRowUndoTarget } from '../utils/row.utils.js';
 import {
 	isUnpublishedRow,
@@ -116,8 +121,16 @@ function mergeSerializedContexts(individual: string, group: string): string {
 /**
  * Convert a GitLens `GitGraphRow` into the commit-graph's canonical topology + payload shape.
  * `idLength` carries `gitlens.advanced.abbreviatedShaLength` into the rendered `shortSha`.
+ *
+ * `pinnedRefId` mirrors the host's own `getPinnedRefId()` — it only participates in the ref contexts, and
+ * only when they are built here rather than taken from the wire.
  */
-export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string): GraphCommitView {
+export function toGraphCommit(
+	row: GitGraphRow,
+	idLength = 7,
+	repoPath?: string,
+	pinnedRefId?: string,
+): GraphCommitView {
 	// refGroups carries each grouped ref's refGROUP context ("Hide All"), keyed by ref NAME. Seed it up
 	// front so the single ref pass below can merge it onto each ref's own item context (see
 	// `pillContextFor`) — grouped pills then expose both the ref actions and the refGroup actions.
@@ -152,8 +165,20 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 	// when the ref is grouped, so a grouped pill exposes BOTH the branch/remote actions AND the refGroup
 	// "Hide All". `refContext` (the pure individual) stays separate for the branch sheet.
 	let refContextsByKind: Record<string, string> | undefined;
+	// STRUCTURED-FIRST: build the ref's own context from the wire's structured fields, falling back to the
+	// string the host serialized. The fallback is not legacy tolerance — it is the virtual-repo path. The
+	// GitHub provider never runs the row processor, so those rows carry no string to fall back TO either;
+	// what the fallback actually covers is a row restored from a session snapshot written before the
+	// structured fields existed. Both shapes stay valid until the host stops serializing.
+	const refState = pinnedRefId != null ? { pinnedRefId: pinnedRefId } : undefined;
 	const addContext = (kind: string, name: string, ref: { context?: unknown; contextGroup?: unknown }): void => {
 		const serialized = serializeContext(ref.context) ?? serializeContext(ref.contextGroup);
+		if (serialized == null) return;
+
+		refContextsByKind ??= {};
+		refContextsByKind[`${kind}:${name}`] = serialized;
+	};
+	const setContext = (kind: string, name: string, serialized: string | undefined): void => {
 		if (serialized == null) return;
 
 		refContextsByKind ??= {};
@@ -168,7 +193,12 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 	};
 
 	for (const h of row.heads ?? []) {
-		addContext('head', h.name, h);
+		const headContext = repoPath != null ? serializeBranchRefContext(h, repoPath, refState) : undefined;
+		if (headContext != null) {
+			setContext('head', h.name, headContext);
+		} else {
+			addContext('head', h.name, h);
+		}
 		commitRefs.push({
 			kind: 'head',
 			name: h.name,
@@ -181,11 +211,16 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			secondaryWorktreeId: h.worktree != null && !h.worktree.isDefault ? h.worktree.id : undefined,
 			isDefault: h.isDefault,
 			context: pillContextFor('head', h.name),
-			refContext: serializeContext(h.context),
+			refContext: headContext ?? serializeContext(h.context),
 		});
 	}
 	for (const r of row.remotes ?? []) {
-		addContext('remote', r.name, r);
+		const remoteContext = repoPath != null ? serializeRemoteBranchRefContext(r, repoPath, refState) : undefined;
+		if (remoteContext != null) {
+			setContext('remote', r.name, remoteContext);
+		} else {
+			addContext('remote', r.name, r);
+		}
 		commitRefs.push({
 			kind: 'remote',
 			name: r.name,
@@ -195,17 +230,22 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			isDefault: r.isDefault,
 			hostingServiceType: r.hostingServiceType,
 			context: pillContextFor('remote', r.name),
-			refContext: serializeContext(r.context),
+			refContext: remoteContext ?? serializeContext(r.context),
 		});
 	}
 	for (const t of row.tags ?? []) {
-		addContext('tag', t.name, t);
+		const tagContext = repoPath != null ? serializeTagRefContext(t, repoPath) : undefined;
+		if (tagContext != null) {
+			setContext('tag', t.name, tagContext);
+		} else {
+			addContext('tag', t.name, t);
+		}
 		commitRefs.push({
 			kind: 'tag',
 			name: t.name,
 			id: t.id,
 			context: pillContextFor('tag', t.name),
-			refContext: serializeContext(t.context),
+			refContext: tagContext ?? serializeContext(t.context),
 		});
 	}
 

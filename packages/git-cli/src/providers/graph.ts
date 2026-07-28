@@ -810,6 +810,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								// `defaultLocalName!` is non-null here because `tip === defaultBranchName` short-circuits when `defaultBranchName` is null.
 								isDefault: tip === defaultBranchName && !branchMap.has(defaultLocalName!),
 								hostingServiceType: remote.provider?.gkProviderId,
+								// `branchMap` is keyed by full name, so the remote ref resolves here — the same
+								// lookup the host does today to bake `+starred` into the context string.
+								starred: branchMap.get(tip)?.starred || undefined,
 							});
 							continue;
 						}
@@ -835,10 +838,19 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						isCurrentHead: head,
 						upstream:
 							branch?.upstream != null
-								? { name: branch.upstream.name, id: getBranchId(repoPath, true, branch.upstream.name) }
+								? {
+										name: branch.upstream.name,
+										id: getBranchId(repoPath, true, branch.upstream.name),
+										missing: branch.upstream.missing,
+										state: {
+											ahead: branch.upstream.state.ahead,
+											behind: branch.upstream.state.behind,
+										},
+									}
 								: undefined,
 						worktree: worktreeRef,
 						isDefault: defaultLocalName != null && tip === defaultLocalName,
+						starred: branch?.starred || undefined,
 					});
 				}
 			}
@@ -857,6 +869,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					commitDate: Number(commit.committerDate) * 1000,
 					message: (stash.message ?? commit.message).trim(),
 					type: 'stash',
+					stashNumber: stash.stashNumber,
 					heads: refHeads,
 					remotes: refRemoteHeads,
 					tags: refTags,

@@ -3,6 +3,34 @@ import { getRemoteNameSlashIndex, isDetachedHead, parseRefName, parseUpstream } 
 
 suite('Branch Utils Test Suite', () => {
 	suite('parseUpstream', () => {
+		// KEY ORDER IS A CONTRACT, not a style choice. These objects are handed straight to
+		// `createReference` and serialized with a bare `JSON.stringify` into the graph's ref-pill
+		// `data-vscode-context`, and the webview rebuilds the same payload from the wire
+		// (`webviews/apps/plus/graph/utils/refContext.utils.ts`). A reordering here silently changes the
+		// bytes on one side only, so a `when` clause could match on a ref pill and not in Inspect.
+		// `providers/branches.ts` re-spreads this object, which preserves whatever order it is given —
+		// meaning this function is the single place the order is actually decided.
+		test('yields name, missing, state in that order — both arms', () => {
+			assert.deepStrictEqual(Object.keys(parseUpstream('refs/remotes/origin/main', '[ahead 3]')!), [
+				'name',
+				'missing',
+				'state',
+			]);
+			// The no-match arm is a separate literal and drifts independently.
+			assert.deepStrictEqual(Object.keys(parseUpstream('refs/remotes/origin/main', '')!), [
+				'name',
+				'missing',
+				'state',
+			]);
+		});
+
+		test('state is ahead then behind', () => {
+			assert.deepStrictEqual(
+				Object.keys(parseUpstream('refs/remotes/origin/main', '[ahead 3, behind 1]')!.state),
+				['ahead', 'behind'],
+			);
+		});
+
 		test('parses ahead only', () => {
 			const result = parseUpstream('refs/remotes/origin/main', '[ahead 3]');
 			assert.deepStrictEqual(result, {
