@@ -48,6 +48,7 @@ import type {
 import {
 	fromProviderIssue,
 	fromProviderPullRequest,
+	IssueFilter,
 	providerPullRequestMatchesSearch,
 	providersMetadata,
 	toProviderPullRequestStates,
@@ -1004,12 +1005,26 @@ export abstract class AzureDevOpsIntegrationBase<
 		// `includeAllAssignees` broadens to every issue in each project (any assignee, any author), so a single
 		// unfiltered drain per project replaces the assigned+authored pair — an unfiltered assignee drain already
 		// subsumes the authored one.
+		//
+		// `filters` narrows the other way: unfiltered, "my issues" here is assigned ∪ authored, which is wider than
+		// `assignee:@me`. Selecting the drains is the only correct place to narrow — dropping authored-only items
+		// from the returned page would leave them counted in the per-project paging that produced it.
+		const filters = searchOptions?.filters;
+		const wantAssigned = !filters?.length || filters.includes(IssueFilter.Assignee);
+		const wantAuthored = !filters?.length || filters.includes(IssueFilter.Author);
 		const outcomes = await Promise.all(
-			projects.values.flatMap(p =>
-				searchOptions?.includeAllAssignees
-					? [drain(p, {})]
-					: [drain(p, { assigneeLogins: [user.username!] }), drain(p, { authorLogin: user.username! })],
-			),
+			projects.values.flatMap(p => {
+				if (searchOptions?.includeAllAssignees) return [drain(p, {})];
+
+				const drains = [];
+				if (wantAssigned) {
+					drains.push(drain(p, { assigneeLogins: [user.username!] }));
+				}
+				if (wantAuthored) {
+					drains.push(drain(p, { authorLogin: user.username! }));
+				}
+				return drains;
+			}),
 		);
 
 		const issuesById = new Map<string, IssueShape>();

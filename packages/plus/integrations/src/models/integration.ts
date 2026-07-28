@@ -25,6 +25,7 @@ import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { IssueFilter } from '../providerFilters.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
@@ -73,6 +74,17 @@ export type AccountWideIssuesResult = {
  */
 export type SearchMyIssuesOptions = {
 	includeAllAssignees?: boolean;
+	/**
+	 * Narrows the account-wide read to the requested relationship(s) instead of the provider's own definition of
+	 * "my issues" (GitHub/GHE: authored ∪ assigned ∪ mentioned; Azure: assigned ∪ authored; GitLab:
+	 * assigned-to-me). Narrowing has to happen HERE, not on the returned page: the excluded items still counted
+	 * toward the provider's page/cursor, so a client-side filter desynchronizes `items` from `hasMore`.
+	 *
+	 * Only filters the provider can express server-side are accepted; the facade validates the set against
+	 * `ProviderMetadata.supportedAccountWideIssueFilters` (all-or-nothing) and refuses the read rather than
+	 * serving the unnarrowed union as if it had been filtered. Omitted keeps the provider's definition.
+	 */
+	filters?: IssueFilter[];
 	cursor?: string;
 	/**
 	 * Narrows the account-wide read to one org/account (Azure: the organization) and/or one project within it.

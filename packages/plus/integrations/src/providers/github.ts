@@ -34,7 +34,7 @@ import type {
 	ProviderPullRequest,
 	ProviderRepository,
 } from './models.js';
-import { providersMetadata, toProviderPullRequest, toProviderPullRequestStates } from './models.js';
+import { IssueFilter, providersMetadata, toProviderPullRequest, toProviderPullRequestStates } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
 type GitHubPullRequestStateCursor = Partial<Record<PullRequestStateFilter, string>>;
@@ -499,6 +499,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	/**
 	 * GitHub's account-wide issue search pages authored/assigned/mentioned independently behind one composite
 	 * cursor. This variant preserves that cursor and the provider's 1,000-result search ceiling signal.
+	 *
+	 * `options.filters` selects which of those three searches run, so a caller can narrow the union to just its
+	 * own slice (e.g. `[Assignee]` ⇒ `assignee:@me`). Omitted keeps GitHub's own definition of "mine" (all three).
 	 */
 	protected override async searchProviderMyIssuesWithTruncation(
 		session: ProviderAuthenticationSession,
@@ -522,6 +525,13 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				includeBody: true,
 				includeAllAssignees: options?.includeAllAssignees,
 				cursor: options?.cursor,
+				categories: options?.filters?.length
+					? {
+							authored: options.filters.includes(IssueFilter.Author),
+							assigned: options.filters.includes(IssueFilter.Assignee),
+							mentioned: options.filters.includes(IssueFilter.Mention),
+						}
+					: undefined,
 			},
 			cancellation,
 		);

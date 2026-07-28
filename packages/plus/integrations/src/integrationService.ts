@@ -548,15 +548,28 @@ export class IntegrationService implements Disposable {
 	 * Empty means "no filter of that kind is expressible": either the provider has no such surface (issue trackers
 	 * have no pull requests; Bitbucket exposes no issues) or its metadata declares none. Callers should treat it as
 	 * "don't pass filters", not as an error. Returns copies, so mutating the result can't corrupt the metadata.
+	 *
+	 * `issues` and `issuesAccountWide` are separate because the repo-scoped and account-wide issue reads are
+	 * different provider queries with different filter surfaces, and the same `filters` input is validated against
+	 * whichever one the read uses (`repos` present or not). `issuesAccountWide` is generally the narrower of the
+	 * two: GitLab, for instance, can express `Assignee` account-wide but nothing else, because the SDK's
+	 * account-wide input has no author/mention axis.
+	 *
+	 * Note this is a CAPABILITY table — "what the provider can express" — not a recommendation. A consumer
+	 * matching another tool's behavior may deliberately pass fewer filters than are listed here (or none, where an
+	 * already-scoped read would only be narrowed by them). Intersecting against this table is what keeps a
+	 * filtered read from being refused; it isn't a directive to use every filter in it.
 	 */
 	getSupportedFilters(providerId: IntegrationIds): {
 		pullRequests: PullRequestFilter[];
 		issues: IssueFilter[];
+		issuesAccountWide: IssueFilter[];
 	} {
 		const metadata = providersMetadata[providerId];
 		return {
 			pullRequests: [...(metadata?.supportedPullRequestFilters ?? [])],
 			issues: [...(metadata?.supportedIssueFilters ?? [])],
+			issuesAccountWide: [...(metadata?.supportedAccountWideIssueFilters ?? [])],
 		};
 	}
 
@@ -995,6 +1008,48 @@ export class IntegrationService implements Disposable {
 		if (supported == null || filters.some(f => !supported.includes(f))) return { unsupported: true };
 
 		return { filters: filters, unsupported: false };
+	}
+
+	/**
+	 * Validates a caller-provided issue filter set against what the provider's ACCOUNT-WIDE issue read can express
+	 * server-side ({@link ProviderMetadata.supportedAccountWideIssueFilters}), which is a different — usually
+	 * narrower — set than the repo-scoped {@link ProviderMetadata.supportedIssueFilters}.
+	 *
+	 * All-or-nothing, like {@link IntegrationService.resolvePullRequestFilters}: dropping the unexpressible members
+	 * would silently widen the read back toward the provider's own union (authored ∪ assigned ∪ mentioned for
+	 * GitHub), which is the opposite of what a caller narrowing to `[Assignee]` asked for. On `unsupported` the
+	 * caller must skip the read and warn, never fall through unfiltered.
+	 */
+	private resolveAccountWideIssueFilters(
+		id: IntegrationIds,
+		filters: IssueFilter[] | undefined,
+	): { filters?: IssueFilter[]; unsupported: boolean } {
+		if (filters == null || filters.length === 0) return { unsupported: false };
+
+		const supported = providersMetadata[id]?.supportedAccountWideIssueFilters;
+		if (supported == null || filters.some(f => !supported.includes(f))) return { unsupported: true };
+
+		return { filters: filters, unsupported: false };
+	}
+
+	/** Warning for an account-wide issue read whose requested filters the provider can't express server-side. */
+	private unsupportedAccountWideIssueFiltersWarning(
+		id: IntegrationIds,
+		domain: string | undefined,
+		connectionId: string | undefined,
+		filters: IssueFilter[],
+	): ProviderWarning {
+		const supported = providersMetadata[id]?.supportedAccountWideIssueFilters ?? [];
+		return {
+			providerId: id,
+			domain: domain,
+			connectionId: connectionId,
+			message: `The requested account-wide issue filters (${filters.join(', ')}) are not supported by '${id}'${
+				supported.length ? ` (supported: ${supported.join(', ')})` : ''
+			}; skipped to avoid returning a wider result than requested.`,
+			kind: 'other',
+			isAuth: false,
+		};
 	}
 
 	/** Warning for a repo-scoped PR read whose requested filters the provider supports none of. */
@@ -2129,6 +2184,10 @@ export class IntegrationService implements Disposable {
 	 * `org`/`project` narrow that account-wide read for a host with a project layer (Azure), whose read
 	 * otherwise fans out over every project of every org. They are rejected (warning + `fetchFailed`) for a host
 	 * without one, and ignored on the repo-scoped path where `repos` is already the scope.
+	 *
+	 * `filters` narrows BOTH paths, but against different capability sets, because they are different provider
+	 * queries — repo-scoped against `supportedIssueFilters`, account-wide against
+	 * `supportedAccountWideIssueFilters` (see {@link IntegrationService.getSupportedFilters}).
 	 */
 	async listIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -2137,7 +2196,15 @@ export class IntegrationService implements Disposable {
 		org?: string;
 		/** Narrows the account-wide read to one project. Requires a host with a project layer (Azure). */
 		project?: string;
+		/**
+		 * Narrows to the requested relationship(s). On the account-wide path this replaces the provider's own
+		 * definition of "my issues" (GitHub/GHE: authored ∪ assigned ∪ mentioned; Azure: assigned ∪ authored;
+		 * GitLab: assigned-to-me), so `[Assignee]` yields `assignee:@me` everywhere it's expressible. A set the
+		 * provider can't express server-side is refused whole (warning + `fetchFailed`), never widened — check
+		 * {@link IntegrationService.getSupportedFilters} first to avoid that path.
+		 */
 		filters?: IssueFilter[];
+		/** Broadens the read to every assignee. Contradicts `filters`; passing both is refused. */
 		includeAllAssignees?: boolean;
 		page?: number;
 		cursor?: string;
@@ -2218,6 +2285,30 @@ export class IntegrationService implements Disposable {
 		const accountWide = (options.repos?.length ?? 0) === 0;
 
 		if (accountWide) {
+			// Checked before the provider-specific guards below: a caller passing both has a contradictory request
+			// whatever the provider, and saying so is more useful than reporting one half of it as unsupported.
+			// `filters` narrows this read to a relationship (`[Assignee]` ⇒ just assigned-to-me); `includeAllAssignees`
+			// broadens it to every assignee. Honoring either silently would answer a question the caller didn't ask.
+			if (options.filters?.length && options.includeAllAssignees === true) {
+				return {
+					items: [],
+					warnings: [
+						{
+							providerId: options.providerId,
+							domain: domain,
+							connectionId: options.connectionId,
+							message:
+								'`filters` and `includeAllAssignees` are contradictory for an account-wide issue read; pass only one.',
+							kind: 'other',
+							isAuth: false,
+						},
+					],
+					page: { currentPage: 1, itemsPerPage: 0 },
+					hasMore: false,
+					fetchFailed: true,
+				};
+			}
+
 			if (
 				options.includeAllAssignees === true &&
 				(options.providerId === GitCloudHostIntegrationId.GitHub ||
@@ -2265,6 +2356,27 @@ export class IntegrationService implements Disposable {
 				};
 			}
 
+			// Narrowing the account-wide read is only honest when the provider can express it server-side: its
+			// per-relationship queries produced the page and the cursor together, so dropping items afterward would
+			// leave `items` describing a different result set than `hasMore`/`currentPage`.
+			const resolvedIssueFilters = this.resolveAccountWideIssueFilters(options.providerId, options.filters);
+			if (resolvedIssueFilters.unsupported) {
+				return {
+					items: [],
+					warnings: [
+						this.unsupportedAccountWideIssueFiltersWarning(
+							options.providerId,
+							domain,
+							options.connectionId,
+							options.filters!,
+						),
+					],
+					page: { currentPage: 1, itemsPerPage: 0 },
+					hasMore: false,
+					fetchFailed: true,
+				};
+			}
+
 			// The repo-scoped core rejects empty repos (GitHub/Bitbucket/Azure); read the account-wide,
 			// already-user-scoped core instead. GitHub exposes a composite cursor across its authored,
 			// assigned, and mentioned searches. Walk it internally when the caller supplies only page N.
@@ -2276,6 +2388,7 @@ export class IntegrationService implements Disposable {
 					() =>
 						integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId, {
 							includeAllAssignees: options.includeAllAssignees,
+							filters: resolvedIssueFilters.filters,
 							cursor: cursor,
 							org: options.org,
 							project: options.project,
