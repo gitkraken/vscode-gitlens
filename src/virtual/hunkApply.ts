@@ -91,6 +91,16 @@ export function applyHunks(base: Uint8Array | undefined, hunks: readonly Applyab
 			);
 		}
 
+		// A diff taken against this base can't point past its end, so an out-of-range start means the
+		// hunks belong to some other content. Additions-only bodies have no line to verify, so without
+		// this they would collapse onto EOF and append silently. `targetIdx === baseLines.length` is
+		// the legitimate append-at-EOF case.
+		if (targetIdx > baseLines.length) {
+			throw new Error(
+				`applyHunks: hunk '${hunk.hunkHeader}' starts past the end of the base (${String(baseLines.length)} lines) — these hunks don't belong to this base`,
+			);
+		}
+
 		while (cursor < targetIdx && cursor < baseLines.length) {
 			out.push(baseLines[cursor]);
 			cursor++;

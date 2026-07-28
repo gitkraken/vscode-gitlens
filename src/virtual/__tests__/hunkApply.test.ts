@@ -159,6 +159,27 @@ suite('applyHunks Test Suite', () => {
 			];
 			assert.throws(() => applyHunks(base, hunks), /end of file/);
 		});
+
+		// An additions-only body has nothing to verify, so an out-of-range start would otherwise
+		// collapse onto EOF and append silently instead of reporting the wrong base.
+		test('throws when a hunk starts past the end of the base', () => {
+			const base = toBytes('a\nb\n');
+			const hunks: ApplyableHunk[] = [{ hunkHeader: '@@ -50,0 +50,1 @@', content: '+x' }];
+			assert.throws(() => applyHunks(base, hunks), /starts past the end of the base/);
+		});
+
+		test('throws when a hunk starts one line past the end of the base', () => {
+			const base = toBytes('a\nb\n');
+			const hunks: ApplyableHunk[] = [{ hunkHeader: '@@ -4,0 +4,1 @@', content: '+x' }];
+			assert.throws(() => applyHunks(base, hunks), /starts past the end of the base/);
+		});
+
+		test('appends when a hunk starts exactly at the end of the base', () => {
+			const base = toBytes('a\nb\n');
+			const hunks: ApplyableHunk[] = [{ hunkHeader: '@@ -3,0 +3,1 @@', content: '+x' }];
+			const result = fromBytes(applyHunks(base, hunks));
+			assert.strictEqual(result, 'a\nb\nx\n');
+		});
 	});
 
 	suite('carriage returns', () => {
