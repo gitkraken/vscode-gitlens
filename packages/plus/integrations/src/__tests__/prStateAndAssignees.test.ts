@@ -100,6 +100,43 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('GitLab reports a state-filtered ACCOUNT-WIDE sweep as failed rather than silently empty', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		// The account-wide read (no `repos`) routes to the SDK's `getPullRequestsAssociatedWithUser`, which
+		// accepts no `states` and forwards none to the three per-association queries it fans out to — so each
+		// falls back to GitLab's `state: opened` default and the read can only ever return OPEN merge requests.
+		// Post-filtering those against a terminal state set discards every row, which used to surface as a
+		// SUCCESSFUL, complete, empty page: the closed/merged "done" sweep showed nothing at all for GitLab and
+		// nothing said so. The read must fail loudly instead.
+		let called = false;
+		stubApi(gl, {
+			isRepoIdsInput: () => false,
+			getCurrentUser: () => Promise.resolve({ username: 'me', id: 'me' }),
+			getPullRequestsForUser: () => {
+				called = true;
+				return Promise.resolve({ values: [], paging: undefined } satisfies PagedResult<ProviderPullRequest>);
+			},
+		});
+
+		const result = await manager.sweepClosedPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitLab],
+		});
+
+		assert.equal(called, false, 'the unfilterable read is not issued at all');
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true, 'the slice is reported incomplete, not empty-and-complete');
+		assert.equal(result.page.allPages, false, 'so a consumer cannot cache it as authoritative');
+		assert.deepEqual(result.failedProviderIds, [GitCloudHostIntegrationId.GitLab]);
+		assert.equal(result.warnings.length, 1, 'and the reason is attributable to the provider');
+		assert.match(result.warnings[0].message, /cannot be filtered by state/);
+
+		manager.dispose();
+	});
+
 	test('includeAllAssignees drops assigneeLogins (non-Azure branch)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
