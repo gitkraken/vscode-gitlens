@@ -557,9 +557,12 @@ export class GitLabApi implements Disposable {
 				provider,
 				{
 					id: buildGitLabUserId(pr.author?.id) ?? '',
-					name: pr.author?.name ?? 'Unknown',
-					avatarUrl: pr.author?.avatarUrl ?? '',
-					url: pr.author?.webUrl ?? '',
+					// An absent author stays absent: no `'Unknown'` name a consumer can't tell from a real one, and no
+					// `''` url/avatar that passes a presence check and renders as a link to nowhere. Matches
+					// `fromProviderAccount`/`toIssueShape`.
+					name: pr.author?.name ?? undefined,
+					avatarUrl: pr.author?.avatarUrl ?? undefined,
+					url: pr.author?.webUrl ?? undefined,
 				},
 				// oxlint-disable-next-line typescript/no-unnecessary-type-conversion
 				String(pr.iid),
@@ -922,12 +925,18 @@ export class GitLabApi implements Disposable {
 						iid: String(restPR.iid),
 						id: String(restPR.id),
 						state: restPR.state,
-						author: {
-							id: buildGitLabUserId(restPR.author?.id) ?? '',
-							name: restPR.author?.name ?? 'Unknown',
-							avatarUrl: restPR.author?.avatar_url ?? '',
-							webUrl: restPR.author?.web_url ?? '',
-						},
+						// An absent REST author stays absent (`null`, as GitLab's own shape expresses it) rather than a
+						// synthesized `'Unknown'` stub: `fromGitLabMergeRequest` collapses `null` to an absent
+						// `PullRequestMember.name`, whereas a placeholder here would launder into a real-looking name.
+						author:
+							restPR.author != null
+								? {
+										id: buildGitLabUserId(restPR.author.id) ?? '',
+										name: restPR.author.name,
+										avatarUrl: restPR.author.avatar_url ?? null,
+										webUrl: restPR.author.web_url,
+									}
+								: null,
 						title: restPR.title,
 						description: restPR.description,
 						webUrl: restPR.web_url,
