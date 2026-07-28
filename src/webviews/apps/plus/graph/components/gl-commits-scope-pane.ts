@@ -2,6 +2,8 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { commitsScopePaneStyles } from './gl-commits-scope-pane.css.js';
+import type { ScopeMode } from './gl-commits-scope-pane.utils.js';
+import { getMinEndIndex, resolveEndIndex, resolveStartIndex } from './gl-commits-scope-pane.utils.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/commit/commit-stats.js';
@@ -40,7 +42,7 @@ export class GlCommitsScopePane extends LitElement {
 	/** Both handles are fully draggable in both modes; 'compose' additionally enforces the
 	 *  unstaged-requires-staged floor on the end handle. */
 	@property()
-	mode: 'compose' | 'review' = 'compose';
+	mode: ScopeMode = 'compose';
 
 	/** Controlled selected IDs from the current ScopeSelection. Must represent a contiguous range. */
 	@property({ type: Array })
@@ -300,53 +302,12 @@ export class GlCommitsScopePane extends LitElement {
 
 	/** Effective start: resolves stored ID to index, falls back to default-start. */
 	private get rangeStart(): number {
-		if (this._userRangeStartId != null) {
-			const idx = this.items.findIndex(item => item.id === this._userRangeStartId);
-			return idx >= 0 ? idx : this.defaultStart;
-		}
-		return this.defaultStart;
+		return resolveStartIndex(this.items, this._userRangeStartId);
 	}
 
-	/** Effective end: resolves stored ID to index, falls back to default-end. */
+	/** Effective end: resolves stored ID to index, falls back to default-end, then honors the floor. */
 	private get rangeEnd(): number {
-		if (this._userRangeEndId != null) {
-			const idx = this.items.findIndex(item => item.id === this._userRangeEndId);
-			return idx >= 0 ? idx : this.defaultEnd;
-		}
-		return this.defaultEnd;
-	}
-
-	/**
-	 * Default start index. If any uncommitted (WIP) items exist, start at the first one
-	 * so the default selection covers only the WIP rows. Otherwise start at 0.
-	 */
-	private get defaultStart(): number {
-		const firstWip = this.items.findIndex(i => i.state === 'uncommitted');
-		if (firstWip >= 0) return firstWip;
-		return 0;
-	}
-
-	/**
-	 * Default end index, derived from items:
-	 *  - If any WIP items exist, end at the last WIP item (select WIP only).
-	 *  - Else, end at the last unpushed (non-pushed, non-merge-base, non-load-more) item.
-	 *  - Else, end at the first item.
-	 */
-	private get defaultEnd(): number {
-		let lastWip = -1;
-		let lastUnpushed = -1;
-		for (let i = 0; i < this.items.length; i++) {
-			const state = this.items[i].state;
-			if (state === 'uncommitted') {
-				lastWip = i;
-			}
-			if (state !== 'pushed' && state !== 'merge-base' && state !== 'load-more') {
-				lastUnpushed = i;
-			}
-		}
-		if (lastWip >= 0) return lastWip;
-		if (lastUnpushed >= 0) return lastUnpushed;
-		return 0;
+		return resolveEndIndex(this.mode, this.items, this._userRangeEndId, this.rangeStart);
 	}
 
 	/** Last index that a drag handle can land on (excludes merge-base and load-more items). */
@@ -362,21 +323,9 @@ export class GlCommitsScopePane extends LitElement {
 		return Math.min(this.maxDraggableIndex, this.rangeEnd);
 	}
 
-	/**
-	 * Shallowest index the end (bottom) handle may reach. Compose-only: a selection containing the
-	 * unstaged row must also contain the staged row — unstaged diffs are relative to the index, so
-	 * composing unstaged changes without the staged ones is ill-defined (the engine cannot exclude
-	 * staged content from a working-directory source). Review's diff calls handle staged/unstaged
-	 * independently, so it has no such floor.
-	 */
+	/** Shallowest index the end (bottom) handle may reach; compose-only floor (unstaged requires staged). */
 	private get minEndIndex(): number {
-		if (this.mode !== 'compose') return this.rangeStart;
-
-		const unstagedIndex = this.items.findIndex(i => i.id === 'unstaged');
-		if (unstagedIndex < 0 || this.rangeStart > unstagedIndex) return this.rangeStart;
-
-		const stagedIndex = this.items.findIndex(i => i.id === 'staged');
-		return stagedIndex >= 0 ? Math.max(this.rangeStart, stagedIndex) : this.rangeStart;
+		return getMinEndIndex(this.mode, this.items, this.rangeStart);
 	}
 
 	override render() {
