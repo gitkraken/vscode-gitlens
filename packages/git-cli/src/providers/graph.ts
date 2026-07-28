@@ -870,9 +870,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					message: (stash.message ?? commit.message).trim(),
 					type: 'stash',
 					stashNumber: stash.stashNumber,
-					heads: refHeads,
-					remotes: refRemoteHeads,
-					tags: refTags,
+					heads: refHeads.length ? refHeads : undefined,
+					remotes: refRemoteHeads.length ? refRemoteHeads : undefined,
+					tags: refTags.length ? refTags : undefined,
 					isCurrentUser: true,
 				};
 				// Don't seed `rowStats` from `stash.stats` here: the graph's stash list is fetched with
@@ -890,9 +890,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					commitDate: Number(commit.committerDate) * 1000,
 					message: commit.message.trim(),
 					type: parents.length > 1 ? 'merge' : 'commit',
-					heads: refHeads,
-					remotes: refRemoteHeads,
-					tags: refTags,
+					heads: refHeads.length ? refHeads : undefined,
+					remotes: refRemoteHeads.length ? refRemoteHeads : undefined,
+					tags: refTags.length ? refTags : undefined,
 					isCurrentUser: isCurrentUser || undefined,
 				};
 				if (commit.stats != null) {

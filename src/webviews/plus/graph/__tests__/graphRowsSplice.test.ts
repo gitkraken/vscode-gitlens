@@ -28,6 +28,26 @@ function flagsOf(n: number): GitGraphRowContextFlags {
 
 suite('graphRowsSplice', () => {
 	suite('fingerprintRow', () => {
+		// The bare-row skip is why the providers must OMIT empty ref arrays rather than ship `[]`. An empty
+		// array is still "present", so the skip never fires and every row pays a `JSON.stringify` it cannot
+		// need — a row with no refs and no contexts has nothing that can change between walks. This pins the
+		// distinction so the provider-side omission can't be quietly undone.
+		test('an empty ref array defeats the bare-row skip; omitting it does not', () => {
+			assert.strictEqual(fingerprintRow(row('a')), undefined, 'a bare row has no fingerprint');
+			assert.notStrictEqual(
+				fingerprintRow(row('a', { heads: [], remotes: [], tags: [] })),
+				undefined,
+				'shipping empty arrays makes every row look changeable',
+			);
+		});
+
+		// Losing a ref must still be seen: the fingerprint goes from a string to undefined, which the splice
+		// compares strictly, so the row is re-sent rather than reused.
+		test('a row that loses its last ref changes fingerprint', () => {
+			const withHead = row('a', { heads: [{ name: 'main', isCurrentHead: true }] });
+			assert.notStrictEqual(fingerprintRow(withHead), fingerprintRow(row('a')));
+		});
+
 		test('bare commit rows have no fingerprint', () => {
 			assert.strictEqual(fingerprintRow(row('a')), undefined);
 		});
