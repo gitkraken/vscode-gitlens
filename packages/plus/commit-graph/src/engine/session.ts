@@ -1,0 +1,378 @@
+/**
+ * Stateful, rendering-agnostic owner of the commit-graph engine lifecycle.
+ *
+ * A consumer supplies its native source rows plus a bridge to the canonical `GraphCommit`
+ * shape. The session owns delta classification, payload alignment, incremental paging resume,
+ * sticky-layout stability, rewrite/reroot recovery, suffix reconciliation, and the topology
+ * indexes derived from the engine result. It imports no host, DOM, or rendering-framework types.
+ */
+
+import { computeTrunkSegmentTip } from '../laneCollapse.js';
+import type { RowsDelta, RowTopology } from './delta.js';
+import { classifyRowsDelta, isHistoryRewrite, isTrunkReroot } from './delta.js';
+import { identifyFirstParentChain } from './layout.js';
+import type { GraphProcessResume, GraphStability } from './process.js';
+import { processGraphRows } from './process.js';
+import type { ReconciledSuffix } from './reconcile.js';
+import type { GraphCommit, LaneSegment, ProcessedGraphRow, Sha } from './types.js';
+
+export type CommitGraphSessionTransition =
+	| { kind: 'reset'; source: 'empty' | 'identity' }
+	| { kind: 'initial' }
+	| { kind: 'payload' }
+	| { kind: 'append'; firstNewIndex: number }
+	| {
+			kind: 'replace';
+			source: Exclude<RowsDelta['kind'], 'initial'> | 'view';
+			reconciled?: ReconciledSuffix;
+			renormalized?: boolean;
+	  };
+
+export type CommitGraphSessionUpdate<TSource extends RowTopology, TCommit extends GraphCommit> = {
+	/**
+	 * Identity of the graph dataset (normally a repository path). A change is a hard reset even when
+	 * the two repositories happen to share commit shas.
+	 */
+	identity?: string;
+	/** Rows after consumer-owned visibility filtering, in engine order (newest to oldest). */
+	sourceRows: readonly TSource[];
+	/** Git/provider-specific payload bridge. Called for all rows on replace/payload, and tail-only on append. */
+	toCommit: (row: TSource) => TCommit;
+	/**
+	 * Identity of adapter inputs not present on the source row (for example abbreviated-sha length).
+	 * This only invalidates payload mapping: topology (`sha`, `parents`, `kind`, and `date`) must come
+	 * from the source rows so topology changes are classified as source-row changes. When the key
+	 * changes during an append, the held prefix payload is remapped instead of reused.
+	 */
+	payloadKey?: unknown;
+	/** Current HEAD resolved by the consumer; no ref/provider types cross the package boundary. */
+	headSha?: Sha;
+	/** Ordered heads to pin to the leftmost lanes. */
+	pinnedShas?: readonly Sha[];
+	/** Scoped-view synthetic edge anchors. Empty is normalized to no synthetic edges. */
+	syntheticChildren?: ReadonlySet<Sha>;
+	/**
+	 * Stable identity of the user's view intent (for example the selected scope refs). Resolved anchors
+	 * may move while this stays fixed; changing it deliberately permits a cold relayout.
+	 */
+	viewKey?: string;
+};
+
+/**
+ * Current session state. Collections are session-owned and exposed read-only; consumers must not
+ * mutate or retain them as historical snapshots across a later `update`.
+ */
+export type CommitGraphSessionState<TCommit extends GraphCommit> = {
+	revision: number;
+	transition: CommitGraphSessionTransition;
+	commits: readonly TCommit[];
+	rows: readonly ProcessedGraphRow[];
+	segments: readonly LaneSegment[];
+	unloadedColumns: ReadonlyMap<Sha, number>;
+	indexBySha: ReadonlyMap<Sha, number>;
+	headSha?: Sha;
+	trunkSegmentTip?: Sha;
+	segmentByCommit: ReadonlyMap<Sha, Sha>;
+	wipAnchorShas: ReadonlySet<Sha>;
+	workdirShas: ReadonlySet<Sha>;
+	wipSegmentTips: ReadonlySet<Sha>;
+};
+
+function setsEqual<T>(a: ReadonlySet<T> | undefined, b: ReadonlySet<T> | undefined): boolean {
+	const aSize = a?.size ?? 0;
+	if (aSize !== (b?.size ?? 0)) return false;
+	if (aSize === 0) return true;
+
+	for (const value of a!) {
+		if (b?.has(value) !== true) return false;
+	}
+	return true;
+}
+
+function arraysEqual<T>(a: readonly T[] | undefined, b: readonly T[] | undefined): boolean {
+	const aLength = a?.length ?? 0;
+	if (aLength !== (b?.length ?? 0)) return false;
+
+	for (let i = 0; i < aLength; i++) {
+		if (a![i] !== b![i]) return false;
+	}
+	return true;
+}
+
+function normalizedSet<T>(values: ReadonlySet<T> | undefined): ReadonlySet<T> | undefined {
+	return values != null && values.size > 0 ? values : undefined;
+}
+
+function normalizedArray<T>(values: readonly T[] | undefined): readonly T[] | undefined {
+	return values != null && values.length > 0 ? values : undefined;
+}
+
+export class CommitGraphEngineSession<TSource extends RowTopology, TCommit extends GraphCommit> {
+	private _revision = 0;
+	private _identity?: string;
+	private _viewKey?: string;
+	private _payloadKey?: unknown;
+	private _sourceRows?: readonly TSource[];
+	private _commits: readonly TCommit[] = [];
+	private _rows: readonly ProcessedGraphRow[] = [];
+	private _segments: readonly LaneSegment[] = [];
+	private _unloadedColumns: ReadonlyMap<Sha, number> = new Map();
+	private _indexBySha: ReadonlyMap<Sha, number> = new Map();
+	private _headSha?: Sha;
+	private _trunkSegmentTip?: Sha;
+	private _segmentByCommit: ReadonlyMap<Sha, Sha> = new Map();
+	private _wipAnchorShas: ReadonlySet<Sha> = new Set();
+	private _workdirShas: ReadonlySet<Sha> = new Set();
+	private _wipSegmentTips: ReadonlySet<Sha> = new Set();
+	private _resume?: GraphProcessResume;
+	private _stability?: GraphStability;
+	private _syntheticChildren?: ReadonlySet<Sha>;
+	private _pinnedShas?: readonly Sha[];
+	private readonly _lastIndexedSegmentByTip = new Map<Sha, LaneSegment>();
+
+	/** Force the next update through a cold layout without changing the current dataset or view intent. */
+	resetLayout(): void {
+		this._sourceRows = undefined;
+		this._resume = undefined;
+		this._stability = undefined;
+	}
+
+	update(input: CommitGraphSessionUpdate<TSource, TCommit>): CommitGraphSessionState<TCommit> {
+		const identityChanged = input.identity !== this._identity;
+		const syntheticChildren = normalizedSet(input.syntheticChildren);
+		const pinnedShas = normalizedArray(input.pinnedShas);
+
+		if (input.sourceRows.length === 0) {
+			return this.reset(input, identityChanged ? 'identity' : 'empty');
+		}
+
+		const viewSwitched = identityChanged || input.viewKey !== this._viewKey;
+		const payloadKeyChanged = !Object.is(input.payloadKey, this._payloadKey);
+		const sourceDelta: RowsDelta = identityChanged
+			? { kind: 'initial' }
+			: classifyRowsDelta(this._sourceRows, input.sourceRows);
+		const priorSourceRows = this._sourceRows;
+		const priorCommits = this._commits;
+		const priorRowCount = this._rows.length;
+
+		let commits: readonly TCommit[];
+		if (
+			sourceDelta.kind === 'append' &&
+			!payloadKeyChanged &&
+			priorSourceRows != null &&
+			priorCommits.length === priorSourceRows.length
+		) {
+			commits = [
+				...priorCommits,
+				...input.sourceRows.slice(sourceDelta.firstNewIndex).map(row => input.toCommit(row)),
+			];
+		} else {
+			commits = input.sourceRows.map(row => input.toCommit(row));
+		}
+
+		const engineOptionsUnchanged =
+			!viewSwitched &&
+			arraysEqual(pinnedShas, this._pinnedShas) &&
+			setsEqual(syntheticChildren, this._syntheticChildren);
+
+		// Identical topology can retain the entire engine plane. HEAD is payload-derived, so verify
+		// that moving it does not select a different trunk segment before taking the fast path.
+		if (sourceDelta.kind === 'payload' && engineOptionsUnchanged && this._rows.length > 0) {
+			const trunkSegmentTip = computeTrunkSegmentTip(this._segments, this._rows, input.headSha);
+			if (trunkSegmentTip === this._trunkSegmentTip) {
+				this._sourceRows = input.sourceRows;
+				this._commits = commits;
+				this._headSha = input.headSha;
+				this.rememberInput(input, syntheticChildren, pinnedShas);
+				return this.state({ kind: 'payload' });
+			}
+		}
+
+		const resumable =
+			!viewSwitched &&
+			syntheticChildren == null &&
+			pinnedShas == null &&
+			this._resume != null &&
+			sourceDelta.kind === 'append';
+
+		let result: ReturnType<typeof processGraphRows>;
+		let transition: CommitGraphSessionTransition;
+		if (resumable) {
+			result = processGraphRows(commits, { resume: this._resume });
+			transition = { kind: 'append', firstNewIndex: sourceDelta.firstNewIndex };
+		} else {
+			const newHeadRow =
+				input.headSha != null ? input.sourceRows.find(row => row.sha === input.headSha) : undefined;
+			let freshParents: Map<Sha, readonly Sha[]> | undefined;
+			let priorTrunkChain: ReadonlySet<Sha> | undefined;
+			const trunkReroot = isTrunkReroot(this._headSha, input.headSha, {
+				firstParentOf: sha => {
+					if (newHeadRow?.sha === sha) return newHeadRow.parents[0];
+
+					freshParents ??= new Map(input.sourceRows.map(row => [row.sha, row.parents]));
+					return freshParents.get(sha)?.[0];
+				},
+				wasLaidOut: sha => this._indexBySha.has(sha),
+				isOnPriorTrunk: sha => {
+					if (this._headSha == null) return false;
+
+					priorTrunkChain ??= identifyFirstParentChain(this._rows, [this._headSha]);
+					return priorTrunkChain.has(sha);
+				},
+			});
+			const stableFrom =
+				this._rows.length > 0 &&
+				!trunkReroot &&
+				!viewSwitched &&
+				(sourceDelta.kind === 'payload' ||
+					(sourceDelta.kind === 'replace' && !isHistoryRewrite(priorSourceRows, input.sourceRows)))
+					? this._stability
+					: undefined;
+
+			result = processGraphRows(commits, {
+				syntheticChildren: syntheticChildren,
+				pinnedShas: pinnedShas,
+				stableFrom: stableFrom,
+				skipRenormalize: sourceDelta.kind === 'payload' || syntheticChildren != null,
+				reconcile:
+					sourceDelta.kind === 'replace' && this._rows.length > 0
+						? {
+								priorRows: this._rows,
+								priorIndexOfSha: sha => this._indexBySha.get(sha),
+							}
+						: undefined,
+			});
+			transition =
+				sourceDelta.kind === 'initial'
+					? { kind: 'initial' }
+					: {
+							kind: 'replace',
+							source: viewSwitched ? 'view' : sourceDelta.kind,
+							reconciled: result.reconciled,
+							renormalized: result.renormalized,
+						};
+		}
+
+		this._sourceRows = input.sourceRows;
+		this._commits = commits;
+		this._rows = result.rows;
+		this._segments = result.segments;
+		this._unloadedColumns = result.unloadedColumns;
+		this._resume = syntheticChildren == null && pinnedShas == null ? result.resume : undefined;
+		this._stability = result.stability;
+		this._headSha = input.headSha;
+		this.rebuildIndexesAndAnchors(transition.kind === 'append' ? priorRowCount : 0);
+		this.rememberInput(input, syntheticChildren, pinnedShas);
+		return this.state(transition);
+	}
+
+	private rebuildIndexesAndAnchors(firstNewIndex: number): void {
+		const appended = firstNewIndex > 0;
+		let indexBySha: Map<Sha, number>;
+		if (appended) {
+			indexBySha = this._indexBySha as Map<Sha, number>;
+			for (let i = firstNewIndex; i < this._rows.length; i++) {
+				indexBySha.set(this._rows[i].sha, i);
+			}
+		} else {
+			indexBySha = new Map();
+			for (let i = 0; i < this._rows.length; i++) {
+				indexBySha.set(this._rows[i].sha, i);
+			}
+		}
+		this._indexBySha = indexBySha;
+
+		const priorTrunk = this._trunkSegmentTip;
+		this._trunkSegmentTip = computeTrunkSegmentTip(this._segments, this._rows, this._headSha);
+
+		const wipAnchorShas = appended ? new Set(this._wipAnchorShas) : new Set<Sha>();
+		const workdirShas = appended ? new Set(this._workdirShas) : new Set<Sha>();
+		for (let i = firstNewIndex; i < this._rows.length; i++) {
+			const row = this._rows[i];
+			if (row.kind !== 'workdir') continue;
+
+			workdirShas.add(row.sha);
+			if (row.parents.length > 0) {
+				wipAnchorShas.add(row.parents[0]);
+			}
+		}
+
+		const wipSegmentTips = appended ? new Set(this._wipSegmentTips) : new Set<Sha>();
+		let segmentByCommit = this._segmentByCommit as Map<Sha, Sha>;
+		if (!appended || this._trunkSegmentTip !== priorTrunk) {
+			this._lastIndexedSegmentByTip.clear();
+			segmentByCommit = new Map();
+		}
+		for (const segment of this._segments) {
+			if (workdirShas.has(segment.tipSha)) {
+				wipSegmentTips.add(segment.tipSha);
+			}
+			if (this._lastIndexedSegmentByTip.get(segment.tipSha) === segment) continue;
+
+			this._lastIndexedSegmentByTip.set(segment.tipSha, segment);
+			if (segment.tipSha === this._trunkSegmentTip) continue;
+
+			for (const sha of segment.commitShas) {
+				segmentByCommit.set(sha, segment.tipSha);
+			}
+		}
+
+		this._segmentByCommit = segmentByCommit;
+		this._wipAnchorShas = wipAnchorShas;
+		this._workdirShas = workdirShas;
+		this._wipSegmentTips = wipSegmentTips;
+	}
+
+	private rememberInput(
+		input: CommitGraphSessionUpdate<TSource, TCommit>,
+		syntheticChildren: ReadonlySet<Sha> | undefined,
+		pinnedShas: readonly Sha[] | undefined,
+	): void {
+		this._identity = input.identity;
+		this._viewKey = input.viewKey;
+		this._payloadKey = input.payloadKey;
+		this._syntheticChildren = syntheticChildren;
+		this._pinnedShas = pinnedShas;
+	}
+
+	private reset(
+		input: CommitGraphSessionUpdate<TSource, TCommit>,
+		source: 'empty' | 'identity',
+	): CommitGraphSessionState<TCommit> {
+		this._sourceRows = input.sourceRows;
+		this._commits = [];
+		this._rows = [];
+		this._segments = [];
+		this._unloadedColumns = new Map();
+		this._indexBySha = new Map();
+		this._headSha = undefined;
+		this._trunkSegmentTip = undefined;
+		this._segmentByCommit = new Map();
+		this._wipAnchorShas = new Set();
+		this._workdirShas = new Set();
+		this._wipSegmentTips = new Set();
+		this._resume = undefined;
+		this._stability = undefined;
+		this._lastIndexedSegmentByTip.clear();
+		this.rememberInput(input, normalizedSet(input.syntheticChildren), normalizedArray(input.pinnedShas));
+		return this.state({ kind: 'reset', source: source });
+	}
+
+	private state(transition: CommitGraphSessionTransition): CommitGraphSessionState<TCommit> {
+		return {
+			revision: ++this._revision,
+			transition: transition,
+			commits: this._commits,
+			rows: this._rows,
+			segments: this._segments,
+			unloadedColumns: this._unloadedColumns,
+			indexBySha: this._indexBySha,
+			headSha: this._headSha,
+			trunkSegmentTip: this._trunkSegmentTip,
+			segmentByCommit: this._segmentByCommit,
+			wipAnchorShas: this._wipAnchorShas,
+			workdirShas: this._workdirShas,
+			wipSegmentTips: this._wipSegmentTips,
+		};
+	}
+}

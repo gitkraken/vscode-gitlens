@@ -1,33 +1,22 @@
 import { colorForColumn } from '@gitkraken/commit-graph/colors.js';
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
-import { classifyRowsDelta, isHistoryRewrite, isTrunkReroot } from '@gitkraken/commit-graph/engine/delta.js';
-import { collectReachable, identifyFirstParentChain } from '@gitkraken/commit-graph/engine/layout.js';
+import { collectReachable } from '@gitkraken/commit-graph/engine/layout.js';
 import {
 	buildChildrenBySha,
 	collectLaneChain,
 	findBranchingPointSha,
 } from '@gitkraken/commit-graph/engine/navigation.js';
-import type { GraphProcessResume, GraphStability } from '@gitkraken/commit-graph/engine/process.js';
-import { processCommitsAndSegments } from '@gitkraken/commit-graph/engine/process.js';
-import type { ReconciledSuffix } from '@gitkraken/commit-graph/engine/reconcile.js';
+import type { CommitGraphSessionTransition } from '@gitkraken/commit-graph/engine/session.js';
+import { CommitGraphEngineSession } from '@gitkraken/commit-graph/engine/session.js';
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
 import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/laneClamp.js';
-import {
-	appendDroppedRows,
-	applyDroppedRows,
-	compactColumns,
-	composeEffectiveCollapsed,
-	computeDefaultCollapsedSet,
-	computeDroppedShas,
-	computeSegmentMaps,
-	computeTrunkSegmentTip,
-	spliceDroppedRows,
-} from '@gitkraken/commit-graph/laneCollapse.js';
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
+import type { CommitGraphProjectionState } from '@gitkraken/commit-graph/projection.js';
+import { CommitGraphProjectionSession } from '@gitkraken/commit-graph/projection.js';
 import type { ScopeAnchors, ScopeProjection } from '@gitkraken/commit-graph/scope.js';
-import { computeInScopeShas, computeScopeAnchors, computeScopeProjection } from '@gitkraken/commit-graph/scope.js';
+import { computeInScopeShas, computeScopeAnchors } from '@gitkraken/commit-graph/scope.js';
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import {
 	changesFitWidth,
@@ -106,6 +95,7 @@ import { ModifierKeysController } from '../../../shared/controllers/modifier-key
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
+import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow, rowMarkerRolesFor } from '../utils/rowMarker.utils.js';
 import { branchHintFor, createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
@@ -194,19 +184,6 @@ const clamp = (value: number, min: number, max: number): number => Math.min(max,
  *  knowing about GitLens ref metadata — the scope math only asks "does this row carry that head?". */
 function rowHasHead(row: GitGraphRow, branchName: string): boolean {
 	return row.heads?.some(h => h.name === branchName) ?? false;
-}
-
-/** Content equality for the scope's synthetic-edge set. Must not be an identity compare: the set is
- *  rebuilt on every update, so equal-but-fresh is the normal case. */
-function shaSetsEqual(a: ReadonlySet<string> | undefined, b: ReadonlySet<string> | undefined): boolean {
-	if (a === b) return true;
-	if (a == null || b == null) return false;
-	if (a.size !== b.size) return false;
-
-	for (const sha of a) {
-		if (!b.has(sha)) return false;
-	}
-	return true;
 }
 
 // Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
@@ -500,8 +477,8 @@ const changesModeGlyphs: Record<ChangesColumnMode, TemplateResult> = {
 
 /**
  * The commit graph renderer. Owns the `<lit-virtualizer>` row list, the engine pipeline
- * (GitGraphRow → GraphCommitView → `processCommitsAndSegments`), container-focus keyboard nav,
- * and the delegated interaction model. Emits the `gl-graph-*` events `<gl-graph-wrapper>` consumes.
+ * (GitGraphRow → GraphCommitView → package-owned `CommitGraphEngineSession`), container-focus keyboard
+ * nav, and the delegated interaction model. Emits the `gl-graph-*` events `<gl-graph-wrapper>` consumes.
  *
  * Light DOM (`createRenderRoot` returns `this`) so VS Code's native `data-vscode-context` menu
  * resolution works and global `graph.scss` styles apply.
@@ -923,28 +900,11 @@ export class GlLitGraph extends LitElement {
 	private displayRows: readonly ProcessedGraphRow[] = [];
 	private commits: readonly GraphCommitView[] = [];
 	private segments: readonly LaneSegment[] = [];
-	// Incremental-append state for `recomputeRows`. When a rows change is a pure APPEND of older commits
-	// onto the same prefix (no scope, no pin, unchanged idLength), the engine resumes from `_engineResume`
-	// and only the new tail is mapped + processed (O(page) instead of O(total)). `_priorEngineSourceRows`
-	// is the last engine input (post-filter) used to classify the change; `commits` doubles as its
-	// mapping, reused for the prefix. Any mismatch falls back to a full recompute.
-	private _engineResume?: GraphProcessResume;
-	// Opaque sticky-columns token from the prior engine run — fed back as `stableFrom` so a fetch/new commit
-	// reproduces the prior lanes instead of reshuffling them. The engine owns how it's derived.
-	private _engineStability?: GraphStability;
-	private _priorEngineSourceRows?: readonly GitGraphRow[];
-	private _priorEngineIdLength?: number;
-	/** The scope (synthetic-edge) set and pin the HELD engine output was produced with. A payload-only
-	 *  update can reuse that output verbatim only while both still match — the columns are scope-independent,
-	 *  but the edges are not. Compared by CONTENT: `recomputeScope` rebuilds the set on every update, so a
-	 *  fresh-but-equal Set is the normal case and an identity compare would never hit. */
-	private _priorEngineSynthetic?: ReadonlySet<string>;
-	private _priorEnginePinnedSha?: string;
-	/** The user's scope INTENT (which refs they chose to look at) that the held output was produced under —
-	 *  deliberately NOT the anchors it resolved to. Switching scope restructures the view wholesale, which
-	 *  makes it the natural moment to also refresh the layout; the resolved anchors, by contrast, move on
-	 *  every commit, and refreshing on those would reintroduce the churn scoping is supposed to avoid. */
-	private _priorScopeIdentity?: string;
+	// The package-owned engine lifecycle. It retains the aligned payload/topology planes and all
+	// incremental resume/stability/reconciliation state; the Lit element consumes its current state.
+	private readonly engineSession = new CommitGraphEngineSession<GitGraphRow, GraphCommitView>();
+	private readonly projectionSession = new CommitGraphProjectionSession();
+	private engineTransition: CommitGraphSessionTransition = { kind: 'reset', source: 'empty' };
 	/** Memo for the serialized scope identity, keyed on the scope object it was derived from. */
 	private _scopeIdentityFor?: GraphScope;
 	private _scopeIdentity?: string;
@@ -952,45 +912,24 @@ export class GlLitGraph extends LitElement {
 	// skipped). willUpdate reads it (same synchronous update) to route a payload change to the light
 	// displayRows refresh (ref indexes + upstream requests) instead of the full lane re-derivation.
 	private lastRowsDeltaPayloadOnly = false;
-	// True when the LAST recomputeRows took the engine append path — willUpdate reads it to keep the
-	// frozen default-collapse set (no auto-folding of segments completed by paging; see
-	// recomputeLaneDerivations) and recomputeDisplayRows uses it to try the incremental drop pass.
-	private lastRowsDeltaAppendOnly = false;
-	// After a PREFIX change ('replace' — fetch/new commits), the aligned spans of trailing rows the
-	// engine run reconciled back to prior object identity (byte-identical output, so the swap is
-	// exact). The collapse filter uses it to splice the reused run instead of re-filtering the graph,
-	// and willUpdate keeps the frozen default-collapse set when a replace reconciled (a background
-	// update must not restructure the view under the user).
-	private lastRowsDeltaReconciled?: ReconciledSuffix;
 	// sha → reserved column for additional parents that paged off the window (never appear as a row).
 	// Re-threaded into the collapse/scope edge re-pass so a merge's dangling stub survives folding.
 	private unloadedColumns: ReadonlyMap<Sha, number> = new Map();
 	private zones: readonly ZoneSpec[] = defaultZones;
 	private maxColumn = 0;
 	// sha → index into `displayRows` (the rendered list — drives click/keyboard/range math).
-	private indexBySha = new Map<string, number>();
+	private indexBySha: ReadonlyMap<string, number> = new Map();
 	private lastRowsRef?: GitGraphRow[];
 	private lastIdLength = 7;
 	private lastColumnsRef?: GraphColumnsSettings;
 	// Monotonic counter stamped on every local columns write (rides UpdateColumnsCommand; the host acks
 	// it back as `columnsRevision` on every push). See `shouldApplyIncomingColumns`.
 	private columnsWriteRevision = 0;
-	// Cached collapse/scope derivation (the pre-filter row set produced by computeDisplayRows /
-	// compactColumns). Rebuilt only when its inputs change — so an incremental filter search, which
-	// re-runs recomputeDisplayRows on every results update without touching these inputs, reuses it
-	// instead of rebuilding the full set over all rows each time.
-	private cachedCollapsedRows?: readonly ProcessedGraphRow[];
-	private lastCollapsedRowsRef?: readonly ProcessedGraphRow[];
-	private lastCollapsedSegmentsRef?: ReadonlyMap<Sha, LaneSegment>;
-	private lastCollapsedJunctionsRef?: ReadonlySet<Sha>;
-	private lastCollapsedScopeRef?: ScopeProjection;
-
 	// Cached split-pill ref indexes (refRowIndex/localByUpstreamId/processedIndexBySha). They depend
 	// ONLY on processedRows, so rebuild only when it changes — a filter-search or lane toggle re-runs
 	// recomputeDisplayRows without touching processedRows and reuses these instead of re-walking all rows.
 	private cachedRefRowIndex?: Map<string, { sha: string; index: number }>;
 	private cachedLocalByUpstreamId?: Map<string, { sha: string; index: number; id?: string; name?: string }>;
-	private cachedProcessedIndexBySha?: Map<string, number>;
 	private lastRefIndexRowsRef?: readonly ProcessedGraphRow[];
 	private lastRefIndexCommitsRef?: readonly GraphCommitView[];
 	// sha→HOST row map over `this.rows` (raw GitGraphRow[], carries heads/remotes — `processedRows`
@@ -1001,11 +940,6 @@ export class GlLitGraph extends LitElement {
 	// The displayRows array the display index (indexBySha/maxColumn/focus) was last built from —
 	// an identity match skips that rebuild (payload-only refreshes keep the rendered list stable).
 	private lastIndexedDisplayRowsRef?: readonly ProcessedGraphRow[];
-	// The drop-set + engine unloaded-columns behind `cachedCollapsedRows` — the incremental collapse
-	// append diffs against these to prove the already-rendered region can't have changed.
-	private lastDroppedShas?: ReadonlySet<Sha>;
-	private lastDisplayUnloadedColumns?: ReadonlyMap<Sha, number>;
-
 	// Cached selection set (rebuilt only when `selectedRows` changes — not allocated per render).
 	private selectedShas: ReadonlySet<string> = new Set();
 	private lastSelectedRowsRef?: GraphSelectedRows;
@@ -1034,6 +968,7 @@ export class GlLitGraph extends LitElement {
 	private baseScrollMarkers: readonly ScrollMarker[] = [];
 	private lastSearchResultsRef?: DidSearchParams['results'];
 	private lastSearchModeRef?: GraphSearchMode;
+	private lastSearchActive = false;
 	private lastScrollMarkerTypesRef?: GraphScrollMarkerTypes[];
 	// Identity of the scope's merge-target anchors at the last marker recompute — the deferred row marker
 	// pull is caught by `changed.has('rowMarkerMergeTarget')`, but the scope's set has no such signal.
@@ -1071,11 +1006,6 @@ export class GlLitGraph extends LitElement {
 	private lastPinnedRef?: GraphPinnedRef;
 	private pinnedSha?: string;
 
-	// Lane-collapse session state (mirrors React's two manual sets; default-mode set is derived).
-	// Manual toggles re-derive synchronously in toggleLane, so willUpdate only handles the
-	// rows/config/search-driven recompute.
-	private manuallyCollapsed: ReadonlySet<Sha> = new Set();
-	private manuallyExpanded: ReadonlySet<Sha> = new Set();
 	private lastFoldingDefault?: 'none' | 'all' | 'auto';
 	// Tracks the prior `foldingEnabled` so willUpdate can detect toggles (a config-derived getter can't
 	// go through `changed.has`). Init matches the getter's fallback so the first pass sees no change.
@@ -1084,23 +1014,14 @@ export class GlLitGraph extends LitElement {
 	// Rows-only derivations (recomputed by recomputeRows, not on search/config/toggle).
 	private headSha?: string;
 	private trunkSegmentTip?: Sha;
-	// The frozen default-collapse set (see recomputeLaneDerivations): re-derived only when its real
-	// inputs change, carried verbatim across paging appends and manual fold toggles.
-	private lastDefaultCollapsedSet: ReadonlySet<Sha> = new Set();
 	private effectiveCollapsed: ReadonlySet<Sha> = new Set();
 	private segmentsByTipSha: ReadonlyMap<Sha, LaneSegment> = new Map();
-	private collapsedByTipSha: ReadonlyMap<Sha, LaneSegment> = new Map();
-	private visibleJunctions: ReadonlySet<Sha> = new Set();
 	private hiddenCountByTipSha: ReadonlyMap<Sha, number> = new Map();
 	// Set while scoped to a branch: the focal-spine projection (drives displayRows + suppresses the
 	// in-scope dimming, since the scoped view only renders in-scope rows). Undefined when not scoped.
 	private scopeProjection?: ScopeProjection;
 	// commit-sha → segment-tip-sha (non-trunk) for the gutter node's lane-collapse hit-target.
-	// Mutable so an append can index only the segments that actually changed (see recomputeRows).
-	private segmentByCommit = new Map<Sha, Sha>();
-	// tipSha → the exact segment object last folded into `segmentByCommit`. Finalized segments keep
-	// their identity across engine appends, so a reference match means "already indexed — skip".
-	private readonly lastIndexedSegmentByTip = new Map<Sha, LaneSegment>();
+	private segmentByCommit: ReadonlyMap<Sha, Sha> = new Map();
 	// Commits that WIP/workdir rows sit on (first-parent anchors). Kept visible on collapse so
 	// folding a lane never hides — nor re-anchors a WIP row away from — the commit it's based on.
 	private wipAnchorShas: ReadonlySet<Sha> = new Set();
@@ -1124,7 +1045,7 @@ export class GlLitGraph extends LitElement {
 	private localByUpstreamId = new Map<string, { sha: string; index: number; id?: string; name?: string }>();
 	// sha → processed-rows position; used for the split-pill jump direction (the counterpart may be
 	// collapsed, so it isn't always in the displayRows-based `indexBySha`).
-	private processedIndexBySha = new Map<string, number>();
+	private processedIndexBySha: ReadonlyMap<string, number> = new Map();
 	// Payload lookup for topology-only rows: sha → the aligned commit (commits[i] ↔ processedRows[i]).
 	// A stable arrow (reads live fields) so provider hooks and the render ctx never go stale.
 	private readonly getCommitBySha = (sha: string): GraphCommitView | undefined => {
@@ -1282,6 +1203,28 @@ export class GlLitGraph extends LitElement {
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
+		if (DEBUG) {
+			getGraphDebugDiagnostics().connect(this, () =>
+				createGraphDebugSnapshot({
+					repoPath: this.repoPath,
+					sourceRows: this.rows?.length ?? 0,
+					transition: this.engineTransition,
+					rows: this.processedRows,
+					segments: this.segments,
+					displayRows: this.displayRows,
+					collapsed: this.effectiveCollapsed,
+					maxColumn: this.maxColumn,
+					scoped: this.scopeProjection != null,
+					selected: this.selectedShas,
+					focusSha: this.displayRows[this.focusIndex]?.sha,
+					viewport: {
+						topSha: this._viewportTopSha,
+						topIndex: this._viewportTopIndex,
+						scrollTop: this._viewportScrollTop,
+					},
+				}),
+			);
+		}
 		// Start each (re-)connect with a clean scroll-shadow state — the scroller resets to top.
 		this.wasScrolled = false;
 		this.resizeObserver = new ResizeObserver(entries => {
@@ -1322,6 +1265,9 @@ export class GlLitGraph extends LitElement {
 	}
 
 	override disconnectedCallback(): void {
+		if (DEBUG) {
+			getGraphDebugDiagnostics().disconnect(this);
+		}
 		window.removeEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
 		document.removeEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
 		this.stopRelativeTimeTimer();
@@ -1401,6 +1347,13 @@ export class GlLitGraph extends LitElement {
 	}
 
 	override willUpdate(changed: PropertyValues<this>): void {
+		if (DEBUG) {
+			getGraphDebugDiagnostics().beginUpdate(this.rows, changed.has('rows'), {
+				changed: Array.from(changed.keys(), String),
+				repoPath: this.repoPath,
+				sourceRows: this.rows?.length ?? 0,
+			});
+		}
 		const idLength = this.config?.idLength ?? 7;
 
 		// Hiding stashes drops stash rows from the ENGINE input, and pinning a branch changes the column
@@ -1425,15 +1378,9 @@ export class GlLitGraph extends LitElement {
 
 		// A scope change invalidates manual fold state: those tip-shas key the PRIOR scope's segments /
 		// projection, so carrying them over leaks stale expand/collapse into the new scope (and the
-		// projection path silently honors a stale `manuallyExpanded` tip that collides in the new scope).
-		// Reset to the new scope's defaults.
+		// projection path could otherwise honor a stale tip that collides in the new scope). The package
+		// projection session resets those overrides from the viewKey passed during recompute.
 		if (scopeChanged) {
-			if (this.manuallyExpanded.size > 0) {
-				this.manuallyExpanded = new Set();
-			}
-			if (this.manuallyCollapsed.size > 0) {
-				this.manuallyCollapsed = new Set();
-			}
 			// The click-pinned ref focus keys a ref in the PRIOR scope's rows; carrying it over dims the
 			// new view against a stale chain and leaks the `document` pointerdown dismiss listener. Clear
 			// it directly (the @state writes re-render; the lane re-derivation below rebuilds the ref
@@ -1452,14 +1399,14 @@ export class GlLitGraph extends LitElement {
 
 		// Scope anchors depend on BOTH rows + scope (anchor reachability is row-membership — an
 		// unreachable anchor becomes reachable once more rows page in), and MUST run before
-		// recomputeRows since `syntheticChildren` feeds processCommitsAndSegments.
+		// recomputeRows since `syntheticChildren` feeds the package engine session.
 		if (rowsChanged || scopeChanged) {
 			this.lastScopeRef = this.scope;
 			this.recomputeScope();
 		}
 
 		// recomputeRows must also re-run on a scope-only change: `syntheticChildren` (just
-		// refreshed by recomputeScope) feeds processCommitsAndSegments, so the wavy synthetic
+		// refreshed by recomputeScope) feeds the engine session, so the wavy synthetic
 		// edges + trunk/segment maps would otherwise stay stale until the next rows prop.
 		if (rowsChanged || scopeChanged) {
 			// New rows prop (repo swap / full reload) → drop the persistent requested-avatars dedup so this data
@@ -1648,10 +1595,13 @@ export class GlLitGraph extends LitElement {
 			const sr = this.searchResults;
 			this._searchMatchedShas = sr != null && 'count' in sr ? new Set(Object.keys(sr.ids ?? {})) : undefined;
 		}
+		const searchActive = this.searching || this._searchMatchedShas != null;
+		const searchActiveChanged = searchActive !== this.lastSearchActive;
+		this.lastSearchActive = searchActive;
 
 		// Lane derivations depend on processedRows/segments, the default-mode config, whether a search
 		// is active (an active search suppresses default lane-collapse so matches inside auto-collapsed
-		// lanes stay visible — see computeDefaultCollapsedSet), and the manual override sets.
+		// lanes stay visible), and the package-owned manual collapse intent.
 		const configCollapseChanged = this.foldingDefault !== this.lastFoldingDefault;
 		// Toggling folding flips effectiveCollapsed (off → empty) and the provider set, so it re-derives
 		// lanes + rebuilds providers + adornments through the same paths a collapse-config change does.
@@ -1666,13 +1616,15 @@ export class GlLitGraph extends LitElement {
 		// untouched, so it takes the light path below: just the displayRows refresh, which rebuilds
 		// the payload-derived ref indexes + re-requests upstream metadata for new refs.
 		const rowsPayloadOnly = rowsChanged && this.lastRowsDeltaPayloadOnly;
+		// Read hoisted (the `lastSearchModeRef` latch stays below) so the payload-only fast path can skip a
+		// recompute that `recomputeSearchProjection` is about to do anyway.
+		const searchModeChanged = this.searchMode !== this.lastSearchModeRef;
 		const laneInputsChanged =
 			(rowsChanged && !rowsPayloadOnly) ||
 			scopeChanged ||
 			configCollapseChanged ||
-			searchResultsChanged ||
 			foldingChanged ||
-			changed.has('searching');
+			searchActiveChanged;
 		if (laneInputsChanged) {
 			this.lastFoldingDefault = this.foldingDefault;
 			// Refresh the DEFAULT-collapse set only when its real inputs change. A paging append keeps
@@ -1683,16 +1635,17 @@ export class GlLitGraph extends LitElement {
 			// update must not restructure the view; only genuine resets (repo swap, filter/scope/search
 			// changes, fold toggles) re-derive.
 			const rowsIncremental =
-				rowsChanged && (this.lastRowsDeltaAppendOnly || this.lastRowsDeltaReconciled != null);
+				rowsChanged &&
+				(this.engineTransition.kind === 'append' ||
+					(this.engineTransition.kind === 'replace' && this.engineTransition.reconciled != null));
 			this.recomputeLaneDerivations(
 				(rowsChanged && !rowsIncremental) ||
 					scopeChanged ||
 					configCollapseChanged ||
-					searchResultsChanged ||
 					foldingChanged ||
-					changed.has('searching'),
+					searchActiveChanged,
 			);
-		} else if (rowsPayloadOnly) {
+		} else if (rowsPayloadOnly && !searchResultsChanged && !searchModeChanged) {
 			this.recomputeDisplayRows();
 		}
 
@@ -1776,13 +1729,12 @@ export class GlLitGraph extends LitElement {
 		// Scroll-rail markers: recompute only when their inputs change (rendered rows, selection,
 		// search hits, or the enabled marker types) — NOT on every update, so the per-frame render
 		// path stays untouched. The marker set is bounded by ref'd/matched rows, so this is cheap.
-		const searchModeChanged = this.searchMode !== this.lastSearchModeRef;
 		this.lastSearchModeRef = this.searchMode;
-		// Filter mode re-filters displayRows when the matched set or mode changes. Lane derivation only
-		// depends on query/rows/scope, so it won't have re-run for a results-arrived/mode-toggle update —
-		// recompute here. MUST precede the marker recompute (markers map the RENDERED rows).
+		// Search mode changes the projection's final visibility. Results changes already re-derived
+		// structurally only when active/inactive changed; otherwise the filter-only path preserves
+		// fold/scope rows and render identities. This must precede markers, which map rendered rows.
 		if (!laneInputsChanged && (searchResultsChanged || searchModeChanged)) {
-			this.recomputeDisplayRows();
+			this.recomputeSearchProjection();
 		}
 
 		const markerTypes = this.config?.scrollMarkerTypes;
@@ -2268,13 +2220,14 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private recomputeRows(idLength: number): void {
-		const rows = this.rows;
+		const rows = this.rows ?? [];
 		// A DIRECT repo swap lands here with rows already present, so the empty-rows reset below never runs
 		// and the previous repo's tracked viewport row would survive into the new graph — where an
 		// overlapping sha (a shared commit, a fork, the same repo opened twice) resolves and re-parks the
 		// viewport at the old repo's position. Drop the tracking on identity change.
 		if (this.repoPath !== this._lastScrollRepoPath) {
 			this._lastScrollRepoPath = this.repoPath;
+			this.cancelPendingReveal();
 			this._pendingViewportTop = undefined;
 			this._pendingViewportTopIndex = undefined;
 			this._viewportTopSha = undefined;
@@ -2282,33 +2235,12 @@ export class GlLitGraph extends LitElement {
 			this._viewportScrollTop = 0;
 		}
 
-		if (rows == null || rows.length === 0) {
-			this._engineResume = undefined;
-			this._engineStability = undefined;
-			this._priorEngineSourceRows = undefined;
-			this._priorEngineSynthetic = undefined;
-			this._priorEnginePinnedSha = undefined;
-			// Also cleared here: a stale identity outlives the empty state and makes the next rows a
-			// non-switch, skipping the deliberate cold relayout a scope switch is supposed to take.
-			this._priorScopeIdentity = undefined;
+		if (rows.length === 0) {
 			this._pendingViewportTop = undefined;
 			this._pendingViewportTopIndex = undefined;
 			this._viewportTopSha = undefined;
 			this._viewportTopIndex = 0;
 			this._viewportScrollTop = 0;
-			this.commits = [];
-			this.processedRows = [];
-			this.segments = [];
-			this.unloadedColumns = new Map();
-			this.headSha = undefined;
-			this.trunkSegmentTip = undefined;
-			this.segmentByCommit = new Map();
-			this.lastIndexedSegmentByTip.clear();
-			this.wipAnchorShas = new Set();
-			this.workdirShas = new Set();
-			this.wipSegmentTips = new Set();
-			this.pinnedSha = undefined;
-			return;
 		}
 
 		// `excludeTypes.stashes` hides stash ROWS (not just a label) — drop them from the engine input so
@@ -2318,12 +2250,7 @@ export class GlLitGraph extends LitElement {
 		// reachable from any visible ref tip so hidden branches' commits AND lanes disappear, not just
 		// their pills. Threads through the engine over the reduced set (no orphaned lane reservations).
 		const sourceRows = this.filterRowsByRefVisibility(stashFiltered);
-		// An EMPTY anchor set is not a scope: `computeScopeAnchors` returns a Set whenever a scope is set,
-		// even when it resolved nothing, and a bare non-null set would otherwise disable the engine's
-		// append-resume and suffix reconciliation for free (they gate on scope, and empty synthetic edges
-		// change no output). Normalize it away here so every downstream gate sees the truth.
-		const syntheticAnchors = this.scopeAnchors.syntheticChildren;
-		const synthetic = syntheticAnchors != null && syntheticAnchors.size > 0 ? syntheticAnchors : undefined;
+
 		// Which refs the user scoped to — `branchRef`/`additionalBranchRefs` are their choice, while
 		// `focalBranchTipSha`/`mergeTargetTipSha`/`mergeBase` are resolved values that advance with the repo.
 		// Keying on the choice is what separates "the user switched view" (refresh) from "the anchors
@@ -2340,316 +2267,120 @@ export class GlLitGraph extends LitElement {
 					? JSON.stringify([this.scope.branchRef, (this.scope.additionalBranchRefs ?? []).toSorted()])
 					: undefined;
 		}
-		const scopeIdentity = this._scopeIdentity;
-		const scopeSwitched = scopeIdentity !== this._priorScopeIdentity;
+
 		// Pin the branch (gitlens.graph.pinBranchToEdge) to the leftmost lane(s) via the engine's
 		// `pinnedShas`. Resolved here so the jump-pill target + the layout share one source.
 		const pinnedSha = this.resolvePinnedSha(sourceRows);
 		this.pinnedSha = pinnedSha;
 
-		// Classify the change against the prior ENGINE INPUT (post-filter source rows). The compared
-		// fields (sha/parents/type/date) are exactly what feeds the layout, so `append`/`payload` can't
-		// false-positive into a stale graph. Append resumes the engine snapshot and processes ONLY the
-		// new tail — O(page) instead of O(total). Scope (synthetic edges) and pin runs can't seed a
-		// later plain resume, so those always take the full path (`_engineResume` is only kept for
-		// plain runs, which also blocks resuming FROM a scoped/pinned run).
-		const resumable = synthetic == null && pinnedSha == null && idLength === this._priorEngineIdLength;
-		const prior = this._priorEngineSourceRows;
-		const priorCommits = this.commits;
-		const delta = classifyRowsDelta(prior, sourceRows);
-		this.lastRowsDeltaPayloadOnly = false;
-		this.lastRowsDeltaAppendOnly = false;
-		this.lastRowsDeltaReconciled = undefined;
-
-		// Payload-only change (same topology, fresh objects — a ref moved, WIP metadata refreshed):
-		// the engine output is provably unchanged, so skip it and swap ONLY the payload plane. The two
-		// payload-DERIVED topology anchors — headSha (the HEAD flag rides on refs) and the trunk it
-		// selects — are recomputed first; if the trunk moved (clean-tree checkout), the segment maps'
-		// trunk exclusion changes, so fall through to the full path instead.
-		//
-		// Gated on the HELD OUTPUT still being valid — same scope set, same pin, same idLength — rather than
-		// on `resumable` (which additionally requires no scope at all). Reusing `resumable` here meant a
-		// scoped session took the full engine path on EVERY payload push, re-laying-out cold and minting new
-		// row objects each time; the columns don't depend on scope, only the edges do, so an unchanged scope
-		// set is the real precondition.
-		// `!scopeSwitched` as well: two different scopes can resolve to the SAME anchor set (re-scoping between
-		// branches that still share a tip and merge base), which would let the fast path reuse the held output
-		// and quietly skip the deliberate cold relayout a scope switch is supposed to take. The output would
-		// still be correct — the engine inputs really are identical — but the switch is the one moment where a
-		// relayout is free to the user, and the only thing that clears drift accumulated while scoped (where
-		// `skipRenormalize` suppresses the backstop).
-		const payloadReusable =
-			!scopeSwitched &&
-			idLength === this._priorEngineIdLength &&
-			pinnedSha === this._priorEnginePinnedSha &&
-			shaSetsEqual(synthetic, this._priorEngineSynthetic);
-		if (payloadReusable && this.processedRows.length > 0 && delta.kind === 'payload') {
-			const headSha = rows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha;
-			if (computeTrunkSegmentTip(this.segments, this.processedRows, headSha) === this.trunkSegmentTip) {
-				this.headSha = headSha;
-				this.commits = sourceRows.map(r => toGraphCommit(r, idLength, this.repoPath));
-				this._priorEngineSourceRows = sourceRows;
-				this.lastRowsDeltaPayloadOnly = true;
-				return;
-			}
-		}
-
-		const isAppend =
-			resumable &&
-			this._engineResume != null &&
-			prior != null &&
-			priorCommits.length === prior.length &&
-			delta.kind === 'append';
-
-		// Current HEAD row (WIP rows carry no heads, so this finds the real HEAD commit). Reused for the
-		// trunk-reroot check below and the post-pass HEAD/trunk assignment; skipped on the append (paging)
-		// path, which neither re-roots nor recomputes HEAD from the full window. The ROW (not just the sha)
-		// is kept so the re-root check can take its first parent without indexing anything.
-		const newHeadRow = isAppend ? undefined : rows.find(r => r.heads?.some(h => h.isCurrentHead));
-		const newHeadSha = newHeadRow?.sha;
-
-		let processed: readonly ProcessedGraphRow[];
-		let segments: readonly LaneSegment[];
-		let unloadedColumns: ReadonlyMap<Sha, number>;
-		let commits: readonly GraphCommitView[];
-		if (isAppend) {
-			const newCommits = sourceRows.slice(prior.length).map(r => toGraphCommit(r, idLength, this.repoPath));
-			commits = [...priorCommits, ...newCommits];
-			const result = processCommitsAndSegments(commits, { resume: this._engineResume });
-			processed = result.rows;
-			segments = result.segments;
-			unloadedColumns = result.unloadedColumns;
-			this._engineResume = result.resume;
-			this._engineStability = result.stability;
-		} else {
-			commits = sourceRows.map(r => toGraphCommit(r, idLength, this.repoPath));
-			// Sticky columns: seed the layout with the prior run's lane assignments so the unchanged region
-			// reproduces its layout across a top insertion — free-column allocation is order-sensitive, so
-			// without the hint a fetch/new commit reshuffles lane colors AND defeats the suffix reconciliation
-			// below. The engine's opaque token carries that hint; how it's derived (below-window stubs vs real
-			// rows) is an engine detail we deliberately don't reach into.
-			//
-			// BUT sticky columns are only a valid fixpoint across a PREPEND with an unchanged trunk anchor.
-			// Two ways that breaks, both invisible to the engine's area-based renormalize backstop:
-			//  - a history REWRITE (rebase/amend/squash) changes surviving commits' DAG roles, so reproducing
-			//    their prior columns drags lanes to the wrong column;
-			//  - a TRUNK RE-ROOT (ff-merge/checkout/reset) moves HEAD onto an already-loaded commit that is
-			//    NOT on the current trunk, so sticky keeps the now-current branch on its old side lane and
-			//    gaps lane 0 (the topology is unchanged, so `isHistoryRewrite` can't see it).
-			// Drop `stableFrom` for either — lay out cold (== reopening the graph, the known-correct
-			// recovery); an ordinary prepend keeps stability. Both tests are EXACT (refs + prior layout),
-			// deliberately: the engine sees only topology, so any lane-shape heuristic there cannot tell a
-			// re-root from an ordinary side-lane gap and would reshuffle lanes on plain fetches.
-			// All three lookups are built LAZILY, and `isTrunkReroot` consults them cheapest-first and only as
-			// far as it must: an unchanged HEAD (every fetch, every WIP edit) costs one comparison, and an
-			// ordinary commit resolves on the head row's own first parent, allocating nothing. Walking any
-			// further — a multi-commit pull fast-forward, or a revealed branch — indexes the fresh rows once.
-			// The prior trunk chain is built whenever the anchor is anything OTHER than the prior HEAD, which
-			// includes verdicts that come back false (a checkout to a commit already on the trunk).
-			let freshParents: Map<string, readonly string[]> | undefined;
-			let priorTrunkChain: ReadonlySet<string> | undefined;
-			const trunkReroot = isTrunkReroot(this.headSha, newHeadSha, {
-				firstParentOf: sha => {
-					// The head's own first parent comes off the row we already found — no index needed, which
-					// is what keeps the ordinary-commit path allocation-free.
-					if (newHeadRow?.sha === sha) return newHeadRow.parents[0];
-
-					// Deeper: the head hangs off other fresh commits (a pull fast-forward, or a branch whose
-					// commits were hidden until this checkout revealed them). Index the fresh rows once.
-					freshParents ??= new Map(sourceRows.map(r => [r.sha, r.parents]));
-					return freshParents.get(sha)?.[0];
-				},
-				wasLaidOut: sha => this.cachedProcessedIndexBySha?.has(sha) === true,
-				// Prior trunk = prior HEAD's first-parent chain (the DAG property `isTrunkReroot` documents),
-				// NOT the lane-collapse segment: lane 0 can split across segments and a <2-commit HEAD lane
-				// emits none, so a segment lookup would misread a same-trunk checkout as a re-root.
-				isOnPriorTrunk: sha => {
-					const priorHead = this.headSha;
-					if (priorHead == null) return false;
-
-					priorTrunkChain ??= identifyFirstParentChain(this.processedRows, [priorHead]);
-					return priorTrunkChain.has(sha);
-				},
+		const engineStartedAt = DEBUG ? performance.now() : 0;
+		const state = this.engineSession.update({
+			identity: this.repoPath,
+			sourceRows: sourceRows,
+			toCommit: row => toGraphCommit(row, idLength, this.repoPath),
+			payloadKey: idLength,
+			headSha: rows.find(row => row.heads?.some(head => head.isCurrentHead))?.sha,
+			pinnedShas: pinnedSha != null ? [pinnedSha] : undefined,
+			syntheticChildren: this.scopeAnchors.syntheticChildren,
+			viewKey: this._scopeIdentity,
+		});
+		if (DEBUG) {
+			getGraphDebugDiagnostics().measureStage('engine', engineStartedAt, {
+				transition: state.transition.kind,
+				sourceRows: sourceRows.length,
+				processedRows: state.rows.length,
+				reconciled:
+					state.transition.kind === 'replace' ? (state.transition.reconciled?.reused ?? 0) : undefined,
 			});
-			// `payload` qualifies as well as `replace`: identical topology makes the prior columns a proven
-			// fixpoint, so reproducing them is exactly right — refusing to (which is what every update inside
-			// a scoped session used to do) throws the layout to cold and permutes lanes, changing both the
-			// position AND the colour of a large share of the visible rows. The rewrite check is skipped for
-			// `payload` because identical topology cannot be a rewrite; `trunkReroot` still applies, and is
-			// what keeps a clean-tree checkout (a payload delta that moves HEAD) correct.
-			//
-			// SWITCHING scope is the deliberate exception: the view restructures wholesale at that moment, so
-			// it's the one point where a relayout costs the user nothing — and taking it here is what lets
-			// everything INSIDE a scoped session stay sticky and skip the renormalize backstop, since any
-			// drift accumulated while scoped is cleared on the way out.
-			const stableFrom =
-				this.processedRows.length > 0 &&
-				!trunkReroot &&
-				!scopeSwitched &&
-				(delta.kind === 'payload' || (delta.kind === 'replace' && !isHistoryRewrite(prior, sourceRows)))
-					? this._engineStability
-					: undefined;
-			// Prefix change (fetch/new commits/rebase): hand the prior rows to the engine so its edge
-			// pass — the expensive half — stops at carry convergence and splices the prior row objects
-			// (edges included) back in by IDENTITY. Byte-identical to a full run by construction; the
-			// spans drive the collapse filter's splice and keep the frozen fold set in place. The prior
-			// processed index anchors the alignment across cut/grown bottoms (fixed-count reloads).
-			const result = processCommitsAndSegments(commits, {
-				syntheticChildren: synthetic ?? undefined,
-				pinnedShas: pinnedSha != null ? [pinnedSha] : undefined,
-				stableFrom: stableFrom,
-				// Skip the renormalize backstop when it can only waste work or do harm: identical topology
-				// makes the sticky columns a proven fixpoint, and while SCOPED its whole-graph area metric
-				// ranks layouts by rows that aren't on screen — measured, it reshuffles the visible rows
-				// against their own interest far more often than for it. Switching scope relayouts cold
-				// anyway, so drift can't outlive the scoped session.
-				skipRenormalize: delta.kind === 'payload' || synthetic != null,
-				reconcile:
-					delta.kind === 'replace' && this.processedRows.length > 0
-						? {
-								priorRows: this.processedRows,
-								priorIndexOfSha: sha => this.cachedProcessedIndexBySha?.get(sha),
-							}
-						: undefined,
-			});
-			processed = result.rows;
-			segments = result.segments;
-			unloadedColumns = result.unloadedColumns;
-			// Only keep a resume for a plain (unscoped, unpinned) run — a scoped/pinned run's edge carry-over
-			// carries synthetic/pinned state that can't seed a later plain append.
-			this._engineResume = resumable ? result.resume : undefined;
-			this._engineStability = result.stability;
-			this.lastRowsDeltaReconciled = result.reconciled;
 		}
-		this._priorEngineSourceRows = sourceRows;
-		this._priorEngineIdLength = idLength;
-		// Record what this engine output was produced with, so the payload fast path above can tell whether
-		// the held output is still valid on the next update.
-		this._priorEngineSynthetic = synthetic;
-		this._priorEnginePinnedSha = pinnedSha;
-		this._priorScopeIdentity = scopeIdentity;
-		this.commits = commits;
-		this.lastRowsDeltaAppendOnly = isAppend;
-
-		this.processedRows = processed;
-		this.segments = segments;
-		this.unloadedColumns = unloadedColumns;
-		// Rows-only derivations — HEAD sha (isCurrentHead row), the trunk segment, the WIP anchor
-		// sets, and the commit→tip map for the gutter hit-target. On a pure APPEND these all patch
-		// from the prior values by scanning only the appended tail: the prefix can't change, the
-		// filter never drops the current HEAD, and segments only extend downward — so HEAD/trunk are
-		// either already known or sit in the tail, and only changed segments need re-indexing.
-		const firstNew = isAppend ? prior.length : 0;
-		const priorTrunk = this.trunkSegmentTip;
-		if (!isAppend) {
-			this.headSha = newHeadSha;
-			this.trunkSegmentTip = computeTrunkSegmentTip(segments, processed, this.headSha);
-		} else if (this.headSha == null) {
-			for (let i = firstNew; i < sourceRows.length; i++) {
-				if (sourceRows[i].heads?.some(h => h.isCurrentHead)) {
-					this.headSha = sourceRows[i].sha;
-					break;
-				}
-			}
-			this.trunkSegmentTip = computeTrunkSegmentTip(segments, processed, this.headSha);
+		this.engineTransition = state.transition;
+		this.lastRowsDeltaPayloadOnly = state.transition.kind === 'payload';
+		if (DEBUG && state.transition.kind !== 'append') {
+			getGraphDebugDiagnostics().cancelPage();
 		}
-		const wipAnchorShas = isAppend ? new Set(this.wipAnchorShas) : new Set<Sha>();
-		const workdirShas = isAppend ? new Set(this.workdirShas) : new Set<Sha>();
-		for (let i = firstNew; i < processed.length; i++) {
-			const r = processed[i];
-			if (r.kind !== 'workdir') continue;
 
-			workdirShas.add(r.sha);
-			if (r.parents.length > 0) {
-				wipAnchorShas.add(r.parents[0]);
-			}
-		}
-		// Segment tips that are WIP/workdir rows — excluded from `auto` default-collapse so working
-		// changes stay expanded (auto folds completed branches, not active WIP lanes). The trunk's
-		// entries are excluded from `segmentByCommit`; if the trunk tip MOVED (only possible when HEAD
-		// was discovered in the appended tail), the exclusions shift, so rebuild the index from scratch.
-		const wipSegmentTips = isAppend ? new Set(this.wipSegmentTips) : new Set<Sha>();
-		if (!isAppend || this.trunkSegmentTip !== priorTrunk) {
-			this.lastIndexedSegmentByTip.clear();
-			this.segmentByCommit = new Map();
-		}
-		for (const segment of segments) {
-			if (workdirShas.has(segment.tipSha)) {
-				wipSegmentTips.add(segment.tipSha);
-			}
-
-			// Reference match = this exact segment is already indexed (finalized segments keep their
-			// identity across appends); only new / re-finalized (extended open) segments re-index.
-			if (this.lastIndexedSegmentByTip.get(segment.tipSha) === segment) continue;
-
-			this.lastIndexedSegmentByTip.set(segment.tipSha, segment);
-			if (segment.tipSha === this.trunkSegmentTip) continue;
-
-			for (const sha of segment.commitShas) {
-				this.segmentByCommit.set(sha, segment.tipSha);
-			}
-		}
-		this.wipAnchorShas = wipAnchorShas;
-		this.workdirShas = workdirShas;
-		this.wipSegmentTips = wipSegmentTips;
+		this.commits = state.commits;
+		this.processedRows = state.rows;
+		this.segments = state.segments;
+		this.unloadedColumns = state.unloadedColumns;
+		this.processedIndexBySha = state.indexBySha;
+		this.headSha = state.headSha;
+		this.trunkSegmentTip = state.trunkSegmentTip;
+		this.segmentByCommit = state.segmentByCommit;
+		this.wipAnchorShas = state.wipAnchorShas;
+		this.workdirShas = state.workdirShas;
+		this.wipSegmentTips = state.wipSegmentTips;
 		// `indexBySha`/`maxColumn` are derived off `displayRows` in recomputeDisplayRows so they
 		// track what's actually rendered.
 	}
 
-	// Search/config/collapse-dependent lane derivations (default-mode + manual → effectiveCollapsed,
-	// segment maps), then the rendered displayRows. Rows-only inputs (headSha/trunkSegmentTip) are
-	// cached by recomputeRows, so this only re-runs when search/config/collapse actually change.
-	// `refreshDefaultCollapse` re-derives the default-collapse set; when false (paging appends,
-	// manual fold toggles) the frozen set carries over so scrolling never auto-folds rows away.
+	// Update the package-owned collapse/scope/search projection, then apply the UI-owned focus restoration,
+	// ref indexes, and paging trigger. `refreshDefaultCollapse` deliberately re-derives the frozen default
+	// fold set; paging and manual toggles preserve it so scrolling never auto-folds rows away.
 	private recomputeLaneDerivations(refreshDefaultCollapse = false): void {
-		const segments = this.segments;
-
-		// Scope re-root: when scoped to a branch (with a fork point), project the graph down to that
-		// branch's spine — the merge-target + older-history fold into expandable stubs, every other lane
-		// drops. The fold maps mirror the lane-collapse maps so the same chevron adornment + toggleLane
-		// path drive expand/collapse. `foldingEnabled` gates it just like ordinary folds.
-		const projection = this.foldingEnabled
-			? computeScopeProjection(this.processedRows, this.scope, this.scopeAnchors, this.manuallyExpanded)
-			: undefined;
-		this.scopeProjection = projection;
-		if (projection != null) {
-			this.segmentsByTipSha = projection.foldSegments;
-			this.collapsedByTipSha = projection.collapsedByTipSha;
-			this.hiddenCountByTipSha = projection.hiddenCountByTipSha;
-			this.effectiveCollapsed = new Set(projection.collapsedByTipSha.keys());
-			this.visibleJunctions = new Set();
-			this.recomputeDisplayRows();
-			return;
+		const prevFocusedSha = this.displayRows[this.focusIndex]?.sha;
+		const projectionStartedAt = DEBUG ? performance.now() : 0;
+		const state = this.projectionSession.update(
+			{
+				identity: this.repoPath,
+				viewKey: this._scopeIdentity,
+				rows: this.processedRows,
+				segments: this.segments,
+				unloadedColumns: this.unloadedColumns,
+				indexBySha: this.processedIndexBySha,
+				transition: this.engineTransition,
+				trunkSegmentTip: this.trunkSegmentTip,
+				wipAnchorShas: this.wipAnchorShas,
+				wipSegmentTips: this.wipSegmentTips,
+				foldingEnabled: this.foldingEnabled,
+				foldingDefault: this.foldingDefault,
+				searchActive: this.searching || this._searchMatchedShas != null,
+				filterShas: this.searchMode === 'filter' ? this._searchMatchedShas : undefined,
+				scope: this.scope,
+				scopeAnchors: this.scopeAnchors,
+			},
+			{ refreshDefaultCollapse: refreshDefaultCollapse },
+		);
+		if (DEBUG) {
+			getGraphDebugDiagnostics().measureStage('projection', projectionStartedAt, {
+				processedRows: this.processedRows.length,
+				displayRows: state.rows.length,
+				collapsed: state.effectiveCollapsed.size,
+				scope: state.scopeProjection != null,
+				scopeDropped: state.scopeProjection?.dropped.size ?? 0,
+				searchMode: this.searchMode,
+				transition: this.engineTransition.kind,
+			});
 		}
+		this.applyProjectionState(state);
+		this.recomputeDisplayRows(prevFocusedSha);
+	}
 
-		const defaultCollapsedSet = refreshDefaultCollapse
-			? computeDefaultCollapsedSet({
-					lanesFoldingDefault: this.foldingDefault,
-					segments: segments,
-					searchActive: this.searching || this._searchMatchedShas != null,
-					trunkSegmentTip: this.trunkSegmentTip,
-					wipTipShas: this.wipSegmentTips,
-				})
-			: this.lastDefaultCollapsedSet;
-		this.lastDefaultCollapsedSet = defaultCollapsedSet;
-		// Folding off → nothing collapses (default-collapse + manual folds are both ignored), so every
-		// lane stays expanded and no chevrons/fold strip render.
-		this.effectiveCollapsed = this.foldingEnabled
-			? composeEffectiveCollapsed(defaultCollapsedSet, this.manuallyExpanded, this.manuallyCollapsed)
-			: new Set<Sha>();
+	private applyProjectionState(state: CommitGraphProjectionState): void {
+		this.displayRows = state.rows;
+		this.indexBySha = state.indexBySha;
+		this.maxColumn = state.maxColumn;
+		this.scopeProjection = state.scopeProjection;
+		this.segmentsByTipSha = state.segmentsByTipSha;
+		this.hiddenCountByTipSha = state.hiddenCountByTipSha;
+		this.effectiveCollapsed = state.effectiveCollapsed;
+	}
 
-		const maps = computeSegmentMaps({
-			segments: segments,
-			wipAnchorShas: this.wipAnchorShas,
-			trunkSegmentTip: this.trunkSegmentTip,
-			effectiveCollapsed: this.effectiveCollapsed,
-		});
-		this.segmentsByTipSha = maps.segmentsByTipSha;
-		this.collapsedByTipSha = maps.collapsedByTipSha;
-		this.visibleJunctions = maps.visibleJunctions;
-		this.hiddenCountByTipSha = maps.hiddenCountByTipSha;
-
-		this.recomputeDisplayRows();
+	private recomputeSearchProjection(): void {
+		const prevFocusedSha = this.displayRows[this.focusIndex]?.sha;
+		const projectionStartedAt = DEBUG ? performance.now() : 0;
+		const state = this.projectionSession.updateFilter(
+			this.searchMode === 'filter' ? this._searchMatchedShas : undefined,
+		);
+		if (DEBUG) {
+			getGraphDebugDiagnostics().measureStage('projection-filter', projectionStartedAt, {
+				processedRows: this.processedRows.length,
+				displayRows: state.rows.length,
+				searchMode: this.searchMode,
+			});
+		}
+		this.applyProjectionState(state);
+		this.recomputeDisplayRows(prevFocusedSha);
 	}
 
 	// Recompute the scroll-rail markers from the rendered rows + search/selection/merge-target state. The
@@ -2701,39 +2432,12 @@ export class GlLitGraph extends LitElement {
 		this.scrollMarkerRows = groupScrollMarkersByRow(this.scrollMarkers);
 	}
 
-	// displayRows = processedRows minus rows hidden by collapsed lanes (junction-preserving,
-	// edges recomputed). indexBySha/maxColumn track this rendered list.
-	private recomputeDisplayRows(): void {
+	// Apply UI state derived from the package-owned rendered-row snapshot. The package owns final
+	// row visibility, display indexing, and graph width; focus, paging, and payload indexes stay here.
+	private recomputeDisplayRows(prevFocusedSha = this.displayRows[this.focusIndex]?.sha): void {
 		// Remember which commit is focused so keyboard focus follows the same commit across a
 		// collapse/expand instead of silently landing on a different row at the old index.
-		const prevFocusedSha = this.displayRows[this.focusIndex]?.sha;
-
-		// Scoped: drop everything off the focal spine (the projection's dropped set), then compact the
-		// now-sparse lanes so the focal branch isn't stranded in a high column with an empty gutter.
-		// Otherwise the ordinary lane-collapse path derives the dropped set from the collapsed segments.
-		// This derivation depends only on the rows + collapse/scope inputs (NOT the search filter), so it's
-		// memoized: a filter-search results update re-runs this method but leaves these inputs untouched.
-		let collapsed = this.cachedCollapsedRows;
-		if (
-			collapsed == null ||
-			this.processedRows !== this.lastCollapsedRowsRef ||
-			this.collapsedByTipSha !== this.lastCollapsedSegmentsRef ||
-			this.visibleJunctions !== this.lastCollapsedJunctionsRef ||
-			this.scopeProjection !== this.lastCollapsedScopeRef
-		) {
-			collapsed = this.recomputeCollapsedRows();
-			this.cachedCollapsedRows = collapsed;
-			this.lastCollapsedRowsRef = this.processedRows;
-			this.lastCollapsedSegmentsRef = this.collapsedByTipSha;
-			this.lastCollapsedJunctionsRef = this.visibleJunctions;
-			this.lastCollapsedScopeRef = this.scopeProjection;
-		}
-		this.displayRows = this.applySearchFilter(collapsed);
-
-		// The display index re-derives proportionally to the change: unchanged rendered list (cache
-		// hit + no-op filter — e.g. a payload-only refresh) → skip; identity-prefix append (paging
-		// with no collapse churn — row objects are reused, so endpoint identity proves the prefix) →
-		// patch only the appended range; anything else → rebuild.
+		// The snapshot identity also tells the UI whether paging appended rows or replaced the view.
 		const lastIndexed = this.lastIndexedDisplayRowsRef;
 		const displayRowsUnchanged = this.displayRows === lastIndexed;
 		const displayRowsAppended =
@@ -2743,17 +2447,7 @@ export class GlLitGraph extends LitElement {
 			this.displayRows.length > lastIndexed.length &&
 			this.displayRows[0] === lastIndexed[0] &&
 			this.displayRows[lastIndexed.length - 1] === lastIndexed.at(-1);
-		let maxColumn = this.maxColumn;
-		let indexBySha = this.indexBySha;
 		if (displayRowsAppended) {
-			for (let i = lastIndexed.length; i < this.displayRows.length; i++) {
-				const r = this.displayRows[i];
-				indexBySha.set(r.sha, i);
-				const m = Math.max(r.column, r.edgeColumnMax);
-				if (m > maxColumn) {
-					maxColumn = m;
-				}
-			}
 			this.lastIndexedDisplayRowsRef = this.displayRows;
 
 			// Pipelined prefetch: a page just applied (identity-prefix append). If the last rendered range is
@@ -2769,16 +2463,6 @@ export class GlLitGraph extends LitElement {
 				this.dispatchMoreRows();
 			}
 		} else if (!displayRowsUnchanged) {
-			maxColumn = 0;
-			indexBySha = new Map<string, number>();
-			for (let i = 0; i < this.displayRows.length; i++) {
-				const r = this.displayRows[i];
-				indexBySha.set(r.sha, i);
-				const m = Math.max(r.column, r.edgeColumnMax);
-				if (m > maxColumn) {
-					maxColumn = m;
-				}
-			}
 			this.lastIndexedDisplayRowsRef = this.displayRows;
 		}
 
@@ -2796,24 +2480,19 @@ export class GlLitGraph extends LitElement {
 		const priorIndexedCommits = this.lastRefIndexCommitsRef;
 		const cachedRef = this.cachedRefRowIndex;
 		const cachedLocal = this.cachedLocalByUpstreamId;
-		const cachedProcessedIdx = this.cachedProcessedIndexBySha;
 		let refRowIndex: Map<string, { sha: string; index: number }>;
 		let localByUpstreamId: Map<string, { sha: string; index: number; id?: string; name?: string }>;
-		let processedIndexBySha: Map<string, number>;
 		if (
 			cachedRef != null &&
 			cachedLocal != null &&
-			cachedProcessedIdx != null &&
 			this.processedRows === priorIndexedRows &&
 			this.commits === priorIndexedCommits
 		) {
 			refRowIndex = cachedRef;
 			localByUpstreamId = cachedLocal;
-			processedIndexBySha = cachedProcessedIdx;
 		} else if (
 			cachedRef != null &&
 			cachedLocal != null &&
-			cachedProcessedIdx != null &&
 			priorIndexedRows != null &&
 			priorIndexedCommits != null &&
 			priorIndexedRows.length > 0 &&
@@ -2826,225 +2505,32 @@ export class GlLitGraph extends LitElement {
 		) {
 			refRowIndex = cachedRef;
 			localByUpstreamId = cachedLocal;
-			processedIndexBySha = cachedProcessedIdx;
 			for (let i = priorIndexedRows.length; i < this.processedRows.length; i++) {
-				this.indexRowRefs(i, refRowIndex, localByUpstreamId, processedIndexBySha);
+				this.indexRowRefs(i, refRowIndex, localByUpstreamId);
 			}
 			this.lastRefIndexRowsRef = this.processedRows;
 			this.lastRefIndexCommitsRef = this.commits;
 		} else {
 			refRowIndex = new Map<string, { sha: string; index: number }>();
 			localByUpstreamId = new Map<string, { sha: string; index: number; id?: string; name?: string }>();
-			processedIndexBySha = new Map<string, number>();
 			for (let i = 0; i < this.processedRows.length; i++) {
-				this.indexRowRefs(i, refRowIndex, localByUpstreamId, processedIndexBySha);
+				this.indexRowRefs(i, refRowIndex, localByUpstreamId);
 			}
 			this.cachedRefRowIndex = refRowIndex;
 			this.cachedLocalByUpstreamId = localByUpstreamId;
-			this.cachedProcessedIndexBySha = processedIndexBySha;
 			this.lastRefIndexRowsRef = this.processedRows;
 			this.lastRefIndexCommitsRef = this.commits;
 		}
-		this.maxColumn = maxColumn;
 		this.refRowIndex = refRowIndex;
 		this.localByUpstreamId = localByUpstreamId;
-		this.processedIndexBySha = processedIndexBySha;
 
 		// Restore focus to the same commit if still visible; otherwise clamp into range. (An unchanged
 		// or purely-appended rendered list can't move the focused row, so those paths leave focus put.)
 		if (!displayRowsUnchanged && !displayRowsAppended && prevFocusedSha != null) {
-			const restored = indexBySha.get(prevFocusedSha);
+			const restored = this.indexBySha.get(prevFocusedSha);
 			this.focusIndex = restored ?? Math.max(0, Math.min(this.focusIndex, this.displayRows.length - 1));
 		}
-		this.indexBySha = indexBySha;
 		this.requestMissingRefsMetadata();
-	}
-
-	// The collapse-filtered row list (pre-search-filter). Scoped views and drop-set changes in the
-	// already-rendered region re-filter from scratch; a pure paging append reuses the prior survivors
-	// BY IDENTITY and drop/remap/edge-processes only the appended tail (the dominant page-in cost at
-	// scale — cloning every survivor + re-running the edge machine over the whole graph).
-	private recomputeCollapsedRows(): readonly ProcessedGraphRow[] {
-		if (this.scopeProjection != null) {
-			this.lastDroppedShas = undefined;
-			this.lastDisplayUnloadedColumns = undefined;
-			return compactColumns(
-				applyDroppedRows(this.processedRows, this.scopeProjection.dropped, this.unloadedColumns),
-			);
-		}
-		if (this.collapsedByTipSha.size === 0) {
-			this.lastDroppedShas = undefined;
-			this.lastDisplayUnloadedColumns = undefined;
-			return this.processedRows;
-		}
-
-		const dropped = computeDroppedShas(this.collapsedByTipSha, this.visibleJunctions);
-		const result =
-			this.tryAppendCollapsedRows(dropped) ??
-			this.tryPrefixSpliceCollapsedRows(dropped) ??
-			(dropped.size === 0
-				? this.processedRows
-				: applyDroppedRows(this.processedRows, dropped, this.unloadedColumns));
-		this.lastDroppedShas = dropped;
-		this.lastDisplayUnloadedColumns = this.unloadedColumns;
-		return result;
-	}
-
-	// The incremental path for a PREFIX change (fetch/new commits): the engine reconciled the
-	// byte-identical trailing rows back to prior identity (lastRowsDeltaReusedSuffix), so the prior
-	// filter output's suffix survivors are reusable — re-filter only the reprocessed head region.
-	// Undefined → the caller runs the full filter. Guards mirror tryAppendCollapsedRows.
-	private tryPrefixSpliceCollapsedRows(dropped: ReadonlySet<Sha>): readonly ProcessedGraphRow[] | undefined {
-		const reconciled = this.lastRowsDeltaReconciled;
-		if (reconciled == null) return undefined;
-		if (this.lastCollapsedScopeRef != null) return undefined;
-
-		const priorCollapsed = this.cachedCollapsedRows;
-		const priorRows = this.lastCollapsedRowsRef;
-		const priorDropped = this.lastDroppedShas;
-		const priorIdx = this.cachedProcessedIndexBySha;
-		if (priorCollapsed == null || priorRows == null || priorDropped == null || priorIdx == null) return undefined;
-
-		const rows = this.processedRows;
-		const { reused, priorStart, nextStart } = reconciled;
-		const priorSuffixEnd = priorStart + reused;
-
-		// The definitive alignment proof: the reconciliation swapped PRIOR objects into the new
-		// array, so the reused boundary must be the SAME object in both. Anything else (stale spans,
-		// filter over different rows) fails here.
-		if (rows[nextStart] == null || rows[nextStart] !== priorRows[priorStart]) return undefined;
-
-		// Same collapsed tips (a changed fold set invalidates prior survivors wholesale).
-		const priorTips = this.lastCollapsedSegmentsRef;
-		if (priorTips == null || priorTips.size !== this.collapsedByTipSha.size) return undefined;
-
-		for (const tip of this.collapsedByTipSha.keys()) {
-			if (!priorTips.has(tip)) return undefined;
-		}
-
-		// The drop-set delta must lie OUTSIDE the reused run — a drop change inside it would
-		// invalidate the reused survivors (membership or parent remaps). Cut rows (below the reused
-		// run — the host's fixed-count reload trimmed them) don't matter: they're gone entirely.
-		const inReusedRun = (sha: Sha): boolean => {
-			const i = priorIdx.get(sha);
-			return i != null && i >= priorStart && i < priorSuffixEnd;
-		};
-		for (const sha of dropped) {
-			if (!priorDropped.has(sha) && inReusedRun(sha)) return undefined;
-		}
-		for (const sha of priorDropped) {
-			if (!dropped.has(sha) && inReusedRun(sha)) return undefined;
-		}
-
-		// A prior below-window parent that became dropped would remap reused survivors' parents.
-		const priorUnloaded = this.lastDisplayUnloadedColumns;
-		if (priorUnloaded != null) {
-			for (const sha of priorUnloaded.keys()) {
-				if (dropped.has(sha)) return undefined;
-			}
-		}
-
-		// Head/tail-region sha lookups for the remap walk; reused-run lookups ride the prior index
-		// map through the alignment shift.
-		const nextSuffixEnd = nextStart + reused;
-		const newRegionIdx = new Map<Sha, number>();
-		for (let i = 0; i < nextStart; i++) {
-			newRegionIdx.set(rows[i].sha, i);
-		}
-		for (let i = nextSuffixEnd; i < rows.length; i++) {
-			newRegionIdx.set(rows[i].sha, i);
-		}
-		const shift = nextStart - priorStart;
-		return spliceDroppedRows({
-			priorDisplayRows: priorCollapsed,
-			processedRows: rows,
-			suffixStartIndex: nextStart,
-			suffixEndIndex: nextSuffixEnd,
-			priorIndexBySha: sha => priorIdx.get(sha),
-			priorSuffixStart: priorStart,
-			priorSuffixEnd: priorSuffixEnd,
-			dropped: dropped,
-			rowBySha: sha => {
-				const ni = newRegionIdx.get(sha);
-				if (ni != null) return rows[ni];
-
-				const pi = priorIdx.get(sha);
-				// Only the reused range of the prior map is positionally valid in the NEW array.
-				return pi != null && pi >= priorStart && pi < priorSuffixEnd ? rows[pi + shift] : undefined;
-			},
-			unloadedColumns: this.unloadedColumns,
-		});
-	}
-
-	// The incremental path for recomputeCollapsedRows: valid only for a pure engine append whose
-	// drop-set delta is confined to the appended region (see appendDroppedRows' contract). Undefined →
-	// the caller runs the full filter.
-	private tryAppendCollapsedRows(dropped: ReadonlySet<Sha>): readonly ProcessedGraphRow[] | undefined {
-		if (!this.lastRowsDeltaAppendOnly) return undefined;
-		if (this.lastCollapsedScopeRef != null) return undefined;
-
-		const priorCollapsed = this.cachedCollapsedRows;
-		const priorRows = this.lastCollapsedRowsRef;
-		const priorDropped = this.lastDroppedShas;
-		const priorIdx = this.cachedProcessedIndexBySha;
-		if (priorCollapsed == null || priorRows == null || priorDropped == null || priorIdx == null) return undefined;
-
-		// `processedRows` must be an identity-prefix extension of the rows the prior filter ran over.
-		const firstNew = priorRows.length;
-		if (firstNew === 0 || this.processedRows.length <= firstNew) return undefined;
-		if (this.processedRows[0] !== priorRows[0] || this.processedRows[firstNew - 1] !== priorRows.at(-1)) {
-			return undefined;
-		}
-
-		// Same collapsed tips (the frozen default set keeps this stable across appends; manual
-		// toggles re-derive through the full path).
-		const priorTips = this.lastCollapsedSegmentsRef;
-		if (priorTips == null || priorTips.size !== this.collapsedByTipSha.size) return undefined;
-
-		for (const tip of this.collapsedByTipSha.keys()) {
-			if (!priorTips.has(tip)) return undefined;
-		}
-
-		// The drop-set delta must lie entirely in the appended region — a drop change in the already-
-		// rendered region (junction appeared/vanished) invalidates prior survivors. The prior run's
-		// processed index still maps the prefix (identity-shared rows), so membership below the
-		// boundary is O(1) per sha.
-		const inPriorRegion = (sha: Sha): boolean => {
-			const i = priorIdx.get(sha);
-			return i != null && i < firstNew;
-		};
-		for (const sha of dropped) {
-			if (!priorDropped.has(sha) && inPriorRegion(sha)) return undefined;
-		}
-		for (const sha of priorDropped) {
-			if (!dropped.has(sha) && inPriorRegion(sha)) return undefined;
-		}
-
-		// A prior row's below-window parent that paged in AND got dropped would remap that PRIOR
-		// row's parents — prior unloaded reservations are exactly that parent set.
-		const priorUnloaded = this.lastDisplayUnloadedColumns;
-		if (priorUnloaded != null) {
-			for (const sha of priorUnloaded.keys()) {
-				if (dropped.has(sha)) return undefined;
-			}
-		}
-
-		const rows = this.processedRows;
-		const appendedIdx = new Map<Sha, number>();
-		for (let i = firstNew; i < rows.length; i++) {
-			appendedIdx.set(rows[i].sha, i);
-		}
-		return appendDroppedRows({
-			priorDisplayRows: priorCollapsed,
-			processedRows: rows,
-			firstNewIndex: firstNew,
-			dropped: dropped,
-			rowBySha: sha => {
-				const i = priorIdx.get(sha) ?? appendedIdx.get(sha);
-				return i != null ? rows[i] : undefined;
-			},
-			unloadedColumns: this.unloadedColumns,
-		});
 	}
 
 	// Fold row `i`'s payload refs into the split-pill indexes (shared by the full rebuild and the
@@ -3053,10 +2539,8 @@ export class GlLitGraph extends LitElement {
 		i: number,
 		refRowIndex: Map<string, { sha: string; index: number }>,
 		localByUpstreamId: Map<string, { sha: string; index: number; id?: string; name?: string }>,
-		processedIndexBySha: Map<string, number>,
 	): void {
 		const r = this.processedRows[i];
-		processedIndexBySha.set(r.sha, i);
 		const commitRefs = this.commits[i]?.commitRefs;
 		if (commitRefs == null) return;
 
@@ -3135,32 +2619,13 @@ export class GlLitGraph extends LitElement {
 				this.toggleLane(tip);
 			}
 		}
-		// STILL not loaded (not just hidden in a collapsed lane) — a bare `scrollToSha` would queue a reveal
-		// that never fires, because nothing pages the row in: the row simply isn't in `rows` and no request
-		// asks the host for it. Route through the same `gl-jump-to-commit` path the WIP row's jump button
-		// uses (→ graph-wrapper's `ensureAndSelectCommit` → `EnsureRowRequest` + a queued reveal), which
-		// loads it and then selects + reveals. That handler owns selection, so we're done here.
-		if (!this.indexBySha.has(sha)) {
-			// Same tree-focus handoff the loaded path does below — it drops the pill / sub-chip that triggered
-			// the jump (collapsing its fill, closing any grouped popover), which is visible behavior, not just
-			// focus bookkeeping. `focusIndex` is deliberately NOT set: the row isn't loaded, so there's no
-			// index to pin — exactly as the loaded path's own `idx != null` guard already handled.
-			this.treeRef.value?.focus();
-			document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha } }));
-			return;
-		}
-
-		this.scrollToSha(sha, 'center');
-		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
-
-		// Land keyboard focus ON the jumped-to row: focus the tree — dropping the pill / sub-chip that triggered
-		// the jump (collapsing its fill + closing any grouped popover) — and pin the focus index to the target so
-		// Arrow nav continues from there. `indexBySha` may still be empty when the reveal awaits a lane expand.
+		// Route loaded, collapsed, and unloaded targets through one wrapper-owned operation. It owns the
+		// load/select/reveal lifecycle and preserves the newest user intent while any row is materializing.
+		// Focus the tree first to drop the pill/sub-chip that triggered the jump (collapsing its fill and
+		// closing any grouped popover), preserving the existing handoff for every target state. The explicit
+		// focus policy moves the keyboard/ARIA anchor to the target after selection renders.
 		this.treeRef.value?.focus();
-		const idx = this.indexBySha.get(sha);
-		if (idx != null) {
-			this.focusIndex = idx;
-		}
+		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha, focus: true } }));
 	}
 
 	// Lazily request ref metadata (ahead/behind, PRs, issues) for the tracked refs in view that don't
@@ -3225,20 +2690,6 @@ export class GlLitGraph extends LitElement {
 		}
 	}
 
-	// Filter mode (`searchMode === 'filter'`): keep ONLY the rows matched by the active search, rendered
-	// as a flat single-column list of nodes. Lane topology isn't preserved (filter mode is a "show me
-	// the hits" view, not a structural one) — so each match is flattened to column 0 with no edges,
-	// avoiding the dangling lane stubs that keeping the original lane positions would leave behind.
-	// Normal mode returns the rows untouched (it dims non-matches in place). No active search → untouched.
-	private applySearchFilter(rows: readonly ProcessedGraphRow[]): readonly ProcessedGraphRow[] {
-		if (this.searchMode !== 'filter') return rows;
-
-		const matched = this._searchMatchedShas;
-		if (matched == null) return rows;
-
-		return rows.filter(r => matched.has(r.sha)).map(r => ({ ...r, column: 0, edges: {}, edgeColumnMax: 0 }));
-	}
-
 	// Dedupe by content so the paging signal doesn't refire every render; resets when the set
 	// empties so a future unreachable set fires once more.
 	private emitUnreachableAnchors(unreachable: ReadonlySet<string> | undefined): void {
@@ -3251,42 +2702,22 @@ export class GlLitGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('gl-graph-scopeanchorsunreachable', { detail: unreachable }));
 	}
 
-	// Toggle a lane segment's collapsed state (3-set transition, mirrors React `toggleCollapse`).
-	// Reads `this.effectiveCollapsed` for the current state, so it must re-derive SYNCHRONOUSLY
-	// (not via the async willUpdate) — otherwise a second toggle before the next update cycle
-	// would read stale `effectiveCollapsed` and repeat the same transition instead of reversing.
+	// Toggle a lane segment synchronously so a second input in the same Lit update cycle observes
+	// the new state. The projection session owns the collapse intent and derived row projection.
 	private toggleLane(tipSha: string): void {
-		const isCurrentlyCollapsed = this.effectiveCollapsed.has(tipSha);
-		if (isCurrentlyCollapsed) {
-			const expanded = new Set(this.manuallyExpanded);
-			expanded.add(tipSha);
-			this.manuallyExpanded = expanded;
-			if (this.manuallyCollapsed.has(tipSha)) {
-				const collapsed = new Set(this.manuallyCollapsed);
-				collapsed.delete(tipSha);
-				this.manuallyCollapsed = collapsed;
-			}
-		} else {
-			const collapsed = new Set(this.manuallyCollapsed);
-			collapsed.add(tipSha);
-			this.manuallyCollapsed = collapsed;
-			if (this.manuallyExpanded.has(tipSha)) {
-				const expanded = new Set(this.manuallyExpanded);
-				expanded.delete(tipSha);
-				this.manuallyExpanded = expanded;
-			}
-		}
-
 		// Anchor the viewport across the displayRows swap so a collapse/expand doesn't shift the content the
 		// user is looking at — and doesn't strand it under a fixed scrollTop when the fixed-size layout
 		// shrinks the spacer (the native-clamp variant). Captured against the CURRENT rows BEFORE the
 		// re-derivation; resolved against the NEW rows just after. Applied in updated(); an armed reveal wins
 		// (scrollToSha clears the anchor), so this never fights a jump-to-row.
 		const scrollAnchor = this.captureLaneScrollAnchor();
+		const prevFocusedSha = this.displayRows[this.focusIndex]?.sha;
 
-		// Re-derive in the same order willUpdate would, so effectiveCollapsed is fresh for the
-		// next toggle and the chevron/displayRows reflect the change on the next render.
-		this.recomputeLaneDerivations();
+		const toggle = this.projectionSession.toggle(tipSha);
+		if (toggle == null) return;
+
+		this.applyProjectionState(toggle.state);
+		this.recomputeDisplayRows(prevFocusedSha);
 		this.rebuildProviders();
 		this.invalidateAdornments();
 		if (scrollAnchor != null) {
@@ -3296,7 +2727,7 @@ export class GlLitGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('gl-graph-lanetoggle', { detail: { tipSha: tipSha } }));
 
 		// Announce the change for screen readers (the row count change is otherwise silent).
-		if (isCurrentlyCollapsed) {
+		if (toggle.wasCollapsed) {
 			this.announce('Lane expanded.');
 		} else {
 			const hidden = this.hiddenCountByTipSha.get(tipSha) ?? 0;
@@ -5594,7 +5025,7 @@ export class GlLitGraph extends LitElement {
 			// The WIP row's "Jump to Branch Tip" button carries the tip sha directly (`parents[0]`, the
 			// commit the working changes sit on) — a client-side scroll+select via the same
 			// `gl-jump-to-commit` path the WIP details header uses (graph-wrapper's onJumpToCommit →
-			// ensureAndSelectCommit); NOT a host round-trip like data-row-action.
+			// navigateToCommit); NOT a host round-trip like data-row-action.
 			const jumpSha = el.getAttribute('data-jump-sha');
 			if (jumpSha != null) {
 				document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha } }));
@@ -6592,6 +6023,19 @@ export class GlLitGraph extends LitElement {
 		this.treeRef.value?.focus({ focusVisible: false, ...options });
 	}
 
+	/** Move keyboard and `aria-activedescendant` focus to a rendered row after programmatic navigation. */
+	focusRow(sha: string): boolean {
+		const index = this.indexBySha.get(sha);
+		if (index == null) return false;
+
+		// Focus first: onFocusIn deliberately realigns to the current selection. The navigation
+		// selection is applied in the same task, but the event can still observe the prior row.
+		this.treeRef.value?.focus({ focusVisible: false });
+		this.focusIndex = index;
+		this._selectionAnchorIndex = index;
+		return true;
+	}
+
 	private onFocusIn = (event: FocusEvent): void => {
 		// Keyboard parity for the pointer tooltip path — a focused `data-tooltip` element (incl. the mode
 		// picker's glyph buttons) shows the same delegated tooltip. Runs for focus ANYWHERE in the
@@ -6647,6 +6091,15 @@ export class GlLitGraph extends LitElement {
 	// host's `_pendingRowsQuery` dedup collapse repeated calls to a single in-flight request, so firing
 	// this per scroll frame or per applied page can't storm the host — at most one page loads at a time.
 	private dispatchMoreRows(): void {
+		// Only mark the first accepted page ask. Repeated requests while loading are dropped upstream and
+		// must not restart the diagnostic duration.
+		if (DEBUG && !this.loading) {
+			getGraphDebugDiagnostics().markPageRequested({
+				repoPath: this.repoPath,
+				sourceRows: this.rows?.length ?? 0,
+				displayRows: this.displayRows.length,
+			});
+		}
 		this.dispatchEvent(new CustomEvent('gl-graph-morerows'));
 		this.announceLoadingMore();
 	}
@@ -6669,6 +6122,14 @@ export class GlLitGraph extends LitElement {
 		const { first, last } = event as Event & { first: number; last: number };
 		const rows = this.displayRows;
 		if (rows.length === 0) return;
+
+		if (DEBUG) {
+			getGraphDebugDiagnostics().markVirtualized({
+				first: first,
+				last: last,
+				displayRows: rows.length,
+			});
+		}
 
 		// A managed-focus row may have just recycled out of the window — pull focus back to the tree before
 		// it strands on <body>.
@@ -6863,7 +6324,7 @@ export class GlLitGraph extends LitElement {
 		this.applyPendingScrollAnchor();
 		// Same idea for rows arriving above the viewport, but computed by row count rather than measured.
 		this.applyPendingViewportTop();
-		// A reveal requested before its row was loaded (host EnsureRow round-trip) fires here once the
+		// A reveal requested before its row was loaded (host row-load round-trip) fires here once the
 		// row lands in displayRows.
 		this.flushPendingReveal();
 		// Keep the virtualizer pixel-snapped after every render too — the ResizeObserver only fires on OUR
@@ -6883,6 +6344,15 @@ export class GlLitGraph extends LitElement {
 				optin.style.left = `${cell.offsetLeft}px`;
 				optin.style.visibility = 'visible';
 			}
+		}
+		if (DEBUG) {
+			getGraphDebugDiagnostics().endUpdate({
+				repoPath: this.repoPath,
+				sourceRows: this.rows?.length ?? 0,
+				processedRows: this.processedRows.length,
+				displayRows: this.displayRows.length,
+				transition: changed.has('rows') ? this.engineTransition.kind : undefined,
+			});
 		}
 		// The header roving toolbar's tabindex sweep now runs via `headerRoving` (RovingTabindexController's
 		// hostUpdated), so nothing to do here.
@@ -6942,7 +6412,7 @@ export class GlLitGraph extends LitElement {
 
 	// ─── Controllable scroll-into-view ──────────────────────────────────────────────────────────
 	// Reveal is OPT-IN: callers invoke scrollToSha explicitly (search-result nav, sidebar select,
-	// ensureAndSelectCommit) — generic selection changes (a click, details-panel sync) never auto-
+	// navigateToCommit) — generic selection changes (a click, details-panel sync) never auto-
 	// scroll. A reveal for a not-yet-loaded row is held and flushed when the row arrives.
 	private _pendingRevealSha?: string;
 	private _pendingRevealPosition: 'center' | 'nearest' = 'center';
@@ -6959,6 +6429,12 @@ export class GlLitGraph extends LitElement {
 		this._pendingRevealSha = sha;
 		this._pendingRevealPosition = position;
 		this.flushPendingReveal();
+	}
+
+	/** Cancel a queued reveal and any post-layout retry. User selection and repository changes win. */
+	cancelPendingReveal(): void {
+		this._pendingRevealSha = undefined;
+		this._revealGeneration++;
 	}
 
 	// `scrollToIndex(idx, 'nearest')` replacement that also honors `gitlens.graph.scrollRowPadding` —
@@ -7086,7 +6562,7 @@ export class GlLitGraph extends LitElement {
 		if (landed === centered) return;
 
 		// The write didn't take: a row that just paged in (displayRows GREW this same update — e.g.
-		// jumpToRefRow's EnsureRow round-trip) can sit past the child virtualizer's PRE-growth spacer height,
+		// jumpToRefRow's row-load round-trip) can sit past the child virtualizer's PRE-growth spacer height,
 		// because updated() fires before that child resizes its spacer (the same race
 		// `applyPendingScrollAnchor` guards against). The browser then clamps us short — reproducing the very
 		// "settle short" flakiness this replaces. Re-assert once the child's own update lands.
@@ -8087,18 +7563,15 @@ export class GlLitGraph extends LitElement {
 		this.relayoutLanes();
 	};
 
-	// Lay the lanes out cold, discarding the sticky columns carried across updates: clearing the prior engine
-	// input is what makes the next recompute classify as `initial` (that is the only field the classifier
-	// reads); the stability token is cleared alongside it so the two can't drift if that ever changes. Cold
-	// means it re-runs the
-	// engine from scratch instead of taking the payload/append fast paths. The result is what reopening the
+	// Lay the lanes out cold, discarding the package session's incremental and sticky-layout state.
+	// The next recompute runs the engine from scratch instead of taking payload/append fast paths.
+	// The result is what reopening the
 	// graph produces — the workaround this replaces — but entirely webview-side: no refetch and no host
 	// round-trip. Deliberately layout-only: folds, scope, columns and selection are left alone.
 	private relayoutLanes(): void {
 		if (this.rows == null || this.rows.length === 0) return;
 
-		this._engineStability = undefined;
-		this._priorEngineSourceRows = undefined;
+		this.engineSession.resetLayout();
 		this.recomputeRows(this.lastIdLength);
 		this.recomputeLaneDerivations();
 		this.rebuildProviders();

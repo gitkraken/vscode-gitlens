@@ -1,22 +1,22 @@
 import * as assert from 'assert';
 import { computeColumnsAndSegments } from '../layout.js';
-import { processCommitsAndSegments } from '../process.js';
+import { processGraphRows } from '../process.js';
 import type { CommitKind, GraphCommit, GraphRow, ProcessedGraphRow } from '../types.js';
 
-function commit(hash: string, parents: string[], kind?: CommitKind, date = 0): GraphCommit {
+function commit(sha: string, parents: string[], kind?: CommitKind, date = 0): GraphCommit {
 	return {
-		hash: hash,
-		shortHash: hash.slice(0, 7),
-		message: hash,
+		sha: sha,
+		shortSha: sha.slice(0, 7),
+		message: sha,
 		author: 'Tester',
 		authorEmail: 'test@example.com',
 		date: date,
 		parents: parents,
-		kind: kind,
+		kind: kind ?? (parents.length > 1 ? 'merge' : 'commit'),
 	};
 }
 
-function row(sha: string, parents: string[], kind: CommitKind = 'commit'): GraphRow {
+function row(sha: string, parents: readonly string[], kind: CommitKind = 'commit'): GraphRow {
 	return { sha: sha, parents: parents, kind: kind, date: 0 };
 }
 
@@ -57,7 +57,7 @@ suite('engine/renormalize', () => {
 		for (let i = 1; i <= 50; i++) {
 			base.push(commit(`T${i}`, i < 50 ? [`T${i + 1}`] : []));
 		}
-		const prior = processCommitsAndSegments(base);
+		const prior = processGraphRows(base);
 
 		// A new long-lived branch forks deep at T45; sticky can't give it a low column (all preferred), so it
 		// parks right and its lane runs the whole height — the case renormalize exists to catch.
@@ -66,8 +66,8 @@ suite('engine/renormalize', () => {
 			next.push(commit(`N${i}`, [i < 20 ? `N${i + 1}` : 'T45']));
 		}
 		const full = [...next, ...base];
-		const sticky = processCommitsAndSegments(full, { stableFrom: prior.stability });
-		const cold = processCommitsAndSegments(full);
+		const sticky = processGraphRows(full, { stableFrom: prior.stability });
+		const cold = processGraphRows(full);
 
 		assert.ok(sticky.renormalized === true, 'a degraded far-right lane should trigger a renormalize');
 		assert.ok(
@@ -86,8 +86,8 @@ suite('engine/renormalize', () => {
 			commit('C', ['D']),
 			commit('D', []),
 		];
-		const first = processCommitsAndSegments(base);
-		const again = processCommitsAndSegments(base, { stableFrom: first.stability });
+		const first = processGraphRows(base);
+		const again = processGraphRows(base, { stableFrom: first.stability });
 		assert.ok(again.renormalized !== true, 'an unchanged relayout must not reshuffle lanes');
 		assert.deepStrictEqual(
 			[...columnsBySha(again.rows)],
@@ -110,17 +110,17 @@ suite('engine/renormalize', () => {
 		for (let i = 1; i <= 50; i++) {
 			base.push(commit(`T${i}`, i < 50 ? [`T${i + 1}`] : []));
 		}
-		const prior = processCommitsAndSegments(base);
+		const prior = processGraphRows(base);
 		const next: GraphCommit[] = [];
 		for (let i = 1; i <= 20; i++) {
 			next.push(commit(`N${i}`, [i < 20 ? `N${i + 1}` : 'T45']));
 		}
 		const full = [...next, ...base];
 
-		const normal = processCommitsAndSegments(full, { stableFrom: prior.stability });
+		const normal = processGraphRows(full, { stableFrom: prior.stability });
 		assert.strictEqual(normal.renormalized, true, 'fixture: this layout does renormalize by default');
 
-		const suppressed = processCommitsAndSegments(full, {
+		const suppressed = processGraphRows(full, {
 			stableFrom: prior.stability,
 			skipRenormalize: true,
 		});
@@ -137,16 +137,16 @@ suite('engine/renormalize', () => {
 			commit('T2', ['T3']),
 			commit('T3', []),
 		];
-		const prior = processCommitsAndSegments(base);
+		const prior = processGraphRows(base);
 		const next = [commit('N', ['T1']), ...base];
-		const nextRows = next.map(c => row(c.hash, c.parents, c.kind));
+		const nextRows = next.map(c => row(c.sha, c.parents, c.kind));
 
 		const stickyLayout = computeColumnsAndSegments(nextRows, {
 			preferredColumns: columnsBySha(prior.rows),
 		});
 		const coldLayout = computeColumnsAndSegments(nextRows);
-		const sticky = processCommitsAndSegments(next, { preferredColumns: columnsBySha(prior.rows) });
-		const cold = processCommitsAndSegments(next);
+		const sticky = processGraphRows(next, { preferredColumns: columnsBySha(prior.rows) });
+		const cold = processGraphRows(next);
 
 		// Same ordering by laneArea as by the true edge-pass gutter.
 		assert.strictEqual(
@@ -168,12 +168,12 @@ suite('engine/renormalize', () => {
 		// A trunk with several branches forking off it at different depths.
 		const trunk: GraphCommit[] = [];
 		for (let i = 0; i < 40; i++) {
-			trunk.push(mk(trunk.length ? [trunk.at(-1)!.hash] : []));
+			trunk.push(mk(trunk.length ? [trunk.at(-1)!.sha] : []));
 		}
 		trunk.reverse();
 		const branches: GraphCommit[][] = [];
 		for (let b = 0; b < branchCount; b++) {
-			branches.push([mk([trunk[8 + b * 5].hash])]);
+			branches.push([mk([trunk[8 + b * 5].sha])]);
 		}
 
 		const build = (): GraphCommit[] => {
@@ -185,27 +185,27 @@ suite('engine/renormalize', () => {
 			return rows.slice().sort((a, b) => b.date - a.date);
 		};
 
-		let stability = processCommitsAndSegments(build()).stability;
+		let stability = processGraphRows(build()).stability;
 		for (let step = 0; step < 60; step++) {
 			const b = Math.floor(rng() * branchCount);
 			if (rng() < 0.25) {
 				// Rebase: rewrite the branch onto the current trunk tip (all new shas, no preferences).
-				const onto = trunk[0].hash;
+				const onto = trunk[0].sha;
 				const fresh: GraphCommit[] = [];
 				let p = onto;
 				for (let i = branches[b].length - 1; i >= 0; i--) {
 					const c = mk([p]);
-					p = c.hash;
+					p = c.sha;
 					fresh.unshift(c);
 				}
 				branches[b] = fresh;
 			} else {
-				branches[b] = [mk([branches[b][0].hash]), ...branches[b]];
+				branches[b] = [mk([branches[b][0].sha]), ...branches[b]];
 			}
 
 			const rows = build();
-			const sticky = processCommitsAndSegments(rows, { stableFrom: stability });
-			const cold = processCommitsAndSegments(rows);
+			const sticky = processGraphRows(rows, { stableFrom: stability });
+			const cold = processGraphRows(rows);
 			// Renormalize guarantees the adopted layout is never materially worse than cold — allow a small
 			// slack for a benign sticky lane that never tripped the gate.
 			assert.ok(

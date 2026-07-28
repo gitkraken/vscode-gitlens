@@ -34,6 +34,10 @@
 			"types": "./src/paging.ts",
 			"default": "./src/paging.ts"
 		},
+		"./projection.js": {
+			"types": "./src/projection.ts",
+			"default": "./src/projection.ts"
+		},
 		"./scope.js": {
 			"types": "./src/scope.ts",
 			"default": "./src/scope.ts"
@@ -73,6 +77,10 @@
 		"./engine/reconcile.js": {
 			"types": "./src/engine/reconcile.ts",
 			"default": "./src/engine/reconcile.ts"
+		},
+		"./engine/session.js": {
+			"types": "./src/engine/session.ts",
+			"default": "./src/engine/session.ts"
 		},
 		"./engine/types.js": {
 			"types": "./src/engine/types.ts",

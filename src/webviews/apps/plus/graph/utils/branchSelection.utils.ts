@@ -40,8 +40,9 @@ export interface SelectionBranch {
  *       scope on this branch the row ALWAYS renders (focus outranks `branchesVisibility`); with a
  *       scope on another branch it never does; unscoped, the `branchesVisibility` /
  *       `includeOnlyRefs` check decides. Without the prediction, the cascade returned an
- *       unrenderable WIP sha — `ensureAndSelectCommit` would retry 10 RAFs and silently give up —
- *       or, desynced the other way, the tip while the WIP row was on screen.
+ *       unrenderable WIP sha — `navigateToCommit` would otherwise remain pending for a synthetic
+ *       row that cannot materialize — or, desynced the other way, the tip while the WIP row was
+ *       on screen.
  *    4. Otherwise → the branch's tip commit.
  *
  *  The "parentSha in loaded rows" gate on (1) and (2) prevents the same silent-failure mode:
@@ -59,8 +60,8 @@ export function getOverviewBranchSelectionSha(branch: SelectionBranch, ctx: Sele
 		const meta = wipMetadataBySha?.[wipSha];
 		// Require BOTH a known anchor AND the anchor in loaded rows — without metadata we can't
 		// promise the synthetic row exists in `decoratedRows`, and the `meta == null` short-
-		// circuit would otherwise hand back an unselectable sha that `ensureAndSelectCommit`
-		// spins 10 RAFs trying to find. Falls through to case (2) / tip when metadata is cold.
+		// circuit would otherwise hand back an unselectable sha that `navigateToCommit` would
+		// wait to materialize. Falls through to case (2) / tip when metadata is cold.
 		if (meta != null && (loadedShas == null || loadedShas.has(meta.parentSha))) {
 			return wipSha;
 		}
@@ -80,9 +81,9 @@ export function getOverviewBranchSelectionSha(branch: SelectionBranch, ctx: Sele
 	// rather than predicting it: this used to be a hand-copied twin kept in sync by comment, and it
 	// silently fell out of sync twice — most recently when focus gained precedence over
 	// `branchesVisibility`, after which the cascade selected the tip while the row was on screen.
-	// Returning an unrenderable WIP sha is equally bad: `ensureAndSelectCommit` retries 10 RAFs and
-	// gives up with nothing selected. Same rows-derived fallback the wrapper uses when the branch
-	// payload is transiently absent, so both answer identically on that path too.
+	// Returning an unrenderable WIP sha is equally bad: `navigateToCommit` would wait for a synthetic
+	// row that cannot materialize. Same rows-derived fallback the wrapper uses when the branch payload
+	// is transiently absent, so both answer identically on that path too.
 	if (branch.opened) {
 		const scopeFocalIsHead = currentBranch == null ? isScopeFocalHead(rows, scope) : undefined;
 		if (shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, currentBranch, scope, scopeFocalIsHead)) {

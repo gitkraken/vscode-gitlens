@@ -76,6 +76,7 @@ import { StateProviderBase } from '../../shared/stateProviderBase.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
+import { getGraphDebugDiagnostics } from './graphDebugDiagnostics.js';
 import { GraphRowsSyncReceiver } from './graphRowsSyncReceiver.js';
 
 const BaseWebviewStateKeys = [
@@ -429,19 +430,52 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor treemapMode: AppState['treemapMode'];
 
 	get isBusy(): AppState['isBusy'] {
-		return this.loading || this.searching || /*this.rowsStatsLoading ||*/ false;
+		return this.loading || this.ensureLoading || this.searching || /*this.rowsStatsLoading ||*/ false;
 	}
 
 	@signalState(false)
 	accessor loading: AppState['loading'] = false;
 
 	/**
+	 * Delayed loading state for targeted row loads. It is independent from paging's `loading` flag,
+	 * and reference-counted because search navigation and an external reveal can overlap.
+	 */
+	@signalState(false)
+	accessor ensureLoading: boolean = false;
+	private _ensureLoadingCount = 0;
+	private _ensureLoadingTimer?: ReturnType<typeof setTimeout>;
+
+	beginEnsureLoading(): () => void {
+		this._ensureLoadingCount++;
+		this._ensureLoadingTimer ??= setTimeout(() => {
+			this._ensureLoadingTimer = undefined;
+			if (this._ensureLoadingCount > 0) {
+				this.ensureLoading = true;
+			}
+		}, GraphStateProvider.ensureLoadingDelayMs);
+
+		let ended = false;
+		return () => {
+			if (ended) return;
+
+			ended = true;
+			this._ensureLoadingCount = Math.max(0, this._ensureLoadingCount - 1);
+			if (this._ensureLoadingCount !== 0) return;
+
+			if (this._ensureLoadingTimer != null) {
+				clearTimeout(this._ensureLoadingTimer);
+				this._ensureLoadingTimer = undefined;
+			}
+			this.ensureLoading = false;
+		};
+	}
+
+	/**
 	 * Signals that a scope-anchor IPC is in flight long enough to warrant a loading affordance.
 	 * Composed with `loading` at the `gl-graph` render boundary (see `graph-wrapper.ts`) so
 	 * scope-resolution and row-loading share the same visual indicator without sharing
 	 * lifecycle — setScope owns this signal end-to-end (set on a delay timer, cleared in its
-	 * finally), independent from the global `loading` flag managed by paging /
-	 * `EnsureRowRequest` / `DidChangeRowsNotification`.
+	 * finally), independent from the paging and targeted-row loading signals.
 	 */
 	@signalState(false)
 	accessor scopeLoading: boolean = false;
@@ -683,6 +717,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			clearTimeout(this._resyncRetryTimer);
 			this._resyncRetryTimer = undefined;
 		}
+		if (this._ensureLoadingTimer != null) {
+			clearTimeout(this._ensureLoadingTimer);
+			this._ensureLoadingTimer = undefined;
+		}
+		this._ensureLoadingCount = 0;
+		this.ensureLoading = false;
 		super.dispose();
 	}
 
@@ -967,8 +1007,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * Publishes a freshly-picked scope. Resolves to `void` only after the scope value visible to
 	 * the graph (`this.scope`) has reached its final settled form for this call — anchored if the
 	 * anchor IPC resolves with a usable merge base, bare otherwise. Callers that need to fire a
-	 * row selection against the scoped view (`ensureAndSelectCommit`) should `await` this so the
-	 * GK row index has the post-scope set ready by the time selection runs.
+	 * row navigation against the scoped view (`navigateToCommit`) should `await` this so the graph
+	 * row index has the post-scope set ready by the time selection runs.
 	 *
 	 * Publish strategy: ALWAYS publish exactly one `this.scope` write per `setScope` call. We
 	 * wait for the anchor IPC to resolve before publishing — bare-then-anchored two-step writes
@@ -1013,8 +1053,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// Show a loading affordance ONLY if the IPC takes long enough to be perceptible. Fast
 		// (sub-`scopeLoadingDelayMs`) paths skip the flag entirely. The flag has its own
 		// lifecycle (own signal `scopeLoading`, set here and cleared in `finally`) and doesn't
-		// share state with the global `loading` flag managed by paging / EnsureRow — so a
-		// concurrent paging IPC's loader can't be clobbered by our finally, and vice versa.
+		// share state with paging or targeted-row loading, so concurrent operations can't
+		// clobber one another's affordance.
 		const loadingTimer = setTimeout(() => {
 			// Only show if this scope is still the pending one — a superseding `setScope` would
 			// own its own loader timer.
@@ -1040,6 +1080,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/** Soft delay before showing the scope-loading affordance — sub-threshold IPCs (the common
 	 *  case) never trigger the affordance, avoiding a visual blip on fast paths. */
 	private static readonly scopeLoadingDelayMs = 120;
+	private static readonly ensureLoadingDelayMs = 250;
 
 	/**
 	 * Publishes a scope ONCE — anchored if the resolved anchor is usable, bare otherwise. Used by
@@ -1740,6 +1781,17 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				}
 
 				this.updateState(updates);
+				if (DEBUG) {
+					getGraphDebugDiagnostics().markRowsApplied(this._state.rows, {
+						generation: sync?.generation,
+						seq: sync?.seq,
+						snapshot: snapshot,
+						rows: this._state.rows?.length ?? 0,
+						receivedRows: msg.params.rows.length,
+						splice: msg.params.rowsSplice != null,
+						cursor: msg.params.paging?.startingCursor,
+					});
+				}
 
 				// Advance the baseline now that application succeeded. A snapshot rebases BOTH values (its
 				// generation may be new) and clears any outstanding resync; a contiguous delta advances the seq;

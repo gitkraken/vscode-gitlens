@@ -59,7 +59,7 @@ export type RowEdges = Record<number, RowEdge>;
  */
 export interface GraphRow {
 	sha: Sha;
-	parents: Sha[];
+	readonly parents: readonly Sha[];
 	kind: CommitKind;
 	/**
 	 * Optional commit timestamp (Unix ms — NOT a Date) used ONLY for the stash-vs-commit lane tie-break
@@ -124,26 +124,19 @@ export interface GraphScope {
 }
 
 /**
- * Minimum commit shape the view layer + default adornments rely on. Consumers extend this
- * with their own commit type; any superset of these fields works. Stable API contract —
- * additions are non-breaking, renames are not.
+ * Minimum commit payload the view layer + default adornments rely on. It extends the exact
+ * topology shape consumed by the engine so identity is canonical end-to-end: adapters produce
+ * one `sha`/`parents`/`kind` model, the engine reads that model directly, and renderers retain
+ * their richer payload as an aligned superset without a second hash vocabulary or conversion.
  */
-export interface GraphCommit {
-	hash: Sha;
-	shortHash: string;
+export interface GraphCommit extends GraphRow {
+	shortSha: string;
 	message: string;
 	author: string;
 	/** Empty string is acceptable when an author email isn't available. */
 	authorEmail: string;
 	/** Commit timestamp as Unix epoch milliseconds (0 when unknown). */
 	date: number;
-	parents: Sha[];
-	/**
-	 * Optional override for the engine's auto-derived `CommitKind`. When present, takes
-	 * precedence over the parent-count heuristic in `commitToGraphRow`. Use this for WIP
-	 * rows (`'workdir'`) and stash rows (`'stash'`) which can't be inferred from `parents`.
-	 */
-	kind?: CommitKind;
 	/**
 	 * Opaque, host-supplied serialized context payload for the row. The renderer decides
 	 * how (and whether) to emit it — the engine treats it as an inert string.

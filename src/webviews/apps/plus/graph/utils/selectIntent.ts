@@ -36,6 +36,11 @@ export class GraphSelectIntent {
 		return this._sha != null && Date.now() - this._deferredAt >= this.retention;
 	}
 
+	/** Whether an async continuation still owns the current intent. */
+	isCurrent(generation: number): boolean {
+		return generation === this._generation;
+	}
+
 	/**
 	 * Opens a new ask and returns its generation token. Supersedes whatever was queued — call this on
 	 * EVERY entry to the select path, before deciding whether the row is renderable, so a superseded
@@ -55,6 +60,18 @@ export class GraphSelectIntent {
 
 		this._sha = sha;
 		this._deferredAt = Date.now();
+	}
+
+	/**
+	 * Close an ask that failed to materialize. Returns true only when `generation` still owns the
+	 * current intent, so a late failure from an older load cannot cancel a newer selection.
+	 */
+	reject(generation: number): boolean {
+		if (generation !== this._generation) return false;
+
+		this._generation++;
+		this._sha = undefined;
+		return true;
 	}
 
 	/** Cancels any queued ask. Used for user-originated selection, which always outranks a queued jump. */

@@ -1,63 +1,64 @@
 import * as assert from 'assert';
-import { processCommitsAndSegments } from '../process.js';
+import { processGraphRows } from '../process.js';
 import type { GraphCommit } from '../types.js';
 
-function commit(hash: string, parents: string[], extra?: Partial<GraphCommit>): GraphCommit {
+function commit(sha: string, parents: string[], extra?: Partial<GraphCommit>): GraphCommit {
 	return {
-		hash: hash,
-		shortHash: hash.slice(0, 7),
-		message: `commit ${hash}`,
+		sha: sha,
+		shortSha: sha.slice(0, 7),
+		message: `commit ${sha}`,
 		author: 'Tester',
 		authorEmail: 'test@example.com',
 		date: Date.parse('2026-01-01T00:00:00Z'),
 		parents: parents,
+		kind: parents.length > 1 ? 'merge' : 'commit',
 		...extra,
 	};
 }
 
-suite('engine/process processCommitsAndSegments', () => {
-	test('infers merge kind from parent count and aligns rows 1:1 with the input commits', () => {
+suite('engine/process processGraphRows', () => {
+	test('preserves canonical row kinds and aligns rows 1:1 with the input commits', () => {
 		const commits = [commit('M', ['A', 'B']), commit('A', ['C']), commit('B', ['C']), commit('C', [])];
-		const { rows } = processCommitsAndSegments(commits);
+		const { rows } = processGraphRows(commits);
 
 		assert.strictEqual(rows[0].kind, 'merge'); // two parents → merge
 		assert.strictEqual(rows[1].kind, 'commit'); // one parent → commit
 		// Topology-only rows align by index — consumers key payload lookups off this contract.
 		assert.deepStrictEqual(
 			rows.map(r => r.sha),
-			commits.map(c => c.hash),
+			commits.map(c => c.sha),
 		);
 		assert.strictEqual(rows[0].column, 0);
 		assert.strictEqual(rows[2].column, 1); // B on the branch lane
 	});
 
 	test('consumer-supplied kind (workdir/stash) overrides the parent-count heuristic', () => {
-		const { rows } = processCommitsAndSegments([commit('W', ['A'], { kind: 'workdir' }), commit('A', [])]);
+		const { rows } = processGraphRows([commit('W', ['A'], { kind: 'workdir' }), commit('A', [])]);
 		assert.strictEqual(rows[0].kind, 'workdir');
 	});
 
 	test('carries the epoch-ms date through untouched for the layout tie-break', () => {
 		const ms = Date.parse('2026-01-01T00:00:00Z');
-		const { rows } = processCommitsAndSegments([commit('A', [], { date: ms })]);
+		const { rows } = processGraphRows([commit('A', [], { date: ms })]);
 		assert.strictEqual(rows[0].date, ms);
 	});
 
 	test('a non-finite date maps to 0 rather than NaN', () => {
-		const { rows } = processCommitsAndSegments([commit('A', [], { date: Number.NaN })]);
+		const { rows } = processGraphRows([commit('A', [], { date: Number.NaN })]);
 		assert.strictEqual(rows[0].date, 0);
 	});
 
 	test('does not mutate the input commits array or its elements', () => {
 		const commits = [commit('M', ['A', 'B']), commit('A', ['C']), commit('B', ['C']), commit('C', [])];
 		const snapshot = JSON.parse(JSON.stringify(commits));
-		processCommitsAndSegments(commits);
+		processGraphRows(commits);
 		assert.deepStrictEqual(commits, snapshot);
 	});
 });
 
-suite('engine/process processCommitsAndSegments — segments', () => {
+suite('engine/process processGraphRows — segments', () => {
 	test('returns rows, fold segments, and unloaded columns together', () => {
-		const result = processCommitsAndSegments([commit('A', ['B']), commit('B', ['C']), commit('C', [])]);
+		const result = processGraphRows([commit('A', ['B']), commit('B', ['C']), commit('C', [])]);
 		assert.strictEqual(result.rows.length, 3);
 		assert.strictEqual(result.segments.length, 1);
 		assert.deepStrictEqual([...result.segments[0].commitShas], ['A', 'B', 'C']);
@@ -65,7 +66,7 @@ suite('engine/process processCommitsAndSegments — segments', () => {
 	});
 
 	test('surfaces the reserved column for an unloaded merge parent', () => {
-		const result = processCommitsAndSegments([commit('M', ['A', 'Z']), commit('A', [])]);
+		const result = processGraphRows([commit('M', ['A', 'Z']), commit('A', [])]);
 		assert.strictEqual(result.unloadedColumns.get('Z'), 1);
 		// The dangling stub edge is present on the merge row.
 		assert.strictEqual(result.rows[0].edges[1].starting?.parentSha, 'Z');
@@ -79,7 +80,7 @@ suite('engine/process processCommitsAndSegments — segments', () => {
 		const base = [commit('T0', ['T1']), commit('T1', ['T2']), commit('T2', ['BASE']), commit('BASE', [])];
 		const next = [commit('FT', ['T1']), commit('NEW', ['T0']), ...base];
 
-		const prior = processCommitsAndSegments(base);
+		const prior = processGraphRows(base);
 		const manual = new Map<string, number>();
 		for (const [sha, column] of prior.unloadedColumns) {
 			manual.set(sha, column);
@@ -88,8 +89,8 @@ suite('engine/process processCommitsAndSegments — segments', () => {
 			manual.set(r.sha, r.column);
 		}
 
-		const viaToken = processCommitsAndSegments(next, { stableFrom: prior.stability });
-		const viaManual = processCommitsAndSegments(next, { preferredColumns: manual });
+		const viaToken = processGraphRows(next, { stableFrom: prior.stability });
+		const viaManual = processGraphRows(next, { preferredColumns: manual });
 		assert.deepStrictEqual(
 			viaToken.rows.map(r => [r.sha, r.column]),
 			viaManual.rows.map(r => [r.sha, r.column]),
@@ -107,11 +108,11 @@ suite('engine/process processCommitsAndSegments — segments', () => {
 			commit('C', ['P'], { date: 50 }),
 			commit('Z', [], { date: 10 }),
 		];
-		const cold = processCommitsAndSegments(skewed);
+		const cold = processGraphRows(skewed);
 		assert.strictEqual(cold.rows.find(r => r.sha === 'P')?.column, 0, 'fixture: P is a loaded row on column 0');
 		assert.strictEqual(cold.unloadedColumns.get('P'), 1, 'fixture: P also has a phantom stub on column 1');
 
-		const relaid = processCommitsAndSegments(skewed, { stableFrom: cold.stability });
+		const relaid = processGraphRows(skewed, { stableFrom: cold.stability });
 		assert.strictEqual(relaid.rows.find(r => r.sha === 'P')?.column, 0, 'the real row must win the stub');
 	});
 
@@ -121,16 +122,16 @@ suite('engine/process processCommitsAndSegments — segments', () => {
 	// update into a full O(total) re-run for nothing.
 	test('an empty syntheticChildren set does not disable suffix reconciliation', () => {
 		const base = [commit('A', ['B']), commit('B', ['C']), commit('C', [])];
-		const prior = processCommitsAndSegments(base);
+		const prior = processGraphRows(base);
 		const next = [commit('N', ['A']), ...base];
 
 		const reconcileArg = { priorRows: prior.rows };
-		const withEmptyScope = processCommitsAndSegments(next, {
+		const withEmptyScope = processGraphRows(next, {
 			stableFrom: prior.stability,
 			syntheticChildren: new Set<string>(),
 			reconcile: reconcileArg,
 		});
-		const unscoped = processCommitsAndSegments(next, { stableFrom: prior.stability, reconcile: reconcileArg });
+		const unscoped = processGraphRows(next, { stableFrom: prior.stability, reconcile: reconcileArg });
 
 		assert.ok(withEmptyScope.reconciled != null, 'an empty scope set must still reconcile');
 		assert.deepStrictEqual(

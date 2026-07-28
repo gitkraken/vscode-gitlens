@@ -28,6 +28,13 @@ export interface AppState extends State {
 	agentSessions: AgentSessionState[];
 	isBusy: boolean;
 	loading: boolean;
+	/** True while one or more targeted row loads remain active past their soft display delay. */
+	ensureLoading: boolean;
+	/**
+	 * Begin a targeted row-loading scope. Returns an idempotent disposer so overlapping consumers
+	 * cannot clear each other's loading affordance.
+	 */
+	beginEnsureLoading(): () => void;
 	/** Composed with `loading` at the `gl-graph` render boundary — true while a scope-anchor
 	 *  IPC is in flight past `scopeLoadingDelayMs`. Owned by `GraphStateProvider.setScope`. */
 	scopeLoading: boolean;

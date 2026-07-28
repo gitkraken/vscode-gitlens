@@ -28,7 +28,6 @@ import type {
 	GraphShowAction,
 	GraphSidebarPanel,
 	OverviewRecentThreshold,
-	SelectCommitsOptions,
 	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
 import {
@@ -88,7 +87,7 @@ import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
 import type { GlGraphHeader } from './graph-header.js';
-import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
+import type { GlGraphWrapper, GraphNavigationOptions, GraphNavigationResult } from './graph-wrapper/graph-wrapper.js';
 import type { GraphCrossPaneState } from './graphCrossPaneState.js';
 import { abortRunningOperations, createGraphCrossPaneState, graphCrossPaneContext } from './graphCrossPaneState.js';
 import type { GraphLaunchpadState } from './graphLaunchpadState.js';
@@ -304,7 +303,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _navState: NavigationState = { count: 0, position: 0, canBack: false, canForward: false };
 
 	/** Sha of an in-flight back/forward re-drive — sha-based (not boolean) because the
-	 *  `ensureAndSelectCommit` re-drive re-emits the selection asynchronously through React. */
+	 *  `navigateToCommit` re-drive re-emits the selection asynchronously through the graph. */
 	private _navExpectedSha?: string;
 
 	/** Graph-mode single selection. Don't read directly for what the details panel shows — go
@@ -388,7 +387,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  repo path itself. Mirrors {@link GraphRepository.commonPath} semantics in `sidebar-panel`'s
 	 *  `resolveGraphAnchorContext`. Used to gate cross-repo session interactions: a kanban click
 	 *  on a session whose `commonPath` doesn't match the graph's family cannot resolve a row in
-	 *  the currently-rendered graph, so we don't drive `ensureAndSelectCommit` for it. */
+	 *  the currently-rendered graph, so we don't drive `navigateToCommit` for it. */
 	private get fallbackRepoFamily(): string | undefined {
 		const repoId = this.graphState.selectedRepository;
 		const repos = this.graphState.repositories;
@@ -1050,7 +1049,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  (Show in Commit Graph, terminal links, deep links). The graph doesn't auto-scroll on a plain
 	 *  selection, so bring the revealed row into view. */
 	ensureRowVisible(sha: string): void {
-		this.graph?.selectCommits([sha], { ensureVisible: true });
+		void this.graph?.navigateToCommit(sha, { source: 'host' });
 	}
 
 	/** Routed from {@link GraphAppHost} when a graph context-menu action requests showing a
@@ -1186,21 +1185,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Reliably select the target row in the graph itself, not just the details panel. The host's
 		// selection notification is prop-driven and can drop the synthetic WIP row to a render race
 		// (the row is injected by `getDecoratedRows` only after Lit+React catch up), which surfaces as
-		// review/compose updating the details but leaving the row unselected. `ensureAndSelectCommit`
+		// review/compose updating the details but leaving the row unselected. `navigateToCommit`
 		// normalizes `uncommitted`→the WIP row and retries across frames until it's injected. Skip for
 		// compare (it drives its own range selection) and the rebase summary (selection-decoupled sheet).
 		if (action !== 'open-compare' && action !== 'show-rebase-summary') {
-			// The row sha, not the raw target sha — the host no longer switches repositories for a
-			// worktree of the shown repo, so a WIP target on another worktree is that worktree's
-			// SECONDARY row. `ensureAndSelectCommit` only normalizes `uncommitted` to the PRIMARY row,
-			// so handing it the raw sha would select the wrong worktree's working changes.
-			// No row id is nameable during the transient repo-switch tick, so there's nothing to select.
+			// The ROW sha, not the raw target sha: a WIP target on another worktree is that worktree's own
+			// WIP row, while `navigateToCommit` maps `uncommitted` only to the graph's own primary row — so
+			// handing it the raw sha would select the wrong worktree's working changes. `undefined` means no
+			// row id is nameable yet (transient repo-switch tick), so there is nothing to navigate to.
 			const rowSha = this.toGraphRowSha(sha, repoPath);
 			if (rowSha != null) {
 				if (sha === uncommitted) {
 					this.unscopeToRevealWip(rowSha);
 				}
-				this.graph?.ensureAndSelectCommit(rowSha);
+				void this.graph?.navigateToCommit(rowSha, { source: 'selection-sync' });
 			}
 		}
 
@@ -1345,7 +1343,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// Wait for the graph to mount after the mode switch before asking it to reveal a row.
 			await this.updateComplete;
 		}
-		this.graph?.ensureAndSelectCommit(e.detail.sha);
+		void this.graph?.navigateToCommit(e.detail.sha, { source: 'details' });
 	};
 
 	private handleOverviewBarSelect = async (e: CustomEvent<OverviewBarSelectDetail>): Promise<void> => {
@@ -1359,7 +1357,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const wasVisible = gs.details?.visible === true;
 		this.ensureGraphDisplayMode();
 		// Drop the active scope when the clicked WIP isn't part of it, so the worktree's row
-		// materializes in the now-unscoped graph and `ensureAndSelectCommit` below can reveal it.
+		// materializes in the now-unscoped graph and `navigateToCommit` below can reveal it.
 		// Leave the scope untouched when the pill already matches it. Uses the canonical clear
 		// (`deferScopeClear` + `ResetGraphFilters`): the host's filter-reset reloads unscoped rows and
 		// fires the deferred clear in the same pass. (Pills hidden purely by `branchesVisibility` are
@@ -1386,7 +1384,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		await this.openWipDetails(repoPath, uncommitted, undefined, 'request-graph-wip-bar');
 		// When we cleared the scope above, the unscoped rows arrive via a host round-trip
 		// (`ResetGraphFilters` → `DidChangeRefsVisibilityNotification`), which can take longer than
-		// `ensureAndSelectCommit`'s short row-retry window. Wait for the scope to actually clear first
+		// `navigateToCommit`'s deferred render path. Wait for the scope to actually clear first
 		// so that retry window starts against the settled (unscoped) state instead of expiring before
 		// the worktree's row materializes.
 		if (scopeCleared) {
@@ -1394,15 +1392,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 		// Select + reveal the WIP row in the graph itself — the bar's stated intent. The `id` is
 		// `uncommitted` for the graph's own worktree and the peer's WIP row id otherwise;
-		// `ensureAndSelectCommit` handles both and retries through the render + scope catch-up. The
+		// `navigateToCommit` handles both and waits through the render + scope catch-up. The
 		// `openWipDetails` await above ensures the graph is mounted (e.g. after the displayMode
 		// switch) before we call it.
-		this.graph?.ensureAndSelectCommit(id);
+		void this.graph?.navigateToCommit(id, { source: 'scope' });
 	};
 
 	/** Resolves once the active scope has cleared (or a safety timeout elapses). Used after a
 	 *  scope-clearing overview-bar click: the clear lands via a host round-trip, so this lets the
-	 *  subsequent `ensureAndSelectCommit` run against the settled unscoped state rather than racing
+	 *  subsequent `navigateToCommit` run against the settled unscoped state rather than racing
 	 *  the reload. Polls with `setTimeout` (not RAF) so it still resolves if the webview is hidden. */
 	private waitForScopeCleared(timeoutMs = 2000): Promise<void> {
 		if (this.graphState.scope == null) return Promise.resolve();
@@ -1753,7 +1751,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			} else if (scope.focalBranchTipSha != null) {
 				const sha = scope.focalBranchTipSha;
 				this._pendingFocalTipBranchRef = undefined;
-				this.graph?.ensureAndSelectCommit(sha);
+				void this.graph?.navigateToCommit(sha, { source: 'selection-sync' });
 			}
 		}
 
@@ -1948,9 +1946,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					() => html`
 						<gl-graph-header
 							class="graph__header"
-							.selectCommits=${this.selectCommits}
-							.getCommits=${this.getCommits}
-							.ensureGraphRendered=${this.ensureGraphRendered}
+							.navigateToCommit=${this.navigateToCommit}
 							.detailsVisible=${detailsVisible}
 							.detailsEffectiveLocation=${this.effectiveDetailsLocation}
 							.minimapVisible=${minimapVisible}
@@ -2060,7 +2056,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		this.graph?.selectCommits([e.detail.sha], { ensureVisible: true });
+		void this.graph?.navigateToCommit(e.detail.sha, { source: 'details' });
 	}
 
 	private _nextStepsShownWhileHidden = false;
@@ -2235,7 +2231,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			const sha = worktreePath != null ? createWipRowId(worktreePath) : uncommitted;
 
 			// Write the alt-mode slot — kanban's `activeSelection` reads it directly. We deliberately
-			// do NOT call `graph?.ensureAndSelectCommit(sha)` here: the graph is hidden in kanban
+			// do NOT call `graph?.navigateToCommit(sha)` here: the graph is hidden in kanban
 			// mode and its async `gl-graph-change-selection` would race the alt slot via
 			// `handleGraphSelectionChanged`, snapping the details panel back to whatever row the
 			// graph resolved (typically its primary WIP) instead of the clicked session's worktree.
@@ -2832,7 +2828,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.graphState.clearScope();
 		}
 
-		this.graph?.ensureAndSelectCommit(uncommitted);
+		void this.graph?.navigateToCommit(uncommitted, { source: 'wip' });
 	};
 
 	private handleToggleDetails(e: CustomEvent<{ altKey?: boolean } | void>) {
@@ -3040,7 +3036,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	private handleSidebarPanelSelect(e: CustomEvent<GraphSidebarPanelSelectEventDetail>): void {
-		this.graph?.ensureAndSelectCommit(e.detail.sha);
+		void this.graph?.navigateToCommit(e.detail.sha, { source: 'sidebar' });
 		if (this.shouldAutoCollapseOverlay()) {
 			this.graph?.focus();
 		}
@@ -3090,19 +3086,19 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async handleOverviewBranchSelected(
 		e: CustomEvent<{ branchId: string; branchName: string; mergeTargetTipSha?: string }>,
 	): Promise<void> {
-		// Await scope publish so the post-scope `ensureAndSelectCommit` runs against the settled
+		// Await scope publish so the post-scope `navigateToCommit` runs against the settled
 		// GK row index — eliminates the "WIP-not-selected on first scope" race where the bare
 		// publish hadn't yet been replaced by the anchored publish at selection time.
 		await this.scopeToBranchById(e.detail.branchId, e.detail.mergeTargetTipSha);
 		// Supersession guard: a concurrent click on another branch can land while our `await` is
 		// parked, publishing a different scope. If `this.graphState.scope` is no longer for our
 		// branch by the time we resume, the newer scope owns the selection — don't fire a stale
-		// `ensureAndSelectCommit` against the wrong scope.
+		// `navigateToCommit` against the wrong scope.
 		if (this.graphState.scope?.branchRef !== e.detail.branchId) return;
 
 		const sha = this.getOverviewBranchSelectionSha(e.detail.branchId);
 		if (sha != null) {
-			this.graph?.ensureAndSelectCommit(sha);
+			void this.graph?.navigateToCommit(sha, { source: 'scope' });
 		}
 
 		// If the user clicked the card without first hovering, the merge-target tip SHA isn't known
@@ -3188,7 +3184,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 			const sha = this.getOverviewBranchSelectionSha(branch.id);
 			if (sha != null) {
-				this.graph?.ensureAndSelectCommit(sha);
+				void this.graph?.navigateToCommit(sha, { source: 'sidebar' });
 			}
 			return;
 		}
@@ -3230,10 +3226,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			currentBranch: this.graphState.branch,
 		});
 		if (sha != null && sha !== '') {
-			// If the helper returned the tip and tip isn't loaded, the IPC `EnsureRowRequest`
-			// fallback in `ensureAndSelectCommit` will fetch it; otherwise the fast path or
+			// If the helper returned the tip and tip isn't loaded, the IPC `LoadRowRequest`
+			// fallback in `navigateToCommit` will fetch it; otherwise the fast path or
 			// synthetic-WIP retry handles it.
-			this.graph?.ensureAndSelectCommit(sha);
+			void this.graph?.navigateToCommit(sha, { source: 'overview' });
 			return;
 		}
 
@@ -3321,7 +3317,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		});
 		// `stateProvider.setScope` resolves after the final scope publish (anchored when the
 		// anchor IPC supplies a usable merge base, bare otherwise). Awaiting keeps the post-scope
-		// selection cascade timed correctly — `ensureAndSelectCommit` sees the GK row index in
+		// selection cascade timed correctly — `navigateToCommit` sees the graph row index in
 		// the settled state and can lock onto the WIP/tip without racing the bare→anchored render.
 		await this.graphState.setScope(scope);
 	}
@@ -3397,18 +3393,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return result;
 	}
 
-	// `this.graph` isn't rendered when no repository is open (see `render`). The header — the sole caller
-	// of these — is gated on the same condition, so it can't invoke them while the graph is absent, but
-	// guard defensively against future condition drift while preserving the existing return types.
-	private selectCommits = (shas: string[], options?: SelectCommitsOptions) => {
-		return this.graph?.selectCommits(shas, options) ?? [];
-	};
-
-	private getCommits = (shas: string[]) => {
-		return this.graph?.getCommits(shas) ?? [];
-	};
-
-	private ensureGraphRendered = (): Promise<void> => this.graph?.ensureRendered() ?? Promise.resolve();
+	// Resolves `not-found` when no repository is open: `this.graph` isn't rendered then (see `render`),
+	// and the header is gated on the same condition.
+	private navigateToCommit = (sha: string, options?: GraphNavigationOptions): Promise<GraphNavigationResult> =>
+		this.graph?.navigateToCommit(sha, options) ?? Promise.resolve({ status: 'not-found' });
 
 	private handleMinimapWheel(e: GraphMinimapWheelEvent) {
 		this.graph?.scrollGraphBy(e.detail.deltaY);
@@ -3595,9 +3583,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// the row has been paged out of the graph — then re-select the row in the graph.
 			this._selectedCommit = { sha: target.sha, repoPath: target.repoPath, commitLite: target.commitLite };
 			// WIP selections are recorded as the bare `uncommitted` revision + the worktree they came from;
-			// re-select THAT worktree's row, or `ensureAndSelectCommit` maps the revision to our own WIP row.
-			this.graph?.ensureAndSelectCommit(
+			// re-select THAT worktree's row, or navigation maps the revision to our own WIP row.
+			void this.graph?.navigateToCommit(
 				target.sha === uncommitted && target.repoPath ? createWipRowId(target.repoPath) : target.sha,
+				{ source: 'history' },
 			);
 		}
 	}

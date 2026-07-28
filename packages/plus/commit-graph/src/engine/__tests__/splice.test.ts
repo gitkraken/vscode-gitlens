@@ -1,21 +1,21 @@
 import * as assert from 'assert';
-import { processCommitsAndSegments } from '../process.js';
+import { processGraphRows } from '../process.js';
 import type { CommitKind, GraphCommit } from '../types.js';
 
-function commit(hash: string, parents: string[], kind?: CommitKind, date = 0): GraphCommit {
+function commit(sha: string, parents: string[], kind?: CommitKind, date = 0): GraphCommit {
 	return {
-		hash: hash,
-		shortHash: hash.slice(0, 7),
-		message: hash,
+		sha: sha,
+		shortSha: sha.slice(0, 7),
+		message: sha,
 		author: 'Tester',
 		authorEmail: 'test@example.com',
 		date: date,
 		parents: parents,
-		kind: kind,
+		kind: kind ?? (parents.length > 1 ? 'merge' : 'commit'),
 	};
 }
 
-type Result = ReturnType<typeof processCommitsAndSegments>;
+type Result = ReturnType<typeof processGraphRows>;
 
 function comparable(r: Result): unknown {
 	return {
@@ -32,15 +32,15 @@ function assertSpliceMatchesFull(
 	priorCommits: readonly GraphCommit[],
 	nextCommits: readonly GraphCommit[],
 ): { spliced: boolean } {
-	const prior = processCommitsAndSegments(priorCommits);
+	const prior = processGraphRows(priorCommits);
 	const priorIdx = new Map(prior.rows.map((r, i) => [r.sha, i]));
 	const preferred = new Map(prior.rows.map(r => [r.sha, r.column]));
 	for (const [sha, column] of prior.unloadedColumns) {
 		preferred.set(sha, column);
 	}
 
-	const oracle = processCommitsAndSegments(nextCommits, { preferredColumns: preferred });
-	const spliced = processCommitsAndSegments(nextCommits, {
+	const oracle = processGraphRows(nextCommits, { preferredColumns: preferred });
+	const spliced = processGraphRows(nextCommits, {
 		preferredColumns: preferred,
 		reconcile: { priorRows: prior.rows, priorIndexOfSha: sha => priorIdx.get(sha) },
 	});
@@ -131,7 +131,7 @@ suite('engine/process prefix-change splice equivalence', () => {
 			commit('C', ['P'], undefined, 50),
 			commit('Z', [], undefined, 10),
 		];
-		let prior = processCommitsAndSegments(skewed);
+		let prior = processGraphRows(skewed);
 		const baseline = Math.max(...prior.rows.map(r => r.column));
 		for (let i = 1; i <= 12; i++) {
 			const preferred = new Map<string, number>();
@@ -141,7 +141,7 @@ suite('engine/process prefix-change splice equivalence', () => {
 			for (const r of prior.rows) {
 				preferred.set(r.sha, r.column);
 			}
-			prior = processCommitsAndSegments(skewed, {
+			prior = processGraphRows(skewed, {
 				preferredColumns: preferred,
 				reconcile: { priorRows: prior.rows },
 			});
@@ -162,7 +162,7 @@ suite('engine/process prefix-change splice equivalence', () => {
 		// now, so a displaced tip takes the lowest genuinely-free column and the width tracks only the
 		// lanes that are really live — 10 concurrent sibling tips means 10 lanes, and nothing beyond.
 		let commits = [...base];
-		let prior = processCommitsAndSegments(commits);
+		let prior = processGraphRows(commits);
 		const naturalMax = Math.max(...prior.rows.map(r => r.column));
 		for (let i = 1; i <= 10; i++) {
 			commits = [commit(`SIB${i}`, ['M']), ...commits];
@@ -174,7 +174,7 @@ suite('engine/process prefix-change splice equivalence', () => {
 			for (const r of prior.rows) {
 				preferred.set(r.sha, r.column);
 			}
-			prior = processCommitsAndSegments(commits, {
+			prior = processGraphRows(commits, {
 				preferredColumns: preferred,
 				reconcile: { priorRows: prior.rows },
 			});

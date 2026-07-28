@@ -115,8 +115,8 @@ function mergeSerializedContexts(individual: string, group: string): string {
 }
 
 /**
- * Convert a GitLens `GitGraphRow` into the commit-graph `GraphCommit` shape `processCommitsAndSegments` expects.
- * `idLength` carries `gitlens.advanced.abbreviatedShaLength` into the rendered `shortHash`.
+ * Convert a GitLens `GitGraphRow` into the commit-graph's canonical topology + payload shape.
+ * `idLength` carries `gitlens.advanced.abbreviatedShaLength` into the rendered `shortSha`.
  */
 export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string): GraphCommitView {
 	// refGroups carries each grouped ref's refGROUP context ("Hide All"), keyed by ref NAME. Seed it up
@@ -229,8 +229,8 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			: undefined;
 
 	const view: GraphCommitView = {
-		hash: row.sha,
-		shortHash: row.sha.slice(0, Math.max(4, Math.min(40, idLength))),
+		sha: row.sha,
+		shortSha: row.sha.slice(0, Math.max(4, Math.min(40, idLength))),
 		message: row.message,
 		author: row.author,
 		authorEmail: row.email,

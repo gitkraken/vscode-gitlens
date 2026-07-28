@@ -31,13 +31,13 @@ import type {
 import {
 	createWipRowId,
 	DoubleClickedCommand,
-	EnsureRowRequest,
 	GetMissingAvatarsCommand,
 	GetMissingRefsMetadataCommand,
 	GetMoreRowsCommand,
 	getWipRowWorktreePath,
 	GetWipStatsRequest,
 	isWipRowId,
+	LoadRowRequest,
 	ProxyAvatarsCommand,
 	RowActionCommand,
 	SyncWipWatchesCommand,
@@ -56,6 +56,7 @@ import { pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
+import { getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import { isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
@@ -75,6 +76,49 @@ import {
 } from '../utils/wip.utils.js';
 import './gl-lit-graph.js';
 
+export type GraphNavigationOptions = {
+	/** Diagnostic origin for this navigation. */
+	source?: string;
+	/** Cancel this navigation when its caller no longer owns the user intent. */
+	signal?: AbortSignal;
+	/** Move the graph's keyboard/ARIA focus anchor to the selected row after it renders. */
+	focus?: boolean;
+	/**
+	 * Whether a client-only WIP row that is not currently renderable should remain pending until the
+	 * decoration layer synthesizes it. Search disables this so a WIP excluded by the active view is
+	 * skipped instead of blocking result navigation indefinitely.
+	 */
+	deferSynthetic?: boolean;
+};
+
+export type GraphNavigationResult =
+	| { status: 'selected'; row: ReadonlyGraphRow }
+	| { status: 'not-found' }
+	| { status: 'cancelled' };
+
+type PendingGraphNavigation = {
+	abortCleanup?: () => void;
+	debugMark?: string;
+	deferSynthetic: boolean;
+	focus: boolean;
+	generation: number;
+	repositoryId?: string;
+	repoPath?: string;
+	signal?: AbortSignal;
+	sha: string;
+	timeout?: ReturnType<typeof setTimeout>;
+	promise: Promise<GraphNavigationResult>;
+	resolve: (result: GraphNavigationResult) => void;
+};
+
+type DecoratedRowsIndex = {
+	rows: GitGraphRow[];
+	rowBySha: ReadonlyMap<string, GitGraphRow>;
+	indexBySha: ReadonlyMap<string, number>;
+};
+
+const navigationTimeoutMs = 30_000;
+
 /**
  * Walk first-parent ancestry through a row array to produce the inclusive range from
  * `fromSha` to `toSha`. Direction-agnostic — figures out which sha is the ancestor and
@@ -84,11 +128,12 @@ import './gl-lit-graph.js';
  * This is what `gitlens.graph.multiselect: 'topological'` means: the resulting selection
  * is the first-parent chain segment between the two anchors, not the visible-row slice.
  */
-function walkTopologicalRange(rows: readonly GitGraphRow[], fromSha: string, toSha: string): string[] {
-	const indexBySha = new Map<string, number>();
-	for (let i = 0; i < rows.length; i++) {
-		indexBySha.set(rows[i].sha, i);
-	}
+function walkTopologicalRange(
+	rows: readonly GitGraphRow[],
+	indexBySha: ReadonlyMap<string, number>,
+	fromSha: string,
+	toSha: string,
+): string[] {
 	const fromIdx = indexBySha.get(fromSha);
 	const toIdx = indexBySha.get(toSha);
 	if (fromIdx == null || toIdx == null) return [];
@@ -124,13 +169,9 @@ function walkTopologicalRange(rows: readonly GitGraphRow[], fromSha: string, toS
  */
 function resolveSelectedRowsForContextMenu(
 	decoratedRows: readonly GitGraphRow[],
+	indexBySha: ReadonlyMap<string, number>,
 	selectedShas: readonly string[],
 ): { rows: GitGraphRow[]; contiguous: boolean } {
-	const indexBySha = new Map<string, number>();
-	for (let i = 0; i < decoratedRows.length; i++) {
-		indexBySha.set(decoratedRows[i].sha, i);
-	}
-
 	const rows: GitGraphRow[] = [];
 	const indexes: number[] = [];
 	for (const sha of selectedShas) {
@@ -298,17 +339,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		primaryWipRowId: string | undefined;
 		result: GraphSelectedRows | undefined;
 	};
-	// The set of rendered row shas, cached on the (identity-stable) `decoratedRows` reference so it's
-	// rebuilt only when the rows change (paging/filter) — NOT on every selection. Selecting a row must
-	// stay O(anchorShas), never O(rows), or it janks badly with lots of commits loaded.
-	private _presentShaCache?: { decoratedRows: GitGraphRow[] | undefined; set: ReadonlySet<string> };
 	// sha→HOST row index (see `getSourceRowByShaMap`), cached on `graphState.rows` so it's built once per
 	// page, not rebuilt over all rows on every selection/context-menu (the dominant per-call cost).
 	private _sourceRowByShaCache?: { rows: GitGraphRow[]; map: ReadonlyMap<string, GitGraphRow> };
-	// sha→DECORATED row index (see `getDecoratedRowByShaMap`), cached on the decorated `rows` reference —
-	// same rationale as `_sourceRowByShaCache`, but over the decorated set (incl. synthetic WIP rows) that
-	// range/toggle selection resolves against.
-	private _decoratedRowByShaCache?: { rows: GitGraphRow[]; map: ReadonlyMap<string, GitGraphRow> };
+	// SHA indexes over the decorated set (including synthetic WIP rows), cached on the exact rows identity.
+	// Selection, navigation, topological ranges, and context menus share this one O(rows) build.
+	private _decoratedRowsIndexCache?: DecoratedRowsIndex;
 
 	// Tracks the last observed `branchesVisibility` + repo so a genuine in-repo TOGGLE into `'current'`
 	// (not the initial paint, not a repo switch) can refocus a hidden anchor.
@@ -327,14 +363,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		document.removeEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
 		document.removeEventListener('gl-jump-to-commit', this.onJumpToCommit as EventListener);
+		this.cancelPendingSelection();
 		if (this._clearRowContextTimer != null) {
 			clearTimeout(this._clearRowContextTimer);
 			this._clearRowContextTimer = undefined;
 		}
 	}
 
-	private onJumpToCommit = (e: CustomEvent<{ sha: string }>) => {
-		this.ensureAndSelectCommit(e.detail.sha);
+	private onJumpToCommit = (e: CustomEvent<{ sha: string; focus?: boolean }>) => {
+		void this.navigateToCommit(e.detail.sha, { source: 'jump', focus: e.detail.focus });
 	};
 
 	private onJumpToNearestWip = (e: CustomEvent<{ fromSha: string }>) => {
@@ -376,7 +413,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		}
 
 		// Last-resort: no in-column WIP and no ancestry match → jump to the primary (uncommitted).
-		this.ensureAndSelectCommit(target ?? uncommitted);
+		void this.navigateToCommit(target ?? uncommitted, { source: 'wip-jump' });
 	};
 
 	// Cache keyed by (rows, wipMetadataBySha, primaryRepoPath, scope, branchesVisibility,
@@ -454,6 +491,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			// Return the cached `result` identity-stable — downstream caches (present-sha set,
 			// row-by-sha map, gl-lit-graph's own dirty-check) all key on its `rows` reference,
 			// so a hit here also short-circuits their rebuilds, not just the interleave work.
+			if (DEBUG) {
+				getGraphDebugDiagnostics().transferRowsApplied(rows, cached.result.rows);
+			}
 			return cached.result;
 		}
 
@@ -589,6 +629,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// Cache the `result` for re-use on subsequent renders with identical inputs. The engine
 		// never mutates the rows it receives, so the cached array is handed to it directly.
 		const result = { rows: resultRows, showPrimary: showPrimary, primaryWipRowId: primaryWipRowId };
+		if (DEBUG) {
+			// Host rows are decorated into a new identity before the engine sees them. Carry the
+			// rows-plane timestamp across that boundary so the render metric follows the actual array.
+			getGraphDebugDiagnostics().transferRowsApplied(rows, resultRows);
+		}
 		this._decoratedRowsCache = {
 			rows: rows,
 			wipMetadataBySha: wipMetadataBySha,
@@ -809,17 +854,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			return cache.result;
 		}
 
-		// Build the present-sha set ONCE per `decoratedRows` generation (cached), not per selection. The
-		// primary WIP row is projected in separately (`primaryWipRowId`) so the cached set stays a pure
-		// mirror of the rows.
-		const presentCache = this._presentShaCache;
-		let present: ReadonlySet<string>;
-		if (presentCache != null && presentCache.decoratedRows === decoratedRows) {
-			present = presentCache.set;
-		} else {
-			present = new Set(decoratedRows?.map(r => r.sha));
-			this._presentShaCache = { decoratedRows: decoratedRows, set: present };
-		}
+		// Reuse the shared decorated-row SHA index rather than building a selection-only Set. The primary
+		// WIP row is still projected separately because callers pass its id only when it should render.
+		const present = this.getDecoratedRowsIndex(decoratedRows)?.rowBySha;
 
 		const derived = projectShasToSelectedRows(anchorShas, present, primaryWipRowId);
 		this._lastDerivedHighlight = derived;
@@ -884,7 +921,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.workingTreeStats=${showPrimary ? graphState.workingTreeStats : undefined}
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
-			?loading=${graphState.loading || graphState.scopeLoading}
+			?loading=${graphState.loading || graphState.ensureLoading || graphState.scopeLoading}
 			?windowFocused=${graphState.windowFocused}
 			@gl-graph-changeselection=${this.onGraphSelectionChanged}
 			@gl-graph-rowdoubleclick=${this.onGraphRowDoubleClick}
@@ -945,7 +982,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const target = this.getCurrentBranchSelectionSha();
 		if (target == null || anchorShas.includes(target)) return;
 
-		this.ensureAndSelectCommit(target);
+		void this.navigateToCommit(target, { source: 'visibility' });
 	}
 
 	/** The current branch's graph-row sha to select (its WIP if it renders under the active filters,
@@ -973,18 +1010,25 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	getCommits(shas: string[]): ReadonlyGraphRow[] {
-		const { rows } = this.getDecoratedRows();
-		if (rows == null) return [];
+		const rowBySha = this.getDecoratedRowByShaMap();
+		if (rowBySha == null) return [];
 
-		const set = new Set(shas);
 		// A returned row is loaded; report `hidden` from the graph's displayed set so the consumer can
 		// tell loaded-&-visible (fast select) from loaded-but-hidden — a collapsed lane, an active search
 		// filter, or a scope drop (→ the "result hidden" warning). When the element isn't mounted, assume
 		// visible (the row is loaded — never report `undefined`, which the consumer reads as "not loaded").
-		const lit = this.querySelector('gl-lit-graph');
-		return rows
-			.filter(r => set.has(r.sha))
-			.map(r => ({ ...r, hidden: lit != null ? !lit.isRowDisplayed(r.sha) : false }));
+		const result: ReadonlyGraphRow[] = [];
+		const seen = new Set<string>();
+		for (const sha of shas) {
+			if (seen.has(sha)) continue;
+
+			seen.add(sha);
+			const row = rowBySha.get(sha);
+			if (row != null) {
+				result.push(this.withVisibility(row));
+			}
+		}
+		return result;
 	}
 
 	/** Resolve once this wrapper AND the underlying `<gl-lit-graph>` have flushed any pending render, so a
@@ -996,6 +1040,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	selectCommits(shas: string[], options?: SelectCommitsOptions): ReadonlyGraphRow[] {
+		// A direct selection is newer user/app intent than any queued targeted navigation. Without this,
+		// details/minimap selections can be overwritten when an older LoadRowRequest finally renders.
+		this.cancelPendingSelection();
 		const rows = this.selectCommitsLit(shas);
 		// `ensureVisible` is opt-in: scroll the (first) selected row into view ONLY when the caller asks
 		// (search-result nav, etc.) — a plain selection never auto-scrolls. No-op if already on screen.
@@ -1011,25 +1058,36 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 * `gl-graph-change-selection` host event + IPC update so the details panel, minimap, and
 	 * host-side selection cache stay consistent — same as if the user had clicked the row themselves.
 	 */
-	private selectCommitsLit(shas: string[]): ReadonlyGraphRow[] {
-		const { rows: decorated } = this.getDecoratedRows();
-		if (decorated == null) return [];
+	private selectCommitsLit(
+		shas: string[],
+		rowBySha: ReadonlyMap<string, GitGraphRow> | undefined = this.getDecoratedRowByShaMap(),
+	): ReadonlyGraphRow[] {
+		if (rowBySha == null) return [];
 
-		const shaSet = new Set(shas);
-		const matched = decorated.filter(r => shaSet.has(r.sha));
+		const matched: GitGraphRow[] = [];
+		const seen = new Set<string>();
+		for (const sha of shas) {
+			if (seen.has(sha)) continue;
+
+			seen.add(sha);
+			const row = rowBySha.get(sha);
+			if (row != null) {
+				matched.push(row);
+			}
+		}
 		if (matched.length === 0) return [];
 
 		const next: GraphSelectedRows = {};
-		for (const sha of shas) {
-			next[sha] = true;
+		for (const row of matched) {
+			next[row.sha] = true;
 		}
 		this.graphState.selectedRows = next;
 
 		// Surface the same selection event a real click would. This is what wires the
 		// minimap-day-selected → details-panel and selection-state-cache flows.
 		const wipMetadataBySha = this.graphState.wipMetadataBySha;
-		const sha = shas[0];
 		const focusedRow = matched[0];
+		const sha = focusedRow.sha;
 		const selection: GraphSelection[] = [
 			{
 				id: sha,
@@ -1075,15 +1133,16 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		// Matched rows are loaded; report `hidden` from the displayed set (see getCommits) so the search-nav
 		// "result hidden" warning fires for a loaded-but-not-displayed match.
+		return matched.map(row => this.withVisibility(row));
+	}
+
+	private withVisibility(row: GitGraphRow): ReadonlyGraphRow {
 		const lit = this.querySelector('gl-lit-graph');
-		return matched.map(r => ({
-			...r,
-			hidden: lit != null ? !lit.isRowDisplayed(r.sha) : false,
-		}));
+		return { ...row, hidden: lit != null ? !lit.isRowDisplayed(row.sha) : false };
 	}
 
 	/**
-	 * A selection asked for by {@link ensureAndSelectCommit} whose row wasn't renderable yet.
+	 * A navigation whose row wasn't renderable yet.
 	 *
 	 * `scrollToSha` already defers the REVEAL until a row appears, but selection had no equivalent, so a
 	 * row that materializes late — a WIP row the next `getDecoratedRows` synthesizes, or a commit the host
@@ -1094,77 +1153,262 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 * user-originated selection cancels it outright — a queued jump must never overwrite a click the user
 	 * made while waiting for it.
 	 */
-	private readonly _selectIntent = new GraphSelectIntent();
+	private readonly _selectIntent = new GraphSelectIntent(navigationTimeoutMs);
+	private _selectIntentRepositoryId?: string;
+	private _selectIntentRepoPath?: string;
+	private _endEnsureLoading?: () => void;
+	private _pendingNavigation?: PendingGraphNavigation;
+
+	private cancelPendingSelection(): void {
+		this._selectIntent.cancel();
+		this._selectIntentRepositoryId = undefined;
+		this._selectIntentRepoPath = undefined;
+		this.settlePendingNavigation({ status: 'cancelled' });
+		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+	}
+
+	private settlePendingNavigation(result: GraphNavigationResult): void {
+		const pending = this._pendingNavigation;
+		if (pending == null) return;
+
+		this._pendingNavigation = undefined;
+		if (pending.timeout != null) {
+			clearTimeout(pending.timeout);
+		}
+		pending.abortCleanup?.();
+		this._endEnsureLoading?.();
+		this._endEnsureLoading = undefined;
+		if (DEBUG) {
+			if (pending.debugMark != null) {
+				getGraphDebugDiagnostics().endNavigation(pending.debugMark, {
+					status: result.status,
+					sha: pending.sha,
+					hidden: result.status === 'selected' ? result.row.hidden === true : undefined,
+				});
+			}
+		}
+		pending.resolve(result);
+	}
+
+	private createPendingNavigation(
+		generation: number,
+		sha: string,
+		deferSynthetic: boolean,
+		focus: boolean,
+		signal: AbortSignal | undefined,
+		debugMark?: string,
+	): Promise<GraphNavigationResult> {
+		let resolve!: (result: GraphNavigationResult) => void;
+		const promise = new Promise<GraphNavigationResult>(r => (resolve = r));
+		const pending: PendingGraphNavigation = {
+			debugMark: debugMark,
+			deferSynthetic: deferSynthetic,
+			focus: focus,
+			generation: generation,
+			repositoryId: this._selectIntentRepositoryId,
+			repoPath: this._selectIntentRepoPath,
+			signal: signal,
+			sha: sha,
+			promise: promise,
+			resolve: resolve,
+		};
+		pending.timeout = setTimeout(() => this.rejectPendingNavigation(generation), navigationTimeoutMs);
+		if (signal != null) {
+			const onAbort = (): void => this.cancelPendingNavigation(generation);
+			signal.addEventListener('abort', onAbort, { once: true });
+			pending.abortCleanup = () => signal.removeEventListener('abort', onAbort);
+		}
+		this._pendingNavigation = pending;
+		return promise;
+	}
+
+	private cancelPendingNavigation(generation: number): void {
+		if (!this._selectIntent.reject(generation)) return;
+
+		this._selectIntentRepositoryId = undefined;
+		this._selectIntentRepoPath = undefined;
+		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+		if (this._pendingNavigation?.generation === generation) {
+			this.settlePendingNavigation({ status: 'cancelled' });
+		}
+	}
+
+	private rejectPendingNavigation(generation: number): void {
+		if (!this._selectIntent.reject(generation)) return;
+
+		this._selectIntentRepositoryId = undefined;
+		this._selectIntentRepoPath = undefined;
+		this.querySelector('gl-lit-graph')?.cancelPendingReveal();
+		if (this._pendingNavigation?.generation === generation) {
+			this.settlePendingNavigation({ status: 'not-found' });
+		}
+	}
 
 	/** Applies a deferred selection once its row is renderable. Called from `updated()`, so it retries on
 	 *  exactly the renders that could have made the row appear. */
 	private flushPendingSelect(): void {
-		if (this._selectIntent.pending == null) return;
+		const pending = this._pendingNavigation;
+		if (this._selectIntent.pending == null || pending == null) return;
+		if (
+			this._selectIntentRepositoryId !== this.graphState.selectedRepository ||
+			this._selectIntentRepoPath !== this.getRepoPath()
+		) {
+			this.cancelPendingSelection();
+			return;
+		}
 
-		const { rows } = this.getDecoratedRows();
-		const sha = this._selectIntent.take(s => rows?.some(r => r.sha === s) === true);
+		const rowBySha = this.getDecoratedRowByShaMap();
+		const sha = this._selectIntent.take(s => rowBySha?.has(s) === true);
 		if (sha == null) return;
 
-		this.selectCommitsLit([sha]);
+		const row = rowBySha?.get(sha);
+		if (row == null) return;
+
+		this.selectCommitsLit([sha], rowBySha);
+		void this.completePendingNavigation(pending, row);
+	}
+
+	private async completePendingNavigation(pending: PendingGraphNavigation, row: GitGraphRow): Promise<void> {
+		await this.ensureRendered();
+		if (
+			this._pendingNavigation !== pending ||
+			pending.repositoryId !== this.graphState.selectedRepository ||
+			pending.repoPath !== this.getRepoPath()
+		) {
+			return;
+		}
+
+		if (pending.focus) {
+			this.querySelector('gl-lit-graph')?.focusRow(pending.sha);
+		}
+		this._selectIntentRepositoryId = undefined;
+		this._selectIntentRepoPath = undefined;
+		this.settlePendingNavigation({ status: 'selected', row: this.withVisibility(row) });
 	}
 
 	/**
-	 * Select a row by SHA, loading it into the graph first if necessary.
-	 * The host handles both loading and selecting — the rows notification
-	 * carries the updated selection so the graph renders it automatically.
+	 * Load, select, and reveal a row as one latest-wins operation.
+	 *
+	 * The host only makes rows available. This wrapper owns selection and reveal, and resolves only
+	 * after the selected row's rendered visibility is current. A newer navigation or direct selection
+	 * resolves an older pending operation as cancelled, so async callers cannot overwrite newer intent.
 	 */
-	ensureAndSelectCommit(sha: string): void {
+	async navigateToCommit(sha: string, options?: GraphNavigationOptions): Promise<GraphNavigationResult> {
+		if (options?.signal?.aborted === true) return { status: 'cancelled' };
+
 		const litGraph = this.querySelector('gl-lit-graph');
 		const { rows: decorated, primaryWipRowId } = this.getDecoratedRows();
 
 		// Callers referring to "the WIP" by git revision (sidebar panel, overview cards) hand us
 		// `uncommitted`, which is NOT a row id — map it to the graph's own worktree's WIP row here, the
 		// one boundary where the revision becomes a row id. Without this it would miss both the
-		// fast-path lookup and the host-side EnsureRow fallback (which can't load a synthetic id either).
+		// fast-path lookup and the host-side row-load fallback (which can't load a synthetic id either).
 		if (sha === uncommitted) {
 			// No resolved repo path means no row id to map onto — and `getDecoratedRows` gates the primary
 			// WIP row's synthesis on the same value, so there is nothing to select in that window either.
 			// Returning is the honest answer; the next render (once `repositories`/`selectedRepository`
 			// land) synthesizes the row and a repeat call resolves. Deliberate: the previous behavior
 			// normalized to a path-free constant and fired a host round-trip that could never resolve it.
-			if (primaryWipRowId == null) return;
+			if (primaryWipRowId == null) {
+				return { status: 'not-found' };
+			}
 
 			sha = primaryWipRowId;
 		}
 
-		// Newest ask wins: supersede any intent still waiting for its row. Below EVERY early return above —
-		// `begin()` clears what's queued, so a call that can't possibly select anything must not run it and
-		// silently cancel an unrelated ask that is still live.
-		const generation = this._selectIntent.begin();
-
-		if (decorated?.some(r => r.sha === sha)) {
-			this.selectCommitsLit([sha]);
-			// ensureAndSelect implies "reveal".
-			litGraph?.scrollToSha(sha);
-			return;
+		const repoPath = this.getRepoPath();
+		const repositoryId = this.graphState.selectedRepository;
+		const deferSynthetic = options?.deferSynthetic !== false;
+		const focus = options?.focus === true;
+		const signal = options?.signal;
+		const pending = this._pendingNavigation;
+		if (
+			pending?.sha === sha &&
+			pending.repositoryId === repositoryId &&
+			pending.repoPath === repoPath &&
+			pending.deferSynthetic === deferSynthetic &&
+			pending.signal === signal
+		) {
+			pending.focus ||= focus;
+			return pending.promise;
 		}
 
-		// Synthetic WIP rows are client-side only — the host has no graph row for them, and asking it to
-		// EnsureRow one costs an unbounded walk for an id that can never resolve. Queue the reveal and let
+		// Newest ask wins: supersede any different intent still waiting for its row.
+		this.settlePendingNavigation({ status: 'cancelled' });
+		litGraph?.cancelPendingReveal();
+		const generation = this._selectIntent.begin();
+		this._selectIntentRepositoryId = repositoryId;
+		this._selectIntentRepoPath = repoPath;
+		const rowBySha = this.getDecoratedRowByShaMap(decorated);
+		const row = rowBySha?.get(sha);
+		let debugMark: string | undefined;
+		if (DEBUG) {
+			debugMark = getGraphDebugDiagnostics().beginNavigation({
+				source: options?.source ?? 'unknown',
+				sha: sha,
+				repositoryId: repositoryId,
+				repoPath: repoPath,
+				loaded: row != null,
+			});
+		}
+		const navigation = this.createPendingNavigation(generation, sha, deferSynthetic, focus, signal, debugMark);
+
+		if (row != null) {
+			this.selectCommitsLit([sha], rowBySha);
+			// Navigation implies reveal.
+			litGraph?.scrollToSha(sha);
+			await this.ensureRendered();
+			if (
+				!this._selectIntent.isCurrent(generation) ||
+				this._selectIntentRepositoryId !== this.graphState.selectedRepository ||
+				this._selectIntentRepoPath !== this.getRepoPath()
+			) {
+				if (this._pendingNavigation?.generation === generation) {
+					this.cancelPendingSelection();
+				}
+				return navigation;
+			}
+
+			if (focus) {
+				litGraph?.focusRow(sha);
+			}
+			this._selectIntentRepositoryId = undefined;
+			this._selectIntentRepoPath = undefined;
+			this.settlePendingNavigation({ status: 'selected', row: this.withVisibility(row) });
+			return navigation;
+		}
+
+		// Synthetic WIP rows are client-side only — the host has no graph row for them. Loading one costs
+		// an unbounded walk for an id that can never resolve. Queue the reveal and let
 		// the next `getDecoratedRows` synthesis surface the row instead.
 		if (isWipRowId(sha)) {
+			if (!deferSynthetic) {
+				this.rejectPendingNavigation(generation);
+				return navigation;
+			}
+
 			// The next `getDecoratedRows` synthesis is what surfaces this row, so hold the selection for it.
 			this._selectIntent.defer(sha, generation);
 			litGraph?.scrollToSha(sha);
-			return;
+			return navigation;
 		}
 
-		this.graphState.loading = true;
-		// Clear the spinner off the request's own settlement — the host answers via a
-		// selection-only notification, so nothing else clears `loading` (mirrors graph-header).
-		void this._ipc.sendRequest(EnsureRowRequest, { id: sha, select: true }).finally(() => {
-			this.graphState.loading = false;
-		});
-		// The host answers with a selection-bearing rows push, but that push can lose a race with a
-		// locally-synthesized row, so hold the intent here too — unless a newer ask has replaced us.
+		this._endEnsureLoading = this.graphState.beginEnsureLoading();
+		void this._ipc
+			.sendRequest(LoadRowRequest, { id: sha })
+			.then(result => {
+				if (result?.id !== sha) {
+					this.rejectPendingNavigation(generation);
+				}
+			})
+			.catch(() => {
+				this.rejectPendingNavigation(generation);
+			});
+		// Selection is client-owned: hold the latest intent until the rows push makes it renderable.
 		this._selectIntent.defer(sha, generation);
 		// Row isn't loaded yet — queue the reveal so it fires once the host's rows land.
 		litGraph?.scrollToSha(sha);
+		return navigation;
 	}
 	private onColumnsChanged(event: CustomEventType<'gl-graph-changecolumns'>) {
 		this._ipc.sendCommand(UpdateColumnsCommand, {
@@ -1200,7 +1444,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// WIP rows (one `wip::<worktreePath>` per worktree) are synthesized in `getDecoratedRows()` and
 		// never exist in `graphState.rows`, so look the row up there — otherwise the lookup misses and
 		// the compose/review/agents open is silently dropped.
-		const row = this.getDecoratedRows().rows?.find(r => r.sha === sha);
+		const row = this.getDecoratedRowByShaMap()?.get(sha);
 		if (row == null) return;
 
 		this.dispatchEvent(
@@ -1316,15 +1560,29 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	/** sha→DECORATED row map (includes synthetic primary + per-worktree WIP rows `getDecoratedRows`
 	 *  injects), cached on the decorated `rows` identity. Range/toggle selection resolves many shas per
 	 *  event — a Map lookup keeps that O(selection), not O(selection × rows). */
-	private getDecoratedRowByShaMap(): ReadonlyMap<string, GitGraphRow> | undefined {
-		const { rows } = this.getDecoratedRows();
+	private getDecoratedRowByShaMap(
+		rows: GitGraphRow[] | undefined = this.getDecoratedRows().rows,
+	): ReadonlyMap<string, GitGraphRow> | undefined {
+		return this.getDecoratedRowsIndex(rows)?.rowBySha;
+	}
+
+	private getDecoratedRowsIndex(
+		rows: GitGraphRow[] | undefined = this.getDecoratedRows().rows,
+	): DecoratedRowsIndex | undefined {
 		if (rows == null) return undefined;
 
-		if (this._decoratedRowByShaCache?.rows === rows) return this._decoratedRowByShaCache.map;
+		if (this._decoratedRowsIndexCache?.rows === rows) return this._decoratedRowsIndexCache;
 
-		const map = new Map(rows.map(r => [r.sha, r]));
-		this._decoratedRowByShaCache = { rows: rows, map: map };
-		return map;
+		const rowBySha = new Map<string, GitGraphRow>();
+		const indexBySha = new Map<string, number>();
+		for (let i = 0; i < rows.length; i++) {
+			const row = rows[i];
+			rowBySha.set(row.sha, row);
+			indexBySha.set(row.sha, i);
+		}
+		const index = { rows: rows, rowBySha: rowBySha, indexBySha: indexBySha };
+		this._decoratedRowsIndexCache = index;
+		return index;
 	}
 
 	private resolveHoverRow(sha: string): GitGraphRow | undefined {
@@ -1437,18 +1695,19 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		// This event is user intent (a click / keyboard select). It outranks any queued jump still waiting
 		// for its row — landing that later would silently move the user off what they just picked.
-		this._selectIntent.cancel();
+		this.cancelPendingSelection();
 
 		// If the user has `gitlens.graph.multiselect: 'topological'`, replace commit-graph's
 		// visible-row range with the first-parent chain from the previously-focused row
 		// down through the clicked row — the user's mental model of "select all
 		// commits between A and B" follows commit ancestry, not visible position.
+		const { rows: decoratedRowsForSelection } = this.getDecoratedRows();
+		const decoratedRowsIndex = this.getDecoratedRowsIndex(decoratedRowsForSelection);
 		let rangeShas = graphRangeShas;
 		if (mode === 'range' && this.graphState.config?.multiSelectionMode === 'topological' && sha != null) {
-			const { rows: decoratedRowsForRange } = this.getDecoratedRows();
 			const prior = this.graphState.activeRow?.split('|')[0];
-			if (decoratedRowsForRange != null && prior != null && prior !== sha) {
-				rangeShas = walkTopologicalRange(decoratedRowsForRange, prior, sha);
+			if (decoratedRowsIndex != null && prior != null && prior !== sha) {
+				rangeShas = walkTopologicalRange(decoratedRowsIndex.rows, decoratedRowsIndex.indexBySha, prior, sha);
 			}
 		}
 
@@ -1456,7 +1715,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// secondary WIP rows) — `graphState.rows` doesn't carry those, so a secondary-WIP
 		// click would otherwise miss. Map lookup (not `.find()`) keeps range/toggle selection
 		// O(selection), not O(selection × rows) — a shift-click range can span many shas.
-		const decoratedRowBySha = this.getDecoratedRowByShaMap();
+		const decoratedRowBySha = decoratedRowsIndex?.rowBySha;
 		const focusedRow = sha != null ? decoratedRowBySha?.get(sha) : undefined;
 
 		// Build the full GraphSelection[] so the details panel + host see the same shape regardless of mode:
@@ -1668,9 +1927,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		const repoPath = this.getRepoPath();
 		const { rows: decoratedRows } = this.getDecoratedRows();
-		if (repoPath == null || decoratedRows == null) return;
+		const decoratedRowsIndex = this.getDecoratedRowsIndex(decoratedRows);
+		if (repoPath == null || decoratedRowsIndex == null) return;
 
-		const { rows: selectedSourceRows, contiguous } = resolveSelectedRowsForContextMenu(decoratedRows, selectedShas);
+		const { rows: selectedSourceRows, contiguous } = resolveSelectedRowsForContextMenu(
+			decoratedRowsIndex.rows,
+			decoratedRowsIndex.indexBySha,
+			selectedShas,
+		);
 		const contexts = computeSelectionContexts(selectedSourceRows, repoPath, contiguous);
 		const context = contexts?.get(row.type);
 		if (context == null) return;
@@ -1868,7 +2132,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
  *  empty-highlight case. */
 function projectShasToSelectedRows(
 	shas: readonly string[] | undefined,
-	present: ReadonlySet<string> | undefined,
+	present: ReadonlyMap<string, GitGraphRow> | undefined,
 	primaryWipRowId: string | undefined,
 ): GraphSelectedRows | undefined {
 	if (shas == null || shas.length === 0) return undefined;

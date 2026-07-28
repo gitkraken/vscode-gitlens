@@ -20,11 +20,13 @@ One line per public module (see the `exports` map in `package.json`):
 | `engine/types.js`      | Core data shapes: `GraphRow`, `ProcessedGraphRow`, `GraphCommit`, edges, segments        |
 | `engine/layout.js`     | Lane (column) allocation, including pinned-branch stacking and paging resume             |
 | `engine/edges.js`      | Edge state machine (starting/passThrough/ending) + memoization hash                      |
-| `engine/process.js`    | Convenience pipeline wiring layout + edges over a list of commits                        |
+| `engine/process.js`    | Low-level pipeline wiring layout + edges over canonical graph rows                       |
+| `engine/session.js`    | Stateful delta/resume/stability/reconcile owner for a consumer's graph dataset           |
 | `engine/reconcile.js`  | Suffix identity reconciliation — restores row object identity across a prefix change     |
 | `engine/delta.js`      | Classifies a rows update as `initial` / `append` / `payload` / `replace`                 |
 | `engine/navigation.js` | Keyboard navigation targets over the laid-out rows                                       |
 | `engine/adornments.js` | Framework-agnostic adornment provider contract (refs, badges, stack chips, …)            |
+| `projection.js`        | Stateful fold/scope intent and incremental projection of engine rows                     |
 | `laneCollapse.js`      | Lane-segment folding: default set, segment maps, row filter + incremental append/splice  |
 | `scope.js`             | Focal-branch scope anchors, in-scope first-parent chain, and the re-root fold projection |
 | `nearestWip.js`        | Picks which working-changes row a commit click jumps to (lane-first, ancestry fallback)  |
@@ -43,7 +45,7 @@ Source-only exports: every subpath maps straight to its `.ts` file (both `types`
 step or `dist/` in this package. GitLens's webpack build resolves it with no extra config.
 
 ```ts
-import { processCommitsAndSegments } from '@gitkraken/commit-graph/engine/process.js';
+import { CommitGraphEngineSession } from '@gitkraken/commit-graph/engine/session.js';
 import type { GraphCommit } from '@gitkraken/commit-graph/engine/types.js';
 import { buildAriaLabel } from '@gitkraken/commit-graph/a11y.js';
 import '@gitkraken/commit-graph/theme.css';

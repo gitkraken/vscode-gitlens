@@ -2650,7 +2650,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@mode-back=${this.handleModeBack}
 				@mode-refresh=${this.handleModeRefresh}
 				@refresh-wip=${this.handleRefreshWip}
-				@gl-jump-to-commit=${this.handleJumpToCommit}
 				@switch-branch=${this.handleSwitchBranch}
 				@compare-with-merge-target=${this.handleCompareWithMergeTarget}
 				@publish-branch=${this.handlePublishBranch}
@@ -3046,17 +3045,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
 			@copy-commit-patch=${this.handleCopyCommitPatch}
 			@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
-			@gl-jump-to-nearest-wip=${this.handleJumpToNearestWip}
 		></gl-details-commit-panel>`;
 	}
-
-	private handleJumpToNearestWip = (e: CustomEvent<{ fromSha: string }>): void => {
-		document.dispatchEvent(new CustomEvent('gl-jump-to-nearest-wip', { detail: e.detail }));
-	};
-
-	private handleJumpToCommit = (e: CustomEvent<{ sha: string }>): void => {
-		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: e.detail }));
-	};
 
 	private renderMultiCommit() {
 		const activeMode = this._state.activeMode.get();

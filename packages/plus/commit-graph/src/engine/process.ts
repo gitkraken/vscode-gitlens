@@ -1,7 +1,7 @@
 /**
- * Convenience pipeline that runs the engine end-to-end over a list of consumer commits.
+ * Convenience pipeline that runs the engine end-to-end over canonical graph rows.
  *
- * Returns TOPOLOGY-ONLY processed rows: output rows align 1:1 by index with the input commits, so
+ * Returns TOPOLOGY-ONLY processed rows: output rows align 1:1 by index with the input rows, so
  * consumers keep payload (refs, message, author, …) in their own aligned store and look it up by
  * index/sha. Keeping payload OFF the engine rows is what lets a payload-only change (e.g. a ref
  * move) skip the engine entirely — the row objects, and everything derived from their identity,
@@ -16,10 +16,10 @@ import type { GraphLayoutSnapshot } from './layout.js';
 import { appendColumnsAndSegments, computeColumnsAndSegments } from './layout.js';
 import type { ReconciledSuffix } from './reconcile.js';
 import { alignRowsSuffixByLayout } from './reconcile.js';
-import type { GraphCommit, GraphRow, LaneSegment, ProcessedGraphRow, RowEdges, Sha } from './types.js';
+import type { GraphRow, LaneSegment, ProcessedGraphRow, RowEdges, Sha } from './types.js';
 
-// Opaque resume token for `processCommitsAndSegments` — bundles the layout snapshot, the last row's
-// edges (edge-pass carry-over), the accumulated processed rows, and the prior commit count. Callers hold
+// Opaque resume token for `processGraphRows` — bundles the layout snapshot, the last row's
+// edges (edge-pass carry-over), the accumulated processed rows, and the prior row count. Callers hold
 // it verbatim across paging and pass it back; the shape is private.
 declare const processResumeBrand: unique symbol;
 export type GraphProcessResume = { readonly [processResumeBrand]: true };
@@ -27,7 +27,7 @@ interface InternalProcessResume {
 	layout: GraphLayoutSnapshot;
 	lastEdges: RowEdges;
 	priorRows: ProcessedGraphRow[];
-	commitCount: number;
+	rowCount: number;
 }
 
 // Opaque sticky-columns token — bundles a run's output so the NEXT run can reproduce its lane assignments
@@ -59,29 +59,16 @@ function preferencesFromStability(stability: GraphStability | undefined): Readon
 	return preferred;
 }
 
-function commitToGraphRow(commit: GraphCommit): GraphRow {
-	return {
-		sha: commit.hash,
-		parents: commit.parents,
-		// Consumer-supplied kind wins (workdir/stash can't be inferred from parents alone);
-		// otherwise fall back to the parent-count heuristic.
-		kind: commit.kind ?? (commit.parents.length > 1 ? 'merge' : 'commit'),
-		// Already Unix ms (the producer no longer round-trips through an ISO string); the layout's
-		// stash-vs-commit lane tie-break reads it directly. A non-finite/absent value maps to 0.
-		date: Number.isFinite(commit.date) ? commit.date : 0,
-	};
-}
-
 /**
- * Lays out the commits and returns the lane segments identified during layout — the `segments` array lets
+ * Lays out canonical graph rows and returns the lane segments identified during layout — the `segments` array lets
  * the caller filter rows into a chip-collapsed view without re-running the engine.
  *
  * Edge computation must happen over the FULL row set (not a pre-filtered one) because
  * the edge state machine carries column reservations forward via row-by-row chaining;
  * filter the rows after the engine has run, not before.
  */
-export function processCommitsAndSegments(
-	commits: readonly GraphCommit[],
+export function processGraphRows(
+	graphRows: readonly GraphRow[],
 	options?: {
 		/** Ordered branch heads to pin to successive columns (0, 1, 2, …) — see `assignPinnedColumns`. */
 		pinnedShas?: readonly Sha[];
@@ -140,12 +127,11 @@ export function processCommitsAndSegments(
 		// Size, not nullness: an EMPTY synthetic set marks no edges, so it cannot change the output — and
 		// treating it as "scoped" would needlessly drop this whole page-in to a full re-run.
 		(options?.syntheticChildren?.size ?? 0) === 0 &&
-		commits.length > resume.commitCount &&
-		resume.commitCount > 0 &&
-		resume.priorRows[resume.commitCount - 1]?.sha === commits[resume.commitCount - 1]?.hash
+		graphRows.length > resume.rowCount &&
+		resume.rowCount > 0 &&
+		resume.priorRows[resume.rowCount - 1]?.sha === graphRows[resume.rowCount - 1]?.sha
 	) {
-		const newCommits = commits.slice(resume.commitCount);
-		const newRows: GraphRow[] = newCommits.map(commitToGraphRow);
+		const newRows = graphRows.slice(resume.rowCount);
 		const {
 			rows: appended,
 			segments,
@@ -161,7 +147,7 @@ export function processCommitsAndSegments(
 			layout: snapshot,
 			lastEdges: lastEdges,
 			priorRows: allRows,
-			commitCount: commits.length,
+			rowCount: graphRows.length,
 		};
 		return {
 			rows: allRows,
@@ -172,7 +158,7 @@ export function processCommitsAndSegments(
 		};
 	}
 
-	const rows: GraphRow[] = commits.map(commitToGraphRow);
+	const rows = graphRows;
 	// An explicit map wins (test/low-level callers); otherwise derive from the opaque token.
 	const preferredColumns = options?.preferredColumns ?? preferencesFromStability(options?.stableFrom);
 	let layout = computeColumnsAndSegments(rows, {
@@ -245,7 +231,7 @@ export function processCommitsAndSegments(
 		layout: snapshot,
 		lastEdges: processed.at(-1)?.edges ?? {},
 		priorRows: processed,
-		commitCount: commits.length,
+		rowCount: graphRows.length,
 	};
 	// Surface `unloadedColumns` so the lane-collapse / scope re-pass (which re-runs `computeEdges` over the
 	// filtered rows) can re-thread it — otherwise the dangling stub vanishes the moment any lane folds.

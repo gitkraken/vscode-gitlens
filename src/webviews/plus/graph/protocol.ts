@@ -1041,16 +1041,15 @@ export const ResolveGraphScopeRequest = new IpcRequest<ResolveGraphScopeParams, 
 	'scope/resolve',
 );
 
-export interface EnsureRowParams {
+export interface LoadRowParams {
 	id: string;
-	select?: boolean;
 }
-export interface DidEnsureRowParams {
+export interface DidLoadRowParams {
 	id?: string; // `undefined` if the row was not found
 	/** Set when the host couldn't load the row. `id` is undefined alongside. */
 	error?: string;
 }
-export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
+export const LoadRowRequest = new IpcRequest<LoadRowParams, DidLoadRowParams>(scope, 'rows/load');
 
 export interface SearchHistoryGetParams {
 	repoPath: string | undefined;

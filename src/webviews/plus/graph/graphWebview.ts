@@ -251,7 +251,6 @@ import {
 	DidStartFeaturePreviewNotification,
 	DoubleClickedCommand,
 	EnableChangesColumnCommand,
-	EnsureRowRequest,
 	GetAgentSessionsRequest,
 	GetCountsRequest,
 	GetMissingAvatarsCommand,
@@ -267,6 +266,7 @@ import {
 	GetWipStatsRequest,
 	GraphSyncResyncCommand,
 	isWipRowId,
+	LoadRowRequest,
 	OpenPullRequestDetailsCommand,
 	ProxyAvatarsCommand,
 	ResetGraphFiltersCommand,
@@ -711,7 +711,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			getFiredSidebarSeq: () => this._firedSidebarEventSeq,
 			setFiredSidebarSeq: seq => (this._firedSidebarEventSeq = seq),
 			setLastSentBranchState: branchState => this._producers.setLastSentBranchState(branchState),
-			setSelectedRows: (id, selection, state) => this.setSelectedRows(id, selection, state),
 			buildSearchRider: () => this._searchService.buildSearchRider(),
 			buildState: () => this.getState(),
 			resetSearchState: () => this._searchService.resetSearchState(),
@@ -727,7 +726,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			searchGraphOrContinue: (e, progressive) => this._searchService.searchGraphOrContinue(e, progressive),
 			notifyDidChangeOverview: () => void this._panels.notifyDidChangeOverview(),
 			notifySidebarInvalidated: () => this._panels.notifySidebarInvalidated(),
-			notifyDidChangeSelection: () => void this.notifyDidChangeSelection(),
 			notifyDidChangeCanInstallClaudeHook: () => void this.notifyDidChangeCanInstallClaudeHook(),
 			resetWipSendState: () => this._wip.resetSendState(),
 			clearWipStatusCache: () => this._wip.clearStatusCache(),
@@ -2567,12 +2565,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		);
 	}
 
-	@ipcRequest(EnsureRowRequest)
+	@ipcRequest(LoadRowRequest)
 	@trace()
-	private onEnsureRowRequest(
-		params: IpcParams<typeof EnsureRowRequest>,
+	private onLoadRowRequest(
+		params: IpcParams<typeof LoadRowRequest>,
 	): Promise<{ id: string | undefined; error?: string }> {
-		return this._data.onEnsureRowRequest(params);
+		return this._data.onLoadRowRequest(params);
 	}
 
 	@ipcCommand(GetMissingAvatarsCommand)

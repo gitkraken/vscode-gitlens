@@ -26,17 +26,15 @@ import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import { GraphSessionStore } from './graphSessionStore.js';
 import type { GraphSyncPublisher } from './graphSyncPublisher.js';
-import type { SelectedRowState } from './graphWebview.js';
 import { computeAdaptivePageLimit } from './graphWebview.utils.js';
 import { DidChangeNotification, DidSearchNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
 import type {
 	BranchState,
 	DidSearchParams,
-	EnsureRowRequest,
 	GetMoreRowsCommand,
 	GraphSelectedRows,
-	GraphSelection,
 	GraphSyncResyncCommand,
+	LoadRowRequest,
 	SearchRequest,
 	State,
 } from './protocol.js';
@@ -67,7 +65,6 @@ export type GraphDataControllerContext = {
 	setLastSentBranchState: (branchState: BranchState | undefined) => void;
 
 	// Collaborators the moved bodies invoke (stay on the provider).
-	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
 	buildSearchRider: () => DidSearchParams | undefined;
 	buildState: () => Promise<State>;
 	resetSearchState: () => void;
@@ -83,7 +80,6 @@ export type GraphDataControllerContext = {
 	) => Promise<IpcResponse<typeof SearchRequest>>;
 	notifyDidChangeOverview: () => void;
 	notifySidebarInvalidated: () => void;
-	notifyDidChangeSelection: () => void;
 	notifyDidChangeCanInstallClaudeHook: () => void;
 	resetWipSendState: () => void;
 	clearWipStatusCache: () => void;
@@ -600,7 +596,7 @@ export class GraphDataController {
 		// Adaptive page size: scale the base `pageItemLimit` with how deep we're already loaded so the
 		// growing `git log --skip=N` re-walk cost amortizes over fewer, larger pages. Depth = the
 		// ACCUMULATED loaded count (`ids.size`) — `current.rows` is page-scoped after pagination and would
-		// pin the multiplier at one page. Targeted/EnsureRow walks pass an explicit `limitOverride`
+		// pin the multiplier at one page. Targeted row-load walks pass an explicit `limitOverride`
 		// (0 = uncapped) and keep their exact semantics untouched.
 		let limit =
 			limitOverride ?? computeAdaptivePageLimit(session.current.ids.size, pageItemLimit ?? defaultItemLimit);
@@ -729,8 +725,8 @@ export class GraphDataController {
 		}
 	}
 
-	async onEnsureRowRequest(
-		params: IpcParams<typeof EnsureRowRequest>,
+	async onLoadRowRequest(
+		params: IpcParams<typeof LoadRowRequest>,
 	): Promise<{ id: string | undefined; error?: string }> {
 		if (this._graphSession == null) return { id: undefined };
 		// WIP rows are synthesized client-side and have no commit behind them, so there is nothing to
@@ -741,13 +737,12 @@ export class GraphDataController {
 
 		try {
 			if (this._graphSession.current.ids.has(params.id)) {
-				// Row already loaded — only the selection changed (if any). Use the lightweight
-				// selection-only notification (kB-scale Record<sha,true>) instead of the heavy
-				// `notifyDidChangeRows` (which would re-ship the full accumulated payload).
-				if (params.select) {
-					this.context.setSelectedRows(params.id);
-					this.context.notifyDidChangeSelection();
-				}
+				// The webview only asks for a row it cannot resolve locally. If the host already has it,
+				// the planes have diverged (for example after a lost rows notification); re-ship the
+				// authoritative snapshot so navigation can recover instead of waiting for a row that the
+				// host would otherwise consider already delivered.
+				this._graphSync.requireSnapshot();
+				await this._graphSync.flush();
 				return { id: params.id };
 			}
 
@@ -768,25 +763,22 @@ export class GraphDataController {
 				await this.updateGraphWithMoreRows(params.id, this._search, 0);
 				if (this._graphSession?.current.ids.has(params.id)) {
 					id = params.id;
-					if (params.select) {
-						this.context.setSelectedRows(id);
-					}
 				}
 			} catch (ex) {
 				// A genuine page-in failure must still ship the rows push below (finally) so client loading
 				// resets. Cancellation already resolves (the query's inner catch swallows it).
-				Logger.error(ex, 'GraphDataController', 'onEnsureRowRequest');
+				Logger.error(ex, 'GraphDataController', 'onLoadRowRequest');
 			} finally {
-				// New rows were loaded (heavy: rows + avatars + downstreams + rowsStats + refsMetadata) — ship
-				// them, carrying the selection rider when a target was selected. BEFORE release so an empty
-				// delta still resets client loading on a failed/empty page.
-				this.notifyDidChangeRows(id != null && params.select);
+				// New rows were loaded (heavy: rows + avatars + downstreams + rowsStats + refsMetadata).
+				// Selection is deliberately client-owned and latest-wins; this request only makes the row
+				// available. Notify before release so an empty delta still settles client paging state.
+				this.notifyDidChangeRows();
 				this._graphSync.release();
 			}
 
 			return { id: id };
 		} catch (ex) {
-			Logger.error(ex, 'GraphDataController', 'onEnsureRowRequest');
+			Logger.error(ex, 'GraphDataController', 'onLoadRowRequest');
 			return { id: undefined, error: ex instanceof Error ? ex.message : String(ex) };
 		}
 	}

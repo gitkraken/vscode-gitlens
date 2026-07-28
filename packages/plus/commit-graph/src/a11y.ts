@@ -45,11 +45,11 @@ export function buildAriaLabel(
 
 	let header: string;
 	if (kind === 'stash') {
-		header = `Stash ${commit.shortHash}`;
+		header = `Stash ${commit.shortSha}`;
 	} else if (isMerge) {
-		header = `Merge commit ${commit.shortHash}`;
+		header = `Merge commit ${commit.shortSha}`;
 	} else {
-		header = `Commit ${commit.shortHash}`;
+		header = `Commit ${commit.shortSha}`;
 	}
 	parts.push(header);
 

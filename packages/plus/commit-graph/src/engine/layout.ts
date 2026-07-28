@@ -597,7 +597,7 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 		tracker.commitShas.push(row.sha);
 	}
 
-	const rowDate = row.date ?? 0;
+	const rowDate = Number.isFinite(row.date) ? row.date! : 0;
 
 	for (let index = 0; index < row.parents.length; index++) {
 		const parentSha = row.parents[index];
@@ -794,8 +794,19 @@ function finalizeLayout(state: LayoutState): { segments: LaneSegment[]; unloaded
 function assignColumnsInto(state: LayoutState, rows: readonly GraphRow[], output: ProcessedGraphRow[]): void {
 	for (let i = 0; i < rows.length; i++) {
 		state.currentRow = i;
-		const column = assignColumnForRow(state, rows[i]);
-		output[i] = { ...rows[i], column: column, edges: {}, edgeColumnMax: 0 };
+		const row = rows[i];
+		const column = assignColumnForRow(state, row);
+		output[i] = {
+			// Copy only canonical topology. Callers may pass a rich GraphCommit superset; spreading it
+			// here would duplicate message/ref/context payload into the engine plane at every row.
+			sha: row.sha,
+			parents: row.parents,
+			kind: row.kind,
+			date: Number.isFinite(row.date) ? row.date : 0,
+			column: column,
+			edges: {},
+			edgeColumnMax: 0,
+		};
 
 		// `columnsUsed` IS this row's live-lane set (the row's own column included, frees for it already
 		// run), so its max is the row's rightmost lane — the edge pass's `edgeColumnMax` without needing

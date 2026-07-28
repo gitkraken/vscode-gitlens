@@ -763,7 +763,7 @@ function renderZoneContent(
 		case 'datetime':
 			return html`<span class="gl-graph__date">${relativeDate ?? ''}</span>`;
 		case 'sha':
-			return html`<span class="gl-graph__sha">${ctx.commit.shortHash}</span>`;
+			return html`<span class="gl-graph__sha">${ctx.commit.shortSha}</span>`;
 		case 'changes':
 			return renderChangesCell(zone, row, ctx);
 		default:
@@ -786,7 +786,7 @@ function renderListBody(
 	// rows have no sha/author/date, so line 2 is just their WIP pills. Line 1 is the message alone.
 	const meta = isWorkdir
 		? nothing
-		: html`<span class="gl-graph__sha">${ctx.commit.shortHash}</span>
+		: html`<span class="gl-graph__sha">${ctx.commit.shortSha}</span>
 				<span class="gl-graph__author">${ctx.commit.author}</span>
 				<span class="gl-graph__date gl-graph__list-date">${relativeDate ?? ''}</span>`;
 	const line2 =

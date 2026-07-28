@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { processCommitsAndSegments } from '../engine/process.js';
+import { processGraphRows } from '../engine/process.js';
 import { reconcileRowsSuffix } from '../engine/reconcile.js';
 import type { GraphCommit, LaneSegment, ProcessedGraphRow, Sha } from '../engine/types.js';
 import {
@@ -12,15 +12,16 @@ import {
 	spliceDroppedRows,
 } from '../laneCollapse.js';
 
-function commit(hash: string, parents: string[]): GraphCommit {
+function commit(sha: string, parents: string[]): GraphCommit {
 	return {
-		hash: hash,
-		shortHash: hash.slice(0, 7),
-		message: hash,
+		sha: sha,
+		shortSha: sha.slice(0, 7),
+		message: sha,
 		author: 'Tester',
 		authorEmail: 'test@example.com',
 		date: 0,
 		parents: parents,
+		kind: parents.length > 1 ? 'merge' : 'commit',
 	};
 }
 
@@ -52,12 +53,12 @@ function collapsePass(
 // running the full filter over the combined rows, at every split point where the renderer's guards
 // would allow the incremental path (drop-set delta confined to the appended region).
 function assertCollapseAppendMatchesFull(commits: readonly GraphCommit[]): void {
-	const full = processCommitsAndSegments(commits);
+	const full = processGraphRows(commits);
 	// The frozen collapsed set: every foldable ('all' mode, non-trunk) segment of the FULL graph that
 	// is also finalized identically in each prefix run gets checked per split below.
 	for (let split = 2; split < commits.length; split++) {
-		const prefix = processCommitsAndSegments(commits.slice(0, split));
-		const appended = processCommitsAndSegments(commits, { resume: prefix.resume });
+		const prefix = processGraphRows(commits.slice(0, split));
+		const appended = processGraphRows(commits, { resume: prefix.resume });
 
 		// Freeze the default set as of the PREFIX run — exactly what the renderer does on appends.
 		const trunkPrefix = computeTrunkSegmentTip(prefix.segments, prefix.rows, undefined);
@@ -189,9 +190,9 @@ function assertCollapseSpliceMatchesFull(
 ): boolean {
 	// `growBottom` simulates the host loading FURTHER than the prior window on the rebuild: the
 	// prior run had fewer bottom rows than the new one.
-	const prior = processCommitsAndSegments(growBottom > 0 ? base.slice(0, -growBottom) : base);
+	const prior = processGraphRows(growBottom > 0 ? base.slice(0, -growBottom) : base);
 	const nextCommits = [...prepended, ...base];
-	const next = processCommitsAndSegments(cutBottom > 0 ? nextCommits.slice(0, -cutBottom) : nextCommits);
+	const next = processGraphRows(cutBottom > 0 ? nextCommits.slice(0, -cutBottom) : nextCommits);
 
 	const priorIdx = new Map(prior.rows.map((r, i) => [r.sha, i]));
 	const reconciled = reconcileRowsSuffix(prior.rows, next.rows, sha => priorIdx.get(sha));

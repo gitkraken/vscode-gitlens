@@ -1,18 +1,18 @@
 import * as assert from 'assert';
-import { processCommitsAndSegments } from '../process.js';
+import { processGraphRows } from '../process.js';
 import type { CommitKind, GraphCommit, ProcessedGraphRow } from '../types.js';
 
 // Rows are newest-first; `date` descending keeps that order explicit where it matters.
-function commit(hash: string, parents: string[], kind?: CommitKind, date = 0): GraphCommit {
+function commit(sha: string, parents: string[], kind?: CommitKind, date = 0): GraphCommit {
 	return {
-		hash: hash,
-		shortHash: hash.slice(0, 7),
-		message: hash,
+		sha: sha,
+		shortSha: sha.slice(0, 7),
+		message: sha,
 		author: 'Tester',
 		authorEmail: 'test@example.com',
 		date: date,
 		parents: parents,
-		kind: kind,
+		kind: kind ?? (parents.length > 1 ? 'merge' : 'commit'),
 	};
 }
 
@@ -45,7 +45,7 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('A', ['P'], 'commit', 2),
 			commit('P', [], 'commit', 1),
 		];
-		const prior = processCommitsAndSegments(before);
+		const prior = processGraphRows(before);
 		assert.strictEqual(columnsBySha(prior.rows).get('F'), 1, 'fixture: feat sits on a side lane');
 		assert.strictEqual(columnsBySha(prior.rows).get('A'), 0, 'fixture: the trunk owns the base lane');
 
@@ -59,7 +59,7 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('P', [], 'commit', 1),
 		];
 
-		const sticky = processCommitsAndSegments(after, { stableFrom: prior.stability });
+		const sticky = processGraphRows(after, { stableFrom: prior.stability });
 		assert.strictEqual(columnsBySha(sticky.rows).get('F'), 1, 'sticky reproduces the stale side lane');
 		assert.notStrictEqual(sticky.renormalized, true, 'the area backstop cannot catch this local misroute');
 	});
@@ -75,7 +75,7 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('A', ['P'], 'commit', 2),
 			commit('P', [], 'commit', 1),
 		];
-		const cold = processCommitsAndSegments(after);
+		const cold = processGraphRows(after);
 		const cols = columnsBySha(cold.rows);
 		for (const sha of ['F', 'E', 'D', 'A', 'P']) {
 			assert.strictEqual(cols.get(sha), 0, `${sha} must sit on the trunk lane`);
@@ -94,13 +94,13 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('C4', ['C5'], 'commit', 3),
 			commit('C5', [], 'commit', 2),
 		];
-		const prior = processCommitsAndSegments(before);
+		const prior = processGraphRows(before);
 		assert.strictEqual(columnsBySha(prior.rows).get('C3'), 1, 'fixture: the fork sits on a side lane');
 
 		// Checking out the hidden branch reveals C0 (HEAD is never hidden).
 		const after = [commit('C0', ['C3'], 'commit', 6), ...before];
-		const sticky = processCommitsAndSegments(after, { stableFrom: prior.stability });
-		const cold = processCommitsAndSegments(after);
+		const sticky = processGraphRows(after, { stableFrom: prior.stability });
+		const cold = processGraphRows(after);
 
 		assert.strictEqual(columnsBySha(sticky.rows).get('C0'), 1, 'sticky strands the new HEAD on the side lane');
 		assert.strictEqual(columnsBySha(cold.rows).get('C0'), 0, 'cold puts the current branch on the base lane');
@@ -115,7 +115,7 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('B', ['Z'], 'commit', 4), // HEAD's branch, on the side lane
 			commit('Z', [], 'commit', 1),
 		];
-		const prior = processCommitsAndSegments(before);
+		const prior = processGraphRows(before);
 		assert.strictEqual(columnsBySha(prior.rows).get('B'), 1, 'fixture: HEAD branch on the side lane');
 
 		const after = [
@@ -124,7 +124,7 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('B', ['Z'], 'commit', 4),
 			commit('Z', [], 'commit', 1),
 		];
-		const sticky = processCommitsAndSegments(after, { stableFrom: prior.stability });
+		const sticky = processGraphRows(after, { stableFrom: prior.stability });
 
 		assert.notStrictEqual(sticky.renormalized, true, 'an ordinary commit must not reshuffle lanes');
 		const cols = columnsBySha(sticky.rows);
@@ -142,7 +142,7 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('B', ['C'], 'commit', 2),
 			commit('C', [], 'commit', 1),
 		];
-		const prior = processCommitsAndSegments(before);
+		const prior = processGraphRows(before);
 		assert.strictEqual(columnsBySha(prior.rows).get('A'), 0, 'fixture: linear trunk on the base lane');
 
 		const after = [
@@ -153,7 +153,7 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('B', ['C'], 'commit', 2),
 			commit('C', [], 'commit', 1),
 		];
-		const sticky = processCommitsAndSegments(after, { stableFrom: prior.stability });
+		const sticky = processGraphRows(after, { stableFrom: prior.stability });
 
 		assert.notStrictEqual(sticky.renormalized, true, 'a clean prepend must keep sticky stability');
 		const cols = columnsBySha(sticky.rows);
@@ -174,11 +174,11 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 			commit('H', ['R'], 'commit', 2),
 			commit('R', [], 'commit', 1),
 		];
-		const prior = processCommitsAndSegments(base);
+		const prior = processGraphRows(base);
 		const priorCols = columnsBySha(prior.rows);
 
 		// A fetch that adds an unrelated tip must not move any existing lane.
-		const fetched = processCommitsAndSegments([commit('N', ['B'], 'commit', 7), ...base], {
+		const fetched = processGraphRows([commit('N', ['B'], 'commit', 7), ...base], {
 			stableFrom: prior.stability,
 		});
 		const fetchedCols = columnsBySha(fetched.rows);
@@ -187,7 +187,7 @@ suite('engine/trunk re-root — sticky columns across a HEAD move', () => {
 		}
 
 		// Dirtying the working tree (first WIP row) must not move any existing lane either.
-		const dirtied = processCommitsAndSegments([wip('H'), ...base], { stableFrom: prior.stability });
+		const dirtied = processGraphRows([wip('H'), ...base], { stableFrom: prior.stability });
 		const dirtiedCols = columnsBySha(dirtied.rows);
 		for (const [sha, column] of priorCols) {
 			assert.strictEqual(dirtiedCols.get(sha), column, `WIP row moved ${sha}`);

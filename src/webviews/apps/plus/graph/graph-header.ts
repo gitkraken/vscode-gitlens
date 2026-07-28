@@ -22,14 +22,11 @@ import type {
 	GraphRefOptData,
 	GraphSearchResults,
 	GraphSelectedRows,
-	ReadonlyGraphRow,
-	SelectCommitsOptions,
 	State,
 } from '../../../plus/graph/protocol.js';
 import {
 	ChooseRepositoryCommand,
 	CloseGraphWalkthroughBannerCommand,
-	EnsureRowRequest,
 	OpenPullRequestDetailsCommand,
 	SearchCancelCommand,
 	SearchOpenInViewCommand,
@@ -53,6 +50,7 @@ import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-p
 import type { GlGraphScopePopover } from './components/gl-graph-scope-popover.js';
 import { graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
+import type { GraphNavigationOptions, GraphNavigationResult } from './graph-wrapper/graph-wrapper.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProvider.js';
@@ -240,12 +238,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	private readonly _modifiers = new ModifierKeysController(this);
 
-	// Function to get commits without modifying selection, passed from graph-app
-	getCommits?: (shas: string[]) => ReadonlyGraphRow[];
-	// Function to select commits on the graph, passed from graph-app
-	selectCommits?: (shas: string[], options?: SelectCommitsOptions) => ReadonlyGraphRow[];
-	// Awaits the graph flushing pending renders (so post-load visibility reads are accurate), from graph-app
-	ensureGraphRendered?: () => Promise<void>;
+	// The wrapper-owned load/select/reveal boundary, passed from graph-app. It resolves only after the
+	// selected row's rendered visibility is current, so search never needs to poll graph state.
+	navigateToCommit?: (sha: string, options?: GraphNavigationOptions) => Promise<GraphNavigationResult>;
 
 	@property({ type: Boolean, attribute: 'details-visible' })
 	detailsVisible = false;
@@ -280,17 +275,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@state()
 	private _searchResultHidden = false;
 
-	private _lastRepoPath: string | undefined;
+	private _lastNavigationRepoPath: string | undefined;
 
 	override updated(changedProperties: PropertyValues): void {
 		this.aiAllowed = (this.graphState.config?.aiEnabled ?? true) && (this.graphState.orgSettings?.ai ?? true);
 
-		// Clear navigation caches when repository changes
-		const currentRepo = this.graphState.selectedRepository;
-		if (this._lastRepoPath !== currentRepo) {
-			this._lastRepoPath = currentRepo;
-			this.ensuredIds.clear();
-			this.pendingEnsureRequests.clear();
+		const currentRepoPath = this.graphState.selectedRepository;
+		if (this._lastNavigationRepoPath !== currentRepoPath) {
+			this._lastNavigationRepoPath = currentRepoPath;
+			this._pendingNavigation = undefined;
+			this.cancelActiveSearchNavigation();
 		}
 
 		// Restore the search box after a reboot/reconnect where an active search's query didn't reach the
@@ -307,6 +301,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			)
 		) {
 			const restored = this.graphState.searchQuery!;
+			this._pendingNavigation = undefined;
+			this.cancelActiveSearchNavigation();
 			this._searchQuery = restored;
 			this.searchEl?.setExternalSearchQuery(restored);
 			this.updateActiveFilterColumns();
@@ -315,7 +311,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		super.updated(changedProperties);
 	}
 
+	override disconnectedCallback(): void {
+		this.cancelActiveSearchNavigation();
+		super.disconnectedCallback?.();
+	}
+
 	setExternalSearchQuery(query: SearchQuery) {
+		this._pendingNavigation = undefined;
+		this.cancelActiveSearchNavigation();
 		this._searchQuery = query;
 		this.searchEl?.setExternalSearchQuery(query);
 		this.updateActiveFilterColumns();
@@ -569,17 +572,22 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private cancelSearch(preserveResults: boolean) {
+		this._pendingNavigation = undefined;
+		this.cancelActiveSearchNavigation();
 		// Don't eagerly clear local state — the host sends a clear notification as part of
 		// processing the cancel (or starting a new search). Eagerly clearing causes a flash
 		// where old results/errors disappear briefly before the new state arrives.
 		this._ipc.sendCommand(SearchCancelCommand, { preserveResults: preserveResults });
 	}
 
-	private async waitForSearchComplete(timeoutMs: number = 30000): Promise<void> {
+	private async waitForSearchComplete(
+		timeoutMs: number = 30000,
+		shouldContinue: () => boolean = () => true,
+	): Promise<void> {
 		if (!this.graphState.searching) return;
 
 		const deadline = performance.now() + timeoutMs;
-		while (this.graphState.searching && performance.now() < deadline) {
+		while (this.graphState.searching && shouldContinue() && performance.now() < deadline) {
 			// Wait for the next Lit render cycle — SignalWatcher triggers a
 			// re-render when `searching` changes, so updateComplete resolves
 			// once the new signal value is reflected.
@@ -597,7 +605,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private revealFirstSearchMatch(selectedRows: GraphSelectedRows | undefined): void {
 		const firstSha = selectedRows != null ? Object.keys(selectedRows)[0] : undefined;
 		if (firstSha != null) {
-			this.selectCommits?.([firstSha], { ensureVisible: true });
+			void this.navigateToSearchResult(firstSha);
 		}
 	}
 
@@ -656,6 +664,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private handleSearchInput(e: CustomEvent<SearchQuery>) {
+		this._pendingNavigation = undefined;
+		this.cancelActiveSearchNavigation();
 		// Cancel any existing search before starting a new one
 		if (this.graphState.searching) {
 			this.cancelSearch(false);
@@ -663,7 +673,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 		this._searchQuery = e.detail;
 		this.updateActiveFilterColumns();
-		this.ensuredIds.clear();
 		void this.startSearch();
 	}
 
@@ -734,6 +743,34 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	private _pendingNavigation: SearchNavigationEventDetail['direction'] | undefined;
 	private _isNavigating = false;
+	private _activeNavigationAbort?: AbortController;
+	private _searchNavigationGeneration = 0;
+
+	private cancelActiveSearchNavigation(): void {
+		this._searchNavigationGeneration++;
+		this._activeNavigationAbort?.abort();
+		this._activeNavigationAbort = undefined;
+	}
+
+	private async navigateToSearchResult(id: string): Promise<GraphNavigationResult | undefined> {
+		this._activeNavigationAbort?.abort();
+		const abort = new AbortController();
+		this._activeNavigationAbort = abort;
+		try {
+			return await this.navigateToCommit?.(id, {
+				source: 'search',
+				// Search can legitimately contain a WIP row excluded by the active view. Unlike a
+				// scope/overview jump, it must skip that result rather than wait for a synthesis that
+				// cannot occur until the user changes the view.
+				deferSynthetic: false,
+				signal: abort.signal,
+			});
+		} finally {
+			if (this._activeNavigationAbort === abort) {
+				this._activeNavigationAbort = undefined;
+			}
+		}
+	}
 
 	/**
 	 * Handles search navigation requests (next/previous/first/last)
@@ -785,6 +822,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		let { searchResults } = this.graphState;
 		if (searchResults == null) return;
 
+		const repoPath = this.graphState.selectedRepository;
+		const searchQuery = this._searchQuery;
+		const navigationGeneration = this._searchNavigationGeneration;
+		const isCurrent = (): boolean =>
+			this.graphState.selectedRepository === repoPath &&
+			this._searchQuery === searchQuery &&
+			this._searchNavigationGeneration === navigationGeneration;
 		let count = searchResults.count;
 		let searchIndex: number;
 		let id: string | undefined;
@@ -796,19 +840,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		} else if (direction === 'last') {
 			searchIndex = -1;
 		} else {
-			({ index: searchIndex, id } = this.getClosestSearchResultIndex(
-				searchResults,
-				{ ...this._searchQuery },
-				next,
-			));
+			({ index: searchIndex, id } = this.getClosestSearchResultIndex(searchResults, { ...searchQuery }, next));
 		}
-
-		// Track last visible result to maintain stable position during async loading
-		const lastVisibleId: string | undefined = this.getActiveRowInfo()?.id;
 
 		// For jump-to-last while search is running, wait for search to complete first
 		if (direction === 'last' && this.graphState.searching) {
-			await this.waitForSearchComplete();
+			await this.waitForSearchComplete(30000, isCurrent);
+			if (!isCurrent()) return;
 
 			// Refresh searchResults after waiting
 			searchResults = this.graphState.searchResults;
@@ -821,7 +859,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		for (let iterations = 0; iterations < 1000; iterations++) {
 			// Handle boundary case - need to load more results
 			if (searchIndex === -1) {
-				if (!this._searchQuery?.query) break;
+				if (!searchQuery.query) break;
 
 				// If no more results to load, jump to the last known result
 				if (!searchResults.hasMore) {
@@ -833,10 +871,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				try {
 					// For 'last', load all results at once; otherwise load incrementally
 					const limit = direction === 'last' ? 0 : undefined;
-					moreResults = await this.onSearchPromise({ ...this._searchQuery }, { limit: limit, more: true });
+					moreResults = await this.onSearchPromise({ ...searchQuery }, { limit: limit, more: true });
 				} catch {
 					break;
 				}
+				if (!isCurrent()) return;
 
 				if (
 					!moreResults?.results ||
@@ -846,9 +885,10 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					break;
 				}
 
+				const priorCount = count;
 				searchResults = moreResults.results;
 				count = searchResults.count;
-				searchIndex = direction === 'last' ? count - 1 : count - (moreResults.results.count - count);
+				searchIndex = direction === 'last' ? count - 1 : priorCount;
 				continue;
 			}
 
@@ -856,50 +896,18 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			id = id ?? getSearchResultIdByIndex(searchResults, searchIndex);
 
 			if (id != null) {
-				// Check if row is loaded without modifying selection
-				const rows = this.getCommits?.([id]);
-				const isHidden = rows?.[0]?.hidden;
+				// One wrapper-owned operation handles both the already-loaded and targeted-load paths,
+				// including latest-intent cancellation and waiting for the rendered visibility result.
+				const result = await this.navigateToSearchResult(id);
+				if (!isCurrent()) return;
 
-				if (isHidden === false) {
-					// Row is loaded and visible - select it and done!
-					this.selectCommits?.([id], { ensureVisible: true });
-					this._searchResultHidden = false;
+				if (result?.status === 'selected') {
+					this._searchResultHidden = result.row.hidden === true;
 					break;
 				}
-
-				if (isHidden === true) {
-					// Row is loaded but hidden from graph - select it anyway and show warning
-					this.selectCommits?.([id], { ensureVisible: true });
-					this._searchResultHidden = true;
-					break;
-				}
-
-				// Row not loaded yet - need to load it
-				// Re-select last visible to keep position stable during loading
-				if (lastVisibleId != null) {
-					this.selectCommits?.([lastVisibleId], { ensureVisible: true });
-				}
-
-				// Load the row
-				const ensuredId = await this.ensureSearchResultRow(id);
-
-				if (ensuredId != null) {
-					// Row loaded - select it and check if filtered out
-					const rows = this.selectCommits?.([ensuredId], { ensureVisible: true });
-					if (rows?.[0]?.hidden) {
-						this._searchResultHidden = true;
-					} else {
-						this._searchResultHidden = false;
-					}
-
-					// Done either way
-					break;
-				}
-
-				// Row couldn't be loaded - re-select last visible and try next
-				if (lastVisibleId != null) {
-					this.selectCommits?.([lastVisibleId], { ensureVisible: true });
-				}
+				// A click, repo switch, or newer navigation superseded this request. Stop instead of
+				// continuing the search loop and overwriting that newer user intent.
+				if (result?.status === 'cancelled') return;
 
 				// Clear id to get next index
 				id = undefined;
@@ -907,7 +915,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 			// No ID at this index - check if we should load more or stop
 			if (id == null) {
-				if (next && searchIndex >= count - 1 && this._searchQuery?.query && searchResults.hasMore) {
+				if (next && searchIndex >= count - 1 && searchQuery.query && searchResults.hasMore) {
 					// For 'last', we've already loaded all results, so don't trigger another load
 					// Instead, fall through to move to previous index
 					if (direction !== 'last') {
@@ -925,7 +933,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			// Move to next/previous search result
 			const prevIndex = searchIndex;
 			searchIndex = this.getNextOrPreviousSearchResultIndex(searchIndex, next, searchResults, {
-				...this._searchQuery,
+				...searchQuery,
 			});
 			id = undefined;
 
@@ -934,103 +942,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private async onEnsureRowPromise(id: string, select: boolean) {
-		try {
-			return await this._ipc.sendRequest(EnsureRowRequest, { id: id, select: select });
-		} catch {
-			return undefined;
-		}
-	}
-
-	// Cache of ensured rows to avoid redundant IPC calls
-	private readonly ensuredIds = new Set<string>();
-	private readonly pendingEnsureRequests = new Map<string, Promise<string | undefined>>();
-
-	/**
-	 * Ensures a search result row is loaded in the graph.
-	 * Returns the ID if successfully loaded, undefined if couldn't be loaded.
-	 *
-	 * Optimizations:
-	 * - Caches results to avoid redundant IPC calls
-	 * - Deduplicates concurrent requests for the same row
-	 * - Shows loading indicator only if operation takes >250ms
-	 * - Waits for row data to be processed before returning (fixes race condition)
-	 *
-	 * Note: This only ensures the row is loaded. Use selectCommits to check if it's filtered out.
-	 *
-	 * @returns ID if row was loaded, undefined if couldn't be loaded
-	 */
-	private async ensureSearchResultRow(id: string): Promise<string | undefined> {
-		if (this.ensuredIds.has(id)) return id;
-
-		let promise = this.pendingEnsureRequests.get(id);
-		if (promise == null) {
-			let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-				timeout = undefined;
-				this.graphState.loading = true;
-			}, 250);
-
-			const ensureCore = async () => {
-				const e = await this.onEnsureRowPromise(id, false);
-				if (timeout == null) {
-					this.graphState.loading = false;
-				} else {
-					clearTimeout(timeout);
-				}
-
-				if (e?.id === id) {
-					// Wait for row data to be loaded
-					await this.ensureRowLoadedInGraph(id);
-
-					// Row is loaded - cache it
-					this.ensuredIds.add(id);
-					return id;
-				}
-
-				// Row couldn't be loaded
-				return undefined;
-			};
-
-			promise = ensureCore();
-			void promise.finally(() => this.pendingEnsureRequests.delete(id));
-
-			this.pendingEnsureRequests.set(id, promise);
-		}
-
-		return promise;
-	}
-
-	/**
-	 * Waits for a row to be processed and available in the graph -- to avoid race conditions where we are trying to access the row before it's available.
-	 *
-	 * Returns as soon as the row is loaded, regardless of whether it's filtered out.
-	 * Polls every 50ms using getCommits to check availability without modifying selection.
-	 *
-	 * @returns Array of ReadonlyGraphRow objects, or undefined on timeout
-	 */
-	private async ensureRowLoadedInGraph(
-		id: string,
-		maxWaitMs: number = 1000,
-	): Promise<ReadonlyGraphRow[] | undefined> {
-		const startTime = performance.now();
-
-		while (performance.now() - startTime < maxWaitMs) {
-			const rows = this.getCommits?.([id]);
-			if (rows != null && rows.length > 0) {
-				// Flush the graph's pending render before returning, so a follow-up visibility read
-				// (getCommits/selectCommits → isRowDisplayed) sees the just-paged row, not a stale displayRows.
-				await this.ensureGraphRendered?.();
-				return rows;
-			}
-
-			await wait(50);
-		}
-
-		debugger;
-		return undefined;
-	}
-
 	handleSearchModeChanged(e: CustomEvent) {
+		this._pendingNavigation = undefined;
+		this.cancelActiveSearchNavigation();
 		// Update local state immediately for responsive UI
 		this.graphState.searchMode = e.detail.searchMode;
 

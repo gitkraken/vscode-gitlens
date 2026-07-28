@@ -1,21 +1,21 @@
 import * as assert from 'assert';
-import { processCommitsAndSegments } from '../process.js';
+import { processGraphRows } from '../process.js';
 import type { CommitKind, GraphCommit } from '../types.js';
 
-function commit(hash: string, parents: string[], kind?: CommitKind): GraphCommit {
+function commit(sha: string, parents: string[], kind?: CommitKind): GraphCommit {
 	return {
-		hash: hash,
-		shortHash: hash.slice(0, 7),
-		message: hash,
+		sha: sha,
+		shortSha: sha.slice(0, 7),
+		message: sha,
 		author: 'Tester',
 		authorEmail: 'test@example.com',
 		date: 0,
 		parents: parents,
-		kind: kind,
+		kind: kind ?? (parents.length > 1 ? 'merge' : 'commit'),
 	};
 }
 
-type Result = ReturnType<typeof processCommitsAndSegments>;
+type Result = ReturnType<typeof processGraphRows>;
 
 // Compare the render-facing output (NOT the opaque resume token). Segments + unloadedColumns are order-
 // insensitive (sort for a stable compare); rows ARE order-sensitive (topological), so compare as-is.
@@ -30,21 +30,21 @@ function comparable(r: Result): unknown {
 // Assert that paging the commits in at EVERY split point (and every 2-step chain of appends) produces a
 // result byte-identical to a single full recompute over the whole set.
 function assertIncrementalMatchesFull(commits: readonly GraphCommit[]): void {
-	const full = processCommitsAndSegments(commits);
+	const full = processGraphRows(commits);
 
 	// Single append at each boundary.
 	for (let split = 1; split < commits.length; split++) {
-		const batch1 = processCommitsAndSegments(commits.slice(0, split));
-		const appended = processCommitsAndSegments(commits, { resume: batch1.resume });
+		const batch1 = processGraphRows(commits.slice(0, split));
+		const appended = processGraphRows(commits, { resume: batch1.resume });
 		assert.deepStrictEqual(comparable(appended), comparable(full), `single append at split ${split} diverged`);
 	}
 
 	// Two chained appends (a → b → full) — exercises resuming from an already-resumed snapshot.
 	for (let a = 1; a < commits.length - 1; a++) {
 		for (let b = a + 1; b < commits.length; b++) {
-			const s1 = processCommitsAndSegments(commits.slice(0, a));
-			const s2 = processCommitsAndSegments(commits.slice(0, b), { resume: s1.resume });
-			const s3 = processCommitsAndSegments(commits, { resume: s2.resume });
+			const s1 = processGraphRows(commits.slice(0, a));
+			const s2 = processGraphRows(commits.slice(0, b), { resume: s1.resume });
+			const s3 = processGraphRows(commits, { resume: s2.resume });
 			assert.deepStrictEqual(comparable(s3), comparable(full), `chained append ${a}→${b}→full diverged`);
 		}
 	}
@@ -123,9 +123,9 @@ suite('engine/incremental append equivalence', () => {
 
 	test('resume returns a token equal in effect to a fresh full run', () => {
 		const commits = [commit('A', ['B']), commit('B', ['C']), commit('C', [])];
-		const full = processCommitsAndSegments(commits);
+		const full = processGraphRows(commits);
 		// A no-op "append" (same commit count) must NOT take the append path — falls back to full.
-		const again = processCommitsAndSegments(commits, { resume: full.resume });
+		const again = processGraphRows(commits, { resume: full.resume });
 		assert.deepStrictEqual(comparable(again), comparable(full));
 	});
 });

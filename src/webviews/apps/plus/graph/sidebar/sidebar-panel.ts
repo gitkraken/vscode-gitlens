@@ -1017,7 +1017,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	/** Resolves the session's WIP-row sha + branch-scope payload. Only same-family sessions get a
-	 *  sha — a cross-repo session would otherwise drive `ensureAndSelectCommit` to scan the graph
+	 *  sha — a cross-repo session would otherwise drive `navigateToCommit` to scan the graph
 	 *  for a synthetic id that doesn't exist in it. Same gate stops a future scope-on-click from
 	 *  re-targeting the graph to a foreign branch. */
 	private resolveAgentAnchor(

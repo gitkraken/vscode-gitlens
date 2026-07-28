@@ -1,24 +1,25 @@
 import * as assert from 'assert';
 import { isHistoryRewrite } from '../delta.js';
 import type { RowTopology } from '../delta.js';
-import { processCommitsAndSegments } from '../process.js';
+import { processGraphRows } from '../process.js';
 import type { GraphStability } from '../process.js';
 import type { GraphCommit, ProcessedGraphRow } from '../types.js';
 
-function commit(hash: string, parents: string[], date: number): GraphCommit {
+function commit(sha: string, parents: string[], date: number): GraphCommit {
 	return {
-		hash: hash,
-		shortHash: hash.slice(0, 7),
-		message: hash,
+		sha: sha,
+		shortSha: sha.slice(0, 7),
+		message: sha,
 		author: 'Tester',
 		authorEmail: 'test@example.com',
 		date: date,
 		parents: parents,
+		kind: parents.length > 1 ? 'merge' : 'commit',
 	};
 }
 
 function topo(commits: readonly GraphCommit[]): RowTopology[] {
-	return commits.map(c => ({ sha: c.hash, parents: c.parents, type: 'commit-node', date: c.date }));
+	return commits.map(c => ({ sha: c.sha, parents: c.parents, type: 'commit-node', date: c.date }));
 }
 
 function columnsBySha(rows: readonly ProcessedGraphRow[]): Map<string, number> {
@@ -45,11 +46,11 @@ suite('engine/rewrite — sticky columns across a history rewrite', () => {
 	const rebasedCommits = [commit('Q', ['base'], 3), commit('Pb', ['base'], 2), commit('base', [], 1)];
 
 	test('the repro: sticky preferences drag a surviving lane the area backstop cannot catch', () => {
-		const prior = processCommitsAndSegments(priorCommits);
+		const prior = processGraphRows(priorCommits);
 		assert.strictEqual(prior.rows.find(r => r.sha === 'Q')!.column, 1, 'Q parks on column 1 in the prior layout');
 
-		const sticky = processCommitsAndSegments(rebasedCommits, { stableFrom: prior.stability });
-		const cold = processCommitsAndSegments(rebasedCommits);
+		const sticky = processGraphRows(rebasedCommits, { stableFrom: prior.stability });
+		const cold = processGraphRows(rebasedCommits);
 
 		// Cold packs the new top tip (Q) back onto column 0.
 		assert.strictEqual(
@@ -69,13 +70,13 @@ suite('engine/rewrite — sticky columns across a history rewrite', () => {
 	});
 
 	test('the fix: dropping stability on a detected rewrite reproduces the cold (correct) layout', () => {
-		const prior = processCommitsAndSegments(priorCommits);
-		const cold = processCommitsAndSegments(rebasedCommits);
+		const prior = processGraphRows(priorCommits);
+		const cold = processGraphRows(rebasedCommits);
 
 		const stableFrom = stableFromFor(priorCommits, rebasedCommits, prior.stability);
 		assert.strictEqual(stableFrom, undefined, 'the rewrite is detected, so no stability is offered');
 
-		const fixed = processCommitsAndSegments(rebasedCommits, { stableFrom: stableFrom });
+		const fixed = processGraphRows(rebasedCommits, { stableFrom: stableFrom });
 		assert.deepStrictEqual(
 			[...columnsBySha(fixed.rows)],
 			[...columnsBySha(cold.rows)],
@@ -84,14 +85,14 @@ suite('engine/rewrite — sticky columns across a history rewrite', () => {
 	});
 
 	test('a plain commit (prepend) still keeps sticky stability through the gate', () => {
-		const prior = processCommitsAndSegments(priorCommits);
+		const prior = processGraphRows(priorCommits);
 		// A new commit on top of P — a prepend, not a rewrite.
 		const withCommit = [commit('N', ['P'], 4), ...priorCommits];
 
 		const stableFrom = stableFromFor(priorCommits, withCommit, prior.stability);
 		assert.notStrictEqual(stableFrom, undefined, 'a prepend is not a rewrite, so stability is preserved');
 
-		const gated = processCommitsAndSegments(withCommit, { stableFrom: stableFrom });
+		const gated = processGraphRows(withCommit, { stableFrom: stableFrom });
 		// The surviving commits reproduce their prior columns (no reshuffle).
 		for (const sha of ['P', 'Q', 'base']) {
 			assert.strictEqual(
