@@ -141,9 +141,11 @@ export function fromGitLabMergeRequestREST(
 		provider,
 		{
 			id: pr.author?.id ?? '',
-			name: pr.author?.name ?? 'Unknown',
-			avatarUrl: pr.author?.avatar_url ?? '',
-			url: pr.author?.web_url ?? '',
+			// An absent author stays absent — no invented `'Unknown'` name, no `''` url/avatar. See
+			// `PullRequestMember.name`.
+			name: pr.author?.name ?? undefined,
+			avatarUrl: pr.author?.avatar_url ?? undefined,
+			url: pr.author?.web_url ?? undefined,
 		},
 		String(pr.iid),
 		undefined,
@@ -211,9 +213,10 @@ export function fromGitLabMergeRequest(pr: GitLabMergeRequestFull, provider: Pro
 		{
 			// author
 			id: pr.author?.id ?? '',
-			name: pr.author?.name ?? 'Unknown',
+			// An absent author stays absent — no invented `'Unknown'` name, no `''` url. See `PullRequestMember.name`.
+			name: pr.author?.name ?? undefined,
 			avatarUrl: avatarUrl,
-			url: pr.author?.webUrl ?? '',
+			url: pr.author?.webUrl ?? undefined,
 		},
 		pr.iid, // id
 		pr.id, // nodeId
