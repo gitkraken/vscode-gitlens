@@ -1,3 +1,4 @@
+import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import type { AIProviderAndModel, AIProviders } from '@gitlens/ai/constants.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
 import type {
@@ -404,9 +405,21 @@ export interface StoredDeepLinkContext {
 	worktreePath?: string | undefined;
 }
 
+/** The column-mode vocabulary AS PERSISTED. Deliberately re-declared rather than imported from the
+ *  engine: stored settings are a contract with data already on disk, so an engine-side change must
+ *  surface as a compile error at {@link storedGraphColumnModeBridge} and be answered with a migration
+ *  decision — not silently redefine what existing values mean. */
+export type StoredGraphColumnMode = 'numbers' | 'squares' | 'bar' | 'bipolar' | 'compact';
+
+/** Fails to compile if the persisted vocabulary and the engine's {@link ColumnMode} diverge in EITHER
+ *  direction (a mode added, removed, or renamed). Resolve by migrating stored values, then updating
+ *  {@link StoredGraphColumnMode} to match. */
+type ExactlyEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+export const storedGraphColumnModeBridge: ExactlyEqual<StoredGraphColumnMode, ColumnMode> = true;
+
 export interface StoredGraphColumn {
 	isHidden?: boolean;
-	mode?: string;
+	mode?: StoredGraphColumnMode;
 	width?: number;
 	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
 	grouped?: boolean | string;

@@ -295,7 +295,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				date: commit.committer.date.getTime(),
 				commitDate: commit.committer.date.getTime(),
 				message: commit.message?.length ? commit.message : commit.summary,
-				type: commit.parents.length > 1 ? 'merge-node' : 'commit-node',
+				type: commit.parents.length > 1 ? 'merge' : 'commit',
 				heads: refHeads,
 				remotes: refRemoteHeads,
 				tags: refTags,

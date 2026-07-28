@@ -5,6 +5,7 @@
  */
 
 import type { ProcessedGraphRow } from './engine/types.js';
+import type { ChangesColumnMode } from './stats.js';
 
 // Date formatting
 
@@ -88,6 +89,19 @@ export function rowGutterWidth(row: ProcessedGraphRow, columnWidth: number): num
 
 export type ZoneId = 'ref' | 'message' | 'author' | 'datetime' | 'changes' | 'sha';
 
+/** Every column the header can address — the content {@link ZoneId}s plus the gutter, which takes a
+ *  column slot of its own when {@link GraphPlacement} is `column`. The engine lays the gutter out
+ *  separately from the content zones, but consumers reorder, hide, and resize all of them together. */
+export type ColumnId = ZoneId | 'graph';
+
+/** The gutter column's density mode; `undefined` is the default (expanded) lane spacing. */
+export type GraphColumnMode = 'compact';
+
+/** Per-column display mode, discriminated by which column carries it: the Changes column takes a
+ *  {@link ChangesColumnMode}, the gutter takes a {@link GraphColumnMode}. Typed rather than `string`
+ *  so a consumer persisting or forwarding these cannot invent a value the engine won't render. */
+export type ColumnMode = ChangesColumnMode | GraphColumnMode;
+
 export interface ZoneSpec {
 	id: ZoneId;
 	label: string;
@@ -97,9 +111,8 @@ export interface ZoneSpec {
 	minWidth: number;
 	/** Optional soft ceiling. Honored for every zone EXCEPT the fill zone (which absorbs slack). */
 	maxWidth?: number;
-	/** Per-column display mode (e.g. the Changes column's numbers/squares/bar/bipolar variants).
-	 *  Free-form string at this layer — consumers narrow it to their own mode union. */
-	mode?: string;
+	/** Per-column display mode — see {@link ColumnMode}. */
+	mode?: ColumnMode;
 	/** Runtime solved width (set by `solveZoneLayout`) — the actual rendered px. Falls back to `width`
 	 * before the first solve. NOT persisted; only `width` (the preferred) round-trips to settings. */
 	currentWidth?: number;

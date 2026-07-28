@@ -80,7 +80,7 @@ function generateRows(count: number): SyntheticGraphRow[] {
 			email: `author${i}@example.com`,
 			date: Date.now() - i * 60000,
 			message: `Commit message for ${i} - fixes something important`,
-			type: i % 4 === 0 ? 'stash-node' : i % 3 === 0 ? 'merge-node' : 'commit-node',
+			type: i % 4 === 0 ? 'stash' : i % 3 === 0 ? 'merge' : 'commit',
 		};
 
 		// ~20% of rows have branch heads
@@ -217,7 +217,7 @@ suite('Serialization Benchmark Test Suite', () => {
 			assert.strictEqual(first.email, 'author0@example.com');
 			assert.strictEqual(typeof first.date, 'number');
 			assert.strictEqual(first.message, 'Commit message for 0 - fixes something important');
-			assert.strictEqual(first.type, 'stash-node');
+			assert.strictEqual(first.type, 'stash');
 
 			// Row 0 should have heads (0 % 5 === 0)
 			assert.ok(first.heads, 'row 0 should have heads');
@@ -239,9 +239,9 @@ suite('Serialization Benchmark Test Suite', () => {
 			assert.strictEqual(rows[1].heads, undefined);
 
 			// Verify type distribution
-			assert.strictEqual(rows[0].type, 'stash-node'); // 0 % 4 === 0
-			assert.strictEqual(rows[1].type, 'commit-node'); // 1 % 4 !== 0, 1 % 3 !== 0
-			assert.strictEqual(rows[3].type, 'merge-node'); // 3 % 3 === 0
+			assert.strictEqual(rows[0].type, 'stash'); // 0 % 4 === 0
+			assert.strictEqual(rows[1].type, 'commit'); // 1 % 4 !== 0, 1 % 3 !== 0
+			assert.strictEqual(rows[3].type, 'merge'); // 3 % 3 === 0
 		} finally {
 			dispose();
 		}
@@ -358,7 +358,7 @@ suite('Serialization Benchmark Test Suite', () => {
 					email: `dense${i}@example.com`,
 					date: Date.now() - i * 30000,
 					message: `Dense commit ${i} with a longer message that exercises serialization`,
-					type: 'merge-node',
+					type: 'merge',
 					heads: [
 						{ id: `head-a-${i}`, name: `feature/a-${i}`, isCurrentHead: false },
 						{ id: `head-b-${i}`, name: `feature/b-${i}`, isCurrentHead: false },

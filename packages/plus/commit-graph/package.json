@@ -2,7 +2,7 @@
 	"name": "@gitkraken/commit-graph",
 	"version": "0.0.0",
 	"private": true,
-	"description": "High-performance, themable commit-graph engine — vendored into GitLens for the experimental new-graph (Lit) renderer.",
+	"description": "High-performance, themable commit-graph engine — vendored into GitLens as its Commit Graph (Lit) renderer.",
 	"author": "GitKraken",
 	"license": "SEE LICENSE IN LICENSE",
 	"type": "module",

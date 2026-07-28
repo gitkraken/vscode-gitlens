@@ -195,7 +195,7 @@ export class GlGraphHover extends GlElement {
 
 		let markdown = this.hoverMarkdownCache.get(row.sha);
 		if (markdown == null) {
-			const cache = row.type !== 'work-dir-changes';
+			const cache = row.type !== 'workdir';
 
 			markdown = this.requestMarkdown(row).then(params => {
 				if (params.markdown.status === 'fulfilled' && cache) {

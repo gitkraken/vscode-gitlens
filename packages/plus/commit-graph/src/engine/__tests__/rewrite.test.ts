@@ -19,7 +19,7 @@ function commit(sha: string, parents: string[], date: number): GraphCommit {
 }
 
 function topo(commits: readonly GraphCommit[]): RowTopology[] {
-	return commits.map(c => ({ sha: c.sha, parents: c.parents, type: 'commit-node', date: c.date }));
+	return commits.map(c => ({ sha: c.sha, parents: c.parents, type: 'commit', date: c.date }));
 }
 
 function columnsBySha(rows: readonly ProcessedGraphRow[]): Map<string, number> {

@@ -1065,7 +1065,7 @@ export class GraphWipService {
 				webviewItem: `gitlens:wip${isSecondaryWorktree ? '+worktree' : ''}${status.hasConflicts ? '+hasConflicts' : ''}`,
 				webviewItemValue: {
 					type: 'commit',
-					ref: this.context.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
+					ref: this.context.getRevisionReference(repo.path, uncommitted, 'workdir')!,
 					worktreePath: repo.path,
 				},
 			}),

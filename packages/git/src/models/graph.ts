@@ -5,7 +5,7 @@ import type { GitRemote } from './remote.js';
 import type { GkProviderId } from './repositoryIdentities.js';
 import type { GitWorktree } from './worktree.js';
 
-export type GitGraphRowType = 'commit-node' | 'merge-node' | 'stash-node' | 'work-dir-changes';
+export type GitGraphRowType = 'commit' | 'merge' | 'stash' | 'workdir';
 
 export interface GitGraphRowHead {
 	id?: string;

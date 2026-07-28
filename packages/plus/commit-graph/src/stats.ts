@@ -13,7 +13,8 @@ export interface RowStats {
 
 export type ChangesColumnMode = 'numbers' | 'squares' | 'bar' | 'bipolar';
 
-function isChangesColumnMode(mode: string): mode is ChangesColumnMode {
+/** Whether a free-form/persisted string is a known {@link ChangesColumnMode}. */
+export function isChangesColumnMode(mode: string): mode is ChangesColumnMode {
 	return mode === 'numbers' || mode === 'squares' || mode === 'bar' || mode === 'bipolar';
 }
 

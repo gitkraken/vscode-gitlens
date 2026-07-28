@@ -1,4 +1,5 @@
-import type { GraphStyle } from '@gitkraken/commit-graph/view.js';
+import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
+import type { ColumnId, ColumnMode, GraphColumnMode, GraphStyle } from '@gitkraken/commit-graph/view.js';
 import type { GitTrackingState } from '@gitlens/git/models/branch.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type {
@@ -98,8 +99,9 @@ export type SerializedGraphItemContext = string | object;
 /** Ref kinds the graph recognizes. */
 export type GraphRefType = 'head' | 'remote' | 'tag' | 'worktree';
 
-/** Column/zone identifiers the graph's event payloads carry — kept verbatim for wire compatibility. */
-export type GraphZoneType = 'ref' | 'graph' | 'message' | 'author' | 'datetime' | 'sha' | 'changes';
+/** Column/zone identifiers the graph's event payloads carry. The engine owns the column set it
+ *  renders, so this is that vocabulary rather than a second copy of it. */
+export type GraphZoneType = ColumnId;
 
 /** Compact ref descriptor used by the include/exclude ref filters. */
 export interface GraphRefOptData {
@@ -119,11 +121,12 @@ export interface ExcludeByType {
 export type ExcludeRefsById = Record<string, GraphRefOptData>;
 export type IncludeOnlyRefsById = Record<string, GraphRefOptData>;
 
-export interface GraphColumnSetting {
+export interface GraphColumnSetting<TMode extends ColumnMode = ColumnMode> {
 	width: number;
 	isFilterable?: boolean;
 	isHidden: boolean;
-	mode?: string;
+	/** Only the columns that HAVE a mode accept one — see {@link GraphColumnsSettings}. */
+	mode?: TMode;
 	order?: number;
 	/** Column↔grouped placement. `graph`: `true` (legacy) or host zone id = grouped. `ref`: host zone id = grouped, `false` = column. */
 	grouped?: boolean | string;
@@ -248,7 +251,21 @@ export type {
 
 export const scope: IpcScope = 'graph';
 
-export type GraphColumnsSettings = Record<GraphColumnName, GraphColumnSetting>;
+/** Column settings, discriminated by column: the gutter takes a lane-density mode and Changes takes a
+ *  visualization mode; the rest take none. A flat `ColumnMode` would let either column hold the
+ *  other's vocabulary, which is meaningless. */
+export type GraphColumnsSettings = {
+	ref: GraphColumnSetting<never>;
+	graph: GraphColumnSetting<GraphColumnMode>;
+	message: GraphColumnSetting<never>;
+	author: GraphColumnSetting<never>;
+	changes: GraphColumnSetting<ChangesColumnMode>;
+	datetime: GraphColumnSetting<never>;
+	sha: GraphColumnSetting<never>;
+};
+
+/** The mode vocabulary a given column accepts — `undefined` only, for columns that take none. */
+export type GraphColumnModeFor<T extends GraphColumnName> = GraphColumnsSettings[T]['mode'];
 export type GraphSelectedRows = Record</*id*/ string, true>;
 export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
 export type GraphDownstreams = Record</*upstreamName*/ string, /*downstreamNames*/ string[]>;
@@ -761,7 +778,7 @@ export interface GraphComponentConfig {
 
 export interface GraphColumnConfig {
 	isHidden?: boolean;
-	mode?: string;
+	mode?: ColumnMode;
 	width?: number;
 	order?: number;
 	/** Column↔grouped placement. `graph`: `true` (legacy) or host zone id = grouped. `ref`: host zone id = grouped, `false` = column. */
@@ -894,7 +911,7 @@ export const UpdateColumnsCommand = new IpcCommand<UpdateColumnsParams>(scope, '
 
 export interface UpdateColumnModeParams {
 	name: GraphColumnName;
-	mode: string | undefined;
+	mode: ColumnMode | undefined;
 }
 // Dedicated column-mode write: kept separate from `UpdateColumnsCommand` (which ignores echoed `mode` —
 // it's host-authoritative) so the Changes mode picker's pick reaches the host's `setColumnMode` directly.
@@ -1050,6 +1067,14 @@ export interface DidLoadRowParams {
 	error?: string;
 }
 export const LoadRowRequest = new IpcRequest<LoadRowParams, DidLoadRowParams>(scope, 'rows/load');
+
+export interface CancelLoadRowParams {
+	id: string;
+}
+/** Withdraws an in-flight {@link LoadRowRequest}. The host's targeted load runs UNCAPPED, so a
+ *  navigation that is superseded, times out, or is aborted must say so — otherwise a repository-wide
+ *  walk keeps running for a row nobody is waiting for. Only cancels a query still matching `id`. */
+export const CancelLoadRowCommand = new IpcCommand<CancelLoadRowParams>(scope, 'rows/load/cancel');
 
 export interface SearchHistoryGetParams {
 	repoPath: string | undefined;

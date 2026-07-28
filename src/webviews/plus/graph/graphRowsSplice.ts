@@ -39,7 +39,7 @@ export interface SentRowsLedger {
 
 /** Row types whose content isn't pinned by their sha (re-stamped dates, live stats, etc.). */
 function isMutableRowType(type: string): boolean {
-	return type === 'work-dir-changes' || type === 'stash-node';
+	return type === 'workdir' || type === 'stash';
 }
 
 /** Fingerprint of the fields that CAN change for a given sha between two walks — EXCLUDING the

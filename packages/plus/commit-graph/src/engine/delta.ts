@@ -1,3 +1,5 @@
+import type { CommitKind } from './types.js';
+
 /**
  * Rows-change classification for the incremental pipeline.
  *
@@ -22,7 +24,10 @@
 export interface RowTopology {
 	sha: string;
 	parents: readonly string[];
-	type?: string;
+	/** The engine's own row vocabulary — typed, not `string`, so a consumer whose rows spell these
+	 *  differently fails to compile here instead of silently classifying every ordinary commit as a
+	 *  history rewrite (see {@link isImmutableRow}). */
+	type?: CommitKind;
 	date?: number;
 }
 
@@ -68,7 +73,7 @@ export function classifyRowsDelta<T extends RowTopology>(
  *  tracks HEAD, so it moves on every ordinary commit; stash rows can be re-dated. Neither can tell a
  *  rewrite from a prepend, so {@link isHistoryRewrite} compares the immutable commit rows only. */
 function isImmutableRow(row: RowTopology): boolean {
-	return row.type !== 'work-dir-changes' && row.type !== 'stash-node';
+	return row.type !== 'workdir' && row.type !== 'stash';
 }
 
 /**

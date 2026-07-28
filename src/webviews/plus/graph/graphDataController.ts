@@ -30,6 +30,7 @@ import { computeAdaptivePageLimit } from './graphWebview.utils.js';
 import { DidChangeNotification, DidSearchNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
 import type {
 	BranchState,
+	CancelLoadRowCommand,
 	DidSearchParams,
 	GetMoreRowsCommand,
 	GraphSelectedRows,
@@ -384,7 +385,7 @@ export class GraphDataController {
 		if (priorRows != null && priorRows.length > 0) {
 			for (let i = priorRows.length - 1; i >= 0 && i >= priorRows.length - 10; i--) {
 				const type = priorRows[i].type;
-				if (type === 'commit-node' || type === 'merge-node') {
+				if (type === 'commit' || type === 'merge') {
 					rebuildAnchorSha = priorRows[i].sha;
 					break;
 				}
@@ -503,8 +504,17 @@ export class GraphDataController {
 	): Promise<void> {
 		let superseded;
 		if (this._pendingRowsQuery != null) {
-			const { id: pendingId, search: pendingSearch } = this._pendingRowsQuery;
-			if (pendingSearch === search && (pendingId === id || (pendingId != null && id == null))) {
+			const { id: pendingId, search: pendingSearch, cancellable: pendingCancellable } = this._pendingRowsQuery;
+			// A CANCELLED entry is never a valid dedup target. It stays parked here by design (the finally
+			// below skips clearing so the next caller can await its wind-down), but its promise is already
+			// settled — handing it out answers this caller with a walk that produced nothing, and for
+			// `id == null` scroll paging it would wedge paging permanently. Fall through to supersede it
+			// instead: cancel (no-op), dispose, then await the wind-down.
+			if (
+				!pendingCancellable.token.isCancellationRequested &&
+				pendingSearch === search &&
+				(pendingId === id || (pendingId != null && id == null))
+			) {
 				return this._pendingRowsQuery.promise;
 			}
 
@@ -548,7 +558,14 @@ export class GraphDataController {
 			search: search,
 		};
 
-		void this._pendingRowsQuery.promise.finally(() => {
+		const entry = this._pendingRowsQuery;
+		void entry.promise.finally(() => {
+			// Cleanup runs even when cancelled — by now the walk HAS wound down, so releasing the entry
+			// can't strand a later caller (clearing at cancel time would). Only telemetry is gated.
+			if (this._pendingRowsQuery === entry) {
+				this._pendingRowsQuery = undefined;
+				entry.cancellable.dispose();
+			}
 			if (cancellation.isCancellationRequested) return;
 
 			this.host.sendTelemetryEvent('graph/rows/loaded', {
@@ -556,8 +573,6 @@ export class GraphDataController {
 				rows: priorRowCount,
 			});
 			sw.stop();
-
-			this._pendingRowsQuery = undefined;
 		});
 
 		return this._pendingRowsQuery.promise;
@@ -723,6 +738,16 @@ export class GraphDataController {
 				`GraphSyncPublisher: webview diverged (reported gen=${params.generation}, seq=${params.seq}; publisher gen=${this._graphSync.generation}, seq=${this._graphSync.seq}); re-shipping snapshot`,
 			);
 		}
+	}
+
+	/** Cancels the walk started by {@link onLoadRowRequest} for `id`, if it is still the pending query.
+	 *  Deliberately does NOT clear `_pendingRowsQuery`: two walks share one paging closure, so the next
+	 *  caller still has to await this one's wind-down (see `updateGraphWithMoreRows`). */
+	onCancelLoadRow(params: IpcParams<typeof CancelLoadRowCommand>): void {
+		const pending = this._pendingRowsQuery;
+		if (pending == null || pending.id !== params.id) return;
+
+		pending.cancellable.cancel();
 	}
 
 	async onLoadRowRequest(

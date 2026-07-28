@@ -187,7 +187,7 @@ suite('computeSelectionContexts', () => {
 			email: 'a@example.com',
 			date: 0,
 			message: 'm',
-			type: 'commit-node',
+			type: 'commit',
 			contexts: { flags: GitGraphRowContextFlags.ReachableFromHead },
 			...overrides,
 		};
@@ -203,7 +203,7 @@ suite('computeSelectionContexts', () => {
 
 	test('2-row selection → listMultiSelection + listDoubleSelection, both refs in webviewItemsValues', () => {
 		const contexts = computeSelectionContexts([graphRow('a'), graphRow('b')], primary, true);
-		const ctx = contexts?.get('commit-node');
+		const ctx = contexts?.get('commit');
 		assert.strictEqual(ctx?.listMultiSelection, true);
 		assert.strictEqual(ctx?.listDoubleSelection, true);
 		assert.strictEqual(ctx?.webviewItemsValues?.length, 2);
@@ -211,7 +211,7 @@ suite('computeSelectionContexts', () => {
 
 	test('contiguous 3-row selection → listContiguousSelection true, listDoubleSelection false', () => {
 		const contexts = computeSelectionContexts([graphRow('a'), graphRow('b'), graphRow('c')], primary, true);
-		const ctx = contexts?.get('commit-node');
+		const ctx = contexts?.get('commit');
 		assert.strictEqual(ctx?.listMultiSelection, true);
 		assert.strictEqual(ctx?.listDoubleSelection, false);
 		assert.strictEqual(ctx?.listContiguousSelection, true);
@@ -219,7 +219,7 @@ suite('computeSelectionContexts', () => {
 
 	test('non-contiguous selection → listContiguousSelection false', () => {
 		const contexts = computeSelectionContexts([graphRow('a'), graphRow('b'), graphRow('c')], primary, false);
-		assert.strictEqual(contexts?.get('commit-node')?.listContiguousSelection, false);
+		assert.strictEqual(contexts?.get('commit')?.listContiguousSelection, false);
 	});
 
 	test('every row unique to the same single branch → listUniqueBranchSelection true', () => {
@@ -234,7 +234,7 @@ suite('computeSelectionContexts', () => {
 			}),
 		];
 		const contexts = computeSelectionContexts(rows, primary, true);
-		assert.strictEqual(contexts?.get('commit-node')?.listUniqueBranchSelection, true);
+		assert.strictEqual(contexts?.get('commit')?.listUniqueBranchSelection, true);
 	});
 
 	test('a row missing the UniqueToBranch flag → listUniqueBranchSelection false', () => {
@@ -246,7 +246,7 @@ suite('computeSelectionContexts', () => {
 			graphRow('b'), // no UniqueToBranch flag
 		];
 		const contexts = computeSelectionContexts(rows, primary, true);
-		assert.strictEqual(contexts?.get('commit-node')?.listUniqueBranchSelection, false);
+		assert.strictEqual(contexts?.get('commit')?.listUniqueBranchSelection, false);
 	});
 
 	test('rows each unique but to different branches → listUniqueBranchSelection false', () => {
@@ -261,6 +261,6 @@ suite('computeSelectionContexts', () => {
 			}),
 		];
 		const contexts = computeSelectionContexts(rows, primary, true);
-		assert.strictEqual(contexts?.get('commit-node')?.listUniqueBranchSelection, false);
+		assert.strictEqual(contexts?.get('commit')?.listUniqueBranchSelection, false);
 	});
 });

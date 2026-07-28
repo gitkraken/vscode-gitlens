@@ -1,8 +1,9 @@
 import * as assert from 'assert';
 import { classifyRowsDelta, isHistoryRewrite, isTrunkReroot } from '../delta.js';
 import type { RowTopology } from '../delta.js';
+import type { CommitKind } from '../types.js';
 
-function row(sha: string, parents: string[], type = 'commit-node', date = 0): RowTopology {
+function row(sha: string, parents: string[], type: CommitKind = 'commit', date = 0): RowTopology {
 	return { sha: sha, parents: parents, type: type, date: date };
 }
 
@@ -42,8 +43,8 @@ suite('engine/delta classification', () => {
 	});
 
 	test('WIP anchor move (parent change, same sha) → replace', () => {
-		const prior = [row('wip', ['A'], 'work-dir-changes'), ...history()];
-		const next = [row('wip', ['N'], 'work-dir-changes'), ...history()];
+		const prior = [row('wip', ['A'], 'workdir'), ...history()];
+		const next = [row('wip', ['N'], 'workdir'), ...history()];
 		assert.deepStrictEqual(classifyRowsDelta(prior, next), { kind: 'replace' });
 	});
 
@@ -56,13 +57,13 @@ suite('engine/delta classification', () => {
 
 	test('row type change (commit became stash) → replace', () => {
 		const next = history();
-		next[2] = row('C', ['E'], 'stash-node');
+		next[2] = row('C', ['E'], 'stash');
 		assert.deepStrictEqual(classifyRowsDelta(history(), next), { kind: 'replace' });
 	});
 
 	test('date change (feeds the layout tie-break) → replace', () => {
 		const next = history();
-		next[4] = row('E', [], 'commit-node', 42);
+		next[4] = row('E', [], 'commit', 42);
 		assert.deepStrictEqual(classifyRowsDelta(history(), next), { kind: 'replace' });
 	});
 
@@ -74,7 +75,7 @@ suite('engine/delta classification', () => {
 });
 
 suite('engine/delta isHistoryRewrite', () => {
-	const wip = (parent: string) => row('0000', [parent], 'work-dir-changes');
+	const wip = (parent: string) => row('0000', [parent], 'workdir');
 
 	test('no prior rows → not a rewrite', () => {
 		assert.strictEqual(isHistoryRewrite(undefined, history()), false);

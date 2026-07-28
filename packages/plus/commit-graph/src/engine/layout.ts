@@ -386,12 +386,14 @@ function claimNextColumn(state: LayoutState, forSha?: Sha, bound?: LaneBound): n
  * parents loop) to decide whether a fresh claim must sit above the parent's column. Keeping one predicate
  * is what stops the guard and the guarded path from silently drifting apart.
  *
- * A merge row is excluded because it flags every parent as merge-owned at the top of the parents loop, so
- * by the time the branch runs it can never move its own first parent — but at claim time that flag isn't
- * set yet, and reading it there would needlessly widen a merge tip's lane.
+ * A multi-parent row is excluded because it flags every parent as merge-owned at the top of the parents
+ * loop, so by the time the branch runs it can never move its own first parent — but at claim time that flag
+ * isn't set yet, and reading it there would needlessly widen a merge tip's lane.
  */
 function canReplaceReservation(state: LayoutState, row: GraphRow, parentSha: Sha): boolean {
-	return row.kind !== 'merge' && !state.hasMergeNodeChildBySha.has(parentSha) && !state.pinnedColumns.has(parentSha);
+	return (
+		row.parents.length <= 1 && !state.hasMergeNodeChildBySha.has(parentSha) && !state.pinnedColumns.has(parentSha)
+	);
 }
 
 /**
@@ -602,7 +604,13 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 	for (let index = 0; index < row.parents.length; index++) {
 		const parentSha = row.parents[index];
 
-		if (row.kind === 'merge') {
+		// Asks the parent COUNT, not the row's kind. The two agreed while `kind` was re-derived from the
+		// count, but they are different questions: this bookkeeping is about parent EDGES, and a row can
+		// be a merge commit with a single loaded edge (first-parent mode truncates a merge's parents while
+		// still labelling it `merge`). Keying on the label there would flag a row's only parent
+		// merge-owned and cost the trunk its lane. Counting also covers a multi-parent stash, which the
+		// label never could.
+		if (row.parents.length > 1) {
 			state.hasMergeNodeChildBySha.add(parentSha);
 		}
 

@@ -90,7 +90,7 @@ export function aggregate(input: MinimapAggregateInput): MinimapAggregate {
 		// WIP rows represent the working tree, not commits. Their `date` is `Date.now()` (set in
 		// `graph-wrapper.ts`), so bucketing them would bump today's commit count and let `stat.sha`
 		// resolve to a non-commit SHA (a synthetic `wip::<worktreePath>` row id) on click.
-		if (row.type === 'work-dir-changes') continue;
+		if (row.type === 'workdir') continue;
 
 		// Always use committer date for the minimap (the GitGraphRow source populates `commitDate`
 		// even when `row.date` follows author-date ordering). A rebased commit's author date can be
@@ -180,7 +180,7 @@ export function aggregate(input: MinimapAggregateInput): MinimapAggregate {
 			}
 		}
 
-		if (wantsStashes && row.type === 'stash-node') {
+		if (wantsStashes && row.type === 'stash') {
 			const stashMarker: StashMarker = { type: 'stash', name: row.message };
 			appendMarkers(markersByDay, day, [stashMarker]);
 		}

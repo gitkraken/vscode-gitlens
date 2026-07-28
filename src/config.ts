@@ -1,3 +1,4 @@
+import type { GraphStyle } from '@gitkraken/commit-graph/view.js';
 import type { AIProviderAndModel, SupportedAIModels } from '@gitlens/ai/constants.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { GroupableTreeViewTypes } from './constants.views.js';
@@ -497,7 +498,7 @@ export interface GraphConfig {
 		readonly enabled: boolean;
 	};
 	readonly stickyTimeline: boolean;
-	readonly style: 'auto' | 'table' | 'list';
+	readonly style: GraphStyle;
 	readonly timelineSeparators: boolean;
 }
 

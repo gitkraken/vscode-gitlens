@@ -105,6 +105,7 @@ import {
 } from './graphWebview.utils.js';
 import type {
 	DidRequestOpenCompareModeParams,
+	GraphColumnModeFor,
 	GraphColumnName,
 	GraphColumnsConfig,
 	GraphExcludedRef,
@@ -136,7 +137,7 @@ export type GraphCommandsContext = {
 	getActiveSelection: () => GitRevisionReference | undefined;
 	toggleColumn: (name: GraphColumnName, visible: boolean) => Promise<void>;
 	toggleScrollMarker: (type: GraphScrollMarkersAdditionalTypes, enabled: boolean) => Promise<void>;
-	setColumnMode: (name: GraphColumnName, mode?: string) => Promise<void>;
+	setColumnMode: <T extends GraphColumnName>(name: T, mode?: GraphColumnModeFor<T>) => Promise<void>;
 	updateColumns: (columnsCfg: GraphColumnsConfig) => void;
 	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
 	notifyDidChangeSelection: () => Promise<boolean>;
@@ -2624,11 +2625,14 @@ export class GraphCommands {
 		if (ref == null) return;
 
 		// Mirrors `composeCommits` but enters the review mode instead, matching the in-header `review`
-		// chip — same WIP ROW id targeting so a secondary worktree's row is the one selected.
-		const wipRowId = createWipRowId(ref.repoPath);
+		// chip — same WIP ROW id targeting so a secondary worktree's row is the one selected, and the
+		// same `worktreePath`-first resolution: a sidebar worktree row's `ref.repoPath` is the GRAPH's
+		// repo, so using it alone would review the wrong worktree's changes.
+		const worktreePath = this.getGraphItemWorktreePath(item) ?? ref.repoPath;
+		const wipRowId = createWipRowId(worktreePath);
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-review',
-			target: { sha: wipRowId, worktreePath: ref.repoPath },
+			target: { sha: wipRowId, worktreePath: worktreePath },
 		});
 	}
 

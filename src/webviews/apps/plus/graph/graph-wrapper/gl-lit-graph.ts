@@ -2182,7 +2182,7 @@ export class GlLitGraph extends LitElement {
 
 		const visibleTips: Sha[] = [];
 		for (const row of rows) {
-			if (row.type !== 'commit-node' && row.type !== 'merge-node') continue;
+			if (row.type !== 'commit' && row.type !== 'merge') continue;
 
 			let visible = false;
 			if (row.heads != null) {
@@ -2216,7 +2216,7 @@ export class GlLitGraph extends LitElement {
 		}
 
 		const reachable = collectReachable(rows, visibleTips);
-		return rows.filter(r => (r.type === 'commit-node' || r.type === 'merge-node' ? reachable.has(r.sha) : true));
+		return rows.filter(r => (r.type === 'commit' || r.type === 'merge' ? reachable.has(r.sha) : true));
 	}
 
 	private recomputeRows(idLength: number): void {
@@ -2245,7 +2245,7 @@ export class GlLitGraph extends LitElement {
 
 		// `excludeTypes.stashes` hides stash ROWS (not just a label) — drop them from the engine input so
 		// the layout + edges thread without them (no dangling lanes).
-		const stashFiltered = this.excludeTypes?.stashes === true ? rows.filter(r => r.type !== 'stash-node') : rows;
+		const stashFiltered = this.excludeTypes?.stashes === true ? rows.filter(r => r.type !== 'stash') : rows;
 		// Branches-visibility (Current/Smart/Favorited) + hidden-ref filtering: drop commit rows not
 		// reachable from any visible ref tip so hidden branches' commits AND lanes disappear, not just
 		// their pills. Threads through the engine over the reduced set (no orphaned lane reservations).
@@ -4917,7 +4917,7 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private rowTypeForSha(sha: string): GitGraphRow['type'] {
-		return this.getCommitBySha(sha)?.type ?? 'commit-node';
+		return this.getCommitBySha(sha)?.kind ?? 'commit';
 	}
 
 	// A ref-pill click's pin + branch-sheet open is deferred so a checkout double-click doesn't flash them

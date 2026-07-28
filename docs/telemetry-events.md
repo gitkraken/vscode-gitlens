@@ -1867,7 +1867,7 @@ background-upgraded the extension while the host kept running the old build
 {
   [`column.${string}.grouped`]: string | boolean,
   [`column.${string}.isHidden`]: boolean,
-  [`column.${string}.mode`]: string,
+  [`column.${string}.mode`]: 'compact' | 'numbers' | 'squares' | 'bar' | 'bipolar',
   [`column.${string}.order`]: number,
   [`column.${string}.width`]: number,
   'context.repository.closed': boolean,

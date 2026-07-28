@@ -1092,7 +1092,7 @@ suite('getOverviewBranchSelectionSha', () => {
 			email: '',
 			date: 0,
 			message: '',
-			type: 'commit-node',
+			type: 'commit',
 			heads: [],
 			remotes: [],
 			tags: [],

@@ -435,3 +435,58 @@ suite('engine/layout collectReachable', () => {
 		assert.deepStrictEqual([...collectReachable(rows, ['M'])].sort(), ['A', 'B', 'C', 'M']);
 	});
 });
+
+// The merge bookkeeping counts parent EDGES, never the row's `kind`. Those agreed while `kind` was
+// re-derived from the parent count, but they are different questions: `kind` is the producer's label
+// ("this is a merge commit"), and first-parent mode ships a merge with one parent. Keying the
+// bookkeeping on the label there flags a row's only parent merge-owned, which stops the trunk
+// reclaiming its lane — measured at 19 trunk rows displaced on a 45-row fixture.
+suite('engine/layout — merge bookkeeping counts parents, not kind', () => {
+	// A first-parent-mode window: a 30-row trunk where every third row is a merge whose second parent was
+	// dropped, plus three side branches forking at different depths so lanes are genuinely contended. The
+	// size matters — a handful of rows has nowhere else to go and passes either way, which is how a
+	// smaller version of this test silently proved nothing.
+	function firstParentTrunk(mergeKind: CommitKind): GraphRow[] {
+		const rows: GraphRow[] = [];
+		for (let i = 0; i < 30; i++) {
+			rows.push(row(`T${i}`, i === 29 ? [] : [`T${i + 1}`], i % 3 === 1 ? mergeKind : 'commit', 1_000_000 - i));
+		}
+		[4, 11, 19].forEach((at, n) => {
+			for (let i = 0; i < 5; i++) {
+				rows.push(
+					row(
+						`B${n}_${i}`,
+						[i === 4 ? `T${at}` : `B${n}_${i + 1}`],
+						i === 1 ? mergeKind : 'commit',
+						1_000_100 - n * 7 - i,
+					),
+				);
+			}
+		});
+		return rows.sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
+	}
+
+	// `computeColumns` has no HEAD input, so "the trunk holds lane 0" is not expressible here — that came
+	// from the session. What IS expressible, and is the actual contract, is that the LABEL changes nothing:
+	// any lane difference between these two runs is the bookkeeping reading `kind` when it should be
+	// counting parents. Under the label-keyed version this assertion fails on this fixture.
+	test('a single-parent row labelled merge lays out exactly as the same row labelled commit', () => {
+		const asMerge = computeColumns(firstParentTrunk('merge'));
+		const asCommit = computeColumns(firstParentTrunk('commit'));
+		assert.deepStrictEqual(
+			asMerge.map(r => [r.sha, r.column]),
+			asCommit.map(r => [r.sha, r.column]),
+			'the label must not change any lane — only the parent count may',
+		);
+	});
+
+	test('a genuine two-parent merge still claims merge bookkeeping', () => {
+		// Precondition for the tests above: with two parents the fan really does take a second lane, so
+		// the assertions are not passing merely because this fixture has nowhere else to go.
+		const laid = computeColumns(fixtures.mergeFan());
+		assert.ok(
+			new Set(laid.map(r => r.column)).size > 1,
+			'a real merge fan must occupy more than one lane, else these tests prove nothing',
+		);
+	});
+});

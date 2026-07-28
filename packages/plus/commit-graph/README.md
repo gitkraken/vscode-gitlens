@@ -4,7 +4,7 @@ A pure-TypeScript, dependency-free commit-graph **engine**: lane allocation, edg
 and incremental reconcile/splice/delta classification, plus view geometry, theming, and a11y
 helpers. No UI framework, no DOM rendering — the consumer owns rendering entirely.
 
-Vendored into GitLens for the experimental Lit-based graph renderer
+Vendored into GitLens as its Lit-based Commit Graph renderer
 (`src/webviews/apps/plus/graph/graph-wrapper/`).
 
 ## Status

@@ -10,7 +10,7 @@ type ReachableRef = GitCommitReachability['refs'][number];
  * set and the walk's HEAD-derived sets. Single-sourced so the host row processor
  * (`GlGraphRowProcessor`), the R6b incremental fast path, and the equivalence harness all compute
  * byte-identical flags (no manual mirrors that can drift). Stash rows carry no flags — callers skip this
- * for `stash-node` rows. See {@link GitGraphRowContextFlags} for the per-bit semantics.
+ * for `stash` rows. See {@link GitGraphRowContextFlags} for the per-bit semantics.
  */
 export function computeGraphRowContextFlags(
 	sha: string,

@@ -37,6 +37,7 @@ import {
 	GetRowHoverRequest,
 	getWipRowWorktreePath,
 	GetWipStatsRequest,
+	isPrimaryWipRowId,
 	isWipSelectionSha,
 	ResetGraphFiltersCommand,
 	TrackGraphDetailsCompareModeCommand,
@@ -1195,7 +1196,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// row id is nameable yet (transient repo-switch tick), so there is nothing to navigate to.
 			const rowSha = this.toGraphRowSha(sha, repoPath);
 			if (rowSha != null) {
-				if (sha === uncommitted) {
+				// Any WIP selection, not just the `uncommitted` revision — actions target `wip::<path>` row ids,
+				// and gating on the revision alone would reveal into a scope that still hides the row.
+				if (isWipSelectionSha(sha)) {
 					this.unscopeToRevealWip(rowSha);
 				}
 				void this.graph?.navigateToCommit(rowSha, { source: 'selection-sync' });
@@ -1446,13 +1449,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  the rule. No-ops when the row already renders, and when it wouldn't render unscoped either —
 	 *  there'd be nothing to reveal, and the details panel still opens on the target regardless.
 	 *
-	 *  Takes the GRAPH-ROW sha from {@link toGraphRowSha}; `isWipPillInScope` keys the primary row by
-	 *  `uncommitted` rather than `'work-dir-changes'`, so translate back for that one case. */
+	 *  Takes the GRAPH-ROW sha from {@link toGraphRowSha}; `isWipPillInScope` and the primary-row
+	 *  visibility check key the primary by `uncommitted`, not by its `wip::<path>` row id, so it is
+	 *  translated back for that one case. */
 	private unscopeToRevealWip(rowSha: string): void {
 		const scope = this.graphState.scope;
 		if (scope == null) return;
 
-		const id = rowSha === 'work-dir-changes' ? uncommitted : rowSha;
+		// `toGraphRowSha` hands us a ROW id (`wip::<path>`), never a revision — so translate the graph's
+		// own WIP row back to `uncommitted`, which is the key the primary-row predicates below use.
+		const id = isPrimaryWipRowId(rowSha, this.fallbackRepoPath) ? uncommitted : rowSha;
 		if (this.isWipPillInScope(id, scope)) return;
 
 		const { branchesVisibility, includeOnlyRefs, branch, wipMetadataBySha } = this.graphState;
@@ -1684,7 +1690,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// A WIP row's synthetic sha encodes its own worktree path; any other row type resolves to the
 		// graph's (fallback) repo.
 		const repoPath = getWipRowWorktreePath(row.sha) ?? fallbackRepoPath;
-		const sha = row.type === ('work-dir-changes' satisfies GitGraphRowType) ? uncommitted : row.sha;
+		const sha = row.type === ('workdir' satisfies GitGraphRowType) ? uncommitted : row.sha;
 		await this.openWipDetails(repoPath, sha, target, target === 'agents' ? 'request-agents' : 'request-mode');
 	};
 
@@ -3484,9 +3490,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const fallbackRepoPath = this.fallbackRepoPath ?? '';
 
 		if (selection.length >= 2) {
-			const shas = selection
-				.filter(s => s.type !== ('work-dir-changes' satisfies GitGraphRowType))
-				.map(s => s.id);
+			const shas = selection.filter(s => s.type !== ('workdir' satisfies GitGraphRowType)).map(s => s.id);
 
 			if (shas.length >= 2) {
 				this._selectedCommit = undefined;
@@ -3511,7 +3515,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		} else {
 			const active = selection[0];
-			const sha = active.type === ('work-dir-changes' satisfies GitGraphRowType) ? uncommitted : active.id;
+			const sha = active.type === ('workdir' satisfies GitGraphRowType) ? uncommitted : active.id;
 			// Prefer per-row repoPath (for multi-worktree WIP); fall back to selected repo
 			const repoPath = active.repoPath ?? fallbackRepoPath;
 

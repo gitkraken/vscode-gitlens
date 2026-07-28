@@ -7,7 +7,7 @@
  * indexes derived from the engine result. It imports no host, DOM, or rendering-framework types.
  */
 
-import { computeTrunkSegmentTip } from '../laneCollapse.js';
+import { computeTrunkSegment, computeTrunkSegmentTip } from '../laneCollapse.js';
 import type { RowsDelta, RowTopology } from './delta.js';
 import { classifyRowsDelta, isHistoryRewrite, isTrunkReroot } from './delta.js';
 import { identifyFirstParentChain } from './layout.js';
@@ -120,6 +120,8 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 	private _indexBySha: ReadonlyMap<Sha, number> = new Map();
 	private _headSha?: Sha;
 	private _trunkSegmentTip?: Sha;
+	/** False while {@link _trunkSegmentTip} is only the top-row fallback — HEAD has no segment yet. */
+	private _trunkFromHead = false;
 	private _segmentByCommit: ReadonlyMap<Sha, Sha> = new Map();
 	private _wipAnchorShas: ReadonlySet<Sha> = new Set();
 	private _workdirShas: ReadonlySet<Sha> = new Set();
@@ -260,13 +262,14 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		this._unloadedColumns = result.unloadedColumns;
 		this._resume = syntheticChildren == null && pinnedShas == null ? result.resume : undefined;
 		this._stability = result.stability;
+		const priorHeadSha = this._headSha;
 		this._headSha = input.headSha;
-		this.rebuildIndexesAndAnchors(transition.kind === 'append' ? priorRowCount : 0);
+		this.rebuildIndexesAndAnchors(transition.kind === 'append' ? priorRowCount : 0, priorHeadSha);
 		this.rememberInput(input, syntheticChildren, pinnedShas);
 		return this.state(transition);
 	}
 
-	private rebuildIndexesAndAnchors(firstNewIndex: number): void {
+	private rebuildIndexesAndAnchors(firstNewIndex: number, priorHeadSha: Sha | undefined): void {
 		const appended = firstNewIndex > 0;
 		let indexBySha: Map<Sha, number>;
 		if (appended) {
@@ -282,8 +285,19 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		}
 		this._indexBySha = indexBySha;
 
+		// On a pure APPEND the trunk patches from the prior value rather than being rediscovered: the
+		// prefix can't change, the filter never drops the current HEAD, and segments only extend
+		// downward — so a trunk resolved FROM HEAD stays the trunk. Rediscovering it costs a scan of
+		// every loaded commit on every page. Recompute on replace/reset, when HEAD moves, when no trunk
+		// is known — and while the current one is only the top-row FALLBACK: HEAD holding a single
+		// placed commit has no segment yet, and the one that materializes when its parent pages in must
+		// replace the fallback or an unrelated lane keeps the collapse protection HEAD should have.
 		const priorTrunk = this._trunkSegmentTip;
-		this._trunkSegmentTip = computeTrunkSegmentTip(this._segments, this._rows, this._headSha);
+		if (!appended || priorTrunk == null || this._headSha !== priorHeadSha || !this._trunkFromHead) {
+			const trunk = computeTrunkSegment(this._segments, this._rows, this._headSha);
+			this._trunkSegmentTip = trunk.tip;
+			this._trunkFromHead = trunk.fromHead;
+		}
 
 		const wipAnchorShas = appended ? new Set(this._wipAnchorShas) : new Set<Sha>();
 		const workdirShas = appended ? new Set(this._workdirShas) : new Set<Sha>();

@@ -1,4 +1,4 @@
-import type { GraphCommit } from '@gitkraken/commit-graph/engine/types.js';
+import type { CommitKind, GraphCommit } from '@gitkraken/commit-graph/engine/types.js';
 import type { ZoneId, ZoneSpec } from '@gitkraken/commit-graph/view.js';
 import { defaultZones } from '@gitkraken/commit-graph/view.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
@@ -67,7 +67,6 @@ export interface GraphCommitRef {
 }
 
 export interface GraphCommitView extends GraphCommit {
-	type: GitGraphRow['type'];
 	/** Structured refs (replaces the engine's flattened `refs` token strings, which stay `[]`). */
 	commitRefs: GraphCommitRef[];
 	/** Commit/merge-only: the commit is ahead of HEAD's upstream — drives the at-rest Push-to-Commit
@@ -210,14 +209,12 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 		});
 	}
 
-	const kind: 'commit' | 'merge' | 'stash' | 'workdir' =
-		row.type === 'work-dir-changes'
-			? 'workdir'
-			: row.type === 'stash-node'
-				? 'stash'
-				: row.parents.length > 1
-					? 'merge'
-					: 'commit';
+	// The producer's label, carried through unchanged — what the commit IS. Nothing re-derives merge-ness
+	// from the parent count here: in first-parent mode a merge ships with one parent
+	// (`git-cli/providers/graph.ts:873`) and re-deriving would report it as an ordinary commit to every
+	// menu, glyph and screen reader. Anything that needs the topological question — how many parent edges
+	// to lay out — asks `parents.length` directly, which is what the engine does.
+	const kind: CommitKind = row.type;
 
 	// Inline row-action data, computed once here at the single git→view bridge (from the shared utils)
 	// rather than per-render, so every consumer of the view row gets the same answer. For non-commit
@@ -238,7 +235,6 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 		parents: row.parents,
 		commitRefs: commitRefs,
 		kind: kind,
-		type: row.type,
 		contextData: rowContext,
 		refContexts: refContexts,
 		isUnpublished: isUnpublishedRow(row),

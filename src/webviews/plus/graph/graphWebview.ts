@@ -1,4 +1,5 @@
-import { changesModeOrDefault } from '@gitkraken/commit-graph/stats.js';
+import { changesModeOrDefault, isChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
+import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform.js';
@@ -179,8 +180,10 @@ import type {
 	GraphActionTarget,
 	GraphAutoFetchMode,
 	GraphColumnConfig,
+	GraphColumnModeFor,
 	GraphColumnName,
 	GraphColumnsConfig,
+	GraphColumnSetting,
 	GraphColumnsSettings,
 	GraphCompareSeed,
 	GraphComponentConfig,
@@ -208,6 +211,7 @@ import type {
 	State,
 } from './protocol.js';
 import {
+	CancelLoadRowCommand,
 	ChooseAuthorRequest,
 	ChooseComparisonRequest,
 	ChooseFileRequest,
@@ -2408,14 +2412,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					let commit;
 					let secondaryWorktree;
 					try {
-						const wipWorktreePath =
-							params.type === 'work-dir-changes' ? getWipRowWorktreePath(id) : undefined;
+						const wipWorktreePath = params.type === 'workdir' ? getWipRowWorktreePath(id) : undefined;
 						const isSecondaryWip =
 							wipWorktreePath != null && wipWorktreePath !== this._data.session.repoPath;
 						const hoverRepoPath = isSecondaryWip ? wipWorktreePath : this._data.session.repoPath;
 						const svc = this.container.git.getRepositoryService(hoverRepoPath);
 						switch (params.type) {
-							case 'work-dir-changes':
+							case 'workdir':
 								cache = false;
 								[commit, secondaryWorktree] = await Promise.all([
 									svc.commits.getCommit(uncommitted, toAbortSignal(cancellation.token)),
@@ -2427,7 +2430,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 										: undefined,
 								]);
 								break;
-							case 'stash-node': {
+							case 'stash': {
 								const stash = await svc.stash?.getStash(undefined, toAbortSignal(cancellation.token));
 								commit = stash?.stashes.get(params.id);
 								break;
@@ -2563,6 +2566,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// unpublished: this.unpublished,
 			},
 		);
+	}
+
+	@ipcCommand(CancelLoadRowCommand)
+	private onCancelLoadRow(params: IpcParams<typeof CancelLoadRowCommand>): void {
+		this._data.onCancelLoadRow(params);
 	}
 
 	@ipcRequest(LoadRowRequest)
@@ -2710,8 +2718,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// A WIP row's synthetic id encodes its own worktree path (the primary's resolves back to
 		// `primaryRepoPath`); every other row type acts on the graph's repo.
 		const rowRepoPath =
-			(params.row.type === 'work-dir-changes' ? getWipRowWorktreePath(params.row.id) : undefined) ??
-			primaryRepoPath;
+			(params.row.type === 'workdir' ? getWipRowWorktreePath(params.row.id) : undefined) ?? primaryRepoPath;
 
 		switch (params.action) {
 			case 'undo-commit': {
@@ -3118,7 +3125,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// A WIP row's synthetic id encodes its own worktree path — use it (not the graph's repo path)
 		// so fallback-to-activeSelection commands operate on the worktree the user actually clicked.
-		const repoPath = (type === 'work-dir-changes' ? getWipRowWorktreePath(id) : undefined) ?? this.repository.path;
+		const repoPath = (type === 'workdir' ? getWipRowWorktreePath(id) : undefined) ?? this.repository.path;
 		const commit = this.getRevisionReference(repoPath, id, type);
 		this._selection = commit != null ? [commit] : undefined;
 	}
@@ -3131,14 +3138,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (repoPath == null || id == null) return undefined;
 
 		switch (type) {
-			case 'stash-node':
+			case 'stash':
 				return createReference(id, repoPath, {
 					refType: 'stash',
 					name: id,
 					number: undefined,
 				});
 
-			case 'work-dir-changes':
+			case 'workdir':
 				return createReference(uncommitted, repoPath, { refType: 'revision' });
 
 			default:
@@ -3748,16 +3755,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return filters?.[repoPath];
 	}
 
+	/** The mode a given column will accept, or `undefined` when the value belongs to a different column
+	 *  (or no column takes a mode). Keeps the flat persisted vocabulary from leaking across columns. */
+	private static narrowColumnModeFor<T extends GraphColumnName>(
+		name: T,
+		mode: ColumnMode | undefined,
+	): GraphColumnModeFor<T> {
+		if (mode == null) return undefined;
+		if (name === 'graph') return mode === 'compact' ? mode : undefined;
+		if (name === 'changes') return isChangesColumnMode(mode) ? mode : undefined;
+
+		return undefined;
+	}
+
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
 		const columnsSettings: GraphColumnsSettings = {
 			...defaultGraphColumnsSettings,
 		};
 		if (columns != null) {
 			for (const [column, columnCfg] of Object.entries(columns) as [GraphColumnName, GraphColumnConfig][]) {
-				columnsSettings[column] = {
+				// Storage and config carry the FLAT mode vocabulary; each column accepts only its own. This is
+				// the one place a stale or hand-edited stored mode is checked — the discriminated type can't
+				// validate data coming off disk, so anything foreign drops to `undefined` (the column default).
+				const merged = {
 					...defaultGraphColumnsSettings[column],
 					...columnCfg,
+					mode: GraphWebviewProvider.narrowColumnModeFor(column, columnCfg.mode),
 				};
+				// Writing through a dynamic key would demand the intersection of every column's setting type;
+				// widen the TARGET here only. `merged` is already narrowed per column above, and every read of
+				// `columnsSettings` stays discriminated.
+				(columnsSettings as Record<GraphColumnName, GraphColumnSetting>)[column] = merged;
 			}
 		}
 
@@ -5052,7 +5080,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@debug()
-	private async setColumnMode(name: GraphColumnName, mode?: string) {
+	private async setColumnMode<T extends GraphColumnName>(name: T, mode?: GraphColumnModeFor<T>) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
 		let column = columns?.[name];
 		if (column != null) {

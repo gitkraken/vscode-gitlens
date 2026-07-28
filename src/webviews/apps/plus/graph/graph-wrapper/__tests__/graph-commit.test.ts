@@ -59,7 +59,7 @@ function commitRow(overrides: Partial<GitGraphRow>): GitGraphRow {
 		email: 'author@example.com',
 		date: 0,
 		message: 'a commit',
-		type: 'commit-node',
+		type: 'commit',
 		...overrides,
 	};
 }
@@ -109,5 +109,41 @@ suite('graph-commit — branch pill context (grouped ref parity)', () => {
 		assert.strictEqual(ctx.webviewItemGroup, undefined, 'an ungrouped pill has no refGroup keys');
 		// With no group there's nothing to merge, so the pill context IS the individual context.
 		assert.strictEqual(ref!.context, ref!.refContext);
+	});
+});
+
+// `kind` is the producer's label carried through untouched — what the commit IS. It is deliberately NOT
+// re-derived from the parent count: first-parent mode truncates a merge's parents to one, so counting would
+// report every merge as an ordinary commit. The topological question lives with the engine, which counts
+// `parents` directly (see `layout.ts`); these two must not be conflated back together.
+suite('graph-commit — kind carries the producer label, not a parent count', () => {
+	function row(overrides: Partial<GitGraphRow>): GitGraphRow {
+		const base: GitGraphRow = {
+			sha: 'aaaaaaa',
+			parents: ['bbbbbbb'],
+			author: 'Ada',
+			email: 'ada@example.com',
+			date: 1,
+			message: 'm',
+			type: 'commit',
+		};
+		return { ...base, ...overrides };
+	}
+
+	test('an ordinary merge is a merge', () => {
+		assert.strictEqual(toGraphCommit(row({ type: 'merge', parents: ['b', 'c'] })).kind, 'merge');
+	});
+
+	// The regression this pins: re-deriving from `parents.length` here reported every merge as a commit
+	// whenever `graph.onlyFollowFirstParent` was on — no merge glyph, no `dimMergeCommits`, and "Commit"
+	// instead of "Merge commit" to a screen reader.
+	test('a first-parent-truncated merge is still a merge', () => {
+		assert.strictEqual(toGraphCommit(row({ type: 'merge', parents: ['b'] })).kind, 'merge');
+	});
+
+	test('every kind is carried through verbatim', () => {
+		assert.strictEqual(toGraphCommit(row({ type: 'commit', parents: ['b'] })).kind, 'commit');
+		assert.strictEqual(toGraphCommit(row({ type: 'stash', parents: ['b'] })).kind, 'stash');
+		assert.strictEqual(toGraphCommit(row({ type: 'workdir', parents: [] })).kind, 'workdir');
 	});
 });

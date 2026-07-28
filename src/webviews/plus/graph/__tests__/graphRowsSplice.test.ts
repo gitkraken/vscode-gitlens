@@ -11,7 +11,7 @@ function row(sha: string, options?: Partial<GitGraphRow>): GitGraphRow {
 		email: 'test@example.com',
 		date: 1000,
 		message: `commit ${sha}`,
-		type: 'commit-node',
+		type: 'commit',
 		...options,
 	};
 }
@@ -52,8 +52,8 @@ suite('graphRowsSplice', () => {
 		});
 
 		test('work-dir rows fingerprint their date (re-stamped per walk)', () => {
-			const a = row(createWipRowId('/repo'), { type: 'work-dir-changes', date: 1 });
-			const b = row(createWipRowId('/repo'), { type: 'work-dir-changes', date: 2 });
+			const a = row(createWipRowId('/repo'), { type: 'workdir', date: 1 });
+			const b = row(createWipRowId('/repo'), { type: 'workdir', date: 2 });
 			assert.notStrictEqual(fingerprintRow(a), fingerprintRow(b));
 		});
 	});

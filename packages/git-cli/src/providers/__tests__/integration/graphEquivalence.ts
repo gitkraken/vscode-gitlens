@@ -47,7 +47,7 @@ type DecodedRef = ReturnType<typeof decodeReachabilitySet>[number];
 export class FlagsRowProcessor implements GraphRowProcessor {
 	processRow(row: GitGraphRow, context: GraphContext): void {
 		// Stash contexts are vscode-serialized in production and carry no flags; nothing to compute here.
-		if (row.type === 'stash-node') return;
+		if (row.type === 'stash') return;
 
 		// Reads the transient per-row `reachability` (still present here) for the `+unique` count.
 		(row.contexts ??= {}).flags = computeGraphRowContextFlags(row.sha, row.reachability?.refs, context);
