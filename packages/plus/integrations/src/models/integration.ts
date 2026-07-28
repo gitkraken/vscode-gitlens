@@ -71,7 +71,18 @@ export type AccountWideIssuesResult = {
  * {@link GitHostIntegration.getMyIssuesForReposResult}'s toggle). Authored/mentioned categories, where a
  * provider has them, stay user-relative — they're meaningless without a user.
  */
-export type SearchMyIssuesOptions = { includeAllAssignees?: boolean; cursor?: string };
+export type SearchMyIssuesOptions = {
+	includeAllAssignees?: boolean;
+	cursor?: string;
+	/**
+	 * Narrows the account-wide read to one org/account (Azure: the organization) and/or one project within it.
+	 * Only honored by a host with a project layer (Azure), whose account-wide read otherwise fans out over every
+	 * project of every org; the caller checks `supportsProjectDiscovery` before asking, so a host without a
+	 * project layer never silently returns an unscoped list as if it had been narrowed.
+	 */
+	org?: string;
+	project?: string;
+};
 
 type SyncReqUsecase = Exclude<
 	| 'getAccountForCommit'

@@ -3098,3 +3098,84 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 });
+
+/**
+ * Project-scoped git-host issue reads. Before this, `listIssuesPage` had no `project` and
+ * `listIssueTrackerIssuesPage` is gated on `isIssuesIntegration`, so Azure DevOps (a git host) could never ask
+ * for "work items in project P". A consumer had to filter the account-wide page client-side, which
+ * desynchronizes the filtered `items` from that read's `hasMore`/`currentPage`: an account-wide page holding
+ * none of project P's issues reads as "no issues" while `hasMore` is still true.
+ */
+suite('listIssuesPage project scoping', () => {
+	test('forwards org/project to the account-wide core for a host with a project tier', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		let captured: { org?: string; project?: string } | undefined;
+		(
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					resources: unknown,
+					cancellation: unknown,
+					connectionId: unknown,
+					options?: { org?: string; project?: string },
+				) => Promise<IntegrationResult<{ values: IssueShape[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult = (_resources, _cancellation, _connectionId, options) => {
+			captured = { org: options?.org, project: options?.project };
+			return Promise.resolve({ value: { values: [{ id: 'wi-1' } as unknown as IssueShape], truncated: false } });
+		};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+			org: 'contoso',
+			project: 'Proj',
+		});
+		assert.deepEqual(captured, { org: 'contoso', project: 'Proj' }, 'the scope reaches the provider read');
+		assert.equal(result.items.length, 1);
+		assert.equal(result.fetchFailed, undefined, 'a scoped read on a supported host is not a failure');
+
+		manager.dispose();
+	});
+
+	test('rejects org/project for a host with no project tier instead of returning an unscoped list', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let coreCalled = false;
+		(
+			gh as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<
+					IntegrationResult<{ values: IssueShape[]; truncated: boolean }>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult = () => {
+			coreCalled = true;
+			return Promise.resolve({ value: { values: [{ id: 'mine' } as unknown as IssueShape], truncated: false } });
+		};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			project: 'Proj',
+		});
+		assert.equal(coreCalled, false, 'the unscopeable read is never issued');
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.hasMore, false);
+		assert.ok(
+			result.warnings.some(
+				w => w.kind === 'other' && w.message.includes('Project-scoped issue reads are not supported'),
+			),
+			'the caller is told the scope was refused, not handed an unscoped page',
+		);
+
+		manager.dispose();
+	});
+});

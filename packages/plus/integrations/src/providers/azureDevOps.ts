@@ -68,6 +68,15 @@ function getAzureRepositoryIdentity(repo: AzureRepositoryDescriptor): {
 	};
 }
 
+/**
+ * Matches an org/project descriptor against a caller-supplied name, mirroring the facade's own
+ * key/id/name comparison so `listIssuesPage({ org, project })` narrows on the same identifiers a consumer
+ * already got back from `listOrgs`/`listProjects`.
+ */
+function azureResourceMatches(resource: { key?: string; id?: string; name?: string }, value: string): boolean {
+	return resource.key === value || resource.id === value || resource.name === value;
+}
+
 export abstract class AzureDevOpsIntegrationBase<
 	TIntegrationId extends GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
 	TRepositoryDescriptor extends AzureRepositoryDescriptor = AzureRepositoryDescriptor,
@@ -909,6 +918,12 @@ export abstract class AzureDevOpsIntegrationBase<
 	 * (bounded by a defensive per-read backstop). Unlike a silent `flatSettled`, a project read that was
 	 * truncated by the backstop or rejected outright is recorded as `truncated`, so the facade reports an
 	 * incomplete read instead of publishing a partial list as complete.
+	 *
+	 * `searchOptions.org`/`.project` narrow the fan-out server-side (each drain is already a per-project read,
+	 * so scoping just selects which projects to drain). Without this there was no way to ask for "work items in
+	 * project P": a consumer had to filter the account-wide page client-side, which desynchronizes the filtered
+	 * `items` from the `hasMore`/`currentPage` of the pre-filter read — a project-less page reads as "no issues"
+	 * while `hasMore` is still true.
 	 */
 	protected override async searchProviderMyIssuesWithTruncation(
 		session: ProviderAuthenticationSession,
@@ -921,14 +936,42 @@ export abstract class AzureDevOpsIntegrationBase<
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;
 
-		const orgs = await this.getProviderResourcesForUser(session);
-		if (orgs == null || orgs.length === 0) return undefined;
+		const allOrgs = await this.getProviderResourcesForUser(session);
+		if (allOrgs == null || allOrgs.length === 0) return undefined;
+
+		// Scope by org first so project discovery only fans out over the requested account. An org filter that
+		// matches nothing is an empty-but-successful read, not an unsupported one: returning `undefined` here
+		// would be reported as "account-wide issue search is not supported by this provider".
+		const orgs =
+			searchOptions?.org != null ? allOrgs.filter(o => azureResourceMatches(o, searchOptions.org!)) : allOrgs;
+		if (orgs.length === 0) return { values: [], truncated: false };
 
 		// Structured per-scope failures from BOTH project discovery (a whole org dropped) and the per-project
 		// issue drains, so the facade warns on the failed scope + sets `fetchFailed` instead of narrowing silently.
 		const failures: CollectionScopeFailure[] = [];
-		const projects = await this.getProviderProjectsForResources(session, orgs, false, failures);
+		const discovered = await this.getProviderProjectsForResources(session, orgs, false, failures);
+		const projects =
+			searchOptions?.project != null
+				? {
+						...discovered,
+						values: discovered.values.filter(p => azureResourceMatches(p, searchOptions.project!)),
+					}
+				: discovered;
 		if (projects.values.length === 0) {
+			// An explicitly-scoped read that found no matching project is an empty SUCCESS: `undefined` here is
+			// reported as "account-wide issue search is not supported by this provider", which would send the
+			// consumer down a repo-scoped fallback for what is simply an empty scope. Only an incomplete discovery
+			// (which may itself have dropped the requested project) is truncated, and its metadata is forwarded so
+			// the facade still warns on the failed scope.
+			if (searchOptions?.org != null || searchOptions?.project != null) {
+				return projects.metadata != null
+					? {
+							values: [],
+							truncated: projects.metadata.completeness !== 'complete',
+							metadata: projects.metadata,
+						}
+					: { values: [], truncated: false };
+			}
 			return projects.metadata != null ? { values: [], truncated: true, metadata: projects.metadata } : undefined;
 		}
 

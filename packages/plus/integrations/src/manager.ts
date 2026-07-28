@@ -152,6 +152,14 @@ export interface IntegrationManager {
 	listIssuesPage(options: {
 		providerId: IntegrationIds;
 		repos?: ProviderRepositoriesInput;
+		/**
+		 * Narrows the account-wide read (no `repos`) to one org/account, and `project` to one project within it.
+		 * Only a git host with a project tier (Azure DevOps) can scope this server-side; for any other provider
+		 * either option is rejected with a warning + `fetchFailed` rather than silently returning an unscoped
+		 * list. Ignored when `repos` is supplied, since those repos are already the scope.
+		 */
+		org?: string;
+		project?: string;
 		filters?: IssueFilter[];
 		includeAllAssignees?: boolean;
 		page?: number;
