@@ -1,9 +1,9 @@
 // Bundle the consumer with esbuild, then run it.
 //
-// @gitlens/integrations depends on @gitkraken/provider-apis — a CJS module whose
-// getter-based named exports only resolve through a real bundler (webpack/esbuild),
-// which is how every actual consumer (the GitLens host, and Kepler via
-// @gitkraken/core-gitlens) builds it. Running the raw .js under Node would hit
+// The integrations facade depends on @gitkraken/provider-apis — a CJS module
+// whose getter-based named exports only resolve through a real bundler
+// (webpack/esbuild), which is how the GitLens host and Kepler build Core.
+// Running the raw .js under Node would hit
 // Node's CJS named-import limitation, so this fixture bundles first to reproduce a
 // realistic consumer build. (The type-level boundary is checked separately by
 // `tsc --noEmit` in the `test` script.)

@@ -1641,6 +1641,48 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('GitLab account-wide keeps a successful relationship pass when another pass fails', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		stubApi(gl, {
+			getIssuesForCurrentUser: (_t: unknown, options: { assigneeUsername?: string; authorUsername?: string }) => {
+				if (options.authorUsername != null) {
+					return Promise.reject(authError);
+				}
+
+				return Promise.resolve({
+					values: [providerIssue('assigned')],
+					paging: { more: false, cursor: '{}' },
+				});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			filters: [IssueFilter.Assignee, IssueFilter.Author],
+		});
+
+		assert.deepEqual(
+			result.items.map(issue => issue.id),
+			['assigned'],
+			'the assigned pass survives the authored pass failure',
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.ok(result.warnings.some(warning => warning.kind === 'auth'));
+
+		manager.dispose();
+	});
+
 	test('GitLab account-wide propagates a single-page SDK truncation signal (#5535)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -3070,6 +3112,51 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			JSON.stringify({ value: 2, type: 'page' }),
 			'the continuation cursor reaches the provider read',
 		);
+
+		manager.dispose();
+	});
+
+	test('listRepos advances a cursor-only user walk when the caller supplies only page N', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		const nextCursor = JSON.stringify({ value: 'next', type: 'cursor' });
+		const seenCursors: (string | undefined)[] = [];
+		stubApi(gl, {
+			getReposForCurrentUser: (_t: unknown, options: { cursor?: string }) => {
+				seenCursors.push(options.cursor);
+				const secondPage = options.cursor === nextCursor;
+				return Promise.resolve({
+					values: [
+						{
+							id: secondPage ? 'r2' : 'r1',
+							namespace: 'acme',
+							name: secondPage ? 'page-2' : 'page-1',
+						} as unknown as ProviderRepository,
+					],
+					paging: secondPage ? { more: false, cursor: '{}' } : { more: true, cursor: nextCursor },
+				});
+			},
+		});
+
+		const result = await manager.listRepos({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			page: 2,
+		});
+
+		assert.deepEqual(seenCursors, [JSON.stringify({ value: 2, type: 'page' }), nextCursor]);
+		assert.deepEqual(
+			result.items.map(repo => repo.name),
+			['page-2'],
+			'only the requested page is returned',
+		);
+		assert.equal(result.page.currentPage, 2);
+		assert.equal(result.hasMore, false);
 
 		manager.dispose();
 	});
