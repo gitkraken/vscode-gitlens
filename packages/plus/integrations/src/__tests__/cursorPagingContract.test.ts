@@ -93,8 +93,8 @@ function providerPr(id: string): ProviderPullRequest {
 }
 
 /** A cursor-only page: always reports another page behind a fresh opaque cursor, so a drain never terminates. */
-// `T extends {}` because `PagedResult.values` is `NonNullable<T>[]`; an unconstrained `T` isn't assignable to it.
-function endlessCursorPage<T extends {}>(values: T[], round: number): PagedResult<T> {
+// `T extends object` because `PagedResult.values` is `NonNullable<T>[]`; an unconstrained `T` isn't assignable to it.
+function endlessCursorPage<T extends object>(values: T[], round: number): PagedResult<T> {
 	return {
 		values: values,
 		paging: { more: true, cursor: JSON.stringify({ value: `next-${round}`, type: 'cursor' }) },
