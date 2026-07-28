@@ -1,21 +1,39 @@
-// This fixture proves that `@gitlens/integrations` works as a real external
-// consumer would use it: imports only the public facade (`./index.js`),
-// constructs a runtime out of vanilla Node primitives (no vscode, no
-// Container, no GitLens), instantiates the manager, and exercises a few
-// surfaces.
+// This fixture proves that the flattened `@gitkraken/core-gitlens` artifact
+// works as a real external consumer would use it: imports only published
+// package subpaths, constructs a runtime out of vanilla Node primitives (no
+// vscode, no Container), instantiates the manager, and exercises a few surfaces.
 //
 // If the package ever grows a hidden coupling to VS Code or to GitLens, this
 // fixture will fail to type-check or fail at runtime.
 
 import * as assert from 'node:assert/strict';
+import type { CliGitProvider } from '@gitkraken/core-gitlens/git-cli/cliGitProvider.js';
+import type { Repository } from '@gitkraken/core-gitlens/git/models/repository.js';
+import type { GitService } from '@gitkraken/core-gitlens/git/service.js';
+import type { OpenAIProvider } from '@gitkraken/core-gitlens/plus/ai/providers/openaiProvider.js';
+import type { GitHubGitProviderInternal } from '@gitkraken/core-gitlens/plus/git-github/providers/githubProvider.js';
 import {
 	createIntegrationManager,
 	type ConfigChangeEvent,
-	type IntegrationServiceContext,
+	hostFromDomain,
+	type IntegrationManagerContext,
 	type IntegrationStorageProvider,
-} from '@gitlens/integrations/index.js';
-import { Emitter } from '@gitlens/utils/event.js';
-import type { Uri } from '@gitlens/utils/uri.js';
+} from '@gitkraken/core-gitlens/plus/integrations/index.js';
+import { Emitter } from '@gitkraken/core-gitlens/utils/event.js';
+import { Logger } from '@gitkraken/core-gitlens/utils/logger.js';
+import type { Uri } from '@gitkraken/core-gitlens/utils/uri.js';
+
+// Keep the README's representative imports part of this package-level compile contract.
+type DocumentedCoreExports = [
+	typeof Logger,
+	GitService,
+	Repository,
+	CliGitProvider,
+	GitHubGitProviderInternal,
+	OpenAIProvider,
+];
+const documentedCoreExportsTypeChecks: DocumentedCoreExports | undefined = undefined;
+void documentedCoreExportsTypeChecks;
 
 const failures: string[] = [];
 function check(name: string, fn: () => void | Promise<void>): Promise<void> {
@@ -28,7 +46,7 @@ function check(name: string, fn: () => void | Promise<void>): Promise<void> {
 		});
 }
 
-function buildRuntime(): IntegrationServiceContext {
+function buildRuntime(): IntegrationManagerContext {
 	const memory = new Map<string, unknown>();
 	const workspace = new Map<string, unknown>();
 	const secrets = new Map<string, string>();
@@ -76,30 +94,14 @@ function buildRuntime(): IntegrationServiceContext {
 			},
 			wrapForForcedInsecureSSL: (_, fn) => Promise.resolve(fn()),
 		},
-		cache: {
-			getRepositoryMetadata: undefined as never,
-			getRepositoryDefaultBranch: undefined as never,
-			getPullRequestForSha: undefined as never,
-			getPullRequestForBranch: undefined as never,
-			getPullRequest: () => {
-				throw new Error('not implemented in fixture');
-			},
-			getIssueOrPullRequest: undefined as never,
-			getIssue: () => {
-				throw new Error('not implemented in fixture');
-			},
-			getCurrentAccount: () => {
-				throw new Error('not implemented in fixture');
-			},
-		},
 		repositories: { getOpenRemotes: async () => [] },
 		hooks: {},
 	};
 }
 
 async function main(): Promise<void> {
-	console.log('@gitlens/integrations consumer fixture');
-	console.log('--------------------------------------');
+	console.log('@gitkraken/core-gitlens consumer fixture');
+	console.log('-----------------------------------------');
 
 	await check('manager constructs from a vanilla-Node runtime', () => {
 		const manager = createIntegrationManager(buildRuntime());
@@ -121,6 +123,11 @@ async function main(): Promise<void> {
 		manager.dispose();
 	});
 
+	await check('facade exports the domain normalizer used for connection selection', () => {
+		assert.equal(hostFromDomain('https://ghe.example.com/api/v3/'), 'ghe.example.com');
+		assert.equal(hostFromDomain('ghe.example.com:8443'), 'ghe.example.com:8443');
+	});
+
 	await check('repository resolution classifies malformed input without exposing provider clients', async () => {
 		const manager = createIntegrationManager(buildRuntime());
 		const result = await manager.resolveRepository({ remoteUrl: 'not a remote' });
@@ -129,7 +136,7 @@ async function main(): Promise<void> {
 		manager.dispose();
 	});
 
-	console.log('--------------------------------------');
+	console.log('-----------------------------------------');
 	if (failures.length > 0) {
 		console.error(`FAIL — ${failures.length} check(s) failed:`);
 		for (const f of failures) console.error(`  • ${f}`);

@@ -2,7 +2,10 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { AuthenticationError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import { createFakeRuntime } from '../../__tests__/fakeRuntime.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
+import { GitCloudHostIntegrationId } from '../../constants.js';
+import { createIntegrationService as createIntegrationManager } from '../../integrationService.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { AzureDevOpsApi } from '../azure/azure.js';
 import { BitbucketApi } from '../bitbucket/bitbucket.js';
@@ -191,6 +194,50 @@ suite('Azure DevOps rate limit classification', () => {
 				),
 			),
 		);
+
+		assert.ok(ex instanceof AuthenticationError, `expected AuthenticationError, got ${String(ex)}`);
+	});
+});
+
+suite('provider-apis fetch adapter rate limit classification', () => {
+	async function read(body: string): Promise<unknown> {
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = () =>
+			Promise.resolve(
+				new Response(body, {
+					status: 403,
+					statusText: 'Forbidden',
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		const api = await (
+			gh as unknown as {
+				getProvidersApi(): Promise<{
+					getCurrentUser(token: {
+						providerId: GitCloudHostIntegrationId;
+						accessToken: string;
+					}): Promise<unknown>;
+				}>;
+			}
+		).getProvidersApi();
+
+		const ex = await captureError(() =>
+			api.getCurrentUser({ providerId: GitCloudHostIntegrationId.GitHub, accessToken: 'token' }),
+		);
+		manager.dispose();
+		return ex;
+	}
+
+	test('retains a throttled 403 body so the SDK path reports rate-limit', async () => {
+		const ex = await read(JSON.stringify({ message: 'API rate limit exceeded for this installation' }));
+
+		assert.ok(ex instanceof RequestRateLimitError, `expected RequestRateLimitError, got ${String(ex)}`);
+	});
+
+	test('still classifies a genuine SDK permission failure as auth', async () => {
+		const ex = await read(JSON.stringify({ message: 'Resource not accessible by this token' }));
 
 		assert.ok(ex instanceof AuthenticationError, `expected AuthenticationError, got ${String(ex)}`);
 	});

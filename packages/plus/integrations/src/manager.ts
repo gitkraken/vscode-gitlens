@@ -178,6 +178,10 @@ export interface IntegrationManager {
 		providerId: IntegrationIds;
 		org?: string;
 		project?: string;
+		/**
+		 * Requested 1-based page. Cursor-only providers are advanced internally when no `cursor` is supplied,
+		 * so a direct page-N request can cost O(page) upstream calls.
+		 */
 		page?: number;
 		/** Continuation from a prior page's `cursor`; supplying it costs exactly one upstream request per scope. */
 		cursor?: string;
@@ -238,16 +242,16 @@ export interface IntegrationManager {
 		 * Narrows to the requested relationship(s), validated against `getSupportedFilters().issues` on the
 		 * repo-scoped path and `.issuesAccountWide` on the account-wide one.
 		 *
-		 * On the account-wide path this REPLACES the provider's own definition of "my issues" — GitHub/GHE union
-		 * authored + assigned + mentioned, while Azure and GitLab union assigned + authored — so `[Assignee]`
-		 * gets `assignee:@me` semantics wherever it's expressible. Narrowing must happen here rather than on the
-		 * returned page: the excluded items still counted toward the provider's paging, so filtering afterward
-		 * leaves `items` describing a different result set than `hasMore`/`cursor`.
+		 * On the account-wide path this REPLACES the provider's own definition of "my issues" — GitHub/GHE
+		 * authored + assigned + mentioned, Azure assigned + authored, and GitLab assigned-to-me — so
+		 * `[Assignee]` gets `assignee:@me` semantics wherever it's expressible. Narrowing must happen here rather
+		 * than on the returned page: the excluded items still counted toward the provider's paging, so filtering
+		 * afterward leaves `items` describing a different result set than `hasMore`/`cursor`.
 		 *
 		 * A set the provider can't express server-side is refused whole (warning + `fetchFailed`), never widened.
 		 */
 		filters?: IssueFilter[];
-		/** Broadens to every assignee. Contradicts `filters`; passing both is refused. */
+		/** Broadens to every assignee. On account-wide reads it contradicts `filters`, so passing both is refused. */
 		includeAllAssignees?: boolean;
 		/**
 		 * Requested 1-based page. Without a `cursor` this may cost O(page) upstream requests on cursor-backed
