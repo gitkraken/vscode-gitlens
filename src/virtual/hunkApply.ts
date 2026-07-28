@@ -144,15 +144,20 @@ export function applyHunks(base: Uint8Array | undefined, hunks: readonly Applyab
 		}
 	}
 
+	// A "\ No newline at end of file" marker only appears where the diff reaches EOF, so it decides
+	// the result's ending only when a hunk consumed through the last base line. When the hunks
+	// stopped short, the untouched tail carries the base's own ending forward.
+	const hunksReachedEof = cursor >= baseLines.length;
+
 	// Copy any remaining unchanged tail.
 	while (cursor < baseLines.length) {
 		out.push(baseLines[cursor]);
 		cursor++;
 	}
 
+	const terminated = hunksReachedEof ? !trailingEolSuppressed : endsWithEol;
 	const joined = out.join(eol);
-	const final = !trailingEolSuppressed && (endsWithEol || out.length > 0) ? `${joined}${eol}` : joined;
-	return textEncoder.encode(final);
+	return textEncoder.encode(terminated && out.length > 0 ? `${joined}${eol}` : joined);
 }
 
 /**

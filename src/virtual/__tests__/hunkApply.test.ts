@@ -245,5 +245,35 @@ suite('applyHunks Test Suite', () => {
 			const result = fromBytes(applyHunks(base, hunks));
 			assert.strictEqual(result, 'P\nq');
 		});
+
+		// No marker is emitted for a region the diff never reached, so an unterminated base has to
+		// carry its own ending forward rather than silently gaining a newline.
+		test('leaves an unterminated base unterminated when the hunk stops short of EOF', () => {
+			const base = toBytes('a\nb\nc');
+			const hunks: ApplyableHunk[] = [{ hunkHeader: '@@ -1,1 +1,1 @@', content: ['-a', '+A'].join('\n') }];
+			const result = fromBytes(applyHunks(base, hunks));
+			assert.strictEqual(result, 'A\nb\nc');
+		});
+
+		test('leaves an unterminated CRLF base unterminated when the hunk stops short of EOF', () => {
+			const base = toBytes('a\r\nb\r\nc');
+			const hunks: ApplyableHunk[] = [{ hunkHeader: '@@ -1,1 +1,1 @@', content: ['-a\r', '+A\r'].join('\n') }];
+			const result = fromBytes(applyHunks(base, hunks));
+			assert.strictEqual(result, 'A\r\nb\r\nc');
+		});
+
+		test('keeps a terminated base terminated when the hunk stops short of EOF', () => {
+			const base = toBytes('a\nb\nc\n');
+			const hunks: ApplyableHunk[] = [{ hunkHeader: '@@ -1,1 +1,1 @@', content: ['-a', '+A'].join('\n') }];
+			const result = fromBytes(applyHunks(base, hunks));
+			assert.strictEqual(result, 'A\nb\nc\n');
+		});
+
+		test('emits no trailing newline for a file emptied by deletions', () => {
+			const base = toBytes('a\nb\n');
+			const hunks: ApplyableHunk[] = [{ hunkHeader: '@@ -1,2 +0,0 @@', content: ['-a', '-b'].join('\n') }];
+			const result = fromBytes(applyHunks(base, hunks));
+			assert.strictEqual(result, '');
+		});
 	});
 });
