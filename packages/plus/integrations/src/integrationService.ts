@@ -2061,10 +2061,18 @@ export class IntegrationService implements Disposable {
 	 * With no `repos`, reads the current user's issues account-wide — the repo-scoped core rejects an empty
 	 * `repos` input for GitHub/Bitbucket/Azure, so route to the account-wide `searchMyIssues` core instead
 	 * (which is already user-scoped and returns shapes; cursor-capable providers remain pageable).
+	 *
+	 * `org`/`project` narrow that account-wide read for a host with a project layer (Azure), whose read
+	 * otherwise fans out over every project of every org. They are rejected (warning + `fetchFailed`) for a host
+	 * without one, and ignored on the repo-scoped path where `repos` is already the scope.
 	 */
 	async listIssuesPage(options: {
 		providerId: IntegrationIds;
 		repos?: ProviderReposInput;
+		/** Narrows the account-wide read to one org/account. Requires a host with a project layer (Azure). */
+		org?: string;
+		/** Narrows the account-wide read to one project. Requires a host with a project layer (Azure). */
+		project?: string;
 		filters?: IssueFilter[];
 		includeAllAssignees?: boolean;
 		page?: number;
@@ -2170,6 +2178,29 @@ export class IntegrationService implements Disposable {
 				};
 			}
 
+			// Only a host with a project layer can narrow server-side. Reject the request rather than serving an
+			// unscoped list as if it had been narrowed: the caller would otherwise have to filter client-side,
+			// which desynchronizes the filtered `items` from this read's `hasMore`/`currentPage` and shows
+			// "no issues" for a page that simply held none of the requested project's.
+			if ((options.org != null || options.project != null) && !integration.supportsProjectDiscovery) {
+				return {
+					items: [],
+					warnings: [
+						{
+							providerId: options.providerId,
+							domain: domain,
+							connectionId: options.connectionId,
+							message: `Project-scoped issue reads are not supported by '${options.providerId}'; scope the read to repositories instead.`,
+							kind: 'other',
+							isAuth: false,
+						},
+					],
+					page: { currentPage: 1, itemsPerPage: 0 },
+					hasMore: false,
+					fetchFailed: true,
+				};
+			}
+
 			// The repo-scoped core rejects empty repos (GitHub/Bitbucket/Azure); read the account-wide,
 			// already-user-scoped core instead. GitHub exposes a composite cursor across its authored,
 			// assigned, and mentioned searches. Walk it internally when the caller supplies only page N.
@@ -2182,6 +2213,8 @@ export class IntegrationService implements Disposable {
 						integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId, {
 							includeAllAssignees: options.includeAllAssignees,
 							cursor: cursor,
+							org: options.org,
+							project: options.project,
 						}),
 					{ warnOnMissingSession: warnOnMissingSession },
 				);
