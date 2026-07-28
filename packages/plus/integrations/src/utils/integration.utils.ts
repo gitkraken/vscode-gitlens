@@ -7,20 +7,11 @@ import {
 } from '../constants.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { Integration, IntegrationConnectedKey } from '../models/integration.js';
-import { isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
-
-// These two domain checks live here (rather than in their provider modules) to
-// break a top-level circular import. The provider modules synchronously read
-// `providersMetadata[...]` at module init time, so importing from them while
-// `providers/models.ts` is still loading triggers a TDZ on `providersMetadata`.
-const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
-const bitbucketCloudDomainRegex = /^bitbucket\.org$/i;
-function isAzureCloudDomain(domain: string | undefined): boolean {
-	return domain != null && azureCloudDomainRegex.test(domain);
-}
-function isBitbucketCloudDomain(domain: string | undefined): boolean {
-	return domain != null && bitbucketCloudDomainRegex.test(domain);
-}
+// These domain checks come from `providers/models.ts` (already imported here) rather than the individual
+// provider modules: those read `providersMetadata[...]` synchronously at module init, so importing from them
+// while `providers/models.ts` is still loading triggers a TDZ on `providersMetadata`. Importing the shared
+// predicates keeps one definition of each regex — duplicating them let a fix land in only one place.
+import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../providers/models.js';
 
 const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
 	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
