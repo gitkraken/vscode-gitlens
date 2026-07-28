@@ -53,3 +53,10 @@ const conflictStatuses = new Set<string>(['U', 'AA', 'AU', 'UA', 'DD', 'DU', 'UD
 export function isConflictStatus(status: string | undefined): status is 'U' | GitFileConflictStatus {
 	return status != null && conflictStatuses.has(status);
 }
+
+/** Repo-relative pathspec entries for a file. Renames/copies need BOTH sides: git applies pathspec limiting
+ *  before rename detection, so `git diff -- <new>` drops the old path's deletion and the patch reads as a
+ *  bare add (applying it duplicates the file instead of renaming it). */
+export function getFileDiffPathspecs(file: { path: string; originalPath?: string }): string[] {
+	return file.originalPath ? [file.path, file.originalPath] : [file.path];
+}

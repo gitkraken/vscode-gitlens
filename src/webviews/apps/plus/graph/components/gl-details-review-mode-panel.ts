@@ -772,6 +772,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 						sha: scope.toSha,
 						comparisonSha: scope.fromSha,
 						status: file.status,
+						originalPath: file.originalPath,
 					},
 				};
 				break;

@@ -200,7 +200,10 @@ function countFileChanges(files: readonly GitFileChange[] | undefined): GitDiffF
 	return counts;
 }
 
-export type ComparisonContext = { sha: string };
+/** `sha` is the comparison's "from" side. `originalPath` carries a rename's pre-rename path for handlers
+ *  that build a pathspec; it deliberately does NOT live on the synthesized `GitFileChange`, because
+ *  `getRevisionUri` resolves a file object as `originalPath ?? path` and would then open the old path. */
+export type ComparisonContext = { sha: string; originalPath?: string };
 
 /** A `webviewItemsValues` entry resolved to its commit + file for a multi-file action. */
 export interface ResolvedDetailsFile {
@@ -221,7 +224,7 @@ export async function getFileCommitFromContext(
 > {
 	const { path, repoPath, sha, comparisonSha, staged, stashNumber } = context;
 	const svc = container.git.getRepositoryService(repoPath);
-	const comparison = comparisonSha != null ? { sha: comparisonSha } : undefined;
+	const comparison = comparisonSha != null ? { sha: comparisonSha, originalPath: context.originalPath } : undefined;
 
 	if (stashNumber != null) {
 		const stash = await svc.stash?.getStash();

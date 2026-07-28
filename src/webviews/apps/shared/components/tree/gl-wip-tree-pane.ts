@@ -4,7 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
-import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
+import { getFileDiffPathspecs, isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import type { Preferences } from '../../../../commitDetails/protocol.js';
 import type { CopyWipPatchEventDetail, OpenMultipleChangesArgs, WipScope } from '../../actions/file.js';
 import { renderCommitStatsIcons } from '../commit/commit-stats.js';
@@ -536,7 +536,7 @@ export class GlWipTreePane extends LitElement {
 					detail: {
 						repoPath: repoPath,
 						scope: 'all',
-						uris: this._selectedFiles.map(f => f.path),
+						uris: this._selectedFiles.flatMap(f => getFileDiffPathspecs(f)),
 					} satisfies CopyWipPatchEventDetail,
 					bubbles: true,
 					composed: true,
@@ -556,7 +556,7 @@ export class GlWipTreePane extends LitElement {
 		if (scope !== 'all') {
 			const files = this.files;
 			if (files?.length) {
-				uris = this.filterFilesByScope(files, scope).map(f => f.path);
+				uris = this.filterFilesByScope(files, scope).flatMap(f => getFileDiffPathspecs(f));
 			}
 		}
 		this.dispatchEvent(

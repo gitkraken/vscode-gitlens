@@ -349,6 +349,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 				sha: sha,
 				comparisonSha: this.commitFrom?.sha,
 				status: file.status,
+				originalPath: file.originalPath,
 			},
 		};
 

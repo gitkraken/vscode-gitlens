@@ -869,6 +869,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 				sha: sha,
 				comparisonSha: comparisonSha,
 				status: file.status,
+				originalPath: file.originalPath,
 			},
 		};
 

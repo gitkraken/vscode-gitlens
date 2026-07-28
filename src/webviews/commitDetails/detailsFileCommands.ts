@@ -7,6 +7,7 @@ import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
+import { getFileDiffPathspecs } from '@gitlens/git/utils/fileStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
@@ -535,7 +536,8 @@ export class DetailsFileCommands {
 				repoPath: commit.repoPath,
 				to: commit.ref,
 				from: comparison.sha,
-				uris: [file.uri],
+				// The rename's original path rides on the comparison context, not the file — see ComparisonContext.
+				uris: getFileDiffPathspecs({ path: file.path, originalPath: comparison.originalPath }),
 			};
 		} else if (commit.isUncommitted) {
 			const to = commit.isUncommittedStaged ? uncommittedStaged : uncommitted;
@@ -543,7 +545,7 @@ export class DetailsFileCommands {
 				repoPath: commit.repoPath,
 				to: to,
 				title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
-				uris: [file.uri],
+				uris: getFileDiffPathspecs(file),
 			};
 		} else {
 			if (commit.message == null) {
@@ -558,7 +560,7 @@ export class DetailsFileCommands {
 				from: `${commit.ref}^`,
 				title: title,
 				description: description,
-				uris: [file.uri],
+				uris: getFileDiffPathspecs(file),
 			};
 		}
 
@@ -813,13 +815,38 @@ export class DetailsFileCommands {
 		const files = items.filter(i => i.webviewItem?.includes('+staged') || i.webviewItem?.includes('+unstaged'));
 		if (!files.length) return;
 
-		// Combined HEAD↔working patch of exactly the selected files (`to: uncommitted` captures both
-		// staged + unstaged; the command stages untracked files for the diff, like the single copyPatch).
+		// Scope the diff to what the selection actually represents, mirroring the staged/unstaged/all
+		// scopes of `copyWipPatchToClipboard`. `to: uncommitted` alone diffs index↔working (unstaged
+		// only), which copied NOTHING for a fully-staged selection; but blanket HEAD↔working would hand
+		// back staged hunks an unstaged-only selection deliberately excluded (outside checkbox mode a
+		// partially-staged file renders as two separately-selectable rows). So: a uniform selection
+		// copies just its own side, and only a selection spanning both — or containing a deduped
+		// `+mixed` row, which stands in for both twins — needs the combined HEAD↔working diff.
+		const hasStaged = files.some(i => i.webviewItem!.includes('+staged'));
+		const hasUnstaged = files.some(i => i.webviewItem!.includes('+unstaged'));
+		const hasMixed = files.some(i => i.webviewItem!.includes('+mixed'));
+
+		let to;
+		let from;
+		if (hasMixed || (hasStaged && hasUnstaged)) {
+			// HEAD↔working. `to === uncommitted` also makes the command stage untracked files for the diff.
+			to = uncommitted;
+			from = 'HEAD';
+		} else if (hasStaged) {
+			// HEAD↔index. Deliberately no `from` — `--staged` already implies HEAD, and naming it would
+			// break the unborn-HEAD case (`git diff --staged HEAD` is fatal there, `git diff --staged` isn't).
+			to = uncommittedStaged;
+		} else {
+			// index↔working.
+			to = uncommitted;
+		}
+
 		const args: CreatePatchCommandArgs = {
 			repoPath: files[0].file.repoPath,
-			to: uncommitted,
-			title: 'Uncommitted Changes',
-			uris: files.map(i => i.file.uri),
+			to: to,
+			from: from,
+			title: to === uncommittedStaged ? 'Staged Changes' : 'Uncommitted Changes',
+			uris: files.flatMap(i => getFileDiffPathspecs(i.file)),
 		};
 		void executeCommand<CreatePatchCommandArgs>('gitlens.copyPatchToClipboard', args);
 	}

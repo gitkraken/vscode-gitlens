@@ -226,6 +226,9 @@ export interface DetailsFileContextValue {
 	stashNumber?: string;
 	staged?: boolean;
 	status?: GitFileStatus;
+	/** A rename's original path. Only needed for comparison contexts, whose file isn't looked up in a
+	 *  fileset — `getFileCommitFromContext` synthesizes its `GitFileChange` from this context alone. */
+	originalPath?: string;
 }
 
 export interface DetailsFolderContextValue {
