@@ -23,6 +23,8 @@ import type {
 	ProviderRepository,
 } from '../providers/models.js';
 import { PagingMode } from '../providers/models.js';
+import type { FakeProvidersApiOverrides } from './fakeProvidersApi.js';
+import { createFakeProvidersApi } from './fakeProvidersApi.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -67,14 +69,18 @@ function primarySession(token: string): ProviderAuthenticationSession {
 	};
 }
 
-function stubApi(gh: GitHostIntegration, api: Record<string, unknown>): void {
-	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
+// Both stubs route through the typed fake (see fakeProvidersApi.ts): the `overrides` parameter is
+// key-checked against the REAL `ProvidersApi`, so a rename or signature change on the SDK wrapper is a
+// compile error here instead of a fake that silently stops intercepting.
+function stubApi(gh: GitHostIntegration, overrides: FakeProvidersApiOverrides): void {
+	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () =>
+		Promise.resolve(createFakeProvidersApi(overrides));
 }
 
 /** Same monkeypatch as {@link stubApi}, typed for the issue-tracker integrations (Jira/Linear/Trello). */
-function stubIssuesApi(integration: IssuesIntegration, api: Record<string, unknown>): void {
+function stubIssuesApi(integration: IssuesIntegration, overrides: FakeProvidersApiOverrides): void {
 	(integration as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () =>
-		Promise.resolve(api);
+		Promise.resolve(createFakeProvidersApi(overrides));
 }
 
 async function connectedGitHub(runtime: ReturnType<typeof createFakeRuntime>) {
