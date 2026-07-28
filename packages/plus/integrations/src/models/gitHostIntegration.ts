@@ -330,10 +330,14 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
-	 * Whether this git host exposes issues on the ProviderBackend surface. Most git hosts do; a host whose
-	 * issue tracker is deprecated (Bitbucket Cloud, superseded by dedicated issue integrations like Jira)
-	 * overrides this to false, so the facade reports issues as unsupported instead of serving a partial or
-	 * deprecated source.
+	 * Whether this git host exposes issues on the ProviderBackend surface. Most git hosts do; a host with no
+	 * usable issue tracker overrides this to false — Bitbucket Cloud (deprecated in favor of dedicated issue
+	 * integrations like Jira) and Bitbucket Data Center (never had one) — so the facade reports issues as
+	 * unsupported instead of serving a partial/deprecated source or failing inside a provider client that
+	 * registers no issue function at all.
+	 *
+	 * Keep this in sync with {@link ProviderMetadata.supportedIssueFilters}: a provider that declares no issue
+	 * filters and no issue read is answering the same capability question twice, and the two must agree.
 	 */
 	get supportsIssues(): boolean {
 		return true;
@@ -1035,10 +1039,13 @@ export abstract class GitHostIntegration<
 
 	/**
 	 * Repo-scoped "my issues" read returning the normalized {@link IssueShape} the ProviderBackend facade
-	 * consumes. The default drains {@link getMyIssuesForReposResult} (the raw provider-apis path) and maps to
-	 * IssueShape. A provider whose only issue client already yields normalized shapes and isn't wired into that
-	 * path (Bitbucket, via `getUsersIssuesForRepo`) overrides this to read directly, so the facade's repo-scoped
-	 * issue reads (`listIssuesPage({ repos })`, `broadenIssues`) work without a raw `ProviderIssue` round-trip.
+	 * consumes (`listIssuesPage({ repos })`, `broadenIssues`). Maps {@link getMyIssuesForReposResult} — the raw
+	 * provider-apis path — to IssueShape.
+	 *
+	 * It's the seam rather than an inline map so a provider whose only issue client already yields normalized
+	 * shapes, and isn't wired into the raw path, can override it and serve these reads without a
+	 * `ProviderIssue` round-trip. No provider does today: the one candidate (Bitbucket Cloud's legacy
+	 * `getUsersIssuesForRepo`) reports `supportsIssues: false`, so the facade never reaches this for it.
 	 */
 	async getMyIssuesForReposAsShapesResult(
 		reposOrRepoIds: ProviderReposInput,

@@ -367,6 +367,19 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		return Promise.resolve(undefined);
 	}
 
+	/**
+	 * Bitbucket Data Center exposes no issue tracker at all (issues live in Jira), so — like Bitbucket Cloud,
+	 * whose own tracker is deprecated — it is not an issue provider on the ProviderBackend surface. Without this
+	 * the facade would take `supportsIssues`' default `true` and route the read to a provider that registers no
+	 * issue client: the repo-scoped path fails with the SDK's `does not support function: getIssuesForReposFn`
+	 * as an opaque `kind: 'other'` warning, and `broadenIssues` first drains every repo of the org before hitting
+	 * the same failure. Its metadata already declares no issue filters, so this keeps both halves of the
+	 * capability answer consistent.
+	 */
+	override get supportsIssues(): boolean {
+		return false;
+	}
+
 	private readonly storagePrefix = 'bitbucket-server';
 	protected override async providerOnConnect(): Promise<void> {
 		if (this._session == null) return;

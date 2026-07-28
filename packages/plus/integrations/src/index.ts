@@ -15,6 +15,10 @@ import type { IntegrationManager } from './manager.js';
 export type {
 	ClosedPullRequestSweepOptions,
 	IntegrationManager,
+	// Every option shape a caller has to BUILD is exported, not just the ones the manager returns:
+	// `manager.js` is not a public subpath, so a type omitted here can't be named by a consumer at all
+	// (`broadenIssues`' `orgs` needed `ProviderBroadenOrg` and had to be re-declared downstream).
+	ProviderBroadenOrg,
 	ProviderRepositoriesInput,
 	ProviderRepositoryInput,
 	ProviderSweepTarget,
