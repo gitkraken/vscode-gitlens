@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { ProviderPullRequest, ProviderRepository } from '../models.js';
 import {
+	isAzureCloudDomain,
 	providerPullRequestMatchesSearch,
 	toProviderPullRequestState,
 	toProviderPullRequestStates,
@@ -102,5 +103,28 @@ suite('toProviderRepositoryShape', () => {
 		assert.equal(shape.defaultBranch, undefined);
 		// A repo with no project layer (non-Azure) leaves `project` absent rather than empty-string.
 		assert.equal(shape.project, undefined);
+	});
+});
+
+/**
+ * `\bvisualstudio\.com$` treated a hyphen as a word boundary, so an arbitrary attacker-controlled host
+ * (`evil-visualstudio.com`) was classified as Azure cloud, which changes its auth/URL handling. Match only on
+ * a real label boundary. The predicate is imported by `utils/integration.utils.ts` rather than duplicated, so
+ * both consumers share this behavior.
+ */
+suite('isAzureCloudDomain', () => {
+	test('accepts dev.azure.com and real visualstudio.com labels', () => {
+		assert.equal(isAzureCloudDomain('dev.azure.com'), true);
+		assert.equal(isAzureCloudDomain('DEV.AZURE.COM'), true);
+		assert.equal(isAzureCloudDomain('visualstudio.com'), true);
+		assert.equal(isAzureCloudDomain('contoso.visualstudio.com'), true);
+	});
+
+	test('rejects hosts that merely end with the suffix across a non-label boundary', () => {
+		assert.equal(isAzureCloudDomain('evil-visualstudio.com'), false);
+		assert.equal(isAzureCloudDomain('myvisualstudio.com'), false);
+		assert.equal(isAzureCloudDomain('notdev.azure.com'), false);
+		assert.equal(isAzureCloudDomain('dev.azure.com.evil.test'), false);
+		assert.equal(isAzureCloudDomain(undefined), false);
 	});
 });
