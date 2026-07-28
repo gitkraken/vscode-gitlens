@@ -1127,6 +1127,30 @@ export class IntegrationService implements Disposable {
 		return { hasMore: false, cursor: undefined, truncated: true };
 	}
 
+	/**
+	 * Resolves the position a paged read reports as `page.currentPage`, per the single convention documented on
+	 * {@link ProviderPageInfo.currentPage}. Every paged read routes through here so the field means the same
+	 * thing on all of them: positional, never constant-1 for one read and positional for another.
+	 *
+	 * `providerPage` is what the provider (or the internal drain) established — 1 means "nothing reported".
+	 * `pageAdvanceable` is whether the read honors a page number at all: false for a cursor-only read, which
+	 * answers with its first page when handed a synthesized page-number cursor, so the requested `page` must
+	 * NOT be echoed there.
+	 */
+	private resolveCurrentPage(options: {
+		providerPage: number;
+		requestedPage: number;
+		suppliedCursor: string | undefined;
+		pageAdvanceable: boolean;
+	}): number {
+		if (options.providerPage > 1) return options.providerPage;
+		// A caller-threaded cursor DID advance the provider, so the caller's own position is authoritative for a
+		// provider that reports none: prefer the page the cursor encodes, else the `page` supplied alongside it.
+		if (options.suppliedCursor != null) return parsePageCursor(options.suppliedCursor) ?? options.requestedPage;
+
+		return options.pageAdvanceable ? options.requestedPage : 1;
+	}
+
 	private getBroadenIssuesCursor(
 		cursor: string | undefined,
 		org: { providerId: IntegrationIds; name: string; connectionId?: string },
@@ -1774,14 +1798,14 @@ export class IntegrationService implements Disposable {
 		// of the same signal.
 		const truncated = (value?.truncated ?? false) || (value?.paging?.truncated ?? false) || assessment.truncated;
 		// Numbered-page hosts that don't echo `currentPage` may still be advanced by the requested `page` (initial
-		// read) or by the cursor the caller threaded back. Cursor-only hosts expose a real opaque cursor, in which
-		// case the provider's page-less first page is reported as page 1; don't echo an unapplied `page` there.
-		const currentPage =
-			paged.page.currentPage > 1
-				? paged.page.currentPage
-				: paged.cursor != null
-					? 1
-					: (parsePageCursor(options.cursor) ?? page);
+		// read) or by the cursor the caller threaded back. A host that hands back its own opaque cursor is
+		// cursor-only, so an UNTHREADED `page` request wasn't applied and its page-less first page is page 1.
+		const currentPage = this.resolveCurrentPage({
+			providerPage: paged.page.currentPage,
+			requestedPage: page,
+			suppliedCursor: options.cursor,
+			pageAdvanceable: paged.cursor == null,
+		});
 		// Continuation: prefer a real provider cursor; else, for a numbered-page host that signalled more but
 		// gave no cursor, synthesize the next page so the caller has something resumable to advance with.
 		const cursorOut = paged.cursor ?? (paged.hasMore ? this.pageToCursor(currentPage + 1) : undefined);
@@ -2074,6 +2098,15 @@ export class IntegrationService implements Disposable {
 			// had been applied — report what came back.
 			page: {
 				...paged.page,
+				// Positional, per ProviderPageInfo.currentPage: the drain (above) already advanced `paged.page`,
+				// and a caller-threaded cursor advanced the provider, so neither leaves a cursor-only read stuck
+				// reporting page 1.
+				currentPage: this.resolveCurrentPage({
+					providerPage: paged.page.currentPage,
+					requestedPage: page,
+					suppliedCursor: options.cursor,
+					pageAdvanceable: pageAdvanceable,
+				}),
 				itemsPerPage: accountWide ? items.length : paged.page.itemsPerPage,
 				truncated: truncated || undefined,
 			},
@@ -2360,7 +2393,18 @@ export class IntegrationService implements Disposable {
 				items: items,
 				warnings: warnings,
 				page: {
-					currentPage: requestedPageMissing ? page : (value?.page ?? (options.cursor != null ? page : 1)),
+					// Positional, per ProviderPageInfo.currentPage. `currentPage` already carries what the provider
+					// reported or what the internal drain counted; a requested page past the terminal cursor is
+					// reported as that empty page N. The account-wide read is cursor-only, so a `page` the caller
+					// didn't pair with a cursor is never echoed.
+					currentPage: requestedPageMissing
+						? page
+						: this.resolveCurrentPage({
+								providerPage: currentPage,
+								requestedPage: page,
+								suppliedCursor: options.cursor,
+								pageAdvanceable: false,
+							}),
 					itemsPerPage: items.length,
 					truncated: truncated || undefined,
 				},
@@ -2511,7 +2555,18 @@ export class IntegrationService implements Disposable {
 		return {
 			items: items,
 			warnings: warnings,
-			page: { ...paged.page, truncated: truncated || undefined },
+			page: {
+				...paged.page,
+				// Positional, per ProviderPageInfo.currentPage: the drain (above) already advanced `paged.page` for
+				// a cursor-only host, and a caller-threaded cursor advanced the provider without one.
+				currentPage: this.resolveCurrentPage({
+					providerPage: paged.page.currentPage,
+					requestedPage: page,
+					suppliedCursor: options.cursor,
+					pageAdvanceable: providersMetadata[options.providerId]?.issuesPagingMode !== PagingMode.Repos,
+				}),
+				truncated: truncated || undefined,
+			},
 			hasMore: continuation.hasMore,
 			cursor: continuation.cursor,
 			fetchFailed: assessment.fetchFailed || pageFetchFailed || undefined,
@@ -3580,6 +3635,9 @@ export class IntegrationService implements Disposable {
 		return {
 			items: items,
 			warnings: warnings,
+			// `currentPage` is positional, per ProviderPageInfo.currentPage: this fan-out has no provider-reported
+			// page of its own (its cursor is a per-org bundle, not a page), so the position is the one the caller
+			// addressed — the `page` it supplied, or the page the internal traversal advanced to.
 			page: { currentPage: page, itemsPerPage: items.length, truncated: truncated || undefined },
 			// `hasMore` promises a resumable continuation, so it must be true ONLY when a real cursor was
 			// produced. Repo-drain truncation (a backstop hit with no persisted repo cursor) can't be resumed —
