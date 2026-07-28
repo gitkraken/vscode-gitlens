@@ -1446,7 +1446,10 @@ export function isGitLabDotCom(domain: string | null | undefined): boolean {
 	return equalsIgnoreCase(domain, 'gitlab.com');
 }
 
-const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
+// Anchor the `visualstudio.com` alternative on a label boundary (`^` or `.`) rather than `\b`: `\b` treats a
+// hyphen as a word boundary, so `\bvisualstudio\.com$` matched attacker-controlled hosts like
+// `evil-visualstudio.com` and classified them as Azure cloud, changing their auth/URL handling.
+const azureCloudDomainRegex = /^dev\.azure\.com$|(?:^|\.)visualstudio\.com$/i;
 export function isAzureCloudDomain(domain: string | undefined): boolean {
 	return domain != null && azureCloudDomainRegex.test(domain);
 }
