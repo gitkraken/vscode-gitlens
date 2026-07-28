@@ -1090,41 +1090,22 @@ export class IntegrationService implements Disposable {
 	}
 
 	/**
-	 * Whether the provider's `page` INPUT means a 1-based page number, so the facade may hand it a synthesized
-	 * page-number cursor at all. Distinct from {@link IntegrationService.isPageNumberAdvanceable}, which asks
-	 * whether the provider then ACTS on it — a provider can safely ignore a page number without misreading it.
+	 * Whether a repo-scoped read for this provider ADVANCES on a page number, so the facade may synthesize a
+	 * page-number cursor, `page.currentPage` may echo the request, and a next-page number is a usable
+	 * continuation.
 	 *
-	 * Listed exhaustively over the enum rather than tested as `mode != null`, so adding a mode is a decision
-	 * here instead of silently inheriting "safe".
+	 * Only `PagingMode.Repos` (GitHub/GHE) is excluded: its read is cursor-only, so it accepts a page number and
+	 * ignores it, answering with page 1 — which is why the internal drain exists for that mode.
 	 *
-	 * The excluded case is a provider with NO declared mode: Bitbucket Data Center falls through to the plain
-	 * repos read and its API consumes `page` as a `start` ITEM OFFSET, so a synthesized page 3 asked for
-	 * `start=3` — a window overlapping page 1 — instead of the third page. Treating "no mode declared" as
-	 * "reads a page number" inferred a capability from missing data, the same mistake `listRepos` made by
-	 * reading an absent cursor as evidence of a numbered host.
-	 *
-	 * Withholding the synthesized cursor there costs nothing: the provider reports its own next-offset cursor,
-	 * which the facade threads back verbatim, so cursor paging still advances correctly. Only an unthreaded jump
-	 * to page N is refused, and that was returning wrong data. See GKDEV-3578 for the SDK-side fix.
-	 */
-	private interpretsPageInputAsPageNumber(mode: PagingMode | undefined): boolean {
-		return mode === PagingMode.Repo || mode === PagingMode.Project || mode === PagingMode.Repos;
-	}
-
-	/**
-	 * Whether a repo-scoped read for this provider ADVANCES on a page number, so `page.currentPage` may echo the
-	 * request and a next-page number is a usable continuation.
-	 *
-	 * Named positively rather than as `!== PagingMode.Repos`, because two cases must be excluded and that test
-	 * only catches the first:
-	 * - `PagingMode.Repos` (GitHub/GHE): cursor-only. It accepts the page number and ignores it, answering with
-	 *   page 1 — harmless to send (see {@link IntegrationService.interpretsPageInputAsPageNumber}) but never a
-	 *   continuation, which is why the internal drain exists for it.
-	 * - no declared mode (Bitbucket Data Center): reinterprets the number as an offset, so it neither honors nor
-	 *   safely ignores it.
+	 * Every other provider, including one with no declared mode (Bitbucket Data Center), reads `page` as a 1-based
+	 * page number. That last part is only true as of `@gitkraken/provider-apis` 0.54.0: before it, Bitbucket Data
+	 * Center consumed `page` as a raw `start` ITEM OFFSET, so a synthesized page 3 asked for `start=3` — a window
+	 * overlapping page 1 — and this facade had to withhold the synthesized cursor from it. The SDK now converts
+	 * (`start = (page - 1) * limit`) and reports `nextPage` as a page number, so the guard is gone and that host
+	 * can be advanced by number like the rest.
 	 */
 	private isPageNumberAdvanceable(mode: PagingMode | undefined): boolean {
-		return mode === PagingMode.Repo || mode === PagingMode.Project;
+		return mode !== PagingMode.Repos;
 	}
 
 	/** Encodes a 1-based page number as the opaque cursor the provider paging layer understands. */
@@ -2021,16 +2002,7 @@ export class IntegrationService implements Disposable {
 		// is handled by walking opaque continuations below. Do NOT synthesize a page-number cursor for it: the
 		// underlying query (e.g. GitHub `involves:`) ignores a page number and returns its first page.
 		const accountWide = (options.repos?.length ?? 0) === 0;
-		// Synthesize a page-number cursor only for a host whose `page` input actually means a page number. A
-		// PagingMode.Repos host still gets it (it ignores the number harmlessly, and the drain below walks to the
-		// requested page), but a host with NO declared mode must not: Bitbucket Data Center reads `page` as a
-		// `start` item offset, so sending 3 asked for `start=3` — a window overlapping page 1 — instead of the
-		// third page. See `interpretsPageInputAsPageNumber`.
-		const cursor =
-			accountWide ||
-			!this.interpretsPageInputAsPageNumber(providersMetadata[options.providerId]?.pullRequestsPagingMode)
-				? options.cursor
-				: (options.cursor ?? this.pageToCursor(page));
+		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
 
 		// Resolve filters up front so an unsupported set is caught before the read: on the repo-scoped path
 		// falling through unfiltered would return every PR in the repos rather than the user's. The account-wide
@@ -2596,11 +2568,7 @@ export class IntegrationService implements Disposable {
 			};
 		}
 
-		// Same rule as the repo-scoped PR read: only synthesize a page-number cursor for a host whose `page` input
-		// means a page number, never for one that reinterprets it (see `interpretsPageInputAsPageNumber`).
-		const cursor = this.interpretsPageInputAsPageNumber(providersMetadata[options.providerId]?.issuesPagingMode)
-			? (options.cursor ?? this.pageToCursor(page))
-			: options.cursor;
+		const cursor = options.cursor ?? this.pageToCursor(page);
 		const { value, warning } = await this.runCaptured(
 			options.providerId,
 			domain,
