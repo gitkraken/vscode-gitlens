@@ -508,6 +508,11 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	 * visible issue, any assignee). The read is numbered-paged, so each page is drained to exhaustion, bounded by
 	 * a defensive backstop — a hit backstop is reported as `truncated` so the facade surfaces an incomplete read
 	 * rather than publishing a partial list as complete.
+	 *
+	 * `options.filters` needs no handling here: assigned-to-me IS this read, and it's the only axis the SDK input
+	 * exposes (`scope` + `assigneeUsername`), so `[Assignee]` is already what runs and the facade refuses anything
+	 * else (see `ProviderMetadata.supportedAccountWideIssueFilters`). Author/mention would need a
+	 * `@gitkraken/provider-apis` change to `GetIssuesForCurrentUserInput`, not a change here.
 	 */
 	protected override async searchProviderMyIssuesWithTruncation(
 		session: ProviderAuthenticationSession,
