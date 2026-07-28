@@ -1252,7 +1252,7 @@ export class IntegrationService implements Disposable {
 
 	private getBroadenIssuesCursor(
 		cursor: string | undefined,
-		org: { providerId: IntegrationIds; name: string; connectionId?: string },
+		org: { providerId: IntegrationIds; name: string; connectionId?: string; domain?: string },
 		page: number,
 		orgCount: number,
 	): string | undefined {
@@ -1263,12 +1263,22 @@ export class IntegrationService implements Disposable {
 		if (cursor != null) {
 			try {
 				const parsed = JSON.parse(cursor) as {
-					cursors?: { providerId?: IntegrationIds; org?: string; connectionId?: string; cursor?: string }[];
+					cursors?: {
+						providerId?: IntegrationIds;
+						org?: string;
+						connectionId?: string;
+						domain?: string;
+						cursor?: string;
+					}[];
 				};
-				// Key by connectionId too: two accounts on the same provider can share an org name, and without
-				// it account A's cursor would be applied to account B (or both exhausted together).
+				const domain = hostFromDomain(org.domain) ?? org.domain;
+				// Key by connection and domain too: accounts and self-managed hosts can share an org name.
 				const match = parsed.cursors?.find(
-					c => c.providerId === org.providerId && c.org === org.name && c.connectionId === org.connectionId,
+					c =>
+						c.providerId === org.providerId &&
+						c.org === org.name &&
+						c.connectionId === org.connectionId &&
+						(hostFromDomain(c.domain) ?? c.domain) === domain,
 				)?.cursor;
 				if (match != null) {
 					return match;
@@ -1287,19 +1297,28 @@ export class IntegrationService implements Disposable {
 	 */
 	private isBroadenIssuesOrgExhausted(
 		cursor: string | undefined,
-		org: { providerId: IntegrationIds; name: string; connectionId?: string },
+		org: { providerId: IntegrationIds; name: string; connectionId?: string; domain?: string },
 		orgCount: number,
 	): boolean {
 		if (orgCount === 1 || cursor == null) return false;
 
 		try {
 			const parsed = JSON.parse(cursor) as {
-				exhausted?: { providerId?: IntegrationIds; org?: string; connectionId?: string }[];
+				exhausted?: {
+					providerId?: IntegrationIds;
+					org?: string;
+					connectionId?: string;
+					domain?: string;
+				}[];
 			};
-			// Match connectionId too, so exhausting account A's org doesn't skip account B's same-named org.
+			const domain = hostFromDomain(org.domain) ?? org.domain;
 			return (
 				parsed.exhausted?.some(
-					e => e.providerId === org.providerId && e.org === org.name && e.connectionId === org.connectionId,
+					e =>
+						e.providerId === org.providerId &&
+						e.org === org.name &&
+						e.connectionId === org.connectionId &&
+						(hostFromDomain(e.domain) ?? e.domain) === domain,
 				) ?? false
 			);
 		} catch {
@@ -1308,8 +1327,14 @@ export class IntegrationService implements Disposable {
 	}
 
 	private toBroadenIssuesCursor(
-		cursors: { providerId: IntegrationIds; org: string; connectionId?: string; cursor: string }[],
-		exhausted: { providerId: IntegrationIds; org: string; connectionId?: string }[],
+		cursors: {
+			providerId: IntegrationIds;
+			org: string;
+			connectionId?: string;
+			domain?: string;
+			cursor: string;
+		}[],
+		exhausted: { providerId: IntegrationIds; org: string; connectionId?: string; domain?: string }[],
 		orgCount: number,
 	): string | undefined {
 		if (cursors.length === 0) return undefined;
@@ -1924,7 +1949,7 @@ export class IntegrationService implements Disposable {
 			(value?.paging?.truncated ?? false) ||
 			assessment.truncated ||
 			continuation.truncated;
-		return {
+		const result: ProviderPagedResult<ProviderRepositoryShape> = {
 			// Normalize the raw provider-apis repos to the GitLens-owned shape at the surface boundary.
 			items: items.map(toProviderRepositoryShape),
 			warnings: warnings,
@@ -1933,6 +1958,59 @@ export class IntegrationService implements Disposable {
 			cursor: continuation.cursor,
 			fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
 		};
+
+		// A cursor-only host ignores the synthesized page cursor above and returns page 1. Detect that from
+		// the provider's own paging metadata, then advance through its real continuations. Numbered hosts
+		// keep their one-request path because `pageAdvanceable` is true.
+		if (options.cursor == null && page > 1 && !pageAdvanceable) {
+			const traversalWarnings = [...result.warnings];
+			let traversalFetchFailed = result.fetchFailed === true;
+			let traversalTruncated = result.page.truncated === true;
+			let previous = result;
+
+			for (let currentPage = 2; currentPage <= page; currentPage++) {
+				if (!previous.hasMore || previous.cursor == null) {
+					return {
+						items: [],
+						warnings: traversalWarnings,
+						page: {
+							currentPage: page,
+							itemsPerPage: 0,
+							truncated: traversalTruncated || undefined,
+						},
+						hasMore: false,
+						fetchFailed: traversalFetchFailed || undefined,
+					};
+				}
+
+				const requested = await this.listRepos({
+					...options,
+					page: currentPage,
+					cursor: previous.cursor,
+				});
+				for (const traversalWarning of requested.warnings) {
+					appendDedupedWarning(traversalWarnings, traversalWarning);
+				}
+				traversalFetchFailed ||= requested.fetchFailed === true;
+				traversalTruncated ||= requested.page.truncated === true;
+
+				if (currentPage === page) {
+					return {
+						...requested,
+						warnings: traversalWarnings,
+						page: {
+							...requested.page,
+							truncated: traversalTruncated || undefined,
+						},
+						fetchFailed: traversalFetchFailed || undefined,
+					};
+				}
+
+				previous = requested;
+			}
+		}
+
+		return result;
 	}
 
 	/**
@@ -3561,6 +3639,7 @@ export class IntegrationService implements Disposable {
 		const results = await mapBounded(options.orgs, providerFanOutConcurrency, async org => {
 			const connectionId = org.connectionId;
 			const requestedDomain = org.domain;
+			const cursorDomain = hostFromDomain(requestedDomain) ?? requestedDomain;
 			if (this.isIssueProviderId(org.providerId)) {
 				return {
 					items: [] as IssueShape[],
@@ -3576,6 +3655,7 @@ export class IntegrationService implements Disposable {
 					providerId: org.providerId,
 					org: org.name,
 					connectionId: connectionId,
+					domain: cursorDomain,
 					nextCursor: undefined,
 					hasMore: false,
 					exhausted: false,
@@ -3597,6 +3677,7 @@ export class IntegrationService implements Disposable {
 					providerId: org.providerId,
 					org: org.name,
 					connectionId: connectionId,
+					domain: cursorDomain,
 					nextCursor: undefined,
 					hasMore: false,
 					exhausted: false,
@@ -3619,6 +3700,7 @@ export class IntegrationService implements Disposable {
 					providerId: org.providerId,
 					org: org.name,
 					connectionId: connectionId,
+					domain: cursorDomain,
 					nextCursor: undefined,
 					hasMore: false,
 					exhausted: false,
@@ -3642,6 +3724,7 @@ export class IntegrationService implements Disposable {
 					providerId: org.providerId,
 					org: org.name,
 					connectionId: connectionId,
+					domain: cursorDomain,
 					nextCursor: undefined,
 					hasMore: false,
 					exhausted: false,
@@ -3662,6 +3745,7 @@ export class IntegrationService implements Disposable {
 					providerId: org.providerId,
 					org: org.name,
 					connectionId: connectionId,
+					domain: cursorDomain,
 					nextCursor: undefined,
 					hasMore: false,
 					exhausted: true,
@@ -3695,6 +3779,7 @@ export class IntegrationService implements Disposable {
 					providerId: org.providerId,
 					org: org.name,
 					connectionId: connectionId,
+					domain: cursorDomain,
 					nextCursor: undefined,
 					hasMore: false,
 					exhausted: false,
@@ -3760,6 +3845,7 @@ export class IntegrationService implements Disposable {
 				providerId: org.providerId,
 				org: org.name,
 				connectionId: connectionId,
+				domain: cursorDomain,
 				nextCursor: nextCursor,
 				hasMore: hasMore,
 				// Exhausted once a successful read reports no more pages — recorded in the cursor so later
@@ -3773,8 +3859,14 @@ export class IntegrationService implements Disposable {
 		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
 		const broadenedProviderIds = new Set<IntegrationIds>();
-		const cursors: { providerId: IntegrationIds; org: string; connectionId?: string; cursor: string }[] = [];
-		const exhausted: { providerId: IntegrationIds; org: string; connectionId?: string }[] = [];
+		const cursors: {
+			providerId: IntegrationIds;
+			org: string;
+			connectionId?: string;
+			domain?: string;
+			cursor: string;
+		}[] = [];
+		const exhausted: { providerId: IntegrationIds; org: string; connectionId?: string; domain?: string }[] = [];
 		let hasMore = false;
 		let fetchFailed = false;
 		let truncated = false;
@@ -3793,11 +3885,17 @@ export class IntegrationService implements Disposable {
 					providerId: result.providerId,
 					org: result.org,
 					connectionId: result.connectionId,
+					domain: result.domain,
 					cursor: result.nextCursor,
 				});
 			}
 			if (result.exhausted) {
-				exhausted.push({ providerId: result.providerId, org: result.org, connectionId: result.connectionId });
+				exhausted.push({
+					providerId: result.providerId,
+					org: result.org,
+					connectionId: result.connectionId,
+					domain: result.domain,
+				});
 			}
 			if (result.hasMore) {
 				hasMore = true;
@@ -3951,16 +4049,11 @@ export class IntegrationService implements Disposable {
 		let id = options.providerId ?? getIntegrationIdForRemote(provider);
 		// Custom Azure DevOps Server domains matched via getRemoteConfigs return undefined from
 		// getIntegrationIdForRemote because the provider is marked custom; map them to the server id so the
-		// unsupported check below is explicit and consistent.
+		// project-scoped lookup uses that host's configured connection and API base URL.
 		if (id == null && provider.id === 'azure-devops' && provider.custom) {
 			id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 		}
 		if (id == null) return result('unsupported-provider');
-
-		// Azure DevOps Server is not supported by the shared provider-api getRepo routing; only the cloud Azure
-		// DevOps implementation handles project-scoped repo lookups. Resolving a server URL here would call the
-		// wrong backend and fail silently or misleadingly.
-		if (id === GitSelfManagedHostIntegrationId.AzureDevOpsServer) return result('unsupported-provider');
 
 		const owner = provider.owner;
 		const name = provider.repoName;

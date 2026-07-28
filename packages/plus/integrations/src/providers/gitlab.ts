@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -43,6 +44,7 @@ import {
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitLab];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
@@ -542,6 +544,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		// drop distinct issues. `url` is globally unique. Matches the GitHub/GitLab account-wide PR reads.
 		const issuesByUrl = new Map<string, IssueShape>();
 		let truncated = false;
+		let collectionMetadata: CollectionMetadata | undefined;
 
 		// One drain PER requested relationship, unioned by url. The account-wide filter contract is a union
 		// (`authored ∪ assigned`, matching GitHub's three searches and Azure's two drains), and GitLab can express
@@ -567,52 +570,38 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		}
 
 		for (const pass of passes) {
-			let cursor: string | undefined;
-			for (let page = 1; ; page++) {
-				if (cancellation?.aborted) throw new CancellationError();
+			const result = await collectProviderPagedResult(
+				async cursor => {
+					if (cancellation?.aborted) throw new CancellationError();
 
-				const result = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
-					...pass,
-					isPAT: this.isEnterprise,
-					baseUrl: baseUrl,
-					cursor: cursor,
-				});
-				if (cancellation?.aborted) throw new CancellationError();
+					const page = await api.getIssuesForCurrentUser(toTokenWithInfo(this.id, session), {
+						...pass,
+						isPAT: this.isEnterprise,
+						baseUrl: baseUrl,
+						cursor: cursor,
+					});
+					if (cancellation?.aborted) throw new CancellationError();
+					return page;
+				},
+				maxPages,
+				{ providerId: this.id },
+			);
 
-				for (const issue of result.values) {
-					const shape = toIssueShape(issue, this);
-					if (shape != null && !issuesByUrl.has(shape.url)) {
-						issuesByUrl.set(shape.url, shape);
-					}
+			for (const issue of result.values) {
+				const shape = toIssueShape(issue, this);
+				if (shape != null && !issuesByUrl.has(shape.url)) {
+					issuesByUrl.set(shape.url, shape);
 				}
-
-				// A page that couldn't confirm completeness (SDK metadata incompleteness) means the read is already
-				// incomplete, independent of the backstop below.
-				if (result.paging?.truncated) {
-					truncated = true;
-				}
-
-				if (!(result.paging?.more ?? false)) {
-					break;
-				}
-
-				const paging = result.paging;
-				const nextCursor = paging?.cursor;
-				if (nextCursor == null || nextCursor === '{}' || nextCursor === cursor) {
-					truncated = true;
-					break;
-				}
-
-				if (page >= maxPages) {
-					truncated = true;
-					break;
-				}
-
-				cursor = nextCursor;
 			}
+			truncated ||= result.truncated === true;
+			collectionMetadata = mergeCollectionMetadata(collectionMetadata, result.metadata);
 		}
 
-		return { values: [...issuesByUrl.values()], truncated: truncated };
+		return {
+			values: [...issuesByUrl.values()],
+			truncated: truncated,
+			...(collectionMetadata != null ? { metadata: collectionMetadata } : {}),
+		};
 	}
 
 	protected override async searchProviderPullRequests(

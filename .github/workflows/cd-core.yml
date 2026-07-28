@@ -65,6 +65,9 @@ jobs:
             - name: Verify bundle loads under Node ESM
               run: pnpm --filter @gitkraken/core-gitlens run verify:esm
 
+            - name: Verify packed package as an external consumer
+              run: pnpm --filter @gitkraken/core-gitlens run verify:package
+
             - name: Pack tarball (artifact)
               run: pnpm --filter @gitkraken/core-gitlens pack --pack-destination packages/core
 

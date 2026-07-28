@@ -640,9 +640,9 @@ export interface ProviderMetadata {
 	 * {@link ProviderMetadata.supportedIssueFilters}: the two reads are different provider queries.
 	 *
 	 * Unfiltered, each provider's account-wide read is that provider's own definition of "my issues" — GitHub/GHE
-	 * union authored + assigned + mentioned, Azure and GitLab drain assigned + authored. These are WIDER than
-	 * "assigned to me", and a consumer replacing a narrower tool (`gk`'s `assignee:@me`) has no way to narrow them
-	 * from the outside — the fan-out happens inside the provider.
+	 * union authored + assigned + mentioned, Azure drains assigned + authored, and GitLab reads assigned-to-me.
+	 * A consumer replacing a narrower tool (`gk`'s `assignee:@me`) must select the `Assignee` filter wherever the
+	 * provider's default is wider.
 	 *
 	 * A filter listed here narrows that read server-side. Absent/empty means the read can't be narrowed at all,
 	 * so the facade refuses a filtered request rather than serving the unnarrowed union as if it had been
@@ -906,9 +906,9 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 		provider: provider,
 		// `id` is the provider's display number/key (GitHub number, Jira/Linear key, Trello idShort), NOT a
 		// globally-unique id: it's rendered to users as `#{id}`, used to build branch names, and passed back
-		// to the provider as the `getIssue`/cache lookup key, all of which expect the number. It is only unique
-		// within its container (repo/board/project), so consumers correlating issues across containers must key
-		// off `nodeId` (the stable global id), never `id`.
+		// to the provider as the `getIssue`/cache lookup key, all of which expect the number. `nodeId` is the
+		// provider-native stable id, but its uniqueness scope is provider-specific (Azure work-item ids are
+		// organization-scoped), so cross-scope consumers must include provider/domain/container identity too.
 		id: issue.number,
 		nodeId: issue.graphQLId ?? issue.id,
 		title: issue.title,
@@ -932,23 +932,28 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 				avatarUrl: assignee.avatarUrl ?? undefined,
 				url: assignee.url ?? undefined,
 			})) ?? [],
-		project: {
-			id: issue.project?.id ?? '',
-			name: issue.project?.name ?? '',
-			resourceId: issue.project?.resourceId ?? '',
-			resourceName: issue.project?.namespace ?? '',
-		},
+		project:
+			issue.project?.id && issue.project.resourceId && issue.project.namespace
+				? {
+						id: issue.project.id,
+						name: issue.project.name,
+						resourceId: issue.project.resourceId,
+						resourceName: issue.project.namespace,
+					}
+				: undefined,
 		repository:
 			issue.repository?.owner?.login != null
 				? {
 						owner: issue.repository.owner.login,
 						repo: issue.repository.name,
+						id: issue.repository.id,
 					}
 				: undefined,
 		labels: issue.labels.map(label => ({ color: label.color ?? undefined, name: label.name })),
 		commentsCount: issue.commentCount ?? undefined,
 		thumbsUpCount: issue.upvoteCount ?? undefined,
 		body: issue.description ?? undefined,
+		issueType: issue.type ?? undefined,
 	};
 }
 

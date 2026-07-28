@@ -1,4 +1,5 @@
 import type { CollectionCompleteness, CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { toCollectionScopeFailure } from '../../collectionMetadata.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
@@ -99,6 +100,7 @@ export async function collectProviderPagedResult<T>(
 	const values: NonNullable<T>[] = [];
 	let cursor: string | undefined;
 	let metadata: CollectionMetadata | undefined;
+	let truncated = false;
 
 	// Omit `metadata` entirely when no page supplied it, so a metadata-free drain stays deep-equal to its
 	// pre-metadata shape (and consumers never see an explicit `undefined`).
@@ -107,6 +109,7 @@ export async function collectProviderPagedResult<T>(
 		return {
 			values: values,
 			...extra,
+			...(truncated || extra?.truncated === true ? { truncated: true } : {}),
 			...(mergedMetadata != null ? { metadata: mergedMetadata } : {}),
 		};
 	};
@@ -116,6 +119,8 @@ export async function collectProviderPagedResult<T>(
 		try {
 			result = await fetch(cursor);
 		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
 			// When the caller supplied a scope, preserve the items already fetched from that scope and record the
 			// failure in collection metadata rather than re-throwing and discarding the prefix. Callers without a
 			// scope keep the legacy throw behavior.
@@ -132,6 +137,7 @@ export async function collectProviderPagedResult<T>(
 
 		values.push(...result.values);
 		metadata = mergeCollectionMetadata(metadata, result.metadata);
+		truncated ||= result.paging?.truncated === true;
 
 		if (!result.paging?.more) return build();
 
