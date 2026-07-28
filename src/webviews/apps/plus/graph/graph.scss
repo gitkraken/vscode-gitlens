@@ -5227,7 +5227,6 @@ web-graph {
 	display: flex;
 	flex-direction: column;
 	height: 100vh;
-	padding: 0.1rem;
 	overflow: hidden;
 
 	// Account + integrations bar (issue #5411): sits above the graph header so account/integrations
@@ -5253,7 +5252,7 @@ web-graph {
 		position: relative;
 		flex: 1;
 		overflow: hidden;
-		border: var(--gl-border-width) solid transparent;
+		border-top: var(--gl-border-width) solid transparent;
 		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 		isolation: isolate;
 	}
