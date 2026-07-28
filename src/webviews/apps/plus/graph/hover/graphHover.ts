@@ -8,6 +8,7 @@ import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
 import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol.js';
 import { GlElement } from '../../../shared/components/element.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
+import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import '../../../shared/components/markdown/markdown.js';
 import '../../../shared/components/overlays/popover.js';
 
@@ -74,6 +75,12 @@ export class GlGraphHover extends GlElement {
 	private shaHovering: string | undefined;
 	private unhoverTimer: ReturnType<typeof setTimeout> | undefined;
 
+	// Shared modifier-key tracker — the same source of Alt truth `gl-lit-graph` uses for the Alt-hold lane
+	// dim. A bare window keydown/keyup pair wouldn't do: those only fire when the webview iframe has keyboard
+	// focus, and hovering the graph never grants it. The tracker also reads `altKey` off pointer events, so
+	// Alt registers even while the graph is unfocused.
+	private readonly _modifiers = new ModifierKeysController(this);
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
@@ -91,6 +98,17 @@ export class GlGraphHover extends GlElement {
 	override firstUpdated(): void {
 		// Add mouseleave listener to the popover to handle when mouse moves from hover to graph background
 		this.popup?.addEventListener('mouseleave', this.onPopoverMouseLeave);
+	}
+
+	override willUpdate(): void {
+		// Holding Alt dismisses the hover for as long as it's held — Alt drives the graph's branch-lane dim
+		// (`activateModifierChain`) and modifies row actions (Open Changes → working tree), both of which need
+		// the rows this card covers. The tracker `requestUpdate`s us on every Alt transition, so this fires on
+		// the press itself without waiting for a mouse move. `close()` rather than `hide()` so releasing Alt
+		// doesn't arm the quick-show window — the card returns only on the next hover, at the normal delay.
+		if (this._modifiers.altKey && this.open) {
+			this.close();
+		}
 	}
 
 	override render(): unknown {
@@ -161,6 +179,10 @@ export class GlGraphHover extends GlElement {
 	private _showCoreDebounced: Deferrable<GlGraphHover['showCore']> | undefined = undefined;
 
 	onRowHovered(row: GitGraphRow, anchor: Anchor): void {
+		// Alt is held — stay dismissed (and skip the markdown request entirely). Before `resetUnhoverTimer`
+		// so a pending hide still runs.
+		if (this._modifiers.altKey) return;
+
 		const showQuickly = performance.now() - this._lastUnhoveredTimestamp <= 750;
 		this.resetUnhoverTimer();
 
@@ -234,6 +256,11 @@ export class GlGraphHover extends GlElement {
 		anchor: string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> },
 		markdown: Promise<PromiseSettledResult<string>> | PromiseSettledResult<string> | string,
 	) {
+		// Backstop for the deferred paths: a debounced show scheduled before Alt went down would otherwise
+		// land while it's held (`willUpdate` can't cancel it — the card isn't `open` yet), as would an
+		// awaited markdown resolution.
+		if (this._modifiers.altKey) return;
+
 		if (typeof markdown === 'string') {
 			this.markdown = markdown;
 		} else if (isPromise(markdown)) {
@@ -260,8 +287,14 @@ export class GlGraphHover extends GlElement {
 	private _lastUnhoveredTimestamp = 0;
 
 	hide(): void {
+		// Arm the quick-show window so hovering another row re-opens without the full delay
 		this._lastUnhoveredTimestamp = performance.now();
 
+		this.close();
+	}
+
+	/** Closes the hover without arming the `showQuickly` grace window */
+	private close(): void {
 		this._showCoreDebounced?.cancel();
 		this.resetUnhoverTimer();
 
