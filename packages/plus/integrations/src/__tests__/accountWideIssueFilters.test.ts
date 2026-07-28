@@ -419,8 +419,12 @@ suite('account-wide issue filters', () => {
 					IssueFilter.Author,
 					IssueFilter.Assignee,
 				]);
+				// Author became expressible in `@gitkraken/provider-apis` 0.54.0 (`author_username` on the REST
+				// account-wide read); before that `scope` + `assigneeUsername` were the only axes. Mention stays out —
+				// that read has no first-class mention filter to narrow with.
 				assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitLab).issuesAccountWide, [
 					IssueFilter.Assignee,
+					IssueFilter.Author,
 				]);
 				assert.deepEqual(
 					manager.getSupportedFilters(GitCloudHostIntegrationId.Bitbucket).issuesAccountWide,
@@ -462,6 +466,7 @@ suite('account-wide issue filters', () => {
 
 				assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitLab).issuesAccountWide, [
 					IssueFilter.Assignee,
+					IssueFilter.Author,
 				]);
 			} finally {
 				manager.dispose();

@@ -1307,6 +1307,121 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('GitLab account-wide issue filters read each relationship separately and union them', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		// The account-wide filter contract is a UNION (`authored ∪ assigned`), but GitLab's REST read composes
+		// `assignee_username` and `author_username` as AND — one combined request would return only the issues the
+		// user BOTH opened and is assigned to. So each relationship has to be its own read, merged by url.
+		const calls: { scope?: string; assigneeUsername?: string; authorUsername?: string }[] = [];
+		const issue = (id: string, url: string) =>
+			({
+				id: id,
+				number: id,
+				url: url,
+				updatedDate: new Date(),
+				labels: [],
+				assignees: [],
+			}) as unknown as ProviderIssue;
+		stubApi(gl, {
+			getIssuesForCurrentUser: (
+				_t: unknown,
+				opts: { scope?: string; assigneeUsername?: string; authorUsername?: string },
+			) => {
+				calls.push({
+					scope: opts.scope,
+					assigneeUsername: opts.assigneeUsername,
+					authorUsername: opts.authorUsername,
+				});
+				// The two relationships overlap on `shared` — the union must not duplicate it.
+				return Promise.resolve({
+					values:
+						opts.authorUsername != null
+							? [
+									issue('2', 'https://gitlab.com/o/r/-/issues/2'),
+									issue('9', 'https://gitlab.com/o/r/-/issues/9'),
+								]
+							: [
+									issue('1', 'https://gitlab.com/o/r/-/issues/1'),
+									issue('9', 'https://gitlab.com/o/r/-/issues/9'),
+								],
+					paging: { more: false, cursor: '{}' },
+				});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			filters: [IssueFilter.Assignee, IssueFilter.Author],
+		});
+
+		assert.equal(calls.length, 2, 'one read per requested relationship, not one combined AND request');
+		assert.deepEqual(
+			calls[0],
+			{ scope: 'assigned_to_me', assigneeUsername: 'me', authorUsername: undefined },
+			'the assignee axis keeps the server-side user scoping',
+		);
+		assert.deepEqual(
+			calls[1],
+			{ scope: 'all', assigneeUsername: undefined, authorUsername: 'me' },
+			'the author axis needs scope=all, or GitLab would intersect it with assigned-to-me',
+		);
+		assert.deepEqual(
+			result.items.map(i => i.id).sort(),
+			['1', '2', '9'],
+			'the union is deduped by url, so the overlapping issue appears once',
+		);
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage narrows GitLab account-wide to the author axis alone', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		const calls: { scope?: string; assigneeUsername?: string; authorUsername?: string }[] = [];
+		stubApi(gl, {
+			getIssuesForCurrentUser: (
+				_t: unknown,
+				opts: { scope?: string; assigneeUsername?: string; authorUsername?: string },
+			) => {
+				calls.push({
+					scope: opts.scope,
+					assigneeUsername: opts.assigneeUsername,
+					authorUsername: opts.authorUsername,
+				});
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			filters: [IssueFilter.Author],
+		});
+
+		assert.equal(calls.length, 1, 'narrowing to author drops the assignee read entirely');
+		assert.deepEqual(calls[0], { scope: 'all', assigneeUsername: undefined, authorUsername: 'me' });
+
+		manager.dispose();
+	});
+
 	test('listIssuesPage broadens GitLab account-wide to scope=all with no assignee when includeAllAssignees is set (#5535)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
