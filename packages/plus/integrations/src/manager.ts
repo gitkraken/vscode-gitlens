@@ -73,7 +73,13 @@ type PullRequestSweepCommonOptions = {
 	repos?: ProviderRepositoriesInput;
 	/** Named `states` to match {@link IntegrationManager.listPullRequestsPage}; a mismatch here read as silently ignored. */
 	states?: PullRequestStateFilter[];
+	/** Repo-scoped relationship filters. Account-wide reads refuse a non-empty set. */
 	filters?: PullRequestFilter[];
+	/**
+	 * Account-wide only: include review-requested PRs when the provider's native "my PRs" query omits them.
+	 * This extends the provider-native result; it is not a narrowing filter.
+	 */
+	includeReviewRequested?: boolean;
 	forceSync?: boolean;
 	maxPages?: number;
 };
@@ -94,12 +100,11 @@ export type ClosedPullRequestSweepOptions = Omit<PullRequestSweepCommonOptions, 
  * - **Supplying `cursor` guarantees a single upstream round trip per provider scope.** A threaded continuation
  *   is handed to the provider as-is; the facade never walks the pages before it. This is a guarantee, not an
  *   optimization: a consumer that threads `cursor` back pays O(1) requests per page.
- * - **Supplying only `page` (> 1) may cost O(page) upstream requests.** A cursor-only read (GitHub's
- *   repo-scoped and account-wide searches, the account-wide "my PRs"/issue reads, the broaden fan-out) can't be
- *   addressed by number, so the facade drains the pages before the requested one internally and returns just
- *   page N. That drain is the supported fallback for a page-number-only consumer (e.g. the first read after a
- *   refresh, where no cursor was persisted) and MUST be kept — it is not dead code once a consumer threads
- *   cursors, it is the other half of this contract.
+ * - **Supplying only `page` (> 1) may cost O(page) upstream requests.** Cursor-backed reads such as GitHub
+ *   searches and broaden fan-outs can't be addressed by number, so the facade drains the pages before the
+ *   requested one internally and returns just page N. Providers whose account-wide reads aggregate into one
+ *   terminal page do not incur that drain. The fallback for cursor-backed reads MUST be kept: it supports the
+ *   first page-number-only read after a refresh, where no cursor was persisted.
  * - Prefer `cursor` when both are available. Pass `page` alongside it so the result's positional
  *   `page.currentPage` reflects where the caller is (the convention is documented on `ProviderPageInfo`); the
  *   cursor, not the page number, is what actually advances the read.
@@ -128,9 +133,10 @@ export interface IntegrationManager {
 	 * Empty means no filter of that kind is expressible (issue trackers have no pull requests; Bitbucket exposes
 	 * no issues), which means "pass no filters", not "error".
 	 *
+	 * `pullRequests` covers repo-scoped PR reads; `pullRequestsAccountWide` covers account-wide PR reads.
 	 * `issues` covers the repo-scoped issue read; `issuesAccountWide` covers the account-wide one (no `repos`).
-	 * They differ because they are different provider queries — GitLab can express `Assignee` account-wide and
-	 * nothing else — and `listIssuesPage` validates against whichever the read uses.
+	 * They differ because they are different provider queries — GitLab can express `Assignee` and `Author`
+	 * account-wide, but not `Mention` — and `listIssuesPage` validates against whichever the read uses.
 	 *
 	 * An ISSUE TRACKER (Jira/Linear/Trello) reports its filters under `issues`, and
 	 * {@link IntegrationManager.listIssueTrackerIssuesPage} validates against that field. Its
@@ -143,12 +149,17 @@ export interface IntegrationManager {
 	 */
 	getSupportedFilters(providerId: IntegrationIds): {
 		pullRequests: PullRequestFilter[];
+		/** Optional for structural compatibility; missing means no account-wide narrowing filters are supported. */
+		pullRequestsAccountWide?: PullRequestFilter[];
 		issues: IssueFilter[];
 		issuesAccountWide: IssueFilter[];
 	};
+	/** Forces an authoritative cloud connection refresh. Rejects if the backend connection list cannot be read. */
 	refreshConnections(): Promise<void>;
+	/** Rejects unless `connectionId` is a configured cloud connection for `id`. */
 	setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void>;
-	deleteConnection(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void>;
+	/** Rejects unless `connectionId` is a configured cloud connection for `id`. */
+	deleteConnection(id: IntegrationIds, connectionId: string): Promise<void>;
 
 	listOrgs(options?: {
 		providerId?: IntegrationIds;
@@ -183,18 +194,25 @@ export interface IntegrationManager {
 		providerId: IntegrationIds;
 		repos?: ProviderRepositoriesInput;
 		states?: PullRequestStateFilter[];
+		/** Repo-scoped relationship filters. Account-wide reads refuse a non-empty set. */
 		filters?: PullRequestFilter[];
 		/**
+		 * Account-wide only: include review-requested PRs when the provider's native "my PRs" query omits them.
+		 * This extends the provider-native result; it is not a narrowing filter.
+		 */
+		includeReviewRequested?: boolean;
+		/**
 		 * Requested 1-based page. Without a `cursor` this may cost O(page) upstream requests on a cursor-only
-		 * read (the account-wide path, and repo-scoped GitHub/GHE), which the facade drains internally.
+		 * read (repo-scoped GitHub/GHE and account-wide providers that return continuations), which the facade
+		 * drains internally.
 		 */
 		page?: number;
 		/** Continuation from a prior page's `cursor`; supplying it costs exactly one upstream request per scope. */
 		cursor?: string;
 		/**
-		 * Requested page size, honored on the repo-scoped path. The account-wide read (no `repos`) is
-		 * cursor-based and takes no page size, so it is ignored there — `page.itemsPerPage` reports what was
-		 * actually returned rather than echoing the request.
+		 * Requested page size, honored on the repo-scoped path. The provider-defined account-wide read (no
+		 * `repos`) takes no page size, so it is ignored there — `page.itemsPerPage` reports what was actually
+		 * returned rather than echoing the request.
 		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
@@ -221,10 +239,10 @@ export interface IntegrationManager {
 		 * repo-scoped path and `.issuesAccountWide` on the account-wide one.
 		 *
 		 * On the account-wide path this REPLACES the provider's own definition of "my issues" — GitHub/GHE union
-		 * authored + assigned + mentioned, Azure drains assigned + authored, GitLab reads assigned-to-me — so
-		 * `[Assignee]` gets `assignee:@me` semantics wherever it's expressible. Narrowing must happen here rather
-		 * than on the returned page: the excluded items still counted toward the provider's paging, so filtering
-		 * afterward leaves `items` describing a different result set than `hasMore`/`cursor`.
+		 * authored + assigned + mentioned, while Azure and GitLab union assigned + authored — so `[Assignee]`
+		 * gets `assignee:@me` semantics wherever it's expressible. Narrowing must happen here rather than on the
+		 * returned page: the excluded items still counted toward the provider's paging, so filtering afterward
+		 * leaves `items` describing a different result set than `hasMore`/`cursor`.
 		 *
 		 * A set the provider can't express server-side is refused whole (warning + `fetchFailed`), never widened.
 		 */
@@ -232,8 +250,8 @@ export interface IntegrationManager {
 		/** Broadens to every assignee. Contradicts `filters`; passing both is refused. */
 		includeAllAssignees?: boolean;
 		/**
-		 * Requested 1-based page. Without a `cursor` this may cost O(page) upstream requests on a cursor-only
-		 * read (the account-wide path, and repo-scoped GitHub/GHE), which the facade drains internally.
+		 * Requested 1-based page. Without a `cursor` this may cost O(page) upstream requests on cursor-backed
+		 * reads such as repo-scoped GitHub/GHE; aggregate single-page account-wide reads remain O(1).
 		 */
 		page?: number;
 		/** Continuation from a prior page's `cursor`; supplying it costs exactly one upstream request per scope. */
@@ -282,10 +300,10 @@ export interface IntegrationManager {
 		host?: string;
 		connectionId?: string;
 		/**
-		 * Explicit self-managed host domain used to select the integration instance. Used only when the requested
-		 * connection has no configured domain; it must come from the trusted authentication configuration, not
-		 * repository or remote data. Without it, an unpinned self-managed read falls back to the domain parsed
-		 * from `remoteUrl`, which is repository-supplied.
+		 * Explicit self-managed host domain used to select the integration instance. It must come from trusted
+		 * authentication configuration. Without it, the host parsed from `remoteUrl` is only a resolution
+		 * candidate: the facade proceeds only when that host matches a configured integration, so repository
+		 * data cannot select credentials for an arbitrary host.
 		 */
 		domain?: string;
 	}): Promise<ResolveRepositoryResult>;

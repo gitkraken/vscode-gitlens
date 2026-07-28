@@ -304,7 +304,7 @@ suite('account-wide issue filters', () => {
 			}
 		});
 
-		test('[Author] is refused — the SDK account-wide input has no author axis', async () => {
+		test('[Author] narrows the GitLab account-wide read to the author axis', async () => {
 			const manager = createIntegrationManager(createFakeRuntime());
 			try {
 				const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
@@ -313,11 +313,21 @@ suite('account-wide issue filters', () => {
 					't',
 					'gitlab.com',
 				);
+				(
+					gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+				).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
 
-				let called = false;
+				const calls: { scope?: string; assigneeUsername?: string; authorUsername?: string }[] = [];
 				stubApi(gl, {
-					getIssuesForCurrentUser: () => {
-						called = true;
+					getIssuesForCurrentUser: (
+						_t: unknown,
+						options?: { scope?: string; assigneeUsername?: string; authorUsername?: string },
+					) => {
+						calls.push({
+							scope: options?.scope,
+							assigneeUsername: options?.assigneeUsername,
+							authorUsername: options?.authorUsername,
+						});
 						return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
 					},
 				});
@@ -327,8 +337,8 @@ suite('account-wide issue filters', () => {
 					filters: [IssueFilter.Author],
 				});
 
-				assert.equal(called, false, 'no unnarrowed read is issued in place of the requested one');
-				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(calls, [{ scope: 'all', assigneeUsername: undefined, authorUsername: 'me' }]);
+				assert.equal(result.fetchFailed, undefined);
 			} finally {
 				manager.dispose();
 			}
@@ -352,11 +362,11 @@ suite('account-wide issue filters', () => {
 					},
 				});
 
-				// Dropping `Author` and reading assigned-only would answer a narrower question than asked; keeping it
+				// Dropping `Mention` and reading assigned-only would answer a narrower question than asked; keeping it
 				// and reading unfiltered would answer a wider one. Neither is the caller's request.
 				const result = await manager.listIssuesPage({
 					providerId: GitCloudHostIntegrationId.GitLab,
-					filters: [IssueFilter.Assignee, IssueFilter.Author],
+					filters: [IssueFilter.Assignee, IssueFilter.Mention],
 				});
 
 				assert.equal(called, false);

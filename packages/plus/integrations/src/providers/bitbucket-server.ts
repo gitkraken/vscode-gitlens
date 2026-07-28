@@ -277,9 +277,9 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
 		const states = toProviderPullRequestStates(options?.state);
-		// Bitbucket Server pages the current-user PR read by offset (`start`/`nextPageStart`); read a single
-		// page here and thread the next offset as the opaque cursor so the ProviderBackend sweep drives the
-		// drain (bounded by its maxPages). The cursor value is a start offset, not a 1-based page index.
+		// provider-apis translates the public 1-based `page` to Bitbucket Server's `start` offset and normalizes
+		// `nextPageStart` back to the next page number. Thread that number inside our opaque cursor so the
+		// ProviderBackend sweep drives the drain (bounded by its maxPages).
 		const page = parsePageCursor(options?.cursor);
 		const result = await api.getBitbucketServerPullRequestsForCurrentUser(
 			toTokenWithInfo(this.id, session),

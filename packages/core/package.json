@@ -30,7 +30,8 @@
 		"LICENSE",
 		"LICENSE.plus",
 		"README.md",
-		"CHANGELOG.md"
+		"CHANGELOG.md",
+		"docs"
 	],
 	"imports": {
 		"#env/*.js": {

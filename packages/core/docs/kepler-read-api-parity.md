@@ -6,14 +6,15 @@ Authoritative decision record for the read-API parity gaps tracked in
 [#1322](https://github.com/gitkraken/kepler/issues/1322)) can migrate its provider reads off the `gk` CLI
 onto `@gitkraken/core-gitlens` with a clear contract.
 
-The provider-side prerequisites landed in `@gitkraken/provider-apis` **0.50.0** (GKDEV-3535, GKDEV-3536,
-GKDEV-3537, GKDEV-3538); core-gitlens consumes them from that version on.
+The baseline provider-side prerequisites landed in `@gitkraken/provider-apis` **0.50.0** (GKDEV-3535,
+GKDEV-3536, GKDEV-3537, GKDEV-3538). The current `core` branch additionally requires the unreleased
+provider changes described in [`integrations.md` §12](./integrations.md#12-development-and-publication-prerequisite).
 
 Verdict legend: **first-class** (honored) · **best-effort** (honored where the provider exposes it cheaply,
 otherwise `undefined`) · **n/a** (provider has no such concept).
 
 For how to actually consume the resulting facade — runtime wiring, the paging/warning contracts, and the
-per-provider capability matrix — see [`core-gitlens-integrations.md`](./core-gitlens-integrations.md). This
+per-provider capability matrix — see [`integrations.md`](./integrations.md). This
 document stays the decision record for the parity gaps themselves.
 
 ## 1. Per-connection reads

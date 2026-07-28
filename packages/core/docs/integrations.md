@@ -8,7 +8,8 @@ Scope: the **provider-neutral facade** (`plus/integrations/index.js`). It hands 
 never leaks `@gitkraken/provider-apis` types, so a consumer depends on this package alone.
 
 - Read-API parity decisions and the provider-apis-level contract: [`kepler-read-api-parity.md`](./kepler-read-api-parity.md)
-- `@gitlens/git` service wiring (a separate boundary): [`library-architecture.md`](./library-architecture.md)
+- `@gitlens/git` service wiring (a separate boundary):
+  [`library-architecture.md`](https://github.com/gitkraken/vscode-gitlens/blob/core/docs/library-architecture.md)
 
 ---
 
@@ -44,7 +45,7 @@ cross-boundary contract — the package never imports `vscode` and has no ambien
 | `hooks`        | no       | Auth strategy override, reauth/disconnect prompts, outbound behavioral events.                                                                                            |
 
 A complete, type-checked, dependency-free example lives in
-[`tests/fixtures/integrations-consumer/src/consumer.test.ts`](../tests/fixtures/integrations-consumer/src/consumer.test.ts).
+[`tests/fixtures/integrations-consumer/src/consumer.test.ts`](https://github.com/gitkraken/vscode-gitlens/blob/core/tests/fixtures/integrations-consumer/src/consumer.test.ts).
 It runs in CI, so it can't rot: **copy that file's `buildRuntime()` as your starting point.**
 
 ### Authentication
@@ -73,6 +74,9 @@ try {
 `onDidChange` fires when the configured-connection set changes; `onDidChangeConnectionState` when a
 provider connects/disconnects. Both are safe to drive cache invalidation from.
 
+`refreshConnections()` is an authoritative foreground refresh: it rejects if the GK backend connection list
+cannot be read and leaves the last known configuration intact. Background check-in remains best-effort.
+
 ## 3. Multi-account and self-managed hosts
 
 Three knobs, in precedence order, select **which account and which host** a read runs against:
@@ -88,7 +92,8 @@ it selects which credentials a read uses, and `resolveRepository` deliberately r
 self-managed remote against a host the user hasn't authenticated (`host-mismatch`).
 
 Use `getConfigured(id?, { cloud?, domain? })` to enumerate connections, `setPrimaryConnection` /
-`deleteConnection` to manage them.
+`deleteConnection` to manage them. Both mutations validate that `connectionId` belongs to the requested
+provider before calling the token backend; never reuse an id discovered under a different provider.
 
 ## 4. The reads
 
@@ -118,8 +123,9 @@ means "this account genuinely has nothing".
 Two mechanisms live behind one shape, and they are **not** interchangeable:
 
 - **`cursor`** — an opaque continuation. Threading it back guarantees **one upstream request per scope**.
-- **`page`** (1-based) — a position. On a cursor-only read (GitHub's searches, every account-wide read, the
-  broaden fan-out), asking for page N _without_ a cursor makes the facade drain pages 1..N internally and
+- **`page`** (1-based) — a position. On a cursor-driven read (GitHub's searches and the broaden fan-out,
+  plus provider account-wide reads that return continuations), asking for page N _without_ a cursor makes the
+  facade drain pages 1..N internally and
   return only page N: correct, but **O(N) upstream requests**. That drain is the supported fallback for a
   consumer that persisted only a page number (e.g. the first read after a restart).
 
@@ -179,8 +185,9 @@ carries the provider's **canonical** owner/name plus `renamed: true` when the lo
 
 ## 7. Filters are all-or-nothing
 
-`filters` (`PullRequestFilter` / `IssueFilter`) narrows a read to the current user's relationship with the
-item. A set containing even **one** filter the provider can't express server-side is **refused whole** —
+`filters` (`PullRequestFilter` / `IssueFilter`) narrows a repo-scoped read, or an account-wide issue read, to
+the current user's relationship with the item. A set containing even **one** filter the provider can't
+express server-side is **refused whole** —
 empty `items` + warning + `fetchFailed` — because falling through unfiltered would return _every_ PR
 instead of the user's.
 
@@ -188,21 +195,30 @@ So intersect against the capability table first:
 
 ```ts
 const supported = manager.getSupportedFilters(providerId); // static, no connection needed
-const filters = wanted.filter(f => supported.pullRequests.includes(f));
+const capability = repos.length === 0 ? (supported.pullRequestsAccountWide ?? []) : supported.pullRequests;
+const filters = wanted.filter(f => capability.includes(f));
 ```
 
+- `pullRequests` — the repo-scoped PR read.
+- `pullRequestsAccountWide` — the optional account-wide PR capability. Treat a missing field as empty. It is
+  currently empty for every provider because those
+  native "my PRs" queries expose provider-defined relationship unions rather than independently selectable
+  axes. Passing account-wide `filters` is refused instead of returning a wider union.
 - `issues` — the **repo-scoped** git-host read, **and** the issue-tracker read
   (`listIssueTrackerIssuesPage` validates against this field).
 - `issuesAccountWide` — the account-wide git-host read only. Usually narrower (GitLab can express
-  `Assignee` there and nothing else), and empty for issue trackers.
+  `Assignee` and `Author`, but not `Mention`), and empty for issue trackers.
 
 It's a _capability_ table, not a recommendation: passing fewer filters than listed is fine, and on an
 already-user-scoped read they add nothing.
 
 On the account-wide issue read, `filters` **replaces** the provider's own definition of "my issues"
-(GitHub unions authored ∪ assigned ∪ mentioned; Azure drains assigned ∪ authored; GitLab reads
-assigned-to-me), so `[Assignee]` means `assignee:@me` wherever it's expressible. `includeAllAssignees`
+(GitHub unions authored ∪ assigned ∪ mentioned; Azure and GitLab drain assigned ∪ authored), so
+`[Assignee]` means `assignee:@me` wherever it's expressible. `includeAllAssignees`
 does the opposite (drops the user scope); passing both is refused as contradictory.
+
+Bitbucket Cloud's expensive account-wide reviewer fan-out is a separate breadth option:
+`includeReviewRequested: true`. It is not a narrowing `PullRequestFilter`.
 
 ## 8. Provider capability matrix
 
@@ -217,7 +233,7 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | `listRepos` (account-wide)   |      ✓       |          ✓           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
 | PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
-| PR `states` account-wide     |      ✓       |    ✗ (open-only)     |     ✓     |      ✓       |            ✓            |  —   |   —    |   —    |
+| PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  —   |   —    |   —    |
 | Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✓    |
@@ -225,13 +241,13 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  ✗   |   ✗    |   ✗    |
 | `resolveRepository`          |      ✓       |          ✓           |     ✓     |      ✓       |   ✓ cloud / ✗ Server    |  ✗   |   ✗    |   ✗    |
 
-PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab `Author, Assignee,
+Repo-scoped PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab `Author, Assignee,
 ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure `Author, Assignee,
 ReviewRequested`.
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
 Linear + Trello `Assignee` · Bitbucket family none.
 Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Author, Assignee` · GitLab
-`Assignee` · everything else none.
+`Assignee, Author` · everything else none.
 
 > `supportedCloudIntegrationDescriptors.supports` (in `constants.ts`) describes what GitLens _advertises in
 > its connect UI_, including enrichment-only capabilities. It is **not** the read-capability answer — use
@@ -243,17 +259,16 @@ Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Aut
   `assignee:@me`, `mentions:@me`) behind one composite cursor; a state-filtered PR read is one search per
   state behind a per-state cursor bundle. Each search caps at GitHub's own result ceiling, surfaced as
   `page.truncated`. `includeAllAssignees` is refused account-wide (scope to repos instead).
-- **GitLab / self-hosted** — numbered per-repo cursors for repo-scoped reads. The account-wide PR read
-  **cannot be state-filtered** (the SDK's user query is open-only), so `sweepClosedPullRequests` returns a
-  warning + `fetchFailed` for GitLab rather than a wrongly-empty page. Account-wide issues narrow by
-  assignee only.
+- **GitLab / self-hosted** — numbered per-repo cursors for repo-scoped reads. Account-wide PR state selection
+  is forwarded to each relationship query. Account-wide issues can independently narrow to assignee or author;
+  the unfiltered read unions both.
 - **Bitbucket Cloud** — no issues at all on this surface (tracker deprecated; use Jira). No account-wide
   repo walk (list per workspace). The account-wide PR read drains every workspace and returns **one
   aggregate page** (no cross-workspace cursor), so `itemsPerPage` doesn't apply. The review-requested slice
-  is opt-in via `PullRequestFilter.ReviewRequested`, because it costs an O(workspaces × repos) fan-out.
-- **Bitbucket Data Center** — no org discovery, no repo discovery, no issues. Its API reads `page` as an
-  item **offset**, so the facade never synthesizes a page-number cursor for it: an unthreaded jump to page N
-  returns page 1 (reported honestly as `currentPage: 1`). Thread the `cursor` to page it.
+  is opt-in via `includeReviewRequested: true`, because it costs an O(workspaces × repos) fan-out.
+- **Bitbucket Data Center** — no org discovery, no repo discovery, no issues. `provider-apis` converts the
+  public 1-based page number to the REST `start` offset and normalizes `nextPageStart` back to a page number;
+  the facade carries that number inside its opaque cursor.
 - **Azure DevOps** — org + project scoped. Repo-scoped reads accept one org per call. Account-wide reads
   drain every project of every org and return one aggregate page; a failed project becomes a scoped warning
   while its siblings survive. Only Azure can narrow an account-wide issue read by `org`/`project`.
@@ -299,6 +314,18 @@ and Azure DevOps (+ Server). **Not** Bitbucket Data Center. A self-managed id re
 3. Thread `connectionId` through every read if you support multiple accounts per provider.
 4. Persist the **opaque `cursor`**, not just a page number (§5).
 5. Branch on `warning.kind`, and gate caching on `fetchFailed` / `page.allPages` (§6).
-6. Intersect `filters` against `getSupportedFilters` before every filtered read (§7).
+6. Intersect repo-scoped and account-wide `filters` against their distinct `getSupportedFilters` fields (§7).
 7. Treat "unsupported" as a first-class outcome per provider (§8) — don't render it as an error.
 8. `dispose()` the manager with the owning scope.
+
+## 12. Development and publication prerequisite
+
+The current `core` branch depends on provider behavior beyond the registry's `@gitkraken/provider-apis`
+0.53.0: GitLab author filtering and PR state forwarding, GitHub search-completeness metadata, and Bitbucket
+Data Center page normalization. Until those provider changes are merged and released, local integration
+testing may use the combined provider-apis worktree as a temporary substitute only; the repository must not
+encode that local link.
+
+Before publication, bump the workspace catalog/lockfile to the released provider-apis version containing
+those fixes. Do not publish or bump `@gitkraken/core-gitlens` until that dependency bump is in place and the
+Kepler migration has been verified end to end.

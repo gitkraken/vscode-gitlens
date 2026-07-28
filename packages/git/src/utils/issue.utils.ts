@@ -30,6 +30,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		},
 		id: value.id,
 		nodeId: value.nodeId,
+		issueType: value.issueType,
 		title: value.title,
 		url: value.url,
 		createdDate: value.createdDate,

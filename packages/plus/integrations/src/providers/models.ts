@@ -440,10 +440,11 @@ export type GetIssuesForReposFn = (
 
 export type GetIssuesForCurrentUserInput = PagingInput & {
 	// GitLab's account-wide REST read (`GET /issues`): `scope` controls breadth ('assigned_to_me' vs 'all') and
-	// `assigneeUsername` optionally narrows a broad read to a specific assignee. Other providers (Linear) ignore
-	// these and page purely off the cursor.
+	// the username fields independently narrow a broad read to a specific assignee or author. Other providers
+	// (Linear) ignore these and page purely off the cursor.
 	scope?: 'assigned_to_me' | 'all';
 	assigneeUsername?: string;
+	authorUsername?: string;
 	pageSize?: number;
 };
 
@@ -639,15 +640,14 @@ export interface ProviderMetadata {
 	 * {@link ProviderMetadata.supportedIssueFilters}: the two reads are different provider queries.
 	 *
 	 * Unfiltered, each provider's account-wide read is that provider's own definition of "my issues" — GitHub/GHE
-	 * union authored + assigned + mentioned, Azure drains assigned + authored, GitLab reads assigned-to-me. All
-	 * but GitLab's are WIDER than "assigned to me", and a consumer replacing a narrower tool (`gk`'s
-	 * `assignee:@me`) has no way to narrow them from the outside — the fan-out happens inside the provider.
+	 * union authored + assigned + mentioned, Azure and GitLab drain assigned + authored. These are WIDER than
+	 * "assigned to me", and a consumer replacing a narrower tool (`gk`'s `assignee:@me`) has no way to narrow them
+	 * from the outside — the fan-out happens inside the provider.
 	 *
 	 * A filter listed here narrows that read server-side. Absent/empty means the read can't be narrowed at all,
 	 * so the facade refuses a filtered request rather than serving the unnarrowed union as if it had been
-	 * filtered. GitLab lists only `Assignee` because the SDK's account-wide input exposes `scope` +
-	 * `assigneeUsername` and nothing for author/mention; expressing those needs a `@gitkraken/provider-apis`
-	 * change, not a change here.
+	 * filtered. GitLab lists `Assignee` and `Author` because the SDK's account-wide input exposes both username
+	 * axes; it omits `Mention` because that REST read has no first-class mention filter.
 	 */
 	supportedAccountWideIssueFilters?: IssueFilter[];
 }

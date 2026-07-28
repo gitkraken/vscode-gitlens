@@ -499,7 +499,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('listPullRequestsPage maps account-wide ReviewRequested to includeReviewRequested for Bitbucket (#5551)', async () => {
+	test('listPullRequestsPage forwards the explicit account-wide reviewer option for Bitbucket (#5551)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
@@ -529,7 +529,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 		const result = await manager.listPullRequestsPage({
 			providerId: GitCloudHostIntegrationId.Bitbucket,
-			filters: [PullRequestFilter.ReviewRequested],
+			includeReviewRequested: true,
 			states: ['open'],
 		});
 
