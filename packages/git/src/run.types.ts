@@ -1,13 +1,61 @@
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
+import type { GitWarningKey } from './errors.js';
 
 export type GitErrorHandling = 'throw' | 'ignore';
 
+/**
+ * Why a run was aborted. DIAGNOSTIC ONLY — log it, never branch control flow on it. A timeout kill and a
+ * caller abort both terminate the process with SIGTERM and surface as the same error, so this is derived
+ * from a duration heuristic and can be wrong near the timeout boundary.
+ */
+export type GitRunCancellation = 'aborted' | 'timeout' | 'unknown';
+
+/**
+ * Why a run produced no answer. Every value is structurally distinguishable, so these are safe to branch on.
+ *
+ * There is deliberately no `untrusted` member: an untrusted workspace is refused before the command is ever
+ * attempted, so it REJECTS with `WorkspaceUntrustedError` rather than resolving a result.
+ */
+export type GitRunFailure =
+	/** Terminated by a signal other than SIGTERM. Any `stdout` is partial. */
+	| 'signal'
+	/** No process ever ran — queue rejection, spawn failure (e.g. ENOENT). */
+	| 'unstarted';
+
+/**
+ * How a run ended — the answer to "can I trust `stdout`?", which `exitCode` alone cannot give.
+ *
+ * A non-zero exit is NOT a failure: `diff --quiet` exits 1 for "differences found", `merge-base
+ * --is-ancestor` for "no". Those are answers, and they're `exited`. What callers must not do is read the
+ * empty `stdout` of a `warned`/`cancelled`/`failed` run as a real result — which is what a bare
+ * `exitCode === 0` check does, since several failure paths report zero.
+ */
+export type GitRunCompletion =
+	/** Ran to completion. Interpreting `code` is the caller's business; `stdout` is trustworthy. */
+	| { readonly status: 'exited'; readonly code: number }
+	/**
+	 * Exited non-zero, but stderr matched a known-benign pattern, so the error was swallowed and `stdout`
+	 * is empty. Whether that empty is a real ANSWER (`noCommits` on a fresh repo) or a failure
+	 * (`notARepository`) depends on `warning` — it is never safe to read as a plain empty result.
+	 *
+	 * `warning` is `undefined` for a swallow that matched no table entry; treat that like any warning you
+	 * haven't explicitly whitelisted, i.e. not an answer. The process did exit, so `exitCode` is present
+	 * whenever git reported a numeric one.
+	 */
+	| { readonly status: 'warned'; readonly warning: GitWarningKey | undefined; readonly error: Error }
+	| { readonly status: 'cancelled'; readonly reason: GitRunCancellation; readonly error: Error }
+	| { readonly status: 'failed'; readonly reason: GitRunFailure; readonly error: Error };
+
 export type GitResult<T extends string | Buffer | unknown = string> = {
-	readonly exitCode: number;
+	/**
+	 * The process's exit code. ABSENT when no process exited — see {@link completion}. Deliberately optional:
+	 * defaulting to `0` made a failed run indistinguishable from a clean success.
+	 */
+	readonly exitCode?: number;
 	readonly stdout: T;
 	readonly stderr?: T;
 
-	readonly cancelled?: boolean;
+	readonly completion: GitRunCompletion;
 };
 
 /**

@@ -1,11 +1,14 @@
 import * as assert from 'assert';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { execPath } from 'process';
 import * as sinon from 'sinon';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
 import { run, runSpawn } from '../exec.js';
 import type { GitResultCache } from '../exec.types.js';
-import { Git } from '../git.js';
+import { defaultExceptionHandler, Git } from '../git.js';
 
 function nodeArgs(script: string): string[] {
 	return ['-e', script];
@@ -116,6 +119,30 @@ suite('Shell Test Suite', () => {
 
 			assert.strictEqual(result.exitCode, 7);
 		});
+
+		// A non-SIGTERM kill rejects with a `RunError` carrying the signal and NO code. That `code == null` is
+		// what `Git.run` used to turn into `exitCode: 0` — a killed command reported as a clean success.
+		//
+		// POSIX-only: Windows has no signals, so `process.kill(pid, 'SIGKILL')` becomes `TerminateProcess` and
+		// Node reports a plain `close(1, null)` — a non-zero exit, not the signalled case under test.
+		(process.platform === 'win32' ? test.skip : test)(
+			'rejects with the signal and no exit code when killed by a signal',
+			async () => {
+				const result = await runSpawn<string>(
+					nodeExecutable,
+					nodeArgs(`process.kill(process.pid, 'SIGKILL');setTimeout(() => {}, 1000);`),
+					'utf8',
+					{},
+				).then(
+					() => undefined,
+					(ex: unknown) => ex,
+				);
+
+				assert.ok(result instanceof RunError, `expected a RunError, got ${String(result)}`);
+				assert.strictEqual(result.code ?? undefined, undefined, 'a signalled process has no exit code');
+				assert.strictEqual(result.signal, 'SIGKILL');
+			},
+		);
 
 		test('returns raw buffers for buffer encoding', async () => {
 			const stdoutBytes = [0xde, 0xad];
@@ -259,9 +286,87 @@ suite('Shell Test Suite', () => {
 			);
 			assert.strictEqual(seenOptions?.accessTTL, 1234, 'existing caching options preserved');
 			assert.strictEqual(caller.signal.aborted, false, 'caller signal never aborted');
-			// A bare-abort queue splice is NOT flagged cancelled — proving `cancelled` alone can't gate caching.
-			assert.strictEqual(result.cancelled, false, 'queue-spliced bare abort resolves cancelled:false');
+			// A bare-abort queue splice rejects with a plain `Error` (see `abortReason`), not a
+			// `CancelledRunError` — so it is NOT a cancellation. It never spawned, which `completion` can now
+			// say; the old boolean could only report `cancelled: false`, indistinguishable from success.
+			assert.strictEqual(result.completion.status, 'failed', 'queue-spliced bare abort is a failure');
+			assert.strictEqual(
+				result.completion.status === 'failed' && result.completion.reason,
+				'unstarted',
+				'queue-spliced bare abort never started a process',
+			);
 			assert.strictEqual(cacheable.invalidated, true, 'aborted result invalidated so it is never cached');
+		});
+	});
+
+	// `GitResult.completion` exists because `exitCode` alone cannot answer "can I trust `stdout`?" — several
+	// distinct outcomes all reported `0`. These pin the ones reachable without a real git binary; the
+	// warning classification is covered directly since it is pure.
+	suite('GitResult.completion', () => {
+		test("a spawn failure is 'failed'/'unstarted' rather than a clean empty exit", async () => {
+			const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
+
+			const result = await git.run({ cwd: '/repo', errors: 'ignore' }, 'status');
+
+			assert.strictEqual(result.completion.status, 'failed');
+			assert.strictEqual(result.completion.status === 'failed' && result.completion.reason, 'unstarted');
+			assert.strictEqual(result.exitCode, undefined, 'no exit code is claimed for a command that never ran');
+		});
+
+		// The swallow path is the one a bare `exitCode` check cannot see: git DID run and fail, but the error
+		// matched `GitWarnings`, so it was discarded and `stdout` came back empty. Exercised against the real
+		// git binary (a hard dev prerequisite) because the classification only triggers on genuine git stderr —
+		// a fake binary can't produce it.
+		test("a swallowed warning is 'warned', carrying the key and the real exit code", async () => {
+			const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+			const cwd = await mkdtemp(join(tmpdir(), 'gitlens-exec-test-'));
+
+			try {
+				// No `errors` option on purpose — the default handling is what consults `GitWarnings`.
+				const result = await git.run({ cwd: cwd }, 'status');
+
+				assert.strictEqual(result.completion.status, 'warned');
+				assert.strictEqual(
+					result.completion.status === 'warned' && result.completion.warning,
+					'notARepository',
+					'the key is what lets a caller tell this from a genuinely empty answer',
+				);
+				assert.strictEqual(result.stdout, '', 'the swallowed warning leaves empty stdout behind');
+				assert.strictEqual(result.exitCode, 128, 'the process did exit, so its code is reported');
+			} finally {
+				await rm(cwd, { recursive: true, force: true });
+			}
+		});
+	});
+
+	// The swallow path is what produced the sticky wrong answers: a `GitWarnings` match is logged and
+	// discarded, leaving empty stdout that callers read as a real result. Returning WHICH key matched is what
+	// lets them tell a genuinely empty answer (`noCommits`) from a read that never happened.
+	suite('defaultExceptionHandler()', () => {
+		test('returns the matched warning key instead of swallowing silently', () => {
+			const key = defaultExceptionHandler(new Error('fatal: Not a git repository'), '/repo');
+
+			assert.strictEqual(key, 'notARepository');
+		});
+
+		test('distinguishes an empty-repo warning from a failed read', () => {
+			const key = defaultExceptionHandler(
+				new Error("fatal: your current branch 'main' does not have any commits yet"),
+				'/repo',
+			);
+
+			assert.strictEqual(key, 'noCommits', 'this one IS a real empty answer, unlike notARepository');
+		});
+
+		test('rethrows anything that matches no warning', () => {
+			assert.throws(() => defaultExceptionHandler(new Error('fatal: something genuinely broken'), '/repo'));
+		});
+
+		test('returns undefined for a swallow that matched no table entry', () => {
+			// The `^3` special case (stash untracked lookups) is swallowed but is not a `GitWarnings` match.
+			const key = defaultExceptionHandler(new Error("fatal: bad revision 'stash@{0}^3'"), '/repo');
+
+			assert.strictEqual(key, undefined, 'unclassified swallow — callers must treat it as not-an-answer');
 		});
 	});
 });

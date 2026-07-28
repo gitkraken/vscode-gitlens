@@ -693,7 +693,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							'--',
 						);
 
-						if (result.cancelled || signal?.aborted) {
+						if (result.completion.status === 'cancelled' || signal?.aborted) {
 							throw new CancellationError();
 						}
 

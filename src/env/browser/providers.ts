@@ -18,7 +18,16 @@ export function git(
 	_options: GitRunOptions,
 	..._args: any[]
 ): Promise<GitResult<string | Buffer>> {
-	return Promise.resolve({ stdout: '', exitCode: 0 });
+	// No git CLI exists in this environment, so nothing ran. Reporting a clean empty exit would tell callers
+	// the command succeeded and found nothing — say it never started instead.
+	return Promise.resolve({
+		stdout: '',
+		completion: {
+			status: 'failed',
+			reason: 'unstarted',
+			error: new Error('git is unavailable in this environment'),
+		},
+	});
 }
 
 export function getSupportedGitProviders(

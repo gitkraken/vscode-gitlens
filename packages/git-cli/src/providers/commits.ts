@@ -122,7 +122,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			rev,
 			'--',
 		);
-		if (result.cancelled || cancellation?.aborted) {
+		if (result.completion.status === 'cancelled' || cancellation?.aborted) {
 			throw new CancellationError();
 		}
 
@@ -150,7 +150,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			'--remotes',
 			'--',
 		);
-		if (result.cancelled || cancellation?.aborted) {
+		if (result.completion.status === 'cancelled' || cancellation?.aborted) {
 			throw new CancellationError();
 		}
 
@@ -182,7 +182,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			...parser.arguments,
 			rev,
 		);
-		if (result.cancelled || cancellation?.aborted) return undefined;
+		if (result.completion.status === 'cancelled' || cancellation?.aborted) return undefined;
 
 		for (const entry of parser.parse(result.stdout)) {
 			const authorSeconds = Number(entry.authorDate);
@@ -444,7 +444,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 					'HEAD',
 					'--',
 				);
-				if (result.cancelled || cancellation?.aborted) {
+				if (result.completion.status === 'cancelled' || cancellation?.aborted) {
 					throw new CancellationError();
 				}
 
@@ -479,7 +479,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				range,
 				'--',
 			);
-			if (result.cancelled || cancellation?.aborted) {
+			if (result.completion.status === 'cancelled' || cancellation?.aborted) {
 				throw new CancellationError();
 			}
 			if (!result.stdout) return undefined;

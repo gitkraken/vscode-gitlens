@@ -17,7 +17,7 @@ suite('BranchesGitSubProvider Test Suite', () => {
 			stdout: stdout,
 			stderr: undefined,
 			exitCode: 0,
-			cancelled: false,
+			completion: { status: 'exited', code: 0 },
 		};
 	}
 

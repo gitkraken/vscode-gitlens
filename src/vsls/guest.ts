@@ -62,9 +62,13 @@ export class VslsGuestService implements Disposable {
 			args: args,
 		});
 
+		// `GitCommandResponse` carries only `{ data, isBuffer }` — the host never sends an exit code, so there
+		// is nothing to report but success. Preserves the long-standing behavior; reporting it honestly needs
+		// the Live Share protocol extended to carry the host's completion.
 		return {
 			stdout: (response.isBuffer ? Buffer.from(response.data, 'binary') : response.data) as TOut,
 			exitCode: 0,
+			completion: { status: 'exited', code: 0 },
 		};
 	}
 

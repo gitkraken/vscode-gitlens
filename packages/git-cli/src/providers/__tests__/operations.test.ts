@@ -30,7 +30,7 @@ suite('OperationsGitSubProvider Test Suite', () => {
 	}
 
 	function successResult(): GitResult {
-		return { stdout: '', stderr: undefined, exitCode: 0, cancelled: false };
+		return { stdout: '', stderr: undefined, exitCode: 0, completion: { status: 'exited', code: 0 } };
 	}
 
 	/**

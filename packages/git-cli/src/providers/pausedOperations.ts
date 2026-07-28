@@ -124,7 +124,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						'--verify',
 						'CHERRY_PICK_HEAD',
 					);
-					if (result.cancelled || cancellation?.aborted) {
+					if (result.completion.status === 'cancelled' || cancellation?.aborted) {
 						throw new CancellationError();
 					}
 
@@ -160,7 +160,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						'--verify',
 						'MERGE_HEAD',
 					);
-					if (result.cancelled || cancellation?.aborted) {
+					if (result.completion.status === 'cancelled' || cancellation?.aborted) {
 						throw new CancellationError();
 					}
 
@@ -212,7 +212,7 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 						'--verify',
 						'REVERT_HEAD',
 					);
-					if (result.cancelled || cancellation?.aborted) {
+					if (result.completion.status === 'cancelled' || cancellation?.aborted) {
 						throw new CancellationError();
 					}
 

@@ -332,7 +332,15 @@ export function run<T extends number | string>(
 }
 
 export interface RunExitResult {
-	exitCode: number;
+	/**
+	 * The process's exit code. ABSENT when the process never exited normally — killed by a signal, in which
+	 * case {@link signal} is set. Deliberately optional rather than defaulted to `0`: a signalled process
+	 * reported as `exitCode: 0` is indistinguishable from a clean success, so callers would read a partial
+	 * or empty stdout as a complete answer.
+	 */
+	readonly exitCode?: number;
+	/** Set when the process was terminated by a signal instead of exiting; {@link exitCode} is then absent. */
+	readonly signal?: NodeJS.Signals;
 }
 
 export interface RunResult<T extends string | Buffer> extends RunExitResult {
@@ -412,7 +420,7 @@ export function runSpawn<T extends string | Buffer>(
 
 		proc.once('close', async (code, signal) => {
 			if (options?.exitCodeOnly) {
-				resolve({ exitCode: code ?? 0 });
+				resolve({ exitCode: code ?? undefined, signal: signal ?? undefined });
 
 				return;
 			}
@@ -453,7 +461,9 @@ export function runSpawn<T extends string | Buffer>(
 				);
 			}
 
-			resolve({ exitCode: code ?? 0, stdout: stdout, stderr: stderr });
+			// `code` is null exactly when the process was signalled; report the signal instead of coercing to
+			// `0`, which would claim a clean success for a killed command holding partial output.
+			resolve({ exitCode: code ?? undefined, signal: signal ?? undefined, stdout: stdout, stderr: stderr });
 		});
 
 		if (stdin) {
