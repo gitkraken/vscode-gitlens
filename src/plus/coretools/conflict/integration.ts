@@ -16,6 +16,7 @@ import type {
 	ConflictModelPort,
 	ConflictModelResult,
 	ConflictProgressEvent,
+	OpOptions,
 	Resolution,
 	ResolutionContext,
 	ResolverConfig,
@@ -102,7 +103,9 @@ export class ConflictToolsIntegration {
 	}
 
 	async applyBatch(args: ApplyBatchArgs): Promise<void> {
-		const git = createConflictGitPort(args.svc);
+		// The override map is built per call and captured only by this port instance, so it can never
+		// leak into another operation's apply.
+		const git = createConflictGitPort(args.svc, collectMergedTakeContents(args.resolutions));
 		await applyResolutions([...args.resolutions], { git: git });
 	}
 
@@ -273,7 +276,35 @@ export class ConflictToolsIntegration {
 	}
 }
 
-function createConflictGitPort(svc: GitRepositoryService): ConflictGitPort {
+/**
+ * Working-tree content to write instead of checking out a side's whole blob, keyed by repo-relative
+ * path — see {@link createConflictGitPort}'s `checkoutFile`.
+ *
+ * `@gitkraken/conflict-tools` labels any resolution whose chunks all pick the same side as a
+ * file-level `take-ours`/`take-theirs` (true of the most common shape — one marker, "the AI picked a
+ * side") and applies it with `checkoutFile`, i.e. the whole stage-2/stage-3 blob. That discards
+ * every region git had already merged cleanly outside the markers. The resolution's own `content` is
+ * the correct marker-level merge — and is what we record as the summary's "AI-resolved" side — so
+ * writing it instead both prevents the silent loss and keeps what's committed identical to what the
+ * user reviews.
+ *
+ * Only chunked takes qualify: the library sets `content: ''` for `deleted` and for marker-less files
+ * (binary, delete/modify), where writing it would truncate the file — those keep the real checkout.
+ */
+function collectMergedTakeContents(resolutions: readonly Resolution[]): Map<string, string> {
+	const contents = new Map<string, string>();
+	for (const r of resolutions) {
+		if ((r.strategy === 'take-ours' || r.strategy === 'take-theirs') && (r.chunks?.length ?? 0) > 0) {
+			contents.set(r.filePath, r.content);
+		}
+	}
+	return contents;
+}
+
+function createConflictGitPort(
+	svc: GitRepositoryService,
+	mergedTakeContents?: ReadonlyMap<string, string>,
+): ConflictGitPort {
 	const git = svc.createUnsafeGit();
 	if (git == null) throw new Error('Conflict resolution is not available in virtual repositories');
 
@@ -292,6 +323,27 @@ function createConflictGitPort(svc: GitRepositoryService): ConflictGitPort {
 	// against the repo root that the underlying GitRepositoryService is rooted at.
 	const resolvePath = (path: string): string => (isAbsolute(path) ? path : join(svc.path, path));
 
+	// The library composes content with '\n' only (it normalizes on read below), so write it back with
+	// the original file's encoding + line endings — otherwise a CRLF file silently flips to LF, or a
+	// UTF-16 file to UTF-8, on batch resolution. Detect both from the existing on-disk bytes just
+	// before overwriting; this is self-contained, so it works even though `resolveAllParallel` and
+	// `applyBatch` use separate port instances. Normalize-then-convert avoids '\r\r\n' if content ever
+	// already had CRLF.
+	const writeWorkingFile = async (path: string, content: string): Promise<void> => {
+		const resolved = resolvePath(path);
+		let encoding: DetectedEncoding = { encoding: 'utf8', hasBom: false };
+		let crlf = false;
+		try {
+			const existing = await fs.readFile(resolved);
+			encoding = detectEncoding(existing);
+			crlf = decodeBuffer(existing, encoding).includes('\r\n');
+		} catch {
+			// New file (no existing content) — default to UTF-8 / LF.
+		}
+		const out = crlf ? content.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n') : content;
+		await fs.writeFile(resolved, encodeContent(out, encoding));
+	};
+
 	return {
 		exec: run,
 		readFile: async (path: string): Promise<string> => {
@@ -299,30 +351,21 @@ function createConflictGitPort(svc: GitRepositoryService): ConflictGitPort {
 			// is mojibake with no parseable markers, so it would be silently skipped. Then normalize
 			// EOL: the library's parser splits on '\n' only and matches markers via startsWith, so a
 			// CRLF file leaves '\r' on each marker line, breaking '=======\r' detection and surfacing
-			// the next '<<<<<<<' as a phantom nested marker. The writer below restores the original
+			// the next '<<<<<<<' as a phantom nested marker. The writer above restores the original
 			// encoding + EOL on (re-)write.
 			const raw = await fs.readFile(resolvePath(path));
 			return decodeBuffer(raw).replace(/\r\n/g, '\n');
 		},
-		writeFile: async (path: string, content: string): Promise<void> => {
-			// The library composes content with '\n' only (it normalizes on read above), so write it
-			// back with the original file's encoding + line endings — otherwise a CRLF file silently
-			// flips to LF, or a UTF-16 file to UTF-8, on batch resolution. Detect both from the existing
-			// on-disk bytes just before overwriting; this is self-contained, so it works even though
-			// `resolveAllParallel` and `applyBatch` use separate port instances. Normalize-then-convert
-			// avoids '\r\r\n' if content ever already had CRLF.
-			const resolved = resolvePath(path);
-			let encoding: DetectedEncoding = { encoding: 'utf8', hasBom: false };
-			let crlf = false;
-			try {
-				const existing = await fs.readFile(resolved);
-				encoding = detectEncoding(existing);
-				crlf = decodeBuffer(existing, encoding).includes('\r\n');
-			} catch {
-				// New file (no existing content) — default to UTF-8 / LF.
-			}
-			const out = crlf ? content.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n') : content;
-			await fs.writeFile(resolved, encodeContent(out, encoding));
+		writeFile: writeWorkingFile,
+		// A `take-ours`/`take-theirs` resolution the library computed content for must be written, not
+		// checked out — see {@link collectMergedTakeContents}. Anything unmapped (marker-less takes, or
+		// a port built for a non-apply operation) still gets the real checkout, matching the fallback
+		// the library would otherwise take through `exec`.
+		checkoutFile: async (path: string, side: 'ours' | 'theirs', options?: OpOptions): Promise<void> => {
+			const content = mergedTakeContents?.get(path);
+			if (content != null) return writeWorkingFile(path, content);
+
+			await run(['checkout', `--${side}`, '--', path], { signal: options?.signal });
 		},
 		// `force` makes the delete idempotent — a `deleted` resolution can meet an already-absent
 		// file (e.g. removed manually between generation and apply, while still unmerged in the
