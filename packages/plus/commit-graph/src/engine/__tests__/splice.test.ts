@@ -26,22 +26,17 @@ function comparable(r: Result): unknown {
 }
 
 // Run PRIOR over `priorCommits`, then NEXT over `nextCommits` twice — once plain (the oracle) and
-// once with `reconcile` + sticky hints (the splice path) — and assert byte-identical output plus
-// prior-identity reuse when the splice fired. Mirrors the renderer's exact orchestration.
+// once with `reconcile` (the splice path) — and assert byte-identical output plus prior-identity
+// reuse when the splice fired. Mirrors the renderer's exact orchestration.
 function assertSpliceMatchesFull(
 	priorCommits: readonly GraphCommit[],
 	nextCommits: readonly GraphCommit[],
 ): { spliced: boolean } {
 	const prior = processGraphRows(priorCommits);
 	const priorIdx = new Map(prior.rows.map((r, i) => [r.sha, i]));
-	const preferred = new Map(prior.rows.map(r => [r.sha, r.column]));
-	for (const [sha, column] of prior.unloadedColumns) {
-		preferred.set(sha, column);
-	}
 
-	const oracle = processGraphRows(nextCommits, { preferredColumns: preferred });
+	const oracle = processGraphRows(nextCommits);
 	const spliced = processGraphRows(nextCommits, {
-		preferredColumns: preferred,
 		reconcile: { priorRows: prior.rows, priorIndexOfSha: sha => priorIdx.get(sha) },
 	});
 
@@ -119,65 +114,22 @@ suite('engine/process prefix-change splice equivalence', () => {
 		assert.ok(r.spliced, 'expected the splice to fire below the WIP row');
 	});
 
-	test('a stub for a LOADED sha never ratchets the lane space', () => {
-		// Out-of-contract input (a parent emitted above its own loaded child) makes the child reserve a lane
-		// for an already-placed commit, which `finalizeLayout` then reports as an "unloaded" column for a sha
-		// that IS loaded. Feeding that phantom back as a preference used to add a lane on EVERY update
-		// (reproduced: maxColumn 2→13 over 12 cycles). The feedback order — stubs first, rows last, so a real
-		// row's column always wins — is what contains it (owned by `process.ts`'s `preferencesFromStability`,
-		// which the `stableFrom` token routes through; this hand-built map mirrors it).
-		const skewed = [
-			commit('P', ['Z'], undefined, 100),
-			commit('C', ['P'], undefined, 50),
-			commit('Z', [], undefined, 10),
-		];
-		let prior = processGraphRows(skewed);
-		const baseline = Math.max(...prior.rows.map(r => r.column));
-		for (let i = 1; i <= 12; i++) {
-			const preferred = new Map<string, number>();
-			for (const [sha, column] of prior.unloadedColumns) {
-				preferred.set(sha, column);
-			}
-			for (const r of prior.rows) {
-				preferred.set(r.sha, r.column);
-			}
-			prior = processGraphRows(skewed, {
-				preferredColumns: preferred,
-				reconcile: { priorRows: prior.rows },
-			});
-			const maxCol = Math.max(...prior.rows.map(r => r.column));
-			assert.strictEqual(maxCol, baseline, `run ${i}: lane space ratcheted to ${maxCol}`);
-		}
-	});
-
 	test('identical rows (no change) splice everything', () => {
 		const r = assertSpliceMatchesFull(base, [...base]);
 		assert.ok(r.spliced, 'expected a full splice');
 	});
 
-	test('successive sibling updates do not ratchet the lane space', () => {
-		// Mirrors the renderer's update loop: each run rebuilds preferences from the ENTIRE prior output.
-		// Lanes used to park past the deepest preferred column, so feeding them back raised the park floor
-		// on every update and the lane space ran away (seen live at column 187). Claims are release-bounded
-		// now, so a displaced tip takes the lowest genuinely-free column and the width tracks only the
-		// lanes that are really live — 10 concurrent sibling tips means 10 lanes, and nothing beyond.
+	test('successive sibling updates keep the lane space at the genuinely-live width', () => {
+		// Mirrors the renderer's update loop: a sibling tip lands on M on every pass, and each run splices
+		// against the prior one. The width must track only the lanes that are really live — 10 concurrent
+		// sibling tips means 10 lanes, and nothing beyond. (Lane space used to run away here, seen live at
+		// column 187, when a claim parked past the deepest lane instead of taking the lowest free one.)
 		let commits = [...base];
 		let prior = processGraphRows(commits);
 		const naturalMax = Math.max(...prior.rows.map(r => r.column));
 		for (let i = 1; i <= 10; i++) {
 			commits = [commit(`SIB${i}`, ['M']), ...commits];
-			const preferred = new Map<string, number>();
-			// Renderer's exact feedback order: stubs first, real rows last, so a row always wins the tie.
-			for (const [sha, column] of prior.unloadedColumns) {
-				preferred.set(sha, column);
-			}
-			for (const r of prior.rows) {
-				preferred.set(r.sha, r.column);
-			}
-			prior = processGraphRows(commits, {
-				preferredColumns: preferred,
-				reconcile: { priorRows: prior.rows },
-			});
+			prior = processGraphRows(commits, { reconcile: { priorRows: prior.rows } });
 			const maxCol = Math.max(...prior.rows.map(r => r.column));
 			// Every sibling is a live lane between its row and M, so `i` of them genuinely need `i` lanes.
 			// Anything past that is the engine inventing width — the exact failure this guards.

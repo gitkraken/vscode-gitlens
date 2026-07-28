@@ -21,7 +21,7 @@ One line per public module (see the `exports` map in `package.json`):
 | `engine/layout.js`     | Lane (column) allocation, including pinned-branch stacking and paging resume             |
 | `engine/edges.js`      | Edge state machine (starting/passThrough/ending) + memoization hash                      |
 | `engine/process.js`    | Low-level pipeline wiring layout + edges over canonical graph rows                       |
-| `engine/session.js`    | Stateful delta/resume/stability/reconcile owner for a consumer's graph dataset           |
+| `engine/session.js`    | Stateful delta/resume/reconcile owner for a consumer's graph dataset                     |
 | `engine/reconcile.js`  | Suffix identity reconciliation — restores row object identity across a prefix change     |
 | `engine/delta.js`      | Classifies a rows update as `initial` / `append` / `payload` / `replace`                 |
 | `engine/navigation.js` | Keyboard navigation targets over the laid-out rows                                       |

@@ -22,7 +22,7 @@ export function findSegmentTipContaining(segments: readonly LaneSegment[], sha: 
  * a trunk commit can't accidentally hide the entire mainline. Also excluded from the
  * auto/all default-mode set so a trunk lane never starts collapsed.
  */
-/** As {@link computeTrunkSegmentTip}, but also reports whether the tip came from HEAD's OWN segment.
+/** The tip of the segment to treat as the trunk, and whether it came from HEAD's OWN segment.
  *  `fromHead: false` means the top-row FALLBACK answered — HEAD has no segment yet (a lane holding a
  *  single placed commit isn't finalized into one), so the result is provisional and must be
  *  recomputed as more rows load. */
@@ -40,22 +40,6 @@ export function computeTrunkSegment(
 
 	const topRow = processedRows[0];
 	return { tip: topRow != null ? findSegmentTipContaining(segments, topRow.sha) : undefined, fromHead: false };
-}
-
-export function computeTrunkSegmentTip(
-	segments: readonly LaneSegment[],
-	processedRows: readonly ProcessedGraphRow[],
-	headSha: Sha | undefined,
-): Sha | undefined {
-	if (segments.length === 0) return undefined;
-
-	if (headSha != null) {
-		const tip = findSegmentTipContaining(segments, headSha);
-		if (tip != null) return tip;
-	}
-
-	const topRow = processedRows[0];
-	return topRow != null ? findSegmentTipContaining(segments, topRow.sha) : undefined;
 }
 
 /**

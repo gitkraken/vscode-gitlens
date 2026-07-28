@@ -7563,10 +7563,9 @@ export class GlLitGraph extends LitElement {
 		this.relayoutLanes();
 	};
 
-	// Lay the lanes out cold, discarding the package session's incremental and sticky-layout state.
-	// The next recompute runs the engine from scratch instead of taking payload/append fast paths.
-	// The result is what reopening the
-	// graph produces — the workaround this replaces — but entirely webview-side: no refetch and no host
+	// Lay the lanes out cold, discarding the package session's incremental state. The next recompute runs
+	// the engine from scratch instead of taking the payload/append fast paths. The result is what reopening
+	// the graph produces — the workaround this replaces — but entirely webview-side: no refetch and no host
 	// round-trip. Deliberately layout-only: folds, scope, columns and selection are left alone.
 	private relayoutLanes(): void {
 		if (this.rows == null || this.rows.length === 0) return;

@@ -30,35 +30,6 @@ interface InternalProcessResume {
 	rowCount: number;
 }
 
-// Opaque sticky-columns token — bundles a run's output so the NEXT run can reproduce its lane assignments
-// (colours + splice stability) without the consumer knowing how preferences are derived. Callers hold it
-// verbatim and pass it back as `stableFrom`; the shape is private, which is the point: the feed ordering
-// (below-window stubs first, real rows win) is an engine detail, not a contract the renderer must honour.
-declare const processStabilityBrand: unique symbol;
-export type GraphStability = { readonly [processStabilityBrand]: true };
-interface InternalStability {
-	rows: readonly ProcessedGraphRow[];
-	unloadedColumns: ReadonlyMap<Sha, number>;
-}
-
-// Sticky preferences from a prior run's output. Below-window stubs are seeded FIRST so a real row's column
-// always wins the tie: the two sets are disjoint for well-formed (children-first) rows, but a stray stub for
-// a sha that IS loaded must never clobber that row's true column, or the lane space ratchets by one on every
-// update. This is the sole home of that ordering — it used to live in the renderer.
-function preferencesFromStability(stability: GraphStability | undefined): ReadonlyMap<Sha, number> | undefined {
-	if (stability == null) return undefined;
-
-	const prior = stability as unknown as InternalStability;
-	const preferred = new Map<Sha, number>();
-	for (const [sha, column] of prior.unloadedColumns) {
-		preferred.set(sha, column);
-	}
-	for (const row of prior.rows) {
-		preferred.set(row.sha, row.column);
-	}
-	return preferred;
-}
-
 /**
  * Lays out canonical graph rows and returns the lane segments identified during layout — the `segments` array lets
  * the caller filter rows into a chip-collapsed view without re-running the engine.
@@ -73,21 +44,10 @@ export function processGraphRows(
 		/** Ordered branch heads to pin to successive columns (0, 1, 2, …) — see `assignPinnedColumns`. */
 		pinnedShas?: readonly Sha[];
 		syntheticChildren?: ReadonlySet<Sha>;
-		/** Resume token from a prior call to continue the pass over freshly-paged rows in O(page) time. */
+		/** Resume token from a prior call: the layout and edge pass then runs only over freshly-paged rows.
+		 *  The surrounding bookkeeping still rebuilds full collections, so a page costs O(loaded + page)
+		 *  overall — pointer copies, but do not read this as O(page). */
 		resume?: GraphProcessResume;
-		/** Sticky-columns token from a prior run — reproduces its lane assignments. The preferred consumer
-		 *  API: opaque, so the caller never encodes the preference-derivation. Ignored if `preferredColumns`
-		 *  is also given (an explicit map wins, for low-level/test callers). */
-		stableFrom?: GraphStability;
-		/** Explicit sticky-column hints (sha → column) — the low-level escape hatch; most callers pass
-		 *  `stableFrom` instead. See `computeColumnsAndSegments`. */
-		preferredColumns?: ReadonlyMap<Sha, number>;
-		/** Skip renormalize's cold-comparison pass. The caller owns this decision because both reasons to
-		 *  skip are facts only it has: the update left topology IDENTICAL (so the sticky columns are a proven
-		 *  fixpoint and cold cannot differ), or only a SUBSET of rows is on screen (so `laneArea`, which sums
-		 *  over every row, would be ranking layouts by rows the user cannot see). Leaving it unset is always
-		 *  safe — it only costs the wasted pass. */
-		skipRenormalize?: boolean;
 		/**
 		 * Prefix-change reconciliation: the layout still runs over everything (it's the cheap pass —
 		 * segments/unloaded columns must be exact), but the EDGE pass — the expensive one — stops as
@@ -107,14 +67,8 @@ export function processGraphRows(
 	unloadedColumns: ReadonlyMap<Sha, number>;
 	/** Resume token to pass back on the next page-in for an incremental append. */
 	resume: GraphProcessResume;
-	/** Sticky-columns token to pass back as `stableFrom` on the next update, to reproduce these lanes. */
-	stability: GraphStability;
 	/** The spans actually reused from `reconcile.priorRows` (prior row identity), when any. */
 	reconciled?: ReconciledSuffix;
-	/** True when this run DISCARDED the sticky preferences and adopted a cold layout because the sticky
-	 *  one had degraded (see the renormalize block). Lets the caller expect a wholesale lane reshuffle for
-	 *  this one update — colours/columns move — instead of the usual stable relayout. */
-	renormalized?: boolean;
 } {
 	// Incremental append: continue from the prior snapshot when this call is a pure APPEND of the SAME
 	// prefix (older commits added at the bottom), with no pinned lanes and no scope (synthetic edges) —
@@ -154,46 +108,16 @@ export function processGraphRows(
 			segments: segments,
 			unloadedColumns: unloadedColumns,
 			resume: nextResume as unknown as GraphProcessResume,
-			stability: { rows: allRows, unloadedColumns: unloadedColumns } as unknown as GraphStability,
 		};
 	}
 
 	const rows = graphRows;
-	// An explicit map wins (test/low-level callers); otherwise derive from the opaque token.
-	const preferredColumns = options?.preferredColumns ?? preferencesFromStability(options?.stableFrom);
-	let layout = computeColumnsAndSegments(rows, {
-		pinnedShas: options?.pinnedShas,
-		preferredColumns: preferredColumns,
-	});
-
-	// RENORMALIZE. Sticky preferences are a ratchet in one direction: a lane that can't get a low column on
-	// the update it arrives keeps that column forever, and because a lane spans its tip down to its fork
-	// point, ONE badly-placed tip inflates the gutter for every row it crosses (measured: a tip that belongs
-	// on column 1 parked on column 9 and dragged a 250-row lane through the whole visible graph). Nothing
-	// recovers from it, which is why reopening the graph — a preference-less run — "fixes" it.
-	//
-	// So do that automatically. A cold layout is the layout-only (cheap) pass — the edge pass, the expensive
-	// half, runs once below over whichever layout we keep — so we can afford to compute it and COMPARE by
-	// gutter area (`laneArea`), then keep the sticky layout unless cold is tighter by more than one full
-	// column of height. The slack is what preserves stability: in steady state the sticky layout reproduces
-	// its prior columns and cold cannot beat it by a whole column, so nothing reshuffles; only a genuinely
-	// degraded layout (a far-right lane dragging the gutter out) loses to cold and gets discarded. Skipped
-	// when the run is already preference-less (a cold open / paging append is optimal by construction) or
-	// pinned (a pinned layout isn't comparable to an unpinned cold one).
-	let renormalized = false;
-	if (
-		preferredColumns != null &&
-		preferredColumns.size > 0 &&
-		options?.pinnedShas == null &&
-		options?.skipRenormalize !== true
-	) {
-		const cold = computeColumnsAndSegments(rows);
-		if (cold.laneArea + rows.length < layout.laneArea) {
-			layout = cold;
-			renormalized = true;
-		}
-	}
-	const { rows: processed, segments, unloadedColumns, snapshot } = layout;
+	const {
+		rows: processed,
+		segments,
+		unloadedColumns,
+		snapshot,
+	} = computeColumnsAndSegments(rows, { pinnedShas: options?.pinnedShas });
 	// Prefix-change reconciliation: align the fresh LAYOUT against the prior rows so the edge pass
 	// can stop at carry convergence and adopt the prior row objects (edges included) wholesale.
 	// Scoped/pinned runs are excluded — their edges carry synthetic/pinned state a prior plain run
@@ -240,8 +164,6 @@ export function processGraphRows(
 		segments: segments,
 		unloadedColumns: unloadedColumns,
 		resume: nextResume as unknown as GraphProcessResume,
-		stability: { rows: processed, unloadedColumns: unloadedColumns } as unknown as GraphStability,
 		reconciled: reconciled,
-		renormalized: renormalized,
 	};
 }

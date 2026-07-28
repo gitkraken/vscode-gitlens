@@ -8,7 +8,7 @@ import {
 	computeDefaultCollapsedSet,
 	computeDroppedShas,
 	computeSegmentMaps,
-	computeTrunkSegmentTip,
+	computeTrunkSegment,
 	spliceDroppedRows,
 } from '../laneCollapse.js';
 
@@ -37,7 +37,7 @@ function collapsePass(
 	filtered: readonly ProcessedGraphRow[];
 	collapsedByTipSha: ReadonlyMap<Sha, LaneSegment>;
 } {
-	const trunk = computeTrunkSegmentTip(segments, rows, undefined);
+	const trunk = computeTrunkSegment(segments, rows, undefined).tip;
 	const maps = computeSegmentMaps({
 		segments: segments,
 		trunkSegmentTip: trunk,
@@ -61,7 +61,7 @@ function assertCollapseAppendMatchesFull(commits: readonly GraphCommit[]): void 
 		const appended = processGraphRows(commits, { resume: prefix.resume });
 
 		// Freeze the default set as of the PREFIX run — exactly what the renderer does on appends.
-		const trunkPrefix = computeTrunkSegmentTip(prefix.segments, prefix.rows, undefined);
+		const trunkPrefix = computeTrunkSegment(prefix.segments, prefix.rows, undefined).tip;
 		const frozen = computeDefaultCollapsedSet({
 			lanesFoldingDefault: 'all',
 			segments: prefix.segments,
@@ -199,7 +199,7 @@ function assertCollapseSpliceMatchesFull(
 	if (reconciled == null) return false;
 
 	// Freeze the collapsed set as of the PRIOR run ('all' mode) — what the renderer carries over.
-	const trunkPrior = computeTrunkSegmentTip(prior.segments, prior.rows, undefined);
+	const trunkPrior = computeTrunkSegment(prior.segments, prior.rows, undefined).tip;
 	const frozen = computeDefaultCollapsedSet({
 		lanesFoldingDefault: 'all',
 		segments: prior.segments,

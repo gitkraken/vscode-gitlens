@@ -3,15 +3,14 @@
  *
  * A consumer supplies its native source rows plus a bridge to the canonical `GraphCommit`
  * shape. The session owns delta classification, payload alignment, incremental paging resume,
- * sticky-layout stability, rewrite/reroot recovery, suffix reconciliation, and the topology
- * indexes derived from the engine result. It imports no host, DOM, or rendering-framework types.
+ * suffix reconciliation, and the topology indexes derived from the engine result. It imports no
+ * host, DOM, or rendering-framework types.
  */
 
-import { computeTrunkSegment, computeTrunkSegmentTip } from '../laneCollapse.js';
+import { computeTrunkSegment } from '../laneCollapse.js';
 import type { RowsDelta, RowTopology } from './delta.js';
-import { classifyRowsDelta, isHistoryRewrite, isTrunkReroot } from './delta.js';
-import { identifyFirstParentChain } from './layout.js';
-import type { GraphProcessResume, GraphStability } from './process.js';
+import { classifyRowsDelta } from './delta.js';
+import type { GraphProcessResume } from './process.js';
 import { processGraphRows } from './process.js';
 import type { ReconciledSuffix } from './reconcile.js';
 import type { GraphCommit, LaneSegment, ProcessedGraphRow, Sha } from './types.js';
@@ -25,7 +24,6 @@ export type CommitGraphSessionTransition =
 			kind: 'replace';
 			source: Exclude<RowsDelta['kind'], 'initial'> | 'view';
 			reconciled?: ReconciledSuffix;
-			renormalized?: boolean;
 	  };
 
 export type CommitGraphSessionUpdate<TSource extends RowTopology, TCommit extends GraphCommit> = {
@@ -127,16 +125,14 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 	private _workdirShas: ReadonlySet<Sha> = new Set();
 	private _wipSegmentTips: ReadonlySet<Sha> = new Set();
 	private _resume?: GraphProcessResume;
-	private _stability?: GraphStability;
 	private _syntheticChildren?: ReadonlySet<Sha>;
 	private _pinnedShas?: readonly Sha[];
 	private readonly _lastIndexedSegmentByTip = new Map<Sha, LaneSegment>();
 
-	/** Force the next update through a cold layout without changing the current dataset or view intent. */
+	/** Force the next update through a full engine pass without changing the current dataset or view intent. */
 	resetLayout(): void {
 		this._sourceRows = undefined;
 		this._resume = undefined;
-		this._stability = undefined;
 	}
 
 	update(input: CommitGraphSessionUpdate<TSource, TCommit>): CommitGraphSessionState<TCommit> {
@@ -180,11 +176,16 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		// Identical topology can retain the entire engine plane. HEAD is payload-derived, so verify
 		// that moving it does not select a different trunk segment before taking the fast path.
 		if (sourceDelta.kind === 'payload' && engineOptionsUnchanged && this._rows.length > 0) {
-			const trunkSegmentTip = computeTrunkSegmentTip(this._segments, this._rows, input.headSha);
-			if (trunkSegmentTip === this._trunkSegmentTip) {
+			const trunk = computeTrunkSegment(this._segments, this._rows, input.headSha);
+			if (trunk.tip === this._trunkSegmentTip) {
 				this._sourceRows = input.sourceRows;
 				this._commits = commits;
 				this._headSha = input.headSha;
+				// The tip is unchanged, but its PROVENANCE can flip when HEAD moves — a HEAD that is no
+				// longer loaded falls back to the topmost row, which may resolve to the same tip. Leaving
+				// the old provenance would let a later append retain a fallback trunk as if HEAD had
+				// selected it, so the real segment never replaces it when it materializes.
+				this._trunkFromHead = trunk.fromHead;
 				this.rememberInput(input, syntheticChildren, pinnedShas);
 				return this.state({ kind: 'payload' });
 			}
@@ -203,39 +204,9 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 			result = processGraphRows(commits, { resume: this._resume });
 			transition = { kind: 'append', firstNewIndex: sourceDelta.firstNewIndex };
 		} else {
-			const newHeadRow =
-				input.headSha != null ? input.sourceRows.find(row => row.sha === input.headSha) : undefined;
-			let freshParents: Map<Sha, readonly Sha[]> | undefined;
-			let priorTrunkChain: ReadonlySet<Sha> | undefined;
-			const trunkReroot = isTrunkReroot(this._headSha, input.headSha, {
-				firstParentOf: sha => {
-					if (newHeadRow?.sha === sha) return newHeadRow.parents[0];
-
-					freshParents ??= new Map(input.sourceRows.map(row => [row.sha, row.parents]));
-					return freshParents.get(sha)?.[0];
-				},
-				wasLaidOut: sha => this._indexBySha.has(sha),
-				isOnPriorTrunk: sha => {
-					if (this._headSha == null) return false;
-
-					priorTrunkChain ??= identifyFirstParentChain(this._rows, [this._headSha]);
-					return priorTrunkChain.has(sha);
-				},
-			});
-			const stableFrom =
-				this._rows.length > 0 &&
-				!trunkReroot &&
-				!viewSwitched &&
-				(sourceDelta.kind === 'payload' ||
-					(sourceDelta.kind === 'replace' && !isHistoryRewrite(priorSourceRows, input.sourceRows)))
-					? this._stability
-					: undefined;
-
 			result = processGraphRows(commits, {
 				syntheticChildren: syntheticChildren,
 				pinnedShas: pinnedShas,
-				stableFrom: stableFrom,
-				skipRenormalize: sourceDelta.kind === 'payload' || syntheticChildren != null,
 				reconcile:
 					sourceDelta.kind === 'replace' && this._rows.length > 0
 						? {
@@ -251,7 +222,6 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 							kind: 'replace',
 							source: viewSwitched ? 'view' : sourceDelta.kind,
 							reconciled: result.reconciled,
-							renormalized: result.renormalized,
 						};
 		}
 
@@ -261,7 +231,6 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		this._segments = result.segments;
 		this._unloadedColumns = result.unloadedColumns;
 		this._resume = syntheticChildren == null && pinnedShas == null ? result.resume : undefined;
-		this._stability = result.stability;
 		const priorHeadSha = this._headSha;
 		this._headSha = input.headSha;
 		this.rebuildIndexesAndAnchors(transition.kind === 'append' ? priorRowCount : 0, priorHeadSha);
@@ -366,7 +335,6 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		this._workdirShas = new Set();
 		this._wipSegmentTips = new Set();
 		this._resume = undefined;
-		this._stability = undefined;
 		this._lastIndexedSegmentByTip.clear();
 		this.rememberInput(input, normalizedSet(input.syntheticChildren), normalizedArray(input.pinnedShas));
 		return this.state({ kind: 'reset', source: source });
