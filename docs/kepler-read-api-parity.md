@@ -12,6 +12,10 @@ GKDEV-3537, GKDEV-3538); core-gitlens consumes them from that version on.
 Verdict legend: **first-class** (honored) · **best-effort** (honored where the provider exposes it cheaply,
 otherwise `undefined`) · **n/a** (provider has no such concept).
 
+For how to actually consume the resulting facade — runtime wiring, the paging/warning contracts, and the
+per-provider capability matrix — see [`core-gitlens-integrations.md`](./core-gitlens-integrations.md). This
+document stays the decision record for the parity gaps themselves.
+
 ## 1. Per-connection reads
 
 `getMyIssuesForRepos` / `getMyPullRequestsForRepos` accept an optional trailing `connectionId` and read with
