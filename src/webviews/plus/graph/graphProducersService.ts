@@ -68,6 +68,11 @@ export type GraphProducersServiceContext = {
 	addPendingNotification: (notification: IpcNotification<any>) => void;
 };
 
+/** How many refs `onGetMissingRefMetadata` enriches at once. Sized to keep a provider's connection pool
+ *  busy without opening a socket per ref: past a handful the provider queues them anyway, so the extra
+ *  concurrency buys no throughput and only costs connection setup on the extension host's event loop. */
+const refMetadataConcurrency = 6;
+
 /** Host-side producers cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns the
  *  refsMetadata enrichment pipeline (fetch/dedup-buffer/invalidations/integration-flip strips + the
  *  debounced publisher mark) and the branchState channel (full + fast-path pushes with the last-sent
@@ -177,18 +182,49 @@ export class GraphProducersService {
 		// branch's upstream pill would still offer the actions `+current` exists to withhold.
 		const currentBranchName = (await this.container.git.getRepositoryService(repoPath).branches.getBranch())?.name;
 
+		// One branch enumeration for the whole request, indexed by id. Previously each ref re-read the full
+		// branch list and filtered it down to a single match — the list is cached so it cost no extra git,
+		// but it re-filtered every branch once per requested ref (`getBranches` applies `filter` client-side
+		// over the complete set), which is pure overhead on a request that can carry dozens of refs.
+		//
+		// Guarded because this `await` now sits OUTSIDE the per-ref fan-out that used to contain it: this
+		// handler is dispatched from VS Code's `onDidReceiveMessage`, which neither awaits nor catches the
+		// promise it returns, so an escaping throw would surface as a bare unhandled rejection.
+		//
+		// BAIL on failure — do NOT fall through with an empty map. Every id would then take the
+		// `branch == null` path below and be written as `null`, which is the authoritative "resolved, nothing
+		// here" value: the client renders those pills with no PR/issue/upstream and the per-id dedup considers
+		// them answered, so one transient enumeration failure would blank the whole visible ref set until an
+		// unrelated invalidation. Leaving the entries untouched keeps their prior metadata and lets the
+		// webview re-request, which is what a per-ref failure did before this call was hoisted.
+		// `getBranches` does NOT throw on a failed enumeration — it swallows non-cancellation errors and
+		// resolves an empty (or current-branch-only) result — so the `catch` alone can't hold that line.
+		// Bail on an empty enumeration too: a repo with refs to decorate always has at least one branch, so
+		// empty here means the read failed, not that the answer is nothing.
+		let branchesById: Map<string, GitBranch>;
+		try {
+			const branches = await this.container.git.getRepositoryService(repoPath).branches.getBranches();
+			if (!branches.values.length) return;
+
+			branchesById = new Map(branches.values.map(b => [b.id, b]));
+		} catch {
+			return;
+		}
+
 		async function getRefMetadata(
 			this: GraphProducersService,
 			id: string,
 			missingTypes: GraphMissingRefsMetadataType[],
 		) {
+			// Never RESURRECT a cleared map: `resetRepositoryState` sets this to `undefined` on a repo
+			// switch, and a resolution still in flight for the outgoing repo must not write into the
+			// incoming one. `null` (feature off) is likewise not ours to overwrite.
+			if (this._refsMetadata === undefined && this.repository?.path !== repoPath) return;
+			if (this._refsMetadata === null) return;
+
 			this._refsMetadata ??= new Map();
 
-			const branch = (
-				await this.container.git
-					.getRepositoryService(repoPath)
-					.branches.getBranches({ filter: b => b.id === id })
-			)?.values?.[0];
+			const branch = branchesById.get(id);
 			const metadata = { ...this._refsMetadata.get(id) };
 
 			if (branch == null) {
@@ -284,17 +320,23 @@ export class GraphProducersService {
 					issues = await getBranchEnrichedAutolinks(this.container, branch).then(async enrichedAutolinks => {
 						if (enrichedAutolinks == null) return undefined;
 
+						// `allSettled`, NOT `all`: each of these is its own provider round-trip, and `all` rejects
+						// on the first failure while leaving every OTHER in-flight rejection unhandled — which
+						// surfaces as a bare "rejected promise not handled" with no stack. A single autolink
+						// that fails to resolve should drop that one issue, not the whole branch's metadata.
 						return (
-							await Promise.all(
+							await Promise.allSettled(
 								Array.from(
 									enrichedAutolinks.values(),
 									async ([issueOrPullRequestPromise]) => issueOrPullRequestPromise ?? undefined,
 								),
 							)
-						).filter<IssueShape>(
-							(a?: unknown): a is IssueShape =>
-								a != null && a instanceof Object && 'type' in a && a.type === 'issue',
-						);
+						)
+							.map(r => getSettledValue(r))
+							.filter<IssueShape>(
+								(a?: unknown): a is IssueShape =>
+									a != null && a instanceof Object && 'type' in a && a.type === 'issue',
+							);
 					});
 
 					if (!issues?.length) {
@@ -405,14 +447,38 @@ export class GraphProducersService {
 			}
 		}
 
-		const promises: Promise<void>[] = [];
+		// Bounded concurrency: `pullRequest`/`issue` each cost a provider round-trip, so an unbounded fan-out
+		// fires one request per ref at once — a repo with many branches opens dozens of simultaneous
+		// connections, which the provider throttles anyway (so nothing lands sooner) while the socket/DNS
+		// churn stalls the extension host. Same worker-pool shape as the WIP probe in `graphWipService`.
+		const ids = Object.keys(params.metadata);
+		if (ids.length) {
+			let next = 0;
+			// Publish as results land, not only when the pool drains. Bounding the fan-out means the request
+			// now completes in ceil(N/concurrency) waves instead of one — with a single publish at the end,
+			// a large ref set would show NO badges until the last wave, and a graph rebuild or scroll-away
+			// mid-flight would discard every resolved ref. `updateRefsMetadata` is already the debounced
+			// publisher, so calling it per ref coalesces rather than shipping N payloads.
+			await Promise.allSettled(
+				Array.from({ length: Math.min(refMetadataConcurrency, ids.length) }, async () => {
+					while (next < ids.length) {
+						// Re-check the repo BEFORE claiming the next id. Bounding the fan-out means ids are
+						// dequeued across several waves, so a repo switch mid-request would otherwise let a
+						// worker start work for the OUTGOING repo and publish it into the incoming one —
+						// `resetRepositoryState` clears `_refsMetadata`, and `getRefMetadata`'s `??=` would
+						// simply recreate it.
+						if (this.repository?.path !== repoPath) return;
 
-		for (const id of Object.keys(params.metadata)) {
-			promises.push(getRefMetadata.call(this, id, params.metadata[id]));
-		}
-
-		if (promises.length) {
-			await Promise.allSettled(promises);
+						const id = ids[next++];
+						// Per-ref failures must not sink the pool — the outer `allSettled` only covers the
+						// workers, and one rejection here would strand every ref this worker hadn't reached.
+						try {
+							await getRefMetadata.call(this, id, params.metadata[id]);
+							this.updateRefsMetadata();
+						} catch {}
+					}
+				}),
+			);
 		}
 		this.updateRefsMetadata();
 	}
@@ -537,7 +603,13 @@ export class GraphProducersService {
 			return;
 		}
 
-		this._notifyDidChangeRefsMetadataDebounced ??= debounce(this.notifyDidChangeRefsMetadata.bind(this), 100);
+		// `maxWait` matters because the caller invokes this once per resolved ref: with a bounded worker
+		// pool over many refs, resolutions arrive in a steady stream that keeps rescheduling a trailing-only
+		// debounce, so badges would stay empty for the whole burst and then appear at once. The ceiling
+		// turns that into periodic partial publishes, which is what the incremental delta channel is for.
+		this._notifyDidChangeRefsMetadataDebounced ??= debounce(this.notifyDidChangeRefsMetadata.bind(this), 100, {
+			maxWait: 500,
+		});
 		this._notifyDidChangeRefsMetadataDebounced();
 	}
 
