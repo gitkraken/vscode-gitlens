@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createTestRepo } from './helpers.js';
 
@@ -410,6 +411,73 @@ suite('DiffSubProvider.includeUntracked', () => {
 				1,
 				'When a pathspec filter is active, untracked files must not be merged into the count',
 			);
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+// Guards the assumption the review fix (#5586) rests on: `git diff` (working-vs-index) never contains
+// untracked content, but after `git add -N` (intent-to-add) it does — and unstaging cleanly restores the
+// untracked state. `getDiff(uncommitted)` maps to that unstaged `git diff`.
+suite('DiffSubProvider.getDiff — untracked via intent-to-add (#5586)', () => {
+	test('unstaged diff omits untracked files until intent-to-add staging, then restores', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'tracked.txt', 'v1\n', 'Add tracked.txt');
+			// An unstaged change to a tracked file + a brand-new untracked file.
+			writeFileSync(join(r.path, 'tracked.txt'), 'v2\n');
+			writeFileSync(join(r.path, 'untracked.txt'), 'brand new\n');
+
+			const before = await r.provider.diff.getDiff?.(r.path, uncommitted);
+			assert.ok(before?.contents, 'Expected an unstaged diff for the tracked change');
+			assert.ok(before.contents.includes('tracked.txt'), 'Unstaged diff should include the tracked change');
+			assert.ok(
+				!before.contents.includes('untracked.txt'),
+				'Root cause: untracked files are absent from the unstaged diff',
+			);
+
+			// Mirror the review fix: stage untracked with intent-to-add, then re-diff.
+			const untracked = (await r.provider.status?.getUntrackedFiles(r.path))?.map(f => f.path) ?? [];
+			assert.deepStrictEqual(untracked, ['untracked.txt'], 'Expected exactly the untracked file');
+			await r.provider.staging?.stageFiles(r.path, untracked, { intentToAdd: true });
+
+			const after = await r.provider.diff.getDiff?.(r.path, uncommitted);
+			assert.ok(after?.contents, 'Expected an unstaged diff after intent-to-add staging');
+			assert.ok(
+				after.contents.includes('untracked.txt'),
+				'After intent-to-add, the untracked file must appear in the unstaged diff',
+			);
+			assert.ok(after.contents.includes('brand new'), 'Untracked file contents must be present');
+			assert.ok(after.contents.includes('tracked.txt'), 'Tracked change must still be present');
+
+			// Cleanup restores the untracked state (working tree unchanged).
+			await r.provider.staging?.unstageFiles(r.path, untracked);
+			const restored = (await r.provider.status?.getUntrackedFiles(r.path))?.map(f => f.path) ?? [];
+			assert.deepStrictEqual(restored, ['untracked.txt'], 'Unstaging must restore the file to untracked');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('untracked-only working tree: unstaged diff is empty until intent-to-add (#5586 hard failure)', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'a.txt', 'a\n', 'Add a.txt');
+			writeFileSync(join(r.path, 'only-untracked.txt'), 'content\n');
+
+			// No tracked changes → the unstaged diff is empty. This is what surfaced as "No changes found".
+			const before = await r.provider.diff.getDiff?.(r.path, uncommitted);
+			assert.ok(!before?.contents, 'With only untracked content, the unstaged diff is empty');
+
+			const untracked = (await r.provider.status?.getUntrackedFiles(r.path))?.map(f => f.path) ?? [];
+			await r.provider.staging?.stageFiles(r.path, untracked, { intentToAdd: true });
+
+			const after = await r.provider.diff.getDiff?.(r.path, uncommitted);
+			assert.ok(after?.contents, 'After intent-to-add, the untracked-only diff is non-empty');
+			assert.ok(after.contents.includes('only-untracked.txt'), 'The untracked file must be reviewable');
+
+			await r.provider.staging?.unstageFiles(r.path, untracked);
 		} finally {
 			r.cleanup();
 		}
