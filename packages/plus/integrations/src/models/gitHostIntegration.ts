@@ -42,6 +42,7 @@ import {
 	toProviderIssueStates,
 	toProviderPullRequestStates,
 } from '../providers/models.js';
+import type { ProvidersApi } from '../providers/providersApi.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
 import type { IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
@@ -594,6 +595,57 @@ export abstract class GitHostIntegration<
 		rev: string,
 	): Promise<PullRequest | undefined>;
 
+	/**
+	 * Memoized identity lookups backing filter resolution. Keyed by the session's token fingerprint plus the
+	 * scope of the lookup (base URL, and the Azure organization for the per-instance variant), so a different
+	 * account, host, or org never reuses an entry and a rotated token simply misses.
+	 *
+	 * Not cleared when the token changes: one integration instance serves every connection of its provider
+	 * (multi-account), so clearing on a fingerprint change would make two accounts reading in alternation
+	 * evict each other and defeat the memo. Entries are bounded by tokens x hosts x orgs seen — a handful for
+	 * the life of the integration.
+	 */
+	private readonly _filterAccounts = new Map<string, Promise<ProviderAccount | undefined>>();
+
+	/**
+	 * Resolves the account a repo-scoped read turns `IssueFilter`/`PullRequestFilter` into a provider
+	 * login/id with, memoized per token+scope.
+	 *
+	 * Every FILTERED read needs this, and `ProvidersApi.getCurrentUser` is a bare round trip — unlike
+	 * {@link IntegrationBase.getCurrentAccount}, which the host caches. So a consumer that fans ONE page out
+	 * into several filtered reads paid one identity request PER read, all resolving the same account: a
+	 * per-user-facet fan-out (author + assignee + review-requested) doubled its request count, and paid it
+	 * again on every page turn.
+	 *
+	 * The promise is memoized rather than the value, so concurrent facets share one in-flight request instead
+	 * of racing. A rejection is evicted so the next read retries rather than caching a failure — matching how
+	 * `getCurrentAccount` invalidates on error.
+	 */
+	private getFilterAccount(
+		api: ProvidersApi,
+		session: ProviderAuthenticationSession,
+		customUrl: string | undefined,
+		organization?: string,
+	): Promise<ProviderAccount | undefined> {
+		const key = `${this.getSessionFingerprint(session)}:${customUrl ?? ''}:${organization ?? ''}`;
+
+		let pending = this._filterAccounts.get(key);
+		if (pending == null) {
+			const tokenWithInfo = toTokenWithInfo(this.authProvider.id, session);
+			pending = (
+				organization != null
+					? api.getCurrentUserForInstance(tokenWithInfo, organization, { baseUrl: customUrl })
+					: api.getCurrentUser(tokenWithInfo, { baseUrl: customUrl })
+			).catch((ex: unknown) => {
+				this._filterAccounts.delete(key);
+				throw ex;
+			});
+			this._filterAccounts.set(key, pending);
+		}
+
+		return pending;
+	}
+
 	async getMyIssuesForRepos(
 		reposOrRepoIds: ProviderReposInput,
 		options?: {
@@ -693,11 +745,7 @@ export abstract class GitHostIntegration<
 
 				let userAccount: ProviderAccount | undefined;
 				try {
-					userAccount = await api.getCurrentUserForInstance(
-						toTokenWithInfo(providerId, session),
-						organization,
-						{ baseUrl: customUrl },
-					);
+					userAccount = await this.getFilterAccount(api, session, customUrl, organization);
 				} catch (ex) {
 					Logger.error(ex, 'getIssuesForRepos');
 					return { error: toError(ex), duration: performance.now() - start };
@@ -846,7 +894,7 @@ export abstract class GitHostIntegration<
 
 			let userAccount: ProviderAccount | undefined;
 			try {
-				userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session), { baseUrl: customUrl });
+				userAccount = await this.getFilterAccount(api, session, customUrl);
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
 				return { error: toError(ex), duration: performance.now() - start };
@@ -1112,22 +1160,14 @@ export abstract class GitHostIntegration<
 
 				const organization: string = first(organizations.values())!;
 				try {
-					userAccount = await api.getCurrentUserForInstance(
-						toTokenWithInfo(providerId, session),
-						organization,
-						{
-							baseUrl: customUrl,
-						},
-					);
+					userAccount = await this.getFilterAccount(api, session, customUrl, organization);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return { error: toError(ex), duration: performance.now() - start };
 				}
 			} else {
 				try {
-					userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session), {
-						baseUrl: customUrl,
-					});
+					userAccount = await this.getFilterAccount(api, session, customUrl);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return { error: toError(ex), duration: performance.now() - start };
