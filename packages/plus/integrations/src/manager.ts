@@ -85,6 +85,27 @@ export type ClosedPullRequestSweepOptions = Omit<PullRequestSweepCommonOptions, 
 /**
  * Public, provider-neutral integration facade. Provider clients and integration model instances remain private
  * implementation details so SDK changes don't expand this contract.
+ *
+ * ## Paging contract
+ *
+ * Every paged read (`listRepos`, `listPullRequestsPage`, `listIssuesPage`, `listIssueTrackerIssuesPage`,
+ * `broadenIssues`) takes both `page` and `cursor`, and the two are NOT interchangeable:
+ *
+ * - **Supplying `cursor` guarantees a single upstream round trip per provider scope.** A threaded continuation
+ *   is handed to the provider as-is; the facade never walks the pages before it. This is a guarantee, not an
+ *   optimization: a consumer that threads `cursor` back pays O(1) requests per page.
+ * - **Supplying only `page` (> 1) may cost O(page) upstream requests.** A cursor-only read (GitHub's
+ *   repo-scoped and account-wide searches, the account-wide "my PRs"/issue reads, the broaden fan-out) can't be
+ *   addressed by number, so the facade drains the pages before the requested one internally and returns just
+ *   page N. That drain is the supported fallback for a page-number-only consumer (e.g. the first read after a
+ *   refresh, where no cursor was persisted) and MUST be kept — it is not dead code once a consumer threads
+ *   cursors, it is the other half of this contract.
+ * - Prefer `cursor` when both are available. Pass `page` alongside it so the result's positional
+ *   `page.currentPage` reflects where the caller is (the convention is documented on `ProviderPageInfo`); the
+ *   cursor, not the page number, is what actually advances the read.
+ * - `hasMore` is only ever true with a `cursor` the caller can act on. A provider that reports another page
+ *   but hands back no usable continuation is reported as terminal-but-incomplete (`hasMore: false` +
+ *   `page.truncated`), never as a page that can't be requested.
  */
 export interface IntegrationManager {
 	readonly onDidChange: Event<ConfiguredIntegrationsChangeEvent>;
@@ -130,6 +151,7 @@ export interface IntegrationManager {
 		org?: string;
 		project?: string;
 		page?: number;
+		/** Continuation from a prior page's `cursor`; supplying it costs exactly one upstream request per scope. */
 		cursor?: string;
 		/**
 		 * Requested page size. Advisory: the repos read core is cursor-only and takes no page size, so the
@@ -145,7 +167,12 @@ export interface IntegrationManager {
 		repos?: ProviderRepositoriesInput;
 		states?: PullRequestStateFilter[];
 		filters?: PullRequestFilter[];
+		/**
+		 * Requested 1-based page. Without a `cursor` this may cost O(page) upstream requests on a cursor-only
+		 * read (the account-wide path, and repo-scoped GitHub/GHE), which the facade drains internally.
+		 */
 		page?: number;
+		/** Continuation from a prior page's `cursor`; supplying it costs exactly one upstream request per scope. */
 		cursor?: string;
 		/**
 		 * Requested page size, honored on the repo-scoped path. The account-wide read (no `repos`) is
@@ -174,7 +201,12 @@ export interface IntegrationManager {
 		project?: string;
 		filters?: IssueFilter[];
 		includeAllAssignees?: boolean;
+		/**
+		 * Requested 1-based page. Without a `cursor` this may cost O(page) upstream requests on a cursor-only
+		 * read (the account-wide path, and repo-scoped GitHub/GHE), which the facade drains internally.
+		 */
 		page?: number;
+		/** Continuation from a prior page's `cursor`; supplying it costs exactly one upstream request per scope. */
 		cursor?: string;
 		itemsPerPage?: number;
 		forceSync?: boolean;
@@ -191,6 +223,7 @@ export interface IntegrationManager {
 		includeAllAssignees?: boolean;
 		forceSync?: boolean;
 		page?: number;
+		/** Continuation from a prior page's `cursor`. Windows of projects are addressable by number, so this is equivalent to `page`. */
 		cursor?: string;
 		/**
 		 * Page size in PROJECTS, not issues (default 20): these providers have no cross-project issue cursor, so
@@ -204,7 +237,12 @@ export interface IntegrationManager {
 	sweepClosedPullRequests(options?: ClosedPullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	broadenIssues(options: {
 		orgs: ProviderBroadenOrg[];
+		/**
+		 * Requested 1-based page. Without a `cursor` the fan-out is re-run once per prior page (O(page) rounds),
+		 * since a per-org cursor bundle is the only way to address a later page.
+		 */
 		page?: number;
+		/** Continuation from a prior page's `cursor`; supplying it runs exactly one fan-out round. */
 		cursor?: string;
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>>;
