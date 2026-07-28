@@ -66,7 +66,13 @@ export interface IssueLabel {
 
 export interface IssueMember {
 	id: string;
-	name: string;
+	/**
+	 * Absent when the provider exposes no display name for the member. Optional on purpose: a fallback string
+	 * invented here (`'unknown'`, `''`) can't be told apart from a real name downstream, so it can't be undone by a
+	 * consumer that needs to render something else — or nothing at all, as when the member feeds an AI prompt.
+	 * Each consumer picks its own presentation.
+	 */
+	name?: string;
 	/** The provider's handle for this person, when it has one — GitHub's login, Azure's `uniqueName` (a UPN,
 	 *  so an email), Bitbucket's mutable `nickname`. Display/labelling only: it is neither guaranteed present
 	 *  (GitLab's native mapper has none) nor a stable identity, so never key a match off it. */
