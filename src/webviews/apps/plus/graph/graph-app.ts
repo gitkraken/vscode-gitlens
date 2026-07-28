@@ -28,6 +28,7 @@ import type {
 	GraphShowAction,
 	GraphSidebarPanel,
 	OverviewRecentThreshold,
+	State,
 	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
 import {
@@ -382,6 +383,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private get fallbackRepoPath(): string | undefined {
 		return getSelectedRepoPath(this.graphState);
+	}
+
+	/** The graph's own worktree's WIP row id, or `undefined` before the repo path resolves. */
+	private get primaryWipRowId(): string | undefined {
+		const repoPath = this.fallbackRepoPath;
+		return repoPath != null ? createWipRowId(repoPath) : undefined;
+	}
+
+	/** `wipRowsById` minus the graph's own worktree. The WIP bar pushes the graph's own pill explicitly
+	 *  (always first, always keyed by `uncommitted`), so the peer loop must not re-emit it. Memoized on
+	 *  the map identity so the bar's per-item identity preservation still sees a stable input. */
+	private _peerWipRowsCache?: {
+		wipRowsById: State['wipRowsById'];
+		primaryWipRowId: string | undefined;
+		peers: State['wipRowsById'];
+	};
+	private get peerWipRows(): State['wipRowsById'] {
+		const wipRowsById = this.graphState.wipRowsById;
+		const primaryWipRowId = this.primaryWipRowId;
+
+		const cached = this._peerWipRowsCache;
+		if (cached != null && cached.wipRowsById === wipRowsById && cached.primaryWipRowId === primaryWipRowId) {
+			return cached.peers;
+		}
+
+		let peers = wipRowsById;
+		if (wipRowsById != null && primaryWipRowId != null && wipRowsById[primaryWipRowId] != null) {
+			const { [primaryWipRowId]: _primary, ...rest } = wipRowsById;
+			peers = rest;
+		}
+		this._peerWipRowsCache = {
+			wipRowsById: wipRowsById,
+			primaryWipRowId: primaryWipRowId,
+			peers: peers,
+		};
+		return peers;
 	}
 
 	/** Graph's currently-selected repo "family" — `commonPath` when available, otherwise the
@@ -1437,7 +1474,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, branch, scope, scopeFocalIsHead);
 		}
 
-		const branchRef = this.graphState.wipMetadataBySha?.[id]?.branchRef;
+		const branchRef = this.graphState.wipRowsById?.[id]?.branchRef;
 		if (branchRef == null) return false;
 		return scope.branchRef === branchRef || scope.additionalBranchRefs?.includes(branchRef) === true;
 	}
@@ -1461,12 +1498,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const id = isPrimaryWipRowId(rowSha, this.fallbackRepoPath) ? uncommitted : rowSha;
 		if (this.isWipPillInScope(id, scope)) return;
 
-		const { branchesVisibility, includeOnlyRefs, branch, wipMetadataBySha } = this.graphState;
+		const { branchesVisibility, includeOnlyRefs, branch } = this.graphState;
 		const rendersUnscoped =
 			id === uncommitted
 				? shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, branch, undefined)
 				: filterSecondariesForScopeAndVisibility(
-						wipMetadataBySha,
+						this.peerWipRows,
 						undefined,
 						branchesVisibility,
 						includeOnlyRefs,
@@ -1479,7 +1516,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** In-flight set so repeated hovers over a stats-less pill fire at most one fetch per worktree. */
 	private readonly _wipStatsInFlight = new Set<string>();
 
-	/** Lazily fetches a hovered secondary WIP pill's stats (primary's come from `workingTreeStats`).
+	/** Lazily fetches a hovered peer WIP pill's stats (the graph's own ride the working-tree push).
 	 *  Skips when `graph.showWorktreeWipStats` is off: hover isn't selection, so it mustn't trigger a
 	 *  per-worktree `git status` (clicking still reveals the breakdown). Backstop to the bar's own
 	 *  `statsOnHover` suppression. */
@@ -1488,8 +1525,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (id === uncommitted || this._wipStatsInFlight.has(id)) return;
 		if (this.graphState.config?.showWorktreeWipStats === false) return;
 
-		const meta = this.graphState.wipMetadataBySha?.[id];
-		if (meta == null || (meta.workDirStats != null && !meta.workDirStatsStale)) return;
+		const state = this.graphState.wipStateById?.[id];
+		if (state == null || (state.workDirStats != null && !state.workDirStatsStale)) return;
 
 		this._wipStatsInFlight.add(id);
 		void this.fetchSelectedWorktreeWipStats(id).finally(() => this._wipStatsInFlight.delete(id));
@@ -1547,19 +1584,21 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `workDirStats` when present, else by the host's cheap `hasChanges` probe — so the pill appears
 		// before the full breakdown is fetched (lazily, on hover). Ordered by HEAD commit date, most-recent
 		// first (`parentDate`). Unlike the primary, a secondary earns its pill only by qualifying here.
-		const wipMetadata = gs.wipMetadataBySha;
+		const peerWipRows = this.peerWipRows;
+		const wipStateById = gs.wipStateById;
 		const secondaries =
-			wipMetadata != null
-				? Object.entries(wipMetadata)
+			peerWipRows != null
+				? Object.entries(peerWipRows)
 						.map(([sha, meta]) => {
-							const stats = meta.workDirStats;
+							const state = wipStateById?.[sha];
+							const stats = state?.workDirStats;
 							const dirty =
 								stats != null
 									? stats.added + stats.modified + stats.deleted > 0
-									: meta.hasChanges === true;
-							return { sha: sha, meta: meta, dirty: dirty };
+									: state?.hasChanges === true;
+							return { sha: sha, meta: meta, state: state, dirty: dirty };
 						})
-						.filter(({ meta, dirty }) => dirty || meta.hasUnpushed === true)
+						.filter(({ state, dirty }) => dirty || state?.hasUnpushed === true)
 						.sort((a, b) => (b.meta.parentDate ?? 0) - (a.meta.parentDate ?? 0))
 				: [];
 
@@ -1583,13 +1622,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		// Primary worktree's WIP — ALWAYS the first entry, even when the primary is clean (no changes /
 		// unpushed / agent): it's the row-marker anchor, carrying the current branch's HEAD / upstream /
-		// merge-target jumps, and it stays put as secondaries come and go. `workingTreeStats` is computed
+		// merge-target jumps, and it stays put as secondaries come and go. Its hot state is computed
 		// independent of the graph's filters; WorkDirStats fields are FILE counts (added/modified/deleted
 		// files). A detached HEAD falls back to the worktree basename. Unpushed comes free from
 		// `branchState.ahead` (tracked branch); a primary on a local-only branch is intentionally NOT
 		// probed — those commits are already visible in the main graph, unlike a hidden secondary's.
-		const primary = gs.workingTreeStats;
-		const primaryDirty = primary != null && (primary.added > 0 || primary.modified > 0 || primary.deleted > 0);
+		const primary = this.primaryWipRowId != null ? gs.wipStateById?.[this.primaryWipRowId] : undefined;
+		const primaryStats = primary?.workDirStats;
+		const primaryDirty =
+			primaryStats != null && (primaryStats.added > 0 || primaryStats.modified > 0 || primaryStats.deleted > 0);
 		const primaryAhead = gs.branchState?.ahead ?? 0;
 		items.push({
 			id: uncommitted,
@@ -1611,12 +1652,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			ahead: primaryAhead,
 			wip: {
 				hasChanges: primaryDirty,
-				...(primary != null && primaryDirty
+				...(primaryStats != null && primaryDirty
 					? {
 							workingTreeState: {
-								added: primary.added,
-								changed: primary.modified,
-								deleted: primary.deleted,
+								added: primaryStats.added,
+								changed: primaryStats.modified,
+								deleted: primaryStats.deleted,
 							},
 						}
 					: {}),
@@ -1629,9 +1670,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			context: serializeWipContext(fallbackRepoPath, false, primary?.hasConflicts ?? false),
 		});
 
-		for (const { sha, meta, dirty } of secondaries) {
-			const stats = meta.workDirStats;
-			const unpushed = meta.hasUnpushed === true;
+		for (const { sha, meta, state, dirty } of secondaries) {
+			const stats = state?.workDirStats;
+			const unpushed = state?.hasUnpushed === true;
 			items.push({
 				id: sha,
 				branch: branchNameFromRef(meta.branchRef) ?? meta.label,
@@ -1663,19 +1704,19 @@ export class GraphApp extends SignalWatcher(LitElement) {
 									deleted: stats.deleted,
 								},
 							}
-						: meta.workDirStatsStale === false
+						: state?.workDirStatsStale === false
 							? { statsUnavailable: true }
 							: {}),
 					// A local-only branch has no upstream, so `gl-tracking-status` renders nothing and the
 					// hover would silently drop the fact that there's work to push. `ahead` is undefined for
 					// these (there's nothing to count against) — it's a presence bit only.
-					...(unpushed && meta.ahead == null ? { hasUnpublishedCommits: true } : {}),
-					...(meta.pausedOpStatus != null ? { pausedOpStatus: meta.pausedOpStatus } : {}),
-					...(meta.hasConflicts === true ? { hasConflicts: true } : {}),
+					...(unpushed && state?.ahead == null ? { hasUnpublishedCommits: true } : {}),
+					...(state?.pausedOpStatus != null ? { pausedOpStatus: state.pausedOpStatus } : {}),
+					...(state?.hasConflicts === true ? { hasConflicts: true } : {}),
 				},
 				...pickAgent(meta.repoPath),
 				isPrimary: false,
-				context: serializeWipContext(meta.repoPath, true, meta.hasConflicts ?? false),
+				context: serializeWipContext(meta.repoPath, true, state?.hasConflicts ?? false),
 			});
 		}
 
@@ -2343,7 +2384,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							? { ...this.graphState.visibleDays } // Need to clone the object since it is a signal proxy
 							: undefined
 					}
-					.wipMetadataBySha=${this.graphState.wipMetadataBySha}
+					.wipRowsById=${this.graphState.wipRowsById}
+					.primaryWipRowId=${this.primaryWipRowId}
 					@gl-graph-minimap-selected=${this.handleMinimapDaySelected}
 					@gl-graph-minimap-config-change=${this.handleMinimapConfigChange}
 					@gl-graph-minimap-wheel=${this.handleMinimapWheel}
@@ -3147,7 +3189,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (branch == null) return undefined;
 
 		return getOverviewBranchSelectionSha(branch, {
-			wipMetadataBySha: this.graphState.wipMetadataBySha,
+			wipRowsById: this.graphState.wipRowsById,
+			primaryWipRowId: this.primaryWipRowId,
 			rows: this.graphState.rows,
 			branchesVisibility: this.graphState.branchesVisibility,
 			includeOnlyRefs: this.graphState.includeOnlyRefs,
@@ -3168,7 +3211,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async scopeToBranchByName(branchName: string, upstreamName?: string): Promise<void> {
 		// Use the selected repo's actual path (the opened workspace's path). That's what the host
 		// passes as `this.repository.path` when building the graph's row index AND the
-		// `wipMetadataBySha` branchRefs, so any scope/lookup branchRef constructed here must use
+		// `wipRowsById` branchRefs, so any scope/lookup branchRef constructed here must use
 		// the same path to match. In primary-repo workspaces `path === commonPath`; in worktree
 		// workspaces they differ — picking `commonPath` produces a synthetic id that won't match
 		// any row or WIP entry.
@@ -3214,7 +3257,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const isCurrent = this.graphState.branch?.name === branchName;
 		const tipSha = this.graphState.rows?.find(r => r.heads?.some(h => h.id === branchRef))?.sha;
 		// `worktree: undefined` is correct here — no overview hit means we don't know the
-		// worktree affiliation, and the helper's case (2) recovers via `wipMetadataBySha`
+		// worktree affiliation, and the helper's case (2) recovers via `wipRowsById`
 		// lookup by `branch.id`. Synthesizes the minimal `SelectionBranch` shape so the same
 		// cascade serves both overview-card and header-popover paths.
 		const synthesizedBranch: SelectionBranch = {
@@ -3224,7 +3267,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			reference: { sha: tipSha },
 		};
 		const sha = getOverviewBranchSelectionSha(synthesizedBranch, {
-			wipMetadataBySha: this.graphState.wipMetadataBySha,
+			wipRowsById: this.graphState.wipRowsById,
+			primaryWipRowId: this.primaryWipRowId,
 			rows: this.graphState.rows,
 			branchesVisibility: this.graphState.branchesVisibility,
 			includeOnlyRefs: this.graphState.includeOnlyRefs,
@@ -3532,7 +3576,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.recordNavSelection(sha, repoPath, commits?.[active.id]);
 
 			// When `graph.showWorktreeWipStats` is disabled, PEER worktree WIP rows start stats-less
-			// (the graph's own rides `workingTreeStats`). Force-fetch stats for the selected row so
+			// (the graph's own rides the working-tree push). Force-fetch stats for the selected row so
 			// it populates its pill.
 			const selectedWorktreePath = getWipRowWorktreePath(active.id);
 			if (
@@ -3600,14 +3644,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	/**
-	 * Fetches working-tree stats for a single secondary-worktree WIP row and writes them into
-	 * `wipMetadataBySha` so the row's stats pill renders. Used when `graph.showWorktreeWipStats`
+	 * Fetches working-tree stats for a single peer-worktree WIP row and writes them into
+	 * `wipStateById` so the row's stats pill renders. Used when `graph.showWorktreeWipStats`
 	 * is disabled — the host's `onGetWipStats` ignores non-`force` calls in that mode, and the
 	 * graph's visible-scan dedup never re-asks for an unchanged missing set, so this is the only
 	 * way to show stats for a row once the user opts in by selecting it.
 	 */
 	private async fetchSelectedWorktreeWipStats(sha: string): Promise<void> {
-		const existing = this.graphState.wipMetadataBySha;
+		const existing = this.graphState.wipStateById;
 		if (existing == null) return;
 
 		const current = existing[sha];
@@ -3619,7 +3663,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const response = await this._ipc.sendRequest(GetWipStatsRequest, { shas: [sha], force: true });
 		if (response == null) return;
 
-		const map = this.graphState.wipMetadataBySha;
+		const map = this.graphState.wipStateById;
 		if (map == null) return;
 
 		const prev = map[sha];
@@ -3642,7 +3686,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						hasConflicts: stats.hasConflicts,
 					};
 		const next = { ...map, [sha]: updated };
-		this.graphState.wipMetadataBySha = next;
+		this.graphState.wipStateById = next;
 	}
 
 	// The Changes header mode picker's pick — a dedicated host write (not the columns persist, which drops

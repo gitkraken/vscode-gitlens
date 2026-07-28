@@ -72,6 +72,9 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 							remote: false,
 							upstream: branch?.upstream,
 						}),
+						// A branch checked out in ANOTHER worktree must name it: `ref.repoPath` is the GRAPH's
+						// repo, so a command falling back to it would act on the wrong worktree's changes.
+						worktreePath: head.id != null ? context.worktreesByBranch?.get(head.id)?.path : undefined,
 					},
 				};
 

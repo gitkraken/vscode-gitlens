@@ -635,7 +635,7 @@ suite('DetailsActions', () => {
 				},
 				setWip: (repoPath: string, wip: Wip) => void cache.set(repoPath, wip),
 				ingestWip: (repoPath: string, wip: Wip) => void cache.set(repoPath, wip),
-				setWorkingTreeStats: () => {},
+				setWipStatus: () => {},
 				mergeOverviewWipForRepo: () => {},
 			},
 		};
@@ -680,7 +680,7 @@ suite('DetailsActions', () => {
 			getWipState: () => undefined,
 			setWip: () => calls.push('setWip'),
 			ingestWip: () => calls.push('ingestWip'),
-			setWorkingTreeStats: () => {},
+			setWipStatus: () => {},
 		} as unknown as AppState;
 
 		await actions.refetchWipQuiet('/repo', true);

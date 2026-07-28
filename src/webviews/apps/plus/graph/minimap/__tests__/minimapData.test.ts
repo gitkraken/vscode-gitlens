@@ -46,7 +46,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: [],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.strictEqual(result.statsByDay.size, 0);
 		assert.strictEqual(result.markersByDay.size, 0);
@@ -60,7 +61,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: [],
 			dataType: 'lines',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.strictEqual(result.statsByDay.size, 0);
 		assert.strictEqual(result.markersByDay.size, 0);
@@ -78,7 +80,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: [],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.strictEqual(result.statsByDay.size, 2);
 		assert.strictEqual(result.statsByDay.get(day1Midnight)?.commits, 2);
@@ -95,7 +98,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: [],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.strictEqual(result.statsByDay.get(day1Midnight)?.sha, 'newer');
 	});
@@ -111,7 +115,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: [],
 			dataType: 'lines',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		const stat = result.statsByDay.get(day1Midnight);
 		assert.strictEqual(stat?.commits, 2);
@@ -134,7 +139,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['localBranches'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		const markers = result.markersByDay.get(day1Midnight);
 		assert.deepStrictEqual(
@@ -160,7 +166,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['head'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		const markers = result.markersByDay.get(day1Midnight);
 		assert.deepStrictEqual(
@@ -177,7 +184,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['head'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.ok(!withoutPR.markersByDay.get(day1Midnight)?.some(m => m.type === 'pull-request'));
 
@@ -188,7 +196,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['head', 'pullRequests'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		const prMarkers = withPR.markersByDay.get(day1Midnight)?.filter(m => m.type === 'pull-request');
 		assert.strictEqual(prMarkers?.length, 1);
@@ -209,7 +218,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['upstream'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		const markers = result.markersByDay.get(day1Midnight);
 		assert.strictEqual(markers?.length, 1);
@@ -231,7 +241,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: { 'origin/feat': ['local/feat'] },
 			markerTypes: ['localBranches'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		const markers = result.markersByDay.get(day1Midnight);
 		assert.strictEqual(markers?.length, 1);
@@ -255,7 +266,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['tags'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		const markers = result.markersByDay.get(day1Midnight);
 		assert.deepStrictEqual(
@@ -275,7 +287,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['stashes'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		const markers = result.markersByDay.get(day1Midnight);
 		assert.strictEqual(markers?.length, 1);
@@ -291,7 +304,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: allMarkerTypes,
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.strictEqual(result.markersByDay.size, 0);
 	});
@@ -307,7 +321,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['head'],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.strictEqual(result.statsByDay.get(day1Midnight)?.sha, 'head');
 	});
@@ -347,7 +362,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['worktree'],
 			dataType: 'commits',
-			wipMetadataBySha: {
+			primaryWipRowId: 'wip::/primary',
+			wipRowsById: {
 				'wip::/wt-a': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-a',
@@ -362,6 +378,29 @@ suite('minimapData Test Suite', () => {
 		assert.strictEqual(result.markersByDay.get(day2Midnight), undefined);
 	});
 
+	// The `worktree` marker means "ANOTHER worktree is parked here". The graph's own worktree is an
+	// ordinary entry in `wipRowsById` now, so it has to be excluded explicitly or every graph would
+	// grow a spurious marker on its own HEAD.
+	test('the primary worktree never emits a marker', () => {
+		const result = aggregate({
+			rows: [row({ sha: 'parent-a', date: day1 })],
+			rowsStats: undefined,
+			refMetadata: undefined,
+			downstreams: undefined,
+			markerTypes: ['worktree'],
+			dataType: 'commits',
+			primaryWipRowId: 'wip::/primary',
+			wipRowsById: {
+				'wip::/primary': {
+					parentSha: 'parent-a',
+					repoPath: '/primary',
+					label: 'primary',
+				},
+			},
+		});
+		assert.strictEqual(result.markersByDay.size, 0);
+	});
+
 	test('worktree whose parentSha is not in loaded rows is dropped', () => {
 		const result = aggregate({
 			rows: [row({ sha: 'parent-a', date: day1 })],
@@ -370,7 +409,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['worktree'],
 			dataType: 'commits',
-			wipMetadataBySha: {
+			primaryWipRowId: 'wip::/primary',
+			wipRowsById: {
 				'wip::/wt-missing': {
 					parentSha: 'unknown-sha',
 					repoPath: '/wt-missing',
@@ -389,7 +429,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['worktree'],
 			dataType: 'commits',
-			wipMetadataBySha: {
+			primaryWipRowId: 'wip::/primary',
+			wipRowsById: {
 				'wip::/wt-a': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-a',
@@ -417,7 +458,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: [],
 			dataType: 'commits',
-			wipMetadataBySha: {
+			primaryWipRowId: 'wip::/primary',
+			wipRowsById: {
 				'wip::/wt-a': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-a',
@@ -444,7 +486,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: [],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.strictEqual(result.statsByDay.get(day1Midnight)?.commits, 1);
 		assert.strictEqual(result.statsByDay.get(day1Midnight)?.sha, 'head');
@@ -459,7 +502,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: [],
 			dataType: 'commits',
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 		});
 		assert.strictEqual(result.statsByDay.size, 0);
 	});
@@ -480,7 +524,8 @@ suite('minimapData Test Suite', () => {
 			downstreams: undefined,
 			markerTypes: ['worktree'],
 			dataType: 'commits',
-			wipMetadataBySha: {
+			primaryWipRowId: 'wip::/primary',
+			wipRowsById: {
 				'wip::/wt-a': {
 					parentSha: 'parent-a',
 					repoPath: '/wt-a',

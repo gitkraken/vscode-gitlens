@@ -1,9 +1,14 @@
 import { hasKeys } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
-import type { GraphIncludeOnlyRefs, GraphScope, GraphWipMetadataBySha } from '../../../../plus/graph/protocol.js';
+import type { GraphIncludeOnlyRefs, GraphScope, GraphWipRowsById } from '../../../../plus/graph/protocol.js';
 
 /**
- * Filters secondary worktree WIP metadata for the active scope: keeps only entries whose
+ * NOTE: callers pass the NON-PRIMARY partition of `wipRowsById`. The graph's own worktree's row has
+ * its own visibility rule ({@link shouldShowPrimaryWipRow}) — it is anchored to HEAD rather than to a
+ * branch it can be attributed to, so running it through the branch-ref match below would answer the
+ * wrong question.
+ *
+ * Filters PEER (non-primary) worktree WIP rows for the active scope: keeps only entries whose
  * worktree branch is one of the scoped local refs (`branchRef` / `additionalBranchRefs`).
  *
  * `scope.upstreamRef` is deliberately not part of the match set — it's a `remotes/*` id, while
@@ -27,10 +32,10 @@ import type { GraphIncludeOnlyRefs, GraphScope, GraphWipMetadataBySha } from '..
  * When no scope is active, this is identity (returns the same reference).
  */
 export function filterSecondariesForScope(
-	wipMetadataBySha: GraphWipMetadataBySha | undefined,
+	wipRows: GraphWipRowsById | undefined,
 	scope: GraphScope | undefined,
-): GraphWipMetadataBySha | undefined {
-	if (wipMetadataBySha == null || scope == null) return wipMetadataBySha;
+): GraphWipRowsById | undefined {
+	if (wipRows == null || scope == null) return wipRows;
 
 	const scopeRefs = new Set<string>();
 	scopeRefs.add(scope.branchRef);
@@ -40,9 +45,9 @@ export function filterSecondariesForScope(
 		}
 	}
 
-	const result: GraphWipMetadataBySha = {};
+	const result: GraphWipRowsById = {};
 	let dropped = false;
-	for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+	for (const [sha, meta] of Object.entries(wipRows)) {
 		if (meta.branchRef == null || !scopeRefs.has(meta.branchRef)) {
 			dropped = true;
 			continue;
@@ -50,7 +55,7 @@ export function filterSecondariesForScope(
 
 		result[sha] = meta;
 	}
-	return dropped ? result : wipMetadataBySha;
+	return dropped ? result : wipRows;
 }
 
 /**
@@ -184,18 +189,18 @@ export function shouldShowPrimaryWipRow(
  * When no scope is active, both filters apply as usual.
  */
 export function filterSecondariesForScopeAndVisibility(
-	wipMetadataBySha: GraphWipMetadataBySha | undefined,
+	wipRows: GraphWipRowsById | undefined,
 	scope: GraphScope | undefined,
 	branchesVisibility: GraphBranchesVisibility | undefined,
 	includeOnlyRefs: GraphIncludeOnlyRefs | undefined,
-): GraphWipMetadataBySha | undefined {
-	const scoped = filterSecondariesForScope(wipMetadataBySha, scope);
+): GraphWipRowsById | undefined {
+	const scoped = filterSecondariesForScope(wipRows, scope);
 	if (scope != null) return scoped;
 	return filterSecondariesForIncludeOnlyRefs(scoped, branchesVisibility, includeOnlyRefs);
 }
 
 /**
- * Filters secondary worktree WIP metadata for the active `branchesVisibility` mode: drops any
+ * Filters PEER (non-primary) worktree WIP rows for the active `branchesVisibility` mode: drops any
  * entry whose worktree branch isn't part of the host-computed `includeOnlyRefs` set. Mirrors
  * `filterSecondariesForScope`'s detached-worktree fall-through — entries with `branchRef`
  * undefined pass through and defer to the graph component's SHA filter.
@@ -208,23 +213,23 @@ export function filterSecondariesForScopeAndVisibility(
  * branch ref, so every entry with a real `branchRef` gets dropped.
  */
 export function filterSecondariesForIncludeOnlyRefs(
-	wipMetadataBySha: GraphWipMetadataBySha | undefined,
+	wipRows: GraphWipRowsById | undefined,
 	branchesVisibility: GraphBranchesVisibility | undefined,
 	includeOnlyRefs: GraphIncludeOnlyRefs | undefined,
-): GraphWipMetadataBySha | undefined {
-	if (wipMetadataBySha == null) return wipMetadataBySha;
-	if (branchesVisibility == null || branchesVisibility === 'all') return wipMetadataBySha;
-	if (includeOnlyRefs == null) return wipMetadataBySha;
+): GraphWipRowsById | undefined {
+	if (wipRows == null) return wipRows;
+	if (branchesVisibility == null || branchesVisibility === 'all') return wipRows;
+	if (includeOnlyRefs == null) return wipRows;
 
 	const refIds = new Set(Object.keys(includeOnlyRefs));
 	// Empty `{}` means "no filter" (graph shows all) — match that semantics here so we don't
 	// silently drop every WIP row in detached-HEAD smart/current modes where the host returns
 	// `{ refs: {} }` because there's no current branch to anchor on.
-	if (!refIds.size) return wipMetadataBySha;
+	if (!refIds.size) return wipRows;
 
-	const result: GraphWipMetadataBySha = {};
+	const result: GraphWipRowsById = {};
 	let dropped = false;
-	for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+	for (const [sha, meta] of Object.entries(wipRows)) {
 		if (meta.branchRef != null && !refIds.has(meta.branchRef)) {
 			dropped = true;
 			continue;
@@ -232,5 +237,5 @@ export function filterSecondariesForIncludeOnlyRefs(
 
 		result[sha] = meta;
 	}
-	return dropped ? result : wipMetadataBySha;
+	return dropped ? result : wipRows;
 }

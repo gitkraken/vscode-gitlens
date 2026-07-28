@@ -8,7 +8,7 @@ import type {
 	GraphRowStats,
 	GraphSearchResults,
 	GraphSearchResultsError,
-	GraphWipMetadataBySha,
+	GraphWipRowsById,
 } from '../../../../plus/graph/protocol.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import '../../../shared/components/code-icon.js';
@@ -244,7 +244,10 @@ export class GlGraphMinimapContainer extends GlElement {
 	scopeWindow?: { start: number; end: number };
 
 	@property({ type: Object })
-	wipMetadataBySha?: GraphWipMetadataBySha;
+	wipRowsById?: GraphWipRowsById;
+
+	@property({ type: String })
+	primaryWipRowId?: string;
 
 	@state()
 	private markersByDay = new Map<number, GraphMinimapMarker[]>();
@@ -268,7 +271,8 @@ export class GlGraphMinimapContainer extends GlElement {
 		'rows',
 		'rowsStats',
 		'rowsStatsLoading',
-		'wipMetadataBySha',
+		'wipRowsById',
+		'primaryWipRowId',
 	])
 	private handleDataChanged(changedKeys: PropertyKey[]) {
 		// If only rowsStats changed and we're not in lines mode, stats output is unchanged
@@ -299,10 +303,10 @@ export class GlGraphMinimapContainer extends GlElement {
 			return;
 		}
 
-		// If only wipMetadataBySha changed and the worktree marker type is not enabled, markers are unchanged
+		// If only the WIP planes changed and the worktree marker type is not enabled, markers are unchanged
 		if (
 			changedKeys.length === 1 &&
-			changedKeys[0] === 'wipMetadataBySha' &&
+			(changedKeys[0] === 'wipRowsById' || changedKeys[0] === 'primaryWipRowId') &&
 			!this.markerTypes.includes('worktree')
 		) {
 			return;
@@ -559,7 +563,8 @@ export class GlGraphMinimapContainer extends GlElement {
 			downstreams: this.downstreams,
 			markerTypes: this.markerTypes,
 			dataType: effectiveDataType,
-			wipMetadataBySha: this.wipMetadataBySha,
+			wipRowsById: this.wipRowsById,
+			primaryWipRowId: this.primaryWipRowId,
 		});
 
 		this.statsByDay = statsByDay;

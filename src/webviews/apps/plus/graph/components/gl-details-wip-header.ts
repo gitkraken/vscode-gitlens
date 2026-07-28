@@ -84,7 +84,7 @@ export class GlDetailsWipHeader extends LitElement {
 		const behind = wip.branch?.tracking?.behind ?? 0;
 
 		// Prefer the git-authoritative counts embedded in the wip (`wip.stats`, same object the
-		// header/row badges derive `workingTreeStats` from) so the panel header and the graph
+		// header/row badges derive their WIP status from) so the panel header and the graph
 		// header/row can never disagree. Fall back to iterating the file list only when stats are
 		// absent (e.g. a wip produced by the standalone commitDetails webview, which doesn't
 		// compute diffStatus). Note: the file list double-counts mixed staged+unstaged entries,

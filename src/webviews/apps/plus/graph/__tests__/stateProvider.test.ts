@@ -7,7 +7,10 @@ import type {
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
 	GraphScope,
-	GraphWipMetadataBySha,
+	GraphWipRow,
+	GraphWipRowsById,
+	GraphWipState,
+	State,
 	WorkDirStats,
 } from '../../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewBranches.js';
@@ -16,7 +19,8 @@ import type { GraphSearchControlState } from '../stateProvider.js';
 import {
 	applyScopeAnchorPatch,
 	isScopeAnchorStale,
-	mergeWipMetadata,
+	mergeWipRows,
+	mergeWipState,
 	reconcileScopeMergeTarget,
 	reduceGraphSearchControlState,
 	resolveFullStateWorkingTreeStats,
@@ -32,234 +36,285 @@ import {
 	shouldShowPrimaryWipRow,
 } from '../utils/wip.utils.js';
 
-suite('mergeWipMetadata', () => {
+suite('mergeWipRows', () => {
 	test('returns undefined when incoming is undefined', () => {
-		const result = mergeWipMetadata({ 'wip::/a': entry('a', 'sha1') }, undefined);
+		const result = mergeWipRows({ 'wip::/a': wipRow('a', 'sha1') }, undefined);
 		assert.strictEqual(result, undefined);
 	});
 
 	test('returns incoming when prev is undefined', () => {
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1') };
-		const result = mergeWipMetadata(undefined, incoming);
+		const incoming: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1') };
+		const result = mergeWipRows(undefined, incoming);
 		assert.strictEqual(result, incoming);
 	});
 
 	test('preserves prev reference when all entries are equivalent', () => {
-		const prev: GraphWipMetadataBySha = {
-			'wip::/a': { ...entry('a', 'sha1'), workDirStats: { added: 1, deleted: 0, modified: 2 } },
-			'wip::/b': { ...entry('b', 'sha2'), workDirStats: { added: 0, deleted: 3, modified: 0 } },
-		};
-		const incoming: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1'),
-			'wip::/b': entry('b', 'sha2'),
-		};
+		const prev: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1'), 'wip::/b': wipRow('b', 'sha2') };
+		const incoming: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1'), 'wip::/b': wipRow('b', 'sha2') };
 
-		const result = mergeWipMetadata(prev, incoming);
+		const result = mergeWipRows(prev, incoming);
 
 		assert.strictEqual(result, prev, 'expected reference-preservation when anchor fields match');
 	});
 
 	test('produces a new object when an anchor field changes', () => {
-		const prev: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1') };
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha2') };
+		const prev: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1') };
+		const incoming: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha2') };
 
-		const result = mergeWipMetadata(prev, incoming);
+		const result = mergeWipRows(prev, incoming);
 
 		assert.notStrictEqual(result, prev);
 		assert.strictEqual(result?.['wip::/a']?.parentSha, 'sha2');
 	});
 
 	test('produces a new object when a sha is added', () => {
-		const prev: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1') };
-		const incoming: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1'),
-			'wip::/b': entry('b', 'sha2'),
-		};
+		const prev: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1') };
+		const incoming: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1'), 'wip::/b': wipRow('b', 'sha2') };
 
-		const result = mergeWipMetadata(prev, incoming);
+		const result = mergeWipRows(prev, incoming);
 
 		assert.notStrictEqual(result, prev);
 		assert.ok(result?.['wip::/b']);
 	});
 
 	test('produces a new object when a sha is removed', () => {
-		const prev: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1'),
-			'wip::/b': entry('b', 'sha2'),
-		};
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1') };
+		const prev: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1'), 'wip::/b': wipRow('b', 'sha2') };
+		const incoming: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1') };
 
-		const result = mergeWipMetadata(prev, incoming);
+		const result = mergeWipRows(prev, incoming);
 
 		assert.notStrictEqual(result, prev);
 		assert.strictEqual(Object.keys(result ?? {}).length, 1);
 	});
 
-	test('preserves prev workDirStats for matching shas while applying incoming anchors', () => {
-		const prev: GraphWipMetadataBySha = {
-			'wip::/a': {
-				...entry('a', 'sha1'),
-				workDirStats: { added: 7, deleted: 3, modified: 1 },
-				workDirStatsStale: false,
-			},
-		};
-		// An anchor field changes (parentSha), so result must be a fresh object,
-		// but workDirStats from prev must survive the merge.
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha99') };
-
-		const result = mergeWipMetadata(prev, incoming);
-
-		assert.notStrictEqual(result, prev);
-		const merged = result?.['wip::/a'];
-		assert.strictEqual(merged?.parentSha, 'sha99');
-		assert.deepStrictEqual(merged?.workDirStats, { added: 7, deleted: 3, modified: 1 });
-		assert.strictEqual(merged?.workDirStatsStale, false);
-	});
-
 	test('produces a new object when branchRef changes (branch rename without sha change)', () => {
-		const prev: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', '/repo|heads/old') };
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', '/repo|heads/new') };
+		const prev: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', '/repo|heads/old') };
+		const incoming: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', '/repo|heads/new') };
 
-		const result = mergeWipMetadata(prev, incoming);
+		const result = mergeWipRows(prev, incoming);
 
 		assert.notStrictEqual(result, prev);
 		assert.strictEqual(result?.['wip::/a']?.branchRef, '/repo|heads/new');
 	});
 
 	test('preserves prev reference when branchRef matches (and other anchors match)', () => {
-		const prev: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', '/repo|heads/feature') };
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', '/repo|heads/feature') };
+		const prev: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', '/repo|heads/feature') };
+		const incoming: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', '/repo|heads/feature') };
 
-		const result = mergeWipMetadata(prev, incoming);
+		const result = mergeWipRows(prev, incoming);
 
 		assert.strictEqual(result, prev);
 	});
 
-	// Regression: removing the last secondary worktree must clear `wipMetadataBySha` on the
-	// webview side. The host returns `{}` (not `undefined`) when no secondaries exist so JSON
-	// survives the field; this test pins the merge behavior so a future "optimize empties to
-	// undefined" change can't silently reintroduce phantom anchors.
-	test('returns a new empty object when incoming is empty and prev has entries', () => {
-		const prev: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1'),
-			'wip::/b': entry('b', 'sha2'),
-		};
-		const result = mergeWipMetadata(prev, {});
+	// Regression: removing the last peer worktree must clear its row on the webview side. The host
+	// returns `{}` (not `undefined`) when no worktrees exist so JSON survives the field; this test pins
+	// the merge behavior so a future "optimize empties to undefined" change can't silently reintroduce
+	// phantom anchors.
+	test('returns an empty map when incoming is empty and prev has entries', () => {
+		const prev: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1'), 'wip::/b': wipRow('b', 'sha2') };
+		const result = mergeWipRows(prev, {});
 
 		assert.notStrictEqual(result, prev);
 		assert.deepStrictEqual(result, {});
 	});
 
-	// Regression: pill flash on graph rows. When an entry briefly drops out of
-	// `wipMetadataBySha` (worktree-list flap, transient `wt.sha == null`, full-state replacement)
-	// and re-enters via the `prevEntry == null` branch, we seed `workDirStats` from the sticky
-	// last-known map and mark the entry stale so the GK component refetches without ever
-	// rendering an empty pill.
-	test('seeds workDirStats from lastKnownStats when prev is undefined and incoming entry has no stats', () => {
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1') };
-		const lastKnown = new Map<string, WorkDirStats>([['wip::/a', { added: 5, deleted: 1, modified: 3 }]]);
+	// Regression: a change confined to the projected branch (e.g. `behind` moving after a fetch) must
+	// not be discarded by reference-preservation — the WIP bar's hover renders from it.
+	test('produces a new object when only the projected branch changes', () => {
+		const prev: GraphWipRowsById = { 'wip::/a': { ...wipRow('a', 'sha1'), branch: overviewBranch(0) } };
+		const incoming: GraphWipRowsById = { 'wip::/a': { ...wipRow('a', 'sha1'), branch: overviewBranch(2) } };
 
-		const result = mergeWipMetadata(undefined, incoming, lastKnown);
-
-		assert.notStrictEqual(result, incoming);
-		const merged = result?.['wip::/a'];
-		assert.deepStrictEqual(merged?.workDirStats, { added: 5, deleted: 1, modified: 3 });
-		assert.strictEqual(merged?.workDirStatsStale, true);
-	});
-
-	test('preserves incoming reference when prev is undefined and lastKnownStats has no matching shas', () => {
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1') };
-		const lastKnown = new Map<string, WorkDirStats>([['wip::/other', { added: 1, deleted: 0, modified: 0 }]]);
-
-		const result = mergeWipMetadata(undefined, incoming, lastKnown);
-
-		assert.strictEqual(result, incoming);
-	});
-
-	test('seeds workDirStats from lastKnownStats for a newly-introduced sha when prev has other entries', () => {
-		const prev: GraphWipMetadataBySha = {
-			'wip::/a': { ...entry('a', 'sha1'), workDirStats: { added: 1, deleted: 0, modified: 0 } },
-		};
-		const incoming: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1'),
-			'wip::/b': entry('b', 'sha2'),
-		};
-		const lastKnown = new Map<string, WorkDirStats>([['wip::/b', { added: 7, deleted: 2, modified: 4 }]]);
-
-		const result = mergeWipMetadata(prev, incoming, lastKnown);
+		const result = mergeWipRows(prev, incoming);
 
 		assert.notStrictEqual(result, prev);
-		const recovered = result?.['wip::/b'];
-		assert.deepStrictEqual(recovered?.workDirStats, { added: 7, deleted: 2, modified: 4 });
-		assert.strictEqual(recovered?.workDirStatsStale, true);
-	});
-
-	test('does not seed from lastKnownStats when incoming entry already has workDirStats', () => {
-		const incoming: GraphWipMetadataBySha = {
-			'wip::/a': { ...entry('a', 'sha1'), workDirStats: { added: 9, deleted: 9, modified: 9 } },
-		};
-		const lastKnown = new Map<string, WorkDirStats>([['wip::/a', { added: 1, deleted: 1, modified: 1 }]]);
-
-		const result = mergeWipMetadata(undefined, incoming, lastKnown);
-
-		// Incoming already has fresh stats; the sticky cache must not overwrite them.
-		assert.strictEqual(result, incoming);
-		assert.deepStrictEqual(result?.['wip::/a']?.workDirStats, { added: 9, deleted: 9, modified: 9 });
-	});
-
-	test('preserves prev hasUnpushed when incoming omits it (local-only per-tick) while an anchor changes', () => {
-		const prev: GraphWipMetadataBySha = { 'wip::/a': { ...entry('a', 'sha1'), hasUnpushed: true } };
-		// An anchor field changes (parentSha) so the merge produces a fresh object, but the local-only
-		// `hasUnpushed` (omitted on per-tick pushes) must survive from prev.
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha99') };
-
-		const result = mergeWipMetadata(prev, incoming);
-
-		assert.notStrictEqual(result, prev);
-		assert.strictEqual(result?.['wip::/a']?.hasUnpushed, true);
-	});
-
-	test('produces a new object when hasUnpushed flips to false (push)', () => {
-		const prev: GraphWipMetadataBySha = { 'wip::/a': { ...entry('a', 'sha1'), hasUnpushed: true } };
-		const incoming: GraphWipMetadataBySha = { 'wip::/a': { ...entry('a', 'sha1'), hasUnpushed: false } };
-
-		const result = mergeWipMetadata(prev, incoming);
-
-		assert.notStrictEqual(result, prev);
-		assert.strictEqual(result?.['wip::/a']?.hasUnpushed, false);
-	});
-
-	test('produces a new object when ahead changes and clears it on push', () => {
-		const prev: GraphWipMetadataBySha = {
-			'wip::/a': { ...entry('a', 'sha1'), ahead: 3, hasUnpushed: true },
-		};
-		const incoming: GraphWipMetadataBySha = {
-			'wip::/a': { ...entry('a', 'sha1'), ahead: 0, hasUnpushed: false },
-		};
-
-		const result = mergeWipMetadata(prev, incoming);
-
-		assert.notStrictEqual(result, prev);
-		assert.strictEqual(result?.['wip::/a']?.ahead, 0);
-		assert.strictEqual(result?.['wip::/a']?.hasUnpushed, false);
-	});
-
-	test('preserves prev reference when ahead and hasUnpushed are unchanged', () => {
-		const prev: GraphWipMetadataBySha = {
-			'wip::/a': { ...entry('a', 'sha1'), ahead: 2, hasUnpushed: true },
-		};
-		const incoming: GraphWipMetadataBySha = {
-			'wip::/a': { ...entry('a', 'sha1'), ahead: 2, hasUnpushed: true },
-		};
-
-		const result = mergeWipMetadata(prev, incoming);
-
-		assert.strictEqual(result, prev);
 	});
 });
 
-function entry(label: string, parentSha: string, branchRef?: string) {
+suite('mergeWipState', () => {
+	const rows: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1'), 'wip::/b': wipRow('b', 'sha2') };
+	const pausedRebase = pausedOp();
+	const stats = (added: number, deleted: number, modified: number): WorkDirStats => ({
+		added: added,
+		deleted: deleted,
+		modified: modified,
+	});
+
+	test('returns prev when incoming is undefined', () => {
+		const prev: State['wipStateById'] = { 'wip::/a': { ahead: 1 } };
+		assert.strictEqual(mergeWipState(prev, undefined, rows, undefined), prev);
+	});
+
+	test('preserves prev reference when nothing changes', () => {
+		const prev: State['wipStateById'] = {
+			'wip::/a': { workDirStats: stats(1, 0, 2), workDirStatsStale: false, ahead: 1 },
+		};
+		const result = mergeWipState(prev, { 'wip::/a': { ahead: 1 } }, rows, undefined);
+
+		assert.strictEqual(result, prev, 'expected reference-preservation when the merged entry is unchanged');
+	});
+
+	// The status group travels as ONE unit from a single `git status`: a push carrying `workDirStats`
+	// replaces the whole group, which is what lets a completed rebase actually clear `pausedOpStatus`.
+	test('replaces the whole status group when incoming carries workDirStats', () => {
+		const prev: State['wipStateById'] = {
+			'wip::/a': {
+				workDirStats: stats(7, 3, 1),
+				hasConflicts: true,
+				conflictsCount: 2,
+				pausedOpStatus: pausedRebase,
+			},
+		};
+		const result = mergeWipState(prev, { 'wip::/a': { workDirStats: stats(1, 0, 0) } }, rows, undefined);
+
+		const merged = result?.['wip::/a'];
+		assert.deepStrictEqual(merged?.workDirStats, stats(1, 0, 0));
+		assert.strictEqual(merged?.pausedOpStatus, undefined, 'a completed paused op must clear');
+		assert.strictEqual(merged?.hasConflicts, undefined);
+		assert.strictEqual(merged?.conflictsCount, undefined);
+	});
+
+	// A stats-only patch (`toWipStatePatch` — a refetch or a status push) carries NO enumeration fields,
+	// so the replace branch must keep them rather than let the spread drop them. `ahead` is the one that
+	// bites: losing it degrades a peer pill's hover from a real count to the bare unpushed bit until an
+	// enumeration build happens to arrive. The sibling merge in `graph-wrapper.onWipShasMissingStats`
+	// preserves it by spreading prev, so disagreeing here also made the two paths inconsistent.
+	test('preserves ahead across a stats-only patch', () => {
+		const prev: State['wipStateById'] = {
+			'wip::/a': { ahead: 3, hasUnpushed: true, workDirStats: stats(1, 1, 1) },
+		};
+		const result = mergeWipState(prev, { 'wip::/a': { workDirStats: stats(2, 0, 0) } }, rows, undefined);
+
+		const merged = result?.['wip::/a'];
+		assert.deepStrictEqual(merged?.workDirStats, stats(2, 0, 0), 'the status group is still replaced');
+		assert.strictEqual(merged?.ahead, 3, 'the enumeration count must survive a stats-only patch');
+		assert.strictEqual(merged?.hasUnpushed, true);
+	});
+
+	test('an incoming ahead still wins over the stored one', () => {
+		const prev: State['wipStateById'] = { 'wip::/a': { ahead: 3 } };
+		const result = mergeWipState(prev, { 'wip::/a': { workDirStats: stats(1, 0, 0), ahead: 9 } }, rows, undefined);
+
+		assert.strictEqual(result?.['wip::/a']?.ahead, 9, 'preservation must not shadow a fresh value');
+	});
+
+	// The mirror case: an anchors-only push (per-tick topology, no `git status` for this row) must not
+	// blank a peer's client-fetched stats — that's the visible pill flash.
+	test('preserves the status group when incoming carries no workDirStats', () => {
+		const prev: State['wipStateById'] = {
+			'wip::/a': {
+				workDirStats: stats(7, 3, 1),
+				workDirStatsStale: false,
+				hasConflicts: true,
+				conflictsCount: 2,
+				pausedOpStatus: pausedRebase,
+			},
+		};
+		const result = mergeWipState(prev, { 'wip::/a': { ahead: 4 } }, rows, undefined);
+
+		const merged = result?.['wip::/a'];
+		assert.deepStrictEqual(merged?.workDirStats, stats(7, 3, 1));
+		assert.strictEqual(merged?.workDirStatsStale, false);
+		assert.strictEqual(merged?.hasConflicts, true);
+		assert.strictEqual(merged?.conflictsCount, 2);
+		assert.strictEqual(merged?.pausedOpStatus, pausedRebase);
+		assert.strictEqual(merged?.ahead, 4);
+	});
+
+	test('preserves prev hasUnpushed/hasChanges when incoming omits them (per-tick push)', () => {
+		const prev: State['wipStateById'] = { 'wip::/a': { hasUnpushed: true, hasChanges: true } };
+		const result = mergeWipState(prev, { 'wip::/a': { ahead: 0 } }, rows, undefined);
+
+		const merged = result?.['wip::/a'];
+		assert.strictEqual(merged?.hasUnpushed, true);
+		assert.strictEqual(merged?.hasChanges, true);
+	});
+
+	test('applies hasUnpushed when incoming carries it (push clears it)', () => {
+		const prev: State['wipStateById'] = { 'wip::/a': { ahead: 3, hasUnpushed: true } };
+		const result = mergeWipState(prev, { 'wip::/a': { ahead: 0, hasUnpushed: false } }, rows, undefined);
+
+		assert.notStrictEqual(result, prev);
+		assert.strictEqual(result?.['wip::/a']?.ahead, 0, '`ahead` is free every build, so it always applies');
+		assert.strictEqual(result?.['wip::/a']?.hasUnpushed, false);
+	});
+
+	// Regression: pill flash on graph rows. When an entry briefly drops out of `wipStateById`
+	// (worktree-list flap, transient `wt.sha == null`, reduced-set full-state push) and re-enters, we
+	// seed `workDirStats` from the sticky last-known map and mark the entry stale so the GK component
+	// refetches without ever rendering an empty pill.
+	test('seeds workDirStats from lastKnownStats for a newly-seen row', () => {
+		const lastKnown = new Map<string, WorkDirStats>([['wip::/a', stats(5, 1, 3)]]);
+		const result = mergeWipState(undefined, { 'wip::/a': {} }, rows, undefined, lastKnown);
+
+		const merged = result?.['wip::/a'];
+		assert.deepStrictEqual(merged?.workDirStats, stats(5, 1, 3));
+		assert.strictEqual(merged?.workDirStatsStale, true);
+	});
+
+	test('does not seed from lastKnownStats when incoming already carries workDirStats', () => {
+		const lastKnown = new Map<string, WorkDirStats>([['wip::/a', stats(1, 1, 1)]]);
+		const result = mergeWipState(
+			undefined,
+			{ 'wip::/a': { workDirStats: stats(9, 9, 9) } },
+			rows,
+			undefined,
+			lastKnown,
+		);
+
+		assert.deepStrictEqual(result?.['wip::/a']?.workDirStats, stats(9, 9, 9));
+		assert.notStrictEqual(result?.['wip::/a']?.workDirStatsStale, true);
+	});
+
+	test('does not seed from lastKnownStats when prev already has stats for the row', () => {
+		const prev: State['wipStateById'] = { 'wip::/a': { workDirStats: stats(2, 2, 2), workDirStatsStale: false } };
+		const lastKnown = new Map<string, WorkDirStats>([['wip::/a', stats(1, 1, 1)]]);
+		const result = mergeWipState(prev, { 'wip::/a': {} }, rows, undefined, lastKnown);
+
+		assert.strictEqual(result, prev);
+	});
+
+	// `wipRowsById` is authoritative for existence — a removed worktree must not leave a phantom entry.
+	test('prunes entries for rows the topology plane no longer has', () => {
+		const prev: State['wipStateById'] = { 'wip::/a': { ahead: 1 }, 'wip::/gone': { ahead: 2 } };
+		const result = mergeWipState(prev, {}, rows, undefined);
+
+		assert.notStrictEqual(result, prev);
+		assert.deepStrictEqual(Object.keys(result ?? {}), ['wip::/a']);
+	});
+
+	// ...except the graph's own worktree, whose status has an independent producer and lifetime: a
+	// failed worktree enumeration must not blank the header badges.
+	test('never prunes the primary row, even when absent from the topology plane', () => {
+		const prev: State['wipStateById'] = { 'wip::/primary': { workDirStats: stats(1, 0, 0) } };
+		const result = mergeWipState(prev, {}, {}, 'wip::/primary');
+
+		assert.deepStrictEqual(Object.keys(result ?? {}), ['wip::/primary']);
+	});
+
+	test('ignores an incoming entry for a row the topology plane does not have', () => {
+		const prev: State['wipStateById'] = { 'wip::/a': { ahead: 1 } };
+		const result = mergeWipState(prev, { 'wip::/unknown': { ahead: 5 } }, rows, undefined);
+
+		assert.strictEqual(result?.['wip::/unknown'], undefined);
+		assert.strictEqual(result, prev, 'a dropped entry is not a change');
+	});
+});
+
+function wipRow(label: string, parentSha: string, branchRef?: string): GraphWipRow {
 	return { repoPath: `/repos/${label}`, parentSha: parentSha, label: label, branchRef: branchRef };
+}
+
+/** Minimal `OverviewBranch` stand-in — only the tracking state participates in `mergeWipRows`'s deep
+ *  branch comparison, so the rest of the shape is elided rather than fabricated. */
+function overviewBranch(behind: number): NonNullable<GraphWipRow['branch']> {
+	const shape = { id: '/repo|heads/a', name: 'a', repoPath: '/repo', state: { ahead: 0, behind: behind } };
+	return shape as unknown as NonNullable<GraphWipRow['branch']>;
+}
+
+/** Minimal paused-op stand-in — the merge only ever tests it for presence/identity. */
+function pausedOp(): NonNullable<GraphWipState['pausedOpStatus']> {
+	const shape = { type: 'rebase' };
+	return shape as unknown as NonNullable<GraphWipState['pausedOpStatus']>;
 }
 
 suite('reconcileScopeMergeTarget', () => {
@@ -510,7 +565,7 @@ suite('filterSecondariesForScope', () => {
 	const otherRef = '/repo|heads/other';
 
 	test('returns input unchanged when scope is undefined', () => {
-		const meta: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', branchRef) };
+		const meta: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', branchRef) };
 		const result = filterSecondariesForScope(meta, undefined);
 		assert.strictEqual(result, meta);
 	});
@@ -521,7 +576,7 @@ suite('filterSecondariesForScope', () => {
 	});
 
 	test('keeps entries whose branchRef matches scope.branchRef', () => {
-		const meta: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', branchRef) };
+		const meta: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', branchRef) };
 		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
 		assert.strictEqual(result, meta, 'no entries dropped → same reference');
 	});
@@ -531,9 +586,9 @@ suite('filterSecondariesForScope', () => {
 		// branches), so a worktree on a different local branch that tracks the same upstream as the
 		// scope is treated as a sibling, not part of the scope. The `remotes/*` `upstreamRef` is
 		// deliberately not part of the match set — see `filterSecondariesForScope`.
-		const meta: GraphWipMetadataBySha = {
-			'wip::/scoped': entry('scoped', 'sha1', branchRef),
-			'wip::/sibling': entry('sibling', 'sha2', '/repo|heads/feature-mirror'),
+		const meta: GraphWipRowsById = {
+			'wip::/scoped': wipRow('scoped', 'sha1', branchRef),
+			'wip::/sibling': wipRow('sibling', 'sha2', '/repo|heads/feature-mirror'),
 		};
 		const result = filterSecondariesForScope(meta, {
 			branchRef: branchRef,
@@ -545,9 +600,9 @@ suite('filterSecondariesForScope', () => {
 	});
 
 	test('drops entries whose branchRef is unrelated to the scope', () => {
-		const meta: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1', branchRef),
-			'wip::/b': entry('b', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/a': wipRow('a', 'sha1', branchRef),
+			'wip::/b': wipRow('b', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
 		assert.notStrictEqual(result, meta);
@@ -559,9 +614,9 @@ suite('filterSecondariesForScope', () => {
 		// Both worktrees have parentSha === scope.branchRef tip sha, but only one is actually on
 		// the scoped branch — the other coincidentally shares a HEAD sha. Without branchRef-aware
 		// filtering, the graph component's SHA filter would let both through.
-		const meta: GraphWipMetadataBySha = {
-			'wip::/scoped': entry('scoped', 'sha-tip', branchRef),
-			'wip::/coincident': entry('coincident', 'sha-tip', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/scoped': wipRow('scoped', 'sha-tip', branchRef),
+			'wip::/coincident': wipRow('coincident', 'sha-tip', otherRef),
 		};
 		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
 		assert.ok(result?.['wip::/scoped']);
@@ -572,7 +627,7 @@ suite('filterSecondariesForScope', () => {
 		// A detached worktree has no branch identity to attribute to the scoped branch.
 		// Surfacing it as a second "Working Changes (…)" row adjacent to the scoped worktree's
 		// WIP just adds an unrelated entry to the user's view.
-		const meta: GraphWipMetadataBySha = { 'wip::/detached': entry('detached', 'sha1') };
+		const meta: GraphWipRowsById = { 'wip::/detached': wipRow('detached', 'sha1') };
 		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
 		assert.deepStrictEqual(result, {}, 'detached entry dropped under scope');
 	});
@@ -581,9 +636,9 @@ suite('filterSecondariesForScope', () => {
 		// Regression guard: building the scope-ref set must not insert `undefined`. If it did,
 		// detached entries would match the bogus undefined slot. The new policy drops them
 		// outright instead of relying on the fall-through.
-		const meta: GraphWipMetadataBySha = {
-			'wip::/detached': entry('detached', 'sha1'),
-			'wip::/unrelated': entry('unrelated', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/detached': wipRow('detached', 'sha1'),
+			'wip::/unrelated': wipRow('unrelated', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
 		assert.strictEqual(result?.['wip::/detached'], undefined, 'detached dropped');
@@ -592,7 +647,7 @@ suite('filterSecondariesForScope', () => {
 
 	test('honors scope.additionalBranchRefs (stacked-branches forward-compat)', () => {
 		const stackedRef = '/repo|heads/stacked';
-		const meta: GraphWipMetadataBySha = { 'wip::/stacked': entry('stacked', 'sha1', stackedRef) };
+		const meta: GraphWipRowsById = { 'wip::/stacked': wipRow('stacked', 'sha1', stackedRef) };
 		const result = filterSecondariesForScope(meta, {
 			branchRef: branchRef,
 			branchName: 'feature',
@@ -607,19 +662,19 @@ suite('filterSecondariesForIncludeOnlyRefs', () => {
 	const otherRef = '/repo|heads/other';
 
 	test("returns input unchanged when branchesVisibility is 'all'", () => {
-		const meta: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', branchRef) };
+		const meta: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', branchRef) };
 		const result = filterSecondariesForIncludeOnlyRefs(meta, 'all', refsFor(branchRef));
 		assert.strictEqual(result, meta);
 	});
 
 	test('returns input unchanged when branchesVisibility is undefined', () => {
-		const meta: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', branchRef) };
+		const meta: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', branchRef) };
 		const result = filterSecondariesForIncludeOnlyRefs(meta, undefined, refsFor(branchRef));
 		assert.strictEqual(result, meta);
 	});
 
 	test('returns input unchanged when includeOnlyRefs is undefined', () => {
-		const meta: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', branchRef) };
+		const meta: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', branchRef) };
 		const result = filterSecondariesForIncludeOnlyRefs(meta, 'agents', undefined);
 		assert.strictEqual(result, meta);
 	});
@@ -628,9 +683,9 @@ suite('filterSecondariesForIncludeOnlyRefs', () => {
 		// Detached-HEAD smart/current modes send `{ refs: {} }` from the host. The graph
 		// component treats empty `{}` as "no filter" — we must match that here so we don't
 		// silently drop every secondary WIP.
-		const meta: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1', branchRef),
-			'wip::/b': entry('b', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/a': wipRow('a', 'sha1', branchRef),
+			'wip::/b': wipRow('b', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForIncludeOnlyRefs(meta, 'smart', {});
 		assert.strictEqual(result, meta);
@@ -642,15 +697,15 @@ suite('filterSecondariesForIncludeOnlyRefs', () => {
 	});
 
 	test('keeps entries whose branchRef is in the include set', () => {
-		const meta: GraphWipMetadataBySha = { 'wip::/a': entry('a', 'sha1', branchRef) };
+		const meta: GraphWipRowsById = { 'wip::/a': wipRow('a', 'sha1', branchRef) };
 		const result = filterSecondariesForIncludeOnlyRefs(meta, 'agents', refsFor(branchRef));
 		assert.strictEqual(result, meta, 'no entries dropped → same reference');
 	});
 
 	test('drops entries whose branchRef is not in the include set', () => {
-		const meta: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1', branchRef),
-			'wip::/b': entry('b', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/a': wipRow('a', 'sha1', branchRef),
+			'wip::/b': wipRow('b', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForIncludeOnlyRefs(meta, 'agents', refsFor(branchRef));
 		assert.notStrictEqual(result, meta);
@@ -659,9 +714,9 @@ suite('filterSecondariesForIncludeOnlyRefs', () => {
 	});
 
 	test('drops all real-branch entries when only the empty-set marker is present', () => {
-		const meta: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1', branchRef),
-			'wip::/b': entry('b', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/a': wipRow('a', 'sha1', branchRef),
+			'wip::/b': wipRow('b', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForIncludeOnlyRefs(meta, 'agents', {
 			['gk.empty-set-marker' satisfies typeof emptySetMarker]: {} as unknown as GraphIncludeOnlyRef,
@@ -676,7 +731,7 @@ suite('filterSecondariesForIncludeOnlyRefs', () => {
 		// detached worktrees because they can't be attributed to the scoped branch. If a future
 		// cleanup decides 'these two helpers handle detached identically' and unifies the
 		// policy in either direction, ONE of the two suites will fail loudly. Keep both pinned.
-		const meta: GraphWipMetadataBySha = { 'wip::/detached': entry('detached', 'sha1') };
+		const meta: GraphWipRowsById = { 'wip::/detached': wipRow('detached', 'sha1') };
 		const result = filterSecondariesForIncludeOnlyRefs(meta, 'agents', refsFor(branchRef));
 		assert.strictEqual(result, meta, 'detached entry passes through unchanged under visibility-only');
 	});
@@ -928,9 +983,9 @@ suite('filterSecondariesForScopeAndVisibility', () => {
 
 	test('without scope, applies the visibility filter', () => {
 		// Mirrors `filterSecondariesForIncludeOnlyRefs` behavior — entries not in `includeOnlyRefs` drop.
-		const meta: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1', scopedRef),
-			'wip::/b': entry('b', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/a': wipRow('a', 'sha1', scopedRef),
+			'wip::/b': wipRow('b', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForScopeAndVisibility(meta, undefined, 'agents', refsFor(scopedRef));
 		assert.ok(result?.['wip::/a']);
@@ -942,9 +997,9 @@ suite('filterSecondariesForScopeAndVisibility', () => {
 		// branch under `'current'`/`'agents'`/`'favorited'` modes — `main` isn't in `includeOnlyRefs`
 		// (which is anchored on the open repo's HEAD, the debug branch), but the user's explicit scope
 		// pick should override and keep `main`'s secondary WIP visible.
-		const meta: GraphWipMetadataBySha = {
-			'wip::/main': entry('main', 'sha1', scopedRef),
-			'wip::/other': entry('other', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/main': wipRow('main', 'sha1', scopedRef),
+			'wip::/other': wipRow('other', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForScopeAndVisibility(
 			meta,
@@ -957,9 +1012,9 @@ suite('filterSecondariesForScopeAndVisibility', () => {
 	});
 
 	test('with scope, off-scope entries are still dropped by the scope filter', () => {
-		const meta: GraphWipMetadataBySha = {
-			'wip::/main': entry('main', 'sha1', scopedRef),
-			'wip::/other': entry('other', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/main': wipRow('main', 'sha1', scopedRef),
+			'wip::/other': wipRow('other', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForScopeAndVisibility(meta, scopeFor(scopedRef), 'all', undefined);
 		assert.ok(result?.['wip::/main']);
@@ -967,15 +1022,15 @@ suite('filterSecondariesForScopeAndVisibility', () => {
 	});
 
 	test('with scope on `all` visibility, scoped entry survives (no filter applied)', () => {
-		const meta: GraphWipMetadataBySha = { 'wip::/main': entry('main', 'sha1', scopedRef) };
+		const meta: GraphWipRowsById = { 'wip::/main': wipRow('main', 'sha1', scopedRef) };
 		const result = filterSecondariesForScopeAndVisibility(meta, scopeFor(scopedRef), 'all', undefined);
 		assert.ok(result?.['wip::/main']);
 	});
 
 	test('without scope and `all` visibility, returns input unchanged', () => {
-		const meta: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1', scopedRef),
-			'wip::/b': entry('b', 'sha2', otherRef),
+		const meta: GraphWipRowsById = {
+			'wip::/a': wipRow('a', 'sha1', scopedRef),
+			'wip::/b': wipRow('b', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForScopeAndVisibility(meta, undefined, 'all', undefined);
 		assert.strictEqual(result, meta);
@@ -994,9 +1049,9 @@ suite('filterSecondariesForScopeAndVisibility', () => {
 	test('with scope, drops detached worktree entries (branchRef undefined)', () => {
 		// Regression guard at the COMPOSER level — if a future refactor swaps the order or
 		// short-circuits the inner helpers, the inner-helper test alone wouldn't catch it.
-		const meta: GraphWipMetadataBySha = {
-			'wip::/main': entry('main', 'sha1', scopedRef),
-			'wip::/detached': entry('detached', 'sha2'),
+		const meta: GraphWipRowsById = {
+			'wip::/main': wipRow('main', 'sha1', scopedRef),
+			'wip::/detached': wipRow('detached', 'sha2'),
 		};
 		const result = filterSecondariesForScopeAndVisibility(meta, scopeFor(scopedRef), 'all', undefined);
 		assert.ok(result?.['wip::/main'], 'scoped entry kept');
@@ -1006,9 +1061,9 @@ suite('filterSecondariesForScopeAndVisibility', () => {
 	test('without scope, keeps detached worktree entries under visibility-only mode', () => {
 		// Mirror pin for the no-scope branch — the visibility helper's keep-detached policy
 		// must survive at the composer level too.
-		const meta: GraphWipMetadataBySha = {
-			'wip::/a': entry('a', 'sha1', scopedRef),
-			'wip::/detached': entry('detached', 'sha2'),
+		const meta: GraphWipRowsById = {
+			'wip::/a': wipRow('a', 'sha1', scopedRef),
+			'wip::/detached': wipRow('detached', 'sha2'),
 		};
 		const result = filterSecondariesForScopeAndVisibility(meta, undefined, 'agents', refsFor(scopedRef));
 		assert.ok(result?.['wip::/a']);
@@ -1069,7 +1124,8 @@ suite('getOverviewBranchSelectionSha', () => {
 
 	function ctxFor(overrides: Partial<SelectionContext> = {}): SelectionContext {
 		return {
-			wipMetadataBySha: undefined,
+			wipRowsById: undefined,
+			primaryWipRowId: undefined,
 			rows: undefined,
 			branchesVisibility: 'all',
 			includeOnlyRefs: undefined,
@@ -1101,10 +1157,10 @@ suite('getOverviewBranchSelectionSha', () => {
 	}
 
 	test('case 1: secondary worktree on different path + parent in loaded rows → worktree WIP sha', () => {
-		const wipMeta: GraphWipMetadataBySha = { 'wip::/wt': entry('feature', tipSha, branchId) };
+		const wipMeta: GraphWipRowsById = { 'wip::/wt': wipRow('feature', tipSha, branchId) };
 		const result = getOverviewBranchSelectionSha(
 			branchFor({ worktree: { path: '/wt' } }),
-			ctxFor({ wipMetadataBySha: wipMeta, rows: [row(tipSha)] }),
+			ctxFor({ wipRowsById: wipMeta, rows: [row(tipSha)] }),
 		);
 		assert.strictEqual(result, 'wip::/wt');
 	});
@@ -1114,36 +1170,36 @@ suite('getOverviewBranchSelectionSha', () => {
 		// unselectable WIP sha. Cold-metadata path should NOT short-circuit.
 		const result = getOverviewBranchSelectionSha(
 			branchFor({ worktree: { path: '/wt' } }),
-			ctxFor({ wipMetadataBySha: undefined, rows: [row(tipSha)] }),
+			ctxFor({ wipRowsById: undefined, rows: [row(tipSha)] }),
 		);
 		assert.strictEqual(result, tipSha, 'fell through to tip when metadata was cold');
 	});
 
 	test('case 1: worktree + metadata present but parent NOT in loaded rows → falls through', () => {
-		const wipMeta: GraphWipMetadataBySha = { 'wip::/wt': entry('feature', otherSha, branchId) };
+		const wipMeta: GraphWipRowsById = { 'wip::/wt': wipRow('feature', otherSha, branchId) };
 		const result = getOverviewBranchSelectionSha(
 			branchFor({ worktree: { path: '/wt' } }),
-			ctxFor({ wipMetadataBySha: wipMeta, rows: [row(tipSha)] }),
+			ctxFor({ wipRowsById: wipMeta, rows: [row(tipSha)] }),
 		);
 		assert.strictEqual(result, tipSha, 'parent not in loaded rows → tip');
 	});
 
-	test('case 2: default-worktree fallback via wipMetadataBySha branchRef match', () => {
+	test('case 2: default-worktree fallback via wipRowsById branchRef match', () => {
 		// OverviewBranch.worktree is undefined (default-worktree strip at provider boundary),
-		// but wipMetadataBySha has an entry whose branchRef matches branch.id. Should select WIP.
-		const wipMeta: GraphWipMetadataBySha = { 'wip::/default': entry('feature', tipSha, branchId) };
+		// but wipRowsById has an entry whose branchRef matches branch.id. Should select WIP.
+		const wipMeta: GraphWipRowsById = { 'wip::/default': wipRow('feature', tipSha, branchId) };
 		const result = getOverviewBranchSelectionSha(
 			branchFor({ worktree: undefined }),
-			ctxFor({ wipMetadataBySha: wipMeta, rows: [row(tipSha)] }),
+			ctxFor({ wipRowsById: wipMeta, rows: [row(tipSha)] }),
 		);
 		assert.strictEqual(result, 'wip::/default');
 	});
 
 	test('case 2: parent NOT in loaded rows → falls through', () => {
-		const wipMeta: GraphWipMetadataBySha = { 'wip::/default': entry('feature', otherSha, branchId) };
+		const wipMeta: GraphWipRowsById = { 'wip::/default': wipRow('feature', otherSha, branchId) };
 		const result = getOverviewBranchSelectionSha(
 			branchFor(),
-			ctxFor({ wipMetadataBySha: wipMeta, rows: [row(tipSha)] }),
+			ctxFor({ wipRowsById: wipMeta, rows: [row(tipSha)] }),
 		);
 		assert.strictEqual(result, tipSha);
 	});
@@ -1205,10 +1261,10 @@ suite('getOverviewBranchSelectionSha', () => {
 	});
 
 	test('case 4: undefined rows means we cannot gate on parentSha — case 1 still returns WIP', () => {
-		const wipMeta: GraphWipMetadataBySha = { 'wip::/wt': entry('feature', otherSha, branchId) };
+		const wipMeta: GraphWipRowsById = { 'wip::/wt': wipRow('feature', otherSha, branchId) };
 		const result = getOverviewBranchSelectionSha(
 			branchFor({ worktree: { path: '/wt' } }),
-			ctxFor({ wipMetadataBySha: wipMeta, rows: undefined }),
+			ctxFor({ wipRowsById: wipMeta, rows: undefined }),
 		);
 		assert.strictEqual(result, 'wip::/wt', 'no rows info → trust metadata');
 	});
@@ -1365,25 +1421,25 @@ suite('shouldRestoreSearchQuery', () => {
 suite('resolveFullStateWorkingTreeStats', () => {
 	test('drops and keeps ownership when the wip channel owns the incoming repo', () => {
 		// Steady-state protection AND early swap-delivery retention: a B tick (even one that arrived while the
-		// client still showed A) stamped _wipStatsRepo = B, so B's own full-state drops its older seed.
-		assert.deepStrictEqual(resolveFullStateWorkingTreeStats('/b', '/b'), { seed: false, wipStatsRepo: '/b' });
+		// client still showed A) stamped _wipStatsRowId = B, so B's own full-state drops its older seed.
+		assert.deepStrictEqual(resolveFullStateWorkingTreeStats('/b', '/b'), { seed: false, wipStatsRowId: '/b' });
 	});
 
 	test('seeds and clears ownership when the wip channel owns a different repo', () => {
-		assert.deepStrictEqual(resolveFullStateWorkingTreeStats('/b', '/a'), { seed: true, wipStatsRepo: undefined });
+		assert.deepStrictEqual(resolveFullStateWorkingTreeStats('/b', '/a'), { seed: true, wipStatsRowId: undefined });
 	});
 
 	test('seeds before the wip channel has written any stats', () => {
 		assert.deepStrictEqual(resolveFullStateWorkingTreeStats('/a', undefined), {
 			seed: true,
-			wipStatsRepo: undefined,
+			wipStatsRowId: undefined,
 		});
 	});
 
 	test('seeds when the incoming repo is absent', () => {
 		assert.deepStrictEqual(resolveFullStateWorkingTreeStats(undefined, '/a'), {
 			seed: true,
-			wipStatsRepo: undefined,
+			wipStatsRowId: undefined,
 		});
 	});
 
@@ -1392,8 +1448,8 @@ suite('resolveFullStateWorkingTreeStats', () => {
 		let owner: string | undefined = '/b';
 		// Swap B→A: A's full-state seeds and must CLEAR the stale B marker.
 		let r = resolveFullStateWorkingTreeStats('/a', owner);
-		assert.deepStrictEqual(r, { seed: true, wipStatsRepo: undefined });
-		owner = r.wipStatsRepo;
+		assert.deepStrictEqual(r, { seed: true, wipStatsRowId: undefined });
+		owner = r.wipStatsRowId;
 		// Swap back A→B on an idle B (no tick): B's full-state must RE-SEED, not be dropped by a stale marker.
 		r = resolveFullStateWorkingTreeStats('/b', owner);
 		assert.strictEqual(r.seed, true, 'B full-state must re-seed after swap-back');

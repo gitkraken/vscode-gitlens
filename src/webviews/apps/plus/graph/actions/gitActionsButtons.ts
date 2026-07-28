@@ -10,7 +10,7 @@ import type { StashSaveCommandArgs } from '../../../../../commands/stashSave.js'
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GraphServices } from '../../../../plus/graph/graphService.js';
-import type { BranchState, GraphAutoFetchMode, GraphWorkingTreeStats, State } from '../../../../plus/graph/protocol.js';
+import type { BranchState, GraphAutoFetchMode, GraphWipState, State } from '../../../../plus/graph/protocol.js';
 import { UpdateGraphConfigurationCommand } from '../../../../plus/graph/protocol.js';
 import type { PullConflictPreview } from '../../../../rpc/services/branches.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
@@ -85,14 +85,15 @@ export class GitActionsButtons extends LitElement {
 	@property({ type: Object })
 	lastFetched?: Date;
 
+	/** The graph's own worktree's hot WIP state — its entry in the row-keyed `wipStateById` plane. */
 	@property({ type: Object })
-	workingTreeStats?: GraphWorkingTreeStats;
+	wipState?: GraphWipState;
 
 	@property({ type: Object })
 	state!: State;
 
 	private get hasWorkingChanges(): boolean {
-		const stats = this.workingTreeStats;
+		const stats = this.wipState?.workDirStats;
 		if (stats == null) return false;
 		return stats.added + stats.deleted + stats.modified + (stats.renamed ?? 0) > 0;
 	}
@@ -118,17 +119,18 @@ export class GitActionsButtons extends LitElement {
 
 	private onJumpToWip() {
 		this.dispatchEvent(new CustomEvent('jump-to-wip', { bubbles: true, composed: true }));
-		if (this.workingTreeStats?.pausedOpStatus != null) {
+		if (this.wipState?.pausedOpStatus != null) {
 			this.dispatchEvent(new CustomEvent('show-details', { bubbles: true, composed: true }));
 		}
 	}
 
 	private renderWipTooltip() {
-		const stats = this.workingTreeStats;
-		const pausedOp = stats?.pausedOpStatus;
+		const state = this.wipState;
+		const stats = state?.workDirStats;
+		const pausedOp = state?.pausedOpStatus;
 		if (pausedOp != null) {
 			const opStrings = pausedOperationStatusStringsByType[pausedOp.type];
-			const headline = stats?.hasConflicts === true ? opStrings.conflicts : `${opStrings.label} in progress`;
+			const headline = state?.hasConflicts === true ? opStrings.conflicts : `${opStrings.label} in progress`;
 			return html`${headline}
 				<hr />
 				Jump to Working Changes`;
@@ -181,12 +183,12 @@ export class GitActionsButtons extends LitElement {
 				<a class="action-button wip-button" @click=${this.onJumpToWip}>
 					<code-icon class="action-button__icon" icon="gl-wip"></code-icon>
 					<gl-wip-stats
-						.added=${this.workingTreeStats?.added}
-						.modified=${this.workingTreeStats?.modified}
-						.removed=${this.workingTreeStats?.deleted}
-						.pausedOpStatus=${this.workingTreeStats?.pausedOpStatus}
-						?has-conflicts=${this.workingTreeStats?.hasConflicts === true}
-						.conflictsCount=${this.workingTreeStats?.conflictsCount}
+						.added=${this.wipState?.workDirStats?.added}
+						.modified=${this.wipState?.workDirStats?.modified}
+						.removed=${this.wipState?.workDirStats?.deleted}
+						.pausedOpStatus=${this.wipState?.pausedOpStatus}
+						?has-conflicts=${this.wipState?.hasConflicts === true}
+						.conflictsCount=${this.wipState?.conflictsCount}
 						show-clean
 						no-tooltip
 					></gl-wip-stats>

@@ -145,7 +145,8 @@ export class CommitGraphProjectionSession {
 
 		const structuralRows = this.projectRows(input, scopeProjection, collapsedByTipSha, visibleJunctions);
 		const rows = this.filterRows(structuralRows, input.filterShas);
-		const display = this.deriveDisplayIndex(rows);
+		// Only an unfiltered projection can be an append — a filter re-selects arbitrary rows.
+		const display = this.deriveDisplayIndex(rows, input.filterShas == null);
 		this._state = {
 			rows: rows,
 			indexBySha: display.indexBySha,
@@ -181,7 +182,7 @@ export class CommitGraphProjectionSession {
 		if (input == null || filterShas === input.filterShas) return this._state;
 
 		const rows = this.filterRows(this._structuralRows, filterShas);
-		const display = this.deriveDisplayIndex(rows);
+		const display = this.deriveDisplayIndex(rows, false);
 		this._state = {
 			...this._state,
 			rows: rows,
@@ -270,7 +271,17 @@ export class CommitGraphProjectionSession {
 		return filtered;
 	}
 
-	private deriveDisplayIndex(rows: readonly ProcessedGraphRow[]): {
+	/**
+	 * @param canAppend Whether an APPEND is structurally possible for this transition. Identity checks
+	 * alone cannot establish it: `filterRows` hands back cached flattened rows, so a changed filter can
+	 * produce a longer list whose first row and whose row at the prior length both match by reference
+	 * while rows in between were swapped — leaving removed shas indexed, new shas missing, and a stale
+	 * `maxColumn`. Filtering is already O(n), so a filter transition just rebuilds.
+	 */
+	private deriveDisplayIndex(
+		rows: readonly ProcessedGraphRow[],
+		canAppend: boolean,
+	): {
 		indexBySha: ReadonlyMap<Sha, number>;
 		maxColumn: number;
 	} {
@@ -280,6 +291,7 @@ export class CommitGraphProjectionSession {
 		}
 
 		const appended =
+			canAppend &&
 			priorRows.length > 0 &&
 			rows.length > priorRows.length &&
 			rows[0] === priorRows[0] &&

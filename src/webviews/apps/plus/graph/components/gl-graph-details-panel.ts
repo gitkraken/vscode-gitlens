@@ -3608,7 +3608,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleRefreshWip = () => {
 		// The WIP refresh button must run a genuinely fresh `git status` — route through
 		// `refetchWipQuiet(force=true)` which bypasses the host's `_wipStatusCache` and reseeds
-		// both the panel's file list AND the header/row `workingTreeStats`. The old path
+		// both the panel's file list AND the header/row WIP status. The old path
 		// (`refreshWip()` + `fetchDetails()`) hit the cache-hit branch and re-applied a possibly
 		// stale cached value — the button appeared to do nothing.
 		const repoPath = this.effectiveRepoPath;

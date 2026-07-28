@@ -85,8 +85,7 @@ import type {
 	GraphScrollMarkerTypes,
 	GraphSearchMode,
 	GraphSelectedRows,
-	GraphWipMetadataBySha,
-	GraphWorkingTreeStats,
+	GraphWipStateById,
 } from '../../../../plus/graph/protocol.js';
 import { createWipRowId, isWipRowId } from '../../../../plus/graph/protocol.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
@@ -392,7 +391,7 @@ interface RenderCtx {
 	/** Shas matched by the active search (undefined = no active search). Drives row highlight + the
 	 *  dimming of non-matches. Empty set = active search with 0 results (dims every row). */
 	searchMatchedShas?: ReadonlySet<string>;
-	/** Active search mode — matches are highlighted only in `normal` (legacy parity). */
+	/** Active search mode — matches are highlighted only in `normal`. */
 	searchMode?: GraphSearchMode;
 	/** Lane chain of the focused ref/row → `.is-inRefChain` rows (others dim). Bounded at the merge base. */
 	inRefChainShas?: ReadonlySet<string>;
@@ -426,11 +425,12 @@ interface RenderCtx {
 	/** sha → running compose/review operation + agent status for the workdir rows' action buttons. */
 	runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
 	agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
-	/** The graph's own worktree's WIP row conflict state — drives that row's inline Resolve action. */
-	workingTreeStats?: GraphWorkingTreeStats;
-	/** Secondary (per-worktree) WIP rows' metadata, keyed by their synthetic sha — same source for
-	 *  their conflict state. */
-	wipMetadataBySha?: GraphWipMetadataBySha;
+	/** Per-worktree hot WIP state (stats + conflicts + paused op), keyed by WIP row id. Covers every
+	 *  worktree, the graph's own included. */
+	wipStateById?: GraphWipStateById;
+	/** The graph's own worktree's WIP row id, when that row renders — the inline Resolve action is
+	 *  gated to it; peers surface conflicts via the details-header chip instead. */
+	primaryWipRowId?: string;
 	/** The current worktree's row-marker tips (HEAD / upstream / merge-target shas + target name) — the
 	 *  SAME object on every row; drives the left-edge rail on the (≤3) rows those tips land on. */
 	rowMarkerTips?: RowMarkerTips;
@@ -530,8 +530,9 @@ export class GlLitGraph extends LitElement {
 	// ships only `contexts.flags`, not a serialized `contexts.row`); see toGraphCommit.
 	@property({ type: String }) repoPath?: string;
 	@property({ type: Object }) scope?: GraphScope;
-	@property({ type: Object }) wipMetadataBySha?: GraphWipMetadataBySha;
-	@property({ type: Object }) workingTreeStats?: GraphWorkingTreeStats;
+	@property({ type: Object }) wipStateById?: GraphWipStateById;
+	/** The graph's own worktree's WIP row id, when it renders — see {@link RowRenderContext.primaryWipRowId}. */
+	@property({ type: String }) primaryWipRowId?: string;
 	// The current branch's merge-target tip + name, pulled client-side via the scope-anchor pipeline. HEAD
 	// and the upstream tip are derived locally (from `this.headSha` and `refRowIndex`); this is the only leg
 	// the client can't compute itself. Drives the merge-target role on the rail + the ref pill's target
@@ -870,11 +871,12 @@ export class GlLitGraph extends LitElement {
 			wipState: c.wipStateBySha.get(row.sha),
 			wipOperation: row.kind === 'workdir' ? c.runningOperationByRowSha?.get(row.sha) : undefined,
 			wipAgent: row.kind === 'workdir' ? c.agentStatusByRowSha?.get(row.sha) : undefined,
-			// Inline Resolve is gated to the graph's OWN worktree's WIP row (legacy parity) — peer
+			// Inline Resolve is gated to the graph's OWN worktree's WIP row — peer
 			// worktrees surface conflicts via the details-header chip instead.
-			hasConflicts: isPrimaryWipRow(row.kind, row.sha, this.repoPath)
-				? c.workingTreeStats?.hasConflicts
-				: undefined,
+			hasConflicts:
+				row.kind === 'workdir' && row.sha === c.primaryWipRowId
+					? c.wipStateById?.[row.sha]?.hasConflicts
+					: undefined,
 			isUnpushed: commit.isUnpublished,
 			isUnpulled: commit.isUnpulled,
 			undoTarget: commit.undo,
@@ -1153,8 +1155,7 @@ export class GlLitGraph extends LitElement {
 	private readonly gutterCache = new GutterCache(renderGutterSvg);
 	private gutterPaletteEpoch = 0;
 	private providersRegistered = false;
-	private lastWipStatsRef?: GraphWorkingTreeStats;
-	private lastWipMetaRef?: GraphWipMetadataBySha;
+	private lastWipStateRef?: GraphWipStateById;
 	/** `repoPath` at the last WIP-stats rebuild — the graph's own WIP row is keyed by it. */
 	private lastWipRepoPath?: string;
 
@@ -1687,13 +1688,9 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
-		const wipChanged =
-			this.workingTreeStats !== this.lastWipStatsRef ||
-			this.wipMetadataBySha !== this.lastWipMetaRef ||
-			this.repoPath !== this.lastWipRepoPath;
+		const wipChanged = this.wipStateById !== this.lastWipStateRef || this.repoPath !== this.lastWipRepoPath;
 		if (wipChanged) {
-			this.lastWipStatsRef = this.workingTreeStats;
-			this.lastWipMetaRef = this.wipMetadataBySha;
+			this.lastWipStateRef = this.wipStateById;
 			this.lastWipRepoPath = this.repoPath;
 			this.rebuildWipStatsProvider();
 		}
@@ -2049,8 +2046,8 @@ export class GlLitGraph extends LitElement {
 			wipStateBySha: this.wipStateBySha,
 			runningOperationByRowSha: this.runningOperationByRowSha,
 			agentStatusByRowSha: this.agentStatusByRowSha,
-			workingTreeStats: this.workingTreeStats,
-			wipMetadataBySha: this.wipMetadataBySha,
+			wipStateById: this.wipStateById,
+			primaryWipRowId: this.primaryWipRowId,
 			rowMarkerTips: tips,
 			wipRowMarkerPill: this.buildWipRowMarkerPill(tips),
 		};
@@ -3638,19 +3635,12 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private rebuildWipStatsProvider(): void {
+		// One pass over the uniform hot plane — the graph's own worktree is an ordinary entry now, so
+		// there's no separate primary source to fold in first.
 		const out = new Map<Sha, WipStats>();
-		const wts = this.workingTreeStats;
-		if (wts != null && this.repoPath != null) {
-			out.set(createWipRowId(this.repoPath), {
-				added: wts.added,
-				modified: wts.modified,
-				deleted: wts.deleted,
-				renamed: wts.renamed,
-			});
-		}
-		if (this.wipMetadataBySha != null) {
-			for (const [sha, meta] of Object.entries(this.wipMetadataBySha)) {
-				const s = meta?.workDirStats;
+		if (this.wipStateById != null) {
+			for (const [sha, state] of Object.entries(this.wipStateById)) {
+				const s = state?.workDirStats;
 				if (s == null) continue;
 
 				out.set(sha, {
@@ -3658,7 +3648,7 @@ export class GlLitGraph extends LitElement {
 					modified: s.modified,
 					deleted: s.deleted,
 					renamed: s.renamed,
-					stale: meta.workDirStatsStale === true,
+					stale: state.workDirStatsStale === true,
 				});
 			}
 		}
@@ -6091,16 +6081,19 @@ export class GlLitGraph extends LitElement {
 	// host's `_pendingRowsQuery` dedup collapse repeated calls to a single in-flight request, so firing
 	// this per scroll frame or per applied page can't storm the host — at most one page loads at a time.
 	private dispatchMoreRows(): void {
-		// Only mark the first accepted page ask. Repeated requests while loading are dropped upstream and
-		// must not restart the diagnostic duration.
-		if (DEBUG && !this.loading) {
-			getGraphDebugDiagnostics().markPageRequested({
-				repoPath: this.repoPath,
-				sourceRows: this.rows?.length ?? 0,
-				displayRows: this.displayRows.length,
-			});
+		// The diagnostic mark is taken by the WRAPPER once its acceptance guards pass — asking is not the
+		// same as paging, and marking here would attribute a rejected ask's start time to the next page
+		// that actually loads. The rendered count rides along because only this element knows it; gating
+		// it on DEBUG here leaves nothing behind in a production build, where an accessor would survive.
+		if (DEBUG) {
+			this.dispatchEvent(
+				new CustomEvent('gl-graph-morerows', { detail: { displayRows: this.displayRows.length } }),
+			);
+		} else {
+			// Written as two complete constructions rather than a conditional argument so the production
+			// build keeps the bare one-argument call instead of an `undefined` second argument.
+			this.dispatchEvent(new CustomEvent('gl-graph-morerows'));
 		}
-		this.dispatchEvent(new CustomEvent('gl-graph-morerows'));
 		this.announceLoadingMore();
 	}
 
@@ -6205,7 +6198,7 @@ export class GlLitGraph extends LitElement {
 		const rows = this.displayRows;
 		if (rows.length === 0) return;
 
-		const meta = this.wipMetadataBySha;
+		const wipState = this.wipStateById;
 		const knownAvatars = this.avatars;
 		const primaryWipRowId = this.repoPath != null ? createWipRowId(this.repoPath) : undefined;
 		const lo = Math.max(0, first);
@@ -6217,12 +6210,12 @@ export class GlLitGraph extends LitElement {
 			const commit = this.getCommitBySha(rows[i].sha);
 			if (commit == null) continue;
 
-			// Peer worktrees only — the graph's own WIP row's stats ride `workingTreeStats`, and it has no
-			// `wipMetadataBySha` entry to fill.
+			// Peer worktrees only — the graph's own WIP row is already watched by the host's primary
+			// working-tree channel, which pushes its status group unasked.
 			if (rows[i].kind === 'workdir' && isWipRowId(rows[i].sha) && rows[i].sha !== primaryWipRowId) {
 				visibleWip[rows[i].sha] = true;
-				const m = meta?.[rows[i].sha];
-				if (m != null && (m.workDirStats == null || m.workDirStatsStale === true)) {
+				const state = wipState?.[rows[i].sha];
+				if (state != null && (state.workDirStats == null || state.workDirStatsStale === true)) {
 					missingStats[rows[i].sha] = true;
 				}
 			}

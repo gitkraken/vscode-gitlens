@@ -19,9 +19,11 @@ import type {
 	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
-	GraphWorkingTreeStats,
+	GraphWipState,
+	GraphWipStateById,
 	State,
 	Wip,
+	WipStats,
 	WorkDirStats,
 } from '../../../plus/graph/protocol.js';
 import {
@@ -78,6 +80,7 @@ import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
 import { getGraphDebugDiagnostics } from './graphDebugDiagnostics.js';
 import { GraphRowsSyncReceiver } from './graphRowsSyncReceiver.js';
+import { getSelectedRepoPath } from './utils/repository.utils.js';
 
 const BaseWebviewStateKeys = [
 	'timestamp',
@@ -360,14 +363,14 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 	return { results: results, resultsError: resultsError };
 }
 
-// Sticky cache of the last-known `workDirStats` value seen for each secondary-WIP sha. Used to
-// bridge the visual gap when an entry briefly disappears from `wipMetadataBySha` and re-enters
-// via the `prevEntry == null` path — without this, the GK component renders no pill for the row
-// across the 350ms settle + IPC round trip, producing a visible flash. One GraphStateProvider
-// per webview, so module-level is effectively per-instance state.
+// Sticky cache of the last-known `workDirStats` value seen for each WIP row id. Used to bridge the
+// visual gap when an entry briefly disappears from `wipStateById` and re-enters via the
+// `prevEntry == null` path — without this, the GK component renders no pill for the row across the
+// 350ms settle + IPC round trip, producing a visible flash. One GraphStateProvider per webview, so
+// module-level is effectively per-instance state.
 export const lastKnownWorkDirStatsBySha = new Map<string, WorkDirStats>();
 
-function captureLastKnownWorkDirStats(map: State['wipMetadataBySha']): void {
+function captureLastKnownWorkDirStats(map: State['wipStateById']): void {
 	if (map == null) return;
 
 	for (const [sha, entry] of Object.entries(map)) {
@@ -606,19 +609,21 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor nonce: State['nonce'];
 
+	/** Stable per-worktree WIP row topology, EVERY worktree including the graph's own. */
 	@signalState()
-	accessor workingTreeStats: State['workingTreeStats'];
+	accessor wipRowsById: State['wipRowsById'];
 
-	@signalState<State['wipMetadataBySha']>(undefined, {
-		// Maintain a sticky cache of last-known `workDirStats` keyed by secondary-WIP sha so that
-		// `mergeWipMetadata` can recover stats for an entry that briefly disappears from
-		// `wipMetadataBySha` (e.g. host worktree-list flap, transient `wt.sha == null`,
+	/** Hot per-worktree WIP state, keyed by the same row ids as {@link wipRowsById}. */
+	@signalState<State['wipStateById']>(undefined, {
+		// Maintain a sticky cache of last-known `workDirStats` keyed by WIP row id so that
+		// `mergeWipState` can recover stats for an entry that briefly disappears from
+		// `wipStateById` (e.g. host worktree-list flap, transient `wt.sha == null`,
 		// reduced-set full-state push) and re-enters via the `prevEntry == null` path. Without
 		// this, the GK component sees `workDirStats: undefined` and renders nothing for the row
 		// until the settle delay + IPC round trip resolves — that's the visible pill flash.
 		afterChange: (_target: GraphStateProvider, value) => captureLastKnownWorkDirStats(value),
 	})
-	accessor wipMetadataBySha: State['wipMetadataBySha'];
+	accessor wipStateById: State['wipStateById'];
 
 	@signalState()
 	accessor wip: State['wip'];
@@ -1504,24 +1509,17 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		const updates: Partial<State> = {};
 		switch (true) {
 			case DidChangeNotification.is(msg): {
-				// Preserve client-side wipMetadataBySha.workDirStats (populated via GetWipStatsRequest)
-				// across full-state pushes — the server only sends anchor info. Read from the
-				// accessor (signal) rather than `_state`: writebacks from `graph-wrapper.ts` and
-				// `graph-app.ts` assign through the accessor and don't update `_state`, so reading
-				// `_state` here would see a stale anchor-only map and the merge would drop the
-				// freshly-fetched `workDirStats` from every secondary row (visible pill flash).
 				const incoming = msg.params.state;
-				const next: Partial<State> =
-					incoming.wipMetadataBySha != null
-						? {
-								...incoming,
-								wipMetadataBySha: mergeWipMetadata(
-									this.wipMetadataBySha,
-									incoming.wipMetadataBySha,
-									lastKnownWorkDirStatsBySha,
-								),
-							}
-						: { ...incoming };
+				const next: Partial<State> = { ...incoming };
+				// Both WIP planes merge rather than replace — the host only sends topology plus whatever
+				// status it produced, so client-fetched peer stats (via `GetWipStatsRequest`) have to
+				// survive a full-state push. Read from the accessors (`this.wipRowsById` /
+				// `this.wipStateById`) rather than `_state`: writebacks from `graph-wrapper.ts` and
+				// `graph-app.ts` assign through the accessor and don't update `_state`, so reading `_state`
+				// would see a stale map and drop those stats (the visible pill flash).
+				if (incoming.wipRowsById != null) {
+					next.wipRowsById = mergeWipRows(this.wipRowsById, incoming.wipRowsById);
+				}
 				// Rows-plane fields (rows/avatars/downstreams/paging/reachabilityTable/rowsStats*) travel on
 				// the publisher's `DidChangeRows` channel and arrive ABSENT here. Two exceptions ride this
 				// push: `refsMetadata` (a full-map/`null` reset-anchor REPLACE, applied via `updateState`) and
@@ -1537,24 +1535,34 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				if (next.lastFetched?.getTime() === this._state.lastFetched?.getTime()) {
 					delete next.lastFetched;
 				}
-				// `workingTreeStats` has a second, revision-ordered writer — the wip channel
+				// The graph's own worktree's status group has a second, revision-ordered writer — the wip channel
 				// (`DidChangeWorkingTree`/refetch, guarded by `isStaleWip`). This full-state copy is unstamped and
 				// snapshotted early in the host rebuild, so drop it whenever the wip channel has already written
-				// stats for the repo THIS push is for (`_wipStatsRepo === incoming.selectedRepository`): the live
+				// status for the row THIS push is for (`_wipStatsRowId === <incoming primary row id>`): the live
 				// value wins, including one a B working-tree tick delivered early during an A→B swap (which is why
 				// the compare is against the incoming repo, not the client's lagging current selection). Otherwise
-				// seed (first delivery). Plus an equal-value delete to spare a redundant header re-render.
-				if ('workingTreeStats' in next) {
-					const { seed, wipStatsRepo } = resolveFullStateWorkingTreeStats(
-						incoming.selectedRepository,
-						this._wipStatsRepo,
+				// seed (first delivery). Peer rows are unaffected — the client owns their status group.
+				if (incoming.wipStateById != null) {
+					// The incoming push's own primary, resolved from the repositories/selection it carries (both
+					// travel on a full state) with a fallback to what's already applied.
+					const incomingPrimaryRowId = getPrimaryWipRowId({
+						repositories: next.repositories ?? this._state.repositories,
+						selectedRepository: incoming.selectedRepository ?? this._state.selectedRepository,
+					});
+					const { seed, wipStatsRowId } = resolveFullStateWorkingTreeStats(
+						incomingPrimaryRowId,
+						this._wipStatsRowId,
 					);
 					// Seeding hands ownership back to the full-state (clears the marker) so a stale marker from a
 					// prior visit can't drop a later seed after a B→A→B swap-back; a drop keeps the wip owner.
-					this._wipStatsRepo = wipStatsRepo;
-					if (!seed || areEqual(next.workingTreeStats, this._state.workingTreeStats)) {
-						delete next.workingTreeStats;
-					}
+					this._wipStatsRowId = wipStatsRowId;
+					next.wipStateById = mergeWipState(
+						this.wipStateById,
+						seed ? incoming.wipStateById : stripWipStatus(incoming.wipStateById, incomingPrimaryRowId),
+						next.wipRowsById ?? this.wipRowsById,
+						incomingPrimaryRowId,
+						lastKnownWorkDirStatsBySha,
+					);
 				}
 				this.updateState(next);
 				break;
@@ -1945,39 +1953,43 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg): {
-				// Host always sends `wipMetadataBySha` as an object (possibly `{}`) so the merge
+				// Host always sends `wipRowsById` as an object (possibly `{}`) so the merge
 				// can correctly clear stale anchors. If a future host change ever omits the field
 				// (or it's undefined for "unchanged"), don't destructively clear — leave existing
-				// webview anchors in place. Read from the accessor (`this.wipMetadataBySha`) rather
-				// than `this._state`: writebacks from `graph-wrapper.ts` and `graph-app.ts` assign
-				// through the accessor and don't update `_state`, so reading `_state` here sees a
-				// stale anchor-only map and the merge drops freshly-fetched `workDirStats` from
-				// every secondary row (the visible pill flash).
-				// `workingTreeStats` is just the primary wip's embedded `stats` (git-authoritative).
-				// Files and counts travel together on the same `wip` object, so they can't drift —
-				// no generation guard needed. Assign only when stats are present: `updateState`
-				// enumerates keys, so `workingTreeStats: undefined` would actively CLEAR the badge.
-				// The producer always populates `wip.stats` and skips this notification when the status
-				// fetch fails, but guarding here keeps a stats-less push from blanking the badge and
-				// matches the `DidRequestWipRefetchNotification` handler's discipline below.
+				// webview anchors in place. Read from the accessor (`this.wipRowsById` /
+				// `this.wipStateById`) rather than `this._state`: writebacks from `graph-wrapper.ts`
+				// and `graph-app.ts` assign through the accessor and don't update `_state`, so
+				// reading `_state` here sees a stale anchor-only map and the merge drops
+				// freshly-fetched `workDirStats` from every peer row (the visible pill flash).
 				// Drop a push reflecting an older working tree than what's already applied (see `isStaleWip`) —
-				// otherwise a delayed push regresses the cache/badge/overview. `wipMetadataBySha` is an independent
-				// per-sha merge, so it still applies.
+				// otherwise a delayed push regresses the cache/badge/overview. The topology plane carries no
+				// working-tree content, so it applies regardless; only the pushed row's STATUS is ordered.
 				const staleWip = this.isStaleWip(msg.params.repoPath, msg.params.wip);
+				const pushedRowId = createWipRowId(msg.params.repoPath);
 
 				const updates: Partial<State> = {};
-				if (!staleWip && msg.params.wip?.stats != null) {
-					updates.workingTreeStats = msg.params.wip.stats;
-					// Stamp ownership by the PUSH's repo, not the client's current `selectedRepository` (which lags
-					// the host during a swap). This channel is primary-only host-side, so an early B tick during an
-					// A→B switch is genuinely B's — attributing it to B lets its fresh stats supersede B's full-state
-					// seed once the switch lands. (`repoPath === id` for file repos, the only producers of stats.)
-					this._wipStatsRepo = msg.params.repoPath;
+				const nextRows =
+					msg.params.wipRowsById != null
+						? mergeWipRows(this.wipRowsById, msg.params.wipRowsById)
+						: this.wipRowsById;
+				if (msg.params.wipRowsById != null) {
+					updates.wipRowsById = nextRows;
 				}
-				if (msg.params.wipMetadataBySha != null) {
-					updates.wipMetadataBySha = mergeWipMetadata(
-						this.wipMetadataBySha,
-						msg.params.wipMetadataBySha,
+				if (msg.params.wipStateById != null) {
+					// This channel is host-authoritative for the PUSHED repo's status group, so stamp ownership by
+					// the PUSH's repo rather than the client's current `selectedRepository` (which lags the host
+					// during a swap): an early B tick during an A→B switch is genuinely B's, and attributing it to B
+					// lets its fresh status supersede B's full-state seed once the switch lands.
+					// A stale push still carries the free enumeration fields for every worktree; only its
+					// snapshotted STATUS for the pushed row must not regress what's applied.
+					if (!staleWip && msg.params.wipStateById[pushedRowId]?.workDirStats != null) {
+						this._wipStatsRowId = pushedRowId;
+					}
+					updates.wipStateById = mergeWipState(
+						this.wipStateById,
+						staleWip ? stripWipStatus(msg.params.wipStateById, pushedRowId) : msg.params.wipStateById,
+						nextRows,
+						this.primaryWipRowId,
 						lastKnownWorkDirStatsBySha,
 					);
 				}
@@ -2015,39 +2027,30 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					this.cacheWip(repoPath, msg.params.wip);
 
 					// Host shipped its already-computed stats — use them directly rather than
-					// deriving locally (would lose `pausedOpStatus` / `context` / `renamed`, and
-					// the per-file classifier doesn't match `git diff --shortstat` semantics).
-					if (stats != null && repoPath === this.selectedRepository) {
-						updates.workingTreeStats = stats;
-						this._wipStatsRepo = repoPath;
-					}
-
-					// Refresh the secondary row's metadata (workDirStats + pausedOpStatus) when
-					// this push is for a secondary worktree. Same accessor-read rationale as the
+					// deriving locally (would lose `pausedOpStatus` / `renamed`, and the per-file
+					// classifier doesn't match `git diff --shortstat` semantics). One write for ANY
+					// worktree: the graph's own and its peers share one row-keyed plane, so there is no
+					// fork on which repo the refetch is for. Same accessor-read rationale as the
 					// `DidChangeWorkingTreeNotification` branch above.
-					const wipMetadataBySha = this.wipMetadataBySha;
-					if (stats != null && wipMetadataBySha != null) {
-						const secondarySha = createWipRowId(repoPath);
-						const prevSecondary = wipMetadataBySha[secondarySha];
-						if (prevSecondary != null) {
-							updates.wipMetadataBySha = {
-								...wipMetadataBySha,
-								[secondarySha]: {
-									...prevSecondary,
-									workDirStats: {
-										added: stats.added,
-										deleted: stats.deleted,
-										modified: stats.modified,
-									},
-									workDirStatsStale: false,
-									pausedOpStatus: stats.pausedOpStatus,
-								},
-							};
+					// Tracked-row gate: a refetch for a worktree the client does not render is dropped.
+					// The graph's own row is exempt — its badges are shown
+					// whether or not the worktree enumeration has landed.
+					const rowId = createWipRowId(repoPath);
+					const tracked = rowId === this.primaryWipRowId || this.wipRowsById?.[rowId] != null;
+					if (stats != null && tracked) {
+						updates.wipStateById = mergeWipState(
+							this.wipStateById,
+							{ [rowId]: toWipStatePatch(stats) },
+							this.wipRowsById,
+							this.primaryWipRowId,
+						);
+						if (rowId === this.primaryWipRowId) {
+							this._wipStatsRowId = rowId;
 						}
 					}
 					this.updateState(updates);
-					// Merge the overview entry from the same fetch. For secondaries the branchId
-					// lives on `wipMetadataBySha[secondarySha].branchRef` (pre-computed host-side
+					// Merge the overview entry from the same fetch. For peers the branchId
+					// lives on `wipRowsById[rowId].branchRef` (pre-computed host-side
 					// with the MAIN repo path); fall back to deriving from the wip payload's
 					// branch name if absent. `stats` carries the breakdown for the inline counts.
 					this.mergeOverviewWipForRepo(repoPath, msg.params.wip, stats);
@@ -2158,15 +2161,24 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private readonly _wipRevisions = new Map<string, number>();
 
 	/**
-	 * Which repo currently owns the primary `workingTreeStats` badge on the wip channel's behalf: its `repoPath`
-	 * (stamped on each wip stats write; `repository.id` for file repos, the only producers), CLEARED when a
-	 * full-state seed takes over. The full-state gate drops its (unstamped, early-snapshotted) stats when this
-	 * matches the pushed `selectedRepository`, so the live channel's value wins — including one a working-tree
-	 * tick delivered early during a repo swap, since ownership is stamped by the PUSH's repo (not the client's
-	 * lagging current selection). Distinct from `_wipRevisions` (revision high-water, also advanced for probed
-	 * secondaries); this marks only who owns the primary badge value.
+	 * Which WIP row currently owns the graph's own worktree's status group on the wip channel's behalf: its
+	 * `wip::<path>` row id (stamped on each wip status write), CLEARED when a full-state seed takes over. The
+	 * full-state gate drops its (unstamped, early-snapshotted) status for that row when this matches the pushed
+	 * state's own primary row id, so the live channel's value wins — including one a working-tree tick delivered
+	 * early during a repo swap, since ownership is stamped by the PUSH's repo (not the client's lagging current
+	 * selection). Distinct from `_wipRevisions` (revision high-water, also advanced for probed peers); this marks
+	 * only who owns the badge value.
+	 *
+	 * Kept in ROW-ID space rather than raw paths: `createWipRowId` normalizes, so this compares equal across the
+	 * separator differences between `repository.path` (push side) and `repository.id` (full-state side).
 	 */
-	private _wipStatsRepo: string | undefined;
+	private _wipStatsRowId: string | undefined;
+
+	/** The graph's own worktree's WIP row id, from the selected repository. Undefined before the repo
+	 *  list lands. Cheap (a small `find`) and read only on WIP writes, so it isn't memoized. */
+	get primaryWipRowId(): string | undefined {
+		return getPrimaryWipRowId(this._state);
+	}
 
 	/**
 	 * The set of repo paths the host currently has an active working-tree watcher for. Drives
@@ -2226,7 +2238,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * consumer's `_lastPushedWip !==` check to re-process.
 	 *
 	 * Discriminates by `repoPath === selectedRepository` rather than "try secondary lookup, fall
-	 * back to deriving": a secondary push that lands before its `wipMetadataBySha` entry exists
+	 * back to deriving": a peer push that lands before its `wipRowsById` entry exists
 	 * (early-mount race) must NOT fall back to deriving `getBranchId(secondaryPath, ...)` — that
 	 * produces a phantom branchId no card renders, silently losing the update.
 	 */
@@ -2245,11 +2257,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			branchId = getBranchId(repoPath, false, branchName);
 		} else {
-			// Secondary worktree: branchRef is pre-computed host-side with the MAIN repo path,
-			// which is the format overview entries are keyed by. If metadata hasn't loaded yet,
-			// skip — the next event for this worktree will recover once metadata lands.
-			const secondarySha = createWipRowId(repoPath);
-			branchId = this.wipMetadataBySha?.[secondarySha]?.branchRef;
+			// Peer worktree: branchRef is pre-computed host-side with the MAIN repo path,
+			// which is the format overview entries are keyed by. If topology hasn't loaded yet,
+			// skip — the next event for this worktree will recover once it lands.
+			branchId = this.wipRowsById?.[createWipRowId(repoPath)]?.branchRef;
 			if (branchId == null) return;
 		}
 
@@ -2312,27 +2323,38 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	ingestWip(repoPath: string, wip: Wip): void {
 		this.cacheWip(repoPath, wip);
 		if (wip.stats != null) {
-			this.setWorkingTreeStats(repoPath, wip.stats);
+			this.setWipStatus(repoPath, wip.stats);
 		}
 		this.mergeOverviewWipForRepo(repoPath, wip, wip.stats);
 	}
 
 	/**
-	 * Reseed `workingTreeStats` (the header / primary-row badge source) from a panel-driven
-	 * `getWip` response. `stats` is the primary wip's embedded {@link WipStats} — git-authoritative
-	 * and the SAME object as `wip.stats`, so the file list and counts can never disagree. No
-	 * generation guard: with stats embedded in the wip there's no separate value to race, and a
+	 * Reseed one worktree's WIP status group (the header / row badge source) from a panel-driven
+	 * `getWip` response. `stats` is that wip's embedded {@link WipStats} — git-authoritative and the
+	 * SAME object as `wip.stats`, so the file list and counts can never disagree. No generation
+	 * guard: with stats embedded in the wip there's no separate value to race, and a
 	 * stale-but-consistent write self-corrects on the next host push.
 	 *
-	 * Repo-path guard mirrors `DidRequestWipRefetchNotification`'s primary-only update: the badges
-	 * always reflect the active/selected repo, so a secondary worktree's `getWip` must NOT
-	 * overwrite the primary's stats.
+	 * No repo-path guard any more: status is written into the row-keyed hot plane, so a peer
+	 * worktree's `getWip` lands on that peer's row instead of overwriting the graph's own. Peers must
+	 * still be tracked rows — an untracked one has no row to render what we'd write.
 	 */
-	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats): void {
-		if (repoPath !== this.selectedRepository) return;
+	setWipStatus(repoPath: string, stats: WipStats): void {
+		const rowId = createWipRowId(repoPath);
+		if (rowId === this.primaryWipRowId) {
+			this._wipStatsRowId = rowId;
+		} else if (this.wipRowsById?.[rowId] == null) {
+			return;
+		}
 
-		this._wipStatsRepo = repoPath;
-		this.updateState({ workingTreeStats: stats });
+		this.updateState({
+			wipStateById: mergeWipState(
+				this.wipStateById,
+				{ [rowId]: toWipStatePatch(stats) },
+				this.wipRowsById,
+				this.primaryWipRowId,
+			),
+		});
 	}
 
 	/**
@@ -2465,116 +2487,208 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 }
 
-/**
- * Resolve a full-state `workingTreeStats` push against the wip channel's ownership marker (`_wipStatsRepo`, the
- * repo the revision-ordered wip channel last wrote stats for). The full-state copy is UNSTAMPED and snapshotted
- * early in the host rebuild, so drop it while the wip channel still owns the repo this push is FOR
- * (`wipStatsRepo === incomingRepo`) — the live value wins, INCLUDING one delivered early during a repo swap
- * (hence comparing against the incoming repo, not the client's lagging current selection). Otherwise seed AND
- * hand ownership back (clear the marker), so a STALE marker from a prior visit can't wrongly drop a later seed
- * after a B→A→B swap-back. Returns the seed decision and the next ownership marker atomically.
- */
-export function resolveFullStateWorkingTreeStats(
-	incomingRepo: string | undefined,
-	wipStatsRepo: string | undefined,
-): { seed: boolean; wipStatsRepo: string | undefined } {
-	if (wipStatsRepo === incomingRepo) return { seed: false, wipStatsRepo: wipStatsRepo };
-	return { seed: true, wipStatsRepo: undefined };
+/** The graph's own worktree's WIP row id for a given (possibly partial) state — `undefined` until
+ *  the repo list lands. Every id goes through `createWipRowId` so path separators normalize. */
+function getPrimaryWipRowId(state: {
+	repositories?: State['repositories'];
+	selectedRepository?: State['selectedRepository'];
+}): string | undefined {
+	const path = getSelectedRepoPath(state);
+	return path != null ? createWipRowId(path) : undefined;
 }
 
 /**
- * Sticky-restore is the only producer of `workDirStatsStale: true`. Live working-tree updates
- * push fresh stats directly via `DidRequestWipRefetchNotification` — they don't toggle this
- * flag. The flag exists so re-selection on a session-restored row (graph-app's
- * `fetchSelectedWorktreeWipStats`) refetches authoritative stats instead of trusting cached
- * guesses, and so the GK component's missing-stats request loop terminates cleanly.
+ * Resolve a full-state WIP-status push against the wip channel's ownership marker (`_wipStatsRowId`, the WIP row
+ * the revision-ordered wip channel last wrote a status group for). The full-state copy is UNSTAMPED and
+ * snapshotted early in the host rebuild, so drop it while the wip channel still owns the row this push is FOR
+ * (`wipStatsRowId === incomingRowId`) — the live value wins, INCLUDING one delivered early during a repo swap
+ * (hence comparing against the incoming state's own primary row, not the client's lagging current selection).
+ * Otherwise seed AND hand ownership back (clear the marker), so a STALE marker from a prior visit can't wrongly
+ * drop a later seed after a B→A→B swap-back. Returns the seed decision and the next ownership marker atomically.
  */
-export function mergeWipMetadata(
-	prev: State['wipMetadataBySha'],
-	incoming: State['wipMetadataBySha'],
-	lastKnownStats?: ReadonlyMap<string, WorkDirStats>,
-): State['wipMetadataBySha'] {
-	if (incoming == null) return undefined;
-	if (prev == null) {
-		// No prior state to merge from. If we have remembered stats from earlier in the session
-		// for any incoming sha, seed them here so a re-introduced worktree row doesn't blink to
-		// empty while the GK component requests fresh stats.
-		if (lastKnownStats == null || lastKnownStats.size === 0) return incoming;
+export function resolveFullStateWorkingTreeStats(
+	incomingRowId: string | undefined,
+	wipStatsRowId: string | undefined,
+): { seed: boolean; wipStatsRowId: string | undefined } {
+	if (wipStatsRowId === incomingRowId) return { seed: false, wipStatsRowId: wipStatsRowId };
+	return { seed: true, wipStatsRowId: undefined };
+}
 
-		let seeded: NonNullable<State['wipMetadataBySha']> | undefined;
-		for (const [sha, entry] of Object.entries(incoming)) {
-			if (entry.workDirStats != null) continue;
+/** Strips undefined-valued keys so merged entries compare (and store) like the host's own
+ *  conditional-spread payloads — see the call site in {@link mergeWipState}. */
+function compactWipState(state: GraphWipState): GraphWipState {
+	const result: GraphWipState = {};
+	for (const [key, value] of Object.entries(state)) {
+		if (value === undefined) continue;
 
-			const sticky = lastKnownStats.get(sha);
-			if (sticky == null) continue;
-
-			seeded ??= { ...incoming };
-			seeded[sha] = { ...entry, workDirStats: sticky, workDirStatsStale: true };
-		}
-		return seeded ?? incoming;
+		(result as Record<string, unknown>)[key] = value;
 	}
+	return result;
+}
+
+/** Projects a `Wip`'s embedded git-authoritative counts onto a hot-plane status group. Mirrors the
+ *  host's `toWipState` so a client-side write and a host push produce the same shape. */
+function toWipStatePatch(stats: WipStats): GraphWipState {
+	return {
+		workDirStats: {
+			added: stats.added,
+			deleted: stats.deleted,
+			modified: stats.modified,
+			renamed: stats.renamed,
+		},
+		workDirStatsStale: false,
+		hasConflicts: stats.hasConflicts,
+		conflictsCount: stats.conflictsCount,
+		pausedOpStatus: stats.pausedOpStatus,
+	};
+}
+
+/** Drops `rowId`'s status group from a hot-plane patch, leaving its enumeration fields — so a merge
+ *  applies the free `ahead`/`hasUnpushed` a stale (or out-of-band-superseded) push still carries
+ *  without letting its snapshotted counts overwrite the live ones. */
+function stripWipStatus(state: GraphWipStateById, rowId: string | undefined): GraphWipStateById {
+	if (rowId == null) return state;
+
+	const entry = state[rowId];
+	if (entry?.workDirStats == null) return state;
+
+	const {
+		workDirStats: _s,
+		workDirStatsStale: _ss,
+		hasConflicts: _c,
+		conflictsCount: _cc,
+		pausedOpStatus: _p,
+		...rest
+	} = entry;
+	return { ...state, [rowId]: rest };
+}
+
+/**
+ * Merge the stable WIP topology plane. `incoming` is the host's full worktree enumeration, so it is
+ * authoritative for which rows exist — a worktree it omits is gone. Preserves the previous reference
+ * when nothing changed so every cache keyed on this map (and there are several: the decorated-rows
+ * memo, the agent-status map, the minimap markers) survives a working-tree tick untouched. That
+ * stability is the entire point of splitting topology from {@link mergeWipState}'s hot fields.
+ */
+export function mergeWipRows(prev: State['wipRowsById'], incoming: State['wipRowsById']): State['wipRowsById'] {
+	if (incoming == null) return undefined;
+	if (prev == null) return incoming;
 
 	const incomingKeys = Object.keys(incoming);
-	const prevKeys = Object.keys(prev);
-	let changed = incomingKeys.length !== prevKeys.length;
+	if (incomingKeys.length !== Object.keys(prev).length) return incoming;
 
-	const result: NonNullable<State['wipMetadataBySha']> = {};
-	for (const [sha, entry] of Object.entries(incoming)) {
-		const prevEntry = prev[sha];
-		if (prevEntry != null) {
-			// Preserve per-row derived fields fetched client-side via GetWipStatsRequest; anchor fields come from `entry`.
-			// Without this, the library's resolveWipState falls back to the primary's workDirStats for secondary rows
-			// between when the server rebuilds anchors and when fresh stats arrive, causing a visible flash.
-			result[sha] = {
-				...entry,
-				workDirStats: prevEntry.workDirStats,
-				workDirStatsStale: prevEntry.workDirStatsStale,
-				pausedOpStatus: prevEntry.pausedOpStatus,
-				// Client-side fetched (GetWipStatsRequest), like `pausedOpStatus`; preserve so the WIP
-				// row's Resolve Conflicts menu doesn't flicker off when the host rebuilds anchors.
-				hasConflicts: prevEntry.hasConflicts,
-				// `hasChanges` is only sent on the graph-load probe build; per-tick pushes omit it.
-				// Preserve the last-known dirty bit so the WIP bar doesn't drop a worktree between loads.
-				hasChanges: entry.hasChanges ?? prevEntry.hasChanges,
-				// Tracked branches send `hasUnpushed` every build; local-only branches only on the probe
-				// build (`undefined` otherwise) — preserve it so their `↑` survives per-tick pushes. (`ahead`
-				// is free every build, so it rides `...entry` above and needs no preservation.)
-				hasUnpushed: entry.hasUnpushed ?? prevEntry.hasUnpushed,
-			};
-		} else {
-			// Newly-seen sha for this push. If we've previously seen stats for this sha during
-			// the session, restore them with `workDirStatsStale: true` so the row keeps showing
-			// values across the upcoming refetch rather than briefly rendering an empty pill.
-			const sticky = lastKnownStats?.get(sha);
-			result[sha] =
-				sticky != null && entry.workDirStats == null
-					? { ...entry, workDirStats: sticky, workDirStatsStale: true }
-					: entry;
-		}
-
-		if (changed) continue;
-
+	for (const [id, row] of Object.entries(incoming)) {
+		const prevRow = prev[id];
 		if (
-			entry.repoPath !== prevEntry?.repoPath ||
-			entry.parentSha !== prevEntry?.parentSha ||
-			entry.parentDate !== prevEntry?.parentDate ||
-			entry.label !== prevEntry?.label ||
-			entry.branchRef !== prevEntry?.branchRef ||
-			// `ahead` is sent every build (incl 0), so a plain diff catches pushes that clear it.
-			entry.ahead !== prevEntry?.ahead ||
-			// Only the probe build carries `hasChanges`/local-only `hasUnpushed`; a per-tick push leaves
-			// them undefined and must not register as a change (the merge above preserves the prior value).
-			(entry.hasChanges != null && entry.hasChanges !== prevEntry?.hasChanges) ||
-			(entry.hasUnpushed != null && entry.hasUnpushed !== prevEntry?.hasUnpushed) ||
+			prevRow == null ||
+			row.repoPath !== prevRow.repoPath ||
+			row.parentSha !== prevRow.parentSha ||
+			row.parentDate !== prevRow.parentDate ||
+			row.label !== prevRow.label ||
+			row.branchRef !== prevRow.branchRef ||
 			// Sent every build (a sync projection of the already-loaded `wt.branch`), so a plain content
 			// diff is right. Must be compared: without it, a change confined to the branch (e.g. `behind`
-			// moving after a fetch) leaves `changed` false, `prev` is returned, and the fresh branch is
+			// moving after a fetch) leaves the map unchanged, `prev` is returned, and the fresh branch is
 			// silently discarded — freezing the WIP bar's hover on stale tracking data. `areEqual` (deep)
 			// so a field the hover starts rendering later can't silently fall out of the comparison.
-			!areEqual(entry.branch, prevEntry?.branch)
+			!areEqual(row.branch, prevRow.branch)
 		) {
+			return incoming;
+		}
+	}
+
+	return prev;
+}
+
+/**
+ * Merge the hot WIP state plane. `incoming` is a SPARSE patch: each producer only fills the fields it
+ * owns (see {@link GraphWipState}), so the merge is field-aware rather than a replace.
+ *
+ * - The STATUS group (`workDirStats` + `workDirStatsStale` + `hasConflicts` + `conflictsCount` +
+ *   `pausedOpStatus`) all derives from ONE `git status` and therefore replaces as a unit, keyed off
+ *   `workDirStats` being present. Group-wise replacement (not per-field `??`) is what lets a
+ *   completed rebase clear `pausedOpStatus`, while a topology-only push leaves a peer row's
+ *   client-fetched stats alone instead of flashing an empty pill.
+ * - `hasChanges` / `hasUnpushed` are only sent on the graph-load probe build, so a per-tick push that
+ *   omits them must preserve the last-known value or the WIP bar drops that worktree between loads.
+ *   (`ahead` is free every build, so it rides the spread and needs no preservation.)
+ *
+ * Pruned to `rows` (∪ the primary), which is authoritative for existence — a removed worktree must
+ * not leave a phantom entry. The primary is exempt because its status has an independent producer and
+ * lifetime: a worktree enumeration that fails, or a repo whose HEAD has no commits yet, must not blank
+ * the header badges.
+ *
+ * Sticky-restore is the only producer of `workDirStatsStale: true`. Live working-tree updates push
+ * fresh stats directly — they don't toggle this flag. The flag exists so re-selection on a
+ * session-restored row (graph-app's `fetchSelectedWorktreeWipStats`) refetches authoritative stats
+ * instead of trusting cached guesses, and so the GK component's missing-stats request loop terminates.
+ */
+export function mergeWipState(
+	prev: State['wipStateById'],
+	incoming: State['wipStateById'],
+	rows: State['wipRowsById'],
+	primaryWipRowId: string | undefined,
+	lastKnownStats?: ReadonlyMap<string, WorkDirStats>,
+): State['wipStateById'] {
+	if (incoming == null) return prev;
+
+	const keep = (id: string) => rows == null || rows[id] != null || id === primaryWipRowId;
+
+	const result: NonNullable<State['wipStateById']> = {};
+	let changed = false;
+	for (const [id, prevEntry] of Object.entries(prev ?? {})) {
+		if (!keep(id)) {
+			changed = true;
+			continue;
+		}
+
+		result[id] = prevEntry;
+	}
+
+	for (const [id, entry] of Object.entries(incoming)) {
+		if (!keep(id)) continue;
+
+		const prevEntry = result[id];
+		let next: GraphWipState;
+		if (entry.workDirStats != null) {
+			// Authoritative status group — replace it wholesale, keeping the ENUMERATION fields, which come
+			// from a different producer. `ahead` rides every worktree-enumeration build, but a stats-only
+			// patch (`toWipStatePatch`, from a refetch or a status push) carries no enumeration fields at
+			// all: spreading one on its own drops the count, degrading a peer pill's hover to the bare
+			// unpushed bit until the next enumeration happens to arrive. The sibling merge in
+			// `graph-wrapper.onWipShasMissingStats` preserves it by spreading prev — these two must agree.
+			next = {
+				...entry,
+				hasChanges: entry.hasChanges ?? prevEntry?.hasChanges,
+				hasUnpushed: entry.hasUnpushed ?? prevEntry?.hasUnpushed,
+				ahead: entry.ahead ?? prevEntry?.ahead,
+			};
+		} else {
+			// No status in this patch. Carry the existing group forward, or — for a row seen earlier this
+			// session and re-introduced (worktree-list flap, reduced-set full-state push) — restore the
+			// sticky stats and flag them stale so the row keeps showing values across the refetch instead
+			// of briefly rendering an empty pill.
+			const sticky = prevEntry?.workDirStats == null ? lastKnownStats?.get(id) : undefined;
+			next = {
+				...entry,
+				workDirStats: prevEntry?.workDirStats ?? sticky,
+				workDirStatsStale: sticky != null ? true : prevEntry?.workDirStatsStale,
+				hasConflicts: prevEntry?.hasConflicts,
+				conflictsCount: prevEntry?.conflictsCount,
+				pausedOpStatus: prevEntry?.pausedOpStatus,
+				hasChanges: entry.hasChanges ?? prevEntry?.hasChanges,
+				hasUnpushed: entry.hasUnpushed ?? prevEntry?.hasUnpushed,
+			};
+		}
+
+		// Drop undefined-valued keys before storing/comparing: `areEqual` is key-count based, so an
+		// explicit `pausedOpStatus: undefined` from a status-group replace would read as a change against
+		// an entry that simply omits it — and reference-preservation is the whole point of this merge.
+		const compacted = compactWipState(next);
+		if (!changed && !areEqual(compacted, prevEntry)) {
 			changed = true;
 		}
+		result[id] = compacted;
 	}
 
 	// Preserve reference when nothing changed so downstream reactive consumers don't churn.

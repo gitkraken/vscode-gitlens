@@ -1,12 +1,17 @@
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
-import type { GraphIncludeOnlyRefs, GraphScope, GraphWipMetadataBySha } from '../../../../plus/graph/protocol.js';
+import type { GraphIncludeOnlyRefs, GraphScope, GraphWipRowsById } from '../../../../plus/graph/protocol.js';
 import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import { isScopeFocalHead, shouldShowPrimaryWipRow } from './wip.utils.js';
 
 export interface SelectionContext {
-	wipMetadataBySha: GraphWipMetadataBySha | undefined;
+	wipRowsById: GraphWipRowsById | undefined;
+	/** The graph's own worktree's WIP row id, so the peer-row cases below can skip it: it now has a
+	 *  `wipRowsById` entry like any other worktree, but it is reached by case (3) — which asks
+	 *  {@link shouldShowPrimaryWipRow} and answers with `uncommitted`, the id the primary row is
+	 *  selected by. Undefined when the selected repo path hasn't resolved yet. */
+	primaryWipRowId: string | undefined;
 	rows: readonly GitGraphRow[] | undefined;
 	branchesVisibility: GraphBranchesVisibility | undefined;
 	includeOnlyRefs: GraphIncludeOnlyRefs | undefined;
@@ -29,9 +34,9 @@ export interface SelectionBranch {
 
 /** Returns the graph-row SHA to select when the user picks a branch from a webview-side panel
  *  (overview cards, agents sidebar, header popover, etc.). Cascade:
- *    1. Secondary worktree (path differs from `branch.repoPath`) AND a `wipMetadataBySha` entry
+ *    1. Peer worktree (path differs from `branch.repoPath`) AND a `wipRowsById` entry
  *       for that path exists AND its `parentSha` is in loaded rows → that worktree's WIP row.
- *    2. `wipMetadataBySha` has any entry whose `branchRef` matches `branch.id` AND its
+ *    2. `wipRowsById` has any PEER entry whose `branchRef` matches `branch.id` AND its
  *       `parentSha` is in loaded rows → that worktree's WIP row. Picks up worktree WIPs whose
  *       OverviewBranch lost its `worktree` field at the graph-provider boundary (the host
  *       strips the default worktree from `worktreesByBranch`), so case (1) misses them.
@@ -52,25 +57,27 @@ export interface SelectionBranch {
  *  Returns `undefined` only when the branch has no resolvable tip — callers treat that as a
  *  no-op navigation. */
 export function getOverviewBranchSelectionSha(branch: SelectionBranch, ctx: SelectionContext): string | undefined {
-	const { wipMetadataBySha, rows, branchesVisibility, includeOnlyRefs, scope, currentBranch } = ctx;
+	const { wipRowsById, primaryWipRowId, rows, branchesVisibility, includeOnlyRefs, scope, currentBranch } = ctx;
 	const loadedShas: Set<string> | undefined = rows != null ? new Set(rows.map(r => r.sha)) : undefined;
 
 	if (branch.worktree != null && branch.worktree.path !== branch.repoPath) {
 		const wipSha = createWipRowId(branch.worktree.path);
-		const meta = wipMetadataBySha?.[wipSha];
-		// Require BOTH a known anchor AND the anchor in loaded rows — without metadata we can't
-		// promise the synthetic row exists in `decoratedRows`, and the `meta == null` short-
+		const row = wipSha !== primaryWipRowId ? wipRowsById?.[wipSha] : undefined;
+		// Require BOTH a known anchor AND the anchor in loaded rows — without a row entry we can't
+		// promise the synthetic row exists in `decoratedRows`, and the `row == null` short-
 		// circuit would otherwise hand back an unselectable sha that `navigateToCommit` would
-		// wait to materialize. Falls through to case (2) / tip when metadata is cold.
-		if (meta != null && (loadedShas == null || loadedShas.has(meta.parentSha))) {
+		// wait to materialize. Falls through to case (2) / tip when the topology is cold.
+		if (row?.parentSha != null && (loadedShas == null || loadedShas.has(row.parentSha))) {
 			return wipSha;
 		}
 	}
 
-	if (wipMetadataBySha != null) {
-		for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
-			if (meta.branchRef !== branch.id) continue;
-			if (loadedShas != null && !loadedShas.has(meta.parentSha)) continue;
+	if (wipRowsById != null) {
+		for (const [sha, row] of Object.entries(wipRowsById)) {
+			if (sha === primaryWipRowId) continue;
+			if (row.branchRef !== branch.id) continue;
+			if (row.parentSha == null) continue;
+			if (loadedShas != null && !loadedShas.has(row.parentSha)) continue;
 
 			return sha;
 		}

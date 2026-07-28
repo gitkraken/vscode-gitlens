@@ -30,7 +30,7 @@ import type {
 	GraphSearchResults,
 	GraphSelectedRows,
 	GraphSelection,
-	GraphWipMetadataBySha,
+	GraphWipRowsById,
 	SearchHistoryDeleteRequest,
 	SearchHistoryGetRequest,
 	SearchHistoryStoreRequest,
@@ -44,7 +44,7 @@ import { SearchHistory } from './searchHistory.js';
  *  `GraphWebviewProvider.createGraphSearchContext()`. `getRepository`/`getSession` read live provider
  *  state; the selection/etag reads and `setSelectedRows` route through the provider's selection state
  *  (kept there); `updateState`/`updateGraphWithMoreRows`/`notifyDidChangeRows` forward into the data
- *  controller; `getWipMetadataBySha` forwards into the WIP service; the search cancellation callbacks
+ *  controller; `getWipRows` forwards into the WIP service; the search cancellation callbacks
  *  route through the provider's shared `_cancellations` map, which stays there. */
 export type GraphSearchServiceContext = {
 	container: Container;
@@ -59,7 +59,7 @@ export type GraphSearchServiceContext = {
 	updateState: (immediate?: boolean) => void;
 	updateGraphWithMoreRows: (id: string) => Promise<void>;
 	notifyDidChangeRows: () => void;
-	getWipMetadataBySha: () => Promise<GraphWipMetadataBySha>;
+	getWipRows: () => Promise<GraphWipRowsById>;
 	createSearchCancellation: () => CancellationTokenSource;
 	cancelSearchOperation: () => void;
 };
@@ -443,7 +443,7 @@ export class GraphSearchService {
 		});
 
 		// Use the same enumeration that feeds the rendered WIP rows so search and rendering agree.
-		const wipMetadataBySha = await this.context.getWipMetadataBySha();
+		const wipRowsById = await this.context.getWipRows();
 
 		if (searchId !== this._searchIdCounter.current) {
 			return {
@@ -457,16 +457,21 @@ export class GraphSearchService {
 		const results: GitGraphSearchResults = new Map();
 		const now = Date.now();
 		let i = 0;
+		const primaryWipRowId = createWipRowId(this.repository.path);
 		// `now` is the primary row's REAL position, not a fallback: the graph places work-dir changes at
 		// the start of the timeline rather than against a commit, so anything time-positioned should
-		// put it at the newest edge.
-		results.set(createWipRowId(this.repository.path), { i: i++, date: now });
-		for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+		// put it at the newest edge. The graph's own worktree leads, then its peers — it's also an entry
+		// in `wipRowsById`, so skip it there rather than re-`set` it (which would move it to the end of
+		// the result ordering).
+		results.set(primaryWipRowId, { i: i++, date: now });
+		for (const [sha, wipRow] of Object.entries(wipRowsById)) {
+			if (sha === primaryWipRowId) continue;
+
 			// Secondary WIP rows ARE anchored to a commit (their worktree HEAD), so date them there —
 			// the minimap already places its worktree markers by `parentSha`, and dating these at "now"
 			// instead stacked every worktree onto today. `now` here is only a last resort for a worktree
 			// whose HEAD date didn't come through.
-			results.set(sha, { i: i++, date: meta.parentDate ?? now });
+			results.set(sha, { i: i++, date: wipRow.parentDate ?? now });
 		}
 
 		const search: GitGraphSearch = {

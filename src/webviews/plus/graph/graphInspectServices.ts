@@ -498,7 +498,7 @@ export class GraphInspectServices {
 					if (repo == null) return undefined;
 
 					// Returning `wip` (with stats embedded as `wip.stats`) lets the cold-load path
-					// reseed the webview's `workingTreeStats` slot from the same `git status` the
+					// reseed this worktree's hot-plane status group from the same `git status` the
 					// panel uses — if a prior initial-state fetch landed with bad data and no FS event
 					// has fired since, the header/row badges stay stuck on stale stats until the next
 					// incidental tick.

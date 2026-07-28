@@ -43,8 +43,9 @@ import type { GitBranchShape, Wip, WipStats } from './detailsProtocol.js';
 import type {
 	DidChangeWorkingTreeParams,
 	GraphItemContext,
-	GraphWipMetadataBySha,
-	GraphWorkingTreeStats,
+	GraphWipRowsById,
+	GraphWipState,
+	GraphWipStateById,
 	SidebarWorktreeChange,
 	SyncWipWatchesCommand,
 } from './protocol.js';
@@ -355,7 +356,7 @@ export class GraphWipService {
 				// Only bail if the whole provider is gone. Deliberately DON'T gate on
 				// `!this._wipWatches.has(sha)`: the grace-period timer can dispose this row's watcher
 				// while this fetch is in flight, but the worktree is still tracked in
-				// `wipMetadataBySha`, so delivering the fresh stats keeps the row correct when it
+				// `wipRowsById`, so delivering the fresh stats keeps the row correct when it
 				// scrolls back into view (otherwise the update is silently dropped and the row stays
 				// stale). The stateProvider ignores notifications for rows it no longer tracks (its
 				// `prevSecondary != null` gate). Don't gate on `host.ready` either — `host.notify`
@@ -494,7 +495,7 @@ export class GraphWipService {
 
 	/** Recovery for transient initial-state cancellations. Fires once shortly after a `getState`
 	 *  whose `getWorkingTreeStatsAndPausedOperations` returned undefined — without it, the
-	 *  webview would sit on `workingTreeStats: undefined` (and the header/row badges would render
+	 *  webview would sit on no status for the graph's own WIP row (and the header/row badges would render
 	 *  nothing) until an unrelated FS event happened to trigger the watcher.
 	 *
 	 *  Resets the dedup cache before re-notifying so a prior stale-but-non-null
@@ -523,9 +524,9 @@ export class GraphWipService {
 			// and skip undefined (cancelled/failed) so we never fabricate a zero and clear the badge.
 			if (this.host.is('view') && configuration.get('graph.showWorkingTreeBadge') && this.repository != null) {
 				const repo = this.repository;
-				void this.getWorkingTreeStatsAndPausedOperations().then(stats => {
-					if (stats != null && this.repository === repo) {
-						this.updateWorkingTreeBadge(stats);
+				void this.getWorkingTreeStatsAndPausedOperations().then(state => {
+					if (state != null && this.repository === repo) {
+						this.updateWorkingTreeBadge(state.workDirStats);
 					}
 				});
 			}
@@ -545,17 +546,14 @@ export class GraphWipService {
 		// derived differently. Pushing the full WIP here eliminates the round-trip AND removes
 		// the dedup gymnastics that used to mis-skip mixed↔fully-staged transitions: the panel
 		// just applies whatever the host last sent.
-		// Guarded: callers `void` this per-FS-event path, so a throw (e.g. `getWipMetadataBySha`'s
-		// worktree feature-support check on an old git) would surface as an unhandled rejection.
+		// Guarded: callers `void` this per-FS-event path, so a throw (e.g. `getWipRows`'s worktree
+		// feature-support check on an old git) would surface as an unhandled rejection.
 		// Skipping the push matches the failed-status handling below; the next tick re-tries (the
 		// coalescer's trailing refire still runs — it refires on settle, resolve or reject alike).
 		let wipAndStatsResult;
-		let wipMetadataBySha;
+		let wipRows;
 		try {
-			[wipAndStatsResult, wipMetadataBySha] = await Promise.all([
-				this.getWipForRepoAndStats(repo),
-				this.getWipMetadataBySha(),
-			]);
+			[wipAndStatsResult, wipRows] = await Promise.all([this.getWipForRepoAndStats(repo), this.getWipRows()]);
 		} catch (ex) {
 			Logger.debug(`GraphWipService: working-tree push failed; skipping; ${String(ex)}`);
 			return false;
@@ -580,14 +578,17 @@ export class GraphWipService {
 		// entries (opened worktrees whose graph WIP row is off-screen) refresh lazily when the
 		// overview panel becomes visible, served from `_wipStatusCache` when warm.
 		const params: DidChangeWorkingTreeParams = {
-			wipMetadataBySha: wipMetadataBySha,
+			wipRowsById: wipRows.rows,
+			// The graph's own worktree is an ordinary entry in the hot plane — its status group comes
+			// from the `git status` we just ran, alongside the enumeration state for its peers.
+			wipStateById: { ...wipRows.state, [createWipRowId(repo.path)]: toWipState(wipAndStatsResult.wip.stats) },
 			wip: wipAndStatsResult.wip,
 			repoPath: repo.path,
 		};
 		// Skip identical pushes. Working-tree events fire on any FS write in the repo (file saves,
 		// `.git/index.lock` twiddles, branch-metadata writes), so most ticks reproduce the prior
-		// status verbatim. `wipMetadataBySha` and `wip` (with stats embedded as `wip.stats`) all derive
-		// from the same `git status` — when `wip` is unchanged the others are too. Same dedup pattern as
+		// status verbatim. `wipRowsById`/`wipStateById` and `wip` (with stats embedded as `wip.stats`) all
+		// derive from the same `git status` — when `wip` is unchanged the others are too. Same dedup pattern as
 		// `_lastSentBranchState`. Compared by CONTENT: `wip.revision` is a per-read freshness marker that
 		// changes on EVERY producer run, so including it would make every payload unequal and push a
 		// byte-identical WIP on every FS write. Suppressed payloads are never sent, so they can't arrive
@@ -706,7 +707,7 @@ export class GraphWipService {
 	}
 
 	/** Runs the worktree clean/dirty probe OFF the load path and pushes the enriched metadata
-	 *  through the guarded working-tree channel (the webview's `mergeWipMetadata` folds the probe
+	 *  through the guarded working-tree channel (the webview's `mergeWipState` folds the probe
 	 *  fields into whatever anchors it already has). */
 	probeSecondaryWipInBackground(): void {
 		const generation = ++this._wipProbeGeneration;
@@ -721,13 +722,20 @@ export class GraphWipService {
 		const repo = this.repository;
 		void (async () => {
 			try {
-				const metadata = await this.getWipMetadataBySha(cancellable.token, { probeChanges: true });
+				const wipRows = await this.getWipRows(cancellable.token, { probeChanges: true });
 				if (this._disposed || generation !== this._wipProbeGeneration || this.repository !== repo) return;
-				if (repo == null || Object.keys(metadata).length === 0) return;
+				// Nothing to report without a PEER: the probe only fills peers' dirty/unpushed bits (the
+				// graph's own worktree gets authoritative stats from the working-tree push), and the
+				// topology this would carry is the same one `getState` already sent.
+				if (repo == null) return;
+
+				const primaryWipRowId = createWipRowId(repo.path);
+				if (!Object.keys(wipRows.rows).some(id => id !== primaryWipRowId)) return;
 
 				await this.host.notify(DidChangeWorkingTreeNotification, {
 					repoPath: repo.path,
-					wipMetadataBySha: metadata,
+					wipRowsById: wipRows.rows,
+					wipStateById: wipRows.state,
 				});
 			} catch {
 			} finally {
@@ -739,12 +747,19 @@ export class GraphWipService {
 		})();
 	}
 
-	@trace({ exit: r => `secondaryWorktrees=${Object.keys(r).length}` })
-	async getWipMetadataBySha(
+	/**
+	 * Enumerates EVERY worktree of the graph's repo — the graph's own ("primary") included — into the
+	 * two uniform WIP planes: stable topology (`rows`) and hot state (`state`). The primary is an
+	 * ordinary entry: its row anchors like any other, and its hot state is filled in by whichever
+	 * caller has the `git status` (the working-tree push / `getState`), since this walk deliberately
+	 * doesn't run one.
+	 */
+	@trace({ exit: r => `worktrees=${Object.keys(r.rows).length}` })
+	async getWipRows(
 		cancellation?: CancellationToken,
 		options?: { probeChanges?: boolean },
-	): Promise<GraphWipMetadataBySha> {
-		const result: GraphWipMetadataBySha = {};
+	): Promise<{ rows: GraphWipRowsById; state: GraphWipStateById }> {
+		const result: { rows: GraphWipRowsById; state: GraphWipStateById } = { rows: {}, state: {} };
 		// Capture the active repo at entry so the post-await reads below see a stable target. If
 		// the user switches repos while `getWorktrees` is in flight, `this.repository` may have
 		// moved to a different repo by the time we filter and assemble — the captured `repo` keeps
@@ -768,7 +783,7 @@ export class GraphWipService {
 		// for free from `branch.upstream.state` (computed in the loop below), so they're NOT probed here.
 		// Gated on `probeChanges` like the dirty probe, and skipped entirely when the repo has no remotes
 		// (with none, every local branch would falsely read as unpushed). Preserved client-side by
-		// `mergeWipMetadata` between graph loads.
+		// `mergeWipState` between graph loads.
 		let hasUnpushedByPath: Map<string, boolean | undefined> | undefined;
 		if (options?.probeChanges) {
 			const changesMap = new Map<string, boolean | undefined>();
@@ -802,16 +817,20 @@ export class GraphWipService {
 		// single-entry Map per iteration.
 		const worktreesByBranch = new Map(worktrees.filter(wt => wt.branch != null).map(wt => [wt.branch!.id, wt]));
 
-		// All known worktrees other than the primary (which is already covered by workingTreeStats).
-		// Emit row-anchor metadata only; workDirStats are fetched on-demand via GetWipStatsRequest
-		// when the GK component fires onWipShasMissingStats for visible rows.
-		// Always return an object (empty when no secondaries) — undefined would be dropped by
+		// Every known worktree, the graph's own included. Emit row-anchor topology only; workDirStats
+		// are fetched on-demand via GetWipStatsRequest when the GK component fires onWipShasMissingStats
+		// for visible rows (peers), or ride the working-tree push (the graph's own).
+		// Always return an object (empty when there are no worktrees) — undefined would be dropped by
 		// JSON.stringify, and the webview's `DidChangeNotification` handler only refreshes
-		// `wipMetadataBySha` when the field is present, so removing the last secondary worktree
+		// `wipRowsById` when the field is present, so removing the last peer worktree
 		// would leave a phantom anchor in the webview state until another full push arrived.
 		for (const wt of worktrees) {
-			if (wt.type === 'bare' || wt.sha == null) continue;
-			if (wt.path === repo.path) continue;
+			// Bare worktrees have no working tree at all, so they get no row. An UNBORN HEAD does have one —
+			// a branch with no commits yet can still hold uncommitted work — so it gets a row with no
+			// `parentSha`, which is exactly what the field documents. The graph's interleave drops a peer it
+			// can't anchor, but the WIP bar and branch selection read `wipRowsById` directly and would
+			// otherwise never see the worktree at all.
+			if (wt.type === 'bare') continue;
 
 			// Use the MAIN repo's path for branchRef so it matches the format scope uses (see
 			// `setScope` in graph-app.ts) — `GitWorktree.repoPath` is the main repo's path anyway.
@@ -820,7 +839,7 @@ export class GraphWipService {
 			const branchName = wt.branch?.name;
 			// Unpushed state. Tracked branches: `ahead` (free, every build) drives both the hover count
 			// and the `↑` (`ahead > 0`). Local-only branches (no upstream): no count — the `↑` comes from
-			// the probe above (probe build only; preserved between loads by `mergeWipMetadata`).
+			// the probe above (probe build only; preserved between loads by `mergeWipState`).
 			const ahead = wt.branch?.upstream?.state.ahead;
 			let hasUnpushed: boolean | undefined;
 			if (wt.branch?.upstream != null) {
@@ -841,23 +860,26 @@ export class GraphWipService {
 							repoPath: repo.path,
 						}
 					: undefined;
-			result[createWipRowId(wt.path)] = {
+			const id = createWipRowId(wt.path);
+			result.rows[id] = {
 				repoPath: wt.path,
 				parentSha: wt.sha,
 				// HEAD commit date (epoch ms) — `GitWorktree.date` is `branch.date`, no extra git
 				// work. Sent on every build so the WIP bar's recency ordering stays current.
 				parentDate: wt.date?.getTime(),
+				label: wt.name,
+				branchRef: branchRef,
+				...(branch != null ? { branch: branch } : {}),
+			};
+			result.state[id] = {
 				// Only attach when probed; omitted on per-tick pushes and preserved client-side by
-				// `mergeWipMetadata` so the bar doesn't lose a worktree's dirty bit between loads.
+				// `mergeWipState` so the bar doesn't lose a worktree's dirty bit between loads.
 				...(hasChangesByPath?.has(wt.path) ? { hasChanges: hasChangesByPath.get(wt.path) } : {}),
 				// Free, every build — attached even at 0 so a push (ahead → 0) clears the stale count.
 				...(ahead != null ? { ahead: ahead } : {}),
 				// Tracked: definite every build. Local-only: probe build only; omitted on per-tick and
-				// preserved client-side by `mergeWipMetadata`.
+				// preserved client-side by `mergeWipState`.
 				...(hasUnpushed != null ? { hasUnpushed: hasUnpushed } : {}),
-				label: wt.name,
-				branchRef: branchRef,
-				...(branch != null ? { branch: branch } : {}),
 			};
 		}
 
@@ -1052,8 +1074,8 @@ export class GraphWipService {
 					})
 				: undefined;
 
-		// Build the stats once and embed it as `wip.stats`. The webview derives `workingTreeStats`
-		// from `wip.stats`, so the file list and its counts can never drift — they're one object.
+		// Build the stats once and embed it as `wip.stats`. This worktree's hot-plane status group is
+		// projected from `wip.stats`, so the file list and its counts can never drift — they're one object.
 		const stats: WipStats = {
 			added: diff.added,
 			deleted: diff.deleted,
@@ -1108,10 +1130,12 @@ export class GraphWipService {
 		};
 	}
 
+	/** The graph's own worktree's hot WIP state (the {@link GraphWipState} status group), for the
+	 *  cold-load build — the per-tick path derives the same shape from `wip.stats` via `toWipState`. */
 	async getWorkingTreeStatsAndPausedOperations(
 		hasWorkingChanges?: boolean,
 		cancellation?: CancellationToken,
-	): Promise<GraphWorkingTreeStats | undefined> {
+	): Promise<GraphWipState | undefined> {
 		if (this.repository == null || !this.container.git.repositoryCount) return undefined;
 
 		const svc = this.container.git.getRepositoryService(this.repository.path);
@@ -1148,9 +1172,11 @@ export class GraphWipService {
 		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
 
 		return {
-			added: workingTreeStatus?.added ?? 0,
-			deleted: workingTreeStatus?.deleted ?? 0,
-			modified: workingTreeStatus?.changed ?? 0,
+			workDirStats: {
+				added: workingTreeStatus?.added ?? 0,
+				deleted: workingTreeStatus?.deleted ?? 0,
+				modified: workingTreeStatus?.changed ?? 0,
+			},
 			hasConflicts: status?.hasConflicts,
 			conflictsCount: status?.hasConflicts ? status.conflicts.length : undefined,
 			pausedOpStatus: pausedOpStatus,
@@ -1265,4 +1291,22 @@ export class GraphWipService {
  */
 function stripWipRevision(params: DidChangeWorkingTreeParams): DidChangeWorkingTreeParams {
 	return params.wip?.revision == null ? params : { ...params, wip: { ...params.wip, revision: undefined } };
+}
+
+/** Projects a {@link Wip}'s embedded git-authoritative counts onto the hot WIP plane's status group.
+ *  One `git status` produces both, so a row's file list and its badge can never drift. */
+export function toWipState(stats: WipStats | undefined): GraphWipState {
+	if (stats == null) return {};
+
+	return {
+		workDirStats: {
+			added: stats.added,
+			deleted: stats.deleted,
+			modified: stats.modified,
+			renamed: stats.renamed,
+		},
+		hasConflicts: stats.hasConflicts,
+		conflictsCount: stats.conflictsCount,
+		pausedOpStatus: stats.pausedOpStatus,
+	};
 }

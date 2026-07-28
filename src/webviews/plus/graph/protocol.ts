@@ -23,6 +23,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type {
 	Config,
@@ -48,17 +49,22 @@ import type {
 } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
 import type { TreemapMode } from '../treemap/protocol.js';
-import type { Wip } from './detailsProtocol.js';
+import type { Wip, WipStats } from './detailsProtocol.js';
 
-export type { Wip };
+export type { Wip, WipStats };
 
 /** Prefix for synthetic row ids representing a worktree's working-changes (WIP) row. */
 const wipRowIdPrefix = 'wip::';
 
 /** Synthetic row id for a worktree's WIP row — ONE scheme for every worktree, primary included.
- *  Never the `uncommitted` revision: that stays a git revision, translated at the boundaries. */
+ *  Never the `uncommitted` revision: that stays a git revision, translated at the boundaries.
+ *
+ *  The path is normalized HERE rather than trusted from callers: producers hand us `GitWorktree.path`
+ *  (already normalized) while command contexts carry `uri.fsPath` (native separators, and a differently
+ *  cased drive letter on Windows). Two spellings of one worktree would mint two ids, and the command's
+ *  id would match no rendered row. */
 export function createWipRowId(worktreePath: string): string {
-	return `${wipRowIdPrefix}${worktreePath}`;
+	return `${wipRowIdPrefix}${normalizePath(worktreePath)}`;
 }
 
 export function isWipRowId(id: string | undefined): boolean {
@@ -470,8 +476,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	config?: GraphComponentConfig;
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
-	workingTreeStats?: GraphWorkingTreeStats;
-	wipMetadataBySha?: GraphWipMetadataBySha;
+	wipRowsById?: GraphWipRowsById;
+	wipStateById?: GraphWipStateById;
 	/**
 	 * Most-recently pushed primary-repo WIP. Set on every `DidChangeWorkingTreeNotification` so
 	 * the details panel can apply changes without an extra `getWip` round-trip. Initial state
@@ -579,57 +585,34 @@ export interface BranchState extends GitTrackingState {
 	worktree?: boolean;
 }
 
-export type GraphWorkingTreeStats = WorkDirStats & {
-	hasConflicts?: boolean;
-	conflictsCount?: number;
-	pausedOpStatus?: GitPausedOperationStatus;
-};
-
-export interface GraphWipNodeMetadata {
-	/** Omit to have the GK component request it via `onWipShasMissingStats`. */
-	workDirStats?: WorkDirStats;
-	/** Keep the current stats visible while asking for fresh ones (stale-while-revalidate). */
-	workDirStatsStale?: boolean;
-	/** Host-only: used by the webview to construct the synthetic row and by details panel routing. Not consumed by the GK component. */
+/**
+ * Stable per-worktree WIP row topology — the half of a WIP row that only moves when the worktree
+ * itself does (checkout, commit, worktree add/remove). One entry per worktree of the graph's repo,
+ * INCLUDING the graph's own (the "primary"), keyed by that worktree's `wip::<path>` row id (see
+ * {@link createWipRowId}). Paired with {@link GraphWipState}, which carries everything that changes
+ * on a working-tree tick — splitting them is what lets a status tick leave this record's identity
+ * (and every cache keyed on it) untouched.
+ */
+export interface GraphWipRow {
+	/** The worktree's own path. Used to construct the synthetic row and for details-panel routing. */
 	repoPath: string;
-	/** Host-only: the worktree HEAD sha this WIP row should be anchored at (used as `parents`). */
-	parentSha: string;
-	/** Host-only: the worktree HEAD commit date (epoch ms). Used by the WIP bar to order pills by
-	 *  recency (descending). Derived from `GitWorktree.date` — no extra git work. */
+	/** The worktree HEAD sha this WIP row anchors at (used as `parents`). Absent when the worktree
+	 *  has no commits yet, or when the enumeration couldn't resolve it. */
+	parentSha?: string;
+	/** The worktree HEAD commit date (epoch ms). Used by the WIP bar to order pills by recency
+	 *  (descending). Derived from `GitWorktree.date` — no extra git work. */
 	parentDate?: number;
-	/**
-	 * Host-only: cheap clean/dirty probe (`status.hasWorkingChanges()`) so the WIP bar can surface a
-	 * dirty worktree before its `workDirStats` are fetched. Set ONLY on the graph-load build and
-	 * preserved client-side via `mergeWipMetadata`; omitted on per-tick pushes to avoid re-statting
-	 * every worktree on each FS event — so the dirty bit is only as fresh as the last graph load.
-	 * Ignored once `workDirStats` is present (clean/dirty derives from it directly).
-	 */
-	hasChanges?: boolean;
-	/**
-	 * Host-only: count of commits ahead of the worktree branch's upstream (unpushed). Free — read from
-	 * `branch.upstream.state.ahead` (the for-each-ref the worktree enumeration already runs), so it's
-	 * sent on every build and not preserved by `mergeWipMetadata`. `undefined` for local-only branches
-	 * (no upstream) — those use `hasUnpushed` instead. Consumed by the WIP bar for the hover count only.
-	 */
-	ahead?: number;
-	/**
-	 * Host-only: whether this worktree has unpushed commits — drives the WIP bar's `↑` indicator.
-	 * For TRACKED branches it's `ahead > 0` (free, every build). For LOCAL-ONLY branches it's a cheap
-	 * `rev-list --not --remotes` probe set ONLY on the graph-load build (and only when the repo has
-	 * remotes) and preserved client-side via `mergeWipMetadata`, like `hasChanges`.
-	 */
-	hasUnpushed?: boolean;
-	/** Host-only: user-visible suffix for the row message (e.g. worktree name). */
+	/** User-visible suffix for the row message (e.g. worktree name). */
 	label: string;
 	/**
-	 * Host-only: the worktree branch in scope ref-id format (`{repoPath}|heads/{name}`), or undefined
-	 * for detached worktrees. Used by the webview's scope filter to drop secondary WIPs whose branch
-	 * isn't part of the active scope — independent of SHA collisions with scope anchors.
+	 * The worktree branch in scope ref-id format (`{repoPath}|heads/{name}`), or undefined for
+	 * detached worktrees. Used by the webview's scope filter to drop worktree WIPs whose branch isn't
+	 * part of the active scope — independent of SHA collisions with scope anchors.
 	 */
 	branchRef?: string;
 	/**
-	 * Host-only: the worktree's branch in overview form, keyed by `branchRef`. Pure sync projection of
-	 * the `GitBranch` the worktree enumeration already loaded — no extra git work.
+	 * The worktree's branch in overview form, keyed by `branchRef`. Pure sync projection of the
+	 * `GitBranch` the worktree enumeration already loaded — no extra git work.
 	 *
 	 * Exists because a worktree branch only lands in `state.overview` when the worktree is `opened` or
 	 * its last commit is recent (see `getBranchOverviewType`), so a dirty worktree on an older branch
@@ -637,22 +620,66 @@ export interface GraphWipNodeMetadata {
 	 * Undefined for detached worktrees (no `wt.branch`) — those get a degraded hover.
 	 */
 	branch?: OverviewBranch;
-	/**
-	 * Host-only: paused operation (rebase/merge/cherry-pick) running in this worktree, when any.
-	 * Mirrors the primary's `workingTreeStats.pausedOpStatus` so the secondary WIP row can render
-	 * the same indicator the action bar does. Not consumed by the GK component.
-	 */
-	pausedOpStatus?: GitPausedOperationStatus;
-	/**
-	 * Host-only: whether this worktree's working tree has merge/rebase conflicts. Fetched lazily with
-	 * the rest of the secondary's stats (on-demand, for visible rows) and preserved client-side, like
-	 * `pausedOpStatus`. Drives the `+hasConflicts` segment of the WIP row's `gitlens:wip` context so the
-	 * Resolve Conflicts menu item only appears when there's something to resolve.
-	 */
-	hasConflicts?: boolean;
 }
 
-export type GraphWipMetadataBySha = Record<string, GraphWipNodeMetadata>;
+/**
+ * Hot per-worktree WIP state — everything a working-tree tick can change. Keyed by the same
+ * `wip::<path>` row id as {@link GraphWipRow}, for every worktree including the primary.
+ *
+ * Two producer groups share this record, which is why the client merge is field-aware (see
+ * `mergeWipState`):
+ * - The STATUS group (`workDirStats`, `workDirStatsStale`, `hasConflicts`, `conflictsCount`,
+ *   `pausedOpStatus`) always derives from ONE `git status` and therefore travels as a unit. The host
+ *   pushes it for the graph's own worktree on every tick; peer worktrees get theirs on demand
+ *   (`GetWipStatsRequest`) or from a watcher refetch. A push carrying `workDirStats` replaces the
+ *   whole group; one without it leaves the group alone.
+ * - The ENUMERATION group (`ahead`, `hasUnpushed`, `hasChanges`) rides the worktree walk.
+ */
+export interface GraphWipState {
+	/** Omit to have the GK component request it via `onWipShasMissingStats`. */
+	workDirStats?: WorkDirStats;
+	/** Keep the current stats visible while asking for fresh ones (stale-while-revalidate). */
+	workDirStatsStale?: boolean;
+	/**
+	 * Cheap clean/dirty probe (`status.hasWorkingChanges()`) so the WIP bar can surface a dirty
+	 * worktree before its `workDirStats` are fetched. Set ONLY on the graph-load probe build and
+	 * preserved client-side via `mergeWipState`; omitted on per-tick pushes to avoid re-statting every
+	 * worktree on each FS event — so the dirty bit is only as fresh as the last graph load. Ignored
+	 * once `workDirStats` is present (clean/dirty derives from it directly). Peer worktrees only —
+	 * the graph's own worktree always has authoritative `workDirStats`.
+	 */
+	hasChanges?: boolean;
+	/**
+	 * Count of commits ahead of the worktree branch's upstream (unpushed). Free — read from
+	 * `branch.upstream.state.ahead` (the for-each-ref the worktree enumeration already runs), so it's
+	 * sent on every worktree-ENUMERATION build. A stats-only patch carries no enumeration fields, so
+	 * `mergeWipState` preserves this across one rather than letting the spread drop it — "sent on every
+	 * build" is true of the enumeration channel only, and reading it as "never needs preserving" is how
+	 * the count came to be lost on a refetch. `undefined` for local-only branches (no upstream) — those
+	 * use `hasUnpushed` instead. Consumed by the WIP bar for the hover count only.
+	 */
+	ahead?: number;
+	/**
+	 * Whether this worktree has unpushed commits — drives the WIP bar's `↑` indicator. For TRACKED
+	 * branches it's `ahead > 0` (free, every build). For LOCAL-ONLY branches it's a cheap
+	 * `rev-list --not --remotes` probe set ONLY on the graph-load probe build (and only when the repo
+	 * has remotes) and preserved client-side via `mergeWipState`, like `hasChanges`.
+	 */
+	hasUnpushed?: boolean;
+	/**
+	 * Whether this worktree's working tree has merge/rebase conflicts. Drives the `+hasConflicts`
+	 * segment of the WIP row's `gitlens:wip` context (so the Resolve Conflicts menu item only appears
+	 * when there's something to resolve) and the graph's own row's inline Resolve action.
+	 */
+	hasConflicts?: boolean;
+	/** Number of conflicted paths, when {@link hasConflicts}. */
+	conflictsCount?: number;
+	/** Paused operation (rebase/merge/cherry-pick) running in this worktree, when any. */
+	pausedOpStatus?: GitPausedOperationStatus;
+}
+
+export type GraphWipRowsById = Record<string, GraphWipRow>;
+export type GraphWipStateById = Record<string, GraphWipState>;
 
 export interface GraphPaging {
 	startingCursor?: string;
@@ -1652,7 +1679,11 @@ export interface DidRequestSearchParams {
 export const DidRequestSearchNotification = new IpcNotification<DidRequestSearchParams>(scope, 'search/didRequest');
 
 export interface DidChangeWorkingTreeParams {
-	wipMetadataBySha?: GraphWipMetadataBySha;
+	/** Full worktree topology for the repo (every worktree, primary included) — authoritative, so the
+	 *  client prunes rows this omits. Absent means "unchanged". */
+	wipRowsById?: GraphWipRowsById;
+	/** Sparse hot-state patch, merged per row id (see {@link GraphWipState}). */
+	wipStateById?: GraphWipStateById;
 	/**
 	 * Primary-repo WIP, captured from a single `git status`. Lets the details panel render fresh
 	 * file lists without an extra `getWip` RPC. The working-tree stats travel embedded as

@@ -104,10 +104,9 @@ export interface GitBranchShape {
 /**
  * Git-authoritative working-tree counts, computed host-side from `status.diffStatus` and embedded
  * IN the {@link Wip} so the file list and its summary counts travel as one atomic object — they
- * can never drift. Header / row badges read these (via the derived `workingTreeStats`); the panel
- * reads them directly. Structurally assignable to graph's `GraphWorkingTreeStats` (which is
- * `WorkDirStats & { hasConflicts?; conflictsCount?; pausedOpStatus? }`); `context` is the
- * serialized `GraphItemContext` string for the WIP row's right-click menu.
+ * can never drift. Header / row badges read these (via the graph's row-keyed `wipStateById` plane,
+ * which projects them with `toWipState`); the panel reads them directly. `context` is the serialized
+ * `GraphItemContext` string for the WIP row's right-click menu.
  */
 export interface WipStats {
 	added: number;

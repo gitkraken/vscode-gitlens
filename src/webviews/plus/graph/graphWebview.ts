@@ -779,7 +779,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Collaborator surface {@link GraphSearchService} reaches for. `getRepository`/`getSession` read
 	 *  live provider state; the selection reads/`setSelectedRows` route through the provider's selection
 	 *  state; `updateState`/`updateGraphWithMoreRows`/`notifyDidChangeRows` forward into the data
-	 *  controller; `getWipMetadataBySha` forwards into the WIP service; the search cancellation callbacks
+	 *  controller; `getWipRows` forwards into the WIP service; the search cancellation callbacks
 	 *  route through the provider's shared `_cancellations` map, which stays here. */
 	private createGraphSearchContext(): GraphSearchServiceContext {
 		return {
@@ -795,7 +795,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			updateState: immediate => this._data.updateState(immediate),
 			updateGraphWithMoreRows: id => this._data.updateGraphWithMoreRows(id),
 			notifyDidChangeRows: () => this._data.notifyDidChangeRows(),
-			getWipMetadataBySha: () => this._wip.getWipMetadataBySha(),
+			getWipRows: async () => (await this._wip.getWipRows()).rows,
 			createSearchCancellation: () => this.createCancellation('search'),
 			cancelSearchOperation: () => this.cancelOperation('search'),
 		};
@@ -1544,8 +1544,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			await Promise.allSettled(
 				params.shas.map(async sha => {
-					// Peer worktrees only — the primary's stats ride the `workingTreeStats` channel and
-					// have no `wipMetadataBySha` entry for the client to write them into.
+					// Peer worktrees only — the graph's own worktree's status group rides the working-tree
+					// push channel, which is authoritative and would be clobbered by an on-demand read.
 					const path = getWipRowWorktreePath(sha);
 					if (path == null || path === primaryRepoPath) return;
 
@@ -1973,7 +1973,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), `.gitignore` edits
 		// (`ignores` → which untracked files appear in `git status`), secondary-worktree add/remove
-		// (`worktrees` → wipMetadataBySha; also falls through to the structural gate below as a
+		// (`worktrees` → wipRowsById; also falls through to the structural gate below as a
 		// backstop full-state push), tracking changes (`head|heads|remotes` → wip.branch.upstream,
 		// which drives the "Publish" ↔ "Create PR" next-step row in the details panel), and
 		// `.git/config` edits (`config` → wip.signing; the watcher currently always pairs `config`
@@ -4235,12 +4235,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._wip.getWorkingTreeStatsAndPausedOperations(undefined, cancellation.token),
 			this.repository.git.branches.getBranch(undefined, toAbortSignal(cancellation.token)),
 			this.repository.getLastFetched(),
-			// Anchor/label metadata only — NO clean/dirty probing here. The probe fans `git diff`/
+			// Anchor/label topology only — NO clean/dirty probing here. The probe fans `git diff`/
 			// `ls-files` out across every worktree; awaiting it gated the ENTIRE initial state on the
 			// slowest worktree (multi-second stalls, and a wedged mount stuck the loading spinner
 			// forever) while the concurrent spawns starved the rows walk. The probed build runs in
 			// the background below and merges in via the working-tree channel when it lands.
-			this._wip.getWipMetadataBySha(cancellation.token),
+			this._wip.getWipRows(cancellation.token),
 			// Worktree registry for the webview — the Agent Activity treemap maps agent file activity
 			// to repo-relative keys against these. Fetched directly (not via the graph session, which isn't
 			// loaded yet on the deferred-rows build).
@@ -4316,7 +4316,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			data = this._data.session?.current ?? data;
 		}
 
-		const [accessResult, workingStatsResult, branchResult, lastFetchedResult, wipMetadataResult, worktreesResult] =
+		const [accessResult, workingStatsResult, branchResult, lastFetchedResult, wipRowsResult, worktreesResult] =
 			await promises;
 		if (cancellation.token.isCancellationRequested) throw new CancellationError();
 
@@ -4421,21 +4421,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// below — keeps host-pushed overview updates in sync with the persisted choice on reload.
 		this._panels.setOverviewRecentThreshold(storedGraphState?.overview?.recentThreshold ?? 'OneWeek');
 
-		// If the underlying fetch returned undefined (cancelled/failed), leave `workingTreeStats`
-		// undefined rather than fabricating a confident `{0,0,0}` — `gl-wip-stats` renders
+		// If the underlying fetch returned undefined (cancelled/failed), leave the graph's own worktree
+		// out of `wipStateById` rather than fabricating a confident `{0,0,0}` — `gl-wip-stats` renders
 		// `nothing` for an all-undefined state, which is honest. A misleading clean ✓ would stick
 		// until the next FS event landed, and there's no guarantee one will: if the user already
 		// had changes when the webview loaded, the working tree won't change of its own accord.
 		// The one-shot retry below also seeds an authoritative push shortly after init to recover
 		// from transient cancellations during ready-up.
-		const resolvedWorkingTreeStats = getSettledValue(workingStatsResult);
-		if (resolvedWorkingTreeStats == null) {
+		const primaryWipState = getSettledValue(workingStatsResult);
+		if (primaryWipState == null) {
 			this._wip.scheduleInitialWorkingTreeStatsRetry();
 		} else {
 			// Seed the panel-tab badge on initial load. A null here is a transient fetch failure (the
 			// retry above re-pushes), not a real zero — don't fabricate a zero and clear the badge.
-			this._wip.updateWorkingTreeBadge(resolvedWorkingTreeStats);
+			this._wip.updateWorkingTreeBadge(primaryWipState.workDirStats);
 		}
+
+		// Fold the graph's own worktree's status group into the uniform hot plane — the enumeration
+		// walk deliberately runs no `git status`, so it only ever supplies the peers' free fields.
+		const wipRows = getSettledValue(wipRowsResult);
+		const wipStateById =
+			primaryWipState != null
+				? { ...wipRows?.state, [createWipRowId(this.repository.path)]: primaryWipState }
+				: wipRows?.state;
 
 		const graphWalkthroughBanner = this.getGraphWalkthroughBannerState();
 
@@ -4507,8 +4515,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			includeOnlyRefs: refsVisibility.includeOnlyRefs,
 			pinnedRef: this.getPinnedRef(filters, data),
 			nonce: this.host.cspNonce,
-			workingTreeStats: resolvedWorkingTreeStats,
-			wipMetadataBySha: getSettledValue(wipMetadataResult),
+			wipRowsById: wipRows?.rows,
+			wipStateById: wipStateById,
 			searchMode: searchMode,
 			useNaturalLanguageSearch: useNaturalLanguageSearch,
 			featurePreview: featurePreview,

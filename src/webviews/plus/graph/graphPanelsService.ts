@@ -555,7 +555,7 @@ export class GraphPanelsService {
 			}
 
 			// The graph row this worktree's WIP anchors to — one path-keyed id per worktree, mirroring
-			// `getWipMetadataBySha` (only when a row can exist at all, i.e. non-bare).
+			// `getWipRows` (only when a row can exist at all, i.e. non-bare).
 			const wipSha = w.type === 'bare' ? undefined : createWipRowId(w.path);
 
 			// Base context — `+working` is appended in the webview when the async hasChanges resolves.

@@ -22,11 +22,13 @@ import type {
 	GraphRefOptData,
 	GraphSearchResults,
 	GraphSelectedRows,
+	GraphWipState,
 	State,
 } from '../../../plus/graph/protocol.js';
 import {
 	ChooseRepositoryCommand,
 	CloseGraphWalkthroughBannerCommand,
+	createWipRowId,
 	OpenPullRequestDetailsCommand,
 	SearchCancelCommand,
 	SearchOpenInViewCommand,
@@ -56,6 +58,7 @@ import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProvider.js';
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
+import { getSelectedRepoPath } from './utils/repository.utils.js';
 import '../shared/components/account-chip.js';
 import '../shared/components/integrations-chip.js';
 import '../../shared/components/branch-name.js';
@@ -565,6 +568,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	private get searchPosition(): number {
 		return this._searchPositionSignal.get();
+	}
+
+	/** The graph's own worktree's entry in the row-keyed hot WIP plane — what the header's WIP badge
+	 *  and jump-to-WIP affordance render from. */
+	private get primaryWipState(): GraphWipState | undefined {
+		const repoPath = getSelectedRepoPath(this.graphState);
+		return repoPath != null ? this.graphState.wipStateById?.[createWipRowId(repoPath)] : undefined;
 	}
 
 	get searchValid() {
@@ -1083,7 +1093,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							.branchName=${branch?.name}
 							.branchState=${branchState}
 							.lastFetched=${lastFetched}
-							.workingTreeStats=${this.graphState.workingTreeStats}
+							.wipState=${this.primaryWipState}
 							.state=${this.graphState}
 						></gl-git-actions-buttons>
 					`,

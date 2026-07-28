@@ -10,9 +10,9 @@ import type {
 	GraphSearchResults,
 	GraphSearchResultsError,
 	GraphSelectedRows,
-	GraphWorkingTreeStats,
 	State,
 	Wip,
+	WipStats,
 } from '../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse, OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
 
@@ -174,12 +174,13 @@ export interface AppState extends State {
 	ingestWip(repoPath: string, wip: Wip): void;
 
 	/**
-	 * Reseed `workingTreeStats` (header / primary-row badge source) from a panel-driven `getWip`
-	 * response. No-op unless `repoPath` matches the selected repository. `stats` is the primary
-	 * wip's embedded counts (git-authoritative, same object as `wip.stats`) so the file list and
-	 * counts can't drift — no generation guard needed.
+	 * Reseed one worktree's WIP status group (header / row badge source) from a panel-driven `getWip`
+	 * response. Writes into the row-keyed hot plane, so a peer worktree's response lands on that
+	 * peer's row rather than the graph's own. `stats` is that wip's embedded counts
+	 * (git-authoritative, same object as `wip.stats`) so the file list and counts can't drift — no
+	 * generation guard needed.
 	 */
-	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats): void;
+	setWipStatus(repoPath: string, stats: WipStats): void;
 
 	/**
 	 * Return the cached WIP for `repoPath` plus liveness metadata. `isLive` reflects whether the
