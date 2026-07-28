@@ -3594,6 +3594,17 @@ export class GitHubApi {
 			includeBody?: boolean;
 			includeAllAssignees?: boolean;
 			cursor?: string;
+			/**
+			 * Which of the three "my issues" searches to run. Omitted runs all three (GitHub's own definition of
+			 * "mine": authored ∪ assigned ∪ mentioned). Supplied, only the `true` ones run — so a caller wanting
+			 * `assignee:@me` parity asks for `{ assigned: true }` instead of filtering the union client-side (which
+			 * can't work: the dropped items still counted toward this page, so `hasMore`/`cursor` would describe a
+			 * different result set than `values`).
+			 *
+			 * At least one must be `true`; an all-`false` set reads nothing rather than silently widening back to
+			 * the union. The facade never sends one (an empty filter set means "unfiltered" there).
+			 */
+			categories?: { authored?: boolean; assigned?: boolean; mentioned?: boolean };
 		},
 		cancellation?: AbortSignal,
 	): Promise<
@@ -3636,9 +3647,23 @@ export class GitHubApi {
 			} catch {}
 		}
 		const page = Math.max(1, Math.trunc(cursor?.page ?? 1));
-		const includeAuthored = cursor?.authored !== null;
-		const includeAssigned = cursor?.assigned !== null;
-		const includeMentioned = cursor?.mentioned !== null;
+		// A category is read when the caller asked for it AND it hasn't been exhausted (`null` cursor slot). An
+		// excluded category needs no cursor bookkeeping: `nextCategoryCursor` reads a missing response category as
+		// `null`, so it stays excluded across continuations on its own.
+		const categories = options?.categories;
+		const requested = {
+			authored: categories?.authored ?? categories == null,
+			assigned: categories?.assigned ?? categories == null,
+			mentioned: categories?.mentioned ?? categories == null,
+		};
+		const includeAuthored = requested.authored && cursor?.authored !== null;
+		const includeAssigned = requested.assigned && cursor?.assigned !== null;
+		const includeMentioned = requested.mentioned && cursor?.mentioned !== null;
+		// Reading nothing is the honest answer to "none of the three": widening back to the union would return
+		// issues the caller explicitly excluded.
+		if (!includeAuthored && !includeAssigned && !includeMentioned) {
+			return { values: [], hasMore: false, page: page, truncated: cursor?.truncated === true };
+		}
 
 		const query = `query searchMyIssues(
 				$authored: String!
