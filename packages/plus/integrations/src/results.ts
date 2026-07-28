@@ -44,6 +44,18 @@ export interface ProviderPageInfo {
 	 * addressed by number, so this is a position label and not always a resumable request parameter.
 	 */
 	currentPage: number;
+	/**
+	 * The page size IN EFFECT, which is not always the one requested — it is whichever of these the read can
+	 * actually vouch for:
+	 * - the size the provider reported for the page it served (numbered-page hosts), else
+	 * - the `itemsPerPage` that was applied to the request (repo-scoped reads, which forward it), else
+	 * - `items.length`, for a read that takes no page size at all: the account-wide PR/issue reads, `listRepos`
+	 *   (cursor-only), and `listIssueTrackerIssuesPage`, whose `itemsPerPage` counts PROJECTS rather than issues.
+	 *
+	 * So it is a description of the page, not an echo of the request: don't derive a total from
+	 * `currentPage * itemsPerPage`, and don't read `items.length < itemsPerPage` as "last page" — `hasMore` /
+	 * `cursor` are the only continuation signals.
+	 */
 	itemsPerPage: number;
 	/**
 	 * A COMPLETENESS assertion, not a mode flag: `true` only when a sweep drained every page of every target

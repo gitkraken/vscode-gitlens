@@ -132,6 +132,12 @@ export interface IntegrationManager {
 	 * They differ because they are different provider queries — GitLab can express `Assignee` account-wide and
 	 * nothing else — and `listIssuesPage` validates against whichever the read uses.
 	 *
+	 * An ISSUE TRACKER (Jira/Linear/Trello) reports its filters under `issues`, and
+	 * {@link IntegrationManager.listIssueTrackerIssuesPage} validates against that field. Its
+	 * `issuesAccountWide` is empty — those two fields split the git-host reads, and a tracker has neither of
+	 * them (its issues live under resource → project) — so intersecting a tracker's filters against
+	 * `issuesAccountWide` would read "cannot filter" for a provider that filters fine.
+	 *
 	 * This is a capability table, not a recommendation: a consumer matching another tool's behavior may pass fewer
 	 * filters than are listed, or none where the underlying read is already scoped.
 	 */

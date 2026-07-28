@@ -555,6 +555,11 @@ export class IntegrationService implements Disposable {
 	 * two: GitLab, for instance, can express `Assignee` account-wide but nothing else, because the SDK's
 	 * account-wide input has no author/mention axis.
 	 *
+	 * That split describes the GIT-HOST reads only. An issue tracker (Jira/Linear/Trello) has neither — its issues
+	 * live under resource → project — so it reports its filters under `issues`, which is what
+	 * {@link IntegrationService.listIssueTrackerIssuesPage} validates against, and leaves `issuesAccountWide`
+	 * empty. Reading a tracker's capability off `issuesAccountWide` therefore under-reports it.
+	 *
 	 * Note this is a CAPABILITY table — "what the provider can express" — not a recommendation. A consumer
 	 * matching another tool's behavior may deliberately pass fewer filters than are listed here (or none, where an
 	 * already-scoped read would only be narrowed by them). Intersecting against this table is what keeps a
@@ -2601,8 +2606,8 @@ export class IntegrationService implements Disposable {
 			domain,
 			options.connectionId,
 			() =>
-				// The shapes seam returns normalized IssueShape (and lets a provider whose only issue client already
-				// yields shapes — Bitbucket — serve this path without a raw ProviderIssue round-trip).
+				// The shapes seam returns normalized IssueShape, and is overridable by a provider whose only issue
+				// client already yields shapes (serving this path without a raw ProviderIssue round-trip).
 				integration.getMyIssuesForReposAsShapesResult(
 					options.repos ?? [],
 					// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo/Project hosts honor the
@@ -3712,7 +3717,7 @@ export class IntegrationService implements Disposable {
 				domain,
 				connectionId,
 				() =>
-					// Normalized shapes seam (uniform with listIssuesPage; serves Bitbucket via its override).
+					// Normalized shapes seam, uniform with listIssuesPage.
 					integration.getMyIssuesForReposAsShapesResult(
 						repos,
 						{
