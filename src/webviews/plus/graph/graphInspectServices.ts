@@ -2433,12 +2433,35 @@ export class GraphInspectServices {
 		const labels: string[] = [];
 
 		if (scope.includeUnstaged) {
-			const d = await svc.diff?.getDiff?.(uncommitted);
-			signal?.throwIfAborted();
-			if (d?.contents) {
-				parts.push(d.contents);
+			let untrackedPaths: string[] | undefined;
+			try {
+				// Untracked files never appear in `git diff` (working-vs-index); intent-to-add stages them so
+				// the unstaged diff includes their contents. Mirrors patches.ts. Unstaged before the staged
+				// diff below so intent-to-add entries can't also surface there as empty new-file headers.
+				untrackedPaths = (await svc.status.getUntrackedFiles()).map(f => f.path);
+				if (untrackedPaths?.length) {
+					try {
+						await svc.staging?.stageFiles(untrackedPaths, { intentToAdd: true });
+					} catch (ex) {
+						Logger.error(ex, `Failed to stage (${untrackedPaths.length}) untracked files for review`);
+					}
+				}
+
+				const d = await svc.diff?.getDiff?.(uncommitted);
+				signal?.throwIfAborted();
+				if (d?.contents) {
+					parts.push(d.contents);
+				}
+				labels.push('unstaged');
+			} finally {
+				if (untrackedPaths?.length) {
+					try {
+						await svc.staging?.unstageFiles(untrackedPaths);
+					} catch (ex) {
+						Logger.error(ex, `Failed to unstage (${untrackedPaths.length}) untracked files for review`);
+					}
+				}
 			}
-			labels.push('unstaged');
 		}
 		if (scope.includeStaged) {
 			const d = await svc.diff?.getDiff?.(uncommittedStaged);
