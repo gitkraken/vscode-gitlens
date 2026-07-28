@@ -35,14 +35,6 @@ suite('graph-commit — columns ↔ zones mode round-trip', () => {
 	});
 });
 
-// Serialized `data-vscode-context` a branch pill would carry, matching the host's shape.
-function branchContext(webviewItem: string, name: string): string {
-	return JSON.stringify({
-		webviewItem: webviewItem,
-		webviewItemValue: { type: 'branch', ref: { refType: 'branch', name: name } },
-	});
-}
-
 // Serialized refGROUP context the host ships on `contexts.refGroups[name]` for a grouped ref.
 function refGroupContext(webviewItemGroup: string): string {
 	return JSON.stringify({
@@ -64,6 +56,10 @@ function commitRow(overrides: Partial<GitGraphRow>): GitGraphRow {
 	};
 }
 
+// These pin the grouped-pill MERGE, which regressed once before: a grouped pill must expose BOTH the
+// branch actions and the refGroup's "Hide" (`gitlens.graph.hideRefGroup`). They now run against the real
+// webview-built context rather
+// than a stand-in for the host's string, so they also cover the build itself.
 suite('graph-commit — branch pill context (grouped ref parity)', () => {
 	test('a grouped branch pill MERGES the branch and refGroup contexts', () => {
 		// A current branch in sync with its upstream on the same commit ⇒ the host groups local + remote.
@@ -71,19 +67,19 @@ suite('graph-commit — branch pill context (grouped ref parity)', () => {
 			heads: [
 				{
 					name: 'main',
+					id: 'repo|heads/main',
 					isCurrentHead: true,
 					upstream: { name: 'origin/main', id: 'repo|remotes/origin/main' },
-					context: branchContext('gitlens:branch+current+tracking', 'main'),
 				},
 			],
 			contexts: { refGroups: { main: refGroupContext('gitlens:refGroup+current') } },
 		});
 
-		const ref = toGraphCommit(row).commitRefs.find(r => r.kind === 'head' && r.name === 'main');
+		const ref = toGraphCommit(row, 7, '/repo').commitRefs.find(r => r.kind === 'head' && r.name === 'main');
 		assert.ok(ref?.context != null, 'the head ref should carry a pill context');
 
 		// The pill exposes BOTH the branch `when` keys and the refGroup keys — restoring branch actions
-		// (e.g. "Rebase Current Branch onto Upstream…") alongside "Hide All".
+		// (e.g. "Rebase Current Branch onto Upstream…") alongside the refGroup "Hide".
 		const ctx = JSON.parse(ref.context);
 		assert.ok(ctx.webviewItem.startsWith('gitlens:branch'), 'merged context keeps webviewItem');
 		assert.strictEqual(ctx.webviewItemGroup, 'gitlens:refGroup+current', 'merged context keeps webviewItemGroup');
@@ -99,11 +95,16 @@ suite('graph-commit — branch pill context (grouped ref parity)', () => {
 	test('an ungrouped branch pill context is the individual context (no refGroup keys)', () => {
 		const row = commitRow({
 			heads: [
-				{ name: 'feature', isCurrentHead: false, context: branchContext('gitlens:branch+tracking', 'feature') },
+				{
+					name: 'feature',
+					id: 'repo|heads/feature',
+					isCurrentHead: false,
+					upstream: { name: 'origin/feature', id: 'repo|remotes/origin/feature' },
+				},
 			],
 		});
 
-		const ref = toGraphCommit(row).commitRefs.find(r => r.kind === 'head' && r.name === 'feature');
+		const ref = toGraphCommit(row, 7, '/repo').commitRefs.find(r => r.kind === 'head' && r.name === 'feature');
 		const ctx = JSON.parse(ref!.context!);
 		assert.ok(ctx.webviewItem.startsWith('gitlens:branch'));
 		assert.strictEqual(ctx.webviewItemGroup, undefined, 'an ungrouped pill has no refGroup keys');

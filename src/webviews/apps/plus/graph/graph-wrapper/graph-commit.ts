@@ -62,12 +62,13 @@ export interface GraphCommitRef {
 	hostingServiceType?: GkProviderId;
 	/** JSON-stringified `data-vscode-context` for this ref's pill (right-click menu). For a grouped ref
 	 *  this MERGES the ref's own item context (`webviewItem…`) with its refGROUP context
-	 *  (`webviewItemGroup…`) so the pill exposes BOTH the branch/remote actions AND "Hide All" — the pill
+	 *  (`webviewItemGroup…`) so the pill exposes BOTH the branch/remote actions AND the refGroup's "Hide"
+	 *  (`gitlens.graph.hideRefGroup`) — the pill
 	 *  is a single element, so there's no wrapper to carry the group keys separately. */
 	context?: string;
 	/** The ref's INDIVIDUAL serialized context — never the refGROUP keys `context` may also carry for
 	 *  grouped refs. The branch sheet's kebab + action links need row-menu parity for THIS ref
-	 *  (the `webviewItemGroup` keys yield the "Hide All" menu and no-op the ref-scoped command links). */
+	 *  (the `webviewItemGroup` keys yield only the refGroup "Hide" and no-op the ref-scoped command links). */
 	refContext?: string;
 }
 
@@ -106,7 +107,7 @@ function serializeContext(value: unknown): string | undefined {
  * Merge a ref's own item context (`webviewItem`/`webviewItemValue`) with its refGROUP context
  * (`webviewItemGroup`/`webviewItemGroupValue`) into a single `data-vscode-context` object. The keys don't
  * collide, so a grouped pill's right-click menu exposes BOTH the branch/remote `when` clauses AND the
- * refGroup "Hide All". VS Code merges `data-vscode-context` up the ancestor chain, but the pill renders as
+ * refGroup "Hide". VS Code merges `data-vscode-context` up the ancestor chain, but the pill renders as
  * ONE element — nothing above it carries the group keys — so they have to be merged here. Falls back to the
  * group context (prior behavior) if either isn't valid JSON.
  */
@@ -131,7 +132,7 @@ export function toGraphCommit(
 	repoPath?: string,
 	pinnedRefId?: string,
 ): GraphCommitView {
-	// refGroups carries each grouped ref's refGROUP context ("Hide All"), keyed by ref NAME. Seed it up
+	// refGroups carries each grouped ref's refGROUP context (the "Hide" action), keyed by ref NAME. Seed it up
 	// front so the single ref pass below can merge it onto each ref's own item context (see
 	// `pillContextFor`) — grouped pills then expose both the ref actions and the refGroup actions.
 	// Right-click context: prefer the host-serialized `contexts.row`; for lean commit rows (the host
@@ -163,21 +164,12 @@ export function toGraphCommit(
 	// so a tag and a same-named branch/remote on one commit don't inherit each other's context menu.
 	// `pillContextFor` then merges it with the ref's refGROUP context (from `refContexts`, keyed by NAME)
 	// when the ref is grouped, so a grouped pill exposes BOTH the branch/remote actions AND the refGroup
-	// "Hide All". `refContext` (the pure individual) stays separate for the branch sheet.
+	// "Hide". `refContext` (the pure individual) stays separate for the branch sheet.
 	let refContextsByKind: Record<string, string> | undefined;
-	// STRUCTURED-FIRST: build the ref's own context from the wire's structured fields, falling back to the
-	// string the host serialized. The fallback is not legacy tolerance — it is the virtual-repo path. The
-	// GitHub provider never runs the row processor, so those rows carry no string to fall back TO either;
-	// what the fallback actually covers is a row restored from a session snapshot written before the
-	// structured fields existed. Both shapes stay valid until the host stops serializing.
+	// The ref's own context is built HERE from the structured fields — the host does not serialize one,
+	// and there is no fallback left to take: a snapshot written before the fields existed is discarded by
+	// the schema-version check rather than restored half-shaped.
 	const refState = pinnedRefId != null ? { pinnedRefId: pinnedRefId } : undefined;
-	const addContext = (kind: string, name: string, ref: { context?: unknown; contextGroup?: unknown }): void => {
-		const serialized = serializeContext(ref.context) ?? serializeContext(ref.contextGroup);
-		if (serialized == null) return;
-
-		refContextsByKind ??= {};
-		refContextsByKind[`${kind}:${name}`] = serialized;
-	};
 	const setContext = (kind: string, name: string, serialized: string | undefined): void => {
 		if (serialized == null) return;
 
@@ -194,11 +186,7 @@ export function toGraphCommit(
 
 	for (const h of row.heads ?? []) {
 		const headContext = repoPath != null ? serializeBranchRefContext(h, repoPath, refState) : undefined;
-		if (headContext != null) {
-			setContext('head', h.name, headContext);
-		} else {
-			addContext('head', h.name, h);
-		}
+		setContext('head', h.name, headContext);
 		commitRefs.push({
 			kind: 'head',
 			name: h.name,
@@ -211,16 +199,12 @@ export function toGraphCommit(
 			secondaryWorktreeId: h.worktree != null && !h.worktree.isDefault ? h.worktree.id : undefined,
 			isDefault: h.isDefault,
 			context: pillContextFor('head', h.name),
-			refContext: headContext ?? serializeContext(h.context),
+			refContext: headContext,
 		});
 	}
 	for (const r of row.remotes ?? []) {
 		const remoteContext = repoPath != null ? serializeRemoteBranchRefContext(r, repoPath, refState) : undefined;
-		if (remoteContext != null) {
-			setContext('remote', r.name, remoteContext);
-		} else {
-			addContext('remote', r.name, r);
-		}
+		setContext('remote', r.name, remoteContext);
 		commitRefs.push({
 			kind: 'remote',
 			name: r.name,
@@ -230,22 +214,18 @@ export function toGraphCommit(
 			isDefault: r.isDefault,
 			hostingServiceType: r.hostingServiceType,
 			context: pillContextFor('remote', r.name),
-			refContext: remoteContext ?? serializeContext(r.context),
+			refContext: remoteContext,
 		});
 	}
 	for (const t of row.tags ?? []) {
 		const tagContext = repoPath != null ? serializeTagRefContext(t, repoPath) : undefined;
-		if (tagContext != null) {
-			setContext('tag', t.name, tagContext);
-		} else {
-			addContext('tag', t.name, t);
-		}
+		setContext('tag', t.name, tagContext);
 		commitRefs.push({
 			kind: 'tag',
 			name: t.name,
 			id: t.id,
 			context: pillContextFor('tag', t.name),
-			refContext: tagContext ?? serializeContext(t.context),
+			refContext: tagContext,
 		});
 	}
 

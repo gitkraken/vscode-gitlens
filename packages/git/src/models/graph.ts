@@ -30,7 +30,6 @@ export interface GitGraphRowHead {
 	id?: string;
 	name: string;
 	isCurrentHead: boolean;
-	context?: string | object;
 	/**
 	 * The tracked upstream. `missing`/`state` are optional here while {@link GitTrackingUpstream} makes
 	 * them required, and the difference is meaningful: absent means the producer did NOT compute them
@@ -58,7 +57,6 @@ export interface GitGraphRowRemoteHead {
 	url?: string;
 	owner: string;
 	avatarUrl?: string;
-	context?: string | object;
 	current?: boolean;
 	/** True when this remote ref IS the repository's default branch and no local branch tracks it (no
 	 *  local checkout) — so the default-branch tier still applies for remote-only defaults. */
@@ -73,7 +71,6 @@ export interface GitGraphRowTag {
 	id?: string;
 	name: string;
 	annotated: boolean;
-	context?: string | object;
 }
 
 /**
@@ -404,9 +401,13 @@ export type IncrementalGraphFallbackReason =
 /**
  * Processes a single graph row — mutates the row in place.
  *
- * Sets `row.contexts`, `row.message` (e.g., emojified), `tag.context`,
- * `head.context`, `remoteHead.context`, `remoteHead.avatarUrl`.
+ * Sets `row.contexts` and `row.message` (e.g., emojified), and resolves `remoteHead.avatarUrl`.
  * Also populates `context.avatars` with email → URL mappings.
+ *
+ * Per-ref contexts are NOT serialized here. The webview builds them from the structured ref fields
+ * (`webviews/apps/plus/graph/utils/refContext.utils.ts`), where live state the host would have baked in
+ * stale — whether a branch is starred, which ref is pinned — is actually visible. What remains here needs
+ * something the webview cannot reach: the extension's asset URIs, or the whole-row grouping.
  *
  * Called inline during graph row iteration in the library's row-building
  * loop, once per row. Because it runs inside the loop, `more()` pagination

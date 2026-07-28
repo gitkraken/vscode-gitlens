@@ -7,12 +7,7 @@ import { getCachedAvatarUri } from '../avatars.js';
 import type { Container } from '../container.js';
 import { emojify } from '../emojis.js';
 import { serializeWebviewItemContext } from '../system/webview.js';
-import type {
-	GraphBranchContextValue,
-	GraphItemRefContext,
-	GraphItemRefGroupContext,
-	GraphTagContextValue,
-} from '../webviews/plus/graph/protocol.js';
+import type { GraphItemRefContext, GraphItemRefGroupContext } from '../webviews/plus/graph/protocol.js';
 import { formatCurrentUserDisplayName } from './utils/-webview/commit.utils.js';
 import { getRemoteIconUri } from './utils/-webview/icons.js';
 
@@ -20,65 +15,21 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 	constructor(
 		private readonly container: Container,
 		private readonly asWebviewUri: (uri: Uri) => Uri,
-		private readonly getPinnedRefId: () => string | undefined = () => undefined,
 	) {}
 
 	processRow(row: GitGraphRow, context: GraphContext): void {
-		const pinnedRefId = this.getPinnedRefId();
 		// Lazy — the overwhelming majority of rows carry no refs, and this runs once per row.
 		let groupedRefs:
 			| Map<string, { head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }>
 			| undefined;
 
-		// Enrich tags with serialized webview contexts
-		if (row.tags) {
-			for (const tag of row.tags) {
-				tag.context = serializeWebviewItemContext<GraphItemRefContext<GraphTagContextValue>>({
-					webviewItem: 'gitlens:tag',
-					webviewItemValue: {
-						type: 'tag',
-						ref: createReference(tag.name, context.repoPath, {
-							id: tag.id,
-							refType: 'tag',
-							name: tag.name,
-						}),
-					},
-				});
-			}
-		}
-
-		// Enrich local branch heads with serialized webview contexts
+		// Collect local heads for the ref-GROUP contexts below. Per-ref contexts are not built here — the
+		// webview builds them from the structured fields at `utils/refContext.utils.ts`, where it can also see
+		// state the host would bake in stale (starred, pinned). Only the reference itself is needed here, as
+		// an input to the group context.
 		if (row.heads) {
 			for (const head of row.heads) {
 				const branch = context.branches.get(head.name);
-				const ctx: GraphItemRefContext<GraphBranchContextValue> = {
-					webviewItem: `gitlens:branch${head.isCurrentHead ? '+current' : ''}${
-						branch?.upstream != null ? '+tracking' : ''
-					}${
-						head.id != null && context.worktreesByBranch?.has(head.id)
-							? '+worktree'
-							: context.branchIdOfMainWorktree === head.id
-								? '+checkedout'
-								: ''
-					}${branch?.starred ? '+starred' : ''}${
-						branch?.upstream?.state.ahead ? '+ahead' : ''
-					}${branch?.upstream?.state.behind ? '+behind' : ''}${pinnedRefId != null && head.id === pinnedRefId ? '+pinned' : ''}`,
-					webviewItemValue: {
-						type: 'branch',
-						ref: createReference(head.name, context.repoPath, {
-							id: head.id,
-							refType: 'branch',
-							name: head.name,
-							remote: false,
-							upstream: branch?.upstream,
-						}),
-						// A branch checked out in ANOTHER worktree must name it: `ref.repoPath` is the GRAPH's
-						// repo, so a command falling back to it would act on the wrong worktree's changes.
-						worktreePath: head.id != null ? context.worktreesByBranch?.get(head.id)?.path : undefined,
-					},
-				};
-
-				head.context = serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(ctx);
 
 				groupedRefs ??= new Map();
 				let group = groupedRefs.get(head.name);
@@ -89,11 +40,18 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 				if (head.isCurrentHead) {
 					group.head = true;
 				}
-				group.local = ctx.webviewItemValue.ref;
+				group.local = createReference(head.name, context.repoPath, {
+					id: head.id,
+					refType: 'branch',
+					name: head.name,
+					remote: false,
+					upstream: branch?.upstream,
+				});
 			}
 		}
 
-		// Enrich remote heads with serialized webview contexts and avatar URLs
+		// Remote heads still need their avatar URL resolved here (it needs the container's asset URIs), and
+		// their reference collected for the group context; the per-ref context moved to the webview.
 		if (row.remotes) {
 			for (const remoteHead of row.remotes) {
 				const remote = context.remotes.get(remoteHead.owner);
@@ -105,24 +63,6 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 					(remote != null ? getRemoteIconUri(this.container, remote, this.asWebviewUri) : undefined)
 				)?.toString(true);
 
-				const ctx: GraphItemRefContext<GraphBranchContextValue> = {
-					webviewItem: `gitlens:branch+remote${context.branches.get(fullName)?.starred ? '+starred' : ''}${
-						pinnedRefId != null && remoteHead.id === pinnedRefId ? '+pinned' : ''
-					}`,
-					webviewItemValue: {
-						type: 'branch',
-						ref: createReference(fullName, context.repoPath, {
-							id: remoteHead.id,
-							refType: 'branch',
-							name: fullName,
-							remote: true,
-							upstream: { name: remoteHead.owner, missing: false },
-						}),
-					},
-				};
-
-				remoteHead.context = serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(ctx);
-
 				groupedRefs ??= new Map();
 				let group = groupedRefs.get(remoteHead.name);
 				if (group == null) {
@@ -130,7 +70,15 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 					groupedRefs.set(remoteHead.name, group);
 				}
 				group.remotes ??= [];
-				group.remotes.push(ctx.webviewItemValue.ref);
+				group.remotes.push(
+					createReference(fullName, context.repoPath, {
+						id: remoteHead.id,
+						refType: 'branch',
+						name: fullName,
+						remote: true,
+						upstream: { name: remoteHead.owner, missing: false },
+					}),
+				);
 			}
 		}
 

@@ -506,10 +506,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private static readonly agentBranchesIdleThresholdMs = 24 * 60 * 60 * 1000;
 
 	private get graphRowProcessor(): GlGraphRowProcessor {
-		return (this._graphRowProcessor ??= new GlGraphRowProcessor(
-			this.container,
-			uri => this.host.asWebviewUri(uri),
-			() => this.getFiltersByRepo(this.repository?.path ?? this._data.session?.repoPath)?.pinnedRef?.id,
+		// No pinned-ref callback: the row processor doesn't serialize ref contexts, so which ref is pinned is
+		// not the host's business for graph rows — the webview reads it live when it builds the menu.
+		// `getFiltersByRepo(...).pinnedRef` is consumed elsewhere (panels, WIP).
+		return (this._graphRowProcessor ??= new GlGraphRowProcessor(this.container, uri =>
+			this.host.asWebviewUri(uri),
 		));
 	}
 
@@ -4160,8 +4161,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					);
 				} catch (ex) {
 					// The latch was consumed at getState entry, but the rebuild it paid for never applied — a
-					// cancelled/failed refresh here would strand stale baked contexts (`+pinned`, provider
-					// avatars) behind the reuse gate. Re-arm so the next getState rebuilds.
+					// cancelled/failed refresh here would strand stale baked data (provider avatars) behind
+					// the reuse gate. Re-arm so the next getState rebuilds.
 					if (rebuildContexts) {
 						this._pendingContextsRebuild = true;
 					}
@@ -4613,13 +4614,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				: undefined;
 
 		void this.updateFiltersByRepo(repoPath, { pinnedRef: storedPinnedRef });
-		void this.notifyDidChangePinnedRef();
+		// Passed the new pin directly rather than letting the notification re-read it. Not a race fix —
+		// `getWorkspace` is a synchronous `Memento.get` and sees the value `update()` sets before its
+		// promise settles, which is why the sibling filter writers here notify the same way without
+		// awaiting. This just avoids the round-trip when the value is already in hand.
+		void this.notifyDidChangePinnedRef({
+			pinnedRef: this.getPinnedRef({ pinnedRef: storedPinnedRef }, this._data.session?.current),
+		});
 		this._panels.notifySidebarInvalidated();
-		// `+pinned` is baked into ref pills' serialized contexts at row-processing time — neither the
-		// graph-reuse gate (the repo didn't change) nor the incremental fast path (no tip moved) rebuilds
-		// them, so the pin/unpin menu toggle would go stale. Force one full rebuild; pinning is rare.
-		this._pendingContextsRebuild = true;
-		this._data.updateState(true);
+		// No graph rebuild: the webview builds the ref contexts itself and sees the pin live, so nothing has
+		// to walk to refresh `+pinned`. The lane pin needs no walk either — a changed `pinnedShas` already
+		// fails the engine session's `engineOptionsUnchanged` check, so the layout re-runs webview-side.
 	}
 
 	private updateFiltersByRepo(repoPath: string | undefined, updates: Partial<StoredGraphFilters>) {

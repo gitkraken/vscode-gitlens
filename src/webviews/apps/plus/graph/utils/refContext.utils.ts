@@ -11,8 +11,8 @@ import type {
  * Webview-side construction of the ref-pill `data-vscode-context` payloads, mirroring `rowContext.utils.ts`
  * for rows.
  *
- * The host builds these in `src/git/graphRowProcessor.ts` and ships a serialized string per ref per row.
- * That has two costs this replaces:
+ * The host used to build these in `src/git/graphRowProcessor.ts`, shipping a serialized string per ref per
+ * row. That carried two costs this replaces:
  *
  * 1. **Staleness.** The payload is built when the row is BUILT, so anything that changes without a rebuild
  *    stays wrong until an unrelated walk refreshes it — starring a branch, or pinning a ref, which is pure

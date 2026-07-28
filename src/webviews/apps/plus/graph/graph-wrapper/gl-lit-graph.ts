@@ -4922,7 +4922,7 @@ export class GlLitGraph extends LitElement {
 	// captured at click time because the deferral timer runs without the event.
 	private activatePill(refPill: ResolvedRefTarget, pillSha: string | undefined): void {
 		const pinned = this.togglePinnedRef(refPill.key, pillSha);
-		// The pill's own `data-vscode-context` carries the refGROUP keys ("Hide All") merged in when this ref
+		// The pill's own `data-vscode-context` carries the refGROUP keys (the "Hide" action) merged in when this ref
 		// is grouped with its remote(s), which the sheet's kebab + action links can't use. Prefer the ref's
 		// INDIVIDUAL context from the row model, falling back to the pill context.
 		const refContext =
