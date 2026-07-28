@@ -11,6 +11,7 @@
 // resolution so the tests exercise the same code paths consumers will.
 
 import { execFileSync } from 'node:child_process';
+import { rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +20,8 @@ import * as esbuild from 'esbuild';
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const workspaceRoot = dirname(dirname(dirname(packageRoot)));
 const outDir = join(packageRoot, 'out');
+
+await rm(outDir, { recursive: true, force: true });
 
 await esbuild.build({
 	absWorkingDir: packageRoot,

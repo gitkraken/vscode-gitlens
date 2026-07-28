@@ -118,6 +118,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		},
 		id: value.id,
 		nodeId: value.nodeId,
+		number: value.number,
 		title: value.title,
 		body: value.body,
 		url: value.url,
@@ -170,6 +171,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		reviewDecision: value.reviewDecision,
 		reviewRequests: value.reviewRequests,
 		assignees: value.assignees,
+		authoredByMe: value.authoredByMe,
 		project: value.project
 			? {
 					id: value.project.id,

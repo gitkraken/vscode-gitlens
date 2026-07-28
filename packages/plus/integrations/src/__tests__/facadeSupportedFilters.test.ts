@@ -12,10 +12,10 @@ import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
  * `getSupportedFilters` exists so a consumer can intersect its filter set against the provider BEFORE the read.
- * The filter contract is all-or-nothing, so a set with one unsupported member comes back as an empty page +
- * `fetchFailed` — indistinguishable from a real failure. The table was previously reachable only by importing
- * the internal `providers/models.js` subpath, so consumers hardcoded their own copy; a copy that drifts turns a
- * supported read into a failed one, which is exactly what these tests are here to prevent.
+ * PR filters are repo-scoped; account-wide PR queries expose provider-defined relationship unions and advertise
+ * a separate empty capability. The filter contract is all-or-nothing, so a set with one unsupported member comes
+ * back as an empty page + `fetchFailed`. The table was previously reachable only by importing the internal
+ * `providers/models.js` subpath, so consumers hardcoded copies that could drift from the read guard.
  */
 suite('IntegrationManager.getSupportedFilters', () => {
 	const allIds: IntegrationIds[] = [
@@ -46,6 +46,11 @@ suite('IntegrationManager.getSupportedFilters', () => {
 
 			for (const id of allIds) {
 				const supported = manager.getSupportedFilters(id);
+				assert.deepEqual(
+					supported.pullRequestsAccountWide,
+					[],
+					`${id}: account-wide PR relationship unions do not expose independently selectable filters`,
+				);
 
 				// A non-empty advertised set must be accepted whole. An empty one means the provider has no
 				// filter surface at all, and the guard rejects even a single filter there — so assert that
@@ -101,10 +106,13 @@ suite('IntegrationManager.getSupportedFilters', () => {
 			// guard table: handing out the internal reference would let one consumer's `.pop()` change what
 			// every read accepts, process-wide.
 			first.pullRequests.length = 0;
+			assert.ok(first.pullRequestsAccountWide != null);
+			first.pullRequestsAccountWide.push(PullRequestFilter.Author);
 			first.issues.length = 0;
 
 			const second = manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub);
 			assert.deepEqual(second.pullRequests, before, 'the table survives a mutated result');
+			assert.deepEqual(second.pullRequestsAccountWide, []);
 			assert.ok(second.issues.length > 0);
 		} finally {
 			manager.dispose();
