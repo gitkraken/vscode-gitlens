@@ -88,7 +88,12 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 					// permanently, since this map has no TTL. Same guard `git.run`'s own caching path uses.
 					// The graph's tip gate calls this with `force: true` and supersedes itself freely, so it
 					// is routinely the sole registrant on the aggregate whose abort kills the spawn.
-					if (result.completion.status === 'cancelled' || signal?.aborted) {
+					// Covers a FAILED enumeration too, not just a cancelled one: a transient `for-each-ref`
+					// failure (a lingering `index.lock`, EMFILE, the git dir briefly unavailable) also
+					// resolves empty, and caching that `[]` would blank every branch, tag and ref-tip
+					// consumer for the rest of the session. A genuinely ref-less repo still exits cleanly
+					// with empty stdout, so it caches as before.
+					if (result.completion.status !== 'exited' || result.exitCode !== 0 || signal?.aborted) {
 						cacheable?.invalidate();
 						return [];
 					}
