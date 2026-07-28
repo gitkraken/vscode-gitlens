@@ -59,7 +59,7 @@ pnpm --filter @gitkraken/commit-graph test
 
 Runs the mocha + tsx suites under `src/**/__tests__/` — the engine suites plus the
 package-local module tests (`solveZoneLayout`, lane clamping, lane collapse, scope,
-nearestWip, paging, stats, colors). The a11y helpers have no dedicated tests and are
+nearestWip, paging, stats, colors, a11y). The remaining untested helpers are
 exercised only through the consumer's rendering.
 
 ## Moving this package to its own repo
