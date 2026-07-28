@@ -1845,32 +1845,48 @@ export class IntegrationService implements Disposable {
 			options.connectionId,
 			value?.metadata,
 		);
-		// The org-hierarchy read can stop at a defensive backstop with more repos unlisted and NO cursor to
-		// resume (top-level `truncated`, or `paging.truncated` on a single-page read). Surface that as a
-		// terminal `page.truncated` signal, NOT as `hasMore`: `hasMore` without a `cursor` would invite a
-		// consumer to request the "next page" and get the same aggregate back forever. `hasMore` stays true
-		// only when the provider gave a real resumable cursor. Metadata incompleteness is an independent source
-		// of the same signal.
-		const truncated = (value?.truncated ?? false) || (value?.paging?.truncated ?? false) || assessment.truncated;
+		// Whether this read honors a page NUMBER, decided from what the provider actually reported rather than
+		// guessed from the absence of a cursor. A numbered-page repos host reports its position (`paging.page`)
+		// and/or its successor (`paging.nextPage`) — Bitbucket's workspace walk consumes `page` as a real 1-based
+		// page and reports `nextPage` without echoing `currentPage`, so both signals have to count. Every wired
+		// cursor-based repos read (GitHub's org/user walks, GitLab's user walk, Bitbucket's cursor read) reports
+		// neither. Keying off `paged.cursor == null` instead read the paging layer's "reported another page,
+		// handed back no continuation" sentinel as evidence of a numbered host, which is exactly backwards.
+		const pageAdvanceable = value?.paging?.page != null || value?.paging?.nextPage != null;
 		// Numbered-page hosts that don't echo `currentPage` may still be advanced by the requested `page` (initial
-		// read) or by the cursor the caller threaded back. A host that hands back its own opaque cursor is
-		// cursor-only, so an UNTHREADED `page` request wasn't applied and its page-less first page is page 1.
+		// read) or by the cursor the caller threaded back. A cursor-only host ignores an UNTHREADED `page`
+		// request, so its page-less first page is page 1.
 		const currentPage = this.resolveCurrentPage({
 			providerPage: paged.page.currentPage,
 			requestedPage: page,
 			suppliedCursor: options.cursor,
-			pageAdvanceable: paged.cursor == null,
+			pageAdvanceable: pageAdvanceable,
 		});
-		// Continuation: prefer a real provider cursor; else, for a numbered-page host that signalled more but
-		// gave no cursor, synthesize the next page so the caller has something resumable to advance with.
-		const cursorOut = paged.cursor ?? (paged.hasMore ? this.pageToCursor(currentPage + 1) : undefined);
+		// Never advertise `hasMore` without a continuation the caller can act on — the same contract
+		// `listPullRequestsPage`, `listIssuesPage` and `broadenIssues` hold, via the same helper. A provider that
+		// reports another page but hands back neither `endCursor` nor `nextPage` (surfaced as the `'{}'` sentinel,
+		// which `toProviderPageInfo` drops) is terminal-but-incomplete: `hasMore: false` + `page.truncated`.
+		// Synthesizing a page-number cursor for a cursor-only host instead — which is what this read used to do
+		// unconditionally — handed back a continuation the provider ignores, so it answered with its FIRST page
+		// again while still reporting `hasMore: true`. A consumer draining until `hasMore` clears (Kepler's repo
+		// drain does exactly that) then looped to its own page cap, accumulating a duplicate copy of every repo
+		// per round, and never saw a truncation signal.
+		const continuation = this.resolveContinuation(paged, pageAdvanceable ? currentPage + 1 : undefined);
+		// The org-hierarchy read can also stop at a defensive backstop with more repos unlisted and no cursor to
+		// resume (top-level `truncated`, or `paging.truncated` on a single-page read). Metadata incompleteness and
+		// a demoted continuation are two further, independent sources of the same signal.
+		const truncated =
+			(value?.truncated ?? false) ||
+			(value?.paging?.truncated ?? false) ||
+			assessment.truncated ||
+			continuation.truncated;
 		return {
 			// Normalize the raw provider-apis repos to the GitLens-owned shape at the surface boundary.
 			items: items.map(toProviderRepositoryShape),
 			warnings: warnings,
 			page: { ...paged.page, currentPage: currentPage, truncated: truncated || undefined },
-			hasMore: paged.hasMore,
-			cursor: cursorOut,
+			hasMore: continuation.hasMore,
+			cursor: continuation.cursor,
 			fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
 		};
 	}

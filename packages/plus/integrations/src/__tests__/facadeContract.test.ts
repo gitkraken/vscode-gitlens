@@ -97,6 +97,43 @@ suite('facade contract regressions', () => {
 		manager.dispose();
 	});
 
+	test('listRepos never reports hasMore without a usable cursor', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// GitHub's user-repos walk is cursor-only: it reports neither `paging.page` nor `paging.nextPage`, so a
+		// `more: true` carrying the paging layer's `'{}'` sentinel has no continuation behind it.
+		//
+		// This read used to synthesize a page-number cursor here regardless and keep `hasMore: true`. A
+		// cursor-only host ignores that cursor and answers with its FIRST page, so a consumer draining until
+		// `hasMore` clears (Kepler's repo drain) looped to its own page cap and accumulated a duplicate copy of
+		// every repo per round — with no truncation signal to show the set was wrong.
+		let calls = 0;
+		(
+			gh as unknown as {
+				getRepositoriesForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForUserResult = () => {
+			calls++;
+			return Promise.resolve({
+				value: {
+					values: [{ name: 'r', namespace: 'octocat' } as unknown as ProviderRepository],
+					paging: { more: true, cursor: '{}' },
+				},
+			});
+		};
+
+		const result = await manager.listRepos({ providerId: GitCloudHostIntegrationId.GitHub });
+
+		assert.equal(result.hasMore, false, 'no continuation → hasMore must be false');
+		assert.equal(result.cursor, undefined, 'and no cursor may be synthesized for a cursor-only host');
+		assert.equal(result.page.truncated, true, 'the incompleteness is reported as terminal truncation instead');
+		assert.equal(result.items.length, 1, 'the page that was read is still returned');
+		assert.equal(calls, 1, 'the read is not retried against an unusable continuation');
+
+		manager.dispose();
+	});
+
 	test('listProjects reports no projects (not a broken connection) for a provider with no project tier', async () => {
 		const runtime = createFakeRuntime();
 		const { manager } = await connectedGitHub(runtime);
