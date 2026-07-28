@@ -7,7 +7,7 @@ import { GitCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { ProviderIssue, ProviderPullRequest } from '../providers/models.js';
-import { IssueFilter, PagingMode } from '../providers/models.js';
+import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -96,6 +96,59 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 			repos: [{ namespace: 'g', name: 'r' }],
 		});
 		assert.deepEqual(capturedStates, [GitPullRequestState.Closed, GitPullRequestState.Merged]);
+
+		manager.dispose();
+	});
+
+	test('a per-facet filtered fan-out resolves the current user once, not once per facet', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		// Turning a filter into a provider login needs the current user, and `ProvidersApi.getCurrentUser` is an
+		// uncached round trip. A consumer that serves ONE page as several filtered reads — one per user facet,
+		// which is how a repo-scoped "my PRs" view is assembled, since the filters compose with AND — therefore
+		// paid an identity request per facet, per page, all resolving the same account. They must share one.
+		let currentUserCalls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			providerSupportsPullRequestFilters: () => true,
+			getCurrentUser: () => {
+				currentUserCalls++;
+				return Promise.resolve({ id: 'me', username: 'me' });
+			},
+			getPullRequestsForRepos: () =>
+				Promise.resolve({
+					values: [],
+					paging: { more: false, cursor: '{}' },
+				} satisfies PagedResult<ProviderPullRequest>),
+		});
+
+		const repos = [{ namespace: 'octocat', name: 'hello' }];
+		const facets = [PullRequestFilter.Author, PullRequestFilter.Assignee, PullRequestFilter.ReviewRequested];
+		// Concurrent, as the fan-out actually issues them: the memo caches the in-flight promise, so the facets
+		// share one request instead of racing into three.
+		await Promise.all(
+			facets.map(filter =>
+				manager.listPullRequestsPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					repos: repos,
+					filters: [filter],
+				}),
+			),
+		);
+		assert.equal(currentUserCalls, 1, 'three concurrent filtered reads share one identity lookup');
+
+		// And the memo survives across page turns, so paging doesn't re-pay it either.
+		await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			filters: [PullRequestFilter.Author],
+			page: 2,
+		});
+		assert.equal(currentUserCalls, 1, 'a later page reuses the memoized identity');
 
 		manager.dispose();
 	});
