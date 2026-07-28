@@ -536,6 +536,31 @@ export class IntegrationService implements Disposable {
 	}
 
 	/**
+	 * The filters `listPullRequestsPage`/`listIssuesPage` (and the sweeps) accept for a provider, so a caller can
+	 * narrow to what the provider can express BEFORE issuing the read.
+	 *
+	 * This matters because the filter contract is all-or-nothing: a set containing even one unsupported filter is
+	 * refused outright ({@link resolvePullRequestFilters}) rather than silently narrowed, since falling through to
+	 * an unfiltered fetch would return every PR instead of the user's. Without this accessor a consumer had to
+	 * hardcode its own copy of the table — reachable only by importing the internal `providers/models.js`
+	 * subpath — and a copy that drifts turns a supported read into an empty page with `fetchFailed`.
+	 *
+	 * Empty means "no filter of that kind is expressible": either the provider has no such surface (issue trackers
+	 * have no pull requests; Bitbucket exposes no issues) or its metadata declares none. Callers should treat it as
+	 * "don't pass filters", not as an error. Returns copies, so mutating the result can't corrupt the metadata.
+	 */
+	getSupportedFilters(providerId: IntegrationIds): {
+		pullRequests: PullRequestFilter[];
+		issues: IssueFilter[];
+	} {
+		const metadata = providersMetadata[providerId];
+		return {
+			pullRequests: [...(metadata?.supportedPullRequestFilters ?? [])],
+			issues: [...(metadata?.supportedIssueFilters ?? [])],
+		};
+	}
+
+	/**
 	 * Returns the connected integration for a `GitRemote`, if any.
 	 * Internal counterpart to the host's `getRemoteIntegration(remote)` helper.
 	 */
@@ -942,13 +967,19 @@ export class IntegrationService implements Disposable {
 	}
 
 	/**
-	 * Narrows a caller-provided PR filter set to what the provider actually supports (via its metadata), so
-	 * an unsupported filter never trips the read core's "Unsupported filters" guard.
+	 * Validates a caller-provided PR filter set against what the provider supports (via its metadata), so an
+	 * unsupported filter never trips the read core's "Unsupported filters" guard.
 	 *
-	 * Returns `{ filters }` (possibly undefined when none were requested — an unfiltered read is intended),
-	 * plus `unsupported: true` when the caller DID request filters but the provider supports none of them. In
-	 * that case the caller must NOT silently fall through to an unfiltered fetch-all (which would return every
-	 * PR instead of the user's); it should skip the read and surface a warning.
+	 * All-or-nothing, NOT a narrowing: the set is accepted whole or refused whole. `unsupported: true` when the
+	 * caller DID request filters and the provider can't express even ONE of them — the exact negation of the read
+	 * core's `providerSupportsPullRequestFilters` (`every`), so this can only ever pre-empt that guard, never
+	 * disagree with it. Dropping the unsupported members instead would silently widen the read (e.g. asking for
+	 * Author+Mention on a provider without Mention would return the union, not the intersection).
+	 *
+	 * Returns `{ filters }` (possibly undefined when none were requested — an unfiltered read is intended). On
+	 * `unsupported` the caller must NOT fall through to an unfiltered fetch-all (which would return every PR
+	 * instead of the user's); it should skip the read and surface a warning. Consumers can avoid reaching this
+	 * path at all by intersecting against {@link IntegrationService.getSupportedFilters} first.
 	 *
 	 * Genuine "my pull requests" self-scoping is delivered by the account-wide path
 	 * ({@link GitHostIntegration.getMyPullRequestsForUserResult}); this helper only governs the optional
