@@ -1,8 +1,9 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { uncommitted } from '@gitlens/git/models/revision.js';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createTestRepo } from './helpers.js';
 
@@ -478,6 +479,167 @@ suite('DiffSubProvider.getDiff — untracked via intent-to-add (#5586)', () => {
 			assert.ok(after.contents.includes('only-untracked.txt'), 'The untracked file must be reviewable');
 
 			await r.provider.staging?.unstageFiles(r.path, untracked);
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+// The review used to intent-to-add into the REAL index and unstage afterwards. That cost two defects: a user
+// `git add` landing inside the window was silently reverted by the cleanup (#5604), and the write itself read
+// as a working-tree change, so a finished review could mark itself stale (#5605). The fix stages into a
+// scratch index (`createTemporaryIndex('current')`) and diffs against that, so the real index is never
+// written. These guard the git-level behavior that makes that possible.
+suite('DiffSubProvider.getDiff — untracked via a scratch index (#5604, #5605)', () => {
+	function porcelain(repoPath: string): string {
+		return execFileSync('git', ['status', '--porcelain'], { cwd: repoPath, encoding: 'utf-8' });
+	}
+
+	test('scratch-index intent-to-add surfaces untracked content and leaves the real index untouched', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'staged.txt', 's1\n', 'Add staged.txt');
+			addCommit(r.path, 'tracked.txt', 'v1\n', 'Add tracked.txt');
+			// A pre-staged change (what the user stands to lose), an unstaged change, and an untracked file.
+			writeFileSync(join(r.path, 'staged.txt'), 's2\n');
+			execFileSync('git', ['add', 'staged.txt'], { cwd: r.path, stdio: 'pipe' });
+			writeFileSync(join(r.path, 'tracked.txt'), 'v2\n');
+			writeFileSync(join(r.path, 'untracked.txt'), 'brand new\n');
+
+			const statusBefore = porcelain(r.path);
+
+			const untracked = (await r.provider.status?.getUntrackedFiles(r.path))?.map(f => f.path) ?? [];
+			assert.deepStrictEqual(untracked, ['untracked.txt'], 'Expected exactly the untracked file');
+
+			const index = await r.provider.staging.createTemporaryIndex(r.path, 'current');
+			try {
+				await r.provider.staging.stageFiles(r.path, untracked, { index: index, intentToAdd: true });
+
+				const diff = await r.provider.diff.getDiff?.(r.path, uncommitted, undefined, { index: index });
+				assert.ok(diff?.contents, 'Expected an unstaged diff against the scratch index');
+				assert.ok(diff.contents.includes('untracked.txt'), 'Untracked file must appear in the diff');
+				assert.ok(diff.contents.includes('brand new'), 'Untracked file contents must be present');
+				assert.ok(diff.contents.includes('tracked.txt'), 'The unstaged tracked change must still be present');
+				assert.ok(
+					!diff.contents.includes('staged.txt'),
+					'The scratch index inherits the staged entry, so the staged change is not also unstaged',
+				);
+
+				// The whole point of #5604: the real index never saw the intent-to-add entry.
+				assert.strictEqual(porcelain(r.path), statusBefore, 'The repository index must be unchanged');
+			} finally {
+				await index.dispose();
+			}
+
+			assert.strictEqual(porcelain(r.path), statusBefore, 'Disposal must not touch the repository index');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('a concurrent user `git add` of the same untracked path survives the review window', async () => {
+		const r = createTestRepo();
+		try {
+			writeFileSync(join(r.path, 'untracked.txt'), 'brand new\n');
+
+			const untracked = (await r.provider.status?.getUntrackedFiles(r.path))?.map(f => f.path) ?? [];
+			const index = await r.provider.staging.createTemporaryIndex(r.path, 'current');
+			try {
+				await r.provider.staging.stageFiles(r.path, untracked, { index: index, intentToAdd: true });
+
+				// The user stages the same path mid-review — from the SCM view, a terminal, or elsewhere.
+				execFileSync('git', ['add', 'untracked.txt'], { cwd: r.path, stdio: 'pipe' });
+
+				await r.provider.diff.getDiff?.(r.path, uncommitted, undefined, { index: index });
+			} finally {
+				await index.dispose();
+			}
+
+			assert.strictEqual(
+				porcelain(r.path),
+				'A  untracked.txt\n',
+				'The staging the user performed must still be in place after the review window closes',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test(`'current' treats a repo with no index file as an empty index rather than throwing`, async () => {
+		const r = createTestRepo();
+		try {
+			// A repo that has never staged anything has no `.git/index`; `createTemporaryIndex('current')`
+			// must not fail there (it would silently drop untracked files from every review).
+			rmSync(join(r.path, '.git', 'index'));
+
+			const index = await r.provider.staging.createTemporaryIndex(r.path, 'current');
+			const tempDir = dirname(index.path);
+			try {
+				assert.ok(!existsSync(index.path), 'A missing source index yields an (absent) empty temp index');
+
+				writeFileSync(join(r.path, 'untracked.txt'), 'brand new\n');
+				await r.provider.staging.stageFiles(r.path, ['untracked.txt'], {
+					index: index,
+					intentToAdd: true,
+				});
+
+				const diff = await r.provider.diff.getDiff?.(r.path, uncommitted, undefined, { index: index });
+				assert.ok(diff?.contents?.includes('untracked.txt'), 'The untracked file must still be reviewable');
+			} finally {
+				await index.dispose();
+			}
+
+			assert.ok(!existsSync(tempDir), 'Disposal must remove the scratch index directory');
+			assert.ok(!existsSync(join(r.path, '.git', 'index')), 'The repository index must not be recreated');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	// #5605: the review's staging used to write the real index, and that write registers as a working-tree
+	// change — enough to mark a just-finished review stale and to let a scoped-list refetch catch an untracked
+	// row mid-stage, showing it as added. Content equality is too weak to guard that: a watcher fires on the
+	// write, and git rewrites the index with identical content just to refresh its stat cache. So assert the
+	// file is not WRITTEN — same mtime and same bytes across the whole review sequence.
+	test('the review sequence performs no write at all to the repository index', async () => {
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'staged.txt', 's1\n', 'Add staged.txt');
+			addCommit(r.path, 'tracked.txt', 'v1\n', 'Add tracked.txt');
+			writeFileSync(join(r.path, 'staged.txt'), 's2\n');
+			execFileSync('git', ['add', 'staged.txt'], { cwd: r.path, stdio: 'pipe' });
+			writeFileSync(join(r.path, 'tracked.txt'), 'v2\n');
+			writeFileSync(join(r.path, 'untracked.txt'), 'brand new\n');
+
+			const indexPath = join(r.path, '.git', 'index');
+			const stamp = () => {
+				const { mtimeMs, size } = statSync(indexPath);
+				return `${createHash('sha256').update(readFileSync(indexPath)).digest('hex')} ${mtimeMs} ${size}`;
+			};
+
+			// Settle first: the `git add` above leaves the stat cache stale, and the next status refreshes it by
+			// rewriting the index once (identical content, new mtime). That write converges and is not the
+			// review's doing — measuring from before it would blame the review for it.
+			await r.provider.status?.getStatus(r.path, { force: true });
+			const before = stamp();
+
+			// Now the review's full unstaged-scope sequence.
+			const untracked = (await r.provider.status?.getUntrackedFiles(r.path))?.map(f => f.path) ?? [];
+			const index = await r.provider.staging.createTemporaryIndex(r.path, 'current');
+			try {
+				await r.provider.staging.stageFiles(r.path, untracked, { index: index, intentToAdd: true });
+				const unstaged = await r.provider.diff.getDiff?.(r.path, uncommitted, undefined, { index: index });
+				assert.ok(
+					unstaged?.contents?.includes('untracked.txt'),
+					'Sanity: the review must still be picking up untracked content',
+				);
+				// The staged half of a both-scopes review reads the real index.
+				await r.provider.diff.getDiff?.(r.path, uncommittedStaged);
+			} finally {
+				await index.dispose();
+			}
+
+			assert.strictEqual(stamp(), before, 'The review must not write the repository index at all');
 		} finally {
 			r.cleanup();
 		}
