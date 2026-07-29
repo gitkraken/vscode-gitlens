@@ -2947,6 +2947,40 @@ gl-lit-graph {
 		flex-shrink: 1;
 		align-items: center;
 	}
+	// The WIP-row proxy pill's NAME half is a jump zone too (a click navigates to the branch tip), so it takes
+	// the same lit-up band its upstream / merge-target segments have — without it the pill's largest zone was
+	// the only one that never signalled it was a target. Same band recipe as `-upstream--jump`: a full-pill-
+	// height layer bleeding into the pill's padding, behind the icons (`z-index: -1`, contained by
+	// `isolation`), with the pill's LEFT corners since this is the leading zone.
+	//
+	// The band runs edge-to-DIVIDER, not edge-to-content: it bleeds left into the pill's 0.8rem padding, and
+	// right across the pill's 0.6rem flex gap plus the upstream segment's 0.1rem margin — landing exactly on
+	// that segment's `border-left` hairline, so the two zones' highlights meet at the rule with no dead strip.
+	.gl-graph__ref-pill-main--jump {
+		position: relative;
+		isolation: isolate;
+
+		&::before {
+			content: '';
+			position: absolute;
+			inset-block: -0.3rem;
+			inset-inline: -0.8rem -0.7rem;
+			border-radius: 0.4rem 0 0 0.4rem;
+			background: transparent;
+			z-index: -1;
+			transition: background-color 120ms ease-out;
+		}
+		&:hover::before {
+			background: color-mix(in srgb, var(--ref-on-color, #fff) 16%, transparent);
+		}
+	}
+	// The hover-expand overlay's copy of that name zone. It exists only to carry the band, so it also has to
+	// supply the icon↔label spacing the overlay's own flex `gap` gave them before they were wrapped.
+	.gl-graph__ref-pill-expand-name {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+	}
 	// Icon↔label spacing as a LABEL MARGIN, not `-main`'s grid `gap`: a gap doesn't collapse with its
 	// 0-width track, so it stranded 0.6rem of dead space between the icon and the divider at full
 	// compression. A margin rides with the label and vanishes with it. Scoped to `-main`'s label — the

@@ -7501,14 +7501,31 @@ export class GlLitGraph extends LitElement {
 		// through to the pin path and open a branch sheet keyed to the WIP row's synthetic sha, breaking this
 		// pill's jump-only contract. One ref ⇒ bare pill, no popover, no such path.
 		const currentHead = target.headRefs.find(r => r.kind === 'head' && r.current === true);
-		return renderRefPill(
-			toParsedRefs(currentHead != null ? [currentHead] : target.headRefs),
-			colorForColumn(target.column),
-			undefined,
-			'work-dir-changes',
-			this.refPillHooks,
-			{ role: 'head', expandAnchor: 'right', muted: true, jumpSha: tips?.headSha },
-		);
+		const parsed = toParsedRefs(currentHead != null ? [currentHead] : target.headRefs);
+		// The upstream segment NAMES the remote here rather than counting the divergence (see
+		// `RefPillRowMarker.upstream`). The name rides on the head ref itself, so the segment never waits on
+		// paging; the remote ref — the only source of the provider glyph — is looked up when its row is loaded.
+		const primary = parsed[0];
+		const upstreamSha = primary.upstreamId != null ? this.refRowIndex.get(primary.upstreamId)?.sha : undefined;
+		const upstreamRef =
+			upstreamSha != null
+				? this.getCommitBySha(upstreamSha)?.commitRefs.find(r => r.id === primary.upstreamId)
+				: undefined;
+
+		return renderRefPill(parsed, colorForColumn(target.column), undefined, 'work-dir-changes', this.refPillHooks, {
+			role: 'head',
+			expandAnchor: 'right',
+			muted: true,
+			jumpSha: tips?.headSha,
+			upstream:
+				primary.upstreamName != null
+					? {
+							name: primary.upstreamName,
+							hostingServiceType: upstreamRef?.hostingServiceType,
+							jumpSha: upstreamSha,
+						}
+					: undefined,
+		});
 	}
 
 	// `gitlens.graph.stickyTimeline` OFF → clear (hides the pill/hairlines). Otherwise reclassifies

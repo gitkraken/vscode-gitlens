@@ -6,6 +6,7 @@ import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GkProviderId } from '@gitlens/git/models/repositoryIdentities.js';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import type {
 	GraphDownstreams,
 	GraphExcludeRefs,
@@ -16,7 +17,7 @@ import type {
 import type { StyleInfo } from '../../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
 import type { RowMarkerRole, RowMarkerTips } from '../../utils/rowMarker.utils.js';
-import { primaryRowMarkerRole, rowMarkerRolesFor } from '../../utils/rowMarker.utils.js';
+import { primaryRowMarkerRole, rowMarkerRolesFor, shortRefName } from '../../utils/rowMarker.utils.js';
 import type { GraphCommitRef, GraphCommitView } from '../graph-commit.js';
 import { isRefHidden, isUpstreamRemoteOf, sortRowRefs } from '../graph-commit.js';
 import '../../../../shared/components/code-icon.js';
@@ -367,6 +368,13 @@ export interface RefPillRowMarker {
 	expandAnchor?: 'left' | 'right';
 	muted?: boolean;
 	jumpSha?: Sha;
+	/** Names the branch's tracked upstream (provider glyph + remote) in place of the ahead/behind segment.
+	 *  The WIP-row pill is a navigation proxy, so it says WHERE the branch pushes rather than how far it's
+	 *  drifted — the counts belong to the row's hover. Same treatment as the overview bar's upstream leg.
+	 *  `hostingServiceType` is only known once the upstream's row has paged in; without it the segment falls
+	 *  back to the generic cloud glyph rather than waiting. `jumpSha` (the upstream tip, likewise only once
+	 *  loaded) turns the segment into a jump button. */
+	upstream?: { name: string; hostingServiceType?: GkProviderId; jumpSha?: Sha };
 }
 
 export function renderRefPill(
@@ -426,7 +434,13 @@ export function renderRefPill(
 	const restCount = rest.length;
 	// Split-pill upstream segment: the primary's tracked counterpart — its upstream remote when in sync
 	// on this row (combined, no jump), or on ANOTHER row when out of sync (ahead/behind + a jump button).
-	const upstreamSegment = fromSha != null ? renderUpstreamSegment(primary, fromSha, hooks, upstreamOnRow) : nothing;
+	// A row-marker pill that carries `upstream` opts out of both and just NAMES the remote instead.
+	let upstreamSegment: TemplateResult | typeof nothing;
+	if (rowMarker?.upstream != null) {
+		upstreamSegment = renderNamedUpstreamSegment(primary, rowMarker.upstream, hooks);
+	} else {
+		upstreamSegment = fromSha != null ? renderUpstreamSegment(primary, fromSha, hooks, upstreamOnRow) : nothing;
+	}
 
 	// PR/issue chips: first item only (parity with the legacy graph, which shows a single badge per pill).
 	// Rendered twice — icon-only for the resting pill, icon+label for the hover-expand overlay copy below.
@@ -465,7 +479,15 @@ export function renderRefPill(
 	// The WIP-row pill is a PROXY for the HEAD branch pill shown on the WIP row: `data-jump-sha` makes a click
 	// JUMP to the HEAD tip (scroll + select) via the same path the WIP row's "Jump to Branch Tip" button uses
 	// — onClick handles it early (jump + stopPropagation), so the pill navigates to the branch WITHOUT pinning
-	// or opening its sheet.
+	// or opening its sheet. That makes the NAME half a jump zone in its own right, so it takes the same lit-up
+	// band + "Jump to …" tooltip the upstream/merge-target segments carry — otherwise the pill's largest zone
+	// was the only one that never signalled where it goes. Tooltip wording mirrors the overview bar's legs.
+	const nameJump = rowMarker?.jumpSha != null;
+	const nameTip = nameJump ? `Jump to HEAD (${primary.name})` : undefined;
+	// The overlay copy's name zone needs the same wrapper to hang that band on (the resting pill has `-main`);
+	// only built for the jump case so every other pill's overlay markup is untouched.
+	const expandName = html`<span class="gl-graph__ref-pill-icon">${renderRefIcon(primary)}</span
+		><span class="gl-graph__ref-pill-expand-label">${chipLabel(primary, showRemoteNames)}</span>`;
 	const pill = html`<span
 		class="gl-graph__ref-pill${rowMarkerClass}"
 		style=${cspStyleMap(refStyle(color, isHead, 'pill'))}
@@ -481,15 +503,24 @@ export function renderRefPill(
 		data-ref-is-head=${primary.current ? 'true' : nothing}
 		data-vscode-context=${primaryContext ?? nothing}
 	>
-		<span class="gl-graph__ref-pill-main">
+		<span
+			class="gl-graph__ref-pill-main${nameJump ? ' gl-graph__ref-pill-main--jump' : ''}"
+			data-tooltip=${nameTip ?? nothing}
+		>
 			<span class="gl-graph__ref-pill-icon">${renderRefIcon(primary)}</span>
 			<span class="gl-graph__ref-pill-label">${chipLabel(primary, showRemoteNames)}</span>
 		</span>
 		${upstreamSegment}${targetSegment}${prChip}${issueChip}${moreBadge}
 		<span class="gl-graph__ref-pill-expand" aria-hidden="true"
-			><span class="gl-graph__ref-pill-icon">${renderRefIcon(primary)}</span
-			><span class="gl-graph__ref-pill-expand-label">${chipLabel(primary, showRemoteNames)}</span
-			>${upstreamSegment}${targetSegmentExpanded}${prChipExpanded}${issueChipExpanded}${moreBadge}</span
+			>${
+				nameJump
+					? html`<span
+							class="gl-graph__ref-pill-expand-name gl-graph__ref-pill-main--jump"
+							data-tooltip=${nameTip}
+							>${expandName}</span
+						>`
+					: expandName
+			}${upstreamSegment}${targetSegmentExpanded}${prChipExpanded}${issueChipExpanded}${moreBadge}</span
 		>
 	</span>`;
 
@@ -591,18 +622,7 @@ function renderUpstreamSegment(
 		const owner = upstreamOnRow.owner ?? '';
 		const full = owner.length > 0 ? `${owner}/${upstreamOnRow.name}` : upstreamOnRow.name;
 		const label = upstreamOnRow.name === ref.name ? owner : full;
-		const tip = `Up to date with ${full}`;
-		// Provider glyph (GitHub/GitLab/…) when the remote's hosting service is known, exactly like the
-		// standalone remote pill's own icon (`renderRefIcon` → `remoteRefIcon`) — this combined segment IS
-		// that remote, so it shouldn't fall back to the generic cloud when we can be specific.
-		// `remoteRefIcon` already returns `cloud` when the provider is unknown.
-		return html`<span class="gl-graph__ref-pill-upstream" aria-label=${tip} data-tooltip=${tip}>
-			<code-icon
-				class="gl-graph__ref-pill-upstream-icon"
-				icon=${remoteRefIcon(upstreamOnRow.hostingServiceType)}
-			></code-icon>
-			${label.length > 0 ? html`<span class="gl-graph__ref-pill-upstream-label">${label}</span>` : nothing}
-		</span>`;
+		return renderNamedSegment(remoteRefIcon(upstreamOnRow.hostingServiceType), label, `Up to date with ${full}`);
 	}
 
 	const stats = hooks.getUpstream(ref);
@@ -681,6 +701,57 @@ function renderUpstreamSegment(
 }
 
 /**
+ * A static upstream segment that NAMES the remote instead of measuring the divergence — the shape shared by
+ * the in-sync combine and the WIP row's row-marker pill. Provider glyph (GitHub/GitLab/…) when the remote's
+ * hosting service is known, exactly like the standalone remote pill's own icon (`renderRefIcon` →
+ * `remoteRefIcon`) — this segment IS that remote, so it shouldn't fall back to the generic cloud when we can
+ * be specific. `remoteRefIcon` already returns `cloud` when the provider is unknown.
+ */
+function renderNamedSegment(icon: string, label: string, tip: string, onJump?: () => void): TemplateResult {
+	const content = html`<code-icon class="gl-graph__ref-pill-upstream-icon" icon=${icon}></code-icon>
+		${label.length > 0 ? html`<span class="gl-graph__ref-pill-upstream-label">${label}</span>` : nothing}`;
+	if (onJump == null) {
+		return html`<span class="gl-graph__ref-pill-upstream" aria-label=${tip} data-tooltip=${tip}>${content}</span>`;
+	}
+
+	return html`<button
+		class="gl-graph__ref-pill-upstream gl-graph__ref-pill-upstream--jump"
+		type="button"
+		tabindex="-1"
+		aria-label=${tip}
+		data-tooltip=${tip}
+		@click=${(e: Event) => {
+			e.stopPropagation();
+			onJump();
+		}}
+	>
+		${content}
+	</button>`;
+}
+
+/**
+ * The row-marker pill's upstream segment (see `RefPillRowMarker.upstream`): the tracked remote alone
+ * (`origin`) when the upstream is same-named — the pill already shows that name — else the full
+ * `origin/other`. Same rule as the in-sync combine and the overview bar's upstream leg, so all three agree.
+ * With the upstream tip loaded it's a jump button (the `--jump` chrome brings the lit-up sub-zone band);
+ * without one it degrades to a static indicator, exactly like the overview bar's leg.
+ */
+function renderNamedUpstreamSegment(
+	ref: ParsedRef,
+	upstream: { name: string; hostingServiceType?: GkProviderId; jumpSha?: Sha },
+	hooks: RefPillHooks | undefined,
+): TemplateResult {
+	const full = shortRefName(upstream.name);
+	const remote = getRemoteNameFromBranchName(full);
+	const label = remote.length > 0 && getBranchNameWithoutRemote(full) === ref.name ? remote : full;
+	const icon = remoteRefIcon(upstream.hostingServiceType);
+	const sha = upstream.jumpSha;
+	if (sha == null) return renderNamedSegment(icon, label, `Upstream (${full})`);
+
+	return renderNamedSegment(icon, label, `Jump to Upstream (${full})`, () => hooks?.onJumpToRef(sha));
+}
+
+/**
  * The HEAD pill's merge-target segment (the split-pill idiom, purple `--row-marker-target` styling): at rest
  * the `gl-merge-target` glyph alone; the hover-expand overlay copy (`expanded`) reveals the target's name.
  * The whole segment is a jump button to the target tip (`hooks.onJumpToRef`) — the target sha comes from
@@ -693,16 +764,19 @@ function renderTargetSegment(
 	hooks: RefPillHooks | undefined,
 	expanded: boolean,
 ): TemplateResult {
-	const label = name != null && name.length > 0 ? name : 'Merge Target';
-	const tip = `Jump to Merge Target ${label}`;
+	const short = name != null && name.length > 0 ? shortRefName(name) : undefined;
+	const label = short ?? 'Merge Target';
+	// Named in the same "Jump to <role> (<ref>)" shape as the overview bar's legs — and NOT via
+	// `data-tooltip-action`, which the tooltip resolver only honours alongside a `data-tooltip-icon` (without
+	// one it fell through and the tooltip read as the bare ref name).
+	const tip = short != null ? `Jump to Merge Target (${short})` : 'Jump to Merge Target';
 	return html`<button
 		class="gl-graph__ref-pill-upstream gl-graph__ref-pill-upstream--jump gl-graph__ref-pill-target"
 		type="button"
 		tabindex="-1"
 		aria-label=${tip}
 		data-ref-metadata-type="target"
-		data-tooltip-action="Jump to Merge Target"
-		data-tooltip=${label}
+		data-tooltip=${tip}
 		@click=${(e: Event) => {
 			e.stopPropagation();
 			hooks?.onJumpToRef(sha);
