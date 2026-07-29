@@ -674,12 +674,13 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 				// inline author/assignee mapping falls `url` back to `undefined` — a small but real divergence
 				// between the two normalizers worth pinning explicitly.
 				assignees: [{ id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined }],
-				repository: { owner: 'octocat', repo: 'hello' },
+				repository: { id: 'repo-1', owner: 'octocat', repo: 'hello' },
 				labels: [{ color: 'd73a4a', name: 'bug' }],
 				body: 'Steps to reproduce:\n1. Open settings\n2. Toggle dark mode\n\nSeen on 1.2.3.',
-				// A repo-scoped git-host issue has no project tier; the facade fills it with an empty-string
-				// placeholder rather than leaving it undefined (unlike a git host's optional project field).
-				project: { id: '', name: '', resourceId: '', resourceName: '' },
+				// A repo-scoped git-host issue has no project tier. The mapper only builds `project` when the
+				// provider issue carries a complete one (id + resourceId + namespace, see toIssueShape); anything
+				// less stays `undefined` — it no longer coerces an empty-string placeholder.
+				project: undefined,
 				issueType: undefined,
 			},
 			'listIssuesPage maps every IssueShape field for a normal first page',
@@ -833,12 +834,13 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 				url: 'https://github.com/ada',
 			},
 			assignees: [{ id: 'me', name: 'Keanu Reeves', avatarUrl: undefined, url: undefined }],
-			repository: { owner: org, repo: 'repo' },
+			repository: { id: `repo-${org}`, owner: org, repo: 'repo' },
 			labels: [{ color: 'd73a4a', name: 'bug' }],
 			body: undefined,
 			// broadenIssues reads repo-scoped git-host issues (same as listIssuesPage), so — unlike an issue
-			// tracker's project-scoped read below — there's no project tier to populate.
-			project: { id: '', name: '', resourceId: '', resourceName: '' },
+			// tracker's project-scoped read below — there's no project tier to populate: `undefined`, never a
+			// placeholder (toIssueShape only builds `project` from a complete provider-side one).
+			project: undefined,
 			issueType: undefined,
 		});
 
@@ -1371,6 +1373,12 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 				PullRequestFilter.ReviewRequested,
 				PullRequestFilter.Mention,
 			],
+			pullRequestsAccountWide: [
+				PullRequestFilter.Author,
+				PullRequestFilter.Assignee,
+				PullRequestFilter.ReviewRequested,
+				PullRequestFilter.Mention,
+			],
 			issues: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 			issuesAccountWide: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		});
@@ -1390,6 +1398,7 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 
 		assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.Bitbucket), {
 			pullRequests: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+			pullRequestsAccountWide: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 			issues: [],
 			issuesAccountWide: [],
 		});
@@ -1411,6 +1420,7 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 
 		assert.deepEqual(manager.getSupportedFilters(IssuesCloudHostIntegrationId.Linear), {
 			pullRequests: [],
+			pullRequestsAccountWide: [],
 			issues: [IssueFilter.Assignee],
 			issuesAccountWide: [],
 		});
