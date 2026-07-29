@@ -154,6 +154,8 @@ Invariants worth relying on:
   `currentPage + 1` — a cursor-only host can't be addressed by number.
 - A page past the provider's last one is an **empty page N**, never page N−1 relabeled.
 - `page.itemsPerPage` describes the page that came back; don't infer totals or "last page" from it.
+- Composite fan-out cursors retain each scope's exact continuation or retry position. Round-trip the cursor
+  even after a partial result: healthy scopes advance while a failed scope retries the page it missed.
 - Sweeps drain internally and expose **no** cursor: `hasMore` is always `false`. Gate "this is the complete
   set" on `page.allPages === true`, which is false for _both_ truncation and failure — unlike
   `page.truncated`, which can be misread as a benign cap.
@@ -180,12 +182,13 @@ Conversely, `other` is intentionally not a complete failure taxonomy. Treat `mes
 text rather than a stable protocol; use `fetchFailed`, `page.truncated`, and `page.allPages` for completeness
 and keep unknown failures conservative.
 
-| Flag                | Says                                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `fetchFailed`       | `items` is incomplete because something failed. Distinguishes failure from empty.                                         |
-| `page.truncated`    | The read completed but couldn't confirm it had everything (provider cap, `maxPages` backstop, or a missing continuation). |
-| `page.allPages`     | Sweeps only: `true` iff every page of every target drained cleanly.                                                       |
-| `failedProviderIds` | Sweeps only: providers whose top-level read failed before any usable page.                                                |
+| Flag                    | Says                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `fetchFailed`           | `items` is incomplete because something failed. Distinguishes failure from empty.                                         |
+| `page.truncated`        | The read completed but couldn't confirm it had everything (provider cap, `maxPages` backstop, or a missing continuation). |
+| `page.allPages`         | Sweeps only: `true` iff every page of every target drained cleanly.                                                       |
+| `failedProviderIds`     | Sweeps only: providers whose top-level read failed before any usable page.                                                |
+| `incompleteProviderIds` | Sweeps only: providers that returned a usable but non-authoritative slice (later-page, partial-scope, or truncated read). |
 
 `resolveRepository` reports through `resolution.status` instead: `resolved` · `not-found` · `unauthorized` ·
 `unsupported-provider` · `invalid-remote-url` · `host-mismatch` · `undetermined`. A `resolved` identity
@@ -193,9 +196,9 @@ carries the provider's **canonical** owner/name plus `renamed: true` when the lo
 
 ## 7. Filters are all-or-nothing
 
-`filters` (`PullRequestFilter` / `IssueFilter`) narrows a repo-scoped read, or an account-wide issue read, to
+`filters` (`PullRequestFilter` / `IssueFilter`) narrows repo-scoped reads and account-wide PR/issue reads to
 the current user's relationship with the item. A set containing even **one** filter the provider can't
-express server-side is **refused whole** —
+express is **refused whole** —
 empty `items` + warning + `fetchFailed` — because falling through unfiltered would return _every_ PR
 instead of the user's.
 
@@ -208,25 +211,34 @@ const filters = wanted.filter(f => capability.includes(f));
 ```
 
 - `pullRequests` — the repo-scoped PR read.
-- `pullRequestsAccountWide` — the optional account-wide PR capability. Treat a missing field as empty. It is
-  currently empty for every provider because those
-  native "my PRs" queries expose provider-defined relationship unions rather than independently selectable
-  axes. Passing account-wide `filters` is refused instead of returning a wider union.
+- `pullRequestsAccountWide` — the optional account-wide PR capability. Treat a missing field as empty.
 - `issues` — the **repo-scoped** git-host read, **and** the issue-tracker read
   (`listIssueTrackerIssuesPage` validates against this field).
 - `issuesAccountWide` — the account-wide git-host read only. Usually narrower (GitLab can express
   `Assignee` and `Author`, but not `Mention`), and empty for issue trackers.
 
-It's a _capability_ table, not a recommendation: passing fewer filters than listed is fine, and on an
-already-user-scoped read they add nothing.
+It's a _capability_ table, not a recommendation: passing fewer filters than listed is fine.
+
+PR filter composition depends on the read:
+
+- **Repo-scoped** members are combined as provider query constraints (normally an intersection). To build
+  `Author ∪ Assignee ∪ ReviewRequested`, issue one paged read per facet and union the results.
+- **Account-wide** members are an exact OR union. The facade fans out or post-filters provider-native
+  relationship slices as required, preserving one composite cursor where the provider pages. A sweep target's
+  `filters` overrides the sweep-level set, which lets a cross-provider caller request each provider's exact
+  supported subset without leaking provider query syntax.
 
 On the account-wide issue read, `filters` **replaces** the provider's own definition of "my issues"
 (GitHub authored ∪ assigned ∪ mentioned; Azure assigned ∪ authored; GitLab assigned-to-me), so
 `[Assignee]` means `assignee:@me` wherever it's expressible. `includeAllAssignees`
 does the opposite (drops the user scope); passing both on that account-wide read is refused as contradictory.
 
-Bitbucket Cloud's expensive account-wide reviewer fan-out is a separate breadth option:
-`includeReviewRequested: true`. It is not a narrowing `PullRequestFilter`.
+`includeReviewRequested` is a legacy account-wide breadth option used only when no explicit `filters` are
+supplied. It remains useful for Bitbucket Cloud, where the reviewer slice requires an expensive
+O(workspaces × repos) fan-out; prefer `filters: [ReviewRequested]` when an exact relationship is required.
+
+Aggregate account-wide PR reads use a lightweight list shape. Stable list fields, body, and branch refs are
+preserved; optional enrichments such as reviews, checks, and stats may be absent.
 
 ## 8. Provider capability matrix
 
@@ -252,6 +264,9 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 Repo-scoped PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab `Author, Assignee,
 ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure `Author, Assignee,
 ReviewRequested`.
+Account-wide PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab
+`Author, Assignee, ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure
+`Author, Assignee, ReviewRequested`.
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
 Linear + Trello `Assignee` · Bitbucket family none.
 Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Author, Assignee` · GitLab
@@ -264,9 +279,10 @@ Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Aut
 ## 9. Per-provider behavior worth designing around
 
 - **GitHub / GHE** — cursor-only everywhere. The account-wide issue read is three searches (`author:@me`,
-  `assignee:@me`, `mentions:@me`) behind one composite cursor; a state-filtered PR read is one search per
-  state behind a per-state cursor bundle. Each search caps at GitHub's own result ceiling, surfaced as
-  `page.truncated`. `includeAllAssignees` is refused account-wide (scope to repos instead).
+  `assignee:@me`, `mentions:@me`) behind one composite cursor; a filtered account-wide PR read is one search
+  per state × relationship facet behind a composite cursor that resumes only active facets. Each search caps
+  at GitHub's own result ceiling, surfaced as `page.truncated`. `includeAllAssignees` is refused account-wide
+  (scope to repos instead).
 - **GitLab / self-hosted** — numbered per-repo cursors for repo-scoped reads. Account-wide PR state selection
   is forwarded to each relationship query. Account-wide issues can independently narrow to assignee or author;
   the unfiltered read unions both.

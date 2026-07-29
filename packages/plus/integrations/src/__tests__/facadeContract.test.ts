@@ -151,11 +151,14 @@ suite('facade contract regressions', () => {
 
 	test('listPullRequestsPage rejects unsupported filters on the account-wide path, matching the sweep', async () => {
 		const runtime = createFakeRuntime();
-		const { manager, gh } = await connectedGitHub(runtime);
+		const manager = createIntegrationManager(runtime);
+		const bitbucket = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		assert.ok(bitbucket != null);
+		(bitbucket as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
 		let read = false;
 		(
-			gh as unknown as {
+			bitbucket as unknown as {
 				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
 			}
 		).getMyPullRequestsForUserResult = () => {
@@ -163,17 +166,45 @@ suite('facade contract regressions', () => {
 			return Promise.resolve({ value: { values: [providerPr] } });
 		};
 
-		// Author is valid for GitHub's repo-scoped query, but its account-wide query is a provider-defined
-		// relationship union and cannot independently narrow to authored PRs.
+		// Bitbucket can select Author and ReviewRequested account-wide, but has no distinct Assignee axis.
 		const result = await manager.listPullRequestsPage({
-			providerId: GitCloudHostIntegrationId.GitHub,
-			filters: [PullRequestFilter.Author],
+			providerId: GitCloudHostIntegrationId.Bitbucket,
+			filters: [PullRequestFilter.Author, PullRequestFilter.Assignee],
 		});
 
 		assert.equal(read, false, 'the unsupported set must not fall through to a differently-scoped read');
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
 		assert.match(result.warnings[0].message, /not supported/);
+
+		manager.dispose();
+	});
+
+	test('listPullRequestsPage forwards a supported account-wide relationship union', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let receivedFilters: PullRequestFilter[] | undefined;
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					filters?: PullRequestFilter[];
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = options => {
+			receivedFilters = options?.filters;
+			return Promise.resolve({ value: { values: [providerPr] } });
+		};
+
+		const filters = [PullRequestFilter.Author, PullRequestFilter.ReviewRequested];
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			filters: filters,
+		});
+
+		assert.deepEqual(receivedFilters, filters);
+		assert.equal(result.fetchFailed, undefined);
+		assert.equal(result.items.length, 1);
 
 		manager.dispose();
 	});

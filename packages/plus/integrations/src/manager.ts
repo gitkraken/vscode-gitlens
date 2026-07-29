@@ -38,6 +38,15 @@ export interface ProviderSweepTarget {
 	providerId: IntegrationIds;
 	connectionId?: string;
 	domain?: string;
+	/**
+	 * Relationship filters for this provider slice. With sweep-level `repos`, members are provider query
+	 * constraints; without `repos`, they form an exact OR union. The whole set is validated against the
+	 * selected path's capabilities.
+	 *
+	 * This per-target form lets a cross-provider sweep preserve provider-specific semantics without leaking
+	 * provider query details into the consumer. It overrides the sweep-level `filters` for this target.
+	 */
+	filters?: PullRequestFilter[];
 }
 
 type ProviderSweepSelection =
@@ -73,7 +82,11 @@ type PullRequestSweepCommonOptions = {
 	repos?: ProviderRepositoriesInput;
 	/** Named `states` to match {@link IntegrationManager.listPullRequestsPage}; a mismatch here read as silently ignored. */
 	states?: PullRequestStateFilter[];
-	/** Repo-scoped relationship filters. Account-wide reads refuse a non-empty set. */
+	/**
+	 * Relationship filters applied to every target. Repo-scoped reads combine them as provider query
+	 * constraints (normally an intersection); account-wide reads form an exact OR union. The set is validated
+	 * against `pullRequests` or `pullRequestsAccountWide`, respectively. A target's own `filters` overrides this.
+	 */
 	filters?: PullRequestFilter[];
 	/**
 	 * Account-wide only: include review-requested PRs when the provider's native "my PRs" query omits them.
@@ -198,7 +211,11 @@ export interface IntegrationManager {
 		providerId: IntegrationIds;
 		repos?: ProviderRepositoriesInput;
 		states?: PullRequestStateFilter[];
-		/** Repo-scoped relationship filters. Account-wide reads refuse a non-empty set. */
+		/**
+		 * Relationship filters. Repo-scoped reads combine members as provider query constraints (normally an
+		 * intersection), so issue separate reads when the desired result is a union. Account-wide members form an
+		 * exact OR union. Each path validates the whole set against its corresponding capability.
+		 */
 		filters?: PullRequestFilter[];
 		/**
 		 * Account-wide only: include review-requested PRs when the provider's native "my PRs" query omits them.
