@@ -1478,17 +1478,22 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								</gl-button>
 							`,
 						)}
-						<gl-button
-							appearance="toolbar"
-							tooltip=${this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
-							aria-label=${this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
-							@click=${() => this.handleMinimapToggled()}
-						>
-							<code-icon
-								class="minimap-toggle-icon"
-								icon=${this.minimapVisible ? 'layout-panel' : 'layout-panel-off'}
-							></code-icon>
-						</gl-button>
+						${when(
+							config?.minimap ?? true,
+							() => html`
+								<gl-button
+									appearance="toolbar"
+									tooltip=${this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
+									aria-label=${this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
+									@click=${() => this.handleMinimapToggled()}
+								>
+									<code-icon
+										class="minimap-toggle-icon"
+										icon=${this.minimapVisible ? 'layout-panel' : 'layout-panel-off'}
+									></code-icon>
+								</gl-button>
+							`,
+						)}
 						${(() => {
 							// Source the side from the resolved effective location (handles `auto`); Alt+Click
 							// pins to the opposite side, so the alt preview/label use that opposite.

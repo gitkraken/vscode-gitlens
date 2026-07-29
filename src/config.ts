@@ -119,6 +119,7 @@ export type GraphScrollMarkersAdditionalTypes =
 	| 'tags'
 	| 'pullRequests'
 	| 'wip';
+export type GraphMinimapDefaultVisibility = 'hidden' | 'onSearch' | 'always';
 export type GraphMinimapMarkersAdditionalTypes =
 	| 'localBranches'
 	| 'remoteBranches'
@@ -464,8 +465,10 @@ export interface GraphConfig {
 	};
 	readonly layout: 'editor' | 'panel';
 	readonly minimap: {
-		/** `auto` shows the minimap only while searching */
-		readonly enabled: boolean | 'auto';
+		/** Whether the minimap is available at all — when `false` it is never shown and has no header toggle */
+		readonly enabled: boolean;
+		/** When to show an available minimap; the stored per-workspace toggle overrides this */
+		readonly defaultVisibility: GraphMinimapDefaultVisibility;
 		readonly dataType: 'commits' | 'lines';
 		readonly additionalTypes: GraphMinimapMarkersAdditionalTypes[];
 		readonly reversed: boolean;

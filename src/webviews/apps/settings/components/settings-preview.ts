@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing, svg } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { GraphMinimapDefaultVisibility } from '../../../../config.js';
 import { cspStyleMap } from '../../shared/components/csp-style-map.directive.js';
 import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SettingsActions } from '../actions.js';
@@ -773,9 +774,12 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 	}
 
 	private renderGraph() {
-		// `auto` only shows the minimap while searching, but the preview has no search — draw it
-		// anyway so the setting reads as "can show" rather than looking disabled.
-		const minimap = this.get<boolean | 'auto'>('graph.minimap.enabled') !== false;
+		// `onSearch` only shows the minimap while searching, but the preview has no search — draw it
+		// anyway so the setting reads as "can show" rather than looking disabled. `hidden` is the one
+		// policy with nothing to preview until the user shows it themselves.
+		const minimap =
+			(this.get<boolean>('graph.minimap.enabled') ?? true) &&
+			this.get<GraphMinimapDefaultVisibility>('graph.minimap.defaultVisibility') !== 'hidden';
 		const avatars = this.get<boolean>('graph.avatars') ?? true;
 		const dimMerges = this.get<boolean>('graph.dimMergeCommits') ?? false;
 

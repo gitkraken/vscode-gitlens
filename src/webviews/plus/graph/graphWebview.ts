@@ -1704,9 +1704,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					case 'autoFetchEnabled':
 						void configuration.updateEffective('graph.autoFetch.enabled', params.changes[key]);
 						break;
-					case 'minimap':
-						void configuration.updateEffective('graph.minimap.enabled', params.changes[key]);
-						break;
 					case 'minimapDataType':
 						void configuration.updateEffective('graph.minimap.dataType', params.changes[key]);
 						break;
@@ -1873,6 +1870,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				configuration.changed(e, 'defaultCurrentUserNameStyle') ||
 				configuration.changed(e, 'graph.onlyFollowFirstParent') ||
 				((configuration.changed(e, 'graph.minimap.enabled') ||
+					configuration.changed(e, 'graph.minimap.defaultVisibility') ||
 					configuration.changed(e, 'graph.minimap.dataType')) &&
 					this.minimapNeedsStats() &&
 					!this._data.session?.current.includes?.stats)
@@ -1927,12 +1925,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private isMinimapVisible(): boolean {
-		const policy = configuration.get('graph.minimap.enabled');
-		// `auto` can surface the minimap on any search and we can't re-walk history mid-search, so
-		// treat it as always visible. Otherwise the stored panel value wins, falling back to the policy.
-		if (policy === 'auto') return true;
+		if (!configuration.get('graph.minimap.enabled')) return false;
 
-		return this.container.storage.getWorkspace('graph:state')?.panels?.minimap?.visible ?? policy;
+		const visibility = configuration.get('graph.minimap.defaultVisibility');
+		// `onSearch` can surface the minimap on any search and we can't re-walk history mid-search, so
+		// treat it as always visible. `hidden` has no such trigger — it can only be surfaced by the
+		// header toggle, which writes storage and lands in `onStorageChanged` to refetch on demand.
+		if (visibility === 'onSearch') return true;
+
+		return this.container.storage.getWorkspace('graph:state')?.panels?.minimap?.visible ?? visibility === 'always';
 	}
 
 	/** Whether the minimap needs per-row line stats included in the graph walk. */
@@ -3925,6 +3926,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			lanesGroupedMin: configuration.get('graph.lanes.grouped.min'),
 			lanesGroupedMax: configuration.get('graph.lanes.grouped.max'),
 			minimap: configuration.get('graph.minimap.enabled'),
+			minimapDefaultVisibility: configuration.get('graph.minimap.defaultVisibility'),
 			minimapDataType: configuration.get('graph.minimap.dataType'),
 			minimapMarkerTypes: this.getMinimapMarkerTypes(),
 			minimapReversed: configuration.get('graph.minimap.reversed'),
@@ -3961,8 +3963,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private getMinimapMarkerTypes(): GraphMinimapMarkerTypes[] {
-		// `auto` still needs markers — the minimap can appear on any search
-		if (configuration.get('graph.minimap.enabled') === false) return [];
+		// Gated on availability, never on `defaultVisibility` — an available minimap can be surfaced by a
+		// search or the header toggle at any time, and must have its markers ready when it is
+		if (!configuration.get('graph.minimap.enabled')) return [];
 
 		const markers: GraphMinimapMarkerTypes[] = [
 			'selection',
@@ -4531,8 +4534,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				activePanel: this._pendingSidebarPanel ?? storedPanels?.sidebar?.activePanel,
 			},
 			// Pass the stored panel state through untouched — `visible` stays `undefined` until the
-			// user actually shows/hides the minimap, so the `graph.minimap.enabled` policy governs
-			// instead of a value we fabricated (which the app would then persist back).
+			// user actually shows/hides the minimap, so the `graph.minimap.defaultVisibility` policy
+			// governs instead of a value we fabricated (which the app would then persist back).
 			minimap: { ...storedPanels?.minimap },
 			pendingAction: this._pendingAction,
 			pendingCompare: this._pendingCompare,

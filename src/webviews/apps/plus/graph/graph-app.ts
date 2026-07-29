@@ -260,7 +260,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	/**
-	 * Whether a search is active — the trigger for the `auto` minimap policy. Deliberately spans from
+	 * Whether a search is active — the trigger for the `onSearch` minimap policy. Deliberately spans from
 	 * submit until the search is *cleared*, not until it finishes: keying off results alone would flash
 	 * the minimap open and shut on a zero-match search, and drop it the moment a search completes.
 	 * `searchQuery` is what survives a finished search; the reducer nulls it only on cancel/clear.
@@ -272,8 +272,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private get minimapShown(): boolean {
 		const gs = this.graphState;
+		if (!this.minimapMountable) return false;
+
 		return resolveMinimapShown(
-			gs.config?.minimap ?? 'auto',
+			gs.config?.minimapDefaultVisibility ?? 'onSearch',
 			gs.minimap?.visible,
 			this.minimapSearchActive,
 			this.minimapSearchDismissed,
@@ -281,13 +283,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	/**
-	 * Whether the minimap can appear at all under the current policy + stored value. Deliberately
-	 * NOT search-derived: `renderGraphMain` gates the split panel on this, and a gate that flipped
-	 * per-search would unmount and remount the entire graph every time a search started.
+	 * Whether the minimap is available at all — the `gitlens.graph.minimap.enabled` gate. Deliberately
+	 * NOT derived from the search or the visibility policy: `renderGraphMain` gates the split panel on
+	 * this, and a gate that flipped per-search (or on a `hidden` policy's first show) would unmount and
+	 * remount the entire graph. A collapsed panel costs nothing — `gl-graph-minimap-container` defers
+	 * all aggregation while collapsed.
 	 */
 	private get minimapMountable(): boolean {
-		const gs = this.graphState;
-		return (gs.config?.minimap ?? 'auto') !== false || gs.minimap?.visible === true;
+		return this.graphState.config?.minimap ?? true;
 	}
 
 	/** Shared back/forward history of visited single commits, mirrored into {@link _navState} for
@@ -2456,14 +2459,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	/**
-	 * Whether the split panel's closed state is authoritative for the stored value. Under the `auto`
+	 * Whether the split panel's closed state is authoritative for the stored value. Under the `onSearch`
 	 * policy with no pin, the divider position is derived from the search state — and `gl-split-panel`
 	 * echoes `closed-change` for programmatic position updates too, so honoring those events would
 	 * record our own auto-show as a user-chosen pin.
 	 */
 	private get minimapClosedStateAuthoritative(): boolean {
 		const gs = this.graphState;
-		return (gs.config?.minimap ?? 'auto') !== 'auto' || gs.minimap?.visible === true;
+		return (gs.config?.minimapDefaultVisibility ?? 'onSearch') !== 'onSearch' || gs.minimap?.visible === true;
 	}
 
 	private handleMinimapClosedChange = (e: CustomEvent<{ closed: boolean; position: number }>): void => {
@@ -2866,9 +2869,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	/**
 	 * Toggles the minimap by writing the stored per-workspace value — never the
-	 * `gitlens.graph.minimap.enabled` policy, so `auto` stays reachable (pin → unpin → auto).
-	 * The one exception is hiding a minimap that's only up because of a search: that dismisses the
-	 * current search rather than storing anything, so the next search brings it back.
+	 * `gitlens.graph.minimap.defaultVisibility` policy, so `onSearch` stays reachable
+	 * (pin → unpin → on-search). The one exception is hiding a minimap that's only up because of a
+	 * search: that dismisses the current search rather than storing anything, so the next search
+	 * brings it back.
 	 */
 	private handleToggleMinimap() {
 		const gs = this.graphState;

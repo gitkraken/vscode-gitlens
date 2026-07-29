@@ -761,8 +761,10 @@ export interface GraphComponentConfig {
 	 * Backed by the user setting `gitlens.graph.lanes.grouped.max`.
 	 */
 	lanesGroupedMax?: number;
-	/** Minimap visibility policy; `auto` shows it only while searching. */
+	/** Whether the minimap is available at all; when `false` it is never shown and has no header toggle. */
 	minimap?: Config['graph']['minimap']['enabled'];
+	/** When to show an available minimap; the stored per-workspace toggle overrides this. */
+	minimapDefaultVisibility?: Config['graph']['minimap']['defaultVisibility'];
 	minimapDataType?: Config['graph']['minimap']['dataType'];
 	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
 	minimapReversed?: boolean;
