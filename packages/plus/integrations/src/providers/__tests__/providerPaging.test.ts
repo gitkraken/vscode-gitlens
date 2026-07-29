@@ -150,6 +150,22 @@ suite('collectProviderPagedResult', () => {
 			},
 		});
 	});
+
+	test('marks a missing continuation page incomplete while preserving the prefix', async () => {
+		const result = await collectProviderPagedResult(
+			async cursor => (cursor == null ? { values: ['a'], paging: { cursor: '1', more: true } } : undefined),
+			20,
+			{ providerId: 'github', resourceId: 'r1' },
+		);
+
+		assert.deepEqual(result.values, ['a']);
+		assert.equal(result.truncated, true);
+		assert.equal(result.metadata?.completeness, 'partial');
+		assert.deepEqual(result.metadata?.failures?.[0]?.scope, {
+			providerId: 'github',
+			resourceId: 'r1',
+		});
+	});
 });
 
 suite('flatSettledOrThrow', () => {

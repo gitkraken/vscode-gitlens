@@ -49,6 +49,50 @@ function fakeLinearIssue(id: string, assignee?: { id: string; name: string }): P
 }
 
 suite('Linear issue reads (#5438)', () => {
+	test('a full implicit teams page is preserved as incomplete and retried instead of cached', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+		(linear as unknown as { _session: ProviderAuthenticationSession })._session = linearSession();
+
+		const teams = Array.from({ length: 50 }, (_, index) => ({
+			id: `team-${index}`,
+			key: `T${index}`,
+			name: `Team ${index}`,
+			iconUrl: null,
+		}));
+		let teamReads = 0;
+		stubApi(linear, {
+			getLinearOrganization: () =>
+				Promise.resolve({
+					id: 'org-1',
+					key: 'acme',
+					name: 'Acme',
+					url: 'https://linear.app/acme',
+				}),
+			getLinearTeamsForCurrentUser: () => {
+				teamReads++;
+				return Promise.resolve(teams);
+			},
+		});
+
+		const resource = { id: 'org-1', key: 'acme', name: 'Acme' };
+		const first = await linear.getProjectsForResourcesWithMetadataResult([resource]);
+		const second = await linear.getProjectsForResourcesWithMetadataResult([resource]);
+
+		assert.equal(first?.value?.values.length, 50, 'the useful first-page prefix is preserved');
+		assert.equal(first?.value?.metadata?.completeness, 'unknown');
+		assert.equal(second?.value?.values.length, 50);
+		assert.equal(teamReads, 2, 'an ambiguous full page is not cached as an authoritative team list');
+
+		const publicResult = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Linear });
+		assert.equal(publicResult.items.length, 50);
+		assert.equal(publicResult.fetchFailed, true, 'the flat public hierarchy is marked non-authoritative');
+		assert.equal(publicResult.warnings[0]?.message, 'Result completeness could not be confirmed');
+		assert.equal(teamReads, 3, 'the public read retries the still-incomplete team discovery');
+
+		manager.dispose();
+	});
+
 	test('getIssuesForProject reads the team issues and maps them to issue shapes', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
