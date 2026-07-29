@@ -22,6 +22,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes aggregate GitHub pull-request sweeps timing out on large closed histories by using the lightweight list
+  shape (while retaining body and branch refs), and replaces upstream HTML error pages with bounded,
+  status-bearing provider warnings (plus/integrations, plus/git-github)
+- Adds `incompleteProviderIds` to provider sweep results so consumers can distinguish a wholly failed provider
+  from a provider whose returned slice has a mid-read gap or truncation (plus/integrations)
+- Fixes account-wide pull-request relationship filtering so every supported provider returns the exact requested
+  OR union, with per-target sweep overrides and resumable composite cursors where needed; filtered Bitbucket Data
+  Center reads now fail closed if the current account cannot be identified (plus/integrations)
+- Fixes provider issue mapping violating its public string-id contract when an upstream issue number is numeric,
+  which could crash consumers while broadening issue lists (plus/integrations)
 - Fixes incomplete provider reads being reported inconsistently across hosts: GitLab relationship fan-out now
   preserves successful slices when another slice fails, Azure issue deduplication is scoped by organization and
   project, self-managed broaden cursors include the provider domain, page-only repository reads advance opaque
@@ -55,10 +65,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   normalizer from the integrations facade, and removes internal authentication/configuration services from
   the custom-auth hook contract; expands the consumer guide with the exact warning and self-managed Azure
   semantics (plus/integrations, core)
-- Separates repo-scoped and account-wide pull-request filter capabilities: account-wide native "my PRs" unions
-  no longer accept repo-only `filters`, while Bitbucket's expensive reviewer expansion is exposed explicitly as
-  `includeReviewRequested`; the integration consumer guide and parity record now ship in the package tarball
-  under `docs/` (plus/integrations, core)
+- Separates repo-scoped and account-wide pull-request filter capabilities: repo-scoped filters remain provider
+  query constraints, while account-wide filters describe exact independently selectable relationship unions;
+  Bitbucket's expensive reviewer expansion remains available through `includeReviewRequested`, and the
+  integration consumer guide and parity record now ship in the package tarball under `docs/`
+  (plus/integrations, core)
 - Normalizes the pull-request and repository item types on the ProviderBackend surface so consumers no longer depend on `@gitkraken/provider-apis` types (matching how issues already surface `IssueShape`): `IntegrationService.listPullRequestsPage`/`sweepPullRequests`/`sweepClosedPullRequests` now return the GitLens-owned `PullRequestShape` and `listRepos` returns the new GitLens-owned `ProviderRepositoryShape`; the raw provider-apis PR/repo/account/issue types are no longer re-exported from the `@gitlens/integrations` facade ([#5533](https://github.com/gitkraken/vscode-gitlens/issues/5533)) (plus/integrations)
 - Decouples the `GitLabApi`, `BitbucketApi`, and `AzureDevOpsApi` clients from `IntegrationServiceContext`, taking a narrow `ProviderApiConfig` instead (mirroring `GitHubApiConfig`); the manager wires them via new `createGitLabApi`/`createBitbucketApi`/`createAzureDevOpsApi` factories (plus/integrations)
 

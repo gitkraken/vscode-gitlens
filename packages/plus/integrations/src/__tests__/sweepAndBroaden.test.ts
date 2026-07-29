@@ -123,6 +123,11 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(result.hasMore, false);
 		assert.equal(result.fetchFailed, undefined);
 		assert.deepEqual(result.failedProviderIds, [], 'truncation does not classify the provider as failed');
+		assert.deepEqual(
+			result.incompleteProviderIds,
+			[GitCloudHostIntegrationId.GitHub],
+			'a truncated provider slice is not authoritative',
+		);
 		assert.equal(calls, 2);
 
 		manager.dispose();
@@ -162,6 +167,44 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('sweepPullRequests deduplicates a PR across pages and keeps its latest representation', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = () => {
+			calls++;
+			const latest = calls === 2;
+			return Promise.resolve({
+				value: {
+					values: [
+						providerPr('duplicate', {
+							url: 'https://example.com/pull/shared',
+							title: latest ? 'merged representation' : 'closed representation',
+							state: latest ? GitPullRequestState.Merged : GitPullRequestState.Closed,
+						}),
+					],
+					paging: latest ? { more: false, cursor: '{}' } : { more: true, cursor: 'next' },
+				},
+			});
+		};
+
+		const result = await manager.sweepClosedPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+		});
+
+		assert.equal(calls, 2);
+		assert.equal(result.items.length, 1);
+		assert.equal(result.items[0].title, 'merged representation');
+		assert.equal(result.items[0].state, 'merged');
+
+		manager.dispose();
+	});
+
 	test('a page that throws mid-drain sets fetchFailed while keeping earlier pages', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
@@ -196,6 +239,11 @@ suite('sweep + broaden (#5438)', () => {
 			[],
 			'a later-page failure keeps the usable provider slice out of failedProviderIds',
 		);
+		assert.deepEqual(
+			result.incompleteProviderIds,
+			[GitCloudHostIntegrationId.GitHub],
+			'a later-page failure identifies the provider whose returned slice is incomplete',
+		);
 
 		manager.dispose();
 	});
@@ -216,6 +264,7 @@ suite('sweep + broaden (#5438)', () => {
 		});
 		assert.equal(result.fetchFailed, true);
 		assert.deepEqual(result.failedProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.deepEqual(result.incompleteProviderIds, []);
 
 		manager.dispose();
 	});
@@ -246,6 +295,7 @@ suite('sweep + broaden (#5438)', () => {
 		});
 		assert.equal(result.fetchFailed, true);
 		assert.deepEqual(result.failedProviderIds, []);
+		assert.deepEqual(result.incompleteProviderIds, [GitCloudHostIntegrationId.GitHub]);
 
 		manager.dispose();
 	});
@@ -258,6 +308,7 @@ suite('sweep + broaden (#5438)', () => {
 		});
 		assert.equal(result.fetchFailed, true);
 		assert.deepEqual(result.failedProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.deepEqual(result.incompleteProviderIds, []);
 		assert.equal(result.warnings[0]?.kind, 'no-connection');
 
 		manager.dispose();
@@ -331,6 +382,38 @@ suite('sweep + broaden (#5438)', () => {
 		]);
 		assert.deepEqual(result.warnings, []);
 		assert.deepEqual(result.failedProviderIds, []);
+
+		manager.dispose();
+	});
+
+	test('a sweep target can override the shared account-wide relationship union', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let receivedFilters: PullRequestFilter[] | undefined;
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					filters?: PullRequestFilter[];
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = options => {
+			receivedFilters = options?.filters;
+			return Promise.resolve({ value: { values: [providerPr('target-filter')] } });
+		};
+
+		const result = await manager.sweepPullRequests({
+			targets: [
+				{
+					providerId: GitCloudHostIntegrationId.GitHub,
+					filters: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+				},
+			],
+			filters: [PullRequestFilter.Mention],
+		});
+
+		assert.deepEqual(receivedFilters, [PullRequestFilter.Author, PullRequestFilter.Assignee]);
+		assert.equal(result.page.allPages, true);
 
 		manager.dispose();
 	});
@@ -632,6 +715,7 @@ suite('sweep + broaden (#5438)', () => {
 			[],
 			'a partial SDK scope failure is not a top-level provider rejection',
 		);
+		assert.deepEqual(result.incompleteProviderIds, [GitCloudHostIntegrationId.GitHub]);
 		assert.equal(
 			result.warnings.some(w => w.kind === 'auth'),
 			true,
@@ -684,6 +768,80 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(result.warnings.length, 1, 'the failing org produced a warning without failing the fan-out');
 		assert.deepEqual(result.broadenedProviderIds, [GitCloudHostIntegrationId.GitHub]);
 		assert.equal(result.fanOutCount, 2, 'fanOutCount counts every org work item');
+
+		manager.dispose();
+	});
+
+	test('broadenIssues retains a first-page failure in the multi-org cursor and retries that page', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = org =>
+			Promise.resolve({
+				value: {
+					values: [{ name: `${org}-repo`, namespace: org } as unknown as ProviderRepository],
+				},
+			});
+
+		let failingOrgCalls = 0;
+		const captured: Array<{ org: string; cursor?: string }> = [];
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: (
+					repos: ProviderReposInput,
+					options?: { cursor?: string },
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = (repos, options) => {
+			const org = (repos as { namespace: string }[])[0].namespace;
+			captured.push({ org: org, cursor: options?.cursor });
+			if (org === 'org-fail' && failingOrgCalls++ === 0) {
+				return Promise.resolve({
+					error: new Error('temporary issue read failure'),
+				} satisfies IntegrationResult<PagedResult<ProviderIssue>>);
+			}
+			return Promise.resolve({
+				value: {
+					values: [{ id: `${org}-issue` } as unknown as ProviderIssue],
+					paging: { more: false, cursor: '{}' },
+				},
+			} satisfies IntegrationResult<PagedResult<ProviderIssue>>);
+		};
+
+		const orgs = [
+			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-ok' },
+			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-fail' },
+		];
+		const first = await manager.broadenIssues({ orgs: orgs, page: 1 });
+		assert.equal(first.hasMore, true, 'the failed org remains resumable after its sibling exhausts');
+		assert.deepEqual(JSON.parse(first.cursor!), {
+			cursors: [
+				{
+					providerId: GitCloudHostIntegrationId.GitHub,
+					org: 'org-fail',
+					retryPage: 1,
+				},
+			],
+			exhausted: [{ providerId: GitCloudHostIntegrationId.GitHub, org: 'org-ok' }],
+		});
+
+		const second = await manager.broadenIssues({ orgs: orgs, page: 2, cursor: first.cursor });
+		assert.deepEqual(
+			second.items.map(item => item.id),
+			['org-fail-issue'],
+		);
+		assert.equal(second.hasMore, false);
+		assert.deepEqual(captured, [
+			{ org: 'org-ok', cursor: undefined },
+			{ org: 'org-fail', cursor: undefined },
+			{ org: 'org-fail', cursor: JSON.stringify({ value: 1, type: 'page' }) },
+		]);
 
 		manager.dispose();
 	});
@@ -1218,6 +1376,7 @@ suite('sweep + broaden (#5438)', () => {
 
 		let reposCalled = false;
 		let accountWideStates: string[] | undefined | 'unset' = 'unset';
+		let accountWideSummary: boolean | undefined;
 		stubApi(gh, {
 			isRepoIdsInput: () => false,
 			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
@@ -1231,10 +1390,12 @@ suite('sweep + broaden (#5438)', () => {
 			gh as unknown as {
 				getMyPullRequestsForUserResult: (o?: {
 					state?: string[];
+					summary?: boolean;
 				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
 			}
-		).getMyPullRequestsForUserResult = (o?: { state?: string[] }) => {
+		).getMyPullRequestsForUserResult = (o?: { state?: string[]; summary?: boolean }) => {
 			accountWideStates = o?.state;
+			accountWideSummary = o?.summary;
 			return Promise.resolve({
 				value: {
 					values: [providerPr('mine')],
@@ -1252,6 +1413,7 @@ suite('sweep + broaden (#5438)', () => {
 			['closed', 'merged'],
 			'the closed sweep state reaches the account-wide core',
 		);
+		assert.equal(accountWideSummary, true, 'aggregate sweeps request the provider summary shape');
 
 		manager.dispose();
 	});

@@ -105,4 +105,33 @@ suite('issue mapping', () => {
 		assert.equal(shape.project, undefined, 'an absent provider project is not fabricated with empty fields');
 		assert.equal(shape.issueType, undefined);
 	});
+
+	test('normalizes a numeric provider issue number to a string display id', () => {
+		const providerIssue = {
+			author: null,
+			assignees: [],
+			commentCount: 0,
+			closedDate: null,
+			createdDate: new Date(0),
+			description: null,
+			id: 'global-id',
+			labels: [],
+			number: 42,
+			repository: { id: 'repo-id', name: 'repo', owner: { login: 'octocat' } },
+			state: null,
+			title: 'Issue 42',
+			type: null,
+			updatedDate: new Date(1),
+			upvoteCount: 0,
+			url: 'https://example.com/octocat/repo/issues/42',
+		} as unknown as ProviderIssue;
+
+		const issue = fromProviderIssue(providerIssue, fakeIntegration);
+		const shape = toIssueShape(providerIssue, fakeIntegration);
+
+		assert.ok(shape != null);
+		assert.equal(issue.id, '42');
+		assert.equal(issue.number, '42');
+		assert.equal(shape.id, '42');
+	});
 });

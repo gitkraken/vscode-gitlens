@@ -208,6 +208,98 @@ suite('GitHubApi.searchPullRequests', () => {
 	});
 });
 
+suite('GitHubApi.searchMyPullRequestsPage summaries', () => {
+	const provider = {
+		id: 'github',
+		name: 'GitHub',
+		domain: 'github.com',
+		icon: 'github',
+		getIgnoreSSLErrors: () => false,
+		reauthenticate: () => Promise.resolve(),
+		trackRequestException: () => {},
+	} as unknown as Provider;
+
+	const token: GitHubTokenInfo = {
+		providerId: 'github',
+		accessToken: 'token',
+		microHash: 'hash',
+		cloud: true,
+		type: undefined,
+	};
+
+	test('keeps list fields and branch refs while omitting expensive enrichment fields', async () => {
+		let query = '';
+		const node = {
+			id: 'node-1',
+			number: 1,
+			title: 'Closed PR',
+			body: 'Summary body',
+			permalink: 'https://github.com/octo/repo/pull/1',
+			url: 'https://github.com/octo/repo/pull/1',
+			state: 'CLOSED',
+			createdAt: '2024-01-01T00:00:00Z',
+			updatedAt: '2024-01-02T00:00:00Z',
+			closed: true,
+			closedAt: '2024-01-03T00:00:00Z',
+			mergedAt: null,
+			author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
+			baseRefName: 'main',
+			baseRefOid: 'base',
+			headRefName: 'feature',
+			headRefOid: 'head',
+			headRepository: {
+				isFork: false,
+				name: 'repo',
+				owner: { login: 'octo' },
+				sshUrl: 'git@github.com:octo/repo.git',
+				url: 'https://github.com/octo/repo',
+			},
+			repository: {
+				isFork: false,
+				name: 'repo',
+				owner: { login: 'octo' },
+				sshUrl: 'git@github.com:octo/repo.git',
+				url: 'https://github.com/octo/repo',
+				viewerPermission: 'WRITE',
+			},
+			isCrossRepository: false,
+			isDraft: false,
+		};
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url, init) => {
+				query = (JSON.parse(String(init?.body ?? '{}')) as { query?: string }).query ?? '';
+				return new Response(
+					JSON.stringify({
+						data: {
+							search: {
+								issueCount: 1,
+								pageInfo: { endCursor: null, hasNextPage: false },
+								nodes: [node],
+							},
+						},
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			},
+			wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
+		};
+		const api = new GitHubApi(config);
+
+		const result = await api.searchMyPullRequestsPage(provider, token, {
+			state: 'closed',
+			summary: true,
+		});
+
+		assert.match(query, /\bbody\b/);
+		assert.match(query, /\bheadRefName\b/);
+		assert.doesNotMatch(query, /\blatestReviews\b/);
+		assert.doesNotMatch(query, /\bstatusCheckRollup\b/);
+		assert.equal(result.values[0].body, 'Summary body');
+		assert.equal(result.values[0].refs?.head.branch, 'feature');
+	});
+});
+
 suite('GitHubApi direct pull request lookups', () => {
 	const provider = {
 		id: 'github',

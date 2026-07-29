@@ -633,6 +633,11 @@ export interface ProviderMetadata {
 	pullRequestsPagingMode?: PagingMode;
 	scopes: string[];
 	supportedPullRequestFilters?: PullRequestFilter[];
+	/**
+	 * Relationship filters the ACCOUNT-WIDE pull-request read can express as an exact OR union.
+	 * This is independent from `supportedPullRequestFilters`, which describes repo-scoped reads.
+	 */
+	supportedAccountWidePullRequestFilters?: PullRequestFilter[];
 	/** Filters the REPO-scoped issue read can express. */
 	supportedIssueFilters?: IssueFilter[];
 	/**
@@ -671,6 +676,12 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.ReviewRequested,
 			PullRequestFilter.Mention,
 		],
+		supportedAccountWidePullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Mention,
+		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
@@ -688,6 +699,12 @@ export const providersMetadata: ProvidersMetadata = {
 		pullRequestsPagingMode: PagingMode.Repos,
 		// Use 'username' property on account for PR filters
 		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Mention,
+		],
+		supportedAccountWidePullRequestFilters: [
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
@@ -714,6 +731,11 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
 		],
+		supportedAccountWidePullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		// The account-wide read drains one `scope=assigned_to_me` pass and one `scope=all` + `authorUsername` pass,
@@ -736,6 +758,11 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
 		],
+		supportedAccountWidePullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee],
 		// The account-wide read drains one `scope=assigned_to_me` pass and one `scope=all` + `authorUsername` pass,
@@ -753,6 +780,7 @@ export const providersMetadata: ProvidersMetadata = {
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
 		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+		supportedAccountWidePullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		scopes: ['account:read', 'repository:read', 'pullrequest:read', 'issue:read'],
 	},
 	[GitSelfManagedHostIntegrationId.BitbucketServer]: {
@@ -762,6 +790,7 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'git',
 		iconKey: GitSelfManagedHostIntegrationId.BitbucketServer,
 		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+		supportedAccountWidePullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		scopes: ['Project (Read)', 'Repository (Write)'],
 	},
 	[GitCloudHostIntegrationId.AzureDevOps]: {
@@ -774,6 +803,11 @@ export const providersMetadata: ProvidersMetadata = {
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
 		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
+		supportedAccountWidePullRequestFilters: [
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
@@ -795,6 +829,11 @@ export const providersMetadata: ProvidersMetadata = {
 		pullRequestsPagingMode: PagingMode.Repo,
 		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
 		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
+		supportedAccountWidePullRequestFilters: [
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
@@ -894,6 +933,10 @@ export function getReasonsForUserIssue(issue: ProviderIssue, userLogin: string):
 	return reasons;
 }
 
+function toIssueIdentifier(value: string | number): string {
+	return String(value);
+}
+
 export function toIssueShape(issue: ProviderIssue, provider: ProviderReference): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
 	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
@@ -909,7 +952,10 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 		// to the provider as the `getIssue`/cache lookup key, all of which expect the number. `nodeId` is the
 		// provider-native stable id, but its uniqueness scope is provider-specific (Azure work-item ids are
 		// organization-scoped), so cross-scope consumers must include provider/domain/container identity too.
-		id: issue.number,
+		// provider-apis declares this as a string, but some providers (notably
+		// Azure's broadened work-item path) return a number at runtime. Keep the
+		// public IssueShape contract truthful for consumers that use string APIs.
+		id: toIssueIdentifier(issue.number),
 		nodeId: issue.graphQLId ?? issue.id,
 		title: issue.title,
 		url: issue.url,
@@ -1392,9 +1438,10 @@ export function fromProviderIssue(
 	integration: Integration,
 	options?: { project?: IssueProject },
 ): Issue {
+	const identifier = toIssueIdentifier(issue.number);
 	return new Issue(
 		integration,
-		issue.number,
+		identifier,
 		issue.graphQLId ?? issue.id,
 		issue.title,
 		issue.url ?? '',
@@ -1431,7 +1478,7 @@ export function fromProviderIssue(
 						resourceName: issue.project.namespace,
 					}
 				: undefined,
-		issue.number,
+		identifier,
 		issue.type ?? undefined,
 	);
 }

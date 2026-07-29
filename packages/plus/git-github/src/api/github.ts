@@ -3462,6 +3462,16 @@ export class GitHubApi {
 			silent?: boolean;
 			state?: PullRequestStateFilter;
 			cursor?: string;
+			/**
+			 * Uses the lightweight PR fragment while retaining identity, body, author, repository, and branch refs.
+			 * Intended for aggregate/list surfaces that do not consume review, check, or diff statistics.
+			 */
+			summary?: boolean;
+			/**
+			 * Adds GitHub's provider-native `involves:@me` relationship. Disable when `search` already carries
+			 * an explicit relationship qualifier such as `author:@me` or `review-requested:@me`.
+			 */
+			includeDefaultInvolvement?: boolean;
 		},
 		cancellation?: AbortSignal,
 	): Promise<{ values: PullRequest[]; cursor?: string; hasMore: boolean; truncated: boolean }> {
@@ -3493,7 +3503,7 @@ export class GitHubApi {
 			}
 			nodes {
 				...on PullRequest {
-					${gqlPullRequestFragment}
+					${options?.summary ? gqlPullRequestLiteFragment : gqlPullRequestFragment}
 				}
 			}
 		}
@@ -3533,15 +3543,16 @@ export class GitHubApi {
 							? ''
 							: 'is:open';
 
+			const relationshipQualifier =
+				options?.includeDefaultInvolvement === false
+					? 'is:pr archived:false'
+					: 'is:pr involves:@me archived:false';
 			const rsp = await this.graphql<SearchResult>(
 				provider,
 				token,
 				query,
 				{
-					search: [stateQualifier, 'is:pr involves:@me archived:false', search]
-						.filter(Boolean)
-						.join(' ')
-						.trim(),
+					search: [stateQualifier, relationshipQualifier, search].filter(Boolean).join(' ').trim(),
 					cursor: options?.cursor,
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,
@@ -3551,7 +3562,9 @@ export class GitHubApi {
 			);
 			if (rsp == null) return { values: [], hasMore: false, truncated: false };
 
-			const results: PullRequest[] = rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider));
+			const results: PullRequest[] = rsp.search.nodes.map(pr =>
+				options?.summary ? fromGitHubPullRequestLite(pr, provider) : fromGitHubPullRequest(pr, provider),
+			);
 			return {
 				values: results,
 				cursor: rsp.search.pageInfo.endCursor ?? undefined,

@@ -33,7 +33,9 @@ import type { ProviderPullRequest, ProviderRepository } from './models.js';
 import {
 	fromProviderPullRequest,
 	providerPullRequestMatchesSearch,
+	ProviderPullRequestReviewState,
 	providersMetadata,
+	PullRequestFilter,
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
@@ -273,7 +275,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
-		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+		options?: { state?: PullRequestStateFilter[]; cursor?: string; filters?: PullRequestFilter[] },
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
 		const states = toProviderPullRequestStates(options?.state);
@@ -288,8 +290,35 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		);
 		if (result == null) return undefined;
 
+		const account = options?.filters?.length ? await this.getProviderCurrentAccount(session) : undefined;
+		const identifiers = new Set([account?.id, account?.username].filter((id): id is string => id != null));
+		if (options?.filters?.length && identifiers.size === 0) {
+			throw new Error(
+				'Unable to resolve the current Bitbucket Data Center account for the requested pull request filters.',
+			);
+		}
+
+		const values = options?.filters?.length
+			? result.data.filter(pr => {
+					const isCurrentUser = (user: { id?: string | null; username?: string | null } | null | undefined) =>
+						user != null &&
+						((user.id != null && identifiers.has(user.id)) ||
+							(user.username != null && identifiers.has(user.username)));
+					const isAuthor = isCurrentUser(pr.author);
+					const isRequestedReviewer = pr.reviews?.some(
+						review =>
+							isCurrentUser(review.reviewer) &&
+							review.state === ProviderPullRequestReviewState.ReviewRequested,
+					);
+					return (
+						(options.filters!.includes(PullRequestFilter.Author) && isAuthor) ||
+						(options.filters!.includes(PullRequestFilter.ReviewRequested) && isRequestedReviewer)
+					);
+				})
+			: result.data;
+
 		return {
-			values: result.data,
+			values: values,
 			paging: {
 				more: result.hasMore,
 				cursor: result.hasMore && result.nextPage != null ? toPageCursor(result.nextPage) : '{}',

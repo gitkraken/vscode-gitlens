@@ -51,6 +51,7 @@ import {
 	IssueFilter,
 	providerPullRequestMatchesSearch,
 	providersMetadata,
+	PullRequestFilter,
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
@@ -704,7 +705,7 @@ export abstract class AzureDevOpsIntegrationBase<
 
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
-		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+		options?: { state?: PullRequestStateFilter[]; cursor?: string; filters?: PullRequestFilter[] },
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
 		const user = await this.getProviderCurrentAccount(session);
@@ -745,7 +746,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		const drainProject = async (
 			project: { namespace: string; project: string },
 			scope: CollectionScope,
-			filter: { authorLogin?: string; assigneeLogins?: string[] },
+			filter: { authorLogin?: string; assigneeLogins?: string[]; reviewerId?: string },
 		): Promise<{ prs: ProviderPullRequest[]; failure?: CollectionScopeFailure }> => {
 			const collected: ProviderPullRequest[] = [];
 			let page: number | undefined;
@@ -782,14 +783,25 @@ export abstract class AzureDevOpsIntegrationBase<
 		// PRs. Auth/rate-limit stay actionable through the failure's kind (the facade maps it to an `auth`/`rate-limit`
 		// warning + `fetchFailed`), matching the SDK's model. `failures` was declared above so project-discovery
 		// failures and per-project drain failures share it.
+		const requested = options?.filters?.length ? new Set(options.filters) : undefined;
+		const wantAuthored = requested == null || requested.has(PullRequestFilter.Author);
+		// Azure has no assignee concept distinct from reviewer. Both neutral relationships map to reviewerId.
+		const wantReviewed =
+			requested == null ||
+			requested.has(PullRequestFilter.Assignee) ||
+			requested.has(PullRequestFilter.ReviewRequested);
 		const outcomes = await Promise.all(
 			projects.values.flatMap(p => {
 				const project = { namespace: p.resourceName, project: p.name };
 				const scope = { providerId: this.id, resourceId: p.resourceId, projectId: p.name };
-				return [
-					drainProject(project, scope, { authorLogin: user.id }),
-					drainProject(project, scope, { assigneeLogins: [user.id] }),
-				];
+				const drains = [];
+				if (wantAuthored) {
+					drains.push(drainProject(project, scope, { authorLogin: user.id }));
+				}
+				if (wantReviewed) {
+					drains.push(drainProject(project, scope, { reviewerId: user.id }));
+				}
+				return drains;
 			}),
 		);
 

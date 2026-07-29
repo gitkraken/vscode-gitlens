@@ -114,6 +114,14 @@ export interface ProviderSweepResult<T> extends ProviderResult<T> {
 	 * represented by `warnings` + `fetchFailed` and are intentionally excluded.
 	 */
 	failedProviderIds: IntegrationIds[];
+	/**
+	 * Providers whose read started successfully but could not produce an authoritative complete slice (for
+	 * example, a later page failed, collection metadata reported a partial scope, or a paging backstop was hit).
+	 * Kept separate from
+	 * `failedProviderIds` so consumers can accept healthy sibling providers while preserving an older snapshot
+	 * for a provider whose returned slice has a gap.
+	 */
+	incompleteProviderIds: IntegrationIds[];
 }
 
 export interface ProviderBroadenResult<T> extends ProviderPagedResult<T> {
@@ -161,6 +169,32 @@ export interface ResolveRepositoryResult {
 	 * never set this; consumers may use it as a global capability latch.
 	 */
 	cliUnsupported: boolean;
+}
+
+const maxProviderWarningMessageLength = 500;
+
+function providerWarningMessage(ex: unknown): string {
+	const raw = (ex instanceof Error ? ex.message : String(ex)).trim();
+	const carrier = ex as { status?: unknown; response?: { status?: unknown } } | null | undefined;
+	const status =
+		typeof carrier?.status === 'number'
+			? carrier.status
+			: typeof carrier?.response?.status === 'number'
+				? carrier.response.status
+				: undefined;
+
+	// Gateways commonly answer API requests with a complete HTML error page. That payload is neither actionable
+	// nor suitable for a warning DTO consumed by UIs and logs; preserve the status without leaking the document.
+	if (/<(?:!doctype\s+html|html|head|body)\b/i.test(raw)) {
+		return status != null ? `Provider request failed with status ${status}.` : 'Provider request failed.';
+	}
+
+	if (!raw) {
+		return status != null ? `Provider request failed with status ${status}.` : 'Provider request failed.';
+	}
+	return raw.length > maxProviderWarningMessageLength
+		? `${raw.slice(0, maxProviderWarningMessageLength - 3)}...`
+		: raw;
 }
 
 /**
@@ -218,7 +252,7 @@ export function toProviderWarning(
 		providerId: providerId,
 		domain: domain,
 		connectionId: connectionId,
-		message: ex instanceof Error ? ex.message : String(ex),
+		message: providerWarningMessage(ex),
 		kind: kind,
 		isAuth: kind === 'auth',
 	};

@@ -34,7 +34,12 @@ import type {
 	ProviderPullRequest,
 	ProviderRepository,
 } from './models.js';
-import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
+import {
+	fromProviderPullRequest,
+	providersMetadata,
+	PullRequestFilter,
+	toProviderPullRequestStates,
+} from './models.js';
 import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
@@ -395,7 +400,12 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
-		options?: { state?: PullRequestStateFilter[]; cursor?: string; includeReviewRequested?: boolean },
+		options?: {
+			state?: PullRequestStateFilter[];
+			cursor?: string;
+			includeReviewRequested?: boolean;
+			filters?: PullRequestFilter[];
+		},
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
 		const user = await this.getProviderCurrentAccount(session);
@@ -413,6 +423,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// There's no single cross-workspace cursor, so the aggregate is one page; `truncated` is set when a
 		// workspace hit the backstop with more pages left, or when a workspace's read was dropped by a failure.
 		const states = toProviderPullRequestStates(options?.state);
+		const requested = options?.filters?.length ? new Set(options.filters) : undefined;
+		const wantAuthored = requested == null || requested.has(PullRequestFilter.Author);
+		const wantReviewRequested =
+			requested?.has(PullRequestFilter.ReviewRequested) ?? options?.includeReviewRequested === true;
 		const maxPagesPerWorkspace = 20;
 		let truncated = workspacesResult.metadata != null && workspacesResult.metadata.completeness !== 'complete';
 		// Structured per-scope failures from BOTH the authored and reviewer slices. A rejected scope is recorded
@@ -420,30 +434,32 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// maps each failure to an actionable warning + `fetchFailed` (auth/rate-limit failures still drive
 		// recovery through their warning kind, matching the SDK's own collect-across-scopes model).
 		const failures: CollectionScopeFailure[] = [];
-		const settled = await Promise.allSettled(
-			workspaces.map(async ws => {
-				const collected: ProviderPullRequest[] = [];
-				let page: number | undefined;
-				for (let i = 0; i < maxPagesPerWorkspace; i++) {
-					const result = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
-						toTokenWithInfo(this.id, session),
-						user.id,
-						ws.slug,
-						{ states: states, page: page },
-					);
-					if (result == null) break;
+		const settled = wantAuthored
+			? await Promise.allSettled(
+					workspaces.map(async ws => {
+						const collected: ProviderPullRequest[] = [];
+						let page: number | undefined;
+						for (let i = 0; i < maxPagesPerWorkspace; i++) {
+							const result = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
+								toTokenWithInfo(this.id, session),
+								user.id,
+								ws.slug,
+								{ states: states, page: page },
+							);
+							if (result == null) break;
 
-					collected.push(...result.data);
-					if (!result.hasMore || result.nextPage == null) break;
+							collected.push(...result.data);
+							if (!result.hasMore || result.nextPage == null) break;
 
-					page = result.nextPage;
-					if (i === maxPagesPerWorkspace - 1) {
-						truncated = true;
-					}
-				}
-				return collected;
-			}),
-		);
+							page = result.nextPage;
+							if (i === maxPagesPerWorkspace - 1) {
+								truncated = true;
+							}
+						}
+						return collected;
+					}),
+				)
+			: [];
 
 		const prsByUrl = new Map<string, ProviderPullRequest>();
 		// `allSettled` preserves order, so `settled[i]` is `workspaces[i]`. A rejected workspace becomes a
@@ -469,7 +485,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// (O(workspaces × repos) requests), so keep it opt-in: gate it on `includeReviewRequested` so the default
 		// sweep matches the gkcli baseline (authored PRs only, no reviewer fan-out) and a caller pays that cost
 		// only when it deliberately asks for review-requested PRs.
-		if (options?.includeReviewRequested) {
+		if (wantReviewRequested) {
 			// Enumerate the account's repos by draining each resolved workspace's repository list, then drain the
 			// real per-repo paged `getPullRequestsForRepo` for each repo with `reviewerId`, so review-requested PRs
 			// aren't bounded to the currently-open remotes and a reviewer PR past the first page isn't dropped.
