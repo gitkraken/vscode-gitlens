@@ -449,6 +449,75 @@ suite('cursor paging contract (#5438)', () => {
 		manager.dispose();
 	});
 
+	// A page past the provider's terminal cursor is an EMPTY page N on every read, per
+	// `ProviderPageInfo.currentPage` ("never page N-1 relabeled"). Asserted per read because the two used to
+	// diverge: the issue drain only applied that rule when it had entered its cursor loop at least once, so a
+	// SINGLE-page provider (terminal on page 1, no cursor to walk) answered a page-3 request with page 1's items
+	// labeled `currentPage: 1` — duplicating them for a consumer that pages by number, while the PR read on the
+	// same input correctly reported an empty page 3.
+	function terminalFirstPage<T extends object>(values: T[]): PagedResult<T> {
+		return { values: values, paging: { more: false, cursor: '{}' } };
+	}
+
+	test('listIssuesPage repo-scoped: a single terminal page is not reused as the requested page', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		stubApi(gh, { isRepoIdsInput: () => false, getProviderIssuesPagingMode: () => PagingMode.Repos });
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: () => Promise<IntegrationResult<PagedResult<IssueShape>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = () => {
+			calls++;
+			return Promise.resolve({ value: terminalFirstPage([{ id: 'page-1' } as unknown as IssueShape]) });
+		};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			page: 3,
+		});
+
+		assert.equal(calls, 1, 'a terminal first page leaves nothing to drain');
+		assert.deepEqual(result.items, [], "page 1's items are not served as page 3");
+		assert.equal(result.page.currentPage, 3, 'the requested page is reported as an empty page N');
+		assert.equal(result.hasMore, false);
+		assert.equal(result.cursor, undefined);
+
+		manager.dispose();
+	});
+
+	test('listPullRequestsPage repo-scoped: a single terminal page is not reused as the requested page', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => {
+				calls++;
+				return Promise.resolve(terminalFirstPage([providerPr('page-1')]));
+			},
+		});
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			page: 3,
+		});
+
+		assert.equal(calls, 1, 'a terminal first page leaves nothing to drain');
+		assert.deepEqual(result.items, [], "page 1's items are not served as page 3");
+		assert.equal(result.page.currentPage, 3, 'the requested page is reported as an empty page N');
+		assert.equal(result.hasMore, false);
+		assert.equal(result.cursor, undefined);
+
+		manager.dispose();
+	});
+
 	test('broadenIssues: a page-only caller still advances the fan-out internally', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);

@@ -1146,16 +1146,27 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			},
 		});
 
-		const result = await manager.listIssuesPage({
+		const first = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitHub, repos: repos });
+		assert.equal(capturedCursor, undefined, 'the first page needs no cursor — it is the read’s own position');
+		assert.equal(first.items.length, 1, 'the repo-scoped issue is normalized and returned');
+		assert.equal(first.items[0].id, '7');
+		assert.equal(first.hasMore, false);
+		assert.equal(first.cursor, undefined);
+
+		// The requested page is still encoded as the page cursor the paging layer understands. This host is
+		// cursor-only, so it ignores that cursor and answers with its (terminal) first page — which means page 4
+		// does not exist, and is reported as an EMPTY page 4 rather than page 1's items relabeled. See
+		// `ProviderPageInfo.currentPage`; `listPullRequestsPage` answers the identical input the same way.
+		const beyond = await manager.listIssuesPage({
 			providerId: GitCloudHostIntegrationId.GitHub,
 			repos: repos,
 			page: 4,
 		});
 		assert.equal(capturedCursor, JSON.stringify({ value: 4, type: 'page' }));
-		assert.equal(result.items.length, 1, 'the repo-scoped issue is normalized and returned');
-		assert.equal(result.items[0].id, '7');
-		assert.equal(result.hasMore, false);
-		assert.equal(result.cursor, undefined);
+		assert.deepEqual(beyond.items, [], "page 1's items are not served as page 4");
+		assert.equal(beyond.page.currentPage, 4);
+		assert.equal(beyond.hasMore, false);
+		assert.equal(beyond.cursor, undefined);
 
 		manager.dispose();
 	});
