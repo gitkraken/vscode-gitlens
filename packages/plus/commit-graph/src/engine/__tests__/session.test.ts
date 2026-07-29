@@ -4,7 +4,7 @@ import { CommitGraphEngineSession } from '../session.js';
 import type { GraphCommit } from '../types.js';
 
 function row(sha: string, parents: string[], date = 0): RowTopology {
-	return { sha: sha, parents: parents, type: 'commit', date: date };
+	return { sha: sha, parents: parents, kind: 'commit', date: date };
 }
 
 function toCommit(r: RowTopology): GraphCommit {
@@ -62,6 +62,34 @@ suite('engine/session', () => {
 		assert.strictEqual(state.rows.length, paged.length);
 		// The index must cover the appended tail, not just the prefix.
 		assert.strictEqual(state.indexBySha.get('O2'), paged.length - 1);
+	});
+
+	// An `append` proves the TOPOLOGY prefix is unchanged — nothing about the payload the adapter reads
+	// off those same rows. A push that pages in older history AND retitles a loaded row arrives as one
+	// update, so a session that reused the held prefix mapping would keep serving the stale payload.
+	test('remaps an appended push prefix whose payload changed', () => {
+		type SourceRow = RowTopology & { message: string };
+		const rows = (message: string): SourceRow[] => graph(8).map(r => ({ ...r, message: message }));
+		const map = (r: SourceRow): GraphCommit => ({ ...toCommit(r), message: r.message });
+
+		const s = new CommitGraphEngineSession<SourceRow, GraphCommit>();
+		s.update({ sourceRows: rows('v1'), toCommit: map });
+
+		const paged: SourceRow[] = [
+			...rows('v2'),
+			{ ...row('O1', ['O2'], 900_000), message: 'v2' },
+			{ ...row('O2', [], 899_000), message: 'v2' },
+		];
+		const state = s.update({ sourceRows: paged, toCommit: map });
+
+		assert.strictEqual(state.transition.kind, 'append');
+		assert.ok(
+			state.commits.every(c => c.message === 'v2'),
+			`stale prefix payload: ${state.commits
+				.filter(c => c.message !== 'v2')
+				.map(c => c.sha)
+				.join(', ')}`,
+		);
 	});
 
 	// The trunk tip is lane-collapse protection. It is retained across a pure append (segments only

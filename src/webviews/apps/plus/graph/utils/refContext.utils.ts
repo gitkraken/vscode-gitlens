@@ -11,21 +11,21 @@ import type {
  * Webview-side construction of the ref-pill `data-vscode-context` payloads, mirroring `rowContext.utils.ts`
  * for rows.
  *
- * The host used to build these in `src/git/graphRowProcessor.ts`, shipping a serialized string per ref per
- * row. That carried two costs this replaces:
+ * Built here rather than shipped from the host as a serialized string per ref per row, which carries two
+ * costs:
  *
  * 1. **Staleness.** The payload is built when the row is BUILT, so anything that changes without a rebuild
  *    stays wrong until an unrelated walk refreshes it — starring a branch, or pinning a ref, which is pure
  *    webview state the host is told about only because it happens to be the one serializing.
  * 2. **Wire weight.** A string per ref per row, for menus that open on a fraction of a percent of rows.
  *
- * Every input is now structured on the wire (see `GitGraphRowHead`), so the webview can build these itself.
+ * Every input is structured on the wire (see `GitGraphRowHead`), so the webview can build these itself.
  *
  * ⚠ **They are still built EAGERLY**, once per row in `toGraphCommit`, not lazily at `contextmenu` capture.
  * That was a deliberate staging decision, not the end state: moving the build to capture time means
  * mutating `data-vscode-context` in a capture-phase listener before VS Code reads it, which is a real
- * behavioural change needing live verification. What buys correctness today is instead that the pinned ref
- * joins the engine session's payload key, so a pin re-runs this mapping. Moving the build to capture time
+ * behavioural change needing live verification. What buys correctness today is instead that the engine
+ * session re-maps every row on every update, so a pin is picked up with no separate signal. Moving the build to capture time
  * is what removes the per-row JSON cost; the constraint to respect is that VS Code reads
  * `data-vscode-context` from a BUBBLE-phase listener on the window and bails if the event was
  * default-prevented, so any such build must be synchronous and must not `preventDefault`.

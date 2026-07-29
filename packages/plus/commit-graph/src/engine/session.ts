@@ -36,13 +36,6 @@ export type CommitGraphSessionUpdate<TSource extends RowTopology, TCommit extend
 	sourceRows: readonly TSource[];
 	/** Git/provider-specific payload bridge. Called for all rows on replace/payload, and tail-only on append. */
 	toCommit: (row: TSource) => TCommit;
-	/**
-	 * Identity of adapter inputs not present on the source row (for example abbreviated-sha length).
-	 * This only invalidates payload mapping: topology (`sha`, `parents`, `kind`, and `date`) must come
-	 * from the source rows so topology changes are classified as source-row changes. When the key
-	 * changes during an append, the held prefix payload is remapped instead of reused.
-	 */
-	payloadKey?: unknown;
 	/** Current HEAD resolved by the consumer; no ref/provider types cross the package boundary. */
 	headSha?: Sha;
 	/** Ordered heads to pin to the leftmost lanes. */
@@ -109,7 +102,6 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 	private _revision = 0;
 	private _identity?: string;
 	private _viewKey?: string;
-	private _payloadKey?: unknown;
 	private _sourceRows?: readonly TSource[];
 	private _commits: readonly TCommit[] = [];
 	private _rows: readonly ProcessedGraphRow[] = [];
@@ -145,28 +137,20 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		}
 
 		const viewSwitched = identityChanged || input.viewKey !== this._viewKey;
-		const payloadKeyChanged = !Object.is(input.payloadKey, this._payloadKey);
 		const sourceDelta: RowsDelta = identityChanged
 			? { kind: 'initial' }
 			: classifyRowsDelta(this._sourceRows, input.sourceRows);
-		const priorSourceRows = this._sourceRows;
-		const priorCommits = this._commits;
 		const priorRowCount = this._rows.length;
 
-		let commits: readonly TCommit[];
-		if (
-			sourceDelta.kind === 'append' &&
-			!payloadKeyChanged &&
-			priorSourceRows != null &&
-			priorCommits.length === priorSourceRows.length
-		) {
-			commits = [
-				...priorCommits,
-				...input.sourceRows.slice(sourceDelta.firstNewIndex).map(row => input.toCommit(row)),
-			];
-		} else {
-			commits = input.sourceRows.map(row => input.toCommit(row));
-		}
+		// Every row is re-mapped, including an append's unchanged prefix. Reusing the prior prefix would be
+		// assuming more than the classifier proves: `append` establishes that the TOPOLOGY prefix matches
+		// (sha/parents/kind/date) — `payload` is the classification that means "payload may differ" — so a
+		// push that both pages in rows AND changes a loaded row's refs, message or author would keep the
+		// stale mapping. Reference identity is not a usable shortcut either: the client-side splice reuses
+		// row OBJECTS and patches `contexts.flags`/`reachabilityIndex` into them IN PLACE, so an unchanged
+		// reference does not imply unchanged content. Mapping is a per-row object build; a `payload` push
+		// already re-maps everything, so this only makes paging agree with it.
+		const commits: readonly TCommit[] = input.sourceRows.map(row => input.toCommit(row));
 
 		const engineOptionsUnchanged =
 			!viewSwitched &&
@@ -313,7 +297,6 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 	): void {
 		this._identity = input.identity;
 		this._viewKey = input.viewKey;
-		this._payloadKey = input.payloadKey;
 		this._syntheticChildren = syntheticChildren;
 		this._pinnedShas = pinnedShas;
 	}
