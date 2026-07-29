@@ -2014,7 +2014,7 @@ export class AIProviderService implements AIService, Disposable {
 		});
 	}
 
-	async reset(all?: boolean): Promise<void> {
+	async reset(options?: { all?: boolean; silent?: boolean }): Promise<void> {
 		let { _provider: provider } = this;
 		if (provider == null) {
 			// If we have no provider, try to get the current model (which will load the provider)
@@ -2027,7 +2027,7 @@ export class AIProviderService implements AIService, Disposable {
 		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 
 		let result;
-		if (all) {
+		if (options?.all) {
 			result = resetAll;
 		} else if (provider == null) {
 			result = await window.showInformationMessage(
@@ -2047,43 +2047,57 @@ export class AIProviderService implements AIService, Disposable {
 		}
 
 		if (provider != null && result === resetCurrent) {
-			this.resetProviderKey(provider.id);
-			this.resetConfirmations();
+			await this.resetProviderKey(provider.id);
+			await this.resetConfirmations();
 		} else if (result === resetAll) {
 			const keys = [];
 			for (const providerId of supportedAIProviders.keys()) {
-				keys.push(await this.container.storage.getSecret(`gitlens.${providerId}.key`));
+				const key = await this.container.storage.getSecret(`gitlens.${providerId}.key`);
+				if (key != null) {
+					keys.push(key);
+				}
 
-				this.resetProviderKey(providerId, true);
+				await this.resetProviderKey(providerId, true);
 			}
 
-			this.resetConfirmations();
+			await this.resetConfirmations();
 
-			void env.clipboard.writeText(keys.join('\n'));
-			void window.showInformationMessage(
-				`All stored AI keys have been reset. The configured keys were copied to your clipboard.`,
-			);
+			// A blanket wipe (e.g. `Reset Stored Data > Everything`) must not put every key it just
+			// deleted onto the clipboard — that's only a convenience for an explicit key reset.
+			if (!options?.silent && keys.length) {
+				void env.clipboard.writeText(keys.join('\n'));
+				void window.showInformationMessage(
+					`All stored AI keys have been reset. The configured keys were copied to your clipboard.`,
+				);
+			}
+		} else {
+			return;
 		}
+
+		// Keys & confirmations just changed, so drop everything derived from them; all three repopulate
+		// lazily. `_pendingBYOKUsage` is deliberately NOT cleared — it holds unreported usage, not cache.
+		this._promptTemplates.clear();
+		this._modelCache.clear();
+		this._providerModelsCache.clear();
 	}
 
-	resetConfirmations(): void {
-		void this.container.storage.deleteWithPrefix(`confirm:ai:tos`);
-		void this.container.storage.deleteWorkspaceWithPrefix(`confirm:ai:tos`);
-		void this.container.storage.deleteWithPrefix(`confirm:ai:generateCommits`);
+	async resetConfirmations(): Promise<void> {
+		await this.container.storage.deleteWithPrefix(`confirm:ai:tos`);
+		await this.container.storage.deleteWorkspaceWithPrefix(`confirm:ai:tos`);
+		await this.container.storage.deleteWithPrefix(`confirm:ai:generateCommits`);
 	}
 
-	resetProviderKey(provider: AIProviders, silent?: boolean): void {
+	async resetProviderKey(provider: AIProviders, silent?: boolean): Promise<void> {
 		if (!silent) {
-			void this.container.storage.getSecret(`gitlens.${provider}.key`).then(key => {
-				if (key) {
-					void env.clipboard.writeText(key);
-					void window.showInformationMessage(
-						`The stored AI key has been reset. The configured key was copied to your clipboard.`,
-					);
-				}
-			});
+			const key = await this.container.storage.getSecret(`gitlens.${provider}.key`);
+			if (key) {
+				void env.clipboard.writeText(key);
+				void window.showInformationMessage(
+					`The stored AI key has been reset. The configured key was copied to your clipboard.`,
+				);
+			}
 		}
-		void this.container.storage.deleteSecret(`gitlens.${provider}.key`);
+		await this.container.storage.deleteSecret(`gitlens.${provider}.key`);
 	}
 
 	supports(provider: AIProviders | string): boolean {

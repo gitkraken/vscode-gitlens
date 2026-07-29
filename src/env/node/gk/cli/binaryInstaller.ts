@@ -51,6 +51,35 @@ export class CliBinaryInstaller implements Disposable {
 		// No-op today; installed state is in storage scope, not in-memory.
 	}
 
+	/** Removes the downloaded proxy binary and clears the recorded install state, so the next AI-enabled
+	 * activation reinstalls from scratch.
+	 *
+	 * NOT a full uninstall of the GK CLI: `gk install` puts the core CLI in a directory it only ever reports
+	 * back in its output (we never persist it), so we have no handle on it to remove.
+	 */
+	@debug()
+	async reset(): Promise<void> {
+		const scope = getScopedLogger();
+
+		// A dev-configured local binary lives outside our storage and belongs to the user — never delete it.
+		// The recorded state is still cleared below so the install state doesn't drift from reality.
+		if (getDevCLILocalPath() == null) {
+			try {
+				await workspace.fs.delete(getCLIExecutable(this.container.context.globalStorageUri.fsPath), {
+					useTrash: false,
+				});
+			} catch (ex) {
+				scope?.warn(`Failed to delete CLI binary; ${String(ex)}`);
+			}
+		}
+
+		// `resolveCLIExecutable` memoizes, so without this it keeps handing back the path we just deleted.
+		clearResolvedCLIExecutableCache();
+		// Legacy included: `getScoped` falls back to the unscoped key, which would resurrect the old state.
+		await this.container.storage.deleteScoped('gk:cli:install', { includeLegacy: true });
+		void setContext('gitlens:gk:cli:installed', false);
+	}
+
 	/** Install the CLI. Serialized so installs never overlap — two `gk install` subprocesses writing the
 	 * same globalStorage directory at once risks corruption and the Windows running-binary lock
 	 * (`ProxyExtractLocked`).

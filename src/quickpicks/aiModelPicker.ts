@@ -114,7 +114,7 @@ export async function showAIProviderPicker(
 					}),
 					quickpick.onDidTriggerItemButton(e => {
 						if (e.button === ClearAIKeyButton) {
-							container.ai.resetProviderKey(e.item.provider);
+							void container.ai.resetProviderKey(e.item.provider);
 							providers.set(e.item.provider, { ...providers.get(e.item.provider)!, configured: false });
 							resolve('refresh');
 						} else if (e.button === ConfigureAIKeyButton) {

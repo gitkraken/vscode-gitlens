@@ -42,6 +42,47 @@ export function getGraphSessionSnapshotUris(gitDir: GitDir, worktreeRootPath: st
 	return { dir: dir, file: VUri.joinPath(dir, `session-${fnv1aHash64(worktreeRootPath)}.json`) };
 }
 
+async function resolveSnapshotUris(
+	container: Container,
+	repoPath: string,
+): Promise<{ dir: Uri; file: Uri } | undefined> {
+	let gitDir: GitDir | undefined;
+	try {
+		gitDir = await container.git.getRepositoryService(repoPath).config.getGitDir?.();
+	} catch (ex) {
+		Logger.debug(`GraphSessionStore: gitDir resolve failed for ${repoPath}; ${String(ex)}`);
+		return undefined;
+	}
+	if (gitDir == null) return undefined;
+
+	// Only local repos with a real, writable git dir — skip virtual / GitHub-backed (non-file scheme).
+	if ((gitDir.commonUri ?? gitDir.uri).scheme !== 'file') return undefined;
+
+	return getGraphSessionSnapshotUris(gitDir, repoPath);
+}
+
+/**
+ * Deletes every known repo's persisted snapshot dir, for `Reset Stored Data`. Deliberately ignores the
+ * `persistSession` opt-in — a reset should clear what's on disk regardless of the current setting.
+ *
+ * Only repos GitLens has discovered in this window are reachable; snapshots belonging to repos never opened
+ * here live in their own git dirs and simply rebuild on the next walk, so leaving them is a size question,
+ * not a correctness one.
+ */
+export async function deleteAllGraphSessionSnapshots(container: Container): Promise<void> {
+	for (const repo of container.git.repositories) {
+		const uris = await resolveSnapshotUris(container, repo.path);
+		if (uris == null) continue;
+
+		try {
+			await workspace.fs.delete(uris.dir, { recursive: true, useTrash: false });
+			Logger.debug(`GraphSessionStore: removed snapshot dir ${uris.dir.fsPath}`);
+		} catch {
+			// Best-effort — the dir most likely never existed for this repo.
+		}
+	}
+}
+
 /**
  * Host-side restart-persistence IO for {@link GitGraphSession}: reads/writes a per-worktree snapshot file so a
  * cold graph open can restore its prior window instead of a full re-walk.
@@ -84,20 +125,8 @@ export class GraphSessionStore {
 	 * the gitDir resolve failed, or it isn't a local repo with a real (file-scheme) git dir (virtual /
 	 * GitHub-backed). Cached by the config provider, so this is cheap after the first call.
 	 */
-	private async resolveUris(repoPath: string): Promise<{ dir: Uri; file: Uri } | undefined> {
-		let gitDir: GitDir | undefined;
-		try {
-			gitDir = await this.container.git.getRepositoryService(repoPath).config.getGitDir?.();
-		} catch (ex) {
-			Logger.debug(`GraphSessionStore: gitDir resolve failed for ${repoPath}; ${String(ex)}`);
-			return undefined;
-		}
-		if (gitDir == null) return undefined;
-
-		// Only local repos with a real, writable git dir — skip virtual / GitHub-backed (non-file scheme).
-		if ((gitDir.commonUri ?? gitDir.uri).scheme !== 'file') return undefined;
-
-		return getGraphSessionSnapshotUris(gitDir, repoPath);
+	private resolveUris(repoPath: string): Promise<{ dir: Uri; file: Uri } | undefined> {
+		return resolveSnapshotUris(this.container, repoPath);
 	}
 
 	/** Read a repo's persisted snapshot. Never throws — a corrupt/unreadable cache degrades to a full walk.

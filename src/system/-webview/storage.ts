@@ -161,9 +161,14 @@ export class Storage implements Disposable {
 	}
 
 	@trace({ onlyExit: { after: 250 } })
-	async deleteScoped(key: keyof GlobalScopedStorage): Promise<void> {
+	async deleteScoped(key: keyof GlobalScopedStorage, options?: { includeLegacy?: boolean }): Promise<void> {
 		const scopeKey = this.getEnvironmentScopeKey();
 		await this.context.globalState.update(`${extensionPrefix}:${scopeKey}:${key}`, undefined);
+		// `getScoped` falls back to the legacy unscoped key, so deleting only the scoped one lets the old
+		// value resurrect on the next read — resets need both gone.
+		if (options?.includeLegacy) {
+			await this.context.globalState.update(`${extensionPrefix}:${key}`, undefined);
+		}
 		this._onDidChange.fire({ keys: [key], type: 'scoped' });
 	}
 

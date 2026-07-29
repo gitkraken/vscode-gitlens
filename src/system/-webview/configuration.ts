@@ -370,6 +370,27 @@ export class Configuration implements Disposable {
 			ConfigurationTarget.Global,
 		);
 	}
+
+	/**
+	 * Restores a setting to its default by clearing it from every target that holds a value.
+	 *
+	 * Only writes targets that actually have one — VS Code throws when writing `Workspace` with no workspace
+	 * open, or `WorkspaceFolder` with no resource scope, so clearing them unconditionally isn't safe.
+	 */
+	async clear<S extends ConfigPath>(section: S): Promise<void> {
+		const inspect = this.inspect(section);
+		if (inspect == null) return;
+
+		if (inspect.workspaceFolderValue !== undefined) {
+			await this.update(section, undefined, ConfigurationTarget.WorkspaceFolder);
+		}
+		if (inspect.workspaceValue !== undefined) {
+			await this.update(section, undefined, ConfigurationTarget.Workspace);
+		}
+		if (inspect.globalValue !== undefined) {
+			await this.update(section, undefined, ConfigurationTarget.Global);
+		}
+	}
 }
 
 export const configuration = new Configuration();

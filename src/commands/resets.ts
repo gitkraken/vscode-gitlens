@@ -1,18 +1,20 @@
 import type { MessageItem } from 'vscode';
-import { ConfigurationTarget, window } from 'vscode';
+import { window } from 'vscode';
 import { resetApprovedAvatarTemplates, resetAvatarCache } from '../avatars.js';
 import type { Container } from '../container.js';
 import type { QuickPickItemOfT } from '../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
-import { command } from '../system/-webview/command.js';
+import { command, executeCoreCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
+import { deleteAllGraphSessionSnapshots } from '../webviews/plus/graph/graphSessionStore.js';
 import { GlCommandBase } from './commandBase.js';
 
 const resetTypes = [
 	'ai',
 	'ai:confirmations',
 	'avatars',
-	'avatars:approvedTemplates',
+	'cli',
+	'graph:sessions',
 	'integrations',
 	'onboarding',
 	'previews',
@@ -45,13 +47,18 @@ export class ResetCommand extends GlCommandBase {
 			},
 			{
 				label: 'Avatars...',
-				detail: 'Clears the stored avatar cache',
+				detail: 'Clears the stored avatar cache and any approvals granted to custom remote avatar URL templates',
 				item: 'avatars',
 			},
 			{
-				label: 'Approved Avatar URL Templates...',
-				detail: 'Clears approvals granted to custom remote avatar URL templates',
-				item: 'avatars:approvedTemplates',
+				label: 'Commit Graph Cache...',
+				detail: 'Clears the stored Commit Graph history cache for your repositories',
+				item: 'graph:sessions',
+			},
+			{
+				label: 'GitKraken CLI (Installation)...',
+				detail: "Removes the downloaded CLI and clears its install state, so it's reinstalled when next needed",
+				item: 'cli',
 			},
 			{
 				label: 'Integrations (Authentication)...',
@@ -134,13 +141,17 @@ export class ResetCommand extends GlCommandBase {
 				confirm.title = 'Reset AI Confirmations';
 				break;
 			case 'avatars':
-				confirmationMessage = 'Are you sure you want to reset the avatar cache?';
+				confirmationMessage =
+					'Are you sure you want to reset the avatar cache and all approvals for custom remote avatar URL templates? Approvals are synced, so this will affect your other devices.';
 				confirm.title = 'Reset Avatars';
 				break;
-			case 'avatars:approvedTemplates':
-				confirmationMessage =
-					'Are you sure you want to reset all approvals for custom remote avatar URL templates?';
-				confirm.title = 'Reset Approved Avatar URL Templates';
+			case 'cli':
+				confirmationMessage = 'Are you sure you want to reset the GitKraken CLI installation?';
+				confirm.title = 'Reset GitKraken CLI';
+				break;
+			case 'graph:sessions':
+				confirmationMessage = 'Are you sure you want to reset the stored Commit Graph cache?';
+				confirm.title = 'Reset Commit Graph Cache';
 				break;
 			case 'integrations':
 				confirmationMessage = 'Are you sure you want to reset all of the stored integrations?';
@@ -201,23 +212,37 @@ export class ResetCommand extends GlCommandBase {
 					await this.reset(r);
 				}
 
+				// Secrets can't be enumerated, so anything not covered by a sub-reset must be named here
+				await this.container.storage.deleteSecret('deepLinks:pending');
+
 				await this.container.storage.reset();
+
+				// Services cache their state in memory and write it back (feature flags, graph columns, ...),
+				// so without a reload the wipe partially undoes itself
+				void this.promptToReload();
 				break;
 
 			case 'ai':
-				await this.container.ai.reset(true);
+				// Silent: a data wipe must not copy every key it's deleting to the clipboard
+				await this.container.ai.reset({ all: true, silent: true });
 				break;
 
 			case 'ai:confirmations':
-				this.container.ai.resetConfirmations();
+				await this.container.ai.resetConfirmations();
 				break;
 
 			case 'avatars':
+				// Approvals first — it clears only failed entries, so the full cache reset must follow it
+				await resetApprovedAvatarTemplates();
 				resetAvatarCache('all');
 				break;
 
-			case 'avatars:approvedTemplates':
-				await resetApprovedAvatarTemplates();
+			case 'cli':
+				await this.container.gkCli?.reset();
+				break;
+
+			case 'graph:sessions':
+				await deleteAllGraphSessionSnapshots(this.container);
 				break;
 
 			case 'integrations':
@@ -248,7 +273,8 @@ export class ResetCommand extends GlCommandBase {
 				break;
 
 			case 'suppressedWarnings':
-				await configuration.update('advanced.messages', undefined, ConfigurationTarget.Global);
+				// Clear every target — a workspace/folder override would otherwise keep a warning suppressed
+				await configuration.clear('advanced.messages');
 				break;
 
 			case 'workspace':
@@ -267,5 +293,17 @@ export class ResetCommand extends GlCommandBase {
 				}
 				break;
 		}
+	}
+
+	private async promptToReload(): Promise<void> {
+		const reload: MessageItem = { title: 'Reload' };
+		const result = await window.showInformationMessage(
+			'All GitLens data has been reset. Reload the window to finish clearing any state still held in memory.',
+			reload,
+			{ title: 'Later', isCloseAffordance: true },
+		);
+		if (result !== reload) return;
+
+		void executeCoreCommand('workbench.action.reloadWindow');
 	}
 }

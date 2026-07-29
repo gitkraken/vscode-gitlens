@@ -98,6 +98,18 @@ export class GkCliService implements Disposable {
 		return result;
 	}
 
+	/** Removes the downloaded CLI binary and clears its install state — see {@link CliBinaryInstaller.reset}.
+	 *
+	 * Deliberately doesn't fire `onDidChangeInstall`: its only consumer (GkMcpService) ignores anything but
+	 * `completed`. Consumers of the reset observe it through the `gitlens:gk:cli:installed` context key and
+	 * the scoped `gk:cli:install` storage change the installer already emits.
+	 */
+	async reset(): Promise<void> {
+		await this._installer.reset();
+		// Agents come from the CLI we just removed, so a stale list would keep showing them as available.
+		this.container.agents.invalidateCache();
+	}
+
 	/**
 	 * Post-install sequence, run only when a fresh install actually landed (`changed: true`): authenticate
 	 * the new binary, then announce the change. Auth runs *before* the event fires so reactive consumers

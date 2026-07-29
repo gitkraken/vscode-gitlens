@@ -1117,7 +1117,7 @@ export class GitProviderService implements UnifiedDisposable {
 	private async clearRepoVisibilityCache(keys?: string[]): Promise<void> {
 		if (keys == null) {
 			this._repoVisibilityCache = undefined;
-			void this.container.storage.delete('repoVisibility');
+			await this.container.storage.delete('repoVisibility');
 		} else {
 			keys?.forEach(key => this._repoVisibilityCache?.delete(key));
 
