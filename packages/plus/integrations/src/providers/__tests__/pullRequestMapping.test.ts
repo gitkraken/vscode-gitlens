@@ -3,7 +3,7 @@ import { GitPullRequestMergeableState, GitPullRequestState } from '@gitkraken/pr
 import { suite, test } from 'mocha';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ProviderPullRequest } from '../models.js';
-import { fromProviderPullRequest, toProviderPullRequest } from '../models.js';
+import { fromProviderPullRequest, getProviderPullRequestIdentity, toProviderPullRequest } from '../models.js';
 
 /**
  * Covers the clone-URL / fork / cross-repository plumbing added for read-API parity (#5435): the SDK's
@@ -89,11 +89,47 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 			cloneUrlHTTPS: 'https://github.com/base/repo.git',
 			cloneUrlSSH: 'git@github.com:base/repo.git',
 		});
+		assert.equal(roundTrip.repository.id, 'base-id', 'the provider repository id survives normalization');
 		assert.deepEqual(roundTrip.headRepository?.remoteInfo, {
 			cloneUrlHTTPS: 'https://github.com/fork/repo.git',
 			cloneUrlSSH: 'git@github.com:fork/repo.git',
 		});
 		assert.equal(roundTrip.headRepository?.isFork, true);
+	});
+
+	test('same-name repositories in different owners retain distinct pull request identities', () => {
+		const first = toProviderPullRequest(
+			fromProviderPullRequest(
+				createProviderPullRequest({
+					id: 'same-pr-id',
+					url: '',
+					repository: {
+						id: '',
+						name: 'repo',
+						owner: { login: 'first-owner' },
+						remoteInfo: null,
+					},
+				}),
+				fakeProvider,
+			),
+		);
+		const second = toProviderPullRequest(
+			fromProviderPullRequest(
+				createProviderPullRequest({
+					id: 'same-pr-id',
+					url: '',
+					repository: {
+						id: '',
+						name: 'repo',
+						owner: { login: 'second-owner' },
+						remoteInfo: null,
+					},
+				}),
+				fakeProvider,
+			),
+		);
+
+		assert.notEqual(getProviderPullRequestIdentity(first), getProviderPullRequestIdentity(second));
 	});
 
 	test('description round-trips through the normalized PullRequest body', () => {

@@ -8,15 +8,59 @@
 // IntegrationAuthenticationService, etc.) are not part of the public API and
 // may be refactored without semver bumps.
 
+import type { Account } from '@gitlens/git/models/author.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
-import type { IntegrationCacheProvider, IntegrationServiceContext } from './context.js';
+import type { IntegrationIds } from './constants.js';
+import type {
+	AccountProvider,
+	ConfigProvider,
+	HttpProvider,
+	IntegrationCacheProvider,
+	IntegrationServiceHooks,
+	IntegrationStorageProvider,
+	RepositoriesProvider,
+} from './context.js';
 import { createIntegrationService } from './integrationService.js';
 import type { IntegrationManager } from './manager.js';
 
-type UncachedValue<T> = Promise<T | undefined> | T | undefined;
-type UncachedLoader<T> = (cacheable: CacheController) => { value: UncachedValue<T> };
+/** A cached provider value, which may still be resolving. */
+export type IntegrationManagerCacheResult<T> = Promise<T | undefined> | T | undefined;
 
-function loadUncached<T>(loader: UncachedLoader<T>): UncachedValue<T> {
+/** Produces an account value on a cache miss. */
+export type IntegrationManagerCacheLoader<T> = (cacheable: CacheController) => {
+	value: IntegrationManagerCacheResult<T>;
+	expiresAt?: number;
+};
+
+/** Stable integration identity supplied to the consumer-owned account cache. */
+export interface IntegrationAccountCacheDescriptor {
+	readonly id: IntegrationIds;
+	readonly domain?: string;
+}
+
+/** Cache controls attached to a provider account lookup. */
+export interface IntegrationManagerCacheOptions {
+	readonly connectionId?: string;
+	readonly etag?: string;
+	readonly expiryOverride?: boolean | number;
+	readonly expireOnError?: boolean;
+}
+
+/**
+ * Optional consumer-owned cache for values reused by the public manager facade.
+ *
+ * The manager only needs cross-call caching for provider identity lookups. Other caches used by the GitLens
+ * extension host are implementation details and deliberately stay out of this contract.
+ */
+export interface IntegrationManagerCacheProvider {
+	getCurrentAccount(
+		integration: IntegrationAccountCacheDescriptor,
+		cacheable: IntegrationManagerCacheLoader<Account>,
+		options?: IntegrationManagerCacheOptions,
+	): IntegrationManagerCacheResult<Account>;
+}
+
+function loadUncached<T>(loader: IntegrationManagerCacheLoader<T>): IntegrationManagerCacheResult<T> {
 	return loader(new CacheController()).value;
 }
 
@@ -31,19 +75,37 @@ const uncachedIntegrationCacheProvider: IntegrationCacheProvider = {
 	getCurrentAccount: (_integration, loader) => loadUncached(loader),
 };
 
+function toIntegrationCacheProvider(cache: IntegrationManagerCacheProvider | undefined): IntegrationCacheProvider {
+	if (cache == null) return uncachedIntegrationCacheProvider;
+
+	return {
+		...uncachedIntegrationCacheProvider,
+		getCurrentAccount: (integration, loader, options) =>
+			cache.getCurrentAccount({ id: integration.id, domain: integration.domain }, loader, options),
+	};
+}
+
 /**
  * Consumer-facing runtime for {@link createIntegrationManager}.
  *
- * The full extension host supplies an {@link IntegrationServiceContext}. External consumers may omit
- * `cache`; reads then execute their loaders directly without cross-call caching.
+ * External consumers may omit `cache`; reads then execute their loaders directly without cross-call caching.
+ * The extension host's broader integration context remains private to the implementation.
  */
-export type IntegrationManagerContext = Omit<IntegrationServiceContext, 'cache'> & {
-	readonly cache?: IntegrationCacheProvider;
-};
+export interface IntegrationManagerContext {
+	readonly storage: IntegrationStorageProvider;
+	readonly account: AccountProvider;
+	readonly config: ConfigProvider;
+	readonly http: HttpProvider;
+	readonly cache?: IntegrationManagerCacheProvider;
+	readonly repositories: RepositoriesProvider;
+	readonly hooks?: IntegrationServiceHooks;
+}
 
 export type {
 	ClosedPullRequestSweepOptions,
 	IntegrationManager,
+	ListOrgsOptions,
+	ListProjectsOptions,
 	// Every option shape a caller has to BUILD is exported, not just the ones the manager returns:
 	// `manager.js` is not a public subpath, so a type omitted here can't be named by a consumer at all
 	// (`broadenIssues`' `orgs` needed `ProviderBroadenOrg` and had to be re-declared downstream).
@@ -69,7 +131,7 @@ export type {
 export function createIntegrationManager(ctx: IntegrationManagerContext): IntegrationManager {
 	return createIntegrationService({
 		...ctx,
-		cache: ctx.cache ?? uncachedIntegrationCacheProvider,
+		cache: toIntegrationCacheProvider(ctx.cache),
 	});
 }
 
@@ -77,16 +139,15 @@ export function createIntegrationManager(ctx: IntegrationManagerContext): Integr
 export type {
 	AccountProvider,
 	AuthenticationSessionsChangeEvent,
-	IntegrationCacheProvider,
 	ConfigChangeEvent,
 	ConfigProvider,
 	RepositoriesProvider,
 	HttpProvider,
-	IntegrationServiceContext,
+	IntegrationsRemoteConfig,
 	IntegrationServiceHooks,
 	IntegrationStorageProvider,
 } from './context.js';
-export type { Source } from './telemetry.js';
+export type { Source, Sources } from './telemetry.js';
 export type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.js';
 export type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 

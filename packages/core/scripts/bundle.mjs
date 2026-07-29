@@ -33,7 +33,14 @@ const packages = [
 	{ name: '@gitlens/git-github', srcDir: 'packages/plus/git-github', dest: 'plus/git-github' },
 	{ name: '@gitlens/ai', srcDir: 'packages/plus/ai', dest: 'plus/ai' },
 	{ name: '@gitlens/agents', srcDir: 'packages/plus/agents', dest: 'plus/agents' },
-	{ name: '@gitlens/integrations', srcDir: 'packages/plus/integrations', dest: 'plus/integrations' },
+	{
+		name: '@gitlens/integrations',
+		srcDir: 'packages/plus/integrations',
+		dest: 'plus/integrations',
+		// The private workspace package exposes internal subpaths for GitLens itself. Core's published facade is
+		// deliberately narrower: external consumers get only the two entry points documented as semver-stable.
+		publicExports: ['./index.js', './lite.js'],
+	},
 ];
 
 const nameToDest = Object.fromEntries(packages.map(p => [p.name, p.dest]));
@@ -263,6 +270,7 @@ async function generateExports() {
 		const manifest = await readSubPackageJson(pkg);
 		for (const [pattern, value] of Object.entries(manifest.exports ?? {})) {
 			if (pattern === './package.json') continue;
+			if (pkg.publicExports != null && !pkg.publicExports.includes(pattern)) continue;
 			const newPattern = rewriteExportPattern(pattern, pkg.dest);
 			result[newPattern] = remapExportValue(value, pkg.dest);
 		}

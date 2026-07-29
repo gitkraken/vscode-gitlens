@@ -48,6 +48,8 @@ import type { AuthenticationSessionsChangeEvent, IntegrationServiceContext } fro
 import { AuthenticationError, RequestNotFoundError } from './errors.js';
 import type {
 	ClosedPullRequestSweepOptions,
+	ListOrgsOptions,
+	ListProjectsOptions,
 	ProviderBroadenOrg,
 	ProviderSweepTarget,
 	PullRequestSweepOptions,
@@ -75,6 +77,11 @@ import type {
 } from './providers/models.js';
 import {
 	fromProviderPullRequest,
+	getProviderPullRequestIdentity,
+	isAzureCloudDomain,
+	isBitbucketCloudDomain,
+	isGitHubDotCom,
+	isGitLabDotCom,
 	IssueFilter,
 	PagingMode,
 	providersMetadata,
@@ -121,6 +128,112 @@ const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's 
  * the cap gkcli applied to the same fan-outs.
  */
 const providerFanOutConcurrency = 6;
+
+interface IssueTrackerPageCursor {
+	type: 'issue-tracker-page';
+	currentPage: number;
+	unpaged?: boolean;
+	nextPage?: number;
+	retryPages?: number[];
+	retryProjects?: string[];
+	completedProjects?: string[];
+}
+
+function parseIssueTrackerPageCursor(cursor: string | undefined): IssueTrackerPageCursor | undefined {
+	if (cursor == null) return undefined;
+
+	try {
+		const parsed = JSON.parse(cursor) as Partial<IssueTrackerPageCursor>;
+		if (
+			parsed.type !== 'issue-tracker-page' ||
+			typeof parsed.currentPage !== 'number' ||
+			!Number.isSafeInteger(parsed.currentPage) ||
+			parsed.currentPage < 1
+		) {
+			return undefined;
+		}
+
+		const positiveIntegers = (values: unknown): number[] | undefined => {
+			if (!Array.isArray(values)) return undefined;
+
+			const valid = values.filter(
+				(value): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0,
+			);
+			return valid.length > 0 ? [...new Set(valid)] : undefined;
+		};
+		const retryPages = positiveIntegers(parsed.retryPages);
+		const retryProjects = Array.isArray(parsed.retryProjects)
+			? [
+					...new Set(
+						parsed.retryProjects.filter(
+							(project): project is string => typeof project === 'string' && project.length > 0,
+						),
+					),
+				]
+			: undefined;
+		const completedProjects = Array.isArray(parsed.completedProjects)
+			? [
+					...new Set(
+						parsed.completedProjects.filter(
+							(project): project is string => typeof project === 'string' && project.length > 0,
+						),
+					),
+				]
+			: undefined;
+		return {
+			type: 'issue-tracker-page',
+			currentPage: parsed.currentPage,
+			...(parsed.unpaged === true ? { unpaged: true } : {}),
+			...(typeof parsed.nextPage === 'number' && Number.isSafeInteger(parsed.nextPage) && parsed.nextPage > 0
+				? { nextPage: parsed.nextPage }
+				: {}),
+			...(retryPages != null ? { retryPages: retryPages } : {}),
+			...(retryProjects != null && retryProjects.length > 0 ? { retryProjects: retryProjects } : {}),
+			...(completedProjects != null && completedProjects.length > 0
+				? { completedProjects: completedProjects }
+				: {}),
+		};
+	} catch {
+		return undefined;
+	}
+}
+
+function toIssueTrackerPageCursor(options: {
+	currentPage: number;
+	unpaged?: boolean;
+	nextPage?: number;
+	retryPages: readonly number[];
+	retryProjects: readonly string[];
+	completedProjects?: readonly string[];
+}): string | undefined {
+	const retryPages = [...new Set(options.retryPages)].sort((a, b) => a - b);
+	const retryProjects = [...new Set(options.retryProjects)].sort();
+	const completedProjects =
+		retryPages.length > 0 || retryProjects.length > 0 || options.nextPage != null
+			? [...new Set(options.completedProjects ?? [])].sort()
+			: [];
+	if (retryPages.length === 0 && retryProjects.length === 0 && options.nextPage == null) {
+		return undefined;
+	}
+	if (
+		retryPages.length === 0 &&
+		retryProjects.length === 0 &&
+		completedProjects.length === 0 &&
+		options.nextPage != null &&
+		options.unpaged !== true
+	) {
+		return toPageCursor(options.nextPage);
+	}
+	return JSON.stringify({
+		type: 'issue-tracker-page',
+		currentPage: options.currentPage,
+		...(options.unpaged === true ? { unpaged: true } : {}),
+		...(options.nextPage != null ? { nextPage: options.nextPage } : {}),
+		...(retryPages.length > 0 ? { retryPages: retryPages } : {}),
+		...(retryProjects.length > 0 ? { retryProjects: retryProjects } : {}),
+		...(completedProjects.length > 0 ? { completedProjects: completedProjects } : {}),
+	} satisfies IssueTrackerPageCursor);
+}
 
 export class IntegrationService implements Disposable {
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
@@ -945,6 +1058,21 @@ export class IntegrationService implements Disposable {
 		};
 	}
 
+	private issueTrackerOnlySurfaceWarning(
+		id: IntegrationIds,
+		connectionId: string | undefined,
+		surface: string,
+	): ProviderWarning {
+		return {
+			providerId: id,
+			domain: undefined,
+			connectionId: connectionId,
+			message: `${surface} is not supported by '${id}'; use an issue-tracker integration instead.`,
+			kind: 'other',
+			isAuth: false,
+		};
+	}
+
 	/**
 	 * Builds a warning for a drain that stopped short of completeness (hit a page backstop, or a single-page
 	 * read that couldn't confirm it drained everything). `truncated`/`allPages` already carry this on the
@@ -954,7 +1082,7 @@ export class IntegrationService implements Disposable {
 		id: IntegrationIds,
 		domain: string | undefined,
 		connectionId: string | undefined,
-		readKind: 'Pull request' | 'Issue',
+		readKind: 'Pull request' | 'Issue' | 'Repository',
 	): ProviderWarning {
 		return {
 			providerId: id,
@@ -979,9 +1107,14 @@ export class IntegrationService implements Disposable {
 		domain?: string,
 	): { warnings: ProviderWarning[]; fetchFailed: boolean } {
 		const requestedDomain = isGitSelfManagedHostIntegrationId(id) ? domain : undefined;
-		if (connectionId == null && requestedDomain == null) return { warnings: [], fetchFailed: false };
+		const invalidDomain = this.isEmptyExplicitSelector(domain);
+		if (connectionId == null && requestedDomain == null && !invalidDomain) {
+			return { warnings: [], fetchFailed: false };
+		}
 
-		const resolvedDomain = this.resolveDomainForRead(id, connectionId, requestedDomain);
+		const resolvedDomain = invalidDomain
+			? domain?.trim()
+			: this.resolveDomainForRead(id, connectionId, requestedDomain);
 		return { warnings: [this.noConnectionWarning(id, resolvedDomain, connectionId)], fetchFailed: true };
 	}
 
@@ -1437,6 +1570,25 @@ export class IntegrationService implements Disposable {
 		return resource.key === org || typed.id === org || typed.name === org;
 	}
 
+	private assertHierarchyReadTarget(
+		method: 'listOrgs' | 'listProjects',
+		options:
+			| {
+					providerId?: IntegrationIds;
+					connectionId?: string;
+					domain?: string;
+			  }
+			| undefined,
+	): void {
+		if (options?.providerId == null && (options?.connectionId != null || options?.domain != null)) {
+			throw new TypeError(`'${method}' requires 'providerId' when 'connectionId' or 'domain' is supplied`);
+		}
+	}
+
+	private isEmptyExplicitSelector(value: string | undefined): boolean {
+		return value?.trim().length === 0;
+	}
+
 	private domainForRead(
 		integration: Integration,
 		id: IntegrationIds,
@@ -1460,6 +1612,10 @@ export class IntegrationService implements Disposable {
 		connectionId: string | undefined,
 		domain?: string,
 	): Promise<Integration | undefined> {
+		// Empty explicit selectors are invalid targets, not an instruction to fall back to the primary
+		// connection. Keep this at the common read boundary so every public surface behaves consistently.
+		if (this.isEmptyExplicitSelector(connectionId) || this.isEmptyExplicitSelector(domain)) return undefined;
+
 		const resolvedDomain = this.resolveDomainForRead(id, connectionId, domain);
 		try {
 			return await this.get(id, resolvedDomain);
@@ -1524,10 +1680,9 @@ export class IntegrationService implements Disposable {
 				// Refresh the specific connection's session directly; the primary-only sync path below would not
 				// reach a secondary account. `cloud: true` is required for multi-account backend connections.
 				const authProvider = await this.authenticationService.get(integration.authProvider.id);
-				await authProvider?.getSession(
-					{ ...integration.authProviderDescriptor, connectionId: connectionId, cloud: true },
-					{ sync: true },
-				);
+				const descriptor = { ...integration.authProviderDescriptor, connectionId: connectionId, cloud: true };
+				await authProvider?.deleteSession(descriptor);
+				await authProvider?.getSession(descriptor, { sync: true });
 			} else {
 				await integration.syncCloudConnection('connected', true);
 			}
@@ -1539,16 +1694,8 @@ export class IntegrationService implements Disposable {
 	 * {@link ProviderOrganization}. Scoped to `providerId` when given, otherwise fanned out over every
 	 * supported provider. `connectionId` only makes sense with a single `providerId`.
 	 */
-	async listOrgs(options?: {
-		providerId?: IntegrationIds;
-		connectionId?: string;
-		/**
-		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
-		 * it must come from the trusted authentication configuration, not repository or remote data. Only
-		 * meaningful with a single `providerId` (a fan-out spans hosts).
-		 */
-		domain?: string;
-	}): Promise<ProviderResult<ProviderOrganization>> {
+	async listOrgs(options?: ListOrgsOptions): Promise<ProviderResult<ProviderOrganization>> {
+		this.assertHierarchyReadTarget('listOrgs', options);
 		const ids = options?.providerId != null ? [options.providerId] : supportedOrderedCloudIntegrationIds;
 		const singleProvider = ids.length === 1;
 		const connectionId = singleProvider ? options?.connectionId : undefined;
@@ -1624,9 +1771,13 @@ export class IntegrationService implements Disposable {
 							kind: 'other',
 							isAuth: false,
 						});
+						// `ProviderResult` has no page object on which to carry truncation. Mark the flat
+						// hierarchy result incomplete so consumers don't treat omitted orgs as authoritative.
+						fetchFailed = true;
 					}
 
-					if (mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata).fetchFailed) {
+					const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata);
+					if (assessment.fetchFailed || assessment.truncated) {
 						fetchFailed = true;
 					}
 				}
@@ -1669,17 +1820,8 @@ export class IntegrationService implements Disposable {
 	 * org + project scoped). Scoped to `providerId` when given, else fanned out over both the supported issue
 	 * trackers and Azure DevOps. Providers with no project tier (GitHub, GitLab, Bitbucket) contribute nothing.
 	 */
-	async listProjects(options?: {
-		providerId?: IntegrationIds;
-		org?: string;
-		connectionId?: string;
-		/**
-		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
-		 * it must come from the trusted authentication configuration, not repository or remote data. Only
-		 * meaningful with a single `providerId` (a fan-out spans hosts).
-		 */
-		domain?: string;
-	}): Promise<ProviderResult<ProviderOrganization>> {
+	async listProjects(options?: ListProjectsOptions): Promise<ProviderResult<ProviderOrganization>> {
+		this.assertHierarchyReadTarget('listProjects', options);
 		const ids =
 			options?.providerId != null
 				? [options.providerId]
@@ -1739,7 +1881,22 @@ export class IntegrationService implements Disposable {
 				if (projects != null) {
 					items.push(...projects.values.map(project => this.withProviderContext(id, project)));
 
-					if (mergeAssessmentInto(warnings, id, domain, connectionId, projects.metadata).fetchFailed) {
+					if (projects.truncated) {
+						warnings.push({
+							providerId: id,
+							domain: domain,
+							connectionId: connectionId,
+							message: 'Project listing was truncated before the upstream results were exhausted.',
+							kind: 'other',
+							isAuth: false,
+						});
+						// Unlike paged repository reads, this flattened hierarchy result has no continuation
+						// or page metadata. `fetchFailed` is its structural non-authoritative signal.
+						fetchFailed = true;
+					}
+
+					const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, projects.metadata);
+					if (assessment.fetchFailed || assessment.truncated) {
 						fetchFailed = true;
 					}
 				}
@@ -1782,7 +1939,8 @@ export class IntegrationService implements Disposable {
 						),
 					);
 				}
-				if (mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata).fetchFailed) {
+				const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata);
+				if (assessment.fetchFailed || assessment.truncated) {
 					fetchFailed = true;
 				}
 			}
@@ -2903,30 +3061,104 @@ export class IntegrationService implements Disposable {
 		// Pagination is opt-in: only window the projects when the caller actually asked to page. A caller that
 		// passes none of page/cursor/itemsPerPage keeps the "aggregate every matched project" contract, so an
 		// existing consumer that doesn't inspect `hasMore` never silently loses projects past a default window.
-		const paginated = options.page != null || options.cursor != null || options.itemsPerPage != null;
-		// Resolve the requested 1-based page from an explicit `page` or the opaque page cursor (either may be
-		// supplied; the cursor wins so a threaded continuation isn't clobbered).
-		// Floor both so a fractional input can't produce a fractional slice bound (slice tolerates it, but the
-		// intent is integer pages/windows).
-		const page = Math.max(1, Math.trunc(parsePageCursor(options.cursor) ?? options.page ?? 1));
+		const compositeCursor = parseIssueTrackerPageCursor(options.cursor);
+		const paginated =
+			compositeCursor?.unpaged !== true &&
+			(options.page != null || options.cursor != null || options.itemsPerPage != null);
+		// A composite cursor can carry retries from earlier project windows alongside the next untouched window.
+		// `currentPage` remains the caller-facing position; `nextPage` is the window this round should advance.
+		const page = Math.max(
+			1,
+			Math.trunc(compositeCursor?.currentPage ?? parsePageCursor(options.cursor) ?? options.page ?? 1),
+		);
 		const projectsPerPage = Math.max(1, Math.trunc(options.itemsPerPage ?? 20));
 
 		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
-		const emptyPage = (fetchFailed?: boolean, truncated?: boolean): ProviderPagedResult<IssueShape> => ({
-			items: items,
-			warnings: warnings,
-			page: { currentPage: page, itemsPerPage: items.length, truncated: truncated || undefined },
-			hasMore: false,
-			fetchFailed: fetchFailed || undefined,
+		const emptyPage = (
+			fetchFailed?: boolean,
+			truncated?: boolean,
+			retry?: {
+				nextPage?: number;
+				pages?: readonly number[];
+				projects?: readonly string[];
+				completedProjects?: readonly string[];
+			},
+		): ProviderPagedResult<IssueShape> => {
+			const cursor =
+				retry != null
+					? toIssueTrackerPageCursor({
+							currentPage: page + 1,
+							unpaged: !paginated,
+							nextPage: retry.nextPage,
+							retryPages: retry.pages ?? [],
+							retryProjects: retry.projects ?? [],
+							completedProjects: retry.completedProjects ?? [],
+						})
+					: undefined;
+			return {
+				items: items,
+				warnings: warnings,
+				page: { currentPage: page, itemsPerPage: items.length, truncated: truncated || undefined },
+				// Retry-only state is deliberately manual: advertising it as forward progress would make a
+				// persistent provider failure spin forever in a normal `while (hasMore)` consumer. An untouched
+				// project window remains normal forward progress even when this window failed completely.
+				hasMore: retry?.nextPage != null && cursor != null,
+				cursor: cursor,
+				fetchFailed: fetchFailed || undefined,
+			};
+		};
+		const normalWindowPage = paginated
+			? (compositeCursor?.nextPage ?? (compositeCursor == null ? page : undefined))
+			: undefined;
+		const priorRetryPages = compositeCursor?.retryPages ?? [];
+		const priorRetryProjects = compositeCursor?.retryProjects ?? [];
+		const priorCompletedProjects = compositeCursor?.completedProjects ?? [];
+		const trackCompletedProjects =
+			priorCompletedProjects.length > 0 ||
+			priorRetryPages.length > 0 ||
+			compositeCursor?.completedProjects != null;
+		const retryPagesForDiscoveryFailure = (): number[] => [
+			...priorRetryPages,
+			...(normalWindowPage != null ? [normalWindowPage] : compositeCursor == null ? [1] : []),
+		];
+		const discoveryFailureRetry = (): {
+			pages: readonly number[];
+			projects: readonly string[];
+			completedProjects: readonly string[];
+		} => ({
+			pages: retryPagesForDiscoveryFailure(),
+			projects: priorRetryProjects,
+			completedProjects: priorCompletedProjects,
 		});
 
+		if (!this.isIssueProviderId(options.providerId)) {
+			warnings.push(
+				this.issueTrackerOnlySurfaceWarning(
+					options.providerId,
+					options.connectionId,
+					'Issue-tracker project reads',
+				),
+			);
+			return emptyPage(true);
+		}
+
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
-		if (integration == null || !isIssuesIntegration(integration)) {
+		if (integration == null) {
 			// A supplied connectionId that no longer resolves is a broken connection, not an empty account.
 			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
 			warnings.push(...early.warnings);
 			return emptyPage(early.fetchFailed);
+		}
+		if (!isIssuesIntegration(integration)) {
+			warnings.push(
+				this.issueTrackerOnlySurfaceWarning(
+					options.providerId,
+					options.connectionId,
+					'Issue-tracker project reads',
+				),
+			);
+			return emptyPage(true);
 		}
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
@@ -2943,7 +3175,8 @@ export class IntegrationService implements Disposable {
 			warnings.push(resourcesWarning);
 		}
 		if (resources == null || resources.length === 0) {
-			return emptyPage(resourcesWarning != null && resources == null);
+			const fetchFailed = resourcesWarning != null && resources == null;
+			return emptyPage(fetchFailed, false, fetchFailed ? discoveryFailureRetry() : undefined);
 		}
 
 		const scopedResources =
@@ -2977,9 +3210,11 @@ export class IntegrationService implements Disposable {
 		const projectDiscoveryTruncated = projectDiscoveryAssessment.truncated;
 		const projects = projectsResult?.values;
 		if (projects == null || projects.length === 0) {
+			const fetchFailed = (projectsWarning != null && projectsResult == null) || projectDiscoveryFailed;
 			return emptyPage(
-				(projectsWarning != null && projectsResult == null) || projectDiscoveryFailed,
+				fetchFailed,
 				projectDiscoveryTruncated,
+				fetchFailed || projectDiscoveryTruncated ? discoveryFailureRetry() : undefined,
 			);
 		}
 
@@ -3025,6 +3260,10 @@ export class IntegrationService implements Disposable {
 			const issueProject = project as { id?: string; key: string; resourceId?: string };
 			return issueProject.resourceId ?? issueProject.id ?? issueProject.key;
 		};
+		const retryKeyForProject = (project: ResourceDescriptor): string => {
+			const issueProject = project as { id?: string; key: string; resourceId?: string };
+			return JSON.stringify([issueProject.resourceId ?? '', issueProject.id ?? '', issueProject.key]);
+		};
 		const labelForResource = (resource: ResourceDescriptor): string => {
 			const issueResource = resource as { id?: string; key: string; name?: string };
 			return issueResource.name ?? issueResource.id ?? issueResource.key;
@@ -3066,7 +3305,9 @@ export class IntegrationService implements Disposable {
 		}
 
 		const fallbackUserForUnscopedProject =
-			usersByResourceId?.size === 1 ? usersByResourceId.values().next().value : undefined;
+			scopedResources.length === 1 && usersByResourceId?.size === 1
+				? usersByResourceId.values().next().value
+				: undefined;
 		const userForProject = (project: ResourceDescriptor): string | undefined => {
 			const resourceId = resourceIdForProject(project);
 			if (resourceId != null) {
@@ -3081,31 +3322,100 @@ export class IntegrationService implements Disposable {
 			return fallbackUserForUnscopedProject;
 		};
 
+		const retryProjectKeys = new Set<string>();
+		const completedProjectKeys = new Set(priorCompletedProjects);
+		for (const retryProject of priorRetryProjects) {
+			completedProjectKeys.delete(retryProject);
+		}
 		const scopedProjectsWithUsers =
 			usersByResourceId != null
 				? matchedProjects.filter(project => {
-						return userForProject(project) != null;
+						if (userForProject(project) != null) return true;
+
+						const projectKey = retryKeyForProject(project);
+						retryProjectKeys.add(projectKey);
+						completedProjectKeys.delete(projectKey);
+						return false;
 					})
 				: matchedProjects;
 
-		// Page at project granularity when paginating: this window of projects for the requested page.
-		// `moreProjectWindows` drives `hasMore`/`cursor` below (per-project internal caps are not observable
-		// here — see the docstring). When not paginating, the window is every matched project that can be read
-		// without broadening the user scope.
-		const windowStart = paginated ? (page - 1) * projectsPerPage : 0;
-		const scopedProjects = paginated
-			? scopedProjectsWithUsers.slice(windowStart, windowStart + projectsPerPage)
-			: scopedProjectsWithUsers;
-		const moreProjectWindows = paginated && scopedProjectsWithUsers.length > windowStart + projectsPerPage;
+		// Select the untouched window plus any earlier windows/projects that explicitly need retrying. Keys
+		// include the parent resource so two trackers can reuse the same project id without collapsing.
+		const projectsByRetryKey = new Map(
+			scopedProjectsWithUsers.map(project => [retryKeyForProject(project), project]),
+		);
+		const scopedProjectsByKey = new Map<string, ResourceDescriptor>();
+		const addScopedProject = (project: ResourceDescriptor): void => {
+			const projectKey = retryKeyForProject(project);
+			if (completedProjectKeys.has(projectKey)) return;
+
+			scopedProjectsByKey.set(projectKey, project);
+		};
+		for (const retryProject of priorRetryProjects) {
+			const project = projectsByRetryKey.get(retryProject);
+			if (project != null) {
+				addScopedProject(project);
+			} else if (projectDiscoveryFailed || projectDiscoveryTruncated) {
+				retryProjectKeys.add(retryProject);
+			}
+		}
+		const windowPages = new Set(priorRetryPages);
+		if (normalWindowPage != null) {
+			windowPages.add(normalWindowPage);
+		}
+		if (!paginated && (projectDiscoveryFailed || projectDiscoveryTruncated)) {
+			windowPages.add(1);
+		}
+		if (paginated) {
+			for (const windowPage of windowPages) {
+				const windowStart = (windowPage - 1) * projectsPerPage;
+				for (const project of scopedProjectsWithUsers.slice(windowStart, windowStart + projectsPerPage)) {
+					addScopedProject(project);
+				}
+			}
+		} else if (compositeCursor == null || priorRetryPages.length > 0) {
+			// An unpaged retry-only cursor should re-read only the explicitly failed projects already added
+			// above. Discovery retries still rescan the aggregate set so newly recovered projects are included.
+			for (const project of scopedProjectsWithUsers) {
+				addScopedProject(project);
+			}
+		}
+		const scopedProjects = [...scopedProjectsByKey.values()];
+		const furthestWindowPage = windowPages.size > 0 ? Math.max(...windowPages) : normalWindowPage;
+		const normalWindowEnd =
+			furthestWindowPage != null ? furthestWindowPage * projectsPerPage : scopedProjectsWithUsers.length;
+		const nextPage =
+			paginated && furthestWindowPage != null && scopedProjectsWithUsers.length > normalWindowEnd
+				? furthestWindowPage + 1
+				: undefined;
+		const retryWindowPages = (): number[] => {
+			if (!projectDiscoveryFailed && !projectDiscoveryTruncated && retryProjectKeys.size === 0) {
+				return [];
+			}
+
+			const pages = new Set(windowPages);
+			if (pages.size === 0) {
+				// A terminal retry has no untouched next window to identify its origin. Keep a manual window
+				// marker so a later partial discovery can reconcile against the projects already emitted.
+				pages.add(paginated ? Math.max(1, page - 1) : 1);
+			}
+			return [...pages];
+		};
 		if (scopedProjects.length === 0) {
 			// The discovered projects didn't intersect the requested filter/window, or every matching resource
 			// failed user resolution. If discovery or account lookup was partial, the empty result is not a
 			// proven-empty account — carry `fetchFailed` so the caller knows issues may be missing.
-			return emptyPage(projectDiscoveryFailed || accountLookupFailed, projectDiscoveryTruncated);
+			return emptyPage(projectDiscoveryFailed || accountLookupFailed, projectDiscoveryTruncated, {
+				nextPage: nextPage,
+				pages: retryWindowPages(),
+				projects: [...retryProjectKeys],
+				completedProjects: [...completedProjectKeys],
+			});
 		}
 
-		const perProject = await mapBounded(scopedProjects, providerFanOutConcurrency, project =>
-			this.runCaptured(options.providerId, domain, options.connectionId, () =>
+		const perProject = await mapBounded(scopedProjects, providerFanOutConcurrency, async project => ({
+			project: project,
+			...(await this.runCaptured(options.providerId, domain, options.connectionId, () =>
 				integration.getIssuesForProjectWithTruncationResult(
 					project,
 					{
@@ -3114,8 +3424,8 @@ export class IntegrationService implements Disposable {
 					},
 					options.connectionId,
 				),
-			),
-		);
+			)),
+		}));
 
 		// Partial project discovery means some projects' issues are missing from this page; propagate it so the
 		// page reports fetchFailed even when every discovered project's own read succeeded.
@@ -3125,13 +3435,17 @@ export class IntegrationService implements Disposable {
 		// project completely.
 		let projectTruncated = projectDiscoveryTruncated;
 		let drainMetadata: CollectionMetadata | undefined;
-		for (const { value: result, warning } of perProject) {
+		for (const { project, value: result, warning } of perProject) {
+			const projectKey = retryKeyForProject(project);
+			const retryProject = result == null;
 			if (warning != null) {
 				warnings.push(warning);
+				fetchFailed = true;
+				projectTruncated = true;
 			}
 			// A thrown/unsupported read (e.g. Linear not-implemented) surfaces as a warning with no value;
 			// mark the aggregate as fetchFailed so an empty result isn't mistaken for "no issues".
-			if (warning != null && result == null) {
+			if (result == null) {
 				fetchFailed = true;
 			}
 			if (result != null) {
@@ -3142,6 +3456,15 @@ export class IntegrationService implements Disposable {
 				if (result.metadata != null) {
 					drainMetadata = mergeCollectionMetadata(drainMetadata, result.metadata);
 				}
+			}
+			if (retryProject) {
+				retryProjectKeys.add(projectKey);
+				completedProjectKeys.delete(projectKey);
+			} else {
+				// A usable partial/truncated project is emitted once and remains structurally incomplete.
+				// Re-running the same project cursor would normally return the same prefix and duplicate it
+				// across facade pages; only a project that returned no value is safe to retry automatically.
+				completedProjectKeys.add(projectKey);
 			}
 		}
 
@@ -3169,13 +3492,29 @@ export class IntegrationService implements Disposable {
 			});
 		}
 
+		const retryPages = retryWindowPages();
+		const cursor = toIssueTrackerPageCursor({
+			currentPage: page + 1,
+			unpaged: !paginated,
+			nextPage: nextPage,
+			retryPages: retryPages,
+			retryProjects: [...retryProjectKeys],
+			completedProjects:
+				(trackCompletedProjects ||
+					projectDiscoveryFailed ||
+					projectDiscoveryTruncated ||
+					retryProjectKeys.size > 0) &&
+				(retryPages.length > 0 || nextPage != null)
+					? [...completedProjectKeys]
+					: [],
+		});
 		return {
 			items: items,
 			warnings: warnings,
 			page: { currentPage: page, itemsPerPage: items.length, truncated: projectTruncated || undefined },
-			hasMore: moreProjectWindows,
-			// Thread the next project window as a page cursor so the caller can advance; omitted when done.
-			cursor: moreProjectWindows ? toPageCursor(page + 1) : undefined,
+			// Failed-project retries alone are manual. Only an untouched project window is automatic progress.
+			hasMore: nextPage != null && cursor != null,
+			cursor: cursor,
 			fetchFailed: fetchFailed || undefined,
 		};
 	}
@@ -3205,13 +3544,14 @@ export class IntegrationService implements Disposable {
 		failedProvider: boolean;
 	}> {
 		const items: ProviderPullRequest[] = [];
-		const itemIndexByUrl = new Map<string, number>();
+		const itemIndexByIdentity = new Map<string, number>();
 		const warnings: ProviderWarning[] = [];
 		let cursor: string | undefined;
 		let page = 0;
 		// SDK metadata failures across pages mean the collection is incomplete even when no page threw; carry
 		// this through the terminal returns instead of resetting it to false at the last page.
 		let fetchFailed = false;
+		let truncated = false;
 
 		// With no repos this is an account-wide "my PRs" sweep. The repo-scoped core rejects an empty `repos`
 		// input, so read the provider-native account-wide core instead.
@@ -3243,7 +3583,11 @@ export class IntegrationService implements Disposable {
 				appendDedupedWarning(warnings, warning);
 			}
 			if (value == null) {
-				const unavailable = warning == null && attributeUnavailableProvider;
+				// An implicit sweep may silently skip a provider that has no session before it yields data.
+				// Once a page has been returned, however, losing that session leaves an unread tail and must
+				// be attributed even when the provider wasn't explicitly requested.
+				const sessionLostAfterProgress = warning == null && page > 1;
+				const unavailable = warning == null && (attributeUnavailableProvider || sessionLostAfterProgress);
 				if (unavailable) {
 					appendDedupedWarning(warnings, this.noConnectionWarning(id, domain, connectionId));
 				}
@@ -3252,7 +3596,7 @@ export class IntegrationService implements Disposable {
 					items: items,
 					warnings: warnings,
 					fetchFailed: fetchFailed || warning != null || unavailable,
-					truncated: false,
+					truncated: truncated || sessionLostAfterProgress,
 					// Only a top-level first-page rejection means the provider itself failed. A later-page or
 					// per-scope failure still yielded a usable provider slice and stays represented separately.
 					failedProvider: page === 1 && (warning != null || unavailable),
@@ -3262,16 +3606,18 @@ export class IntegrationService implements Disposable {
 			// Composite account-wide queries can surface the same PR on different relationship/state pages
 			// (for example authored + review-requested, or closed + merged). Keep the first stable position but
 			// replace its value with the latest representation so a later, richer merged state wins. A provider
-			// row without a canonical URL is retained: collapsing unrelated incomplete rows would lose data.
+			// row without a canonical URL falls back to repository-scoped identity; a row with neither stays
+			// unkeyed and is retained so unrelated incomplete rows are never collapsed.
 			for (const pullRequest of value.values) {
-				if (pullRequest.url == null || pullRequest.url === '') {
+				const identity = getProviderPullRequestIdentity(pullRequest);
+				if (identity == null) {
 					items.push(pullRequest);
 					continue;
 				}
 
-				const existingIndex = itemIndexByUrl.get(pullRequest.url);
+				const existingIndex = itemIndexByIdentity.get(identity);
 				if (existingIndex == null) {
-					itemIndexByUrl.set(pullRequest.url, items.length);
+					itemIndexByIdentity.set(identity, items.length);
 					items.push(pullRequest);
 				} else {
 					items[existingIndex] = pullRequest;
@@ -3282,22 +3628,19 @@ export class IntegrationService implements Disposable {
 			// whether a structured failure or incompleteness occurred.
 			const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata);
 			fetchFailed = fetchFailed || assessment.fetchFailed;
+			const pageTruncated =
+				(value as { truncated?: boolean }).truncated === true ||
+				value.paging?.truncated === true ||
+				assessment.truncated;
+			truncated = truncated || pageTruncated;
+			if (pageTruncated && !assessment.truncated) {
+				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Pull request'));
+			}
 
 			if (!(value.paging?.more ?? false)) {
 				// A read that can't confirm completeness (single-page provider reads with no `hasNextPage`)
 				// sets `paging.truncated`; propagate it (and any top-level `truncated` and SDK incompleteness)
 				// so the sweep doesn't claim an all-pages result.
-				const truncated =
-					(value as { truncated?: boolean }).truncated ??
-					value.paging?.truncated ??
-					assessment.truncated ??
-					false;
-				// Only emit the generic truncation warning when the assessment didn't already add a warning for the
-				// truncation (structured failures or the generic incompleteness warning). Adding it unconditionally
-				// duplicates the same failure signal.
-				if (truncated && !assessment.truncated) {
-					appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Pull request'));
-				}
 				return {
 					items: items,
 					warnings: warnings,
@@ -3356,45 +3699,52 @@ export class IntegrationService implements Disposable {
 		const repos: ProviderRepository[] = [];
 		const warnings: ProviderWarning[] = [];
 		let fetchFailed = false;
-		let metadataTruncated = false;
+		let truncated = false;
 		let cursor: string | undefined;
 		let page = 0;
 
 		for (;;) {
 			page++;
 			const pageCursor = cursor;
-			const { value, warning } = await this.runCaptured(id, domain, connectionId, () =>
-				integration.getRepositoriesForOrgResult(org, {
-					project: project,
-					cursor: pageCursor,
-					connectionId: connectionId,
-				}),
+			const { value, warning } = await this.runCaptured(
+				id,
+				domain,
+				connectionId,
+				() =>
+					integration.getRepositoriesForOrgResult(org, {
+						project: project,
+						cursor: pageCursor,
+						connectionId: connectionId,
+					}),
+				{ warnOnMissingSession: true },
 			);
 			if (warning != null) {
 				warnings.push(warning);
 			}
 			if (value == null) {
+				const interruptedAfterProgress = page > 1;
+				if (interruptedAfterProgress && warning == null) {
+					appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Repository'));
+				}
 				return {
 					repos: repos,
 					warnings: warnings,
-					fetchFailed: fetchFailed || warning != null,
-					truncated: metadataTruncated,
+					fetchFailed: fetchFailed || warning != null || interruptedAfterProgress,
+					truncated: truncated || interruptedAfterProgress,
 				};
 			}
 
 			repos.push(...value.values);
 			const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata);
 			fetchFailed = fetchFailed || assessment.fetchFailed;
-			metadataTruncated = metadataTruncated || assessment.truncated;
+			truncated =
+				truncated || value.truncated === true || value.paging?.truncated === true || assessment.truncated;
 			if (!(value.paging?.more ?? false)) {
-				// Honor both the top-level `ProviderHierarchyResult.truncated` (the org-hierarchy backstop hit
-				// its own page cap) and `paging.truncated` (a single-page read that couldn't confirm it was
-				// complete); either means repos may be missing and this org isn't fully drained.
 				return {
 					repos: repos,
 					warnings: warnings,
 					fetchFailed: fetchFailed,
-					truncated: (value.truncated ?? value.paging?.truncated ?? false) || metadataTruncated,
+					truncated: truncated,
 				};
 			}
 			if (page >= maxPages) {
@@ -3626,7 +3976,9 @@ export class IntegrationService implements Disposable {
 	 * Broadens the user's issues by fanning out over the supplied orgs: for each org it lists the org's
 	 * repositories, then reads that org's issues. A per-org failure becomes a warning without failing the
 	 * whole fan-out. `broadenedProviderIds` lists the distinct providers whose issue read resolved (even
-	 * if every issue duplicated a baseline), and `fanOutCount` is the number of org work items spawned.
+	 * if every issue duplicated a baseline). `failedProviderIds` identifies providers with no usable org;
+	 * `incompleteProviderIds` identifies providers with both a usable org and a failed/truncated sibling.
+	 * `fanOutCount` is the number of org work items spawned.
 	 * Each org may carry its own `connectionId` (and, for a self-managed host with no configured connection, its
 	 * own `domain`) to target a specific account — the fan-out spans providers, so the target is scoped per org
 	 * rather than globally.
@@ -3647,6 +3999,27 @@ export class IntegrationService implements Disposable {
 			let previous: ProviderBroadenResult<IssueShape> | undefined;
 			const traversalWarnings: ProviderWarning[] = [];
 			const broadenedProviderIds = new Set<IntegrationIds>();
+			const failedProviderIds = new Set<IntegrationIds>();
+			const incompleteProviderIds = new Set<IntegrationIds>();
+			const mergeProviderAttribution = (result: ProviderBroadenResult<IssueShape>): void => {
+				for (const providerId of result.failedProviderIds) {
+					if (broadenedProviderIds.has(providerId) || result.broadenedProviderIds.includes(providerId)) {
+						incompleteProviderIds.add(providerId);
+					} else {
+						failedProviderIds.add(providerId);
+					}
+				}
+				for (const providerId of result.incompleteProviderIds) {
+					failedProviderIds.delete(providerId);
+					incompleteProviderIds.add(providerId);
+				}
+				for (const providerId of result.broadenedProviderIds) {
+					broadenedProviderIds.add(providerId);
+					if (failedProviderIds.delete(providerId)) {
+						incompleteProviderIds.add(providerId);
+					}
+				}
+			};
 			let traversalFetchFailed = false;
 			let traversalTruncated = false;
 			for (let currentPage = 1; currentPage < page; currentPage++) {
@@ -3660,9 +4033,7 @@ export class IntegrationService implements Disposable {
 				for (const warning of previous.warnings) {
 					appendDedupedWarning(traversalWarnings, warning);
 				}
-				for (const providerId of previous.broadenedProviderIds) {
-					broadenedProviderIds.add(providerId);
-				}
+				mergeProviderAttribution(previous);
 				traversalFetchFailed ||= previous.fetchFailed === true;
 				traversalTruncated ||= previous.page.truncated === true;
 				if (!previous.hasMore || previous.cursor == null) {
@@ -3677,6 +4048,8 @@ export class IntegrationService implements Disposable {
 						hasMore: false,
 						fetchFailed: traversalFetchFailed || undefined,
 						broadenedProviderIds: [...broadenedProviderIds],
+						failedProviderIds: [...failedProviderIds],
+						incompleteProviderIds: [...incompleteProviderIds],
 						fanOutCount: options.orgs.length,
 					};
 				}
@@ -3688,9 +4061,7 @@ export class IntegrationService implements Disposable {
 			for (const warning of requested.warnings) {
 				appendDedupedWarning(traversalWarnings, warning);
 			}
-			for (const providerId of requested.broadenedProviderIds) {
-				broadenedProviderIds.add(providerId);
-			}
+			mergeProviderAttribution(requested);
 			return {
 				...requested,
 				warnings: traversalWarnings,
@@ -3700,6 +4071,8 @@ export class IntegrationService implements Disposable {
 				},
 				fetchFailed: traversalFetchFailed || requested.fetchFailed === true || undefined,
 				broadenedProviderIds: [...broadenedProviderIds],
+				failedProviderIds: [...failedProviderIds],
+				incompleteProviderIds: [...incompleteProviderIds],
 			};
 		}
 
@@ -3736,10 +4109,13 @@ export class IntegrationService implements Disposable {
 				// A requested connection or domain that can't be resolved is a broken target — surface it as a
 				// warning + fetchFailed rather than dropping the org silently.
 				const early = this.earlyReturnConnectionWarnings(org.providerId, connectionId, requestedDomain);
-				if (early.warnings.length === 0) return undefined;
+				const warnings =
+					early.warnings.length > 0
+						? early.warnings
+						: [this.noConnectionWarning(org.providerId, requestedDomain, connectionId)];
 				return {
 					items: [] as IssueShape[],
-					warnings: early.warnings,
+					warnings: warnings,
 					broadenedProviderIds: [] as IntegrationIds[],
 					providerId: org.providerId,
 					org: org.name,
@@ -3871,7 +4247,7 @@ export class IntegrationService implements Disposable {
 						},
 						connectionId,
 					),
-				{ warnOnMissingSession: this.warnOnMissingSessionForDomain(org.providerId, requestedDomain) },
+				{ warnOnMissingSession: true },
 			);
 			if (issuesCaptured.warning != null) {
 				warnings.push(issuesCaptured.warning);
@@ -3883,7 +4259,7 @@ export class IntegrationService implements Disposable {
 				connectionId,
 				issuesCaptured.value?.metadata,
 			);
-			const issuesFetchFailed =
+			let issuesFetchFailed =
 				issuesAssessment.fetchFailed || (issuesCaptured.warning != null && issuesCaptured.value == null);
 			const items: IssueShape[] = [];
 			let hasMore = false;
@@ -3904,14 +4280,27 @@ export class IntegrationService implements Disposable {
 				hasMore = continuation.hasMore;
 				nextCursor = continuation.cursor;
 				issuesTruncated = continuation.truncated || issuesAssessment.truncated;
-			} else if (issuesCaptured.warning != null) {
+			} else if (issuesCaptured.warning != null || cursor != null) {
 				// Keep the exact position that failed. Without this retry cursor a multi-org continuation would
 				// omit this org from the bundle, then synthesize the next numbered page and silently skip the
 				// failed page. The synthesized page cursor is also actionable for a first-page cursor-only read:
-				// that provider ignores the page marker and retries its first page.
-				hasMore = true;
+				// that provider ignores the page marker and retries its first page. A retry slot alone is NOT
+				// forward progress, though: advertising `hasMore` for a persistent failure would make an infinite
+				// query request it forever. Healthy sibling continuations set `hasMore` independently.
 				if (cursor != null) {
 					nextCursor = cursor;
+					if (issuesCaptured.warning == null) {
+						appendDedupedWarning(warnings, {
+							providerId: org.providerId,
+							domain: domain,
+							connectionId: connectionId,
+							message: 'Issue continuation returned no result and must be retried',
+							kind: 'other',
+							isAuth: false,
+						});
+						issuesFetchFailed = true;
+						issuesTruncated = true;
+					}
 				} else {
 					retryPage = page;
 				}
@@ -3939,6 +4328,7 @@ export class IntegrationService implements Disposable {
 		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
 		const broadenedProviderIds = new Set<IntegrationIds>();
+		const problemProviderIds = new Set<IntegrationIds>();
 		const cursors: {
 			providerId: IntegrationIds;
 			org: string;
@@ -3989,9 +4379,21 @@ export class IntegrationService implements Disposable {
 			if (result.truncated) {
 				truncated = true;
 			}
+			if (result.fetchFailed || result.truncated) {
+				problemProviderIds.add(result.providerId);
+			}
 		}
 
 		const cursor = this.toBroadenIssuesCursor(cursors, exhausted, options.orgs.length);
+		const failedProviderIds: IntegrationIds[] = [];
+		const incompleteProviderIds: IntegrationIds[] = [];
+		for (const providerId of problemProviderIds) {
+			if (broadenedProviderIds.has(providerId)) {
+				incompleteProviderIds.push(providerId);
+			} else {
+				failedProviderIds.push(providerId);
+			}
+		}
 		return {
 			items: items,
 			warnings: warnings,
@@ -4008,6 +4410,8 @@ export class IntegrationService implements Disposable {
 			cursor: cursor,
 			fetchFailed: fetchFailed || undefined,
 			broadenedProviderIds: [...broadenedProviderIds],
+			failedProviderIds: failedProviderIds,
+			incompleteProviderIds: incompleteProviderIds,
 			fanOutCount: options.orgs.length,
 		};
 	}
@@ -4060,8 +4464,8 @@ export class IntegrationService implements Disposable {
 	/**
 	 * Resolves a repository from a remote URL to its provider identity, using core-gitlens' remote matcher
 	 * plus the provider's `getRepo` (the equivalent of `gk repo resolve`). Supports every provider whose
-	 * client exposes `getRepo`. Per-request outcomes preserve the distinctions Kepler needs for its
-	 * canonicalization policy; `cliUnsupported` remains false because this resolver operation is available.
+	 * client exposes `getRepo`. Per-request outcomes preserve the distinctions consumers need for their
+	 * canonicalization policy.
 	 */
 	async resolveRepository(options: {
 		providerId?: IntegrationIds;
@@ -4077,10 +4481,35 @@ export class IntegrationService implements Disposable {
 	}): Promise<ResolveRepositoryResult> {
 		const result = (status: RepositoryResolution['status']): ResolveRepositoryResult => ({
 			resolution: { status: status },
-			cliUnsupported: false,
 		});
 
 		const [scheme, parsedDomain, path] = parseGitRemoteUrl(options.remoteUrl);
+		const parsedHost = hostFromDomain(parsedDomain);
+		const explicitHost = hostFromDomain(options.host);
+		if (parsedHost != null && explicitHost != null && parsedHost !== explicitHost) {
+			return result('host-mismatch');
+		}
+
+		const matcherDomain = parsedDomain || options.host || '';
+
+		// An explicit cloud provider must agree with the remote's canonical cloud host. Without this guard the
+		// synthetic matcher below can reinterpret, for example, a gitlab.com URL as GitHub and then resolve a
+		// homonymous owner/repo through the wrong account. Match once without caller configs/synthetic entries;
+		// Azure's matcher also normalizes ssh.dev.azure.com and vs-ssh.visualstudio.com to their web host.
+		if (options.providerId != null && isGitCloudHostIntegrationId(options.providerId)) {
+			const nativeProvider = createRemoteProviderMatcher([])(options.remoteUrl, matcherDomain, path, scheme);
+			const nativeId = nativeProvider != null ? getIntegrationIdForRemote(nativeProvider) : undefined;
+			const nativeDomain = nativeProvider?.domain ?? matcherDomain;
+			const canonicalHost =
+				options.providerId === GitCloudHostIntegrationId.GitHub
+					? isGitHubDotCom(nativeDomain)
+					: options.providerId === GitCloudHostIntegrationId.GitLab
+						? isGitLabDotCom(nativeDomain)
+						: options.providerId === GitCloudHostIntegrationId.Bitbucket
+							? isBitbucketCloudDomain(nativeDomain)
+							: isAzureCloudDomain(nativeDomain);
+			if (nativeId !== options.providerId || !canonicalHost) return result('host-mismatch');
+		}
 
 		// Matcher configs: host remote configs (self-managed/custom domains) plus a synthetic entry for an
 		// explicit providerId + host, so a custom domain still maps to the right provider for path parsing.
@@ -4099,7 +4528,7 @@ export class IntegrationService implements Disposable {
 		}
 		if (options.providerId != null) {
 			const type = this.remoteProviderTypeForIntegration(options.providerId);
-			const domain = options.host ?? parsedDomain;
+			const domain = parsedDomain || options.host;
 			if (type != null && domain) {
 				// The synthetic exact-domain entry is unshifted to the front, so it wins the match over the
 				// user's own config for the same host. Carry that config's protocol override across (matched by
@@ -4125,7 +4554,6 @@ export class IntegrationService implements Disposable {
 			}
 		}
 
-		const matcherDomain = options.host ?? parsedDomain;
 		const provider = createRemoteProviderMatcher(configs)(options.remoteUrl, matcherDomain, path, scheme);
 		if (provider == null) return result('invalid-remote-url');
 
@@ -4191,7 +4619,6 @@ export class IntegrationService implements Disposable {
 					status: 'unauthorized',
 					warning: this.noConnectionWarning(id, provider.domain, options.connectionId),
 				},
-				cliUnsupported: false,
 			};
 		}
 		// Issue trackers have no `getRepo` client; a git host without `getRepoFn` leaves `getRepoInfo`
@@ -4227,7 +4654,6 @@ export class IntegrationService implements Disposable {
 						status: 'unauthorized',
 						warning: this.noConnectionWarning(id, domain, options.connectionId),
 					},
-					cliUnsupported: false,
 				};
 			}
 
@@ -4251,7 +4677,7 @@ export class IntegrationService implements Disposable {
 				remoteUrl: options.remoteUrl,
 				renamed: renamed,
 			};
-			return { resolution: { status: 'resolved', identity: identity }, cliUnsupported: false };
+			return { resolution: { status: 'resolved', identity: identity } };
 		} catch (ex) {
 			// Order matters: 404 throws RequestNotFoundError (not `undefined`), so check not-found before auth
 			// and before the generic 5xx/unknown bucket — never classify a 401/403 as not-found.
@@ -4269,7 +4695,7 @@ export class IntegrationService implements Disposable {
 					warning: toProviderWarning(id, domain, options.connectionId, ex),
 				};
 			}
-			return { resolution: resolution, cliUnsupported: false };
+			return { resolution: resolution };
 		}
 	}
 

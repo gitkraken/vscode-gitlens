@@ -32,23 +32,28 @@ models, and the provider clients are deliberately **not** on the facade: they ch
 ## 2. Building the runtime
 
 `createIntegrationManager(ctx)` takes one argument: an `IntegrationManagerContext`. It is the **single**
-cross-boundary contract — the package never imports `vscode` and has no ambient globals. The full GitLens
-extension host can continue to pass its `IntegrationServiceContext`; it is structurally compatible.
+cross-boundary contract — the package never imports `vscode` and has no ambient globals. The extension host's
+broader `IntegrationServiceContext` is internal and is not part of the published facade.
 
-| Provider       | Required | What it must do                                                                                                                                                    |
-| -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `storage`      | yes      | Global + workspace key/value, plus a secret store (tokens land here).                                                                                              |
-| `account`      | yes      | The GitKraken account and the GK-cloud connect/manage round-trips. Return `undefined` from `getAccount` if you don't use GK cloud (see below).                     |
-| `config`       | yes      | `getRemoteConfigs()` (self-managed hosts, SSL/protocol overrides), launchpad knobs, a change event.                                                                |
-| `http`         | yes      | `fetch` + `wrapForForcedInsecureSSL` + `isWeb` + a User-Agent string.                                                                                              |
-| `cache`        | no       | Cross-call cache. Omit it for correct uncached reads. A long-lived consumer should implement `getCurrentAccount` caching to deduplicate provider identity lookups. |
-| `repositories` | yes      | `getOpenRemotes()`; used only by the "across open repos" helpers. `async () => []` is fine.                                                                        |
-| `hooks`        | no       | Auth strategy override, reauth/disconnect prompts, outbound behavioral events.                                                                                     |
+| Provider       | Required | What it must do                                                                                                                                                                                  |
+| -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `storage`      | yes      | Global + workspace key/value, plus a secret store (tokens land here).                                                                                                                            |
+| `account`      | yes      | The GitKraken account and the GK-cloud connect/manage round-trips. Return `undefined` from `getAccount` if you don't use GK cloud (see below).                                                   |
+| `config`       | yes      | `getRemoteConfigs()` (self-managed hosts, SSL/protocol overrides), launchpad knobs, a change event.                                                                                              |
+| `http`         | yes      | `fetch` + `wrapForForcedInsecureSSL` + `isWeb` + a User-Agent string.                                                                                                                            |
+| `cache`        | no       | `IntegrationManagerCacheProvider`, whose only method is `getCurrentAccount`. Omit it for correct uncached reads; implement it for a long-lived manager to deduplicate provider identity lookups. |
+| `repositories` | yes      | `getOpenRemotes()`; used only by the "across open repos" helpers. `async () => []` is fine.                                                                                                      |
+| `hooks`        | no       | Auth strategy override, reauth/disconnect prompts, outbound behavioral events.                                                                                                                   |
 
 A complete, type-checked, dependency-free example (including the optional-cache path) lives in
 [`tests/fixtures/integrations-consumer/src/consumer.test.ts`](https://github.com/gitkraken/vscode-gitlens/blob/core/tests/fixtures/integrations-consumer/src/consumer.test.ts).
 It runs against the packed artifact in CI, so it catches missing exports as well as source-level mistakes:
 use that file's `buildRuntime()` as your starting point.
+
+The cache callback receives only `{ id, domain }`, a loader, and cache controls (`connectionId`, `etag`,
+expiry). It never exposes GitLens' internal `IntegrationBase` / `GitHostIntegration` classes or requires
+stubs for unrelated repository, pull-request, or issue caches. The fixture uses the package's public
+`PromiseCache` utility, but any cache with the same behavior is valid.
 
 ### Authentication
 
@@ -88,6 +93,10 @@ Three knobs, in precedence order, select **which account and which host** a read
 | `connectionId` | A specific connection from `getConfigured()`. Wins over everything. An unresolvable one is a `no-connection` warning + `fetchFailed`, never an empty result. |
 | `domain`       | Fallback host for a self-managed provider with no configured connection (manual-token/external auth).                                                        |
 | neither        | The provider's primary connection; for a self-managed provider, the primary configured host.                                                                 |
+
+An explicitly supplied `connectionId` or `domain` must be non-empty; whitespace does not fall back to the
+primary account. For `listOrgs` and `listProjects`, either selector also requires `providerId` because it
+cannot be applied unambiguously to a cross-provider fan-out.
 
 `domain` **must** come from your trusted authentication configuration, never from repository or remote data:
 it selects which credentials a read uses, and `resolveRepository` deliberately refuses to resolve a
@@ -182,13 +191,13 @@ Conversely, `other` is intentionally not a complete failure taxonomy. Treat `mes
 text rather than a stable protocol; use `fetchFailed`, `page.truncated`, and `page.allPages` for completeness
 and keep unknown failures conservative.
 
-| Flag                    | Says                                                                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `fetchFailed`           | `items` is incomplete because something failed. Distinguishes failure from empty.                                         |
-| `page.truncated`        | The read completed but couldn't confirm it had everything (provider cap, `maxPages` backstop, or a missing continuation). |
-| `page.allPages`         | Sweeps only: `true` iff every page of every target drained cleanly.                                                       |
-| `failedProviderIds`     | Sweeps only: providers whose top-level read failed before any usable page.                                                |
-| `incompleteProviderIds` | Sweeps only: providers that returned a usable but non-authoritative slice (later-page, partial-scope, or truncated read). |
+| Flag                    | Says                                                                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fetchFailed`           | `items` is incomplete because a scope failed, or because a flat hierarchy read was truncated. Distinguishes this from a genuine empty result. |
+| `page.truncated`        | The read completed but couldn't confirm it had everything (provider cap, `maxPages` backstop, or a missing continuation).                     |
+| `page.allPages`         | Sweeps only: `true` iff every page of every target drained cleanly.                                                                           |
+| `failedProviderIds`     | Sweeps/broadens: providers whose requested scopes produced no usable result.                                                                  |
+| `incompleteProviderIds` | Sweeps/broadens: providers with a usable result plus a failed, partial, or truncated sibling scope.                                           |
 
 `resolveRepository` reports through `resolution.status` instead: `resolved` · `not-found` · `unauthorized` ·
 `unsupported-provider` · `invalid-remote-url` · `host-mismatch` · `undetermined`. A `resolved` identity
@@ -304,8 +313,10 @@ Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Aut
   Trello's issue `id` is the card's `idShort` — unique per board only, so correlate across boards by
   `nodeId`. For Trello, boards are both the resource and the project, so `listOrgs` and `listProjects`
   return the same set; Linear's resource is the organization and its projects are teams.
-  The project window is positional over the discovered project list, so a page whose project discovery came
-  back partial (`fetchFailed`) shifts the following windows — restart the read rather than paging on from it.
+  Thread the returned cursor verbatim: it can combine the next untouched project window with discovery/project
+  retries, preserve a caller's aggregate-all mode, and suppress projects already emitted before discovery
+  recovered. `hasMore` reports only untouched forward progress. A cursor can therefore remain with
+  `hasMore: false`; reusing it is an explicit manual retry of failed work, not a normal paging loop.
 
 The same warning holds for `IssueShape.id` generally: it's the provider's **display** number/key (rendered
 as `#{id}`, used for branch names). `nodeId` is the stable provider-native id, but its uniqueness scope is

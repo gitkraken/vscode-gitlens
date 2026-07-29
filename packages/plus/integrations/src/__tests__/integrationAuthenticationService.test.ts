@@ -70,4 +70,22 @@ suite('IntegrationAuthenticationService.supports (#5438)', () => {
 		assert.equal(session?.appKey, 'trello-app-key');
 		provider.dispose();
 	});
+
+	test('manual token auth rejects a specific connection selector', async () => {
+		const provider = createManualTokenAuthProvider({
+			id: GitCloudHostIntegrationId.GitHub,
+			token: 'tok',
+			account: { id: 'me', label: 'CLI Token' },
+			domain: 'github.com',
+		});
+
+		const session = await provider.getSession({
+			domain: 'github.com',
+			scopes: [],
+			connectionId: 'invented-connection',
+		});
+
+		assert.equal(session, undefined);
+		provider.dispose();
+	});
 });

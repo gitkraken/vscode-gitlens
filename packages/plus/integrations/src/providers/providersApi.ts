@@ -68,7 +68,12 @@ import type {
 	PullRequestFilter,
 } from './models.js';
 import { providersMetadata } from './models.js';
-import { collectProviderPagedResult } from './utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	mergeCollectionMetadata,
+	parsePageCursor,
+	toPageCursor,
+} from './utils/providerPaging.js';
 
 // `@gitkraken/provider-apis` is published as CommonJS with its factory on the `default` export.
 // How that surfaces depends on the consuming bundler's CJS->ESM interop: esbuild yields the
@@ -276,6 +281,9 @@ export class ProvidersApi {
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
+				getGitLabPullRequestsForUserAssociationFn: providerApis.gitlab.getPullRequestsForUser.bind(
+					providerApis.gitlab,
+				),
 				getIssueFn: providerApis.gitlab.getIssue.bind(providerApis.gitlab) as GetIssueFn,
 				getIssuesForReposFn: providerApis.gitlab.getIssuesForRepos.bind(
 					providerApis.gitlab,
@@ -300,6 +308,9 @@ export class ProvidersApi {
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
+				getGitLabPullRequestsForUserAssociationFn: providerApis.gitlab.getPullRequestsForUser.bind(
+					providerApis.gitlab,
+				),
 				getIssueFn: providerApis.gitlab.getIssue.bind(providerApis.gitlab) as GetIssueFn,
 				getIssuesForReposFn: providerApis.gitlab.getIssuesForRepos.bind(
 					providerApis.gitlab,
@@ -412,6 +423,7 @@ export class ProvidersApi {
 					providerApis.jira,
 				),
 				getJiraProjectsForResourcesFn: providerApis.jira.getJiraProjectsForResources.bind(providerApis.jira),
+				getJiraProjectsForResourceFn: providerApis.jira.getJiraProjectsForResource.bind(providerApis.jira),
 				getIssueFn: providerApis.jira.getIssue.bind(providerApis.jira) as GetIssueFn,
 				getIssuesForProjectFn: providerApis.jira.getIssuesForProject.bind(providerApis.jira),
 				getIssuesForResourceForCurrentUserFn: providerApis.jira.getIssuesForResourceForCurrentUser.bind(
@@ -640,7 +652,15 @@ export class ProvidersApi {
 				baseUrl: baseUrl,
 			});
 			if (result == null) {
-				return { values: [] };
+				const continuationWasRequested =
+					(cursor != null && cursor !== '{}') || (requestedPage != null && requestedPage > 1);
+				return continuationWasRequested
+					? {
+							values: [],
+							paging: { cursor: '{}', more: false, truncated: true },
+							metadata: { completeness: 'partial' },
+						}
+					: { values: [] };
 			}
 
 			const pageInfo = result.pageInfo;
@@ -652,18 +672,24 @@ export class ProvidersApi {
 			} else if (pageInfo?.nextPage != null) {
 				nextCursor = JSON.stringify({ value: pageInfo.nextPage, type: 'page' });
 			}
+			const continuationBroken = hasMore && (nextCursor === '{}' || nextCursor === cursor);
+			const normalizedMetadata = mergeCollectionMetadata(
+				result.metadata,
+				continuationBroken ? { completeness: 'partial' } : undefined,
+			);
 
 			// SDK collection completeness is independent from provider-native pagination: a result can expose a
 			// real next page (`more`) and still have a failed sibling scope (`partial`/`unknown`). Surface the
 			// latter as `truncated` so consumers treat the page as incomplete. Absent metadata (old providers,
 			// test doubles) leaves `truncated` unset for backward compatibility.
-			const truncated = result.metadata != null && result.metadata.completeness !== 'complete' ? true : undefined;
+			const truncated =
+				normalizedMetadata != null && normalizedMetadata.completeness !== 'complete' ? true : undefined;
 
 			return {
 				values: result.data,
 				paging: {
 					cursor: nextCursor,
-					more: hasMore,
+					more: hasMore && !continuationBroken,
 					truncated: truncated,
 					// Numbered-page metadata; left undefined by cursor-based providers (which don't report a
 					// currentPage), so we never echo the requested page for a provider that ignored it.
@@ -673,7 +699,7 @@ export class ProvidersApi {
 					totalPages: pageInfo?.totalPages ?? undefined,
 					totalCount: pageInfo?.totalCount ?? undefined,
 				},
-				metadata: result.metadata,
+				metadata: normalizedMetadata,
 			};
 		} catch (e) {
 			return this.handleProviderError<ProviderApiPagedResult<T>>(tokenWithInfo, e);
@@ -911,43 +937,43 @@ export class ProvidersApi {
 		);
 		const token = tokenWithInfo.accessToken;
 
-		try {
-			// Drain every workspace page (numbered): the SDK returns 50 per page, and a user in more than one
-			// page of workspaces would otherwise silently lose the rest (with them, their orgs/PRs). Bounded by
-			// a defensive backstop.
-			const maxPages = 20;
-			const workspaces: ProviderBitbucketResource[] = [];
-			let page: number | undefined;
-			let truncated = false;
-			for (let i = 0; i < maxPages; i++) {
-				const result = await provider.getBitbucketResourcesForCurrentUserFn?.({ page: page }, { token: token });
-				if (result == null) {
-					return i === 0
-						? undefined
-						: {
-								values: workspaces,
-								paging: { cursor: '{}', more: false, ...(truncated ? { truncated: true } : {}) },
-							};
-				}
+		// Drain every workspace page (numbered): the SDK returns 50 per page, and a user in more than one page
+		// of workspaces would otherwise silently lose the rest (with them, their orgs/PRs). A scoped drain keeps
+		// a successful prefix plus structured failure metadata when a later page fails.
+		const result = await collectProviderPagedResult(
+			async cursor => {
+				try {
+					const page = parsePageCursor(cursor);
+					const response = await provider.getBitbucketResourcesForCurrentUserFn?.(
+						{ page: page },
+						{ token: token },
+					);
+					if (response == null) return undefined;
 
-				workspaces.push(...result.data);
-				if (!result.pageInfo?.hasNextPage || result.pageInfo.nextPage == null) break;
-
-				page = result.pageInfo.nextPage;
-				if (i === maxPages - 1) {
-					truncated = true;
+					const hasMore = response.pageInfo?.hasNextPage === true;
+					const nextPage = response.pageInfo?.nextPage;
+					return {
+						values: response.data,
+						paging: {
+							more: hasMore,
+							cursor: hasMore && nextPage != null ? toPageCursor(nextPage) : '{}',
+						},
+					};
+				} catch (ex) {
+					return this.handleProviderError<ProviderApiPagedResult<ProviderBitbucketResource>>(
+						tokenWithInfo,
+						ex,
+					);
 				}
-			}
-			return {
-				values: workspaces,
-				paging: { cursor: '{}', more: false, ...(truncated ? { truncated: true } : {}) },
-			};
-		} catch (e) {
-			return this.handleProviderError<ProviderApiPagedResult<ProviderBitbucketResource> | undefined>(
-				tokenWithInfo,
-				e,
-			);
-		}
+			},
+			20,
+			{ providerId: tokenWithInfo.providerId },
+		);
+		return {
+			values: result.values,
+			paging: { cursor: '{}', more: false, ...(result.truncated ? { truncated: true } : {}) },
+			...(result.metadata != null ? { metadata: result.metadata } : {}),
+		};
 	}
 
 	async getBitbucketPullRequestsAuthoredByUserForWorkspace(
@@ -1019,6 +1045,24 @@ export class ProvidersApi {
 		}
 	}
 
+	async getJiraProjectsForResource(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Jira>,
+		resourceId: string,
+		options?: { cursor?: string },
+	): Promise<ProviderApiPagedResult<ProviderJiraProject>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getJiraProjectsForResourceFn',
+		);
+
+		return this.getPagedResult(
+			{ resourceId: resourceId },
+			provider.getJiraProjectsForResourceFn,
+			tokenWithInfo,
+			options?.cursor,
+		);
+	}
+
 	async getAzureProjectsForResource(
 		tokenOptInfo: TokenWithInfo<
 			GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer
@@ -1085,19 +1129,26 @@ export class ProvidersApi {
 
 		// Drain all pages so a user in many orgs doesn't lose everything past the first page, while
 		// surfacing `truncated` when the defensive backstop stops before the listing is exhausted.
-		const result = await collectProviderPagedResult(cursor =>
-			this.getPagedResult<ProviderGitHubOrganization>(
-				{},
-				provider.getOrgsForCurrentUserFn,
-				tokenWithInfo,
-				cursor,
-				options?.isPAT,
-				options?.baseUrl,
-			),
+		const result = await collectProviderPagedResult(
+			cursor =>
+				this.getPagedResult<ProviderGitHubOrganization>(
+					{},
+					provider.getOrgsForCurrentUserFn,
+					tokenWithInfo,
+					cursor,
+					options?.isPAT,
+					options?.baseUrl,
+				),
+			20,
+			{ providerId: tokenWithInfo.providerId },
 		);
 		// This method drains internally and takes no cursor, so a backstop cursor isn't resumable by
 		// callers — keep only the truncation signal rather than exposing a misleading `paging`.
-		return { values: result.values, ...(result.truncated ? { truncated: true } : {}) };
+		return {
+			values: result.values,
+			...(result.truncated ? { truncated: true } : {}),
+			...(result.metadata != null ? { metadata: result.metadata } : {}),
+		};
 	}
 
 	async getReposForOrg(
@@ -1181,19 +1232,26 @@ export class ProvidersApi {
 
 		// Drain all pages so a user in many groups doesn't lose everything past the first page, while
 		// surfacing `truncated` when the defensive backstop stops before the listing is exhausted.
-		const result = await collectProviderPagedResult(cursor =>
-			this.getPagedResult<ProviderGitLabGroup>(
-				{ topLevelOnly: options?.topLevelOnly },
-				provider.getGroupsForCurrentUserFn,
-				tokenWithInfo,
-				cursor,
-				options?.isPAT,
-				options?.baseUrl,
-			),
+		const result = await collectProviderPagedResult(
+			cursor =>
+				this.getPagedResult<ProviderGitLabGroup>(
+					{ topLevelOnly: options?.topLevelOnly },
+					provider.getGroupsForCurrentUserFn,
+					tokenWithInfo,
+					cursor,
+					options?.isPAT,
+					options?.baseUrl,
+				),
+			20,
+			{ providerId: tokenWithInfo.providerId },
 		);
 		// This method drains internally and takes no cursor, so a backstop cursor isn't resumable by
 		// callers — keep only the truncation signal rather than exposing a misleading `paging`.
-		return { values: result.values, ...(result.truncated ? { truncated: true } : {}) };
+		return {
+			values: result.values,
+			...(result.truncated ? { truncated: true } : {}),
+			...(result.metadata != null ? { metadata: result.metadata } : {}),
+		};
 	}
 
 	async getPullRequestsForRepos(
@@ -1267,6 +1325,40 @@ export class ProvidersApi {
 				...options,
 			},
 			provider.getPullRequestsForUserFn,
+			tokenWithInfo,
+			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
+	}
+
+	async getGitLabPullRequestsForUserAssociation(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
+		>,
+		username: string,
+		association: 'assigned' | 'authored' | 'reviewRequested',
+		options?: {
+			isPAT?: boolean;
+			baseUrl?: string;
+			states?: GitPullRequestState[];
+			cursor?: string;
+			pageSize?: number;
+		},
+	): Promise<ProviderApiPagedResult<ProviderPullRequest>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getGitLabPullRequestsForUserAssociationFn',
+		);
+
+		return this.getPagedResult(
+			{
+				username: username,
+				association: association,
+				states: options?.states,
+				pageSize: options?.pageSize,
+			},
+			provider.getGitLabPullRequestsForUserAssociationFn,
 			tokenWithInfo,
 			options?.cursor,
 			options?.isPAT,

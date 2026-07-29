@@ -124,10 +124,41 @@ suite('resolveRepository (#5438)', () => {
 			const result = await manager.resolveRepository({ remoteUrl: c.url });
 			assert.equal(result.resolution.status, 'resolved', `${c.id} resolves`);
 			assert.equal(result.resolution.identity?.providerId, c.id);
-			assert.equal(result.cliUnsupported, false);
 
 			manager.dispose();
 		}
+	});
+
+	test('an explicit cloud provider cannot reinterpret another cloud host', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const github = await connect(manager, GitCloudHostIntegrationId.GitHub, 'github.com');
+		let repoReads = 0;
+		stubGetRepo(github, () => {
+			repoReads++;
+			return Promise.resolve(repoResult);
+		});
+
+		const result = await manager.resolveRepository({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			remoteUrl: 'https://gitlab.com/octocat/hello.git',
+		});
+
+		assert.equal(result.resolution.status, 'host-mismatch');
+		assert.equal(repoReads, 0, 'the wrong provider never receives the homonymous repository lookup');
+		manager.dispose();
+	});
+
+	test('an explicit host cannot override a different host already present in the remote URL', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+
+		const result = await manager.resolveRepository({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			host: 'ghe-a.example.com',
+			remoteUrl: 'https://ghe-b.example.com/octocat/hello.git',
+		});
+
+		assert.equal(result.resolution.status, 'host-mismatch');
+		manager.dispose();
 	});
 
 	test('builds the identity from the canonical provider response, marking a rename', async () => {
@@ -285,7 +316,6 @@ suite('resolveRepository (#5438)', () => {
 			remoteUrl: 'https://ghe-b.example.com/org/repo.git',
 		});
 		assert.equal(result.resolution.status, 'host-mismatch');
-		assert.equal(result.cliUnsupported, false);
 
 		manager.dispose();
 	});
@@ -356,16 +386,14 @@ suite('resolveRepository (#5438)', () => {
 			remoteUrl: 'https://github.com/octocat/hello.git',
 		});
 		assert.equal(result.resolution.status, 'unsupported-provider');
-		assert.equal(result.cliUnsupported, false);
 
 		manager.dispose();
 	});
 
-	test('an unparseable / unmatched URL is invalid without disabling the resolver capability', async () => {
+	test('an unparseable / unmatched URL is invalid', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const result = await manager.resolveRepository({ remoteUrl: 'not a url' });
 		assert.equal(result.resolution.status, 'invalid-remote-url');
-		assert.equal(result.cliUnsupported, false);
 
 		manager.dispose();
 	});

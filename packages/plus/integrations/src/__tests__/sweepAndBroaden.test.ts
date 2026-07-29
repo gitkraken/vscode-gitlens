@@ -167,6 +167,40 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('sweepPullRequests preserves truncation reported before the terminal page', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = () => {
+			calls += 1;
+			return Promise.resolve({
+				value: {
+					values: [providerPr(`pr-${calls}`)],
+					paging: calls === 1 ? { more: true, cursor: 'next' } : { more: false, cursor: '{}' },
+					metadata:
+						calls === 1
+							? { completeness: 'partial', failures: [] }
+							: { completeness: 'complete', failures: [] },
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+		});
+
+		assert.equal(calls, 2);
+		assert.equal(result.items.length, 2);
+		assert.equal(result.page.truncated, true);
+		assert.equal(result.page.allPages, false);
+
+		manager.dispose();
+	});
+
 	test('sweepPullRequests deduplicates a PR across pages and keeps its latest representation', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
@@ -201,6 +235,88 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(result.items.length, 1);
 		assert.equal(result.items[0].title, 'merged representation');
 		assert.equal(result.items[0].state, 'merged');
+
+		manager.dispose();
+	});
+
+	test('sweepPullRequests falls back to URL identity when repository metadata is absent', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = () => {
+			calls++;
+			const duplicate = providerPr('duplicate', {
+				url: 'https://example.com/pull/shared',
+				title: calls === 1 ? 'first representation' : 'latest representation',
+			});
+			(duplicate as unknown as { repository?: unknown }).repository = undefined;
+			return Promise.resolve({
+				value: {
+					values: [duplicate],
+					paging: calls === 1 ? { more: true, cursor: 'next' } : { more: false, cursor: '{}' },
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+		});
+
+		assert.equal(result.items.length, 1);
+		assert.equal(result.items[0].title, 'latest representation');
+
+		manager.dispose();
+	});
+
+	test('sweepPullRequests deduplicates URL-less PRs by repository identity', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = () => {
+			calls += 1;
+			const duplicate = providerPr('42', {
+				url: calls === 1 ? null : 'https://example.com/pull/42',
+				title: calls === 1 ? 'first representation' : 'latest representation',
+				repository: { id: 'repo-one', name: 'one', owner: { login: 'acme' }, remoteInfo: null },
+			});
+			return Promise.resolve({
+				value: {
+					values:
+						calls === 1
+							? [duplicate]
+							: [
+									duplicate,
+									providerPr('42', {
+										url: null,
+										repository: {
+											id: 'repo-two',
+											name: 'two',
+											owner: { login: 'acme' },
+											remoteInfo: null,
+										},
+									}),
+								],
+					paging: calls === 1 ? { more: true, cursor: 'next' } : { more: false, cursor: '{}' },
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+		});
+
+		assert.equal(result.items.length, 2, 'same-repo duplicates collapse without losing another repo');
+		assert.ok(result.items.some(item => item.title === 'latest representation'));
+		assert.ok(!result.items.some(item => item.title === 'first representation'));
 
 		manager.dispose();
 	});
@@ -296,6 +412,53 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(result.fetchFailed, true);
 		assert.deepEqual(result.failedProviderIds, []);
 		assert.deepEqual(result.incompleteProviderIds, [GitCloudHostIntegrationId.GitHub]);
+
+		manager.dispose();
+	});
+
+	test('an implicit sweep attributes a session lost after its first page as incomplete', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<
+					IntegrationResult<PagedResult<ProviderPullRequest> | undefined>
+				>;
+			}
+		).getMyPullRequestsForUserResult = () => {
+			calls++;
+			if (calls === 1) {
+				return Promise.resolve({
+					value: {
+						values: [providerPr('pr-before-session-loss')],
+						paging: { more: true, cursor: 'next' },
+					},
+				});
+			}
+
+			return Promise.resolve(undefined);
+		};
+
+		const result = await manager.sweepPullRequests();
+
+		assert.equal(calls, 2);
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['pr-before-session-loss'],
+			'the usable page survives the session loss',
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.equal(result.page.allPages, false);
+		assert.deepEqual(result.failedProviderIds, []);
+		assert.deepEqual(result.incompleteProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.ok(
+			result.warnings.some(
+				warning => warning.kind === 'no-connection' && warning.providerId === GitCloudHostIntegrationId.GitHub,
+			),
+		);
 
 		manager.dispose();
 	});
@@ -767,12 +930,77 @@ suite('sweep + broaden (#5438)', () => {
 		assert.deepEqual(result.items, [issue], 'only the successful org contributed issues');
 		assert.equal(result.warnings.length, 1, 'the failing org produced a warning without failing the fan-out');
 		assert.deepEqual(result.broadenedProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.deepEqual(result.failedProviderIds, []);
+		assert.deepEqual(
+			result.incompleteProviderIds,
+			[GitCloudHostIntegrationId.GitHub],
+			'a provider with one healthy org and one failed org is incomplete, not wholly failed',
+		);
 		assert.equal(result.fanOutCount, 2, 'fanOutCount counts every org work item');
 
 		manager.dispose();
 	});
 
-	test('broadenIssues retains a first-page failure in the multi-org cursor and retries that page', async () => {
+	test('broadenIssues attributes an explicit cloud org with no session as failed', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(
+			github as unknown as {
+				getRepositoriesForOrgResult: () => Promise<
+					IntegrationResult<PagedResult<ProviderRepository>> | undefined
+				>;
+			}
+		).getRepositoriesForOrgResult = () => Promise.resolve(undefined);
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'acme' }],
+			page: 1,
+		});
+
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(result.failedProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.deepEqual(result.incompleteProviderIds, []);
+		assert.ok(result.warnings.some(warning => warning.kind === 'no-connection'));
+
+		manager.dispose();
+	});
+
+	test('broadenIssues attributes a session lost after repository discovery as failed', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(
+			github as unknown as {
+				getRepositoriesForOrgResult: () => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [{ id: 'repo', name: 'repo', namespace: 'acme' } as unknown as ProviderRepository],
+				},
+			});
+		(
+			github as unknown as {
+				getMyIssuesForReposAsShapesResult: () => Promise<
+					IntegrationResult<PagedResult<ProviderIssue>> | undefined
+				>;
+			}
+		).getMyIssuesForReposAsShapesResult = () => Promise.resolve(undefined);
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'acme' }],
+			page: 1,
+		});
+
+		assert.equal(result.fetchFailed, true);
+		assert.deepEqual(result.failedProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.ok(result.warnings.some(warning => warning.kind === 'no-connection'));
+
+		manager.dispose();
+	});
+
+	test('broadenIssues retains a failed page without advertising retry-only progress', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
 
@@ -819,7 +1047,7 @@ suite('sweep + broaden (#5438)', () => {
 			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-fail' },
 		];
 		const first = await manager.broadenIssues({ orgs: orgs, page: 1 });
-		assert.equal(first.hasMore, true, 'the failed org remains resumable after its sibling exhausts');
+		assert.equal(first.hasMore, false, 'a failed org alone cannot drive an automatic next-page loop');
 		assert.deepEqual(JSON.parse(first.cursor!), {
 			cursors: [
 				{
@@ -891,6 +1119,58 @@ suite('sweep + broaden (#5438)', () => {
 
 		assert.equal(calls, 2, 'drains until the provider stops paging');
 		assert.deepEqual(result.items, [issue]);
+
+		manager.dispose();
+	});
+
+	test('broadenIssues preserves repositories and reports a missing continuation page', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+					options?: { cursor?: string },
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = (_org: string, options?: { cursor?: string }) => {
+			calls++;
+			if (options?.cursor != null) {
+				return Promise.resolve(undefined);
+			}
+
+			return Promise.resolve({
+				value: {
+					values: [{ name: 'repo-1', namespace: 'org' } as unknown as ProviderRepository],
+					paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
+				},
+			});
+		};
+
+		const issue = { id: 'i-1' } as unknown as ProviderIssue;
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: (
+					repos: ProviderReposInput,
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = (repos: ProviderReposInput) => {
+			assert.deepEqual(repos, [{ namespace: 'org', name: 'repo-1' }]);
+			return Promise.resolve({ value: { values: [issue] } });
+		};
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
+			page: 1,
+		});
+
+		assert.equal(calls, 2);
+		assert.deepEqual(result.items, [issue]);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.equal(result.warnings.length, 1);
 
 		manager.dispose();
 	});
@@ -1464,20 +1744,23 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('a single-page account-wide read that signals truncation is not reported as complete (#5438)', async () => {
+	test('a paging truncation is not masked by an explicit false top-level signal (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
 
-		// A provider whose account-wide read returns one page it can't confirm is complete sets
-		// `paging.truncated` (e.g. Bitbucket/Azure fan-outs). The sweep must surface that, not claim allPages.
+		// Top-level and paging truncation are independent signals. An explicit false on the former must not
+		// mask a true paging signal (e.g. Bitbucket/Azure fan-outs), or the sweep would claim allPages.
 		(
 			gh as unknown as {
-				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+				getMyPullRequestsForUserResult: () => Promise<
+					IntegrationResult<PagedResult<ProviderPullRequest> & { truncated?: boolean }>
+				>;
 			}
 		).getMyPullRequestsForUserResult = () =>
 			Promise.resolve({
 				value: {
 					values: [providerPr('pr')],
+					truncated: false,
 					paging: { more: false, cursor: '{}', truncated: true },
 				},
 			});
@@ -1493,6 +1776,92 @@ suite('sweep + broaden (#5438)', () => {
 			result.warnings.some(w => /truncat/i.test(w.message)),
 			'a truncated drain pushes a warning, not just a boolean',
 		);
+
+		manager.dispose();
+	});
+
+	test('broadenIssues preserves paging truncation when repo discovery reports top-level false (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: () => Promise<
+					IntegrationResult<PagedResult<ProviderRepository> & { truncated?: boolean }>
+				>;
+			}
+		).getRepositoriesForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [{ name: 'r', namespace: 'org' } as unknown as ProviderRepository],
+					truncated: false,
+					paging: { more: false, cursor: '{}', truncated: true },
+				},
+			});
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: () => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = () =>
+			Promise.resolve({ value: { values: [{ id: 'i-1' } as unknown as ProviderIssue] } });
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
+			page: 1,
+		});
+
+		assert.deepEqual(result.items, [{ id: 'i-1' }]);
+		assert.equal(result.page.truncated, true, 'paging truncation survives an explicit false top-level flag');
+		assert.equal(result.hasMore, false, 'the incomplete terminal result does not advertise a dead continuation');
+
+		manager.dispose();
+	});
+
+	test('broadenIssues preserves repository truncation from a non-terminal page', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+		let repoPage = 0;
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: () => Promise<
+					IntegrationResult<PagedResult<ProviderRepository> & { truncated?: boolean }>
+				>;
+			}
+		).getRepositoriesForOrgResult = () => {
+			repoPage++;
+			return Promise.resolve({
+				value: {
+					values: [
+						{
+							id: `repo-${repoPage}`,
+							name: `repo-${repoPage}`,
+							namespace: 'org',
+						} as unknown as ProviderRepository,
+					],
+					truncated: repoPage === 1,
+					paging:
+						repoPage === 1
+							? { more: true, cursor: 'next', truncated: false }
+							: { more: false, cursor: '{}', truncated: false },
+				},
+			});
+		};
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: () => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = () =>
+			Promise.resolve({ value: { values: [{ id: 'i-1' } as unknown as ProviderIssue] } });
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
+			page: 1,
+		});
+
+		assert.equal(repoPage, 2);
+		assert.deepEqual(result.items, [{ id: 'i-1' }]);
+		assert.equal(result.page.truncated, true, 'page-1 truncation survives a clean terminal page');
 
 		manager.dispose();
 	});
@@ -1552,6 +1921,72 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(result?.value?.values.length, 2, 'PRs from both pages are returned');
 		assert.equal(result?.value?.paging?.truncated, undefined, 'a fully drained workspace is not marked truncated');
 
+		manager.dispose();
+	});
+
+	test('Bitbucket authored PRs preserve a page-1 prefix when page 2 fails', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+		stubApi(bb, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: (
+				_t: unknown,
+				_u: string,
+				_ws: string,
+				options?: { page?: number },
+			) =>
+				options?.page === 2
+					? Promise.reject(
+							new AuthenticationError(
+								{
+									providerId: GitCloudHostIntegrationId.Bitbucket,
+									microHash: undefined,
+									cloud: true,
+									type: 'oauth',
+									scopes: [],
+								},
+								AuthenticationErrorReason.Unauthorized,
+							),
+						)
+					: Promise.resolve({
+							data: [
+								providerPr('authored-prefix', {
+									url: 'u/authored-prefix',
+									repository: {
+										id: 'repo-1',
+										name: 'repo',
+										owner: { login: 'ws' },
+										remoteInfo: null,
+									},
+								}),
+							],
+							hasMore: true,
+							nextPage: 2,
+						}),
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/authored-prefix'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.ok(result.warnings.some(warning => warning.kind === 'auth'));
 		manager.dispose();
 	});
 
@@ -1724,6 +2159,94 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('Bitbucket reviewer repo discovery preserves page-1 repos when page 2 fails', async () => {
+		const { manager } = await bitbucketForReviewerSlice(createFakeRuntime(), {
+			getReposForBitbucketWorkspace: (_t: unknown, _ws: string, options?: { cursor?: string }) =>
+				options?.cursor != null
+					? Promise.reject(new Error('repo discovery page 2 failed'))
+					: Promise.resolve({
+							values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+							paging: {
+								more: true,
+								cursor: JSON.stringify({ value: 2, type: 'page' }),
+							},
+						}),
+			getPullRequestsForRepo: () =>
+				Promise.resolve({
+					values: [
+						providerPr('review-prefix', {
+							url: 'u/review-prefix',
+							repository: {
+								id: 'r1',
+								name: 'repo',
+								owner: { login: 'ws' },
+								remoteInfo: null,
+							},
+						}),
+					],
+					paging: { more: false, cursor: '{}' },
+				}),
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+			includeReviewRequested: true,
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/review-prefix'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.ok(result.warnings.length > 0);
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer PR discovery preserves a page-1 prefix when page 2 fails', async () => {
+		const { manager } = await bitbucketForReviewerSlice(createFakeRuntime(), {
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: (_t: unknown, _repo: unknown, options?: { cursor?: string }) =>
+				options?.cursor != null
+					? Promise.reject(new Error('reviewer PR page 2 failed'))
+					: Promise.resolve({
+							values: [
+								providerPr('review-prefix', {
+									url: 'u/review-prefix',
+									repository: {
+										id: 'r1',
+										name: 'repo',
+										owner: { login: 'ws' },
+										remoteInfo: null,
+									},
+								}),
+							],
+							paging: {
+								more: true,
+								cursor: JSON.stringify({ value: 2, type: 'page' }),
+							},
+						}),
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+			includeReviewRequested: true,
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/review-prefix'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.ok(result.warnings.length > 0);
+		manager.dispose();
+	});
+
 	test('Bitbucket reviewer slice preserves siblings and warns when one repo fails with auth (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
@@ -1785,7 +2308,7 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('Bitbucket reviewer slice dedupes authored/reviewer PRs by URL (#5438)', async () => {
+	test('Bitbucket reviewer slice dedupes a URL-less PR by repository identity (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
@@ -1797,7 +2320,13 @@ suite('sweep + broaden (#5438)', () => {
 			// The same PR is both authored by and review-requested from the user; it must collapse to one entry.
 			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
 				Promise.resolve({
-					data: [{ id: 'shared', url: 'u/shared' } as unknown as ProviderPullRequest],
+					data: [
+						{
+							id: 'shared',
+							url: undefined,
+							repository: { id: 'r1' },
+						} as unknown as ProviderPullRequest,
+					],
 					hasMore: false,
 					nextPage: null,
 				}),
@@ -1808,7 +2337,13 @@ suite('sweep + broaden (#5438)', () => {
 				}),
 			getPullRequestsForRepo: () =>
 				Promise.resolve({
-					values: [{ id: 'shared', url: 'u/shared' } as unknown as ProviderPullRequest],
+					values: [
+						{
+							id: 'shared',
+							url: undefined,
+							repository: { id: 'r1' },
+						} as unknown as ProviderPullRequest,
+					],
 					paging: { more: false, cursor: '{}' },
 				}),
 		});
@@ -1822,10 +2357,10 @@ suite('sweep + broaden (#5438)', () => {
 		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
 
 		const result = await callAccountWide(bb);
-		assert.deepEqual(
-			(result?.value?.values ?? []).map(pr => pr.url),
-			['u/shared'],
-			'an authored PR that is also review-requested collapses to a single entry by URL',
+		assert.equal(
+			result?.value?.values.length,
+			1,
+			'an authored PR that is also review-requested collapses by repository + PR id without a URL',
 		);
 
 		manager.dispose();
@@ -2035,7 +2570,7 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('Azure account-wide PR read dedupes by URL so cross-org id collisions are kept (#5438)', async () => {
+	test('Azure account-wide PR read keeps URL-less cross-org id collisions (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
@@ -2044,15 +2579,16 @@ suite('sweep + broaden (#5438)', () => {
 			domain: 'dev.azure.com',
 		};
 
-		// Both orgs surface a PR whose Azure pullRequestId is "42" (ids are only org-unique). Keyed by id one
-		// would be dropped; keyed by the org-qualified url both survive.
+		// Both orgs surface a URL-less PR whose Azure pullRequestId is "42" (ids are only org-unique). Keyed by
+		// id one would be dropped; keyed by repository + id both survive while authored/reviewer facets dedupe.
 		stubApi(azure, {
 			getPullRequestsForAzureProject: (_t: unknown, project: { namespace: string; project: string }) =>
 				Promise.resolve({
 					data: [
 						{
 							id: '42',
-							url: `https://dev.azure.com/${project.namespace}/_git/pr/42`,
+							url: undefined,
+							repository: { id: `${project.namespace}/repo` },
 						} as unknown as ProviderPullRequest,
 					],
 					hasMore: false,
@@ -2085,11 +2621,11 @@ suite('sweep + broaden (#5438)', () => {
 				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
 			}
 		).getMyPullRequestsForUserResult();
-		const urls = (result?.value?.values ?? []).map(pr => pr.url).sort();
+		const repositoryIds = (result?.value?.values ?? []).map(pr => pr.repository.id).sort();
 		assert.deepEqual(
-			urls,
-			['https://dev.azure.com/org-a/_git/pr/42', 'https://dev.azure.com/org-b/_git/pr/42'],
-			'both cross-org PRs with the same numeric id are kept',
+			repositoryIds,
+			['org-a/repo', 'org-b/repo'],
+			'both URL-less cross-org PRs with the same numeric id are kept',
 		);
 
 		manager.dispose();

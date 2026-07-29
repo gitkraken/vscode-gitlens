@@ -89,9 +89,9 @@ export interface ProviderResult<T> {
 	items: T[];
 	warnings: ProviderWarning[];
 	/**
-	 * True when a read failed and `items` is incomplete — distinguishes a failure from a genuinely empty
-	 * result. Distinct from `page.truncated`, which marks a completed read that couldn't confirm it drained
-	 * everything.
+	 * True when `items` is incomplete — distinguishes a failed or truncated flat read from a genuinely empty
+	 * result. Paged results additionally use `page.truncated` when a completed page could not confirm it
+	 * drained everything.
 	 */
 	fetchFailed?: boolean;
 }
@@ -102,6 +102,8 @@ export interface ProviderPagedResult<T> extends ProviderResult<T> {
 	/**
 	 * Opaque cursor for cursor-based paging (GraphQL, per-repo/per-project cursors, etc.). For hosts that
 	 * require the previous page's cursor, consumers should pass this value back to the next `cursor` option.
+	 * A retry-only cursor may remain when `hasMore` is false: `hasMore` means automatic forward progress,
+	 * while explicitly reusing such a cursor retries failed work without creating an infinite paging loop.
 	 */
 	cursor?: string;
 }
@@ -126,6 +128,10 @@ export interface ProviderSweepResult<T> extends ProviderResult<T> {
 
 export interface ProviderBroadenResult<T> extends ProviderPagedResult<T> {
 	broadenedProviderIds: IntegrationIds[];
+	/** Providers for which no requested org produced a usable issue result. */
+	failedProviderIds: IntegrationIds[];
+	/** Providers with both a usable org result and at least one failed or truncated org slice. */
+	incompleteProviderIds: IntegrationIds[];
 	fanOutCount: number;
 }
 
@@ -164,11 +170,6 @@ export interface RepositoryResolution {
 
 export interface ResolveRepositoryResult {
 	resolution: RepositoryResolution;
-	/**
-	 * Whether the resolver operation itself is unavailable. Per-request failures and unsupported providers
-	 * never set this; consumers may use it as a global capability latch.
-	 */
-	cliUnsupported: boolean;
 }
 
 const maxProviderWarningMessageLength = 500;

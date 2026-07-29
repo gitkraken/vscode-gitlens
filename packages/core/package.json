@@ -191,69 +191,13 @@
 			"types": "./dist/plus/git-github/providers/github/*.d.ts",
 			"default": "./dist/plus/git-github/providers/github/*.js"
 		},
-		"./plus/integrations/authentication/*.js": {
-			"types": "./dist/plus/integrations/authentication/*.d.ts",
-			"default": "./dist/plus/integrations/authentication/*.js"
-		},
-		"./plus/integrations/constants.js": {
-			"types": "./dist/plus/integrations/constants.d.ts",
-			"default": "./dist/plus/integrations/constants.js"
-		},
-		"./plus/integrations/context.js": {
-			"types": "./dist/plus/integrations/context.d.ts",
-			"default": "./dist/plus/integrations/context.js"
-		},
-		"./plus/integrations/errors.js": {
-			"types": "./dist/plus/integrations/errors.d.ts",
-			"default": "./dist/plus/integrations/errors.js"
-		},
 		"./plus/integrations/index.js": {
 			"types": "./dist/plus/integrations/index.d.ts",
 			"default": "./dist/plus/integrations/index.js"
 		},
-		"./plus/integrations/integrationService.js": {
-			"types": "./dist/plus/integrations/integrationService.d.ts",
-			"default": "./dist/plus/integrations/integrationService.js"
-		},
 		"./plus/integrations/lite.js": {
 			"types": "./dist/plus/integrations/lite.d.ts",
 			"default": "./dist/plus/integrations/lite.js"
-		},
-		"./plus/integrations/models/*.js": {
-			"types": "./dist/plus/integrations/models/*.d.ts",
-			"default": "./dist/plus/integrations/models/*.js"
-		},
-		"./plus/integrations/providers/*.js": {
-			"types": "./dist/plus/integrations/providers/*.d.ts",
-			"default": "./dist/plus/integrations/providers/*.js"
-		},
-		"./plus/integrations/providers/azure/*.js": {
-			"types": "./dist/plus/integrations/providers/azure/*.d.ts",
-			"default": "./dist/plus/integrations/providers/azure/*.js"
-		},
-		"./plus/integrations/providers/bitbucket-server/*.js": {
-			"types": "./dist/plus/integrations/providers/bitbucket-server/*.d.ts",
-			"default": "./dist/plus/integrations/providers/bitbucket-server/*.js"
-		},
-		"./plus/integrations/providers/bitbucket/*.js": {
-			"types": "./dist/plus/integrations/providers/bitbucket/*.d.ts",
-			"default": "./dist/plus/integrations/providers/bitbucket/*.js"
-		},
-		"./plus/integrations/providers/github/*.js": {
-			"types": "./dist/plus/integrations/providers/github/*.d.ts",
-			"default": "./dist/plus/integrations/providers/github/*.js"
-		},
-		"./plus/integrations/providers/gitlab/*.js": {
-			"types": "./dist/plus/integrations/providers/gitlab/*.d.ts",
-			"default": "./dist/plus/integrations/providers/gitlab/*.js"
-		},
-		"./plus/integrations/telemetry.js": {
-			"types": "./dist/plus/integrations/telemetry.d.ts",
-			"default": "./dist/plus/integrations/telemetry.js"
-		},
-		"./plus/integrations/utils/*.js": {
-			"types": "./dist/plus/integrations/utils/*.d.ts",
-			"default": "./dist/plus/integrations/utils/*.js"
 		},
 		"./utils/__tests__/*.js": null,
 		"./utils/*.js": {

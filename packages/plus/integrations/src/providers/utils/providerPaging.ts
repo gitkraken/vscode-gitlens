@@ -133,7 +133,26 @@ export async function collectProviderPagedResult<T>(
 				}),
 			});
 		}
-		if (result == null) return build();
+		if (result == null) {
+			if (page === 0) return build();
+
+			return build({
+				truncated: true,
+				...(scope != null
+					? {
+							metadata: mergeCollectionMetadata(metadata, {
+								completeness: 'partial',
+								failures: [
+									toCollectionScopeFailure(
+										scope,
+										new Error('Provider returned no page after advertising a continuation'),
+									),
+								],
+							}),
+						}
+					: undefined),
+			});
+		}
 
 		values.push(...result.values);
 		metadata = mergeCollectionMetadata(metadata, result.metadata);

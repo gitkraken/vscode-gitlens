@@ -402,6 +402,85 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('sweepClosedPullRequests preserves a successful GitHub state facet when its sibling fails', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(github as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			github as unknown as {
+				authenticationService: {
+					apis: { github: Promise<Record<string, unknown> | undefined> };
+				};
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+		githubApi.searchMyPullRequestsPage = (_provider: unknown, _token: unknown, options?: { state?: string }) =>
+			options?.state === 'merged'
+				? Promise.reject(authError)
+				: Promise.resolve({
+						values: [searchPullRequest('closed-survivor', 'closed')],
+						hasMore: false,
+						truncated: false,
+					});
+
+		const result = await manager.sweepClosedPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['closed-survivor'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.equal(result.page.allPages, false);
+		assert.deepEqual(result.failedProviderIds, []);
+		assert.deepEqual(result.incompleteProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.ok(result.warnings.some(warning => warning.kind === 'auth'));
+		manager.dispose();
+	});
+
+	test('GitLab account-wide PR facets preserve authored and reviewer siblings when assigned fails', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gitlab = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gitlab as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+		(
+			gitlab as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		stubApi(gitlab, {
+			getGitLabPullRequestsForUserAssociation: (
+				_t: unknown,
+				_u: string,
+				association: 'assigned' | 'authored' | 'reviewRequested',
+			) => {
+				if (association === 'assigned') {
+					return Promise.reject(authError);
+				}
+
+				const id = association === 'authored' ? 'authored' : 'reviewer';
+				return Promise.resolve({
+					values: [providerPr(id)],
+					paging: { cursor: '{}', more: false },
+				});
+			},
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitLab],
+		});
+
+		assert.deepEqual(result.items.map(pr => pr.id).sort(), ['authored', 'reviewer']);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.deepEqual(result.failedProviderIds, []);
+		assert.deepEqual(result.incompleteProviderIds, [GitCloudHostIntegrationId.GitLab]);
+		assert.ok(result.warnings.some(warning => warning.kind === 'auth'));
+		manager.dispose();
+	});
+
 	test('listPullRequestsPage drains account-wide cursors to page N and resolves authorship', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -497,6 +576,41 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(result.cursor, undefined);
 
 		manager.dispose();
+	});
+
+	test('connected Azure and Bitbucket accounts with no scopes return clean empty PR pages', async () => {
+		for (const providerId of [
+			GitCloudHostIntegrationId.AzureDevOps,
+			GitCloudHostIntegrationId.Bitbucket,
+		] as const) {
+			const manager = createIntegrationManager(createFakeRuntime());
+			const integration = await manager.get(providerId);
+			(integration as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession(`${providerId}-token`),
+				domain: providerId === GitCloudHostIntegrationId.AzureDevOps ? 'dev.azure.com' : 'bitbucket.org',
+			};
+			(
+				integration as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+			).getProviderCurrentAccount = () => Promise.resolve({ id: 'me', username: 'me' });
+			if (providerId === GitCloudHostIntegrationId.AzureDevOps) {
+				(
+					integration as unknown as { getProviderResourcesForUser: () => Promise<unknown[]> }
+				).getProviderResourcesForUser = () => Promise.resolve([]);
+			} else {
+				(
+					integration as unknown as {
+						getProviderResourcesForCurrentUser: () => Promise<{ values: unknown[] }>;
+					}
+				).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [] });
+			}
+
+			const result = await manager.listPullRequestsPage({ providerId: providerId });
+			assert.deepEqual(result.items, []);
+			assert.equal(result.fetchFailed, undefined, `${providerId} reports an authoritative empty result`);
+			assert.equal(result.page.truncated, undefined);
+			assert.deepEqual(result.warnings, []);
+			manager.dispose();
+		}
 	});
 
 	test('listPullRequestsPage forwards the explicit account-wide reviewer option for Bitbucket (#5551)', async () => {
@@ -1113,6 +1227,30 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(result.items.length, 1, 'account-wide user issues are returned');
 		assert.equal(result.items[0].id, 'mine');
 
+		manager.dispose();
+	});
+
+	test('a connected Azure account with no organizations returns a clean empty account-wide issue page', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('azure-token'),
+			domain: 'dev.azure.com',
+		};
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'me', username: 'me' });
+		(azure as unknown as { getProviderResourcesForUser: () => Promise<unknown[]> }).getProviderResourcesForUser =
+			() => Promise.resolve([]);
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.AzureDevOps,
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, undefined);
+		assert.equal(result.page.truncated, undefined);
+		assert.deepEqual(result.warnings, []);
 		manager.dispose();
 	});
 
@@ -1872,7 +2010,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('listOrgs reports a Bitbucket workspace-discovery backstop as truncated, not fetchFailed (#5438)', async () => {
+	test('listOrgs marks a Bitbucket workspace-discovery backstop non-authoritative (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
@@ -1881,9 +2019,9 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			domain: 'bitbucket.org',
 		};
 
-		// The workspace drain hit its page backstop (`paging.truncated`). That's truncation, not a read
-		// failure: the read succeeded but stopped short. It must surface an incompleteness warning without
-		// `fetchFailed`, which would otherwise flag the workspaces it did return as a broken read.
+		// The workspace drain hit its page backstop (`paging.truncated`). The public flat hierarchy result has
+		// no `page.truncated` field, so it must use `fetchFailed` as its structural non-authoritative signal
+		// while preserving the workspaces that did return.
 		stubApi(bb, {
 			getBitbucketResourcesForCurrentUser: () =>
 				Promise.resolve({
@@ -1901,7 +2039,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 				url: 'https://bitbucket.org/acme',
 			},
 		]);
-		assert.notEqual(result.fetchFailed, true, 'a backstop is truncation, not a read failure');
+		assert.equal(result.fetchFailed, true, 'a truncated flat hierarchy result is non-authoritative');
 		assert.ok(
 			result.warnings.some(w => /incomplete|omitted|completeness/i.test(w.message)),
 			'the truncation surfaces an incompleteness warning',
@@ -1943,6 +2081,69 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			projects.warnings.some(w => w.kind === 'no-connection'),
 			'listProjects still emits a no-connection warning',
 		);
+
+		manager.dispose();
+	});
+
+	test('listOrgs/listProjects reject scoped selectors without a providerId', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+
+		await assert.rejects(
+			manager.listOrgs({ connectionId: 'secondary' } as any),
+			(error: unknown) => error instanceof TypeError && error.message.includes('providerId'),
+		);
+		await assert.rejects(
+			manager.listProjects({ domain: 'ghe.example.com' } as any),
+			(error: unknown) => error instanceof TypeError && error.message.includes('providerId'),
+		);
+
+		manager.dispose();
+	});
+
+	test('blank explicit hierarchy selectors never fall back to a primary connection', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(github as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('primary');
+		let cloudReads = 0;
+		(
+			github as unknown as { getOrganizationsForUserResult: () => Promise<{ value: { values: unknown[] } }> }
+		).getOrganizationsForUserResult = () => {
+			cloudReads++;
+			return Promise.resolve({ value: { values: [] } });
+		};
+
+		const cloud = await manager.listOrgs({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			connectionId: '   ',
+		});
+		assert.equal(cloudReads, 0);
+		assert.equal(cloud.fetchFailed, true);
+		assert.ok(cloud.warnings.some(warning => warning.kind === 'no-connection'));
+
+		const enterprise = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe.example.com');
+		assert.ok(enterprise);
+		(enterprise as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('enterprise'),
+			domain: 'ghe.example.com',
+		};
+		let enterpriseReads = 0;
+		(
+			enterprise as unknown as {
+				getOrganizationsForUserResult: () => Promise<{ value: { values: unknown[] } }>;
+			}
+		).getOrganizationsForUserResult = () => {
+			enterpriseReads++;
+			return Promise.resolve({ value: { values: [] } });
+		};
+
+		const selfManaged = await manager.listOrgs({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			domain: '\t',
+		});
+		assert.equal(enterpriseReads, 0);
+		assert.equal(selfManaged.fetchFailed, true);
+		assert.ok(selfManaged.warnings.some(warning => warning.kind === 'no-connection'));
 
 		manager.dispose();
 	});
@@ -2062,6 +2263,51 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.ok(
 			result.warnings.some(w => w.kind === 'auth'),
 			'the scope failure is surfaced as an auth warning',
+		);
+
+		manager.dispose();
+	});
+
+	test('listProjects marks a git-host project-discovery backstop non-authoritative (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		(
+			azure as unknown as {
+				getProjectsForOrgResult: () => Promise<{
+					value: { values: ProviderOrganization[]; truncated: boolean };
+				}>;
+			}
+		).getProjectsForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{
+							id: 'p1',
+							providerId: GitCloudHostIntegrationId.AzureDevOps,
+							name: 'Proj',
+							org: 'org',
+							url: 'https://dev.azure.com/org/Proj',
+						},
+					],
+					truncated: true,
+				},
+			});
+
+		const result = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+		assert.deepEqual(
+			result.items.map(project => project.id),
+			['p1'],
+		);
+		assert.equal(result.fetchFailed, true, 'a truncated flat hierarchy result is non-authoritative');
+		assert.ok(
+			result.warnings.some(w => /project listing was truncated/i.test(w.message)),
+			'the truncation remains diagnosable',
 		);
 
 		manager.dispose();
@@ -2540,6 +2786,136 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('projects without resource ids do not borrow a user from a partially resolved multi-resource scope', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		const resources: ResourceDescriptor[] = [
+			{ key: 'one', id: 'org-1', name: 'Org One' },
+			{ key: 'two', id: 'org-2', name: 'Org Two' },
+		];
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: resources });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 'p1', id: 'p1', name: 'Unattributed project' }] } });
+		(
+			jira as unknown as {
+				getAccountForResourceResult: (
+					resource: ResourceDescriptor,
+				) => Promise<{ value?: { username: string }; error?: Error }>;
+			}
+		).getAccountForResourceResult = resource =>
+			resource.id === 'org-1'
+				? Promise.resolve({ value: { username: 'org-1-user' } })
+				: Promise.resolve({ error: new Error('account lookup failed') });
+
+		let issueReads = 0;
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: () => Promise<{
+					value: { values: IssueShape[]; truncated: boolean };
+				}>;
+			}
+		).getIssuesForProjectWithTruncationResult = () => {
+			issueReads++;
+			return Promise.resolve({ value: { values: [], truncated: false } });
+		};
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+		});
+
+		assert.equal(issueReads, 0, 'the only resolved resource user is not applied to an unattributed project');
+		assert.equal(result.fetchFailed, true);
+		assert.ok(result.warnings.length > 0);
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage does not re-emit a completed project after account recovery', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		const resources: ResourceDescriptor[] = ['1', '2', '3', '4'].map(id => ({
+			key: `org-${id}`,
+			id: `org-${id}`,
+		}));
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: resources });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({
+				value: {
+					values: ['1', '2', '3', '4'].map(id => ({
+						key: `p${id}`,
+						id: `p${id}`,
+						resourceId: `org-${id}`,
+					})),
+				},
+			});
+
+		let orgOneLookups = 0;
+		(
+			jira as unknown as {
+				getAccountForResourceResult: (
+					resource: ResourceDescriptor,
+				) => Promise<{ error: Error } | { value: { username: string } }>;
+			}
+		).getAccountForResourceResult = resource => {
+			const resourceId = (resource as { id?: string; key: string }).id ?? resource.key;
+			if (resourceId === 'org-1' && orgOneLookups++ === 0) {
+				return Promise.resolve({ error: new Error('temporary account lookup failure') });
+			}
+			return Promise.resolve({ value: { username: `${resourceId}-user` } });
+		};
+
+		const reads: string[] = [];
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: (project: {
+					id: string;
+				}) => Promise<{ value: { values: IssueShape[]; truncated: boolean } }>;
+			}
+		).getIssuesForProjectWithTruncationResult = project => {
+			reads.push(project.id);
+			return Promise.resolve({
+				value: {
+					values: [{ id: `${project.id}-issue` } as unknown as IssueShape],
+					truncated: false,
+				},
+			});
+		};
+
+		const first = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 2,
+		});
+		assert.deepEqual(reads, ['p2', 'p3']);
+		assert.ok(first.cursor?.includes('retryProjects'));
+		assert.ok(first.cursor?.includes('completedProjects'));
+
+		reads.length = 0;
+		const recovered = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 2,
+			cursor: first.cursor,
+		});
+		assert.deepEqual(reads, ['p1', 'p4'], 'the shifted second window must not re-emit completed p3');
+		assert.deepEqual(
+			recovered.items.map(issue => issue.id),
+			['p1-issue', 'p4-issue'],
+		);
+
+		manager.dispose();
+	});
+
 	test('listIssueTrackerIssuesPage pages by project window with a next-page cursor (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -2597,6 +2973,552 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.deepEqual(readProjects, ['p3'], 'the cursor advances to the remaining project');
 		assert.equal(second.hasMore, false, 'no more windows after the last');
 		assert.equal(second.cursor, undefined);
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage retries a failed project alongside the next untouched window', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1' }] });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{ key: 'p1', id: 'p1' },
+						{ key: 'p2', id: 'p2' },
+						{ key: 'p3', id: 'p3' },
+					],
+				},
+			});
+		const reads: string[] = [];
+		let p1Calls = 0;
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: (project: {
+					id: string;
+				}) => Promise<{ error: Error } | { value: { values: IssueShape[]; truncated: boolean } }>;
+			}
+		).getIssuesForProjectWithTruncationResult = project => {
+			reads.push(project.id);
+			if (project.id === 'p1' && p1Calls++ === 0) {
+				return Promise.resolve({ error: new Error('temporary project failure') });
+			}
+			return Promise.resolve({
+				value: { values: [{ id: `${project.id}-issue` } as unknown as IssueShape], truncated: false },
+			});
+		};
+
+		const first = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			itemsPerPage: 2,
+		});
+		assert.deepEqual(reads, ['p1', 'p2']);
+		assert.deepEqual(
+			first.items.map(issue => issue.id),
+			['p2-issue'],
+		);
+		assert.equal(first.hasMore, true, 'the untouched third project remains automatic progress');
+		assert.ok(first.cursor?.includes('retryProjects'), 'the failed project is retained in the cursor');
+
+		reads.length = 0;
+		const second = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			itemsPerPage: 2,
+			cursor: first.cursor,
+		});
+		assert.deepEqual(reads, ['p1', 'p3'], 'the failed project is retried with the untouched window');
+		assert.deepEqual(
+			second.items.map(issue => issue.id),
+			['p1-issue', 'p3-issue'],
+		);
+		assert.equal(second.hasMore, false);
+		assert.equal(second.cursor, undefined, 'successful retries are removed from the cursor');
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage retries only failed projects in unpaged aggregate mode', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1' }] });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{ key: 'p1', id: 'p1' },
+						{ key: 'p2', id: 'p2' },
+					],
+				},
+			});
+		const reads: string[] = [];
+		let p2Calls = 0;
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: (project: {
+					id: string;
+				}) => Promise<{ error: Error } | { value: { values: IssueShape[]; truncated: boolean } }>;
+			}
+		).getIssuesForProjectWithTruncationResult = project => {
+			reads.push(project.id);
+			if (project.id === 'p2' && p2Calls++ === 0) {
+				return Promise.resolve({ error: new Error('temporary project failure') });
+			}
+			return Promise.resolve({
+				value: {
+					values: [{ id: `${project.id}-issue` } as unknown as IssueShape],
+					truncated: false,
+				},
+			});
+		};
+
+		const first = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+		});
+		assert.deepEqual(reads, ['p1', 'p2']);
+		assert.deepEqual(
+			first.items.map(issue => issue.id),
+			['p1-issue'],
+		);
+		assert.equal(first.hasMore, false);
+		assert.ok(first.cursor?.includes('"unpaged":true'));
+		assert.ok(first.cursor?.includes('retryProjects'));
+
+		reads.length = 0;
+		const retried = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			cursor: first.cursor,
+		});
+		assert.deepEqual(reads, ['p2'], 'the healthy project is not re-read by an unpaged retry-only cursor');
+		assert.deepEqual(
+			retried.items.map(issue => issue.id),
+			['p2-issue'],
+		);
+		assert.equal(retried.cursor, undefined);
+
+		manager.dispose();
+	});
+
+	for (const { mode, pagination } of [
+		{ mode: 'unpaged', pagination: {} },
+		{ mode: 'paginated', pagination: { itemsPerPage: 2 } },
+	] as const) {
+		test(`listIssueTrackerIssuesPage preserves a terminal ${mode} retry across partial discovery`, async () => {
+			const runtime = createFakeRuntime();
+			const manager = createIntegrationManager(runtime);
+			const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+			(
+				jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+			).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1' }] });
+
+			let discoveryCalls = 0;
+			(
+				jira as unknown as {
+					getProjectsForResourcesWithMetadataResult: () => Promise<{
+						value: {
+							values: ResourceDescriptor[];
+							metadata: CollectionMetadata;
+						};
+					}>;
+				}
+			).getProjectsForResourcesWithMetadataResult = () => {
+				discoveryCalls++;
+				return Promise.resolve({
+					value: {
+						values:
+							discoveryCalls === 2
+								? [{ key: 'p2', id: 'p2' }]
+								: [
+										{ key: 'p1', id: 'p1' },
+										{ key: 'p2', id: 'p2' },
+									],
+						metadata:
+							discoveryCalls === 2
+								? {
+										completeness: 'partial',
+										failures: [{ kind: 'authentication', scope: { resourceId: 'missing' } }],
+									}
+								: { completeness: 'complete', failures: [] },
+					},
+				});
+			};
+
+			const reads: string[] = [];
+			let p2Calls = 0;
+			(
+				jira as unknown as {
+					getIssuesForProjectWithTruncationResult: (project: {
+						id: string;
+					}) => Promise<{ error: Error } | { value: { values: IssueShape[]; truncated: boolean } }>;
+				}
+			).getIssuesForProjectWithTruncationResult = project => {
+				reads.push(project.id);
+				if (project.id === 'p2' && p2Calls++ === 0) {
+					return Promise.resolve({ error: new Error('temporary project failure') });
+				}
+				return Promise.resolve({
+					value: {
+						values: [{ id: `${project.id}-issue` } as unknown as IssueShape],
+						truncated: false,
+					},
+				});
+			};
+
+			const first = await manager.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				includeAllAssignees: true,
+				...pagination,
+			});
+			assert.deepEqual(reads, ['p1', 'p2']);
+			assert.deepEqual(
+				first.items.map(issue => issue.id),
+				['p1-issue'],
+			);
+			assert.equal(first.hasMore, false, 'a terminal retry remains manual');
+			const firstCursor = JSON.parse(first.cursor!) as {
+				retryPages?: number[];
+				retryProjects?: string[];
+				completedProjects?: string[];
+			};
+			assert.deepEqual(firstCursor.retryPages, [1], 'the origin window survives a terminal retry');
+			assert.deepEqual(firstCursor.retryProjects, [JSON.stringify(['', 'p2', 'p2'])]);
+			assert.deepEqual(firstCursor.completedProjects, [JSON.stringify(['', 'p1', 'p1'])]);
+
+			reads.length = 0;
+			const partialRetry = await manager.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				includeAllAssignees: true,
+				...pagination,
+				cursor: first.cursor,
+			});
+			assert.deepEqual(reads, ['p2']);
+			assert.deepEqual(
+				partialRetry.items.map(issue => issue.id),
+				['p2-issue'],
+			);
+			assert.equal(partialRetry.fetchFailed, true);
+			assert.equal(partialRetry.hasMore, false);
+			const partialCursor = JSON.parse(partialRetry.cursor!) as {
+				retryPages?: number[];
+				completedProjects?: string[];
+			};
+			assert.deepEqual(partialCursor.retryPages, [1]);
+			assert.deepEqual(partialCursor.completedProjects?.sort(), [
+				JSON.stringify(['', 'p1', 'p1']),
+				JSON.stringify(['', 'p2', 'p2']),
+			]);
+
+			reads.length = 0;
+			const recovered = await manager.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Jira,
+				includeAllAssignees: true,
+				...pagination,
+				cursor: partialRetry.cursor,
+			});
+			assert.deepEqual(reads, [], 'completed projects are not re-emitted after discovery recovers');
+			assert.deepEqual(recovered.items, []);
+			assert.equal(recovered.cursor, undefined);
+
+			manager.dispose();
+		});
+	}
+
+	test('listIssueTrackerIssuesPage keeps total discovery failure retry-only', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		let calls = 0;
+		(jira as unknown as { getResourcesForUserResult: () => Promise<{ error: Error }> }).getResourcesForUserResult =
+			() => {
+				calls += 1;
+				return Promise.resolve({ error: new Error('discovery unavailable') });
+			};
+
+		const first = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 2,
+		});
+		assert.equal(first.fetchFailed, true);
+		assert.equal(first.hasMore, false, 'a persistent discovery failure cannot drive an automatic loop');
+		assert.ok(first.cursor?.includes('retryPages'), 'manual retry state is preserved');
+		assert.equal(calls, 1);
+
+		const second = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 2,
+			cursor: first.cursor,
+		});
+		assert.equal(second.hasMore, false);
+		assert.equal(calls, 2, 'the discovery read repeats only when the caller explicitly reuses the cursor');
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage rejects git-host providers explicitly', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+		});
+
+		assert.deepEqual(result.items, []);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.hasMore, false);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].providerId, GitCloudHostIntegrationId.GitHub);
+		assert.match(result.warnings[0].message, /use an issue-tracker integration/i);
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage resumes untouched windows after discovery recovers', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		let discoveryCalls = 0;
+		(
+			jira as unknown as {
+				getResourcesForUserResult: () => Promise<{ error: Error } | { value: ResourceDescriptor[] }>;
+			}
+		).getResourcesForUserResult = () => {
+			discoveryCalls += 1;
+			return discoveryCalls === 1
+				? Promise.resolve({ error: new Error('temporary discovery failure') })
+				: Promise.resolve({ value: [{ key: 'one', id: 'org-1' }] });
+		};
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{
+					value: { values: ResourceDescriptor[] };
+				}>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{ key: 'p1', id: 'p1' },
+						{ key: 'p2', id: 'p2' },
+						{ key: 'p3', id: 'p3' },
+					],
+				},
+			});
+		const reads: string[] = [];
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: (project: {
+					id: string;
+				}) => Promise<{ value: { values: IssueShape[]; truncated: boolean } }>;
+			}
+		).getIssuesForProjectWithTruncationResult = project => {
+			reads.push(project.id);
+			return Promise.resolve({
+				value: {
+					values: [{ id: `${project.id}-issue` } as unknown as IssueShape],
+					truncated: false,
+				},
+			});
+		};
+
+		const failed = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			itemsPerPage: 2,
+		});
+		assert.equal(failed.hasMore, false);
+		assert.ok(failed.cursor != null);
+
+		const recovered = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			itemsPerPage: 2,
+			cursor: failed.cursor,
+		});
+		assert.deepEqual(reads, ['p1', 'p2']);
+		assert.equal(recovered.hasMore, true, 'the next untouched window remains reachable');
+		assert.ok(recovered.cursor != null);
+
+		reads.length = 0;
+		const final = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			itemsPerPage: 2,
+			cursor: recovered.cursor,
+		});
+		assert.deepEqual(reads, ['p3']);
+		assert.equal(final.hasMore, false);
+		assert.equal(final.cursor, undefined);
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage does not re-emit completed projects while retrying discovery', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1' }] });
+		let discoveryCalls = 0;
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{
+					value: {
+						values: ResourceDescriptor[];
+						metadata: CollectionMetadata;
+					};
+				}>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () => {
+			discoveryCalls += 1;
+			return Promise.resolve({
+				value: {
+					values:
+						discoveryCalls === 1
+							? [
+									{ key: 'p1', id: 'p1' },
+									{ key: 'p2', id: 'p2' },
+								]
+							: [
+									{ key: 'p1', id: 'p1' },
+									{ key: 'p2', id: 'p2' },
+									{ key: 'p3', id: 'p3' },
+								],
+					metadata:
+						discoveryCalls === 1
+							? {
+									completeness: 'partial',
+									failures: [{ kind: 'authentication', scope: { resourceId: 'missing' } }],
+								}
+							: { completeness: 'complete', failures: [] },
+				},
+			});
+		};
+		const reads: string[] = [];
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: (project: {
+					id: string;
+				}) => Promise<{ value: { values: IssueShape[]; truncated: boolean } }>;
+			}
+		).getIssuesForProjectWithTruncationResult = project => {
+			reads.push(project.id);
+			return Promise.resolve({
+				value: {
+					values: [{ id: `${project.id}-issue` } as unknown as IssueShape],
+					truncated: false,
+				},
+			});
+		};
+
+		const first = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			itemsPerPage: 2,
+		});
+		assert.deepEqual(
+			first.items.map(issue => issue.id),
+			['p1-issue', 'p2-issue'],
+		);
+		assert.ok(first.cursor?.includes('completedProjects'));
+
+		reads.length = 0;
+		const recovered = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			itemsPerPage: 2,
+			cursor: first.cursor,
+		});
+		assert.deepEqual(reads, [], 'successful projects from the retried window are not read twice');
+		assert.deepEqual(recovered.items, []);
+		assert.equal(recovered.hasMore, true, 'the newly discovered next window remains reachable');
+
+		const final = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			itemsPerPage: 2,
+			cursor: recovered.cursor,
+		});
+		assert.deepEqual(
+			final.items.map(issue => issue.id),
+			['p3-issue'],
+		);
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage preserves unpaged aggregation across a discovery retry', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		let discoveryCalls = 0;
+		(
+			jira as unknown as {
+				getResourcesForUserResult: () => Promise<{ error: Error } | { value: ResourceDescriptor[] }>;
+			}
+		).getResourcesForUserResult = () => {
+			discoveryCalls += 1;
+			return discoveryCalls === 1
+				? Promise.resolve({ error: new Error('temporary discovery failure') })
+				: Promise.resolve({ value: [{ key: 'one', id: 'org-1' }] });
+		};
+		const projects = Array.from({ length: 25 }, (_, index) => ({
+			key: `p${index}`,
+			id: `p${index}`,
+		}));
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{
+					value: { values: ResourceDescriptor[] };
+				}>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () => Promise.resolve({ value: { values: projects } });
+		let issueReads = 0;
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: () => Promise<{
+					value: { values: IssueShape[]; truncated: boolean };
+				}>;
+			}
+		).getIssuesForProjectWithTruncationResult = () => {
+			issueReads += 1;
+			return Promise.resolve({ value: { values: [], truncated: false } });
+		};
+
+		const failed = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+		});
+		assert.ok(failed.cursor != null);
+
+		const recovered = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			cursor: failed.cursor,
+		});
+		assert.equal(issueReads, 25, 'the retry keeps the original aggregate-all mode');
+		assert.equal(recovered.hasMore, false);
+		assert.equal(recovered.cursor, undefined);
 
 		manager.dispose();
 	});

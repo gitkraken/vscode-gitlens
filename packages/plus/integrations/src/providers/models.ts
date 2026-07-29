@@ -160,6 +160,40 @@ export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
 export type ProviderGitHubOrganization = Organization;
 export type ProviderGitLabGroup = GitLabGroup;
+
+/**
+ * Returns an account-wide PR identity. Provider PR ids are commonly scoped to a repository or organization,
+ * so an id alone is never safe for deduplication across a multi-repository fan-out. Repository identity wins
+ * when available so the same row still deduplicates when a later facet adds or removes its URL.
+ */
+export function getProviderPullRequestIdentity(
+	pr: Pick<ProviderPullRequest, 'id' | 'repository' | 'url'>,
+): string | undefined {
+	const repository = pr.repository as
+		| {
+				id?: string | number;
+				name?: string;
+				namespace?: string;
+				owner?: { login?: string } | string;
+				project?: string;
+		  }
+		| undefined;
+	const urlIdentity = pr.url != null && pr.url.trim() !== '' ? `url:${pr.url}` : undefined;
+	if (repository == null) return urlIdentity;
+
+	const owner = typeof repository.owner === 'string' ? repository.owner : repository.owner?.login;
+	const repositoryId = repository.id != null ? String(repository.id).trim() : '';
+	if (repositoryId !== '') return `repository:${repositoryId}:pull-request:${pr.id}`;
+
+	const name = repository.name?.trim() ?? '';
+	const namespace = (repository.namespace ?? owner)?.trim() ?? '';
+	const project = repository.project?.trim() ?? '';
+	if (name !== '' && (namespace !== '' || project !== '')) {
+		return `repository:${namespace}/${project}/${name}:pull-request:${pr.id}`;
+	}
+	return urlIdentity;
+}
+
 export type ProviderHierarchyResult<T> = PagedResult<T> & {
 	readonly truncated?: boolean;
 	/**
@@ -525,6 +559,22 @@ export type GetJiraProjectsForResourcesFn = (
 	// Fan-out across resources: preserves successful resources' projects and reports per-resource failures in
 	// SDK collection metadata instead of throwing when a single resource fails.
 ) => Promise<{ data: JiraProject[]; metadata?: CollectionMetadata }>;
+export type GetJiraProjectsForResourceFn = (
+	input: { resourceId: string } & CursorPageInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: JiraProject[]; pageInfo?: PageInfo; metadata?: CollectionMetadata }>;
+export type GetGitLabPullRequestsForUserAssociationFn = (
+	input: {
+		username: string;
+		association: 'assigned' | 'authored' | 'reviewRequested';
+		includeFromArchivedRepos?: boolean;
+		labelNames?: string[];
+		repo?: ProviderRepoInput;
+		states?: GitPullRequestState[];
+		pageSize?: number;
+	} & CursorPageInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderPullRequest[]; pageInfo?: PageInfo }>;
 export type GetAzureResourcesForUserFn = (
 	input: { userId: string },
 	options?: EnterpriseOptions,
@@ -583,6 +633,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getPullRequestsForReposFn?: GetPullRequestsForReposFn;
 	getPullRequestsForRepoFn?: GetPullRequestsForRepoFn;
 	getPullRequestsForUserFn?: GetPullRequestsForUserFn;
+	getGitLabPullRequestsForUserAssociationFn?: GetGitLabPullRequestsForUserAssociationFn;
 	getPullRequestsForAzureProjectsFn?: GetPullRequestsForAzureProjectsFn;
 	getPullRequestsForAzureProjectFn?: GetPullRequestsForAzureProjectFn;
 	getIssueFn?: GetIssueFn;
@@ -603,6 +654,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
 	getBitbucketServerPullRequestsForCurrentUserFn?: GetBitbucketServerPullRequestsForCurrentUserFn;
 	getJiraProjectsForResourcesFn?: GetJiraProjectsForResourcesFn;
+	getJiraProjectsForResourceFn?: GetJiraProjectsForResourceFn;
 	getAzureProjectsForResourceFn?: GetAzureProjectsForResourceFn;
 	getIssuesForProjectFn?: GetIssuesForProjectFn;
 	getReposForAzureProjectFn?: GetReposForAzureProjectFn;
@@ -1290,7 +1342,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		repository:
 			pr.repository != null
 				? {
-						id: pr.repository.repo,
+						id: pr.repository.id ?? '',
 						name: pr.repository.repo,
 						owner: {
 							login: pr.repository.owner,

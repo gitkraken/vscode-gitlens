@@ -71,6 +71,42 @@ suite('provider hierarchy results', () => {
 		assert.equal(result?.values.length, 1);
 	});
 
+	test('GitHub organization listing preserves page-1 values and metadata when page 2 fails', async () => {
+		const api = {
+			getGitHubOrgsForCurrentUser: async () => ({
+				values: [{ id: '1', username: 'acme' }],
+				truncated: true,
+				metadata: {
+					completeness: 'partial' as const,
+					failures: [
+						{
+							kind: 'provider' as const,
+							scope: { providerId: 'github' },
+							message: 'page 2 unavailable',
+						},
+					],
+				},
+			}),
+		};
+		const integration = new GitHubIntegration(
+			createFakeRuntime(),
+			{} as never,
+			async () => api as never,
+			new Emitter(),
+		);
+		setSession(integration, createSession('github.com'));
+
+		const result = await integration.getOrganizationsForUser();
+
+		assert.deepEqual(
+			result?.values.map(org => org.name),
+			['acme'],
+		);
+		assert.equal(result?.truncated, true);
+		assert.equal(result?.metadata?.completeness, 'partial');
+		assert.equal(result?.metadata?.failures?.[0]?.scope?.providerId, 'github');
+	});
+
 	test('GitLab organization listing returns normalized organizations', async () => {
 		const api: {
 			getGitlabGroupsForCurrentUser: () => Promise<{
@@ -120,6 +156,185 @@ suite('provider hierarchy results', () => {
 
 		assert.equal(result?.truncated, true);
 		assert.equal(result?.values.length, 1);
+	});
+
+	test('GitLab organization listing preserves page-1 values and metadata when page 2 fails', async () => {
+		const api = {
+			getGitlabGroupsForCurrentUser: async () => ({
+				values: [{ id: '1', fullPath: 'acme/platform', webUrl: 'https://gitlab.com/acme/platform' }],
+				truncated: true,
+				metadata: {
+					completeness: 'partial' as const,
+					failures: [
+						{
+							kind: 'provider' as const,
+							scope: { providerId: 'gitlab' },
+							message: 'page 2 unavailable',
+						},
+					],
+				},
+			}),
+		};
+		const integration = new GitLabIntegration(
+			createFakeRuntime(),
+			{} as never,
+			async () => api as never,
+			new Emitter(),
+		);
+		setSession(integration, createSession('gitlab.com'));
+
+		const result = await integration.getOrganizationsForUser();
+
+		assert.deepEqual(
+			result?.values.map(org => org.name),
+			['acme/platform'],
+		);
+		assert.equal(result?.truncated, true);
+		assert.equal(result?.metadata?.completeness, 'partial');
+		assert.equal(result?.metadata?.failures?.[0]?.scope?.providerId, 'gitlab');
+	});
+
+	test('Bitbucket workspace discovery preserves a partial prefix and retries it on the next read', async () => {
+		let calls = 0;
+		const api = {
+			getBitbucketResourcesForCurrentUser: async () => {
+				calls++;
+				return calls === 1
+					? {
+							values: [{ id: 'ws-1', slug: 'workspace-1', name: 'Workspace 1' }],
+							metadata: {
+								completeness: 'partial' as const,
+								failures: [
+									{
+										kind: 'provider' as const,
+										scope: { providerId: 'bitbucket' },
+										message: 'page 2 unavailable',
+									},
+								],
+							},
+						}
+					: {
+							values: [
+								{ id: 'ws-1', slug: 'workspace-1', name: 'Workspace 1' },
+								{ id: 'ws-2', slug: 'workspace-2', name: 'Workspace 2' },
+							],
+						};
+			},
+		};
+		const integration = new BitbucketIntegration(
+			createFakeRuntime(),
+			{} as never,
+			async () => api as never,
+			new Emitter(),
+		);
+		setSession(integration, createSession('bitbucket.org'));
+
+		const first = await integration.getOrganizationsForUser();
+		const second = await integration.getOrganizationsForUser();
+
+		assert.deepEqual(
+			first?.values.map(org => org.name),
+			['workspace-1'],
+		);
+		assert.equal(first?.metadata?.completeness, 'partial');
+		assert.deepEqual(
+			second?.values.map(org => org.name),
+			['workspace-1', 'workspace-2'],
+		);
+		assert.equal(second?.metadata, undefined);
+		assert.equal(calls, 2, 'the partial prefix was not cached as complete');
+	});
+
+	test('Azure project discovery does not cache terminal pages with incomplete metadata', async () => {
+		let calls = 0;
+		const api = {
+			getAzureProjectsForResource: async () => {
+				calls++;
+				return {
+					values: [{ id: `p-${calls}`, name: `Project ${calls}`, namespace: 'acme' }],
+					metadata: { completeness: calls === 1 ? ('partial' as const) : ('complete' as const) },
+				};
+			},
+		};
+		const integration = new AzureDevOpsIntegration(
+			createFakeRuntime(),
+			{} as never,
+			async () => api as never,
+			new Emitter(),
+		);
+		setSession(integration, createSession('dev.azure.com'));
+		const resource = { id: 'org-1', name: 'acme', key: 'org-1' };
+		const target = integration as unknown as {
+			getProviderProjectsForResources(
+				session: ProviderAuthenticationSession,
+				resources: unknown[],
+			): Promise<{ values: { id: string }[] }>;
+		};
+
+		const first = await target.getProviderProjectsForResources(createSession('dev.azure.com'), [resource]);
+		const second = await target.getProviderProjectsForResources(createSession('dev.azure.com'), [resource]);
+
+		assert.deepEqual(
+			first.values.map(project => project.id),
+			['p-1'],
+		);
+		assert.deepEqual(
+			second.values.map(project => project.id),
+			['p-2'],
+		);
+		assert.equal(calls, 2, 'the metadata-incomplete first result was retried');
+	});
+
+	test('Azure forced partial project discovery does not duplicate the preserved cache', async () => {
+		let calls = 0;
+		const api = {
+			getAzureProjectsForResource: async () => {
+				calls++;
+				return {
+					values: [
+						{
+							id: calls === 3 ? 'p-2' : 'p-1',
+							name: calls === 3 ? 'Project 2' : 'Project 1',
+							namespace: 'acme',
+						},
+					],
+					metadata: { completeness: calls === 2 ? ('partial' as const) : ('complete' as const) },
+				};
+			},
+		};
+		const integration = new AzureDevOpsIntegration(
+			createFakeRuntime(),
+			{} as never,
+			async () => api as never,
+			new Emitter(),
+		);
+		setSession(integration, createSession('dev.azure.com'));
+		const resource = { id: 'org-1', name: 'acme', key: 'org-1' };
+		const target = integration as unknown as {
+			getProviderProjectsForResources(
+				session: ProviderAuthenticationSession,
+				resources: unknown[],
+				force?: boolean,
+			): Promise<{ values: { id: string }[] }>;
+		};
+
+		await target.getProviderProjectsForResources(createSession('dev.azure.com'), [resource]);
+		const partial = await target.getProviderProjectsForResources(createSession('dev.azure.com'), [resource], true);
+		const recovered = await target.getProviderProjectsForResources(
+			createSession('dev.azure.com'),
+			[resource],
+			true,
+		);
+
+		assert.deepEqual(
+			partial.values.map(project => project.id),
+			['p-1'],
+		);
+		assert.deepEqual(
+			recovered.values.map(project => project.id),
+			['p-2'],
+		);
+		assert.equal(calls, 3, 'the incomplete forced refresh did not become authoritative');
 	});
 
 	test('Azure cross-project repo listing reports truncation without exposing paging', async () => {
@@ -282,7 +497,7 @@ suite('provider hierarchy results', () => {
 		);
 	});
 
-	test('Bitbucket providerOnConnect preserves workspace metadata in cache and storage (#5438)', async () => {
+	test('Bitbucket providerOnConnect does not cache or persist partial workspace discovery (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const storageKey = `bitbucket:${md5('token')}:workspaces`;
 		await runtime.storage.store(`bitbucket:${md5('token')}:account`, { v: 1, timestamp: 0, data: { id: 'b1' } });
@@ -301,12 +516,15 @@ suite('provider hierarchy results', () => {
 
 		await (integration as any).providerOnConnect();
 
-		assert.equal((integration as any)._workspaces.get('token')?.metadata?.completeness, 'partial');
 		assert.equal(
-			(runtime.storage.get(storageKey) as { data: { metadata?: { completeness: string } } }).data.metadata
-				?.completeness,
-			'partial',
-			'the persisted workspace cache keeps the partial metadata',
+			(integration as any)._workspaces?.get('token'),
+			undefined,
+			'a partial workspace prefix is retried rather than becoming authoritative memory state',
+		);
+		assert.equal(
+			runtime.storage.get(storageKey),
+			undefined,
+			'a partial workspace prefix is not persisted as authoritative state',
 		);
 	});
 });

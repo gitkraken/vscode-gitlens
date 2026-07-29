@@ -13,7 +13,7 @@ import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
-import { mergeCollectionMetadata } from './utils/providerPaging.js';
+import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -145,7 +145,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		force: boolean = false,
 	): Promise<ProviderApiCollectionResult<JiraProjectDescriptor>> {
 		const { accessToken } = session;
-		this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>();
+		const projectsCache = (this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>());
 
 		let resourcesWithoutProjects = [];
 		if (force) {
@@ -153,7 +153,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		} else {
 			for (const resource of resources) {
 				const resourceKey = `${accessToken}:${resource.id}`;
-				const cachedProjects = this._projects.get(resourceKey);
+				const cachedProjects = projectsCache.get(resourceKey);
 				if (cachedProjects == null) {
 					resourcesWithoutProjects.push(resource);
 				}
@@ -161,42 +161,74 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		}
 
 		let metadata: CollectionMetadata | undefined;
+		const partialProjects: JiraProjectDescriptor[] = [];
 		if (resourcesWithoutProjects.length > 0) {
 			const api = await this.getProvidersApi();
-			const result = await api.getJiraProjectsForResources(
-				toTokenWithInfo(this.id, session),
-				resourcesWithoutProjects.map(r => r.id),
-			);
-			metadata = result.metadata;
-
-			// Only the resources the SDK did NOT report as failed are proven: cache their mapped projects
-			// (including a proven-empty array, so a genuinely empty resource doesn't refetch every time). A
-			// resource listed in `metadata.failures` is left uncached so the next read retries it, and — crucially
-			// on a forced refresh — its existing valid cache entry is preserved rather than erased by the failure.
-			const failedResourceIds = new Set(
-				(metadata?.failures ?? []).map(f => f.scope?.resourceId).filter((id): id is string => id != null),
+			const tokenWithInfo = toTokenWithInfo(this.id, session);
+			const drains = await Promise.allSettled(
+				resourcesWithoutProjects.map(async resource => ({
+					resource: resource,
+					result: await collectProviderPagedResult(
+						cursor => api.getJiraProjectsForResource(tokenWithInfo, resource.id, { cursor: cursor }),
+						maxPagesPerRequest,
+						{ providerId: this.id, resourceId: resource.id },
+					),
+				})),
 			);
 
-			for (const resource of resourcesWithoutProjects) {
-				if (failedResourceIds.has(resource.id)) continue;
+			drains.forEach((drain, index) => {
+				if (drain.status === 'rejected') {
+					const resource = resourcesWithoutProjects[index];
+					if (resource == null) return;
 
-				const projects = result.values.filter(p => p.resourceId === resource.id);
-				this._projects.set(
-					`${accessToken}:${resource.id}`,
-					projects.map(p => ({ ...p })),
-				);
-			}
+					metadata = mergeCollectionMetadata(metadata, {
+						completeness: 'partial',
+						failures: [
+							toCollectionScopeFailure({ providerId: this.id, resourceId: resource.id }, drain.reason),
+						],
+					});
+					return;
+				}
+
+				const { resource, result } = drain.value;
+				metadata = mergeCollectionMetadata(metadata, result.metadata);
+				const projects = result.values
+					.filter(project => project.resourceId === resource.id)
+					.map(project => ({ ...project }));
+				const incomplete =
+					result.truncated === true ||
+					(result.metadata != null && result.metadata.completeness !== 'complete');
+				if (incomplete) {
+					partialProjects.push(...projects);
+					if (
+						result.truncated === true &&
+						(result.metadata == null || result.metadata.completeness === 'complete')
+					) {
+						metadata = mergeCollectionMetadata(metadata, { completeness: 'partial' });
+					}
+					return;
+				}
+
+				projectsCache.set(`${accessToken}:${resource.id}`, projects);
+			});
 		}
 
 		const values = resources.reduce<JiraProjectDescriptor[]>((projects, resource) => {
-			const resourceProjects = this._projects!.get(`${accessToken}:${resource.id}`);
+			const resourceProjects = projectsCache.get(`${accessToken}:${resource.id}`);
 			if (resourceProjects != null) {
 				projects.push(...resourceProjects);
 			}
 			return projects;
-		}, []);
+		}, partialProjects);
 
-		return { values: values, metadata: metadata };
+		const projectsByIdentity = new Map<string, JiraProjectDescriptor>();
+		for (const project of values) {
+			const identity = `${project.resourceId}:${project.id}`;
+			if (!projectsByIdentity.has(identity)) {
+				projectsByIdentity.set(identity, project);
+			}
+		}
+		return { values: [...projectsByIdentity.values()], metadata: metadata };
 	}
 
 	protected override async getProviderIssuesForProject(
@@ -221,6 +253,11 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		// unscoped project read. Reports `truncated` when the drain stopped at the backstop with more pages
 		// still available, and records a structured failure if a page-level error discarded the rest of the drain,
 		// so the facade can warn + set fetchFailed while preserving the already-fetched prefix.
+		const projectScope = {
+			providerId: this.id,
+			resourceId: project.resourceId,
+			projectId: project.name,
+		};
 		const drainIssues = async (scope: {
 			authorLogin?: string;
 			assigneeLogins?: string[];
@@ -247,16 +284,25 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 					truncated = true;
 					metadata = mergeCollectionMetadata(metadata, {
 						completeness: 'partial',
+						failures: [toCollectionScopeFailure(projectScope, ex)],
+					});
+					break;
+				}
+				if (result == null) {
+					if (cursor == null) break;
+
+					truncated = true;
+					metadata = mergeCollectionMetadata(metadata, {
+						completeness: 'partial',
 						failures: [
 							toCollectionScopeFailure(
-								{ providerId: this.id, resourceId: project.resourceId, projectId: project.name },
-								ex,
+								projectScope,
+								new Error('Jira returned no page after advertising a continuation'),
 							),
 						],
 					});
 					break;
 				}
-				if (result == null) break;
 
 				collected.push(...result.data);
 				if (!result.hasMore) break;
@@ -265,6 +311,15 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				// is incomplete — flag it rather than silently stopping (matches drainPullRequests/Repositories).
 				if (result.nextCursor == null || result.nextCursor === cursor) {
 					truncated = true;
+					metadata = mergeCollectionMetadata(metadata, {
+						completeness: 'partial',
+						failures: [
+							toCollectionScopeFailure(
+								projectScope,
+								new Error('Jira returned no advancing issue continuation'),
+							),
+						],
+					});
 					break;
 				}
 
@@ -336,20 +391,19 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				// the specific filter (auth/rate-limit) instead of just a generic truncation flag.
 				if (outcome.status !== 'fulfilled') {
 					truncated = true;
+					const failure = toCollectionScopeFailure(
+						{ providerId: this.id, resourceId: project.resourceId, projectId: project.name },
+						outcome.reason,
+					);
 					metadata = mergeCollectionMetadata(metadata, {
 						completeness: 'partial',
 						failures: [
-							toCollectionScopeFailure(
-								{ providerId: this.id, resourceId: project.resourceId, projectId: project.name },
-								new Error(
-									`Issue filter '${filter}' could not be read: ${
-										outcome.reason instanceof Error
-											? outcome.reason.message
-											: String(outcome.reason)
-									}`,
-									{ cause: outcome.reason },
-								),
-							),
+							{
+								...failure,
+								message: `Issue filter '${filter}' could not be read${
+									failure.message != null ? `: ${failure.message}` : ''
+								}`,
+							},
 						],
 					});
 					continue;

@@ -160,9 +160,8 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
 		(gl as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		// The account-wide read (no `repos`) routes to the SDK's `getPullRequestsAssociatedWithUser`, which as of
-		// `@gitkraken/provider-apis` 0.54.0 forwards `states` to all three per-association queries and narrows
-		// after normalization for a set GitLab's single-valued `state:` argument can't express.
+		// The account-wide read (no `repos`) fans out through the generic per-association SDK primitive. Every
+		// facet must receive the requested states; otherwise a closed/merged sweep silently falls back to open.
 		//
 		// Before that it accepted no `states` at all, so every query fell back to `state: opened` and a
 		// closed/merged request came back with only OPEN merge requests — which this read had to refuse outright,
@@ -172,7 +171,12 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		stubApi(gl, {
 			isRepoIdsInput: () => false,
 			getCurrentUser: () => Promise.resolve({ username: 'me', id: 'me' }),
-			getPullRequestsForUser: (_t: unknown, _u: unknown, opts: { states?: GitPullRequestState[] }) => {
+			getGitLabPullRequestsForUserAssociation: (
+				_t: unknown,
+				_u: unknown,
+				_association: unknown,
+				opts: { states?: GitPullRequestState[] },
+			) => {
 				capturedStates = opts.states;
 				return Promise.resolve({ values: [], paging: undefined } satisfies PagedResult<ProviderPullRequest>);
 			},
@@ -429,6 +433,53 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('GitHub account-wide facets mark missing and stalled continuations incomplete', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+		const target = gh as unknown as {
+			getProviderMyPullRequestsForUser: (
+				session: ProviderAuthenticationSession,
+				options: { state: ['open']; filters: PullRequestFilter[]; cursor?: string },
+			) => Promise<{
+				paging?: { cursor?: string; more?: boolean; truncated?: boolean };
+				metadata?: { completeness: string };
+			}>;
+		};
+
+		githubApi.searchMyPullRequestsPage = () =>
+			Promise.resolve({ values: [], hasMore: true, cursor: undefined, truncated: false });
+		const missing = await target.getProviderMyPullRequestsForUser(primarySession('t'), {
+			state: ['open'],
+			filters: [PullRequestFilter.Author],
+		});
+		assert.equal(missing.paging?.more, false);
+		assert.equal(missing.paging?.truncated, true);
+		assert.equal(missing.metadata?.completeness, 'partial');
+
+		githubApi.searchMyPullRequestsPage = () =>
+			Promise.resolve({ values: [], hasMore: true, cursor: 'same', truncated: false });
+		const first = await target.getProviderMyPullRequestsForUser(primarySession('t'), {
+			state: ['open'],
+			filters: [PullRequestFilter.Author],
+		});
+		const stalled = await target.getProviderMyPullRequestsForUser(primarySession('t'), {
+			state: ['open'],
+			filters: [PullRequestFilter.Author],
+			cursor: first.paging?.cursor,
+		});
+		assert.equal(stalled.paging?.more, false);
+		assert.equal(stalled.paging?.truncated, true);
+		assert.equal(stalled.metadata?.completeness, 'partial');
+		manager.dispose();
+	});
+
 	test('Bitbucket Data Center refuses filtered PRs when the current account cannot be resolved', async () => {
 		const integration = Object.create(BitbucketServerIntegration.prototype) as Record<string, unknown>;
 		Object.assign(integration, {
@@ -518,9 +569,29 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('a non-primary connectionId + forceSync does NOT force a refresh', async () => {
+	test('a non-primary connectionId + forceSync refreshes only that connection', async () => {
 		const runtime = createFakeRuntime();
-		await seedCloudConnection(runtime, 'sec-tok', 'token-secondary');
+		runtime.account.getAccount = async () => ({ id: 'me' });
+		await seedCloudConnection(runtime, 'sec-tok', 'stale-secondary');
+		const backendPaths: string[] = [];
+		runtime.account.fetchGkApi = path => {
+			backendPaths.push(path);
+			return Promise.resolve(
+				new Response(
+					JSON.stringify({
+						data: {
+							tokenId: 'sec-tok',
+							accessToken: 'fresh-secondary',
+							expiresIn: 3600,
+							scopes: 'repo',
+							type: 'oauth',
+							domain: 'github.com',
+						},
+					}),
+					{ status: 200 },
+				),
+			);
+		};
 		const manager = createIntegrationManager(runtime);
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('primary');
@@ -548,7 +619,13 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 			connectionId: 'sec-tok',
 		});
 		assert.equal(synced, false, 'a per-connection read bypasses the primary refresh machinery');
-		assert.equal(capturedToken, 'token-secondary', 'the read used the connection token');
+		assert.equal(capturedToken, 'fresh-secondary', 'the read used the freshly fetched secondary token');
+		assert.deepEqual(backendPaths, ['v1/provider-tokens/tokens/sec-tok']);
+		assert.equal(
+			(gh as unknown as { _session: ProviderAuthenticationSession })._session.accessToken,
+			'primary',
+			'the primary integration session was not mutated',
+		);
 
 		manager.dispose();
 	});
