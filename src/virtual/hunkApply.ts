@@ -3,6 +3,10 @@
  * hunks (same shape as `ComposerHunk`), returns the post-apply bytes. No git process spawn, no
  * object-store writes — pure in-memory transformation.
  *
+ * Hunk line numbers must be relative to `base` and hunks must be ordered ascending by `oldStart`;
+ * context and deleted lines are verified against `base`, so a violation throws rather than silently
+ * splicing. There is deliberately no `git apply`-style offset search.
+ *
  * Scope: text content. Binary and intent-to-add hunks are passed through as no-ops
  * (caller should detect binary mode upstream). Pure renames (no content change) return the base
  * unchanged. "\ No newline at end of file" markers are honored when present at hunk boundaries.
@@ -45,6 +49,9 @@ function parseHunkHeader(header: string): HunkRange | undefined {
  * Apply `hunks` in order on top of `base`. Returns the resulting bytes.
  *
  * Empty/undefined base is treated as "new file" — typically only `+` lines will appear in hunks.
+ *
+ * @throws when a hunk header is malformed, or when a context/deleted line doesn't match the base at
+ * the position the header points at.
  */
 export function applyHunks(base: Uint8Array | undefined, hunks: readonly ApplyableHunk[]): Uint8Array {
 	// Pure-rename commits change metadata, not content.
@@ -78,6 +85,22 @@ export function applyHunks(base: Uint8Array | undefined, hunks: readonly Applyab
 		// Copy unchanged base lines up to the hunk's start. Diff line numbers are 1-based; a
 		// header of `-N` aligns with base index `N-1` for the first consumed line.
 		const targetIdx = Math.max(0, range.oldStart - 1);
+		if (targetIdx < cursor) {
+			throw new Error(
+				`applyHunks: hunk '${hunk.hunkHeader}' starts before the previous hunk ended (base line ${String(cursor + 1)}) — hunks must be ordered ascending by old-side start`,
+			);
+		}
+
+		// A diff taken against this base can't point past its end, so an out-of-range start means the
+		// hunks belong to some other content. Additions-only bodies have no line to verify, so without
+		// this they would collapse onto EOF and append silently. `targetIdx === baseLines.length` is
+		// the legitimate append-at-EOF case.
+		if (targetIdx > baseLines.length) {
+			throw new Error(
+				`applyHunks: hunk '${hunk.hunkHeader}' starts past the end of the base (${String(baseLines.length)} lines) — these hunks don't belong to this base`,
+			);
+		}
+
 		while (cursor < targetIdx && cursor < baseLines.length) {
 			out.push(baseLines[cursor]);
 			cursor++;
@@ -86,41 +109,55 @@ export function applyHunks(base: Uint8Array | undefined, hunks: readonly Applyab
 		// Walk hunk body lines. Split on \n only — unified diff uses LF between hunk lines.
 		const body = hunk.content.endsWith('\n') ? hunk.content.slice(0, -1) : hunk.content;
 		const bodyLines = body.length === 0 ? [] : body.split('\n');
-		for (const line of bodyLines) {
-			if (line.length === 0) {
+		let prevMarker = '';
+		for (const bodyLine of bodyLines) {
+			if (bodyLine.length === 0) {
 				// Rare but legal: an empty line in the body corresponds to a context line that was
 				// itself empty. Treat as a context match.
-				out.push('');
+				out.push(matchBaseLine(baseLines, cursor, '', hunk.hunkHeader));
 				cursor++;
+				prevMarker = ' ';
 				continue;
 			}
 
-			const marker = line[0];
-			const text = line.slice(1);
+			const marker = bodyLine[0];
+			const text = bodyLine.slice(1);
 			switch (marker) {
 				case ' ':
-					out.push(text);
+					out.push(matchBaseLine(baseLines, cursor, text, hunk.hunkHeader));
 					cursor++;
 					break;
 				case '-':
+					matchBaseLine(baseLines, cursor, text, hunk.hunkHeader);
 					cursor++;
 					break;
 				case '+':
-					out.push(text);
+					// With no base line to check against, go by the base's own terminator: when it
+					// isn't CRLF a trailing CR is real content rather than a terminator artifact.
+					out.push(eol === '\r\n' && text.endsWith('\r') ? text.slice(0, -1) : text);
 					break;
 				case '\\':
-					// "\ No newline at end of file". The preceding line (added or context) should not
-					// gain a trailing EOL when we rejoin.
-					trailingEolSuppressed = true;
+					// "\ No newline at end of file" describes the line above it, so after a deletion it
+					// is the old side that was unterminated — which says nothing about the result.
+					if (prevMarker !== '-') {
+						trailingEolSuppressed = true;
+					}
 					break;
 				default:
 					// Unknown marker — treat as context (defensive; permissive parsing matches git behavior).
-					out.push(line);
+					out.push(bodyLine);
 					cursor++;
 					break;
 			}
+
+			prevMarker = marker;
 		}
 	}
+
+	// A "\ No newline at end of file" marker only appears where the diff reaches EOF, so it decides
+	// the result's ending only when a hunk consumed through the last base line. When the hunks
+	// stopped short, the untouched tail carries the base's own ending forward.
+	const hunksReachedEof = cursor >= baseLines.length;
 
 	// Copy any remaining unchanged tail.
 	while (cursor < baseLines.length) {
@@ -128,9 +165,25 @@ export function applyHunks(base: Uint8Array | undefined, hunks: readonly Applyab
 		cursor++;
 	}
 
+	const terminated = hunksReachedEof ? !trailingEolSuppressed : endsWithEol;
 	const joined = out.join(eol);
-	const final = !trailingEolSuppressed && (endsWithEol || out.length > 0) ? `${joined}${eol}` : joined;
-	return textEncoder.encode(final);
+	return textEncoder.encode(terminated && out.length > 0 ? `${joined}${eol}` : joined);
+}
+
+/**
+ * Resolve a context/deleted hunk line against the base line it claims to consume, returning the
+ * base's own text. A CRLF base's diff carries that CR inside each body line while `baseLines` was
+ * split on the full terminator, so a trailing CR is tolerated only when dropping it is what makes
+ * the two agree; a line that still disagrees after that is a genuine mismatch.
+ */
+function matchBaseLine(baseLines: readonly string[], cursor: number, text: string, hunkHeader: string): string {
+	const actual = baseLines[cursor];
+	if (actual === text) return actual;
+	if (text.endsWith('\r') && actual === text.slice(0, -1)) return actual;
+
+	throw new Error(
+		`applyHunks: hunk '${hunkHeader}' does not match the base at line ${String(cursor + 1)}: expected '${text}', found ${actual == null ? 'end of file' : `'${actual}'`}`,
+	);
 }
 
 /** Detect the dominant line terminator in `text` and whether the text ends with one. */

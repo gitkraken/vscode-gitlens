@@ -3,7 +3,6 @@ import { EventEmitter, FileType } from 'vscode';
 import { ShowError } from '@gitlens/git/errors.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../container.js';
-import type { ApplyableHunk } from '../../../virtual/hunkApply.js';
 import { applyHunks } from '../../../virtual/hunkApply.js';
 import type {
 	VirtualContentChangeEvent,
@@ -46,8 +45,9 @@ interface Session {
  *
  * Each session owns a parent-chained list of proposed commits anchored to a real base SHA; the
  * first commit's parent is `{ kind: 'ref', sha: baseSha }`, subsequent commits point at their
- * predecessor. File content at commit N is synthesized by starting from the base file and
- * applying in order every earlier commit's hunks that touch the requested path.
+ * predecessor. File content at commit N is synthesized by taking the base file and applying, in a
+ * single pass and in base order, the hunks from commits 0..N that {@link collectHunksForPath}
+ * resolves for the requested path.
  */
 export class GraphComposeVirtualContentProvider implements VirtualContentProvider {
 	readonly namespace = GraphComposeVirtualNamespace;
@@ -178,19 +178,18 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 			nameAtCommit[i] = renameSource ?? nameAfter;
 		}
 
-		let content = await this.getBaseContent(session, nameAtCommit[0]);
+		// Every hunk comes from one combined `base..final` diff, so every `@@` header is relative to
+		// `baseSha`, never to the preceding commit — they have to be applied in one pass against the
+		// base. `index` is that diff's emission order, i.e. ascending old-line order per file.
+		const hunks: ComposerHunk[] = [];
 		for (let i = 0; i <= commitIdx; i++) {
-			const nameAfter = nameAtCommit[i + 1];
-			const hunks = collectHunksForPath(session.commits[i].hunks, nameAfter);
-			if (hunks.length === 0) continue;
-
-			content = applyHunks(
-				content,
-				hunks.map(h => h.hunk),
-			);
+			for (const h of collectHunksForPath(session.commits[i].hunks, nameAtCommit[i + 1])) {
+				hunks.push(h.hunk);
+			}
 		}
+		hunks.sort((a, b) => a.index - b.index);
 
-		const result = content ?? new Uint8Array(0);
+		const result = applyHunks(await this.getBaseContent(session, nameAtCommit[0]), hunks);
 		session.contentCache.set(cacheKey, result);
 		return result;
 	}
@@ -221,8 +220,8 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 function collectHunksForPath(
 	hunks: readonly ComposerHunk[],
 	path: string,
-): Array<{ hunk: ApplyableHunk; isRename: boolean; toPath: string; fromPath: string }> {
-	const out: Array<{ hunk: ApplyableHunk; isRename: boolean; toPath: string; fromPath: string }> = [];
+): Array<{ hunk: ComposerHunk; isRename: boolean; toPath: string; fromPath: string }> {
+	const out: Array<{ hunk: ComposerHunk; isRename: boolean; toPath: string; fromPath: string }> = [];
 	for (const h of hunks) {
 		if (h.fileName !== path) continue;
 
