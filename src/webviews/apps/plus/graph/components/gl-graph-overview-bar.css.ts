@@ -81,9 +81,15 @@ export const overviewBarStyles = css`
 	}
 
 	/* The selectable part of the chip: the roving tab stop, and the only control that opens the branch
-	   hover. Unstyled as a button — the chip carries the visuals. */
+	   hover. Unstyled as a button — the chip carries the visuals.
+
+	   BLOCK-level flex, deliberately: as an inline-flex it sits in the popover's anchor line box, where its
+	   inline baseline is synthesized from its FIRST flex item — .pill__dot, a text-less span whose bottom
+	   margin edge becomes that baseline. That grew the line box past the row height and dropped the whole
+	   group below the legs, so the branch name and the leg labels never shared a baseline. As a block the
+	   anchor box has no baseline to derive, and both groups center on the same row. */
 	.pill__main {
-		display: inline-flex;
+		display: flex;
 		gap: 0.35rem;
 		align-items: center;
 		padding: 0;
@@ -93,6 +99,16 @@ export const overviewBarStyles = css`
 		cursor: pointer;
 		background: none;
 		border: none;
+	}
+
+	/* Optical correction: an icon glyph fills its em box, so centering it in the row lands its ink center on
+	   the row's center — but the row also reserves descender space the (lowercase-dominant) branch name never
+	   uses, which leaves the text's own mass sitting lower and the icons reading high. Nudge the glyphs down
+	   onto that mass. Uses the translate PROPERTY, not transform, so it composes with code-icon's own
+	   flip/spin transforms instead of clobbering them. */
+	.pill code-icon,
+	.pill__dot {
+		translate: 0 0.09em;
 	}
 
 	.pill__dot {
