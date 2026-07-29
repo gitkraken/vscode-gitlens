@@ -11,6 +11,12 @@ export type { PullRequestState };
 
 export interface PullRequestShape extends IssueOrPullRequest {
 	readonly author: PullRequestMember;
+	/**
+	 * Canonical base-repository identity returned by the provider. Some providers
+	 * scope pull-request ids to a repository, so consumers must not have to infer
+	 * identity from optional refs or URLs.
+	 */
+	readonly repository?: IssueRepository;
 	readonly mergedDate?: Date;
 	readonly refs?: PullRequestRefs;
 	readonly isDraft?: boolean;

@@ -48,6 +48,7 @@ import type {
 import {
 	fromProviderIssue,
 	fromProviderPullRequest,
+	getProviderPullRequestIdentity,
 	IssueFilter,
 	providerPullRequestMatchesSearch,
 	providersMetadata,
@@ -249,11 +250,13 @@ export abstract class AzureDevOpsIntegrationBase<
 					resultMetadata = mergeCollectionMetadata(resultMetadata, result.metadata);
 				}
 
-				if (result.truncated) {
+				const metadataIncomplete = result.metadata != null && result.metadata.completeness !== 'complete';
+				if (result.truncated || metadataIncomplete) {
 					// A truncated drain is an incomplete project set; include its partial values in the current
 					// result but don't cache it as if complete. Add a structured failure for the truncation unless
 					// the drain already recorded a page-level failure for this resource.
 					if (
+						result.truncated &&
 						!result.metadata?.failures?.some(
 							f => f.scope?.resourceId === resource.id && f.kind !== 'unknown',
 						)
@@ -285,7 +288,15 @@ export abstract class AzureDevOpsIntegrationBase<
 		}, []);
 		allProjects.push(...cachedProjects);
 
-		return resultMetadata != null ? { values: allProjects, metadata: resultMetadata } : { values: allProjects };
+		const projectsByIdentity = new Map<string, AzureProjectDescriptor>();
+		for (const project of allProjects) {
+			const identity = `${project.resourceId}:${project.id}`;
+			if (!projectsByIdentity.has(identity)) {
+				projectsByIdentity.set(identity, project);
+			}
+		}
+		const values = [...projectsByIdentity.values()];
+		return resultMetadata != null ? { values: values, metadata: resultMetadata } : { values: values };
 	}
 
 	private async getRepoDescriptorsForProjects(
@@ -348,7 +359,10 @@ export abstract class AzureDevOpsIntegrationBase<
 		// the user's orgs (optionally scoped to `org`), read their projects, and surface each as an org-shaped
 		// entry so the ProviderBackend facade can list them uniformly.
 		const orgs = await this.getProviderResourcesForUser(session);
-		if (orgs == null || orgs.length === 0) return undefined;
+		if (orgs == null) return undefined;
+		if (orgs.length === 0) {
+			return { values: [], paging: { cursor: '{}', more: false } };
+		}
 
 		const scopedOrgs = org != null ? orgs.filter(o => o.name === org || o.id === org) : orgs;
 		if (scopedOrgs.length === 0) return { values: [] };
@@ -727,9 +741,12 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (projects.values.length === 0) {
 			// Project discovery itself was incomplete (e.g. a truncated org); surface the metadata so the facade
 			// can warn and set fetchFailed rather than reporting an empty account.
-			return projects.metadata != null
-				? { values: [], paging: { cursor: '{}', more: false }, metadata: projects.metadata }
-				: undefined;
+			const incomplete = projects.metadata != null && projects.metadata.completeness !== 'complete';
+			return {
+				values: [],
+				paging: { cursor: '{}', more: false, truncated: incomplete || undefined },
+				...(projects.metadata != null ? { metadata: projects.metadata } : {}),
+			};
 		}
 
 		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
@@ -747,8 +764,9 @@ export abstract class AzureDevOpsIntegrationBase<
 			project: { namespace: string; project: string },
 			scope: CollectionScope,
 			filter: { authorLogin?: string; assigneeLogins?: string[]; reviewerId?: string },
-		): Promise<{ prs: ProviderPullRequest[]; failure?: CollectionScopeFailure }> => {
+		): Promise<{ prs: ProviderPullRequest[]; projectIdentity: string; failure?: CollectionScopeFailure }> => {
 			const collected: ProviderPullRequest[] = [];
+			const projectIdentity = `${project.namespace}/${project.project}`;
 			let page: number | undefined;
 			for (let i = 0; i < maxPagesPerProject; i++) {
 				try {
@@ -758,10 +776,33 @@ export abstract class AzureDevOpsIntegrationBase<
 						states: states,
 						page: page,
 					});
-					if (result == null) break;
+					if (result == null) {
+						if (page == null) break;
+
+						truncated = true;
+						return {
+							prs: collected,
+							projectIdentity: projectIdentity,
+							failure: toCollectionScopeFailure(
+								scope,
+								new Error('Azure DevOps returned no page after advertising a continuation'),
+							),
+						};
+					}
 
 					collected.push(...result.data);
-					if (!result.hasMore || result.nextPage == null) break;
+					if (!result.hasMore) break;
+					if (result.nextPage == null || result.nextPage === page) {
+						truncated = true;
+						return {
+							prs: collected,
+							projectIdentity: projectIdentity,
+							failure: toCollectionScopeFailure(
+								scope,
+								new Error('Azure DevOps returned no advancing pull request continuation'),
+							),
+						};
+					}
 
 					page = result.nextPage;
 					if (i === maxPagesPerProject - 1) {
@@ -771,10 +812,14 @@ export abstract class AzureDevOpsIntegrationBase<
 					// A page failure after the first page leaves the already-drained prefix intact; record the
 					// failure at the project scope instead of re-throwing and discarding the prefix.
 					truncated = true;
-					return { prs: collected, failure: toCollectionScopeFailure(scope, ex) };
+					return {
+						prs: collected,
+						projectIdentity: projectIdentity,
+						failure: toCollectionScopeFailure(scope, ex),
+					};
 				}
 			}
-			return { prs: collected };
+			return { prs: collected, projectIdentity: projectIdentity };
 		};
 
 		// Settle per-project failures instead of rejecting the whole sweep. `drainProject` already catches its own
@@ -805,18 +850,18 @@ export abstract class AzureDevOpsIntegrationBase<
 			}),
 		);
 
-		// Dedupe by URL, not the numeric `pr.id`: Azure's `pullRequestId` is unique only within an org, and
-		// this sweep spans every org the user belongs to, so two orgs can each surface id "42" — keying by id
-		// would drop one of them. The normalized `url` is org-qualified and unambiguous.
-		const prsByUrl = new Map<string, ProviderPullRequest>();
+		// Azure's `pullRequestId` is not account-global. Prefer repository + PR id, then the org-qualified URL.
+		// If neither is available, preserve the row instead of collapsing unrelated repositories by numeric id.
+		const prsByIdentity = new Map<string, ProviderPullRequest>();
 		for (const outcome of outcomes) {
 			if (outcome.failure != null) {
 				failures.push(outcome.failure);
 			}
 			for (const pr of outcome.prs) {
-				const key = pr.url ?? pr.id;
-				if (!prsByUrl.has(key)) {
-					prsByUrl.set(key, pr);
+				const key =
+					getProviderPullRequestIdentity(pr) ?? `project:${outcome.projectIdentity}:pull-request:${pr.id}`;
+				if (!prsByIdentity.has(key)) {
+					prsByIdentity.set(key, pr);
 				}
 			}
 		}
@@ -827,7 +872,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		);
 
 		return {
-			values: [...prsByUrl.values()],
+			values: [...prsByIdentity.values()],
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
 			metadata: metadata,
 		};
@@ -956,7 +1001,8 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (user?.username == null) return undefined;
 
 		const allOrgs = await this.getProviderResourcesForUser(session);
-		if (allOrgs == null || allOrgs.length === 0) return undefined;
+		if (allOrgs == null) return undefined;
+		if (allOrgs.length === 0) return { values: [], truncated: false };
 
 		// Scope by org first so project discovery only fans out over the requested account. An org filter that
 		// matches nothing is an empty-but-successful read, not an unsupported one: returning `undefined` here
@@ -982,16 +1028,13 @@ export abstract class AzureDevOpsIntegrationBase<
 			// consumer down a repo-scoped fallback for what is simply an empty scope. Only an incomplete discovery
 			// (which may itself have dropped the requested project) is truncated, and its metadata is forwarded so
 			// the facade still warns on the failed scope.
-			if (searchOptions?.org != null || searchOptions?.project != null) {
-				return projects.metadata != null
-					? {
-							values: [],
-							truncated: projects.metadata.completeness !== 'complete',
-							metadata: projects.metadata,
-						}
-					: { values: [], truncated: false };
-			}
-			return projects.metadata != null ? { values: [], truncated: true, metadata: projects.metadata } : undefined;
+			return projects.metadata != null
+				? {
+						values: [],
+						truncated: projects.metadata.completeness !== 'complete',
+						metadata: projects.metadata,
+					}
+				: { values: [], truncated: false };
 		}
 
 		const { tokenWithInfo, options } = this.getApiOptions(session);

@@ -60,13 +60,18 @@ export function createManualTokenAuthProvider(
 			return onDidChange.event;
 		},
 		getSession: (
-			_descriptor: IntegrationAuthenticationSessionDescriptor,
+			descriptor: IntegrationAuthenticationSessionDescriptor,
 			options?: Parameters<IntegrationAuthenticationProvider['getSession']>[1],
 		) =>
-			// A manual token can't be refreshed; on a forced new session, fail safe by returning undefined
-			// rather than handing back the same (likely-rejected) token, which would loop a caller's
-			// reauthenticate-on-failure flow.
-			Promise.resolve(options?.forceNewSession ? undefined : session),
+			// A manual token represents only the implicit primary connection. It cannot prove that an
+			// arbitrary connection selector owns the token, so fail closed instead of leaking it across
+			// accounts. Empty legacy selectors still resolve as primary.
+			//
+			// It also can't be refreshed; on a forced new session, return undefined rather than handing
+			// back the same likely-rejected token and looping a reauthenticate-on-failure flow.
+			Promise.resolve(
+				options?.forceNewSession || (descriptor.connectionId?.length ?? 0) > 0 ? undefined : session,
+			),
 		deleteSession: () => Promise.resolve(),
 		deleteAllSessions: () => Promise.resolve(),
 		dispose: () => onDidChange.dispose(),
