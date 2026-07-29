@@ -12,10 +12,10 @@ import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
  * `getSupportedFilters` exists so a consumer can intersect its filter set against the provider BEFORE the read.
- * PR filters are repo-scoped; account-wide PR queries expose provider-defined relationship unions and advertise
- * a separate empty capability. The filter contract is all-or-nothing, so a set with one unsupported member comes
- * back as an empty page + `fetchFailed`. The table was previously reachable only by importing the internal
- * `providers/models.js` subpath, so consumers hardcoded copies that could drift from the read guard.
+ * Repo-scoped and account-wide PR filters are independent capabilities. The filter contract is all-or-nothing,
+ * so a set with one unsupported member comes back as an empty page + `fetchFailed`. The table was previously
+ * reachable only by importing the internal `providers/models.js` subpath, so consumers hardcoded copies that
+ * could drift from the read guard.
  */
 suite('IntegrationManager.getSupportedFilters', () => {
 	const allIds: IntegrationIds[] = [
@@ -46,10 +46,11 @@ suite('IntegrationManager.getSupportedFilters', () => {
 
 			for (const id of allIds) {
 				const supported = manager.getSupportedFilters(id);
-				assert.deepEqual(
-					supported.pullRequestsAccountWide,
-					[],
-					`${id}: account-wide PR relationship unions do not expose independently selectable filters`,
+				assert.ok(supported.pullRequestsAccountWide != null);
+				assert.equal(
+					supported.pullRequestsAccountWide.every(filter => supported.pullRequests.includes(filter)),
+					true,
+					`${id}: account-wide filters must remain a subset of the provider's relationship vocabulary`,
 				);
 
 				// A non-empty advertised set must be accepted whole. An empty one means the provider has no
@@ -102,6 +103,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 		try {
 			const first = manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub);
 			const before = [...first.pullRequests];
+			const beforeAccountWide = [...(first.pullRequestsAccountWide ?? [])];
 			// `ProvidersApi` spreads `providersMetadata[id]` shallowly, so the array is shared with the live
 			// guard table: handing out the internal reference would let one consumer's `.pop()` change what
 			// every read accepts, process-wide.
@@ -112,7 +114,7 @@ suite('IntegrationManager.getSupportedFilters', () => {
 
 			const second = manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub);
 			assert.deepEqual(second.pullRequests, before, 'the table survives a mutated result');
-			assert.deepEqual(second.pullRequestsAccountWide, []);
+			assert.deepEqual(second.pullRequestsAccountWide, beforeAccountWide);
 			assert.ok(second.issues.length > 0);
 		} finally {
 			manager.dispose();
@@ -157,6 +159,16 @@ suite('IntegrationManager.getSupportedFilters', () => {
 					.getSupportedFilters(GitCloudHostIntegrationId.AzureDevOps)
 					.pullRequests.includes(PullRequestFilter.Assignee),
 			);
+			assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.Bitbucket).pullRequestsAccountWide, [
+				PullRequestFilter.Author,
+				PullRequestFilter.ReviewRequested,
+			]);
+			assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub).pullRequestsAccountWide, [
+				PullRequestFilter.Author,
+				PullRequestFilter.Assignee,
+				PullRequestFilter.ReviewRequested,
+				PullRequestFilter.Mention,
+			]);
 			// A self-managed host mirrors its cloud counterpart.
 			assert.deepEqual(
 				manager.getSupportedFilters(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise),
