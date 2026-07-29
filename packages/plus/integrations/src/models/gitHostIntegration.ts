@@ -1452,7 +1452,15 @@ export abstract class GitHostIntegration<
 	 * rejects an empty `repos` input). Recovers thrown errors into `{ error }` so callers surface warnings.
 	 */
 	async getMyPullRequestsForUserResult(
-		options?: { state?: PullRequestStateFilter[]; cursor?: string; includeReviewRequested?: boolean },
+		options?: {
+			state?: PullRequestStateFilter[];
+			cursor?: string;
+			includeReviewRequested?: boolean;
+			/** Exact OR union of account-wide relationships to include. */
+			filters?: PullRequestFilter[];
+			/** Request only the stable list fields, omitting optional provider enrichments. */
+			summary?: boolean;
+		},
 		connectionId?: string,
 	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {
 		const scope = getScopedLogger();
@@ -1477,8 +1485,9 @@ export abstract class GitHostIntegration<
 
 	/**
 	 * Reads the current user's pull requests across the whole account using each provider's native "my PRs"
-	 * query, returning the raw provider shape. The exact user scopes (authored, assignee, review-requested)
-	 * depend on provider-native behavior and options like `includeReviewRequested`. Optional: providers that can't
+	 * query, returning the raw provider shape. Without `filters`, the exact user scopes depend on provider-native
+	 * behavior and options like `includeReviewRequested`. With `filters`, each member is an exact account-wide OR
+	 * relationship validated by the facade before this provider hook is called. Optional: providers that can't
 	 * express an account-wide user query leave it undefined and the surface falls back to repo-scoped.
 	 *
 	 * These native user queries are cursor-based, so `cursor` (not a page number) drives continuation; there
@@ -1491,7 +1500,13 @@ export abstract class GitHostIntegration<
 	 */
 	protected getProviderMyPullRequestsForUser?(
 		session: ProviderAuthenticationSession,
-		options?: { state?: PullRequestStateFilter[]; cursor?: string; includeReviewRequested?: boolean },
+		options?: {
+			state?: PullRequestStateFilter[];
+			cursor?: string;
+			includeReviewRequested?: boolean;
+			filters?: PullRequestFilter[];
+			summary?: boolean;
+		},
 	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined>;
 
 	/**

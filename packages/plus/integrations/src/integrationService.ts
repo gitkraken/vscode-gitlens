@@ -573,9 +573,7 @@ export class IntegrationService implements Disposable {
 		const metadata = providersMetadata[providerId];
 		return {
 			pullRequests: [...(metadata?.supportedPullRequestFilters ?? [])],
-			// Native account-wide "my PRs" queries expose provider-defined unions, not independently selectable
-			// relationship axes. Keep this empty until a provider can narrow every advertised member at source.
-			pullRequestsAccountWide: [],
+			pullRequestsAccountWide: [...(metadata?.supportedAccountWidePullRequestFilters ?? [])],
 			issues: [...(metadata?.supportedIssueFilters ?? [])],
 			issuesAccountWide: [...(metadata?.supportedAccountWideIssueFilters ?? [])],
 		};
@@ -994,8 +992,8 @@ export class IntegrationService implements Disposable {
 	 * All-or-nothing, NOT a narrowing: the set is accepted whole or refused whole. `unsupported: true` when the
 	 * caller DID request filters and the provider can't express even ONE of them — the exact negation of the read
 	 * core's `providerSupportsPullRequestFilters` (`every`), so this can only ever pre-empt that guard, never
-	 * disagree with it. Dropping the unsupported members instead would silently widen the read (e.g. asking for
-	 * Author+Mention on a provider without Mention would return the union, not the intersection).
+	 * disagree with it. Dropping unsupported members instead would silently widen the read (e.g. asking for
+	 * Author+Mention on a provider without Mention would return Author rather than the requested intersection).
 	 *
 	 * Returns `{ filters }` (possibly undefined when none were requested — an unfiltered read is intended). On
 	 * `unsupported` the caller must NOT fall through to an unfiltered fetch-all (which would return every PR
@@ -1016,6 +1014,22 @@ export class IntegrationService implements Disposable {
 		if (supported == null || filters.some(f => !supported.includes(f))) return { unsupported: true };
 
 		return { filters: filters, unsupported: false };
+	}
+
+	/**
+	 * Validates an account-wide PR relationship union independently from the repo-scoped capability.
+	 * Dropping an unsupported member would change the requested OR set, so validation is all-or-nothing.
+	 */
+	private resolveAccountWidePullRequestFilters(
+		id: IntegrationIds,
+		filters: PullRequestFilter[] | undefined,
+	): { filters?: PullRequestFilter[]; unsupported: boolean } {
+		if (filters == null || filters.length === 0) return { unsupported: false };
+
+		const supported = providersMetadata[id]?.supportedAccountWidePullRequestFilters;
+		if (supported == null || filters.some(f => !supported.includes(f))) return { unsupported: true };
+
+		return { filters: [...new Set(filters)], unsupported: false };
 	}
 
 	/**
@@ -1060,18 +1074,21 @@ export class IntegrationService implements Disposable {
 		};
 	}
 
-	/** Warning for an account-wide PR read that can't independently express the requested repo-scoped filters. */
+	/** Warning for an account-wide PR read whose requested relationship union cannot be expressed exactly. */
 	private unsupportedAccountWidePullRequestFiltersWarning(
 		id: IntegrationIds,
 		domain: string | undefined,
 		connectionId: string | undefined,
 		filters: PullRequestFilter[],
 	): ProviderWarning {
+		const supported = providersMetadata[id]?.supportedAccountWidePullRequestFilters ?? [];
 		return {
 			providerId: id,
 			domain: domain,
 			connectionId: connectionId,
-			message: `The requested account-wide pull request filters (${filters.join(', ')}) are not supported by '${id}'; skipped to avoid returning a wider result than requested.`,
+			message: `The requested account-wide pull request filters (${filters.join(', ')}) are not supported by '${id}'${
+				supported.length ? ` (supported: ${supported.join(', ')})` : ''
+			}; skipped to avoid returning a wider result than requested.`,
 			kind: 'other',
 			isAuth: false,
 		};
@@ -1269,6 +1286,7 @@ export class IntegrationService implements Disposable {
 						connectionId?: string;
 						domain?: string;
 						cursor?: string;
+						retryPage?: number;
 					}[];
 				};
 				const domain = hostFromDomain(org.domain) ?? org.domain;
@@ -1279,9 +1297,16 @@ export class IntegrationService implements Disposable {
 						c.org === org.name &&
 						c.connectionId === org.connectionId &&
 						(hostFromDomain(c.domain) ?? c.domain) === domain,
-				)?.cursor;
-				if (match != null) {
-					return match;
+				);
+				if (match?.cursor != null) {
+					return match.cursor;
+				}
+				if (
+					typeof match?.retryPage === 'number' &&
+					Number.isSafeInteger(match.retryPage) &&
+					match.retryPage > 0
+				) {
+					return JSON.stringify({ value: match.retryPage, type: 'page' });
 				}
 			} catch {}
 		}
@@ -1332,13 +1357,21 @@ export class IntegrationService implements Disposable {
 			org: string;
 			connectionId?: string;
 			domain?: string;
-			cursor: string;
+			cursor?: string;
+			retryPage?: number;
 		}[],
 		exhausted: { providerId: IntegrationIds; org: string; connectionId?: string; domain?: string }[],
 		orgCount: number,
 	): string | undefined {
 		if (cursors.length === 0) return undefined;
-		if (orgCount === 1) return cursors[0].cursor;
+		if (orgCount === 1) {
+			return (
+				cursors[0].cursor ??
+				(cursors[0].retryPage != null
+					? JSON.stringify({ value: cursors[0].retryPage, type: 'page' })
+					: undefined)
+			);
+		}
 
 		// Carry the exhausted orgs alongside the still-active cursors so the next round can skip them (see
 		// isBroadenIssuesOrgExhausted). Only meaningful while at least one org still has more to read.
@@ -2015,18 +2048,19 @@ export class IntegrationService implements Disposable {
 
 	/**
 	 * Reads one page of pull requests for the given git-host provider. With `repos`, reads those repos'
-	 * PRs (translating `page` ↔ the provider's opaque cursor) and applies `filters` if given. With no
-	 * `repos`, reads the current user's provider-defined PR set account-wide, walking opaque cursors internally
-	 * when only `page` is supplied; `filters` are refused and `pageSize` is ignored on that path.
+	 * PRs (translating `page` ↔ the provider's opaque cursor) and combines `filters` as provider query
+	 * constraints (normally an intersection). With no `repos`, reads the current user's PR set account-wide,
+	 * walking opaque cursors internally when only `page` is supplied; `filters` select an exact relationship OR
+	 * union and `pageSize` is ignored on that path.
 	 */
 	async listPullRequestsPage(options: {
 		providerId: IntegrationIds;
 		repos?: ProviderReposInput;
 		states?: PullRequestStateFilter[];
 		/**
-		 * PR filters to narrow a repo-scoped read to the current user (e.g. `[Author, Assignee,
-		 * ReviewRequested]`). Account-wide provider queries expose a provider-defined relationship union and
-		 * cannot honor these filters independently, so a non-empty set is refused on that path.
+		 * PR relationship filters (e.g. `[Author, Assignee, ReviewRequested]`). On repo-scoped reads members
+		 * combine as provider query constraints (normally an intersection); on account-wide reads they form an
+		 * exact OR union. The whole set is validated against the selected path's capability.
 		 */
 		filters?: PullRequestFilter[];
 		/**
@@ -2104,11 +2138,8 @@ export class IntegrationService implements Disposable {
 		const accountWide = (options.repos?.length ?? 0) === 0;
 		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
 
-		// Account-wide provider queries expose provider-defined relationship unions, so even a filter supported by
-		// the repo-scoped query cannot be applied independently there. Refuse it instead of returning a wider set.
-		const accountWideFiltersUnsupported = accountWide && (options.filters?.length ?? 0) !== 0;
 		const resolvedFilters = accountWide
-			? { filters: undefined, unsupported: accountWideFiltersUnsupported }
+			? this.resolveAccountWidePullRequestFilters(options.providerId, options.filters)
 			: this.resolvePullRequestFilters(options.providerId, options.filters);
 		if (resolvedFilters.unsupported) {
 			return {
@@ -2137,7 +2168,13 @@ export class IntegrationService implements Disposable {
 			() =>
 				accountWide
 					? integration.getMyPullRequestsForUserResult(
-							{ state: options.states, cursor: cursor, includeReviewRequested: includeReviewRequested },
+							{
+								state: options.states,
+								cursor: cursor,
+								includeReviewRequested: includeReviewRequested,
+								filters: resolvedFilters.filters,
+								summary: true,
+							},
 							options.connectionId,
 						)
 					: integration.getMyPullRequestsForReposResult(
@@ -2204,6 +2241,8 @@ export class IntegrationService implements Disposable {
 										state: options.states,
 										cursor: cursor,
 										includeReviewRequested: includeReviewRequested,
+										filters: resolvedFilters.filters,
+										summary: true,
 									},
 									options.connectionId,
 								)
@@ -3166,6 +3205,7 @@ export class IntegrationService implements Disposable {
 		failedProvider: boolean;
 	}> {
 		const items: ProviderPullRequest[] = [];
+		const itemIndexByUrl = new Map<string, number>();
 		const warnings: ProviderWarning[] = [];
 		let cursor: string | undefined;
 		let page = 0;
@@ -3184,7 +3224,13 @@ export class IntegrationService implements Disposable {
 			const { value, warning } = await this.runCaptured(id, domain, connectionId, () =>
 				accountWide
 					? integration.getMyPullRequestsForUserResult(
-							{ state: state, cursor: pageCursor, includeReviewRequested: includeReviewRequested },
+							{
+								state: state,
+								cursor: pageCursor,
+								includeReviewRequested: includeReviewRequested,
+								filters: filters,
+								summary: true,
+							},
 							connectionId,
 						)
 					: integration.getMyPullRequestsForReposResult(
@@ -3213,7 +3259,24 @@ export class IntegrationService implements Disposable {
 				};
 			}
 
-			items.push(...value.values);
+			// Composite account-wide queries can surface the same PR on different relationship/state pages
+			// (for example authored + review-requested, or closed + merged). Keep the first stable position but
+			// replace its value with the latest representation so a later, richer merged state wins. A provider
+			// row without a canonical URL is retained: collapsing unrelated incomplete rows would lose data.
+			for (const pullRequest of value.values) {
+				if (pullRequest.url == null || pullRequest.url === '') {
+					items.push(pullRequest);
+					continue;
+				}
+
+				const existingIndex = itemIndexByUrl.get(pullRequest.url);
+				if (existingIndex == null) {
+					itemIndexByUrl.set(pullRequest.url, items.length);
+					items.push(pullRequest);
+				} else {
+					items[existingIndex] = pullRequest;
+				}
+			}
 
 			// Assess this page's SDK metadata: append scope-aware warnings (deduped across pages), and remember
 			// whether a structured failure or incompleteness occurred.
@@ -3411,10 +3474,10 @@ export class IntegrationService implements Disposable {
 
 			const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
 			const accountWide = repos.length === 0;
-			const accountWideFiltersUnsupported = accountWide && (options?.filters?.length ?? 0) !== 0;
+			const requestedFilters = target.filters ?? options?.filters;
 			const resolved = accountWide
-				? { filters: undefined, unsupported: accountWideFiltersUnsupported }
-				: this.resolvePullRequestFilters(id, options?.filters);
+				? this.resolveAccountWidePullRequestFilters(id, requestedFilters)
+				: this.resolvePullRequestFilters(id, requestedFilters);
 			if (resolved.unsupported) {
 				return {
 					items: [] as PullRequestShape[],
@@ -3424,7 +3487,7 @@ export class IntegrationService implements Disposable {
 									id,
 									domain,
 									connectionId,
-									options?.filters ?? [],
+									requestedFilters ?? [],
 								)
 							: this.unsupportedFiltersWarning(id, domain, connectionId),
 					],
@@ -3441,7 +3504,7 @@ export class IntegrationService implements Disposable {
 				domain,
 				repos,
 				options?.states,
-				accountWide ? undefined : resolved.filters,
+				resolved.filters,
 				accountWide ? (options?.includeReviewRequested ?? false) : false,
 				connectionId,
 				maxPages,
@@ -3464,6 +3527,7 @@ export class IntegrationService implements Disposable {
 		const items: PullRequestShape[] = [];
 		const warnings: ProviderWarning[] = [];
 		const failedProviderIds = new Set<IntegrationIds>();
+		const incompleteProviderIds = new Set<IntegrationIds>();
 		let fetchFailed = false;
 		let truncated = false;
 		for (const drain of results) {
@@ -3480,6 +3544,8 @@ export class IntegrationService implements Disposable {
 			}
 			if (drain.failedProvider) {
 				failedProviderIds.add(drain.providerId);
+			} else if (drain.fetchFailed || drain.truncated) {
+				incompleteProviderIds.add(drain.providerId);
 			}
 			if (drain.truncated) {
 				truncated = true;
@@ -3505,6 +3571,7 @@ export class IntegrationService implements Disposable {
 			hasMore: false,
 			fetchFailed: fetchFailed || undefined,
 			failedProviderIds: [...failedProviderIds],
+			incompleteProviderIds: [...incompleteProviderIds],
 		};
 	}
 
@@ -3821,6 +3888,7 @@ export class IntegrationService implements Disposable {
 			const items: IssueShape[] = [];
 			let hasMore = false;
 			let nextCursor: string | undefined;
+			let retryPage: number | undefined;
 			// Carry a truncation signal from the issue read too: a provider that couldn't confirm it drained
 			// a repo (`paging.truncated`) means this org's issues may be incomplete, on top of any repo-drain
 			// truncation already captured above.
@@ -3836,6 +3904,17 @@ export class IntegrationService implements Disposable {
 				hasMore = continuation.hasMore;
 				nextCursor = continuation.cursor;
 				issuesTruncated = continuation.truncated || issuesAssessment.truncated;
+			} else if (issuesCaptured.warning != null) {
+				// Keep the exact position that failed. Without this retry cursor a multi-org continuation would
+				// omit this org from the bundle, then synthesize the next numbered page and silently skip the
+				// failed page. The synthesized page cursor is also actionable for a first-page cursor-only read:
+				// that provider ignores the page marker and retries its first page.
+				hasMore = true;
+				if (cursor != null) {
+					nextCursor = cursor;
+				} else {
+					retryPage = page;
+				}
 			}
 
 			return {
@@ -3847,6 +3926,7 @@ export class IntegrationService implements Disposable {
 				connectionId: connectionId,
 				domain: cursorDomain,
 				nextCursor: nextCursor,
+				retryPage: retryPage,
 				hasMore: hasMore,
 				// Exhausted once a successful read reports no more pages — recorded in the cursor so later
 				// rounds skip it while other orgs keep paging.
@@ -3864,7 +3944,8 @@ export class IntegrationService implements Disposable {
 			org: string;
 			connectionId?: string;
 			domain?: string;
-			cursor: string;
+			cursor?: string;
+			retryPage?: number;
 		}[] = [];
 		const exhausted: { providerId: IntegrationIds; org: string; connectionId?: string; domain?: string }[] = [];
 		let hasMore = false;
@@ -3880,13 +3961,15 @@ export class IntegrationService implements Disposable {
 			for (const id of result.broadenedProviderIds) {
 				broadenedProviderIds.add(id);
 			}
-			if (result.nextCursor != null) {
+			const retryPage = 'retryPage' in result ? result.retryPage : undefined;
+			if (result.nextCursor != null || retryPage != null) {
 				cursors.push({
 					providerId: result.providerId,
 					org: result.org,
 					connectionId: result.connectionId,
 					domain: result.domain,
 					cursor: result.nextCursor,
+					retryPage: retryPage,
 				});
 			}
 			if (result.exhausted) {

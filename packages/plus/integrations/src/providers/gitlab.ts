@@ -40,6 +40,7 @@ import {
 	IssueFilter,
 	ProviderPullRequestReviewState,
 	providersMetadata,
+	PullRequestFilter,
 	toIssueShape,
 	toProviderPullRequestStates,
 } from './models.js';
@@ -429,7 +430,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
-		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+		options?: { state?: PullRequestStateFilter[]; cursor?: string; filters?: PullRequestFilter[] },
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		// Resolve the username from THIS session's token (multi-account safe) to scope the account-wide read.
 		const username = (await this.getProviderCurrentAccount(session))?.username;
@@ -452,6 +453,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 		// GitLab's user query returns PRs the user is involved in; keep only those they authored, are
 		// assigned to, or are a requested reviewer on, matching the "my pull requests" scope.
+		const requested = options?.filters?.length ? new Set(options.filters) : undefined;
 		const values = result.values.filter(pr => {
 			const isAssignee = pr.assignees?.some(a => a.username === username);
 			const isRequestedReviewer = pr.reviews?.some(
@@ -462,7 +464,12 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 					review.state === ProviderPullRequestReviewState.ReviewRequested,
 			);
 			const isAuthor = pr.author?.username === username;
-			return isAssignee || isRequestedReviewer || isAuthor;
+			if (requested == null) return isAssignee || isRequestedReviewer || isAuthor;
+			return (
+				(requested.has(PullRequestFilter.Assignee) && isAssignee) ||
+				(requested.has(PullRequestFilter.ReviewRequested) && isRequestedReviewer) ||
+				(requested.has(PullRequestFilter.Author) && isAuthor)
+			);
 		});
 		return { ...result, values: values };
 	}

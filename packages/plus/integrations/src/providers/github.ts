@@ -34,7 +34,7 @@ import type {
 	ProviderPullRequest,
 	ProviderRepository,
 } from './models.js';
-import { IssueFilter, providersMetadata, toProviderPullRequest } from './models.js';
+import { IssueFilter, providersMetadata, PullRequestFilter, toProviderPullRequest } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
 /**
@@ -48,23 +48,19 @@ import type { ProvidersApi } from './providersApi.js';
  */
 const githubSearchMaxPageSize = 100;
 
-type GitHubPullRequestStateCursor = Partial<Record<PullRequestStateFilter, string>>;
+type GitHubPullRequestFacetCursor = Record<string, string>;
 
-function isPullRequestStateFilter(key: string): key is PullRequestStateFilter {
-	return key === 'open' || key === 'closed' || key === 'merged' || key === 'all';
-}
-
-function toPullRequestStateCursor(value: unknown): GitHubPullRequestStateCursor {
+function toPullRequestFacetCursor(value: unknown): GitHubPullRequestFacetCursor {
 	if (value == null || typeof value !== 'object' || Array.isArray(value)) return {};
 
 	return Object.fromEntries(
 		Object.entries(value).filter(
-			([key, cursor]) => isPullRequestStateFilter(key) && typeof cursor === 'string' && cursor.length !== 0,
+			([key, cursor]) => key.length !== 0 && typeof cursor === 'string' && cursor.length !== 0,
 		),
 	);
 }
 
-function parsePullRequestStateCursor(cursor: string | undefined): GitHubPullRequestStateCursor {
+function parsePullRequestFacetCursor(cursor: string | undefined): GitHubPullRequestFacetCursor {
 	if (!cursor) return {};
 
 	try {
@@ -72,15 +68,22 @@ function parsePullRequestStateCursor(cursor: string | undefined): GitHubPullRequ
 		if (parsed != null && typeof parsed === 'object' && !Array.isArray(parsed) && 'cursors' in parsed) {
 			const wrapped = parsed as { type?: unknown; cursors?: unknown };
 			if (wrapped.type === 'cursor') {
-				return toPullRequestStateCursor(wrapped.cursors);
+				return toPullRequestFacetCursor(wrapped.cursors);
 			}
 		}
 
-		return toPullRequestStateCursor(parsed);
+		return toPullRequestFacetCursor(parsed);
 	} catch {
 		return {};
 	}
 }
+
+const pullRequestRelationshipQualifier: Record<PullRequestFilter, string> = {
+	[PullRequestFilter.Author]: 'author:@me',
+	[PullRequestFilter.Assignee]: 'assignee:@me',
+	[PullRequestFilter.ReviewRequested]: 'review-requested:@me',
+	[PullRequestFilter.Mention]: 'mentions:@me',
+};
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitHub];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
@@ -415,50 +418,83 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
-		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+		options?: {
+			state?: PullRequestStateFilter[];
+			cursor?: string;
+			includeReviewRequested?: boolean;
+			filters?: PullRequestFilter[];
+			summary?: boolean;
+		},
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
-		// An empty `state` array means "no state filter", not "read zero states": fall through to the
-		// account-wide `involves:` path rather than resolving `Promise.all([])` to an empty result.
-		if (options?.state != null && options.state.length > 0) {
+		const explicitFilters = options?.filters?.length ? [...new Set(options.filters)] : undefined;
+		// Explicit relationships need independent search facets so the returned union is exact. State-only reads
+		// retain the provider-native `involves:@me` behavior for backward compatibility.
+		if ((options?.state?.length ?? 0) > 0 || explicitFilters != null || options?.includeReviewRequested === true) {
 			const github = await this.authenticationService.apis.github;
 			if (github == null) return undefined;
 
-			const requestedStates = [...new Set(options.state)];
-			const cursors = parsePullRequestStateCursor(options.cursor);
-			const hasResumableStateCursor = Object.keys(cursors).length !== 0;
-			const statesWithCursor = requestedStates.filter(state => cursors[state] != null);
+			const requestedStates: PullRequestStateFilter[] =
+				options?.state != null && options.state.length > 0 ? [...new Set(options.state)] : ['open'];
+			const facets =
+				explicitFilters?.length != null
+					? requestedStates.flatMap(state =>
+							explicitFilters.map(filter => ({
+								key: `${state}:${filter}`,
+								state: state,
+								search: pullRequestRelationshipQualifier[filter],
+							})),
+						)
+					: requestedStates.flatMap(state => [
+							{ key: state, state: state, search: undefined },
+							...(options?.includeReviewRequested === true
+								? [
+										{
+											key: `${state}:${PullRequestFilter.ReviewRequested}`,
+											state: state,
+											search: pullRequestRelationshipQualifier[PullRequestFilter.ReviewRequested],
+										},
+									]
+								: []),
+						]);
+			const cursors = parsePullRequestFacetCursor(options?.cursor);
+			const hasResumableFacetCursor = Object.keys(cursors).length !== 0;
+			const facetsWithCursor = facets.filter(facet => cursors[facet.key] != null);
 			// The first call has no cursor, so query every requested state. A continuation only happens after a
-			// prior page reported `more:true`, whose bundle carries a cursor for each state still in flight;
-			// states absent from the bundle are exhausted, so re-querying them from scratch would refetch the
+			// prior page reported `more:true`, whose bundle carries a cursor for each facet still in flight;
+			// facets absent from the bundle are exhausted, so re-querying them from scratch would refetch the
 			// same PRs (duplicated by the dedup-free sweep) and waste an API call per page. Query only the
 			// states that still have a cursor, but degrade a malformed/empty cursor bundle, or one that doesn't
 			// apply to the current requested states, to the first page rather than returning an empty page.
-			const statesToQuery =
-				options.cursor != null && hasResumableStateCursor && statesWithCursor.length !== 0
-					? statesWithCursor
-					: requestedStates;
+			const facetsToQuery =
+				options?.cursor != null && hasResumableFacetCursor && facetsWithCursor.length !== 0
+					? facetsWithCursor
+					: facets;
 			const results = await Promise.all(
-				statesToQuery.map(async state => ({
-					state: state,
+				facetsToQuery.map(async facet => ({
+					key: facet.key,
 					result: await github.searchMyPullRequestsPage(this, toTokenWithInfo(this.id, session), {
 						baseUrl: this.apiBaseUrl,
-						state: state,
-						cursor: cursors[state],
+						state: facet.state,
+						cursor: cursors[facet.key],
+						summary: options?.summary,
+						...(facet.search != null
+							? { search: facet.search, includeDefaultInvolvement: false }
+							: undefined),
 					}),
 				})),
 			);
 
 			const values = new Map<string, ProviderPullRequest>();
-			const nextCursors: GitHubPullRequestStateCursor = {};
+			const nextCursors: GitHubPullRequestFacetCursor = {};
 			let hasMore = false;
 			let truncated = false;
-			for (const { state, result } of results) {
+			for (const { key, result } of results) {
 				for (const pr of result.values) {
 					values.set(pr.url, toProviderPullRequest(pr));
 				}
 				if (result.hasMore && result.cursor != null) {
 					hasMore = true;
-					nextCursors[state] = result.cursor;
+					nextCursors[key] = result.cursor;
 				}
 				if (result.truncated) {
 					truncated = true;
