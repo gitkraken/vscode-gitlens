@@ -1204,22 +1204,6 @@ export class GraphCommands {
 		});
 	}
 
-	@command('gitlens.graph.resetCommit')
-	@debug()
-	private resetCommit(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item, 'revision');
-		if (ref == null) return Promise.resolve();
-
-		return RepoActions.reset(
-			ref.repoPath,
-			createReference(`${ref.ref}^`, ref.repoPath, {
-				refType: 'revision',
-				name: `${ref.name}^`,
-				message: ref.message,
-			}),
-		);
-	}
-
 	@command('gitlens.graph.resetToCommit')
 	@debug()
 	private resetToCommit(item?: GraphItemContext) {

@@ -459,31 +459,31 @@
 			}
 		},
 		"gitlens.ai.recomposeFromCommit": {
-			"label": "Recompose Commits From Here...",
+			"label": "Recompose Commits from Here...",
 			"commandPalette": "false && gitlens:enabled"
 		},
 		"gitlens.ai.recomposeFromCommit:graph": {
-			"label": "Recompose Commits From Here...",
+			"label": "Recompose Commits from Here...",
 			"icon": "$(sparkle)",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
 						"group": "1_gitlens_actions",
-						"order": 6
+						"order": 12
 					}
 				]
 			}
 		},
 		"gitlens.ai.recomposeFromCommit:views": {
-			"label": "Recompose Commits From Here...",
+			"label": "Recompose Commits from Here...",
 			"icon": "$(sparkle)",
 			"menus": {
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
 						"group": "1_gitlens_actions",
-						"order": 6
+						"order": 7
 					}
 				]
 			}
@@ -499,8 +499,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed && listContiguousSelection && listUniqueBranchSelection",
-						"group": "1_gitlens_actions_1",
-						"order": 3
+						"group": "1_gitlens_actions",
+						"order": 13
 					}
 				]
 			}
@@ -1202,7 +1202,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "7_cutcopypaste",
+						"group": "7_gitlens_cutcopypaste",
 						"order": 97
 					}
 				]
@@ -2974,7 +2974,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 1
+						"order": 3
 					}
 				]
 			}
@@ -2987,7 +2987,7 @@
 					{
 						"when": "webviewItems =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 1
+						"order": 4
 					}
 				]
 			}
@@ -3557,7 +3557,7 @@
 					{
 						"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+rewriteable\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 3
+						"order": 9
 					}
 				]
 			}
@@ -3636,27 +3636,27 @@
 			}
 		},
 		"gitlens.graph.modifyCommits": {
-			"label": "Modify Commits from Here (Interactive Rebase)...",
+			"label": "Modify (Rebase) Commits from Here...",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+rewriteable\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 5
+						"order": 10
 					}
 				]
 			}
 		},
 		"gitlens.graph.modifyCommits.multi": {
-			"label": "Modify Commits (Interactive Rebase)...",
+			"label": "Modify (Rebase) Selected Commits...",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+rewriteable\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 5
+						"order": 11
 					}
 				]
 			}
@@ -3874,7 +3874,7 @@
 			}
 		},
 		"gitlens.graph.pushToCommit": {
-			"label": "Push to Commit...",
+			"label": "Push to Here...",
 			"icon": "$(repo-push)",
 			"enablement": "!operationInProgress",
 			"menus": {
@@ -3882,7 +3882,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unpublished\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
-						"order": 3
+						"order": 6
 					}
 				]
 			}
@@ -3906,14 +3906,14 @@
 			}
 		},
 		"gitlens.graph.rebaseOntoCommit": {
-			"label": "Rebase Current Branch onto Commit...",
+			"label": "Rebase Current Branch onto Here...",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"when": "webviewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rewriteable\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 6
+						"order": 15
 					}
 				]
 			}
@@ -3991,28 +3991,15 @@
 				]
 			}
 		},
-		"gitlens.graph.resetCommit": {
-			"label": "Reset Current Branch to Previous Commit...",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 5
-					}
-				]
-			}
-		},
 		"gitlens.graph.resetToCommit": {
-			"label": "Reset Current Branch to Commit...",
+			"label": "Reset Current Branch to Here...",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 4
+						"order": 14
 					}
 				]
 			}
@@ -4087,7 +4074,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 3
+						"order": 5
 					}
 				]
 			}
@@ -4100,7 +4087,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+rewriteable\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 4
+						"order": 7
 					}
 				]
 			}
@@ -4511,7 +4498,7 @@
 					{
 						"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+rewriteable\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && listContiguousSelection",
 						"group": "1_gitlens_actions",
-						"order": 2
+						"order": 8
 					}
 				]
 			}
@@ -4543,7 +4530,7 @@
 			}
 		},
 		"gitlens.graph.switchToCommit": {
-			"label": "Switch to Commit...",
+			"label": "Checkout Commit...",
 			"icon": "$(gitlens-switch)",
 			"enablement": "!operationInProgress",
 			"menus": {
@@ -4551,7 +4538,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 7
+						"order": 16
 					}
 				]
 			}
@@ -4619,7 +4606,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktreeHEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 1
+						"order": 2
 					}
 				]
 			}
@@ -5656,11 +5643,6 @@
 						"order": 2
 					},
 					{
-						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_action",
-						"order": 2
-					},
-					{
 						"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
 						"group": "0_gitlens_worktree",
 						"order": 1
@@ -5734,11 +5716,6 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_action",
-						"order": 1
-					},
-					{
-						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_action",
 						"order": 1
 					},
@@ -9470,7 +9447,7 @@
 					{
 						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 1
+						"order": 2
 					}
 				]
 			}
@@ -9483,7 +9460,7 @@
 					{
 						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 1
+						"order": 3
 					}
 				]
 			}
@@ -13748,7 +13725,7 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
-						"order": 1
+						"order": 5
 					}
 				],
 				"view/item/context": [
@@ -13771,7 +13748,7 @@
 					{
 						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
-						"order": 2
+						"order": 5
 					},
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
@@ -13825,7 +13802,7 @@
 			}
 		},
 		"gitlens.views.pushToCommit": {
-			"label": "Push to Commit...",
+			"label": "Push to Here...",
 			"icon": "$(repo-push)",
 			"enablement": "!operationInProgress",
 			"menus": {
@@ -13833,7 +13810,7 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
-						"order": 2
+						"order": 6
 					}
 				],
 				"view/item/context": [
@@ -13845,7 +13822,7 @@
 					{
 						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 						"group": "1_gitlens_actions",
-						"order": 2
+						"order": 6
 					},
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
@@ -13893,21 +13870,21 @@
 			}
 		},
 		"gitlens.views.rebaseOntoCommit": {
-			"label": "Rebase Current Branch onto Commit...",
+			"label": "Rebase Current Branch onto Here...",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 6
+						"order": 9
 					}
 				],
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 6
+						"order": 9
 					}
 				]
 			}
@@ -15309,42 +15286,22 @@
 				]
 			}
 		},
-		"gitlens.views.resetCommit": {
-			"label": "Reset Current Branch to Previous Commit...",
-			"enablement": "!operationInProgress",
-			"menus": {
-				"gitlens/commit/file/commit": [
-					{
-						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 5
-					}
-				],
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-						"group": "1_gitlens_actions",
-						"order": 5
-					}
-				]
-			}
-		},
 		"gitlens.views.resetToCommit": {
-			"label": "Reset Current Branch to Commit...",
+			"label": "Reset Current Branch to Here...",
 			"enablement": "!operationInProgress",
 			"menus": {
 				"gitlens/commit/file/commit": [
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 4
+						"order": 8
 					}
 				],
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 4
+						"order": 8
 					}
 				]
 			}
@@ -15404,14 +15361,14 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 3
+						"order": 4
 					}
 				],
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 3
+						"order": 4
 					}
 				]
 			}
@@ -18110,14 +18067,14 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 7
+						"order": 10
 					}
 				],
 				"view/item/context": [
 					{
 						"when": "viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 7
+						"order": 10
 					}
 				]
 			}
@@ -18689,7 +18646,7 @@
 					{
 						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+HEAD\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
-						"order": 0
+						"order": 1
 					}
 				],
 				"view/item/context": [

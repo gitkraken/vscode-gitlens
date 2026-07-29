@@ -1021,21 +1021,6 @@ export class ViewCommands implements Disposable {
 		return BranchActions.changeUpstream(node.repoPath, branch);
 	}
 
-	@command('gitlens.views.resetCommit')
-	@debug()
-	private resetCommit(node: CommitNode | FileRevisionAsCommitNode) {
-		if (!node.isAny('commit', 'file-commit')) return Promise.resolve();
-
-		return RepoActions.reset(
-			node.repoPath,
-			createReference(`${node.ref.ref}^`, node.ref.repoPath, {
-				refType: 'revision',
-				name: `${node.ref.name}^`,
-				message: node.ref.message,
-			}),
-		);
-	}
-
 	@command('gitlens.views.resetToCommit')
 	@debug()
 	private resetToCommit(node: CommitNode | FileRevisionAsCommitNode) {
