@@ -384,13 +384,13 @@ Missing any of those = UI readiness is unverified. "Code paths look clean" is no
 
 ## Exercising Pro-gated features
 
-Features gated by subscription (Commit Graph beyond local repos, Launchpad, Worktrees, Cloud Patches, Composer, all AI features, Drafts, Workspaces, etc.) won't unlock without a Paid/Trial session. Use the **subscription simulator** documented in `/live-inspect` (section: "Exercising Pro-gated features"). Pass `dismissOnboarding: true` on the start call to pre-dismiss every GitLens onboarding overlay — they intercept clicks during automation. State (subscription + onboarding flags) is restored when you call with `state: null`.
+Features gated by subscription (Commit Graph beyond local repos, Launchpad, Worktrees, Cloud Patches, Composer, all AI features, Drafts, Workspaces, etc.) won't unlock without a Paid/Trial session. Use the `set_account` tool, documented in `/live-inspect` (section: "Exercising Pro-gated features"). Onboarding overlays are pre-dismissed by default — they intercept clicks during automation. State (subscription + onboarding flags) is restored when you call with `plan: "none"`.
 
 ```
-execute_command { command: "gitlens.plus.simulate.subscription", args: [{ "state": "Paid", "planId": "pro", "dismissOnboarding": true }] }
+set_account { plan: "pro" }
 ```
 
-Other states for boundary-case sweeps: `"Community"` (paywall UX), `"TrialExpired"` / `"TrialReactivationEligible"` (trial-end UX), `"VerificationRequired"` (email-verify gate), or `"Paid"` with `planId: "advanced" | "teams" | "enterprise"` for plan-tier differences. See `/live-inspect` for the full reference.
+Other plans for boundary-case sweeps: `"community"` (paywall UX), `"trial-expired"` / `"trial-reactivatable"` (trial-end UX), `"verification-required"` (email-verify gate), or `"advanced"` / `"business"` / `"enterprise"` for plan-tier differences. See `/live-inspect` for the full reference — including why you shouldn't drive the underlying command by hand.
 
 ## Exercising AI features
 

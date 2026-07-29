@@ -13,26 +13,28 @@ The `vscode-inspector` MCP server provides a **persistent, interactive** session
 
 The server is auto-discovered via `.mcp.json` when Claude Code starts in this repo. When connected, these MCP tools are available:
 
-| Tool                  | Purpose                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------ |
-| `launch`              | Start VS Code with GitLens loaded (persistent session)                               |
-| `teardown`            | Close VS Code and clean up                                                           |
-| `get_status`          | Check if session is running                                                          |
-| `screenshot`          | Capture window or webview as inline image (capped at 1920px)                         |
-| `execute_command`     | Run any VS Code command by ID                                                        |
-| `click`               | Click element by CSS selector (main UI or webview)                                   |
-| `type_text`           | Type text into inputs                                                                |
-| `press_key`           | Press keyboard shortcuts                                                             |
-| `inspect_dom`         | Query DOM elements for text/HTML/attributes/shadowDOM                                |
-| `aria_snapshot`       | Get accessibility tree as YAML (supports webview iframes)                            |
-| `evaluate`            | Run JS in extension host with vscode API                                             |
-| `evaluate_in_webview` | Run JS in webview renderer (DOM, shadow DOM, computed styles)                        |
-| `list_webviews`       | Discover all open webviews with titles, dimensions, content status                   |
-| `wait_for_webview`    | Wait for a webview to finish loading and Lit hydration                               |
-| `read_logs`           | Search extension output logs                                                         |
-| `read_console`        | Read browser console messages/errors from the main process                           |
-| `resize_window`       | Resize VS Code window content area — only for explicit responsive-breakpoint testing |
-| `rebuild_and_reload`  | Build extension + restart extension host                                             |
+| Tool                  | Purpose                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `launch`              | Start VS Code with GitLens loaded (persistent session)                                |
+| `teardown`            | Close VS Code and clean up                                                            |
+| `get_status`          | Check if session is running                                                           |
+| `screenshot`          | Capture window or webview as inline image (capped at 1920px)                          |
+| `execute_command`     | Run any VS Code command by ID                                                         |
+| `set_account`         | Simulate a subscription so Pro-gated features unlock (`plan: "pro"`, … `"none"`)      |
+| `sign_in`             | Sign in to a real GitKraken account (needs a persisted `session`; human-in-the-loop)  |
+| `click`               | Click element by CSS selector (main UI or webview)                                    |
+| `type_text`           | Type text into inputs                                                                 |
+| `press_key`           | Press keyboard shortcuts                                                              |
+| `inspect_dom`         | Query DOM elements for text/HTML/attributes/shadowDOM                                 |
+| `aria_snapshot`       | Get accessibility tree as YAML (supports webview iframes)                             |
+| `evaluate`            | Run JS in extension host with vscode API                                              |
+| `evaluate_in_webview` | Run JS in webview renderer (DOM, shadow DOM, computed styles)                         |
+| `list_webviews`       | Discover all open webviews with titles, dimensions, content status                    |
+| `wait_for_webview`    | Wait for a webview to finish loading and Lit hydration                                |
+| `read_logs`           | Search extension output logs                                                          |
+| `read_console`        | Read browser console messages/errors from the main process                            |
+| `resize_window`       | Resize VS Code window content area — only for explicit responsive-breakpoint testing  |
+| `rebuild_and_reload`  | Build extension + restart extension host (**kills the evaluator bridge** — see below) |
 
 ### Reading host logs (gotchas)
 
@@ -60,7 +62,7 @@ The server is auto-discovered via `.mcp.json` when Claude Code starts in this re
 rebuild_and_reload { build_command: "pnpm run build:extension" }
 ```
 
-This restarts the extension host with the new code. All tools continue to work on the same VS Code instance.
+This restarts the extension host with the new code on the same VS Code instance. **The evaluator bridge does not survive it** — it's the `--extensionTestsPath` entry point, which VS Code invokes only at workbench startup, so the restarted host never re-runs it or re-announces its (ephemeral) port. Screenshot/click/DOM tools keep working, but `evaluate`, `set_account` and `execute_command`'s fast path go with it. When you need those after an extension-host change, `teardown` + `launch` instead.
 
 **Webview code** (Lit components, CSS, templates under `src/webviews/apps/`): No extension host restart needed. Build the webviews, then use the view's refresh command:
 
@@ -214,8 +216,9 @@ How you drive inspection decides whether it's cheap or ruinous. Internalize thes
 - **Prefer text/measured evidence over screenshots.** A full-window screenshot costs ~1.7K image tokens (image cost scales with resolution) and is re-shipped on every later turn, so it compounds. Answer "what is the state / is it correct" with `evaluate_in_webview` (geometry via `getBoundingClientRect()`, computed styles, text, counts) or `aria_snapshot({ selector })`. Reserve `screenshot` for when the _pixels themselves_ are the question (visual polish, overlap, alignment), and scope it to a webview.
 - **Batch probes into one call.** Don't fire N `evaluate_in_webview` calls reading one field each — return a structured object in a single call: `evaluate_in_webview({ expression: "(() => { const el = document.querySelector('gl-graph-app').shadowRoot.querySelector('…'); return { top: el.getBoundingClientRect().top, color: getComputedStyle(el).color, count: … }; })()" })`. Project only the fields you need (returns are soft-capped at 20K chars); never return whole `innerHTML`.
 - **Filter every read.** `read_console({ level: "error", last_n })` and `read_logs({ pattern: "<tag>", last_n })` — the arg is `pattern`, NOT `filter` (a wrong key silently dumps everything). Both default-cap at 200 lines; use `read_console({ clear: true })` as a cursor so the next read only sees new messages.
-- **Fold setup into launch.** `launch({ commands: ["gitlens.showGraphView", …], log_level: "info" })` opens views inside the launch call (saves a round-trip each) and keeps on-disk logs small.
-- **Reuse the session.** `launch` once, then drive in a loop — it persists. For code changes use `rebuild_and_reload` (or `build:webviews` + the view's `.refresh` for webview-only edits, ~3–5× cheaper); full teardown+relaunch only when you need a clean state reset.
+- **Fold setup into launch.** `launch({ commands: ["gitlens.showGraphView", …], account: "pro", log_level: "info" })` opens views and unlocks Pro features inside the launch call (saves a round-trip each) and keeps on-disk logs small.
+- **Reuse the session.** `launch` once, then drive in a loop — it persists. For webview-only edits, `build:webviews` + the view's `.refresh` is ~3–5× cheaper than anything that restarts the host.
+- **Extension-host code changes cost a relaunch.** `rebuild_and_reload` restarts the host, but the evaluator bridge does **not** come back: it's the `--extensionTestsPath` entry point, which VS Code runs only at workbench startup, so the restarted host never re-announces its port. Everything bridge-backed (`evaluate`, `set_account`, `execute_command`'s fast path) degrades or dies afterwards, and the tool now says so explicitly instead of failing silently. Use `teardown` + `launch` when you need a live bridge after an extension-host change. (`workbench.action.reloadWindow` is not a workaround — under `--extensionTestsPath` the host exit reads as "tests finished" and the whole instance quits.)
 
 ### Delegate the driving to a Sonnet driver (default)
 
@@ -339,68 +342,65 @@ Use `resize_window` only when explicitly testing a responsive breakpoint — it 
 
 Pro-gated features (the Commit Graph beyond local repos, Launchpad, Worktrees beyond 1, Cloud Patches, Composer, all AI features, Drafts, Workspaces, etc.) check the user's subscription before unlocking. You can't exercise these without a Paid/Trial subscription on the session.
 
-The extension ships a **subscription simulator** in DEBUG builds that overrides the session's subscription state without touching the real account.
+The extension ships a **subscription simulator** in DEBUG builds that overrides the session's subscription state without touching the real account. Drive it with the `set_account` tool.
 
 ### Setup
 
 ```
-execute_command { command: "gitlens.plus.simulate.subscription", args: [{ "state": "Paid", "planId": "pro", "dismissOnboarding": true }] }
+set_account { plan: "pro" }
 ```
 
-Returns `true` on start, `false` on stop. Pass `dismissOnboarding: true` to also pre-dismiss every GitLens onboarding tour/banner (composer welcome, home walkthrough, MCP banner, rebase-editor warning, integration banner, SCM-grouped welcome) — they're full-screen overlays that intercept clicks during automation. State is restored on stop.
+That's the whole setup for most Pro-feature testing. Onboarding is pre-dismissed by default (`dismiss_onboarding`) — every tour/banner (composer welcome, home walkthrough, MCP banner, rebase-editor warning, integration banner, SCM-grouped welcome) is a full-screen overlay that intercepts clicks during automation. The tool reports the resulting account, so you can confirm the gate actually opened instead of assuming it.
 
-### State reference
+You can also bootstrap at launch, saving a round-trip:
 
-The `state` field accepts the friendly subscription name (resolves to the numeric `SubscriptionState` enum at runtime). Most-common picks first:
+```
+launch { session: "dev", account: "pro" }
+```
 
-| `state`                       | Plan options (`planId`)                                       | What it simulates                                              |
-| ----------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------- |
-| `"Paid"`                      | `"pro"`, `"advanced"`, `"student"`, `"teams"`, `"enterprise"` | Active paid subscription — unlocks all Pro features            |
-| `"Trial"`                     | `"pro"` (default), `"advanced"`, `"student"`                  | Active trial — unlocks all Pro features for the trial duration |
-| `"Community"`                 | —                                                             | No account, Community tier (Pro features locked)               |
-| `"TrialExpired"`              | —                                                             | Account exists, trial used up, no longer eligible              |
-| `"TrialReactivationEligible"` | —                                                             | Account exists, trial used up, eligible to reactivate          |
-| `"VerificationRequired"`      | —                                                             | Account created but email not verified                         |
+### Plan reference
 
-Optional modifiers:
+| `plan`                                                           | What it simulates                                              |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| `"pro"`, `"advanced"`, `"business"`, `"enterprise"`, `"student"` | Active paid subscription — unlocks all Pro features            |
+| `"trial"`, `"trial-advanced"`, `"trial-student"`                 | Active trial — unlocks all Pro features for the trial duration |
+| `"community"`                                                    | No account, Community tier (Pro features locked)               |
+| `"trial-expired"`                                                | Account exists, trial used up, no longer eligible              |
+| `"trial-reactivatable"`                                          | Account exists, trial used up, eligible to reactivate          |
+| `"paid-expired"`                                                 | Expired paid (downgrades to Community at the gate)             |
+| `"verification-required"`                                        | Account created but email not verified                         |
+| `"none"`                                                         | Ends simulation, restoring the session's real subscription     |
 
-| Modifier                                    | Pairs with           | Effect                                                                                                                             |
-| ------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `reactivatedTrial: true`                    | `state: "Trial"`     | Reactivated trial (vs. fresh)                                                                                                      |
-| `expiredPaid: true`                         | `state: "Paid"`      | Expired paid (downgrades to Community at the gate)                                                                                 |
-| `featurePreviews: { day, durationSeconds }` | `state: "Community"` | Pro Preview window. `day`: 0 = day 1, 1 = day 2, 2 = day 3, `proFeaturePreviewUsages` = expired. `durationSeconds`: window timeout |
-| `dismissOnboarding: true`                   | any                  | Pre-dismiss onboarding overlays (see Setup)                                                                                        |
+Modifiers: `reactivated: true` (trial plans only — reactivated rather than fresh); `feature_preview_day` / `feature_preview_seconds` (`community` only — the Pro Preview window; day 0 = day 1, 1 = day 2, 2 = day 3, 3 = expired). Both are rejected with a clear error if paired with a plan they don't apply to.
 
 ### Common recipes
 
-For other states, swap `state`/`planId`/modifiers per the tables above — the start-command shape is the same.
+**Community gate (paywall UX):** `set_account { plan: "community" }`
 
-**Pro user (default for most pro-feature testing):**
+**Feature-preview countdown:** `set_account { plan: "community", feature_preview_day: 0 }`
 
-```
-execute_command { command: "gitlens.plus.simulate.subscription", args: [{ "state": "Paid", "planId": "pro", "dismissOnboarding": true }] }
-```
-
-**Community gate (paywall UX):**
-
-```
-execute_command { command: "gitlens.plus.simulate.subscription", args: [{ "state": "Community", "dismissOnboarding": true }] }
-```
-
-**Feature-preview countdown (Community + temporary Pro Preview):**
-
-```
-execute_command { command: "gitlens.plus.simulate.subscription", args: [{ "state": "Community", "featurePreviews": { "day": 0, "durationSeconds": 30 }, "dismissOnboarding": true }] }
-# day: 1 → starts on day 2, day: 2 → day 3, day: 3 → preview expired
-```
+**Plan-tier differences:** `set_account { plan: "business" }` (note: "Business" is `teams` on the wire — the tool handles that mapping)
 
 ### Stop simulation (mandatory teardown)
 
 ```
-execute_command { command: "gitlens.plus.simulate.subscription", args: [{ "state": null }] }
+set_account { plan: "none" }
 ```
 
-Restores the prior subscription, feature previews, and any onboarding flags that were pre-dismissed via `dismissOnboarding: true`. Re-calling the start command also clears any prior simulation state.
+Restores the prior subscription, feature previews, and any onboarding flags that were pre-dismissed. Re-calling with another plan also clears any prior simulation state.
+
+> **Don't hand-roll the payload.** The underlying command (`gitlens.plus.simulate.subscription`) takes a numeric `SubscriptionState` const enum, and nothing coerces names to numbers. `execute_command` with `{ "state": "Paid" }` returns `true` and silently lands you on **trial-expired** — verified, not theoretical. `set_account` owns the name→number mapping; use it.
+
+### Using a real account instead
+
+For real entitlements and organizations rather than a simulated plan, launch a **persisted session** and sign in once:
+
+```
+launch { session: "dev" }
+sign_in {}
+```
+
+The session's VS Code user data lives under `.vscode-test/agent-sessions/<name>/` and survives teardown, so later `launch { session: "dev" }` calls start already signed in. `sign_in` is human-in-the-loop and needs a visible window: it opens a browser, and because the `vscode://` callback resolves against the default user-data-dir it usually lands in the user's main VS Code, leaving GitLens' "paste the authorization code" input box as the way to finish. Ask the user to complete it, then wait. It refuses on a throwaway session, where the account would be discarded on teardown.
 
 ## Exercising AI features
 
@@ -408,7 +408,7 @@ GitLens AI features (Generate Commit Message, Explain \*, Generate Changelog, Co
 
 AI features are also Pro-gated, so two simulators must be enabled in order:
 
-1. **Subscription simulator** — see [Exercising Pro-gated features](#exercising-pro-gated-features) above. Use `state: "Paid", planId: "pro"`.
+1. **Subscription simulator** — see [Exercising Pro-gated features](#exercising-pro-gated-features) above. Use `set_account { plan: "pro" }`.
 2. **AI simulator** (`gitlens.plus.simulate.ai`) — replaces the AI provider with a stub that returns content the agent injects. Suppresses the first-run ToS modal and the AI All-Access promo notification automatically.
 
 The AI simulator dispatches on a discriminated `op` arg: `enable`, `disable`, `inject`, `clear`, `lastMessages`. Calling without args opens a QuickPick.
@@ -416,11 +416,11 @@ The AI simulator dispatches on a discriminated `op` arg: `enable`, `disable`, `i
 ### Setup (one-time per session)
 
 ```
-execute_command { command: "gitlens.plus.simulate.subscription", args: [{ "state": "Paid", "planId": "pro", "dismissOnboarding": true }] }
-execute_command { command: "gitlens.plus.simulate.ai",           args: [{ "op": "enable" }] }
+set_account { plan: "pro" }
+execute_command { command: "gitlens.plus.simulate.ai", args: [{ "op": "enable" }] }
 ```
 
-`dismissOnboarding: true` is documented in the Pro-gated features section — only needs to be set on one of the two commands. Both share the same snapshot/restore pattern.
+`set_account` already pre-dismisses onboarding, so the AI simulator doesn't need `dismissOnboarding` as well. Both share the same snapshot/restore pattern.
 
 ### Inject-then-trigger pattern
 

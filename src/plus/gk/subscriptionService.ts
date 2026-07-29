@@ -242,6 +242,7 @@ export class SubscriptionService implements Disposable {
 
 				m.registerAccountDebug(this.container, {
 					getSubscription: () => this._subscription,
+					getSession: () => this._session,
 					overrideFeaturePreviews: ({ day, durationSeconds }) => {
 						savedFeaturePreviewOverrides ??= {
 							getFn: this.getStoredFeaturePreview,

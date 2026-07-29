@@ -8826,6 +8826,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.plus.accountStatus",
+				"title": "Account Status (Debugging)",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.plus.cloudIntegrations.connect",
 				"title": "Connect Integrations..."
 			},
@@ -14407,6 +14412,10 @@
 				{
 					"command": "gitlens.pastePatchFromClipboard",
 					"when": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.plus.accountStatus",
+					"when": "gitlens:enabled && gitlens:debugging"
 				},
 				{
 					"command": "gitlens.plus.cloudIntegrations.connect",

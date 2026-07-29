@@ -34,9 +34,15 @@ let electronApp = null;
 let page = null;
 let evaluateFn = null;
 let tempDir = null;
+// Set only for named (persisted) sessions — see `launch`'s `session` arg. Unlike `tempDir` this is
+// NEVER deleted by cleanup(); it holds the signed-in account that makes the session worth persisting.
+let sessionDir = null;
 let userDataDir = null;
 let launchTime = null;
 let sessionConfig = {};
+// Last simulated plan applied via `set_account`, re-applied after an extension-host restart (the
+// simulator only ever calls changeSubscription with `{ store: false }`, so a restart drops it).
+let lastAccount = null;
 let xvfbProcess = null;
 let consoleBuffer = [];
 let originalWindowSize = null;
@@ -478,8 +484,12 @@ async function cleanup() {
 		electronApp = null;
 		page = null;
 		evaluateFn = null;
+		// Only the throwaway dir is removed — a persisted session's user data (and its signed-in
+		// account) must survive teardown, which is the entire point of naming it.
 		if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 		tempDir = null;
+		sessionDir = null;
+		lastAccount = null;
 		userDataDir = null;
 		launchTime = null;
 		consoleBuffer = [];
@@ -636,6 +646,72 @@ async function findWebviewFrameLocator({ title, url: urlMatch, index, root, exte
 }
 
 // =============================================================================
+// Account / subscription simulation
+// =============================================================================
+// Friendly plan name -> `SimulationState` payload for the `gitlens.plus.simulate.subscription`
+// command (src/plus/gk/__debug__accountDebug.ts).
+//
+// `state` is the numeric `SubscriptionState` const enum (src/constants.subscription.ts). Nothing
+// coerces names to numbers — passing `state: "Paid"` falls through every comparison in
+// getSimulatedCheckInResponse and silently yields TrialExpired. Keeping the mapping here is the
+// whole reason this tool exists, so callers never hand-build the payload.
+const accountPlans = {
+	pro: { state: 6, planId: 'pro' },
+	advanced: { state: 6, planId: 'advanced' },
+	business: { state: 6, planId: 'teams' }, // "Business" is still `teams` on the wire
+	enterprise: { state: 6, planId: 'enterprise' },
+	student: { state: 6, planId: 'student' },
+	'paid-expired': { state: 6, expiredPaid: true },
+	trial: { state: 3 },
+	'trial-advanced': { state: 3, planId: 'advanced' },
+	'trial-student': { state: 3, planId: 'student' },
+	'trial-expired': { state: 4 },
+	'trial-reactivatable': { state: 5 },
+	'verification-required': { state: -1 },
+	community: { state: 0 },
+	none: { state: null },
+};
+const accountPlanNames = Object.keys(accountPlans);
+// Only these accept `reactivatedTrial` — `trial-expired`/`trial-reactivatable` are past-tense states
+const reactivatablePlans = ['trial', 'trial-advanced', 'trial-student'];
+
+function requireEvaluator(toolName) {
+	if (!evaluateFn) {
+		throw new Error(
+			`"${toolName}" needs the evaluator bridge. Relaunch with with_evaluator: true and ensure the E2E runner is built.`,
+		);
+	}
+}
+
+/** Applies a `SimulationState` payload; returns the command's verdict (true = started, false = stopped). */
+async function applyAccountPlan(payload) {
+	return evaluateFn((vscode, p) => vscode.commands.executeCommand('gitlens.plus.simulate.subscription', p), payload);
+}
+
+/** Reads the current account/subscription. Returns null when unavailable (non-debug build, no bridge). */
+async function readAccountStatus() {
+	if (!evaluateFn) return null;
+	try {
+		return (await evaluateFn(vscode => vscode.commands.executeCommand('gitlens.plus.accountStatus'))) ?? null;
+	} catch {
+		return null;
+	}
+}
+
+function formatAccountStatus(status) {
+	if (status == null) return 'unavailable (needs a DEBUG build and the evaluator bridge)';
+
+	const parts = [`${status.planName} (${status.stateName})`];
+	parts.push(status.signedIn ? 'signed in' : 'not signed in');
+	if (status.account != null) {
+		parts.push(`account ${status.account.name}${status.account.email ? ` <${status.account.email}>` : ''}`);
+	}
+	if (status.organization) parts.push(`org ${status.organization}`);
+	if (status.simulating != null) parts.push('simulated');
+	return parts.join(', ');
+}
+
+// =============================================================================
 // MCP Server setup
 // =============================================================================
 const server = new McpServer({
@@ -685,6 +761,18 @@ server.tool(
 			.describe(
 				'VS Code command IDs to run once, in order, after activation (e.g. ["gitlens.showGraph"]). Saves a separate execute_command round-trip + manual wait on every launch.',
 			),
+		session: z
+			.string()
+			.optional()
+			.describe(
+				'Name a persisted session (letters, digits, dash, underscore). Its VS Code user data is kept under .vscode-test/agent-sessions/<name>/ and survives teardown, so a real GitKraken account signed in via the "sign_in" tool carries across runs. Omit for the default throwaway session.',
+			),
+		account: z
+			.enum(accountPlanNames)
+			.optional()
+			.describe(
+				'Simulate a subscription right after activation, so Pro-gated features are usable without a separate set_account round-trip. See the set_account tool for what each plan means.',
+			),
 	},
 	async args => {
 		if (state === 'ready') {
@@ -720,11 +808,30 @@ server.tool(
 
 			const { _electron } = await import('@playwright/test');
 
-			// Temp directories
-			tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), 'vscode-agent-')));
-			userDataDir = path.join(tempDir, 'user-data');
+			// Session directories. A named session lives under .vscode-test/ (already gitignored) and
+			// is kept across teardowns so a signed-in account carries between runs; an unnamed one is a
+			// throwaway temp dir that cleanup() removes, which is the long-standing default.
+			let extensionsDir;
+			if (args.session != null) {
+				if (!/^[A-Za-z0-9_-]+$/.test(args.session)) {
+					throw new Error(
+						`Invalid session name "${args.session}" — use only letters, digits, dashes and underscores.`,
+					);
+				}
+
+				sessionDir = path.join(extensionPath, '.vscode-test', 'agent-sessions', args.session);
+				userDataDir = path.join(sessionDir, 'user-data');
+				extensionsDir = path.join(sessionDir, 'extensions');
+			} else {
+				tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), 'vscode-agent-')));
+				userDataDir = path.join(tempDir, 'user-data');
+				extensionsDir = path.join(tempDir, 'extensions');
+			}
+			sessionConfig.session = args.session ?? null;
+
 			const settingsDir = path.join(userDataDir, 'User');
 			await mkdir(settingsDir, { recursive: true });
+			await mkdir(extensionsDir, { recursive: true });
 
 			// Write settings
 			const settings = {
@@ -743,9 +850,16 @@ server.tool(
 				'--skip-release-notes',
 				'--disable-workspace-trust',
 				`--extensionDevelopmentPath=${extensionPath}`,
-				`--extensions-dir=${path.join(tempDir, 'extensions')}`,
+				`--extensions-dir=${extensionsDir}`,
 				`--user-data-dir=${userDataDir}`,
 			];
+
+			if (sessionDir != null) {
+				// Store secrets in an encrypted file inside the session dir rather than an OS keyring,
+				// which isn't reachable under Xvfb. Without this the signed-in GitKraken session would
+				// not survive teardown, defeating the point of a named session.
+				launchArgs.push('--password-store=basic');
+			}
 
 			if (args.disable_site_isolation) {
 				launchArgs.push('--disable-site-isolation-trials', '--disable-web-security');
@@ -864,6 +978,27 @@ server.tool(
 				}
 			}
 
+			if (sessionDir != null) parts.push(`Session: "${args.session}" (persisted at ${sessionDir})`);
+
+			if (args.account != null) {
+				if (evaluateFn) {
+					try {
+						const payload = { ...accountPlans[args.account], dismissOnboarding: true };
+						await applyAccountPlan(payload);
+						if (args.account !== 'none') lastAccount = { plan: args.account, payload: payload };
+						parts.push(`Account: ${formatAccountStatus(await readAccountStatus())}`);
+					} catch (e) {
+						parts.push(`Account simulation failed: ${e.message}`);
+					}
+				} else {
+					parts.push('Account simulation skipped: evaluator bridge not available');
+				}
+			} else if (sessionDir != null) {
+				// A persisted session may already hold a signed-in account — say so, since that's the
+				// reason to use one.
+				parts.push(`Account: ${formatAccountStatus(await readAccountStatus())}`);
+			}
+
 			return textResult(parts.join('\n'));
 		} catch (e) {
 			await cleanup();
@@ -893,6 +1028,8 @@ server.tool('get_status', 'Get the current session state.', async () => {
 		extension_path: sessionConfig.extensionPath,
 		extension_id: sessionConfig.extensionId ?? '(not set)',
 		evaluator: !!evaluateFn,
+		session: sessionConfig.session ?? '(throwaway)',
+		account: formatAccountStatus(await readAccountStatus()),
 	};
 	return textResult(JSON.stringify(info, null, 2));
 });
@@ -1039,6 +1176,145 @@ server.tool(
 			}
 		} catch (e) {
 			return errorResult(`Command failed: ${e.message}`);
+		}
+	},
+);
+
+// --- set_account -------------------------------------------------------------
+server.tool(
+	'set_account',
+	'Simulate a GitKraken subscription so Pro-gated features (Commit Graph beyond local repos, Launchpad, Worktrees, Composer, AI, Drafts, Workspaces) are usable. Without this a session is Community and those surfaces render their paywall — which looks like a broken bundle. Re-applied automatically after rebuild_and_reload. Use "none" to end simulation and fall back to the session\'s real subscription. For a real account instead of a simulated one, see the sign_in tool.',
+	{
+		plan: z
+			.enum(accountPlanNames)
+			.describe(
+				'Subscription to simulate. "pro"/"advanced"/"business"/"enterprise"/"student" are active paid plans; "trial"/"trial-advanced"/"trial-student" are active trials; "trial-expired", "trial-reactivatable", "paid-expired", "verification-required" and "community" are the locked-out states; "none" ends simulation.',
+			),
+		reactivated: z
+			.boolean()
+			.optional()
+			.describe('For the trial plans: simulate a reactivated trial rather than a fresh one.'),
+		feature_preview_day: z
+			.number()
+			.int()
+			.optional()
+			.describe(
+				'For plan "community": which day of the Pro feature-preview window to start on (0 = day 1, 1 = day 2, 2 = day 3, 3 = expired).',
+			),
+		feature_preview_seconds: z
+			.number()
+			.int()
+			.optional()
+			.describe('For plan "community": how long the feature-preview window lasts (default: 30).'),
+		dismiss_onboarding: z
+			.boolean()
+			.optional()
+			.describe(
+				'Pre-dismiss every onboarding tour/banner (default: true). They are full-screen overlays that intercept clicks during automation.',
+			),
+	},
+	async args => {
+		requireReady();
+
+		const base = accountPlans[args.plan];
+		if (args.reactivated && !reactivatablePlans.includes(args.plan)) {
+			return errorResult(`"reactivated" only applies to ${reactivatablePlans.join(', ')} — not "${args.plan}".`);
+		}
+
+		const previewing = args.feature_preview_day != null || args.feature_preview_seconds != null;
+		if (previewing && args.plan !== 'community') {
+			return errorResult(`"feature_preview_*" only applies to plan "community" — not "${args.plan}".`);
+		}
+
+		const payload = { ...base };
+		if (args.plan !== 'none') {
+			payload.dismissOnboarding = args.dismiss_onboarding ?? true;
+			if (args.reactivated) payload.reactivatedTrial = true;
+			if (previewing) {
+				payload.featurePreviews = {
+					day: args.feature_preview_day ?? 0,
+					durationSeconds: args.feature_preview_seconds ?? 30,
+				};
+			}
+		}
+
+		try {
+			requireEvaluator('set_account');
+
+			// The command returns true when a simulation started, false when it stopped//was refused —
+			// report that verdict rather than assuming the call took effect.
+			const started = await applyAccountPlan(payload);
+			lastAccount = args.plan === 'none' ? null : { plan: args.plan, payload: payload };
+
+			if (args.plan === 'none') {
+				return textResult(`Simulation ended. Account: ${formatAccountStatus(await readAccountStatus())}`);
+			}
+			if (started !== true) {
+				return errorResult(
+					`Simulating "${args.plan}" was refused (the command returned ${JSON.stringify(started)}). Is this a DEBUG build?`,
+				);
+			}
+			return textResult(`Simulating "${args.plan}". Account: ${formatAccountStatus(await readAccountStatus())}`);
+		} catch (e) {
+			return errorResult(`set_account failed: ${e.message}`);
+		}
+	},
+);
+
+// --- sign_in -----------------------------------------------------------------
+server.tool(
+	'sign_in',
+	'Sign in to a REAL GitKraken account, for testing against real entitlements and organizations rather than a simulated plan. Requires a named (persisted) session — launch with `session` — so the sign-in carries across later runs; it only has to be done once per session name. This is human-in-the-loop and needs a visible window: it opens a browser, and because the vscode:// callback resolves against the default user-data-dir it will usually land in the user\'s main VS Code, leaving GitLens\' "paste the authorization code" input box as the way to finish. Ask the user to complete it, then wait.',
+	{
+		timeout_ms: z
+			.number()
+			.int()
+			.optional()
+			.describe(
+				"How long to wait for sign-in to complete (default: 120000, matching GitLens' own login window).",
+			),
+	},
+	async args => {
+		requireReady();
+
+		if (sessionDir == null) {
+			return errorResult(
+				'sign_in needs a persisted session, otherwise the account is discarded on teardown. Relaunch with `session: "<name>"`.',
+			);
+		}
+
+		try {
+			requireEvaluator('sign_in');
+
+			const before = await readAccountStatus();
+			if (before?.signedIn) {
+				return textResult(`Already signed in. Account: ${formatAccountStatus(before)}`);
+			}
+
+			// An active simulation overrides the session, which would mask the result.
+			if (before?.simulating != null) {
+				await applyAccountPlan({ state: null });
+				lastAccount = null;
+			}
+
+			// Don't await — the command only resolves once the user finishes, and we want to poll.
+			void evaluateFn(vscode => vscode.commands.executeCommand('gitlens.plus.login')).catch(() => {});
+
+			const timeout = args.timeout_ms ?? 120000;
+			const deadline = Date.now() + timeout;
+			while (Date.now() < deadline) {
+				await page.waitForTimeout(2000);
+				const status = await readAccountStatus();
+				if (status?.signedIn) {
+					return textResult(`Signed in. Account: ${formatAccountStatus(status)}`);
+				}
+			}
+
+			return errorResult(
+				`Sign-in did not complete within ${timeout}ms. GitLens' own login window has closed by now — re-run sign_in to try again.`,
+			);
+		} catch (e) {
+			return errorResult(`sign_in failed: ${e.message}`);
 		}
 	},
 );
@@ -1749,7 +2025,7 @@ server.tool(
 // --- rebuild_and_reload ------------------------------------------------------
 server.tool(
 	'rebuild_and_reload',
-	'Run the build command, then restart the extension host. Reconnects the evaluator bridge. For webview-only changes, build webviews and use the view refresh command (e.g. gitlens.views.home.refresh) instead of restarting the extension host.',
+	'Run the build command, then restart the extension host. For webview-only changes, build webviews and use the view refresh command (e.g. gitlens.views.home.refresh) instead of restarting the extension host. NOTE: the evaluator bridge does not survive the restart (it is the --extensionTestsPath entry, which only runs at workbench startup), so evaluate/set_account and other bridge-backed tools stop working afterwards — teardown + launch to get them back.',
 	{
 		build_command: z
 			.string()
@@ -1782,11 +2058,31 @@ server.tool(
 			}
 			const buildTime = ((Date.now() - startTime) / 1000).toFixed(1);
 
+			// Arm the evaluator reconnect BEFORE restarting, so that if the host ever does re-announce
+			// its "VSCodeTestServer listening on ..." line we catch it — attaching after the waits
+			// below would sit on a line that had already gone by. (skipCache so we can't latch onto
+			// the pre-restart URL.) See the KNOWN LIMITATION note below for why this usually fails.
+			let evaluatorError;
+			const evaluatorPromise = sessionConfig.withEvaluator
+				? connectEvaluator(electronApp, { skipCache: true }).catch(e => {
+						evaluatorError = e;
+						return null;
+					})
+				: null;
+
 			// Restart the extension host (not a full window reload).
 			// This keeps the Playwright page reference alive while reloading
 			// all extensions with the newly-built code. Extension host code
 			// changes take effect immediately. For webview-only changes,
 			// use the view's refresh command instead (e.g. gitlens.views.home.refresh).
+			//
+			// KNOWN LIMITATION: the evaluator bridge does not survive this. It lives in the
+			// `--extensionTestsPath` entry point, which VS Code invokes once per workbench startup, so
+			// the restarted host never re-runs it and never re-announces its (ephemeral) port —
+			// reconnect below fails with "Timeout waiting for VSCodeTestServer". `workbench.action.
+			// reloadWindow` would re-run it, but under `--extensionTestsPath` the host exit is read as
+			// "tests finished" and the whole instance quits ("Process exited"). Until the bridge moves
+			// out of extensionTests, teardown + launch is the only way back to a live evaluator.
 			if (evaluateFn) {
 				try {
 					await evaluateFn(vscode =>
@@ -1812,20 +2108,36 @@ server.tool(
 			const activationWait = agentCfg.activationWait ?? 5000;
 			await new Promise(r => setTimeout(r, activationWait));
 
-			// Reconnect evaluator if it was active (skipCache to avoid stale URL from pre-restart)
-			if (sessionConfig.withEvaluator) {
-				try {
-					const evaluator = await connectEvaluator(electronApp, { skipCache: true });
-					evaluateFn = evaluator.evaluate.bind(evaluator);
-				} catch {
-					evaluateFn = null;
-				}
+			// Reconnect evaluator if it was active (armed above, before the restart)
+			if (evaluatorPromise != null) {
+				const evaluator = await evaluatorPromise;
+				evaluateFn = evaluator != null ? evaluator.evaluate.bind(evaluator) : null;
 			}
 
 			const parts = [`Build succeeded (${buildTime}s). Extension host restarted.`];
 			if (evaluateFn) parts.push('Evaluator: reconnected');
-			else if (sessionConfig.withEvaluator)
-				parts.push('Evaluator: reconnection failed (some tools may be limited)');
+			else if (sessionConfig.withEvaluator) {
+				parts.push(
+					`Evaluator: reconnection failed${evaluatorError ? ` — ${evaluatorError.message}` : ''} (some tools may be limited)`,
+				);
+			}
+
+			// The subscription simulator never persists (`{ store: false }` throughout), so a host
+			// restart silently drops it back to Community. Re-apply so a long inspection session
+			// doesn't quietly lose its Pro gating mid-run. A real signed-in account is persisted and
+			// needs no help here.
+			if (lastAccount != null) {
+				if (evaluateFn) {
+					try {
+						await applyAccountPlan(lastAccount.payload);
+						parts.push(`Account: re-applied "${lastAccount.plan}"`);
+					} catch (e) {
+						parts.push(`Account: failed to re-apply "${lastAccount.plan}" (${e.message})`);
+					}
+				} else {
+					parts.push(`Account: could not re-apply "${lastAccount.plan}" (no evaluator bridge)`);
+				}
+			}
 
 			return textResult(parts.join('\n'));
 		} catch (e) {

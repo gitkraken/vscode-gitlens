@@ -5794,6 +5794,10 @@
 			"label": "Paste Copied Changes (Patch)",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.plus.accountStatus": {
+			"label": "Account Status (Debugging)",
+			"commandPalette": "gitlens:enabled && gitlens:debugging"
+		},
 		"gitlens.plus.cloudIntegrations.connect": {
 			"label": "Connect Integrations..."
 		},

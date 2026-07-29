@@ -16,12 +16,14 @@ import type { PaidSubscriptionPlanIds, SubscriptionPlanIds } from './models/subs
 import type { SubscriptionService } from './subscriptionService.js';
 import { getConfiguredActiveOrganizationId } from './utils/-webview/subscription.utils.js';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils.js';
+import { getSubscriptionPlanName, getSubscriptionStateString } from './utils/subscription.utils.js';
 
 const SimulatedAccountId = '0000000000000-0000-0000-000000000000';
 const SimulatedOrganizationId = '000000000000000000000000';
 
 type SubscriptionServiceFacade = {
 	getSubscription: () => SubscriptionService['_subscription'];
+	getSession: () => SubscriptionService['_session'];
 	overrideFeaturePreviews: (featurePreviews: SimulatedFeaturePreviews) => void;
 	overrideSession: (session: SubscriptionService['_session']) => void;
 	restoreFeaturePreviews: () => void;
@@ -86,6 +88,20 @@ export type SimulationState =
 
 type SimulateQuickPickItem = QuickPickItemOfT<SimulationState>;
 
+/** Read-only snapshot of the current account/subscription, for debugging & automation. Never includes tokens. */
+export interface AccountStatus {
+	/** Whether a real authentication session exists, regardless of any active simulation */
+	signedIn: boolean;
+	account: { id: string; name: string; email: string | undefined; verified: boolean } | undefined;
+	planId: SubscriptionPlanIds;
+	planName: string;
+	state: SubscriptionState;
+	stateName: string;
+	organization: string | undefined;
+	/** The active simulation, or `undefined` when reporting real state */
+	simulating: SimulationState | undefined;
+}
+
 function getVisibilityButton(visibility: RepositoryVisibility | undefined): QuickInputButton {
 	const inline = supportedInVSCodeVersion('quickpick-button-location') ? QuickInputButtonLocation.Inline : undefined;
 	switch (visibility) {
@@ -111,6 +127,8 @@ function nextSimulatedVisibility(current: RepositoryVisibility | undefined): Rep
 
 class AccountDebug {
 	private simulatingPick: SimulateQuickPickItem | undefined;
+	/** Tracks direct (non-quickpick) simulation too, which never sets `simulatingPick` */
+	private simulating: SimulationState | undefined;
 	private simulatedVisibility: RepositoryVisibility | undefined;
 	private onboardingSnapshot: OnboardingSnapshot | undefined;
 
@@ -125,7 +143,34 @@ class AccountDebug {
 				undefined,
 				{ returnResult: true },
 			),
+			registerCommand('gitlens.plus.accountStatus', () => this.getAccountStatus(), undefined, {
+				returnResult: true,
+			}),
 		);
+	}
+
+	private getAccountStatus(): AccountStatus {
+		const subscription = this.service.getSubscription();
+		const planId = subscription?.plan.effective.id ?? 'community';
+
+		return {
+			signedIn: this.service.getSession() != null,
+			account:
+				subscription?.account != null
+					? {
+							id: subscription.account.id,
+							name: subscription.account.name,
+							email: subscription.account.email,
+							verified: subscription.account.verified,
+						}
+					: undefined,
+			planId: planId,
+			planName: getSubscriptionPlanName(planId),
+			state: subscription?.state ?? SubscriptionState.Community,
+			stateName: getSubscriptionStateString(subscription?.state),
+			organization: subscription?.activeOrganization?.name,
+			simulating: this.simulating,
+		};
 	}
 
 	// Simulate a subscription state. If state is provided, directly sets it; otherwise shows the UI picker.
@@ -357,6 +402,7 @@ class AccountDebug {
 
 	private endSimulation() {
 		this.simulatingPick = undefined;
+		this.simulating = undefined;
 		this.simulatedVisibility = undefined;
 		setSimulatedRepoVisibility(undefined);
 
@@ -376,6 +422,8 @@ class AccountDebug {
 			this.endSimulation();
 			return false;
 		}
+
+		this.simulating = simulatedState;
 
 		// Snapshot + dismiss onboarding only on first start that requests it; subsequent
 		// starts don't re-snapshot (preserves the original "what was undismissed" record).
