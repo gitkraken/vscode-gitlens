@@ -3,7 +3,10 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { pluralize } from '@gitlens/utils/string.js';
-import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
+import type {
+	LaunchpadSummaryError,
+	LaunchpadSummaryResult,
+} from '../../../../../plus/launchpad/launchpadIndicator.js';
 import type { GitBranchShape, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { BranchRef } from '../../../../shared/branchRefs.js';
@@ -59,7 +62,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	 *  stable "Checking for pull request…" row that anchors the layout until enrichment lands. */
 	@property({ type: Boolean }) pullRequestLoading = false;
 	@property({ type: Boolean }) hasIntegrationsConnected = false;
-	@property({ type: Object }) launchpadSummary?: LaunchpadSummaryResult | { error: Error };
+	@property({ type: Object }) launchpadSummary?: LaunchpadSummaryResult | { error: LaunchpadSummaryError };
 	@property({ type: Boolean }) launchpadSummaryLoading = false;
 	/** When true, render the Launchpad section between Next steps and Start New. Off by default
 	 *  so consumers that don't wire Launchpad props (e.g., the commit-details `gl-details-wip-panel`)

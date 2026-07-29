@@ -617,11 +617,17 @@ export class LaunchpadIndicator implements Disposable {
 	}
 }
 
+/** Serializable stand-in for `Error` — the summary crosses the webview RPC, which uses `JSON.stringify` */
+export interface LaunchpadSummaryError {
+	name: string;
+	message: string;
+}
+
 export interface LaunchpadSummaryResult {
 	total: number;
 	groups: LaunchpadGroup[];
 	hasGroupedItems: boolean;
-	error?: Error;
+	error?: LaunchpadSummaryError;
 
 	mergeable?: {
 		total: number;

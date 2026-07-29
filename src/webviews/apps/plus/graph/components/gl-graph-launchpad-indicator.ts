@@ -225,7 +225,12 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 		if (connected === false) return 'Launchpad — connect an integration to see pull requests';
 
 		const summary = this.summary;
-		if (summary == null || !('total' in summary)) return 'Launchpad';
+		// The `circle-slash` / spinner are decorative, so the failure and loading states have to be
+		// distinguishable here or a screen reader hears the same bare "Launchpad" for both
+		if (summary == null) {
+			return (this._state?.loading.get() ?? false) ? 'Launchpad — loading' : 'Launchpad';
+		}
+		if (!('total' in summary)) return 'Launchpad — unable to load pull requests';
 
 		const groups = this.getCountGroups(summary);
 		if (groups.length === 0) return 'Launchpad — all caught up';

@@ -4,7 +4,7 @@ import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { GlCommands } from '../../../constants.commands.js';
-import type { LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
+import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
@@ -604,7 +604,9 @@ export interface GraphLaunchpadService {
 	 *  The host impl (`LaunchpadService`) already exposes this; consumed by the graph header's
 	 *  Launchpad indicator to keep its counts fresh. */
 	readonly onLaunchpadChanged: RpcEventSubscription<undefined>;
-	getSummary(): Promise<LaunchpadSummaryResult | { error: Error } | undefined>;
+	getSummary(options?: {
+		force?: boolean;
+	}): Promise<LaunchpadSummaryResult | { error: LaunchpadSummaryError } | undefined>;
 }
 
 export interface GraphWalkthroughService {

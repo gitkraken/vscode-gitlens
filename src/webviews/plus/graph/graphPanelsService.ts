@@ -192,19 +192,31 @@ export class GraphPanelsService {
 	): Promise<GetOverviewEnrichmentResponse> {
 		if (params.branchIds.length === 0 || this._graphSession == null || this.repository == null) return {};
 
-		const subscription = await this.container.subscription.getSubscription();
-		const isPro = isSubscriptionTrialOrPaidFromState(subscription.state);
+		try {
+			const subscription = await this.container.subscription.getSubscription();
+			const isPro = isSubscriptionTrialOrPaidFromState(subscription.state);
 
-		return getOverviewEnrichment(this.container, this._graphSession.current.branches.values(), params.branchIds, {
-			isPro: isPro,
-			resolveLaunchpad: true,
-			// Merge-target is fetched lazily by the overview card on hover (and by the click-to-scope
-			// path in `graph-app`) via `BranchesService.getMergeTargetStatus`, so initial enrichment
-			// doesn't block on ~4 git/integration ops per branch. The resolved value is then merged
-			// back into shared `overviewEnrichment` state via `mergeMergeTargetIntoEnrichment` so the
-			// scope-anchor's `reconcileScopeMergeTarget` hook still backfills the tip SHA.
-			skipMergeTarget: true,
-		});
+			return await getOverviewEnrichment(
+				this.container,
+				this._graphSession.current.branches.values(),
+				params.branchIds,
+				{
+					isPro: isPro,
+					resolveLaunchpad: true,
+					// Merge-target is fetched lazily by the overview card on hover (and by the click-to-scope
+					// path in `graph-app`) via `BranchesService.getMergeTargetStatus`, so initial enrichment
+					// doesn't block on ~4 git/integration ops per branch. The resolved value is then merged
+					// back into shared `overviewEnrichment` state via `mergeMergeTargetIntoEnrichment` so the
+					// scope-anchor's `reconcileScopeMergeTarget` hook still backfills the tip SHA.
+					skipMergeTarget: true,
+				},
+			);
+		} catch (ex) {
+			// Rethrow rather than resolving `{}` — `publishOverviewEnrichment` treats an empty result as
+			// authoritative and would drop every previously-published entry, blanking the overview cards
+			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverviewEnrichment');
+			throw ex;
+		}
 	}
 
 	onGetAgentSessions(): AgentSessionState[] {

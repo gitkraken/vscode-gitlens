@@ -27,7 +27,7 @@ import {
 	getActionablePullRequests,
 	toProviderPullRequestWithUniqueId,
 } from '@gitlens/integrations/providers/models.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { filterMap, groupByMap, map, some } from '@gitlens/utils/iterable.js';
@@ -105,9 +105,13 @@ type CachedLaunchpadPromise<T> = {
 	pending: boolean;
 	/** Whether the fetch was started with a cancellation token */
 	cancellable: boolean;
+	/** When the fetch was started, so a hung promise can't be reused forever */
+	startedAt: number;
 };
 
 const cacheExpiration = 1000 * 60 * 30; // 30 minutes
+const errorCacheExpiration = 1000 * 60; // 1 minute
+const inFlightReuseWindow = 1000 * 30; // 30 seconds
 
 function createCachedPromise<T>(promise: Promise<T | undefined>, cancellable: boolean): CachedLaunchpadPromise<T> {
 	const cached: CachedLaunchpadPromise<T> = {
@@ -115,22 +119,49 @@ function createCachedPromise<T>(promise: Promise<T | undefined>, cancellable: bo
 		promise: promise,
 		pending: true,
 		cancellable: cancellable,
+		startedAt: Date.now(),
 	};
 
+	// Hold a failure for far less time than a success, so a transient outage (an expired token at startup, say)
+	// doesn't leave every reader stuck on it for the full cache window. A short window rather than no window at
+	// all keeps a sustained outage from turning each of Launchpad's several readers into its own request.
+	const settled = (outcome: 'ok' | 'failed' | 'cancelled') => {
+		cached.pending = false;
+		if (outcome === 'cancelled') {
+			// A cancelled fetch says nothing about the data — expire it so the next reader refetches rather
+			// than inheriting one caller's abort (the cache is shared across callers with different tokens)
+			cached.expiresAt = 0;
+		} else if (outcome === 'failed') {
+			cached.expiresAt = Math.min(cached.expiresAt, Date.now() + errorCacheExpiration);
+		}
+	};
 	// Use `then` rather than `finally` so we never create an unhandled rejection
-	const settled = () => (cached.pending = false);
-	void promise.then(settled, settled);
+	void promise.then(
+		value => {
+			// An integration failure resolves as a value carrying `error` rather than rejecting. Only treat it
+			// as a failure when nothing usable came back — a partial success carries `error` alongside `value`
+			// and deserves the full cache window.
+			const result = value as { value?: unknown; error?: unknown } | undefined;
+			const hasValue = Array.isArray(result?.value) ? result.value.length > 0 : result?.value != null;
+			settled(result?.error != null && !hasValue ? 'failed' : 'ok');
+		},
+		(ex: unknown) => settled(isCancellationError(ex) ? 'cancelled' : 'failed'),
+	);
 
 	return cached;
 }
 
-/** Whether a forced fetch can join `cached` rather than starting a second one. Never share a promise across
- * cancellation tokens — one caller's cancellation would cancel it for everyone. */
+/** Whether a forced fetch can join `cached` rather than starting a second one. Declines when either side
+ * carries a cancellation token (one caller's cancellation would abort it for everyone), and when the
+ * in-flight fetch is old enough to be considered hung — otherwise a stalled promise would pin the entry
+ * `pending` forever and turn every forced refresh into a no-op. */
 function canReuseInFlight(
 	cached: CachedLaunchpadPromise<unknown> | undefined,
 	cancellation?: CancellationToken,
 ): boolean {
-	return cached?.pending === true && !cached.cancellable && cancellation == null;
+	if (cached?.pending !== true || cached.cancellable || cancellation != null) return false;
+
+	return Date.now() - cached.startedAt < inFlightReuseWindow;
 }
 
 export type LaunchpadRefreshEvent = LaunchpadCategorizedResult;
@@ -280,7 +311,7 @@ export class LaunchpadProvider implements Disposable {
 
 		const searchIntegrationPRs = prUrlIdentity ? findByPrIdentity : findByQuery;
 
-		await Promise.allSettled(
+		const results = await Promise.allSettled(
 			[...connectedIntegrations.keys()]
 				.filter(
 					(id: IntegrationIds): id is SupportedLaunchpadIntegrationIds =>
@@ -298,6 +329,22 @@ export class LaunchpadProvider implements Disposable {
 					}
 				}),
 		);
+
+		// Surface search failures instead of silently reporting them as "no results"
+		const errors = [
+			...filterMap(results, r =>
+				r.status === 'rejected'
+					? r.reason instanceof Error
+						? r.reason
+						: new Error(String(r.reason))
+					: undefined,
+			),
+		];
+		if (errors.length) {
+			result.error =
+				errors.length === 1 ? errors[0] : new AggregateError(errors, 'Failed to search some pull requests');
+		}
+
 		return result;
 	}
 
@@ -598,7 +645,9 @@ export class LaunchpadProvider implements Disposable {
 		const isSearching = ((o): o is RequireSome<NonNullable<typeof options>, 'search'> => Boolean(o?.search))(
 			options,
 		);
-		const fireRefresh = !isSearching && (options?.force || this._prs == null);
+		// Include the expired case: the shortened error TTL repairs a stuck failure via an unforced read, and
+		// consumers only learn about it through `onDidRefresh`
+		const fireRefresh = !isSearching && (options?.force || this._prs == null || this._prs.expiresAt < Date.now());
 
 		const ignoredRepositories = new Set(
 			(configuration.get('launchpad.ignoredRepositories') ?? []).map(r => r.toLowerCase()),
@@ -774,6 +823,16 @@ export class LaunchpadProvider implements Disposable {
 				);
 			}
 
+			return result;
+		} catch (ex) {
+			// A cancelled run isn't a failure — let it propagate so `result` stays unset and the `finally` below
+			// doesn't broadcast it on `onDidRefresh` as one
+			if (isCancellationError(ex)) throw ex;
+
+			// Other post-fetch work (repo matching, account lookup) can throw. Return it as an `{ error }` result
+			// rather than rejecting, so consumers get the documented shape and `onDidRefresh` still fires.
+			scope?.error(ex, 'Failed to get categorized items');
+			result = { error: ex instanceof Error ? ex : new Error(String(ex)) };
 			return result;
 		} finally {
 			if (!options?.search) {

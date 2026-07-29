@@ -12,7 +12,7 @@ import type { AgentSessionState } from '../../agents/models/agentSessionState.js
 import type { WalkthroughProgress } from '../../constants.walkthroughs.js';
 import type { RepositoryShape } from '../../git/models/repositoryShape.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
-import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
+import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
 import type { LaunchpadItem } from '../../plus/launchpad/launchpadProvider.js';
 import type { LaunchpadGroup } from '../../plus/launchpad/models/launchpad.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
@@ -83,7 +83,7 @@ export interface OverviewFilters {
 	stale: { threshold: OverviewStaleThreshold; show: boolean; limit: number };
 }
 
-export type GetLaunchpadSummaryResponse = LaunchpadSummaryResult | { error: Error } | undefined;
+export type GetLaunchpadSummaryResponse = LaunchpadSummaryResult | { error: LaunchpadSummaryError } | undefined;
 
 export interface GetOverviewBranch {
 	reference: GitBranchReference;

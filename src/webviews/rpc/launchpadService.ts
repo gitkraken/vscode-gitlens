@@ -6,7 +6,7 @@
  */
 
 import type { Container } from '../../container.js';
-import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
+import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
 import { getLaunchpadSummary } from '../../plus/launchpad/utils/-webview/launchpad.utils.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from './eventVisibilityBuffer.js';
 import { bufferEventHandler } from './eventVisibilityBuffer.js';
@@ -26,10 +26,17 @@ export class LaunchpadService {
 		this.onLaunchpadChanged = (callback): Unsubscribe => {
 			const pendingKey = Symbol('launchpadChanged');
 			const buffered = bufferEventHandler(buffer, pendingKey, callback, 'signal', undefined);
-			const disposable = container.launchpad.onDidChange(() => buffered(undefined));
+			// Subscribe to both: `onDidChange` covers item mutations (pin/snooze), while `onDidRefresh` is what a
+			// completed background poll fires -- the only thing that repairs a cached failure.
+			const disposables = [
+				container.launchpad.onDidChange(() => buffered(undefined)),
+				container.launchpad.onDidRefresh(() => buffered(undefined)),
+			];
 			const unsubscribe = () => {
 				buffer?.removePending(pendingKey);
-				disposable.dispose();
+				for (const d of disposables) {
+					d.dispose();
+				}
 			};
 			return tracker != null ? tracker.track(unsubscribe) : unsubscribe;
 		};
@@ -37,8 +44,12 @@ export class LaunchpadService {
 
 	/**
 	 * Get a summary of launchpad items (PRs grouped by status).
+	 *
+	 * Pass `force` for user-initiated refreshes -- otherwise a cached failure is re-served until it expires.
 	 */
-	getSummary(): Promise<LaunchpadSummaryResult | { error: Error } | undefined> {
-		return getLaunchpadSummary(this.#container);
+	getSummary(options?: {
+		force?: boolean;
+	}): Promise<LaunchpadSummaryResult | { error: LaunchpadSummaryError } | undefined> {
+		return getLaunchpadSummary(this.#container, options);
 	}
 }

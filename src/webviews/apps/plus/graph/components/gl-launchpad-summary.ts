@@ -1,10 +1,13 @@
 import type { TemplateResult } from 'lit';
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
-import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
+import type {
+	LaunchpadSummaryError,
+	LaunchpadSummaryResult,
+} from '../../../../../plus/launchpad/launchpadIndicator.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
 import '../../../shared/components/code-icon.js';
@@ -107,7 +110,7 @@ export class GlLaunchpadSummary extends LitElement {
 		`,
 	];
 
-	@property({ type: Object }) summary?: LaunchpadSummaryResult | { error: Error };
+	@property({ type: Object }) summary?: LaunchpadSummaryResult | { error: LaunchpadSummaryError };
 	@property({ type: Boolean, attribute: 'has-integrations-connected' }) hasIntegrationsConnected = false;
 	@property() source: LaunchpadSummarySource = 'graph-details';
 
@@ -141,7 +144,9 @@ export class GlLaunchpadSummary extends LitElement {
 
 		if (!('total' in summary)) {
 			return html`<ul class="launchpad-items">
-				<li class="launchpad-item launchpad-item--muted">Unable to load items</li>
+				<li class="launchpad-item launchpad-item--muted" title=${summary.error.message || nothing}>
+					Unable to load items
+				</li>
 			</ul>`;
 		}
 
@@ -150,7 +155,7 @@ export class GlLaunchpadSummary extends LitElement {
 		if (summary.error != null) {
 			items.push(
 				html`<li>
-					<span class="launchpad-item launchpad-item--muted">
+					<span class="launchpad-item launchpad-item--muted" title=${summary.error.message || nothing}>
 						<code-icon class="launchpad-item__icon" icon="warning"></code-icon>
 						<span>Some integrations failed to load</span>
 					</span>

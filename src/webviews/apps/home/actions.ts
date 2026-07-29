@@ -143,14 +143,19 @@ export async function restoreOverviewRepositoryPath(
 /**
  * Fetch launchpad summary and update signal.
  */
-export async function fetchLaunchpadSummary(state: LaunchpadState, launchpad: LaunchpadService): Promise<void> {
+export async function fetchLaunchpadSummary(
+	state: LaunchpadState,
+	launchpad: LaunchpadService,
+	options?: { force?: boolean },
+): Promise<void> {
 	state.launchpadLoading.set(true);
 	try {
-		const summary = await launchpad.getSummary();
+		const summary = await launchpad.getSummary(options);
 		state.launchpadSummary.set(summary);
 	} catch (ex) {
 		Logger.error(ex, 'Home: Failed to fetch launchpad summary');
-		state.launchpadSummary.set({ error: ex instanceof Error ? ex : new Error('Failed to load') });
+		const error = ex instanceof Error ? ex : new Error('Failed to load');
+		state.launchpadSummary.set({ error: { name: error.name, message: error.message } });
 	} finally {
 		state.launchpadLoading.set(false);
 	}

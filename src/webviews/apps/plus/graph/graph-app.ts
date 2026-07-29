@@ -426,6 +426,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** One-shot guard: the Launchpad fetch + `onLaunchpadChanged` subscription start once `services`
 	 *  first resolves (a `@consume`d context value, so it isn't in `updated`'s changedProperties). */
 	private _launchpadInitialized = false;
+	/** A refresh requested while one was in flight; holds the requested `force`. */
+	private _launchpadRefreshQueued: boolean | undefined;
 	private _launchpadUnsubscribe: (() => void) | undefined;
 	/** Coalesce `onLaunchpadChanged` bursts (pin/snooze/connection changes can fire several in a row). */
 	private readonly _launchpadRefreshDebounced: Deferrable<() => void> = debounce(
@@ -610,7 +612,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		// Manual refresh entry point (the WIP empty pane's refresh button, routed through the
 		// details panel) — force an immediate refetch rather than waiting on `onLaunchpadChanged`.
-		this._launchpadState.refresh = () => void this.refreshLaunchpadSummary();
+		this._launchpadState.refresh = () => void this.refreshLaunchpadSummary(true);
 	}
 
 	override disconnectedCallback(): void {
@@ -767,10 +769,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  connection first (cheap) and skips the expensive `getSummary` categorize when nothing is
 	 *  connected, so opening the graph without integrations costs nothing. The `plug` state in the
 	 *  header indicator is driven by `connected === false`. */
-	private async refreshLaunchpadSummary(): Promise<void> {
+	private async refreshLaunchpadSummary(force?: boolean): Promise<void> {
 		const services = this.services;
 		if (services == null) return;
-		if (this._launchpadState.loading.get()) return;
+		// Queue rather than drop — losing a user-initiated refresh to an in-flight one reads as a dead button
+		if (this._launchpadState.loading.get()) {
+			this._launchpadRefreshQueued = (this._launchpadRefreshQueued ?? false) || (force ?? false);
+			return;
+		}
 
 		this._launchpadState.loading.set(true);
 		try {
@@ -784,11 +790,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 
 			const launchpad = await services.launchpad;
-			this._launchpadState.summary.set(await launchpad.getSummary());
+			this._launchpadState.summary.set(await launchpad.getSummary(force ? { force: true } : undefined));
 		} catch (ex) {
-			this._launchpadState.summary.set({ error: ex instanceof Error ? ex : new Error(String(ex)) });
+			const error = ex instanceof Error ? ex : new Error(String(ex));
+			this._launchpadState.summary.set({ error: { name: error.name, message: error.message } });
 		} finally {
 			this._launchpadState.loading.set(false);
+
+			const queued = this._launchpadRefreshQueued;
+			if (queued != null) {
+				this._launchpadRefreshQueued = undefined;
+				void this.refreshLaunchpadSummary(queued);
+			}
 		}
 	}
 

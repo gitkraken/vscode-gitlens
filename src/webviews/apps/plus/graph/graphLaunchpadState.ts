@@ -1,7 +1,7 @@
 import type { Signal } from '@lit-labs/signals';
 import { signal as litSignal } from '@lit-labs/signals';
 import { createContext } from '@lit/context';
-import type { LaunchpadSummaryResult } from '../../../../plus/launchpad/launchpadIndicator.js';
+import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../../../plus/launchpad/launchpadIndicator.js';
 
 /** Shared Launchpad summary state for the Graph webview. The fetch + `onLaunchpadChanged`
  *  subscription are owned by `gl-graph-app` (the common ancestor); both the header's Launchpad
@@ -13,7 +13,7 @@ import type { LaunchpadSummaryResult } from '../../../../plus/launchpad/launchpa
  *  the details panel's own `hasIntegrationsConnected` signal — that one stays in `detailsState`
  *  for its other (compare/multi-commit) consumers. */
 export interface GraphLaunchpadState {
-	readonly summary: Signal.State<LaunchpadSummaryResult | { error: Error } | undefined>;
+	readonly summary: Signal.State<LaunchpadSummaryResult | { error: LaunchpadSummaryError } | undefined>;
 	readonly loading: Signal.State<boolean>;
 	/** `undefined` until the first integration-state probe resolves; then `true`/`false`. */
 	readonly connected: Signal.State<boolean | undefined>;
@@ -24,7 +24,7 @@ export interface GraphLaunchpadState {
 
 export function createGraphLaunchpadState(): GraphLaunchpadState {
 	return {
-		summary: litSignal<LaunchpadSummaryResult | { error: Error } | undefined>(undefined),
+		summary: litSignal<LaunchpadSummaryResult | { error: LaunchpadSummaryError } | undefined>(undefined),
 		loading: litSignal(false),
 		connected: litSignal<boolean | undefined>(undefined),
 		refresh: () => {},

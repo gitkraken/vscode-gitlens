@@ -134,7 +134,8 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		const launchpad = this._launchpad.service;
 		if (launchpad == null) return;
 
-		void fetchLaunchpadSummary(this._launchpad, launchpad);
+		// Force — otherwise a cached failure is re-served and the button reads as dead
+		void fetchLaunchpadSummary(this._launchpad, launchpad, { force: true });
 	};
 
 	get startWorkCommand(): string {
