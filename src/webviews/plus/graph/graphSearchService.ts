@@ -151,9 +151,20 @@ export class GraphSearchService {
 		using sw = new Stopwatch(`GraphWebviewProvider.onSearchRequest(${this.host.id})`);
 
 		if (params.search?.naturalLanguage) {
+			// Capture the supersede token first: the AI round-trip below is long enough for the user to
+			// clear the box or retype, and both bump the counter. Without the check afterwards the
+			// converted query still runs and its `DidSearchNotification` repopulates the search box the
+			// user just cleared (e.g. "changes" reappearing as `type:wip` a second later).
+			const requestedSearchId = this._searchIdCounter.current;
 			params.search = await processNaturalLanguageToSearchQuery(this.container, params.search, {
 				source: 'graph',
 			});
+
+			if (this._searchIdCounter.current !== requestedSearchId) {
+				// Answer with the stale id so the webview's `searchId === currentSearchId` guard drops
+				// this response instead of clobbering whatever superseded it.
+				return { search: undefined, results: undefined, partial: false, searchId: requestedSearchId };
+			}
 		}
 
 		const query = params.search ? parseSearchQuery(params.search) : undefined;
