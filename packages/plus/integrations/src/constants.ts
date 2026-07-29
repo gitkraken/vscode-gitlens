@@ -1,5 +1,7 @@
 import type { CloudIntegrationAuthType } from './authentication/models.js';
 
+export const providerFanOutConcurrency = 6;
+
 export enum GitCloudHostIntegrationId {
 	GitHub = 'github',
 	GitLab = 'gitlab',
