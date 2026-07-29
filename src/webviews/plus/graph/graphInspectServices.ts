@@ -2750,9 +2750,11 @@ export class GraphInspectServices {
 								// `stageFiles` batches, so a mid-way failure leaves the scratch index holding an
 								// arbitrary subset — a review silently covering some untracked files and not
 								// others, with nothing in the output saying which. Drop it and degrade uniformly
-								// to the plain unstaged diff instead.
-								await index.dispose();
+								// to the plain unstaged diff instead. Cleared before the (best-effort) teardown so
+								// which index we diff against never depends on cleanup succeeding.
+								const partial = index;
 								index = undefined;
+								await disposeScratchIndex(partial);
 							}
 						}
 					}
@@ -2771,7 +2773,7 @@ export class GraphInspectServices {
 				}
 				labels.push('unstaged');
 			} finally {
-				await index?.dispose();
+				await disposeScratchIndex(index);
 			}
 		}
 		if (scope.includeStaged) {
@@ -2850,6 +2852,18 @@ export class GraphInspectServices {
 /** How much of a snapshot to sniff for binary-ness — mirrors VS Code's own text-file heuristic,
  *  which only inspects the head of the buffer before refusing to open it as text. */
 const binarySniffLength = 512;
+
+/** Best-effort teardown of a review's scratch index. `dispose` is typed `() => Promise<void>` with no
+ *  promise not to reject — today's implementation swallows its own `fs.rm` errors, but relying on that
+ *  couples this path to a detail of one provider. A rejection from the `finally` would replace the
+ *  in-flight exception, turning a cancelled review into an unrelated filesystem error. */
+async function disposeScratchIndex(index: DisposableTemporaryGitIndex | undefined): Promise<void> {
+	try {
+		await index?.dispose();
+	} catch (ex) {
+		Logger.error(ex, `Failed to dispose the scratch index for review`);
+	}
+}
 
 /** Whether a recorded before/after snapshot can be shown in a text diff. Snapshots are decoded from
  *  the working tree with no binary check (any bytes decode to *some* string), so a binary conflict

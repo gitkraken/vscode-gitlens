@@ -38,6 +38,7 @@ function createMocks(opts: {
 	noStaging?: boolean;
 	indexError?: Error;
 	stageError?: Error;
+	disposeError?: Error;
 	abortOnStage?: AbortController;
 }) {
 	// Shared, ordered log so tests can assert the exact snapshot → stage → diff → dispose sequence.
@@ -50,6 +51,7 @@ function createMocks(opts: {
 	});
 	const dispose = sinon.stub().callsFake(async () => {
 		order.push('dispose');
+		if (opts.disposeError != null) throw opts.disposeError;
 	});
 	const tempIndex = { path: '/tmp/gl-x/index', env: { GIT_INDEX_FILE: '/tmp/gl-x/index' }, dispose: dispose };
 	const createTemporaryIndex = sinon.stub().callsFake(async () => {
@@ -252,6 +254,32 @@ suite('graphInspectServices — getDiffForScope untracked handling (#5586, #5604
 		sinon.assert.calledOnce(m.dispose);
 		assert.deepStrictEqual(m.order, ['getUntracked', 'createIndex', 'stage', 'dispose', 'diff:unstaged']);
 		assert.ok(result?.diff.includes('tracked.txt'), 'the review still covers the tracked change');
+	});
+
+	test('a failing scratch-index teardown neither sinks the review nor masks a cancellation', async () => {
+		const m = createMocks({
+			untracked: ['new.txt'],
+			unstagedDiff: 'diff --git a/new.txt b/new.txt\n',
+			disposeError: new Error('EBUSY: temp dir locked'),
+		});
+
+		// Teardown runs in a `finally`, where a rejection would replace whatever the body was throwing.
+		const result = await invoke(m.fakeThis, wipScope({ includeUnstaged: true }));
+		assert.ok(result?.diff.includes('new.txt'), 'the completed review must survive a cleanup failure');
+
+		// Same teardown on the cancelled path: the abort must still be what surfaces.
+		const ac = new AbortController();
+		const c = createMocks({
+			untracked: ['new.txt'],
+			unstagedDiff: 'x',
+			abortOnStage: ac,
+			disposeError: new Error('EBUSY: temp dir locked'),
+		});
+		await assert.rejects(
+			invoke(c.fakeThis, wipScope({ includeUnstaged: true }), ac.signal),
+			(ex: Error) => !/EBUSY/.test(ex.message),
+			'the cancellation must surface, not the cleanup error',
+		);
 	});
 
 	test('honors cancellation after staging without running the unstaged diff', async () => {
