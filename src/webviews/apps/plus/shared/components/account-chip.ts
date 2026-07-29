@@ -555,9 +555,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 		switch (this.subscriptionState) {
 			case SubscriptionState.Paid:
-				return html`<div class="account-status">
-					${this.renderIncludesDevEx()}${this.renderReferFriend()}
-				</div> `;
+				return html`<div class="account-status">${this.renderReferFriend()}</div> `;
 
 			case SubscriptionState.VerificationRequired:
 				return html`<div class="account-status">
@@ -605,7 +603,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo('pro')} ${this.renderIncludesDevEx()} ${this.renderReferFriend()}
+					${this.renderPromo('pro')} ${this.renderReferFriend()}
 				</div>`;
 			}
 
@@ -628,7 +626,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 							>Upgrade to Pro</gl-button
 						>
 					</button-container>
-					${this.renderPromo('pro')} ${this.renderIncludesDevEx()} ${this.renderReferFriend()}
+					${this.renderPromo('pro')} ${this.renderReferFriend()}
 				</div>`;
 
 			case SubscriptionState.TrialReactivationEligible:
@@ -678,10 +676,6 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					<p>Get ${proTrialLengthInDays} days of GitLens Pro for free — no credit card required.</p>
 				</div>`;
 		}
-	}
-
-	private renderIncludesDevEx() {
-		return html`<p>Includes access to <a href="${urls.platform}">GitKraken's DevEx platform</a></p>`;
 	}
 
 	private renderReferFriend() {
