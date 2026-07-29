@@ -276,7 +276,7 @@
 		}
 	},
 	"dependencies": {
-		"@gitkraken/provider-apis": "link:/Users/julianmesa/Projects/provider-apis-package-js.worktrees/provider-apis-package-js-providers-api-main-e0718bbd",
+		"@gitkraken/provider-apis": "catalog:",
 		"@octokit/graphql": "catalog:",
 		"@octokit/request": "catalog:",
 		"@octokit/request-error": "catalog:",
