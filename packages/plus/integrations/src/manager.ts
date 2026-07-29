@@ -102,6 +102,40 @@ export type PullRequestSweepOptions = PullRequestSweepCommonOptions & ProviderSw
 export type ClosedPullRequestSweepOptions = Omit<PullRequestSweepCommonOptions, 'states'> & ProviderSweepSelection;
 
 /**
+ * Organization discovery either fans out without a provider-specific target, or pins every scoped selector
+ * to one provider. A `connectionId`/`domain` without `providerId` is ambiguous and therefore unrepresentable.
+ */
+export type ListOrgsOptions =
+	| {
+			providerId: IntegrationIds;
+			connectionId?: string;
+			domain?: string;
+	  }
+	| {
+			providerId?: never;
+			connectionId?: never;
+			domain?: never;
+	  };
+
+/**
+ * Project discovery follows the same provider-targeting rule as {@link ListOrgsOptions}; `org` may still
+ * narrow either a single-provider read or the unscoped fan-out.
+ */
+export type ListProjectsOptions =
+	| {
+			providerId: IntegrationIds;
+			org?: string;
+			connectionId?: string;
+			domain?: string;
+	  }
+	| {
+			providerId?: never;
+			org?: string;
+			connectionId?: never;
+			domain?: never;
+	  };
+
+/**
  * Public, provider-neutral integration facade. Provider clients and integration model instances remain private
  * implementation details so SDK changes don't expand this contract.
  *
@@ -174,19 +208,8 @@ export interface IntegrationManager {
 	/** Rejects unless `connectionId` is a configured cloud connection for `id`. */
 	deleteConnection(id: IntegrationIds, connectionId: string): Promise<void>;
 
-	listOrgs(options?: {
-		providerId?: IntegrationIds;
-		connectionId?: string;
-		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. Requires a single `providerId`. */
-		domain?: string;
-	}): Promise<ProviderResult<ProviderOrganization>>;
-	listProjects(options?: {
-		providerId?: IntegrationIds;
-		org?: string;
-		connectionId?: string;
-		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. Requires a single `providerId`. */
-		domain?: string;
-	}): Promise<ProviderResult<ProviderOrganization>>;
+	listOrgs(options?: ListOrgsOptions): Promise<ProviderResult<ProviderOrganization>>;
+	listProjects(options?: ListProjectsOptions): Promise<ProviderResult<ProviderOrganization>>;
 	listRepos(options: {
 		providerId: IntegrationIds;
 		org?: string;
@@ -292,7 +315,12 @@ export interface IntegrationManager {
 		includeAllAssignees?: boolean;
 		forceSync?: boolean;
 		page?: number;
-		/** Continuation from a prior page's `cursor`. Windows of projects are addressable by number, so this is equivalent to `page`. */
+		/**
+		 * Opaque continuation from a prior result. It can bundle the next untouched project window with failed
+		 * discovery/project retries and already-emitted project identities, so it is not equivalent to `page`.
+		 * Thread it back verbatim. A retry-only cursor can remain when `hasMore` is false; reusing that cursor is
+		 * an explicit manual retry, while `hasMore` represents automatic forward progress only.
+		 */
 		cursor?: string;
 		/**
 		 * Page size in PROJECTS, not issues (default 20): these providers have no cross-project issue cursor, so

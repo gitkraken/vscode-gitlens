@@ -36,11 +36,18 @@ import type {
 } from './models.js';
 import {
 	fromProviderPullRequest,
+	getProviderPullRequestIdentity,
 	providersMetadata,
 	PullRequestFilter,
 	toProviderPullRequestStates,
 } from './models.js';
-import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from './utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	flatSettledOrThrow,
+	mergeCollectionMetadata,
+	parsePageCursor,
+	toPageCursor,
+} from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -257,28 +264,29 @@ export class BitbucketIntegration extends GitHostIntegration<
 		this._workspaces ??= new Map<string, ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined>();
 		const { accessToken } = session;
 		const cachedResources = this._workspaces.get(accessToken);
+		if (cachedResources != null && !force) return cachedResources;
 
-		if (cachedResources == null || force) {
-			const api = await this.getProvidersApi();
+		const api = await this.getProvidersApi();
+		const resources = await api.getBitbucketResourcesForCurrentUser(toTokenWithInfo(this.id, session));
+		if (resources == null) return undefined;
 
-			const resources = await api.getBitbucketResourcesForCurrentUser(toTokenWithInfo(this.id, session));
-			let result: ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined;
-			if (resources != null) {
-				const values = resources.values.map(r => ({ ...r, key: r.id, name: r.name ?? r.slug }));
-				let metadata: CollectionMetadata | undefined;
-				if (resources.paging?.truncated === true) {
-					// Hitting the page backstop is truncation (the read succeeded but stopped short), not a read
-					// failure: report `partial` completeness WITHOUT a structured failure so the facade surfaces it
-					// as truncated + an incompleteness warning, rather than as `fetchFailed` (which
-					// `assessCollectionMetadata` derives from any `failures` entry).
-					metadata = { completeness: 'partial' };
-				}
-				result = { values: values, ...(metadata != null ? { metadata: metadata } : {}) };
-			}
+		const values = resources.values.map(r => ({ ...r, key: r.id, name: r.name ?? r.slug }));
+		const metadata = mergeCollectionMetadata(
+			resources.metadata,
+			resources.paging?.truncated === true ? { completeness: 'partial' } : undefined,
+		);
+		const result: ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> = {
+			values: values,
+			...(metadata != null ? { metadata: metadata } : {}),
+		};
+
+		// A partial workspace prefix is useful to the current read but must not become authoritative cache state:
+		// a transient page-2 failure must be retried on the next call rather than hiding every later workspace
+		// until disconnect.
+		if (metadata == null || metadata.completeness === 'complete') {
 			this._workspaces.set(accessToken, result);
 		}
-
-		return this._workspaces.get(accessToken);
+		return result;
 	}
 
 	protected override async getProviderOrganizationsForUser(
@@ -338,7 +346,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (workspacesResult == null) return undefined;
 
 		const workspaces = workspacesResult.values;
-		if (workspaces.length === 0) return undefined;
+		if (workspaces.length === 0) return [];
 
 		const authoredPrs = workspaces.map(async ws => {
 			const prs = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
@@ -415,7 +423,15 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (workspacesResult == null) return undefined;
 
 		const workspaces = workspacesResult.values;
-		if (workspaces.length === 0) return undefined;
+		if (workspaces.length === 0) {
+			const incomplete =
+				workspacesResult.metadata != null && workspacesResult.metadata.completeness !== 'complete';
+			return {
+				values: [],
+				paging: { cursor: '{}', more: false, truncated: incomplete || undefined },
+				...(workspacesResult.metadata != null ? { metadata: workspacesResult.metadata } : {}),
+			};
+		}
 
 		// Account-wide "my PRs" for Bitbucket = the user's authored PRs across every workspace they belong to,
 		// plus the PRs they've been requested to review. Bitbucket's cross-workspace read is per-workspace and
@@ -434,34 +450,52 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// maps each failure to an actionable warning + `fetchFailed` (auth/rate-limit failures still drive
 		// recovery through their warning kind, matching the SDK's own collect-across-scopes model).
 		const failures: CollectionScopeFailure[] = [];
+		let aggregateMetadata = workspacesResult.metadata;
+		const absorbCollectionResult = (result: ProviderHierarchyResult<unknown>): void => {
+			aggregateMetadata = mergeCollectionMetadata(aggregateMetadata, result.metadata);
+			if (result.truncated || (result.metadata != null && result.metadata.completeness !== 'complete')) {
+				truncated = true;
+			}
+		};
 		const settled = wantAuthored
 			? await Promise.allSettled(
 					workspaces.map(async ws => {
-						const collected: ProviderPullRequest[] = [];
-						let page: number | undefined;
-						for (let i = 0; i < maxPagesPerWorkspace; i++) {
-							const result = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
-								toTokenWithInfo(this.id, session),
-								user.id,
-								ws.slug,
-								{ states: states, page: page },
-							);
-							if (result == null) break;
+						return collectProviderPagedResult(
+							async cursor => {
+								const result = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
+									toTokenWithInfo(this.id, session),
+									user.id,
+									ws.slug,
+									{ states: states, page: parsePageCursor(cursor) },
+								);
+								if (result == null) return undefined;
 
-							collected.push(...result.data);
-							if (!result.hasMore || result.nextPage == null) break;
-
-							page = result.nextPage;
-							if (i === maxPagesPerWorkspace - 1) {
-								truncated = true;
-							}
-						}
-						return collected;
+								return {
+									values: result.data,
+									paging: {
+										more: result.hasMore,
+										cursor:
+											result.hasMore && result.nextPage != null
+												? toPageCursor(result.nextPage)
+												: '{}',
+									},
+								};
+							},
+							maxPagesPerWorkspace,
+							{ providerId: this.id, resourceId: ws.slug },
+						);
 					}),
 				)
 			: [];
 
-		const prsByUrl = new Map<string, ProviderPullRequest>();
+		const prsByIdentity = new Map<string, ProviderPullRequest>();
+		let unkeyedPullRequest = 0;
+		const addPullRequest = (pr: ProviderPullRequest): void => {
+			const key = getProviderPullRequestIdentity(pr) ?? `unkeyed:${unkeyedPullRequest++}`;
+			if (!prsByIdentity.has(key)) {
+				prsByIdentity.set(key, pr);
+			}
+		};
 		// `allSettled` preserves order, so `settled[i]` is `workspaces[i]`. A rejected workspace becomes a
 		// structured failure (attributed to its slug) instead of a generic truncation or a re-throw, preserving
 		// every sibling workspace's authored PRs.
@@ -471,11 +505,9 @@ export class BitbucketIntegration extends GitHostIntegration<
 				return;
 			}
 
-			for (const pr of outcome.value) {
-				const key = pr.url ?? pr.id;
-				if (!prsByUrl.has(key)) {
-					prsByUrl.set(key, pr);
-				}
+			absorbCollectionResult(outcome.value);
+			for (const pr of outcome.value.values) {
+				addPullRequest(pr);
 			}
 		});
 
@@ -507,12 +539,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 									cursor: cursor,
 								}),
 							maxReposPagesPerWorkspace,
+							{ providerId: this.id, resourceId: ws.slug },
 						);
 						repos = discovered.values;
-						// Repo discovery hitting its backstop leaves the workspace's repo set incomplete.
-						if (discovered.truncated) {
-							truncated = true;
-						}
+						absorbCollectionResult(discovered);
 					} catch (ex) {
 						// Record the workspace as a structured failure and keep going: the failure metadata drives
 						// the warning + `fetchFailed` + incompleteness for every kind (auth/rate-limit stay
@@ -530,6 +560,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 									{ reviewerId: user.id, states: states, cursor: cursor },
 								),
 							maxPrPagesPerRepo,
+							{
+								providerId: this.id,
+								resourceId: ws.slug,
+								repositoryId: `${repo.namespace}/${repo.name}`,
+							},
 						);
 						return { repo: repo, reviewing: reviewing };
 					});
@@ -548,16 +583,9 @@ export class BitbucketIntegration extends GitHostIntegration<
 						}
 
 						const { reviewing } = outcome.value;
+						absorbCollectionResult(reviewing);
 						for (const pr of reviewing.values) {
-							// Dedupe authored and reviewer PRs by URL, falling back to ID only when URL is absent.
-							const key = pr.url ?? pr.id;
-							if (!prsByUrl.has(key)) {
-								prsByUrl.set(key, pr);
-							}
-						}
-						// A per-repo PR drain hitting its own page backstop leaves the reviewer slice incomplete.
-						if (reviewing.truncated) {
-							truncated = true;
+							addPullRequest(pr);
 						}
 					}
 				}),
@@ -571,11 +599,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// returned with `fetchFailed`.
 		const metadata: CollectionMetadata | undefined = mergeCollectionMetadata(
 			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined,
-			workspacesResult.metadata,
+			aggregateMetadata,
 		);
 
 		return {
-			values: [...prsByUrl.values()],
+			values: [...prsByIdentity.values()],
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
 			metadata: metadata,
 		};
@@ -705,7 +733,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 			| BitbucketWorkspaceDescriptor[]
 			| undefined;
 		let workspaces: ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined;
-		if (!Array.isArray(storedWorkspacesData) && Array.isArray(storedWorkspacesData?.values)) {
+		if (
+			!Array.isArray(storedWorkspacesData) &&
+			Array.isArray(storedWorkspacesData?.values) &&
+			(storedWorkspacesData.metadata == null || storedWorkspacesData.metadata.completeness === 'complete')
+		) {
 			workspaces = {
 				values: storedWorkspacesData.values.map((o: BitbucketWorkspaceDescriptor) => ({ ...o })),
 				...(storedWorkspacesData.metadata != null ? { metadata: storedWorkspacesData.metadata } : {}),
@@ -734,15 +766,25 @@ export class BitbucketIntegration extends GitHostIntegration<
 		this._accounts.set(this._session.accessToken, account);
 
 		if (workspaces == null) {
-			workspaces = await this.getProviderResourcesForCurrentUser(this._session, true);
-			await this.ctx.storage.store(`${this.storagePrefix}:${accountStorageKey}:workspaces`, {
-				v: 2,
-				timestamp: Date.now(),
-				data: workspaces,
-			});
+			const discovered = await this.getProviderResourcesForCurrentUser(this._session, true);
+			if (discovered?.metadata == null || discovered.metadata.completeness === 'complete') {
+				workspaces = discovered;
+				if (workspaces != null) {
+					await this.ctx.storage.store(`${this.storagePrefix}:${accountStorageKey}:workspaces`, {
+						v: 2,
+						timestamp: Date.now(),
+						data: workspaces,
+					});
+				}
+			}
 		}
-		this._workspaces ??= new Map<string, ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined>();
-		this._workspaces.set(this._session.accessToken, workspaces);
+		if (workspaces != null) {
+			this._workspaces ??= new Map<
+				string,
+				ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined
+			>();
+			this._workspaces.set(this._session.accessToken, workspaces);
+		}
 	}
 
 	protected override providerOnDisconnect(): void {
