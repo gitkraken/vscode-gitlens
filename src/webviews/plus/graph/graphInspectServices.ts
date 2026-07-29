@@ -15,6 +15,7 @@ import { annotateDiffWithNewLineNumbers } from '@gitlens/utils/diff.js';
 import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri } from '../../../avatars.js';
@@ -716,14 +717,20 @@ export class GraphInspectServices {
 						if (!data) return { error: { message: 'No changes found.' } };
 
 						if (cachedData == null) {
-							// Filter out user-excluded files before review (cached entries are already filtered)
-							const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
+							// Filter out user-excluded files before review (cached entries are already filtered).
+							// Normalized on both sides: git reports an untracked directory that is itself a
+							// repository with a trailing slash (`nested-repo/`), which is the path the Files
+							// Changed rows — and so the exclusion set — carry, but staging it intent-to-add lands
+							// it in the diff as a gitlink named without one. An exact compare never matches.
+							const excluded = excludedFiles?.length
+								? new Set(excludedFiles.map(normalizePath))
+								: undefined;
 							if (excluded?.size) {
 								const { filterDiffFiles } = await loadChunk(
 									() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
 								);
 								data.diff = await filterDiffFiles(data.diff, paths =>
-									paths.filter(p => !excluded.has(p)),
+									paths.filter(p => !excluded.has(normalizePath(p))),
 								);
 								signal?.throwIfAborted();
 
@@ -852,13 +859,17 @@ export class GraphInspectServices {
 							this._graphDetailsDiffCache.touch(diffCacheKey);
 						}
 
-						// Filter diff to only include focus area files, excluding user-excluded files
-						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
+						// Filter diff to only include focus area files, excluding user-excluded files. Both
+						// sides normalized — the focus-area list names diff paths (no trailing slash) while the
+						// exclusion set can carry one; see the `reviewChanges` filter above.
+						const excluded = excludedFiles?.length ? new Set(excludedFiles.map(normalizePath)) : undefined;
 						const { filterDiffFiles } = await loadChunk(
 							() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
 						);
 						const filteredDiff = await filterDiffFiles(data.diff, () =>
-							excluded?.size ? focusAreaFiles.filter(f => !excluded.has(f)) : focusAreaFiles,
+							excluded?.size
+								? focusAreaFiles.filter(f => !excluded.has(normalizePath(f)))
+								: focusAreaFiles,
 						);
 						signal?.throwIfAborted();
 
