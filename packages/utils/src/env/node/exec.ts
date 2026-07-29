@@ -420,6 +420,10 @@ export function runSpawn<T extends string | Buffer>(
 
 		proc.once('close', async (code, signal) => {
 			if (options?.exitCodeOnly) {
+				// Resolves unconditionally, so this is the one path that can hand back a signalled run. `code`
+				// is null exactly when the process was killed — report the signal rather than coercing to `0`,
+				// which would claim a clean success for a command that never finished. Note this returns BEFORE
+				// the SIGTERM-to-cancellation diversion below, so callers have to classify that themselves.
 				resolve({ exitCode: code ?? undefined, signal: signal ?? undefined });
 
 				return;
@@ -461,8 +465,9 @@ export function runSpawn<T extends string | Buffer>(
 				);
 			}
 
-			// `code` is null exactly when the process was signalled; report the signal instead of coercing to
-			// `0`, which would claim a clean success for a killed command holding partial output.
+			// The guard above already rejected every non-zero and every signalled close, so this is a clean
+			// zero exit — `code` cannot be null here. (The optional typing exists for the `exitCodeOnly`
+			// branch, which is where a codeless result can genuinely surface.)
 			resolve({ exitCode: code ?? undefined, signal: signal ?? undefined, stdout: stdout, stderr: stderr });
 		});
 

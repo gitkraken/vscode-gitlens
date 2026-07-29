@@ -36,8 +36,9 @@ suite('OperationsGitSubProvider Test Suite', () => {
 	/**
 	 * Stubs `git.run` to mirror the real {@link Git.runCore} error contract for a failing command:
 	 * with `errors: 'throw'` the rejection is thrown; otherwise it is routed through the real
-	 * {@link defaultExceptionHandler}, which swallows `GitWarnings` matches (resolving as success)
-	 * and rethrows everything else. This reproduces the production swallow behavior without spawning
+	 * {@link defaultExceptionHandler}, which swallows `GitWarnings` matches (resolving a flagged
+	 * `warned` result, not a clean exit) and rethrows everything else. This reproduces the production
+	 * swallow behavior without spawning
 	 * a real git process, so the tests genuinely distinguish a push that surfaces a rejection from
 	 * one that silently swallows it.
 	 */
@@ -53,9 +54,15 @@ suite('OperationsGitSubProvider Test Suite', () => {
 				);
 				if (options.errors === 'throw') throw ex;
 
-				// Mirror Git.runCore: let the default handler decide fatal vs. non-fatal
-				defaultExceptionHandler(ex, options.cwd);
-				return successResult();
+				// Mirror Git.runCore: the default handler decides fatal vs. non-fatal, and a swallowed
+				// warning resolves EMPTY but flagged `warned` — carrying which key matched — not a clean exit.
+				const warning = defaultExceptionHandler(ex, options.cwd);
+				return {
+					stdout: '',
+					stderr: stderr,
+					exitCode: 1,
+					completion: { status: 'warned', warning: warning, error: ex },
+				} satisfies GitResult;
 			},
 		);
 	}

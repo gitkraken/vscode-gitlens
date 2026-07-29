@@ -120,6 +120,20 @@ suite('Shell Test Suite', () => {
 			assert.strictEqual(result.exitCode, 7);
 		});
 
+		// Pins the premise behind `Git.run`'s SIGTERM branch: a native spawn `timeout` kills the child and
+		// fires `close(null, 'SIGTERM')` WITHOUT an `error` event, so `exitCodeOnly` resolves a codeless result
+		// rather than rejecting into `CancelledRunError` the way every other timeout does. If Node ever changes
+		// that, the classification upstream is what breaks.
+		test('exitCodeOnly resolves with the signal and no code when a timeout kills the process', async () => {
+			const result = await runSpawn(nodeExecutable, nodeArgs(`setTimeout(() => {}, 5000);`), 'utf8', {
+				exitCodeOnly: true,
+				timeout: 300,
+			});
+
+			assert.strictEqual(result.exitCode, undefined, 'a timed-out process never reports an exit code');
+			assert.strictEqual(result.signal, 'SIGTERM', 'the default kill signal, not a crash signal');
+		});
+
 		// A non-SIGTERM kill rejects with a `RunError` carrying the signal and NO code. That `code == null` is
 		// what `Git.run` used to turn into `exitCode: 0` — a killed command reported as a clean success.
 		//
@@ -251,9 +265,9 @@ suite('Shell Test Suite', () => {
 
 			// The aggregate the cache hands the factory once every caller has aborted. Abort it exactly as the
 			// real `AbortAggregate` does — bare, no reason — so `GitQueue.run` rejects the still-queued command
-			// with a plain `Error` (not a `CancelledRunError`), which under `errors: 'ignore'` resolves to
-			// `{ exitCode: 0, cancelled: false }`. That empty, not-flagged result is exactly what must NOT be
-			// cached, so the factory has to invalidate on the aborted aggregate signal (not just on `cancelled`).
+			// with a plain `Error` (not a `CancelledRunError`), which under `errors: 'ignore'` resolves an empty
+			// `failed`/`unstarted` result. That empty result is exactly what must NOT be cached, so the factory
+			// has to invalidate on the aborted aggregate signal too, not just on a non-`exited` completion.
 			const aggregate = new AbortController();
 			aggregate.abort();
 

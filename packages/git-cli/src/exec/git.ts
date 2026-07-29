@@ -662,11 +662,14 @@ export class Git {
 					// Invalidate on anything that isn't a clean exit, or whenever the aggregate signal aborted,
 					// so the entry self-evicts instead of poisoning later callers.
 					//
-					// `status !== 'exited'` is what catches the case a bare `exitCode` check cannot: a swallowed
-					// `GitWarnings` match resolves with NO exit code at all, so the old test passed and the
-					// failure was cached. The `exitCode !== 0` half is kept as-is — a non-zero exit is a real
-					// answer and arguably cacheable, but it isn't cached today and this isn't the change to
-					// start.
+					// `status !== 'exited'` is what catches the case a bare `exitCode` check cannot. A swallowed
+					// `GitWarnings` match used to report `exitCode: 0` UNCONDITIONALLY — the old code read it off
+					// a `result` that is only ever assigned on the non-throwing path, so it was always the `?? 0`
+					// fallback — which meant `exitCode !== 0` could never fire and every swallowed failure was
+					// cached. A `warned` result now carries git's real code, so it's the status, not the code,
+					// that has to do the work here. The `exitCode !== 0` half is kept as-is — a non-zero exit is
+					// a real answer and arguably cacheable, but it isn't cached today and this isn't the change
+					// to start.
 					if (result.completion.status !== 'exited' || result.exitCode !== 0 || signal?.aborted) {
 						cacheable.invalidate();
 					}
@@ -765,6 +768,16 @@ export class Git {
 			// or absent stdout). Coercing that to `0` would report a killed command as a clean success, so
 			// classify it as the failure it is.
 			if (result.exitCode == null) {
+				// SIGTERM is how BOTH a timeout kill and a caller abort terminate, so it has to group with
+				// cancellations here exactly as it does on the reject path — `failed`/`signal` is for every
+				// OTHER signal. Only `exitCodeOnly` reaches this: a native spawn `timeout` fires
+				// `close(null, 'SIGTERM')` with no `error` event, so it resolves instead of rejecting.
+				// Throwing hands it to the catch below, which owns the timeout-vs-abort heuristic, the ABORTED
+				// log, and the `onAborted` hook — none of which a branch here would fire.
+				if (result.signal === 'SIGTERM') {
+					throw new CancelledRunError(gitCommand, true, undefined, result.signal);
+				}
+
 				return {
 					stdout: result.stdout,
 					stderr: result.stderr,
@@ -836,20 +849,19 @@ export class Git {
 					};
 				}
 
+				// No cancellation branch here: `CancelledRunError extends RunError`, so reaching this at all
+				// proves `ex` is neither.
 				return {
 					stdout: '',
 					stderr: undefined,
-					completion:
-						ex instanceof CancelledRunError
-							? { status: 'cancelled', reason: cancellationReason, error: ex }
-							: {
-									status: 'failed',
-									// No `RunError` means no process was ever spawned — a queue rejection or a
-									// failure before `spawn` returned. (Not an untrusted workspace: `run` refuses
-									// those up front, so they never reach this catch.)
-									reason: 'unstarted',
-									error: ex instanceof Error ? ex : new Error(String(ex)),
-								},
+					completion: {
+						status: 'failed',
+						// No `RunError` means no process was ever spawned — a queue rejection or a
+						// failure before `spawn` returned. (Not an untrusted workspace: `run` refuses
+						// those up front, so they never reach this catch.)
+						reason: 'unstarted',
+						error: ex instanceof Error ? ex : new Error(String(ex)),
+					},
 				};
 			}
 
@@ -876,9 +888,12 @@ export class Git {
 			const rawCode = swallowed instanceof GitError ? swallowed.exitCode : undefined;
 			const code = typeof rawCode === 'number' ? rawCode : rawCode != null ? parseInt(rawCode, 10) : NaN;
 
+			// No `stderr`: it belongs to the error here. The top-level field is the channel for runs that
+			// completed WITHOUT one (`exited` carries no error, so a successful command's stderr has nowhere
+			// else to go) — a swallowed warning always has a `GitError`, and it carries the stderr. Reading
+			// `result?.stderr` would be dead anyway: `result` is only assigned on the non-throwing path.
 			return {
 				stdout: '',
-				stderr: result?.stderr,
 				...(Number.isInteger(code) ? { exitCode: code } : {}),
 				completion: { status: 'warned', warning: warning, error: swallowed },
 			};

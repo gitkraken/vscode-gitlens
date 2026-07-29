@@ -34,7 +34,8 @@ function createDeferredGit(gitTimeout = 60000) {
 			new Promise((resolve, reject) => {
 				correlationKeys.push(options?.correlationKey);
 				const entry = {
-					resolve: (stdout: string) => resolve({ stdout: stdout, stderr: '', exitCode: 0 }),
+					resolve: (stdout: string) =>
+						resolve({ stdout: stdout, stderr: '', exitCode: 0, completion: { status: 'exited', code: 0 } }),
 					reject: reject,
 					settled: false,
 				};
