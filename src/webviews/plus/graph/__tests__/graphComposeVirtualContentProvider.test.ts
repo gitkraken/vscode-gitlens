@@ -10,6 +10,7 @@ const decoder = new TextDecoder();
 const repoPath = '/mock/repo';
 const baseSha = '0000000000000000000000000000000000000000';
 const fileName = 'src/sample.ts';
+const oldFileName = 'src/old.ts';
 
 function createContainer(baseContentByPath: Map<string, string>): Container {
 	return {
@@ -52,8 +53,21 @@ function commit(id: string, hunks: ComposerHunk[]): GraphComposeVirtualCommitInp
 const baseLines = ['L01', 'L02', 'L03', 'L04', 'L05', 'L06', 'L07', 'L08', 'L09', 'L10', 'L11', 'L12'];
 const baseContent = [...baseLines, ''].join('\n');
 
-const earlyHunk = hunk(1, '@@ -2,3 +2,1 @@', [' L02', '-L03', '-L04']);
-const lateHunk = hunk(2, '@@ -9,1 +7,1 @@', ['-L09', '+L09-MOD']);
+const earlyHunkLines = [' L02', '-L03', '-L04'];
+const lateHunkLines = ['-L09', '+L09-MOD'];
+
+const earlyHunk = hunk(1, '@@ -2,3 +2,1 @@', earlyHunkLines);
+const lateHunk = hunk(2, '@@ -9,1 +7,1 @@', lateHunkLines);
+
+/**
+ * Rename-with-edits overrides: git's combined diff reports the file under its final name with the
+ * pre-rename name in the header, on every hunk of the file, however those hunks are later split
+ * across proposed commits.
+ */
+const renamed: Partial<ComposerHunk> = {
+	diffHeader: `diff --git a/${oldFileName} b/${fileName}`,
+	originalFileName: oldFileName,
+};
 
 const afterEarlyOnly = ['L01', 'L02', 'L05', 'L06', 'L07', 'L08', 'L09', 'L10', 'L11', 'L12', ''].join('\n');
 const afterBoth = ['L01', 'L02', 'L05', 'L06', 'L07', 'L08', 'L09-MOD', 'L10', 'L11', 'L12', ''].join('\n');
@@ -146,6 +160,59 @@ suite('GraphComposeVirtualContentProvider Test Suite', () => {
 		const [only] = await readAll(provider, [commit('c1', [renameHunk])]);
 
 		assert.strictEqual(only, baseContent);
+	});
+
+	test('keeps an earlier commit’s hunks when the file is renamed with edits across commits', async () => {
+		const provider = createProvider(new Map([[oldFileName, baseContent]]));
+		const [first, second] = await readAll(provider, [
+			commit('c1', [hunk(1, earlyHunk.hunkHeader, earlyHunkLines, renamed)]),
+			commit('c2', [hunk(2, lateHunk.hunkHeader, lateHunkLines, renamed)]),
+		]);
+
+		assert.strictEqual(first, afterEarlyOnly);
+		assert.strictEqual(second, afterBoth);
+	});
+
+	test('spreads a renamed file’s hunks across three commits', async () => {
+		const provider = createProvider(new Map([[oldFileName, baseContent]]));
+		const tailHunkLines = ['-L12', '+L12-MOD'];
+		const [first, second, third] = await readAll(provider, [
+			commit('c1', [hunk(1, earlyHunk.hunkHeader, earlyHunkLines, renamed)]),
+			commit('c2', [hunk(3, '@@ -12,1 +10,1 @@', tailHunkLines, renamed)]),
+			commit('c3', [hunk(2, lateHunk.hunkHeader, lateHunkLines, renamed)]),
+		]);
+
+		assert.strictEqual(first, afterEarlyOnly);
+		assert.strictEqual(
+			second,
+			['L01', 'L02', 'L05', 'L06', 'L07', 'L08', 'L09', 'L10', 'L11', 'L12-MOD', ''].join('\n'),
+		);
+		assert.strictEqual(
+			third,
+			['L01', 'L02', 'L05', 'L06', 'L07', 'L08', 'L09-MOD', 'L10', 'L11', 'L12-MOD', ''].join('\n'),
+		);
+	});
+
+	/**
+	 * The two sides the diff editor requests for a rename row: `buildDiffArgs` takes the left from
+	 * `originalPath` against the row's parent, and a rename row only renders for the earliest commit
+	 * holding the file — so the pre-rename name is only ever read at a commit with none of its hunks.
+	 */
+	test('reads the pre-rename name as untouched base at the commit before the rename', async () => {
+		const provider = createProvider(
+			new Map([
+				[oldFileName, baseContent],
+				['src/other.ts', 'x\n'],
+			]),
+		);
+		const commits = [
+			commit('c1', [hunk(1, '@@ -1,1 +1,1 @@', ['-x', '+X'], { fileName: 'src/other.ts' })]),
+			commit('c2', [hunk(2, earlyHunk.hunkHeader, earlyHunkLines, renamed)]),
+		];
+		const sessionId = provider.startSession({ repoPath: repoPath, baseSha: baseSha, commits: commits });
+
+		assert.strictEqual(decoder.decode(await provider.readFile(sessionId, 'c1', oldFileName)), baseContent);
+		assert.strictEqual(decoder.decode(await provider.readFile(sessionId, 'c2', fileName)), afterEarlyOnly);
 	});
 
 	test('reports the base as the first commit’s parent and the predecessor thereafter', async () => {
