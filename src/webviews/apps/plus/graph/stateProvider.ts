@@ -477,6 +477,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor searchQuery: AppState['searchQuery'];
 
+	@signalState<AppState['searchSession']>(0)
+	accessor searchSession: AppState['searchSession'] = 0;
+
 	@signalState()
 	accessor selectedRows: AppState['selectedRows'];
 

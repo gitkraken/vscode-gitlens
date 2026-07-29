@@ -256,7 +256,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	detailsEffectiveLocation: 'right' | 'bottom' = 'right';
 
 	@property({ type: Boolean, attribute: 'minimap-visible' })
-	minimapVisible = true;
+	minimapVisible = false;
 
 	@property({ type: Boolean, attribute: 'has-selected-commit' })
 	hasSelectedCommit = false;
@@ -607,6 +607,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			this.cancelSearch(false);
 			return;
 		}
+
+		// Raise `searching` here rather than waiting for the host's first notification — that round-trip
+		// is a visible delay for anything keyed off it (the search spinner, and the minimap's auto-show,
+		// which is supposed to be up before results start streaming in). Every exit path below, plus the
+		// notification reducer, drives it back down.
+		this.graphState.searching = true;
+		// A new search session starts here, not when the host answers — see `searchSession`. Resume and
+		// result-navigation issue their own `SearchRequest`s without coming through here, so they
+		// correctly leave the session (and any per-search UI state scoped to it) alone.
+		this.graphState.searchSession++;
 
 		try {
 			const rsp = await this._ipc.sendRequest(SearchRequest, { search: { ...this._searchQuery } });
@@ -1470,13 +1480,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						)}
 						<gl-button
 							appearance="toolbar"
-							tooltip=${config?.minimap && this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
-							aria-label=${config?.minimap && this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
+							tooltip=${this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
+							aria-label=${this.minimapVisible ? 'Hide Minimap' : 'Show Minimap'}
 							@click=${() => this.handleMinimapToggled()}
 						>
 							<code-icon
 								class="minimap-toggle-icon"
-								icon=${config?.minimap && this.minimapVisible ? 'layout-panel' : 'layout-panel-off'}
+								icon=${this.minimapVisible ? 'layout-panel' : 'layout-panel-off'}
 							></code-icon>
 						</gl-button>
 						${(() => {

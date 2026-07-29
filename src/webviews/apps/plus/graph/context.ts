@@ -49,6 +49,11 @@ export interface AppState extends State {
 	 *  search box (results ride their own channel; without this the box is blank after a reconnect). */
 	searchQuery: SearchQuery | undefined;
 	currentSearchId: number | undefined;
+	/** Bumped locally each time the user submits a NEW search, so consumers can scope per-search UI
+	 *  state to one search session. Unlike `currentSearchId` (assigned by the host, so it only lands a
+	 *  round-trip later) this changes the instant the search is issued. Navigating/resuming an existing
+	 *  search does not bump it. */
+	searchSession: number;
 	selectedRows: GraphSelectedRows | undefined;
 	visibleDays: { top: number; bottom: number } | undefined;
 	/**

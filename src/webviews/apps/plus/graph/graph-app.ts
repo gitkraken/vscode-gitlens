@@ -102,6 +102,7 @@ import type { GlGraphSidebarPanel, GraphSidebarPanelSelectEventDetail } from './
 import type { GraphSidebarDisplayModeChangeEventDetail, GraphSidebarToggleEventDetail } from './sidebar/sidebar.js';
 import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
+import { resolveMinimapShown } from './utils/minimap.utils.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
@@ -227,6 +228,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _minimapSnap = ({ pos, size }: { pos: number; size: number }) => {
 		if (size <= 0) return pos;
 
+		// A hidden minimap sits at 0 deliberately, so never snap it open. Without this the split
+		// panel's first-measurement re-snap would open a minimap that the policy says stays hidden
+		// (`applySnap` runs against the seeded position before any stored one exists).
+		if (!this.minimapShown) return 0;
+
 		const defaultPct = (minimapDefaultPx / size) * 100;
 		// First render without a stored position: snap to the exact pixel default
 		// regardless of the container's current size.
@@ -241,6 +247,55 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (Math.abs(px - minimapDefaultPx) <= 2) return defaultPct;
 		return pos;
 	};
+
+	/**
+	 * Search session the user dismissed the auto-shown minimap in, or `undefined` if they haven't.
+	 * Stored as the session rather than a boolean that something has to remember to clear: the
+	 * dismissal simply stops matching once a new search bumps the session, so there's no ordering
+	 * dependency between "record the new session" and "dismiss" (a boolean cleared from `willUpdate`
+	 * lost dismissals issued before the update that noticed the session had moved).
+	 */
+	private _minimapDismissedSession: number | undefined;
+
+	private get minimapSearchDismissed(): boolean {
+		return this._minimapDismissedSession === this.graphState.searchSession;
+	}
+
+	private dismissMinimapForSearch(): void {
+		this._minimapDismissedSession = this.graphState.searchSession;
+		this.requestUpdate();
+	}
+
+	/**
+	 * Whether a search is active — the trigger for the `auto` minimap policy. Deliberately spans from
+	 * submit until the search is *cleared*, not until it finishes: keying off results alone would flash
+	 * the minimap open and shut on a zero-match search, and drop it the moment a search completes.
+	 * `searchQuery` is what survives a finished search; the reducer nulls it only on cancel/clear.
+	 */
+	private get minimapSearchActive(): boolean {
+		const gs = this.graphState;
+		return gs.searching || gs.searchQuery != null || (gs.searchResults?.count ?? 0) > 0;
+	}
+
+	private get minimapShown(): boolean {
+		const gs = this.graphState;
+		return resolveMinimapShown(
+			gs.config?.minimap ?? 'auto',
+			gs.minimap?.visible,
+			this.minimapSearchActive,
+			this.minimapSearchDismissed,
+		);
+	}
+
+	/**
+	 * Whether the minimap can appear at all under the current policy + stored value. Deliberately
+	 * NOT search-derived: `renderGraphMain` gates the split panel on this, and a gate that flipped
+	 * per-search would unmount and remount the entire graph every time a search started.
+	 */
+	private get minimapMountable(): boolean {
+		const gs = this.graphState;
+		return (gs.config?.minimap ?? 'auto') !== false || gs.minimap?.visible === true;
+	}
 
 	/** Shared back/forward history of visited single commits, mirrored into {@link _navState} for
 	 *  the details header. Re-driving selection via {@link navigateTo} is guarded by
@@ -1858,7 +1913,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		const detailsVisible = this.graphState.details?.visible ?? false;
-		const minimapVisible = this.graphState.minimap?.visible ?? true;
+		const minimapVisible = this.minimapShown;
 		const { single, multi } = this.activeSelection;
 		// No repository open: render only the empty state — skip the header and the whole graph subtree
 		// (React GraphContainer + minimap + sidebar + details) rather than mounting them just to paint the
@@ -2240,11 +2295,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private renderGraphMain() {
-		if (this.graphState.config?.minimap === false) {
+		if (!this.minimapMountable) {
 			return this.renderGraphContent();
 		}
 
-		const minimapVisible = this.graphState.minimap?.visible ?? true;
+		const minimapVisible = this.minimapShown;
 		const minimapPosition = this.graphState.minimap?.position ?? 6;
 		const position = minimapVisible ? minimapPosition : 0;
 		return html`
@@ -2261,7 +2316,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				<gl-graph-minimap-container
 					slot="start"
 					.activeDay=${this.graphState.activeDay}
-					.disabled=${!this.graphState.config?.minimap}
 					?collapsed=${!minimapVisible}
 					.rows=${this.graphState.rows ?? []}
 					.rowsStats=${this.graphState.rowsStats}
@@ -2386,7 +2440,27 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/**
+	 * Whether the split panel's closed state is authoritative for the stored value. Under the `auto`
+	 * policy with no pin, the divider position is derived from the search state — and `gl-split-panel`
+	 * echoes `closed-change` for programmatic position updates too, so honoring those events would
+	 * record our own auto-show as a user-chosen pin.
+	 */
+	private get minimapClosedStateAuthoritative(): boolean {
+		const gs = this.graphState;
+		return (gs.config?.minimap ?? 'auto') !== 'auto' || gs.minimap?.visible === true;
+	}
+
 	private handleMinimapClosedChange = (e: CustomEvent<{ closed: boolean; position: number }>): void => {
+		if (!this.minimapClosedStateAuthoritative) {
+			// Drag-to-close of an auto-shown minimap dismisses the current search rather than
+			// storing a value; a programmatic echo leaves everything alone.
+			if (e.detail.closed && this.minimapSearchActive) {
+				this.dismissMinimapForSearch();
+			}
+			return;
+		}
+
 		const gs = this.graphState;
 		if (e.detail.closed) {
 			if (gs.minimap?.visible !== false) {
@@ -2743,14 +2817,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/**
+	 * Toggles the minimap by writing the stored per-workspace value — never the
+	 * `gitlens.graph.minimap.enabled` policy, so `auto` stays reachable (pin → unpin → auto).
+	 * The one exception is hiding a minimap that's only up because of a search: that dismisses the
+	 * current search rather than storing anything, so the next search brings it back.
+	 */
 	private handleToggleMinimap() {
-		if (this.graphState.config?.minimap === false) {
-			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { minimap: true } });
+		const gs = this.graphState;
+		if (this.minimapShown && !this.minimapClosedStateAuthoritative) {
+			this.dismissMinimapForSearch();
 			return;
 		}
 
-		const gs = this.graphState;
-		gs.minimap = { visible: !(gs.minimap?.visible ?? true) };
+		gs.minimap = { visible: !this.minimapShown };
 		this.persistState();
 	}
 

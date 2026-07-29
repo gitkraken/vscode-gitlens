@@ -1868,8 +1868,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				configuration.changed(e, 'graph.onlyFollowFirstParent') ||
 				((configuration.changed(e, 'graph.minimap.enabled') ||
 					configuration.changed(e, 'graph.minimap.dataType')) &&
-					configuration.get('graph.minimap.enabled') &&
-					configuration.get('graph.minimap.dataType') === 'lines' &&
+					this.minimapNeedsStats() &&
 					!this._data.session?.current.includes?.stats)
 			) {
 				this._data.updateState();
@@ -1908,12 +1907,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (e.keys.includes('graph:state')) {
 			// If the minimap just became visible and we skipped stats on the last fetch, refetch now
-			if (
-				this.isMinimapVisible() &&
-				configuration.get('graph.minimap.enabled') &&
-				configuration.get('graph.minimap.dataType') === 'lines' &&
-				!this._data.session?.current.includes?.stats
-			) {
+			if (this.minimapNeedsStats() && !this._data.session?.current.includes?.stats) {
 				this._data.updateState();
 			}
 		}
@@ -1927,7 +1921,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private isMinimapVisible(): boolean {
-		return this.container.storage.getWorkspace('graph:state')?.panels?.minimap?.visible ?? true;
+		const policy = configuration.get('graph.minimap.enabled');
+		// `auto` can surface the minimap on any search and we can't re-walk history mid-search, so
+		// treat it as always visible. Otherwise the stored panel value wins, falling back to the policy.
+		if (policy === 'auto') return true;
+
+		return this.container.storage.getWorkspace('graph:state')?.panels?.minimap?.visible ?? policy;
+	}
+
+	/** Whether the minimap needs per-row line stats included in the graph walk. */
+	private minimapNeedsStats(): boolean {
+		return configuration.get('graph.minimap.dataType') === 'lines' && this.isMinimapVisible();
 	}
 
 	private getOrgSettings(): State['orgSettings'] {
@@ -3951,7 +3955,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private getMinimapMarkerTypes(): GraphMinimapMarkerTypes[] {
-		if (!configuration.get('graph.minimap.enabled')) return [];
+		// `auto` still needs markers — the minimap can appear on any search
+		if (configuration.get('graph.minimap.enabled') === false) return [];
 
 		const markers: GraphMinimapMarkerTypes[] = [
 			'selection',
@@ -4067,9 +4072,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const columnSettings = this.getColumnSettings(columns);
 
 		const includeStats =
-			(configuration.get('graph.minimap.enabled') &&
-				configuration.get('graph.minimap.dataType') === 'lines' &&
-				this.isMinimapVisible()) ||
+			this.minimapNeedsStats() ||
 			(this.isChangesColumnStatsEnabled() && !columnSettings.changes.isHidden) ||
 			this._displayMode === 'visualizations';
 
@@ -4521,10 +4524,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				visible: this._pendingSidebarPanel != null || (storedPanels?.sidebar?.visible ?? true),
 				activePanel: this._pendingSidebarPanel ?? storedPanels?.sidebar?.activePanel,
 			},
-			minimap: {
-				...storedPanels?.minimap,
-				visible: storedPanels?.minimap?.visible ?? true,
-			},
+			// Pass the stored panel state through untouched — `visible` stays `undefined` until the
+			// user actually shows/hides the minimap, so the `graph.minimap.enabled` policy governs
+			// instead of a value we fabricated (which the app would then persist back).
+			minimap: { ...storedPanels?.minimap },
 			pendingAction: this._pendingAction,
 			pendingCompare: this._pendingCompare,
 			wipDrafts: this._wip.sliceWipDraftsForPanel(),

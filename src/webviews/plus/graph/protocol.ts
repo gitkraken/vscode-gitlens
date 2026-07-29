@@ -759,7 +759,8 @@ export interface GraphComponentConfig {
 	 * Backed by the user setting `gitlens.graph.lanes.grouped.max`.
 	 */
 	lanesGroupedMax?: number;
-	minimap?: boolean;
+	/** Minimap visibility policy; `auto` shows it only while searching. */
+	minimap?: Config['graph']['minimap']['enabled'];
 	minimapDataType?: Config['graph']['minimap']['dataType'];
 	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
 	minimapReversed?: boolean;

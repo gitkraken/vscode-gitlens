@@ -773,7 +773,9 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 	}
 
 	private renderGraph() {
-		const minimap = this.get<boolean>('graph.minimap.enabled') ?? true;
+		// `auto` only shows the minimap while searching, but the preview has no search — draw it
+		// anyway so the setting reads as "can show" rather than looking disabled.
+		const minimap = this.get<boolean | 'auto'>('graph.minimap.enabled') !== false;
 		const avatars = this.get<boolean>('graph.avatars') ?? true;
 		const dimMerges = this.get<boolean>('graph.dimMergeCommits') ?? false;
 

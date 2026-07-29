@@ -463,7 +463,8 @@ export interface GraphConfig {
 	};
 	readonly layout: 'editor' | 'panel';
 	readonly minimap: {
-		readonly enabled: boolean;
+		/** `auto` shows the minimap only while searching */
+		readonly enabled: boolean | 'auto';
 		readonly dataType: 'commits' | 'lines';
 		readonly additionalTypes: GraphMinimapMarkersAdditionalTypes[];
 		readonly reversed: boolean;
