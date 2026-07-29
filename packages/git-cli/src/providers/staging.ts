@@ -58,7 +58,14 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 					if (gitDir == null) throw new Error(`Unable to determine git directory for ${repoPath}`);
 
 					const currentIndex = joinPaths(gitDir.uri.fsPath, 'index');
-					await fs.copyFile(currentIndex, tempIndex);
+					try {
+						await fs.copyFile(currentIndex, tempIndex);
+					} catch (ex) {
+						// A repo that has never staged anything has no index file yet; git reads a missing
+						// `GIT_INDEX_FILE` as an empty index, which is what 'current' means there. Any other
+						// failure is real — don't silently hand back an index claiming everything is deleted.
+						if ((ex as NodeJS.ErrnoException)?.code !== 'ENOENT') throw ex;
+					}
 					break;
 				}
 				case 'ref': {

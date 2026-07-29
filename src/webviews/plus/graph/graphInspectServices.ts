@@ -5,6 +5,7 @@ import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import { rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
 import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
@@ -2720,46 +2721,65 @@ export class GraphInspectServices {
 		const labels: string[] = [];
 
 		if (scope.includeUnstaged) {
-			let untrackedPaths: string[] | undefined;
+			// Untracked files never appear in `git diff` (working-vs-index); intent-to-add stages them so the
+			// unstaged diff includes their contents. That staging goes into a scratch index copy and the diff is
+			// taken against that, so the real index is never written — which is what let the teardown undo a
+			// `git add` the user made mid-review (#5604), and what made the review's own churn register as a
+			// working-tree change, marking a just-finished review stale (#5605).
+			let index: DisposableTemporaryGitIndex | undefined;
 			try {
-				// Untracked files never appear in `git diff` (working-vs-index); intent-to-add stages them so
-				// the unstaged diff includes their contents. Mirrors patches.ts. Unstaged before the staged
-				// diff below so intent-to-add entries can't also surface there as empty new-file headers.
-				// Skipped without a staging provider (e.g. virtual repos) — there's nothing to stage into.
-				// Best-effort: failing to enumerate or stage untracked files falls back to the plain unstaged
-				// diff rather than sinking the whole review.
+				// No staging provider (e.g. virtual repos) means there's nothing to stage into.
 				if (svc.staging != null) {
+					let untrackedPaths: string[] | undefined;
 					try {
 						untrackedPaths = (await svc.status.getUntrackedFiles(signal)).map(f => f.path);
 					} catch (ex) {
+						// Best-effort: fall back to the plain unstaged diff rather than sinking the whole review.
 						Logger.error(ex, `Failed to enumerate untracked files for review`);
 					}
 					if (untrackedPaths?.length) {
 						signal?.throwIfAborted();
 						try {
-							await svc.staging.stageFiles(untrackedPaths, { intentToAdd: true });
+							index = await svc.staging.createTemporaryIndex('current');
 						} catch (ex) {
-							Logger.error(ex, `Failed to stage (${untrackedPaths.length}) untracked files for review`);
+							Logger.error(ex, `Failed to create a scratch index for review`);
+						}
+						// Without a scratch index, skip staging entirely — never fall back to the real index.
+						if (index != null) {
+							try {
+								await svc.staging.stageFiles(untrackedPaths, { index: index, intentToAdd: true });
+							} catch (ex) {
+								Logger.error(
+									ex,
+									`Failed to stage (${untrackedPaths.length}) untracked files for review`,
+								);
+								// `stageFiles` batches, so a mid-way failure leaves the scratch index holding an
+								// arbitrary subset — a review silently covering some untracked files and not
+								// others, with nothing in the output saying which. Drop it and degrade uniformly
+								// to the plain unstaged diff instead. Cleared before the (best-effort) teardown so
+								// which index we diff against never depends on cleanup succeeding.
+								const partial = index;
+								index = undefined;
+								await disposeScratchIndex(partial);
+							}
 						}
 					}
 				}
-				// Honor cancellation after any index mutation and before the (potentially expensive) diff.
+				// Honor cancellation before the (potentially expensive) diff.
 				signal?.throwIfAborted();
 
-				const d = await svc.diff?.getDiff?.(uncommitted);
+				const d = await svc.diff?.getDiff?.(
+					uncommitted,
+					undefined,
+					index != null ? { index: index } : undefined,
+				);
 				signal?.throwIfAborted();
 				if (d?.contents) {
 					parts.push(d.contents);
 				}
 				labels.push('unstaged');
 			} finally {
-				if (untrackedPaths?.length) {
-					try {
-						await svc.staging?.unstageFiles(untrackedPaths);
-					} catch (ex) {
-						Logger.error(ex, `Failed to unstage (${untrackedPaths.length}) untracked files for review`);
-					}
-				}
+				await disposeScratchIndex(index);
 			}
 		}
 		if (scope.includeStaged) {
@@ -2838,6 +2858,18 @@ export class GraphInspectServices {
 /** How much of a snapshot to sniff for binary-ness — mirrors VS Code's own text-file heuristic,
  *  which only inspects the head of the buffer before refusing to open it as text. */
 const binarySniffLength = 512;
+
+/** Best-effort teardown of a review's scratch index. `dispose` is typed `() => Promise<void>` with no
+ *  promise not to reject — today's implementation swallows its own `fs.rm` errors, but relying on that
+ *  couples this path to a detail of one provider. A rejection from the `finally` would replace the
+ *  in-flight exception, turning a cancelled review into an unrelated filesystem error. */
+async function disposeScratchIndex(index: DisposableTemporaryGitIndex | undefined): Promise<void> {
+	try {
+		await index?.dispose();
+	} catch (ex) {
+		Logger.error(ex, `Failed to dispose the scratch index for review`);
+	}
+}
 
 /** Whether a recorded before/after snapshot can be shown in a text diff. Snapshots are decoded from
  *  the working tree with no binary check (any bytes decode to *some* string), so a binary conflict
