@@ -200,10 +200,12 @@ function makeSyntheticHunk(
 	const path = fileName;
 	const oldPath = originalFileName ?? fileName;
 	const diffHeader = [`diff --git a/${oldPath} b/${path}`, `--- a/${oldPath}`, `+++ b/${path}`].join('\n');
-	const hunkHeader = '@@ -1,1 +1,1 @@';
-	// One-line synthetic content — enough to render a non-empty diff but small enough
-	// to keep memory + serialization trivial across the IPC boundary.
-	const content = ['-(simulated original line)', '+(simulated changed line)'].join('\n');
+	// One-line synthetic content — enough to render a non-empty diff but small enough to keep memory
+	// + serialization trivial across the IPC boundary. Addition-only, anchored ahead of the first
+	// line: `applyHunks` verifies context and deleted lines against the real base file when
+	// synthesizing the preview, and no invented text could match it.
+	const hunkHeader = '@@ -0,0 +1,1 @@';
+	const content = '+(simulated changed line)';
 	return {
 		index: index,
 		fileName: path,
@@ -211,7 +213,7 @@ function makeSyntheticHunk(
 		hunkHeader: hunkHeader,
 		content: content,
 		additions: 1,
-		deletions: 1,
+		deletions: 0,
 		isRename: isRename || undefined,
 		originalFileName: originalFileName,
 	};
