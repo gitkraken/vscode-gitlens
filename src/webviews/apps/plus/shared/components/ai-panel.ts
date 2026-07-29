@@ -55,7 +55,7 @@ export class GlAiPanel extends SignalWatcher(LitElement) {
 
 	override render(): unknown {
 		return html`<div class="header">
-				<span class="header__title">AI</span>
+				<span class="header__title">AI / Agents</span>
 			</div>
 			<div class="integrations">
 				${this.renderAIRow()}${this.renderMcpRow()}${this.renderDefaultAgentRow()}${this.renderHooksRow()}

@@ -44,6 +44,12 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				--gl-avatar-size: 2rem;
 			}
 
+			/* The shared avatar zooms on hover (it's normally a standalone link); here it's the header
+			   button's glyph, so it must sit still like every other icon in the toolbar row. */
+			.account-button gl-avatar::part(avatar) {
+				transform: none;
+			}
+
 			.rollup {
 				display: flex;
 				flex-direction: column;
@@ -118,6 +124,10 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				<gl-account-chip display="panel"></gl-account-chip>
 				${this.renderWalkthrough()}
 				<hr />
+				<div class="rollup__section">
+					<p class="rollup__heading">AI / Agents</p>
+					<gl-integrations-chip display="ai-icons"></gl-integrations-chip>
+				</div>
 				<div class="rollup__section">
 					<p class="rollup__heading">Integrations</p>
 					<gl-integrations-chip display="icons"></gl-integrations-chip>

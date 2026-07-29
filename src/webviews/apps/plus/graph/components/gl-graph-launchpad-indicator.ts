@@ -52,13 +52,13 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 			.dot {
 				z-index: 1;
 				grid-area: 1 / 1;
-				place-self: start end;
+				place-self: end end;
 				width: 0.6rem;
 				aspect-ratio: 1;
 				pointer-events: none;
 				background-color: var(--gl-launchpad-dot-color);
 				border-radius: 100%;
-				transform: translate(48%, 10%);
+				transform: translate(48%, -10%);
 			}
 
 			.dot--blocked {

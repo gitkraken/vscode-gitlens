@@ -28,7 +28,9 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	@consume({ context: aiContext })
 	private _ai!: AIContextState;
 
-	@property({ reflect: true }) display: 'chip' | 'panel' | 'icons' = 'chip';
+	/** `icons` renders the integration providers alone and `ai-icons` the AI/MCP/agent/hooks statuses alone,
+	 *  so a consumer can head them as separate sections; `chip` keeps both in one row. */
+	@property({ reflect: true }) display: 'chip' | 'panel' | 'icons' | 'ai-icons' = 'chip';
 
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -161,7 +163,11 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		}
 
 		if (this.display === 'icons') {
-			return html`<span class="chip" tabindex="0">${this.renderIconRow()}</span>`;
+			return html`<span class="chip" tabindex="0">${this.renderIntegrationIcons()}</span>`;
+		}
+
+		if (this.display === 'ai-icons') {
+			return html`<span class="chip" tabindex="0">${this.renderAIIcons()}</span>`;
 		}
 
 		if (this.display === 'panel') {
@@ -175,14 +181,20 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	}
 
 	private renderIconRow(): unknown {
+		return html`${this.renderIntegrationIcons()}${this.renderAIIcons()}`;
+	}
+
+	private renderIntegrationIcons(): unknown {
 		const anyConnected = this.hasConnectedIntegrations;
 		const statusFilter = createStatusIconFilter(this.integrations);
 
 		return html`${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${this.integrations
 			.filter(statusFilter)
-			.map(i =>
-				this.renderIntegrationStatus(i),
-			)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`;
+			.map(i => this.renderIntegrationStatus(i))}`;
+	}
+
+	private renderAIIcons(): unknown {
+		return html`${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`;
 	}
 
 	private renderPanelContent(): unknown {
