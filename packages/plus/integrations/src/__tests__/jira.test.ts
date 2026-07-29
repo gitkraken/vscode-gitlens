@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
+import { AuthenticationError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter } from '../providers/models.js';
@@ -224,13 +225,20 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
 		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
 
-		const calls: string[][] = [];
+		const calls: string[] = [];
 		stubApi(jira, {
-			getJiraProjectsForResources: (_t: unknown, resourceIds: string[]) => {
-				calls.push(resourceIds);
-				// r1 succeeds, r2 fails with auth: the SDK returns r1's project plus a structured failure for r2.
+			getJiraProjectsForResource: (_t: unknown, resourceId: string) => {
+				calls.push(resourceId);
+				if (resourceId === 'r1') {
+					return Promise.resolve({
+						values: [jiraProject('p1', 'r1')],
+						paging: { cursor: '{}', more: false },
+						metadata: { completeness: 'complete' },
+					});
+				}
 				return Promise.resolve({
-					values: [jiraProject('p1', 'r1')],
+					values: [],
+					paging: { cursor: '{}', more: false, truncated: true },
 					metadata: {
 						completeness: 'partial',
 						failures: [{ kind: 'authentication', scope: { resourceId: 'r2' } }],
@@ -253,7 +261,7 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 			'the successful resource contributes its project',
 		);
 		assert.equal(result.value?.metadata?.completeness, 'partial', 'the fan-out reports partial completeness');
-		assert.deepEqual(calls[0], ['r1', 'r2'], 'both resources are requested on the first read');
+		assert.deepEqual(calls.sort(), ['r1', 'r2'], 'both resources are requested on the first read');
 
 		manager.dispose();
 	});
@@ -263,16 +271,24 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
 		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
 
-		const requested: string[][] = [];
-		let attempt = 0;
+		const requested: string[] = [];
+		let badAttempts = 0;
 		stubApi(jira, {
-			getJiraProjectsForResources: (_t: unknown, resourceIds: string[]) => {
-				requested.push(resourceIds);
-				attempt++;
-				if (attempt === 1) {
-					// First call: r2 fails.
+			getJiraProjectsForResource: (_t: unknown, resourceId: string) => {
+				requested.push(resourceId);
+				if (resourceId === 'r1') {
 					return Promise.resolve({
 						values: [jiraProject('p1', 'r1')],
+						paging: { cursor: '{}', more: false },
+						metadata: { completeness: 'complete' },
+					});
+				}
+
+				badAttempts++;
+				if (badAttempts === 1) {
+					return Promise.resolve({
+						values: [],
+						paging: { cursor: '{}', more: false, truncated: true },
 						metadata: {
 							completeness: 'partial',
 							failures: [{ kind: 'network', scope: { resourceId: 'r2' } }],
@@ -282,6 +298,7 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 				// Second call: r2 recovers.
 				return Promise.resolve({
 					values: [jiraProject('p2', 'r2')],
+					paging: { cursor: '{}', more: false },
 					metadata: { completeness: 'complete' },
 				});
 			},
@@ -297,11 +314,105 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 		const second = await api.getProjectsForResourcesWithMetadataResult([orgOk, orgBad]);
 
 		// r1 was cached after the first (successful) read, so only the failed r2 is retried on the second call.
-		assert.deepEqual(requested[1], ['r2'], 'only the previously-failed resource is retried');
+		assert.deepEqual(requested, ['r1', 'r2', 'r2'], 'only the previously-failed resource is retried');
 		assert.deepEqual(
 			second.value?.values.map(p => p.id).sort(),
 			['p1', 'p2'],
 			'the retried resource now contributes its project alongside the cached one',
+		);
+
+		manager.dispose();
+	});
+
+	test('a page-2 project failure preserves page 1 and retries the resource', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		let failContinuation = true;
+		stubApi(jira, {
+			getJiraProjectsForResource: (_t: unknown, resourceId: string, options?: { cursor?: string }) => {
+				if (options?.cursor == null) {
+					return Promise.resolve({
+						values: [jiraProject('p1', resourceId)],
+						paging: { cursor: 'next', more: true },
+					});
+				}
+				if (failContinuation) {
+					failContinuation = false;
+					return Promise.reject(new Error('page 2 unavailable'));
+				}
+				return Promise.resolve({
+					values: [jiraProject('p2', resourceId)],
+					paging: { cursor: '{}', more: false },
+				});
+			},
+		});
+		const api = jira as unknown as {
+			getProjectsForResourcesWithMetadataResult: (
+				resources: unknown[],
+			) => Promise<{ value?: { values: { id: string }[]; metadata?: { completeness: string } } }>;
+		};
+
+		const partial = await api.getProjectsForResourcesWithMetadataResult([orgOk]);
+		const recovered = await api.getProjectsForResourcesWithMetadataResult([orgOk]);
+
+		assert.deepEqual(
+			partial.value?.values.map(project => project.id),
+			['p1'],
+		);
+		assert.equal(partial.value?.metadata?.completeness, 'partial');
+		assert.deepEqual(
+			recovered.value?.values.map(project => project.id),
+			['p1', 'p2'],
+		);
+		manager.dispose();
+	});
+
+	test('unattributed partial project metadata is not cached as an authoritative resource result', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		const requested: string[] = [];
+		const attempts = new Map<string, number>();
+		stubApi(jira, {
+			getJiraProjectsForResource: (_t: unknown, resourceId: string) => {
+				requested.push(resourceId);
+				const attempt = (attempts.get(resourceId) ?? 0) + 1;
+				attempts.set(resourceId, attempt);
+				return attempt === 1
+					? Promise.resolve({
+							values: [jiraProject(`partial-${resourceId}`, resourceId)],
+							paging: { cursor: '{}', more: false, truncated: true },
+							metadata: { completeness: 'partial' },
+						})
+					: Promise.resolve({
+							values: [jiraProject(resourceId === 'r1' ? 'p1' : 'p2', resourceId)],
+							paging: { cursor: '{}', more: false },
+							metadata: { completeness: 'complete' },
+						});
+			},
+		});
+
+		const api = jira as unknown as {
+			getProjectsForResourcesWithMetadataResult: (
+				resources: unknown[],
+			) => Promise<{ value?: { values: { id: string }[] } }>;
+		};
+		const partial = await api.getProjectsForResourcesWithMetadataResult([orgOk, orgBad]);
+		const recovered = await api.getProjectsForResourcesWithMetadataResult([orgOk, orgBad]);
+
+		assert.deepEqual(
+			partial.value?.values.map(project => project.id).sort(),
+			['partial-r1', 'partial-r2'],
+			'the first non-authoritative prefixes remain useful',
+		);
+		assert.deepEqual(requested, ['r1', 'r2', 'r1', 'r2']);
+		assert.deepEqual(
+			recovered.value?.values.map(project => project.id).sort(),
+			['p1', 'p2'],
+			'the complete retry replaces the non-authoritative prefix',
 		);
 
 		manager.dispose();
@@ -314,10 +425,14 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 
 		let calls = 0;
 		stubApi(jira, {
-			getJiraProjectsForResources: (_t: unknown, _resourceIds: string[]) => {
+			getJiraProjectsForResource: () => {
 				calls++;
 				// r1 completes successfully but genuinely has no projects.
-				return Promise.resolve({ values: [], metadata: { completeness: 'complete' } });
+				return Promise.resolve({
+					values: [],
+					paging: { cursor: '{}', more: false },
+					metadata: { completeness: 'complete' },
+				});
 			},
 		});
 
@@ -340,17 +455,19 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 
 		let attempt = 0;
 		stubApi(jira, {
-			getJiraProjectsForResources: (_t: unknown, _resourceIds: string[]) => {
+			getJiraProjectsForResource: () => {
 				attempt++;
 				if (attempt === 1) {
 					return Promise.resolve({
 						values: [jiraProject('p1', 'r1')],
+						paging: { cursor: '{}', more: false },
 						metadata: { completeness: 'complete' },
 					});
 				}
 				// Forced refresh fails for r1.
 				return Promise.resolve({
 					values: [],
+					paging: { cursor: '{}', more: false, truncated: true },
 					metadata: {
 						completeness: 'partial',
 						failures: [{ kind: 'rate-limit', scope: { resourceId: 'r1' } }],
@@ -388,9 +505,10 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
 
 		stubApi(jira, {
-			getJiraProjectsForResources: () =>
+			getJiraProjectsForResource: (_t: unknown, resourceId: string) =>
 				Promise.resolve({
-					values: [jiraProject('p1', 'r1'), jiraProject('p2', 'r2')],
+					values: [jiraProject(resourceId === 'r1' ? 'p1' : 'p2', resourceId)],
+					paging: { cursor: '{}', more: false },
 					metadata: { completeness: 'complete' },
 				}),
 		});
@@ -424,7 +542,20 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 				_resourceId: string,
 				options?: { authorLogin?: string; assigneeLogins?: string[] },
 			) => {
-				if (options?.authorLogin != null) return Promise.reject(new Error('author branch boom'));
+				if (options?.authorLogin != null) {
+					return Promise.reject(
+						new AuthenticationError(
+							{
+								providerId: IssuesCloudHostIntegrationId.Jira,
+								microHash: undefined,
+								cloud: true,
+								type: 'oauth',
+								scopes: [],
+							},
+							'author branch auth failed',
+						),
+					);
+				}
 				return Promise.resolve({
 					data: [
 						{
@@ -453,6 +584,11 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 
 		assert.equal(result?.value?.values.length, 1, 'the surviving assignee branch is preserved');
 		assert.equal(result?.value?.truncated, true, 'a rejected sibling branch flags the read as truncated');
+		assert.equal(
+			result?.value?.metadata?.failures?.[0]?.kind,
+			'authentication',
+			'the original auth classification survives the filter context message',
+		);
 		assert.equal(result?.error, undefined, 'a partial success is not surfaced as a hard error');
 
 		manager.dispose();

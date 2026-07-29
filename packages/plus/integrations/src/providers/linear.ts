@@ -13,13 +13,14 @@ import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
-import type { IssueFilter, ProviderIssue } from './models.js';
+import type { IssueFilter, ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
 import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
 const maxPagesPerRequest = 10;
+const linearImplicitTeamsPageSize = 50;
 
 export interface LinearTeamDescriptor extends IssueResourceDescriptor {
 	avatarUrl: string | undefined;
@@ -115,26 +116,39 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
 	): Promise<LinearTeamDescriptor[] | undefined> {
+		return (await this.getTeamsWithMetadata(session, force))?.values;
+	}
+
+	private async getTeamsWithMetadata(
+		session: ProviderAuthenticationSession,
+		force: boolean = false,
+	): Promise<ProviderApiCollectionResult<LinearTeamDescriptor> | undefined> {
 		const { accessToken } = session;
 		this._teams ??= new Map<string, LinearTeamDescriptor[] | undefined>();
 
 		const cachedResources = this._teams.get(accessToken);
+		if (cachedResources != null && !force) return { values: cachedResources };
 
-		if (cachedResources == null || force) {
-			const api = await this.getProvidersApi();
-			const teams = await api.getLinearTeamsForCurrentUser(toTokenWithInfo(this.id, session));
-			const descriptors: LinearTeamDescriptor[] | undefined = teams?.map(t => ({
-				id: t.id,
-				key: t.key,
-				name: t.name,
-				avatarUrl: t.iconUrl,
-			}));
-			if (descriptors) {
-				this._teams.set(accessToken, descriptors);
-			}
+		const api = await this.getProvidersApi();
+		const teams = await api.getLinearTeamsForCurrentUser(toTokenWithInfo(this.id, session));
+		const descriptors: LinearTeamDescriptor[] | undefined = teams?.map(t => ({
+			id: t.id,
+			key: t.key,
+			name: t.name,
+			avatarUrl: t.iconUrl,
+		}));
+		if (descriptors == null) return undefined;
+
+		// provider-apis currently requests Linear's teams connection without pageInfo or a cursor. Linear's
+		// implicit page size is 50, so exactly a full page cannot prove there is no team 51. Preserve the useful
+		// prefix, but mark it unknown and leave it uncached so the next read retries instead of treating it as
+		// authoritative. Once provider-apis exposes a paged primitive, replace this fail-closed guard with a drain.
+		if (descriptors.length >= linearImplicitTeamsPageSize) {
+			return { values: descriptors, metadata: { completeness: 'unknown' } };
 		}
 
-		return this._teams.get(accessToken);
+		this._teams.set(accessToken, descriptors);
+		return { values: descriptors };
 	}
 
 	protected override async getProviderResourcesForUser(
@@ -148,6 +162,12 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		_resources: ResourceDescriptor[],
 	): Promise<ResourceDescriptor[] | undefined> {
 		return this.getTeams(session);
+	}
+	protected override async getProviderProjectsForResourcesWithMetadata(
+		session: ProviderAuthenticationSession,
+		_resources: ResourceDescriptor[],
+	): Promise<ProviderApiCollectionResult<ResourceDescriptor>> {
+		return (await this.getTeamsWithMetadata(session)) ?? { values: [] };
 	}
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
 

@@ -13,12 +13,12 @@ import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescripto
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Emitter } from '@gitlens/utils/event.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
 import { batch } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
@@ -29,12 +29,19 @@ import type { SearchMyIssuesOptions } from '../models/integration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
 import type {
+	ProviderApiPagedResult,
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderRepository,
 } from './models.js';
-import { IssueFilter, providersMetadata, PullRequestFilter, toProviderPullRequest } from './models.js';
+import {
+	getProviderPullRequestIdentity,
+	IssueFilter,
+	providersMetadata,
+	PullRequestFilter,
+	toProviderPullRequest,
+} from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
 /**
@@ -348,6 +355,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				url: `https://${this.domain}/${o.username}`,
 			})),
 			...(result.truncated ? { truncated: true } : {}),
+			...(result.metadata != null ? { metadata: result.metadata } : {}),
 		};
 	}
 
@@ -425,7 +433,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			filters?: PullRequestFilter[];
 			summary?: boolean;
 		},
-	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		const explicitFilters = options?.filters?.length ? [...new Set(options.filters)] : undefined;
 		// Explicit relationships need independent search facets so the returned union is exact. State-only reads
 		// retain the provider-native `involves:@me` behavior for backward compatibility.
@@ -469,7 +477,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				options?.cursor != null && hasResumableFacetCursor && facetsWithCursor.length !== 0
 					? facetsWithCursor
 					: facets;
-			const results = await Promise.all(
+			const results = await Promise.allSettled(
 				facetsToQuery.map(async facet => ({
 					key: facet.key,
 					result: await github.searchMyPullRequestsPage(this, toTokenWithInfo(this.id, session), {
@@ -483,18 +491,41 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					}),
 				})),
 			);
+			if (results.every(result => result.status === 'rejected')) {
+				const first = results[0];
+				if (first?.status === 'rejected') throw first.reason;
+			}
 
 			const values = new Map<string, ProviderPullRequest>();
 			const nextCursors: GitHubPullRequestFacetCursor = {};
+			const failures = [];
 			let hasMore = false;
 			let truncated = false;
-			for (const { key, result } of results) {
-				for (const pr of result.values) {
-					values.set(pr.url, toProviderPullRequest(pr));
+			let structuralIncompleteness = false;
+			let unkeyedPullRequest = 0;
+			for (const outcome of results) {
+				if (outcome.status === 'rejected') {
+					failures.push(toCollectionScopeFailure({ providerId: this.id }, outcome.reason));
+					truncated = true;
+					continue;
 				}
-				if (result.hasMore && result.cursor != null) {
-					hasMore = true;
-					nextCursors[key] = result.cursor;
+
+				const { key, result } = outcome.value;
+				for (const pr of result.values) {
+					const mapped = toProviderPullRequest(pr);
+					const identity = getProviderPullRequestIdentity(mapped) ?? `unkeyed:${unkeyedPullRequest++}`;
+					if (!values.has(identity)) {
+						values.set(identity, mapped);
+					}
+				}
+				if (result.hasMore) {
+					if (result.cursor == null || result.cursor === '{}' || result.cursor === cursors[key]) {
+						truncated = true;
+						structuralIncompleteness = true;
+					} else {
+						hasMore = true;
+						nextCursors[key] = result.cursor;
+					}
 				}
 				if (result.truncated) {
 					truncated = true;
@@ -508,6 +539,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					cursor: hasMore ? JSON.stringify({ type: 'cursor', cursors: nextCursors }) : '{}',
 					truncated: truncated || undefined,
 				},
+				...(failures.length || structuralIncompleteness
+					? {
+							metadata: {
+								completeness: 'partial' as const,
+								...(failures.length ? { failures: failures } : {}),
+							},
+						}
+					: undefined),
 			};
 		}
 
