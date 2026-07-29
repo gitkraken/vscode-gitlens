@@ -52,5 +52,9 @@ export const chipStyles = css`
 		font-weight: 600;
 		line-height: 1.7;
 		white-space: nowrap;
+
+		small {
+			color: var(--vscode-descriptionForeground);
+		}
 	}
 `;

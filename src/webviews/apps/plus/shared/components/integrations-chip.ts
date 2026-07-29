@@ -1,19 +1,9 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
-import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
-import type {
-	ConnectCloudIntegrationsCommandArgs,
-	ManageCloudIntegrationsCommandArgs,
-} from '../../../../../commands/cloudIntegrations.js';
-import { SubscriptionState } from '../../../../../constants.subscription.js';
-import type { Source } from '../../../../../constants.telemetry.js';
-import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
-import { createCommandLink } from '../../../../../system/commands.js';
 import type { AIState, IntegrationStateInfo } from '../../../../rpc/services/types.js';
-import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
@@ -22,12 +12,10 @@ import { integrationsContext } from '../../../shared/contexts/integrations.js';
 import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import { chipStyles } from './chipStyles.js';
-import '../../../shared/components/button.js';
-import '../../../shared/components/button-container.js';
+import './integrations-panel.js';
+import './ai-panel.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
-import '../../../shared/components/overlays/tooltip.js';
-import '../../../shared/components/feature-badge.js';
 
 @customElement('gl-integrations-chip')
 export class GlIntegrationsChip extends SignalWatcher(LitElement) {
@@ -39,6 +27,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 	@consume({ context: aiContext })
 	private _ai!: AIContextState;
+
+	@property({ reflect: true }) display: 'chip' | 'panel' | 'icons' = 'chip';
 
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -53,13 +43,11 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			:host-context(.vscode-dark),
 			:host-context(.vscode-high-contrast) {
 				--gl-chip-skeleton-bg: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
-				--status-color--connected: #0d0;
 			}
 
 			:host-context(.vscode-light),
 			:host-context(.vscode-high-contrast-light) {
 				--gl-chip-skeleton-bg: color-mix(in lab, var(--vscode-sideBar-background), #000 7%);
-				--status-color--connected: #0a0;
 			}
 
 			.chip {
@@ -84,87 +72,12 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-6);
 			}
 
+			:host([display='panel']) .content {
+				width: 100%;
+			}
+
 			.status--disconnected.integration {
 				color: var(--color-foreground--25);
-			}
-
-			.status--connected:not(.is-locked) .status-indicator {
-				color: var(--status-color--connected);
-			}
-
-			gl-tooltip.status-indicator {
-				margin-right: var(--gl-space-4);
-			}
-
-			.integrations {
-				display: flex;
-				flex-direction: column;
-				gap: var(--gl-space-8);
-				width: 100%;
-			}
-
-			.integration-row {
-				display: flex;
-				gap: var(--gl-space-10);
-				align-items: center;
-			}
-
-			.integration-row--ai {
-				padding-top: var(--gl-space-6);
-				border-top: var(--gl-border-width) solid var(--color-foreground--25);
-			}
-
-			.integration-row--mcp,
-			.integration-row--default-agent,
-			.integration-row--hooks {
-				padding-top: 0;
-			}
-
-			.status--disconnected .integration__icon {
-				color: var(--color-foreground--25);
-			}
-
-			.integration__content {
-				display: block;
-				flex: 1 1 auto;
-			}
-
-			.integration__title {
-				display: flex;
-				justify-content: space-between;
-			}
-
-			.integration__title gl-feature-badge {
-				vertical-align: super;
-			}
-
-			.integration__details {
-				display: block;
-				font-size: var(--gl-font-micro);
-				color: var(--color-foreground--75);
-			}
-
-			.status--disconnected .integration__title,
-			.status--disconnected .integration__details {
-				color: var(--color-foreground--50);
-			}
-
-			.integration__actions {
-				display: flex;
-				flex: none;
-				flex-direction: row;
-				gap: var(--gl-space-2);
-				align-items: center;
-				justify-content: flex-end;
-			}
-
-			button-container {
-				width: 100%;
-				margin-bottom: var(--gl-space-4);
-			}
-
-			p {
-				margin: 0;
 			}
 
 			gl-popover::part(body) {
@@ -175,11 +88,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				100% {
 					transform: translateX(100%);
 				}
-			}
-
-			/* Compact hosts get icon-sized chips, so shrink the loading placeholder to match. */
-			:host([compact]) .chip--skeleton {
-				width: 2.4rem;
 			}
 
 			.chip--skeleton {
@@ -208,29 +116,11 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		`,
 	];
 
-	/** Compact presentation for space-constrained hosts (e.g. inlined in the Graph header, issue
-	 *  #5449): collapses the anchor to a single plug icon (the full status-icon strip is too wide
-	 *  for a header) — the popover still carries the full content. Opt-in via attribute so existing
-	 *  hosts (Home) are unaffected. */
-	@property({ type: Boolean, reflect: true })
-	compact = false;
-
 	@query('#chip')
 	private _chip!: HTMLElement;
 
-	@query('gl-popover')
-	private _popover!: GlPopover;
-
-	/** Mirrors the popover's open state so the compact anchor's `aria-expanded` stays accurate. */
-	@state()
-	private _popoverOpen = false;
-
 	private get hasAccount() {
 		return this._subscription.subscription.get()?.account != null;
-	}
-
-	private get isPaidAccount() {
-		return this._subscription.subscription.get()?.state === SubscriptionState.Paid;
 	}
 
 	private get isProAccount() {
@@ -257,24 +147,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		this._chip.focus();
 	}
 
-	/** Enter/Space activation for the compact anchor's `role="button"` — a span doesn't synthesize
-	 *  clicks, so without this the advertised button semantics wouldn't work from the keyboard
-	 *  (e.g. reopening the popover after dismissing it with Escape). */
-	private onAnchorKeydown(e: KeyboardEvent) {
-		if (!this.compact || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
-
-		e.preventDefault();
-		void (this._popover.open ? this._popover.hide() : this._popover.show());
-	}
-
-	private onPopoverShow() {
-		this._popoverOpen = true;
-	}
-
-	private onPopoverHide() {
-		this._popoverOpen = false;
-	}
-
 	override render(): unknown {
 		// Don't show integration state until subscription data has loaded —
 		// otherwise we'd flash "Connect" with an empty list.
@@ -288,93 +160,33 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			></span>`;
 		}
 
-		const anyConnected = this.hasConnectedIntegrations;
-		// Capture one array instance — the icon-dedup filter matches items by identity, so it must be
-		// built from the same read it filters.
-		const integrations = this.integrations;
+		if (this.display === 'icons') {
+			return html`<span class="chip" tabindex="0">${this.renderIconRow()}</span>`;
+		}
 
-		return html`<gl-popover
-			placement="bottom"
-			trigger="hover click focus"
-			@gl-popover-show=${this.onPopoverShow}
-			@gl-popover-hide=${this.onPopoverHide}
-		>
-			<span
-				id="chip"
-				slot="anchor"
-				class="chip"
-				tabindex="0"
-				role=${this.compact ? 'button' : nothing}
-				aria-label=${this.compact ? `Integrations (${anyConnected ? 'connected' : 'not connected'})` : nothing}
-				aria-expanded=${this.compact ? this._popoverOpen : nothing}
-				@keydown=${this.onAnchorKeydown}
-				>${
-					this.compact
-						? html`<span class="integration status--${anyConnected ? 'connected' : 'disconnected'}"
-								><code-icon icon="plug"></code-icon
-							></span>`
-						: html`${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${integrations
-								.filter(createStatusIconFilter(integrations))
-								.map(i =>
-									this.renderIntegrationStatus(i),
-								)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`
-				}</span
-			>
-			<div slot="content" class="content">
-				<div class="header">
-					<span class="header__title">Integrations</span>
-					<span class="header__actions">
-						<gl-button
-							appearance="toolbar"
-							href="${createCommandLink<Source>('gitlens.plus.validate', {
-								source: 'home',
-								detail: 'integrations',
-							})}"
-							tooltip="Synchronize Status"
-							aria-label="Synchronize Status"
-							><code-icon icon="sync"></code-icon
-						></gl-button>
-						<gl-button
-							appearance="toolbar"
-							href="${createCommandLink<ManageCloudIntegrationsCommandArgs>(
-								'gitlens.plus.cloudIntegrations.manage',
-								{
-									source: { source: 'home' },
-								},
-							)}"
-							tooltip="Manage Integrations"
-							aria-label="Manage Integrations"
-							><code-icon icon="gear"></code-icon></gl-button
-					></span>
-				</div>
-				<div class="integrations">
-					${
-						!anyConnected
-							? html`<p>
-										Connect hosting services like <strong>GitHub</strong> and issue trackers like
-										<strong>Jira</strong> to track progress and take action on PRs and issues
-										related to your branches.
-									</p>
-									<button-container>
-										<gl-button
-											full
-											href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-												'gitlens.plus.cloudIntegrations.connect',
-												{
-													integrationIds: this.integrations.map(
-														i => i.id as SupportedCloudIntegrationIds,
-													),
-													source: { source: 'home', detail: 'integrations' },
-												},
-											)}"
-											>Connect Integrations</gl-button
-										>
-									</button-container>`
-							: this.integrations.map(i => this.renderIntegrationRow(i))
-					}${this.renderAIRow()}${this.renderMcpRow()}${this.renderDefaultAgentRow()}${this.renderHooksRow()}
-				</div>
-			</div>
+		if (this.display === 'panel') {
+			return html`<div class="content">${this.renderPanelContent()}</div>`;
+		}
+
+		return html`<gl-popover placement="bottom" trigger="hover click focus">
+			<span slot="anchor" class="chip" tabindex="0">${this.renderIconRow()}</span>
+			<div slot="content" class="content">${this.renderPanelContent()}</div>
 		</gl-popover>`;
+	}
+
+	private renderIconRow(): unknown {
+		const anyConnected = this.hasConnectedIntegrations;
+		const statusFilter = createStatusIconFilter(this.integrations);
+
+		return html`${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${this.integrations
+			.filter(statusFilter)
+			.map(i =>
+				this.renderIntegrationStatus(i),
+			)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`;
+	}
+
+	private renderPanelContent(): unknown {
+		return html`<gl-integrations-panel></gl-integrations-panel><gl-ai-panel></gl-ai-panel>`;
 	}
 
 	private renderIntegrationStatus(integration: IntegrationStateInfo) {
@@ -393,69 +205,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		></span>`;
 	}
 
-	private renderIntegrationRow(integration: IntegrationStateInfo) {
-		const showLock = integration.requiresPro && !this.isProAccount;
-		const showProBadge = integration.requiresPro && !this.isPaidAccount;
-		return html`<div
-			class="integration-row status--${integration.connected ? 'connected' : 'disconnected'}${
-				showLock ? ' is-locked' : ''
-			}"
-		>
-			<span class="integration__icon"><code-icon icon="${integration.icon}"></code-icon></span>
-			<span class="integration__content">
-				<span class="integration__title">
-					<span>${integration.name}</span>
-					${
-						showProBadge
-							? html` <gl-feature-badge
-									placement="right"
-									.source=${{ source: 'home', detail: 'integrations' } as const}
-									cloud
-								></gl-feature-badge>`
-							: nothing
-					}
-				</span>
-				<span class="integration__details">${getIntegrationDetails(integration)}</span>
-			</span>
-			<span class="integration__actions">
-				${
-					showLock
-						? html`<gl-button
-								appearance="toolbar"
-								href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
-									plan: 'pro',
-									source: 'home',
-									detail: 'integrations',
-								})}"
-								tooltip="Unlock ${integration.name} features with GitLens Pro"
-								aria-label="Unlock ${integration.name} features with GitLens Pro"
-								><code-icon class="status-indicator" icon="lock"></code-icon
-							></gl-button>`
-						: integration.connected
-							? html`<gl-tooltip
-									class="status-indicator status--connected"
-									placement="bottom"
-									content="Connected"
-									><code-icon class="status-indicator" icon="check"></code-icon
-								></gl-tooltip>`
-							: html`<gl-button
-									appearance="toolbar"
-									href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-										'gitlens.plus.cloudIntegrations.connect',
-										{
-											integrationIds: [integration.id as SupportedCloudIntegrationIds],
-											source: { source: 'home', detail: 'integrations' },
-										},
-									)}"
-									tooltip="Connect ${integration.name}"
-									aria-label="Connect ${integration.name}"
-									><code-icon icon="plug"></code-icon
-								></gl-button>`
-				}
-			</span>
-		</div>`;
-	}
-
 	private renderAIStatus() {
 		const model = this._ai.model.get();
 		return html`<span
@@ -466,193 +215,12 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		</span>`;
 	}
 
-	private renderAIRow() {
-		const model = this._ai.model.get();
-
-		const connectedAndEnabled = this.aiEnabled && model != null;
-		const showLock = !this.aiEnabled;
-		const showProBadge = false;
-		const icon = connectedAndEnabled ? 'sparkle-filled' : 'sparkle'; // TODO: Provider?
-
-		return html`<div
-			class="integration-row integration-row--ai status--${
-				connectedAndEnabled ? 'connected' : 'disconnected'
-			}${showLock ? ' is-locked' : ''}"
-		>
-			<span class="integration__icon"><code-icon icon="${icon}"></code-icon></span>
-			${
-				this.aiEnabled
-					? html`<span class="integration__content">
-								${
-									model?.provider.name
-										? html`<span class="integration__title">
-												<span>${model.provider.name}</span>
-												${
-													showProBadge
-														? html` <gl-feature-badge
-																placement="right"
-																.source=${{ source: 'home', detail: 'integrations' } as const}
-																cloud
-															></gl-feature-badge>`
-														: nothing
-												}
-											</span>`
-										: html`<span class="integration_details"
-												>Select AI model to enable AI features</span
-											>`
-								}
-								${model?.name ? html`<span class="integration__details">${model.name}</span>` : nothing}
-							</span>
-							<span class="integration__actions">
-								<gl-button
-									appearance="toolbar"
-									href="${createCommandLink<Source>('gitlens.ai.switchProvider', {
-										source: 'home',
-										detail: 'integrations',
-									})}"
-									tooltip="Switch AI Provider/Model"
-									aria-label="Switch AI Provider/Model"
-									><code-icon icon="arrow-swap"></code-icon
-								></gl-button>
-							</span>`
-					: html`<span class="integration__content">
-								<span class="integration_details"
-									>GitLens AI features have been
-									disabled${!this.ai.enabled ? ' via settings' : ' by your GitKraken admin'}</span
-								>
-							</span>
-							${
-								!this.ai.enabled
-									? html` <span class="integration__actions">
-											<gl-button
-												appearance="toolbar"
-												href="${createCommandLink<Source>('gitlens.ai.enable', {
-													source: 'home',
-													detail: 'integrations',
-												})}"
-												tooltip="Re-enable AI Features"
-												aria-label="Re-enable AI Features"
-												><code-icon icon="unlock"></code-icon
-											></gl-button>
-										</span>`
-									: nothing
-							}`
-			}
-		</div>`;
-	}
-
 	private renderMcpStatus() {
 		const { mcp } = this.ai;
 		const active = this.aiEnabled && mcp.settingEnabled && mcp.installed;
 		return html`<span class="integration status--${active ? 'connected' : 'disconnected'}" slot="anchor">
 			<code-icon icon="mcp"></code-icon>
 		</span>`;
-	}
-
-	private renderMcpRow() {
-		const { mcp } = this.ai;
-		const mcpEnabled = this.aiEnabled && mcp.settingEnabled;
-		const active = mcpEnabled && mcp.installed;
-
-		return html`<div class="integration-row integration-row--mcp status--${active ? 'connected' : 'disconnected'}">
-			<span class="integration__icon"><code-icon icon="mcp"></code-icon></span>
-			${
-				mcpEnabled
-					? mcp.installed
-						? html`<span class="integration__content">
-									<span class="integration__title">GitKraken MCP</span>
-									<span class="integration__details"
-										>Leverage Git &amp; Integrations in AI chats</span
-									>
-								</span>
-								<span class="integration__actions">
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
-											source: 'home',
-											detail: 'integrations',
-										})}"
-										tooltip="Connect More Agents"
-										aria-label="Connect More Agents"
-										><code-icon icon="plug"></code-icon
-									></gl-button>
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.ai.mcp.reinstall', {
-											source: 'home',
-											detail: 'integrations',
-										})}"
-										tooltip="Reinstall GitKraken MCP"
-										aria-label="Reinstall GitKraken MCP"
-										><code-icon icon="sync"></code-icon
-									></gl-button>
-									<gl-tooltip
-										class="status-indicator status--connected"
-										placement="bottom"
-										content="Installed${mcp.bundled ? ' (bundled)' : ''}"
-										><code-icon class="status-indicator" icon="check"></code-icon
-									></gl-tooltip>
-								</span>`
-						: html`<span class="integration__content">
-									<span class="integration__title">GitKraken MCP</span>
-									<span class="integration__details"
-										>Leverage Git &amp; Integrations in AI chats</span
-									>
-								</span>
-								<span class="integration__actions">
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
-											source: 'home',
-											detail: 'integrations',
-										})}"
-										tooltip="Install GitKraken MCP"
-										aria-label="Install GitKraken MCP"
-										><code-icon icon="plug"></code-icon
-									></gl-button>
-								</span>`
-					: !this.aiEnabled
-						? html`<span class="integration__content">
-									<span class="integration_details"
-										>GitKraken MCP has been
-										disabled${!this.ai.enabled ? ' via settings' : ' by your GitKraken admin'}</span
-									>
-								</span>
-								${
-									!this.ai.enabled
-										? html` <span class="integration__actions">
-												<gl-button
-													appearance="toolbar"
-													href="${createCommandLink<Source>('gitlens.ai.enable', {
-														source: 'home',
-														detail: 'integrations',
-													})}"
-													tooltip="Re-enable AI Features"
-													aria-label="Re-enable AI Features"
-													><code-icon icon="unlock"></code-icon
-												></gl-button>
-											</span>`
-										: nothing
-								}`
-						: html`<span class="integration__content">
-									<span class="integration_details"
-										>GitKraken MCP has been disabled via settings</span
-									>
-								</span>
-								<span class="integration__actions">
-									<gl-button
-										appearance="toolbar"
-										href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
-											source: 'home',
-											detail: 'integrations',
-										})}"
-										tooltip="Re-enable MCP"
-										aria-label="Re-enable MCP"
-										><code-icon icon="unlock"></code-icon
-									></gl-button>
-								</span>`
-			}
-		</div>`;
 	}
 
 	private renderDefaultAgentStatus() {
@@ -664,98 +232,12 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		</span>`;
 	}
 
-	private renderDefaultAgentRow() {
-		if (!this.aiEnabled) return nothing;
-
-		const agent = this.ai.defaultAgent;
-		return html`<div
-			class="integration-row integration-row--default-agent status--${
-				agent != null ? 'connected' : 'disconnected'
-			}"
-		>
-			<span class="integration__icon"><code-icon icon="robot"></code-icon></span>
-			<span class="integration__content">
-				<span class="integration__title">Default Coding Agent</span>
-				<span class="integration__details">${agent != null ? agent.label : 'No default agent selected'}</span>
-			</span>
-			<span class="integration__actions">
-				<gl-button
-					appearance="toolbar"
-					href="${createCommandLink('gitlens.agents.switchDefaultAgent')}"
-					tooltip="Switch Default Agent"
-					aria-label="Switch Default Agent"
-					><code-icon icon="arrow-swap"></code-icon
-				></gl-button>
-			</span>
-		</div>`;
-	}
-
 	private renderHooksStatus() {
 		if (!this.aiEnabled || !this.ai.hooks.canInstallClaudeHook) return nothing;
 		return html`<span class="integration status--disconnected" slot="anchor">
 			<code-icon icon="search-sparkle"></code-icon>
 		</span>`;
 	}
-
-	private renderHooksRow() {
-		if (!this.aiEnabled) return nothing;
-
-		const claude = this.ai.hooks.claude;
-		// Don't render at all if gkcli says hooks aren't supported for Claude on this machine, or
-		// if Claude isn't detected — there's nothing to install OR uninstall.
-		if (!claude.supported || !claude.detected) return nothing;
-
-		if (claude.installed) {
-			return html`<div class="integration-row integration-row--hooks status--connected">
-				<span class="integration__icon"><code-icon icon="search-sparkle"></code-icon></span>
-				<span class="integration__content">
-					<span class="integration__title">GitKraken Claude Code Hooks</span>
-					<span class="integration__details">Installed — Claude surfaces agent status</span>
-				</span>
-				<span class="integration__actions">
-					<gl-button
-						appearance="toolbar"
-						href="${createCommandLink('gitlens.agents.uninstallClaudeHook')}"
-						tooltip="Uninstall Claude Hooks"
-						aria-label="Uninstall Claude Hooks"
-						><code-icon icon="debug-disconnect"></code-icon
-					></gl-button>
-				</span>
-			</div>`;
-		}
-
-		return html`<div class="integration-row integration-row--hooks status--disconnected">
-			<span class="integration__icon"><code-icon icon="search-sparkle"></code-icon></span>
-			<span class="integration__content">
-				<span class="integration__title">GitKraken Claude Code Hooks</span>
-				<span class="integration__details">Configure Claude to surface agent status</span>
-			</span>
-			<span class="integration__actions">
-				<gl-button
-					appearance="toolbar"
-					href="${createCommandLink('gitlens.agents.installClaudeHook')}"
-					tooltip="Install Claude Hooks"
-					aria-label="Install Claude Hooks"
-					><code-icon icon="plug"></code-icon
-				></gl-button>
-			</span>
-		</div>`;
-	}
-}
-
-const featureMap = new Map<string, string>([
-	['prs', 'pull requests'],
-	['issues', 'issues'],
-]);
-
-function getIntegrationDetails(integration: IntegrationStateInfo): string {
-	const features = integration.supports.map(feature => featureMap.get(feature)!);
-
-	if (features.length === 0) return '';
-	if (features.length === 1) return `Supports ${features[0]}`;
-
-	const last = features.pop();
-	return `Supports ${features.join(', ')}, and ${last}`;
 }
 
 function createStatusIconFilter(integrations: IntegrationStateInfo[]) {

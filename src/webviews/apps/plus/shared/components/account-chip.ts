@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -58,6 +58,10 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				align-items: center;
 			}
 
+			:host([display='panel']) .content {
+				width: 100%;
+			}
+
 			:host-context(.vscode-dark),
 			:host-context(.vscode-high-contrast) {
 				--gl-account-chip-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
@@ -79,12 +83,6 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				line-height: 2rem;
 				text-transform: uppercase;
 				background-color: var(--gl-account-chip-color);
-			}
-
-			/* Avatar-only anchor: the right padding exists to balance the trailing plan-tier label,
-			   which compact mode drops. */
-			:host([compact]) .chip {
-				padding-right: 0;
 			}
 
 			.chip--outlined {
@@ -117,7 +115,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.account-info {
 				display: flex;
 				flex-direction: column;
-				gap: var(--gl-space-2);
+				gap: var(--gl-space-4);
 			}
 
 			.row {
@@ -195,6 +193,10 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				border-radius: 50%;
 			}
 
+			.account-status > p {
+				margin-block: var(--gl-space-6);
+			}
+
 			.account-status > :first-child {
 				margin-block-start: 0;
 			}
@@ -250,11 +252,6 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				}
 			}
 
-			/* Compact hosts get an avatar-only chip, so shrink the loading placeholder to match. */
-			:host([compact]) .chip--skeleton {
-				width: 2.4rem;
-			}
-
 			.chip--skeleton {
 				position: relative;
 				width: 8rem;
@@ -281,6 +278,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		`,
 	];
 
+	/** Controls whether this renders as the compact popover-triggering chip, or just the account panel content. */
+	@property({ reflect: true }) display: 'chip' | 'panel' = 'chip';
+
 	private _showUpgrade = false;
 	@property({ type: Boolean, reflect: true, attribute: 'show-upgrade' })
 	get showUpgrade() {
@@ -290,21 +290,11 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		this._showUpgrade = value;
 	}
 
-	/** Compact presentation for space-constrained hosts (e.g. inlined in the Graph header, issue
-	 *  #5449): avatar-only anchor, no plan-tier label, no upgrade CTA — the popover still carries
-	 *  the full account content. Opt-in via attribute so existing hosts (Home) are unaffected. */
-	@property({ type: Boolean, reflect: true })
-	compact = false;
-
 	@query('#chip')
 	private _chip!: HTMLElement;
 
 	@query('gl-popover')
 	private _popover!: GlPopover;
-
-	/** Mirrors the popover's open state so the compact anchor's `aria-expanded` stays accurate. */
-	@state()
-	private _popoverOpen = false;
 
 	private get accountAvatar() {
 		return this.hasAccount && this._subscription.avatar.get();
@@ -386,70 +376,22 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			></span>`;
 		}
 
-		return html`<gl-popover
-				placement="bottom"
-				trigger="hover focus click"
-				@gl-popover-show=${this.onPopoverShow}
-				@gl-popover-hide=${this.onPopoverHide}
-			>
-				<span
-					id="chip"
-					slot="anchor"
-					class="chip"
-					tabindex="0"
-					role=${this.compact ? 'button' : nothing}
-					aria-label=${this.compact ? `Account (${this.planTier})` : nothing}
-					aria-expanded=${this.compact ? this._popoverOpen : nothing}
-					@keydown=${this.onAnchorKeydown}
-				>
+		if (this.display === 'panel') {
+			return html`<div class="content">${this.renderPanelContent()}</div>`;
+		}
+
+		return html`<gl-popover placement="bottom" trigger="hover focus click">
+				<span id="chip" slot="anchor" class="chip" tabindex="0">
 					${
 						this.accountAvatar
 							? html`<img class="chip__media" src=${this.accountAvatar} />`
 							: html`<code-icon class="chip__media" icon="gl-gitlens" size="16"></code-icon>`
 					}
-					${this.compact ? nothing : html`<span>${this.planTier}</span>`}
+					<span>${this.planTier}</span>
 				</span>
-				<div slot="content" class="content" tabindex="-1">
-					<div class="header">
-						<span class="header__title">${this.planName}</span>
-						<span class="header__actions">
-							${
-								this.hasAccount
-									? html`<gl-button
-												appearance="toolbar"
-												href="${createCommandLink<Source>('gitlens.plus.validate', {
-													source: 'account',
-												})}"
-												tooltip="Synchronize Status"
-												aria-label="Synchronize Status"
-												><code-icon icon="sync"></code-icon
-											></gl-button>
-											<gl-button
-												appearance="toolbar"
-												href="${createCommandLink<Source>('gitlens.plus.manage', {
-													source: 'account',
-												})}"
-												tooltip="Manage Account"
-												aria-label="Manage Account"
-												><code-icon icon="gear"></code-icon
-											></gl-button>
-											<gl-button
-												appearance="toolbar"
-												href="${createCommandLink<Source>('gitlens.plus.logout', {
-													source: 'account',
-												})}"
-												tooltip="Sign Out"
-												aria-label="Sign Out"
-												><code-icon icon="sign-out"></code-icon
-											></gl-button>`
-									: nothing
-							}
-						</span>
-					</div>
-					${this.renderAccountInfo()} ${this.renderAccountState()}
-				</div>
+				<div slot="content" class="content" tabindex="-1">${this.renderPanelContent()}</div>
 			</gl-popover>
-			${this.compact ? nothing : this.renderUpgradeContent()}`;
+			${this.renderUpgradeContent()}`;
 	}
 
 	show(): void {
@@ -457,22 +399,52 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		this.focus();
 	}
 
-	/** Enter/Space activation for the compact anchor's `role="button"` — a span doesn't synthesize
-	 *  clicks, so without this the advertised button semantics wouldn't work from the keyboard
-	 *  (e.g. reopening the popover after dismissing it with Escape). */
-	private onAnchorKeydown(e: KeyboardEvent) {
-		if (!this.compact || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+	/** The account panel body: header (plan name + toolbar actions) + account info + subscription-state CTAs. */
+	private renderPanelContent(): unknown {
+		const trialDays = this.subscriptionState === SubscriptionState.Trial ? this.trialDaysRemaining : 0;
 
-		e.preventDefault();
-		void (this._popover.open ? this._popover.hide() : this._popover.show());
-	}
-
-	private onPopoverShow() {
-		this._popoverOpen = true;
-	}
-
-	private onPopoverHide() {
-		this._popoverOpen = false;
+		return html`<div class="header">
+				<span class="header__title"
+					>${this.planName}${when(
+						trialDays !== 0,
+						() => html` <small>(${trialDays < 1 ? '<1 day' : pluralize('day', trialDays)})</small>`,
+					)}</span
+				>
+				<span class="header__actions">
+					${
+						this.hasAccount
+							? html`<gl-button
+										appearance="toolbar"
+										href="${createCommandLink<Source>('gitlens.plus.validate', {
+											source: 'account',
+										})}"
+										tooltip="Synchronize Status"
+										aria-label="Synchronize Status"
+										><code-icon icon="sync"></code-icon
+									></gl-button>
+									<gl-button
+										appearance="toolbar"
+										href="${createCommandLink<Source>('gitlens.plus.manage', {
+											source: 'account',
+										})}"
+										tooltip="Manage Account"
+										aria-label="Manage Account"
+										><code-icon icon="gear"></code-icon
+									></gl-button>
+									<gl-button
+										appearance="toolbar"
+										href="${createCommandLink<Source>('gitlens.plus.logout', {
+											source: 'account',
+										})}"
+										tooltip="Sign Out"
+										aria-label="Sign Out"
+										><code-icon icon="sign-out"></code-icon
+									></gl-button>`
+							: nothing
+					}
+				</span>
+			</div>
+			${this.renderAccountInfo()} ${this.renderAccountState()}`;
 	}
 
 	private renderAccountInfo() {
@@ -494,13 +466,13 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					<p class="details__subtitle">${this.accountEmail}</p></span
 				>
 			</span>
-			<span class="row">
-				<span class="row__media"><code-icon icon="organization" size="20"></code-icon></span>
-				<span class="details"><p class="details__title">${organization}</p></span>
-				${when(
-					orgCount > 1,
-					() =>
-						html`<div class="details__button">
+			${when(
+				orgCount > 1,
+				() =>
+					html`<span class="row">
+						<span class="row__media"><code-icon icon="organization" size="20"></code-icon></span>
+						<span class="details"><p class="details__title">${organization}</p></span>
+						<div class="details__button">
 							<gl-button
 								appearance="toolbar"
 								href="${createCommandLink<Source>('gitlens.gk.switchOrganization', {
@@ -521,9 +493,9 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 									})}</span
 								></gl-button
 							>
-						</div>`,
-				)}
-			</span>
+						</div>
+					</span>`,
+			)}
 			${when(
 				isSubscriptionTrialOrPaidFromState(this.subscription?.state ?? SubscriptionState.Community),
 				() =>
@@ -612,16 +584,6 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				const days = this.trialDaysRemaining;
 
 				return html`<div class="account-status">
-					${
-						this.isReactivatedTrial
-							? html`<p>
-									<code-icon icon="megaphone"></code-icon>
-									See
-									<a href="${urls.releaseNotes}">what's new</a>
-									in GitLens.
-								</p>`
-							: nothing
-					}
 					<p>
 						You have
 						<strong>${days < 1 ? '<1 day' : pluralize('day', days, { infix: ' more ' })} left</strong>
