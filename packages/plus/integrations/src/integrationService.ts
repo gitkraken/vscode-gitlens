@@ -16,6 +16,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { filterMap, flatten } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import { CloudIntegrationService } from './authentication/cloudIntegrationService.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
@@ -1031,6 +1032,32 @@ export class IntegrationService implements Disposable {
 		};
 	}
 
+	/**
+	 * The single builder for a provider-neutral, non-auth warning: an unsupported capability, a
+	 * contradictory/inexpressible request, or a read that couldn't confirm completeness. Every `kind: 'other'`
+	 * warning this service emits goes through here (directly, or via one of the named builders below that pin a
+	 * recurring message), so the discriminant is assigned in exactly one place.
+	 *
+	 * The kinds that carry a programmatic remedy — `auth`, `rate-limit`, `not-found`, `no-connection` — are
+	 * derived from the caught error's type instead and never come from here; see {@link ProviderWarningKind} and
+	 * {@link IntegrationService.noConnectionWarning}.
+	 */
+	private otherWarning(
+		id: IntegrationIds,
+		domain: string | undefined,
+		connectionId: string | undefined,
+		message: string,
+	): ProviderWarning {
+		return {
+			providerId: id,
+			domain: domain,
+			connectionId: connectionId,
+			message: message,
+			kind: 'other',
+			isAuth: false,
+		};
+	}
+
 	private isIssueProviderId(id: IntegrationIds): boolean {
 		switch (id) {
 			case IssuesCloudHostIntegrationId.Jira:
@@ -1048,14 +1075,12 @@ export class IntegrationService implements Disposable {
 		connectionId: string | undefined,
 		surface: string,
 	): ProviderWarning {
-		return {
-			providerId: id,
-			domain: domain,
-			connectionId: connectionId,
-			message: `${surface} is not supported by '${id}'; use a git-host integration instead.`,
-			kind: 'other',
-			isAuth: false,
-		};
+		return this.otherWarning(
+			id,
+			domain,
+			connectionId,
+			`${surface} is not supported by '${id}'; use a git-host integration instead.`,
+		);
 	}
 
 	private issueTrackerOnlySurfaceWarning(
@@ -1063,14 +1088,12 @@ export class IntegrationService implements Disposable {
 		connectionId: string | undefined,
 		surface: string,
 	): ProviderWarning {
-		return {
-			providerId: id,
-			domain: undefined,
-			connectionId: connectionId,
-			message: `${surface} is not supported by '${id}'; use an issue-tracker integration instead.`,
-			kind: 'other',
-			isAuth: false,
-		};
+		return this.otherWarning(
+			id,
+			undefined,
+			connectionId,
+			`${surface} is not supported by '${id}'; use an issue-tracker integration instead.`,
+		);
 	}
 
 	/**
@@ -1084,14 +1107,12 @@ export class IntegrationService implements Disposable {
 		connectionId: string | undefined,
 		readKind: 'Pull request' | 'Issue' | 'Repository',
 	): ProviderWarning {
-		return {
-			providerId: id,
-			domain: domain,
-			connectionId: connectionId,
-			message: `${readKind} read for '${id}' was truncated (a page backstop was reached); results may be incomplete.`,
-			kind: 'other',
-			isAuth: false,
-		};
+		return this.otherWarning(
+			id,
+			domain,
+			connectionId,
+			`${readKind} read for '${id}' was truncated (a page backstop was reached); results may be incomplete.`,
+		);
 	}
 
 	/**
@@ -1195,16 +1216,12 @@ export class IntegrationService implements Disposable {
 		filters: IssueFilter[],
 	): ProviderWarning {
 		const supported = providersMetadata[id]?.supportedAccountWideIssueFilters ?? [];
-		return {
-			providerId: id,
-			domain: domain,
-			connectionId: connectionId,
-			message: `The requested account-wide issue filters (${filters.join(', ')}) are not supported by '${id}'${
-				supported.length ? ` (supported: ${supported.join(', ')})` : ''
-			}; skipped to avoid returning a wider result than requested.`,
-			kind: 'other',
-			isAuth: false,
-		};
+		return this.otherWarning(
+			id,
+			domain,
+			connectionId,
+			`The requested account-wide issue filters (${filters.join(', ')}) are not supported by '${id}'${supported.length ? ` (supported: ${supported.join(', ')})` : ''}; skipped to avoid returning a wider result than requested.`,
+		);
 	}
 
 	/** Warning for an account-wide PR read whose requested relationship union cannot be expressed exactly. */
@@ -1215,16 +1232,12 @@ export class IntegrationService implements Disposable {
 		filters: PullRequestFilter[],
 	): ProviderWarning {
 		const supported = providersMetadata[id]?.supportedAccountWidePullRequestFilters ?? [];
-		return {
-			providerId: id,
-			domain: domain,
-			connectionId: connectionId,
-			message: `The requested account-wide pull request filters (${filters.join(', ')}) are not supported by '${id}'${
-				supported.length ? ` (supported: ${supported.join(', ')})` : ''
-			}; skipped to avoid returning a wider result than requested.`,
-			kind: 'other',
-			isAuth: false,
-		};
+		return this.otherWarning(
+			id,
+			domain,
+			connectionId,
+			`The requested account-wide pull request filters (${filters.join(', ')}) are not supported by '${id}'${supported.length ? ` (supported: ${supported.join(', ')})` : ''}; skipped to avoid returning a wider result than requested.`,
+		);
 	}
 
 	/** Warning for a repo-scoped PR read whose requested filters the provider supports none of. */
@@ -1233,14 +1246,12 @@ export class IntegrationService implements Disposable {
 		domain: string | undefined,
 		connectionId: string | undefined,
 	): ProviderWarning {
-		return {
-			providerId: id,
-			domain: domain,
-			connectionId: connectionId,
-			message: `The requested pull request filters are not supported by '${id}'; skipped to avoid returning unfiltered results.`,
-			kind: 'other',
-			isAuth: false,
-		};
+		return this.otherWarning(
+			id,
+			domain,
+			connectionId,
+			`The requested pull request filters are not supported by '${id}'; skipped to avoid returning unfiltered results.`,
+		);
 	}
 
 	/** Warning for a git host that doesn't expose issues on this surface (e.g. Bitbucket, deprecated in favor of Jira). */
@@ -1249,14 +1260,12 @@ export class IntegrationService implements Disposable {
 		domain: string | undefined,
 		connectionId: string | undefined,
 	): ProviderWarning {
-		return {
-			providerId: id,
-			domain: domain,
-			connectionId: connectionId,
-			message: `Issues are not supported by '${id}'; use a dedicated issue integration (e.g. Jira) instead.`,
-			kind: 'other',
-			isAuth: false,
-		};
+		return this.otherWarning(
+			id,
+			domain,
+			connectionId,
+			`Issues are not supported by '${id}'; use a dedicated issue integration (e.g. Jira) instead.`,
+		);
 	}
 
 	/**
@@ -1278,10 +1287,13 @@ export class IntegrationService implements Disposable {
 		return mode !== PagingMode.Repos;
 	}
 
-	/** Encodes a 1-based page number as the opaque cursor the provider paging layer understands. */
+	/**
+	 * Encodes a 1-based page number as the opaque cursor the provider paging layer understands, via the same
+	 * {@link toPageCursor} the providers encode with (its `parsePageCursor` counterpart is what reads these
+	 * back). Page 1 needs no cursor: it is the read's own starting position.
+	 */
 	private pageToCursor(page: number | undefined): string | undefined {
-		if (page == null || page <= 1) return undefined;
-		return JSON.stringify({ value: page, type: 'page' });
+		return page == null || page <= 1 ? undefined : toPageCursor(page);
 	}
 
 	/**
@@ -1398,6 +1410,124 @@ export class IntegrationService implements Disposable {
 		if (options.suppliedCursor != null) return parsePageCursor(options.suppliedCursor) ?? options.requestedPage;
 
 		return options.pageAdvanceable ? options.requestedPage : 1;
+	}
+
+	/**
+	 * The terminal page a paged read returns when it refuses the request outright — the surface doesn't apply
+	 * (an issue tracker asked for a repo read), the target couldn't be resolved, a capability is missing, or a
+	 * filter set isn't expressible server-side. Every one of those is "no page was served": empty `items`, no
+	 * continuation, and the reason carried in `warnings`.
+	 *
+	 * `currentPage` stays a caller-supplied parameter rather than being derived here because the refusals differ
+	 * on what position they can honestly claim: a read the provider advances by page number reports the
+	 * requested page, while a cursor-only account-wide read has no addressable position and reports 1 (see
+	 * {@link ProviderPageInfo.currentPage}).
+	 */
+	private refusedPage<T>(
+		currentPage: number,
+		warnings: ProviderWarning[],
+		fetchFailed: boolean,
+	): ProviderPagedResult<T> {
+		return {
+			items: [],
+			warnings: warnings,
+			page: { currentPage: currentPage, itemsPerPage: 0 },
+			hasMore: false,
+			fetchFailed: fetchFailed || undefined,
+		};
+	}
+
+	/**
+	 * Advances a cursor-only read to the requested page when the caller supplied only `page`.
+	 *
+	 * A cursor-only read accepts a synthesized page-number cursor and ignores it, answering with its first page,
+	 * so the requested page has to be reached by walking the provider's own opaque continuations. Only the last
+	 * successfully-read page's items are kept — returning pages 1..N as "page N" would duplicate items for a
+	 * normal paged consumer — while warnings and metadata are merged across the whole drained prefix.
+	 *
+	 * Shared by the repo-scoped and account-wide PR reads and the repo-scoped issue read so the three cannot
+	 * drift: a requested page past the provider's terminal cursor is an EMPTY page N on all of them, per
+	 * {@link ProviderPageInfo.currentPage}, never the last available page relabeled.
+	 */
+	private async drainToRequestedPage<T>(
+		state: {
+			items: T[];
+			paged: { page: ProviderPageInfo; hasMore: boolean; cursor?: string; truncated: boolean };
+			metadata: CollectionMetadata | undefined;
+			fetchFailed: boolean;
+		},
+		options: {
+			requestedPage: number;
+			itemsPerPage: number | undefined;
+			warnings: ProviderWarning[];
+			readPage: (cursor: string) => Promise<{
+				value?: (PagedResult<T> & { metadata?: CollectionMetadata }) | undefined;
+				warning?: ProviderWarning;
+			}>;
+		},
+	): Promise<typeof state> {
+		let { items, metadata, fetchFailed } = state;
+		let currentPage = 1;
+		let currentCursor = this.usableCursor(state.paged.hasMore ? state.paged.cursor : undefined);
+		let currentHasMore = state.paged.hasMore && currentCursor != null;
+		let currentTruncated = state.paged.truncated;
+		// A page requested past the terminal cursor is that empty page N. Distinguished from the first read
+		// having failed outright, which is already reported as page N with no items by the caller's own state.
+		const missRequestedPage = () => {
+			items = [];
+			currentPage = options.requestedPage;
+			currentCursor = undefined;
+			currentHasMore = false;
+		};
+
+		if (fetchFailed) {
+			missRequestedPage();
+		}
+
+		while (currentPage < options.requestedPage && currentHasMore && currentCursor != null) {
+			const { value, warning } = await options.readPage(currentCursor);
+			if (warning != null) {
+				appendDedupedWarning(options.warnings, warning);
+			}
+			if (value == null) {
+				fetchFailed = true;
+				missRequestedPage();
+				break;
+			}
+
+			items = value.values;
+			metadata = mergeCollectionMetadata(metadata, value.metadata);
+			const next = this.toProviderPageInfo(options.itemsPerPage ?? value.values.length, value.paging);
+			currentPage++;
+			currentTruncated ||= next.truncated;
+			const nextCursor = this.usableCursor(next.cursor);
+			// A provider that hands back the same cursor (or none) isn't advancing; stop rather than refetch
+			// the same page forever.
+			if (nextCursor == null || nextCursor === currentCursor) {
+				currentCursor = undefined;
+				currentHasMore = false;
+				break;
+			}
+
+			currentCursor = nextCursor;
+			currentHasMore = next.hasMore;
+		}
+
+		if (currentPage < options.requestedPage) {
+			missRequestedPage();
+		}
+
+		return {
+			items: items,
+			paged: {
+				page: { currentPage: currentPage, itemsPerPage: options.itemsPerPage ?? items.length },
+				hasMore: currentHasMore,
+				cursor: currentCursor,
+				truncated: currentTruncated,
+			},
+			metadata: metadata,
+			fetchFailed: fetchFailed,
+		};
 	}
 
 	private getBroadenIssuesCursor(
@@ -1744,14 +1874,9 @@ export class IntegrationService implements Disposable {
 				// explicitly unsupported rather than contributing a silent empty list that a caller can't
 				// tell apart from "this account has no orgs".
 				fetchFailed = true;
-				warnings.push({
-					providerId: id,
-					domain: domain,
-					connectionId: connectionId,
-					message: `Organization discovery is not supported by '${id}'.`,
-					kind: 'other',
-					isAuth: false,
-				});
+				warnings.push(
+					this.otherWarning(id, domain, connectionId, `Organization discovery is not supported by '${id}'.`),
+				);
 			} else {
 				const { value, warning } = await this.runCaptured(
 					id,
@@ -1763,14 +1888,14 @@ export class IntegrationService implements Disposable {
 				if (value != null) {
 					items.push(...value.values.map(org => this.withProviderContext(id, org)));
 					if (value.truncated) {
-						warnings.push({
-							providerId: id,
-							domain: domain,
-							connectionId: connectionId,
-							message: 'Organization listing was truncated before the upstream results were exhausted.',
-							kind: 'other',
-							isAuth: false,
-						});
+						warnings.push(
+							this.otherWarning(
+								id,
+								domain,
+								connectionId,
+								'Organization listing was truncated before the upstream results were exhausted.',
+							),
+						);
 						// `ProviderResult` has no page object on which to carry truncation. Mark the flat
 						// hierarchy result incomplete so consumers don't treat omitted orgs as authoritative.
 						fetchFailed = true;
@@ -1882,14 +2007,14 @@ export class IntegrationService implements Disposable {
 					items.push(...projects.values.map(project => this.withProviderContext(id, project)));
 
 					if (projects.truncated) {
-						warnings.push({
-							providerId: id,
-							domain: domain,
-							connectionId: connectionId,
-							message: 'Project listing was truncated before the upstream results were exhausted.',
-							kind: 'other',
-							isAuth: false,
-						});
+						warnings.push(
+							this.otherWarning(
+								id,
+								domain,
+								connectionId,
+								'Project listing was truncated before the upstream results were exhausted.',
+							),
+						);
 						// Unlike paged repository reads, this flattened hierarchy result has no continuation
 						// or page metadata. `fetchFailed` is its structural non-authoritative signal.
 						fetchFailed = true;
@@ -1993,9 +2118,9 @@ export class IntegrationService implements Disposable {
 	}): Promise<ProviderPagedResult<ProviderRepositoryShape>> {
 		const page = Math.max(1, options.page ?? 1);
 		if (this.isIssueProviderId(options.providerId)) {
-			return {
-				items: [],
-				warnings: [
+			return this.refusedPage(
+				page,
+				[
 					this.gitHostOnlySurfaceWarning(
 						options.providerId,
 						undefined,
@@ -2003,10 +2128,8 @@ export class IntegrationService implements Disposable {
 						'repository discovery',
 					),
 				],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+				true,
+			);
 		}
 
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
@@ -2014,18 +2137,12 @@ export class IntegrationService implements Disposable {
 			// A supplied connection or domain that no longer resolves is a broken target, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
 			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
-			return {
-				items: [],
-				warnings: early.warnings,
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: early.fetchFailed || undefined,
-			};
+			return this.refusedPage(page, early.warnings, early.fetchFailed);
 		}
 		if (!isGitHostIntegration(integration)) {
-			return {
-				items: [],
-				warnings: [
+			return this.refusedPage(
+				page,
+				[
 					this.gitHostOnlySurfaceWarning(
 						options.providerId,
 						undefined,
@@ -2033,10 +2150,8 @@ export class IntegrationService implements Disposable {
 						'repository discovery',
 					),
 				],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+				true,
+			);
 		}
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId, options.domain);
@@ -2050,24 +2165,20 @@ export class IntegrationService implements Disposable {
 			// Bitbucket/Azure, whose repos can only be walked per workspace/org). Report unsupported rather than
 			// a silent empty page indistinguishable from "no repos"; for the account-wide case the caller should
 			// fan out per org from listOrgs instead.
-			return {
-				items: [],
-				warnings: [
-					{
-						providerId: options.providerId,
-						domain: domain,
-						connectionId: options.connectionId,
-						message: accountWide
+			return this.refusedPage(
+				page,
+				[
+					this.otherWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						accountWide
 							? `Account-wide repository discovery is not supported by '${options.providerId}'; list repositories per org instead.`
 							: `Repository discovery is not supported by '${options.providerId}'.`,
-						kind: 'other',
-						isAuth: false,
-					},
+					),
 				],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+				true,
+			);
 		}
 
 		const org = options.org;
@@ -2239,9 +2350,9 @@ export class IntegrationService implements Disposable {
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		const page = Math.max(1, options.page ?? 1);
 		if (this.isIssueProviderId(options.providerId)) {
-			return {
-				items: [],
-				warnings: [
+			return this.refusedPage(
+				page,
+				[
 					this.gitHostOnlySurfaceWarning(
 						options.providerId,
 						undefined,
@@ -2249,10 +2360,8 @@ export class IntegrationService implements Disposable {
 						'pull request reads',
 					),
 				],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+				true,
+			);
 		}
 
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
@@ -2260,18 +2369,12 @@ export class IntegrationService implements Disposable {
 			// A supplied connection or domain that no longer resolves is a broken target, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
 			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
-			return {
-				items: [],
-				warnings: early.warnings,
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: early.fetchFailed || undefined,
-			};
+			return this.refusedPage(page, early.warnings, early.fetchFailed);
 		}
 		if (!isGitHostIntegration(integration)) {
-			return {
-				items: [],
-				warnings: [
+			return this.refusedPage(
+				page,
+				[
 					this.gitHostOnlySurfaceWarning(
 						options.providerId,
 						undefined,
@@ -2279,10 +2382,8 @@ export class IntegrationService implements Disposable {
 						'pull request reads',
 					),
 				],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+				true,
+			);
 		}
 
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
@@ -2300,9 +2401,9 @@ export class IntegrationService implements Disposable {
 			? this.resolveAccountWidePullRequestFilters(options.providerId, options.filters)
 			: this.resolvePullRequestFilters(options.providerId, options.filters);
 		if (resolvedFilters.unsupported) {
-			return {
-				items: [],
-				warnings: [
+			return this.refusedPage(
+				page,
+				[
 					accountWide
 						? this.unsupportedAccountWidePullRequestFiltersWarning(
 								options.providerId,
@@ -2312,10 +2413,8 @@ export class IntegrationService implements Disposable {
 							)
 						: this.unsupportedFiltersWarning(options.providerId, domain, options.connectionId),
 				],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+				true,
+			);
 		}
 
 		const includeReviewRequested = accountWide ? (options.includeReviewRequested ?? false) : false;
@@ -2365,11 +2464,8 @@ export class IntegrationService implements Disposable {
 		const warnings = warning != null ? [warning] : [];
 		let pageFetchFailed = warning != null && value == null;
 
-		// Cursor-only reads ignore a synthesized page-number cursor. When the caller explicitly asks for page N
-		// without supplying a continuation cursor, drain through the opaque cursors so the returned `currentPage`
-		// actually reflects N instead of misreporting page 1. Keep only the last successfully-read page's items
-		// while still merging warnings/metadata across the drained prefix; returning pages 1..N as "page N" would
-		// duplicate items for normal paged consumers.
+		// Cursor-only reads ignore a synthesized page-number cursor, so a page-only request is advanced through
+		// the provider's own continuations (see drainToRequestedPage).
 		if (
 			(accountWide || providersMetadata[options.providerId]?.pullRequestsPagingMode === PagingMode.Repos) &&
 			options.page != null &&
@@ -2377,93 +2473,52 @@ export class IntegrationService implements Disposable {
 			options.cursor == null &&
 			paged.page.currentPage === 1
 		) {
-			let currentCursor: string | undefined = paged.hasMore ? paged.cursor : undefined;
-			let currentPage = 1;
-			let currentHasMore: boolean = paged.hasMore && currentCursor != null && currentCursor !== '{}';
-			let currentTruncated: boolean = paged.truncated;
-			if (pageFetchFailed) {
-				items = [];
-				currentPage = page;
-				currentCursor = undefined;
-				currentHasMore = false;
-			}
-			const fetchNext = (cursor: string) =>
-				this.runCaptured(
-					options.providerId,
-					domain,
-					options.connectionId,
-					() =>
-						accountWide
-							? integration.getMyPullRequestsForUserResult(
-									{
-										state: options.states,
-										cursor: cursor,
-										includeReviewRequested: includeReviewRequested,
-										filters: resolvedFilters.filters,
-										summary: true,
-									},
-									options.connectionId,
-								)
-							: integration.getMyPullRequestsForReposResult(
-									options.repos ?? [],
-									{
-										state: options.states,
-										filters: resolvedFilters.filters,
-										cursor: cursor,
-										pageSize: options.itemsPerPage,
-									},
-									options.connectionId,
+			const drained = await this.drainToRequestedPage(
+				{ items: items, paged: paged, metadata: allMetadata, fetchFailed: pageFetchFailed },
+				{
+					requestedPage: options.page,
+					itemsPerPage: options.itemsPerPage,
+					warnings: warnings,
+					readPage: (cursor: string) =>
+						this.runCaptured(
+							options.providerId,
+							domain,
+							options.connectionId,
+							() =>
+								accountWide
+									? integration.getMyPullRequestsForUserResult(
+											{
+												state: options.states,
+												cursor: cursor,
+												includeReviewRequested: includeReviewRequested,
+												filters: resolvedFilters.filters,
+												summary: true,
+											},
+											options.connectionId,
+										)
+									: integration.getMyPullRequestsForReposResult(
+											options.repos ?? [],
+											{
+												state: options.states,
+												filters: resolvedFilters.filters,
+												cursor: cursor,
+												pageSize: options.itemsPerPage,
+											},
+											options.connectionId,
+										),
+							{
+								warnOnMissingSession: this.warnOnMissingSessionForDomain(
+									options.providerId,
+									options.domain,
 								),
-					{ warnOnMissingSession: this.warnOnMissingSessionForDomain(options.providerId, options.domain) },
-				);
-			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
-				const { value: nextValue, warning: nextWarning } = await fetchNext(currentCursor);
-				if (nextWarning != null) {
-					warnings.push(nextWarning);
-				}
-
-				if (nextValue == null) {
-					pageFetchFailed = true;
-					items = [];
-					currentPage = page;
-					currentCursor = undefined;
-					currentHasMore = false;
-					break;
-				}
-
-				const nextItems = nextValue.values;
-				items = nextItems;
-				allMetadata = mergeCollectionMetadata(allMetadata, nextValue.metadata);
-				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? nextItems.length, nextValue.paging);
-				currentPage++;
-				currentTruncated = currentTruncated || nextPaged.truncated;
-				const nextCursor = nextPaged.cursor;
-				if (nextCursor == null || nextCursor === currentCursor || nextCursor === '{}') {
-					// Provider didn't advance the cursor; stop to avoid an infinite loop.
-					currentCursor = undefined;
-					currentHasMore = false;
-					break;
-				}
-
-				currentCursor = nextCursor;
-				currentHasMore = nextPaged.hasMore;
-			}
-
-			if (currentPage < options.page) {
-				// The requested page is beyond the terminal cursor. Returning the last available page would
-				// duplicate data and misrepresent it as page N.
-				items = [];
-				currentPage = page;
-				currentCursor = undefined;
-				currentHasMore = false;
-			}
-
-			paged = {
-				page: { currentPage: currentPage, itemsPerPage: options.itemsPerPage ?? items.length },
-				hasMore: currentHasMore,
-				cursor: currentCursor,
-				truncated: currentTruncated,
-			};
+							},
+						),
+				},
+			);
+			items = drained.items;
+			paged = drained.paged;
+			allMetadata = drained.metadata;
+			pageFetchFailed = drained.fetchFailed;
 		}
 
 		const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
@@ -2558,9 +2613,9 @@ export class IntegrationService implements Disposable {
 	}): Promise<ProviderPagedResult<IssueShape>> {
 		const page = Math.max(1, options.page ?? 1);
 		if (this.isIssueProviderId(options.providerId)) {
-			return {
-				items: [],
-				warnings: [
+			return this.refusedPage(
+				page,
+				[
 					this.gitHostOnlySurfaceWarning(
 						options.providerId,
 						undefined,
@@ -2568,10 +2623,8 @@ export class IntegrationService implements Disposable {
 						'repository issue reads',
 					),
 				],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+				true,
+			);
 		}
 
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId, options.domain);
@@ -2579,18 +2632,12 @@ export class IntegrationService implements Disposable {
 			// A supplied connection or domain that no longer resolves is a broken target, not an empty account —
 			// surface a no-connection warning + fetchFailed rather than a silent empty page.
 			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId, options.domain);
-			return {
-				items: [],
-				warnings: early.warnings,
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: early.fetchFailed || undefined,
-			};
+			return this.refusedPage(page, early.warnings, early.fetchFailed);
 		}
 		if (!isGitHostIntegration(integration)) {
-			return {
-				items: [],
-				warnings: [
+			return this.refusedPage(
+				page,
+				[
 					this.gitHostOnlySurfaceWarning(
 						options.providerId,
 						undefined,
@@ -2598,10 +2645,8 @@ export class IntegrationService implements Disposable {
 						'repository issue reads',
 					),
 				],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+				true,
+			);
 		}
 
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
@@ -2612,40 +2657,33 @@ export class IntegrationService implements Disposable {
 		// A git host whose issue tracker is deprecated (Bitbucket, superseded by dedicated issue integrations)
 		// reports issues as explicitly unsupported rather than serving a partial/legacy source or a silent empty.
 		if (!integration.supportsIssues) {
-			return {
-				items: [],
-				warnings: [this.issuesUnsupportedWarning(options.providerId, domain, options.connectionId)],
-				page: { currentPage: page, itemsPerPage: 0 },
-				hasMore: false,
-				fetchFailed: true,
-			};
+			return this.refusedPage(
+				page,
+				[this.issuesUnsupportedWarning(options.providerId, domain, options.connectionId)],
+				true,
+			);
 		}
 
 		const accountWide = (options.repos?.length ?? 0) === 0;
 
 		if (accountWide) {
+			// The account-wide read is cursor-only, so a refusal can't claim the requested position — it reports
+			// page 1, per ProviderPageInfo.currentPage.
+			const refused = (warning: ProviderWarning) => this.refusedPage<IssueShape>(1, [warning], true);
+
 			// Checked before the provider-specific guards below: a caller passing both has a contradictory request
 			// whatever the provider, and saying so is more useful than reporting one half of it as unsupported.
 			// `filters` narrows this read to a relationship (`[Assignee]` ⇒ just assigned-to-me); `includeAllAssignees`
 			// broadens it to every assignee. Honoring either silently would answer a question the caller didn't ask.
 			if (options.filters?.length && options.includeAllAssignees === true) {
-				return {
-					items: [],
-					warnings: [
-						{
-							providerId: options.providerId,
-							domain: domain,
-							connectionId: options.connectionId,
-							message:
-								'`filters` and `includeAllAssignees` are contradictory for an account-wide issue read; pass only one.',
-							kind: 'other',
-							isAuth: false,
-						},
-					],
-					page: { currentPage: 1, itemsPerPage: 0 },
-					hasMore: false,
-					fetchFailed: true,
-				};
+				return refused(
+					this.otherWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						'`filters` and `includeAllAssignees` are contradictory for an account-wide issue read; pass only one.',
+					),
+				);
 			}
 
 			if (
@@ -2653,23 +2691,14 @@ export class IntegrationService implements Disposable {
 				(options.providerId === GitCloudHostIntegrationId.GitHub ||
 					options.providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise)
 			) {
-				return {
-					items: [],
-					warnings: [
-						{
-							providerId: options.providerId,
-							domain: domain,
-							connectionId: options.connectionId,
-							message:
-								'`includeAllAssignees` is not supported for account-wide GitHub issue reads; scope the read to repositories instead.',
-							kind: 'other',
-							isAuth: false,
-						},
-					],
-					page: { currentPage: 1, itemsPerPage: 0 },
-					hasMore: false,
-					fetchFailed: true,
-				};
+				return refused(
+					this.otherWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						'`includeAllAssignees` is not supported for account-wide GitHub issue reads; scope the read to repositories instead.',
+					),
+				);
 			}
 
 			// Only a host with a project layer can narrow server-side. Reject the request rather than serving an
@@ -2677,22 +2706,14 @@ export class IntegrationService implements Disposable {
 			// which desynchronizes the filtered `items` from this read's `hasMore`/`currentPage` and shows
 			// "no issues" for a page that simply held none of the requested project's.
 			if ((options.org != null || options.project != null) && !integration.supportsProjectDiscovery) {
-				return {
-					items: [],
-					warnings: [
-						{
-							providerId: options.providerId,
-							domain: domain,
-							connectionId: options.connectionId,
-							message: `Project-scoped issue reads are not supported by '${options.providerId}'; scope the read to repositories instead.`,
-							kind: 'other',
-							isAuth: false,
-						},
-					],
-					page: { currentPage: 1, itemsPerPage: 0 },
-					hasMore: false,
-					fetchFailed: true,
-				};
+				return refused(
+					this.otherWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						`Project-scoped issue reads are not supported by '${options.providerId}'; scope the read to repositories instead.`,
+					),
+				);
 			}
 
 			// Narrowing the account-wide read is only honest when the provider can express it server-side: its
@@ -2700,20 +2721,14 @@ export class IntegrationService implements Disposable {
 			// leave `items` describing a different result set than `hasMore`/`currentPage`.
 			const resolvedIssueFilters = this.resolveAccountWideIssueFilters(options.providerId, options.filters);
 			if (resolvedIssueFilters.unsupported) {
-				return {
-					items: [],
-					warnings: [
-						this.unsupportedAccountWideIssueFiltersWarning(
-							options.providerId,
-							domain,
-							options.connectionId,
-							options.filters!,
-						),
-					],
-					page: { currentPage: 1, itemsPerPage: 0 },
-					hasMore: false,
-					fetchFailed: true,
-				};
+				return refused(
+					this.unsupportedAccountWideIssueFiltersWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						options.filters!,
+					),
+				);
 			}
 
 			// The repo-scoped core rejects empty repos (GitHub/Bitbucket/Azure); read the account-wide,
@@ -2786,22 +2801,14 @@ export class IntegrationService implements Disposable {
 			// with no error. Surface that as an explicit unsupported warning + fetchFailed rather than a silent
 			// empty success — the caller must fall back (e.g. broadenIssues over repos).
 			if (value == null && warnings.length === 0) {
-				return {
-					items: [],
-					warnings: [
-						{
-							providerId: options.providerId,
-							domain: domain,
-							connectionId: options.connectionId,
-							message: `Account-wide issue search is not supported by '${options.providerId}'; scope the read to repositories instead.`,
-							kind: 'other',
-							isAuth: false,
-						},
-					],
-					page: { currentPage: 1, itemsPerPage: 0 },
-					hasMore: false,
-					fetchFailed: true,
-				};
+				return refused(
+					this.otherWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						`Account-wide issue search is not supported by '${options.providerId}'; scope the read to repositories instead.`,
+					),
+				);
 			}
 
 			const items = requestedPageMissing ? [] : (value?.values ?? []);
@@ -2832,14 +2839,14 @@ export class IntegrationService implements Disposable {
 			);
 			const truncated = continuation.truncated || assessment.truncated;
 			if (truncated && warnings.length === 0) {
-				warnings.push({
-					providerId: options.providerId,
-					domain: domain,
-					connectionId: options.connectionId,
-					message: `Account-wide issue search for '${options.providerId}' was truncated; results may be incomplete.`,
-					kind: 'other',
-					isAuth: false,
-				});
+				warnings.push(
+					this.otherWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						`Account-wide issue search for '${options.providerId}' was truncated; results may be incomplete.`,
+					),
+				);
 			}
 			return {
 				items: items,
@@ -2896,11 +2903,8 @@ export class IntegrationService implements Disposable {
 		let paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
 		let allMetadata = value?.metadata;
 
-		// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor. When the caller
-		// explicitly asks for page N without supplying a continuation cursor, drain through the opaque cursors so
-		// the returned `currentPage` actually reflects N instead of misreporting page 1. Keep only the last
-		// successfully-read page's items while still merging warnings/metadata across the drained prefix; returning
-		// pages 1..N as "page N" would duplicate items for normal paged consumers.
+		// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor, so a page-only
+		// request is advanced through the provider's own continuations (see drainToRequestedPage).
 		if (
 			providersMetadata[options.providerId]?.issuesPagingMode === PagingMode.Repos &&
 			options.page != null &&
@@ -2908,81 +2912,36 @@ export class IntegrationService implements Disposable {
 			options.cursor == null &&
 			paged.page.currentPage === 1
 		) {
-			let currentCursor: string | undefined = paged.hasMore ? paged.cursor : undefined;
-			let currentPage = 1;
-			let currentHasMore: boolean = paged.hasMore && currentCursor != null && currentCursor !== '{}';
-			let currentTruncated: boolean = paged.truncated;
-			let drainedCursorInternally = false;
-			if (pageFetchFailed) {
-				items = [];
-				currentPage = page;
-				currentCursor = undefined;
-				currentHasMore = false;
-			}
-			const fetchNext = (cursor: string) =>
-				this.runCaptured(
-					options.providerId,
-					domain,
-					options.connectionId,
-					() =>
-						integration.getMyIssuesForReposAsShapesResult(
-							options.repos ?? [],
-							{
-								filters: options.filters,
-								includeAllAssignees: options.includeAllAssignees,
-								cursor: cursor,
-								pageSize: options.itemsPerPage,
-							},
+			const drained = await this.drainToRequestedPage(
+				{ items: items, paged: paged, metadata: allMetadata, fetchFailed: pageFetchFailed },
+				{
+					requestedPage: options.page,
+					itemsPerPage: options.itemsPerPage,
+					warnings: warnings,
+					readPage: (cursor: string) =>
+						this.runCaptured(
+							options.providerId,
+							domain,
 							options.connectionId,
+							() =>
+								integration.getMyIssuesForReposAsShapesResult(
+									options.repos ?? [],
+									{
+										filters: options.filters,
+										includeAllAssignees: options.includeAllAssignees,
+										cursor: cursor,
+										pageSize: options.itemsPerPage,
+									},
+									options.connectionId,
+								),
+							{ warnOnMissingSession: warnOnMissingSession },
 						),
-					{ warnOnMissingSession: warnOnMissingSession },
-				);
-			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
-				drainedCursorInternally = true;
-				const { value: nextValue, warning: nextWarning } = await fetchNext(currentCursor);
-				if (nextWarning != null) {
-					warnings.push(nextWarning);
-				}
-
-				if (nextValue == null) {
-					pageFetchFailed = true;
-					items = [];
-					currentPage = page;
-					currentCursor = undefined;
-					currentHasMore = false;
-					break;
-				}
-
-				const nextItems = nextValue.values;
-				items = nextItems;
-				allMetadata = mergeCollectionMetadata(allMetadata, nextValue.metadata);
-				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? nextItems.length, nextValue.paging);
-				currentPage++;
-				currentTruncated = currentTruncated || nextPaged.truncated;
-				const nextCursor = nextPaged.cursor;
-				if (nextCursor == null || nextCursor === currentCursor || nextCursor === '{}') {
-					currentCursor = undefined;
-					currentHasMore = false;
-					break;
-				}
-
-				currentCursor = nextCursor;
-				currentHasMore = nextPaged.hasMore;
-			}
-
-			if (drainedCursorInternally && currentPage < options.page) {
-				items = [];
-				currentPage = page;
-				currentCursor = undefined;
-				currentHasMore = false;
-			}
-
-			paged = {
-				page: { currentPage: currentPage, itemsPerPage: options.itemsPerPage ?? items.length },
-				hasMore: currentHasMore,
-				cursor: currentCursor,
-				truncated: currentTruncated,
-			};
+				},
+			);
+			items = drained.items;
+			paged = drained.paged;
+			allMetadata = drained.metadata;
+			pageFetchFailed = drained.fetchFailed;
 		}
 
 		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
@@ -3228,14 +3187,14 @@ export class IntegrationService implements Disposable {
 			const supported = providersMetadata[options.providerId]?.supportedIssueFilters;
 			const allSupported = supported != null && options.filters.every(f => supported.includes(f));
 			if (!allSupported) {
-				warnings.push({
-					providerId: options.providerId,
-					domain: domain,
-					connectionId: options.connectionId,
-					message: `One or more requested issue filters are not supported by '${options.providerId}'.`,
-					kind: 'other',
-					isAuth: false,
-				});
+				warnings.push(
+					this.otherWarning(
+						options.providerId,
+						domain,
+						options.connectionId,
+						`One or more requested issue filters are not supported by '${options.providerId}'.`,
+					),
+				);
 				return emptyPage(true);
 			}
 		}
@@ -3245,14 +3204,14 @@ export class IntegrationService implements Disposable {
 		// an unscoped project fetch and returns EVERY issue instead of the requested author's/mentions. Reject
 		// the incompatible combination up front rather than publishing a differently-scoped set as the result.
 		if (options.includeAllAssignees === true && options.filters?.some(f => f !== IssueFilter.Assignee)) {
-			warnings.push({
-				providerId: options.providerId,
-				domain: domain,
-				connectionId: options.connectionId,
-				message: `\`includeAllAssignees\` cannot be combined with an author/mention filter for '${options.providerId}' (those filters require a user scope).`,
-				kind: 'other',
-				isAuth: false,
-			});
+			warnings.push(
+				this.otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					`\`includeAllAssignees\` cannot be combined with an author/mention filter for '${options.providerId}' (those filters require a user scope).`,
+				),
+			);
 			return emptyPage(true);
 		}
 
@@ -3291,14 +3250,13 @@ export class IntegrationService implements Disposable {
 				}
 
 				warnings.push(
-					accountWarning ?? {
-						providerId: options.providerId,
-						domain: domain,
-						connectionId: options.connectionId,
-						message: `Could not resolve the current user for '${labelForResource(resource)}'; skipping that resource to avoid returning issues assigned to others.`,
-						kind: 'other',
-						isAuth: false,
-					},
+					accountWarning ??
+						this.otherWarning(
+							options.providerId,
+							domain,
+							options.connectionId,
+							`Could not resolve the current user for '${labelForResource(resource)}'; skipping that resource to avoid returning issues assigned to others.`,
+						),
 				);
 				accountLookupFailed = true;
 			}
@@ -3482,14 +3440,14 @@ export class IntegrationService implements Disposable {
 		// cap) sets `truncated` without a structured failure. Add one provider-neutral incompleteness warning so
 		// the caller sees the truncation, but only when no warning already explains it (avoid duplicate noise).
 		if (projectTruncated && warnings.length === 0) {
-			warnings.push({
-				providerId: options.providerId,
-				domain: domain,
-				connectionId: options.connectionId,
-				message: 'Some issues were omitted; the provider returned an incomplete result.',
-				kind: 'other',
-				isAuth: false,
-			});
+			warnings.push(
+				this.otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					'Some issues were omitted; the provider returned an incomplete result.',
+				),
+			);
 		}
 
 		const retryPages = retryWindowPages();
@@ -4080,28 +4038,32 @@ export class IntegrationService implements Disposable {
 			const connectionId = org.connectionId;
 			const requestedDomain = org.domain;
 			const cursorDomain = hostFromDomain(requestedDomain) ?? requestedDomain;
+			// An org slice that yielded no issues and has nothing to continue: the org's identity (which the
+			// aggregation below keys the per-org cursor bundle by) plus why it produced nothing. `exhausted` marks
+			// an org a prior round already drained, so it stays skipped rather than being re-read from page 1.
+			const barrenSlice = (
+				warnings: ProviderWarning[],
+				flags?: { exhausted?: boolean; fetchFailed?: boolean; truncated?: boolean },
+			) => ({
+				items: [] as IssueShape[],
+				warnings: warnings,
+				broadenedProviderIds: [] as IntegrationIds[],
+				providerId: org.providerId,
+				org: org.name,
+				connectionId: connectionId,
+				domain: cursorDomain,
+				nextCursor: undefined as string | undefined,
+				hasMore: false,
+				exhausted: flags?.exhausted ?? false,
+				fetchFailed: flags?.fetchFailed ?? false,
+				truncated: flags?.truncated ?? false,
+			});
+
 			if (this.isIssueProviderId(org.providerId)) {
-				return {
-					items: [] as IssueShape[],
-					warnings: [
-						this.gitHostOnlySurfaceWarning(
-							org.providerId,
-							requestedDomain,
-							connectionId,
-							'issue broadening',
-						),
-					],
-					broadenedProviderIds: [] as IntegrationIds[],
-					providerId: org.providerId,
-					org: org.name,
-					connectionId: connectionId,
-					domain: cursorDomain,
-					nextCursor: undefined,
-					hasMore: false,
-					exhausted: false,
-					fetchFailed: true,
-					truncated: false,
-				};
+				return barrenSlice(
+					[this.gitHostOnlySurfaceWarning(org.providerId, requestedDomain, connectionId, 'issue broadening')],
+					{ fetchFailed: true },
+				);
 			}
 
 			const integration = await this.getIntegrationForRead(org.providerId, connectionId, requestedDomain);
@@ -4109,71 +4071,32 @@ export class IntegrationService implements Disposable {
 				// A requested connection or domain that can't be resolved is a broken target — surface it as a
 				// warning + fetchFailed rather than dropping the org silently.
 				const early = this.earlyReturnConnectionWarnings(org.providerId, connectionId, requestedDomain);
-				const warnings =
+				return barrenSlice(
 					early.warnings.length > 0
 						? early.warnings
-						: [this.noConnectionWarning(org.providerId, requestedDomain, connectionId)];
-				return {
-					items: [] as IssueShape[],
-					warnings: warnings,
-					broadenedProviderIds: [] as IntegrationIds[],
-					providerId: org.providerId,
-					org: org.name,
-					connectionId: connectionId,
-					domain: cursorDomain,
-					nextCursor: undefined,
-					hasMore: false,
-					exhausted: false,
-					fetchFailed: true,
-					truncated: false,
-				};
+						: [this.noConnectionWarning(org.providerId, requestedDomain, connectionId)],
+					{ fetchFailed: true },
+				);
 			}
 			if (!isGitHostIntegration(integration)) {
-				return {
-					items: [] as IssueShape[],
-					warnings: [
-						this.gitHostOnlySurfaceWarning(
-							org.providerId,
-							requestedDomain,
-							connectionId,
-							'issue broadening',
-						),
-					],
-					broadenedProviderIds: [] as IntegrationIds[],
-					providerId: org.providerId,
-					org: org.name,
-					connectionId: connectionId,
-					domain: cursorDomain,
-					nextCursor: undefined,
-					hasMore: false,
-					exhausted: false,
-					fetchFailed: true,
-					truncated: false,
-				};
+				return barrenSlice(
+					[this.gitHostOnlySurfaceWarning(org.providerId, requestedDomain, connectionId, 'issue broadening')],
+					{ fetchFailed: true },
+				);
 			}
 			// A git host whose issue tracker is deprecated (Bitbucket) exposes no issues here — surface a
 			// warning + fetchFailed and skip it (no repo drain), so broadening never serves a legacy source.
 			if (!integration.supportsIssues) {
-				return {
-					items: [] as IssueShape[],
-					warnings: [
+				return barrenSlice(
+					[
 						this.issuesUnsupportedWarning(
 							org.providerId,
 							this.domainForRead(integration, org.providerId, connectionId, requestedDomain),
 							connectionId,
 						),
 					],
-					broadenedProviderIds: [] as IntegrationIds[],
-					providerId: org.providerId,
-					org: org.name,
-					connectionId: connectionId,
-					domain: cursorDomain,
-					nextCursor: undefined,
-					hasMore: false,
-					exhausted: false,
-					fetchFailed: true,
-					truncated: false,
-				};
+					{ fetchFailed: true },
+				);
 			}
 
 			// An org a prior round already drained must not be re-read: cursor-only providers would answer a
@@ -4181,20 +4104,7 @@ export class IntegrationService implements Disposable {
 			// before any work (including the repo drain) and keep it marked exhausted so it stays skipped
 			// for the rest of the fan-out.
 			if (this.isBroadenIssuesOrgExhausted(options.cursor, org, options.orgs.length)) {
-				return {
-					items: [],
-					warnings: [] as ProviderWarning[],
-					broadenedProviderIds: [] as IntegrationIds[],
-					providerId: org.providerId,
-					org: org.name,
-					connectionId: connectionId,
-					domain: cursorDomain,
-					nextCursor: undefined,
-					hasMore: false,
-					exhausted: true,
-					fetchFailed: false,
-					truncated: false,
-				};
+				return barrenSlice([], { exhausted: true });
 			}
 
 			await this.forceRefreshIfRequested(integration, options.forceSync, connectionId);
@@ -4215,20 +4125,7 @@ export class IntegrationService implements Disposable {
 
 			const repos: ProviderReposInput = reposDrain.repos.map(r => ({ ...r }));
 			if (repos.length === 0) {
-				return {
-					items: [],
-					warnings: warnings,
-					broadenedProviderIds: [] as IntegrationIds[],
-					providerId: org.providerId,
-					org: org.name,
-					connectionId: connectionId,
-					domain: cursorDomain,
-					nextCursor: undefined,
-					hasMore: false,
-					exhausted: false,
-					fetchFailed: fetchFailed,
-					truncated: truncated,
-				};
+				return barrenSlice(warnings, { fetchFailed: fetchFailed, truncated: truncated });
 			}
 
 			// Broaden = "all visible": drop the assigned-to-me filter so unassigned issues are included.
@@ -4290,14 +4187,15 @@ export class IntegrationService implements Disposable {
 				if (cursor != null) {
 					nextCursor = cursor;
 					if (issuesCaptured.warning == null) {
-						appendDedupedWarning(warnings, {
-							providerId: org.providerId,
-							domain: domain,
-							connectionId: connectionId,
-							message: 'Issue continuation returned no result and must be retried',
-							kind: 'other',
-							isAuth: false,
-						});
+						appendDedupedWarning(
+							warnings,
+							this.otherWarning(
+								org.providerId,
+								domain,
+								connectionId,
+								'Issue continuation returned no result and must be retried',
+							),
+						);
 						issuesFetchFailed = true;
 						issuesTruncated = true;
 					}
