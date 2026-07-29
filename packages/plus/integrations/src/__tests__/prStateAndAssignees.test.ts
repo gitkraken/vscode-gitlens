@@ -3,9 +3,10 @@ import { GitPullRequestState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import { BitbucketServerIntegration } from '../providers/bitbucket-server.js';
 import type { ProviderIssue, ProviderPullRequest } from '../providers/models.js';
 import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -300,6 +301,161 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		assert.equal(result?.values.length, 1, 'the account-wide PRs are returned rather than an empty result');
 
 		manager.dispose();
+	});
+
+	test('GitHub forwards the aggregate summary hint to each state search', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+
+		const seen: Array<{ state?: string; summary?: boolean }> = [];
+		githubApi.searchMyPullRequestsPage = (
+			_provider: unknown,
+			_token: unknown,
+			options?: { state?: string; summary?: boolean },
+		) => {
+			seen.push(options ?? {});
+			return Promise.resolve({ values: [], hasMore: false, truncated: false });
+		};
+
+		await (
+			gh as unknown as {
+				getProviderMyPullRequestsForUser: (
+					session: ProviderAuthenticationSession,
+					options: { state: ('closed' | 'merged')[]; summary: boolean },
+				) => Promise<PagedResult<ProviderPullRequest> | undefined>;
+			}
+		).getProviderMyPullRequestsForUser(primarySession('t'), {
+			state: ['closed', 'merged'],
+			summary: true,
+		});
+
+		assert.deepEqual(seen, [
+			{ baseUrl: undefined, state: 'closed', cursor: undefined, summary: true },
+			{ baseUrl: undefined, state: 'merged', cursor: undefined, summary: true },
+		]);
+
+		manager.dispose();
+	});
+
+	test('GitHub account-wide filters use exact relationship facets and resume only active facets', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+
+		const seen: Array<{ search?: string; cursor?: string; includeDefaultInvolvement?: boolean }> = [];
+		githubApi.searchMyPullRequestsPage = (
+			_provider: unknown,
+			_token: unknown,
+			options?: { search?: string; cursor?: string; includeDefaultInvolvement?: boolean },
+		) => {
+			seen.push(options ?? {});
+			const authorFacet = options?.search === 'author:@me';
+			return Promise.resolve({
+				values: [],
+				hasMore: authorFacet,
+				cursor: authorFacet ? 'author-next' : undefined,
+				truncated: false,
+			});
+		};
+
+		const first = await (
+			gh as unknown as {
+				getProviderMyPullRequestsForUser: (
+					session: ProviderAuthenticationSession,
+					options: {
+						state: ['open'];
+						filters: PullRequestFilter[];
+						cursor?: string;
+					},
+				) => Promise<PagedResult<ProviderPullRequest> | undefined>;
+			}
+		).getProviderMyPullRequestsForUser(primarySession('t'), {
+			state: ['open'],
+			filters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+		});
+
+		assert.deepEqual(
+			seen.map(call => ({
+				search: call.search,
+				cursor: call.cursor,
+				includeDefaultInvolvement: call.includeDefaultInvolvement,
+			})),
+			[
+				{ search: 'author:@me', cursor: undefined, includeDefaultInvolvement: false },
+				{ search: 'review-requested:@me', cursor: undefined, includeDefaultInvolvement: false },
+			],
+		);
+		assert.equal(first?.paging?.more, true);
+
+		seen.length = 0;
+		await (
+			gh as unknown as {
+				getProviderMyPullRequestsForUser: (
+					session: ProviderAuthenticationSession,
+					options: {
+						state: ['open'];
+						filters: PullRequestFilter[];
+						cursor?: string;
+					},
+				) => Promise<PagedResult<ProviderPullRequest> | undefined>;
+			}
+		).getProviderMyPullRequestsForUser(primarySession('t'), {
+			state: ['open'],
+			filters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+			cursor: first?.paging?.cursor,
+		});
+
+		assert.deepEqual(
+			seen.map(call => ({ search: call.search, cursor: call.cursor })),
+			[{ search: 'author:@me', cursor: 'author-next' }],
+			'an exhausted relationship facet is not restarted on the next page',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket Data Center refuses filtered PRs when the current account cannot be resolved', async () => {
+		const integration = Object.create(BitbucketServerIntegration.prototype) as Record<string, unknown>;
+		Object.assign(integration, {
+			id: GitSelfManagedHostIntegrationId.BitbucketServer,
+			_domain: 'bitbucket.example.com',
+			_session: primarySession('t'),
+			getProvidersApi: () =>
+				Promise.resolve({
+					getBitbucketServerPullRequestsForCurrentUser: () => Promise.resolve({ data: [], hasMore: false }),
+				}),
+			getProviderCurrentAccount: () => Promise.resolve(undefined),
+		});
+
+		await assert.rejects(
+			() =>
+				(
+					integration as unknown as {
+						getProviderMyPullRequestsForUser: (
+							session: ProviderAuthenticationSession,
+							options: { filters: PullRequestFilter[] },
+						) => Promise<PagedResult<ProviderPullRequest> | undefined>;
+					}
+				).getProviderMyPullRequestsForUser(primarySession('t'), {
+					filters: [PullRequestFilter.Author],
+				}),
+			/current Bitbucket Data Center account/,
+		);
 	});
 
 	test('without includeAllAssignees the assignee filter is applied', async () => {
