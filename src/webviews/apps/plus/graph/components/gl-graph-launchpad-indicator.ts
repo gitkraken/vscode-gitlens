@@ -19,7 +19,7 @@ declare global {
 	}
 }
 
-type CountGroup = { total: number; icon: string; cls: string; label: string };
+type CountGroup = { total: number; label: string };
 
 /**
  * Graph header Launchpad presence — replaces the old rocket + Home buttons. Always leads with the
@@ -40,31 +40,33 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 				display: inline-flex;
 			}
 
-			.counts {
-				display: inline-flex;
-				gap: var(--gl-space-6);
-				align-items: center;
+			/* Layout-transparent stack: the rocket and the severity dot share one grid cell so the dot never shifts the pill. */
+			.rocket {
+				display: inline-grid;
 			}
 
-			.count {
-				display: inline-flex;
-				gap: 0.2rem;
-				align-items: center;
-				font-size: var(--gl-font-md);
-				font-variant-numeric: tabular-nums;
-				color: var(--gl-launchpad-item-color, inherit);
+			.rocket code-icon {
+				grid-area: 1 / 1;
 			}
 
-			.count--mergeable {
-				--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorMergeableColor);
+			.dot {
+				z-index: 1;
+				grid-area: 1 / 1;
+				place-self: start end;
+				width: 0.6rem;
+				aspect-ratio: 1;
+				pointer-events: none;
+				background-color: var(--gl-launchpad-dot-color);
+				border-radius: 100%;
+				transform: translate(48%, 10%);
 			}
 
-			.count--blocked {
-				--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
+			.dot--blocked {
+				--gl-launchpad-dot-color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
 			}
 
-			.count--attention {
-				--gl-launchpad-item-color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
+			.dot--attention {
+				--gl-launchpad-dot-color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
 			}
 
 			.popover__header {
@@ -121,7 +123,10 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 				aria-haspopup="dialog"
 				aria-label=${this.buttonLabel}
 			>
-				<code-icon icon="rocket"></code-icon>
+				<span class="rocket">
+					<code-icon icon="rocket"></code-icon>
+					${this.renderDot(connected)}
+				</span>
 				${this.renderTrailing(connected)}
 			</a>
 			<div slot="content">
@@ -177,30 +182,40 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 			return html`<code-icon icon="circle-slash" aria-hidden="true"></code-icon>`;
 		}
 
-		const groups = this.getCountGroups(summary);
-		if (groups.length === 0) return nothing; // connected & all caught up → rocket alone
+		// Connected — actionable presence is surfaced by the severity dot on the rocket (see renderDot).
+		return nothing;
+	}
 
-		return html`<span class="counts">
-			${groups.map(
-				g =>
-					html`<span class="count count--${g.cls}"
-						><code-icon icon=${g.icon} aria-hidden="true"></code-icon>${g.total}</span
-					>`,
-			)}
-		</span>`;
+	/**
+	 * Severity dot overlaid on the rocket, replacing the old per-group counts: red when anything is
+	 * blocked, otherwise yellow when there's other actionable work (mergeable / follow-up / needs review),
+	 * and nothing when disconnected, resolving, errored, or all caught up.
+	 */
+	private renderDot(connected: boolean | undefined): unknown {
+		if (connected !== true) return nothing;
+
+		const summary = this.summary;
+		if (summary == null || !('total' in summary)) return nothing;
+
+		if ((summary.blocked?.total ?? 0) > 0) {
+			return html`<span class="dot dot--blocked" aria-hidden="true"></span>`;
+		}
+
+		const actionable =
+			(summary.mergeable?.total ?? 0) + (summary.followUp?.total ?? 0) + (summary.needsReview?.total ?? 0);
+		if (actionable > 0) {
+			return html`<span class="dot dot--attention" aria-hidden="true"></span>`;
+		}
+
+		return nothing; // connected & all caught up → rocket alone
 	}
 
 	private getCountGroups(summary: LaunchpadSummaryResult): CountGroup[] {
 		const groups: CountGroup[] = [
-			{ total: summary.mergeable?.total ?? 0, icon: 'rocket', cls: 'mergeable', label: 'can be merged' },
-			{ total: summary.blocked?.total ?? 0, icon: 'error', cls: 'blocked', label: 'blocked' },
-			{ total: summary.followUp?.total ?? 0, icon: 'report', cls: 'attention', label: 'need follow-up' },
-			{
-				total: summary.needsReview?.total ?? 0,
-				icon: 'comment-unresolved',
-				cls: 'attention',
-				label: 'need your review',
-			},
+			{ total: summary.mergeable?.total ?? 0, label: 'can be merged' },
+			{ total: summary.blocked?.total ?? 0, label: 'blocked' },
+			{ total: summary.followUp?.total ?? 0, label: 'need follow-up' },
+			{ total: summary.needsReview?.total ?? 0, label: 'need your review' },
 		];
 		return groups.filter(g => g.total > 0);
 	}

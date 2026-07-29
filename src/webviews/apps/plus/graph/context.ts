@@ -33,6 +33,7 @@ export interface AppState extends State {
 	 *  IPC is in flight past `scopeLoadingDelayMs`. Owned by `GraphStateProvider.setScope`. */
 	scopeLoading: boolean;
 	mcpBannerCollapsed?: boolean | undefined;
+	mcpCanAutoRegister?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
 	canInstallClaudeHook?: boolean | undefined;
 	navigating: 'next' | 'previous' | false;

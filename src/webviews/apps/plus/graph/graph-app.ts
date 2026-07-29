@@ -59,6 +59,7 @@ import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-s
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
 import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
+import { createOnboardingState, onboardingContext } from '../../shared/contexts/onboarding.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
@@ -67,6 +68,7 @@ import { NavigationStack } from '../../shared/controllers/navigationStack.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
 import '../shared/components/account-bar.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
+import type { AccountModalSection, ShowAccountModalEventDetail } from './components/gl-graph-account-modal.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
 import type { GraphLayoutPromptChoiceEventDetail } from './components/gl-graph-layout-prompt.js';
@@ -124,6 +126,7 @@ import '../../shared/components/code-icon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-kanban.js';
+import './components/gl-graph-account-modal.js';
 import './components/gl-graph-keyboard-shortcuts.js';
 import './components/gl-graph-layout-prompt.js';
 import './components/gl-graph-overview-bar.js';
@@ -403,22 +406,24 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		context: aiContext,
 		initialValue: this._aiState,
 	});
-	/** Height-driven presentation of the account bar (issue #5449): `false` = full-width row above
-	 *  the header (bar mode); `true` = chips inlined into the graph header's right group. Driven by
-	 *  `_graphSizeObserver` with enter/exit hysteresis (mirrors `_autoEffectiveLocation`, including
-	 *  the `@state` treatment). */
-	@state()
-	private _headerInlineMode = false;
-
-	/** Guards the account-bar context wiring. Set true while wired (see `updated()`); reset by the
-	 *  disarm branch when the home-header flag flips off so it can re-arm. */
+	// Walkthrough progress (issue #5522). Provided here so the header account/walkthrough pills and the
+	// account modal can consume it; populated from the walkthrough RPC service in `initAccountContexts`.
+	private readonly _onboardingState = createOnboardingState();
+	private readonly _onboardingCtx = new ContextProvider(this, {
+		context: onboardingContext,
+		initialValue: this._onboardingState,
+	});
+	/** One-shot guard for the account-bar context wiring (see `updated()`). */
 	private _accountContextsInitialized = false;
 	private _accountUnsubscribe: (() => void) | undefined;
-	/** Bumped on every `initAccountContexts` entry. Because the flag can flip off→on faster than the
-	 *  service promises resolve, two inits can be in flight at once; a completing init only stores its
-	 *  subscriptions if it's still the latest generation, so an interleaved stale init tears itself down
-	 *  instead of overwriting (and leaking) the live one. */
-	private _accountInitGeneration = 0;
+
+	/** Whether the account modal (opened from the header account/walkthrough pills) is visible. */
+	@state()
+	private _accountModalOpen = false;
+
+	/** Section the opener asked the account modal to focus (e.g. the walkthrough pill). Not reactive on
+	 *  its own — it only ever changes alongside `_accountModalOpen`, which triggers the re-render. */
+	private _accountModalFocus?: AccountModalSection;
 
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
@@ -526,15 +531,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						this.persistState();
 					}
 				}
-
-				// Same hysteresis pattern for the account bar's inline mode (issue #5449), driven by
-				// height. Mode flips only change the header's contents — `.graph`'s own size is
-				// viewport-determined, so this can't feed back into the observer.
-				if (!this._headerInlineMode && height < headerInlineEnterPx) {
-					this._headerInlineMode = true;
-				} else if (this._headerInlineMode && height > headerInlineExitPx) {
-					this._headerInlineMode = false;
-				}
 			}
 		});
 	}
@@ -627,15 +623,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  state, and subscribes to change events. Mirrors the Home view (see `home.ts` / `actions.ts`
 	 *  / `events.ts`). A failed subscription must not break the graph. */
 	private async initAccountContexts(services: NonNullable<typeof this.services>): Promise<void> {
-		// Claim this generation up front; a later init (from an off→on re-arm mid-await) supersedes us.
-		const generation = ++this._accountInitGeneration;
 		// Wiring the account bar must never break the graph, so guard the whole pipeline: a rejected
 		// service promise or a failed subscription just leaves the bar without live state.
 		try {
-			const [subscription, integrations, ai] = await Promise.all([
+			const [subscription, integrations, ai, walkthrough] = await Promise.all([
 				services.subscription,
 				services.integrations,
 				services.ai,
+				services.walkthrough,
 			]);
 
 			// Swap the subscription context to use the host-side RemoteSignals directly (no copy),
@@ -680,6 +675,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				.then(s => this._aiState.state.set(s))
 				.catch(noop);
 
+			// Seed the walkthrough progress signals (main 7-step + graph 6-step) so the header pills and
+			// account modal render immediately; the subscription below keeps them live.
+			void walkthrough
+				.getProgress()
+				.then(p => {
+					this._onboardingState.walkthroughProgress.set(p?.main);
+					this._onboardingState.graphWalkthroughProgress.set(p?.graph);
+				})
+				.catch(noop);
+
 			// Subscribe to host-side change events so the bar stays live.
 			const unsubscribe = await subscribeAll([
 				async () =>
@@ -689,14 +694,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					}),
 				async () => ai.onModelChanged(model => this._aiState.model.set(model)),
 				async () => ai.onStateChanged(state => this._aiState.state.set(state)),
+				async () =>
+					walkthrough.onProgressChanged(p => {
+						this._onboardingState.walkthroughProgress.set(p.main);
+						this._onboardingState.graphWalkthroughProgress.set(p.graph);
+					}),
 			]);
 
-			// Guard against late completion: tear down (rather than store) if, while we were awaiting, the
-			// element disconnected (`disconnectedCallback`), the home-header flag was toggled back off (the
-			// disarm branch resets `_accountContextsInitialized`), or a newer init superseded us (off→on
-			// re-arm — `generation` is stale). Otherwise a stale init would overwrite and orphan the live
-			// subscription, leaking its host change-event traffic until graph disconnect.
-			if (!this.isConnected || !this._accountContextsInitialized || generation !== this._accountInitGeneration) {
+			// Guard against late completion: if the element disconnected (`disconnectedCallback`) while we
+			// were awaiting, tear down rather than store an orphaned subscription that would leak its host
+			// change-event traffic.
+			if (!this.isConnected) {
 				unsubscribe?.();
 				return;
 			}
@@ -1087,6 +1095,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		composeScope?: GraphComposeScopeSeed;
 	}): Promise<void> {
 		const { action, target, commitMessage, scopeBranch, composeInstructions, composeScope } = pending;
+
+		if (action === 'show-account') {
+			this._accountModalFocus = undefined;
+			this._accountModalOpen = true;
+			return;
+		}
+
+		// Any other external show action targets graph content the modal would cover — dismiss it.
+		if (this._accountModalOpen) {
+			this.onCloseAccountModal();
+		}
+
 		if (action === 'scope-to-branch') {
 			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope
 			// to the current branch (the welcome-page / generic `scope-to-branch` entry point).
@@ -1628,20 +1648,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			void this.initLaunchpad(this.services);
 		}
 
-		// Account-bar context wiring, gated on the experimental home-header flag: the bar only renders
-		// when the flag is on, so there's nothing to wire when it's off. `updated()` re-runs when the
-		// config pushes, so this arms/disarms symmetrically as the flag flips (same `services` one-shot
-		// pattern as the Launchpad pipeline above — `services` is a `@consume`d context value).
-		const homeHeaderEnabled = this.graphState.config?.experimentalHomeHeaderEnabled ?? false;
-		if (homeHeaderEnabled && !this._accountContextsInitialized && this.services != null) {
+		// Account-bar context wiring (same `services` one-shot pattern as the Launchpad pipeline above —
+		// `services` is a `@consume`d context value, so it won't appear in `changedProperties`).
+		if (!this._accountContextsInitialized && this.services != null) {
 			this._accountContextsInitialized = true;
 			void this.initAccountContexts(this.services);
-		} else if (!homeHeaderEnabled && this._accountContextsInitialized) {
-			// Flag turned off mid-session: tear down the host subscriptions so a hidden bar doesn't keep
-			// consuming change traffic, and re-arm cleanly if it's turned back on.
-			this._accountUnsubscribe?.();
-			this._accountUnsubscribe = undefined;
-			this._accountContextsInitialized = false;
 		}
 
 		// Invalidate any captured scope-restore mode on repo switch: a captured `_modeBeforeScope`
@@ -1830,6 +1841,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphHover?.reset();
 	}
 
+	private onShowAccountModal = (e: CustomEvent<ShowAccountModalEventDetail | undefined>): void => {
+		this._accountModalFocus = e.detail?.focus;
+		this._accountModalOpen = true;
+	};
+
+	private onCloseAccountModal = (): void => {
+		this._accountModalOpen = false;
+		this._accountModalFocus = undefined;
+	};
+
 	override render() {
 		const sub = this.graphState.subscription;
 		if (sub != null && (sub.account == null || sub.account.verified === false)) {
@@ -1839,7 +1860,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const detailsVisible = this.graphState.details?.visible ?? false;
 		const minimapVisible = this.graphState.minimap?.visible ?? true;
 		const { single, multi } = this.activeSelection;
-		const homeHeaderEnabled = this.graphState.config?.experimentalHomeHeaderEnabled ?? false;
 		// No repository open: render only the empty state — skip the header and the whole graph subtree
 		// (React GraphContainer + minimap + sidebar + details) rather than mounting them just to paint the
 		// empty state over the top. `repositories` is `undefined` during the initial load window, so `=== 0`
@@ -1850,19 +1870,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const noRepos = this.graphState.repositories?.length === 0;
 		return html`
 			<div class="graph">
-				${when(
-					// With no repository open the header row (the inline chips' host) isn't rendered, so keep
-					// the bar in that case even when vertically constrained — otherwise the account and
-					// integrations info would disappear entirely.
-					homeHeaderEnabled && (!this._headerInlineMode || noRepos),
-					() => html`<gl-account-bar class="graph__account-bar"></gl-account-bar>`,
-				)}
+				<gl-graph-account-modal
+					?open=${this._accountModalOpen}
+					.focusSection=${this._accountModalFocus}
+					@gl-account-modal-close=${this.onCloseAccountModal}
+				></gl-graph-account-modal>
 				${when(
 					!noRepos,
 					() => html`
 						<gl-graph-header
 							class="graph__header"
-							.accountBarInline=${homeHeaderEnabled && this._headerInlineMode}
 							.selectCommits=${this.selectCommits}
 							.getCommits=${this.getCommits}
 							.ensureGraphRendered=${this.ensureGraphRendered}
@@ -1876,6 +1893,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							@toggle-minimap=${this.handleToggleMinimap}
 							@jump-to-wip=${this.handleJumpToWip}
 							@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
+							@gl-show-account-modal=${this.onShowAccountModal}
 						></gl-graph-header>
 					`,
 				)}

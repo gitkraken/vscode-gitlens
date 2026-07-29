@@ -79,6 +79,7 @@ import '../../shared/components/search/search-box.js';
 import '../../shared/components/shoelace-stub.js';
 import './actions/gitActionsButtons.js';
 import './components/gl-graph-launchpad-indicator.js';
+import './components/gl-graph-account-indicator.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -259,12 +260,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 	@property({ type: Boolean, attribute: 'has-selected-commit' })
 	hasSelectedCommit = false;
-
-	/** When set, the account/integrations chips render inline at the end of the header's right group
-	 *  instead of the standalone account bar row above (issue #5449). Driven by GraphApp's
-	 *  height-based mode tracking; only ever true while the experimental home header is enabled. */
-	@property({ type: Boolean, attribute: 'account-bar-inline' })
-	accountBarInline = false;
 
 	get hasFilters() {
 		// Scope mode forces first-parent rendering, so it always counts as a filter.
@@ -1173,7 +1168,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			</div>
 			<div class="titlebar__group">
 				${when(
-					!(state.mcpBannerCollapsed ?? true),
+					// `mcpBannerCollapsed` is dismissal-only; this button also stays hidden when MCP
+					// auto-registers (the modal shows the "bundled" banner variant instead)
+					!(state.mcpBannerCollapsed ?? true) && !(state.mcpCanAutoRegister ?? false),
 					() => html`
 						<gl-popover class="mcp-tooltip" placement="bottom" trigger="click focus hover">
 							<a
@@ -1202,7 +1199,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					`,
 				)}
 				${when(
-					(state.mcpBannerCollapsed ?? true) &&
+					((state.mcpBannerCollapsed ?? true) || (state.mcpCanAutoRegister ?? false)) &&
 						(state.canInstallClaudeHook ?? false) &&
 						!(state.hooksBannerCollapsed ?? true),
 					() => html`
@@ -1231,15 +1228,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				)}
 				${this.renderGraphWalkthroughBanner(state)} ${this.renderStartMenu()}
 				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
-				${when(
-					this.accountBarInline,
-					// Last in the RIGHT group on purpose: when the row is also width-constrained, the row's
-					// overflow policy (see titlebar__row--wrap in header.css.ts) pushes trailing content past
-					// the right edge — the chips clip away first (whole, reappearing when widened) rather
-					// than displacing the header's primary controls. Accepted degradation; verified live.
-					() => html`<gl-account-chip class="inline-chip" compact></gl-account-chip>
-						<gl-integrations-chip class="inline-chip" compact></gl-integrations-chip>`,
-				)}
+				<gl-graph-account-indicator></gl-graph-account-indicator>
 			</div>
 		</div>`;
 	}
