@@ -182,25 +182,19 @@ export class GraphProducersService {
 		// branch's upstream pill would still offer the actions `+current` exists to withhold.
 		const currentBranchName = (await this.container.git.getRepositoryService(repoPath).branches.getBranch())?.name;
 
-		// One branch enumeration for the whole request, indexed by id. Previously each ref re-read the full
-		// branch list and filtered it down to a single match — the list is cached so it cost no extra git,
-		// but it re-filtered every branch once per requested ref (`getBranches` applies `filter` client-side
-		// over the complete set), which is pure overhead on a request that can carry dozens of refs.
+		// One branch enumeration for the whole request, indexed by id — `getBranches` filters client-side
+		// over the complete set, so resolving per ref re-scans every branch once per requested ref.
 		//
-		// Guarded because this `await` now sits OUTSIDE the per-ref fan-out that used to contain it: this
-		// handler is dispatched from VS Code's `onDidReceiveMessage`, which neither awaits nor catches the
-		// promise it returns, so an escaping throw would surface as a bare unhandled rejection.
+		// Must not throw: this handler is dispatched from VS Code's `onDidReceiveMessage`, which neither
+		// awaits nor catches the promise it returns, so an escaping throw becomes a bare unhandled rejection.
 		//
-		// BAIL on failure — do NOT fall through with an empty map. Every id would then take the
-		// `branch == null` path below and be written as `null`, which is the authoritative "resolved, nothing
-		// here" value: the client renders those pills with no PR/issue/upstream and the per-id dedup considers
-		// them answered, so one transient enumeration failure would blank the whole visible ref set until an
-		// unrelated invalidation. Leaving the entries untouched keeps their prior metadata and lets the
-		// webview re-request, which is what a per-ref failure did before this call was hoisted.
-		// `getBranches` does NOT throw on a failed enumeration — it swallows non-cancellation errors and
-		// resolves an empty (or current-branch-only) result — so the `catch` alone can't hold that line.
-		// Bail on an empty enumeration too: a repo with refs to decorate always has at least one branch, so
-		// empty here means the read failed, not that the answer is nothing.
+		// Must BAIL rather than fall through with an empty map. Every id would then take the `branch == null`
+		// path below and be written as `null` — the authoritative "resolved, nothing here" value — so the
+		// client renders those pills empty and the per-id dedup considers them answered, blanking the visible
+		// ref set until an unrelated invalidation. Leaving the entries untouched lets the webview re-request.
+		//
+		// An empty result bails too, because `getBranches` reports a failed enumeration that way rather than
+		// throwing: a repo with refs to decorate always has at least one branch.
 		let branchesById: Map<string, GitBranch>;
 		try {
 			const branches = await this.container.git.getRepositoryService(repoPath).branches.getBranches();

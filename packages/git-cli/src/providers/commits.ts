@@ -211,11 +211,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 		// Chunked so a repo with a very large number of worktrees can't overflow the platform's argument
 		// limit (Windows' `CreateProcess` caps the whole command line at ~32K characters).
 		// Deliberately NOT `errors: 'ignore'`: this answers for EVERY sha at once, so a swallowed failure
-		// would return an empty set that the caller can't distinguish from "nothing is unpublished" — and
-		// would then publish `hasUnpushed: false` across every worktree in the batch. `ignore` can't even be
-		// made safe with an exit-code check: a queue-full or spawn failure resolves as `exitCode: 0` with
-		// empty stdout (git.ts:806). Let it throw so the caller degrades to "unknown" and omits the field,
-		// leaving the client's last-known value in place.
+		// would return an empty set the caller can't distinguish from "nothing is unpublished", publishing a
+		// confident `hasUnpushed: false` across every worktree in the batch. Letting it throw degrades the
+		// caller to "unknown", which omits the field and leaves the client's last-known value in place.
 		for (const chunk of chunkArray([...shas], maxShasPerRevListSpawn)) {
 			const result = await this.git.run(
 				{

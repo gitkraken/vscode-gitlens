@@ -578,9 +578,8 @@ export class Cache implements Disposable {
 				// stored. A base derived as "none" BEFORE that entry existed is cached with no TTL, so
 				// without this it stays "none" for the session even though the answer now exists.
 				//
-				// Deliberately not under `'branches'`: a tip move can't change a branch's base, and
-				// re-deriving on every commit is precisely the cost this branch set out to remove. Checkouts
-				// are user-driven and rare by comparison.
+				// Deliberately not under `'branches'`: a tip move can't change a branch's base, so re-deriving
+				// on every commit would be pure cost. Checkouts are user-driven and rare by comparison.
 				keysToClear.add('baseBranchName');
 			}
 
