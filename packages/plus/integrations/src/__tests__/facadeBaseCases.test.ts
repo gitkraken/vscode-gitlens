@@ -208,44 +208,50 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// `Organization`, plus explicit warnings: []/fetchFailed: undefined for a clean read.
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
+		try {
+			stubApi(gh, {
+				getGitHubOrgsForCurrentUser: () =>
+					Promise.resolve({
+						values: [
+							{
+								id: 'o1',
+								username: 'octocat',
+								name: 'Octocat Inc',
+								email: null,
+								avatarUrl: 'https://avatars.example/o1.png',
+							},
+							{
+								id: 'o2',
+								username: 'acme',
+								name: null,
+								email: null,
+								avatarUrl: 'https://avatars.example/o2.png',
+							},
+						],
+					} satisfies ProviderHierarchyResult<ProviderGitHubOrganization>),
+			});
 
-		stubApi(gh, {
-			getGitHubOrgsForCurrentUser: () =>
-				Promise.resolve({
-					values: [
-						{
-							id: 'o1',
-							username: 'octocat',
-							name: 'Octocat Inc',
-							email: null,
-							avatarUrl: 'https://avatars.example/o1.png',
-						},
-						{
-							id: 'o2',
-							username: 'acme',
-							name: null,
-							email: null,
-							avatarUrl: 'https://avatars.example/o2.png',
-						},
-					],
-				} satisfies ProviderHierarchyResult<ProviderGitHubOrganization>),
-		});
+			const result = await manager.listOrgs({ providerId: GitCloudHostIntegrationId.GitHub });
 
-		const result = await manager.listOrgs({ providerId: GitCloudHostIntegrationId.GitHub });
-
-		assert.deepEqual(result.items, [
-			{
-				id: 'o1',
-				providerId: GitCloudHostIntegrationId.GitHub,
-				name: 'octocat',
-				url: 'https://github.com/octocat',
-			},
-			{ id: 'o2', providerId: GitCloudHostIntegrationId.GitHub, name: 'acme', url: 'https://github.com/acme' },
-		]);
-		assert.deepEqual(result.warnings, [], 'a healthy read carries no warnings');
-		assert.equal(result.fetchFailed, undefined, 'a successful read leaves fetchFailed unset, not just falsy');
-
-		manager.dispose();
+			assert.deepEqual(result.items, [
+				{
+					id: 'o1',
+					providerId: GitCloudHostIntegrationId.GitHub,
+					name: 'octocat',
+					url: 'https://github.com/octocat',
+				},
+				{
+					id: 'o2',
+					providerId: GitCloudHostIntegrationId.GitHub,
+					name: 'acme',
+					url: 'https://github.com/acme',
+				},
+			]);
+			assert.deepEqual(result.warnings, [], 'a healthy read carries no warnings');
+			assert.equal(result.fetchFailed, undefined, 'a successful read leaves fetchFailed unset, not just falsy');
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('listOrgs normalizes GitLab groups (fullPath/webUrl) into the same unified shape as GitHub orgs', async () => {
@@ -254,41 +260,43 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// rather than the facade accidentally passing GitHub's fields through unchanged.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
-		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'gitlab.com',
-		};
+		try {
+			const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+			(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'gitlab.com',
+			};
 
-		stubApi(gl, {
-			getGitlabGroupsForCurrentUser: () =>
-				Promise.resolve({
-					values: [
-						{
-							id: 'g1',
-							path: 'platform',
-							fullPath: 'northwind/platform',
-							name: 'Platform',
-							webUrl: 'https://gitlab.com/northwind/platform',
-						},
-					],
-				} satisfies ProviderHierarchyResult<ProviderGitLabGroup>),
-		});
+			stubApi(gl, {
+				getGitlabGroupsForCurrentUser: () =>
+					Promise.resolve({
+						values: [
+							{
+								id: 'g1',
+								path: 'platform',
+								fullPath: 'northwind/platform',
+								name: 'Platform',
+								webUrl: 'https://gitlab.com/northwind/platform',
+							},
+						],
+					} satisfies ProviderHierarchyResult<ProviderGitLabGroup>),
+			});
 
-		const result = await manager.listOrgs({ providerId: GitCloudHostIntegrationId.GitLab });
+			const result = await manager.listOrgs({ providerId: GitCloudHostIntegrationId.GitLab });
 
-		assert.deepEqual(result.items, [
-			{
-				id: 'g1',
-				providerId: GitCloudHostIntegrationId.GitLab,
-				name: 'northwind/platform',
-				url: 'https://gitlab.com/northwind/platform',
-			},
-		]);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+			assert.deepEqual(result.items, [
+				{
+					id: 'g1',
+					providerId: GitCloudHostIntegrationId.GitLab,
+					name: 'northwind/platform',
+					url: 'https://gitlab.com/northwind/platform',
+				},
+			]);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test("listRepos normalizes an org's repos to ProviderRepositoryShape, not the raw SDK GitRepository (#5533)", async () => {
@@ -300,71 +308,72 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// the SDK's null convention to `undefined` instead of leaking it into ProviderRepositoryShape.
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
+		try {
+			const sdkRepos: ProviderRepository[] = [
+				{
+					id: 'r1',
+					namespace: 'octocat',
+					name: 'hello-world',
+					webUrl: 'https://github.com/octocat/hello-world',
+					httpsUrl: 'https://github.com/octocat/hello-world.git',
+					sshUrl: 'git@github.com:octocat/hello-world.git',
+					defaultBranch: { name: 'main' },
+					permissions: null,
+				},
+				{
+					id: 'r2',
+					namespace: 'octocat',
+					name: 'bare-repo',
+					// `project` is omitted (not nullable, unlike the fields below): only Azure DevOps repos carry
+					// one, so every other host's SDK repo simply leaves the optional field unset.
+					webUrl: null,
+					httpsUrl: null,
+					sshUrl: null,
+					defaultBranch: null,
+					permissions: null,
+				},
+			];
+			stubApi(gh, {
+				getReposForOrg: () =>
+					Promise.resolve({
+						values: sdkRepos,
+						paging: { more: false, cursor: '{}' },
+					} satisfies PagedResult<ProviderRepository>),
+			});
 
-		const sdkRepos: ProviderRepository[] = [
-			{
-				id: 'r1',
-				namespace: 'octocat',
-				name: 'hello-world',
-				webUrl: 'https://github.com/octocat/hello-world',
-				httpsUrl: 'https://github.com/octocat/hello-world.git',
-				sshUrl: 'git@github.com:octocat/hello-world.git',
-				defaultBranch: { name: 'main' },
-				permissions: null,
-			},
-			{
-				id: 'r2',
-				namespace: 'octocat',
-				name: 'bare-repo',
-				// `project` is omitted (not nullable, unlike the fields below): only Azure DevOps repos carry
-				// one, so every other host's SDK repo simply leaves the optional field unset.
-				webUrl: null,
-				httpsUrl: null,
-				sshUrl: null,
-				defaultBranch: null,
-				permissions: null,
-			},
-		];
-		stubApi(gh, {
-			getReposForOrg: () =>
-				Promise.resolve({
-					values: sdkRepos,
-					paging: { more: false, cursor: '{}' },
-				} satisfies PagedResult<ProviderRepository>),
-		});
+			const result = await manager.listRepos({ providerId: GitCloudHostIntegrationId.GitHub, org: 'octocat' });
 
-		const result = await manager.listRepos({ providerId: GitCloudHostIntegrationId.GitHub, org: 'octocat' });
-
-		assert.deepEqual(result.items, [
-			{
-				id: 'r1',
-				namespace: 'octocat',
-				name: 'hello-world',
-				project: undefined,
-				url: 'https://github.com/octocat/hello-world',
-				cloneUrlHttps: 'https://github.com/octocat/hello-world.git',
-				cloneUrlSsh: 'git@github.com:octocat/hello-world.git',
-				defaultBranch: 'main',
-			},
-			{
-				id: 'r2',
-				namespace: 'octocat',
-				name: 'bare-repo',
-				project: undefined,
-				url: undefined,
-				cloneUrlHttps: undefined,
-				cloneUrlSsh: undefined,
-				defaultBranch: undefined,
-			},
-		]);
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.page.itemsPerPage, 2);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+			assert.deepEqual(result.items, [
+				{
+					id: 'r1',
+					namespace: 'octocat',
+					name: 'hello-world',
+					project: undefined,
+					url: 'https://github.com/octocat/hello-world',
+					cloneUrlHttps: 'https://github.com/octocat/hello-world.git',
+					cloneUrlSsh: 'git@github.com:octocat/hello-world.git',
+					defaultBranch: 'main',
+				},
+				{
+					id: 'r2',
+					namespace: 'octocat',
+					name: 'bare-repo',
+					project: undefined,
+					url: undefined,
+					cloneUrlHttps: undefined,
+					cloneUrlSsh: undefined,
+					defaultBranch: undefined,
+				},
+			]);
+			assert.equal(result.page.currentPage, 1);
+			assert.equal(result.page.itemsPerPage, 2);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test("listProjects returns a git host's (Azure DevOps) projects in the unified org shape", async () => {
@@ -375,60 +384,62 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// fetchFailed and spans two orgs to prove the org label is carried per-project, not hard-coded.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
-		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'dev.azure.com',
-		};
+		try {
+			const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+			(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'dev.azure.com',
+			};
 
-		(
-			azure as unknown as {
-				getProjectsForOrgResult: (org?: string) => Promise<{ value: PagedResult<ProviderOrganization> }>;
-			}
-		).getProjectsForOrgResult = () =>
-			Promise.resolve({
-				value: {
-					values: [
-						{
-							id: 'p1',
-							providerId: GitCloudHostIntegrationId.AzureDevOps,
-							name: 'Website',
-							org: 'northwind',
-							url: 'https://dev.azure.com/northwind/Website',
-						},
-						{
-							id: 'p2',
-							providerId: GitCloudHostIntegrationId.AzureDevOps,
-							name: 'Mobile',
-							org: 'contoso',
-							url: 'https://dev.azure.com/contoso/Mobile',
-						},
-					],
+			(
+				azure as unknown as {
+					getProjectsForOrgResult: (org?: string) => Promise<{ value: PagedResult<ProviderOrganization> }>;
+				}
+			).getProjectsForOrgResult = () =>
+				Promise.resolve({
+					value: {
+						values: [
+							{
+								id: 'p1',
+								providerId: GitCloudHostIntegrationId.AzureDevOps,
+								name: 'Website',
+								org: 'northwind',
+								url: 'https://dev.azure.com/northwind/Website',
+							},
+							{
+								id: 'p2',
+								providerId: GitCloudHostIntegrationId.AzureDevOps,
+								name: 'Mobile',
+								org: 'contoso',
+								url: 'https://dev.azure.com/contoso/Mobile',
+							},
+						],
+					},
+				});
+
+			const result = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+
+			assert.deepEqual(result.items, [
+				{
+					id: 'p1',
+					providerId: GitCloudHostIntegrationId.AzureDevOps,
+					name: 'Website',
+					org: 'northwind',
+					url: 'https://dev.azure.com/northwind/Website',
 				},
-			});
-
-		const result = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
-
-		assert.deepEqual(result.items, [
-			{
-				id: 'p1',
-				providerId: GitCloudHostIntegrationId.AzureDevOps,
-				name: 'Website',
-				org: 'northwind',
-				url: 'https://dev.azure.com/northwind/Website',
-			},
-			{
-				id: 'p2',
-				providerId: GitCloudHostIntegrationId.AzureDevOps,
-				name: 'Mobile',
-				org: 'contoso',
-				url: 'https://dev.azure.com/contoso/Mobile',
-			},
-		]);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+				{
+					id: 'p2',
+					providerId: GitCloudHostIntegrationId.AzureDevOps,
+					name: 'Mobile',
+					org: 'contoso',
+					url: 'https://dev.azure.com/contoso/Mobile',
+				},
+			]);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('listPullRequestsPage returns a normal first page as the complete PullRequestShape, including body (#5549)', async () => {
@@ -440,155 +451,156 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// instead of relying on scattered single-field checks to each happen to catch their own regression.
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
-
-		const reviewer = fakeAccount('rev-1', 'Trinity');
-		const pr = providerPr('101', {
-			title: 'Add dark mode toggle',
-			description: 'Adds a dark mode toggle to the settings screen.\n\nCloses #42.',
-			url: 'https://github.com/octocat/hello/pull/101',
-			isDraft: true,
-			createdDate: new Date('2026-01-01T00:00:00.000Z'),
-			updatedDate: new Date('2026-01-02T00:00:00.000Z'),
-			baseRef: { name: 'main', oid: 'base-sha' },
-			headRef: { name: 'feature/dark-mode', oid: 'head-sha' },
-			commentCount: 3,
-			upvoteCount: 2,
-			additions: 40,
-			deletions: 10,
-			author: fakeAccount('me', 'Keanu Reeves', {
-				avatarUrl: 'https://avatars.example/keanu.png',
-				url: 'https://github.com/keanu',
-			}),
-			assignees: [reviewer],
-			reviews: [{ reviewer: reviewer, state: GitPullRequestReviewState.ReviewRequested }],
-			reviewDecision: GitPullRequestReviewState.Approved,
-			mergeableState: GitPullRequestMergeableState.Mergeable,
-		});
-		stubApi(gh, {
-			isRepoIdsInput: () => false,
-			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
-			getPullRequestsForRepos: () =>
-				Promise.resolve({
-					values: [pr],
-					paging: { more: false, cursor: '{}' },
-				} satisfies PagedResult<ProviderPullRequest>),
-		});
-		// Authorship resolution is a best-effort side read (see getCurrentAccountId); pin it instead of relying
-		// on it incidentally failing closed, so `authoredByMe` is asserted deterministically below.
-		(gh as unknown as { getCurrentAccount: () => Promise<{ id: string }> }).getCurrentAccount = () =>
-			Promise.resolve({ id: 'me' });
-
-		const result = await manager.listPullRequestsPage({
-			providerId: GitCloudHostIntegrationId.GitHub,
-			repos: repos,
-		});
-
-		assert.equal(result.items.length, 1);
-		const [item] = result.items;
-		assert.deepEqual(
-			{
-				type: item.type,
-				id: item.id,
-				nodeId: item.nodeId,
-				title: item.title,
-				url: item.url,
-				state: item.state,
-				closed: item.closed,
-				createdDate: item.createdDate,
-				updatedDate: item.updatedDate,
-				closedDate: item.closedDate,
-				mergedDate: item.mergedDate,
-				commentsCount: item.commentsCount,
-				thumbsUpCount: item.thumbsUpCount,
-				author: item.author,
-				body: item.body,
-				isDraft: item.isDraft,
-				additions: item.additions,
-				deletions: item.deletions,
-				mergeableState: item.mergeableState,
-				reviewDecision: item.reviewDecision,
-				reviewRequests: item.reviewRequests,
-				assignees: item.assignees,
-				refs: item.refs,
-				project: item.project,
-				number: item.number,
-				authoredByMe: item.authoredByMe,
-			},
-			{
-				type: 'pullrequest',
-				id: '101',
-				nodeId: '101', // falls back to id: the fixture has no graphQLId
+		try {
+			const reviewer = fakeAccount('rev-1', 'Trinity');
+			const pr = providerPr('101', {
 				title: 'Add dark mode toggle',
+				description: 'Adds a dark mode toggle to the settings screen.\n\nCloses #42.',
 				url: 'https://github.com/octocat/hello/pull/101',
-				state: 'opened',
-				closed: false,
+				isDraft: true,
 				createdDate: new Date('2026-01-01T00:00:00.000Z'),
 				updatedDate: new Date('2026-01-02T00:00:00.000Z'),
-				closedDate: undefined,
-				mergedDate: undefined,
-				commentsCount: 3,
-				thumbsUpCount: 2,
-				author: {
-					id: 'me',
-					name: 'Keanu Reeves',
-					avatarUrl: 'https://avatars.example/keanu.png',
-					url: 'https://github.com/keanu',
-				},
-				// #5549: the provider's raw `description` must survive as PullRequestShape.body.
-				body: 'Adds a dark mode toggle to the settings screen.\n\nCloses #42.',
-				isDraft: true,
+				baseRef: { name: 'main', oid: 'base-sha' },
+				headRef: { name: 'feature/dark-mode', oid: 'head-sha' },
+				commentCount: 3,
+				upvoteCount: 2,
 				additions: 40,
 				deletions: 10,
-				mergeableState: PullRequestMergeableState.Mergeable,
-				reviewDecision: PullRequestReviewDecision.Approved,
-				reviewRequests: [
-					{
-						isCodeOwner: false,
-						reviewer: { id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined },
-						state: PullRequestReviewState.ReviewRequested,
-					},
-				],
-				assignees: [{ id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined }],
-				refs: {
-					base: {
-						branch: 'main',
-						sha: 'base-sha',
-						repo: 'hello',
-						owner: 'octocat',
-						exists: true,
-						url: '',
-						cloneHttps: undefined,
-						cloneSsh: undefined,
-					},
-					head: {
-						branch: 'feature/dark-mode',
-						sha: 'head-sha',
-						repo: '',
-						owner: '',
-						exists: true,
-						url: '',
-						cloneHttps: undefined,
-						cloneSsh: undefined,
-						isFork: undefined,
-					},
-					isCrossRepository: false,
+				author: fakeAccount('me', 'Keanu Reeves', {
+					avatarUrl: 'https://avatars.example/keanu.png',
+					url: 'https://github.com/keanu',
+				}),
+				assignees: [reviewer],
+				reviews: [{ reviewer: reviewer, state: GitPullRequestReviewState.ReviewRequested }],
+				reviewDecision: GitPullRequestReviewState.Approved,
+				mergeableState: GitPullRequestMergeableState.Mergeable,
+			});
+			stubApi(gh, {
+				isRepoIdsInput: () => false,
+				getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+				getPullRequestsForRepos: () =>
+					Promise.resolve({
+						values: [pr],
+						paging: { more: false, cursor: '{}' },
+					} satisfies PagedResult<ProviderPullRequest>),
+			});
+			// Authorship resolution is a best-effort side read (see getCurrentAccountId); pin it instead of relying
+			// on it incidentally failing closed, so `authoredByMe` is asserted deterministically below.
+			(gh as unknown as { getCurrentAccount: () => Promise<{ id: string }> }).getCurrentAccount = () =>
+				Promise.resolve({ id: 'me' });
+
+			const result = await manager.listPullRequestsPage({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				repos: repos,
+			});
+
+			assert.equal(result.items.length, 1);
+			const [item] = result.items;
+			assert.deepEqual(
+				{
+					type: item.type,
+					id: item.id,
+					nodeId: item.nodeId,
+					title: item.title,
+					url: item.url,
+					state: item.state,
+					closed: item.closed,
+					createdDate: item.createdDate,
+					updatedDate: item.updatedDate,
+					closedDate: item.closedDate,
+					mergedDate: item.mergedDate,
+					commentsCount: item.commentsCount,
+					thumbsUpCount: item.thumbsUpCount,
+					author: item.author,
+					body: item.body,
+					isDraft: item.isDraft,
+					additions: item.additions,
+					deletions: item.deletions,
+					mergeableState: item.mergeableState,
+					reviewDecision: item.reviewDecision,
+					reviewRequests: item.reviewRequests,
+					assignees: item.assignees,
+					refs: item.refs,
+					project: item.project,
+					number: item.number,
+					authoredByMe: item.authoredByMe,
 				},
-				project: undefined,
-				number: 101,
-				authoredByMe: true,
-			},
-			'listPullRequestsPage maps every PullRequestShape field for a normal first page',
-		);
-		assert.equal(item.provider.id, GitCloudHostIntegrationId.GitHub);
+				{
+					type: 'pullrequest',
+					id: '101',
+					nodeId: '101', // falls back to id: the fixture has no graphQLId
+					title: 'Add dark mode toggle',
+					url: 'https://github.com/octocat/hello/pull/101',
+					state: 'opened',
+					closed: false,
+					createdDate: new Date('2026-01-01T00:00:00.000Z'),
+					updatedDate: new Date('2026-01-02T00:00:00.000Z'),
+					closedDate: undefined,
+					mergedDate: undefined,
+					commentsCount: 3,
+					thumbsUpCount: 2,
+					author: {
+						id: 'me',
+						name: 'Keanu Reeves',
+						avatarUrl: 'https://avatars.example/keanu.png',
+						url: 'https://github.com/keanu',
+					},
+					// #5549: the provider's raw `description` must survive as PullRequestShape.body.
+					body: 'Adds a dark mode toggle to the settings screen.\n\nCloses #42.',
+					isDraft: true,
+					additions: 40,
+					deletions: 10,
+					mergeableState: PullRequestMergeableState.Mergeable,
+					reviewDecision: PullRequestReviewDecision.Approved,
+					reviewRequests: [
+						{
+							isCodeOwner: false,
+							reviewer: { id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined },
+							state: PullRequestReviewState.ReviewRequested,
+						},
+					],
+					assignees: [{ id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined }],
+					refs: {
+						base: {
+							branch: 'main',
+							sha: 'base-sha',
+							repo: 'hello',
+							owner: 'octocat',
+							exists: true,
+							url: '',
+							cloneHttps: undefined,
+							cloneSsh: undefined,
+						},
+						head: {
+							branch: 'feature/dark-mode',
+							sha: 'head-sha',
+							repo: '',
+							owner: '',
+							exists: true,
+							url: '',
+							cloneHttps: undefined,
+							cloneSsh: undefined,
+							isFork: undefined,
+						},
+						isCrossRepository: false,
+					},
+					project: undefined,
+					number: 101,
+					authoredByMe: true,
+				},
+				'listPullRequestsPage maps every PullRequestShape field for a normal first page',
+			);
+			assert.equal(item.provider.id, GitCloudHostIntegrationId.GitHub);
 
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.page.itemsPerPage, 1);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+			assert.equal(result.page.currentPage, 1);
+			assert.equal(result.page.itemsPerPage, 1);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('listIssuesPage returns a normal first page as the complete IssueShape', async () => {
@@ -597,104 +609,105 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// separately) so a regression in any one of them fails this test, not just a future consumer.
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
-
-		const issue = providerIssue('42', {
-			graphQLId: 'gid://issue/42',
-			title: 'Dark mode toggle flickers on load',
-			description: 'Steps to reproduce:\n1. Open settings\n2. Toggle dark mode\n\nSeen on 1.2.3.',
-			url: 'https://github.com/octocat/hello/issues/42',
-			createdDate: new Date('2026-01-01T00:00:00.000Z'),
-			updatedDate: new Date('2026-01-03T00:00:00.000Z'),
-			author: fakeAccount('me', 'Ivan', {
-				avatarUrl: 'https://avatars.example/ivan.png',
-				url: 'https://github.com/ivan',
-			}),
-			assignees: [fakeAccount('rev-1', 'Trinity')],
-			repository: { id: 'repo-1', name: 'hello', owner: { login: 'octocat' } },
-			labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
-			commentCount: 5,
-			upvoteCount: 1,
-		});
-		stubApi(gh, {
-			isRepoIdsInput: () => false,
-			getProviderIssuesPagingMode: () => PagingMode.Repos,
-			getIssuesForRepos: () =>
-				Promise.resolve({
-					values: [issue],
-					paging: { more: false, cursor: '{}' },
-				} satisfies PagedResult<ProviderIssue>),
-		});
-
-		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitHub, repos: repos });
-
-		assert.equal(result.items.length, 1);
-		const [item] = result.items;
-		assert.deepEqual(
-			{
-				type: item.type,
-				id: item.id,
-				nodeId: item.nodeId,
-				title: item.title,
-				url: item.url,
-				state: item.state,
-				closed: item.closed,
-				createdDate: item.createdDate,
-				updatedDate: item.updatedDate,
-				closedDate: item.closedDate,
-				commentsCount: item.commentsCount,
-				thumbsUpCount: item.thumbsUpCount,
-				author: item.author,
-				assignees: item.assignees,
-				repository: item.repository,
-				labels: item.labels,
-				body: item.body,
-				project: item.project,
-				issueType: item.issueType,
-			},
-			{
-				type: 'issue',
-				id: '42', // IssueShape.id is the provider's display number, not its opaque node id
-				nodeId: 'gid://issue/42',
+		try {
+			const issue = providerIssue('42', {
+				graphQLId: 'gid://issue/42',
 				title: 'Dark mode toggle flickers on load',
+				description: 'Steps to reproduce:\n1. Open settings\n2. Toggle dark mode\n\nSeen on 1.2.3.',
 				url: 'https://github.com/octocat/hello/issues/42',
-				state: 'opened',
-				closed: false,
 				createdDate: new Date('2026-01-01T00:00:00.000Z'),
 				updatedDate: new Date('2026-01-03T00:00:00.000Z'),
-				closedDate: undefined,
-				commentsCount: 5,
-				thumbsUpCount: 1,
-				author: {
-					id: 'me',
-					name: 'Ivan',
+				author: fakeAccount('me', 'Ivan', {
 					avatarUrl: 'https://avatars.example/ivan.png',
 					url: 'https://github.com/ivan',
+				}),
+				assignees: [fakeAccount('rev-1', 'Trinity')],
+				repository: { id: 'repo-1', name: 'hello', owner: { login: 'octocat' } },
+				labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
+				commentCount: 5,
+				upvoteCount: 1,
+			});
+			stubApi(gh, {
+				isRepoIdsInput: () => false,
+				getProviderIssuesPagingMode: () => PagingMode.Repos,
+				getIssuesForRepos: () =>
+					Promise.resolve({
+						values: [issue],
+						paging: { more: false, cursor: '{}' },
+					} satisfies PagedResult<ProviderIssue>),
+			});
+
+			const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitHub, repos: repos });
+
+			assert.equal(result.items.length, 1);
+			const [item] = result.items;
+			assert.deepEqual(
+				{
+					type: item.type,
+					id: item.id,
+					nodeId: item.nodeId,
+					title: item.title,
+					url: item.url,
+					state: item.state,
+					closed: item.closed,
+					createdDate: item.createdDate,
+					updatedDate: item.updatedDate,
+					closedDate: item.closedDate,
+					commentsCount: item.commentsCount,
+					thumbsUpCount: item.thumbsUpCount,
+					author: item.author,
+					assignees: item.assignees,
+					repository: item.repository,
+					labels: item.labels,
+					body: item.body,
+					project: item.project,
+					issueType: item.issueType,
 				},
-				// Unlike PullRequestShape's fromProviderAccount (which falls `url` back to ''), toIssueShape's own
-				// inline author/assignee mapping falls `url` back to `undefined` — a small but real divergence
-				// between the two normalizers worth pinning explicitly.
-				assignees: [{ id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined }],
-				repository: { id: 'repo-1', owner: 'octocat', repo: 'hello' },
-				labels: [{ color: 'd73a4a', name: 'bug' }],
-				body: 'Steps to reproduce:\n1. Open settings\n2. Toggle dark mode\n\nSeen on 1.2.3.',
-				// A repo-scoped git-host issue has no project tier. The mapper only builds `project` when the
-				// provider issue carries a complete one (id + resourceId + namespace, see toIssueShape); anything
-				// less stays `undefined` — it no longer coerces an empty-string placeholder.
-				project: undefined,
-				issueType: undefined,
-			},
-			'listIssuesPage maps every IssueShape field for a normal first page',
-		);
-		assert.equal(item.provider.id, GitCloudHostIntegrationId.GitHub);
+				{
+					type: 'issue',
+					id: '42', // IssueShape.id is the provider's display number, not its opaque node id
+					nodeId: 'gid://issue/42',
+					title: 'Dark mode toggle flickers on load',
+					url: 'https://github.com/octocat/hello/issues/42',
+					state: 'opened',
+					closed: false,
+					createdDate: new Date('2026-01-01T00:00:00.000Z'),
+					updatedDate: new Date('2026-01-03T00:00:00.000Z'),
+					closedDate: undefined,
+					commentsCount: 5,
+					thumbsUpCount: 1,
+					author: {
+						id: 'me',
+						name: 'Ivan',
+						avatarUrl: 'https://avatars.example/ivan.png',
+						url: 'https://github.com/ivan',
+					},
+					// Unlike PullRequestShape's fromProviderAccount (which falls `url` back to ''), toIssueShape's own
+					// inline author/assignee mapping falls `url` back to `undefined` — a small but real divergence
+					// between the two normalizers worth pinning explicitly.
+					assignees: [{ id: 'rev-1', name: 'Trinity', avatarUrl: undefined, url: undefined }],
+					repository: { id: 'repo-1', owner: 'octocat', repo: 'hello' },
+					labels: [{ color: 'd73a4a', name: 'bug' }],
+					body: 'Steps to reproduce:\n1. Open settings\n2. Toggle dark mode\n\nSeen on 1.2.3.',
+					// A repo-scoped git-host issue has no project tier. The mapper only builds `project` when the
+					// provider issue carries a complete one (id + resourceId + namespace, see toIssueShape); anything
+					// less stays `undefined` — it no longer coerces an empty-string placeholder.
+					project: undefined,
+					issueType: undefined,
+				},
+				'listIssuesPage maps every IssueShape field for a normal first page',
+			);
+			assert.equal(item.provider.id, GitCloudHostIntegrationId.GitHub);
 
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.page.itemsPerPage, 1);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+			assert.equal(result.page.currentPage, 1);
+			assert.equal(result.page.itemsPerPage, 1);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('sweepPullRequests drains a healthy multi-repo read cleanly: every item, allPages true, no warnings', async () => {
@@ -705,38 +718,39 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// failedProviderIds — for the simplest possible drain: one page, already complete.
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
+		try {
+			stubApi(gh, {
+				isRepoIdsInput: () => false,
+				getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+				getPullRequestsForRepos: () =>
+					Promise.resolve({
+						values: [providerPr('1'), providerPr('2')],
+						paging: { more: false, cursor: '{}' },
+					} satisfies PagedResult<ProviderPullRequest>),
+			});
 
-		stubApi(gh, {
-			isRepoIdsInput: () => false,
-			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
-			getPullRequestsForRepos: () =>
-				Promise.resolve({
-					values: [providerPr('1'), providerPr('2')],
-					paging: { more: false, cursor: '{}' },
-				} satisfies PagedResult<ProviderPullRequest>),
-		});
+			const result = await manager.sweepPullRequests({
+				providerIds: [GitCloudHostIntegrationId.GitHub],
+				repos: [
+					{ namespace: 'octocat', name: 'hello' },
+					{ namespace: 'octocat', name: 'world' },
+				],
+			});
 
-		const result = await manager.sweepPullRequests({
-			providerIds: [GitCloudHostIntegrationId.GitHub],
-			repos: [
-				{ namespace: 'octocat', name: 'hello' },
-				{ namespace: 'octocat', name: 'world' },
-			],
-		});
-
-		assert.deepEqual(
-			result.items.map(pr => pr.id),
-			['1', '2'],
-			'every item from the drained repos is returned',
-		);
-		assert.equal(result.page.allPages, true, 'a clean single-page drain is complete');
-		assert.equal(result.page.truncated, undefined, 'success normalizes truncated to undefined, not false');
-		assert.equal(result.hasMore, false, 'a sweep never advertises a cursor to resume');
-		assert.equal(result.fetchFailed, undefined);
-		assert.deepEqual(result.warnings, []);
-		assert.deepEqual(result.failedProviderIds, []);
-
-		manager.dispose();
+			assert.deepEqual(
+				result.items.map(pr => pr.id),
+				['1', '2'],
+				'every item from the drained repos is returned',
+			);
+			assert.equal(result.page.allPages, true, 'a clean single-page drain is complete');
+			assert.equal(result.page.truncated, undefined, 'success normalizes truncated to undefined, not false');
+			assert.equal(result.hasMore, false, 'a sweep never advertises a cursor to resume');
+			assert.equal(result.fetchFailed, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.deepEqual(result.failedProviderIds, []);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('sweepClosedPullRequests forces the closed+merged filter and drains cleanly', async () => {
@@ -745,46 +759,47 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// clean-drain success contract as the sweepPullRequests trunk test above.
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
+		try {
+			let capturedStates: unknown;
+			stubApi(gh, {
+				isRepoIdsInput: () => false,
+				getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+				getPullRequestsForRepos: (_token: unknown, _repos: unknown, opts: { states?: unknown }) => {
+					capturedStates = opts.states;
+					return Promise.resolve({
+						values: [
+							providerPr('1', { state: GitPullRequestState.Closed }),
+							providerPr('2', { state: GitPullRequestState.Merged }),
+						],
+						paging: { more: false, cursor: '{}' },
+					} satisfies PagedResult<ProviderPullRequest>);
+				},
+			});
 
-		let capturedStates: unknown;
-		stubApi(gh, {
-			isRepoIdsInput: () => false,
-			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
-			getPullRequestsForRepos: (_token: unknown, _repos: unknown, opts: { states?: unknown }) => {
-				capturedStates = opts.states;
-				return Promise.resolve({
-					values: [
-						providerPr('1', { state: GitPullRequestState.Closed }),
-						providerPr('2', { state: GitPullRequestState.Merged }),
-					],
-					paging: { more: false, cursor: '{}' },
-				} satisfies PagedResult<ProviderPullRequest>);
-			},
-		});
+			const result = await manager.sweepClosedPullRequests({
+				providerIds: [GitCloudHostIntegrationId.GitHub],
+				repos: repos,
+			});
 
-		const result = await manager.sweepClosedPullRequests({
-			providerIds: [GitCloudHostIntegrationId.GitHub],
-			repos: repos,
-		});
-
-		assert.deepEqual(
-			capturedStates,
-			[GitPullRequestState.Closed, GitPullRequestState.Merged],
-			'sweepClosedPullRequests forces the native closed+merged state filter',
-		);
-		assert.deepEqual(
-			result.items.map(pr => pr.state),
-			['closed', 'merged'],
-			'both native states normalize to PullRequestShape.state',
-		);
-		assert.equal(result.page.allPages, true);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.equal(result.fetchFailed, undefined);
-		assert.deepEqual(result.warnings, []);
-		assert.deepEqual(result.failedProviderIds, []);
-
-		manager.dispose();
+			assert.deepEqual(
+				capturedStates,
+				[GitPullRequestState.Closed, GitPullRequestState.Merged],
+				'sweepClosedPullRequests forces the native closed+merged state filter',
+			);
+			assert.deepEqual(
+				result.items.map(pr => pr.state),
+				['closed', 'merged'],
+				'both native states normalize to PullRequestShape.state',
+			);
+			assert.equal(result.page.allPages, true);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.equal(result.fetchFailed, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.deepEqual(result.failedProviderIds, []);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('broadenIssues fans out over multiple orgs and returns the aggregated issues in the unified IssueShape, with no warnings', async () => {
@@ -796,102 +811,103 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// broaden-specific shape), alongside correct broadenedProviderIds/fanOutCount and no warnings.
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
-
-		const issueForOrg = (org: string): ProviderIssue =>
-			providerIssue(`issue-${org}`, {
-				number: `${org}-7`,
+		try {
+			const issueForOrg = (org: string): ProviderIssue =>
+				providerIssue(`issue-${org}`, {
+					number: `${org}-7`,
+					title: `Investigate crash in ${org}/repo`,
+					url: `https://github.com/${org}/repo/issues/7`,
+					createdDate: new Date('2026-01-01T00:00:00.000Z'),
+					updatedDate: new Date('2026-01-02T00:00:00.000Z'),
+					author: fakeAccount('author-1', 'Ada Lovelace', {
+						avatarUrl: 'https://avatars.example/ada.png',
+						url: 'https://github.com/ada',
+					}),
+					assignees: [fakeAccount('me', 'Keanu Reeves')],
+					repository: { id: `repo-${org}`, name: 'repo', owner: { login: org } },
+					labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
+					commentCount: 2,
+					upvoteCount: 1,
+				});
+			const expectedShapeForOrg = (org: string) => ({
+				type: 'issue',
+				id: `${org}-7`, // IssueShape.id is issue.number, not issue.id
+				nodeId: `issue-${org}`, // falls back to id: the fixture has no graphQLId
 				title: `Investigate crash in ${org}/repo`,
 				url: `https://github.com/${org}/repo/issues/7`,
+				state: 'opened',
+				closed: false,
 				createdDate: new Date('2026-01-01T00:00:00.000Z'),
 				updatedDate: new Date('2026-01-02T00:00:00.000Z'),
-				author: fakeAccount('author-1', 'Ada Lovelace', {
+				closedDate: undefined,
+				commentsCount: 2,
+				thumbsUpCount: 1,
+				author: {
+					id: 'author-1',
+					name: 'Ada Lovelace',
 					avatarUrl: 'https://avatars.example/ada.png',
 					url: 'https://github.com/ada',
-				}),
-				assignees: [fakeAccount('me', 'Keanu Reeves')],
-				repository: { id: `repo-${org}`, name: 'repo', owner: { login: org } },
-				labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
-				commentCount: 2,
-				upvoteCount: 1,
+				},
+				assignees: [{ id: 'me', name: 'Keanu Reeves', avatarUrl: undefined, url: undefined }],
+				repository: { id: `repo-${org}`, owner: org, repo: 'repo' },
+				labels: [{ color: 'd73a4a', name: 'bug' }],
+				body: undefined,
+				// broadenIssues reads repo-scoped git-host issues (same as listIssuesPage), so — unlike an issue
+				// tracker's project-scoped read below — there's no project tier to populate: `undefined`, never a
+				// placeholder (toIssueShape only builds `project` from a complete provider-side one).
+				project: undefined,
+				issueType: undefined,
 			});
-		const expectedShapeForOrg = (org: string) => ({
-			type: 'issue',
-			id: `${org}-7`, // IssueShape.id is issue.number, not issue.id
-			nodeId: `issue-${org}`, // falls back to id: the fixture has no graphQLId
-			title: `Investigate crash in ${org}/repo`,
-			url: `https://github.com/${org}/repo/issues/7`,
-			state: 'opened',
-			closed: false,
-			createdDate: new Date('2026-01-01T00:00:00.000Z'),
-			updatedDate: new Date('2026-01-02T00:00:00.000Z'),
-			closedDate: undefined,
-			commentsCount: 2,
-			thumbsUpCount: 1,
-			author: {
-				id: 'author-1',
-				name: 'Ada Lovelace',
-				avatarUrl: 'https://avatars.example/ada.png',
-				url: 'https://github.com/ada',
-			},
-			assignees: [{ id: 'me', name: 'Keanu Reeves', avatarUrl: undefined, url: undefined }],
-			repository: { id: `repo-${org}`, owner: org, repo: 'repo' },
-			labels: [{ color: 'd73a4a', name: 'bug' }],
-			body: undefined,
-			// broadenIssues reads repo-scoped git-host issues (same as listIssuesPage), so — unlike an issue
-			// tracker's project-scoped read below — there's no project tier to populate: `undefined`, never a
-			// placeholder (toIssueShape only builds `project` from a complete provider-side one).
-			project: undefined,
-			issueType: undefined,
-		});
 
-		stubApi(gh, {
-			getReposForOrg: (_t: unknown, org: string) =>
-				Promise.resolve({
-					values: [{ id: `repo-${org}`, namespace: org, name: 'repo' }],
-					paging: { more: false, cursor: '{}' },
-				}),
-			isRepoIdsInput: () => false,
-			getProviderIssuesPagingMode: () => PagingMode.Repos,
-			getIssuesForRepos: (_t: unknown, repos: { namespace: string }[]) =>
-				Promise.resolve({
-					values: repos.map(r => issueForOrg(r.namespace)),
-					paging: { more: false, cursor: '{}' },
-				} satisfies PagedResult<ProviderIssue>),
-		});
+			stubApi(gh, {
+				getReposForOrg: (_t: unknown, org: string) =>
+					Promise.resolve({
+						values: [{ id: `repo-${org}`, namespace: org, name: 'repo' }],
+						paging: { more: false, cursor: '{}' },
+					}),
+				isRepoIdsInput: () => false,
+				getProviderIssuesPagingMode: () => PagingMode.Repos,
+				getIssuesForRepos: (_t: unknown, repos: { namespace: string }[]) =>
+					Promise.resolve({
+						values: repos.map(r => issueForOrg(r.namespace)),
+						paging: { more: false, cursor: '{}' },
+					} satisfies PagedResult<ProviderIssue>),
+			});
 
-		const result = await manager.broadenIssues({
-			orgs: [
-				{ providerId: GitCloudHostIntegrationId.GitHub, name: 'octocat' },
-				{ providerId: GitCloudHostIntegrationId.GitHub, name: 'acme' },
-			],
-		});
+			const result = await manager.broadenIssues({
+				orgs: [
+					{ providerId: GitCloudHostIntegrationId.GitHub, name: 'octocat' },
+					{ providerId: GitCloudHostIntegrationId.GitHub, name: 'acme' },
+				],
+			});
 
-		assert.equal(result.items.length, 2, 'issues from both orgs are aggregated');
-		assert.deepEqual(
-			result.items.map(projectIssueShape),
-			[expectedShapeForOrg('octocat'), expectedShapeForOrg('acme')],
-			'broadenIssues maps every IssueShape field for each org, not just id',
-		);
-		assert.ok(
-			result.items.every(item => item.provider.id === GitCloudHostIntegrationId.GitHub),
-			'every item is attributed to the GitHub provider',
-		);
-		assert.deepEqual(
-			result.broadenedProviderIds,
-			[GitCloudHostIntegrationId.GitHub],
-			'broadenedProviderIds lists distinct providers, not one entry per org',
-		);
-		assert.equal(result.fanOutCount, 2, 'fanOutCount reflects the number of orgs requested');
+			assert.equal(result.items.length, 2, 'issues from both orgs are aggregated');
+			assert.deepEqual(
+				result.items.map(projectIssueShape),
+				[expectedShapeForOrg('octocat'), expectedShapeForOrg('acme')],
+				'broadenIssues maps every IssueShape field for each org, not just id',
+			);
+			assert.ok(
+				result.items.every(item => item.provider.id === GitCloudHostIntegrationId.GitHub),
+				'every item is attributed to the GitHub provider',
+			);
+			assert.deepEqual(
+				result.broadenedProviderIds,
+				[GitCloudHostIntegrationId.GitHub],
+				'broadenedProviderIds lists distinct providers, not one entry per org',
+			);
+			assert.equal(result.fanOutCount, 2, 'fanOutCount reflects the number of orgs requested');
 
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.page.itemsPerPage, 2);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.equal(result.cursor, undefined);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+			assert.equal(result.page.currentPage, 1);
+			assert.equal(result.page.itemsPerPage, 2);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.equal(result.cursor, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test("resolveRepository resolves a github.com remote to the provider's canonical identity, with no warning", async () => {
@@ -903,31 +919,32 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// plain, unrenamed github.com resolve.
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);
+		try {
+			stubApi(gh, {
+				getRepo: () => Promise.resolve({ id: 'r1', namespace: 'octocat', name: 'hello' }),
+			});
 
-		stubApi(gh, {
-			getRepo: () => Promise.resolve({ id: 'r1', namespace: 'octocat', name: 'hello' }),
-		});
+			const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
 
-		const result = await manager.resolveRepository({ remoteUrl: 'https://github.com/octocat/hello.git' });
-
-		assert.equal(result.cliUnsupported, false);
-		assert.equal(result.resolution.status, 'resolved');
-		assert.equal(result.resolution.warning, undefined, 'a clean resolve carries no warning');
-		assert.deepEqual(
-			result.resolution.identity,
-			{
-				providerId: GitCloudHostIntegrationId.GitHub,
-				domain: 'github.com',
-				owner: 'octocat',
-				name: 'hello',
-				project: undefined,
-				remoteUrl: 'https://github.com/octocat/hello.git',
-				renamed: false,
-			},
-			'the full canonical identity is returned for a clean, unrenamed resolve',
-		);
-
-		manager.dispose();
+			assert.equal(result.cliUnsupported, false);
+			assert.equal(result.resolution.status, 'resolved');
+			assert.equal(result.resolution.warning, undefined, 'a clean resolve carries no warning');
+			assert.deepEqual(
+				result.resolution.identity,
+				{
+					providerId: GitCloudHostIntegrationId.GitHub,
+					domain: 'github.com',
+					owner: 'octocat',
+					name: 'hello',
+					project: undefined,
+					remoteUrl: 'https://github.com/octocat/hello.git',
+					renamed: false,
+				},
+				'the full canonical identity is returned for a clean, unrenamed resolve',
+			);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test("resolveRepository resolves a gitlab.com remote to the provider's canonical identity, with no warning", async () => {
@@ -935,36 +952,38 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// proves the identity assembly isn't accidentally GitHub-specific.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
-		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'gitlab.com',
-		};
-
-		stubApi(gl, {
-			getRepo: () => Promise.resolve({ id: 'g1', namespace: 'northwind', name: 'platform' }),
-		});
-
-		const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/northwind/platform.git' });
-
-		assert.equal(result.cliUnsupported, false);
-		assert.equal(result.resolution.status, 'resolved');
-		assert.equal(result.resolution.warning, undefined, 'a clean resolve carries no warning');
-		assert.deepEqual(
-			result.resolution.identity,
-			{
-				providerId: GitCloudHostIntegrationId.GitLab,
+		try {
+			const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+			(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
 				domain: 'gitlab.com',
-				owner: 'northwind',
-				name: 'platform',
-				project: undefined,
-				remoteUrl: 'https://gitlab.com/northwind/platform.git',
-				renamed: false,
-			},
-			'the full canonical identity is returned for a clean, unrenamed resolve',
-		);
+			};
 
-		manager.dispose();
+			stubApi(gl, {
+				getRepo: () => Promise.resolve({ id: 'g1', namespace: 'northwind', name: 'platform' }),
+			});
+
+			const result = await manager.resolveRepository({ remoteUrl: 'https://gitlab.com/northwind/platform.git' });
+
+			assert.equal(result.cliUnsupported, false);
+			assert.equal(result.resolution.status, 'resolved');
+			assert.equal(result.resolution.warning, undefined, 'a clean resolve carries no warning');
+			assert.deepEqual(
+				result.resolution.identity,
+				{
+					providerId: GitCloudHostIntegrationId.GitLab,
+					domain: 'gitlab.com',
+					owner: 'northwind',
+					name: 'platform',
+					project: undefined,
+					remoteUrl: 'https://gitlab.com/northwind/platform.git',
+					renamed: false,
+				},
+				'the full canonical identity is returned for a clean, unrenamed resolve',
+			);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('listIssueTrackerIssuesPage returns a normal single-page read as the complete IssueShape for Jira', async () => {
@@ -977,134 +996,136 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// comes through populated, not defaulted away.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
-		(jira as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'atlassian.net',
-		};
+		try {
+			const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+			(jira as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'atlassian.net',
+			};
 
-		let capturedAssigneeLogins: string[] | undefined;
-		stubIssuesApi(jira, {
-			getJiraResourcesForCurrentUser: () =>
-				Promise.resolve([
-					{
-						id: 'org-1',
-						name: 'Acme Inc',
-						url: 'https://acme.atlassian.net',
-						avatarUrl: 'https://avatars.example/acme.png',
-					},
-				]),
-			getJiraProjectsForResources: () =>
-				Promise.resolve({ values: [{ key: 'ENG', id: 'p1', name: 'Engineering', resourceId: 'org-1' }] }),
-			getCurrentUserForResource: () =>
-				Promise.resolve({
-					id: 'u1',
-					name: 'Jane Doe',
-					username: 'jane',
-					email: 'jane@example.com',
-					avatarUrl: 'https://avatars.example/jane.png',
-				}),
-			getIssuesForProjectPaged: (
-				_t: unknown,
-				_projectName: string,
-				_resourceId: string,
-				opts?: { assigneeLogins?: string[] },
-			) => {
-				capturedAssigneeLogins = opts?.assigneeLogins;
-				return Promise.resolve({
-					data: [
-						providerIssue('issue-100', {
-							number: 'ENG-42',
-							title: 'Investigate memory leak',
-							description: 'Steps to reproduce:\n1. Open app\n2. Wait\n\nSeen in prod.',
-							url: 'https://acme.atlassian.net/browse/ENG-42',
-							createdDate: new Date('2026-01-01T00:00:00.000Z'),
-							updatedDate: new Date('2026-01-02T00:00:00.000Z'),
-							author: fakeAccount('author-1', 'Ada Lovelace', {
-								avatarUrl: 'https://avatars.example/ada.png',
-								url: 'https://acme.atlassian.net/people/ada',
-							}),
-							assignees: [
-								fakeAccount('u1', 'Jane Doe', {
-									avatarUrl: 'https://avatars.example/jane.png',
-									url: 'https://acme.atlassian.net/people/jane',
-								}),
-							],
-							labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
-							commentCount: 2,
-							upvoteCount: 0,
-							project: {
-								namespace: 'Acme Inc',
-								resourceId: 'org-1',
-								name: 'Engineering',
-								key: 'ENG',
-								id: 'p1',
-							},
-						}),
-					],
-					hasMore: false,
-					nextCursor: undefined,
-				});
-			},
-		});
-
-		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
-
-		assert.equal(result.items.length, 1);
-		const [item] = result.items;
-		assert.deepEqual(
-			projectIssueShape(item),
-			{
-				type: 'issue',
-				id: 'ENG-42',
-				nodeId: 'issue-100', // no graphQLId on the fixture: falls back to id
-				title: 'Investigate memory leak',
-				url: 'https://acme.atlassian.net/browse/ENG-42',
-				state: 'opened',
-				closed: false,
-				createdDate: new Date('2026-01-01T00:00:00.000Z'),
-				updatedDate: new Date('2026-01-02T00:00:00.000Z'),
-				closedDate: undefined,
-				commentsCount: 2,
-				thumbsUpCount: 0,
-				author: {
-					id: 'author-1',
-					name: 'Ada Lovelace',
-					avatarUrl: 'https://avatars.example/ada.png',
-					url: 'https://acme.atlassian.net/people/ada',
-				},
-				assignees: [
-					{
+			let capturedAssigneeLogins: string[] | undefined;
+			stubIssuesApi(jira, {
+				getJiraResourcesForCurrentUser: () =>
+					Promise.resolve([
+						{
+							id: 'org-1',
+							name: 'Acme Inc',
+							url: 'https://acme.atlassian.net',
+							avatarUrl: 'https://avatars.example/acme.png',
+						},
+					]),
+				getJiraProjectsForResources: () =>
+					Promise.resolve({ values: [{ key: 'ENG', id: 'p1', name: 'Engineering', resourceId: 'org-1' }] }),
+				getCurrentUserForResource: () =>
+					Promise.resolve({
 						id: 'u1',
 						name: 'Jane Doe',
+						username: 'jane',
+						email: 'jane@example.com',
 						avatarUrl: 'https://avatars.example/jane.png',
-						url: 'https://acme.atlassian.net/people/jane',
+					}),
+				getIssuesForProjectPaged: (
+					_t: unknown,
+					_projectName: string,
+					_resourceId: string,
+					opts?: { assigneeLogins?: string[] },
+				) => {
+					capturedAssigneeLogins = opts?.assigneeLogins;
+					return Promise.resolve({
+						data: [
+							providerIssue('issue-100', {
+								number: 'ENG-42',
+								title: 'Investigate memory leak',
+								description: 'Steps to reproduce:\n1. Open app\n2. Wait\n\nSeen in prod.',
+								url: 'https://acme.atlassian.net/browse/ENG-42',
+								createdDate: new Date('2026-01-01T00:00:00.000Z'),
+								updatedDate: new Date('2026-01-02T00:00:00.000Z'),
+								author: fakeAccount('author-1', 'Ada Lovelace', {
+									avatarUrl: 'https://avatars.example/ada.png',
+									url: 'https://acme.atlassian.net/people/ada',
+								}),
+								assignees: [
+									fakeAccount('u1', 'Jane Doe', {
+										avatarUrl: 'https://avatars.example/jane.png',
+										url: 'https://acme.atlassian.net/people/jane',
+									}),
+								],
+								labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
+								commentCount: 2,
+								upvoteCount: 0,
+								project: {
+									namespace: 'Acme Inc',
+									resourceId: 'org-1',
+									name: 'Engineering',
+									key: 'ENG',
+									id: 'p1',
+								},
+							}),
+						],
+						hasMore: false,
+						nextCursor: undefined,
+					});
+				},
+			});
+
+			const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
+
+			assert.equal(result.items.length, 1);
+			const [item] = result.items;
+			assert.deepEqual(
+				projectIssueShape(item),
+				{
+					type: 'issue',
+					id: 'ENG-42',
+					nodeId: 'issue-100', // no graphQLId on the fixture: falls back to id
+					title: 'Investigate memory leak',
+					url: 'https://acme.atlassian.net/browse/ENG-42',
+					state: 'opened',
+					closed: false,
+					createdDate: new Date('2026-01-01T00:00:00.000Z'),
+					updatedDate: new Date('2026-01-02T00:00:00.000Z'),
+					closedDate: undefined,
+					commentsCount: 2,
+					thumbsUpCount: 0,
+					author: {
+						id: 'author-1',
+						name: 'Ada Lovelace',
+						avatarUrl: 'https://avatars.example/ada.png',
+						url: 'https://acme.atlassian.net/people/ada',
 					},
-				],
-				repository: undefined,
-				labels: [{ color: 'd73a4a', name: 'bug' }],
-				body: 'Steps to reproduce:\n1. Open app\n2. Wait\n\nSeen in prod.',
-				project: { id: 'p1', name: 'Engineering', resourceId: 'org-1', resourceName: 'Acme Inc' },
-				issueType: undefined,
-			},
-			'listIssueTrackerIssuesPage maps every IssueShape field for a normal Jira read',
-		);
-		assert.equal(item.provider.id, IssuesCloudHostIntegrationId.Jira);
-		assert.deepEqual(
-			capturedAssigneeLogins,
-			['jane'],
-			'the resolved current user threads through as the default assignee scope',
-		);
+					assignees: [
+						{
+							id: 'u1',
+							name: 'Jane Doe',
+							avatarUrl: 'https://avatars.example/jane.png',
+							url: 'https://acme.atlassian.net/people/jane',
+						},
+					],
+					repository: undefined,
+					labels: [{ color: 'd73a4a', name: 'bug' }],
+					body: 'Steps to reproduce:\n1. Open app\n2. Wait\n\nSeen in prod.',
+					project: { id: 'p1', name: 'Engineering', resourceId: 'org-1', resourceName: 'Acme Inc' },
+					issueType: undefined,
+				},
+				'listIssueTrackerIssuesPage maps every IssueShape field for a normal Jira read',
+			);
+			assert.equal(item.provider.id, IssuesCloudHostIntegrationId.Jira);
+			assert.deepEqual(
+				capturedAssigneeLogins,
+				['jane'],
+				'the resolved current user threads through as the default assignee scope',
+			);
 
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.page.itemsPerPage, 1);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.equal(result.cursor, undefined);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+			assert.equal(result.page.currentPage, 1);
+			assert.equal(result.page.itemsPerPage, 1);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.equal(result.cursor, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('listIssueTrackerIssuesPage returns a normal single-page read as the complete IssueShape for Linear', async () => {
@@ -1115,112 +1136,116 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// both resolutions agree end to end through the full facade, not just in per-provider isolation.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
-		(linear as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'linear.app',
-		};
+		try {
+			const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+			(linear as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'linear.app',
+			};
 
-		stubIssuesApi(linear, {
-			getLinearOrganization: () =>
-				Promise.resolve({ id: 'org-1', key: 'ACME', name: 'Acme Inc', url: 'https://linear.app/acme' }),
-			getLinearTeamsForCurrentUser: () =>
-				Promise.resolve([
-					{ id: 'team-1', key: 'ENG', name: 'Engineering', iconUrl: 'https://avatars.example/team.png' },
-				]),
-			getLinearCurrentUser: () =>
-				Promise.resolve({ id: 'u1', name: 'Jane Doe', email: 'jane@example.com', displayName: 'jane' }),
-			getLinearIssues: () =>
-				Promise.resolve({
-					values: [
-						providerIssue('issue-linear-1', {
-							graphQLId: 'gid://linear/Issue/abc123',
-							number: 'ENG-7',
-							title: 'Crash on startup',
-							description: 'Repro steps...\n\nAffects v2.',
-							url: 'https://linear.app/acme/issue/ENG-7',
-							createdDate: new Date('2026-02-01T00:00:00.000Z'),
-							updatedDate: new Date('2026-02-02T00:00:00.000Z'),
-							author: fakeAccount('author-2', 'Trinity', {
-								avatarUrl: 'https://avatars.example/trinity.png',
-								url: 'https://linear.app/people/trinity',
-							}),
-							// The assignee id must be the stable Linear user id (matched against the resolved
-							// viewer's own id), not a name/displayName — see linear.test.ts.
-							assignees: [
-								fakeAccount('u1', 'Jane Doe', {
-									avatarUrl: 'https://avatars.example/jane2.png',
-									url: 'https://linear.app/people/jane',
+			stubIssuesApi(linear, {
+				getLinearOrganization: () =>
+					Promise.resolve({ id: 'org-1', key: 'ACME', name: 'Acme Inc', url: 'https://linear.app/acme' }),
+				getLinearTeamsForCurrentUser: () =>
+					Promise.resolve([
+						{ id: 'team-1', key: 'ENG', name: 'Engineering', iconUrl: 'https://avatars.example/team.png' },
+					]),
+				getLinearCurrentUser: () =>
+					Promise.resolve({ id: 'u1', name: 'Jane Doe', email: 'jane@example.com', displayName: 'jane' }),
+				getLinearIssues: () =>
+					Promise.resolve({
+						values: [
+							providerIssue('issue-linear-1', {
+								graphQLId: 'gid://linear/Issue/abc123',
+								number: 'ENG-7',
+								title: 'Crash on startup',
+								description: 'Repro steps...\n\nAffects v2.',
+								url: 'https://linear.app/acme/issue/ENG-7',
+								createdDate: new Date('2026-02-01T00:00:00.000Z'),
+								updatedDate: new Date('2026-02-02T00:00:00.000Z'),
+								author: fakeAccount('author-2', 'Trinity', {
+									avatarUrl: 'https://avatars.example/trinity.png',
+									url: 'https://linear.app/people/trinity',
 								}),
-							],
-							labels: [{ id: 'l1', name: 'bug', color: '#ff0000', description: null }],
-							commentCount: 4,
-							upvoteCount: 3,
-							project: {
-								namespace: 'Acme Inc',
-								resourceId: 'org-1',
-								name: 'Engineering',
-								key: 'ENG',
-								id: 'team-1',
-							},
-						}),
-					],
-					paging: { more: false, cursor: '{}' },
-				}),
-		});
+								// The assignee id must be the stable Linear user id (matched against the resolved
+								// viewer's own id), not a name/displayName — see linear.test.ts.
+								assignees: [
+									fakeAccount('u1', 'Jane Doe', {
+										avatarUrl: 'https://avatars.example/jane2.png',
+										url: 'https://linear.app/people/jane',
+									}),
+								],
+								labels: [{ id: 'l1', name: 'bug', color: '#ff0000', description: null }],
+								commentCount: 4,
+								upvoteCount: 3,
+								project: {
+									namespace: 'Acme Inc',
+									resourceId: 'org-1',
+									name: 'Engineering',
+									key: 'ENG',
+									id: 'team-1',
+								},
+							}),
+						],
+						paging: { more: false, cursor: '{}' },
+					}),
+			});
 
-		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Linear });
+			const result = await manager.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Linear,
+			});
 
-		assert.equal(result.items.length, 1);
-		const [item] = result.items;
-		assert.deepEqual(
-			projectIssueShape(item),
-			{
-				type: 'issue',
-				id: 'ENG-7',
-				nodeId: 'gid://linear/Issue/abc123',
-				title: 'Crash on startup',
-				url: 'https://linear.app/acme/issue/ENG-7',
-				state: 'opened',
-				closed: false,
-				createdDate: new Date('2026-02-01T00:00:00.000Z'),
-				updatedDate: new Date('2026-02-02T00:00:00.000Z'),
-				closedDate: undefined,
-				commentsCount: 4,
-				thumbsUpCount: 3,
-				author: {
-					id: 'author-2',
-					name: 'Trinity',
-					avatarUrl: 'https://avatars.example/trinity.png',
-					url: 'https://linear.app/people/trinity',
-				},
-				assignees: [
-					{
-						id: 'u1',
-						name: 'Jane Doe',
-						avatarUrl: 'https://avatars.example/jane2.png',
-						url: 'https://linear.app/people/jane',
+			assert.equal(result.items.length, 1);
+			const [item] = result.items;
+			assert.deepEqual(
+				projectIssueShape(item),
+				{
+					type: 'issue',
+					id: 'ENG-7',
+					nodeId: 'gid://linear/Issue/abc123',
+					title: 'Crash on startup',
+					url: 'https://linear.app/acme/issue/ENG-7',
+					state: 'opened',
+					closed: false,
+					createdDate: new Date('2026-02-01T00:00:00.000Z'),
+					updatedDate: new Date('2026-02-02T00:00:00.000Z'),
+					closedDate: undefined,
+					commentsCount: 4,
+					thumbsUpCount: 3,
+					author: {
+						id: 'author-2',
+						name: 'Trinity',
+						avatarUrl: 'https://avatars.example/trinity.png',
+						url: 'https://linear.app/people/trinity',
 					},
-				],
-				repository: undefined,
-				labels: [{ color: '#ff0000', name: 'bug' }],
-				body: 'Repro steps...\n\nAffects v2.',
-				project: { id: 'team-1', name: 'Engineering', resourceId: 'org-1', resourceName: 'Acme Inc' },
-				issueType: undefined,
-			},
-			'listIssueTrackerIssuesPage maps every IssueShape field for a normal Linear read',
-		);
-		assert.equal(item.provider.id, IssuesCloudHostIntegrationId.Linear);
+					assignees: [
+						{
+							id: 'u1',
+							name: 'Jane Doe',
+							avatarUrl: 'https://avatars.example/jane2.png',
+							url: 'https://linear.app/people/jane',
+						},
+					],
+					repository: undefined,
+					labels: [{ color: '#ff0000', name: 'bug' }],
+					body: 'Repro steps...\n\nAffects v2.',
+					project: { id: 'team-1', name: 'Engineering', resourceId: 'org-1', resourceName: 'Acme Inc' },
+					issueType: undefined,
+				},
+				'listIssueTrackerIssuesPage maps every IssueShape field for a normal Linear read',
+			);
+			assert.equal(item.provider.id, IssuesCloudHostIntegrationId.Linear);
 
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.page.itemsPerPage, 1);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.equal(result.cursor, undefined);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+			assert.equal(result.page.currentPage, 1);
+			assert.equal(result.page.itemsPerPage, 1);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.equal(result.cursor, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('listIssueTrackerIssuesPage returns a normal single-page read as the complete IssueShape for Trello', async () => {
@@ -1232,106 +1257,110 @@ suite('ProviderBackend facade — base-case trunk (#5438, #5533, #5549)', () => 
 		// toIssueShape produced with the board descriptor — pin that override survives the facade's aggregation.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
-		(trello as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'trello.com',
-			appKey: 'app-key-1',
-		};
+		try {
+			const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+			(trello as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'trello.com',
+				appKey: 'app-key-1',
+			};
 
-		stubIssuesApi(trello, {
-			getTrelloBoardsForCurrentUser: () => Promise.resolve([{ id: 'board-1', name: 'Engineering Board' }]),
-			getTrelloCurrentUser: () =>
-				Promise.resolve({
-					id: 'u1',
-					name: 'Jane Doe',
-					username: 'jane',
-					email: 'jane@example.com',
-					avatarUrl: 'https://avatars.example/jane3.png',
-				}),
-			getTrelloListsForBoard: () => Promise.resolve([{ id: 'list-1', name: 'In Progress' }]),
-			getTrelloIssuesForBoard: () =>
-				Promise.resolve({
-					values: [
-						providerIssue('card-1', {
-							number: '42',
-							title: 'Fix login button alignment',
-							description: 'The button is misaligned on mobile.\n\nSeen on iOS.',
-							url: 'https://trello.com/c/card-1',
-							createdDate: new Date('2026-03-01T00:00:00.000Z'),
-							updatedDate: new Date('2026-03-02T00:00:00.000Z'),
-							// Trello cards carry no creator field; the SDK always maps `author: null` (see
-							// trello.test.ts) — toIssueShape must still surface the card, with an empty author.
-							author: null,
-							assignees: [
-								fakeAccount('u1', 'Jane Doe', {
-									avatarUrl: 'https://avatars.example/jane3.png',
-									url: 'https://trello.com/u1',
-								}),
-							],
-							labels: [{ id: 'l1', name: 'ui', color: 'green', description: null }],
-							commentCount: 1,
-							upvoteCount: 0,
-						}),
-					],
-					metadata: { completeness: 'complete' },
-				}),
-		});
-
-		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Trello });
-
-		assert.equal(result.items.length, 1);
-		const [item] = result.items;
-		assert.deepEqual(
-			projectIssueShape(item),
-			{
-				type: 'issue',
-				id: '42',
-				nodeId: 'card-1', // no graphQLId on the fixture: falls back to id
-				title: 'Fix login button alignment',
-				url: 'https://trello.com/c/card-1',
-				state: 'opened',
-				closed: false,
-				createdDate: new Date('2026-03-01T00:00:00.000Z'),
-				updatedDate: new Date('2026-03-02T00:00:00.000Z'),
-				closedDate: undefined,
-				commentsCount: 1,
-				thumbsUpCount: 0,
-				author: { id: '', name: undefined, avatarUrl: undefined, url: undefined },
-				assignees: [
-					{
+			stubIssuesApi(trello, {
+				getTrelloBoardsForCurrentUser: () => Promise.resolve([{ id: 'board-1', name: 'Engineering Board' }]),
+				getTrelloCurrentUser: () =>
+					Promise.resolve({
 						id: 'u1',
 						name: 'Jane Doe',
+						username: 'jane',
+						email: 'jane@example.com',
 						avatarUrl: 'https://avatars.example/jane3.png',
-						url: 'https://trello.com/u1',
+					}),
+				getTrelloListsForBoard: () => Promise.resolve([{ id: 'list-1', name: 'In Progress' }]),
+				getTrelloIssuesForBoard: () =>
+					Promise.resolve({
+						values: [
+							providerIssue('card-1', {
+								number: '42',
+								title: 'Fix login button alignment',
+								description: 'The button is misaligned on mobile.\n\nSeen on iOS.',
+								url: 'https://trello.com/c/card-1',
+								createdDate: new Date('2026-03-01T00:00:00.000Z'),
+								updatedDate: new Date('2026-03-02T00:00:00.000Z'),
+								// Trello cards carry no creator field; the SDK always maps `author: null` (see
+								// trello.test.ts) — toIssueShape must still surface the card, with an empty author.
+								author: null,
+								assignees: [
+									fakeAccount('u1', 'Jane Doe', {
+										avatarUrl: 'https://avatars.example/jane3.png',
+										url: 'https://trello.com/u1',
+									}),
+								],
+								labels: [{ id: 'l1', name: 'ui', color: 'green', description: null }],
+								commentCount: 1,
+								upvoteCount: 0,
+							}),
+						],
+						metadata: { completeness: 'complete' },
+					}),
+			});
+
+			const result = await manager.listIssueTrackerIssuesPage({
+				providerId: IssuesCloudHostIntegrationId.Trello,
+			});
+
+			assert.equal(result.items.length, 1);
+			const [item] = result.items;
+			assert.deepEqual(
+				projectIssueShape(item),
+				{
+					type: 'issue',
+					id: '42',
+					nodeId: 'card-1', // no graphQLId on the fixture: falls back to id
+					title: 'Fix login button alignment',
+					url: 'https://trello.com/c/card-1',
+					state: 'opened',
+					closed: false,
+					createdDate: new Date('2026-03-01T00:00:00.000Z'),
+					updatedDate: new Date('2026-03-02T00:00:00.000Z'),
+					closedDate: undefined,
+					commentsCount: 1,
+					thumbsUpCount: 0,
+					author: { id: '', name: undefined, avatarUrl: undefined, url: undefined },
+					assignees: [
+						{
+							id: 'u1',
+							name: 'Jane Doe',
+							avatarUrl: 'https://avatars.example/jane3.png',
+							url: 'https://trello.com/u1',
+						},
+					],
+					repository: undefined,
+					labels: [{ color: 'green', name: 'ui' }],
+					body: 'The button is misaligned on mobile.\n\nSeen on iOS.',
+					// Trello's board is both the resource and the project; getProviderIssuesForProjectWithTruncation
+					// overwrites `project` onto the board descriptor regardless of what the raw card carried.
+					project: {
+						id: 'board-1',
+						name: 'Engineering Board',
+						resourceId: 'board-1',
+						resourceName: 'Engineering Board',
 					},
-				],
-				repository: undefined,
-				labels: [{ color: 'green', name: 'ui' }],
-				body: 'The button is misaligned on mobile.\n\nSeen on iOS.',
-				// Trello's board is both the resource and the project; getProviderIssuesForProjectWithTruncation
-				// overwrites `project` onto the board descriptor regardless of what the raw card carried.
-				project: {
-					id: 'board-1',
-					name: 'Engineering Board',
-					resourceId: 'board-1',
-					resourceName: 'Engineering Board',
+					issueType: undefined,
 				},
-				issueType: undefined,
-			},
-			'listIssueTrackerIssuesPage maps every IssueShape field for a normal Trello read',
-		);
-		assert.equal(item.provider.id, IssuesCloudHostIntegrationId.Trello);
+				'listIssueTrackerIssuesPage maps every IssueShape field for a normal Trello read',
+			);
+			assert.equal(item.provider.id, IssuesCloudHostIntegrationId.Trello);
 
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.page.itemsPerPage, 1);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.equal(result.cursor, undefined);
-		assert.deepEqual(result.warnings, []);
-		assert.equal(result.fetchFailed, undefined);
-
-		manager.dispose();
+			assert.equal(result.page.currentPage, 1);
+			assert.equal(result.page.itemsPerPage, 1);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.equal(result.cursor, undefined);
+			assert.deepEqual(result.warnings, []);
+			assert.equal(result.fetchFailed, undefined);
+		} finally {
+			manager.dispose();
+		}
 	});
 });
 
@@ -1365,25 +1394,26 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 		// the one a caller is likeliest to assume every other provider matches (it doesn't — see below).
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-
-		assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub), {
-			pullRequests: [
-				PullRequestFilter.Author,
-				PullRequestFilter.Assignee,
-				PullRequestFilter.ReviewRequested,
-				PullRequestFilter.Mention,
-			],
-			pullRequestsAccountWide: [
-				PullRequestFilter.Author,
-				PullRequestFilter.Assignee,
-				PullRequestFilter.ReviewRequested,
-				PullRequestFilter.Mention,
-			],
-			issues: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
-			issuesAccountWide: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
-		});
-
-		manager.dispose();
+		try {
+			assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub), {
+				pullRequests: [
+					PullRequestFilter.Author,
+					PullRequestFilter.Assignee,
+					PullRequestFilter.ReviewRequested,
+					PullRequestFilter.Mention,
+				],
+				pullRequestsAccountWide: [
+					PullRequestFilter.Author,
+					PullRequestFilter.Assignee,
+					PullRequestFilter.ReviewRequested,
+					PullRequestFilter.Mention,
+				],
+				issues: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+				issuesAccountWide: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+			});
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test("reports Bitbucket's narrower PR set (no Assignee/Mention) and no issue filters at all", async () => {
@@ -1395,15 +1425,16 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 		// absences to `[]`, not `undefined`.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-
-		assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.Bitbucket), {
-			pullRequests: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
-			pullRequestsAccountWide: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
-			issues: [],
-			issuesAccountWide: [],
-		});
-
-		manager.dispose();
+		try {
+			assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.Bitbucket), {
+				pullRequests: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+				pullRequestsAccountWide: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
+				issues: [],
+				issuesAccountWide: [],
+			});
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test("reports Linear's issue-tracker-only, Assignee-only filter set", async () => {
@@ -1417,15 +1448,16 @@ suite('IntegrationManager.getSupportedFilters — base-case trunk (de8310e64)', 
 		// outside its generic "every provider" loop, which only ever checks membership, never this shape whole.
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-
-		assert.deepEqual(manager.getSupportedFilters(IssuesCloudHostIntegrationId.Linear), {
-			pullRequests: [],
-			pullRequestsAccountWide: [],
-			issues: [IssueFilter.Assignee],
-			issuesAccountWide: [],
-		});
-
-		manager.dispose();
+		try {
+			assert.deepEqual(manager.getSupportedFilters(IssuesCloudHostIntegrationId.Linear), {
+				pullRequests: [],
+				pullRequestsAccountWide: [],
+				issues: [IssueFilter.Assignee],
+				issuesAccountWide: [],
+			});
+		} finally {
+			manager.dispose();
+		}
 	});
 });
 
@@ -1452,100 +1484,103 @@ suite('listIssuesPage project scoping — base-case trunk (a9379a43b)', () => {
 	test('a project-scoped read on a git host with a project tier returns the complete IssueShape, with no warnings', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
-		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'dev.azure.com',
-		};
+		try {
+			const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+			(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+				...primarySession('t'),
+				domain: 'dev.azure.com',
+			};
 
-		stubApi(azure, {
-			getCurrentUser: () => Promise.resolve(fakeAccount('me', 'Keanu Reeves')),
-			getAzureResourcesForUser: () => Promise.resolve([{ id: 'org-1', name: 'contoso' }]),
-			getAzureProjectsForResource: () =>
-				Promise.resolve({
-					values: [{ id: 'proj-1', name: 'Website', namespace: 'contoso' }],
-					paging: { more: false, cursor: '{}' },
-				} satisfies PagedResult<ProviderAzureProject>),
-			getIssuesForAzureProject: () =>
-				Promise.resolve({
-					values: [
-						providerIssue('501', {
-							title: 'Investigate flaky release pipeline',
-							description: 'The release pipeline fails intermittently on step 4.\n\nSeen on build 812.',
-							url: 'https://dev.azure.com/contoso/Website/_workitems/edit/501',
-							type: 'Bug',
-							createdDate: new Date('2026-01-01T00:00:00.000Z'),
-							updatedDate: new Date('2026-01-02T00:00:00.000Z'),
-							author: fakeAccount('author-1', 'Ada Lovelace', {
-								avatarUrl: 'https://avatars.example/ada.png',
-								url: 'https://dev.azure.com/contoso/_apis/GraphProfile/MemberAvatars/ada',
+			stubApi(azure, {
+				getCurrentUser: () => Promise.resolve(fakeAccount('me', 'Keanu Reeves')),
+				getAzureResourcesForUser: () => Promise.resolve([{ id: 'org-1', name: 'contoso' }]),
+				getAzureProjectsForResource: () =>
+					Promise.resolve({
+						values: [{ id: 'proj-1', name: 'Website', namespace: 'contoso' }],
+						paging: { more: false, cursor: '{}' },
+					} satisfies PagedResult<ProviderAzureProject>),
+				getIssuesForAzureProject: () =>
+					Promise.resolve({
+						values: [
+							providerIssue('501', {
+								title: 'Investigate flaky release pipeline',
+								description:
+									'The release pipeline fails intermittently on step 4.\n\nSeen on build 812.',
+								url: 'https://dev.azure.com/contoso/Website/_workitems/edit/501',
+								type: 'Bug',
+								createdDate: new Date('2026-01-01T00:00:00.000Z'),
+								updatedDate: new Date('2026-01-02T00:00:00.000Z'),
+								author: fakeAccount('author-1', 'Ada Lovelace', {
+									avatarUrl: 'https://avatars.example/ada.png',
+									url: 'https://dev.azure.com/contoso/_apis/GraphProfile/MemberAvatars/ada',
+								}),
+								assignees: [fakeAccount('me', 'Keanu Reeves')],
+								labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
+								commentCount: 2,
+								upvoteCount: 0,
 							}),
-							assignees: [fakeAccount('me', 'Keanu Reeves')],
-							labels: [{ id: 'l1', name: 'bug', color: 'd73a4a', description: null }],
-							commentCount: 2,
-							upvoteCount: 0,
-						}),
-					],
-					paging: { more: false, cursor: '{}' },
-				} satisfies PagedResult<ProviderIssue>),
-		});
+						],
+						paging: { more: false, cursor: '{}' },
+					} satisfies PagedResult<ProviderIssue>),
+			});
 
-		const result = await manager.listIssuesPage({
-			providerId: GitCloudHostIntegrationId.AzureDevOps,
-			org: 'contoso',
-			project: 'Website',
-		});
+			const result = await manager.listIssuesPage({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				org: 'contoso',
+				project: 'Website',
+			});
 
-		assert.equal(result.items.length, 1);
-		const [item] = result.items;
-		assert.deepEqual(
-			projectIssueShape(item),
-			{
-				type: 'issue',
-				// Azure has no separate opaque id/GraphQL id: the work item's `id` and `number` are the same
-				// value, so id and nodeId coincide here (unlike Jira/Linear's node-id-vs-key split above).
-				id: '501',
-				nodeId: '501',
-				title: 'Investigate flaky release pipeline',
-				url: 'https://dev.azure.com/contoso/Website/_workitems/edit/501',
-				state: 'opened',
-				closed: false,
-				createdDate: new Date('2026-01-01T00:00:00.000Z'),
-				updatedDate: new Date('2026-01-02T00:00:00.000Z'),
-				closedDate: undefined,
-				commentsCount: 2,
-				thumbsUpCount: 0,
-				author: {
-					id: 'author-1',
-					name: 'Ada Lovelace',
-					avatarUrl: 'https://avatars.example/ada.png',
-					url: 'https://dev.azure.com/contoso/_apis/GraphProfile/MemberAvatars/ada',
+			assert.equal(result.items.length, 1);
+			const [item] = result.items;
+			assert.deepEqual(
+				projectIssueShape(item),
+				{
+					type: 'issue',
+					// Azure has no separate opaque id/GraphQL id: the work item's `id` and `number` are the same
+					// value, so id and nodeId coincide here (unlike Jira/Linear's node-id-vs-key split above).
+					id: '501',
+					nodeId: '501',
+					title: 'Investigate flaky release pipeline',
+					url: 'https://dev.azure.com/contoso/Website/_workitems/edit/501',
+					state: 'opened',
+					closed: false,
+					createdDate: new Date('2026-01-01T00:00:00.000Z'),
+					updatedDate: new Date('2026-01-02T00:00:00.000Z'),
+					closedDate: undefined,
+					commentsCount: 2,
+					thumbsUpCount: 0,
+					author: {
+						id: 'author-1',
+						name: 'Ada Lovelace',
+						avatarUrl: 'https://avatars.example/ada.png',
+						url: 'https://dev.azure.com/contoso/_apis/GraphProfile/MemberAvatars/ada',
+					},
+					assignees: [{ id: 'me', name: 'Keanu Reeves', avatarUrl: undefined, url: undefined }],
+					// Azure work items are project-scoped, not repo-scoped: unlike a git host's repo-scoped issue
+					// read, there is no repository to populate.
+					repository: undefined,
+					labels: [{ color: 'd73a4a', name: 'bug' }],
+					body: 'The release pipeline fails intermittently on step 4.\n\nSeen on build 812.',
+					// The project descriptor comes from what org+project DISCOVERY resolved (resourceId/resourceName
+					// are the org's id/name) — the raw work item fixture above carries no `project` field at all.
+					project: { id: 'proj-1', name: 'Website', resourceId: 'org-1', resourceName: 'contoso' },
+					// Work item TYPE (Bug/Task/...) surviving as issueType is new coverage: every other fixture in
+					// this file leaves it unset, so issueType has never been pinned as anything but undefined before.
+					issueType: 'Bug',
 				},
-				assignees: [{ id: 'me', name: 'Keanu Reeves', avatarUrl: undefined, url: undefined }],
-				// Azure work items are project-scoped, not repo-scoped: unlike a git host's repo-scoped issue
-				// read, there is no repository to populate.
-				repository: undefined,
-				labels: [{ color: 'd73a4a', name: 'bug' }],
-				body: 'The release pipeline fails intermittently on step 4.\n\nSeen on build 812.',
-				// The project descriptor comes from what org+project DISCOVERY resolved (resourceId/resourceName
-				// are the org's id/name) — the raw work item fixture above carries no `project` field at all.
-				project: { id: 'proj-1', name: 'Website', resourceId: 'org-1', resourceName: 'contoso' },
-				// Work item TYPE (Bug/Task/...) surviving as issueType is new coverage: every other fixture in
-				// this file leaves it unset, so issueType has never been pinned as anything but undefined before.
-				issueType: 'Bug',
-			},
-			'a project-scoped read maps every IssueShape field, not just id',
-		);
-		assert.equal(item.provider.id, GitCloudHostIntegrationId.AzureDevOps);
+				'a project-scoped read maps every IssueShape field, not just id',
+			);
+			assert.equal(item.provider.id, GitCloudHostIntegrationId.AzureDevOps);
 
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.page.itemsPerPage, 1);
-		assert.equal(result.page.truncated, undefined);
-		assert.equal(result.hasMore, false);
-		assert.equal(result.cursor, undefined);
-		assert.deepEqual(result.warnings, [], 'a supported, matched scope carries no warning');
-		assert.equal(result.fetchFailed, undefined, 'a successful scoped read leaves fetchFailed unset');
-
-		manager.dispose();
+			assert.equal(result.page.currentPage, 1);
+			assert.equal(result.page.itemsPerPage, 1);
+			assert.equal(result.page.truncated, undefined);
+			assert.equal(result.hasMore, false);
+			assert.equal(result.cursor, undefined);
+			assert.deepEqual(result.warnings, [], 'a supported, matched scope carries no warning');
+			assert.equal(result.fetchFailed, undefined, 'a successful scoped read leaves fetchFailed unset');
+		} finally {
+			manager.dispose();
+		}
 	});
 });
