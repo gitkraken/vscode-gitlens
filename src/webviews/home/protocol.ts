@@ -9,7 +9,7 @@ import type { RemoteProviderSupportedFeatures } from '@gitlens/git/models/remote
 import type { GitBranchMergedStatus } from '@gitlens/git/providers/branches.js';
 import type { IntegrationDescriptor } from '@gitlens/integrations/constants.js';
 import type { AgentSessionState } from '../../agents/models/agentSessionState.js';
-import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
+import type { WalkthroughProgress } from '../../constants.walkthroughs.js';
 import type { RepositoryShape } from '../../git/models/repositoryShape.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { LaunchpadSummaryResult } from '../../plus/launchpad/launchpadIndicator.js';
@@ -45,12 +45,7 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 	avatar?: string;
 	organizationsCount?: number;
 	walkthroughSupported: boolean;
-	walkthroughProgress?: {
-		doneCount: number;
-		allCount: number;
-		progress: number;
-		state: Record<WalkthroughContextKeys, boolean>;
-	};
+	walkthroughProgress?: WalkthroughProgress;
 	dateFormat: string | null;
 	previewEnabled: boolean;
 	newInstall: boolean;

@@ -31,6 +31,7 @@ import type { BranchGitCommandArgs } from '../../commands/git/branch.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
 import { urls } from '../../constants.js';
 import type { HomeTelemetryContext } from '../../constants.telemetry.js';
+import type { WalkthroughProgress } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
 import { executeGitCommand } from '../../git/actions.js';
 import { revealBranch } from '../../git/actions/branch.js';
@@ -85,7 +86,7 @@ import { getBranchOverviewType, toOverviewBranch } from '../shared/overviewBranc
 import { getOverviewEnrichment, getOverviewWip } from '../shared/overviewEnrichment.utils.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
-import type { HomeServices, HomeViewService, WalkthroughProgressState } from './homeService.js';
+import type { HomeServices, HomeViewService } from './homeService.js';
 import type {
 	BranchAndTargetRefs,
 	BranchRef,
@@ -197,7 +198,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				this.dismissWalkthrough();
 				return Promise.resolve();
 			},
-			onWalkthroughProgressChanged: createRpcEventSubscription<WalkthroughProgressState>(
+			onWalkthroughProgressChanged: createRpcEventSubscription<WalkthroughProgress>(
 				buffer,
 				'walkthroughProgress',
 				'save-last',

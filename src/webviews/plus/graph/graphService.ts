@@ -8,6 +8,7 @@ import type { LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIn
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
+import type { WalkthroughProgressPayload } from '../../rpc/walkthroughService.js';
 import type {
 	ChoosePathParams,
 	DidChoosePathParams,
@@ -592,6 +593,7 @@ export interface GraphTreemapService {
 export interface GraphServices extends SharedWebviewServices {
 	readonly graphInspect: GraphInspectService;
 	readonly launchpad: GraphLaunchpadService;
+	readonly walkthrough: GraphWalkthroughService;
 	readonly sidebar: GraphSidebarService;
 	readonly graphTimeline: GraphTimelineService;
 	readonly graphTreemap: GraphTreemapService;
@@ -603,4 +605,12 @@ export interface GraphLaunchpadService {
 	 *  Launchpad indicator to keep its counts fresh. */
 	readonly onLaunchpadChanged: RpcEventSubscription<undefined>;
 	getSummary(): Promise<LaunchpadSummaryResult | { error: Error } | undefined>;
+}
+
+export interface GraphWalkthroughService {
+	/** Fires when either walkthrough's progress changes — the payload carries both the main
+	 *  (7-step) and graph-specific (6-step) walkthroughs. The host impl (`WalkthroughService`)
+	 *  already exposes this. */
+	readonly onProgressChanged: RpcEventSubscription<WalkthroughProgressPayload>;
+	getProgress(): Promise<WalkthroughProgressPayload | undefined>;
 }

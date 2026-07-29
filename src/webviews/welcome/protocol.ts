@@ -1,26 +1,14 @@
 import type { SubscriptionState } from '../../constants.subscription.js';
-import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from '../../constants.walkthroughs.js';
+import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../constants.walkthroughs.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
 import { IpcCommand, IpcNotification } from '../ipc/models/ipc.js';
 import type { WebviewState } from '../protocol.js';
 
+export type { GraphWalkthroughProgress, WalkthroughProgress };
+
 export const scope: IpcScope = 'welcome';
 
 export type WalkthroughMode = 'main' | 'graph';
-
-export interface WalkthroughProgress {
-	doneCount: number;
-	allCount: number;
-	progress: number;
-	state: Record<WalkthroughContextKeys, boolean>;
-}
-
-export interface GraphWalkthroughProgress {
-	doneCount: number;
-	allCount: number;
-	progress: number;
-	state: Record<GraphWalkthroughContextKeys, boolean>;
-}
 
 export interface State extends WebviewState<'gitlens.views.welcome'> {
 	webroot?: string;

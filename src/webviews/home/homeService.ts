@@ -6,7 +6,7 @@
  * Launchpad is a standalone service composed in from the RPC layer.
  */
 
-import type { WalkthroughContextKeys } from '../../constants.walkthroughs.js';
+import type { WalkthroughProgress } from '../../constants.walkthroughs.js';
 import type { LaunchpadService } from '../rpc/launchpadService.js';
 import type { SharedWebviewServices } from '../rpc/services/common.js';
 import type { OrgSettings, RepositoriesState, RpcEventSubscription } from '../rpc/services/types.js';
@@ -22,16 +22,6 @@ import type {
 // ============================================================
 // Home-specific types
 // ============================================================
-
-/**
- * Walkthrough progress state.
- */
-export interface WalkthroughProgressState {
-	readonly doneCount: number;
-	readonly allCount: number;
-	readonly progress: number;
-	readonly state: Record<WalkthroughContextKeys, boolean>;
-}
 
 /**
  * Initial context provided to the Home webview on first load.
@@ -109,13 +99,13 @@ export interface HomeViewService {
 	// --- Walkthrough ---
 
 	/** Get current walkthrough progress, or undefined if dismissed. */
-	getWalkthroughProgress(): Promise<WalkthroughProgressState | undefined>;
+	getWalkthroughProgress(): Promise<WalkthroughProgress | undefined>;
 
 	/** Dismiss the walkthrough section. */
 	dismissWalkthrough(): Promise<void>;
 
 	/** Fired when walkthrough progress changes. */
-	onWalkthroughProgressChanged: RpcEventSubscription<WalkthroughProgressState>;
+	onWalkthroughProgressChanged: RpcEventSubscription<WalkthroughProgress>;
 
 	// --- UI Actions ---
 

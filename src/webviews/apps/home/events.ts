@@ -20,7 +20,8 @@
  */
 import type { Remote } from '@eamodio/supertalk';
 import { Logger } from '@gitlens/utils/logger.js';
-import type { HomeServices, WalkthroughProgressState } from '../../home/homeService.js';
+import type { WalkthroughProgress } from '../../../constants.walkthroughs.js';
+import type { HomeServices } from '../../home/homeService.js';
 import type { AgentSessionState, OverviewFilters } from '../../home/protocol.js';
 import type {
 	AiModelInfo,
@@ -206,7 +207,7 @@ export function setupSubscriptions(
 		// ============================================================
 
 		() =>
-			services.home.onWalkthroughProgressChanged((progress: WalkthroughProgressState) => {
+			services.home.onWalkthroughProgressChanged((progress: WalkthroughProgress) => {
 				state.onboarding.walkthroughProgress.set(progress);
 			}),
 
