@@ -41,22 +41,22 @@ export class GitActionsButtons extends LitElement {
 				display: contents;
 			}
 
-			gl-push-pull-button,
 			gl-tooltip {
 				flex-shrink: 0;
 			}
 
-			gl-fetch-button {
-				flex: 0 1 max-content;
-				min-width: 3.1rem;
+			/* Each action yields its label completely before the next one loses a pixel — publish, then
+			   fetch, then pull/push — instead of all three shrinking halfway together and none reaching
+			   its icon-only floor. 2.4rem is that floor: the icon plus the anchor's padding. Pull/push
+			   sets its own tier on its wrappers, since its host is display: contents. */
+			gl-publish-button {
+				flex: 0 1000000 max-content;
+				min-width: 2.4rem;
 			}
 
-			/* Publish yields its label before Fetch loses a pixel, so the two collapse
-	   sequentially (publish → icon, then fetch → icon) instead of both shrinking
-	   halfway together and neither reaching its icon-only floor. */
-			gl-publish-button {
+			gl-fetch-button {
 				flex: 0 1000 max-content;
-				min-width: 3.1rem;
+				min-width: 2.4rem;
 			}
 
 			.wip-button {
@@ -245,10 +245,16 @@ export class GlFetchButton extends LitElement {
 				width: 100%;
 				max-width: 100%;
 				overflow: hidden;
+
+				/* The icon↔text separation lives on the text, not in a column gap: a gap survives even
+				   when the text column reaches 0, leaving a dead strip beside the icon at the floor. As
+				   padding it overflows the zero-width track and is clipped, so the floor is a true icon. */
+				column-gap: 0;
 			}
 
 			.action-button__text {
 				display: block;
+				padding-inline-start: 0.5rem;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
@@ -502,6 +508,43 @@ export class PushPullButton extends LitElement {
 		css`
 			:host {
 				display: contents;
+			}
+
+			/* The host is display: contents, so the pull popover / push tooltip are themselves the flex
+			   items in the header's action group — they carry the shrink tier. Pull/push yields last:
+			   it's the action you're most likely to still want named. */
+			:host > gl-popover,
+			:host > gl-tooltip {
+				display: block;
+				flex: 0 1 max-content;
+				max-width: 100%;
+				--gl-popover-anchor-width: 100%;
+			}
+
+			/* Grid so the label column's min-content is 0 and the label can ellipsize away without
+			   holding the button above icon width. The pill keeps an auto column — ahead/behind counts
+			   survive the collapse. Separation lives on the items rather than in a column gap so it
+			   collapses with the label instead of leaving a dead strip beside the icon. */
+			.action-button {
+				display: grid;
+				grid-template-columns: auto minmax(0, 1fr) auto;
+				align-items: center;
+				width: 100%;
+				max-width: 100%;
+				overflow: hidden;
+				column-gap: 0;
+			}
+
+			.action-button__text {
+				display: block;
+				padding-inline-start: 0.5rem;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.action-button__pill-slot {
+				padding-inline-start: 0.5rem;
 			}
 
 			.pill {
@@ -954,11 +997,12 @@ export class PushPullButton extends LitElement {
 			slot=${slotted ? 'anchor' : nothing}
 			href=${this._webview.createCommandLink(`gitlens.graph.${action}`)}
 			class="action-button${this.isBehind ? ' is-behind' : ''}${this.isAhead ? ' is-ahead' : ''}"
+			aria-label=${label}
 			@click=${action === 'pull' ? this.onPullClick : undefined}
 		>
 			<code-icon class="action-button__icon" icon=${icon}></code-icon>
-			${label}
-			<span>
+			<span class="action-button__text"><span class="action-button__label">${label}</span></span>
+			<span class="action-button__pill-slot">
 				<span class="pill action-button__pill">
 					${
 						this.isBehind
@@ -1078,10 +1122,15 @@ export class GlPublishButton extends LitElement {
 				width: 100%;
 				max-width: 100%;
 				overflow: hidden;
+
+				/* Separation lives on the text rather than in a column gap so it collapses with the
+				   label instead of leaving a dead strip beside the icon at the floor. */
+				column-gap: 0;
 			}
 
 			.publish-button__text {
 				display: block;
+				padding-inline-start: 0.5rem;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
