@@ -140,3 +140,76 @@ export function isGitCloudHostIntegrationId(id: IntegrationIds): id is GitCloudH
 export function isGitSelfManagedHostIntegrationId(id: IntegrationIds): id is GitSelfManagedHostIntegrationId {
 	return selfHostedIntegrationIds.includes(id as GitSelfManagedHostIntegrationId);
 }
+
+/**
+ * Whether this id belongs to a dedicated issue tracker (resource → project) rather than a git host.
+ *
+ * Decided from the id alone, so a read can refuse a mismatched surface — a repo/PR read asked of Jira, or an
+ * issue-tracker project read asked of GitHub — before resolving a connection. The instance-level
+ * {@link isIssuesIntegration} answers the same question once an integration is in hand.
+ */
+export function isIssuesHostIntegrationId(id: IntegrationIds): id is IssuesCloudHostIntegrationId {
+	switch (id) {
+		case IssuesCloudHostIntegrationId.Jira:
+		case IssuesCloudHostIntegrationId.Linear:
+		case IssuesCloudHostIntegrationId.Trello:
+			return true;
+		default:
+			return false;
+	}
+}
+
+/**
+ * Whether a read targeted only by an explicit self-managed `domain` (no `connectionId`) must treat a
+ * session-less core result as a broken target instead of an empty account. Without this, a self-managed host
+ * addressed only by domain — the manual-token/external-auth case `domain` exists to cover — returns an empty
+ * success with no warning and no `fetchFailed`, indistinguishable from "this host has nothing".
+ */
+export function warnOnMissingSessionForDomain(id: IntegrationIds, domain: string | undefined): boolean {
+	return domain != null && isGitSelfManagedHostIntegrationId(id);
+}
+
+/** Maps an integration id to the git-remote provider type used by the remote-URL matcher. */
+export function remoteProviderTypeForIntegration(id: IntegrationIds): RemoteProviderId | undefined {
+	switch (id) {
+		case GitCloudHostIntegrationId.GitHub:
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
+			return 'github';
+		case GitCloudHostIntegrationId.GitLab:
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
+			return 'gitlab';
+		case GitCloudHostIntegrationId.Bitbucket:
+			return 'bitbucket';
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
+			return 'bitbucket-server';
+		case GitCloudHostIntegrationId.AzureDevOps:
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+			return 'azure-devops';
+		default:
+			return undefined;
+	}
+}
+
+/** Normalizes a host remote-config `type` string (e.g. `'GitHub'`) to a git-remote provider type. */
+export function remoteProviderTypeForConfig(type: string): RemoteProviderId | undefined {
+	switch (type.toLowerCase()) {
+		case 'github':
+			return 'github';
+		case 'gitlab':
+			return 'gitlab';
+		case 'bitbucket':
+			return 'bitbucket';
+		case 'bitbucket-server':
+		case 'bitbucketserver':
+			return 'bitbucket-server';
+		case 'azuredevops':
+		case 'azure-devops':
+			return 'azure-devops';
+		case 'gitea':
+			return 'gitea';
+		case 'gerrit':
+			return 'gerrit';
+		default:
+			return undefined;
+	}
+}
