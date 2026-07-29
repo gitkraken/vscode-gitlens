@@ -226,8 +226,9 @@ function getExtensionConfig(target, mode, env) {
 	// Linting and type checking (incl. tsgo-backed TS diagnostics) are both handled by oxlint:
 	// once per build, in parallel with bundling, from build.mjs — so this config adds no separate
 	// lint/type-check plugin. The inline OxLintWebpackPlugin (added below whenever not in quick
-	// mode) is watch-only, so it re-checks changed files incrementally during watch; one-shot builds
-	// rely on the single standalone oxlint pass in build.mjs.
+	// mode) is watch-only: it lints the changed files for fast feedback and, with `project: true`,
+	// runs the whole-project type-aware pass that catches call sites a changed signature broke.
+	// One-shot builds rely on the single standalone oxlint pass in build.mjs.
 
 	if (target === 'webworker') {
 		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
@@ -249,7 +250,7 @@ function getExtensionConfig(target, mode, env) {
 		);
 	}
 	if (!env.quick && target !== 'webworker') {
-		plugins.push(new OxLintWebpackPlugin());
+		plugins.push(new OxLintWebpackPlugin({ project: true }));
 	}
 
 	if (env.analyzeDeps) {
@@ -525,9 +526,8 @@ function getWebviewsCommonConfig(mode, env) {
 		}),
 	];
 
-	if (!env.quick) {
-		plugins.push(new OxLintWebpackPlugin());
-	}
+	// No lint plugin here — this config has no entries (it only copies media/codicons), so it never
+	// recompiles on a source edit. The webviews app config below carries the pass instead.
 
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
 
@@ -604,8 +604,10 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	// below during watch, or the standalone oxlint pass in build.mjs for one-shot builds), so no
 	// separate Node-based type-check plugin runs here.
 
+	// `project: true` so a webviews-only watch (`watch:webviews`) still gets a whole-project
+	// type-aware pass. When the extension config is watched too, both instances share the one run.
 	if (!env.quick) {
-		plugins.push(new OxLintWebpackPlugin());
+		plugins.push(new OxLintWebpackPlugin({ project: true }));
 	}
 
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);

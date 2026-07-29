@@ -54,8 +54,6 @@
 		"/scripts",
 		"/src/@types",
 		"/packages/core",
-		"/packages/git/test-harness",
-		"/packages/git-cli/test-harness",
 		"/tests/e2e/runner/**",
 		"/tests/fixtures/**"
 	],

@@ -98,7 +98,7 @@ if (build?.includes('unit-tests')) {
 			env: env,
 		});
 
-		pkgs.on('exit', code => resolve(code || 0));
+		pkgs.on('exit', (code, signal) => resolve(exitCode(code, signal)));
 	});
 
 	if (pkgsCode !== 0) {
@@ -125,7 +125,7 @@ if (!quick && !watch) {
 			},
 		});
 
-		fmt.on('exit', code => resolve(code || 0));
+		fmt.on('exit', (code, signal) => resolve(exitCode(code, signal)));
 	});
 
 	if (formatCode !== 0) {
@@ -133,12 +133,22 @@ if (!quick && !watch) {
 	}
 }
 
+/**
+ * A child killed by a signal exits with a null code — scoring that as 0 would report a build that
+ * was OOM-killed or interrupted as a success.
+ * @param {number | null} code @param {NodeJS.Signals | null} signal @returns {number}
+ */
+function exitCode(code, signal) {
+	if (code != null) return code;
+	return signal != null ? 1 : 0;
+}
+
 /** @param {string} command @returns {Promise<number>} exit code (always resolves; never rejects) */
 function run(command) {
 	console.log(`Running: ${command}`);
 	const child = spawn(command, [], { shell: true, stdio: 'inherit', env: env });
 	return new Promise(resolve => {
-		child.on('exit', code => resolve(code || 0));
+		child.on('exit', (code, signal) => resolve(exitCode(code, signal)));
 		// Spawn failures emit 'error' without 'exit' — resolve as failure so the batch never hangs.
 		child.on('error', () => resolve(1));
 	});
