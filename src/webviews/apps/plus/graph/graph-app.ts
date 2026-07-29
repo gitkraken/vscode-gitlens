@@ -163,13 +163,6 @@ const detailsMaxPct = 80;
 const detailsAutoBottomEnterPx = 820;
 const detailsAutoBottomExitPx = 920;
 
-// Height thresholds (px) for the account bar's inline mode (issue #5449) — below `enter` the bar
-// gives up its own row and its chips move into the graph header's right group; above `exit` it
-// returns to a full-width row. The dead-band between them prevents flicker when the view is
-// dragged across the boundary (e.g. resizing the bottom panel).
-const headerInlineEnterPx = 400;
-const headerInlineExitPx = 460;
-
 const minimapDefaultPx = 40;
 const minimapMaxPct = 40;
 
