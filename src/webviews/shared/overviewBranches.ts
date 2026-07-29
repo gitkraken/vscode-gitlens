@@ -183,7 +183,6 @@ export interface OverviewBranchLaunchpadItem {
 			approval: number;
 			changeRequest: number;
 			comment: number;
-			codeSuggest: number;
 		};
 	};
 

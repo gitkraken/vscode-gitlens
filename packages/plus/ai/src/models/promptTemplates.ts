@@ -121,7 +121,7 @@ export type PromptTemplateType =
 	| 'generate-commitMessage'
 	| 'generate-stashMessage'
 	| 'generate-changelog'
-	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
+	| `generate-create-${'cloudPatch' | 'pullRequest'}`
 	| 'generate-commits'
 	| 'generate-searchQuery'
 	| 'explain-changes'
@@ -142,7 +142,7 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? CommitMessagePromptTemplateContext
 	: T extends 'generate-stashMessage'
 	? StashMessagePromptTemplateContext
-	: T extends 'generate-create-cloudPatch' | 'generate-create-codeSuggestion'
+	: T extends 'generate-create-cloudPatch'
 	? CreateDraftPromptTemplateContext
 	: T extends 'generate-create-pullRequest'
 	? CreatePullRequestPromptTemplateContext

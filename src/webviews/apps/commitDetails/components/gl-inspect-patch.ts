@@ -325,7 +325,7 @@ export class InspectPatch extends GlElement {
 		return html`<gl-patch-create
 			.state=${this.patchCreateState}
 			.generate=${this.generate}
-			review
+			inline
 			@gl-patch-file-compare-working=${(e: CustomEvent) => {
 				console.log('gl-patch-file-compare-working', e);
 			}}

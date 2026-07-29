@@ -43,7 +43,6 @@ const defaults: { readonly [key: string]: string | undefined } = {
 	'generate-stashMessage': summarized('Simulated stash message', 'WIP — simulated.'),
 	'generate-changelog': summarized('Simulated changelog', '## Changes\n- Simulated entry'),
 	'generate-create-cloudPatch': summarized('Simulated cloud patch description', 'Simulated patch body.'),
-	'generate-create-codeSuggestion': summarized('Simulated code suggestion', 'Simulated suggestion body.'),
 	'generate-create-pullRequest': summarized('Simulated pull request', '## Summary\n- Simulated PR body'),
 	'generate-commits': generateCommitsRejection,
 	'generate-searchQuery': 'message:simulated',

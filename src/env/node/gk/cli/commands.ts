@@ -378,7 +378,6 @@ function serializeLaunchpadItem(item: LaunchpadItem): Record<string, unknown> {
 		closedDate: item.closedDate,
 		mergedDate: item.mergedDate,
 		currentViewer: toSafeAccount(item.currentViewer),
-		codeSuggestionsCount: item.codeSuggestionsCount,
 		isNew: item.isNew,
 		isSearched: item.isSearched,
 		actionableCategory: item.actionableCategory,

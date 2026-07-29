@@ -283,7 +283,7 @@ void
   'model.provider.name': string,
   'sentiment': 'helpful' | 'unhelpful',
   // The AI feature that feedback was submitted for
-  'type': 'explain-changes' | 'review-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-codeSuggestion' | 'generate-create-pullRequest' | 'generate-commits' | 'conflict-resolution' | 'generate-searchQuery',
+  'type': 'explain-changes' | 'review-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-pullRequest' | 'generate-commits' | 'conflict-resolution' | 'generate-searchQuery',
   // Custom feedback provided (if any)
   'unhelpful.custom': string,
   // Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values
@@ -4855,7 +4855,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'soft-open' | 'merge' | 'switch' | 'open' | 'open-worktree' | 'start-review' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
+  'action': 'soft-open' | 'merge' | 'switch' | 'open' | 'open-worktree' | 'start-review' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -4881,7 +4881,6 @@ void
   'initialState.selectTopItem': boolean,
   [`item.${string}`]: string | number | boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
@@ -4920,7 +4919,6 @@ void
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
@@ -4959,7 +4957,6 @@ or
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
@@ -5019,7 +5016,6 @@ or
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
@@ -5086,7 +5082,6 @@ void
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
@@ -5099,7 +5094,7 @@ void
 ```typescript
 {
   'duration': number,
-  'operation': 'getPullRequest' | 'searchPullRequests' | 'getMyPullRequests' | 'getCodeSuggestions' | 'getEnrichedItems' | 'getCodeSuggestionCounts',
+  'operation': 'getPullRequest' | 'searchPullRequests' | 'getMyPullRequests' | 'getEnrichedItems',
   'timeout': number
 }
 ```
@@ -5137,7 +5132,6 @@ void
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
@@ -5177,7 +5171,6 @@ void
   'initialState.selectTopItem': boolean,
   [`item.${string}`]: string | number | boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
@@ -5216,7 +5209,6 @@ void
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }
@@ -5255,7 +5247,6 @@ void
   'initialState.group': string,
   'initialState.selectTopItem': boolean,
   'items.count': number,
-  'items.timings.codeSuggestionCounts': number,
   'items.timings.enrichedItems': number,
   'items.timings.prs': number
 }

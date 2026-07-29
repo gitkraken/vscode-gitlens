@@ -73,7 +73,9 @@ const BesideViewColumn = -2; /*ViewColumn.Beside*/
 export class GlPatchCreate extends GlTreeBase {
 	@property({ type: Object }) state?: Serialized<State>;
 
-	@property({ type: Boolean }) review = false;
+	/** Rendered inline (e.g. the Inspect WIP pane) rather than as the full Patch Details view;
+	 *  adds a Cancel affordance since there's no view chrome to close. */
+	@property({ type: Boolean }) inline = false;
 
 	@property({ type: Object })
 	generate?: GenerateState;
@@ -239,8 +241,8 @@ export class GlPatchCreate extends GlTreeBase {
 				break;
 		}
 
-		const draftName = this.review ? 'Code Suggestion' : 'Cloud Patch';
-		const draftNamePlural = this.review ? 'Code Suggestions' : 'Cloud Patches';
+		const draftName = 'Cloud Patch';
+		const draftNamePlural = 'Cloud Patches';
 		return html`
 			<div class="section section--action">
 				${when(
@@ -251,40 +253,27 @@ export class GlPatchCreate extends GlTreeBase {
 							<p class="alert__content">${this.state!.create!.creationError}</p>
 						</div>`,
 				)}
-				${when(
-					this.review === false,
-					() => html`
-						<div class="message-input message-input--group">
-							<div class="message-input__select">
-								<span class="message-input__select-icon"
-									><code-icon icon=${visibilityIcon}></code-icon
-								></span>
-								<select
-									id="visibility"
-									class="message-input__control"
-									@change=${this.onVisibilityChange}
-								>
-									<option value="public" ?selected=${this.draftVisibility === 'public'}>
-										Anyone with the link
-									</option>
-									<option value="private" ?selected=${this.draftVisibility === 'private'}>
-										Members of my Org with the link
-									</option>
-									<option value="invite_only" ?selected=${this.draftVisibility === 'invite_only'}>
-										Collaborators only
-									</option>
-								</select>
-								<span class="message-input__select-caret"
-									><code-icon icon="chevron-down"></code-icon
-								></span>
-							</div>
-							<gl-button appearance="secondary" @click=${this.onInviteUsers}
-								><code-icon icon="person-add" slot="prefix"></code-icon> Invite</gl-button
-							>
-						</div>
-						${this.renderUserSelectionList()}
-					`,
-				)}
+				<div class="message-input message-input--group">
+					<div class="message-input__select">
+						<span class="message-input__select-icon"><code-icon icon=${visibilityIcon}></code-icon></span>
+						<select id="visibility" class="message-input__control" @change=${this.onVisibilityChange}>
+							<option value="public" ?selected=${this.draftVisibility === 'public'}>
+								Anyone with the link
+							</option>
+							<option value="private" ?selected=${this.draftVisibility === 'private'}>
+								Members of my Org with the link
+							</option>
+							<option value="invite_only" ?selected=${this.draftVisibility === 'invite_only'}>
+								Collaborators only
+							</option>
+						</select>
+						<span class="message-input__select-caret"><code-icon icon="chevron-down"></code-icon></span>
+					</div>
+					<gl-button appearance="secondary" @click=${this.onInviteUsers}
+						><code-icon icon="person-add" slot="prefix"></code-icon> Invite</gl-button
+					>
+				</div>
+				${this.renderUserSelectionList()}
 				<div class="message-input message-input--with-menu">
 					<input
 						id="title"
@@ -344,7 +333,7 @@ export class GlPatchCreate extends GlTreeBase {
 					</span>
 				</p>
 				${when(
-					this.review === true,
+					this.inline,
 					() => html`
 						<p class="button-container">
 							<span class="button-group button-group--single">
@@ -412,7 +401,7 @@ export class GlPatchCreate extends GlTreeBase {
 	private renderChangedFiles() {
 		return html`
 			<webview-pane class="h-no-border" expanded>
-				<span slot="title">${this.review ? 'Changes to Suggest' : 'Changes to Include'}</span>
+				<span slot="title">Changes to Include</span>
 				<action-nav slot="actions">${this.renderLayoutAction(this.fileLayout)}</action-nav>
 
 				${when(
@@ -814,8 +803,6 @@ export class GlPatchCreate extends GlTreeBase {
 			label: 'Open File',
 			action: 'file-open',
 		};
-
-		if (this.review) return [openFile];
 
 		if (file.staged === true) {
 			return [openFile, { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' }];

@@ -50,7 +50,6 @@ type DiffTemplateType =
 	| 'generate-commitMessage'
 	| 'generate-stashMessage'
 	| 'generate-create-cloudPatch'
-	| 'generate-create-codeSuggestion'
 	| 'generate-create-pullRequest'
 	| 'explain-changes'
 	| 'review-changes'

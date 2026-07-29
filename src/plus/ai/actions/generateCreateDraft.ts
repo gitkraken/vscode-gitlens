@@ -13,7 +13,7 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import type { AIResponse, AISourceContext } from '../aiProviderService.js';
 import type { AIService } from '../aiService.js';
 
-/** Generates a draft message (cloud patch or code suggestion) */
+/** Generates a cloud patch draft message */
 export async function generateCreateDraft(
 	service: AIService,
 	changesOrRepo: string | string[] | GlRepository,
@@ -23,33 +23,28 @@ export async function generateCreateDraft(
 		context?: string;
 		generating?: Deferred<AIModel>;
 		progress?: ProgressOptions;
-		codeSuggestion?: boolean;
 	},
 ): Promise<AIResponse<AISummarizedResult> | 'cancelled' | undefined> {
 	const { context, ...source } = sourceContext;
 
 	const result = await service.sendRequest(
-		options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
+		'generate-create-cloudPatch',
 		undefined,
 		{
 			getMessages: async (model, reporting, cancellation, maxInputTokens, retries) => {
 				const changes: string | undefined = await service.getChanges(changesOrRepo);
 				if (changes == null) {
-					throw new AINoRequestDataError(
-						`No changes to generate a ${options?.codeSuggestion ? 'code suggestion' : 'cloud patch'} from.`,
-					);
+					throw new AINoRequestDataError('No changes to generate a cloud patch from.');
 				}
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				const { prompt } = await service.getPrompt(
-					options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
+					'generate-create-cloudPatch',
 					model,
 					{
 						diff: changes,
 						context: options?.context,
-						instructions: options?.codeSuggestion
-							? configuration.get('ai.generateCreateCodeSuggest.customInstructions')
-							: configuration.get('ai.generateCreateCloudPatch.customInstructions'),
+						instructions: configuration.get('ai.generateCreateCloudPatch.customInstructions'),
 					},
 					maxInputTokens,
 					retries,
@@ -61,8 +56,7 @@ export async function generateCreateDraft(
 				const messages: AIChatMessage[] = [{ role: 'user', content: prompt }];
 				return messages;
 			},
-			getProgressTitle: m =>
-				`Generating ${options?.codeSuggestion ? 'code suggestion' : 'cloud patch'} description with ${m.name}...`,
+			getProgressTitle: m => `Generating cloud patch description with ${m.name}...`,
 			getTelemetryInfo: m => ({
 				key: 'ai/generate',
 				data: {
@@ -87,8 +81,8 @@ export async function generateCreateDraft(
 		: response != null
 			? {
 					...response,
-					type: options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
-					feature: options?.codeSuggestion ? 'generate-create-codeSuggestion' : 'generate-create-cloudPatch',
+					type: 'generate-create-cloudPatch',
+					feature: 'generate-create-cloudPatch',
 					result: parseSummarizeResult(response.content),
 				}
 			: undefined;

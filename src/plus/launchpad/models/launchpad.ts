@@ -6,7 +6,6 @@ export const launchpadActionCategories = [
 	'failed-checks',
 	'conflicts',
 	'needs-my-review',
-	'code-suggestions',
 	'changes-requested',
 	'reviewer-commented',
 	'waiting-for-review',
@@ -69,7 +68,6 @@ export const launchpadCategoryToGroupMap = new Map<LaunchpadActionCategory, Laun
 	['failed-checks', 'blocked'],
 	['unassigned-reviewers', 'blocked'],
 	['needs-my-review', 'needs-review'],
-	['code-suggestions', 'follow-up'],
 	['changes-requested', 'follow-up'],
 	['reviewer-commented', 'follow-up'],
 	['waiting-for-review', 'waiting-for-review'],
@@ -101,18 +99,12 @@ export type LaunchpadAction =
 	| 'open-changes'
 	| 'open-in-graph';
 
-export type LaunchpadTargetAction = {
-	action: 'open-suggestion';
-	target: string;
-};
-
 export const prActionsMap = new Map<LaunchpadActionCategory, LaunchpadAction[]>([
 	['mergeable', ['merge']],
 	['unassigned-reviewers', ['open']],
 	['failed-checks', ['open']],
 	['conflicts', ['open']],
 	['needs-my-review', ['open']],
-	['code-suggestions', ['open']],
 	['changes-requested', ['open']],
 	['reviewer-commented', ['open']],
 	['waiting-for-review', ['open']],
@@ -126,7 +118,6 @@ export const actionGroupMap = new Map<LaunchpadActionCategory, string[]>([
 	['failed-checks', ['Failed Checks', 'You need to resolve the failing checks']],
 	['conflicts', ['Resolve Conflicts', 'You need to resolve merge conflicts']],
 	['needs-my-review', ['Needs Your Review', `\${author} requested your review`]],
-	['code-suggestions', ['Code Suggestions', 'Code suggestions have been made on this pull request']],
 	['changes-requested', ['Changes Requested', 'Reviewers requested changes before this can be merged']],
 	['reviewer-commented', ['Reviewers Commented', 'Reviewers have commented on this pull request']],
 	['waiting-for-review', ['Waiting for Review', 'Waiting for reviewers to approve this pull request']],

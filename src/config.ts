@@ -254,9 +254,6 @@ interface AIConfig {
 	readonly generateCreateCloudPatch: {
 		readonly customInstructions: string;
 	};
-	readonly generateCreateCodeSuggest: {
-		readonly customInstructions: string;
-	};
 	readonly generateCreatePullRequest: {
 		readonly customInstructions: string;
 	};

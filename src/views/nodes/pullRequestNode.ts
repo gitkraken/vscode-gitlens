@@ -250,7 +250,7 @@ export async function getPullRequestChildren(
 
 export function getPullRequestTooltip(
 	pullRequest: PullRequest,
-	context?: { commit?: GitCommit; idPrefix?: string; codeSuggestionsCount?: number },
+	context?: { commit?: GitCommit; idPrefix?: string },
 ): MarkdownString {
 	const tooltip = new MarkdownString('', true);
 	tooltip.supportHtml = true;
@@ -272,10 +272,5 @@ export function getPullRequestTooltip(
 			pullRequest.provider.name
 		}") was ${pullRequest.state.toLowerCase()} ${PullRequest.formatDateFromNow(pullRequest)}`,
 	);
-	if (context?.codeSuggestionsCount != null && context.codeSuggestionsCount > 0) {
-		tooltip.appendMarkdown(
-			`\n\n$(gitlens-code-suggestion) ${pluralize('code suggestion', context.codeSuggestionsCount)}`,
-		);
-	}
 	return tooltip;
 }

@@ -27,10 +27,7 @@ import { getBestRemoteWithIntegration, getRemoteIntegration } from '../../git/ut
 import type { OrganizationMember } from '../gk/models/organization.js';
 import type { SubscriptionAccount } from '../gk/models/subscription.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
-import type { LaunchpadItem } from '../launchpad/launchpadProvider.js';
 import type {
-	CodeSuggestionCounts,
-	CodeSuggestionCountsResponse,
 	CreateDraftChange,
 	CreateDraftPatchRequestFromChange,
 	CreateDraftRequest,
@@ -812,34 +809,17 @@ export class DraftService implements Disposable {
 		return this.getProviderAuthFromRepoOrIntegrationId(repo);
 	}
 
+	@debug({ args: (pullRequest, repository) => ({ pullRequest: pullRequest.id, repository: repository.id }) })
 	async getCodeSuggestions(
 		pullRequest: PullRequest,
 		repository: GlRepository,
 		options?: { includeArchived?: boolean },
-	): Promise<Draft[]>;
-	async getCodeSuggestions(
-		launchpadItem: LaunchpadItem,
-		integrationId: IntegrationIds,
-		options?: { includeArchived?: boolean },
-	): Promise<Draft[]>;
-	@debug({
-		args: (item, repositoryOrIntegrationId) => ({
-			item: item.id,
-			repositoryOrIntegrationId: GlRepository.is(repositoryOrIntegrationId)
-				? repositoryOrIntegrationId.id
-				: repositoryOrIntegrationId,
-		}),
-	})
-	async getCodeSuggestions(
-		item: PullRequest | LaunchpadItem,
-		repositoryOrIntegrationId: GlRepository | IntegrationIds,
-		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
-		if (!supportsCodeSuggest(item.provider)) return [];
+		if (!supportsCodeSuggest(pullRequest.provider)) return [];
 
-		const entityIdentifier = getEntityIdentifierInput(item);
+		const entityIdentifier = getEntityIdentifierInput(pullRequest);
 		const prEntityId = EntityIdentifierUtils.encode(entityIdentifier);
-		const providerAuth = await this.getProviderAuthFromRepoOrIntegrationId(repositoryOrIntegrationId);
+		const providerAuth = await this.getProviderAuthFromRepoOrIntegrationId(repository);
 
 		// swallowing this error as we don't need to fail here
 		try {
@@ -851,46 +831,6 @@ export class DraftService implements Disposable {
 			return drafts;
 		} catch (_ex) {
 			return [];
-		}
-	}
-
-	@debug({ args: pullRequests => ({ pullRequests: pullRequests.map(pr => pr.id).join(',') }) })
-	async getCodeSuggestionCounts(pullRequests: PullRequest[]): Promise<CodeSuggestionCounts> {
-		const scope = getScopedLogger();
-
-		type Result = { data: CodeSuggestionCountsResponse };
-
-		const prEntityIds = pullRequests
-			.filter(pr => supportsCodeSuggest(pr.provider))
-			.map(pr => {
-				return EntityIdentifierUtils.encode(getEntityIdentifierInput(pr));
-			});
-
-		if (prEntityIds.length === 0) {
-			return {};
-		}
-
-		const body = JSON.stringify({
-			prEntityIds: prEntityIds,
-		});
-
-		try {
-			const rsp = await this.connection.fetchGkApi(
-				'v1/drafts/counts',
-				{ method: 'POST', body: body },
-				{ query: 'type=suggested_pr_change' },
-			);
-
-			if (!rsp.ok) {
-				await handleBadDraftResponse('Unable to open code suggestion counts', rsp, scope);
-			}
-
-			return ((await rsp.json()) as Result).data.counts;
-		} catch (ex) {
-			debugger;
-			scope?.error(ex);
-
-			throw ex;
 		}
 	}
 

@@ -187,54 +187,6 @@ Example output structure:
 Based on the provided code diff and any additional context, create a concise but meaningful title and description following the instructions above`,
 };
 
-export const generateCreateCodeSuggest: PromptTemplate<'generate-create-codeSuggestion'> = {
-	id: 'generate-create-codeSuggestion_v2',
-	variables: ['diff', 'context', 'instructions'],
-	template: `You are an advanced AI programming assistant and are tasked with summarizing code changes into a concise and meaningful code review title and description. You will be provided with a code diff and optional additional context. Your goal is to analyze the changes and create a clear, informative code review title and description that accurately represents the modifications made to the code
-
-First, examine the following code changes provided in Git diff format:
-<~~diff~~>
-\${diff}
-</~~diff~~>
-
-Now, if provided, use this context to understand the motivation behind the changes and any relevant background information:
-<~~additional-context~~>
-\${context}
-</~~additional-context~~>
-
-To create an effective title and description, follow these steps:
-
-1. Carefully analyze the diff and context, focusing on:
-   - The purpose and rationale of the changes
-   - Any problems addressed or benefits introduced
-   - Any significant logic changes or algorithmic improvements
-2. Ensure the following when composing the title and description:
-   - Emphasize the 'why' of the change, its benefits, or the problem it addresses
-   - Use an informal yet professional tone
-   - Use a future-oriented manner, third-person singular present tense (e.g., 'Fixes', 'Updates', 'Improves', 'Adds', 'Removes')
-   - Be clear and concise
-   - Synthesize only meaningful information from the diff and context
-   - Avoid outputting code, specific code identifiers, names, or file names unless crucial for understanding
-   - Avoid repeating information, broad generalities, and unnecessary phrases like "this", "this commit", or "this change"
-3. Summarize the main purpose of the changes in a single, concise sentence, which will be the title
-4. Provide a detailed explanation of the changes, which will be the description
-   - Add line breaks for readability and to separate independent ideas
-   - Focus on the "why" rather than the "what" of the changes
-
-Write your title inside <summary> tags and your description inside <body> tags and include no other text
-Example output structure:
-<summary>
-[code-suggestion-title-goes-here]
-</summary>
-<body>
-[code-suggestion-description-goes-here]
-</body>
-
-\${instructions}
-
-Based on the provided code diff and any additional context, create a concise but meaningful code review title and description following the instructions above`,
-};
-
 export const explainChanges: PromptTemplate<'explain-changes'> = {
 	id: 'explain-changes',
 	variables: ['diff', 'message', 'instructions'],

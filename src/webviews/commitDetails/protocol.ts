@@ -165,10 +165,6 @@ export interface Wip {
 	signing?: WipSigning;
 }
 
-export interface DraftState {
-	inReview: boolean;
-}
-
 export interface State extends WebviewState<'gitlens.views.commitDetails'> {
 	pinned: boolean;
 	preferences: Preferences;

@@ -4766,16 +4766,6 @@
 							"preview"
 						]
 					},
-					"gitlens.ai.generateCreateCodeSuggest.customInstructions": {
-						"type": "string",
-						"default": null,
-						"markdownDescription": "Specifies custom instructions to provide to the AI provider when generating a code suggest title and description",
-						"scope": "window",
-						"order": 400,
-						"tags": [
-							"preview"
-						]
-					},
 					"gitlens.ai.generateCreatePullRequest.customInstructions": {
 						"type": "string",
 						"default": null,

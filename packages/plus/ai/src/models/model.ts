@@ -28,7 +28,7 @@ export type AIActionType =
 	| 'generate-commitMessage'
 	| 'generate-stashMessage'
 	| 'generate-changelog'
-	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
+	| `generate-create-${'cloudPatch' | 'pullRequest'}`
 	| 'generate-commits'
 	| 'conflict-resolution'
 	| 'generate-searchQuery';

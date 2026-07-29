@@ -14,8 +14,6 @@ export function getActionName(action: AIActionType): string {
 			return 'Generate Changelog';
 		case 'generate-create-cloudPatch':
 			return 'Create Cloud Patch Details';
-		case 'generate-create-codeSuggestion':
-			return 'Create Code Suggestion Details';
 		case 'generate-create-pullRequest':
 			return 'Create Pull Request Details';
 		case 'generate-commits':

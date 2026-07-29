@@ -195,7 +195,6 @@ export async function getLaunchpadItemInfo(
 				approval: lpi.approvalReviewCount,
 				changeRequest: lpi.changeRequestReviewCount,
 				comment: lpi.commentReviewCount,
-				codeSuggest: lpi.codeSuggestionsCount,
 			},
 		},
 

@@ -186,7 +186,6 @@ export interface GetOverviewBranch {
 									approval: number;
 									changeRequest: number;
 									comment: number;
-									codeSuggest: number;
 								};
 							};
 

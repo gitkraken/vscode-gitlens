@@ -2268,7 +2268,6 @@ type LaunchpadEventData = LaunchpadEventDataBase & {
 	'items.error'?: string;
 	'items.count'?: number;
 	'items.timings.prs'?: number;
-	'items.timings.codeSuggestionCounts'?: number;
 	'items.timings.enrichedItems'?: number;
 } & Partial<LaunchpadGroupsEventData>;
 
@@ -2292,9 +2291,7 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 		| 'pin'
 		| 'unpin'
 		| 'snooze'
-		| 'unsnooze'
-		| 'open-suggestion'
-		| 'open-suggestion-browser';
+		| 'unsnooze';
 } & Partial<Record<`item.${string}`, string | number | boolean>>;
 
 type LaunchpadAgentResolvedEvent = LaunchpadEventData & AgentResolvedEventData;
@@ -2328,13 +2325,7 @@ type LaunchpadStepsDetailsEvent = LaunchpadEventData & {
 
 interface LaunchpadOperationSlowEvent {
 	timeout: number;
-	operation:
-		| 'getPullRequest'
-		| 'searchPullRequests'
-		| 'getMyPullRequests'
-		| 'getCodeSuggestions'
-		| 'getEnrichedItems'
-		| 'getCodeSuggestionCounts';
+	operation: 'getPullRequest' | 'searchPullRequests' | 'getMyPullRequests' | 'getEnrichedItems';
 	duration: number;
 }
 

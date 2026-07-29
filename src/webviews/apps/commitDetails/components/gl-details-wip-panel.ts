@@ -1,7 +1,6 @@
 import type { PropertyValueMap, TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import { isActiveAgentPhase } from '@gitlens/agents/types.js';
@@ -10,11 +9,9 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { isDescendant, normalizePath, relative } from '@gitlens/utils/path.js';
-import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
-import type { Draft } from '../../../../plus/drafts/models/drafts.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
-import type { DetailsItemTypedContext, DraftState, Wip } from '../../../commitDetails/protocol.js';
+import type { DetailsItemTypedContext, Wip } from '../../../commitDetails/protocol.js';
 import { buildFolderContext } from '../../../commitDetails/protocol.js';
 import type { Change } from '../../../plus/patchDetails/protocol.js';
 import type { TreeItemAction, TreeItemBase, TreeItemCheckedDetail } from '../../shared/components/tree/base.js';
@@ -23,6 +20,7 @@ import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
 import { detailsWipPanelStyles } from './gl-details-wip-panel.css.js';
 import type { CreatePatchState, GenerateState } from './gl-inspect-patch.js';
+import './gl-inspect-patch.js';
 import '../../plus/graph/components/gl-details-wip-empty-pane.js';
 import '../../plus/shared/components/merge-rebase-status.js';
 import '../../shared/components/actions/action-nav.js';
@@ -41,7 +39,6 @@ import '../../shared/components/tree/gl-wip-tree-pane.js';
 import '../../shared/components/tree/tree.js';
 import '../../shared/components/tree/tree-item.js';
 import '../../shared/components/webview-pane.js';
-import './gl-inspect-patch.js';
 
 // Stable references for the inline tree-item actions so each render reuses the same objects
 // instead of allocating fresh ones per file. Lit's array diffing in gl-tree-item is identity-
@@ -189,12 +186,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 	@property({ type: Object })
 	pullRequest?: PullRequestShape;
-
-	@property({ type: Array })
-	codeSuggestions?: Omit<Draft, 'changesets'>[];
-
-	@property({ type: Object })
-	draftState?: DraftState;
 
 	@property({ type: Object })
 	generate?: GenerateState;
@@ -391,15 +382,14 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		}
 	}
 
-	@state()
-	get inReview(): boolean {
-		return this.draftState?.inReview ?? false;
-	}
-
 	get isUnpublished(): boolean {
 		const branch = this.wip?.branch;
 		return branch?.upstream == null || branch.upstream.missing === true;
 	}
+
+	/** Inline Cloud Patch creation is showing. Parked: no trigger sets this yet. */
+	@state()
+	private creatingPatch = false;
 
 	get draftsEnabled(): boolean {
 		return this.orgSettings?.drafts === true;
@@ -466,67 +456,10 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	}
 
 	private renderSecondaryAction(hasPrimary = true) {
-		if (!this.draftsEnabled || this.inReview) return undefined;
+		if (!this.draftsEnabled || this.creatingPatch) return undefined;
 
-		let label = 'Share as Cloud Patch';
-		let action = 'create-patch';
-		const pr = this.pullRequest;
-		if (pr?.state === 'opened' && equalsIgnoreCase(pr.provider.domain, 'github.com')) {
-			// const isMe = pr.author.name.endsWith('(you)');
-			// if (isMe) {
-			// 	label = 'Share with PR Participants';
-			// 	action = 'create-patch';
-			// } else {
-			// 	label = `Start Review for PR #${pr.id}`;
-			// 	action = 'create-patch';
-			// }
-
-			if (!this.inReview) {
-				label = 'Suggest Changes for PR';
-				action = 'start-patch-review';
-			} else {
-				label = 'Close Suggestion for PR';
-				action = 'end-patch-review';
-			}
-
-			if ((this.wip?.changes?.files.length ?? 0) === 0) {
-				return html`
-					<gl-button
-						?full=${!hasPrimary}
-						appearance="secondary"
-						data-action="${action}"
-						@click=${() => this.onToggleReviewMode(!this.inReview)}
-						.tooltip=${hasPrimary ? label : undefined}
-					>
-						<code-icon icon="gl-code-suggestion" .slot=${!hasPrimary ? 'prefix' : nothing}></code-icon
-						>${!hasPrimary ? label : nothing}
-					</gl-button>
-				`;
-			}
-
-			return html`
-				<gl-button
-					?full=${!hasPrimary}
-					appearance="secondary"
-					data-action="${action}"
-					.tooltip=${hasPrimary ? label : undefined}
-					@click=${() => this.onToggleReviewMode(!this.inReview)}
-				>
-					<code-icon icon="gl-code-suggestion" .slot=${!hasPrimary ? 'prefix' : nothing}></code-icon
-					>${!hasPrimary ? label : nothing}
-				</gl-button>
-				<gl-button
-					appearance="secondary"
-					density="compact"
-					data-action="create-patch"
-					tooltip="Share as Cloud Patch"
-					@click=${() => this.onDataActionClick('create-patch')}
-				>
-					<code-icon icon="gl-cloud-patch-share"></code-icon>
-				</gl-button>
-			`;
-		}
-
+		const label = 'Share as Cloud Patch';
+		const action = 'create-patch';
 		if ((this.wip?.changes?.files.length ?? 0) === 0) return undefined;
 
 		return html`
@@ -587,41 +520,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		</div>`;
 	}
 
-	private renderSuggestedChanges() {
-		if (!this.codeSuggestions?.length) return nothing;
-		// src="${this.issue!.author.avatarUrl}"
-		// title="${this.issue!.author.name} (author)"
-		return html`
-			<gl-tree>
-				<gl-tree-item branch .expanded=${true} .level=${0}>
-					<code-icon slot="icon" icon="gl-code-suggestion"></code-icon>
-					Code Suggestions
-				</gl-tree-item>
-				${repeat(
-					this.codeSuggestions,
-					draft => draft.id,
-					draft => html`
-						<gl-tree-item
-							.expanded=${true}
-							.level=${1}
-							@gl-tree-item-selected=${() => this.onShowCodeSuggestion(draft.id)}
-						>
-							<gl-avatar
-								class="author-icon"
-								src="${draft.author.avatarUri}"
-								name="${draft.author.name} (author)"
-							></gl-avatar>
-							${draft.title}
-							<span slot="description"
-								><formatted-date .date=${new Date(draft.updatedAt)}></formatted-date
-							></span>
-						</gl-tree-item>
-					`,
-				)}
-			</gl-tree>
-		`;
-	}
-
 	private renderPullRequest() {
 		if (this.pullRequest == null) return nothing;
 
@@ -663,7 +561,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 						details
 					></issue-pull-request>
 				</div>
-				${this.renderSuggestedChanges()}
 			</webview-pane>
 		`;
 	}
@@ -691,7 +588,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	}
 
 	private renderPatchCreation() {
-		if (!this.inReview) return nothing;
+		if (!this.creatingPatch) return nothing;
 
 		return html`<gl-inspect-patch
 			.orgSettings=${this.orgSettings}
@@ -699,7 +596,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			.generate=${this.generate}
 			.createState=${this.patchCreateState}
 			@gl-patch-create-patch=${(e: CustomEvent) => {
-				void this.dispatchEvent(new CustomEvent('gl-inspect-create-suggestions', { detail: e.detail }));
+				void this.dispatchEvent(new CustomEvent('gl-inspect-create-patch', { detail: e.detail }));
 			}}
 		></gl-inspect-patch>`;
 	}
@@ -712,7 +609,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		}
 
 		const hasFiles = (this.files?.length ?? 0) > 0;
-		if (!hasFiles && !this.inReview) {
+		if (!hasFiles && !this.creatingPatch) {
 			return html`
 				${this.renderActions()} ${this.renderPausedOpStatus()}
 				<gl-details-wip-empty-pane
@@ -735,7 +632,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			${this.renderActions()} ${this.renderPausedOpStatus()}
 			<webview-pane-group flexible>
 				${this.renderPullRequest()}
-				${when(this.inReview === false, () => this.renderChangedFiles('wip'))}${this.renderPatchCreation()}
+				${when(this.creatingPatch === false, () => this.renderChangedFiles('wip'))}${this.renderPatchCreation()}
 			</webview-pane-group>
 		`;
 	}
@@ -986,14 +883,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 	private onDataActionClick(name: string) {
 		void this.dispatchEvent(new CustomEvent('data-action', { detail: { name: name } }));
-	}
-
-	private onToggleReviewMode(inReview: boolean) {
-		this.dispatchEvent(new CustomEvent('draft-state-changed', { detail: { inReview: inReview } }));
-	}
-
-	private onShowCodeSuggestion(id: string) {
-		this.dispatchEvent(new CustomEvent('gl-show-code-suggestion', { detail: { id: id } }));
 	}
 }
 

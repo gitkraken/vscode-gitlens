@@ -93,9 +93,7 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 				: TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = ContextValues.LaunchpadItem;
-		item.description = `\u00a0 ${lpi.repository.owner.login}/${lpi.repository.name}#${lpi.id} \u00a0 ${
-			lpi.codeSuggestionsCount > 0 ? ` $(gitlens-code-suggestion) ${lpi.codeSuggestionsCount}` : ''
-		}`;
+		item.description = `\u00a0 ${lpi.repository.owner.login}/${lpi.repository.name}#${lpi.id}`;
 		item.iconPath = lpi.author?.avatarUrl != null ? Uri.parse(lpi.author.avatarUrl) : undefined;
 		item.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
 			'gitlens.showLaunchpad',
@@ -112,7 +110,6 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 			item.contextValue += '+pr';
 			item.tooltip = getPullRequestTooltip(lpi.underlyingPullRequest, {
 				idPrefix: `${lpi.repository.owner.login}/${lpi.repository.name}`,
-				codeSuggestionsCount: lpi.codeSuggestionsCount,
 			});
 		}
 

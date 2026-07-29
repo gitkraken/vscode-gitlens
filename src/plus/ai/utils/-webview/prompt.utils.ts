@@ -12,7 +12,6 @@ import {
 	generateCommitMessage,
 	generateCommits,
 	generateCreateCloudPatch,
-	generateCreateCodeSuggest,
 	generateCreatePullRequest,
 	generateSearchQuery,
 	generateStashMessage,
@@ -64,8 +63,6 @@ export function getLocalPromptTemplate<T extends PromptTemplateType>(
 			return generateChangelog as PromptTemplate<T>;
 		case 'generate-create-cloudPatch':
 			return generateCreateCloudPatch as PromptTemplate<T>;
-		case 'generate-create-codeSuggestion':
-			return generateCreateCodeSuggest as PromptTemplate<T>;
 		case 'generate-create-pullRequest':
 			return generateCreatePullRequest as PromptTemplate<T>;
 		case 'generate-searchQuery':
