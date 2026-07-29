@@ -275,10 +275,11 @@ export class CliCommandHandlers implements Disposable {
 			throw new Error('No connected integrations. Please connect a GitHub, GitLab, or other integration first.');
 		}
 
-		// Use Launchpad's search to find the PR by URL or number
-		const result = await this.container.launchpad.getCategorizedItems(
-			prSearch != null ? { search: prSearch } : undefined,
-		);
+		// Use Launchpad's search to find the PR by URL or number. Pass no argument when not searching -- an explicit
+		// `undefined` lands in a different `@gate` bucket than a bare call and wouldn't dedupe against other readers.
+		const result = await (prSearch != null
+			? this.container.launchpad.getCategorizedItems({ search: prSearch })
+			: this.container.launchpad.getCategorizedItems());
 
 		// Only throw on total failure (error with no items); partial success returns items alongside the error
 		if (result.error != null && !result.items?.length) {

@@ -230,7 +230,9 @@ export class LaunchpadIndicator implements Disposable {
 						// If something else has already caused a refresh, don't do another one
 						if (this._hasRefreshed) return;
 
-						void this.provider.getCategorizedItems({ force: true });
+						// Don't force at startup -- nothing is cached yet, so this still fetches, but it shares the
+						// gate with any load already in flight instead of duplicating the whole pipeline
+						void this.provider.getCategorizedItems();
 					});
 				} else {
 					void this.provider.getCategorizedItems({ force: true });

@@ -101,9 +101,37 @@ export type OpenRepository = {
 type CachedLaunchpadPromise<T> = {
 	expiresAt: number;
 	promise: Promise<T | undefined>;
+	/** Whether the promise is still in flight */
+	pending: boolean;
+	/** Whether the fetch was started with a cancellation token */
+	cancellable: boolean;
 };
 
 const cacheExpiration = 1000 * 60 * 30; // 30 minutes
+
+function createCachedPromise<T>(promise: Promise<T | undefined>, cancellable: boolean): CachedLaunchpadPromise<T> {
+	const cached: CachedLaunchpadPromise<T> = {
+		expiresAt: Date.now() + cacheExpiration,
+		promise: promise,
+		pending: true,
+		cancellable: cancellable,
+	};
+
+	// Use `then` rather than `finally` so we never create an unhandled rejection
+	const settled = () => (cached.pending = false);
+	void promise.then(settled, settled);
+
+	return cached;
+}
+
+/** Whether a forced fetch can join `cached` rather than starting a second one. Never share a promise across
+ * cancellation tokens — one caller's cancellation would cancel it for everyone. */
+function canReuseInFlight(
+	cached: CachedLaunchpadPromise<unknown> | undefined,
+	cancellation?: CancellationToken,
+): boolean {
+	return cached?.pending === true && !cached.cancellable && cancellation == null;
+}
 
 export type LaunchpadRefreshEvent = LaunchpadCategorizedResult;
 
@@ -168,11 +196,13 @@ export class LaunchpadProvider implements Disposable {
 	private _prs: CachedLaunchpadPromise<IntegrationResult<PullRequest[] | undefined>> | undefined;
 	@trace({ args: options => ({ options: `force=${options?.force}` }) })
 	private async getPullRequests(options?: { cancellation?: CancellationToken; force?: boolean }) {
-		if (options?.force || this._prs == null || this._prs.expiresAt < Date.now()) {
-			this._prs = {
-				promise: this.fetchPullRequests(options?.cancellation),
-				expiresAt: Date.now() + cacheExpiration,
-			};
+		// A forced fetch joins one already in flight rather than starting a second one
+		const reusable = canReuseInFlight(this._prs, options?.cancellation);
+		if (this._prs == null || this._prs.expiresAt < Date.now() || (options?.force && !reusable)) {
+			this._prs = createCachedPromise(
+				this.fetchPullRequests(options?.cancellation),
+				options?.cancellation != null,
+			);
 		}
 
 		return this._prs?.promise;
@@ -274,15 +304,21 @@ export class LaunchpadProvider implements Disposable {
 	private _enrichedItems: CachedLaunchpadPromise<TimedResult<EnrichedItem[]>> | undefined;
 	@trace({ args: options => ({ options: `force=${options?.force}` }) })
 	private async getEnrichedItems(options?: { cancellation?: CancellationToken; force?: boolean }) {
-		if (options?.force || this._enrichedItems == null || this._enrichedItems.expiresAt < Date.now()) {
-			this._enrichedItems = {
-				promise: withDurationAndSlowEventOnTimeout(
+		// A forced fetch joins one already in flight rather than starting a second one
+		const reusable = canReuseInFlight(this._enrichedItems, options?.cancellation);
+		if (
+			this._enrichedItems == null ||
+			this._enrichedItems.expiresAt < Date.now() ||
+			(options?.force && !reusable)
+		) {
+			this._enrichedItems = createCachedPromise(
+				withDurationAndSlowEventOnTimeout(
 					this.container.enrichments.get(undefined, options?.cancellation),
 					'getEnrichedItems',
 					this.container,
 				),
-				expiresAt: Date.now() + cacheExpiration,
-			};
+				options?.cancellation != null,
+			);
 		}
 
 		return this._enrichedItems?.promise;
