@@ -131,6 +131,7 @@ import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
 import { LaunchpadService } from '../../rpc/launchpadService.js';
 import { createSharedServices } from '../../rpc/services/common.js';
 import { proxyServices } from '../../rpc/services/proxy.js';
+import { WalkthroughService } from '../../rpc/walkthroughService.js';
 import type { GetOverviewEnrichmentResponse, GetOverviewWipResponse } from '../../shared/overviewBranches.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
@@ -952,6 +953,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				onWorktreeStateChanged: this._sidebarWorktreeEvent.subscribe(buffer, tracker),
 			},
 			launchpad: new LaunchpadService(this.container, buffer, tracker),
+			walkthrough: new WalkthroughService(this.container, buffer, tracker),
 			graphTimeline: graphTimeline,
 			graphTreemap: graphTreemap,
 		} satisfies GraphServices);
@@ -1167,7 +1169,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 			}
 			let rowId: string | undefined;
-			if (arg.action !== 'scope-to-branch') {
+			if (arg.action !== 'scope-to-branch' && arg.action !== 'show-account') {
 				// Select the row the action targets: an uncommitted target maps to its worktree's WIP
 				// row (primary 'work-dir-changes' or a secondary worktree's synthetic sha), a real
 				// target selects its commit sha, and no target falls back to the primary WIP row.
@@ -2112,7 +2114,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private getMcpBannerCollapsed() {
-		return !isMcpBannerEnabled(this.container);
+		// `showAutoRegistration: true` keeps this a pure dismissal signal — auto-registration is
+		// surfaced separately as `mcpCanAutoRegister` so the webview can render the "bundled" variant.
+		return !isMcpBannerEnabled(this.container, true);
 	}
 
 	private getHooksBannerCollapsed() {
@@ -3896,7 +3900,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			detailsMaximizeOnMode: configuration.get('graph.details.maximizeOnMode') ?? true,
 			enabledRefMetadataTypes: this._producers.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
-			experimentalHomeHeaderEnabled: configuration.get('graph.experimental.homeHeader.enabled') ?? false,
 			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,
 			experimentalVisualizationsEnabled: configuration.get('graph.experimental.visualizations.enabled') ?? false,
 			activityDecay: configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m',
@@ -4496,6 +4499,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			orgSettings: this.getOrgSettings(),
 			overview: this._panels.getOverviewData(),
 			mcpBannerCollapsed: this.getMcpBannerCollapsed(),
+			mcpCanAutoRegister: this.container.gkMcp?.isRegistrationAllowed ?? false,
 			hooksBannerCollapsed: this.getHooksBannerCollapsed(),
 			canInstallClaudeHook: this._lastCanInstallClaudeHook ?? false,
 			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
@@ -4506,7 +4510,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			details: {
 				...storedPanels?.details,
 				visible:
-					this._pendingAction != null && this._pendingAction.action !== 'scope-to-branch'
+					this._pendingAction != null &&
+					this._pendingAction.action !== 'scope-to-branch' &&
+					this._pendingAction.action !== 'show-account'
 						? true
 						: (storedPanels?.details?.visible ?? true),
 			},

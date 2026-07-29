@@ -309,7 +309,10 @@ export type GraphShowAction =
 	| 'enter-compose'
 	| 'enter-resolve'
 	| 'open-compare'
-	| 'scope-to-branch';
+	| 'scope-to-branch'
+	// Opens the account modal over the graph; takes no target. Any other show action closes
+	// an open account modal (it targets graph content the modal would cover).
+	| 'show-account';
 
 /** Optional target row for a `GraphShowAction`. When provided, the webview routes the action
  *  to this specific row (used by context-menu invocations on secondary WIP rows where the
@@ -472,6 +475,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	orgSettings?: { ai: boolean; drafts: boolean };
 	overview?: GraphOverviewData;
 	mcpBannerCollapsed?: boolean;
+	mcpCanAutoRegister?: boolean;
 	hooksBannerCollapsed?: boolean;
 	canInstallClaudeHook?: boolean;
 	graphWalkthroughBannerCollapsed?: boolean;
@@ -696,7 +700,6 @@ export interface GraphComponentConfig {
 	detailsMaximizeOnMode?: boolean;
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
-	experimentalHomeHeaderEnabled?: boolean;
 	experimentalKanbanEnabled?: boolean;
 	experimentalVisualizationsEnabled?: boolean;
 	/** Raw setting value for the Activity-mode treemap decay window — drives the picker selection. */

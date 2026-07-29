@@ -1,6 +1,6 @@
 import { window } from 'vscode';
 import type { Container } from '../container.js';
-import { command, executeCoreCommand } from '../system/-webview/command.js';
+import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
 import type { HomeWebviewShowingArgs } from '../webviews/home/registration.js';
 import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration.js';
 import type { WelcomeWebviewShowingArgs } from '../webviews/welcome/registration.js';
@@ -66,10 +66,11 @@ export class ShowViewCommand extends GlCommandBase {
 		const command = context.command;
 		switch (command) {
 			case 'gitlens.showAccountView':
-				return this.container.views.home.show(
-					undefined,
-					...([{ focusAccount: true }, ...args] as HomeWebviewShowingArgs),
-				);
+				// The account surface lives in the Graph's account modal now; `gitlens.showGraph`
+				// routes to the panel or editor graph based on the configured layout.
+				return executeCommand('gitlens.showGraph', {
+					action: 'show-account',
+				} satisfies GraphWebviewShowingArgs[0]);
 			case 'gitlens.showBranchesView':
 				await this.waitForRepo();
 				return this.container.views.showView('branches');

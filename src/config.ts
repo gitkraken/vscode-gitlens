@@ -435,9 +435,6 @@ export interface GraphConfig {
 	readonly dimMergeCommits: boolean;
 	readonly editorOpeningBehavior: 'auto' | 'active';
 	readonly experimental: {
-		readonly homeHeader: {
-			readonly enabled: boolean;
-		};
 		readonly kanban: {
 			readonly enabled: boolean;
 		};

@@ -2388,7 +2388,6 @@ background-upgraded the extension while the host kept running the old build
   'context.config.details.maximizeOnMode': boolean,
   'context.config.dimMergeCommits': boolean,
   'context.config.editorOpeningBehavior': 'active' | 'auto',
-  'context.config.experimental.homeHeader.enabled': boolean,
   'context.config.experimental.kanban.enabled': boolean,
   'context.config.experimental.persistSession': boolean,
   'context.config.experimental.useNewEngine': boolean,
