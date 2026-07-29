@@ -41,7 +41,7 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 			}
 
 			.account-button {
-				--gl-avatar-size: 2rem;
+				--gl-avatar-size: 2.2rem;
 			}
 
 			/* The shared avatar zooms on hover (it's normally a standalone link); here it's the header

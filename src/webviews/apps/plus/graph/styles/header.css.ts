@@ -3,7 +3,7 @@ import { css } from 'lit';
 export const titlebarStyles = css`
 	.titlebar {
 		flex-wrap: wrap;
-		padding: 0.5rem 0.8rem;
+		padding: 0rem 0.4rem 0.5rem 0.4rem;
 		font-size: var(--gl-font-base);
 		color: var(--titlebar-fg);
 		background: var(--titlebar-bg);

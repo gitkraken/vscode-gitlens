@@ -28,7 +28,7 @@ export const actionButton = css`
 		border: none;
 		color: var(--vscode-foreground);
 		text-decoration: none;
-		padding: 0 0.75rem;
+		padding: 0 0.4rem;
 		cursor: pointer;
 		border-radius: var(--gl-radius-sm);
 		height: auto;
