@@ -446,9 +446,16 @@ export class GraphSearchService {
 		const results: GitGraphSearchResults = new Map();
 		const now = Date.now();
 		let i = 0;
+		// `now` is the primary row's REAL position, not a fallback: the graph places work-dir changes at
+		// the start of the timeline rather than against a commit, so anything time-positioned should
+		// put it at the newest edge.
 		results.set('work-dir-changes' satisfies GitGraphRowType, { i: i++, date: now });
-		for (const sha of Object.keys(wipMetadataBySha)) {
-			results.set(sha, { i: i++, date: now });
+		for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+			// Secondary WIP rows ARE anchored to a commit (their worktree HEAD), so date them there —
+			// the minimap already places its worktree markers by `parentSha`, and dating these at "now"
+			// instead stacked every worktree onto today. `now` here is only a last resort for a worktree
+			// whose HEAD date didn't come through.
+			results.set(sha, { i: i++, date: meta.parentDate ?? now });
 		}
 
 		const search: GitGraphSearch = {

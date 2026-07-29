@@ -1640,15 +1640,24 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  `ReadonlyGraphRow`) because the legacy GK's OWN same-named `ReadonlyGraphRow` (vendor package,
 	 *  surfaced by `graph-changeselection`) isn't nominally compatible with ours. */
 	private dateForMinimapRow(row: {
+		readonly sha: string;
 		readonly type: string;
 		readonly parents: readonly string[];
 		readonly date: number;
 	}): number {
-		if (row.type !== 'work-dir-changes') return row.date;
+		// Only SECONDARY WIP rows follow their anchor. Both WIP kinds share the `work-dir-changes` type
+		// and a `now`-based `date` stamp, but they sit in different places: the primary row belongs at
+		// the start of the timeline (so its own stamp IS its position — same as how `type:wip` search
+		// dates it), while a secondary row is drawn against its worktree HEAD and should track that
+		// commit's date. Keying on the type alone dragged the primary back to HEAD's day.
+		if (!isSecondaryWipSha(row.sha)) return row.date;
 
 		const anchorSha = row.parents[0];
 		const anchorRow = anchorSha != null ? this.getSourceRowByShaMap()?.get(anchorSha) : undefined;
-		return anchorRow?.date ?? row.date;
+		// Worktree HEADs are routinely outside the loaded window, so fall back to the metadata's
+		// `parentDate` — the same value `type:wip` search dates these rows by — rather than the row's
+		// own `now` stamp, which would drag every unloaded worktree onto today.
+		return anchorRow?.date ?? this.graphState.wipMetadataBySha?.[row.sha]?.parentDate ?? row.date;
 	}
 
 	/** sha→DECORATED row map (includes synthetic primary + per-worktree WIP rows `getDecoratedRows`
