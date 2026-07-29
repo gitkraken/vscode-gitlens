@@ -438,10 +438,16 @@ export class GraphInspectServices {
 					const comparison = `${from}..${to}`;
 					const [filesResult, countResult] = await Promise.allSettled([
 						svc.diff.getDiffStatus(comparison),
-						svc.commits.getCommitCount(comparison, signal),
+						// The DIFF is directional (the swap button owns that), but the between-count is not:
+						// which sha lands in `from` follows the order the user clicked the two rows in, so a
+						// one-sided `from..to` count reads 0 whenever they picked the newer commit first.
+						// `--left-right` returns both sides in one call; the larger side is the ancestry
+						// distance, and it is 1 for diverged siblings — which have nothing in between.
+						svc.commits.getLeftRightCommitCount(createRevisionRange(from, to, '...'), undefined, signal),
 					]);
 					signal?.throwIfAborted();
 					const files = getSettledValue(filesResult);
+					const counts = getSettledValue(countResult);
 					let additions = 0;
 					let deletions = 0;
 					const changedFiles = { added: 0, deleted: 0, changed: 0 };
@@ -478,7 +484,7 @@ export class GraphInspectServices {
 							files != null
 								? { files: changedFiles, additions: additions, deletions: deletions }
 								: undefined,
-						commitCount: getSettledValue(countResult),
+						commitCount: counts != null ? Math.max(counts.left, counts.right) : undefined,
 					};
 				},
 				getWip: async (

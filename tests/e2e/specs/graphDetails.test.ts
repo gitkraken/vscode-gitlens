@@ -537,24 +537,26 @@ test.describe('Graph Details - Compare Mode', () => {
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: MaxTimeout });
 	});
 
-	test('should show between-count for non-adjacent commits', async () => {
-		// Skipped: the graph doesn't wire `rawBetweenCount` to the compare panel, so the
-		// "N commits in between" count is never shown for non-adjacent commits. Tracked in #5547.
-		test.skip(true, 'Unimplemented: compare panel between-count not wired (#5547)');
-		// Select "Add greeting module" (2nd commit) and "Add utils module" (4th commit)
-		// There is 1 commit in between: "Add math module"
-		await selectCommitByMessage(graphWebview, 'Add greeting module');
-		await waitForDetailsLoaded(graphWebview);
-		const secondCommit = commitRow(graphWebview, 'Add utils module');
-		await secondCommit.click({ modifiers: ['ControlOrMeta'] });
+	// "Add greeting module" and "Add utils module" have exactly one commit between them ("Add math
+	// module"), so the label is fully determined: assert the whole string, since any non-zero count
+	// renders SOME "N commits in between" and would pass a substring check. Both click orders are
+	// exercised because the range endpoints follow the selection order, so a one-sided count reads 0 in
+	// whichever direction puts the newer commit first — the case that made this never render at all.
+	function testBetweenCount(first: string, second: string): void {
+		test(`should show between-count for non-adjacent commits (${first} first)`, async () => {
+			await selectCommitByMessage(graphWebview, first);
+			await waitForDetailsLoaded(graphWebview);
+			await commitRow(graphWebview, second).click({ modifiers: ['ControlOrMeta'] });
 
-		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
+			await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
 
-		// The between-count should show "1 commit in between"
-		const betweenCount = graphWebview.locator('.compare-middle__count').first();
-		await expect(betweenCount).toBeVisible({ timeout: MaxTimeout });
-		await expect(betweenCount).toContainText('in between');
-	});
+			const betweenCount = graphWebview.locator('.compare-middle__count').first();
+			await expect(betweenCount).toBeVisible({ timeout: MaxTimeout });
+			await expect(betweenCount).toHaveText('1 commit in between');
+		});
+	}
+	testBetweenCount('Add greeting module', 'Add utils module');
+	testBetweenCount('Add utils module', 'Add greeting module');
 
 	test('should exit compare mode by selecting a single commit', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
