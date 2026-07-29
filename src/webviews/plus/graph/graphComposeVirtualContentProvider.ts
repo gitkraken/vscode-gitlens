@@ -46,8 +46,8 @@ interface Session {
  * Each session owns a parent-chained list of proposed commits anchored to a real base SHA; the
  * first commit's parent is `{ kind: 'ref', sha: baseSha }`, subsequent commits point at their
  * predecessor. File content at commit N is synthesized by taking the base file and applying, in a
- * single pass and in base order, the hunks from commits 0..N that {@link collectHunksForPath}
- * resolves for the requested path.
+ * single pass and in base order, every hunk from commits 0..N keyed under the requested path — read
+ * from the base name {@link resolveBasePath} resolves for it.
  */
 export class GraphComposeVirtualContentProvider implements VirtualContentProvider {
 	readonly namespace = GraphComposeVirtualNamespace;
@@ -164,32 +164,26 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 		const commitIdx = session.commits.findIndex(c => c.id === commitId);
 		if (commitIdx < 0) throw new Error(`virtual commit not found: ${sessionId}/${commitId}`);
 
-		// `nameAtCommit[i]` is the file's name AFTER commit i (the destination-path the diff
-		// output uses); `nameAtCommit[0]` is the name at base. Walking backward from `path` lets
-		// a multi-hop chain (`original → renamed → wip-renamed` split across commits) resolve to
-		// the actual base file. `fromPath !== toPath` catches rename-with-edits too — those carry
-		// `originalFileName` on every hunk with `isRename: false`.
-		const nameAtCommit: string[] = new Array(commitIdx + 2);
-		nameAtCommit[commitIdx + 1] = path;
-		for (let i = commitIdx; i >= 0; i--) {
-			const nameAfter = nameAtCommit[i + 1];
-			const hunks = collectHunksForPath(session.commits[i].hunks, nameAfter);
-			const renameSource = hunks.find(h => h.fromPath !== h.toPath)?.fromPath;
-			nameAtCommit[i] = renameSource ?? nameAfter;
-		}
-
-		// Every hunk comes from one combined `base..final` diff, so every `@@` header is relative to
-		// `baseSha`, never to the preceding commit — they have to be applied in one pass against the
-		// base. `index` is that diff's emission order, i.e. ascending old-line order per file.
+		// Every hunk comes from one combined `base..final` diff, so a file's hunks are keyed under its
+		// final name in every proposed commit they're split across — a rename never re-keys them
+		// commit by commit, which is why matching each commit on the requested path is correct here.
+		//
+		// Because that diff is base-relative, every `@@` header is too — never relative to the
+		// preceding commit — so they have to be applied in one pass against the base. `index` is
+		// that diff's emission order, i.e. ascending old-line order per file.
 		const hunks: ComposerHunk[] = [];
 		for (let i = 0; i <= commitIdx; i++) {
-			for (const h of collectHunksForPath(session.commits[i].hunks, nameAtCommit[i + 1])) {
-				hunks.push(h.hunk);
+			for (const h of session.commits[i].hunks) {
+				if (h.fileName === path) {
+					hunks.push(h);
+				}
 			}
 		}
 		hunks.sort((a, b) => a.index - b.index);
 
-		const result = applyHunks(await this.getBaseContent(session, nameAtCommit[0]), hunks);
+		// Base content comes from the pre-rename name when the file was renamed.
+		const basePath = resolveBasePath(session.commits, commitIdx, path);
+		const result = applyHunks(await this.getBaseContent(session, basePath), hunks);
 		session.contentCache.set(cacheKey, result);
 		return result;
 	}
@@ -216,21 +210,28 @@ export class GraphComposeVirtualContentProvider implements VirtualContentProvide
 	}
 }
 
-/** Narrow a commit's hunks to those affecting `path`, converting to `{ hunk, isRename, toPath, fromPath }`. */
-function collectHunksForPath(
-	hunks: readonly ComposerHunk[],
-	path: string,
-): Array<{ hunk: ComposerHunk; isRename: boolean; toPath: string; fromPath: string }> {
-	const out: Array<{ hunk: ComposerHunk; isRename: boolean; toPath: string; fromPath: string }> = [];
-	for (const h of hunks) {
-		if (h.fileName !== path) continue;
-
-		out.push({
-			hunk: h,
-			isRename: h.isRename === true,
-			toPath: h.fileName,
-			fromPath: h.originalFileName ?? h.fileName,
-		});
+/**
+ * Resolve the base-revision name of the file whose hunks are keyed under `path`, looking only at the
+ * commits up to and including `throughIdx`. Returns `path` itself when nothing renamed it.
+ *
+ * Rename-with-edits carries `originalFileName` on every hunk of the file with `isRename: false`,
+ * while a pure rename carries one hunk with `isRename: true` — taking the first `originalFileName`
+ * among the file's hunks covers both shapes without depending on `isRename`. Uniform tagging is
+ * compose-tools' doing, not this repo's: it collects hunks once over the whole `base..final` range
+ * and the plan only slices that one list by index, so no per-commit re-keying happens.
+ *
+ * The diff editor does ask for the pre-rename name, but only on the left side of a rename row, and
+ * `buildDiffArgs` resolves that side against the row's *parent* — and a rename row is only ever
+ * rendered for the earliest commit holding the file's hunks (`resolveProposedFileStatus` in
+ * `compose/utils.ts`, gated on `earliestCommitByFile`; change that ownership rule and this reasoning
+ * needs re-checking). So the pre-rename name arrives with a `throughIdx` that excludes every hunk of
+ * that file, and returning it unchanged is what makes that side read as the untouched base.
+ */
+function resolveBasePath(commits: readonly GraphComposeVirtualCommitInput[], throughIdx: number, path: string): string {
+	for (let i = 0; i <= throughIdx; i++) {
+		for (const h of commits[i].hunks) {
+			if (h.fileName === path && h.originalFileName != null) return h.originalFileName;
+		}
 	}
-	return out;
+	return path;
 }
