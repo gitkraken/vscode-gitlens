@@ -1,18 +1,25 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import type { TemplateResult } from 'lit';
-import { html, nothing } from 'lit';
+import { html } from 'lit';
 import type { StyleInfo } from '../../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
-import '../../../../shared/components/commit/commit-stats.js';
+import '../../../../shared/components/commit/wip-stats.js';
 
 /**
  * Pure Lit port of the React `WipStatsAdornmentProvider`. Emits a working-changes stats badge on
  * workdir rows so users see uncommitted-changes magnitude at a glance without selecting the row.
  *
  * Uses the shared `<commit-stats symbol="icons" appearance="pill">` element — the SAME pill the WIP
- * header / overview / Home cards render — so all working-tree stats look identical. When stats are
- * empty (all zeros) the provider renders nothing so a quiet working tree stays quiet.
+ * header / overview / Home cards render — so all working-tree stats look identical.
+ *
+ * Three states, and the distinction between the last two is the point:
+ *   - **no stats yet** — renders nothing. "Not loaded" must never be drawn, or a row briefly claims a
+ *     state it hasn't measured.
+ *   - **all zeros** — renders the CLEAN check. A measured-clean worktree is information, not an absence;
+ *     the legacy renderer showed it (`Graph-WorkInProgress-Clean`) and dropping it made clean and
+ *     unmeasured look identical.
+ *   - **any change** — renders the stats pill.
  *
  * Placement is `'refs'`; the badge right-aligns within the Refs column (see `.gl-graph__wip-stats`
  * in graph.scss) so it sits at the column's trailing edge.
@@ -61,14 +68,9 @@ export function createWipStatsAdornmentProvider(
 				return null;
 			}
 
-			const added = stats.added ?? 0;
-			const modified = stats.modified ?? 0;
-			const deleted = stats.deleted ?? 0;
-			const renamed = stats.renamed ?? 0;
-			if (added === 0 && modified === 0 && deleted === 0 && renamed === 0) {
-				return null;
-			}
-
+			// Clean and dirty both render through `<gl-wip-stats>`, which picks the pill from the counts.
+			// Reaching here at all means the worktree WAS measured, so an all-zero result is "clean", not
+			// "unknown" — the distinction the early return above exists to preserve.
 			return renderWipStatsBadge(stats);
 		},
 
@@ -94,8 +96,10 @@ export function createWipStatsAdornmentProvider(
 				parts.push(`${stats.renamed} renamed`);
 			}
 
+			// Clean is announced, not skipped — it mirrors the visible check, and silence here would read
+			// to a screen reader as "stats not loaded" exactly when they are.
 			if (parts.length === 0) {
-				return null;
+				return 'no working changes';
 			}
 
 			return parts.join(', ');
@@ -105,25 +109,21 @@ export function createWipStatsAdornmentProvider(
 
 function renderWipStatsBadge(stats: WipStats): TemplateResult {
 	const added = stats.added ?? 0;
-	// Renames are folded into modified — the shared `<commit-stats>` (add/edit/remove, like the rest of
-	// GitLens) has no separate rename slot, and a rename is a modification for at-a-glance magnitude.
+	// Renames are folded into modified — `<commit-stats>` (add/edit/remove, like the rest of GitLens) has no
+	// separate rename slot, and a rename is one modified FILE for at-a-glance magnitude. Counting it as an
+	// add plus a delete would imply two files were touched.
 	const modified = (stats.modified ?? 0) + (stats.renamed ?? 0);
 	const deleted = stats.deleted ?? 0;
-
-	const total = added + modified + deleted;
-	const label = `Working tree: ${total} change${total === 1 ? '' : 's'}`;
 
 	// Right-aligned wrapper (see graph.scss); the dynamic `stale` opacity is the only inline style.
 	const wrapStyle: StyleInfo = { opacity: stats.stale ? 0.55 : 1, transition: 'opacity 200ms linear' };
 
-	return html`<span class="gl-graph__wip-stats" style=${cspStyleMap(wrapStyle)} aria-label=${label}>
-		<commit-stats
-			added=${added || nothing}
-			modified=${modified || nothing}
-			removed=${deleted || nothing}
-			symbol="icons"
-			appearance="pill"
-			no-tooltip
-		></commit-stats>
+	// `<gl-wip-stats show-clean>` owns BOTH states — the `+ ~ -` pill when dirty and the check pill when
+	// clean — so the graph row renders the same working-tree affordance as the WIP header, overview bar and
+	// Home cards instead of a look-alike. Counts are passed as PROPERTIES (`.added`), not attributes: a
+	// clean tree is all zeros, and `added=${0 || nothing}` would drop the attribute, leaving the component
+	// unable to tell "clean" from "no data" — which is exactly the distinction it guards on.
+	return html`<span class="gl-graph__wip-stats" style=${cspStyleMap(wrapStyle)}>
+		<gl-wip-stats .added=${added} .modified=${modified} .removed=${deleted} show-clean no-tooltip></gl-wip-stats>
 	</span>`;
 }

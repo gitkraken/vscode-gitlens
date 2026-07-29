@@ -1,8 +1,12 @@
 import * as assert from 'assert';
+import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
+import type { TemplateResult } from 'lit';
 import type { GraphCommitRef } from '../../graph-commit.js';
 import { isUpstreamRemoteOf, pickGhostRef, sortRowRefs } from '../../graph-commit.js';
 import type { ParsedRef } from '../refAdornmentProvider.js';
 import { promotePinned, refPillKey } from '../refAdornmentProvider.js';
+import type { WipStats } from '../wipStatsAdornmentProvider.js';
+import { createWipStatsAdornmentProvider } from '../wipStatsAdornmentProvider.js';
 
 const repo = 'repo';
 const headId = (name: string) => `${repo}|heads/${name}`;
@@ -175,5 +179,90 @@ suite('graph ref ordering — pickGhostRef', () => {
 	test('returns undefined for a row with no refs', () => {
 		assert.strictEqual(pickGhostRef([], undefined, undefined, undefined), undefined);
 		assert.strictEqual(pickGhostRef(undefined, undefined, undefined, undefined), undefined);
+	});
+});
+
+// These belong with the wip-stats provider, but live here because the unit harness bundles each test
+// file standalone — a second bundle pulling in `code-icon` (via the stats components) double-registers it.
+function wipRow(sha: string, kind: ProcessedGraphRow['kind'] = 'workdir'): ProcessedGraphRow {
+	return { sha: sha, parents: [], kind: kind, column: 0, edges: {}, edgeColumnMax: 0 };
+}
+
+function wipProvider(entries: [string, WipStats][]) {
+	return createWipStatsAdornmentProvider({ statsBySha: new Map(entries) });
+}
+
+/** Both states render the same `<gl-wip-stats>` element, so they differ in the template's VALUES, not its
+ *  static strings. Also pins that the provider resolves SYNCHRONOUSLY — `resolveRowAdornments` discards a
+ *  promised result, so an async return would silently render nothing rather than fail. */
+function resolvedValues(result: TemplateResult | null | Promise<TemplateResult | null>): unknown[] | null {
+	assert.ok(!(result instanceof Promise), 'the wip-stats provider must resolve synchronously');
+	return result == null ? null : [...result.values];
+}
+
+// The three states, and specifically that the last two are DISTINCT. Collapsing "not measured" and
+// "measured clean" into the same empty render is the bug this suite exists for: a clean worktree then looks
+// identical to one whose stats never arrived, which is what made the check disappear when the graph moved
+// off the legacy renderer.
+suite('wipStatsAdornmentProvider — the three WIP states', () => {
+	test('a row with no stats yet contributes nothing at all', () => {
+		// Not "renders empty" — it must not contribute, so the row isn't marked dynamic and cached wrong.
+		assert.strictEqual(wipProvider([]).provideRowAdornment(wipRow('wip::/repo')), undefined);
+	});
+
+	test('a non-workdir row never contributes', () => {
+		assert.strictEqual(
+			wipProvider([['abc', { added: 3 }]]).provideRowAdornment(wipRow('abc', 'commit')),
+			undefined,
+		);
+	});
+
+	test('resolving with no stats renders nothing — loading must never draw a state', () => {
+		assert.strictEqual(wipProvider([]).resolveAdornment(wipRow('wip::/repo'), undefined), null);
+	});
+
+	// THE regression: this returned null before, so a measured-clean worktree drew nothing at all.
+	test('a measured-clean worktree still renders — zeros are a result, not an absence', () => {
+		const stats: WipStats = { added: 0, modified: 0, deleted: 0, renamed: 0 };
+		const values = resolvedValues(wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats));
+		assert.ok(values != null, 'clean must render the check pill, not nothing');
+		assert.ok(
+			values.includes(0),
+			'the zero counts must be passed through so the component can tell clean from unknown',
+		);
+	});
+
+	test('a dirty worktree passes its counts through', () => {
+		const stats: WipStats = { added: 2, modified: 1, deleted: 3, renamed: 0 };
+		const values = resolvedValues(wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats));
+		assert.ok(values != null);
+		assert.ok(values.includes(2) && values.includes(1) && values.includes(3), `got ${JSON.stringify(values)}`);
+	});
+
+	// A rename is ONE modified file, not an add plus a delete — counting it twice would overstate the
+	// magnitude, and `<commit-stats>` has no rename slot to put it in.
+	test('renames fold into modified rather than splitting into add + delete', () => {
+		const stats: WipStats = { added: 0, modified: 1, deleted: 0, renamed: 2 };
+		const values = resolvedValues(wipProvider([]).resolveAdornment(wipRow('wip::/repo'), stats));
+		assert.ok(values != null);
+		assert.ok(values.includes(3), `modified should be 1 + 2 renames; got ${JSON.stringify(values)}`);
+	});
+
+	suite('a11y', () => {
+		test('clean is announced rather than silent', () => {
+			const said = wipProvider([]).describeForA11y?.(wipRow('wip::/repo'), { added: 0, modified: 0 });
+			assert.strictEqual(said, 'no working changes');
+		});
+
+		test('absent stats stay silent, so "loading" is not announced as "clean"', () => {
+			assert.strictEqual(wipProvider([]).describeForA11y?.(wipRow('wip::/repo'), undefined), null);
+		});
+
+		test('dirty lists its counts', () => {
+			assert.strictEqual(
+				wipProvider([]).describeForA11y?.(wipRow('wip::/repo'), { added: 2, deleted: 1 }),
+				'2 added, 1 deleted',
+			);
+		});
 	});
 });
