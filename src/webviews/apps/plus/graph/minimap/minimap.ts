@@ -445,7 +445,9 @@ export class GlGraphMinimap extends GlElement {
 
 	@observe('searchResults')
 	private onSearchResultsChanged() {
-		this.invalidateStatic();
+		// Overlay-only now, so a repaint is enough — no need to rebuild the static layer for every
+		// batch of a progressively-streaming search.
+		this.requestDraw();
 	}
 
 	@property({ type: Boolean })

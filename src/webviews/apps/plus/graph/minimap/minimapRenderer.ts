@@ -334,7 +334,7 @@ export function sliceViewModel(source: MinimapViewModel, oldest: number, newest:
  * and cleared the canvas before calling; this function draws everything in CSS-pixel coordinates.
  */
 export function drawStatic(ctx: CanvasRenderingContext2D, state: MinimapDrawState): void {
-	const { viewModel, layout: lo, theme, markersByDay, searchResultsByDay, scopeEdges } = state;
+	const { viewModel, layout: lo, theme, markersByDay, scopeEdges } = state;
 	const { width, height, activityHeight } = lo;
 
 	if (theme.background) {
@@ -493,16 +493,6 @@ export function drawStatic(ctx: CanvasRenderingContext2D, state: MinimapDrawStat
 			}
 		}
 	}
-
-	if (searchResultsByDay != null && searchResultsByDay.size > 0) {
-		ctx.fillStyle = theme.markerHighlights;
-		for (const day of searchResultsByDay.keys()) {
-			const x = dayToX(day, viewModel, lo);
-			if (x == null) continue;
-
-			ctx.fillRect(Math.round(x) - 1, 0, 2, height);
-		}
-	}
 }
 
 /**
@@ -510,7 +500,17 @@ export function drawStatic(ctx: CanvasRenderingContext2D, state: MinimapDrawStat
  * Called every rAF; the caller is expected to have already painted the static layer below.
  */
 export function drawOverlay(ctx: CanvasRenderingContext2D, state: MinimapDrawState): void {
-	const { viewModel, layout: lo, theme, visibleDays, activeDay, hoverDay, scrollbarOpacity, brushRange } = state;
+	const {
+		viewModel,
+		layout: lo,
+		theme,
+		visibleDays,
+		activeDay,
+		hoverDay,
+		scrollbarOpacity,
+		brushRange,
+		searchResultsByDay,
+	} = state;
 	const { height, activityHeight, chartWidth } = lo;
 
 	// Reserve the bottom strip for the scrollbar once it's faded past invisible so focus lines, the
@@ -546,6 +546,24 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, state: MinimapDrawSta
 				ctx.fillStyle = theme.scrollThumb;
 				ctx.fillRect(x1, 0, Math.max(1, x2 - x1), bandHeight);
 			}
+		}
+	}
+
+	// Search-result bars belong to the overlay, not the static layer, because the visible-range band
+	// above is an opaque full-height fill — bars painted beneath it disappear exactly where the user
+	// is looking. Right after a load that's most of the chart (few days loaded ⇒ wide band), so a
+	// search could report thousands of matches while the minimap showed one or two bars.
+	// Drawn after the band but before the hover/selected indicators and the scrollbar strip, so those
+	// keep painting on top as before.
+	if (searchResultsByDay != null && searchResultsByDay.size > 0) {
+		ctx.fillStyle = theme.markerHighlights;
+		// Walk the (possibly zoomed) day domain rather than the result set: the domain is bounded by
+		// the loaded window while the results span the whole repo, and anything off-domain has no x.
+		const { days } = viewModel;
+		for (let i = 0; i < days.length; i++) {
+			if (!searchResultsByDay.has(days[i])) continue;
+
+			ctx.fillRect(Math.round(indexToX(i, lo)) - 1, 0, 2, height);
 		}
 	}
 
