@@ -13,11 +13,11 @@ import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/mode
 import {
 	compareSubscriptionPlans,
 	getSubscriptionPlanName,
+	getSubscriptionProductPlanName,
 	getSubscriptionProductPlanNameFromState,
 	getSubscriptionTimeRemaining,
 	isSubscriptionPaid,
 	isSubscriptionTrial,
-	isSubscriptionTrialOrPaidFromState,
 } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
@@ -30,6 +30,7 @@ import type { SubscriptionContextState } from '../../../shared/contexts/subscrip
 import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import { chipStyles } from './chipStyles.js';
 import { ruleStyles } from './vscode.css.js';
+import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
@@ -128,6 +129,54 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			.row:last-of-type {
 				margin-bottom: var(--gl-space-6);
+			}
+
+			/* The headline is a name plus badges now, so it lays out as a row instead of one ellipsising
+			   string — "GitLens Pro" is short enough that it no longer needs to truncate. */
+			.header__title {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--gl-space-6);
+				align-items: center;
+				overflow: visible;
+			}
+
+			/* Squared off from gl-badge's pill default and tightened — at title size the elliptical shape read as
+			   a control sitting next to the name rather than a label on it. Overridden here rather than on the
+			   shared default, which other surfaces still want as a pill. The symmetric padding also re-centers
+			   the badge's own text in its box: the default's bottom-only 0.1rem lifted it off the title's line. */
+			.header__title gl-badge::part(base) {
+				padding: 0 var(--gl-space-4);
+				border-radius: var(--gl-radius-sm);
+			}
+
+			/* gl-badge's host sets no display of its own, so as a flex item it blockifies to a box whose height
+			   comes from the INHERITED strut — the title's own tall line — and the badge inside was then placed by
+			   that strut's baseline, riding well below the title's text. Giving the host a display makes its box
+			   the badge itself, so the row's align-items can actually center it. */
+			.header__title gl-badge {
+				display: inline-flex;
+				align-items: center;
+			}
+
+			/* Accents the TIER badge; the status badges keep gl-badge's neutral default (see renderPlanTitle). */
+			.plan-tier {
+				--gl-badge-color: var(--vscode-textLink-foreground);
+			}
+
+			/* The upgrade CTA rides the account row's right edge, and wraps under the name/email when they
+			   leave it no room — better than squeezing either side in a narrow panel. */
+			.row--account {
+				flex-wrap: wrap;
+				row-gap: var(--gl-space-6);
+			}
+
+			.row--account .details {
+				min-width: 14rem;
+			}
+
+			.row--account .details__button {
+				margin-inline-start: auto;
 			}
 
 			.row__media {
@@ -401,15 +450,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 	/** The account panel body: header (plan name + toolbar actions) + account info + subscription-state CTAs. */
 	private renderPanelContent(): unknown {
-		const trialDays = this.subscriptionState === SubscriptionState.Trial ? this.trialDaysRemaining : 0;
-
 		return html`<div class="header">
-				<span class="header__title"
-					>${this.planName}${when(
-						trialDays !== 0,
-						() => html` <small>(${trialDays < 1 ? '<1 day' : pluralize('day', trialDays)})</small>`,
-					)}</span
-				>
+				${this.renderPlanTitle()}
 				<span class="header__actions">
 					${
 						this.hasAccount
@@ -447,6 +489,47 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			${this.renderAccountInfo()} ${this.renderAccountState()}`;
 	}
 
+	/**
+	 * The panel's plan headline. Everything paid or trialling reads as one product — GitLens Pro — with what
+	 * varies split into two DELIBERATELY distinct badges: the TIER (Advanced / Business / Enterprise /
+	 * Student, what was bought) takes the accent, while STATUS (trialling, unverified) stays neutral. Sharing
+	 * a treatment would make an upgrade and a countdown read as the same kind of claim.
+	 *
+	 * Community and the post-trial states aren't Pro, so they keep the name they already had and take no
+	 * badge. Only the panel changes — the collapsed chip still leads with the tier.
+	 */
+	private renderPlanTitle(): unknown {
+		const state = this.subscriptionState ?? SubscriptionState.Community;
+		if (
+			state === SubscriptionState.Community ||
+			state === SubscriptionState.TrialExpired ||
+			state === SubscriptionState.TrialReactivationEligible
+		) {
+			return html`<span class="header__title">${this.planName}</span>`;
+		}
+
+		const trial = state === SubscriptionState.Trial;
+		// A trial's tier rides on the EFFECTIVE plan (what the trial grants); a paid plan's on the actual one.
+		const tier = getSubscriptionPlanName(trial ? this.effectivePlanId : this.planId);
+		const days = trial ? this.trialDaysRemaining : 0;
+
+		return html`<span class="header__title"
+			>${getSubscriptionProductPlanName('pro')}${when(
+				tier !== 'Pro' && tier !== 'Community',
+				() => html`<gl-badge class="plan-tier">${tier}</gl-badge>`,
+			)}${when(
+				trial,
+				() =>
+					html`<gl-badge
+						>Trial${days !== 0 ? ` · ${days < 1 ? '<1 day' : pluralize('day', days)}` : ''}</gl-badge
+					>`,
+			)}${when(
+				state === SubscriptionState.VerificationRequired,
+				() => html`<gl-badge>Unverified</gl-badge>`,
+			)}</span
+		>`;
+	}
+
 	private renderAccountInfo() {
 		const sub = this._subscription.subscription.get();
 		const avatar = this._subscription.avatar.get();
@@ -455,7 +538,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		if (!this.hasAccount || !organization) return nothing;
 
 		return html`<div class="account-info">
-			<span class="row">
+			<span class="row row--account">
 				<span class="row__media"
 					>${
 						avatar ? html`<img src=${avatar} />` : html`<code-icon icon="gl-gitlens" size="20"></code-icon>`
@@ -465,6 +548,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					><p class="details__title">${this.accountName}</p>
 					<p class="details__subtitle">${this.accountEmail}</p></span
 				>
+				${this.renderUpgradeButton(sub?.activeOrganization?.id)}
 			</span>
 			${when(
 				orgCount > 1,
@@ -496,57 +580,39 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 						</div>
 					</span>`,
 			)}
-			${when(
-				isSubscriptionTrialOrPaidFromState(this.subscription?.state ?? SubscriptionState.Community),
-				() =>
-					html`<span class="row">
-						<span class="row__media"><code-icon icon="unlock" size="20"></code-icon></span>
-						<span class="details"
-							><p class="details__title">
-								${
-									this.subscription != null && isSubscriptionTrial(this.subscription)
-										? html`${getSubscriptionPlanName(this.effectivePlanId)} plan
-												<span class="details__subtitle">(trial)</span>`
-										: html`${getSubscriptionPlanName(this.planId)} plan`
-								}
-							</p></span
-						>
-						${
-							this.subscription != null &&
-							isSubscriptionPaid(this.subscription) &&
-							compareSubscriptionPlans(this.planId, 'advanced') < 0
-								? html`<div class="details__button">
-										<gl-button
-											appearance="secondary"
-											href="${createCommandLink<SubscriptionUpgradeCommandArgs>(
-												'gitlens.plus.upgrade',
-												{
-													plan: 'advanced',
-													source: 'account',
-													detail: {
-														location: 'plan-section:upgrade-button',
-														organization: sub?.activeOrganization?.id,
-														plan: 'advanced',
-													},
-												},
-											)}"
-											aria-label="Upgrade to Advanced"
-											><span class="upgrade-button">Upgrade</span>${this.renderPromo(
-												'advanced',
-												'icon',
-												'suffix',
-											)}
-											<span slot="tooltip"
-												>Upgrade to the Advanced plan for access to self-hosted integrations,
-												advanced AI features @ 1M tokens/week, and more
-												${this.renderPromo('advanced', 'info')}
-											</span>
-										</gl-button>
-									</div>`
-								: nothing
-						}
-					</span>`,
-			)}
+		</div>`;
+	}
+
+	/** The Advanced upsell, shown to paid plans below Advanced. It rides the account row rather than a plan
+	 *  row of its own — the plan is already named in the panel's header, so a row restating it was redundant. */
+	private renderUpgradeButton(organizationId: string | undefined) {
+		if (
+			this.subscription == null ||
+			!isSubscriptionPaid(this.subscription) ||
+			compareSubscriptionPlans(this.planId, 'advanced') >= 0
+		) {
+			return nothing;
+		}
+
+		return html`<div class="details__button">
+			<gl-button
+				appearance="secondary"
+				href="${createCommandLink<SubscriptionUpgradeCommandArgs>('gitlens.plus.upgrade', {
+					plan: 'advanced',
+					source: 'account',
+					detail: {
+						location: 'plan-section:upgrade-button',
+						organization: organizationId,
+						plan: 'advanced',
+					},
+				})}"
+				aria-label="Upgrade to Advanced"
+				><span class="upgrade-button">Upgrade</span>${this.renderPromo('advanced', 'icon', 'suffix')}
+				<span slot="tooltip"
+					>Upgrade to the Advanced plan for access to self-hosted integrations, advanced AI features @ 1M
+					tokens/week, and more ${this.renderPromo('advanced', 'info')}
+				</span>
+			</gl-button>
 		</div>`;
 	}
 
