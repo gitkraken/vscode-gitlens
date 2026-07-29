@@ -168,8 +168,8 @@ function createComposeGitPort(svc: GitRepositoryService): ComposeGitPort {
  *   3. Maps the provider response back to `AiGenerateResult`.
  *   4. Translates AbortSignal <-> CancellationToken at the boundary.
  *
- * ToS confirmation, API key gathering, and feature gating are handled inside
- * `sendRequest` itself — this adapter inherits them for free.
+ * API key gathering and feature gating are handled inside `sendRequest` itself —
+ * this adapter inherits them for free.
  *
  * Large-prompt gating is handled via the library's `onBeforePrompt` hook
  * (supplied by the integration layer), not here.

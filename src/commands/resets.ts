@@ -11,7 +11,7 @@ import { GlCommandBase } from './commandBase.js';
 
 const resetTypes = [
 	'ai',
-	'ai:confirmations',
+	'ai:models',
 	'avatars',
 	'cli',
 	'graph:sessions',
@@ -41,9 +41,9 @@ export class ResetCommand extends GlCommandBase {
 				item: 'ai',
 			},
 			{
-				label: 'AI Confirmations...',
-				detail: 'Clears any accepted AI confirmations',
-				item: 'ai:confirmations',
+				label: 'AI Models...',
+				detail: 'Resets the AI provider/model to defaults for all AI features',
+				item: 'ai:models',
 			},
 			{
 				label: 'Avatars...',
@@ -136,9 +136,10 @@ export class ResetCommand extends GlCommandBase {
 				confirmationMessage = 'Are you sure you want to reset all of the stored AI keys?';
 				confirm.title = 'Reset AI Keys';
 				break;
-			case 'ai:confirmations':
-				confirmationMessage = 'Are you sure you want to reset all AI confirmations?';
-				confirm.title = 'Reset AI Confirmations';
+			case 'ai:models':
+				confirmationMessage =
+					'Are you sure you want to reset the AI provider/model to defaults for all AI features? This also clears the related settings.';
+				confirm.title = 'Reset AI Models';
 				break;
 			case 'avatars':
 				confirmationMessage =
@@ -227,8 +228,8 @@ export class ResetCommand extends GlCommandBase {
 				await this.container.ai.reset({ all: true, silent: true });
 				break;
 
-			case 'ai:confirmations':
-				await this.container.ai.resetConfirmations();
+			case 'ai:models':
+				await this.container.ai.resetModels();
 				break;
 
 			case 'avatars':

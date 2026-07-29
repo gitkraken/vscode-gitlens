@@ -27,7 +27,6 @@ export function registerAISimulator(container: Container): void {
 }
 
 interface SuppressionSnapshot {
-	tos: boolean | undefined;
 	notified: boolean | undefined;
 	dismissed: boolean | undefined;
 	userId: string;
@@ -98,7 +97,6 @@ class AISimulatorDebug {
 		if (this.active == null) {
 			const userId = await this.getUserId();
 			this.active = {
-				tos: this.container.storage.get('confirm:ai:tos'),
 				notified: this.container.storage.get(`gk:promo:${userId}:ai:allAccess:notified`),
 				dismissed: this.container.storage.get(`gk:promo:${userId}:ai:allAccess:dismissed`),
 				userId: userId,
@@ -108,7 +106,6 @@ class AISimulatorDebug {
 			};
 		}
 
-		await this.container.storage.store('confirm:ai:tos', true);
 		await this.container.storage.store(`gk:promo:${this.active.userId}:ai:allAccess:notified`, true);
 		await this.container.storage.store(`gk:promo:${this.active.userId}:ai:allAccess:dismissed`, true);
 
@@ -131,7 +128,6 @@ class AISimulatorDebug {
 		this.active = undefined;
 		if (snapshot == null) return;
 
-		await restoreFlag(this.container.storage, 'confirm:ai:tos', snapshot.tos);
 		await restoreFlag(
 			this.container.storage,
 			`gk:promo:${snapshot.userId}:ai:allAccess:notified`,
@@ -258,7 +254,7 @@ class AISimulatorDebug {
 
 async function restoreFlag(
 	storage: Container['storage'],
-	key: 'confirm:ai:tos' | `gk:promo:${string}:ai:allAccess:notified` | `gk:promo:${string}:ai:allAccess:dismissed`,
+	key: `gk:promo:${string}:ai:allAccess:notified` | `gk:promo:${string}:ai:allAccess:dismissed`,
 	value: boolean | undefined,
 ): Promise<void> {
 	// `value` was captured via `storage.get(key)` which returns `undefined` when unset,

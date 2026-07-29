@@ -44,8 +44,12 @@ export const enum SyncedStorageKeys {
 
 export type DeprecatedGlobalStorage = {
 	/** @deprecated */
+	'confirm:ai:generateCommits': boolean;
+	/** @deprecated */
 	'confirm:ai:generateRebase': boolean;
-	/** @deprecated use `confirm:ai:tos` */
+	/** @deprecated */
+	'confirm:ai:tos': boolean;
+	/** @deprecated */
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
 	'home:actions:completed': ('dismissed:welcome' | 'opened:scm')[];
@@ -85,7 +89,7 @@ export type DeprecatedGlobalStorage = {
 	/** @deprecated */
 	[key in `disallow:connection:${string}`]: any;
 } & {
-	/** @deprecated use `confirm:ai:tos` */
+	/** @deprecated */
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 };
 
@@ -95,8 +99,6 @@ interface GlobalStorageCore {
 	'ai:scope:review:model': AIProviderAndModel;
 	'ai:scope:resolve:model': AIProviderAndModel;
 	'avatars:approvedRemoteTemplates': Record<string, 'allow' | 'deny'>;
-	'confirm:ai:generateCommits': boolean;
-	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	pendingWhatsNewOnFocus: boolean;
 	/** Ids of one-time settings migrations already applied (see `migrateSettings`). */
@@ -184,21 +186,22 @@ export interface StoredPromo {
 }
 
 export type DeprecatedWorkspaceStorage = {
-	/** @deprecated use `confirm:ai:tos` */
+	/** @deprecated */
+	'confirm:ai:tos': boolean;
+	/** @deprecated */
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
 	'graph:banners:dismissed': Record<string, boolean>;
 	/** @deprecated */
 	'views:searchAndCompare:keepResults': boolean;
 } & {
-	/** @deprecated use `confirm:ai:tos` */
+	/** @deprecated */
 	[key in `confirm:ai:tos:${AIProviders}`]: boolean;
 };
 
 interface WorkspaceStorageCore {
 	assumeRepositoriesOnStartup?: boolean;
 	'branch:comparisons': StoredBranchComparisons;
-	'confirm:ai:tos': boolean;
 	'gitComandPalette:usage': StoredRecentUsage;
 	gitPath: string;
 	'graph:columns': Record<string, StoredGraphColumn>;

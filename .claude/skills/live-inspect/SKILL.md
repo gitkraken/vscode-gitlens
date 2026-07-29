@@ -484,7 +484,7 @@ Mandatory between scenarios — leftover injects from one test will leak into th
 execute_command { command: "gitlens.plus.simulate.ai", args: [{ "op": "clear" }] }
 ```
 
-Mandatory teardown (restores the prior `gitlens.ai.model`, `gitlens.ai.enabled`, `confirm:ai:tos`, and AI All-Access flags):
+Mandatory teardown (restores the prior `gitlens.ai.model`, `gitlens.ai.enabled`, and AI All-Access flags):
 
 ```
 execute_command { command: "gitlens.plus.simulate.ai", args: [{ "op": "disable" }] }

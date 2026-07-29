@@ -66,7 +66,6 @@ import { Directive, isDirective } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
-import type { Storage } from '../../system/-webview/storage.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import type { Serialized } from '../../system/serialize.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
@@ -964,9 +963,6 @@ export class AIProviderService implements AIService, Disposable {
 			source,
 		);
 
-		if (model != null) {
-			void (await showConfirmAIProviderToS(this.container.storage));
-		}
 		return model;
 	}
 
@@ -1249,18 +1245,11 @@ export class AIProviderService implements AIService, Disposable {
 			await this.showAiAllAccessNotificationIfNeeded(true);
 		}
 
-		const confirmed = await showConfirmAIProviderToS(this.container.storage);
-		if (!confirmed || cancellation.isCancellationRequested) {
-			scope?.setFailed(
-				cancellation.isCancellationRequested ? 'cancelled: user cancelled' : 'cancelled: user declined ToS',
-			);
+		if (cancellation.isCancellationRequested) {
+			scope?.setFailed('cancelled: user cancelled');
 			this.container.telemetry.sendEvent(
 				telementry.key,
-				{
-					...telementry.data,
-					failed: true,
-					'failed.reason': cancellation.isCancellationRequested ? 'user-cancelled' : 'user-declined',
-				},
+				{ ...telementry.data, failed: true, 'failed.reason': 'user-cancelled' },
 				source,
 			);
 
@@ -2048,7 +2037,6 @@ export class AIProviderService implements AIService, Disposable {
 
 		if (provider != null && result === resetCurrent) {
 			await this.resetProviderKey(provider.id);
-			await this.resetConfirmations();
 		} else if (result === resetAll) {
 			const keys = [];
 			for (const providerId of supportedAIProviders.keys()) {
@@ -2059,8 +2047,6 @@ export class AIProviderService implements AIService, Disposable {
 
 				await this.resetProviderKey(providerId, true);
 			}
-
-			await this.resetConfirmations();
 
 			// A blanket wipe (e.g. `Reset Stored Data > Everything`) must not put every key it just
 			// deleted onto the clipboard — that's only a convenience for an explicit key reset.
@@ -2074,17 +2060,33 @@ export class AIProviderService implements AIService, Disposable {
 			return;
 		}
 
-		// Keys & confirmations just changed, so drop everything derived from them; all three repopulate
-		// lazily. `_pendingBYOKUsage` is deliberately NOT cleared — it holds unreported usage, not cache.
+		// Keys just changed, so drop everything derived from them; all three repopulate lazily.
+		// `_pendingBYOKUsage` is deliberately NOT cleared — it holds unreported usage, not cache.
 		this._promptTemplates.clear();
 		this._modelCache.clear();
 		this._providerModelsCache.clear();
 	}
 
-	async resetConfirmations(): Promise<void> {
-		await this.container.storage.deleteWithPrefix(`confirm:ai:tos`);
-		await this.container.storage.deleteWorkspaceWithPrefix(`confirm:ai:tos`);
-		await this.container.storage.deleteWithPrefix(`confirm:ai:generateCommits`);
+	/**
+	 * Restores every AI model selection to its default: the per-feature choices for composing, reviewing,
+	 * and resolving conflicts (stored), plus the global default and each primary provider's model
+	 * (settings). Leaves stored keys alone.
+	 */
+	async resetModels(): Promise<void> {
+		// The scoped keys are the only place per-feature models live, and nothing else stores under `ai:`
+		await this.container.storage.deleteWithPrefix('ai:scope');
+
+		// The global default, plus the model each primary provider (`gitkraken`, `vscode`) stores separately
+		await configuration.clear('ai.model');
+		await configuration.clear('ai.gitkraken.model');
+		await configuration.clear('ai.vscode.model');
+
+		this._model = undefined;
+		this._modelCache.clear();
+		this._providerModelsCache.clear();
+
+		// Scoped consumers treat any fire as a refresh trigger, so one global-scope fire covers them all
+		this._onDidChangeModel.fire({ model: undefined, scope: undefined });
 	}
 
 	async resetProviderKey(provider: AIProviders, silent?: boolean): Promise<void> {
@@ -2181,35 +2183,6 @@ export class AIProviderService implements AIService, Disposable {
 			}
 		}
 	}
-}
-
-async function showConfirmAIProviderToS(storage: Storage): Promise<boolean> {
-	const confirmed = storage.get(`confirm:ai:tos`, false) || storage.getWorkspace(`confirm:ai:tos`, false);
-	if (confirmed) return true;
-
-	const acceptAlways: MessageItem = { title: 'Accept' };
-	const acceptWorkspace: MessageItem = { title: 'Accept Only for this Workspace' };
-	const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
-
-	const result = await window.showInformationMessage(
-		'GitLens AI features can send code snippets, diffs, and other context to your selected AI provider for analysis.',
-		{ modal: true },
-		acceptAlways,
-		acceptWorkspace,
-		cancel,
-	);
-
-	if (result === acceptWorkspace) {
-		void storage.storeWorkspace(`confirm:ai:tos`, true).catch();
-		return true;
-	}
-
-	if (result === acceptAlways) {
-		void storage.store(`confirm:ai:tos`, true).catch();
-		return true;
-	}
-
-	return false;
 }
 
 function isPrimaryAIProvider(provider: AIProviders): provider is AIPrimaryProviders {

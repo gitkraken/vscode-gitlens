@@ -877,7 +877,7 @@ interface AIEventDataSendBase extends AIEventDataBase {
 	'warning.promptTruncated'?: boolean;
 
 	failed?: boolean;
-	'failed.reason'?: 'user-declined' | 'user-cancelled' | 'error';
+	'failed.reason'?: 'user-cancelled' | 'error';
 	'failed.cancelled.reason'?: 'large-prompt';
 	'failed.error'?: string;
 	'failed.error.detail'?: string;
