@@ -369,13 +369,40 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		// clearCaches('gkConfig'), which would otherwise evict the in-flight gkConfigMap entry the
 		// cache wrapper synchronously stored and force a redundant bulk re-read.
 		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
-		return this.cache.getGkConfigMap(repoPath, () => this.getGkConfigRegexCore(repoPath, gkConfigAllPattern));
+		return this.cache.getGkConfigMap(repoPath, async cacheable => {
+			const { map, failed } = await this.getGkConfigRegexCore(repoPath, gkConfigAllPattern);
+			// This map has no TTL and everything gk-related reads through it, so a failed read cached as an
+			// empty map would report every branch as having no stored base or merge target for the session —
+			// and would make the section-cleanup pre-checks skip real work. Only cache a read that happened.
+			if (failed) {
+				cacheable.invalidate();
+			}
+			return map;
+		});
 	}
 
-	private async getGkConfigRegexCore(repoPath: string, pattern: string): Promise<Map<string, string>> {
+	private async getGkConfigRegexCore(
+		repoPath: string,
+		pattern: string,
+	): Promise<{ map: Map<string, string>; failed: boolean }> {
 		const gkConfigPath = await this.getGkConfigPath(repoPath);
-		if (!gkConfigPath) return new Map();
-		return this.getConfigRegexCore(repoPath, pattern, { runGitLocally: true, file: gkConfigPath });
+		// No `.git/gk/config` yet is a real answer, not a failure — a repo GitLens has never written to.
+		if (!gkConfigPath) return { map: new Map(), failed: false };
+
+		const result = await this.git.run(
+			{ cwd: repoPath, errors: 'ignore', runLocally: true },
+			'config',
+			'--get-regex',
+			'-f',
+			gkConfigPath,
+			pattern,
+		);
+		// `--get-regex` exits 1 when nothing matches, which IS an answer (an empty gk config).
+		const exited = result.completion.status === 'exited';
+		return {
+			map: parseConfigRegexOutput(result.stdout.trim()),
+			failed: !exited || (result.exitCode !== 0 && result.exitCode !== 1),
+		};
 	}
 
 	@debug()

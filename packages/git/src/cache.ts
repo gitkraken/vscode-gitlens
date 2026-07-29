@@ -1179,9 +1179,12 @@ export class Cache implements Disposable {
 	 * clear otherwise). The first fresh read seeds the merge-relevant snapshot used by
 	 * `reconcileGkConfigMap`; later refreshes of that snapshot are owned by the reconcile itself.
 	 */
-	getGkConfigMap(repoPath: string, factory: () => PromiseOrValue<Map<string, string>>): Promise<Map<string, string>> {
-		return this.getSharedSimple(this.gkConfigMap, repoPath, async commonPath => {
-			const map = await factory();
+	getGkConfigMap(
+		repoPath: string,
+		factory: (cacheable: CacheController) => PromiseOrValue<Map<string, string>>,
+	): Promise<Map<string, string>> {
+		return this.getSharedSimple(this.gkConfigMap, repoPath, async (commonPath, cacheable) => {
+			const map = await factory(cacheable);
 			// Seed the reconcile baseline on first observation only. Refreshes belong to
 			// `reconcileGkConfigMap` (after it has cascaded) and `recordGkConfigWrite` (our own writes):
 			// an incidental read that happens to land between an external write and the watcher event
@@ -1781,7 +1784,9 @@ export class Cache implements Disposable {
 	private async getSharedSimple<T>(
 		cache: PromiseMap<string, T> | PromiseCache<string, T>,
 		repoPath: string,
-		factory: (commonPath: string) => PromiseOrValue<T>,
+		// `cacheable` is forwarded so a factory can refuse the entry when the read FAILED rather than
+		// genuinely produced nothing — see `getSharedSimpleWithKey` for why that distinction matters.
+		factory: (commonPath: string, cacheable: CacheController) => PromiseOrValue<T>,
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
 
@@ -1789,9 +1794,9 @@ export class Cache implements Disposable {
 		// `PromiseCache.getOrCreate(key, factory, options?)` have different 3rd-argument shapes,
 		// so we dispatch on cache type. Both register a `CacheController` so `invalidate` works.
 		if (cache instanceof PromiseCache) {
-			return cache.getOrCreate(commonPath, () => Promise.resolve(factory(commonPath)));
+			return cache.getOrCreate(commonPath, cacheable => Promise.resolve(factory(commonPath, cacheable)));
 		}
-		return cache.getOrCreate(commonPath, () => Promise.resolve(factory(commonPath)));
+		return cache.getOrCreate(commonPath, cacheable => Promise.resolve(factory(commonPath, cacheable)));
 	}
 
 	private async getSharedSimpleWithKey<T>(
