@@ -51,7 +51,7 @@ function commitRow(overrides: Partial<GitGraphRow>): GitGraphRow {
 		email: 'author@example.com',
 		date: 0,
 		message: 'a commit',
-		type: 'commit',
+		kind: 'commit',
 		...overrides,
 	};
 }
@@ -126,25 +126,25 @@ suite('graph-commit — kind carries the producer label, not a parent count', ()
 			email: 'ada@example.com',
 			date: 1,
 			message: 'm',
-			type: 'commit',
+			kind: 'commit',
 		};
 		return { ...base, ...overrides };
 	}
 
 	test('an ordinary merge is a merge', () => {
-		assert.strictEqual(toGraphCommit(row({ type: 'merge', parents: ['b', 'c'] })).kind, 'merge');
+		assert.strictEqual(toGraphCommit(row({ kind: 'merge', parents: ['b', 'c'] })).kind, 'merge');
 	});
 
 	// The regression this pins: re-deriving from `parents.length` here reported every merge as a commit
 	// whenever `graph.onlyFollowFirstParent` was on — no merge glyph, no `dimMergeCommits`, and "Commit"
 	// instead of "Merge commit" to a screen reader.
 	test('a first-parent-truncated merge is still a merge', () => {
-		assert.strictEqual(toGraphCommit(row({ type: 'merge', parents: ['b'] })).kind, 'merge');
+		assert.strictEqual(toGraphCommit(row({ kind: 'merge', parents: ['b'] })).kind, 'merge');
 	});
 
 	test('every kind is carried through verbatim', () => {
-		assert.strictEqual(toGraphCommit(row({ type: 'commit', parents: ['b'] })).kind, 'commit');
-		assert.strictEqual(toGraphCommit(row({ type: 'stash', parents: ['b'] })).kind, 'stash');
-		assert.strictEqual(toGraphCommit(row({ type: 'workdir', parents: [] })).kind, 'workdir');
+		assert.strictEqual(toGraphCommit(row({ kind: 'commit', parents: ['b'] })).kind, 'commit');
+		assert.strictEqual(toGraphCommit(row({ kind: 'stash', parents: ['b'] })).kind, 'stash');
+		assert.strictEqual(toGraphCommit(row({ kind: 'workdir', parents: [] })).kind, 'workdir');
 	});
 });

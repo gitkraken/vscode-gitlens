@@ -2179,7 +2179,7 @@ export class GlLitGraph extends LitElement {
 
 		const visibleTips: Sha[] = [];
 		for (const row of rows) {
-			if (row.type !== 'commit' && row.type !== 'merge') continue;
+			if (row.kind !== 'commit' && row.kind !== 'merge') continue;
 
 			let visible = false;
 			if (row.heads != null) {
@@ -2213,7 +2213,7 @@ export class GlLitGraph extends LitElement {
 		}
 
 		const reachable = collectReachable(rows, visibleTips);
-		return rows.filter(r => (r.type === 'commit' || r.type === 'merge' ? reachable.has(r.sha) : true));
+		return rows.filter(r => (r.kind === 'commit' || r.kind === 'merge' ? reachable.has(r.sha) : true));
 	}
 
 	private recomputeRows(idLength: number): void {
@@ -2242,7 +2242,7 @@ export class GlLitGraph extends LitElement {
 
 		// `excludeTypes.stashes` hides stash ROWS (not just a label) — drop them from the engine input so
 		// the layout + edges thread without them (no dangling lanes).
-		const stashFiltered = this.excludeTypes?.stashes === true ? rows.filter(r => r.type !== 'stash') : rows;
+		const stashFiltered = this.excludeTypes?.stashes === true ? rows.filter(r => r.kind !== 'stash') : rows;
 		// Branches-visibility (Current/Smart/Favorited) + hidden-ref filtering: drop commit rows not
 		// reachable from any visible ref tip so hidden branches' commits AND lanes disappear, not just
 		// their pills. Threads through the engine over the reduced set (no orphaned lane reservations).
@@ -4905,7 +4905,7 @@ export class GlLitGraph extends LitElement {
 		return undefined;
 	}
 
-	private rowTypeForSha(sha: string): GitGraphRow['type'] {
+	private rowKindForSha(sha: string): GitGraphRow['kind'] {
 		return this.getCommitBySha(sha)?.kind ?? 'commit';
 	}
 
@@ -4989,7 +4989,7 @@ export class GlLitGraph extends LitElement {
 							detail: {
 								action: action,
 								sha: sha,
-								type: this.rowTypeForSha(sha),
+								type: this.rowKindForSha(sha),
 								worktreePath: worktreePath,
 							},
 						}),
@@ -5201,7 +5201,7 @@ export class GlLitGraph extends LitElement {
 		if (sha == null) return;
 
 		this.dispatchEvent(
-			new CustomEvent('gl-graph-rowdoubleclick', { detail: { sha: sha, type: this.rowTypeForSha(sha) } }),
+			new CustomEvent('gl-graph-rowdoubleclick', { detail: { sha: sha, type: this.rowKindForSha(sha) } }),
 		);
 	};
 
@@ -5221,7 +5221,7 @@ export class GlLitGraph extends LitElement {
 		}
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-contextmenu', {
-				detail: { sha: sha, type: this.rowTypeForSha(sha), zone: zone },
+				detail: { sha: sha, type: this.rowKindForSha(sha), zone: zone },
 			}),
 		);
 	};
@@ -5813,7 +5813,7 @@ export class GlLitGraph extends LitElement {
 					if (event.key === 'Enter') {
 						this.dispatchEvent(
 							new CustomEvent('gl-graph-rowdoubleclick', {
-								detail: { sha: sha, type: this.rowTypeForSha(sha) },
+								detail: { sha: sha, type: this.rowKindForSha(sha) },
 							}),
 						);
 					}

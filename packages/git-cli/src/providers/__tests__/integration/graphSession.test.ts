@@ -45,7 +45,7 @@ import {
  *  grows when a commit introduces a NEW email, exercising the session's `changed.avatars` derivation. */
 class AvatarSeedingRowProcessor implements GraphRowProcessor {
 	processRow(row: GitGraphRow, context: GraphContext): void {
-		if (row.type === 'stash') return;
+		if (row.kind === 'stash') return;
 
 		(row.contexts ??= {}).flags = computeGraphRowContextFlags(row.sha, row.reachability?.refs, context);
 		if (context.useAvatars) {
@@ -446,7 +446,7 @@ suite('GitGraphSession restart persistence (R7c)', () => {
 	/** The window's BOTTOM commit/merge sha — the restore's re-walk anchor (mirrors the host's rebuild anchor). */
 	function windowBottomAnchor(window: readonly GitGraphRow[]): string | undefined {
 		for (let i = window.length - 1; i >= 0; i--) {
-			const type = window[i].type;
+			const type = window[i].kind;
 			if (type === 'commit' || type === 'merge') return window[i].sha;
 		}
 		return undefined;

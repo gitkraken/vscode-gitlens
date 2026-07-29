@@ -6,7 +6,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { GitGraphRow, GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual as areArraysEqual } from '@gitlens/utils/array.js';
@@ -489,7 +489,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			email: '',
 			date: this.stableWipRowDate(sha, parentSha),
 			message: wipRowMessage(label),
-			type: 'workdir',
+			kind: 'workdir',
 			heads: [],
 			remotes: [],
 			tags: [],
@@ -599,7 +599,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (rows != null && (hasSecondaryWips || showPrimary)) {
 			// Defensive: strip a leading primary work-dir row so we can't emit a duplicate alongside
 			// the one we synthesize below.
-			const realRows = rows[0]?.type === 'workdir' ? rows.slice(1) : rows;
+			const realRows = rows[0]?.kind === 'workdir' ? rows.slice(1) : rows;
 			// Anchor the primary on the SAME row the scope re-root projection roots its spine at — that
 			// walk resolves the focal tip by branch NAME (`computeScopeAnchors`) while this one uses the
 			// `isCurrentHead` flag, and `computeScopeProjection` drops any workdir row whose parent isn't
@@ -663,7 +663,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			}
 
 			resultRows = interleaved;
-		} else if (!showPrimary && rows?.[0]?.type === 'workdir') {
+		} else if (!showPrimary && rows?.[0]?.kind === 'workdir') {
 			// Defensive: host rows shouldn't carry a work-dir row, but if one leads, strip it —
 			// no primary may render when `showPrimary` is off.
 			resultRows = rows.slice(1);
@@ -1136,7 +1136,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const selection: GraphSelection[] = [
 			{
 				id: sha,
-				type: focusedRow.type,
+				type: focusedRow.kind,
 				active: true,
 				hidden: false,
 				// The row id IS the worktree path for a WIP row; `wipRowsById` is the un-normalized form.
@@ -1148,7 +1148,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.graphState.activeDay = this.dateForMinimapRow(focusedRow);
 
 		let commits: Record<string, CommitDetails> | undefined;
-		if (focusedRow.type !== 'workdir') {
+		if (focusedRow.kind !== 'workdir') {
 			const repositories = this.graphState.repositories;
 			const selectedRepoId = this.graphState.selectedRepository;
 			const fallbackRepoPath =
@@ -1500,7 +1500,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	// detail from its click delegation).
 	private onGraphRowAction({
 		detail: { action, sha, type, worktreePath },
-	}: CustomEvent<{ action: RowAction; sha: string; type: GitGraphRowType; worktreePath?: string }>) {
+	}: CustomEvent<{ action: RowAction; sha: string; type: GitGraphRowKind; worktreePath?: string }>) {
 		const rowRef = { id: sha, type: type };
 		// Narrow per-action so the discriminated `RowActionParams` only carries the fields its case
 		// allows — keeps stash/open-changes payloads from accidentally inheriting worktreePath.
@@ -1541,7 +1541,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// `uncommitted` ref), so build it for any WIP row we render rather than depending on host-shipped
 		// stats. The conflict bit comes from that row's own hot-plane entry — one lookup for every
 		// worktree now, the graph's own included.
-		if (graphRow.type === ('workdir' satisfies GitGraphRowType)) {
+		if (graphRow.kind === ('workdir' satisfies GitGraphRowKind)) {
 			const worktreePath = getWipRowWorktreePath(graphRow.sha);
 			const hasConflicts = this.graphState.wipStateById?.[graphRow.sha]?.hasConflicts ?? false;
 			if (worktreePath != null && worktreePath !== repoPath) {
@@ -1612,7 +1612,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  exists) date instead; real rows pass through unchanged. */
 	private dateForMinimapRow(row: {
 		readonly sha: string;
-		readonly type: string;
+		readonly kind: string;
 		readonly parents: readonly string[];
 		readonly date: number;
 	}): number {
@@ -1621,7 +1621,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// the timeline (so its own stamp IS its position — same as how `type:wip` search dates it), while a
 		// peer is drawn against its worktree HEAD and should track that commit's date. Keying on the kind
 		// alone dragged the primary back to HEAD's day.
-		if (row.type !== 'workdir' || row.sha === this.primaryWipRowId) return row.date;
+		if (row.kind !== 'workdir' || row.sha === this.primaryWipRowId) return row.date;
 
 		const anchorSha = row.parents[0];
 		const anchorRow = anchorSha != null ? this.getSourceRowByShaMap()?.get(anchorSha) : undefined;
@@ -1802,7 +1802,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (sha != null && focusedRow != null) {
 			const focusedSel: GraphSelection = {
 				id: sha,
-				type: focusedRow.type,
+				type: focusedRow.kind,
 				active: true,
 				hidden: false,
 				// The row id IS the worktree path for a WIP row; `wipRowsById` is the un-normalized form.
@@ -1816,7 +1816,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					return [
 						{
 							id: rs,
-							type: r.type,
+							type: r.kind,
 							active: rs === sha,
 							hidden: false,
 							repoPath: getWipRowWorktreePath(rs) ?? wipRowsById?.[rs]?.repoPath,
@@ -1837,7 +1837,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 					next.push({
 						id: otherSha,
-						type: r.type,
+						type: r.kind,
 						active: false,
 						hidden: false,
 						repoPath: getWipRowWorktreePath(otherSha) ?? wipRowsById?.[otherSha]?.repoPath,
@@ -1915,7 +1915,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
 	}
 
-	private onGraphRowDoubleClick(event: CustomEvent<{ sha: string; type: GitGraphRow['type'] }>) {
+	private onGraphRowDoubleClick(event: CustomEvent<{ sha: string; type: GitGraphRow['kind'] }>) {
 		const { sha, type } = event.detail;
 		// Resolve against the decorated rows (Seam B) so synthetic WIP shas — injected in
 		// `getDecoratedRows` and absent from `graphState.rows` — still resolve to a row.
@@ -1964,7 +1964,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(GetMoreRowsCommand, { id: undefined });
 	}
 
-	private onGraphContextMenu(event: CustomEvent<{ sha: string; type: GitGraphRow['type']; zone: 'ref' | 'row' }>) {
+	private onGraphContextMenu(event: CustomEvent<{ sha: string; type: GitGraphRow['kind']; zone: 'ref' | 'row' }>) {
 		const { sha, zone } = event.detail;
 		// Resolve against the decorated rows (Seam B) so a right-click on a synthetic WIP row
 		// (absent from `graphState.rows`) still finds its row and emits the context event.
@@ -1994,7 +1994,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	private injectGraphContextMenuContext(row: GitGraphRow): void {
 		// WIP rows carry NO row-level context at all (graph-commit.ts never builds one for them), so
 		// the wrapper-level write is authoritative — build the `gitlens:wip…` context unconditionally.
-		if (row.type === ('workdir' satisfies GitGraphRowType)) {
+		if (row.kind === ('workdir' satisfies GitGraphRowKind)) {
 			this.writeVscodeContext(this.buildRowContextMenuContext(row));
 			return;
 		}
@@ -2018,7 +2018,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			selectedShas,
 		);
 		const contexts = computeSelectionContexts(selectedSourceRows, repoPath, contiguous);
-		const context = contexts?.get(row.type);
+		const context = contexts?.get(row.kind);
 		if (context == null) return;
 
 		this.writeVscodeContext(serializeSelectionContext(context));

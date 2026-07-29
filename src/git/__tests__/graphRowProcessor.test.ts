@@ -49,7 +49,7 @@ function createRow(overrides?: Partial<GitGraphRow>): GitGraphRow {
 		email: 'test@test.com',
 		date: Date.now(),
 		message: 'test commit',
-		type: 'commit',
+		kind: 'commit',
 		...overrides,
 	};
 }
@@ -120,7 +120,7 @@ suite('GlGraphRowProcessor', () => {
 			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
 
 			// stash rows go through the stash branch (which builds `contexts.row`, not `contexts.flags`)
-			const row = createRow({ type: 'stash' });
+			const row = createRow({ kind: 'stash' });
 			processor.processRow(
 				row,
 				createMockContext({

@@ -295,7 +295,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				date: commit.committer.date.getTime(),
 				commitDate: commit.committer.date.getTime(),
 				message: commit.message?.length ? commit.message : commit.summary,
-				type: commit.parents.length > 1 ? 'merge' : 'commit',
+				kind: commit.parents.length > 1 ? 'merge' : 'commit',
 				// Omitted rather than empty: an empty array still counts as "present" to the splice
 				// fingerprint, which defeats its bare-row skip and makes every ref-less row look changeable.
 				heads: refHeads.length ? refHeads : undefined,

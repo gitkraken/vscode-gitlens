@@ -18,7 +18,7 @@ function row(sha: string, options?: Partial<GitGraphRow>): GitGraphRow {
 		email: 'test@example.com',
 		date: 1000,
 		message: `commit ${sha}`,
-		type: 'commit',
+		kind: 'commit',
 		...options,
 	};
 }

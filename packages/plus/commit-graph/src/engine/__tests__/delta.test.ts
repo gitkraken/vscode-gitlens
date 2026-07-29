@@ -4,7 +4,7 @@ import type { RowTopology } from '../delta.js';
 import type { CommitKind } from '../types.js';
 
 function row(sha: string, parents: string[], type: CommitKind = 'commit', date = 0): RowTopology {
-	return { sha: sha, parents: parents, type: type, date: date };
+	return { sha: sha, parents: parents, kind: type, date: date };
 }
 
 // Fresh objects per call — mirrors IPC deserialization, so identity never leaks into the compare.

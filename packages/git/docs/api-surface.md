@@ -514,7 +514,7 @@ All in `models/`:
 | `file.js`                  | `GitFile`, `GitFileWithCommit`                                                                                                                       |
 | `fileChange.js`            | `GitFileChangeShape`, `GitFileChange`                                                                                                                |
 | `fileStatus.js`            | `GitFileStatus`, `GitFileConflictStatus`, `GitFileIndexStatus`, `GitFileWorkingTreeStatus`                                                           |
-| `graph.js`                 | `GitGraph`, `GitGraphRowType`, graph row types                                                                                                       |
+| `graph.js`                 | `GitGraph`, `GitGraphRowKind`, graph row types                                                                                                       |
 | `issue.js`                 | `Issue`, `IssueShape`                                                                                                                                |
 | `issueOrPullRequest.js`    | `IssueOrPullRequest`, `IssueOrPullRequestType`, `IssueOrPullRequestState`                                                                            |
 | `lineRange.js`             | `LineRange`                                                                                                                                          |

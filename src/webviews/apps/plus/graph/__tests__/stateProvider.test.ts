@@ -1148,7 +1148,7 @@ suite('getOverviewBranchSelectionSha', () => {
 			email: '',
 			date: 0,
 			message: '',
-			type: 'commit',
+			kind: 'commit',
 			heads: [],
 			remotes: [],
 			tags: [],

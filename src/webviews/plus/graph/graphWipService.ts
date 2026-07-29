@@ -3,7 +3,7 @@ import { CancellationTokenSource, Disposable, Uri } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { GitRevisionReference, GitStashReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
@@ -82,7 +82,7 @@ export type GraphWipServiceContext = {
 	getRevisionReference: (
 		repoPath: string | undefined,
 		id: string | undefined,
-		type: GitGraphRowType | undefined,
+		type: GitGraphRowKind | undefined,
 	) => GitStashReference | GitRevisionReference | undefined;
 	getPinnedRefId: (repoPath: string | undefined) => string | undefined;
 	fireSidebarWorktreeChanges: (changes: Record<string, SidebarWorktreeChange | undefined>) => void;

@@ -16,7 +16,7 @@ function row(overrides: Partial<GitGraphRow> & { sha: string; date: number }): G
 		author: 'test',
 		email: 'test@test',
 		message: 'message',
-		type: 'commit',
+		kind: 'commit',
 	};
 	return Object.assign(r, overrides);
 }
@@ -281,7 +281,7 @@ suite('minimapData Test Suite', () => {
 
 	test('emits stash marker for stash rows when stashes enabled', () => {
 		const result = aggregate({
-			rows: [row({ sha: 'a', date: day1, type: 'stash', message: 'WIP on main' })],
+			rows: [row({ sha: 'a', date: day1, kind: 'stash', message: 'WIP on main' })],
 			rowsStats: undefined,
 			refMetadata: undefined,
 			downstreams: undefined,
@@ -477,7 +477,7 @@ suite('minimapData Test Suite', () => {
 					sha: 'wip::/repo',
 					date: day2,
 					parents: ['head'],
-					type: 'workdir',
+					kind: 'workdir',
 				}),
 				row({ sha: 'head', date: day1, heads: [{ id: 'h1', name: 'main', isCurrentHead: true }] }),
 			],
@@ -496,7 +496,7 @@ suite('minimapData Test Suite', () => {
 
 	test('WIP row alone produces no buckets', () => {
 		const result = aggregate({
-			rows: [row({ sha: 'wip::/repo', date: day1, parents: [], type: 'workdir' })],
+			rows: [row({ sha: 'wip::/repo', date: day1, parents: [], kind: 'workdir' })],
 			rowsStats: undefined,
 			refMetadata: undefined,
 			downstreams: undefined,
@@ -515,7 +515,7 @@ suite('minimapData Test Suite', () => {
 					sha: 'wip::/wt-a',
 					date: day2,
 					parents: ['parent-a'],
-					type: 'workdir',
+					kind: 'workdir',
 				}),
 				row({ sha: 'parent-a', date: day1 }),
 			],

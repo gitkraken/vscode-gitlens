@@ -25,7 +25,7 @@ suite('GraphSubProvider stash rows', () => {
 	test('every stash row carries its stash number, and no commit row does', async () => {
 		const graph = await repo.provider.graph.getGraph(repo.path, undefined);
 
-		const stashRows = graph.rows.filter(r => r.type === 'stash');
+		const stashRows = graph.rows.filter(r => r.kind === 'stash');
 		assert.strictEqual(stashRows.length, 2, 'precondition: both stashes should be walked as rows');
 
 		for (const row of stashRows) {
@@ -44,7 +44,7 @@ suite('GraphSubProvider stash rows', () => {
 			'each stash row should carry its own index',
 		);
 
-		for (const row of graph.rows.filter(r => r.type !== 'stash')) {
+		for (const row of graph.rows.filter(r => r.kind !== 'stash')) {
 			assert.strictEqual(row.stashNumber, undefined, `non-stash row ${row.sha} must not claim a stash number`);
 		}
 	});

@@ -4,8 +4,8 @@ import type { GitTrackingState } from '@gitlens/git/models/branch.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type {
 	GitGraphRow,
+	GitGraphRowKind,
 	GitGraphRowStats,
-	GitGraphRowType,
 	GraphReachabilityTable,
 } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearchResultData } from '@gitlens/git/models/graphSearch.js';
@@ -286,7 +286,7 @@ export type GraphSearchMode = 'normal' | 'filter';
 
 export interface GraphSelection {
 	id: string;
-	type: GitGraphRowType;
+	type: GitGraphRowKind;
 	active: boolean;
 	hidden: boolean;
 	repoPath?: string;
@@ -834,7 +834,7 @@ export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository')
 
 export type DoubleClickedParams =
 	| { type: 'ref'; ref: GraphRef; metadata?: GraphRefMetadataItem }
-	| { type: 'row'; row: { id: string; type: GitGraphRowType }; preserveFocus?: boolean };
+	| { type: 'row'; row: { id: string; type: GitGraphRowKind }; preserveFocus?: boolean };
 export const DoubleClickedCommand = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
 
 export interface GetMissingAvatarsParams {
@@ -889,7 +889,7 @@ export type RowAction = RowActionParams['action'];
 
 interface RowActionRowRef {
 	id: string;
-	type: GitGraphRowType;
+	type: GitGraphRowKind;
 }
 
 /** Discriminated union — action-specific fields are only structurally present on their case so the
@@ -1347,7 +1347,7 @@ export type DidGetSidebarDataParams = { layout?: 'list' | 'tree'; compact?: bool
 	| { panel: 'agents'; items: AgentSessionState[] }
 );
 export type GetRowHoverParams = {
-	type: GitGraphRowType;
+	type: GitGraphRowKind;
 	id: string;
 };
 

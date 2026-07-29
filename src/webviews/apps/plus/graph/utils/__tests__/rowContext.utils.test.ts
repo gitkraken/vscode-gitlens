@@ -187,7 +187,7 @@ suite('computeSelectionContexts', () => {
 			email: 'a@example.com',
 			date: 0,
 			message: 'm',
-			type: 'commit',
+			kind: 'commit',
 			contexts: { flags: GitGraphRowContextFlags.ReachableFromHead },
 			...overrides,
 		};

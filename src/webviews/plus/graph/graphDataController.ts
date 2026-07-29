@@ -384,7 +384,7 @@ export class GraphDataController {
 		const priorRows = this._graphSession?.current.rows;
 		if (priorRows != null && priorRows.length > 0) {
 			for (let i = priorRows.length - 1; i >= 0 && i >= priorRows.length - 10; i--) {
-				const type = priorRows[i].type;
+				const type = priorRows[i].kind;
 				if (type === 'commit' || type === 'merge') {
 					rebuildAnchorSha = priorRows[i].sha;
 					break;

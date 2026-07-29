@@ -868,7 +868,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 					commitDate: Number(commit.committerDate) * 1000,
 					message: (stash.message ?? commit.message).trim(),
-					type: 'stash',
+					kind: 'stash',
 					stashNumber: stash.stashNumber,
 					heads: refHeads.length ? refHeads : undefined,
 					remotes: refRemoteHeads.length ? refRemoteHeads : undefined,
@@ -889,7 +889,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 					commitDate: Number(commit.committerDate) * 1000,
 					message: commit.message.trim(),
-					type: parents.length > 1 ? 'merge' : 'commit',
+					kind: parents.length > 1 ? 'merge' : 'commit',
 					heads: refHeads.length ? refHeads : undefined,
 					remotes: refRemoteHeads.length ? refRemoteHeads : undefined,
 					tags: refTags.length ? refTags : undefined,
@@ -1051,7 +1051,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							continue;
 						}
 
-						if (row.type === 'stash') {
+						if (row.kind === 'stash') {
 							missingStashStdin += `${row.sha}\n`;
 						} else {
 							missingStdin += `${row.sha}\n`;
@@ -1231,7 +1231,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							refRemoteHeads,
 							refTags,
 							head,
-							row.type === 'stash',
+							row.kind === 'stash',
 						);
 						// Transient: the row processor's `+unique` decision reads this; stripped by finalize.
 						// Unsorted (the consumer re-sorts after decoding) — order doesn't affect interning.
@@ -1462,7 +1462,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			// Stash-set gate: any push/pop/drop changes the injected rows.
 			const currentStashShas =
 				gitStash?.stashes != null ? new Set<string>(gitStash.stashes.keys()) : new Set<string>();
-			const priorStashShas = seed.rows.filter(r => r.type === 'stash').map(r => r.sha);
+			const priorStashShas = seed.rows.filter(r => r.kind === 'stash').map(r => r.sha);
 			if (priorStashShas.length !== currentStashShas.size || priorStashShas.some(s => !currentStashShas.has(s))) {
 				fallback('stash-changed');
 				return undefined;
@@ -1633,7 +1633,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					row.remotes ?? [],
 					row.tags ?? [],
 					row.sha === currentHeadSha,
-					row.type === 'stash',
+					row.kind === 'stash',
 				);
 				if (freshShas.has(row.sha)) {
 					// Fresh rows are raw — run the full processor (contexts, emojify, avatar). Reused rows keep
@@ -1643,7 +1643,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				}
 				// Authoritative flags for every commit row (membership can shift on reused rows too — e.g. a new
 				// interior branch flips `+unique`). Stash rows carry none.
-				if (row.type !== 'stash') {
+				if (row.kind !== 'stash') {
 					(row.contexts ??= {}).flags = computeGraphRowContextFlags(row.sha, refs?.values(), graphCtx);
 				}
 				finalizeRowReachability(row, row.sha, refs);
@@ -2150,7 +2150,7 @@ class GraphSession implements GitGraphSession {
 		// full page. Stash rows aren't real revs, so skip them when picking the anchor.
 		let anchor: string | undefined;
 		for (let i = snapshot.rows.length - 1; i >= 0; i--) {
-			const type = snapshot.rows[i].type;
+			const type = snapshot.rows[i].kind;
 			if (type === 'commit' || type === 'merge') {
 				anchor = snapshot.rows[i].sha;
 				break;

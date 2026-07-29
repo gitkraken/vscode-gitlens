@@ -5,7 +5,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
-import type { GitGraphRow, GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -1731,7 +1731,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// A WIP row's synthetic sha encodes its own worktree path; any other row type resolves to the
 		// graph's (fallback) repo.
 		const repoPath = getWipRowWorktreePath(row.sha) ?? fallbackRepoPath;
-		const sha = row.type === ('workdir' satisfies GitGraphRowType) ? uncommitted : row.sha;
+		const sha = row.kind === ('workdir' satisfies GitGraphRowKind) ? uncommitted : row.sha;
 		await this.openWipDetails(repoPath, sha, target, target === 'agents' ? 'request-agents' : 'request-mode');
 	};
 
@@ -3534,7 +3534,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const fallbackRepoPath = this.fallbackRepoPath ?? '';
 
 		if (selection.length >= 2) {
-			const shas = selection.filter(s => s.type !== ('workdir' satisfies GitGraphRowType)).map(s => s.id);
+			const shas = selection.filter(s => s.type !== ('workdir' satisfies GitGraphRowKind)).map(s => s.id);
 
 			if (shas.length >= 2) {
 				this._selectedCommit = undefined;
@@ -3559,7 +3559,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		} else {
 			const active = selection[0];
-			const sha = active.type === ('workdir' satisfies GitGraphRowType) ? uncommitted : active.id;
+			const sha = active.type === ('workdir' satisfies GitGraphRowKind) ? uncommitted : active.id;
 			// Prefer per-row repoPath (for multi-worktree WIP); fall back to selected repo
 			const repoPath = active.repoPath ?? fallbackRepoPath;
 
@@ -3790,7 +3790,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async getRowHoverPromise(row: GitGraphRow) {
 		try {
 			const request = await this._ipc.sendRequest(GetRowHoverRequest, {
-				type: row.type,
+				type: row.kind,
 				id: row.sha,
 			});
 

@@ -65,7 +65,7 @@ export interface GitGraphSession {
  * semantics change): a restore whose snapshot version doesn't match this EXACTLY is discarded (a normal
  * initial walk), so an old-shaped cache written by a prior extension version can never be misread.
  */
-export const graphSessionSnapshotVersion = 6;
+export const graphSessionSnapshotVersion = 7;
 
 /**
  * Restart-persistence snapshot of a {@link GitGraphSession}'s canonical window — everything a restore needs

@@ -5,7 +5,7 @@ import type { CommitKind } from './types.js';
  *
  * The renderer receives a fresh rows array on every host push (IPC deserialization mints new
  * objects), so identity says nothing about WHAT changed. This classifier compares the engine-
- * relevant TOPOLOGY of each row — sha, parents, type, date: exactly the fields that feed layout
+ * relevant TOPOLOGY of each row — sha, parents, kind, date: exactly the fields that feed layout
  * and edge computation — and names the change so each downstream derivation can do proportional
  * work instead of a full rebuild:
  *
@@ -25,9 +25,10 @@ export interface RowTopology {
 	sha: string;
 	parents: readonly string[];
 	/** The engine's own row vocabulary — typed, not `string`, because {@link classifyRowsDelta} compares
-	 *  it as part of row topology (a commit becoming a stash changes the layout). Typing it keeps a
-	 *  consumer whose rows spell these differently from silently comparing values the engine never emits. */
-	type?: CommitKind;
+	 *  it as part of row topology (a commit becoming a stash changes the layout). Named `kind` to match
+	 *  {@link GraphRow}/{@link GraphCommit}: a second spelling here would read as optional-and-absent on
+	 *  the package's own row model, silently dropping it from every comparison. */
+	kind?: CommitKind;
 	date?: number;
 }
 
@@ -38,7 +39,7 @@ export type RowsDelta =
 	| { kind: 'replace' };
 
 function topologyEquals(a: RowTopology, b: RowTopology): boolean {
-	if (a.sha !== b.sha || a.type !== b.type || a.date !== b.date) return false;
+	if (a.sha !== b.sha || a.kind !== b.kind || a.date !== b.date) return false;
 
 	const ap = a.parents;
 	const bp = b.parents;

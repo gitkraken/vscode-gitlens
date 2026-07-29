@@ -1,4 +1,4 @@
-import type { GitGraphRow, GitGraphRowContextFlags, GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GitGraphRowContextFlags, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import { GitGraphRowContextFlags as ContextFlags } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -253,26 +253,26 @@ export function computeSelectionContexts(
 	selectedRows: readonly GitGraphRow[],
 	repoPath: string,
 	contiguous: boolean,
-): Map<GitGraphRowType, GraphSelectionContext> | undefined {
+): Map<GitGraphRowKind, GraphSelectionContext> | undefined {
 	if (selectedRows.length <= 1) return undefined;
 
 	const isUniqueBranch = isUniqueToBranchSelection(selectedRows);
 
-	const grouped = new Map<GitGraphRowType, GraphItemContext[]>();
+	const grouped = new Map<GitGraphRowKind, GraphItemContext[]>();
 	for (const row of selectedRows) {
 		const item = parsedSelectionItem(row, repoPath);
 		if (item == null) continue;
 
-		const items = grouped.get(row.type);
+		const items = grouped.get(row.kind);
 		if (items != null) {
 			items.push(item);
 		} else {
-			grouped.set(row.type, [item]);
+			grouped.set(row.kind, [item]);
 		}
 	}
 	if (grouped.size === 0) return undefined;
 
-	const contexts = new Map<GitGraphRowType, GraphSelectionContext>();
+	const contexts = new Map<GitGraphRowKind, GraphSelectionContext>();
 	for (const [type, items] of grouped) {
 		const webviewItems = reduceCommonWebviewItemsContext(items.map(i => i.webviewItem));
 		const count = webviewItems != null ? items.length : 0;

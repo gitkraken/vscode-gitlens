@@ -5,7 +5,7 @@ import { CancellationTokenSource, commands, Disposable, Uri, ViewColumn, window,
 import { isWeb } from '@env/platform.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
-import type { GitGraph, GitGraphRow, GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraph, GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import type { GitGraphSessionChangedChannels } from '@gitlens/git/models/graphSession.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitReference, GitRevisionReference, GitStashReference } from '@gitlens/git/models/reference.js';
@@ -3121,7 +3121,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._fireSelectionChangedDebounced(item?.id, item?.type);
 	}
 
-	private fireSelectionChanged(id: string | undefined, type: GitGraphRowType | undefined) {
+	private fireSelectionChanged(id: string | undefined, type: GitGraphRowKind | undefined) {
 		if (this.repository == null) return;
 
 		// A WIP row's synthetic id encodes its own worktree path — use it (not the graph's repo path)
@@ -3134,7 +3134,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private getRevisionReference(
 		repoPath: string | undefined,
 		id: string | undefined,
-		type: GitGraphRowType | undefined,
+		type: GitGraphRowKind | undefined,
 	): GitStashReference | GitRevisionReference | undefined {
 		if (repoPath == null || id == null) return undefined;
 

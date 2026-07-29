@@ -234,7 +234,7 @@ export function toGraphCommit(
 	// (`git-cli/providers/graph.ts:873`) and re-deriving would report it as an ordinary commit to every
 	// menu, glyph and screen reader. Anything that needs the topological question — how many parent edges
 	// to lay out — asks `parents.length` directly, which is what the engine does.
-	const kind: CommitKind = row.type;
+	const kind: CommitKind = row.kind;
 
 	// Inline row-action data, computed once here at the single git→view bridge (from the shared utils)
 	// rather than per-render, so every consumer of the view row gets the same answer. For non-commit

@@ -92,7 +92,7 @@ suite('GraphSubProvider rowsStatsSeed', () => {
 		const fresh = await repo.provider.graph.getGraph(repo.path, undefined, { include: { stats: true } });
 		await fresh.rowsStatsDeferred?.promise;
 
-		const stashRow = fresh.rows.find(r => r.type === 'stash');
+		const stashRow = fresh.rows.find(r => r.kind === 'stash');
 		assert.ok(stashRow, 'Expected a stash row');
 		// A stash's stats are its first-parent diff (what `git stash show` reports) — deterministic,
 		// unlike the old remap of the whole stash stdin, which raced on `--no-walk` commit-time ordering.
@@ -109,7 +109,7 @@ suite('GraphSubProvider rowsStatsSeed', () => {
 		});
 		await rebuilt.rowsStatsDeferred?.promise;
 
-		const rebuiltStashRow = rebuilt.rows.find(r => r.type === 'stash');
+		const rebuiltStashRow = rebuilt.rows.find(r => r.kind === 'stash');
 		assert.ok(rebuiltStashRow, 'Expected a stash row on the seeded rebuild');
 		assert.deepStrictEqual(rebuilt.rowsStats?.get(rebuiltStashRow.sha), stashStats);
 	});

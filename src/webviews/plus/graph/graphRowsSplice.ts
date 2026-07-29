@@ -24,7 +24,7 @@
  * webview applies them onto its retained rows.
  */
 
-import type { GitGraphRow } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import type { GraphRowsSplice } from './protocol.js';
 
 export interface SentRowsLedger {
@@ -37,24 +37,27 @@ export interface SentRowsLedger {
 	reach: (number | undefined)[];
 }
 
-/** Row types whose content isn't pinned by their sha (re-stamped dates, live stats, etc.). */
-function isMutableRowType(type: string): boolean {
-	return type === 'workdir' || type === 'stash';
+/** Row kinds whose content isn't pinned by their sha (re-stamped dates, live stats, etc.). Typed
+ *  against the row vocabulary rather than `string`: a loose parameter would keep compiling if that
+ *  vocabulary moved, silently answering "immutable" for every row and stranding the WIP and stash
+ *  rows this fingerprint exists to re-ship. */
+function isMutableRowKind(kind: GitGraphRowKind): boolean {
+	return kind === 'workdir' || kind === 'stash';
 }
 
 /** Fingerprint of the fields that CAN change for a given sha between two walks — EXCLUDING the
  *  patchable `contexts.flags` / `contexts.reachabilityIndex` (see the module doc). */
 export function fingerprintRow(row: GitGraphRow): string | undefined {
-	const mutableType = isMutableRowType(row.type);
+	const mutableKind = isMutableRowKind(row.kind);
 	const ctx = row.contexts;
 	const hasOtherContext = ctx != null && (ctx.row !== undefined || ctx.refGroups !== undefined);
-	if (row.heads == null && row.remotes == null && row.tags == null && !hasOtherContext && !mutableType) {
+	if (row.heads == null && row.remotes == null && row.tags == null && !hasOtherContext && !mutableKind) {
 		return undefined;
 	}
 
 	const ctxRest = hasOtherContext ? [ctx.row, ctx.refGroups] : undefined;
 	return JSON.stringify(
-		mutableType
+		mutableKind
 			? [row.heads, row.remotes, row.tags, ctxRest, row.date, row.stats]
 			: [row.heads, row.remotes, row.tags, ctxRest],
 	);

@@ -105,7 +105,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 		}
 
 		// Build row context (stash or commit) and avatar context
-		if (row.type === 'stash') {
+		if (row.kind === 'stash') {
 			const stash = context.stashes?.get(row.sha);
 			if (stash != null) {
 				contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
