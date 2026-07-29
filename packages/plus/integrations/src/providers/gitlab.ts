@@ -1,4 +1,4 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -15,12 +15,12 @@ import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.util
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
 import { batch } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
@@ -31,12 +31,14 @@ import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models.js';
 import type {
+	ProviderApiPagedResult,
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderRepository,
 } from './models.js';
 import {
+	getProviderPullRequestIdentity,
 	IssueFilter,
 	ProviderPullRequestReviewState,
 	providersMetadata,
@@ -58,6 +60,38 @@ const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor =
 	id: cloudEnterpriseMetadata.id,
 	scopes: cloudEnterpriseMetadata.scopes,
 });
+
+type GitLabPullRequestAssociation = 'assigned' | 'authored' | 'reviewRequested';
+type GitLabPullRequestFacetCursor = Partial<Record<GitLabPullRequestAssociation, string>>;
+
+const gitLabAssociationForFilter: Record<
+	Exclude<PullRequestFilter, PullRequestFilter.Mention>,
+	GitLabPullRequestAssociation
+> = {
+	[PullRequestFilter.Assignee]: 'assigned',
+	[PullRequestFilter.Author]: 'authored',
+	[PullRequestFilter.ReviewRequested]: 'reviewRequested',
+};
+
+function parseGitLabPullRequestFacetCursor(cursor: string | undefined): GitLabPullRequestFacetCursor {
+	if (!cursor) return {};
+
+	try {
+		const parsed = JSON.parse(cursor) as { type?: unknown; cursors?: unknown };
+		if (parsed.type !== 'gitlab-associations' || parsed.cursors == null || typeof parsed.cursors !== 'object') {
+			return {};
+		}
+
+		const cursors = parsed.cursors as Record<string, unknown>;
+		return Object.fromEntries(
+			(['assigned', 'authored', 'reviewRequested'] as const)
+				.filter(association => typeof cursors[association] === 'string' && cursors[association] !== '')
+				.map(association => [association, cursors[association] as string]),
+		);
+	} catch {
+		return {};
+	}
+}
 
 export type GitLabRepositoryDescriptor = RepositoryDescriptor;
 
@@ -318,6 +352,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		return {
 			values: result.values.map(g => ({ id: g.id, providerId: this.id, name: g.fullPath, url: g.webUrl })),
 			...(result.truncated ? { truncated: true } : {}),
+			...(result.metadata != null ? { metadata: result.metadata } : {}),
 		};
 	}
 
@@ -431,47 +466,94 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
 		options?: { state?: PullRequestStateFilter[]; cursor?: string; filters?: PullRequestFilter[] },
-	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		// Resolve the username from THIS session's token (multi-account safe) to scope the account-wide read.
 		const username = (await this.getProviderCurrentAccount(session))?.username;
 		if (username == null) return undefined;
 
 		const api = await this.getProvidersApi();
-		// `states` reaches all three per-association queries as of `@gitkraken/provider-apis` 0.54.0, and the SDK
-		// narrows after normalization for a set GitLab's single-valued `state:` argument can't express (e.g.
-		// closed+merged, where it queries every state and filters). Before that the aggregator dropped `states`
-		// entirely, so each query fell back to `state: opened` and a terminal-state request came back with only
-		// OPEN merge requests — which this read had to refuse outright, because post-filtering them left an empty
-		// page that the sweep would publish as a successful, complete, genuinely-empty result.
-		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
-			isPAT: this.isEnterprise,
-			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
-			states: toProviderPullRequestStates(options?.state),
-			cursor: options?.cursor,
-		});
-		if (result == null) return undefined;
-
-		// GitLab's user query returns PRs the user is involved in; keep only those they authored, are
-		// assigned to, or are a requested reviewer on, matching the "my pull requests" scope.
 		const requested = options?.filters?.length ? new Set(options.filters) : undefined;
-		const values = result.values.filter(pr => {
-			const isAssignee = pr.assignees?.some(a => a.username === username);
-			const isRequestedReviewer = pr.reviews?.some(
-				// Match only reviews assigned to the current user; a bare `state === ReviewRequested`
-				// check would also match reviews requested from OTHER people, leaking their MRs in.
-				review =>
-					review.reviewer?.username === username &&
-					review.state === ProviderPullRequestReviewState.ReviewRequested,
-			);
-			const isAuthor = pr.author?.username === username;
-			if (requested == null) return isAssignee || isRequestedReviewer || isAuthor;
-			return (
-				(requested.has(PullRequestFilter.Assignee) && isAssignee) ||
-				(requested.has(PullRequestFilter.ReviewRequested) && isRequestedReviewer) ||
-				(requested.has(PullRequestFilter.Author) && isAuthor)
-			);
-		});
-		return { ...result, values: values };
+		const associations: GitLabPullRequestAssociation[] =
+			requested == null
+				? ['authored', 'assigned', 'reviewRequested']
+				: [...requested]
+						.filter(
+							(filter): filter is Exclude<PullRequestFilter, PullRequestFilter.Mention> =>
+								filter !== PullRequestFilter.Mention,
+						)
+						.map(filter => gitLabAssociationForFilter[filter]);
+		const cursors = parseGitLabPullRequestFacetCursor(options?.cursor);
+		const resumable = associations.filter(association => cursors[association] != null);
+		const associationsToQuery = options?.cursor != null && resumable.length > 0 ? resumable : associations;
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+		const settled = await Promise.allSettled(
+			associationsToQuery.map(async association => ({
+				association: association,
+				result: await api.getGitLabPullRequestsForUserAssociation(tokenWithInfo, username, association, {
+					isPAT: this.isEnterprise,
+					baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+					states: toProviderPullRequestStates(options?.state),
+					cursor: cursors[association],
+				}),
+			})),
+		);
+		if (settled.every(outcome => outcome.status === 'rejected')) {
+			const first = settled[0];
+			if (first?.status === 'rejected') throw first.reason;
+		}
+
+		const values = new Map<string, ProviderPullRequest>();
+		const nextCursors: GitLabPullRequestFacetCursor = {};
+		const failures: CollectionScopeFailure[] = [];
+		let aggregateMetadata: CollectionMetadata | undefined;
+		let truncated = false;
+		let unkeyedPullRequest = 0;
+		for (let index = 0; index < settled.length; index++) {
+			const outcome = settled[index];
+			const association = associationsToQuery[index];
+			if (outcome == null || association == null) continue;
+			if (outcome.status === 'rejected') {
+				const failure = toCollectionScopeFailure({ providerId: this.id }, outcome.reason);
+				failures.push({
+					...failure,
+					message: `GitLab ${association} pull requests could not be read${
+						failure.message != null ? `: ${failure.message}` : ''
+					}`,
+				});
+				truncated = true;
+				continue;
+			}
+
+			const result = outcome.value.result;
+			aggregateMetadata = mergeCollectionMetadata(aggregateMetadata, result.metadata);
+			truncated ||=
+				result.paging?.truncated === true ||
+				(result.metadata != null && result.metadata.completeness !== 'complete');
+			for (const pr of result.values) {
+				const identity = getProviderPullRequestIdentity(pr) ?? `unkeyed:${unkeyedPullRequest++}`;
+				if (!values.has(identity)) {
+					values.set(identity, pr);
+				}
+			}
+			if (result.paging?.more && result.paging.cursor != null && result.paging.cursor !== '{}') {
+				nextCursors[association] = result.paging.cursor;
+			}
+		}
+
+		aggregateMetadata = mergeCollectionMetadata(
+			aggregateMetadata,
+			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined,
+		);
+		const hasMore = Object.keys(nextCursors).length > 0;
+		return {
+			values: [...values.values()],
+			paging: {
+				more: hasMore,
+				cursor: hasMore ? JSON.stringify({ type: 'gitlab-associations', cursors: nextCursors }) : '{}',
+				truncated: truncated || undefined,
+			},
+			...(aggregateMetadata != null ? { metadata: aggregateMetadata } : {}),
+		};
 	}
 
 	protected override async searchProviderMyIssues(

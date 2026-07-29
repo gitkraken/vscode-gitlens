@@ -8,6 +8,7 @@
 
 import * as assert from 'node:assert/strict';
 import type { CliGitProvider } from '@gitkraken/core-gitlens/git-cli/cliGitProvider.js';
+import type { Account } from '@gitkraken/core-gitlens/git/models/author.js';
 import type { Repository } from '@gitkraken/core-gitlens/git/models/repository.js';
 import type { GitService } from '@gitkraken/core-gitlens/git/service.js';
 import type { OpenAIProvider } from '@gitkraken/core-gitlens/plus/ai/providers/openaiProvider.js';
@@ -16,11 +17,17 @@ import {
 	createIntegrationManager,
 	type ConfigChangeEvent,
 	hostFromDomain,
+	type IntegrationsRemoteConfig,
+	type IntegrationManagerCacheProvider,
 	type IntegrationManagerContext,
 	type IntegrationStorageProvider,
+	type ListOrgsOptions,
+	type ListProjectsOptions,
+	type Sources,
 } from '@gitkraken/core-gitlens/plus/integrations/index.js';
 import { Emitter } from '@gitkraken/core-gitlens/utils/event.js';
 import { Logger } from '@gitkraken/core-gitlens/utils/logger.js';
+import { PromiseCache } from '@gitkraken/core-gitlens/utils/promiseCache.js';
 import type { Uri } from '@gitkraken/core-gitlens/utils/uri.js';
 
 // Keep the README's representative imports part of this package-level compile contract.
@@ -31,9 +38,22 @@ type DocumentedCoreExports = [
 	CliGitProvider,
 	GitHubGitProviderInternal,
 	OpenAIProvider,
+	IntegrationsRemoteConfig,
+	ListOrgsOptions,
+	ListProjectsOptions,
+	Sources,
 ];
 const documentedCoreExportsTypeChecks: DocumentedCoreExports | undefined = undefined;
 void documentedCoreExportsTypeChecks;
+
+const internalContextStaysPrivate:
+	// @ts-expect-error The extension-host context is deliberately not exported by the consumer facade.
+	import('@gitkraken/core-gitlens/plus/integrations/index.js').IntegrationServiceContext | undefined = undefined;
+const internalCacheStaysPrivate:
+	// @ts-expect-error The full GitLens cache contract is deliberately not exported by the consumer facade.
+	import('@gitkraken/core-gitlens/plus/integrations/index.js').IntegrationCacheProvider | undefined = undefined;
+void internalContextStaysPrivate;
+void internalCacheStaysPrivate;
 
 const failures: string[] = [];
 function check(name: string, fn: () => void | Promise<void>): Promise<void> {
@@ -50,6 +70,7 @@ function buildRuntime(): IntegrationManagerContext {
 	const memory = new Map<string, unknown>();
 	const workspace = new Map<string, unknown>();
 	const secrets = new Map<string, string>();
+	const currentAccounts = new PromiseCache<string, Account | undefined>();
 
 	const storage: IntegrationStorageProvider = {
 		get: <T>(key: string) => memory.get(key) as T | undefined,
@@ -64,6 +85,14 @@ function buildRuntime(): IntegrationManagerContext {
 		getSecret: async (key: string) => secrets.get(key),
 		storeSecret: async (key: string, value: string) => void secrets.set(key, value),
 		deleteSecret: async (key: string) => void secrets.delete(key),
+	};
+	const cache: IntegrationManagerCacheProvider = {
+		getCurrentAccount: (integration, loader, options) => {
+			const key = `${integration.id}:${integration.domain ?? ''}:${options?.connectionId ?? ''}:${options?.etag ?? ''}`;
+			return currentAccounts.getOrCreate(key, async controller => loader(controller).value, {
+				expireOnError: options?.expireOnError,
+			});
+		},
 	};
 
 	return {
@@ -94,6 +123,7 @@ function buildRuntime(): IntegrationManagerContext {
 			},
 			wrapForForcedInsecureSSL: (_, fn) => Promise.resolve(fn()),
 		},
+		cache: cache,
 		repositories: { getOpenRemotes: async () => [] },
 		hooks: {},
 	};
@@ -114,6 +144,12 @@ async function main(): Promise<void> {
 		assert.equal(typeof manager.listPullRequestsPage, 'function');
 		assert.equal(typeof manager.resolveRepository, 'function');
 		assert.equal(typeof manager.dispose, 'function');
+		if (false) {
+			// @ts-expect-error A scoped hierarchy selector is ambiguous without its provider.
+			void manager.listOrgs({ connectionId: 'secondary' });
+			// @ts-expect-error A self-managed hierarchy selector is ambiguous without its provider.
+			void manager.listProjects({ domain: 'ghe.example.com' });
+		}
 		manager.dispose();
 	});
 
@@ -128,11 +164,22 @@ async function main(): Promise<void> {
 		assert.equal(hostFromDomain('ghe.example.com:8443'), 'ghe.example.com:8443');
 	});
 
+	await check('internal integration services are not published package subpaths', async () => {
+		const internalSubpath = '@gitkraken/core-gitlens/plus/integrations/integrationService.js';
+		await assert.rejects(
+			import(internalSubpath),
+			(error: unknown) => {
+				assert.equal((error as NodeJS.ErrnoException).code, 'ERR_PACKAGE_PATH_NOT_EXPORTED');
+				return true;
+			},
+			'integrationService.js must remain unreachable through the public export map',
+		);
+	});
+
 	await check('repository resolution classifies malformed input without exposing provider clients', async () => {
 		const manager = createIntegrationManager(buildRuntime());
 		const result = await manager.resolveRepository({ remoteUrl: 'not a remote' });
-		assert.equal(result.resolution.status, 'invalid-remote-url');
-		assert.equal(result.cliUnsupported, false);
+		assert.deepEqual(result, { resolution: { status: 'invalid-remote-url' } });
 		manager.dispose();
 	});
 
