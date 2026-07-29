@@ -29768,7 +29768,7 @@
 		"husky": "9.1.7",
 		"image-minimizer-webpack-plugin": "5.0.0",
 		"license-checker-rseidelsohn": "5.0.1",
-		"lint-staged": "17.0.8",
+		"lint-staged": "17.2.0",
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.10.2",
 		"ovsx": "1.0.2",
@@ -29806,7 +29806,7 @@
 	"lint-staged": {
 		"*.{ts,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"
 	},
-	"packageManager": "pnpm@11.17.0",
+	"packageManager": "pnpm@11.18.0",
 	"postcss-lit": {
 		"babelOptions": {
 			"sourceType": "unambiguous",
