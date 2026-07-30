@@ -11,6 +11,7 @@ import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { providerIconName } from '../../../shared/git-utils.js';
 import { shortRefName } from '../utils/rowMarker.utils.js';
 import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 import { overviewBarStyles } from './gl-graph-overview-bar.css.js';
@@ -90,13 +91,6 @@ export interface OverviewBarStatsNeededDetail {
 export interface OverviewBarJumpDetail {
 	/** The tip to reveal + select — a HEAD, upstream, or merge-target commit. */
 	sha: string;
-}
-
-/** A remote's hosting-provider glicon, or the `cloud` codicon for an unrecognized/absent provider (there is
- *  no `gl-provider-cloud`). Same normalization the host already applies (`'remote'` → `'cloud'`) and the same
- *  idiom as `gl-repo-button-group`'s provider icon. */
-function providerIconName(icon: string | undefined): string {
-	return icon == null || icon === 'cloud' || icon === 'remote' ? 'cloud' : `gl-provider-${icon}`;
 }
 
 @customElement('gl-graph-overview-bar')

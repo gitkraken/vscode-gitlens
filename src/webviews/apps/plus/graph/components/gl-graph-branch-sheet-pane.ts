@@ -18,26 +18,28 @@ import type {
 	OverviewBranchIssue,
 	OverviewBranchMergeTarget,
 	OverviewBranchPullRequest,
+	OverviewBranchRemote,
 } from '../../../../shared/overviewBranches.js';
 import { isAbortError, noopUnlessReal } from '../../../shared/actions/rpc.js';
 import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
+import { providerIconName } from '../../../shared/git-utils.js';
 import { graphStateContext } from '../context.js';
 import type { ResolvedServices } from './detailsActions.js';
 import type { ExpandState } from './gl-details-agent-status.js';
 import { graphBranchSheetPaneStyles } from './gl-graph-branch-sheet-pane.css.js';
 import './gl-compare-ai-actions.js';
 import './gl-details-agent-status.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/chips/autolink-chip.js';
 import '../../../shared/components/chips/chip-overflow.js';
+import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/pills/tracking-status.js';
-import '../../../shared/components/button.js';
-import '../../../shared/components/button-container.js';
-import '../../../shared/components/code-icon.js';
 
 /** Minimal branch/tag identity carried by the `gl-graph-open-branch` event (a ref-pill click).
  *  `context` is the ref's serialized `data-vscode-context` (row-menu parity for the kebab + the
@@ -53,6 +55,20 @@ export type BranchSheetRef = {
 /** The synchronous branch snapshot resolved by {@link BranchEnrichment}. */
 type BranchSnapshot = BranchEnrichment['branch'];
 
+/** The merge-target card's single verdict — what merging would cost, or that it already happened. */
+type MergeTargetVerdict = 'in-sync' | 'clean' | 'unknown' | 'conflicts' | 'merged' | 'likely-merged' | 'merged-local';
+
+/** Overlay glyph per verdict, mirroring `gl-merge-target-status`'s indicator vocabulary. */
+const mergeTargetVerdictIndicators: Record<MergeTargetVerdict, string> = {
+	'in-sync': 'check',
+	clean: 'check',
+	unknown: 'arrow-down',
+	conflicts: 'warning',
+	merged: 'git-merge',
+	'likely-merged': 'git-merge',
+	'merged-local': 'git-merge',
+};
+
 /** Per-ref cache so reopening the same ref within a session doesn't refetch. Sentinels
  *  (`hasMergeTarget` / `hasPullRequest`) distinguish "not fetched yet" from "fetched, none". */
 interface BranchSheetCacheEntry {
@@ -65,6 +81,7 @@ interface BranchSheetCacheEntry {
 	hasPullRequest?: boolean;
 	pastSessions?: PastAgentSessionsResult;
 	hasPastSessions?: boolean;
+	remote?: OverviewBranchRemote;
 }
 
 type SheetStepAction = {
@@ -139,6 +156,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	@state() private _mergeTargetLoading = false;
 	@state() private _pullRequest?: OverviewBranchPullRequest;
 	@state() private _pullRequestLoading = false;
+	@state() private _remote?: OverviewBranchRemote;
 	@state() private _pastAgentSessions?: PastAgentSessionsResult;
 	/** Agents section expand state — collapsed by default (matters at hundreds of past sessions).
 	 *  Consumer-owned by `gl-details-agent-status`'s contract; reset on ref identity change. */
@@ -277,6 +295,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				this._mergeTargetLoading = !cached.hasMergeTarget;
 				this._pullRequest = cached.pullRequest;
 				this._pullRequestLoading = !cached.hasPullRequest;
+				this._remote = cached.remote;
 				this._pastAgentSessions = cached.hasPastSessions ? cached.pastSessions : undefined;
 			} else {
 				this.resetEnrichmentState();
@@ -332,6 +351,13 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				this.updateCache(key, { issues: issues });
 			}, noopUnlessReal);
 
+			void enrichment.remote.then(remote => {
+				if (signal.aborted || this._loadedKey !== key) return;
+
+				this._remote = remote;
+				this.updateCache(key, { remote: remote });
+			}, noopUnlessReal);
+
 			void enrichment.mergeTargetStatus
 				.then(mergeTarget => {
 					if (signal.aborted || this._loadedKey !== key) return;
@@ -383,6 +409,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		this._mergeTargetLoading = false;
 		this._pullRequest = undefined;
 		this._pullRequestLoading = false;
+		this._remote = undefined;
 		this._pastAgentSessions = undefined;
 	}
 
@@ -786,22 +813,25 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const upstream = branch.upstream;
 		const ahead = upstream?.state.ahead ?? 0;
 		const behind = upstream?.state.behind ?? 0;
-		const missing = upstream == null || upstream.missing;
 		const branchRef = this.toBranchRef(branch);
 		const checkoutPath = this.checkoutPath(branch);
+		// Starts as `cloud` and swaps in place once the remote leg settles — never a shimmer.
+		const kindIcon = this.renderKindIcon(providerIconName(this._remote?.provider?.icon), 'Upstream');
 
-		// Not-published is really just about Publish — collapse to a single row: token + Publish,
-		// no status line, no pill (it would only echo "missing"), no fetch (nothing to fetch from).
-		if (missing) {
+		// Unpublished has no situation to report — but Publish still goes in the foot, so it lands on
+		// the same baseline as the merge-target card's buttons instead of floating up beside the name.
+		if (upstream == null) {
 			return html`<div class="relationship-card">
 				<div class="relationship-card__head">
-					${this.renderKindIcon('globe', 'Upstream')}
+					${kindIcon}<span class="relationship-card__label">Upstream</span>
 					${this.renderEditToken(
-						upstream?.name ?? 'Not published',
+						'Unpublished',
 						'Set Upstream…',
 						this._webview.createCommandLink<BranchRef>('gitlens.git.branch.setUpstream:', branchRef),
-						upstream?.name == null,
+						true,
 					)}
+				</div>
+				<div class="relationship-card__foot">
 					<div class="relationship-card__actions">
 						<gl-button
 							appearance="secondary"
@@ -814,67 +844,80 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		}
 
 		let status: string;
-		let stateAction: TemplateResult | typeof nothing = nothing;
-		if (ahead > 0 && behind > 0) {
-			status = `Diverged — ${pluralize('commit', behind)} to pull · ${pluralize('commit', ahead)} to push`;
-			if (checkoutPath != null) {
-				stateAction = html`<button-container>
-					<gl-button appearance="secondary" @click=${() => this.pull(checkoutPath)}>Pull</gl-button>
-					<gl-button appearance="secondary" @click=${() => this.forcePush(checkoutPath)}
-						>Force Push</gl-button
-					>
-				</button-container>`;
-			}
-		} else if (behind > 0) {
-			status = `${pluralize('commit', behind)} to pull`;
-			if (checkoutPath != null) {
-				stateAction = html`<gl-button appearance="secondary" @click=${() => this.pull(checkoutPath)}
-					>Pull</gl-button
+		let actions: TemplateResult;
+		if (upstream.missing) {
+			// Usually means the PR merged and the remote branch was auto-deleted, so deleting the
+			// local branch leads and re-publishing is the fallback.
+			status = 'Missing from the remote';
+			actions = html`<gl-button
+					appearance="secondary"
+					href=${this._webview.createCommandLink<BranchRef>('gitlens.deleteBranchOrWorktree:', branchRef)}
+					>Delete Local Branch</gl-button
+				><gl-button
+					appearance="secondary"
+					href=${this._webview.createCommandLink<BranchRef>('gitlens.publishBranch:', branchRef)}
+					>Publish</gl-button
 				>`;
-			}
-		} else if (ahead > 0) {
-			status = `${pluralize('commit', ahead)} to push`;
-			stateAction = html`<gl-button
-				appearance="secondary"
-				href=${this._webview.createCommandLink<BranchRef>('gitlens.pushBranch:', branchRef)}
-				>Push</gl-button
-			>`;
 		} else {
-			status = 'Up to date';
+			// The pill owns the counts, so the words never repeat them.
+			const fetch = html`<gl-button
+				appearance="secondary"
+				href=${this._webview.createCommandLink<BranchRef>('gitlens.fetch:', branchRef)}
+				>Fetch</gl-button
+			>`;
+
+			if (ahead > 0 && behind > 0) {
+				status = 'Diverged';
+				actions =
+					checkoutPath != null
+						? html`<gl-button appearance="secondary" @click=${() => this.pull(checkoutPath)}>Pull</gl-button
+								><gl-button appearance="secondary" @click=${() => this.forcePush(checkoutPath)}
+									>Force Push</gl-button
+								>${fetch}`
+						: fetch;
+			} else if (behind > 0) {
+				status = `${behind} to pull`;
+				actions =
+					checkoutPath != null
+						? html`<gl-button appearance="secondary" @click=${() => this.pull(checkoutPath)}>Pull</gl-button
+								>${fetch}`
+						: fetch;
+			} else if (ahead > 0) {
+				status = `${ahead} to push`;
+				actions = html`<gl-button
+						appearance="secondary"
+						href=${this._webview.createCommandLink<BranchRef>('gitlens.pushBranch:', branchRef)}
+						>Push</gl-button
+					>${fetch}`;
+			} else {
+				status = 'Up to date';
+				actions = fetch;
+			}
 		}
 
 		return html`<div class="relationship-card">
 			<div class="relationship-card__head">
-				${this.renderKindIcon('globe', 'Upstream')}
+				${kindIcon}<span class="relationship-card__label">Upstream</span>
 				${this.renderEditToken(
-					upstream?.name ?? 'No upstream',
-					upstream != null ? 'Change Upstream…' : 'Set Upstream…',
+					upstream.name,
+					'Change Upstream…',
 					this._webview.createCommandLink<BranchRef>('gitlens.git.branch.setUpstream:', branchRef),
-					upstream?.name == null,
+					false,
 				)}
 			</div>
 			<div class="relationship-card__foot">
 				<gl-tracking-status
 					class="relationship-card__pill"
 					.branchName=${branch.name}
-					.upstreamName=${upstream?.name}
-					.missingUpstream=${upstream?.missing ?? false}
+					.upstreamName=${upstream.name}
+					.missingUpstream=${upstream.missing}
 					.ahead=${ahead}
 					.behind=${behind}
 					colorized
 					outlined
 				></gl-tracking-status>
 				<span class="relationship-card__status">${status}</span>
-				<div class="relationship-card__actions">
-					${stateAction}
-					<gl-action-chip
-						class="relationship-card__fetch"
-						icon="repo-fetch"
-						label="Fetch"
-						overlay="tooltip"
-						href=${this._webview.createCommandLink<BranchRef>('gitlens.fetch:', branchRef)}
-					></gl-action-chip>
-				</div>
+				<div class="relationship-card__actions"><button-container>${actions}</button-container></div>
 			</div>
 		</div>`;
 	}
@@ -1074,16 +1117,29 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		return steps;
 	}
 
-	/** Merge-target card state, computed once from `mergeTarget.mergedStatus` / `.potentialConflicts`
-	 *  / `.status.behind`, in the same priority order as the old next-step's computation
-	 *  (merged-locally → merged → conflict → behind → in-sync). */
-	private mergeTargetCardState(
-		mergeTarget: OverviewBranchMergeTarget,
-	): 'merged' | 'conflicts' | 'behind' | 'in-sync' {
-		if (mergeTarget.mergedStatus?.merged) return 'merged';
+	/** The card's single verdict, in priority order (merged → conflicts → behind → in-sync). Unlike the
+	 *  old four-way state this splits merged by confidence/locality and splits "behind" by what merging
+	 *  would cost, because the chip and the sentence answer those as separate questions.
+	 *
+	 *  There is deliberately no "computing" verdict: counts, conflicts and merged-status arrive in one
+	 *  payload, so the whole card shimmers until they all land and the conflict answer is already
+	 *  terminal by the time a chip can render. */
+	private mergeTargetCardVerdict(mergeTarget: OverviewBranchMergeTarget): MergeTargetVerdict {
+		const merged = mergeTarget.mergedStatus;
+		if (merged?.merged) {
+			if (merged.localBranchOnly != null) return 'merged-local';
+			return merged.confidence === 'highest' ? 'merged' : 'likely-merged';
+		}
 		if (mergeTarget.potentialConflicts?.status === 'conflicts') return 'conflicts';
-		if ((mergeTarget.status?.behind ?? 0) > 0) return 'behind';
+		if ((mergeTarget.status?.behind ?? 0) > 0) {
+			return mergeTarget.potentialConflicts?.status === 'clean' ? 'clean' : 'unknown';
+		}
 		return 'in-sync';
+	}
+
+	/** Whether the verdict is one the Rebase/Merge pair applies to. */
+	private isBehindVerdict(verdict: MergeTargetVerdict): boolean {
+		return verdict === 'clean' || verdict === 'unknown' || verdict === 'conflicts';
 	}
 
 	/** "Merge target" relationship card — an at-a-glance summary of the branch's relationship to its
@@ -1095,8 +1151,8 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			return this._mergeTargetLoading ? this.renderMergeTargetCardLoading() : nothing;
 		}
 
-		const state = this.mergeTargetCardState(mergeTarget);
-		const actions = this.renderMergeTargetCardActions(branch, mergeTarget, state);
+		const verdict = this.mergeTargetCardVerdict(mergeTarget);
+		const actions = this.renderMergeTargetCardActions(branch, mergeTarget, verdict);
 		const targetRef: BranchAndTargetRefs = {
 			...this.toBranchRef(branch),
 			mergeTargetId: mergeTarget.id,
@@ -1105,10 +1161,11 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 		// Directional predicate of the sheet's subject — "Merges into ‹target›" — so the relationship
 		// reads without knowing the term "merge target" and without repeating the branch name (the
-		// sheet header names it directly above).
+		// sheet header names it directly above). Row 2 then answers two different questions in two
+		// places: the chip is what merging COSTS, the words are how far the target has MOVED.
 		return html`<div class="relationship-card">
 			<div class="relationship-card__head">
-				${this.renderKindIcon('gl-merge-target', 'Merge Target', state === 'conflicts')}
+				${this.renderMergeTargetGlyph(verdict)}
 				<span class="relationship-card__connector">Merges into</span>
 				${this.renderEditToken(
 					mergeTarget.name,
@@ -1121,21 +1178,81 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				)}
 			</div>
 			<div class="relationship-card__foot">
-				<gl-tracking-status
-					class="relationship-card__pill"
-					.branchName=${branch.name}
-					.upstreamName=${mergeTarget.name}
-					.ahead=${mergeTarget.status?.ahead ?? 0}
-					.behind=${mergeTarget.status?.behind ?? 0}
-					colorized
-					outlined
-				></gl-tracking-status>
+				${this.renderMergeTargetChip(mergeTarget, verdict)}
 				<span class="relationship-card__status"
-					>${this.renderMergeTargetCardStatusText(mergeTarget, state)}</span
+					>${this.renderMergeTargetCardStatusText(mergeTarget, verdict)}</span
 				>
 				${actions !== nothing ? html`<div class="relationship-card__actions">${actions}</div>` : nothing}
 			</div>
 		</div>`;
+	}
+
+	/** The `gl-merge-target-status` composite — the merge-target glyph with a small state indicator
+	 *  tucked under its trailing edge. The font has exactly one merge-target glyph, so state can only
+	 *  be carried by the overlay plus colour. Same verdict as the chip, never a separate variable. */
+	private renderMergeTargetGlyph(verdict: MergeTargetVerdict): TemplateResult {
+		const indicator = mergeTargetVerdictIndicators[verdict];
+		return html`<gl-tooltip content="Merge Target"
+			><span class="relationship-card__mt relationship-card__mt--${verdict}"
+				><code-icon class="relationship-card__mt-glyph" icon="gl-merge-target" size="18"></code-icon
+				><code-icon class="relationship-card__mt-indicator" icon=${indicator} size="12"></code-icon></span
+		></gl-tooltip>`;
+	}
+
+	/** What merging would cost, as a chip. Absent only when in sync — there is nothing to merge in, so
+	 *  there is no cost to state. */
+	private renderMergeTargetChip(
+		mergeTarget: OverviewBranchMergeTarget,
+		verdict: MergeTargetVerdict,
+	): TemplateResult | typeof nothing {
+		if (verdict === 'in-sync') return nothing;
+
+		let icon: string;
+		let label: string;
+		let tooltip: string;
+		switch (verdict) {
+			case 'clean':
+				[icon, label, tooltip] = ['check', 'No Conflicts', `Merges cleanly into ${mergeTarget.name}`];
+				break;
+			case 'unknown':
+				[icon, label, tooltip] = ['question', 'Unknown', 'Unable to check for conflicts'];
+				break;
+			case 'conflicts': {
+				const files =
+					mergeTarget.potentialConflicts?.status === 'conflicts'
+						? mergeTarget.potentialConflicts.conflict.files.length
+						: 0;
+				icon = 'warning';
+				label = pluralize('Conflict', files);
+				tooltip = `Merging into ${mergeTarget.name} will conflict in ${pluralize('file', files)}`;
+				break;
+			}
+			case 'merged':
+				[icon, label, tooltip] = ['check', 'Merged', `Merged into ${mergeTarget.name}`];
+				break;
+			case 'likely-merged':
+				[icon, label, tooltip] = [
+					'git-merge',
+					'Likely Merged',
+					`Content matches ${mergeTarget.name}, but the commits differ`,
+				];
+				break;
+			case 'merged-local': {
+				const local = mergeTarget.mergedStatus?.merged
+					? mergeTarget.mergedStatus.localBranchOnly?.name
+					: undefined;
+				icon = 'git-merge';
+				label = 'Merged Locally';
+				tooltip = `Merged into your local ${local ?? 'branch'} — which hasn't been pushed to ${mergeTarget.name}`;
+				break;
+			}
+		}
+
+		return html`<gl-tooltip content=${tooltip}
+			><span class="relationship-card__verdict relationship-card__verdict--${verdict}"
+				><code-icon icon=${icon} size="12"></code-icon>${label}</span
+			></gl-tooltip
+		>`;
 	}
 
 	private renderMergeTargetCardLoading(): TemplateResult {
@@ -1148,58 +1265,56 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
-	/** Leading kind marker — a dim icon (globe = upstream, gl-merge-target = merge target) in place
-	 *  of the louder uppercase badges; the tooltip carries the words. */
-	private renderKindIcon(icon: string, kind: string, warn = false): TemplateResult {
+	/** Leading kind marker — a dim icon (the upstream's hosting-provider glyph, or gl-merge-target
+	 *  while the merge-target card is still loading) in place of the louder uppercase badges. */
+	private renderKindIcon(icon: string, kind: string): TemplateResult {
 		return html`<gl-tooltip content=${kind}
-			><code-icon
-				class="relationship-card__kind-icon${warn ? ' relationship-card__kind-icon--warn' : ''}"
-				icon=${icon}
-			></code-icon
+			><code-icon class="relationship-card__kind-icon" icon=${icon}></code-icon
 		></gl-tooltip>`;
 	}
 
+	/** The gap, in words — never what merging costs (the chip owns that) and never an instruction that
+	 *  restates the button beside it. Names the target so "behind" can't be read as the Upstream card's
+	 *  "behind", where the remedy is Pull rather than Rebase. */
 	private renderMergeTargetCardStatusText(
 		mergeTarget: OverviewBranchMergeTarget,
-		state: 'merged' | 'conflicts' | 'behind' | 'in-sync',
+		verdict: MergeTargetVerdict,
 	): string {
-		switch (state) {
-			case 'merged': {
-				const mergedStatus = mergeTarget.mergedStatus;
-				const likely = mergedStatus?.merged && mergedStatus.confidence !== 'highest';
-				return `${likely ? 'Likely merged' : 'Merged'} into ${mergeTarget.name} — safe to delete`;
-			}
-			case 'conflicts': {
-				const files =
-					mergeTarget.potentialConflicts?.status === 'conflicts'
-						? mergeTarget.potentialConflicts.conflict.files.length
-						: 0;
-				return `Potential conflicts in ${pluralize('file', files)} — resolving now avoids them at PR time`;
-			}
-			case 'behind': {
-				const behind = mergeTarget.status?.behind ?? 0;
-				const clean = mergeTarget.potentialConflicts?.status === 'clean';
-				return `${pluralize('commit', behind)} behind — rebase or merge to catch up${clean ? ' · no conflicts expected' : ''}`;
-			}
+		switch (verdict) {
+			case 'merged':
+				return 'Safe to delete';
+			case 'likely-merged':
+				return 'Squashed or rebased';
+			case 'merged-local':
+				return 'Not yet pushed to the remote';
 			case 'in-sync': {
 				const ahead = mergeTarget.status?.ahead ?? 0;
 				return ahead > 0
-					? `Up to date with ${mergeTarget.name} — ${pluralize('commit', ahead)} of unique work`
-					: `Up to date with ${mergeTarget.name}`;
+					? `Based on ${mergeTarget.name} with ${pluralize('new commit', ahead)}`
+					: `Based on ${mergeTarget.name}`;
 			}
+			default:
+				return `Behind ${mergeTarget.name} by ${pluralize('commit', mergeTarget.status?.behind ?? 0)}`;
 		}
 	}
 
-	/** Whether the Rebase/Merge pair applies — checked out somewhere (the commands run against the
-	 *  branch's OWN checked-out worktree) and its own upstream settled (otherwise push/pull is the
-	 *  bigger ask first). */
-	private canRebaseOrMerge(branch: BranchSnapshot, state: 'merged' | 'conflicts' | 'behind' | 'in-sync'): boolean {
-		if (state !== 'behind' && state !== 'conflicts') return false;
+	/** Whether the Rebase/Merge pair can actually run — checked out somewhere (the commands run against
+	 *  the branch's OWN checked-out worktree) and its own upstream settled (otherwise push/pull is the
+	 *  bigger ask first). When false the buttons stay, disabled, with the reason in their tooltip. */
+	private canRebaseOrMerge(branch: BranchSnapshot): boolean {
 		if (!branch.opened && branch.worktree == null) return false;
 
 		const upstream = branch.upstream;
 		const upstreamMissing = upstream == null || upstream.missing;
-		return upstreamMissing || ((upstream?.state.ahead ?? 0) === 0 && (upstream?.state.behind ?? 0) === 0);
+		return upstreamMissing || ((upstream.state.ahead ?? 0) === 0 && (upstream.state.behind ?? 0) === 0);
+	}
+
+	/** Why Rebase/Merge is unavailable — the two `canRebaseOrMerge` blockers read very differently, so
+	 *  the tooltip names the one that actually applies. */
+	private rebaseOrMergeBlockedReason(branch: BranchSnapshot): string {
+		return !branch.opened && branch.worktree == null
+			? "This branch isn't checked out"
+			: 'Push or pull this branch first';
 	}
 
 	/**
@@ -1210,7 +1325,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	private renderMergeTargetCardActions(
 		branch: BranchSnapshot,
 		mergeTarget: OverviewBranchMergeTarget,
-		state: 'merged' | 'conflicts' | 'behind' | 'in-sync',
+		verdict: MergeTargetVerdict,
 	): TemplateResult | typeof nothing {
 		const branchRef = this.toBranchRef(branch);
 		const isWorktree = this.isOtherWorktree(branch.worktree);
@@ -1259,7 +1374,17 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			>`;
 		}
 
-		if (!this.canRebaseOrMerge(branch, state)) return nothing;
+		if (!this.isBehindVerdict(verdict)) return nothing;
+
+		// Gated: keep both buttons so the card's shape doesn't change, disabled, with the reason in the
+		// tooltip rather than appended to the sentence.
+		if (!this.canRebaseOrMerge(branch)) {
+			const reason = this.rebaseOrMergeBlockedReason(branch);
+			return html`<button-container>
+				<gl-button appearance="secondary" disabled tooltip=${reason}>Merge</gl-button>
+				<gl-button appearance="secondary" disabled tooltip=${reason}>Rebase</gl-button>
+			</button-container>`;
+		}
 
 		// "Current" (this window's checked-out branch) targets rebaseCurrentOnto/mergeIntoCurrent at
 		// the merge target's own repoPath; a branch checked out in ANOTHER worktree instead targets
@@ -1269,18 +1394,20 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const opsRepoPath = isCurrent ? mergeTarget.repoPath : (branch.worktree?.path ?? mergeTarget.repoPath);
 		const targetRef: BranchRef = { repoPath: opsRepoPath, branchId: mergeTarget.id, branchName: mergeTarget.name };
 
+		// Merge leads: the conflict verdict is one `merge-tree`, which is honest for a merge but not for
+		// a rebase — a rebase replays commits one at a time and can conflict where one merge won't.
 		return html`<button-container>
-			<gl-button
-				appearance="secondary"
-				tooltip=${`Rebase ${branch.name} onto ${mergeTarget.name} — ${mergeTarget.name} is not changed`}
-				href=${this._webview.createCommandLink<BranchRef>('gitlens.rebaseCurrentOnto:', targetRef)}
-				>Rebase</gl-button
-			>
 			<gl-button
 				appearance="secondary"
 				tooltip=${`Merge ${mergeTarget.name} into ${branch.name} — ${mergeTarget.name} is not changed`}
 				href=${this._webview.createCommandLink<BranchRef>('gitlens.mergeIntoCurrent:', targetRef)}
 				>Merge</gl-button
+			>
+			<gl-button
+				appearance="secondary"
+				tooltip=${`Rebase ${branch.name} onto ${mergeTarget.name} — ${mergeTarget.name} is not changed`}
+				href=${this._webview.createCommandLink<BranchRef>('gitlens.rebaseCurrentOnto:', targetRef)}
+				>Rebase</gl-button
 			>
 		</button-container>`;
 	}

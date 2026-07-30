@@ -20,6 +20,7 @@ import {
 import {
 	getBranchAssociatedPullRequest,
 	getBranchEnrichedAutolinks,
+	getBranchRemote,
 } from '../../../git/utils/-webview/branch.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
@@ -29,6 +30,7 @@ import type {
 	OverviewBranchIssue,
 	OverviewBranchMergeTarget,
 	OverviewBranchPullRequest,
+	OverviewBranchRemote,
 } from '../../shared/overviewBranches.js';
 import { toOverviewBranch } from '../../shared/overviewBranches.js';
 import {
@@ -57,6 +59,9 @@ export interface BranchEnrichment {
 	issues: Promise<OverviewBranchIssue[]>;
 	mergeTargetStatus: Promise<OverviewBranchMergeTarget | undefined>;
 	pullRequest: Promise<OverviewBranchPullRequest | undefined>;
+	/** The upstream's remote, for the hosting-provider icon. Its own leg so the Upstream card keeps
+	 *  rendering synchronously and only swaps the icon in when this settles. */
+	remote: Promise<OverviewBranchRemote | undefined>;
 }
 
 /**
@@ -233,6 +238,26 @@ export class BranchesService {
 			issues: this.fetchIssuesLeg(branch, signal),
 			mergeTargetStatus: getBranchMergeTargetStatusInfo(this.container, branch, signal, associatedPR),
 			pullRequest: this.fetchPullRequestLeg(branch, associatedPR, signal),
+			remote: this.fetchRemoteLeg(branch),
+		};
+	}
+
+	/** Only name + provider name/icon — the sheet has no use for the provider URL, and resolving it
+	 *  would add an async hop for nothing. Icon takes the same `'remote'` → `'cloud'` normalization
+	 *  every other projection applies. */
+	private async fetchRemoteLeg(branch: GitBranch): Promise<OverviewBranchRemote | undefined> {
+		const remote = await getBranchRemote(this.container, branch);
+		if (remote == null) return undefined;
+
+		return {
+			name: remote.name,
+			provider: remote.provider
+				? {
+						name: remote.provider.name,
+						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
+						supportedFeatures: remote.provider.supportedFeatures,
+					}
+				: undefined,
 		};
 	}
 

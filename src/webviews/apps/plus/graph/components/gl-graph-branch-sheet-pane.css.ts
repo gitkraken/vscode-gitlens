@@ -222,27 +222,146 @@ export const graphBranchSheetPaneStyles = css`
 		flex-shrink: 0;
 	}
 
-	/* Leading kind marker — a dim icon (globe = upstream, gl-merge-target = merge target) in place
-	   of the louder uppercase badges; its tooltip carries the words. The gl-tooltip wrapper is
-	   display: contents, so the icon itself is the flex item. */
+	/* Leading kind marker — a dim icon (the upstream's hosting-provider glyph, or gl-merge-target
+	   while that card loads) in place of the louder uppercase badges; its tooltip carries the words.
+	   The gl-tooltip wrapper is display: contents, so the icon itself is the flex item. */
 	.relationship-card__kind-icon {
 		flex: none;
 		color: var(--color-foreground--50);
 	}
 
-	.relationship-card__kind-icon--warn {
-		color: var(
-			--vscode-gitlens-decorations\.statusMergingOrRebasingConflictForegroundColor,
-			var(--color-foreground--50)
-		);
+	/* The word before the counterpart name on the Upstream card ("Upstream ‹name›"), so the card
+	   names its relationship the way the Merge Target card's "Merges into" does. */
+	.relationship-card__label {
+		flex: none;
+		color: var(--color-foreground--65);
 	}
 
-	/* Foot — status sentence + that relationship's actions on the same row, wrapping when narrow. */
+	/* Merge severity palette — the same values gl-merge-target-status defines, so the card and the
+	   branch hover speak one set of colours. Green is a literal there too (no VS Code token reads
+	   right at these sizes); the split is theme-driven. */
+	:host-context(.vscode-dark),
+	:host-context(.vscode-high-contrast) {
+		--relationship-card-merge-clean: #0b0;
+	}
+
+	:host-context(.vscode-light),
+	:host-context(.vscode-high-contrast-light) {
+		--relationship-card-merge-clean: #0a0;
+	}
+
+	:host {
+		--relationship-card-merge-behind: var(
+			--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor,
+			var(--color-foreground--50)
+		);
+		--relationship-card-merge-conflict: var(
+			--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
+			var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor)
+		);
+		--relationship-card-merged: var(--vscode-gitlens-mergedPullRequestIconColor);
+	}
+
+	/* Merge-target composite — the single gl-merge-target glyph plus a state indicator tucked under
+	   its trailing edge, exactly as gl-merge-target-status draws it. */
+	.relationship-card__mt {
+		display: inline-flex;
+		flex: none;
+		align-items: flex-start;
+		color: var(--color-foreground--50);
+	}
+
+	.relationship-card__mt-indicator {
+		margin-top: 0.7rem;
+		margin-left: -0.5rem;
+		color: var(--color-foreground--50);
+	}
+
+	.relationship-card__mt--clean,
+	.relationship-card__mt--clean .relationship-card__mt-indicator {
+		color: var(--relationship-card-merge-clean);
+	}
+
+	.relationship-card__mt--unknown,
+	.relationship-card__mt--unknown .relationship-card__mt-indicator {
+		color: var(--relationship-card-merge-behind);
+	}
+
+	.relationship-card__mt--conflicts,
+	.relationship-card__mt--conflicts .relationship-card__mt-indicator {
+		color: var(--relationship-card-merge-conflict);
+	}
+
+	.relationship-card__mt--merged,
+	.relationship-card__mt--merged .relationship-card__mt-indicator,
+	.relationship-card__mt--likely-merged,
+	.relationship-card__mt--likely-merged .relationship-card__mt-indicator,
+	.relationship-card__mt--merged-local,
+	.relationship-card__mt--merged-local .relationship-card__mt-indicator {
+		color: var(--relationship-card-merged);
+	}
+
+	/* Verdict chip — what merging costs. Sits where the tracking pill sits on the Upstream card, but
+	   states a different kind of fact, so the two cards never read as the same measurement. */
+	.relationship-card__verdict {
+		box-sizing: border-box;
+		display: inline-flex;
+		flex: none;
+		gap: var(--gl-space-4);
+		align-items: center;
+		justify-content: center;
+		min-height: 2rem;
+		padding: 0 var(--gl-space-6);
+		font-size: var(--gl-font-sm);
+		font-weight: 500;
+		line-height: 1;
+		white-space: nowrap;
+		border: var(--gl-border-width) solid color-mix(in srgb, transparent 80%, var(--color-foreground));
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.relationship-card__verdict--clean {
+		color: var(--relationship-card-merge-clean);
+		background: color-mix(in srgb, transparent 90%, var(--relationship-card-merge-clean));
+		border-color: color-mix(in srgb, transparent 65%, var(--relationship-card-merge-clean));
+	}
+
+	.relationship-card__verdict--unknown {
+		color: var(--color-foreground--65);
+		background: color-mix(in srgb, transparent 94%, var(--color-foreground));
+	}
+
+	/* The only chip that is filled rather than tinted — conflicts are the one verdict that changes
+	   what you should do next. */
+	.relationship-card__verdict--conflicts {
+		color: var(--vscode-editor-background);
+		background: var(--relationship-card-merge-conflict);
+		border-color: var(--relationship-card-merge-conflict);
+	}
+
+	.relationship-card__verdict--merged,
+	.relationship-card__verdict--likely-merged {
+		color: var(--relationship-card-merged);
+		background: color-mix(in srgb, transparent 90%, var(--relationship-card-merged));
+		border-color: color-mix(in srgb, transparent 60%, var(--relationship-card-merged));
+	}
+
+	/* Same purple, untinted — separable from a true merge without inventing a colour for it. */
+	.relationship-card__verdict--merged-local {
+		color: var(--relationship-card-merged);
+		border-color: color-mix(in srgb, transparent 55%, var(--relationship-card-merged));
+	}
+
+	/* Foot — status sentence + that relationship's actions on the same row, wrapping when narrow.
+	   The auto top margin pins it to the bottom of the card: the two cards are grid siblings and so
+	   stretch to a shared height, and this keeps both sets of buttons on the same baseline however
+	   much the other card's status wraps. */
 	.relationship-card__foot {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.6rem 1rem;
 		align-items: center;
+		margin-top: auto;
 	}
 
 	.relationship-card__status {
@@ -258,17 +377,6 @@ export const graphBranchSheetPaneStyles = css`
 		gap: var(--gl-space-6);
 		align-items: center;
 		margin-left: auto;
-	}
-
-	/* Fetch trails the state action, dimmed until hovered/focused so it doesn't compete with it. */
-	.relationship-card__fetch {
-		opacity: 0.7;
-		transition: opacity var(--gl-duration-x-fast) var(--gl-ease-in-out);
-	}
-
-	.relationship-card__fetch:hover,
-	.relationship-card__fetch:focus-within {
-		opacity: 1;
 	}
 
 	.relationship-card__shimmer-line {
