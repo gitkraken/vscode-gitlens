@@ -20,7 +20,6 @@ import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
 import { detailsWipPanelStyles } from './gl-details-wip-panel.css.js';
 import type { CreatePatchState, GenerateState } from './gl-inspect-patch.js';
-import './gl-inspect-patch.js';
 import '../../plus/graph/components/gl-details-wip-empty-pane.js';
 import '../../plus/shared/components/merge-rebase-status.js';
 import '../../shared/components/actions/action-nav.js';
@@ -589,6 +588,12 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 	private renderPatchCreation() {
 		if (!this.creatingPatch) return nothing;
+
+		// NOTE: `gl-inspect-patch` is deliberately NOT imported by this module. Nothing sets
+		// `creatingPatch`, so a top-level side-effect import pulled that element and its patch-create tree
+		// into every bundle rendering working changes, to draw something that can never appear. Whoever
+		// un-parks this feature must import it again — an unregistered element renders inert — and should
+		// do it lazily here rather than at module scope.
 
 		return html`<gl-inspect-patch
 			.orgSettings=${this.orgSettings}
