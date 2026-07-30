@@ -284,8 +284,50 @@ export class GlGraphOverviewBar extends LitElement {
 		this.shadowRoot?.querySelector('.bar')?.classList.remove('scrolling');
 	}
 
+	// Gates the bar's edge fades (`.is-overflowing`). CSS picks WHICH edge fades from a scroll timeline, but
+	// it can't answer WHETHER anything overflows: once the scroll range collapses to zero Chromium holds the
+	// timeline at 100% instead of going inactive, stranding a start-edge fade on a bar that now fits. So the
+	// cheap, rarely-changing half of the question lives here — resize and items-change only, never per scroll.
+	private overflowObserver: ResizeObserver | undefined;
+
+	// `.bar` for its clientWidth (panel/window resize), `.pills` for its scrollWidth (items or labels change).
+	// Toggled straight through the CSSOM like `.scrolling`, so it can never trigger a re-render. Safe against
+	// observer feedback: the fades are sticky with a negating margin, so generating them leaves both widths
+	// untouched.
+	private readonly updateOverflowing = (): void => {
+		const bar = this.shadowRoot?.querySelector('.bar');
+		if (bar == null) return;
+
+		// +1 tolerance so a subpixel rounding difference doesn't read as overflow (as in gl-breadcrumbs).
+		bar.classList.toggle('is-overflowing', bar.scrollWidth > bar.clientWidth + 1);
+	};
+
+	private observeOverflow(): void {
+		if (this.overflowObserver != null) return;
+
+		const bar = this.shadowRoot?.querySelector('.bar');
+		const pills = this.shadowRoot?.querySelector('.pills');
+		if (bar == null || pills == null) return; // not rendered yet — `firstUpdated` picks it up
+
+		this.overflowObserver = new ResizeObserver(this.updateOverflowing);
+		this.overflowObserver.observe(bar);
+		this.overflowObserver.observe(pills);
+	}
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		// Re-arms after a move in the DOM; a no-op on the first connect, where there's no shadow DOM yet.
+		this.observeOverflow();
+	}
+
+	protected override firstUpdated(): void {
+		this.observeOverflow();
+	}
+
 	override disconnectedCallback(): void {
 		this.cancelWheelPan();
+		this.overflowObserver?.disconnect();
+		this.overflowObserver = undefined;
 		super.disconnectedCallback?.();
 	}
 
