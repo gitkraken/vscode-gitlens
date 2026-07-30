@@ -42,18 +42,18 @@
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
 		},
 		"gitlens.ai.autoRebase": {
-			"label": "Rebase with AI Conflict Resolution...",
+			"label": "Automatic Rebase...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
 		},
 		"gitlens.ai.autoRebase.undo": {
 			"label": "Undo Automatic Rebase"
 		},
 		"gitlens.ai.continueRebase": {
-			"label": "Continue Rebase with AI",
+			"label": "Continue Automatic Rebase",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed"
 		},
 		"gitlens.ai.continueRebase:views": {
-			"label": "Continue Rebase with AI",
+			"label": "Continue Automatic Rebase",
 			"icon": "$(gitlens-merge)",
 			"menus": {
 				"view/item/context": [
