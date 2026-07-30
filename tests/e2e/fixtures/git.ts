@@ -406,13 +406,15 @@ export class GitFixture {
 	private async git(command: string, options?: { configs?: string[] }, ...args: string[]): Promise<string> {
 		const fullArgs = [...(options?.configs ?? []), command, ...args];
 		return new Promise((resolve, reject) => {
-			// NOTE: fixture repos inherit the developer's global/system git config, so a `merge.ff`,
-			// `rerere.enabled` or `merge.autostash` set there changes what these commands do and a fixture
-			// can behave differently here than on CI. Isolating both scopes to `/dev/null` is the fix, but
-			// it changes rebase behaviour that `rebase.test.ts` currently depends on — so until that is
-			// untangled, any fixture whose outcome depends on such a setting must state it explicitly
-			// (see `merge`'s `noFF`).
-			const child = spawn('git', fullArgs, { cwd: this.repoPath, env: process.env });
+			// Fixture repos must not inherit the developer's global/system git config. A `merge.ff=only`,
+			// `rerere.enabled`, `merge.autostash` or a global `hooksPath` silently changes what these
+			// commands do, so a fixture passes on one machine and fails on another (or on CI) for reasons
+			// no test states. Pointing both scopes at `/dev/null` makes every repo built here depend only
+			// on what these methods set explicitly.
+			const child = spawn('git', fullArgs, {
+				cwd: this.repoPath,
+				env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' },
+			});
 
 			let stdout = '';
 			child.stdout.on('data', (data: string | Buffer) => (stdout += data.toString()));

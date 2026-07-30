@@ -175,10 +175,8 @@ const test = base.extend({
 				await git.commit('Feature edit', 'shared.txt', 'line1\nFEATURE CHANGE\nline3\n');
 				await git.commit('Feature edit 2', 'shared2.txt', 'a\nFEATURE\nc\n');
 				await git.checkout('main');
-				// `--no-ff` is load-bearing, not stylistic: fixture repos inherit the developer's global git
-				// config, and a `merge.ff=only` there makes git decline to start this merge at all — leaving
-				// a CLEAN repo, so every conflict assertion in this file fails far from the cause. Stating
-				// the non-fast-forward intent explicitly makes the fixture independent of that setting.
+				// `--no-ff` states the intent: these branches have diverged, so a merge commit is the only
+				// possible outcome and nothing here should have to infer that from configuration.
 				let mergeError: unknown;
 				try {
 					await git.merge('feature', 'Merge feature', { noFF: true });
