@@ -119,11 +119,12 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				/* Belt-and-braces against the same automatic-minimum-size trap. */
 				min-height: 0;
 
-				/* --vscode-contrastBorder is only set in VS Code's own high-contrast themes, which
-				   @media (forced-colors) misses, so this collapses the ramp to one ring there. Nothing is
-				   lost — the state is in the button's accessible name. */
-				box-shadow: 0 0 0 var(--gl-account-ring-width)
-					var(--vscode-contrastBorder, var(--gl-account-ring-color));
+				/* Never gate this on --vscode-contrastBorder: any theme can set it, and setting it to the
+				   theme's own background is the standard way to suppress VS Code's default hairlines, which
+				   would paint the ring in the background color and erase the state. High contrast is covered
+				   by the forced-colors outline below, and the state is in the button's accessible name
+				   regardless. */
+				box-shadow: 0 0 0 var(--gl-account-ring-width) var(--gl-account-ring-color);
 
 				/* The shared avatar zooms on hover (it's normally a standalone link); here it's the header
 				   button's glyph, so it must sit still like every other icon in the toolbar row. */

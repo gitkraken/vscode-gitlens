@@ -20,16 +20,20 @@ export const accountRingStyles = css`
 		/* Semantic token first, charts fallback, hex last — the chain --gl-agent-waiting-color uses.
 		   Deliberately NOT gitDecoration/--gl-stat-* tokens, which theme.scss reserves for file change states,
 		   and deliberately NOT the editorError family: an unpaid account is a standing offer, not a fault, and
-		   the Launchpad pill beside this one already uses red to mean "you have blocked PRs". activityBarBadge
-		   is VS Code's native "awaiting your attention" register, aliased here as --gl-indicator-color. */
-		--gl-account-ring-available: var(--vscode-activityBarBadge-background, var(--vscode-charts-blue, #0969da));
+		   the Launchpad pill beside this one already uses red to mean "you have blocked PRs". Both are
+		   foreground-register tokens, because a hairline stroke needs to out-contrast the surface behind it —
+		   activityBarBadge is a FILL meant to sit behind white badge text (see indicator.css.ts, which uses it
+		   as a background-color), and dark-purple themes paint it close enough to their own background that the
+		   ring vanishes. */
+		--gl-account-ring-available: var(--vscode-textLink-foreground, var(--vscode-charts-blue, #0969da));
 		--gl-account-ring-expiring: var(--vscode-editorWarning-foreground, var(--vscode-charts-yellow, #bf8700));
 
 		/* Calmest treatment is the base, so paid and the not-yet-known state fall through to it; only trial
 		   and unpaid override. Paid stays neutral on purpose — a hue would badge the majority of paying
-		   customers permanently, and it would fight the accent tier badge beside it. */
+		   customers permanently, and it would fight the accent tier badge beside it. Neutral still has to be
+		   legible though, so the calm comes from width and hue rather than from a faint alpha. */
 		--gl-account-ring-width: 0.1rem;
-		--gl-account-ring-color: var(--color-foreground--50);
+		--gl-account-ring-color: var(--color-foreground--65);
 	}
 
 	/* Amber = running out. The least muted of the three, because it's the only state with a deadline. */

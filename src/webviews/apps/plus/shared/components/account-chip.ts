@@ -234,14 +234,17 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			/* Ring matches the Graph header's account pill (accountRing.css.ts) so the same entitlement reads
 			   the same in the toolbar and in the panel it opens. Only the photo gets it — the no-avatar
-			   fallback is a square-ish glyph, and a circular ring around it would read as a mistake. */
+			   fallback is a square-ish glyph, and a circular ring around it would read as a mistake.
+
+			   Never gate the ring color on --vscode-contrastBorder: any theme can set it, and setting it to the
+			   theme's own background is the standard way to suppress VS Code's default hairlines, which would
+			   paint the ring in the background color and erase the state. */
 			.row__media img {
 				width: 2rem;
 				aspect-ratio: 1 / 1;
 				background-color: var(--gl-account-account-media-color);
 				border-radius: 50%;
-				box-shadow: 0 0 0 var(--gl-account-ring-width)
-					var(--vscode-contrastBorder, var(--gl-account-ring-color));
+				box-shadow: 0 0 0 var(--gl-account-ring-width) var(--gl-account-ring-color);
 			}
 
 			/* Forced-colors mode drops box-shadow; repaint the ring as an outline, which survives and is
