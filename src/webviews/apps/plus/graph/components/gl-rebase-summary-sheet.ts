@@ -11,7 +11,9 @@ import { scrollableBase } from '../../../shared/components/styles/lit/base.css.j
 import {
 	confidenceLevel,
 	manualResolutionDisplay,
+	measureReasoningOverflow,
 	renderConfidence,
+	renderReasoning,
 	resolveDisplayStyles,
 	strategyDisplay,
 } from './resolveDisplay.js';
@@ -258,21 +260,15 @@ export class GlRebaseSummarySheet extends LitElement {
 				white-space: nowrap;
 			}
 
-			.resolve-file__reason-toggle {
-				display: inline-flex;
-				gap: var(--gl-space-4);
-				align-items: center;
-				padding: 0;
-				font-size: var(--gl-font-sm);
-				color: var(--vscode-textLink-foreground);
-				cursor: pointer;
-				background: none;
-				border: none;
+			/* Reasoning is indented to hang under the file row's badge; the indent lives on the wrapper so
+			   the "see more" button lines up with the text rather than the row. */
+			.resolve-file__reason {
+				margin-top: var(--gl-space-4);
+				padding-inline-start: var(--gl-space-16);
 			}
 
 			.resolve-file__reasoning {
-				margin: var(--gl-space-4) 0 0;
-				padding-inline-start: var(--gl-space-16);
+				margin: 0;
 				color: var(--vscode-descriptionForeground);
 				white-space: pre-wrap;
 			}
@@ -310,6 +306,11 @@ export class GlRebaseSummarySheet extends LitElement {
 	@state()
 	private _openReasons = new Set<string>();
 
+	/** Rows whose clamped reasoning is taller than the clamp, so a "see more" is worth offering.
+	 *  Measured from the DOM after each render — see {@link measureReasoningOverflow}. */
+	@state()
+	private _overflowingReasons = new Set<string>();
+
 	override render(): unknown {
 		return html`<gl-detail-sheet aria-label="Automatic rebase summary" close-label="Close">
 			<span slot="title" class="title">
@@ -328,6 +329,14 @@ export class GlRebaseSummarySheet extends LitElement {
 		// scroll ancestor.
 		if (changed.has('undoError') && this.undoError) {
 			this.renderRoot.querySelector('.banner--error')?.scrollIntoView({ block: 'nearest' });
+		}
+
+		// Whether a reasoning block is actually clipped can only be known from the laid-out DOM, so the
+		// "see more" affordance is decided here rather than from the text. Returns undefined when nothing
+		// changed, which keeps this from looping (the assignment re-renders).
+		const overflowing = measureReasoningOverflow(this.renderRoot, this._overflowingReasons);
+		if (overflowing != null) {
+			this._overflowingReasons = overflowing;
 		}
 	}
 
@@ -472,20 +481,12 @@ export class GlRebaseSummarySheet extends LitElement {
 						: nothing
 				}
 			</div>
-			${
-				file.reasoning
-					? html`<button
-								type="button"
-								class="resolve-file__reason-toggle"
-								aria-expanded=${reasonOpen}
-								@click=${() => this.toggleReason(reasonKey)}
-							>
-								<code-icon icon=${reasonOpen ? 'chevron-down' : 'chevron-right'} size="10"></code-icon
-								>Why this resolution
-							</button>
-							${reasonOpen ? html`<p class="resolve-file__reasoning">${file.reasoning}</p>` : nothing}`
-					: nothing
-			}
+			${renderReasoning(reasonKey, file.reasoning, {
+				expanded: reasonOpen,
+				overflowing: this._overflowingReasons.has(reasonKey),
+				filePath: file.filePath,
+				onToggle: () => this.toggleReason(reasonKey),
+			})}
 		</li>`;
 	}
 
