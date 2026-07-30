@@ -97,8 +97,12 @@ async function readErrorBodyMessage(response: Response): Promise<{ message: stri
 				message = m;
 			} else if (typeof error === 'string') {
 				message = error;
-			} else if (error != null && typeof error === 'object' && typeof (error as any).message === 'string') {
-				message = (error as { message: string }).message;
+			} else if (error != null && typeof error === 'object') {
+				// Some hosts nest it as `{ error: { message } }`; narrow the same way as the outer object.
+				const nested = (error as { message?: unknown }).message;
+				if (typeof nested === 'string') {
+					message = nested;
+				}
 			}
 		}
 	} catch {
