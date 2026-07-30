@@ -29,7 +29,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { waitForGraphRowsRendered } from '../graphHelpers.js';
+import { ensureGraphRowsRendered } from '../graphHelpers.js';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -148,7 +148,7 @@ async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocat
 	// gates and the afterEach teardown all draw on one 60s per-test budget, and a stage truncated by that
 	// cap reports a generic test timeout instead of naming itself. Still well over `MaxTimeout`, which the
 	// conflict state needs because it waits on a `git status` read.
-	await waitForGraphRowsRendered(webview!, 15000);
+	await ensureGraphRowsRendered(vscode, webview!, 15000);
 	await expect.poll(() => wipConflictContext(webview!).count(), { timeout: 15000 }).toBeGreaterThan(0);
 	return webview!;
 }
@@ -233,11 +233,6 @@ test.describe('Graph — Conflict Resolution', () => {
 	});
 
 	test('conflicted file exposes the +conflict context in the WIP details', async ({ vscode }) => {
-		// Skipped: no per-file context reaches the DOM in the graph's WIP details — not `+conflict`, nor
-		// `+staged`/`+unstaged` — so every per-file menu is dead there, which is wider than #5548 states.
-		// The panel and its file data are correct; the gap is that the context never reaches the rendered
-		// row. See #5548 for the measurements.
-		test.skip(true, 'Unimplemented: no per-file context reaches the graph WIP details (#5548)');
 		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);
