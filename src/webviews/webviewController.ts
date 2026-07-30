@@ -1,6 +1,6 @@
-import { deflateSync, strFromU8, strToU8 } from 'fflate';
 import type { Event, ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { CancellationTokenSource, Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
+import { deflateRaw } from '@env/compression.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
@@ -81,6 +81,9 @@ type GetWebviewDescriptor<T extends CustomEditorIds | WebviewIds> = T extends Cu
 			: never;
 
 type GetWebviewParent<T extends CustomEditorIds | WebviewIds> = T extends WebviewViewIds ? WebviewView : WebviewPanel;
+
+const utf8Encoder = new TextEncoder();
+const utf8Decoder = new TextDecoder();
 
 @logName(c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`)
 export class WebviewController<
@@ -945,7 +948,7 @@ export class WebviewController<
 		sw?.stop({ message: `\u2022 serialized bootstrap; length=${serialized.length}` });
 
 		const html = replaceWebviewHtmlTokens(
-			strFromU8(bytes),
+			utf8Decoder.decode(bytes),
 			this.id,
 			this.instanceId,
 			webview.cspSource,
@@ -987,13 +990,13 @@ export class WebviewController<
 		let bytes: Uint8Array | undefined;
 		let compression: IpcMessage['compressed'] = false;
 		if (serializedParams != null && serializedParams.length > 1024) {
-			bytes = strToU8(serializedParams);
+			bytes = utf8Encoder.encode(serializedParams);
 			compression = 'utf8';
 
 			const originalSize = bytes.byteLength;
 
 			try {
-				bytes = deflateSync(bytes, { level: 1 });
+				bytes = deflateRaw(bytes);
 				compression = 'deflate';
 
 				sw?.stop({
