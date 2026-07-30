@@ -33,7 +33,10 @@ const openGraph = 'gitlens_open_graph';
 const startReview = 'gitlens_start_review';
 const startWork = 'gitlens_start_work';
 
-/** The GitLens-owned tools, sorted, as published in each mode. */
+/**
+ * The GitLens-owned tools as published in each mode. Listing order carries no meaning — the CLI is
+ * free to reorder its registry, so every assertion below sorts both sides and compares sets.
+ */
 const expectedSurface = {
 	default: [launchpad, startReview, startWork],
 	readonly: [launchpad],
@@ -82,7 +85,9 @@ function expectGitlensSurface(definitions: McpToolDefinition[], expected: string
 			.join(', ')}`,
 	).toBeGreaterThan(0);
 
-	expect(published, `unexpected gitlens_* surface in ${mode} mode — check the resolved gk build`).toEqual(expected);
+	expect(published, `unexpected gitlens_* surface in ${mode} mode — check the resolved gk build`).toEqual(
+		[...expected].sort(),
+	);
 }
 
 test.describe('MCP — Surface and Mode Contract', () => {
@@ -133,9 +138,10 @@ test.describe('MCP — Surface and Mode Contract', () => {
 			const definition = definitions.find(t => t.name === name);
 			if (definition == null) throw new Error(`${name} is missing from the published tools`);
 
-			expect((definition.inputSchema?.required ?? []).sort(), `unexpected required params for ${name}`).toEqual(
-				params.required,
-			);
+			expect(
+				[...(definition.inputSchema?.required ?? [])].sort(),
+				`unexpected required params for ${name}`,
+			).toEqual([...params.required].sort());
 			// Exact property set, so a dropped or renamed optional parameter fails too.
 			expect(
 				Object.keys(definition.inputSchema?.properties ?? {}).sort(),
