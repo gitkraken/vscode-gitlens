@@ -25,6 +25,8 @@ import type {
 	GraphComposeScopeSeed,
 	GraphDisplayMode,
 	GraphMinimapMarkerTypes,
+	GraphScopeBranch,
+	GraphScopeSource,
 	GraphShowAction,
 	GraphSidebarPanel,
 	OverviewRecentThreshold,
@@ -1185,7 +1187,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		action: GraphShowAction;
 		target?: { sha: string; worktreePath: string; filePaths?: string[] };
 		commitMessage?: string;
-		scopeBranch?: { branchName: string; upstreamName?: string };
+		scopeBranch?: GraphScopeBranch;
 		composeInstructions?: string;
 		composeScope?: GraphComposeScopeSeed;
 	}): Promise<void> {
@@ -1206,7 +1208,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope
 			// to the current branch (the welcome-page / generic `scope-to-branch` entry point).
 			if (scopeBranch != null) {
-				await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName);
+				await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName, {
+					remote: scopeBranch.remote,
+				});
 			} else {
 				await this.scopeToBranch();
 			}
@@ -3200,15 +3204,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleScopeToBranchFromHeader(
-		e: CustomEvent<{ branchName: string; upstreamName?: string }>,
+		e: CustomEvent<GraphScopeBranch & { source?: GraphScopeSource }>,
 	): Promise<void> {
-		return this.scopeToBranchByName(e.detail.branchName, e.detail.upstreamName);
+		return this.scopeToBranchByName(e.detail.branchName, e.detail.upstreamName, {
+			remote: e.detail.remote,
+			source: e.detail.source,
+		});
 	}
 
 	/** Focuses (scopes) the graph onto an arbitrary branch by name. Shared by the header popover, the
 	 *  sidebar/overview events, and the Focus on Branch/Worktree context-menu commands (via the
 	 *  `scope-to-branch` action). */
-	private async scopeToBranchByName(branchName: string, upstreamName?: string): Promise<void> {
+	private async scopeToBranchByName(
+		branchName: string,
+		upstreamName?: string,
+		options?: { remote?: boolean; source?: GraphScopeSource },
+	): Promise<void> {
 		// Use the selected repo's actual path (the opened workspace's path). That's what the host
 		// passes as `this.repository.path` when building the graph's row index AND the
 		// `wipRowsById` branchRefs, so any scope/lookup branchRef constructed here must use
@@ -3218,13 +3229,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const repoPath = this.fallbackRepoPath;
 		if (repoPath == null) return;
 
+		const remote = options?.remote ?? false;
+		const source = options?.source ?? 'popover';
+
 		// Prefer the overview path so the merge target is resolved consistently with the overview card.
-		const overview = this.graphState.overview;
+		// Skipped for a remote branch — the overview lists local branches, so a name hit there would be
+		// a different ref entirely (a local `origin/x` is a legal, and distinct, branch).
+		const overview = remote ? undefined : this.graphState.overview;
 		const branch =
 			overview?.active.find(b => b.name === branchName) ?? overview?.recent.find(b => b.name === branchName);
 		if (branch != null) {
 			const mergeTargetTipSha = this.graphState.overviewEnrichment?.[branch.id]?.mergeTarget?.sha;
-			await this.scopeToBranchById(branch.id, mergeTargetTipSha, 'popover');
+			await this.scopeToBranchById(branch.id, mergeTargetTipSha, source);
 			// Supersession guard: a concurrent `setScope` for a different branch can land while
 			// our `await` is parked. If `this.graphState.scope` is no longer for our branch by the
 			// time we resume, the newer call owns the selection — don't fire a stale one against
@@ -3242,20 +3258,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `OverviewBranch` and route through the helper — keeps a single source of truth for
 		// the selection cascade. Without this, the inline cascade silently drifted from the
 		// helper (e.g., missed the `loadedShas` gate, kept a stale `stats > 0` predicate).
-		const branchRef = getBranchId(repoPath, false, branchName);
+		const branchRef = getBranchId(repoPath, remote, branchName);
 		await this.setScope(
 			{
 				branchRef: branchRef,
 				branchName: branchName,
 				upstreamRef: upstreamName != null ? getBranchId(repoPath, true, upstreamName) : undefined,
 			},
-			'popover',
+			source,
 		);
 		// Same supersession guard as above.
 		if (this.graphState.scope?.branchRef !== branchRef) return;
 
-		const isCurrent = this.graphState.branch?.name === branchName;
-		const tipSha = this.graphState.rows?.find(r => r.heads?.some(h => h.id === branchRef))?.sha;
+		const isCurrent = !remote && this.graphState.branch?.name === branchName;
+		// A remote branch's tip is carried by `row.remotes`, never `row.heads`.
+		const tipSha = this.graphState.rows?.find(r =>
+			remote ? r.remotes?.some(re => re.id === branchRef) : r.heads?.some(h => h.id === branchRef),
+		)?.sha;
 		// `worktree: undefined` is correct here — no overview hit means we don't know the
 		// worktree affiliation, and the helper's case (2) recovers via `wipRowsById`
 		// lookup by `branch.id`. Synthesizes the minimal `SelectionBranch` shape so the same
@@ -3293,7 +3312,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async scopeToBranchById(
 		branchId: string,
 		mergeTargetTipSha?: string,
-		source: 'popover' | 'overview-card' = 'overview-card',
+		source: GraphScopeSource = 'overview-card',
 	): Promise<void> {
 		const overview = this.graphState.overview;
 		if (overview == null) return;
@@ -3322,10 +3341,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		);
 	}
 
-	private async setScope(
-		scope: NonNullable<typeof this.graphState.scope>,
-		source: 'popover' | 'overview-card',
-	): Promise<void> {
+	private async setScope(scope: NonNullable<typeof this.graphState.scope>, source: GraphScopeSource): Promise<void> {
 		// A detached HEAD is a `current` branch, so `getOverviewData` lists it and the Focus Branch
 		// popover / overview cards route it here like any other branch. Its `branchName` is the
 		// synthesized `(sha…)` label, which matches no row's head — the scope resolves nothing and only

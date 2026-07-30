@@ -368,12 +368,18 @@ export interface GraphComposeScopeSeed {
 	includeWip: boolean;
 }
 
+/** Surface the user focused (scoped) the graph from. Reported as `graph/scope/changed`'s `source`. */
+export type GraphScopeSource = 'popover' | 'overview-card' | 'sidebar';
+
 /** Target branch for a `scope-to-branch` action. When present, the webview focuses (scopes) the
  *  graph to this branch instead of the current branch — used by the Focus on Branch/Worktree
  *  context-menu commands. */
 export interface GraphScopeBranch {
 	branchName: string;
 	upstreamName?: string;
+	/** Whether `branchName` names a remote branch, so the webview builds a `remotes/*` ref id for it.
+	 *  Only set when no local branch tracks it — otherwise the local branch is the scope target. */
+	remote?: boolean;
 }
 /** Sub-visualization shown when `displayMode === 'visualizations'`.
  *  Adding a new visualization is a 4-step extension: extend this union, render its component in
@@ -1265,6 +1271,9 @@ export interface GraphSidebarBranch {
 export interface GraphSidebarRemoteBranch {
 	name: string;
 	sha?: string;
+	/** Name of the local branch tracking this remote branch, when one exists. The graph's scope is
+	 *  keyed on local heads, so focusing a remote branch prefers its local counterpart. */
+	localBranch?: string;
 	context?: GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin;
 }
 

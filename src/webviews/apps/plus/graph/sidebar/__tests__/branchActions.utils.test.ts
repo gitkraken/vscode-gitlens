@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import type { GlCommands } from '../../../../../../constants.commands.js';
 import { sidebarItemActions } from '../../../../../plus/graph/graphSidebarActionTelemetry.js';
 import type { GraphSidebarBranch } from '../../../../../plus/graph/protocol.js';
-import { getBranchLeafActions } from '../branchActions.utils.js';
+import { focusRefActionId, getBranchLeafActions } from '../branchActions.utils.js';
 
 function makeBranch(overrides: Partial<GraphSidebarBranch>): GraphSidebarBranch {
 	return {
@@ -38,6 +38,10 @@ function collectProducedCommands(): Set<string> {
 			}
 		}
 	}
+	// Focus never leaves the webview — it's a view-state toggle handled in `sidebar-panel`, not a
+	// command, and reports itself through `graph/scope/changed|cleared`. The shared table maps
+	// command ids only, so exclude it rather than inventing a branchAction name for it.
+	produced.delete(focusRefActionId);
 	return produced;
 }
 

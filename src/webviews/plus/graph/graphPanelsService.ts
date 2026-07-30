@@ -381,8 +381,16 @@ export class GraphPanelsService {
 		const branchOrderBy = configuration.get('sortBranchesBy');
 		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
 		const branchesByRemote = new Map<string, GitBranch[]>();
+		// Reverse tracking map (upstream name → local branch name) so each remote branch can name the
+		// local branch that tracks it. Same pass as the grouping — no extra git work.
+		const localByUpstream = new Map<string, string>();
 		for (const b of graph.branches.values()) {
-			if (!b.remote) continue;
+			if (!b.remote) {
+				if (b.upstream != null && !b.upstream.missing) {
+					localByUpstream.set(b.upstream.name, b.name);
+				}
+				continue;
+			}
 
 			const remote = getRemoteNameFromBranchName(b.name);
 			let arr = branchesByRemote.get(remote);
@@ -401,6 +409,7 @@ export class GraphPanelsService {
 				const branches = rBranches.map(b => ({
 					name: getBranchNameWithoutRemote(b.name),
 					sha: b.sha,
+					localBranch: localByUpstream.get(b.name),
 					context: {
 						webview: this.host.id,
 						webviewItemOrigin: sidebarItemOrigin,

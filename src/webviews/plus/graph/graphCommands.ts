@@ -1388,7 +1388,16 @@ export class GraphCommands {
 
 	private async getScopeBranch(item?: GraphItemContext): Promise<GraphScopeBranch | undefined> {
 		const ref = this.getGraphItemRef(item, 'branch');
-		if (ref != null) return { branchName: ref.name, upstreamName: ref.upstream?.name };
+		if (ref != null) {
+			if (!ref.remote) return { branchName: ref.name, upstreamName: ref.upstream?.name };
+
+			// Scope is keyed on local heads, so a remote branch focuses its local counterpart when one
+			// tracks it — only an untracked remote branch is scoped as a `remotes/*` ref.
+			const local = this.findLocalBranchTracking(ref.name);
+			return local != null
+				? { branchName: local, upstreamName: ref.name }
+				: { branchName: ref.name, remote: true };
+		}
 
 		if (!isGraphItemRefContext(item, 'revision')) return undefined;
 
@@ -1397,6 +1406,18 @@ export class GraphCommands {
 
 		const branch = await this.container.git.getRepositoryService(worktreePath).branches.getBranch();
 		return branch != null ? { branchName: branch.name, upstreamName: branch.upstream?.name } : undefined;
+	}
+
+	/** Name of the local branch tracking `upstreamName`, read off the in-memory graph snapshot so
+	 *  resolving a remote branch's local counterpart costs no git calls. */
+	private findLocalBranchTracking(upstreamName: string): string | undefined {
+		const branches = this._graphSession?.current.branches;
+		if (branches == null) return undefined;
+
+		for (const b of branches.values()) {
+			if (!b.remote && b.upstream?.name === upstreamName && !b.upstream.missing) return b.name;
+		}
+		return undefined;
 	}
 
 	/** WIP-row context menu — opens the resume-session picker for the row's worktree. */

@@ -1,6 +1,31 @@
 import type { GraphSidebarBranch } from '../../../../plus/graph/protocol.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 
+/** Sentinel `TreeItemAction.action` handled inside the webview instead of dispatched to the host —
+ *  focusing (scoping) the graph is view state, so it never needs to leave the webview. */
+export const focusRefActionId = 'gl-graph-focus-ref';
+
+/** Payload carried by a {@link focusRefActionId} action: the branch to focus the graph on. */
+export interface FocusRefActionArgs {
+	branchName: string;
+	upstreamName?: string;
+	/** Set when `branchName` is a remote branch that no local branch tracks, so the scope needs a
+	 *  `remotes/*` ref id rather than a local head. */
+	remote?: boolean;
+}
+
+/**
+ * Inline action focusing (scoping) the graph onto a branch — shared by the branch, worktree, and
+ * remote-branch leaves, which all ultimately focus a branch.
+ *
+ * Clicking it while the graph is already focused there unfocuses, mirroring the header's
+ * jump-to-ref button. The label is deliberately fixed across both states so the row's icons don't
+ * shift meaning as the scope changes.
+ */
+export function createFocusRefAction(label: string, args: FocusRefActionArgs): TreeItemAction {
+	return { icon: 'target', label: label, action: focusRefActionId, arguments: [args] };
+}
+
 /**
  * Builds the inline actions for a branch leaf in the branches sidebar panel.
  *
@@ -69,6 +94,15 @@ export function getBranchLeafActions(b: GraphSidebarBranch): TreeItemAction[] {
 			altAction: 'gitlens.graph.compareWithWorking',
 		});
 	}
+
+	// Always last, so it lands on the row's right edge (the trailing cluster is right-packed against
+	// a flexing label) and stays put no matter which state-dependent actions precede it.
+	actions.push(
+		createFocusRefAction('Focus on Branch', {
+			branchName: b.name,
+			upstreamName: b.upstream?.missing ? undefined : b.upstream?.name,
+		}),
+	);
 
 	return actions;
 }

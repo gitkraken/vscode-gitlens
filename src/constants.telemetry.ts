@@ -20,7 +20,7 @@ import type { AgentDescriptor, AgentRoute } from './plus/agents/agentDescriptor.
 import type { AutoRebaseUndoRefusalReason } from './plus/coretools/conflict/autoRebase.types.js';
 import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
-import type { GraphColumnConfig } from './webviews/plus/graph/protocol.js';
+import type { GraphColumnConfig, GraphScopeSource } from './webviews/plus/graph/protocol.js';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol.js';
 
 export declare type AttributeValue =
@@ -1547,7 +1547,7 @@ interface GraphBranchesVisibilityChangedEvent extends GraphContextEventData {
 
 interface GraphScopeChangedEvent extends GraphContextEventData {
 	/** Where the user initiated the scope change */
-	source: 'popover' | 'overview-card';
+	source: GraphScopeSource;
 	/** Whether the scoped branch has a tracked upstream resolved at the time of the scope change */
 	'scope.hasUpstream': boolean;
 	/** Whether the scope's merge-target tip SHA is known at scope time (proxy for "merge-target resolved") */

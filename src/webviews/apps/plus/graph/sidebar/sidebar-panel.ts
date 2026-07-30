@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { URI } from 'vscode-uri';
+import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
@@ -15,6 +16,8 @@ import { serializeWebviewItemContext, withWebviewItemFlag } from '../../../../..
 import { sidebarItemActions } from '../../../../plus/graph/graphSidebarActionTelemetry.js';
 import type {
 	DidGetSidebarDataParams,
+	GraphScopeBranch,
+	GraphScopeSource,
 	GraphSidebarBranch,
 	GraphSidebarPanel,
 	GraphSidebarRemote,
@@ -44,7 +47,9 @@ import { ContextMenuProxyController } from '../../../shared/controllers/context-
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
-import { getBranchLeafActions } from './branchActions.utils.js';
+import { getSelectedRepoPath } from '../utils/repository.utils.js';
+import type { FocusRefActionArgs } from './branchActions.utils.js';
+import { createFocusRefAction, focusRefActionId, getBranchLeafActions } from './branchActions.utils.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import { resolveSelectedTag } from './sidebarTelemetry.utils.js';
@@ -936,6 +941,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			});
 		}
 
+		// Always last, same as the branch and remote-branch leaves. A bare or detached worktree has
+		// no branch to focus.
+		if (w.branch != null) {
+			actions.push(createFocusRefAction('Focus on Worktree', { branchName: w.branch, upstreamName: w.upstream }));
+		}
+
 		// Place the WIP pill before the tracking arrows so the row reads `[wip][↑↓][active][lock]`,
 		// matching the overview card's left-to-right ordering. Bare worktrees never have a working
 		// tree of their own (`hasChanges` stays undefined) and stay pill-less.
@@ -1245,6 +1256,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					tooltip: `$(git-branch) \`${r.name}/${b.name}\``,
 					icon: 'git-branch',
 					context: [b.sha] as SidebarItemContext,
+					// Scope is keyed on local heads, so focus the local branch tracking this one when
+					// there is one; only an untracked remote branch is scoped as a `remotes/*` ref.
+					actions: [
+						createFocusRefAction(
+							'Focus on Branch',
+							b.localBranch != null
+								? { branchName: b.localBranch, upstreamName: `${r.name}/${b.name}` }
+								: { branchName: `${r.name}/${b.name}`, remote: true },
+						),
+					],
 					contextValue: b.context,
 				}),
 				2,
@@ -1630,6 +1651,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const command = (useAlt ? action.altAction! : action.action) as GlCommands;
 		const args = useAlt ? action.altArguments : action.arguments;
 
+		// Focus is view state, not a host command — handle it here, before the per-panel action
+		// telemetry (which resolves command ids against the sidebar action tables and would find
+		// nothing to map). Scope changes report themselves via `graph/scope/changed|cleared`.
+		if (action.action === focusRefActionId) {
+			this.focusRef(action.arguments?.[0] as FocusRefActionArgs | undefined);
+			return;
+		}
+
 		if (this.activePanel === 'agents') {
 			this.emitAgentsTreeItemActionTelemetry(command, args);
 		}
@@ -1655,6 +1684,33 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}
 
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
+	}
+
+	/** Focuses (scopes) the graph onto the action's branch, or unfocuses when that branch is already
+	 *  the live scope. Mirrors the header's jump-to-ref button: a scope on any OTHER branch retargets
+	 *  rather than clearing. Identity by `branchRef` — the one scope field the anchor resolver never
+	 *  rewrites, and the only one that separates a local branch from a same-named remote one. */
+	private focusRef(args: FocusRefActionArgs | undefined): void {
+		if (args == null) return;
+
+		// Same repo-path resolution the scope path itself uses (`scopeToBranchByName`), so the ref
+		// built here matches the one already published on the scope.
+		const repoPath = getSelectedRepoPath(this._state);
+		if (
+			repoPath != null &&
+			this._state.scope?.branchRef === getBranchId(repoPath, args.remote ?? false, args.branchName)
+		) {
+			this._state.clearScope();
+			return;
+		}
+
+		this.dispatchEvent(
+			new CustomEvent<GraphScopeBranch & { source: GraphScopeSource }>('gl-graph-scope-to-branch', {
+				detail: { ...args, source: 'sidebar' },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private handleTreeItemSelected(
