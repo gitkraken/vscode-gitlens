@@ -35,6 +35,7 @@ import type { OpenIssueOnRemoteCommandArgs } from './commands/openIssueOnRemote.
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote.js';
 import { trackableSchemes } from './constants.js';
 import { SyncedStorageKeys } from './constants.storage.js';
+import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
 import { Container } from './container.js';
 import { isGitUri } from './git/gitUri.js';
 import {
@@ -312,7 +313,7 @@ export function deactivate(): void {
 // per-migration storage key, and no reliance on the install version (which spans two schemes:
 // stable `18.x` and date-based pre-release). Migrations MUST be idempotent (a fresh install runs
 // them as no-ops).
-const settingsMigrations: { id: string; migrate: () => Promise<void> }[] = [
+const settingsMigrations: { id: string; migrate: (storage: Storage) => Promise<void> }[] = [
 	{
 		// Move existing explicit `right`/`bottom` Commit Graph details locations onto the new
 		// width-aware `auto` default. Window-scoped, so only user/workspace can hold a value.
@@ -339,6 +340,35 @@ const settingsMigrations: { id: string; migrate: () => Promise<void> }[] = [
 			});
 		},
 	},
+	{
+		// Unpin installs that a passive AI-model resolve silently wrote to Copilot: resolving the fallback
+		// used to persist its result, so merely rendering an AI chip could write `ai.model`, after which
+		// signing in never re-evaluated. Such a write only ever landed in User settings, so only Global is
+		// inspected. Either tell on its own is enough to call it passive:
+		//  - the model is `copilot:gpt-4.1`, the passive fallback's hardcoded pick and the only Copilot id
+		//    GitLens has ever hardcoded. Copilot no longer serves it, so the setting is already inert —
+		//    it resolves to nothing and falls through to the fallback regardless.
+		//  - the AI picker was never opened on this machine, so no Copilot model here was ever chosen.
+		//    This covers the fallback's `?? models[0]` branch, which could have stored any id.
+		// A Copilot model other than gpt-4.1 on a machine where the picker HAS been opened is a real
+		// choice, and is left alone. Clearing lets the fallback re-evaluate: GitKraken AI once signed in.
+		id: 'ai.model:unpin-passive-copilot',
+		migrate: async (storage: Storage) => {
+			if (configuration.inspect('ai.model')?.globalValue !== 'vscode') return;
+
+			const isPassiveModel = configuration.inspect('ai.vscode.model')?.globalValue === 'copilot:gpt-4.1';
+			// `UsageTracker` is only a typed view over this key, and the Container doesn't exist yet here
+			const usages: Partial<Record<TrackedUsageKeys, TrackedUsage>> = storage.get('usages') ?? {};
+			const pickerOpened = (
+				['gitlens.ai.switchProvider', 'gitlens.ai.switchProvider:scm', 'gitlens.switchAIModel'] as const
+			).some(c => usages[`command:${c}:executed`] != null);
+
+			if (!isPassiveModel && pickerOpened) return;
+
+			await configuration.update('ai.model', undefined, ConfigurationTarget.Global);
+			await configuration.update('ai.vscode.model', undefined, ConfigurationTarget.Global);
+		},
+	},
 ];
 
 async function migrateSettings(storage: Storage): Promise<void> {
@@ -349,7 +379,7 @@ async function migrateSettings(storage: Storage): Promise<void> {
 		if (applied.has(migration.id)) continue;
 
 		try {
-			await migration.migrate();
+			await migration.migrate(storage);
 			// Mark only on success — leave a failed migration unmarked so it retries next activation
 			// (migrations are idempotent).
 			applied.add(migration.id);
