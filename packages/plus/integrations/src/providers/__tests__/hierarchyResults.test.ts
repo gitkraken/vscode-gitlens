@@ -41,7 +41,7 @@ suite('provider hierarchy results', () => {
 		);
 		setSession(integration, createSession('github.com'));
 
-		const result = await integration.getOrganizationsForUser();
+		const result = (await integration.getOrganizationsForUserResult())?.value;
 
 		assert.deepEqual(result, {
 			values: [{ id: '1', providerId: 'github', name: 'acme', url: 'https://github.com/acme' }],
@@ -65,7 +65,7 @@ suite('provider hierarchy results', () => {
 		);
 		setSession(integration, createSession('github.com'));
 
-		const result = await integration.getOrganizationsForUser();
+		const result = (await integration.getOrganizationsForUserResult())?.value;
 
 		assert.equal(result?.truncated, true);
 		assert.equal(result?.values.length, 1);
@@ -96,7 +96,7 @@ suite('provider hierarchy results', () => {
 		);
 		setSession(integration, createSession('github.com'));
 
-		const result = await integration.getOrganizationsForUser();
+		const result = (await integration.getOrganizationsForUserResult())?.value;
 
 		assert.deepEqual(
 			result?.values.map(org => org.name),
@@ -125,7 +125,7 @@ suite('provider hierarchy results', () => {
 		);
 		setSession(integration, createSession('gitlab.com'));
 
-		const result = await integration.getOrganizationsForUser();
+		const result = (await integration.getOrganizationsForUserResult())?.value;
 
 		assert.deepEqual(result, {
 			values: [{ id: '1', providerId: 'gitlab', name: 'acme/platform', url: 'https://gitlab.com/acme/platform' }],
@@ -152,7 +152,7 @@ suite('provider hierarchy results', () => {
 		);
 		setSession(integration, createSession('gitlab.com'));
 
-		const result = await integration.getOrganizationsForUser();
+		const result = (await integration.getOrganizationsForUserResult())?.value;
 
 		assert.equal(result?.truncated, true);
 		assert.equal(result?.values.length, 1);
@@ -183,7 +183,7 @@ suite('provider hierarchy results', () => {
 		);
 		setSession(integration, createSession('gitlab.com'));
 
-		const result = await integration.getOrganizationsForUser();
+		const result = (await integration.getOrganizationsForUserResult())?.value;
 
 		assert.deepEqual(
 			result?.values.map(org => org.name),
@@ -229,8 +229,8 @@ suite('provider hierarchy results', () => {
 		);
 		setSession(integration, createSession('bitbucket.org'));
 
-		const first = await integration.getOrganizationsForUser();
-		const second = await integration.getOrganizationsForUser();
+		const first = (await integration.getOrganizationsForUserResult())?.value;
+		const second = (await integration.getOrganizationsForUserResult())?.value;
 
 		assert.deepEqual(
 			first?.values.map(org => org.name),
@@ -371,7 +371,7 @@ suite('provider hierarchy results', () => {
 			],
 		});
 
-		const result = await integration.getRepositoriesForOrg('acme');
+		const result = (await integration.getRepositoriesForOrgResult('acme'))?.value;
 
 		assert.equal(result?.truncated, true);
 		assert.equal(result?.paging, undefined);
@@ -409,7 +409,7 @@ suite('provider hierarchy results', () => {
 			],
 		});
 
-		const result = await integration.getRepositoriesForOrg('acme');
+		const result = (await integration.getRepositoriesForOrgResult('acme'))?.value;
 
 		assert.equal(result?.truncated, undefined, 'a clean drain with no metadata is not truncated');
 		assert.equal(result?.metadata, undefined, 'no metadata is synthesized on a clean drain');
