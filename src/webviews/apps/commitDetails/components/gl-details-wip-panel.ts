@@ -678,6 +678,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				.searchBoxFilter=${this.searchBoxFilter}
 				.fileActions=${this._getFileActions}
 				.fileContext=${this._getFileContext}
+				.contextRevision=${this.fileContextRevision}
 				.folderContext=${this._getFolderContext}
 				.searchContext=${this.searchContext}
 				.multiDiff=${this.getMultiDiffRefs()}
@@ -835,6 +836,13 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 	override getFolderContext(folder: { relativePath: string }): string | undefined {
 		return buildFolderContext(this.wip?.repo?.path, folder);
+	}
+
+	/** `getFileContext` returns nothing until the repo path is known, and the working-changes payload
+	 *  arrives after the files do — without this the rows keep those empty contexts and no per-file menu
+	 *  ever gates on, since the callback cannot invalidate the tree's cached model by itself. */
+	protected override get fileContextRevision(): unknown {
+		return this.wip?.repo?.path;
 	}
 
 	override getFileContext(file: File, options?: Partial<TreeItemBase>): string | undefined {

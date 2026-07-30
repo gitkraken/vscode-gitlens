@@ -83,6 +83,13 @@ export class GlWipTreePane extends LitElement {
 	@property({ attribute: false })
 	folderContext?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
 
+	/** Forwarded to `gl-file-tree-pane`'s `contextRevision`: the inner tree bakes {@link fileContext}'s
+	 *  results into a cached model that the callback itself cannot invalidate, so a context reading state
+	 *  which lands after the files needs this to change. Without it the rows keep the contexts they had
+	 *  when the model was first built — for working changes, the ones from before the repo path resolved. */
+	@property({ attribute: false })
+	contextRevision?: unknown;
+
 	@property({ attribute: 'empty-text' })
 	emptyText = 'No Files';
 
@@ -278,6 +285,7 @@ export class GlWipTreePane extends LitElement {
 			.searchContext=${this.searchContext}
 			.fileActions=${this._wrappedActions}
 			.fileContext=${this._wrappedContext}
+			.contextRevision=${this.contextRevision}
 			.folderContext=${this.folderContext}
 			.filesLayout=${this.preferences?.files}
 			.showIndentGuides=${this.preferences?.indentGuides}
