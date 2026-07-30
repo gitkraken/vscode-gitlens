@@ -40,7 +40,7 @@
 		"test": "pnpm run test:mocha && pnpm run test:node",
 		"test:mocha": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts' --ignore 'src/**/__tests__/**/*.node.test.ts' --ignore 'src/**/__tests__/integration/**'",
 		"test:node": "node --import tsx --test 'src/**/__tests__/**/*.node.test.ts'",
-		"test:integration": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/integration/**/*.test.ts'"
+		"test:integration": "mocha --require tsx --require ./src/providers/__tests__/integration/rootHooks.ts --ui tdd --timeout 30000 'src/**/__tests__/integration/**/*.test.ts'"
 	},
 	"dependencies": {
 		"@gitlens/git": "workspace:*",

@@ -117,7 +117,12 @@ export function createTestRepo(options?: {
 	execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
 	// Disable auto-gc: rapid seeding (many commits in quick succession) otherwise races a detached
 	// `git gc --auto` that repacks/prunes underneath us and can corrupt the object store mid-test.
+	// BOTH knobs are required — `git commit` also fires `git maintenance run --auto`, whose loose-object
+	// threshold a seeded repo crosses long before `gc.auto`'s. Left on, those detached runs expire the
+	// reflog and can prune a commit that is still being written, leaving a repo whose own tip is
+	// unreadable (`fatal: bad object refs/heads/main`).
 	execFileSync('git', ['config', 'gc.auto', '0'], { cwd: dir, stdio: 'pipe' });
+	execFileSync('git', ['config', 'maintenance.auto', 'false'], { cwd: dir, stdio: 'pipe' });
 
 	// Create initial commit
 	writeFileSync(join(dir, 'README.md'), '# Test Repository\n');
@@ -430,6 +435,7 @@ export function cloneTestRepo(
 	execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'gc.auto', '0'], { cwd: dir, stdio: 'pipe' });
+	execFileSync('git', ['config', 'maintenance.auto', 'false'], { cwd: dir, stdio: 'pipe' });
 
 	const context = createMinimalContext(options?.hooks, options?.config);
 	const provider = new CliGitProvider({
