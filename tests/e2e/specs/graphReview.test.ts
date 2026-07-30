@@ -11,6 +11,7 @@
 import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { waitForGraphRowsRendered } from '../graphHelpers.js';
 
 const test = base.extend({
 	vscodeOptions: [
@@ -130,15 +131,7 @@ test.describe('Review & Compose Sub-Panels', () => {
 		// New Lit engine: the graph is a role="tree" ("Commit graph") of role="treeitem" rows. Gate on
 		// the tree and on rows actually painting; selectWip (beforeEach) opens the WIP details panel.
 		await expect(graphWebview.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });
-		// Scope to the graph tree so we don't match a details-panel file-tree treeitem (the details
-		// `gl-tree-view` also exposes role="treeitem"); graph rows are descendants of this tree.
-		await expect(
-			graphWebview
-				.getByRole('tree', { name: 'Commit graph' })
-				.getByRole('treeitem')
-				.filter({ visible: true })
-				.first(),
-		).toBeVisible({ timeout: 30000 });
+		await waitForGraphRowsRendered(graphWebview);
 	});
 
 	test.afterAll(async ({ vscode }) => {

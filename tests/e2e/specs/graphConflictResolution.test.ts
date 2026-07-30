@@ -3,12 +3,14 @@
  *
  * Covers the deterministic, non-AI surfaces of the "Resolve Conflicts…" feature in the
  * Commit Graph webview:
- *  - Conflict detection → context: the WIP row exposes `+hasConflicts`, and conflicted files
- *    expose `+conflict`. These `data-vscode-context` segments are exactly what the menu
- *    `when` clauses key on (`gitlens.ai.resolveAllConflicts:graph` gates on
- *    `webviewItem =~ /^gitlens:wip\b(?=.*?\+hasConflicts\b)/`; `gitlens.ai.resolveConflicts:graph`
- *    gates on `webviewItem =~ /gitlens:file\b(?=.*?\+conflict\b)/`). Asserting on the context
- *    presence/absence is therefore the e2e-observable form of the menu-gating requirement.
+ *  - Conflict detection → context: the WIP row exposes `+hasConflicts`. That
+ *    `data-vscode-context` segment is exactly what the menu `when` clause keys on
+ *    (`gitlens.ai.resolveAllConflicts:graph` gates on
+ *    `webviewItem =~ /^gitlens:wip\b(?=.*?\+hasConflicts\b)/`), so asserting its presence and
+ *    absence is the e2e-observable form of the menu-gating requirement.
+ *    The per-file counterpart — `gitlens:file` rows exposing `+conflict`, which
+ *    `gitlens.ai.resolveConflicts:graph` gates on — is NOT covered: that context never reaches the
+ *    DOM in this webview, so its test is skipped (#5548).
  *  - Command routing: invoking the resolve commands enters the WIP details "resolve" mode
  *    (`gl-details-resolve-mode-panel`, idle state) scoped to all / a single / multiple files,
  *    WITHOUT firing the AI call (the AI request only runs when the user clicks "Resolve" in the
@@ -27,6 +29,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { waitForGraphRowsRendered } from '../graphHelpers.js';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -140,9 +143,13 @@ async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocat
 	await vscode.gitlens.showCommitGraphView();
 	const webview = await vscode.gitlens.commitGraphViewWebview;
 	expect(webview).not.toBeNull();
-	// The `+hasConflicts` WIP row appearing is our readiness signal: the graph has rendered AND
-	// the conflicted merge state has been detected.
-	await expect.poll(() => wipConflictContext(webview!).count(), { timeout: 30000 }).toBeGreaterThan(0);
+	// Gate the row paint separately from the conflict state, so a failure names which one broke rather
+	// than reporting the same "context never appeared" for either. 15s each: the webview lookup, both
+	// gates and the afterEach teardown all draw on one 60s per-test budget, and a stage truncated by that
+	// cap reports a generic test timeout instead of naming itself. Still well over `MaxTimeout`, which the
+	// conflict state needs because it waits on a `git status` read.
+	await waitForGraphRowsRendered(webview!, 15000);
+	await expect.poll(() => wipConflictContext(webview!).count(), { timeout: 15000 }).toBeGreaterThan(0);
 	return webview!;
 }
 
@@ -168,11 +175,29 @@ const test = base.extend({
 				await git.commit('Feature edit', 'shared.txt', 'line1\nFEATURE CHANGE\nline3\n');
 				await git.commit('Feature edit 2', 'shared2.txt', 'a\nFEATURE\nc\n');
 				await git.checkout('main');
+				// `--no-ff` is load-bearing, not stylistic: fixture repos inherit the developer's global git
+				// config, and a `merge.ff=only` there makes git decline to start this merge at all — leaving
+				// a CLEAN repo, so every conflict assertion in this file fails far from the cause. Stating
+				// the non-fast-forward intent explicitly makes the fixture independent of that setting.
+				let mergeError: unknown;
 				try {
-					await git.merge('feature', 'Merge feature');
-				} catch {
-					// Expected: the merge fails with a conflict and leaves the repo in a conflicted
-					// merge state, which is exactly what these tests exercise.
+					await git.merge('feature', 'Merge feature', { noFF: true });
+				} catch (ex) {
+					// Expected: a conflicting merge exits non-zero and leaves the conflicted merge state
+					// these tests exercise. Kept, because it is also the only report of a merge that never ran.
+					mergeError = ex;
+				}
+
+				// Swallowing that rejection equally swallows a merge git declined to start, so assert the
+				// state the tests need. Both halves matter: unmerged paths alone can outlive an aborted
+				// operation, and `MERGE_HEAD` is what gives the UI a paused merge to show.
+				const [unmerged, merging] = await Promise.all([git.getUnmergedPaths(), git.isMergeInProgress()]);
+				if (unmerged.length === 0 || !merging) {
+					throw new Error(
+						`fixture: expected a conflicted merge (unmerged=${unmerged.length}, MERGE_HEAD=${merging})${
+							mergeError instanceof Error ? `; git reported: ${mergeError.message}` : ''
+						}`,
+					);
 				}
 
 				return repoDir;
@@ -208,12 +233,11 @@ test.describe('Graph — Conflict Resolution', () => {
 	});
 
 	test('conflicted file exposes the +conflict context in the WIP details', async ({ vscode }) => {
-		// Skipped: the graph's WIP details file rows carry only `gitlens:file+staged`/`+unstaged` — the
-		// per-file `gitlens:file+conflict` context (with the `+canStageCurrent`/`+canStageIncoming`
-		// modifiers) is built only by the Inspect webview's WIP panel. Tracked in #5548. Note the
-		// assertions below are unverified: on a cold start `openGraphWithConflict` times out waiting for
-		// the WIP row itself, so implementing the context also needs that readiness gate made reliable.
-		test.skip(true, 'Unimplemented: per-file +conflict context not exposed on WIP details (#5548)');
+		// Skipped: no per-file context reaches the DOM in the graph's WIP details — not `+conflict`, nor
+		// `+staged`/`+unstaged` — so every per-file menu is dead there, which is wider than #5548 states.
+		// The panel and its file data are correct; the gap is that the context never reaches the rendered
+		// row. See #5548 for the measurements.
+		test.skip(true, 'Unimplemented: no per-file context reaches the graph WIP details (#5548)');
 		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);

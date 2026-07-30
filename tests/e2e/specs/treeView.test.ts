@@ -10,6 +10,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { waitForGraphRowsRendered } from '../graphHelpers.js';
 
 // Build a repo with enough commits and files to exercise the tree thoroughly
 const test = base.extend({
@@ -114,24 +115,6 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
 	// genuinely moved, the wrong commit is selected and the downstream assertion fails — so this can't
 	// turn into a false pass.
 	await row.click({ force: true });
-}
-
-/**
- * Wait until the new Lit engine has painted commit rows. The tree container (role="tree",
- * aria-label "Commit graph") mounts before the virtualizer paints its role="treeitem" rows, so
- * gating readiness on the container alone races the row paint on slower webviews (VS Code forks) —
- * the window where a row resolves in the DOM but reports `hidden`. Gate on the first visible treeitem.
- */
-async function waitForGraphRowsRendered(graphWebview: FrameLocator): Promise<void> {
-	// Scope to the graph tree so we don't match a details-panel file-tree treeitem (the details
-	// `gl-tree-view` also exposes role="treeitem"); graph rows are descendants of this tree.
-	await expect(
-		graphWebview
-			.getByRole('tree', { name: 'Commit graph' })
-			.getByRole('treeitem')
-			.filter({ visible: true })
-			.first(),
-	).toBeVisible({ timeout: 30000 });
 }
 
 async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {

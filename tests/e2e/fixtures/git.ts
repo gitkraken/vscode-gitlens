@@ -141,6 +141,21 @@ export class GitFixture {
 		return this.git('rev-parse', undefined, '--short', ref);
 	}
 
+	/**
+	 * Unmerged (conflicted) paths in the index. Worth asserting after any merge a test EXPECTS to
+	 * conflict: such a merge exits non-zero, so the caller has to swallow the rejection, and that
+	 * equally swallows a merge git declined to start at all. Pair it with {@link isMergeInProgress} —
+	 * unmerged paths alone can also come from a failed `stash pop` or `checkout --merge`, which leave
+	 * no `MERGE_HEAD` and so no paused-operation state for the UI to show.
+	 */
+	async getUnmergedPaths(): Promise<string[]> {
+		const out = await this.git('diff', undefined, '--name-only', '--diff-filter=U');
+		return out
+			.split('\n')
+			.map(l => l.trim())
+			.filter(l => l.length > 0);
+	}
+
 	async init(): Promise<void> {
 		await fs.mkdir(this.repoPath, { recursive: true });
 		await this.git('init', undefined, '-b', 'main');
@@ -149,6 +164,18 @@ export class GitFixture {
 		await this.git('config', undefined, 'user.name', 'Your Name');
 		// Initial commit to have a HEAD
 		await this.commit('Initial commit');
+	}
+
+	/**
+	 * Check if a merge is in progress by looking for MERGE_HEAD
+	 */
+	async isMergeInProgress(): Promise<boolean> {
+		try {
+			await this.git('rev-parse', undefined, '--verify', 'MERGE_HEAD');
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	/**
@@ -379,6 +406,12 @@ export class GitFixture {
 	private async git(command: string, options?: { configs?: string[] }, ...args: string[]): Promise<string> {
 		const fullArgs = [...(options?.configs ?? []), command, ...args];
 		return new Promise((resolve, reject) => {
+			// NOTE: fixture repos inherit the developer's global/system git config, so a `merge.ff`,
+			// `rerere.enabled` or `merge.autostash` set there changes what these commands do and a fixture
+			// can behave differently here than on CI. Isolating both scopes to `/dev/null` is the fix, but
+			// it changes rebase behaviour that `rebase.test.ts` currently depends on — so until that is
+			// untangled, any fixture whose outcome depends on such a setting must state it explicitly
+			// (see `merge`'s `noFF`).
 			const child = spawn('git', fullArgs, { cwd: this.repoPath, env: process.env });
 
 			let stdout = '';
