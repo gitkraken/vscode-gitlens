@@ -29,6 +29,7 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { CommitDetails, CommitSignatureShape, Preferences, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
+	AutoRebaseRunUpdate,
 	BranchCommitEntry,
 	BranchComparisonCommit,
 	BranchComparisonContributor,
@@ -427,6 +428,10 @@ function createTransientState() {
 	// Paths currently being manually resolved via a take-side fallback action (skipped/errored rows) —
 	// drives the per-row busy spinner while the stage is in flight.
 	const resolveStagingFiles = signal<ReadonlySet<string>>(new Set());
+	// Live state of this repo's automatic rebase run, streamed from the host. The resolve panel is the
+	// run's only progress surface, so this drives its step list, progress, and cancel actions; terminal
+	// phases arrive here too (so the panel can show the outcome), and `undefined` means no session.
+	const autoRebaseRun = signal<AutoRebaseRunUpdate | undefined>(undefined);
 
 	// Error-recovery snapshot — `*PreErrorValue` is captured BEFORE an action that could mutate
 	// the resource into an error sentinel (runReview / runCompose / composeCommitAll). The error
@@ -541,6 +546,7 @@ function createTransientState() {
 		resolveFocusedFilePaths: resolveFocusedFilePaths,
 		resolveRetryingFiles: resolveRetryingFiles,
 		resolveStagingFiles: resolveStagingFiles,
+		autoRebaseRun: autoRebaseRun,
 
 		composePreErrorValue: composePreErrorValue,
 		reviewPreErrorValue: reviewPreErrorValue,

@@ -638,6 +638,11 @@ export class DetailsActions {
 				this.services.graphInspect.onResolveProgress(event => {
 					this.state.resolveProgressMessage.set(event?.message);
 				}),
+			// The automatic rebase narrates itself in the resolve panel — this is its only progress feed.
+			() =>
+				this.services.graphInspect.onAutoRebaseProgress(event => {
+					this.state.autoRebaseRun.set(event);
+				}),
 		]);
 		if (this._disposed) {
 			unsubscribe();
@@ -768,6 +773,12 @@ export class DetailsActions {
 	 *  resolved manually. Fire-and-forget — resolves once triggered, not when the rebase finishes. */
 	resumeAutoRebase(repoPath: string): Promise<void> {
 		return this.services.graphInspect.resumeAutoRebase(repoPath);
+	}
+
+	/** Stops a running automatic rebase — `abort` restores the pre-rebase state, `detach` leaves the
+	 *  rebase paused at the current step with the completed steps kept. */
+	cancelAutoRebase(repoPath: string, mode: 'abort' | 'detach'): Promise<void> {
+		return this.services.graphInspect.cancelAutoRebase(repoPath, mode);
 	}
 
 	/** Re-resolves a single file with user feedback (per-file retry). See {@link startResolve}. */

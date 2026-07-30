@@ -1,4 +1,4 @@
-import { ProgressLocation, window } from 'vscode';
+import { window } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
@@ -18,67 +18,53 @@ const conflictEscalationReasons = new Set<AutoRebaseEscalationReason>([
 ]);
 
 /**
- * Runs an automatic rebase behind a cancellable progress notification (cancel = abort, restoring
- * the pre-rebase state) and routes the terminal outcome: completion opens the summary, a conflict
- * escalation opens Resolve mode, and the remaining cases fall back to a toast. Shared by every
- * entry point (rebase quickpick, command palette, takeover).
+ * Runs an automatic rebase, narrating it in the Commit Graph's Resolve panel (which streams the run's
+ * steps and progress over `onAutoRebaseProgress`, and owns cancelling it), then routes the terminal
+ * outcome: completion opens the summary, a conflict escalation seeds Resolve mode, and the remaining
+ * cases fall back to a toast. Shared by every entry point (rebase quickpick, command palette, takeover).
  */
-export async function startAutoRebaseWithProgress(
+export async function startAutoRebaseRun(
 	container: Container,
 	svc: GitRepositoryService,
 	options: AutoRebaseStartOptions,
 ): Promise<void> {
-	const target = options.onto ?? options.upstream;
-	return runWithProgress(
-		container,
-		svc,
-		`Automatic Rebase${options.branch ? `: ${options.branch}` : ''} onto ${target}`,
-		() => container.autoRebase.start(svc, options),
-	);
+	return runAndRoute(container, svc, () => container.autoRebase.start(svc, options));
 }
 
-/** Takes over an already-paused rebase and automates its remaining steps. See {@link startAutoRebaseWithProgress}. */
-export async function takeoverAutoRebaseWithProgress(
+/** Takes over an already-paused rebase and automates its remaining steps. See {@link startAutoRebaseRun}. */
+export async function takeoverAutoRebaseRun(
 	container: Container,
 	svc: GitRepositoryService,
 	source: Source,
 ): Promise<void> {
-	return runWithProgress(container, svc, 'Automatic Rebase', () => container.autoRebase.takeover(svc, source));
+	return runAndRoute(container, svc, () => container.autoRebase.takeover(svc, source));
 }
 
-async function runWithProgress(
+async function runAndRoute(
 	container: Container,
 	svc: GitRepositoryService,
-	title: string,
 	run: () => Promise<AutoRebaseSession>,
 ): Promise<void> {
-	const repoPath = svc.path;
+	// The panel is the run's only progress surface, so it opens as the run starts rather than on
+	// escalation — but keyed off the session actually being tracked, not off entering this function: a
+	// pre-flight refusal (AI unavailable, an operation already in progress) throws without ever starting
+	// a run, and would otherwise leave the user parked in an empty Resolve panel.
+	const openOnStart = container.autoRebase.onDidChange(e => {
+		if (e.repoPath !== svc.path || e.session == null) return;
+
+		openOnStart.dispose();
+		openResolvePanel(svc.path);
+	});
 
 	let session: AutoRebaseSession;
 	try {
-		session = await window.withProgress(
-			{ location: ProgressLocation.Notification, cancellable: true, title: title },
-			async (progress, token) => {
-				const cancellation = token.onCancellationRequested(() =>
-					container.autoRebase.cancel(repoPath, 'abort'),
-				);
-				const subscription = container.autoRebase.onDidChange(e => {
-					if (e.repoPath !== repoPath || e.session?.progressMessage == null) return;
-
-					progress.report({ message: e.session.progressMessage });
-				});
-				try {
-					return await run();
-				} finally {
-					cancellation.dispose();
-					subscription.dispose();
-				}
-			},
-		);
+		session = await run();
 	} catch (ex) {
 		// Pre-flight refusal (AI unavailable, an operation already in progress, …)
 		void window.showWarningMessage(ex instanceof Error ? ex.message : String(ex));
 		return;
+	} finally {
+		openOnStart.dispose();
 	}
 
 	switch (session.phase) {
@@ -127,10 +113,10 @@ function onCompleted(container: Container, session: AutoRebaseSession): void {
 }
 
 function onEscalated(container: Container, svc: GitRepositoryService, session: AutoRebaseSession): void {
-	// A conflict the AI couldn't finish opens Resolve mode directly — that's the action the user
-	// would take anyway, and the panel is seeded with the AI's attempted resolutions.
+	// A conflict the AI couldn't finish seeds Resolve mode with the step's attempted resolutions — the
+	// panel is already open from the run, so this re-focuses it in case the user navigated away.
 	if (session.escalation != null && conflictEscalationReasons.has(session.escalation.reason)) {
-		showResolvePanel(session.repoPath);
+		openResolvePanel(session.repoPath);
 		return;
 	}
 
@@ -149,9 +135,9 @@ function onEscalated(container: Container, svc: GitRepositoryService, session: A
 	const actions = container.ai.allowed ? [review, resume, abort] : [review, abort];
 	void window.showWarningMessage(message, ...actions).then(result => {
 		if (result === review) {
-			showResolvePanel(session.repoPath);
+			openResolvePanel(session.repoPath);
 		} else if (result === resume) {
-			void takeoverAutoRebaseWithProgress(container, svc, { source: 'auto-rebase' });
+			void takeoverAutoRebaseRun(container, svc, { source: 'auto-rebase' });
 		} else if (result === abort) {
 			void abortPausedOperation(svc);
 		}
@@ -166,7 +152,9 @@ function showRebaseSummary(repoPath: string): void {
 	});
 }
 
-function showResolvePanel(repoPath: string): void {
+/** Opens (or re-focuses) the Commit Graph's Resolve panel — the automatic rebase's progress surface,
+ *  and where an escalated step's resolutions are handed off for review. */
+function openResolvePanel(repoPath: string): void {
 	void executeCommand('gitlens.showGraph', {
 		action: 'enter-resolve',
 		target: { sha: uncommitted, worktreePath: repoPath },

@@ -1636,6 +1636,13 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  no scope picker, no Back/Resume snapshot (apply is terminal). Arrow-function object so `this`
 	 *  bindings are stable. */
 	readonly resolve = {
+		// Picks up an automatic rebase's escalation handoff when resolve mode is ALREADY open on this
+		// anchor. The run opens the panel as it starts, so by the time it escalates the mode-entry that
+		// normally seeds (see `seedResolveFromEscalation`'s caller) is a no-op re-entry — without this the
+		// escalated step's already-computed resolutions would never reach the panel.
+		seedFromEscalation: (repoPath: string | undefined): void => {
+			void this.seedResolveFromEscalation(repoPath);
+		},
 		// Resolve has no Back/Resume snapshot — nothing to clear. Present so the generic
 		// hide/destroy/anchor-switch paths can call it uniformly across all modes.
 		invalidateSnapshot: (): void => {
