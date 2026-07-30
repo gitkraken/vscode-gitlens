@@ -24,7 +24,7 @@ export class AutoRebaseCommand extends GlCommandBase {
 
 	async execute(): Promise<void> {
 		if (
-			!(await ensurePaidPlan(this.container, 'Rebase with AI conflict resolution is a Pro feature.', {
+			!(await ensurePaidPlan(this.container, 'Automatic rebase is a Pro feature.', {
 				source: 'commandPalette',
 			}))
 		) {
@@ -72,14 +72,14 @@ export class ContinueRebaseWithAiCommand extends GlCommandBase {
 
 	async execute(args?: ContinueRebaseWithAiCommandArgs): Promise<void> {
 		const source: Source = { source: args?.source ?? 'commandPalette' };
-		if (!(await ensurePaidPlan(this.container, 'Continue Rebase with AI is a Pro feature.', source))) {
+		if (!(await ensurePaidPlan(this.container, 'Continue Automatic Rebase is a Pro feature.', source))) {
 			return;
 		}
 
 		try {
 			let repoPath = args?.repoPath;
 			if (repoPath == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Continue Rebase with AI');
+				const repo = await getRepositoryOrShowPicker(this.container, 'Continue Automatic Rebase');
 				repoPath = repo?.path;
 			}
 			if (repoPath == null) return;
