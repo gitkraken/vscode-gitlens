@@ -7,6 +7,7 @@ class ModifierKeysTracker {
 	private _metaKey = false;
 	private _hosts = new Set<ReactiveControllerHost>();
 	private _listening = false;
+	private _focusOutCheckTimer: ReturnType<typeof setTimeout> | undefined;
 
 	get altKey(): boolean {
 		return this._altKey;
@@ -48,10 +49,17 @@ class ModifierKeysTracker {
 		// Reset on genuine backgrounding (tab/window hidden) — NOT on plain `blur`. Tapping Alt
 		// activates the OS/VS Code menu bar on Windows/Linux, which fires `blur` on the webview a
 		// frame after the alt `keydown`; resetting there would instantly revert an alt-driven
-		// tooltip swap (the "tooltip won't change on Alt" bug). Stuck modifiers from alt-tab are
-		// self-correcting anyway — every pointer event re-syncs the exact modifier state — so a
-		// visibility-gated reset is sufficient without clobbering the transient menu-bar blur.
+		// tooltip swap (the "tooltip won't change on Alt" bug).
 		document.addEventListener('visibilitychange', this._onVisibilityChange);
+		// Also reset once focus genuinely LEAVES the webview (a click into an editor or another view,
+		// a quick pick). None of the paths above catch that: the webview stays visible, the keyup
+		// lands wherever focus went, and the pointer is outside so nothing re-syncs — the state
+		// sticks, visibly so as the graph's Alt-hold row dim. The menu-bar steal above does fire a
+		// focusout of its own, but only once the alt TAP completes — keydown, keyup, then
+		// blur/focusout — so it lands after the keyup has already cleared the modifiers and `_reset()`
+		// no-ops on its `changed` guard; a hold keeps focus for its whole duration. `_onFocusOut`
+		// filters the in-webview churn.
+		document.addEventListener('focusout', this._onFocusOut);
 	}
 
 	private _stop(): void {
@@ -61,6 +69,11 @@ class ModifierKeysTracker {
 		window.removeEventListener('mousemove', this._onPointer, { capture: true });
 		window.removeEventListener('mouseover', this._onPointer, { capture: true });
 		document.removeEventListener('visibilitychange', this._onVisibilityChange);
+		document.removeEventListener('focusout', this._onFocusOut);
+		if (this._focusOutCheckTimer != null) {
+			clearTimeout(this._focusOutCheckTimer);
+			this._focusOutCheckTimer = undefined;
+		}
 		this._reset();
 	}
 
@@ -109,6 +122,22 @@ class ModifierKeysTracker {
 		this._ctrlKey = e.ctrlKey;
 		this._metaKey = e.metaKey;
 		this._notify();
+	};
+
+	// `focusout` fires for focus moves WITHIN the webview too — including with a null `relatedTarget`
+	// when a non-focusable element is clicked — so it can't be trusted on its own. Re-check one task
+	// later, once focus has settled: `document.hasFocus()` stays true for any in-webview move and
+	// goes false only when the document really lost focus. `setTimeout`, not `requestAnimationFrame`,
+	// which is throttled while the document is backgrounded — the check still has to land.
+	private _onFocusOut = (): void => {
+		if (this._focusOutCheckTimer != null) return;
+
+		this._focusOutCheckTimer = setTimeout(() => {
+			this._focusOutCheckTimer = undefined;
+			if (!document.hasFocus()) {
+				this._reset();
+			}
+		}, 0);
 	};
 
 	private _onVisibilityChange = (): void => {
