@@ -125,6 +125,10 @@ type DecoratedRowsIndex = {
 
 const navigationTimeoutMs = 30_000;
 
+/** How many targeted pages a single unreachable scope anchor gets before it's treated as
+ *  unreachable-in-practice — see {@link GlGraphWrapper._unreachableAnchorRequests}. */
+const maxUnreachableAnchorPageAttempts = 3;
+
 /**
  * Walk first-parent ancestry through a row array to produce the inclusive range from
  * `fromSha` to `toSha`. Direction-agnostic — figures out which sha is the ancestor and
@@ -993,6 +997,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		super.updated(changedProperties);
 		this.flushPendingSelect();
 		this.refocusOnEnteringCurrentVisibility();
+		// LAST, after everything here that can start a row load: `refocusOnEnteringCurrentVisibility` may
+		// navigate to an unloaded row, and the host cancels a pending rows query whose id differs — so the
+		// replay has to see that navigation in `rowLoadInFlight` and re-park rather than race it. Deferring
+		// is free; a cancelled walk is not.
+		this.replayDeferredUnreachableAnchors();
 	}
 
 	/** When the user switches to `branchesVisibility: 'current'`, a SECONDARY-worktree WIP anchor is
@@ -1738,9 +1747,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	/**
 	 * SHAs we've already issued `GetMoreRowsCommand({ id: sha })` for via the unreachable-anchor
-	 * path, mapped to the loaded row count at the time the request was sent. If a targeted walk
-	 * returns without surfacing the SHA, we park it here so the next `scopeanchorsunreachable`
-	 * event doesn't re-fire the same request immediately. Entries are released two ways:
+	 * path, mapped to the loaded row count at the time the request was sent plus how many targeted
+	 * walks that SHA has cost. If a targeted walk returns without surfacing the SHA, we park it here
+	 * so the next `scopeanchorsunreachable` event doesn't re-fire the same request immediately.
+	 * Entries are released three ways:
 	 * (a) scope reference changes (user re-scopes, or refs-moved invalidation produces a new
 	 *     scope object), which clears the entire map;
 	 * (b) the host response delivered new rows, growing `rows.length` past the snapshot — the
@@ -1748,8 +1758,17 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *     so a retry continues the walk from the new cursor rather than re-running the same
 	 *     range. Entries whose request didn't grow rows stay parked: retrying would hit the
 	 *     same cap at the same cursor with no progress.
+	 * (c) never, once `maxUnreachableAnchorPageAttempts` walks have gone by without landing the
+	 *     SHA. Growing rows alone is not proof of progress TOWARD the anchor: a stale anchor the
+	 *     invalidation missed will never arrive, and the GitHub provider's `more()` ignores the
+	 *     target id entirely, so on the web path every "targeted" page is a blind page. Without
+	 *     the cap those cases page until history ends.
 	 */
-	private _unreachableAnchorRequests = new Map<string, number>();
+	private _unreachableAnchorRequests = new Map<string, { rowCount: number; attempts: number }>();
+	/** Anchors whose page was held back because a row load was already in flight — replayed from `updated()`
+	 *  once it finishes. See {@link processUnreachableAnchors} for why dropping them isn't an option. Stamped
+	 *  with {@link scopeAnchorKey} so a replay can't page for a view the user has already left. */
+	private _deferredUnreachableAnchors?: { anchors: ReadonlySet<string>; key: string | undefined };
 	private _unreachableAnchorScope: typeof graphStateContext.__context__.scope = undefined;
 
 	// `<gl-lit-graph>` emits a small, renderer-shaped set of events; the handlers below translate them
@@ -2070,10 +2089,73 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onScopeAnchorsUnreachable(event: CustomEvent<Set<string>>) {
+		this.processUnreachableAnchors(event.detail);
+	}
+
+	/** Row loads THIS component started: a page it asked for (`graphState.loading`, which the rows push
+	 *  clears) or a targeted row load from `navigateToCommit`. Issuing an anchor page alongside either is
+	 *  unsafe — the host supersedes a pending rows query whose id differs, cancelling one of the two walks.
+	 *
+	 *  The targeted load has to be checked separately because it drives `ensureLoading`, NOT
+	 *  `graphState.loading`; conversely `graphState.loading` is a shared affordance flag the timeline also
+	 *  sets for its own pages. That imprecision is tolerable ONLY because a blocked signal is deferred
+	 *  rather than dropped — an over-broad gate costs a replay, not a lost page. */
+	private get rowLoadInFlight(): boolean {
+		return this.graphState.loading || this._pendingNavigation?.hostLoadSha != null;
+	}
+
+	/** Identity of the scope AS THE ANCHOR MATH SEES IT: the focal branch plus the two anchor SHAs
+	 *  `computeScopeAnchors` derives reachability from. Deliberately NOT the scope object's reference —
+	 *  `applyScopeAnchorPatch` mints a new object when only `focalBranchTipSha` advances (an ordinary commit
+	 *  does that), which leaves the anchors, the unreachable set, and therefore the emitter's dedupe key all
+	 *  identical. Keying on the reference there would discard parked work that nothing will re-emit. */
+	private scopeAnchorKey(scope: typeof graphStateContext.__context__.scope): string | undefined {
+		if (scope == null) return undefined;
+
+		return `${scope.branchRef}|${scope.mergeBase?.sha ?? ''}|${scope.mergeTargetTipSha ?? ''}`;
+	}
+
+	/** Re-run an anchor page that was deferred while a row load held the gate. Cheap enough for `updated()`:
+	 *  ONE plain-field read when nothing is parked, and that early return is load-bearing, not just tidy.
+	 *  `SignalWatcher` runs the whole update — `updated()` included — inside a `Signal.Computed`, so every
+	 *  `graphState` read here joins the element's tracked dependencies; returning first keeps the idle path
+	 *  from subscribing to anything. Setting `loading` from in here can't re-trigger this element: a computed
+	 *  stays dirty for the duration of its own recomputation, and notification skips already-dirty consumers. */
+	private replayDeferredUnreachableAnchors(): void {
+		const deferred = this._deferredUnreachableAnchors;
+		if (deferred == null) return;
+
+		// The anchors themselves moved on (re-scope, or a rebase that relocated the merge base) — these
+		// describe a boundary that no longer applies, and the live scope emits its own against current rows.
+		if (deferred.key !== this.scopeAnchorKey(this.graphState.scope)) {
+			this._deferredUnreachableAnchors = undefined;
+			return;
+		}
+
+		if (this.rowLoadInFlight || !this.graphState.paging?.hasMore) return;
+
+		this.processUnreachableAnchors(deferred.anchors);
+	}
+
+	private processUnreachableAnchors(anchors: ReadonlySet<string> | undefined) {
 		// The component flagged that one or more scope anchors can't reach a visible ancestor
 		// within the loaded graph rows (merge base not yet fetched). Ask the host for more rows
 		// so the synthetic edges can resolve.
-		if (this.graphState.loading || !this.graphState.paging?.hasMore) return;
+		if (anchors == null || anchors.size === 0) {
+			this._deferredUnreachableAnchors = undefined;
+			return;
+		}
+
+		// Blocked for now — PARK it, never drop it. The component re-emits only when the loaded row count
+		// changes, and the case that most needs a retry is the one where no rows arrive at all, so a dropped
+		// signal is an anchor that never gets paged: focus re-roots against its open terminus and then sits
+		// there, never reaching its merge base, until the user unscopes and re-scopes. `updated()` replays.
+		if (this.rowLoadInFlight || !this.graphState.paging?.hasMore) {
+			this._deferredUnreachableAnchors = { anchors: anchors, key: this.scopeAnchorKey(this.graphState.scope) };
+			return;
+		}
+
+		this._deferredUnreachableAnchors = undefined;
 
 		// Drop prior dedupe state when the live scope reference changes — the stateProvider
 		// assigns a new scope object on every transition (re-scope, post-invalidation re-resolve),
@@ -2089,30 +2171,38 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// `scope.mergeBase.sha` when the library flagged loaded branch tips as "unreachable"
 		// because their parent chain can't reach a visible ancestor. Without that targeted page,
 		// `isBounded` stays false and the library's scroll/fill-viewport paths leak generic pages.
-		const anchors = event.detail;
 		const rows = this.graphState.rows;
-		if (anchors?.size && rows?.length) {
+		if (rows?.length) {
+			// Reachability IS row membership, so the component re-emits on every row-count change for as long
+			// as anything stays unreachable. Once every candidate has spent its attempt budget we will never
+			// request again, so bail before the O(rows) `loaded` scan rather than rebuilding it per page.
+			// `pickScopePageTarget` can also fall back to the scope's merge base, so it counts as a candidate.
+			const exhausted = (sha: string): boolean =>
+				(this._unreachableAnchorRequests.get(sha)?.attempts ?? 0) >= maxUnreachableAnchorPageAttempts;
+			const fallback = scope?.mergeBase?.sha;
+			if ([...anchors].every(exhausted) && (fallback == null || exhausted(fallback))) return;
+
 			const loaded = new Set(rows.map(r => r.sha));
 			const rowCount = rows.length;
 
-			// Release any prior request whose response delivered new rows — the provider's cursor
-			// advanced past where the previous walk's cap aborted, so retrying continues the walk
-			// from the new cursor instead of re-running the same range.
-			for (const [sha, requestedAtCount] of this._unreachableAnchorRequests) {
-				if (rowCount > requestedAtCount) {
-					this._unreachableAnchorRequests.delete(sha);
+			// Which prior requests are still parked (ineligible to retry): those whose response delivered
+			// no new rows — the provider's cursor didn't advance, so retrying re-runs the same range — and
+			// those that have spent their whole attempt budget. Entries are kept, not deleted, so the
+			// attempt count survives a release.
+			const parked = new Set<string>();
+			for (const [sha, request] of this._unreachableAnchorRequests) {
+				if (rowCount <= request.rowCount || request.attempts >= maxUnreachableAnchorPageAttempts) {
+					parked.add(sha);
 				}
 			}
 
-			const target = pickScopePageTarget(
-				anchors,
-				loaded,
-				new Set(this._unreachableAnchorRequests.keys()),
-				scope?.mergeBase?.sha,
-			);
+			const target = pickScopePageTarget(anchors, loaded, parked, scope?.mergeBase?.sha);
 			if (target == null) return;
 
-			this._unreachableAnchorRequests.set(target, rowCount);
+			this._unreachableAnchorRequests.set(target, {
+				rowCount: rowCount,
+				attempts: (this._unreachableAnchorRequests.get(target)?.attempts ?? 0) + 1,
+			});
 			this.graphState.loading = true;
 			this._ipc.sendCommand(GetMoreRowsCommand, { id: target });
 			return;

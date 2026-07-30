@@ -8,17 +8,20 @@
  * unreachable — meaning "this anchor's parent chain can't reach a visible ancestor because the
  * merge base isn't in the loaded graph rows". The right consumer response is to page targeted at
  * `mergeBase.sha` so a single round-trip lands the row and the library can flip `isBounded` true.
+ *
+ * `anchors` carries SHAs only — see `ScopeAnchors.unreachableAnchors`. `ineligible` holds SHAs the
+ * caller has already spent a walk on with nothing to show for it (in flight, or out of attempts).
  */
 export function pickScopePageTarget(
 	anchors: ReadonlySet<string>,
 	loaded: ReadonlySet<string>,
-	requested: ReadonlySet<string>,
+	ineligible: ReadonlySet<string>,
 	mergeBaseSha: string | undefined,
 ): string | undefined {
 	for (const sha of anchors) {
-		if (!loaded.has(sha) && !requested.has(sha)) return sha;
+		if (!loaded.has(sha) && !ineligible.has(sha)) return sha;
 	}
-	if (mergeBaseSha != null && !loaded.has(mergeBaseSha) && !requested.has(mergeBaseSha)) {
+	if (mergeBaseSha != null && !loaded.has(mergeBaseSha) && !ineligible.has(mergeBaseSha)) {
 		return mergeBaseSha;
 	}
 	return undefined;

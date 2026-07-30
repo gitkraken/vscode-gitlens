@@ -2135,7 +2135,13 @@ export class GlLitGraph extends LitElement {
 	private recomputeScope(): void {
 		const anchors = computeScopeAnchors(this.rows, this.scope, rowHasHead);
 		this.scopeAnchors = anchors;
-		this.inScopeShas = computeInScopeShas(this.rows, this.scope, anchors.focalTipShas, anchors.mergeTargetShas);
+		this.inScopeShas = computeInScopeShas(
+			this.rows,
+			this.scope,
+			anchors.focalTipShas,
+			anchors.mergeTargetShas,
+			anchors.forkPointShas,
+		);
 		this.emitUnreachableAnchors(anchors.unreachableAnchors);
 	}
 
@@ -2696,8 +2702,13 @@ export class GlLitGraph extends LitElement {
 
 	// Dedupe by content so the paging signal doesn't refire every render; resets when the set
 	// empties so a future unreachable set fires once more.
+	//
+	// The loaded row COUNT is part of the key: reachability is row membership, so rows arriving without
+	// landing the anchor is a new fact, not a re-render, and the consumer's retry (which releases a parked
+	// page request once rows grow — see `onScopeAnchorsUnreachable`) is reachable only if we re-emit for
+	// it. Bounded on the consumer side by an attempt cap, not here.
 	private emitUnreachableAnchors(unreachable: ReadonlySet<string> | undefined): void {
-		const key = unreachable != null ? [...unreachable].sort().join(',') : '';
+		const key = unreachable != null ? `${this.rows?.length ?? 0}:${[...unreachable].sort().join(',')}` : '';
 		if (key === this.lastEmittedUnreachableKey) return;
 
 		this.lastEmittedUnreachableKey = key;

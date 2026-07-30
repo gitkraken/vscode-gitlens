@@ -208,11 +208,13 @@ export type ResolvedScopeAnchor = {
 
 /**
  * Returns the scope without `mergeTargetTipSha` when `mergeBase` isn't set. An unpaired target tip
- * can't re-root anything (`computeScopeProjection` bails without a loaded merge base), so all it does
- * is land in the scope walk's `unreachable` set — which `onScopeAnchorsUnreachable` answers by paging
- * toward it. For a stale target tip many years back in history that means paging deep into unrelated
- * history for an anchor that will never be used. Leaving the scope bare keeps the foreign-ref
- * heuristic active, which bounds visibility against currently-loaded refs.
+ * can't re-root anything (`computeScopeProjection` needs a fork point), so all it does is land in the
+ * scope walk's `unreachable` set — which `onScopeAnchorsUnreachable` answers by paging toward it. For a
+ * stale target tip many years back in history that means paging deep into unrelated history for an anchor
+ * that will never be used, so the scope stays bare instead.
+ *
+ * Note this fires only when the host resolved NO base at all (default branch, no merge target, failed
+ * resolve). A resolved-but-not-yet-loaded base is published as-is — see `publishResolvedScope`.
  */
 function stripUnpairedMergeTarget(scope: GraphScope): GraphScope {
 	if (scope.mergeBase != null || scope.mergeTargetTipSha == null) return scope;
@@ -251,13 +253,13 @@ export function isScopeAnchorStale(scope: GraphScope, anchor: ResolvedScopeAncho
  * change (the caller then leaves `this.scope` untouched rather than assigning a no-op spread that
  * would re-zoom the minimap for nothing). Split out of `patchScopeAnchor` so the replacement rules —
  * which decide whether a rebase's stale anchors are dropped and whether an ordinary commit keeps a
- * working one — are directly testable; `isShaLoaded` is the caller's loaded-rows probe.
+ * working one — are directly testable.
+ *
+ * Whether an anchor's commits are currently LOADED is deliberately not a factor: anchor reachability is
+ * row membership, which every rows push re-derives, so an anchor that resolves ahead of its rows is
+ * correct-but-early rather than unusable.
  */
-export function applyScopeAnchorPatch(
-	scope: GraphScope,
-	anchor: ResolvedScopeAnchor,
-	isShaLoaded: (sha: string) => boolean,
-): GraphScope | undefined {
+export function applyScopeAnchorPatch(scope: GraphScope, anchor: ResolvedScopeAnchor): GraphScope | undefined {
 	// Host couldn't resolve any field — nothing to fold in.
 	if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null && anchor.focalBranchTipSha == null) {
 		return undefined;
@@ -266,18 +268,6 @@ export function applyScopeAnchorPatch(
 	// History may have moved under the live anchors — see `isScopeAnchorStale`. Only actionable
 	// alongside a replacement, hence `replacesAnchors` below.
 	const stale = isScopeAnchorStale(scope, anchor);
-
-	// Positive evidence that the live merge BASE is wrong, as opposed to the weaker `stale` signal, which
-	// also fires when the focal tip merely advanced (an ordinary commit does that — see `isScopeAnchorStale`).
-	const mergeBaseMoved =
-		anchor.mergeBase != null && scope.mergeBase != null && anchor.mergeBase.sha !== scope.mergeBase.sha;
-
-	// Merge base resolved but not loaded — applying it would put the bundle scope walk on an unloaded
-	// boundary; see `publishResolvedScope`. Bypassed only when the base has demonstrably MOVED: there,
-	// keeping the wrong-but-loaded boundary re-roots the view around pre-rewrite history for good while the
-	// fresh one self-corrects (`onScopeAnchorsUnreachable` pages straight to it). A tip that merely advanced
-	// says nothing about the boundary, so the guard has to keep holding for it.
-	if (!mergeBaseMoved && anchor.mergeBase != null && !isShaLoaded(anchor.mergeBase.sha)) return undefined;
 
 	// Skip if every patchable field already matches — prevents a redundant signal update that
 	// would re-zoom the minimap needlessly.
@@ -319,13 +309,11 @@ export function applyScopeAnchorPatch(
  * original scope reference when nothing needs to change. Callers use reference-equality to know
  * whether they need to publish a new scope value.
  *
- * Skips the backfill when the scope has neither `mergeBase` nor a prior `mergeTargetTipSha` —
- * the bare scope state that `setScope` leaves behind when the anchor IPC bailed or its merge
- * base wasn't in the loaded rows. Promoting just a `mergeTargetTipSha` onto a bare scope gives the
- * scope walk an anchor it can't re-root on (no merge base) but will report unreachable, which the
- * unreachable-anchor handler answers by paging toward it — deep into unrelated history for a stale
- * target tip. Leaving the scope bare keeps the foreign-ref heuristic active, which bounds
- * visibility against currently-loaded refs.
+ * Skips the backfill when the scope has neither `mergeBase` nor a prior `mergeTargetTipSha` — the bare
+ * scope state `setScope` leaves behind when the anchor IPC bailed. Promoting just a `mergeTargetTipSha`
+ * onto a bare scope gives the scope walk an anchor it can't re-root on (no merge base) but will report
+ * unreachable, which the unreachable-anchor handler answers by paging toward it — deep into unrelated
+ * history for a stale target tip. The bare scope keeps the dim-in-place treatment instead.
  */
 export function reconcileScopeMergeTarget(
 	scope: AppState['scope'],
@@ -1011,22 +999,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/**
 	 * Publishes a freshly-picked scope. Resolves to `void` only after the scope value visible to
 	 * the graph (`this.scope`) has reached its final settled form for this call — anchored if the
-	 * anchor IPC resolves with a usable merge base, bare otherwise. Callers that need to fire a
+	 * anchor IPC resolved a merge base or target tip, bare otherwise. Callers that need to fire a
 	 * row navigation against the scoped view (`navigateToCommit`) should `await` this so the graph
 	 * row index has the post-scope set ready by the time selection runs.
 	 *
-	 * Publish strategy: ALWAYS publish exactly one `this.scope` write per `setScope` call. We
-	 * wait for the anchor IPC to resolve before publishing — bare-then-anchored two-step writes
-	 * are perceptible as commits jumping (the GK bundle's bare-scope walk uses a foreign-ref
-	 * heuristic; the anchored walk uses a real merge base, producing a different visible set).
-	 * The IPC is local-disk on desktop and well under 100ms in the common case; the chip + graph
-	 * stay on their pre-scope state until the publish lands, which is more readable than a flash.
+	 * Publish strategy: ALWAYS publish exactly one `this.scope` write per `setScope` call. We wait for the
+	 * anchor IPC to resolve before publishing — bare-then-anchored two-step writes are perceptible as
+	 * commits jumping, since a bare scope only dims while an anchored one re-roots, producing a different
+	 * visible set. The IPC is local-disk on desktop and well under 100ms in the common case; the chip +
+	 * graph stay on their pre-scope state until the publish lands, which is more readable than a flash.
 	 *
 	 * `mergeTargetTipSha` is stripped from the bare publish (when the anchor IPC bails) even
 	 * when the caller supplied one (e.g. `scopeToBranchById` pre-fills it from overview
-	 * enrichment): without a paired `mergeBase`, the bundle scope walk falls into a "target tip
-	 * without merge base" path that only terminates when the target's ancestors are loaded —
-	 * for a stale or deep target that's unsafe.
+	 * enrichment) — see `stripUnpairedMergeTarget`.
 	 */
 	async setScope(scope: GraphScope): Promise<void> {
 		this._pendingScope = scope;
@@ -1052,8 +1037,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 
 		// Cache miss — wait for the anchor IPC, then publish once (anchored if usable, bare if
-		// the host bailed). Never write `this.scope` mid-IPC, so the user never sees the bare
-		// foreign-ref heuristic flash through.
+		// the host bailed). Never write `this.scope` mid-IPC, so the user never sees a bare
+		// dim-only scope flash through on the way to the re-rooted one.
 		//
 		// Show a loading affordance ONLY if the IPC takes long enough to be perceptible. Fast
 		// (sub-`scopeLoadingDelayMs`) paths skip the flag entirely. The flag has its own
@@ -1091,16 +1076,16 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * Publishes a scope ONCE — anchored if the resolved anchor is usable, bare otherwise. Used by
 	 * the no-bare-flash path (cache hit / fast IPC) AND the cache-miss path.
 	 *
-	 * Why an unloaded `mergeBase` falls through to bare: re-rooting needs the boundary in the loaded
-	 * window (`computeScopeProjection` returns undefined without it), so an anchored scope whose base
-	 * isn't loaded buys nothing and only feeds the unreachable-anchor paging path. The bare scope
-	 * keeps the foreign-ref heuristic active, which bounds visibility against currently-loaded refs.
+	 * An anchor whose `mergeBase` isn't in the loaded rows yet is still USABLE, and publishing it is what
+	 * makes the boundary arrive at all: anchor reachability is row membership, re-derived on every rows push
+	 * (`gl-lit-graph`'s `recomputeScope`), so `computeScopeAnchors` reports the base unreachable, that drives
+	 * a targeted page, and the re-root adopts it once it lands. Until then the projection re-roots against an
+	 * open terminus. Loaded-ness therefore has no say here — withholding the anchor for it would also
+	 * withhold the paging that loads it.
 	 *
-	 * Preserve-anchored guard: if `this.scope` is already anchored for the same `branchRef` and
-	 * the new anchor would be a bare downgrade (host bailed OR merge base no longer loaded
-	 * because rows re-paged), we KEEP the existing anchored scope rather than wipe it. The
-	 * previous flow's `applyAnchorToPendingScope` early-returned in this case; preserve that
-	 * behavior so a stale-re-resolve never erases a working anchored state.
+	 * Preserve-anchored guard: if `this.scope` is already anchored for the same `branchRef` and the new
+	 * anchor would be a bare downgrade (the host bailed), we KEEP the existing anchored scope rather than
+	 * wipe it, so a transient failed re-resolve never erases a working anchored state.
 	 */
 	private publishResolvedScope(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
 		const pending = this._pendingScope;
@@ -1108,36 +1093,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		this._pendingScope = undefined;
 
-		const anchorUsable =
-			anchor != null &&
-			(anchor.mergeBase != null || anchor.mergeTargetTipSha != null) &&
-			(anchor.mergeBase == null || this.isShaLoaded(anchor.mergeBase.sha));
+		const anchorUsable = anchor != null && (anchor.mergeBase != null || anchor.mergeTargetTipSha != null);
 
 		if (!anchorUsable) {
-			// Preserve an already-anchored scope for the same branch — don't downgrade to bare —
-			// BUT ONLY if the existing scope's mergeBase is also still loaded. If the existing
-			// anchor's boundary is itself stale (e.g., rows re-paged past it), the GK scope walk
-			// on an unloaded boundary would expose every first-parent ancestor of the focal
-			// branch (see `isShaLoaded` docs). In that case bare is the safer state.
-			// Nor preserve anchors the resolver has superseded — those mark the wrong rows and bound the
-			// walk at the wrong commit. Staleness ALONE isn't enough to justify that, though: it also
-			// fires when the focal tip merely advanced (an ordinary commit does exactly that), and in this
-			// branch the fresh anchor carries no usable replacement, so dropping to bare would discard a
-			// working scope for nothing. Require the resolver to actually offer replacements — the same
-			// gate `applyScopeAnchorPatch` gets from `replacesAnchors`.
+			// Preserve an already-anchored scope for the same branch — don't downgrade to bare. Reaching
+			// here means the resolver offered NO anchors at all (it bailed, or the branch has no merge
+			// target), so there's no replacement to prefer over the working one; a stale-anchor swap is
+			// `applyScopeAnchorPatch`'s job, on the re-resolve path.
 			const current = this.scope;
-			const supersededByReplacement =
-				current != null &&
-				(anchor?.mergeBase != null || anchor?.mergeTargetTipSha != null) &&
-				isScopeAnchorStale(current, anchor);
-			if (
-				current?.branchRef === pending.branchRef &&
-				current.mergeBase != null &&
-				this.isShaLoaded(current.mergeBase.sha) &&
-				!supersededByReplacement
-			) {
-				return;
-			}
+			if (current?.branchRef === pending.branchRef && current.mergeBase != null) return;
 
 			const bare = stripUnpairedMergeTarget(pending);
 			this.scope =
@@ -1482,13 +1446,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		return [...splice.head, ...span, ...(splice.tail ?? [])];
 	}
 
-	/** True when `sha` is present in the graph's loaded rows. Used to decide whether a resolved
-	 *  scope anchor is usable — see `publishResolvedScope`. */
-	private isShaLoaded(sha: string): boolean {
-		const rows = this._state.rows;
-		return rows?.some(r => r.sha === sha) ?? false;
-	}
-
 	private patchScopeAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
 		if (anchor == null) return;
 
@@ -1497,7 +1454,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		const current = this.scope;
 		if (current?.branchRef !== scope.branchRef) return;
 
-		const next = applyScopeAnchorPatch(current, anchor, sha => this.isShaLoaded(sha));
+		const next = applyScopeAnchorPatch(current, anchor);
 		if (next == null) return;
 
 		this.scope = next;
