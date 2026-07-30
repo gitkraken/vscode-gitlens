@@ -69,7 +69,7 @@ import { expandVisibleCategories } from './gl-details-agent-status.js';
 import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
 import { hasOnlyWip } from './gl-details-compare-mode-panel.js';
 import type { GlDetailsComposeModePanel } from './gl-details-compose-mode-panel.js';
-import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.js';
+import type { AutoRebaseCancelDetail, GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.js';
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
@@ -1208,8 +1208,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		// Re-clicking the same mode on the same anchor is a no-op (re-focus).
-		if (this._state.activeMode.get() === mode && engaged === anchorKey(selection)) return;
+		// Re-clicking the same mode on the same anchor is a no-op (re-focus) — except that a resolve
+		// re-entry is how an automatic rebase's escalation hands its resolutions over: the run already
+		// opened this panel, so the mode really is unchanged and only the seeding still needs to run.
+		if (this._state.activeMode.get() === mode && engaged === anchorKey(selection)) {
+			if (mode === 'resolve') {
+				this._workflow.resolve.seedFromEscalation(selection.repoPath);
+			}
+			return;
+		}
 
 		this._workflow.toggleMode(mode, selection);
 	}
@@ -3332,6 +3339,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const resolveError =
 			(resolveValue && 'error' in resolveValue ? resolveValue.error.message : undefined) ??
 			resolveResource.error.get();
+		// The run feed is host-wide (one session per repo, any repo) — scope it to the anchor this panel is
+		// showing so another repo's rebase can't take over this panel.
+		const run = this._state.autoRebaseRun.get();
+		const autoRebaseRun = run != null && run.repoPath === this.effectiveRepoPath ? run : undefined;
+
 		const mappedStatus: 'idle' | 'loading' | 'ready' | 'error' | 'applying' = this._state.resolveApplying.get()
 			? 'applying'
 			: resolveEntry?.execState === 'generating'
@@ -3360,6 +3372,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.refineMode=${resolveEntry?.refineMode ?? false}
 			.refineDraft=${resolveEntry?.refineDraft}
 			.canResumeAutoRebase=${resolveData?.autoRebase != null}
+			.autoRebaseRun=${autoRebaseRun}
+			@auto-rebase-cancel=${(e: CustomEvent<AutoRebaseCancelDetail>) => {
+				// The run's own repo, not the panel anchor — cancelling has to hit the session that is
+				// actually running even if the anchor drifted while it ran.
+				if (autoRebaseRun == null) return;
+
+				void this._actions.cancelAutoRebase(autoRebaseRun.repoPath, e.detail.mode);
+			}}
 			@resolve-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose/review — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {

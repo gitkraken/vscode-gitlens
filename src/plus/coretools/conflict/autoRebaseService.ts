@@ -51,6 +51,13 @@ function autostashRecoverable(autostash: StoredAutoRebaseUndo['autostash']): boo
 	return autostash === 'reapplied' || autostash === 'left-in-stash';
 }
 
+/** Drops the fields that only describe a run in flight. Every phase transition out of a running phase
+ *  goes through here so a progress surface can't be left showing a stale step or message. */
+function clearTransientProgress(session: AutoRebaseSession): void {
+	session.progressMessage = undefined;
+	session.current = undefined;
+}
+
 /**
  * Runs a rebase from start to finish, resolving each conflicted step with AI (applying, staging,
  * and continuing automatically), escalating to the Resolve panel instead of guessing, and
@@ -232,7 +239,7 @@ export class AutoRebaseService implements Disposable {
 		active.handoff = undefined;
 		session.escalation = undefined;
 		session.phase = 'starting';
-		session.progressMessage = undefined;
+		clearTransientProgress(session);
 		this.container.telemetry.sendEvent('autoRebase/resumed', { step: active.escalatedStep?.stepNumber }, source);
 		this.fireChange(session);
 
@@ -526,7 +533,7 @@ export class AutoRebaseService implements Disposable {
 							}
 						: undefined;
 				active.session.phase = 'escalated';
-				active.session.progressMessage = undefined;
+				clearTransientProgress(active.session);
 				this.sendEscalatedEvent(active);
 				this.fireChange(active.session);
 				break;
@@ -548,7 +555,7 @@ export class AutoRebaseService implements Disposable {
 		// date" no-op (which reaches finalize directly, never from the loop, also with 0 steps).
 		if (options?.fromLoop && headSha === session.preRun.headSha) {
 			session.phase = 'aborted';
-			session.progressMessage = undefined;
+			clearTransientProgress(session);
 			this.fireChange(session);
 			void this.container.ai.flushBYOKUsage(session.id);
 			return;
@@ -587,7 +594,7 @@ export class AutoRebaseService implements Disposable {
 		}
 
 		session.phase = 'completed';
-		session.progressMessage = undefined;
+		clearTransientProgress(session);
 		this.container.telemetry.sendEvent(
 			'autoRebase/completed',
 			{
@@ -607,9 +614,14 @@ export class AutoRebaseService implements Disposable {
 			session.escalation = {
 				reason: 'stopped',
 				message: 'Automation stopped — the rebase is paused for you to continue manually.',
+				// Carried over before `clearTransientProgress` drops `current` — it's the only record of
+				// where the user was left, and both the Resolve panel's run context and the escalation
+				// toast say "step N of M" from it.
+				stepNumber: session.current?.stepNumber,
+				totalSteps: session.current?.totalSteps,
 			};
 			session.phase = 'escalated';
-			session.progressMessage = undefined;
+			clearTransientProgress(session);
 			this.sendEscalatedEvent(active);
 			this.fireChange(session);
 			return;
@@ -636,7 +648,7 @@ export class AutoRebaseService implements Disposable {
 		}
 
 		session.phase = 'aborted';
-		session.progressMessage = undefined;
+		clearTransientProgress(session);
 		this.container.telemetry.sendEvent('autoRebase/cancelled', this.lifecycleData(session), active.source);
 		this.fireChange(session);
 		void this.container.ai.flushBYOKUsage(session.id);
@@ -649,7 +661,7 @@ export class AutoRebaseService implements Disposable {
 		active.escalatedStep = undefined;
 		session.failure = ex instanceof Error ? ex.message : String(ex);
 		session.phase = 'failed';
-		session.progressMessage = undefined;
+		clearTransientProgress(session);
 		this.container.telemetry.sendEvent('autoRebase/failed', this.lifecycleData(session), active.source);
 		this.fireChange(session);
 		void this.container.ai.flushBYOKUsage(session.id);

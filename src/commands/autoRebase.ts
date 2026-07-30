@@ -3,7 +3,7 @@ import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { executeGitCommand } from '../git/actions.js';
 import { showGenericErrorMessage } from '../messages.js';
-import { takeoverAutoRebaseWithProgress, undoWithConfirmation } from '../plus/coretools/conflict/autoRebaseProgress.js';
+import { takeoverAutoRebaseRun, undoWithConfirmation } from '../plus/coretools/conflict/autoRebaseProgress.js';
 import { ensurePaidPlan } from '../plus/gk/utils/-webview/plus.utils.js';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
@@ -84,11 +84,7 @@ export class ContinueRebaseWithAiCommand extends GlCommandBase {
 			}
 			if (repoPath == null) return;
 
-			await takeoverAutoRebaseWithProgress(
-				this.container,
-				this.container.git.getRepositoryService(repoPath),
-				source,
-			);
+			await takeoverAutoRebaseRun(this.container, this.container.git.getRepositoryService(repoPath), source);
 		} catch (ex) {
 			Logger.error(ex, 'ContinueRebaseWithAiCommand', 'execute');
 			void showGenericErrorMessage('Unable to continue the rebase');

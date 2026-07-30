@@ -179,6 +179,9 @@ export async function runAutoRebaseLoop(
 		const stepNumber = status.steps.current.number;
 		const totalSteps = status.steps.total;
 		lastKnownTotalSteps = totalSteps;
+		// Published for progress surfaces; the terminal transitions in the service clear it alongside
+		// `progressMessage`.
+		session.current = { stepNumber: stepNumber, totalSteps: totalSteps };
 		maxIterations ??= totalSteps * 2 + iterationCapSlack;
 		if (++iterations > maxIterations) {
 			return escalate({

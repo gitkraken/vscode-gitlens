@@ -14,7 +14,7 @@ import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js'
 import type { GlRepository } from '../../git/models/repository.js';
 import { isRebaseTodoEditorEnabled, reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
-import { startAutoRebaseWithProgress } from '../../plus/coretools/conflict/autoRebaseProgress.js';
+import { startAutoRebaseRun } from '../../plus/coretools/conflict/autoRebaseProgress.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -96,10 +96,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		if (state.flags.includes('ai-resolve')) {
 			this.container.telemetry.sendEvent('gitCommand/run', { command: 'rebase' });
 			const svc = this.container.git.getRepositoryService(state.repo.path);
-			// The wizard always rebases the current branch — pass it explicitly so the progress
-			// title and session record carry the branch name.
+			// The wizard always rebases the current branch — pass it explicitly so the session record
+			// (and the Resolve panel's run header) carries the branch name.
 			const branch = (await svc.branches.getBranch())?.name;
-			return startAutoRebaseWithProgress(this.container, svc, {
+			return startAutoRebaseRun(this.container, svc, {
 				upstream: state.destination.ref,
 				branch: branch,
 				updateRefs: updateRefs,
