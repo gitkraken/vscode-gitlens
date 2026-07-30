@@ -272,6 +272,18 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return Object.values(this.graphState.excludeRefs ?? {}).sort(compareGraphRefOpts);
 	}
 
+	/** Whether the live scope is focused on the current branch — the state that makes a plain
+	 *  jump-to-ref click unfocus rather than focus. Identity by `branchRef`, the one scope field the
+	 *  anchor resolver never rewrites (it backfills the merge base and tip SHAs). Detached HEAD never
+	 *  matches: `setScope` rejects detached scopes, so there's nothing to unfocus. An unknown branch id
+	 *  reads as "not focused" so the click focuses rather than matching on `undefined`. */
+	private get isScopedToCurrentBranch(): boolean {
+		const { scope, branch } = this.graphState;
+		if (scope == null || branch == null || branch.detached || branch.id == null) return false;
+
+		return scope.branchRef === branch.id;
+	}
+
 	// Local search query state (not in global context)
 	private _searchQuery: SearchQuery = { query: '' };
 
@@ -392,8 +404,17 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		// Plain: focus (scope) the graph onto the current branch. Only record the action when it
-		// actually proceeds — a no-op click (e.g. detached HEAD, no current branch) shouldn't count.
+		// Plain: toggle the graph's focus (scope) on the current branch. Unfocus only when the live scope
+		// IS the current branch — the button names the current branch, so a scope on any other branch
+		// retargets to it instead of clearing. `clearScope` reports the unfocus itself
+		// (`graph/scope/cleared`), so `jumpTo` stays reserved for clicks that focus. Only record the
+		// action when it actually proceeds — a no-op click (e.g. detached HEAD, no current branch)
+		// shouldn't count.
+		if (this.isScopedToCurrentBranch) {
+			this.graphState.clearScope();
+			return;
+		}
+
 		if (this.scopeToCurrentBranch()) {
 			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: false } });
 		}
@@ -1008,6 +1029,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const hasMultipleRepositories = (this.graphState.repositories?.length ?? 0) > 1;
 
 		const { allowed, branch, branchState, config, lastFetched, loading, state } = this.graphState;
+		// Names what a plain jump-to-ref click will do, so the label can't drift from the behavior.
+		const focusLabel = this.isScopedToCurrentBranch ? 'Unfocus Current Branch' : 'Focus on Current Branch';
 
 		return html`<div class="titlebar__row titlebar__row--wrap">
 			<div class="titlebar__group">
@@ -1072,13 +1095,18 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 								}
 							</div>
 						</gl-ref-button>
-						<gl-button class="jump-to-ref" appearance="toolbar" @click=${this.handleJumpToRef}>
+						<gl-button
+							class="jump-to-ref"
+							appearance="toolbar"
+							aria-label=${focusLabel}
+							@click=${this.handleJumpToRef}
+						>
 							<code-icon icon="target"></code-icon>
 							<span slot="tooltip">
 								${
 									this._modifiers.altKey
 										? html`Focus on a Branch...`
-										: html`Focus on Current Branch<br />[${getAltKeySymbol()}] Focus on a Branch...`
+										: html`${focusLabel}<br />[${getAltKeySymbol()}] Focus on a Branch...`
 								}
 							</span>
 						</gl-button>
