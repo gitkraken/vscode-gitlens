@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.4.101] - 2026-07-30
+
 ## [0.4.100] - 2026-07-29
 
 ### Added
@@ -120,7 +122,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.4.100...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.4.101...HEAD
+[0.4.101]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.4.100...gitkraken:releases/core/v0.4.101
 [0.4.100]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.4.0...gitkraken:releases/core/v0.4.100
 [0.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.1...gitkraken:releases/core/v0.4.0
 [0.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.0...gitkraken:releases/core/v0.3.1
