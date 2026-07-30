@@ -286,9 +286,10 @@ export class McpClient {
 	/**
 	 * Builds the `gk mcp` arguments for a server mode.
 	 *
-	 * Both flags are passed bare, never as `--flag=false`: the CLI derives read-only from the flag
-	 * being *present* (`cmd.Flags().Changed`), so `--readonly=false` would still start a read-only
-	 * server. Omitting the flag is the only way to express "not read-only".
+	 * Flags are passed bare, never as `--flag=false`. That is mandatory for `--readonly`, which the
+	 * CLI derives from the flag being *present* (`cmd.Flags().Changed`), so `--readonly=false` would
+	 * still start a read-only server — omitting it is the only way to express "not read-only".
+	 * `--experimental` is read by value, but is passed the same way for consistency.
 	 */
 	private serverArgs(mode: McpServerMode | undefined): string[] {
 		const args = ['mcp', `--host=${this.host}`, '--source=gitlens', `--scheme=${this.host}`];

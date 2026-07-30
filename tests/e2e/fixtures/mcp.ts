@@ -8,7 +8,6 @@ export type {
 	McpConfigResult,
 	McpMessage,
 	McpClient,
-	McpServerMode,
 	McpToolDefinition,
 } from '../helpers/mcpHelper.js';
 export { readIpcDiscoveryFile } from '../helpers/mcpHelper.js';
