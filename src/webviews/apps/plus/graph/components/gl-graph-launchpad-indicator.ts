@@ -20,12 +20,15 @@ declare global {
 }
 
 type CountGroup = { total: number; label: string };
+/** Mutually-exclusive rocket overlay: a centered spinner, or a corner-badge codicon name. */
+type RocketOverlay = 'spinner' | 'plug' | 'circle-slash';
 
 /**
- * Graph header Launchpad presence — replaces the old rocket + Home buttons. Always leads with the
- * rocket; the trailing element reflects the shared store state: per-group counts (connected, has
- * actionable PRs), a spinning loader, a `plug` (not connected), or a `circle-slash` (error). Clicking
- * opens a popover with the full summary (`gl-launchpad-summary`) and an "Open Launchpad" action.
+ * Graph header Launchpad presence — replaces the old rocket + Home buttons. The rocket is the only glyph;
+ * shared-store state rides on it as a bottom-right corner badge sharing one grid cell, so the pill is the
+ * same width in every state: a spinning loader (resolving), a `plug` (not connected), a `circle-slash`
+ * (error), or a severity dot (connected, actionable PRs). Clicking opens a popover with the full summary
+ * (`gl-launchpad-summary`) and an "Open Launchpad" action.
  *
  * Data comes from the shared {@link graphLaunchpadContext} store owned by `gl-graph-app` — this
  * component never fetches.
@@ -40,13 +43,40 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 				display: inline-flex;
 			}
 
-			/* Layout-transparent stack: the rocket and the severity dot share one grid cell so the dot never shifts the pill. */
+			/* One grid cell holds the rocket and every state overlay (spinner, badge, dot), so no state changes the pill's width. */
 			.rocket {
 				display: inline-grid;
 			}
 
-			.rocket code-icon {
+			/* line-height: 1 collapses the cell to the rocket's own 1.6rem glyph box, so overlays anchor to the
+	   glyph instead of the pill's 2.2rem line box (the .action-button code-icon rule). The :is() bump
+	   beats that rule on specificity rather than on static-styles ordering. */
+			.rocket code-icon:is(.rocket__icon, .rocket__badge) {
 				grid-area: 1 / 1;
+				line-height: 1;
+			}
+
+			/* 1.2rem corner badge overhanging the rocket's bottom-right — the one slot every state overlay uses
+	   (spinner, plug, circle-slash). Negative margins, not translate: the spin animation owns transform,
+	   so a translate here would fight it and the badge would bob instead of spin. */
+			.rocket__badge {
+				--code-icon-size: 1.2rem;
+
+				place-self: end end;
+				margin-right: -0.1rem;
+				margin-bottom: -0.1rem;
+				pointer-events: none;
+			}
+
+			/* Punch a hole in the rocket behind the badge rather than backing the badge with an opaque chip: the
+	   pill is transparent at rest and tinted on hover, and a cutout tracks neither. Geometry resolves in
+	   the rocket's own em box (1em = 1.6rem): the 1.2rem badge centers 0.69em in from each edge, so a
+	   0.4em radius clears it. Only applied with a badge present, so a lone rocket isn't notched. */
+			.rocket__icon--badged {
+				--gl-launchpad-badge-cutout: radial-gradient(circle 0.4em at 0.69em 0.69em, transparent 96%, #000 100%);
+
+				-webkit-mask-image: var(--gl-launchpad-badge-cutout);
+				mask-image: var(--gl-launchpad-badge-cutout);
 			}
 
 			.dot {
@@ -58,7 +88,9 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 				pointer-events: none;
 				background-color: var(--gl-launchpad-dot-color);
 				border-radius: 100%;
-				transform: translate(48%, -10%);
+
+				/* +40% (not -10%) because the cell is the glyph's 1.6rem box, not the 2.2rem line box — same rendered position. */
+				transform: translate(48%, 40%);
 			}
 
 			.dot--blocked {
@@ -102,6 +134,13 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 			.popover__footer {
 				padding: var(--gl-space-4) var(--gl-space-8) var(--gl-space-8);
 			}
+
+			@media (prefers-reduced-motion: reduce) {
+				/* Outer-tree rule wins over code-icon's own :host([modifier='spin']) animation. */
+				.rocket code-icon[modifier='spin'] {
+					animation: none;
+				}
+			}
 		`,
 	];
 
@@ -114,6 +153,7 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 
 	override render(): unknown {
 		const connected = this._state?.connected.get();
+		const overlay = this.overlay;
 
 		return html`<gl-popover placement="bottom" trigger="hover focus" ?arrow=${false} .distance=${0}>
 			<a
@@ -122,12 +162,15 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 				href=${this.openLaunchpadLink}
 				aria-haspopup="dialog"
 				aria-label=${this.buttonLabel}
+				aria-busy=${this._state?.loading.get() ?? false}
 			>
 				<span class="rocket">
-					<code-icon icon="rocket"></code-icon>
-					${this.renderDot(connected)}
+					<code-icon
+						class="rocket__icon${overlay != null ? ' rocket__icon--badged' : ''}"
+						icon="rocket"
+					></code-icon>
+					${this.renderOverlay(overlay)}${this.renderDot(connected)}
 				</span>
-				${this.renderTrailing(connected)}
 			</a>
 			<div slot="content">
 				<div class="popover__header">
@@ -165,25 +208,38 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 		</gl-popover>`;
 	}
 
-	private renderTrailing(connected: boolean | undefined): unknown {
-		if (connected === false) {
-			return html`<code-icon icon="plug" aria-hidden="true"></code-icon>`;
-		}
+	/**
+	 * Mutually-exclusive rocket overlay, in the same precedence {@link buttonLabel} uses: not-connected wins
+	 * over an in-flight first load, which wins over a failed load. `undefined` leaves the rocket to
+	 * {@link renderDot}.
+	 */
+	private get overlay(): RocketOverlay | undefined {
+		if (this._state?.connected.get() === false) return 'plug';
 
 		const summary = this.summary;
-		if (summary == null) {
-			// Still resolving — show a spinner only while a fetch is in flight (avoids a bare rocket flash).
-			return (this._state?.loading.get() ?? false)
-				? html`<code-icon icon="loading" modifier="spin" aria-hidden="true"></code-icon>`
-				: nothing;
-		}
+		// Still resolving — spin only while a fetch is in flight (avoids a bare rocket flash before one starts).
+		if (summary == null) return (this._state?.loading.get() ?? false) ? 'spinner' : undefined;
 
-		if (!('total' in summary)) {
-			return html`<code-icon icon="circle-slash" aria-hidden="true"></code-icon>`;
-		}
+		if (!('total' in summary)) return 'circle-slash';
 
 		// Connected — actionable presence is surfaced by the severity dot on the rocket (see renderDot).
-		return nothing;
+		return undefined;
+	}
+
+	/**
+	 * State overlay as a corner badge on the rocket — a spinning loader while resolving, otherwise the
+	 * failure glyph. Shares the rocket's grid cell, so no state widens the pill.
+	 */
+	private renderOverlay(overlay: RocketOverlay | undefined): unknown {
+		if (overlay == null) return nothing;
+
+		const spinning = overlay === 'spinner';
+		return html`<code-icon
+			class="rocket__badge"
+			icon=${spinning ? 'loading' : overlay}
+			modifier=${spinning ? 'spin' : ''}
+			aria-hidden="true"
+		></code-icon>`;
 	}
 
 	/**
@@ -221,16 +277,19 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 	}
 
 	private get buttonLabel(): string {
-		const connected = this._state?.connected.get();
-		if (connected === false) return 'Launchpad — connect an integration to see pull requests';
+		// The badges and spinner are decorative, so every state has to be distinguishable here or a screen
+		// reader hears the same bare "Launchpad" for loading, not-connected, and failure alike.
+		switch (this.overlay) {
+			case 'plug':
+				return 'Launchpad — connect an integration to see pull requests';
+			case 'spinner':
+				return 'Launchpad — loading';
+			case 'circle-slash':
+				return 'Launchpad — unable to load pull requests';
+		}
 
 		const summary = this.summary;
-		// The `circle-slash` / spinner are decorative, so the failure and loading states have to be
-		// distinguishable here or a screen reader hears the same bare "Launchpad" for both
-		if (summary == null) {
-			return (this._state?.loading.get() ?? false) ? 'Launchpad — loading' : 'Launchpad';
-		}
-		if (!('total' in summary)) return 'Launchpad — unable to load pull requests';
+		if (summary == null || !('total' in summary)) return 'Launchpad';
 
 		const groups = this.getCountGroups(summary);
 		if (groups.length === 0) return 'Launchpad — all caught up';
