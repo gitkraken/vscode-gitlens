@@ -149,9 +149,12 @@ export function unitThresholdMs(unit: Intl.RelativeTimeFormatUnit): number {
 
 // fromNow keeps its OWN single-pass loop (not routed through fromNowUnit) — one iteration, no
 // intermediate {unit,value} object allocation on this hot formatting path; fromNowUnit below iterates
-// the SAME `relativeUnitThresholds` array, so the two classifications can't drift apart.
-export function fromNow(date: Date | number, short?: boolean): string {
-	const elapsed = (typeof date === 'number' ? date : date.getTime()) - Date.now();
+// the SAME `relativeUnitThresholds` array, so the two classifications can't drift apart. `now` defaults
+// to `Date.now()`, like fromNowUnit's — pass it to pin the instant (a caller comparing against its own
+// clock read otherwise sits one unpredictable tick away from the bucket it expects).
+export function fromNow(date: Date | number, short?: boolean, now: Date | number = Date.now()): string {
+	const elapsed =
+		(typeof date === 'number' ? date : date.getTime()) - (typeof now === 'number' ? now : now.getTime());
 	// Guard against invalid dates (e.g. `new Date(<unparseable>)`), since a non-finite value would throw in `Intl.RelativeTimeFormat.format`
 	if (!Number.isFinite(elapsed)) return '';
 

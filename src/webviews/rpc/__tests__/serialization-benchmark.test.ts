@@ -1,12 +1,13 @@
 /**
- * Serialization benchmark for Supertalk RPC with Graph-scale payloads.
+ * Serialization coverage for Supertalk RPC with Graph-scale payloads.
  *
- * Validates that Supertalk's Connection can handle large arrays of
+ * Validates that Supertalk's Connection can carry large arrays of
  * GraphRow-like objects (the dominant payload shape for the Commit Graph
- * webview) with acceptable overhead.
+ * webview) intact and at a payload-independent transport cost — measured in
+ * messages posted, so the guard is deterministic on any machine.
  *
  * Uses `nestedProxies: false` deliberately (not the production default) —
- * benchmarks the non-recursive path where plain data arrays skip the
+ * exercises the non-recursive path where plain data arrays skip the
  * `#processForClone` walk. Production uses `nestedProxies: true` because
  * GetOverviewBranch has nested Promises and the JSON transport needs
  * DateHandler traversal for nested Dates.
@@ -114,11 +115,12 @@ function generateRows(count: number): SyntheticGraphRow[] {
  * Node MessagePorts use `on`/`off` instead of `addEventListener`/`removeEventListener`
  * and emit data directly instead of wrapping it in a MessageEvent.
  */
-function adaptPort(port: import('node:worker_threads').MessagePort): Endpoint {
+function adaptPort(port: import('node:worker_threads').MessagePort, counter: { count: number }): Endpoint {
 	// Cast needed because Endpoint.postMessage uses DOM's Transferable type,
 	// which isn't available in the Node.js tsconfig target.
 	return {
 		postMessage: (message: unknown, transfer?: unknown[]) => {
+			counter.count++;
 			port.postMessage(message, (transfer ?? []) as import('node:worker_threads').TransferListItem[]);
 		},
 		addEventListener: (_type: 'message', listener: (event: MessageEvent) => void) => {
@@ -136,19 +138,21 @@ function adaptPort(port: import('node:worker_threads').MessagePort): Endpoint {
 
 /**
  * Creates a connected host/client Connection pair using MessageChannel.
- * Returns the client-side remote proxy and a cleanup function.
+ * Returns the client-side remote proxy, a running count of messages posted across both endpoints,
+ * and a cleanup function.
  */
 async function createConnectionPair<T extends object>(
 	services: T,
-): Promise<{ remote: Remote<T>; dispose: () => void }> {
+): Promise<{ remote: Remote<T>; messages: () => number; dispose: () => void }> {
 	const { port1, port2 } = new MessageChannel();
 
 	// Start both ports (required for Node MessagePort to dispatch messages)
 	port1.start();
 	port2.start();
 
-	const hostEndpoint = adaptPort(port1);
-	const clientEndpoint = adaptPort(port2);
+	const counter = { count: 0 };
+	const hostEndpoint = adaptPort(port1, counter);
+	const clientEndpoint = adaptPort(port2, counter);
 
 	const connectionOptions = {
 		handlers: [...rpcHandlers],
@@ -166,6 +170,7 @@ async function createConnectionPair<T extends object>(
 
 	return {
 		remote: remote,
+		messages: () => counter.count,
 		dispose: () => {
 			clientConnection.close();
 			hostConnection.close();
@@ -247,97 +252,72 @@ suite('Serialization Benchmark Test Suite', () => {
 		}
 	});
 
-	test('should handle 100 GraphRow-like objects within acceptable time', async () => {
+	// Payload cost is asserted in MESSAGES, not milliseconds: one request plus one response per call and
+	// no per-row traffic. That constant IS the linear-scaling property the transport has to hold, and
+	// unlike a wall-clock budget it doesn't move under a loaded CI runner. Deep-equality on the way back
+	// is what proves the rows crossed as cloned plain data — a proxied row can't satisfy it.
+	for (const count of [100, 500, 1000]) {
+		test(`should carry ${count} GraphRow-like objects as plain data at a fixed message cost`, async () => {
+			const rows = generateRows(count);
+			const services: GraphDataService = {
+				getRows: (n: number) => rows.slice(0, n),
+				echo: (value: string) => value,
+			};
+
+			const { remote, messages, dispose } = await createConnectionPair<GraphDataService>(services);
+
+			try {
+				// Warm up first: the baseline has to be a STEADY-state per-call cost. Measuring it on the
+				// very first call would fold any one-time setup traffic into `perCall` and then report the
+				// full payload as cheaper than a single row.
+				await remote.getRows(1);
+
+				// A single-row call establishes the per-call cost the full payload has to match.
+				const oneRowMark = messages();
+				await remote.getRows(1);
+				const perCall = messages() - oneRowMark;
+				assert.ok(perCall > 0, 'expected a call to post at least one message');
+
+				const mark = messages();
+				const received = await remote.getRows(count);
+
+				assert.strictEqual(received.length, count);
+				assert.strictEqual(
+					messages() - mark,
+					perCall,
+					`${count} rows cost ${messages() - mark} messages, a single row costs ${perCall}`,
+				);
+				assert.deepStrictEqual(received, rows);
+			} finally {
+				dispose();
+			}
+		});
+	}
+
+	test('should scale from 100 to 1000 rows with no per-row transport overhead', async () => {
+		const rows = generateRows(1000);
 		const services: GraphDataService = {
-			getRows: (count: number) => generateRows(count),
+			getRows: (n: number) => rows.slice(0, n),
 			echo: (value: string) => value,
 		};
 
-		const { remote, dispose } = await createConnectionPair<GraphDataService>(services);
+		const { remote, messages, dispose } = await createConnectionPair<GraphDataService>(services);
 
 		try {
-			const start = performance.now();
-			const rows = await remote.getRows(100);
-			const elapsed = performance.now() - start;
+			// Warm up so neither measurement absorbs one-time setup traffic
+			await remote.getRows(1);
 
-			assert.strictEqual(rows.length, 100);
-			assert.ok(elapsed < 50, `100 rows took ${elapsed.toFixed(1)}ms, expected < 50ms`);
-		} finally {
-			dispose();
-		}
-	});
-
-	test('should handle 500 GraphRow-like objects within acceptable time', async () => {
-		const services: GraphDataService = {
-			getRows: (count: number) => generateRows(count),
-			echo: (value: string) => value,
-		};
-
-		const { remote, dispose } = await createConnectionPair<GraphDataService>(services);
-
-		try {
-			const start = performance.now();
-			const rows = await remote.getRows(500);
-			const elapsed = performance.now() - start;
-
-			assert.strictEqual(rows.length, 500);
-			assert.ok(elapsed < 50, `500 rows took ${elapsed.toFixed(1)}ms, expected < 50ms`);
-		} finally {
-			dispose();
-		}
-	});
-
-	test('should handle 1000 GraphRow-like objects within acceptable time', async () => {
-		const services: GraphDataService = {
-			getRows: (count: number) => generateRows(count),
-			echo: (value: string) => value,
-		};
-
-		const { remote, dispose } = await createConnectionPair<GraphDataService>(services);
-
-		try {
-			const start = performance.now();
-			const rows = await remote.getRows(1000);
-			const elapsed = performance.now() - start;
-
-			assert.strictEqual(rows.length, 1000);
-			assert.ok(elapsed < 50, `1000 rows took ${elapsed.toFixed(1)}ms, expected < 50ms`);
-		} finally {
-			dispose();
-		}
-	});
-
-	test('should scale roughly linearly from 100 to 1000 rows', async () => {
-		const services: GraphDataService = {
-			getRows: (count: number) => generateRows(count),
-			echo: (value: string) => value,
-		};
-
-		const { remote, dispose } = await createConnectionPair<GraphDataService>(services);
-
-		try {
-			// Warm up — first call may include JIT overhead
-			await remote.getRows(50);
-
-			// Measure 100 rows
-			const start100 = performance.now();
+			const mark100 = messages();
 			await remote.getRows(100);
-			const elapsed100 = performance.now() - start100;
+			const cost100 = messages() - mark100;
 
-			// Measure 1000 rows
-			const start1000 = performance.now();
+			const mark1000 = messages();
 			await remote.getRows(1000);
-			const elapsed1000 = performance.now() - start1000;
+			const cost1000 = messages() - mark1000;
 
-			// The 1000-row call should not take more than 20x the 100-row call.
-			// For linear scaling the theoretical ratio is 10x; we allow 20x to
-			// absorb jitter, GC pauses, and constant-factor overhead.
-			const ratio = elapsed1000 / Math.max(elapsed100, 0.01);
-			assert.ok(
-				ratio < 20,
-				`Scaling ratio ${ratio.toFixed(1)}x exceeds 20x threshold ` +
-					`(100 rows: ${elapsed100.toFixed(1)}ms, 1000 rows: ${elapsed1000.toFixed(1)}ms)`,
-			);
+			// Without this the equality below would hold vacuously if the counter ever stopped counting
+			assert.ok(cost100 > 0, 'expected a call to post at least one message');
+			assert.strictEqual(cost1000, cost100, `1000 rows cost ${cost1000} messages, 100 rows cost ${cost100}`);
 		} finally {
 			dispose();
 		}
@@ -374,21 +354,29 @@ suite('Serialization Benchmark Test Suite', () => {
 			return rows;
 		}
 
+		const dense = generateDenseRows(1000);
 		const services = {
-			getDenseRows: (count: number) => generateDenseRows(count),
+			getDenseRows: (count: number) => dense.slice(0, count),
 		};
 
-		const { remote, dispose } = await createConnectionPair(services);
+		const { remote, messages, dispose } = await createConnectionPair(services);
 
 		try {
-			const start = performance.now();
+			// Warm up so the baseline is a steady-state per-call cost, not first-call setup traffic
+			await remote.getDenseRows(1);
+
+			const oneRowMark = messages();
+			await remote.getDenseRows(1);
+			const perCall = messages() - oneRowMark;
+			assert.ok(perCall > 0, 'expected a call to post at least one message');
+
+			const mark = messages();
 			const rows = await remote.getDenseRows(1000);
-			const elapsed = performance.now() - start;
 
 			assert.strictEqual(rows.length, 1000);
-
-			// Dense rows have more properties, so allow a higher budget
-			assert.ok(elapsed < 100, `1000 dense rows took ${elapsed.toFixed(1)}ms, expected < 100ms`);
+			// Every optional field populated on every row — still one request and one response.
+			assert.strictEqual(messages() - mark, perCall);
+			assert.deepStrictEqual(rows, dense);
 
 			// Spot-check structure
 			const row = rows[0];
@@ -402,39 +390,34 @@ suite('Serialization Benchmark Test Suite', () => {
 		}
 	});
 
-	test.skip('should handle multiple sequential calls without degradation', async () => {
+	test('should handle multiple sequential calls without degradation', async () => {
+		const rows = generateRows(500);
 		const services: GraphDataService = {
-			getRows: (count: number) => generateRows(count),
+			getRows: (n: number) => rows.slice(0, n),
 			echo: (value: string) => value,
 		};
 
-		const { remote, dispose } = await createConnectionPair<GraphDataService>(services);
+		const { remote, messages, dispose } = await createConnectionPair<GraphDataService>(services);
 
 		try {
-			// Warm up at the same payload size to absorb JIT overhead
+			// Warm up at the same payload size so the first measured call isn't the one paying for setup
 			await remote.getRows(500);
 
-			const timings: number[] = [];
-			const iterations = 5;
-
-			for (let i = 0; i < iterations; i++) {
-				const start = performance.now();
-				const rows = await remote.getRows(500);
-				timings.push(performance.now() - start);
-				assert.strictEqual(rows.length, 500);
+			// Degradation shows up as a growing per-call message cost — retained state, a re-handshake, or
+			// proxies accumulating across calls. Repeating one identical call has to stay flat.
+			const costs: number[] = [];
+			for (let i = 0; i < 5; i++) {
+				const mark = messages();
+				const received = await remote.getRows(500);
+				costs.push(messages() - mark);
+				assert.strictEqual(received.length, 500);
 			}
 
-			// CI runners see higher relative variance, so allowing a wider threshold
-			const maxRatio = process.env.CI ? 10 : 5;
-			const fastest = Math.min(...timings);
-			const slowest = Math.max(...timings);
-			const ratio = slowest / Math.max(fastest, 0.01);
-
-			assert.ok(
-				ratio < maxRatio,
-				`Sequential call variance too high: fastest=${fastest.toFixed(1)}ms, ` +
-					`slowest=${slowest.toFixed(1)}ms, ratio=${ratio.toFixed(1)}x (limit=${maxRatio}x)`,
-			);
+			// Without this the equalities below would hold vacuously if the counter ever stopped counting
+			assert.ok(costs[0] > 0, 'expected a call to post at least one message');
+			for (const [i, cost] of costs.entries()) {
+				assert.strictEqual(cost, costs[0], `call ${i + 1} cost ${cost} messages, the first cost ${costs[0]}`);
+			}
 		} finally {
 			dispose();
 		}

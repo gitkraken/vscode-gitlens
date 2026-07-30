@@ -24,10 +24,13 @@ suite('Date Test Suite', () => {
 		});
 
 		test('formats valid dates', () => {
+			// `now` is pinned so the elapsed span is exactly 5s — reading the clock twice (once here, once
+			// inside fromNow) leaves the assertion one tick away from rounding to '6s'.
+			const now = Date.now();
 			// 5 seconds ago (short, en locale) is computed by our own code, so it is stable
-			assert.strictEqual(fromNow(Date.now() - 5000, true), '5s');
+			assert.strictEqual(fromNow(now - 5000, true, now), '5s');
 			// Long form is locale/ICU-dependent, so just assert it produces output without throwing
-			assert.notStrictEqual(fromNow(Date.now() - 5000), '');
+			assert.notStrictEqual(fromNow(now - 5000, false, now), '');
 		});
 	});
 

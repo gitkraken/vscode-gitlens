@@ -181,27 +181,30 @@ suite('agentUtils', () => {
 		const h = 60 * m;
 		const d = 24 * h;
 		const w = 7 * d;
-		const ago = (ms: number) => Date.now() - ms;
+		// `now` is pinned and passed through, so each span is exact. Reading the clock twice (once for the
+		// input, once inside the formatter) leaves the boundary cases one tick from the next bucket.
+		const now = Date.now();
+		const elapsed = (ms: number) => formatAgentElapsed(now - ms, now);
 
 		test('returns undefined for undefined', () => {
 			assert.strictEqual(formatAgentElapsed(undefined), undefined);
 		});
 
 		test('rolls seconds → minutes → hours', () => {
-			assert.strictEqual(formatAgentElapsed(ago(5 * s)), '5s');
-			assert.strictEqual(formatAgentElapsed(ago(5 * m)), '5m');
-			assert.strictEqual(formatAgentElapsed(ago(3 * h + 20 * m)), '3h 20m');
-			assert.strictEqual(formatAgentElapsed(ago(3 * h)), '3h');
+			assert.strictEqual(elapsed(5 * s), '5s');
+			assert.strictEqual(elapsed(5 * m), '5m');
+			assert.strictEqual(elapsed(3 * h + 20 * m), '3h 20m');
+			assert.strictEqual(elapsed(3 * h), '3h');
 		});
 
 		test('rolls hours → days past 24h', () => {
-			assert.strictEqual(formatAgentElapsed(ago(26 * h)), '1d 2h');
-			assert.strictEqual(formatAgentElapsed(ago(3 * d)), '3d');
+			assert.strictEqual(elapsed(26 * h), '1d 2h');
+			assert.strictEqual(elapsed(3 * d), '3d');
 		});
 
 		test('rolls days → weeks past 7d', () => {
-			assert.strictEqual(formatAgentElapsed(ago(9 * d)), '1w 2d');
-			assert.strictEqual(formatAgentElapsed(ago(2 * w)), '2w');
+			assert.strictEqual(elapsed(9 * d), '1w 2d');
+			assert.strictEqual(elapsed(2 * w), '2w');
 		});
 	});
 });

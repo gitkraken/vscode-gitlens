@@ -551,12 +551,19 @@ suite('Decorator Test Suite', () => {
 
 		test('gate should work with multiple instances', async () => {
 			let executionCount = 0;
+			// Overlap is tracked directly rather than inferred from elapsed time: the two instances' bodies
+			// have to be in flight AT ONCE, which a wall-clock budget can only imply.
+			let inFlight = 0;
+			let maxInFlight = 0;
 
 			class TestClass {
 				@gate()
 				async method(value: string): Promise<number> {
 					const count = ++executionCount;
+					inFlight++;
+					maxInFlight = Math.max(maxInFlight, inFlight);
 					await new Promise(resolve => setTimeout(resolve, 50));
+					inFlight--;
 					return count;
 				}
 			}
@@ -565,20 +572,18 @@ suite('Decorator Test Suite', () => {
 			const instance2 = new TestClass();
 
 			// Concurrent calls on different instances should not deduplicate
-			const start = performance.now();
 			const p1 = instance1.method('test');
 			const p2 = instance2.method('test');
 			const p3 = instance1.method('test'); // Should dedupe with p1
 
 			const results = await Promise.all([p1, p2, p3]);
-			const totalTime = performance.now() - start;
 
 			// Should execute 2 times (instance1: 1, instance2: 1)
 			assert.strictEqual(executionCount, 2);
 			assert.strictEqual(results[0], results[2]); // p1 and p3 share result
 			assert.notStrictEqual(results[0], results[1]); // p1 and p2 different
-			// Should run in parallel (total time should be ~50ms, not ~100ms)
-			assert.ok(totalTime < 80, `Expected parallel execution (~50ms), but took ${totalTime}ms`);
+			// Both instances ran in parallel, not one after the other
+			assert.strictEqual(maxInFlight, 2, 'expected both instances to execute concurrently');
 		});
 
 		test('should reject with CancellationError on timeout', async () => {
