@@ -777,10 +777,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	 *  swaps to a spinner so the visual state matches the action's progress. */
 	private renderLoadMoreRow(loadingMore: boolean) {
 		return html`<button class="compare-load-more" ?disabled=${loadingMore} @click=${this.dispatchLoadMore}>
-			<code-icon
-				icon=${loadingMore ? 'loading' : 'fold-down'}
-				?modifier=${loadingMore ? 'spin' : false}
-			></code-icon>
+			<code-icon icon=${loadingMore ? 'loading' : 'fold-down'} modifier=${loadingMore ? 'spin' : ''}></code-icon>
 			<span>${loadingMore ? 'Loading…' : 'Load More Commits'}</span>
 		</button>`;
 	}

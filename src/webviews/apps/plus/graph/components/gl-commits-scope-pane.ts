@@ -524,10 +524,7 @@ export class GlCommitsScopePane extends LitElement {
 		>
 			<span class="scope-row__dot-col">
 				<span class="scope-row__connector scope-row__connector--above"></span>
-				<code-icon
-					icon=${isLoading ? 'loading' : 'fold-down'}
-					?modifier=${isLoading ? 'spin' : false}
-				></code-icon>
+				<code-icon icon=${isLoading ? 'loading' : 'fold-down'} modifier=${isLoading ? 'spin' : ''}></code-icon>
 				<span class="scope-row__connector scope-row__connector--below"></span>
 			</span>
 			<span class="scope-row__label--dimmed">${item.label}</span>

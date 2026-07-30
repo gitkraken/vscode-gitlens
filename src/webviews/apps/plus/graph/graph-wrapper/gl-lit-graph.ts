@@ -7342,6 +7342,14 @@ export class GlLitGraph extends LitElement {
 				// Floor degradation: an active filter on an ultra-narrow icon-only column can't fit both the
 				// filter button and the column icon — render ONLY the filter button (never a clipped half icon).
 				const filterOnly = filterActive && labelAsIcon && headerW - controlsPx < 46;
+				// While the host resolves diffstats, a Changes header collapsed to its glyph spins THAT glyph
+				// instead of the pinned inline-end spinner: at these widths the pinned one can't clear the
+				// leading content, so it was suppressed outright (see renderChangesLoading). Filter-only is
+				// excluded — it has no identity glyph, only the filter button and the picker chevron.
+				const changesGlyphLoading =
+					zone.id === 'changes' &&
+					this.rowsStatsLoading &&
+					(changesIconStage || (labelAsIcon && !filterOnly));
 				// Double-click fits the column the splitter precedes (the NEXT zone) — except when that's the
 				// elastic fill (no fixed width), where it fits THIS zone instead (see onResizeAutosize). Name
 				// the real target so the tooltip doesn't lie.
@@ -7416,6 +7424,7 @@ export class GlLitGraph extends LitElement {
 											i,
 											zoneHeaderIcons.changes,
 											true,
+											changesGlyphLoading,
 										)}`
 									: filterOnly
 										? html`${this.renderFilterButton(zone, true, true)}${
@@ -7455,7 +7464,12 @@ export class GlLitGraph extends LitElement {
 														labelAsIcon
 															? html`<code-icon
 																	class="gl-graph__header-label-icon"
-																	icon=${zoneHeaderIcons[zone.id]}
+																	icon=${
+																		changesGlyphLoading
+																			? 'loading'
+																			: zoneHeaderIcons[zone.id]
+																	}
+																	modifier=${changesGlyphLoading ? 'spin' : ''}
 																></code-icon>`
 															: zone.id === 'changes'
 																? html`<span class="gl-graph__header-label-text"
@@ -7479,7 +7493,11 @@ export class GlLitGraph extends LitElement {
 									: nothing
 							}
 						</span>
-						${zone.id === 'changes' ? this.renderChangesLoading(headerW, filterOnly, labelAsIcon) : nothing}
+						${
+							zone.id === 'changes'
+								? this.renderChangesLoading(headerW, filterOnly, changesGlyphLoading)
+								: nothing
+						}
 						${
 							isLast
 								? nothing
@@ -7896,28 +7914,21 @@ export class GlLitGraph extends LitElement {
 		</button>`;
 	}
 
-	// Collision floors: below these header widths the inline-end spinner would overlap the leading content,
-	// so it's suppressed (filter-only = filter button ~18 + compact chevron ~19 + spinner ~13 + insets;
-	// icon-collapsed = icon + chevron ~45 + spinner + insets). Text mode always has room.
+	// Collision floor: below this header width the inline-end spinner would overlap the leading content, so
+	// it's suppressed (filter button ~18 + compact chevron ~19 + spinner ~13 + insets). Only filter-only
+	// needs it — text mode always has room, and the icon-collapsed states spin their own glyph instead.
 	private static readonly changesSpinnerFilterOnlyFloor = 60;
-	private static readonly changesSpinnerIconFloor = 64;
 
 	// Loading spinner while the host resolves diffstats. Absolutely pinned to the column's inline-end
-	// (graph.scss), pointer-transparent + `aria-hidden`; suppressed only when the header is too narrow to
-	// clear the leading content (content-aware floor), otherwise shown in every state incl. filter-only.
+	// (graph.scss), pointer-transparent + `aria-hidden`. Skipped when the header's collapsed glyph already
+	// carries the spin, and suppressed in filter-only below the width where it would overlap.
 	private renderChangesLoading(
 		headerW: number,
 		filterOnly: boolean,
-		labelAsIcon: boolean,
+		glyphLoading: boolean,
 	): TemplateResult | typeof nothing {
-		if (!this.rowsStatsLoading) return nothing;
-
-		const floor = filterOnly
-			? GlLitGraph.changesSpinnerFilterOnlyFloor
-			: labelAsIcon
-				? GlLitGraph.changesSpinnerIconFloor
-				: 0;
-		if (headerW < floor) return nothing;
+		if (!this.rowsStatsLoading || glyphLoading) return nothing;
+		if (filterOnly && headerW < GlLitGraph.changesSpinnerFilterOnlyFloor) return nothing;
 
 		return html`<code-icon
 			class="gl-graph__changes-header-spinner"
@@ -7934,12 +7945,15 @@ export class GlLitGraph extends LitElement {
 	// arms the column reorder (drag) and a clean click opens the picker via `onColumnPointerUp` (no `@click`
 	// — a click under the cell's pointer capture is ambiguous); keyboard reuses `onLabelKeydown` for
 	// Enter/Space-to-open and Shift+Arrow-to-reorder. The `--labeled` variant pins the icon and lets the
-	// chevron clip on the right, so the identity icon never shrinks or yields (see graph.scss).
+	// chevron clip on the right, so the identity icon never shrinks or yields (see graph.scss). `loading`
+	// spins the primary icon in place of the identity glyph — the button stays clickable (the picker is
+	// still valid) and the aria/tooltip copy is unchanged.
 	private renderChangesModePickerButton(
 		visibleZones: readonly ZoneSpec[],
 		i: number,
 		primaryIcon: string = 'chevron-down',
 		withChevron = false,
+		loading = false,
 	): TemplateResult {
 		return html`<button
 			class="gl-graph__changes-mode-picker-button${
@@ -7954,7 +7968,11 @@ export class GlLitGraph extends LitElement {
 			data-roving-key="changes-mode"
 			@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
 		>
-			<code-icon class="gl-graph__changes-mode-picker-icon" icon=${primaryIcon}></code-icon>
+			<code-icon
+				class="gl-graph__changes-mode-picker-icon"
+				icon=${loading ? 'loading' : primaryIcon}
+				modifier=${loading ? 'spin' : ''}
+			></code-icon>
 			${
 				withChevron
 					? html`<code-icon
