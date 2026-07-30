@@ -1,4 +1,4 @@
-import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { CancellationToken, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri, window } from 'vscode';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
@@ -24,6 +24,7 @@ import {
 	LaunchpadSettingsQuickInputButton,
 	LearnAboutProQuickInputButton,
 	MergeQuickInputButton,
+	OpenLogsQuickInputButton,
 	OpenOnAzureDevOpsQuickInputButton,
 	OpenOnBitbucketQuickInputButton,
 	OpenOnGitHubQuickInputButton,
@@ -44,9 +45,12 @@ import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js'
 import { proBadge, urls } from '../../constants.js';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { AuthenticationError, getPresentableErrorMessage } from '../../errors.js';
+import { getPresentableErrorMessage } from '../../errors.js';
 import { formatCurrentUserDisplayName } from '../../git/utils/-webview/commit.utils.js';
-import { getOpenOnGitProviderQuickInputButtons } from '../../quickpicks/integrationPicker.js';
+import {
+	createIntegrationErrorQuickPickItem,
+	getOpenOnGitProviderQuickInputButtons,
+} from '../../quickpicks/integrationPicker.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -168,11 +172,6 @@ const Steps = {
 	ConfirmAction: 'confirm-action',
 } as const;
 type StepNames = (typeof Steps)[keyof typeof Steps];
-
-const OpenLogsQuickInputButton: QuickInputButton = {
-	iconPath: new ThemeIcon('output'),
-	tooltip: 'Open Logs',
-};
 
 export class LaunchpadCommand extends QuickCommand<State> {
 	private readonly source: Source;
@@ -672,7 +671,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 			// Add error information item if there's an error but items were still loaded
 			const errorItem: DirectiveQuickPickItem | undefined =
-				result?.error != null ? createErrorQuickPickItem(result.error) : undefined;
+				result?.error != null ? createIntegrationErrorQuickPickItem(result.error, 'items') : undefined;
 
 			const hasPicked = items.some(i => i.picked);
 			if (context.inSearch === 'mode') {
@@ -709,27 +708,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					? [...(errorItem != null ? [errorItem] : []), ...items, onItem]
 					: [onItem, ...(errorItem != null ? [errorItem] : []), ...items],
 			};
-		}
-
-		function createErrorQuickPickItem(error: Error): DirectiveQuickPickItem {
-			if (error instanceof AggregateError) {
-				const firstAuthError = error.errors.find(e => e instanceof AuthenticationError);
-				error = firstAuthError ?? error.errors[0] ?? error;
-			}
-
-			const isAuthError = error instanceof AuthenticationError;
-
-			return createDirectiveQuickPickItem(Directive.Noop, false, {
-				label: isAuthError ? '$(warning) Authentication Required' : '$(warning) Unable to fully load items',
-				detail: isAuthError
-					? `${getPresentableErrorMessage(error)} — Reconnect your integration`
-					: error.name === 'HttpError' && 'status' in error && typeof error.status === 'number'
-						? `${error.status}: ${String(error)}`
-						: String(error),
-				buttons: isAuthError
-					? [ConnectIntegrationButton, OpenLogsQuickInputButton]
-					: [OpenLogsQuickInputButton],
-			});
 		}
 
 		const updateItems = async (

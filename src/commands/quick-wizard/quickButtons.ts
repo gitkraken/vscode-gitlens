@@ -243,6 +243,11 @@ export const MergeQuickInputButton: QuickInputButton = {
 	tooltip: 'Merge...',
 };
 
+export const OpenLogsQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('output'),
+	tooltip: 'Open Logs',
+};
+
 export const OpenOnJiraQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('globe'),
 	tooltip: 'Open on Jira',

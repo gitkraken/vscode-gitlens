@@ -57,7 +57,7 @@ suite('per-connection reads (#5430)', () => {
 
 		const result = await gh.searchMyIssues(undefined, undefined, 'sec-tok');
 
-		assert.deepEqual(result, [], 'returns the specified connection results');
+		assert.deepEqual(result?.value, [], 'returns the specified connection results');
 		assert.equal(capturedToken, 'token-secondary', 'read used the specified cloud connection token');
 
 		manager.dispose();

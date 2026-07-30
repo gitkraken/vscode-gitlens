@@ -8,7 +8,8 @@ import type { RepositoryIdentityDescriptor } from './repositoryIdentities.js';
 export type IssueStateFilter = 'open' | 'closed' | 'all';
 
 export interface IssueShape extends IssueOrPullRequest {
-	author: IssueMember;
+	/** `undefined` when the provider can't resolve the author, e.g. a deleted GitHub account */
+	author: IssueMember | undefined;
 	assignees: IssueMember[];
 	repository?: IssueRepository;
 	labels?: IssueLabel[];
@@ -30,7 +31,7 @@ export class Issue implements IssueShape {
 		public readonly updatedDate: Date,
 		public readonly closed: boolean,
 		public readonly state: IssueOrPullRequestState,
-		public readonly author: IssueMember,
+		public readonly author: IssueMember | undefined,
 		public readonly assignees: IssueMember[],
 		public readonly repository?: IssueRepository,
 		public readonly closedDate?: Date,

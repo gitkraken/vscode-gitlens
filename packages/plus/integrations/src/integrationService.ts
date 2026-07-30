@@ -487,7 +487,7 @@ export class IntegrationService implements Disposable {
 	async getMyIssues(
 		integrationIds?: (GitCloudHostIntegrationId | IssuesCloudHostIntegrationId | GitSelfManagedHostIntegrationId)[],
 		options?: { openRepositoriesOnly?: boolean; cancellation?: AbortSignal },
-	): Promise<IssueShape[] | undefined> {
+	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		const integrations: Map<Integration, ResourceDescriptor[] | undefined> = new Map();
 		const hostingIntegrationIds = integrationIds?.filter(
 			id => id in GitCloudHostIntegrationId || id in GitSelfManagedHostIntegrationId,
@@ -555,8 +555,10 @@ export class IntegrationService implements Disposable {
 	private async getMyIssuesCore(
 		integrations: Map<Integration, ResourceDescriptor[] | undefined>,
 		cancellation?: AbortSignal,
-	): Promise<IssueShape[] | undefined> {
-		const promises: Promise<IssueShape[] | undefined>[] = [];
+	): Promise<IntegrationResult<IssueShape[] | undefined>> {
+		const start = performance.now();
+
+		const promises: Promise<IntegrationResult<IssueShape[] | undefined>>[] = [];
 		for (const [integration, repos] of integrations) {
 			if (integration == null) continue;
 
@@ -564,17 +566,43 @@ export class IntegrationService implements Disposable {
 		}
 
 		const results = await Promise.allSettled(promises);
-		return [...flatten(filterMap(results, r => (r.status === 'fulfilled' ? r.value : undefined)))];
+		const successfulResults = [
+			...flatten(
+				filterMap(results, r =>
+					r.status === 'fulfilled' && r.value?.value != null ? r.value.value : undefined,
+				),
+			),
+		];
+		const errors = [
+			...filterMap(results, r =>
+				r.status === 'fulfilled' && r.value?.error != null ? r.value.error : undefined,
+			),
+		];
+
+		const error =
+			errors.length === 0
+				? undefined
+				: errors.length === 1
+					? errors[0]
+					: new AggregateError(errors, 'Failed to get some issues');
+
+		return {
+			value: successfulResults,
+			error: error,
+			duration: performance.now() - start,
+		};
 	}
 
-	async getMyIssuesForRemotes(remote: GitRemote): Promise<IssueShape[] | undefined>;
-	async getMyIssuesForRemotes(remotes: GitRemote[]): Promise<IssueShape[] | undefined>;
+	async getMyIssuesForRemotes(remote: GitRemote): Promise<IntegrationResult<IssueShape[] | undefined>>;
+	async getMyIssuesForRemotes(remotes: GitRemote[]): Promise<IntegrationResult<IssueShape[] | undefined>>;
 	@trace({
 		args: (remoteOrRemotes: GitRemote | GitRemote[]) => ({
 			remoteOrRemotes: Array.isArray(remoteOrRemotes) ? remoteOrRemotes.map(rp => rp.name) : remoteOrRemotes.name,
 		}),
 	})
-	async getMyIssuesForRemotes(remoteOrRemotes: GitRemote | GitRemote[]): Promise<IssueShape[] | undefined> {
+	async getMyIssuesForRemotes(
+		remoteOrRemotes: GitRemote | GitRemote[],
+	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		if (!Array.isArray(remoteOrRemotes)) {
 			remoteOrRemotes = [remoteOrRemotes];
 		}

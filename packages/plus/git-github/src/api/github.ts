@@ -3535,7 +3535,7 @@ export class GitHubApi {
 
 			function toQueryResult(pr: GitHubPullRequest): PullRequest {
 				const reasons = [];
-				if (pr.author.login === viewer) {
+				if (pr.author?.login === viewer) {
 					reasons.push('authored');
 				}
 				if (pr.assignees.nodes.some(a => a.login === viewer)) {
@@ -3574,16 +3574,13 @@ export class GitHubApi {
 	): Promise<IssueShape[] | undefined> {
 		const scope = getScopedLogger();
 
+		// A partial-data response can null an alias, and search nodes are nullable — a match that isn't an
+		// `Issue` comes back as `{}` because the inline fragment selects nothing
+		type SearchNodes = { nodes: (GitHubIssue | null)[] | null } | null;
 		interface SearchResult {
-			authored: {
-				nodes: GitHubIssue[];
-			};
-			assigned: {
-				nodes: GitHubIssue[];
-			};
-			mentioned: {
-				nodes: GitHubIssue[];
-			};
+			authored: SearchNodes;
+			assigned: SearchNodes;
+			mentioned: SearchNodes;
 		}
 
 		const issueFragement = `${gqIssueFragment}${
@@ -3651,14 +3648,26 @@ export class GitHubApi {
 				cancellation,
 			);
 
-			function toQueryResult(issue: GitHubIssue): IssueShape {
-				return fromGitHubIssue(issue, provider);
-			}
-
 			if (rsp == null) return [];
 
+			// Map node-by-node so one unmappable issue can't discard the whole result set
+			const issues: IssueShape[] = [];
+			for (const node of [
+				...(rsp.assigned?.nodes ?? []),
+				...(rsp.mentioned?.nodes ?? []),
+				...(rsp.authored?.nodes ?? []),
+			]) {
+				if (node?.id == null) continue;
+
+				try {
+					issues.push(fromGitHubIssue(node, provider));
+				} catch (ex) {
+					scope?.warn(`skipped unmappable issue; id=${node.id}, url=${node.url}, ex=${ex}`);
+				}
+			}
+
 			const results: IterableIterator<IssueShape> = uniqueBy(
-				[...rsp.assigned.nodes, ...rsp.mentioned.nodes, ...rsp.authored.nodes].map(toQueryResult),
+				issues,
 				r => r.url,
 				(original, _current) => original,
 			);

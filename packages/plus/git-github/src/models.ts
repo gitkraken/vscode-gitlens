@@ -2,7 +2,7 @@ import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueLabel } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
-import type { PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestMember, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
 	PullRequestMergeableState,
@@ -131,7 +131,8 @@ export type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';
 export type GitHubIssueOrPullRequestState = GitHubIssueState | GitHubPullRequestState;
 
 export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '__typename'> {
-	author: GitHubMember;
+	/** `Actor` is nullable in GitHub's schema — `null` once the author's account is deleted */
+	author: GitHubMember | null;
 
 	baseRefName: string;
 	baseRefOid: string;
@@ -166,7 +167,8 @@ export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '_
 }
 
 export interface GitHubIssue extends Omit<GitHubIssueOrPullRequest, '__typename'> {
-	author: GitHubMember;
+	/** `Actor` is nullable in GitHub's schema — `null` once the author's account is deleted */
+	author: GitHubMember | null;
 	assignees: { nodes: GitHubMember[] };
 	comments?: {
 		totalCount: number;
@@ -202,7 +204,7 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 	reviewDecision: GitHubPullRequestReviewDecision;
 	latestReviews: {
 		nodes: {
-			author: GitHubMember;
+			author: GitHubMember | null;
 			state: GitHubPullRequestReviewState;
 		}[];
 	};
@@ -233,15 +235,17 @@ export type GitHubViewerPermission =
 	| 'READ' // Can read and clone this repository. Can also open and comment on issues and pull requests
 	| 'NONE';
 
+/** `ghost` is how github.com renders an actor whose account was deleted */
+function fromGitHubMemberOrGhost(member: GitHubMember | null | undefined): PullRequestMember {
+	if (member == null) return { id: 'ghost', name: 'ghost' };
+
+	return { id: member.login, name: member.login, avatarUrl: member.avatarUrl, url: member.url };
+}
+
 export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: Provider): PullRequest {
 	return new PullRequest(
 		provider,
-		{
-			id: pr.author.login,
-			name: pr.author.login,
-			avatarUrl: pr.author.avatarUrl,
-			url: pr.author.url,
-		},
+		fromGitHubMemberOrGhost(pr.author),
 		String(pr.number),
 		pr.id,
 		pr.title,
@@ -386,12 +390,7 @@ export function fromGitHubPullRequestStatusCheckRollupState(
 export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider): PullRequest {
 	return new PullRequest(
 		provider,
-		{
-			id: pr.author.login,
-			name: pr.author.login,
-			avatarUrl: pr.author.avatarUrl,
-			url: pr.author.url,
-		},
+		fromGitHubMemberOrGhost(pr.author),
 		String(pr.number),
 		pr.id,
 		pr.title,
@@ -456,12 +455,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			)
 			.filter(<T>(r?: T): r is T => Boolean(r)),
 		pr.latestReviews.nodes.map(r => ({
-			reviewer: {
-				id: r.author.login,
-				name: r.author.login,
-				avatarUrl: r.author.avatarUrl,
-				url: r.author.url,
-			},
+			reviewer: fromGitHubMemberOrGhost(r.author),
 			state: fromGitHubPullRequestReviewState(r.state),
 		})),
 		pr.assignees.nodes.map(r => ({
@@ -490,12 +484,14 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 		new Date(value.updatedAt),
 		value.closed,
 		fromGitHubIssueOrPullRequestState(value.state),
-		{
-			id: value.author.login,
-			name: value.author.login,
-			avatarUrl: value.author.avatarUrl,
-			url: value.author.url,
-		},
+		value.author == null
+			? undefined
+			: {
+					id: value.author.login,
+					name: value.author.login,
+					avatarUrl: value.author.avatarUrl,
+					url: value.author.url,
+				},
 		value.assignees.nodes.map(assignee => ({
 			id: assignee.login,
 			name: assignee.login,

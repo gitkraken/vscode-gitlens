@@ -564,23 +564,24 @@ export abstract class IntegrationBase<
 		resource?: ResourceDescriptor,
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IssueShape[] | undefined>;
+	): Promise<IntegrationResult<IssueShape[] | undefined>>;
 	async searchMyIssues(
 		resources?: ResourceDescriptor[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IssueShape[] | undefined>;
+	): Promise<IntegrationResult<IssueShape[] | undefined>>;
 	@trace()
 	async searchMyIssues(
 		resources?: ResourceDescriptor | ResourceDescriptor[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IssueShape[] | undefined> {
+	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
 
+		const start = performance.now();
 		try {
 			const issues = await this.searchProviderMyIssues(
 				session,
@@ -588,10 +589,10 @@ export abstract class IntegrationBase<
 				cancellation,
 			);
 			this.resetRequestExceptionCount('searchMyIssues');
-			return issues;
+			return { value: issues, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope });
-			return undefined;
+			return { error: ex, duration: performance.now() - start };
 		}
 	}
 

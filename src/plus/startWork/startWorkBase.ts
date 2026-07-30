@@ -13,6 +13,7 @@ import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import type { ManageCloudIntegrationsCommandArgs } from '../../commands/cloudIntegrations.js';
 import type {
@@ -27,6 +28,7 @@ import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
 import type { QuickPickStep } from '../../commands/quick-wizard/models/steps.quickpick.js';
 import {
 	ConnectIntegrationButton,
+	OpenLogsQuickInputButton,
 	OpenOnAzureDevOpsQuickInputButton,
 	OpenOnBitbucketQuickInputButton,
 	OpenOnGitHubQuickInputButton,
@@ -44,7 +46,11 @@ import type { PlusFeatures } from '../../features.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import { getOrOpenIssueRepository } from '../../git/utils/-webview/issue.utils.js';
 import type { ConnectMoreIntegrationsItem } from '../../quickpicks/integrationPicker.js';
-import { isManageIntegrationsItem, manageIntegrationsItem } from '../../quickpicks/integrationPicker.js';
+import {
+	createIntegrationErrorQuickPickItem,
+	isManageIntegrationsItem,
+	manageIntegrationsItem,
+} from '../../quickpicks/integrationPicker.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -95,6 +101,7 @@ interface StartWorkItem {
 
 interface StartWorkResult {
 	items: StartWorkItem[];
+	error?: Error;
 }
 
 export type StartWorkStepState<T extends StartWorkState = StartWorkState> = RequireSome<StepState<T>, 'item'>;
@@ -398,7 +405,8 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				label: i.issue.title.length > 60 ? `${i.issue.title.substring(0, 60)}...` : i.issue.title,
 				description: `\u00a0 ${i.issue.repository ? `${i.issue.repository.owner}/${i.issue.repository.repo}#` : ''}${i.issue.id} \u00a0`,
 				// The spacing here at the beginning is used to align the description with the title. Otherwise it starts under the avatar icon:
-				detail: `      ${fromNow(i.issue.updatedDate)} by @${i.issue.author.name}${hoverContent}`,
+				// `ghost` matches how GitHub renders an issue whose author's account was deleted
+				detail: `      ${fromNow(i.issue.updatedDate)} by @${i.issue.author?.name ?? 'ghost'}${hoverContent}`,
 				iconPath: i.issue.author?.avatarUrl != null ? Uri.parse(i.issue.author.avatarUrl) : undefined,
 				item: i,
 				picked: i.issue.id === state.item?.issue.id,
@@ -420,7 +428,20 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 			placeholder: string;
 			items: (DirectiveQuickPickItem | QuickPickItemOfT<StartWorkItem | undefined>)[];
 		} {
+			const errorItem =
+				context.result?.error != null
+					? createIntegrationErrorQuickPickItem(context.result.error, 'issues')
+					: undefined;
+
 			if (!context.result?.items.length) {
+				// A failed fetch isn't the same as having no issues — don't blame the integration for it
+				if (errorItem != null) {
+					return {
+						placeholder: 'Unable to load issues',
+						items: [errorItem, createDirectiveQuickPickItem(Directive.Cancel)],
+					};
+				}
+
 				return {
 					placeholder: 'No issues found for your open repositories.',
 					items: [
@@ -432,7 +453,11 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 
 			return {
 				placeholder: placeholderOverride ?? 'Choose an issue to start working on',
-				items: [...getItems(context.result), createDirectiveQuickPickItem(Directive.Cancel)],
+				items: [
+					...(errorItem != null ? [errorItem] : []),
+					...getItems(context.result),
+					createDirectiveQuickPickItem(Directive.Cancel),
+				],
 			};
 		}
 
@@ -467,8 +492,17 @@ export abstract class StartWorkBaseCommand extends QuickCommand<StartWorkState> 
 				}
 				return undefined;
 			},
-			onDidClickItemButton: (_quickpick, button, { item }) => {
+			onDidClickItemButton: async (_quickpick, button, { item }) => {
 				switch (button) {
+					case OpenLogsQuickInputButton:
+						Logger.showOutputChannel();
+						return undefined;
+					case ConnectIntegrationButton:
+						this.sendActionTelemetry('manage', context);
+						await this.container.integrations.manageCloudIntegrations({
+							source: this.overrides?.ownSource ?? 'startWork',
+						});
+						return undefined;
 					case OpenOnAzureDevOpsQuickInputButton:
 					case OpenOnBitbucketQuickInputButton:
 					case OpenOnGitHubQuickInputButton:
@@ -575,15 +609,20 @@ export async function getConnectedIntegrations(
 	const connected = new Map<SupportedStartWorkIntegrationIds, boolean>();
 	await Promise.allSettled(
 		supportedStartWorkIntegrations.map(async integrationId => {
-			const integration = await container.integrations.get(integrationId);
-			if (integration == null) {
-				connected.set(integrationId, false);
-				return;
-			}
+			// Record a verdict even on failure — an id missing from the map reads as disconnected without
+			// counting as one. Pro access isn't folded in here; the EnsureAccess step owns that gate
+			try {
+				const integration = await container.integrations.get(integrationId);
+				if (integration == null) {
+					connected.set(integrationId, false);
+					return;
+				}
 
-			const isConnected = integration.maybeConnected ?? (await integration.isConnected());
-			const hasAccess = isConnected && (await integration.access());
-			connected.set(integrationId, hasAccess);
+				connected.set(integrationId, integration.maybeConnected ?? (await integration.isConnected()));
+			} catch (ex) {
+				Logger.error(ex, `Unable to determine whether '${integrationId}' is connected`);
+				connected.set(integrationId, false);
+			}
 		}),
 	);
 
@@ -626,14 +665,14 @@ async function updateContextItems(container: Container, context: StartWorkContex
 	const connectedIntegrations = [...context.connectedIntegrations.keys()].filter(integrationId =>
 		Boolean(context.connectedIntegrations.get(integrationId)),
 	);
-	context.result ??= {
-		items:
-			(await container.integrations.getMyIssues(connectedIntegrations, { openRepositoriesOnly: true }))?.map(
-				i => ({
-					issue: i,
-				}),
-			) ?? [],
-	};
+	// Don't cache a failed fetch — reopening the picker has to be able to retry
+	if (context.result == null || context.result.error != null) {
+		const result = await container.integrations.getMyIssues(connectedIntegrations, { openRepositoriesOnly: true });
+		context.result = {
+			items: result?.value?.map(i => ({ issue: i })) ?? [],
+			error: result?.error,
+		};
+	}
 	if (container.telemetry.enabled) {
 		updateTelemetryContext(context);
 	}

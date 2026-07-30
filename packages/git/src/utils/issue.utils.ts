@@ -37,12 +37,15 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		closedDate: value.closedDate,
 		closed: value.closed,
 		state: value.state,
-		author: {
-			id: value.author.id,
-			name: value.author.name,
-			avatarUrl: value.author.avatarUrl,
-			url: value.author.url,
-		},
+		author:
+			value.author == null
+				? undefined
+				: {
+						id: value.author.id,
+						name: value.author.name,
+						avatarUrl: value.author.avatarUrl,
+						url: value.author.url,
+					},
 		repository:
 			value.repository == null
 				? undefined
