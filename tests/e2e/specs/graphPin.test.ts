@@ -44,13 +44,16 @@ const hasPinnedContextScript = `(() => {
 	return JSON.stringify(match ? match[1] : null);
 })()`;
 
-// New Lit engine: the "Jump to Pinned Branch" affordance is a floating pill
-// (gl-lit-graph.ts renderPinnedPill) rendered only when a branch is pinned AND its row is scrolled
-// off-screen. It carries aria-label="Jump to Pinned Branch" / class gl-graph__pinned-pill. Its mere
-// presence in the DOM means it's shown (renderPinnedPill returns `nothing` otherwise).
+// New Lit engine: the "Jump to Pinned Branch" affordance is a segment of the floating waypoints capsule
+// (gl-lit-graph.ts renderPinnedPill, inside renderWaypoints) rendered only when a branch is pinned AND its
+// row is scrolled off-screen. Its mere presence in the DOM means it's shown (renderPinnedPill returns
+// `nothing` otherwise).
+//
+// Matched on the class, not the aria-label: the label carries the branch NAME ("Jump to pinned branch
+// <name>") so screen readers get the identity without hovering — the visible text is just "Pinned" at rest.
 const hasPinButtonScript = `(() => {
 	function find(root) {
-		const btn = root.querySelector('.gl-graph__pinned-pill, [aria-label="Jump to Pinned Branch"]');
+		const btn = root.querySelector('.gl-graph__pinned-pill, [aria-label^="Jump to pinned branch"]');
 		if (btn) return true;
 		for (const el of root.querySelectorAll('*')) {
 			if (el.shadowRoot && find(el.shadowRoot)) return true;

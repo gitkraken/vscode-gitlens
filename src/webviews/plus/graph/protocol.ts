@@ -298,6 +298,7 @@ export type GraphScrollMarkerTypes =
 	| 'highlights'
 	| 'localBranches'
 	| 'mergeTarget'
+	| 'pinned'
 	| 'pullRequests'
 	| 'remoteBranches'
 	| 'stashes'

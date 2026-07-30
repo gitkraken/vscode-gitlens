@@ -124,6 +124,7 @@ import { hasPersistentRowActions, renderChangesCellContent, renderRow } from './
 import type { RowMarkers, ScrollMarker } from './graph-scroll-markers.js';
 import {
 	buildMergeTargetScrollMarkers,
+	buildPinnedScrollMarkers,
 	buildSelectionScrollMarkers,
 	computeScrollMarkers,
 	groupScrollMarkersByRow,
@@ -671,7 +672,7 @@ export class GlLitGraph extends LitElement {
 	private _laneSeedPointerX?: number;
 	private _laneSeedPointerY?: number;
 	// Direction to the current HEAD commit when it's scrolled OFF-screen (drives the floating
-	// "Scroll to HEAD" pill; the arrow points toward HEAD). Undefined = HEAD is visible → no pill.
+	// "Jump to HEAD" pill; the arrow points toward HEAD). Undefined = HEAD is visible → no pill.
 	// Only flips when HEAD crosses the visible edge (set from onRangeChanged), so it's not per-frame.
 	@state() private headPillDirection?: 'up' | 'down';
 	// Direction to the pinned branch's row when it's scrolled OFF-screen (drives the floating "Jump to
@@ -1153,6 +1154,8 @@ export class GlLitGraph extends LitElement {
 		getUpstreamMetadataId: ref => this.getUpstreamMetadataId(ref),
 		getShowRemoteNames: () => this.config?.showRemoteNamesOnRefs === true,
 		getRowMarkerTips: () => this._rowMarkerTips,
+		getPinnedRefId: () => this.pinnedRef?.id,
+		onUnpinRef: () => this.dispatchEvent(new CustomEvent('gl-graph-unpinref')),
 	};
 	private refsProvider = createRefAdornmentProvider(
 		() => this._pinnedRefKey,
@@ -1269,6 +1272,13 @@ export class GlLitGraph extends LitElement {
 				// time from this value, while hit-testing reads it live, so the drawn scale would stay on the
 				// old height while the hit-test moved to the new one and hovering would pick a neighbour.
 				this.requestUpdate();
+				// The waypoints care too, and only these two call sites plus `onScroll` recompute them: whether
+				// HEAD / the pinned row is off-screen is a function of the viewport HEIGHT, so growing or
+				// shrinking the panel changes the answer with no scroll and no range change. Without this a
+				// resize leaves the capsule showing a stale answer — or missing entirely — until the next
+				// scroll (observed: maximizing then restoring the panel dropped it).
+				this.updateHeadPillDirection();
+				this.updatePinnedPillDirection();
 			}
 			// A resize can shift the chrome above the row list onto/off a fractional boundary.
 			this.snapVirtualizerToPixelGrid();
@@ -2435,9 +2445,12 @@ export class GlLitGraph extends LitElement {
 			enabled,
 			this.rowMarkerMergeTarget?.name,
 		);
+		// `pinnedSha` is the resolved sha `recomputeRows` already computed for the lane pin + jump waypoint,
+		// so the rail, the pinned lane and the waypoint can never disagree about which row the pin is on.
+		const pinned = buildPinnedScrollMarkers(this.pinnedSha, this.indexBySha, enabled, this.pinnedRef?.name);
 		this.scrollMarkers =
-			selection.length > 0 || mergeTarget.length > 0
-				? [...this.baseScrollMarkers, ...selection, ...mergeTarget]
+			selection.length > 0 || mergeTarget.length > 0 || pinned.length > 0
+				? [...this.baseScrollMarkers, ...selection, ...mergeTarget, ...pinned]
 				: this.baseScrollMarkers;
 		this.scrollMarkerRows = groupScrollMarkersByRow(this.scrollMarkers);
 	}
@@ -4495,7 +4508,7 @@ export class GlLitGraph extends LitElement {
 						}
 					></lit-virtualizer>
 				</div>
-				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderPinnedPill()}${this.renderHeadPill()}${this.renderStickyTimeline()}${this.renderHScrollbar()}${this.renderChangesModePopover()}
+				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderWaypoints()}${this.renderStickyTimeline()}${this.renderHScrollbar()}${this.renderChangesModePopover()}
 			</div>
 			${this.renderSearchFooter()}
 			<span
@@ -4549,40 +4562,76 @@ export class GlLitGraph extends LitElement {
 		`;
 	}
 
-	// Floating "Scroll to HEAD" pill (bottom-right) shown only when the current HEAD commit is off
-	// screen — the arrow points toward it; clicking jumps to (centers) HEAD.
+	/**
+	 * Off-screen waypoints, bottom-right: one shared capsule holding a segment per target whose row is
+	 * loaded but scrolled out of view.
+	 *
+	 * ⚠ HEAD is rendered LAST and is the anchor. The capsule is right-aligned, so HEAD's on-screen
+	 * position is fixed by construction — no arithmetic, and adding a waypoint can never displace it.
+	 * New segments insert to its LEFT, ordered by permanence (HEAD is always meaningful; the user's pin
+	 * is a choice; anything transient goes further left).
+	 *
+	 * ONE presentation at every count: the capsule looks the same holding one segment or three, so a pin
+	 * appearing doesn't restyle the affordance the user was already looking at.
+	 */
+	private renderWaypoints(): TemplateResult | typeof nothing {
+		const pinned = this.renderPinnedPill();
+		const head = this.renderHeadPill();
+		if (pinned === nothing && head === nothing) return nothing;
+
+		return html`<div class="gl-graph__waypoints" role="group" aria-label="Off-screen branches">
+			${pinned}${head}
+		</div>`;
+	}
+
+	// "Jump to HEAD" waypoint — shown only when the current HEAD commit is off screen; the arrow points
+	// toward it, clicking centers + selects it. Always the capsule's trailing (anchor) segment.
+	// Wording is "Jump", not "Scroll": it's the codebase's term for this action everywhere else (including
+	// the WIP pill's own `Jump to HEAD (<name>)`), and it selects the row rather than merely scrolling to it.
 	private renderHeadPill(): TemplateResult | typeof nothing {
 		const dir = this.headPillDirection;
 		if (dir == null) return nothing;
 
 		return html`<button
-			class="gl-graph__head-pill"
+			class="gl-graph__waypoint gl-graph__waypoint--head"
 			type="button"
-			data-tooltip="Scroll to HEAD"
-			aria-label="Scroll to HEAD"
+			data-tooltip="Jump to HEAD"
+			aria-label="Jump to HEAD"
 			@click=${this.onHeadPillClick}
 		>
 			<code-icon icon=${dir === 'up' ? 'arrow-up' : 'arrow-down'}></code-icon>HEAD
 		</button>`;
 	}
 
-	// Floating "Jump to Pinned Branch" pill — shown only when a branch is pinned (gitlens.graph.
-	// pinBranchToEdge) AND its row is scrolled off-screen; the arrow points toward it, clicking
-	// centers + selects it. Mirrors the HEAD pill above.
+	/**
+	 * "Jump to Pinned Branch" waypoint — shown only when a branch is pinned (gitlens.graph.pinBranchToEdge)
+	 * AND its row is scrolled off-screen; the arrow points toward it, clicking centers + selects it.
+	 *
+	 * Reads `Pinned` at rest and widens in place to the branch NAME on hover/focus. Bounded at rest for
+	 * two reasons: the capsule's left edge would otherwise jitter as the pin changes (defeating the point
+	 * of anchoring HEAD), and a name truncated from the left is useless here — GitLens's own branch
+	 * convention front-loads `feature/`, `bug/`, `debt/`, so the first characters are the least
+	 * distinguishing part. The name stays one hover away, and `aria-label` carries it unconditionally so
+	 * screen readers never need the hover.
+	 */
 	private renderPinnedPill(): TemplateResult | typeof nothing {
 		const dir = this.pinnedPillDirection;
 		if (dir == null || this.pinnedSha == null) return nothing;
 
 		const name = this.pinnedRef?.name;
 		return html`<button
-			class="gl-graph__head-pill gl-graph__pinned-pill"
+			class="gl-graph__waypoint gl-graph__waypoint--pinned gl-graph__pinned-pill"
 			type="button"
-			data-tooltip="Jump to Pinned Branch"
-			aria-label="Jump to Pinned Branch"
+			data-tooltip=${name != null ? `Jump to Pinned Branch (${name})` : 'Jump to Pinned Branch'}
+			aria-label=${name != null ? `Jump to pinned branch ${name}` : 'Jump to Pinned Branch'}
 			@click=${this.onPinnedPillClick}
 		>
 			<code-icon icon=${dir === 'up' ? 'arrow-up' : 'arrow-down'}></code-icon
-			><code-icon icon="pinned"></code-icon>${name ?? 'Pinned'}
+			><code-icon icon="gl-pinned-filled"></code-icon>
+			<span class="gl-graph__pinned-pill-swap"
+				><span class="gl-graph__pinned-pill-rest">Pinned</span
+				><span class="gl-graph__pinned-pill-name">${name ?? 'Pinned'}</span></span
+			>
 		</button>`;
 	}
 
@@ -6220,7 +6269,7 @@ export class GlLitGraph extends LitElement {
 			this.reconcilePinnedRefPill();
 		}
 
-		// HEAD pill: show a "Scroll to HEAD" affordance when the current HEAD commit is off-screen.
+		// HEAD pill: show a "Jump to HEAD" affordance when the current HEAD commit is off-screen.
 		this.updateHeadPillDirection();
 		// Pinned-branch pill: same, for the pinned branch's row.
 		this.updatePinnedPillDirection();
@@ -7076,6 +7125,7 @@ export class GlLitGraph extends LitElement {
 				role: 'head',
 				expandAnchor: 'right',
 				muted: true,
+				suppressPinControl: true,
 				jumpSha: tips?.headSha,
 				upstream:
 					primary.upstreamName != null

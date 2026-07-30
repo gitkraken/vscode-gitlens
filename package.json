@@ -6516,6 +6516,16 @@
 				}
 			},
 			{
+				"id": "gitlens.graphScrollMarkerPinnedColor",
+				"description": "Specifies the color marking the branch pinned to the edge on the scrollbar of the _Commit Graph_. Also colors the pinned waypoint pill.",
+				"defaults": {
+					"light": "#0e7490",
+					"highContrastLight": "#0e7490",
+					"dark": "#22d3ee",
+					"highContrast": "#22d3ee"
+				}
+			},
+			{
 				"id": "gitlens.graphMinimapMarkerHighlightsColor",
 				"description": "Specifies the color marking highlights (matches) on the minimap of the _Commit Graph_",
 				"defaults": {

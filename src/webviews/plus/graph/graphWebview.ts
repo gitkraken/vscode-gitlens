@@ -3954,12 +3954,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private getScrollMarkerTypes(): GraphScrollMarkerTypes[] {
 		if (!configuration.get('graph.scrollMarkers.enabled')) return [];
 
+		// `pinned` joins the always-on ROLE markers (not `additionalTypes`, the opt-in ref-TYPE list): a pin
+		// is an explicit, singular user action, so its marker shouldn't need a second opt-in to appear.
 		const markers: GraphScrollMarkerTypes[] = [
 			'selection',
 			'highlights',
 			'head',
 			'upstream',
 			'mergeTarget',
+			'pinned',
 			...configuration.get('graph.scrollMarkers.additionalTypes'),
 		];
 

@@ -45,6 +45,7 @@ import {
 	RowActionCommand,
 	SyncWipWatchesCommand,
 	UpdateColumnsCommand,
+	UpdatePinnedRefCommand,
 	UpdateSelectionCommand,
 } from '../../../../plus/graph/protocol.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
@@ -988,6 +989,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@gl-graph-rowhover=${this.onGraphRowHover}
 			@gl-graph-rowunhover=${this.onGraphRowUnhover}
 			@gl-graph-rowaction=${this.onGraphRowAction}
+			@gl-graph-unpinref=${this.onGraphUnpinRef}
 			@gl-graph-wiprowopen=${this.onGraphWipRowOpen}
 			@gl-graph-mouseleave=${this.onMouseLeave}
 		></gl-lit-graph>`;
@@ -1517,6 +1519,14 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				? { action: action, row: rowRef, worktreePath: worktreePath }
 				: { action: action, row: rowRef };
 		this._ipc.sendCommand(RowActionCommand, params);
+	}
+
+	/** Ref pill's pin zone → clear the edge pin. Goes through `UpdatePinnedRefCommand` (the host's own
+	 *  pinned-ref channel) rather than executing `gitlens.graph.unpinBranchFromEdge`: the command takes no
+	 *  meaningful payload beyond the session it runs in, and the sidebar's generic action channel re-stamps
+	 *  telemetry origin as `sidebar-inline`, which would misattribute a graph-body click. */
+	private onGraphUnpinRef() {
+		this._ipc.sendCommand(UpdatePinnedRefCommand, { ref: null });
 	}
 
 	// New-engine WIP row-open button (resolve/compose/review/agents) → look the full row up by sha and

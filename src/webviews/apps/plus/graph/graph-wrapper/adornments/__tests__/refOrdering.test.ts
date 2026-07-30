@@ -155,6 +155,41 @@ suite('graph ref ordering — promotePinned', () => {
 	test('distinguishes a local from the remote it tracks (both are named `main`)', () => {
 		assert.deepStrictEqual(keys(promotePinned(parsed, 'remote:origin/main'))[0], 'remote:origin/main');
 	});
+
+	// The edge pin (`gitlens.graph.pinBranchToEdge`) is persisted host state matched by ID, distinct from the
+	// transient click pin matched by key. Promoting it is what keeps its indicator + unpin control on the
+	// visible pill instead of buried in the +N popover.
+	const withIds: ParsedRef[] = [
+		{ kind: 'head', name: 'main', current: true, id: 'repo|heads/main' },
+		{ kind: 'remote', name: 'main', owner: 'origin', id: 'repo|remotes/origin/main' },
+		{ kind: 'tag', name: 'v1', id: 'repo|tags/v1' },
+	];
+
+	test('moves the edge-pinned ref to the front, matched by id', () => {
+		assert.deepStrictEqual(keys(promotePinned(withIds, undefined, 'repo|tags/v1')), [
+			'tag:v1',
+			'head:main',
+			'remote:origin/main',
+		]);
+	});
+
+	test('is a no-op when the edge pin is absent from the row or already primary', () => {
+		assert.deepStrictEqual(keys(promotePinned(withIds, undefined, 'repo|heads/nope')), keys(withIds));
+		assert.deepStrictEqual(keys(promotePinned(withIds, undefined, 'repo|heads/main')), keys(withIds));
+	});
+
+	test('the click pin wins over the edge pin when both are on the row', () => {
+		assert.deepStrictEqual(
+			keys(promotePinned(withIds, 'remote:origin/main', 'repo|tags/v1'))[0],
+			'remote:origin/main',
+		);
+	});
+
+	// An id-matched pin must not fall through to key matching: `head:main` and the pinned id are different
+	// namespaces, so a key that happens to look like an id can never promote.
+	test('the edge pin does not match on key, only on id', () => {
+		assert.deepStrictEqual(keys(promotePinned(withIds, undefined, 'tag:v1')), keys(withIds));
+	});
 });
 
 suite('graph ref ordering — pickGhostRef', () => {

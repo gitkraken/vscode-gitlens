@@ -76,6 +76,12 @@ export interface RefPillHooks {
 	/** `gitlens.graph.showRemoteNames` — when false (the default), a remote pill's label is the bare
 	 *  branch name instead of `remote/name`. Read fresh (config can change at runtime). */
 	getShowRemoteNames: () => boolean;
+	/** Id of the ref pinned to the edge (`gitlens.graph.pinBranchToEdge`), read live so a pin/unpin shows
+	 *  up without a rebuild. Distinct from the CLICK-pinned ref (`getPinnedRefKey`) — that one is transient
+	 *  focus, this one is persisted host state. Its pill takes the pin indicator + unpin control. */
+	getPinnedRefId?: () => string | undefined;
+	/** Clear the edge pin. Invoked from the pinned pill's own pin zone. */
+	onUnpinRef?: () => void;
 	/** The current worktree's row-marker tips (HEAD / upstream / merge-target shas + target name), read
 	 *  live. A pill on a tip row takes that role's emphasis (`--row-marker-<role>` class); the HEAD pill also
 	 *  gets the merge-target jump segment. Undefined until the client builds the tips. */
@@ -192,7 +198,7 @@ export function createRefAdornmentProvider(
 
 			// Announce in the SAME order the pills render: `parsed` is already display-sorted, and the pin
 			// is re-applied here so a screen reader hears the pinned ref first, exactly as it's drawn.
-			return promotePinned(parsed, getPinnedRefKey?.())
+			return promotePinned(parsed, getPinnedRefKey?.(), hooks?.getPinnedRefId?.())
 				.map(r => describeRef(r, hooks))
 				.join(', ');
 		},
@@ -220,15 +226,25 @@ function refStyle(color: string, isHead: boolean, _variant: 'pill' | 'row'): Sty
 }
 
 /**
- * Move the click-pinned ref to the front so it becomes the inline pill (the previous primary drops
- * into the +N popover). No-op when nothing is pinned, the pinned ref isn't on this row, or it's
- * already primary. Matches on `refPillKey` (kind + owner + name), so pinning `origin/main` doesn't also
- * match the local `main` it tracks.
+ * Move a pinned ref to the front so it becomes the inline pill (the previous primary drops into the +N
+ * popover). No-op when nothing is pinned, the pinned ref isn't on this row, or it's already primary.
+ *
+ * Two independent pins, checked in that order:
+ * 1. `pinnedRefKey` — the CLICK-pinned ref (transient focus). Matched on `refPillKey` (kind + owner +
+ *    name), so pinning `origin/main` doesn't also match the local `main` it tracks.
+ * 2. `pinnedRefId` — the ref pinned to the EDGE (persisted host state). Matched on `id`, which is what
+ *    the host stores. Promoting it is what keeps its indicator (and so its Unpin action) reachable on a
+ *    multi-ref row instead of buried in the +N popover.
+ *
+ * The click pin wins when both are on the row: it's the more recent, explicitly-expressed intent.
  */
-export function promotePinned(sorted: ParsedRef[], pinnedRefKey?: string): ParsedRef[] {
-	if (pinnedRefKey == null || sorted.length < 2) return sorted;
+export function promotePinned(sorted: ParsedRef[], pinnedRefKey?: string, pinnedRefId?: string): ParsedRef[] {
+	if (sorted.length < 2) return sorted;
 
-	const idx = sorted.findIndex(r => refPillKey(r) === pinnedRefKey);
+	let idx = pinnedRefKey != null ? sorted.findIndex(r => refPillKey(r) === pinnedRefKey) : -1;
+	if (idx < 0 && pinnedRefId != null) {
+		idx = sorted.findIndex(r => r.id === pinnedRefId);
+	}
 	if (idx <= 0) return sorted;
 
 	const promoted = sorted.slice();
@@ -375,6 +391,11 @@ export interface RefPillRowMarker {
 	 *  back to the generic cloud glyph rather than waiting. `jumpSha` (the upstream tip, likewise only once
 	 *  loaded) turns the segment into a jump button. */
 	upstream?: { name: string; hostingServiceType?: GkProviderId; jumpSha?: Sha };
+	/** Suppresses the pinned-ref indicator / unpin control in the leading glyph slot. Set by the WIP-row
+	 *  proxy pill, whose contract is jump-ONLY: a second interactive zone there would give a pill that exists
+	 *  to navigate a competing action, and it would unpin from a surface that never offered to pin. The
+	 *  graph's own row pills are where the edge pin is shown and cleared. */
+	suppressPinControl?: boolean;
 }
 
 export function renderRefPill(
@@ -386,12 +407,17 @@ export function renderRefPill(
 	rowMarker?: RefPillRowMarker,
 ): TemplateResult {
 	const showRemoteNames = hooks?.getShowRemoteNames() === true;
-	// `parsed` already arrives in `sortRowRefs` display order (see `toParsedRefs`); only the pin —
-	// runtime state, not ref data — is applied here.
-	const sorted = promotePinned(parsed, pinnedRefKey);
+	// `parsed` already arrives in `sortRowRefs` display order (see `toParsedRefs`); only the pins —
+	// runtime state, not ref data — are applied here.
+	const edgePinnedId = hooks?.getPinnedRefId?.();
+	const sorted = promotePinned(parsed, pinnedRefKey, edgePinnedId);
 	const primary = sorted[0];
 	const isHead = primary.current === true;
 	const primaryContext = primary.context;
+	// The primary pill's leading glyph becomes the pin when this ref is pinned to the edge (see
+	// `renderLeadingSlot`). Only ever true for one ref in the graph.
+	const primaryEdgePinned =
+		edgePinnedId != null && primary.id === edgePinnedId && rowMarker?.suppressPinControl !== true;
 
 	// RowMarker role emphasis: a pill on a HEAD / upstream / merge-target tip row takes that role's fill
 	// (color via the `--row-marker-<role>` class in graph.scss; the border stays the lane color). Derived from
@@ -486,8 +512,13 @@ export function renderRefPill(
 	const nameTip = nameJump ? `Jump to HEAD (${primary.name})` : undefined;
 	// The overlay copy's name zone needs the same wrapper to hang that band on (the resting pill has `-main`);
 	// only built for the jump case so every other pill's overlay markup is untouched.
-	const expandName = html`<span class="gl-graph__ref-pill-icon">${renderRefIcon(primary)}</span
-		><span class="gl-graph__ref-pill-expand-label">${chipLabel(primary, showRemoteNames)}</span>`;
+	// Rendered into BOTH the in-flow pill and the hover-expand overlay — the overlay is `pointer-events:
+	// auto` and covers the pill once hovered, so a control present only in the pill could never be clicked.
+	// Same duplication the upstream / target / PR / issue segments already rely on.
+	const leadingSlot = renderLeadingSlot(primary, primaryEdgePinned, hooks);
+	const expandName = html`${leadingSlot}<span class="gl-graph__ref-pill-expand-label"
+			>${chipLabel(primary, showRemoteNames)}</span
+		>`;
 	const pill = html`<span
 		class="gl-graph__ref-pill${rowMarkerClass}"
 		style=${cspStyleMap(refStyle(color, isHead, 'pill'))}
@@ -507,7 +538,7 @@ export function renderRefPill(
 			class="gl-graph__ref-pill-main${nameJump ? ' gl-graph__ref-pill-main--jump' : ''}"
 			data-tooltip=${nameTip ?? nothing}
 		>
-			<span class="gl-graph__ref-pill-icon">${renderRefIcon(primary)}</span>
+			${leadingSlot}
 			<span class="gl-graph__ref-pill-label">${chipLabel(primary, showRemoteNames)}</span>
 		</span>
 		${upstreamSegment}${targetSegment}${prChip}${issueChip}${moreBadge}
@@ -848,6 +879,48 @@ function remoteRefIcon(hostingServiceType: GkProviderId | undefined): string {
 // current branch stands out (on top of the filled pill); a NON-current head checked out in another worktree swaps
 // to the worktree glyph (`secondaryWorktreeId`, derived from `GitGraphRowHead.worktree`). `code-icon`
 // inherits the pill's color (lane / white-on-hover).
+/**
+ * The pill's leading glyph slot: normally the kind/state icon, but the pin + unpin control when this ref is
+ * pinned to the edge.
+ *
+ * Placed here rather than as a trailing chip because this slot is the pill's one FIXED position — the
+ * trailing region is a variable run of segments (upstream / merge-target / PR / issue / +N), so a control
+ * there lands somewhere different on every pill. The slot is already state-carrying (`vm-active` for current,
+ * `gl-worktree-filled` for another worktree, a provider glyph for remotes), so the pin joins that vocabulary
+ * and costs no width — the pill's geometry is identical pinned or not.
+ *
+ * ⚠ Hover is scoped to the ZONE, not the pill: the unpin action belongs to the pin, so mousing over the
+ * branch name must not offer to unpin it. The zone carries its own lit band (`--pin` in graph.scss, same
+ * recipe as `--jump`) so it reads as a button in its own right rather than relying on the glyph swap alone.
+ *
+ * ⚠ The hover glyph is `close`, NOT an outline pin. There is no matched filled/outline pin pair available:
+ * `gl-pinned-filled` is upright, codicon `pinned` is diagonal, and codicon `pin` is a horizontal outline —
+ * so swapping between any two reads as a different object rather than a state change.
+ *
+ * `tabindex="-1"` matches every other interactive segment on the pill (see `renderNamedSegment`) and the
+ * graph's roving-focus model; keyboard users reach Unpin through the pill's context menu.
+ */
+function renderLeadingSlot(ref: ParsedRef, edgePinned: boolean, hooks?: RefPillHooks): TemplateResult {
+	if (!edgePinned) return html`<span class="gl-graph__ref-pill-icon">${renderRefIcon(ref)}</span>`;
+
+	const onUnpin = hooks?.onUnpinRef;
+	return html`<button
+		class="gl-graph__ref-pill-icon gl-graph__ref-pill-icon--pin"
+		type="button"
+		tabindex="-1"
+		aria-label="Unpin Branch from Edge"
+		data-tooltip="Unpin Branch from Edge"
+		@click=${(e: Event) => {
+			// Must not bubble to the pill (which selects the row / opens the branch sheet).
+			e.stopPropagation();
+			onUnpin?.();
+		}}
+	>
+		<code-icon class="gl-graph__ref-pill-pin-rest" icon="gl-pinned-filled"></code-icon
+		><code-icon class="gl-graph__ref-pill-pin-hover" icon="close"></code-icon>
+	</button>`;
+}
+
 function renderRefIcon(ref: ParsedRef): TemplateResult {
 	let icon: string;
 	if (ref.kind === 'tag') {

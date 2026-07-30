@@ -234,57 +234,129 @@ gl-lit-graph {
 		z-index: 20;
 	}
 
-	// Floating "Scroll to HEAD" pill — appears bottom-right (just left of the scroll-marker rail) only
-	// when HEAD is off-screen. Green head color, tinted fill + border; fills on hover. Mirrors legacy.
-	.gl-graph__head-pill {
+	// Off-screen waypoints — one frosted capsule, bottom-right (just left of the scroll-marker rail),
+	// holding a segment per target that's loaded but scrolled out of view (HEAD, the pinned branch).
+	//
+	// ⚠ Right-anchored, and HEAD is rendered LAST. That's what fixes HEAD's on-screen position: adding or
+	// removing a leading segment can't displace it, so there is no per-pill `bottom` arithmetic to keep in
+	// sync (the pinned pill used to be offset by a hard-coded `calc(1.2rem + 2.6rem)` above HEAD).
+	.gl-graph__waypoints {
 		position: absolute;
 		bottom: 1.2rem;
 		right: calc(var(--gl-graph-scrollbar-width, 14px) + 0.8rem);
 		z-index: 12;
+		display: flex;
+		align-items: center;
+		// Never let a long branch name push the capsule off the left edge; the pinned segment yields first.
+		max-width: calc(100% - var(--gl-graph-scrollbar-width, 14px) - 2.4rem);
+		border-radius: 999px;
+		// Clips the segments' hover fills to the capsule's rounded shape, so they need no radii of their
+		// own — `border-radius: inherit` on a segment would round its INNER corners too.
+		overflow: hidden;
+		// The widget material (same as the sticky-timeline pill), NOT a wash of the foreground: the labels
+		// below are full-contrast text, and a translucent fill over busy rows made them unreliable to read.
+		// The blur stays for the rows that show through the widget background's own transparency.
+		backdrop-filter: blur(0.4rem);
+		-webkit-backdrop-filter: blur(0.4rem);
+		box-shadow: 0 0.2rem 0.6rem var(--vscode-widget-shadow);
+		background-color: var(--vscode-editorWidget-background);
+		border: 1px solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+	}
+
+	.gl-graph__waypoint {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
 		padding: 0.3rem 1rem;
-		border-radius: 999px;
+		border: 0;
+		background: transparent;
 		font-size: 1.1rem;
 		font-weight: 600;
 		line-height: 1;
+		white-space: nowrap;
 		cursor: pointer;
-		--head-pill-color: var(--color-graph-scroll-marker-head, #16c216);
-		color: var(--head-pill-color);
-		border: 1px solid var(--head-pill-color);
-		background-color: color-mix(in srgb, var(--head-pill-color) 10%, transparent);
-		// Blur whatever rows sit behind the (semi-transparent) pill so its label stays readable over
-		// busy graph content — matches the legacy head pill's frosted backdrop.
-		backdrop-filter: blur(0.4rem);
-		-webkit-backdrop-filter: blur(0.4rem);
-		box-shadow: 0 0.2rem 0.6rem var(--vscode-widget-shadow);
+		// ⚠ The LABEL is foreground, not the accent. `--color-graph-scroll-marker-head` and
+		// `--vscode-focusBorder` are fill/border tokens — as 1.1rem bold text they're dim against this
+		// container (the pinned segment was hard to spot) and the head green misses AA on light themes
+		// entirely. Identity moves to the glyph below, where a fill token belongs.
+		color: var(--vscode-foreground);
 		transition:
 			background-color 100ms ease-out,
 			color 100ms ease-out;
 
-		&:hover,
-		&:focus-visible {
-			background-color: var(--head-pill-color);
-			color: var(--vscode-editor-background, #1e1e1e);
-			outline: none;
-		}
+		// Identity lives here: the direction arrow + the segment's own glyph carry the accent.
 		code-icon {
 			font-size: 1.2rem;
+			color: var(--gl-waypoint-color);
+		}
+
+		&:hover {
+			background-color: color-mix(in srgb, var(--gl-waypoint-color) 22%, transparent);
+		}
+		// Focus takes the full accent fill so the indicator is unmistakable — a 22% wash is not a reliable
+		// focus ring. Knock the glyphs back to the fill's contrast colour along with the label.
+		&:focus-visible {
+			background-color: var(--gl-waypoint-color);
+			color: var(--vscode-editor-background, #1e1e1e);
+			outline: none;
+
+			code-icon {
+				color: inherit;
+			}
 		}
 	}
+	// Divider between segments. `currentColor` would take the LEADING segment's accent and read as part of
+	// it, so this is the same neutral hairline as the capsule's own border.
+	.gl-graph__waypoint + .gl-graph__waypoint {
+		border-left: 1px solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+	}
 
-	// "Jump to Pinned Branch" pill — reuses the head-pill styling but stacks ABOVE it (so both can show
-	// at once without overlapping) and uses a distinct accent so it reads as a different affordance.
-	.gl-graph__pinned-pill {
-		bottom: calc(1.2rem + 2.6rem);
-		--head-pill-color: var(--vscode-focusBorder, #007fd4);
-		max-width: 24rem;
+	.gl-graph__waypoint--head {
+		--gl-waypoint-color: var(--color-graph-scroll-marker-head, #16c216);
+	}
+	.gl-graph__waypoint--pinned {
+		// The pin's own identity colour, shared with its scroll-rail marker — mirroring `--head` above, whose
+		// colour is likewise the head marker's. NOT `--vscode-focusBorder`: that's a border token which several
+		// themes resolve to a muted blue-grey, all but invisible as a 1.2rem glyph beside HEAD's green.
+		--gl-waypoint-color: var(--color-graph-scroll-marker-pinned);
+		// Only this segment yields when the capsule is squeezed — HEAD never truncates.
+		min-width: 0;
+	}
 
-		// The branch name can be long — keep the pill compact.
+	// `Pinned` at rest, widening in place to the branch name on hover/focus. Same technique as the
+	// sticky-timeline pill: a max-width + opacity transition, so the reveal never re-renders. Both labels
+	// share one grid cell, so the segment's width is whichever is currently revealed.
+	.gl-graph__pinned-pill-swap {
+		display: inline-grid;
+		min-width: 0;
+	}
+	.gl-graph__pinned-pill-rest,
+	.gl-graph__pinned-pill-name {
+		grid-area: 1 / 1;
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
+		transition:
+			max-width 0.24s ease,
+			opacity 0.2s ease;
+	}
+	.gl-graph__pinned-pill-rest {
+		max-width: 8rem;
+		opacity: 1;
+	}
+	.gl-graph__pinned-pill-name {
+		max-width: 0;
+		opacity: 0;
+	}
+	.gl-graph__pinned-pill:is(:hover, :focus-visible) {
+		.gl-graph__pinned-pill-rest {
+			max-width: 0;
+			opacity: 0;
+		}
+		.gl-graph__pinned-pill-name {
+			max-width: 22rem;
+			opacity: 1;
+		}
 	}
 
 	// Sticky-timeline pill (gitlens.graph.stickyTimeline) — rides the header/first-row seam, top-right,
@@ -2989,6 +3061,57 @@ gl-lit-graph {
 		// Size the ref codicon (git-branch / cloud / tag) to the pill text; color inherits the pill.
 		--code-icon-size: 1.2rem;
 	}
+
+	// Pinned-to-the-edge refs turn the leading glyph slot into the unpin control: the pin at rest, `close`
+	// once the pointer is on the SLOT ITSELF (not merely on the pill — unpinning belongs to the pin, not to
+	// the branch name). Both glyphs share one grid cell, so the swap cannot change the pill's width.
+	//
+	// The glyph deliberately INHERITS the pill's lane colour rather than taking the pin identity colour the
+	// rail marker and waypoint share: the pill is lane-coloured as a unit (border, label, every glyph in this
+	// slot) and fills with that lane colour on hover, so a fixed accent here would both break its unity and
+	// clash with `--ref-on-color` once filled.
+	.gl-graph__ref-pill-icon--pin {
+		display: inline-grid;
+		place-items: center;
+		position: relative;
+		isolation: isolate;
+		border: 0;
+		padding: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+
+		> code-icon {
+			grid-area: 1 / 1;
+		}
+		// Lit band marking the slot as its own button — same recipe as `--jump`, inset to the glyph rather
+		// than bleeding to the divider since this zone is only one icon wide.
+		&::before {
+			content: '';
+			position: absolute;
+			inset-block: -0.3rem;
+			inset-inline: -0.5rem -0.2rem;
+			border-radius: 0.4rem 0 0 0.4rem;
+			background: transparent;
+			z-index: -1;
+			transition: background-color 120ms ease-out;
+		}
+		&:hover::before {
+			background: color-mix(in srgb, var(--ref-on-color, #fff) 16%, transparent);
+		}
+	}
+	.gl-graph__ref-pill-pin-hover {
+		opacity: 0;
+	}
+	.gl-graph__ref-pill-icon--pin:hover {
+		.gl-graph__ref-pill-pin-rest {
+			opacity: 0;
+		}
+		.gl-graph__ref-pill-pin-hover {
+			opacity: 1;
+		}
+	}
 	.gl-graph__ref-pill-label {
 		// Collapses to nothing — it's the only part of the pill that yields (it sits in `-main`'s 0-min
 		// grid track). The refs zone's 3rem floor keeps the leading icon itself from being clipped.
@@ -3762,6 +3885,9 @@ gl-lit-graph {
 	--color-graph-minimap-marker-upstream: var(--vscode-gitlens-graphMinimapMarkerUpstreamColor);
 	--color-graph-scroll-marker-upstream: var(--vscode-gitlens-graphScrollMarkerUpstreamColor);
 	--color-graph-scroll-marker-merge-target: var(--vscode-gitlens-graphScrollMarkerMergeTargetColor);
+	// Shared by the rail marker AND the pinned waypoint segment, the same way the head colour above serves
+	// both the head marker and the HEAD waypoint — one pin identity everywhere.
+	--color-graph-scroll-marker-pinned: var(--vscode-gitlens-graphScrollMarkerPinnedColor);
 	--color-graph-minimap-marker-worktree: var(--vscode-gitlens-graphMinimapMarkerWorktreeColor);
 	--color-graph-minimap-marker-highlights: var(--vscode-gitlens-graphMinimapMarkerHighlightsColor);
 	--color-graph-scroll-marker-highlights: var(--vscode-gitlens-graphScrollMarkerHighlightsColor);

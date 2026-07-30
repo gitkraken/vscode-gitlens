@@ -53,10 +53,13 @@ interface MarkerLane {
 }
 
 // Per-type priority: higher = primary (drawn on top where lanes overlap + expands on hover + leads the
-// tooltip). Order (highest→lowest): selection > highlights > wip > head > upstream > mergeTarget >
+// tooltip). Order (highest→lowest): selection > highlights > wip > head > upstream > pinned > mergeTarget >
 // stashes > pullRequests > localBranches > remoteBranches > tags. The row-marker trio keeps its own
 // precedence (HEAD > upstream > merge target — see `primaryRowMarkerRole`) so the rail and the row's
 // row-marker rail agree on which one leads.
+//
+// ⚠ Priority doubles as the rendered `z-index` (see `renderScrollMarkers`), so these must stay small
+// integers — the rail's hovered-primary rule uses `z-index: 20`.
 const markerLanes: Readonly<Record<GraphScrollMarkerTypes, MarkerLane>> = {
 	stashes: {
 		lanes: [0],
@@ -72,26 +75,42 @@ const markerLanes: Readonly<Record<GraphScrollMarkerTypes, MarkerLane>> = {
 		shape: 'block',
 		priority: 3,
 	},
-	wip: { lanes: [0, 1], color: 'var(--color-graph-scroll-marker-wip)', icon: 'pencil', shape: 'block', priority: 9 },
+	wip: { lanes: [0, 1], color: 'var(--color-graph-scroll-marker-wip)', icon: 'pencil', shape: 'block', priority: 10 },
 	head: {
 		lanes: [0, 1],
 		color: 'var(--color-graph-scroll-marker-head)',
 		icon: 'git-branch',
 		shape: 'block',
-		priority: 8,
+		priority: 9,
 	},
 	highlights: {
 		lanes: [1],
 		color: 'var(--color-graph-scroll-marker-highlights)',
 		icon: 'search',
 		shape: 'block',
-		priority: 10,
+		priority: 11,
 	},
 	upstream: {
 		lanes: [1, 2],
 		color: 'var(--color-graph-scroll-marker-upstream)',
 		icon: 'cloud',
 		shape: 'block',
+		priority: 8,
+	},
+	// One row at most, like `mergeTarget` below — so it spans the full rail as a thin rule rather than
+	// competing for a lane column with the per-ref blocks.
+	//
+	// ⚠ It gets its OWN colour rather than borrowing the pinned ref's local/remote branch colour. A pinned
+	// branch's tip row ALWAYS also carries that branch's own marker, so sharing the hue would put a
+	// same-coloured line and block on one row with only shape to tell them apart — the pin would read as
+	// extra emphasis on the branch rather than as a distinct thing. Pinning is a ROLE assigned to a ref
+	// (like merge target), and every other role marker owns its identity colour. That colour is shared with
+	// the pinned WAYPOINT segment, exactly as `head` is shared with the HEAD waypoint.
+	pinned: {
+		lanes: [0, 1, 2],
+		color: 'var(--color-graph-scroll-marker-pinned)',
+		icon: 'gl-pinned-filled',
+		shape: 'thinLine',
 		priority: 7,
 	},
 	// A single row, at most — so it spans the full rail as a thin rule rather than competing for a lane
@@ -123,7 +142,7 @@ const markerLanes: Readonly<Record<GraphScrollMarkerTypes, MarkerLane>> = {
 		color: 'var(--color-graph-scroll-marker-selection)',
 		icon: 'check',
 		shape: 'fullLine',
-		priority: 11,
+		priority: 12,
 	},
 };
 
@@ -361,6 +380,42 @@ export function buildMergeTargetScrollMarkers(
 		});
 	}
 	return markers;
+}
+
+/**
+ * The pinned branch's marker alone — the same O(1) patch as {@link buildSelectionScrollMarkers}, and for the
+ * same reason: the pin is set/cleared interactively and its sha resolves only once that row is loaded, so it
+ * must never cost a rescan of the rendered rows.
+ *
+ * `pinnedSha` is the sha the pin RESOLVED to (`resolvePinnedSha`), so a pin whose row hasn't paged in yet
+ * simply has no marker — it appears if and when that row loads, matching the merge-target marker's behaviour
+ * (the rail never pages the graph on its own).
+ */
+export function buildPinnedScrollMarkers(
+	pinnedSha: Sha | undefined,
+	indexBySha: ReadonlyMap<string, number>,
+	enabled: ReadonlySet<GraphScrollMarkerTypes>,
+	pinnedName?: string,
+): ScrollMarker[] {
+	if (!enabled.has('pinned') || pinnedSha == null) return [];
+
+	const index = indexBySha.get(pinnedSha);
+	if (index == null) return [];
+
+	const box = laneBox('pinned');
+	return [
+		{
+			leftPct: box.leftPct,
+			widthPct: box.widthPct,
+			color: box.color,
+			index: index,
+			label:
+				pinnedName != null && pinnedName.length > 0 ? `Pinned (${shortRefName(pinnedName)})` : 'Pinned Branch',
+			icon: box.icon,
+			shape: box.shape,
+			priority: box.priority,
+		},
+	];
 }
 
 /** One lane-colored tick within a row's rail band (its lane position + per-type color/icon/label). */
