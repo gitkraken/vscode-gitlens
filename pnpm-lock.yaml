@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     '@gitkraken/provider-apis':
-      specifier: 0.50.0
-      version: 0.50.0
+      specifier: 0.54.0
+      version: 0.54.0
     '@octokit/graphql':
       specifier: 9.0.3
       version: 9.0.3
@@ -100,7 +100,7 @@ importers:
         version: 0.2.3
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.50.0(encoding@0.1.13)
+        version: 0.54.0(encoding@0.1.13)
       '@gitkraken/shared-tools':
         specifier: 0.2.0
         version: 0.2.0
@@ -422,7 +422,7 @@ importers:
     dependencies:
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.50.0(encoding@0.1.13)
+        version: 0.54.0(encoding@0.1.13)
       '@octokit/graphql':
         specifier: 'catalog:'
         version: 9.0.3
@@ -614,7 +614,7 @@ importers:
     dependencies:
       '@gitkraken/provider-apis':
         specifier: 'catalog:'
-        version: 0.50.0(encoding@0.1.13)
+        version: 0.54.0(encoding@0.1.13)
       '@gitlens/git':
         specifier: workspace:*
         version: link:../../git
@@ -671,16 +671,13 @@ importers:
 
   tests/fixtures/integrations-consumer:
     dependencies:
-      '@gitlens/git':
+      '@gitkraken/core-gitlens':
         specifier: workspace:*
-        version: link:../../../packages/git
-      '@gitlens/integrations':
-        specifier: workspace:*
-        version: link:../../../packages/plus/integrations
-      '@gitlens/utils':
-        specifier: workspace:*
-        version: link:../../../packages/utils
+        version: link:../../../packages/core
     devDependencies:
+      esbuild:
+        specifier: 0.28.1
+        version: 0.28.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -1101,8 +1098,8 @@ packages:
     resolution: {integrity: sha512-Up/vFkYsYPE8uJYpTcoSbrs9Tdv49z44lsb+LVTDjqozoQ5vd5jbcXR6Pi0L1u451RKk4cS/fhrfG9s9ZpRULg==}
     engines: {node: '>= 22'}
 
-  '@gitkraken/provider-apis@0.50.0':
-    resolution: {integrity: sha512-rhOY+Rmzt50LbV2jlIZlNo7VytquFK7sNo1iYXEOU6JqZrN67ZOaA5Ml7xJmBCehCee1rJRNKgVIiCTr4biX7w==}
+  '@gitkraken/provider-apis@0.54.0':
+    resolution: {integrity: sha512-Qh7Ea3y0PrYtn77WbciaiONmeZvNQZLAUpoSS3S1AueSAEP65dF6b6vLgl5wdJEDFXrHl4D7iit1MqlqaNE2QQ==}
     engines: {node: '>= 20'}
 
   '@gitkraken/shared-tools@0.2.0':
@@ -7627,7 +7624,7 @@ snapshots:
       '@gitkraken/shared-tools': 0.2.0
       picomatch: 4.0.5
 
-  '@gitkraken/provider-apis@0.50.0(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.54.0(encoding@0.1.13)':
     dependencies:
       '@linear/sdk': 58.1.0(encoding@0.1.13)
       diff: 8.0.4
