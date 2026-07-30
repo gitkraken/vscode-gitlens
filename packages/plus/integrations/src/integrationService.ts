@@ -1,13 +1,9 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
-import type { IssueResourceDescriptor, ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import type { RemoteProviderConfig } from '@gitlens/git/remotes/matcher.js';
-import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
-import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
@@ -16,8 +12,6 @@ import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { filterMap, flatten } from '@gitlens/utils/iterable.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
-import { mapBounded } from '@gitlens/utils/promise.js';
 import { CloudIntegrationService } from './authentication/cloudIntegrationService.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import { ConfiguredIntegrationService } from './authentication/configuredIntegrationService.js';
@@ -32,7 +26,6 @@ import {
 	isSupportedCloudIntegrationId,
 	toIntegrationId,
 } from './authentication/models.js';
-import { mergeAssessmentInto } from './collectionMetadata.js';
 import type {
 	CloudGitSelfManagedHostIntegrationIds,
 	IntegrationIds,
@@ -42,16 +35,17 @@ import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-	providerFanOutConcurrency,
 } from './constants.js';
-import type { AuthenticationSessionsChangeEvent, IntegrationServiceContext } from './context.js';
-import { AuthenticationError, RequestNotFoundError } from './errors.js';
+import type {
+	AuthenticationSessionsChangeEvent,
+	IntegrationServiceContext,
+	IntegrationsRemoteConfig,
+} from './context.js';
 import type {
 	ClosedPullRequestSweepOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
 	ProviderBroadenOrg,
-	ProviderSweepTarget,
 	PullRequestSweepOptions,
 } from './manager.js';
 import type { GitHostIntegration, SearchMyPullRequestsOptions } from './models/gitHostIntegration.js';
@@ -63,79 +57,37 @@ import type {
 	IntegrationResult,
 } from './models/integration.js';
 import type { IssuesIntegration } from './models/issuesIntegration.js';
-import { isIssuesIntegration } from './models/issuesIntegration.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
 import type { GitHubApi } from './providers/github/github.js';
 import type {
+	IssueFilter,
 	ProviderOrganization,
-	ProviderPullRequest,
 	ProviderReposInput,
-	ProviderRepository,
 	ProviderRepositoryShape,
 	PullRequestFilter,
 } from './providers/models.js';
-import {
-	fromProviderPullRequest,
-	getProviderPullRequestIdentity,
-	isAzureCloudDomain,
-	isBitbucketCloudDomain,
-	isGitHubDotCom,
-	isGitLabDotCom,
-	IssueFilter,
-	PagingMode,
-	providersMetadata,
-	toProviderRepositoryShape,
-} from './providers/models.js';
+import { providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
-import { mergeCollectionMetadata, parsePageCursor } from './providers/utils/providerPaging.js';
-import { type ProviderReadContext } from './reads/context.js';
-import {
-	getBroadenIssuesCursor,
-	isBroadenIssuesOrgExhausted,
-	parseIssueTrackerPageCursor,
-	toBroadenIssuesCursor,
-	toIssueTrackerPageCursor,
-} from './reads/cursors.js';
-import {
-	drainPullRequests,
-	drainRepositories,
-	getCurrentAccountId,
-	resolvePullRequestSweepTargets,
-	runCaptured,
-} from './reads/drains.js';
-import {
-	getSupportedFilters,
-	resolveAccountWidePullRequestFilters,
-	resolvePullRequestFilters,
-} from './reads/filters.js';
+import { broadenIssues } from './reads/broaden.js';
+import type { RepositoryResolutionContext } from './reads/context.js';
+import { getSupportedFilters } from './reads/filters.js';
 import { listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
-import { resourceMatchesOrg } from './reads/hierarchy.utils.js';
 import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
-import { resolveContinuation, toProviderPageInfo } from './reads/paging.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
-import {
-	gitHostOnlySurfaceWarning,
-	issuesUnsupportedWarning,
-	noConnectionWarning,
-	otherWarning,
-	unsupportedAccountWidePullRequestFiltersWarning,
-	unsupportedFiltersWarning,
-} from './reads/warnings.js';
+import { resolveRepository } from './reads/resolveRepository.js';
+import { sweepClosedPullRequests, sweepPullRequests } from './reads/sweeps.js';
+import { noConnectionWarning } from './reads/warnings.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
 	ProviderPagedResult,
-	ProviderPageInfo,
 	ProviderResult,
 	ProviderSweepResult,
 	ProviderWarning,
-	RepositoryIdentity,
-	RepositoryResolution,
 	ResolveRepositoryResult,
 } from './results.js';
-import { appendDedupedWarning, toProviderWarning } from './results.js';
 import type { Source } from './telemetry.js';
 import { hostFromDomain } from './utils/domain.utils.js';
 import {
@@ -143,13 +95,10 @@ import {
 	getIntegrationIdForRemote,
 	isCloudGitSelfManagedHostIntegrationId,
 	isGitCloudHostIntegrationId,
-	isGitHostIntegration,
 	isGitSelfManagedHostIntegrationId,
-	isIssuesHostIntegrationId,
 	isNonExpiringZeroTokenIntegrationId,
 	remoteProviderTypeForConfig,
 	remoteProviderTypeForIntegration,
-	warnOnMissingSessionForDomain,
 } from './utils/integration.utils.js';
 
 /** @internal Event emitted when an integration connection state changes  */
@@ -159,7 +108,7 @@ export interface IntegrationConnectionChangeEvent extends ConnectionStateChangeE
 
 const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
-export class IntegrationService implements Disposable, ProviderReadContext {
+export class IntegrationService implements Disposable, RepositoryResolutionContext {
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this.configuredIntegrationService.onDidChange;
 	}
@@ -1143,156 +1092,7 @@ export class IntegrationService implements Disposable, ProviderReadContext {
 	 * honored only when `providerIds` resolves to a single provider (otherwise ambiguous).
 	 */
 	async sweepPullRequests(options?: PullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>> {
-		const { targets, attributeUnavailableProviders } = resolvePullRequestSweepTargets(options);
-		const maxPages = options?.maxPages ?? 100;
-		const repos = options?.repos ?? [];
-
-		const results = await mapBounded(targets, providerFanOutConcurrency, async target => {
-			const { providerId: id, connectionId, domain: requestedDomain } = target;
-			if (isIssuesHostIntegrationId(id)) {
-				return {
-					items: [] as PullRequestShape[],
-					warnings: [gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps')],
-					fetchFailed: true,
-					truncated: false,
-					providerId: id,
-					failedProvider: true,
-				};
-			}
-
-			const integration = await this.getIntegrationForRead(id, connectionId, requestedDomain);
-			if (integration == null) {
-				// A requested connection that can't be resolved is a broken connection — surface it as a
-				// warning + fetchFailed rather than dropping the provider's slice silently.
-				const early = this.earlyReturnConnectionWarnings(id, connectionId, requestedDomain);
-				if (early.warnings.length === 0 && !attributeUnavailableProviders) return undefined;
-				return {
-					items: [] as PullRequestShape[],
-					warnings:
-						early.warnings.length !== 0
-							? early.warnings
-							: [noConnectionWarning(id, requestedDomain, connectionId)],
-					fetchFailed: true,
-					truncated: false,
-					providerId: id,
-					failedProvider: true,
-				};
-			}
-
-			if (!isGitHostIntegration(integration)) {
-				return {
-					items: [] as PullRequestShape[],
-					warnings: [gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps')],
-					fetchFailed: true,
-					truncated: false,
-					providerId: id,
-					failedProvider: true,
-				};
-			}
-
-			await this.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
-
-			const domain = this.domainForRead(integration, id, connectionId, requestedDomain);
-			const accountWide = repos.length === 0;
-			const requestedFilters = target.filters ?? options?.filters;
-			const resolved = accountWide
-				? resolveAccountWidePullRequestFilters(id, requestedFilters)
-				: resolvePullRequestFilters(id, requestedFilters);
-			if (resolved.unsupported) {
-				return {
-					items: [] as PullRequestShape[],
-					warnings: [
-						accountWide
-							? unsupportedAccountWidePullRequestFiltersWarning(
-									id,
-									domain,
-									connectionId,
-									requestedFilters ?? [],
-								)
-							: unsupportedFiltersWarning(id, domain, connectionId),
-					],
-					fetchFailed: true,
-					truncated: false,
-					providerId: id,
-					failedProvider: true,
-				};
-			}
-
-			const drain = await drainPullRequests(
-				integration,
-				id,
-				domain,
-				repos,
-				options?.states,
-				resolved.filters,
-				accountWide ? (options?.includeReviewRequested ?? false) : false,
-				connectionId,
-				maxPages,
-				attributeUnavailableProviders,
-			);
-			const currentAccountId = drain.items.some(pr => pr.author != null)
-				? await getCurrentAccountId(integration, connectionId)
-				: undefined;
-			// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
-			// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
-			return {
-				...drain,
-				items: drain.items.map(pr =>
-					fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId }),
-				),
-				providerId: id,
-			};
-		});
-
-		const items: PullRequestShape[] = [];
-		const warnings: ProviderWarning[] = [];
-		const failedProviderIds = new Set<IntegrationIds>();
-		const incompleteProviderIds = new Set<IntegrationIds>();
-		let fetchFailed = false;
-		let truncated = false;
-		for (const drain of results) {
-			if (drain == null) {
-				continue;
-			}
-
-			items.push(...drain.items);
-			for (const w of drain.warnings) {
-				appendDedupedWarning(warnings, w);
-			}
-			if (drain.fetchFailed) {
-				fetchFailed = true;
-			}
-			if (drain.failedProvider) {
-				failedProviderIds.add(drain.providerId);
-			} else if (drain.fetchFailed || drain.truncated) {
-				incompleteProviderIds.add(drain.providerId);
-			}
-			if (drain.truncated) {
-				truncated = true;
-			}
-		}
-
-		return {
-			items: items,
-			warnings: warnings,
-			// `allPages` asserts completeness — it must be false when any provider truncated (a single-page
-			// account-wide read that couldn't confirm it drained everything) OR a drain aborted on a read
-			// failure (its slice is incomplete). Either way the sweep did not read every page.
-			page: {
-				currentPage: 1,
-				itemsPerPage: items.length,
-				allPages: !truncated && !fetchFailed,
-				truncated: truncated || undefined,
-			},
-			// A sweep drains every page itself and exposes no cursor to resume — so `hasMore` must be false even
-			// when the read was incomplete. Terminal incompleteness is expressed through `page.truncated` +
-			// `allPages: false` + warnings; setting `hasMore: true` here would make a consumer that drains while
-			// `hasMore` re-run the identical sweep forever with no cursor to advance.
-			hasMore: false,
-			fetchFailed: fetchFailed || undefined,
-			failedProviderIds: [...failedProviderIds],
-			incompleteProviderIds: [...incompleteProviderIds],
-		};
+		return sweepPullRequests(this, options);
 	}
 
 	/**
@@ -1302,10 +1102,7 @@ export class IntegrationService implements Disposable, ProviderReadContext {
 	async sweepClosedPullRequests(
 		options?: ClosedPullRequestSweepOptions,
 	): Promise<ProviderSweepResult<PullRequestShape>> {
-		return this.sweepPullRequests({
-			...options,
-			states: ['closed', 'merged'],
-		});
+		return sweepClosedPullRequests(this, options);
 	}
 
 	/**
@@ -1325,371 +1122,7 @@ export class IntegrationService implements Disposable, ProviderReadContext {
 		cursor?: string;
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>> {
-		const page = Math.max(1, Math.trunc(options.page ?? 1));
-
-		// Kepler's existing contract persists only a page number. When no opaque continuation was supplied,
-		// advance through prior pages internally so cursor-only providers still return the requested page.
-		// Each recursive call below carries a cursor, so it bypasses this block and performs exactly one round.
-		if (options.cursor == null && page > 1) {
-			let cursor: string | undefined;
-			let previous: ProviderBroadenResult<IssueShape> | undefined;
-			const traversalWarnings: ProviderWarning[] = [];
-			const broadenedProviderIds = new Set<IntegrationIds>();
-			const failedProviderIds = new Set<IntegrationIds>();
-			const incompleteProviderIds = new Set<IntegrationIds>();
-			const mergeProviderAttribution = (result: ProviderBroadenResult<IssueShape>): void => {
-				for (const providerId of result.failedProviderIds) {
-					if (broadenedProviderIds.has(providerId) || result.broadenedProviderIds.includes(providerId)) {
-						incompleteProviderIds.add(providerId);
-					} else {
-						failedProviderIds.add(providerId);
-					}
-				}
-				for (const providerId of result.incompleteProviderIds) {
-					failedProviderIds.delete(providerId);
-					incompleteProviderIds.add(providerId);
-				}
-				for (const providerId of result.broadenedProviderIds) {
-					broadenedProviderIds.add(providerId);
-					if (failedProviderIds.delete(providerId)) {
-						incompleteProviderIds.add(providerId);
-					}
-				}
-			};
-			let traversalFetchFailed = false;
-			let traversalTruncated = false;
-			for (let currentPage = 1; currentPage < page; currentPage++) {
-				previous = await this.broadenIssues({
-					...options,
-					page: currentPage,
-					cursor: cursor,
-					// A forced refresh belongs to the logical read, not every cursor-advancement round.
-					forceSync: currentPage === 1 ? options.forceSync : false,
-				});
-				for (const warning of previous.warnings) {
-					appendDedupedWarning(traversalWarnings, warning);
-				}
-				mergeProviderAttribution(previous);
-				traversalFetchFailed ||= previous.fetchFailed === true;
-				traversalTruncated ||= previous.page.truncated === true;
-				if (!previous.hasMore || previous.cursor == null) {
-					return {
-						items: [],
-						warnings: traversalWarnings,
-						page: {
-							currentPage: page,
-							itemsPerPage: 0,
-							truncated: traversalTruncated || undefined,
-						},
-						hasMore: false,
-						fetchFailed: traversalFetchFailed || undefined,
-						broadenedProviderIds: [...broadenedProviderIds],
-						failedProviderIds: [...failedProviderIds],
-						incompleteProviderIds: [...incompleteProviderIds],
-						fanOutCount: options.orgs.length,
-					};
-				}
-
-				cursor = previous.cursor;
-			}
-
-			const requested = await this.broadenIssues({ ...options, page: page, cursor: cursor, forceSync: false });
-			for (const warning of requested.warnings) {
-				appendDedupedWarning(traversalWarnings, warning);
-			}
-			mergeProviderAttribution(requested);
-			return {
-				...requested,
-				warnings: traversalWarnings,
-				page: {
-					...requested.page,
-					truncated: traversalTruncated || requested.page.truncated === true || undefined,
-				},
-				fetchFailed: traversalFetchFailed || requested.fetchFailed === true || undefined,
-				broadenedProviderIds: [...broadenedProviderIds],
-				failedProviderIds: [...failedProviderIds],
-				incompleteProviderIds: [...incompleteProviderIds],
-			};
-		}
-
-		const results = await mapBounded(options.orgs, providerFanOutConcurrency, async org => {
-			const connectionId = org.connectionId;
-			const requestedDomain = org.domain;
-			const cursorDomain = hostFromDomain(requestedDomain) ?? requestedDomain;
-			// An org slice that yielded no issues and has nothing to continue: the org's identity (which the
-			// aggregation below keys the per-org cursor bundle by) plus why it produced nothing. `exhausted` marks
-			// an org a prior round already drained, so it stays skipped rather than being re-read from page 1.
-			const barrenSlice = (
-				warnings: ProviderWarning[],
-				flags?: { exhausted?: boolean; fetchFailed?: boolean; truncated?: boolean },
-			) => ({
-				items: [] as IssueShape[],
-				warnings: warnings,
-				broadenedProviderIds: [] as IntegrationIds[],
-				providerId: org.providerId,
-				org: org.name,
-				connectionId: connectionId,
-				domain: cursorDomain,
-				nextCursor: undefined as string | undefined,
-				hasMore: false,
-				exhausted: flags?.exhausted ?? false,
-				fetchFailed: flags?.fetchFailed ?? false,
-				truncated: flags?.truncated ?? false,
-			});
-
-			if (isIssuesHostIntegrationId(org.providerId)) {
-				return barrenSlice(
-					[gitHostOnlySurfaceWarning(org.providerId, requestedDomain, connectionId, 'issue broadening')],
-					{ fetchFailed: true },
-				);
-			}
-
-			const integration = await this.getIntegrationForRead(org.providerId, connectionId, requestedDomain);
-			if (integration == null) {
-				// A requested connection or domain that can't be resolved is a broken target — surface it as a
-				// warning + fetchFailed rather than dropping the org silently.
-				const early = this.earlyReturnConnectionWarnings(org.providerId, connectionId, requestedDomain);
-				return barrenSlice(
-					early.warnings.length > 0
-						? early.warnings
-						: [noConnectionWarning(org.providerId, requestedDomain, connectionId)],
-					{ fetchFailed: true },
-				);
-			}
-			if (!isGitHostIntegration(integration)) {
-				return barrenSlice(
-					[gitHostOnlySurfaceWarning(org.providerId, requestedDomain, connectionId, 'issue broadening')],
-					{ fetchFailed: true },
-				);
-			}
-			// A git host whose issue tracker is deprecated (Bitbucket) exposes no issues here — surface a
-			// warning + fetchFailed and skip it (no repo drain), so broadening never serves a legacy source.
-			if (!integration.supportsIssues) {
-				return barrenSlice(
-					[
-						issuesUnsupportedWarning(
-							org.providerId,
-							this.domainForRead(integration, org.providerId, connectionId, requestedDomain),
-							connectionId,
-						),
-					],
-					{ fetchFailed: true },
-				);
-			}
-
-			// An org a prior round already drained must not be re-read: cursor-only providers would answer a
-			// fresh page-1 request with their first page again, duplicating issues across rounds. Skip it
-			// before any work (including the repo drain) and keep it marked exhausted so it stays skipped
-			// for the rest of the fan-out.
-			if (isBroadenIssuesOrgExhausted(options.cursor, org, options.orgs.length)) {
-				return barrenSlice([], { exhausted: true });
-			}
-
-			await this.forceRefreshIfRequested(integration, options.forceSync, connectionId);
-
-			const domain = this.domainForRead(integration, org.providerId, connectionId, requestedDomain);
-			const reposDrain = await drainRepositories(
-				integration,
-				org.providerId,
-				domain,
-				org.name,
-				undefined,
-				connectionId,
-				100,
-			);
-			const warnings: ProviderWarning[] = [...reposDrain.warnings];
-			const fetchFailed = reposDrain.fetchFailed;
-			const truncated = reposDrain.truncated;
-
-			const repos: ProviderReposInput = reposDrain.repos.map(r => ({ ...r }));
-			if (repos.length === 0) {
-				return barrenSlice(warnings, { fetchFailed: fetchFailed, truncated: truncated });
-			}
-
-			// Broaden = "all visible": drop the assigned-to-me filter so unassigned issues are included.
-			const cursor = getBroadenIssuesCursor(options.cursor, org, page, options.orgs.length);
-			const issuesCaptured = await runCaptured(
-				org.providerId,
-				domain,
-				connectionId,
-				() =>
-					// Normalized shapes seam, uniform with listIssuesPage.
-					integration.getMyIssuesForReposAsShapesResult(
-						repos,
-						{
-							includeAllAssignees: true,
-							cursor: cursor,
-						},
-						connectionId,
-					),
-				{ warnOnMissingSession: true },
-			);
-			if (issuesCaptured.warning != null) {
-				warnings.push(issuesCaptured.warning);
-			}
-			const issuesAssessment = mergeAssessmentInto(
-				warnings,
-				org.providerId,
-				domain,
-				connectionId,
-				issuesCaptured.value?.metadata,
-			);
-			let issuesFetchFailed =
-				issuesAssessment.fetchFailed || (issuesCaptured.warning != null && issuesCaptured.value == null);
-			const items: IssueShape[] = [];
-			let hasMore = false;
-			let nextCursor: string | undefined;
-			let retryPage: number | undefined;
-			// Carry a truncation signal from the issue read too: a provider that couldn't confirm it drained
-			// a repo (`paging.truncated`) means this org's issues may be incomplete, on top of any repo-drain
-			// truncation already captured above.
-			let issuesTruncated = false;
-			if (issuesCaptured.value != null) {
-				items.push(...issuesCaptured.value.values);
-				const paged = toProviderPageInfo(issuesCaptured.value.values.length, issuesCaptured.value.paging);
-				// An org that reports another page but no usable cursor can't be resumed: it would neither be
-				// recorded in the composite cursor nor marked exhausted, so the next round would re-read its
-				// page 1 and repeat every issue. Treat it as terminal-but-incomplete (which also marks the org
-				// exhausted below, since `exhausted` keys off `!hasMore`).
-				const continuation = resolveContinuation(paged, undefined);
-				hasMore = continuation.hasMore;
-				nextCursor = continuation.cursor;
-				issuesTruncated = continuation.truncated || issuesAssessment.truncated;
-			} else if (issuesCaptured.warning != null || cursor != null) {
-				// Keep the exact position that failed. Without this retry cursor a multi-org continuation would
-				// omit this org from the bundle, then synthesize the next numbered page and silently skip the
-				// failed page. The synthesized page cursor is also actionable for a first-page cursor-only read:
-				// that provider ignores the page marker and retries its first page. A retry slot alone is NOT
-				// forward progress, though: advertising `hasMore` for a persistent failure would make an infinite
-				// query request it forever. Healthy sibling continuations set `hasMore` independently.
-				if (cursor != null) {
-					nextCursor = cursor;
-					if (issuesCaptured.warning == null) {
-						appendDedupedWarning(
-							warnings,
-							otherWarning(
-								org.providerId,
-								domain,
-								connectionId,
-								'Issue continuation returned no result and must be retried',
-							),
-						);
-						issuesFetchFailed = true;
-						issuesTruncated = true;
-					}
-				} else {
-					retryPage = page;
-				}
-			}
-
-			return {
-				items: items,
-				warnings: warnings,
-				broadenedProviderIds: issuesCaptured.value != null ? [org.providerId] : ([] as IntegrationIds[]),
-				providerId: org.providerId,
-				org: org.name,
-				connectionId: connectionId,
-				domain: cursorDomain,
-				nextCursor: nextCursor,
-				retryPage: retryPage,
-				hasMore: hasMore,
-				// Exhausted once a successful read reports no more pages — recorded in the cursor so later
-				// rounds skip it while other orgs keep paging.
-				exhausted: issuesCaptured.value != null && !hasMore,
-				fetchFailed: fetchFailed || issuesFetchFailed,
-				truncated: truncated || issuesTruncated,
-			};
-		});
-
-		const items: IssueShape[] = [];
-		const warnings: ProviderWarning[] = [];
-		const broadenedProviderIds = new Set<IntegrationIds>();
-		const problemProviderIds = new Set<IntegrationIds>();
-		const cursors: {
-			providerId: IntegrationIds;
-			org: string;
-			connectionId?: string;
-			domain?: string;
-			cursor?: string;
-			retryPage?: number;
-		}[] = [];
-		const exhausted: { providerId: IntegrationIds; org: string; connectionId?: string; domain?: string }[] = [];
-		let hasMore = false;
-		let fetchFailed = false;
-		let truncated = false;
-		for (const result of results) {
-			if (result == null) {
-				continue;
-			}
-
-			items.push(...result.items);
-			warnings.push(...result.warnings);
-			for (const id of result.broadenedProviderIds) {
-				broadenedProviderIds.add(id);
-			}
-			const retryPage = 'retryPage' in result ? result.retryPage : undefined;
-			if (result.nextCursor != null || retryPage != null) {
-				cursors.push({
-					providerId: result.providerId,
-					org: result.org,
-					connectionId: result.connectionId,
-					domain: result.domain,
-					cursor: result.nextCursor,
-					retryPage: retryPage,
-				});
-			}
-			if (result.exhausted) {
-				exhausted.push({
-					providerId: result.providerId,
-					org: result.org,
-					connectionId: result.connectionId,
-					domain: result.domain,
-				});
-			}
-			if (result.hasMore) {
-				hasMore = true;
-			}
-			if (result.fetchFailed) {
-				fetchFailed = true;
-			}
-			if (result.truncated) {
-				truncated = true;
-			}
-			if (result.fetchFailed || result.truncated) {
-				problemProviderIds.add(result.providerId);
-			}
-		}
-
-		const cursor = toBroadenIssuesCursor(cursors, exhausted, options.orgs.length);
-		const failedProviderIds: IntegrationIds[] = [];
-		const incompleteProviderIds: IntegrationIds[] = [];
-		for (const providerId of problemProviderIds) {
-			if (broadenedProviderIds.has(providerId)) {
-				incompleteProviderIds.push(providerId);
-			} else {
-				failedProviderIds.push(providerId);
-			}
-		}
-		return {
-			items: items,
-			warnings: warnings,
-			// `currentPage` is positional, per ProviderPageInfo.currentPage: this fan-out has no provider-reported
-			// page of its own (its cursor is a per-org bundle, not a page), so the position is the one the caller
-			// addressed — the `page` it supplied, or the page the internal traversal advanced to.
-			page: { currentPage: page, itemsPerPage: items.length, truncated: truncated || undefined },
-			// `hasMore` promises a resumable continuation, so it must be true ONLY when a real cursor was
-			// produced. Repo-drain truncation (a backstop hit with no persisted repo cursor) can't be resumed —
-			// re-invoking would re-drain the same repos and repeat issues — so it is surfaced as the terminal
-			// `page.truncated` incompleteness signal instead of `hasMore`, matching listRepos. Guard `hasMore`
-			// against a missing cursor so we never advertise a continuation the caller can't make.
-			hasMore: hasMore && cursor != null,
-			cursor: cursor,
-			fetchFailed: fetchFailed || undefined,
-			broadenedProviderIds: [...broadenedProviderIds],
-			failedProviderIds: failedProviderIds,
-			incompleteProviderIds: incompleteProviderIds,
-			fanOutCount: options.orgs.length,
-		};
+		return broadenIssues(this, options);
 	}
 
 	/**
@@ -1710,224 +1143,17 @@ export class IntegrationService implements Disposable, ProviderReadContext {
 		 */
 		domain?: string;
 	}): Promise<ResolveRepositoryResult> {
-		const result = (status: RepositoryResolution['status']): ResolveRepositoryResult => ({
-			resolution: { status: status },
-		});
+		return resolveRepository(this, options);
+	}
 
-		const [scheme, parsedDomain, path] = parseGitRemoteUrl(options.remoteUrl);
-		const parsedHost = hostFromDomain(parsedDomain);
-		const explicitHost = hostFromDomain(options.host);
-		if (parsedHost != null && explicitHost != null && parsedHost !== explicitHost) {
-			return result('host-mismatch');
-		}
+	/** {@link RepositoryResolutionContext} seam: the user's `remotes` configs, for the remote matcher. */
+	getRemoteConfigs(): readonly IntegrationsRemoteConfig[] {
+		return this.ctx.config.getRemoteConfigs();
+	}
 
-		const matcherDomain = parsedDomain || options.host || '';
-
-		// An explicit cloud provider must agree with the remote's canonical cloud host. Without this guard the
-		// synthetic matcher below can reinterpret, for example, a gitlab.com URL as GitHub and then resolve a
-		// homonymous owner/repo through the wrong account. Match once without caller configs/synthetic entries;
-		// Azure's matcher also normalizes ssh.dev.azure.com and vs-ssh.visualstudio.com to their web host.
-		if (options.providerId != null && isGitCloudHostIntegrationId(options.providerId)) {
-			const nativeProvider = createRemoteProviderMatcher([])(options.remoteUrl, matcherDomain, path, scheme);
-			const nativeId = nativeProvider != null ? getIntegrationIdForRemote(nativeProvider) : undefined;
-			const nativeDomain = nativeProvider?.domain ?? matcherDomain;
-			const canonicalHost =
-				options.providerId === GitCloudHostIntegrationId.GitHub
-					? isGitHubDotCom(nativeDomain)
-					: options.providerId === GitCloudHostIntegrationId.GitLab
-						? isGitLabDotCom(nativeDomain)
-						: options.providerId === GitCloudHostIntegrationId.Bitbucket
-							? isBitbucketCloudDomain(nativeDomain)
-							: isAzureCloudDomain(nativeDomain);
-			if (nativeId !== options.providerId || !canonicalHost) return result('host-mismatch');
-		}
-
-		// Matcher configs: host remote configs (self-managed/custom domains) plus a synthetic entry for an
-		// explicit providerId + host, so a custom domain still maps to the right provider for path parsing.
-		const configs: RemoteProviderConfig[] = [];
-		for (const cfg of this.ctx.config.getRemoteConfigs()) {
-			const type = remoteProviderTypeForConfig(cfg.type);
-			if (type == null) continue;
-
-			// Forward both domain- and regex-based custom remotes (carrying any protocol override), so a
-			// regex-configured host resolves instead of falling through to `unsupported`.
-			if (cfg.domain) {
-				configs.push({ type: type, domain: cfg.domain, protocol: cfg.protocol });
-			} else if (cfg.regex) {
-				configs.push({ type: type, regex: cfg.regex, protocol: cfg.protocol });
-			}
-		}
-		if (options.providerId != null) {
-			const type = remoteProviderTypeForIntegration(options.providerId);
-			const domain = parsedDomain || options.host;
-			if (type != null && domain) {
-				// The synthetic exact-domain entry is unshifted to the front, so it wins the match over the
-				// user's own config for the same host. Carry that config's protocol override across (matched by
-				// domain or regex, mirroring `ignoreSSLErrors`) so a self-managed host configured for a custom
-				// protocol — e.g. plain `http` — isn't silently downgraded to the provider default here.
-				const lowerDomain = domain.toLowerCase();
-				const protocol = configs.find(c => {
-					if (c.type !== type) return false;
-					if (c.domain != null) return c.domain.toLowerCase() === lowerDomain;
-
-					// Truthy (not just non-null): an empty regex would compile to a match-everything pattern.
-					if (c.regex) {
-						try {
-							return new RegExp(c.regex, 'i').test(lowerDomain);
-						} catch {
-							return false;
-						}
-					}
-
-					return false;
-				})?.protocol;
-				configs.unshift({ type: type, domain: domain, protocol: protocol });
-			}
-		}
-
-		const provider = createRemoteProviderMatcher(configs)(options.remoteUrl, matcherDomain, path, scheme);
-		if (provider == null) return result('invalid-remote-url');
-
-		let id = options.providerId ?? getIntegrationIdForRemote(provider);
-		// Custom Azure DevOps Server domains matched via getRemoteConfigs return undefined from
-		// getIntegrationIdForRemote because the provider is marked custom; map them to the server id so the
-		// project-scoped lookup uses that host's configured connection and API base URL.
-		if (id == null && provider.id === 'azure-devops' && provider.custom) {
-			id = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
-		}
-		if (id == null) return result('unsupported-provider');
-
-		const owner = provider.owner;
-		const name = provider.repoName;
-		if (owner == null || name == null) return result('invalid-remote-url');
-
-		// On a self-managed host, resolve only against a TRUSTED host: the pinned connection's configured
-		// domain, the explicit `domain`, or — when neither was supplied — a configured host matching the
-		// remote's. That last case keeps `remoteUrl` (repository-supplied) out of the trusted path: it selects
-		// among hosts the user already authenticated and can never introduce a new one. Resolving `owner/repo`
-		// against some other host's account would, if that host has the same owner/repo, return a confidently
-		// wrong identity — and would seed the domain-keyed integration cache (never evicted before dispose) with
-		// an entry derived from repository data.
-		const urlHost = hostFromDomain(provider.domain);
-		// Normalize BOTH sides before comparing: a stored connection domain is usually a full URL
-		// (`https://git.example.com`) while `urlHost` is already a bare host, so a raw compare would fail on
-		// scheme/trailing-slash alone and wrongly reject a correctly-configured connection.
-		let trustedHost =
-			options.connectionId != null || options.domain != null
-				? hostFromDomain(this.resolveDomainForRead(id, options.connectionId, options.domain))
-				: undefined;
-		if (isGitSelfManagedHostIntegrationId(id)) {
-			const configuredHosts = this.getConfigured(id).map(c => hostFromDomain(c.domain));
-			if (trustedHost == null && urlHost != null) {
-				trustedHost = configuredHosts.find(host => host === urlHost);
-			}
-			// A configured host that doesn't match the remote's is a genuine mismatch. With nothing configured
-			// there is no host to mismatch against — it's simply not connected, so fall through to the
-			// `unauthorized` path below (still WITHOUT resolving by the URL domain, so repo data can't seed the
-			// cache).
-			if (trustedHost == null && configuredHosts.length !== 0) return result('host-mismatch');
-			if (trustedHost != null && urlHost != null && trustedHost !== urlHost) return result('host-mismatch');
-		}
-
-		let integration: Integration | undefined;
-		try {
-			// Resolve the instance through the trusted target (as `getIntegrationForRead` does):
-			// `resolveReadSession` looks the session up against the instance's domain-scoped descriptor, so
-			// selecting the instance by the URL domain could miss the session and degrade to `no-connection`.
-			integration = isGitSelfManagedHostIntegrationId(id)
-				? trustedHost != null
-					? await this.getIntegrationForRead(id, options.connectionId, trustedHost)
-					: undefined
-				: await this.get(id, provider.domain);
-		} catch {
-			integration = undefined;
-		}
-		if (integration == null) {
-			// Attach a warning, as the thrown-AuthenticationError branch below does: a consumer driving auth
-			// recovery off `warning.kind` would otherwise get nothing for an unresolvable target.
-			return {
-				resolution: {
-					status: 'unauthorized',
-					warning: noConnectionWarning(id, provider.domain, options.connectionId),
-				},
-			};
-		}
-		// Issue trackers have no `getRepo` client; a git host without `getRepoFn` leaves `getRepoInfo`
-		// undefined. Either way this provider can't resolve repositories.
-		if (isIssuesIntegration(integration) || integration.getRepoInfo == null) {
-			return result('unsupported-provider');
-		}
-
-		// Azure repos are org + project scoped; the remote provider exposes project as `providerDesc.repoDomain`.
-		const project = provider.id === 'azure-devops' ? provider.providerDesc?.repoDomain : undefined;
-		const domain = provider.domain;
-
-		// Azure's lookup is project-scoped and returns `undefined` without one, which the connection-gap branch
-		// below would misreport as `unauthorized` (driving a pointless reconnect). A remote URL that carries no
-		// project simply can't address an Azure repo.
-		if (provider.id === 'azure-devops' && project == null) return result('invalid-remote-url');
-
-		try {
-			const repo = await integration.getRepoInfo({
-				owner: owner,
-				name: name,
-				project: project,
-				connectionId: options.connectionId,
-			});
-			if (repo == null) {
-				// `getRepoInfo` returns undefined only when no session could be resolved (not connected, or the
-				// requested connection is gone) — a real 404 throws below. So this is a connection gap. Attach a
-				// warning so a consumer driving auth recovery off `warning.kind` sees the same signal it gets from
-				// the thrown-AuthenticationError branch below; without it, the most common unauthorized case is
-				// silent.
-				return {
-					resolution: {
-						status: 'unauthorized',
-						warning: noConnectionWarning(id, domain, options.connectionId),
-					},
-				};
-			}
-
-			// Prefer the provider's canonical namespace/name (GitHub's REST/GraphQL lookup follows the 301
-			// rename redirect, so a stale old name resolves to the new canonical identity), falling back to the
-			// parsed remote when the response omits them. `renamed` is a case-insensitive compare of input vs
-			// canonical, mirroring gkcli's `EqualFold`, so hosts that merely echo the input casing (e.g.
-			// Bitbucket Server/Azure) don't get spuriously flagged.
-			const canonicalOwner = repo.namespace || owner;
-			const canonicalName = repo.name || name;
-			const renamed =
-				canonicalOwner.toLowerCase() !== owner.toLowerCase() ||
-				canonicalName.toLowerCase() !== name.toLowerCase();
-
-			const identity: RepositoryIdentity = {
-				providerId: id,
-				domain: domain,
-				owner: canonicalOwner,
-				name: canonicalName,
-				project: project,
-				remoteUrl: options.remoteUrl,
-				renamed: renamed,
-			};
-			return { resolution: { status: 'resolved', identity: identity } };
-		} catch (ex) {
-			// Order matters: 404 throws RequestNotFoundError (not `undefined`), so check not-found before auth
-			// and before the generic 5xx/unknown bucket — never classify a 401/403 as not-found.
-			let resolution: RepositoryResolution;
-			if (ex instanceof RequestNotFoundError) {
-				resolution = { status: 'not-found' };
-			} else if (ex instanceof AuthenticationError) {
-				resolution = {
-					status: 'unauthorized',
-					warning: toProviderWarning(id, domain, options.connectionId, ex),
-				};
-			} else {
-				resolution = {
-					status: 'undetermined',
-					warning: toProviderWarning(id, domain, options.connectionId, ex),
-				};
-			}
-			return { resolution: resolution };
-		}
+	/** {@link RepositoryResolutionContext} seam: instance lookup by host, for the cloud-host resolution branch. */
+	getIntegrationForDomain(id: IntegrationIds, domain: string | undefined): Promise<Integration | undefined> {
+		return this.get(id, domain);
 	}
 
 	// #endregion ProviderBackend surface (#5438)

@@ -3,7 +3,8 @@ import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
-import { providerFanOutConcurrency, type IntegrationIds } from '../constants.js';
+import type { IntegrationIds } from '../constants.js';
+import { providerFanOutConcurrency } from '../constants.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
@@ -12,7 +13,7 @@ import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
 import { runCaptured } from './drains.js';
-import { resourceMatchesOrg } from './hierarchy.utils.js';
+import { projectKey, resourceIdForProject, resourceLabel, resourceMatchesOrg } from './hierarchy.utils.js';
 import { issueTrackerOnlySurfaceWarning, otherWarning } from './warnings.js';
 
 export async function listIssueTrackerIssuesPage(
@@ -219,19 +220,6 @@ export async function listIssueTrackerIssuesPage(
 		return emptyPage(true);
 	}
 
-	const resourceIdForProject = (project: ResourceDescriptor): string | undefined => {
-		const issueProject = project as { id?: string; key: string; resourceId?: string };
-		return issueProject.resourceId ?? issueProject.id ?? issueProject.key;
-	};
-	const retryKeyForProject = (project: ResourceDescriptor): string => {
-		const issueProject = project as { id?: string; key: string; resourceId?: string };
-		return JSON.stringify([issueProject.resourceId ?? '', issueProject.id ?? '', issueProject.key]);
-	};
-	const labelForResource = (resource: ResourceDescriptor): string => {
-		const issueResource = resource as { id?: string; key: string; name?: string };
-		return issueResource.name ?? issueResource.id ?? issueResource.key;
-	};
-
 	// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
 	// handle from each resource's own account (multi-account safe), capturing any error so its kind
 	// (e.g. auth) is preserved rather than collapsed to a generic warning.
@@ -259,7 +247,7 @@ export async function listIssueTrackerIssuesPage(
 						options.providerId,
 						domain,
 						options.connectionId,
-						`Could not resolve the current user for '${labelForResource(resource)}'; skipping that resource to avoid returning issues assigned to others.`,
+						`Could not resolve the current user for '${resourceLabel(resource)}'; skipping that resource to avoid returning issues assigned to others.`,
 					),
 			);
 			accountLookupFailed = true;
@@ -294,22 +282,22 @@ export async function listIssueTrackerIssuesPage(
 			? matchedProjects.filter(project => {
 					if (userForProject(project) != null) return true;
 
-					const projectKey = retryKeyForProject(project);
-					retryProjectKeys.add(projectKey);
-					completedProjectKeys.delete(projectKey);
+					const key = projectKey(project);
+					retryProjectKeys.add(key);
+					completedProjectKeys.delete(key);
 					return false;
 				})
 			: matchedProjects;
 
 	// Select the untouched window plus any earlier windows/projects that explicitly need retrying. Keys
 	// include the parent resource so two trackers can reuse the same project id without collapsing.
-	const projectsByRetryKey = new Map(scopedProjectsWithUsers.map(project => [retryKeyForProject(project), project]));
+	const projectsByRetryKey = new Map(scopedProjectsWithUsers.map(project => [projectKey(project), project]));
 	const scopedProjectsByKey = new Map<string, ResourceDescriptor>();
 	const addScopedProject = (project: ResourceDescriptor): void => {
-		const projectKey = retryKeyForProject(project);
-		if (completedProjectKeys.has(projectKey)) return;
+		const key = projectKey(project);
+		if (completedProjectKeys.has(key)) return;
 
-		scopedProjectsByKey.set(projectKey, project);
+		scopedProjectsByKey.set(key, project);
 	};
 	for (const retryProject of priorRetryProjects) {
 		const project = projectsByRetryKey.get(retryProject);
@@ -396,7 +384,7 @@ export async function listIssueTrackerIssuesPage(
 	let projectTruncated = projectDiscoveryTruncated;
 	let drainMetadata: CollectionMetadata | undefined;
 	for (const { project, value: result, warning } of perProject) {
-		const projectKey = retryKeyForProject(project);
+		const key = projectKey(project);
 		const retryProject = result == null;
 		if (warning != null) {
 			warnings.push(warning);
@@ -418,13 +406,13 @@ export async function listIssueTrackerIssuesPage(
 			}
 		}
 		if (retryProject) {
-			retryProjectKeys.add(projectKey);
-			completedProjectKeys.delete(projectKey);
+			retryProjectKeys.add(key);
+			completedProjectKeys.delete(key);
 		} else {
 			// A usable partial/truncated project is emitted once and remains structurally incomplete.
 			// Re-running the same project cursor would normally return the same prefix and duplicate it
 			// across facade pages; only a project that returned no value is safe to retry automatically.
-			completedProjectKeys.add(projectKey);
+			completedProjectKeys.add(key);
 		}
 	}
 

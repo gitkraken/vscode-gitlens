@@ -1062,7 +1062,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				{ providerId: this.id, resourceId: p.resourceId, projectId: p.name },
 			);
 			return {
-				issues: result.values.map(i => fromProviderIssue(i, this as any, { project: p })),
+				issues: result.values.map(i => fromProviderIssue(i, this, { project: p })),
 				// Azure work-item ids are organization-scoped. Include both org and project so the
 				// assigned/authored passes dedupe the same item without collapsing another org's item.
 				projectKey: `${p.resourceId}:${p.id}`,

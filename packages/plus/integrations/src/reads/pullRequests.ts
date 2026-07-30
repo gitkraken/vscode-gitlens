@@ -1,15 +1,8 @@
 import type { PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
-import type { GitHostIntegration } from '../models/gitHostIntegration.js';
-import {
-	fromProviderPullRequest,
-	PagingMode,
-	providersMetadata,
-	type ProviderPullRequest,
-	type ProviderReposInput,
-	type PullRequestFilter,
-} from '../providers/models.js';
+import type { ProviderPullRequest, ProviderReposInput, PullRequestFilter } from '../providers/models.js';
+import { fromProviderPullRequest, PagingMode, providersMetadata } from '../providers/models.js';
 import type { ProviderPagedResult } from '../results.js';
 import {
 	isGitHostIntegration,
