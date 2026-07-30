@@ -359,6 +359,24 @@ export function createShowTagsToggle(checked: boolean): QuickInputButton {
 	});
 }
 
+export const UpdateRefsToggleQuickInputButton = class extends SelectableQuickInputButton {
+	constructor(on = false) {
+		// No paired `*-selected` asset for this one, so the legacy path reads as a checkbox rather than
+		// a tinted glyph — the chosen item's detail also spells the state out either way.
+		super('Update Branches', { off: new ThemeIcon('circle-large-outline'), on: new ThemeIcon('pass-filled') }, on);
+	}
+};
+
+export function createUpdateRefsToggle(checked: boolean): QuickInputButton {
+	return createToggleButton({
+		tooltip: 'Update Branches\nAlso move any branches pointing to the rebased commits',
+		icon: new ThemeIcon('git-branch'),
+		checked: checked,
+		location: QuickInputButtonLocation.Input,
+		legacy: () => new UpdateRefsToggleQuickInputButton(checked),
+	});
+}
+
 export const WillConfirmForcedQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gitlens-confirm-checked'),
 	tooltip: 'You will be presented with a required confirmation step before the action is performed',

@@ -102,7 +102,7 @@ export class AutoRebaseService implements Disposable {
 		if (existing != null) {
 			throw new Error(
 				existing.type === 'rebase'
-					? 'A rebase is already in progress — use "Continue Rebase with AI" to automate it.'
+					? 'A rebase is already in progress — use "Continue Automatic Rebase" to automate it.'
 					: `A ${existing.type} is already in progress.`,
 			);
 		}

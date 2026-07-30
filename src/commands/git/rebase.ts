@@ -33,7 +33,7 @@ import type {
 } from '../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../quick-wizard/models/steps.js';
 import type { QuickPickStep } from '../quick-wizard/models/steps.quickpick.js';
-import { PickCommitToggleQuickInputButton } from '../quick-wizard/quickButtons.js';
+import { createUpdateRefsToggle, flipToggle, PickCommitToggleQuickInputButton } from '../quick-wizard/quickButtons.js';
 import { QuickCommand } from '../quick-wizard/quickCommand.js';
 import { pickCommitStep } from '../quick-wizard/steps/commits.js';
 import { pickBranchOrTagStep } from '../quick-wizard/steps/references.js';
@@ -345,85 +345,83 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 		const subscription = await this.container.subscription.getSubscription();
 		const isTrialOrPaid = isSubscriptionTrialOrPaidFromState(subscription?.state);
-		// Automatic rebase is offered only to trial/paid users with AI enabled (settings + org policy).
-		const aiOffered = isTrialOrPaid && this.container.ai.enabled && this.container.ai.orgEnabled;
+		// Automatic rebase is offered only to trial/paid users with AI enabled (settings + org policy),
+		// and only when there's something to rebase onto — the same `behind > 0` gate the plain rebase
+		// uses, since an ahead-only rebase replays commits with nothing to conflict against.
+		const aiOffered = isTrialOrPaid && this.container.ai.enabled && this.container.ai.orgEnabled && behind > 0;
 
-		// If the wizard was seeded with the AI pseudo-flag (`gitlens.ai.autoRebase`) but AI isn't
-		// actually offered here, strip it — otherwise `aiSeeded` below would suppress the normal
+		// If the wizard was seeded with the AI pseudo-flag (`gitlens.ai.autoRebase`) but automatic rebase
+		// isn't offered here, strip it — otherwise `aiSeeded` below would suppress the normal
 		// `picked` defaults (nothing preselected, so default-Enter silently runs a non-AI rebase) and
 		// `execute()` would route an ineligible user straight to the auto-rebase service.
 		if (!aiOffered && state.flags.includes('ai-resolve')) {
 			state.flags = state.flags.filter(f => f !== 'ai-resolve');
 		}
 
-		// When the wizard was seeded with the AI pseudo-flag, let the AI item's flags-equality
-		// `picked` win — otherwise the plain/interactive defaults would steal the selection and
-		// default-Enter would silently run a non-AI rebase.
+		// When the wizard was seeded with the AI pseudo-flag, let the automatic rebase item take the
+		// preselection — otherwise the plain/interactive defaults would steal it and default-Enter
+		// would silently run a non-AI rebase.
 		const aiSeeded = state.flags.includes('ai-resolve');
 
-		const items: FlagsQuickPickItem<Flags>[] = [
-			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
-				label: `Interactive ${this.title}`,
-				description: '--interactive',
-				detail: `Will interactively update ${getReferenceLabel(context.branch, {
-					label: false,
-				})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
-					label: false,
-				})}`,
-				picked: behind === 0 && !aiSeeded,
-			}),
-			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive', '--update-refs'], {
-				label: `Interactive ${this.title} & Update Branches`,
-				description: '--interactive --update-refs',
-				detail: `Will interactively update ${getReferenceLabel(context.branch, {
-					label: false,
-				})} and any branches pointing to rebased commits`,
-			}),
-		];
+		const branchLabel = getReferenceLabel(context.branch, { label: false });
+		const destinationLabel = getReferenceLabel(state.destination, { label: false });
+		const applying = `by applying ${pluralize('commit', ahead)} on top of ${destinationLabel}`;
+		// Appended to whichever mode is chosen while the Update Branches toggle is on — `--update-refs`
+		// modifies every mode identically, so it's a toggle rather than a duplicate of each item.
+		const updateRefsClause = ', and update any branches pointing to the rebased commits';
+
+		type Mode = { flags: Flags[]; label: string; description?: string; detail: string; picked: boolean };
+		const modes: Mode[] = [];
 
 		if (behind > 0) {
-			items.unshift(
-				createFlagsQuickPickItem<Flags>(state.flags, [], {
-					label: this.title,
-					detail: `Will update ${getReferenceLabel(context.branch, {
-						label: false,
-					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
-						label: false,
-					})}`,
-					picked: !aiSeeded,
-				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['--update-refs'], {
-					label: `${this.title} & Update Branches`,
-					description: '--update-refs',
-					detail: `Will update ${getReferenceLabel(context.branch, {
-						label: false,
-					})} and any branches pointing to rebased commits`,
-				}),
-			);
+			modes.push({
+				flags: [],
+				label: this.title,
+				detail: `Will update ${branchLabel} ${applying}`,
+				picked: !aiSeeded,
+			});
 		}
 
-		// Automatic rebase — AI resolves conflicts at every paused step, stopping for review only
-		// when confidence is low. Offered to trial/paid users with AI enabled (settings + org policy).
+		// Automatic rebase — AI resolves conflicts at every paused step, stopping for review only when
+		// confidence is low. Sits between the plain and interactive rebases: it's the hands-off end of
+		// the same axis, while Interactive is the hands-on end.
 		if (aiOffered) {
-			items.push(
-				createFlagsQuickPickItem<Flags>(state.flags, ['ai-resolve'], {
-					label: `${this.title} with AI Conflict Resolution`,
-					description: 'resolves conflicts automatically (Preview)',
-					detail: `Will update ${getReferenceLabel(context.branch, {
-						label: false,
-					})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
-						label: false,
-					})}, resolving any conflicts with AI and pausing for review only when confidence is low`,
-				}),
-				createFlagsQuickPickItem<Flags>(state.flags, ['ai-resolve', '--update-refs'], {
-					label: `${this.title} with AI Conflict Resolution & Update Branches`,
-					description: '--update-refs · resolves conflicts automatically (Preview)',
-					detail: `Will update ${getReferenceLabel(context.branch, {
-						label: false,
-					})} and any branches pointing to rebased commits, resolving any conflicts with AI`,
-				}),
-			);
+			modes.push({
+				flags: ['ai-resolve'],
+				label: `Automatic ${this.title}`,
+				description: 'AI resolves conflicts · Preview',
+				detail: `Will update ${branchLabel} ${applying}, resolving any conflicts with AI and pausing for review only when confidence is low`,
+				picked: aiSeeded,
+			});
 		}
+
+		modes.push({
+			flags: ['--interactive'],
+			label: `Interactive ${this.title}`,
+			description: '--interactive',
+			detail: `Will interactively update ${branchLabel} ${applying}`,
+			picked: behind === 0 && !aiSeeded,
+		});
+
+		let updateRefs = state.flags.includes('--update-refs');
+
+		// Folds the live toggle value into each item's flags — the accepted item's flags are the whole
+		// contract with `execute()` — and into its detail, so the list says what will actually happen.
+		const buildItems = (): FlagsQuickPickItem<Flags>[] =>
+			modes.map(m =>
+				createFlagsQuickPickItem<Flags>(
+					state.flags,
+					updateRefs ? [...m.flags, '--update-refs'] : [...m.flags],
+					{
+						label: m.label,
+						description: m.description,
+						detail: updateRefs ? `${m.detail}${updateRefsClause}` : m.detail,
+						picked: m.picked,
+					},
+				),
+			);
+
+		let items = buildItems();
 
 		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
 		if (isTrialOrPaid) {
@@ -439,6 +437,27 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		let step: QuickPickStep<DirectiveQuickPickItem | FlagsQuickPickItem<Flags>>;
 
 		const notices: DirectiveQuickPickItem[] = [];
+
+		/**
+		 * Rewrites the live quickpick's rows. Confirm steps can't refresh via `retry()` — that feeds
+		 * `Directive.Noop` back into the generator, which fails `canPickStepContinue` and pops the wizard
+		 * back to branch selection — so the async conflict notices and the Update Branches toggle both
+		 * mutate the quickpick in place instead. `activeRow` re-anchors the active row by position, for
+		 * the toggle's case where every item object was rebuilt.
+		 */
+		const refreshQuickPick = (activeRow?: number) => {
+			if (step?.quickpick == null) return;
+
+			const active = activeRow != null ? [items[activeRow]] : step.quickpick.activeItems;
+			step.quickpick.items = [
+				...notices,
+				...items,
+				createQuickPickSeparator(),
+				createDirectiveQuickPickItem(Directive.Cancel),
+			];
+			step.quickpick.activeItems = active;
+		};
+
 		if (potentialConflict) {
 			void potentialConflict?.then(result => {
 				if (result == null || result.status === 'clean') {
@@ -475,16 +494,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					);
 				}
 
-				if (step.quickpick != null) {
-					const active = step.quickpick.activeItems;
-					step.quickpick.items = [
-						...notices,
-						...items,
-						createQuickPickSeparator(),
-						createDirectiveQuickPickItem(Directive.Cancel),
-					];
-					step.quickpick.activeItems = active;
-				}
+				refreshQuickPick();
 			});
 
 			notices.push(
@@ -497,7 +507,24 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		step = this.createConfirmStep(appendReposToTitle(`Confirm ${title}`, state, context), [...notices, ...items]);
+		const updateRefsToggle = createUpdateRefsToggle(updateRefs);
+
+		step = this.createConfirmStep(
+			appendReposToTitle(`Confirm ${title}`, state, context),
+			[...notices, ...items],
+			undefined,
+			{
+				additionalButtons: [updateRefsToggle],
+				onDidClickButton: (quickpick, button) => {
+					if (button !== updateRefsToggle) return;
+
+					const activeRow = items.indexOf(quickpick.activeItems[0] as FlagsQuickPickItem<Flags>);
+					updateRefs = flipToggle(button);
+					items = buildItems();
+					refreshQuickPick(activeRow !== -1 ? activeRow : undefined);
+				},
+			},
+		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}

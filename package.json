@@ -6741,7 +6741,7 @@
 			},
 			{
 				"command": "gitlens.ai.autoRebase",
-				"title": "Rebase with AI Conflict Resolution...",
+				"title": "Automatic Rebase...",
 				"category": "GitLens"
 			},
 			{
@@ -6750,12 +6750,12 @@
 			},
 			{
 				"command": "gitlens.ai.continueRebase",
-				"title": "Continue Rebase with AI",
+				"title": "Continue Automatic Rebase",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.ai.continueRebase:views",
-				"title": "Continue Rebase with AI",
+				"title": "Continue Automatic Rebase",
 				"icon": "$(gitlens-merge)"
 			},
 			{
