@@ -12,6 +12,7 @@ import type { PromoPlans } from '../../../../../plus/gk/models/promo.js';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
 import {
 	compareSubscriptionPlans,
+	getSubscriptionEntitlement,
 	getSubscriptionPlanName,
 	getSubscriptionProductPlanName,
 	getSubscriptionProductPlanNameFromState,
@@ -28,6 +29,7 @@ import type { PromosContext } from '../../../shared/contexts/promos.js';
 import { promosContext } from '../../../shared/contexts/promos.js';
 import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
 import { subscriptionContext } from '../../../shared/contexts/subscription.js';
+import { accountRingStyles } from './accountRing.css.js';
 import { chipStyles } from './chipStyles.js';
 import { ruleStyles } from './vscode.css.js';
 import '../../../shared/components/badges/badge.js';
@@ -50,6 +52,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		elementBase,
 		linkBase,
 		focusableBaseStyles,
+		accountRingStyles,
 		chipStyles,
 		ruleStyles,
 		css`
@@ -143,10 +146,14 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			/* Squared off from gl-badge's pill default and tightened — at title size the elliptical shape read as
 			   a control sitting next to the name rather than a label on it. Overridden here rather than on the
-			   shared default, which other surfaces still want as a pill. The symmetric padding also re-centers
-			   the badge's own text in its box: the default's bottom-only 0.1rem lifted it off the title's line. */
+			   shared default, which other surfaces still want as a pill.
+
+			   The badge text is all-caps with no descenders, so it sits on the box's floor and reads low. The
+			   bottom padding buys back the room those missing descenders would have occupied, and align-items
+			   centers the anonymous text item that gl-badge's inline-flex would otherwise stretch. */
 			.header__title gl-badge::part(base) {
-				padding: 0 var(--gl-space-4);
+				align-items: center;
+				padding: 0 var(--gl-space-4) var(--gl-space-2);
 				border-radius: var(--gl-radius-sm);
 			}
 
@@ -162,6 +169,40 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			/* Accents the TIER badge; the status badges keep gl-badge's neutral default (see renderPlanTitle). */
 			.plan-tier {
 				--gl-badge-color: var(--vscode-textLink-foreground);
+			}
+
+			/* Recessed grey sub-chip carved into the tier pill. Styled here rather than with gl-badge's
+			   appearance="muted" because that variant's palette is tuned to sit inside a FILLED badge
+			   (--vscode-badge-foreground on its own tint), and overriding it through ::part would need
+			   !important to outrank the component's internal .badge class. Inherits the pill's small-caps. */
+			.plan-trial {
+				display: flex;
+				flex: 0 0 auto;
+				align-items: center;
+
+				/* Bleeds to the pill's inner edges rather than floating in its padding: stretch fills the
+				   content box vertically, and the negative right/bottom margins reach back across the
+				   padding the tier text needs, so the grey ends flush against the border. Only the trailing
+				   corners are rounded — the leading edge butts up against the tier text. */
+				align-self: stretch;
+
+				/* Mirrors the pill's own vertical padding so the sub-chip's text centers in the same optical
+				   box as the tier text. Without it the chip centers over the full bled height while the tier
+				   text centers above the bottom padding, and the two labels sit a pixel apart. */
+				padding: 0 var(--gl-space-4) var(--gl-space-2);
+				margin: 0 calc(var(--gl-space-4) * -1) calc(var(--gl-space-2) * -1) var(--gl-space-4);
+				font-weight: 500;
+				color: var(--color-foreground--65);
+				background-color: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+				border-radius: 0 var(--gl-radius-xs) var(--gl-radius-xs) 0;
+			}
+
+			/* Trial countdown, alongside the pills rather than inside one — see renderPlanTitle. Sits a step
+			   below the badges in the foreground ladder: it's supporting detail, and the body restates it. */
+			.plan-remaining {
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--50);
+				white-space: nowrap;
 			}
 
 			/* The upgrade CTA rides the account row's right edge, and wraps under the name/email when they
@@ -191,11 +232,25 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
+			/* Ring matches the Graph header's account pill (accountRing.css.ts) so the same entitlement reads
+			   the same in the toolbar and in the panel it opens. Only the photo gets it — the no-avatar
+			   fallback is a square-ish glyph, and a circular ring around it would read as a mistake. */
 			.row__media img {
 				width: 2rem;
 				aspect-ratio: 1 / 1;
 				background-color: var(--gl-account-account-media-color);
 				border-radius: 50%;
+				box-shadow: 0 0 0 var(--gl-account-ring-width)
+					var(--vscode-contrastBorder, var(--gl-account-ring-color));
+			}
+
+			/* Forced-colors mode drops box-shadow; repaint the ring as an outline, which survives and is
+			   equally layout-free. */
+			@media (forced-colors: active) {
+				.row__media img {
+					outline: 0.1rem solid ButtonBorder;
+					outline-offset: 0.1rem;
+				}
 			}
 
 			.details {
@@ -367,6 +422,11 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			(this.subscription?.plan.effective.trialReactivationCount ?? 0) > 0
 		);
 	}
+	/** Drives the account avatar's entitlement ring — matches the Graph header's account pill. */
+	private get entitlement() {
+		return getSubscriptionEntitlement(this._subscription.subscription.get()?.state);
+	}
+
 	private get planId() {
 		return this._subscription.subscription.get()?.plan.actual.id ?? 'pro';
 	}
@@ -512,20 +572,30 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		// A trial's tier rides on the EFFECTIVE plan (what the trial grants); a paid plan's on the actual one.
 		const tier = getSubscriptionPlanName(trial ? this.effectivePlanId : this.planId);
 		const days = trial ? this.trialDaysRemaining : 0;
+		const hasTier = tier !== 'Pro' && tier !== 'Community';
 
 		return html`<span class="header__title"
 			>${getSubscriptionProductPlanName('pro')}${when(
-				tier !== 'Pro' && tier !== 'Community',
-				() => html`<gl-badge class="plan-tier">${tier}</gl-badge>`,
-			)}${when(
-				trial,
+				hasTier,
+				// Trialling a named tier reads as one claim, not two competing pills: the status rides inside
+				// the tier pill as a recessed grey sub-chip.
 				() =>
-					html`<gl-badge
-						>Trial${days !== 0 ? ` · ${days < 1 ? '<1 day' : pluralize('day', days)}` : ''}</gl-badge
+					html`<gl-badge class="plan-tier"
+						>${tier}${when(trial, () => html`<span class="plan-trial">Trial</span>`)}</gl-badge
 					>`,
+			)}${when(
+				trial && !hasTier,
+				// A Pro trial has no tier pill to nest into — the headline already names Pro, so a PRO badge
+				// beside it would only restate it — so the status stands as its own neutral badge.
+				() => html`<gl-badge>Trial</gl-badge>`,
 			)}${when(
 				state === SubscriptionState.VerificationRequired,
 				() => html`<gl-badge>Unverified</gl-badge>`,
+			)}${when(
+				trial && days !== 0,
+				// The countdown is a measurement, not a label — it changes daily and would resize a badge as it
+				// counts down, so it rides alongside as text. The panel body states it in full below.
+				() => html`<span class="plan-remaining">${days < 1 ? '<1d' : `${days}d`} left</span>`,
 			)}</span
 		>`;
 	}
@@ -535,11 +605,14 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		const avatar = this._subscription.avatar.get();
 		const orgCount = this._subscription.organizationsCount.get();
 		const organization = sub?.activeOrganization?.name ?? '';
-		if (!this.hasAccount || !organization) return nothing;
+		// Only the account itself is required — a solo account has no active organization, and gating on one
+		// hid the avatar, name, and email from every user who isn't in an org. The organization row below
+		// carries its own guard.
+		if (!this.hasAccount) return nothing;
 
 		return html`<div class="account-info">
 			<span class="row row--account">
-				<span class="row__media"
+				<span class="row__media" data-entitlement=${this.entitlement ?? 'loading'}
 					>${
 						avatar ? html`<img src=${avatar} />` : html`<code-icon icon="gl-gitlens" size="20"></code-icon>`
 					}</span
@@ -551,7 +624,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				${this.renderUpgradeButton(sub?.activeOrganization?.id)}
 			</span>
 			${when(
-				orgCount > 1,
+				orgCount > 1 && organization.length > 0,
 				() =>
 					html`<span class="row">
 						<span class="row__media"><code-icon icon="organization" size="20"></code-icon></span>

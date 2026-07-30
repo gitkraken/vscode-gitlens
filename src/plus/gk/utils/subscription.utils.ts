@@ -211,6 +211,26 @@ export function getSubscriptionStateString(state: SubscriptionState | undefined)
 	}
 }
 
+/**
+ * Which entitlement is currently active, collapsing the finer states: unverified, expired, and
+ * reactivation-eligible all mean Pro isn't active. `undefined` when the state isn't known yet — callers
+ * should treat that as "don't assert anything" rather than as unpaid.
+ */
+export function getSubscriptionEntitlement(
+	state: SubscriptionState | undefined,
+): 'unpaid' | 'trial' | 'paid' | undefined {
+	switch (getSubscriptionStateString(state)) {
+		case 'paid':
+			return 'paid';
+		case 'trial':
+			return 'trial';
+		case 'unknown':
+			return undefined;
+		default:
+			return 'unpaid';
+	}
+}
+
 export function getSubscriptionTimeRemaining(
 	subscription: Optional<Subscription, 'state'>,
 	unit?: 'days' | 'hours' | 'minutes' | 'seconds',
