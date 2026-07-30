@@ -95,6 +95,8 @@ import { RovingTabindexController } from '../../../shared/controllers/roving-tab
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
+import type { LaneSeedSource } from '../utils/laneSeed.utils.js';
+import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow, rowMarkerRolesFor } from '../utils/rowMarker.utils.js';
 import { branchHintFor, createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
@@ -660,6 +662,14 @@ export class GlLitGraph extends LitElement {
 	// re-hovering the SAME pill/row while the modifier stays held (or a fresh reconcile lands on it) is a
 	// no-op instead of re-walking `collectLaneChain` over the lane again.
 	private lastModifierChainSeed?: string;
+	// Which input last NAMED a row — decides whether the Alt-hold chain seeds off the pointer or the
+	// keyboard when both point somewhere (see `pickLaneSeed`). Stamped only at genuine user-intent sites,
+	// never derived from `focusIndex`: paging/folding/restore re-clamp that index with no user involved.
+	private _laneSeedSource: LaneSeedSource = 'pointer';
+	// Pointer position at the last `_laneSeedSource` stamp — lets `onPointerOverTooltip` tell a real move
+	// apart from a boundary event fired because content scrolled under a stationary cursor.
+	private _laneSeedPointerX?: number;
+	private _laneSeedPointerY?: number;
 	// Direction to the current HEAD commit when it's scrolled OFF-screen (drives the floating
 	// "Scroll to HEAD" pill; the arrow points toward HEAD). Undefined = HEAD is visible → no pill.
 	// Only flips when HEAD crosses the visible edge (set from onRangeChanged), so it's not per-frame.
@@ -1481,26 +1491,15 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
-		// The host window losing focus (e.g. Alt-Tab away) can leave the Alt-hold dim stuck — the same
-		// `blur` signal drives `gl-graph--window-unfocused` in render().
-		if (changed.has('windowFocused') && this.windowFocused === false) {
-			this.deactivateModifierChain();
-		}
-
-		// Reconcile the transient Alt-hold chain against the shared modifier tracker — the single source
-		// of Alt truth. The tracker `requestUpdate`s us on every Alt transition (including ones carried by
-		// a pointer event while the graph is unfocused, or a menu-bar-steal that swallowed the keyup), so
-		// this engages on Alt-press and reverts on release without a mouse move. `activateModifierChain`
-		// dedups against `lastModifierChainSeed`, so this per-update pass is a no-op once settled. The
-		// explicit calls in `handleRowHover`/`onPointerOverTooltip` still retarget on a row/pill change.
-		// Gate the re-activation on window focus: an Alt-Tab away doesn't fire keyup/visibilitychange, so
-		// the tracker can still read `altKey` true while unfocused — without this guard the reconcile would
-		// immediately undo the `windowFocused === false` deactivation above, leaving the dim stuck.
-		if (this._modifiers.altKey && this.windowFocused !== false) {
-			this.activateModifierChain();
-		} else if (this.modifierChainShas != null) {
-			this.deactivateModifierChain();
-		}
+		// Reconcile the transient Alt-hold chain against the shared modifier tracker. The tracker
+		// `requestUpdate`s us on every Alt transition (including ones carried by a pointer event while the
+		// graph is unfocused, or a menu-bar-steal that swallowed the keyup), so this engages on Alt-press
+		// and reverts on release without a mouse move. `activateModifierChain` dedups against
+		// `lastModifierChainSeed`, so this per-update pass is a no-op once settled — but it is ALSO what
+		// retargets the chain on keyboard navigation: `focusIndex` is `@state`, so Alt+Arrow schedules an
+		// update and the new focused row becomes the seed here. The explicit calls in
+		// `handleRowHover`/`onPointerOverTooltip` retarget on a pointer row/pill change.
+		this.reconcileModifierChain();
 
 		const selectionChanged = changed.has('selectedRows') || this.selectedRows !== this.lastSelectedRowsRef;
 		if (selectionChanged) {
@@ -2931,6 +2930,18 @@ export class GlLitGraph extends LitElement {
 			event.target instanceof Element
 				? event.target.closest<HTMLElement>('.gl-graph__row')?.dataset.sha
 				: undefined;
+
+		// Landing on a row (or anything in one, incl. a ref pill) hands the Alt-hold lane seed back to the
+		// pointer — but ONLY on real pointer motion. Scrolling content under a stationary cursor re-fires
+		// `pointerover` for the newly hit row with the SAME coordinates, and the keyboard's own reveal-scroll
+		// does exactly that, so stamping those would steal the seed back mid-keyboard-navigation.
+		const pointerMoved = event.clientX !== this._laneSeedPointerX || event.clientY !== this._laneSeedPointerY;
+		this._laneSeedPointerX = event.clientX;
+		this._laneSeedPointerY = event.clientY;
+		if (pointerMoved && pointerRowSha != null) {
+			this._laneSeedSource = 'pointer';
+		}
+
 		if (pointerRowSha !== this.pointerRowSha) {
 			this.pointerRowSha = pointerRowSha;
 			this.updateStickyTimelineYield();
@@ -2960,7 +2971,9 @@ export class GlLitGraph extends LitElement {
 			}
 		} else if (this.hoveredPillRef != null) {
 			this.hoveredPillRef = undefined;
-			this.deactivateModifierChain();
+			// Off the pill, not necessarily off Alt — hand the seed to the row under the pointer (or the
+			// focused row / HEAD) rather than clearing the highlight outright.
+			this.reconcileModifierChain();
 		}
 
 		// The row-marker rail hover-expands on its own and must NOT open the row's rich hover card — but it
@@ -3097,18 +3110,24 @@ export class GlLitGraph extends LitElement {
 		// Leaving the viewport entirely → end the row hover. (The ref focus chain is click-pinned now,
 		// so it deliberately persists across hover-out.)
 		if (!(related instanceof Node) || !this.contains(related)) {
-			this.endRowHover(related ?? null);
-			// `onPointerOverTooltip` clears `hoveredPillRef` itself on every move that resolves off a
-			// pill — but a move that leaves the viewport entirely fires no further pointerover, so that
-			// path never runs. Mirror the row-hover cleanup above for the same reason.
-			if (this.hoveredPillRef != null) {
-				this.hoveredPillRef = undefined;
-				this.deactivateModifierChain();
-			}
-			// Same reason: no pointerover fires once the pointer is gone, so release the pill's yield row.
+			// `onPointerOverTooltip` clears `hoveredPillRef`/`pointerRowSha` itself on every move that
+			// resolves off a pill/row — but a move that leaves the viewport entirely fires no further
+			// pointerover, so that path never runs. Clear them BEFORE ending the row hover so its lane-seed
+			// reconcile can't re-seed off pointer state the pointer no longer has. (Clearing `pointerRowSha`
+			// also releases the sticky-timeline pill's yield row.)
+			this.hoveredPillRef = undefined;
 			if (this.pointerRowSha != null) {
 				this.pointerRowSha = undefined;
 				this.updateStickyTimelineYield();
+			}
+			this.endRowHover(related ?? null);
+			// With the pointer outside the viewport the modifier tracker sees no further pointer events, so an
+			// Alt release only reaches us as a keyup — which needs keyboard focus. Without it, drop the dim
+			// rather than strand it on the focused-row/HEAD seed with no way to observe the release.
+			if (this.treeRef.value?.contains(document.activeElement) === true) {
+				this.reconcileModifierChain();
+			} else {
+				this.deactivateModifierChain();
 			}
 		}
 	};
@@ -3212,32 +3231,52 @@ export class GlLitGraph extends LitElement {
 	// pin, this never touches `_pinnedRefKey`/adornments — the ref pills themselves don't change, only
 	// the per-row dim/chain flags read fresh off `modifierChainShas` each render, so there's no adornment
 	// cache to evict here (contrast `togglePinnedRef`/`clearPinnedRef`, which evict to promote/demote the
-	// inline pill). A hovered ref PILL wins (richer chain: the ref's own chain + its tracked counterpart),
-	// walked DOWN-only since a ref IS its lane tip; otherwise a hovered ROW (either zone — a `graph`-zone
-	// hover is still a row hover with a sha) seeds from the row itself and walks BOTH ways to cover the
-	// whole lane ("the branch this commit is on"). Both stop at the fork/merge boundary (see
-	// `collectLaneChain`), so highlighting a branch never bleeds into the trunk below its merge base.
+	// inline pill).
+	//
+	// `pickLaneSeed` chooses the seed: last-mover-wins between the pointer and the keyboard, falling back
+	// to HEAD. A hovered ref PILL is the richest pointer seed (the ref's own chain + its tracked
+	// counterpart) and walks DOWN-only since a ref IS its lane tip; every ROW seed — hovered, focused or
+	// HEAD — walks BOTH ways to cover the whole lane ("the branch this commit is on"). Both stop at the
+	// fork/merge boundary (see `collectLaneChain`), so highlighting a branch never bleeds into the trunk
+	// below its merge base.
+	//
+	// The pointer's row is `hoveredRowSha ?? pointerRowSha`: the rich-hover card is cancelled while the
+	// pointer sits on a row affordance (a `data-tooltip` action/anchor), and `pointerRowSha` survives that
+	// cancel, so Alt still engages with the pointer parked on a row's action strip.
 	private activateModifierChain(): void {
-		if (this.hoveredPillRef != null) {
-			const pill = this.hoveredPillRef;
-			const seed = `pill:${pill.key}:${pill.sha}`;
-			if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
-
-			this.lastModifierChainSeed = seed;
-			this.modifierChainShas = this.laneChainFor(this.pinnedChainShas(pill.key, pill.sha), 'down');
+		const target = pickLaneSeed({
+			source: this._laneSeedSource,
+			pillRef: this.hoveredPillRef,
+			pointerSha: this.hoveredRowSha ?? this.pointerRowSha,
+			focusedSha: this.displayRows[this.focusIndex]?.sha,
+			headSha: this.headSha,
+		});
+		if (target == null) {
+			this.deactivateModifierChain();
 			return;
 		}
 
-		// No `hoveredRowSha` while the pointer sits on a row affordance (a `data-tooltip` action/anchor
-		// cancels the rich-hover card) — fall back to `pointerRowSha`, which survives that cancel, so Alt
-		// still engages with the pointer parked on a row's action strip.
-		const rowSha = this.hoveredRowSha ?? this.pointerRowSha;
-		if (rowSha != null) {
-			const seed = `row:${rowSha}`;
-			if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
+		const seed = laneSeedKey(target);
+		if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
 
-			this.lastModifierChainSeed = seed;
-			this.modifierChainShas = this.laneChainFor([rowSha], 'both');
+		this.lastModifierChainSeed = seed;
+		this.modifierChainShas =
+			target.kind === 'pill'
+				? this.laneChainFor(this.pinnedChainShas(target.key, target.sha), 'down')
+				: this.laneChainFor([target.sha], 'both');
+	}
+
+	// Bring the transient chain in line with the shared modifier tracker — the single source of Alt truth.
+	// Shared by the `willUpdate` reconcile and the pointer-leave paths, which now HAND OFF to the next-best
+	// seed (focused row, then HEAD) instead of clearing: leaving a row doesn't mean you stopped holding Alt.
+	private reconcileModifierChain(): void {
+		// Gate on window focus: an Alt-Tab away fires no keyup/visibilitychange, so the tracker can still
+		// read `altKey` true while unfocused — without this the dim would stick. (The same `blur` signal
+		// drives `gl-graph--window-unfocused` in render().)
+		if (this._modifiers.altKey && this.windowFocused !== false) {
+			this.activateModifierChain();
+		} else if (this.modifierChainShas != null) {
+			this.deactivateModifierChain();
 		}
 	}
 
@@ -3525,9 +3564,9 @@ export class GlLitGraph extends LitElement {
 			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
 		);
 		// A pill claiming the hover moments earlier in the SAME event (see onPointerOverTooltip) has
-		// already re-activated for it — only clear when NEITHER a pill nor a row is hovered anymore.
+		// already re-activated for it — only re-seed when NEITHER a pill nor a row is hovered anymore.
 		if (this.hoveredPillRef == null) {
-			this.deactivateModifierChain();
+			this.reconcileModifierChain();
 		}
 	}
 
@@ -5838,6 +5877,7 @@ export class GlLitGraph extends LitElement {
 					if (this._pinnedRefKey != null) {
 						this.clearPinnedRef();
 					}
+					this._laneSeedSource = 'keyboard';
 					this.focusIndex = idx;
 					this._selectionAnchorIndex = idx;
 					this.selectedShas = new Set([targetSha]);
@@ -5960,6 +6000,10 @@ export class GlLitGraph extends LitElement {
 		const targetSha = this.displayRows[next]?.sha;
 		if (targetSha == null) return true;
 
+		// The keyboard now owns the Alt-hold lane seed — so Alt+Arrow (branching point) and Alt+PageUp/Down
+		// (ref) retarget the highlight as they move instead of leaving it on whatever the pointer last sat on.
+		this._laneSeedSource = 'keyboard';
+
 		const multiEnabled = this.config?.multiSelectionMode !== false;
 		if (event.shiftKey && multiEnabled) {
 			// Shift+Arrow extends a range selection from the fixed anchor to the new row; the details panel
@@ -6020,6 +6064,8 @@ export class GlLitGraph extends LitElement {
 		// Focus first: onFocusIn deliberately realigns to the current selection. The navigation
 		// selection is applied in the same task, but the event can still observe the prior row.
 		this.treeRef.value?.focus({ focusVisible: false });
+		// A programmatic jump moves the graph to a row without the pointer, so it owns the lane seed too.
+		this._laneSeedSource = 'keyboard';
 		this.focusIndex = index;
 		this._selectionAnchorIndex = index;
 		return true;

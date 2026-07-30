@@ -49,7 +49,8 @@ const otherGroup: ShortcutGroup = {
 	shortcuts: [
 		{
 			chords: [[alt]],
-			description: 'Hold while hovering a row or ref to highlight its branch lane (dismisses the hover)',
+			description:
+				'Hold to highlight the branch lane of the hovered or focused row, else HEAD (dismisses the hover)',
 		},
 		{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' },
 	],

@@ -278,7 +278,7 @@ suite('graphInspectServices — getDiffForScope untracked handling (#5586, #5604
 		});
 		await assert.rejects(
 			invoke(c.fakeThis, wipScope({ includeUnstaged: true }), ac.signal),
-			(ex: Error) => !/EBUSY/.test(ex.message),
+			(ex: Error) => !ex.message.includes('EBUSY'),
 			'the cancellation must surface, not the cleanup error',
 		);
 	});
