@@ -3,7 +3,14 @@ import { test as base, createTmpDir, GitFixture } from '../baseTest.js';
 import { findGkCliFromArgs, findIpcFileByWorkspace, McpClient, waitForCliInstall } from '../helpers/mcpHelper.js';
 
 export { expect } from '@playwright/test';
-export type { IpcDiscoveryData, McpConfigResult, McpMessage, McpClient } from '../helpers/mcpHelper.js';
+export type {
+	IpcDiscoveryData,
+	McpConfigResult,
+	McpMessage,
+	McpClient,
+	McpServerMode,
+	McpToolDefinition,
+} from '../helpers/mcpHelper.js';
 export { readIpcDiscoveryFile } from '../helpers/mcpHelper.js';
 
 interface McpFixtures {

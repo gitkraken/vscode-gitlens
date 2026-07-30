@@ -22,6 +22,21 @@ export type McpConfigResult = {
 	version?: string;
 };
 
+/**
+ * Mode the `gk mcp` server is started in, which decides the published tool surface.
+ *
+ * `readonly` drops the mutating tools, `experimental` adds the experimental ones — both are
+ * process arguments, so every call spawns its own server (see `McpClient.sendRequests`).
+ */
+export type McpServerMode = { readonly?: boolean; experimental?: boolean };
+
+/** A tool as published by `tools/list`, including the schema clients validate arguments against. */
+export type McpToolDefinition = {
+	name: string;
+	description?: string;
+	inputSchema?: { type?: string; required?: string[]; properties?: Record<string, unknown> };
+};
+
 export type IpcDiscoveryData = {
 	token: string;
 	address: string;
@@ -128,8 +143,17 @@ export class McpClient {
 		private readonly host: 'vscode' | 'cursor' = 'vscode',
 	) {}
 
-	/** Returns names of all tools exposed by the MCP server. */
-	async listTools(): Promise<string[]> {
+	/** Returns names of all tools exposed by the MCP server, optionally started in a specific mode. */
+	async listTools(mode?: McpServerMode): Promise<string[]> {
+		return (await this.listToolDefinitions(mode)).map(t => t.name);
+	}
+
+	/**
+	 * Returns the full tool definitions from `tools/list`, optionally starting the server in a
+	 * specific mode. Callers that only need names should use `listTools`; this exists for assertions
+	 * about the published contract itself (declared parameters, descriptions).
+	 */
+	async listToolDefinitions(mode?: McpServerMode): Promise<McpToolDefinition[]> {
 		const msg = await this.sendRequests(
 			[
 				this.initMsg(),
@@ -137,15 +161,16 @@ export class McpClient {
 				{ jsonrpc: '2.0' as const, id: 2, method: 'tools/list', params: {} },
 			],
 			2,
+			mode,
 		);
 		if (msg?.error) {
 			throw new Error(`MCP tools/list failed: [${msg.error.code}] ${msg.error.message}`);
 		}
-		return ((msg?.result as { tools?: { name: string }[] })?.tools ?? []).map(t => t.name);
+		return (msg?.result as { tools?: McpToolDefinition[] })?.tools ?? [];
 	}
 
 	/** Calls a single MCP tool and returns the tool-response message. */
-	async callTool(toolName: string, args: Record<string, unknown>): Promise<McpMessage> {
+	async callTool(toolName: string, args: Record<string, unknown>, mode?: McpServerMode): Promise<McpMessage> {
 		return this.sendRequests(
 			[
 				this.initMsg(),
@@ -153,6 +178,7 @@ export class McpClient {
 				{ jsonrpc: '2.0' as const, id: 3, method: 'tools/call', params: { name: toolName, arguments: args } },
 			],
 			3,
+			mode,
 		);
 	}
 
@@ -258,16 +284,38 @@ export class McpClient {
 	}
 
 	/**
+	 * Builds the `gk mcp` arguments for a server mode.
+	 *
+	 * Both flags are passed bare, never as `--flag=false`: the CLI derives read-only from the flag
+	 * being *present* (`cmd.Flags().Changed`), so `--readonly=false` would still start a read-only
+	 * server. Omitting the flag is the only way to express "not read-only".
+	 */
+	private serverArgs(mode: McpServerMode | undefined): string[] {
+		const args = ['mcp', `--host=${this.host}`, '--source=gitlens', `--scheme=${this.host}`];
+		if (mode?.readonly) {
+			args.push('--readonly');
+		}
+		if (mode?.experimental) {
+			args.push('--experimental');
+		}
+		return args;
+	}
+
+	/**
 	 * Spawns gk mcp, sends all messages, waits for the response with `targetId`,
 	 * and handles elicitation/create by auto-cancelling (safe default for tests).
 	 */
-	private sendRequests(messages: object[], targetId: number, timeoutMs = 30_000): Promise<McpMessage> {
+	private sendRequests(
+		messages: object[],
+		targetId: number,
+		mode?: McpServerMode,
+		timeoutMs = 30_000,
+	): Promise<McpMessage> {
 		return new Promise((resolve, reject) => {
-			const proc = spawn(
-				this.gkPath,
-				['mcp', `--host=${this.host}`, '--source=gitlens', `--scheme=${this.host}`],
-				{ env: this.buildEnv(), stdio: ['pipe', 'pipe', 'pipe'] },
-			);
+			const proc = spawn(this.gkPath, this.serverArgs(mode), {
+				env: this.buildEnv(),
+				stdio: ['pipe', 'pipe', 'pipe'],
+			});
 
 			let settled = false;
 			let stderr = '';
