@@ -34,6 +34,19 @@ const reviewDetailDefault = `<findings>
 // Returning an obviously-rejected payload makes the no-inject failure mode predictable.
 const generateCommitsRejection = `{"commits":[]}`;
 
+// conflict-resolution is parsed by `@gitkraken/conflict-tools`, not by results.utils.ts, so the
+// summary/body fallback below would fail every file and escalate an automatic rebase on its first
+// step. A file-level strategy is the one shape that needs no knowledge of the conflict's markers, so
+// a single canned response works for any file; confidence clears the 0.8
+// `ai.autoRebase.confidenceThreshold` default so a run reaches completion instead of pausing for
+// review. Inject per-chunk `chunks` when a test needs the markers resolved individually.
+const conflictResolutionDefault = JSON.stringify({
+	confidence: 0.9,
+	description:
+		'Simulated resolution: took the incoming side wholesale. The current side had no meaningful changes relative to the merge base, so replaying the incoming edit as-is loses nothing.',
+	strategy: 'theirs',
+});
+
 // Plain string-keyed map — TS gets confused by Record/Map when the key union contains a template
 // literal (`generate-create-${...}`), even though all keys are valid AIActionType members.
 const defaults: { readonly [key: string]: string | undefined } = {
@@ -46,6 +59,7 @@ const defaults: { readonly [key: string]: string | undefined } = {
 	'generate-create-pullRequest': summarized('Simulated pull request', '## Summary\n- Simulated PR body'),
 	'generate-commits': generateCommitsRejection,
 	'generate-searchQuery': 'message:simulated',
+	'conflict-resolution': conflictResolutionDefault,
 };
 
 export function getDefaultResponse(action: AIActionType): string {
