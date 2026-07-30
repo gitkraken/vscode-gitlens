@@ -1,5 +1,6 @@
 import type { CancellationToken } from 'vscode';
 import { rootSha } from '@gitlens/git/models/revision.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
 import { ComposeToolsIntegration } from '../../../../plus/coretools/compose/integration.js';
@@ -131,9 +132,12 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 
 			await this.confirmInteriorRefsOrThrow(git, source);
 
-			const aiExcluded = input.aiExcludedFiles?.length ? new Set(input.aiExcludedFiles) : undefined;
+			// Normalize sets for like-for-like comparison with hunk names; see `hunkMatchesPath`.
+			const aiExcluded = input.aiExcludedFiles?.length
+				? new Set(input.aiExcludedFiles.map(normalizePath))
+				: undefined;
 			const userExcluded = input.excludedFiles?.length
-				? new Set(input.excludedFiles.filter(p => !aiExcluded?.has(p)))
+				? new Set(input.excludedFiles.map(normalizePath).filter(p => !aiExcluded?.has(p)))
 				: undefined;
 			// An interior range's leftover hunks have nowhere to go — the commits above the range
 			// depend on the excluded content, and the worktree isn't the rewrite destination. The
@@ -145,14 +149,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			}
 
 			const hunkFilter = userExcluded?.size
-				? (hunks: ComposeHunk[]) =>
-						hunks.filter(
-							h => !userExcluded.has(h.fileName) && !userExcluded.has(h.originalFileName ?? h.fileName),
-						)
+				? (hunks: ComposeHunk[]) => hunks.filter(h => !hunkMatchesPath(h, userExcluded))
 				: undefined;
-			const redactHunkContent = aiExcluded?.size
-				? (h: ComposeHunk) => aiExcluded.has(h.fileName) || aiExcluded.has(h.originalFileName ?? h.fileName)
-				: undefined;
+			const redactHunkContent = aiExcluded?.size ? (h: ComposeHunk) => hunkMatchesPath(h, aiExcluded) : undefined;
 
 			const result: ComposePlanResult = await composePlan({
 				git: git,
@@ -181,7 +180,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				source: source,
 				sourceHunks: result.source.hunks,
 				excludedFiles: userExcluded?.size ? [...userExcluded] : undefined,
-				aiExcludedFiles: input.aiExcludedFiles?.length ? [...input.aiExcludedFiles] : undefined,
+				aiExcludedFiles: aiExcluded?.size ? [...aiExcluded] : undefined,
 				session: result.session,
 				extras: extras,
 			});
@@ -337,10 +336,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		// filter at apply time, the library's drift check sees the fresh unfiltered diff and
 		// reports a false-positive SAFETY_CHECK_FAILED. aiexclude-masked files were NOT filtered
 		// (only their AI prompt content was masked), so they don't participate here.
-		const excluded = cached.excludedFiles?.length ? new Set(cached.excludedFiles) : undefined;
+		const excluded = cached.excludedFiles?.length ? new Set(cached.excludedFiles.map(normalizePath)) : undefined;
 		const hunkFilter = excluded?.size
-			? (hunks: ComposeHunk[]) =>
-					hunks.filter(h => !excluded.has(h.fileName) && !excluded.has(h.originalFileName ?? h.fileName))
+			? (hunks: ComposeHunk[]) => hunks.filter(h => !hunkMatchesPath(h, excluded))
 			: undefined;
 
 		try {
@@ -387,14 +385,19 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		if (commit == null) return undefined;
 
 		const indexSet = new Set(commit.hunkIndices);
-		const aiExcluded = cached.aiExcludedFiles?.length ? new Set(cached.aiExcludedFiles) : undefined;
+		// `aiExcludedFiles` is already normalized on the way into the cache (see
+		// `generatePlanForGraphDetails`); re-normalizing here is idempotent and keeps this read
+		// site defensive against a future write path that forgets to.
+		const aiExcluded = cached.aiExcludedFiles?.length
+			? new Set(cached.aiExcludedFiles.map(normalizePath))
+			: undefined;
 
 		const hunks: ComposerHunk[] = [];
 		for (const h of cached.sourceHunks) {
 			if (!indexSet.has(h.index)) continue;
 
 			const composerHunk = toComposerHunk(h);
-			if (aiExcluded?.has(h.fileName) || (h.originalFileName != null && aiExcluded?.has(h.originalFileName))) {
+			if (aiExcluded != null && hunkMatchesPath(h, aiExcluded)) {
 				composerHunk.content = REDACTED_HUNK_CONTENT;
 			}
 			hunks.push(composerHunk);
@@ -502,12 +505,8 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		if (from == null || to == null) return false;
 
 		// Hunk indices for these files (renames match either side of the move).
-		const pathSet = new Set(paths);
-		const fileIndices = new Set(
-			cached.sourceHunks
-				.filter(h => pathSet.has(h.fileName) || (h.originalFileName != null && pathSet.has(h.originalFileName)))
-				.map(h => h.index),
-		);
+		const pathSet = new Set(paths.map(normalizePath));
+		const fileIndices = new Set(cached.sourceHunks.filter(h => hunkMatchesPath(h, pathSet)).map(h => h.index));
 		const movingSet = new Set(from.hunkIndices.filter(i => fileIndices.has(i)));
 		if (movingSet.size === 0) return false;
 
@@ -691,6 +690,18 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			},
 		};
 	}
+}
+
+/**
+ * Whether `hunk`'s current name or (if it's a rename) its original name matches any entry in
+ * `paths`, comparing `normalizePath`d values on both sides so a trailing-slash path (as git
+ * porcelain reports an untracked nested repository) matches the hunk's slash-less gitlink name.
+ */
+function hunkMatchesPath(hunk: ComposeHunk, paths: ReadonlySet<string>): boolean {
+	return (
+		paths.has(normalizePath(hunk.fileName)) ||
+		(hunk.originalFileName != null && paths.has(normalizePath(hunk.originalFileName)))
+	);
 }
 
 /**

@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import type { Container } from '../../../../../container.js';
 import type { CachedPlan } from '../../../../../plus/coretools/compose/integration.js';
 import type { ComposeHunk, ComposePlan } from '../../../../../plus/coretools/compose/types.js';
+import { REDACTED_HUNK_CONTENT } from '../../../../../plus/coretools/compose/utils.js';
 import { GraphComposeIntegration } from '../integration.js';
 
 type TestCommit = ComposePlan['allOrderedCommits'][number];
@@ -10,14 +11,14 @@ function makeCommit(id: string): TestCommit {
 	return { id: id, message: `msg-${id}`, explanation: '', hunkIndices: [] };
 }
 
-function makeHunk(index: number, fileName: string, originalFileName?: string): ComposeHunk {
+function makeHunk(index: number, fileName: string, originalFileName?: string, content = ''): ComposeHunk {
 	return {
 		index: index,
 		fileName: fileName,
 		originalFileName: originalFileName,
 		diffHeader: '',
 		hunkHeader: '',
-		content: '',
+		content: content,
 		additions: 0,
 		deletions: 0,
 	};
@@ -77,10 +78,17 @@ function makePlanWithHunks(
 	return { plan: plan, sourceHunks: sourceHunks };
 }
 
-function seedFull(sut: GraphComposeIntegration, cacheKey: string, plan: ComposePlan, sourceHunks: ComposeHunk[]): void {
+function seedFull(
+	sut: GraphComposeIntegration,
+	cacheKey: string,
+	plan: ComposePlan,
+	sourceHunks: ComposeHunk[],
+	aiExcludedFiles?: string[],
+): void {
 	(sut as unknown as { _cache: Map<string, CachedPlan> })._cache.set(cacheKey, {
 		plan: plan,
 		sourceHunks: sourceHunks,
+		aiExcludedFiles: aiExcludedFiles,
 	} as CachedPlan);
 }
 
@@ -306,5 +314,73 @@ suite('graph/compose/integration moveFilesBetweenCommits', () => {
 			['c1', 'c2'],
 		);
 		assert.deepStrictEqual(plan.allOrderedCommits.find(c => c.id === 'c1')!.hunkIndices, [0]);
+	});
+
+	// Git names an untracked directory that is itself a repository with a trailing slash
+	// (`nested-repo/`), but the compose hunk for it is a slash-less gitlink (`nested-repo`) — the
+	// webview's path list for a move can carry either shape, and both must match the same hunk.
+	test('matches a trailing-slash path against its slash-less gitlink hunk', () => {
+		const sut = new GraphComposeIntegration({} as Container);
+		const sourceHunks = [makeHunk(0, 'nested-repo'), makeHunk(1, 'b.ts')];
+		const { plan } = makePlanWithHunks(
+			[
+				{ id: 'c1', hunkIndices: [0, 1] },
+				{ id: 'c2', hunkIndices: [] },
+			],
+			sourceHunks,
+		);
+		seedFull(sut, cacheKey, plan, sourceHunks);
+
+		const ok = sut.moveFilesBetweenCommits(cacheKey, 'c1', 'c2', ['nested-repo/']);
+
+		assert.strictEqual(ok, true);
+		assert.deepStrictEqual(plan.allOrderedCommits.find(c => c.id === 'c1')!.hunkIndices, [1]);
+		assert.deepStrictEqual(plan.allOrderedCommits.find(c => c.id === 'c2')!.hunkIndices, [0]);
+	});
+});
+
+// `getMaskedHunksForCachedCommit` normalizes `aiExcludedFiles` at read time (idempotent
+// defense on top of the normalize-on-write in `generatePlanForGraphDetails`) so a trailing-slash
+// exclusion entry still matches a slash-less gitlink hunk. These tests seed the cache directly via
+// `seedFull`, bypassing the write-side normalization, to exercise the read-side normalization itself.
+suite('graph/compose/integration getMaskedHunksForCachedCommit', () => {
+	const cacheKey = 'test-key';
+
+	test('redacts an ai-excluded untracked nested repository despite the trailing-slash mismatch', () => {
+		const sut = new GraphComposeIntegration({} as Container);
+		const sourceHunks = [
+			makeHunk(0, 'nested-repo', undefined, 'gitlink content'),
+			makeHunk(1, 'b.ts', undefined, 'plain content'),
+		];
+		const { plan } = makePlanWithHunks([{ id: 'c1', hunkIndices: [0, 1] }], sourceHunks);
+		seedFull(sut, cacheKey, plan, sourceHunks, ['nested-repo/']);
+
+		const result = sut.getMaskedHunksForCachedCommit(cacheKey, 'c1');
+
+		assert.ok(result != null);
+		assert.strictEqual(result.hunks.find(h => h.fileName === 'nested-repo')!.content, REDACTED_HUNK_CONTENT);
+		assert.strictEqual(result.hunks.find(h => h.fileName === 'b.ts')!.content, 'plain content');
+	});
+
+	test('leaves content alone when nothing is ai-excluded', () => {
+		const sut = new GraphComposeIntegration({} as Container);
+		const sourceHunks = [makeHunk(0, 'a.ts', undefined, 'plain content')];
+		const { plan } = makePlanWithHunks([{ id: 'c1', hunkIndices: [0] }], sourceHunks);
+		seedFull(sut, cacheKey, plan, sourceHunks, []);
+
+		const result = sut.getMaskedHunksForCachedCommit(cacheKey, 'c1');
+
+		assert.strictEqual(result!.hunks[0].content, 'plain content');
+	});
+
+	test('matches a rename via originalFileName after normalization', () => {
+		const sut = new GraphComposeIntegration({} as Container);
+		const sourceHunks = [makeHunk(0, 'nested-repo-renamed', 'nested-repo', 'gitlink content')];
+		const { plan } = makePlanWithHunks([{ id: 'c1', hunkIndices: [0] }], sourceHunks);
+		seedFull(sut, cacheKey, plan, sourceHunks, ['nested-repo/']);
+
+		const result = sut.getMaskedHunksForCachedCommit(cacheKey, 'c1');
+
+		assert.strictEqual(result!.hunks[0].content, REDACTED_HUNK_CONTENT);
 	});
 });
