@@ -107,6 +107,9 @@ export interface AutoRebaseSession {
 	failure?: string;
 	/** Transient human-readable progress while running */
 	progressMessage?: string;
+	/** The rebase step the loop is on, while running — cleared on every terminal transition. Progress
+	 *  surfaces read this rather than parsing the `Step 3/7 · …` prefix out of {@link progressMessage}. */
+	current?: { stepNumber: number; totalSteps: number };
 }
 
 /**

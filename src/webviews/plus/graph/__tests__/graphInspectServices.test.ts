@@ -450,3 +450,84 @@ suite('graphInspectServices — review exclusions across path shapes (#5603)', (
 		assert.ok(diff.includes('changed.txt'), 'the focus area still covers its included file');
 	});
 });
+
+// `subscribeToAutoRebaseProgress` only reaches `this.container.autoRebase` and `this.session`, so the same
+// fake-`this` approach applies. The webview keeps a single auto-rebase run slot, but the service tracks a
+// session per repo and they can run concurrently — so the feed has to drop other repos' events or one repo's
+// run (or the `undefined` it clears with) blanks another's live progress.
+
+type SubscribeToAutoRebaseProgress = (
+	buffer: undefined,
+	tracker: undefined,
+) => (handler: (data: unknown) => void) => () => void;
+
+function fakeSession(id: string) {
+	return { id: id, phase: 'resolving', preRun: {}, steps: [] };
+}
+
+function createAutoRebaseFeed(graphRepoPath: string | undefined) {
+	let emit: ((e: { repoPath: string; session?: unknown }) => void) | undefined;
+
+	const fakeThis = {
+		container: {
+			autoRebase: {
+				getSession: sinon.stub().returns(undefined),
+				onDidChange: (listener: (e: { repoPath: string; session?: unknown }) => void) => {
+					emit = listener;
+					return { dispose: () => undefined };
+				},
+			},
+		},
+		session: graphRepoPath != null ? { repoPath: graphRepoPath } : undefined,
+	};
+
+	const fn = (
+		GraphInspectServices.prototype as unknown as { subscribeToAutoRebaseProgress: SubscribeToAutoRebaseProgress }
+	).subscribeToAutoRebaseProgress;
+	const received: unknown[] = [];
+	fn.call(fakeThis, undefined, undefined)(data => received.push(data));
+
+	return {
+		received: received,
+		emit: (repoPath: string, session?: unknown) => {
+			assert.ok(emit != null, 'the subscription should have registered an onDidChange listener');
+			emit({ repoPath: repoPath, session: session });
+		},
+	};
+}
+
+suite('graphInspectServices — auto-rebase progress is scoped to the graph repo', () => {
+	test('forwards updates for the graph repo', () => {
+		const feed = createAutoRebaseFeed('/repo-a');
+
+		feed.emit('/repo-a', fakeSession('run-a'));
+
+		assert.strictEqual(feed.received.length, 1);
+		assert.strictEqual((feed.received[0] as { sessionId: string }).sessionId, 'run-a');
+	});
+
+	test('drops another repo run so it cannot clobber the single run slot', () => {
+		const feed = createAutoRebaseFeed('/repo-a');
+
+		feed.emit('/repo-b', fakeSession('run-b'));
+
+		assert.deepStrictEqual(feed.received, [], "another repo's run must not reach the webview");
+	});
+
+	test('drops another repo clearing its session — the `undefined` would blank a live run', () => {
+		const feed = createAutoRebaseFeed('/repo-a');
+
+		feed.emit('/repo-a', fakeSession('run-a'));
+		feed.emit('/repo-b', undefined);
+
+		assert.strictEqual(feed.received.length, 1, "repo B finishing must not push `undefined` over repo A's run");
+	});
+
+	test('drops everything while the graph has no repo', () => {
+		const feed = createAutoRebaseFeed(undefined);
+
+		feed.emit('/repo-a', fakeSession('run-a'));
+
+		assert.deepStrictEqual(feed.received, []);
+	});
+});

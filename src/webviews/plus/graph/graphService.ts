@@ -133,6 +133,40 @@ export type AutoRebaseSummary = {
 
 export type AutoRebaseSummaryResult = { summary: AutoRebaseSummary } | { error: { message: string } };
 
+/** Lifecycle phase of an automatic rebase run — mirrors `AutoRebasePhase` (autoRebase.types.ts). */
+export type AutoRebaseRunPhase =
+	| 'starting'
+	| 'resolving'
+	| 'applying'
+	| 'continuing'
+	| 'completed'
+	| 'escalated'
+	| 'aborted'
+	| 'failed'
+	| 'undone';
+
+/** Live state of an automatic rebase run, pushed to the Resolve panel so the run shows its own steps and
+ *  progress there. Terminal phases are pushed too, so the panel knows to stop rendering the run. */
+export type AutoRebaseRunUpdate = {
+	sessionId: string;
+	repoPath: string;
+	branch?: string;
+	upstream?: string;
+	phase: AutoRebaseRunPhase;
+	/** The step the run is at — the one in flight while running, or the one it escalated on. Absent for
+	 *  the other terminal phases, and for a run that never paused. */
+	step?: { current: number; total: number };
+	/** Human-readable progress line, e.g. `Step 3/7 · Resolving 2 conflicts with AI…`. */
+	message?: string;
+	/** Why automation stopped, when it escalated — lets the panel distinguish a user-requested stop
+	 *  (`stopped`) from a genuine escalation. */
+	escalation?: { reason: string; message: string };
+	/** Steps recorded so far — only paused (conflicted/skipped) steps surface; clean picks never do.
+	 *  Files carry no `virtualRef` while running: before/after diffs stay a summary-sheet affordance so
+	 *  no virtual sessions are registered per progress tick. */
+	steps: AutoRebaseSummaryStep[];
+};
+
 export type UndoAutoRebaseResult =
 	| { result: { restoredTo: string; warning?: string } }
 	| { error: { message: string } };
@@ -565,6 +599,11 @@ export interface GraphInspectService {
 	 *  resolved manually — resumes the same session in place. Fire-and-forget: returns once triggered,
 	 *  not when the resumed rebase finishes. */
 	resumeAutoRebase(repoPath: string): Promise<void>;
+	/** Streams the live state of an automatic rebase run so the Resolve panel can show its steps and
+	 *  progress. `undefined` fires when the repo has no session left (dismissed). */
+	readonly onAutoRebaseProgress: RpcEventSubscription<AutoRebaseRunUpdate | undefined>;
+	/** Aborts a running automatic rebase, restoring the branch to its pre-rebase state. */
+	cancelAutoRebase(repoPath: string): Promise<void>;
 	/** Phase 1 of the branch-compare progressive load — counts + All Files only. Triggered on
 	 *  refs/wip change. Per-side commit + file data is fetched separately via {@link getBranchComparisonSide}. */
 	getBranchComparisonSummary(
