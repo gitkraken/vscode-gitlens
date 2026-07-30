@@ -12,28 +12,29 @@ export const detailsCommitPanelStyles = css`
 		overflow: hidden;
 		--gl-split-panel-divider-width: 12px;
 	}
+
 	:host([variant='embedded']) .split--auto-size:not([dragging]) {
 		--gl-split-panel-start-size: fit-content(var(--_start-size, 25%));
 	}
 
 	:host([variant='embedded']) .msg-slot {
+		display: flex;
+		flex-direction: column;
 		height: 100%;
 		min-height: 4.4rem;
 		overflow: hidden;
-		display: flex;
-		flex-direction: column;
 	}
 
 	/* File list wrapper */
 	:host([variant='embedded']) .files {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
-		overflow: hidden;
-		margin-top: var(--gl-space-4);
-		padding-left: var(--gl-space-6);
 		padding-right: var(--gl-space-6);
+		padding-left: var(--gl-space-6);
+		margin-top: var(--gl-space-4);
+		overflow: hidden;
 	}
 
 	/* Explain input override */
@@ -42,30 +43,31 @@ export const detailsCommitPanelStyles = css`
 		width: 0;
 		min-width: 0;
 		max-width: none;
-		margin: 0;
 		padding: 0.4rem 0.7rem;
-		font-size: var(--vscode-font-size);
+		margin: 0;
 		font-family: var(--vscode-font-family);
+		font-size: var(--vscode-font-size);
 		color: var(--vscode-input-foreground);
+		outline: none;
 		background: transparent;
 		border: none !important;
-		outline: none;
 	}
+
 	:host([variant='embedded']) .explain-input::placeholder {
 		color: var(--vscode-input-placeholderForeground);
 	}
 
 	/* Child Shadow DOM component overrides */
 	:host([variant='embedded']) webview-pane::part(header) {
-		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 		padding-right: calc(var(--gl-panel-padding-right) - 0.4rem);
 		background-color: inherit;
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	:host([variant='embedded']) webview-pane [slot='title'] {
 		display: inline-flex;
-		align-items: center;
 		gap: var(--gl-space-6);
+		align-items: center;
 	}
 
 	/* Add spacing between header and tree generator */
@@ -77,21 +79,22 @@ export const detailsCommitPanelStyles = css`
 
 	/* ── Zone 1: Author header (standalone fallback when panelActions=false) ── */
 	:host([variant='embedded']) .author-header {
-		display: flex;
-		align-items: center;
-		padding: 0.8rem var(--gl-panel-padding-right) 0.6rem var(--gl-panel-padding-left);
-		gap: var(--gl-space-6);
-		flex: none;
 		position: sticky;
 		top: 0;
 		z-index: 10;
+		display: flex;
+		flex: none;
+		gap: var(--gl-space-6);
+		align-items: center;
+		padding: 0.8rem var(--gl-panel-padding-right) 0.6rem var(--gl-panel-padding-left);
 		background-color: var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background)));
 	}
 
 	:host([variant='embedded']) .author-header__author {
 		--gl-avatar-size: 3.2rem;
-		min-width: 0;
+
 		flex: 1;
+		min-width: 0;
 	}
 
 	/* Mode-active title (replaces the author row in review mode). Verb on top, commit
@@ -99,17 +102,17 @@ export const detailsCommitPanelStyles = css`
 	   header doesn't jump height when entering/leaving the mode. */
 	.mode-title {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
+		gap: var(--gl-space-2);
 		justify-content: center;
 		min-width: 0;
-		flex: 1;
-		gap: var(--gl-space-2);
 	}
 
 	.mode-title__verb {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.5rem;
+		align-items: center;
 		font-size: var(--gl-font-base);
 		font-weight: 600;
 		color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
@@ -121,10 +124,10 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	.mode-title__subtitle {
-		font-size: var(--gl-font-md);
-		color: var(--color-foreground--65);
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-size: var(--gl-font-md);
+		color: var(--color-foreground--65);
 		white-space: nowrap;
 	}
 
@@ -147,39 +150,40 @@ export const detailsCommitPanelStyles = css`
 	   button. Mirrors gl-details-wip-header.css.ts. */
 	.metadata-bar .mode-status__group {
 		display: inline-flex;
-		align-items: center;
 		gap: var(--gl-space-4);
+		align-items: center;
 	}
 
 	.metadata-bar .mode-status__group code-icon {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
+
 		opacity: 0.85;
 	}
 
 	.metadata-bar .mode-status__resume {
 		display: inline-flex;
-		align-items: center;
 		gap: var(--gl-space-8);
+		align-items: center;
 		padding: var(--gl-space-2) var(--gl-space-6);
 		font: inherit;
 		color: inherit;
+		cursor: pointer;
 		background: transparent;
 		border: none;
 		border-radius: var(--gl-radius-sm);
-		cursor: pointer;
 	}
 
 	.metadata-bar .mode-status__resume:hover {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.metadata-bar .mode-status__resume:focus-visible {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
 		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.metadata-bar .mode-status__resume-verb {
@@ -189,40 +193,43 @@ export const detailsCommitPanelStyles = css`
 	.metadata-bar .mode-status__resume-arrow {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
+
 		opacity: 0.85;
 	}
 
 	/* ── Zone 2: Metadata bar ── */
 	:host([variant='embedded']) .metadata-bar {
 		display: flex;
+		flex: none;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: space-between;
-		padding: 0 var(--gl-panel-padding-right) 0 var(--gl-panel-padding-left);
-		gap: var(--gl-space-6);
-		flex: none;
 		min-width: 0;
-		// Contain children's intrinsic overflow so an unwrapped SHA / branch name / date
-		// can't bleed into the .commit-detail-panel's scrollWidth and trigger a phantom
-		// horizontal scrollbar at narrow sidebar widths.
-		overflow: hidden;
 		min-height: var(--gl-metadata-bar-min-height);
+		padding: 0 var(--gl-panel-padding-right) 0 var(--gl-panel-padding-left);
+		/* Contain children's intrinsic overflow so an unwrapped SHA / branch name / date can't bleed into
+		   the .commit-detail-panel's scrollWidth and trigger a phantom horizontal scrollbar at narrow
+		   sidebar widths. */
+		overflow: hidden;
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
 		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
+
 	:host([variant='embedded']) .metadata-bar:has(+ .reachability) {
 		border-bottom-color: transparent;
 	}
 
 	:host([variant='embedded']) .metadata-bar__left {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
 		flex: 1;
+		gap: 0.5rem;
+		align-items: center;
 		min-width: 0;
 		overflow: hidden;
 	}
+
 	:host([variant='embedded']) .metadata-bar__left > gl-tooltip,
 	:host([variant='embedded']) .metadata-bar__left > gl-popover {
 		display: inline-flex;
@@ -242,59 +249,68 @@ export const detailsCommitPanelStyles = css`
 		color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
 		text-transform: lowercase;
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch--tag {
 		color: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 70%, var(--color-foreground) 30%);
 	}
 
 	:host([variant='embedded']) .metadata-bar__branch-unreachable {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
-		color: var(--color-foreground--65);
+		align-items: center;
 		font-style: italic;
+		color: var(--color-foreground--65);
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch-unreachable code-icon {
 		--code-icon-size: 12px;
 	}
 
 	:host([variant='embedded']) .metadata-bar__branch-indicator {
+		box-sizing: border-box;
 		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		border: none;
-		background: transparent;
-		cursor: pointer;
 		flex-shrink: 1;
+		gap: 0.3rem;
+		align-items: center;
 		min-width: 0;
 		min-height: 2rem;
-		box-sizing: border-box;
-		overflow: hidden;
 		padding: 0 var(--gl-space-4);
-		border-radius: var(--gl-radius-sm);
-		color: var(--color-foreground--65);
-		font-size: inherit;
+		overflow: hidden;
 		font-family: inherit;
+		font-size: inherit;
+		color: var(--color-foreground--65);
+		cursor: pointer;
+		background: transparent;
+		border: none;
+		border-radius: var(--gl-radius-sm);
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch-indicator:hover {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--color-foreground);
+		background: var(--vscode-toolbar-hoverBackground);
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch-indicator:disabled {
 		cursor: default;
 		opacity: 0.6;
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch-indicator:disabled:hover {
 		background: transparent;
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch-indicator--idle {
 		color: var(--color-foreground--50);
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch-indicator--warning {
 		color: var(--vscode-editorWarning-foreground, #cca700);
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch-indicator--error {
 		color: var(--vscode-errorForeground, #f48771);
 	}
+
 	:host([variant='embedded']) .metadata-bar__branch-indicator code-icon {
 		--code-icon-size: 12px;
 	}
@@ -304,51 +320,53 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	:host([variant='embedded']) .metadata-bar__ref-count {
+		flex-shrink: 0;
 		font-size: var(--gl-font-micro);
 		font-weight: 500;
 		color: var(--color-foreground--50);
-		flex-shrink: 0;
 	}
 
 	:host([variant='embedded']) .metadata-bar__right {
 		display: flex;
-		align-items: center;
-		gap: var(--gl-space-8);
 		flex-shrink: 0;
-		font-size: var(--gl-font-sm);
-		font-weight: 600;
+		gap: var(--gl-space-8);
+		align-items: center;
 		/* Stats-only cluster (actions now live on the left): keep it inset from the right edge. */
 		margin-right: 0.5rem;
+		font-size: var(--gl-font-sm);
+		font-weight: 600;
 	}
 
 	/* Reachability (below metadata bar) */
 	:host([variant='embedded']) .reachability {
 		display: flex;
-		align-items: flex-start;
+		flex: none;
 		gap: var(--gl-space-6);
+		align-items: flex-start;
 		padding: 0.2rem var(--gl-panel-padding-right) 0.4rem var(--gl-panel-padding-left);
 		font-size: var(--gl-font-base);
-		flex: none;
 		background-color: var(--gl-metadata-bar-bg);
 		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	:host([variant='embedded']) .reachability__load-all {
 		display: inline-flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		flex-shrink: 0;
-		margin-left: auto;
-		border: none;
-		background: transparent;
-		cursor: pointer;
 		padding: var(--gl-space-4);
+		margin-left: auto;
 		color: var(--color-foreground);
+		cursor: pointer;
+		background: transparent;
+		border: none;
 		border-radius: var(--gl-radius-sm);
 	}
+
 	:host([variant='embedded']) .reachability__load-all:hover {
 		background: var(--vscode-toolbar-hoverBackground);
 	}
+
 	:host([variant='embedded']) .reachability__load-all code-icon {
 		--code-icon-size: 16px;
 	}
@@ -356,39 +374,40 @@ export const detailsCommitPanelStyles = css`
 	/* ── Zone 3: Message ── */
 	:host([variant='embedded']) .message {
 		position: relative;
-		height: 100%;
 		display: flex;
 		flex-direction: column;
+		height: 100%;
 		padding: 0.8rem var(--gitlens-scrollbar-gutter-width) 0 var(--gl-panel-padding-left);
 		overflow: hidden;
 	}
 
 	:host([variant='embedded']) .message .message-block {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
-		overflow: hidden;
-		border: none;
-		background: none;
 		padding: 0;
+		overflow: hidden;
+		background: none;
+		border: none;
 		border-radius: 0;
 	}
 
 	:host([variant='embedded']) .message .message-block__text {
 		--_fade-bg: var(--titlebar-bg, var(--color-background));
 
-		max-height: none;
-		overflow-y: auto;
-		scroll-timeline: --msg-scroll block;
 		flex: 1;
 		min-height: 0;
+		max-height: none;
 		padding-bottom: var(--gl-space-6);
+		overflow-y: auto;
 
 		/* Scrollbar: fade in on hover/focus, hidden otherwise */
 		border-color: transparent;
 		transition: border-color 1s linear;
+		scroll-timeline: --msg-scroll block;
 	}
+
 	:host([variant='embedded']) .message .message-block__text:hover,
 	:host([variant='embedded']) .message .message-block__text:focus-within {
 		border-color: var(--vscode-scrollbarSlider-background);
@@ -401,24 +420,27 @@ export const detailsCommitPanelStyles = css`
 		border-right-style: inset;
 		border-right-width: calc(100vw + 100vh);
 	}
+
 	:host([variant='embedded']) .message .message-block__text::-webkit-scrollbar-thumb:hover {
 		border-color: var(--vscode-scrollbarSlider-hoverBackground);
 	}
+
 	:host([variant='embedded']) .message .message-block__text::-webkit-scrollbar-thumb:active {
 		border-color: var(--vscode-scrollbarSlider-activeBackground);
 	}
 
 	:host([variant='embedded']) .message .message-block__text::before,
 	:host([variant='embedded']) .message .message-block__text::after {
-		content: '';
-		display: block;
 		position: sticky;
 		z-index: 1;
+		display: block;
 		pointer-events: none;
+		content: '';
 		opacity: 0;
 		animation: linear both;
 		animation-timeline: --msg-scroll;
 	}
+
 	:host([variant='embedded']) .message .message-block__text::before {
 		top: 0;
 		height: 2.4rem;
@@ -426,6 +448,7 @@ export const detailsCommitPanelStyles = css`
 		background: linear-gradient(to bottom, var(--_fade-bg) 25%, transparent);
 		animation-name: scroll-fade-in;
 	}
+
 	:host([variant='embedded']) .message .message-block__text::after {
 		bottom: -0.6rem;
 		height: 3.6rem;
@@ -435,9 +458,9 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	:host([variant='embedded']) .message .message-block__text strong {
-		font-size: var(--gl-font-lg);
 		display: block;
 		margin-bottom: var(--gl-space-2);
+		font-size: var(--gl-font-lg);
 	}
 
 	:host([variant='embedded']) .message .message-block__copy {
@@ -446,11 +469,11 @@ export const detailsCommitPanelStyles = css`
 		z-index: 2;
 		display: block;
 		width: fit-content;
-		margin-left: auto;
+		padding: var(--gl-space-2);
 		margin-right: -0.4rem;
 		margin-bottom: -2.4rem;
+		margin-left: auto;
 		background: var(--vscode-sideBar-background, var(--color-background));
-		padding: var(--gl-space-2);
 		border-radius: var(--gl-radius-sm);
 		opacity: 1;
 		transition: color var(--gl-duration-fast) ease;
@@ -459,13 +482,14 @@ export const detailsCommitPanelStyles = css`
 	/* ── Zone 4: Autolinks footer ── */
 	:host([variant='embedded']) .autolinks {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
+		flex: none;
 		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: center;
 		margin: 0.2rem var(--gl-panel-padding-right) 0.4rem var(--gl-panel-padding-left);
 		font-size: var(--gl-font-sm);
-		flex: none;
 	}
+
 	:host([variant='embedded']) .autolinks gl-action-chip[data-action='autolink-settings'] {
 		color: var(--color-foreground--65);
 		--code-icon-size: 12px;
@@ -473,15 +497,16 @@ export const detailsCommitPanelStyles = css`
 
 	:host([variant='embedded']) .autolinks__label {
 		display: flex;
-		align-items: center;
 		gap: var(--gl-space-4);
+		align-items: center;
 		font-size: var(--gl-font-sm);
 		font-weight: 600;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
 		color: var(--color-foreground--50);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
 		white-space: nowrap;
 	}
+
 	:host([variant='embedded']) .autolinks__label code-icon {
 		opacity: 0.5;
 	}
@@ -504,11 +529,11 @@ export const detailsCommitPanelStyles = css`
 
 	/* Split panel divider */
 	:host([variant='embedded']) .split::part(divider) {
-		background-color: transparent !important;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: var(--gl-space-4) 0;
+		background-color: transparent !important;
 	}
 
 	/* ── Scroll fade keyframes ── */
@@ -516,6 +541,7 @@ export const detailsCommitPanelStyles = css`
 		0% {
 			opacity: 0;
 		}
+
 		1%,
 		100% {
 			opacity: 1;
@@ -527,6 +553,7 @@ export const detailsCommitPanelStyles = css`
 		95% {
 			opacity: 1;
 		}
+
 		100% {
 			opacity: 0;
 		}
@@ -536,8 +563,8 @@ export const detailsCommitPanelStyles = css`
 	   slotted into the header's right-anchored actions next to Refresh. */
 	.nav-jump {
 		display: inline-flex;
-		align-items: center;
 		gap: var(--gl-space-2);
+		align-items: center;
 	}
 
 	/* Pinned cue: warning-tinted pin chip. Scopes the old full-band gl-inspect-nav warning
@@ -546,9 +573,11 @@ export const detailsCommitPanelStyles = css`
 		color: var(--color-alert-warningForeground);
 		background-color: var(--color-alert-warningBackground);
 	}
+
 	gl-action-chip.pin-action.pinned::part(icon) {
 		color: var(--color-alert-warningForeground);
 	}
+
 	gl-action-chip.pin-action.pinned:hover::part(base) {
 		background-color: var(--color-alert-warningHoverBackground);
 	}

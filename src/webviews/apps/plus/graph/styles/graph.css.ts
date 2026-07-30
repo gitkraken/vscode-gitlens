@@ -19,30 +19,28 @@ export const actionButton = css`
 	.action-button {
 		position: relative;
 		box-sizing: border-box;
-		appearance: none;
-		font-family: inherit;
-		font-size: var(--gl-font-md);
-		line-height: 2.2rem;
-		// background-color: var(--color-graph-actionbar-background);
-		background-color: transparent;
-		border: none;
-		color: var(--vscode-foreground);
-		text-decoration: none;
-		padding: 0 0.4rem;
-		cursor: pointer;
-		border-radius: var(--gl-radius-sm);
+		display: grid;
+		grid-auto-flow: column;
+		gap: 0.5rem;
+		align-items: center;
+		max-width: fit-content;
 		height: auto;
 
 		/* Match the taller gl-button/ref-button controls in the header (~2.6rem). The bare line-height
 		   only yields ~2.2rem, leaving these buttons visibly shorter than their neighbors. */
 		min-height: 2.6rem;
-
-		display: grid;
-		grid-auto-flow: column;
-		grid-gap: 0.5rem;
-		gap: 0.5rem;
-		align-items: center;
-		max-width: fit-content;
+		padding: 0 0.4rem;
+		font-family: inherit;
+		font-size: var(--gl-font-md);
+		line-height: 2.2rem;
+		color: var(--vscode-foreground);
+		text-decoration: none;
+		appearance: none;
+		cursor: pointer;
+		/* background-color: var(--color-graph-actionbar-background); */
+		background-color: transparent;
+		border: none;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.action-button[disabled] {
@@ -52,9 +50,9 @@ export const actionButton = css`
 	}
 
 	.action-button:hover {
-		background-color: var(--color-graph-actionbar-selectedBackground);
 		color: var(--vscode-foreground);
 		text-decoration: none;
+		background-color: var(--color-graph-actionbar-selectedBackground);
 	}
 
 	.action-button[aria-checked] {
@@ -62,8 +60,8 @@ export const actionButton = css`
 	}
 
 	.action-button[aria-checked='true'] {
-		background-color: var(--vscode-inputOption-activeBackground);
 		color: var(--vscode-inputOption-activeForeground);
+		background-color: var(--vscode-inputOption-activeBackground);
 		border-color: var(--vscode-inputOption-activeBorder);
 	}
 
@@ -71,6 +69,7 @@ export const actionButton = css`
 		line-height: 2.2rem;
 		vertical-align: bottom;
 	}
+
 	.action-button code-icon[icon='graph-line'] {
 		transform: translateY(1px);
 	}
@@ -78,17 +77,19 @@ export const actionButton = css`
 	.is-ahead .action-button__pill {
 		background-color: var(--branch-status-ahead-pill-background);
 	}
+
 	.is-behind .action-button__pill {
 		background-color: var(--branch-status-behind-pill-background);
 	}
+
 	.is-ahead.is-behind .action-button__pill {
 		background-color: var(--branch-status-both-pill-background);
 	}
 
 	.action-button__more,
 	.action-button__more.codicon[class*='codicon-'] {
-		font-size: var(--gl-font-micro);
 		margin-right: -0.25rem;
+		font-size: var(--gl-font-micro);
 	}
 
 	code-icon.action-button__more::before {
@@ -102,15 +103,16 @@ export const actionButton = css`
 	}
 
 	.action-button__small {
+		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: smaller;
 		opacity: 0.6;
-		text-overflow: ellipsis;
-		overflow: hidden;
 	}
 
 	.action-button.is-ahead {
 		background-color: var(--branch-status-ahead-background);
 	}
+
 	.action-button.is-ahead:hover {
 		background-color: var(--branch-status-ahead-hover-background);
 	}
@@ -118,6 +120,7 @@ export const actionButton = css`
 	.action-button.is-behind {
 		background-color: var(--branch-status-behind-background);
 	}
+
 	.action-button.is-behind:hover {
 		background-color: var(--branch-status-behind-hover-background);
 	}
@@ -125,6 +128,7 @@ export const actionButton = css`
 	.action-button.is-ahead.is-behind {
 		background-color: var(--branch-status-both-background);
 	}
+
 	.action-button.is-ahead.is-behind:hover {
 		background-color: var(--branch-status-both-hover-background);
 	}

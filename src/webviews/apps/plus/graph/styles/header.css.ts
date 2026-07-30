@@ -3,7 +3,7 @@ import { css } from 'lit';
 export const titlebarStyles = css`
 	.titlebar {
 		flex-wrap: wrap;
-		padding: 0rem 0.4rem 0.5rem 0.4rem;
+		padding: 0 0.4rem 0.5rem;
 		font-size: var(--gl-font-base);
 		color: var(--titlebar-fg);
 		background: var(--titlebar-bg);
@@ -184,12 +184,14 @@ export const graphHeaderControlStyles = css`
 		max-width: fit-content;
 		transition: all var(--gl-duration-medium);
 	}
+
 	.shrink.hidden {
 		max-width: 0;
 		overflow: hidden;
 	}
+
 	.titlebar__group .shrink.hidden:not(:first-child) {
-		// compensate the parent gap
+		/* compensate the parent gap */
 		margin-left: -0.5rem;
 	}
 
@@ -257,13 +259,11 @@ export const graphHeaderControlStyles = css`
 		display: inline-block;
 		width: 0.1rem;
 		height: 2.2rem;
+		/* margin-left: 0.2rem; */
+		margin-right: 0.2rem;
 		vertical-align: middle;
 		background-color: var(--titlebar-fg);
 		opacity: 0.4;
-		margin: {
-			// left: 0.2rem;
-			right: 0.2rem;
-		}
 	}
 
 	.button-group {
@@ -282,13 +282,13 @@ export const graphHeaderControlStyles = css`
 	}
 
 	wa-option:focus::part(base) {
-		background-color: var(--vscode-list-activeSelectionBackground);
 		color: var(--vscode-list-activeSelectionForeground);
+		background-color: var(--vscode-list-activeSelectionBackground);
 	}
 
 	wa-option:not(:focus):hover::part(base) {
-		background-color: var(--vscode-list-inactiveSelectionBackground);
 		color: var(--vscode-list-activeSelectionForeground);
+		background-color: var(--vscode-list-inactiveSelectionBackground);
 	}
 
 	wa-option::part(checked-icon) {
@@ -299,14 +299,15 @@ export const graphHeaderControlStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.1rem;
-		padding-block: var(--gl-space-2) 0;
 		width: max-content;
+		padding-block: var(--gl-space-2) 0;
 	}
 
 	wa-select::part(combobox) {
 		--wa-input-background-color: var(--color-graph-actionbar-background);
 		--wa-input-color: var(--color-foreground);
 		--wa-input-color-hover: var(--color-foreground);
+
 		padding: 0 0.75rem;
 		color: var(--color-foreground);
 		border-radius: var(--wa-border-radius-small);
@@ -323,6 +324,7 @@ export const graphHeaderControlStyles = css`
 	wa-select[open]::part(combobox) {
 		background-color: var(--color-graph-actionbar-background);
 	}
+
 	wa-select:hover::part(combobox),
 	wa-select:focus::part(combobox) {
 		background-color: var(--color-graph-actionbar-selectedBackground);

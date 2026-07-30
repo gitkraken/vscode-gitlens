@@ -111,7 +111,7 @@ export class GlMarkdown extends LitElement {
 			li > ul {
 				margin-top: 0;
 			}
-=		`,
+		`,
 	];
 
 	@property({ type: String })
