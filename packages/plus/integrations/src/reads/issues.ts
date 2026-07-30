@@ -1,7 +1,9 @@
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import { mergeAssessmentInto } from '../collectionMetadata.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId, type IntegrationIds } from '../constants.js';
-import { IssueFilter, PagingMode, providersMetadata, type ProviderReposInput } from '../providers/models.js';
+import type { IntegrationIds } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import type { IssueFilter, ProviderReposInput } from '../providers/models.js';
+import { PagingMode, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
