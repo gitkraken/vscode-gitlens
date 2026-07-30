@@ -21,8 +21,6 @@ import type {
 	GitGraphSessionChangedChannels,
 	GitGraphSessionRefreshOptions,
 	GitGraphSessionRefreshResult,
-	GitGraphSessionSnapshot,
-	GraphSessionRestoreResult,
 } from '@gitlens/git/models/graphSession.js';
 import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
@@ -52,14 +50,12 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			rev?: string;
 			limit?: number;
 			include?: { stats?: boolean };
-			restore?: GitGraphSessionSnapshot;
-			onRestore?: (result: GraphSessionRestoreResult) => void;
 		},
 		cancellation?: AbortSignal,
 	): Promise<GitGraphSession> {
 		// GitHub-backed graphs have no incremental machinery (and `getGraph` takes no row processor); the
-		// session is a thin window accumulator over full fetches. `rowProcessor` and `restore`/`onRestore`
-		// (there's no incremental restore path) are accepted for interface parity and ignored — always a full walk.
+		// session is a thin window accumulator over full fetches. `rowProcessor` is accepted for interface
+		// parity and ignored — always a full walk.
 		const session = new GraphSession(this, repoPath);
 		await session.initialize(options, cancellation);
 		return session;
@@ -623,11 +619,6 @@ class GraphSession implements GitGraphSession {
 		mergeAvatarsForward(prior.avatars, updated.avatars);
 		this.apply(updated);
 		return true;
-	}
-
-	serialize(): GitGraphSessionSnapshot | undefined {
-		// No incremental restore path (no ref-tip gate / reachability table), so nothing worth persisting.
-		return undefined;
 	}
 
 	dispose(): void {

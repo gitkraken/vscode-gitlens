@@ -358,7 +358,8 @@ export interface GraphIncrementalSeed {
 	 * {@link GitGraph.decorationFingerprint} of the prior walk. R6b falls back to a full walk on ANY change:
 	 * reused rows keep their embedded decorations (upstream/worktree/default/remote/user metadata), so a
 	 * metadata-only change — one that moves no ref tip — would otherwise ship stale pills indefinitely.
-	 * Absent (e.g. an old persisted snapshot) ⇒ never matches ⇒ safe full fallback.
+	 * Optional because providers without the incremental machinery (e.g. GitHub) never populate it; absent ⇒
+	 * never matches ⇒ safe full fallback.
 	 */
 	readonly decorationFingerprint?: string;
 }

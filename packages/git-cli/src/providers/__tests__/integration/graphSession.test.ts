@@ -3,30 +3,15 @@
  * facade over `getGraph`: it owns the canonical accumulated window, builds the incremental seed
  * internally (so `refresh` takes the R6b fast path after a commit), maintains the window across `more()`
  * pagination (page-scoped `current` vs full `window`), merges avatars write-once across generations, and
- * honors the walk shape. These assert the session's own behavior — the 21 `getGraph` equivalence
- * scenarios still pin the underlying walk.
+ * honors the walk shape. These assert the session's own behavior — the `getGraph` equivalence scenarios in
+ * `graph.incremental.test.ts` still pin the underlying walk byte-for-byte.
  */
 
 import * as assert from 'assert';
-import type {
-	GitGraphRow,
-	GraphContext,
-	GraphReachabilityTable,
-	GraphRowProcessor,
-} from '@gitlens/git/models/graph.js';
-import type {
-	GitGraphSession,
-	GitGraphSessionSnapshot,
-	GraphSessionRestoreResult,
-} from '@gitlens/git/models/graphSession.js';
-import { graphSessionSnapshotVersion } from '@gitlens/git/models/graphSession.js';
-import {
-	computeGraphRowContextFlags,
-	decodeReachabilitySet,
-	reachableRefKey,
-} from '@gitlens/git/utils/reachability.utils.js';
-import { assertGraphsEquivalent, FlagsRowProcessor } from './graphEquivalence.js';
-import type { TestRepo } from './helpers.js';
+import type { GitGraphRow, GraphContext, GraphRowProcessor } from '@gitlens/git/models/graph.js';
+import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
+import { computeGraphRowContextFlags } from '@gitlens/git/utils/reachability.utils.js';
+import { FlagsRowProcessor } from './graphEquivalence.js';
 import {
 	addCommit,
 	addEmptyCommits,
@@ -76,6 +61,30 @@ suite('GitGraphSession (R7a)', () => {
 			assert.strictEqual(result.reason, undefined, 'the fast path carries no fallback reason');
 			assert.strictEqual(session.window.length, initialSize + 1, 'the new commit grew the window by one');
 			assert.strictEqual(session.window[0].sha, getHeadSha(repo.path), 'the new commit is at the window head');
+		} finally {
+			repo.cleanup();
+		}
+	});
+
+	test('refresh on an unchanged repo takes the fast path and adds nothing', async () => {
+		const repo = createTestRepo();
+		try {
+			addEmptyCommits(repo.path, 20, 's');
+			createTag(repo.path, 'v1.0'); // a ref for reachability variety
+			const session = await repo.provider.graph.openGraphSession(repo.path, {
+				rowProcessor: new FlagsRowProcessor(),
+			});
+			const initialSize = session.window.length;
+			assert.ok(initialSize > 0, 'initial window should be populated');
+
+			repo.provider.cache.clearCaches(repo.path);
+
+			const result = await session.refresh();
+
+			assert.strictEqual(result.path, 'fast', 'expected the incremental fast path');
+			assert.strictEqual(result.added, 0, 'an unchanged repo enumerates no new commits');
+			assert.strictEqual(result.reason, undefined, 'the fast path carries no fallback reason');
+			assert.strictEqual(session.window.length, initialSize, 'the window is unchanged in size');
 		} finally {
 			repo.cleanup();
 		}
@@ -431,314 +440,6 @@ suite('GitGraphSession refresh channel-change reporting (R7b)', () => {
 			}
 		} finally {
 			origin.cleanup();
-		}
-	});
-});
-
-/**
- * R7c restart persistence: `serialize()` snapshots the canonical window; `openGraphSession({ restore })`
- * reconstructs it as an R6 seed WITHOUT git and immediately refreshes — so a stale snapshot heals (fast when
- * unchanged, a full walk on any structural change) and a corrupt/mismatched one is discarded for a normal
- * initial walk. The gate is byte-equivalence: restore+refresh == a fresh walk of the same shape. Snapshots
- * are round-tripped through JSON (as real persistence does) so a non-JSON-safe field would fail loudly.
- */
-suite('GitGraphSession restart persistence (R7c)', () => {
-	/** The window's BOTTOM commit/merge sha — the restore's re-walk anchor (mirrors the host's rebuild anchor). */
-	function windowBottomAnchor(window: readonly GitGraphRow[]): string | undefined {
-		for (let i = window.length - 1; i >= 0; i--) {
-			const type = window[i].kind;
-			if (type === 'commit' || type === 'merge') return window[i].sha;
-		}
-		return undefined;
-	}
-
-	/** Serialize a session and round-trip it through JSON exactly as persistence does (catching any non-JSON-safe field). */
-	function roundTripSnapshot(session: GitGraphSession): GitGraphSessionSnapshot {
-		const snapshot = session.serialize();
-		assert.ok(snapshot != null, 'a populated session should produce a snapshot');
-		return JSON.parse(JSON.stringify(snapshot)) as GitGraphSessionSnapshot;
-	}
-
-	/** A row minus `reachabilityIndex` (compared via decoded membership) and the stripped transient, JSON-
-	 *  normalized so a round-tripped reused row's dropped `undefined` keys compare equal to a fresh row's. */
-	function normalizeRow(row: GitGraphRow): unknown {
-		const { reachability: _r, contexts, ...rest } = row;
-		let ctx;
-		if (contexts != null) {
-			const { reachabilityIndex: _i, ...c } = contexts;
-			ctx = c;
-		}
-		return JSON.parse(JSON.stringify({ ...rest, contexts: ctx }));
-	}
-
-	/** A row's reachable-ref set decoded from a table, sorted canonically (index divergence is expected). */
-	function decodedMembership(table: GraphReachabilityTable | undefined, row: GitGraphRow): unknown[] {
-		const index = row.contexts?.reachabilityIndex;
-		if (index == null || table == null) return [];
-		return [...decodeReachabilitySet(table, index)].sort((a, b) =>
-			reachableRefKey(a) < reachableRefKey(b) ? -1 : reachableRefKey(a) > reachableRefKey(b) ? 1 : 0,
-		);
-	}
-
-	/** Compare two sessions' ACCUMULATED windows row-for-row (each row decoded against its own session's table). */
-	function assertWindowsEquivalent(expected: GitGraphSession, actual: GitGraphSession): void {
-		const e = expected.window;
-		const a = actual.window;
-		assert.strictEqual(a.length, e.length, `window length: expected ${e.length}, actual ${a.length}`);
-		for (let i = 0; i < e.length; i++) {
-			assert.deepStrictEqual(
-				normalizeRow(a[i]),
-				normalizeRow(e[i]),
-				`window row ${i} (sha ${e[i].sha}) diverges`,
-			);
-			assert.deepStrictEqual(
-				decodedMembership(actual.current.reachability, a[i]),
-				decodedMembership(expected.current.reachability, e[i]),
-				`window row ${i} (sha ${e[i].sha}) reachability diverges`,
-			);
-		}
-	}
-
-	/**
-	 * Full harness for scenarios (a)–(c): build a session → snapshot it → optionally mutate the repo offline →
-	 * assert restore+refresh took `expectedRefresh` AND is byte-equivalent to a FRESH walk of the same shape
-	 * (same bottom anchor + window limit, so paging/id align). The fresh walk mints a new reachability table
-	 * while restore continues the snapshot's — so equivalence is by DECODED membership, never raw index.
-	 */
-	async function assertRestoreMatchesFreshWalk(
-		repo: TestRepo,
-		mutate: ((repoPath: string) => void | Promise<void>) | undefined,
-		expectedRefresh: { path: 'fast' | 'full'; reason?: string; added?: number },
-	): Promise<void> {
-		const { provider, path: repoPath } = repo;
-
-		const first = await provider.graph.openGraphSession(repoPath, {
-			rowProcessor: new FlagsRowProcessor(),
-			include: { stats: true },
-		});
-		await first.current.rowsStatsDeferred?.promise;
-		const anchor = windowBottomAnchor(first.window);
-		const windowLength = first.window.length;
-		const snapshot = roundTripSnapshot(first);
-		first.dispose();
-
-		if (mutate != null) {
-			await mutate(repoPath);
-			provider.cache.clearCaches(repoPath);
-		}
-
-		// EXPECTED: a fresh walk of the SAME shape as the restore's internal re-walk (anchor + window limit).
-		const expected = await provider.graph.getGraph(repoPath, anchor, {
-			include: { stats: true },
-			rowProcessor: new FlagsRowProcessor(),
-			limit: windowLength,
-		});
-		await expected.rowsStatsDeferred?.promise;
-
-		// ACTUAL: restore + immediate refresh.
-		let result: GraphSessionRestoreResult | undefined;
-		const restored = await provider.graph.openGraphSession(repoPath, {
-			rowProcessor: new FlagsRowProcessor(),
-			include: { stats: true },
-			restore: snapshot,
-			onRestore: r => {
-				result = r;
-			},
-		});
-		await restored.current.rowsStatsDeferred?.promise;
-
-		assert.strictEqual(result?.restored, true, 'the snapshot was restored');
-		assert.strictEqual(result?.rows, snapshot.rows.length, 'the reported restored-row count matches the snapshot');
-		assert.strictEqual(result?.refresh?.path, expectedRefresh.path, 'restore refresh path');
-		assert.strictEqual(result?.refresh?.reason, expectedRefresh.reason, 'restore refresh fallback reason');
-		if (expectedRefresh.added != null) {
-			assert.strictEqual(result?.refresh?.added, expectedRefresh.added, 'restore refresh added count');
-		}
-		assertGraphsEquivalent(expected, restored.current, { includeStats: true });
-		restored.dispose();
-	}
-
-	test('(a) unchanged repo → restore refresh fast +0, byte-equivalent to a fresh walk', async () => {
-		const repo = createTestRepo();
-		try {
-			addEmptyCommits(repo.path, 20, 's');
-			createTag(repo.path, 'v1.0'); // a ref for reachability variety
-			await assertRestoreMatchesFreshWalk(repo, undefined, { path: 'fast', added: 0 });
-		} finally {
-			repo.cleanup();
-		}
-	});
-
-	test('(b) commits added while closed → restore refresh fast, byte-equivalent', async () => {
-		const repo = createTestRepo();
-		try {
-			addEmptyCommits(repo.path, 15, 's');
-			await assertRestoreMatchesFreshWalk(
-				repo,
-				path => {
-					addCommit(path, 'top1.txt', 'top1', 'Offline commit 1');
-					addCommit(path, 'top2.txt', 'top2', 'Offline commit 2');
-				},
-				{ path: 'fast', added: 2 },
-			);
-		} finally {
-			repo.cleanup();
-		}
-	});
-
-	test('(c) branch deleted while closed → restore refresh falls back full, byte-equivalent', async () => {
-		const repo = createTestRepo();
-		try {
-			addEmptyCommits(repo.path, 12, 's');
-			createBranch(repo.path, 'feature'); // an extra ref whose deletion forces a full fallback
-			await assertRestoreMatchesFreshWalk(repo, path => deleteBranch(path, 'feature'), {
-				path: 'full',
-				reason: 'ref-deleted',
-			});
-		} finally {
-			repo.cleanup();
-		}
-	});
-
-	test('(d) a structurally corrupt/truncated snapshot is ignored (clean initial walk, no throw)', async () => {
-		const repo = createTestRepo();
-		try {
-			addEmptyCommits(repo.path, 8, 's');
-			const first = await repo.provider.graph.openGraphSession(repo.path, {
-				rowProcessor: new FlagsRowProcessor(),
-			});
-			const good = roundTripSnapshot(first);
-			first.dispose();
-
-			// Truncated: a required field went missing (as a partial write / clipped JSON would produce).
-			const truncated = { ...good, refTips: undefined } as unknown as GitGraphSessionSnapshot;
-			// Corrupt: a row's reachabilityIndex points past the table's sets.
-			const corruptIndex: GitGraphSessionSnapshot = {
-				...good,
-				rows: good.rows.map((r, i) =>
-					i === 0 ? { ...r, contexts: { ...r.contexts, reachabilityIndex: 999_999 } } : r,
-				),
-			};
-
-			for (const [snapshot, reason] of [
-				[truncated, 'tips'],
-				[corruptIndex, 'reachability'],
-			] as const) {
-				let result: GraphSessionRestoreResult | undefined;
-				const session = await repo.provider.graph.openGraphSession(repo.path, {
-					rowProcessor: new FlagsRowProcessor(),
-					restore: snapshot,
-					onRestore: r => {
-						result = r;
-					},
-				});
-				assert.strictEqual(result?.restored, false, `corrupt snapshot (${reason}) is not restored`);
-				assert.strictEqual(result?.reason, reason, `corrupt snapshot discard reason (${reason})`);
-				assert.strictEqual(
-					session.window[0].sha,
-					getHeadSha(repo.path),
-					'a normal initial walk still loaded HEAD',
-				);
-				session.dispose();
-			}
-		} finally {
-			repo.cleanup();
-		}
-	});
-
-	test('(e) a schemaVersion mismatch is ignored (clean initial walk)', async () => {
-		const repo = createTestRepo();
-		try {
-			addEmptyCommits(repo.path, 6, 's');
-			const first = await repo.provider.graph.openGraphSession(repo.path, {
-				rowProcessor: new FlagsRowProcessor(),
-			});
-			const stale: GitGraphSessionSnapshot = { ...roundTripSnapshot(first), v: graphSessionSnapshotVersion + 1 };
-			first.dispose();
-
-			let result: GraphSessionRestoreResult | undefined;
-			const session = await repo.provider.graph.openGraphSession(repo.path, {
-				rowProcessor: new FlagsRowProcessor(),
-				restore: stale,
-				onRestore: r => {
-					result = r;
-				},
-			});
-			assert.strictEqual(result?.restored, false, 'a schema mismatch is not restored');
-			assert.strictEqual(result?.reason, 'schema', 'the discard reason is a schema mismatch');
-			assert.strictEqual(session.window[0].sha, getHeadSha(repo.path), 'a normal initial walk still loaded HEAD');
-			session.dispose();
-		} finally {
-			repo.cleanup();
-		}
-	});
-
-	test('(f) a paged (hasMore) window restores its top slice and re-pages below it, byte-equivalent', async () => {
-		// A genuinely-paged window (hasMore=true from a small limit) is structurally identical to what
-		// serialize() produces when it CAPS a window larger than `maxPersistedGraphRows` to its top slice (top
-		// rows + hasMore forced true) — a 2000+-row capped window is cost-prohibitive to build live, so this
-		// paged window exercises the identical restore + re-page path.
-		const repo = createTestRepo();
-		try {
-			addEmptyCommits(repo.path, 40, 'p');
-
-			// EXPECTED: a fresh paged session; snapshot its top (hasMore) slice, then page once more for the baseline.
-			const expected = await repo.provider.graph.openGraphSession(repo.path, {
-				rowProcessor: new FlagsRowProcessor(),
-				include: { stats: true },
-				limit: 10,
-			});
-			await expected.current.rowsStatsDeferred?.promise;
-			const snapshot = roundTripSnapshot(expected);
-			assert.strictEqual(snapshot.hasMore, true, 'a paged window persists hasMore (the capped-top-slice shape)');
-			const topSliceLength = snapshot.rows.length;
-			await expected.more(10);
-			await expected.current.rowsStatsDeferred?.promise;
-
-			// ACTUAL: restore the top slice (→ hasMore), then page once more.
-			let result: GraphSessionRestoreResult | undefined;
-			const restored = await repo.provider.graph.openGraphSession(repo.path, {
-				rowProcessor: new FlagsRowProcessor(),
-				include: { stats: true },
-				restore: snapshot,
-				onRestore: r => {
-					result = r;
-				},
-			});
-			await restored.current.rowsStatsDeferred?.promise;
-
-			assert.strictEqual(result?.restored, true, 'the paged snapshot was restored');
-			assert.strictEqual(result?.refresh?.path, 'fast', 'an unchanged repo restores fast');
-			assert.strictEqual(restored.window.length, topSliceLength, 'restore yields exactly the top slice');
-			assert.strictEqual(restored.current.paging?.hasMore, true, 'with hasMore, so the bottom re-pages');
-
-			await restored.more(10);
-			await restored.current.rowsStatsDeferred?.promise;
-
-			// The re-paged window matches a fresh walk of the same shape, row-for-row.
-			assert.ok(restored.window.length > topSliceLength, 'more() paged below the restored top slice');
-			assertWindowsEquivalent(expected, restored);
-			expected.dispose();
-			restored.dispose();
-		} finally {
-			repo.cleanup();
-		}
-	});
-
-	test('(g) a replace ref added while closed → restore refresh falls back full, byte-equivalent', async () => {
-		// The snapshot is captured with NO replacement; a `git replace` added offline moves no branch tip, so
-		// only the replace-ref gate catches it — the restore refresh must fall back to a full walk (the cached
-		// rows' parent links are built under the old ancestry view) and stay byte-equivalent to a fresh walk.
-		const repo = createTestRepo();
-		try {
-			addEmptyCommits(repo.path, 12, 's'); // interior commits to replace
-			await assertRestoreMatchesFreshWalk(
-				repo,
-				path => createReplaceRef(path, revParse(path, 'HEAD~2'), revParse(path, 'HEAD~3')),
-				{ path: 'full', reason: 'replace-refs-changed' },
-			);
-		} finally {
-			repo.cleanup();
 		}
 	});
 });

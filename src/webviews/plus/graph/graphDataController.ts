@@ -3,11 +3,7 @@ import { CancellationTokenSource } from 'vscode';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch } from '@gitlens/git/models/graphSearch.js';
-import type {
-	GitGraphSession,
-	GitGraphSessionChangedChannels,
-	GraphSessionRestoreResult,
-} from '@gitlens/git/models/graphSession.js';
+import type { GitGraphSession, GitGraphSessionChangedChannels } from '@gitlens/git/models/graphSession.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';
@@ -24,7 +20,6 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
 import type { WebviewHost } from '../../webviewProvider.js';
-import { GraphSessionStore } from './graphSessionStore.js';
 import type { GraphSyncPublisher } from './graphSyncPublisher.js';
 import { computeAdaptivePageLimit } from './graphWebview.utils.js';
 import { DidChangeNotification, DidSearchNotification, isWipRowId, isWipSelectionSha } from './protocol.js';
@@ -104,11 +99,10 @@ export type GraphPendingRowsQuery = {
  *  drives this controller for its session/refresh/anchor parts. */
 export class GraphDataController {
 	// Data-plane state (migrated from the provider in R3 follow-up A). The accumulated graph session/window,
-	// the in-flight (re)walk, the restart-persistence store, the page-in dedup entry, the eager rows-stats
-	// override, and the state-notify coalescer bookkeeping + its debounced wrappers.
+	// the in-flight (re)walk, the page-in dedup entry, the eager rows-stats override, and the state-notify
+	// coalescer bookkeeping + its debounced wrappers.
 	private _graphSession: GitGraphSession | undefined;
 	private _graphLoading: Promise<GitGraph> | undefined;
-	private readonly _graphStore: GraphSessionStore;
 	private _rowsStatsLoadingOverride = false;
 	private _pendingRowsQuery: GraphPendingRowsQuery | undefined;
 
@@ -124,9 +118,7 @@ export class GraphDataController {
 	private _notifyDidChangeStateDebounced: Deferrable<GraphDataController['notifyDidChangeState']> | undefined;
 	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphDataController['notifyDidChangeAvatars']> | undefined;
 
-	constructor(private readonly context: GraphDataControllerContext) {
-		this._graphStore = new GraphSessionStore(context.container);
-	}
+	constructor(private readonly context: GraphDataControllerContext) {}
 
 	private get container(): Container {
 		return this.context.container;
@@ -165,10 +157,6 @@ export class GraphDataController {
 	}
 	set loading(value: Promise<GitGraph> | undefined) {
 		this._graphLoading = value;
-	}
-	/** Restart-persistence store; `getGraph` reads (restore) and flushes it. */
-	get store(): GraphSessionStore {
-		return this._graphStore;
 	}
 	/** In-flight page-in dedup entry; `getGraph` reads its promise to serialize a refresh against it. */
 	get pendingRowsQuery(): GraphPendingRowsQuery | undefined {
@@ -414,9 +402,6 @@ export class GraphDataController {
 	 */
 	setGraph(graph: GitGraph | undefined, changed?: GitGraphSessionChangedChannels): void {
 		if (graph == null) {
-			// Repo swap / clear — flush any pending session snapshot for the OUTGOING repo (the store reads the
-			// still-current `_graphSession`) before disposing it, so the last window is persisted for restore.
-			this._graphStore.flush();
 			// Repo swap / clear — the session's window is gone; dispose it.
 			this._graphSession?.dispose();
 			this._graphSession = undefined;
@@ -469,31 +454,6 @@ export class GraphDataController {
 			// onGetMissingRefMetadata can fetch. RepoPath-gated so a buffer captured for the prior repo can't
 			// satisfy against this graph.
 			this.context.replayPendingRefMetadataForGraph(graph);
-
-			// R7c: schedule a debounced persist of the (rebuilt or paged-in) window so the next restart can
-			// restore it. `serialize()` is re-evaluated at flush time (freshest window; `undefined` for a
-			// GitHub/empty session → no write). Single choke point for every rows-landing path.
-			this._graphStore.schedule(() => this._graphSession?.serialize());
-		}
-	}
-
-	/** One assertable INFO line per restore attempt (see {@link GraphSessionStore}); mirrors the
-	 *  `[graph] incremental walk` line's shape. */
-	logSessionRestore(result: GraphSessionRestoreResult): void {
-		if (!result.restored) {
-			Logger.info(`[graph] session restore: miss (${result.reason ?? 'unknown'})`);
-			return;
-		}
-
-		const refresh = result.refresh;
-		if (refresh?.path === 'fast') {
-			Logger.info(
-				`[graph] session restore: hit (${result.rows ?? 0} rows) → refresh fast (+${refresh.added ?? 0})`,
-			);
-		} else {
-			Logger.info(
-				`[graph] session restore: hit (${result.rows ?? 0} rows) → refresh full (${refresh?.reason ?? 'unseeded'})`,
-			);
 		}
 	}
 
@@ -877,10 +837,8 @@ export class GraphDataController {
 		return op;
 	}
 
-	/** Flush + dispose the session store (persists the outgoing window, which reads the session) THEN dispose
-	 *  the session — order matters (dispose). */
-	disposeStoreAndSession(): void {
-		this._graphStore.dispose();
+	/** Dispose the accumulated graph session and drop it (provider dispose). */
+	disposeSession(): void {
 		this._graphSession?.dispose();
 		this._graphSession = undefined;
 	}

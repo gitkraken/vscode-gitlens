@@ -6,7 +6,6 @@ import type { QuickPickItemOfT } from '../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { command, executeCoreCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
-import { deleteAllGraphSessionSnapshots } from '../webviews/plus/graph/graphSessionStore.js';
 import { GlCommandBase } from './commandBase.js';
 
 const resetTypes = [
@@ -14,7 +13,6 @@ const resetTypes = [
 	'ai:models',
 	'avatars',
 	'cli',
-	'graph:sessions',
 	'integrations',
 	'onboarding',
 	'previews',
@@ -49,11 +47,6 @@ export class ResetCommand extends GlCommandBase {
 				label: 'Avatars...',
 				detail: 'Clears the stored avatar cache and any approvals granted to custom remote avatar URL templates',
 				item: 'avatars',
-			},
-			{
-				label: 'Commit Graph Cache...',
-				detail: 'Clears the stored Commit Graph history cache for your repositories',
-				item: 'graph:sessions',
 			},
 			{
 				label: 'GitKraken CLI (Installation)...',
@@ -150,10 +143,6 @@ export class ResetCommand extends GlCommandBase {
 				confirmationMessage = 'Are you sure you want to reset the GitKraken CLI installation?';
 				confirm.title = 'Reset GitKraken CLI';
 				break;
-			case 'graph:sessions':
-				confirmationMessage = 'Are you sure you want to reset the stored Commit Graph cache?';
-				confirm.title = 'Reset Commit Graph Cache';
-				break;
 			case 'integrations':
 				confirmationMessage = 'Are you sure you want to reset all of the stored integrations?';
 				confirm.title = 'Reset Integrations';
@@ -240,10 +229,6 @@ export class ResetCommand extends GlCommandBase {
 
 			case 'cli':
 				await this.container.gkCli?.reset();
-				break;
-
-			case 'graph:sessions':
-				await deleteAllGraphSessionSnapshots(this.container);
 				break;
 
 			case 'integrations':

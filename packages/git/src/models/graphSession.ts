@@ -1,10 +1,4 @@
-import type {
-	GitGraph,
-	GitGraphRow,
-	GitGraphRowStats,
-	GraphReachabilityTable,
-	IncrementalGraphFallbackReason,
-} from './graph.js';
+import type { GitGraph, GitGraphRow, IncrementalGraphFallbackReason } from './graph.js';
 
 /**
  * A provider-owned, stateful graph window for a single repo. It is the canonical accumulated window and
@@ -16,8 +10,8 @@ import type {
  * `getGraph` incremental machinery (it internally builds the seed from the accumulated window, tips, and
  * prior artifacts, with the same shape gating), {@link more} delegates to the prior result's `more()`,
  * and {@link current} mirrors today's `GitGraph` result shape so the publisher/wire semantics stay
- * byte-identical. R7b (refresh-result-driven channel marking) and R7c (restart persistence) extend this
- * without breaking — {@link refresh} returns a result object, never a bare `GitGraph`.
+ * byte-identical. R7b (refresh-result-driven channel marking) extends this without breaking —
+ * {@link refresh} returns a result object, never a bare `GitGraph`.
  */
 export interface GitGraphSession {
 	readonly repoPath: string;
@@ -47,104 +41,7 @@ export interface GitGraphSession {
 	 */
 	more(limit?: number, targetId?: string, cancellation?: AbortSignal): Promise<boolean>;
 
-	/**
-	 * Snapshot the canonical window for restart persistence, or `undefined` when there's nothing worth
-	 * persisting — an empty window, or a provider without an incremental restore path (e.g. GitHub, which
-	 * stamps no ref tips for the restore's tip-diff gate). The host writes this into the repo's own git dir
-	 * (`<commonGitDir>/gitlens/graph/` — a repo-derived cache, like git's commit-graph file) on an idle
-	 * debounce / dispose; a later {@link GitGraphSubProvider.openGraphSession} `restore` reconstructs +
-	 * refreshes it. Never trusted over git — restore always re-refreshes (see {@link GitGraphSessionSnapshot}).
-	 */
-	serialize(): GitGraphSessionSnapshot | undefined;
-
 	dispose(): void;
-}
-
-/**
- * Schema version for {@link GitGraphSessionSnapshot}. Bump on ANY shape change (field add/remove/rename or a
- * semantics change): a restore whose snapshot version doesn't match this EXACTLY is discarded (a normal
- * initial walk), so an old-shaped cache written by a prior extension version can never be misread.
- */
-export const graphSessionSnapshotVersion = 7;
-
-/**
- * Restart-persistence snapshot of a {@link GitGraphSession}'s canonical window — everything a restore needs
- * to reconstruct the session's prior generation as an R6 incremental SEED, so a cold open on an unchanged
- * repo is ≈ deserialize + one enumeration instead of a full walk.
- *
- * NEVER trusted over git: on restore the session reconstructs this as its window/tips/builders WITHOUT any
- * git, then IMMEDIATELY {@link GitGraphSession.refresh | refreshes} — the same enumeration + tip-diff + FF +
- * stash gates reconcile a stale snapshot (fast when unchanged, a full walk on any structural change), and any
- * parse/validation failure discards it entirely for a normal initial walk.
- *
- * Rows are persisted as-is: they're already the JSON-safe wire shapes (strings/numbers/plain objects — the
- * graph's Maps live at the graph level, not on rows, and the transient per-row `reachability` is stripped
- * before a row is emitted). Maps are persisted as entry arrays.
- */
-export interface GitGraphSessionSnapshot {
-	/** Must equal {@link graphSessionSnapshotVersion}; any mismatch discards the snapshot. */
-	readonly v: number;
-	readonly repoPath: string;
-	/** Walk shape the window was produced under (`${ordering}|${onlyFollowFirstParent}`). A restore is
-	 *  discarded when this disagrees with the current config's shape — the cached rows can't be reused. */
-	readonly buildShape: string;
-	readonly ordering: 'date' | 'author-date' | 'topo';
-	readonly onlyFollowFirstParent: boolean;
-	/** The persisted window rows, in walk order — a TOP slice capped at a bounded row count (see the host
-	 *  store); a longer window persists its top slice with {@link hasMore} forced true so the bottom re-pages. */
-	readonly rows: GitGraphRow[];
-	/** Ref tips as of the persisted walk: `[canonical refname, peeled tip sha]` entries — the map the restore
-	 *  refresh diffs against current git to find the structural changes that force a full fallback. */
-	readonly refTips: [string, string][];
-	/** {@link GitGraph.decorationFingerprint} as of the persisted walk — the restore refresh diffs it against
-	 *  current git so a metadata-only change while closed (upstream/default/worktree/remote/user) still forces
-	 *  the full fallback that rebuilds row decorations. Absent ⇒ never matches ⇒ safe full fallback. */
-	readonly decorationFingerprint?: string;
-	/** Shared reachability table for the window (the primary reachability representation — rows carry only a
-	 *  `contexts.reachabilityIndex` into its `sets`). The restore refresh CONTINUES it (stable indices). */
-	readonly reachability?: GraphReachabilityTable;
-	/** Per-sha immutable stats `[sha, stats]` entries for the persisted rows (present only when stats were
-	 *  included in the walk). */
-	readonly rowsStats?: [string, GitGraphRowStats][];
-	/** Downstreams `[upstream name, tracking branch names]` entries (for the refresh's change diffing). */
-	readonly downstreams: [string, string[]][];
-	/** Whether the persisted window had more rows below it — genuinely paged OR truncated by the cap. */
-	readonly hasMore: boolean;
-	/** Whether the persisted walk included per-row stats. */
-	readonly includesStats: boolean;
-	/** Whether the repo was a shallow clone when the window was walked. The restore refresh diffs this
-	 *  against current git — an un-shallow (or re-shallow) while closed forces a full fallback. */
-	readonly shallow: boolean;
-}
-
-/** Why a restore discarded its snapshot (reported via {@link GraphSessionRestoreResult.reason}). */
-export type GraphSessionRestoreDiscardReason =
-	| 'schema'
-	| 'repo-path'
-	| 'shape'
-	| 'empty'
-	| 'tips'
-	| 'rows'
-	| 'reachability'
-	| 'downstreams'
-	| 'rowsStats'
-	// A throw past structural validation (e.g. the restore refresh's enumerate chokes on a garbage rev).
-	| 'corrupt';
-
-/**
- * Outcome of a restore attempt, reported via the {@link GitGraphSubProvider.openGraphSession} `onRestore`
- * callback so the host can emit its single, assertable INFO line. `restored` is true only when the snapshot
- * validated and seeded the (always-run) refresh — `refresh` then carries that refresh's path so the host can
- * distinguish `→ refresh fast (+M)` from `→ refresh full (<reason>)`.
- */
-export interface GraphSessionRestoreResult {
-	readonly restored: boolean;
-	/** Present when `!restored`: why the snapshot was discarded; the host logs `miss (<reason>)`. */
-	readonly reason?: GraphSessionRestoreDiscardReason;
-	/** Present when `restored`: how many window rows the snapshot carried. */
-	readonly rows?: number;
-	/** Present when `restored`: the post-restore refresh outcome (a restore ALWAYS refreshes to current truth). */
-	readonly refresh?: GitGraphSessionRefreshResult;
 }
 
 export interface GitGraphSessionRefreshOptions {

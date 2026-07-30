@@ -445,7 +445,6 @@ export interface GraphConfig {
 			readonly enabled: boolean;
 			readonly activityDecay: GraphActivityDecay;
 		};
-		readonly persistSession: boolean;
 	};
 	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {

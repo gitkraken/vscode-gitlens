@@ -1486,16 +1486,6 @@
 							"experimental"
 						]
 					},
-					"gitlens.graph.experimental.persistSession": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Caches the loaded _Commit Graph_ window in the repository's git directory so reopening the graph restores it instantly instead of re-walking history. The cache is untrusted and always refreshed against git on open.",
-						"scope": "window",
-						"order": 1111,
-						"tags": [
-							"experimental"
-						]
-					},
 					"gitlens.graph.experimental.visualizations.activityDecay": {
 						"type": "string",
 						"enum": [

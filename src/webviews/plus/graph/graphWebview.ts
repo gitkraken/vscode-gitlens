@@ -916,8 +916,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// it still clears its pending timer.
 		this._data.cancelDebouncedNotifiers();
 		this._fireSelectionChangedDebounced?.cancel();
-		// Flush any pending session snapshot (reads the session) BEFORE disposing the session below.
-		this._data.disposeStoreAndSession();
+		this._data.disposeSession();
 		this._graphSync.dispose();
 		// The periodic interval set by `ensureLastFetchedSubscription` was previously not cleaned
 		// up in dispose — the interval kept firing forever, holding the entire provider+host+repo
@@ -4185,9 +4184,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			})();
 		} else {
 			// Initial walk for this repo — open a fresh session. Defensively dispose any lingering session for a
-			// different repo (a repo swap should already have via reset). Flush its pending snapshot first
-			// (mirrors setGraph(undefined)'s flush-then-dispose) so the outgoing window is persisted.
-			this._data.store.flush();
+			// different repo (a repo swap should already have via reset).
 			this._data.session?.dispose();
 			this._data.session = undefined;
 			const repository = this.repository;
@@ -4195,24 +4192,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// (a bare self-reference inside the IIFE trips TS's definite-assignment check).
 			const ref: { promise?: Promise<GitGraph> } = {};
 			ref.promise = (async (): Promise<GitGraph> => {
-				// R7c restart persistence: try this repo's persisted window so a cold open is ≈ deserialize + one
-				// enumeration instead of a full walk. Skipped for virtual repos (no CLI incremental restore path).
-				// The snapshot is UNTRUSTED — the session validates it structurally and ALWAYS refreshes against
-				// git, so a stale/corrupt cache degrades cleanly to a normal walk.
-				const read = repository.virtual ? undefined : await this._data.store.read(repository.path);
-				if (read === 'corrupt') {
-					Logger.info(`[graph] session restore: miss (unreadable)`);
-				}
-				const snapshot = read != null && read !== 'corrupt' ? read.snapshot : undefined;
-
 				const session = await repository.git.graph.openGraphSession(
 					{
 						rowProcessor: this.graphRowProcessor,
 						rev: rev,
 						limit: limit,
 						include: { stats: includeStats },
-						restore: snapshot,
-						onRestore: snapshot != null ? r => this._data.logSessionRestore(r) : undefined,
 					},
 					refreshSignal,
 				);

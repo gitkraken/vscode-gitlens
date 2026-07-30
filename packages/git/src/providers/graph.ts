@@ -12,7 +12,7 @@ import type {
 	GitGraphSearchProgress,
 	GitGraphSearchResults,
 } from '../models/graphSearch.js';
-import type { GitGraphSession, GitGraphSessionSnapshot, GraphSessionRestoreResult } from '../models/graphSession.js';
+import type { GitGraphSession } from '../models/graphSession.js';
 import type { SearchQuery } from '../models/search.js';
 
 export interface GitGraphSubProvider {
@@ -30,20 +30,6 @@ export interface GitGraphSubProvider {
 			rev?: string;
 			limit?: number;
 			include?: { stats?: boolean };
-			/**
-			 * Restart-persistence snapshot to seed the session from (see {@link GitGraphSessionSnapshot}). When
-			 * present and structurally valid, the session reconstructs it as its prior generation WITHOUT any git,
-			 * then immediately refreshes to current truth — so a cold open on an unchanged repo is ≈ deserialize +
-			 * one enumeration. Any validation/parse failure is ignored (a normal initial walk). Never trusted over
-			 * git. Providers without an incremental restore path (e.g. GitHub) ignore it.
-			 */
-			restore?: GitGraphSessionSnapshot;
-			/**
-			 * Reports the restore outcome (validated + refreshed, or discarded with a reason) so the host can log
-			 * a single assertable line. Called at most once, only when `restore` was provided. See
-			 * {@link GraphSessionRestoreResult}.
-			 */
-			onRestore?: (result: GraphSessionRestoreResult) => void;
 		},
 		cancellation?: AbortSignal,
 	): Promise<GitGraphSession>;

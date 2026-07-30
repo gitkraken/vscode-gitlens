@@ -25,15 +25,11 @@ import type {
 	GitGraphSearchResultData,
 	GitGraphSearchResults,
 } from '@gitlens/git/models/graphSearch.js';
-import { graphSessionSnapshotVersion } from '@gitlens/git/models/graphSession.js';
 import type {
 	GitGraphSession,
 	GitGraphSessionChangedChannels,
 	GitGraphSessionRefreshOptions,
 	GitGraphSessionRefreshResult,
-	GitGraphSessionSnapshot,
-	GraphSessionRestoreDiscardReason,
-	GraphSessionRestoreResult,
 } from '@gitlens/git/models/graphSession.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -195,128 +191,10 @@ function downstreamsChanged(prior: ReadonlyMap<string, string[]>, next: Readonly
 	return false;
 }
 
-/**
- * Cap on the number of window rows a {@link GraphSession.serialize} persists. A longer window persists only
- * its TOP slice with `hasMore` forced true (restore then behaves as a shorter loaded window — the bottom
- * re-pages on demand). Pragmatic: generous enough that a typical session restores its whole window, bounded
- * enough that the JSON file stays sub-MB-class (rows are a few hundred bytes each).
- */
-const maxPersistedGraphRows = 2000;
-
 /** The walk-shape key (`ordering|onlyFollowFirstParent`) an incremental seed is gated on — one builder so the
- *  restore/refresh/rebuild sites can't drift in how they stringify it. */
+ *  refresh/rebuild sites can't drift in how they stringify it. */
 function buildShapeKey(shape: { ordering: string; onlyFollowFirstParent: boolean }): string {
 	return `${shape.ordering}|${shape.onlyFollowFirstParent}`;
-}
-
-/**
- * Validates a persisted {@link GitGraphSessionSnapshot} structurally before it's trusted to seed a restore.
- * Returns the discard reason on any failure (→ the caller ignores the snapshot and does a normal initial
- * walk), or `undefined` when it's coherent. Never throws — a corrupt/adversarial cache must degrade to a
- * full walk, never crash the open. Deep validation (does the cache match current git?) is NOT done here:
- * that's the restore's immediate refresh, which reconciles a stale-but-valid snapshot against ground truth.
- */
-function validateGraphSnapshot(
-	snapshot: GitGraphSessionSnapshot,
-	repoPath: string,
-	currentBuildShape: string,
-): GraphSessionRestoreDiscardReason | undefined {
-	if (snapshot.v !== graphSessionSnapshotVersion) return 'schema';
-	if (snapshot.repoPath !== repoPath) return 'repo-path';
-	// A shape change reshapes every row's parents/order — the cached rows can't be reused.
-	if (snapshot.buildShape !== currentBuildShape) return 'shape';
-	if (!Array.isArray(snapshot.rows) || snapshot.rows.length === 0) return 'empty';
-	if (
-		!Array.isArray(snapshot.refTips) ||
-		snapshot.refTips.some(
-			t => !Array.isArray(t) || t.length !== 2 || typeof t[0] !== 'string' || typeof t[1] !== 'string',
-		)
-	) {
-		return 'tips';
-	}
-
-	// Each row must be structurally sane — a corrupt row poisons the seed / stitch math. Duplicate shas break
-	// the ids set / stitch dedup (they'd re-appear as "already seen"), so reject them too.
-	const seenShas = new Set<string>();
-	for (const row of snapshot.rows) {
-		if (row == null || typeof row.sha !== 'string' || !Array.isArray(row.parents) || typeof row.date !== 'number') {
-			return 'rows';
-		}
-		if (seenShas.has(row.sha)) return 'rows';
-
-		seenShas.add(row.sha);
-	}
-
-	// Every row's `reachabilityIndex` must be a valid index into the table's `sets` (the decode reads it
-	// directly). Guards against a truncated table / mismatched pairing.
-	const reachability = snapshot.reachability;
-	if (reachability != null && (!Array.isArray(reachability.sets) || !Array.isArray(reachability.dictionary))) {
-		return 'reachability';
-	}
-
-	const setCount = reachability?.sets?.length ?? 0;
-	for (const row of snapshot.rows) {
-		const index = row.contexts?.reachabilityIndex;
-		if (index != null && (!Number.isInteger(index) || index < 0 || index >= setCount)) return 'reachability';
-	}
-
-	// Downstreams must be `[upstream name, tracking branch names]` entries (reconstructed into a Map on restore).
-	if (
-		!Array.isArray(snapshot.downstreams) ||
-		snapshot.downstreams.some(
-			d => !Array.isArray(d) || d.length !== 2 || typeof d[0] !== 'string' || !Array.isArray(d[1]),
-		)
-	) {
-		return 'downstreams';
-	}
-
-	// Per-sha stats, when present, must be `[sha, stats-object]` entries (reconstructed into a Map on restore).
-	if (
-		snapshot.rowsStats != null &&
-		(!Array.isArray(snapshot.rowsStats) ||
-			snapshot.rowsStats.some(
-				s =>
-					!Array.isArray(s) ||
-					s.length !== 2 ||
-					typeof s[0] !== 'string' ||
-					typeof s[1] !== 'object' ||
-					s[1] == null,
-			))
-	) {
-		return 'rowsStats';
-	}
-
-	return undefined;
-}
-
-/**
- * Reconstruct a persisted snapshot into the synthetic `GitGraph` a {@link GraphSession.restore} hands to its
- * immediate refresh as the PRIOR generation — carrying exactly the fields the refresh's seed construction +
- * change-diffing read (`refTips`, `reachability`, `rowsStats`, `downstreams`, `paging.hasMore`). Avatars are
- * deliberately empty: resolved avatar URLs are webview-instance-bound and don't survive a restart, so the
- * refresh re-derives them (and the write-once merge over an empty prior map is a no-op). The side-queried
- * collections (`branches`/`remotes`/`stashes`/`worktrees`) aren't read by the refresh, so they're left empty.
- */
-function buildRestoredGraph(snapshot: GitGraphSessionSnapshot): GitGraph {
-	return {
-		repoPath: snapshot.repoPath,
-		avatars: new Map<string, string>(),
-		ids: new Set<string>(snapshot.rows.map(r => r.sha)),
-		includes: snapshot.includesStats ? { stats: true } : undefined,
-		branches: new Map<string, GitBranch>(),
-		remotes: new Map<string, GitRemote>(),
-		downstreams: new Map(snapshot.downstreams),
-		stashes: undefined,
-		worktrees: undefined,
-		worktreesByBranch: undefined,
-		reachability: snapshot.reachability,
-		refTips: new Map(snapshot.refTips),
-		decorationFingerprint: snapshot.decorationFingerprint,
-		shallow: snapshot.shallow,
-		rows: snapshot.rows,
-		rowsStats: snapshot.rowsStats != null ? new Map(snapshot.rowsStats) : undefined,
-		paging: { limit: snapshot.rows.length, startingCursor: undefined, hasMore: snapshot.hasMore },
-	};
 }
 
 /** The graph log parser's per-record shape (see `graphMapping`), narrowed to the fields the row builder reads. */
@@ -405,8 +283,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			rev?: string;
 			limit?: number;
 			include?: { stats?: boolean };
-			restore?: GitGraphSessionSnapshot;
-			onRestore?: (result: GraphSessionRestoreResult) => void;
 		},
 		cancellation?: AbortSignal,
 	): Promise<GitGraphSession> {
@@ -421,30 +297,6 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			};
 		};
 		const session = new GraphSession(this, repoPath, options?.rowProcessor, getWalkShape);
-
-		// R7c restart persistence: seed from a persisted snapshot when it's structurally valid for THIS repo +
-		// walk shape, then immediately refresh (the snapshot is exactly an R6 seed — enumeration + the tip/FF/
-		// stash gates reconcile a stale one). Any validation failure discards it and falls through to a normal
-		// initial walk. Never trusted over git.
-		const restore = options?.restore;
-		if (restore != null) {
-			const shape = getWalkShape();
-			const reason = validateGraphSnapshot(restore, repoPath, buildShapeKey(shape));
-			if (reason == null) {
-				try {
-					const refresh = await session.restore(restore, options, cancellation);
-					options?.onRestore?.({ restored: true, rows: restore.rows.length, refresh: refresh });
-					return session;
-				} catch {
-					// Belt-and-suspenders: structural validation can't catch a snapshot that reconstructs but
-					// throws in the restore's refresh (e.g. a garbage rev its enumerate chokes on). A corrupt
-					// cache must degrade to a full walk, never crash the open — report a miss and fall through.
-					options?.onRestore?.({ restored: false, reason: 'corrupt' });
-				}
-			} else {
-				options?.onRestore?.({ restored: false, reason: reason });
-			}
-		}
 
 		await session.initialize(options, cancellation);
 		return session;
@@ -1472,9 +1324,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			// upstreams, worktree assignments, remote urls/providers, current user) that can change without
 			// moving any ref tip — e.g. `git remote set-head`, `branch --set-upstream-to`, `worktree add`.
 			// Reused rows keep their prior decorations (only flags/reachability are re-derived below), so ANY
-			// change here must take the full walk that rebuilds them. An absent seed fingerprint (old persisted
-			// snapshot) never matches — safe full fallback. Deliberately LAST of the gates so the structural
-			// gates above keep their precise reasons (a deleted tracking branch reports `ref-deleted`, not this).
+			// change here must take the full walk that rebuilds them. An absent seed fingerprint never matches —
+			// safe full fallback. Deliberately LAST of the gates so the structural gates above keep their precise
+			// reasons (a deleted tracking branch reports `ref-deleted`, not this).
 			if (seed.decorationFingerprint !== decorationFingerprint) {
 				fallback('metadata-changed');
 				return undefined;
@@ -2128,39 +1980,6 @@ class GraphSession implements GitGraphSession {
 		this.applyRebuild(graph, shape);
 	}
 
-	/**
-	 * R7c restart persistence. Reconstruct the prior generation from a persisted snapshot as an R6 seed
-	 * WITHOUT any git (its window/tips/reachability/stats become this session's prior `current`/`window`/
-	 * `buildShape`), then IMMEDIATELY {@link refresh} to current truth — the enumeration + tip/FF/stash gates
-	 * reconcile a stale snapshot (fast when unchanged, a full walk on any structural change). The session
-	 * handed back is ALWAYS post-refresh; the raw snapshot is never surfaced. The caller has already validated
-	 * the snapshot structurally. Returns the refresh outcome so the caller can report the restore result.
-	 */
-	async restore(
-		snapshot: GitGraphSessionSnapshot,
-		options?: { rev?: string; limit?: number; include?: { stats?: boolean } },
-		cancellation?: AbortSignal,
-	): Promise<GitGraphSessionRefreshResult> {
-		this._window = snapshot.rows;
-		this._buildShape = snapshot.buildShape;
-		this._current = buildRestoredGraph(snapshot);
-
-		// Anchor the re-walk on the window's BOTTOM commit so it spans the whole restored window (the host's
-		// rebuild-anchor discipline), matching to at least the current limit so a since-grown repo still fills a
-		// full page. Stash rows aren't real revs, so skip them when picking the anchor.
-		let anchor: string | undefined;
-		for (let i = snapshot.rows.length - 1; i >= 0; i--) {
-			const type = snapshot.rows[i].kind;
-			if (type === 'commit' || type === 'merge') {
-				anchor = snapshot.rows[i].sha;
-				break;
-			}
-		}
-		const limit = Math.max(snapshot.rows.length, options?.limit ?? 0);
-
-		return this.refresh({ rev: anchor, limit: limit, include: options?.include }, cancellation);
-	}
-
 	async refresh(
 		options?: GitGraphSessionRefreshOptions,
 		cancellation?: AbortSignal,
@@ -2282,56 +2101,8 @@ class GraphSession implements GitGraphSession {
 		return true;
 	}
 
-	serialize(): GitGraphSessionSnapshot | undefined {
-		const current = this._current;
-		// Nothing worth persisting: no window yet, no build shape recorded, or no ref tips (the restore's
-		// tip-diff gate has nothing to diff — never true for the CLI provider, but guards a defensive future).
-		if (this._window.length === 0 || this._buildShape == null || current?.refTips == null) return undefined;
-
-		const [ordering, onlyFollowFirstParent] = this._buildShape.split('|');
-
-		// Cap the persisted window to a bounded top slice; a longer window persists its top with `hasMore`
-		// forced true (restore behaves as a shorter loaded window — the bottom re-pages on demand). Slicing
-		// makes a new array of the SAME row objects — no mutation of the live window.
-		const capped = this._window.length > maxPersistedGraphRows;
-		const rows = capped ? this._window.slice(0, maxPersistedGraphRows) : (this._window as GitGraphRow[]);
-		const hasMore = capped || (current.paging?.hasMore ?? false);
-
-		// Stats are immutable per sha; when capped, trim to the persisted shas (entries for dropped rows are
-		// dead weight). The reachability table is kept whole even when capped — it's proportional to distinct
-		// ref-sets (small), the persisted rows' indices stay valid, and extra sets are harmless on decode.
-		let rowsStats: [string, GitGraphRowStats][] | undefined;
-		if (current.includes?.stats === true && current.rowsStats != null && current.rowsStats.size > 0) {
-			const shas = capped ? new Set(rows.map(r => r.sha)) : undefined;
-			rowsStats = [];
-			for (const [sha, stats] of current.rowsStats) {
-				if (shas != null && !shas.has(sha)) continue;
-
-				rowsStats.push([sha, stats]);
-			}
-		}
-
-		return {
-			v: graphSessionSnapshotVersion,
-			repoPath: this.repoPath,
-			buildShape: this._buildShape,
-			ordering: ordering as 'date' | 'author-date' | 'topo',
-			onlyFollowFirstParent: onlyFollowFirstParent === 'true',
-			rows: rows,
-			refTips: [...current.refTips],
-			decorationFingerprint: current.decorationFingerprint,
-			reachability: current.reachability,
-			rowsStats: rowsStats,
-			downstreams: Array.from(current.downstreams, ([k, v]): [string, string[]] => [k, [...v]]),
-			hasMore: hasMore,
-			includesStats: current.includes?.stats === true,
-			shallow: current.shallow ?? false,
-		};
-	}
-
 	dispose(): void {
-		// No-op — the window lives entirely in memory. R7c restart persistence is host-driven: the host
-		// serializes this session (debounced + on its own dispose) and owns the storage IO.
+		// No-op — the window lives entirely in memory and dies with the session.
 	}
 
 	/** A cursor-less rebuild (full walk / fast path) IS the full window. */
