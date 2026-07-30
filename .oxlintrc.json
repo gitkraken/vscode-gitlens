@@ -148,6 +148,7 @@
 		"@gitlens/no-src-imports": "error",
 		"@gitlens/no-self-package-imports": "error",
 		"@gitlens/no-instanceof-cancellation-error": "error",
+		"@gitlens/no-scss-in-css-template": "error",
 		"@gitlens/one-var": "error",
 		"@gitlens/require-js-extension": "error",
 		"@gitlens/scoped-logger-usage": "error",
