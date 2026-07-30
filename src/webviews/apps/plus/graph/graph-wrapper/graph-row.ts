@@ -288,10 +288,12 @@ function renderAnchorMarkers(ctx: RowRenderContext): TemplateResult | typeof not
  *  node dot to tie the indicator to its commit (see graph.scss for the `--row-lane-lead + --row-lane-x` math).
  *
  *  At REST it's a thin (~0.3rem) colored bar. It EXPANDS rightward over the lanes into a role-COLORED pill
- *  (each segment filled with its role color + knockout text), a bold continuation of the bar, on two PURE-CSS
- *  triggers (no JS, nothing on the scroll path — see graph.scss): row hover runs a one-shot ~1.4s flash
- *  (auto-expand then auto-collapse), and hovering the indicator's own widened hit zone holds it open. All
- *  state is CSS.
+ *  (each segment filled with its role color + knockout text), a bold continuation of the bar, on ONE PURE-CSS
+ *  trigger (no JS, nothing on the scroll path — see graph.scss): hovering the indicator, which holds the pill
+ *  open. Row hover and selection deliberately do NOT expand it — both are ambient, so expanding on either put
+ *  unrequested motion over the lane art on every pass. `gl-graph__row-marker-hit` is a transparent sibling
+ *  widening that target across the connector band (stopping short of the node); it's separate from the rail
+ *  because the rail must stay shrink-to-fit for the pill to expand. All state is CSS.
  *
  *  Decorative: the roles ride the row's `aria-label`, so this stays out of the a11y tree. */
 function renderRowMarkerRail(roles: number, targetName: string | undefined): TemplateResult {
@@ -306,6 +308,7 @@ function renderRowMarkerRail(roles: number, targetName: string | undefined): Tem
 			class="gl-graph__row-marker-connector gl-graph__row-marker-connector--${primary}"
 			aria-hidden="true"
 		></div>
+		<div class="gl-graph__row-marker-hit" aria-hidden="true"></div>
 		<div class="gl-graph__row-marker-rail" aria-hidden="true" data-tooltip=${tooltip}>
 			<span class="gl-graph__row-marker-rail-bar"
 				>${rowMarkerRoleSpecs.map(spec =>
@@ -1426,6 +1429,9 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			'--row-lane-color': colorForColumn(row.column),
 			'--row-lane-x': `${laneCenterX}px`,
 			'--row-lane-lead': `${laneLead}px`,
+			// The fold strip's width (0 when folding is off) — the row markers anchor PAST it so the rail
+			// never covers the fold chevron, which shares the graph column's left edge with it.
+			'--row-fold-w': `${ctx.foldLaneWidth}px`,
 			'--row-gutter-w': `${laneViewportW}px`,
 			'--row-band-edge': `${bandEdge}px`,
 			// Column mode: the band ::before is positioned at the graph cell (left/width) so it stays

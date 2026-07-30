@@ -98,7 +98,7 @@ import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebu
 import type { LaneSeedSource } from '../utils/laneSeed.utils.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
-import { isPrimaryWipRow, rowMarkerRolesFor } from '../utils/rowMarker.utils.js';
+import { isPrimaryWipRow } from '../utils/rowMarker.utils.js';
 import { branchHintFor, createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
@@ -965,12 +965,6 @@ export class GlLitGraph extends LitElement {
 	// Cached selection set (rebuilt only when `selectedRows` changes — not allocated per render).
 	private selectedShas: ReadonlySet<string> = new Set();
 	private lastSelectedRowsRef?: GraphSelectedRows;
-	// The selection we last armed a row-marker-rail flash for — the single selected sha, or `undefined` for
-	// none/multi (which CLEARS a flash rather than starting one). A re-shipped `selectedRows` object is NOT a
-	// change of selection, so the flash compares the selection itself rather than the prop's reference. Keyed
-	// on the sha — NOT on `selectedShas`, which the keyboard paths in `handleKeyDown` pre-write optimistically
-	// ahead of the host echo, so the echo that actually carries the flash would read as a no-op.
-	private lastFlashSelectionSha?: string;
 	// Date formatters honoring the user's dateStyle/dateFormat config (rebuilt on config change).
 	// `formatDateShortFn` is the ultra-compact variant used when the date column is too narrow.
 	private formatDateFn?: (date: number) => string;
@@ -1320,12 +1314,6 @@ export class GlLitGraph extends LitElement {
 		this.emitMoreRows.cancel();
 		this.announceLoadingMore.cancel();
 		this.cancelPendingPillActivation();
-		if (this._flashRailTimer != null) {
-			clearTimeout(this._flashRailTimer);
-			this._flashRailTimer = undefined;
-		}
-		this._flashRailEl = undefined;
-		this.cancelSelectFlash();
 		this.resizeDragCleanup?.();
 		this.resizeDragCleanup = undefined;
 		// Tear down any in-flight column-reorder drag (window listeners, rAF, pointer capture, cursor) so
@@ -1524,13 +1512,6 @@ export class GlLitGraph extends LitElement {
 		if (selectionChanged) {
 			this.lastSelectedRowsRef = this.selectedRows;
 			this.selectedShas = new Set(this.selectedRows != null ? Object.keys(this.selectedRows) : []);
-			// Flash the newly-selected tip row's rail in updated() (the DOM — and any reveal-scroll — settle
-			// only after render) — but ONLY on a real change of selection (see `lastFlashSelectionSha`).
-			const flashSha = this.selectedShas.size === 1 ? this.selectedShas.values().next().value : undefined;
-			if (flashSha !== this.lastFlashSelectionSha) {
-				this.lastFlashSelectionSha = flashSha;
-				this._selectFlashPending = true;
-			}
 		}
 
 		if (changed.has('config') || this.config !== this.lastConfigRef) {
@@ -3009,12 +2990,19 @@ export class GlLitGraph extends LitElement {
 			this.reconcileModifierChain();
 		}
 
-		// The row-marker rail hover-expands on its own and must NOT open the row's rich hover card — but it
-		// DOES carry its own tooltip (the roles spelled out + the merge target's name, which the expanded pill
-		// has no room for). So cancel the row hover like any affordance, then show the rail's own tooltip. Its
-		// CSS `:hover` expand is independent of this (driven by the pointer being over it, not this handler).
-		if (event.target instanceof Element && event.target.closest('.gl-graph__row-marker-rail') != null) {
-			this.cancelRowHover();
+		// The row-marker band (the rail plus its widened hit zone) hover-expands on its own and must NOT open
+		// the row's rich hover card — but it DOES carry its own tooltip (the roles spelled out + the merge
+		// target's name, which the expanded pill has no room for). Route it through the normal row hover
+		// rather than cancelling: the band resolves to the `graph` zone (see the zone map below), which tracks
+		// the row — keeping the minimap following it exactly as the lanes and avatar do — while never
+		// scheduling the card, so the tooltip and the card still can't co-show. Then show the rail's tooltip;
+		// the hit zone carries no `data-tooltip`, so there it resolves to nothing and hides. The CSS `:hover`
+		// expand is independent of all this (driven by the pointer being over it, not this handler).
+		if (
+			event.target instanceof Element &&
+			event.target.closest('.gl-graph__row-marker-rail, .gl-graph__row-marker-hit') != null
+		) {
+			this.handleRowHover(event);
 			const railTarget = this.closestTooltipTarget(event.target);
 			if (railTarget != null) {
 				this.showTooltipForTarget(railTarget);
@@ -3400,87 +3388,6 @@ export class GlLitGraph extends LitElement {
 	// hover; sliding back onto the lanes hides any open/pending card without dropping row-hover/
 	// minimap tracking. Also (re)targets the Alt-hold lane-chain dim (`activateModifierChain`)
 	// when a NEW row is entered while Alt is already held.
-	// One row-marker-rail flash at a time — the node currently wearing `.is-flash` and its removal timer.
-	private _flashRailEl: HTMLElement | undefined;
-	private _flashRailTimer: ReturnType<typeof setTimeout> | undefined;
-	// Set in willUpdate when the selection changed; consumed in updated() (the DOM reflects the new selection
-	// + any reveal-scroll only after render), so a select can flash the newly-selected tip row's rail.
-	private _selectFlashPending = false;
-
-	// Briefly reveal a tip row's row-marker rail as an attention cue — the CSSOM `.is-flash` toggle (added
-	// here, removed after a short timeout), NOT `@state`, so it never triggers a render. A new flash clears
-	// the prior node + timer. Band `:hover` holds the rail open independently (see graph.scss), so hovering
-	// the bar keeps it out while a plain row hover/select only flashes it in and out. Fires on hover-ENTER
-	// and select only — off the scroll path.
-	private flashRowMarkerRail(railEl: HTMLElement | null | undefined): void {
-		if (this._flashRailTimer != null) {
-			clearTimeout(this._flashRailTimer);
-			this._flashRailTimer = undefined;
-		}
-		if (this._flashRailEl != null && this._flashRailEl !== railEl) {
-			this._flashRailEl.classList.remove('is-flash');
-		}
-		this._flashRailEl = railEl ?? undefined;
-		if (railEl == null) return;
-
-		railEl.classList.add('is-flash');
-		this._flashRailTimer = setTimeout(() => {
-			this._flashRailTimer = undefined;
-			this._flashRailEl?.classList.remove('is-flash');
-			this._flashRailEl = undefined;
-		}, 1400);
-	}
-
-	/** The rendered rail belonging to `sha`'s row, if the virtualizer has stamped that row yet. Only row marker
-	 *  rows carry one (a handful in the DOM), so this scan is bounded regardless of how many rows are loaded. */
-	private findRowMarkerRail(sha: string): HTMLElement | undefined {
-		for (const el of this.renderRoot.querySelectorAll<HTMLElement>('.gl-graph__row-marker-rail')) {
-			if (el.closest<HTMLElement>('.gl-graph__row')?.dataset.sha === sha) return el;
-		}
-		return undefined;
-	}
-
-	/** Whether `sha`'s row SHOULD carry a rail — its own worktree row-marker roles, or a scope anchor. Gates the
-	 *  select-flash retry below so selecting an ordinary commit (the overwhelming majority) never schedules a
-	 *  single wasted frame. Allocation-free: a bitmask compare plus one Set lookup. */
-	private expectsRowMarkerRail(sha: string): boolean {
-		return rowMarkerRolesFor(sha, this._rowMarkerTips) !== 0 || this.scopeAnchors.anchorShas?.has(sha) === true;
-	}
-
-	private _selectFlashRaf: number | undefined;
-
-	/** Flash `sha`'s rail once its row exists. `@lit-labs/virtualizer` runs its OWN async update cycle, so a
-	 *  row selected + revealed this tick is frequently NOT in the DOM when our `updated()` runs — querying once
-	 *  and giving up silently drops the flash for good (the same edge-consuming race a previous fix on this
-	 *  branch hit from the enter-view side, which needed exactly this kind of bounded re-arm; it reproduces on
-	 *  real hardware but not in a starved VM). Retries across frames, capped, and only for rows that actually
-	 *  have a rail to show. */
-	private scheduleSelectFlash(sha: string, attempt = 0): void {
-		this.cancelSelectFlash();
-
-		const rail = this.findRowMarkerRail(sha);
-		if (rail != null) {
-			this.flashRowMarkerRail(rail);
-			return;
-		}
-		if (attempt >= 20) return;
-
-		this._selectFlashRaf = requestAnimationFrame(() => {
-			this._selectFlashRaf = undefined;
-			// The selection may have moved on while we waited — drop the stale flash rather than firing it late.
-			if (this.selectedShas.size !== 1 || !this.selectedShas.has(sha)) return;
-
-			this.scheduleSelectFlash(sha, attempt + 1);
-		});
-	}
-
-	private cancelSelectFlash(): void {
-		if (this._selectFlashRaf == null) return;
-
-		cancelAnimationFrame(this._selectFlashRaf);
-		this._selectFlashRaf = undefined;
-	}
-
 	private handleRowHover(event: PointerEvent): void {
 		const node = event.target;
 		if (node instanceof Element && node.closest('[data-ref-name]') != null) {
@@ -3499,9 +3406,14 @@ export class GlLitGraph extends LitElement {
 		// grouped into a content column — the inline lane strip/fold gutter folded into that host cell. Both
 		// inline surfaces are `pointer-events: auto`, so the pointer lands on them (their lane-art SVGs are
 		// `pointer-events: none`); matching them keeps grouped-lane hover behaving like the column placement.
+		// The row-marker rail and its hit zone count too: they're direct children of the ROW (so the hit zone
+		// can span the fold strip), which would otherwise land them in `content` and pop the card across the
+		// whole band. They sit over the lanes and read as part of them, so they track exactly like the lanes.
 		const zone: RowHoverZone =
 			node instanceof Element &&
-			node.closest('.gl-graph__zone--graph, .gl-graph__gutter-viewport--inline, .gl-graph__fold-lane') != null
+			node.closest(
+				'.gl-graph__zone--graph, .gl-graph__gutter-viewport--inline, .gl-graph__fold-lane, .gl-graph__row-marker-rail, .gl-graph__row-marker-hit',
+			) != null
 				? 'graph'
 				: 'content';
 
@@ -3541,12 +3453,6 @@ export class GlLitGraph extends LitElement {
 		// reached here), not `hoveredRowSha` — so no CSSOM poke is needed on this card-only transition.
 		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
 		this.startRowHover(sha, zone, event, rowEl, true);
-		// Brief attention flash of this row's row-marker rail on hover-ENTER (only tip rows carry one). The
-		// timeout collapses it even while still hovering; the band's own :hover holds it if you're on the bar.
-		const rowMarkerRail = rowEl.querySelector<HTMLElement>('.gl-graph__row-marker-rail');
-		if (rowMarkerRail != null) {
-			this.flashRowMarkerRail(rowMarkerRail);
-		}
 		// Modifier already held when a NEW row is entered (row→row retargets same as pill→pill).
 		if (event.altKey) {
 			this.activateModifierChain();
@@ -3589,10 +3495,6 @@ export class GlLitGraph extends LitElement {
 		const zone = this.hoveredRowZone;
 		this.hoveredRowSha = undefined;
 		this.hoveredRowZone = undefined;
-		// Leaving the row ends its row-marker-rail flash NOW rather than letting the timeout run on after the
-		// pointer is gone — clearing the class reverses the same CSS transition, so it still glides shut. The
-		// rail's own `:hover` is independent, so moving ONTO the rail (which routes here first) keeps it open.
-		this.flashRowMarkerRail(undefined);
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
 		);
@@ -6410,24 +6312,6 @@ export class GlLitGraph extends LitElement {
 
 	protected override updated(changed: PropertyValues): void {
 		super.updated(changed);
-		// Consume a pending select-flash: briefly reveal the newly-selected tip row's rail. Only tip rows carry
-		// a rail (a handful in the DOM), so scan those and match the selected row's sha. Selecting something
-		// else — or deselecting, or a multi-select — resolves to NOTHING, and passing that `undefined` through
-		// CLEARS whatever rail is still flashing, so the previous row collapses (via the same transition)
-		// instead of holding its flash out for the rest of the timeout.
-		if (this._selectFlashPending) {
-			this._selectFlashPending = false;
-			const selected = this.selectedShas.size === 1 ? this.selectedShas.values().next().value : undefined;
-			const rail = selected != null ? this.findRowMarkerRail(selected) : undefined;
-			if (rail == null && selected != null && this.expectsRowMarkerRail(selected)) {
-				// The row owns a rail but the virtualizer hasn't stamped it yet — retry across frames instead
-				// of dropping the flash (see scheduleSelectFlash).
-				this.scheduleSelectFlash(selected);
-			} else {
-				this.cancelSelectFlash();
-				this.flashRowMarkerRail(rail);
-			}
-		}
 		// Re-apply the click-pinned ref-pill expand class to the live DOM after each render.
 		this.reconcilePinnedRefPill();
 		// Re-assert the scroll position captured across a row-set change — a lane collapse/expand, or rows

@@ -760,8 +760,8 @@ gl-lit-graph {
 		contain: layout;
 		transition: background-color 120ms ease-out;
 
-		// Scope-anchor resting tint: colorize the WHOLE anchor row by its role (target = colored, base =
-		// monochromatic muted, focal = brand) so the anchor reads across the row, not just at the marker.
+		// Scope-anchor resting tint: colorize the WHOLE anchor row by its role so the anchor reads across
+		// the row, not just at the marker.
 		// Declared before the state rules below so hover/highlight/selection still override it.
 		// Each resting tint also publishes `--row-rest-bg` (same value) so the row-actions strip + its status
 		// badge can reproduce the row's own background at rest rather than punching an untinted hole through
@@ -1235,9 +1235,11 @@ gl-lit-graph {
 	// paints it over the row's state background but behind the lane art (like `.is-graph-band`). Non-interactive.
 	.gl-graph__row-marker-connector {
 		position: absolute;
-		left: calc(var(--row-graph-left, 0px) + 0.3rem);
+		left: calc(var(--row-graph-left, 0px) + var(--row-fold-w, 0px) + 0.3rem);
 		top: 0;
-		width: max(0px, calc(var(--row-lane-lead, 0px) + var(--row-lane-x, 0px) - 0.3rem));
+		// Span from just past the bar to the dot. Both ends shift by the fold strip, so its width drops out
+		// of the reach: `(graph-left + lane-lead + lane-x) - (graph-left + fold-w + 0.3rem)`.
+		width: max(0px, var(--row-lane-lead, 0px) - var(--row-fold-w, 0px) + var(--row-lane-x, 0px) - 0.3rem);
 		height: 100%;
 		z-index: -1;
 		pointer-events: none;
@@ -1267,18 +1269,22 @@ gl-lit-graph {
 	// the left edge of the graph column (`--row-graph-left`), a direct child of the row (sibling of the anchor
 	// rail), NOT a strip member. AT REST a thin role-colored bar (a grouped row splits it into equal role
 	// segments, top→bottom). It EXPANDS rightward over the lanes into a role-COLORED pill (each segment filled
-	// with its role color) — a bold continuation of the bar — on two PURE-CSS triggers (no JS, nothing on the
-	// scroll path; see the flash rules below). Decorative (`aria-hidden`) — the roles ride the row's aria-label.
+	// with its role color) — a bold continuation of the bar — on a single PURE-CSS trigger: hovering the rail
+	// itself (no JS, nothing on the scroll path). Decorative (`aria-hidden`) — the roles ride the row's aria-label.
 	.gl-graph__row-marker-rail {
 		position: absolute;
-		left: var(--row-graph-left, 0);
+		// Anchored at the LANES' left edge, not the graph column's — the fold strip owns the column's first
+		// `--row-fold-w` and holds the fold chevron, which this would otherwise sit on top of and make
+		// unclickable (both are exactly 1.4rem wide, so they collided pixel-for-pixel). Collapses to
+		// `--row-graph-left` when folding is off, where the strip has no width.
+		left: calc(var(--row-graph-left, 0px) + var(--row-fold-w, 0px));
 		top: 0;
 		display: flex;
 		align-items: stretch;
 		height: 100%;
-		// A transparent hit zone wider than the ~0.3rem bar so the indicator is hoverable — kept minimal so it
-		// clears the first lane dot (~1.7rem from the lane origin); a click here has no `data-sha`, so it walks
-		// up to the row and selects it (lane-collapse dots sit further right and stay clickable).
+		// `min-width`, NEVER `width`: the rail shrink-to-fits against the ROW (a wide containing block), which
+		// is what lets the pill expand past this floor. An explicit width here caps the flyout, and the
+		// `overflow: hidden` below then clips it. The widened hit target is a sibling for exactly this reason.
 		min-width: 1.4rem;
 		overflow: hidden;
 		// Above the lane art (z 0) AND above the row's focus ring (`is-focused::after`, z 5) so the bar and its
@@ -1289,6 +1295,54 @@ gl-lit-graph {
 		border-radius: 0.3rem;
 		background-color: transparent;
 		transition: box-shadow 0.24s ease;
+	}
+
+	// Transparent hit zone extending the rail's reach across the connector band, so the target matches the
+	// affordance you can actually see rather than the ~0.3rem bar. Same origin and z as the rail but EARLIER
+	// in the DOM, so the bar and the expanded pill paint over it and keep their own `:hover` — the pointer
+	// hands off between the two without ever dropping the expand. A click here has no `data-sha`, so it walks
+	// up to the row and selects it.
+	// Starts at the graph column's LEFT EDGE — including the fold strip, unlike the rail, which starts past
+	// it. The fold chevron is lifted above this (see `.lane-fold-chevron`) so it keeps its own hover and
+	// clicks; everywhere else on the strip falls through to here and expands the marker.
+	.gl-graph__row-marker-hit {
+		position: absolute;
+		left: var(--row-graph-left, 0);
+		top: 0;
+		width: 1.4rem;
+		height: 100%;
+		z-index: 6;
+		pointer-events: auto;
+	}
+
+	// Stop 1.6rem SHORT of the row's node so neither the node nor its lane-collapse toggle is shadowed: the
+	// largest node is the avatar (r9, ×1.1 = 9.9 while hovered/selected) and its collapse hit-target is
+	// `max(r + 2, 7.5)` = 11 at that size — so 1.6rem leaves ~5px of air. `max()` floors it at the rail's own
+	// width: a lane-0 node sits only ~1.7rem from the lane origin, so those rows have nothing to give. Gated
+	// on `is-graph-band` (i.e. the graph is rendered) — with the graph `hidden` there are no lanes and
+	// `--row-lane-lead` is the summed width of the zones BEFORE the absent lanes, which would spread this
+	// across the row's own text.
+	.gl-graph__row.is-graph-band .gl-graph__row-marker-hit {
+		// `max()` is the math context — no `calc()` wrapper, which the minifier's postcss-calc can't tokenize
+		// past one level of nesting (see `--gutter-node-dim` below). The fold strip drops out of the reach
+		// Reaches from the column's left edge to the node's margin. The fold strip is INSIDE this span (this
+		// starts before it, unlike the rail), so unlike the connector its width doesn't subtract it. Floored
+		// at ZERO, never at a resting width: a floor wider than the reach would put the zone back under the
+		// node, which is the whole thing the 1.1rem is buying. 1.1rem is the node's lane-collapse hit radius
+		// at avatar size (`max(r + 2, 7.5)`), so the zone stops exactly where that target starts — and 1.1px
+		// clear of the grown avatar itself (r9 ×1.1).
+		width: max(0px, var(--row-lane-lead, 0px) + var(--row-lane-x, 0px) - 1.1rem);
+	}
+
+	// The rail's own resting box is bound by the SAME reach — its 1.4rem default is wider than the gap on a
+	// lane-0 row, so it would sit on the node even with the hit zone gone. Never narrower than the bar it has
+	// to show, never wider than the default.
+	.gl-graph__row.is-graph-band .gl-graph__row-marker-rail {
+		min-width: clamp(
+			0.3rem,
+			var(--row-lane-lead, 0px) - var(--row-fold-w, 0px) + var(--row-lane-x, 0px) - 1.1rem,
+			1.4rem
+		);
 	}
 
 	// The resting bar: a thin vertical stack of role swatches (one when a single role; split equally when the
@@ -1321,8 +1375,7 @@ gl-lit-graph {
 		background-color: var(--gl-row-marker-target);
 	}
 
-	// Scope-anchor roles, folded into the same rail: the focal branch tip keeps the scope's brand color and
-	// the fork point / merge base its muted grey, so scoping reads exactly as it did — just in one rail.
+	// Scope-anchor roles, folded into the same rail rather than a second one of their own.
 	.gl-graph__row-marker-rail-swatch--focal {
 		background-color: var(--gl-row-marker-focal);
 	}
@@ -1407,35 +1460,37 @@ gl-lit-graph {
 		background-color: var(--gl-row-marker-base);
 	}
 
-	// Expand ONLY on hovering the indicator ITSELF (its widened hit zone) — not the row — so it neither reads as
-	// a row hover nor triggers the row's commit hover-card (the rail also stops its own pointer events in
-	// gl-lit-graph so the card stays closed). Pure CSS transition, no keyframe: hovering slides the pill out,
-	// un-hovering reverses the SAME transition to slide it back in — identical `ease`/0.28s glide to the
-	// sticky-timeline pill, consistent every time.
-	.gl-graph__row-marker-rail:hover {
+	// Expand ONLY on hovering the indicator ITSELF — the rail (bar + pill) or its widened hit zone — never the
+	// row, so it neither reads as a row hover nor triggers the row's commit hover-card (the rail also stops its
+	// own pointer events in gl-lit-graph so the card stays closed). Deliberately the ONLY trigger: row hover and
+	// selection are ambient (scanning, click-through, arrow-key nav), so expanding on either put unrequested
+	// motion over the lane art on every pass. Both selectors are needed — the pill paints OVER the hit zone as
+	// it slides out, so the pointer moves off the hit and onto the rail mid-expand and must not collapse it.
+	// Pure CSS transition, no keyframe: hovering slides the pill out, un-hovering reverses the SAME transition
+	// to slide it back in — identical `ease`/0.28s glide to the sticky-timeline pill.
+	// The fold strip is the third trigger, claimed via `:has()` rather than by stretching the hit zone over
+	// it: the chevron is a real button sharing that strip, and ANY element laid on top would eat its hover
+	// and clicks (which is exactly how it got covered before). Leaving its pointer events alone means the
+	// chevron stays fully live while the strip still expands the marker, so the trigger reads as one
+	// contiguous region from the graph column's left edge out to the node's margin. Inert when folding is
+	// off — the strip isn't rendered at all.
+	.gl-graph__row-marker-rail:hover,
+	.gl-graph__row-marker-hit:hover + .gl-graph__row-marker-rail,
+	.gl-graph__row:has(.gl-graph__fold-lane:hover) .gl-graph__row-marker-rail {
 		box-shadow:
 			0 0 0 var(--gl-border-width) var(--vscode-editorWidget-border, var(--vscode-widget-border)),
 			0 0.2rem 0.6rem var(--vscode-widget-shadow);
 	}
 
-	.gl-graph__row-marker-rail:hover .gl-graph__row-marker-rail-pill {
+	.gl-graph__row-marker-rail:hover .gl-graph__row-marker-rail-pill,
+	.gl-graph__row-marker-hit:hover + .gl-graph__row-marker-rail .gl-graph__row-marker-rail-pill,
+	.gl-graph__row:has(.gl-graph__fold-lane:hover) .gl-graph__row-marker-rail-pill {
 		grid-template-columns: 1fr;
 	}
 
-	.gl-graph__row-marker-rail:hover .gl-graph__row-marker-rail-pill-inner {
-		opacity: 1;
-	}
-
-	// Auto-show flash: a brief timed reveal driven by a `.is-flash` class the row toggles (on hover-ENTER of a
-	// tip row and on selecting one — both event-driven, off the scroll path, CSSOM-only like the sticky
-	// timeline). It glides the pill open, then — when the timeout clears the class — back closed via the SAME
-	// transition. Band `:hover` above still HOLDS it open, so hovering the bar/band keeps it out while a plain
-	// row hover or a select only flashes it in and out.
-	.gl-graph__row-marker-rail.is-flash .gl-graph__row-marker-rail-pill {
-		grid-template-columns: 1fr;
-	}
-
-	.gl-graph__row-marker-rail.is-flash .gl-graph__row-marker-rail-pill-inner {
+	.gl-graph__row-marker-rail:hover .gl-graph__row-marker-rail-pill-inner,
+	.gl-graph__row-marker-hit:hover + .gl-graph__row-marker-rail .gl-graph__row-marker-rail-pill-inner,
+	.gl-graph__row:has(.gl-graph__fold-lane:hover) .gl-graph__row-marker-rail-pill-inner {
 		opacity: 1;
 	}
 
@@ -3775,6 +3830,12 @@ gl-lit-graph {
 	// 0.6-opacity discoverability affordance) that brightens on hover; collapsed lanes show a full-
 	// opacity chevron so a fold hiding commits stays visible on a cold read.
 	.lane-fold-chevron {
+		// Lifted above the row-marker hit zone (z 6), which spans the fold strip so the marker's hover target
+		// reaches the column's left edge. Without this the hit zone would swallow the chevron exactly as the
+		// marker rail used to. Its own `:hover`/click therefore still win here, and the marker's `:has()` rule
+		// covers expanding while over it. The expanded pill starts PAST the strip, so nothing paints over it.
+		position: relative;
+		z-index: 7;
 		display: inline-flex;
 		flex-shrink: 0;
 		align-items: center;
@@ -3870,11 +3931,11 @@ gl-lit-graph {
 	// are all one row-marker. Those tokens are also user-themeable (`gitlens.graphScrollMarkerHeadColor` /
 	// `…UpstreamColor` / `…MergeTargetColor`), so a customized theme carries through here for free — which a
 	// `--vscode-charts-*` derivation could not do, and a color-mix against `charts-blue` would actively drift
-	// away from. Focus / base are genuinely different KINDS of thing, so they keep their own hues.
+	// away from. Focus aliases the scope chip's yellow for the same reason; base keeps its own muted hue.
 	--gl-row-marker-head: var(--color-graph-scroll-marker-head);
 	--gl-row-marker-upstream: var(--color-graph-scroll-marker-upstream);
 	--gl-row-marker-target: var(--color-graph-scroll-marker-merge-target);
-	--gl-row-marker-focal: hsl(var(--brand));
+	--gl-row-marker-focal: var(--gl-chip-scoped-color);
 	--gl-row-marker-base: var(--vscode-descriptionForeground, #8b949e);
 
 	--color-graph-minimap-line0: var(--vscode-progressBar-background);

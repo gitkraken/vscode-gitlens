@@ -27,17 +27,15 @@ suite('rowMarkerRolesFor', () => {
 	});
 
 	test('single roles resolve to their own flag', () => {
-		const [head, upstream, target] = rowMarkerRoleSpecs;
-		assert.strictEqual(rowMarkerRolesFor('aaa', tips), head.flag);
-		assert.strictEqual(rowMarkerRolesFor('bbb', tips), upstream.flag);
-		assert.strictEqual(rowMarkerRolesFor('ccc', tips), target.flag);
+		assert.strictEqual(rowMarkerRolesFor('aaa', tips), flagFor('head'));
+		assert.strictEqual(rowMarkerRolesFor('bbb', tips), flagFor('upstream'));
+		assert.strictEqual(rowMarkerRolesFor('ccc', tips), flagFor('target'));
 	});
 
 	test('shared sha (HEAD in sync with upstream) → combined mask', () => {
 		const inSync: RowMarkerTips = { headSha: 'aaa', upstreamSha: 'aaa' };
 		const roles = rowMarkerRolesFor('aaa', inSync);
-		const [head, upstream] = rowMarkerRoleSpecs;
-		assert.strictEqual(roles, head.flag | upstream.flag);
+		assert.strictEqual(roles, flagFor('head') | flagFor('upstream'));
 	});
 });
 
@@ -122,10 +120,14 @@ suite('rowMarkerRolesTooltip', () => {
 
 suite('primaryRowMarkerRole', () => {
 	test('HEAD wins a combined mask (spec order)', () => {
-		const [head, upstream, target] = rowMarkerRoleSpecs;
-		assert.strictEqual(primaryRowMarkerRole(head.flag | upstream.flag | target.flag), 'head');
-		assert.strictEqual(primaryRowMarkerRole(upstream.flag | target.flag), 'upstream');
-		assert.strictEqual(primaryRowMarkerRole(target.flag), 'target');
+		assert.strictEqual(primaryRowMarkerRole(flagFor('head') | flagFor('upstream') | flagFor('target')), 'head');
+		assert.strictEqual(primaryRowMarkerRole(flagFor('upstream') | flagFor('target')), 'upstream');
+		assert.strictEqual(primaryRowMarkerRole(flagFor('target')), 'target');
+	});
+
+	test('focus leads the merge target', () => {
+		assert.strictEqual(primaryRowMarkerRole(flagFor('focal') | flagFor('target')), 'focal');
+		assert.strictEqual(primaryRowMarkerRole(flagFor('target') | flagFor('base')), 'target');
 	});
 
 	test('empty mask → undefined', () => {
@@ -135,9 +137,9 @@ suite('primaryRowMarkerRole', () => {
 
 suite('rowMarkerRolesAriaLabel', () => {
 	test('joins the played roles in spec order', () => {
-		const [head, upstream, target] = rowMarkerRoleSpecs;
-		assert.strictEqual(rowMarkerRolesAriaLabel(head.flag | upstream.flag), 'HEAD, Upstream');
-		assert.strictEqual(rowMarkerRolesAriaLabel(target.flag), 'Target');
+		assert.strictEqual(rowMarkerRolesAriaLabel(flagFor('head') | flagFor('upstream')), 'HEAD, Upstream');
+		assert.strictEqual(rowMarkerRolesAriaLabel(flagFor('target')), 'Target');
+		assert.strictEqual(rowMarkerRolesAriaLabel(flagFor('focal') | flagFor('target')), 'Focus, Target');
 		assert.strictEqual(rowMarkerRolesAriaLabel(0), '');
 	});
 });

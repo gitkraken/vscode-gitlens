@@ -76,8 +76,8 @@ export const rowMarkerRoleSpecs: readonly {
 }[] = [
 	{ role: 'head', flag: rowMarkerHead, icon: 'vm-active', label: 'HEAD', description: 'HEAD (Current Branch Tip)' },
 	{ role: 'upstream', flag: rowMarkerUpstream, icon: 'cloud', label: 'Upstream', description: 'Upstream Tip' },
-	{ role: 'target', flag: rowMarkerTarget, icon: 'gl-merge-target', label: 'Target', description: 'Merge Target' },
 	{ role: 'focal', flag: rowMarkerFocal, icon: 'target', label: 'Focus', description: 'Focus Branch Tip' },
+	{ role: 'target', flag: rowMarkerTarget, icon: 'gl-merge-target', label: 'Target', description: 'Merge Target' },
 	{ role: 'base', flag: rowMarkerBase, icon: 'git-merge', label: 'Base', description: 'Fork Point (Base)' },
 ];
 
@@ -143,8 +143,8 @@ export function combineRowMarkerRoles(rowMarkerRoles: number, scopeRoles: number
 	return (roles & rowMarkerHead) !== 0 ? roles & ~rowMarkerFocal : roles;
 }
 
-/** The single role a grouped row's rail takes its color from — HEAD > upstream > merge target > focus >
- *  base (the spec order, row marker ahead of scope). The rail never stacks colors; it enumerates every
+/** The single role a grouped row's rail takes its color from — HEAD > upstream > focus > merge target >
+ *  base (the spec order). The rail never stacks colors; it enumerates every
  *  role the row plays as segments, but the connector band takes just this one.
  *  Allocation-free (a scan of the static specs); callers pass a non-zero mask, so the ~97% of rows with
  *  none never reach it. */

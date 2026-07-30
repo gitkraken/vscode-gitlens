@@ -843,9 +843,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  computed projection has equal CONTENT, so the prop's identity survives (a) a rows push, which
 	 *  invalidates `_derivedHighlightCache` through `decoratedRows` even though the selection never moved,
 	 *  and (b) a pending host request, which bypasses that cache on EVERY render. Consumers diff this prop
-	 *  by identity: `<gl-lit-graph>` read a re-ship as a change of selection — which flashed the row-marker
-	 *  rail on every graph update. Cheap: `areEqual`'s `a === b` fast path covers the steady state, and the
-	 *  records hold 0-1 keys. */
+	 *  by identity: `<gl-lit-graph>` reads a re-ship as a change of selection, rebuilding its `selectedShas`
+	 *  set and re-rendering on every graph update. Cheap: `areEqual`'s `a === b` fast path covers the steady
+	 *  state, and the records hold 0-1 keys. */
 	private getSelectedRowsProp(
 		decoratedRows: GitGraphRow[] | undefined,
 		primaryWipRowId: string | undefined,
