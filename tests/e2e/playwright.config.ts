@@ -10,6 +10,11 @@ interface CustomOptions {
 // oxlint-disable-next-line import/no-default-export
 export default defineConfig<CustomOptions>({
 	use: {
+		// Bound individual actions. Playwright's default is 0 — wait for actionability forever — so a click
+		// on an element that never becomes actionable (a notification toast over the button, a webview that
+		// never settles) consumes the whole test budget and reports a bare `Test timeout` naming nothing.
+		// With a bound, the failure names the locator instead, and the test gives its remaining time back.
+		actionTimeout: 30000,
 		headless: true, // Ensure headless mode is enabled
 		viewport: { width: 1920, height: 1080 },
 		trace: 'on-first-retry',

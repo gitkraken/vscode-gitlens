@@ -129,10 +129,15 @@ async function standardTeardown({ vscode }: { vscode: VSCodeInstance }) {
 			await currentRebaseContext.signalEditorAbort().catch(() => {
 				// If signaling fails, we'll reinitialize in setup anyway
 			});
-			// Wait briefly for the signal to be processed
+			// Wait for that process to actually exit. `standardSetup` deletes `rebase-merge`, `REBASE_HEAD`
+			// and `index.lock` and then starts a new rebase, so returning while the previous `git rebase` is
+			// still alive lets the two fight over the same `.git` — which surfaces as the NEXT test hanging
+			// until its timeout. A second was not enough under load, and Playwright charges this hook to the
+			// preceding test's timeout, so the cap stays well inside it; the normal case still
+			// resolves as soon as git exits, so this only costs time when something really is stuck.
 			await Promise.race([
 				currentRebaseContext.rebasePromise.catch(() => {}),
-				new Promise(resolve => setTimeout(resolve, 1000)),
+				new Promise(resolve => setTimeout(resolve, 5000)),
 			]);
 			currentRebaseContext = null;
 		}
@@ -447,9 +452,11 @@ test.describe('Editor — Core', () => {
 	});
 
 	test.describe('Execute rebase', () => {
-		// Needs extra headroom: standardSetup (10+ git commands) can take ~12s under
-		// 8-worker load, and the test body does a full rebase flow (start + interact + execute)
-		test.setTimeout(45000);
+		// Needs extra headroom, and Playwright charges the hooks to the test: `standardSetup` runs 10+
+		// git commands (~12s under 8-worker load), the body runs a full rebase flow, and
+		// `standardTeardown` then waits for that rebase to exit. At 45s a loaded machine ran out
+		// mid-rebase; actions are bounded globally now, so a stuck one names itself well inside this.
+		test.setTimeout(60000);
 		test.beforeEach(standardSetup);
 		test.afterEach(standardTeardown);
 
@@ -552,7 +559,9 @@ test.describe('Editor — Core', () => {
 			// Wait for rebase to complete with timeout
 			await Promise.race([
 				rebasePromise,
-				new Promise((_, reject) => setTimeout(() => reject(new Error('Rebase timeout after 60s')), 60000)),
+				// Must stay inside the test timeout above: a longer guard could never fire, so a stuck rebase would
+				// report a bare `Test timeout` naming nothing instead of the step that hung.
+				new Promise((_, reject) => setTimeout(() => reject(new Error('Rebase timeout after 30s')), 30000)),
 			]);
 
 			// Verify HEAD is "Commit B" (which now contains C's changes)
