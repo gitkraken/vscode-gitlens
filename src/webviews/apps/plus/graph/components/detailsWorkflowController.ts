@@ -661,11 +661,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		state.branchCompareCommitFilesLoading.set(new Map());
 	}
 
-	/** Reserved for any path that needs to fully tear down review/compose without going through
-	 *  the toggle gate. Today this is unreachable from external callers — review/compose toggle-out
-	 *  goes through {@link hideMode} (run preserved); destroy goes through
-	 *  {@link destroyEngagedOperation} (Back-then-close gate). Kept here so the cleanup contract is
-	 *  explicit if a future flow needs it. */
+	/** Fully tears down the active mode without going through the toggle gate — used by the automatic
+	 *  rebase, whose Resolve mode is a progress surface the user never opted into, so it leaves outright
+	 *  once the run is cancelled or its summary dismissed. Review/compose toggle-out goes through
+	 *  {@link hideMode} instead (run preserved); destroy goes through
+	 *  {@link destroyEngagedOperation} (Back-then-close gate). */
 	exitMode(selection: DetailsSelection): void {
 		const wasMode = this.actions.state.activeMode.get();
 		const wasSha = this.actions.state.activeModeSha.get();
@@ -1636,6 +1636,13 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  no scope picker, no Back/Resume snapshot (apply is terminal). Arrow-function object so `this`
 	 *  bindings are stable. */
 	readonly resolve = {
+		// Picks up an automatic rebase's escalation handoff when resolve mode is ALREADY open on this
+		// anchor. The run opens the panel as it starts, so by the time it escalates the mode-entry that
+		// normally seeds (see `seedResolveFromEscalation`'s caller) is a no-op re-entry — without this the
+		// escalated step's already-computed resolutions would never reach the panel.
+		seedFromEscalation: (repoPath: string | undefined): void => {
+			void this.seedResolveFromEscalation(repoPath);
+		},
 		// Resolve has no Back/Resume snapshot — nothing to clear. Present so the generic
 		// hide/destroy/anchor-switch paths can call it uniformly across all modes.
 		invalidateSnapshot: (): void => {

@@ -10,6 +10,9 @@ import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.j
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
+	AutoRebaseRunPhase,
+	AutoRebaseRunUpdate,
+	AutoRebaseSummaryStep,
 	ConflictSide,
 	ResolvedFileSummary,
 	ResolveFileError,
@@ -33,6 +36,7 @@ import {
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
 import '../../../shared/components/ai-input.js';
+import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/code-icon.js';
@@ -43,6 +47,10 @@ import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-converging-loading-animation.js';
 
 export type ResolveModeStatus = 'idle' | 'loading' | 'ready' | 'error' | 'applying';
+
+/** Phases where the automatic rebase owns the panel — it's mid-run, so its progress replaces the
+ *  status-driven content (an idle tree would read "No conflicted files" before the first pause). */
+const autoRebaseRunningPhases = new Set<AutoRebaseRunPhase>(['starting', 'resolving', 'applying', 'continuing']);
 
 export interface ResolveViewDiffDetail {
 	filePath: string;
@@ -81,6 +89,14 @@ function kindDisplay(kind: ConflictKind | undefined, status?: GitFileConflictSta
 		return { label: 'Both added', icon: 'diff-added' };
 	}
 	return kind != null ? conflictKindDisplay[kind] : { label: 'Needs review', icon: 'warning' };
+}
+
+/** Conflicted files across a run's recorded steps — the unit users count, where a step is one rebase
+ *  pause that can carry several files. `aiOnly` drops `manual` steps (the user resolved those after an
+ *  escalation, so they aren't AI's work); `empty-skipped` steps still count, since AI did resolve their
+ *  files and the commit only turned out empty afterwards. */
+function countResolvedFiles(steps: readonly AutoRebaseSummaryStep[], options?: { aiOnly?: boolean }): number {
+	return steps.reduce((count, s) => (options?.aiOnly && s.kind === 'manual' ? count : count + s.files.length), 0);
 }
 
 /** Drop the trailing action hint ("… — choose a side to keep") from a conflict description — the row's
@@ -147,6 +163,86 @@ export class GlDetailsResolveModePanel extends LitElement {
 				margin: 0;
 				padding: 0;
 				list-style: none;
+			}
+
+			/* Automatic rebase run — the panel's content while a rebase is automating itself, and after it
+			   ends when nothing else seeded the panel. Column layout so the step list scrolls between a
+			   fixed header/progress bar and the fixed stop actions. */
+			.auto-rebase {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				min-height: 0;
+			}
+
+			/* Stage for the run's backdrop animation — same relationship review mode uses via
+			   panel-loading-stage, but on the run's own column layout so the header, progress bar and step
+			   list keep their positions. Deliberately stops short of the actions row: the animation anchors
+			   its bucket to the bottom of its own box, so including the footer would tuck the bucket behind
+			   the button. Everything except the animation is lifted above it. */
+			.auto-rebase__stage {
+				position: relative;
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				min-height: 0;
+				overflow: hidden;
+			}
+
+			.auto-rebase__stage > *:not(.panel-loading-stage__anim) {
+				position: relative;
+				z-index: 1;
+			}
+
+			.auto-rebase__header {
+				display: flex;
+				flex: none;
+				gap: var(--gl-space-6);
+				align-items: center;
+				padding: var(--gl-space-10) var(--gl-space-12) var(--gl-space-6);
+				overflow: hidden;
+			}
+
+			.auto-rebase__title {
+				flex: none;
+				font-weight: 600;
+			}
+
+			.auto-rebase__onto {
+				flex: none;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			/* What the run is doing right now, pinned under the already-resolved steps. */
+			.auto-rebase__activity {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				padding: var(--gl-space-10) var(--gl-space-12);
+				color: var(--vscode-descriptionForeground);
+			}
+
+			/* Run context above an escalated step's review — a bounded, scrollable band so a long rebase's
+			   history can't push the actionable resolutions off-screen. */
+			.auto-rebase__context {
+				display: flex;
+				flex: none;
+				flex-direction: column;
+				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border);
+			}
+
+			.auto-rebase__history {
+				max-height: 12rem;
+				overflow-y: auto;
+			}
+
+			.auto-rebase__actions {
+				display: flex;
+				flex: none;
+				gap: var(--gl-space-8);
+				justify-content: flex-end;
+				padding: var(--gl-space-8) var(--gl-space-12);
+				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
 			/* Progress summary above the sections — orientation before detail. */
@@ -480,6 +576,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 	/** Set when this session was seeded from an automatic-rebase escalation (there are more steps to
 	 *  run) — surfaces an "Apply & Resume with AI" action that hands the rest of the rebase back to AI. */
 	@property({ type: Boolean }) canResumeAutoRebase = false;
+	/** Live state of this repo's automatic rebase run, streamed from the host. While the run is in a
+	 *  running phase it owns the panel (see {@link autoRebaseRunningPhases}); once it reaches a terminal
+	 *  phase the panel goes back to its `status`, except when there's nothing else to show. */
+	@property({ type: Object }) autoRebaseRun?: AutoRebaseRunUpdate;
 
 	/** Rows whose per-file feedback input is expanded. Panel-local UI state. */
 	@state() private _expandedRetry = new Set<string>();
@@ -489,6 +589,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 	/** Rows whose clamped reasoning is taller than the clamp, so a "see more" is worth offering.
 	 *  Measured from the DOM after each render — see {@link measureReasoningOverflow}. */
 	@state() private _overflowingReasons = new Set<string>();
+	/** Session id of an automatic rebase this panel watched running. A finished session sticks around
+	 *  host-side (nothing dismisses it until the next run), so the terminal outcome is only shown for a
+	 *  run we actually saw execute — otherwise every later entry into Resolve mode would open on a stale
+	 *  "Rebase completed" instead of the conflict picker. */
+	@state() private _watchedRunId?: string;
+	/** Run whose cancellation already asked to leave the mode — not reactive, it only de-dupes the
+	 *  request across the renders between the phase landing and the mode actually exiting. */
+	private _exitedRunId?: string;
 	/** Collapsed result sections (`'resolved'` | `'needs'`) — both expanded by default. */
 	@state() private _collapsedSections = new Set<string>();
 	/** Ready-state posture: false = Apply (default), true = Refine. Toggled by the "Refine Resolutions"
@@ -570,6 +678,41 @@ export class GlDetailsResolveModePanel extends LitElement {
 			this._refineMode = this.refineMode;
 		}
 
+		// Automatic-rebase steps arrive collapsed: while the run is live the row worth watching is the
+		// activity line below them, and a long rebase would otherwise push it off-screen. Seeding the
+		// collapsed set (rather than inverting the default in `renderSection`) means a user who expands a
+		// step keeps it expanded as later steps land.
+		if (changedProperties.has('autoRebaseRun')) {
+			const run = this.autoRebaseRun;
+			if (run != null && autoRebaseRunningPhases.has(run.phase)) {
+				this._watchedRunId = run.sessionId;
+			}
+
+			// A cancelled run restored the branch, and a conflict-free one never opens a summary sheet (the
+			// host only opens one for a run that recorded steps) — either way nothing is left to review, so
+			// ask to leave resolve mode rather than settle on an outcome panel. Fired from `willUpdate` (the
+			// earliest hook after the phase lands) and once per run, so a re-render can't re-request the exit.
+			const nothingToReview =
+				run != null && (run.phase === 'aborted' || (run.phase === 'completed' && !run.steps.length));
+			if (nothingToReview && run.sessionId === this._watchedRunId && this._exitedRunId !== run.sessionId) {
+				this._exitedRunId = run.sessionId;
+				this.emit('auto-rebase-exit');
+			}
+
+			const steps = run?.steps;
+			if (steps?.length) {
+				const previous = (changedProperties.get('autoRebaseRun') as AutoRebaseRunUpdate | undefined)?.steps;
+				const seen = previous?.length ?? 0;
+				if (steps.length > seen) {
+					const next = new Set(this._collapsedSections);
+					for (const step of steps.slice(seen)) {
+						next.add(`auto-rebase-step-${step.step}`);
+					}
+					this._collapsedSections = next;
+				}
+			}
+		}
+
 		// Reset the user deltas when the anchor/focus identity changes (fresh entry, or following
 		// selection to another WIP). Gated to the identity inputs so the sort+join isn't recomputed on
 		// unrelated reactive updates (progressMessage, retryingFiles, …).
@@ -616,6 +759,23 @@ export class GlDetailsResolveModePanel extends LitElement {
 	}
 
 	private renderContent(): unknown {
+		const run = this.autoRebaseRun;
+		if (run != null) {
+			// Mid-run the rebase owns the panel outright — there's no resolve session to show yet, and an
+			// idle tree would claim "No conflicted files" between pauses.
+			if (autoRebaseRunningPhases.has(run.phase)) return this.renderAutoRebaseRunning(run);
+			// Terminal, and nothing seeded the panel (no escalation handoff) — report the outcome rather
+			// than dropping back to an empty idle tree. A conflict escalation lands on `ready` instead and
+			// takes the normal path below. Gated on having watched the run: a finished session lingers
+			// host-side, and a later unrelated entry into Resolve mode must get the conflict picker.
+			// Conflicted files left in the working tree (detached automation) take the idle picker instead —
+			// the outcome view has nothing to act on and would strand the user; `renderIdle` keeps the run's
+			// context above the tree.
+			if (this.status === 'idle' && run.sessionId === this._watchedRunId && !this.conflictedFiles?.length) {
+				return this.renderAutoRebaseFinished(run);
+			}
+		}
+
 		switch (this.status) {
 			case 'loading':
 				return this.renderLoading();
@@ -655,6 +815,189 @@ export class GlDetailsResolveModePanel extends LitElement {
 		`;
 	}
 
+	/** The automatic rebase mid-run: what it's rebasing, how far along, every step it has already
+	 *  resolved, what it's doing right now, and how to stop it. */
+	private renderAutoRebaseRunning(run: AutoRebaseRunUpdate): unknown {
+		const done = run.step != null ? run.step.current - 1 : 0;
+		const remaining = run.step != null ? Math.max(run.step.total - done, 0) : 0;
+		const resolvedFiles = countResolvedFiles(run.steps);
+
+		// The converging animation (the one resolve mode already uses for its own AI runs) backs the run the
+		// way review mode stages its analysis. It spans the content only, NOT the actions row: the animation
+		// places its bucket relative to its own height, so covering the footer would tuck the bucket behind
+		// the button. Purely decoration — it self-disables under prefers-reduced-motion.
+		return html`
+			<div class="auto-rebase">
+				<div class="auto-rebase__stage">
+					<gl-converging-loading-animation
+						class="panel-loading-stage__anim"
+					></gl-converging-loading-animation>
+					${this.renderAutoRebaseHeader(run)}
+					${
+						run.step != null
+							? html`<div class="resolve-progress">
+									<span class="resolve-progress__text">
+										<span class="resolve-progress__done"
+											>Step ${run.step.current} of ${run.step.total}</span
+										>
+										${
+											resolvedFiles > 0
+												? html`<span class="resolve-progress__sep">·</span
+														><span
+															>${pluralize('conflicted file', resolvedFiles)}
+															resolved</span
+														>`
+												: nothing
+										}
+									</span>
+									<span class="resolve-progress__bar" aria-hidden="true">
+										<span
+											class="resolve-progress__bar-seg resolve-progress__bar-seg--done"
+											style=${cspStyleMap({ 'flex-grow': String(done) })}
+										></span>
+										<span
+											class="resolve-progress__bar-seg resolve-progress__bar-seg--need"
+											style=${cspStyleMap({ 'flex-grow': String(remaining) })}
+										></span>
+									</span>
+								</div>`
+							: nothing
+					}
+					<div class="resolve-results scrollable">
+						${this.renderAutoRebaseSteps(run)}
+						<div class="auto-rebase__activity">
+							<code-icon icon="loading" modifier="spin"></code-icon>
+							<span>${run.message ?? 'Rebasing…'}</span>
+						</div>
+					</div>
+				</div>
+				<div class="auto-rebase__actions">
+					<gl-tooltip content="Abort the rebase and restore the branch to its pre-rebase state">
+						<gl-button appearance="secondary" @click=${() => this.emit('auto-rebase-cancel')}
+							>Cancel Rebase</gl-button
+						>
+					</gl-tooltip>
+				</div>
+			</div>
+		`;
+	}
+
+	/** A finished run with nothing seeded into the panel — the outcome plus whatever steps it recorded, so
+	 *  the panel doesn't fall back to an empty conflict tree the moment the rebase ends. */
+	private renderAutoRebaseFinished(run: AutoRebaseRunUpdate): unknown {
+		// Only AI's own resolutions earn the "with AI" credit — a run that escalated and was finished by
+		// hand has `manual` steps, and claiming those would overstate what automation did.
+		const resolvedByAi = countResolvedFiles(run.steps, { aiOnly: true });
+		const outcome =
+			run.phase === 'completed'
+				? resolvedByAi > 0
+					? `Rebase completed — ${pluralize('conflicted file', resolvedByAi)} resolved with AI.`
+					: run.steps.length > 0
+						? 'Rebase completed — you resolved every conflict.'
+						: // Like the cancelled message below, only reachable for a render or two before the
+							// mode exit lands (see `auto-rebase-exit`).
+							'Rebase completed — no conflicts.'
+				: run.phase === 'aborted'
+					? // A cancelled run leaves the mode (see `auto-rebase-exit`), so this is only reachable for
+						// the render or two before that lands — kept accurate rather than removed so a missed
+						// exit degrades to a correct message instead of an empty panel.
+						`Rebase cancelled — ${run.branch ?? 'the branch'} is unchanged.`
+					: run.phase === 'undone'
+						? `Rebase undone — ${run.branch ?? 'the branch'} was restored.`
+						: run.phase === 'failed'
+							? 'Rebase failed.'
+							: // An escalation's own message says why it stopped — notably that a `stopped` reason was
+								// the user's own doing, not a problem the rebase ran into.
+								(run.escalation?.message ?? 'Rebase paused — it needs your attention.');
+
+		return html`
+			<div class="auto-rebase">
+				${this.renderAutoRebaseHeader(run)}
+				<p class="resolve-intro">${outcome}</p>
+				${
+					run.steps.length > 0
+						? html`<div class="resolve-results scrollable">${this.renderAutoRebaseSteps(run)}</div>`
+						: nothing
+				}
+			</div>
+		`;
+	}
+
+	/** Where in an automatic rebase this review sits — shown above the escalated step's resolutions, or above
+	 *  the idle picker when the user resolves by hand, so the handoff keeps the run's context (which step, and
+	 *  what the earlier steps decided) instead of looking like a standalone resolve. Only for a run this panel
+	 *  watched; see {@link _watchedRunId}. */
+	private renderAutoRebaseContext(): unknown {
+		const run = this.autoRebaseRun;
+		if (run == null || run.sessionId !== this._watchedRunId) return nothing;
+
+		return html`<div class="auto-rebase__context">
+			<div class="auto-rebase__header">
+				<code-icon icon="gl-merge"></code-icon>
+				<span class="auto-rebase__title">Automatic Rebase</span>
+				${
+					run.step != null
+						? html`<span class="auto-rebase__onto"
+								>paused at step ${run.step.current} of ${run.step.total}</span
+							>`
+						: nothing
+				}
+			</div>
+			${
+				run.steps.length > 0
+					? html`<div class="auto-rebase__history">${this.renderAutoRebaseSteps(run)}</div>`
+					: nothing
+			}
+		</div>`;
+	}
+
+	private renderAutoRebaseHeader(run: AutoRebaseRunUpdate): unknown {
+		return html`<div class="auto-rebase__header">
+			<code-icon icon="gl-merge"></code-icon>
+			<span class="auto-rebase__title">Automatic Rebase</span>
+			${run.branch ? html`<gl-branch-name .name=${run.branch}></gl-branch-name>` : nothing}
+			${
+				run.upstream
+					? html`<span class="auto-rebase__onto">onto</span
+							><gl-branch-name .name=${run.upstream}></gl-branch-name>`
+					: nothing
+			}
+		</div>`;
+	}
+
+	/** Each already-resolved step as its own collapsed group. Collapsed by default: the interesting row is
+	 *  the live activity below them, and a long rebase would otherwise push it off-screen. */
+	private renderAutoRebaseSteps(run: AutoRebaseRunUpdate): unknown {
+		return repeat(
+			run.steps,
+			step => step.step,
+			step => this.renderAutoRebaseStep(step),
+		);
+	}
+
+	private renderAutoRebaseStep(step: AutoRebaseSummaryStep): unknown {
+		const key = `auto-rebase-step-${step.step}`;
+		const label =
+			step.kind === 'empty-skipped'
+				? `Step ${step.step} of ${step.totalSteps} — became empty, skipped`
+				: step.kind === 'manual'
+					? `Step ${step.step} of ${step.totalSteps} — resolved by you`
+					: `Step ${step.step} of ${step.totalSteps}`;
+
+		return this.renderSection(
+			key,
+			label,
+			step.files.length,
+			step.kind === 'conflicts' ? 'pass' : 'circle-outline',
+			repeat(
+				step.files,
+				f => f.filePath,
+				f => this.renderResolution(f, { readonly: true, reasonKey: `${step.step}:${f.filePath}` }),
+			),
+			'step',
+		);
+	}
+
 	private renderIdle(): unknown {
 		const files = this.conflictedFiles ?? [];
 
@@ -669,6 +1012,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		}
 
 		return html`
+			${this.renderAutoRebaseContext()}
 			<p class="resolve-intro">
 				Choose the conflicts to resolve with AI, then review each resolution before applying.
 			</p>
@@ -774,6 +1118,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const canResume = applicable > 0 && needCount === 0 && applicable === resolvedCount;
 
 		return html`
+			${this.renderAutoRebaseContext()}
 			${
 				total > 0
 					? html`<div class="resolve-progress">
@@ -814,6 +1159,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 									r => r.filePath,
 									r => this.renderResolution(r),
 								),
+								'resolved',
 							)
 						: nothing
 				}
@@ -825,6 +1171,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 								needCount,
 								'warning',
 								this.renderNeedsBody(skipped, errors),
+								'needs',
 							)
 						: nothing
 				}
@@ -908,21 +1255,24 @@ export class GlDetailsResolveModePanel extends LitElement {
 		`;
 	}
 
-	/** A collapsible, counted result group (Resolved / Needs your input). Uses an `h3` with the toggle
-	 *  as its button so assistive tech gets real section headings. */
+	/** A collapsible, counted result group (Resolved / Needs your input, or one automatic-rebase step).
+	 *  Uses an `h3` with the toggle as its button so assistive tech gets real section headings.
+	 *  `variant` drives the accent styling; `key` is the collapse identity, which for rebase steps is
+	 *  per-step and so can't double as the class. */
 	private renderSection(
-		key: 'resolved' | 'needs',
+		key: string,
 		label: string,
 		count: number,
 		icon: string,
 		body: unknown,
+		variant: 'resolved' | 'needs' | 'step' = 'step',
 	): unknown {
 		const expanded = !this._collapsedSections.has(key);
 		// Header + rows share one group so the sticky header has room to stick while its rows scroll —
 		// a header sticky inside a header-height wrapper has nowhere to travel.
 		return html`<div class="resolve-section" role="group" aria-label=${label}>
 			<button
-				class="resolve-section__head resolve-section__head--${key}"
+				class="resolve-section__head resolve-section__head--${variant}"
 				aria-expanded=${expanded}
 				@click=${() => this.toggleSection(key)}
 			>
@@ -961,12 +1311,18 @@ export class GlDetailsResolveModePanel extends LitElement {
 		this._openReasons = next;
 	}
 
-	private renderResolution(r: ResolvedFileSummary): unknown {
+	/** One resolved file. `options.reasonKey` scopes the reasoning expand/collapse state — automatic-rebase
+	 *  steps pass a step-qualified key so the same path resolved at two steps toggles independently.
+	 *  `options.readonly` drops the retry and View Changes affordances: a step already applied and
+	 *  committed can't be re-resolved, and its before/after diffs live in the summary sheet. */
+	private renderResolution(r: ResolvedFileSummary, options?: { readonly?: boolean; reasonKey?: string }): unknown {
+		const readonly = options?.readonly ?? false;
+		const reasonKey = options?.reasonKey ?? r.filePath;
 		const display = strategyDisplay[r.strategy];
-		const canViewDiff = r.virtualRef != null;
+		const canViewDiff = r.virtualRef != null && !readonly;
 		const retrying = this.retryingFiles?.has(r.filePath) ?? false;
 		const expanded = this._expandedRetry.has(r.filePath);
-		const reasonOpen = this._openReasons.has(r.filePath);
+		const reasonOpen = this._openReasons.has(reasonKey);
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
 				<span
@@ -991,29 +1347,35 @@ export class GlDetailsResolveModePanel extends LitElement {
 							</gl-button>`
 						: nothing
 				}
-				<gl-tooltip content=${retrying ? 'Re-resolving…' : 'Retry with feedback'}>
-					<gl-button
-						appearance="toolbar"
-						aria-label=${retrying ? `Re-resolving ${r.filePath}…` : `Retry ${r.filePath} with feedback`}
-						aria-expanded=${expanded}
-						?disabled=${retrying}
-						@click=${() => this.toggleRetry(r.filePath)}
-					>
-						<code-icon
-							icon=${retrying ? 'loading' : 'feedback'}
-							modifier=${retrying ? 'spin' : ''}
-						></code-icon>
-					</gl-button>
-				</gl-tooltip>
+				${
+					readonly
+						? nothing
+						: html`<gl-tooltip content=${retrying ? 'Re-resolving…' : 'Retry with feedback'}>
+								<gl-button
+									appearance="toolbar"
+									aria-label=${
+										retrying ? `Re-resolving ${r.filePath}…` : `Retry ${r.filePath} with feedback`
+									}
+									aria-expanded=${expanded}
+									?disabled=${retrying}
+									@click=${() => this.toggleRetry(r.filePath)}
+								>
+									<code-icon
+										icon=${retrying ? 'loading' : 'feedback'}
+										modifier=${retrying ? 'spin' : ''}
+									></code-icon>
+								</gl-button>
+							</gl-tooltip>`
+				}
 			</div>
-			${renderReasoning(r.filePath, r.reasoning, {
+			${renderReasoning(reasonKey, r.reasoning, {
 				expanded: reasonOpen,
-				overflowing: this._overflowingReasons.has(r.filePath),
+				overflowing: this._overflowingReasons.has(reasonKey),
 				filePath: r.filePath,
-				onToggle: () => this.toggleReason(r.filePath),
+				onToggle: () => this.toggleReason(reasonKey),
 			})}
 			${
-				expanded
+				!readonly && expanded
 					? html`<gl-ai-input
 							class="resolve-file__feedback"
 							multiline

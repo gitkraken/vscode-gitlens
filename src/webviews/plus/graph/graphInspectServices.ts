@@ -38,6 +38,7 @@ import {
 	formatChangesContextForPrompt,
 	gatherContextForChanges,
 } from '../../../plus/ai/utils/-webview/changesContext.js';
+import type { AutoRebaseSession } from '../../../plus/coretools/conflict/autoRebase.types.js';
 import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
 import type {
 	ConflictProgressEvent,
@@ -54,7 +55,8 @@ import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import { getCoreCommitDetails } from '../../commitDetails/commitDetailsWebview.utils.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
-import { createRpcEvent } from '../../rpc/eventVisibilityBuffer.js';
+import { createRpcEvent, createRpcEventSubscription } from '../../rpc/eventVisibilityBuffer.js';
+import type { RpcEventSubscription } from '../../rpc/services/types.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { ChoosePathParams, DidChoosePathParams } from '../timeline/protocol.js';
 import { buildTimelineDataset } from '../timeline/timelineDataset.js';
@@ -80,6 +82,7 @@ import {
 } from './graphResolveVirtualContentProvider.js';
 import { getScopeFiles } from './graphScopeService.js';
 import type {
+	AutoRebaseRunUpdate,
 	AutoRebaseSummaryResult,
 	AutoRebaseSummaryStep,
 	BranchCommitEntry,
@@ -119,6 +122,58 @@ export type GraphInspectServicesContext = {
 	) => Promise<{ wip: Wip } | undefined>;
 	getSearchContext: (sha: string | undefined) => GitCommitSearchContext | undefined;
 };
+
+function toAutoRebaseRunStep(session: AutoRebaseSession): { current: number; total: number } | undefined {
+	if (session.current != null) {
+		return { current: session.current.stepNumber, total: session.current.totalSteps };
+	}
+
+	const escalation = session.escalation;
+	if (escalation?.stepNumber != null && escalation.totalSteps != null) {
+		return { current: escalation.stepNumber, total: escalation.totalSteps };
+	}
+
+	return undefined;
+}
+
+/** Flattens an auto-rebase session into the serializable shape the Resolve panel renders. Deliberately
+ *  omits the per-file `virtualRef`s the summary sheet carries: registering a virtual diff session per
+ *  progress tick would churn providers for diffs nothing is showing yet. */
+function toAutoRebaseRunUpdate(
+	repoPath: string,
+	session: AutoRebaseSession | undefined,
+): AutoRebaseRunUpdate | undefined {
+	if (session == null) return undefined;
+
+	return {
+		sessionId: session.id,
+		repoPath: repoPath,
+		branch: session.preRun.branch,
+		upstream: session.preRun.upstream,
+		phase: session.phase,
+		// While running this is the live step; on an escalation `current` is cleared, so fall back to the
+		// step it stopped on — the review state still wants to say where in the rebase the user is.
+		step: toAutoRebaseRunStep(session),
+		message: session.progressMessage,
+		escalation:
+			session.escalation != null
+				? { reason: session.escalation.reason, message: session.escalation.message }
+				: undefined,
+		steps: session.steps.map(step => ({
+			step: step.stepNumber,
+			totalSteps: step.totalSteps,
+			commit: { sha: step.commit.sha, message: step.commit.message },
+			kind: step.kind,
+			files: step.files.map(f => ({
+				filePath: f.path,
+				strategy: f.strategy,
+				reasoning: f.description,
+				confidence: f.confidence,
+				note: f.note,
+			})),
+		})),
+	};
+}
 
 /** Host-side inspect/compose/review cluster for the graph, split out of `GraphWebviewProvider` (R3).
  *  Owns the commit-details / compare-diff / AI-review / changelog / compose / conflict-resolution logic
@@ -1946,12 +2001,17 @@ export class GraphInspectServices {
 					};
 				},
 				resumeAutoRebase: (repoPath: string): Promise<void> => {
-					// Delegate to the command so the Pro-plan gate + progress notification are reused;
-					// fire-and-forget (the takeover runs the rest of the rebase on its own progress).
+					// Delegate to the command so the Pro-plan gate is reused; fire-and-forget (the takeover
+					// runs the rest of the rebase, reporting through `onAutoRebaseProgress`).
 					void executeCommand<ContinueRebaseWithAiCommandArgs>('gitlens.ai.continueRebase', {
 						repoPath: repoPath,
 						source: 'graph',
 					});
+					return Promise.resolve();
+				},
+				onAutoRebaseProgress: this.subscribeToAutoRebaseProgress(buffer, tracker),
+				cancelAutoRebase: (repoPath: string): Promise<void> => {
+					this.container.autoRebase.cancel(repoPath, 'abort');
 					return Promise.resolve();
 				},
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
@@ -2332,6 +2392,45 @@ export class GraphInspectServices {
 			this._autoRebaseVirtual.runId = runId;
 		}
 		return this._autoRebaseVirtual;
+	}
+
+	/**
+	 * Backs `onAutoRebaseProgress` with the auto-rebase service's change event.
+	 *
+	 * Seeds each subscriber from the live session on subscribe: the run opens the Resolve panel itself, so
+	 * the webview usually starts subscribing while the run is already underway — and a graph closed and
+	 * reopened mid-run would otherwise sit blank until the next tick (which, during a long `git rebase`
+	 * call, can be a while).
+	 */
+	private subscribeToAutoRebaseProgress(
+		buffer: EventVisibilityBuffer | undefined,
+		tracker: SubscriptionTracker | undefined,
+	): RpcEventSubscription<AutoRebaseRunUpdate | undefined> {
+		return createRpcEventSubscription<AutoRebaseRunUpdate | undefined>(
+			buffer,
+			'autoRebaseProgress',
+			'save-last',
+			handler => {
+				const repoPath = this.session?.repoPath;
+				if (repoPath != null) {
+					const session = this.container.autoRebase.getSession(repoPath);
+					if (session != null) {
+						handler(toAutoRebaseRunUpdate(repoPath, session));
+					}
+				}
+
+				// Scoped to the graph's repo: sessions are tracked per repo and can run concurrently, but the
+				// webview holds a single run slot — so another repo's tick (including the `undefined` its run
+				// clears with) would blank a live run here until the next tick from this one.
+				return this.container.autoRebase.onDidChange(e => {
+					if (e.repoPath !== this.session?.repoPath) return;
+
+					handler(toAutoRebaseRunUpdate(e.repoPath, e.session));
+				});
+			},
+			undefined,
+			tracker,
+		);
 	}
 
 	private async getOrCreateConflictToolsForGraph(): Promise<ConflictToolsIntegration | undefined> {
