@@ -1412,14 +1412,15 @@ gl-lit-graph {
 		// Pinned dots dim: how far the dot's free position sits past either pin bound (0 when free),
 		// ramped over the fade width to 0.4 — `tan(atan2(y, x))` is exact y/x division, turning the px
 		// overshoot into the unitless ratio opacity needs. Derived from the same vars as the pin, so it
-		// tracks scroll and reveals with zero JS.
+		// tracks scroll and reveals with zero JS. `clamp()` is the math context — no `calc()` wrapper, which
+		// the minifier's postcss-calc can't tokenize past one level of nesting.
 		--gutter-node-free-x: calc(var(--row-lane-x, 0px) - var(--graph-gutter-scroll, 0px));
 		--gutter-node-over: max(
 			0px,
 			calc(var(--gutter-pin-x, 21px) - var(--gutter-node-free-x)),
 			calc(var(--gutter-node-free-x) - (var(--row-gutter-w, 0px) - var(--gutter-inset, 7px)))
 		);
-		--gutter-node-dim: clamp(0.4, calc(1 - tan(atan2(var(--gutter-node-over), 2.4rem)) * 0.6), 1);
+		--gutter-node-dim: clamp(0.4, 1 - tan(atan2(var(--gutter-node-over), 2.4rem)) * 0.6, 1);
 	}
 	// The dim applies to the node CONTENT only — the background carve stays opaque so sliding lanes never
 	// show through a dimmed node (element-level opacity made the carve translucent too, bleeding the lane
