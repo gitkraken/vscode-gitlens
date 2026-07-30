@@ -77,7 +77,6 @@ import '../../shared/components/repo-button-group.js';
 import '../../shared/components/actions/action-nav.js';
 import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/search/search-box.js';
-import '../../shared/components/shoelace-stub.js';
 import './actions/gitActionsButtons.js';
 import './components/gl-graph-launchpad-indicator.js';
 import './components/gl-graph-account-indicator.js';
