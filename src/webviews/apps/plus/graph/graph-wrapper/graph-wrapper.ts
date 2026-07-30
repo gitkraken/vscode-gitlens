@@ -597,9 +597,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const hasSecondaryWips = filteredPeers != null && Object.keys(filteredPeers).length > 0;
 		let resultRows: GitGraphRow[] | undefined;
 		if (rows != null && (hasSecondaryWips || showPrimary)) {
-			// Defensive: strip a leading primary work-dir row so we can't emit a duplicate alongside
-			// the one we synthesize below.
-			const realRows = rows[0]?.kind === 'workdir' ? rows.slice(1) : rows;
 			// Anchor the primary on the SAME row the scope re-root projection roots its spine at — that
 			// walk resolves the focal tip by branch NAME (`computeScopeAnchors`) while this one uses the
 			// `isCurrentHead` flag, and `computeScopeProjection` drops any workdir row whose parent isn't
@@ -617,10 +614,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			// outcome instead.
 			const headRefSha =
 				(showPrimary && scope?.branchName != null && currentBranch != null
-					? realRows.find(r => r.heads?.some(h => h.name === scope.branchName))?.sha
+					? rows.find(r => r.heads?.some(h => h.name === scope.branchName))?.sha
 					: undefined) ??
-				realRows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha ??
-				(scope == null ? realRows[0]?.sha : undefined);
+				rows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha ??
+				(scope == null ? rows[0]?.sha : undefined);
 
 			// The primary row's ID is its worktree's WIP row id — the SAME scheme every other worktree's
 			// WIP row uses (`createWipRowId`). Its `type` stays `'workdir'` (the row type). No label
@@ -630,43 +627,45 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					? this.buildWipRow(primaryWipRowId, headRefSha, undefined)
 					: undefined;
 
-			// Group peer WIP rows by the index of their parent commit in `realRows`, so each
-			// worktree's WIP row renders directly above the commit it's anchored at. Worktrees whose
-			// HEAD isn't in the loaded/visible rows (hidden branch, beyond paging limit) are dropped —
-			// a floating WIP row with no anchor in the graph is more confusing than missing one.
-			const realRowIndexBySha = new Map<string, number>();
-			for (let i = 0; i < realRows.length; i++) {
-				realRowIndexBySha.set(realRows[i].sha, i);
-			}
-
-			const secondariesByParentIdx = new Map<number, GitGraphRow[]>();
-			for (const [sha, wipRow] of Object.entries(filteredPeers ?? {})) {
-				const idx = wipRow.parentSha != null ? realRowIndexBySha.get(wipRow.parentSha) : undefined;
-				if (idx == null) continue;
-
-				const row = this.buildWipRow(sha, wipRow.parentSha, wipRow.label);
-				const existing = secondariesByParentIdx.get(idx);
-				if (existing != null) {
-					existing.push(row);
-				} else {
-					secondariesByParentIdx.set(idx, [row]);
+			// Single-worktree case (no peers to place): the result is just the primary ahead of the host
+			// rows, so skip the index map and the interleave walk below — both are O(loaded) per cache miss.
+			if (!hasSecondaryWips) {
+				resultRows = primary != null ? [primary, ...rows] : rows.slice();
+			} else {
+				// Group peer WIP rows by the index of their parent commit in `rows`, so each
+				// worktree's WIP row renders directly above the commit it's anchored at. Worktrees whose
+				// HEAD isn't in the loaded/visible rows (hidden branch, beyond paging limit) are dropped —
+				// a floating WIP row with no anchor in the graph is more confusing than missing one.
+				const rowIndexBySha = new Map<string, number>();
+				for (let i = 0; i < rows.length; i++) {
+					rowIndexBySha.set(rows[i].sha, i);
 				}
-			}
 
-			const interleaved: GitGraphRow[] = primary != null ? [primary] : [];
-			for (let i = 0; i < realRows.length; i++) {
-				const atThisIdx = secondariesByParentIdx.get(i);
-				if (atThisIdx != null) {
-					interleaved.push(...atThisIdx);
+				const secondariesByParentIdx = new Map<number, GitGraphRow[]>();
+				for (const [sha, wipRow] of Object.entries(filteredPeers ?? {})) {
+					const idx = wipRow.parentSha != null ? rowIndexBySha.get(wipRow.parentSha) : undefined;
+					if (idx == null) continue;
+
+					const row = this.buildWipRow(sha, wipRow.parentSha, wipRow.label);
+					const existing = secondariesByParentIdx.get(idx);
+					if (existing != null) {
+						existing.push(row);
+					} else {
+						secondariesByParentIdx.set(idx, [row]);
+					}
 				}
-				interleaved.push(realRows[i]);
-			}
 
-			resultRows = interleaved;
-		} else if (!showPrimary && rows?.[0]?.kind === 'workdir') {
-			// Defensive: host rows shouldn't carry a work-dir row, but if one leads, strip it —
-			// no primary may render when `showPrimary` is off.
-			resultRows = rows.slice(1);
+				const interleaved: GitGraphRow[] = primary != null ? [primary] : [];
+				for (let i = 0; i < rows.length; i++) {
+					const atThisIdx = secondariesByParentIdx.get(i);
+					if (atThisIdx != null) {
+						interleaved.push(...atThisIdx);
+					}
+					interleaved.push(rows[i]);
+				}
+
+				resultRows = interleaved;
+			}
 		} else {
 			// Nothing to synthesize — pass the host rows through (fresh array so the decorated
 			// generation's identity stays distinct from `graphState.rows`).
