@@ -1,4 +1,4 @@
-import { css, html } from 'lit';
+import { css, html, nothing } from 'lit';
 import type { ConflictResolutionStrategy } from '../../../../plus/graph/graphService.js';
 
 /**
@@ -46,7 +46,84 @@ export function renderConfidence(level: 'high' | 'medium' | 'low'): unknown {
 	</span>`;
 }
 
-/** Styles backing {@link strategyDisplay} badges and {@link renderConfidence} pips. */
+/** Marks the reasoning blocks {@link measureReasoningOverflow} measures — kept in sync by hand with the
+ *  literal `data-reasoning` attribute in {@link renderReasoning} (Lit attribute names can't be dynamic). */
+const reasoningAttr = 'data-reasoning';
+
+/**
+ * The AI's reasoning for a resolution, always visible but clamped to a few lines with a "see more"
+ * expander — it's the text the user is being asked to audit, so it shouldn't cost a click to read.
+ *
+ * `overflowing` comes from {@link measureReasoningOverflow} so the expander only appears when there's
+ * actually hidden text; an `expanded` block always shows its collapse affordance.
+ */
+export function renderReasoning(
+	key: string,
+	reasoning: string,
+	options: { expanded: boolean; overflowing: boolean; filePath: string; onToggle: () => void },
+): unknown {
+	if (!reasoning) return nothing;
+
+	const { expanded, overflowing, filePath, onToggle } = options;
+	// Paths can carry characters that aren't valid in an IDREF (spaces most of all)
+	const id = `reasoning-${key.replace(/[^\w-]+/g, '-')}`;
+	// Kept in a variable so the <p> below stays on one line: the expanded state is `pre-wrap`, so any
+	// newline/indent the formatter would introduce around the interpolation renders as literal blank space.
+	const cls = expanded ? 'resolve-file__reasoning' : 'resolve-file__reasoning resolve-file__reasoning--clamped';
+
+	return html`<div class="resolve-file__reason">
+		<p id=${id} class=${cls} data-reasoning=${key}>${reasoning}</p>
+		${
+			expanded || overflowing
+				? html`<button
+						class="resolve-file__more"
+						aria-controls=${id}
+						aria-expanded=${expanded}
+						aria-label="${expanded ? 'Hide' : 'Show'} the full reasoning for ${filePath}"
+						@click=${onToggle}
+					>
+						${expanded ? 'see less' : '…see more'}
+					</button>`
+				: nothing
+		}
+	</div>`;
+}
+
+/**
+ * Records which reasoning blocks are actually taller than their clamp, so {@link renderReasoning} only
+ * offers "see more" where text is hidden. Returns `undefined` when nothing changed, so callers can skip
+ * a re-render. Call from `updated()`.
+ *
+ * Expanded blocks aren't clamped and so can't be measured — their entry is left untouched, which keeps
+ * the collapse affordance on a row that was expanded before it was ever measured (the low-confidence
+ * auto-expand seed does exactly that).
+ */
+export function measureReasoningOverflow(root: ParentNode, current: ReadonlySet<string>): Set<string> | undefined {
+	let next: Set<string> | undefined;
+
+	for (const el of root.querySelectorAll<HTMLElement>(`[${reasoningAttr}]`)) {
+		if (!el.classList.contains('resolve-file__reasoning--clamped')) continue;
+
+		const key = el.getAttribute(reasoningAttr);
+		if (key == null) continue;
+
+		// A hair of slack so subpixel line-height rounding doesn't read as overflow
+		const overflowing = el.scrollHeight > el.clientHeight + 1;
+		if (overflowing === current.has(key)) continue;
+
+		next ??= new Set(current);
+		if (overflowing) {
+			next.add(key);
+		} else {
+			next.delete(key);
+		}
+	}
+
+	return next;
+}
+
+/** Styles backing {@link strategyDisplay} badges, {@link renderConfidence} pips, and
+ *  {@link renderReasoning} blocks. */
 export const resolveDisplayStyles = css`
 	/* Small-caps matches GitLens' shared <gl-badge> convention (badges.css.ts) so the resolution
 	   and conflict-kind badges read as house-style status tags rather than sentence fragments. */
@@ -109,5 +186,41 @@ export const resolveDisplayStyles = css`
 
 	.resolve-file__conf--low {
 		color: var(--vscode-inputValidation-warningForeground, var(--vscode-descriptionForeground));
+	}
+
+	/* AI reasoning block + its "see more" expander. The clamp is deliberately its own class rather than
+	   part of .resolve-file__reasoning — consumers reuse that class for skipped-file, error, and
+	   rename/rename messages, none of which may truncate. Doubled selector so it beats the consumers'
+	   own single-class .resolve-file__reasoning rules, which are defined after these shared styles. */
+	.resolve-file__reason {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.resolve-file__reasoning.resolve-file__reasoning--clamped {
+		display: -webkit-box;
+		overflow: hidden;
+		-webkit-line-clamp: 3;
+		-webkit-box-orient: vertical;
+		overflow-wrap: anywhere;
+		/* -webkit-box can't honour pre-wrap; collapsing it also fits more of the text in the preview.
+		   The expanded state falls back to the consumer's pre-wrap and keeps the model's formatting. */
+		white-space: normal;
+	}
+
+	.resolve-file__more {
+		align-self: flex-start;
+		padding: var(--gl-space-2) 0;
+		color: var(--vscode-textLink-foreground);
+		font: inherit;
+		font-size: var(--gl-font-sm);
+		background: transparent;
+		border: none;
+		cursor: pointer;
+	}
+
+	.resolve-file__more:hover {
+		text-decoration: underline;
 	}
 `;

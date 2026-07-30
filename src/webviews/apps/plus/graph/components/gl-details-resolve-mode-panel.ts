@@ -22,7 +22,14 @@ import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/
 import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import { prunePathsToFiles } from './aiExclusion.js';
-import { confidenceLevel, renderConfidence, resolveDisplayStyles, strategyDisplay } from './resolveDisplay.js';
+import {
+	confidenceLevel,
+	measureReasoningOverflow,
+	renderConfidence,
+	renderReasoning,
+	resolveDisplayStyles,
+	strategyDisplay,
+} from './resolveDisplay.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
 import '../../../shared/components/ai-input.js';
@@ -359,33 +366,6 @@ export class GlDetailsResolveModePanel extends LitElement {
 				margin-left: 0.3rem;
 			}
 
-			/* Collapsible "Why this resolution" disclosure for each resolution's reasoning. */
-			.resolve-file__why {
-				display: inline-flex;
-				gap: 0.3rem;
-				align-items: center;
-				align-self: flex-start;
-				padding: var(--gl-space-2) 0;
-				color: var(--vscode-descriptionForeground);
-				font: inherit;
-				font-size: var(--gl-font-sm);
-				background: transparent;
-				border: none;
-				cursor: pointer;
-			}
-
-			.resolve-file__why:hover {
-				color: var(--vscode-foreground);
-			}
-
-			.resolve-file__why-chevron {
-				transition: transform 0.15s ease;
-			}
-
-			.resolve-file__why[aria-expanded='true'] .resolve-file__why-chevron {
-				transform: rotate(90deg);
-			}
-
 			/* Ready-state action zone: the Refine gate on top, then either the Apply row (Apply posture)
 			   or the detached refine input (Refine posture) — mirrors compose-plan__actions. The container
 			   query below keeps the gate label and the right-anchored model tab from colliding when narrow. */
@@ -503,9 +483,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 	/** Rows whose per-file feedback input is expanded. Panel-local UI state. */
 	@state() private _expandedRetry = new Set<string>();
-	/** Rows whose "Why this resolution" reasoning is expanded. Seeded with low-confidence rows on
-	 *  ready-entry (they warrant scrutiny); user toggles override. */
+	/** Rows whose reasoning is expanded past its clamp. Seeded with low-confidence rows on ready-entry
+	 *  (they warrant scrutiny); user toggles override. */
 	@state() private _openReasons = new Set<string>();
+	/** Rows whose clamped reasoning is taller than the clamp, so a "see more" is worth offering.
+	 *  Measured from the DOM after each render — see {@link measureReasoningOverflow}. */
+	@state() private _overflowingReasons = new Set<string>();
 	/** Collapsed result sections (`'resolved'` | `'needs'`) — both expanded by default. */
 	@state() private _collapsedSections = new Set<string>();
 	/** Ready-state posture: false = Apply (default), true = Refine. Toggled by the "Refine Resolutions"
@@ -613,6 +596,16 @@ export class GlDetailsResolveModePanel extends LitElement {
 			if (unchecked != null) {
 				this._userUnchecked = unchecked;
 			}
+		}
+	}
+
+	override updated(): void {
+		// Whether a reasoning block is actually clipped can only be known from the laid-out DOM, so the
+		// "see more" affordance is decided here rather than from the text. Returns undefined when nothing
+		// changed, which keeps this from looping (the assignment re-renders).
+		const overflowing = measureReasoningOverflow(this.renderRoot, this._overflowingReasons);
+		if (overflowing != null) {
+			this._overflowingReasons = overflowing;
 		}
 	}
 
@@ -1013,19 +1006,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 					</gl-button>
 				</gl-tooltip>
 			</div>
-			${
-				r.reasoning
-					? html`<button
-								class="resolve-file__why"
-								aria-expanded=${reasonOpen}
-								@click=${() => this.toggleReason(r.filePath)}
-							>
-								<code-icon class="resolve-file__why-chevron" icon="chevron-right"></code-icon>Why this
-								resolution
-							</button>
-							${reasonOpen ? html`<p class="resolve-file__reasoning">${r.reasoning}</p>` : nothing}`
-					: nothing
-			}
+			${renderReasoning(r.filePath, r.reasoning, {
+				expanded: reasonOpen,
+				overflowing: this._overflowingReasons.has(r.filePath),
+				filePath: r.filePath,
+				onToggle: () => this.toggleReason(r.filePath),
+			})}
 			${
 				expanded
 					? html`<gl-ai-input
