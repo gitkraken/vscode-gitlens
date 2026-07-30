@@ -729,7 +729,16 @@ export class GlLitGraph extends LitElement {
 	// entering the window do work); disjoint jumps (scrollbar teleports) rebuild the rendered rows, kept cheap
 	// by the rasterized pass-through lanes. A slot-keyed recycling variant made teleports cheaper but re-wrote
 	// every visible row's bindings on EVERY scroll tick — far worse for the common gesture.
-	private readonly rowKey = (row: ProcessedGraphRow): string => row.sha;
+	//
+	// Takes `undefined`: the virtualizer swaps `items` synchronously but re-measures its visible RANGE
+	// asynchronously, so an update that shrinks the row set sharply (a scope re-root collapsing thousands of
+	// rows onto a branch's spine, a filtering search) leaves a stale range whose tail indexes past the new
+	// array. `virtualize.js` pushes those holes into `repeat()` verbatim, which hands them to the key fn AND
+	// the item renderer, so both have to survive one frame until the measured range catches up. The key must
+	// still be unique per hole — a shared constant would collide and make `repeat` reuse one row's DOM for all
+	// of them. `vacant:` can't collide with a sha or a `wip::` row id.
+	private readonly rowKey = (row: ProcessedGraphRow | undefined, index: number): string =>
+		row?.sha ?? `vacant:${index}`;
 	// Fixed-size vertical layout: rows are uniform height per density, so `idx * rowHeight` positions
 	// them exactly (no `flow()` measurement, no sub-pixel drift). `itemSize` is kept in sync with the
 	// density's row height in `updateRenderState` (a guarded no-op unless it actually changes). Stable
@@ -4406,7 +4415,12 @@ export class GlLitGraph extends LitElement {
 		// per-row state changed without `items` changing (selection/focus/placement/node-style/
 		// dimming/adornments). Cheap: one closure alloc; the body reads the cached _renderCtx + the
 		// C-group-lean renderRow. Keeping it stable would freeze those updates on screen.
-		const renderItem = (row: ProcessedGraphRow, index: number): TemplateResult => this.renderRowItem(row, index);
+		// `undefined` row = a hole from the virtualizer's not-yet-remeasured range (see `rowKey`) — spacer it,
+		// matching the missing-commit degradation in `renderRowItem`.
+		const renderItem = (row: ProcessedGraphRow | undefined, index: number): TemplateResult =>
+			row != null
+				? this.renderRowItem(row, index)
+				: html`<div class="gl-graph__row" style=${cspStyleMap({ height: `${c.rowHeight}px` })}></div>`;
 		// Header is always present: the full column header in expanded density; a reduced compact header
 		// (graph controls + a single details cell + the settings gear) in compact, where the stacked rows
 		// have no per-zone columns. In `column` placement the header reserves the graph column so it aligns.
