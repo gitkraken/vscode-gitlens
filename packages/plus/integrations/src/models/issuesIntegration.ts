@@ -87,31 +87,13 @@ export abstract class IssuesIntegration<
 
 	protected abstract getProviderResourcesForUser(session: ProviderAuthenticationSession): Promise<T[] | undefined>;
 
+	/**
+	 * Project discovery for a set of resources, returning the SDK collection `{ values, metadata }` (completeness
+	 * + per-resource failures) so callers can warn on failed resources and set `fetchFailed` without discarding
+	 * the resources that succeeded. Thrown errors are recovered into `{ error }` for the same reason: a caller
+	 * surfaces them as a warning rather than swallowing them to `undefined`.
+	 */
 	@trace()
-	async getProjectsForResources(resources: T[], connectionId?: string): Promise<T[] | undefined> {
-		return (await this.getProjectsForResourcesResult(resources, connectionId))?.value;
-	}
-
-	/**
-	 * Result-returning core of {@link getProjectsForResources}. Recovers thrown errors into `{ error }` so callers
-	 * can surface them as warnings rather than silently swallowing them to `undefined`. Implemented by unwrapping
-	 * the metadata-aware path's `values` so the array-returning contract stays backward compatible.
-	 */
-	async getProjectsForResourcesResult(
-		resources: T[],
-		connectionId?: string,
-	): Promise<IntegrationResult<T[] | undefined>> {
-		const result = await this.getProjectsForResourcesWithMetadataResult(resources, connectionId);
-		if (result == null) return undefined;
-		if (result.error != null) return { value: result.value?.values, error: result.error };
-		return { value: result.value?.values };
-	}
-
-	/**
-	 * Metadata-aware counterpart of {@link getProjectsForResourcesResult} for ProviderBackend composition:
-	 * returns the SDK collection `{ values, metadata }` (completeness + per-resource failures) so callers can
-	 * warn on failed resources and set `fetchFailed` without discarding the resources that succeeded.
-	 */
 	async getProjectsForResourcesWithMetadataResult(
 		resources: T[],
 		connectionId?: string,
@@ -129,35 +111,6 @@ export abstract class IssuesIntegration<
 			this.handleProviderException('getProjectsForResources', ex);
 			return { error: toError(ex) };
 		}
-	}
-
-	async getProjectsForUser(connectionId?: string): Promise<T[] | undefined> {
-		return (await this.getProjectsForUserResult(connectionId))?.value;
-	}
-
-	/**
-	 * Result-returning core of {@link getProjectsForUser}. Composes the resource and project result methods so
-	 * callers can surface per-step warnings. Unwraps the metadata-aware path for the array-returning contract.
-	 */
-	async getProjectsForUserResult(connectionId?: string): Promise<IntegrationResult<T[] | undefined>> {
-		const result = await this.getProjectsForUserWithMetadataResult(connectionId);
-		if (result == null) return undefined;
-		if (result.error != null) return { value: result.value?.values, error: result.error };
-		return { value: result.value?.values };
-	}
-
-	/**
-	 * Metadata-aware counterpart of {@link getProjectsForUserResult}: composes resource discovery with the
-	 * metadata-aware project read so ProviderBackend consumers get completeness/failures across resources.
-	 */
-	async getProjectsForUserWithMetadataResult(
-		connectionId?: string,
-	): Promise<IntegrationResult<ProviderApiCollectionResult<T> | undefined>> {
-		const resources = await this.getResourcesForUserResult(connectionId);
-		if (resources?.error != null) return { error: resources.error };
-		if (resources?.value == null) return undefined;
-
-		return this.getProjectsForResourcesWithMetadataResult(resources.value, connectionId);
 	}
 
 	/**

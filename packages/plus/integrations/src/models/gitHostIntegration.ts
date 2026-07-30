@@ -110,6 +110,21 @@ export type SearchMyPullRequestsOptions = {
 	includeReviewRequested?: boolean;
 };
 
+/**
+ * Rejects a read the provider can't serve as asked: logs the reason and returns it as the `{ error }` half of an
+ * {@link IntegrationResult}, timed from `start`.
+ *
+ * A single builder because these refusals are a contract, not incidental returns — the read cores below reject on
+ * unsupported input, an inexpressible filter set, or an unresolvable filter account, and each one must reach the
+ * caller as an error it can surface as a warning rather than as an empty success. Writing the message once also
+ * keeps the logged text and the thrown text from drifting apart, which is exactly what happened while each site
+ * spelled its message out twice.
+ */
+function unsupportedRead<T>(message: string, start: number, logContext?: string): IntegrationResult<T> {
+	Logger.warn(message, logContext);
+	return { error: new Error(message), duration: performance.now() - start };
+}
+
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
@@ -304,15 +319,6 @@ export abstract class GitHostIntegration<
 	): Promise<RepositoryMetadata | undefined>;
 
 	/**
-	 * Lists the organizations (orgs/workspaces/groups) the current user belongs to on this host.
-	 * `truncated === true` means the defensive page-drain backstop stopped before the upstream listing
-	 * was exhausted.
-	 */
-	async getOrganizationsForUser(): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
-		return (await this.getOrganizationsForUserResult())?.value;
-	}
-
-	/**
 	 * Whether this git host implements generic org discovery. False for providers that register no
 	 * {@link getProviderOrganizationsForUser} hook (e.g. Bitbucket Data Center) — the facade uses this to
 	 * report `unsupported` instead of a silent empty list, which is indistinguishable from "has no orgs".
@@ -358,9 +364,13 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
-	 * Result-returning core of {@link getOrganizationsForUser}. Resolves the session for `connectionId`
-	 * (or the primary connection when omitted, honoring multi-account reads) and recovers a thrown error
-	 * into `{ error }` so callers can surface it as a warning instead of swallowing it to `undefined`.
+	 * Lists the organizations (orgs/workspaces/groups) the current user belongs to on this host.
+	 * `truncated === true` means the defensive page-drain backstop stopped before the upstream listing was
+	 * exhausted.
+	 *
+	 * Resolves the session for `connectionId` (or the primary connection when omitted, honoring multi-account
+	 * reads) and recovers a thrown error into `{ error }` so callers can surface it as a warning instead of
+	 * swallowing it to `undefined`.
 	 */
 	@trace()
 	async getOrganizationsForUserResult(
@@ -430,17 +440,9 @@ export abstract class GitHostIntegration<
 	 * every other host ignores it. (Azure without a project can't page its cross-project merge, so it
 	 * returns all matches in a single page.) `truncated === true` means the defensive page-drain
 	 * backstop stopped before the upstream listing was exhausted.
-	 */
-	async getRepositoriesForOrg(
-		org: string,
-		options?: { project?: string; cursor?: string },
-	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
-		return (await this.getRepositoriesForOrgResult(org, options))?.value;
-	}
-
-	/**
-	 * Result-returning core of {@link getRepositoriesForOrg}. Resolves the session for `connectionId`
-	 * (or the primary connection when omitted) and recovers a thrown error into `{ error }` for warnings.
+	 *
+	 * Resolves the session for `connectionId` (or the primary connection when omitted) and recovers a thrown
+	 * error into `{ error }`, so a caller surfaces it as a warning instead of a silent `undefined`.
 	 */
 	@trace()
 	async getRepositoriesForOrgResult(
@@ -733,11 +735,7 @@ export abstract class GitHostIntegration<
 				(isAzureDevOpsProvider(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
-			Logger.warn(`Unsupported input for provider ${providerId}`, 'getIssuesForRepos');
-			return {
-				error: new Error(`Unsupported input for provider ${providerId}`),
-				duration: performance.now() - start,
-			};
+			return unsupportedRead(`Unsupported input for provider ${providerId}`, start, 'getIssuesForRepos');
 		}
 
 		let getIssuesOptions: GetIssuesOptions | undefined;
@@ -750,28 +748,24 @@ export abstract class GitHostIntegration<
 			}
 
 			if (organizations.size > 1) {
-				Logger.warn(`Multiple organizations not supported for provider ${providerId}`, 'getIssuesForRepos');
-				return {
-					error: new Error(`Multiple organizations not supported for provider ${providerId}`),
-					duration: performance.now() - start,
-				};
+				return unsupportedRead(
+					`Multiple organizations not supported for provider ${providerId}`,
+					start,
+					'getIssuesForRepos',
+				);
 			} else if (organizations.size === 0) {
-				Logger.warn(`No organizations found for provider ${providerId}`, 'getIssuesForRepos');
-				return {
-					error: new Error(`No organizations found for provider ${providerId}`),
-					duration: performance.now() - start,
-				};
+				return unsupportedRead(`No organizations found for provider ${providerId}`, start, 'getIssuesForRepos');
 			}
 
 			const organization: string = first(organizations.values())!;
 
 			if (options?.filters != null) {
 				if (!api.providerSupportsIssueFilters(providerId, options.filters)) {
-					Logger.warn(`Unsupported filters for provider ${providerId}`, 'getIssuesForRepos');
-					return {
-						error: new Error(`Unsupported filters for provider ${providerId}`),
-						duration: performance.now() - start,
-					};
+					return unsupportedRead(
+						`Unsupported filters for provider ${providerId}`,
+						start,
+						'getIssuesForRepos',
+					);
 				}
 
 				let userAccount: ProviderAccount | undefined;
@@ -783,21 +777,17 @@ export abstract class GitHostIntegration<
 				}
 
 				if (userAccount == null) {
-					Logger.warn(`Unable to get current user for ${providerId}`, 'getIssuesForRepos');
-					return {
-						error: new Error(`Unable to get current user for ${providerId}`),
-						duration: performance.now() - start,
-					};
+					return unsupportedRead(`Unable to get current user for ${providerId}`, start, 'getIssuesForRepos');
 				}
 
 				const userFilterProperty = userAccount.name;
 
 				if (userFilterProperty == null) {
-					Logger.warn(`Unable to get user property for filter for ${providerId}`, 'getIssuesForRepos');
-					return {
-						error: new Error(`Unable to get user property for filter for ${providerId}`),
-						duration: performance.now() - start,
-					};
+					return unsupportedRead(
+						`Unable to get user property for filter for ${providerId}`,
+						start,
+						'getIssuesForRepos',
+					);
 				}
 
 				getIssuesOptions = {
@@ -916,11 +906,7 @@ export abstract class GitHostIntegration<
 			// branch above applies. Without it an unsupported filter (e.g. GitLab has no Mention endpoint) would
 			// resolve to no filter property being set and silently degrade to an unfiltered, project-wide read.
 			if (!api.providerSupportsIssueFilters(providerId, options.filters)) {
-				Logger.warn(`Unsupported filters for provider ${providerId}`, 'getIssuesForRepos');
-				return {
-					error: new Error(`Unsupported filters for provider ${providerId}`),
-					duration: performance.now() - start,
-				};
+				return unsupportedRead(`Unsupported filters for provider ${providerId}`, start, 'getIssuesForRepos');
 			}
 
 			let userAccount: ProviderAccount | undefined;
@@ -932,20 +918,16 @@ export abstract class GitHostIntegration<
 			}
 
 			if (userAccount == null) {
-				Logger.warn(`Unable to get current user for ${providerId}`, 'getIssuesForRepos');
-				return {
-					error: new Error(`Unable to get current user for ${providerId}`),
-					duration: performance.now() - start,
-				};
+				return unsupportedRead(`Unable to get current user for ${providerId}`, start, 'getIssuesForRepos');
 			}
 
 			const userFilterProperty = userAccount.username;
 			if (userFilterProperty == null) {
-				Logger.warn(`Unable to get user property for filter for ${providerId}`, 'getIssuesForRepos');
-				return {
-					error: new Error(`Unable to get user property for filter for ${providerId}`),
-					duration: performance.now() - start,
-				};
+				return unsupportedRead(
+					`Unable to get user property for filter for ${providerId}`,
+					start,
+					'getIssuesForRepos',
+				);
 			}
 
 			getIssuesOptions = {
@@ -1151,21 +1133,17 @@ export abstract class GitHostIntegration<
 				(isAzureDevOpsProvider(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
-			Logger.warn(`Unsupported input for provider ${providerId}`);
-			return {
-				error: new Error(`Unsupported input for provider ${providerId}`),
-				duration: performance.now() - start,
-			};
+			return unsupportedRead(`Unsupported input for provider ${providerId}`, start);
 		}
 
 		let getPullRequestsOptions: GetPullRequestsOptions | undefined;
 		if (options?.filters != null) {
 			if (!api.providerSupportsPullRequestFilters(providerId, options.filters)) {
-				Logger.warn(`Unsupported filters for provider ${providerId}`, 'getPullRequestsForRepos');
-				return {
-					error: new Error(`Unsupported filters for provider ${providerId}`),
-					duration: performance.now() - start,
-				};
+				return unsupportedRead(
+					`Unsupported filters for provider ${providerId}`,
+					start,
+					'getPullRequestsForRepos',
+				);
 			}
 
 			let userAccount: ProviderAccount | undefined;
@@ -1185,11 +1163,11 @@ export abstract class GitHostIntegration<
 						duration: performance.now() - start,
 					};
 				} else if (organizations.size === 0) {
-					Logger.warn(`No organizations found for provider ${providerId}`, 'getPullRequestsForRepos');
-					return {
-						error: new Error(`No organizations found for provider ${providerId}`),
-						duration: performance.now() - start,
-					};
+					return unsupportedRead(
+						`No organizations found for provider ${providerId}`,
+						start,
+						'getPullRequestsForRepos',
+					);
 				}
 
 				const organization: string = first(organizations.values())!;
@@ -1209,11 +1187,11 @@ export abstract class GitHostIntegration<
 			}
 
 			if (userAccount == null) {
-				Logger.warn(`Unable to get current user for ${providerId}`, 'getPullRequestsForRepos');
-				return {
-					error: new Error(`Unable to get current user for ${providerId}`),
-					duration: performance.now() - start,
-				};
+				return unsupportedRead(
+					`Unable to get current user for ${providerId}`,
+					start,
+					'getPullRequestsForRepos',
+				);
 			}
 
 			let userFilterProperty: string | null;
@@ -1229,11 +1207,11 @@ export abstract class GitHostIntegration<
 			}
 
 			if (userFilterProperty == null) {
-				Logger.warn(`Unable to get user property for filter for ${providerId}`, 'getPullRequestsForRepos');
-				return {
-					error: new Error(`Unable to get user property for filter for ${providerId}`),
-					duration: performance.now() - start,
-				};
+				return unsupportedRead(
+					`Unable to get user property for filter for ${providerId}`,
+					start,
+					'getPullRequestsForRepos',
+				);
 			}
 
 			// Route the "review requested from me" filter to the field each provider actually reads:

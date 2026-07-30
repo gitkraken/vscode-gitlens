@@ -1,5 +1,6 @@
 import type { ConfiguredIntegrationDescriptor } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
+import type { IntegrationsRemoteConfig } from '../context.js';
 import type { Integration } from '../models/integration.js';
 import type { ProviderWarning } from '../results.js';
 
@@ -72,4 +73,27 @@ export interface ProviderReadContext {
 		id?: IntegrationIds,
 		options?: { cloud?: boolean; domain?: string },
 	): ConfiguredIntegrationDescriptor[];
+}
+
+/**
+ * What {@link resolveRepository} needs on top of {@link ProviderReadContext}.
+ *
+ * It is the one read whose input is a remote URL rather than a resolved target, so it needs two things the others
+ * don't: the user's remote configs (to map a custom domain onto a provider for path parsing) and instance lookup
+ * by DOMAIN for a cloud host — `getIntegrationForRead` selects by configured connection, which a cloud provider
+ * reached through its canonical host has no need of.
+ *
+ * Kept as an extension rather than folded into the base contract so the other reads still can't reach either one.
+ */
+export interface RepositoryResolutionContext extends ProviderReadContext {
+	/** Per-remote-host configurations from `remotes`, as {@link ConfigProvider.getRemoteConfigs} exposes them. */
+	getRemoteConfigs(): readonly IntegrationsRemoteConfig[];
+
+	/**
+	 * The integration instance for a provider on a given host, bypassing connection selection. Only for the
+	 * cloud-host branch of the resolution, whose host is canonical by construction (the guards above rejected
+	 * anything else); every self-managed lookup still goes through {@link ProviderReadContext.getIntegrationForRead}
+	 * so repository data can never select a host.
+	 */
+	getIntegrationForDomain(id: IntegrationIds, domain: string | undefined): Promise<Integration | undefined>;
 }

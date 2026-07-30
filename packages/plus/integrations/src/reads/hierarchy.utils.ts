@@ -1,7 +1,8 @@
 import type { IssueResourceDescriptor, ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationIds } from '../constants.js';
-import type { ProviderOrganization } from '../results.js';
+import type { ProviderOrganization, ProviderResult, ProviderWarning } from '../results.js';
+import { appendDedupedWarning } from '../results.js';
 
 /**
  * Mapping of a provider's own hierarchy vocabulary onto the single {@link ProviderOrganization} shape the facade
@@ -28,6 +29,26 @@ export function resourceLabel(resource: ResourceDescriptor): string {
 export function resourceMatchesOrg(resource: ResourceDescriptor, org: string): boolean {
 	const typed = resource as IssueResourceDescriptor;
 	return resource.key === org || typed.id === org || typed.name === org;
+}
+
+/**
+ * The id of the RESOURCE a project belongs to, used to look up which account (and therefore which user) that
+ * project's issues should be scoped to. Falls back through the project's own identifiers because some providers
+ * (and test doubles) return project descriptors without naming their parent.
+ */
+export function resourceIdForProject(project: ResourceDescriptor): string | undefined {
+	const typed = project as IssueResourceDescriptor & { resourceId?: string };
+	return typed.resourceId ?? typed.id ?? project.key;
+}
+
+/**
+ * A stable identity for one project across facade pages, for the retry/completed bookkeeping an issue-tracker
+ * cursor carries. All three identifiers are included rather than one preferred value: two trackers can reuse the
+ * same project id, so keying on a single field would collapse them into one entry.
+ */
+export function projectKey(project: ResourceDescriptor): string {
+	const typed = project as IssueResourceDescriptor & { resourceId?: string };
+	return JSON.stringify([typed.resourceId ?? '', typed.id ?? '', project.key]);
 }
 
 /**
@@ -88,6 +109,34 @@ export function withProviderContext(providerId: IntegrationIds, item: ProviderOr
 		providerId: providerId,
 		...(item.org != null ? { org: item.org } : {}),
 	};
+}
+
+/**
+ * Merges the per-provider slices of a hierarchy fan-out into one flat result.
+ *
+ * `ProviderResult` has no page object, so `fetchFailed` is its only non-authoritative signal — any slice that
+ * failed or came back incomplete has to set it, or a caller would treat a short list as the whole account.
+ * Warnings are deduped because the same account can surface under two ids in one fan-out.
+ */
+export function mergeHierarchyResults<T>(
+	results: readonly ({ items: T[]; warnings: ProviderWarning[]; fetchFailed: boolean } | undefined)[],
+): ProviderResult<T> {
+	const items: T[] = [];
+	const warnings: ProviderWarning[] = [];
+	let fetchFailed = false;
+	for (const result of results) {
+		if (result == null) continue;
+
+		items.push(...result.items);
+		for (const warning of result.warnings) {
+			appendDedupedWarning(warnings, warning);
+		}
+		if (result.fetchFailed) {
+			fetchFailed = true;
+		}
+	}
+
+	return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
 }
 
 /**
