@@ -247,7 +247,10 @@ export class GraphInspectServices {
 	);
 	/** Completed exchanges of the active review conversation per diff-cache key (oldest first).
 	 *  Replayed on `mode: 'refine'` requests so the AI sees the prior review as a conversation to
-	 *  follow up on. Kept in lockstep with `_graphDetailsDiffCache` — same keying, same reset. */
+	 *  follow up on. Same keying and same reset as `_graphDetailsDiffCache`, but not the same
+	 *  contents: `reviewFocusArea` populates the diff cache without recording an exchange, so the two
+	 *  can hold different key sets and evict independently. Anything written to the diff cache must
+	 *  therefore already be exclusion-filtered — a refine trusts whatever key it finds there. */
 	private readonly _reviewHistoryCache = new LruMap<string, { instructions?: string; result: AIReviewResult }[]>(
 		GraphInspectServices._diffCacheCap,
 	);
@@ -767,28 +770,19 @@ export class GraphInspectServices {
 							this._graphDetailsDiffCache.delete(diffCacheKey);
 						}
 
+						const excluded = this.getNormalizedExclusions(excludedFiles);
+
 						const cachedData = followUp != null ? this._graphDetailsDiffCache.get(diffCacheKey) : undefined;
-						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, signal));
+						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
 						if (!data) return { error: { message: 'No changes found.' } };
 
 						if (cachedData == null) {
-							// Filter out user-excluded files before review (cached entries are already filtered).
-							// Normalized on both sides: git reports an untracked directory that is itself a
-							// repository with a trailing slash (`nested-repo/`), which is the path the Files
-							// Changed rows — and so the exclusion set — carry, but staging it intent-to-add lands
-							// it in the diff as a gitlink named without one. An exact compare never matches.
-							const excluded = excludedFiles?.length
-								? new Set(excludedFiles.map(normalizePath))
-								: undefined;
-							if (excluded?.size) {
-								const { filterDiffFiles } = await loadChunk(
-									() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
-								);
-								data.diff = await filterDiffFiles(data.diff, paths =>
-									paths.filter(p => !excluded.has(normalizePath(p))),
-								);
-								signal?.throwIfAborted();
-
+							// Drop anything excluded that still made it into the diff (cached entries are already
+							// filtered). `getDiffForScope` already kept excluded untracked files out of the
+							// collection, so this covers what it can't: tracked working-tree files, and
+							// commit/compare diffs.
+							if (excluded != null) {
+								data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
 								if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
 							}
 
@@ -904,20 +898,26 @@ export class GraphInspectServices {
 
 						const reviewType = this.getReviewTypeForScope(scope);
 						const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
+						const excluded = this.getNormalizedExclusions(excludedFiles);
+
 						const cachedData = this._graphDetailsDiffCache.get(diffCacheKey);
-						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, signal));
+						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, excluded, signal));
 						if (!data) return { error: { message: 'No changes found for this focus area.' } };
 
 						if (cachedData == null) {
+							// Exclusion-filter before caching, matching what `reviewChanges` stores under this
+							// same key. The focus-area filter below would keep excluded files out of *this*
+							// request's prompt regardless, but a cache entry that still carried them would be
+							// handed to a later `reviewChanges` refine, which trusts cached entries as filtered.
+							data.diff = await this.filterExcludedFromDiff(data.diff, excluded, signal);
 							this._graphDetailsDiffCache.set(diffCacheKey, data);
 						} else {
 							this._graphDetailsDiffCache.touch(diffCacheKey);
 						}
 
 						// Filter diff to only include focus area files, excluding user-excluded files. Both
-						// sides normalized — the focus-area list names diff paths (no trailing slash) while the
-						// exclusion set can carry one; see the `reviewChanges` filter above.
-						const excluded = excludedFiles?.length ? new Set(excludedFiles.map(normalizePath)) : undefined;
+						// sides normalized — the focus-area list names diff paths, so it has to be put in the
+						// same shape as the exclusion set (see `getNormalizedExclusions`) before they can meet.
 						const { filterDiffFiles } = await loadChunk(
 							() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
 						);
@@ -2703,12 +2703,45 @@ export class GraphInspectServices {
 		}
 	}
 
+	/** The user's excluded paths in the one shape everything downstream compares against: normalized,
+	 *  so the `nested-repo/` git reports and the `nested-repo` a diff names are one entry (#5603), and
+	 *  deduped as a result. `undefined` when nothing is excluded. */
+	private getNormalizedExclusions(excludedFiles: readonly string[] | undefined): Set<string> | undefined {
+		if (!excludedFiles?.length) return undefined;
+
+		return new Set(excludedFiles.map(normalizePath));
+	}
+
 	private getDiffCacheKey(repoPath: string, scope: ScopeSelection, excludedFiles?: readonly string[]): string {
+		// Keyed on the normalized set so it matches what the filters compare — two spellings of one
+		// logical exclusion would otherwise each take a slot in an LRU sized for a couple of
+		// `excludedFiles` variants, holding byte-identical filtered diffs.
+		const excluded = this.getNormalizedExclusions(excludedFiles);
 		return JSON.stringify({
 			repoPath: repoPath,
 			scope: scope,
-			excludedFiles: excludedFiles?.toSorted(),
+			excludedFiles: excluded != null ? [...excluded].sort() : undefined,
 		});
+	}
+
+	/** Drops the user's excluded paths from an assembled diff — the backstop for content that can't be
+	 *  kept out of the collection in the first place: tracked working-tree files, and commit/compare
+	 *  diffs. `getDiffForScope` handles untracked files earlier, before they're staged and read.
+	 *  Returns `diff` unchanged when nothing is excluded. */
+	private async filterExcludedFromDiff(
+		diff: string,
+		excluded: Set<string> | undefined,
+		signal?: AbortSignal,
+	): Promise<string> {
+		if (!excluded?.size) return diff;
+
+		const { filterDiffFiles } = await loadChunk(
+			() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
+		);
+		const filtered = await filterDiffFiles(diff, paths => paths.filter(p => !excluded.has(normalizePath(p))));
+		signal?.throwIfAborted();
+
+		return filtered;
 	}
 
 	/** Records a completed review exchange for follow-up (refine) replay — appending to the
@@ -2724,9 +2757,13 @@ export class GraphInspectServices {
 		this._reviewHistoryCache.set(cacheKey, exchanges);
 	}
 
+	/** @param excluded Normalized exclusion set (see `getNormalizedExclusions`). Consulted while
+	 *  *collecting* the diff so excluded untracked content is never staged or read — the assembled diff
+	 *  is still exclusion-filtered by the caller for everything a collection-time filter can't cover. */
 	private async getDiffForScope(
 		repoPath: string,
 		scope: ScopeSelection,
+		excluded: Set<string> | undefined,
 		signal?: AbortSignal,
 	): Promise<{ diff: string; message: string; context: string } | undefined> {
 		const svc = this.container.git.getRepositoryService(repoPath);
@@ -2843,6 +2880,15 @@ export class GraphInspectServices {
 					let untrackedPaths: string[] | undefined;
 					try {
 						untrackedPaths = (await svc.status.getUntrackedFiles(signal)).map(f => f.path);
+						// Drop excluded paths before staging rather than after diffing: the contents of a file
+						// the user explicitly excluded should never be read into memory at all — that's what
+						// the control means — and staging + diffing content guaranteed to be filtered out is
+						// wasted work scaling with the size of what was excluded. It also keeps `git add -N`
+						// off an excluded untracked nested repository, whose `adding embedded git repository`
+						// warning would otherwise be logged on every review.
+						if (excluded?.size) {
+							untrackedPaths = untrackedPaths.filter(p => !excluded.has(normalizePath(p)));
+						}
 					} catch (ex) {
 						// Best-effort: fall back to the plain unstaged diff rather than sinking the whole review.
 						Logger.error(ex, `Failed to enumerate untracked files for review`);
