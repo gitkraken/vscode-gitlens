@@ -345,7 +345,12 @@ export class GraphDataController {
 			const result = await this.host.notify(DidChangeNotification, { state: state });
 
 			this._lastStateSentAt = performance.now();
-			this.context.setLastSentBranchState(state.branchState);
+			// Advance the branchState dedup gate only on confirmed delivery, mirroring
+			// `notifyDidChangeBranchState` — committing a value the webview never received lets the fast
+			// path's dedup suppress every resend of it, leaving the header blank until the counts change.
+			if (result) {
+				this.context.setLastSentBranchState(state.branchState);
+			}
 
 			// Refresh canInstallClaudeHook asynchronously so the bulk push doesn't block on `gk`.
 			// Dedups internally — only fires `DidChangeCanInstallClaudeHook` when the value diverges.

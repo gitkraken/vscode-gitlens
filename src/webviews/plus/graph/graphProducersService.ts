@@ -603,10 +603,16 @@ export class GraphProducersService {
 			return false;
 		}
 
-		this._lastSentBranchState = branchState;
-		return this.host.notify(DidChangeBranchStateNotification, {
+		const success = await this.host.notify(DidChangeBranchStateNotification, {
 			branchState: branchState,
 		});
+		// Advance the dedup gate only on confirmed delivery. Committing it up front lets a dropped send leave
+		// the gate claiming a value the webview never received — and because dedup then suppresses every
+		// resend of that value, the header stays blank until the counts happen to change again.
+		if (success) {
+			this._lastSentBranchState = branchState;
+		}
+		return success;
 	}
 
 	/**
@@ -663,20 +669,16 @@ export class GraphProducersService {
 				/* swallow — provider info is non-critical */
 			}
 
-			// Preserve previously-resolved PR so the pill doesn't flicker between full-state passes.
-			const existingPr = this._lastSentBranchState?.pr;
-			if (existingPr != null) {
-				branchState.pr = existingPr;
-			}
-
-			// Preserve the upstream tip sha for the same reason — the fast path never computes it (only the
-			// full state build does), so without this the overview bar's upstream jump leg would lose its
-			// target on every branch-state-only pass. The next full build refreshes it. ONLY for the SAME
-			// upstream: after a branch switch the previous branch's tip is a wrong (and jumpable) answer,
-			// so drop it and let the full build supply the new one.
+			// Preserve the previously-resolved PR and upstream tip sha so neither flickers between full-state
+			// passes — the fast path computes neither (only the full build does), so without this the PR pill
+			// and the overview bar's upstream jump leg would drop out on every branch-state-only pass. The
+			// next full build refreshes both. ONLY for the SAME upstream: after a branch switch both describe
+			// the previous branch — a wrong PR pill, and a wrong (jumpable) tip — so drop them and let the
+			// full build supply the new ones.
 			const last = this._lastSentBranchState;
-			if (last?.upstreamSha != null && last.upstream === branchState.upstream) {
-				branchState.upstreamSha = last.upstreamSha;
+			if (last?.upstream === branchState.upstream) {
+				branchState.pr ??= last.pr;
+				branchState.upstreamSha ??= last.upstreamSha;
 			}
 		}
 
