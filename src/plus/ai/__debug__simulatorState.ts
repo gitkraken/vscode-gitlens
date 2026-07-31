@@ -1,5 +1,5 @@
 import type { AIActionType } from '@gitlens/ai/models/model.js';
-import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
+import type { AIChatMessage, AIChatMessageRole } from '@gitlens/ai/models/provider.js';
 
 export type SimulatorMode = 'default' | 'slow' | 'invalid' | 'error' | 'cancel' | 'quota';
 
@@ -16,7 +16,7 @@ export class SimulatorState {
 	private readonly actionStash = new Map<AIActionType, string[]>();
 	private readonly nextStash: string[] = [];
 	private readonly stickyByAction = new Map<AIActionType, string>();
-	private lastMessages: AIChatMessage[] | undefined;
+	private lastMessages: AIChatMessage<AIChatMessageRole>[] | undefined;
 	private callCount = 0;
 
 	inject(inject: SimulatorInject): void {
@@ -53,12 +53,12 @@ export class SimulatorState {
 		this.stickyByAction.clear();
 	}
 
-	recordMessages(messages: readonly AIChatMessage[]): void {
+	recordMessages(messages: readonly AIChatMessage<AIChatMessageRole>[]): void {
 		this.lastMessages = [...messages];
 		this.callCount++;
 	}
 
-	getLastMessages(): readonly AIChatMessage[] | undefined {
+	getLastMessages(): readonly AIChatMessage<AIChatMessageRole>[] | undefined {
 		return this.lastMessages;
 	}
 

@@ -3,6 +3,7 @@ import { CancellationTokenSource, EventEmitter } from 'vscode';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import { PausedOperationAbortError } from '@gitlens/git/errors.js';
 import { uuid } from '@gitlens/utils/crypto.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { wait } from '@gitlens/utils/promise.js';
 import type { StoredAutoRebaseUndo } from '../../../constants.storage.js';
 import type { Source } from '../../../constants.telemetry.js';
@@ -478,6 +479,24 @@ export class AutoRebaseService implements Disposable {
 				// human's work and skew `confidence.min`; the resume is covered by `autoRebase/resumed`.
 				if (step.kind === 'manual') continue;
 
+				// Mirrors `logResolutionUsage` on the manual-resolve path, which an automatic rebase never
+				// reaches — without this the run's only evidence of repo consultation is a progress line
+				// that's overwritten within milliseconds when a step has several files. `toolCalls` is
+				// always a number when the AI resolved the file, so `toolCalls=0` reads as "the model
+				// didn't need to consult", distinct from a missing field.
+				for (const f of step.files) {
+					if (f.toolCallCount == null && f.stepCount == null) continue;
+
+					Logger.debug(
+						`step ${step.stepNumber}/${step.totalSteps} resolved ${f.path}: ${f.strategy}, confidence=${
+							f.confidence
+						}${f.stepCount != null ? `, steps=${f.stepCount}` : ''}${
+							f.toolCallCount != null ? `, toolCalls=${f.toolCallCount}` : ''
+						}`,
+						'autoRebase',
+					);
+				}
+
 				this.container.telemetry.sendEvent(
 					'autoRebase/step/resolved',
 					{
@@ -489,6 +508,8 @@ export class AutoRebaseService implements Disposable {
 						'result.strategy.takeTheirs.count': step.files.filter(f => f.strategy === 'take-theirs').length,
 						'result.strategy.deleted.count': step.files.filter(f => f.strategy === 'deleted').length,
 						'confidence.min': step.files.reduce((min, f) => Math.min(min, f.confidence), 1),
+						'tools.calls.count': sumOf(step.files, f => f.toolCallCount),
+						'tools.steps.count': sumOf(step.files, f => f.stepCount),
 					},
 					active.source,
 				);
@@ -850,4 +871,17 @@ export class AutoRebaseService implements Disposable {
 	private fireChange(session: AutoRebaseSession): void {
 		this._onDidChange.fire({ repoPath: session.repoPath, session: session });
 	}
+}
+
+/** Sums an optional numeric field across records, returning undefined when none reported it — so a
+ *  provider that never used tools is distinguishable from one that used them zero times. */
+function sumOf<T>(items: readonly T[], get: (item: T) => number | undefined): number | undefined {
+	let total: number | undefined;
+	for (const item of items) {
+		const value = get(item);
+		if (value == null) continue;
+
+		total = (total ?? 0) + value;
+	}
+	return total;
 }

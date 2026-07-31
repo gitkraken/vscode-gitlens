@@ -35,10 +35,12 @@ import type {
 } from '@gitlens/ai/models/promptTemplates.js';
 import type {
 	AIChatMessage,
+	AIChatMessageRole,
 	AIProvider,
 	AIProviderResponse,
 	AIProviderResult,
 	AIResponseFormat,
+	AIToolDefinition,
 } from '@gitlens/ai/models/provider.js';
 import type { AIProviderContext } from '@gitlens/ai/providers/context.js';
 import { clearResponseFormatRejections } from '@gitlens/ai/providers/responseFormatCache.js';
@@ -371,7 +373,7 @@ export interface AIRequestProvider {
 		cancellation: CancellationToken,
 		maxInputTokens: number,
 		retries: number,
-	) => Promise<AIChatMessage[]>;
+	) => Promise<AIChatMessage<AIChatMessageRole>[]>;
 
 	/**
 	 * Get the progress title for each attempt.
@@ -1300,6 +1302,9 @@ export class AIProviderService implements AIService, Disposable {
 			/** Schema for native structured output on capable provider+model combos; ignored elsewhere */
 			responseFormat?: AIResponseFormat;
 			throwAIErrors?: boolean;
+			/** Tools to advertise to the model. Silently dropped for providers that don't support them,
+			 *  so callers don't need to know which provider resolved. */
+			tools?: readonly AIToolDefinition[];
 		},
 	): Promise<AIProviderResult<void> | 'cancelled' | undefined> {
 		const scope = getScopedLogger();
@@ -1433,6 +1438,9 @@ export class AIProviderService implements AIService, Disposable {
 								modelOptions: options?.modelOptions,
 								conversationId: options?.conversationId,
 								responseFormat: options?.responseFormat,
+								// Drop tools for providers whose wire format can't carry them — the caller
+								// sees no `toolCalls` back and falls through to its text-only path.
+								tools: requestProviderRef.provider.supportsTools ? options?.tools : undefined,
 							},
 						);
 						if (!fulfilled) {

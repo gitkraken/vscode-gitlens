@@ -330,6 +330,11 @@ export async function runAutoRebaseLoop(
 					case 'resolution:failed':
 						session.progressMessage = `${stepPrefix} · Couldn’t resolve ${event.filePath}`;
 						break;
+					case 'resolver:tool-call':
+						// The AI is consulting the repository (reading a file at a ref, blaming, searching)
+						// because the hunk alone was ambiguous — report it so a long step doesn't look stalled.
+						session.progressMessage = `${stepPrefix} · Inspecting ${event.tool} for ${event.filePath}…`;
+						break;
 					default:
 						return;
 				}
@@ -450,6 +455,8 @@ export async function runAutoRebaseLoop(
 				note: r.note,
 				conflictedContent: snapshot.get(r.filePath),
 				resolvedContent: r.strategy !== 'skipped' ? r.content : undefined,
+				toolCallCount: r.metrics?.toolCallCount,
+				stepCount: r.metrics?.stepCount,
 			})),
 		};
 		session.steps.push(step);

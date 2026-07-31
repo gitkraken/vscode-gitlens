@@ -1001,7 +1001,11 @@ void
   'result.strategy.takeTheirs.count': number,
   // The rebase step (msgnum) that was resolved
   'step': number,
-  'steps.total': number
+  'steps.total': number,
+  // Repo-inspection tool calls the AI made across the step's resolutions
+  'tools.calls.count': number,
+  // Model round-trips across the step's resolutions (tool calls plus validation re-prompts)
+  'tools.steps.count': number
 }
 ```
 

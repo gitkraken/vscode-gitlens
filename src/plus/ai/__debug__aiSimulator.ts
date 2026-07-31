@@ -2,7 +2,7 @@ import type { Disposable } from 'vscode';
 import { ThemeIcon, window } from 'vscode';
 import type { SupportedAIModels } from '@gitlens/ai/constants.js';
 import type { AIActionType } from '@gitlens/ai/models/model.js';
-import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
+import type { AIChatMessage, AIChatMessageRole } from '@gitlens/ai/models/provider.js';
 import type { Container } from '../../container.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
@@ -85,7 +85,7 @@ class AISimulatorDebug {
 		return true;
 	}
 
-	private handleLastMessages(): readonly AIChatMessage[] | undefined {
+	private handleLastMessages(): readonly AIChatMessage<AIChatMessageRole>[] | undefined {
 		return getSimulatorState().getLastMessages();
 	}
 

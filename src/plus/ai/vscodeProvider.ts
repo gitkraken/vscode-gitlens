@@ -1,8 +1,25 @@
-import type { LanguageModelChat, LanguageModelChatSelector } from 'vscode';
-import { CancellationTokenSource, Disposable, EventEmitter, LanguageModelChatMessage, lm } from 'vscode';
+import type { LanguageModelChat, LanguageModelChatSelector, LanguageModelChatTool } from 'vscode';
+import {
+	CancellationTokenSource,
+	Disposable,
+	EventEmitter,
+	LanguageModelChatMessage,
+	LanguageModelChatToolMode,
+	LanguageModelTextPart,
+	LanguageModelToolCallPart,
+	LanguageModelToolResultPart,
+	lm,
+} from 'vscode';
 import { vscodeProviderDescriptor } from '@gitlens/ai/constants.js';
 import type { AIActionType, AIModel } from '@gitlens/ai/models/model.js';
-import type { AIChatMessage, AIProvider, AIProviderResponse } from '@gitlens/ai/models/provider.js';
+import type {
+	AIChatMessage,
+	AIChatMessageRole,
+	AIProvider,
+	AIProviderResponse,
+	AIToolCall,
+	AIToolDefinition,
+} from '@gitlens/ai/models/provider.js';
 import type { AIProviderContext } from '@gitlens/ai/providers/context.js';
 import { getActionName, getReducedMaxInputTokens, getValidatedTemperature } from '@gitlens/ai/utils/ai.utils.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -22,6 +39,9 @@ const accessJustification =
 
 export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 	readonly id = provider.id;
+	// The LM API carries tools on every model; individual Copilot families may still decline them, so
+	// the caller's runtime fallback is what covers the rest.
+	readonly supportsTools = true;
 
 	private _name: string | undefined;
 	get name(): string {
@@ -71,8 +91,12 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 		action: TAction,
 		model: VSCodeAIModel,
 		_apiKey: string,
-		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
-		options: { signal: AbortSignal; modelOptions?: { outputTokens?: number; temperature?: number } },
+		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage<AIChatMessageRole>[]>,
+		options: {
+			signal: AbortSignal;
+			modelOptions?: { outputTokens?: number; temperature?: number };
+			tools?: readonly AIToolDefinition[];
+		},
 	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.sendRequest`);
 
@@ -97,16 +121,44 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 					const messages = (await getMessages(maxInputTokens, retries)).map(m => {
 						switch (m.role) {
 							case 'assistant':
+								// A tool-call turn must replay the calls as content parts, or the model can't
+								// match the tool results that follow it.
+								if (m.toolCalls?.length) {
+									return LanguageModelChatMessage.Assistant([
+										...(m.content ? [new LanguageModelTextPart(m.content)] : []),
+										...m.toolCalls.map(c => new LanguageModelToolCallPart(c.id, c.name, c.args)),
+									]);
+								}
 								return LanguageModelChatMessage.Assistant(m.content);
+							case 'tool':
+								// The LM API carries tool results as a user message holding result parts,
+								// keyed by the call they answer. Without an id, fall back to plain text
+								// rather than asserting one exists — see the base provider.
+								if (m.toolCallId == null) return LanguageModelChatMessage.User(m.content);
+
+								return LanguageModelChatMessage.User([
+									new LanguageModelToolResultPart(m.toolCallId, [
+										new LanguageModelTextPart(m.content),
+									]),
+								]);
 							default:
 								return LanguageModelChatMessage.User(m.content);
 						}
 					});
 
+					const tools: LanguageModelChatTool[] | undefined = options.tools?.length
+						? options.tools.map(t => ({
+								name: t.name,
+								description: t.description,
+								inputSchema: t.parameters,
+							}))
+						: undefined;
+
 					const rsp = await chatModel.sendRequest(
 						messages,
 						{
 							justification: accessJustification,
+							...(tools != null ? { tools: tools, toolMode: LanguageModelChatToolMode.Auto } : undefined),
 							modelOptions: {
 								outputTokens: model.maxTokens.output
 									? Math.min(options.modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
@@ -125,19 +177,31 @@ export class VSCodeAIProvider implements AIProvider<typeof provider.id> {
 						throw new CancellationError();
 					}
 
+					// Consume `stream` rather than `text` — `text` yields only text parts, silently dropping
+					// any tool calls the model made.
 					let message = '';
-					for await (const fragment of rsp.text) {
+					const toolCalls: AIToolCall[] = [];
+					for await (const part of rsp.stream) {
 						if (cancellation.isCancellationRequested) {
 							throw new CancellationError();
 						}
 
-						message += fragment;
+						if (part instanceof LanguageModelTextPart) {
+							message += part.value;
+						} else if (part instanceof LanguageModelToolCallPart) {
+							toolCalls.push({
+								id: part.callId,
+								name: part.name,
+								args: (part.input ?? {}) as Record<string, unknown>,
+							});
+						}
 					}
 
 					return {
 						content: message.trim(),
 						model: model,
 						id: uuid(),
+						...(toolCalls.length ? { toolCalls: toolCalls } : undefined),
 						result: undefined,
 					} satisfies AIProviderResponse<void>;
 				} catch (ex) {

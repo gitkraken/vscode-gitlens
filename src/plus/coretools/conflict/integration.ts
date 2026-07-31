@@ -3,25 +3,41 @@ import { isAbsolute, join } from 'node:path';
 import { applyResolutions, defaultVerifier, extractConflict, resolveConflict } from '@gitkraken/conflict-tools';
 import { CancellationTokenSource } from 'vscode';
 import type { AIModel } from '@gitlens/ai/models/model.js';
-import type { AIChatMessage, AIChatMessageRole, AIProviderResponse } from '@gitlens/ai/models/provider.js';
+import type {
+	AIChatMessage,
+	AIChatMessageRole,
+	AIProviderResponse,
+	AIToolDefinition,
+} from '@gitlens/ai/models/provider.js';
+import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
+import { AIIgnoreCache } from '../../ai/aiIgnoreCache.js';
+import type { AIRequestProvider } from '../../ai/aiProviderService.js';
 import type { AiTokenUsage, GitExecOptions } from '../compose/types.js';
 import type { DetectedEncoding } from './encoding.js';
 import { decodeBuffer, detectEncoding, encodeContent } from './encoding.js';
 import type {
+	BlameOptions,
 	Conflict,
+	ConflictDiffOptions,
 	ConflictGitPort,
+	ConflictModelMessage,
 	ConflictModelParams,
 	ConflictModelPort,
 	ConflictModelResult,
 	ConflictProgressEvent,
+	GrepOptions,
+	LogOptions,
 	OpOptions,
 	Resolution,
 	ResolutionContext,
 	ResolverConfig,
+	ShowFileOptions,
+	ShowOptions,
 	StepResult,
+	ToolDefinition,
 	UnmergedEntry,
 	UnmergedReason,
 } from './types.js';
@@ -33,9 +49,10 @@ export interface ResolveSingleArgs {
 	config?: ResolverConfig;
 	signal?: AbortSignal;
 	onProgress?: (event: ConflictProgressEvent) => void;
-	/** Session-scoped conversation ID forwarded with every AI request so the backend charges its
-	 *  flat per-feature fee once per resolution session instead of once per request. */
-	conversationId?: string;
+	/** Session-scoped conversation ID forwarded with every AI request. Required: it scopes the
+	 *  backend's flat per-feature fee to once per resolution session instead of once per request, and
+	 *  the GitKraken proxy *rejects* a tools request without it when routing to Gemini. */
+	conversationId: string;
 	/** Model resolved up front by the caller. Passing it keeps `sendRequest` from resolving one lazily,
 	 *  which can open the model picker mid-request — see {@link ResolveAllParallelArgs.model}. */
 	model?: AIModel;
@@ -65,9 +82,10 @@ export interface ResolveAllParallelArgs {
 	onProgress?: (event: ConflictProgressEvent) => void;
 	/** Max resolutions in flight at once. Defaults to {@link ResolveConcurrency}. */
 	concurrency?: number;
-	/** Session-scoped conversation ID forwarded with every AI request so the backend charges its
-	 *  flat per-feature fee once per resolution session instead of once per request. */
-	conversationId?: string;
+	/** Session-scoped conversation ID forwarded with every AI request. Required: it scopes the
+	 *  backend's flat per-feature fee to once per resolution session instead of once per request, and
+	 *  the GitKraken proxy *rejects* a tools request without it when routing to Gemini. */
+	conversationId: string;
 	/** Model resolved up front by the caller. Without it `sendRequest` resolves one per request, and a
 	 *  non-silent resolve can show the model picker — so files resolving in parallel would each race to
 	 *  open a picker VS Code can only show one of, cancelling the rest as "the AI couldn't resolve". */
@@ -77,6 +95,17 @@ export interface ResolveAllParallelArgs {
 /** Default max in-flight AI resolutions for the parallel batch path — balances throughput against
  *  hammering the AI provider with too many concurrent requests. */
 const ResolveConcurrency = 5;
+
+/**
+ * Bounds on the resolver's agentic loops, stated explicitly rather than left to the library's
+ * defaults so the cost of repo consultation is visible here.
+ *
+ * `maxSteps` must NOT be tightened casually: the library spends this budget on tool-calling steps
+ * *and* on re-prompts after a parse/validation/verification failure. Lowering it converts recoverable
+ * retries into `AIError('VALIDATION_EXHAUSTED')`, which surfaces as a failed file and — in an
+ * automatic rebase — an escalation. 15 is the library's own default.
+ */
+const resolverDefaults = { maxSteps: 15, refineMaxSteps: 5 } satisfies ResolverConfig;
 
 /** Porcelain-v2 unmerged `XY` codes → conflict reasons — same mapping conflict-tools uses internally. */
 const unmergedReasonsByXY: Record<string, UnmergedReason> = {
@@ -93,18 +122,20 @@ export class ConflictToolsIntegration {
 	constructor(protected readonly container: Container) {}
 
 	async extract(args: ExtractArgs): Promise<Conflict | null> {
-		const git = createConflictGitPort(args.svc);
+		const git = createConflictGitPort(this.container, args.svc);
 		return extractConflict(args.filePath, { git: git, signal: args.signal }, args.reason);
 	}
 
 	async resolveSingle(args: ResolveSingleArgs, telemetrySource: Source): Promise<Resolution> {
-		const git = createConflictGitPort(args.svc);
+		const git = createConflictGitPort(this.container, args.svc, {
+			inScopePaths: [args.conflict.filePath],
+		});
 		const model = createAiModelPort(this.container, telemetrySource, args.conversationId, args.model);
 		return resolveConflict(args.conflict, args.context ?? {}, {
 			git: git,
 			model: model,
 			verifier: defaultVerifier,
-			config: args.config,
+			config: { ...resolverDefaults, ...args.config },
 			signal: args.signal,
 			onProgress: args.onProgress,
 		});
@@ -113,7 +144,9 @@ export class ConflictToolsIntegration {
 	async applyBatch(args: ApplyBatchArgs): Promise<void> {
 		// The override map is built per call and captured only by this port instance, so it can never
 		// leak into another operation's apply.
-		const git = createConflictGitPort(args.svc, collectMergedTakeContents(args.resolutions));
+		const git = createConflictGitPort(this.container, args.svc, {
+			mergedTakeContents: collectMergedTakeContents(args.resolutions),
+		});
 		await applyResolutions([...args.resolutions], { git: git });
 	}
 
@@ -127,7 +160,9 @@ export class ConflictToolsIntegration {
 	 * errored, or skipped — so no conflicted file silently vanishes from the outcome.
 	 */
 	async resolveAllParallel(args: ResolveAllParallelArgs, telemetrySource: Source): Promise<StepResult> {
-		const git = createConflictGitPort(args.svc);
+		const git = createConflictGitPort(this.container, args.svc, {
+			inScopePaths: args.entries.map(e => e.path),
+		});
 		const model = createAiModelPort(this.container, telemetrySource, args.conversationId, args.model);
 		const entries = [...args.entries];
 		const resolutions: Resolution[] = [];
@@ -195,7 +230,7 @@ export class ConflictToolsIntegration {
 						git: git,
 						model: model,
 						verifier: defaultVerifier,
-						config: args.config,
+						config: { ...resolverDefaults, ...args.config },
 						signal: args.signal,
 						onProgress: args.onProgress,
 					});
@@ -227,7 +262,7 @@ export class ConflictToolsIntegration {
 	 * for a resolved-vs-conflicted preview before anything is applied. Unreadable paths are skipped.
 	 */
 	async readWorkingFiles(svc: GitRepositoryService, paths: readonly string[]): Promise<Map<string, string>> {
-		const git = createConflictGitPort(svc);
+		const git = createConflictGitPort(this.container, svc);
 		const out = new Map<string, string>();
 		await Promise.all(
 			paths.map(async path => {
@@ -248,7 +283,7 @@ export class ConflictToolsIntegration {
 	 * `unmergedEntries` dispatch (the function itself isn't exported from the package).
 	 */
 	async listUnmergedEntries(svc: GitRepositoryService): Promise<UnmergedEntry[]> {
-		const git = createConflictGitPort(svc);
+		const git = createConflictGitPort(this.container, svc);
 		// `-z` terminates records with NUL and leaves paths verbatim — without it git C-quotes
 		// paths containing spaces/special characters (per `core.quotePath`), which wouldn't
 		// round-trip to filesystem access.
@@ -273,7 +308,7 @@ export class ConflictToolsIntegration {
 	 * generation and apply must NOT be overwritten with stale AI content (data-loss guard).
 	 */
 	async listUnmergedPaths(svc: GitRepositoryService): Promise<Set<string>> {
-		const git = createConflictGitPort(svc);
+		const git = createConflictGitPort(this.container, svc);
 		try {
 			// `-z` for verbatim NUL-terminated paths — see {@link listUnmergedEntries}.
 			const out = await git.exec!(['diff', '--name-only', '--diff-filter=U', '-z']);
@@ -309,10 +344,34 @@ function collectMergedTakeContents(resolutions: readonly Resolution[]): Map<stri
 	return contents;
 }
 
+/** Max lines returned by the `diff` tool — the library caps every other read tool, but not this one. */
+const diffMaxLines = 1000;
+
+/** Returned instead of content when a tool targets a path excluded by the AI file-exclusion rules.
+ *  Bracketed to match the library's own actionable-message convention, and phrased so the model
+ *  looks elsewhere rather than retrying the same path. */
+const excludedMessage = '[Path excluded by the AI file-exclusion rules. Do not retry this path.]';
+
+interface ConflictGitPortOptions {
+	/** See {@link collectMergedTakeContents} — apply-time content overrides keyed by repo-relative path. */
+	mergedTakeContents?: ReadonlyMap<string, string>;
+	/**
+	 * Repo-relative paths of the files this operation is resolving. Exempt from the AI file-exclusion
+	 * rules: the user explicitly asked for these, and the library reads them internally (extraction and
+	 * the prompt's three-way diff) — blinding those while still sending the file's conflict markers
+	 * would degrade the resolution without protecting anything. Exclusions still govern every *other*
+	 * path a repo-inspection tool reaches for.
+	 */
+	inScopePaths?: readonly string[];
+}
+
 function createConflictGitPort(
+	container: Container,
 	svc: GitRepositoryService,
-	mergedTakeContents?: ReadonlyMap<string, string>,
+	options?: ConflictGitPortOptions,
 ): ConflictGitPort {
+	const { mergedTakeContents, inScopePaths } = options ?? {};
+	const inScope = inScopePaths?.length ? new Set(inScopePaths) : undefined;
 	const git = svc.createUnsafeGit();
 	if (git == null) throw new Error('Conflict resolution is not available in virtual repositories');
 
@@ -324,6 +383,20 @@ function createConflictGitPort(
 			errors: 'throw',
 		});
 		return result.stdout;
+	};
+
+	// Built on first use rather than per port — most port instances (apply, unmerged listing) never
+	// run a repo-inspection tool, and the cache eagerly loads patterns in its constructor.
+	let aiIgnore: AIIgnoreCache | undefined;
+	const isExcluded = (path: string | undefined): Promise<boolean> => {
+		if (!path || inScope?.has(path)) return Promise.resolve(false);
+
+		aiIgnore ??= new AIIgnoreCache(container, svc.path);
+		return aiIgnore.isIgnored(path);
+	};
+	const excludeIgnored = (paths: string[]): Promise<string[]> => {
+		aiIgnore ??= new AIIgnoreCache(container, svc.path);
+		return aiIgnore.excludeIgnored(paths);
 	};
 
 	// `readFile` and `writeFile` are required because the library has no `exec` fallback for them —
@@ -380,15 +453,166 @@ function createConflictGitPort(
 		// index), and the library's apply loop has no per-file error handling, so an ENOENT here
 		// would abort the remaining resolutions and the final staging.
 		removeFile: async (path: string): Promise<void> => fs.rm(resolvePath(path), { force: true }),
+
+		// The repo-inspection ops below back the resolver's six read-only tools. The library would
+		// otherwise build them from `exec` itself, but routing them through here is what lets us apply
+		// the AI file-exclusion rules to everything a tool reads — the port is the only boundary
+		// between the model and the repository. Each mirrors the command the library's dispatcher
+		// would have run, so behavior is unchanged apart from the exclusions. Output caps still come
+		// from the library, which applies them after we return (except for `diff`, capped here).
+		showFile: async (ref: string, path: string, options?: ShowFileOptions): Promise<string> => {
+			if (await isExcluded(path)) return excludedMessage;
+
+			const content = await run(['show', `${ref}:${path}`], { signal: options?.signal });
+			return sliceLines(content, options?.startLine, options?.endLine);
+		},
+		blame: async (path: string, options?: BlameOptions): Promise<string> => {
+			if (await isExcluded(path)) return excludedMessage;
+
+			const args = ['blame', '--porcelain'];
+			const start = options?.startLine;
+			const end = options?.endLine;
+			if (start != null && end != null) {
+				args.push('-L', `${Math.max(1, start)},${Math.max(1, end)}`);
+			} else if (start != null) {
+				args.push('-L', `${Math.max(1, start)},`);
+			} else if (end != null) {
+				args.push('-L', `1,${Math.max(1, end)}`);
+			}
+			if (options?.ref) {
+				args.push(options.ref);
+			}
+			args.push('--', path);
+			return run(args, { signal: options?.signal });
+		},
+		grep: async (pattern: string, options?: GrepOptions): Promise<string> => {
+			const args = ['grep', '-n', '--', pattern];
+			if (options?.ref) {
+				args.push(options.ref);
+			}
+			const output = await run(args, { signal: options?.signal });
+
+			// `grep` takes no path argument, so exclusions have to be applied to its results. Output is
+			// `path:line:text` (or `ref:path:line:text` when searching a ref).
+			return filterGrepOutput(output, options?.ref != null, excludeIgnored);
+		},
+		log: async (options?: LogOptions): Promise<string> => {
+			if (await isExcluded(options?.path)) return excludedMessage;
+
+			const args = ['log', '--oneline', '-n', String(options?.maxCount ?? 100)];
+			if (options?.ref) {
+				args.push(options.ref);
+			}
+			if (options?.path) {
+				args.push('--', options.path);
+			}
+			return run(args, { signal: options?.signal });
+		},
+		show: async (sha: string, options?: ShowOptions): Promise<string> => {
+			if (await isExcluded(options?.path)) return excludedMessage;
+
+			const args = ['show', sha];
+			if (options?.path) {
+				args.push('--', options.path);
+			}
+			const output = await run(args, { signal: options?.signal });
+
+			// Unscoped, `git show` emits a patch spanning every file in the commit, so excluded files
+			// have to be stripped from the diff body.
+			return options?.path ? output : filterDiffFiles(output, excludeIgnored);
+		},
+		diff: async (from: string, to: string, options?: ConflictDiffOptions): Promise<string> => {
+			if (await isExcluded(options?.path)) return excludedMessage;
+
+			const args = ['diff', from, to];
+			if (options?.path) {
+				args.push('--', options.path);
+			}
+			const output = await run(args, { signal: options?.signal });
+			// A path-scoped diff is passed through untouched. This op is the only one the library also
+			// calls internally — `buildThreeWayDiff` computes `base..ours` / `base..theirs` for the
+			// conflicted file — and that diff is the prompt's primary evidence, so it must not be
+			// filtered or capped.
+			if (options?.path) return output;
+
+			// Unscoped is tool-only. `diff` is also the one tool the library doesn't cap, so a whole-tree
+			// range diff could return an unbounded patch — filter and cap it here in the library's style.
+			const filtered = await filterDiffFiles(output, excludeIgnored);
+			return truncateLines(
+				filtered,
+				diffMaxLines,
+				`Output capped at ${diffMaxLines} lines. Use path to scope the diff to a single file.`,
+			);
+		},
 	};
+}
+
+/** Extracts 1-indexed inclusive `startLine`..`endLine`, matching the library's exec-fallback behavior
+ *  (which we bypass by supplying `showFile` ourselves). */
+function sliceLines(content: string, startLine?: number, endLine?: number): string {
+	if (startLine == null && endLine == null) return content;
+	if (startLine != null && endLine != null && startLine > endLine) {
+		return `[Invalid range: startLine=${startLine}, endLine=${endLine} (startLine must be <= endLine).]`;
+	}
+
+	const lines = content.split('\n');
+	const start = Math.max(1, startLine ?? 1);
+	const end = Math.min(lines.length, endLine ?? lines.length);
+	if (start > lines.length) {
+		return `[Range out of bounds: file has ${lines.length} lines, requested startLine=${start}.]`;
+	}
+
+	return lines.slice(start - 1, end).join('\n');
+}
+
+/** Truncates to `maxLines`, prepending an actionable header when the cap fires. */
+function truncateLines(content: string, maxLines: number, hint: string): string {
+	const lines = content.split('\n');
+	if (lines.length <= maxLines) return content;
+
+	return `[${hint}]\n\n${lines.slice(0, maxLines).join('\n')}`;
+}
+
+/** Drops `git grep` result lines whose file is excluded by the AI file-exclusion rules. */
+async function filterGrepOutput(
+	output: string,
+	hasRef: boolean,
+	excludeIgnored: (paths: string[]) => Promise<string[]>,
+): Promise<string> {
+	if (!output) return output;
+
+	const lines = output.split('\n');
+	// `path:line:text`, or `ref:path:line:text` when a ref was searched
+	const pathOf = (line: string): string | undefined => {
+		const parts = line.split(':');
+		const path = hasRef ? parts[1] : parts[0];
+		return path || undefined;
+	};
+
+	const paths = [...new Set(lines.map(pathOf).filter(p => p != null))];
+	if (!paths.length) return output;
+
+	const allowed = new Set(await excludeIgnored(paths));
+	if (allowed.size === paths.length) return output;
+
+	return lines.filter(l => !l || allowed.has(pathOf(l) ?? '')).join('\n');
 }
 
 function createAiModelPort(
 	container: Container,
 	source: Source,
-	conversationId?: string,
+	conversationId: string,
 	resolvedModel?: AIModel,
 ): ConflictModelPort {
+	// The library's `ToolCall` has no field for the GitKraken proxy's `thought_signature`, so it would
+	// be lost on the round trip back through `runResolverLoop`. Stash signatures by tool-call id here
+	// and re-attach them when replaying the assistant turn — Anthropic rejects a tool result whose
+	// preceding turn dropped its signature. Scoped to this port instance (one per operation), so it
+	// can't leak across sessions.
+	const signatures = new Map<string, string>();
+	// Latched when a provider rejects the `tools` field, so the rest of the session degrades to the
+	// single-shot text path instead of retrying tools on every step.
+	let toolsUnsupported = false;
 	return {
 		generate: async (params: ConflictModelParams): Promise<ConflictModelResult> => {
 			const cancellationSource = new CancellationTokenSource();
@@ -399,44 +623,24 @@ function createAiModelPort(
 			}
 
 			try {
-				// Widened to include 'system' — bare `AIChatMessage` defaults to assistant/user, but
-				// providers forward roles verbatim, and `getMessages` below isn't constrained to the
-				// narrow type (the provider literal passes through `as any` at `sendRequest`).
-				const messages: AIChatMessage<AIChatMessageRole>[] = [];
-				if (params.system) {
-					messages.push({ role: 'system', content: params.system });
-				}
-				for (const msg of params.messages) {
-					if (msg.role === 'tool') {
-						messages.push({
-							role: 'user' as const,
-							content: `Tool result (${msg.toolName}): ${msg.content}`,
-						});
-						continue;
-					}
+				const useTools = !toolsUnsupported && (params.tools?.length ?? 0) > 0;
+				const tools = useTools ? params.tools!.map(toAiToolDefinition) : undefined;
 
-					const text = typeof msg.content === 'string' ? msg.content : '';
-					if (text) {
-						messages.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content: text });
-					}
-				}
-
-				const provider = {
-					getMessages: (): Promise<AIChatMessage<AIChatMessageRole>[]> => Promise.resolve(messages),
+				// `getMessages` is re-invoked on a provider retry with a reduced token budget, so build
+				// the history per attempt rather than once — see `buildMessages`.
+				const provider: AIRequestProvider = {
+					getMessages: (_model, _reporting, _cancellation, _maxInputTokens, retries) =>
+						Promise.resolve(buildMessages(params, useTools, signatures, retries)),
 					getProgressTitle: () => 'Resolving conflicts…',
-					getTelemetryInfo: (model: {
-						provider: { id: string; name: string };
-						id: string;
-						name: string;
-					}) => ({
+					getTelemetryInfo: model => ({
 						key: 'ai/generate' as const,
 						data: {
 							type: 'resolveConflicts' as const,
+							id: undefined,
 							'model.id': model.id,
 							'model.provider.id': model.provider.id,
 							'model.provider.name': model.provider.name,
 							'retry.count': 0,
-							duration: 0,
 						},
 					}),
 				};
@@ -455,7 +659,8 @@ function createAiModelPort(
 							temperature: params.temperature,
 						},
 					},
-				);
+					tools: tools,
+				});
 
 				if (result === 'cancelled') {
 					throw Object.assign(new Error('Operation cancelled'), { name: 'AbortError' });
@@ -472,8 +677,20 @@ function createAiModelPort(
 					throw new Error('AI request produced no response');
 				}
 
+				if (response.toolsRejected) {
+					toolsUnsupported = true;
+				}
+
+				const toolCalls = response.toolCalls?.map(c => {
+					if (c.providerSignature != null) {
+						signatures.set(c.id, c.providerSignature);
+					}
+					return { id: c.id, name: c.name, args: c.args };
+				});
+
 				return {
 					text: response.content,
+					...(toolCalls?.length ? { toolCalls: toolCalls } : undefined),
 					usage: mapUsage(response),
 				};
 			} finally {
@@ -482,6 +699,114 @@ function createAiModelPort(
 			}
 		},
 	};
+}
+
+function toAiToolDefinition(tool: ToolDefinition): AIToolDefinition {
+	return { name: tool.name, description: tool.description, parameters: tool.parameters };
+}
+
+/**
+ * Maps the library's message history onto `AIChatMessage`s.
+ *
+ * When tools are in play the mapping must be faithful: an assistant turn keeps its `toolCalls` even
+ * with no text (dropping it would leave a tool result with no matching request), and tool results
+ * keep their `toolCallId`. Without tool support we fall back to flattening everything to text, which
+ * is what shipped before tool calls existed.
+ *
+ * `retries` drives context-window recovery. A provider retry means the previous attempt overflowed,
+ * and tool output is what inflates this history — so drop the oldest `retries` tool round-trips.
+ * Round-trips are dropped as *units* (the assistant turn together with the tool results answering
+ * it): an orphaned `tool_call_id` is a 400 from both OpenAI and Anthropic.
+ */
+function buildMessages(
+	params: ConflictModelParams,
+	useTools: boolean,
+	signatures: ReadonlyMap<string, string>,
+	retries: number,
+): AIChatMessage<AIChatMessageRole>[] {
+	const messages: AIChatMessage<AIChatMessageRole>[] = [];
+	if (params.system) {
+		messages.push({ role: 'system', content: params.system });
+	}
+
+	const source = retries > 0 ? dropOldestToolRoundTrips(params.messages, retries) : params.messages;
+
+	for (const msg of source) {
+		if (msg.role === 'tool') {
+			if (useTools) {
+				messages.push({
+					role: 'tool',
+					content: msg.content,
+					toolCallId: msg.toolCallId,
+					toolName: msg.toolName,
+				});
+			} else {
+				messages.push({ role: 'user', content: `Tool result (${msg.toolName}): ${msg.content}` });
+			}
+			continue;
+		}
+
+		if (msg.role === 'assistant' && useTools && msg.toolCalls?.length) {
+			messages.push({
+				role: 'assistant',
+				content: msg.content ?? '',
+				toolCalls: msg.toolCalls.map(c => {
+					const signature = signatures.get(c.id);
+					return {
+						id: c.id,
+						name: c.name,
+						args: c.args,
+						...(signature != null ? { providerSignature: signature } : undefined),
+					};
+				}),
+			});
+			continue;
+		}
+
+		const text = typeof msg.content === 'string' ? msg.content : '';
+		if (text) {
+			messages.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content: text });
+		}
+	}
+
+	return messages;
+}
+
+/**
+ * Removes the oldest `count` tool round-trips, replacing them with a single note so the model knows
+ * why its earlier findings are missing. An assistant turn and the `tool` messages answering it are
+ * removed together to keep every remaining `toolCallId` paired.
+ */
+function dropOldestToolRoundTrips(messages: readonly ConflictModelMessage[], count: number): ConflictModelMessage[] {
+	const out: ConflictModelMessage[] = [];
+	let dropped = 0;
+	let droppedIds: Set<string> | undefined;
+	let noted = false;
+
+	for (const msg of messages) {
+		if (msg.role === 'assistant' && msg.toolCalls?.length && dropped < count) {
+			dropped++;
+			droppedIds ??= new Set();
+			for (const call of msg.toolCalls) {
+				droppedIds.add(call.id);
+			}
+			if (!noted) {
+				noted = true;
+				out.push({
+					role: 'user',
+					content: '[Earlier tool results were omitted to fit the context window.]',
+				});
+			}
+			continue;
+		}
+
+		// Drop the results belonging to any round-trip we just removed
+		if (msg.role === 'tool' && droppedIds?.has(msg.toolCallId)) continue;
+
+		out.push(msg);
+	}
+
+	return out;
 }
 
 function mapUsage(response: AIProviderResponse<void>): AiTokenUsage | undefined {

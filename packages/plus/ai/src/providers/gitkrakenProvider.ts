@@ -15,6 +15,7 @@ const structuredOutputAttribute = 'structured_output';
 export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	readonly supportsTools = true;
 	protected readonly descriptor = provider;
 	protected readonly config = {};
 

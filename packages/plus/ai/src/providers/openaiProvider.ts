@@ -10,6 +10,7 @@ const models: OpenAIModel[] = openAIModels(provider);
 export class OpenAIProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	readonly supportsTools = true;
 	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://platform.openai.com/account/api-keys',

@@ -58,6 +58,10 @@ export interface AutoRebaseFileRecord {
 	conflictedContent?: string;
 	/** The resolved content that was applied */
 	resolvedContent?: string;
+	/** Repo-inspection tool calls the AI made resolving this file, when it consulted the repository */
+	toolCallCount?: number;
+	/** Model round-trips for this file — tool calls plus validation re-prompts */
+	stepCount?: number;
 }
 
 export interface AutoRebaseStepRecord {
