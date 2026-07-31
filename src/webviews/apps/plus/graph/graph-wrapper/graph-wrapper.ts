@@ -963,6 +963,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.excludeTypes=${graphState.excludeTypes}
 			.includeOnlyRefs=${graphState.includeOnlyRefs}
 			.pinnedRef=${graphState.pinnedRef}
+			.currentUpstream=${graphState.branchState?.upstream}
 			.scope=${graphState.scope}
 			.wipStateById=${graphState.wipStateById}
 			.rowMarkerMergeTarget=${this.rowMarkerMergeTarget}

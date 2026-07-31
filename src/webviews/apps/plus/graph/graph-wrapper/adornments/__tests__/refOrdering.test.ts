@@ -2,9 +2,7 @@ import * as assert from 'assert';
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 import type { TemplateResult } from 'lit';
 import type { GraphCommitRef } from '../../graph-commit.js';
-import { isUpstreamRemoteOf, pickGhostRef, sortRowRefs } from '../../graph-commit.js';
-import type { ParsedRef } from '../refAdornmentProvider.js';
-import { promotePinned, refPillKey } from '../refAdornmentProvider.js';
+import { isUpstreamRemoteOf, pickGhostRef, refPillKey, sortRowRefs } from '../../graph-commit.js';
 import type { WipStats } from '../wipStatsAdornmentProvider.js';
 import { createWipStatsAdornmentProvider } from '../wipStatsAdornmentProvider.js';
 
@@ -37,7 +35,7 @@ function keys(refs: readonly GraphCommitRef[]): string[] {
 
 suite('graph ref ordering — sortRowRefs tiers', () => {
 	test('orders the full tier ladder regardless of input order', () => {
-		// One ref per tier 0-7, fed in deliberately scrambled order. Names are chosen so alphabetical
+		// One ref per tier 0-9, fed in deliberately scrambled order. Names are chosen so alphabetical
 		// order would NOT reproduce the expected result — only the tiers can.
 		const refs = [
 			tag('v1'),
@@ -48,18 +46,50 @@ suite('graph ref ordering — sortRowRefs tiers', () => {
 			{ ...trackedHead('current', 'origin'), current: true },
 			remote('origin', 'current'),
 			{ ...trackedHead('wt', 'origin'), secondaryWorktreeId: 'wt1' },
+			head('clicked'),
+			head('edge'),
+		];
+		const order = {
+			pinnedRefKey: 'head:clicked',
+			pinnedRefId: headId('edge'),
+			currentUpstreamName: 'origin/current',
+		};
+
+		assert.deepStrictEqual(keys(sortRowRefs(refs, order)), [
+			'head:clicked', // 0 — the click-pinned ref
+			'head:current', // 1 — the current checkout
+			'head:edge', // 2 — the ref pinned to the edge
+			'remote:origin/current', // 3 — the current branch's upstream
+			'head:wt', // 4 — checked out in another worktree
+			'remote:origin/wt', // 5 — that worktree branch's upstream
+			'head:main', // 6 — the default branch
+			'head:zlocal', // 7 — a plain local
+			'remote:origin/zremote', // 8 — a plain remote
+			'tag:v1', // 9 — tags last
+		]);
+	});
+
+	test('ordering is unchanged when no pin and no upstream name are supplied', () => {
+		// The degraded contract virtual/GitHub repos get: `order` omitted entirely must reproduce the
+		// pre-existing ranking, so those providers see no behavior change.
+		const refs = [
+			tag('v1'),
+			remote('origin', 'zremote'),
+			head('zlocal'),
+			head('main', { isDefault: true }),
+			{ ...trackedHead('current', 'origin'), current: true },
+			remote('origin', 'current'),
 		];
 
 		assert.deepStrictEqual(keys(sortRowRefs(refs)), [
-			'head:current', // 0 — the current checkout
-			'remote:origin/current', // 1 — its upstream
-			'head:wt', // 2 — checked out in another worktree
-			'remote:origin/wt', // 3 — that worktree branch's upstream
-			'head:main', // 4 — the default branch
-			'head:zlocal', // 5 — a plain local
-			'remote:origin/zremote', // 6 — a plain remote
-			'tag:v1', // 7 — tags last
+			'head:current',
+			'remote:origin/current',
+			'head:main',
+			'head:zlocal',
+			'remote:origin/zremote',
+			'tag:v1',
 		]);
+		assert.deepStrictEqual(keys(sortRowRefs(refs, {})), keys(sortRowRefs(refs)));
 	});
 
 	test('a remote-only default branch outranks a plain local', () => {
@@ -80,6 +110,98 @@ suite('graph ref ordering — sortRowRefs tiers', () => {
 	test('is a no-op for a single ref', () => {
 		const refs = [head('solo')];
 		assert.deepStrictEqual(keys(sortRowRefs(refs)), ['head:solo']);
+	});
+});
+
+suite('graph ref ordering — the current branch upstream, off its own row', () => {
+	// The case this tier exists for: HEAD is ahead of or behind its upstream, so the local pill is on a
+	// DIFFERENT row and the row-local `current` match can't fire. Without the name, `origin/main` reads
+	// as a plain remote and loses the primary slot on alphabetical collation.
+	test('outranks a co-located remote that would otherwise win on name', () => {
+		const refs = [remote('origin', 'main'), remote('origin', 'aaa-feature')];
+
+		assert.deepStrictEqual(keys(sortRowRefs(refs)), ['remote:origin/aaa-feature', 'remote:origin/main']);
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { currentUpstreamName: 'origin/main' })), [
+			'remote:origin/main',
+			'remote:origin/aaa-feature',
+		]);
+	});
+
+	test('outranks the default branch when the current branch is not the default', () => {
+		const refs = [remote('origin', 'main', { isDefault: true }), remote('origin', 'feature')];
+
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { currentUpstreamName: 'origin/feature' })), [
+			'remote:origin/feature',
+			'remote:origin/main',
+		]);
+	});
+
+	test('matches on the full owner/name, so a same-named branch on another remote is not promoted', () => {
+		const refs = [remote('upstream', 'main'), remote('origin', 'main')];
+
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { currentUpstreamName: 'upstream/main' })), [
+			'remote:upstream/main',
+			'remote:origin/main',
+		]);
+	});
+
+	test('never promotes a local head or a tag that shares the upstream name', () => {
+		const refs = [tag('main'), head('main'), remote('origin', 'zzz')];
+
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { currentUpstreamName: 'main' })), [
+			'head:main',
+			'remote:origin/zzz',
+			'tag:main',
+		]);
+	});
+});
+
+suite('graph ref ordering — pins', () => {
+	const refs = [{ ...trackedHead('main', 'origin'), current: true }, remote('origin', 'main'), tag('v1')];
+
+	test('the click pin takes the primary slot, ahead of the current checkout', () => {
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefKey: 'tag:v1' })), [
+			'tag:v1',
+			'head:main',
+			'remote:origin/main',
+		]);
+	});
+
+	test('the edge pin ranks below the current checkout, matched by id', () => {
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefId: `${repo}|tags/v1` })), [
+			'head:main',
+			'tag:v1',
+			'remote:origin/main',
+		]);
+	});
+
+	test('is a no-op when the pinned ref is absent from the row', () => {
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefKey: 'head:nope' })), keys(sortRowRefs(refs)));
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefId: headId('nope') })), keys(sortRowRefs(refs)));
+	});
+
+	test('distinguishes a local from the remote it tracks (both are named `main`)', () => {
+		assert.strictEqual(keys(sortRowRefs(refs, { pinnedRefKey: 'remote:origin/main' }))[0], 'remote:origin/main');
+	});
+
+	test('the click pin wins over the edge pin when both are on the row', () => {
+		const both = { pinnedRefKey: 'remote:origin/main', pinnedRefId: `${repo}|tags/v1` };
+		assert.deepStrictEqual(keys(sortRowRefs(refs, both)), ['remote:origin/main', 'head:main', 'tag:v1']);
+	});
+
+	// The two pins live in different namespaces — an id must never fall through to key matching, or a key
+	// that happens to look like an id would promote.
+	test('the edge pin matches on id only, never on key', () => {
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefId: 'tag:v1' })), keys(sortRowRefs(refs)));
+	});
+
+	test('an edge-pinned current branch stays primary rather than dropping a tier', () => {
+		assert.strictEqual(keys(sortRowRefs(refs, { pinnedRefId: headId('main') }))[0], 'head:main');
+	});
+
+	test('the edge pin promotes a local head, not just a remote', () => {
+		const withLocal = [...refs, head('other')];
+		assert.strictEqual(keys(sortRowRefs(withLocal, { pinnedRefId: headId('other') }))[1], 'head:other');
 	});
 });
 
@@ -135,63 +257,6 @@ suite('graph ref ordering — upstream pairing', () => {
 	});
 });
 
-suite('graph ref ordering — promotePinned', () => {
-	const parsed: ParsedRef[] = [
-		{ kind: 'head', name: 'main', current: true },
-		{ kind: 'remote', name: 'main', owner: 'origin' },
-		{ kind: 'tag', name: 'v1' },
-	];
-
-	test('moves the pinned ref to the front', () => {
-		assert.deepStrictEqual(keys(promotePinned(parsed, 'tag:v1')), ['tag:v1', 'head:main', 'remote:origin/main']);
-	});
-
-	test('is a no-op when nothing is pinned, the pin is absent, or it is already primary', () => {
-		assert.deepStrictEqual(keys(promotePinned(parsed, undefined)), keys(parsed));
-		assert.deepStrictEqual(keys(promotePinned(parsed, 'head:nope')), keys(parsed));
-		assert.deepStrictEqual(keys(promotePinned(parsed, 'head:main')), keys(parsed));
-	});
-
-	test('distinguishes a local from the remote it tracks (both are named `main`)', () => {
-		assert.deepStrictEqual(keys(promotePinned(parsed, 'remote:origin/main'))[0], 'remote:origin/main');
-	});
-
-	// The edge pin (`gitlens.graph.pinBranchToEdge`) is persisted host state matched by ID, distinct from the
-	// transient click pin matched by key. Promoting it is what keeps its indicator + unpin control on the
-	// visible pill instead of buried in the +N popover.
-	const withIds: ParsedRef[] = [
-		{ kind: 'head', name: 'main', current: true, id: 'repo|heads/main' },
-		{ kind: 'remote', name: 'main', owner: 'origin', id: 'repo|remotes/origin/main' },
-		{ kind: 'tag', name: 'v1', id: 'repo|tags/v1' },
-	];
-
-	test('moves the edge-pinned ref to the front, matched by id', () => {
-		assert.deepStrictEqual(keys(promotePinned(withIds, undefined, 'repo|tags/v1')), [
-			'tag:v1',
-			'head:main',
-			'remote:origin/main',
-		]);
-	});
-
-	test('is a no-op when the edge pin is absent from the row or already primary', () => {
-		assert.deepStrictEqual(keys(promotePinned(withIds, undefined, 'repo|heads/nope')), keys(withIds));
-		assert.deepStrictEqual(keys(promotePinned(withIds, undefined, 'repo|heads/main')), keys(withIds));
-	});
-
-	test('the click pin wins over the edge pin when both are on the row', () => {
-		assert.deepStrictEqual(
-			keys(promotePinned(withIds, 'remote:origin/main', 'repo|tags/v1'))[0],
-			'remote:origin/main',
-		);
-	});
-
-	// An id-matched pin must not fall through to key matching: `head:main` and the pinned id are different
-	// namespaces, so a key that happens to look like an id can never promote.
-	test('the edge pin does not match on key, only on id', () => {
-		assert.deepStrictEqual(keys(promotePinned(withIds, undefined, 'tag:v1')), keys(withIds));
-	});
-});
-
 suite('graph ref ordering — pickGhostRef', () => {
 	test('returns the same ref the pill would make primary', () => {
 		const refs = [tag('v1'), remote('origin', 'zremote'), head('zlocal'), head('main', { isDefault: true })];
@@ -214,6 +279,23 @@ suite('graph ref ordering — pickGhostRef', () => {
 	test('returns undefined for a row with no refs', () => {
 		assert.strictEqual(pickGhostRef([], undefined, undefined, undefined), undefined);
 		assert.strictEqual(pickGhostRef(undefined, undefined, undefined, undefined), undefined);
+	});
+
+	// The ghost and the pill must never name different branches for the same row — so the ghost has to see
+	// the same non-ref-data order inputs the pill does.
+	test('honors the pins and the current upstream, so it still matches the pill', () => {
+		const refs = [tag('v1'), remote('origin', 'zremote'), head('zlocal'), head('main', { isDefault: true })];
+
+		for (const order of [
+			{ pinnedRefKey: 'tag:v1' },
+			{ pinnedRefId: headId('zlocal') },
+			{ currentUpstreamName: 'origin/zremote' },
+		]) {
+			const ghost = pickGhostRef(refs, undefined, undefined, undefined, order);
+			assert.strictEqual(refPillKey(ghost!), refPillKey(sortRowRefs(refs, order)[0]));
+		}
+
+		assert.strictEqual(pickGhostRef(refs, undefined, undefined, undefined, { pinnedRefKey: 'tag:v1' })!.name, 'v1');
 	});
 });
 

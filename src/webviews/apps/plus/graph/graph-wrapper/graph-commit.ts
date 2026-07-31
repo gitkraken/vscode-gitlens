@@ -327,6 +327,20 @@ export function isRefHidden(
 }
 
 /**
+ * Stable, UNIQUE per-ref key (a local branch and the remote it tracks share a `name`, e.g. `main` vs
+ * `origin/main`, so name alone can't identify a ref). Kind + remote owner + name disambiguates:
+ * `head:main`, `remote:origin/main`, `tag:v1`. Also what the rendered pill carries as `data-ref-key`.
+ */
+export function refPillKey(ref: { kind: string; name: string; owner?: string | null }): string {
+	return ref.kind === 'remote' ? `remote:${ref.owner ?? ''}/${ref.name}` : `${ref.kind}:${ref.name}`;
+}
+
+/** A remote ref's full `owner/name` — what an upstream is named by (`origin/main`). */
+function remoteFullName(ref: GraphCommitRef): string {
+	return ref.owner != null ? `${ref.owner}/${ref.name}` : ref.name;
+}
+
+/**
  * True when `remote` is the upstream that `head` tracks. Prefers the exact ref-id match (a local and
  * its remote share a `name`, so the id disambiguates); falls back to the full `owner/name` for legacy
  * rows that don't carry ids, and finally — only for a head with NO upstream configured at all — to a
@@ -339,46 +353,74 @@ export function isUpstreamRemoteOf(remote: GraphCommitRef, head: GraphCommitRef 
 	if (head == null || remote.kind !== 'remote' || head.kind !== 'head') return false;
 	if (head.upstreamId != null && remote.id != null) return head.upstreamId === remote.id;
 	if (head.upstreamName != null) {
-		const full = remote.owner != null ? `${remote.owner}/${remote.name}` : remote.name;
-		return head.upstreamName === full || head.upstreamName === remote.name;
+		return head.upstreamName === remoteFullName(remote) || head.upstreamName === remote.name;
 	}
 
 	return head.upstreamId == null && remote.name === head.name;
 }
 
 /**
- * Order a row's refs for display, primary first: current ref → current upstream → worktree ref →
- * worktree upstream → default branch → local → remote → tag. Ties break on the BARE name (numeric
- * collation, so `v1.9.0` precedes `v1.10.0`) then the remote owner — never the rendered label, so the
- * order can't shift when `gitlens.graph.showRemoteNames` toggles and same-named remotes from different
- * owners stay adjacent. The upstream tiers match a remote ref to the current/worktree head's upstream;
- * they (and the worktree/default tiers) activate as the host carries `upstream` / `worktree` / a
- * default flag (additive, legacy-safe) — until then those refs simply fall through to local/remote/tag,
- * which is what virtual/GitHub repos get since their provider ships none of those fields.
+ * The order inputs that are NOT ref data — runtime state a row can't know about on its own. Held as
+ * one object rebuilt only when an input changes, so the per-row calls allocate nothing and consumers
+ * can invalidate their projection caches on identity alone.
+ */
+export interface RowRefOrder {
+	/** `refPillKey` of the CLICK-pinned ref (transient focus). */
+	pinnedRefKey?: string;
+	/** `id` of the ref pinned to the EDGE (persisted host state). */
+	pinnedRefId?: string;
+	/** Full `owner/name` of the current branch's upstream (`branchState.upstream`). Ranks that remote
+	 *  even on rows the local HEAD pill ISN'T on — i.e. whenever HEAD is ahead of or behind it, which
+	 *  is precisely when the two land on different rows. */
+	currentUpstreamName?: string;
+}
+
+/**
+ * Order a row's refs for display, primary first: click-pinned → current ref → edge-pinned → current
+ * upstream → worktree ref → worktree upstream → default branch → local → remote → tag. Ties break on
+ * the BARE name (numeric collation, so `v1.9.0` precedes `v1.10.0`) then the remote owner — never the
+ * rendered label, so the order can't shift when `gitlens.graph.showRemoteNames` toggles and same-named
+ * remotes from different owners stay adjacent. The upstream tiers match a remote ref to the
+ * current/worktree head's upstream; they (and the worktree/default tiers) activate as the host carries
+ * `upstream` / `worktree` / a default flag (additive, legacy-safe) — until then those refs simply fall
+ * through to local/remote/tag, which is what virtual/GitHub repos get since their provider ships none
+ * of those fields.
+ *
+ * The current-upstream tier reads `order.currentUpstreamName` as well as the row's own current head,
+ * because the row-local match only fires when HEAD and its upstream sit on the SAME commit (in sync).
+ * The click pin outranks the current checkout — it's an explicit, transient focus act, and only the
+ * PRIMARY pill carries `.is-pinned`, so burying it would leave the click with no visible effect.
  *
  * Shared by the ref pill (`refAdornmentProvider`) and the lane-tip ghost ref so the two can't name
  * different branches for the same row.
  */
-export function sortRowRefs(refs: readonly GraphCommitRef[]): GraphCommitRef[] {
+export function sortRowRefs(refs: readonly GraphCommitRef[], order?: RowRefOrder): GraphCommitRef[] {
 	if (refs.length < 2) return refs.slice();
 
 	const currentHead = refs.find(r => r.kind === 'head' && r.current);
 	const worktreeHeads = refs.filter(r => r.kind === 'head' && r.secondaryWorktreeId != null);
 	const tier = (r: GraphCommitRef): number => {
+		// Either pin can land on a head OR a remote, so both straddle the kind switch below. Click before
+		// edge: it's the more recent, explicitly-expressed intent when a row carries both.
+		if (order?.pinnedRefKey != null && refPillKey(r) === order.pinnedRefKey) return 0; // click-pinned
+		if (r.kind === 'head' && r.current) return 1; // the current checkout
+		if (order?.pinnedRefId != null && r.id === order.pinnedRefId) return 2; // pinned to the edge
 		if (r.kind === 'head') {
-			if (r.current) return 0; // the current checkout
-			if (r.secondaryWorktreeId != null) return 2; // checked out in another worktree
-			if (r.isDefault) return 4; // the repo's default branch
-			return 5; // local branch
+			if (r.secondaryWorktreeId != null) return 4; // checked out in another worktree
+			if (r.isDefault) return 6; // the repo's default branch
+			return 7; // local branch
 		}
 		if (r.kind === 'remote') {
-			if (isUpstreamRemoteOf(r, currentHead)) return 1; // upstream of the current branch
-			if (worktreeHeads.some(h => isUpstreamRemoteOf(r, h))) return 3; // upstream of a worktree branch
-			if (r.isDefault) return 4; // the repo's default branch (remote-only — no local checkout)
-			return 6; // remote branch
+			// The row-local match covers an in-sync HEAD (its local pill is right here); the name match
+			// covers every other row — which is all of them once HEAD is ahead of or behind its upstream.
+			if (isUpstreamRemoteOf(r, currentHead)) return 3; // upstream of the current branch
+			if (order?.currentUpstreamName != null && remoteFullName(r) === order.currentUpstreamName) return 3;
+			if (worktreeHeads.some(h => isUpstreamRemoteOf(r, h))) return 5; // upstream of a worktree branch
+			if (r.isDefault) return 6; // the repo's default branch (remote-only — no local checkout)
+			return 8; // remote branch
 		}
 
-		return 7; // tag
+		return 9; // tag
 	};
 
 	return refs.toSorted(
@@ -401,13 +443,14 @@ export function pickGhostRef(
 	excludeTypes: GraphExcludeTypes | undefined,
 	excludeRefs: GraphExcludeRefs | undefined,
 	downstreams: GraphDownstreams | undefined,
+	order?: RowRefOrder,
 ): GraphCommitRef | undefined {
 	if (refs == null || refs.length === 0) return undefined;
 
 	const visible = refs.filter(r => !isRefHidden(r, excludeTypes, excludeRefs, downstreams));
 	if (visible.length === 0) return undefined;
 
-	return sortRowRefs(visible)[0];
+	return sortRowRefs(visible, order)[0];
 }
 
 /**

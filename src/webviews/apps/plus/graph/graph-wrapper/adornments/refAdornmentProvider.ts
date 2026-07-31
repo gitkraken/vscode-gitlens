@@ -18,8 +18,8 @@ import type { StyleInfo } from '../../../../shared/components/csp-style-map.dire
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
 import type { RowMarkerRole, RowMarkerTips } from '../../utils/rowMarker.utils.js';
 import { primaryRowMarkerRole, rowMarkerRolesFor, shortRefName } from '../../utils/rowMarker.utils.js';
-import type { GraphCommitRef, GraphCommitView } from '../graph-commit.js';
-import { isRefHidden, isUpstreamRemoteOf, sortRowRefs } from '../graph-commit.js';
+import type { GraphCommitRef, GraphCommitView, RowRefOrder } from '../graph-commit.js';
+import { isRefHidden, isUpstreamRemoteOf, refPillKey, sortRowRefs } from '../graph-commit.js';
 import '../../../../shared/components/code-icon.js';
 import '../../../../shared/components/overlays/popover.js';
 import '../../../../shared/components/pills/tracking.js';
@@ -92,14 +92,15 @@ export interface RefPillHooks {
 // projection — NO lossy parsing of git-log token strings (the old `parseRefs` heuristic is gone); the
 // metadata arrives intact from `toGraphCommit`, so the primary-ref ordering can be exact.
 //
-// Ordering happens HERE rather than at render because `sortRowRefs` depends only on the ref data —
-// so it rides the per-commit projection cache (once per commit, not once per render), and every
-// consumer of the projection (pills, popover, the a11y description) sees the same order for free.
-// The one order input that ISN'T ref data — the click-pinned ref — stays at render (`promotePinned`).
+// Ordering happens HERE rather than at render so it rides the per-commit projection cache (once per
+// commit, not once per render) and every consumer of the projection — pills, popover, the a11y
+// description, the lane-tip ghost ref — sees the same order for free. `order` carries the inputs that
+// AREN'T ref data (the two pins, HEAD's upstream); the caller must bust its cache when that object
+// changes, which `createRefAdornmentProvider` does by identity.
 //
 // Exported for the WIP row's row-marker pill (`buildWipRowMarkerPill`), which projects the HEAD row's refs.
-export function toParsedRefs(refs: readonly GraphCommitRef[]): ParsedRef[] {
-	return sortRowRefs(refs).map(r => ({
+export function toParsedRefs(refs: readonly GraphCommitRef[], order?: RowRefOrder): ParsedRef[] {
+	return sortRowRefs(refs, order).map(r => ({
 		kind: r.kind,
 		name: r.name,
 		id: r.id,
@@ -112,15 +113,6 @@ export function toParsedRefs(refs: readonly GraphCommitRef[]): ParsedRef[] {
 		hostingServiceType: r.hostingServiceType,
 		context: r.context,
 	}));
-}
-
-/**
- * Stable, UNIQUE per-ref key (a local branch and the remote it tracks share a `name`, e.g. `main` vs
- * `origin/main`, so name alone can't identify a pill — that broke click-pinning a split pill). Kind +
- * remote owner + name disambiguates: `head:main`, `remote:origin/main`, `tag:v1`.
- */
-export function refPillKey(ref: { kind: string; name: string; owner?: string | null }): string {
-	return ref.kind === 'remote' ? `remote:${ref.owner ?? ''}/${ref.name}` : `${ref.kind}:${ref.name}`;
 }
 
 /** Live ref-visibility filter state (Hide branch / Hide Remotes·Tags), read fresh each rebuild.
@@ -139,10 +131,10 @@ function hasActiveRefFilter(state: RefExcludeState): boolean {
 }
 
 /**
- * @param getPinnedRefKey Returns the currently click-pinned ref's `refPillKey` (if any). When a row
- * carries that ref, it's promoted to the inline pill (the displaced primary drops into the +N popover)
- * so the pinned ref stays visible at a glance until it's unpinned. The host recomputes adornments on
- * pin/unpin so this re-applies.
+ * @param getRefOrder Returns the live ordering inputs that aren't ref data — the click pin, the edge
+ * pin, and the current branch's upstream name. The pinned ref takes the inline pill (the displaced
+ * primary drops into the +N popover) so it stays visible at a glance until it's unpinned. The host
+ * recomputes adornments on pin/unpin and on a branch change so this re-applies.
  * @param getExcludeState Returns the active ref-visibility filters, read fresh on each adornments
  * rebuild. Hidden refs (by type or by id; current HEAD always kept) are filtered out of each row's
  * pills. The host recomputes adornments when these change so the filter re-applies.
@@ -150,7 +142,7 @@ function hasActiveRefFilter(state: RefExcludeState): boolean {
  * the pills render from live on the commit, not the engine row.
  */
 export function createRefAdornmentProvider(
-	getPinnedRefKey: (() => string | undefined) | undefined,
+	getRefOrder: (() => RowRefOrder | undefined) | undefined,
 	hooks: RefPillHooks | undefined,
 	getExcludeState: (() => RefExcludeState) | undefined,
 	getCommit: (sha: Sha) => GraphCommitView | undefined,
@@ -158,12 +150,22 @@ export function createRefAdornmentProvider(
 	// Cache the projection by the structured-refs array reference. `commitRefs` is stable per commit
 	// (built once in toGraphCommit), so this avoids re-allocating the view model on every adornments
 	// rebuild (which happens whenever a new provider list is built upstream — e.g. agent updates).
-	const cache = new WeakMap<readonly GraphCommitRef[], ParsedRef[]>();
+	let cache = new WeakMap<readonly GraphCommitRef[], ParsedRef[]>();
+	// The ORDER is baked into the projection, and `commitRefs` survives a click-pin or branch change
+	// untouched (only the edge pin rebuilds rows) — so the whole cache is dropped when the order object
+	// changes. Identity is the signal: the client rebuilds it only when an input actually moved.
+	let cachedOrder: RowRefOrder | undefined;
 	const projectCached = (refs: readonly GraphCommitRef[]): ParsedRef[] => {
+		const order = getRefOrder?.();
+		if (order !== cachedOrder) {
+			cache = new WeakMap();
+			cachedOrder = order;
+		}
+
 		const hit = cache.get(refs);
 		if (hit) return hit;
 
-		const parsed = toParsedRefs(refs);
+		const parsed = toParsedRefs(refs, order);
 		cache.set(refs, parsed);
 		return parsed;
 	};
@@ -190,17 +192,15 @@ export function createRefAdornmentProvider(
 		resolveAdornment: function (row: ProcessedGraphRow, parsed?: ParsedRef[]): TemplateResult | null {
 			if (!parsed || parsed.length === 0) return null;
 
-			return renderRefPill(parsed, colorForColumn(row.column), getPinnedRefKey?.(), row.sha, hooks);
+			return renderRefPill(parsed, colorForColumn(row.column), row.sha, hooks);
 		},
 
 		describeForA11y: function (_row: ProcessedGraphRow, parsed?: ParsedRef[]): string | null {
 			if (!parsed || parsed.length === 0) return null;
 
-			// Announce in the SAME order the pills render: `parsed` is already display-sorted, and the pin
-			// is re-applied here so a screen reader hears the pinned ref first, exactly as it's drawn.
-			return promotePinned(parsed, getPinnedRefKey?.(), hooks?.getPinnedRefId?.())
-				.map(r => describeRef(r, hooks))
-				.join(', ');
+			// Announce in the SAME order the pills render — `parsed` arrives fully display-sorted, pins
+			// included, so a screen reader hears the pinned ref first exactly as it's drawn.
+			return parsed.map(r => describeRef(r, hooks)).join(', ');
 		},
 	};
 }
@@ -223,34 +223,6 @@ function refStyle(color: string, isHead: boolean, _variant: 'pill' | 'row'): Sty
 		'--ref-bg': isHead ? withAlpha(color, 0.15) : 'transparent',
 		'--ref-border': isHead ? color : withAlpha(color, 0.6),
 	};
-}
-
-/**
- * Move a pinned ref to the front so it becomes the inline pill (the previous primary drops into the +N
- * popover). No-op when nothing is pinned, the pinned ref isn't on this row, or it's already primary.
- *
- * Two independent pins, checked in that order:
- * 1. `pinnedRefKey` — the CLICK-pinned ref (transient focus). Matched on `refPillKey` (kind + owner +
- *    name), so pinning `origin/main` doesn't also match the local `main` it tracks.
- * 2. `pinnedRefId` — the ref pinned to the EDGE (persisted host state). Matched on `id`, which is what
- *    the host stores. Promoting it is what keeps its indicator (and so its Unpin action) reachable on a
- *    multi-ref row instead of buried in the +N popover.
- *
- * The click pin wins when both are on the row: it's the more recent, explicitly-expressed intent.
- */
-export function promotePinned(sorted: ParsedRef[], pinnedRefKey?: string, pinnedRefId?: string): ParsedRef[] {
-	if (sorted.length < 2) return sorted;
-
-	let idx = pinnedRefKey != null ? sorted.findIndex(r => refPillKey(r) === pinnedRefKey) : -1;
-	if (idx < 0 && pinnedRefId != null) {
-		idx = sorted.findIndex(r => r.id === pinnedRefId);
-	}
-	if (idx <= 0) return sorted;
-
-	const promoted = sorted.slice();
-	const [ref] = promoted.splice(idx, 1);
-	promoted.unshift(ref);
-	return promoted;
 }
 
 // PR chip icon by state (case-insensitive — the host's `state` string isn't a strict union); merged/
@@ -401,17 +373,15 @@ export interface RefPillRowMarker {
 export function renderRefPill(
 	parsed: ParsedRef[],
 	color: string,
-	pinnedRefKey?: string,
 	fromSha?: Sha,
 	hooks?: RefPillHooks,
 	rowMarker?: RefPillRowMarker,
 ): TemplateResult {
 	const showRemoteNames = hooks?.getShowRemoteNames() === true;
-	// `parsed` already arrives in `sortRowRefs` display order (see `toParsedRefs`); only the pins —
-	// runtime state, not ref data — are applied here.
+	// `parsed` arrives fully ordered (see `toParsedRefs` → `sortRowRefs`), pins included — nothing is
+	// reordered here.
 	const edgePinnedId = hooks?.getPinnedRefId?.();
-	const sorted = promotePinned(parsed, pinnedRefKey, edgePinnedId);
-	const primary = sorted[0];
+	const primary = parsed[0];
 	const isHead = primary.current === true;
 	const primaryContext = primary.context;
 	// The primary pill's leading glyph becomes the pin when this ref is pinned to the edge (see
@@ -441,8 +411,8 @@ export function renderRefPill(
 	// In-sync combine: when a head's upstream remote is ALSO on this row (same commit ⇒ in sync), fold it
 	// into that head's upstream segment instead of listing it separately — so the pair reads as one
 	// combined pill. Applied to the PRIMARY pill and (below) to each head in the +N popover alike.
-	const upstreamOnRow = sorted.find((r, i) => i > 0 && isUpstreamRemoteOf(r, primary));
-	const afterPrimary = upstreamOnRow != null ? sorted.slice(1).filter(r => r !== upstreamOnRow) : sorted.slice(1);
+	const upstreamOnRow = parsed.find((r, i) => i > 0 && isUpstreamRemoteOf(r, primary));
+	const afterPrimary = upstreamOnRow != null ? parsed.slice(1).filter(r => r !== upstreamOnRow) : parsed.slice(1);
 	// Within the popover, pair each head with its in-sync upstream remote (if also listed) and absorb that
 	// remote into the head's row, so the expanded rows combine just like the primary pill.
 	const popoverUpstreamFor = new Map<ParsedRef, ParsedRef>();

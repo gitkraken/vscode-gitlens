@@ -105,16 +105,11 @@ import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 import type { LaneCollapseChipContext } from './adornments/laneCollapseAdornmentProvider.js';
 import type { ParsedRef, RefPillHooks } from './adornments/refAdornmentProvider.js';
-import {
-	createRefAdornmentProvider,
-	refPillKey,
-	renderRefPill,
-	toParsedRefs,
-} from './adornments/refAdornmentProvider.js';
+import { createRefAdornmentProvider, renderRefPill, toParsedRefs } from './adornments/refAdornmentProvider.js';
 import { createWipStatsAdornmentProvider } from './adornments/wipStatsAdornmentProvider.js';
 import type { WipStats } from './adornments/wipStatsAdornmentProvider.js';
-import type { GraphCommitRef, GraphCommitView } from './graph-commit.js';
-import { columnsToZones, pickGhostRef, toGraphCommit, zonesToColumnsConfig } from './graph-commit.js';
+import type { GraphCommitRef, GraphCommitView, RowRefOrder } from './graph-commit.js';
+import { columnsToZones, pickGhostRef, refPillKey, toGraphCommit, zonesToColumnsConfig } from './graph-commit.js';
 import type { FixedSizeLayoutSpecifier } from './graph-fixed-layout.js';
 import { fixedSizeVertical } from './graph-fixed-layout.js';
 import { GutterCache, gutterEpochSignature } from './graph-gutter-cache.js';
@@ -578,6 +573,10 @@ export class GlLitGraph extends LitElement {
 	// Branch pinned to the leftmost lane(s) (gitlens.graph.pinBranchToEdge). Resolved to a sha and fed
 	// to the engine as `pinnedShas`; a floating "Jump to Pinned Branch" pill scrolls to it when off-screen.
 	@property({ type: Object }) pinnedRef?: GraphPinnedRef;
+	// Full `owner/name` of the CURRENT branch's upstream (`branchState.upstream`). Ranks that remote's
+	// pill right after the pins on every row — including the rows HEAD's own pill isn't on, which is all
+	// of them once HEAD is ahead of or behind it. See `RowRefOrder`.
+	@property({ type: String }) currentUpstream?: string;
 	// Columns whose header filter is currently active (derived host-side from the search query's
 	// operators — see graph-header's `updateActiveFilterColumns`). A filterable column's header filter
 	// button is persistently shown + accent-toned when its id is in this set, and its 22px footprint
@@ -809,6 +808,7 @@ export class GlLitGraph extends LitElement {
 						this.excludeTypes,
 						this.excludeRefs,
 						this.downstreams,
+						this._refOrder,
 					)
 				: undefined;
 		const ghostRef: RowRenderContext['ghostRef'] =
@@ -1152,7 +1152,7 @@ export class GlLitGraph extends LitElement {
 		onUnpinRef: () => this.dispatchEvent(new CustomEvent('gl-graph-unpinref')),
 	};
 	private refsProvider = createRefAdornmentProvider(
-		() => this._pinnedRefKey,
+		() => this._refOrder,
 		this.refPillHooks,
 		() => ({ excludeTypes: this.excludeTypes, excludeRefs: this.excludeRefs, downstreams: this.downstreams }),
 		this.getCommitBySha,
@@ -1374,6 +1374,13 @@ export class GlLitGraph extends LitElement {
 		}
 		const idLength = this.config?.idLength ?? 7;
 
+		// A new upstream reorders pills the cached adornments already resolved, so it invalidates them. The
+		// pins invalidate themselves — `togglePinnedRef`/`clearPinnedRef` for the click pin, `recomputeRows`
+		// below for the edge pin.
+		if (changed.has('currentUpstream')) {
+			this.invalidateAdornments();
+		}
+
 		// Hiding stashes drops stash rows from the ENGINE input, and pinning a branch changes the column
 		// layout — both re-run recomputeRows, so fold them into the row-set change signal.
 		const excludeStashes = this.excludeTypes?.stashes === true;
@@ -1414,6 +1421,11 @@ export class GlLitGraph extends LitElement {
 				this.unpinRefPill();
 			}
 		}
+
+		// Refresh the ref-ordering inputs AFTER the scope-change block above may have cleared the click pin
+		// — that write lands inside this same update cycle, so reading it earlier would order this render's
+		// pills against a pin belonging to the prior scope. Nothing before this point reads the projection.
+		this.updateRefOrder();
 
 		// Scope anchors depend on BOTH rows + scope (anchor reachability is row-membership — an
 		// unreachable anchor becomes reachable once more rows page in), and MUST run before
@@ -6922,6 +6934,38 @@ export class GlLitGraph extends LitElement {
 		return new Set([...scoped, sha]);
 	}
 
+	// The ref-ordering inputs that aren't ref data, shared by the ref pills and the lane-tip ghost ref.
+	// Written in `willUpdate` via `updateRefOrder`.
+	private _refOrder?: RowRefOrder;
+
+	// Rebuild the ref-ordering inputs (both pins + the current branch's upstream) ONLY when one of them
+	// actually moves — the object's IDENTITY is what `createRefAdornmentProvider` keys its projection
+	// cache on, so a fresh object per update would defeat it. Stays undefined while none is set (nothing
+	// pinned, no upstream), which lets `sortRowRefs` skip the pin checks outright.
+	private updateRefOrder(): void {
+		const pinnedRefKey = this._pinnedRefKey;
+		const pinnedRefId = this.pinnedRef?.id;
+		const currentUpstreamName = this.currentUpstream;
+
+		const order = this._refOrder;
+		if (
+			order?.pinnedRefKey === pinnedRefKey &&
+			order?.pinnedRefId === pinnedRefId &&
+			order?.currentUpstreamName === currentUpstreamName
+		) {
+			return;
+		}
+
+		this._refOrder =
+			pinnedRefKey == null && pinnedRefId == null && currentUpstreamName == null
+				? undefined
+				: {
+						pinnedRefKey: pinnedRefKey,
+						pinnedRefId: pinnedRefId,
+						currentUpstreamName: currentUpstreamName,
+					};
+	}
+
 	// Per-render cache of the current worktree's row-marker tips (HEAD / upstream / merge-target shas +
 	// target name). Written once in `updateRenderState`; read by the ref-pill role hook per pill so it
 	// never recomputes.
@@ -6987,7 +7031,7 @@ export class GlLitGraph extends LitElement {
 		// through to the pin path and open a branch sheet keyed to the WIP row's synthetic sha, breaking this
 		// pill's jump-only contract. One ref ⇒ bare pill, no popover, no such path.
 		const currentHead = target.headRefs.find(r => r.kind === 'head' && r.current === true);
-		const parsed = toParsedRefs(currentHead != null ? [currentHead] : target.headRefs);
+		const parsed = toParsedRefs(currentHead != null ? [currentHead] : target.headRefs, this._refOrder);
 		// The upstream segment NAMES the remote here rather than counting the divergence (see
 		// `RefPillRowMarker.upstream`). The name rides on the head ref itself, so the segment never waits on
 		// paging; the remote ref — the only source of the provider glyph — is looked up when its row is loaded.
@@ -7001,7 +7045,6 @@ export class GlLitGraph extends LitElement {
 		return renderRefPill(
 			parsed,
 			colorForColumn(target.column),
-			undefined,
 			// `wipRowMarkerPillTarget` returned a target, so `repoPath` is set.
 			createWipRowId(this.repoPath!),
 			this.refPillHooks,
