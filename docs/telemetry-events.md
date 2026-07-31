@@ -1501,7 +1501,7 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/action/openRepoOnRemote
 
-> Sent when the user clicks on the "Jump to HEAD"/"Jump to Reference" (alt) header button on the Commit Graph
+> Sent when the user lands on a reference with the Commit Graph's type-ahead reference finder
 
 ```typescript
 {
@@ -1514,6 +1514,34 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
+}
+```
+
+### graph/action/refFind
+
+> Sent when the user clicks on the "Jump to HEAD"/"Jump to Reference" (alt) header button on the Commit Graph
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Which kind of reference was landed on.
+  'kind': 'head' | 'remote' | 'tag',
+  // Whether the reference's commit had to be paged in first (the Enter-to-fetch path).
+  'loaded': boolean,
+  // Whether the query used `/` path segments (e.g. `d/f/foo`) rather than a plain substring.
+  'segmented': boolean,
+  // How the finder was opened — tells us whether the header button is carrying its own discovery.
+  'source': 'shortcut' | 'button',
+  // Terms in the query, as a proxy for how much typing it took to converge. NOT the query itself.
+  'terms': number
 }
 ```
 

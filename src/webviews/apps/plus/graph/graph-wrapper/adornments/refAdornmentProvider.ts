@@ -86,6 +86,10 @@ export interface RefPillHooks {
 	 *  live. A pill on a tip row takes that role's emphasis (`--row-marker-<role>` class); the HEAD pill also
 	 *  gets the merge-target jump segment. Undefined until the client builds the tips. */
 	getRowMarkerTips?: () => RowMarkerTips | undefined;
+	/** Pill key (see {@link refPillKey}) of the ref the find widget last landed on, read live. That pill
+	 *  wears the selected/hover fill for as long as the widget is open, so the ref you asked for is
+	 *  identifiable among the others sharing its row. */
+	getFindHitRefKey?: () => string | undefined;
 }
 
 // Map the structured commit refs to the pill's view model, ALREADY in display order. A plain
@@ -407,7 +411,9 @@ export function renderRefPill(
 	const emphasisRole = role === 'head' || role === 'upstream' ? role : undefined;
 	const rowMarkerClass = `${emphasisRole != null ? ` gl-graph__ref-pill--row-marker-${emphasisRole}` : ''}${
 		emphasisRole != null && rowMarker?.muted === true ? ' gl-graph__ref-pill--row-marker-muted' : ''
-	}${rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''}`;
+	}${rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''}${
+		hooks?.getFindHitRefKey?.() === refPillKey(primary) ? ' gl-graph__ref-pill--find-hit' : ''
+	}`;
 	// In-sync combine: when a head's upstream remote is ALSO on this row (same commit ⇒ in sync), fold it
 	// into that head's upstream segment instead of listing it separately — so the pair reads as one
 	// combined pill. Applied to the PRIMARY pill and (below) to each head in the +N popover alike.

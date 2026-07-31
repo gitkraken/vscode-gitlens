@@ -93,6 +93,7 @@ const navigationGroup: ShortcutGroup = {
 			description: 'Select previous / next ref',
 		},
 		{ chords: [['H']], description: 'Select HEAD commit (hold Shift for its upstream)' },
+		{ chords: [['/']], description: 'Find a branch or tag by name and jump to it' },
 		{ chords: [['Esc']], description: 'Clear selection' },
 	],
 };

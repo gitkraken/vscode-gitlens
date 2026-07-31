@@ -2329,6 +2329,98 @@ gl-lit-graph {
 		margin-inline-start: 0;
 	}
 
+	// The ref the find widget landed on wears the SAME fill the pill takes on hover — lane color inside,
+	// per-lane contrast color for the text — so the ref you asked for is identifiable among the others
+	// sharing its row, in the vocabulary the pill already speaks. Held while the finder is open, and
+	// dropped when it closes: the emphasis belongs to the find, not to the selection it leaves behind.
+	// Role-colored pills (HEAD / upstream) are excluded — their fill carries meaning this must not
+	// overwrite, and they are already the most legible pills on screen.
+	.gl-graph__ref-pill--find-hit:not(.gl-graph__ref-pill--row-marker-head, .gl-graph__ref-pill--row-marker-upstream) {
+		color: var(--ref-on-color, #fff);
+		background-color: var(--ref-color);
+	}
+
+	// Landing flash: a brief wash over the row the finder just selected, settling into ordinary
+	// selection. Scoped to `.is-selected` because the find always selects what it lands on, so no
+	// per-row state has to be threaded through the virtualizer to find the target.
+	.gl-graph--find-flash .gl-graph__row.is-selected {
+		animation: gl-graph-find-flash 700ms var(--gl-ease-out, ease-out) 1;
+	}
+
+	@keyframes gl-graph-find-flash {
+		0% {
+			background-color: var(--vscode-editor-findMatchHighlightBackground, hsl(var(--brand) / 55%));
+		}
+
+		45% {
+			background-color: var(--vscode-editor-findMatchHighlightBackground, hsl(var(--brand) / 30%));
+		}
+
+		100% {
+			background-color: var(--row-selection-bg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.gl-graph--find-flash .gl-graph__row.is-selected {
+			animation: none;
+		}
+	}
+
+	// Ref find button — opens the type-ahead that jumps to a branch or tag. Same visual language as the
+	// filter toggle, but ALWAYS visible: it's a navigation entry point rather than a state indicator, so it
+	// doesn't earn the hover-reveal that keeps the filter out of the label's way. Being persistent, it IS
+	// reserved in the header's width solver (`refFindHere` in renderHeader) and drops out below that floor.
+	.gl-graph__ref-find-toggle {
+		--code-icon-size: 1.3rem;
+
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 1.8rem;
+		height: 1.8rem;
+		padding: 0;
+		margin: 0;
+		margin-inline-start: 0.4rem;
+		overflow: hidden;
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 0.4rem;
+		transition:
+			background-color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			border-color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out);
+	}
+
+	// Inside a crumb the member's own 0.3rem gap does the spacing — the reveal margin would double it.
+	.gl-graph__group-member .gl-graph__ref-find-toggle {
+		margin-inline-start: 0;
+	}
+
+	.gl-graph__ref-find-toggle:hover {
+		color: hsl(var(--foreground));
+		background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 50%));
+		border-color: hsl(var(--border));
+	}
+
+	.gl-graph__ref-find-toggle:focus-visible {
+		outline: 1px solid hsl(var(--brand));
+		outline-offset: 1px;
+	}
+
+	// Open: accent-toned so the header says which control owns the widget floating over the rows.
+	.gl-graph__ref-find-toggle.is-active {
+		color: var(--vscode-focusBorder);
+	}
+
+	.gl-graph__ref-find-toggle.is-active:hover {
+		color: var(--vscode-focusBorder);
+		border-color: var(--vscode-focusBorder);
+	}
+
 	// Combined Changes-column control: the CHANGES label + a trailing chevron form ONE pill that opens the
 	// mode picker. The label keeps its column-reorder role (drag + Arrow keys — see gl-lit-graph), so this is
 	// purely additive styling. The pill lights up on hover like the old standalone chevron did. Changes only.

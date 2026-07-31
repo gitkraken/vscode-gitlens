@@ -93,6 +93,7 @@ import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
+import type { GlGraphRefFind } from '../components/gl-graph-ref-find.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import type { LaneSeedSource } from '../utils/laneSeed.utils.js';
@@ -100,6 +101,7 @@ import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow } from '../utils/rowMarker.utils.js';
 import { branchHintFor, createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
+import '../components/gl-graph-ref-find.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
@@ -131,6 +133,10 @@ type LitVirtualizer = HTMLElement & {
 	// From LitElement (ReactiveElement): lets callers await the child virtualizer's own commit.
 	isUpdatePending: boolean;
 	updateComplete: Promise<boolean>;
+	// Resolves after the virtualizer has SIZED ITS SPACER and applied its own scroll correction — strictly
+	// later than `updateComplete`, which only covers its Lit render. A scroll write that has to survive
+	// newly-grown content has to wait for this one (see centerRowAt).
+	layoutComplete?: Promise<void>;
 };
 
 // Expanded-density column header height in px (matches `.gl-graph__header` height: 2.4rem @ 1rem=10px).
@@ -624,6 +630,22 @@ export class GlLitGraph extends LitElement {
 	// dedicated Refs column (expanded density only, where columns exist). Persisted via the columns
 	// config (`ref.grouped`), matching `graphPlacement`.
 	@state() private refsPlacement: RefsPlacement = 'grouped';
+	// Ref find widget visibility (the header's search button and `/`). Not persisted — a find is a
+	// momentary navigation, not a view mode.
+	@state() private refFindOpen = false;
+	// Which trigger opened the finder, for telemetry — tells us whether the header button is earning
+	// its width or whether `/` is carrying the feature.
+	private _refFindOpenedBy: 'shortcut' | 'button' = 'button';
+	// Pill key of the ref the find widget last landed on — that pill wears the selected/hover fill so
+	// it's identifiable among the others on its row. Read live by the ref-pill hooks.
+	private _refFindHitKey?: string;
+	// Whether the find's landing flash is playing. Scoped to the VIEWPORT rather than threaded per-row:
+	// the find always SELECTS what it lands on, so `.is-selected` already identifies the target row.
+	@state() private _refFindFlashing = false;
+	private _refFindFlashTimer?: ReturnType<typeof setTimeout>;
+	// Sha of a find target the host is still paging in, with the row index it was last revealed at.
+	private _refFindLoadingSha?: string;
+	private _refFindLoadingRevealedIndex?: number;
 	// Adjacent zone id captured at group-time by `toggleRefsPlacement` (undefined = use the Message
 	// fallback). Persisted via the columns config round-trip (`ref.grouped`'s string value; see
 	// `buildColumnsConfig`).
@@ -729,6 +751,8 @@ export class GlLitGraph extends LitElement {
 	// (`<lit-virtualizer>`). Held so the host can route programmatic `focus()` (graph open / sidebar
 	// select) here; the element itself (light DOM) isn't otherwise focusable.
 	private treeRef: Ref<HTMLElement> = createRef();
+	// The ref find widget, held so opening it can hand over focus (it owns the input).
+	private refFindRef: Ref<GlGraphRefFind> = createRef();
 	private resizeObserver?: ResizeObserver;
 	// Stable `keyFunction` + `layout` so the virtualizer never re-runs its (async) layout-config
 	// chain on incidental updates. `renderItem` is deliberately RE-created each render (see
@@ -1159,6 +1183,7 @@ export class GlLitGraph extends LitElement {
 		getUpstreamMetadataId: ref => this.getUpstreamMetadataId(ref),
 		getShowRemoteNames: () => this.config?.showRemoteNamesOnRefs === true,
 		getRowMarkerTips: () => this._rowMarkerTips,
+		getFindHitRefKey: () => this._refFindHitKey,
 		getPinnedRefId: () => this.pinnedRef?.id,
 		onUnpinRef: () => this.dispatchEvent(new CustomEvent('gl-graph-unpinref')),
 	};
@@ -2639,7 +2664,12 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// Jump button: scroll the linked row into view AND select it (opens its details).
-	private jumpToRefRow(sha: Sha): void {
+	//
+	// `focus: false` keeps the keyboard where it is — the ref find widget steps through matches while the
+	// user is still typing, so taking the tree's focus mid-jump would strand them. Everything else jumps
+	// with focus, which is the default.
+	private jumpToRefRow(sha: Sha, options?: { focus?: boolean }): void {
+		const focus = options?.focus ?? true;
 		// If the target is hidden inside a collapsed lane, expand that lane first so it can be revealed —
 		// scrollToSha keeps the reveal PENDING and retries once the expanded row renders.
 		if (!this.indexBySha.has(sha)) {
@@ -2653,8 +2683,10 @@ export class GlLitGraph extends LitElement {
 		// Focus the tree first to drop the pill/sub-chip that triggered the jump (collapsing its fill and
 		// closing any grouped popover), preserving the existing handoff for every target state. The explicit
 		// focus policy moves the keyboard/ARIA anchor to the target after selection renders.
-		this.treeRef.value?.focus();
-		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha, focus: true } }));
+		if (focus) {
+			this.treeRef.value?.focus();
+		}
+		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha, focus: focus } }));
 	}
 
 	// Lazily request ref metadata (ahead/behind, PRs, issues) for the tracked refs in view that don't
@@ -4386,7 +4418,7 @@ export class GlLitGraph extends LitElement {
 				${ref(this.viewportRef)}
 				class="gl-graph__viewport scrollable${
 					this.windowFocused === false ? ' gl-graph--window-unfocused' : ''
-				}"
+				}${this._refFindFlashing ? ' gl-graph--find-flash' : ''}"
 				@keydown=${this.handleViewportKeydown}
 				@focusin=${this.onFocusIn}
 				@click=${this.onClick}
@@ -4435,7 +4467,7 @@ export class GlLitGraph extends LitElement {
 						}
 					></lit-virtualizer>
 				</div>
-				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderWaypoints()}${this.renderStickyTimeline()}${this.renderHScrollbar()}${this.renderChangesModePopover()}
+				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderWaypoints()}${this.renderStickyTimeline()}${this.renderHScrollbar()}${this.renderChangesModePopover()}${this.renderRefFind()}
 			</div>
 			${this.renderSearchFooter()}
 			<span
@@ -4984,6 +5016,13 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// Cancel a ref-pill activation still waiting on its deferral timer.
+	private clearRefFindFlashTimer(): void {
+		if (this._refFindFlashTimer == null) return;
+
+		clearTimeout(this._refFindFlashTimer);
+		this._refFindFlashTimer = undefined;
+	}
+
 	private cancelPendingPillActivation(): void {
 		if (this._pendingPillActivation == null) return;
 
@@ -5001,7 +5040,10 @@ export class GlLitGraph extends LitElement {
 		// retries on EVERY render, so an orphaned reveal would otherwise fire on THIS click's render and
 		// scroll the view away instead of just selecting what was clicked — the intermittent "jumps instead
 		// of selects". The jump button stops propagation, so its own freshly-queued reveal never reaches here.
-		this._pendingRevealSha = undefined;
+		// Through `cancelPendingReveal` so the reveal GENERATION bumps too: a bare assignment leaves an
+		// in-flight post-layout re-assert (centerRowAt) believing it still owns the viewport, and it would
+		// land after this click and scroll away from what was just selected.
+		this.cancelPendingReveal();
 
 		// A new click supersedes any ref-pill activation still pending from a prior click — whether the pointer
 		// moved to another row (don't let a stale sheet pop open) or this is the second click of a double-click
@@ -5822,6 +5864,20 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
+		// `/` opens the ref find widget. Free here (the graph binds arrows, Enter/Space, h/H, Esc, Home/End,
+		// PageUp/Down and Tab) and only reachable while the TREE ITSELF holds focus — the bubbled-target
+		// branch above already returned — so it can never swallow a keystroke meant for a text input.
+		// Ctrl/Cmd+F belongs to the commit search box; Alt+F is unusable on Windows/Linux, where Alt hands
+		// off to the menu bar. Ahead of the empty-rows guard: with nothing paged in, find is exactly what
+		// you want.
+		if (event.key === '/' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+			event.preventDefault();
+			event.stopPropagation();
+			this._refFindOpenedBy = 'shortcut';
+			this.setRefFindOpen(true);
+			return;
+		}
+
 		if (this.displayRows.length === 0) return;
 
 		// Row movement (Arrow Up/Down [Alt = branching point, Ctrl/Cmd = topological lineage], Page Up/Down
@@ -6348,6 +6404,9 @@ export class GlLitGraph extends LitElement {
 		// A reveal requested before its row was loaded (host row-load round-trip) fires here once the
 		// row lands in displayRows.
 		this.flushPendingReveal();
+		// ...and re-arms it while a find's page-in is still settling: later batches move the row's index, and
+		// the flush above has already consumed itself against an earlier one.
+		this.retryRefFindReveal();
 		// Keep the virtualizer pixel-snapped after every render too — the ResizeObserver only fires on OUR
 		// size change, so chrome above the row list (toolbar/search/header) shifting onto a fractional
 		// boundary without resizing us would otherwise leave the snap stale → every row (and its text)
@@ -6592,14 +6651,27 @@ export class GlLitGraph extends LitElement {
 		// supersession, because it is CLEARED before the write — a second reveal armed AND flushed before this
 		// promise settles would leave it undefined again, and re-asserting the older target then would drag the
 		// viewport backward, which is the jump this exists to prevent.
-		void scroller.updateComplete.then(() => {
+		//
+		// `updateComplete` is NOT far enough: it covers the virtualizer's Lit render, but the spacer growth
+		// AND the virtualizer's own post-layout scroll correction land after it — so a re-assert keyed on it
+		// clamps short a second time and is then re-anchored back to where the viewport started. That is the
+		// whole failure for a row paged in by a host walk: the write "succeeds", then gets corrected away, and
+		// the reveal has already been consumed so nothing tries again. `layoutComplete` is the settle point.
+		const settled = scroller.layoutComplete ?? scroller.updateComplete;
+		void settled.then(() => {
 			if (this._revealGeneration !== generation || this._pendingRevealSha != null) return;
 
 			const el = this.virtualizerRef.value;
-			if (el != null && el.scrollTop !== centered) {
-				el.scrollTop = centered;
-				this.trackViewportTop(el.scrollTop);
-			}
+			if (el == null || el.scrollTop === centered) return;
+
+			// A scroll that moved since our write is the user's, not the layout's — theirs wins.
+			if (this._viewportScrollTop !== landed) return;
+
+			// Same reason the initial write bumps it: this is a deliberate reveal, and a lane-collapse anchor
+			// retry armed in between must not land after it and undo it.
+			this._scrollAnchorGeneration++;
+			el.scrollTop = centered;
+			this.trackViewportTop(el.scrollTop);
 		});
 	}
 
@@ -7337,7 +7409,12 @@ export class GlLitGraph extends LitElement {
 				const crumbCount = (graphCrumb ? 1 : 0) + (refsMember ? 1 : 0);
 				const filtersPx = (filterActive ? 22 : 0) + (refsCrumbFilterActive ? 22 : 0);
 				const hostLabelReservePx = Math.min(zone.label.length * 7, 70) + 16;
-				const crumbsCollapsed = crumbCount > 0 && headerW - filtersPx - hostLabelReservePx < crumbCount * 55;
+				// The find button rides wherever the refs controls do, and is ALWAYS visible (unlike the
+				// hover-revealed filter), so unlike that button it has to be reserved here — including
+				// before the crumb stage is decided, or full crumbs would claim width it needs.
+				const refFindReservePx = hasRefsControl ? 22 : 0;
+				const crumbsCollapsed =
+					crumbCount > 0 && headerW - filtersPx - refFindReservePx - hostLabelReservePx < crumbCount * 55;
 				const crumbsPx = crumbCount * (crumbsCollapsed ? 22 : 55);
 				// At icon stage the Changes header drops its text label and shows the compact mode-picker button
 				// instead (the full-size column icon + a clippable chevron) — see the render branch below.
@@ -7347,12 +7424,17 @@ export class GlLitGraph extends LitElement {
 				// Changes' mode chevron renders inside the label (19px ≈ 1.2rem icon + 0.3rem gap + slack,
 				// graph.scss) — reserve its label-adjacent width so the text never crowds it out. At icon stage
 				// the label is gone (just the compact picker button), so that reserve would over-count.
-				const controlsPx =
+				const baseControlsPx =
 					(graphControlHere && !graphCrumb ? 22 : 0) +
 					(hasRefsControl && !refsMember ? 22 : 0) +
 					(zone.id === 'changes' && !changesIconStage ? 19 : 0) +
 					filtersPx +
 					crumbsPx;
+				// Find button floor: it only earns its fixed unit while the cell can still afford an
+				// identity glyph beside it (22 + 22). Below that it drops out rather than crowding the
+				// column down to bare chrome — `/` is still the way in, so nothing becomes unreachable.
+				const refFindHere = hasRefsControl && headerW - baseControlsPx >= 44;
+				const controlsPx = baseControlsPx + (refFindHere ? 22 : 0);
 				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, headerW - controlsPx);
 				// Floor degradation: an active filter on an ultra-narrow icon-only column can't fit both the
 				// filter button and the column icon — render ONLY the filter button (never a clipped half icon).
@@ -7419,6 +7501,7 @@ export class GlLitGraph extends LitElement {
 												visibleZones,
 												crumbsCollapsed ? undefined : zoneHeaderIcons.ref,
 											)}
+											${refFindHere ? this.renderRefFindButton() : nothing}
 											${
 												crumbsCollapsed
 													? nothing
@@ -7501,6 +7584,11 @@ export class GlLitGraph extends LitElement {
 															: nothing
 													}</span
 												>`
+							}
+							${
+								zone.id === 'ref' && this.refsPlacement === 'column' && refFindHere
+									? this.renderRefFindButton()
+									: nothing
 							}
 							${
 								zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
@@ -7591,6 +7679,162 @@ export class GlLitGraph extends LitElement {
 		event.preventDefault();
 		event.stopPropagation();
 		this.dispatchFilterColumn(zoneId);
+	}
+
+	// Ref find — opens the type-ahead that jumps to a branch or tag by name. Rides wherever the refs
+	// controls live: the Refs column's right edge when refs are their own column, and the refs crumb
+	// (after the identity/group button, before the chevron) when they're grouped, which is the default
+	// and where most users will meet it.
+	//
+	// ALWAYS VISIBLE, unlike the hover-revealed filter button — so it feeds the header's width math
+	// (`refFindHere`) and drops out on ultra-narrow columns instead of clipping.
+	//
+	// Uses the placement/settings contract (`stopPropagation` on pointerdown + a plain `@click`) rather
+	// than the filter button's drag-through one: it sits beside the placement toggle and has to click
+	// the same way its neighbor does. The trade-off is that a press here can't start a column reorder.
+	private renderRefFindButton(): TemplateResult {
+		const title = 'Find a Branch or Tag...';
+		return html`<button
+			class="gl-graph__ref-find-toggle${this.refFindOpen ? ' is-active' : ''}"
+			type="button"
+			aria-pressed=${this.refFindOpen ? 'true' : 'false'}
+			aria-label=${title}
+			data-tooltip=${title}
+			data-roving-key="find:ref"
+			draggable="false"
+			@pointerdown=${(e: Event) => e.stopPropagation()}
+			@click=${this.toggleRefFind}
+		>
+			<code-icon icon="search"></code-icon>
+		</button>`;
+	}
+
+	private toggleRefFind = (): void => {
+		this._refFindOpenedBy = 'button';
+		this.setRefFindOpen(!this.refFindOpen);
+	};
+
+	/**
+	 * The find widget, rendered at VIEWPORT level (a sibling of the header, pinned to its top-right)
+	 * rather than in the header cell — `.gl-graph__header-cell-content` is `overflow: hidden`, and a
+	 * fixed spot keeps the widget still whether the trigger sits in the Refs column or on the crumb.
+	 *
+	 * Kept in the tree while closed so a preserved query survives a reopen; `[open]` drives visibility.
+	 *
+	 * Clicks are STOPPED here. The widget is chrome that happens to live inside the viewport, so its
+	 * clicks are not graph clicks — and `onClick` clears `_pendingRevealSha` on any click that reaches
+	 * it. Without this, clicking Load queues a reveal for the not-yet-loaded row and then the very same
+	 * click cancels it, so the row pages in and gets selected but never scrolls into view. Same contract
+	 * the ref pills' jump button already follows (see `onClick`).
+	 */
+	private renderRefFind(): TemplateResult {
+		return html`<gl-graph-ref-find
+			${ref(this.refFindRef)}
+			?open=${this.refFindOpen}
+			.openedBy=${this._refFindOpenedBy}
+			.getRowIndex=${this.refFindRowIndex}
+			.rowsLoaded=${this.processedIndexBySha.size}
+			@click=${(e: Event) => e.stopPropagation()}
+			@gl-graph-ref-find-jump=${this.onRefFindJump}
+			@gl-graph-ref-find-close=${this.onRefFindClose}
+		></gl-graph-ref-find>`;
+	}
+
+	/**
+	 * Resolves a ref's tip sha to its position in the PROCESSED rows — which includes rows folded
+	 * inside collapsed lanes, so a ref hidden in a fold still counts as loaded and jumps (the jump
+	 * expands the lane). `undefined` means genuinely not paged in, which gates the Load affordance.
+	 */
+	private refFindRowIndex = (sha: string): number | undefined => {
+		return this.processedIndexBySha.get(sha);
+	};
+
+	private onRefFindJump = (e: CustomEvent<{ sha: string; focus: boolean; refKey?: string }>): void => {
+		const sha = e.detail.sha;
+		this.markRefFindHit(e.detail.refKey);
+		// A target that isn't paged in yet needs watching: `jumpToRefRow` starts the host walk, but the
+		// reveal it queues resolves an index the rest of the walk then moves (see `retryRefFindReveal`).
+		this._refFindLoadingSha = this.processedIndexBySha.has(sha) ? undefined : sha;
+		this._refFindLoadingRevealedIndex = undefined;
+		this.jumpToRefRow(sha, { focus: e.detail.focus });
+	};
+
+	/**
+	 * Re-arms the reveal for a find target while its page-in settles.
+	 *
+	 * A host walk can land in several batches, and the row's index moves between them. The reveal
+	 * resolves an index the first time it can and then CONSUMES itself, so it lands on an early one and
+	 * stops. Re-arming on every index CHANGE lets the last batch win.
+	 *
+	 * Reveal only, deliberately: the selection is the select intent's concern (`GraphSelectIntent`) and
+	 * that part works — the intent holds the ask until the row is renderable and lands it exactly once.
+	 *
+	 * This lives HERE rather than in the find widget because it runs from `updated()` right after the
+	 * index is rebuilt; the widget sees the index through a property, and Lit updates children before
+	 * parents, so its view can lag a render.
+	 *
+	 * Self-limiting: an index that hasn't moved re-arms nothing, so unrelated paging costs a lookup.
+	 */
+	private retryRefFindReveal(): void {
+		const sha = this._refFindLoadingSha;
+		if (sha == null) return;
+
+		const index = this.processedIndexBySha.get(sha);
+		if (index == null || index === this._refFindLoadingRevealedIndex) return;
+
+		this._refFindLoadingRevealedIndex = index;
+		// Reveal only — NOT a re-navigation. `navigateToCommit` coalesces a same-sha re-entry while its first
+		// ask is still open and returns having done nothing, so re-navigating here is silently swallowed AND
+		// burns this retry's one chance (the index stamp above). Selection is the select intent's job and it
+		// does land; only the scroll needs re-arming as later batches move the row.
+		this.scrollToSha(sha);
+	}
+
+	/**
+	 * Marks the landed ref so its pill takes the selected/hover fill, and flashes its row once.
+	 *
+	 * The flash is deliberately re-armable on the same sha: stepping back onto a ref you already
+	 * visited should still announce itself, so the class is dropped and re-added rather than left on.
+	 */
+	private markRefFindHit(refKey: string | undefined): void {
+		this._refFindHitKey = refKey;
+		this.invalidateAdornments();
+
+		this.clearRefFindFlashTimer();
+		// Drop it first so a repeat landing on the same row restarts the animation instead of being a
+		// no-op re-render with the class already applied.
+		this._refFindFlashing = false;
+		void this.updateComplete.then(() => {
+			this._refFindFlashing = true;
+			this._refFindFlashTimer = setTimeout(() => {
+				this._refFindFlashing = false;
+				this._refFindFlashTimer = undefined;
+			}, 700);
+		});
+	}
+
+	private onRefFindClose = (): void => {
+		this.setRefFindOpen(false);
+	};
+
+	/** Opens/closes the find widget. Closing returns focus to the graph so the keyboard isn't stranded. */
+	private setRefFindOpen(open: boolean): void {
+		if (this.refFindOpen === open) return;
+
+		this.refFindOpen = open;
+		if (!open) {
+			// The emphasis belongs to an open find, not to the selection it left behind, and a walk
+			// still landing must not scroll a closed finder's target into view.
+			this._refFindHitKey = undefined;
+			this._refFindLoadingSha = undefined;
+			this._refFindLoadingRevealedIndex = undefined;
+			this.invalidateAdornments();
+		}
+		// Opening hands focus to the input — the widget does that itself, once its own render has made the
+		// input focusable. Closing brings the keyboard back so it isn't stranded on a hidden element.
+		if (!open) {
+			this.treeRef.value?.focus();
+		}
 	}
 
 	// Quick Refresh. The graph column has no filter, so this takes that slot and matches the filter button

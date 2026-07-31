@@ -239,6 +239,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user clicks the Focus Branch header button on the Commit Graph (plain-click focuses the current branch; alt-click opens the branch picker) */
 	'graph/action/jumpTo': GraphActionJumpToEvent;
 	/** Sent when the user clicks on the "Jump to HEAD"/"Jump to Reference" (alt) header button on the Commit Graph */
+	'graph/action/refFind': GraphActionRefFindEvent;
+	/** Sent when the user lands on a reference with the Commit Graph's type-ahead reference finder */
 	'graph/action/openRepoOnRemote': GraphContextEventData;
 	/** Sent when the user clicks on the "Open Repository on Remote" header button on the Commit Graph */
 	'graph/action/sidebar': GraphActionSidebarEvent;
@@ -1531,6 +1533,19 @@ type GraphShownEvent = WebviewShownEventData & GraphShownEventData;
 
 interface GraphActionJumpToEvent extends GraphContextEventData {
 	alt: boolean;
+}
+
+interface GraphActionRefFindEvent extends GraphContextEventData {
+	/** How the finder was opened — tells us whether the header button is carrying its own discovery. */
+	source: 'shortcut' | 'button';
+	/** Which kind of reference was landed on. */
+	kind: 'head' | 'remote' | 'tag';
+	/** Whether the reference's commit had to be paged in first (the Enter-to-fetch path). */
+	loaded: boolean;
+	/** Whether the query used `/` path segments (e.g. `d/f/foo`) rather than a plain substring. */
+	segmented: boolean;
+	/** Terms in the query, as a proxy for how much typing it took to converge. NOT the query itself. */
+	terms: number;
 }
 
 interface GraphAutoFetchEvent extends GraphContextEventData {
