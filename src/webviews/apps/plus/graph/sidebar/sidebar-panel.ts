@@ -1,7 +1,7 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { URI } from 'vscode-uri';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
@@ -20,6 +20,7 @@ import type {
 	GraphScopeSource,
 	GraphSidebarBranch,
 	GraphSidebarPanel,
+	GraphSidebarPullRequest,
 	GraphSidebarRemote,
 	GraphSidebarTag,
 	GraphSidebarWorktree,
@@ -27,6 +28,7 @@ import type {
 import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import {
 	branchTooltip,
+	pullRequestTooltip,
 	remoteTooltip,
 	stashTooltip,
 	tagTooltip,
@@ -50,6 +52,11 @@ import { graphStateContext } from '../context.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import type { FocusRefActionArgs } from './branchActions.utils.js';
 import { createFocusRefAction, focusRefActionId, getBranchLeafActions } from './branchActions.utils.js';
+import {
+	getPullRequestNumberFromQuery,
+	parsePullRequestFilterTerms,
+	withSearchedPullRequest,
+} from './pullRequestFilter.utils.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import { resolveSelectedTag } from './sidebarTelemetry.utils.js';
@@ -116,6 +123,16 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 		actions: [
 			{ icon: 'gl-switch', tooltip: 'Switch to Branch...', command: 'gitlens.switchToAnotherBranch:views' },
 			{ icon: 'add', tooltip: 'Create Branch...', command: 'gitlens.views.title.createBranch' },
+		],
+	},
+	pullRequests: {
+		title: 'Pull Requests',
+		actions: [
+			{
+				icon: 'git-pull-request-create',
+				tooltip: 'Create Pull Request...',
+				command: 'gitlens.createPullRequest:graph',
+			},
 		],
 	},
 	remotes: {
@@ -400,6 +417,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				flex: none;
 				padding: 0 var(--gl-space-4) var(--gl-space-4);
 			}
+
+			/* Sits below the tree, so it stays put while the filtered list scrolls above it. */
+			.search-fallback {
+				display: flex;
+				flex: none;
+				gap: var(--gl-space-4);
+				align-items: center;
+				padding: var(--gl-space-8) var(--gl-space-12);
+				font-style: italic;
+				color: var(--color-foreground--65);
+			}
 		`,
 	];
 
@@ -420,8 +448,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private _treeModelCache?: {
 		data: DidGetSidebarDataParams;
 		dateFormat: string | null | undefined;
+		searchedPr: GraphSidebarPullRequest | undefined;
 		model: TreeModel<SidebarItemContext>[];
 	};
+
+	/** A pull request found by the search fallback. Held here rather than in the panel resource so the
+	 *  rail's badge keeps counting only the repo's open pull requests. */
+	@state() private _prSearchResult: GraphSidebarPullRequest | undefined;
+	/** Repo the search result belongs to. `activePanel` is independent of the selected repository, so
+	 *  without this a pull request found for one repo keeps rendering against another — and its row
+	 *  carries the *original* repo's path, so acting on it would target the wrong repository. */
+	private _prSearchRepoId: string | undefined;
+	@state() private _prSearchState: 'idle' | 'searching' | 'notFound' = 'idle';
 
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
@@ -436,6 +474,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private _stashesShownEmitted = false;
 	/** Same guard as `_worktreesShownEmitted`, for `graph/tags/shown`. */
 	private _tagsShownEmitted = false;
+	/** Same guard as `_worktreesShownEmitted`, for `graph/pullRequests/shown`. */
+	private _pullRequestsShownEmitted = false;
 
 	/** Same as `_worktreesShownEmitted`, for the remotes panel. */
 	private _remotesShownEmitted = false;
@@ -493,10 +533,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this.emitRemotesFilteredTelemetryDebounced.cancel();
 		this.emitStashesFilteredTelemetryDebounced.cancel();
 		this.emitTagsFilteredTelemetryDebounced.cancel();
+		this.emitPullRequestsFilteredTelemetryDebounced.cancel();
 		this._worktreesShownEmitted = false;
 		this._remotesShownEmitted = false;
 		this._stashesShownEmitted = false;
 		this._tagsShownEmitted = false;
+		this._pullRequestsShownEmitted = false;
 		super.disconnectedCallback?.();
 	}
 
@@ -516,14 +558,22 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			this._remotesShownEmitted = false;
 			this._stashesShownEmitted = false;
 			this._tagsShownEmitted = false;
+			this._pullRequestsShownEmitted = false;
 
 			// Cancel any pending filtered emits — filterText is shared across panels, so a trailing
 			// callback after a switch would report against the wrong (now-inactive) panel.
+			// `filterText` is shared across panels, so a result found under the pull-requests panel would
+			// otherwise linger (and re-render) after switching away and back.
+			this._prSearchResult = undefined;
+			this._prSearchRepoId = undefined;
+			this._prSearchState = 'idle';
+
 			this.emitWorktreesFilteredTelemetryDebounced.cancel();
 			this.emitBranchesFilteredTelemetryDebounced.cancel();
 			this.emitRemotesFilteredTelemetryDebounced.cancel();
 			this.emitStashesFilteredTelemetryDebounced.cancel();
 			this.emitTagsFilteredTelemetryDebounced.cancel();
+			this.emitPullRequestsFilteredTelemetryDebounced.cancel();
 
 			// Keep the actions module in sync so invalidateAll can refetch
 			this._actions.activePanel = this.activePanel;
@@ -568,6 +618,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this.maybeEmitBranchesShownTelemetry();
 		this.emitStashesShownTelemetry();
 		this.emitTagsShownTelemetry();
+		this.emitPullRequestsShownTelemetry();
 	}
 
 	private emitWorktreesShownTelemetry(): void {
@@ -611,6 +662,48 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			name: 'graph/stashes/shown',
 			data: {
 				'stashes.count': data.items.length,
+			},
+		});
+	}
+
+	/** The searched pull request, but only while its repo is still the selected one. */
+	private get prSearchResult(): GraphSidebarPullRequest | undefined {
+		return this._prSearchRepoId === this._state.selectedRepository ? this._prSearchResult : undefined;
+	}
+
+	private emitPullRequestsSelectedTelemetry(path: string): void {
+		const data = this._actions?.state.panels.pullRequests?.value.get();
+		if (data?.panel !== 'pullRequests') return;
+
+		// The searched result is rendered but lives outside the resource, so match against the same
+		// merged list the rows were built from.
+		const pr = withSearchedPullRequest(data.items, this.prSearchResult).find(p => `pr:${p.number}` === path);
+		if (pr == null) return;
+
+		emitTelemetrySentEvent<'graph/pullRequests/pullRequestSelected'>(this, {
+			name: 'graph/pullRequests/pullRequestSelected',
+			data: { reachable: pr.focus != null, draft: pr.isDraft ?? false },
+		});
+	}
+
+	private emitPullRequestsShownTelemetry(): void {
+		if (this._pullRequestsShownEmitted || this.activePanel !== 'pullRequests') return;
+
+		const resource = this._actions?.state.panels.pullRequests;
+		// Same wait-for-success rule as the other panels: on reactivation the resource still holds the
+		// previous visit's value while the switch-triggered fetch is in flight.
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
+		if (data?.panel !== 'pullRequests') return;
+
+		this._pullRequestsShownEmitted = true;
+		emitTelemetrySentEvent<'graph/pullRequests/shown'>(this, {
+			name: 'graph/pullRequests/shown',
+			data: {
+				'pullRequests.count': data.items.length,
+				'pullRequests.draft.count': data.items.filter(pr => pr.isDraft).length,
+				'pullRequests.fork.count': data.items.filter(pr => pr.headRepo != null).length,
 			},
 		});
 	}
@@ -683,6 +776,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 							: this.renderSkeleton()
 				}
 			</div>
+			${/* Sibling of `.content`, not inside it — `.content` clips at 100% height around the tree. */ ''}
+			${data != null && !hasError ? this.renderPullRequestSearchFallback(data) : nothing}
 		</div>`;
 	}
 
@@ -737,11 +832,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private renderTreeContent(config: (typeof panelConfig)[GraphSidebarPanel], data: DidGetSidebarDataParams): unknown {
 		const cache = this._treeModelCache;
 		let model: TreeModel<SidebarItemContext>[];
-		if (cache?.data === data && cache.dateFormat === this.dateFormat) {
+		if (cache?.data === data && cache.dateFormat === this.dateFormat && cache.searchedPr === this.prSearchResult) {
 			model = cache.model;
 		} else {
 			model = this.buildTreeModel(data);
-			this._treeModelCache = { data: data, dateFormat: this.dateFormat, model: model };
+			this._treeModelCache = {
+				data: data,
+				dateFormat: this.dateFormat,
+				searchedPr: this.prSearchResult,
+				model: model,
+			};
 		}
 
 		// Automatically track/restore tree expansion state per panel.
@@ -761,9 +861,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const currentLayout = data.layout;
 		const showRemoteBranches = data.panel === 'branches' ? (data.showRemoteBranches ?? false) : undefined;
 
+		const isPullRequests = this.activePanel === 'pullRequests';
+
 		return html`<gl-tree-view
 			focused-path=${this._actions.selectedPath[this.activePanel!] ?? nothing}
 			.model=${model}
+			.filterTermsParser=${isPullRequests ? parsePullRequestFilterTerms : undefined}
 			filterable
 			tooltip-anchor-right
 			filter-text=${this._actions.filterText || nothing}
@@ -804,6 +907,76 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		>`;
 	}
 
+	/**
+	 * Offer to fetch a pull request the loaded list doesn't hold. This panel lists only *open* pull
+	 * requests, so a pasted URL for a merged or closed one finds nothing until we go ask — the same
+	 * fallback the scope popover's Focus pane provides, and the one Launchpad provides for its queries.
+	 */
+	private renderPullRequestSearchFallback(data: DidGetSidebarDataParams): unknown {
+		if (data.panel !== 'pullRequests') return nothing;
+
+		const number = getPullRequestNumberFromQuery(this._actions.filterText);
+		if (
+			number == null ||
+			withSearchedPullRequest(data.items, this.prSearchResult).some(pr => pr.number === number)
+		) {
+			return nothing;
+		}
+
+		if (this._prSearchState === 'searching') {
+			return html`<div class="search-fallback">
+				<code-icon icon="loading" modifier="spin"></code-icon> Searching for #${number}…
+			</div>`;
+		}
+		if (this._prSearchState === 'notFound') {
+			return html`<div class="search-fallback">No pull request #${number} in this repository</div>`;
+		}
+
+		return html`<div class="search-fallback">
+			<span>Not in open pull requests</span>
+			<gl-button
+				appearance="toolbar"
+				density="compact"
+				tooltip="Search for #${number}"
+				@click=${this.handleSearchPullRequest}
+			>
+				<code-icon icon="search"></code-icon>
+			</gl-button>
+		</div>`;
+	}
+
+	private handleSearchPullRequest = async (e: Event) => {
+		e.stopPropagation();
+		e.preventDefault();
+
+		const number = getPullRequestNumberFromQuery(this._actions.filterText);
+		if (number == null) return;
+
+		this._prSearchState = 'searching';
+		try {
+			const pr = await this._actions.findPullRequest(number);
+			// The query may have moved on while the request was in flight; a stale result would silently
+			// inject a pull request the user is no longer asking about.
+			if (getPullRequestNumberFromQuery(this._actions.filterText) !== number) return;
+
+			emitTelemetrySentEvent<'graph/pullRequests/searched'>(this, {
+				name: 'graph/pullRequests/searched',
+				data: { found: pr != null },
+			});
+
+			if (pr == null) {
+				this._prSearchState = 'notFound';
+				return;
+			}
+
+			this._prSearchResult = pr;
+			this._prSearchRepoId = this._state.selectedRepository;
+			this._prSearchState = 'idle';
+		} catch {
+			this._prSearchState = 'notFound';
+		}
+	};
+
 	private renderSkeleton(): unknown {
 		// 7 rows; per-row widths are positional (`:nth-child` in component CSS).
 		return html`<div class="loading">
@@ -836,6 +1009,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 							? [b.name]
 							: b.name.split('/'),
 					(b, isTree) => this.toBranchLeaf(b, isTree),
+				);
+			case 'pullRequests':
+				return withSearchedPullRequest(data.items, this.prSearchResult).map(pr =>
+					leafToTreeModel(this.toPullRequestLeaf(pr), `pr:${pr.number}`, 1),
 				);
 			case 'remotes':
 				return this.buildRemoteTree(data.items, useTree, compact);
@@ -908,6 +1085,38 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			decorations: trackingDecorations(b.tracking, b.upstream?.missing),
 			actions: actions,
 			contextValue: b.context,
+		};
+	}
+
+	private toPullRequestLeaf(pr: GraphSidebarPullRequest): LeafProps {
+		const actions: TreeItemAction[] = [
+			{ icon: 'globe', label: 'Open Pull Request on Remote', action: 'gitlens.openPullRequestOnRemote:graph' },
+		];
+		// Only same-repo heads resolve to a ref this graph can scope to; a fork's head gets no Focus
+		// action rather than one that would silently do nothing.
+		if (pr.focus != null) {
+			// Last, so it lands on the row's right edge — same rule as the branch and remote-branch rows.
+			actions.push(createFocusRefAction('Focus on Pull Request', pr.focus));
+		}
+
+		return {
+			// Title leads — the number is the identifier, not the thing you scan for. It rides along as a
+			// `before` decoration so it sits just left of the row's actions.
+			label: pr.title,
+			filterText: `${pr.number} ${pr.title} ${pr.headBranch ?? ''}`,
+			tooltip: pullRequestTooltip(pr, this.dateFormat),
+			icon: pr.isDraft ? 'git-pull-request-draft' : 'git-pull-request',
+			description: pr.authorName,
+			// A fork carries no ref this graph can scope to, so these rows have no Focus action. That's
+			// said in the tooltip rather than marked here: a glyph in the scanning column to explain the
+			// absence of another glyph is noise, and dimming would imply these matter less, which is
+			// wrong — an outside contribution is often the most important row in the list.
+			decorations: [
+				{ type: 'text', label: `#${pr.number}`, position: 'before', kind: 'muted' },
+			] satisfies TreeItemDecoration[],
+			context: [pr.headSha] as SidebarItemContext,
+			contextValue: pr.context,
+			actions: actions,
 		};
 	}
 
@@ -1432,6 +1641,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			this.emitStashesFilteredTelemetryDebounced();
 		}
 
+		if (this.activePanel === 'pullRequests') {
+			this.emitPullRequestsFilteredTelemetryDebounced();
+		}
+
 		if (this.activePanel === 'tags') {
 			this.emitTagsFilteredTelemetryDebounced();
 		}
@@ -1509,6 +1722,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			if (action != null) {
 				emitTelemetrySentEvent<'graph/stashes/headerAction'>(this, {
 					name: 'graph/stashes/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
+		if (this.activePanel === 'pullRequests') {
+			const action = command === 'gitlens.createPullRequest:graph' ? 'createPullRequest' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/pullRequests/headerAction'>(this, {
+					name: 'graph/pullRequests/headerAction',
 					data: { action: action },
 				});
 			}
@@ -1670,6 +1893,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			});
 		}
 
+		if (this.activePanel === 'pullRequests') {
+			emitTelemetrySentEvent<'graph/pullRequests/headerAction'>(this, {
+				name: 'graph/pullRequests/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
 		this._actions?.refresh(this.activePanel);
 	}
 
@@ -1719,6 +1949,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		if (this.activePanel === 'tags') {
 			this.emitTagsTreeItemActionTelemetry(command, useAlt);
+		}
+
+		if (this.activePanel === 'pullRequests') {
+			this.emitPullRequestsTreeItemActionTelemetry(command, useAlt);
 		}
 
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
@@ -1774,6 +2008,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// clicking it is still a real selection — and the emit resolves by name, not sha.
 		if (this.activePanel === 'branches') {
 			this.emitBranchesSelectedTelemetry(context?.[3]);
+		}
+
+		if (this.activePanel === 'pullRequests' && e.detail.node?.path != null) {
+			this.emitPullRequestsSelectedTelemetry(e.detail.node.path);
 		}
 
 		const sha = context?.[0];
@@ -1991,6 +2229,26 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		return data?.panel === 'tags' ? data.items.length : 0;
 	}
 
+	private getPullRequestsCount(): number {
+		const data = this._actions?.state.panels.pullRequests?.value.get();
+		return data?.panel === 'pullRequests' ? data.items.length : 0;
+	}
+
+	private readonly emitPullRequestsFilteredTelemetryDebounced = debounce(() => {
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/pullRequests/filtered'>(this, {
+			name: 'graph/pullRequests/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				// Distinguishes "paste a PR URL" from browsing by text — they're different behaviours
+				// sharing one box, and only the former can reach the lookup fallback.
+				byIdentity: getPullRequestNumberFromQuery(filterText) != null,
+				'pullRequests.count': this.getPullRequestsCount(),
+			},
+		});
+	}, 500);
+
 	private readonly emitTagsFilteredTelemetryDebounced = debounce(() => {
 		const filterText = this._actions.filterText;
 		emitTelemetrySentEvent<'graph/tags/filtered'>(this, {
@@ -2162,6 +2420,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/stashes/stashAction'>(this, {
 			name: 'graph/stashes/stashAction',
+			data: { action: action, alt: alt, location: 'inline' },
+		});
+	}
+
+	private emitPullRequestsTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = sidebarItemActions.pullRequest[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/pullRequests/pullRequestAction'>(this, {
+			name: 'graph/pullRequests/pullRequestAction',
 			data: { action: action, alt: alt, location: 'inline' },
 		});
 	}

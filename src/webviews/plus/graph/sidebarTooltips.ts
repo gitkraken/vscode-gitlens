@@ -3,6 +3,7 @@ import { formatIndicators, formatTrackingTooltip } from '@gitlens/git/utils/tool
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import type {
 	GraphSidebarBranch,
+	GraphSidebarPullRequest,
 	GraphSidebarRemote,
 	GraphSidebarStash,
 	GraphSidebarTag,
@@ -38,6 +39,35 @@ export function branchTooltip(b: GraphSidebarBranch, dateFormat?: string | null)
 
 	if (b.starred) {
 		tooltip += '\\\n$(star-full) Favorited';
+	}
+
+	return tooltip;
+}
+
+/** Mirrors `getPullRequestTooltip`'s voice — title, then a `#N by @author` byline — so a pull request
+ *  reads the same here as it does everywhere else in GitLens. */
+export function pullRequestTooltip(pr: GraphSidebarPullRequest, dateFormat?: string | null): string {
+	const icon = pr.isDraft ? '$(git-pull-request-draft)' : '$(git-pull-request)';
+	let tooltip = `${icon} ${pr.title.trim()}${pr.isDraft ? formatIndicators(['draft']) : ''}`;
+
+	let byline = `#${pr.number}`;
+	if (pr.authorName) {
+		byline += ` by @${pr.authorName}`;
+	}
+	if (pr.date != null) {
+		byline += `, updated ${formatDateWithFromNow(pr.date, dateFormat)}`;
+	}
+	tooltip += `\\\n${byline}`;
+
+	// A sentence rather than `head → base`: the arrow reads as ambiguous direction, and which side is
+	// the target is the whole point of the line.
+	if (pr.headBranch != null && pr.baseBranch != null) {
+		// A fork's branch name alone is ambiguous — two pull requests can both be `patch-1`.
+		const head =
+			pr.headRepo != null
+				? `$(git-branch) \`${pr.headBranch}\` from fork $(repo) \`${pr.headRepo}\``
+				: `$(git-branch) \`${pr.headBranch}\``;
+		tooltip += `\n\nMerges ${head} into $(git-branch) \`${pr.baseBranch}\``;
 	}
 
 	return tooltip;

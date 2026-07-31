@@ -2741,6 +2741,18 @@
 				]
 			}
 		},
+		"gitlens.focusPullRequest:graph": {
+			"label": "Focus on Pull Request",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 7
+					}
+				]
+			}
+		},
 		"gitlens.focusWorktree:graph": {
 			"label": "Focus on Worktree",
 			"menus": {

@@ -24,11 +24,20 @@ interface Icon {
 	type: IconTypes;
 	icon: string;
 	tooltip: string;
+	/** Shows a "new" dot on the rail icon until the panel is first opened. */
+	onboardingKey?: OnboardingKeys;
 }
-type IconTypes = 'agents' | 'branches' | 'overview' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
+/** Aliased rather than re-listed, so a new panel can't be added to the union without the rail seeing it. */
+type IconTypes = GraphSidebarPanel;
 const icons: Icon[] = [
 	{ type: 'overview', icon: 'home', tooltip: 'Overview' },
-	{ type: 'agents', icon: 'robot', tooltip: 'Agents' },
+	{ type: 'agents', icon: 'robot', tooltip: 'Agents', onboardingKey: 'graph:sidebar:agents:callout' },
+	{
+		type: 'pullRequests',
+		icon: 'git-pull-request',
+		tooltip: 'Pull Requests',
+		onboardingKey: 'graph:sidebar:pullRequests:callout',
+	},
 	{ type: 'worktrees', icon: 'gl-worktrees-view', tooltip: 'Worktrees' },
 	{ type: 'branches', icon: 'gl-branches-view', tooltip: 'Branches' },
 	{ type: 'remotes', icon: 'gl-remotes-view', tooltip: 'Remotes' },
@@ -130,11 +139,17 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			width: 100%;
 		}
 
-		/* Doubles the gap after the last group-1 icon (Agents) so the rail reads as two
-   groups: Overview/Agents, then the view icons. 1.4rem here + the parent's 1.4rem
-   flex gap = 2.8rem. (Applied on .item, not gl-tooltip, since gl-tooltip's host is
-   display: contents and can't take margin.) */
-		.item.group-end {
+		/* The gl-new-indicator wrapper is the rail's flex item — gl-tooltip's host is display: contents,
+   so the button used to be. It therefore carries the full-width sizing the button expects, plus the
+   group gap, which a margin on the button inside the wrapper's grid would no longer produce. */
+		.item-indicator {
+			width: 100%;
+		}
+
+		/* Doubles the gap after the last group-1 icon (Pull Requests) so the rail reads as two groups:
+   Overview/Agents/Pull Requests, then the view icons. 1.4rem here + the parent's 1.4rem flex gap
+   = 2.8rem. */
+		.item-indicator.group-end {
 			margin-bottom: 1.4rem;
 		}
 
@@ -258,7 +273,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			gap: var(--gl-space-8);
 		}
 
-		:host([compact]) .item.group-end {
+		:host([compact]) .item-indicator.group-end {
 			margin-bottom: var(--gl-space-6);
 		}
 
@@ -313,9 +328,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 	get include(): undefined | IconTypes[] {
 		const repo = this._state.repositories?.find(item => item.id === this._state.selectedRepository);
+		// `pullRequests` is listed for virtual repos too — its data comes from the integration API, not
+		// from local git, so it works wherever a remote's integration is connected.
 		const base: readonly IconTypes[] = repo?.virtual
-			? (['overview', 'agents', 'branches', 'remotes', 'tags'] as const)
-			: (['overview', 'agents', 'branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
+			? (['overview', 'agents', 'pullRequests', 'branches', 'remotes', 'tags'] as const)
+			: (['overview', 'agents', 'pullRequests', 'branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
 
 		return [...base];
 	}
@@ -691,22 +708,29 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		// panel open (handled in graph-app's `handleSidebarToggle`).
 		const isActive = isGraphMode && this.sidebarVisible && this.activePanel === icon.type;
 
-		return html`<gl-tooltip placement="right" content="${icon.tooltip}">
-			<button
-				class=${classMap({
-					item: true,
-					active: isActive,
-					overview: icon.type === 'overview',
-					'group-end': icon.type === 'agents',
-				})}
-				data-roving-key="icon:${icon.type}"
-				@click=${() => this.handleIconClick(icon)}
-				aria-pressed=${isActive}
-			>
-				<span class="icon"><code-icon icon="${icon.icon}"></code-icon></span>
-				${this.renderIconCount(icon)}
-			</button>
-		</gl-tooltip>`;
+		// The new-indicator wraps the tooltip rather than the button: the button is the roving-tabindex
+		// target and the indicator's positioning context, and putting a wrapper between them would
+		// break the rail's measured active-bar geometry.
+		return html`<gl-new-indicator
+			class=${classMap({ 'item-indicator': true, 'group-end': icon.type === 'pullRequests' })}
+			key=${ifDefined(icon.onboardingKey)}
+		>
+			<gl-tooltip placement="right" content="${icon.tooltip}">
+				<button
+					class=${classMap({
+						item: true,
+						active: isActive,
+						overview: icon.type === 'overview',
+					})}
+					data-roving-key="icon:${icon.type}"
+					@click=${() => this.handleIconClick(icon)}
+					aria-pressed=${isActive}
+				>
+					<span class="icon"><code-icon icon="${icon.icon}"></code-icon></span>
+					${this.renderIconCount(icon)}
+				</button>
+			</gl-tooltip>
+		</gl-new-indicator>`;
 	}
 
 	private renderIconCount(icon: Icon) {
@@ -714,6 +738,13 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		// Agents flow through reactive state, not the host counts IPC — read directly so the
 		// badge updates without paying the round-trip and skips the loading/error states.
 		if (icon.type === 'agents') return renderCount(this._state.agentSessions?.length || undefined);
+		// Pull requests are network-backed, so they're deliberately absent from the counts IPC — badging
+		// them there would put an API round-trip on every graph open. Read the panel's own resource
+		// instead: no badge until it's been opened once, then an accurate count (including a real 0).
+		if (icon.type === 'pullRequests') {
+			const data = this._actions?.state.panels.pullRequests.value.get();
+			return renderCount(data?.panel === 'pullRequests' ? data.items.length : undefined);
+		}
 
 		if (this._actions?.state.countsLoading.get()) {
 			return html`<span class="count"><code-icon icon="loading" modifier="spin" size="9"></code-icon> </span>`;

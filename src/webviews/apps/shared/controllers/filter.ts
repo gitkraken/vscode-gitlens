@@ -20,6 +20,13 @@ export interface FilterOptions {
 	onApplied?: () => void;
 	/** Raw query text on every change (the tree re-emits this as `gl-tree-filter-changed`). */
 	onQueryChanged?: (query: string) => void;
+	/**
+	 * Overrides how a query becomes match terms. Defaults to {@link parseFilterTerms} (whitespace
+	 * split). Hosts whose rows have an identity the raw text doesn't spell out — e.g. a pull request
+	 * addressed by a pasted URL — map the query onto that identity here. Only the terms change; the
+	 * visible query stays exactly as typed.
+	 */
+	parseTerms?: (query: string) => string[];
 }
 
 /**
@@ -91,7 +98,7 @@ export class FilterController implements ReactiveController {
 	}
 
 	private apply(): void {
-		this._terms = parseFilterTerms(this._query);
+		this._terms = (this.options.parseTerms ?? parseFilterTerms)(this._query);
 		this.options.applyMatch(this._terms);
 		this.options.onApplied?.();
 		this.host.requestUpdate();

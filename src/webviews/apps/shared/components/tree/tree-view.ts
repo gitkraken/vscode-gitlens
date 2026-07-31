@@ -14,6 +14,7 @@ import type { FocusController } from '../../controllers/focus.js';
 import type { SelectionController } from '../../controllers/selection.js';
 import { VirtualCollectionController } from '../../controllers/virtual-collection.js';
 import type { VirtualScrollController } from '../../controllers/virtual-scroll.js';
+import { parseFilterTerms } from '../../utils/filter-match.js';
 import { GlElement } from '../element.js';
 import type { GlGitStatus } from '../status/git-status.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
@@ -330,9 +331,18 @@ export class GlTreeView extends GlElement {
 		this.requestUpdate('filterText', old);
 	}
 
+	/**
+	 * Optional query → terms mapping, for hosts whose rows carry an identity the visible text doesn't
+	 * spell out (e.g. a pull request addressed by a pasted URL). The query itself is untouched, so the
+	 * input keeps showing what was typed.
+	 */
+	@property({ attribute: false })
+	filterTermsParser?: (query: string) => string[];
+
 	/** Owns the filter query/terms/debounce. The recursive tree match stays host-side via applyMatch. */
 	private readonly _filter = new FilterController(this, {
 		debounceMs: 150,
+		parseTerms: (query: string) => (this.filterTermsParser ?? parseFilterTerms)(query),
 		applyMatch: (terms: readonly string[]) => {
 			if (terms.length === 0) {
 				this.filtered = false;

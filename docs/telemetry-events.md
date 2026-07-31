@@ -2294,6 +2294,135 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/pullRequests/filtered
+
+> Sent when the user types in the filter box in the sidebar pull requests panel
+
+```typescript
+{
+  // Whether the query named a specific pull request (a pasted URL or `#123`) rather than free text
+  'byIdentity': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'filter.length': number,
+  'hasFilter': boolean,
+  'pullRequests.count': number
+}
+```
+
+### graph/pullRequests/headerAction
+
+> Sent when the user clicks a header action (Create Pull Request, Refresh) in the sidebar pull requests panel
+
+```typescript
+{
+  'action': 'createPullRequest' | 'refresh',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/pullRequests/pullRequestAction
+
+> Sent when the user invokes an action on a pull request item, via inline hover-icon or right-click context menu (see `location`)
+
+```typescript
+{
+  'action': 'openOnRemote',
+  // Reserved for parity with other panels' item actions — no pull request inline action defines an alt variant yet, so always false today
+  'alt': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
+  'location': 'inline' | 'contextMenu'
+}
+```
+
+### graph/pullRequests/pullRequestSelected
+
+> Sent when the user clicks a pull request leaf in the sidebar pull requests panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'draft': boolean,
+  // Whether the row's head resolved to a ref in this repository (false for a fork)
+  'reachable': boolean
+}
+```
+
+### graph/pullRequests/searched
+
+> Sent when the user looks up a pull request the loaded list doesn't hold, from a pasted URL or number
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the provider had a pull request with that number
+  'found': boolean
+}
+```
+
+### graph/pullRequests/shown
+
+> Sent when the Pull Requests sidebar panel becomes visible
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'pullRequests.count': number,
+  // Number of drafts, which are listed but rarely the reason the panel was opened
+  'pullRequests.draft.count': number,
+  // Number whose head lives in a fork — these carry no ref the graph can scope to, so they have no Focus action
+  'pullRequests.fork.count': number
+}
+```
+
 ### graph/remotes/filtered
 
 > Sent when the user types in the filter box in the sidebar remotes panel (debounced, not on every keystroke)

@@ -2,12 +2,18 @@ import { Uri } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
+import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
+import { getPullRequestIdentityFromMaybeUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
+import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
+import { fromProviderPullRequest } from '@gitlens/integrations/providers/models.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
@@ -21,7 +27,11 @@ import * as StashActions from '../../../git/actions/stash.js';
 import * as TagActions from '../../../git/actions/tag.js';
 import * as WorktreeActions from '../../../git/actions/worktree.js';
 import type { GlRepository } from '../../../git/models/repository.js';
-import { getRemoteIntegration, remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
+import {
+	getBestRemoteWithIntegration,
+	getRemoteIntegration,
+	remoteSupportsIntegration,
+} from '../../../git/utils/-webview/remote.utils.js';
 import { getOpenedWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
 import { executeCommand } from '../../../system/-webview/command.js';
@@ -48,9 +58,11 @@ import type {
 	GraphItemRefContext,
 	GraphItemTypedContext,
 	GraphOverviewData,
+	GraphPullRequestContextValue,
 	GraphRemoteContextValue,
 	GraphSidebarItemOrigin,
 	GraphSidebarPanel,
+	GraphSidebarPullRequest,
 	GraphSidebarWorktree,
 	GraphStashContextValue,
 	GraphTagContextValue,
@@ -76,11 +88,32 @@ export type GraphPanelsServiceContext = {
 	addPendingNotification: (notification: IpcNotification<any>) => void;
 };
 
+/** Open-PR list TTL. Matches Launchpad's list-level cache, which fronts the same kind of query. */
+const pullRequestsCacheExpiration = 30 * 60 * 1000;
+/** Page size for the open-PR walk. Paging is sequential, so a big page is the difference between one
+ *  round trip and many — this is a browse list, not an export. */
+const pullRequestsPageSize = 100;
+/** Upper bound on the page walk, so a repo with a huge backlog can't stall the panel. With the page
+ *  size above this is 300 pull requests, well past what anyone browses in a side bar. */
+const pullRequestsMaxPages = 3;
+
+/** Reverse tracking map (upstream name → local branch name), the same pass the remotes panel makes.
+ *  Lets a pull request whose head is checked out focus the local branch, not a `remotes/*` ref. */
+function buildLocalBranchesByUpstream(graph: GitGraph): Map<string, string> {
+	const localByUpstream = new Map<string, string>();
+	for (const b of graph.branches.values()) {
+		if (!b.remote && b.upstream != null && !b.upstream.missing) {
+			localByUpstream.set(b.upstream.name, b.name);
+		}
+	}
+	return localByUpstream;
+}
+
 /** Host-side panels cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns the Overview
  *  panel (data production + the `_lastSentOverview` dedup gate + `_overviewRecentThreshold` timeframe +
- *  the WIP/enrichment fetch handlers) and the Sidebar panels (branches/remotes/stashes/tags/worktrees
- *  data production + toggle/refresh/action handlers). The provider keeps the IPC forwarders and the RPC
- *  wiring and injects the collaborators via {@link GraphPanelsServiceContext}. */
+ *  the WIP/enrichment fetch handlers) and the Sidebar panels (branches/pull-requests/remotes/stashes/tags/
+ *  worktrees data production + toggle/refresh/action handlers). The provider keeps the IPC forwarders and
+ *  the RPC wiring and injects the collaborators via {@link GraphPanelsServiceContext}. */
 export class GraphPanelsService {
 	constructor(private readonly context: GraphPanelsServiceContext) {}
 
@@ -105,6 +138,12 @@ export class GraphPanelsService {
 	// a deep-equal gate skips the redundant serialize + webview re-render. Cleared in `setGraph` on
 	// graph identity change.
 	private _lastSentOverview: GraphOverviewData | undefined;
+	// Open-PR list for the pull-requests panel, keyed by repo + integration + remote. Holds the promise
+	// (not the value) so concurrent opens share one request; dropped on rejection so a failure doesn't
+	// stick for the full TTL.
+	private _pullRequestsCache:
+		| { key: string; expiresAt: number; promise: Promise<PullRequest[] | undefined> }
+		| undefined;
 
 	get overviewRecentThreshold(): OverviewRecentThreshold {
 		return this._overviewRecentThreshold;
@@ -293,6 +332,8 @@ export class GraphPanelsService {
 		switch (params.panel) {
 			case 'branches':
 				return this.getSidebarBranches(graph);
+			case 'pullRequests':
+				return this.getSidebarPullRequests(graph, signal);
 			case 'remotes':
 				return this.getSidebarRemotes(graph);
 			case 'stashes':
@@ -481,6 +522,219 @@ export class GraphPanelsService {
 		return { panel: 'remotes' as const, items: items, layout: remoteCfg.layout, compact: remoteCfg.compact };
 	}
 
+	/**
+	 * Open pull requests for the graph's repo. Unlike every other panel this reads from an integration
+	 * rather than the in-memory graph, so it carries its own cache (`src/cache.ts` keys PRs by
+	 * branch/sha/id and has no list bucket) and resolves each PR's focus target here, where the local
+	 * branch set is known.
+	 */
+	private async getSidebarPullRequests(graph: GitGraph, signal?: AbortSignal): Promise<DidGetSidebarDataParams> {
+		const empty = { panel: 'pullRequests' as const, items: [] };
+
+		// Already gates on a connected integration, so a disconnected repo yields an empty panel rather
+		// than an error — the same degrade non-GitHub providers get below.
+		const remote = await getBestRemoteWithIntegration(graph.repoPath, undefined, signal);
+		if (remote == null) return empty;
+
+		const integration = await getRemoteIntegration(remote);
+		if (integration == null) return empty;
+
+		signal?.throwIfAborted();
+
+		const prs = await this.fetchPullRequests(graph.repoPath, integration, remote);
+		signal?.throwIfAborted();
+		if (!prs?.length) return empty;
+
+		const localByUpstream = buildLocalBranchesByUpstream(graph);
+		const items = prs.map(pr => this.toSidebarPullRequest(pr, graph.repoPath, remote.name, localByUpstream));
+
+		return { panel: 'pullRequests' as const, items: items };
+	}
+
+	/**
+	 * Looks up a single pull request by number, for the Focus pane's "search for this PR" fallback —
+	 * the panel lists only open PRs, so a pasted URL for a merged or closed one finds nothing locally.
+	 */
+	async onFindPullRequest(params: { number: string }): Promise<GraphSidebarPullRequest | undefined> {
+		const graph = this._graphSession?.current ?? (await this.context.getLoading()?.catch(() => undefined));
+		if (graph == null) return undefined;
+
+		const remote = await getBestRemoteWithIntegration(graph.repoPath);
+		if (remote == null) return undefined;
+
+		const integration = await getRemoteIntegration(remote);
+		if (integration == null) return undefined;
+
+		// Cached by id in `src/cache.ts`, so repeated lookups of the same PR don't re-hit the API.
+		const pr = await integration.getPullRequest(remote.provider.repoDesc, params.number);
+		if (pr == null) return undefined;
+
+		return this.toSidebarPullRequest(pr, graph.repoPath, remote.name, buildLocalBranchesByUpstream(graph));
+	}
+
+	private toSidebarPullRequest(
+		pr: PullRequest,
+		repoPath: string,
+		remoteName: string,
+		localByUpstream: Map<string, string>,
+	): GraphSidebarPullRequest {
+		const headBranch = pr.refs?.head?.branch;
+		// Only a same-repo head can be named against this repo's remote; a fork's head lives under a
+		// remote that may not exist locally, so leave `focus` unset rather than invent a ref.
+		const upstreamName =
+			headBranch != null && pr.refs?.isCrossRepository !== true ? `${remoteName}/${headBranch}` : undefined;
+		const localBranch = upstreamName != null ? localByUpstream.get(upstreamName) : undefined;
+
+		return {
+			// `PullRequest.id` is the number only on the provider-native path; the providers-api path
+			// puts the provider's internal id there. The URL carries the real number on both.
+			number: getPullRequestIdentityFromMaybeUrl(pr.url)?.prNumber ?? pr.id,
+			id: pr.id,
+			title: pr.title,
+			state: pr.state,
+			url: pr.url,
+			isDraft: pr.isDraft,
+			authorName: pr.author.name,
+			authorAvatarUrl: pr.author.avatarUrl,
+			date: pr.updatedDate.getTime(),
+			headBranch: headBranch,
+			headSha: upstreamName != null ? pr.refs?.head?.sha : undefined,
+			baseBranch: pr.refs?.base?.branch,
+			headRepo:
+				pr.refs?.isCrossRepository === true && pr.refs.head?.owner != null
+					? `${pr.refs.head.owner}/${pr.refs.head.repo}`
+					: undefined,
+			focus:
+				localBranch != null
+					? { branchName: localBranch, upstreamName: upstreamName }
+					: upstreamName != null
+						? { branchName: upstreamName, remote: true }
+						: undefined,
+			context: {
+				webview: this.host.id,
+				webviewItemOrigin: sidebarItemOrigin,
+				webviewItem: `gitlens:pullrequest${pr.refs ? '+refs' : ''}`,
+				webviewItemValue: {
+					type: 'pullrequest',
+					id: pr.id,
+					url: pr.url,
+					repoPath: repoPath,
+					refs: pr.refs,
+					provider: {
+						id: pr.provider.id,
+						name: pr.provider.name,
+						domain: pr.provider.domain,
+						icon: pr.provider.icon,
+					},
+				},
+			} satisfies GraphItemTypedContext<GraphPullRequestContextValue> & GraphSidebarItemOrigin,
+		};
+	}
+
+	/**
+	 * Fetches the repo's open PRs, deduping concurrent callers and caching the result — neither
+	 * `getMyPullRequestsForRepos` nor `searchMyPullRequests` is `@gate()`d, so without this every panel
+	 * open and every sidebar invalidation would issue its own request.
+	 */
+	private async fetchPullRequests(
+		repoPath: string,
+		integration: GitHostIntegration,
+		remote: GitRemote<RemoteProvider>,
+	): Promise<PullRequest[] | undefined> {
+		const key = `${repoPath}|${integration.id}|${remote.provider.repoDesc.key ?? remote.name}`;
+		const cached = this._pullRequestsCache;
+		if (cached?.key === key && cached.expiresAt > Date.now()) return cached.promise;
+
+		// Deliberately not given the caller's AbortSignal. This promise is shared, so cancelling it on
+		// behalf of one caller — a panel switch, say — would fail every other caller waiting on it, and
+		// leave the cancelled result cached. Callers check their own signal after awaiting instead.
+		let promise: Promise<PullRequest[] | undefined>;
+		const evict = () => {
+			if (this._pullRequestsCache?.promise === promise) {
+				this._pullRequestsCache = undefined;
+			}
+		};
+		promise = this.fetchPullRequestsCore(integration, remote).then(
+			prs => {
+				// Only a real list is worth keeping. `undefined` means the lookup failed, and caching
+				// that would show "no pull requests" for the full TTL with refresh unable to shift it.
+				if (prs == null) {
+					evict();
+				}
+				return prs;
+			},
+			(ex: unknown) => {
+				evict();
+				throw ex;
+			},
+		);
+		this._pullRequestsCache = { key: key, expiresAt: Date.now() + pullRequestsCacheExpiration, promise: promise };
+		return promise;
+	}
+
+	private async fetchPullRequestsCore(
+		integration: GitHostIntegration,
+		remote: GitRemote<RemoteProvider>,
+	): Promise<PullRequest[] | undefined> {
+		const repoDesc = remote.provider.repoDesc as { key: string; owner?: string; name?: string };
+
+		// Every open PR, not just the current user's — `getMyPullRequestsForRepos` is only user-scoped
+		// when `filters` is passed, and omitting it returns the whole repo. It takes no AbortSignal, so
+		// the caller discards a superseded result rather than cancelling the request.
+		if (repoDesc.owner != null && repoDesc.name != null) {
+			try {
+				const repos = [{ namespace: repoDesc.owner, name: repoDesc.name }];
+				const prs: PullRequest[] = [];
+				let cursor: string | undefined;
+
+				// Ask for a full page up front: the provider's default page size is small, and each round
+				// trip is sequential (the cursor for page N+1 only arrives with page N), so a large page
+				// is what keeps this to one request on almost every repo.
+				for (let page = 0; page < pullRequestsMaxPages; page++) {
+					const result = await integration.getMyPullRequestsForRepos(repos, {
+						state: 'open',
+						cursor: cursor,
+						pageSize: pullRequestsPageSize,
+					});
+					if (result?.values == null) {
+						// First page failed outright — fall through to the provider-native path.
+						if (page === 0) break;
+						return prs;
+					}
+
+					prs.push(...result.values.map(pr => fromProviderPullRequest(pr, integration)));
+
+					if (!result.paging?.more || result.paging.cursor == null) return prs;
+
+					cursor = result.paging.cursor;
+				}
+
+				if (prs.length) {
+					Logger.warn(
+						`Stopped paging pull requests at ${pullRequestsMaxPages} pages`,
+						'getSidebarPullRequests',
+					);
+					return prs;
+				}
+			} catch (ex) {
+				// Not fatal — fall through to the provider-native path below, which every provider implements.
+				Logger.warn(`Unable to list pull requests via providers-api: ${ex}`, 'getSidebarPullRequests');
+			}
+		}
+
+		// Fallback: provider-native, implemented by every integration, but only the current user's PRs.
+		const result = await integration.searchMyPullRequests(
+			remote.provider.repoDesc,
+			undefined,
+			true,
+			undefined,
+			'open',
+		);
+		// It reports failure by resolving with `error` rather than throwing, so an unchecked `value`
+		// turns a failed lookup into an empty list — which the caller would then cache as the truth.
+		return result != null && 'error' in result ? undefined : result?.value;
+	}
+
 	private getSidebarStashes(graph: GitGraph) {
 		const items =
 			graph.stashes != null
@@ -664,7 +918,12 @@ export class GraphPanelsService {
 		void configuration.updateEffective('views.branches.showRemoteBranches', !current);
 	}
 
-	onSidebarRefresh(_params: { panel: GraphSidebarPanel }): void {
+	onSidebarRefresh(params: { panel: GraphSidebarPanel }): void {
+		// Refresh has to reach past the list cache, or it just re-serves whatever is already held —
+		// which is the one thing a user pressing Refresh is trying to get rid of.
+		if (params.panel === 'pullRequests') {
+			this._pullRequestsCache = undefined;
+		}
 		this.notifySidebarInvalidated();
 	}
 

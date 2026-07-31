@@ -141,6 +141,7 @@ export type ContributedCommands =
 	| 'gitlens.fetchRemote:graph'
 	| 'gitlens.fetchRepositories'
 	| 'gitlens.focusBranch:graph'
+	| 'gitlens.focusPullRequest:graph'
 	| 'gitlens.focusWorktree:graph'
 	| 'gitlens.getStarted'
 	| 'gitlens.ghpr.views.openOrCreateWorktree'

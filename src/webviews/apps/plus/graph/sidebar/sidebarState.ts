@@ -5,6 +5,7 @@ import type { GraphSidebarService } from '../../../../plus/graph/graphService.js
 import type {
 	DidGetSidebarDataParams,
 	GraphSidebarPanel,
+	GraphSidebarPullRequest,
 	SidebarWorktreeChange,
 } from '../../../../plus/graph/protocol.js';
 import type { Resource } from '../../../shared/state/resource.js';
@@ -45,6 +46,10 @@ export interface SidebarActions {
 	toggleLayout(panel: GraphSidebarPanel): void;
 	toggleShowRemoteBranches(): void;
 	executeAction(command: GlCommands, context?: string, args?: unknown[]): void;
+	/** Looks up one pull request by number, for the search fallback in the pull requests panel and the
+	 *  scope popover's Focus pane. Resolves `undefined` when the service isn't wired yet or the
+	 *  provider has no such pull request. */
+	findPullRequest(number: string): Promise<GraphSidebarPullRequest | undefined>;
 	applyWorktreeChanges(changes: Record<string, SidebarWorktreeChange | undefined>): void;
 	dispose(): void;
 }
@@ -73,6 +78,7 @@ export function createSidebarActions(): SidebarActions {
 		overview: createPanelResource('overview'),
 		agents: createPanelResource('agents'),
 		branches: createPanelResource('branches'),
+		pullRequests: createPanelResource('pullRequests'),
 		remotes: createPanelResource('remotes'),
 		stashes: createPanelResource('stashes'),
 		tags: createPanelResource('tags'),
@@ -109,6 +115,7 @@ export function createSidebarActions(): SidebarActions {
 		overview: new Set(),
 		agents: new Set(),
 		branches: new Set(),
+		pullRequests: new Set(),
 		remotes: new Set(),
 		stashes: new Set(),
 		tags: new Set(),
@@ -119,6 +126,7 @@ export function createSidebarActions(): SidebarActions {
 		overview: undefined,
 		agents: undefined,
 		branches: undefined,
+		pullRequests: undefined,
 		remotes: undefined,
 		stashes: undefined,
 		tags: undefined,
@@ -226,6 +234,9 @@ export function createSidebarActions(): SidebarActions {
 			service?.refresh(panel);
 		},
 
+		findPullRequest: async function (number: string) {
+			return service?.findPullRequest(number);
+		},
 		toggleLayout: function (panel: GraphSidebarPanel) {
 			if (panel === 'agents') {
 				agentsLayout.set(agentsLayout.get() === 'tree' ? 'list' : 'tree');

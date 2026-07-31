@@ -948,6 +948,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			sidebar: {
 				getSidebarData: (panel, signal) => this.onGetSidebarData({ panel: panel }, signal),
 				getSidebarCounts: () => this.onGetCounts(),
+				findPullRequest: number => this._panels.onFindPullRequest({ number: number }),
 				toggleLayout: panel => this.onSidebarToggleLayout({ panel: panel }),
 				toggleShowRemoteBranches: () => this.onSidebarToggleShowRemoteBranches(),
 				refresh: panel => this.onSidebarRefresh({ panel: panel }),
@@ -1694,6 +1695,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				break;
 			case 'stash':
 				this.host.sendTelemetryEvent('graph/stashes/stashAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'pullRequest':
+				this.host.sendTelemetryEvent('graph/pullRequests/pullRequestAction', {
 					action: resolved.action,
 					alt: false,
 					location: 'contextMenu',

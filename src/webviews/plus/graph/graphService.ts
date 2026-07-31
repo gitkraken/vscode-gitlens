@@ -22,6 +22,7 @@ import type {
 	DidGetCountParams,
 	DidGetSidebarDataParams,
 	GraphSidebarPanel,
+	GraphSidebarPullRequest,
 	SidebarWorktreeChange,
 } from './protocol.js';
 
@@ -606,6 +607,9 @@ export interface GraphInspectService {
 export interface GraphSidebarService {
 	getSidebarData(panel: GraphSidebarPanel, signal?: AbortSignal): Promise<DidGetSidebarDataParams>;
 	getSidebarCounts(): Promise<DidGetCountParams>;
+	/** Looks up one pull request by number, for the Focus pane's search fallback — the panel lists only
+	 *  open PRs, so a pasted URL for a merged or closed one isn't in the loaded set. */
+	findPullRequest(number: string): Promise<GraphSidebarPullRequest | undefined>;
 	toggleLayout(panel: GraphSidebarPanel): void;
 	toggleShowRemoteBranches(): void;
 	refresh(panel: GraphSidebarPanel): void;

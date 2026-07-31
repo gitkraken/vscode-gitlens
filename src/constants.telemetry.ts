@@ -388,6 +388,19 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user types in the filter box in the sidebar stashes panel */
 	'graph/stashes/filtered': GraphSidebarStashesFilteredEvent;
 
+	/** Sent when the Pull Requests sidebar panel becomes visible */
+	'graph/pullRequests/shown': GraphSidebarPullRequestsShownEvent;
+	/** Sent when the user clicks a pull request leaf in the sidebar pull requests panel */
+	'graph/pullRequests/pullRequestSelected': GraphSidebarPullRequestsSelectedEvent;
+	/** Sent when the user invokes an action on a pull request item, via inline hover-icon or right-click context menu (see `location`) */
+	'graph/pullRequests/pullRequestAction': GraphSidebarPullRequestsActionEvent;
+	/** Sent when the user clicks a header action (Create Pull Request, Refresh) in the sidebar pull requests panel */
+	'graph/pullRequests/headerAction': GraphSidebarPullRequestsHeaderActionEvent;
+	/** Sent when the user types in the filter box in the sidebar pull requests panel */
+	'graph/pullRequests/filtered': GraphSidebarPullRequestsFilteredEvent;
+	/** Sent when the user looks up a pull request the loaded list doesn't hold, from a pasted URL or number */
+	'graph/pullRequests/searched': GraphSidebarPullRequestsSearchedEvent;
+
 	/** Sent when the Tags sidebar panel becomes visible */
 	'graph/tags/shown': GraphSidebarTagsShownEvent;
 	/** Sent when the user clicks a tag leaf in the sidebar tags panel */
@@ -2175,6 +2188,49 @@ interface GraphSidebarStashesFilteredEvent extends GraphContextEventData {
 	hasFilter: boolean;
 	'filter.length': number;
 	'stashes.count': number;
+}
+
+interface GraphSidebarPullRequestsShownEvent extends GraphContextEventData {
+	'pullRequests.count': number;
+	/** Number of drafts, which are listed but rarely the reason the panel was opened */
+	'pullRequests.draft.count': number;
+	/** Number whose head lives in a fork — these carry no ref the graph can scope to, so they have no Focus action */
+	'pullRequests.fork.count': number;
+}
+
+interface GraphSidebarPullRequestsSelectedEvent extends GraphContextEventData {
+	/** Whether the row's head resolved to a ref in this repository (false for a fork) */
+	reachable: boolean;
+	draft: boolean;
+}
+
+/** Focus is intentionally absent: it's view state handled in the webview and reports itself via
+ *  `graph/scope/changed`, matching how the other panels leave their Focus action untracked. */
+export type GraphSidebarPullRequestsActionName = 'openOnRemote';
+
+interface GraphSidebarPullRequestsActionEvent extends GraphContextEventData {
+	action: GraphSidebarPullRequestsActionName;
+	/** Reserved for parity with other panels' item actions — no pull request inline action defines an alt variant yet, so always false today */
+	alt: boolean;
+	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
+	location: 'inline' | 'contextMenu';
+}
+
+interface GraphSidebarPullRequestsHeaderActionEvent extends GraphContextEventData {
+	action: 'createPullRequest' | 'refresh';
+}
+
+interface GraphSidebarPullRequestsFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	/** Whether the query named a specific pull request (a pasted URL or `#123`) rather than free text */
+	byIdentity: boolean;
+	'pullRequests.count': number;
+}
+
+interface GraphSidebarPullRequestsSearchedEvent extends GraphContextEventData {
+	/** Whether the provider had a pull request with that number */
+	found: boolean;
 }
 
 interface GraphSidebarTagsShownEvent extends GraphContextEventData {

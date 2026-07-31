@@ -1,6 +1,7 @@
 import type { GlCommands } from '../../../constants.commands.js';
 import type {
 	GraphSidebarBranchesActionName,
+	GraphSidebarPullRequestsActionName,
 	GraphSidebarRemotesActionName,
 	GraphSidebarStashesActionName,
 	GraphSidebarTagsActionName,
@@ -9,7 +10,7 @@ import type {
 import { sidebarInlineItemOrigin, sidebarItemOrigin } from './protocol.js';
 
 /** Sidebar item types that carry `graph/{panel}/{item}Action` telemetry. */
-export type SidebarItemType = 'branch' | 'remote' | 'worktree' | 'tag' | 'stash';
+export type SidebarItemType = 'branch' | 'remote' | 'worktree' | 'tag' | 'stash' | 'pullRequest';
 
 /**
  * Single source of truth mapping command ids → telemetry action names, per sidebar item type.
@@ -31,7 +32,11 @@ export const sidebarItemActions: {
 	readonly worktree: Partial<Record<GlCommands, GraphSidebarWorktreesActionName>>;
 	readonly tag: Partial<Record<GlCommands, GraphSidebarTagsActionName>>;
 	readonly stash: Partial<Record<GlCommands, GraphSidebarStashesActionName>>;
+	readonly pullRequest: Partial<Record<GlCommands, GraphSidebarPullRequestsActionName>>;
 } = {
+	pullRequest: {
+		'gitlens.openPullRequestOnRemote:graph': 'openOnRemote',
+	},
 	branch: {
 		'gitlens.switchToBranch:graph': 'switch',
 		'gitlens.switchToAnotherBranch:graph': 'switch',
@@ -104,7 +109,8 @@ export type ResolvedSidebarContextMenuAction =
 	| { type: 'remote'; action: GraphSidebarRemotesActionName }
 	| { type: 'worktree'; action: GraphSidebarWorktreesActionName }
 	| { type: 'tag'; action: GraphSidebarTagsActionName }
-	| { type: 'stash'; action: GraphSidebarStashesActionName };
+	| { type: 'stash'; action: GraphSidebarStashesActionName }
+	| { type: 'pullRequest'; action: GraphSidebarPullRequestsActionName };
 
 /** Parse the sidebar item type from a `webviewItem` context string (e.g. `gitlens:branch+current`).
  *  Remote branches (`gitlens:branch+remote`, the leaves nested under the Remotes panel) are
@@ -113,6 +119,9 @@ export type ResolvedSidebarContextMenuAction =
  *  surfaces symmetrically leave remote-branch actions to `graph/command`. */
 function parseItemType(webviewItem: string | undefined): SidebarItemType | undefined {
 	if (webviewItem == null) return undefined;
+
+	// `pullrequest` is the context value's spelling; the telemetry type is camelCased to match the panel.
+	if (/^gitlens:pullrequest\b/.test(webviewItem)) return 'pullRequest';
 
 	const type = /^gitlens:(branch|remote|worktree|tag|stash)\b/.exec(webviewItem)?.[1] as SidebarItemType | undefined;
 	if (type === 'branch' && /\+remote\b/.test(webviewItem)) return undefined;
@@ -130,6 +139,10 @@ export function resolveSidebarContextMenuAction(
 ): ResolvedSidebarContextMenuAction | undefined {
 	const type = parseItemType(webviewItem);
 	switch (type) {
+		case 'pullRequest': {
+			const action = sidebarItemActions.pullRequest[command as GlCommands];
+			return action != null ? { type: 'pullRequest', action: action } : undefined;
+		}
 		case 'branch': {
 			const action = sidebarItemActions.branch[command as GlCommands];
 			return action != null ? { type: 'branch', action: action } : undefined;

@@ -77,6 +77,7 @@ import {
 } from '../../../git/utils/-webview/branch.utils.js';
 import { isCommitPushed } from '../../../git/utils/-webview/commit.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
+import { getBestRemoteWithIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { RebaseTodoAction } from '../../../git/utils/rebaseTodo.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
@@ -1383,6 +1384,39 @@ export class GraphCommands {
 		void this.host.notify(DidRequestGraphActionNotification, {
 			action: 'scope-to-branch',
 			scopeBranch: scopeBranch,
+		});
+	}
+
+	/** Focuses the graph on a pull request — the same scope a branch focus produces, resolved from the
+	 *  PR's head instead of a ref the user picked directly. */
+	@command('gitlens.focusPullRequest:graph')
+	@debug()
+	private async focusPullRequest(item?: GraphItemContext): Promise<void> {
+		if (!isGraphItemTypedContext(item, 'pullrequest')) return;
+
+		const { refs, repoPath } = item.webviewItemValue;
+		const headBranch = refs?.head?.branch;
+		// A fork head isn't nameable against this repo's remotes, so there's no ref to scope to.
+		if (headBranch == null || refs?.isCrossRepository === true) return;
+
+		// Must match how the panel built this row's focus target (`getSidebarPullRequests`): the
+		// best-ranked remote isn't necessarily the one with the connected integration, and in a fork
+		// workflow they differ — naming the head against the wrong one yields a ref that doesn't exist.
+		const remote = await getBestRemoteWithIntegration(repoPath);
+		if (remote == null) return;
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+
+		const upstreamName = `${remote.name}/${headBranch}`;
+		// Prefer the local branch tracking the PR's head; fall back to scoping the remote ref itself.
+		const local = await svc.branches.getLocalBranchByUpstream?.(upstreamName);
+
+		void this.host.notify(DidRequestGraphActionNotification, {
+			action: 'scope-to-branch',
+			scopeBranch:
+				local != null
+					? { branchName: local.name, upstreamName: upstreamName }
+					: { branchName: upstreamName, remote: true },
 		});
 	}
 

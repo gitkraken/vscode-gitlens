@@ -10,7 +10,7 @@ import type {
 } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearchResultData } from '@gitlens/git/models/graphSearch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
-import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestRefs, PullRequestShape, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -320,7 +320,15 @@ export type GraphMinimapMarkerTypes =
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
-export type GraphSidebarPanel = 'agents' | 'branches' | 'overview' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
+export type GraphSidebarPanel =
+	| 'agents'
+	| 'branches'
+	| 'overview'
+	| 'pullRequests'
+	| 'remotes'
+	| 'stashes'
+	| 'tags'
+	| 'worktrees';
 
 /** Top-level rendering mode for the Graph webview. New modes (e.g. kanban) plug in here. */
 export type GraphDisplayMode = 'graph' | 'visualizations' | 'kanban';
@@ -1289,6 +1297,42 @@ export interface GraphSidebarRemote {
 	context?: GraphItemTypedContext<GraphRemoteContextValue> & GraphSidebarItemOrigin;
 }
 
+export interface GraphSidebarPullRequest {
+	/**
+	 * The user-facing pull request number. Derived from the PR's URL rather than `PullRequest.id`,
+	 * which is only the number on the provider-native path — the providers-api path maps the
+	 * provider's *internal* id there, so trusting it renders a database key instead of `#5619`.
+	 */
+	number: string;
+	/** The model's own id, for the context value that routes commands. Not user-facing. */
+	id: string;
+	title: string;
+	state: PullRequestState;
+	url: string;
+	isDraft?: boolean;
+	authorName?: string;
+	authorAvatarUrl?: string;
+	/** Last-updated timestamp, for the row's relative date. */
+	date?: number;
+	/** Head branch name without its remote (e.g. `feature/x`). */
+	headBranch?: string;
+	/** Head tip sha, so selecting the row navigates the graph to it. Absent for a fork head, which
+	 *  isn't guaranteed to exist in this repo. */
+	headSha?: string;
+	/** Base branch name without its remote — what this PR merges into. */
+	baseBranch?: string;
+	/** `owner/repo` of the head, set only when the head lives in a different repository (a fork).
+	 *  Doubles as the cross-repository flag, since same-repo heads leave it unset. */
+	headRepo?: string;
+	/**
+	 * Scope target for the row's Focus action, resolved host-side because it needs local-branch
+	 * knowledge: the local branch tracking the PR's head when there is one, otherwise the remote
+	 * ref itself. Absent when the head can't be resolved against this repo (e.g. a deleted fork).
+	 */
+	focus?: GraphScopeBranch;
+	context?: GraphItemTypedContext<GraphPullRequestContextValue> & GraphSidebarItemOrigin;
+}
+
 export interface GraphSidebarStash {
 	name: string;
 	sha: string;
@@ -1349,6 +1393,7 @@ export interface GraphSidebarWorktree {
 export type GetSidebarDataParams = { panel: GraphSidebarPanel };
 export type DidGetSidebarDataParams = { layout?: 'list' | 'tree'; compact?: boolean } & (
 	| { panel: 'branches'; items: GraphSidebarBranch[]; showRemoteBranches?: boolean }
+	| { panel: 'pullRequests'; items: GraphSidebarPullRequest[] }
 	| { panel: 'remotes'; items: GraphSidebarRemote[] }
 	| { panel: 'stashes'; items: GraphSidebarStash[] }
 	| { panel: 'tags'; items: GraphSidebarTag[] }
