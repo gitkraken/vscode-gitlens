@@ -823,7 +823,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		if (upstream == null) {
 			return html`<div class="relationship-card">
 				<div class="relationship-card__head">
-					${kindIcon}<span class="relationship-card__label">Upstream</span>
+					${kindIcon}<span class="relationship-card__connector">Upstream</span>
 					${this.renderEditToken(
 						'Unpublished',
 						'Set Upstream…',
