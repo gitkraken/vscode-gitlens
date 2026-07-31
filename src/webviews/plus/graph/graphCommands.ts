@@ -986,9 +986,6 @@ export class GraphCommands {
 		if (repoPath == null) return;
 
 		const svc = this.container.git.getRepositoryService(repoPath);
-		const type = pausedOpArgs?.type ?? (await svc.pausedOps?.getPausedOperationStatus?.())?.type;
-		if (type == null || type === 'revert') return;
-
 		await continuePausedOperation(this.container, svc, { source: 'graph' });
 	}
 

@@ -23,29 +23,57 @@ export function getConflictCurrentRef(status: GitPausedOperationStatus): GitRefe
 	return status.current;
 }
 
+/** `name` is the Title Case form for buttons/actions; `prose` is the sentence form ("Cherry-pick paused"). */
 export const pausedOperationStatusStringsByType = {
 	'cherry-pick': {
+		name: 'Cherry Pick',
+		prose: 'Cherry-pick',
 		label: 'Cherry picking',
 		conflicts: 'Resolve conflicts to continue cherry picking',
 		directionality: 'into',
 	},
 	merge: {
+		name: 'Merge',
+		prose: 'Merge',
 		label: 'Merging',
 		conflicts: 'Resolve conflicts to continue merging',
 		directionality: 'into',
 	},
 	rebase: {
+		name: 'Rebase',
+		prose: 'Rebase',
 		label: 'Rebasing',
 		conflicts: 'Resolve conflicts to continue rebasing',
 		directionality: 'onto',
 		pending: 'Pending rebase of',
 	},
 	revert: {
+		name: 'Revert',
+		prose: 'Revert',
 		label: 'Reverting',
 		conflicts: 'Resolve conflicts to continue reverting',
 		directionality: 'in',
 	},
 } as const;
+
+export type PausedOperationVariant = 'conflicts' | 'pending' | 'ready';
+
+/** Codicon per variant — shared so the bar and the WIP badge can't drift. */
+export const pausedOperationVariantIcons: Record<PausedOperationVariant, string> = {
+	conflicts: 'warning',
+	pending: 'circle-outline',
+	ready: 'check',
+};
+
+/** Unresolved conflicts outrank a rebase that hasn't reached its first step — neither can continue, but only conflicts are actionable. */
+export function getPausedOperationVariant(
+	status: GitPausedOperationStatus,
+	hasConflicts: boolean,
+): PausedOperationVariant {
+	if (hasConflicts) return 'conflicts';
+	if (status.type === 'rebase' && status.steps.total === 0) return 'pending';
+	return 'ready';
+}
 
 /**
  * Resolves the correct file paths for each side of a merge conflict diff when the file may have been renamed.

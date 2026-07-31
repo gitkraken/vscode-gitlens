@@ -569,6 +569,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 
 		return html`<gl-merge-rebase-status
 			?conflicts=${wip.hasConflicts}
+			.conflictsCount=${wip.conflictsCount}
 			.pausedOpStatus=${wip.pausedOpStatus}
 		></gl-merge-rebase-status>`;
 	}
