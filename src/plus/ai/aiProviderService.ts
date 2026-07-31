@@ -33,7 +33,14 @@ import type {
 	PromptTemplateType,
 	TruncationHandler,
 } from '@gitlens/ai/models/promptTemplates.js';
-import type { AIChatMessage, AIProvider, AIProviderResponse, AIProviderResult } from '@gitlens/ai/models/provider.js';
+import type {
+	AIChatMessage,
+	AIChatMessageRole,
+	AIProvider,
+	AIProviderResponse,
+	AIProviderResult,
+	AIToolDefinition,
+} from '@gitlens/ai/models/provider.js';
 import type { AIProviderContext } from '@gitlens/ai/providers/context.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
@@ -360,7 +367,7 @@ export interface AIRequestProvider {
 		cancellation: CancellationToken,
 		maxInputTokens: number,
 		retries: number,
-	) => Promise<AIChatMessage[]>;
+	) => Promise<AIChatMessage<AIChatMessageRole>[]>;
 
 	/**
 	 * Get the progress title for each attempt.
@@ -1236,6 +1243,9 @@ export class AIProviderService implements AIService, Disposable {
 			modelOptions?: { outputTokens?: number; temperature?: number };
 			progress?: ProgressOptions;
 			throwAIErrors?: boolean;
+			/** Tools to advertise to the model. Silently dropped for providers that don't support them,
+			 *  so callers don't need to know which provider resolved. */
+			tools?: readonly AIToolDefinition[];
 		},
 	): Promise<AIProviderResult<void> | 'cancelled' | undefined> {
 		const scope = getScopedLogger();
@@ -1368,6 +1378,9 @@ export class AIProviderService implements AIService, Disposable {
 								signal: controller.signal,
 								modelOptions: options?.modelOptions,
 								conversationId: options?.conversationId,
+								// Drop tools for providers whose wire format can't carry them — the caller
+								// sees no `toolCalls` back and falls through to its text-only path.
+								tools: requestProviderRef.provider.supportsTools ? options?.tools : undefined,
 							},
 						);
 						if (!fulfilled) {

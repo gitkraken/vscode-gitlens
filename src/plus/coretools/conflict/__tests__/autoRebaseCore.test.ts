@@ -159,6 +159,37 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.deepStrictEqual(seen, [undefined, 1, 2]);
 	});
 
+	// Feature under test (#5581): the resolver consults the repository (grep/show/blame) when a hunk alone
+	// is ambiguous, and each consultation updates the run's progress line — step-scoped, so a long step
+	// doesn't look stalled. Captured inside `onProgress` because the loop overwrites `progressMessage` with
+	// 'Continuing…' as soon as the step is applied.
+	test('reports a resolver tool call as step-scoped inspecting progress', async () => {
+		const repo = makeRepo({ 1: ['service.py'], 2: ['b.txt'], 3: ['c.txt'] });
+		const session = makeSession();
+		let toolCallMessage: string | undefined;
+
+		const ports = makePorts(repo);
+		const baseResolve = ports.resolveConflicts;
+		ports.resolveConflicts = args => {
+			if (repo.step === 1) {
+				args.onProgress({
+					type: 'resolver:tool-call',
+					filePath: 'service.py',
+					tool: 'grep',
+					args: {},
+					stepNumber: 1,
+				});
+				toolCallMessage = session.progressMessage;
+			}
+			return baseResolve(args);
+		};
+
+		const result = await run(session, ports);
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(toolCallMessage, 'Step 1/3 · Inspecting grep for service.py…');
+	});
+
 	test('escalates on low confidence without applying anything, handing off all resolutions', async () => {
 		const repo = makeRepo({ 1: ['a.txt', 'b.txt'] });
 		const session = makeSession();

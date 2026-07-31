@@ -1,7 +1,7 @@
 import { anthropicProviderDescriptor as provider } from '../constants.js';
 import { AIError, AIErrorReason } from '../errors.js';
 import type { AIActionType, AIModel } from '../models/model.js';
-import type { AIChatMessage, AIChatMessageRole } from '../models/provider.js';
+import type { AIChatMessage, AIChatMessageRole, AIToolDefinition } from '../models/provider.js';
 import { getReducedMaxInputTokens } from '../utils/ai.utils.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
@@ -227,6 +227,7 @@ const models: AnthropicModel[] = [
 export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	readonly supportsTools = true;
 	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://console.anthropic.com/account/keys',
@@ -291,7 +292,8 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 		model: AIModel<typeof provider.id>,
 		retries: number,
 		maxInputTokens: number,
-	): Promise<{ retry: true; maxInputTokens: number }> {
+		sentTools?: boolean,
+	): Promise<{ retry: true; maxInputTokens: number; withoutTools?: boolean }> {
 		if (rsp.status !== 404 && rsp.status !== 429) {
 			let json;
 			try {
@@ -330,8 +332,62 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 			}
 		}
 
-		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
+		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens, sentTools);
 	}
+
+	protected override serializeTools(tools: readonly AIToolDefinition[]): { tools: unknown[] } {
+		// Anthropic names the schema field `input_schema` and has no `function` envelope.
+		return {
+			tools: tools.map(t => ({ name: t.name, description: t.description, input_schema: t.parameters })),
+		};
+	}
+
+	protected override serializeMessages(messages: AIChatMessage<AIChatMessageRole>[]): unknown[] {
+		const out: unknown[] = [];
+
+		for (const m of messages) {
+			// Anthropic carries tool results as `tool_result` blocks on a *user* message, not a
+			// `tool`-role message. Consecutive results are batched into one user turn, matching how the
+			// API expects a multi-tool-call round to be answered.
+			if (m.role === 'tool') {
+				// See the base provider: a result with no call id can't be addressed, so it goes as plain
+				// text instead of a `tool_use_id: undefined` block the API rejects.
+				if (m.toolCallId == null) {
+					out.push({ role: 'user', content: m.content });
+					continue;
+				}
+
+				const block = { type: 'tool_result', tool_use_id: m.toolCallId, content: m.content };
+				const last = out.at(-1) as { role?: string; content?: unknown[] } | undefined;
+				if (last?.role === 'user' && Array.isArray(last.content) && isToolResultBlocks(last.content)) {
+					last.content.push(block);
+				} else {
+					out.push({ role: 'user', content: [block] });
+				}
+				continue;
+			}
+
+			if (m.role === 'assistant' && m.toolCalls?.length) {
+				out.push({
+					role: 'assistant',
+					content: [
+						...(m.content ? [{ type: 'text', text: m.content }] : []),
+						...m.toolCalls.map(c => ({ type: 'tool_use', id: c.id, name: c.name, input: c.args })),
+					],
+				});
+				continue;
+			}
+
+			out.push({ role: m.role, content: m.content });
+		}
+
+		return out;
+	}
+}
+
+/** Whether an assembled user message's content is a batch of `tool_result` blocks we can append to. */
+function isToolResultBlocks(content: unknown[]): content is { type: string }[] {
+	return content.every(b => (b as { type?: string })?.type === 'tool_result');
 }
 
 interface AnthropicError {

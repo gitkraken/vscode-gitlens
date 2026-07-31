@@ -1,6 +1,6 @@
 import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import type { AIActionType, AIModel } from '@gitlens/ai/models/model.js';
-import type { AIChatMessage, AIProvider, AIProviderResponse } from '@gitlens/ai/models/provider.js';
+import type { AIChatMessage, AIChatMessageRole, AIProvider, AIProviderResponse } from '@gitlens/ai/models/provider.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { getDefaultResponse, getInvalidResponse } from './__debug__simulatorResponses.js';
@@ -76,7 +76,7 @@ export class SimulatorProvider implements AIProvider<'simulator'> {
 		action: TAction,
 		model: AIModel<'simulator'>,
 		_apiKey: string,
-		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
+		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage<AIChatMessageRole>[]>,
 		options: { signal: AbortSignal; modelOptions?: { outputTokens?: number; temperature?: number } },
 	): Promise<AIProviderResponse<void> | undefined> {
 		const state = getSimulatorState();

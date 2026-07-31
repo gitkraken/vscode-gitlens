@@ -3072,7 +3072,9 @@ function logResolutionUsage(resolutions: readonly ConflictToolsResolution[], sco
 		Logger.debug(
 			`resolved ${r.filePath}: tokens=${m.inputTokens} in / ${m.outputTokens} out${
 				m.stepCount != null ? `, steps=${m.stepCount}` : ''
-			}${m.durationMs != null ? `, duration=${m.durationMs}ms` : ''}`,
+			}${m.toolCallCount != null ? `, toolCalls=${m.toolCallCount}` : ''}${
+				m.durationMs != null ? `, duration=${m.durationMs}ms` : ''
+			}`,
 			scope,
 		);
 	}

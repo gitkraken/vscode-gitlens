@@ -8,6 +8,7 @@ type OpenRouterModel = AIModel<typeof provider.id>;
 export class OpenRouterProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	readonly supportsTools = true;
 	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://openrouter.ai/keys',

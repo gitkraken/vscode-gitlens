@@ -1015,6 +1015,10 @@ interface AutoRebaseStepResolvedEvent {
 	'result.strategy.deleted.count': number;
 	/** Lowest AI confidence among the step's resolutions */
 	'confidence.min': number;
+	/** Repo-inspection tool calls the AI made across the step's resolutions */
+	'tools.calls.count'?: number;
+	/** Model round-trips across the step's resolutions (tool calls plus validation re-prompts) */
+	'tools.steps.count'?: number;
 }
 
 interface AutoRebaseCompletedEvent extends AutoRebaseLifecycleEvent {

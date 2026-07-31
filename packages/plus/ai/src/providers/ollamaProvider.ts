@@ -1,7 +1,7 @@
 import { uuid } from '@gitlens/utils/crypto.js';
 import { ollamaProviderDescriptor as provider } from '../constants.js';
 import type { AIActionType, AIModel } from '../models/model.js';
-import type { AIChatMessage, AIProviderResponse } from '../models/provider.js';
+import type { AIChatMessage, AIChatMessageRole, AIProviderResponse } from '../models/provider.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type OllamaModel = AIModel<typeof provider.id>;
@@ -138,7 +138,7 @@ export class OllamaProvider extends OpenAICompatibleProviderBase<typeof provider
 		action: TAction,
 		model: AIModel<typeof provider.id>,
 		apiKey: string,
-		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
+		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage<AIChatMessageRole>[]>,
 		modelOptions?: { outputTokens?: number; temperature?: number },
 		signal?: AbortSignal,
 	): Promise<AIProviderResponse<void>> {
