@@ -387,7 +387,10 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('getOrganizationsForUser');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
-			this.handleProviderException('getOrganizationsForUser', ex, { scope: scope });
+			this.handleProviderException('getOrganizationsForUser', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -423,7 +426,7 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('getProjectsForOrg');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
-			this.handleProviderException('getProjectsForOrg', ex, { scope: scope });
+			this.handleProviderException('getProjectsForOrg', ex, { scope: scope, connectionId: connectionId });
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -460,7 +463,10 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('getRepositoriesForOrg');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
-			this.handleProviderException('getRepositoriesForOrg', ex, { scope: scope });
+			this.handleProviderException('getRepositoriesForOrg', ex, {
+				scope: scope,
+				connectionId: options?.connectionId,
+			});
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -498,7 +504,10 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('getRepositoriesForUser');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
-			this.handleProviderException('getRepositoriesForUser', ex, { scope: scope });
+			this.handleProviderException('getRepositoriesForUser', ex, {
+				scope: scope,
+				connectionId: options?.connectionId,
+			});
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -1441,6 +1450,7 @@ export abstract class GitHostIntegration<
 			this.handleProviderException('searchMyPullRequests', ex, {
 				scope: scope,
 				silent: true,
+				connectionId: connectionId,
 			});
 			return {
 				error: toError(ex),
@@ -1483,7 +1493,10 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('getMyPullRequestsForUser');
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
-			this.handleProviderException('getMyPullRequestsForUser', ex, { scope: scope });
+			this.handleProviderException('getMyPullRequestsForUser', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
 			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
@@ -1615,7 +1628,7 @@ export abstract class GitHostIntegration<
 			this.resetRequestExceptionCount('searchPullRequests');
 			return prs;
 		} catch (ex) {
-			this.handleProviderException('searchPullRequests', ex, { scope: scope });
+			this.handleProviderException('searchPullRequests', ex, { scope: scope, connectionId: connectionId });
 			return undefined;
 		}
 	}
