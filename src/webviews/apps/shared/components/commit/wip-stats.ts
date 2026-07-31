@@ -1,7 +1,11 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
-import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import {
+	getPausedOperationVariant,
+	pausedOperationStatusStringsByType,
+	pausedOperationVariantIcons,
+} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { baseStyles as pillStyles } from '../pills/pill.css.js';
 import './commit-stats.js';
@@ -84,6 +88,17 @@ export class GlWipStats extends LitElement {
 			.paused-op-badge--conflicts {
 				color: #fff;
 				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
+			}
+
+			.paused-op-badge--ready {
+				color: #06150a;
+				background-color: var(--vscode-gitlens-decorations\\.statusPausedOperationReadyForegroundColor);
+			}
+
+			/* The light theme's green is dark enough to carry white text; dark's is not. */
+			:host-context(.vscode-light) .paused-op-badge--ready,
+			:host-context(.vscode-high-contrast-light) .paused-op-badge--ready {
+				color: #fff;
 			}
 		`,
 	];
@@ -173,22 +188,26 @@ export class GlWipStats extends LitElement {
 	}
 
 	private renderPausedOp(pausedOp: GitPausedOperationStatus) {
+		// Mirrors the paused-operation bar's state set so the header badge and the bar can't disagree
+		const variant = getPausedOperationVariant(pausedOp, this.hasConflicts);
 		const opStrings = pausedOperationStatusStringsByType[pausedOp.type];
-		const label = this.hasConflicts ? pluralize('conflict', this.conflictsCount ?? 1) : opStrings.label;
+		const label = variant === 'conflicts' ? pluralize('conflict', this.conflictsCount ?? 1) : opStrings.label;
 
 		const badge = html`<span
-			class="paused-op-badge${this.hasConflicts ? ' paused-op-badge--conflicts' : ''}"
+			class="paused-op-badge${variant === 'conflicts' ? ' paused-op-badge--conflicts' : ''}${
+				variant === 'ready' ? ' paused-op-badge--ready' : ''
+			}"
 			aria-label=${label}
 		>
-			<code-icon icon="warning"></code-icon>
+			<code-icon icon=${pausedOperationVariantIcons[variant]}></code-icon>
 			${label}
 		</span>`;
 
 		if (this.noTooltip) return badge;
 
-		return html`<gl-tooltip placement="bottom"
-			>${badge}<span slot="content">${opStrings.label} in progress</span></gl-tooltip
-		>`;
+		const tooltip =
+			variant === 'ready' ? `${opStrings.label} — ready to continue` : `${opStrings.label} in progress`;
+		return html`<gl-tooltip placement="bottom">${badge}<span slot="content">${tooltip}</span></gl-tooltip>`;
 	}
 }
 

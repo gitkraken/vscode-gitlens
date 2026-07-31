@@ -71,7 +71,6 @@ export const GitErrors = {
 	changesWouldBeOverwritten:
 		/Your local changes to the following files would be overwritten|Your local changes would be overwritten|overwritten by checkout/i,
 	cherryPickAborted: /cherry-pick.*aborted/i,
-	cherryPickEmptyPrevious: /The previous cherry-pick is now empty/i,
 	cherryPickInProgress: /cherry-pick is already in progress|You have not concluded your cherry-pick/i,
 	commitChangesFirst: /Please, commit your changes before you can/i,
 	conflict: /^CONFLICT \([^)]+\): \b/m,
@@ -100,6 +99,7 @@ export const GitErrors = {
 	noPausedOperation:
 		/no merge (?:in progress|to abort)|no cherry-pick(?: or revert)? in progress|no rebase in progress/i,
 	permissionDenied: /Permission.*denied/i,
+	previousOperationEmpty: /The previous (?:cherry-pick|revert) is now empty/i,
 	pushRejected: /^error:\s*failed to push some refs to\b/m,
 	pushRejectedRefDoesNotExists: /error:\s*unable to delete '(.*?)': remote ref does not exist/m,
 	rebaseAborted: /Nothing to do|rebase.*aborted/i,
@@ -242,7 +242,7 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.cherryPickAborted, 'aborted'],
 			[GitErrors.cherryPickInProgress, 'alreadyInProgress'],
 			[GitErrors.conflict, 'conflicts'],
-			[GitErrors.cherryPickEmptyPrevious, 'emptyCommit'],
+			[GitErrors.previousOperationEmpty, 'emptyCommit'],
 			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
 		],
 	],
@@ -277,7 +277,7 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 	[
 		'paused-operation-continue',
 		[
-			[GitErrors.cherryPickEmptyPrevious, 'emptyCommit'],
+			[GitErrors.previousOperationEmpty, 'emptyCommit'],
 			[GitErrors.noPausedOperation, 'nothingToContinue'],
 			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
 			[GitErrors.unmergedFiles, 'unmergedFiles'],

@@ -6281,6 +6281,16 @@
 				}
 			},
 			{
+				"id": "gitlens.decorations.statusPausedOperationReadyForegroundColor",
+				"description": "Specifies the decoration foreground color of the status when a paused operation has no unresolved conflicts and is ready to continue",
+				"defaults": {
+					"light": "#2da44e",
+					"highContrastLight": "#2da44e",
+					"dark": "#3fb950",
+					"highContrast": "#3fb950"
+				}
+			},
+			{
 				"id": "gitlens.decorations.workspaceRepoMissingForegroundColor",
 				"description": "Specifies the decoration foreground color of workspace repos which are missing a local path",
 				"defaults": {

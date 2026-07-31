@@ -302,9 +302,19 @@ suite('GitErrors Regex Test Suite', () => {
 			assert.ok(GitErrors.cherryPickInProgress.test(stderr));
 		});
 
-		test('cherryPickEmptyPrevious matches "The previous cherry-pick is now empty"', () => {
+		test('previousOperationEmpty matches "The previous cherry-pick is now empty"', () => {
 			const stderr = 'The previous cherry-pick is now empty, possibly due to conflict resolution.';
-			assert.ok(GitErrors.cherryPickEmptyPrevious.test(stderr));
+			assert.ok(GitErrors.previousOperationEmpty.test(stderr));
+		});
+
+		test('previousOperationEmpty matches "The previous revert is now empty"', () => {
+			const stderr = 'The previous revert is now empty, possibly due to conflict resolution.';
+			assert.ok(GitErrors.previousOperationEmpty.test(stderr));
+		});
+
+		test('previousOperationEmpty does not match an unrelated empty-commit message', () => {
+			const stderr = 'nothing to commit, working tree clean';
+			assert.ok(!GitErrors.previousOperationEmpty.test(stderr));
 		});
 
 		test('revertInProgress matches "revert is already in progress"', () => {

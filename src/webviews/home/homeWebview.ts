@@ -623,8 +623,6 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@command('gitlens.pausedOperation.continue:')
 	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async continuePausedOperation(pausedOpArgs: GitPausedOperationStatus) {
-		if (pausedOpArgs.type === 'revert') return;
-
 		await continuePausedOperation(this.container, this.container.git.getRepositoryService(pausedOpArgs.repoPath), {
 			source: 'home',
 		});

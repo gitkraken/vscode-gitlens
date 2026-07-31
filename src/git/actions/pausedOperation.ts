@@ -27,7 +27,7 @@ export async function continuePausedOperation(
 	svc: GitRepositoryService,
 	source?: Source,
 ): Promise<void> {
-	return continuePausedOperationCore(container, svc, false, source);
+	return continuePausedOperationCore(container, svc, undefined, source);
 }
 
 export async function skipPausedOperation(
@@ -35,17 +35,17 @@ export async function skipPausedOperation(
 	svc: GitRepositoryService,
 	source?: Source,
 ): Promise<void> {
-	return continuePausedOperationCore(container, svc, true, source);
+	return continuePausedOperationCore(container, svc, { skip: true }, source);
 }
 
 async function continuePausedOperationCore(
 	container: Container,
 	svc: GitRepositoryService,
-	skip: boolean = false,
+	options?: { allowEmpty?: boolean; skip?: boolean },
 	source?: Source,
 ): Promise<void> {
 	try {
-		return await svc.pausedOps?.continuePausedOperation?.(skip ? { skip: true } : undefined);
+		return await svc.pausedOps?.continuePausedOperation?.(options);
 	} catch (ex) {
 		if (PausedOperationContinueError.is(ex, 'emptyCommit')) {
 			// Use the operation status from the error - it's already accurate
@@ -55,19 +55,22 @@ async function continuePausedOperationCore(
 
 			const pausedAt = getReferenceLabel(operation.incoming, { icon: false, label: true, quoted: true });
 
+			const emptyCommitItem = { title: 'Continue with Empty Commit' };
 			const skipItem = { title: 'Skip' };
 			const cancelItem = { title: 'Cancel', isCloseAffordance: true };
 
-			// TODO@eamodio: We should offer a continue with allowing an empty commit option
-
 			const result = await window.showInformationMessage(
-				`The ${operation.type} operation cannot be continued because ${pausedAt} resulted in an empty commit.\n\nDo you want to skip ${pausedAt}?`,
+				`The ${operation.type} operation cannot be continued because ${pausedAt} resulted in an empty commit.\n\nDo you want to record ${pausedAt} as an empty commit, or skip it?`,
 				{ modal: true },
+				emptyCommitItem,
 				skipItem,
 				cancelItem,
 			);
+			if (result === emptyCommitItem) {
+				return void continuePausedOperationCore(container, svc, { allowEmpty: true }, source);
+			}
 			if (result === skipItem) {
-				return void continuePausedOperationCore(container, svc, true, source);
+				return void continuePausedOperationCore(container, svc, { skip: true }, source);
 			}
 
 			void showPausedOperationStatus(container, svc.path, { source: source });

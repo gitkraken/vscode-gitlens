@@ -649,6 +649,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		return html`<div class="paused-op">
 			<gl-merge-rebase-status
 				?conflicts=${this.wip?.changes?.hasConflicts ?? false}
+				.conflictsCount=${this.wip?.stats?.conflictsCount}
 				.pausedOpStatus=${pausedOpStatus}
 			></gl-merge-rebase-status>
 		</div>`;
