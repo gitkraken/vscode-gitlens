@@ -57,7 +57,7 @@ export type GraphSearchServiceContext = {
 	getEtagRepository: () => number | undefined;
 	setSelectedRows: (id: string | undefined, selection?: GraphSelection[], state?: SelectedRowState) => void;
 	updateState: (immediate?: boolean) => void;
-	updateGraphWithMoreRows: (id: string) => Promise<void>;
+	updateGraphWithMoreRows: (id: string, limitOverride?: number) => Promise<void>;
 	notifyDidChangeRows: () => void;
 	getWipRows: () => Promise<GraphWipRowsById>;
 	createSearchCancellation: () => CancellationTokenSource;
@@ -601,7 +601,19 @@ export class GraphSearchService {
 		if (result?.value != null) {
 			search = result.value;
 			this._search = updateSearchMode(this.container, search);
-			void (await this.ensureSearchStartsInRange(graph, search.results));
+			// Last chance to select: a per-batch attempt above misses whenever a concurrent paging walk
+			// supersedes its page-in, and without a selection here nothing ever reveals the match. Re-check
+			// the id after the await — `setSelectedRows` is a blind write that would stomp a newer search.
+			const firstResult = await this.ensureSearchStartsInRange(graph, search.results);
+			if (
+				options?.selectFirstResult &&
+				!firstResultSelected &&
+				firstResult != null &&
+				searchId === this._searchIdCounter.current
+			) {
+				this.context.setSelectedRows(firstResult);
+				firstResultSelected = true;
+			}
 
 			// Send final notification with complete results
 			if (progressive) {
@@ -692,7 +704,11 @@ export class GraphSearchService {
 
 		if (firstResult == null) return undefined;
 
-		await this.context.updateGraphWithMoreRows(firstResult);
+		// `limit: 0` for an UNCAPPED targeted walk, matching the other two targeted page-ins (`revealRow`,
+		// `ensureSelectedTargetLoaded`). The default page size caps a walk at `pageItemLimit*10`, which
+		// stops at the frontier instead of the match, leaving a deeper hit unloaded and so unselectable —
+		// the search finds it and then never jumps to it. The walk stops as soon as it reaches the sha.
+		await this.context.updateGraphWithMoreRows(firstResult, 0);
 		this.context.notifyDidChangeRows();
 
 		// Re-read the live graph — a concurrent session refresh during the page-load await above
