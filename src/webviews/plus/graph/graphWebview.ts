@@ -52,7 +52,7 @@ import type {
 } from '../../../config.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { ContextKeys } from '../../../constants.context.js';
-import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage.js';
+import type { StoredGraphExcludedRef, StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage.js';
 import type {
 	GraphShownTelemetryContext,
 	GraphTelemetryContext,
@@ -160,6 +160,7 @@ import {
 	activityDecayToMs,
 	defaultGraphColumnsSettings,
 	formatRepositories,
+	getExcludedRefName,
 	hasGitReference,
 	isGraphItemRefContext,
 	isGraphItemTypedContext,
@@ -3581,10 +3582,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const asWebviewUri = (uri: Uri) => this.host.asWebviewUri(uri);
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
+		// Refs that no longer exist would otherwise stay hidden — and keep inflating the chip's count —
+		// forever. `refTips` is the complete `for-each-ref` listing the walk already captured off its
+		// critical path, so validating against it costs no extra git call (the reason the original v13
+		// validation was dropped — see https://github.com/gitkraken/vscode-gitlens/pull/2211#discussion_r990117432).
+		// An EMPTY map means that listing failed (`errors: 'ignore'`), so only prune against a populated one;
+		// the GitHub provider never populates it at all, leaving virtual repos untouched.
+		const refTips = graph.refTips?.size ? graph.refTips : undefined;
+
 		const excludeRefs: GraphExcludeRefs = {};
 
 		for (const id in storedExcludeRefs) {
-			const ref: GraphExcludedRef = { ...storedExcludeRefs[id] };
+			const stored = storedExcludeRefs[id];
+			if (refTips != null && !this.excludedRefExists(stored, refTips, graph)) continue;
+
+			const ref: GraphExcludedRef = { ...stored };
 			if (ref.type === 'remote' && ref.owner) {
 				const remote = graph.remotes.get(ref.owner);
 				if (remote != null) {
@@ -3598,38 +3610,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			excludeRefs[id] = ref;
 		}
 
-		// For v13, we return directly the hidden refs without validating them
+		// Filtered for display only — deliberately NOT written back to storage. `for-each-ref` runs with
+		// `errors: 'ignore'`, so a truncated read yields a non-empty but PARTIAL map, and persisting on that
+		// would destroy hidden state the user can't recover. `resetFilters` still clears the stored keys.
+		return hasKeys(excludeRefs) ? excludeRefs : undefined;
+	}
 
-		// This validation has too much performance impact. So we decided to comment those lines
-		// for v13 and have it as tech debt to solve after we launch.
-		// See: https://github.com/gitkraken/vscode-gitlens/pull/2211#discussion_r990117432
-		// if (this.repository == null) {
-		// 	this.repository = this.container.git2.getBestRepositoryOrFirst;
-		// 	if (this.repository == null) return undefined;
-		// }
+	/** Whether a stored hidden ref still exists per the walk's ref listing. A remote-wide hide has no
+	 *  refname of its own, so it lives or dies with its remote; anything unresolvable is kept. */
+	private excludedRefExists(
+		ref: StoredGraphExcludedRef,
+		refTips: NonNullable<GitGraph['refTips']>,
+		graph: GitGraph,
+	): boolean {
+		if (ref.type === 'remote' && ref.name === '*') {
+			return ref.owner ? graph.remotes.has(ref.owner) : true;
+		}
 
-		// const [hiddenBranches, hiddenTags] = await Promise.all([
-		// 	this.repository.getBranches({
-		// 		filter: b => !b.current && excludeRefs[b.id] != undefined,
-		// 	}),
-		// 	this.repository.getTags({
-		// 		filter: t => excludeRefs[t.id] != undefined,
-		// 	}),
-		// ]);
-
-		// const filteredHiddenRefsById: GraphHiddenRefs = {};
-
-		// for (const hiddenBranch of hiddenBranches.values) {
-		// 	filteredHiddenRefsById[hiddenBranch.id] = excludeRefs[hiddenBranch.id];
-		// }
-
-		// for (const hiddenTag of hiddenTags.values) {
-		// 	filteredHiddenRefsById[hiddenTag.id] = excludeRefs[hiddenTag.id];
-		// }
-
-		// return filteredHiddenRefsById;
-
-		return excludeRefs;
+		const refName = getExcludedRefName(ref);
+		return refName == null || refTips.has(refName);
 	}
 
 	private getPinnedRef(

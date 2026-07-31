@@ -53,6 +53,7 @@ import type { GlGraphScopePopover } from './components/gl-graph-scope-popover.js
 import { graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
 import type { GraphNavigationOptions, GraphNavigationResult } from './graph-wrapper/graph-wrapper.js';
+import { compareGraphRefOpts, getHiddenRefLabel } from './hiddenRefs.utils.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProvider.js';
@@ -1285,51 +1286,60 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private renderHiddenRefs(excludeRefs: GraphExcludeRefs | undefined) {
 		if (!hasTruthyKeys(excludeRefs)) return nothing;
 
+		const refs = this.excludeRefs;
+		const countLabel = `${refs.length} hidden ${refs.length === 1 ? 'branch or tag' : 'branches and tags'}`;
+
 		return html`<gl-popover
-			class="popover"
+			appearance="menu"
 			placement="bottom-start"
 			trigger="click focus"
 			?arrow=${false}
 			.distance=${0}
 		>
 			<gl-tooltip placement="top" slot="anchor">
-				<button type="button" class="action-button">
-					<code-icon icon=${`eye-closed`}></code-icon>
-					${Object.values(excludeRefs ?? {}).length}
+				<button type="button" class="action-button" aria-haspopup="true" aria-label=${countLabel}>
+					<code-icon icon="eye-closed"></code-icon>
+					${refs.length}
 					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
 				</button>
-				<span slot="content">Hidden Branches / Tags</span>
+				<span slot="content">${countLabel}</span>
 			</gl-tooltip>
 			<div slot="content">
 				<menu-label>Hidden Branches / Tags</menu-label>
-				${when(
-					this.excludeRefs.length > 0,
-					() => html`
-						${repeat(
-							this.excludeRefs,
-							ref => html`
-								<menu-item
-									@click=${(event: CustomEvent) => {
-										this.handleOnToggleRefsVisibilityClick(event, [ref], true);
-									}}
-									class="flex-gap"
-								>
-									${this.renderRemoteAvatarOrIcon(ref)}
-									<span>${ref.name}</span>
-								</menu-item>
-							`,
-						)}
-						<menu-item
-							@click=${(event: CustomEvent) => {
-								this.handleOnToggleRefsVisibilityClick(event, this.excludeRefs, true);
-							}}
-						>
-							Show All
-						</menu-item>
-					`,
+				${repeat(
+					refs,
+					ref => ref.id,
+					ref => this.renderHiddenRef(ref),
 				)}
+				<menu-divider></menu-divider>
+				<menu-item
+					@click=${(event: CustomEvent) => {
+						this.handleOnToggleRefsVisibilityClick(event, refs, true);
+					}}
+				>
+					Show All
+				</menu-item>
 			</div>
 		</gl-popover>`;
+	}
+
+	private renderHiddenRef(ref: GraphRefOptData) {
+		const { owner, name, suffix } = getHiddenRefLabel(ref);
+
+		return html`<menu-item
+			class="hidden-ref"
+			@click=${(event: CustomEvent) => {
+				this.handleOnToggleRefsVisibilityClick(event, [ref], true);
+			}}
+		>
+			${this.renderRemoteAvatarOrIcon(ref)}
+			<span class="hidden-ref__label"
+				>${owner ? html`<span class="hidden-ref__owner">${owner}</span>` : nothing}${name}${
+					suffix ? html` <span class="hidden-ref__suffix">· ${suffix}</span>` : nothing
+				}</span
+			>
+			<code-icon class="hidden-ref__show" icon="eye" aria-hidden="true"></code-icon>
+		</menu-item>`;
 	}
 
 	private renderTitlebarSearchRow(repo: RepositoryShape | undefined) {
@@ -1481,21 +1491,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		`;
 	}
 
+	/** The leading glyph on a hidden-ref row. Decorative: the row's own text names the ref, so an alt/label
+	 *  here would only announce it twice (and a remote-wide hide's raw name is a bare `*`). */
 	private renderRemoteAvatarOrIcon(refOptData: GraphRefOptData) {
 		if (refOptData.avatarUrl) {
-			return html`<img class="branch-menu__avatar" alt=${refOptData.name} src=${refOptData.avatarUrl} />`;
+			return html`<img class="hidden-ref__avatar" alt="" src=${refOptData.avatarUrl} />`;
 		}
-		return html`<code-icon class="branch-menu__icon" icon=${getRemoteIcon(refOptData.type)}></code-icon>`;
+		return html`<code-icon class="hidden-ref__icon" icon=${getRemoteIcon(refOptData.type)}></code-icon>`;
 	}
-}
-
-export function compareGraphRefOpts(a: GraphRefOptData, b: GraphRefOptData): number {
-	const comparationResult = a.name.localeCompare(b.name);
-	if (comparationResult === 0) {
-		// If names are equals
-		if (a.type === 'remote') {
-			return -1;
-		}
-	}
-	return comparationResult;
 }

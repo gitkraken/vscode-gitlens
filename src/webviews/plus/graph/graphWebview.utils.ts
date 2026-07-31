@@ -10,6 +10,7 @@ import {
 import type { Unbrand } from '@gitlens/utils/brand.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { GraphActivityDecay } from '../../../config.js';
+import type { StoredGraphExcludedRef } from '../../../constants.storage.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { toRepositoryShape, toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils.js';
@@ -40,6 +41,26 @@ import type {
 
 /** Hard ceiling on an adaptively-grown page size — keeps the wire payload per page bounded. */
 export const maxAdaptivePageLimit = 1000;
+
+/**
+ * The canonical refname a stored hidden ref would appear under in `git for-each-ref`, for checking whether
+ * it still exists. Returns `undefined` when there's nothing to check against — a remote-wide hide
+ * (`name: '*'`, which is validated against the remote list instead) or a legacy remote entry stored without
+ * an `owner`. Callers must treat `undefined` as "keep": never prune what can't be resolved.
+ */
+export function getExcludedRefName(ref: StoredGraphExcludedRef): string | undefined {
+	switch (ref.type) {
+		case 'head':
+			return `refs/heads/${ref.name}`;
+		case 'tag':
+			return `refs/tags/${ref.name}`;
+		case 'remote':
+			if (!ref.owner || ref.name === '*') return undefined;
+			return `refs/remotes/${ref.owner}/${ref.name}`;
+		default:
+			return undefined;
+	}
+}
 
 // Column layouts applied by the "Reset Columns" commands; shared by the host provider (column-settings
 // seed) and the extracted graph commands module.

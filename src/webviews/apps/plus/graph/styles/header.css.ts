@@ -167,12 +167,6 @@ export const titlebarStyles = css`
 `;
 
 export const graphHeaderControlStyles = css`
-	.popover::part(body) {
-		padding: 0;
-		font-size: var(--vscode-font-size);
-		background-color: var(--vscode-menu-background);
-	}
-
 	.titlebar__group gl-repo-button-group,
 	.titlebar__group gl-ref-button {
 		font-size: var(--gl-font-md);
@@ -199,16 +193,64 @@ export const graphHeaderControlStyles = css`
 		margin-left: -0.5rem;
 	}
 
-	.branch-menu {
+	/* Rows in the hidden-refs popover. The outer tree wins over menu-item's own :host { display: block },
+	   so laying the row out from here is what gives the icon, label and restore glyph their alignment. */
+	.hidden-ref {
 		display: flex;
-		gap: 0.5em;
+		gap: var(--gl-space-6);
 		align-items: center;
 	}
 
-	.branch-menu__avatar {
+	.hidden-ref__label {
+		flex: 1 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* The owner prefix that disambiguates same-named branches across remotes, and the qualifier on a
+	   remote-wide hide. Both stay subordinate to the ref name — including against the selection fill,
+	   where descriptionForeground has no contrast left. */
+	.hidden-ref__owner,
+	.hidden-ref__suffix {
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.hidden-ref:hover .hidden-ref__owner,
+	.hidden-ref:hover .hidden-ref__suffix,
+	.hidden-ref:focus-visible .hidden-ref__owner,
+	.hidden-ref:focus-visible .hidden-ref__suffix {
+		color: color-mix(in srgb, var(--vscode-menu-selectionForeground) 78%, transparent);
+	}
+
+	/* Clicking the row restores the ref; this is the only thing that says so. */
+	.hidden-ref__show {
+		flex: none;
+		opacity: 0;
+		transition: opacity var(--gl-duration-x-fast) var(--gl-ease-out);
+	}
+
+	.hidden-ref:hover .hidden-ref__show,
+	.hidden-ref:focus-visible .hidden-ref__show {
+		opacity: 1;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.hidden-ref__show {
+			transition: none;
+		}
+	}
+
+	.hidden-ref__avatar {
 		width: 1.4rem;
 		aspect-ratio: 1;
+		flex: none;
 		vertical-align: text-bottom;
+	}
+
+	.hidden-ref__icon {
+		flex: none;
 	}
 
 	.action-divider {

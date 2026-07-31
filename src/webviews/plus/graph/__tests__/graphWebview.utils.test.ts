@@ -1,6 +1,43 @@
 import * as assert from 'assert';
-import { isRepoHostingIntegrationConnected, stripRefsMetadataTypes } from '../graphWebview.utils.js';
+import type { StoredGraphExcludedRef } from '../../../../constants.storage.js';
+import {
+	getExcludedRefName,
+	isRepoHostingIntegrationConnected,
+	stripRefsMetadataTypes,
+} from '../graphWebview.utils.js';
 import type { GraphRefMetadata } from '../protocol.js';
+
+suite('graphWebview.utils — getExcludedRefName', () => {
+	function ref(
+		o: Partial<StoredGraphExcludedRef> & Pick<StoredGraphExcludedRef, 'type' | 'name'>,
+	): StoredGraphExcludedRef {
+		return { id: 'id', ...o };
+	}
+
+	test('resolves a local branch', () => {
+		assert.strictEqual(getExcludedRefName(ref({ type: 'head', name: 'feature/x' })), 'refs/heads/feature/x');
+	});
+
+	test('resolves a tag', () => {
+		assert.strictEqual(getExcludedRefName(ref({ type: 'tag', name: 'v17.4.0' })), 'refs/tags/v17.4.0');
+	});
+
+	test('resolves a remote branch from its owner and unprefixed name', () => {
+		assert.strictEqual(
+			getExcludedRefName(ref({ type: 'remote', owner: 'origin', name: 'feature/x' })),
+			'refs/remotes/origin/feature/x',
+		);
+	});
+
+	test('a remote-wide hide has no refname of its own', () => {
+		// `*` is validated against the remote list instead — there is no `refs/remotes/origin/*` to look up.
+		assert.strictEqual(getExcludedRefName(ref({ type: 'remote', owner: 'origin', name: '*' })), undefined);
+	});
+
+	test('a remote entry with no owner is unresolvable, so callers keep it', () => {
+		assert.strictEqual(getExcludedRefName(ref({ type: 'remote', name: 'main' })), undefined);
+	});
+});
 
 suite('graphWebview.utils — isRepoHostingIntegrationConnected', () => {
 	const repoPath = '/home/user/repo';
