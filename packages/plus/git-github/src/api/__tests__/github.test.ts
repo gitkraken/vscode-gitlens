@@ -187,6 +187,38 @@ suite('GitHubApi.searchPullRequests', () => {
 		assert.deepStrictEqual(seenCursors, ['', 'page-2']);
 	});
 
+	test('preserves matches from earlier pages when a continuation response is unavailable', async () => {
+		let request = 0;
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async () => {
+				request++;
+				return new Response(
+					request === 1
+						? JSON.stringify({
+								data: {
+									search: {
+										pageInfo: { endCursor: 'page-2', hasNextPage: true },
+										nodes: [prNode(1, 'MERGED')],
+									},
+								},
+							})
+						: JSON.stringify({ data: null }),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			},
+			wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
+		};
+
+		const api = new GitHubApi(config);
+		const results = await api.searchPullRequests(provider, token, { include: ['opened', 'merged'] });
+
+		assert.deepStrictEqual(
+			results.map(pr => pr.id),
+			['1'],
+		);
+	});
+
 	test('stops at the page backstop when matches never fill the page', async () => {
 		const seenCursors: string[] = [];
 		// Every page is full of non-matching PRs and always reports another page, so results never reach the
@@ -319,12 +351,12 @@ suite('GitHubApi direct pull request lookups', () => {
 		type: undefined,
 	};
 
-	function prNode(number: number) {
+	function prNode(number: number, body: string | null = `Body ${number}`) {
 		return {
 			id: `pr-${number}`,
 			number: number,
 			title: `PR ${number}`,
-			body: `Body ${number}`,
+			body: body,
 			permalink: `https://github.com/octo/repo/pull/${number}`,
 			url: `https://github.com/octo/repo/pull/${number}`,
 			state: 'OPEN',
@@ -393,6 +425,15 @@ suite('GitHubApi direct pull request lookups', () => {
 
 		assert.match(getQuery(), /\bbody\b/);
 		assert.strictEqual(pr?.body, 'Body 1');
+	});
+
+	test('getPullRequest normalizes a null body to undefined', async () => {
+		const { config } = captureQuery({ repository: { pullRequest: prNode(4, null) } });
+		const api = new GitHubApi(config);
+
+		const pr = await api.getPullRequest(provider, token, 'octo', 'repo', 4);
+
+		assert.strictEqual(pr?.body, undefined);
 	});
 
 	test('getPullRequestForBranch requests and maps the body', async () => {
