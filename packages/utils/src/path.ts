@@ -93,6 +93,20 @@ export function stripFolderGlob(path: string): string {
 	return isFolderGlob(path) ? path.slice(0, -2) : path;
 }
 
+/**
+ * Trims the trailing slash git puts on an untracked directory that is itself a repository
+ * (`nested-repo/`), which it reports as one entry because it can't recurse past the embedded
+ * repository boundary. Status is fetched with `-u` (= `all`), so ordinary untracked directories are
+ * recursed into and a trailing slash identifies the nested-repository case unambiguously.
+ *
+ * Deliberately not {@link normalizePath}, which also rewrites backslashes: git paths always use `/`,
+ * so a backslash here is a literal character in a (POSIX-legal) filename, and rewriting it would
+ * split the name across folders wherever the result is used to derive a display name or a tree path.
+ */
+export function trimTrailingSlash(path: string): string {
+	return path.endsWith('/') ? path.slice(0, -1) : path;
+}
+
 export function getBestPath(pathOrUri: string): string {
 	if (!hasScheme(pathOrUri)) return normalizePath(pathOrUri);
 

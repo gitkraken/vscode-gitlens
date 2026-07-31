@@ -3,7 +3,7 @@ import { html, nothing } from 'lit';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
-import { joinPaths } from '@gitlens/utils/path.js';
+import { joinPaths, trimTrailingSlash } from '@gitlens/utils/path.js';
 import { GlElement } from '../../../shared/components/element.js';
 import type {
 	TreeItemAction,
@@ -13,7 +13,7 @@ import type {
 	TreeItemSelectionDetail,
 	TreeModel,
 } from '../../../shared/components/tree/base.js';
-import { buildFileTooltip, trimTrailingSlash } from '../../../shared/components/tree/file-tree-utils.js';
+import { buildFileTooltip } from '../../../shared/components/tree/file-tree-utils.js';
 import '../../../shared/components/tree/tree-view.js';
 import '../../../shared/components/skeleton-loader.js';
 import '../../../shared/components/chips/action-chip.js';

@@ -8,6 +8,7 @@ import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
+import { trimTrailingSlash } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../../../../config.js';
 import type { WebviewItemContext } from '../../../../../system/webview.js';
@@ -40,7 +41,6 @@ import {
 	nextContextMatchVisibility,
 	renderContextMatchVisibilityAction,
 	renderLayoutAction,
-	trimTrailingSlash,
 } from './file-tree-utils.js';
 import { fileTreeStyles } from './gl-file-tree-pane.css.js';
 import '../badges/badge.js';

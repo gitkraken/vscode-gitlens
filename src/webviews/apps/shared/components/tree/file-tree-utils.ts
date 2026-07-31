@@ -5,7 +5,7 @@ import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
-import { basename, joinPaths } from '@gitlens/utils/path.js';
+import { basename, joinPaths, trimTrailingSlash } from '@gitlens/utils/path.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { WorkingFileSorting } from '../../../../commitDetails/protocol.js';
 import type { TreeItemAction, TreeItemBase, TreeItemDecorationKind, TreeModel } from './base.js';
@@ -162,20 +162,6 @@ const workingFileStatusOrder: Record<string, number> = {
 };
 
 const emptyPathSet: ReadonlySet<string> = new Set<string>();
-
-/**
- * Trims the trailing slash git puts on an untracked directory that is itself a repository
- * (`nested-repo/`), which it reports as one entry because it can't recurse past the embedded
- * repository boundary. Status is fetched with `-u` (= `all`), so ordinary untracked directories are
- * recursed into and a trailing slash identifies the nested-repository case unambiguously.
- *
- * Deliberately not `normalizePath`, which also rewrites backslashes: git paths always use `/`, so a
- * backslash here is a literal character in a (POSIX-legal) filename and rewriting it would split the
- * name across folders.
- */
-export function trimTrailingSlash(path: string): string {
-	return path.endsWith('/') ? path.slice(0, -1) : path;
-}
 
 /** Ranks non-conflict working files by stage for the `stage` sort: staged-only → mixed → unstaged-only. */
 function workingStageRank(file: GitFileChangeShape, mixedPaths: ReadonlySet<string>): number {

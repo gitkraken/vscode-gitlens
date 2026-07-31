@@ -8,6 +8,7 @@ import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { flatCount } from '@gitlens/utils/iterable.js';
+import { trimTrailingSlash } from '@gitlens/utils/path.js';
 import type {
 	DraftArchiveReason,
 	DraftPatchFileChange,
@@ -30,7 +31,6 @@ import type {
 	TreeItemSelectionDetail,
 	TreeModel,
 } from '../../../shared/components/tree/base.js';
-import { trimTrailingSlash } from '../../../shared/components/tree/file-tree-utils.js';
 import { GlTreeBase } from './gl-tree-base.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/actions/action-nav.js';
