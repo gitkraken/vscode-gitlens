@@ -136,8 +136,10 @@ function hasActiveRefFilter(state: RefExcludeState): boolean {
 
 /**
  * @param getRefOrder Returns the live ordering inputs that aren't ref data — the click pin, the edge
- * pin, and the current branch's upstream name. The pinned ref takes the inline pill (the displaced
- * primary drops into the +N popover) so it stays visible at a glance until it's unpinned. The host
+ * pin, and the current branch's upstream name. Ordering is tiered (see `sortRowRefs`): the click pin
+ * and the current checkout both outrank the edge pin, so the edge-pinned ref is NOT guaranteed the
+ * inline pill. Its indicator renders wherever it lands — the primary pill's leading slot, a +N
+ * popover row, or the combined pill's upstream segment when it's an in-sync upstream. The host
  * recomputes adornments on pin/unpin and on a branch change so this re-applies.
  * @param getExcludeState Returns the active ref-visibility filters, read fresh on each adornments
  * rebuild. Hidden refs (by type or by id; current HEAD always kept) are filtered out of each row's
@@ -441,7 +443,17 @@ export function renderRefPill(
 	if (rowMarker?.upstream != null) {
 		upstreamSegment = renderNamedUpstreamSegment(primary, rowMarker.upstream, hooks);
 	} else {
-		upstreamSegment = fromSha != null ? renderUpstreamSegment(primary, fromSha, hooks, upstreamOnRow) : nothing;
+		upstreamSegment =
+			fromSha != null
+				? renderUpstreamSegment(
+						primary,
+						fromSha,
+						hooks,
+						upstreamOnRow,
+						undefined,
+						rowMarker?.suppressPinControl !== true,
+					)
+				: nothing;
 	}
 
 	// PR/issue chips: first item only — a pill has room for a single badge of each kind.
@@ -551,7 +563,17 @@ export function renderRefPill(
 	>
 		<span slot="anchor" class="gl-graph__ref-popover-anchor">${pill}</span>
 		<div slot="content" class="gl-graph__ref-popover-list" role="menu" @mousedown=${stopEvent}>
-			${rest.map(r => renderPopoverRefRow(r, color, r.context, fromSha, hooks, popoverUpstreamFor.get(r)))}
+			${rest.map(r =>
+				renderPopoverRefRow(
+					r,
+					color,
+					r.context,
+					fromSha,
+					hooks,
+					popoverUpstreamFor.get(r),
+					edgePinnedId != null && r.id === edgePinnedId && rowMarker?.suppressPinControl !== true,
+				),
+			)}
 		</div>
 	</gl-popover>`;
 }
@@ -618,6 +640,7 @@ function renderUpstreamSegment(
 	hooks?: RefPillHooks,
 	upstreamOnRow?: ParsedRef,
 	jumpId?: string,
+	pinControl?: boolean,
 ): TemplateResult | typeof nothing {
 	if (hooks == null) return nothing;
 
@@ -629,7 +652,26 @@ function renderUpstreamSegment(
 		const owner = upstreamOnRow.owner ?? '';
 		const full = owner.length > 0 ? `${owner}/${upstreamOnRow.name}` : upstreamOnRow.name;
 		const label = upstreamOnRow.name === ref.name ? owner : full;
-		return renderNamedSegment(remoteRefIcon(upstreamOnRow.hostingServiceType), label, `Up to date with ${full}`);
+		// An absorbed upstream is neither the primary pill nor a popover row, so this segment is the ONLY
+		// place its edge-pin can surface. Interactive on the primary pill; a bare glyph in a popover row,
+		// which is `role="menuitem"` where a nested button is invalid and unreachable under roving focus.
+		const pinnedRefId = hooks.getPinnedRefId?.();
+		const edgePinned = pinnedRefId != null && upstreamOnRow.id === pinnedRefId;
+		return renderNamedSegment(
+			remoteRefIcon(upstreamOnRow.hostingServiceType),
+			label,
+			edgePinned ? `Up to date with ${full} · Pinned to Edge` : `Up to date with ${full}`,
+			undefined,
+			edgePinned
+				? pinControl === true
+					? renderPinControl(hooks.onUnpinRef, 'gl-graph__ref-pill-icon--pin-upstream')
+					: html`<code-icon
+							class="gl-graph__ref-pill-upstream-icon gl-graph__ref-pill-upstream-pin"
+							icon="gl-pinned-filled"
+							aria-hidden="true"
+						></code-icon>`
+				: undefined,
+		);
 	}
 
 	const stats = hooks.getUpstream(ref);
@@ -714,11 +756,20 @@ function renderUpstreamSegment(
  * `remoteRefIcon`) — this segment IS that remote, so it shouldn't fall back to the generic cloud when we can
  * be specific. `remoteRefIcon` already returns `cloud` when the provider is unknown.
  */
-function renderNamedSegment(icon: string, label: string, tip: string, onJump?: () => void): TemplateResult {
+function renderNamedSegment(
+	icon: string,
+	label: string,
+	tip: string,
+	onJump?: () => void,
+	leading?: TemplateResult,
+): TemplateResult {
 	const content = html`<code-icon class="gl-graph__ref-pill-upstream-icon" icon=${icon}></code-icon>
 		${label.length > 0 ? html`<span class="gl-graph__ref-pill-upstream-label">${label}</span>` : nothing}`;
+	// `leading` only rides the static form — the jump form is itself a <button>, which can't nest one.
 	if (onJump == null) {
-		return html`<span class="gl-graph__ref-pill-upstream" aria-label=${tip} data-tooltip=${tip}>${content}</span>`;
+		return html`<span class="gl-graph__ref-pill-upstream" aria-label=${tip} data-tooltip=${tip}
+			>${leading ?? nothing}${content}</span
+		>`;
 	}
 
 	return html`<button
@@ -802,8 +853,10 @@ function renderPopoverRefRow(
 	fromSha?: Sha,
 	hooks?: RefPillHooks,
 	upstreamOnRow?: ParsedRef,
+	edgePinned?: boolean,
 ): TemplateResult {
 	const isHead = parsed.current === true;
+	const describe = describeRef(parsed, hooks);
 	// Same split/combine treatment as the primary pill: in-sync upstream folds in (cloud + sync), an
 	// out-of-sync counterpart shows ahead/behind + a jump button.
 	const upstreamSegment =
@@ -816,7 +869,7 @@ function renderPopoverRefRow(
 		style=${cspStyleMap(refStyle(color, isHead, 'row'))}
 		role="menuitem"
 		id=${`ref-menuitem-${refPillKey(parsed)}`}
-		aria-label=${describeRef(parsed, hooks)}
+		aria-label=${edgePinned === true ? `${describe} · Pinned to Edge` : describe}
 		data-ref-name=${parsed.name}
 		data-ref-key=${refPillKey(parsed)}
 		data-ref-kind=${parsed.kind}
@@ -824,10 +877,20 @@ function renderPopoverRefRow(
 		data-ref-is-head=${parsed.current ? 'true' : nothing}
 		data-vscode-context=${context ?? nothing}
 	>
-		${renderRefIcon(parsed)}
+		${
+			// Indicator ONLY, and it PRECEDES the kind glyph rather than replacing it — the glyph is what says
+			// whether a local, remote or tag is pinned. A row is `role="menuitem"`, where a nested button is
+			// invalid and unreachable under roving focus, so Unpin stays on the row's context menu.
+			edgePinned === true
+				? html`<code-icon
+						class="gl-graph__ref-popover-row-pin"
+						icon="gl-pinned-filled"
+						aria-hidden="true"
+					></code-icon>`
+				: nothing
+		}${renderRefIcon(parsed)}
 		<span class="gl-graph__ref-popover-row-label">${chipLabel(parsed, hooks?.getShowRemoteNames() === true)}</span>
 		${upstreamSegment}
-		${isHead ? html`<span class="gl-graph__ref-popover-row-head" aria-hidden="true">HEAD</span>` : nothing}
 	</div>`;
 }
 
@@ -879,9 +942,19 @@ function remoteRefIcon(hostingServiceType: GkProviderId | undefined): string {
 function renderLeadingSlot(ref: ParsedRef, edgePinned: boolean, hooks?: RefPillHooks): TemplateResult {
 	if (!edgePinned) return html`<span class="gl-graph__ref-pill-icon">${renderRefIcon(ref)}</span>`;
 
-	const onUnpin = hooks?.onUnpinRef;
+	// The pin JOINS the kind glyph instead of replacing it: that glyph is the only thing saying WHAT is
+	// pinned (local / remote / tag / worktree), so swapping it out left a pinned pill unable to identify
+	// itself. Wrapped as ONE element because `-main` is a two-column grid — icon slot, then label.
+	return html`<span class="gl-graph__ref-pill-pinned-slot"
+		>${renderPinControl(hooks?.onUnpinRef)}<span class="gl-graph__ref-pill-icon">${renderRefIcon(ref)}</span></span
+	>`;
+}
+
+/** The edge-pin control — the pinned glyph at rest, swapping to `close` on hover. Shared by the primary
+ *  pill's leading slot and the combined pill's upstream segment (an absorbed pinned upstream). */
+function renderPinControl(onUnpin: (() => void) | undefined, extraClass?: string): TemplateResult {
 	return html`<button
-		class="gl-graph__ref-pill-icon gl-graph__ref-pill-icon--pin"
+		class="gl-graph__ref-pill-icon gl-graph__ref-pill-icon--pin${extraClass != null ? ` ${extraClass}` : ''}"
 		type="button"
 		tabindex="-1"
 		aria-label="Unpin Branch from Edge"

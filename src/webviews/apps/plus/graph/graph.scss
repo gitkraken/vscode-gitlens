@@ -3248,6 +3248,27 @@ gl-lit-graph {
 			background: color-mix(in srgb, var(--ref-on-color, #fff) 16%, transparent);
 		}
 	}
+	// Pinned leading slot: the unpin control AND the ref's kind glyph. One grid item, since `-main` is a
+	// two-column grid (icon, then label) — the pair has to occupy the icon track together.
+	.gl-graph__ref-pill-pinned-slot {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		// Pulls the pin back into the pill's 0.8rem inline padding so it reads as the pill's own leading
+		// marker rather than a third glyph. Stops at -0.3rem because the pin's hover band already bleeds
+		// 0.5rem left — any further and the band would spill past the pill's rounded edge.
+		margin-left: -0.3rem;
+	}
+	// The pin on an absorbed in-sync upstream — the only place that ref's pin can show. Sits at the segment's
+	// leading edge, mirroring the pill's own leading slot, with the band inset to clear the divider.
+	.gl-graph__ref-pill-icon--pin-upstream {
+		margin-right: 0.2rem;
+
+		&::before {
+			inset-inline: -0.2rem;
+			border-radius: 0.4rem;
+		}
+	}
 	.gl-graph__ref-pill-pin-hover {
 		opacity: 0;
 	}
@@ -3871,23 +3892,10 @@ gl-lit-graph {
 		white-space: nowrap;
 		text-overflow: ellipsis;
 	}
-	.gl-graph__ref-popover-row-head {
-		display: inline-flex;
-		align-items: center;
-		margin-left: auto;
-		border-radius: 0.2rem;
-		padding: 0.1rem 0.4rem;
-		font-size: 0.9rem;
-		font-weight: 600;
-		line-height: 1;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		background-color: color-mix(in srgb, var(--ref-color) 28%, transparent);
-		color: var(--ref-color);
-	}
-	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-popover-row-head {
-		background-color: color-mix(in srgb, var(--ref-on-color, #fff) 28%, transparent);
-		color: var(--ref-on-color, #fff);
+	// Pinned marker on a popover row — precedes the row's kind glyph, which stays put so the row still says
+	// what KIND of ref is pinned.
+	.gl-graph__ref-popover-row-pin {
+		flex-shrink: 0;
 	}
 	// Working-changes stats badge (WipStatsAdornmentProvider) — the shared `<commit-stats>` pill (icons
 	// + add/edit/remove colors), identical to the WIP header / overview / Home cards.

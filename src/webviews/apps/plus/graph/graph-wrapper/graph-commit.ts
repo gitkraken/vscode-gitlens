@@ -399,12 +399,21 @@ export function sortRowRefs(refs: readonly GraphCommitRef[], order?: RowRefOrder
 
 	const currentHead = refs.find(r => r.kind === 'head' && r.current);
 	const worktreeHeads = refs.filter(r => r.kind === 'head' && r.secondaryWorktreeId != null);
+	// An edge pin landing on a remote that's the in-sync upstream of a local head HERE ranks the pair by its
+	// LOCAL: the two render as one combined pill, so promoting the remote alone would split it in two and the
+	// absorbed remote could never be matched back (`isUpstreamRemoteOf` needs the head second). The pin still
+	// shows — on that pill's upstream segment, which IS the pinned remote.
+	const edgePinned = order?.pinnedRefId != null ? refs.find(r => r.id === order.pinnedRefId) : undefined;
+	const edgePinCarrier =
+		edgePinned?.kind === 'remote'
+			? (refs.find(r => r.kind === 'head' && isUpstreamRemoteOf(edgePinned, r)) ?? edgePinned)
+			: edgePinned;
 	const tier = (r: GraphCommitRef): number => {
 		// Either pin can land on a head OR a remote, so both straddle the kind switch below. Click before
 		// edge: it's the more recent, explicitly-expressed intent when a row carries both.
 		if (order?.pinnedRefKey != null && refPillKey(r) === order.pinnedRefKey) return 0; // click-pinned
 		if (r.kind === 'head' && r.current) return 1; // the current checkout
-		if (order?.pinnedRefId != null && r.id === order.pinnedRefId) return 2; // pinned to the edge
+		if (edgePinCarrier != null && r === edgePinCarrier) return 2; // pinned to the edge
 		if (r.kind === 'head') {
 			if (r.secondaryWorktreeId != null) return 4; // checked out in another worktree
 			if (r.isDefault) return 6; // the repo's default branch
