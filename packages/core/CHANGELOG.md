@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.100] - 2026-07-31
+
 ### Changed
 
 - **Breaking (git)** — `GitGraphRowHead.worktreeId` is removed; `worktree` now carries `isDefault` instead. Consumers asking "is this branch checked out somewhere other than here?" must test `worktree != null && !worktree.isDefault` rather than reading `worktreeId`. `GitGraphRowType` is renamed to `GitGraphRowKind`, and the row field carrying it from `type` to `kind`, adopting the commit-graph engine's own vocabulary — `'commit' | 'merge' | 'stash' | 'workdir'`, replacing `'commit-node' | 'merge-node' | 'stash-node' | 'work-dir-changes'` — and drops the never-produced `merge-conflict-node` and `unsupported-rebase-warning-node` members; `GitGraphRowContexts` drops eight slots no producer wrote (`ref`, `graph`, `avatar`, `message`, `author`, `date`, `sha`, `stats`) (git)
@@ -126,7 +128,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.4.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.100...HEAD
+[0.5.100]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.0...gitkraken:releases/core/v0.5.100
 [0.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.1...gitkraken:releases/core/v0.4.0
 [0.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.0...gitkraken:releases/core/v0.3.1
 [0.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.2.0...gitkraken:releases/core/v0.3.0
