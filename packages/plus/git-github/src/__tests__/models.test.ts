@@ -195,7 +195,7 @@ suite('GitHubApi.searchMyIssues', () => {
 		const issues = await api.searchMyIssues(provider, token);
 
 		assert.deepEqual(
-			issues?.map(i => i.id),
+			issues?.values.map(i => i.id),
 			['2', '1'],
 			'the unmappable node is skipped, the rest survive',
 		);
@@ -213,11 +213,11 @@ suite('GitHubApi.searchMyIssues', () => {
 		const issues = await api.searchMyIssues(provider, token);
 
 		assert.deepEqual(
-			issues?.map(i => i.id),
+			issues?.values.map(i => i.id),
 			['2701', '1'],
 			'a null author no longer discards every issue in the response',
 		);
-		assert.equal(issues?.find(i => i.id === '2701')?.author, undefined);
+		assert.equal(issues?.values.find(i => i.id === '2701')?.author, undefined);
 
 		api.dispose();
 	});
@@ -232,7 +232,7 @@ suite('GitHubApi.searchMyIssues', () => {
 		const issues = await api.searchMyIssues(provider, token);
 
 		assert.deepEqual(
-			issues?.map(i => i.id),
+			issues?.values.map(i => i.id),
 			['1'],
 		);
 
