@@ -87,4 +87,5 @@ export const iconMap = Object.freeze({
 	'merge': '\\f14f',
 	'remote': '\\f150',
 	'remote-filled': '\\f151',
+	'continue-sparkle': '\\f152',
 });
