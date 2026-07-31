@@ -4551,15 +4551,38 @@ export class GlLitGraph extends LitElement {
 		const dir = this.headPillDirection;
 		if (dir == null) return nothing;
 
+		// When the pin lands on this row the two waypoints name ONE destination, so the pinned segment
+		// collapses into this one (see `pinnedIsHead`) and the pin rides along as a glyph. It keeps HEAD's
+		// tint — a second accent inside one segment would re-draw the split the collapse just removed.
+		const pinnedHere = this.pinnedIsHead;
+		const pinnedName = pinnedHere ? this.pinnedRef?.name : undefined;
+		const tooltip = !pinnedHere
+			? 'Jump to HEAD'
+			: pinnedName != null
+				? `Jump to HEAD (Pinned Branch ${pinnedName})`
+				: 'Jump to HEAD (Pinned Branch)';
+		const label = !pinnedHere
+			? 'Jump to HEAD'
+			: pinnedName != null
+				? `Jump to HEAD, pinned branch ${pinnedName}`
+				: 'Jump to HEAD, pinned branch';
+
 		return html`<button
 			class="gl-graph__waypoint gl-graph__waypoint--head"
 			type="button"
-			data-tooltip="Jump to HEAD"
-			aria-label="Jump to HEAD"
+			data-tooltip=${tooltip}
+			aria-label=${label}
 			@click=${this.onHeadPillClick}
 		>
-			<code-icon icon=${dir === 'up' ? 'arrow-up' : 'arrow-down'}></code-icon>HEAD
+			<code-icon icon=${dir === 'up' ? 'arrow-up' : 'arrow-down'}></code-icon
+			>${pinnedHere ? html`<code-icon icon="gl-pinned-filled"></code-icon>` : nothing}HEAD
 		</button>`;
+	}
+
+	/** The pinned branch's row IS the HEAD row, so both waypoints would scroll to and select the same row.
+	 *  Gated on `headPillDirection` so the pinned waypoint is only dropped when HEAD's actually renders. */
+	private get pinnedIsHead(): boolean {
+		return this.pinnedSha != null && this.pinnedSha === this.headSha && this.headPillDirection != null;
 	}
 
 	/**
@@ -4575,7 +4598,9 @@ export class GlLitGraph extends LitElement {
 	 */
 	private renderPinnedPill(): TemplateResult | typeof nothing {
 		const dir = this.pinnedPillDirection;
-		if (dir == null || this.pinnedSha == null) return nothing;
+		// Collapsed into the HEAD segment when both point at the same row — drop THIS one, never HEAD's:
+		// HEAD is the capsule's anchor, and its trailing position is what keeps it arithmetic-free.
+		if (dir == null || this.pinnedSha == null || this.pinnedIsHead) return nothing;
 
 		const name = this.pinnedRef?.name;
 		return html`<button
