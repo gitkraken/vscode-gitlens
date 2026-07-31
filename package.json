@@ -6756,7 +6756,7 @@
 			{
 				"command": "gitlens.ai.continueRebase:views",
 				"title": "Continue Automatic Rebase",
-				"icon": "$(gitlens-merge)"
+				"icon": "$(gitlens-continue-sparkle)"
 			},
 			{
 				"command": "gitlens.ai.enable",
@@ -12764,6 +12764,13 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f151"
+				}
+			},
+			"gitlens-continue-sparkle": {
+				"description": "continue-sparkle icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f152"
 				}
 			}
 		},

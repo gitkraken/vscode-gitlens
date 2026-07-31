@@ -54,7 +54,7 @@
 		},
 		"gitlens.ai.continueRebase:views": {
 			"label": "Continue Automatic Rebase",
-			"icon": "$(gitlens-merge)",
+			"icon": "$(gitlens-continue-sparkle)",
 			"menus": {
 				"view/item/context": [
 					{
