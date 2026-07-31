@@ -4297,7 +4297,7 @@ gl-graph-app {
 		// dimmed commit shows above it. (Offsetting the whole host would drag the scrim down with it,
 		// leaving the commit un-dimmed.)
 		gl-detail-sheet.branch-detail-sheet::part(sheet) {
-			margin-top: 7rem;
+			margin-top: 4rem;
 		}
 
 		// Branch sheet header identity — icon + (remote-qualified) name + a ref-kind badge, slotted
