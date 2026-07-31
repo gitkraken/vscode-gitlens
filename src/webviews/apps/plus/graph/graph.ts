@@ -15,6 +15,7 @@ import { createOnboardingDismissals, onboardingDismissalsContext } from '../../s
 import type { HostIpc } from '../../shared/ipc.js';
 import { RpcController } from '../../shared/rpc/rpcController.js';
 import type { ThemeChangeEvent } from '../../shared/theme.js';
+import { coachMarkSeenContext, createCoachMarkSeenStore } from './coachMarkSeen.js';
 import { graphServicesContext } from './context.js';
 import type { GraphApp } from './graph-app.js';
 import { applyGraphThemeVariables } from './graph-wrapper/graph-theme-bridge.js';
@@ -49,6 +50,14 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		initialValue: this._onboardingDismissals,
 	});
 
+	private readonly _coachMarkSeen = createCoachMarkSeenStore();
+
+	// Same eager-provider pattern as the dismissals above; wired to the remote in `_onRpcReady`.
+	private _coachMarkSeenProvider = new ContextProvider(this, {
+		context: coachMarkSeenContext,
+		initialValue: this._coachMarkSeen,
+	});
+
 	private _servicesProvider = new ContextProvider(this, {
 		context: graphServicesContext,
 		initialValue: undefined,
@@ -62,6 +71,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		this._servicesProvider.setValue(services);
 
 		this._onboardingDismissals.connect(services.onboarding);
+		this._coachMarkSeen.connect(services.onboarding);
 
 		const sidebar = await services.sidebar;
 		this._sidebarActions.initialize(sidebar);
@@ -119,6 +129,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 		);
 		this._sidebarActions.dispose();
 		this._onboardingDismissals.dispose();
+		this._coachMarkSeen.dispose();
 	}
 
 	private _handleRequestOpenCompareMode = (e: CustomEvent<DidRequestOpenCompareModeParams>): void => {

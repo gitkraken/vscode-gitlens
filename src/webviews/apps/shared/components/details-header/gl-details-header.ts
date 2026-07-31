@@ -48,6 +48,7 @@ const modeConfig: Record<
 		onboardingKey: 'details:review:buttonCallout',
 	},
 	resolve: {
+		onboardingKey: 'details:resolve:buttonCallout',
 		icon: 'gl-merge',
 		label: 'Resolve Conflicts',
 		closeLabel: 'Close',

@@ -60,6 +60,7 @@ import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProv
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
+import { isGraphWalkthroughBannerHighlighted } from './walkthroughBanner.js';
 import '../shared/components/account-chip.js';
 import '../shared/components/integrations-chip.js';
 import '../../shared/components/branch-name.js';
@@ -1191,7 +1192,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			return nothing;
 		}
 
-		const highlighted = !(state.graphWalkthroughStarted ?? false);
+		const highlighted = isGraphWalkthroughBannerHighlighted(state);
 
 		return html`
 			<gl-popover class="graph-walkthrough-tooltip" placement="bottom" trigger="hover focus" ?open=${highlighted}>
@@ -1360,9 +1361,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return html`
 			<div class="titlebar__row titlebar__row--search ${rowClass}">
 				<div class="titlebar__group">
-					<gl-graph-scope-popover .repo=${repo}></gl-graph-scope-popover> ${this.renderHiddenRefs(
-						excludeRefs,
-					)}
+					<gl-graph-scope-popover .repo=${repo}></gl-graph-scope-popover>
+					${this.renderHiddenRefs(excludeRefs)}
 					<gl-search-box
 						class=${isAlternateMode ? 'search-box--disabled' : ''}
 						?inert=${isAlternateMode}

@@ -1908,6 +1908,29 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/coachMark
+
+> Sent when a contextual coach mark (feature how-to) is shown or dismissed on the Commit Graph
+
+```typescript
+{
+  'action': 'shown' | 'dismissed',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Which coach mark (`GraphCoachMarkType`)
+  'key': string,
+  // How the mark was shown — state-triggered (`auto`) or re-opened from its lightbulb (`lightbulb`)
+  'trigger': 'auto' | 'lightbulb'
+}
+```
+
 ### graph/columns/changed
 
 > Sent when the user changes the columns on the Commit Graph
@@ -2094,7 +2117,7 @@ background-upgraded the extension while the host kept running the old build
 ```typescript
 {
   // `dismissed` = closed the prompt without choosing (keeps the current layout, never re-asks)
-  'choice': 'panel' | 'sidebar' | 'dismissed',
+  'choice': 'panel' | 'dismissed' | 'sidebar',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -7096,7 +7119,7 @@ or
 ```typescript
 {
   'command': string,
-  'name': 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'shown' | 'dismiss' | 'open/home-view' | 'open/kepler',
+  'name': 'shown' | 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'dismiss' | 'open/home-view' | 'open/kepler',
   'type': 'command'
 }
 ```
@@ -7105,7 +7128,7 @@ or
 
 ```typescript
 {
-  'name': 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'shown' | 'dismiss' | 'open/home-view' | 'open/kepler',
+  'name': 'shown' | 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'dismiss' | 'open/home-view' | 'open/kepler',
   'type': 'url',
   'url': string
 }
