@@ -1002,7 +1002,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				context = undefined;
 			}
 		}
-		const isPinned = this._branchSheetPinned ?? ref.context?.includes('+pinned') ?? false;
+		// Resolved from LIVE pin state, not the ref's open-time context — the pin can change from this sheet, a
+		// graph row, or the side bar, and a snapshot leaves the kebab's menu offering the wrong action. The
+		// optimistic flip still wins while set, so this sheet's own toggle doesn't wait on the host round-trip.
+		const sheetRefId = branchSheetContextRef(context)?.id;
+		const isPinned =
+			this._branchSheetPinned ??
+			(sheetRefId != null
+				? this._graphState?.pinnedRef?.id === sheetRefId
+				: (ref.context?.includes('+pinned') ?? false));
+		// The kebab's menu is gated on `+pinned` in this string, so re-stamp it to match.
+		const kebabContext = withPinnedFlag(ref.context, isPinned);
 		// The sheet describes a BRANCH, so its repo must not follow the selection. `effectiveRepoPath`
 		// does: focusing moves the selection to the branch's worktree WIP row, which flips it to that
 		// worktree's path. The pane keys its identity on `repoPath`, so that flip makes it abort and
@@ -1037,7 +1047,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 								icon="kebab-vertical"
 								label=${ref.refType === 'tag' ? 'Show Tag Actions' : 'Show Branch Actions'}
 								overlay="tooltip"
-								data-vscode-context=${ref.context}
+								data-vscode-context=${kebabContext}
 								@click=${this.handleBranchSheetKebabClick}
 							></gl-action-chip>`
 						: nothing
@@ -4224,6 +4234,26 @@ function branchStateEqual(a: BranchStateLike | undefined, b: BranchStateLike | u
 	if (a === b) return true;
 	if (a == null || b == null) return false;
 	return a.ahead === b.ahead && a.behind === b.behind && a.upstream === b.upstream && a.worktree === b.worktree;
+}
+
+/** A sheet ref's serialized context with `+pinned` re-stamped to `pinned` — what the branch kebab's menu is
+ *  gated on. The context is captured when the sheet opens, so it can't track a later pin change on its own. */
+function withPinnedFlag(context: string | undefined, pinned: boolean): string | undefined {
+	if (context == null) return undefined;
+	if (context.includes('+pinned') === pinned) return context;
+
+	try {
+		const parsed = JSON.parse(context) as GraphItemContext;
+		const item = parsed.webviewItem;
+		if (item == null) return context;
+
+		return JSON.stringify({
+			...parsed,
+			webviewItem: pinned ? `${item}+pinned` : item.replace('+pinned', ''),
+		});
+	} catch {
+		return context;
+	}
 }
 
 /**

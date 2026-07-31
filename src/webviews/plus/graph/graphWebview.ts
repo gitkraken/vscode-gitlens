@@ -4654,8 +4654,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			pinnedRef: this.getPinnedRef({ pinnedRef: storedPinnedRef }, this._data.session?.current),
 		});
 		this._panels.notifySidebarInvalidated();
-		// No graph rebuild: the webview builds the ref contexts itself and sees the pin live, so nothing has
-		// to walk to refresh `+pinned`. The lane pin needs no walk either — a changed `pinnedShas` already
+		// Every HOST-serialized context bakes `+pinned` in when it's built, so each one has to be rebuilt on a
+		// pin change: the side bar above, and the WIP header's branch kebab here (`wip.stats.branchContext`).
+		// The push survives the send dedupe — that compares payload CONTENT, which the changed context is part of.
+		void this._wip.notifyDidChangeWorkingTree();
+		// No graph rebuild: row pills build their contexts WEBVIEW-side and see the pin live, so nothing has to
+		// walk to refresh `+pinned` there. The lane pin needs no walk either — a changed `pinnedShas` already
 		// fails the engine session's `engineOptionsUnchanged` check, so the layout re-runs webview-side.
 	}
 
