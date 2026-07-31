@@ -74,6 +74,7 @@ import {
 	getBranchAssociatedPullRequest,
 	getBranchMergeTargetInfo,
 	getBranchRemote,
+	isSelfMergeTarget,
 } from '../../../git/utils/-webview/branch.utils.js';
 import {
 	getCommitAssociatedPullRequest,
@@ -3070,17 +3071,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._data.session?.current.branches.get(targetName) ?? (await svc.branches.getBranch(targetName));
 		const mergeTargetTipSha = targetBranch?.sha;
 
-		// Bail when the resolved target tip is the same commit as the focal branch's tip —
-		// there's no real merge to anchor, so the merge-target concept doesn't apply. This
-		// happens for the default branch (the fallback chain has no other branch to land on
-		// and returns the focal branch itself) and for any feature branch transiently equal
-		// to its merge target. If we let it through, two things break: `mergeBase` collapses
-		// to the same sha and pins the visible window to a single row, and the GK component's
-		// `shouldHideWipRowForScope` treats that sha as a merge-target boundary and hides the
-		// WIP row of every worktree on the scoped branch. Returning just the focal tip drops the
-		// merge-target overlay and lets the scope walk all ancestors of `branchRef` /
-		// `upstreamRef` as if no target was configured.
-		if (mergeTargetTipSha == null || mergeTargetTipSha === focalBranchTipSha) {
+		// Both tests are load-bearing. Same branch but tips apart is the default branch ahead of its own
+		// remote — anchoring re-roots onto the unpushed commits. Different branches on one commit is a
+		// branch level with a real target — anchoring gives a one-commit spine plus the older-history fold,
+		// where bailing leaves the scope bare and a bare scope dims everything off the focal first-parent
+		// line.
+		if (
+			mergeTargetTipSha == null ||
+			(mergeTargetTipSha === focalBranchTipSha && isSelfMergeTarget(targetName, branch.name))
+		) {
 			return { focalBranchTipSha: focalBranchTipSha };
 		}
 

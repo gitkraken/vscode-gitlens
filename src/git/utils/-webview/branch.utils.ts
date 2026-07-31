@@ -2,6 +2,7 @@ import type { BranchDisposition, BranchTargetInfo, GitBranch } from '@gitlens/gi
 import type { PullRequest, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { MaybePausedResult } from '@gitlens/utils/promise.js';
@@ -78,6 +79,18 @@ export async function getBranchMergeTargetInfo(
 		baseBranch: getSettledValue(baseResult),
 		defaultBranch: getSettledValue(defaultResult),
 	};
+}
+
+/**
+ * True when the merge-target fallback chain landed on the focal branch itself — the default branch has no
+ * other branch to target.
+ *
+ * `targetName` is remote-qualified on desktop and bare from the GitHub provider, hence both comparisons.
+ * Only the target is stripped: `getBranchNameWithoutRemote` cuts at the first `/`, so stripping the focal
+ * side too would turn `feature/x` into `x`.
+ */
+export function isSelfMergeTarget(targetName: string, branchName: string): boolean {
+	return targetName === branchName || getBranchNameWithoutRemote(targetName) === branchName;
 }
 
 export async function getBranchMergeTargetName(

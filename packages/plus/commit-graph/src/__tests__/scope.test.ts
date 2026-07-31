@@ -99,6 +99,33 @@ suite('computeScopeAnchors + computeScopeProjection', () => {
 		assert.deepStrictEqual([...(projection?.foldSegments.keys() ?? [])], ['M2']);
 	});
 
+	test('a branch level with its merge target re-roots onto its tip alone', () => {
+		// A branch with nothing ahead of its target: tip, fork point and target tip are all one commit.
+		// `computeScopeAnchor` used to read that as "no merge target at all" and leave the scope bare,
+		// and a bare scope dims every row off the focal tip's first-parent line instead of focusing.
+		// Anchored, the projection degenerates honestly — the tip as a one-commit spine plus the fold.
+		const { anchors, projection, visible } = project(scopeTo('F2', 'F2'));
+
+		assert.deepStrictEqual([...(anchors.focalTipShas ?? [])], ['F2']);
+		assert.deepStrictEqual([...(anchors.forkPointShas ?? [])], ['F2']);
+		assert.deepStrictEqual([...(anchors.mergeTargetShas ?? [])], ['F2']);
+		// All three coincide on a loaded row, so nothing is reported unreachable and nothing pages.
+		assert.strictEqual(anchors.unreachableAnchors, undefined);
+
+		assert.deepStrictEqual(visible, ['F2', 'F1']);
+		// One fold only — the merge-target fold is skipped because the target tip IS the merge base.
+		assert.deepStrictEqual([...(projection?.foldSegments.keys() ?? [])], ['F1']);
+		assert.strictEqual(projection?.hiddenCountByTipSha.get('F1'), 4);
+	});
+
+	test('the WIP row survives a branch level with its merge target', () => {
+		// The tip-equality bail this replaced justified itself partly on a WIP-row hazard in the removed
+		// legacy engine. This engine keeps a workdir row whose parent is on the spine, and the degenerate
+		// spine is exactly the tip the row hangs off.
+		const { wipVisible } = projectWithWip(scopeTo('F2', 'F2'), 'F2');
+		assert.strictEqual(wipVisible, true);
+	});
+
 	test('anchors left behind by a history rewrite mark ordinary trunk commits and swallow trunk into the spine', () => {
 		// Why the live scope's anchors must never survive a rebase (see `isScopeAnchorStale` in
 		// `stateProvider.ts`): they're SHAs, so a pre-rebase merge base / merge-target tip stay loaded

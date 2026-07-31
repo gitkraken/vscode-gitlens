@@ -18,6 +18,7 @@ import {
 	getBranchEnrichedAutolinks,
 	getBranchMergeTargetInfo,
 	getBranchRemote,
+	isSelfMergeTarget,
 } from '../../git/utils/-webview/branch.utils.js';
 import { getContributorAvatarUri } from '../../git/utils/-webview/contributor.utils.js';
 import type { LaunchpadCategorizedResult } from '../../plus/launchpad/launchpadProvider.js';
@@ -115,14 +116,9 @@ export async function getBranchMergeTargetStatusInfo(
 	const targetBranch = await svc.branches.getBranch(target, cancellation);
 	// The tip SHA is required — without it the graph's scope anchor can't be placed.
 	if (targetBranch?.sha == null) return undefined;
-	// Bail when the target tip is the same commit as the focal branch's tip — there's no real
-	// merge to describe (happens on the default branch, where the fallback chain has nowhere
-	// to land, and on any feature branch transiently equal to its target). Letting it through
-	// poisons `scope.mergeTargetTipSha` via `reconcileScopeMergeTarget` / `scopeToBranchById`,
-	// and the graph component's `shouldHideWipRowForScope` then hides the WIP row of every
-	// worktree on the scoped branch because the parent sha matches the (excluded) merge-target
-	// tip. Matches the early-out in `computeScopeAnchor` (graphWebview.ts).
-	if (targetBranch.sha === branch.sha) return undefined;
+	// Must match the early-out in `computeScopeAnchor` (graphWebview.ts), or the graph anchors a merge
+	// target the sidebars say doesn't exist.
+	if (targetBranch.sha === branch.sha && isSelfMergeTarget(target, branch.name)) return undefined;
 
 	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
 		svc.commits.getLeftRightCommitCount(
