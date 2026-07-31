@@ -48,7 +48,7 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getAccountForResource');
 			return { value: account };
 		} catch (ex) {
-			this.handleProviderException('getAccountForResource', ex);
+			this.handleProviderException('getAccountForResource', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
 	}
@@ -80,7 +80,7 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getResourcesForUser');
 			return { value: resources };
 		} catch (ex) {
-			this.handleProviderException('getResourcesForUser', ex);
+			this.handleProviderException('getResourcesForUser', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
 	}
@@ -108,7 +108,7 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getProjectsForResources');
 			return { value: projects };
 		} catch (ex) {
-			this.handleProviderException('getProjectsForResources', ex);
+			this.handleProviderException('getProjectsForResources', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
 	}
@@ -161,7 +161,7 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getIssuesForProject');
 			return { value: issues };
 		} catch (ex) {
-			this.handleProviderException('getIssuesForProject', ex);
+			this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
 	}
@@ -188,7 +188,7 @@ export abstract class IssuesIntegration<
 			this.resetRequestExceptionCount('getIssuesForProject');
 			return { value: result };
 		} catch (ex) {
-			this.handleProviderException('getIssuesForProject', ex);
+			this.handleProviderException('getIssuesForProject', ex, { connectionId: connectionId });
 			return { error: toError(ex) };
 		}
 	}
