@@ -186,10 +186,11 @@ function isChainTruncated(rows: readonly ScopeRow[], chain: ReadonlySet<Sha>): b
 
 /**
  * Scope re-root projection: the result of "filter the graph down to just the focal branch".
- * The focal branch's first-parent spine (tip → merge-base) stays fully visible; the merge-target
- * lane and the shared history below the merge-base each collapse into an expandable fold (one stub
- * row each), and every other lane is dropped. The fold maps mirror the lane-collapse maps so the
- * existing fold-chevron adornment + toggle drive the expand/collapse with no extra wiring.
+ * The focal branch's first-parent spine (tip → merge-base) stays fully visible; the merge-target lane and
+ * the shared history below the merge-base each collapse into an expandable fold, and every other lane is
+ * dropped. Each fold is headed at a row that stays visible — the target's tip, and the merge-base — so a
+ * collapsed fold costs no extra row. The fold maps mirror the lane-collapse maps so the existing
+ * fold-chevron adornment + toggle drive the expand/collapse with no extra wiring.
  */
 export interface ScopeProjection {
 	/** Commits to hide (everything not on the focal spine and not a visible fold body/stub). */
@@ -274,55 +275,75 @@ export function computeScopeProjection(
 	const mergeBase = forkPoint != null && bySha.has(forkPoint) ? forkPoint : undefined;
 
 	// Focal spine: the branch's first-parent chain from its tip down to (and including) the merge-base.
-	// The merge-base may NOT lie on the first-parent chain (e.g. the branch's first-parent line re-enters
-	// trunk above the computed fork point); bound the walk by the merge-base's row position (rows are
-	// newest→oldest, so a higher index is older) so a chain that misses it stops instead of running past
-	// and swallowing trunk history into the spine.
+	// Last-resort bound for when there's no merge-target line to stop against — the merge-base's row position
+	// (rows are newest→oldest, so a higher index is older).
 	const mergeBaseIndex = mergeBase != null ? (indexBySha.get(mergeBase) ?? rows.length) : rows.length;
-	// Open terminus only: with no loaded base to stop at, the merge target's OWN first-parent line stands in
-	// for the boundary. Anything on it is an ancestor of the target, so meeting it means the walk has reached
-	// shared history — which is the property that matters here, and it holds without assuming the two lines
-	// have a unique common ancestor (criss-cross histories have several). It can stop EARLIER than the base
-	// git picked, never later, so the error direction is a shorter spine rather than trunk in the spine.
-	// Absent a stand-in (no loaded target tip) only the loaded-window edge bounds the walk, so a stale target
-	// far back in history yields a longer spine — still bounded, and still the branch's own line.
 	const mergeTargetTip = anchors.mergeTargetShas?.values().next().value;
-	const sharedLine =
-		mergeBase == null && mergeTargetTip != null && bySha.has(mergeTargetTip)
+	const buildSharedLine = (): ReadonlySet<Sha> | undefined =>
+		mergeTargetTip != null && bySha.has(mergeTargetTip)
 			? new Set(firstParentChainUntil(bySha, mergeTargetTip, noStop, rows.length))
 			: undefined;
-	const focalSpine = new Set<Sha>();
-	// Did the walk actually reach a boundary? Always true once a loaded base bounds it. Under an open
-	// terminus it distinguishes "ran out of LOADED rows / met the shared line" — the boundary is merely
-	// late — from "ran to a root commit", which means the resolved base isn't on this line at all.
-	let boundedSpine = mergeBase != null;
-	{
+
+	// `reachedBase` reports whether the walk ended ON the merge base, which is what tells the caller the
+	// cheap `mergeBaseIndex` bound was sound for this history. `bounded` answers "did it reach a boundary
+	// at all" — always true once a loaded base bounds it; under an open terminus it distinguishes "ran out
+	// of LOADED rows / met the shared line" (the boundary is merely late) from "ran to a root commit",
+	// which means the resolved base isn't on this line at all.
+	const walkSpine = (sharedLine: ReadonlySet<Sha> | undefined) => {
+		const spine = new Set<Sha>();
+		let bounded = mergeBase != null;
+		let reachedBase = false;
 		let cur: Sha | undefined = focalTip;
 		let safety = rows.length;
 		while (cur != null && safety-- > 0) {
 			// Off the end of the loaded rows: more history exists below, so the boundary is down there.
 			if (!bySha.has(cur)) {
-				boundedSpine = true;
+				bounded = true;
 				break;
 			}
 			if (cur === mergeBase) {
-				focalSpine.add(cur);
+				spine.add(cur);
+				reachedBase = true;
 				break;
 			}
-			// Reached history the merge target also carries — at or below the fork point (open terminus).
-			// Never on the FIRST step: when the focal tip itself sits on the target's line (two branches on
-			// one commit) an empty spine would drop every row, so the tip always makes it in and the walk
-			// stops one step later.
-			if (sharedLine?.has(cur) && focalSpine.size > 0) {
-				boundedSpine = true;
+			// Reached history the merge target also carries — at or below the fork point. Never on the FIRST
+			// step: when the focal tip itself sits on the target's line (two branches on one commit) an empty
+			// spine would drop every row, so the tip always makes it in and the walk stops one step later.
+			if (sharedLine?.has(cur) && spine.size > 0) {
+				bounded = true;
 				break;
 			}
-			// Past (older than) the merge-base without hitting it → the first-parent line diverged from the
-			// fork point; stop so trunk history isn't dragged into the spine.
-			if ((indexBySha.get(cur) ?? -1) > mergeBaseIndex) break;
+			// No boundary line to stop against: fall back to the base's row POSITION. Rows are date-ordered,
+			// so this is a date test standing in for a topology one — sound only while the base sits ON the
+			// focal first-parent line, which is what `reachedBase` verifies after the fact.
+			if (sharedLine == null && (indexBySha.get(cur) ?? -1) > mergeBaseIndex) break;
 
-			focalSpine.add(cur);
+			spine.add(cur);
 			cur = bySha.get(cur)?.parents?.[0];
+		}
+		return { spine: spine, bounded: bounded, reachedBase: reachedBase };
+	};
+
+	// The base normally sits ON the focal first-parent line, and the walk stops dead on it without ever
+	// consulting a boundary — so don't build one. Only when that cheap pass MISSES the base is the merge
+	// target's own first-parent line built and the walk redone against it: anything on that line is an
+	// ancestor of the target, so meeting it means the walk has reached shared history. That test holds
+	// without assuming the two lines have a unique common ancestor (criss-cross histories have several),
+	// and it can stop EARLIER than the base git picked, never later — the error direction is a shorter
+	// spine rather than trunk in the spine. An open terminus has no base to stop at, so it needs the line
+	// up front. Building it walks the whole loaded target line — a sizable fraction of this function's cost
+	// on a large graph, and this runs on every paging append — which is why it stays off the common path.
+	// With no target line loaded at all, `mergeBaseIndex` and the window edge are the only bounds left, so a
+	// stale target far back in history yields a longer spine — still bounded, and still the branch's own line.
+	let {
+		spine: focalSpine,
+		bounded: boundedSpine,
+		reachedBase,
+	} = walkSpine(mergeBase == null ? buildSharedLine() : undefined);
+	if (mergeBase != null && !reachedBase) {
+		const sharedLine = buildSharedLine();
+		if (sharedLine != null) {
+			({ spine: focalSpine, bounded: boundedSpine } = walkSpine(sharedLine));
 		}
 	}
 	// The line ran to a root with no boundary in sight, so the resolved base is not merely late — it isn't
@@ -332,6 +353,13 @@ export function computeScopeProjection(
 
 	// The branch's working-changes row (sits on the focal tip) stays visible alongside the spine.
 	const visible = new Set<Sha>(focalSpine);
+	// A loaded base always shows: it's the scope's boundary, and the anchors have already published it as
+	// the fork point. The spine misses it whenever it's off the focal first-parent line, and the older-
+	// history fold below only picks it up when its own first parent is loaded — so without this a base at
+	// the bottom of the window (or a root commit) resolves as an anchor that renders nowhere.
+	if (mergeBase != null) {
+		visible.add(mergeBase);
+	}
 	for (const r of rows) {
 		if (r.kind === 'workdir' && r.parents.length > 0 && focalSpine.has(r.parents[0])) {
 			visible.add(r.sha);
@@ -369,14 +397,21 @@ export function computeScopeProjection(
 	// merge-base. forkSha = merge-base so the chevron/junction logic anchors it there — `null` under an
 	// open terminus, since anchoring the junction at a row that isn't loaded would draw it nowhere.
 	if (mergeTargetTip != null && mergeTargetTip !== mergeBase && bySha.has(mergeTargetTip)) {
-		addFold(firstParentChainUntil(bySha, mergeTargetTip, focalSpine, rows.length), mergeBase ?? null);
+		// The base normally stops this walk by way of the spine. It's off the spine whenever it's off the focal
+		// first-parent line, and without it the walk runs to a root and swallows the older-history fold's
+		// commits into this one as well.
+		const stop = mergeBase != null && !focalSpine.has(mergeBase) ? new Set([...focalSpine, mergeBase]) : focalSpine;
+		addFold(firstParentChainUntil(bySha, mergeTargetTip, stop, rows.length), mergeBase ?? null);
 	}
 
-	// Older-history fold: everything on the first-parent line below the merge-base. Skipped under an open
-	// terminus — the base bounds this fold, and nothing below an unloaded base is loaded to fold.
+	// Older-history fold: the merge-base plus everything on the first-parent line below it. Headed at the
+	// BASE, so the boundary commit itself carries the chevron rather than the out-of-scope commit under it —
+	// which also means a collapsed fold costs no row of its own. Prepended rather than walked from, because
+	// `firstParentChainUntil` stops on `focalSpine` members and the base is usually one. Skipped under an
+	// open terminus — the base bounds this fold, and nothing below an unloaded base is loaded to fold.
 	const olderTip = mergeBase != null ? bySha.get(mergeBase)?.parents?.[0] : undefined;
-	if (olderTip != null && bySha.has(olderTip)) {
-		addFold(firstParentChainUntil(bySha, olderTip, focalSpine, rows.length), null);
+	if (mergeBase != null && olderTip != null && bySha.has(olderTip)) {
+		addFold([mergeBase, ...firstParentChainUntil(bySha, olderTip, focalSpine, rows.length)], null);
 	}
 
 	const dropped = new Set<Sha>();

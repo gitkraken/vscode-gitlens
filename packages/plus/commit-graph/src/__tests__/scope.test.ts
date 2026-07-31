@@ -94,9 +94,20 @@ suite('computeScopeAnchors + computeScopeProjection', () => {
 		assert.deepStrictEqual([...(anchors.forkPointShas ?? [])], ['M3']);
 		assert.deepStrictEqual([...(anchors.mergeTargetShas ?? [])], ['M3']);
 		assert.strictEqual(anchors.unreachableAnchors, undefined);
-		// Focal spine = the branch's commits + the fork point; older history folds into one stub.
-		assert.deepStrictEqual(visible, ['F2', 'F1', 'M3', 'M2']);
-		assert.deepStrictEqual([...(projection?.foldSegments.keys() ?? [])], ['M2']);
+		// Focal spine = the branch's commits + the fork point, which heads the older-history fold.
+		assert.deepStrictEqual(visible, ['F2', 'F1', 'M3']);
+		assert.deepStrictEqual([...(projection?.foldSegments.keys() ?? [])], ['M3']);
+		assert.strictEqual(projection?.hiddenCountByTipSha.get('M3'), 3);
+	});
+
+	test('the older-history fold heads at the merge base, not the commit below it', () => {
+		// The base is the scope's last row and carries the chevron itself, so a collapsed fold costs no extra
+		// row and no out-of-scope commit sits at the bottom of a focused graph.
+		const { projection, visible } = project(scopeTo('M3', 'M3'));
+
+		assert.strictEqual(visible.at(-1), 'M3');
+		assert.strictEqual(projection?.dropped.has('M2'), true);
+		assert.deepStrictEqual([...(projection?.collapsedByTipSha.keys() ?? [])], ['M3']);
 	});
 
 	test('a branch level with its merge target re-roots onto its tip alone', () => {
@@ -112,10 +123,11 @@ suite('computeScopeAnchors + computeScopeProjection', () => {
 		// All three coincide on a loaded row, so nothing is reported unreachable and nothing pages.
 		assert.strictEqual(anchors.unreachableAnchors, undefined);
 
-		assert.deepStrictEqual(visible, ['F2', 'F1']);
-		// One fold only — the merge-target fold is skipped because the target tip IS the merge base.
-		assert.deepStrictEqual([...(projection?.foldSegments.keys() ?? [])], ['F1']);
-		assert.strictEqual(projection?.hiddenCountByTipSha.get('F1'), 4);
+		// One fold only — the merge-target fold is skipped because the target tip IS the merge base — and it
+		// heads at that same commit, so the whole scope is the tip row carrying its own chevron.
+		assert.deepStrictEqual(visible, ['F2']);
+		assert.deepStrictEqual([...(projection?.foldSegments.keys() ?? [])], ['F2']);
+		assert.strictEqual(projection?.hiddenCountByTipSha.get('F2'), 5);
 	});
 
 	test('the WIP row survives a branch level with its merge target', () => {
@@ -136,7 +148,8 @@ suite('computeScopeAnchors + computeScopeProjection', () => {
 
 		assert.deepStrictEqual([...(anchors.forkPointShas ?? [])], ['M1']);
 		assert.deepStrictEqual([...(anchors.mergeTargetShas ?? [])], ['M2']);
-		assert.deepStrictEqual(visible, ['F2', 'F1', 'M3', 'M2', 'M1', 'M0']);
+		// M2/M1 are trunk dragged into the spine; M0 folds under the stale base.
+		assert.deepStrictEqual(visible, ['F2', 'F1', 'M3', 'M2', 'M1']);
 	});
 
 	test('the WIP row survives when anchored at the focal tip', () => {
@@ -227,6 +240,96 @@ suite('computeScopeAnchors + computeScopeProjection', () => {
 		assert.strictEqual(projection?.dropped.has('M2'), true);
 		assert.strictEqual(projection?.dropped.has('F1'), false);
 		assert.deepStrictEqual([...(projection?.foldSegments.keys() ?? [])], ['M3']);
+	});
+
+	test('a branch that merged its target in keeps its own commits in the spine', () => {
+		// The shared fixture can't express this: it needs a merge commit, which puts the merge base on a
+		// SECOND parent — off the focal first-parent line — with a date interleaved among the branch's own
+		// commits. Bounding the walk by the base's ROW POSITION then fires partway up the branch and truncates
+		// the spine (here: at G1, so the branch's oldest commit vanishes from its own focused view). The merge
+		// target's first-parent line is a topology test rather than a date one, so it stops in the right place.
+		//   G2 (merge: G1 + T2) -> G1 -> G0 -> R      trunk: T3 -> T2 -> T1 -> R
+		const merged: Record<Sha, Sha[]> = {
+			G2: ['G1', 'T2'],
+			T3: ['T2'],
+			G1: ['G0'],
+			T2: ['T1'],
+			G0: ['R'],
+			T1: ['R'],
+			R: [],
+		};
+		const mergedShas = Object.keys(merged);
+		const mergedRows = mergedShas.map(sha => ({
+			sha: sha,
+			parents: merged[sha],
+			heads: sha === 'G2' ? [{ id: 'h-g', name: 'gh', isCurrentHead: true }] : undefined,
+		}));
+		const mergedProcessed: ProcessedGraphRow[] = mergedShas.map(sha => ({
+			sha: sha,
+			parents: merged[sha],
+			kind: 'commit',
+			column: sha.startsWith('G') ? 1 : 0,
+			edges: {},
+			edgeColumnMax: 0,
+		}));
+		const scope: HostScope = {
+			branchName: 'gh',
+			branchRef: '/repo|heads/gh',
+			mergeBase: { sha: 'T2', date: 1 },
+			mergeTargetTipSha: 'T3',
+		};
+		const anchors = computeScopeAnchors(mergedRows, scope, hasHead);
+		const projection = computeScopeProjection(mergedProcessed, scope, anchors, new Set());
+
+		// The whole branch, not just the commits that happen to sort above the base.
+		assert.strictEqual(projection?.dropped.has('G1'), false);
+		assert.strictEqual(projection?.dropped.has('G0'), false);
+		// The two folds must not both claim the shared history — the target fold stops AT the base.
+		assert.deepStrictEqual(
+			Array.from(projection?.foldSegments.entries() ?? [], ([k, v]) => `${k}:${v.commitShas.join(',')}`),
+			['T3:T3', 'T2:T2,T1,R'],
+		);
+	});
+
+	test('a loaded merge base still shows when nothing else would keep it', () => {
+		// Two things have to line up to lose it: the base is off the focal first-parent line (so the spine
+		// walks past it) AND its own first parent isn't loaded (so the older-history fold that would head at
+		// it is skipped). The anchors publish it as the fork point either way, so without an explicit keep it
+		// resolves as an anchor that renders nowhere — no Base marker, and no sign history continues below.
+		//   H1 (merge: H0 + U1) -> H0 -> <unloaded>    trunk: U2 -> U1 (base) -> <unloaded>
+		const atEdge: Record<Sha, Sha[]> = {
+			H1: ['H0', 'U1'],
+			U2: ['U1'],
+			H0: ['unloaded-a'],
+			U1: ['unloaded-b'],
+		};
+		const edgeShas = Object.keys(atEdge);
+		const edgeRows = edgeShas.map(sha => ({
+			sha: sha,
+			parents: atEdge[sha],
+			heads: sha === 'H1' ? [{ id: 'h-h', name: 'hh', isCurrentHead: true }] : undefined,
+		}));
+		const edgeProcessed: ProcessedGraphRow[] = edgeShas.map(sha => ({
+			sha: sha,
+			parents: atEdge[sha],
+			kind: 'commit',
+			column: sha.startsWith('H') ? 1 : 0,
+			edges: {},
+			edgeColumnMax: 0,
+		}));
+		const scope: HostScope = {
+			branchName: 'hh',
+			branchRef: '/repo|heads/hh',
+			mergeBase: { sha: 'U1', date: 1 },
+			mergeTargetTipSha: 'U2',
+		};
+		const anchors = computeScopeAnchors(edgeRows, scope, hasHead);
+		const projection = computeScopeProjection(edgeProcessed, scope, anchors, new Set());
+
+		assert.deepStrictEqual([...(anchors.forkPointShas ?? [])], ['U1']);
+		assert.strictEqual(projection?.dropped.has('U1'), false);
+		// No older-history fold to head at it — the keep is what makes it visible.
+		assert.deepStrictEqual([...(projection?.foldSegments.keys() ?? [])], ['U2']);
 	});
 
 	test('a scope with no merge base at all does NOT re-root', () => {
