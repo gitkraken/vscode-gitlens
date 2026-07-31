@@ -99,7 +99,7 @@ suite('issue mapping', () => {
 		assert.ok(shape != null);
 
 		assert.equal(issue.author?.url, undefined, 'fromProviderIssue leaves an absent author url absent');
-		assert.equal(shape.author.url, undefined, 'toIssueShape leaves an absent author url absent');
+		assert.equal(shape.author?.url, undefined, 'toIssueShape leaves an absent author url absent');
 		assert.equal(issue.assignees?.[0].url, undefined);
 		assert.equal(shape.assignees?.[0].url, undefined);
 		assert.equal(shape.project, undefined, 'an absent provider project is not fabricated with empty fields');
