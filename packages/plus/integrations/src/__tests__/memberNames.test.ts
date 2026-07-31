@@ -74,8 +74,8 @@ suite('absent member names', () => {
 			const shape = toIssueShape(providerIssue({ author: null }), provider);
 
 			assert.ok(shape != null, 'an issue with no author is mapped, not dropped');
-			assert.equal(shape.author.name, undefined);
-			assert.equal(shape.author.id, '');
+			assert.equal(shape.author?.name, undefined);
+			assert.equal(shape.author?.id, '');
 		});
 
 		test('a nameless assignee has no name', () => {
@@ -95,7 +95,7 @@ suite('absent member names', () => {
 			// Both mappers feed `listIssuesPage`, so an absent name must look identical on either path.
 			const shape = toIssueShape(providerIssue({ author: null }), provider);
 
-			assert.equal(shape?.author.name, fromProviderAccount(null).name);
+			assert.equal(shape?.author?.name, fromProviderAccount(null).name);
 		});
 	});
 

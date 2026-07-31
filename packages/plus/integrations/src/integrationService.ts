@@ -630,7 +630,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		for (const [integration, repos] of integrations) {
 			if (integration == null) continue;
 
-			promises.push(integration.searchMyIssues(repos, cancellation));
+			promises.push(integration.searchMyIssuesResult(repos, cancellation));
 		}
 
 		const results = await Promise.allSettled(promises);
@@ -681,7 +681,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 			if (remote?.provider == null) return undefined;
 
 			const integration = await this.getByRemote(remote);
-			return integration?.searchMyIssues(remote.provider.repoDesc);
+			return integration?.searchMyIssuesResult(remote.provider.repoDesc);
 		}
 
 		const integrations = new Map<GitHostIntegration, ResourceDescriptor[]>();
