@@ -245,6 +245,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user clicks on the "Open Repository on Remote" header button on the Commit Graph */
 	'graph/action/sidebar': GraphActionSidebarEvent;
 
+	/** Sent when a contextual coach mark (feature how-to) is shown or dismissed on the Commit Graph */
+	'graph/coachMark': GraphCoachMarkEvent;
+
 	/** Sent when the user changes the "branches visibility" on the Commit Graph */
 	'graph/branchesVisibility/changed': GraphBranchesVisibilityChangedEvent;
 	/** Sent when the user scopes the Commit Graph to a specific branch (Focus Branch feature) */
@@ -1568,6 +1571,14 @@ interface GraphAutoFetchEvent extends GraphContextEventData {
 
 interface GraphActionSidebarEvent extends GraphContextEventData {
 	action: string;
+}
+
+interface GraphCoachMarkEvent extends GraphContextEventData {
+	/** Which coach mark (`GraphCoachMarkType`) */
+	key: string;
+	action: 'shown' | 'dismissed';
+	/** How the mark was shown — state-triggered (`auto`) or re-opened from its lightbulb (`lightbulb`) */
+	trigger?: 'auto' | 'lightbulb';
 }
 
 interface GraphBranchesVisibilityChangedEvent extends GraphContextEventData {

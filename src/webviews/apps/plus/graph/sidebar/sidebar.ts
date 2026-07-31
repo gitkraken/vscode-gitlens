@@ -294,6 +294,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			font-weight: normal;
 		}
 
+		/* A full-width menu row, so the default corner overhang would push the dot into the padding. */
+		.overflow-menu-indicator {
+			--gl-new-indicator-overhang: 0%;
+		}
+
 		.overflow-menu-item {
 			display: flex;
 			flex-direction: row;
@@ -796,21 +801,26 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 	private renderOverflowItem(icon: Icon, isGraphMode: boolean) {
 		const isActive = isGraphMode && this.sidebarVisible && this.activePanel === icon.type;
-		return html`<button
-			class=${classMap({ 'overflow-menu-item': true, active: isActive })}
-			aria-pressed=${isActive}
-			@click=${(e: Event) => this.handleOverflowItemClick(icon, e)}
+		// Propagation is stopped on the wrapper, not the button, so the indicator's own click-to-dismiss
+		// listener still runs.
+		return html`<gl-new-indicator
+			class="overflow-menu-indicator"
+			key=${ifDefined(icon.onboardingKey)}
+			@click=${(e: Event) => e.stopPropagation()}
 		>
-			<code-icon icon="${icon.icon}"></code-icon>
-			<span class="overflow-menu-item-label">${icon.tooltip}</span>
-			${this.renderIconCount(icon)}
-		</button>`;
+			<button
+				class=${classMap({ 'overflow-menu-item': true, active: isActive })}
+				aria-pressed=${isActive}
+				@click=${() => this.handleOverflowItemClick(icon)}
+			>
+				<code-icon icon="${icon.icon}"></code-icon>
+				<span class="overflow-menu-item-label">${icon.tooltip}</span>
+				${this.renderIconCount(icon)}
+			</button>
+		</gl-new-indicator>`;
 	}
 
-	private handleOverflowItemClick(icon: Icon, e: Event) {
-		// Stop the click from bubbling to the gl-popover host: its own click handler treats an
-		// in-body click on a just-closed popover as a request to re-open it, which would fight hide().
-		e.stopPropagation();
+	private handleOverflowItemClick(icon: Icon) {
 		this.handleIconClick(icon);
 		void this.renderRoot.querySelector('gl-popover')?.hide();
 	}
