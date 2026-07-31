@@ -200,6 +200,15 @@ export class GlTreeView extends GlElement {
 				overflow-wrap: anywhere;
 			}
 
+			/* Sizes codicons to the text for markdown tooltips only, where an icon appears mid-sentence
+			   and 16px towers over the words. Scoped to gl-markdown rather than the wrapper on purpose:
+			   component tooltips render in the same wrapper and own their icon sizing (gl-agent-tooltip
+			   builds a layout around full-size icons), and a custom property on the wrapper would
+			   silently shrink theirs too. */
+			.hover-content gl-markdown {
+				--code-icon-size: 1.3rem;
+			}
+
 			.conflict-count {
 				display: inline-flex;
 				gap: 0.3rem;

@@ -84,6 +84,32 @@ export class GlMarkdown extends LitElement {
 				vertical-align: middle;
 			}
 
+			/* An icon labels the ref that follows it, but the literal space plus code's own left
+			   padding put more room on that side than on the side of the word before it, so it read as
+			   attached to the wrong neighbour. Pull it toward its ref and give the preceding text room. */
+			/* The child combinator keeps this off icons nested inside a code span. The graph's row
+			   hovercard wraps icon and sha in one span (CommitFormatter.link), where the icon can't be
+			   row-leading and an indent would just push it off the chip's own padding. */
+			:not(code) > code-icon:not(.leading) {
+				margin-left: 0.3em;
+			}
+
+			/* An icon that starts a row is an emblem for the whole line, not a word in it, so it keeps
+			   the full size a caller's --code-icon-size would otherwise shrink, and needs no leading
+			   space. Tagged during rendering rather than selected here — see renderThemeIconsWithinText. */
+			code-icon.leading {
+				--code-icon-size: 1.6rem;
+
+				margin-left: 0;
+			}
+
+			/* Fully absorbs the literal space, so the only separation left is the chip's own padding —
+			   which is also trimmed here, since the icon already reads as attached. */
+			code-icon + code {
+				margin-left: -0.3em;
+				padding-left: 3px;
+			}
+
 			p:first-child,
 			.code:first-child,
 			ul:first-child {
@@ -335,6 +361,10 @@ function parseHrefAndDimensions(href: string): { href: string; dimensions: strin
 	return { href: href, dimensions: dimensions };
 }
 
+/** Whether everything preceding an icon is a block/break tag plus whitespace — i.e. it opens a row. */
+const rowLeadingRegex = /(?:^|<p>|<br\s*\/?>|<li>|<h[1-6]>)\s*$/i;
+const iconBeforeCodeRegex = /<\/code-icon> <code/g;
+
 function renderThemeIconsWithinText(text: string): string {
 	const elements: string[] = [];
 	let match: RegExpExecArray | null;
@@ -349,22 +379,35 @@ function renderThemeIconsWithinText(text: string): string {
 		textStart = (match.index || 0) + match[0].length;
 
 		const [, escaped, codicon] = match;
-		elements.push(escaped ? `$(${codicon})` : renderThemeIcon({ id: codicon }));
+		// An icon opening a row is an emblem for the line rather than a word inside it. This runs over
+		// already-rendered HTML, so "opens a row" means the only thing between it and the last block or
+		// break is whitespace. `:first-child` can't express that — it ignores text nodes, so it also
+		// matches the icon in `Merges $(git-branch) x`.
+		elements.push(
+			escaped
+				? `$(${codicon})`
+				: renderThemeIcon({ id: codicon }, rowLeadingRegex.test(text.substring(0, textStop))),
+		);
 	}
 
 	if (textStart < text.length) {
 		elements.push(text.substring(textStart));
 	}
-	return elements.join('');
+
+	// Bind an icon to the ref it labels: the space between them is a wrap opportunity, and breaking
+	// there strands the icon at the end of a line away from what it names.
+	return elements.join('').replace(iconBeforeCodeRegex, '</code-icon>&nbsp;<code');
 }
 
-function renderThemeIcon(icon: ThemeIcon): string {
+function renderThemeIcon(icon: ThemeIcon, leading = false): string {
 	const match = themeIconIdRegex.exec(icon.id);
 	let [, id, modifier] = match ?? [undefined, 'error', undefined];
 	if (id.startsWith('gitlens-')) {
 		id = `gl-${id.substring(8)}`;
 	}
-	return /*html*/ `<code-icon icon="${id}"${modifier ? ` modifier="${modifier}"` : ''}></code-icon>`;
+	return /*html*/ `<code-icon icon="${id}"${modifier ? ` modifier="${modifier}"` : ''}${
+		leading ? ' class="leading"' : ''
+	}></code-icon>`;
 }
 
 const quoteRegex = /"/g;
