@@ -30,6 +30,7 @@ import type {
 	TreeItemSelectionDetail,
 	TreeModel,
 } from '../../../shared/components/tree/base.js';
+import { trimTrailingSlash } from '../../../shared/components/tree/file-tree-utils.js';
 import { GlTreeBase } from './gl-tree-base.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/actions/action-nav.js';
@@ -881,7 +882,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (isTree) {
 			const fileTree = makeHierarchical(
 				patch.files,
-				n => n.path.split('/'),
+				n => trimTrailingSlash(n.path).split('/'),
 				(...parts: string[]) => parts.join('/'),
 				compact,
 			);

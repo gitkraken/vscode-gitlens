@@ -40,6 +40,7 @@ import {
 	nextContextMatchVisibility,
 	renderContextMatchVisibilityAction,
 	renderLayoutAction,
+	trimTrailingSlash,
 } from './file-tree-utils.js';
 import { fileTreeStyles } from './gl-file-tree-pane.css.js';
 import '../badges/badge.js';
@@ -823,15 +824,11 @@ export class GlFileTreePane extends LitElement {
 		return decorations;
 	}
 
-	private fileToTreeModel(
-		file: FileItem,
-		options?: Partial<TreeItemBase>,
-		flat = false,
-		glue = '/',
-	): TreeModel<FileItem[]> {
-		const pathIndex = file.path.lastIndexOf(glue);
-		const fileName = pathIndex !== -1 ? file.path.substring(pathIndex + 1) : file.path;
-		const filePath = flat && pathIndex !== -1 ? file.path.substring(0, pathIndex) : '';
+	private fileToTreeModel(file: FileItem, options?: Partial<TreeItemBase>, flat = false): TreeModel<FileItem[]> {
+		const path = trimTrailingSlash(file.path);
+		const pathIndex = path.lastIndexOf('/');
+		const fileName = pathIndex !== -1 ? path.substring(pathIndex + 1) : path;
+		const filePath = flat && pathIndex !== -1 ? path.substring(0, pathIndex) : '';
 
 		// Check if this file matches the search criteria (always set based on data, regardless of
 		// the current context-match-visibility cycle)

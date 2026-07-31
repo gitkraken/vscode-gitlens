@@ -163,6 +163,20 @@ const workingFileStatusOrder: Record<string, number> = {
 
 const emptyPathSet: ReadonlySet<string> = new Set<string>();
 
+/**
+ * Trims the trailing slash git puts on an untracked directory that is itself a repository
+ * (`nested-repo/`), which it reports as one entry because it can't recurse past the embedded
+ * repository boundary. Status is fetched with `-u` (= `all`), so ordinary untracked directories are
+ * recursed into and a trailing slash identifies the nested-repository case unambiguously.
+ *
+ * Deliberately not `normalizePath`, which also rewrites backslashes: git paths always use `/`, so a
+ * backslash here is a literal character in a (POSIX-legal) filename and rewriting it would split the
+ * name across folders.
+ */
+export function trimTrailingSlash(path: string): string {
+	return path.endsWith('/') ? path.slice(0, -1) : path;
+}
+
 /** Ranks non-conflict working files by stage for the `stage` sort: staged-only → mixed → unstaged-only. */
 function workingStageRank(file: GitFileChangeShape, mixedPaths: ReadonlySet<string>): number {
 	if (mixedPaths.has(file.path)) return 1; // mixed (both staged + unstaged hunks)
@@ -256,8 +270,13 @@ export function folderToTreeModel(name: string, relativePath: string, options?: 
 
 export function buildFileTooltip(file: GitFileChangeShape): string {
 	const status = getStatusDecoration(file.status)?.tooltip;
-	const fullPath = file.repoPath ? joinPaths(file.repoPath, file.path) : file.path;
-	const lines = [`${fullPath}${file.submodule != null ? ' (submodule)' : ''}`];
+	// Naming the nested-repository case is what tells the user why clicking its row does nothing: it's
+	// a gitlink, so there's no diff to open.
+	const nested = file.path.endsWith('/');
+	const path = trimTrailingSlash(file.path);
+	const fullPath = file.repoPath ? joinPaths(file.repoPath, path) : path;
+	const kind = file.submodule != null ? ' (submodule)' : nested ? ' (nested repository)' : '';
+	const lines = [`${fullPath}${kind}`];
 	if (status) {
 		lines.push(status);
 	}
@@ -367,7 +386,9 @@ export function buildFileTree<T extends GitFileChangeShape>(
 	if (isTree) {
 		const fileTree = makeHierarchical(
 			filteredFiles,
-			n => n.path.split('/'),
+			// Trim first — a trailing slash would split into an empty final segment, nesting an
+			// empty-named leaf under a folder of the same name.
+			n => trimTrailingSlash(n.path).split('/'),
 			(...parts: string[]) => parts.join('/'),
 			compact,
 		);
