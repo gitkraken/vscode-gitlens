@@ -41,25 +41,27 @@ suite('rowMarkerRolesFor', () => {
 
 suite('scopeAnchorRoles', () => {
 	test('not an anchor → 0', () => {
-		assert.strictEqual(scopeAnchorRoles(false, 'target', false), 0);
-		assert.strictEqual(scopeAnchorRoles(undefined, 'target', false), 0);
+		assert.strictEqual(scopeAnchorRoles(false, false, false), 0);
+		assert.strictEqual(scopeAnchorRoles(undefined, undefined, undefined), 0);
 	});
 
 	test('focal / fork map to their own roles', () => {
-		assert.strictEqual(scopeAnchorRoles(true, 'focal', false), flagFor('focal'));
-		assert.strictEqual(scopeAnchorRoles(true, 'fork', false), flagFor('base'));
+		assert.strictEqual(scopeAnchorRoles(true, false, false), flagFor('focal'));
+		assert.strictEqual(scopeAnchorRoles(false, true, false), flagFor('base'));
 	});
 
 	test('scope target reuses the ROW-MARKER target flag (same commit, same color)', () => {
-		assert.strictEqual(scopeAnchorRoles(true, 'target', false), flagFor('target'));
+		assert.strictEqual(scopeAnchorRoles(false, false, true), flagFor('target'));
 	});
 
 	test('target that is also the fork point → target + base', () => {
-		assert.strictEqual(scopeAnchorRoles(true, 'target', true), flagFor('target') | flagFor('base'));
+		assert.strictEqual(scopeAnchorRoles(false, true, true), flagFor('target') | flagFor('base'));
 	});
 
-	test('anchor with no resolved kind → 0 (union guarantees this is unreachable)', () => {
-		assert.strictEqual(scopeAnchorRoles(true, undefined, false), 0);
+	test('the focal tip keeps its base role — a branch level with its target is all three at once', () => {
+		// The regression this guards: a single dominant `anchorKind` used to swallow `base` whenever the
+		// fork point landed on the focal tip, so the one row that IS the fork point never said so.
+		assert.strictEqual(scopeAnchorRoles(true, true, true), flagFor('focal') | flagFor('base') | flagFor('target'));
 	});
 });
 

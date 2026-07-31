@@ -105,28 +105,28 @@ export function rowMarkerRolesTooltip(roles: number, targetName?: string): strin
 
 /**
  * The scope anchor's roles for a row, as the same mask — so the rail can render scope and row marker in one
- * indicator. `target` deliberately maps onto the ROW-MARKER target flag (identical commit, identical color);
- * `alsoFork` (target tip === merge base) adds `base` so a row playing both still reads as both.
+ * indicator. `target` deliberately maps onto the ROW-MARKER target flag (identical commit, identical color).
+ *
+ * Additive, not a precedence ladder: a row is routinely more than one anchor (a branch level with its target
+ * is all three at once), and each is a distinct fact — where you are vs. where you diverged. The row's
+ * primary LOOK still picks one winner; that's `anchorKind`'s job, not this one's.
  *
  * Allocation-free, and the caller already has these booleans on the row context — no extra work per row.
  */
 export function scopeAnchorRoles(
-	isAnchor: boolean | undefined,
-	kind: 'focal' | 'fork' | 'target' | undefined,
-	alsoFork: boolean | undefined,
+	isFocalAnchor: boolean | undefined,
+	isForkAnchor: boolean | undefined,
+	isTargetAnchor: boolean | undefined,
 ): number {
-	if (isAnchor !== true) return 0;
-
 	let roles = 0;
-	if (kind === 'focal') {
+	if (isFocalAnchor === true) {
 		roles |= rowMarkerFocal;
-	} else if (kind === 'fork') {
-		roles |= rowMarkerBase;
-	} else if (kind === 'target') {
+	}
+	if (isTargetAnchor === true) {
 		roles |= rowMarkerTarget;
-		if (alsoFork === true) {
-			roles |= rowMarkerBase;
-		}
+	}
+	if (isForkAnchor === true) {
+		roles |= rowMarkerBase;
 	}
 	return roles;
 }

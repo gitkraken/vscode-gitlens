@@ -179,9 +179,12 @@ export interface RowRenderContext {
 	isSelected: boolean;
 	isFocused: boolean;
 	isAnchor: boolean;
+	/** The row's dominant anchor for styling purposes only — one winner. The MARKERS read the three
+	 *  booleans below instead, since a row is routinely more than one anchor at once. */
 	anchorKind?: 'focal' | 'fork' | 'target';
-	/** The target row is ALSO the fork point (merge-base === target tip) — adds a combined base marker. */
-	anchorAlsoFork?: boolean;
+	isFocalAnchor?: boolean;
+	isForkAnchor?: boolean;
+	isTargetAnchor?: boolean;
 	isDimmed: boolean;
 	/** The dim is the lighter transient (Alt-hold) peek rather than the full pinned/search/scope dim. */
 	isDimmedSoft: boolean;
@@ -270,14 +273,12 @@ function anchorMarkerPill(kind: 'fork' | 'target', icon: string, label: string):
 function renderAnchorMarkers(ctx: RowRenderContext): TemplateResult | typeof nothing {
 	if (!ctx.isAnchor) return nothing;
 
-	if (ctx.anchorKind === 'target') {
-		const target = anchorMarkerPill('target', 'gl-merge-target', 'Target');
-		return ctx.anchorAlsoFork ? html`${target}${anchorMarkerPill('fork', 'git-merge', 'Base')}` : target;
-	}
-	if (ctx.anchorKind === 'fork') {
-		return anchorMarkerPill('fork', 'git-merge', 'Base');
-	}
-	return nothing;
+	// Every anchor the row plays, not just its dominant one — the focal tip of a branch level with its
+	// target is also that target and the fork point, and each is worth saying. No focal pill: the focal tip
+	// already carries the branch's own ref pill right next to it.
+	return html`${ctx.isTargetAnchor === true ? anchorMarkerPill('target', 'gl-merge-target', 'Target') : nothing}${
+		ctx.isForkAnchor === true ? anchorMarkerPill('fork', 'git-merge', 'Base') : nothing
+	}`;
 }
 
 /** The on-row row-marker indicator: a colored VERTICAL BAR pinned at the left edge of the graph column
@@ -349,7 +350,7 @@ function renderInlineRefs(
 
 /** Whether the row has a scope-anchor marker to show (so the refs cell renders even with no branch pills). */
 function hasMarkerPills(ctx: RowRenderContext): boolean {
-	return ctx.isAnchor === true && (ctx.anchorKind === 'target' || ctx.anchorKind === 'fork');
+	return ctx.isAnchor === true && (ctx.isTargetAnchor === true || ctx.isForkAnchor === true);
 }
 
 /** Whether a ref-less row gets the ghost pill: the config is on, the row is a normal commit/merge —
@@ -1130,7 +1131,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		? 0
 		: combineRowMarkerRoles(
 				rowMarkerRolesFor(row.sha, ctx.rowMarkerTips),
-				scopeAnchorRoles(ctx.isAnchor, ctx.anchorKind, ctx.anchorAlsoFork),
+				scopeAnchorRoles(ctx.isFocalAnchor, ctx.isForkAnchor, ctx.isTargetAnchor),
 			);
 	const rowMarkerAriaPrefix = rowMarkerRoles !== 0 ? `${rowMarkerRolesAriaLabel(rowMarkerRoles)}. ` : '';
 

@@ -779,9 +779,9 @@ export class GlLitGraph extends LitElement {
 		const isFocalAnchor = c.focalTipShas?.has(row.sha) === true;
 		const isForkAnchor = c.forkPointShas?.has(row.sha) === true;
 		const isTargetAnchor = c.mergeTargetShas?.has(row.sha) === true;
-		// Primary look priority: focal → TARGET → fork. Target beats fork so that when a branch is
-		// purely ahead of its target (the common case: merge-base === target tip, same commit), the row
-		// reads as the merge target — not the fork point. `anchorAlsoFork` then marks it as the base too.
+		// Styling only — the row's dominant anchor, for `is-anchor--${kind}`. Target beats fork so that a
+		// branch purely ahead of its target (the common case: merge-base === target tip, same commit) reads
+		// as the merge target. The markers don't come through here; they read all three booleans.
 		const anchorKind: RowRenderContext['anchorKind'] = !isAnchor
 			? undefined
 			: isFocalAnchor
@@ -791,8 +791,6 @@ export class GlLitGraph extends LitElement {
 					: isForkAnchor
 						? 'fork'
 						: undefined;
-		// The merge-target row is ALSO the fork point (base) — show a combined marker + tooltip.
-		const anchorAlsoFork = anchorKind === 'target' && isForkAnchor;
 		// A focused lane chain (Alt-hold or click-pin) takes over the dim: while it's active, dim tracks
 		// chain membership ALONE — an in-chain merge no longer dims itself away, and search/scope dims
 		// yield to it (search matches keep their own `is-highlighted` tint). The transient peek dims
@@ -866,7 +864,9 @@ export class GlLitGraph extends LitElement {
 			isFocused: row.sha === c.focusedSha,
 			isAnchor: isAnchor,
 			anchorKind: anchorKind,
-			anchorAlsoFork: anchorAlsoFork,
+			isFocalAnchor: isFocalAnchor,
+			isForkAnchor: isForkAnchor,
+			isTargetAnchor: isTargetAnchor,
 			// A focused lane chain owns the dim while active (chain membership alone); otherwise the
 			// scope / merge / search reasons apply. See `chainActive`/`outOfChain` above.
 			isDimmed: chainActive
