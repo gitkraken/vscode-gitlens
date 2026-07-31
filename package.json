@@ -29742,6 +29742,7 @@
 		"lint-staged": "17.2.0",
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.10.2",
+		"minify-html-literals": "1.3.5",
 		"ovsx": "1.0.2",
 		"oxfmt": "0.61.0",
 		"oxlint": "1.76.0",

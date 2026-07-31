@@ -21,6 +21,7 @@ import TerserPlugin from 'terser-webpack-plugin';
 import webpack from 'webpack';
 import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 import WebpackRequireFromPlugin from 'webpack-require-from';
+import { cssnanoPresetOptions, cssnanoPresetPath } from './scripts/css-minify-preset.mjs';
 import { OxLintWebpackPlugin } from './scripts/webpack-oxlint-plugin.mjs';
 import { getBundledManifestPaths } from './scripts/workspace.mjs';
 
@@ -679,18 +680,8 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 							}),
 							new ImageMinimizerPlugin({ deleteOriginalAssets: true, generator: [imageGeneratorConfig] }),
 							new CssMinimizerPlugin({
-								minimizerOptions: {
-									preset: [
-										require.resolve('cssnano-preset-advanced'),
-										{
-											autoprefixer: false,
-											discardUnused: false,
-											mergeIdents: false,
-											reduceIdents: false,
-											zindex: false,
-										},
-									],
-								},
+								// Shared with the css-template minifier loader so inline CSS and `*.css` minify alike
+								minimizerOptions: { preset: [cssnanoPresetPath, cssnanoPresetOptions] },
 							}),
 						]
 					: [],
@@ -720,6 +711,10 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 								tsconfig: tsConfigPath,
 							},
 						},
+						// Runs FIRST (loaders apply right-to-left), on the raw source: a tagged template is just a
+						// string to esbuild, so `CssMinimizerPlugin` never sees its CSS and nothing touches its
+						// markup — both ship with every comment and every space of indentation. Production only.
+						{ loader: path.resolve(__dirname, 'scripts', 'webpack-template-minifier.mjs') },
 					],
 				},
 				{

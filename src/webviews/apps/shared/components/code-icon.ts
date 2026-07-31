@@ -7,10 +7,17 @@ function iconToSelector(name: string, char: string, prefix = '') {
 	return /*css*/ `:host([icon='${prefix}${name}'])::before { content: '${char}'; }`;
 }
 
-function generateIconStyles(iconMap: Record<string, string>, prefix = '') {
+/**
+ * One `CSSResult` for every icon map, rather than one each. Two interpolations sitting at the top
+ * level of a `css` template both minify to the same placeholder at-rule, and the CSS minifier then
+ * discards the second as a duplicate — so the styles come back one interpolation short.
+ */
+function generateIconStyles(...maps: [iconMap: Record<string, string>, prefix?: string][]) {
 	return unsafeCSS(
-		Object.entries(iconMap)
-			.map(([key, value]) => iconToSelector(key, value, prefix))
+		maps
+			.flatMap(([iconMap, prefix]) =>
+				Object.entries(iconMap).map(([key, value]) => iconToSelector(key, value, prefix)),
+			)
 			.join(''),
 	);
 }
@@ -39,9 +46,7 @@ export class CodeIcon extends LitElement {
 			font-family: glicons;
 		}
 
-		${generateIconStyles(codiconsMap)}
-
-		${generateIconStyles(gliconsMap, 'gl-')}
+		${generateIconStyles([codiconsMap], [gliconsMap, 'gl-'])}
 
 		:host([icon='custom-start-work']) {
 			position: relative;
