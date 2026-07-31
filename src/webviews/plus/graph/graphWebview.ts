@@ -4017,7 +4017,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return item;
 	}
 
-	private async getState(deferRows?: boolean): Promise<State> {
+	/** `bootstrap` marks the initial state build for a (re)loading webview: rows are deferred, `loading`
+	 *  is reported, and the app-owned persisted UI state is seeded (see the side bar slice below). */
+	private async getState(bootstrap?: boolean): Promise<State> {
 		this.cancelOperation('branchState');
 		this.cancelOperation('state');
 
@@ -4244,7 +4246,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._wip.probeSecondaryWipInBackground();
 
 		let data;
-		if (deferRows) {
+		if (bootstrap) {
 			queueMicrotask(async () => {
 				// Hold the publisher across the whole deferred build so setGraph's channel marks + the
 				// `ensureSelectedTargetLoaded` await don't leak a premature rows flush ahead of the atomic
@@ -4481,7 +4483,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// carries the publisher's baseline stamp so R1c can initialize the webview's `{generation, seq}`.
 			avatars: undefined,
 			refsMetadata: this._producers.serializeRefsMetadata(),
-			loading: deferRows === true,
+			loading: bootstrap === true,
 			rowsStatsLoading: undefined,
 			rowsStatsIncluded: undefined,
 			rows: undefined,
@@ -4533,11 +4535,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						? true
 						: (storedPanels?.details?.visible ?? true),
 			},
-			sidebar: {
-				...storedPanels?.sidebar,
-				visible: this._pendingSidebarPanel != null || (storedPanels?.sidebar?.visible ?? true),
-				activePanel: this._pendingSidebarPanel ?? storedPanels?.sidebar?.activePanel,
-			},
+			// Bootstrap-only: the side bar's open state is app-owned once the app is running (it persists
+			// to the memento we read here), so re-sending it on every rebuild would clobber live state
+			// with a value the app hasn't written yet — the persist is debounced 200ms — reopening a
+			// just-collapsed overlay, or slamming an open one shut. Omit the key entirely rather than
+			// send `undefined`, which `updateState` would enumerate and apply.
+			//
+			// An unpinned side bar is a transient overlay — it floats over the graph and auto-collapses
+			// on focus loss — so its open state must not survive into the next show. Only a pinned one,
+			// which shares space with the graph, restores open.
+			...(bootstrap
+				? {
+						sidebar: {
+							...storedPanels?.sidebar,
+							visible:
+								this._pendingSidebarPanel != null ||
+								((configuration.get('graph.sidebar.pinned') ?? false) &&
+									(storedPanels?.sidebar?.visible ?? true)),
+							activePanel: this._pendingSidebarPanel ?? storedPanels?.sidebar?.activePanel,
+						},
+					}
+				: undefined),
 			// Pass the stored panel state through untouched — `visible` stays `undefined` until the
 			// user actually shows/hides the minimap, so the `graph.minimap.defaultVisibility` policy
 			// governs instead of a value we fabricated (which the app would then persist back).
@@ -4554,7 +4572,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			visualizationMode: storedGraphState?.visualizationMode,
 			treemapMode: storedGraphState?.treemap?.mode,
 		};
-		this._pendingSidebarPanel = undefined;
+		// Only the bootstrap build emits the side bar slice, so only it may consume the pending panel —
+		// clearing it on a refresh would drop the request. It's set only while `loading`, so a bootstrap
+		// is always imminent.
+		if (bootstrap) {
+			this._pendingSidebarPanel = undefined;
+		}
 		this._pendingAction = undefined;
 		this._pendingCompare = undefined;
 		return result;

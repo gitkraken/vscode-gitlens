@@ -905,24 +905,24 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this._suppressOverlayCollapseForMenu = false;
 	};
 
-	// Pre-collapse sidebarVisible captured synchronously when the auto-collapse fires. The
+	// Pre-collapse open state captured synchronously when the auto-collapse fires. The
 	// sidebar toggle button's click runs in a later task — by then the queued hide has
 	// already mutated state, so handleToggleSidebar would see the post-collapse value and
 	// flip the toggle backwards. This snapshot lets the click handler honor the user's
 	// actual pre-click intent. Cleared on read.
-	private _sidebarVisibleAtAutoCollapse: boolean | undefined;
+	private _sidebarOpenAtAutoCollapse: boolean | undefined;
 
 	private scheduleAutoCollapse(): void {
-		this._sidebarVisibleAtAutoCollapse = this.graphState.sidebar?.visible ?? false;
+		this._sidebarOpenAtAutoCollapse = this.sidebarOpen;
 		// Microtask, not sync: lets any same-task handlers run before the actual hide; the
-		// click handler in a later task reads _sidebarVisibleAtAutoCollapse instead of current
+		// click handler in a later task reads _sidebarOpenAtAutoCollapse instead of current
 		// state. hideSidebar gates on already-hidden so a stale schedule is a no-op.
 		queueMicrotask(() => this.hideSidebar());
 	}
 
 	private shouldAutoCollapseOverlay(): boolean {
 		if (this.graphState.config?.sidebarPinned ?? false) return false;
-		if (!this.graphState.sidebar?.visible) return false;
+		if (!this.sidebarOpen) return false;
 		return true;
 	}
 
@@ -1884,15 +1884,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// panel content (slide in from 4px Y — matches the sub-panel-enter used by
 		// review/compose/compare). The panel element is always mounted (always in the split-
 		// panel's `start` slot) so an unconditional `:host` animation would fire at 0 width.
-		const sidebarVisible = this.graphState.sidebar?.visible ?? false;
+		// Keyed on the composite open state, not `visible` alone: `visible` with no panel chosen renders
+		// nothing, and animating that would burn the `opening` reveal on a 0-width panel.
+		const sidebarOpen = this.sidebarOpen;
 		const sidebarActivePanel = this.graphState.sidebar?.activePanel ?? null;
-		const becameVisible = sidebarVisible && !this._wasSidebarVisible;
+		const becameVisible = sidebarOpen && !this._wasSidebarVisible;
 		const activePanelChanged =
-			sidebarVisible &&
+			sidebarOpen &&
 			!becameVisible &&
 			this._wasSidebarActivePanel !== undefined &&
 			sidebarActivePanel !== this._wasSidebarActivePanel;
-		this._wasSidebarVisible = sidebarVisible;
+		this._wasSidebarVisible = sidebarOpen;
 		this._wasSidebarActivePanel = sidebarActivePanel;
 		if (becameVisible || activePanelChanged) {
 			const sidebarPanel = this.sidebarPanelEl;
@@ -2320,8 +2322,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		></gl-graph-visualizations>`;
 	}
 
+	/** The side bar is open only when both hold — `visible` can be set with no panel chosen yet, and
+	 *  that combination renders nothing. Every decision about open/closed reads this. */
+	private get sidebarOpen(): boolean {
+		return (this.graphState.sidebar?.visible ?? false) && this.graphState.sidebar?.activePanel != null;
+	}
+
 	private renderSidebarSplit(hidden = false) {
-		const isOpen = (this.graphState.sidebar?.visible ?? false) && this.graphState.sidebar?.activePanel != null;
+		const isOpen = this.sidebarOpen;
 		const sidebarPosition = this.graphState.sidebar?.position ?? sidebarDefaultPct;
 		const sidebarPinned = this.graphState.config?.sidebarPinned ?? false;
 		return html`<gl-split-panel
@@ -2926,10 +2934,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleToggleSidebar() {
 		const gs = this.graphState;
-		const stashed = this._sidebarVisibleAtAutoCollapse;
-		this._sidebarVisibleAtAutoCollapse = undefined;
-		const wasVisible = stashed ?? gs.sidebar?.visible ?? false;
-		if (wasVisible) {
+		const stashed = this._sidebarOpenAtAutoCollapse;
+		this._sidebarOpenAtAutoCollapse = undefined;
+		const wasOpen = stashed ?? this.sidebarOpen;
+		if (wasOpen) {
 			this.hideSidebar();
 		} else {
 			this.setSidebarPanel(gs.sidebar?.activePanel ?? 'branches');
