@@ -240,15 +240,26 @@ export abstract class IntegrationBase<
 		// A truthy connectionId targets a specific account; an empty string is not a real target, so it falls
 		// through to the primary path below.
 		if (connectionId) {
+			// A read of this connection previously failed with an AuthenticationError, so the token in
+			// storage is known-refused. Ask for a refresh through the GK cloud before reading again, which
+			// is this branch's equivalent of the primary path's `refreshSessionIfExpired`. Claimed here so
+			// the forced refresh runs at most once per rejection.
+			const refreshRejectedToken = this.takeRejectedTokenRefresh(connectionId);
 			// Degrade to "no results" on failure, matching the primary path (whose ensureSession/
 			// refreshSessionIfExpired swallow errors) so read methods keep their never-throws contract.
 			try {
 				const authProvider = await this.authenticationService.get(this.authProvider.id);
 				const session = await authProvider.getSession(
 					{ ...this.authProviderDescriptor, connectionId: connectionId, cloud: true },
-					{ source: source },
+					{ source: source, refreshRejectedToken: refreshRejectedToken },
 				);
-				return session != null && this.isSessionForIntegrationHost(session) ? session : undefined;
+				if (session == null || !this.isSessionForIntegrationHost(session)) return undefined;
+
+				// Record which credential this read carries: the exception handler sees only the error, so
+				// this is what lets it name the token the provider refused. It also retires a rejection the
+				// refresh actually resolved — see `_rejectedTokenByConnection`.
+				this.settleRejectedToken(connectionId, session.accessToken);
+				return session;
 			} catch (ex) {
 				scope?.error(ex);
 				return undefined;
@@ -343,6 +354,53 @@ export abstract class IntegrationBase<
 	requestSessionSyncForUsecase(syncReqUsecase: SyncReqUsecase): void {
 		this._syncRequestsPerFailedUsecase.add(syncReqUsecase);
 	}
+
+	/**
+	 * The token each connection's last read was handed, keyed by connection id. Recorded by
+	 * {@link resolveReadSession} so {@link handleProviderException} — which sees only the error — can name
+	 * the credential the provider actually refused.
+	 */
+	private readonly _lastReadTokenByConnection = new Map<string, string>();
+
+	/**
+	 * Connections whose cloud token the provider rejected with an {@link AuthenticationError}: the token it
+	 * refused, and whether the recovery refresh has already been tried for it. The per-connection
+	 * counterpart of the primary session's expire-and-resync recovery — a rejected token is refreshed
+	 * through the GK cloud's `/refresh` endpoint, which exchanges the refresh token server-side (the client
+	 * never holds one).
+	 *
+	 * The recorded token is what makes this converge. Keyed on the connection alone, the entry would be
+	 * re-armed by the very failure that follows the refresh and the refresh would fire again on every other
+	 * read, forever. Instead {@link resolveReadSession} drops the entry only once the credential actually
+	 * CHANGED (the refresh produced a new token, so the connection is healed and a later rejection may
+	 * refresh again), and a rejection arriving while an entry is already held falls through to
+	 * {@link trackRequestException} — a token still refused after its refresh is not self-healing, so it
+	 * belongs to the failure budget that ends in a reconnect prompt.
+	 */
+	private readonly _rejectedTokenByConnection = new Map<string, { token: string; refreshAttempted: boolean }>();
+
+	/**
+	 * Resolves what a read of `connectionId` should do about a previously rejected token: whether to force
+	 * the cloud refresh, and (afterwards) whether the credential changed. Called by
+	 * {@link resolveReadSession}, which owns the ordering — the decision has to be made before the session
+	 * is resolved and the comparison after.
+	 */
+	private takeRejectedTokenRefresh(connectionId: string): boolean {
+		const rejected = this._rejectedTokenByConnection.get(connectionId);
+		if (rejected == null || rejected.refreshAttempted) return false;
+
+		rejected.refreshAttempted = true;
+		return true;
+	}
+
+	/** Retires the rejection once `token` differs from the one the provider refused. */
+	private settleRejectedToken(connectionId: string, token: string): void {
+		const rejected = this._rejectedTokenByConnection.get(connectionId);
+		if (rejected != null && rejected.token !== token) {
+			this._rejectedTokenByConnection.delete(connectionId);
+		}
+		this._lastReadTokenByConnection.set(connectionId, token);
+	}
 	private static readonly requestExceptionLimit = 5;
 	private requestExceptionCount = 0;
 
@@ -350,6 +408,11 @@ export abstract class IntegrationBase<
 		this.requestExceptionCount = 0;
 		if (syncReqUsecase === 'all') {
 			this._syncRequestsPerFailedUsecase.clear();
+			// 'all' is the whole-integration reset (a disconnect, or a forced re-sync that produced a new
+			// access token). Either way every stored token is replaced or gone, so a rejection recorded
+			// against the tokens that preceded it no longer describes anything.
+			this._rejectedTokenByConnection.clear();
+			this._lastReadTokenByConnection.clear();
 		} else {
 			this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
 		}
@@ -474,11 +537,37 @@ export abstract class IntegrationBase<
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
-		options?: { scope?: ScopedLogger | undefined; silent?: boolean },
+		options?: { scope?: ScopedLogger | undefined; silent?: boolean; connectionId?: string },
 	): void {
 		if (isCancellationError(ex)) return;
 
 		options?.scope?.error(ex);
+
+		// A per-connection (multi-account) read resolved its session through `resolveReadSession`'s
+		// `connectionId` branch, which deliberately never touches the cached primary `_session`. So the
+		// primary-session recovery below cannot apply to it: expiring `_session` would mark a session this
+		// read never used, while the rejected connection kept its stored token and re-sent it on every
+		// later read — a token the provider has already refused (expired scopes, a revoked grant, an
+		// uninstalled app) is not self-healing, so the read failed identically until the user reconnected
+		// by hand. Record the rejection against the connection instead; `resolveReadSession` consumes it
+		// and forces the cloud `/refresh` on the next read of that connection.
+		if (ex instanceof AuthenticationError && options?.connectionId) {
+			const rejectedToken = this._lastReadTokenByConnection.get(options.connectionId);
+			if (rejectedToken != null && !this._rejectedTokenByConnection.has(options.connectionId)) {
+				this._rejectedTokenByConnection.set(options.connectionId, {
+					token: rejectedToken,
+					refreshAttempted: false,
+				});
+				return;
+			}
+
+			// Either the refresh already ran for this connection and its token was refused again, or the
+			// read never resolved a session to attribute. Neither is a stale-token blip, so fall through to
+			// the shared failure budget, which disconnects after `requestExceptionLimit` and surfaces the
+			// reconnect prompt.
+			this.trackRequestException(options);
+			return;
+		}
 
 		if (ex instanceof AuthenticationError && this._session?.cloud) {
 			if (!this.hasSessionSyncRequests()) {
@@ -686,7 +775,7 @@ export abstract class IntegrationBase<
 			this.resetRequestExceptionCount('searchMyIssues');
 			return { value: issues };
 		} catch (ex) {
-			this.handleProviderException('searchMyIssues', ex, { scope: scope });
+			this.handleProviderException('searchMyIssues', ex, { scope: scope, connectionId: connectionId });
 			return { error: toError(ex) };
 		}
 	}
@@ -738,7 +827,7 @@ export abstract class IntegrationBase<
 			this.resetRequestExceptionCount('searchMyIssues');
 			return { value: result };
 		} catch (ex) {
-			this.handleProviderException('searchMyIssues', ex, { scope: scope });
+			this.handleProviderException('searchMyIssues', ex, { scope: scope, connectionId: connectionId });
 			return { error: toError(ex) };
 		}
 	}
@@ -858,7 +947,10 @@ export abstract class IntegrationBase<
 							return undefined;
 						}
 
-						this.handleProviderException('getCurrentAccount', ex, { scope: scope });
+						this.handleProviderException('getCurrentAccount', ex, {
+							scope: scope,
+							connectionId: connectionId,
+						});
 
 						// Invalidate the cache on error, except for auth errors
 						if (!(ex instanceof AuthenticationError)) {
