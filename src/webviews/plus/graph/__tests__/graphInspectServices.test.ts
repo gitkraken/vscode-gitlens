@@ -14,11 +14,22 @@ import type { GraphInspectService, ScopeSelection } from '../graphService.js';
 // index change that would mark its own result stale (#5605).
 
 type DiffForScopeResult = { diff: string; message: string; context: string } | undefined;
-type GetDiffForScope = (repoPath: string, scope: ScopeSelection, signal?: AbortSignal) => Promise<DiffForScopeResult>;
+type GetDiffForScope = (
+	repoPath: string,
+	scope: ScopeSelection,
+	excluded: Set<string> | undefined,
+	signal?: AbortSignal,
+) => Promise<DiffForScopeResult>;
 
-function invoke(fakeThis: unknown, scope: ScopeSelection, signal?: AbortSignal): Promise<DiffForScopeResult> {
+/** Argument order mirrors `getDiffForScope` itself, so a call here reads the same as the real one. */
+function invoke(
+	fakeThis: unknown,
+	scope: ScopeSelection,
+	excluded?: Set<string>,
+	signal?: AbortSignal,
+): Promise<DiffForScopeResult> {
 	const fn = (GraphInspectServices.prototype as unknown as { getDiffForScope: GetDiffForScope }).getDiffForScope;
-	return fn.call(fakeThis, '/repo', scope, signal);
+	return fn.call(fakeThis, '/repo', scope, excluded, signal);
 }
 
 function wipScope(o: { includeUnstaged?: boolean; includeStaged?: boolean }): ScopeSelection {
@@ -180,6 +191,39 @@ suite('graphInspectServices — getDiffForScope untracked handling (#5586, #5604
 		assert.deepStrictEqual(m.order, ['getUntracked', 'diff:unstaged']);
 	});
 
+	// Fix under test (#5630): the exclusion set is consulted while collecting, so an excluded untracked
+	// path is never staged and its contents are never read into the diff — instead of being staged,
+	// diffed, and then dropped from the assembled text.
+	test('does not stage an excluded untracked path', async () => {
+		const m = createMocks({
+			untracked: ['new.txt', 'nested-repo/'],
+			unstagedDiff: 'diff --git a/new.txt b/new.txt\n',
+		});
+
+		// `nested-repo` without the trailing slash git reports — the shapes have to match normalized.
+		await invoke(m.fakeThis, wipScope({ includeUnstaged: true }), new Set(['nested-repo']));
+
+		sinon.assert.calledOnceWithExactly(m.stageFiles, ['new.txt'], { index: m.tempIndex, intentToAdd: true });
+		// The unexcluded file still needs the scratch index, so the rest of the sequence is unchanged.
+		sinon.assert.calledWithExactly(m.getDiff, uncommitted, undefined, { index: m.tempIndex });
+		assert.deepStrictEqual(m.order, ['getUntracked', 'createIndex', 'stage', 'diff:unstaged', 'dispose']);
+	});
+
+	test('does not create a scratch index when every untracked path is excluded', async () => {
+		const m = createMocks({
+			untracked: ['new.txt', 'nested-repo/'],
+			unstagedDiff: 'diff --git a/tracked.txt b/tracked.txt\n',
+		});
+
+		// Already-normalized, as `getNormalizedExclusions` hands it over.
+		await invoke(m.fakeThis, wipScope({ includeUnstaged: true }), new Set(['new.txt', 'nested-repo']));
+
+		sinon.assert.notCalled(m.createTemporaryIndex);
+		sinon.assert.notCalled(m.stageFiles);
+		sinon.assert.calledWithExactly(m.getDiff, uncommitted, undefined, undefined);
+		assert.deepStrictEqual(m.order, ['getUntracked', 'diff:unstaged']);
+	});
+
 	test('does not touch untracked files for a staged-only scope', async () => {
 		const m = createMocks({ untracked: ['new.txt'], stagedDiff: 'diff --git a/tracked.txt b/tracked.txt\n' });
 
@@ -277,7 +321,7 @@ suite('graphInspectServices — getDiffForScope untracked handling (#5586, #5604
 			disposeError: new Error('EBUSY: temp dir locked'),
 		});
 		await assert.rejects(
-			invoke(c.fakeThis, wipScope({ includeUnstaged: true }), ac.signal),
+			invoke(c.fakeThis, wipScope({ includeUnstaged: true }), undefined, ac.signal),
 			(ex: Error) => !ex.message.includes('EBUSY'),
 			'the cancellation must surface, not the cleanup error',
 		);
@@ -287,7 +331,7 @@ suite('graphInspectServices — getDiffForScope untracked handling (#5586, #5604
 		const ac = new AbortController();
 		const m = createMocks({ untracked: ['new.txt'], unstagedDiff: 'x', abortOnStage: ac });
 
-		await assert.rejects(invoke(m.fakeThis, wipScope({ includeUnstaged: true }), ac.signal));
+		await assert.rejects(invoke(m.fakeThis, wipScope({ includeUnstaged: true }), undefined, ac.signal));
 
 		// Staging into the scratch index ran and the scratch index was disposed, but the abort was honored
 		// before the diff was requested.
@@ -370,11 +414,12 @@ function createReviewFake() {
 	// is a getter over the injected context, so it's fed through `context`.
 	// `buildChangesContext` is shadowed to keep the AI-context gather out of the test.
 	const noopEvent = { subscribe: () => () => {} };
+	const diffCache = new LruMap<string, { diff: string; message: string; context: string }>(4);
 	const fakeThis = Object.assign(Object.create(GraphInspectServices.prototype) as object, {
 		context: { container: container },
 		buildChangesContext: async () => '',
 		_aiCancellations: new Set(),
-		_graphDetailsDiffCache: new LruMap(4),
+		_graphDetailsDiffCache: diffCache,
 		_reviewHistoryCache: new LruMap(4),
 		_composeProgressEvent: noopEvent,
 		_resolveProgressEvent: noopEvent,
@@ -384,7 +429,12 @@ function createReviewFake() {
 		fakeThis,
 	);
 
-	return { graphInspect: graphInspect, reviewChanges: reviewChanges, reviewFocusArea: reviewFocusArea };
+	return {
+		graphInspect: graphInspect,
+		reviewChanges: reviewChanges,
+		reviewFocusArea: reviewFocusArea,
+		diffCache: diffCache,
+	};
 }
 
 function reviewedDiff(stub: sinon.SinonStub): string {
@@ -448,6 +498,32 @@ suite('graphInspectServices — review exclusions across path shapes (#5603)', (
 		const diff = reviewedDiff(m.reviewFocusArea);
 		assert.ok(!diff.includes('nested-repo'), 'the excluded nested repository must not reach the AI');
 		assert.ok(diff.includes('changed.txt'), 'the focus area still covers its included file');
+	});
+
+	// Fix under test (#5630): the diff-cache key is built from the same normalized set the filters
+	// compare, so two spellings of one logical exclusion don't each take a slot in an LRU sized for
+	// only a couple of `excludedFiles` variants — holding byte-identical filtered diffs.
+	test('two spellings of the same exclusion share one diff-cache entry', async () => {
+		const m = createReviewFake();
+		const scope = wipScope({ includeUnstaged: true });
+
+		await m.graphInspect.reviewChanges('/repo', scope, undefined, ['nested-repo/']);
+		const [firstKey] = [...m.diffCache.keys()];
+
+		await m.graphInspect.reviewChanges('/repo', scope, undefined, ['nested-repo']);
+
+		assert.strictEqual(m.diffCache.size, 1, 'the un-normalized spelling should not add a second entry');
+		assert.deepStrictEqual([...m.diffCache.keys()], [firstKey]);
+	});
+
+	test('a genuinely different exclusion set still gets its own diff-cache entry', async () => {
+		const m = createReviewFake();
+		const scope = wipScope({ includeUnstaged: true });
+
+		await m.graphInspect.reviewChanges('/repo', scope, undefined, ['nested-repo/']);
+		await m.graphInspect.reviewChanges('/repo', scope, undefined, ['new.txt']);
+
+		assert.strictEqual(m.diffCache.size, 2);
 	});
 });
 
