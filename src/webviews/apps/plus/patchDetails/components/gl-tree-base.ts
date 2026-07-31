@@ -3,7 +3,7 @@ import { html, nothing } from 'lit';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
-import { joinPaths } from '@gitlens/utils/path.js';
+import { joinPaths, trimTrailingSlash } from '@gitlens/utils/path.js';
 import { GlElement } from '../../../shared/components/element.js';
 import type {
 	TreeItemAction,
@@ -85,7 +85,9 @@ export class GlTreeBase extends GlElement {
 			const repoPath = files[0]?.repoPath;
 			const fileTree = makeHierarchical(
 				files,
-				n => n.path.split('/'),
+				// Trim first — a trailing slash would split into an empty final segment, nesting an
+				// empty-named leaf under a folder of the same name.
+				n => trimTrailingSlash(n.path).split('/'),
 				(...parts: string[]) => parts.join('/'),
 				compact,
 			);
@@ -201,11 +203,11 @@ export class GlTreeBase extends GlElement {
 		file: GitFileChangeShape,
 		options?: Partial<TreeItemBase>,
 		flat = false,
-		glue = '/',
 	): TreeModel<GitFileChangeShape[]> {
-		const pathIndex = file.path.lastIndexOf(glue);
-		const fileName = pathIndex !== -1 ? file.path.substring(pathIndex + 1) : file.path;
-		const filePath = flat && pathIndex !== -1 ? file.path.substring(0, pathIndex) : '';
+		const path = trimTrailingSlash(file.path);
+		const pathIndex = path.lastIndexOf('/');
+		const fileName = pathIndex !== -1 ? path.substring(pathIndex + 1) : path;
+		const filePath = flat && pathIndex !== -1 ? path.substring(0, pathIndex) : '';
 
 		return {
 			branch: false,

@@ -8,6 +8,7 @@ import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { flatCount } from '@gitlens/utils/iterable.js';
+import { trimTrailingSlash } from '@gitlens/utils/path.js';
 import type {
 	DraftArchiveReason,
 	DraftPatchFileChange,
@@ -881,7 +882,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (isTree) {
 			const fileTree = makeHierarchical(
 				patch.files,
-				n => n.path.split('/'),
+				n => trimTrailingSlash(n.path).split('/'),
 				(...parts: string[]) => parts.join('/'),
 				compact,
 			);
