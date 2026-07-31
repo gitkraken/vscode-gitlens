@@ -5,6 +5,7 @@ import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { GlCommands } from '../../../constants.commands.js';
+import type { ConsultedTool } from '../../../plus/coretools/conflict/consultation.js';
 import type { LaunchpadSummaryError, LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
@@ -44,6 +45,9 @@ export type ResolvedFileSummary = {
 	reasoning: string;
 	confidence: number;
 	note?: string;
+	/** What AI consulted in the repository before deciding, when the hunk alone was ambiguous — the
+	 *  evidence behind `reasoning`. Absent when it resolved from the conflict's own context. */
+	consulted?: ConsultedTool[];
 	virtualRef?: VirtualRefShape;
 };
 

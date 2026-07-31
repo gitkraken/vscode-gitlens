@@ -7,6 +7,8 @@ import type {
 	AutoRebaseSession,
 	AutoRebaseStepRecord,
 } from './autoRebase.types.js';
+import type { ConsultedTool } from './consultation.js';
+import { getConsultations, recordConsultation } from './consultation.js';
 import type { ConflictProgressEvent, Resolution, ResolutionContext, StepResult, UnmergedEntry } from './types.js';
 
 /**
@@ -305,6 +307,10 @@ export async function runAutoRebaseLoop(
 		// before/after diff and for the external-modification guard below.
 		const snapshot = await ports.readWorkingFiles(entries.map(e => e.path));
 
+		// What the AI consulted, per file. Accumulated from the progress events because that's the only
+		// place the resolver reports it — the resolution itself carries just a count.
+		const consultations = new Map<string, ConsultedTool[]>();
+
 		// During a rebase HEAD is the already-rebased side ("ours") and the commit being applied
 		// (REBASE_HEAD) is the incoming side ("theirs").
 		const stepCommit = status.steps.current.commit;
@@ -330,6 +336,13 @@ export async function runAutoRebaseLoop(
 					case 'resolution:failed':
 						session.progressMessage = `${stepPrefix} · Couldn’t resolve ${event.filePath}`;
 						break;
+					case 'resolver:tool-call':
+						// The AI is consulting the repository (reading a file at a ref, blaming, searching)
+						// because the hunk alone was ambiguous — report it so a long step doesn't look stalled,
+						// and keep it so the summary can cite the evidence after this line is overwritten.
+						recordConsultation(consultations, event);
+						session.progressMessage = `${stepPrefix} · Inspecting ${event.tool} for ${event.filePath}…`;
+						break;
 					default:
 						return;
 				}
@@ -346,6 +359,7 @@ export async function runAutoRebaseLoop(
 			conflictedContents: snapshot,
 			errors: result.errors.map(e => ({ filePath: e.filePath, message: e.error.message })),
 			skipped: (result.skipped ?? []).map(s => ({ filePath: s.filePath, reason: s.reason })),
+			consultations: consultations,
 		};
 
 		if (result.errors.length > 0) {
@@ -450,6 +464,9 @@ export async function runAutoRebaseLoop(
 				note: r.note,
 				conflictedContent: snapshot.get(r.filePath),
 				resolvedContent: r.strategy !== 'skipped' ? r.content : undefined,
+				toolCallCount: r.metrics?.toolCallCount,
+				stepCount: r.metrics?.stepCount,
+				consulted: getConsultations(consultations, r.filePath),
 			})),
 		};
 		session.steps.push(step);

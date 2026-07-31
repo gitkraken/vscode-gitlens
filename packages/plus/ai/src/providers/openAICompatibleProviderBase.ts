@@ -12,6 +12,8 @@ import type {
 	AIProvider,
 	AIProviderResponse,
 	AIResponseFormat,
+	AIToolCall,
+	AIToolDefinition,
 	JSONSchema,
 } from '../models/provider.js';
 import { getActionName, getReducedMaxInputTokens, getValidatedTemperature } from '../utils/ai.utils.js';
@@ -99,12 +101,13 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		action: TAction,
 		model: AIModel<T>,
 		apiKey: string,
-		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
+		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage<AIChatMessageRole>[]>,
 		options: {
 			signal: AbortSignal;
 			modelOptions?: { outputTokens?: number; temperature?: number };
 			conversationId?: string;
 			responseFormat?: AIResponseFormat;
+			tools?: readonly AIToolDefinition[];
 		},
 	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.sendRequest`);
@@ -119,6 +122,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				options.responseFormat,
 				options.signal,
 				options.conversationId,
+				options.tools,
 			);
 			return result;
 		} catch (ex) {
@@ -141,19 +145,27 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		action: TAction,
 		model: AIModel<T>,
 		apiKey: string,
-		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
+		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage<AIChatMessageRole>[]>,
 		modelOptions?: { outputTokens?: number; temperature?: number },
 		responseFormat?: AIResponseFormat,
 		signal?: AbortSignal,
 		conversationId?: string,
+		tools?: readonly AIToolDefinition[],
 	): Promise<AIProviderResponse<void>> {
 		let retries = 0;
 		let maxInputTokens = model.maxTokens.input;
+		// Latched when the provider rejects the `tools` field, so the retry drops tools entirely and
+		// the caller can stop offering them for the rest of the session.
+		let toolsRejected = false;
 
 		while (true) {
+			const useTools = tools?.length && !toolsRejected ? tools : undefined;
+			const { messages: msgs, system } = this.extractSystemPrompt(await messages(maxInputTokens, retries));
 			const request: ChatCompletionRequest = {
 				model: model.id,
-				...this.extractSystemPrompt(await messages(maxInputTokens, retries)),
+				messages: this.serializeMessages(msgs),
+				...(system != null ? { system: system } : undefined),
+				...(useTools != null ? this.serializeTools(useTools) : undefined),
 				stream: false,
 				max_completion_tokens: model.maxTokens.output
 					? Math.min(modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
@@ -206,19 +218,34 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			}
 
 			if (!rsp.ok) {
-				const result = await this.handleFetchFailure(rsp, action, model, retries, maxInputTokens, errorBody);
+				const result = await this.handleFetchFailure(
+					rsp,
+					action,
+					model,
+					retries,
+					maxInputTokens,
+					errorBody,
+					useTools != null,
+				);
 				if (result.retry) {
 					maxInputTokens = result.maxInputTokens;
+					if (result.withoutTools) {
+						toolsRejected = true;
+					}
 					retries++;
 					continue;
 				}
 			}
 
 			const data: ChatCompletionResponse = (await rsp.json()) as ChatCompletionResponse;
+			const toolCalls = this.parseToolCalls(data);
+			// A tool-call-only turn carries no text, which `extractContent` correctly reports as '' — it
+			// selects the text block by type, so a `tool_use` (or thinking) block is never mistaken for one.
+			// The calls ride alongside on `toolCalls` below.
 			const content = this.extractContent(data);
 			// Some providers/proxies (e.g. OpenRouter) report upstream failures as an OK response
 			// carrying an error envelope and no choices — surface that instead of empty content
-			if (!content && data.error != null) {
+			if (!content && toolCalls == null && data.error != null) {
 				if (data.error.code === 429 || data.error.code === '429') {
 					throw new AIError(
 						AIErrorReason.RateLimitOrFundsExceeded,
@@ -233,6 +260,8 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				content: content,
 				finishReason: this.extractFinishReason(data),
 				model: model,
+				...(toolCalls?.length ? { toolCalls: toolCalls } : undefined),
+				...(toolsRejected ? { toolsRejected: true } : undefined),
 				usage: {
 					promptTokens: data.usage?.prompt_tokens ?? data.usage?.input_tokens,
 					completionTokens: data.usage?.completion_tokens ?? data.usage?.output_tokens,
@@ -337,6 +366,89 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		}
 	}
 
+	/**
+	 * Maps messages onto the provider's wire shape. The default is OpenAI Chat Completions: assistant
+	 * tool calls go in `tool_calls` with `arguments` JSON-stringified, and tool results are `tool`-role
+	 * entries keyed by `tool_call_id`. Providers with a different tool encoding (e.g. Anthropic's
+	 * content blocks) override this.
+	 */
+	protected serializeMessages(messages: AIChatMessage<AIChatMessageRole>[]): unknown[] {
+		return messages.map(m => {
+			if (m.role === 'tool') {
+				// A tool result is only addressable by the id of the call it answers. Without one, send it
+				// as plain text — the same shape used for providers that can't carry tool calls at all —
+				// rather than a `tool_call_id: undefined` the provider rejects with nothing to trace it to.
+				if (m.toolCallId == null) return { role: 'user', content: m.content };
+
+				return { role: 'tool', tool_call_id: m.toolCallId, content: m.content };
+			}
+
+			if (m.role === 'assistant' && m.toolCalls?.length) {
+				return {
+					role: 'assistant',
+					// OpenAI requires `content` to be present, but allows null on a tool-call-only turn
+					content: m.content || null,
+					tool_calls: m.toolCalls.map(c => ({
+						id: c.id,
+						type: 'function',
+						function: { name: c.name, arguments: JSON.stringify(c.args) },
+						// Only the GitKraken proxy mints these, so the field can only ever be present on a
+						// conversation with that proxy — no other provider sees it.
+						...(c.providerSignature != null ? { thought_signature: c.providerSignature } : undefined),
+					})),
+				};
+			}
+
+			return { role: m.role, content: m.content };
+		});
+	}
+
+	/** Returns the tool-related request fields. The default is the OpenAI `function` envelope. */
+	protected serializeTools(tools: readonly AIToolDefinition[]): { tools: unknown[] } {
+		return {
+			tools: tools.map(t => ({
+				type: 'function',
+				function: { name: t.name, description: t.description, parameters: t.parameters },
+			})),
+		};
+	}
+
+	/**
+	 * Extracts tool calls from a response, handling both the OpenAI shape
+	 * (`choices[].message.tool_calls`, whose `arguments` is a JSON string) and the Anthropic shape
+	 * (`content[]` blocks of type `tool_use`) — mirroring how {@link fetch} already reads content
+	 * from both.
+	 */
+	protected parseToolCalls(data: ChatCompletionResponse): AIToolCall[] | undefined {
+		const calls: AIToolCall[] = [];
+
+		for (const call of data.choices?.[0]?.message?.tool_calls ?? []) {
+			let args: Record<string, unknown> = {};
+			try {
+				// Providers can emit '' for a no-argument call
+				args = call.function.arguments ? (JSON.parse(call.function.arguments) as Record<string, unknown>) : {};
+			} catch {
+				// Leave args empty — the tool dispatcher reports the resulting validation error back to
+				// the model, which is more recoverable than failing the whole request here.
+			}
+
+			calls.push({
+				id: call.id,
+				name: call.function.name,
+				args: args,
+				...(call.thought_signature != null ? { providerSignature: call.thought_signature } : undefined),
+			});
+		}
+
+		for (const block of data.content ?? []) {
+			if (block.type !== 'tool_use' || block.id == null || block.name == null) continue;
+
+			calls.push({ id: block.id, name: block.name, args: block.input ?? {} });
+		}
+
+		return calls.length ? calls : undefined;
+	}
+
 	protected async handleFetchFailure<TAction extends AIActionType>(
 		rsp: Response,
 		_action: TAction,
@@ -345,7 +457,8 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		maxInputTokens: number,
 		/** The already-read error body, when the caller had to read it (avoids a second decode) */
 		body?: string,
-	): Promise<{ retry: true; maxInputTokens: number }> {
+		sentTools?: boolean,
+	): Promise<{ retry: true; maxInputTokens: number; withoutTools?: boolean }> {
 		if (rsp.status === 404) {
 			throw new AIError(
 				AIErrorReason.Unauthorized,
@@ -382,6 +495,13 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			);
 		}
 
+		// A provider that advertises the OpenAI shape but rejects `tools` (an older or partial
+		// implementation) gets one retry without them, so the caller degrades to text-only instead of
+		// failing outright.
+		if (sentTools && rsp.status === 400 && isToolsRejection(json?.error?.message)) {
+			return { retry: true, maxInputTokens: maxInputTokens, withoutTools: true };
+		}
+
 		throw new Error(`(${this.name}) ${rsp.status}: ${json?.error?.message || rsp.statusText}`);
 	}
 
@@ -412,12 +532,32 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 	}
 }
 
+/** Whether a 400's message reads as a rejection of the `tools` field rather than a prompt problem. */
+function isToolsRejection(message: string | undefined): boolean {
+	if (!message) return false;
+
+	const m = message.toLowerCase();
+	return (
+		(m.includes('tool') || m.includes('function')) &&
+		(m.includes('unsupported') ||
+			m.includes('not supported') ||
+			m.includes('unknown') ||
+			m.includes('unrecognized') ||
+			m.includes('invalid') ||
+			m.includes('unexpected'))
+	);
+}
+
 export interface ChatCompletionRequest {
 	model: string;
-	messages: AIChatMessage<AIChatMessageRole>[];
+	/** Provider-shaped messages from {@link OpenAICompatibleProviderBase.serializeMessages} */
+	messages: unknown[];
 
 	/** Anthropic carries the initial system prompt here instead of as a `system`-role message */
 	system?: string;
+
+	/** Tool definitions, shaped by {@link OpenAICompatibleProviderBase.serializeTools} */
+	tools?: unknown[];
 
 	/** @deprecated but used by Anthropic & Gemini */
 	max_tokens?: number;
@@ -450,11 +590,20 @@ export interface ChatCompletionResponse {
 			content: string | null;
 			/** OpenAI-only; most OpenAI-compatible servers omit it entirely */
 			refusal?: string | null;
+			tool_calls?: {
+				id: string;
+				type: string;
+				function: { name: string; arguments: string };
+				/** GitKraken proxy only — an opaque provider reasoning token to round-trip */
+				thought_signature?: string;
+			}[];
 		};
 		finish_reason: string;
 	}[];
-	/** Anthropic output (non-text blocks, e.g. thinking, carry no text) */
-	content?: { type: string; text?: string }[];
+	/** Anthropic output (non-text blocks, e.g. thinking, carry no text). `tool_use` blocks add the
+	 *  call fields, which is why `id`/`name` are optional here — {@link parseToolCalls} narrows on
+	 *  `type` and then checks them. */
+	content?: { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }[];
 	/** Error envelope some providers/proxies return with an OK status (e.g. OpenRouter upstream failures) */
 	error?: { message?: string; code?: number | string } | null;
 	/** Anthropic stop reason */

@@ -40,6 +40,7 @@ const models: DeepSeekModel[] = [
 export class DeepSeekProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	readonly supportsTools = true;
 	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://platform.deepseek.com/api_keys',

@@ -14,6 +14,7 @@ import {
 	manualResolutionDisplay,
 	measureReasoningOverflow,
 	renderConfidence,
+	renderConsulted,
 	renderReasoning,
 	resolveDisplayStyles,
 	strategyDisplay,
@@ -569,6 +570,7 @@ export class GlRebaseSummarySheet extends LitElement {
 				filePath: file.filePath,
 				onToggle: () => this.toggleReason(reasonKey),
 			})}
+			${renderConsulted(file.consulted, file.filePath)}
 		</li>`;
 	}
 

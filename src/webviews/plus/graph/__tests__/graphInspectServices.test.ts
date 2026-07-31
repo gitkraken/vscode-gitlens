@@ -3,8 +3,9 @@ import * as sinon from 'sinon';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { Container } from '../../../../container.js';
+import type { ConflictProgressEvent } from '../../../../plus/coretools/conflict/types.js';
 import { GraphInspectServices } from '../graphInspectServices.js';
-import type { GraphInspectService, ScopeSelection } from '../graphService.js';
+import type { GraphInspectService, ResolveProgressUpdate, ScopeSelection } from '../graphService.js';
 
 // `getDiffForScope` is private and only reaches `this.container.git.getRepositoryService(repoPath)` and
 // `this.buildChangesContext(...)`, so we exercise it against a minimal fake `this` rather than constructing
@@ -605,5 +606,104 @@ suite('graphInspectServices — auto-rebase progress is scoped to the graph repo
 		feed.emit('/repo-a', fakeSession('run-a'));
 
 		assert.deepStrictEqual(feed.received, []);
+	});
+});
+
+// Feature under test (#5581): the resolver consults the repository (grep/show/blame) when a hunk alone is
+// ambiguous, and every consultation is surfaced in the panel's progress line so a long file doesn't look
+// stalled. The message is only ever produced at runtime, so assert the exact payload the webview receives —
+// a rename or interpolation slip would otherwise ship silently.
+
+/** One repo consultation, shaped as conflict-tools emits it. */
+const toolCallEvent = {
+	type: 'resolver:tool-call',
+	filePath: 'src/a.ts',
+	tool: 'grep',
+	args: {},
+	stepNumber: 1,
+	reason: 'is useTimeout referenced anywhere else?',
+} satisfies ConflictProgressEvent;
+
+function createResolveProgressFake() {
+	// Every `_resolveProgressEvent.fire(...)` the run makes, in order (including the `undefined` clear).
+	const fired: (ResolveProgressUpdate | undefined)[] = [];
+
+	const container = {
+		// No `pausedOps` — conflicts can exist without a paused operation, and refs are optional here.
+		git: { getRepositoryService: () => ({}) },
+		virtualFs: { registerProvider: () => ({ dispose: () => {} }) },
+	} as unknown as Container;
+
+	// Stands in for the node-only conflict-tools integration: replays one consultation event through the
+	// handler's `onProgress` instead of running a real AI resolution.
+	const integration = {
+		listUnmergedEntries: () => Promise.resolve([{ path: 'src/a.ts', reason: 'both-modified' }]),
+		resolveAllParallel: (args: { onProgress?: (e: ConflictProgressEvent) => void }) => {
+			args.onProgress?.(toolCallEvent);
+			return Promise.resolve({
+				resolutions: [
+					{
+						filePath: 'src/a.ts',
+						content: 'resolved',
+						strategy: 'ai',
+						confidence: 0.9,
+						description: 'why',
+					},
+				],
+				errors: [],
+				skipped: [],
+			});
+		},
+		readWorkingFiles: () => Promise.resolve(new Map([['src/a.ts', 'conflicted']])),
+	};
+
+	// Same prototype-backed fake as the review tests, with a recording progress event in place of the RPC
+	// one — `fire` is what the tool-call arm reaches, `subscribe` is called once by `createServices`.
+	const fakeThis = Object.assign(Object.create(GraphInspectServices.prototype) as object, {
+		context: { container: container },
+		_aiCancellations: new Set(),
+		_activeResolveSessions: new Map(),
+		_resolveConversationIds: new Map(),
+		_composeProgressEvent: { subscribe: () => () => {} },
+		_resolveProgressEvent: {
+			subscribe: () => () => {},
+			fire: (update: ResolveProgressUpdate | undefined) => void fired.push(update),
+		},
+		getOrCreateConflictToolsForGraph: () => Promise.resolve(integration),
+	});
+
+	const { graphInspect } = (GraphInspectServices.prototype.createServices as unknown as CreateServices).call(
+		fakeThis,
+	);
+
+	return { graphInspect: graphInspect, fired: fired };
+}
+
+suite('graphInspectServices — resolve progress reports repo consultation (#5581)', () => {
+	test('a resolver tool call becomes an "inspecting" progress message', async () => {
+		const m = createResolveProgressFake();
+
+		const result = await m.graphInspect.resolveConflicts('/repo', undefined);
+
+		assert.ok(!('error' in result), `resolve should not have errored: ${JSON.stringify(result)}`);
+		assert.deepStrictEqual(
+			m.fired.find(u => u?.phase === 'resolver:tool-call'),
+			{ phase: 'resolver:tool-call', message: 'src/a.ts: inspecting grep…' },
+			'the panel must be told which tool is inspecting which file',
+		);
+	});
+
+	test('carries the consultation onto the file’s resolution row', async () => {
+		// The progress line above is transient — a run's files resolve concurrently onto one message, so
+		// it's overwritten long before anyone reads it. The row is where the evidence has to survive, or
+		// the rationale states a verdict the user can't audit.
+		const m = createResolveProgressFake();
+
+		const result = await m.graphInspect.resolveConflicts('/repo', undefined);
+
+		assert.ok(!('error' in result) && !('cancelled' in result), 'resolve should have produced summaries');
+		assert.deepStrictEqual(result.result.resolutions[0].consulted, [
+			{ tool: 'grep', reason: 'is useTimeout referenced anywhere else?' },
+		]);
 	});
 });
