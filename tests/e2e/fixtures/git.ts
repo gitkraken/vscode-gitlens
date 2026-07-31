@@ -304,6 +304,9 @@ export class GitFixture {
 		}
 		args.push('-i', onto);
 
+		// Where `rebase -i` always puts the todo file, so the signal helpers below can still reach an
+		// editor for a test that failed before reading the `.ready` file
+		const expectedTodoPath = path.join(this.repoPath, '.git', 'rebase-merge', 'git-rebase-todo');
 		// The todo file path - we'll get the actual path from the .ready file
 		let todoFilePath: string | undefined;
 
@@ -311,8 +314,6 @@ export class GitFixture {
 
 		const waitForTodoFile = async (): Promise<string> => {
 			// Poll for the .ready file which contains the todo file path
-			const rebaseMergeDir = path.join(this.repoPath, '.git', 'rebase-merge');
-			const expectedTodoPath = path.join(rebaseMergeDir, 'git-rebase-todo');
 			const readyFile = `${expectedTodoPath}.ready`;
 
 			const maxWait = 10000;
@@ -332,20 +333,12 @@ export class GitFixture {
 		};
 
 		const signalEditorDone = async (): Promise<void> => {
-			if (!todoFilePath) {
-				throw new Error('Must call waitForTodoFile first');
-			}
-
-			const doneFile = `${todoFilePath}.done`;
+			const doneFile = `${todoFilePath ?? expectedTodoPath}.done`;
 			await fs.writeFile(doneFile, 'done');
 		};
 
 		const signalEditorAbort = async (): Promise<void> => {
-			if (!todoFilePath) {
-				throw new Error('Must call waitForTodoFile first');
-			}
-
-			const abortFile = `${todoFilePath}.abort`;
+			const abortFile = `${todoFilePath ?? expectedTodoPath}.abort`;
 			await fs.writeFile(abortFile, 'abort');
 		};
 
