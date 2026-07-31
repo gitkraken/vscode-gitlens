@@ -10,7 +10,7 @@ import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js'
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual as areArraysEqual } from '@gitlens/utils/array.js';
-import { areEqual, hasKeys } from '@gitlens/utils/object.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
@@ -63,6 +63,7 @@ import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import { isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
+import { GraphHostSelectionRequest } from '../utils/hostSelectionRequest.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
 	computeSelectionContexts,
@@ -337,25 +338,17 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	rowMarkerMergeTarget?: { sha: string; name?: string };
 
 	// Derived-highlight bookkeeping (see `getSelectedRowsProp`):
-	// - `_lastDerivedHighlight`: the anchor's projected highlight from the last render — the basis the
-	//   `onSelectionChanged` discriminator uses to tell an ECHO of our own prop from genuine user INTENT.
-	// - `_lastSeenHostSelection`/`_pendingHostSelectedRows`: host-initiated selections (cold-start, search,
-	//   deep-link, undo) arrive as a `graphState.selectedRows` whose CONTENT differs from the last one we
-	//   processed; we surface that request to the graph until the echo adopts it into the anchor. Compared
-	//   by CONTENT (not reference) because the host re-ships an identical `selectedRows` (new object) on
-	//   every full-state push — a re-ship must not re-arm the request. A user click never changes the host
-	//   value.
+	// - `_hostSelectionRequest`: host-initiated selections (cold-start, search, deep-link, undo) arrive as a
+	//   `graphState.selectedRows` whose CONTENT differs from the last one processed; the request is surfaced
+	//   to the graph until the echo adopts it into the anchor, and expires if that never happens.
 	// - `_derivedHighlightCache`: identity-cache so an unrelated re-render returns the SAME highlight object
 	//   (the `selectedRows` prop diffs by identity, so a fresh object would churn the row grid). It
 	//   misses on a new `decoratedRows` — i.e. on every rows push, when the grid is busiest — and is skipped
 	//   outright while a request is pending, which is what `_lastSelectedRowsProp` backstops.
 	// - `_lastSelectedRowsProp`: the object last RETURNED by `getSelectedRowsProp`, kept so a content-equal
-	//   re-projection is handed back with its identity intact. Distinct from `_lastDerivedHighlight`, which
-	//   tracks the ANCHOR's projection specifically (the pending branch legitimately returns something else).
-	private _lastDerivedHighlight?: GraphSelectedRows;
+	//   re-projection is handed back with its identity intact.
+	private readonly _hostSelectionRequest = new GraphHostSelectionRequest(navigationTimeoutMs);
 	private _lastSelectedRowsProp?: GraphSelectedRows;
-	private _lastSeenHostSelection?: GraphSelectedRows;
-	private _pendingHostSelectedRows?: GraphSelectedRows;
 	private _derivedHighlightCache?: {
 		anchorShas: readonly string[] | undefined;
 		decoratedRows: GitGraphRow[] | undefined;
@@ -864,26 +857,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 * The derived highlight is `anchorShas ∩ renderableRows`, so it goes empty when the anchor row is
 	 * filtered out (graph shows nothing, details persist). A host request (cold-start, search, deep-link)
 	 * is surfaced until the echo adopts it as the anchor, after which `derived` matches and takes over.
-	 *
-	 * The projected value is recorded in `_lastDerivedHighlight` because `onSelectionChanged` needs it to
-	 * tell an ECHO of this prop from genuine user INTENT — without that basis, the graph reporting back
-	 * what we just told it would look like a click.
 	 */
 	private computeSelectedRowsProp(
 		decoratedRows: GitGraphRow[] | undefined,
 		primaryWipRowId: string | undefined,
 	): GraphSelectedRows | undefined {
-		// A host-initiated select-request arrives as a `graphState.selectedRows` whose CONTENT differs
-		// from the last one we processed — re-arm pending on that (NOT on reference: the host re-ships an
-		// identical value with a new object on every full-state push, which must not re-arm).
-		const hostRows = this.graphState.selectedRows;
-		if (!areEqual(hostRows, this._lastSeenHostSelection)) {
-			this._lastSeenHostSelection = hostRows;
-			this._pendingHostSelectedRows = hostRows != null && hasKeys(hostRows) ? hostRows : undefined;
-		}
+		this._hostSelectionRequest.sync(this.graphState.selectedRows);
 
 		const anchorShas = this.anchorShas;
-		const pending = this._pendingHostSelectedRows;
+		const pending = this._hostSelectionRequest.pending;
 
 		// Fast path / identity cache: in the steady state (no pending request) return the SAME highlight
 		// object when the inputs are unchanged, so unrelated re-renders (hover/scroll/theme) don't churn
@@ -898,7 +880,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			cache.primaryWipRowId === primaryWipRowId &&
 			areArraysEqual(cache.anchorShas, anchorShas)
 		) {
-			this._lastDerivedHighlight = cache.result;
 			return cache.result;
 		}
 
@@ -907,7 +888,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const present = this.getDecoratedRowsIndex(decoratedRows)?.rowBySha;
 
 		const derived = projectShasToSelectedRows(anchorShas, present, primaryWipRowId);
-		this._lastDerivedHighlight = derived;
 		this._derivedHighlightCache = {
 			anchorShas: anchorShas,
 			decoratedRows: decoratedRows,
@@ -916,14 +896,21 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		};
 
 		if (pending == null) return derived;
-		if (areEqual(pending, derived)) {
-			// The anchor adopted the request — drop it; the derived highlight takes over.
-			this._pendingHostSelectedRows = undefined;
-			return derived;
-		}
+		// The anchor adopted the request — drop it; the derived highlight takes over.
+		if (this._hostSelectionRequest.adopt(derived)) return derived;
+
 		// Surface the request only while its row is renderable; otherwise keep the anchor's highlight (the
 		// host's ensure/paging path loads it, then `derived` resolves on a later frame).
-		return projectShasToSelectedRows(Object.keys(pending), present, primaryWipRowId) ?? derived;
+		const surfaced = projectShasToSelectedRows(Object.keys(pending), present, primaryWipRowId);
+		if (surfaced == null) {
+			// Only an unsurfaced request ages: the bound exists for a row that never becomes renderable, and
+			// a bootstrap selection is never adopted into the anchor, so an absolute age would erase it.
+			this._hostSelectionRequest.expireIfWaiting();
+			return derived;
+		}
+
+		this._hostSelectionRequest.touch();
+		return surfaced;
 	}
 
 	override render() {
@@ -1099,7 +1086,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// A direct selection is newer user/app intent than any queued targeted navigation. Without this,
 		// details/minimap selections can be overwritten when an older LoadRowRequest finally renders.
 		this.cancelPendingSelection();
-		const rows = this.selectCommitsLit(shas);
+		const rows = this.selectCommitsCore(shas);
 		// `ensureVisible` is opt-in: scroll the (first) selected row into view ONLY when the caller asks
 		// (search-result nav, etc.) — a plain selection never auto-scrolls. No-op if already on screen.
 		if (options?.ensureVisible && shas.length > 0) {
@@ -1114,7 +1101,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 * `gl-graph-change-selection` host event + IPC update so the details panel, minimap, and
 	 * host-side selection cache stay consistent — same as if the user had clicked the row themselves.
 	 */
-	private selectCommitsLit(
+	private selectCommitsCore(
 		shas: string[],
 		rowBySha: ReadonlyMap<string, GitGraphRow> | undefined = this.getDecoratedRowByShaMap(),
 	): ReadonlyGraphRow[] {
@@ -1233,6 +1220,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (pending.hostLoadSha != null && result.status !== 'selected') {
 			this._ipc.sendCommand(CancelLoadRowCommand, { id: pending.hostLoadSha });
 		}
+		// A row that can't be found won't become renderable on its own, so drop a host highlight request
+		// naming it. Keyed to this sha, and never on 'cancelled' — there a newer owner has taken over and
+		// may have armed its own request.
+		if (result.status === 'not-found') {
+			this._hostSelectionRequest.rejectFor(pending.sha);
+		}
 		if (pending.timeout != null) {
 			clearTimeout(pending.timeout);
 		}
@@ -1325,7 +1318,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const row = rowBySha?.get(sha);
 		if (row == null) return;
 
-		this.selectCommitsLit([sha], rowBySha);
+		this.selectCommitsCore([sha], rowBySha);
 		void this.completePendingNavigation(pending, row);
 	}
 
@@ -1415,7 +1408,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const navigation = this.createPendingNavigation(generation, sha, deferSynthetic, focus, signal, debugMark);
 
 		if (row != null) {
-			this.selectCommitsLit([sha], rowBySha);
+			this.selectCommitsCore([sha], rowBySha);
 			// Navigation implies reveal.
 			litGraph?.scrollToSha(sha);
 			await this.ensureRendered();

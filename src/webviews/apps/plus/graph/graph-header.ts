@@ -746,27 +746,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		});
 	}
 
+	/** Load-more for search navigation — the caller reads the results as locals, so nothing lands in state. */
 	private async onSearchPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
 		try {
-			const rsp = await this._ipc.sendRequest(SearchRequest, {
+			return await this._ipc.sendRequest(SearchRequest, {
 				search: search,
 				limit: options?.limit,
 				more: options?.more,
 			});
-
-			// Don't update state for resume operations - progressive notifications handle it.
-			// For non-resume paths, guard with searchId check to prevent stale overwrites.
-			// Note: the `more: true` path (from executeNavigation) returns to the caller
-			// which uses the results as local variables, so no guard needed there.
-			if (!options?.more && rsp.searchId === this.graphState.currentSearchId) {
-				this.graphState.searchResultsResponse = rsp.results;
-				if (rsp.selectedRows != null) {
-					this.graphState.selectedRows = rsp.selectedRows;
-					this.revealFirstSearchMatch(rsp.selectedRows);
-				}
-			}
-
-			return rsp;
 		} catch {
 			return undefined;
 		}

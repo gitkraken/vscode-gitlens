@@ -2071,8 +2071,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		if (params.selectedRows != null) {
 			updates.selectedRows = params.selectedRows;
 			// No auto-reveal here: this notification also fires for progressive (partial) result batches,
-			// and revealing on every tick would fight the user's scrolling. graph-header's request-response
-			// paths (startSearch/onSearchPromise) own the new-search reveal.
+			// and revealing on every tick would fight the user's scrolling. `startSearch` owns the
+			// new-search reveal; `executeNavigation` owns next/prev.
 		}
 
 		// Process search results (control substate — incl. `searching` — was already applied above).
