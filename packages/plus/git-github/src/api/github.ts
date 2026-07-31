@@ -3920,7 +3920,7 @@ export class GitHubApi {
 					scope,
 					cancellation,
 				);
-				if (rsp == null) return [];
+				if (rsp == null) return results;
 
 				const pageResults = filterPullRequestsBySearchState(
 					rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider)),
