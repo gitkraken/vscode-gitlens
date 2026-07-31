@@ -256,8 +256,8 @@ export function folderToTreeModel(name: string, relativePath: string, options?: 
 
 export function buildFileTooltip(file: GitFileChangeShape): string {
 	const status = getStatusDecoration(file.status)?.tooltip;
-	// Naming the nested-repository case is what tells the user why clicking its row does nothing: it's
-	// a gitlink, so there's no diff to open.
+	// Naming the nested-repository case is what tells the user why clicking its row does nothing: the
+	// entry is an untracked directory, not a file, so there is nothing to open or diff.
 	const nested = file.path.endsWith('/');
 	const path = trimTrailingSlash(file.path);
 	const fullPath = file.repoPath ? joinPaths(file.repoPath, path) : path;
