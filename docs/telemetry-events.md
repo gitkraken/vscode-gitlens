@@ -1827,6 +1827,27 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/branches/showRemoteBranchesToggled
+
+> Sent when the user toggles remote branches on/off in the sidebar branches panel
+
+```typescript
+{
+  // Branch count BEFORE the toggle takes effect — the panel refetches asynchronously
+  'branches.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'enabled': boolean
+}
+```
+
 ### graph/branchesVisibility/changed
 
 > Sent when the user changes the "branches visibility" on the Commit Graph

@@ -949,6 +949,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getSidebarData: (panel, signal) => this.onGetSidebarData({ panel: panel }, signal),
 				getSidebarCounts: () => this.onGetCounts(),
 				toggleLayout: panel => this.onSidebarToggleLayout({ panel: panel }),
+				toggleShowRemoteBranches: () => this.onSidebarToggleShowRemoteBranches(),
 				refresh: panel => this.onSidebarRefresh({ panel: panel }),
 				executeAction: (command, context, args) =>
 					this.onSidebarAction({ command: command, context: context, args: args }),
@@ -1634,6 +1635,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._panels.onSidebarToggleLayout(params);
 	}
 
+	private onSidebarToggleShowRemoteBranches(): void {
+		this._panels.onSidebarToggleShowRemoteBranches();
+	}
+
 	private onSidebarRefresh(params: { panel: GraphSidebarPanel }): void {
 		this._panels.onSidebarRefresh(params);
 	}
@@ -1844,6 +1849,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (
 			configuration.changed(e, 'views.branches.branches') ||
+			configuration.changed(e, 'views.branches.showRemoteBranches') ||
 			configuration.changed(e, 'views.remotes.branches') ||
 			configuration.changed(e, 'views.tags.branches') ||
 			configuration.changed(e, 'views.worktrees.branches') ||

@@ -1348,7 +1348,7 @@ export interface GraphSidebarWorktree {
 
 export type GetSidebarDataParams = { panel: GraphSidebarPanel };
 export type DidGetSidebarDataParams = { layout?: 'list' | 'tree'; compact?: boolean } & (
-	| { panel: 'branches'; items: GraphSidebarBranch[] }
+	| { panel: 'branches'; items: GraphSidebarBranch[]; showRemoteBranches?: boolean }
 	| { panel: 'remotes'; items: GraphSidebarRemote[] }
 	| { panel: 'stashes'; items: GraphSidebarStash[] }
 	| { panel: 'tags'; items: GraphSidebarTag[] }

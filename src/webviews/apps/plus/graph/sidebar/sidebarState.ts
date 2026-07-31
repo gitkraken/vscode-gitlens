@@ -43,6 +43,7 @@ export interface SidebarActions {
 	invalidateAll(): void;
 	refresh(panel: GraphSidebarPanel): void;
 	toggleLayout(panel: GraphSidebarPanel): void;
+	toggleShowRemoteBranches(): void;
 	executeAction(command: GlCommands, context?: string, args?: unknown[]): void;
 	applyWorktreeChanges(changes: Record<string, SidebarWorktreeChange | undefined>): void;
 	dispose(): void;
@@ -232,6 +233,10 @@ export function createSidebarActions(): SidebarActions {
 			}
 
 			service?.toggleLayout(panel);
+		},
+
+		toggleShowRemoteBranches: function () {
+			service?.toggleShowRemoteBranches();
 		},
 
 		executeAction: function (command: GlCommands, context?: string, args?: unknown[]) {

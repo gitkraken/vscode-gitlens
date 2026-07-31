@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?3d3b6b49216fbf8599689a88dae49520") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?2f19481571c66d65225c765413974b3f") format("woff2");
 	}
 </style>
 */
@@ -301,4 +301,10 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-merge:before {
 	content: '\f14f';
+}
+.glicon-remote:before {
+	content: '\f150';
+}
+.glicon-remote-filled:before {
+	content: '\f151';
 }

@@ -759,6 +759,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			this.activePanel === 'tags' ||
 			this.activePanel === 'agents';
 		const currentLayout = data.layout;
+		const showRemoteBranches = data.panel === 'branches' ? (data.showRemoteBranches ?? false) : undefined;
 
 		return html`<gl-tree-view
 			focused-path=${this._actions.selectedPath[this.activePanel!] ?? nothing}
@@ -775,6 +776,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			@gl-tree-generated-item-action-clicked=${this.handleTreeItemAction}
 			@gl-tree-expansion-changed=${this.handleTreeExpansionChanged}
 			>${
+				showRemoteBranches != null
+					? html`<gl-button
+							slot="filter-actions"
+							appearance="toolbar"
+							density="compact"
+							role="checkbox"
+							aria-checked=${showRemoteBranches ? 'true' : 'false'}
+							tooltip="${showRemoteBranches ? 'Hide Remote Branches' : 'Show Remote Branches'}"
+							aria-label="Show Remote Branches"
+							@click=${this.handleToggleShowRemoteBranches}
+							><code-icon icon="${showRemoteBranches ? 'gl-remote-filled' : 'gl-remote'}"></code-icon
+						></gl-button>`
+					: nothing
+			}${
 				hasLayout
 					? html`<gl-button
 							slot="filter-actions"
@@ -814,7 +829,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					data.items,
 					useTree,
 					compact,
-					b => (b.current || b.worktreeOpened || b.disposition != null ? [b.name] : b.name.split('/')),
+					// Remote branches always split, so they group under their remote name — `disposition` isn't
+					// local-only, and an unsplit remote branch would sit at the top level instead
+					b =>
+						!b.remote && (b.current || b.worktreeOpened || b.disposition != null)
+							? [b.name]
+							: b.name.split('/'),
 					(b, isTree) => this.toBranchLeaf(b, isTree),
 				);
 			case 'remotes':
@@ -1578,6 +1598,24 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				},
 			});
 		}
+	}
+
+	private handleToggleShowRemoteBranches() {
+		const data = this._actions?.state.panels.branches?.value.get();
+
+		// Same reasoning as the layout toggle — the service update is async, so invert the current
+		// value to report the state we're moving to. Only report when it's known.
+		if (data?.panel === 'branches' && data.showRemoteBranches != null) {
+			emitTelemetrySentEvent<'graph/branches/showRemoteBranchesToggled'>(this, {
+				name: 'graph/branches/showRemoteBranchesToggled',
+				data: {
+					enabled: !data.showRemoteBranches,
+					'branches.count': data.items.length,
+				},
+			});
+		}
+
+		this._actions.toggleShowRemoteBranches();
 	}
 
 	private handleRefresh() {

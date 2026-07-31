@@ -2813,7 +2813,7 @@
 					"gitlens.views.branches.showRemoteBranches": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to show remote branches for the default remote in the _Branches_ view",
+						"markdownDescription": "Specifies whether to show remote branches for the default remote in the _Branches_ view and the _Commit Graph_ side bar",
 						"scope": "window",
 						"order": 8
 					},
@@ -12746,6 +12746,20 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f14f"
+				}
+			},
+			"gitlens-remote": {
+				"description": "remote icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f150"
+				}
+			},
+			"gitlens-remote-filled": {
+				"description": "remote-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f151"
 				}
 			}
 		},

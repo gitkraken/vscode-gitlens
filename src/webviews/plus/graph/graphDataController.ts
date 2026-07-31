@@ -783,6 +783,8 @@ export class GraphDataController {
 
 		const tags = await this.container.git.getRepositoryService(graph.repoPath).tags.getTags();
 		return {
+			// Intentionally local-only, even when `views.branches.showRemoteBranches` adds remote branches to
+			// the panel — the badge answers "how many branches do I have here" and shouldn't swing on a filter
 			branches: count(graph.branches?.values(), b => !b.remote),
 			remotes: graph.remotes.size,
 			stashes: graph.stashes?.size,

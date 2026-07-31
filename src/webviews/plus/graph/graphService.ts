@@ -607,6 +607,7 @@ export interface GraphSidebarService {
 	getSidebarData(panel: GraphSidebarPanel, signal?: AbortSignal): Promise<DidGetSidebarDataParams>;
 	getSidebarCounts(): Promise<DidGetCountParams>;
 	toggleLayout(panel: GraphSidebarPanel): void;
+	toggleShowRemoteBranches(): void;
 	refresh(panel: GraphSidebarPanel): void;
 	executeAction(command: GlCommands, context?: string, args?: unknown[]): void;
 

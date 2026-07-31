@@ -526,12 +526,12 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	};
 
 	private handleModeTreeItemSelected = (e: CustomEvent<TreeItemSelectionDetail>) => {
-		const context = (e.detail as { context?: [branchName: string, upstreamName: string | undefined] }).context;
+		const context = (e.detail as { context?: BranchTreeContext }).context;
 		const branchName = context?.[0];
 		// Skip folder nodes (branch name is empty) — let the tree handle expansion, don't close the popover.
 		if (branchName == null || branchName === '') return;
 
-		this.handleScopeToBranch(branchName, context?.[1]);
+		this.handleScopeToBranch(branchName, context?.[1], context?.[2]);
 	};
 
 	private handleFocusBranchRowClick = (e: Event) => {
@@ -762,10 +762,10 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		this.hideModePopover();
 	}
 
-	private handleScopeToBranch(branchName: string, upstreamName?: string | undefined) {
+	private handleScopeToBranch(branchName: string, upstreamName?: string | undefined, remote?: boolean) {
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-scope-to-branch', {
-				detail: { branchName: branchName, upstreamName: upstreamName },
+				detail: { branchName: branchName, upstreamName: upstreamName, remote: remote },
 				bubbles: true,
 				composed: true,
 			}),
@@ -828,7 +828,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	}
 }
 
-type BranchTreeContext = [branchName: string, upstreamName: string | undefined];
+type BranchTreeContext = [branchName: string, upstreamName: string | undefined, remote?: boolean];
 
 function branchToLeaf(
 	b: GraphSidebarBranch,
@@ -847,7 +847,9 @@ function branchToLeaf(
 		filterText: filterText,
 		icon: { type: 'branch', status: b.status, worktree: b.worktree },
 		checkable: false,
-		context: [b.name, b.upstream?.missing ? undefined : b.upstream?.name],
+		// A remote branch has no upstream of its own — the flag is what makes `getBranchId` build a
+		// `remotes/` ref downstream; without it the scope resolves against a `heads/` ref that matches nothing
+		context: [b.name, b.upstream?.missing ? undefined : b.upstream?.name, b.remote || undefined],
 		matched: b.name === scopedBranchName,
 	};
 }

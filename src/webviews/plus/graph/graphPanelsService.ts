@@ -6,6 +6,7 @@ import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -320,8 +321,17 @@ export class GraphPanelsService {
 		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
 
 		const branchCfg = configuration.get('views.branches.branches');
+		// Shares the Branches view's setting, but not its dedupe — that view drops remote branches with a
+		// local counterpart only because it strips the remote prefix; we keep it, so both can coexist.
+		const showRemoteBranches = configuration.get('views.branches.showRemoteBranches');
+		const defaultRemote = showRemoteBranches
+			? getDefaultRemoteOrOrigin([...graph.remotes.values()])?.name
+			: undefined;
+
 		const sorted = sortBranches(
-			[...graph.branches.values()].filter(b => !b.remote),
+			[...graph.branches.values()].filter(
+				b => !b.remote || (defaultRemote != null && b.remoteName === defaultRemote),
+			),
 			{
 				current: true,
 				orderBy: configuration.get('sortBranchesBy'),
@@ -339,7 +349,7 @@ export class GraphPanelsService {
 				name: b.name,
 				sha: b.sha,
 				current: b.current,
-				remote: false,
+				remote: b.remote,
 				status: b.status,
 				upstream: b.upstream ? { name: b.upstream.name, missing: b.upstream.missing } : undefined,
 				tracking: b.upstream?.state,
@@ -353,7 +363,7 @@ export class GraphPanelsService {
 				context: {
 					webview: this.host.id,
 					webviewItemOrigin: sidebarItemOrigin,
-					webviewItem: `gitlens:branch${b.current ? '+current' : ''}${
+					webviewItem: `gitlens:branch${b.remote ? '+remote' : ''}${b.current ? '+current' : ''}${
 						b.upstream != null && !b.upstream.missing ? '+tracking' : ''
 					}${hasWorktree ? '+worktree' : ''}${
 						b.current || isCheckedOut ? '+checkedout' : ''
@@ -366,14 +376,20 @@ export class GraphPanelsService {
 							id: b.id,
 							refType: 'branch',
 							name: b.name,
-							remote: false,
+							remote: b.remote,
 							upstream: b.upstream,
 						}),
 					},
 				} satisfies GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin,
 			};
 		});
-		return { panel: 'branches' as const, items: items, layout: branchCfg.layout, compact: branchCfg.compact };
+		return {
+			panel: 'branches' as const,
+			items: items,
+			layout: branchCfg.layout,
+			compact: branchCfg.compact,
+			showRemoteBranches: showRemoteBranches,
+		};
 	}
 
 	private async getSidebarRemotes(graph: GitGraph) {
@@ -641,6 +657,11 @@ export class GraphPanelsService {
 
 		const current = configuration.get(key);
 		void configuration.updateEffective(key, current === 'tree' ? 'list' : 'tree');
+	}
+
+	onSidebarToggleShowRemoteBranches(): void {
+		const current = configuration.get('views.branches.showRemoteBranches');
+		void configuration.updateEffective('views.branches.showRemoteBranches', !current);
 	}
 
 	onSidebarRefresh(_params: { panel: GraphSidebarPanel }): void {

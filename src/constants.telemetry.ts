@@ -359,6 +359,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/branches/headerAction': GraphSidebarBranchesHeaderActionEvent;
 	/** Sent when the user toggles the tree/list layout in the sidebar branches panel */
 	'graph/branches/layoutToggled': GraphSidebarBranchesLayoutToggledEvent;
+	/** Sent when the user toggles remote branches on/off in the sidebar branches panel */
+	'graph/branches/showRemoteBranchesToggled': GraphSidebarBranchesShowRemoteBranchesToggledEvent;
 	/** Sent when the user types in the filter box in the sidebar branches panel */
 	'graph/branches/filtered': GraphSidebarBranchesFilteredEvent;
 
@@ -2069,6 +2071,12 @@ interface GraphSidebarBranchesHeaderActionEvent extends GraphContextEventData {
 
 interface GraphSidebarBranchesLayoutToggledEvent extends GraphContextEventData {
 	layout: 'list' | 'tree';
+	'branches.count': number;
+}
+
+interface GraphSidebarBranchesShowRemoteBranchesToggledEvent extends GraphContextEventData {
+	enabled: boolean;
+	/** Branch count BEFORE the toggle takes effect — the panel refetches asynchronously */
 	'branches.count': number;
 }
 
