@@ -1078,7 +1078,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					return [true, this.getShownTelemetryContext()];
 				}
 
-				this.revealRow(id);
+				void this.revealRow(id);
 			}
 		} else if (hasCompare(arg)) {
 			const repoChanged = this._repository !== arg.repository;
@@ -1113,7 +1113,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (isWipRowId(selectSha) || this._data.session.current.ids.has(selectSha)) {
 							void this.notifyDidChangeSelection();
 						} else {
-							this.revealRow(selectSha);
+							void this.revealRow(selectSha);
 						}
 					}
 				}
@@ -1214,7 +1214,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					if (isWipRowId(rowId) || this._data.session.current.ids.has(rowId)) {
 						void this.notifyDidChangeSelection();
 					} else {
-						this.revealRow(rowId);
+						void this.revealRow(rowId);
 					}
 				}
 				void this.host.notify(DidRequestGraphActionNotification, {
@@ -2691,8 +2691,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  Uses `limit: 0` for an UNCAPPED targeted walk: the default page size caps the walk at
 	 *  `pageItemLimit*10` (~2000) and would never reach a commit deeper than that (e.g. "Open in Commit
 	 *  Graph" on an old commit). The IPC scroll/scope-anchor paging keeps the cap — see `onGetMoreRows`. */
-	private revealRow(id: string): void {
-		void this.onGetMoreRows({ id: id, limit: 0 }, true);
+	private async revealRow(id: string): Promise<void> {
+		await this.onGetMoreRows({ id: id, limit: 0 }, true);
+
+		// The rows push above only ever projects a HIGHLIGHT; `DidChangeSelectionNotification` is what drives
+		// `ensureRowVisible` → `navigateToCommit`, so the row also scrolls and adopts the anchor. Re-check
+		// `_selectedId`: this walk is uncapped and nothing cancels it, so a click mid-walk would otherwise
+		// make us ship that newer selection and scroll the user back to it.
+		if (this._selectedId === id && this._data.session?.current.ids.has(id)) {
+			void this.notifyDidChangeSelection();
+		}
 	}
 
 	@ipcCommand(OpenPullRequestDetailsCommand)
