@@ -15,7 +15,7 @@ import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@git
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
 import type { CommitGraphProjectionState } from '@gitkraken/commit-graph/projection.js';
 import { CommitGraphProjectionSession } from '@gitkraken/commit-graph/projection.js';
-import type { ScopeAnchors, ScopeProjection } from '@gitkraken/commit-graph/scope.js';
+import type { ScopeAnchors, ScopeHeadsPredicate, ScopeProjection } from '@gitkraken/commit-graph/scope.js';
 import { computeInScopeShas, computeScopeAnchors } from '@gitkraken/commit-graph/scope.js';
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import {
@@ -178,10 +178,21 @@ const headerActionPx = 24;
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
 /** Injected into `computeScopeAnchors` so the engine can resolve the focal branch's tip without
- *  knowing about GitLens ref metadata — the scope math only asks "does this row carry that head?". */
-function rowHasHead(row: GitGraphRow, branchName: string): boolean {
-	return row.heads?.some(h => h.name === branchName) ?? false;
-}
+ *  knowing about GitLens ref metadata — the scope math only asks "does this row carry that head?".
+ *
+ *  One predicate per NAMESPACE rather than one that tries locals then remotes, because
+ *  `computeScopeAnchors` takes the FIRST matching row in load order: a local branch literally named
+ *  `origin/x` is legal and distinct, and a per-row "locals first" test would still let the remote's newer
+ *  row win the race before the local's row is ever reached. The scope's own ref id says which namespace it
+ *  meant, so resolve in that one alone. */
+const rowHasLocalHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
+	row.heads?.some(h => h.name === branchName) === true;
+
+/** Remote heads are stored SPLIT (`owner` + a bare `name`) by both providers, while a scope names them
+ *  qualified (`origin/x`), so they have to be recomposed to compare — without this a remote-branch scope
+ *  resolves no focal tip at all, which leaves it with neither a re-root nor a dim. */
+const rowHasRemoteHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
+	row.remotes?.some(r => `${r.owner}/${r.name}` === branchName) === true;
 
 // Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
 // attached to the DOM. Used to size the date column to its NORMAL (non-compact) format on autosize.
@@ -2136,7 +2147,9 @@ export class GlLitGraph extends LitElement {
 	// Scope anchors + in-scope chain. Runs before recomputeRows (syntheticChildren is an input
 	// to the engine) and emits the unreachable-anchors paging signal.
 	private recomputeScope(): void {
-		const anchors = computeScopeAnchors(this.rows, this.scope, rowHasHead);
+		// `|remotes/` inverts `getBranchId`, which builds `${repoPath}|remotes/${name}` for a remote branch.
+		const hasHead = this.scope?.branchRef.includes('|remotes/') === true ? rowHasRemoteHead : rowHasLocalHead;
+		const anchors = computeScopeAnchors(this.rows, this.scope, hasHead);
 		this.scopeAnchors = anchors;
 		this.inScopeShas = computeInScopeShas(
 			this.rows,
