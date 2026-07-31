@@ -7,6 +7,12 @@ export function getDefaultRemoteOrHighlander<T extends GitRemote>(remotes: T[]):
 	return remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
 }
 
+/** Like {@link getDefaultRemoteOrHighlander}, but falls back to `origin` when no remote is designated
+ *  default — otherwise features keyed on "the default remote" silently do nothing on multi-remote repos */
+export function getDefaultRemoteOrOrigin<T extends GitRemote>(remotes: T[]): T | undefined {
+	return getDefaultRemoteOrHighlander(remotes) ?? remotes.find(r => r.name === 'origin');
+}
+
 export function getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]): string | undefined {
 	if (remotes.length === 0) return undefined;
 

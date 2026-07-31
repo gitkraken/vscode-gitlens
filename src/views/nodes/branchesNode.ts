@@ -1,6 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { getLocalBranchUpstreamNames } from '@gitlens/git/utils/branch.utils.js';
+import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { PageableResult } from '@gitlens/utils/paging.js';
 import { GitUri } from '../../git/gitUri.js';
@@ -40,7 +41,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 		if (this.children == null) {
 			const showRemoteBranches = this.view.type === 'branches' && this.view.config.showRemoteBranches;
 			const defaultRemote = showRemoteBranches
-				? (await this.repo.git.remotes.getDefaultRemote())?.name
+				? getDefaultRemoteOrOrigin(await this.repo.git.remotes.getRemotes())?.name
 				: undefined;
 
 			const options: Parameters<(typeof this.repo.git.branches)['getBranches']>['0'] = {

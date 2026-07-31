@@ -3,6 +3,7 @@ import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vs
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitBranchReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
+import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
 import type { BranchesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config.js';
 import type { Container } from '../container.js';
 import { GitUri } from '../git/gitUri.js';
@@ -82,7 +83,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 
 			const { showRemoteBranches } = this.view.config;
 			const defaultRemote = showRemoteBranches
-				? (await child.repo.git.remotes.getDefaultRemote())?.name
+				? getDefaultRemoteOrOrigin(await child.repo.git.remotes.getRemotes())?.name
 				: undefined;
 
 			const branches = await child.repo.git.branches.getBranches({
