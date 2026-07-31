@@ -43,7 +43,7 @@ const commitGroup: ShortcutGroup = {
 	title: 'Commit',
 	shortcuts: [{ chords: [[ctrlOrCmd, 'Enter']], description: 'Commit staged changes (in commit box)' }],
 };
-// Not derivable from the graph's `onKeydown` — Alt is a hold modifier, and Esc is chrome (hover/error/minimap).
+// Not derivable from the graph's `onKeydown` — Alt is a hold modifier, and Esc is chrome (hover/error/minimap/side bar).
 const otherGroup: ShortcutGroup = {
 	title: 'Other',
 	shortcuts: [
@@ -52,7 +52,7 @@ const otherGroup: ShortcutGroup = {
 			description:
 				'Hold to highlight the branch lane of the hovered or focused row, else HEAD (dismisses the hover)',
 		},
-		{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' },
+		{ chords: [['Esc']], description: 'Close hover or unpinned side bar, dismiss error, or exit minimap zoom' },
 	],
 };
 

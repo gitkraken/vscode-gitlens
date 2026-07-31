@@ -100,7 +100,11 @@ import type { GlGraphHover } from './hover/graphHover.js';
 import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } from './minimap/minimap-container.js';
 import type { GraphMinimapDaySelectedEventDetail, GraphMinimapWheelEvent } from './minimap/minimap.js';
 import type { GlGraphSidebarPanel, GraphSidebarPanelSelectEventDetail } from './sidebar/sidebar-panel.js';
-import type { GraphSidebarDisplayModeChangeEventDetail, GraphSidebarToggleEventDetail } from './sidebar/sidebar.js';
+import type {
+	GlGraphSideBar,
+	GraphSidebarDisplayModeChangeEventDetail,
+	GraphSidebarToggleEventDetail,
+} from './sidebar/sidebar.js';
 import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { resolveMinimapShown } from './utils/minimap.utils.js';
@@ -134,6 +138,21 @@ import './components/gl-graph-layout-prompt.js';
 import './components/gl-graph-overview-bar.js';
 import './components/gl-graph-timeline.js';
 import './components/gl-graph-visualizations.js';
+
+declare const CloseWatcher: CloseWatcher;
+interface CloseWatcher extends EventTarget {
+	// oxlint-disable-next-line typescript/no-misused-new
+	new (options?: CloseWatcherOptions): CloseWatcher;
+	requestClose(): void;
+	close(): void;
+	destroy(): void;
+
+	oncancel: (event: Event) => void | null;
+	onclose: (event: Event) => void | null;
+}
+interface CloseWatcherOptions {
+	signal: AbortSignal;
+}
 
 /** Extract the user-visible branch name from a ref id of the form `{repoPath}|heads/{name}`. */
 function branchNameFromRef(branchRef: string | undefined): string | undefined {
@@ -536,6 +555,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@query('gl-graph-sidebar-panel')
 	private readonly sidebarPanelEl: GlGraphSidebarPanel | undefined;
 
+	@query('gl-graph-sidebar')
+	private readonly sidebarRailEl: GlGraphSideBar | undefined;
+
 	@query('gl-graph-details-panel')
 	private readonly detailsPanelEl: GlGraphDetailsPanel | undefined;
 
@@ -669,6 +691,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.removeEventListener('dragstart', this._onDocDragStart);
 		document.removeEventListener('dragend', this._onDocDragEnd);
 		document.removeEventListener('drop', this._onDocDragEnd);
+		this._sidebarCloseWatcher?.destroy();
+		this._sidebarCloseWatcher = null;
+		this._sidebarEscArmed = false;
+		document.removeEventListener('keydown', this._handleSidebarOverlayEscKeydown);
 		this._disarmDragBoundaryTracking();
 
 		this._graphSizeObserver?.disconnect();
@@ -904,6 +930,49 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// click-outside interactions collapse normally.
 		this._suppressOverlayCollapseForMenu = false;
 	};
+
+	/** Esc-to-close for the overlay (unpinned) side bar — a `CloseWatcher` while the overlay is open,
+	 *  so Esc layers correctly with popovers/sheets (each claims its own close request before ours),
+	 *  with a document keydown fallback otherwise, mirroring `gl-popover`. Armed/disarmed from
+	 *  `updated()` since every open/close/pin transition lands in a render; a lifetime watcher would
+	 *  swallow every Esc, so unlike the listeners above this cannot stay attached and self-gate. */
+	private _sidebarCloseWatcher: CloseWatcher | null = null;
+	private _sidebarEscArmed = false;
+
+	private ensureSidebarOverlayEscHandling(): void {
+		const active = this.shouldAutoCollapseOverlay();
+		if (active === this._sidebarEscArmed) return;
+
+		this._sidebarEscArmed = active;
+		if (active) {
+			if ('CloseWatcher' in window) {
+				this._sidebarCloseWatcher = new CloseWatcher();
+				this._sidebarCloseWatcher.onclose = () => this.closeSidebarOverlayFromEsc();
+			} else {
+				document.addEventListener('keydown', this._handleSidebarOverlayEscKeydown);
+			}
+		} else {
+			this._sidebarCloseWatcher?.destroy();
+			this._sidebarCloseWatcher = null;
+			document.removeEventListener('keydown', this._handleSidebarOverlayEscKeydown);
+		}
+	}
+
+	private _handleSidebarOverlayEscKeydown = (e: KeyboardEvent): void => {
+		if (e.key !== 'Escape') return;
+
+		e.stopPropagation();
+		this.closeSidebarOverlayFromEsc();
+	};
+
+	private closeSidebarOverlayFromEsc(): void {
+		if (!this.shouldAutoCollapseOverlay()) return;
+
+		this.hideSidebar();
+		// The hide makes the panel inert, dropping focus to the body — land it on the rail's resting
+		// stop (the icon owning the panel that just closed) so keyboard flow continues from there.
+		this.sidebarRailEl?.focus();
+	}
 
 	// Pre-collapse open state captured synchronously when the auto-collapse fires. The
 	// sidebar toggle button's click runs in a later task — by then the queued hide has
@@ -1751,6 +1820,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// first update when the account-access screen replaces it (signed out), and `firstUpdated` won't
 		// fire again after sign-in.
 		this.ensureGraphObserved();
+
+		// Arm/disarm the overlay side bar's Esc dismissal — every open/close/pin transition
+		// re-renders, so reconciling here covers them all (rail toggles, auto-collapse, host
+		// config changes).
+		this.ensureSidebarOverlayEscHandling();
 
 		if (this.shouldShowLayoutPrompt && !this._layoutPromptShownReported) {
 			this._layoutPromptShownReported = true;

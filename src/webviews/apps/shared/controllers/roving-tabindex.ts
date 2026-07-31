@@ -92,6 +92,17 @@ export class RovingTabindexController implements ReactiveController {
 		return items.find(i => i.key === defaultKey) ?? items[0];
 	}
 
+	/** Focus the resting tab stop (the tracked active item, else the default/first) — for hosts that
+	 *  return focus to the group programmatically (e.g. after Esc closes a panel opened from it). */
+	focusActive(): void {
+		const items = this.options.getItems();
+		if (items.length === 0) return;
+
+		const active =
+			(this.activeKey != null ? items.find(i => i.key === this.activeKey) : undefined) ?? this.defaultItem(items);
+		active.element.focus();
+	}
+
 	/** Keep the tab stop on the last-focused item (so a click or programmatic focus updates it). */
 	readonly onFocusin = (e: FocusEvent): void => {
 		const item = this.itemFromEvent(e, this.options.getItems());

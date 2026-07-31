@@ -440,6 +440,12 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			.map(el => ({ key: el.dataset.rovingKey!, element: el }));
 	}
 
+	/** Focus the rail's resting tab stop (the active panel's icon) — the app returns focus here after
+	 *  Esc closes the overlay panel, which goes inert and would otherwise drop focus to the body. */
+	override focus(): void {
+		this.roving.focusActive();
+	}
+
 	private renderShortcutsButton(): unknown {
 		return html`<gl-button
 			class="rail-action"
