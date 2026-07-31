@@ -1489,8 +1489,27 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				if (areEqual(next.branchState, this._state.branchState)) {
 					delete next.branchState;
 				}
-				if (next.lastFetched?.getTime() === this._state.lastFetched?.getTime()) {
-					delete next.lastFetched;
+				// `lastFetched` has the same build-start-read / late-ship race as `branchState`, but needs no
+				// stamp: it's a timestamp that only moves FORWARD within a repo, so the value carries its own
+				// ordering. `getState` reads it in the build-start `allSettled` and ships it after the rows
+				// walk, so a fetch completing mid-walk lands via `DidFetch` first and this older snapshot would
+				// otherwise rewind the header's "Last fetched" until the next fetch. Rejecting `<=` also
+				// subsumes the equality case this replaces (same timestamp = a pointless header re-render).
+				// Scoped to the SAME repo: a swap legitimately carries an earlier timestamp, and nothing clears
+				// `lastFetched` on selection change, so a repo-blind guard would pin the previous repo's value.
+				// Compared against the INCOMING push's repo (as the wip guard below does), not the client's
+				// possibly-lagging selection.
+				// NOT closed by this: `DidFetch` carries no repo id, so a fetch for B landing before B's full
+				// push writes B's timestamp while `selectedRepository` still reads A — then B's push sees
+				// sameRepo=false and rewinds it. Same as the equality-only guard this replaces (no regression);
+				// closing it needs a repo id on `DidFetch`, or tracking which repo the applied value belongs to.
+				if (next.lastFetched != null && this._state.lastFetched != null) {
+					const sameRepo =
+						(incoming.selectedRepository ?? this._state.selectedRepository) ===
+						this._state.selectedRepository;
+					if (sameRepo && next.lastFetched.getTime() <= this._state.lastFetched.getTime()) {
+						delete next.lastFetched;
+					}
 				}
 				// The graph's own worktree's status group has a second, revision-ordered writer — the wip channel
 				// (`DidChangeWorkingTree`/refetch, guarded by `isStaleWip`). This full-state copy is unstamped and

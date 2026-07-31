@@ -58,7 +58,8 @@ export type GraphDataControllerContext = {
 	getSidebarEventSeq: () => number;
 	getFiredSidebarSeq: () => number;
 	setFiredSidebarSeq: (seq: number) => void;
-	setLastSentBranchState: (branchState: BranchState | undefined) => void;
+	isBranchStateRevisionCurrent: (revision: number) => boolean;
+	commitSentBranchState: (branchState: BranchState, revision: number) => void;
 
 	// Collaborators the moved bodies invoke (stay on the provider).
 	buildSearchRider: () => DidSearchParams | undefined;
@@ -338,6 +339,16 @@ export class GraphDataController {
 				this.context.notifySidebarInvalidated();
 			}
 
+			// A build can still go stale between its post-walk branch re-read and this send, because the
+			// notify coalescer and the freshness gate can hold it. Strip rather than ship: the fast path
+			// has already delivered the newer counts, and re-applying these would restore the old ones.
+			const branchStateRevision = state.branchStateRevision;
+			if (branchStateRevision != null && !this.context.isBranchStateRevisionCurrent(branchStateRevision)) {
+				state.branchState = undefined;
+			}
+			// Host-internal — never goes over the wire (see `State.branchStateRevision`).
+			state.branchStateRevision = undefined;
+
 			// `getState` already produced the rows-plane fields in the "skipRows" shape (rows/
 			// reachability/avatars/downstreams/rowsStats/paging = undefined; refsMetadata = the
 			// authoritative full map). Rows always ship via the publisher's channel now, so this is a
@@ -345,11 +356,11 @@ export class GraphDataController {
 			const result = await this.host.notify(DidChangeNotification, { state: state });
 
 			this._lastStateSentAt = performance.now();
-			// Advance the branchState dedup gate only on confirmed delivery, mirroring
-			// `notifyDidChangeBranchState` — committing a value the webview never received lets the fast
-			// path's dedup suppress every resend of it, leaving the header blank until the counts change.
-			if (result) {
-				this.context.setLastSentBranchState(state.branchState);
+			// Commit only on confirmed delivery, and only value+ordering together: committing a value the
+			// webview never received lets the fast path's dedup suppress every resend of it, leaving the
+			// header blank until the counts change.
+			if (result && state.branchState != null && branchStateRevision != null) {
+				this.context.commitSentBranchState(state.branchState, branchStateRevision);
 			}
 
 			// Refresh canInstallClaudeHook asynchronously so the bulk push doesn't block on `gk`.

@@ -717,7 +717,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			getSidebarEventSeq: () => this._sidebarEventCounter.current,
 			getFiredSidebarSeq: () => this._firedSidebarEventSeq,
 			setFiredSidebarSeq: seq => (this._firedSidebarEventSeq = seq),
-			setLastSentBranchState: branchState => this._producers.setLastSentBranchState(branchState),
+			isBranchStateRevisionCurrent: revision => this._producers.isBranchStateRevisionCurrent(revision),
+			commitSentBranchState: (branchState, revision) =>
+				this._producers.commitSentBranchState(branchState, revision),
 			buildSearchRider: () => this._searchService.buildSearchRider(),
 			buildState: () => this.getState(),
 			resetSearchState: () => this._searchService.resetSearchState(),
@@ -1266,8 +1268,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// triggered by repo-change events during the bootstrap window waits on this op, then finds the
 		// state already fresh and skips the redundant getState/getGraph pipeline.
 		const op = this._data.trackBootstrapStateOp(this.getState(true));
-		// Capture the branchState that ships with bootstrap so a delayed PR resolve merges into it.
-		void op.then(state => this._producers.setLastSentBranchState(state.branchState)).catch(() => undefined);
+		// Capture the branchState that ships with bootstrap so a delayed PR resolve merges into it. Commit its
+		// revision too — bootstrap delivers over the wire like any other push, so leaving the ordering
+		// watermark at 0 would let a build superseded before the webview even loaded still out-rank it.
+		void op
+			.then(state => {
+				if (state.branchState != null && state.branchStateRevision != null) {
+					this._producers.commitSentBranchState(state.branchState, state.branchStateRevision);
+				}
+				// Host-internal — don't ship it in the bootstrap payload either.
+				state.branchStateRevision = undefined;
+			})
+			.catch(() => undefined);
 		return op;
 	}
 
@@ -4336,7 +4348,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		let branchState: BranchState | undefined;
 
-		const branch = getSettledValue(branchResult);
+		// Re-read the branch AFTER the walk, and stamp at THIS read. The bundled read above happened before a
+		// walk that can run for seconds, so on a big repo it describes the branch as it was before whatever
+		// the user just did (a pull writes refs mid-walk). Shipping that snapshot is what put the pre-pull
+		// counts back after the fast path had already cleared them. `cache.branch` has no TTL, so this is a
+		// warm hit unless an event invalidated it — i.e. it only costs a read in exactly the case that needs
+		// one. `branch` (not just `branchState`) comes from it too, so `State.branch` can't describe one
+		// branch while the counts beside it describe another.
+		let branch = getSettledValue(branchResult);
+		// Stamp only on a SUCCESSFUL re-read, and only after it resolves — the revision has to describe the
+		// read it ships. If the re-read fails we fall back to the pre-walk value, which is exactly the stale
+		// snapshot this re-read exists to replace; stamping it would let it out-rank a genuinely fresher
+		// fast-path read and pass the strip check below. Unstamped instead: no false ranking, no commit to
+		// the gate, and the next build supplies a stamped value.
+		let branchStateRevision: number | undefined;
+		try {
+			const reread = await this.repository.git.branches.getBranch(undefined, toAbortSignal(cancellation.token));
+			if (reread != null) {
+				branch = reread;
+				branchStateRevision = this._producers.nextBranchStateRevision();
+			}
+		} catch {
+			/* swallow — keep the pre-walk read; cancellation is caught by the check below */
+		}
+		if (cancellation.token.isCancellationRequested) throw new CancellationError();
+
 		if (branch != null) {
 			branchState = { ...(branch.upstream?.state ?? { ahead: 0, behind: 0 }) };
 
@@ -4378,7 +4414,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							// Merge `pr` into the most recently sent branchState so we don't clobber
 							// fresher ahead/behind/upstream values shipped by a later state notify.
 							const base = this._producers.lastSentBranchState ?? fallbackBranchState;
-							void this._producers.notifyDidChangeBranchState({ ...base, pr: serializePullRequest(pr) });
+							// Fresh stamp, because the merge base is the newest ACCEPTED branchState, not this
+							// build's snapshot — the gate only ever holds values that were both current and
+							// delivered, so this payload really is the current counts plus `pr`. (When the gate
+							// is still empty the fallback is this build's own post-walk read, also current.)
+							// Caveat: this stamp describes the GATE, not a read of its own, so it inherits the
+							// [post, ack] residual noted on `State.branchStateRevision` — if a fast path is
+							// mid-flight here, this out-ranks it. The fast path carries `pr` forward
+							// (`pr ??=`), so the pill survives the correcting build.
+							void this._producers.notifyDidChangeBranchState(
+								{ ...base, pr: serializePullRequest(pr) },
+								this._producers.nextBranchStateRevision(),
+							);
 						}
 					});
 				} else {
@@ -4488,6 +4535,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				detached: branch.detached,
 			},
 			branchState: branchState,
+			branchStateRevision: branchStateRevision,
 			lastFetched: new Date(getSettledValue(lastFetchedResult)!),
 			selectedRows: convertSelectedRows(this._selectedRows),
 			subscription: access?.subscription.current,

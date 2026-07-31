@@ -455,6 +455,18 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 *  `(release)` is a legal branch name — shape can't classify, only the host's resolved flag can. */
 	branch?: GitBranchReference & { detached: boolean };
 	branchState?: BranchState;
+	/** HOST-INTERNAL ordering stamp for `branchState`, allocated when its branch was READ. Stripped before
+	 *  serialization at BOTH push sites (`runStateNotify` and `includeBootstrap`), so it never reaches the
+	 *  webview — ordering is enforced host-side, where the `_lastSentBranchState` dedup gate lives. A
+	 *  client-side watermark would be a second source of truth: a payload the client dropped would still
+	 *  advance the host gate, and the fast path would then suppress the next genuinely-changed value as a
+	 *  no-op. Absent when a build's post-walk re-read failed — see `getState`.
+	 *
+	 *  KNOWN RESIDUAL: the gate commits on postMessage ACK, not on post, so a full build whose strip check
+	 *  runs inside a fast path's [post, ack] window can still post older counts after it. Sub-frame, and
+	 *  self-repairing — every fast-path trigger also queues a trailing full build whose re-read corrects
+	 *  the client within one cycle. Closing it fully needs a wire-carried revision the client drops on. */
+	branchStateRevision?: number;
 	lastFetched?: Date;
 	selectedRows?: GraphSelectedRows;
 	subscription?: Subscription;

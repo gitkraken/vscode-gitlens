@@ -100,6 +100,13 @@ export class GraphProducersService {
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
 	/** Most recent branchState we sent to the webview, so async PR resolution can merge into the freshest values. */
 	private _lastSentBranchState: BranchState | undefined;
+	/** Monotonic branchState read counter (see `nextBranchStateRevision`). */
+	private _branchStateRevision = 0;
+	/** Revision of the newest read whose value we've accepted. Moves in lockstep with `_lastSentBranchState`
+	 *  so the ordering guard and the dedup gate can never disagree about what the webview holds.
+	 *  NOTE: this orders reads, it does NOT carry repo identity — it cannot stop a fast path started for a
+	 *  previous repo from resolving after a swap (`resetRepositoryState` doesn't cancel `branchStateOnly`). */
+	private _lastSentBranchStateRevision = 0;
 	// Metadata requests that arrived while the graph session isn't loaded (mid-rebuild) — onGetMissingRefMetadata can't
 	// fetch yet, so buffer them and replay on the next `setGraph(data)`. RepoPath-tagged so a request captured
 	// for the prior repo can never drain onto a freshly-swapped graph. Without this, a request lost in the
@@ -123,8 +130,10 @@ export class GraphProducersService {
 		return this._lastSentBranchState;
 	}
 
-	/** Sets the branchState dedup gate directly — used by bootstrap capture, the state coalescer's
-	 *  post-send commit, and `resetRepositoryState` (undefined). */
+	/** Clears the dedup gate on a repo swap (`resetRepositoryState`). Deliberately does NOT touch
+	 *  `_lastSentBranchStateRevision`: the counter orders reads, and rewinding it would let an in-flight
+	 *  payload from the previous repo out-rank the incoming one. Everything else commits value and
+	 *  revision together via {@link commitSentBranchState}. */
 	setLastSentBranchState(branchState: BranchState | undefined): void {
 		this._lastSentBranchState = branchState;
 	}
@@ -594,23 +603,55 @@ export class GraphProducersService {
 		return this._issueIntegrationConnectionState === 'connected';
 	}
 
+	/**
+	 * Allocates the ordering stamp for a branchState about to be computed. MUST be called before the
+	 * `getBranch` read it describes, not before the send: the full-state build reads its branch at the top
+	 * of `getState` but ships it after the rows walk, so stamping at send time would rank a minutes-old
+	 * snapshot above the fast path's fresh one — which is exactly the overwrite this exists to stop.
+	 */
+	nextBranchStateRevision(): number {
+		return ++this._branchStateRevision;
+	}
+
+	/** False once a newer read has been accepted — used by the full-state pipeline to strip a branchState
+	 *  that went stale while its build sat in the rows walk or the notify coalescer. */
+	isBranchStateRevisionCurrent(revision: number): boolean {
+		return revision > this._lastSentBranchStateRevision;
+	}
+
+	/** Commits a branchState the full-state push delivered, keeping value and ordering in lockstep. */
+	commitSentBranchState(branchState: BranchState, revision: number): void {
+		if (revision <= this._lastSentBranchStateRevision) return;
+
+		this._lastSentBranchState = branchState;
+		this._lastSentBranchStateRevision = revision;
+	}
+
 	@trace()
-	async notifyDidChangeBranchState(branchState: BranchState): Promise<boolean> {
+	async notifyDidChangeBranchState(branchState: BranchState, revision: number): Promise<boolean> {
+		// Read older than one already accepted — a slower producer finishing after a fresher one. Sending it
+		// would put the pre-operation counts back (pull → button correctly clears → stale payload restores it).
+		if (revision <= this._lastSentBranchStateRevision) return false;
+
 		// Skip the notify when nothing actually changed — the fast-path (notifyDidChangeBranchStateOnly)
 		// can fire on every tracking-affecting repo event, and a watcher burst will often produce identical
 		// payloads after coalescing.
 		if (this._lastSentBranchState != null && areEqual(branchState, this._lastSentBranchState)) {
+			// Nothing to send, but this read IS newer, so the ordering watermark still has to advance —
+			// otherwise a build superseded by this read could still out-rank it and ship its stale counts.
+			this._lastSentBranchStateRevision = revision;
 			return false;
 		}
 
 		const success = await this.host.notify(DidChangeBranchStateNotification, {
 			branchState: branchState,
 		});
-		// Advance the dedup gate only on confirmed delivery. Committing it up front lets a dropped send leave
+		// Advance the gate only on confirmed delivery. Committing it up front lets a dropped send leave
 		// the gate claiming a value the webview never received — and because dedup then suppresses every
 		// resend of that value, the header stays blank until the counts happen to change again.
 		if (success) {
 			this._lastSentBranchState = branchState;
+			this._lastSentBranchStateRevision = revision;
 		}
 		return success;
 	}
@@ -641,6 +682,8 @@ export class GraphProducersService {
 
 		const cancellation = this.context.createBranchStateOnlyCancellation();
 		const signal = toAbortSignal(cancellation.token);
+
+		const revision = this.nextBranchStateRevision();
 
 		// getBranch + getWorktreesByBranch are independent — allSettled so a non-critical worktree failure
 		// doesn't drop the branch state; branch.id is only read after both resolve.
@@ -684,6 +727,6 @@ export class GraphProducersService {
 
 		if (cancellation.token.isCancellationRequested) return;
 
-		void this.notifyDidChangeBranchState(branchState);
+		void this.notifyDidChangeBranchState(branchState, revision);
 	}
 }
