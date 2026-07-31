@@ -749,6 +749,7 @@ export class GlTreeView extends GlElement {
 				return html`<code-icon
 					slot=${slot}
 					part=${slot}
+					class=${decoration.muted ? 'decoration-icon--muted' : nothing}
 					aria-label="${decoration.label}"
 					.icon=${decoration.icon}
 				></code-icon>`;

@@ -83,6 +83,8 @@ export interface TreeItemDecorationBase {
 export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
 	type: 'icon';
 	icon: string;
+	/** Renders in the description color — for a glyph that marks state rather than demanding attention. */
+	muted?: boolean;
 }
 
 export type TreeItemDecorationKind = 'added' | 'deleted' | 'modified' | 'untracked' | 'renamed' | 'conflict' | 'muted';

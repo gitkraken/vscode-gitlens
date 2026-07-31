@@ -424,7 +424,8 @@ export const treeItemStyles = [
 			);
 		}
 
-		::slotted([slot^='decorations-'].decoration-text--muted) {
+		::slotted([slot^='decorations-'].decoration-text--muted),
+		::slotted([slot^='decorations-'].decoration-icon--muted) {
 			color: var(--vscode-descriptionForeground);
 		}
 

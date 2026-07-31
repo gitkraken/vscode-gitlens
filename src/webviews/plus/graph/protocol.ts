@@ -1273,6 +1273,9 @@ export interface GraphSidebarBranch {
 	date?: number;
 	providerName?: string;
 	starred?: boolean;
+	/** Pinned to the graph's edge. Mirrors the `+pinned` flag on `context.webviewItem`, which drives the menu
+	 *  but can't be read for rendering. */
+	pinned?: boolean;
 	context?: GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin;
 }
 
@@ -1282,6 +1285,8 @@ export interface GraphSidebarRemoteBranch {
 	/** Name of the local branch tracking this remote branch, when one exists. The graph's scope is
 	 *  keyed on local heads, so focusing a remote branch prefers its local counterpart. */
 	localBranch?: string;
+	/** Pinned to the graph's edge — see {@link GraphSidebarBranch.pinned}. */
+	pinned?: boolean;
 	context?: GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin;
 }
 

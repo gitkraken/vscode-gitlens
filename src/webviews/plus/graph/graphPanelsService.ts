@@ -401,6 +401,7 @@ export class GraphPanelsService {
 				date: b.date?.getTime(),
 				providerName: remoteName ? providerByRemote.get(remoteName) : undefined,
 				starred: b.starred || undefined,
+				pinned: (pinnedRefId != null && b.id === pinnedRefId) || undefined,
 				context: {
 					webview: this.host.id,
 					webviewItemOrigin: sidebarItemOrigin,
@@ -467,6 +468,7 @@ export class GraphPanelsService {
 					name: getBranchNameWithoutRemote(b.name),
 					sha: b.sha,
 					localBranch: localByUpstream.get(b.name),
+					pinned: (pinnedRefId != null && b.id === pinnedRefId) || undefined,
 					context: {
 						webview: this.host.id,
 						webviewItemOrigin: sidebarItemOrigin,

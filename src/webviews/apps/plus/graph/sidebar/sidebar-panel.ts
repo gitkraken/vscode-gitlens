@@ -212,6 +212,18 @@ function trackingDecorations(
 	];
 }
 
+/** The branch pinned to the graph's edge. The panel header's own Pin button means "pin the side bar", so the
+ *  label names the edge to keep the two apart — it's also the glyph's accessible name (icon decorations carry
+ *  no visual tooltip). Trailing slot so the row's actions open to its LEFT and the glyph doesn't shift on hover;
+ *  muted because it marks state rather than asking to be acted on. */
+const pinnedToEdgeDecoration: TreeItemDecoration = {
+	type: 'icon',
+	icon: 'pinned',
+	label: 'Pinned to Edge',
+	position: 'after',
+	muted: true,
+};
+
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {
 	if (w.upstream == null) return undefined;
 	return `\u21C6 ${w.upstream}`;
@@ -1074,6 +1086,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private toBranchLeaf(b: GraphSidebarBranch, isTree: boolean): LeafProps {
 		const actions = getBranchLeafActions(b);
+		const tracking = trackingDecorations(b.tracking, b.upstream?.missing);
 
 		return {
 			label: isTree ? (b.name.split('/').pop() ?? b.name) : b.name,
@@ -1082,7 +1095,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			icon: { type: 'branch', status: b.status, worktree: b.worktree },
 			description: b.date != null ? fromNow(b.date) : undefined,
 			context: [b.sha, undefined, undefined, b.name] as SidebarItemContext,
-			decorations: trackingDecorations(b.tracking, b.upstream?.missing),
+			decorations: b.pinned ? [...(tracking ?? []), pinnedToEdgeDecoration] : tracking,
 			actions: actions,
 			contextValue: b.context,
 		};
@@ -1485,6 +1498,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					tooltip: `$(git-branch) \`${r.name}/${b.name}\``,
 					icon: 'git-branch',
 					context: [b.sha] as SidebarItemContext,
+					decorations: b.pinned ? [pinnedToEdgeDecoration] : undefined,
 					// Scope is keyed on local heads, so focus the local branch tracking this one when
 					// there is one; only an untracked remote branch is scoped as a `remotes/*` ref.
 					actions: [
