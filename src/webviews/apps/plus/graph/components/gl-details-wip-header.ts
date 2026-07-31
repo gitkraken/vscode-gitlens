@@ -28,6 +28,7 @@ import '../../../shared/components/code-icon.js';
 import '../../../shared/components/details-header/gl-details-header.js';
 import '../../../shared/components/nav-buttons.js';
 import '../../../shared/components/overlays/tooltip.js';
+import './gl-graph-coachmark.js';
 
 @customElement('gl-details-wip-header')
 export class GlDetailsWipHeader extends LitElement {
@@ -68,6 +69,8 @@ export class GlDetailsWipHeader extends LitElement {
 	@property() dateStyle?: string;
 	/** Back/forward history state from the graph host, rendered to the left of the jump button. */
 	@property({ attribute: false }) navigation?: NavigationState;
+	/** True while a sheet covers the panel — the header is `inert` then, so marks must not open behind it. */
+	@property({ type: Boolean, attribute: 'sheets-open' }) sheetsOpen = false;
 	/** Graph-bottom-only: render the maximize/restore chip left of Refresh (and thread it into the
 	 *  header's active-mode cluster). */
 	@property({ type: Boolean, attribute: 'show-maximize' }) showMaximize = false;
@@ -156,6 +159,7 @@ export class GlDetailsWipHeader extends LitElement {
 							></gl-wip-stats>`
 						: nothing
 				}
+				${this.renderCoachMarks(wip)}
 			</div>
 			${
 				!isModeActive
@@ -296,6 +300,62 @@ export class GlDetailsWipHeader extends LitElement {
 			${!isModeActive ? this.renderIssuesRow() : nothing}
 		</gl-details-header>`;
 	}
+
+	/** In the title group so the lightbulb lands inline with the header. `details` lives here rather
+	 *  than the Next-steps pane because this header is the only part of the WIP view present in every
+	 *  sub-state, and its trigger is "first open of Graph" regardless of selection. */
+	private renderCoachMarks(wip: Wip) {
+		const eligible = this.graphReady && !this.sheetsOpen;
+		const pausedWithConflicts = wip.changes?.pausedOpStatus != null && (wip.changes?.hasConflicts ?? false);
+
+		// One current context means one tip, and so one lightbulb. Without this the commit-details tip
+		// (whose trigger holds in every sub-state) would park its bulb next to the active mode's.
+		const context = this.activeMode ?? (pausedWithConflicts ? 'conflicts' : 'details');
+
+		return html`<gl-graph-coachmark
+				mark="details"
+				placement="bottom"
+				.anchor=${this.queryHeaderTitle}
+				?auto-show=${eligible && context === 'details'}
+			></gl-graph-coachmark>
+			<gl-graph-coachmark
+				mark="compose"
+				placement="bottom"
+				.anchor=${this.queryHeaderTitle}
+				?auto-show=${eligible && context === 'compose'}
+			></gl-graph-coachmark>
+			<gl-graph-coachmark
+				mark="review"
+				placement="bottom"
+				.anchor=${this.queryHeaderTitle}
+				?auto-show=${eligible && context === 'review'}
+			></gl-graph-coachmark>
+			<gl-graph-coachmark
+				mark="conflicts"
+				placement="bottom"
+				.anchor=${this.queryPausedOp}
+				?auto-show=${eligible && context === 'conflicts'}
+			></gl-graph-coachmark>
+			<gl-graph-coachmark
+				mark="resolve"
+				placement="bottom"
+				.anchor=${this.queryHeaderTitle}
+				?auto-show=${eligible && context === 'resolve'}
+			></gl-graph-coachmark>`;
+	}
+
+	/** True once the Graph itself is open and interactive (set by the details panel from graph state). */
+	@property({ type: Boolean, attribute: 'graph-ready' }) graphReady = false;
+
+	/** NOT the `gl-details-header` host: it's `display: contents`, so it has no box and
+	 *  `checkVisibility()` is always false, defeating the visibility guard and popover positioning.
+	 *  The title span is a real box, present both idle and in-mode. */
+	private readonly queryHeaderTitle = (): HTMLElement | undefined =>
+		this.renderRoot.querySelector<HTMLElement>('.graph-details-header__wip-title') ?? undefined;
+
+	/** The paused-op banner renders exactly when the `conflicts` trigger holds — a self-gating anchor. */
+	private readonly queryPausedOp = (): HTMLElement | undefined =>
+		this.renderRoot.querySelector<HTMLElement>('.graph-details-header__paused-op') ?? this.queryHeaderTitle();
 
 	private renderBranchActionsButton() {
 		// `wip.stats.branchContext` is the serialized `gitlens:branch` context built host-side, so this

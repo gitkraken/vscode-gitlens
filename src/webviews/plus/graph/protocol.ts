@@ -1648,6 +1648,18 @@ export const ChooseGraphLayoutCommand = new IpcCommand<ChooseGraphLayoutParams>(
 /** Pushed when the `graph:layoutPrompt` onboarding state changes (e.g. dismissed in another window) */
 export const DidChangeLayoutPromptNotification = new IpcNotification<boolean>(scope, 'layoutPrompt/didChange');
 
+/** Contextual per-feature coach marks (how-tos) shown in the Graph (#5516) */
+export const graphCoachMarkTypes = [
+	'details',
+	'compose',
+	'review',
+	'conflicts',
+	'resolve',
+	'agents',
+	'compare',
+] as const;
+export type GraphCoachMarkType = (typeof graphCoachMarkTypes)[number];
+
 export interface DidRequestActiveSidebarPanelParams {
 	panel: GraphSidebarPanel;
 }

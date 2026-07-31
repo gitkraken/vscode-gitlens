@@ -61,6 +61,8 @@ import { aiContext, createAIState } from '../../shared/contexts/ai.js';
 import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
 import { createOnboardingState, onboardingContext } from '../../shared/contexts/onboarding.js';
+import type { OnboardingDismissals } from '../../shared/contexts/onboardingDismissals.js';
+import { onboardingDismissalsContext } from '../../shared/contexts/onboardingDismissals.js';
 import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
@@ -118,6 +120,7 @@ import {
 	isScopeFocalHead,
 	shouldShowPrimaryWipRow,
 } from './utils/wip.utils.js';
+import { isGraphWalkthroughBannerHighlighted } from './walkthroughBanner.js';
 import './empty-state.js';
 import './access-account.js';
 import './gate.js';
@@ -362,6 +365,30 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return getEffectiveDisplayMode(this.graphState);
 	}
 
+	/** Graph-level gate for the coach marks — there's no first-class "graph is open" signal, so this
+	 *  composes the suppressors that would leave a mark with nothing visible to anchor to. */
+	private get coachMarksEligible(): boolean {
+		// Read here (not just in `updated`) so `SignalWatcher` re-renders us once the host answers.
+		const deferredBefore = this._bannerDeferredBefore ?? this._dismissals?.get('graph:coachMarks:bannerDeferral');
+
+		return (
+			(this.graphState.repositories?.length ?? 0) > 0 &&
+			(this.graphState.allowed ?? false) &&
+			// The banner auto-opens for the same audience and `closeOthers()` can't reach it, so a tip
+			// would land on top. One session only: nothing expires the banner on its own.
+			(deferredBefore === true || !isGraphWalkthroughBannerHighlighted(this.graphState))
+		);
+	}
+
+	/** What the details-pane marks need on top of the graph-level gate; agents answers to that alone. */
+	private get detailsCoachMarksEligible(): boolean {
+		return (
+			this.coachMarksEligible &&
+			this.effectiveDisplayMode === 'graph' &&
+			(this.graphState.details?.visible ?? false)
+		);
+	}
+
 	/** The selection that drives the details panel, picked by the active `displayMode`. In
 	 *  any non-graph mode the alternate-mode slot is honored; otherwise the graph slots. */
 	private get activeSelection(): {
@@ -463,6 +490,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@consume({ context: graphStateContext, subscribe: true })
 	graphState!: typeof graphStateContext.__context__;
+
+	@consume({ context: onboardingDismissalsContext, subscribe: true })
+	private _dismissals?: OnboardingDismissals;
+
+	/** Whether an earlier session already deferred to the walkthrough banner. Latched, because banking
+	 *  the flag below flips the live value and would lift the deferral in the session that set it. */
+	@state()
+	private _bannerDeferredBefore?: boolean;
 
 	@consume({ context: graphServicesContext, subscribe: true })
 	private services?: typeof graphServicesContext.__context__;
@@ -1852,6 +1887,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
 
+		const deferral = this._dismissals?.get('graph:coachMarks:bannerDeferral');
+		if (deferral != null) {
+			this._bannerDeferredBefore ??= deferral;
+			if (!deferral && isGraphWalkthroughBannerHighlighted(this.graphState)) {
+				this._dismissals?.dismiss('graph:coachMarks:bannerDeferral');
+			}
+		}
+
 		// Kick the row-marker merge-target resolve for the current branch (self-deduping per branch id, so
 		// this is a no-op once resolved / while in flight). `graphState` is a `@consume`d context, so a
 		// branch change never lands in `changedProperties` — drive it every render and let the guard filter.
@@ -2188,6 +2231,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					repo-path=${effectiveRepoPath ?? nothing}
 					?show-maximize=${isBottom}
 					?maximized=${maximized}
+					?graph-ready=${this.detailsCoachMarksEligible}
 					.shas=${multi?.shas}
 					.graphReachability=${single?.reachability}
 					.commitLite=${single?.commitLite}
@@ -2489,6 +2533,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				?open=${isOpen}
 				active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
 				date-format=${this.graphState.config?.dateFormat ?? nothing}
+				?graph-ready=${this.coachMarksEligible}
 				@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
 				@gl-graph-sidebar-toggle-pinned=${this.handleSidebarTogglePinned}
 				@gl-graph-sidebar-search-box-filter-change=${this.handleSidebarSearchBoxFilterChange}

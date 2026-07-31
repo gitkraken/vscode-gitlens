@@ -78,6 +78,7 @@ import {
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import { resolveSelectedTag } from './sidebarTelemetry.utils.js';
+import '../components/gl-graph-coachmark.js';
 import '../overview/graph-overview.js';
 import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/commit/wip-stats.js';
@@ -491,6 +492,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	@property({ attribute: 'date-format' })
 	dateFormat: string | null | undefined;
+
+	/** The graph-level coach-mark gate, same one the details panel takes. */
+	@property({ type: Boolean, attribute: 'graph-ready' })
+	graphReady = false;
 
 	@consume({ context: sidebarActionsContext, subscribe: true })
 	private _actions!: SidebarActions;
@@ -961,6 +966,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const pinIcon = pinned ? 'pinned' : 'pin';
 		return html`<div class="header">
 			<span class="header-title">${config.title}</span>
+			${
+				this.activePanel === 'agents'
+					? html`<gl-graph-coachmark
+							mark="agents"
+							placement="bottom-start"
+							.anchor=${() => this.renderRoot.querySelector<HTMLElement>('.header-title')}
+							?auto-show=${this.graphReady}
+						></gl-graph-coachmark>`
+					: nothing
+			}
 			<action-nav class="header-actions" role="toolbar" aria-label="${config.title} actions">
 				${config.actions?.map(
 					a =>
