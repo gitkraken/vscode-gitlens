@@ -1509,9 +1509,13 @@ export class GraphCommands {
 	@debug()
 	private applyStash(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'stash');
-		if (ref == null) return Promise.resolve();
+		if (ref != null) return StashActions.apply(ref.repoPath, ref);
 
-		return StashActions.apply(ref.repoPath, ref);
+		// A WIP row carries no stash ref — open the apply/pop picker rooted at the row's worktree
+		const wip = this.getGraphItemRef(item, 'revision');
+		if (wip == null || wip.ref !== uncommitted) return Promise.resolve();
+
+		return StashActions.apply(this.getGraphItemWorktreePath(item) ?? wip.repoPath);
 	}
 
 	@command('gitlens.stashDelete:')

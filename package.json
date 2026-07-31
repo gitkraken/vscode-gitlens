@@ -28165,6 +28165,11 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
+					"command": "gitlens.stashApply:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_1@1"
+				},
+				{
 					"command": "gitlens.ai.explainWip:graph",
 					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:ai:allowed",
 					"group": "1_gitlens_ai@10"
