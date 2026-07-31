@@ -1,3 +1,4 @@
+import type { ConsultedTool } from './consultation.js';
 import type { Resolution } from './types.js';
 
 /**
@@ -58,6 +59,13 @@ export interface AutoRebaseFileRecord {
 	conflictedContent?: string;
 	/** The resolved content that was applied */
 	resolvedContent?: string;
+	/** Repo-inspection tool calls the AI made resolving this file, when it consulted the repository */
+	toolCallCount?: number;
+	/** Model round-trips for this file — tool calls plus validation re-prompts */
+	stepCount?: number;
+	/** What the AI consulted to reach this resolution, so the summary can cite its evidence and not
+	 *  just its verdict. Capped — see {@link ConsultedTool}; `toolCallCount` stays the exact count. */
+	consulted?: ConsultedTool[];
 }
 
 export interface AutoRebaseStepRecord {
@@ -147,6 +155,10 @@ export interface AutoRebaseHandoff {
 	conflictedContents: Map<string, string>;
 	errors: { filePath: string; message: string }[];
 	skipped: { filePath: string; reason: string }[];
+	/** What the AI consulted per file, keyed by path. The escalated step never becomes an
+	 *  {@link AutoRebaseStepRecord} (it escalates before the record is pushed), so this is the only
+	 *  place its evidence survives into the Resolve panel the user reviews it in. */
+	consultations: Map<string, ConsultedTool[]>;
 }
 
 export type AutoRebaseUndoRefusalReason =

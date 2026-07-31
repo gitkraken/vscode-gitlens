@@ -39,6 +39,8 @@ import {
 	gatherContextForChanges,
 } from '../../../plus/ai/utils/-webview/changesContext.js';
 import type { AutoRebaseSession } from '../../../plus/coretools/conflict/autoRebase.types.js';
+import type { ConsultedTool } from '../../../plus/coretools/conflict/consultation.js';
+import { getConsultations, recordConsultation } from '../../../plus/coretools/conflict/consultation.js';
 import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
 import type {
 	ConflictProgressEvent,
@@ -171,6 +173,7 @@ function toAutoRebaseRunUpdate(
 				reasoning: f.description,
 				confidence: f.confidence,
 				note: f.note,
+				consulted: f.consulted,
 			})),
 		})),
 	};
@@ -1457,6 +1460,11 @@ export class GraphInspectServices {
 					const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
 					const resolveSignal = toAbortSignal(token);
 
+					// What the AI consulted, per file — the progress events are the only place the resolver
+					// reports it, and the line below is overwritten within milliseconds when a run has
+					// several files, so keep it for the panel's per-file rows.
+					const consultations = new Map<string, ConsultedTool[]>();
+
 					const onProgress = (event: ConflictProgressEvent) => {
 						switch (event.type) {
 							case 'conflict:found':
@@ -1484,6 +1492,7 @@ export class GraphInspectServices {
 								});
 								break;
 							case 'resolver:tool-call':
+								recordConsultation(consultations, event);
 								this._resolveProgressEvent.fire({
 									phase: event.type,
 									message: `${event.filePath}: inspecting ${event.tool}…`,
@@ -1562,7 +1571,12 @@ export class GraphInspectServices {
 
 						logResolutionUsage(resolutions, 'graph.resolveConflicts');
 
-						const summaries = this.seedResolveSession(repoPath, resolutions, conflictedContents);
+						const summaries = this.seedResolveSession(
+							repoPath,
+							resolutions,
+							conflictedContents,
+							consultations,
+						);
 
 						return {
 							result: {
@@ -1618,6 +1632,11 @@ export class GraphInspectServices {
 							};
 						}
 
+						// A retry consults the repository the same way the original run does, so collect its
+						// evidence too — otherwise re-resolving a file would blank out the `consulted` line the
+						// row was already showing.
+						const consultations = new Map<string, ConsultedTool[]>();
+
 						// Feedback rides conflict-tools' first-class `ResolutionContext.userGuidance`.
 						const resolution = await integration.resolveSingle(
 							{
@@ -1628,6 +1647,15 @@ export class GraphInspectServices {
 								// Same conversation as the run being retried (an active session implies
 								// the ID exists; minting here is just a defensive fallback).
 								conversationId: this.getOrCreateResolveConversationId(repoPath),
+								onProgress: event => {
+									if (event.type !== 'resolver:tool-call') return;
+
+									recordConsultation(consultations, event);
+									this._resolveProgressEvent.fire({
+										phase: event.type,
+										message: `${event.filePath}: inspecting ${event.tool}…`,
+									});
+								},
 							},
 							{ source: 'graph', detail: 'resolveRetryFile' },
 						);
@@ -1675,6 +1703,7 @@ export class GraphInspectServices {
 								reasoning: resolution.description,
 								confidence: resolution.confidence,
 								note: resolution.note,
+								consulted: getConsultations(consultations, resolution.filePath),
 								virtualRef: virtualRef,
 							},
 						};
@@ -1683,6 +1712,9 @@ export class GraphInspectServices {
 						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
 					} finally {
 						disposeCancellation();
+						// Clears the inspecting line this path now fires — without it a retry that consulted
+						// the repo would leave the panel stuck on its last tool call.
+						this._resolveProgressEvent.fire(undefined);
 					}
 				},
 				applyResolutions: async (repoPath, includedFilePaths) => {
@@ -1844,6 +1876,7 @@ export class GraphInspectServices {
 						repoPath,
 						handoff.resolutions,
 						handoff.conflictedContents,
+						handoff.consultations,
 					);
 					const { errors, skipped } = await this.enrichUnresolvedFiles(
 						repoPath,
@@ -1926,6 +1959,7 @@ export class GraphInspectServices {
 								reasoning: f.description,
 								confidence: f.confidence,
 								note: f.note,
+								consulted: f.consulted,
 								// Only files with a registered session above get a diff affordance — offering
 								// one for content the editor can't open as text yields two "file is binary"
 								// panes.
@@ -2511,6 +2545,7 @@ export class GraphInspectServices {
 		repoPath: string,
 		resolutions: ConflictToolsResolution[],
 		conflictedContents: Map<string, string>,
+		consultations?: Map<string, ConsultedTool[]>,
 	): ResolvedFileSummary[] {
 		const previewable = resolutions.filter(r => r.strategy !== 'skipped');
 		const { provider } = this.getOrCreateResolveVirtual();
@@ -2537,6 +2572,7 @@ export class GraphInspectServices {
 			reasoning: r.description,
 			confidence: r.confidence,
 			note: r.note,
+			consulted: consultations != null ? getConsultations(consultations, r.filePath) : undefined,
 			virtualRef:
 				r.strategy !== 'skipped' && conflictedContents.has(r.filePath)
 					? {
@@ -3087,7 +3123,9 @@ function logResolutionUsage(resolutions: readonly ConflictToolsResolution[], sco
 		Logger.debug(
 			`resolved ${r.filePath}: tokens=${m.inputTokens} in / ${m.outputTokens} out${
 				m.stepCount != null ? `, steps=${m.stepCount}` : ''
-			}${m.durationMs != null ? `, duration=${m.durationMs}ms` : ''}`,
+			}${m.toolCallCount != null ? `, toolCalls=${m.toolCallCount}` : ''}${
+				m.durationMs != null ? `, duration=${m.durationMs}ms` : ''
+			}`,
 			scope,
 		);
 	}

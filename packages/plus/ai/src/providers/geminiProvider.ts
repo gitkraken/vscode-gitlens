@@ -208,6 +208,7 @@ const models: GeminiModel[] = [
 export class GeminiProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	readonly supportsTools = true;
 	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://aistudio.google.com/app/apikey',

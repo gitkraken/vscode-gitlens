@@ -29,6 +29,7 @@ import {
 	confidenceLevel,
 	measureReasoningOverflow,
 	renderConfidence,
+	renderConsulted,
 	renderReasoning,
 	resolveDisplayStyles,
 	strategyDisplay,
@@ -1393,6 +1394,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				filePath: r.filePath,
 				onToggle: () => this.toggleReason(reasonKey),
 			})}
+			${renderConsulted(r.consulted, r.filePath)}
 			${
 				!readonly && expanded
 					? html`<gl-ai-input

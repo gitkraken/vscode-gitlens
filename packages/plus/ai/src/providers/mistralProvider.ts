@@ -77,6 +77,7 @@ const models: MistralModel[] = [
 export class MistralProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
+	readonly supportsTools = true;
 	protected readonly descriptor = provider;
 	protected readonly config = {
 		keyUrl: 'https://console.mistral.ai/api-keys',
@@ -112,7 +113,8 @@ export class MistralProvider extends OpenAICompatibleProviderBase<typeof provide
 		retries: number,
 		maxInputTokens: number,
 		body?: string,
-	): Promise<{ retry: true; maxInputTokens: number }> {
+		sentTools?: boolean,
+	): Promise<{ retry: true; maxInputTokens: number; withoutTools?: boolean }> {
 		if (rsp.status !== 404 && rsp.status !== 429) {
 			let json;
 			try {
@@ -141,7 +143,7 @@ export class MistralProvider extends OpenAICompatibleProviderBase<typeof provide
 			throw new Error(`(${this.name}) ${rsp.status}: ${message || rsp.statusText}`);
 		}
 
-		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens, body);
+		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens, body, sentTools);
 	}
 }
 

@@ -92,6 +92,65 @@ export function renderReasoning(
 	</div>`;
 }
 
+/** Friendlier names for the resolver's six read-only tools — the wire names are the model's API, not
+ *  something to show a user reading why their conflict resolved the way it did. */
+const consultedToolLabels: Record<string, string> = {
+	show_file_at_ref: 'read the file',
+	grep: 'searched the repository',
+	blame: 'checked authorship',
+	diff: 'compared the two sides',
+	log: 'reviewed history',
+	show: 'inspected a commit',
+};
+
+/**
+ * What AI consulted before deciding, rendered under its reasoning so the row cites its evidence and
+ * not just its verdict — the difference between "took incoming" and "took incoming, having checked
+ * that the symbol it drops isn't referenced anywhere else".
+ *
+ * Collapsed by default: the evidence matters when someone is auditing a specific resolution, but
+ * expanded on every row it buries the reasoning it exists to support — and a step with several files
+ * would open as a wall of tool calls. The summary still carries the count, so a row that consulted
+ * the repository is distinguishable from one that didn't without opening anything.
+ *
+ * Each entry leads with the model's own one-sentence justification (the `reason` argument every tool
+ * requires), since the tool label alone is too vague to audit. Renders nothing when AI resolved from
+ * the conflict's own context — the common case, and silence is the right signal for it.
+ *
+ * A native `<details>` keeps this helper stateless — both surfaces render it inside a `map`, so
+ * per-row open state would otherwise have to be threaded through each of them — and brings the
+ * keyboard and screen-reader behavior of a disclosure for free.
+ */
+export function renderConsulted(
+	consulted: readonly { tool: string; reason?: string }[] | undefined,
+	filePath: string,
+): unknown {
+	if (!consulted?.length) return nothing;
+
+	const label = `Consulted ${consulted.length} source${consulted.length === 1 ? '' : 's'}`;
+
+	return html`<details class="resolve-file__consulted">
+		<!-- The accessible name has to START with the visible text (WCAG 2.5.3) — the file only
+		     disambiguates the rows, so it's a suffix, not a replacement. -->
+		<summary class="resolve-file__consulted-summary" aria-label="${label} for ${filePath}">
+			<code-icon icon="chevron-right" size="12"></code-icon>
+			<span class="resolve-file__consulted-text">${label}</span>
+		</summary>
+		<ul class="resolve-file__consulted-list">
+			${consulted.map(c => {
+				const toolLabel = consultedToolLabels[c.tool] ?? c.tool;
+				return html`<li>
+					${
+						c.reason
+							? html`${c.reason} <span class="resolve-file__consulted-tool">(${toolLabel})</span>`
+							: toolLabel
+					}
+				</li>`;
+			})}
+		</ul>
+	</details>`;
+}
+
 /**
  * Records which reasoning blocks are actually taller than their clamp, so {@link renderReasoning} only
  * offers "see more" where text is hidden. Returns `undefined` when nothing changed, so callers can skip
@@ -225,5 +284,75 @@ export const resolveDisplayStyles = css`
 
 	.resolve-file__more:hover {
 		text-decoration: underline;
+	}
+
+	/* The evidence behind the reasoning — secondary to it, so it's dimmed and a size down. Collapsed by
+	   default; once open the list is never clamped, since a truncated citation is worse than none. */
+	.resolve-file__consulted {
+		min-width: 0;
+		margin-top: var(--gl-space-6);
+		color: var(--vscode-descriptionForeground);
+		font-size: var(--gl-font-sm);
+	}
+
+	/* Styled as the sibling affordance of the reasoning's "see more", which sits directly above it.
+	   The list-style and the webkit marker rule both matter: no single one of them hides the default
+	   disclosure triangle across the engines this ships on. */
+	.resolve-file__consulted-summary {
+		display: inline-flex;
+		gap: 0.3rem;
+		align-items: center;
+		width: fit-content;
+		color: var(--vscode-textLink-foreground);
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.resolve-file__consulted-summary::-webkit-details-marker {
+		display: none;
+	}
+
+	/* Underline the text only, never the summary box. On the box the flex gap splits the rule in two, and
+	   the chevron's 90deg rotation takes its segment with it — a stray vertical tick to the left. */
+	.resolve-file__consulted-summary:hover .resolve-file__consulted-text {
+		text-decoration: underline;
+	}
+
+	.resolve-file__consulted-summary:focus-visible {
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline-offset: 2px;
+	}
+
+	.resolve-file__consulted[open] > .resolve-file__consulted-summary code-icon {
+		transform: rotate(90deg);
+	}
+
+	.resolve-file__consulted-summary code-icon {
+		transition: transform var(--gl-duration-medium);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.resolve-file__consulted-summary code-icon {
+			transition: none;
+		}
+	}
+
+	.resolve-file__consulted-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gl-space-2);
+		margin: var(--gl-space-4) 0 0;
+		/* Room for the marker, which sits outside the content box in a flex-column list */
+		padding-left: var(--gl-space-16);
+		list-style: disc;
+	}
+
+	.resolve-file__consulted-list li {
+		overflow-wrap: anywhere;
+	}
+
+	/* The tool name is the least interesting part of the line — the model's reason leads. */
+	.resolve-file__consulted-tool {
+		opacity: 0.75;
 	}
 `;
