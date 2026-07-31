@@ -108,6 +108,7 @@ import './gl-details-resolve-mode-panel.js';
 import './gl-commit-box.js';
 import './gl-details-wip-empty-pane.js';
 import './gl-details-wip-header.js';
+import './gl-graph-coachmark.js';
 import './gl-graph-branch-sheet-pane.js';
 
 interface ResolvedContent {
@@ -549,6 +550,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** Whether the panel is currently maximized — drives the maximize chip's icon/label. */
 	@property({ type: Boolean })
 	maximized = false;
+
+	/** Drives only the "first open of Graph" coach-mark trigger; `graph-app` owns the underlying state. */
+	@property({ type: Boolean, attribute: 'graph-ready' })
+	graphReady = false;
+
+	/** The compare chip is unusable as an anchor — hidden while a mode is active, and `inert` once the
+	 *  sheet opens — so use the sheet's own header, a sibling of the inert `.details-content`. */
+	private readonly queryCompareSheetHeader = (): HTMLElement | undefined => {
+		const sheet = this.renderRoot.querySelector('gl-detail-sheet.compare-sheet');
+		return (
+			sheet?.shadowRoot?.querySelector<HTMLElement>('[part~="header"]') ??
+			(sheet as HTMLElement | null) ??
+			undefined
+		);
+	};
 
 	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
@@ -2439,6 +2455,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						? actionLabel
 						: `${actionLabel}\n[${getAltKeySymbol()}] ${labelFor(alternate)}`;
 					return html`<gl-detail-sheet
+						class="compare-sheet"
 						aria-label="Compare"
 						sheet-title="Comparing References"
 						close-label="Close"
@@ -2452,6 +2469,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							@click=${this.handleOpenCompareAsPanel}
 						></gl-action-chip>
 						${this.renderCompareMode()}
+						<gl-graph-coachmark
+							slot="actions"
+							mark="compare"
+							placement="bottom-end"
+							.anchor=${this.queryCompareSheetHeader}
+							?auto-show=${this.graphReady}
+						></gl-graph-coachmark>
 					</gl-detail-sheet>`;
 				})()
 			: nothing;
@@ -2744,6 +2768,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			<gl-details-wip-header
 				.wip=${wip}
 				.currentRepoPath=${this.graphRepoPath()}
+				?sheets-open=${
+					this._state.compareSheetOpen.get() || this._conflictSheet != null || this._branchSheet != null
+				}
+				?graph-ready=${this.graphReady}
 				?show-maximize=${this.showMaximize}
 				?maximized=${this.maximized}
 				.navigation=${this.navigation}
