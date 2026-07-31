@@ -1390,6 +1390,8 @@ export interface GraphSidebarWorktree {
 	upstream?: string;
 	tracking?: { ahead: number; behind: number };
 	providerName?: string;
+	/** This worktree's branch is pinned to the graph's edge — see {@link GraphSidebarBranch.pinned}. */
+	pinned?: boolean;
 	context?:
 		| (GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin)
 		| (GraphItemRefContext<GraphCommitContextValue> & GraphSidebarItemOrigin);

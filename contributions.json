@@ -3833,6 +3833,11 @@
 						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 8
+					},
+					{
+						"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+pinned\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 8
 					}
 				]
 			}
@@ -4643,6 +4648,11 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 8
+					},
+					{
+						"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?=.*?\\b\\+pinned\\b)/",
 						"group": "8_gitlens_actions",
 						"order": 8
 					}

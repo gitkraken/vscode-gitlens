@@ -224,6 +224,15 @@ const pinnedToEdgeDecoration: TreeItemDecoration = {
 	muted: true,
 };
 
+/** The branch that's currently checked out. Mirrors the worktree rows' `check`, which marks the active one. */
+const currentBranchDecoration: TreeItemDecoration = {
+	type: 'icon',
+	icon: 'check',
+	label: 'Current Branch',
+	position: 'after',
+	muted: true,
+};
+
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {
 	if (w.upstream == null) return undefined;
 	return `\u21C6 ${w.upstream}`;
@@ -1095,7 +1104,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			icon: { type: 'branch', status: b.status, worktree: b.worktree },
 			description: b.date != null ? fromNow(b.date) : undefined,
 			context: [b.sha, undefined, undefined, b.name] as SidebarItemContext,
-			decorations: b.pinned ? [...(tracking ?? []), pinnedToEdgeDecoration] : tracking,
+			// Pin before check so the checkmark closes the row — it's the more permanent of the two states,
+			// and keeping it outermost stops it shifting when a pin comes and goes.
+			decorations: [
+				...(tracking ?? []),
+				...(b.pinned ? [pinnedToEdgeDecoration] : []),
+				...(b.current ? [currentBranchDecoration] : []),
+			],
 			actions: actions,
 			contextValue: b.context,
 		};
@@ -1247,8 +1262,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			decorations: [
 				...wipDecoration,
 				...(trackingDecorations(w.tracking) ?? []),
-				...(w.opened ? [{ type: 'icon' as const, icon: 'check', label: 'Active' }] : []),
-				...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: 'Locked' }] : []),
+				...(w.pinned ? [pinnedToEdgeDecoration] : []),
+				...(w.opened ? [{ type: 'icon' as const, icon: 'check', label: 'Active', muted: true }] : []),
+				...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: 'Locked', muted: true }] : []),
 			],
 			actions: actions,
 			// `+working` is appended client-side once the async hasChanges check resolves —

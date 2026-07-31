@@ -795,6 +795,7 @@ export class GraphPanelsService {
 
 	private getSidebarWorktrees(graph: GitGraph) {
 		const providerByRemote = this.getProviderByRemote(graph);
+		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
 
 		const wtCfg = configuration.get('views.worktrees.branches');
 		const worktrees =
@@ -830,6 +831,9 @@ export class GraphPanelsService {
 				}
 				if (w.branch.rebasing) {
 					webviewItem += '+rebasing';
+				}
+				if (pinnedRefId != null && w.branch.id === pinnedRefId) {
+					webviewItem += '+pinned';
 				}
 			} else if (w.type === 'detached') {
 				webviewItem += '+detached';
@@ -888,6 +892,7 @@ export class GraphPanelsService {
 				upstream: w.branch?.upstream?.name,
 				tracking: w.branch?.upstream?.state,
 				providerName: remoteName ? providerByRemote.get(remoteName) : undefined,
+				pinned: (pinnedRefId != null && w.branch?.id === pinnedRefId) || undefined,
 				context: context,
 			};
 		});

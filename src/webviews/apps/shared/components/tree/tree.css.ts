@@ -424,9 +424,12 @@ export const treeItemStyles = [
 			);
 		}
 
+		/* Dimmed by opacity rather than a fixed color (same recipe as .description) so it tracks whatever
+		   foreground the row currently has. A fixed descriptionForeground stays grey through selection and
+		   focus, losing contrast against the active-selection background. */
 		::slotted([slot^='decorations-'].decoration-text--muted),
 		::slotted([slot^='decorations-'].decoration-icon--muted) {
-			color: var(--vscode-descriptionForeground);
+			opacity: 0.7;
 		}
 
 		/* High Contrast Mode Support */
