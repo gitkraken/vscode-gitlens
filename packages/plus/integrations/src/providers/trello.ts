@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -103,7 +104,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		project: ResourceDescriptor,
 		options?: { user?: string; filters?: IssueFilter[] },
-	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		// A non-issue descriptor genuinely has nothing to read (empty), but a missing app key is a broken read.
 		if (!isIssueResourceDescriptor(project)) return undefined;
 
@@ -139,7 +140,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		// never a cursor. Surface that as terminal truncation; there is no next page to fetch, so retrying the
 		// same read cannot recover the omitted cards (D11).
 		const truncated = result.metadata != null && result.metadata.completeness !== 'complete';
-		return { values: values, truncated: truncated };
+		return { values: values, truncated: truncated, metadata: result.metadata };
 	}
 
 	protected override searchProviderMyIssues(

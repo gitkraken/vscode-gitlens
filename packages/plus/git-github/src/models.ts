@@ -133,7 +133,7 @@ export type GitHubIssueOrPullRequestState = GitHubIssueState | GitHubPullRequest
 export interface GitHubPullRequestLite extends Omit<GitHubIssueOrPullRequest, '__typename'> {
 	/** `Actor` is nullable in GitHub's schema — `null` once the author's account is deleted */
 	author: GitHubMember | null;
-	body: string;
+	body: string | null;
 
 	baseRefName: string;
 	baseRefOid: string;
@@ -327,7 +327,7 @@ export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: P
 		undefined, // commitCount
 		fromGitHubPullRequestStack(pr),
 		undefined, // filesChanged
-		pr.body,
+		pr.body ?? undefined,
 	);
 }
 

@@ -106,6 +106,24 @@ suite('Trello integration (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('getIssuesForProjectWithTruncationResult preserves provider completeness metadata', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession('my-app-key');
+
+		stubApi(trello, {
+			getTrelloListsForBoard: () => Promise.resolve([]),
+			getTrelloIssuesForBoard: () =>
+				Promise.resolve({ values: [fakeIssue()], metadata: { completeness: 'partial' as const } }),
+		});
+
+		const result = await trello.getIssuesForProjectWithTruncationResult({ key: 'b1', id: 'b1', name: 'Board 1' });
+
+		assert.equal(result?.value?.metadata?.completeness, 'partial');
+		assert.equal(result?.value?.truncated, true);
+		manager.dispose();
+	});
+
 	test('Trello issues round-trip through branch association metadata', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
