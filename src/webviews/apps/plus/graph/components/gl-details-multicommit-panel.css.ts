@@ -189,41 +189,9 @@ export const multiCommitPanelStyles = css`
 		border-color: var(--color-foreground--50);
 	}
 
+	/* Multi-select strip wraps onto more rows; the compare panel's stays single-row. */
 	.compare-enrichment {
-		display: flex;
-		flex: none;
 		flex-wrap: wrap;
-		gap: 0.5rem;
-		align-items: center;
-		min-width: 0;
-		padding: var(--gl-space-4) var(--gl-space-12);
-		font-size: var(--gl-font-sm);
-	}
-
-	.compare-enrichment gl-action-chip[data-action='autolink-settings'] {
-		color: var(--color-foreground--65);
-		--code-icon-size: 1.2rem;
-	}
-
-	.compare-enrichment gl-action-chip::part(base) {
-		gap: var(--gl-space-4);
-	}
-
-	.compare-enrichment gl-action-chip::part(icon) {
-		display: inline-flex;
-		align-items: center;
-		line-height: 1;
-	}
-
-	/* Inline autolinks loading state — replaces "No autolinks found" while the comparison
-	   identity (commits) is changing. min-height matches gl-action-chip's intrinsic 2rem so
-	   the strip doesn't jump between the spinner and the chip-based states. */
-	.compare-enrichment__loading {
-		display: inline-flex;
-		gap: var(--gl-space-4);
-		align-items: center;
-		min-height: 2rem;
-		color: var(--vscode-descriptionForeground);
 	}
 
 	.compare-section {

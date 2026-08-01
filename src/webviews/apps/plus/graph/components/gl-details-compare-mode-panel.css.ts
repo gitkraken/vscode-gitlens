@@ -605,36 +605,6 @@ export const compareModePanelStyles = css`
 			);
 	}
 
-	/* Autolinks chip strip — mirrors the multi-select compare panel's .compare-enrichment
-	   treatment (font-size, padding, color tweak for the autolink-settings info chip) so the
-	   "No Autolinks Found" affordance reads identically across both panels. The inner
-	   gl-chip-overflow stays single-row (its default); excess chips collapse into its "+N"
-	   overflow affordance. */
-	.compare-enrichment {
-		display: flex;
-		flex: none;
-		gap: 0.5rem;
-		align-items: center;
-		min-width: 0;
-		padding: var(--gl-space-4) var(--gl-space-12);
-		font-size: var(--gl-font-sm);
-	}
-
-	.compare-enrichment gl-action-chip[data-action='autolink-settings'] {
-		color: var(--color-foreground--65);
-		--code-icon-size: 12px;
-	}
-
-	.compare-enrichment gl-action-chip::part(base) {
-		gap: var(--gl-space-4);
-	}
-
-	.compare-enrichment gl-action-chip::part(icon) {
-		display: inline-flex;
-		align-items: center;
-		line-height: 1;
-	}
-
 	/* Files / Contributors view selector — slotted into the pane's title slot, so it must
 	   visually sit inline with the title text it replaces (no margin/padding around the
 	   popover; the trigger button supplies its own hit-target padding). The 0-padding
@@ -765,19 +735,6 @@ export const compareModePanelStyles = css`
 		justify-content: center;
 		min-height: 0;
 		padding: var(--gl-space-20) var(--gl-space-12);
-		color: var(--vscode-descriptionForeground);
-	}
-
-	/* Inline autolinks loading state — slots into the chip-overflow as a single non-chip
-	   pseudo-row, replacing the "No autolinks found" affordance during a comparison change.
-	   min-height matches gl-action-chip's intrinsic 2rem so the strip doesn't jump between
-	   the spinner and the chip-based states. */
-	.compare-enrichment__loading {
-		display: inline-flex;
-		gap: var(--gl-space-4);
-		align-items: center;
-		min-height: 2rem;
-		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 	}
 

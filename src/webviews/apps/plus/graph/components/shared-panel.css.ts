@@ -22,6 +22,48 @@ export const panelHostStyles = [
 	`,
 ];
 
+/** Autolinks chip strip shared by the compare and multi-commit panels, so the "No Autolinks Found"
+ *  affordance and the loading pseudo-row read identically in both. Panels layer their own overrides
+ *  on top — the multi-commit strip wraps, the compare strip stays single-row. */
+export const panelAutolinkStripStyles = css`
+	.compare-enrichment {
+		display: flex;
+		flex: none;
+		gap: 0.5rem;
+		align-items: center;
+		min-width: 0;
+		padding: var(--gl-space-4) var(--gl-space-12);
+		font-size: var(--gl-font-sm);
+	}
+
+	.compare-enrichment gl-action-chip[data-action='autolink-settings'] {
+		color: var(--color-foreground--65);
+		--code-icon-size: 1.2rem;
+	}
+
+	.compare-enrichment gl-action-chip::part(base) {
+		gap: var(--gl-space-4);
+	}
+
+	.compare-enrichment gl-action-chip::part(icon) {
+		display: inline-flex;
+		align-items: center;
+		line-height: 1;
+	}
+
+	/* Inline autolinks loading state — replaces the "No autolinks found" affordance while the
+	   comparison identity is changing. min-height matches gl-action-chip's intrinsic 2rem so the
+	   strip doesn't jump between the spinner and the chip-based states. */
+	.compare-enrichment__loading {
+		display: inline-flex;
+		gap: var(--gl-space-4);
+		align-items: center;
+		min-height: 2rem;
+		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+`;
+
 export const panelActionInputStyles = css`
 	.review-action-input,
 	gl-ai-input,

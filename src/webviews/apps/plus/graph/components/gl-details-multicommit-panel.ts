@@ -21,6 +21,11 @@ import type {
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
+import {
+	AutolinkMerger,
+	renderAutolinkChips,
+	renderAutolinksPopover,
+} from '../../../shared/components/chips/autolinks.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { redispatch } from '../../../shared/components/element.js';
@@ -35,6 +40,7 @@ import { renderCopyChangesAction, renderOpenChangesAction } from '../../../share
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import type { RunningOperationExecState } from './detailsState.js';
 import { multiCommitPanelStyles, panelActionInputStyles, panelHostStyles } from './gl-details-multicommit-panel.css.js';
+import { panelAutolinkStripStyles } from './shared-panel.css.js';
 import '../../../shared/components/code-icon.js';
 import './gl-compare-ai-actions.js';
 import '../../../shared/components/commit-sha.js';
@@ -60,6 +66,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		metadataBarVarsBase,
 		panelHostStyles,
 		panelActionInputStyles,
+		panelAutolinkStripStyles,
 		multiCommitPanelStyles,
 		subPanelEnterStyles,
 		scrollableBase,
@@ -566,38 +573,11 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		></gl-commit-row-item>`;
 	}
 
-	private _cachedMergedAutolinks?: {
-		autolinksRef: Autolink[] | undefined;
-		enrichedRef: IssueOrPullRequest[] | undefined;
-		out: { autolinks: Autolink[]; enriched: IssueOrPullRequest[] };
-	};
-
-	private getMergedAutolinks() {
-		const autolinks = this.autolinks;
-		const enriched = this.enrichedItems;
-
-		const cached = this._cachedMergedAutolinks;
-		if (cached != null && cached.autolinksRef === autolinks && cached.enrichedRef === enriched) {
-			return cached.out;
-		}
-
-		let out: { autolinks: Autolink[]; enriched: IssueOrPullRequest[] };
-		if (!enriched?.length) {
-			out = { autolinks: autolinks ?? [], enriched: [] };
-		} else {
-			const enrichedIds = new Set(enriched.map(i => i.id));
-			const remaining = autolinks?.filter(a => !enrichedIds.has(a.id)) ?? [];
-			out = { autolinks: remaining, enriched: enriched };
-		}
-		this._cachedMergedAutolinks = { autolinksRef: autolinks, enrichedRef: enriched, out: out };
-		return out;
-	}
+	private readonly _autolinkMerger = new AutolinkMerger();
 
 	private renderAutolinksRow() {
-		const { autolinks, enriched } = this.getMergedAutolinks();
-		const hasAutolinks = autolinks.length > 0;
-		const hasEnriched = enriched.length > 0;
-		const hasChips = hasAutolinks || hasEnriched;
+		const merged = this._autolinkMerger.merge(this.autolinks, this.enrichedItems);
+		const hasChips = merged.autolinks.length > 0 || merged.enriched.length > 0;
 		// Show the loading state until BOTH the comparison fetch AND the autolinks fetch settle —
 		// the autolinks request is fired after `compare` resolves, so there's a window where
 		// `_comparisonChanging` is false but chips haven't arrived yet. Without `autolinksLoading`
@@ -621,43 +601,8 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 									slotName: 'prefix',
 								})
 				}
-				${
-					hasAutolinks
-						? autolinks.map(autolink => {
-								const name =
-									autolink.description ?? autolink.title ?? `${autolink.prefix}${autolink.id}`;
-								return html`<gl-autolink-chip
-									type="autolink"
-									name=${name}
-									url=${autolink.url}
-									identifier="${autolink.prefix}${autolink.id}"
-									openOnRemote
-								></gl-autolink-chip>`;
-							})
-						: nothing
-				}
-				${
-					hasEnriched
-						? enriched.map(
-								item =>
-									html`<gl-autolink-chip
-										type=${item.type === 'pullrequest' ? 'pr' : 'issue'}
-										name=${item.title}
-										url=${item.url}
-										identifier="#${item.id}"
-										status=${item.state}
-										.date=${item.closed ? item.closedDate : item.createdDate}
-										.dateFormat=${this.preferences?.dateFormat}
-										.dateStyle=${this.preferences?.dateStyle}
-										.itemId=${item.id}
-										.providerId=${item.provider?.id}
-										?details=${item.type === 'pullrequest'}
-										openOnRemote
-									></gl-autolink-chip>`,
-							)
-						: nothing
-				}
-				${this.renderAutolinksPopover(autolinks, enriched)} ${this.renderEnrichButton()}
+				${renderAutolinkChips(merged, this.preferences)} ${renderAutolinksPopover(merged)}
+				${this.renderEnrichButton()}
 				${
 					hasChips
 						? renderLearnAboutAutolinks({
@@ -668,55 +613,6 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 						: nothing
 				}
 			</gl-chip-overflow>
-		</div>`;
-	}
-
-	private renderAutolinksPopover(autolinks: Autolink[], enriched: IssueOrPullRequest[]) {
-		if (!autolinks.length && !enriched.length) return nothing;
-
-		const enrichedPrs = enriched.filter(i => i.type === 'pullrequest');
-		const enrichedIssues = enriched.filter(i => i.type !== 'pullrequest');
-		let needsDivider = false;
-
-		return html`<div slot="popover">
-			${
-				enrichedPrs.length > 0
-					? html`<menu-label>Pull Requests</menu-label> ${enrichedPrs.map(
-								pr =>
-									html`<menu-item href=${pr.url}>
-										<code-icon icon="git-pull-request"></code-icon> #${pr.id}
-										${pr.title ? ` — ${pr.title}` : ''}
-									</menu-item>`,
-							)}${((needsDivider = true), nothing)}`
-					: nothing
-			}
-			${
-				enrichedIssues.length > 0
-					? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
-							<menu-label>Issues</menu-label>
-							${enrichedIssues.map(
-								issue =>
-									html`<menu-item href=${issue.url}>
-										<code-icon icon="issues"></code-icon> #${issue.id}
-										${issue.title ? ` — ${issue.title}` : ''}
-									</menu-item>`,
-							)}${((needsDivider = true), nothing)}`
-					: nothing
-			}
-			${
-				autolinks.length > 0
-					? html`${needsDivider ? html`<menu-divider></menu-divider>` : nothing}
-							<menu-label>Autolinks</menu-label>
-							${autolinks.map(
-								a =>
-									html`<menu-item href=${a.url}>
-										<code-icon icon="link"></code-icon> ${a.prefix}${a.id}${
-											a.provider?.name ? ` on ${a.provider.name}` : ''
-										}
-									</menu-item>`,
-							)}`
-					: nothing
-			}
 		</div>`;
 	}
 
