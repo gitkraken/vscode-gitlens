@@ -26,6 +26,12 @@ export interface SidebarActions {
 	/** The currently visible panel — set by the sidebar-panel component so invalidateAll can refetch it. */
 	activePanel: GraphSidebarPanel | undefined;
 
+	/** True while the sidebar is actually on screen. The panel component is NEVER unmounted — it's slotted
+	 *  into the split panel with `inert` when collapsed — so it has to report this itself. Sent to the host
+	 *  as `displayed` on each panel request, where it suppresses the per-worktree git fan-out; it does NOT
+	 *  gate any client-side fetch, so a wrong value can never stale or blank the panel's own data. */
+	sidebarShowing: boolean;
+
 	/** Session filter text — survives sidebar-panel destruction/recreation, NOT webview reload. */
 	filterText: string;
 
@@ -41,6 +47,7 @@ export interface SidebarActions {
 	initialize(service: GraphSidebarService): void;
 	fetchPanel(panel: GraphSidebarPanel): void;
 	fetchCounts(): void;
+	refreshOnReveal(): void;
 	invalidateAll(): void;
 	refresh(panel: GraphSidebarPanel): void;
 	toggleLayout(panel: GraphSidebarPanel): void;
@@ -59,6 +66,10 @@ export function createSidebarActions(): SidebarActions {
 	const countsLoading = litSignal(false);
 	const countsError = litSignal(false);
 
+	// Held as a local (not read off `actions`) so the panel-resource factories below can capture it without
+	// referencing `actions` before it's defined.
+	let sidebarShowing = true;
+
 	let service: GraphSidebarService | undefined;
 	let unsubscribeConfig: (() => void) | undefined;
 	let unsubscribeWorktree: (() => void) | undefined;
@@ -68,7 +79,9 @@ export function createSidebarActions(): SidebarActions {
 		return createResource<DidGetSidebarDataParams | undefined>(
 			async (signal: AbortSignal) => {
 				if (service == null) return undefined;
-				return service.getSidebarData(panel, signal);
+				// Read at fetch time, not capture time, so a fetch issued as the sidebar opens reports the
+				// current visibility rather than whatever it was when the resource was created.
+				return service.getSidebarData(panel, { displayed: sidebarShowing }, signal);
 			},
 			{ initialValue: undefined },
 		);
@@ -138,6 +151,15 @@ export function createSidebarActions(): SidebarActions {
 	const actions: SidebarActions = {
 		state: state,
 		activePanel: undefined,
+		// Delegates to the closure local the panel-resource factories read, so a write from the component
+		// actually reaches the value sent as `displayed`. Starts true — fail-open, matching the host's
+		// treatment of an absent flag: the worst case is one bounded fan-out, never a missing panel.
+		get sidebarShowing() {
+			return sidebarShowing;
+		},
+		set sidebarShowing(value: boolean) {
+			sidebarShowing = value;
+		},
 		filterText: '',
 		expandedPaths: expandedPaths,
 		selectedPath: selectedPath,
@@ -195,6 +217,15 @@ export function createSidebarActions(): SidebarActions {
 			void panels[panel].fetch();
 		},
 
+		/** Called by the sidebar-panel component when the sidebar becomes visible. Unconditional and cheap —
+		 *  it exists to warm the per-worktree enrichment that was suppressed host-side while hidden, since
+		 *  the panel data itself never went stale. */
+		refreshOnReveal: function () {
+			if (actions.activePanel != null) {
+				actions.fetchPanel(actions.activePanel);
+			}
+		},
+
 		fetchCounts: function () {
 			if (service == null || fetchCountsPromise != null) return;
 
@@ -208,6 +239,13 @@ export function createSidebarActions(): SidebarActions {
 		},
 
 		invalidateAll: function () {
+			// Deliberately NOT gated on sidebar visibility. Fetching panel data while hidden is ~7ms of
+			// in-memory assembly; the expensive part was the per-worktree git fan-out, and that is now
+			// suppressed host-side via the `displayed` flag on the request itself. Gating here instead would
+			// mean the client's data freshness depended on a visibility bit staying in sync across every
+			// lifecycle edge — and a wrong bit could leave a visible panel stale, or blank via `refresh()`'s
+			// own reset. Keeping one code path means panel data is always correct; only the enrichment is
+			// conditional, and its worst case is a missing dirty-pill until the next displayed fetch.
 			for (const [panel, r] of Object.entries(panels)) {
 				if (panel === actions.activePanel) continue;
 

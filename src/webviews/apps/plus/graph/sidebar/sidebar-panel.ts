@@ -455,6 +455,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	@property({ type: String, attribute: 'active-panel' })
 	activePanel: GraphSidebarPanel | undefined;
 
+	/** Whether the sidebar is actually on screen. This component is never unmounted — it stays slotted in
+	 *  the split panel and is only made `inert` when collapsed — so it has to report visibility itself.
+	 *  Rides along as `displayed` on each panel request, where the host uses it to skip the per-worktree git
+	 *  fan-out; fetches themselves are deliberately never gated on it. */
+	@property({ type: Boolean })
+	open = false;
+
 	@property({ attribute: 'date-format' })
 	dateFormat: string | null | undefined;
 
@@ -572,6 +579,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	};
 
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
+		// Visibility has to sync on its OWN transition, not inside the `activePanel` guard below: collapsing
+		// and re-expanding never changes `activePanel` (the sidebar signal merges key-by-key, so the panel
+		// selection survives), so a write nested in that guard would go stale in both directions — never set
+		// on a live collapse, and stuck `false` after a reload-while-collapsed is re-expanded. A stale value
+		// only mis-reports `displayed` (enrichment computed for a collapsed panel, or pills missing until the
+		// next fetch); it cannot stale or blank the panel's data, which is never gated on it.
+		if (changedProperties.has('open') && this._actions != null) {
+			this._actions.sidebarShowing = this.open;
+		}
+
 		if (changedProperties.has('activePanel') && this._actions != null) {
 			// Reset the shown guards so switching away and back emits a fresh impression
 			// while intra-activation re-renders (WIP pushes, refresh) do not.
@@ -596,8 +613,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			this.emitTagsFilteredTelemetryDebounced.cancel();
 			this.emitPullRequestsFilteredTelemetryDebounced.cancel();
 
-			// Keep the actions module in sync so invalidateAll can refetch
+			// Keep the actions module in sync so invalidateAll can refetch. Also seeds `sidebarShowing` on
+			// the boot update, where `activePanel` transitions undefined→restored but `open` may not change.
 			this._actions.activePanel = this.activePanel;
+			this._actions.sidebarShowing = this.open;
 
 			// `_actions.filterText` is a single string shared across panels and survives panel
 			// switches (its only write is `handleFilterChanged`), while `_agentsFilterActive` is
@@ -626,6 +645,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	override updated(_changedProperties: Map<PropertyKey, unknown>): void {
+		// Reveal: warm the per-worktree enrichment the host suppressed while this was collapsed (it gates on
+		// the `displayed` flag we send with each request). The panel's own data never went stale — fetches
+		// are never gated client-side — so this exists only to fill in the pills. Unconditional, so each
+		// reveal costs one small fetch plus a fan-out trigger; `computeWorktreeChanges` coalesces to one
+		// running + one trailing run, which bounds rapid collapse/expand cycling.
+		if (_changedProperties.has('open') && this.open && this._actions != null) {
+			this._actions.refreshOnReveal();
+		}
+
 		if (this._pendingFocus) {
 			this.focusFilter();
 		}

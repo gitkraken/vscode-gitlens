@@ -949,7 +949,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			...base,
 			graphInspect: graphInspect,
 			sidebar: {
-				getSidebarData: (panel, signal) => this.onGetSidebarData({ panel: panel }, signal),
+				getSidebarData: (panel, options, signal) =>
+					this.onGetSidebarData({ panel: panel, displayed: options?.displayed }, signal),
 				getSidebarCounts: () => this.onGetCounts(),
 				findPullRequest: number => this._panels.onFindPullRequest({ number: number }),
 				toggleLayout: panel => this.onSidebarToggleLayout({ panel: panel }),
@@ -1639,7 +1640,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onGetSidebarData(
-		params: { panel: GraphSidebarPanel },
+		params: { panel: GraphSidebarPanel; displayed?: boolean },
 		signal?: AbortSignal,
 	): Promise<DidGetSidebarDataParams> {
 		return this._panels.onGetSidebarData(params, signal);

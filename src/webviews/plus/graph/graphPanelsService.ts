@@ -322,7 +322,7 @@ export class GraphPanelsService {
 	}
 
 	async onGetSidebarData(
-		params: { panel: GraphSidebarPanel },
+		params: { panel: GraphSidebarPanel; displayed?: boolean },
 		signal?: AbortSignal,
 	): Promise<DidGetSidebarDataParams> {
 		const graph = this._graphSession?.current ?? (await this.context.getLoading()?.catch(() => undefined));
@@ -341,7 +341,7 @@ export class GraphPanelsService {
 			case 'tags':
 				return this.getSidebarTags(graph);
 			case 'worktrees':
-				return this.getSidebarWorktrees(graph);
+				return this.getSidebarWorktrees(graph, params.displayed);
 			default:
 				return { panel: params.panel, items: [] };
 		}
@@ -793,7 +793,7 @@ export class GraphPanelsService {
 		return { panel: 'tags' as const, items: items, layout: tagCfg.layout, compact: tagCfg.compact };
 	}
 
-	private getSidebarWorktrees(graph: GitGraph) {
+	private getSidebarWorktrees(graph: GitGraph, displayed?: boolean) {
 		const providerByRemote = this.getProviderByRemote(graph);
 		const pinnedRefId = this.context.getPinnedRefId(graph.repoPath);
 
@@ -897,8 +897,14 @@ export class GraphPanelsService {
 			};
 		});
 
-		// Fire-and-forget: compute working changes per worktree and notify the webview
-		if (worktrees.length > 0) {
+		// Fire-and-forget: compute working changes per worktree and notify the webview. Gated on the panel
+		// actually being on screen — this is the only call site, and it's the expensive half of this request
+		// (a per-worktree git probe; the item list above is in-memory). The sidebar panel component is never
+		// unmounted (it stays slotted with `inert` when collapsed), so without the flag this ran on every
+		// repo event for a surface nobody could see. `undefined` computes, so any caller that doesn't pass
+		// the flag keeps the old behavior; a wrong `false` costs only the dirty-pill enrichment, which the
+		// working-tree push channel refreshes anyway — it can never blank or stale the panel's own data.
+		if (worktrees.length > 0 && displayed !== false) {
 			this.context.computeWorktreeChanges(worktrees);
 		}
 

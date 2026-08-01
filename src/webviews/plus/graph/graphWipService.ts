@@ -440,31 +440,61 @@ export class GraphWipService {
 
 	private async doComputeWorktreeChanges(worktrees: Parameters<typeof getWorktreeHasWorkingChanges>[1][]) {
 		try {
-			const results = await Promise.allSettled(
-				worktrees.map(async w => {
-					if (w.type === 'bare') return [w.uri.fsPath, undefined] as const;
+			// Bounded, cheap-first — mirrors the secondary-WIP probe above rather than fanning a full
+			// `git status` at every worktree at once. Two costs were being paid needlessly: an unbounded
+			// spawn storm (100 worktrees = 100 concurrent statuses contending for the shared git queue,
+			// starving whatever else is touching the repo), and a rename-detecting, untracked-scanning
+			// status on CLEAN worktrees purely to learn they're clean. `git diff --quiet` answers that far
+			// faster and short-circuits; only a worktree it reports dirty is worth a full status, and only
+			// dirty worktrees have a diffstat to show.
+			const targets = worktrees.filter(w => w.type !== 'bare');
+			const entries: (readonly [string, SidebarWorktreeChange | undefined])[] = [];
+			const probeConcurrency = 4;
+			let nextTarget = 0;
+			await Promise.allSettled(
+				Array.from({ length: Math.min(probeConcurrency, targets.length) }, async () => {
+					while (nextTarget < targets.length) {
+						const w = targets[nextTarget++];
+						const path = w.uri.fsPath;
 
-					// Route through `_wipStatusCache` so the worktrees panel shares status data
-					// with the WIP/overview paths — when the per-event push has just populated the
-					// cache for this worktree, the panel fetch is free.
-					const path = w.uri.fsPath;
-					const svc = this.container.git.getRepositoryService(path);
-					const status = await this._wipStatusCache.getOrCreate(path, (_cacheable, factorySignal) =>
-						svc.status.getStatus(undefined, factorySignal),
-					);
-					const entry: SidebarWorktreeChange | undefined =
-						status != null
-							? { hasChanges: status.files.length > 0, workingTreeState: status.diffStatus }
-							: undefined;
-					return [path, entry] as const;
+						// Per-iteration, so one worktree's failure can't kill this worker and silently strand
+						// the rest of its share of `targets` (the outer allSettled only covers the workers).
+						try {
+							// `throwOnError` so a git failure surfaces here instead of being swallowed into a
+							// `false`. Reporting "No changes" because the probe FAILED is worse than reporting
+							// nothing: an undefined entry leaves the row's previous state alone, a definite
+							// `false` paints a clean pill over a worktree that may well be dirty.
+							const hasChanges = await getWorktreeHasWorkingChanges(this.container, w, {
+								throwOnError: true,
+							});
+							if (hasChanges !== true) {
+								entries.push([path, hasChanges == null ? undefined : { hasChanges: false }] as const);
+								continue;
+							}
+
+							// Dirty — now the diffstat is worth fetching. Route through `_wipStatusCache` so the
+							// panel shares status data with the WIP/overview paths; when the per-event push has
+							// already populated the cache for this worktree, this is free.
+							const svc = this.container.git.getRepositoryService(path);
+							const status = await this._wipStatusCache.getOrCreate(path, (_cacheable, factorySignal) =>
+								svc.status.getStatus(undefined, factorySignal),
+							);
+							entries.push([
+								path,
+								status != null
+									? { hasChanges: status.files.length > 0, workingTreeState: status.diffStatus }
+									: { hasChanges: true },
+							] as const);
+						} catch {
+							// Leave this worktree's row untouched rather than asserting a verdict we don't have.
+							entries.push([path, undefined] as const);
+						}
+					}
 				}),
 			);
-
 			const changes: Record<string, SidebarWorktreeChange | undefined> = {};
-			for (const result of results) {
-				if (result.status === 'fulfilled') {
-					changes[result.value[0]] = result.value[1];
-				}
+			for (const [path, entry] of entries) {
+				changes[path] = entry;
 			}
 
 			this.context.fireSidebarWorktreeChanges(changes);

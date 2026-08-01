@@ -213,7 +213,7 @@ export async function getWorktreeStatus(container: Container, worktree: GitWorkt
 export async function getWorktreeHasWorkingChanges(
 	container: Container,
 	worktree: GitWorktree,
-	options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean },
+	options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean; throwOnError?: boolean },
 ): Promise<boolean | undefined> {
 	if (worktree.type === 'bare') return undefined;
 	return container.git.getRepositoryService(worktree.uri.fsPath).status?.hasWorkingChanges(options);

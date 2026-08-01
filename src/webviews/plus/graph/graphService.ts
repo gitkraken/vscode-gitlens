@@ -644,7 +644,15 @@ export interface GraphInspectService {
 }
 
 export interface GraphSidebarService {
-	getSidebarData(panel: GraphSidebarPanel, signal?: AbortSignal): Promise<DidGetSidebarDataParams>;
+	/** `displayed` reports whether the sidebar is actually on screen. The panel data itself is cheap
+	 *  (~7ms, assembled from the loaded graph session) and is ALWAYS returned; the flag only suppresses the
+	 *  per-worktree git fan-out the worktrees branch kicks off, which is the expensive part. Omitted/undefined
+	 *  fails OPEN (compute), so a caller that doesn't know stays on the old behavior. */
+	getSidebarData(
+		panel: GraphSidebarPanel,
+		options?: { displayed?: boolean },
+		signal?: AbortSignal,
+	): Promise<DidGetSidebarDataParams>;
 	getSidebarCounts(): Promise<DidGetCountParams>;
 	/** Looks up one pull request by number, for the Focus pane's search fallback — the panel lists only
 	 *  open PRs, so a pasted URL for a merged or closed one isn't in the loaded set. */

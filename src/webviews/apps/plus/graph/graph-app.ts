@@ -2420,6 +2420,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			<gl-graph-sidebar-panel
 				slot="start"
 				?inert=${!isOpen}
+				?open=${isOpen}
 				active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
 				date-format=${this.graphState.config?.dateFormat ?? nothing}
 				@gl-graph-sidebar-panel-select=${this.handleSidebarPanelSelect}
