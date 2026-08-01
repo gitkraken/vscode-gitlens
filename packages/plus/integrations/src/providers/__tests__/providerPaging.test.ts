@@ -235,4 +235,72 @@ suite('mergeCollectionMetadata', () => {
 			{ kind: 'authentication', scope: { resourceId: 'r1' }, message: 'different' },
 		]);
 	});
+
+	test('collapses omissions per kind and scope, keeping the highest reported total', () => {
+		const merged = mergeCollectionMetadata(
+			{
+				completeness: 'partial',
+				omissions: [
+					{ kind: 'provider-limit', scope: { repositoryId: 'o/r1' }, limit: 1000, totalCount: 1393 },
+					{ kind: 'recovery-budget', scope: { repositoryId: 'o/r2' }, limit: 128 },
+				],
+			},
+			{
+				completeness: 'partial',
+				omissions: [
+					// Structurally identical to the first omission -> collapsed.
+					{ kind: 'provider-limit', scope: { repositoryId: 'o/r1' }, limit: 1000, totalCount: 1393 },
+					// The same cap on the same repo, re-measured on a later page. GitHub recomputes the match
+					// total per request, so this is one omission with a drifting count, not two — collapse it
+					// and keep the highest figure, or the consumer gets a near-identical warning per page.
+					{ kind: 'provider-limit', scope: { repositoryId: 'o/r1' }, limit: 1000, totalCount: 1600 },
+					// A different repository is a genuinely distinct omission -> kept.
+					{ kind: 'provider-limit', scope: { repositoryId: 'o/r3' }, limit: 1000, totalCount: 1042 },
+				],
+			},
+		);
+
+		assert.equal(merged?.completeness, 'partial');
+		assert.deepEqual(merged?.omissions, [
+			{ kind: 'provider-limit', scope: { repositoryId: 'o/r1' }, limit: 1000, totalCount: 1600 },
+			{ kind: 'recovery-budget', scope: { repositoryId: 'o/r2' }, limit: 128 },
+			{ kind: 'provider-limit', scope: { repositoryId: 'o/r3' }, limit: 1000, totalCount: 1042 },
+		]);
+	});
+
+	test('a re-measured omission never lowers the reported total', () => {
+		// Order must not decide the outcome: a later page reporting a SMALLER total keeps the larger figure.
+		const merged = mergeCollectionMetadata(
+			{ completeness: 'partial', omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1600 }] },
+			{ completeness: 'partial', omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1393 }] },
+		);
+
+		assert.deepEqual(merged?.omissions, [{ kind: 'provider-limit', limit: 1000, totalCount: 1600 }]);
+	});
+
+	test('omits the omissions key entirely when neither side reported one', () => {
+		const merged = mergeCollectionMetadata(
+			{ completeness: 'partial', failures: [{ kind: 'rate-limit' }] },
+			{ completeness: 'complete' },
+		);
+
+		// Deep-equal against the pre-omissions shape: a metadata-free drain must not start carrying an
+		// explicit `omissions: []` that consumers would have to special-case.
+		assert.deepEqual(merged, { completeness: 'partial', failures: [{ kind: 'rate-limit' }] });
+	});
+
+	test('carries omissions through when only one side reported them', () => {
+		const omission = { kind: 'provider-limit' as const, limit: 1000, totalCount: 1393 };
+
+		assert.deepEqual(
+			mergeCollectionMetadata({ completeness: 'complete' }, { completeness: 'partial', omissions: [omission] })
+				?.omissions,
+			[omission],
+		);
+		assert.deepEqual(
+			mergeCollectionMetadata({ completeness: 'partial', omissions: [omission] }, { completeness: 'complete' })
+				?.omissions,
+			[omission],
+		);
+	});
 });
