@@ -1,5 +1,6 @@
+import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { GraphVisualizationKey } from '../../../../../constants.telemetry.js';
-import type { VisualizationMode } from '../../../../plus/graph/protocol.js';
+import type { GraphIncludeOnlyRefs, GraphScope, VisualizationMode } from '../../../../plus/graph/protocol.js';
 import type { TreemapMode, TreemapNode } from '../../../../plus/treemap/protocol.js';
 
 // Re-exported from the telemetry contract (the single source of truth for the visualization
@@ -22,6 +23,45 @@ export function getEffectiveVisualizationKey(
 	if (!visualizationsEnabled) return 'timeline';
 	if ((visualizationMode ?? 'timeline') === 'timeline') return 'timeline';
 	return `treemap-${treemapMode ?? 'files'}`;
+}
+
+/** The slice of graph state the branch-walk helpers read. */
+export interface BranchWalkContext {
+	branchesVisibility?: GraphBranchesVisibility;
+	includeOnlyRefs?: GraphIncludeOnlyRefs;
+	scope?: GraphScope;
+}
+
+/** When the Graph is in "All Branches" visibility AND no specific branch is scoped, a visualization
+ *  uses the host's `--all` shortcut. For every other visibility mode (smart/favorited/current) the
+ *  caller walks specific refs via {@link getAdditionalBranches} instead — keeping the visualization's
+ *  data in sync with what the Graph is showing. */
+export function shouldWalkAllBranches(state: BranchWalkContext): boolean {
+	if (state.scope != null) return false;
+	return state.branchesVisibility === 'all';
+}
+
+/** Branch names from the Graph's `includeOnlyRefs` filter — the actual refs the Graph is showing for
+ *  non-`'all'` visibility modes. Returns `undefined` when scoped to one branch (a single ref goes via
+ *  head), when the `--all` walk already covers everything, or when there are no refs to add (the
+ *  caller falls back to HEAD). */
+export function getAdditionalBranches(state: BranchWalkContext): string[] | undefined {
+	if (state.scope != null) return undefined;
+	if (shouldWalkAllBranches(state)) return undefined;
+
+	const includeOnlyRefs = state.includeOnlyRefs;
+	if (includeOnlyRefs == null) return undefined;
+
+	const names: string[] = [];
+	for (const ref of Object.values(includeOnlyRefs)) {
+		// Skip the empty-set marker ('gk.empty-set-marker') and any malformed entries — only pull
+		// genuine refs with names.
+		if (ref == null || typeof ref !== 'object' || !('name' in ref) || typeof ref.name !== 'string') continue;
+		if (!ref.name) continue;
+
+		names.push(ref.name);
+	}
+	return names.length ? names : undefined;
 }
 
 export interface TreemapZoomClassification {

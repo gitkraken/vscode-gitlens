@@ -30,7 +30,13 @@ import type {
 } from '../../treemap/components/treemap-chart.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
-import { classifyTreemapZoom, countFileLeaves } from './visualizations.utils.js';
+import { getSelectedRepo } from '../utils/repository.utils.js';
+import {
+	classifyTreemapZoom,
+	countFileLeaves,
+	getAdditionalBranches,
+	shouldWalkAllBranches,
+} from './visualizations.utils.js';
 import './gl-details-agent-status.js';
 import './gl-graph-visualizations-switcher.js';
 import '../../treemap/components/treemap-chart.js';
@@ -572,9 +578,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	};
 
 	private get effectiveRepo() {
-		const repoId = this.graphState.selectedRepository;
-		const repos = this.graphState.repositories;
-		return repoId != null ? (repos?.find(r => r.id === repoId) ?? repos?.[0]) : repos?.[0];
+		return getSelectedRepo(this.graphState);
 	}
 
 	/** `_data` filtered through a repo-identity gate: if we still hold data for a previous repo
@@ -589,31 +593,12 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		return this.graphState.treemapMode ?? 'files';
 	}
 
-	/** Mirrors `gl-graph-timeline.showAllBranchesEffective`: only "All Branches" with no specific
-	 *  scope picks the `--all` walk. Every other visibility mode walks specific refs. */
 	private get showAllBranchesEffective(): boolean {
-		if (this.graphState.scope != null) return false;
-		return this.graphState.branchesVisibility === 'all';
+		return shouldWalkAllBranches(this.graphState);
 	}
 
-	/** Mirrors `gl-graph-timeline.additionalBranchesEffective`: pulls ref names from the Graph's
-	 *  `includeOnlyRefs` filter (smart / favorited / current visibility). Returns `undefined` for
-	 *  "all" visibility (the `--all` walk covers everything). */
 	private get additionalBranchesEffective(): string[] | undefined {
-		if (this.graphState.scope != null) return undefined;
-		if (this.showAllBranchesEffective) return undefined;
-
-		const includeOnlyRefs = this.graphState.includeOnlyRefs;
-		if (includeOnlyRefs == null) return undefined;
-
-		const names: string[] = [];
-		for (const ref of Object.values(includeOnlyRefs)) {
-			if (ref == null || typeof ref !== 'object' || !('name' in ref) || typeof ref.name !== 'string') continue;
-			if (!ref.name) continue;
-
-			names.push(ref.name);
-		}
-		return names.length ? names : undefined;
+		return getAdditionalBranches(this.graphState);
 	}
 
 	/** When the Graph's scope picker has focused a branch, the treemap walks that branch as head;

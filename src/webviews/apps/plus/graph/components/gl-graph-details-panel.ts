@@ -700,13 +700,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  am I looking at" context. Updates immediately on repo-selector switches, before any
 	 *  selection event lands. Implements `DetailsWorkflowHost.graphRepoPath`. */
 	graphRepoPath(): string | undefined {
-		const repoId = this._graphState?.selectedRepository;
-		const repos = this._graphState?.repositories;
-		if (repoId != null) {
-			const found = repos?.find(r => r.id === repoId)?.path;
-			if (found != null) return found;
-		}
-		return repos?.[0]?.path;
+		return getSelectedRepoPath(this._graphState ?? {});
 	}
 
 	/** Paused-op banner "Resolve Conflicts" text + the file-tree toolbar button — enters resolve mode

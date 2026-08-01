@@ -22,6 +22,7 @@ import { ruleStyles } from '../../shared/components/vscode.css.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import { actionButton, linkBase } from '../styles/graph.css.js';
+import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/code-icon.js';
@@ -777,9 +778,7 @@ export class PushPullButton extends LitElement {
 	/** `selectedRepository` is a repository *id*, not a path — resolve it through `repositories` rather
 	 *  than passing it straight to a service that wants a path. */
 	private get repoPath(): string | undefined {
-		const repos = this.state?.repositories;
-		const id = this.state?.selectedRepository;
-		return (id != null ? (repos?.find(r => r.id === id) ?? repos?.[0]) : repos?.[0])?.path;
+		return getSelectedRepoPath(this.state ?? {});
 	}
 
 	/** The tip of the upstream — the newest commit a pull would bring in, and so where the jump lands. */

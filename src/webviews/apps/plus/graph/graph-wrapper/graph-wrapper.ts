@@ -1147,11 +1147,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		let commits: Record<string, CommitDetails> | undefined;
 		if (focusedRow.kind !== 'workdir') {
-			const repositories = this.graphState.repositories;
-			const selectedRepoId = this.graphState.selectedRepository;
-			const fallbackRepoPath =
-				(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
-				repositories?.[0]?.path;
+			const fallbackRepoPath = getSelectedRepoPath(this.graphState);
 			if (fallbackRepoPath != null) {
 				commits = { [focusedRow.sha]: buildCommitLite(focusedRow, fallbackRepoPath, this.graphState.avatars) };
 			}
@@ -1894,11 +1890,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const sourceRowBySha = this.getSourceRowByShaMap();
 		let commits: Record<string, CommitDetails> | undefined;
 		if (sourceRowBySha != null && selection.length > 0) {
-			const repositories = this.graphState.repositories;
-			const selectedRepoId = this.graphState.selectedRepository;
-			const fallbackRepoPath =
-				(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
-				repositories?.[0]?.path;
+			const fallbackRepoPath = getSelectedRepoPath(this.graphState);
 			if (fallbackRepoPath != null) {
 				for (const sel of selection) {
 					if (sel.type === 'workdir') continue;

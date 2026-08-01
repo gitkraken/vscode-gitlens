@@ -6,6 +6,7 @@ import type { VisualizationMode } from '../../../../plus/graph/protocol.js';
 import type { TreemapMode } from '../../../../plus/treemap/protocol.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
+import { getSelectedRepo } from '../utils/repository.utils.js';
 import type { GraphVisualizationKey } from './visualizations.utils.js';
 import { getEffectiveVisualizationKey } from './visualizations.utils.js';
 import '../../../shared/components/code-icon.js';
@@ -125,10 +126,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 	}
 
 	private get commitsUnavailable(): boolean {
-		const repoId = this.graphState.selectedRepository;
-		const repos = this.graphState.repositories;
-		const repo = repoId != null ? (repos?.find(r => r.id === repoId) ?? repos?.[0]) : repos?.[0];
-		return repo?.virtual === true;
+		return getSelectedRepo(this.graphState)?.virtual === true;
 	}
 
 	/** Map current `(mode, treemapMode)` state to the active switcher key via the shared resolver, so

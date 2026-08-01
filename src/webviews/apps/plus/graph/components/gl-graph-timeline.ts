@@ -19,6 +19,8 @@ import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { CommitEventDetail, LoadMoreEventDetail } from '../../timeline/components/chart.js';
 import { isPseudoCommitDatum } from '../../timeline/components/chart/timelineData.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
+import { getSelectedRepo } from '../utils/repository.utils.js';
+import { getAdditionalBranches, shouldWalkAllBranches } from './visualizations.utils.js';
 import '../../timeline/components/chart.js';
 import '../../timeline/components/header.js';
 import '../../../shared/components/button.js';
@@ -324,9 +326,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	}
 
 	private get effectiveRepo() {
-		const repoId = this.graphState.selectedRepository;
-		const repos = this.graphState.repositories;
-		return repoId != null ? (repos?.find(r => r.id === repoId) ?? repos?.[0]) : repos?.[0];
+		return getSelectedRepo(this.graphState);
 	}
 
 	private get period(): TimelinePeriod {
@@ -352,35 +352,12 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		return this.sliceBySupportedEffective && this.showAllBranchesEffective ? this.sliceBy : 'author';
 	}
 
-	/** When the Graph is in "All Branches" visibility AND no specific branch is scoped, the timeline
-	 *  uses the host's `--all` shortcut. For every other visibility mode (smart/favorited/current),
-	 *  we walk specific refs via `additionalBranchesEffective` instead — keeps timeline data in sync
-	 *  with what the Graph is showing. */
 	private get showAllBranchesEffective(): boolean {
-		if (this.graphState.scope != null) return false;
-		return this.graphState.branchesVisibility === 'all';
+		return shouldWalkAllBranches(this.graphState);
 	}
 
-	/** Branch names from the Graph's `includeOnlyRefs` filter — these are the actual refs the Graph
-	 *  is showing for non-`'all'` visibility modes. Returns `undefined` when in `'all'` mode (the
-	 *  `--all` walk covers it) or when there are no refs to add (caller falls back to HEAD). */
 	private get additionalBranchesEffective(): string[] | undefined {
-		if (this.graphState.scope != null) return undefined; // scoped to one branch — single ref via head
-		if (this.showAllBranchesEffective) return undefined; // --all covers everything
-
-		const includeOnlyRefs = this.graphState.includeOnlyRefs;
-		if (includeOnlyRefs == null) return undefined;
-
-		const names: string[] = [];
-		for (const ref of Object.values(includeOnlyRefs)) {
-			// Skip the empty-set marker ('gk.empty-set-marker') and any malformed entries — only
-			// pull genuine refs with names.
-			if (ref == null || typeof ref !== 'object' || !('name' in ref) || typeof ref.name !== 'string') continue;
-			if (!ref.name) continue;
-
-			names.push(ref.name);
-		}
-		return names.length ? names : undefined;
+		return getAdditionalBranches(this.graphState);
 	}
 
 	/** Convert a `TimelinePeriod` (`'1|Y'`, `'30|D'`, `'all'`) to a millisecond span for the

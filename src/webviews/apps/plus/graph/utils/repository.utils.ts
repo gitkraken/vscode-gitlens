@@ -17,10 +17,25 @@ export function getSelectedRepoPath(state: {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 }): string | undefined {
+	return getSelectedRepo(state)?.path;
+}
+
+/**
+ * Resolves the graph's selected repository, falling back to the first when the selected id is absent
+ * or not (yet) present in `repositories` (e.g. mid repo-switch).
+ *
+ * Note the deliberately STRICTER variants elsewhere, which must not be folded in here: the kanban's
+ * `effectiveRepo` and graph-app's `fallbackRepoFamily` drop the fallback so a stale id resolves to
+ * `undefined` rather than silently answering for the wrong repo.
+ */
+export function getSelectedRepo(state: {
+	repositories?: GraphRepository[];
+	selectedRepository?: string;
+}): GraphRepository | undefined {
 	const { repositories, selectedRepository } = state;
 	if (selectedRepository != null) {
-		const found = repositories?.find(r => r.id === selectedRepository)?.path;
+		const found = repositories?.find(r => r.id === selectedRepository);
 		if (found != null) return found;
 	}
-	return repositories?.[0]?.path;
+	return repositories?.[0];
 }
