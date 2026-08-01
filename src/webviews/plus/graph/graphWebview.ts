@@ -554,6 +554,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.container.usage.onDidChange(this.onUsageChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
+			// The bar's primary continue swaps between automatic/manual with the session
+			this.container.autoRebase.onDidChange(e => {
+				if (e.repoPath === this.repository?.path) {
+					void this._wip.notifyDidChangeWorkingTree();
+				}
+			}),
 			this.container.git.onDidChangeRepositories(async e => {
 				if (this._etag !== this.container.git.etag) {
 					if (this._discovering != null) {

@@ -365,6 +365,9 @@ export interface WipChange {
 	files: WipFileChange[];
 	hasConflicts?: boolean;
 	pausedOpStatus?: GitPausedOperationStatus;
+	/** An automatic (AI) rebase session owns the paused rebase, so continuing should resume that run
+	 *  rather than issue a plain `--continue` */
+	aiRebaseActive?: boolean;
 }
 
 // ============================================================

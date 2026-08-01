@@ -420,6 +420,7 @@ export class GlDetailsWipHeader extends LitElement {
 				?has-staged-changes=${this.wip?.changes?.files?.some(f => f.staged) ?? false}
 				?ai-resolve=${this.aiEnabled}
 				?ai-resume=${this.aiEnabled}
+				?ai-active=${this.wip?.changes?.aiRebaseActive ?? false}
 				?readonly=${this.activeMode != null}
 				.pausedOpStatus=${pausedOpStatus}
 			></gl-merge-rebase-status>
