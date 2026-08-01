@@ -477,6 +477,22 @@ export class AIProviderService implements AIService, Disposable {
 				// Only the keys that define the global model matter here — other `ai.*` edits (temperature,
 				// custom instructions, exclusions) must not invalidate the resolved-model cache and force a
 				// fresh `provider.getModels()` round trip.
+				// A provider's server URL isn't part of a model id, so it can never produce the drift the
+				// compare below looks for and has to invalidate on its own. Ollama only: it's the one provider
+				// whose model list comes FROM that server, so a new URL can disagree about which models exist.
+				// The rest ship a static list, where re-resolving provably yields the same model.
+				if (configuration.changed(e, 'ai.ollama.url')) {
+					if (
+						this._model?.provider.id === 'ollama' ||
+						this._modelCache.get('global')?.provider.id === 'ollama'
+					) {
+						this._modelCache.clear();
+						this._providerModelsCache.delete('ollama');
+						this._model = undefined;
+					}
+					return;
+				}
+
 				if (!configuration.changed(e, ['ai.model', 'ai.gitkraken.model', 'ai.vscode.model'])) return;
 
 				// Only invalidate when the configured global model actually drifted from what's
@@ -780,7 +796,14 @@ export class AIProviderService implements AIService, Disposable {
 		if (pending == null) {
 			pending = (async () => {
 				try {
-					return await provider.getModels();
+					const models = await provider.getModels();
+					// For a provider whose list comes from a server, an empty result is a failure in disguise
+					// — Ollama swallows fetch errors and returns `[]` — so don't let one stick for the session
+					// and strand the user on "no models" until a reload.
+					if (!models.length) {
+						this._providerModelsCache.delete(providerId);
+					}
+					return models;
 				} catch (ex) {
 					// Don't cache a failure — let the next call retry.
 					this._providerModelsCache.delete(providerId);
