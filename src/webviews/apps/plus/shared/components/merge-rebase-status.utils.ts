@@ -70,19 +70,34 @@ export function getPausedOperationSkipRef(status: GitPausedOperationStatus): Git
 	return status.type === 'rebase' ? status.steps.current.commit : status.incoming;
 }
 
+/** The Skip action's title; the victim rides in the tooltip detail, not the label. */
 export function getPausedOperationSkipLabel(status: GitPausedOperationStatus): string {
-	const described = describeCommit(getPausedOperationSkipRef(status));
-	return described != null ? `Skip ${described}` : 'Skip';
+	if (getPausedOperationSkipRef(status) == null) return 'Skip';
+	return status.type === 'rebase' ? 'Skip Paused Commit' : 'Skip Commit';
 }
 
-/** The paused-at pill's hover: the commit the step counter stands in for, plus how much is left. */
-export function getPausedOperationStepTooltip(status: GitRebaseStatus): string {
-	const remaining = `${Math.max(0, status.steps.total - status.steps.current.number)} remaining`;
-	const described = describeCommit(status.steps.current.commit);
-	return described != null ? `${described} — ${remaining}` : remaining;
+/** The Skip tooltip's detail line — names the commit a skip would drop. */
+export function getPausedOperationSkipDetail(status: GitPausedOperationStatus): string | undefined {
+	return describePausedOperationCommit(getPausedOperationSkipRef(status));
 }
 
-function describeCommit(ref: GitRevisionReference | undefined): string | undefined {
+/** The paused-at pill's tooltip: where the operation stands, plus the paused-on commit's subject. */
+export function getPausedOperationStepTooltipParts(status: GitRebaseStatus): {
+	detail: string;
+	subject: string | undefined;
+} {
+	const step = `step ${status.steps.current.number} of ${status.steps.total}`;
+	const sha = shortenRevision(status.steps.current.commit?.ref);
+
+	const { summary } = splitCommitMessage(status.steps.current.commit?.message);
+	return {
+		detail: sha ? `Rebase paused at ${sha} (${step})` : `Rebase paused (${step})`,
+		subject: summary ? `"${truncate(summary, maxSubjectLength)}"` : undefined,
+	};
+}
+
+/** `<shortSha> "<subject>"` when the message is known, the sha alone otherwise. */
+export function describePausedOperationCommit(ref: GitRevisionReference | undefined): string | undefined {
 	if (!ref?.ref) return undefined;
 
 	const sha = shortenRevision(ref.ref);

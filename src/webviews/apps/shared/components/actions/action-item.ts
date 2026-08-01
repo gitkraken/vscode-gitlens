@@ -151,8 +151,12 @@ export class ActionItem extends LitElement {
 	}
 
 	override render(): unknown {
+		// A slotted `tooltip` supersedes the label-derived string, for consumers needing rich content
+		const richTooltip = this.querySelector('[slot="tooltip"]') != null;
+
 		return html`
-			<gl-tooltip content="${this.effectiveTooltip ?? nothing}">
+			<gl-tooltip content="${richTooltip ? nothing : (this.effectiveTooltip ?? nothing)}">
+				${richTooltip ? html`<span slot="content"><slot name="tooltip"></slot></span>` : nothing}
 				<a
 					role="${!this.effectiveHref ? 'button' : nothing}"
 					type="${!this.effectiveHref ? 'button' : nothing}"
