@@ -763,13 +763,16 @@ function renderNamedSegment(
 	onJump?: () => void,
 	leading?: TemplateResult,
 ): TemplateResult {
-	const content = html`<code-icon class="gl-graph__ref-pill-upstream-icon" icon=${icon}></code-icon>
-		${label.length > 0 ? html`<span class="gl-graph__ref-pill-upstream-label">${label}</span>` : nothing}`;
+	const glyph = html`<code-icon class="gl-graph__ref-pill-upstream-icon" icon=${icon}></code-icon>`;
+	// A `leading` pin shares the glyph's grid track rather than taking one of its own: the labelled shape is a
+	// two-column grid (see `:has(> …-label)` in graph.scss), so a third child would wrap the label to a second row.
+	const content = html`${
+		leading != null ? html`<span class="gl-graph__ref-pill-upstream-lead">${leading}${glyph}</span>` : glyph
+	}
+	${label.length > 0 ? html`<span class="gl-graph__ref-pill-upstream-label">${label}</span>` : nothing}`;
 	// `leading` only rides the static form — the jump form is itself a <button>, which can't nest one.
 	if (onJump == null) {
-		return html`<span class="gl-graph__ref-pill-upstream" aria-label=${tip} data-tooltip=${tip}
-			>${leading ?? nothing}${content}</span
-		>`;
+		return html`<span class="gl-graph__ref-pill-upstream" aria-label=${tip} data-tooltip=${tip}>${content}</span>`;
 	}
 
 	return html`<button

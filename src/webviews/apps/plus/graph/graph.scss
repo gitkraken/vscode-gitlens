@@ -3262,7 +3262,10 @@ gl-lit-graph {
 	// The pin on an absorbed in-sync upstream — the only place that ref's pin can show. Sits at the segment's
 	// leading edge, mirroring the pill's own leading slot, with the band inset to clear the divider.
 	.gl-graph__ref-pill-icon--pin-upstream {
-		margin-right: 0.2rem;
+		// Tucks into the segment's 0.5rem inset so the pin sits with the divider rather than floating off it.
+		// No right margin: the lead wrapper's gap already spaces it from the provider glyph, and the two
+		// together read as double the pill's own pinned slot.
+		margin-left: -0.2rem;
 
 		&::before {
 			inset-inline: -0.2rem;
@@ -3455,6 +3458,14 @@ gl-lit-graph {
 	.gl-graph__ref-pill:not(:has(.gl-graph__ref-pill-more-group)) .gl-graph__ref-pill-upstream--jump {
 		margin-right: -0.8rem;
 		padding-right: 0.8rem;
+	}
+	// Pin + provider glyph as ONE grid item, so the labelled segment stays two-column and its label can't
+	// wrap to a second row. Mirrors the pinned leading slot on the pill itself.
+	.gl-graph__ref-pill-upstream-lead {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.4rem;
 	}
 	.gl-graph__ref-pill-upstream-icon {
 		display: inline-flex;
