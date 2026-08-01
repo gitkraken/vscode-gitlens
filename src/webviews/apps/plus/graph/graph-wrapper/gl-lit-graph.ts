@@ -92,6 +92,7 @@ import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
+import { dispatchContextMenuAt } from '../../../shared/dom.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { GlGraphRefFind } from '../components/gl-graph-ref-find.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
@@ -8504,17 +8505,7 @@ export class GlLitGraph extends LitElement {
 		const target = event.currentTarget;
 		if (!(target instanceof HTMLElement)) return;
 
-		const rect = target.getBoundingClientRect();
-		target.dispatchEvent(
-			new MouseEvent('contextmenu', {
-				bubbles: true,
-				composed: true,
-				cancelable: true,
-				clientX: rect.left,
-				clientY: rect.bottom,
-				button: 2,
-			}),
-		);
+		dispatchContextMenuAt(target);
 	};
 
 	// Read-modify-write the persisted 'graph' column entry: the host replaces a column's config

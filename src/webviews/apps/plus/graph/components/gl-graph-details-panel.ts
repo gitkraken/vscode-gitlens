@@ -53,6 +53,7 @@ import { webviewContext } from '../../../shared/contexts/webview.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
+import { dispatchContextMenuAt } from '../../../shared/dom.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
@@ -879,17 +880,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const target = e.currentTarget as HTMLElement | null;
 		if (target == null) return;
 
-		const rect = target.getBoundingClientRect();
-		target.dispatchEvent(
-			new MouseEvent('contextmenu', {
-				bubbles: true,
-				composed: true,
-				cancelable: true,
-				clientX: rect.left,
-				clientY: rect.bottom,
-				button: 2,
-			}),
-		);
+		dispatchContextMenuAt(target);
 	};
 
 	private handleBranchSheetAction(action: string, ref: BranchSheetRef): void {

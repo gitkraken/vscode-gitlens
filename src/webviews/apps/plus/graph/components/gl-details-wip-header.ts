@@ -12,6 +12,7 @@ import { elementBase, metadataBarVarsBase } from '../../../shared/components/sty
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
+import { dispatchContextMenuAt } from '../../../shared/dom.js';
 import type { RunningOperationExecState } from './detailsState.js';
 import { detailsWipHeaderStyles } from './gl-details-wip-header.css.js';
 import '../../shared/components/merge-rebase-status.js';
@@ -334,17 +335,7 @@ export class GlDetailsWipHeader extends LitElement {
 		const target = e.currentTarget as HTMLElement | null;
 		if (target == null) return;
 
-		const rect = target.getBoundingClientRect();
-		target.dispatchEvent(
-			new MouseEvent('contextmenu', {
-				bubbles: true,
-				composed: true,
-				cancelable: true,
-				clientX: rect.left,
-				clientY: rect.bottom,
-				button: 2,
-			}),
-		);
+		dispatchContextMenuAt(target);
 	};
 
 	private computeWipModes(): ('review' | 'compose' | 'resolve')[] {

@@ -86,6 +86,27 @@ export namespace DOM {
 	}
 }
 
+/**
+ * Opens the host context menu for `target` as if it had been right-clicked at its bottom-left corner
+ * — the affordance behind "kebab" buttons that surface a row's normal context menu.
+ *
+ * `composed` is required so the event escapes the component's shadow root and reaches the document
+ * listener that VS Code's menu is wired to.
+ */
+export function dispatchContextMenuAt(target: HTMLElement): void {
+	const rect = target.getBoundingClientRect();
+	target.dispatchEvent(
+		new MouseEvent('contextmenu', {
+			bubbles: true,
+			composed: true,
+			cancelable: true,
+			clientX: rect.left,
+			clientY: rect.bottom,
+			button: 2,
+		}),
+	);
+}
+
 /** Parses a CSS duration and returns the number of milliseconds. */
 export function parseDuration(delay: number | string): number {
 	delay = delay.toString().toLowerCase();

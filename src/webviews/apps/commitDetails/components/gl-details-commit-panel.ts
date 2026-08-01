@@ -29,6 +29,7 @@ import { renderDetailsMaximizeChip } from '../../shared/components/details-heade
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
+import { dispatchContextMenuAt } from '../../shared/dom.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
 import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
@@ -616,17 +617,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const target = e.currentTarget as HTMLElement | null;
 		if (target == null) return;
 
-		const rect = target.getBoundingClientRect();
-		target.dispatchEvent(
-			new MouseEvent('contextmenu', {
-				bubbles: true,
-				composed: true,
-				cancelable: true,
-				clientX: rect.left,
-				clientY: rect.bottom,
-				button: 2,
-			}),
-		);
+		dispatchContextMenuAt(target);
 	};
 
 	private onStashApplyClick = (e: MouseEvent): void => {
