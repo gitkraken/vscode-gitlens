@@ -229,9 +229,14 @@ export async function ensureAccess(
 		return false;
 	}
 
-	// Every AI feature requires a verified account, so require one to select a provider/model too —
-	// otherwise you can pick a model you won't be able to use until you sign in. `ensureAccountQuickPick`
-	// rather than `ensureAccount` because the latter throws on cancel, and our callers expect a boolean.
+	// Every AI feature requires a verified account, so require one to select a provider/model too — otherwise
+	// you can pick a model you won't be able to use until you sign in. Scoped to the PICKER flows: callers that
+	// opted out gate the account themselves right after (`ensureFeatureAccess` → `ensureAccount`), so gating
+	// here too put a quick pick in front of their modal and cost a second uncached subscription read on the
+	// request path. `ensureAccountQuickPick` rather than `ensureAccount` because the latter throws on cancel,
+	// and our callers expect a boolean.
+	if (!showPicker) return true;
+
 	return ensureAccountQuickPick(container, createAIAccountDescriptionItem(), source ?? { source: 'ai' }, false);
 }
 
