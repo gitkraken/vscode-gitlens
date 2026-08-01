@@ -15,8 +15,10 @@ import type { ProviderWarning } from '../results.js';
 /**
  * The single builder for a provider-neutral, non-auth warning: an unsupported capability, a
  * contradictory/inexpressible request, or a read that couldn't confirm completeness. Every `kind: 'other'`
- * warning the facade emits goes through here (directly, or via one of the named builders below that pin a
- * recurring message), so the discriminant is assigned in exactly one place.
+ * warning the facade raises on its own terms goes through here (directly, or via one of the named builders
+ * below that pin a recurring message), so the discriminant is assigned in one place. The warnings mapped from
+ * SDK collection metadata are the documented exception — `collectionMetadata.ts` builds those from the
+ * structured failure/omission it is given.
  *
  * The kinds that carry a programmatic remedy — `auth`, `rate-limit`, `not-found`, `no-connection` — are derived
  * from the caught error's type instead and never come from here; see `ProviderWarningKind` and

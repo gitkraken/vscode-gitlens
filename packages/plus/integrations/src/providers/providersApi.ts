@@ -13,6 +13,7 @@ import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
+import { isIncompleteCollection } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import {
 	GitCloudHostIntegrationId,
@@ -32,7 +33,6 @@ import type {
 	GetIssueFn,
 	GetIssuesForReposFn,
 	GetIssuesOptions,
-	GetPullRequestsForRepoFn,
 	GetPullRequestsForReposFn,
 	GetPullRequestsForUserFn,
 	GetPullRequestsForUserOptions,
@@ -275,9 +275,7 @@ export class ProvidersApi {
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForReposFn,
-				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(
-					providerApis.gitlab,
-				) as GetPullRequestsForRepoFn,
+				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(providerApis.gitlab),
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
@@ -302,9 +300,7 @@ export class ProvidersApi {
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForReposFn,
-				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(
-					providerApis.gitlab,
-				) as GetPullRequestsForRepoFn,
+				getPullRequestsForRepoFn: providerApis.gitlab.getPullRequestsForRepo.bind(providerApis.gitlab),
 				getPullRequestsForUserFn: providerApis.gitlab.getPullRequestsAssociatedWithUser.bind(
 					providerApis.gitlab,
 				) as GetPullRequestsForUserFn,
@@ -681,9 +677,9 @@ export class ProvidersApi {
 			// SDK collection completeness is independent from provider-native pagination: a result can expose a
 			// real next page (`more`) and still have a failed sibling scope (`partial`/`unknown`). Surface the
 			// latter as `truncated` so consumers treat the page as incomplete. Absent metadata (old providers,
-			// test doubles) leaves `truncated` unset for backward compatibility.
-			const truncated =
-				normalizedMetadata != null && normalizedMetadata.completeness !== 'complete' ? true : undefined;
+			// test doubles) leaves `truncated` unset for backward compatibility. Shares the incompleteness
+			// predicate with the facade assessment so one metadata object can't be truncated there and whole here.
+			const truncated = isIncompleteCollection(normalizedMetadata) ? true : undefined;
 
 			return {
 				values: result.data,

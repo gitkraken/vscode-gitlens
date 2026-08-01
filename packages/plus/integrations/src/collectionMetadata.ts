@@ -1,4 +1,9 @@
-import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import type {
+	CollectionMetadata,
+	CollectionOmission,
+	CollectionScope,
+	CollectionScopeFailure,
+} from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IntegrationIds } from './constants.js';
 import { isRateLimitResponse } from './errors.js';
@@ -68,8 +73,21 @@ function toCollectionFailureWarningKind(failure: CollectionScopeFailure): Provid
 	}
 }
 
-function collectionFailureMessage(failure: CollectionScopeFailure): string {
-	const scope = failure.scope;
+/**
+ * A scope's identity, as the stable string that keys it.
+ *
+ * The dedup keys in `providerPaging.ts` build on this, so failures and omissions can never disagree about
+ * what "the same scope" means. `providerId` is included: the same repository ID under two providers is two
+ * scopes.
+ */
+export function collectionScopeKey(scope: CollectionScope | undefined): string {
+	return [scope?.providerId ?? '', scope?.resourceId ?? '', scope?.projectId ?? '', scope?.repositoryId ?? ''].join(
+		' ',
+	);
+}
+
+/** ` (resource r, project p, repository o/n)` for the scope IDs present; empty when the scope names none. */
+function collectionScopeText(scope: CollectionScope | undefined): string {
 	const parts: string[] = [];
 	if (scope?.resourceId != null) {
 		parts.push(`resource ${scope.resourceId}`);
@@ -81,9 +99,64 @@ function collectionFailureMessage(failure: CollectionScopeFailure): string {
 		parts.push(`repository ${scope.repositoryId}`);
 	}
 
-	const scopeText = parts.length ? ` (${parts.join(', ')})` : '';
+	return parts.length ? ` (${parts.join(', ')})` : '';
+}
+
+function collectionFailureMessage(failure: CollectionScopeFailure): string {
 	const detail = failure.message != null ? `: ${failure.message}` : '';
-	return `Failed to read ${failure.kind} scope${scopeText}${detail}`;
+	return `Failed to read ${failure.kind} scope${collectionScopeText(failure.scope)}${detail}`;
+}
+
+/**
+ * Explains one omission in the consumer's terms — what was left out and, where the SDK reports it, how much.
+ *
+ * An omission is a completeness fact, never a failure: the read succeeded and the provider (or the SDK's own
+ * recovery budget) is what withheld results, so retrying the same request cannot recover them. That is why
+ * these never contribute to `fetchFailed`.
+ */
+function collectionOmissionMessage(omission: CollectionOmission): string {
+	const scopeText = collectionScopeText(omission.scope);
+	switch (omission.kind) {
+		case 'provider-limit':
+			// `totalCount` is the only figure saying how much was withheld; both fields are optional, so degrade
+			// through the shapes the SDK can actually emit rather than printing `undefined`.
+			if (omission.totalCount != null && omission.limit != null) {
+				return `Search${scopeText} matched ${omission.totalCount} results, but the provider exposes at most ${omission.limit}`;
+			}
+			if (omission.limit != null) {
+				return `Search${scopeText} exceeded the provider limit of ${omission.limit} results`;
+			}
+			return `Search${scopeText} exceeded the provider's result limit`;
+		case 'recovery-budget':
+			return `Stopped recovering omitted results${scopeText} after reaching the request budget${
+				omission.limit != null ? ` of ${omission.limit} requests` : ''
+			}`;
+		case 'pagination-incomplete':
+			return `More results are available${scopeText} than this read returned`;
+		default:
+			// `CollectionOmissionKind` is a closed union, so this is unreachable today. Kept as a compile-time
+			// guard rather than a silent fallback: an SDK bump that adds a kind breaks the build here instead
+			// of quietly degrading it to a vague message.
+			omission.kind satisfies never;
+			return `Some results were omitted${scopeText}; the read is incomplete`;
+	}
+}
+
+/**
+ * Whether SDK metadata describes a read that may be missing results.
+ *
+ * A reported omission counts on its own rather than deferring to `completeness`. The SDK does couple the
+ * two — every site that emits an omission degrades completeness in the same call — so today the omission
+ * clause changes no outcome. It is defensive: the two facts arrive as independent fields, and a read that
+ * names what it left out must not be publishable as whole if a future producer sets only one of them.
+ *
+ * This is the single definition of "may be missing results", shared with `getPagedResult`, so one metadata
+ * object cannot be truncated at one layer and complete at another.
+ */
+export function isIncompleteCollection(metadata: CollectionMetadata | undefined): boolean {
+	if (metadata == null) return false;
+
+	return metadata.completeness !== 'complete' || (metadata.omissions?.length ?? 0) > 0;
 }
 
 /** Converts internal SDK collection metadata into neutral provider facade signals. */
@@ -109,8 +182,25 @@ export function assessCollectionMetadata(
 		});
 	}
 
-	const incomplete = metadata.completeness !== 'complete';
-	if (incomplete && failures.length === 0) {
+	// Omissions explain WHY a read is incomplete when nothing failed — a provider cap, an exhausted recovery
+	// budget, an undrained scope. They classify as `other`, never `auth`, and are deliberately excluded from
+	// `fetchFailed` below: the request succeeded, so a retry would return the same truncated set.
+	const omissions = metadata.omissions ?? [];
+	for (const omission of omissions) {
+		appendDedupedWarning(warnings, {
+			providerId: providerId,
+			domain: domain,
+			connectionId: connectionId,
+			message: collectionOmissionMessage(omission),
+			kind: 'other',
+			isAuth: false,
+		});
+	}
+
+	const incomplete = isIncompleteCollection(metadata);
+	// Only fall back to the generic message when nothing more specific was reported; an omission already
+	// explains the incompleteness in the consumer's terms, so adding this on top would be noise.
+	if (incomplete && failures.length === 0 && omissions.length === 0) {
 		appendDedupedWarning(warnings, {
 			providerId: providerId,
 			domain: domain,

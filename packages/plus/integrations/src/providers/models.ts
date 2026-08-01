@@ -470,7 +470,10 @@ export type GetIssueFn = (
 export type GetIssuesForReposFn = (
 	input: (GetIssuesForReposInput | GetIssuesForRepoIdsInput) & PagingInput,
 	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
+	// GitHub's multi-repo issue search reports its 1,000-result cap — and, when it recovers past it by
+	// partitioning, what that recovery could not reach — through `metadata`. Documented on the contract for
+	// the reader; `getPagedResult` accepts and forwards `metadata` from any provider fn regardless.
+) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo; metadata?: CollectionMetadata }>;
 
 export type GetIssuesForCurrentUserInput = PagingInput & {
 	// GitLab's account-wide REST read (`GET /issues`): `scope` controls breadth ('assigned_to_me' vs 'all') and

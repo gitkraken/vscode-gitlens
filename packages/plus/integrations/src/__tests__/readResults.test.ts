@@ -3,7 +3,7 @@ import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { assessCollectionMetadata } from '../collectionMetadata.js';
+import { assessCollectionMetadata, isIncompleteCollection } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -212,6 +212,109 @@ suite('assessCollectionMetadata (#5438)', () => {
 		assert.equal(result.fetchFailed, false);
 		assert.equal(result.truncated, true);
 		assert.equal(result.warnings.length, 1);
+	});
+
+	test('provider-limit omission → warning naming both counts, truncation, but no fetchFailed', () => {
+		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1393 }],
+		});
+		// A cap is a completeness fact, not a failed request: retrying returns the same truncated set, so
+		// this must never be reported as a fetch failure.
+		assert.equal(result.fetchFailed, false);
+		assert.equal(result.truncated, true);
+		assert.equal(result.warnings.length, 1, 'the omission explains the incompleteness; no generic warning too');
+		assert.equal(result.warnings[0].kind, 'other');
+		assert.equal(result.warnings[0].isAuth, false);
+		assert.equal(result.warnings[0].message, 'Search matched 1393 results, but the provider exposes at most 1000');
+	});
+
+	test('provider-limit omission names the repository scope when the SDK attributes one', () => {
+		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			omissions: [{ kind: 'provider-limit', scope: { repositoryId: 'acme/web' }, limit: 1000, totalCount: 1393 }],
+		});
+		assert.equal(
+			result.warnings[0].message,
+			'Search (repository acme/web) matched 1393 results, but the provider exposes at most 1000',
+		);
+	});
+
+	test('provider-limit omission without a total falls back rather than printing undefined', () => {
+		const withLimit = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			omissions: [{ kind: 'provider-limit', limit: 1000 }],
+		});
+		assert.equal(withLimit.warnings[0].message, 'Search exceeded the provider limit of 1000 results');
+
+		const bare = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			omissions: [{ kind: 'provider-limit' }],
+		});
+		assert.equal(bare.warnings[0].message, "Search exceeded the provider's result limit");
+	});
+
+	test('recovery-budget and pagination-incomplete omissions each get their own message', () => {
+		const budget = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			omissions: [{ kind: 'recovery-budget', scope: { repositoryId: 'acme/web' }, limit: 128 }],
+		});
+		assert.equal(budget.fetchFailed, false);
+		assert.equal(
+			budget.warnings[0].message,
+			'Stopped recovering omitted results (repository acme/web) after reaching the request budget of 128 requests',
+		);
+
+		const paging = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			omissions: [{ kind: 'pagination-incomplete', scope: { projectId: 'p1' } }],
+		});
+		assert.equal(paging.fetchFailed, false);
+		assert.equal(paging.warnings[0].message, 'More results are available (project p1) than this read returned');
+	});
+
+	test('a failure alongside an omission keeps both, and only the failure sets fetchFailed', () => {
+		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'partial',
+			failures: [{ kind: 'rate-limit', scope: { repositoryId: 'acme/api' } }],
+			omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1393 }],
+		});
+		assert.equal(result.fetchFailed, true, 'the failure, not the omission, is what makes this a fetch failure');
+		assert.equal(result.truncated, true);
+		assert.equal(
+			result.warnings.length,
+			2,
+			'a failure and an omission are distinct facts; neither replaces the other',
+		);
+		assert.equal(result.warnings.filter(w => w.kind === 'rate-limit').length, 1);
+		assert.equal(result.warnings.filter(w => w.kind === 'other').length, 1);
+	});
+
+	test('an omission forces truncation even when completeness claims complete', () => {
+		// Defensive, not a live path: every SDK site that emits an omission degrades completeness in the same
+		// call. Pinned because the two arrive as independent fields — warning about omitted results while
+		// reporting `truncated: false` would tell the consumer to ignore the very thing being warned about.
+		const result = assessCollectionMetadata(providerId, 'github.com', 'c1', {
+			completeness: 'complete',
+			omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1393 }],
+		});
+		assert.equal(result.truncated, true, 'the omission is the incompleteness; the label does not override it');
+		assert.equal(result.fetchFailed, false);
+		assert.equal(result.warnings.length, 1);
+	});
+
+	test('isIncompleteCollection is the one rule both the facade and getPagedResult read truncation from', () => {
+		assert.equal(isIncompleteCollection(undefined), false, 'no metadata asserts nothing');
+		assert.equal(isIncompleteCollection({ completeness: 'complete' }), false);
+		assert.equal(isIncompleteCollection({ completeness: 'complete', omissions: [] }), false);
+		assert.equal(isIncompleteCollection({ completeness: 'partial' }), true);
+		assert.equal(isIncompleteCollection({ completeness: 'unknown' }), true);
+		// The defensive clause: no SDK site emits this pairing today, but if one ever does, both layers must
+		// agree it is incomplete rather than `getPagedResult` reporting whole and the facade truncated.
+		assert.equal(
+			isIncompleteCollection({ completeness: 'complete', omissions: [{ kind: 'provider-limit', limit: 1000 }] }),
+			true,
+		);
 	});
 
 	test('authentication failure → auth warning with isAuth, fetchFailed, truncation, scope in message', () => {
