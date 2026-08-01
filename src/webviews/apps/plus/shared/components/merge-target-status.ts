@@ -3,7 +3,6 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { pluralize } from '@gitlens/utils/string.js';
-import type { SubscriptionState } from '../../../../../constants.subscription.js';
 import type { BranchAndTargetRefs, BranchRef } from '../../../../shared/branchRefs.js';
 import type { OverviewBranch, OverviewBranchMergeTarget } from '../../../../shared/overviewBranches.js';
 import { renderBranchName } from '../../../shared/components/branch-name.js';
@@ -11,7 +10,6 @@ import { elementBase, linkBase, scrollableBase } from '../../../shared/component
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { chipStyles } from './chipStyles.js';
-import './feature-gate-plus-state.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
@@ -21,7 +19,7 @@ import '../../../shared/components/ref-button.js';
 
 type MergeTargetPromise = Promise<OverviewBranchMergeTarget | undefined> | undefined;
 
-const mergeTargetStyles = css`
+export const mergeTargetStyles = css`
 	.header__actions {
 		margin-top: var(--gl-space-4);
 		margin-left: auto;
@@ -700,63 +698,5 @@ export class GlMergeTargetStatus extends LitElement {
 
 	private renderFile(path: string) {
 		return html`<span class="files__item"><code-icon icon="file"></code-icon> ${path}</span>`;
-	}
-}
-
-@customElement('gl-merge-target-upgrade')
-export class GlMergeTargetUpgrade extends LitElement {
-	static override shadowRootOptions: ShadowRootInit = {
-		...LitElement.shadowRootOptions,
-		delegatesFocus: true,
-	};
-
-	static override styles = [
-		elementBase,
-		linkBase,
-		chipStyles,
-		scrollableBase,
-		mergeTargetStyles,
-		css`
-			gl-feature-gate-plus-state {
-				display: block;
-				margin-inline: 0.5rem;
-
-				p {
-					margin-block: var(--gl-space-10);
-					margin-inline: 0;
-				}
-			}
-		`,
-	];
-
-	@property({ attribute: false, type: Number })
-	state?: SubscriptionState;
-
-	override render(): unknown {
-		const icon = 'warning';
-		const status = 'upgrade';
-
-		return html`<gl-popover placement="bottom" trigger="hover click focus">
-			<span slot="anchor" class="chip status--${status}" tabindex="0"
-				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
-				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
-			</span>
-			<gl-feature-gate-plus-state
-				slot="content"
-				appearance="default"
-				featureRestriction="all"
-				.source=${{ source: 'home', detail: 'marge-target' } as const}
-				.state=${this.state}
-			>
-				<div slot="feature">
-					<span class="header__title">Detect potential merge conflicts</span>
-
-					<p>
-						See when your current branch has potential conflicts with its merge target branch and take
-						action to resolve them.
-					</p>
-				</div>
-			</gl-feature-gate-plus-state>
-		</gl-popover>`;
 	}
 }

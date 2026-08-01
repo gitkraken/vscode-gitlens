@@ -55,6 +55,7 @@ import '../../../shared/components/pills/tracking-status.js';
 import '../../../shared/components/rich/issue-icon.js';
 import '../../../shared/components/rich/pr-icon.js';
 import '../../shared/components/merge-target-status.js';
+import '../../shared/components/merge-target-upgrade.js';
 
 export const branchCardStyles = css`
 	* {
