@@ -15,9 +15,10 @@ import {
 	getPausedOperationBarActionLabel,
 	getPausedOperationBarIconTooltip,
 	getPausedOperationBarLabel,
+	getPausedOperationSkipDetail,
 	getPausedOperationSkipLabel,
 	getPausedOperationSkipRef,
-	getPausedOperationStepTooltip,
+	getPausedOperationStepTooltipParts,
 	isPausedOperationStepped,
 } from '../merge-rebase-status.utils.js';
 
@@ -242,28 +243,10 @@ suite('getPausedOperationSkipRef', () => {
 });
 
 suite('getPausedOperationSkipLabel', () => {
-	test('skip names its victim', () => {
-		assert.strictEqual(
-			getPausedOperationSkipLabel(createCherryPick('Fix parser edge case')),
-			'Skip a1b2c3d "Fix parser edge case"',
-		);
-	});
-
-	test('only the subject line is used', () => {
-		assert.strictEqual(
-			getPausedOperationSkipLabel(createRevert('Add telemetry\n\nWith a long body that is not a subject')),
-			'Skip a1b2c3d "Add telemetry"',
-		);
-	});
-
-	test('a long subject is elided', () => {
-		const subject = 'A'.repeat(80);
-		const label = getPausedOperationSkipLabel(createCherryPick(subject));
-		assert.strictEqual(label, `Skip a1b2c3d "${'A'.repeat(49)}…"`);
-	});
-
-	test('without a subject it falls back to the sha', () => {
-		assert.strictEqual(getPausedOperationSkipLabel(createCherryPick()), 'Skip a1b2c3d');
+	test('a rebase skips its paused commit; a cherry-pick/revert skips the commit', () => {
+		assert.strictEqual(getPausedOperationSkipLabel(createRebase()), 'Skip Paused Commit');
+		assert.strictEqual(getPausedOperationSkipLabel(createCherryPick()), 'Skip Commit');
+		assert.strictEqual(getPausedOperationSkipLabel(createRevert()), 'Skip Commit');
 	});
 
 	test('without a commit at all it falls back to plain Skip', () => {
@@ -272,22 +255,55 @@ suite('getPausedOperationSkipLabel', () => {
 	});
 });
 
-suite('getPausedOperationStepTooltip', () => {
-	test('names the paused-on commit and what is left', () => {
+suite('getPausedOperationSkipDetail', () => {
+	test('names the victim', () => {
 		assert.strictEqual(
-			getPausedOperationStepTooltip(createRebase({ message: 'Fix parser edge case' })),
-			'0f1e2d3 "Fix parser edge case" — 4 remaining',
+			getPausedOperationSkipDetail(createCherryPick('Fix parser edge case')),
+			'a1b2c3d "Fix parser edge case"',
 		);
 	});
 
-	test('a final step has nothing remaining', () => {
+	test('only the subject line is used', () => {
 		assert.strictEqual(
-			getPausedOperationStepTooltip(createRebase({ current: 7, total: 7, message: 'Last one' })),
-			'0f1e2d3 "Last one" — 0 remaining',
+			getPausedOperationSkipDetail(createRevert('Add telemetry\n\nWith a long body that is not a subject')),
+			'a1b2c3d "Add telemetry"',
 		);
 	});
 
-	test('without a commit it still reports what is left', () => {
-		assert.strictEqual(getPausedOperationStepTooltip(createRebase({ noCommit: true })), '4 remaining');
+	test('a long subject is elided', () => {
+		const subject = 'A'.repeat(80);
+		assert.strictEqual(getPausedOperationSkipDetail(createCherryPick(subject)), `a1b2c3d "${'A'.repeat(49)}…"`);
+	});
+
+	test('without a subject it falls back to the sha', () => {
+		assert.strictEqual(getPausedOperationSkipDetail(createCherryPick()), 'a1b2c3d');
+	});
+
+	test('without a commit there is no detail', () => {
+		assert.strictEqual(getPausedOperationSkipDetail(createRebase({ noCommit: true })), undefined);
+		assert.strictEqual(getPausedOperationSkipDetail(createMerge()), undefined);
+	});
+});
+
+suite('getPausedOperationStepTooltipParts', () => {
+	test('states where the rebase is paused and the commit subject', () => {
+		assert.deepStrictEqual(getPausedOperationStepTooltipParts(createRebase({ message: 'Fix parser edge case' })), {
+			detail: 'Rebase paused at 0f1e2d3 (step 3 of 7)',
+			subject: '"Fix parser edge case"',
+		});
+	});
+
+	test('without a subject only the detail remains', () => {
+		assert.deepStrictEqual(getPausedOperationStepTooltipParts(createRebase()), {
+			detail: 'Rebase paused at 0f1e2d3 (step 3 of 7)',
+			subject: undefined,
+		});
+	});
+
+	test('without a commit the position still reads', () => {
+		assert.deepStrictEqual(getPausedOperationStepTooltipParts(createRebase({ noCommit: true })), {
+			detail: 'Rebase paused (step 3 of 7)',
+			subject: undefined,
+		});
 	});
 });

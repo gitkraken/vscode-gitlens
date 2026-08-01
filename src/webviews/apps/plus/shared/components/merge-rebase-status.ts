@@ -18,12 +18,14 @@ import type { ShowInCommitGraphCommandArgs } from '../../../../plus/graph/regist
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import {
+	describePausedOperationCommit,
 	getPausedOperationAbortLabel,
 	getPausedOperationBarActionLabel,
 	getPausedOperationBarIconTooltip,
 	getPausedOperationBarLabel,
+	getPausedOperationSkipDetail,
 	getPausedOperationSkipLabel,
-	getPausedOperationStepTooltip,
+	getPausedOperationStepTooltipParts,
 	isPausedOperationStepped,
 } from './merge-rebase-status.utils.js';
 import '../../../shared/components/actions/action-item.js';
@@ -198,6 +200,14 @@ export class GlMergeConflictWarning extends LitElement {
 			.actions action-item:is(:hover, :focus-within) {
 				--action-item-foreground: var(--gl-paused-op-ink);
 			}
+
+			/* Tooltip structure shared with the graph header: action line, rule, identifying detail */
+			hr {
+				margin: var(--gl-space-8) 0;
+				border: none;
+				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--vscode-foreground));
+				opacity: 0.4;
+			}
 		`,
 	];
 
@@ -223,7 +233,7 @@ export class GlMergeConflictWarning extends LitElement {
 	aiResume = false;
 
 	/** Whether the working tree has anything staged. Mirrors the takeover loop's own
-	 *  `hasStagedChanges()` gate, so the "Continue Automatic Rebase" affordance matches what a takeover would
+	 *  `hasStagedChanges()` gate, so the "Continue using Automatic Rebase" affordance matches what a takeover would
 	 *  actually do on a rebase paused without conflicts. */
 	@property({ type: Boolean, attribute: 'has-staged-changes' })
 	hasStagedChanges = false;
@@ -338,10 +348,13 @@ export class GlMergeConflictWarning extends LitElement {
 			return html`${at}<span class="steps">${steps}</span>`;
 		}
 
+		const parts = getPausedOperationStepTooltipParts(status);
 		return html`${at}<gl-tooltip
 				><a href=${this.createJumpUrl(commit)} class="steps chip">${steps}</a
 				><span slot="content"
-					>${getPausedOperationStepTooltip(status)}<br />${this.getJumpLabel(false)}</span
+					>${this.getJumpLabel('paused-commit')}
+					<hr />
+					${parts.detail}${parts.subject ? html`<br />${parts.subject}` : nothing}</span
 				></gl-tooltip
 			>`;
 	}
@@ -366,22 +379,25 @@ export class GlMergeConflictWarning extends LitElement {
 		// Read-only: plain ref text, no jump-to-branch/commit link or tooltip.
 		if (this.readOnly) return content;
 
-		return html`<gl-tooltip content=${this.getJumpLabel(isBranch)}>
+		// The detail line carries the untruncated identity, since the chip itself may be squeezed
+		const detail = ref.refType === 'revision' ? (describePausedOperationCommit(ref) ?? ref.ref) : ref.name;
+
+		return html`<gl-tooltip>
 			<a href=${this.createJumpUrl(ref)} class="chip">${content}</a>
+			<span slot="content"
+				>${this.getJumpLabel(isBranch ? 'branch' : 'commit')}
+				<hr />
+				${detail}</span
+			>
 		</gl-tooltip>`;
 	}
 
-	private getJumpLabel(isBranch: boolean): string {
+	private getJumpLabel(kind: 'branch' | 'commit' | 'paused-commit'): string {
 		const webviewId = this._webview.webviewId;
 		const isInGraph = webviewId === 'gitlens.graph' || webviewId === 'gitlens.views.graph';
 
-		return isInGraph
-			? isBranch
-				? 'Jump to Branch'
-				: 'Jump to Commit'
-			: isBranch
-				? 'Open Branch in Commit Graph'
-				: 'Open Commit in Commit Graph';
+		const noun = kind === 'branch' ? 'Branch' : kind === 'commit' ? 'Commit' : 'Paused Commit';
+		return isInGraph ? `Jump to ${noun}` : `Open ${noun} in Commit Graph`;
 	}
 
 	private createJumpUrl(ref: GitReference): string {
@@ -403,7 +419,7 @@ export class GlMergeConflictWarning extends LitElement {
 
 	private renderActions(status: GitPausedOperationStatus, variant: PausedOperationVariant) {
 		const type = status.type;
-		// "Continue Automatic Rebase" mirrors the takeover loop's own gate (`resumingThisStep ||
+		// "Continue using Automatic Rebase" mirrors the takeover loop's own gate (`resumingThisStep ||
 		// hasStagedChanges()`): with conflicts it resolves them, and with a staged resolution it
 		// continues and keeps resolving the REMAINING steps — so hiding it once the user stages an
 		// escalated step would strand them on plain "Continue", which ends automation for the rest of
@@ -414,6 +430,15 @@ export class GlMergeConflictWarning extends LitElement {
 		return html`<action-nav class="actions">
 			${this.renderPrimaryAction(status, variant)}
 			${when(
+				aiRebase,
+				() =>
+					html`<action-item
+						label="Continue using Automatic Rebase"
+						href=${this.onContinueWithAiUrl}
+						icon="gl-continue-sparkle"
+					></action-item>`,
+			)}
+			${when(
 				type === 'rebase',
 				() =>
 					html`<action-item
@@ -422,30 +447,30 @@ export class GlMergeConflictWarning extends LitElement {
 						icon="edit"
 					></action-item>`,
 			)}
-			${when(
-				aiRebase,
-				() =>
-					html`<action-item
-						label="Continue Automatic Rebase"
-						href=${this.onContinueWithAiUrl}
-						icon="gl-continue-sparkle"
-					></action-item>`,
-			)}
-			${when(
-				type !== 'merge',
-				() =>
-					html`<action-item
-						label=${getPausedOperationSkipLabel(status)}
-						icon="gl-skip"
-						href=${this.onSkipUrl}
-					></action-item>`,
-			)}
+			${when(type !== 'merge', () => this.renderSkipAction(status))}
 			<action-item
 				label=${getPausedOperationAbortLabel(status)}
 				href=${this.onAbortUrl}
 				icon="gl-abort"
 			></action-item>
 		</action-nav>`;
+	}
+
+	private renderSkipAction(status: GitPausedOperationStatus) {
+		const label = getPausedOperationSkipLabel(status);
+		const detail = getPausedOperationSkipDetail(status);
+
+		return html`<action-item label=${label} icon="gl-skip" href=${this.onSkipUrl}
+			>${
+				detail != null
+					? html`<span slot="tooltip"
+							>${label}
+							<hr />
+							${detail}</span
+						>`
+					: nothing
+			}</action-item
+		>`;
 	}
 
 	/** One obvious next step per state. Continue renders only in ready/pending, which structurally keeps
