@@ -1,5 +1,6 @@
 import { customElement } from 'lit/decorators.js';
 import { convergingLoadingAnimationStyles } from './gl-converging-loading-animation.css.js';
+import { particleLoadingAnimationStyles } from './particleLoadingAnimation.css.js';
 import { ParticleLoadingAnimation } from './particleLoadingAnimation.js';
 
 interface Layout {
@@ -23,7 +24,7 @@ const colorFallbacks: [string, string, string] = ['#60a5fa', '#f0883e', '#4ade80
  *  sharing its lens/scanline vocabulary. Used by the AI conflict-resolution (resolve) mode. */
 @customElement('gl-converging-loading-animation')
 export class GlConvergingLoadingAnimation extends ParticleLoadingAnimation {
-	static override styles = convergingLoadingAnimationStyles;
+	static override styles = [particleLoadingAnimationStyles, convergingLoadingAnimationStyles];
 
 	private _layout?: Layout;
 	private _colors: [string, string, string] = colorFallbacks;
@@ -144,7 +145,7 @@ export class GlConvergingLoadingAnimation extends ParticleLoadingAnimation {
 
 			// Merge at the lens: the two sides fuse — recolor to resolved green with a glow.
 			const merged = this._colors[2];
-			particle.classList.add('particle--merged');
+			particle.classList.add('particle--settled');
 			particle.style.background = merged;
 			particle.style.boxShadow = `0 0 1.2rem ${merged}`;
 

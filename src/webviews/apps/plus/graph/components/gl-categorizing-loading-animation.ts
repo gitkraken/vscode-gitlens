@@ -1,5 +1,6 @@
 import { customElement, property } from 'lit/decorators.js';
 import { categorizingLoadingAnimationStyles } from './gl-categorizing-loading-animation.css.js';
+import { particleLoadingAnimationStyles } from './particleLoadingAnimation.css.js';
 import { ParticleLoadingAnimation } from './particleLoadingAnimation.js';
 
 export type CategorizingLoadingVariant = 'compose' | 'review';
@@ -28,7 +29,7 @@ const variantFallbacks: Record<CategorizingLoadingVariant, [string, string, stri
  *  colored buckets. Shared by compose (purple/blue/green) and review (green/yellow/red). */
 @customElement('gl-categorizing-loading-animation')
 export class GlCategorizingLoadingAnimation extends ParticleLoadingAnimation {
-	static override styles = categorizingLoadingAnimationStyles;
+	static override styles = [particleLoadingAnimationStyles, categorizingLoadingAnimationStyles];
 
 	/** Color palette to use. `compose` shows purple/blue/green (categorization),
 	 *  `review` shows green/yellow/red (severity). Defaults to `compose`. */
@@ -150,7 +151,7 @@ export class GlCategorizingLoadingAnimation extends ParticleLoadingAnimation {
 			// Categorize: pick a bucket, swap to its color and a sharper look
 			const colIdx = Math.floor(Math.random() * 3);
 			const color = this._colors[colIdx];
-			particle.classList.add('particle--categorized');
+			particle.classList.add('particle--settled');
 			particle.style.background = color;
 			particle.style.boxShadow = `0 0 1.2rem ${color}`;
 
