@@ -1194,6 +1194,10 @@ export class GraphWipService {
 					files: files,
 					hasConflicts: status.hasConflicts,
 					pausedOpStatus: pausedOpStatus,
+					aiRebaseActive:
+						pausedOpStatus?.type === 'rebase' && this.container.autoRebase.getSession(repo.path) != null
+							? true
+							: undefined,
 				},
 				repositoryCount: this.container.git.openRepositoryCount,
 				revision: revision,

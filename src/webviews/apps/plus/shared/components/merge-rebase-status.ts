@@ -232,6 +232,12 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Boolean, attribute: 'ai-resume' })
 	aiResume = false;
 
+	/** An automatic rebase session owns this paused rebase — continue continues in the vein it started:
+	 *  the primary action resumes the automatic run and the manual continue demotes to a secondary.
+	 *  Only meaningful alongside `ai-resume`. */
+	@property({ type: Boolean, attribute: 'ai-active' })
+	aiActive = false;
+
 	/** Whether the working tree has anything staged. Mirrors the takeover loop's own
 	 *  `hasStagedChanges()` gate, so the "Continue using Automatic Rebase" affordance matches what a takeover would
 	 *  actually do on a rebase paused without conflicts. */
@@ -419,21 +425,33 @@ export class GlMergeConflictWarning extends LitElement {
 
 	private renderActions(status: GitPausedOperationStatus, variant: PausedOperationVariant) {
 		const type = status.type;
-		// "Continue using Automatic Rebase" mirrors the takeover loop's own gate (`resumingThisStep ||
+		// The AI continue mirrors the takeover loop's own gate (`resumingThisStep ||
 		// hasStagedChanges()`): with conflicts it resolves them, and with a staged resolution it
 		// continues and keeps resolving the REMAINING steps — so hiding it once the user stages an
 		// escalated step would strand them on plain "Continue", which ends automation for the rest of
 		// the run. Still hidden for a genuine non-conflict stop (an interactive edit/break with nothing
 		// staged), where a takeover has nothing to continue and would only escalate.
 		const aiRebase = type === 'rebase' && this.aiResume && (this.conflicts || this.hasStagedChanges);
+		// Continue continues in the vein the rebase started: with an automatic session active the
+		// primary resumes it, and the manual continue becomes the secondary instead of the sparkle.
+		const aiPrimary = type === 'rebase' && this.aiResume && this.aiActive && variant !== 'conflicts';
 
 		return html`<action-nav class="actions">
-			${this.renderPrimaryAction(status, variant)}
+			${this.renderPrimaryAction(status, variant, aiPrimary)}
 			${when(
-				aiRebase,
+				aiPrimary,
 				() =>
 					html`<action-item
-						label="Continue using Automatic Rebase"
+						label="Continue Rebase Manually"
+						href=${this.onContinueUrl}
+						icon="gl-continue"
+					></action-item>`,
+			)}
+			${when(
+				aiRebase && !aiPrimary,
+				() =>
+					html`<action-item
+						label=${this.aiActive ? 'Continue Automatic Rebase' : 'Continue using Automatic Rebase'}
 						href=${this.onContinueWithAiUrl}
 						icon="gl-continue-sparkle"
 					></action-item>`,
@@ -476,21 +494,30 @@ export class GlMergeConflictWarning extends LitElement {
 	/** One obvious next step per state. Continue renders only in ready/pending, which structurally keeps
 	 *  a conflicted rebase from offering a `--continue` that can't succeed; a revert's continue is no
 	 *  longer excluded — `revert --continue` is supported end to end. */
-	private renderPrimaryAction(status: GitPausedOperationStatus, variant: PausedOperationVariant) {
-		const label = getPausedOperationBarActionLabel(status, variant, this.conflictsCount);
+	private renderPrimaryAction(status: GitPausedOperationStatus, variant: PausedOperationVariant, aiPrimary: boolean) {
 		if (variant !== 'conflicts') {
 			// No href while waiting — disabled stops the pointer, but a link still navigates on Enter.
 			if (this._continuing) {
-				const waiting = `Continuing ${pausedOperationStatusStringsByType[status.type].name}…`;
+				const waiting = aiPrimary
+					? 'Continuing Automatic Rebase…'
+					: `Continuing ${pausedOperationStatusStringsByType[status.type].name}…`;
 				return html`<gl-button density="compact" disabled
 					><code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>${waiting}</gl-button
 				>`;
 			}
 
+			if (aiPrimary) {
+				return html`<gl-button density="compact" href=${this.onContinueWithAiUrl} @click=${this.onContinue}
+					>Continue Automatic Rebase</gl-button
+				>`;
+			}
+
 			return html`<gl-button density="compact" href=${this.onContinueUrl} @click=${this.onContinue}
-				>${label}</gl-button
+				>${getPausedOperationBarActionLabel(status, variant, this.conflictsCount)}</gl-button
 			>`;
 		}
+
+		const label = getPausedOperationBarActionLabel(status, variant, this.conflictsCount);
 
 		// With AI resolve available (graph host), the action enters Resolve Conflicts mode.
 		// Elsewhere it falls back to revealing the conflicts in the tree / rebase editor.
