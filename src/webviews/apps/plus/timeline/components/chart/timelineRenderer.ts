@@ -1591,39 +1591,3 @@ function drawVerticalScrollbar(
 	ctx.globalAlpha = 1;
 	ctx.fillRect(x + 2, thumbY, verticalScrollbarWidthPx - 4, thumbH);
 }
-
-/**
- * Outlier-aware Y scale used by the volume panel. Mirrored from minimapRenderer.computeYScale: the
- * min(max, max(p95, fence)) hybrid keeps the axis tight on smooth distributions while protecting
- * against single-spike domination on heavy-tailed ones.
- */
-export function computeYScale(values: Float32Array | readonly number[]): number {
-	const sorted = new Float32Array(values.length);
-	let length = 0;
-	for (const v of values) {
-		if (v === 0) continue;
-
-		sorted[length++] = v;
-	}
-
-	if (length === 0) return 1;
-
-	const subset = sorted.subarray(0, length);
-	subset.sort();
-
-	const quantile = (q: number): number => {
-		const pos = (length - 1) * q;
-		const lo = Math.floor(pos);
-		const hi = Math.ceil(pos);
-		return subset[lo] + (subset[hi] - subset[lo]) * (pos - lo);
-	};
-
-	const q1 = quantile(0.25);
-	const q3 = quantile(0.75);
-	const p95 = subset[Math.floor((length - 1) * 0.95)];
-	const max = subset[length - 1];
-	const fence = q3 + 1.5 * (q3 - q1);
-	const cap = Math.min(max, Math.max(p95, fence));
-
-	return Math.max(1, Math.ceil(cap * 1.1));
-}

@@ -3,7 +3,6 @@ import type { TimelineDatum } from '../../../../../../plus/timeline/protocol.js'
 import { buildViewModel } from '../timelineData.js';
 import {
 	computeLayout,
-	computeYScale,
 	hitTestBubble,
 	maxRowHeight,
 	minRowHeight,
@@ -201,22 +200,6 @@ suite('timelineRenderer Test Suite', () => {
 			const cx = tsToX(vm.timestamps[targetVmIndex], vm.oldest, vm.newest, lo);
 			const cy = lo.swimlaneTop + lo.rowHeight / 2;
 			assert.strictEqual(hitTestBubble(cx, cy, scrollY, vm, vm.oldest, vm.newest, lo), targetVmIndex);
-		});
-	});
-
-	suite('computeYScale', () => {
-		test('returns 1 for all-zero input', () => {
-			assert.strictEqual(computeYScale([0, 0, 0]), 1);
-		});
-
-		test('caps single-spike outliers near the body of the data', () => {
-			const y = computeYScale([3, 4, 5, 6, 7, 10000]);
-			assert.ok(y < 50, `expected outlier-resistant scale, got ${y}`);
-		});
-
-		test('keeps a smooth distribution close to its max', () => {
-			const y = computeYScale([10, 20, 30, 40, 50]);
-			assert.ok(y >= 50 && y <= 60, `expected 50..60, got ${y}`);
 		});
 	});
 });
