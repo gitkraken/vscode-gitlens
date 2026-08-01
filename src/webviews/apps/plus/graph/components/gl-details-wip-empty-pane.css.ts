@@ -40,32 +40,6 @@ export const detailsWipEmptyPaneStyles = css`
 		--button-line-height: 1.2rem;
 	}
 
-	.next-step {
-		display: flex;
-		gap: var(--gl-space-8);
-		align-items: center;
-		padding: var(--gl-space-4) var(--gl-space-6);
-		border-radius: var(--gl-radius-sm);
-	}
-
-	.next-step:hover {
-		background: var(--vscode-list-hoverBackground);
-	}
-
-	.next-step__icon {
-		flex-shrink: 0;
-		color: var(--color-foreground--65);
-	}
-
-	.next-step__label {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.next-step__action {
-		flex-shrink: 0;
-	}
-
 	.ai-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));

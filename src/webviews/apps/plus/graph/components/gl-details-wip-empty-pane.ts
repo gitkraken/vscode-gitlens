@@ -1,7 +1,6 @@
 import { consume } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	LaunchpadSummaryError,
@@ -14,29 +13,12 @@ import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { detailsWipEmptyPaneStyles } from './gl-details-wip-empty-pane.css.js';
+import type { NextStep } from './nextStep.js';
+import { nextStepStyles, renderNextStep } from './nextStep.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
 import './gl-launchpad-summary.js';
-
-type NextStepAction = {
-	actionLabel: string;
-	tooltip?: string;
-	icon?: string;
-	/** When true, renderNextStep ignores `event`/`href` and renders a disabled button with a
-	 *  spinning icon in place of the normal action button. Used for in-flight states that
-	 *  should anchor layout (the row stays put) while a real action isn't yet available. */
-	loading?: boolean;
-} & ({ event: string; href?: never } | { href: string; event?: never });
-
-type NextStep = {
-	icon: string;
-	iconFlip?: 'inline' | 'block';
-	label: string;
-	actionPrefixIcon?: string;
-	/** Optional alt action — rendered as the small side of a split-button. */
-	alt?: NextStepAction;
-} & NextStepAction;
 
 function getRemoteNameFromUpstream(upstreamName: string | undefined): string {
 	if (!upstreamName) return 'origin';
@@ -47,7 +29,7 @@ function getRemoteNameFromUpstream(upstreamName: string | undefined): string {
 
 @customElement('gl-details-wip-empty-pane')
 export class GlDetailsWipEmptyPane extends LitElement {
-	static override styles = [elementBase, detailsWipEmptyPaneStyles];
+	static override styles = [elementBase, nextStepStyles, detailsWipEmptyPaneStyles];
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
@@ -108,7 +90,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				hasSteps
 					? html`<section class="section">
 							<h3 class="section__heading">Next steps</h3>
-							${allSteps.map(step => this.renderNextStep(step))}
+							${allSteps.map(step => renderNextStep(step))}
 						</section>`
 					: nothing
 			}
@@ -185,65 +167,15 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	}
 
 	protected override updated(): void {
-		// Mirror what `render()` actually puts in the Next-steps section: cached next steps PLUS
-		// uniqueWorkSteps. Pre-rename this guard only checked `_cachedNextSteps`, so a render
-		// that showed Review/Recompose alone (uniqueWorkSteps populated, no cached steps) never
-		// fired the event — breaking telemetry (`TrackGraphDetailsWipShownCommand`) and the
+		// Counts BOTH sources the Next-steps section renders. A section showing only
+		// Review/Recompose (uniqueWorkSteps populated, no cached steps) still has to fire
+		// `next-steps-shown` — it drives `TrackGraphDetailsWipShownCommand` and the
 		// deferred-walkthrough trigger.
 		const hasNextSteps = this._cachedNextSteps.length + this._cachedUniqueWorkSteps.length > 0;
 		if (hasNextSteps && !this._hadNextSteps) {
 			this.emit('next-steps-shown');
 		}
 		this._hadNextSteps = hasNextSteps;
-	}
-
-	private renderNextStep(step: NextStep) {
-		const primaryInner = html`${
-			step.actionPrefixIcon ? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>` : nothing
-		}${step.actionLabel}`;
-		const primary = step.loading
-			? html`<gl-button
-					class="next-step__action"
-					appearance="secondary"
-					disabled
-					aria-label=${step.actionLabel}
-					tooltip=${ifDefined(step.tooltip)}
-					><code-icon icon="loading" modifier="spin"></code-icon
-				></gl-button>`
-			: step.href != null
-				? html`<gl-button class="next-step__action" appearance="secondary" href=${step.href}
-						>${primaryInner}</gl-button
-					>`
-				: html`<gl-button class="next-step__action" appearance="secondary" @click=${() => this.emit(step.event)}
-						>${primaryInner}</gl-button
-					>`;
-
-		const alt = step.alt;
-		const altInner = alt?.icon ? html`<code-icon icon=${alt.icon}></code-icon>` : alt?.actionLabel;
-		const altButton =
-			alt == null
-				? nothing
-				: alt.href != null
-					? html`<gl-button appearance="secondary" tooltip=${alt.tooltip ?? alt.actionLabel} href=${alt.href}
-							>${altInner}</gl-button
-						>`
-					: html`<gl-button
-							appearance="secondary"
-							tooltip=${alt.tooltip ?? alt.actionLabel}
-							@click=${() => this.emit(alt.event)}
-							>${altInner}</gl-button
-						>`;
-
-		const action =
-			alt != null
-				? html`<button-container class="next-step__action">${primary}${altButton}</button-container>`
-				: primary;
-
-		return html`<div class="next-step">
-			<code-icon class="next-step__icon" icon=${step.icon} flip=${ifDefined(step.iconFlip)}></code-icon>
-			<span class="next-step__label">${step.label}</span>
-			${action}
-		</div>`;
 	}
 
 	private renderAiWorkflows(ahead: number) {
@@ -287,7 +219,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				icon: 'cloud-upload',
 				label: `Publish ${branch.name} to ${remoteName}`,
 				actionLabel: 'Publish',
-				event: 'publish-branch',
+				onClick: () => this.emit('publish-branch'),
 			});
 		} else {
 			if (behind > 0) {
@@ -295,14 +227,14 @@ export class GlDetailsWipEmptyPane extends LitElement {
 					icon: 'repo-pull',
 					label: `Pull ${pluralize('commit', behind)} from ${remoteName}`,
 					actionLabel: 'Pull',
-					event: 'pull',
+					onClick: () => this.emit('pull'),
 				});
 			} else if (ahead > 0) {
 				steps.push({
 					icon: 'repo-push',
 					label: `Push ${pluralize('commit', ahead)} to ${remoteName}`,
 					actionLabel: 'Push',
-					event: 'push',
+					onClick: () => this.emit('push'),
 				});
 			}
 
@@ -325,7 +257,6 @@ export class GlDetailsWipEmptyPane extends LitElement {
 					label: 'Checking for pull request…',
 					actionLabel: 'Checking',
 					loading: true,
-					event: '',
 				});
 			} else {
 				const useAI = this.aiCreatePrEnabled;
@@ -334,7 +265,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 					label: 'Create a Pull Request',
 					actionLabel: 'Create PR',
 					actionPrefixIcon: useAI ? 'sparkle' : undefined,
-					event: useAI ? 'create-pr-ai' : 'create-pr',
+					onClick: () => this.emit(useAI ? 'create-pr-ai' : 'create-pr'),
 				});
 			}
 		}
@@ -368,13 +299,13 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			icon: 'checklist',
 			label: 'Review Changes',
 			actionLabel: 'Review',
-			event: 'review-branch-changes',
+			onClick: () => this.emit('review-branch-changes'),
 		};
 		const recompose: NextStep = {
 			icon: 'wand',
 			label: 'Recompose Branch',
 			actionLabel: 'Recompose',
-			event: 'recompose-branch-changes',
+			onClick: () => this.emit('recompose-branch-changes'),
 		};
 
 		return recomposeFirst ? [recompose, review] : [review, recompose];
@@ -462,11 +393,11 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				iconFlip: 'block',
 				label: `Potential Conflicts with ${mergeTarget.name}`,
 				actionLabel: 'Rebase',
-				event: 'rebase-onto-merge-target',
+				onClick: () => this.emit('rebase-onto-merge-target'),
 				alt: {
 					actionLabel: 'Merge',
 					tooltip: `Merge ${mergeTarget.name} into ${branch.name} instead`,
-					event: 'merge-merge-target-into-current',
+					onClick: () => this.emit('merge-merge-target-into-current'),
 				},
 			};
 		}
@@ -479,11 +410,11 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			iconFlip: 'block',
 			label: `${pluralize('Commit', behind)} Behind ${mergeTarget.name}`,
 			actionLabel: 'Rebase',
-			event: 'rebase-onto-merge-target',
+			onClick: () => this.emit('rebase-onto-merge-target'),
 			alt: {
 				actionLabel: 'Merge',
 				tooltip: `Merge ${mergeTarget.name} into ${branch.name} instead`,
-				event: 'merge-merge-target-into-current',
+				onClick: () => this.emit('merge-merge-target-into-current'),
 			},
 		};
 	}

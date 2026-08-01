@@ -3,7 +3,6 @@ import { consume } from '@lit/context';
 import type { PropertyValues, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { arePathsEqual } from '@gitlens/utils/path.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
@@ -30,6 +29,8 @@ import { graphStateContext } from '../context.js';
 import type { ResolvedServices } from './detailsActions.js';
 import type { ExpandState } from './gl-details-agent-status.js';
 import { graphBranchSheetPaneStyles } from './gl-graph-branch-sheet-pane.css.js';
+import type { NextStep } from './nextStep.js';
+import { nextStepStyles, renderNextStep } from './nextStep.js';
 import './gl-compare-ai-actions.js';
 import './gl-details-agent-status.js';
 import '../../../shared/components/button.js';
@@ -84,23 +85,6 @@ interface BranchSheetCacheEntry {
 	remote?: OverviewBranchRemote;
 }
 
-type SheetStepAction = {
-	actionLabel: string;
-	tooltip?: string;
-	icon?: string;
-	/** In-flight state — renders a disabled spinner button that anchors the row's layout. */
-	loading?: boolean;
-} & ({ href: string; onClick?: never } | { onClick?: () => void; href?: never });
-
-type SheetStep = {
-	icon: string;
-	iconFlip?: 'inline' | 'block';
-	label: string;
-	actionPrefixIcon?: string;
-	/** Optional alt action — rendered as the small side of a split-button. */
-	alt?: SheetStepAction;
-} & SheetStepAction;
-
 /** AI band scope — `unpushed` diffs the branch's own upstream..branch, `target` diffs its merge
  *  target..branch. */
 type AiScope = 'unpushed' | 'target';
@@ -123,7 +107,7 @@ function onlyTrustedCommandLinkClicks(e: MouseEvent): void {
  */
 @customElement('gl-graph-branch-sheet-pane')
 export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
-	static override styles = [elementBase, metadataBarVarsBase, graphBranchSheetPaneStyles];
+	static override styles = [elementBase, metadataBarVarsBase, nextStepStyles, graphBranchSheetPaneStyles];
 
 	@consume({ context: webviewContext })
 	private _webview!: WebviewContext;
@@ -538,7 +522,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			context != null
 				? html`<section class="section">
 						<h3 class="section__heading">Next steps</h3>
-						${this.renderStep({
+						${renderNextStep({
 							icon: 'gl-switch',
 							label: `Switch to ${this.displayName(ref)}`,
 							actionLabel: 'Switch',
@@ -571,7 +555,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	private renderTagHub(ref: BranchSheetRef): TemplateResult | typeof nothing {
 		const context = this.parseContext();
 
-		const steps: SheetStep[] = [];
+		const steps: NextStep[] = [];
 
 		// Changelog since the previous reachable tag — release-notes default, no manual base pick.
 		const prevTag = this._prevTagRef;
@@ -607,7 +591,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		return html`<div class="hub">
 			<section class="section">
 				<h3 class="section__heading">Next steps</h3>
-				${steps.map(step => this.renderStep(step))}
+				${steps.map(step => renderNextStep(step))}
 			</section>
 		</div>`;
 	}
@@ -768,7 +752,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				steps.length > 0
 					? html`<section class="section">
 							<h3 class="section__heading">Next steps</h3>
-							${steps.map(step => this.renderStep(step))}
+							${steps.map(step => renderNextStep(step))}
 						</section>`
 					: nothing
 			}
@@ -1015,8 +999,8 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private computeSteps(branch: BranchSnapshot): SheetStep[] {
-		const steps: SheetStep[] = [];
+	private computeSteps(branch: BranchSnapshot): NextStep[] {
+		const steps: NextStep[] = [];
 		const branchRef = this.toBranchRef(branch);
 		// The ref's graph context (threaded from the pill) — unlocks the GraphItemContext-based
 		// Create Worktree… and Create PR commands that have no BranchRef form.
@@ -1410,55 +1394,6 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				>Rebase</gl-button
 			>
 		</button-container>`;
-	}
-
-	private renderStep(step: SheetStep): TemplateResult {
-		const primaryInner = html`${
-			step.actionPrefixIcon ? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>` : nothing
-		}${step.actionLabel}`;
-		const primary = step.loading
-			? html`<gl-button
-					class="next-step__action"
-					appearance="secondary"
-					disabled
-					aria-label=${step.actionLabel}
-					tooltip=${ifDefined(step.tooltip)}
-					><code-icon icon="loading" modifier="spin"></code-icon
-				></gl-button>`
-			: step.href != null
-				? html`<gl-button class="next-step__action" appearance="secondary" href=${step.href}
-						>${primaryInner}</gl-button
-					>`
-				: html`<gl-button class="next-step__action" appearance="secondary" @click=${() => step.onClick?.()}
-						>${primaryInner}</gl-button
-					>`;
-
-		const alt = step.alt;
-		const altInner = alt?.icon ? html`<code-icon icon=${alt.icon}></code-icon>` : alt?.actionLabel;
-		const altButton =
-			alt == null
-				? nothing
-				: alt.href != null
-					? html`<gl-button appearance="secondary" tooltip=${alt.tooltip ?? alt.actionLabel} href=${alt.href}
-							>${altInner}</gl-button
-						>`
-					: html`<gl-button
-							appearance="secondary"
-							tooltip=${alt.tooltip ?? alt.actionLabel}
-							@click=${() => alt.onClick?.()}
-							>${altInner}</gl-button
-						>`;
-
-		const action =
-			alt != null
-				? html`<button-container class="next-step__action">${primary}${altButton}</button-container>`
-				: primary;
-
-		return html`<div class="next-step">
-			<code-icon class="next-step__icon" icon=${step.icon} flip=${ifDefined(step.iconFlip)}></code-icon>
-			<span class="next-step__label">${step.label}</span>
-			${action}
-		</div>`;
 	}
 
 	private toBranchRef(branch: BranchSnapshot): BranchRef {
