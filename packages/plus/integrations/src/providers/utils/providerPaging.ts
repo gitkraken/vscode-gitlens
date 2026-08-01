@@ -1,6 +1,12 @@
-import type { CollectionCompleteness, CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import type {
+	CollectionCompleteness,
+	CollectionMetadata,
+	CollectionOmission,
+	CollectionScopeFailure,
+} from '@gitkraken/provider-apis';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
-import { toCollectionScopeFailure } from '../../collectionMetadata.js';
+import { uniqueBy } from '@gitlens/utils/iterable.js';
+import { collectionScopeKey, toCollectionScopeFailure } from '../../collectionMetadata.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
 /**
@@ -42,21 +48,29 @@ const completenessRank: Record<CollectionCompleteness, number> = { partial: 2, u
 
 /** A stable key for deduplicating structurally-identical scope failures accumulated across drained pages. */
 function collectionFailureKey(failure: CollectionScopeFailure): string {
-	const scope = failure.scope;
-	return [
-		failure.kind,
-		scope?.providerId ?? '',
-		scope?.resourceId ?? '',
-		scope?.projectId ?? '',
-		scope?.repositoryId ?? '',
-		failure.message ?? '',
-	].join(' ');
+	return [failure.kind, collectionScopeKey(failure.scope), failure.message ?? ''].join(' ');
+}
+
+/**
+ * A stable key for collapsing omissions accumulated across drained pages, matching the SDK's own
+ * `dedupeOmissions`: kind plus scope IDs, deliberately WITHOUT `limit`/`totalCount`.
+ *
+ * Those counts are a re-measurement, not an identity. GitHub recomputes the match total on every request, so
+ * one repository drained over several pages reports the same cap with a drifting total; keying on the total
+ * would emit a near-identical warning per page ("matched 1393…", "matched 1402…") that
+ * `appendDedupedWarning` cannot collapse, since the messages genuinely differ. Independently-scoped omissions
+ * still stay distinct, which is the case that carries information.
+ */
+function collectionOmissionKey(omission: CollectionOmission): string {
+	return [omission.kind, collectionScopeKey(omission.scope)].join(' ');
 }
 
 /**
  * Merges SDK collection metadata across drained pages. Completeness follows {@link completenessRank};
- * failures are concatenated and deduplicated by kind, scope IDs, and message. Returns `undefined` when no
- * page supplied metadata, so metadata-free providers and test doubles keep behaving as before.
+ * failures are deduplicated by kind, scope IDs, and message, and omissions are collapsed per kind and scope
+ * keeping the highest reported total ({@link collectionOmissionKey}). Both preserve first-reported order.
+ * Returns `undefined` when no page supplied metadata, so metadata-free providers and test doubles keep
+ * behaving as before.
  */
 export function mergeCollectionMetadata(
 	base: CollectionMetadata | undefined,
@@ -70,17 +84,25 @@ export function mergeCollectionMetadata(
 			? next.completeness
 			: base.completeness;
 
-	const failures: CollectionScopeFailure[] = [];
-	const seen = new Set<string>();
-	for (const failure of [...(base.failures ?? []), ...(next.failures ?? [])]) {
-		const key = collectionFailureKey(failure);
-		if (seen.has(key)) continue;
+	// First occurrence wins: a repeated failure carries no new information, since the message is part of its key.
+	const failures = [
+		...uniqueBy([...(base.failures ?? []), ...(next.failures ?? [])], collectionFailureKey, original => original),
+	];
+	// Highest total wins, so re-measuring one cap across pages collapses to a single omission holding the
+	// largest figure reported for it — the same rule the SDK applies in `createCollectionMetadata`.
+	const omissions = [
+		...uniqueBy(
+			[...(base.omissions ?? []), ...(next.omissions ?? [])],
+			collectionOmissionKey,
+			(original, current) => ((current.totalCount ?? -1) > (original.totalCount ?? -1) ? current : undefined),
+		),
+	];
 
-		seen.add(key);
-		failures.push(failure);
-	}
-
-	return { completeness: completeness, ...(failures.length ? { failures: failures } : {}) };
+	return {
+		completeness: completeness,
+		...(failures.length ? { failures: failures } : {}),
+		...(omissions.length ? { omissions: omissions } : {}),
+	};
 }
 
 /**
