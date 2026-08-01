@@ -823,6 +823,11 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	}
 
 	private renderEmbeddedAutolinks() {
+		// Drop the whole strip when autolinks are off — otherwise `computeAutolinkState` returns
+		// undefined and the chips fall through to the "Configure autolinks" promo, advertising a
+		// feature the user just disabled. Matches the compare and multi-commit panels.
+		if (!this.autolinksEnabled) return nothing;
+
 		return html`<div class="autolinks">${this.renderAutoLinksChips()}</div>`;
 	}
 

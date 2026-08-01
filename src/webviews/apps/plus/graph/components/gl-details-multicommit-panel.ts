@@ -576,6 +576,8 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private readonly _autolinkMerger = new AutolinkMerger();
 
 	private renderAutolinksRow() {
+		if (!this.autolinksEnabled) return nothing;
+
 		const merged = this._autolinkMerger.merge(this.autolinks, this.enrichedItems);
 		const hasChips = merged.autolinks.length > 0 || merged.enriched.length > 0;
 		// Show the loading state until BOTH the comparison fetch AND the autolinks fetch settle —
