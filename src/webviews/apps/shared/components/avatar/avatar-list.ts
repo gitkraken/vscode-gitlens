@@ -13,7 +13,32 @@ export interface AvatarShape {
 
 @customElement('gl-avatar-list')
 export class GlAvatarList extends LitElement {
-	// static override styles = [];
+	static override styles = [
+		css`
+			/* Exposed as gl-avatar-list::part(base) — rebase-entry restyles it to right-align. */
+			.avatar-group {
+				display: inline-flex;
+				flex-direction: row;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.avatar-group > *:not(:first-child) {
+				margin-left: calc(var(--gl-avatar-size, 1.6rem) * -0.2);
+			}
+
+			.avatar-group:focus-within > *,
+			.avatar-group:hover > * {
+				opacity: 0.5;
+			}
+
+			.avatar-group:focus-within > *:focus,
+			.avatar-group:hover > *:hover {
+				z-index: var(--gl-avatar-selected-zindex, 1) !important;
+				opacity: 1;
+			}
+		`,
+	];
 
 	@property({ type: Number })
 	max: number = 3;
@@ -22,7 +47,7 @@ export class GlAvatarList extends LitElement {
 	avatars: AvatarShape[] = [];
 
 	override render(): unknown {
-		return html`<gl-avatar-group exportparts="base">${this.renderList()}</gl-avatar-group>`;
+		return html`<div class="avatar-group" part="base">${this.renderList()}</div>`;
 	}
 
 	private renderList() {
@@ -54,38 +79,5 @@ export class GlAvatarList extends LitElement {
 					</gl-popover>`,
 			)}
 		`;
-	}
-}
-
-@customElement('gl-avatar-group')
-export class GlAvatarGroup extends LitElement {
-	static override styles = [
-		css`
-			.avatar-group {
-				display: inline-flex;
-				flex-direction: row;
-				align-items: center;
-				justify-content: center;
-			}
-
-			.avatar-group ::slotted(*:not(:first-child)) {
-				margin-left: calc(var(--gl-avatar-size, 1.6rem) * -0.2);
-			}
-
-			.avatar-group:focus-within ::slotted(*),
-			.avatar-group:hover ::slotted(*) {
-				opacity: 0.5;
-			}
-
-			.avatar-group:focus-within ::slotted(*:focus),
-			.avatar-group:hover ::slotted(*:hover) {
-				z-index: var(--gl-avatar-selected-zindex, 1) !important;
-				opacity: 1;
-			}
-		`,
-	];
-
-	override render(): unknown {
-		return html`<div class="avatar-group" part="base"><slot></slot></div>`;
 	}
 }
