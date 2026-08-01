@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.101] - 2026-08-02
+
+### Added
+
+- Adds structured detail to the warnings raised from provider collection metadata — requires `@gitkraken/provider-apis` 0.55.0. A GitHub search that hits the 1,000-result cap now warns with the figures it was given (`Search (repository acme/web) matched 1393 results, but the provider exposes at most 1000`) instead of the fixed `Some results were omitted; the read is incomplete`, and the SDK's other two omission kinds (`recovery-budget`, `pagination-incomplete`) each get their own message, scoped to the repository/project the SDK attributes them to. An omission never sets `fetchFailed`: the request succeeded, so retrying returns the same truncated set — only a structured failure means the read broke. Note 0.55.0 also RECOVERS past the cap (it partitions an over-limit multi-repo search by repository, then bisects `updated:` windows), so the common over-cap read now returns complete and raises no warning at all (plus/integrations)
+
+### Changed
+
+- Collapses repeated collection omissions per kind and scope, keeping the highest reported total, mirroring the SDK's own dedupe. GitHub recomputes its match total on every request, so a repository drained over several pages reports the same cap with a drifting count; without this the consumer got a near-identical warning per page that message-level dedupe could not collapse (plus/integrations)
+- Truncation is now derived from one predicate, `isIncompleteCollection`, shared by the facade assessment and `getPagedResult`. Both computed it independently before, so a single metadata object could be reported as truncated by one and complete by the other (plus/integrations)
+
+### Fixed
+
+- Fixes a GitHub pull-request search dropping the pages it had already collected when a later page came back empty — the drain returned `[]` instead of the accumulated results (plus/git-github)
+- Fixes `GitHubPullRequestLite.body` being typed as non-nullable when GitHub's schema returns `null` for it; the mapped `PullRequest.body` now degrades to `undefined` rather than carrying a `null` typed as `string` (plus/git-github)
+- Fixes Trello's project-scoped issue read dropping the SDK collection metadata it had already computed, so a partial Trello search reached the facade with its truncation signal but no structured detail (plus/integrations)
+
 ## [0.5.100] - 2026-07-31
 
 ### Changed
@@ -128,7 +145,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.100...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.101...HEAD
+[0.5.101]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.100...gitkraken:releases/core/v0.5.101
 [0.5.100]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.0...gitkraken:releases/core/v0.5.100
 [0.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.1...gitkraken:releases/core/v0.4.0
 [0.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.0...gitkraken:releases/core/v0.3.1
