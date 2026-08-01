@@ -952,6 +952,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getSidebarData: (panel, options, signal) =>
 					this.onGetSidebarData({ panel: panel, displayed: options?.displayed }, signal),
 				getSidebarCounts: () => this.onGetCounts(),
+				// Straight to the shared 10s status cache — see `getWorktreeWipStats` on the interface for why
+				// this deliberately does NOT reuse `GetWipStatsRequest` (shared `wipStats` cancellation key).
+				// `normalizePath` because the client sends `Uri.fsPath`: on Windows that would key the cache
+				// with backslashes, which neither the graph's readers nor the FS-watcher evictor ever match.
+				getWorktreeWipStats: async (path, signal) =>
+					(await this._wip.getStatusFromCache(normalizePath(path), signal))?.diffStatus ?? null,
 				findPullRequest: number => this._panels.onFindPullRequest({ number: number }),
 				toggleLayout: panel => this.onSidebarToggleLayout({ panel: panel }),
 				toggleShowRemoteBranches: () => this.onSidebarToggleShowRemoteBranches(),

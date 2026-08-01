@@ -1,7 +1,6 @@
 import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import type { ColumnId, ColumnMode, GraphColumnMode, GraphStyle } from '@gitkraken/commit-graph/view.js';
 import type { GitTrackingState } from '@gitlens/git/models/branch.js';
-import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type {
 	GitGraphRow,
 	GitGraphRowKind,
@@ -1370,14 +1369,13 @@ export interface GraphSidebarTag {
 }
 
 /**
- * Per-worktree change entry carried by `sidebarWorktreeState` push events. Both fields come from
- * the same `getStatus()` in `doComputeWorktreeChanges`, so the worktrees-panel row's clean/dirty
- * pill and its breakdown tooltip stay in sync without a second fetch. `workingTreeState` is
- * optional so bare worktrees / fetch failures still produce a structurally-valid entry.
+ * Per-worktree change entry carried by `sidebarWorktreeState` push events. Clean/dirty ONLY — it comes from
+ * the cheap `git diff --quiet` probe in `doComputeWorktreeChanges`, which is all the row's pill needs. The
+ * `+N ~M -K` breakdown is deliberately absent: it costs a full `git status`, so it's fetched per worktree
+ * when that row's tooltip opens (`GraphSidebarService.getWorktreeWipStats`).
  */
 export interface SidebarWorktreeChange {
 	hasChanges: boolean;
-	workingTreeState?: GitDiffFileStats;
 }
 
 export interface GraphSidebarWorktree {
@@ -1391,13 +1389,9 @@ export interface GraphSidebarWorktree {
 	/** The graph row id this worktree's WIP anchors to (see `createWipRowId`), or undefined when
 	 *  the worktree has no WIP row. */
 	wipSha?: string;
+	/** Clean/dirty from the cheap probe. The breakdown behind it is NOT sent — see
+	 *  {@link SidebarWorktreeChange} and `getWorktreeWipStats`. */
 	hasChanges?: boolean;
-	/**
-	 * Full add/changed/deleted breakdown for the worktree's working tree. Populated alongside
-	 * `hasChanges` by `doComputeWorktreeChanges()` from the same `git status` fetch — no extra
-	 * git work. Drives the panel row's clean/dirty pill tooltip.
-	 */
-	workingTreeState?: GitDiffFileStats;
 	status?: string;
 	upstream?: string;
 	tracking?: { ahead: number; behind: number };

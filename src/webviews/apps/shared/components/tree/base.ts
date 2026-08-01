@@ -120,12 +120,12 @@ export interface TreeItemDecorationAgent extends TreeItemDecorationBase {
 	tooltip?: string;
 }
 
+/** Clean/dirty only — the badge renders a pencil or a check and nothing finer. A row wanting the `+N ~M -K`
+ *  breakdown fetches it for its tooltip; carrying the numbers here would oblige every producer to run a
+ *  `git status` per row to fill fields the badge doesn't draw. */
 export interface TreeItemDecorationWip extends TreeItemDecorationBase {
 	type: 'wip';
 	hasChanges: boolean;
-	added?: number;
-	changed?: number;
-	deleted?: number;
 }
 
 export type TreeItemDecoration =

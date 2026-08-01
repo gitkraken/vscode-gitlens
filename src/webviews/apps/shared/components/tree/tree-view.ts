@@ -779,8 +779,9 @@ export class GlTreeView extends GlElement {
 			}
 
 			if (decoration.type === 'wip') {
-				// `no-tooltip` so the indicator doesn't double-tooltip with the row tooltip — the
-				// row's own tooltip carries the breakdown pill (see sidebar-panel toWorktreeLeaf).
+				// `badge` renders a pencil/check from `dirty` alone, so no counts are passed. `no-tooltip` so
+				// the indicator doesn't double-tooltip with the row tooltip, which carries the breakdown
+				// (see sidebar-panel toWorktreeLeaf).
 				return html`<gl-wip-stats
 					slot=${slot}
 					part=${slot}
@@ -788,9 +789,6 @@ export class GlTreeView extends GlElement {
 					show-clean
 					no-tooltip
 					.dirty=${decoration.hasChanges}
-					added=${decoration.added ?? nothing}
-					modified=${decoration.changed ?? nothing}
-					removed=${decoration.deleted ?? nothing}
 				></gl-wip-stats>`;
 			}
 

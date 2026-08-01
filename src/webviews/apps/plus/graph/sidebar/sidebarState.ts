@@ -1,5 +1,6 @@
 import { signal as litSignal } from '@lit-labs/signals';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { GlCommands } from '../../../../../constants.commands.js';
 import type { GraphSidebarService } from '../../../../plus/graph/graphService.js';
 import type {
@@ -48,6 +49,27 @@ export interface SidebarActions {
 	fetchPanel(panel: GraphSidebarPanel): void;
 	fetchCounts(): void;
 	refreshOnReveal(): void;
+	/**
+	 * Last known per-worktree working-tree breakdown, requested when a row's tooltip opens. A render cache
+	 * only — freshness belongs to the host, whose status cache is TTL'd and evicted by the FS watcher. Every
+	 * tooltip open re-asks; a warm host cache answers without running `git status`.
+	 *
+	 * Panel-scoped rather than held on the tooltip element: `gl-tree-view` destroys the tooltip on every
+	 * close (including the suspend/resume the row's own sub-controls trigger), so an element-level cache
+	 * would survive only a continuous A→B→A hover.
+	 *
+	 * `undefined` = no answer yet. `null` = settled with no data (git failure / nothing to report).
+	 */
+	readonly worktreeWipStats: { get(): ReadonlyMap<string, GitDiffFileStats | null> };
+	/**
+	 * Requests stats for `path`, joining any request already in flight for it. Safe to call on every
+	 * tooltip open.
+	 *
+	 * Always resolves — a failure logs and leaves the entry absent so the next open retries. Callers await
+	 * it to know an attempt finished: that, not the presence of an entry, is what separates "still coming"
+	 * from "came back with nothing", and a caller that infers the former from a missing entry spins forever.
+	 */
+	requestWorktreeWipStats(path: string): Promise<void>;
 	invalidateAll(): void;
 	refresh(panel: GraphSidebarPanel): void;
 	toggleLayout(panel: GraphSidebarPanel): void;
@@ -65,6 +87,13 @@ export function createSidebarActions(): SidebarActions {
 	const counts = litSignal<Counts | undefined>(undefined);
 	const countsLoading = litSignal(false);
 	const countsError = litSignal(false);
+
+	// Signal-backed so an open tooltip re-renders when its stats land — the tree-view snapshots the tooltip
+	// template at hover time and never re-reads it, so the element has to pull this itself.
+	const worktreeWipStats = litSignal<ReadonlyMap<string, GitDiffFileStats | null>>(new Map());
+	// Keyed by path so a second tooltip opening on the same worktree joins the outstanding request rather
+	// than spawning a second one — and, by awaiting the same promise, learns when it failed.
+	const worktreeWipStatsInFlight = new Map<string, Promise<void>>();
 
 	// Held as a local (not read off `actions`) so the panel-resource factories below can capture it without
 	// referencing `actions` before it's defined.
@@ -174,6 +203,10 @@ export function createSidebarActions(): SidebarActions {
 
 			service = svc;
 			fetchCountsPromise = undefined;
+			// Requests outstanding against the old service may never settle, which would strand their paths
+			// as permanently in flight. Drop both; the next tooltip open re-asks the new service.
+			worktreeWipStats.set(new Map());
+			worktreeWipStatsInFlight.clear();
 
 			// Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>`, so
 			// the call must be awaited — synchronous assignment captures the Promise
@@ -224,6 +257,41 @@ export function createSidebarActions(): SidebarActions {
 			if (actions.activePanel != null) {
 				actions.fetchPanel(actions.activePanel);
 			}
+		},
+
+		worktreeWipStats: worktreeWipStats,
+
+		requestWorktreeWipStats: function (path: string) {
+			if (service == null) return Promise.resolve();
+
+			// Deduped against concurrent asks only. A settled entry is deliberately NOT a reason to skip:
+			// the working tree changes under us, and the client has no invalidation signal for it. The host
+			// does — its status cache is TTL'd and hard-evicted by the FS watcher — so re-asking on every
+			// open costs an in-process round-trip and nothing more while that cache is warm.
+			const inFlight = worktreeWipStatsInFlight.get(path);
+			if (inFlight != null) return inFlight;
+
+			const promise = service
+				.getWorktreeWipStats(path)
+				.then(stats => {
+					// Replace, never mutate — the signal compares by reference to decide whether to notify.
+					const next = new Map(worktreeWipStats.get());
+					next.set(path, stats);
+					worktreeWipStats.set(next);
+				})
+				.catch((ex: unknown) => {
+					// Leave the entry ABSENT so the next open retries — recording `null` would make a one-off
+					// failure permanent. Resolving (not rethrowing) is what unsticks the tooltip: it waits on
+					// this promise, not on the missing entry, to decide whether anything is still coming.
+					Logger.warn(`Unable to get worktree WIP stats for '${path}': ${String(ex)}`);
+				})
+				.finally(() => {
+					if (worktreeWipStatsInFlight.get(path) === promise) {
+						worktreeWipStatsInFlight.delete(path);
+					}
+				});
+			worktreeWipStatsInFlight.set(path, promise);
+			return promise;
 		},
 
 		fetchCounts: function () {
@@ -296,28 +364,16 @@ export function createSidebarActions(): SidebarActions {
 			const data = panels.worktrees.value.get();
 			if (data == null) return;
 
-			const worktrees = data.items as Array<{
-				uri: string;
-				hasChanges?: boolean;
-				workingTreeState?: GitDiffFileStats;
-			}>;
+			const worktrees = data.items as Array<{ uri: string; hasChanges?: boolean }>;
 			let changed = false;
 			for (const w of worktrees) {
 				const next = changes[w.uri];
 				if (next == null) continue;
 
-				// Value-compare the breakdown (fresh objects from each push always differ by
-				// reference) — re-rendering on every FS tick with unchanged counts would otherwise
-				// flash the panel during rapid edits/saves.
-				const prevWts = w.workingTreeState;
-				const nextWts = next.workingTreeState;
-				const wtsChanged =
-					prevWts?.added !== nextWts?.added ||
-					prevWts?.changed !== nextWts?.changed ||
-					prevWts?.deleted !== nextWts?.deleted;
-				if (w.hasChanges !== next.hasChanges || wtsChanged) {
+				// Compare before assigning: pushes land on every FS tick, and republishing an unchanged
+				// value would re-render the whole panel each time.
+				if (w.hasChanges !== next.hasChanges) {
 					w.hasChanges = next.hasChanges;
-					w.workingTreeState = next.workingTreeState;
 					changed = true;
 				}
 			}

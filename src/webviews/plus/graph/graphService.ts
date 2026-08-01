@@ -1,4 +1,5 @@
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
+import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -654,6 +655,18 @@ export interface GraphSidebarService {
 		signal?: AbortSignal,
 	): Promise<DidGetSidebarDataParams>;
 	getSidebarCounts(): Promise<DidGetCountParams>;
+	/**
+	 * On-demand working-tree breakdown for ONE worktree, driven by its row tooltip opening. `null` means
+	 * "settled, no data" (no status available) — distinct from a rejection, so the tooltip can land on a
+	 * terminal state instead of spinning.
+	 *
+	 * Deliberately NOT `GetWipStatsRequest`: that handler opens a cancellation under the shared `wipStats`
+	 * key, so a hover would cancel the graph's in-flight visible-range scan — and that scan never re-asks for
+	 * an unchanged missing set, so those rows would lose their stats pills until a reload. It also skips the
+	 * primary repo path and collapses config-off into an empty response. This goes straight to the shared
+	 * 10s status cache instead, so it still joins any concurrent read for the same worktree.
+	 */
+	getWorktreeWipStats(path: string, signal?: AbortSignal): Promise<GitDiffFileStats | null>;
 	/** Looks up one pull request by number, for the Focus pane's search fallback — the panel lists only
 	 *  open PRs, so a pasted URL for a merged or closed one isn't in the loaded set. */
 	findPullRequest(number: string): Promise<GraphSidebarPullRequest | undefined>;

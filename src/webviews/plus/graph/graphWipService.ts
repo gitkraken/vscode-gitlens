@@ -440,13 +440,11 @@ export class GraphWipService {
 
 	private async doComputeWorktreeChanges(worktrees: Parameters<typeof getWorktreeHasWorkingChanges>[1][]) {
 		try {
-			// Bounded, cheap-first — mirrors the secondary-WIP probe above rather than fanning a full
-			// `git status` at every worktree at once. Two costs were being paid needlessly: an unbounded
-			// spawn storm (100 worktrees = 100 concurrent statuses contending for the shared git queue,
-			// starving whatever else is touching the repo), and a rename-detecting, untracked-scanning
-			// status on CLEAN worktrees purely to learn they're clean. `git diff --quiet` answers that far
-			// faster and short-circuits; only a worktree it reports dirty is worth a full status, and only
-			// dirty worktrees have a diffstat to show.
+			// Bounded and CHEAP-ONLY — this answers "does the row get a pencil or a check", nothing more.
+			// `git diff --quiet` (+ untracked probe) settles that and short-circuits; no `git status` runs
+			// here. The `+N ~M -K` breakdown is fetched per worktree when its row tooltip opens
+			// (`getWorktreeWipStats`), so a repo where `git status` is slow pays only for the rows the user
+			// actually hovers.
 			const targets = worktrees.filter(w => w.type !== 'bare');
 			const entries: (readonly [string, SidebarWorktreeChange | undefined])[] = [];
 			const probeConcurrency = 4;
@@ -467,24 +465,7 @@ export class GraphWipService {
 							const hasChanges = await getWorktreeHasWorkingChanges(this.container, w, {
 								throwOnError: true,
 							});
-							if (hasChanges !== true) {
-								entries.push([path, hasChanges == null ? undefined : { hasChanges: false }] as const);
-								continue;
-							}
-
-							// Dirty — now the diffstat is worth fetching. Route through `_wipStatusCache` so the
-							// panel shares status data with the WIP/overview paths; when the per-event push has
-							// already populated the cache for this worktree, this is free.
-							const svc = this.container.git.getRepositoryService(path);
-							const status = await this._wipStatusCache.getOrCreate(path, (_cacheable, factorySignal) =>
-								svc.status.getStatus(undefined, factorySignal),
-							);
-							entries.push([
-								path,
-								status != null
-									? { hasChanges: status.files.length > 0, workingTreeState: status.diffStatus }
-									: { hasChanges: true },
-							] as const);
+							entries.push([path, hasChanges == null ? undefined : { hasChanges: hasChanges }] as const);
 						} catch {
 							// Leave this worktree's row untouched rather than asserting a verdict we don't have.
 							entries.push([path, undefined] as const);

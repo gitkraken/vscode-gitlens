@@ -65,6 +65,7 @@ import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/commit/wip-stats.js';
 import '../../../shared/components/markdown/markdown.js';
 import './agent-tooltip.js';
+import './worktree-tooltip.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -1235,6 +1236,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// Place the WIP pill before the tracking arrows so the row reads `[wip][↑↓][active][lock]`,
 		// matching the overview card's left-to-right ordering. Bare worktrees never have a working
 		// tree of their own (`hasChanges` stays undefined) and stay pill-less.
+		// Clean/dirty only — the badge renders a pencil/check from `hasChanges` and draws no numbers. The
+		// breakdown lives in the row tooltip, fetched on hover.
 		const wipDecoration: TreeItemDecoration[] =
 			w.hasChanges != null
 				? [
@@ -1242,42 +1245,24 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 							type: 'wip',
 							label: w.hasChanges ? 'Working tree has changes' : 'No changes',
 							hasChanges: w.hasChanges,
-							added: w.workingTreeState?.added,
-							changed: w.workingTreeState?.changed,
-							deleted: w.workingTreeState?.deleted,
 						},
 					]
 				: [];
 
-		// Compose a rich row tooltip: the existing markdown text + a wip stats pill where the
-		// "Has Uncommitted Changes" line used to be. Falls back to the bare markdown when no
-		// breakdown is known (bare worktrees, or a probe that hasn't resolved yet).
-		// Trailing `\\\n` is a single markdown hard line break — keeps the wip pill / fallback
-		// from sitting flush against the markdown's last text line.
+		// A component, not an inline template: the breakdown isn't carried on `w`, so the tooltip requests it
+		// when it opens and re-renders when it lands. `gl-tree-view` only instantiates this once the popover
+		// actually shows, which is what keeps the fetch on-demand.
+		// Trailing `\\\n` is a single markdown hard line break — keeps the stats line from sitting flush
+		// against the markdown's last text line.
 		const tooltipMarkdown = `${worktreeTooltipWithoutChangesLine(w)}\\\n`;
-		const wts = w.workingTreeState;
-		// Destructure into locals so TS narrows the optional fields once and the template below
-		// doesn't have to repeat `wts?.` / non-null assertions.
-		const added = wts?.added ?? 0;
-		const changed = wts?.changed ?? 0;
-		const deleted = wts?.deleted ?? 0;
-		const hasBreakdown = wts != null && added + changed + deleted > 0;
 		const tooltip =
 			w.hasChanges != null
-				? html`<gl-markdown density="compact" .markdown=${tooltipMarkdown}></gl-markdown> ${
-							hasBreakdown
-								? html`<commit-stats
-										added=${added || nothing}
-										modified=${changed || nothing}
-										removed=${deleted || nothing}
-										symbol="icons"
-										appearance="pill"
-										no-tooltip
-									></commit-stats>`
-								: html`<span class="tooltip-fallback"
-										>${w.hasChanges ? 'Has Uncommitted Changes' : 'No Uncommitted Changes'}</span
-									>`
-						}`
+				? html`<gl-worktree-tooltip
+						.markdown=${tooltipMarkdown}
+						.path=${w.uri}
+						.wipSha=${w.wipSha}
+						.hasChanges=${w.hasChanges}
+					></gl-worktree-tooltip>`
 				: worktreeTooltip(w);
 
 		return {
