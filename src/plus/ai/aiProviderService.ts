@@ -879,7 +879,11 @@ export class AIProviderService implements AIService, Disposable {
 		// Gate the account once, up front. Every step below would otherwise prompt for one on its own —
 		// a primary provider's `configured()` check and both pickers — so a signed-out user got a
 		// sign-in prompt per step instead of a single one.
-		if (!options?.silent && (await ensureAccess(this.container, { showPicker: true }, source))) {
+		// `undefined` when silent — the gate never runs and nothing was asked of the user.
+		const allowed = options?.silent ? undefined : await ensureAccess(this.container, { showPicker: true }, source);
+		// Tracks a pick the user backed out of, so it isn't later reported as a switch (see the send below).
+		let cancelled = allowed === false;
+		if (allowed) {
 			if (!options?.force) {
 				chosenModel = currentModel != null ? await currentModel.value : await fallbackModel.value;
 				chosenProviderId = chosenModel?.provider.id;
@@ -909,6 +913,7 @@ export class AIProviderService implements AIService, Disposable {
 				}
 				if (chosenProviderId == null) {
 					chosenModel = undefined;
+					cancelled = true;
 					break;
 				}
 
@@ -934,6 +939,7 @@ export class AIProviderService implements AIService, Disposable {
 					);
 					if (result == null || (isDirective(result) && result !== Directive.Back)) {
 						chosenModel = undefined;
+						cancelled = true;
 						break;
 					}
 					if (result === Directive.Back) {
@@ -955,6 +961,11 @@ export class AIProviderService implements AIService, Disposable {
 				? undefined
 				: await this.getOrUpdateModel(chosenModel, { scope: scope, persist: picked });
 		if (options?.silent) return model;
+		// A pick the user backed out of is not a switch. The `??=` above deliberately falls back to the
+		// configured model so the cache still warms and an opportunistic picker's caller keeps working — but
+		// reporting that fallback as `ai/switchModel` counted a switch that never happened, on EVERY cancelled
+		// pick (either picker, or the account gate), not just the declined gate.
+		if (cancelled) return model;
 
 		this.container.telemetry.sendEvent(
 			'ai/switchModel',
