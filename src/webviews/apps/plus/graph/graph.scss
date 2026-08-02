@@ -831,16 +831,18 @@ gl-lit-graph {
 		body.vscode-high-contrast-light &.is-selected {
 			box-shadow: inset 0 0 0 1px var(--color-graph-contrast-border);
 		}
-		// Focus/selection ring matching VS Code list rows, which use `outline-offset: -1px` — a 1px ring
-		// inset 1px on ALL sides. We can't use `outline`: the row is a stacking context whose positioned
-		// descendants (lane band/edge, anchor rail, action strip) paint over the row's own outline, so the
-		// ring is a TOP-MOST ::after overlay above those layers. `inset: 1px` reproduces VS Code's inset
-		// AND keeps the ring inside the scrollable virtualizer's overflow clip (the row is flush against
-		// its left edge, so a flush ring's leftmost pixel would land on the clip boundary and vanish).
+		// Focus ring matching VS Code list rows and the details pane's gl-tree: a real `outline` at a
+		// negative offset, hugging the row edge. The outline can't live on the row itself — the row is a
+		// stacking context whose positioned descendants (lane band/edge, anchor rail, action strip) paint
+		// over it — so it sits on a TOP-MOST ::after overlay above those layers. An `outline` (NOT an inset
+		// box-shadow) so it rasterizes exactly like the native list/tree rings at every display scale — a
+		// spread shadow diverges from an outline on half-device-pixel phases at fractional scales.
 		&.is-focused::after {
 			content: '';
 			position: absolute;
-			inset: 1px;
+			// Left leg nudged inward: flush against the virtualizer's overflow clip it lands on the raster
+			// boundary and vanishes at fractional display scales; the other legs stay flush like native rows.
+			inset: 0 0 0 0.1rem;
 			z-index: 5;
 			// The SOLE focus indicator for the tree (no separate viewport ring). Inactive at rest (VS Code
 			// leaves inactive-focus rows ring-less unless the theme sets `--vscode-list-inactiveFocusOutline`),
@@ -848,7 +850,8 @@ gl-lit-graph {
 			// dived-into row control (pill / action button). `:focus-within` (not `:focus-visible`): the ring
 			// must stay while you're on the row's controls, and the container's programmatic focus isn't
 			// reliably `:focus-visible`.
-			box-shadow: inset 0 0 0 1px var(--vscode-list-inactiveFocusOutline, transparent);
+			outline: var(--gl-border-width) solid var(--vscode-list-inactiveFocusOutline, transparent);
+			outline-offset: -0.1rem;
 			pointer-events: none;
 		}
 		&.is-dimmed {
@@ -997,7 +1000,7 @@ gl-lit-graph {
 	// the ring while you're on the row's controls, and the container's programmatic focus isn't reliably
 	// `:focus-visible`.
 	.gl-graph__tree:focus-within .gl-graph__row.is-focused::after {
-		box-shadow: inset 0 0 0 1px var(--vscode-list-focusOutline);
+		outline-color: var(--vscode-list-focusOutline);
 	}
 	// Graph (tree) unfocused within the window → inactive list-selection colors (same token swap as the
 	// window-unfocused override above, but for the graph losing keyboard focus while the window keeps it).
