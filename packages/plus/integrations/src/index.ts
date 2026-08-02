@@ -204,6 +204,7 @@ export type {
 	ProviderWarningKind,
 	ProviderWarningOmission,
 	ProviderWarningOmissionKind,
+	ProviderWarningOmissionRecovery,
 	ProviderWarningOmissionScope,
 	ProviderOrganization,
 	ProviderRepositoryShape,

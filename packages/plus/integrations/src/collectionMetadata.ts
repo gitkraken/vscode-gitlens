@@ -97,9 +97,10 @@ function collectionFailureMessage(failure: CollectionScopeFailure): string {
 /**
  * Explains one omission in the consumer's terms — what was left out and, where the SDK reports it, how much.
  *
- * An omission is a completeness fact, never a failure: the read succeeded and the provider (or the SDK's own
- * recovery budget) is what withheld results, so retrying the same request cannot recover them. That is why
- * these never contribute to `fetchFailed`.
+ * An omission is a completeness fact, never a failure: the read succeeded, and the provider (or the SDK's own
+ * recovery budget) is what withheld results. That is why these never contribute to `fetchFailed`. Whether a
+ * retry would recover anything is a separate question this layer cannot answer — see the `recovery` note on
+ * {@link toProviderWarningOmission}.
  */
 function collectionOmissionMessage(omission: CollectionOmission): string {
 	const scopeText = collectionScopeText(omission.scope);
@@ -140,10 +141,21 @@ function collectionOmissionMessage(omission: CollectionOmission): string {
  *
  * `scope` is copied because the SDK's own object is retained and re-merged across drained pages
  * (`providerPaging.ts`), and this one crosses the package boundary.
+ *
+ * `recovery` is always `'none'`, deliberately, and a scoped `pagination-incomplete` is why it looks wrong: the
+ * SDK emits that one shape from situations with opposite remedies and says so itself — "Either the read
+ * deliberately took one page per scope, or the provider advertised another page it gave no way to reach." Its
+ * `collectAcrossScopes` producers (Azure, Bitbucket, Bitbucket Server) are the first, its `drainAcrossScopes`
+ * producers (GitLab, Jira) the second, and those report an omission only when a cursor STALLED — so re-reading
+ * that scope stalls at the identical page. Nothing in `CollectionOmission` separates the two, so claiming
+ * recoverability would ship the dead-end button `recovery` exists to prevent. Making the recoverable case
+ * claimable needs provider-apis to say whether a scope was drained or merely sampled: a fact to forward, not
+ * to guess here.
  */
 function toProviderWarningOmission(omission: CollectionOmission): ProviderWarningOmission {
 	return {
 		kind: omission.kind,
+		recovery: 'none',
 		...(omission.limit != null ? { limit: omission.limit } : {}),
 		// The SDK types this `number | null | undefined`; normalize to one absence for consumers.
 		...(omission.totalCount != null ? { totalCount: omission.totalCount } : {}),
@@ -193,8 +205,8 @@ export function assessCollectionMetadata(
 
 	// Omissions explain WHY a read is incomplete when nothing failed — a provider cap, an exhausted recovery
 	// budget, an undrained scope. They classify as `other`, never `auth`, and are deliberately excluded from
-	// `fetchFailed` below: the request succeeded, so a retry would return the same truncated set. `omission`
-	// carries that same fact structurally, so a consumer can act on it without parsing the message.
+	// `fetchFailed` below: the request itself succeeded. `omission` carries that same fact structurally, so a
+	// consumer can act on it without parsing the message.
 	const omissions = metadata.omissions ?? [];
 	for (const omission of omissions) {
 		appendDedupedWarning(warnings, {
