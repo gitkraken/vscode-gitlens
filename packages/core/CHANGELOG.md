@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.102] - 2026-08-02
+
 ### Added
 
 - Adds `ProviderWarning.omission`, present only when a read SUCCEEDED and withheld results — a provider cap, an exhausted recovery budget, a page budget, or a sub-scope left undrained. `kind` stays `'other'` for these (adding a member would silently change what `'other'` means for every existing build), so this is the field that separates "incomplete but valid" from a genuine failure without parsing `message`, which is English prose. It carries the SDK's `kind` plus `limit` / `totalCount` / `scope` where reported; `totalCount` is normalized to `number | undefined`, never `null`. Its absence proves nothing: it is never set on a failure, but also absent whenever incompleteness was reported without naming what was left out (plus/integrations)
@@ -159,7 +161,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.101...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.102...HEAD
+[0.5.102]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.101...gitkraken:releases/core/v0.5.102
 [0.5.101]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.100...gitkraken:releases/core/v0.5.101
 [0.5.100]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.0...gitkraken:releases/core/v0.5.100
 [0.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.3.1...gitkraken:releases/core/v0.4.0
