@@ -23,15 +23,37 @@ export type ProviderWarningKind = 'auth' | 'rate-limit' | 'not-found' | 'no-conn
  *   out of partitions to visit.
  * - `pagination-incomplete`: pages were left unread — a sub-scope of a multi-scope read that was not drained,
  *   a drain that stopped at its own page backstop, or a provider that advertised another page and gave no way
- *   to reach it. The only kind that is SOMETIMES recoverable: when `scope` is named, re-read that one through
- *   its single-scope paginated method. Nothing else about the warning says which case it is, so a consumer
- *   must not promise the user a retry will return more.
+ *   to reach it. These have DIFFERENT remedies, so the kind alone does not say whether more can be fetched;
+ *   read {@link ProviderWarningOmission.recovery} for that.
  *
  * Mirrors the vocabulary the SDK reports. Declared here rather than imported so this module stays free of
  * `@gitkraken/provider-apis` types (see the export block in `index.ts`); `collectionMetadata.ts` holds the
  * compile-time link, so an SDK bump that adds a kind fails the build at that boundary.
  */
 export type ProviderWarningOmissionKind = 'provider-limit' | 'recovery-budget' | 'pagination-incomplete';
+
+/**
+ * What, if anything, would fetch the withheld results — the question `kind` cannot answer.
+ *
+ * `kind` says WHY results are missing, and two omissions of the same kind can need opposite handling: a drain
+ * that stopped at a caller-settable page budget and a provider that advertised another page without a usable
+ * cursor are both `pagination-incomplete`, but only the first can be fetched. A consumer offering a "load
+ * more" affordance gates it on this, never on `kind`.
+ *
+ * - `none`: nothing the consumer can call returns the missing items — a provider-enforced cap, an internal
+ *   budget it does not control, or a continuation the provider refused to hand back. Say the results are
+ *   capped; do not offer to fetch more.
+ * - `page-budget`: re-run the SAME read with a higher page budget (`maxPages` on the sweep options). Note this
+ *   re-reads from the start rather than continuing — a sweep exposes no cursor — so it is a deliberate,
+ *   user-initiated action, not something to retry automatically.
+ *
+ * Required, not optional: an absent value would be indistinguishable from `none` while actually meaning "this
+ * producer didn't say", which is the ambiguity {@link ProviderWarning.omission} exists to remove. And a
+ * conservative union on purpose — it names only what a producer can PROVE. A value is added when some layer
+ * can vouch for it, never so that a plausible-looking case has something to map to; see
+ * `collectionMetadata.ts` for the SDK shape that looks recoverable and is not.
+ */
+export type ProviderWarningOmissionRecovery = 'none' | 'page-budget';
 
 /** Which repository / project / resource an omission is attributed to. All fields optional; a scope may name none. */
 export interface ProviderWarningOmissionScope {
@@ -43,6 +65,11 @@ export interface ProviderWarningOmissionScope {
 
 export interface ProviderWarningOmission {
 	kind: ProviderWarningOmissionKind;
+	/**
+	 * Whether anything would fetch the missing items, and what. Gate a "load more" affordance on this rather
+	 * than on `kind` — see {@link ProviderWarningOmissionRecovery}.
+	 */
+	recovery: ProviderWarningOmissionRecovery;
 	/**
 	 * The cap the provider enforces, when it reports one. NOT a result count for every kind: on
 	 * `recovery-budget` this is a REQUEST budget and must not be shown to a user as a number of results.
@@ -66,12 +93,16 @@ export interface ProviderWarning {
 	isAuth: boolean;
 	/**
 	 * Present when this warning describes results the read could not return even though the request itself
-	 * SUCCEEDED — a provider-enforced cap, an exhausted recovery budget, or a sub-scope the read did not drain.
+	 * SUCCEEDED — a provider-enforced cap, an exhausted recovery budget, a page budget, or a sub-scope the read
+	 * did not drain.
 	 *
-	 * Its presence is the signal: an omission is not a failure, and retrying the same request returns the same
-	 * truncated set. Message it as incompleteness rather than as a failed read, and do NOT derive that from
-	 * `message`, which is English prose and subject to rewording. `kind` stays `'other'` for these, so the
-	 * failure discriminant keeps meaning exactly what it meant before this field existed.
+	 * Its presence is the signal: an omission is not a failure. Message it as incompleteness rather than as a
+	 * failed read, and do NOT derive that from `message`, which is English prose and subject to rewording.
+	 * `kind` stays `'other'` for these, so the failure discriminant keeps meaning exactly what it meant before
+	 * this field existed.
+	 *
+	 * Whether anything would fetch the rest is a SEPARATE question — read {@link ProviderWarningOmission.recovery},
+	 * not `kind`, and never assume a retry of the same request returns more.
 	 *
 	 * `limit` / `totalCount` / `scope` are forwarded only when they are reported; most omissions carry none of
 	 * the three, so render correctly without them — and see {@link ProviderWarningOmission.limit} before
@@ -345,9 +376,43 @@ export function collectionScopeKey(scope: ProviderWarningOmissionScope | undefin
 function providerWarningOmissionKey(omission: ProviderWarningOmission | undefined): string {
 	if (omission == null) return '';
 
-	return [omission.kind, omission.limit ?? '', omission.totalCount ?? '', collectionScopeKey(omission.scope)].join(
-		' ',
-	);
+	return [
+		omission.kind,
+		omission.recovery,
+		omission.limit ?? '',
+		omission.totalCount ?? '',
+		collectionScopeKey(omission.scope),
+	].join(' ');
+}
+
+/**
+ * Strips the omission from every warning in `warnings` when the read as a whole failed.
+ *
+ * An omission asserts the request SUCCEEDED, and a drain only learns it failed AFTER it may have emitted one:
+ * an early page can report its own truncation and then a later page can die. Deciding per warning, at the
+ * moment each is built, cannot see that future — so the aggregate is reconciled once, here, where
+ * `fetchFailed` is final. Call it at the point a read returns its `fetchFailed`.
+ *
+ * Re-dedupes as it goes: the omission is part of a warning's identity, so two warnings that differed only
+ * there become identical once it is gone, and the array's contract is that no two entries are equal.
+ *
+ * Mutates in place: the warning array is the one being returned, and callers accumulate into it across pages.
+ */
+export function reconcileOmissionsWithFailure(warnings: ProviderWarning[], fetchFailed: boolean): void {
+	if (!fetchFailed || !warnings.some(w => w.omission != null)) return;
+
+	const reconciled: ProviderWarning[] = [];
+	for (const warning of warnings) {
+		if (warning.omission == null) {
+			appendDedupedWarning(reconciled, warning);
+			continue;
+		}
+
+		const { omission: _omission, ...rest } = warning;
+		appendDedupedWarning(reconciled, rest);
+	}
+
+	warnings.splice(0, warnings.length, ...reconciled);
 }
 
 /**

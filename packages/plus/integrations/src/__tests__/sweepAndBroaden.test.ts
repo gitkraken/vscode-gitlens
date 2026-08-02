@@ -129,10 +129,252 @@ suite('sweep + broaden (#5438)', () => {
 			'a truncated provider slice is not authoritative',
 		);
 		assert.equal(calls, 2);
-		// The drain stopped by its own accounting and every page succeeded, so the truncation warning carries
-		// the structured omission: retrying returns the same set.
-		const truncation = result.warnings.find(w => /truncat/i.test(w.message));
-		assert.deepEqual(truncation?.omission, { kind: 'pagination-incomplete' });
+		// The drain spent the caller's own `maxPages` with a usable cursor still in hand, so the missing items
+		// ARE reachable — this is the one shape where re-running with a higher budget returns more.
+		const truncation = result.warnings.find(w => /page budget/i.test(w.message));
+		assert.deepEqual(truncation?.omission, { kind: 'pagination-incomplete', recovery: 'page-budget' });
+
+		manager.dispose();
+	});
+
+	test('a drain that reaches its budget with no usable cursor does not promise a bigger budget helps', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// Bitbucket Server's shape: `more: true` with the empty-cursor sentinel when it omits `nextPageStart`.
+		// The budget is reached on the SAME page that has nothing to continue from, so deciding the cause by
+		// budget-first would label an unreachable tail as merely unfetched — and raising `maxPages` would
+		// return the identical set.
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForReposResult = () => {
+			calls += 1;
+			return Promise.resolve({
+				value: {
+					values: [providerPr(`pr-${calls}`)],
+					paging: { more: true, cursor: calls >= 2 ? '{}' : JSON.stringify({ value: 2, type: 'page' }) },
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+			maxPages: 2,
+		});
+
+		assert.equal(result.page.truncated, true);
+		const truncation = result.warnings.find(w => w.omission != null);
+		assert.equal(
+			truncation?.omission?.recovery,
+			'none',
+			'no cursor to continue from means no budget returns the rest',
+		);
+		assert.doesNotMatch(truncation?.message ?? '', /raising it/, 'and the prose must not suggest one either');
+
+		manager.dispose();
+	});
+
+	test('a capped page reaching the budget raises one warning, and the cap is what it reports', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// Every page is capped by the provider AND has a usable cursor, so the drain runs to `maxPages` with
+		// both facts true. They disagree about the remedy: a budget can be raised, a cap cannot. One drain must
+		// raise ONE warning, and it has to be the cap — otherwise a consumer offers a "load more" that can
+		// never return the capped part.
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForReposResult = () => {
+			calls += 1;
+			return Promise.resolve({
+				value: {
+					values: [providerPr(`pr-${calls}`)],
+					paging: { more: true, cursor: JSON.stringify({ value: calls + 1, type: 'page' }), truncated: true },
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+			maxPages: 2,
+		});
+
+		const truncations = result.warnings.filter(w => /truncat|page budget/i.test(w.message));
+		assert.equal(truncations.length, 1, 'two truncation warnings would contradict each other');
+		assert.equal(truncations[0].omission?.recovery, 'none', 'the cap outranks the budget');
+
+		manager.dispose();
+	});
+
+	test('a cap reported through SDK metadata still outranks the budget', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// GitHub's 1,000-result search cap arrives as an SDK omission, not as `paging.truncated` — the shape
+		// the sibling test above does NOT cover. `assessCollectionMetadata` already warned about it, so this
+		// drain adds no second warning; what it must not do is then report the budget as the reason, since a
+		// bigger budget cannot lift a provider cap.
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForReposResult = () => {
+			calls += 1;
+			return Promise.resolve({
+				value: {
+					values: [providerPr(`pr-${calls}`)],
+					paging: { more: true, cursor: JSON.stringify({ value: calls + 1, type: 'page' }) },
+					metadata: {
+						completeness: 'partial',
+						omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1393 }],
+					},
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+			maxPages: 2,
+		});
+
+		// The drain also stopped at its budget, so two warnings describe this page — but they must AGREE.
+		// Raising the budget would return more of the capped set and still never all of it, and the field is
+		// deliberately conservative, so both report `none` and neither offers a load-more.
+		assert.ok(result.warnings.length >= 2, 'the cap and the drain stop are both reported');
+		assert.deepEqual(
+			[...new Set(result.warnings.filter(w => w.omission != null).map(w => w.omission!.recovery))],
+			['none'],
+			'no warning may offer a bigger budget once the provider itself capped the results',
+		);
+
+		manager.dispose();
+	});
+
+	test('a provider that cycles its cursors is not reported as merely out of budget', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// A→B→A→B: every cursor differs from the one just used, so a one-back comparison never fires and the
+		// drain walks in circles until the budget runs out. Reporting `page-budget` there would promise a
+		// bigger budget helps, when nothing new is being fetched at all.
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForReposResult = () => {
+			calls += 1;
+			return Promise.resolve({
+				value: {
+					values: [providerPr(`pr-${calls}`)],
+					paging: { more: true, cursor: JSON.stringify({ value: calls % 2 === 1 ? 2 : 1, type: 'page' }) },
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+			maxPages: 10,
+		});
+
+		assert.equal(calls, 3, 'the drain stops as soon as a cursor repeats, well before the budget');
+		assert.equal(result.warnings.find(w => w.omission != null)?.omission?.recovery, 'none');
+
+		manager.dispose();
+	});
+
+	test('an SDK omission from an earlier page is retracted when a later page dies', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// Page 1 succeeds and its metadata names a real omission — at that moment nothing has failed, so the
+		// warning correctly asserts the read succeeded. Page 2 then dies, and that assertion is now false.
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForReposResult = () => {
+			calls += 1;
+			if (calls > 1) return Promise.reject(new Error('page 2 exploded'));
+
+			return Promise.resolve({
+				value: {
+					values: [providerPr('pr-1')],
+					paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
+					metadata: {
+						completeness: 'partial',
+						omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1393 }],
+					},
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+		});
+
+		assert.equal(result.fetchFailed, true);
+		assert.ok(
+			result.warnings.some(w => w.message.includes('matched 1393 results')),
+			'the cap is still worth reporting — only its success claim is retracted',
+		);
+		assert.ok(
+			result.warnings.every(w => w.omission == null),
+			'no warning on a failed read may assert the request succeeded',
+		);
+
+		manager.dispose();
+	});
+
+	test('an omission emitted before a later page died is retracted, not left asserting success', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// Page 1 reports its own truncation (a composite account-wide read where one facet stalled) — at that
+		// moment nothing has failed, so an omission is emitted. Page 2 then dies. A per-warning decision cannot
+		// see that future, so the aggregate has to be reconciled: `fetchFailed` and an omission asserting the
+		// request succeeded must never ship together.
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForReposResult = () => {
+			calls += 1;
+			if (calls > 1) return Promise.reject(new Error('page 2 exploded'));
+
+			return Promise.resolve({
+				value: {
+					values: [providerPr('pr-1')],
+					paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }), truncated: true },
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+			maxPages: 5,
+		});
+
+		assert.equal(result.fetchFailed, true);
+		assert.ok(
+			result.warnings.every(w => w.omission == null),
+			'a failed read must ship no omission, whenever in the drain it was raised',
+		);
 
 		manager.dispose();
 	});
