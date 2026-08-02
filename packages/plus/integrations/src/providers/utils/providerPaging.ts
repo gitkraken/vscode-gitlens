@@ -6,7 +6,8 @@ import type {
 } from '@gitkraken/provider-apis';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import { collectionScopeKey, toCollectionScopeFailure } from '../../collectionMetadata.js';
+import { toCollectionScopeFailure } from '../../collectionMetadata.js';
+import { collectionScopeKey } from '../../results.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
 /**
