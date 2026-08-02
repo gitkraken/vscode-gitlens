@@ -199,7 +199,9 @@ on it without parsing `message`:
 
 ```ts
 if (warning.omission != null) {
-	// The read SUCCEEDED. Retrying returns the same truncated set — message it as incompleteness, not failure.
+	// The read SUCCEEDED — message it as incompleteness, not failure.
+	// Whether anything would fetch the rest is a separate question; see `recovery` below.
+	if (warning.omission.recovery !== 'none') offerLoadMore(warning.omission);
 }
 ```
 
@@ -211,23 +213,47 @@ where it would be a lie. But it is also absent whenever incompleteness was repor
 left out, so treat a bare `kind: 'other'` warning as unclassified rather than as a proven failure.
 
 The line that matters is whether the request **succeeded**, not whether a tail was left unread. A drain that
-stopped at its page backstop succeeded and is capped, so it carries the omission; a drain that was interrupted
+stopped on its own accounting succeeded and is capped, so it carries the omission; a drain that was interrupted
 mid-read left an unread tail too, but a retry may complete it — that one carries no omission and sets
 `fetchFailed`.
 
-| `omission.kind`         | What happened                                                                                                                        | Recoverable?                                                                                                                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider-limit`        | The provider refuses to serve past a cap (GitHub search's 1,000, Trello's `cards_limit`).                                            | No. The excess is unreachable through that query.                                                                                                                                 |
-| `recovery-budget`       | The internal partitioned recovery stopped before visiting every partition.                                                           | No, not by retrying the same request.                                                                                                                                             |
-| `pagination-incomplete` | Pages were left unread: an undrained sub-scope, a page backstop, or a provider that advertised another page without a usable cursor. | Sometimes. When `scope` is named, re-read that one through its single-scope paginated method. Otherwise the warning does not say, so don't promise the user a retry returns more. |
+`kind` says **why** results are missing:
+
+| `omission.kind`         | What happened                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `provider-limit`        | The provider refuses to serve past a cap (GitHub search's 1,000, Trello's `cards_limit`).                                          |
+| `recovery-budget`       | The internal partitioned recovery stopped before visiting every partition.                                                         |
+| `pagination-incomplete` | Pages were left unread: an undrained sub-scope, a page budget, or a provider that advertised another page without a usable cursor. |
+
+#### `recovery` — what, if anything, would fetch the rest
+
+**`kind` does not answer that**, and `pagination-incomplete` is why: a drain that stopped at a page budget and
+a provider that gave no usable cursor are the same kind, but only the first can be fetched. Gate a "load more"
+affordance on `recovery`, never on `kind`:
+
+| `omission.recovery` | Means                                                          | What a consumer does                                                       |
+| ------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `none`              | Nothing you can call returns the missing items.                | Say the results are capped. Do not offer to fetch more.                    |
+| `page-budget`       | Re-run the same read with a higher `maxPages` (sweep options). | Offer it — but note it re-reads from the start, so make it user-initiated. |
+
+`recovery` is **required** — unlike `limit`, `totalCount` and `scope`, it is never absent. An absent value
+would be indistinguishable from `none` while actually meaning "this producer didn't say", which is the
+ambiguity `omission` exists to remove.
+
+It is also **conservative**: it names only what a producer can prove, so `none` means "not known to be
+recoverable", not "proven unrecoverable". Today only a sweep that spent its own page budget reports
+`page-budget`; everything else — every provider cap, every exhausted internal budget, and every omission
+derived from SDK metadata — is `none`. A `scope` does not change that. It attributes where results were
+withheld, and the SDK reports the same scoped shape both for a scope it merely sampled and for one whose
+cursor stalled, so re-reading it is not something this layer can promise.
 
 `limit`, `totalCount` and `scope` are forwarded only when reported; **most omissions carry none of the three**,
 so render correctly without them. Two traps: `totalCount` is `number | undefined` and never `null` (the SDK's
 `null` is normalized to absent at the boundary), and `limit` on `recovery-budget` is a **request** budget — do
 not show it to a user as a number of results.
 
-Warnings dedup on their structure, `omission` included, so two omissions that differ only in kind or scope stay
-two warnings even if their messages ever converge.
+Warnings dedup on their structure, `omission` included, so two omissions that differ only in kind, recovery or
+scope stay two warnings even if their messages ever converge.
 
 | Flag                    | Says                                                                                                                                          |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -237,9 +263,15 @@ two warnings even if their messages ever converge.
 | `failedProviderIds`     | Sweeps/broadens: providers whose requested scopes produced no usable result.                                                                  |
 | `incompleteProviderIds` | Sweeps/broadens: providers with a usable result plus a failed, partial, or truncated sibling scope.                                           |
 
-An omission pairs with `fetchFailed: false` and `page.truncated: true` — nothing failed, results are missing.
-That pairing is the aggregate view of the same fact `omission` carries per-warning, and it is what the field is
-kept consistent with: a read that sets `fetchFailed` reports its unread tail without an omission.
+An omission pairs with `page.truncated: true` — results are missing — and typically with `fetchFailed: false`,
+since nothing failed. But the flags are **per result** and `omission` is **per warning**, so the two can differ
+on a fan-out: a sweep where provider A was capped and provider B failed outright reports `fetchFailed: true`
+while A's omission stays true for A. Read `omission` on the warning that carries it — its `providerId`,
+`domain` and `connectionId` say who it is about — rather than inferring it from the aggregate.
+
+What is guaranteed is the narrower thing: a warning never claims its own read succeeded when it didn't. A drain
+that dies mid-read publishes its unread tail with no omission, even if an earlier page had already reported
+one.
 
 `resolveRepository` reports through `resolution.status` instead: `resolved` · `not-found` · `unauthorized` ·
 `unsupported-provider` · `invalid-remote-url` · `host-mismatch` · `undetermined`. A `resolved` identity

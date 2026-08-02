@@ -1201,8 +1201,9 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		);
 		// The facade proves "succeeded but incomplete" from its own paging state here rather than from SDK
 		// metadata, so it must carry the same structured signal the SDK-derived path does — a consumer can't
-		// be made to care which layer noticed.
-		assert.deepEqual(truncationWarning.omission, { kind: 'pagination-incomplete' });
+		// be made to care which layer noticed. `recovery: 'none'`: a paged read has no budget to raise, so
+		// there is nothing a consumer could call to get the rest.
+		assert.deepEqual(truncationWarning.omission, { kind: 'pagination-incomplete', recovery: 'none' });
 		assert.equal(result.fetchFailed ?? false, false, 'nothing failed; the read was capped');
 
 		manager.dispose();
@@ -1649,9 +1650,60 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(result.page.truncated, true, 'an unbounded read is capped at the backstop and reported truncated');
 		const warning = result.warnings.find(w => /truncat/i.test(w.message));
 		assert.ok(warning, 'a warning explains the read was truncated');
-		// Every page succeeded; the read chose to stop. That is the omission, not a failure.
+		// Every page succeeded; the read stopped on its own. That is the omission, not a failure — and this
+		// read exposes no page budget, so nothing the consumer can call returns the rest.
 		assert.equal(result.fetchFailed ?? false, false);
-		assert.deepEqual(warning.omission, { kind: 'pagination-incomplete' });
+		assert.deepEqual(warning.omission, { kind: 'pagination-incomplete', recovery: 'none' });
+
+		manager.dispose();
+	});
+
+	test("a paged read retracts an earlier page's omission when a later page fails", async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		// The paged reads walk to the requested page internally, so they have the same shape as a drain: an
+		// omission raised while walking asserts the read succeeded, and a later page can falsify that.
+		let calls = 0;
+		stubApi(gl, {
+			getIssuesForCurrentUser: () => {
+				calls++;
+				if (calls > 1) return Promise.reject(new Error('page 2 exploded'));
+
+				return Promise.resolve({
+					values: [
+						{
+							id: 'gl-1',
+							number: '1',
+							url: 'u',
+							updatedDate: new Date(),
+							labels: [],
+							assignees: [],
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
+					metadata: {
+						completeness: 'partial',
+						omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1393 }],
+					},
+				});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab, page: 2 });
+		assert.equal(result.fetchFailed, true);
+		assert.ok(
+			result.warnings.every(w => w.omission == null),
+			'a failed paged read must retract the omission exactly as a drain does',
+		);
 
 		manager.dispose();
 	});

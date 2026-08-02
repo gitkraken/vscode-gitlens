@@ -9,6 +9,7 @@ import { isIssuesIntegration } from '../models/issuesIntegration.js';
 import { IssueFilter, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata, parsePageCursor } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
+import { reconcileOmissionsWithFailure } from '../results.js';
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
@@ -436,10 +437,14 @@ export async function listIssueTrackerIssuesPage(
 				domain,
 				options.connectionId,
 				'Some issues were omitted; the provider returned an incomplete result.',
-				fetchFailed,
+				// `exhausted`, not `page-budget`: the per-project drain's backstop is an internal constant
+				// (`maxPagesPerRequest`), not an option this read exposes, so no caller can raise it.
+				fetchFailed ? 'interrupted' : 'exhausted',
 			),
 		);
 	}
+	// A metadata omission from an earlier project asserts the read succeeded; a later one may since have failed.
+	reconcileOmissionsWithFailure(warnings, fetchFailed);
 
 	const retryPages = retryWindowPages();
 	const cursor = toIssueTrackerPageCursor({

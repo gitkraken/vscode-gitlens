@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `ProviderWarning.omission`, present only when a read SUCCEEDED and withheld results — a provider cap, an exhausted recovery budget, a page budget, or a sub-scope left undrained. `kind` stays `'other'` for these (adding a member would silently change what `'other'` means for every existing build), so this is the field that separates "incomplete but valid" from a genuine failure without parsing `message`, which is English prose. It carries the SDK's `kind` plus `limit` / `totalCount` / `scope` where reported; `totalCount` is normalized to `number | undefined`, never `null`. Its absence proves nothing: it is never set on a failure, but also absent whenever incompleteness was reported without naming what was left out (plus/integrations)
+- Adds `omission.recovery` (`'none' | 'page-budget'`), the question `kind` cannot answer: would anything actually fetch the rest? A sweep that spent its own `maxPages` with a usable cursor in hand and a provider that advertised another page without one are both `kind: 'pagination-incomplete'`, but only the first can be fetched — gate a "load more" affordance on `recovery`, never on `kind`. Required rather than optional, so an absent value can't be read as "not recoverable" when it means "this producer didn't say". Deliberately conservative: `none` means "not known to be recoverable", and every omission derived from SDK metadata reports it, because the SDK emits one shape both for a scope it merely sampled and for one whose cursor stalled (plus/integrations)
+
+### Changed
+
+- Every incompleteness warning the facade raises on its own terms now routes through one builder, so a read that FAILED can no longer emit a warning asserting it succeeded. A drain that was cut short leaves an unread tail like a capped one, but sets `fetchFailed` and carries no omission — a retry is the right move there, and an omission says the opposite. An omission raised while a read was still going is retracted if it later fails, in the drains and the paged reads alike (plus/integrations)
+
+### Fixed
+
+- Fixes a drain claiming its page budget was what stopped it when the provider had handed back no usable cursor — the budget was checked before the cursor was resolved, so raising it would have re-read the identical set. A provider that cycles its cursors (`A→B→A`) is likewise no longer walked until the budget runs out; followed cursors are now tracked as a set, matching the SDK's own `followCursors` (plus/integrations)
+- Fixes a page the provider had capped being reported as merely out of page budget, which would invite a consumer to raise a budget that cannot un-cap it. A cap now outranks a budget stop whichever way it arrives — `paging.truncated` or an SDK omission — and one drain raises one incompleteness warning rather than two that disagree about the remedy (plus/integrations)
+
 ## [0.5.101] - 2026-08-02
 
 ### Added
