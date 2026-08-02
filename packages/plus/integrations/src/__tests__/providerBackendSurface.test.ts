@@ -1199,6 +1199,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			truncationWarning.message.startsWith('Issue read'),
 			'the warning names an issue read, not a pull request read',
 		);
+		// The facade proves "succeeded but incomplete" from its own paging state here rather than from SDK
+		// metadata, so it must carry the same structured signal the SDK-derived path does — a consumer can't
+		// be made to care which layer noticed.
+		assert.deepEqual(truncationWarning.omission, { kind: 'pagination-incomplete' });
+		assert.equal(result.fetchFailed ?? false, false, 'nothing failed; the read was capped');
 
 		manager.dispose();
 	});
@@ -1642,9 +1647,58 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab });
 		assert.equal(result.page.truncated, true, 'an unbounded read is capped at the backstop and reported truncated');
+		const warning = result.warnings.find(w => /truncat/i.test(w.message));
+		assert.ok(warning, 'a warning explains the read was truncated');
+		// Every page succeeded; the read chose to stop. That is the omission, not a failure.
+		assert.equal(result.fetchFailed ?? false, false);
+		assert.deepEqual(warning.omission, { kind: 'pagination-incomplete' });
+
+		manager.dispose();
+	});
+
+	test('an account-wide read interrupted mid-drain reports the unread tail WITHOUT an omission', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		// Page 1 succeeds and advertises more; page 2 fails. The tail is unread exactly as at the backstop, but
+		// this request did NOT succeed — a retry may complete it, so the omission would tell the consumer the
+		// opposite of the truth.
+		let calls = 0;
+		stubApi(gl, {
+			getIssuesForCurrentUser: () => {
+				calls++;
+				if (calls > 1) return Promise.reject(new Error('upstream exploded'));
+
+				return Promise.resolve({
+					values: [
+						{
+							id: 'gl-1',
+							number: '1',
+							url: 'u',
+							updatedDate: new Date(),
+							labels: [],
+							assignees: [],
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: true, cursor: JSON.stringify({ value: 1, type: 'page' }) },
+				});
+			},
+		});
+		(
+			gl as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitLab });
+		assert.equal(result.fetchFailed, true, 'a failed page makes the read a fetch failure');
+		assert.ok(result.warnings.length > 0, 'the interruption is surfaced');
 		assert.ok(
-			result.warnings.some(w => /truncat/i.test(w.message)),
-			'a warning explains the read was truncated',
+			result.warnings.every(w => w.omission == null),
+			'no warning on a failed read may claim the request succeeded',
 		);
 
 		manager.dispose();

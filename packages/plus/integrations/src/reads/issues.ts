@@ -269,11 +269,12 @@ export async function listIssuesPage(
 		const truncated = continuation.truncated || assessment.truncated;
 		if (truncated && warnings.length === 0) {
 			warnings.push(
-				otherWarning(
+				truncationWarning(
 					options.providerId,
 					domain,
 					options.connectionId,
-					`Account-wide issue search for '${options.providerId}' was truncated; results may be incomplete.`,
+					'Account-wide issue search',
+					assessment.fetchFailed || pageFetchFailed,
 				),
 			);
 		}
@@ -385,7 +386,15 @@ export async function listIssuesPage(
 	// page isn't published as complete. Metadata incompleteness is an independent source of the same signal.
 	const truncated = continuation.truncated || assessment.truncated;
 	if (truncated && warnings.length === 0) {
-		warnings.push(truncationWarning(options.providerId, domain, options.connectionId, 'Issue'));
+		warnings.push(
+			truncationWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				'Issue',
+				assessment.fetchFailed || pageFetchFailed,
+			),
+		);
 	}
 	return {
 		items: items,

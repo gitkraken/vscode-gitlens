@@ -226,7 +226,15 @@ export async function listPullRequestsPage(
 	// the page may be incomplete. Metadata incompleteness is an independent source of the same signal.
 	const truncated = continuation.truncated || assessment.truncated;
 	if (truncated && warnings.length === 0) {
-		warnings.push(truncationWarning(options.providerId, domain, options.connectionId, 'Pull request'));
+		warnings.push(
+			truncationWarning(
+				options.providerId,
+				domain,
+				options.connectionId,
+				'Pull request',
+				assessment.fetchFailed || pageFetchFailed,
+			),
+		);
 	}
 	const currentAccountId = items.some(pr => pr.author != null)
 		? await getCurrentAccountId(integration, options.connectionId)

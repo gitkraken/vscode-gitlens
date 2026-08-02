@@ -172,7 +172,7 @@ export async function drainPullRequests(
 			assessment.truncated;
 		truncated = truncated || pageTruncated;
 		if (pageTruncated && !assessment.truncated) {
-			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request'));
+			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request', fetchFailed));
 		}
 
 		if (!(value.paging?.more ?? false)) {
@@ -188,7 +188,7 @@ export async function drainPullRequests(
 			};
 		}
 		if (page >= maxPages) {
-			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request'));
+			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request', fetchFailed));
 			return {
 				items: items,
 				warnings: warnings,
@@ -201,7 +201,7 @@ export async function drainPullRequests(
 		const nextCursor = value.paging?.cursor;
 		if (nextCursor == null || nextCursor === '{}') {
 			// Provider says there is more but didn't return a usable cursor; stop rather than refetch the same page.
-			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request'));
+			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request', fetchFailed));
 			return {
 				items: items,
 				warnings: warnings,
@@ -262,7 +262,9 @@ export async function drainRepositories(
 		if (value == null) {
 			const interruptedAfterProgress = page > 1;
 			if (interruptedAfterProgress && warning == null) {
-				appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Repository'));
+				// Not a backstop: the read was cut short mid-drain, which is why it also sets `fetchFailed`
+				// below. A retry may complete it, so this must not claim the succeeded-but-capped omission.
+				appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Repository', true));
 			}
 			return {
 				repos: repos,

@@ -93,21 +93,60 @@ export function issueTrackerOnlySurfaceWarning(
 }
 
 /**
- * Builds a warning for a drain that stopped short of completeness (hit a page backstop, or a single-page read
- * that couldn't confirm it drained everything). `truncated`/`allPages` already carry this on the result, but
- * consumers that only inspect `warnings` would otherwise see no signal the read is partial.
+ * Builds the warning for a read that returned less than everything, with the ONE distinction a consumer
+ * cannot recover on its own: did the request succeed?
+ *
+ * Both outcomes leave an unread tail, so neither `truncated` nor the warning text separates them — but their
+ * remedies are opposite. A read that stopped by its own accounting (a page backstop, a provider that
+ * advertised another page without a usable cursor, a single-page read that couldn't confirm it drained
+ * everything) SUCCEEDED: retrying returns the same set, and it carries `omission: {kind:
+ * 'pagination-incomplete'}` — the same signal `assessCollectionMetadata` attaches to SDK-reported omissions,
+ * so a consumer never has to care which layer noticed. A read that was cut short — the session went away, a
+ * later page failed — did not succeed, sets `fetchFailed`, and must NOT claim the omission: retrying is
+ * exactly the right move there, and the omission says the opposite.
+ *
+ * So `failed` is the caller's `fetchFailed`, not "is there a tail". Every incompleteness warning the facade
+ * raises on its own terms goes through here, so the two can't drift apart per read.
+ *
+ * No `scope`: this applies to the whole read, not to one repository or project the way an SDK-attributed
+ * omission can. And the omission does not promise the tail is REACHABLE — a backstop can be resumed, a
+ * missing cursor cannot. Both are "succeeded, pages unread", which is the fact the consumer needs.
+ */
+export function incompleteReadWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	message: string,
+	failed: boolean,
+): ProviderWarning {
+	const warning = otherWarning(id, domain, connectionId, message);
+	return failed ? warning : { ...warning, omission: { kind: 'pagination-incomplete' } };
+}
+
+/**
+ * {@link incompleteReadWarning} for a paged or drained read, phrased per surface. `'Account-wide issue search'`
+ * names the composite read that spans several provider searches rather than one surface.
  */
 export function truncationWarning(
 	id: IntegrationIds,
 	domain: string | undefined,
 	connectionId: string | undefined,
-	readKind: 'Pull request' | 'Issue' | 'Repository',
+	readKind: 'Pull request' | 'Issue' | 'Repository' | 'Account-wide issue search',
+	/**
+	 * The caller's `fetchFailed` at this point. Deliberately REQUIRED and not defaulted: a default would make
+	 * "the request succeeded" the silent fallback at any call site that forgot it, which is the one claim this
+	 * warning must never make by accident.
+	 */
+	failed: boolean,
 ): ProviderWarning {
-	return otherWarning(
+	return incompleteReadWarning(
 		id,
 		domain,
 		connectionId,
-		`${readKind} read for '${id}' was truncated (a page backstop was reached); results may be incomplete.`,
+		failed
+			? `${readKind} read for '${id}' was interrupted after returning results; the remaining pages were not read.`
+			: `${readKind} read for '${id}' was truncated (a page backstop was reached); results may be incomplete.`,
+		failed,
 	);
 }
 

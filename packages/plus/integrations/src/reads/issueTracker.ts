@@ -14,7 +14,7 @@ import type { ProviderReadContext } from './context.js';
 import { parseIssueTrackerPageCursor, toIssueTrackerPageCursor } from './cursors.js';
 import { runCaptured } from './drains.js';
 import { projectKey, resourceIdForProject, resourceLabel, resourceMatchesOrg } from './hierarchy.utils.js';
-import { issueTrackerOnlySurfaceWarning, otherWarning } from './warnings.js';
+import { incompleteReadWarning, issueTrackerOnlySurfaceWarning, otherWarning } from './warnings.js';
 
 export async function listIssueTrackerIssuesPage(
 	ctx: ProviderReadContext,
@@ -431,11 +431,12 @@ export async function listIssueTrackerIssuesPage(
 	// the caller sees the truncation, but only when no warning already explains it (avoid duplicate noise).
 	if (projectTruncated && warnings.length === 0) {
 		warnings.push(
-			otherWarning(
+			incompleteReadWarning(
 				options.providerId,
 				domain,
 				options.connectionId,
 				'Some issues were omitted; the provider returned an incomplete result.',
+				fetchFailed,
 			),
 		);
 	}
