@@ -129,6 +129,52 @@ suite('sweep + broaden (#5438)', () => {
 			'a truncated provider slice is not authoritative',
 		);
 		assert.equal(calls, 2);
+		// The drain stopped by its own accounting and every page succeeded, so the truncation warning carries
+		// the structured omission: retrying returns the same set.
+		const truncation = result.warnings.find(w => /truncat/i.test(w.message));
+		assert.deepEqual(truncation?.omission, { kind: 'pagination-incomplete' });
+
+		manager.dispose();
+	});
+
+	test('a drain that latched a scope failure before its backstop reports no omission', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// Same backstop as above, but a per-scope failure rides along in the SDK metadata. The tail is unread
+		// either way — what differs is that this request did NOT succeed, so a retry can still recover the
+		// failed scope. An unconditional omission would tell the consumer the opposite.
+		let calls = 0;
+		(
+			gh as unknown as {
+				getMyPullRequestsForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForReposResult = () => {
+			calls += 1;
+			return Promise.resolve({
+				value: {
+					values: [providerPr(`pr-${calls}`)],
+					paging: { more: true, cursor: JSON.stringify({ value: calls + 1, type: 'page' }) },
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'provider', scope: { repositoryId: 'octocat/broken' }, message: '500' }],
+					},
+				},
+			});
+		};
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+			maxPages: 2,
+		});
+
+		assert.equal(result.fetchFailed, true, 'the scope failure makes the sweep a fetch failure');
+		assert.equal(result.page.truncated, true, 'and the backstop still leaves pages unread');
+		assert.ok(
+			result.warnings.every(w => w.omission == null),
+			'no warning on a failed read may assert the request succeeded',
+		);
 
 		manager.dispose();
 	});
