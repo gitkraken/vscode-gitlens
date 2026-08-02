@@ -6,7 +6,7 @@ import type { IssueFilter, ProviderReposInput } from '../providers/models.js';
 import { PagingMode, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning } from '../results.js';
+import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
@@ -274,10 +274,14 @@ export async function listIssuesPage(
 					domain,
 					options.connectionId,
 					'Account-wide issue search',
-					assessment.fetchFailed || pageFetchFailed,
+					// `exhausted`: this composite read exposes no budget the caller can raise, so nothing it
+					// could call would return the withheld items.
+					assessment.fetchFailed || pageFetchFailed ? 'interrupted' : 'exhausted',
 				),
 			);
 		}
+		// A metadata omission from an earlier page asserts the read succeeded; a later page may since have failed.
+		reconcileOmissionsWithFailure(warnings, assessment.fetchFailed || pageFetchFailed);
 		return {
 			items: items,
 			warnings: warnings,
@@ -392,10 +396,14 @@ export async function listIssuesPage(
 				domain,
 				options.connectionId,
 				'Issue',
-				assessment.fetchFailed || pageFetchFailed,
+				// `exhausted`, never `page-budget`: a paged read has no budget the caller can raise, and
+				// ordinary continuation is already expressed by `hasMore`/`cursor`.
+				assessment.fetchFailed || pageFetchFailed ? 'interrupted' : 'exhausted',
 			),
 		);
 	}
+	// A metadata omission from an earlier page asserts the read succeeded; a later page may since have failed.
+	reconcileOmissionsWithFailure(warnings, assessment.fetchFailed || pageFetchFailed);
 	return {
 		items: items,
 		warnings: warnings,

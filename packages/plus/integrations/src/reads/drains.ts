@@ -9,7 +9,7 @@ import type { PullRequestFilter } from '../providerFilters.js';
 import type { ProviderPullRequest, ProviderReposInput, ProviderRepository } from '../providers/models.js';
 import { getProviderPullRequestIdentity } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
-import { appendDedupedWarning, toProviderWarning } from '../results.js';
+import { appendDedupedWarning, reconcileOmissionsWithFailure, toProviderWarning } from '../results.js';
 import { isIssuesHostIntegrationId } from '../utils/integration.utils.js';
 import { noConnectionWarning, truncationWarning } from './warnings.js';
 
@@ -90,10 +90,18 @@ export async function drainPullRequests(
 	// this through the terminal returns instead of resetting it to false at the last page.
 	let fetchFailed = false;
 	let truncated = false;
+	// A page the provider capped or couldn't vouch for. Decides the CAUSE the terminal warning reports: a cap
+	// outranks a budget stop, because raising a budget cannot un-cap a page.
+	let providerTruncated = false;
+	// The subset of that which no other warning already explains — decides whether this drain raises one of
+	// its own on an otherwise clean exit.
+	let unexplainedTruncation = false;
 
 	// With no repos this is an account-wide "my PRs" sweep. The repo-scoped core rejects an empty `repos`
 	// input, so read the provider-native account-wide core instead.
 	const accountWide = repos.length === 0;
+	/** Every cursor already followed, so a provider that cycles them can't keep the drain walking in circles. */
+	const seenCursors = new Set<string>();
 
 	for (;;) {
 		page++;
@@ -130,10 +138,23 @@ export async function drainPullRequests(
 				appendDedupedWarning(warnings, noConnectionWarning(id, domain, connectionId));
 			}
 			// `warning` set → a hard read failure (incomplete items); otherwise not connected / no session.
+			const failed = fetchFailed || warning != null || unavailable;
+			// A cap seen on an earlier page still left results out, so it is still worth saying — but as part
+			// of a read that failed, never as an omission. (`failed` is always true here when anything was
+			// latched: reaching this exit past page 1 means a later page was lost.)
+			if (unexplainedTruncation) {
+				appendDedupedWarning(
+					warnings,
+					truncationWarning(id, domain, connectionId, 'Pull request', failed ? 'interrupted' : 'exhausted'),
+				);
+			}
+			// An earlier page may already have emitted an omission before this one died; it asserts the read
+			// succeeded, which is no longer true.
+			reconcileOmissionsWithFailure(warnings, failed);
 			return {
 				items: items,
 				warnings: warnings,
-				fetchFailed: fetchFailed || warning != null || unavailable,
+				fetchFailed: failed,
 				truncated: truncated || sessionLostAfterProgress,
 				// Only a top-level first-page rejection means the provider itself failed. A later-page or
 				// per-scope failure still yielded a usable provider slice and stays represented separately.
@@ -171,14 +192,31 @@ export async function drainPullRequests(
 			value.paging?.truncated === true ||
 			assessment.truncated;
 		truncated = truncated || pageTruncated;
-		if (pageTruncated && !assessment.truncated) {
-			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request', fetchFailed));
-		}
+		// A page the provider itself capped, or one whose completeness it couldn't confirm. Latched from ANY
+		// source, SDK metadata included: no budget of ours un-caps a page, so a later `maxPages` hit must not
+		// claim raising it would help.
+		providerTruncated = providerTruncated || pageTruncated;
+		// Whether this drain owes its OWN warning for that is a separate question — `mergeAssessmentInto` has
+		// already appended one when the fact came from SDK metadata, and repeating it would be noise.
+		unexplainedTruncation = unexplainedTruncation || (pageTruncated && !assessment.truncated);
 
 		if (!(value.paging?.more ?? false)) {
 			// A read that can't confirm completeness (single-page provider reads with no `hasNextPage`)
 			// sets `paging.truncated`; propagate it (and any top-level `truncated` and SDK incompleteness)
 			// so the sweep doesn't claim an all-pages result.
+			if (unexplainedTruncation) {
+				appendDedupedWarning(
+					warnings,
+					truncationWarning(
+						id,
+						domain,
+						connectionId,
+						'Pull request',
+						fetchFailed ? 'interrupted' : 'exhausted',
+					),
+				);
+			}
+			reconcileOmissionsWithFailure(warnings, fetchFailed);
 			return {
 				items: items,
 				warnings: warnings,
@@ -187,21 +225,34 @@ export async function drainPullRequests(
 				failedProvider: false,
 			};
 		}
-		if (page >= maxPages) {
-			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request', fetchFailed));
-			return {
-				items: items,
-				warnings: warnings,
-				fetchFailed: fetchFailed,
-				truncated: true,
-				failedProvider: false,
-			};
-		}
 
+		// Resolve the continuation BEFORE deciding why the drain stops. `page-budget` claims the missing items
+		// are reachable, which is only true with a usable cursor in hand — and a provider can report another
+		// page while handing back none (Bitbucket Server does, when it omits `nextPageStart`). Checking the
+		// budget first would label that unreachable tail as merely unfetched, so raising `maxPages` would
+		// return the identical set.
 		const nextCursor = value.paging?.cursor;
-		if (nextCursor == null || nextCursor === '{}') {
-			// Provider says there is more but didn't return a usable cursor; stop rather than refetch the same page.
-			appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Pull request', fetchFailed));
+		// A cursor already used isn't a continuation either — following it refetches a page we have, and a
+		// provider that cycles (A→B→A) would otherwise burn the whole budget and then be reported as merely
+		// out of budget. Tracked as a SET rather than compared one-back, matching the SDK's own `followCursors`:
+		// `drainToRequestedPage` and `collectProviderPagedResult` compare only the previous cursor, which a
+		// cycle slips past. That is tolerable there and not here, because only this drain reports `page-budget`.
+		const continuable = nextCursor != null && nextCursor !== '{}' && !seenCursors.has(nextCursor);
+		if (!continuable || page >= maxPages) {
+			// `providerTruncated` outranks the budget: a page the provider capped stays capped however many
+			// pages we are allowed to read, so promising `page-budget` on top of it would be a load-more that
+			// cannot deliver the capped part.
+			appendDedupedWarning(
+				warnings,
+				truncationWarning(
+					id,
+					domain,
+					connectionId,
+					'Pull request',
+					fetchFailed ? 'interrupted' : continuable && !providerTruncated ? 'page-budget' : 'exhausted',
+				),
+			);
+			reconcileOmissionsWithFailure(warnings, fetchFailed);
 			return {
 				items: items,
 				warnings: warnings,
@@ -211,6 +262,7 @@ export async function drainPullRequests(
 			};
 		}
 
+		seenCursors.add(nextCursor);
 		cursor = nextCursor;
 	}
 }
@@ -264,12 +316,18 @@ export async function drainRepositories(
 			if (interruptedAfterProgress && warning == null) {
 				// Not a backstop: the read was cut short mid-drain, which is why it also sets `fetchFailed`
 				// below. A retry may complete it, so this must not claim the succeeded-but-capped omission.
-				appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, 'Repository', true));
+				appendDedupedWarning(
+					warnings,
+					truncationWarning(id, domain, connectionId, 'Repository', 'interrupted'),
+				);
 			}
+			const failed = fetchFailed || warning != null || interruptedAfterProgress;
+			// An SDK omission from an earlier page asserts the read succeeded; this one didn't.
+			reconcileOmissionsWithFailure(warnings, failed);
 			return {
 				repos: repos,
 				warnings: warnings,
-				fetchFailed: fetchFailed || warning != null || interruptedAfterProgress,
+				fetchFailed: failed,
 				truncated: truncated || interruptedAfterProgress,
 			};
 		}
@@ -279,6 +337,7 @@ export async function drainRepositories(
 		fetchFailed = fetchFailed || assessment.fetchFailed;
 		truncated = truncated || value.truncated === true || value.paging?.truncated === true || assessment.truncated;
 		if (!(value.paging?.more ?? false)) {
+			reconcileOmissionsWithFailure(warnings, fetchFailed);
 			return {
 				repos: repos,
 				warnings: warnings,
@@ -286,13 +345,16 @@ export async function drainRepositories(
 				truncated: truncated,
 			};
 		}
+
 		if (page >= maxPages) {
+			reconcileOmissionsWithFailure(warnings, fetchFailed);
 			return { repos: repos, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
 		}
 
 		const nextCursor = value.paging?.cursor;
 		if (nextCursor == null || nextCursor === '{}') {
 			// Provider says there is more but didn't return a usable cursor; stop rather than refetch the same page.
+			reconcileOmissionsWithFailure(warnings, fetchFailed);
 			return { repos: repos, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
 		}
 

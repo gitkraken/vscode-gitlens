@@ -4,6 +4,7 @@ import type { IntegrationIds } from '../constants.js';
 import type { ProviderPullRequest, ProviderReposInput, PullRequestFilter } from '../providers/models.js';
 import { fromProviderPullRequest, PagingMode, providersMetadata } from '../providers/models.js';
 import type { ProviderPagedResult } from '../results.js';
+import { reconcileOmissionsWithFailure } from '../results.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
@@ -226,16 +227,21 @@ export async function listPullRequestsPage(
 	// the page may be incomplete. Metadata incompleteness is an independent source of the same signal.
 	const truncated = continuation.truncated || assessment.truncated;
 	if (truncated && warnings.length === 0) {
+		// `exhausted`, never `page-budget`: a paged read has no budget the caller can raise. Ordinary
+		// continuation is already expressed by `hasMore`/`cursor`, so reaching here means this page itself
+		// couldn't be completed — raising anything would return the same page.
 		warnings.push(
 			truncationWarning(
 				options.providerId,
 				domain,
 				options.connectionId,
 				'Pull request',
-				assessment.fetchFailed || pageFetchFailed,
+				assessment.fetchFailed || pageFetchFailed ? 'interrupted' : 'exhausted',
 			),
 		);
 	}
+	// A metadata omission from an earlier page asserts the read succeeded; a later page may since have failed.
+	reconcileOmissionsWithFailure(warnings, assessment.fetchFailed || pageFetchFailed);
 	const currentAccountId = items.some(pr => pr.author != null)
 		? await getCurrentAccountId(integration, options.connectionId)
 		: undefined;

@@ -229,7 +229,12 @@ suite('assessCollectionMetadata (#5438)', () => {
 		assert.equal(result.warnings[0].message, 'Search matched 1393 results, but the provider exposes at most 1000');
 		// The point of the structured field: a consumer distinguishes this from a genuine `other` failure
 		// without reading the prose, which is English-only and subject to rewording.
-		assert.deepEqual(result.warnings[0].omission, { kind: 'provider-limit', limit: 1000, totalCount: 1393 });
+		assert.deepEqual(result.warnings[0].omission, {
+			kind: 'provider-limit',
+			recovery: 'none',
+			limit: 1000,
+			totalCount: 1393,
+		});
 	});
 
 	test('a SDK totalCount of null normalizes to absent, so consumers have one absence to handle, not two', () => {
@@ -238,7 +243,7 @@ suite('assessCollectionMetadata (#5438)', () => {
 			omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: null }],
 		});
 		// `deepEqual` is strict here, so this also pins that `totalCount` is absent rather than undefined.
-		assert.deepEqual(result.warnings[0].omission, { kind: 'provider-limit', limit: 1000 });
+		assert.deepEqual(result.warnings[0].omission, { kind: 'provider-limit', recovery: 'none', limit: 1000 });
 	});
 
 	test('failure-derived and generic-fallback warnings carry no omission', () => {
@@ -266,8 +271,10 @@ suite('assessCollectionMetadata (#5438)', () => {
 			result.warnings[0].message,
 			'Search (repository acme/web) matched 1393 results, but the provider exposes at most 1000',
 		);
+		// A cap is unreachable however it is attributed: a named scope does NOT make it re-readable.
 		assert.deepEqual(result.warnings[0].omission, {
 			kind: 'provider-limit',
+			recovery: 'none',
 			scope: { repositoryId: 'acme/web' },
 			limit: 1000,
 			totalCount: 1393,
@@ -281,14 +288,18 @@ suite('assessCollectionMetadata (#5438)', () => {
 			omissions: [{ kind: 'provider-limit', limit: 1000 }],
 		});
 		assert.equal(withLimit.warnings[0].message, 'Search exceeded the provider limit of 1000 results');
-		assert.deepEqual(withLimit.warnings[0].omission, { kind: 'provider-limit', limit: 1000 });
+		assert.deepEqual(withLimit.warnings[0].omission, { kind: 'provider-limit', recovery: 'none', limit: 1000 });
 
 		const bare = assessCollectionMetadata(providerId, 'github.com', 'c1', {
 			completeness: 'partial',
 			omissions: [{ kind: 'provider-limit' }],
 		});
 		assert.equal(bare.warnings[0].message, "Search exceeded the provider's result limit");
-		assert.deepEqual(bare.warnings[0].omission, { kind: 'provider-limit' }, 'kind alone is still a usable signal');
+		assert.deepEqual(
+			bare.warnings[0].omission,
+			{ kind: 'provider-limit', recovery: 'none' },
+			'kind + recovery alone is still a usable signal',
+		);
 	});
 
 	test('recovery-budget and pagination-incomplete omissions each get their own message', () => {
@@ -304,6 +315,7 @@ suite('assessCollectionMetadata (#5438)', () => {
 		// `limit` here is a REQUEST budget, not a result count — hence the separate warning on the field.
 		assert.deepEqual(budget.warnings[0].omission, {
 			kind: 'recovery-budget',
+			recovery: 'none',
 			scope: { repositoryId: 'acme/web' },
 			limit: 128,
 		});
@@ -315,7 +327,14 @@ suite('assessCollectionMetadata (#5438)', () => {
 		assert.equal(paging.fetchFailed, false);
 		assert.equal(paging.warnings[0].message, 'More results are available (project p1) than this read returned');
 		// The one kind with a remedy: `scope` is what the consumer re-reads, so it must survive structurally.
-		assert.deepEqual(paging.warnings[0].omission, { kind: 'pagination-incomplete', scope: { projectId: 'p1' } });
+		// `recovery: 'none'` even though a scope is named. The SDK emits this one shape both for a scope it
+		// sampled (re-readable) and for one whose cursor STALLED (not), and nothing here separates them — so
+		// claiming recoverability would give a consumer a load-more button that dead-ends on GitLab and Jira.
+		assert.deepEqual(paging.warnings[0].omission, {
+			kind: 'pagination-incomplete',
+			recovery: 'none',
+			scope: { projectId: 'p1' },
+		});
 	});
 
 	test('a failure alongside an omission keeps both, and only the failure sets fetchFailed', () => {
@@ -338,6 +357,7 @@ suite('assessCollectionMetadata (#5438)', () => {
 		assert.equal(result.warnings.find(w => w.kind === 'rate-limit')?.omission, undefined);
 		assert.deepEqual(result.warnings.find(w => w.kind === 'other')?.omission, {
 			kind: 'provider-limit',
+			recovery: 'none',
 			limit: 1000,
 			totalCount: 1393,
 		});

@@ -93,34 +93,50 @@ export function issueTrackerOnlySurfaceWarning(
 }
 
 /**
- * Builds the warning for a read that returned less than everything, with the ONE distinction a consumer
- * cannot recover on its own: did the request succeed?
+ * Why a read the facade drove itself returned less than everything. The two questions a consumer cannot
+ * answer from `truncated` or from the message, kept together because they are decided together:
  *
- * Both outcomes leave an unread tail, so neither `truncated` nor the warning text separates them — but their
- * remedies are opposite. A read that stopped by its own accounting (a page backstop, a provider that
- * advertised another page without a usable cursor, a single-page read that couldn't confirm it drained
- * everything) SUCCEEDED: retrying returns the same set, and it carries `omission: {kind:
- * 'pagination-incomplete'}` — the same signal `assessCollectionMetadata` attaches to SDK-reported omissions,
- * so a consumer never has to care which layer noticed. A read that was cut short — the session went away, a
- * later page failed — did not succeed, sets `fetchFailed`, and must NOT claim the omission: retrying is
- * exactly the right move there, and the omission says the opposite.
+ * - `interrupted`: the read did NOT succeed — the session went away, a later page failed. It leaves an unread
+ *   tail like the others, but it is a failure: it sets `fetchFailed`, and a retry is exactly the right move.
+ *   Gets no omission at all, since the omission asserts the opposite.
+ * - `page-budget`: the drain stopped at its own `maxPages`, with a usable cursor still in hand. The items ARE
+ *   reachable and were simply not fetched, so re-running with a higher budget returns them.
+ * - `exhausted`: everything else that succeeded and came back short — the provider capped the page it served,
+ *   advertised another page without a usable cursor (or with one it had already handed out), or a read could
+ *   not confirm it had drained everything. The default of the three: choose it whenever a raisable budget is
+ *   not demonstrably what stopped the read, so a consumer is never offered a fetch that cannot deliver.
+ */
+export type IncompleteReadCause = 'interrupted' | 'page-budget' | 'exhausted';
+
+/**
+ * Builds the warning for a read that returned less than everything, carrying the two facts a consumer cannot
+ * recover on its own: did the request succeed, and would anything fetch the rest?
  *
- * So `failed` is the caller's `fetchFailed`, not "is there a tail". Every incompleteness warning the facade
- * raises on its own terms goes through here, so the two can't drift apart per read.
+ * Every incompleteness warning the facade raises on its own terms goes through here, so no read can drift
+ * into claiming success on a failure or offering a "load more" that cannot deliver. The omission it attaches
+ * is the same shape `assessCollectionMetadata` derives from SDK metadata, so a consumer never has to care
+ * which layer noticed the gap.
  *
  * No `scope`: this applies to the whole read, not to one repository or project the way an SDK-attributed
- * omission can. And the omission does not promise the tail is REACHABLE — a backstop can be resumed, a
- * missing cursor cannot. Both are "succeeded, pages unread", which is the fact the consumer needs.
+ * omission can, so a consumer acting on `recovery` re-runs the read itself.
  */
 export function incompleteReadWarning(
 	id: IntegrationIds,
 	domain: string | undefined,
 	connectionId: string | undefined,
 	message: string,
-	failed: boolean,
+	cause: IncompleteReadCause,
 ): ProviderWarning {
 	const warning = otherWarning(id, domain, connectionId, message);
-	return failed ? warning : { ...warning, omission: { kind: 'pagination-incomplete' } };
+	if (cause === 'interrupted') return warning;
+
+	return {
+		...warning,
+		omission: {
+			kind: 'pagination-incomplete',
+			recovery: cause === 'page-budget' ? 'page-budget' : 'none',
+		},
+	};
 }
 
 /**
@@ -133,21 +149,34 @@ export function truncationWarning(
 	connectionId: string | undefined,
 	readKind: 'Pull request' | 'Issue' | 'Repository' | 'Account-wide issue search',
 	/**
-	 * The caller's `fetchFailed` at this point. Deliberately REQUIRED and not defaulted: a default would make
-	 * "the request succeeded" the silent fallback at any call site that forgot it, which is the one claim this
-	 * warning must never make by accident.
+	 * Deliberately REQUIRED and not defaulted: a default would make one of these the silent fallback at any
+	 * call site that forgot it, and both of the claims it carries — "the request succeeded" and "more can be
+	 * fetched" — are ones this warning must never make by accident.
 	 */
-	failed: boolean,
+	cause: IncompleteReadCause,
 ): ProviderWarning {
-	return incompleteReadWarning(
-		id,
-		domain,
-		connectionId,
-		failed
-			? `${readKind} read for '${id}' was interrupted after returning results; the remaining pages were not read.`
-			: `${readKind} read for '${id}' was truncated (a page backstop was reached); results may be incomplete.`,
-		failed,
-	);
+	return incompleteReadWarning(id, domain, connectionId, truncationMessage(id, readKind, cause), cause);
+}
+
+function truncationMessage(
+	id: IntegrationIds,
+	readKind: 'Pull request' | 'Issue' | 'Repository' | 'Account-wide issue search',
+	cause: IncompleteReadCause,
+): string {
+	switch (cause) {
+		case 'interrupted':
+			// Deliberately does not name a mechanism. This fires both when a page was lost mid-drain and when a
+			// drain that latched an earlier scope failure later stopped for its own reasons; "was interrupted"
+			// would be false in the second. What is true in both is that something failed and results are gone.
+			return `${readKind} read for '${id}' did not complete; some results are missing and the read reported a failure.`;
+		case 'page-budget':
+			return `${readKind} read for '${id}' stopped at its page budget; more results can be read by raising it.`;
+		case 'exhausted':
+			return `${readKind} read for '${id}' was truncated and cannot be continued; results may be incomplete.`;
+	}
+	// No `default`: `IncompleteReadCause` is declared in this file, so `noImplicitReturns` already fails the
+	// build here if a cause is added without its own wording. (`collectionOmissionMessage`'s `satisfies never`
+	// is not the same case — that union is the SDK's, and can widen under a dependency bump.)
 }
 
 /** Warning for an account-wide issue read whose requested filters the provider can't express server-side. */
