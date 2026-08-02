@@ -15,6 +15,45 @@ export interface ConnectionStateChangeEvent {
  */
 export type ProviderWarningKind = 'auth' | 'rate-limit' | 'not-found' | 'no-connection' | 'other';
 
+/**
+ * Why a read that SUCCEEDED still withheld results:
+ * - `provider-limit`: the provider refuses to serve past a cap it enforces (GitHub search's 1,000-result
+ *   ceiling, Trello's `cards_limit`), so the excess is unreachable through that query.
+ * - `recovery-budget`: the internal partitioned recovery stopped spending upstream requests before it ran
+ *   out of partitions to visit.
+ * - `pagination-incomplete`: pages were left unread — a sub-scope of a multi-scope read that was not drained,
+ *   a drain that stopped at its own page backstop, or a provider that advertised another page and gave no way
+ *   to reach it. The only kind that is SOMETIMES recoverable: when `scope` is named, re-read that one through
+ *   its single-scope paginated method. Nothing else about the warning says which case it is, so a consumer
+ *   must not promise the user a retry will return more.
+ *
+ * Mirrors the vocabulary the SDK reports. Declared here rather than imported so this module stays free of
+ * `@gitkraken/provider-apis` types (see the export block in `index.ts`); `collectionMetadata.ts` holds the
+ * compile-time link, so an SDK bump that adds a kind fails the build at that boundary.
+ */
+export type ProviderWarningOmissionKind = 'provider-limit' | 'recovery-budget' | 'pagination-incomplete';
+
+/** Which repository / project / resource an omission is attributed to. All fields optional; a scope may name none. */
+export interface ProviderWarningOmissionScope {
+	providerId?: string;
+	resourceId?: string;
+	projectId?: string;
+	repositoryId?: string;
+}
+
+export interface ProviderWarningOmission {
+	kind: ProviderWarningOmissionKind;
+	/**
+	 * The cap the provider enforces, when it reports one. NOT a result count for every kind: on
+	 * `recovery-budget` this is a REQUEST budget and must not be shown to a user as a number of results.
+	 */
+	limit?: number;
+	/** Total matches the provider reported, when it reports one. Only GitHub's search cap does today. */
+	totalCount?: number;
+	/** Which repository / project / resource was affected, when one is attributed. */
+	scope?: ProviderWarningOmissionScope;
+}
+
 export interface ProviderWarning {
 	providerId: IntegrationIds;
 	/** Disambiguates connections on self-managed hosts (where one provider id spans multiple domains). */
@@ -25,6 +64,25 @@ export interface ProviderWarning {
 	kind: ProviderWarningKind;
 	/** Convenience mirror of `kind === 'auth'`. */
 	isAuth: boolean;
+	/**
+	 * Present when this warning describes results the read could not return even though the request itself
+	 * SUCCEEDED — a provider-enforced cap, an exhausted recovery budget, or a sub-scope the read did not drain.
+	 *
+	 * Its presence is the signal: an omission is not a failure, and retrying the same request returns the same
+	 * truncated set. Message it as incompleteness rather than as a failed read, and do NOT derive that from
+	 * `message`, which is English prose and subject to rewording. `kind` stays `'other'` for these, so the
+	 * failure discriminant keeps meaning exactly what it meant before this field existed.
+	 *
+	 * `limit` / `totalCount` / `scope` are forwarded only when they are reported; most omissions carry none of
+	 * the three, so render correctly without them — and see {@link ProviderWarningOmission.limit} before
+	 * showing that figure as a result count.
+	 *
+	 * Its ABSENCE proves nothing. It is never set on a warning derived from a caught exception (see
+	 * {@link toProviderWarning}) or from a structured scope failure — those are failures, and the field would
+	 * be a lie there. But it is also absent whenever incompleteness was reported without naming what was left
+	 * out, so treat a bare `kind: 'other'` warning as unclassified rather than as a proven failure.
+	 */
+	omission?: ProviderWarningOmission;
 }
 
 export interface ProviderPageInfo {
@@ -259,14 +317,60 @@ export function toProviderWarning(
 	};
 }
 
-/** A stable key for deduplicating warnings accumulated across drained pages / fan-out scopes. */
-function providerWarningKey(warning: ProviderWarning): string {
-	return [warning.providerId, warning.connectionId ?? '', warning.domain ?? '', warning.kind, warning.message].join(
+/**
+ * A scope's identity, as the stable string that keys it.
+ *
+ * The single definition of what "the same scope" means, shared by the failure and omission dedup keys in
+ * `providerPaging.ts` and by {@link providerWarningKey} below, so a scope gaining a field is one edit rather
+ * than three. `providerId` is included: the same repository ID under two providers is two scopes.
+ *
+ * The parameter is structural rather than the SDK's `CollectionScope` so this module keeps naming no
+ * `@gitkraken/provider-apis` types (see the export block in `index.ts`) while still serving its SDK-facing
+ * callers, which pass that type in unchanged.
+ */
+export function collectionScopeKey(scope: ProviderWarningOmissionScope | undefined): string {
+	return [scope?.providerId ?? '', scope?.resourceId ?? '', scope?.projectId ?? '', scope?.repositoryId ?? ''].join(
 		' ',
 	);
 }
 
-/** Appends `warning` to `into` only when an equal warning (by provider/connection/domain/kind/message) is absent. */
+/**
+ * The omission's contribution to a warning's identity — empty when there is none, so a warning without an
+ * omission keeps deduping exactly as it did before the field existed.
+ *
+ * Two omissions of different kinds do produce different `message` values today, so message alone would still
+ * separate them. That is incidental: the premise of `omission` is that consumers must not depend on prose
+ * carrying the distinguishing fact, and this key must not either.
+ */
+function providerWarningOmissionKey(omission: ProviderWarningOmission | undefined): string {
+	if (omission == null) return '';
+
+	return [omission.kind, omission.limit ?? '', omission.totalCount ?? '', collectionScopeKey(omission.scope)].join(
+		' ',
+	);
+}
+
+/**
+ * A stable key for deduplicating warnings accumulated across drained pages / fan-out scopes.
+ *
+ * `message` stays LAST. It is the only free-form segment — provider prose, spaces and all — so anything
+ * appended after it could be impersonated by a message that happens to end in the same text.
+ */
+function providerWarningKey(warning: ProviderWarning): string {
+	return [
+		warning.providerId,
+		warning.connectionId ?? '',
+		warning.domain ?? '',
+		warning.kind,
+		providerWarningOmissionKey(warning.omission),
+		warning.message,
+	].join(' ');
+}
+
+/**
+ * Appends `warning` to `into` only when an equal warning (by provider/connection/domain/kind/message, plus the
+ * structured omission when one is present) is absent.
+ */
 export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderWarning): void {
 	const key = providerWarningKey(warning);
 	if (into.some(existing => providerWarningKey(existing) === key)) return;

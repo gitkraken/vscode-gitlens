@@ -177,19 +177,57 @@ result** instead of rejecting the call. One provider's expired token never blank
 `ProviderWarning.kind` (also exported as `ProviderWarningKind`) carries the classifications the facade can
 prove from structured errors:
 
-| `kind`          | Meaning                                                                                       | Reasonable response                                                                         |
-| --------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `auth`          | Token rejected (401/403 that isn't a throttle).                                               | Prompt to reconnect that connection.                                                        |
-| `rate-limit`    | Throttled (429, or a 403 whose body says so).                                                 | Back off and retry; keep the last snapshot.                                                 |
-| `not-found`     | 404/410/422 on the requested scope.                                                           | Drop that scope; don't reconnect.                                                           |
-| `no-connection` | The requested `connectionId`/`domain` doesn't resolve.                                        | Re-resolve the target or re-authenticate.                                                   |
-| `other`         | Catch-all: unsupported input, truncation, upstream/network failure, or an unclassified error. | Preserve the warning and use the result flags; do not assume it is benign or non-retryable. |
+| `kind`          | Meaning                                                                                                                                         | Reasonable response                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `auth`          | Token rejected (401/403 that isn't a throttle).                                                                                                 | Prompt to reconnect that connection.                                                        |
+| `rate-limit`    | Throttled (429, or a 403 whose body says so).                                                                                                   | Back off and retry; keep the last snapshot.                                                 |
+| `not-found`     | 404/410/422 on the requested scope.                                                                                                             | Drop that scope; don't reconnect.                                                           |
+| `no-connection` | The requested `connectionId`/`domain` doesn't resolve.                                                                                          | Re-resolve the target or re-authenticate.                                                   |
+| `other`         | Catch-all: unsupported input, truncation, upstream/network failure, or an unclassified error. Read `omission` before treating one as a failure. | Preserve the warning and use the result flags; do not assume it is benign or non-retryable. |
 
 `isAuth` is a convenience mirror of `kind === 'auth'`. **Collapsing `kind` into that boolean loses the
 rate-limit and not-found distinctions**, which then have to be re-derived from raw provider prose.
 Conversely, `other` is intentionally not a complete failure taxonomy. Treat `message` as display/diagnostic
 text rather than a stable protocol; use `fetchFailed`, `page.truncated`, and `page.allPages` for completeness
 and keep unknown failures conservative.
+
+### `omission` — succeeded, but withheld results
+
+`other` covers two facts with **opposite remedies**: a request that failed, and a request that succeeded while
+part of the answer was withheld. `ProviderWarning.omission` is set only for the second, so a consumer can act
+on it without parsing `message`:
+
+```ts
+if (warning.omission != null) {
+	// The read SUCCEEDED. Retrying returns the same truncated set — message it as incompleteness, not failure.
+}
+```
+
+`kind` stays `'other'` for these on purpose: it is the discriminant derived from a caught exception's type, and
+adding a member would silently change what `'other'` means for every existing build.
+
+**Its absence proves nothing.** It is never set on a failure — an exception or a structured scope failure —
+where it would be a lie. But it is also absent whenever incompleteness was reported without naming what was
+left out, so treat a bare `kind: 'other'` warning as unclassified rather than as a proven failure.
+
+The line that matters is whether the request **succeeded**, not whether a tail was left unread. A drain that
+stopped at its page backstop succeeded and is capped, so it carries the omission; a drain that was interrupted
+mid-read left an unread tail too, but a retry may complete it — that one carries no omission and sets
+`fetchFailed`.
+
+| `omission.kind`         | What happened                                                                                                                        | Recoverable?                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provider-limit`        | The provider refuses to serve past a cap (GitHub search's 1,000, Trello's `cards_limit`).                                            | No. The excess is unreachable through that query.                                                                                                                                 |
+| `recovery-budget`       | The internal partitioned recovery stopped before visiting every partition.                                                           | No, not by retrying the same request.                                                                                                                                             |
+| `pagination-incomplete` | Pages were left unread: an undrained sub-scope, a page backstop, or a provider that advertised another page without a usable cursor. | Sometimes. When `scope` is named, re-read that one through its single-scope paginated method. Otherwise the warning does not say, so don't promise the user a retry returns more. |
+
+`limit`, `totalCount` and `scope` are forwarded only when reported; **most omissions carry none of the three**,
+so render correctly without them. Two traps: `totalCount` is `number | undefined` and never `null` (the SDK's
+`null` is normalized to absent at the boundary), and `limit` on `recovery-budget` is a **request** budget — do
+not show it to a user as a number of results.
+
+Warnings dedup on their structure, `omission` included, so two omissions that differ only in kind or scope stay
+two warnings even if their messages ever converge.
 
 | Flag                    | Says                                                                                                                                          |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -198,6 +236,10 @@ and keep unknown failures conservative.
 | `page.allPages`         | Sweeps only: `true` iff every page of every target drained cleanly.                                                                           |
 | `failedProviderIds`     | Sweeps/broadens: providers whose requested scopes produced no usable result.                                                                  |
 | `incompleteProviderIds` | Sweeps/broadens: providers with a usable result plus a failed, partial, or truncated sibling scope.                                           |
+
+An omission pairs with `fetchFailed: false` and `page.truncated: true` — nothing failed, results are missing.
+That pairing is the aggregate view of the same fact `omission` carries per-warning, and it is what the field is
+kept consistent with: a read that sets `fetchFailed` reports its unread tail without an omission.
 
 `resolveRepository` reports through `resolution.status` instead: `resolved` · `not-found` · `unauthorized` ·
 `unsupported-provider` · `invalid-remote-url` · `host-mismatch` · `undetermined`. A `resolved` identity

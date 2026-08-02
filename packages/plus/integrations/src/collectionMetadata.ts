@@ -7,7 +7,7 @@ import type {
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IntegrationIds } from './constants.js';
 import { isRateLimitResponse } from './errors.js';
-import type { ProviderWarning } from './results.js';
+import type { ProviderWarning, ProviderWarningOmission } from './results.js';
 import { appendDedupedWarning } from './results.js';
 
 /**
@@ -73,19 +73,6 @@ function toCollectionFailureWarningKind(failure: CollectionScopeFailure): Provid
 	}
 }
 
-/**
- * A scope's identity, as the stable string that keys it.
- *
- * The dedup keys in `providerPaging.ts` build on this, so failures and omissions can never disagree about
- * what "the same scope" means. `providerId` is included: the same repository ID under two providers is two
- * scopes.
- */
-export function collectionScopeKey(scope: CollectionScope | undefined): string {
-	return [scope?.providerId ?? '', scope?.resourceId ?? '', scope?.projectId ?? '', scope?.repositoryId ?? ''].join(
-		' ',
-	);
-}
-
 /** ` (resource r, project p, repository o/n)` for the scope IDs present; empty when the scope names none. */
 function collectionScopeText(scope: CollectionScope | undefined): string {
 	const parts: string[] = [];
@@ -143,6 +130,28 @@ function collectionOmissionMessage(omission: CollectionOmission): string {
 }
 
 /**
+ * Forwards an SDK omission as the structured signal consumers read instead of parsing {@link
+ * collectionOmissionMessage}'s prose.
+ *
+ * `results.ts` re-spells `CollectionOmissionKind` rather than importing it, so the published warning surface
+ * carries no `@gitkraken/provider-apis` types (see the export block in `index.ts`). The return type is what
+ * keeps the two unions honest: an SDK bump that adds a member fails to compile here, alongside
+ * `collectionOmissionMessage`'s `satisfies never`.
+ *
+ * `scope` is copied because the SDK's own object is retained and re-merged across drained pages
+ * (`providerPaging.ts`), and this one crosses the package boundary.
+ */
+function toProviderWarningOmission(omission: CollectionOmission): ProviderWarningOmission {
+	return {
+		kind: omission.kind,
+		...(omission.limit != null ? { limit: omission.limit } : {}),
+		// The SDK types this `number | null | undefined`; normalize to one absence for consumers.
+		...(omission.totalCount != null ? { totalCount: omission.totalCount } : {}),
+		...(omission.scope != null ? { scope: { ...omission.scope } } : {}),
+	};
+}
+
+/**
  * Whether SDK metadata describes a read that may be missing results.
  *
  * A reported omission counts on its own rather than deferring to `completeness`. The SDK does couple the
@@ -184,7 +193,8 @@ export function assessCollectionMetadata(
 
 	// Omissions explain WHY a read is incomplete when nothing failed — a provider cap, an exhausted recovery
 	// budget, an undrained scope. They classify as `other`, never `auth`, and are deliberately excluded from
-	// `fetchFailed` below: the request succeeded, so a retry would return the same truncated set.
+	// `fetchFailed` below: the request succeeded, so a retry would return the same truncated set. `omission`
+	// carries that same fact structurally, so a consumer can act on it without parsing the message.
 	const omissions = metadata.omissions ?? [];
 	for (const omission of omissions) {
 		appendDedupedWarning(warnings, {
@@ -194,12 +204,17 @@ export function assessCollectionMetadata(
 			message: collectionOmissionMessage(omission),
 			kind: 'other',
 			isAuth: false,
+			omission: toProviderWarningOmission(omission),
 		});
 	}
 
 	const incomplete = isIncompleteCollection(metadata);
 	// Only fall back to the generic message when nothing more specific was reported; an omission already
 	// explains the incompleteness in the consumer's terms, so adding this on top would be noise.
+	//
+	// This one deliberately carries no `omission`: it fires precisely when the SDK reported incompleteness
+	// WITHOUT saying what was left out, so there is no structured fact to forward and synthesizing one would
+	// assert a specificity this layer does not have.
 	if (incomplete && failures.length === 0 && omissions.length === 0) {
 		appendDedupedWarning(warnings, {
 			providerId: providerId,
