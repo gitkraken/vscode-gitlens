@@ -271,6 +271,24 @@ suite('GitHubApi.searchIssuesPage', () => {
 			assert.doesNotMatch(q, /org:evil/, 'the smuggled qualifier is not');
 		});
 
+		// The control-character rule must not spill onto ordinary punctuation: a hyphen is part of a repository
+		// path, a label and a version, and turning one into a space would silently re-target the search
+		// (`repo:gitkraken/vscode-gitlens` → `repo:gitkraken/vscode gitlens`, which matches nothing).
+		test('leaves ordinary punctuation in a scope or value untouched', async () => {
+			const { config, getVariables } = capture();
+			const api = new GitHubApi(config);
+
+			await api.searchIssuesPage(provider, token, {
+				repos: ['gitkraken/vscode-gitlens'],
+				criteria: { milestone: 'v1.0-rc1', labels: ['needs-triage'] },
+			});
+
+			const q = String(getVariables().matched);
+			assert.match(q, /repo:gitkraken\/vscode-gitlens/);
+			assert.match(q, /milestone:"v1\.0-rc1"/);
+			assert.match(q, /label:"needs-triage"/);
+		});
+
 		test('control characters are stripped from values', async () => {
 			const { config, getVariables } = capture();
 			const api = new GitHubApi(config);
