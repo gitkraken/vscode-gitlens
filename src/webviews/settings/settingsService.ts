@@ -72,7 +72,12 @@ export interface SettingsUpdateParams {
 export interface GenerateFormatPreviewParams {
 	/** The setting key the preview is for (drives pull-request token inclusion). */
 	key: string;
-	type: 'commit' | 'commit-uncommitted';
+	/**
+	 * Which formatter renders the preview:
+	 * - 'commit' / 'commit-uncommitted' — `CommitFormatter` on the sample commit
+	 * - 'file' — `StatusFileFormatter` on the sample file change
+	 */
+	type: 'commit' | 'commit-uncommitted' | 'file';
 	format: string;
 }
 
@@ -104,9 +109,10 @@ export interface SettingsViewService {
 	// ── Queries ──
 
 	/**
-	 * Render a format template against the canned sample commit using the real
-	 * `CommitFormatter`, so the preview matches what GitLens will actually display.
-	 * Returns 'Invalid format' when the template fails to parse.
+	 * Render a format template against the canned sample commit/file using the real
+	 * `CommitFormatter`/`StatusFileFormatter`, so the preview matches what GitLens
+	 * will actually display. Returns an `Invalid format: …` message (with the parse
+	 * error) when the template fails to render.
 	 */
 	generateFormatPreview(params: GenerateFormatPreviewParams): Promise<string>;
 }

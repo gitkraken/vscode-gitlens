@@ -103,10 +103,11 @@ export interface FormatPreviewDescriptor {
 	/**
 	 * How the live example is produced:
 	 * - 'commit' / 'commit-uncommitted' — host RPC renders the real `CommitFormatter`
+	 * - 'file' — host RPC renders the real `StatusFileFormatter` on a sample file change
 	 * - 'date' — app-side `formatDate` against the fixed sample date
 	 * - 'date-locale' — value is a locale; format read from `defaultLookup`
 	 */
-	type: 'commit' | 'commit-uncommitted' | 'date' | 'date-locale';
+	type: 'commit' | 'commit-uncommitted' | 'file' | 'date' | 'date-locale';
 	/** Literal fallback format when the input is empty */
 	default?: string;
 	/** Config key to read the fallback format from when the input is empty */
@@ -121,8 +122,14 @@ export interface TextDescriptor extends DescriptorBase {
 	defaultValue?: string;
 	/** Live example line configuration */
 	preview?: FormatPreviewDescriptor;
-	/** Offer the ${token} insert popover */
-	tokens?: boolean;
+	/**
+	 * Offer the token insert menu, and which token set it presents:
+	 * - `true` — commit tokens (plaintext commit/blame/status-bar formats)
+	 * - `'hover'` — commit tokens PLUS hover-only tokens (markdown hover/tooltip formats)
+	 * - `'file'` — file tokens (`StatusFileFormatter` file-format strings)
+	 * Date-format fields derive their moment.js token set from `preview.type` instead.
+	 */
+	tokens?: boolean | 'hover' | 'file';
 }
 
 export interface NumberDescriptor extends DescriptorBase {

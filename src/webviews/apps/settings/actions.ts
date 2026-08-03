@@ -406,8 +406,12 @@ export class SettingsActions {
 
 	// ── Previews ──
 
-	/** Renders a format template via the host's real `CommitFormatter`. */
-	generateFormatPreview(key: string, type: 'commit' | 'commit-uncommitted', format: string): Promise<string> {
+	/** Renders a format template via the host's real `CommitFormatter`/`StatusFileFormatter`. */
+	generateFormatPreview(
+		key: string,
+		type: 'commit' | 'commit-uncommitted' | 'file',
+		format: string,
+	): Promise<string> {
 		return this.settings.generateFormatPreview({ key: key, type: type, format: format });
 	}
 }

@@ -264,7 +264,7 @@ export const viewsCategories: SettingsCategory[] = [
 				defaultValue:
 					"${avatar} &nbsp;__${author}__${signature} &nbsp;$(history) ${agoAndDateBothSources} \\\n${link}${' via  'pullRequest}${'&nbsp;&nbsp;'changesDetail} ${message}${\n\n---\n\nfootnotes}\n\n${tips}",
 				preview: { type: 'commit', default: '${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoOrDate}' },
-				tokens: true,
+				tokens: 'hover',
 			},
 		],
 	},
@@ -303,7 +303,7 @@ export const viewsCategories: SettingsCategory[] = [
 				defaultValue:
 					"${link}${' on `'stashOnRef`}${'\\\n&nbsp;&nbsp;'changesDetail} \\\n &nbsp;$(history) ${agoAndDate} ${message}${\n\n---\n\nfootnotes}",
 				preview: { type: 'commit', default: '${stashOnRef, }${agoOrDate} ${message}' },
-				tokens: true,
+				tokens: 'hover',
 			},
 		],
 	},

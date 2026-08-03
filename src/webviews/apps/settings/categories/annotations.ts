@@ -333,7 +333,7 @@ export const annotationsCategories: SettingsCategory[] = [
 				defaultValue:
 					"${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoAndDateBothSources}${' via  'pullRequest} ${message}${\n\n---\n\nfootnotes}\n\n${commands}",
 				preview: { type: 'commit', default: '${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoOrDate}' },
-				tokens: true,
+				tokens: 'hover',
 				enabledWhen: 'statusBar.enabled',
 			},
 		],
@@ -476,7 +476,7 @@ export const annotationsCategories: SettingsCategory[] = [
 				defaultValue:
 					"${avatar} &nbsp;__${author}__${signature} &nbsp;$(history) ${agoAndDateBothSources}${' via  'pullRequest} ${message}${\n\n---\n\nfootnotes}\n\n${commands}",
 				preview: { type: 'commit', default: '${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoOrDate}' },
-				tokens: true,
+				tokens: 'hover',
 				enabledWhen: 'hovers.enabled',
 			},
 		],

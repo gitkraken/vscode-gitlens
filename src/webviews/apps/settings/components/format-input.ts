@@ -8,6 +8,8 @@ import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import { formatDate } from '../../shared/date.js';
 import type { SettingsActions } from '../actions.js';
+import type { FormatTokenInfo } from '../format-tokens.js';
+import { dateFormatTokens, getFormatTokens } from '../format-tokens.js';
 import type { TextDescriptor } from '../model.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
@@ -27,64 +29,22 @@ const sampleDate = new Date(
 	`Wed Jul 25 2018 19:18:00 GMT${offset >= 0 ? '-' : '+'}${String(Math.abs(offset)).padStart(4, '0')}`,
 );
 
-interface TokenInfo {
-	token: string;
-	label: string;
-}
+/** Which token set (if any) the input offers, and the grammar affordances it exposes. */
+type TokenMode = 'commit' | 'hover' | 'file' | 'date';
 
-/** Tokens for commit format strings (ported from the legacy token-popup template). */
-const commitTokens: TokenInfo[] = [
-	{ token: 'id', label: 'Commit SHA' },
-	{ token: 'author', label: 'Commit Author' },
-	{ token: 'authorFirst', label: 'Commit Author First Name' },
-	{ token: 'authorLast', label: 'Commit Author Last Name' },
-	{ token: 'authorNotYou', label: 'Commit Author (except you)' },
-	{ token: 'email', label: 'Commit Author E-mail' },
-	{ token: 'message', label: 'Commit Message' },
-	{ token: 'ago', label: 'Commit or Authored Date — relative' },
-	{ token: 'date', label: 'Commit or Authored Date — absolute' },
-	{ token: 'agoOrDate', label: 'Commit or Authored Date — based on date setting' },
-	{ token: 'agoOrDateShort', label: 'Commit or Authored Date (short)' },
-	{ token: 'authorAgo', label: 'Authored Date — relative' },
-	{ token: 'authorDate', label: 'Authored Date — absolute' },
-	{ token: 'authorAgoOrDate', label: 'Authored Date — based on date setting' },
-	{ token: 'authorAgoOrDateShort', label: 'Authored Date (short)' },
-	{ token: 'committerAgo', label: 'Commit Date — relative' },
-	{ token: 'committerDate', label: 'Commit Date — absolute' },
-	{ token: 'committerAgoOrDate', label: 'Commit Date — based on date setting' },
-	{ token: 'committerAgoOrDateShort', label: 'Commit Date (short)' },
-	{ token: 'tips', label: 'Branch & Tag Tips' },
-	{ token: 'changes', label: 'Changes Indicator, e.g. +1 ~3 -0' },
-	{ token: 'changesShort', label: 'Changes Indicator (short), e.g. +1~3' },
-	{ token: 'pullRequest', label: 'Pull Request that introduced the commit' },
-	{ token: 'pullRequestState', label: 'Pull Request State (open, merged, closed)' },
-];
+/** The mutually-exclusive width modifier flag — the grammar accepts ONE flag after the width, never both. */
+type WidthFlag = '' | '?' | '-';
 
-/** Moment.js display tokens for date-format strings (these insert bare, not wrapped in `${}`). */
-const dateTokens: TokenInfo[] = [
-	{ token: 'YYYY', label: 'Year, 4-digit (2018)' },
-	{ token: 'YY', label: 'Year, 2-digit (18)' },
-	{ token: 'MMMM', label: 'Month, full (July)' },
-	{ token: 'MMM', label: 'Month, short (Jul)' },
-	{ token: 'MM', label: 'Month, 2-digit (07)' },
-	{ token: 'Do', label: 'Day of month, ordinal (25th)' },
-	{ token: 'DD', label: 'Day of month, 2-digit (25)' },
-	{ token: 'D', label: 'Day of month (25)' },
-	{ token: 'dddd', label: 'Day of week, full (Wednesday)' },
-	{ token: 'ddd', label: 'Day of week, short (Wed)' },
-	{ token: 'HH', label: 'Hour, 24-hour 2-digit (19)' },
-	{ token: 'hh', label: 'Hour, 12-hour 2-digit (07)' },
-	{ token: 'h', label: 'Hour, 12-hour (7)' },
-	{ token: 'mm', label: 'Minute, 2-digit (18)' },
-	{ token: 'ss', label: 'Second, 2-digit (00)' },
-	{ token: 'a', label: 'am / pm' },
-	{ token: 'A', label: 'AM / PM' },
-	{ token: 'Z', label: 'UTC offset (+01:00)' },
-];
+const commitDocsUrl = 'https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting';
+const dateDocsUrl = 'https://momentjs.com/docs/#/displaying/format/';
+
+/** Matches an unclosed `${` immediately before the caret, capturing the partial token being typed. */
+const typeaheadRegex = /\$\{([A-Za-z]*)$/;
 
 /**
- * A text input for format strings with a live example line and a `${token}`
- * insert menu.
+ * A text input for format strings with a live example line, a context-aware
+ * `${token}` insert menu, an inline `${` typeahead, and a builder for the
+ * modifier grammar (`${'prefix'token|width?-'suffix'}`).
  *
  * Editing is drafted locally and committed when focus leaves the component or
  * on Enter — moving focus to the token menu does NOT commit (parity with the
@@ -100,16 +60,28 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			}
 
 			.label {
-				display: block;
+				display: flex;
+				gap: var(--gl-space-8);
+				align-items: baseline;
 				margin-block-end: 0.7rem;
 				font-size: 1.25rem;
 				font-weight: 600;
 				color: var(--color-foreground);
 			}
 
+			.label__dirty {
+				font-size: 1.05rem;
+				font-weight: 400;
+				color: var(--color-foreground--65);
+			}
+
+			.field-wrap {
+				position: relative;
+				max-width: var(--gl-max-input);
+			}
+
 			.field {
 				display: flex;
-				max-width: var(--gl-max-input);
 				overflow: hidden;
 				background-color: var(--vscode-input-background);
 				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
@@ -154,22 +126,94 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				${focusOutline}
 			}
 
+			/* Inline token typeahead */
+			.suggestions {
+				position: absolute;
+				z-index: var(--gl-z-popover, 50);
+				inset-inline: 0;
+				inset-block-start: calc(100% + 0.2rem);
+				display: flex;
+				flex-direction: column;
+				max-height: 24rem;
+				padding: 0.3rem 0;
+				margin: 0;
+				overflow-y: auto;
+				list-style: none;
+				background-color: var(--vscode-editorSuggestWidget-background, var(--vscode-menu-background));
+				border: var(--gl-border-width) solid var(--vscode-editorSuggestWidget-border, var(--vscode-menu-border));
+				border-radius: var(--gl-radius-sm, 0.4rem);
+				box-shadow: var(--gl-shadow-popover, 0 2px 8px rgb(0 0 0 / 0.3));
+			}
+
+			.suggestion {
+				display: flex;
+				gap: var(--gl-space-12);
+				align-items: center;
+				justify-content: space-between;
+				width: 100%;
+				padding: 0.4rem 0.9rem;
+				text-align: left;
+				cursor: pointer;
+				background: transparent;
+				border: none;
+			}
+
+			.suggestion[aria-selected='true'],
+			.suggestion:hover {
+				background-color: var(
+					--vscode-editorSuggestWidget-selectedBackground,
+					var(--vscode-list-hoverBackground)
+				);
+			}
+
+			.suggestion code {
+				font-family: var(--vscode-editor-font-family);
+				font-size: 1.15rem;
+				color: var(--color-link-foreground);
+			}
+
+			.suggestion span {
+				font-size: 1.05rem;
+				color: var(--color-foreground--65);
+			}
+
+			/* Token menu (chevron popover) */
 			.tokens {
 				display: flex;
 				flex-direction: column;
-				min-width: 32rem;
-				max-height: 30rem;
-				overflow-y: auto;
+				gap: 0.4rem;
+				min-width: 34rem;
 			}
 
 			.tokens__title {
-				padding: 0.5rem 0.9rem;
+				padding: 0.2rem 0.2rem 0;
 				margin: 0;
 				font-size: 1.05rem;
 				font-weight: 400;
 				color: var(--color-foreground--50);
 				text-transform: uppercase;
 				letter-spacing: 0.05em;
+			}
+
+			.tokens__search {
+				width: 100%;
+				padding: 0.5rem 0.7rem;
+				font-size: 1.15rem;
+				color: var(--vscode-input-foreground);
+				background-color: var(--vscode-input-background);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+				border-radius: var(--gl-radius-sm, 0.4rem);
+			}
+
+			.tokens__search:focus-visible {
+				${focusOutline}
+			}
+
+			.token-list {
+				display: flex;
+				flex-direction: column;
+				max-height: 26rem;
+				overflow-y: auto;
 			}
 
 			.token {
@@ -187,7 +231,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			}
 
 			.token:hover,
-			.token:focus-visible {
+			.token[aria-selected='true'] {
 				background-color: var(--vscode-list-hoverBackground);
 			}
 
@@ -206,8 +250,93 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
+			/* Modifier builder */
+			.mods {
+				display: flex;
+				flex-direction: column;
+				border-block-start: var(--gl-border-width) solid var(--vscode-menu-separatorBackground, transparent);
+			}
+
+			.mods__toggle {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				padding: 0.5rem 0.2rem;
+				font-size: 1.15rem;
+				color: var(--color-foreground);
+				text-align: left;
+				cursor: pointer;
+				background: transparent;
+				border: none;
+			}
+
+			.mods__toggle:focus-visible {
+				${focusOutline}
+			}
+
+			.mods__body {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 0.6rem 0.9rem;
+				padding: 0.2rem 0.2rem 0.5rem;
+			}
+
+			.mods__field {
+				display: flex;
+				flex-direction: column;
+				gap: 0.3rem;
+				font-size: 1.05rem;
+				color: var(--color-foreground--75);
+			}
+
+			.mods__field input {
+				padding: 0.4rem 0.6rem;
+				font-size: 1.15rem;
+				color: var(--vscode-input-foreground);
+				background-color: var(--vscode-input-background);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+				border-radius: var(--gl-radius-sm, 0.4rem);
+			}
+
+			.mods__align {
+				grid-column: 1 / -1;
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.3rem 1.2rem;
+				padding: 0;
+				margin: 0;
+				border: none;
+			}
+
+			.mods__align legend {
+				padding: 0;
+				margin-block-end: 0.3rem;
+				font-size: 1.05rem;
+				color: var(--color-foreground--75);
+			}
+
+			.mods__radio {
+				display: flex;
+				gap: 0.4rem;
+				align-items: center;
+				font-size: 1.1rem;
+				color: var(--color-foreground);
+			}
+
+			.mods__preview {
+				grid-column: 1 / -1;
+				margin: 0;
+				font-size: 1.1rem;
+				color: var(--color-foreground--65);
+			}
+
+			.mods__preview code {
+				font-family: var(--vscode-editor-font-family);
+				color: var(--color-link-foreground);
+			}
+
 			.tokens__hint {
-				padding: 0.6rem 0.9rem;
+				padding: 0.6rem 0.2rem 0.2rem;
 				font-size: 1.1rem;
 				color: var(--color-foreground--65);
 			}
@@ -225,6 +354,11 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				font-style: italic;
 				color: var(--color-foreground--85);
 			}
+
+			.example--error .example__text {
+				font-style: normal;
+				color: var(--vscode-errorForeground);
+			}
 		`,
 	];
 
@@ -240,7 +374,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 	@property({ type: Boolean })
 	disabled: boolean = false;
 
-	@query('input')
+	@query('input#input')
 	private _input!: HTMLInputElement;
 
 	/** Local draft while the user is editing; undefined renders the config value. */
@@ -249,6 +383,45 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 	@state()
 	private _example: string = '';
+
+	/** Whether the current example represents a render error (styled + not italic). */
+	@state()
+	private _exampleError: boolean = false;
+
+	// ── Token-menu (popover) state ──
+	@state()
+	private _menuFilter: string = '';
+
+	/** Roving-tabindex active option in the token list. */
+	@state()
+	private _activeIndex: number = 0;
+
+	@state()
+	private _showModifiers: boolean = false;
+
+	// ── Modifier builder state ──
+	@state()
+	private _modPrefix: string = '';
+
+	@state()
+	private _modSuffix: string = '';
+
+	/** Width as a raw string so an empty field is distinct from 0 (`|0` collapses to prefix+suffix). */
+	@state()
+	private _modWidth: string = '';
+
+	@state()
+	private _modFlag: WidthFlag = '';
+
+	// ── Inline `${` typeahead state ──
+	@state()
+	private _suggestOpen: boolean = false;
+
+	@state()
+	private _suggestQuery: string = '';
+
+	@state()
+	private _suggestIndex: number = 0;
 
 	/** Tracks descriptor identity so a reused instance drops a stale draft/example on switch. */
 	private _lastDescriptorKey: string | undefined;
@@ -259,12 +432,21 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 	override willUpdate(): void {
 		// A single instance is reused for different descriptors (position-based reuse when switching
-		// categories), so drop the in-progress draft/example when the descriptor identity changes
-		// (parity with gl-setting-control's number-draft reset)
+		// categories), so drop the in-progress draft/example AND all transient menu/builder/typeahead
+		// state when the descriptor identity changes (parity with gl-setting-control's number-draft reset)
 		if (this.descriptor.key !== this._lastDescriptorKey) {
 			this._lastDescriptorKey = this.descriptor.key;
 			this._draft = undefined;
 			this._example = '';
+			this._exampleError = false;
+			this._menuFilter = '';
+			this._activeIndex = 0;
+			this._showModifiers = false;
+			this._modPrefix = '';
+			this._modSuffix = '';
+			this._modWidth = '';
+			this._modFlag = '';
+			this._closeSuggestions();
 		}
 	}
 
@@ -272,20 +454,26 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		this.updateExample();
 	}
 
-	private readonly requestCommitPreview = debounce((format: string) => {
-		const d = this.descriptor;
-		if (d.preview?.type !== 'commit' && d.preview?.type !== 'commit-uncommitted') return;
-
-		const key = d.key;
+	private readonly requestPreview = debounce((type: 'commit' | 'commit-uncommitted' | 'file', format: string) => {
+		const key = this.descriptor.key;
 		void this.actions
-			?.generateFormatPreview(key, d.preview.type, format)
+			?.generateFormatPreview(key, type, format)
 			.then(preview => {
 				// The instance is reused across descriptors; ignore a late preview for a previous one
 				if (this.descriptor.key !== key) return;
 
 				this._example = preview;
+				// The host returns an `Invalid format: …` message as a resolved value (it never rejects
+				// on a bad template), so detect the error case to style the example line accordingly
+				this._exampleError = preview.startsWith('Invalid format');
 			})
-			.catch(() => {});
+			.catch(() => {
+				// Transport-level failure (IPC) — surface it instead of swallowing (concern 2)
+				if (this.descriptor.key !== key) return;
+
+				this._example = 'Preview unavailable';
+				this._exampleError = true;
+			});
 	}, 200);
 
 	private updateExample(): void {
@@ -297,7 +485,8 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 		switch (preview.type) {
 			case 'commit':
-			case 'commit-uncommitted': {
+			case 'commit-uncommitted':
+			case 'file': {
 				// Empty value falls back to the literal default FIRST, then the lookup key (legacy order)
 				if (!value) {
 					value =
@@ -308,10 +497,11 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				}
 				if (!value) {
 					this._example = '';
+					this._exampleError = false;
 					return;
 				}
 
-				this.requestCommitPreview(value);
+				this.requestPreview(preview.type, value);
 				break;
 			}
 			case 'date': {
@@ -326,8 +516,10 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				}
 				try {
 					this._example = formatDate(sampleDate, value, undefined, false);
+					this._exampleError = false;
 				} catch (ex) {
 					this._example = ex instanceof Error ? ex.message : String(ex);
+					this._exampleError = true;
 				}
 				break;
 			}
@@ -341,8 +533,10 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 					'MMMM Do, YYYY h:mma';
 				try {
 					this._example = formatDate(sampleDate, format, value || undefined, false);
+					this._exampleError = false;
 				} catch (ex) {
 					this._example = ex instanceof Error ? ex.message : String(ex);
+					this._exampleError = true;
 				}
 				break;
 			}
@@ -359,9 +553,36 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 	private handleInput(e: Event): void {
 		this._draft = (e.target as HTMLInputElement).value;
+		this.updateSuggestions();
 	}
 
 	private handleKeyDown(e: KeyboardEvent): void {
+		if (this._suggestOpen) {
+			const suggestions = this.suggestions;
+			switch (e.key) {
+				case 'ArrowDown':
+					e.preventDefault();
+					this._suggestIndex = (this._suggestIndex + 1) % suggestions.length;
+					return;
+				case 'ArrowUp':
+					e.preventDefault();
+					this._suggestIndex = (this._suggestIndex - 1 + suggestions.length) % suggestions.length;
+					return;
+				case 'Enter':
+				case 'Tab':
+					if (suggestions.length) {
+						e.preventDefault();
+						this.acceptSuggestion(suggestions[this._suggestIndex].token);
+					}
+					return;
+				case 'Escape':
+					e.preventDefault();
+					this._closeSuggestions();
+					return;
+			}
+			return;
+		}
+
 		if (e.key === 'Enter') {
 			this.commit();
 		} else if (e.key === 'Escape' && this._draft !== undefined) {
@@ -374,20 +595,63 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		const next = e.relatedTarget as Node | null;
 		if (next != null && (this.renderRoot.contains(next) || this.contains(next))) return;
 
+		this._closeSuggestions();
 		this.commit();
 	}
 
 	/**
 	 * Which token set (if any) this input offers. Date-format strings get
-	 * Moment.js tokens; commit-format strings get the `${...}` token set.
+	 * Moment.js tokens; the `${...}` sets are context-tagged per descriptor.
 	 */
-	private get tokenMode(): 'commit' | 'date' | undefined {
+	private get tokenMode(): TokenMode | undefined {
 		if (this.descriptor.preview?.type === 'date') return 'date';
-		if (this.descriptor.tokens === true) return 'commit';
+
+		const tokens = this.descriptor.tokens;
+		if (tokens === 'file') return 'file';
+		if (tokens === 'hover') return 'hover';
+		if (tokens === true) return 'commit';
 		return undefined;
 	}
 
-	private insertToken(text: string): void {
+	/** The full token catalog for the current context. */
+	private get tokens(): FormatTokenInfo[] {
+		const mode = this.tokenMode;
+		if (mode == null) return [];
+		if (mode === 'date') return dateFormatTokens;
+		return getFormatTokens(mode);
+	}
+
+	/** Tokens filtered by the popover search box. */
+	private get filteredTokens(): FormatTokenInfo[] {
+		const filter = this._menuFilter.trim().toLowerCase();
+		if (!filter) return this.tokens;
+
+		return this.tokens.filter(
+			t => t.token.toLowerCase().includes(filter) || t.label.toLowerCase().includes(filter),
+		);
+	}
+
+	/** Tokens matching the current inline `${` typeahead query. */
+	private get suggestions(): FormatTokenInfo[] {
+		const q = this._suggestQuery.toLowerCase();
+		const tokens = this.tokens;
+		if (!q) return tokens;
+		return tokens.filter(t => t.token.toLowerCase().includes(q) || t.label.toLowerCase().includes(q));
+	}
+
+	/** Composes a token with the current modifier-builder settings, per the `${'prefix'token|width?-'suffix'}` grammar. */
+	private composeToken(token: string): string {
+		const prefix = this._modPrefix ? `'${this._modPrefix}'` : '';
+		const suffix = this._modSuffix ? `'${this._modSuffix}'` : '';
+		const width = this._modWidth.trim();
+		// A single flag follows the width; `?` and `-` are mutually exclusive in the grammar, so the
+		// builder models them as a radio — never emit both
+		const modifier = width || this._modFlag ? `|${width}${this._modFlag}` : '';
+		// oxlint-disable-next-line prefer-template -- `\${` escaping is harder to read than concatenation
+		return '${' + prefix + token + modifier + suffix + '}';
+	}
+
+	private insertText(text: string): void {
 		const input = this._input;
 
 		const start = input.selectionStart ?? input.value.length;
@@ -402,71 +666,325 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		});
 	}
 
+	/** Inserts a token from the popover, applying the modifier builder (or bare, for date tokens). */
+	private insertToken(token: FormatTokenInfo): void {
+		this.insertText(this.tokenMode === 'date' ? token.token : this.composeToken(token.token));
+	}
+
+	// ── Inline `${` typeahead ──
+
+	private updateSuggestions(): void {
+		const mode = this.tokenMode;
+		// Date tokens insert bare (no `${}` grammar), so no typeahead there
+		if (mode == null || mode === 'date') {
+			this._closeSuggestions();
+			return;
+		}
+
+		const input = this._input;
+		const caret = input.selectionStart ?? input.value.length;
+		const before = input.value.substring(0, caret);
+		const match = typeaheadRegex.exec(before);
+		if (match == null) {
+			this._closeSuggestions();
+			return;
+		}
+
+		this._suggestQuery = match[1];
+		this._suggestIndex = 0;
+		this._suggestOpen = true;
+	}
+
+	private acceptSuggestion(token: string): void {
+		const input = this._input;
+		const caret = input.selectionStart ?? input.value.length;
+		const value = input.value;
+		const before = value.substring(0, caret);
+		const match = typeaheadRegex.exec(before);
+		if (match == null) {
+			this._closeSuggestions();
+			return;
+		}
+
+		// Replace the partial word after `${` with the full token + closing brace (keep the typed `${`)
+		const insertStart = caret - match[1].length;
+		const completion = `${token}}`;
+		this._draft = value.substring(0, insertStart) + completion + value.substring(caret);
+		this._closeSuggestions();
+
+		void this.updateComplete.then(() => {
+			input.focus();
+			const next = insertStart + completion.length;
+			input.setSelectionRange(next, next);
+		});
+	}
+
+	private _closeSuggestions(): void {
+		this._suggestOpen = false;
+		this._suggestQuery = '';
+		this._suggestIndex = 0;
+	}
+
+	// ── Token-menu keyboard navigation (roving tabindex) ──
+
+	private focusOption(index: number): void {
+		const options = this.renderRoot.querySelectorAll<HTMLButtonElement>('.token');
+		options[index]?.focus();
+	}
+
+	private handleSearchKeyDown(e: KeyboardEvent): void {
+		if (e.key === 'ArrowDown' && this.filteredTokens.length) {
+			e.preventDefault();
+			this._activeIndex = 0;
+			this.focusOption(0);
+		}
+	}
+
+	private handleListKeyDown(e: KeyboardEvent): void {
+		const count = this.filteredTokens.length;
+		if (!count) return;
+
+		switch (e.key) {
+			case 'ArrowDown':
+				e.preventDefault();
+				this._activeIndex = (this._activeIndex + 1) % count;
+				this.focusOption(this._activeIndex);
+				break;
+			case 'ArrowUp':
+				e.preventDefault();
+				this._activeIndex = (this._activeIndex - 1 + count) % count;
+				this.focusOption(this._activeIndex);
+				break;
+			case 'Home':
+				e.preventDefault();
+				this._activeIndex = 0;
+				this.focusOption(0);
+				break;
+			case 'End':
+				e.preventDefault();
+				this._activeIndex = count - 1;
+				this.focusOption(count - 1);
+				break;
+		}
+	}
+
+	private handleMenuShown(): void {
+		this._activeIndex = 0;
+		void this.updateComplete.then(() => {
+			this.renderRoot.querySelector<HTMLInputElement>('.tokens__search')?.focus();
+		});
+	}
+
+	private handleMenuHidden(): void {
+		this._menuFilter = '';
+		this._activeIndex = 0;
+	}
+
 	override render(): unknown {
 		const d = this.descriptor;
-		const tokenMode = this.tokenMode;
-		const tokens = tokenMode === 'date' ? dateTokens : tokenMode === 'commit' ? commitTokens : undefined;
-		const tokensDocsUrl =
-			tokenMode === 'date'
-				? 'https://momentjs.com/docs/#/displaying/format/'
-				: 'https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting';
+		const mode = this.tokenMode;
+		const dirty = this._draft !== undefined;
+		// Fields with a `${…}` token set support the inline typeahead (date tokens insert bare)
+		const typeahead = mode != null && mode !== 'date';
 
-		return html`<label class="label" for="input">${d.label}</label>
-			<div class="field" @focusout=${this.handleFocusOut}>
+		return html`<label class="label" for="input">
+				${d.label}${dirty
+					? html`<span class="label__dirty" aria-live="polite">Unsaved — press Enter to apply</span>`
+					: nothing}
+			</label>
+			<div class="field-wrap">
+				<div class="field" @focusout=${this.handleFocusOut}>
+					<input
+						id="input"
+						type="text"
+						spellcheck="false"
+						role=${ifDefined(typeahead ? 'combobox' : undefined)}
+						aria-expanded=${ifDefined(typeahead ? String(this._suggestOpen) : undefined)}
+						aria-controls=${ifDefined(typeahead ? 'token-suggestions' : undefined)}
+						aria-autocomplete=${ifDefined(typeahead ? 'list' : undefined)}
+						.value=${this.value}
+						placeholder=${ifDefined(d.placeholder)}
+						?disabled=${this.disabled}
+						@input=${this.handleInput}
+						@keydown=${this.handleKeyDown}
+						@click=${this.updateSuggestions}
+					/>
+					${mode != null ? this.renderTokenMenu(mode) : nothing}
+				</div>
+				${this._suggestOpen ? this.renderSuggestions() : nothing}
+			</div>
+			${d.preview != null
+				? html`<p
+						class="example ${this._exampleError ? 'example--error' : ''}"
+						aria-live="polite"
+						aria-atomic="true"
+					>
+						<span>Example:</span>
+						<span class="example__text">${this._example || '—'}</span>
+					</p>`
+				: nothing}`;
+	}
+
+	private renderSuggestions(): unknown {
+		const suggestions = this.suggestions;
+		if (!suggestions.length) return nothing;
+
+		return html`<ul id="token-suggestions" class="suggestions" role="listbox" aria-label="Matching tokens">
+			${suggestions.map(
+				(t, i) => html`<li>
+					<button
+						type="button"
+						class="suggestion"
+						role="option"
+						aria-selected=${i === this._suggestIndex}
+						@mousedown=${(e: MouseEvent) => e.preventDefault()}
+						@click=${() => this.acceptSuggestion(t.token)}
+					>
+						<code>\${${t.token}}</code><span>${t.label}</span>
+					</button>
+				</li>`,
+			)}
+		</ul>`;
+	}
+
+	private renderTokenMenu(mode: TokenMode): unknown {
+		const tokens = this.filteredTokens;
+		const docsUrl = mode === 'date' ? dateDocsUrl : commitDocsUrl;
+
+		return html`<gl-popover
+			trigger="click"
+			placement="bottom-end"
+			@gl-popover-after-show=${this.handleMenuShown}
+			@gl-popover-after-hide=${this.handleMenuHidden}
+		>
+			<button
+				slot="anchor"
+				type="button"
+				class="tokens-trigger"
+				aria-label="Insert a token"
+				?disabled=${this.disabled}
+			>
+				<code-icon icon="chevron-down" aria-hidden="true"></code-icon>
+			</button>
+			<div slot="content" class="tokens">
+				<h3 class="tokens__title">Insert token</h3>
 				<input
-					id="input"
+					class="tokens__search"
 					type="text"
 					spellcheck="false"
-					.value=${this.value}
-					placeholder=${ifDefined(d.placeholder)}
-					?disabled=${this.disabled}
-					@input=${this.handleInput}
-					@keydown=${this.handleKeyDown}
+					placeholder="Search tokens…"
+					aria-label="Search tokens"
+					.value=${this._menuFilter}
+					@input=${(e: Event) => {
+						this._menuFilter = (e.target as HTMLInputElement).value;
+						this._activeIndex = 0;
+					}}
+					@keydown=${this.handleSearchKeyDown}
 				/>
-				${
-					tokens != null
-						? html`<gl-popover trigger="click" placement="bottom-end">
-								<button
-									slot="anchor"
+				<div class="token-list" role="listbox" aria-label="Available tokens" @keydown=${this.handleListKeyDown}>
+					${tokens.length
+						? tokens.map((t, i) => {
+								// Date tokens insert bare; `${}` tokens show their base form (the modifier
+								// builder below reflects the composed shape that will actually be inserted)
+								const display = mode === 'date' ? t.token : `\${${t.token}}`;
+								return html`<button
 									type="button"
-									class="tokens-trigger"
-									aria-label="Insert a token"
-									?disabled=${this.disabled}
+									class="token"
+									role="option"
+									tabindex=${i === this._activeIndex ? '0' : '-1'}
+									aria-selected=${i === this._activeIndex}
+									@click=${() => this.insertToken(t)}
+									@focus=${() => {
+										this._activeIndex = i;
+									}}
 								>
-									<code-icon icon="chevron-down" aria-hidden="true"></code-icon>
-								</button>
-								<div slot="content" class="tokens" role="group" aria-label="Available tokens">
-									<h3 class="tokens__title">Insert token</h3>
-									${tokens.map(t => {
-										// Commit tokens insert wrapped in `${…}`; date tokens insert bare
-										// oxlint-disable-next-line prefer-template -- a template literal would need `\${` escaping, which is harder to read
-										const text = tokenMode === 'date' ? t.token : '${' + t.token + '}';
-										// Plain action buttons (insert on click) — not listbox options,
-										// which would imply arrow-key selection semantics
-										return html`<button
-											type="button"
-											class="token"
-											@click=${() => this.insertToken(text)}
-										>
-											<code>${text}</code><span>${t.label}</span>
-										</button>`;
-									})}
-									<span class="tokens__hint">
-										<a href=${tokensDocsUrl} title="Open formatting docs">Learn more</a>
-										about formatting options
-									</span>
-								</div>
-							</gl-popover>`
-						: nothing
-				}
+									<code>${display}</code><span>${t.label}</span>
+								</button>`;
+							})
+						: html`<p class="tokens__hint">No matching tokens</p>`}
+				</div>
+				${mode !== 'date' ? this.renderModifiers() : nothing}
+				<span class="tokens__hint">
+					<a href=${docsUrl} title="Open formatting docs">Learn more</a>
+					about formatting options
+				</span>
 			</div>
-			${
-				d.preview != null
-					? html`<p class="example" aria-live="polite" aria-atomic="true">
-							<span>Example:</span>
-							<span class="example__text">${this._example || '—'}</span>
-						</p>`
-					: nothing
-			}`;
+		</gl-popover>`;
+	}
+
+	private renderModifiers(): unknown {
+		return html`<div class="mods">
+			<button
+				type="button"
+				class="mods__toggle"
+				aria-expanded=${this._showModifiers}
+				@click=${() => {
+					this._showModifiers = !this._showModifiers;
+				}}
+			>
+				<code-icon
+					icon=${this._showModifiers ? 'chevron-down' : 'chevron-right'}
+					aria-hidden="true"
+				></code-icon>
+				Width, alignment &amp; surrounding text
+			</button>
+			${this._showModifiers
+				? html`<div class="mods__body">
+						<label class="mods__field">
+							Prefix text
+							<input
+								type="text"
+								spellcheck="false"
+								.value=${this._modPrefix}
+								@input=${(e: Event) => {
+									this._modPrefix = (e.target as HTMLInputElement).value;
+								}}
+							/>
+						</label>
+						<label class="mods__field">
+							Suffix text
+							<input
+								type="text"
+								spellcheck="false"
+								.value=${this._modSuffix}
+								@input=${(e: Event) => {
+									this._modSuffix = (e.target as HTMLInputElement).value;
+								}}
+							/>
+						</label>
+						<label class="mods__field">
+							Width (truncate / pad)
+							<input
+								type="number"
+								min="0"
+								.value=${this._modWidth}
+								@input=${(e: Event) => {
+									this._modWidth = (e.target as HTMLInputElement).value;
+								}}
+							/>
+						</label>
+						<fieldset class="mods__align">
+							<legend>Width option</legend>
+							${this.renderFlagRadio('', 'None')} ${this.renderFlagRadio('?', 'Collapse whitespace')}
+							${this.renderFlagRadio('-', 'Right-align')}
+						</fieldset>
+						<p class="mods__preview">Inserts <code>${this.composeToken('token')}</code></p>
+					</div>`
+				: nothing}
+		</div>`;
+	}
+
+	private renderFlagRadio(flag: WidthFlag, label: string): unknown {
+		return html`<label class="mods__radio">
+			<input
+				type="radio"
+				name="width-flag"
+				.checked=${this._modFlag === flag}
+				@change=${() => {
+					this._modFlag = flag;
+				}}
+			/>
+			${label}
+		</label>`;
 	}
 }

@@ -10,6 +10,7 @@ import { extensionPrefix } from '../../constants.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openSettingsEditor } from '../../system/-webview/vscode/editors.js';
@@ -211,6 +212,10 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	}
 
 	private generateFormatPreview(params: GenerateFormatPreviewParams): string {
+		if (params.type === 'file') {
+			return this.generateFileFormatPreview(params.format);
+		}
+
 		const commit = new GitCommit(
 			'~/code/eamodio/vscode-gitlens-demo',
 			'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
@@ -288,8 +293,29 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 				pullRequest: pr,
 				messageTruncateAtNewLine: true,
 			});
-		} catch {
-			return 'Invalid format';
+		} catch (ex) {
+			return formatPreviewError(ex);
+		}
+	}
+
+	private generateFileFormatPreview(format: string): string {
+		const file = new GitFileChange(
+			'~/code/eamodio/vscode-gitlens-demo',
+			'src/app/code.ts',
+			GitFileIndexStatus.Modified,
+			joinUriPath(fileUri('/code/eamodio/vscode-gitlens-demo'), 'src/app/code.ts'),
+			'src/app/old-code.ts',
+			joinUriPath(fileUri('/code/eamodio/vscode-gitlens-demo'), 'src/app/old-code.ts'),
+			undefined,
+			{ additions: 3, deletions: 1, changes: 4 },
+		);
+
+		try {
+			return StatusFileFormatter.fromTemplate(format, file, {
+				relativePath: 'src/app/code.ts',
+			});
+		} catch (ex) {
+			return formatPreviewError(ex);
 		}
 	}
 
@@ -345,4 +371,10 @@ interface CustomSetting {
 	name: ConfigPath | CoreConfigPath;
 	enabled: () => boolean;
 	update: (enabled: boolean) => Promise<void>;
+}
+
+/** Turns a format-render failure into a message the editor surfaces (instead of a bare 'Invalid format'). */
+function formatPreviewError(ex: unknown): string {
+	const message = ex instanceof Error ? ex.message : String(ex);
+	return message ? `Invalid format: ${message}` : 'Invalid format';
 }
