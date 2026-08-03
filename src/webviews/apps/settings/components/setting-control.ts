@@ -15,6 +15,7 @@ import './format-input.js';
 import './settings-ai.js';
 import './settings-autolinks.js';
 import './settings-integrations.js';
+import './settings-scm-views.js';
 import '../../shared/components/checkbox/checkbox.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/segmented/segmented.js';
@@ -339,6 +340,9 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 
 			case 'autolinks':
 				return html`<gl-settings-autolinks .actions=${this.actions}></gl-settings-autolinks>`;
+
+			case 'scm-views':
+				return html`<gl-settings-scm-views .actions=${this.actions}></gl-settings-scm-views>`;
 
 			case 'integrations':
 				return html`<gl-settings-integrations .actions=${this.actions}></gl-settings-integrations>`;

@@ -155,6 +155,16 @@ export interface AutolinksDescriptor extends DescriptorBase {
 }
 
 /**
+ * The GitLens SCM grouped-views editor (fully dynamic — rows are derived from
+ * `groupableViewTypes`, not authored here). Writes `views.scm.grouped.views` /
+ * `.hiddenViews` (per-row checkboxes, via the existing `applyCheck type:'object'`
+ * write) and `views.scm.grouped.default` (via `applyValue`); no new apply family.
+ */
+export interface ScmViewsDescriptor extends DescriptorBase {
+	kind: 'scm-views';
+}
+
+/**
  * The cloud-integrations connection panel (fully dynamic — driven by the shared
  * integrations/subscription RPC services, not config). `label`/`hint` exist for search.
  */
@@ -187,6 +197,7 @@ export type SettingDescriptor =
 	| SliderDescriptor
 	| CheckGroupDescriptor
 	| AutolinksDescriptor
+	| ScmViewsDescriptor
 	| IntegrationsPanelDescriptor
 	| AIPanelDescriptor
 	| InfoDescriptor;
@@ -320,6 +331,8 @@ export function descriptorKeys(d: SettingDescriptor): string[] {
 	switch (d.kind) {
 		case 'autolinks':
 			return ['autolinks'];
+		case 'scm-views':
+			return ['views.scm.grouped.views', 'views.scm.grouped.hiddenViews', 'views.scm.grouped.default'];
 		// The AI panel reflects these settings (read-only or via commands), so a
 		// pasted setting name still lands on the category
 		case 'ai':

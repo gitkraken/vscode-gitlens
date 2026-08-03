@@ -3,6 +3,21 @@ import type { SettingsCategory } from '../model.js';
 
 export const viewsCategories: SettingsCategory[] = [
 	{
+		id: 'scm-views',
+		settingsSearch: 'gitlens.views.scm.grouped',
+		name: 'GitLens SCM',
+		group: 'Views',
+		icon: 'gl-gitlens',
+		hint: 'Folds multiple GitLens views into one unified GitLens SCM panel, alongside the built-in Source Control view',
+		controls: [
+			{
+				kind: 'scm-views',
+				label: 'GitLens SCM views',
+				hint: 'Group, hide, or set the default view for GitLens SCM',
+			},
+		],
+	},
+	{
 		id: 'commit-graph',
 		settingsSearch: 'gitlens.graph',
 		name: 'Commit Graph',
