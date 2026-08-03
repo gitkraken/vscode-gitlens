@@ -4,9 +4,11 @@ import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import { ChooseRepositoryCommand } from '../../../plus/graph/protocol.js';
+import { ChooseAccountOrgCommand, ChooseRepositoryCommand } from '../../../plus/graph/protocol.js';
 import { featureGateContentStyles } from '../../shared/components/feature-gate.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { linkStyles } from '../shared/components/vscode.css.js';
 import { graphStateContext } from './context.js';
 import '../../shared/components/code-icon.js';
@@ -29,6 +31,9 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 		`,
 	];
 
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
+
 	@consume({ context: graphStateContext, subscribe: true })
 	graphState!: typeof graphStateContext.__context__;
 
@@ -36,6 +41,8 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 	private readonly _ipc!: typeof ipcContext.__context__;
 
 	override render() {
+		const orgCount = this._subscription.organizationsCount.get();
+
 		return html`<gl-feature-gate
 			.featurePreview=${this.graphState.featurePreview}
 			featurePreviewCommandLink=${ifDefined(
@@ -49,10 +56,12 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 			featureRestriction="private-repos"
 			featureWithArticleIfNeeded="the Commit Graph"
 			?allowRepoSwitch=${this.graphState.allowRepoSwitch}
+			?allowOrgSwitch=${orgCount > 0}
 			.source=${{ source: 'graph', detail: 'gate' } as const}
 			.state=${this.graphState.subscription?.state}
 			.webroot=${this.graphState.webroot}
 			@gl-switch-repos=${this.onSwitchRepos}
+			@gl-switch-orgs=${this.onSwitchOrgs}
 		>
 			<section slot="feature" class="feature">
 				<header class="feature__header">
@@ -130,5 +139,9 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 
 	private onSwitchRepos(): void {
 		this._ipc.sendCommand(ChooseRepositoryCommand);
+	}
+
+	private onSwitchOrgs(): void {
+		this._ipc.sendCommand(ChooseAccountOrgCommand);
 	}
 }

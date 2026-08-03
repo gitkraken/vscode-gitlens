@@ -858,6 +858,8 @@ export type UpdateStateCallback = (state: State, type?: IpcNotification<any> | I
 
 export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
 
+export const ChooseAccountOrgCommand = new IpcCommand(scope, 'chooseAccountOrg');
+
 export type DoubleClickedParams =
 	| { type: 'ref'; ref: GraphRef; metadata?: GraphRefMetadataItem }
 	| { type: 'row'; row: { id: string; type: GitGraphRowKind }; preserveFocus?: boolean };

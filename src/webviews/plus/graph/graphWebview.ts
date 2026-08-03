@@ -214,6 +214,7 @@ import type {
 } from './protocol.js';
 import {
 	CancelLoadRowCommand,
+	ChooseAccountOrgCommand,
 	ChooseAuthorRequest,
 	ChooseComparisonRequest,
 	ChooseFileRequest,
@@ -2914,6 +2915,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			'repository.folder.scheme': this.repository?.folder?.uri.scheme,
 			'repository.provider.id': this.repository?.provider.id,
 		});
+	}
+
+	@ipcCommand(ChooseAccountOrgCommand)
+	private async onChooseAccountOrg() {
+		await executeCommand<Source>('gitlens.gk.switchOrganization', { source: 'graph' });
 	}
 
 	@ipcRequest(ChooseRefRequest)
