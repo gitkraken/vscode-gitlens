@@ -398,16 +398,8 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		}
 
 		const repoIdsResult = await Promise.allSettled(
-			repos.map(
-				(r: GitLabRepositoryDescriptor): Promise<string | undefined> =>
-					api.getProjectId(
-						this,
-						toTokenWithInfo(this.id, session),
-						r.owner,
-						r.name,
-						this.apiBaseUrl,
-						undefined,
-					),
+			repos.map((r: GitLabRepositoryDescriptor): Promise<string | undefined> =>
+				api.getProjectId(this, toTokenWithInfo(this.id, session), r.owner, r.name, this.apiBaseUrl, undefined),
 			) ?? [],
 		);
 		const repoInput = repoIdsResult

@@ -479,13 +479,12 @@ export class DraftService implements Disposable {
 		const account = getSettledValue(subscriptionResult)?.account;
 		const members = getSettledValue(membersResult);
 
-		return drafts.map(
-			(d): Draft =>
-				formatDraft(d, {
-					account: account,
-					members: members,
-					fromPrEntityId: fromPrEntityId,
-				}),
+		return drafts.map((d): Draft =>
+			formatDraft(d, {
+				account: account,
+				members: members,
+				fromPrEntityId: fromPrEntityId,
+			}),
 		);
 	}
 
