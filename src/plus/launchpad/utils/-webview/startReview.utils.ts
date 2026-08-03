@@ -2,7 +2,7 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
+import { getPullRequestNumberFromUrl, serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { defer } from '@gitlens/utils/promise.js';
@@ -136,9 +136,11 @@ export async function startReviewFromLaunchpadItem(
 	return { worktree: worktree, branch: worktreeBranch, pr: pr };
 }
 
-async function setupPullRequestBranch(
+/** Resolves (and, for a fork, adds) the remote and local branch a PR's head should be checked out as.
+ *  Typed on the fields it reads so callers holding only a PR's identity + refs can use it. */
+export async function setupPullRequestBranch(
 	repo: GlRepository,
-	pr: PullRequest,
+	pr: Pick<PullRequest, 'id' | 'url' | 'refs'>,
 ): Promise<{
 	remoteName: string;
 	addRemote: { name: string; url: string } | undefined;
@@ -173,7 +175,9 @@ async function setupPullRequestBranch(
 	}
 
 	const remoteBranchName = `${remoteName}/${headRef.branch}`;
-	let localBranchName = `pr/${pr.id}-${headRef.branch}`;
+	// The display number, not `id` — the providers-api path puts the provider's internal id there, so
+	// naming off it would give the same pull request a different branch depending on which fetch found it.
+	let localBranchName = `pr/${getPullRequestNumberFromUrl(pr.url) ?? pr.id}-${headRef.branch}`;
 
 	// Check if local branch exists
 	let branchRef: GitBranchReference;

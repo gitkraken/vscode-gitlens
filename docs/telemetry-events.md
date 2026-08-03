@@ -2342,8 +2342,8 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'action': 'openOnRemote',
-  // Reserved for parity with other panels' item actions — no pull request inline action defines an alt variant yet, so always false today
+  'action': 'switch' | 'openChanges' | 'openOnRemote' | 'openInWorktree' | 'openComparison' | 'openPullRequest' | 'copy' | 'copyUrl',
+  // True when invoked via a chip's alt (Alt-click) variant — `openInWorktree` is `switch`'s alt and `copyUrl` is `openOnRemote`'s. `openInWorktree` also reports `alt: false`, as the primary chip when the head already has a worktree and as a context-menu entry.
   'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
@@ -2415,6 +2415,8 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
+  // Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, an unable-to-load notice (`unavailable`, a connected integration whose lookup failed), or a not-supported notice (`unsupported`, a host with no repo-scoped pull request query) instead of a list
+  'emptyReason': 'unavailable' | 'no-remotes' | 'no-supported-remote' | 'integration-disconnected' | 'unsupported',
   'pullRequests.count': number,
   // Number of drafts, which are listed but rarely the reason the panel was opened
   'pullRequests.draft.count': number,

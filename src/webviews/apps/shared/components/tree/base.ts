@@ -80,11 +80,16 @@ export interface TreeItemDecorationBase {
 	position?: 'before' | 'after';
 }
 
+/** Color treatment for an icon decoration, keyed to the Launchpad indicator colors. */
+export type TreeItemDecorationIconKind = 'launchpad-mergeable' | 'launchpad-blocked' | 'launchpad-attention';
+
 export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
 	type: 'icon';
 	icon: string;
 	/** Renders in the description color — for a glyph that marks state rather than demanding attention. */
 	muted?: boolean;
+	/** When set, colors the icon — rendered as a `decoration-icon--<kind>` class (see `tree.css.ts`). */
+	kind?: TreeItemDecorationIconKind;
 }
 
 export type TreeItemDecorationKind = 'added' | 'deleted' | 'modified' | 'untracked' | 'renamed' | 'conflict' | 'muted';

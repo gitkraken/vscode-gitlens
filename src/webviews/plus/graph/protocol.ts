@@ -9,7 +9,13 @@ import type {
 } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearchResultData } from '@gitlens/git/models/graphSearch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
-import type { PullRequestRefs, PullRequestShape, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequestRefs,
+	PullRequestReviewDecision,
+	PullRequestShape,
+	PullRequestState,
+	PullRequestStatusCheckRollupState,
+} from '@gitlens/git/models/pullRequest.js';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -21,6 +27,7 @@ import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
+import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
@@ -35,6 +42,7 @@ import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { FeaturePreview } from '../../../features.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
+import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
 import type { ReferencesQuickPickOptions2 } from '../../../quickpicks/referencePicker.js';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview.js';
 import type { IpcScope } from '../../ipc/models/ipc.js';
@@ -388,6 +396,7 @@ export interface GraphScopeBranch {
 	 *  Only set when no local branch tracks it — otherwise the local branch is the scope target. */
 	remote?: boolean;
 }
+
 /** Sub-visualization shown when `displayMode === 'visualizations'`.
  *  Adding a new visualization is a 4-step extension: extend this union, render its component in
  *  `gl-graph-visualizations`, persist any per-visualization config in `graph-app.persistStateNow`,
@@ -1334,20 +1343,53 @@ export interface GraphSidebarPullRequest {
 	date?: number;
 	/** Head branch name without its remote (e.g. `feature/x`). */
 	headBranch?: string;
+	/** Clone url of the head's repository (the fork's, for a cross-repository PR). Absent when the
+	 *  provider doesn't expose one, which is what the switch/worktree handlers refuse to act without —
+	 *  so the row's chips must require it alongside {@link headBranch}. */
+	headUrl?: string;
 	/** Head tip sha, so selecting the row navigates the graph to it. Absent for a fork head, which
 	 *  isn't guaranteed to exist in this repo. */
 	headSha?: string;
 	/** Base branch name without its remote — what this PR merges into. */
 	baseBranch?: string;
-	/** `owner/repo` of the head, set only when the head lives in a different repository (a fork).
-	 *  Doubles as the cross-repository flag, since same-repo heads leave it unset. */
-	headRepo?: string;
+	/** Commits on the head that aren't on the base, when the provider reports them. */
+	commitCount?: number;
+	/** The fork's owner, for a cross-repository head — the `<owner>:<branch>` form GitHub uses to name one.
+	 *  Absent for a same-repository head. */
+	headOwner?: string;
 	/**
 	 * Scope target for the row's Focus action, resolved host-side because it needs local-branch
 	 * knowledge: the local branch tracking the PR's head when there is one, otherwise the remote
 	 * ref itself. Absent when the head can't be resolved against this repo (e.g. a deleted fork).
 	 */
 	focus?: GraphScopeBranch;
+	/** Whether a non-default worktree exists for the PR head's local branch — the row's first chip
+	 *  opens that worktree instead of offering a switch. Never set for a fork head. */
+	worktree?: boolean;
+	additions?: number;
+	deletions?: number;
+	commentsCount?: number;
+	/** CI rollup off the PR model itself (not the categorizer), so the hover can honestly say
+	 *  "passed" — a bare failing flag can't separate passed from has-no-checks. */
+	statusCheckRollup?: `${PullRequestStatusCheckRollupState}`;
+	/** Review decision off the PR model itself, for the same reason as {@link statusCheckRollup} —
+	 *  it must survive categorization being unavailable. */
+	reviewDecision?: PullRequestReviewDecision;
+	/** Whether the PR's head branch is what's checked out — matched by short name, so it's set for a fork
+	 *  head with no local branch too. Mirrors the deep link's own `nameWithoutRemote` test, which skips the
+	 *  switch on a match, so the row's switch affordances stand down rather than promise a no-op. */
+	current?: boolean;
+	/**
+	 * Launchpad categorization for the row's grouping indicator and hover signals. Resolved host-side
+	 * (it needs each integration's current user) and best-effort — absent when categorization is
+	 * unavailable or fails, which the row and hover degrade around.
+	 */
+	launchpad?: {
+		category: LaunchpadActionCategory;
+		failingCI: boolean;
+		hasConflicts: boolean;
+		reviewCounts: { approval: number; changeRequest: number; comment: number };
+	};
 	context?: GraphItemTypedContext<GraphPullRequestContextValue> & GraphSidebarItemOrigin;
 }
 
@@ -1405,10 +1447,28 @@ export interface GraphSidebarWorktree {
 		| (GraphItemRefContext<GraphCommitContextValue> & GraphSidebarItemOrigin);
 }
 
+/**
+ * Why the pull requests panel has nothing to list, when the reason isn't "no open pull requests" —
+ * the repo has no remotes to ask, its remotes map to no known host (connecting a self-managed
+ * integration is what teaches the mapping), or the mapped host's integration isn't connected. The
+ * first two pitch the generic connect flow, the last a provider-specific connect. Absent when a
+ * connected integration simply returned no open pull requests, which stays a plain empty list.
+ */
+export type GraphSidebarPullRequestsEmptyState =
+	| { reason: 'no-remotes' }
+	| { reason: 'no-supported-remote' }
+	| { reason: 'integration-disconnected'; providerName: string; integrationId: SupportedCloudIntegrationIds }
+	/** The integration is connected but couldn't answer (expired token, offline, a remote whose connected
+	 *  state didn't settle). Distinct from an empty list, which would claim the repo has no open ones. */
+	| { reason: 'unavailable' }
+	/** The host has no repo-scoped pull request query GitLens can issue, so a retry can never turn this
+	 *  into a list. Distinct from `unavailable`, which is worth retrying. */
+	| { reason: 'unsupported'; providerName: string };
+
 export type GetSidebarDataParams = { panel: GraphSidebarPanel };
 export type DidGetSidebarDataParams = { layout?: 'list' | 'tree'; compact?: boolean } & (
 	| { panel: 'branches'; items: GraphSidebarBranch[]; showRemoteBranches?: boolean }
-	| { panel: 'pullRequests'; items: GraphSidebarPullRequest[] }
+	| { panel: 'pullRequests'; items: GraphSidebarPullRequest[]; emptyState?: GraphSidebarPullRequestsEmptyState }
 	| { panel: 'remotes'; items: GraphSidebarRemote[] }
 	| { panel: 'stashes'; items: GraphSidebarStash[] }
 	| { panel: 'tags'; items: GraphSidebarTag[] }
@@ -1859,6 +1919,7 @@ export interface GraphContributorContextValue {
 export interface GraphPullRequestContextValue {
 	type: 'pullrequest';
 	id: string;
+	title: string;
 	url: string;
 	repoPath: string;
 	refs?: PullRequestRefs;

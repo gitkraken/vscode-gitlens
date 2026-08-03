@@ -19,9 +19,13 @@ import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha, isUncommitted } from '@gitlens/git/utils/revision.utils.js';
-import type { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
+import type { IntegrationIds, IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
+import {
+	isGitCloudHostIntegrationId,
+	isGitSelfManagedHostIntegrationId,
+} from '@gitlens/integrations/utils/integration.utils.js';
 import { filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';
@@ -3453,6 +3457,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// If an issue integration connected/disconnected, update metadata state
 		if (supportedOrderedCloudIssuesIntegrationIds.includes(e.key as IssuesCloudHostIntegrationId)) {
 			void this._producers.onIssueIntegrationConnectionChanged(e.reason === 'connected');
+			return;
+		}
+
+		// A git host integration connect/disconnect is the pull-requests panel's whole story — it decides
+		// both whether there's a list to fetch and whether the panel pitches Connect. Self-managed keys
+		// carry their domain (`<id>:<domain>`), so match on the id half.
+		const integrationId = e.key.split(':', 1)[0] as IntegrationIds;
+		if (isGitCloudHostIntegrationId(integrationId) || isGitSelfManagedHostIntegrationId(integrationId)) {
+			this._panels.onIntegrationConnectionChanged();
 		}
 	}
 

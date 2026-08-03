@@ -30,6 +30,14 @@ suite('parsePullRequestFilterTerms', () => {
 		assert.deepStrictEqual(parsePullRequestFilterTerms('www.github.com/o/r/pull/7'), ['7']);
 	});
 
+	// A loose "first slash-digits wins" scan reads the owner instead of the number here, filtering the
+	// list on #1 — anchoring on the provider's pull request segment is what keeps that from happening.
+	test('reads past an owner or repo that starts with digits', () => {
+		assert.deepStrictEqual(parsePullRequestFilterTerms('https://github.com/1Password/vault/pull/456'), ['456']);
+		assert.deepStrictEqual(parsePullRequestFilterTerms('https://github.com/o/2fa-lib/pull/89/files'), ['89']);
+		assert.deepStrictEqual(parsePullRequestFilterTerms('https://gitlab.com/1group/p/-/merge_requests/42'), ['42']);
+	});
+
 	test('trims surrounding whitespace on a pasted URL', () => {
 		assert.deepStrictEqual(parsePullRequestFilterTerms('  https://github.com/o/r/pull/12  '), ['12']);
 	});
@@ -86,6 +94,11 @@ suite('getPullRequestNumberFromQuery', () => {
 		assert.strictEqual(getPullRequestNumberFromQuery('https://github.com/o/r/pull/5619/files'), '5619');
 		assert.strictEqual(getPullRequestNumberFromQuery('5619'), '5619');
 		assert.strictEqual(getPullRequestNumberFromQuery('#5619'), '5619');
+	});
+
+	test('offers the number the URL actually names, not a digit-leading owner', () => {
+		// Otherwise the fallback fetches PR #1 and presents it as the pasted one.
+		assert.strictEqual(getPullRequestNumberFromQuery('https://github.com/1Password/vault/pull/456'), '456');
 	});
 
 	test('returns undefined for anything not addressing a pull request', () => {

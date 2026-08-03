@@ -201,6 +201,7 @@ reviewRequests(first: 25) {
 	}
 }
 commits(last: 1) {
+	totalCount
 	nodes {
 		commit {
 			statusCheckRollup {

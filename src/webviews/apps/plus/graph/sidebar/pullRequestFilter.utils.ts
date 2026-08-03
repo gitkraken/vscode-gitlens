@@ -1,4 +1,4 @@
-import { getPullRequestIdentityFromMaybeUrl } from '@gitlens/git/utils/pullRequest.utils.js';
+import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
 
 /** Whether the query is a URL, i.e. something pasted rather than typed as search text. */
@@ -9,19 +9,21 @@ const urlRegex = /^(?:https?:\/\/|www\.)\S+$/i;
  *
  * A pasted PR URL matches nothing under plain text filtering — it is neither a substring of the row
  * nor a plausible subsequence of it. Since these lists are already repo-scoped, the PR number alone
- * identifies the row, and {@link getPullRequestIdentityFromMaybeUrl} extracts it from every shape a
- * copied URL takes (`/files`, `#discussion_r1`, `?diff=split`).
+ * identifies the row, and {@link getPullRequestNumberFromUrl} extracts it from every shape a copied URL
+ * takes (`/files`, `#discussion_r1`, `?diff=split`) — anchored on the provider's pull request segment, so
+ * a digit-leading owner (`github.com/1Password/x/pull/456`) can't be mistaken for the number.
  *
- * Gated on the query actually looking like a URL: that helper matches `/(\d+)` anywhere, so an
- * unguarded call would turn a branch-name search like `bug/2-fix` into a search for PR #2.
+ * Still gated on the query actually looking like a URL: the helper anchors on a path segment, not a whole
+ * url, so an unguarded call would turn a branch-name search like `feature/pull/16` into a search for PR
+ * #16.
  */
 export function parsePullRequestFilterTerms(query: string): string[] {
 	const trimmed = query.trim();
 	if (urlRegex.test(trimmed)) {
-		const identity = getPullRequestIdentityFromMaybeUrl(trimmed);
-		// A URL with no PR number in it (e.g. a bare repo URL) falls through and matches nothing,
-		// which is the honest answer — it names no pull request.
-		if (identity != null) return [identity.prNumber];
+		// A URL carrying no recognizable number falls through and matches nothing, which is the honest
+		// answer — it names no pull request.
+		const prNumber = getPullRequestNumberFromUrl(trimmed);
+		if (prNumber != null) return [prNumber];
 	}
 
 	return parseFilterTerms(query);
@@ -39,10 +41,12 @@ export function withSearchedPullRequest<T extends { number: string }>(items: T[]
 }
 
 /** The PR number a query addresses, or `undefined` when it isn't addressing one. Drives the
- *  "search for this PR" fallback when filtering comes up empty. */
+ *  "search for this PR" fallback when filtering comes up empty. Two shapes address a PR: a pasted URL,
+ *  read the same anchored way {@link parsePullRequestFilterTerms} reads one, and a number typed on its
+ *  own — anything else (a branch name carrying digits, say) addresses no pull request. */
 export function getPullRequestNumberFromQuery(query: string): string | undefined {
 	const trimmed = query.trim();
-	if (!urlRegex.test(trimmed) && !/^#?\d+$/.test(trimmed)) return undefined;
+	if (urlRegex.test(trimmed)) return getPullRequestNumberFromUrl(trimmed);
 
-	return getPullRequestIdentityFromMaybeUrl(trimmed)?.prNumber;
+	return /^#?(\d+)$/.exec(trimmed)?.[1];
 }

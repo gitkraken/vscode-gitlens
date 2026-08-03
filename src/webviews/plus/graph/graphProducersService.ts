@@ -172,6 +172,10 @@ export class GraphProducersService {
 				: await this.checkIssueIntegrations());
 
 		const repoPath = this._graphSession.repoPath;
+		// Resolved once for the whole batch: a pull request's pill is requested for the head branch AND for
+		// the remote branch's own id, and a remote branch is never `current` — so without this the current
+		// branch's upstream pill would still offer the actions `+current` exists to withhold.
+		const currentBranchName = (await this.container.git.getRepositoryService(repoPath).branches.getBranch())?.name;
 
 		async function getRefMetadata(
 			this: GraphProducersService,
@@ -226,10 +230,29 @@ export class GraphProducersService {
 					state: pr.state,
 					url: pr.url,
 					context: serializeWebviewItemContext<GraphItemContext>({
-						webviewItem: `gitlens:pullrequest${pr.refs ? '+refs' : ''}`,
+						// Every suffix names a precondition some handler actually checks — a suffix that
+						// merely says "a refs object exists" gates nothing, since the providers-api path
+						// always builds `refs`, filling a gone head with empty strings. `+current` because
+						// this pill hangs off a branch we already resolved: without it the current branch's
+						// own pull request offers a Switch the deep link turns into "show WIP" and an Open
+						// in Worktree that opens the folder you're already in. Kept in sync with the sidebar's
+						// producer (`GraphPanelsService`).
+						webviewItem: `gitlens:pullrequest${
+							pr.refs?.head?.branch && pr.refs.head.url ? '+head' : ''
+						}${pr.refs?.base?.sha && pr.refs.head?.sha ? '+shas' : ''}${
+							pr.state !== 'opened' ? '+closed' : ''
+						}${pr.refs?.isCrossRepository === true ? '+fork' : ''}${
+							branch?.current === true ||
+							(branch != null &&
+								currentBranchName != null &&
+								getBranchNameWithoutRemote(branch.name) === currentBranchName)
+								? '+current'
+								: ''
+						}`,
 						webviewItemValue: {
 							type: 'pullrequest',
 							id: pr.id,
+							title: pr.title,
 							url: pr.url,
 							repoPath: repoPath,
 							refs: pr.refs,

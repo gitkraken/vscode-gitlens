@@ -215,6 +215,7 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 		}[];
 	};
 	commits: {
+		totalCount: number;
 		nodes: {
 			commit: {
 				statusCheckRollup: {
@@ -473,6 +474,9 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 			url: r.url,
 		})),
 		fromGitHubPullRequestStatusCheckRollupState(pr.commits.nodes?.[0]?.commit.statusCheckRollup?.state),
+		undefined,
+		undefined,
+		pr.commits.totalCount,
 	);
 }
 

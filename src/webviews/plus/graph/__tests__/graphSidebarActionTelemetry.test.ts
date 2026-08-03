@@ -104,6 +104,59 @@ suite('resolveSidebarContextMenuAction', () => {
 			{ type: 'branch', action: 'compareWithWorking' },
 		);
 	});
+
+	test('resolves the pull request row actions', () => {
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.openPullRequestOnRemote:graph', 'gitlens:pullrequest'),
+			{ type: 'pullRequest', action: 'openOnRemote' },
+		);
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.switchToPullRequest:graph', 'gitlens:pullrequest+refs'),
+			{ type: 'pullRequest', action: 'switch' },
+		);
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.openPullRequestChanges:graph', 'gitlens:pullrequest+refs'),
+			{ type: 'pullRequest', action: 'openChanges' },
+		);
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.openPullRequestComparison:graph', 'gitlens:pullrequest+refs'),
+			{ type: 'pullRequest', action: 'openComparison' },
+		);
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.openPullRequest:graph', 'gitlens:pullrequest'),
+			{ type: 'pullRequest', action: 'openPullRequest' },
+		);
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.copyRemotePullRequestUrl:graph', 'gitlens:pullrequest'),
+			{ type: 'pullRequest', action: 'copyUrl' },
+		);
+	});
+
+	test('resolves pull request commands shared with other item types (copy, worktree) per item type', () => {
+		// gitlens.graph.copy and gitlens.graph.openInWorktree are also contributed on
+		// branch/commit/worktree items, but only the pullRequest table maps them — the item type must
+		// gate resolution rather than the command id alone.
+		assert.deepStrictEqual(resolveSidebarContextMenuAction('gitlens.graph.copy', 'gitlens:pullrequest'), {
+			type: 'pullRequest',
+			action: 'copy',
+		});
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.graph.openInWorktree', 'gitlens:pullrequest+head'),
+			{ type: 'pullRequest', action: 'openInWorktree' },
+		);
+		assert.strictEqual(resolveSidebarContextMenuAction('gitlens.graph.copy', 'gitlens:branch'), undefined);
+		assert.strictEqual(
+			resolveSidebarContextMenuAction('gitlens.graph.openInWorktree', 'gitlens:branch'),
+			undefined,
+		);
+	});
+
+	test('Focus on Pull Request is intentionally excluded from the curated set', () => {
+		assert.strictEqual(
+			resolveSidebarContextMenuAction('gitlens.focusPullRequest:graph', 'gitlens:pullrequest+refs'),
+			undefined,
+		);
+	});
 });
 
 suite('markSidebarInlineInvocation', () => {

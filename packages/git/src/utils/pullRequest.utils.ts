@@ -41,6 +41,18 @@ export function getPullRequestIdentityFromMaybeUrl(search: string): PullRequestU
 	return prNumber == null ? undefined : { ownerAndRepo: undefined, prNumber: prNumber, provider: undefined };
 }
 
+/** A pull request's display number from its url, or `undefined` for a url naming no pull request. Anchors
+ *  on the provider's pull request path segment (GitHub `pull`, Bitbucket `pull-requests`, GitLab
+ *  `merge_requests`, Azure `pullrequest`) so a digit-leading owner (`github.com/1Password/x/pull/123`)
+ *  can't win. */
+export function getPullRequestNumberFromUrl(url: string): string | undefined {
+	// No loose fallback: `getPullRequestIdentityFromMaybeUrl` scans for any `/<digits>`, which reads a bare
+	// repository url like `github.com/1Password/sdk` as pull request #1. Callers that hold a real pull
+	// request fall back to its id instead, and the one that asks whether a pasted url names a pull request
+	// needs "no" for an answer.
+	return url.match(/(?:pull|pull-requests|merge_requests|pullrequest)\/(\d+)(?:\b|\/|$)/)?.[1];
+}
+
 export function getRepositoryIdentityForPullRequest(
 	pr: PullRequest,
 	headRepo: boolean = true,

@@ -749,7 +749,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		// instead: no badge until it's been opened once, then an accurate count (including a real 0).
 		if (icon.type === 'pullRequests') {
 			const data = this._actions?.state.panels.pullRequests.value.get();
-			return renderCount(data?.panel === 'pullRequests' ? data.items.length : undefined);
+			// A panel that never got to ask (nothing connected) has no count — a `0` badge would assert the
+			// repo has no open pull requests, which is the same thing the panel's empty state exists to avoid.
+			return renderCount(
+				data?.panel === 'pullRequests' && data.emptyState == null ? data.items.length : undefined,
+			);
 		}
 
 		if (this._actions?.state.countsLoading.get()) {

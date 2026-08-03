@@ -1,13 +1,16 @@
 import type { GraphSidebarOverviewActionName } from '../../../../../constants.telemetry.js';
-import { launchpadCategoryToGroupMap } from '../../../../../plus/launchpad/models/launchpad.js';
-import type { OverviewBranchEnrichment, OverviewBranchLaunchpadItem } from '../../../../shared/overviewBranches.js';
+import type { LaunchpadActionCategory, LaunchpadGroup } from '../../../../../plus/launchpad/models/launchpad.js';
+import { launchpadCategoryToGroupMap, launchpadGroupIconMap } from '../../../../../plus/launchpad/models/launchpad.js';
 
-/** Launchpad group for a branch's PR, or undefined when it shouldn't surface a group badge. Shared by
- *  the overview card (drives its border class) and `<gl-branch-hover>` (drives the hover's badge) so the
- *  two never disagree on the same branch's grouping. */
+/** Launchpad group for a PR, or undefined when it shouldn't surface a group badge. Shared by the overview
+ *  card (drives its border class), `<gl-branch-hover>` (drives the hover's badge) and the sidebar's PR rows
+ *  (drive their trailing indicator) so no two surfaces disagree on the same PR's grouping.
+ *
+ *  Structurally typed rather than tied to `OverviewBranchEnrichment` — the sidebar's PR rows carry their own
+ *  (slimmer) wire shape and only these fields decide the group. */
 export function getLaunchpadItemGroup(
-	pr: OverviewBranchEnrichment['pr'],
-	launchpadItem: OverviewBranchLaunchpadItem | undefined,
+	pr: { state: string; draft?: boolean } | undefined,
+	launchpadItem: { category: LaunchpadActionCategory } | undefined,
 ): ReturnType<typeof launchpadCategoryToGroupMap.get> {
 	if (launchpadItem == null || pr?.state !== 'opened') return undefined;
 	if (pr.draft && launchpadItem.category === 'unassigned-reviewers') return undefined;
@@ -35,6 +38,17 @@ export function getLaunchpadItemGrouping(
 	}
 
 	return undefined;
+}
+
+/** Code-icon name for a Launchpad group's glyph — the map's `$(…)` wrapper unwrapped and the host's
+ *  `gitlens-` icon prefix rewritten to the webview font's `gl-`. */
+export function getLaunchpadGroupIconName(group: LaunchpadGroup | undefined): string | undefined {
+	if (group == null) return undefined;
+
+	return launchpadGroupIconMap
+		.get(group)
+		?.match(/\$\((.*?)\)/)?.[1]
+		.replace('gitlens', 'gl');
 }
 
 /**

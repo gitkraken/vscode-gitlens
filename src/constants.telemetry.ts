@@ -2196,6 +2196,8 @@ interface GraphSidebarPullRequestsShownEvent extends GraphContextEventData {
 	'pullRequests.draft.count': number;
 	/** Number whose head lives in a fork — these carry no ref the graph can scope to, so they have no Focus action */
 	'pullRequests.fork.count': number;
+	/** Why the panel is empty, when the reason isn't "no open pull requests" — set only when the panel shows a connect pitch, a no-remotes notice, an unable-to-load notice (`unavailable`, a connected integration whose lookup failed), or a not-supported notice (`unsupported`, a host with no repo-scoped pull request query) instead of a list */
+	emptyReason?: 'no-remotes' | 'no-supported-remote' | 'integration-disconnected' | 'unavailable' | 'unsupported';
 }
 
 interface GraphSidebarPullRequestsSelectedEvent extends GraphContextEventData {
@@ -2206,11 +2208,21 @@ interface GraphSidebarPullRequestsSelectedEvent extends GraphContextEventData {
 
 /** Focus is intentionally absent: it's view state handled in the webview and reports itself via
  *  `graph/scope/changed`, matching how the other panels leave their Focus action untracked. */
-export type GraphSidebarPullRequestsActionName = 'openOnRemote';
+export type GraphSidebarPullRequestsActionName =
+	| 'openOnRemote'
+	| 'switch'
+	| 'openInWorktree'
+	| 'openChanges'
+	| 'openComparison'
+	| 'openPullRequest'
+	| 'copy'
+	| 'copyUrl';
 
 interface GraphSidebarPullRequestsActionEvent extends GraphContextEventData {
 	action: GraphSidebarPullRequestsActionName;
-	/** Reserved for parity with other panels' item actions — no pull request inline action defines an alt variant yet, so always false today */
+	/** True when invoked via a chip's alt (Alt-click) variant — `openInWorktree` is `switch`'s alt and
+	 *  `copyUrl` is `openOnRemote`'s. `openInWorktree` also reports `alt: false`, as the primary chip
+	 *  when the head already has a worktree and as a context-menu entry. */
 	alt: boolean;
 	/** Where the action was invoked from — hover-icon (inline) vs the right-click context menu */
 	location: 'inline' | 'contextMenu';

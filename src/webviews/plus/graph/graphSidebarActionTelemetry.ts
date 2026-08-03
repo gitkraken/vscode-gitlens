@@ -36,6 +36,13 @@ export const sidebarItemActions: {
 } = {
 	pullRequest: {
 		'gitlens.openPullRequestOnRemote:graph': 'openOnRemote',
+		'gitlens.switchToPullRequest:graph': 'switch',
+		'gitlens.graph.openInWorktree': 'openInWorktree',
+		'gitlens.openPullRequestChanges:graph': 'openChanges',
+		'gitlens.openPullRequestComparison:graph': 'openComparison',
+		'gitlens.openPullRequest:graph': 'openPullRequest',
+		'gitlens.graph.copy': 'copy',
+		'gitlens.copyRemotePullRequestUrl:graph': 'copyUrl',
 	},
 	branch: {
 		'gitlens.switchToBranch:graph': 'switch',

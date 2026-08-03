@@ -70,6 +70,7 @@ import { subscribeAll } from '../../shared/events/subscriptions.js';
 import '../shared/components/account-bar.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AccountModalSection, ShowAccountModalEventDetail } from './components/gl-graph-account-modal.js';
+import type { BranchSheetRef } from './components/gl-graph-branch-sheet-pane.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
 import type { GraphLayoutPromptChoiceEventDetail } from './components/gl-graph-layout-prompt.js';
@@ -2284,21 +2285,43 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}>,
 	): void => {
 		if (e.detail.open === false) {
+			// Retires any open still waiting on the panel to mount, as well as closing a mounted one — a
+			// close arriving during that wait would otherwise be a no-op and the sheet would appear after it.
+			this._branchSheetOpenToken++;
 			this.detailsPanelEl?.closeBranchSheet();
 			return;
 		}
 		if (e.detail.name == null) return;
 
-		this.detailsPanelEl?.openBranchSheet({
+		void this.openBranchSheet({
 			name: e.detail.name,
 			refType: e.detail.refType ?? 'head',
 			remote: e.detail.remote ?? null,
 			sha: e.detail.sha ?? null,
 			context: e.detail.context,
 		});
+	};
+
+	/** Opens the branch sheet on `ref` and makes the details pane that hosts it visible.
+	 *
+	 *  Reveals the pane first, then waits for the panel to mount: on a cold graph open (the host's
+	 *  request path) the panel renders only after the initial data/layout settles, so opening the
+	 *  sheet on it directly would silently no-op. */
+	private async openBranchSheet(ref: BranchSheetRef): Promise<void> {
+		const token = ++this._branchSheetOpenToken;
 		this.setDetailsVisible(true, 'request-mode');
 		this.ensureDetailsPosition();
-	};
+		const panel = await this.waitForDetailsPanel();
+		// Superseded while waiting — the user closed the sheet, or asked for a different ref. Opening now
+		// would reopen something they dismissed, or show the ref they navigated away from.
+		if (token !== this._branchSheetOpenToken) return;
+
+		panel?.openBranchSheet(ref);
+	}
+
+	/** Bumped by every open request and every close, so an open that's still waiting for the details panel to
+	 *  mount can tell it's been superseded. */
+	private _branchSheetOpenToken = 0;
 
 	/** The branch sheet closed (any path — see `GlGraphDetailsPanel.updated`'s `_branchSheet`
 	 *  transition check). Clear the graph's click-pinned ref focus so it never outlives the sheet;

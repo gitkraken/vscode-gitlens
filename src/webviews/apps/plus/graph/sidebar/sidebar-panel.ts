@@ -4,6 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { URI } from 'vscode-uri';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
@@ -11,6 +12,7 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlCommands } from '../../../../../constants.commands.js';
+import { launchpadGroupLabelMap } from '../../../../../plus/launchpad/models/launchpad.js';
 import type { WebviewItemContext } from '../../../../../system/webview.js';
 import { serializeWebviewItemContext, withWebviewItemFlag } from '../../../../../system/webview.js';
 import { sidebarItemActions } from '../../../../plus/graph/graphSidebarActionTelemetry.js';
@@ -21,6 +23,7 @@ import type {
 	GraphSidebarBranch,
 	GraphSidebarPanel,
 	GraphSidebarPullRequest,
+	GraphSidebarPullRequestsEmptyState,
 	GraphSidebarRemote,
 	GraphSidebarTag,
 	GraphSidebarWorktree,
@@ -28,6 +31,7 @@ import type {
 import { createWipRowId } from '../../../../plus/graph/protocol.js';
 import {
 	branchTooltip,
+	pullRequestMergesTooltip,
 	pullRequestTooltip,
 	remoteTooltip,
 	stashTooltip,
@@ -41,6 +45,7 @@ import type {
 	TreeItemAction,
 	TreeItemActionDetail,
 	TreeItemDecoration,
+	TreeItemDecorationIconKind,
 	TreeItemSelectionDetail,
 	TreeModel,
 	TreeModelFlat,
@@ -49,9 +54,15 @@ import { ContextMenuProxyController } from '../../../shared/controllers/context-
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
+import {
+	getLaunchpadGroupIconName,
+	getLaunchpadItemGroup,
+	getLaunchpadItemGrouping,
+} from '../utils/overviewActions.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import type { FocusRefActionArgs } from './branchActions.utils.js';
 import { createFocusRefAction, focusRefActionId, getBranchLeafActions } from './branchActions.utils.js';
+import { getPullRequestLeafActions } from './pullRequestActions.utils.js';
 import {
 	getPullRequestNumberFromQuery,
 	parsePullRequestFilterTerms,
@@ -65,6 +76,7 @@ import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/commit/wip-stats.js';
 import '../../../shared/components/markdown/markdown.js';
 import './agent-tooltip.js';
+import './pr-tooltip.js';
 import './worktree-tooltip.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/button.js';
@@ -435,6 +447,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				text-align: center;
 			}
 
+			.empty--connect {
+				display: flex;
+				flex-direction: column;
+				gap: var(--gl-space-10);
+				align-items: center;
+			}
+
 			.agents-banner {
 				flex: none;
 				padding: 0 var(--gl-space-4) var(--gl-space-4);
@@ -488,6 +507,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	 *  without this a pull request found for one repo keeps rendering against another — and its row
 	 *  carries the *original* repo's path, so acting on it would target the wrong repository. */
 	private _prSearchRepoId: string | undefined;
+	/** The panel data the search result was spliced into, so a refetch can retire it — see `willUpdate`. */
+	private _prSearchData: DidGetSidebarDataParams | undefined;
 	@state() private _prSearchState: 'idle' | 'searching' | 'notFound' = 'idle';
 
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
@@ -605,6 +626,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// otherwise linger (and re-render) after switching away and back.
 			this._prSearchResult = undefined;
 			this._prSearchRepoId = undefined;
+			this._prSearchData = undefined;
 			this._prSearchState = 'idle';
 
 			this.emitWorktreesFilteredTelemetryDebounced.cancel();
@@ -642,6 +664,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// first-ever view (data still undefined) and report stale counts on later views
 			// (the Resource retains the prior fetch's value until the new one lands).
 			this._branchesShownPending = this.activePanel === 'branches';
+		}
+
+		// The searched row is a snapshot spliced into a list it wasn't fetched with, so it can't outlive
+		// that list. An invalidation (a branch checked out, say) replaces the panel's data and the fresh
+		// rows re-derive their switch affordances; a frozen row would keep offering a switch that's now a
+		// no-op, and the deep link behind it would skip straight to diffing the whole pull request.
+		if (this.activePanel === 'pullRequests' && this._actions != null) {
+			const data = this._actions.state.panels.pullRequests.value.get();
+			if (data !== this._prSearchData) {
+				this._prSearchData = data;
+				this._prSearchResult = undefined;
+				this._prSearchRepoId = undefined;
+				this._prSearchState = 'idle';
+			}
 		}
 	}
 
@@ -753,7 +789,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			data: {
 				'pullRequests.count': data.items.length,
 				'pullRequests.draft.count': data.items.filter(pr => pr.isDraft).length,
-				'pullRequests.fork.count': data.items.filter(pr => pr.headRepo != null).length,
+				'pullRequests.fork.count': data.items.filter(pr => pr.headOwner != null).length,
+				emptyReason: data.emptyState?.reason,
 			},
 		});
 	}
@@ -815,20 +852,100 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const hasError = resource?.error.get() != null;
 		const isLoading = resource?.loading.get() ?? false;
 
+		// The pull-requests panel is empty for reasons the host can name — nothing connected, nothing
+		// connectable, a lookup that couldn't answer, or a host that can't be asked. Those replace the
+		// (blank) tree entirely.
+		const emptyState = data?.panel === 'pullRequests' && data.items.length === 0 ? data.emptyState : undefined;
+		// ...which takes the filter box with it, so there's no way left to name a pull request to search for —
+		// and a search that did somehow succeed would render nothing, since the empty state stands in for the
+		// tree the result would have joined.
+		const suppressSearchFallback = emptyState != null;
+
 		return html`<div class="panel">
 			${this.renderHeader(config, isLoading)}
 			<div class="content">
 				${
 					hasError
 						? html`<div class="empty">Failed to load data</div>`
-						: data != null
-							? this.renderTreeContent(config, data)
-							: this.renderSkeleton()
+						: emptyState != null
+							? this.renderPullRequestsEmptyState(emptyState)
+							: data != null
+								? this.renderTreeContent(config, data)
+								: this.renderSkeleton()
 				}
 			</div>
 			${/* Sibling of `.content`, not inside it — `.content` clips at 100% height around the tree. */ ''}
-			${data != null && !hasError ? this.renderPullRequestSearchFallback(data) : nothing}
+			${data != null && !hasError && !suppressSearchFallback ? this.renderPullRequestSearchFallback(data) : nothing}
 		</div>`;
+	}
+
+	/** Stands in for the pull-requests tree when the panel is empty for a reason the host can name — an
+	 *  empty list otherwise reads as "no open pull requests", which is the one thing it doesn't mean here. */
+	private renderPullRequestsEmptyState(emptyState: GraphSidebarPullRequestsEmptyState): unknown {
+		// One shape across the three connect reasons: lead with the connect action and the value it unlocks —
+		// for an unrecognized host, connecting a self-managed integration (with its domain) is what makes it
+		// recognized; with no remotes the tail names that publishing comes first.
+		if (emptyState.reason === 'no-remotes') {
+			return this.renderConnectPitch(
+				'Connect an integration to see and act on pull requests here once this repository is published to GitHub, GitLab, Azure DevOps, or Bitbucket.',
+				'Connect an Integration...',
+			);
+		}
+
+		if (emptyState.reason === 'no-supported-remote') {
+			return this.renderConnectPitch(
+				"Connect an integration — including self-managed hosts — to see this repository's pull requests and act on them without leaving the graph.",
+				'Connect an Integration...',
+			);
+		}
+
+		// Connected, but the lookup reported a failure — an expired token or a dropped connection. Say that,
+		// because an empty list here would claim the repository has no open pull requests. Retries go through
+		// the header's own handler so this refresh is counted like every other one.
+		if (emptyState.reason === 'unavailable') {
+			return html`<div class="empty empty--connect">
+				<span>Unable to load this repository's pull requests.</span>
+				<gl-button appearance="secondary" density="compact" @click=${this.handleRefresh}
+					><code-icon icon="refresh" slot="prefix"></code-icon> Try Again</gl-button
+				>
+			</div>`;
+		}
+
+		// Connected and reachable, but the host has no repo-scoped pull request query GitLens can issue —
+		// so no Try Again, which would only land right back here.
+		if (emptyState.reason === 'unsupported') {
+			return html`<div class="empty">
+				GitLens can't list pull requests for ${emptyState.providerName} repositories yet.
+			</div>`;
+		}
+
+		const { providerName, integrationId } = emptyState;
+		return this.renderConnectPitch(
+			`Connect to ${providerName} to see this repository's open pull requests and act on them without leaving the graph.`,
+			`Connect to ${providerName}...`,
+			integrationId,
+		);
+	}
+
+	private renderConnectPitch(message: string, label: string, integrationId?: SupportedCloudIntegrationIds) {
+		return html`<div class="empty empty--connect">
+			<span>${message}</span>
+			<gl-button
+				appearance="secondary"
+				density="compact"
+				@click=${() => this.handleConnectIntegration(integrationId)}
+				><code-icon icon="plug" slot="prefix"></code-icon> ${label}</gl-button
+			>
+		</div>`;
+	}
+
+	private handleConnectIntegration(integrationId?: SupportedCloudIntegrationIds) {
+		// Not a row action, so it goes straight out rather than through `handleAction`'s per-panel action
+		// telemetry — the connect funnel is tracked by the integrations service off the command's `source`.
+		// Without an id the host routes to the generic manage-integrations flow.
+		this._actions?.executeAction('gitlens.plus.cloudIntegrations.connect', undefined, [
+			{ integrationId: integrationId },
+		]);
 	}
 
 	private renderHeader(config: PanelConfig, isLoading: boolean) {
@@ -1146,30 +1263,107 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private toPullRequestLeaf(pr: GraphSidebarPullRequest): LeafProps {
-		const actions: TreeItemAction[] = [
-			{ icon: 'globe', label: 'Open Pull Request on Remote', action: 'gitlens.openPullRequestOnRemote:graph' },
-		];
-		// Only same-repo heads resolve to a ref this graph can scope to; a fork's head gets no Focus
-		// action rather than one that would silently do nothing.
+		const actions = getPullRequestLeafActions(pr);
+		// Last, so it lands on the row's right edge — same rule as the branch and remote-branch rows. With the
+		// ref already here the webview scopes directly, which is instant; without it — an unfetched head, or a
+		// fork whose remote this repository doesn't have — the host command runs instead, which offers to
+		// fetch and then scopes. Same action either way, so the row doesn't explain the difference.
 		if (pr.focus != null) {
-			// Last, so it lands on the row's right edge — same rule as the branch and remote-branch rows.
 			actions.push(createFocusRefAction('Focus on Pull Request', pr.focus));
+		} else if (pr.state === 'opened' && pr.headBranch && pr.headUrl) {
+			actions.push({
+				icon: 'target',
+				label: 'Focus on Pull Request',
+				action: 'gitlens.focusPullRequest:graph',
+			});
 		}
+
+		// Grouping resolved through the shared helper the overview card and branch hover use, so one PR
+		// never reads as two different states across surfaces.
+		const group = getLaunchpadItemGroup({ state: pr.state, draft: pr.isDraft }, pr.launchpad);
+		const grouping = getLaunchpadItemGrouping(group);
+		const groupIcon = getLaunchpadGroupIconName(group);
+		const groupLabel = group != null ? launchpadGroupLabelMap.get(group) : undefined;
+		const decorationKind: TreeItemDecorationIconKind | undefined =
+			grouping != null ? `launchpad-${grouping}` : undefined;
+
+		// Signals beyond what the markdown can carry (colored grouping line, CI/review/size) go in the
+		// Lit half of the hover; a row with none of them keeps the plain markdown tooltip.
+		const markdown = pullRequestTooltip(pr, this.dateFormat);
+		// Rendered by the Lit half (below the state block), so it has to be folded back in when there's no
+		// Lit half to render it.
+		const merges = pullRequestMergesTooltip(pr);
+		// Mirrors the component's own truthiness guards — a zero count renders nothing, so counting it as a
+		// signal would hand the hover an empty second half. `launchpad` being present isn't itself a signal:
+		// a row categorized `other` with no conflicts, no failing CI and no reviews resolves no group and
+		// renders nothing from it.
+		const lp = pr.launchpad;
+		const hasSignals =
+			group != null ||
+			(lp != null &&
+				Boolean(
+					lp.hasConflicts ||
+					lp.failingCI ||
+					lp.reviewCounts.approval ||
+					lp.reviewCounts.changeRequest ||
+					lp.reviewCounts.comment,
+				)) ||
+			pr.statusCheckRollup != null ||
+			pr.reviewDecision != null ||
+			Boolean(pr.additions || pr.deletions || pr.commentsCount);
 
 		return {
 			// Title leads — the number is the identifier, not the thing you scan for. It rides along as a
 			// `before` decoration so it sits just left of the row's actions.
 			label: pr.title,
 			filterText: `${pr.number} ${pr.title} ${pr.headBranch ?? ''}`,
-			tooltip: pullRequestTooltip(pr, this.dateFormat),
-			icon: pr.isDraft ? 'git-pull-request-draft' : 'git-pull-request',
+			tooltip: hasSignals
+				? html`<gl-markdown density="compact" .markdown=${markdown}></gl-markdown>
+						<gl-pr-tooltip
+							.group=${group}
+							.launchpad=${pr.launchpad}
+							.statusCheckRollup=${pr.statusCheckRollup}
+							.reviewDecision=${pr.reviewDecision}
+							.merges=${merges}
+							additions=${pr.additions ?? nothing}
+							deletions=${pr.deletions ?? nothing}
+							comments=${pr.commentsCount ?? nothing}
+						></gl-pr-tooltip>`
+				: merges
+					? `${markdown}\n\n${merges}`
+					: markdown,
+			// A merged/closed row reaches this list only via the search-by-number fallback, and carries no
+			// indicator (grouping is open-only) — so the glyph is the only thing distinguishing it.
+			icon:
+				pr.state === 'merged'
+					? 'git-merge'
+					: pr.state === 'closed'
+						? 'git-pull-request-closed'
+						: pr.isDraft
+							? 'git-pull-request-draft'
+							: 'git-pull-request',
 			description: pr.authorName,
-			// A fork carries no ref this graph can scope to, so these rows have no Focus action. That's
-			// said in the tooltip rather than marked here: a glyph in the scanning column to explain the
-			// absence of another glyph is noise, and dimming would imply these matter less, which is
-			// wrong — an outside contribution is often the most important row in the list.
 			decorations: [
+				// Leading, in the scanning column, so provenance reads before the title — the trailing slot stays
+				// the attention indicator's alone. Muted: it's a property of the row, not a call for attention,
+				// and at full strength it competes with the state glyph it sits beside.
+				...(pr.headOwner != null
+					? [
+							{
+								type: 'icon' as const,
+								icon: 'repo-forked',
+								label: `From a fork (${pr.headOwner})`,
+								position: 'before' as const,
+								muted: true,
+							},
+						]
+					: []),
 				{ type: 'text', label: `#${pr.number}`, position: 'before', kind: 'muted' },
+				// Trailing indicator, and only for a grouping that asks something of the user — a glyph on
+				// every row would stop separating the ones that need attention from the ones that don't.
+				...(decorationKind != null && groupIcon != null
+					? [{ type: 'icon' as const, icon: groupIcon, label: groupLabel ?? '', kind: decorationKind }]
+					: []),
 			] satisfies TreeItemDecoration[],
 			context: [pr.headSha] as SidebarItemContext,
 			contextValue: pr.context,

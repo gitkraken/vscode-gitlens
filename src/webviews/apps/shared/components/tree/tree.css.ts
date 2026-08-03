@@ -432,6 +432,18 @@ export const treeItemStyles = [
 			opacity: 0.7;
 		}
 
+		::slotted([slot^='decorations-'].decoration-icon--launchpad-mergeable) {
+			color: var(--vscode-gitlens-launchpadIndicatorMergeableColor);
+		}
+
+		::slotted([slot^='decorations-'].decoration-icon--launchpad-blocked) {
+			color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
+		}
+
+		::slotted([slot^='decorations-'].decoration-icon--launchpad-attention) {
+			color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
+		}
+
 		/* High Contrast Mode Support */
 		@media (forced-colors: active) {
 			:host {

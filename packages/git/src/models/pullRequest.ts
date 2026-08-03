@@ -56,6 +56,9 @@ export class PullRequest implements PullRequestShape {
 		public readonly statusCheckRollupState?: PullRequestStatusCheckRollupState,
 		public readonly project?: IssueProject,
 		public readonly version?: number,
+		/** Commits on the head that aren't on the base. Appended rather than slotted with the other counts:
+		 *  this constructor is positional and every mapper passes through it. */
+		public readonly commitCount?: number,
 	) {}
 
 	get closed(): boolean {

@@ -1,6 +1,7 @@
 import type { MessageItem, TextDocumentShowOptions, ViewColumn } from 'vscode';
-import { env, Uri, window } from 'vscode';
+import { env, ProgressLocation, Uri, window } from 'vscode';
 import { getSquashSequenceEditor } from '@env/git/squashEditor.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitContributor } from '@gitlens/git/models/contributor.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -22,12 +23,14 @@ import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import {
 	getComparisonRefsForPullRequest,
+	getPullRequestNumberFromUrl,
 	getRepositoryIdentityForPullRequest,
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard.js';
@@ -82,6 +85,7 @@ import { getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils
 import type { RebaseTodoAction } from '../../../git/utils/rebaseTodo.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider.js';
+import { setupPullRequestBranch } from '../../../plus/launchpad/utils/-webview/startReview.utils.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/associateIssueWithBranch.js';
 import { executeActionCommand, executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -112,6 +116,7 @@ import type {
 	GraphExcludedRef,
 	GraphItemContext,
 	GraphPinnedRef,
+	GraphPullRequestContextValue,
 	GraphScopeBranch,
 	GraphSelection,
 } from './protocol.js';
@@ -126,6 +131,12 @@ type GraphItemRefs<T> = {
 	active: T | undefined;
 	selection: T[];
 };
+
+/** A PR's display number. `id` is the provider's internal id on the providers-api path, so prefer the
+ *  number parsed out of the PR's url. */
+function getPullRequestNumber(pr: { id: string; url: string }): string {
+	return getPullRequestNumberFromUrl(pr.url) ?? pr.id;
+}
 
 /** Collaborators the graph command handlers reach for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphCommandsContext()`. `getRepository`/`getSession`/`getActiveSelection`
@@ -857,8 +868,9 @@ export class GraphCommands {
 				const { name, email } = item.webviewItemValue;
 				data = `${name}${email ? ` <${email}>` : ''}`;
 			} else if (isGraphItemTypedContext(item, 'pullrequest')) {
-				const { url } = item.webviewItemValue;
-				data = url;
+				// The row's identity, not its url — Copy Pull Request URL covers that.
+				const pr = item.webviewItemValue;
+				data = `#${getPullRequestNumber(pr)} ${pr.title}`;
 			}
 		}
 
@@ -1394,30 +1406,166 @@ export class GraphCommands {
 	private async focusPullRequest(item?: GraphItemContext): Promise<void> {
 		if (!isGraphItemTypedContext(item, 'pullrequest')) return;
 
-		const { refs, repoPath } = item.webviewItemValue;
-		const headBranch = refs?.head?.branch;
-		// A fork head isn't nameable against this repo's remotes, so there's no ref to scope to.
-		if (headBranch == null || refs?.isCrossRepository === true) return;
+		const value = item.webviewItemValue;
+		let target = await this.resolvePullRequestHeadTarget(value);
+		// The ref isn't here — an unfetched head, or a fork whose remote this repository doesn't have. The row
+		// offered Focus, so it has to mean something: fetch what's missing, then scope.
+		if (target == null) {
+			if (!(await this.ensurePullRequestHeadRef(value))) return;
 
-		// Must match how the panel built this row's focus target (`getSidebarPullRequests`): the
-		// best-ranked remote isn't necessarily the one with the connected integration, and in a fork
-		// workflow they differ — naming the head against the wrong one yields a ref that doesn't exist.
-		const remote = await getBestRemoteWithIntegration(repoPath);
-		if (remote == null) return;
+			target = await this.resolvePullRequestHeadTarget(value);
+			if (target == null) {
+				void window.showErrorMessage(`Unable to find this pull request's branch after fetching.`);
+				return;
+			}
+		}
 
-		const svc = this.container.git.getRepositoryService(repoPath);
-
-		const upstreamName = `${remote.name}/${headBranch}`;
-		// Prefer the local branch tracking the PR's head; fall back to scoping the remote ref itself.
-		const local = await svc.branches.getLocalBranchByUpstream?.(upstreamName);
-
+		const upstreamName = `${target.remoteName}/${target.headBranch}`;
 		void this.host.notify(DidRequestGraphActionNotification, {
 			action: 'scope-to-branch',
 			scopeBranch:
-				local != null
-					? { branchName: local.name, upstreamName: upstreamName }
+				target.localBranch != null
+					? { branchName: target.localBranch.name, upstreamName: upstreamName }
 					: { branchName: upstreamName, remote: true },
 		});
+	}
+
+	/** Where a PR's head lands in this repo: the remote it's named against, plus the local branch tracking
+	 *  it when there is one. Undefined for a fork head — it isn't nameable against this repo's remotes.
+	 *  Must match how the panel built the row's focus target (`getSidebarPullRequests`): the best-ranked
+	 *  remote isn't necessarily the one with the connected integration, and in a fork workflow they
+	 *  differ — naming the head against the wrong one yields a ref that doesn't exist. */
+	private async resolvePullRequestHeadTarget(
+		value: GraphPullRequestContextValue,
+	): Promise<{ remoteName: string; headBranch: string; localBranch: GitBranch | undefined } | undefined> {
+		const headBranch = value.refs?.head?.branch;
+		if (!headBranch) return undefined;
+
+		const svc = this.container.git.getRepositoryService(value.repoPath);
+
+		// A fork's head is named against the fork's own remote, which this repository may not have — that's
+		// what the fetch below adds. Everything else is named against the remote the pull request was listed
+		// from, which isn't necessarily the best-ranked one in a triangular setup.
+		let remoteName;
+		if (value.refs?.isCrossRepository === true) {
+			const headUrl = value.refs.head?.url;
+			if (!headUrl) return undefined;
+
+			remoteName = (await svc.remotes.getRemotes({ filter: r => r.matches(headUrl) }))[0]?.name;
+		} else {
+			remoteName = (await getBestRemoteWithIntegration(value.repoPath))?.name;
+		}
+		if (remoteName == null) return undefined;
+
+		const upstreamName = `${remoteName}/${headBranch}`;
+		const localBranch = await svc.branches.getLocalBranchByUpstream?.(upstreamName);
+		// A local branch tracking it is proof enough; otherwise the remote ref itself has to be here, or
+		// scoping to it leaves the graph focused on nothing.
+		if (localBranch == null && !(await svc.refs.isValidReference(upstreamName))) return undefined;
+
+		return { remoteName: remoteName, headBranch: headBranch, localBranch: localBranch };
+	}
+
+	/**
+	 * Adds the head's remote (for a fork this repository hasn't seen) and fetches it, so a pull request whose
+	 * head ref isn't here yet can still be focused. Asked for rather than assumed — the row's other actions
+	 * all prompt before touching the network — but the remote's name is derived rather than asked for, since
+	 * nobody focusing a pull request wanted to name a remote.
+	 */
+	private async ensurePullRequestHeadRef(value: GraphPullRequestContextValue): Promise<boolean> {
+		const { refs, repoPath } = value;
+		const repo = this.container.git.getRepository(repoPath);
+		if (repo == null || !refs?.head?.url || !refs.head.branch) return false;
+
+		if (
+			getContext('gitlens:readonly', false) ||
+			getContext('gitlens:untrusted', false) ||
+			getContext('gitlens:hasVirtualFolders', false)
+		) {
+			void window.showWarningMessage(
+				`This pull request's branch isn't in your repository, and it can't be fetched in this workspace.`,
+			);
+			return false;
+		}
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const headUrl = refs.head.url;
+		const addsRemote = !(await svc.remotes.getRemotes({ filter: r => r.matches(headUrl) })).length;
+
+		const confirm = { title: 'Fetch' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			`Unable to find this pull request's branch in your repository.\nWould you like to fetch it?${
+				addsRemote ? `\n\nThis will add a remote for the pull request's repository.` : ''
+			}`,
+			{ modal: true },
+			confirm,
+			cancel,
+		);
+		if (result !== confirm) return false;
+
+		try {
+			await window.withProgress(
+				{ location: ProgressLocation.Notification, title: `Fetching the pull request's branch...` },
+				async () => {
+					const setup = await setupPullRequestBranch(repo, value);
+					if (setup.addRemote != null) {
+						await svc.remotes.addRemote?.(
+							await this.getFreeRemoteName(svc, setup.addRemote.name),
+							setup.addRemote.url,
+							{ fetch: true },
+						);
+					}
+				},
+			);
+		} catch (ex) {
+			void window.showErrorMessage(
+				`Unable to fetch the pull request's branch: ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+			return false;
+		}
+
+		return true;
+	}
+
+	/** PR-row Switch to Branch — checks out the PR's head branch, adding the fork remote and creating
+	 *  the tracking branch when they're missing (the deep link owns that setup). */
+	@command('gitlens.switchToPullRequest:graph')
+	@debug()
+	private async switchToPullRequest(item?: GraphItemContext): Promise<void> {
+		if (!isGraphItemTypedContext(item, 'pullrequest')) return;
+
+		await this.openPullRequestBranchDeepLink(item.webviewItemValue, DeepLinkActionType.SwitchToPullRequest);
+	}
+
+	/** Runs the PR-branch deep link (switch or worktree flavor) from a row's context value.
+	 *  {@link getPullRequestBranchDeepLink} reads only the PR's provider/id/title/refs, all of which the
+	 *  row already carries, so this costs no PR re-fetch. */
+	private async openPullRequestBranchDeepLink(
+		value: GraphPullRequestContextValue,
+		action: DeepLinkActionType,
+	): Promise<void> {
+		const { id, provider, refs, repoPath, title } = value;
+		// The head's own remote (the fork's, for a cross-repository PR) is the one the link resolves
+		// against. Truthiness, not null: the providers-api path fills a missing head with empty strings.
+		const head = refs?.head;
+		if (!head?.url || !head.branch) return;
+
+		// `getPullRequestBranchDeepLink` writes `prBaseRef`/`prHeadRef` from `refs` unconditionally, and the
+		// link's own test for them (`!= null`) passes for the empty strings a gone base ref leaves behind —
+		// the worktree flavor then advances to opening the PR's changes and errors on them *after* the
+		// worktree exists. Withhold `refs` instead of the whole action: the switch itself doesn't need shas.
+		const comparableRefs = refs?.base?.sha && head.sha ? refs : undefined;
+
+		const deepLink = getPullRequestBranchDeepLink(
+			this.container,
+			{ id: id, title: title, provider: provider, refs: comparableRefs },
+			head.branch,
+			head.url,
+			action,
+		);
+
+		await this.container.deepLinks.processDeepLinkUri(deepLink, false, this.container.git.getRepository(repoPath));
 	}
 
 	private async getScopeBranch(item?: GraphItemContext): Promise<GraphScopeBranch | undefined> {
@@ -1626,70 +1774,249 @@ export class GraphCommands {
 		return Promise.resolve();
 	}
 
-	@command('gitlens.openPullRequestChanges:')
-	@debug()
-	private async openPullRequestChanges(item?: GraphItemContext | BranchRef) {
-		// Webview action-link path (graph overview card): look the PR up from the BranchRef.
+	/**
+	 * Ensures a pull request's base and head commits are actually in the local object database before
+	 * anything tries to diff them.
+	 *
+	 * `+shas` only proves the provider *reported* shas. This panel is the first surface that lists pull
+	 * requests straight from the API, so a head this repository has never fetched — a brand-new pull
+	 * request, or almost any pull request from a fork — carries perfectly good shas that git can't
+	 * resolve, and the comparison would quietly come back empty.
+	 *
+	 * Fetching is asked for rather than assumed: reaching the network, and possibly adding a remote for a
+	 * fork, is more than someone expects from opening a comparison. Declining leaves no error behind. `setupPullRequestBranch` fetches only a remote this repository already has — for a
+	 * fork it hasn't seen it returns the remote to add rather than adding it, so the add-and-fetch happens
+	 * here too; without it the fork case, which is most of why this exists, would report a fetch it never
+	 * ran.
+	 */
+	/** In-flight revision recoveries, keyed by repository + pull request. Two entry points reach this for
+	 *  one pull request (Open Changes and Compare), and a chip is easy to double-invoke; without this each
+	 *  would raise its own modal and then run a concurrent add-remote/fetch against the same repository. */
+	private readonly _ensuringRevisions = new Map<string, Promise<boolean>>();
+
+	private ensurePullRequestRevisions(value: GraphPullRequestContextValue): Promise<boolean> {
+		// The url, because it's the only identifier that's the same no matter which producer built this value
+		// or when: `id` is `String(number)` on the provider-native path and the provider's own id on the
+		// providers-api path, and the shas move whenever the head does. No host omits a pull request's url,
+		// but the provider model's type permits an empty one, so fall back rather than key everything on `''`.
+		const key = `${value.repoPath}|${value.url || `${value.provider.id}:${value.id}`}`;
+		let promise = this._ensuringRevisions.get(key);
+		if (promise == null) {
+			promise = this.ensurePullRequestRevisionsCore(value).finally(() => {
+				if (this._ensuringRevisions.get(key) === promise) {
+					this._ensuringRevisions.delete(key);
+				}
+			});
+			this._ensuringRevisions.set(key, promise);
+		}
+		return promise;
+	}
+
+	private async ensurePullRequestRevisionsCore(value: GraphPullRequestContextValue): Promise<boolean> {
+		const { refs, repoPath } = value;
+		// Empty rather than absent: several providers build a full `refs` and fill the shas with `''` when
+		// the merge commits aren't available. There's nothing to diff, and saying so beats both the silent
+		// return this used to do and the `HEAD`...`HEAD` comparison the shas would coerce to.
+		if (!refs?.base?.sha || !refs.head?.sha) {
+			void window.showWarningMessage(`This pull request doesn't report the commits needed to compare it.`);
+			return false;
+		}
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		// Which side is missing decides what to fetch: the head lives in the pull request's own (possibly
+		// forked) repository, the base in the one it targets. Fetching the head can't produce a base tip a
+		// shallow clone never had, so answering "yes" to the prompt has to cover both.
+		const findMissing = async () => {
+			const results = await Promise.allSettled([
+				svc.refs.isValidReference(refs.base.sha),
+				svc.refs.isValidReference(refs.head.sha),
+			]);
+			return {
+				base: getSettledValue(results[0]) !== true,
+				head: getSettledValue(results[1]) !== true,
+			};
+		};
+
+		let missing = await findMissing();
+		if (!missing.base && !missing.head) return true;
+
+		const repo = this.container.git.getRepository(repoPath);
+		// Without a head remote to fetch from there's nothing to try — but only when the head is the side
+		// that's missing; a missing base is fetched from the remote hosting the base's own repository.
+		if (repo == null || (missing.head && (!refs.head.url || !refs.head.branch))) {
+			void window.showErrorMessage(`Unable to find this pull request's commits in your repository.`);
+			return false;
+		}
+
+		// Comparing used to read only what was already here, so its menu entries carry none of the capability
+		// gates the switch/worktree ones do. Now that answering the prompt fetches — and can add a remote —
+		// the gate has to live here instead: the entry stays available, since a pull request whose commits are
+		// present still compares fine, but the recovery that mutates doesn't run where the same mutation is
+		// refused everywhere else in the UI.
+		if (
+			getContext('gitlens:readonly', false) ||
+			getContext('gitlens:untrusted', false) ||
+			getContext('gitlens:hasVirtualFolders', false)
+		) {
+			void window.showWarningMessage(
+				`Unable to find this pull request's commits in your repository, and they can't be fetched in this workspace.`,
+			);
+			return false;
+		}
+
+		// Whether a remote is about to be added, decided before asking rather than inferred from the pull
+		// request being cross-repository: a same-repository head whose clone url matches nothing configured
+		// (an SSH host alias, or only an `upstream` remote) adds one too, and a prompt that didn't say so
+		// would be the only warning the user got.
+		const headUrl = refs.head.url;
+		const addsRemote =
+			missing.head && headUrl
+				? !(await svc.remotes.getRemotes({ filter: r => r.matches(headUrl) })).length
+				: false;
+
+		const confirm = { title: 'Fetch' };
+		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		const result = await window.showWarningMessage(
+			`Unable to find this pull request's commits in your repository.\nWould you like to fetch them?${
+				addsRemote ? `\n\nThis will add a remote for the pull request's repository.` : ''
+			}`,
+			{ modal: true },
+			confirm,
+			cancel,
+		);
+		// Declining isn't a failure — say nothing and leave the comparison unopened.
+		if (result !== confirm) return false;
+
+		try {
+			await window.withProgress(
+				{ location: ProgressLocation.Notification, title: `Fetching the pull request's commits...` },
+				async () => {
+					if (missing.head) {
+						const setup = await setupPullRequestBranch(repo, value);
+						if (setup.addRemote != null) {
+							// The name comes from the head's owner and nothing has checked it's free — a
+							// second fork by an owner you already have a remote for collides, and `addRemote`
+							// fails outright. Take the next free suffix instead of dead-ending the action.
+							await svc.remotes.addRemote?.(
+								await this.getFreeRemoteName(svc, setup.addRemote.name),
+								setup.addRemote.url,
+								{ fetch: true },
+							);
+						}
+					}
+
+					// Re-checked rather than trusting the earlier answer: for a same-repository pull request
+					// both sides live on one remote, so the head's fetch has usually just supplied the base
+					// too — and fetching the same remote twice is the whole cost of this recovery paid over.
+					if (missing.base && (!missing.head || (await findMissing()).base)) {
+						// The remote hosting the base's own repository, which in a triangular setup is not
+						// the best-ranked one with an integration — that's your fork, not the target.
+						const baseUrl = refs.base.url;
+						const remotes = await svc.remotes.getRemotes(
+							baseUrl ? { filter: r => r.matches(baseUrl) } : undefined,
+						);
+						const baseRemote = remotes[0] ?? (await getBestRemoteWithIntegration(repoPath));
+						if (baseRemote != null) {
+							// `ops.fetch` throws; the service's own `fetch` swallows the failure and raises its
+							// own notification, which would stack a second one on top of ours.
+							await svc.ops?.fetch({ remote: baseRemote.name });
+						}
+					}
+				},
+			);
+		} catch (ex) {
+			void window.showErrorMessage(
+				`Unable to fetch the pull request's commits: ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+			return false;
+		}
+
+		missing = await findMissing();
+		if (!missing.base && !missing.head) return true;
+
+		void window.showErrorMessage(`Unable to find this pull request's commits after fetching.`);
+		return false;
+	}
+
+	/** `name`, or the first `name-N` no configured remote is using. */
+	private async getFreeRemoteName(
+		svc: ReturnType<Container['git']['getRepositoryService']>,
+		name: string,
+	): Promise<string> {
+		const taken = new Set((await svc.remotes.getRemotes()).map(r => r.name));
+		if (!taken.has(name)) return name;
+
+		let n = 2;
+		while (taken.has(`${name}-${n}`)) {
+			n++;
+		}
+		return `${name}-${n}`;
+	}
+
+	/** The pull request behind either entry point: a row's own context value, or the one associated with a
+	 *  `BranchRef` (the overview card and branch hover). Returning one shape keeps the two paths on the same
+	 *  gating and the same destination — they previously differed on both. */
+	private async resolvePullRequestForComparison(
+		item: GraphItemContext | BranchRef | undefined,
+	): Promise<GraphPullRequestContextValue | undefined> {
 		if (item != null && 'branchId' in item) {
 			const branch = await this.container.git
 				.getRepositoryService(item.repoPath)
 				.branches.getBranch(item.branchName);
-			if (branch == null) return;
+			if (branch == null) return undefined;
 
 			const pr = await getBranchAssociatedPullRequest(this.container, branch);
-			if (pr?.refs?.base == null || pr.refs.head == null) return;
+			if (pr == null) return undefined;
 
-			const refs = getComparisonRefsForPullRequest(item.repoPath, pr.refs);
-			await openComparisonChanges(
-				this.container,
-				{ repoPath: refs.repoPath, lhs: refs.base.ref, rhs: refs.head.ref },
-				{ title: `Changes in Pull Request #${pr.id}` },
-			);
-			return;
+			return {
+				type: 'pullrequest',
+				id: pr.id,
+				title: pr.title,
+				url: pr.url,
+				repoPath: item.repoPath,
+				refs: pr.refs,
+				provider: pr.provider,
+			};
 		}
 
-		if (isGraphItemTypedContext(item, 'pullrequest')) {
-			const pr = item.webviewItemValue;
-			if (pr.refs?.base != null && pr.refs.head != null) {
-				const refs = getComparisonRefsForPullRequest(pr.repoPath, pr.refs);
-				await openComparisonChanges(
-					this.container,
-					{
-						repoPath: refs.repoPath,
-						lhs: refs.base.ref,
-						rhs: refs.head.ref,
-					},
-					{ title: `Changes in Pull Request #${pr.id}` },
-				);
-			}
-		}
+		return isGraphItemTypedContext(item, 'pullrequest') ? item.webviewItemValue : undefined;
+	}
+
+	@command('gitlens.openPullRequestChanges:')
+	@debug()
+	private async openPullRequestChanges(item?: GraphItemContext | BranchRef) {
+		const pr = await this.resolvePullRequestForComparison(item);
+		if (pr == null) return;
+		if (!(await this.ensurePullRequestRevisions(pr))) return;
+
+		const refs = getComparisonRefsForPullRequest(pr.repoPath, pr.refs!);
+		await openComparisonChanges(
+			this.container,
+			{ repoPath: refs.repoPath, lhs: refs.base.ref, rhs: refs.head.ref },
+			{ title: `Changes in Pull Request #${getPullRequestNumber(pr)}` },
+		);
 	}
 
 	@command('gitlens.openPullRequestComparison:')
 	@debug()
 	private async openPullRequestComparison(item?: GraphItemContext | BranchRef) {
-		// Webview action-link path (graph overview card): look the PR up from the BranchRef.
-		if (item != null && 'branchId' in item) {
-			const branch = await this.container.git
-				.getRepositoryService(item.repoPath)
-				.branches.getBranch(item.branchName);
-			if (branch == null) return;
+		const pr = await this.resolvePullRequestForComparison(item);
+		if (pr == null) return;
+		if (!(await this.ensurePullRequestRevisions(pr))) return;
 
-			const pr = await getBranchAssociatedPullRequest(this.container, branch);
-			if (pr?.refs?.base == null || pr.refs.head == null) return;
-
-			const refs = getComparisonRefsForPullRequest(item.repoPath, pr.refs);
-			await this.container.views.searchAndCompare.compare(refs.repoPath, refs.head, refs.base);
-			return;
-		}
-
-		if (isGraphItemTypedContext(item, 'pullrequest')) {
-			const pr = item.webviewItemValue;
-			if (pr.refs?.base != null && pr.refs.head != null) {
-				const refs = getComparisonRefsForPullRequest(pr.repoPath, pr.refs);
-				await this.container.views.searchAndCompare.compare(refs.repoPath, refs.head, refs.base);
-			}
-		}
+		// The graph's own compare sheet, seeded with the pull request's base and head. Both refs are named
+		// explicitly, so this holds for a fork exactly as it does for a same-repository head — nothing here
+		// needs the head to be *nameable* against this repo's remotes. Reached from the branch hover and the
+		// overview card too: one command id landing on two different surfaces is not a distinction anyone
+		// asked for.
+		const refs = getComparisonRefsForPullRequest(pr.repoPath, pr.refs!);
+		void this.notifyOpenCompareMode({
+			repoPath: refs.repoPath,
+			leftRef: refs.base.ref,
+			leftRefType: 'commit',
+			rightRef: refs.head.ref,
+			rightRefType: 'commit',
+		});
 	}
 
 	// `public` because the provider's ref-metadata double-click handler invokes it directly, in
@@ -1704,6 +2031,12 @@ export class GraphCommands {
 				clipboard: clipboard,
 			});
 		}
+	}
+
+	@command('gitlens.copyRemotePullRequestUrl:graph')
+	@debug()
+	private copyPullRequestUrl(item?: GraphItemContext): Promise<void> {
+		return this.openPullRequestOnRemote(item, true);
 	}
 
 	@command('gitlens.graph.compareAncestryWithWorking')
@@ -2264,6 +2597,15 @@ export class GraphCommands {
 	@command('gitlens.graph.openInWorktree')
 	@debug()
 	private async openInWorktree(item?: GraphItemContext) {
+		// PR rows deep-link straight to the worktree flavor — the link opens the branch's existing
+		// worktree, or creates one when there isn't one yet.
+		if (isGraphItemTypedContext(item, 'pullrequest')) {
+			return this.openPullRequestBranchDeepLink(
+				item.webviewItemValue,
+				DeepLinkActionType.SwitchToPullRequestWorktree,
+			);
+		}
+
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			const repo = this.container.git.getRepository(ref.repoPath);

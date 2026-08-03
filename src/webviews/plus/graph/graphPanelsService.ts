@@ -1,4 +1,5 @@
 import { Uri } from 'vscode';
+import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
@@ -8,15 +9,19 @@ import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
-import { getPullRequestIdentityFromMaybeUrl } from '@gitlens/git/utils/pullRequest.utils.js';
+import { getPullRequestNumberFromUrl } from '@gitlens/git/utils/pullRequest.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getDefaultRemoteOrOrigin } from '@gitlens/git/utils/remote.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
+import type { IntegrationIds, SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
-import { fromProviderPullRequest } from '@gitlens/integrations/providers/models.js';
+import { fromProviderPullRequest, toProviderPullRequestWithUniqueId } from '@gitlens/integrations/providers/models.js';
+import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
+import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { Container } from '../../../container.js';
@@ -34,6 +39,17 @@ import {
 } from '../../../git/utils/-webview/remote.utils.js';
 import { getOpenedWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
+import {
+	canonicalizeViewerIdentity,
+	categorizePullRequests,
+	isSupportedLaunchpadIntegrationId,
+} from '../../../plus/launchpad/launchpadProvider.js';
+import type { LaunchpadActionCategory } from '../../../plus/launchpad/models/launchpad.js';
+import {
+	launchpadCategoryToGroupMap,
+	launchpadPriorityGroups,
+	sharedCategoryToLaunchpadActionCategoryMap,
+} from '../../../plus/launchpad/models/launchpad.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import type { ConfigPath } from '../../../system/-webview/configuration.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -63,6 +79,7 @@ import type {
 	GraphSidebarItemOrigin,
 	GraphSidebarPanel,
 	GraphSidebarPullRequest,
+	GraphSidebarPullRequestsEmptyState,
 	GraphSidebarWorktree,
 	GraphStashContextValue,
 	GraphTagContextValue,
@@ -90,23 +107,89 @@ export type GraphPanelsServiceContext = {
 
 /** Open-PR list TTL. Matches Launchpad's list-level cache, which fronts the same kind of query. */
 const pullRequestsCacheExpiration = 30 * 60 * 1000;
+/** TTL for an *empty* list, which is the one answer that can be wrong without ever reporting a failure —
+ *  GitLab's search converts an API failure into `[]`, indistinguishable from a repo with no open pull
+ *  requests. Hold it only long enough to keep a burst of panel opens to a single request. */
+const pullRequestsEmptyCacheExpiration = 60 * 1000;
 /** Page size for the open-PR walk. Paging is sequential, so a big page is the difference between one
  *  round trip and many — this is a browse list, not an export. */
 const pullRequestsPageSize = 100;
 /** Upper bound on the page walk, so a repo with a huge backlog can't stall the panel. With the page
  *  size above this is 300 pull requests, well past what anyone browses in a side bar. */
 const pullRequestsMaxPages = 3;
+/** Bound on resolving the panel's viewer, which is a network call with no timeout of its own and which the
+ *  rows wait on. Long enough for a cold account lookup over a slow connection, short enough that a hung one
+ *  can't hold the list back; past it the rows categorize viewer-less. */
+const viewerAccountTimeout = 3000;
 
-/** Reverse tracking map (upstream name → local branch name), the same pass the remotes panel makes.
- *  Lets a pull request whose head is checked out focus the local branch, not a `remotes/*` ref. */
-function buildLocalBranchesByUpstream(graph: GitGraph): Map<string, string> {
-	const localByUpstream = new Map<string, string>();
+/** The pull-requests panel's cached fetch: the open-PR list plus its Launchpad categorization (keyed by the
+ *  pull request itself). Both come from one shared promise, so a row never waits on a categorization the
+ *  cache has already paid for. An `undefined` list means nothing answered — a failed lookup or a host
+ *  that can't be asked — and never that the repo has no open pull requests. */
+type SidebarPullRequests = {
+	prs: PullRequest[] | undefined;
+	launchpadByPr: Map<PullRequest, NonNullable<GraphSidebarPullRequest['launchpad']>> | undefined;
+};
+
+/** Hosts with no repo-scoped pull request query GitLens can issue *by either path*, so that nothing a
+ *  refresh does changes the answer and the panel says so rather than offering a retry.
+ *
+ *  Azure only: `getMyPullRequestsForRepos` rejects it outright (its `repoDesc` carries no `project`, which
+ *  that call requires — `gitHostIntegration.ts`), and it doesn't implement the provider-native repo-scoped
+ *  search either. Failing only the *native* half isn't enough to belong here: Bitbucket Server stubs that
+ *  half exactly as Bitbucket Cloud does, but both are wired for `getPullRequestsForRepos` and both inherit
+ *  an `{ owner, name }` `repoDesc`, so they list through the providers-api path. Listing one and not the
+ *  other here is what wrongly told Bitbucket Server users the host couldn't be asked. */
+const pullRequestsUnsupportedIntegrationIds: ReadonlySet<IntegrationIds> = new Set([
+	GitCloudHostIntegrationId.AzureDevOps,
+	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+]);
+
+/** The checked-out branch's name, for deciding whether a pull request's head is already here. Matched by
+ *  short name because that's how the deep link the row's actions run decides to skip the switch — a name
+ *  match there means the action becomes a no-op, so the row must not offer it. */
+function getCurrentBranchName(graph: GitGraph): string | undefined {
 	for (const b of graph.branches.values()) {
-		if (!b.remote && b.upstream != null && !b.upstream.missing) {
-			localByUpstream.set(b.upstream.name, b.name);
+		if (b.current) return b.name;
+	}
+	return undefined;
+}
+
+/** Reverse tracking map (upstream name → local branch), the same pass the remotes panel makes. Lets a
+ *  pull request whose head is checked out focus the local branch, not a `remotes/*` ref, and name that
+ *  branch's worktree — both without another walk of `graph.branches`. */
+function buildLocalBranchesByUpstream(graph: GitGraph): {
+	localByUpstream: Map<string, GitBranch>;
+	/** Remote branch names present in this repository. Focus needs it: a pull request's head is named
+	 *  `<remote>/<branch>` whether or not it was ever fetched, and scoping to a ref that isn't here
+	 *  leaves the graph focused on nothing. Collected by name (not by the map's key) so it doesn't
+	 *  depend on how branch ids happen to be built. */
+	remoteNames: Set<string>;
+} {
+	const localByUpstream = new Map<string, GitBranch>();
+	const remoteNames = new Set<string>();
+	for (const b of graph.branches.values()) {
+		if (b.remote) {
+			remoteNames.add(b.name);
+		} else if (b.upstream != null && !b.upstream.missing) {
+			localByUpstream.set(b.upstream.name, b);
 		}
 	}
-	return localByUpstream;
+	return { localByUpstream: localByUpstream, remoteNames: remoteNames };
+}
+
+/** Whether a category paints a row indicator, which is what makes it worth preserving over an overlay.
+ *  Resolved through the same maps the webview's `getLaunchpadItemGroup`/`getLaunchpadItemGrouping` pair
+ *  uses, and carrying that pair's draft carve-out, so the host can't come to a different answer than the
+ *  surface it's deciding for. */
+function rendersIndicator(category: LaunchpadActionCategory, isDraft: boolean | undefined): boolean {
+	// A draft nobody has been asked to review yet is a draft, not a blocked pull request, and the webview
+	// renders nothing for it. Reading it as indicator-bearing here would skip the blocker overlay for a row
+	// that then shows nothing at all — a conflicted draft with no indicator anywhere.
+	if (isDraft && category === 'unassigned-reviewers') return false;
+
+	const group = launchpadCategoryToGroupMap.get(category);
+	return group != null && launchpadPriorityGroups.includes(group);
 }
 
 /** Host-side panels cluster for the graph, split out of `GraphWebviewProvider` (R3). Owns the Overview
@@ -138,12 +221,10 @@ export class GraphPanelsService {
 	// a deep-equal gate skips the redundant serialize + webview re-render. Cleared in `setGraph` on
 	// graph identity change.
 	private _lastSentOverview: GraphOverviewData | undefined;
-	// Open-PR list for the pull-requests panel, keyed by repo + integration + remote. Holds the promise
-	// (not the value) so concurrent opens share one request; dropped on rejection so a failure doesn't
-	// stick for the full TTL.
-	private _pullRequestsCache:
-		| { key: string; expiresAt: number; promise: Promise<PullRequest[] | undefined> }
-		| undefined;
+	// Open PRs (and their categorization) for the pull-requests panel, keyed by repo + integration +
+	// remote. Holds the promise (not the value) so concurrent opens share one request; dropped on
+	// rejection so a failure doesn't stick for the full TTL.
+	private _pullRequestsCache: { key: string; expiresAt: number; promise: Promise<SidebarPullRequests> } | undefined;
 
 	get overviewRecentThreshold(): OverviewRecentThreshold {
 		return this._overviewRecentThreshold;
@@ -533,24 +614,243 @@ export class GraphPanelsService {
 	private async getSidebarPullRequests(graph: GitGraph, signal?: AbortSignal): Promise<DidGetSidebarDataParams> {
 		const empty = { panel: 'pullRequests' as const, items: [] };
 
-		// Already gates on a connected integration, so a disconnected repo yields an empty panel rather
-		// than an error — the same degrade non-GitHub providers get below.
+		// Gates on a connected integration, so a disconnected repo yields an empty panel rather than an
+		// error — but "nothing to connect to" and "nothing connected yet" read identically as a bare empty
+		// list, so the latter carries an empty state the panel can turn into a connect pitch.
 		const remote = await getBestRemoteWithIntegration(graph.repoPath, undefined, signal);
-		if (remote == null) return empty;
-
-		const integration = await getRemoteIntegration(remote);
-		if (integration == null) return empty;
+		const integration = remote != null ? await getRemoteIntegration(remote) : undefined;
+		if (remote == null || integration == null) {
+			signal?.throwIfAborted();
+			return { ...empty, emptyState: await this.getPullRequestsEmptyState(graph) };
+		}
 
 		signal?.throwIfAborted();
 
-		const prs = await this.fetchPullRequests(graph.repoPath, integration, remote);
-		signal?.throwIfAborted();
-		if (!prs?.length) return empty;
+		// Asked before fetching, not after: these hosts have no repo-scoped query at all, so the list request
+		// and the viewer lookup behind it are spent to learn what the integration's id already says — and
+		// since a null list evicts the cache, they'd be spent again on every invalidation.
+		if (pullRequestsUnsupportedIntegrationIds.has(integration.id)) {
+			return { ...empty, emptyState: { reason: 'unsupported' as const, providerName: remote.provider.name } };
+		}
 
-		const localByUpstream = buildLocalBranchesByUpstream(graph);
-		const items = prs.map(pr => this.toSidebarPullRequest(pr, graph.repoPath, remote.name, localByUpstream));
+		const result = await this.fetchPullRequests(graph.repoPath, integration, remote);
+		signal?.throwIfAborted();
+		// No list at all means nothing answered — a failed lookup (which resolves rather than throwing), an
+		// unresolvable session, or a host with no query to ask. None of those is an empty repository, so
+		// none may render a bare empty list: that would claim there are no open pull requests.
+		if (result.prs == null) {
+			return { ...empty, emptyState: { reason: 'unavailable' as const } };
+		}
+		if (!result.prs.length) return empty;
+
+		const { localByUpstream, remoteNames } = buildLocalBranchesByUpstream(graph);
+		const currentBranchName = getCurrentBranchName(graph);
+		const items = result.prs.map(pr =>
+			this.toSidebarPullRequest(
+				pr,
+				graph.repoPath,
+				remote.name,
+				localByUpstream,
+				remoteNames,
+				result.launchpadByPr?.get(pr),
+				currentBranchName,
+			),
+		);
 
 		return { panel: 'pullRequests' as const, items: items };
+	}
+
+	/**
+	 * Why the panel has nothing to list when no integration answered. Reads the graph's own remotes — the
+	 * same set the remotes panel renders — so this costs no extra git work, and pitches the default (or
+	 * origin) remote's provider, the one the repo actually publishes to.
+	 */
+	private async getPullRequestsEmptyState(graph: GitGraph): Promise<GraphSidebarPullRequestsEmptyState> {
+		// Distinct from an unrecognized host only in what the panel says — a missing remote is the real
+		// blocker there — and in telemetry; both render the generic connect pitch.
+		if (graph.remotes.size === 0) return { reason: 'no-remotes' };
+
+		const supported = [...graph.remotes.values()].filter(remoteSupportsIntegration);
+		if (!supported.length) return { reason: 'no-supported-remote' };
+
+		const remote = getDefaultRemoteOrOrigin(supported) ?? supported[0];
+		// Always set: `supported` was filtered by `remoteSupportsIntegration`, which resolves this same id.
+		const integrationId = getIntegrationIdForRemote(remote.provider)!;
+
+		// `getBestRemoteWithIntegration` skips a remote whose connected state it can't settle cheaply — it
+		// only resolves `isConnected()` for the default or the only remote, so any repo with two remotes and
+		// no default lands here on a cold session — meaning a connected integration can still reach this. It
+		// gets neither a Connect pitch (it's already connected) nor a bare empty list (we never got to ask,
+		// which is not the same as there being none). It settles on the next invalidation.
+		const integration = await getRemoteIntegration(remote);
+		if (integration?.maybeConnected ?? (await integration?.isConnected())) return { reason: 'unavailable' };
+
+		return {
+			reason: 'integration-disconnected',
+			providerName: remote.provider.name,
+			integrationId: integrationId,
+		};
+	}
+
+	/**
+	 * Resolves the viewer for the connection the pull requests came from. Started alongside the list rather
+	 * than after it, so the bound below overlaps the fetch instead of being added to it — the panel used to
+	 * cost list latency plus this.
+	 *
+	 * Off the integration instance rather than looked up by id: a self-managed host can have several
+	 * connections, and resolving by id would categorize these rows against whichever one is primary. Bounded
+	 * because the rows wait on it and the lookup carries no timeout of its own; past the bound they
+	 * categorize viewer-less, and the caller shortens the list's cache so that verdict isn't held for the
+	 * full TTL.
+	 */
+	private async resolveViewerAccount(
+		integration: GitHostIntegration,
+	): Promise<{ account: Account | undefined; timedOut: boolean; pending?: Promise<Account | undefined> }> {
+		if (!isSupportedLaunchpadIntegrationId(integration.id)) return { account: undefined, timedOut: false };
+
+		try {
+			// Held rather than inlined so the caller can still act on it: past the bound the request keeps
+			// running, and the rows are left on a viewer-less categorization a refetch would now get right.
+			// Handed back rather than acted on here — recovering means evicting a specific cache entry and
+			// re-fetching, and only the caller knows which entry this categorization ended up in.
+			const accountPromise = integration.getCurrentAccount();
+			const result = await pauseOnCancelOrTimeout(accountPromise, undefined, viewerAccountTimeout);
+			if (result.paused) return { account: undefined, timedOut: true, pending: accountPromise };
+
+			return { account: result.value, timedOut: false };
+		} catch (ex) {
+			Logger.warn(`Unable to resolve the current account: ${ex}`, 'getSidebarPullRequests');
+			return { account: undefined, timedOut: false };
+		}
+	}
+
+	/**
+	 * Launchpad categorization for the panel's rows, keyed by the pull request itself — the grouping
+	 * indicator and the hover's signals line. Best-effort: any failure yields `undefined` so the rows still
+	 * render, just un-enriched. Deliberately skips enriched items (pin/snooze), which the panel doesn't
+	 * surface and which would couple it to a GitKraken account.
+	 *
+	 * The rule is: match Launchpad exactly wherever the viewer is involved, and show a best-effort
+	 * objective signal for everyone else's pull requests. Categorizing against the real account is what
+	 * buys the first half — a pull request you authored, are assigned to, or have been asked to review
+	 * reads here exactly as it reads in Launchpad and in the branch hover, same category, same colour,
+	 * same words, with no second vocabulary to keep in sync. The shared cascade gates every other category
+	 * on the viewer, so anyone else's pull request comes back uncategorized, and those get one overlay and
+	 * only one: conflicts or failing checks paint red "Blocked", because surfacing exactly that is why a
+	 * repo-wide list of pull requests earns its space. With a viewer resolved the overlay never displaces a
+	 * category the cascade already gave an indicator to, and it never invents a green one — `readyToMerge`
+	 * is gated on the viewer being author or assignee, so "Ready to Merge" stays confined to your own work.
+	 *
+	 * With no account at all — the integration isn't connected, the lookup returns nothing, or it doesn't
+	 * answer inside {@link viewerAccountTimeout} — it categorizes viewer-less, and that mode needs demotions
+	 * of its own, because with no viewer every author-side rule fires for every row. `readyToMerge` is one:
+	 * its only surviving gate is `canMerge`, which the shared cascade defaults to `true` for a pull request
+	 * carrying no permissions — and the list's providers-api path never reports a negative one — so a
+	 * stranger's approved pull request would come back green. `unassignedReviewers` is another: it's the
+	 * cascade's last writer and is true of any pull request nobody has been asked to review yet, so left
+	 * alone it paints every brand-new pull request red "Blocked". And last-writer-wins would let a
+	 * changes-requested review outrank real conflicts. So that mode alone drops both `mergeable` and
+	 * `unassigned-reviewers`, and lets conflicts and failing checks outrank whatever the cascade picked —
+	 * leaving it to what's objectively true of a pull request, claiming nothing about what you may do with
+	 * someone else's.
+	 */
+	private async categorizeSidebarPullRequests(
+		prs: PullRequest[],
+		integration: GitHostIntegration,
+		viewer: Promise<{ account: Account | undefined; timedOut: boolean }>,
+	): Promise<SidebarPullRequests['launchpadByPr']> {
+		try {
+			const integrationId = integration.id;
+			if (!isSupportedLaunchpadIntegrationId(integrationId)) return undefined;
+
+			const { account } = await viewer;
+
+			const prsByUuid = new Map<string, PullRequest>();
+			// A single malformed pull request shouldn't cost the whole panel its enrichment, so a failed
+			// conversion drops just that one.
+			const inputs = prs.flatMap(pr => {
+				try {
+					const providerPr = toProviderPullRequestWithUniqueId(pr);
+					prsByUuid.set(providerPr.uuid, pr);
+					// The shared pull request model carries no provider reference, and the per-integration
+					// split keys on it.
+					return [
+						{
+							...(account != null ? canonicalizeViewerIdentity(providerPr, pr, account) : providerPr),
+							provider: pr.provider,
+						},
+					];
+				} catch (ex) {
+					Logger.warn(`Unable to convert pull request '${pr.url}': ${ex}`, 'getSidebarPullRequests');
+					return [];
+				}
+			});
+
+			// Bitbucket's API reports no mergeable state, checks, or draft flag, so the shared categorizer
+			// sees a hardcoded "mergeable" and calls almost every pull request ready to merge. Demote that
+			// one verdict to `other` — the category `getLaunchpadItemGroup` renders no indicator for —
+			// rather than paint a green one nothing verified. Only the verdict goes: the review counts and
+			// the review-driven categories still come from real data.
+			const mergeableUnverifiable =
+				integrationId === GitCloudHostIntegrationId.Bitbucket ||
+				integrationId === GitSelfManagedHostIntegrationId.BitbucketServer;
+
+			// Keyed by `pr.provider.id`, which is this integration's id — every pull request here came from it.
+			const currentUsers = account != null ? new Map([[integrationId, account]]) : undefined;
+
+			// Keyed by the pull request itself, not by a field of it — these are the very objects the rows are
+			// built from, so object identity is exact and can't be wrong about which row a verdict belongs to.
+			const launchpadByPr = new Map<PullRequest, NonNullable<GraphSidebarPullRequest['launchpad']>>();
+			for (const item of categorizePullRequests(
+				inputs,
+				currentUsers,
+				account != null ? undefined : { viewer: 'none' },
+			)) {
+				const pr = prsByUuid.get(item.uuid);
+				let category = sharedCategoryToLaunchpadActionCategoryMap.get(item.suggestedActionCategory);
+				if (pr == null || category == null) continue;
+
+				if (mergeableUnverifiable && category === 'mergeable') {
+					category = 'other';
+				}
+
+				if (account == null) {
+					// Viewer-less only — see above for why these demotions exist and why they don't apply
+					// once a real viewer resolves.
+					if (category === 'mergeable' || category === 'unassigned-reviewers') {
+						category = 'other';
+					}
+					if (item.hasConflicts) {
+						category = 'conflicts';
+					} else if (item.failingCI) {
+						category = 'failed-checks';
+					}
+				} else if (!rendersIndicator(category, pr.isDraft)) {
+					// Rows that would otherwise show nothing — everyone else's pull requests, which the
+					// cascade leaves blank, and your own drafts. Objective blockers only.
+					if (item.hasConflicts) {
+						category = 'conflicts';
+					} else if (item.failingCI) {
+						category = 'failed-checks';
+					}
+				}
+
+				launchpadByPr.set(pr, {
+					category: category,
+					failingCI: item.failingCI,
+					hasConflicts: item.hasConflicts,
+					reviewCounts: {
+						approval: item.approvalReviewCount,
+						changeRequest: item.changeRequestReviewCount,
+						comment: item.commentReviewCount,
+					},
+				});
+			}
+			return launchpadByPr;
+		} catch (ex) {
+			Logger.warn(`Unable to categorize pull requests: ${ex}`, 'getSidebarPullRequests');
+			return undefined;
+		}
 	}
 
 	/**
@@ -571,26 +871,64 @@ export class GraphPanelsService {
 		const pr = await integration.getPullRequest(remote.provider.repoDesc, params.number);
 		if (pr == null) return undefined;
 
-		return this.toSidebarPullRequest(pr, graph.repoPath, remote.name, buildLocalBranchesByUpstream(graph));
+		const { localByUpstream, remoteNames } = buildLocalBranchesByUpstream(graph);
+		return this.toSidebarPullRequest(
+			pr,
+			graph.repoPath,
+			remote.name,
+			localByUpstream,
+			remoteNames,
+			undefined,
+			getCurrentBranchName(graph),
+		);
 	}
 
 	private toSidebarPullRequest(
 		pr: PullRequest,
 		repoPath: string,
 		remoteName: string,
-		localByUpstream: Map<string, string>,
+		localByUpstream: Map<string, GitBranch>,
+		remoteNames: Set<string>,
+		launchpad?: GraphSidebarPullRequest['launchpad'],
+		currentBranchName?: string,
 	): GraphSidebarPullRequest {
-		const headBranch = pr.refs?.head?.branch;
+		// Truthiness, not a null check: `fromProviderPullRequest` always builds `refs` and fills a gone head
+		// repo (merged-and-deleted, deleted fork) with `''` — the same test the command handlers make before
+		// acting on a head. The GitHub-native builder leaves them `undefined` instead, so both spellings of
+		// "no head" have to fall out here.
+		const headBranch = pr.refs?.head?.branch || undefined;
+		const headUrl = pr.refs?.head?.url || undefined;
 		// Only a same-repo head can be named against this repo's remote; a fork's head lives under a
 		// remote that may not exist locally, so leave `focus` unset rather than invent a ref.
 		const upstreamName =
 			headBranch != null && pr.refs?.isCrossRepository !== true ? `${remoteName}/${headBranch}` : undefined;
 		const localBranch = upstreamName != null ? localByUpstream.get(upstreamName) : undefined;
+		// Checked out anywhere, default worktree included — `isCurrent` below is what separates "here" from
+		// "somewhere else", so excluding the default one here would call a branch checked out in the primary
+		// worktree switchable while the graph is scoped to a secondary one, and git refuses that. The
+		// branches panel draws the same two lines (`isCheckedOut` vs `hasWorktree`); only its *icon* cares
+		// about the worktree being non-default, and a pull request row has no such icon.
+		const branchWorktree = localBranch?.worktree;
+		const isCheckedOut = branchWorktree != null && branchWorktree !== false;
+		// By short name, and independent of `localBranch` — a fork head resolves no local branch, but its
+		// name can still be what's checked out, which is all the deep link compares before skipping.
+		const isCurrent =
+			localBranch?.current === true || (headBranch != null && currentBranchName === headBranch) || undefined;
+
+		// Set only when the ref is already here, which lets the row scope instantly instead of round-tripping
+		// to the host. Absent is no longer "no Focus" — the row falls back to the host command, which offers
+		// to fetch the ref (adding a fork's remote) and then scopes. So this is a fast path, not a gate.
+		const focus =
+			localBranch != null
+				? { branchName: localBranch.name, upstreamName: upstreamName }
+				: upstreamName != null && remoteNames.has(upstreamName)
+					? { branchName: upstreamName, remote: true }
+					: undefined;
 
 		return {
 			// `PullRequest.id` is the number only on the provider-native path; the providers-api path
 			// puts the provider's internal id there. The URL carries the real number on both.
-			number: getPullRequestIdentityFromMaybeUrl(pr.url)?.prNumber ?? pr.id,
+			number: getPullRequestNumberFromUrl(pr.url) ?? pr.id,
 			id: pr.id,
 			title: pr.title,
 			state: pr.state,
@@ -598,27 +936,46 @@ export class GraphPanelsService {
 			isDraft: pr.isDraft,
 			authorName: pr.author.name,
 			authorAvatarUrl: pr.author.avatarUrl,
-			date: pr.updatedDate.getTime(),
+			// The date the byline's verb names: a merged pull request says "merged <when>", and a comment
+			// landing after the merge bumps `updatedDate` — which would date the merge to that comment.
+			// Same precedence `PullRequest.formatDateFromNow` uses; identical to `updatedDate` while open.
+			date: (pr.mergedDate ?? pr.closedDate ?? pr.updatedDate).getTime(),
 			headBranch: headBranch,
-			headSha: upstreamName != null ? pr.refs?.head?.sha : undefined,
+			headUrl: headUrl,
+			headSha: upstreamName != null ? pr.refs?.head?.sha || undefined : undefined,
 			baseBranch: pr.refs?.base?.branch,
-			headRepo:
-				pr.refs?.isCrossRepository === true && pr.refs.head?.owner != null
-					? `${pr.refs.head.owner}/${pr.refs.head.repo}`
-					: undefined,
-			focus:
-				localBranch != null
-					? { branchName: localBranch, upstreamName: upstreamName }
-					: upstreamName != null
-						? { branchName: upstreamName, remote: true }
-						: undefined,
+			commitCount: pr.commitCount,
+			headOwner: pr.refs?.isCrossRepository === true ? pr.refs.head?.owner || undefined : undefined,
+			focus: focus,
+			// Checked out, but not where the graph is looking — the chip opens that worktree instead of
+			// offering a switch git would refuse.
+			worktree: (isCheckedOut && !isCurrent) || undefined,
+			current: isCurrent,
+			additions: pr.additions,
+			deletions: pr.deletions,
+			commentsCount: pr.commentsCount,
+			statusCheckRollup: pr.statusCheckRollupState,
+			reviewDecision: pr.reviewDecision,
+			launchpad: launchpad,
 			context: {
 				webview: this.host.id,
 				webviewItemOrigin: sidebarItemOrigin,
-				webviewItem: `gitlens:pullrequest${pr.refs ? '+refs' : ''}`,
+				// Every suffix names a precondition some handler actually checks, because a suffix that
+				// merely says "a refs object exists" gates nothing: the providers-api path always builds
+				// `refs`, filling a gone head with empty strings. So — `+head` for an actionable head
+				// (branch and url both non-empty, what switch/worktree need), `+shas` for a diffable pair
+				// (changes/comparison), `+focus` for a scope target that's really in this repo. `+head`
+				// isn't fork-gated: those commands work for a fork off its own url, since the deep link
+				// adds the remote. Kept in sync with the graph row's producer (`GraphProducersService`).
+				webviewItem: `gitlens:pullrequest${
+					headBranch != null && headUrl != null ? '+head' : ''
+				}${pr.refs?.base?.sha && pr.refs.head?.sha ? '+shas' : ''}${
+					pr.state !== 'opened' ? '+closed' : ''
+				}${pr.refs?.isCrossRepository === true ? '+fork' : ''}${isCurrent ? '+current' : ''}`,
 				webviewItemValue: {
 					type: 'pullrequest',
 					id: pr.id,
+					title: pr.title,
 					url: pr.url,
 					repoPath: repoPath,
 					refs: pr.refs,
@@ -634,36 +991,93 @@ export class GraphPanelsService {
 	}
 
 	/**
-	 * Fetches the repo's open PRs, deduping concurrent callers and caching the result — neither
-	 * `getMyPullRequestsForRepos` nor `searchMyPullRequests` is `@gate()`d, so without this every panel
-	 * open and every sidebar invalidation would issue its own request.
+	 * Fetches the repo's open PRs and their Launchpad categorization, deduping concurrent callers and
+	 * caching the result — neither `getMyPullRequestsForRepos` nor `searchMyPullRequests` is `@gate()`d,
+	 * so without this every panel open and every sidebar invalidation would issue its own request.
 	 */
 	private async fetchPullRequests(
 		repoPath: string,
 		integration: GitHostIntegration,
 		remote: GitRemote<RemoteProvider>,
-	): Promise<PullRequest[] | undefined> {
+	): Promise<SidebarPullRequests> {
 		const key = `${repoPath}|${integration.id}|${remote.provider.repoDesc.key ?? remote.name}`;
 		const cached = this._pullRequestsCache;
 		if (cached?.key === key && cached.expiresAt > Date.now()) return cached.promise;
 
+		// Started before the list so the viewer's bounded lookup overlaps the fetch rather than following it.
+		const viewer = this.resolveViewerAccount(integration);
+
 		// Deliberately not given the caller's AbortSignal. This promise is shared, so cancelling it on
 		// behalf of one caller — a panel switch, say — would fail every other caller waiting on it, and
 		// leave the cancelled result cached. Callers check their own signal after awaiting instead.
-		let promise: Promise<PullRequest[] | undefined>;
+		let promise: Promise<SidebarPullRequests>;
 		const evict = () => {
 			if (this._pullRequestsCache?.promise === promise) {
 				this._pullRequestsCache = undefined;
 			}
 		};
 		promise = this.fetchPullRequestsCore(integration, remote).then(
-			prs => {
-				// Only a real list is worth keeping. `undefined` means the lookup failed, and caching
-				// that would show "no pull requests" for the full TTL with refresh unable to shift it.
+			async prs => {
+				// Only a real list is worth keeping. No list means the lookup failed or the provider can't
+				// answer it, and caching either would hold that for the full TTL with refresh unable to
+				// shift it.
 				if (prs == null) {
 					evict();
+					return { prs: undefined, launchpadByPr: undefined };
 				}
-				return prs;
+
+				// Sorted here rather than at either producer: the providers-api walk and the provider-native
+				// fallback each return their own order, so without this the same repository lists differently
+				// depending on which path answered. Most-recently-updated first, matching the row's own byline
+				// and every other panel's explicit sort. `updatedDate` specifically — the row's `date` prefers
+				// a merge/close date, which only the search fallback's rows ever carry.
+				prs.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+
+				// An empty list can be a swallowed failure rather than an empty repository, so it gets a
+				// short window instead of the full one — long enough to dedupe a burst of panel opens,
+				// short enough that a transient outage can't serve "No items" for half an hour.
+				if (!prs.length && this._pullRequestsCache?.promise === promise) {
+					this._pullRequestsCache.expiresAt = Math.min(
+						this._pullRequestsCache.expiresAt,
+						Date.now() + pullRequestsEmptyCacheExpiration,
+					);
+				}
+
+				// Categorize within the shared promise so the rows wait on it exactly once, no matter how
+				// many panel opens land on this fetch. It neither throws nor waits unbounded, so it can cost
+				// the enrichment but never the list.
+				const launchpadByPr = await this.categorizeSidebarPullRequests(prs, integration, viewer);
+
+				// A viewer that timed out categorized every row viewer-less. That's a worse answer than the one
+				// a second attempt would give — the account request it gave up on has very likely landed in
+				// its own cache by now — so don't hold it for the full window, and re-fetch once it lands.
+				const { timedOut, pending } = await viewer;
+				if (timedOut && this._pullRequestsCache?.promise === promise) {
+					this._pullRequestsCache.expiresAt = Math.min(
+						this._pullRequestsCache.expiresAt,
+						Date.now() + pullRequestsEmptyCacheExpiration,
+					);
+
+					// Wired here, not where the account is resolved, and only now that the list is in hand: an
+					// account landing mid-fetch would otherwise evict an entry still being filled and have the
+					// invalidation start a second identical request. Identity-checked because there's one cache
+					// field for the whole service — by the time this runs it may belong to another repository,
+					// and evicting that one recovers nothing while costing it its list.
+					void pending?.then(
+						account => {
+							if (account == null || this._pullRequestsCache?.promise !== promise) return;
+
+							// Evict, then invalidate. Invalidating alone re-enters `fetchPullRequests`, which
+							// finds this entry still inside its (shortened) window and hands back the very
+							// viewer-less result being replaced.
+							this._pullRequestsCache = undefined;
+							this.context.fireSidebarInvalidated();
+						},
+						() => {},
+					);
+				}
+
+				return { prs: prs, launchpadByPr: launchpadByPr };
 			},
 			(ex: unknown) => {
 				evict();
@@ -674,6 +1088,8 @@ export class GraphPanelsService {
 		return promise;
 	}
 
+	/** The repo's open pull requests, or `undefined` when nothing answered — a failure, an unresolvable
+	 *  session, or a host with no repo-scoped query. Never an empty list for any of those. */
 	private async fetchPullRequestsCore(
 		integration: GitHostIntegration,
 		remote: GitRemote<RemoteProvider>,
@@ -724,7 +1140,9 @@ export class GraphPanelsService {
 			}
 		}
 
-		// Fallback: provider-native, implemented by every integration, but only the current user's PRs.
+		// Fallback: provider-native, and only the current user's PRs. Every integration exposes it, but not
+		// every one answers a repo-scoped query — Azure DevOps (both editions) and Bitbucket Server stub
+		// that out. Bitbucket Cloud only stubs this path; it lists via the providers-api path above.
 		const result = await integration.searchMyPullRequests(
 			remote.provider.repoDesc,
 			undefined,
@@ -732,9 +1150,12 @@ export class GraphPanelsService {
 			undefined,
 			'open',
 		);
-		// It reports failure by resolving with `error` rather than throwing, so an unchecked `value`
-		// turns a failed lookup into an empty list — which the caller would then cache as the truth.
-		return result != null && 'error' in result ? undefined : result?.value;
+		// It reports failure by resolving with `error` rather than throwing, and resolves a bare `undefined`
+		// when the session can't be resolved at all (expired token, revoked connection) — so an unchecked
+		// `value` turns either into an empty list, which the caller would then cache as the truth. Both are
+		// `undefined` here, and the caller names them apart by integration.
+		if (result == null || 'error' in result) return undefined;
+		return result.value;
 	}
 
 	private getSidebarStashes(graph: GitGraph) {
@@ -941,6 +1362,32 @@ export class GraphPanelsService {
 	}
 
 	onSidebarAction(params: { command: GlCommands; context?: string; args?: unknown[] }): void {
+		// The pull-requests panel's connect empty state passes the integration to connect, not the
+		// command's own args shape, and the connect flow needs no repo context — so it's handled ahead of
+		// both the typed-args dispatch and the repoPath gate below.
+		if (params.command === 'gitlens.plus.cloudIntegrations.connect') {
+			const [arg] = params.args ?? [];
+			const integrationId = (arg as { integrationId?: SupportedCloudIntegrationIds } | undefined)?.integrationId;
+
+			// No specific integration (an unrecognized host): the generic manage flow, where connecting a
+			// self-managed integration with its domain is what makes the host recognized.
+			if (integrationId == null) {
+				void this.container.integrations.manageCloudIntegrations({
+					source: 'graph-sidebar',
+					detail: 'pullRequests',
+				});
+				return;
+			}
+
+			// Never skip an already-connected provider: the empty state is only offered when nothing is
+			// connected, so a "connected" read here is stale and skipping would leave the panel empty.
+			void this.container.integrations.connectCloudIntegrations(
+				{ integrationIds: [integrationId], skipIfConnected: false },
+				{ source: 'graph-sidebar', detail: 'pullRequests' },
+			);
+			return;
+		}
+
 		const repoPath = this._graphSession?.repoPath;
 		if (repoPath == null) return;
 
@@ -1006,6 +1453,13 @@ export class GraphPanelsService {
 			default:
 				void executeCommand(params.command, Uri.file(repoPath));
 		}
+	}
+
+	/** A git host integration connected or disconnected — the pull-requests panel's list (and its connect
+	 *  empty state) is entirely a function of that, so drop the cached list and re-fetch. */
+	onIntegrationConnectionChanged(): void {
+		this._pullRequestsCache = undefined;
+		this.notifySidebarInvalidated();
 	}
 
 	@trace()

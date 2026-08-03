@@ -204,8 +204,9 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 			this._loadedKey = key;
 			this._tipMessage = undefined;
-			// Remote branches need the full remote-qualified name — take it from the ref's context.
-			const branchName = this.contextRefName() ?? ref.name;
+			// Remote branches need the full remote-qualified name — a bare name would resolve the
+			// same-named LOCAL branch instead.
+			const branchName = this.displayName(ref);
 			void this.loadEnrichment(key, repoPath, branchName, services);
 			return;
 		}
@@ -233,7 +234,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		if (key == null || key !== this._loadedKey) return;
 		if (ref.refType !== 'head' && ref.refType !== 'remote') return;
 
-		const branchName = this.contextRefName() ?? ref.name;
+		const branchName = this.displayName(ref);
 		this.scheduleEnrichmentRefresh(key, repoPath, branchName, services);
 	}
 

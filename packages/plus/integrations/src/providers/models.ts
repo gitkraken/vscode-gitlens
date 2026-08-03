@@ -12,6 +12,7 @@ import type {
 	CursorPageInput,
 	EnterpriseOptions,
 	GetRepoInput,
+	GitBuildStatus,
 	GitHub,
 	GitLab,
 	GitLabGroup,
@@ -806,6 +807,36 @@ export const fromProviderBuildStatusState = {
 	[GitBuildStatusState.Warning]: undefined,
 };
 
+/** Rolls every check context up into one state, the way a provider's own rollup does: failed, errored, or
+ *  action-required fails; else pending or running is pending; else success — reading only the first context
+ *  would call a pull request passing on the strength of whichever check happens to come back first. States
+ *  carrying no verdict (cancelled, skipped, optional action required, warning) don't vote. Reads the raw
+ *  state rather than `fromProviderBuildStatusState`, which drops errored and running to `undefined` and
+ *  would let a lone success outvote a check still in flight. */
+function toStatusCheckRollupState(
+	statuses: GitBuildStatus[] | null | undefined,
+): PullRequestStatusCheckRollupState | undefined {
+	if (!statuses?.length) return undefined;
+
+	let rollup: PullRequestStatusCheckRollupState | undefined;
+	for (const { state } of statuses) {
+		switch (state) {
+			case GitBuildStatusState.Failed:
+			case GitBuildStatusState.Error:
+			case GitBuildStatusState.ActionRequired:
+				return PullRequestStatusCheckRollupState.Failed;
+			case GitBuildStatusState.Pending:
+			case GitBuildStatusState.Running:
+				rollup = PullRequestStatusCheckRollupState.Pending;
+				break;
+			case GitBuildStatusState.Success:
+				rollup ??= PullRequestStatusCheckRollupState.Success;
+				break;
+		}
+	}
+	return rollup;
+}
+
 export const toProviderPullRequestReviewState = {
 	[PullRequestReviewState.Approved]: GitPullRequestReviewState.Approved,
 	[PullRequestReviewState.ChangesRequested]: GitPullRequestReviewState.ChangesRequested,
@@ -992,7 +1023,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		mergedDate: pr.mergedDate ?? null,
 		commentCount: pr.commentsCount ?? null,
 		upvoteCount: pr.thumbsUpCount ?? null,
-		commitCount: null,
+		commitCount: pr.commitCount ?? null,
 		fileCount: null,
 		additions: pr.additions ?? null,
 		deletions: pr.deletions ?? null,
@@ -1142,11 +1173,10 @@ export function fromProviderPullRequest(
 		toReviewRequests(pr.reviews),
 		toCompletedReviews(pr.reviews),
 		pr.assignees?.map(fromProviderAccount) ?? undefined,
-		pr.headCommit?.buildStatuses?.[0]?.state
-			? fromProviderBuildStatusState[pr.headCommit.buildStatuses[0].state]
-			: undefined,
+		toStatusCheckRollupState(pr.headCommit?.buildStatuses),
 		options?.project,
 		pr.version,
+		pr.commitCount ?? undefined,
 	);
 }
 
