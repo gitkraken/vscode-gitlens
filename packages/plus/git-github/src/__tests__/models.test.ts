@@ -64,12 +64,13 @@ suite('fromGitHubIssue', () => {
 		assert.equal(issue.title, 'Issue 2701');
 	});
 
-	test('maps a present author unchanged', () => {
+	test('maps a present author unchanged, carrying the login as the username', () => {
 		const issue = fromGitHubIssue(createIssue(1, member), provider);
 
 		assert.deepEqual(issue.author, {
 			id: 'eamodio',
 			name: 'eamodio',
+			username: 'eamodio',
 			avatarUrl: 'https://avatars/eamodio',
 			url: 'https://github.com/eamodio',
 		});

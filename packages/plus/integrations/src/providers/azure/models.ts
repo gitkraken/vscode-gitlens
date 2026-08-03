@@ -474,6 +474,7 @@ export function fromAzureUserWithVoteToReviewer(reviewer: AzureUserWithVote): Pu
 			avatarUrl: reviewer.imageUrl,
 			id: reviewer.id,
 			name: reviewer.displayName,
+			username: reviewer.uniqueName,
 			url: reviewer.url,
 		},
 		state: fromAzurePullRequestVoteToReviewState(reviewer.vote ?? 0),
@@ -504,6 +505,7 @@ export function fromAzureReviewerToPullRequestMember(reviewer: AzureUser): PullR
 		avatarUrl: reviewer.imageUrl,
 		id: reviewer.id,
 		name: reviewer.displayName,
+		username: reviewer.uniqueName,
 		url: reviewer.url,
 	};
 }
@@ -519,6 +521,7 @@ function fromAzureUserToMember(user: AzureUser, _type: 'issue' | 'pullRequest'):
 		avatarUrl: user.imageUrl,
 		id: user.id,
 		name: user.displayName,
+		username: user.uniqueName,
 		url: user.url,
 	};
 }

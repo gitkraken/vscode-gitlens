@@ -297,6 +297,7 @@ export function fromBitbucketUser(user: BitbucketUser): PullRequestMember {
 	return {
 		avatarUrl: user.links.avatar.href,
 		name: user.display_name,
+		username: user.nickname,
 		url: user.links.html.href,
 		id: user.uuid,
 	};

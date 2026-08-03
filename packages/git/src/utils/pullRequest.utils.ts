@@ -101,6 +101,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		author: {
 			id: value.author.id,
 			name: value.author.name,
+			username: value.author.username,
 			avatarUrl: value.author.avatarUrl,
 			url: value.author.url,
 		},

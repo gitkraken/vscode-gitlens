@@ -239,7 +239,13 @@ export type GitHubViewerPermission =
 function fromGitHubMemberOrGhost(member: GitHubMember | null | undefined): PullRequestMember {
 	if (member == null) return { id: 'ghost', name: 'ghost' };
 
-	return { id: member.login, name: member.login, avatarUrl: member.avatarUrl, url: member.url };
+	return {
+		id: member.login,
+		name: member.login,
+		username: member.login,
+		avatarUrl: member.avatarUrl,
+		url: member.url,
+	};
 }
 
 export function fromGitHubPullRequestLite(pr: GitHubPullRequestLite, provider: Provider): PullRequest {
@@ -446,6 +452,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 							reviewer: {
 								id: r.requestedReviewer.login,
 								name: r.requestedReviewer.login,
+								username: r.requestedReviewer.login,
 								avatarUrl: r.requestedReviewer.avatarUrl,
 								url: r.requestedReviewer.url,
 							},
@@ -461,6 +468,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		pr.assignees.nodes.map(r => ({
 			id: r.login,
 			name: r.login,
+			username: r.login,
 			avatarUrl: r.avatarUrl,
 			url: r.url,
 		})),
@@ -489,12 +497,14 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider): Issue {
 			: {
 					id: value.author.login,
 					name: value.author.login,
+					username: value.author.login,
 					avatarUrl: value.author.avatarUrl,
 					url: value.author.url,
 				},
 		value.assignees.nodes.map(assignee => ({
 			id: assignee.login,
 			name: assignee.login,
+			username: assignee.login,
 			avatarUrl: assignee.avatarUrl,
 			url: assignee.url,
 		})),

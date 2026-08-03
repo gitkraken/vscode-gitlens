@@ -1215,6 +1215,7 @@ export function fromProviderAccount(account: ProviderAccount | null): PullReques
 	return {
 		id: account?.id ?? '',
 		name: account?.name ?? 'unknown',
+		username: account?.username ?? undefined,
 		avatarUrl: account?.avatarUrl ?? undefined,
 		url: account?.url ?? '',
 	};

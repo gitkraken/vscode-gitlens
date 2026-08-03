@@ -43,6 +43,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 				: {
 						id: value.author.id,
 						name: value.author.name,
+						username: value.author.username,
 						avatarUrl: value.author.avatarUrl,
 						url: value.author.url,
 					},
@@ -66,6 +67,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 		assignees: value.assignees.map(assignee => ({
 			id: assignee.id,
 			name: assignee.name,
+			username: assignee.username,
 			avatarUrl: assignee.avatarUrl,
 			url: assignee.url,
 		})),
