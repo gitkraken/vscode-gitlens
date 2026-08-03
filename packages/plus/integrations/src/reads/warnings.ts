@@ -140,14 +140,26 @@ export function incompleteReadWarning(
 }
 
 /**
- * {@link incompleteReadWarning} for a paged or drained read, phrased per surface. `'Account-wide issue search'`
- * names the composite read that spans several provider searches rather than one surface.
+ * The read surfaces {@link truncationWarning} phrases for. `'Account-wide issue search'` names the composite
+ * read that spans several provider searches rather than one surface.
+ *
+ * Deliberately not exported: every caller passes a literal, and publishing it would invite a consumer to switch
+ * on a set that exists only to word a message.
  */
+type TruncatedReadKind =
+	| 'Pull request'
+	| 'Issue'
+	| 'Repository'
+	| 'Organization'
+	| 'Project'
+	| 'Account-wide issue search';
+
+/** {@link incompleteReadWarning} for a paged or drained read, phrased per surface. */
 export function truncationWarning(
 	id: IntegrationIds,
 	domain: string | undefined,
 	connectionId: string | undefined,
-	readKind: 'Pull request' | 'Issue' | 'Repository' | 'Account-wide issue search',
+	readKind: TruncatedReadKind,
 	/**
 	 * Deliberately REQUIRED and not defaulted: a default would make one of these the silent fallback at any
 	 * call site that forgot it, and both of the claims it carries — "the request succeeded" and "more can be
@@ -158,11 +170,7 @@ export function truncationWarning(
 	return incompleteReadWarning(id, domain, connectionId, truncationMessage(id, readKind, cause), cause);
 }
 
-function truncationMessage(
-	id: IntegrationIds,
-	readKind: 'Pull request' | 'Issue' | 'Repository' | 'Account-wide issue search',
-	cause: IncompleteReadCause,
-): string {
+function truncationMessage(id: IntegrationIds, readKind: TruncatedReadKind, cause: IncompleteReadCause): string {
 	switch (cause) {
 		case 'interrupted':
 			// Deliberately does not name a mechanism. This fires both when a page was lost mid-drain and when a

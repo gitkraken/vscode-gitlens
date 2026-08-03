@@ -244,17 +244,36 @@ export function assessCollectionMetadata(
 	return { warnings: warnings, fetchFailed: failures.length > 0, truncated: incomplete };
 }
 
-/** Appends neutral warnings derived from SDK metadata and returns its failure/truncation assessment. */
+/**
+ * Appends neutral warnings derived from SDK metadata and returns its failure/truncation assessment.
+ *
+ * `reported` says whether the metadata described this read's incompleteness at all. A caller that would
+ * otherwise add its own generic "this was truncated" warning uses it to stay quiet — the same rule
+ * {@link assessCollectionMetadata} applies to its own generic fallback, one layer up: whatever the metadata
+ * reported already names this provider and, unless it was that same fallback, says something a consumer can
+ * act on. Restating it in a weaker vocabulary is how one gap becomes two warnings with two different verdicts.
+ *
+ * `truncated` is the near-synonym that must NOT be used for that question: it comes from
+ * {@link isIncompleteCollection}, which does not consider failures, so metadata carrying a typed failure
+ * alongside `completeness: 'complete'` reports `truncated: false` while having already appended the warning
+ * that explains everything. Gating on it would restate exactly the case this field exists to keep quiet.
+ */
 export function mergeAssessmentInto(
 	warnings: ProviderWarning[],
 	providerId: IntegrationIds,
 	domain: string | undefined,
 	connectionId: string | undefined,
 	metadata: CollectionMetadata | undefined,
-): { fetchFailed: boolean; truncated: boolean } {
+): { fetchFailed: boolean; truncated: boolean; reported: boolean } {
 	const assessment = assessCollectionMetadata(providerId, domain, connectionId, metadata);
 	for (const warning of assessment.warnings) {
 		appendDedupedWarning(warnings, warning);
 	}
-	return { fetchFailed: assessment.fetchFailed, truncated: assessment.truncated };
+	return {
+		fetchFailed: assessment.fetchFailed,
+		truncated: assessment.truncated,
+		// What the assessment PRODUCED, not what `appendDedupedWarning` accepted: a warning dropped as a
+		// duplicate is still one the consumer will see, so it still makes a restatement redundant.
+		reported: assessment.warnings.length > 0,
+	};
 }

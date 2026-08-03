@@ -2165,6 +2165,163 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	/**
+	 * One truncated org listing must produce ONE warning. A Kepler field report (staging
+	 * `0.8.1-staging.202608030759.g739dec3`, expired GitLab credentials) showed both an `auth` warning and a
+	 * bare `kind: 'other'` "listing was truncated" one for the same expired credential: the first lit the
+	 * reconnect prompt, the second lit a "this provider failed to load" banner offering a remedy that doesn't
+	 * exist. Do not "restore" the second warning as a diagnostic improvement — it is unclassifiable on the wire.
+	 */
+	async function listTruncatedOrgs(metadata?: CollectionMetadata) {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		(
+			bb as unknown as {
+				getOrganizationsForUserResult: () => Promise<{
+					value: { values: ProviderOrganization[]; truncated: boolean; metadata?: CollectionMetadata };
+				}>;
+			}
+		).getOrganizationsForUserResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{
+							id: 'ws-1',
+							providerId: GitCloudHostIntegrationId.Bitbucket,
+							name: 'acme',
+							url: 'https://bitbucket.org/acme',
+						},
+					],
+					truncated: true,
+					metadata: metadata,
+				},
+			});
+
+		try {
+			return await manager.listOrgs({ providerId: GitCloudHostIntegrationId.Bitbucket });
+		} finally {
+			manager.dispose();
+		}
+	}
+
+	/** {@link listTruncatedOrgs} for the git-host project tier, which owes the same one-cause-one-warning contract. */
+	async function listTruncatedProjects(metadata?: CollectionMetadata) {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		(
+			azure as unknown as {
+				getProjectsForOrgResult: () => Promise<{
+					value: { values: ProviderOrganization[]; truncated: boolean; metadata?: CollectionMetadata };
+				}>;
+			}
+		).getProjectsForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{
+							id: 'p1',
+							providerId: GitCloudHostIntegrationId.AzureDevOps,
+							name: 'Proj',
+							org: 'org',
+							url: 'https://dev.azure.com/org/Proj',
+						},
+					],
+					truncated: true,
+					metadata: metadata,
+				},
+			});
+
+		try {
+			return await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+		} finally {
+			manager.dispose();
+		}
+	}
+
+	test('listOrgs does not restate a truncation the metadata already blamed on an expired credential', async () => {
+		const result = await listTruncatedOrgs({
+			completeness: 'partial',
+			failures: [
+				{
+					kind: 'authentication',
+					scope: { resourceId: 'ws-bad' },
+					message: "Your 'bitbucket' credentials are either invalid or expired",
+				},
+			],
+		});
+
+		assert.equal(result.items.length, 1, 'the workspaces that did return are preserved');
+		assert.equal(result.fetchFailed, true, 'a truncated flat hierarchy result is still non-authoritative');
+		assert.equal(result.warnings.length, 1, 'one cause, one warning');
+		assert.equal(result.warnings[0].kind, 'auth');
+		assert.equal(result.warnings[0].isAuth, true);
+		assert.equal(
+			result.warnings.some(w => /truncat/i.test(w.message)),
+			false,
+			'the typed failure already explains the gap; a generic restatement reads as a second, unfixable failure',
+		);
+	});
+
+	test('listOrgs still warns for a truncation nothing explained, now with the structured omission', async () => {
+		const result = await listTruncatedOrgs();
+
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.ok(
+			result.warnings[0].message.startsWith('Organization read'),
+			`unexpected wording: ${result.warnings[0].message}`,
+		);
+		// The whole point of routing through `truncationWarning`: a consumer reads "incomplete, and no fetch
+		// returns the rest" off `omission` instead of guessing from a `kind: 'other'` message.
+		assert.deepEqual(result.warnings[0].omission, { kind: 'pagination-incomplete', recovery: 'none' });
+		assert.equal(result.warnings[0].isAuth, false);
+	});
+
+	test('listOrgs treats an omission-only metadata as an explanation too', async () => {
+		const result = await listTruncatedOrgs({
+			completeness: 'partial',
+			omissions: [{ kind: 'provider-limit', limit: 1000, totalCount: 1393 }],
+		});
+
+		assert.equal(result.warnings.length, 1, 'the omission explains the incompleteness on its own');
+		assert.equal(
+			result.warnings.some(w => w.message.startsWith('Organization read')),
+			false,
+		);
+		assert.equal(result.warnings[0].omission?.kind, 'provider-limit');
+		// From `truncated`, not from the omission: an omission asserts the request succeeded, but this result
+		// has no page object on which to carry incompleteness structurally.
+		assert.equal(result.fetchFailed, true);
+	});
+
+	test('listProjects suppresses the same restatement on a git-host project read', async () => {
+		const result = await listTruncatedProjects({
+			completeness: 'partial',
+			failures: [{ kind: 'authentication', scope: { projectId: 'p-bad' } }],
+		});
+
+		assert.equal(result.items.length, 1);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1, 'listProjects owes the same one-cause-one-warning contract');
+		assert.equal(result.warnings[0].kind, 'auth');
+		assert.equal(
+			result.warnings.some(w => /truncat/i.test(w.message)),
+			false,
+		);
+	});
+
 	test('listOrgs/listProjects set fetchFailed (not just a warning) for an invalid connection (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -2386,48 +2543,19 @@ suite('ProviderBackend surface facade (#5438)', () => {
 	});
 
 	test('listProjects marks a git-host project-discovery backstop non-authoritative (#5438)', async () => {
-		const runtime = createFakeRuntime();
-		const manager = createIntegrationManager(runtime);
-		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
-		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'dev.azure.com',
-		};
+		const result = await listTruncatedProjects();
 
-		(
-			azure as unknown as {
-				getProjectsForOrgResult: () => Promise<{
-					value: { values: ProviderOrganization[]; truncated: boolean };
-				}>;
-			}
-		).getProjectsForOrgResult = () =>
-			Promise.resolve({
-				value: {
-					values: [
-						{
-							id: 'p1',
-							providerId: GitCloudHostIntegrationId.AzureDevOps,
-							name: 'Proj',
-							org: 'org',
-							url: 'https://dev.azure.com/org/Proj',
-						},
-					],
-					truncated: true,
-				},
-			});
-
-		const result = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
 		assert.deepEqual(
 			result.items.map(project => project.id),
 			['p1'],
 		);
 		assert.equal(result.fetchFailed, true, 'a truncated flat hierarchy result is non-authoritative');
-		assert.ok(
-			result.warnings.some(w => /project listing was truncated/i.test(w.message)),
-			'the truncation remains diagnosable',
-		);
-
-		manager.dispose();
+		const truncation = result.warnings.find(w => /truncat/i.test(w.message));
+		assert.ok(truncation, 'the truncation remains diagnosable');
+		assert.ok(truncation.message.startsWith('Project read'), `unexpected wording: ${truncation.message}`);
+		// Nothing explained this truncation, so the read states it itself — carrying the omission that tells a
+		// consumer the results are short but nothing failed and no fetch would return the rest.
+		assert.deepEqual(truncation.omission, { kind: 'pagination-incomplete', recovery: 'none' });
 	});
 
 	test('listProjects scopes projects to the requested org resource', async () => {
