@@ -1,6 +1,6 @@
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
@@ -26,7 +26,7 @@ import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { SearchMyIssuesOptions } from '../models/integration.js';
+import type { ProviderIssueSearchPage, SearchMyIssuesOptions } from '../models/integration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
 import type {
@@ -34,6 +34,7 @@ import type {
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
+	ProviderRepoInput,
 	ProviderRepository,
 } from './models.js';
 import {
@@ -620,6 +621,41 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 							mentioned: options.filters.includes(IssueFilter.Mention),
 						}
 					: undefined,
+			},
+			cancellation,
+		);
+	}
+
+	/**
+	 * The filtered issue search: one GraphQL request per page, no forced relationship to the current user, and no
+	 * route through the SDK's repo-scoped read (whose over-limit recovery walk can spend up to 128 requests).
+	 *
+	 * The criteria → qualifier translation and the ordering guarantee live in the API client
+	 * (`GitHubApi.searchIssuesPage`), which is also where user input is sanitized so it can't inject a qualifier.
+	 */
+	protected override async searchProviderIssuesPage(
+		session: ProviderAuthenticationSession,
+		options: {
+			repos?: ProviderRepoInput[];
+			org?: string;
+			criteria?: IssueSearchCriteria;
+			cursor?: string;
+			pageSize?: number;
+		},
+		cancellation?: AbortSignal,
+	): Promise<ProviderIssueSearchPage | undefined> {
+		return (await this.authenticationService.apis.github)?.searchIssuesPage(
+			this,
+			toTokenWithInfo(this.id, session),
+			{
+				// `namespace` is the owner for GitHub, which is how a `repo:` qualifier names a repository.
+				repos: options.repos?.map(r => `${r.namespace}/${r.name}`),
+				org: options.org,
+				criteria: options.criteria,
+				baseUrl: this.apiBaseUrl,
+				includeBody: true,
+				cursor: options.cursor,
+				pageSize: options.pageSize,
 			},
 			cancellation,
 		);

@@ -1,7 +1,7 @@
 import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
@@ -50,7 +50,7 @@ import {
 } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
-import type { IntegrationResult, IntegrationType } from './integration.js';
+import type { IntegrationResult, IntegrationType, ProviderIssueSearchPage } from './integration.js';
 import { IntegrationBase } from './integration.js';
 
 function isAzureDevOpsProvider(
@@ -1640,6 +1640,65 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined>;
+
+	/**
+	 * Result-returning wrapper for the FILTERED issue search — issues matching structured criteria over a
+	 * repository/org scope, with no forced relationship to the current user. Recovers thrown errors into
+	 * `{ error }` so the facade surfaces a warning instead of a silent empty page.
+	 *
+	 * Distinct from every other issue read on this class: {@link searchMyIssuesWithTruncationResult} is bound to
+	 * the current user by construction, and {@link getMyIssuesForReposAsShapesResult} goes through the SDK's
+	 * repo-scoped read (whose over-limit recovery walk can cost up to 128 requests). This one is one request per
+	 * page and carries no relationship it wasn't asked for.
+	 */
+	async searchIssuesPageResult(
+		options: {
+			/**
+			 * Repositories to search, as namespace/name descriptors. NOT repository ids: a search query names
+			 * repositories by path, so an id-based input can't be expressed and the facade rejects it before here.
+			 */
+			repos?: ProviderRepoInput[];
+			org?: string;
+			criteria?: IssueSearchCriteria;
+			cursor?: string;
+			pageSize?: number;
+		},
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<ProviderIssueSearchPage | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const result = await this.searchProviderIssuesPage?.(session, options, cancellation);
+			this.resetRequestExceptionCount('searchIssuesPage');
+			return { value: result, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('searchIssuesPage', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL, like {@link searchProviderPullRequests}: a provider that can't express the criteria server-side
+	 * doesn't implement it, and the facade refuses the read (warning + `fetchFailed`) rather than serving a list
+	 * that was never narrowed. Whether a provider implements this must agree with what
+	 * `ProviderMetadata.supportedIssueSearch` declares.
+	 */
+	protected searchProviderIssuesPage?(
+		session: ProviderAuthenticationSession,
+		options: {
+			repos?: ProviderRepoInput[];
+			org?: string;
+			criteria?: IssueSearchCriteria;
+			cursor?: string;
+			pageSize?: number;
+		},
+		cancellation?: AbortSignal,
+	): Promise<ProviderIssueSearchPage | undefined>;
 
 	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
 		return this.getProviderPullRequestIdentityFromMaybeUrl?.(search);
