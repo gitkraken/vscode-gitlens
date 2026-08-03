@@ -133,6 +133,39 @@ function getRequestRetryDelay(attempt: number): number {
 	return Math.round(backoff / 2 + Math.random() * (backoff / 2));
 }
 
+/**
+ * The maximum number of results GitHub's search will serve for ONE query, however it is paged. A search whose
+ * `issueCount` exceeds this cannot be read in full: the items past the ceiling are unreachable, not merely
+ * unfetched. Exported so the reads that report the ceiling to a consumer and the ones that detect it are the
+ * same number.
+ */
+export const githubSearchResultLimit = 1000;
+
+/** One aliased `search` field in a multi-search issue request; see {@link GitHubApi.searchIssuesByAlias}. */
+interface AliasedIssueSearch {
+	/** GraphQL alias, also the key this search's cursor is stored under. Must not be `page` or `truncated`. */
+	alias: string;
+	/** The fully-composed GitHub search query, qualifiers included. */
+	query: string;
+}
+
+/** One page of a multi-search issue request, with its composite cursor across every alias. */
+export interface AliasedIssueSearchResult {
+	values: IssueShape[];
+	/** Opaque composite cursor; absent when every alias is exhausted. */
+	cursor?: string;
+	hasMore: boolean;
+	page: number;
+	/** True when the read cannot return everything — GitHub's search ceiling, or an unusable continuation. */
+	truncated: boolean;
+	/**
+	 * The largest `issueCount` any single alias reported, which is what {@link githubSearchResultLimit} applies
+	 * to (the ceiling is per search, not per request). Absent when no request was made — every alias was already
+	 * exhausted — so `undefined` means "not reported", never zero matches.
+	 */
+	totalCount?: number;
+}
+
 // Matches a GraphQL document whose operation is definitely a read query — the `query` keyword as
 // the first significant token, after any leading whitespace or `#` comment lines. We retry only
 // when this matches; a mutation (even one prefixed by a comment), a subscription, or anything we
@@ -3694,7 +3727,7 @@ export class GitHubApi {
 				values: results,
 				cursor: rsp.search.pageInfo.endCursor ?? undefined,
 				hasMore: rsp.search.pageInfo.hasNextPage,
-				truncated: rsp.search.issueCount > 1000,
+				truncated: rsp.search.issueCount > githubSearchResultLimit,
 			};
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope, options?.silent);
@@ -3745,120 +3778,7 @@ export class GitHubApi {
 			categories?: { authored?: boolean; assigned?: boolean; mentioned?: boolean };
 		},
 		cancellation?: AbortSignal,
-	): Promise<
-		| {
-				values: IssueShape[];
-				cursor?: string;
-				hasMore: boolean;
-				page: number;
-				truncated: boolean;
-		  }
-		| undefined
-	> {
-		const scope = getScopedLogger();
-
-		type SearchCategory = {
-			issueCount: number;
-			pageInfo?: {
-				endCursor?: string | null;
-				hasNextPage: boolean;
-			};
-			nodes: (GitHubIssue | null)[] | null;
-		};
-		interface SearchResult {
-			authored?: SearchCategory;
-			assigned?: SearchCategory;
-			mentioned?: SearchCategory;
-		}
-		interface SearchCursor {
-			page?: number;
-			authored?: string | null;
-			assigned?: string | null;
-			mentioned?: string | null;
-			truncated?: boolean;
-		}
-
-		let cursor: SearchCursor | undefined;
-		if (options?.cursor != null) {
-			try {
-				cursor = JSON.parse(options.cursor) as SearchCursor;
-			} catch {}
-		}
-		const page = Math.max(1, Math.trunc(cursor?.page ?? 1));
-		// A category is read when the caller asked for it AND it hasn't been exhausted (`null` cursor slot). An
-		// excluded category needs no cursor bookkeeping: `nextCategoryCursor` reads a missing response category as
-		// `null`, so it stays excluded across continuations on its own.
-		const categories = options?.categories;
-		const requested = {
-			authored: categories?.authored ?? categories == null,
-			assigned: categories?.assigned ?? categories == null,
-			mentioned: categories?.mentioned ?? categories == null,
-		};
-		const includeAuthored = requested.authored && cursor?.authored !== null;
-		const includeAssigned = requested.assigned && cursor?.assigned !== null;
-		const includeMentioned = requested.mentioned && cursor?.mentioned !== null;
-		// Reading nothing is the honest answer to "none of the three": widening back to the union would return
-		// issues the caller explicitly excluded.
-		if (!includeAuthored && !includeAssigned && !includeMentioned) {
-			return { values: [], hasMore: false, page: page, truncated: cursor?.truncated === true };
-		}
-
-		const query = `query searchMyIssues(
-				$authored: String!
-				$assigned: String!
-				$mentioned: String!
-				$authoredCursor: String
-				$assignedCursor: String
-				$mentionedCursor: String
-				$includeAuthored: Boolean!
-				$includeAssigned: Boolean!
-				$includeMentioned: Boolean!
-				$avatarSize: Int
-			) {
-				authored: search(first: 100, after: $authoredCursor, query: $authored, type: ISSUE)
-					@include(if: $includeAuthored) {
-					issueCount
-					pageInfo {
-						endCursor
-						hasNextPage
-					}
-					nodes {
-						... on Issue {
-							${gqIssueFragment}
-							${options?.includeBody ? 'body' : ''}
-						}
-					}
-				}
-				assigned: search(first: 100, after: $assignedCursor, query: $assigned, type: ISSUE)
-					@include(if: $includeAssigned) {
-					issueCount
-					pageInfo {
-						endCursor
-						hasNextPage
-					}
-					nodes {
-						... on Issue {
-							${gqIssueFragment}
-							${options?.includeBody ? 'body' : ''}
-						}
-					}
-				}
-				mentioned: search(first: 100, after: $mentionedCursor, query: $mentioned, type: ISSUE)
-					@include(if: $includeMentioned) {
-					issueCount
-					pageInfo {
-						endCursor
-						hasNextPage
-					}
-					nodes {
-						... on Issue {
-							${gqIssueFragment}
-							${options?.includeBody ? 'body' : ''}
-						}
-					}
-				}
-			}`;
-
+	): Promise<AliasedIssueSearchResult | undefined> {
 		let search = options?.search?.trim() ?? '';
 
 		if (options?.user) {
@@ -3881,76 +3801,207 @@ export class GitHubApi {
 		// It is only the UNSCOPED form that is meaningless, matching millions of issues across all of GitHub, so
 		// callers must supply `repos` (or an org qualifier via `search`); the facade refuses the unscoped case.
 		const assignedQualifier = options?.includeAllAssignees ? 'assignee:*' : 'assignee:@me';
+
+		// A category is read when the caller asked for it AND it hasn't been exhausted (a `null` cursor slot,
+		// which `searchIssuesByAlias` maintains). An excluded category needs no cursor bookkeeping: a missing
+		// response category reads back as `null`, so it stays excluded across continuations on its own.
+		const categories = options?.categories;
+		const requested = {
+			authored: categories?.authored ?? categories == null,
+			assigned: categories?.assigned ?? categories == null,
+			mentioned: categories?.mentioned ?? categories == null,
+		};
+
+		// Two things are fixed here rather than incidental:
+		// - the alias names are this read's persisted cursor keys, so they can't be renamed;
+		// - the ORDER is assigned → mentioned → authored, which is the order the union is emitted in and, because
+		//   the dedupe keeps the first occurrence of a url, also the precedence between the three. An issue that
+		//   is both assigned to and authored by the user surfaces as the assigned one.
+		const searches: AliasedIssueSearch[] = [];
+		if (requested.assigned) {
+			searches.push({ alias: 'assigned', query: `${search} ${baseFilters} ${assignedQualifier}`.trim() });
+		}
+		if (requested.mentioned) {
+			searches.push({ alias: 'mentioned', query: `${search} ${baseFilters} mentions:@me`.trim() });
+		}
+		if (requested.authored) {
+			searches.push({ alias: 'authored', query: `${search} ${baseFilters} author:@me`.trim() });
+		}
+
+		return this.searchIssuesByAlias(provider, token, searches, options, cancellation);
+	}
+
+	/**
+	 * The aliased-search engine behind every GitHub issue search: one GraphQL request carrying N independently
+	 * cursored `search` fields, `@include`-gated so an exhausted or unrequested one costs nothing.
+	 *
+	 * It exists as one implementation because the properties that make it correct are subtle and must not be
+	 * reproduced per read: each alias advances on its OWN cursor and is dropped from the request once exhausted
+	 * (so a finished search is never re-queried, which would re-emit its first page); results are mapped
+	 * node-by-node so one unmappable issue can't discard the page; the union is deduped by `url` rather than by
+	 * `IssueShape.id`, which for some providers is a per-repository number; and a provider that claims another
+	 * page while withholding its `endCursor` is reported as truncated instead of paged forever.
+	 *
+	 * {@link searchMyIssues} is one configuration of it (its three `@me` categories), and its alias names are
+	 * that read's published cursor keys.
+	 *
+	 * `searches` must have unique aliases, each a valid GraphQL name that is neither `page` nor `truncated` —
+	 * the composite cursor keys aliases at its top level, alongside those two reserved fields.
+	 */
+	private async searchIssuesByAlias(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		searches: readonly AliasedIssueSearch[],
+		options?: { baseUrl?: string; avatarSize?: number; includeBody?: boolean; cursor?: string; pageSize?: number },
+		cancellation?: AbortSignal,
+	): Promise<AliasedIssueSearchResult | undefined> {
+		const scope = getScopedLogger();
+
+		type SearchCategory = {
+			issueCount: number;
+			pageInfo?: { endCursor?: string | null; hasNextPage: boolean };
+			nodes: (GitHubIssue | null)[] | null;
+		};
+		/**
+		 * Aliases are keyed at the TOP LEVEL, alongside `page` and `truncated` — the format
+		 * {@link searchMyIssues} has always published, so it stays flat rather than nesting the aliases: a
+		 * consumer's persisted cursor has to keep resuming where it left off.
+		 *
+		 * A slot of `null` means exhausted and a missing slot means never requested; both keep that alias out of
+		 * the next request.
+		 */
+		interface SearchCursor {
+			page?: number;
+			truncated?: boolean;
+			[alias: string]: string | number | boolean | null | undefined;
+		}
+
+		let cursor: SearchCursor | undefined;
+		if (options?.cursor != null) {
+			try {
+				cursor = JSON.parse(options.cursor) as SearchCursor;
+			} catch {}
+		}
+		const page = Math.max(1, Math.trunc(cursor?.page ?? 1));
+		// A slot is a continuation string, `null` (exhausted), or absent. Anything else came from a malformed or
+		// foreign cursor, and is read as absent rather than threaded back into the request as a continuation.
+		const slotFor = (alias: string): string | null | undefined => {
+			const slot = cursor?.[alias];
+			return slot === null || typeof slot === 'string' ? slot : undefined;
+		};
+		// Every requested search is in the document; an exhausted one is switched OFF by its `@include` gate
+		// rather than removed, so a continuation's request keeps the shape of the first one and GitHub's
+		// query-document cache still recognizes it. `active` is what actually runs.
+		const isActive = (s: AliasedIssueSearch) => slotFor(s.alias) !== null;
+		const active = searches.filter(isActive);
+		// Reading nothing is the honest answer to "every requested search is exhausted (or none was requested)":
+		// widening back to the full set would return items the caller excluded, or re-emit a finished page.
+		if (active.length === 0) {
+			return { values: [], hasMore: false, page: page, truncated: cursor?.truncated === true };
+		}
+
+		// GitHub's search caps a page at 100 regardless of what is asked for.
+		const pageSize = Math.min(100, Math.max(1, Math.trunc(options?.pageSize ?? 100)));
+		// `includeAssigned` etc. — the same variable names the read published before the aliases were made
+		// data-driven, so a recorded/asserted request shape stays recognizable.
+		const includeVar = (alias: string) => `include${alias.charAt(0).toUpperCase()}${alias.slice(1)}`;
+		const params = searches.flatMap(s => [
+			`$${s.alias}: String!`,
+			`$${s.alias}Cursor: String`,
+			`$${includeVar(s.alias)}: Boolean!`,
+		]);
+		const fields = searches.map(
+			s => `${s.alias}: search(first: ${pageSize}, after: $${s.alias}Cursor, query: $${s.alias}, type: ISSUE)
+					@include(if: $${includeVar(s.alias)}) {
+					issueCount
+					pageInfo {
+						endCursor
+						hasNextPage
+					}
+					nodes {
+						... on Issue {
+							${gqIssueFragment}
+							${options?.includeBody ? 'body' : ''}
+						}
+					}
+				}`,
+		);
+		const query = `query searchIssues(
+				${params.join('\n\t\t\t\t')}
+				$avatarSize: Int
+			) {
+				${fields.join('\n\t\t\t\t')}
+			}`;
+
+		const variables: Record<string, unknown> = {
+			baseUrl: options?.baseUrl,
+			avatarSize: options?.avatarSize,
+		};
+		for (const s of searches) {
+			variables[s.alias] = s.query;
+			variables[`${s.alias}Cursor`] = slotFor(s.alias) ?? undefined;
+			variables[includeVar(s.alias)] = isActive(s);
+		}
+
 		try {
-			const rsp = await this.graphql<SearchResult>(
+			const rsp = await this.graphql<Record<string, SearchCategory | undefined>>(
 				provider,
 				token,
 				query,
-				{
-					authored: `${search} ${baseFilters} author:@me`.trim(),
-					assigned: `${search} ${baseFilters} ${assignedQualifier}`.trim(),
-					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
-					authoredCursor: cursor?.authored ?? undefined,
-					assignedCursor: cursor?.assigned ?? undefined,
-					mentionedCursor: cursor?.mentioned ?? undefined,
-					includeAuthored: includeAuthored,
-					includeAssigned: includeAssigned,
-					includeMentioned: includeMentioned,
-					baseUrl: options?.baseUrl,
-					avatarSize: options?.avatarSize,
-				},
+				variables,
 				scope,
 				cancellation,
 			);
-
 			if (rsp == null) return { values: [], hasMore: false, page: page, truncated: false };
 
 			// Map node-by-node so one unmappable issue can't discard the whole result set
 			const issues: IssueShape[] = [];
-			for (const node of [
-				...(rsp.assigned?.nodes ?? []),
-				...(rsp.mentioned?.nodes ?? []),
-				...(rsp.authored?.nodes ?? []),
-			]) {
-				if (node?.id == null) continue;
+			for (const s of active) {
+				for (const node of rsp[s.alias]?.nodes ?? []) {
+					if (node?.id == null) continue;
 
-				try {
-					issues.push(fromGitHubIssue(node, provider));
-				} catch (ex) {
-					scope?.warn(`skipped unmappable issue; id=${node.id}, url=${node.url}, ex=${ex}`);
+					try {
+						issues.push(fromGitHubIssue(node, provider));
+					} catch (ex) {
+						scope?.warn(`skipped unmappable issue; id=${node.id}, url=${node.url}, ex=${ex}`);
+					}
 				}
 			}
 
+			// Dedupe by `url`, not `IssueShape.id`: for some providers `id` is a per-repository number, so an
+			// id-keyed map would collapse distinct issues across repositories.
 			const results: IterableIterator<IssueShape> = uniqueBy(
 				issues,
 				r => r.url,
 				(original, _current) => original,
 			);
 
-			const nextCategoryCursor = (category: SearchCategory | undefined): string | null => {
-				if (category?.pageInfo?.hasNextPage && category.pageInfo.endCursor) {
-					return category.pageInfo.endCursor;
+			// Every alias gets a slot, so an inactive one keeps its `null` and stays out of the next request. A
+			// missing slot would be read as "never requested", which for a `searches` set that still lists it
+			// would restart it from its first page.
+			const next: SearchCursor = { page: page + 1 };
+			let hasMore = false;
+			let continuationMissing = false;
+			let maxIssueCount = 0;
+			for (const s of searches) {
+				const category = rsp[s.alias];
+				const endCursor =
+					category?.pageInfo?.hasNextPage && category.pageInfo.endCursor ? category.pageInfo.endCursor : null;
+				next[s.alias] = endCursor;
+				if (endCursor != null) {
+					hasMore = true;
 				}
-				return null;
-			};
-			const next: SearchCursor = {
-				page: page + 1,
-				authored: nextCategoryCursor(rsp.authored),
-				assigned: nextCategoryCursor(rsp.assigned),
-				mentioned: nextCategoryCursor(rsp.mentioned),
-			};
-			const hasMore = next.authored != null || next.assigned != null || next.mentioned != null;
-			// GitHub search exposes at most 1,000 results per category. Paging removes the previous 100-item
-			// truncation; only the upstream search ceiling or an unusable continuation remains incomplete.
-			const continuationMissing = [rsp.authored, rsp.assigned, rsp.mentioned].some(
-				category => category?.pageInfo?.hasNextPage === true && category.pageInfo.endCursor == null,
-			);
+				if (category?.pageInfo?.hasNextPage === true && category.pageInfo.endCursor == null) {
+					continuationMissing = true;
+				}
+				maxIssueCount = Math.max(maxIssueCount, category?.issueCount ?? 0);
+			}
+
+			// GitHub search exposes at most `githubSearchResultLimit` results PER SEARCH, so the ceiling is
+			// reached as soon as any one alias exceeds it. Paging removes the old 100-item truncation; only that
+			// upstream ceiling or an unusable continuation leaves the read incomplete.
 			const truncated =
-				cursor?.truncated === true ||
-				(rsp.authored?.issueCount ?? 0) > 1000 ||
-				(rsp.assigned?.issueCount ?? 0) > 1000 ||
-				(rsp.mentioned?.issueCount ?? 0) > 1000 ||
-				continuationMissing;
+				cursor?.truncated === true || maxIssueCount > githubSearchResultLimit || continuationMissing;
 			next.truncated = truncated || undefined;
 			return {
 				values: [...results],
@@ -3958,6 +4009,7 @@ export class GitHubApi {
 				hasMore: hasMore,
 				page: page,
 				truncated: truncated,
+				totalCount: maxIssueCount,
 			};
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
