@@ -120,6 +120,8 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.       |
 | `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                 |
 | `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                              |
+| `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.     |
+| `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                           |
 | `listIssueTrackerIssuesPage` | `IssueShape`              | Jira / Linear / Trello (issues live under resource → project).                        |
 | `sweepPullRequests`          | `ProviderSweepResult`     | Drains **every** page across providers (`maxPages`, default 100).                     |
 | `sweepClosedPullRequests`    | `ProviderSweepResult`     | Same, pinned to `['closed','merged']`.                                                |
@@ -168,6 +170,74 @@ Invariants worth relying on:
 - Sweeps drain internally and expose **no** cursor: `hasMore` is always `false`. Gate "this is the complete
   set" on `page.allPages === true`, which is false for _both_ truncation and failure — unlike
   `page.truncated`, which can be misread as a benign cap.
+
+### 5.1 The filtered issue search and its count probe
+
+`searchIssuesPage` answers "every issue in this scope matching X", which no other issue read can: the
+account-wide `listIssuesPage` is bound to the user's own relationships, and its repo-scoped path goes through
+the SDK read whose over-limit recovery walk can spend up to 128 sequential requests and still return an
+incomplete set. This one is a single request per page.
+
+```ts
+const caps = manager.getSupportedFilters(providerId).issueSearch;
+if (caps.relationships.length === 0) return; // provider has no filtered issue search — hide the surface
+
+const result = await manager.searchIssuesPage({
+	providerId: providerId,
+	repos: [{ namespace: 'gitkraken', name: 'vscode-gitlens' }],
+	criteria: {
+		relationships: ['unassigned'],
+		...(caps.updatedAfter ? { updatedAfter: '2026-05-05' } : {}),
+	},
+});
+```
+
+Three parts of the contract that are decisions, not incidentals:
+
+- **Scope is mandatory.** Pass `repos`, `org`, or a user relationship (`authored` / `assigned` / `mentioned`).
+  `any-assignee` and `unassigned` do **not** scope anything — they describe the issue, not the caller, so
+  either one alone matches every such issue on the host. A call carrying only those is refused (warning +
+  `fetchFailed`), as is one scoping by repository **id**: a search names repositories by path, so ids would
+  silently widen the read to the whole org.
+- **Ordering is always most-recently-updated-first.** Not an option: a "show the N most recent" policy at the
+  result ceiling is only correct under a guaranteed order.
+- **At the result ceiling the read SUCCEEDS.** More matches than the provider will serve is an _omission_, not
+  a failure: `fetchFailed` stays absent, and the warning carries `omission.totalCount` (how many matched),
+  `omission.limit` (how many are reachable) and `recovery: 'none'` — the rest is unreachable however you page,
+  so never offer a "load more" here. Narrowing the criteria is the only way through.
+
+`criteria` is validated all-or-nothing against the capability table before the read runs, exactly like
+`filters` (§7). Free-form values (`text`, `labels`, `milestone`) are sanitized so user input cannot inject a
+qualifier and re-scope the search; `text` additionally drops tokens containing `:`, since the structured
+criteria are the qualifier channel.
+
+**`countIssues`** answers "how many match" without fetching any — what a "this will fetch ~N issues" preview
+needs, and what a live count beside an unapplied filter chip needs. Measured against GitHub, 30 counts are a
+single rate-limit point, but each batch is still a network request: debounce and cache it if it's driven from
+UI state.
+
+```ts
+const counts = await manager.countIssues({
+	providerId: providerId,
+	scopes: [
+		{ key: 'unassigned', repos: repos, criteria: { relationships: ['unassigned'] } },
+		{ key: 'recent', repos: repos, criteria: { updatedAfter: '2026-05-05' } },
+	],
+});
+```
+
+- Results are echoed under your own `key`, so no positional matching. A **duplicate key refuses the whole
+  call** — two results under one key make matching ambiguous for every scope.
+- **`count: undefined` means "not reported", never zero.** Render the difference: showing an unknown count as
+  0 tells the user a filter matches nothing when it may match thousands. A provider that can't count at all
+  refuses rather than fabricating.
+- `exceedsProviderLimit` is the signal to warn before starting an expensive fetch.
+- Isolation is per scope and per batch: a refused scope (unscoped, id-based repos, inexpressible criteria)
+  costs no request and drops only itself, and a failed batch drops only its own scopes — `fetchFailed` is set
+  and every other count still comes back.
+- One relationship per scope. A relationship set is OR-ed, which a single count can neither sum (it would
+  double-count overlaps) nor max (it would under-report), so such a scope is refused. Give each relationship
+  its own `key`.
 
 ## 6. Failures: warnings, `fetchFailed`, `truncated`
 
@@ -299,6 +369,11 @@ const filters = wanted.filter(f => capability.includes(f));
   (`listIssueTrackerIssuesPage` validates against this field).
 - `issuesAccountWide` — the account-wide git-host read only. Usually narrower (GitLab can express
   `Assignee` and `Author`, but not `Mention`), and empty for issue trackers.
+- `issueSearch` — the **filtered issue search** (`searchIssuesPage`, and `countIssues` over the same
+  criteria). A third, wider surface: not bound to the user at all, so it takes relationships the other two
+  can't name. Reported as per-criterion flags rather than a list, and **always present** — a provider with no
+  filtered issue search reports empty `relationships` and all-false flags, which is the signal to hide the
+  surface rather than individual chips.
 
 It's a _capability_ table, not a recommendation: passing fewer filters than listed is fine.
 
@@ -315,6 +390,12 @@ On the account-wide issue read, `filters` **replaces** the provider's own defini
 (GitHub authored ∪ assigned ∪ mentioned; Azure assigned ∪ authored; GitLab assigned-to-me), so
 `[Assignee]` means `assignee:@me` wherever it's expressible. `includeAllAssignees`
 does the opposite (drops the user scope); passing both on that account-wide read is refused as contradictory.
+
+`searchIssuesPage`'s `criteria.relationships` follows the same all-or-nothing rule and the same OR semantics
+(one provider query per member, unioned and deduped), with two additions that are **not** about the user:
+`any-assignee` (assigned to anyone) and `unassigned` (assigned to nobody). They partition the scope between
+them, so requesting both is refused. Note that "all visible issues" is the **omitted** relationship set, not
+`any-assignee` — which excludes unassigned issues.
 
 `includeReviewRequested` is a legacy account-wide breadth option used only when no explicit `filters` are
 supplied. It remains useful for Bitbucket Cloud, where the reviewer slice requires an expensive
@@ -339,6 +420,8 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  —   |   —    |   —    |
 | Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
+| `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
+| `countIssues`                |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |  ✓   |   ✓    |   ✓    |
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |  ✓   |   ✓    |   ✓    |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  ✗   |   ✗    |   ✗    |
@@ -354,6 +437,13 @@ Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `
 Linear + Trello `Assignee` · Bitbucket family none.
 Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Author, Assignee` · GitLab
 `Assignee, Author` · everything else none.
+Issue **search** criteria (`getSupportedFilters().issueSearch`): GitHub/GHE express all of them —
+relationships `authored, assigned, mentioned, any-assignee, unassigned`, plus `text`, `labels`, `milestone`,
+`updatedAfter`, `createdAfter`, `withoutLinkedPullRequest`, `state` — and every other provider declares none,
+so the read is refused there rather than serving a list that was never narrowed. GitLab and Azure could
+express most of it (GitLab: `search`, `updated_after`, `labels`, `milestone`, one relationship per REST call;
+Azure: WIQL per project), so the gap is unimplemented rather than impossible; `withoutLinkedPullRequest` and
+free text have no equivalent on either.
 
 > `supportedCloudIntegrationDescriptors.supports` (in `constants.ts`) describes what GitLens _advertises in
 > its connect UI_, including enrichment-only capabilities. It is **not** the read-capability answer — use
@@ -364,8 +454,12 @@ Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Aut
 - **GitHub / GHE** — cursor-only everywhere. The account-wide issue read is three searches (`author:@me`,
   `assignee:@me`, `mentions:@me`) behind one composite cursor; a filtered account-wide PR read is one search
   per state × relationship facet behind a composite cursor that resumes only active facets. Each search caps
-  at GitHub's own result ceiling, surfaced as `page.truncated`. `includeAllAssignees` is refused account-wide
-  (scope to repos instead).
+  at GitHub's own 1.000-result ceiling, surfaced as `page.truncated` — and on `searchIssuesPage` additionally
+  as an omission carrying the total match count (§5.1). The only provider with a filtered issue search today.
+  `includeAllAssignees` is refused on the **account-wide** issue read: it becomes `assignee:*`, which needs a
+  scope to mean anything (unscoped it matches millions of issues across all of GitHub) and that read has none
+  to offer. Any scope works, though — one repository, several, or an org — so "assigned to anyone over these
+  repos" is `searchIssuesPage` with `relationships: ['any-assignee']`.
 - **GitLab / self-hosted** — numbered per-repo cursors for repo-scoped reads. Account-wide PR state selection
   is forwarded to each relationship query. Account-wide issues can independently narrow to assignee or author;
   the unfiltered read unions both.
@@ -391,6 +485,17 @@ Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Aut
   retries, preserve a caller's aggregate-all mode, and suppress projects already emitted before discovery
   recovered. `hasMore` reports only untouched forward progress. A cursor can therefore remain with
   `hasMore: false`; reusing it is an explicit manual retry of failed work, not a normal paging loop.
+
+**`broadenIssues` vs `searchIssuesPage`.** If you already know your repository set, prefer
+`searchIssuesPage({ repos })`: `broadenIssues` has to discover each org's repositories first (a paged drain)
+and then reads their issues through the SDK path with the recovery walk, so it costs strictly more for the
+same answer. It remains the read for "fan out across these orgs, whatever repos they turn out to contain",
+with per-provider attribution (`broadenedProviderIds` / `failedProviderIds` / `incompleteProviderIds`) that
+the single-provider search doesn't produce.
+
+If you do migrate: broaden means **all visible** — it drops the assignee constraint entirely, so unassigned
+issues are included. The equivalent is therefore an **omitted** `relationships`, **not**
+`['any-assignee']` — `assignee:*` means "has some assignee" and would silently exclude every unassigned issue.
 
 The same warning holds for `IssueShape.id` generally: it's the provider's **display** number/key (rendered
 as `#{id}`, used for branch names). `nodeId` is the stable provider-native id, but its uniqueness scope is
