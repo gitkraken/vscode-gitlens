@@ -1263,7 +1263,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const { action, target, commitMessage, scopeBranch, composeInstructions, composeScope } = pending;
 
 		if (action === 'show-account') {
-			this._accountModalFocus = undefined;
+			this._accountModalFocus = 'account';
 			this._accountModalOpen = true;
 			return;
 		}
