@@ -113,8 +113,11 @@ export function createTestRepo(options?: {
 	execFileSync('git', ['init', '-b', 'main'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
-	// Disable gpg signing in test repos
+	// Disable gpg signing in test repos. BOTH keys: `tag.gpgsign` is independent of `commit.gpgsign`,
+	// and with it set globally a bare `git tag <name>` becomes an annotated SIGNED tag, which demands a
+	// message and fails the fixture with `fatal: no tag message?` rather than anything about signing.
 	execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
+	execFileSync('git', ['config', 'tag.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
 	// Disable auto-gc: rapid seeding (many commits in quick succession) otherwise races a detached
 	// `git gc --auto` that repacks/prunes underneath us and can corrupt the object store mid-test.
 	// BOTH knobs are required — `git commit` also fires `git maintenance run --auto`, whose loose-object
@@ -463,6 +466,8 @@ export function cloneTestRepo(
 	execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
+	// See `createTestRepo` on why `tag.gpgsign` needs disabling separately.
+	execFileSync('git', ['config', 'tag.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
 	// See `createTestRepo`: `gc.auto` alone leaves `maintenance.auto` (default true) free to repack.
 	execFileSync('git', ['config', 'gc.auto', '0'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'maintenance.auto', 'false'], { cwd: dir, stdio: 'pipe' });
