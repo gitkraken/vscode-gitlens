@@ -6,7 +6,7 @@ import type { IssueFilter, ProviderReposInput } from '../providers/models.js';
 import { PagingMode, providersMetadata } from '../providers/models.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning, reconcileOmissionsWithFailure } from '../results.js';
+import { reconcileOmissionsWithFailure } from '../results.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
@@ -16,6 +16,7 @@ import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { resolveAccountWideIssueFilters } from './filters.js';
 import {
+	drainFlatPagesToRequestedPage,
 	drainToRequestedPage,
 	isPageNumberAdvanceable,
 	pageToCursor,
@@ -190,51 +191,22 @@ export async function listIssuesPage(
 				{ warnOnMissingSession: warnOnMissingSession },
 			);
 		const first = await readAccountWidePage(options.cursor);
-		let value = first.value;
 		const warnings = first.warning != null ? [first.warning] : [];
-		let allMetadata = value?.metadata;
-		let pageFetchFailed = first.warning != null && value == null;
-		let currentPage = value?.page ?? 1;
-		let currentTruncated = value?.truncated ?? false;
-		let requestedPageMissing = false;
-		if (options.cursor == null && page > 1 && value != null) {
-			// Guard against the empty-cursor sentinel: a provider that claims another page without handing
-			// back a usable cursor would otherwise be re-read with `'{}'` and answer with page 1 again.
-			for (
-				let nextCursor = usableCursor(value.cursor);
-				currentPage < page && value.hasMore && nextCursor != null;
-				nextCursor = usableCursor(value.cursor)
-			) {
-				const next = await readAccountWidePage(nextCursor);
-				if (next.warning != null) {
-					appendDedupedWarning(warnings, next.warning);
-				}
-				if (next.value == null) {
-					pageFetchFailed = pageFetchFailed || next.warning != null;
-					value = undefined;
-					requestedPageMissing = true;
-					break;
-				}
-
-				value = next.value;
-				allMetadata = mergeCollectionMetadata(allMetadata, value.metadata);
-				currentTruncated = currentTruncated || value.truncated;
-				currentPage = value.page ?? currentPage + 1;
-				// A provider that hands back the same cursor isn't advancing; stop rather than loop forever.
-				if (usableCursor(value.cursor) === nextCursor) {
-					currentTruncated = true;
-					break;
-				}
-			}
-
-			// A numbered page beyond the provider's terminal cursor is genuinely empty. Never return or
-			// relabel the last available page as the requested one.
-			if (currentPage < page) {
-				requestedPageMissing = true;
-			}
-		} else if (options.cursor == null && page > 1) {
-			requestedPageMissing = true;
-		}
+		// Merged across the walked pages, so a per-scope failure reported on an earlier page isn't lost by
+		// paging past it — the one thing this read accumulates that the filtered search doesn't.
+		let allMetadata = first.value?.metadata;
+		const drained = await drainFlatPagesToRequestedPage(first, {
+			requestedPage: page,
+			suppliedCursor: options.cursor,
+			warnings: warnings,
+			readPage: readAccountWidePage,
+			fold: p => {
+				allMetadata = mergeCollectionMetadata(allMetadata, p.metadata);
+			},
+		});
+		const { value, currentPage, requestedPageMissing } = drained;
+		const currentTruncated = drained.truncated;
+		const pageFetchFailed = drained.fetchFailed;
 
 		// GitHub, GitLab, and Azure implement an account-wide issue search; a provider that doesn't (Bitbucket
 		// exposes no issues at all, and `supportsIssues` already short-circuits it above) returns `undefined`

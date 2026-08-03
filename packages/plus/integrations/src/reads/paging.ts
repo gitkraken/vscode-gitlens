@@ -180,6 +180,108 @@ export function resolveCurrentPage(options: {
 	return options.pageAdvanceable ? options.requestedPage : 1;
 }
 
+/**
+ * One page of a FLAT cursor-paged provider read — the shape both issue reads' providers return directly.
+ *
+ * `hasMore` is optional because one of the two providers leaves it off on a terminal page; absent reads as "no
+ * more", which is what a provider that reported no continuation means.
+ */
+export interface FlatPage {
+	cursor?: string;
+	hasMore?: boolean;
+	page?: number;
+	truncated: boolean;
+}
+
+/** What {@link drainFlatPagesToRequestedPage} established by walking. */
+export interface FlatDrainResult<T extends FlatPage> {
+	/** The requested page, or `undefined` when a page failed mid-walk (which also sets `fetchFailed`). */
+	value: T | undefined;
+	/** The position actually reached — 1 when nothing advanced. */
+	currentPage: number;
+	truncated: boolean;
+	/** True when the requested page is past the provider's last one, so it is genuinely EMPTY. */
+	requestedPageMissing: boolean;
+	fetchFailed: boolean;
+}
+
+/**
+ * Walks a FLAT cursor-paged read forward to a requested page number, for a provider whose pages are
+ * `{cursor, hasMore, page, truncated}` rather than the SDK's `PagedResult` wrapper.
+ *
+ * The sibling of {@link drainToRequestedPage}, not a replacement for it: that one normalizes SDK `paging` through
+ * {@link toProviderPageInfo}, which retains only cursors whose JSON declares `type`/`cursors` — and the composite
+ * cursor of a GitHub aliased search declares neither, so it would be dropped and the walk would never advance.
+ * Two shapes genuinely need two entry points; what they must NOT have is two copies of the rules below, which is
+ * what this exists to prevent (see this module's own note on drift).
+ *
+ * The rules, all of them subtle enough to be worth stating once:
+ * - The empty-cursor sentinel is filtered, so a provider claiming another page without handing back a usable
+ *   continuation is not re-read with `'{}'` (which it would answer with page 1 again).
+ * - A provider that returns the SAME cursor isn't advancing: stop, and report the read as truncated rather than
+ *   looping forever or publishing a short page as complete.
+ * - A page requested past the provider's terminal cursor is that EMPTY page N — never the last available page
+ *   relabeled, per {@link ProviderPageInfo.currentPage}.
+ * - A page that fails mid-walk latches `fetchFailed` and leaves no value, so the caller can tell "the read broke"
+ *   from "the page was genuinely empty".
+ *
+ * `fold` is the one thing the callers differ on — one merges SDK collection metadata across the walked pages, the
+ * other keeps the largest reported match count — so it is a callback rather than a branch.
+ */
+export async function drainFlatPagesToRequestedPage<T extends FlatPage>(
+	first: { value?: T; warning?: ProviderWarning },
+	options: {
+		requestedPage: number;
+		suppliedCursor: string | undefined;
+		warnings: ProviderWarning[];
+		readPage: (cursor: string) => Promise<{ value?: T; warning?: ProviderWarning }>;
+		fold?: (page: T) => void;
+	},
+): Promise<FlatDrainResult<T>> {
+	let value = first.value;
+	let fetchFailed = first.warning != null && value == null;
+	let currentPage = value?.page ?? 1;
+	let truncated = value?.truncated ?? false;
+
+	const walkable = options.suppliedCursor == null && options.requestedPage > 1;
+	if (walkable && value != null) {
+		for (
+			let nextCursor = usableCursor(value.cursor);
+			currentPage < options.requestedPage && value.hasMore === true && nextCursor != null;
+			nextCursor = usableCursor(value.cursor)
+		) {
+			const next = await options.readPage(nextCursor);
+			if (next.warning != null) {
+				appendDedupedWarning(options.warnings, next.warning);
+			}
+			if (next.value == null) {
+				fetchFailed = next.warning != null;
+				value = undefined;
+				break;
+			}
+
+			value = next.value;
+			truncated = truncated || value.truncated;
+			options.fold?.(value);
+			currentPage = value.page ?? currentPage + 1;
+			if (usableCursor(value.cursor) === nextCursor) {
+				truncated = true;
+				break;
+			}
+		}
+	}
+
+	return {
+		value: value,
+		currentPage: currentPage,
+		truncated: truncated,
+		// Every case reduces to "a page was asked for by number and the walk fell short", including the one where
+		// no walk ran at all because the first page was already terminal.
+		requestedPageMissing: walkable && currentPage < options.requestedPage,
+		fetchFailed: fetchFailed,
+	};
+}
+
 /** The mutable state {@link drainToRequestedPage} carries across the pages it walks. */
 export interface DrainState<T> {
 	items: T[];

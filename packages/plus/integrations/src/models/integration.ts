@@ -1,4 +1,3 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -26,12 +25,12 @@ import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
-import type { IssueFilter } from '../providerFilters.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
 import { isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { GitHostIntegration } from './gitHostIntegration.js';
+import type { AccountWideIssuesResult, SearchMyIssuesOptions } from './issueReads.js';
 import type { IssuesIntegration } from './issuesIntegration.js';
 
 export type Integration = GitHostIntegration | IssuesIntegration;
@@ -39,6 +38,10 @@ export type IntegrationById<T extends IntegrationIds> = T extends IssuesCloudHos
 	? IssuesIntegration
 	: GitHostIntegration;
 export type IntegrationType = 'git' | 'issues';
+
+// The issue-read contracts live in their own module (pure data, and their relationship to each other is the
+// point of reading them together); re-exported here so the providers that implement these reads keep one import.
+export type { AccountWideIssuesResult, ProviderIssueSearchPage, SearchMyIssuesOptions } from './issueReads.js';
 
 export type IntegrationKey<T extends IntegrationIds = IntegrationIds> = T extends
 	| GitCloudHostIntegrationId
@@ -52,66 +55,6 @@ export type IntegrationResult<T> =
 	| { value: T; duration?: number; error?: Error }
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
-
-/**
- * Account-wide issue read result. `truncated` is a provider-native incompleteness signal (GitHub's search
- * ceiling, an Azure per-project backstop); cursor-capable providers also expose `cursor`/`hasMore`/`page`.
- * `metadata` optionally carries structured per-scope failures from a fan-out (Azure across projects).
- */
-export type AccountWideIssuesResult = {
-	values: IssueShape[];
-	truncated: boolean;
-	metadata?: CollectionMetadata;
-	cursor?: string;
-	hasMore?: boolean;
-	page?: number;
-};
-
-/**
- * One page of the FILTERED issue search (`GitHostIntegration.searchIssuesPageResult`).
- *
- * Carries what {@link AccountWideIssuesResult} does, plus `totalCount`: the number of matches the provider
- * reported, which is what makes the result ceiling reportable as a figure ("N matched, at most M can be read")
- * rather than as a bare `truncated` flag. `undefined` means the provider reported no count, never zero matches.
- */
-export type ProviderIssueSearchPage = {
-	values: IssueShape[];
-	truncated: boolean;
-	cursor?: string;
-	hasMore: boolean;
-	page: number;
-	totalCount?: number;
-};
-
-/**
- * Options for the account-wide issue read. `includeAllAssignees` drops the "assigned to me" scoping so the
- * read broadens to issues assigned to anyone (the account-wide equivalent of the repo-scoped
- * {@link GitHostIntegration.getMyIssuesForReposResult}'s toggle). Authored/mentioned categories, where a
- * provider has them, stay user-relative — they're meaningless without a user.
- */
-export type SearchMyIssuesOptions = {
-	includeAllAssignees?: boolean;
-	/**
-	 * Narrows the account-wide read to the requested relationship(s) instead of the provider's own definition of
-	 * "my issues" (GitHub/GHE: authored ∪ assigned ∪ mentioned; Azure: assigned ∪ authored; GitLab:
-	 * assigned-to-me). Narrowing has to happen HERE, not on the returned page: the excluded items still counted
-	 * toward the provider's page/cursor, so a client-side filter desynchronizes `items` from `hasMore`.
-	 *
-	 * Only filters the provider can express server-side are accepted; the facade validates the set against
-	 * `ProviderMetadata.supportedAccountWideIssueFilters` (all-or-nothing) and refuses the read rather than
-	 * serving the unnarrowed union as if it had been filtered. Omitted keeps the provider's definition.
-	 */
-	filters?: IssueFilter[];
-	cursor?: string;
-	/**
-	 * Narrows the account-wide read to one org/account (Azure: the organization) and/or one project within it.
-	 * Only honored by a host with a project layer (Azure), whose account-wide read otherwise fans out over every
-	 * project of every org; the caller checks `supportsProjectDiscovery` before asking, so a host without a
-	 * project layer never silently returns an unscoped list as if it had been narrowed.
-	 */
-	org?: string;
-	project?: string;
-};
 
 type SyncReqUsecase = Exclude<
 	| 'getAccountForCommit'
