@@ -315,6 +315,104 @@ suite('GitHubApi.searchIssuesPage', () => {
 		});
 	});
 
+	// An exhausted alias is recorded as a `null` cursor slot, and that slot has to SURVIVE re-serialization on
+	// every subsequent page — the cursor is rebuilt from scratch each time. Dropping the slot instead would make
+	// the alias read as "never requested", which re-includes it and re-emits its FIRST page: duplicate issues
+	// appearing several pages after the search that produced them. Page 2 alone can't catch that; the regression
+	// only shows up once a page is built from a cursor that itself carried a null slot.
+	test('an alias exhausted on page 1 stays excluded on page 3, not just page 2', async () => {
+		const requests: Record<string, unknown>[] = [];
+		let page = 0;
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, unknown> };
+				requests.push(body.variables ?? {});
+				page++;
+				// `authored` is exhausted immediately; `assigned` keeps paging.
+				const data: Record<string, unknown> = {
+					assigned: {
+						issueCount: 5,
+						pageInfo: { endCursor: `assigned-${page}`, hasNextPage: page < 3 },
+						nodes: [],
+					},
+				};
+				if (page === 1) {
+					data.authored = { issueCount: 1, pageInfo: { endCursor: null, hasNextPage: false }, nodes: [] };
+				}
+				return new Response(JSON.stringify({ data: data }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		const api = new GitHubApi(config);
+
+		const criteria: IssueSearchCriteria = { relationships: ['assigned', 'authored'] };
+		const p1 = await api.searchIssuesPage(provider, token, { repos: ['o/a'], criteria: criteria });
+		const p2 = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: criteria,
+			cursor: p1?.cursor,
+		});
+		const p3 = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: criteria,
+			cursor: p2?.cursor,
+		});
+
+		assert.equal(requests.length, 3);
+		assert.equal(requests[1].includeAuthored, false, 'page 2 excludes the exhausted alias');
+		assert.equal(requests[2].includeAuthored, false, 'and so does page 3, built from a cursor that carried it');
+		assert.equal(requests[2].includeAssigned, true, 'while the live alias keeps advancing');
+		assert.equal(requests[2].assignedCursor, 'assigned-2');
+		assert.equal(p3?.page, 3);
+	});
+
+	// A consumer can persist a cursor and then change its filters — the criteria are UI state. A cursor carrying
+	// slots for aliases the new search doesn't request must not resurrect them, and slots the new search does
+	// request must still be honored. Nothing rejects a mismatched cursor, so this is the behavior that matters.
+	test('a cursor from a wider search neither resurrects dropped relationships nor loses the kept one', async () => {
+		const requests: Record<string, unknown>[] = [];
+		let page = 0;
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: Record<string, unknown> };
+				requests.push(body.variables ?? {});
+				page++;
+				const live = { issueCount: 5, pageInfo: { endCursor: `c-${page}`, hasNextPage: true }, nodes: [] };
+				return new Response(JSON.stringify({ data: { assigned: live, authored: live } }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		const api = new GitHubApi(config);
+
+		const wide = await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { relationships: ['assigned', 'authored'] },
+		});
+		// Same cursor, but the caller has since narrowed to one relationship.
+		await api.searchIssuesPage(provider, token, {
+			repos: ['o/a'],
+			criteria: { relationships: ['assigned'] },
+			cursor: wide?.cursor,
+		});
+
+		const narrowed = requests[1];
+		assert.equal(narrowed.includeAssigned, true, 'the still-requested relationship runs');
+		assert.equal(narrowed.assignedCursor, 'c-1', 'and resumes from where it left off');
+		assert.equal(
+			narrowed.includeAuthored,
+			undefined,
+			'the dropped relationship is absent from the document entirely, not re-run from its first page',
+		);
+	});
+
 	test('reports the total match count so a capped read can say how many were withheld', async () => {
 		const { config } = capture(19240);
 		const api = new GitHubApi(config);
