@@ -11,16 +11,28 @@ import type { IssueSearchCriteria, IssueSearchRelationship } from '@gitlens/git/
  */
 
 /**
- * Strips everything from a user-supplied qualifier VALUE that could break out of it: the double quote that would
- * close its own `"…"`, and the control characters (newlines included) that cannot appear in a GitHub search query
+ * Neutralizes everything in a user-supplied value that could break out of the qualifier it lands in: the double
+ * quote that would close its own `"…"`, and the control characters that cannot appear in a GitHub search query
  * and exist here only as a smuggling vector.
  *
- * Not a general escape — GitHub search has no escape syntax — so the only safe transformation is removal. A value
- * emptied by it is dropped by its caller rather than emitted as an empty qualifier, which GitHub would reject.
+ * Not a general escape — GitHub search has no escape syntax — so the only safe transformation is removal. But a
+ * control character is REPLACED WITH A SPACE rather than deleted, because deleting it FUSES the words it separated:
+ * a pasted or multi-line `graph\nperformance` became the single token `graphperformance`, which matches nothing —
+ * turning a search that had results into a silent zero (measured: 2 results vs 0). Quotes are still deleted
+ * outright; they separate nothing, so a space there would only pad the value.
+ *
+ * Runs of whitespace are collapsed afterwards so the emitted qualifier stays canonical — a doubled space inside
+ * `label:"a  b"` would not match the label `a b`.
  */
 export function sanitizeGitHubQualifierValue(value: string): string {
-	// eslint-disable-next-line no-control-regex
-	return value.replace(/["\u0000-\u001f\u007f]/g, '').trim();
+	return (
+		value
+			.replace(/"/g, '')
+			// eslint-disable-next-line no-control-regex
+			.replace(/[\u0000-\u001f\u007f]/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+	);
 }
 
 /**
