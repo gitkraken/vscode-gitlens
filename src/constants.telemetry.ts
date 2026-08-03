@@ -1251,8 +1251,8 @@ interface GraphDetailsShownEvent {
 		| 'request-agents'
 		| 'request-graph-wip-bar'
 		| 'auto-restore';
-	/** Which graph host the panel is in: editor area or bottom panel */
-	host: 'editor' | 'panel';
+	/** Which graph host the panel is in: an editor tab, or the side bar or bottom panel view */
+	host: 'editor' | 'view';
 	/** Active panel mode at time of show */
 	mode: GraphDetailsMode;
 	/** Number of rows currently selected in the graph (0, 1, or N) */

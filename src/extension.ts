@@ -47,7 +47,7 @@ import {
 } from './messages.js';
 import { registerPartnerActionRunners } from './partners.js';
 import { needsCursorMcpCleanupNotice } from './plus/gk/utils/-webview/mcp.utils.js';
-import { executeCommand, registerCommands } from './system/-webview/command.js';
+import { executeCommand, executeCoreCommand, registerCommands } from './system/-webview/command.js';
 import { configuration, Configuration } from './system/-webview/configuration.js';
 import { setContext } from './system/-webview/context.js';
 import { Storage } from './system/-webview/storage.js';
@@ -226,6 +226,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		void showWhatsNew(container, gitlensVersion, prerelease, previousVersion);
 		showMcp(container, gitlensVersion, previousVersion);
+		void applyPendingGraphSideBarMove(container);
 
 		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion).catch();
 
@@ -369,7 +370,37 @@ const settingsMigrations: { id: string; migrate: (storage: Storage) => Promise<v
 			await configuration.update('ai.vscode.model', undefined, ConfigurationTarget.Global);
 		},
 	},
+	{
+		// The Commit Graph's default home moved from the bottom panel to the GitLens side bar (#5545),
+		// and VS Code keeps a view where it last was — so existing users would stay in the panel.
+		// We can't move them from here because this runs before the Container exists.
+		// We just flag it for `applyPendingGraphSideBarMove` on the next ready.
+		// `version` still holds the *previous* version at this point — it's stored later, on ready — so null means a fresh install,
+		// which already gets the side bar from `package.json`.
+		id: 'graph.location:sidebar',
+		migrate: async (storage: Storage) => {
+			if ((storage.get('version') ?? storage.get('preVersion')) == null) return;
+
+			await storage.store('graph:pendingSideBarMove', true);
+		},
+	},
 ];
+
+/** Consumes the one-shot flag set by the `graph.location:sidebar` migration.
+ *  Resetting the view's location — not moving it — is what sends it to its newly declared container;
+ *  it also reveals and expands the view, which is intended. */
+async function applyPendingGraphSideBarMove(container: Container): Promise<void> {
+	if (!container.storage.get('graph:pendingSideBarMove')) return;
+
+	// Clear first — a failure here must not re-arm the move on every activation
+	await container.storage.delete('graph:pendingSideBarMove');
+
+	try {
+		await executeCoreCommand('gitlens.views.graph.resetViewLocation');
+	} catch (ex) {
+		Logger.error(ex, 'applyPendingGraphSideBarMove');
+	}
+}
 
 async function migrateSettings(storage: Storage): Promise<void> {
 	const applied = new Set(storage.get('settings:migrated'));

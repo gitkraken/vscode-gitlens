@@ -19,7 +19,7 @@ export const viewsCategories: SettingsCategory[] = [
 				label: 'Prefer showing the Commit Graph in the',
 				options: [
 					{ value: 'editor', label: 'editor area' },
-					{ value: 'panel', label: 'bottom panel' },
+					{ value: 'panel', label: 'side bar' },
 				],
 			},
 			{

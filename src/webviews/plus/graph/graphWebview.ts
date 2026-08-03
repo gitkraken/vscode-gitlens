@@ -2304,22 +2304,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (params.choice === 'dismissed') return;
 
-		// Move this view to the chosen container; VS Code persists view locations itself, so the
-		// choice sticks across reloads without any setting of our own
-		const destinationId =
-			params.choice === 'sidebar' ? 'workbench.view.extension.gitlens' : 'workbench.view.extension.gitlensPanel';
-		// Guarded like `resetViewsLayout`: the prompt is already consumed (dismissed above), so a
-		// rejected move must not also skip the container reset / re-reveal below
-		try {
-			await executeCoreCommand('vscode.moveViews', { viewIds: [this.host.id], destinationId: destinationId });
-		} catch {}
-		// The destination container itself may have been dragged elsewhere — dragging a container's
-		// only view relocates the whole container (e.g. the Graph in the secondary side bar means
-		// `gitlensPanel` IS the secondary side bar), which makes the move above a no-op. Send the
-		// container back to its declared home too — mirrors `resetViewsLayout`.
-		try {
-			await executeCoreCommand(`${destinationId}.resetViewContainerLocation`);
-		} catch {}
+		if (params.choice === 'sidebar') {
+			try {
+				await executeCoreCommand('gitlens.views.graph.resetViewLocation');
+			} catch {}
+		} else {
+			try {
+				await executeCoreCommand('vscode.moveViews', {
+					viewIds: [this.host.id],
+					destinationId: 'workbench.view.extension.gitlensPanel',
+				});
+			} catch {}
+			try {
+				await executeCoreCommand('workbench.view.extension.gitlensPanel.resetViewContainerLocation');
+			} catch {}
+		}
 		// Re-reveal — the move leaves the view collapsed/unfocused. The prompt only exists on the
 		// view host (see getLayoutPromptNeeded), so the view id is the right target here.
 		void executeCoreCommand('gitlens.views.graph.focus');

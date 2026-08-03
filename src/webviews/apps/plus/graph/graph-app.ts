@@ -2941,7 +2941,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				this._nextStepsShownWhileHidden = false;
 				this._ipc.sendCommand(TrackGraphDetailsWipShownCommand, undefined);
 			}
-			const host = this.graphState.webviewId === 'gitlens.graph' ? 'editor' : 'panel';
+			const host = this.graphState.webviewId === 'gitlens.graph' ? 'editor' : 'view';
 			const location = this.effectiveDetailsLocation;
 			this._telemetry.sendEvent({
 				name: 'graphDetails/shown',

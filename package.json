@@ -949,7 +949,7 @@
 						],
 						"enumDescriptions": [
 							"Prefer showing the Commit Graph in the editor area",
-							"Prefer showing the Commit Graph in the bottom panel"
+							"Prefer showing the Commit Graph in the GitLens side bar"
 						],
 						"markdownDescription": "Specifies the preferred layout of the _Commit Graph_",
 						"scope": "window",
@@ -8412,7 +8412,7 @@
 			},
 			{
 				"command": "gitlens.graph.switchToPanelLayout",
-				"title": "Prefer Commit Graph in Panel",
+				"title": "Prefer Commit Graph in Side Bar",
 				"category": "GitLens",
 				"enablement": "config.gitlens.graph.layout != panel"
 			},
@@ -29495,12 +29495,22 @@
 				},
 				{
 					"type": "webview",
+					"id": "gitlens.views.graph",
+					"name": "Graph",
+					"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-graph)",
+					"initialSize": 4,
+					"visibility": "visible"
+				},
+				{
+					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 6,
-					"visibility": "visible"
+					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.launchpad",
@@ -29518,7 +29528,7 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-cloud-patch)",
 					"initialSize": 2,
-					"visibility": "collapsed"
+					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.workspaces",
@@ -29527,19 +29537,7 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-workspaces-view)",
 					"initialSize": 2,
-					"visibility": "collapsed"
-				}
-			],
-			"gitlensPanel": [
-				{
-					"type": "webview",
-					"id": "gitlens.views.graph",
-					"name": "Graph",
-					"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-graph)",
-					"initialSize": 4,
-					"visibility": "visible"
+					"visibility": "hidden"
 				}
 			],
 			"gitlensPatch": [
