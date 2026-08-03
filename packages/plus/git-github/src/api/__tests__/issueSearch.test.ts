@@ -239,6 +239,38 @@ suite('GitHubApi.searchIssuesPage', () => {
 			assert.doesNotMatch(q, /is:closed/);
 		});
 
+		// A control character SEPARATES words, so deleting it fuses them: `graph\nperformance` became the single
+		// token `graphperformance`, which matches nothing — a search that had results silently returning zero
+		// (measured against the live API: 2 vs 0). Pasted and multi-line input is the ordinary way to hit this.
+		test('a control character between words separates them rather than fusing them', async () => {
+			const { config, getVariables } = capture();
+			const api = new GitHubApi(config);
+
+			await api.searchIssuesPage(provider, token, {
+				repos: ['o/a'],
+				criteria: { text: 'graph\nperformance', labels: ['needs\ttriage'] },
+			});
+
+			const q = String(getVariables().matched);
+			assert.match(q, /graph performance/, 'both words survive as separate terms');
+			assert.doesNotMatch(q, /graphperformance/);
+			assert.match(q, /label:"needs triage"/, 'and inside a quoted value too');
+		});
+
+		// The separation must not cost the injection guard: splitting on whitespace happens AFTER the control
+		// character became one, so a qualifier hidden behind a newline is still dropped as its own token — while the
+		// legitimate word next to it now survives, which it previously did not.
+		test('a qualifier hidden behind a control character is still dropped, keeping the real term', async () => {
+			const { config, getVariables } = capture();
+			const api = new GitHubApi(config);
+
+			await api.searchIssuesPage(provider, token, { repos: ['o/a'], criteria: { text: 'crash\norg:evil' } });
+
+			const q = String(getVariables().matched);
+			assert.match(q, /crash/, "the user's actual search term is kept");
+			assert.doesNotMatch(q, /org:evil/, 'the smuggled qualifier is not');
+		});
+
 		test('control characters are stripped from values', async () => {
 			const { config, getVariables } = capture();
 			const api = new GitHubApi(config);
