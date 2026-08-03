@@ -1,5 +1,10 @@
 import type { IntegrationIds } from '../constants.js';
-import type { IssueFilter, PullRequestFilter } from '../providerFilters.js';
+import type {
+	IssueFilter,
+	IssueSearchCapabilities,
+	IssueSearchCriteria,
+	PullRequestFilter,
+} from '../providerFilters.js';
 import { providersMetadata } from '../providers/models.js';
 
 /**
@@ -79,6 +84,79 @@ export function resolveAccountWideIssueFilters(
 	return { filters: filters, unsupported: false };
 }
 
+/** Why {@link resolveIssueSearchCriteria} refused a criteria set, so the caller can word the refusal exactly. */
+export type IssueSearchCriteriaRejection =
+	/** The provider has no filtered issue search at all. */
+	| { reason: 'unsupported-search' }
+	/** The provider has one, but can't express these criteria server-side. */
+	| { reason: 'unsupported-criteria'; criteria: string[] }
+	/** `any-assignee` and `unassigned` partition the scope between them; asking for both asks for nothing. */
+	| { reason: 'contradictory-relationships' };
+
+/**
+ * Validates a filtered issue search's criteria against {@link ProviderMetadata.supportedIssueSearch}.
+ *
+ * All-or-nothing like its three siblings above, and for the same reason: a criterion dropped because the
+ * provider can't express it would serve a WIDER result than was asked for, and narrowing the returned page
+ * afterward would leave `items` describing a different result set than the `hasMore`/`cursor` the provider
+ * produced with it. So an inexpressible set is refused whole and the caller surfaces a warning.
+ *
+ * Unlike the sibling validators this also rejects a set that is internally contradictory, because this criteria
+ * model is the only one with two members that partition the scope between them (`any-assignee` ∪ `unassigned` =
+ * everything, ∩ = nothing). Silently keeping one would answer a question the caller didn't ask.
+ *
+ * `undefined` (or an empty relationship list plus no other criterion) is a valid UNNARROWED search of the given
+ * scope, not an error — the caller's `repos`/`org` is what bounds it.
+ */
+export function resolveIssueSearchCriteria(
+	id: IntegrationIds,
+	criteria: IssueSearchCriteria | undefined,
+): { rejection?: IssueSearchCriteriaRejection } {
+	const supported = providersMetadata[id]?.supportedIssueSearch;
+	if (supported == null) return { rejection: { reason: 'unsupported-search' } };
+	if (criteria == null) return {};
+
+	const relationships = criteria.relationships;
+	if (relationships?.includes('any-assignee') && relationships.includes('unassigned')) {
+		return { rejection: { reason: 'contradictory-relationships' } };
+	}
+
+	const unsupported: string[] = [];
+	for (const relationship of relationships ?? []) {
+		if (!supported.relationships.includes(relationship)) {
+			unsupported.push(`relationships:${relationship}`);
+		}
+	}
+	// Only a criterion the caller actually SET can be unsupported. `false`/empty means "don't narrow on this",
+	// which every provider can honor by doing nothing, so it must not be validated as a request.
+	if (criteria.text != null && criteria.text.trim().length > 0 && !supported.text) {
+		unsupported.push('text');
+	}
+	if (criteria.labels?.length && !supported.labels) {
+		unsupported.push('labels');
+	}
+	if (criteria.milestone != null && !supported.milestone) {
+		unsupported.push('milestone');
+	}
+	if (criteria.updatedAfter != null && !supported.updatedAfter) {
+		unsupported.push('updatedAfter');
+	}
+	if (criteria.createdAfter != null && !supported.createdAfter) {
+		unsupported.push('createdAfter');
+	}
+	if (criteria.withoutLinkedPullRequest === true && !supported.withoutLinkedPullRequest) {
+		unsupported.push('withoutLinkedPullRequest');
+	}
+	// `'open'` is every provider's own default, so asking for it needs no state capability.
+	if (criteria.state != null && criteria.state !== 'open' && !supported.states) {
+		unsupported.push('state');
+	}
+
+	if (unsupported.length > 0) return { rejection: { reason: 'unsupported-criteria', criteria: unsupported } };
+
+	return {};
+}
+
 /**
  * The filters `listPullRequestsPage`/`listIssuesPage` (and the sweeps) accept for a provider, so a caller can
  * narrow to what the provider can express BEFORE issuing the read.
@@ -103,6 +181,11 @@ export function resolveAccountWideIssueFilters(
  * {@link IntegrationService.listIssueTrackerIssuesPage} validates against, and leaves `issuesAccountWide`
  * empty. Reading a tracker's capability off `issuesAccountWide` therefore under-reports it.
  *
+ * `issueSearch` is a third, wider surface: the FILTERED issue search (`searchIssuesPage`, and the `countIssues`
+ * probe over the same criteria), which is not bound to the user at all. It is a record of per-criterion flags
+ * rather than a list, because its criteria aren't a single kind. An empty `relationships` means the provider has
+ * no filtered issue search — hide the surface, not just its chips.
+ *
  * Note this is a CAPABILITY table — "what the provider can express" — not a recommendation. A consumer
  * matching another tool's behavior may deliberately pass fewer filters than are listed here (or none, where an
  * already-scoped read would only be narrowed by them). Intersecting against this table is what keeps a
@@ -113,12 +196,27 @@ export function getSupportedFilters(providerId: IntegrationIds): {
 	pullRequestsAccountWide: PullRequestFilter[];
 	issues: IssueFilter[];
 	issuesAccountWide: IssueFilter[];
+	issueSearch: IssueSearchCapabilities;
 } {
 	const metadata = providersMetadata[providerId];
+	const issueSearch = metadata?.supportedIssueSearch;
 	return {
 		pullRequests: [...(metadata?.supportedPullRequestFilters ?? [])],
 		pullRequestsAccountWide: [...(metadata?.supportedAccountWidePullRequestFilters ?? [])],
 		issues: [...(metadata?.supportedIssueFilters ?? [])],
 		issuesAccountWide: [...(metadata?.supportedAccountWideIssueFilters ?? [])],
+		// Always an object, never `undefined`: a provider WITHOUT a filtered issue search reports one whose
+		// `relationships` is empty and whose flags are all false, so a consumer reads capabilities the same way
+		// for every provider (and an empty `relationships` is the signal to hide the surface itself).
+		issueSearch: {
+			relationships: [...(issueSearch?.relationships ?? [])],
+			text: issueSearch?.text ?? false,
+			labels: issueSearch?.labels ?? false,
+			milestone: issueSearch?.milestone ?? false,
+			updatedAfter: issueSearch?.updatedAfter ?? false,
+			createdAfter: issueSearch?.createdAfter ?? false,
+			withoutLinkedPullRequest: issueSearch?.withoutLinkedPullRequest ?? false,
+			states: issueSearch?.states ?? false,
+		},
 	};
 }
