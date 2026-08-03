@@ -201,6 +201,9 @@ Three parts of the contract that are decisions, not incidentals:
   silently widen the read to the whole org.
 - **Ordering is always most-recently-updated-first.** Not an option: a "show the N most recent" policy at the
   result ceiling is only correct under a guaranteed order.
+- **`itemsPerPage` is per RELATIONSHIP**, since each becomes its own provider query: a page of an
+  N-relationship search returns up to `N × itemsPerPage` items before deduplication, and fewer where they
+  overlap. Read `page.itemsPerPage` for what actually came back.
 - **At the result ceiling the read SUCCEEDS.** More matches than the provider will serve is an _omission_, not
   a failure: `fetchFailed` stays absent, and the warning carries `omission.totalCount` (how many matched),
   `omission.limit` (how many are reachable) and `recovery: 'none'` — the rest is unreachable however you page,
