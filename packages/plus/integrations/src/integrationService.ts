@@ -72,6 +72,8 @@ import { providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
 import { broadenIssues } from './reads/broaden.js';
 import type { RepositoryResolutionContext } from './reads/context.js';
+import type { IssueCountResult, IssueCountScope } from './reads/counts.js';
+import { countIssues } from './reads/counts.js';
 import { getSupportedFilters } from './reads/filters.js';
 import { listOrgs, listProjects, listRepos } from './reads/hierarchy.js';
 import { listIssuesPage } from './reads/issues.js';
@@ -1102,6 +1104,23 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>> {
 		return searchIssuesPage(this, options);
+	}
+
+	/**
+	 * How many issues match each scope, without fetching any — see {@link IntegrationManager.countIssues} for the
+	 * cost model, the per-scope isolation rules, and why `count: undefined` must not be rendered as zero.
+	 */
+	async countIssues(options: {
+		providerId: IntegrationIds;
+		scopes: readonly IssueCountScope[];
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<ProviderResult<IssueCountResult>> {
+		return countIssues(this, options);
 	}
 
 	/**

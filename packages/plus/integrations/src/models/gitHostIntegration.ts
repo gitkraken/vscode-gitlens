@@ -1700,6 +1700,47 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 	): Promise<ProviderIssueSearchPage | undefined>;
 
+	/**
+	 * Result-returning wrapper for the count-only probe: how many issues MATCH each scope, transferring no issues
+	 * at all. Recovers thrown errors into `{ error }` like the reads around it.
+	 *
+	 * Counts come back POSITIONALLY — one per input scope, in order — because a caller's key must never reach the
+	 * provider query. `undefined` in a slot means the provider didn't report a count for it, never zero matches.
+	 */
+	async countIssuesResult(
+		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: IssueSearchCriteria }[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<(number | undefined)[] | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const counts = await this.countProviderIssues?.(session, scopes, cancellation);
+			this.resetRequestExceptionCount('countIssues');
+			return { value: counts, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('countIssues', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * OPTIONAL: only a provider that can answer "how many match" WITHOUT fetching the matches implements this.
+	 * GitHub's search reports `issueCount` on a zero-node selection; GitLab's REST exposes a total on some
+	 * endpoints but not for a search-shaped query, and Azure has no equivalent. A provider that can't answer
+	 * doesn't implement it and the facade refuses the probe, so a consumer hides its count rather than being shown
+	 * a fabricated one.
+	 */
+	protected countProviderIssues?(
+		session: ProviderAuthenticationSession,
+		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: IssueSearchCriteria }[],
+		cancellation?: AbortSignal,
+	): Promise<(number | undefined)[] | undefined>;
+
 	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
 		return this.getProviderPullRequestIdentityFromMaybeUrl?.(search);
 	}
