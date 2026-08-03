@@ -5,6 +5,7 @@ import type { ConfiguredIntegrationsChangeEvent } from './authentication/configu
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
 import type { IssueFilter, IssueSearchCapabilities, PullRequestFilter } from './providerFilters.js';
+import type { IssueCountResult, IssueCountScope } from './reads/counts.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -356,6 +357,35 @@ export interface IntegrationManager {
 		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
+	/**
+	 * How many issues MATCH each scope, without fetching any of them — the probe behind a "this will fetch ~N
+	 * issues" preview, and behind a live count next to a filter the user hasn't applied yet.
+	 *
+	 * Cheap by design: every scope that can share a request does, and no issue data crosses the wire (measured
+	 * against GitHub, 30 counts are a single rate-limit point). Still a network request per batch, so debounce and
+	 * cache it if it's driven from UI state.
+	 *
+	 * A separate method rather than a flag on {@link searchIssuesPage} because transferring zero issues is the
+	 * whole point: a `countOnly` read would hand back a paged result whose `items`/`cursor`/`hasMore` are all
+	 * meaningless.
+	 *
+	 * Results are echoed under the caller's own `key`, so no positional matching is needed. Per-scope isolation is
+	 * the rule: a scope refused for its own reasons, or a batch that failed upstream, warns and drops only its own
+	 * scopes (with `fetchFailed` set) while every other count still comes back.
+	 *
+	 * `count: undefined` means the provider didn't report one — NOT zero, which is a real answer. Render the
+	 * difference: showing an unknown count as 0 tells the user a filter matches nothing when it may match
+	 * thousands. A provider that can't count at all (only GitHub/GHE can today) refuses the probe outright rather
+	 * than returning fabricated numbers.
+	 */
+	countIssues(options: {
+		providerId: IntegrationIds;
+		/** Each needs its own scope, and each requested relationship its own entry — see {@link IssueCountScope}. */
+		scopes: readonly IssueCountScope[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderResult<IssueCountResult>>;
 	/** Issue trackers are cloud-only, so this read takes no `domain`. */
 	listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
