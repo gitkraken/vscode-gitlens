@@ -93,8 +93,8 @@ importers:
         specifier: workspace:*
         version: link:packages/plus/commit-graph
       '@gitkraken/compose-tools':
-        specifier: 0.6.0
-        version: 0.6.0
+        specifier: 0.8.0
+        version: 0.8.0
       '@gitkraken/conflict-tools':
         specifier: 0.2.3
         version: 0.2.3
@@ -1096,8 +1096,8 @@ packages:
   '@github/catalyst@1.8.1':
     resolution: {integrity: sha512-dnN4WWpbeuQvA17LvsGdlXEueJdBk9y+I+WO5pdNpoHNOXPsFcz3hJrq1iRmdsNgQOf4S8e83axtwIxvG62eWA==}
 
-  '@gitkraken/compose-tools@0.6.0':
-    resolution: {integrity: sha512-vAPS8nxyV/R4CteqW5wu7sALBcpN+OXfxOC6x2gBBJavpzw+dgLExwEQ+JkyRyMdhphlv5kUxT7lRSEiAd4d9w==}
+  '@gitkraken/compose-tools@0.8.0':
+    resolution: {integrity: sha512-t3h0GkyC6hg1X5lkKiTt0IUSa2i4xpKD5r79sWx054aR0M1+DDutSxCZoMTe/fB7aeVR1h3XmyaZm5eHFBcekQ==}
     engines: {node: '>= 22'}
 
   '@gitkraken/conflict-tools@0.2.3':
@@ -7675,7 +7675,7 @@ snapshots:
 
   '@github/catalyst@1.8.1': {}
 
-  '@gitkraken/compose-tools@0.6.0':
+  '@gitkraken/compose-tools@0.8.0':
     dependencies:
       '@gitkraken/shared-tools': 0.2.0
 
