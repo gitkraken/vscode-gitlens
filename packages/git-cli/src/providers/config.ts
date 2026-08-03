@@ -494,10 +494,19 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		try {
 			const prefix = `branch.${ref}.`;
 			const map = await this.getGkConfigMap(repoPath);
-			if (!some(map.keys(), k => k.startsWith(prefix))) return;
+			// The shortcut needs a map with CONTENT to be trustworthy. A failed bulk read resolves empty
+			// (see `getGkConfigMap`) — the cache refuses it, but this caller still holds it — and an empty map
+			// read as authoritative would skip the removal entirely, leaving a deleted branch's base,
+			// disposition and issue links behind for the next branch reusing that name. When it's empty, run
+			// the command: worst case is a no-op on a section that isn't there.
+			if (map.size && !some(map.keys(), k => k.startsWith(prefix))) return;
 
 			const gkConfigPath = await this.getGkConfigPath(repoPath);
 			if (!gkConfigPath) return;
+			// `getGkConfigPath` only joins a path, so check the file: with no `.git/gk/config` there is
+			// genuinely nothing to remove, and running the command would fail with a fatal we'd then warn
+			// about on every branch delete in a repo that has never had gk metadata.
+			if (!(await fsExists(gkConfigPath))) return;
 
 			const result = await this.git.run(
 				{ cwd: repoPath, runLocally: true, errors: 'ignore' },
