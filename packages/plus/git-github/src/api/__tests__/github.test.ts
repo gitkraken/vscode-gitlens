@@ -533,6 +533,25 @@ suite('GitHubApi.searchMyIssues', () => {
 		assert.match(String(vars.mentioned), /mentions:@me/, 'mentioned stays user-relative');
 	});
 
+	// `assignee:*` needs a SCOPE to be meaningful, but any scope will do — the source used to claim GitHub honors
+	// it only for a single repository, and that claim was the standing argument for refusing a multi-repo
+	// "assigned to anyone" read. Measured against the live API, a two-repo `assignee:*` returns exactly the sum of
+	// the two per-repo counts, so what the request must carry is every `repo:` qualifier alongside the qualifier.
+	test('keeps every repo qualifier alongside assignee:* for a multi-repo scope', async () => {
+		const { config, getVariables } = captureVariables();
+		const api = new GitHubApi(config);
+
+		await api.searchMyIssues(provider, token, {
+			repos: ['gitkraken/kepler', 'gitkraken/vscode-gitlens'],
+			includeAllAssignees: true,
+		});
+
+		const assigned = String(getVariables().assigned);
+		assert.match(assigned, /assignee:\*/, 'the assigned category broadens to has-any-assignee');
+		assert.match(assigned, /repo:gitkraken\/kepler/, 'the first repo scopes the search');
+		assert.match(assigned, /repo:gitkraken\/vscode-gitlens/, 'the second repo scopes it too');
+	});
+
 	test('pages each issue category independently with an opaque composite cursor', async () => {
 		const variables: Record<string, unknown>[] = [];
 		let request = 0;
