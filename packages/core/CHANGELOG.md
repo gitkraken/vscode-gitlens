@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes `listOrgs`/`listProjects` reporting one truncation twice, with two verdicts that disagreed on the remedy. A hierarchy read cut short by an expired credential emitted a bare `kind: 'other'` "listing was truncated" warning AND the typed `auth` warning for the identical cause, so a consumer routing on classification lit a reconnect prompt from one and a "this provider failed to load" banner from the other — the second offering a remedy that does not exist. Nothing on the wire distinguished that generic warning from a network error, so the fix is at the producer: both reads now assess the SDK metadata first and state the truncation themselves only when the metadata reported nothing, which is the rule `assessCollectionMetadata` already applied to its own generic fallback one layer up. A truncation nothing else explained still warns, and still marks the read non-authoritative — a flattened hierarchy result has no page object to carry incompleteness, so `fetchFailed` remains the only signal that the list is short (plus/integrations)
+
 ## [0.5.102] - 2026-08-02
 
 ### Added
