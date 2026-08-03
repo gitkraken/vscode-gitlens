@@ -2,7 +2,6 @@ import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.
 import type { IntegrationIds } from '../constants.js';
 import type { ProviderReposInput } from '../providers/models.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
-import { appendDedupedWarning } from '../results.js';
 import {
 	isGitHostIntegration,
 	isIssuesHostIntegrationId,
@@ -11,7 +10,13 @@ import {
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
 import { resolveIssueSearchCriteria, resolveIssueSearchScope } from './filters.js';
-import { refusedPage, resolveContinuation, resolveCurrentPage, usableCursor } from './paging.js';
+import {
+	drainFlatPagesToRequestedPage,
+	refusedPage,
+	resolveContinuation,
+	resolveCurrentPage,
+	usableCursor,
+} from './paging.js';
 import {
 	gitHostOnlySurfaceWarning,
 	issueSearchCapResultWarning,
@@ -154,54 +159,23 @@ export async function searchIssuesPage(
 		);
 
 	const first = await readPage(options.cursor);
-	let value = first.value;
 	const warnings = first.warning != null ? [first.warning] : [];
-	let pageFetchFailed = first.warning != null && value == null;
-	let currentPage = value?.page ?? 1;
-	let currentTruncated = value?.truncated ?? false;
-	// The largest total any page reported. Kept across the internal walk so a cap detected on page 1 is still
-	// reportable after paging on to page N.
-	let totalCount = value?.totalCount;
-
-	if (options.cursor == null && page > 1 && value != null) {
-		// Guard against the empty-cursor sentinel: a provider that claims another page without handing back a
-		// usable cursor would otherwise be re-read with `'{}'` and answer with page 1 again.
-		for (
-			let nextCursor = usableCursor(value.cursor);
-			currentPage < page && value.hasMore && nextCursor != null;
-			nextCursor = usableCursor(value.cursor)
-		) {
-			const next = await readPage(nextCursor);
-			if (next.warning != null) {
-				appendDedupedWarning(warnings, next.warning);
+	// The largest total any page reported. Folded across the walk so a cap detected on page 1 is still reportable
+	// after paging on to page N — the one thing this read accumulates that its sibling doesn't.
+	let totalCount = first.value?.totalCount;
+	const drained = await drainFlatPagesToRequestedPage(first, {
+		requestedPage: page,
+		suppliedCursor: options.cursor,
+		warnings: warnings,
+		readPage: readPage,
+		fold: p => {
+			if (p.totalCount != null) {
+				totalCount = Math.max(totalCount ?? 0, p.totalCount);
 			}
-			if (next.value == null) {
-				pageFetchFailed = next.warning != null;
-				// Load-bearing for the unsupported-read check below, which distinguishes "no page at all" from
-				// "a page that was genuinely empty".
-				value = undefined;
-				break;
-			}
-
-			value = next.value;
-			currentTruncated = currentTruncated || value.truncated;
-			if (value.totalCount != null) {
-				totalCount = Math.max(totalCount ?? 0, value.totalCount);
-			}
-			currentPage = value.page ?? currentPage + 1;
-			// A provider that hands back the same cursor isn't advancing; stop rather than loop forever.
-			if (usableCursor(value.cursor) === nextCursor) {
-				currentTruncated = true;
-				break;
-			}
-		}
-	}
-
-	// A numbered page the walk never reached is genuinely empty — the provider's continuations ran out (or a page
-	// failed) before it. Never return or relabel the last available page as the requested one. Derived rather than
-	// flagged along the way: every case reduces to "a page was asked for by number and the walk fell short",
-	// including the one where no walk ran because `page > 1` was requested against a terminal first page.
-	const requestedPageMissing = options.cursor == null && page > 1 && currentPage < page;
+		},
+	});
+	const { value, currentPage, requestedPageMissing } = drained;
+	const pageFetchFailed = drained.fetchFailed;
 
 	// A provider that doesn't implement the search hook returns `undefined` with no error. Surface that as an
 	// explicit unsupported warning + fetchFailed rather than a silent empty success, so a caller isn't left
@@ -222,7 +196,7 @@ export async function searchIssuesPage(
 		{
 			hasMore: requestedPageMissing ? false : (value?.hasMore ?? false),
 			cursor: requestedPageMissing ? undefined : usableCursor(value?.cursor),
-			truncated: currentTruncated,
+			truncated: drained.truncated,
 		},
 		undefined,
 	);
