@@ -178,4 +178,85 @@ suite('IntegrationManager.getSupportedFilters', () => {
 			manager.dispose();
 		}
 	});
+
+	/**
+	 * `issueSearch` describes a third, wider surface than the two filter sets: the filtered issue search, which
+	 * isn't bound to the user at all. It is reported for EVERY provider — empty rather than absent — because that
+	 * is what lets a consumer read capabilities uniformly, and treat empty `relationships` as "hide this surface"
+	 * rather than having to special-case a missing field.
+	 */
+	suite('issueSearch', () => {
+		test('is always present, so a consumer reads it the same way for every provider', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				for (const id of allIds) {
+					const issueSearch = manager.getSupportedFilters(id).issueSearch;
+					assert.ok(issueSearch != null, `${id} reports an issueSearch table`);
+					assert.ok(Array.isArray(issueSearch.relationships), `${id} reports relationships as an array`);
+				}
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('only GitHub and GHE declare a filtered issue search today', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				const withSearch = allIds.filter(
+					id => manager.getSupportedFilters(id).issueSearch.relationships.length > 0,
+				);
+				assert.deepEqual(
+					withSearch.sort(),
+					[GitCloudHostIntegrationId.GitHub, GitSelfManagedHostIntegrationId.CloudGitHubEnterprise].sort(),
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('a provider without one reports every flag false, not undefined', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitLab).issueSearch, {
+					relationships: [],
+					text: false,
+					labels: false,
+					milestone: false,
+					updatedAfter: false,
+					createdAfter: false,
+					withoutLinkedPullRequest: false,
+					states: false,
+				});
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('GitHub declares the two user-independent relationships its @me filters can’t name', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				const relationships = manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub).issueSearch
+					.relationships;
+				// The superset over `IssueFilter` is the point of this table: `assignee:*` and `no:assignee` say
+				// nothing about the current user, so the "my issues" filter enum has no member for either.
+				assert.ok(relationships.includes('any-assignee'));
+				assert.ok(relationships.includes('unassigned'));
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('returns a copy, so a consumer cannot corrupt the metadata', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub).issueSearch.relationships.length = 0;
+				assert.ok(
+					manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub).issueSearch.relationships.length > 0,
+					'the table survives a mutated result',
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+	});
 });
