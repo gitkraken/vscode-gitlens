@@ -116,17 +116,15 @@ export const featureGateBaseStyles = css`
 		margin-inline: auto;
 	}
 
-	.switch-repos {
+	.switch-actions {
 		position: absolute;
 		top: 0.6rem;
 		right: 0.6rem;
 		z-index: 1;
-		opacity: 0.6;
-	}
 
-	.switch-repos:hover,
-	.switch-repos:focus-within {
-		opacity: 1;
+		gl-button:not(:hover, :focus-within) {
+			opacity: 0.6;
+		}
 	}
 `;
 

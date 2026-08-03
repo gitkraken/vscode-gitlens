@@ -33,6 +33,9 @@ export class GlFeatureGate extends LitElement {
 	@property({ type: Boolean })
 	allowRepoSwitch = false;
 
+	@property({ type: Boolean })
+	allowOrgSwitch = false;
+
 	@property({ reflect: true })
 	appearance?: 'alert' | 'default';
 
@@ -98,10 +101,21 @@ export class GlFeatureGate extends LitElement {
 						<slot name="feature" slot="feature"></slot>
 					</gl-feature-gate-plus-state>
 				</div>
+				${this.renderSwitchActions()}
+			</dialog>
+		`;
+	}
+
+	private renderSwitchActions() {
+		if (!this.allowRepoSwitch && !this.allowOrgSwitch) {
+			return nothing;
+		}
+
+		return html`
+			<div class="switch-actions">
 				${
 					this.allowRepoSwitch
 						? html`<gl-button
-								class="switch-repos"
 								appearance="toolbar"
 								tooltip="Switch to a different repository"
 								@click=${this.onSwitchRepos}
@@ -109,7 +123,17 @@ export class GlFeatureGate extends LitElement {
 							>`
 						: nothing
 				}
-			</dialog>
+				${
+					this.allowOrgSwitch
+						? html`<gl-button
+								appearance="toolbar"
+								tooltip="Switch to a different organization"
+								@click=${this.onSwitchOrgs}
+								><code-icon icon="organization" slot="prefix"></code-icon> Switch Orgs</gl-button
+							>`
+						: nothing
+				}
+			</div>
 		`;
 	}
 
@@ -132,5 +156,8 @@ export class GlFeatureGate extends LitElement {
 
 	private onSwitchRepos(): void {
 		this.dispatchEvent(new CustomEvent('gl-switch-repos', { bubbles: true, composed: true }));
+	}
+	private onSwitchOrgs(): void {
+		this.dispatchEvent(new CustomEvent('gl-switch-orgs', { bubbles: true, composed: true }));
 	}
 }
