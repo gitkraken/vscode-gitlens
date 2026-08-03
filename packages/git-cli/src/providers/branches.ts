@@ -184,6 +184,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 				// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
 				if (!records.length) {
+					// Never CACHE that conclusion. `getRefs` reports a failed enumeration the same way as a
+					// genuinely ref-less repo — an empty array (it invalidates its own entry but doesn't
+					// throw) — so a transient `for-each-ref` failure would otherwise pin this degraded
+					// current-branch-only list in a map with no TTL, and every branch consumer would see a
+					// one-branch repo for the session. A truly empty repo re-reads cheaply, so refusing the
+					// entry costs nothing in the case this is actually meant to serve.
+					cacheable?.invalidate();
+
 					const current = await this.getCurrentBranch(
 						commonPath,
 						metadataMap,
@@ -829,6 +837,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 										return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
 									}
 								}
+
 								// `ls-remote` ran and the remote advertised no HEAD — a real "none".
 								answered = true;
 							} catch {
@@ -855,7 +864,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
-			// A name reused from a deleted branch must not inherit its predecessor's base
+			// Evict the cached base so the new branch re-derives its own. The PERSISTED `branch.<ref>.gk-*`
+			// keys are left alone: they're dropped when GitLens deletes a branch, never when one is created.
+			// Removing them here would mean treating a reused name as proof of a different branch, which
+			// nothing can establish — so the trade is that a branch reusing a name deleted outside GitLens
+			// inherits the orphaned section.
 			this.cache.deleteBaseBranchName(repoPath, name);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
@@ -885,10 +898,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			await this.git.run({ cwd: repoPath }, ...args);
 			for (const branch of branches) {
 				this.cache.deleteBaseBranchName(repoPath, branch);
+				// Drop the persisted gk metadata too, not just the cached resolution. `getBaseBranchName`
+				// reads `branch.<ref>.gk-merge-base` before falling back to the reflog, so leaving it behind
+				// would hand a later branch reusing this name its predecessor's base — evicting the cache
+				// alone just forces a re-derivation that reads the same stale value back.
+				await this.provider.config.removeGkConfigBranchSection(repoPath, branch);
 			}
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
 		} catch (ex) {
+			// A multi-name delete partially succeeds: `git branch -d a bad c` removes `a` and `c`, refuses
+			// `bad`, and still exits non-zero — so the loop above never ran for the branches that did go.
+			// Clean those up here rather than leave persisted gk metadata behind for a name a later branch
+			// can reuse.
+			await this.cleanupDeletedBranchMetadata(repoPath, branches);
+
 			if (ex instanceof BranchError) {
 				throw ex.update({
 					action: options?.force ? 'force delete' : 'delete',
@@ -905,6 +929,54 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				},
 				ex,
 			);
+		}
+	}
+
+	/**
+	 * Drops the cached and persisted per-branch metadata for whichever of `names` no longer exists. Only
+	 * for the partial-failure path — one extra `for-each-ref` is cheap while already handling an error,
+	 * and keeps the success path free of it.
+	 */
+	private async cleanupDeletedBranchMetadata(repoPath: string, names: string[]): Promise<void> {
+		try {
+			const result = await this.git.run(
+				{ cwd: repoPath, errors: 'ignore' },
+				'for-each-ref',
+				// Full refname, stripped here rather than by git. NOT `%(refname:short)`: that yields the
+				// shortest UNAMBIGUOUS name, so a branch with a same-named tag comes back as `heads/<name>`,
+				// never matches the requested name, and would read as deleted — wiping a live branch's
+				// metadata. `%(refname:strip=2)` also solves that, but `%(refname)` is the oldest, plainest
+				// field and needs no assumption about which git version gained `strip`.
+				'--format=%(refname)',
+				...names.map(n => `refs/heads/${n}`),
+			);
+			// `errors: 'ignore'` means a failed probe RESOLVES empty, which is indistinguishable from "none
+			// of them survived" — and would delete every name's metadata, including user-owned keys like
+			// `gk-disposition` and `gk-associated-issues`. Only act on a genuine answer.
+			//
+			// BOTH conditions: `exitCode !== 0` catches a probe git ran and rejected, `status !== 'exited'`
+			// catches one that never produced an answer — a spawn failure or queue rejection (no exit code at
+			// all), or a swallowed warning (which carries git's real code, so the exit-code test alone can
+			// still read it as "none survived").
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return;
+
+			const prefix = 'refs/heads/';
+			const surviving = new Set(
+				result.stdout
+					.split('\n')
+					.map(l => l.trim())
+					.filter(l => l.startsWith(prefix))
+					.map(l => l.substring(prefix.length)),
+			);
+
+			for (const name of names) {
+				if (surviving.has(name)) continue;
+
+				this.cache.deleteBaseBranchName(repoPath, name);
+				await this.provider.config.removeGkConfigBranchSection(repoPath, name);
+			}
+		} catch {
+			// Best-effort bookkeeping while already unwinding a failure — never mask the original error.
 		}
 	}
 
@@ -1567,6 +1639,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const args = ['branch', '-m', oldName, newName];
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
+			// The branch keeps its identity across a rename, so move its stored gk metadata with it —
+			// otherwise the new name re-derives a base it already had, and the old name is left holding
+			// metadata for a branch that no longer exists under it.
+			await this.provider.config.renameGkConfigBranchSection(repoPath, oldName, newName);
 			// Old name's entry is now orphaned; the new name must not inherit a predecessor's base
 			this.cache.deleteBaseBranchName(repoPath, oldName);
 			this.cache.deleteBaseBranchName(repoPath, newName);

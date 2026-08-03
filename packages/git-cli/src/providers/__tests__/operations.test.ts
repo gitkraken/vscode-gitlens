@@ -86,7 +86,9 @@ suite('OperationsGitSubProvider Test Suite', () => {
 		// `checkout({ createBranch })` clears the new branch's cached and persisted base — see the note
 		// there — so the stub needs those two seams.
 		const cache = { deleteBaseBranchName: () => {} } as unknown as Cache;
-		const provider = {} as unknown as CliGitProviderInternal;
+		const provider = {
+			config: { removeGkConfigBranchSection: () => Promise.resolve() },
+		} as unknown as CliGitProviderInternal;
 
 		operations = new OperationsGitSubProvider(context, gitStub, cache, provider);
 	});

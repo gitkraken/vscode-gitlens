@@ -100,6 +100,16 @@ export interface GitConfigSubProvider {
 		value: string | undefined,
 		options?: { skipInvalidation?: readonly GkConfigInvalidationTarget[] },
 	): Promise<void>;
+	/**
+	 * Drops every gk key stored for `ref` — call when a branch stops existing under that name. Deliberately
+	 * includes user-owned values (`gk-merge-target-user`, `gk-disposition`, `gk-associated-issues`): the
+	 * branch is confirmed gone, and leaving them would hand the next branch reusing that name a dead one's
+	 * starred state and issue links. Only call where git guarantees the name is free —
+	 * a completed delete.
+	 */
+	removeGkConfigBranchSection?(repoPath: string, ref: string): Promise<void>;
+	/** Moves every gk key stored for `oldRef` to `newRef` — call when a branch is renamed. */
+	renameGkConfigBranchSection?(repoPath: string, oldRef: string, newRef: string): Promise<void>;
 
 	getSigningConfig?(repoPath: string): Promise<SigningConfig>;
 	getSigningConfigFlags?(config: SigningConfig): string[];

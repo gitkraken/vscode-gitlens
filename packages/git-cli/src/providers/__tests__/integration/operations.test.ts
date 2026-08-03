@@ -396,3 +396,24 @@ suite('OperationsGitSubProvider.push', () => {
 		}
 	});
 });
+
+suite('OperationsSubProvider — branch-creating checkout', () => {
+	test('checkout -b leaves a predecessor’s metadata alone', async () => {
+		const repo = createTestRepo();
+		try {
+			// Simulates a branch deleted outside GitLens: its persisted base is still on disk under that
+			// name. Like `createBranch`, creation never removes persisted metadata — see the note there.
+			await repo.provider.config.setGkConfig(repo.path, 'branch.via-checkout.gk-merge-base', 'origin/DEAD');
+
+			await repo.provider.ops.checkout(repo.path, 'main', { createBranch: 'via-checkout' });
+
+			assert.strictEqual(
+				await repo.provider.config.getGkConfig(repo.path, 'branch.via-checkout.gk-merge-base'),
+				'origin/DEAD',
+				'creation must not touch persisted metadata',
+			);
+		} finally {
+			repo.cleanup();
+		}
+	});
+});

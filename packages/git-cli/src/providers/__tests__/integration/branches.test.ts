@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
 import * as sinon from 'sinon';
+import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
 import type { TestRepo } from './helpers.js';
 import { addCommit, cloneTestRepo, createBranch, createTestRepo } from './helpers.js';
 
@@ -163,5 +164,159 @@ suite('BranchesSubProvider — default branch caching', () => {
 
 		const after = await clone.provider.branches.getDefaultBranchName(clone.path, 'origin', { local: true });
 		assert.strictEqual(after, networked, 'the local lookup must now see the symref the networked path created');
+	});
+});
+
+suite('BranchesSubProvider — partial batch delete', () => {
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+		addCommit(repo.path, 'f.txt', 'x', 'seed');
+	});
+
+	teardown(() => {
+		repo.cleanup();
+	});
+
+	test('a branch sharing a name with a tag is not mistaken for deleted', async () => {
+		// `shared-name` is UNMERGED, so `git branch -d` refuses it while deleting `doomed` — that partial
+		// failure is what runs the survivor probe, and `shared-name` must be in the probed set for the
+		// collision to matter. `%(refname:short)` disambiguates it as `heads/shared-name`, which wouldn't
+		// match the requested name and would read a live branch as deleted.
+		createBranch(repo.path, 'doomed');
+		createBranch(repo.path, 'shared-name', { checkout: true });
+		addCommit(repo.path, 'u.txt', 'y', 'unmerged');
+		execFileSync('git', ['checkout', 'main'], { cwd: repo.path, stdio: 'pipe' });
+		execFileSync('git', ['tag', 'shared-name'], { cwd: repo.path, stdio: 'pipe' });
+
+		await repo.provider.config.setGkConfig(repo.path, 'branch.shared-name.gk-merge-base', 'origin/keep-me');
+		await repo.provider.config.setGkConfig(repo.path, 'branch.shared-name.gk-disposition', 'starred');
+
+		await assert.rejects(repo.provider.branches.deleteLocalBranch(repo.path, ['doomed', 'shared-name']));
+
+		assert.strictEqual(
+			await repo.provider.config.getGkConfig(repo.path, 'branch.shared-name.gk-merge-base'),
+			'origin/keep-me',
+			'a live branch colliding with a tag must keep its metadata',
+		);
+		assert.strictEqual(
+			await repo.provider.config.getGkConfig(repo.path, 'branch.shared-name.gk-disposition'),
+			'starred',
+			'and its user-owned values',
+		);
+	});
+
+	test('a failed survivor probe deletes nothing', async () => {
+		createBranch(repo.path, 'survivor', { checkout: true });
+		addCommit(repo.path, 'u2.txt', 'y', 'unmerged');
+		execFileSync('git', ['checkout', 'main'], { cwd: repo.path, stdio: 'pipe' });
+		await repo.provider.config.setGkConfig(repo.path, 'branch.survivor.gk-merge-base', 'origin/keep-me');
+
+		// The probe must RESOLVE a failure (what `errors: 'ignore'` actually does) rather than reject —
+		// a rejection is already caught. An empty stdout is indistinguishable from "nothing survived",
+		// which would wipe every probed name.
+		//
+		// Stub the failure with NO exit code, which is what a spawn failure or queue rejection actually
+		// produces — an `exitCode: 1` stub would exercise a git-ran-and-said-no result instead, which the
+		// exit-code half of the guard already covers on its own.
+		const real = repo.provider.git.run.bind(repo.provider.git);
+		const stub = sinon
+			.stub(repo.provider.git, 'run')
+			.callsFake(async (options: GitRunOptions, ...args: readonly (string | undefined)[]) => {
+				if (!args.includes('for-each-ref')) return real(options, ...args);
+
+				const failed: GitResult = {
+					stdout: '',
+					stderr: undefined,
+					completion: { status: 'failed', reason: 'unstarted', error: new Error('probe never ran') },
+				};
+				return failed;
+			});
+		try {
+			await assert.rejects(repo.provider.branches.deleteLocalBranch(repo.path, ['survivor']));
+		} finally {
+			stub.restore();
+		}
+
+		assert.strictEqual(
+			await repo.provider.config.getGkConfig(repo.path, 'branch.survivor.gk-merge-base'),
+			'origin/keep-me',
+			'a failed probe must not be read as "everything was deleted"',
+		);
+	});
+
+	test('cleans persisted metadata for the branches a partial delete did remove', async () => {
+		createBranch(repo.path, 'gone-1');
+		createBranch(repo.path, 'gone-2');
+		// An unmerged branch makes `git branch -d` refuse that one while still deleting the others.
+		createBranch(repo.path, 'kept', { checkout: true });
+		addCommit(repo.path, 'g.txt', 'y', 'unmerged');
+		execFileSync('git', ['checkout', 'main'], { cwd: repo.path, stdio: 'pipe' });
+
+		for (const b of ['gone-1', 'gone-2', 'kept']) {
+			await repo.provider.config.setGkConfig(repo.path, `branch.${b}.gk-merge-base`, `origin/${b}-base`);
+		}
+
+		await assert.rejects(repo.provider.branches.deleteLocalBranch(repo.path, ['gone-1', 'kept', 'gone-2']));
+
+		const read = (b: string) => repo.provider.config.getGkConfig(repo.path, `branch.${b}.gk-merge-base`);
+		assert.strictEqual(await read('gone-1'), undefined, 'a branch that was deleted must not keep metadata');
+		assert.strictEqual(await read('gone-2'), undefined, 'a branch that was deleted must not keep metadata');
+		assert.strictEqual(await read('kept'), 'origin/kept-base', 'a branch that survived must keep its metadata');
+	});
+});
+
+suite('BranchesSubProvider — branch identity bookkeeping (end to end)', () => {
+	let repo: TestRepo;
+
+	setup(() => {
+		repo = createTestRepo();
+		addCommit(repo.path, 'f.txt', 'x', 'seed');
+	});
+
+	teardown(() => {
+		repo.cleanup();
+	});
+
+	const setBase = (ref: string, v: string) =>
+		repo.provider.config.setGkConfig(repo.path, `branch.${ref}.gk-merge-base`, v);
+	const readBase = (ref: string) => repo.provider.config.getGkConfig(repo.path, `branch.${ref}.gk-merge-base`);
+
+	test('renameBranch carries the stored base across to the new name', async () => {
+		createBranch(repo.path, 'old-name');
+		await setBase('old-name', 'origin/its-base');
+
+		await repo.provider.branches.renameBranch(repo.path, 'old-name', 'new-name');
+
+		assert.strictEqual(await readBase('new-name'), 'origin/its-base', 'the base must follow the branch');
+		assert.strictEqual(await readBase('old-name'), undefined, 'the old name must not retain it');
+	});
+
+	test('createBranch leaves a predecessor’s metadata alone', async () => {
+		// Simulates a branch deleted outside GitLens: its persisted base is still on disk under that name.
+		// Metadata is dropped when GitLens DELETES a branch, never on creation — creation would have to guess
+		// that a reused name means a different branch, and the only signal for that guess (a `refs/heads/*`
+		// create event) also fires on ordinary commits, since git rewrites a loose ref via `<name>.lock` +
+		// rename. Guessing there destroyed a live branch's base on every commit. The accepted cost is this:
+		// a branch reusing a name deleted outside GitLens inherits the orphaned section.
+		await setBase('reborn', 'origin/DEAD-PREDECESSOR');
+
+		await repo.provider.branches.createBranch(repo.path, 'reborn', 'main');
+
+		assert.strictEqual(
+			await readBase('reborn'),
+			'origin/DEAD-PREDECESSOR',
+			'creation must not touch persisted metadata',
+		);
+	});
+
+	test('deleteLocalBranch drops the deleted branch’s stored base', async () => {
+		createBranch(repo.path, 'doomed');
+		await setBase('doomed', 'origin/doomed-base');
+
+		await repo.provider.branches.deleteLocalBranch(repo.path, 'doomed');
+
+		assert.strictEqual(await readBase('doomed'), undefined);
 	});
 });

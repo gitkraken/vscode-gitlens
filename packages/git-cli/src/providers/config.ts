@@ -430,6 +430,77 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		this.cache.recordGkConfigWrite(repoPath, key, value);
 	}
 
+	@debug()
+	async removeGkConfigBranchSection(repoPath: string, ref: string): Promise<void> {
+		await this.runGkConfigSectionCommand(repoPath, ref, '--remove-section', `branch.${ref}`);
+	}
+
+	@debug()
+	async renameGkConfigBranchSection(repoPath: string, oldRef: string, newRef: string): Promise<void> {
+		// Clear the destination first, unconditionally. `--rename-section` onto a section that already
+		// exists APPENDS rather than replaces, leaving duplicate keys — and git resolves a duplicated key
+		// to its LAST value, so the orphan left by an earlier branch of this name would win over the
+		// metadata being moved. Doing this outside `runGkConfigSectionCommand` also covers the case where
+		// the source has no gk keys at all, where its pre-check would otherwise skip the whole call and
+		// leave the orphan in place for the renamed branch to inherit.
+		await this.removeGkConfigBranchSection(repoPath, newRef);
+		await this.runGkConfigSectionCommand(
+			repoPath,
+			oldRef,
+			'--rename-section',
+			`branch.${oldRef}`,
+			`branch.${newRef}`,
+		);
+	}
+
+	/**
+	 * Runs a section-level `git config` against `.git/gk/config` for `ref`'s section, skipping the
+	 * subprocess entirely when the bulk map (already cached on any warm path) shows that ref has no gk
+	 * keys — the overwhelmingly common case, since most branches never get gk metadata written at all.
+	 *
+	 * Never throws: callers invoke this as bookkeeping after a branch op has already succeeded, so a
+	 * failure here must not be reported as (or roll back) the branch/checkout/worktree operation itself.
+	 * The worst case is metadata that stays behind until the next op on that name.
+	 */
+	private async runGkConfigSectionCommand(repoPath: string, ref: string, ...args: string[]): Promise<void> {
+		const scope = getScopedLogger();
+		try {
+			const prefix = `branch.${ref}.`;
+			const map = await this.getGkConfigMap(repoPath);
+			if (!some(map.keys(), k => k.startsWith(prefix))) return;
+
+			const gkConfigPath = await this.getGkConfigPath(repoPath);
+			if (!gkConfigPath) return;
+
+			const result = await this.git.run(
+				{ cwd: repoPath, runLocally: true, errors: 'ignore' },
+				'config',
+				'-f',
+				gkConfigPath,
+				...args,
+			);
+			// `errors: 'ignore'` is deliberate — see the note above on why this must never throw — but that
+			// also means the `catch` below never sees a failed write, so without this the metadata silently
+			// stays behind (or, on a rename, stays under the old name) with nothing recorded anywhere.
+			// Reported, not thrown: the branch op it follows has already succeeded.
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) {
+				scope?.warn(
+					`Failed to update gk config section for '${ref}' in '${repoPath}': ${
+						result.completion.status === 'exited'
+							? `git config exited ${result.exitCode}`
+							: `${result.completion.status} · ${result.completion.error.message}`
+					}`,
+				);
+			}
+			// A whole section moved or vanished, which the per-key `deleteGkConfig` cascade can't express.
+			// Drop the bulk map so the next read hits disk; the derived caches for the affected ref are
+			// evicted by the caller's own `deleteBaseBranchName` plus the `'branches'` cascade it fires.
+			this.cache.deleteGkConfigMap(repoPath);
+		} catch (ex) {
+			scope?.error(ex, `Failed to update gk config section for '${ref}' in '${repoPath}'`);
+		}
+	}
+
 	/**
 	 * Reconciles a watcher-observed `'gkConfig'` change — registered with the shared `Cache` as its
 	 * gk-config reconciler (see the constructor). Re-reads the bulk map (hard-evicted by

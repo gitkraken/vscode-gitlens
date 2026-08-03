@@ -66,8 +66,7 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 			await this.git.run({ cwd: repoPath }, ...args);
 
 			if (options?.createBranch) {
-				// `worktree add -b` creates a branch, so it owes the same cleanup as `createBranch` — see
-				// the note there on why the cached eviction alone isn't enough.
+				// Evict the cached base only — see `checkout -b` for why the persisted keys are left alone.
 				this.cache.deleteBaseBranchName(repoPath, options.createBranch);
 			}
 

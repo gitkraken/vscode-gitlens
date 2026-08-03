@@ -71,9 +71,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
 			if (options?.createBranch) {
-				// `checkout -b` creates a branch, so it owes the same cleanup as `createBranch`: the
-				// `'branches'` cascade no longer clears `baseBranchName`, and stored `branch.<ref>.gk-*`
-				// keys left by a predecessor of this name would otherwise become the new branch's base.
+				// Evict the cached base only — see `createBranch` on why the persisted keys stay.
 				this.cache.deleteBaseBranchName(repoPath, options.createBranch);
 			}
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
