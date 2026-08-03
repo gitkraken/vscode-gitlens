@@ -845,7 +845,7 @@ suite('GitHubApi.searchIssuesPage', () => {
 
 			await api.searchIssuesPage(provider, token, {
 				repos: ['o/a'],
-				criteria: { text: 'crash\nrepo:evil/x', milestone: 'v1 ' },
+				criteria: { text: 'crash\nrepo:evil/x', milestone: 'v1\u0000' },
 			});
 
 			const q = String(getVariables().matched);
@@ -866,6 +866,21 @@ suite('GitHubApi.searchIssuesPage', () => {
 			const q = String(getVariables().matched);
 			assert.doesNotMatch(q, /label:""|milestone:""/, 'GitHub would reject an empty qualifier');
 		});
+
+		// The SCOPE values are user-adjacent too, and the same drop rule has to reach them: an org or repo that
+		// sanitizes away must not leave a bare `org:`/`repo:`, which GitHub rejects outright — turning a narrow
+		// search into a failed request rather than a wrong one, but a failure the caller can't explain.
+		test('an org or repo emptied by sanitizing is dropped rather than left bare', async () => {
+			const { config, getVariables } = capture();
+			const api = new GitHubApi(config);
+
+			await api.searchIssuesPage(provider, token, { org: '"', repos: ['"', 'o/a'] });
+
+			const q = String(getVariables().matched);
+			assert.doesNotMatch(q, /org:(\s|$)/, 'no bare org: qualifier');
+			assert.doesNotMatch(q, /repo:(\s|$)/, 'no bare repo: qualifier');
+			assert.match(q, /repo:o\/a/, 'the usable repo still scopes the search');
+		});
 	});
 
 	test('reports the total match count so a capped read can say how many were withheld', async () => {
@@ -876,6 +891,32 @@ suite('GitHubApi.searchIssuesPage', () => {
 
 		assert.equal(result?.totalCount, 19240);
 		assert.equal(result?.truncated, true, 'past the 1,000-result ceiling the read cannot return everything');
+	});
+
+	// The composite cursor keys aliases at its top level, next to `page` and `truncated`, so an alias colliding
+	// with either would overwrite it — and silently: the page number becomes a cursor string, reads back as page 1,
+	// and the walk restarts with no error and no truncation flag. Reachable only by adding a relationship whose
+	// alias is one of those names, so the guard is what makes that a build/test failure instead of a data bug.
+	test('refuses an alias that collides with the cursor’s reserved keys', async () => {
+		const { config } = capture();
+		const api = new GitHubApi(config);
+		const searchIssuesByAlias = (
+			api as unknown as {
+				searchIssuesByAlias: (
+					p: unknown,
+					t: unknown,
+					searches: { alias: string; query: string }[],
+				) => Promise<unknown>;
+			}
+		).searchIssuesByAlias.bind(api);
+
+		for (const alias of ['page', 'truncated']) {
+			await assert.rejects(
+				() => searchIssuesByAlias(provider, token, [{ alias: alias, query: 'repo:o/a' }]),
+				/reserved keys/,
+				`'${alias}' must be refused`,
+			);
+		}
 	});
 
 	test('a count within the ceiling is not reported as truncated', async () => {
@@ -1007,6 +1048,35 @@ suite('GitHubApi.countIssues', () => {
 
 		const aliases = Array.from(getQuery().matchAll(/(\w+): search\(/g), m => m[1]);
 		assert.deepEqual(aliases, ['s0'], 'positional and generated, so no caller text can break the document');
+	});
+
+	// The count only means anything if it applies the SAME qualifiers the search would — a count under different
+	// constraints is a wrong number, not a missing one. Both go through one scope builder; this pins that, so a
+	// change to either side that doesn't reach the other fails here.
+	test('emits the same scope qualifiers as the search it previews', async () => {
+		let searchQuery = '';
+		const searchConfig: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url: unknown, init?: { body?: string }) => {
+				const body = JSON.parse(init?.body ?? '{}') as { variables?: { matched?: string } };
+				searchQuery = body.variables?.matched ?? '';
+				return new Response(
+					JSON.stringify({
+						data: {
+							matched: { issueCount: 0, pageInfo: { endCursor: null, hasNextPage: false }, nodes: [] },
+						},
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			},
+			wrapForForcedInsecureSSL: (_ignore: unknown, fn: () => unknown) => fn(),
+		} as unknown as GitHubApiConfig;
+		await new GitHubApi(searchConfig).searchIssuesPage(provider, token, { org: 'acme', repos: ['o/a', 'o/b'] });
+
+		const { config, getVariables } = capture([1]);
+		await new GitHubApi(config).countIssues(provider, token, [{ org: 'acme', repos: ['o/a', 'o/b'] }]);
+
+		assert.equal(String(getVariables().q0), searchQuery);
 	});
 
 	test('applies the same criteria as the read it previews', async () => {
