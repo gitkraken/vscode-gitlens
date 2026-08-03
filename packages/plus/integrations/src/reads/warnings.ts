@@ -1,7 +1,8 @@
 import type { IntegrationIds } from '../constants.js';
-import type { IssueFilter, PullRequestFilter } from '../providerFilters.js';
+import type { IssueFilter, IssueSearchCapabilities, PullRequestFilter } from '../providerFilters.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
+import type { IssueSearchCriteriaRejection } from './filters.js';
 
 /**
  * The warnings the provider facade raises on its OWN terms, as opposed to the ones derived from a caught
@@ -152,7 +153,8 @@ type TruncatedReadKind =
 	| 'Repository'
 	| 'Organization'
 	| 'Project'
-	| 'Account-wide issue search';
+	| 'Account-wide issue search'
+	| 'Issue search';
 
 /** {@link incompleteReadWarning} for a paged or drained read, phrased per surface. */
 export function truncationWarning(
@@ -231,6 +233,99 @@ export function unsupportedFiltersWarning(
 		connectionId,
 		`The requested pull request filters are not supported by '${id}'; skipped to avoid returning unfiltered results.`,
 	);
+}
+
+/**
+ * Warning for a filtered issue search whose criteria the provider can't serve — either it has no such search at
+ * all, or it can't express what was asked for, or the set contradicts itself.
+ *
+ * One builder for all three because they are one decision from the caller's side ("this search can't be run as
+ * asked") and the remedy differs only in what the message says. The rejection shape carries which case it is, so
+ * the wording can't drift from the check that produced it (see {@link resolveIssueSearchCriteria}).
+ */
+export function unsupportedIssueSearchCriteriaWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	rejection: IssueSearchCriteriaRejection,
+): ProviderWarning {
+	let message: string;
+	switch (rejection.reason) {
+		case 'unsupported-search':
+			message = `Filtered issue search is not supported by '${id}'; use \`listIssuesPage\` for its own issue reads.`;
+			break;
+		case 'unsupported-criteria': {
+			const supported = providersMetadata[id]?.supportedIssueSearch;
+			const expressible = supported != null ? describeIssueSearchCapabilities(supported) : '';
+			message = `The requested issue search criteria (${rejection.criteria.join(', ')}) are not supported by '${id}'${expressible ? ` (supported: ${expressible})` : ''}; skipped to avoid returning a wider result than requested.`;
+			break;
+		}
+		case 'contradictory-relationships':
+			message = `The relationships \`any-assignee\` and \`unassigned\` are contradictory — they partition the scope between them, so no issue satisfies both; pass only one.`;
+			break;
+	}
+	// No `default`: the union is declared alongside the validator, so `noImplicitReturns` fails the build here if
+	// a rejection reason is added without its own wording.
+
+	return otherWarning(id, domain, connectionId, message);
+}
+
+/** The criteria a provider CAN express, for the "supported: …" half of a refusal message. */
+function describeIssueSearchCapabilities(capabilities: IssueSearchCapabilities): string {
+	const flags: [name: string, supported: boolean][] = [
+		['text', capabilities.text],
+		['labels', capabilities.labels],
+		['milestone', capabilities.milestone],
+		['updatedAfter', capabilities.updatedAfter],
+		['createdAfter', capabilities.createdAfter],
+		['withoutLinkedPullRequest', capabilities.withoutLinkedPullRequest],
+		['state', capabilities.states],
+	];
+	return [
+		...capabilities.relationships.map(r => `relationships:${r}`),
+		...flags.filter(([, supported]) => supported).map(([name]) => name),
+	].join(', ');
+}
+
+/**
+ * The omission for a filtered issue search that hit the provider's RESULT CEILING: more issues matched than the
+ * provider will ever serve for one query, however it is paged.
+ *
+ * Distinct from {@link truncationWarning} because this is the one incompleteness this read can quantify —
+ * `totalCount` is how many matched, `limit` how many are reachable — which is what lets a consumer say "19.240
+ * matched, showing the 1.000 most recently updated" instead of a bare "results may be incomplete". `recovery:
+ * 'none'` because the items past the ceiling are UNREACHABLE, not merely unfetched: no budget, no retry, and no
+ * cursor would return them. Narrowing the criteria is the only way through, which is a decision for the caller.
+ *
+ * Returns `undefined` when the provider declares no ceiling, so the caller falls back to the generic wording
+ * rather than reporting a limit it invented.
+ */
+export function issueSearchCapResultWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	totalCount: number | undefined,
+): ProviderWarning | undefined {
+	const limit = providersMetadata[id]?.issueSearchResultLimit;
+	if (limit == null) return undefined;
+	// Below the ceiling this warning would be a false claim; the caller's truncation had another cause.
+	if (totalCount == null || totalCount <= limit) return undefined;
+
+	return {
+		...otherWarning(
+			id,
+			domain,
+			connectionId,
+			`Issue search matched ${totalCount} results, but '${id}' serves at most ${limit}; narrow the search to read the rest.`,
+		),
+		omission: {
+			kind: 'provider-limit',
+			// The items past the ceiling can't be fetched by anything, so never offer a "load more".
+			recovery: 'none',
+			limit: limit,
+			totalCount: totalCount,
+		},
+	};
 }
 
 /** Warning for a git host that doesn't expose issues on this surface (e.g. Bitbucket, deprecated in favor of Jira). */

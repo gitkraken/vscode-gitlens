@@ -44,6 +44,7 @@ import type {
 } from '@gitkraken/provider-apis';
 import entityIdentifiersModule from '@gitkraken/provider-apis/entity-identifiers';
 import providerUtilsModule from '@gitkraken/provider-apis/provider-utils';
+import { githubSearchResultLimit } from '@gitlens/git-github/api/github.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type { IssueMember, IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
@@ -724,6 +725,15 @@ export interface ProviderMetadata {
 	 * read refused, and a criterion is never silently ignored.
 	 */
 	supportedIssueSearch?: IssueSearchCapabilities;
+	/**
+	 * The maximum number of results the provider's filtered issue search will serve for ONE query, however it is
+	 * paged. Matches past it are UNREACHABLE, not merely unfetched, which is why a read that hits this reports an
+	 * omission with `recovery: 'none'` and the total match count rather than offering a "load more".
+	 *
+	 * Absent means the provider declares no ceiling, in which case a truncated read falls back to generic wording
+	 * instead of quoting a limit that was never published.
+	 */
+	issueSearchResultLimit?: number;
 }
 
 export type Providers = Record<IntegrationIds, ProviderInfo>;
@@ -779,6 +789,7 @@ export const providersMetadata: ProvidersMetadata = {
 		// one composite cursor, so any subset of them is expressible.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		supportedIssueSearch: githubIssueSearchCapabilities,
+		issueSearchResultLimit: githubSearchResultLimit,
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
 	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
@@ -808,6 +819,7 @@ export const providersMetadata: ProvidersMetadata = {
 		// one composite cursor, so any subset of them is expressible.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		supportedIssueSearch: githubIssueSearchCapabilities,
+		issueSearchResultLimit: githubSearchResultLimit,
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
 	[GitCloudHostIntegrationId.GitLab]: {

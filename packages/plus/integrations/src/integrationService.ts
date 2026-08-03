@@ -1,5 +1,5 @@
 import type { Account } from '@gitlens/git/models/author.js';
-import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
@@ -78,6 +78,7 @@ import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
 import { resolveRepository } from './reads/resolveRepository.js';
+import { searchIssuesPage } from './reads/searchIssues.js';
 import { sweepClosedPullRequests, sweepPullRequests } from './reads/sweeps.js';
 import { noConnectionWarning } from './reads/warnings.js';
 import type {
@@ -1077,6 +1078,30 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>> {
 		return listIssuesPage(this, options);
+	}
+
+	/**
+	 * Issues matching structured criteria over a repository/org scope, with no forced relationship to the current
+	 * user — see {@link IntegrationManager.searchIssuesPage} for the contract (mandatory scope, guaranteed
+	 * most-recently-updated-first ordering, and the result-ceiling omission that carries the total match count).
+	 */
+	async searchIssuesPage(options: {
+		providerId: IntegrationIds;
+		repos?: ProviderReposInput;
+		org?: string;
+		criteria?: IssueSearchCriteria;
+		page?: number;
+		cursor?: string;
+		itemsPerPage?: number;
+		forceSync?: boolean;
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+	}): Promise<ProviderPagedResult<IssueShape>> {
+		return searchIssuesPage(this, options);
 	}
 
 	/**
