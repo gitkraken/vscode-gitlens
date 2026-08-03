@@ -10,6 +10,7 @@ import {
 } from '../constants.js';
 import type { ListOrgsOptions, ListProjectsOptions } from '../manager.js';
 import { isIssuesIntegration } from '../models/issuesIntegration.js';
+import type { ProviderHierarchyResult } from '../providers/models.js';
 import { toProviderRepositoryShape } from '../providers/models.js';
 import type {
 	ProviderOrganization,
@@ -35,7 +36,46 @@ import {
 	withProviderContext,
 } from './hierarchy.utils.js';
 import { pageToCursor, refusedPage, resolveContinuation, resolveCurrentPage, toProviderPageInfo } from './paging.js';
-import { gitHostOnlySurfaceWarning, otherWarning } from './warnings.js';
+import { gitHostOnlySurfaceWarning, otherWarning, truncationWarning } from './warnings.js';
+
+/**
+ * Folds a flat hierarchy result's incompleteness into `warnings`, returning whether it leaves the read
+ * non-authoritative. The single funnel for both hierarchy reads, so neither can drift from the other on any of
+ * the four decisions it makes:
+ *
+ * - The metadata is assessed FIRST, so the truncation warning can tell whether it already explained this gap.
+ *   Ordered deliberately: emitting first meant an expired credential produced BOTH a typed `auth` warning and
+ *   an unclassifiable one for the same cause, and a consumer routing on classification showed the second as
+ *   "this provider failed to load", with a remedy that doesn't exist, next to the reconnect prompt that was the
+ *   actual fix.
+ * - The read states the truncation itself only when the metadata reported nothing — the rule
+ *   `assessCollectionMetadata` applies to its own generic fallback. Whatever the metadata reported already names
+ *   this provider and says something stronger, so restating it costs a false verdict and adds no information.
+ * - `'exhausted'`, never `'page-budget'`: `truncated` is one boolean here, so a drain that stopped at its page
+ *   budget is indistinguishable from one whose cursor stalled, and `IncompleteReadCause` makes `'exhausted'`
+ *   the default whenever a raisable budget is not demonstrably the cause.
+ * - A truncation counts as non-authoritative even though the omission above asserts the read succeeded. Unlike
+ *   paged repository reads, a flattened hierarchy result has no page object on which to carry incompleteness,
+ *   so `fetchFailed` is the only signal a consumer has that the list is short.
+ */
+function mergeHierarchyIncompleteness(
+	warnings: ProviderWarning[],
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	result: Pick<ProviderHierarchyResult<unknown>, 'truncated' | 'metadata'>,
+	readKind: 'Organization' | 'Project',
+): boolean {
+	const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, result.metadata);
+	if (!result.truncated) return assessment.fetchFailed || assessment.truncated;
+
+	if (!assessment.reported) {
+		// Deduped like every other `truncationWarning` emission (see `drains.ts`), not plain-pushed: no caller can
+		// collide with it today, but nothing about this funnel guarantees a third read won't.
+		appendDedupedWarning(warnings, truncationWarning(id, domain, connectionId, readKind, 'exhausted'));
+	}
+	return true;
+}
 
 export async function listOrgs(
 	ctx: ProviderReadContext,
@@ -103,22 +143,8 @@ export async function listOrgs(
 			);
 			if (value != null) {
 				items.push(...value.values.map(org => withProviderContext(id, org)));
-				if (value.truncated) {
-					warnings.push(
-						otherWarning(
-							id,
-							domain,
-							connectionId,
-							'Organization listing was truncated before the upstream results were exhausted.',
-						),
-					);
-					// `ProviderResult` has no page object on which to carry truncation. Mark the flat
-					// hierarchy result incomplete so consumers don't treat omitted orgs as authoritative.
-					fetchFailed = true;
-				}
 
-				const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata);
-				if (assessment.fetchFailed || assessment.truncated) {
+				if (mergeHierarchyIncompleteness(warnings, id, domain, connectionId, value, 'Organization')) {
 					fetchFailed = true;
 				}
 			}
@@ -200,22 +226,7 @@ export async function listProjects(
 			if (projects != null) {
 				items.push(...projects.values.map(project => withProviderContext(id, project)));
 
-				if (projects.truncated) {
-					warnings.push(
-						otherWarning(
-							id,
-							domain,
-							connectionId,
-							'Project listing was truncated before the upstream results were exhausted.',
-						),
-					);
-					// Unlike paged repository reads, this flattened hierarchy result has no continuation
-					// or page metadata. `fetchFailed` is its structural non-authoritative signal.
-					fetchFailed = true;
-				}
-
-				const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, projects.metadata);
-				if (assessment.fetchFailed || assessment.truncated) {
+				if (mergeHierarchyIncompleteness(warnings, id, domain, connectionId, projects, 'Project')) {
 					fetchFailed = true;
 				}
 			}

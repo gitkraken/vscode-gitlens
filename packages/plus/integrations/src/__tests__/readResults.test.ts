@@ -3,13 +3,14 @@ import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { assessCollectionMetadata, isIncompleteCollection } from '../collectionMetadata.js';
+import { assessCollectionMetadata, isIncompleteCollection, mergeAssessmentInto } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { ProviderIssue, ProviderPullRequest, ProviderReposInput } from '../providers/models.js';
 import { PagingMode } from '../providers/models.js';
+import type { ProviderWarning } from '../results.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -461,5 +462,75 @@ suite('assessCollectionMetadata (#5438)', () => {
 			result.warnings.every(w => w.kind === 'other'),
 			true,
 		);
+	});
+
+	/**
+	 * `reported` is what lets a read that would otherwise add its own generic "this was truncated" line stay
+	 * quiet when the metadata already described the same gap — the rule `assessCollectionMetadata` applies to
+	 * its own generic fallback, applied one layer up. See `reads/hierarchy.ts`.
+	 */
+	suite('mergeAssessmentInto reported', () => {
+		const reportedFor = (metadata: CollectionMetadata | undefined, into: ProviderWarning[] = []) =>
+			mergeAssessmentInto(into, providerId, 'github.com', 'c1', metadata).reported;
+
+		test('metadata that says nothing reports nothing', () => {
+			assert.equal(reportedFor(undefined), false, 'no metadata describes no gap');
+			assert.equal(reportedFor({ completeness: 'complete' }), false);
+		});
+
+		test('a failure or an omission counts as described', () => {
+			assert.equal(
+				reportedFor({
+					completeness: 'partial',
+					failures: [{ kind: 'authentication', scope: { resourceId: 'r1' } }],
+				}),
+				true,
+			);
+			assert.equal(
+				reportedFor({ completeness: 'partial', omissions: [{ kind: 'provider-limit', limit: 1000 }] }),
+				true,
+			);
+		});
+
+		test('a failure with completeness "complete" is reported even though truncated says otherwise', () => {
+			// The case that makes `reported` load-bearing rather than a synonym for `truncated`:
+			// `isIncompleteCollection` ignores failures, so this metadata reports `truncated: false` while having
+			// already appended the warning that explains the gap. A caller gating its own restatement on
+			// `truncated` would emit a second, unclassifiable warning for the very cause the first one names.
+			const metadata: CollectionMetadata = {
+				completeness: 'complete',
+				failures: [{ kind: 'authentication', scope: { resourceId: 'r1' } }],
+			};
+			const warnings: ProviderWarning[] = [];
+			const assessment = mergeAssessmentInto(warnings, providerId, 'github.com', 'c1', metadata);
+
+			assert.equal(assessment.reported, true, 'the failure warning was appended');
+			assert.equal(assessment.truncated, false, 'and yet completeness claims whole');
+			assert.equal(warnings.length, 1);
+		});
+
+		test('the generic completeness fallback counts too, deliberately over-reporting', () => {
+			// It is as unclassifiable as the line it suppresses (`kind: 'other'`, no omission), so a consumer
+			// gains nothing from having both. Emitting only this one is no worse than today and strictly less
+			// noise; making it actionable is a question about the metadata contract, not about a read.
+			for (const completeness of ['partial', 'unknown'] as const) {
+				assert.equal(reportedFor({ completeness: completeness }), true, `${completeness} fallback reports`);
+			}
+		});
+
+		test('a warning dropped as a duplicate still counts as reported', () => {
+			// `reported` is about what the metadata described, not about what this particular array accepted:
+			// a warning already present is still one the consumer will see, so restating it is still redundant.
+			const metadata: CollectionMetadata = {
+				completeness: 'partial',
+				failures: [{ kind: 'authentication', scope: { resourceId: 'r1' } }],
+			};
+			const warnings: ProviderWarning[] = [];
+			assert.equal(reportedFor(metadata, warnings), true);
+			assert.equal(warnings.length, 1);
+
+			assert.equal(reportedFor(metadata, warnings), true, 'the second pass reports despite appending nothing');
+			assert.equal(warnings.length, 1, 'and the duplicate is still dropped');
+		});
 	});
 });
