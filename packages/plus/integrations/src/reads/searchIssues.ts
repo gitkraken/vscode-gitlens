@@ -1,6 +1,6 @@
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IntegrationIds } from '../constants.js';
-import type { ProviderRepoInput, ProviderReposInput } from '../providers/models.js';
+import type { ProviderReposInput } from '../providers/models.js';
 import type { ProviderPagedResult, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
 import {
@@ -10,7 +10,7 @@ import {
 } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
-import { resolveIssueSearchCriteria } from './filters.js';
+import { resolveIssueSearchCriteria, resolveIssueSearchScope } from './filters.js';
 import { refusedPage, resolveContinuation, resolveCurrentPage, usableCursor } from './paging.js';
 import {
 	gitHostOnlySurfaceWarning,
@@ -102,28 +102,28 @@ export async function searchIssuesPage(
 	}
 
 	const scope = resolveIssueSearchScope(options.repos, options.org, options.criteria);
-	if (!scope.scoped) {
-		return refused(
-			otherWarning(
-				options.providerId,
-				domain,
-				options.connectionId,
-				'A filtered issue search must be scoped: pass `repos`, `org`, or a relationship to the current user (`authored`/`assigned`/`mentioned`). `any-assignee` and `unassigned` are not scopes — either one alone matches every such issue on the host.',
-			),
-		);
-	}
-	if (scope.repoIdsInput) {
-		// A search query names repositories by PATH, so repository ids can't be expressed as a scope. Refusing is
-		// the only honest answer: dropping them would search the whole org (or the whole host) as if the caller
-		// had asked for that.
-		return refused(
-			otherWarning(
-				options.providerId,
-				domain,
-				options.connectionId,
-				'A filtered issue search cannot be scoped by repository id; pass repository descriptors (namespace + name) instead.',
-			),
-		);
+	switch (scope.rejection) {
+		case 'unscoped':
+			return refused(
+				otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					'A filtered issue search must be scoped: pass `repos`, `org`, or a relationship to the current user (`authored`/`assigned`/`mentioned`). `any-assignee` and `unassigned` are not scopes — either one alone matches every such issue on the host.',
+				),
+			);
+		case 'repo-ids':
+			// A search query names repositories by PATH, so repository ids can't be expressed as a scope. Refusing
+			// is the only honest answer: dropping them would search the whole org (or the whole host) as if the
+			// caller had asked for that.
+			return refused(
+				otherWarning(
+					options.providerId,
+					domain,
+					options.connectionId,
+					'A filtered issue search cannot be scoped by repository id; pass repository descriptors (namespace + name) instead.',
+				),
+			);
 	}
 
 	const resolved = resolveIssueSearchCriteria(options.providerId, options.criteria);
@@ -162,7 +162,6 @@ export async function searchIssuesPage(
 	// The largest total any page reported. Kept across the internal walk so a cap detected on page 1 is still
 	// reportable after paging on to page N.
 	let totalCount = value?.totalCount;
-	let requestedPageMissing = false;
 
 	if (options.cursor == null && page > 1 && value != null) {
 		// Guard against the empty-cursor sentinel: a provider that claims another page without handing back a
@@ -177,9 +176,10 @@ export async function searchIssuesPage(
 				appendDedupedWarning(warnings, next.warning);
 			}
 			if (next.value == null) {
-				pageFetchFailed = pageFetchFailed || next.warning != null;
+				pageFetchFailed = next.warning != null;
+				// Load-bearing for the unsupported-read check below, which distinguishes "no page at all" from
+				// "a page that was genuinely empty".
 				value = undefined;
-				requestedPageMissing = true;
 				break;
 			}
 
@@ -195,15 +195,13 @@ export async function searchIssuesPage(
 				break;
 			}
 		}
-
-		// A numbered page beyond the provider's terminal cursor is genuinely empty. Never return or relabel the
-		// last available page as the requested one.
-		if (currentPage < page) {
-			requestedPageMissing = true;
-		}
-	} else if (options.cursor == null && page > 1) {
-		requestedPageMissing = true;
 	}
+
+	// A numbered page the walk never reached is genuinely empty — the provider's continuations ran out (or a page
+	// failed) before it. Never return or relabel the last available page as the requested one. Derived rather than
+	// flagged along the way: every case reduces to "a page was asked for by number and the walk fell short",
+	// including the one where no walk ran because `page > 1` was requested against a terminal first page.
+	const requestedPageMissing = options.cursor == null && page > 1 && currentPage < page;
 
 	// A provider that doesn't implement the search hook returns `undefined` with no error. Surface that as an
 	// explicit unsupported warning + fetchFailed rather than a silent empty success, so a caller isn't left
@@ -229,16 +227,15 @@ export async function searchIssuesPage(
 		undefined,
 	);
 	const truncated = continuation.truncated;
+	// Only reachable when nothing else already explained the incompleteness — and a failed page always warns
+	// first, so a read that gets here SUCCEEDED. That is why the cause below is unconditionally `exhausted` and
+	// `fetchFailed` is never set from here.
 	if (truncated && warnings.length === 0) {
 		// The result ceiling is the one truncation cause this read can EXPLAIN with a number, so it gets its own
 		// warning carrying the total. Anything else truncated (an unusable continuation, a provider that stopped
-		// advancing) falls back to the generic wording — and either way this is an omission on a read that
-		// SUCCEEDED, so it never sets `fetchFailed`.
-		const cap = !pageFetchFailed
-			? issueSearchCapResultWarning(options.providerId, domain, options.connectionId, totalCount)
-			: undefined;
+		// advancing) falls back to the generic wording.
 		warnings.push(
-			cap ??
+			issueSearchCapResultWarning(options.providerId, domain, options.connectionId, totalCount) ??
 				truncationWarning(
 					options.providerId,
 					domain,
@@ -246,7 +243,7 @@ export async function searchIssuesPage(
 					'Issue search',
 					// `exhausted`: this read exposes no budget the caller could raise, so nothing it could call
 					// would return the withheld items.
-					pageFetchFailed ? 'interrupted' : 'exhausted',
+					'exhausted',
 				),
 		);
 	}
@@ -272,34 +269,5 @@ export async function searchIssuesPage(
 		hasMore: continuation.hasMore,
 		cursor: continuation.cursor,
 		fetchFailed: pageFetchFailed || undefined,
-	};
-}
-
-/**
- * Whether a filtered issue search is scoped at all, and the repository descriptors to pass down.
- *
- * A search with no scope is not a narrow search, it is a search of the whole host: measured against the live
- * GitHub API, `no:assignee` alone matches tens of millions of issues. So one of three things has to bound it —
- * repositories, an org, or a relationship to the current user.
- *
- * `any-assignee` and `unassigned` deliberately do NOT count. They read like constraints but are properties of the
- * issue rather than of the caller, so neither reduces the search to anyone's own world.
- */
-function resolveIssueSearchScope(
-	repos: ProviderReposInput | undefined,
-	org: string | undefined,
-	criteria: IssueSearchCriteria | undefined,
-): { scoped: boolean; repos?: ProviderRepoInput[]; repoIdsInput: boolean } {
-	const hasRepos = (repos?.length ?? 0) > 0;
-	const hasUserRelationship =
-		criteria?.relationships?.some(r => r === 'authored' || r === 'assigned' || r === 'mentioned') === true;
-	// `ProviderReposInput` is a union of descriptor and id arrays. A search names repositories by path, so only
-	// the descriptor form is usable; the caller refuses the id form rather than silently widening the scope.
-	const repoIdsInput = hasRepos && repos!.some(r => typeof r === 'string' || typeof r === 'number');
-
-	return {
-		scoped: hasRepos || (org != null && org.length > 0) || hasUserRelationship,
-		repos: hasRepos && !repoIdsInput ? (repos as ProviderRepoInput[]) : undefined,
-		repoIdsInput: repoIdsInput,
 	};
 }

@@ -76,3 +76,16 @@ export interface GitHubApiConfig {
 	 */
 	getLaunchpadIgnoredOrganizations?(): string[];
 }
+
+/**
+ * The maximum number of results GitHub's search will serve for ONE query, however it is paged. A search whose
+ * `issueCount` exceeds this cannot be read in full: the items past the ceiling are UNREACHABLE, not merely
+ * unfetched — no budget, no retry and no cursor returns them.
+ *
+ * It lives in this leaf module rather than beside the search that detects it because the facade's
+ * provider-agnostic metadata table reports the same ceiling to consumers, and the two must be one number: a
+ * duplicated literal drifts silently, and drift here means quoting a limit the client doesn't enforce. Importing
+ * it from `github.ts` would have pulled that module — and its octokit dependencies — eagerly into the graph of
+ * one of the most widely imported modules in the integrations package, for the sake of a single integer.
+ */
+export const githubSearchResultLimit = 1000;

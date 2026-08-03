@@ -66,6 +66,7 @@ import {
 	fromGitHubPullRequestLite,
 } from '../models.js';
 import type { GitHubApiConfig } from './config.js';
+import { githubSearchResultLimit } from './config.js';
 import type { GitHubTokenInfo } from './token.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -134,14 +135,6 @@ function getRequestRetryDelay(attempt: number): number {
 }
 
 /**
- * The maximum number of results GitHub's search will serve for ONE query, however it is paged. A search whose
- * `issueCount` exceeds this cannot be read in full: the items past the ceiling are unreachable, not merely
- * unfetched. Exported so the reads that report the ceiling to a consumer and the ones that detect it are the
- * same number.
- */
-export const githubSearchResultLimit = 1000;
-
-/**
  * Strips everything from a user-supplied qualifier VALUE that could break out of it: the double quote that would
  * close its own `"…"`, and the control characters (newlines included) that cannot appear in a GitHub search query
  * and exist here only as a smuggling vector.
@@ -171,37 +164,56 @@ function sanitizeGitHubSearchText(text: string): string {
 		.join(' ');
 }
 
-/** GitHub's search qualifier for one relationship. `@me` binds to the token's own user. */
-function toGitHubIssueRelationshipQualifier(relationship: IssueSearchRelationship): string {
-	switch (relationship) {
-		case 'authored':
-			return 'author:@me';
-		case 'assigned':
-			return 'assignee:@me';
-		case 'mentioned':
-			return 'mentions:@me';
-		case 'any-assignee':
-			return 'assignee:*';
-		case 'unassigned':
-			return 'no:assignee';
-	}
-	// No `default`: the union is declared in @gitlens/git, so `noImplicitReturns` fails the build here if a
-	// relationship is added without a qualifier — rather than silently emitting an unconstrained search.
-}
+/**
+ * How each relationship is expressed: its GitHub search qualifier (`@me` binds to the token's own user), and the
+ * GraphQL alias its search runs under.
+ *
+ * The aliases are LITERALS rather than derived from the relationship name, for two reasons: `any-assignee` is not
+ * a valid GraphQL name, and an alias is also a persisted cursor key (see {@link GitHubApi.searchIssuesByAlias}),
+ * so it must be stable across releases — spelling them out makes that immovability visible instead of an
+ * emergent property of a transform. Being a `Record` over the union, the type fails the build if a relationship
+ * is added without both, rather than silently emitting an unconstrained search.
+ */
+const gitHubIssueSearchRelationships: Record<IssueSearchRelationship, { qualifier: string; alias: string }> = {
+	authored: { qualifier: 'author:@me', alias: 'authored' },
+	assigned: { qualifier: 'assignee:@me', alias: 'assigned' },
+	mentioned: { qualifier: 'mentions:@me', alias: 'mentioned' },
+	'any-assignee': { qualifier: 'assignee:*', alias: 'anyAssignee' },
+	unassigned: { qualifier: 'no:assignee', alias: 'unassigned' },
+};
 
 /**
- * The GraphQL alias for a relationship's search. Derived rather than the relationship string itself because
- * `any-assignee` is not a valid GraphQL name, and the alias is also this read's persisted cursor key — so it has
- * to be stable and unique per relationship.
+ * The scope half of an issue search query: `org:` plus one `repo:` per repository.
+ *
+ * Shared by the search and the count probe rather than written twice, because the count is only meaningful if it
+ * applies EXACTLY the qualifiers the search would — a count under different constraints is a wrong number, not a
+ * missing one. A value emptied by sanitizing is dropped rather than emitted as a bare `org:`/`repo:`, which
+ * GitHub rejects; that is the same rule {@link toGitHubIssueSearchQualifiers} applies to its own values.
  */
-function toIssueSearchRelationshipAlias(relationship: IssueSearchRelationship): string {
-	return relationship.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+function toGitHubIssueSearchScopeQualifiers(org: string | undefined, repos: readonly string[] | undefined): string[] {
+	const qualifiers: string[] = [];
+
+	if (org != null) {
+		const value = sanitizeGitHubQualifierValue(org);
+		if (value.length > 0) {
+			qualifiers.push(`org:${value}`);
+		}
+	}
+
+	for (const repo of repos ?? []) {
+		const value = sanitizeGitHubQualifierValue(repo);
+		if (value.length > 0) {
+			qualifiers.push(`repo:${value}`);
+		}
+	}
+
+	return qualifiers;
 }
 
 /**
  * Translates the provider-neutral criteria into GitHub search qualifiers, EXCLUDING the relationship (which
  * becomes its own aliased search, since GitHub AND-s qualifiers and relationships are OR-ed) and excluding the
- * repository/org scope (which the caller owns).
+ * repository/org scope (which {@link toGitHubIssueSearchScopeQualifiers} owns).
  *
  * `sort:updated` is always emitted: the read's contract is most-recently-updated-first, so a consumer's "show the
  * N most recent" policy at the result ceiling is correct. Free-form values go through the sanitizers above, and
@@ -226,33 +238,23 @@ function toGitHubIssueSearchQualifiers(criteria: IssueSearchCriteria | undefined
 		qualifiers.push('archived:false');
 	}
 
+	// One place to keep the "a value emptied by sanitizing is DROPPED, never emitted as an empty qualifier" rule,
+	// so a criterion added later can't skip it — a bare `milestone:""` is rejected by GitHub outright.
+	const pushSanitized = (value: string | undefined, toQualifier: (sanitized: string) => string): void => {
+		if (value == null) return;
+
+		const sanitized = sanitizeGitHubQualifierValue(value);
+		if (sanitized.length > 0) {
+			qualifiers.push(toQualifier(sanitized));
+		}
+	};
+
 	for (const label of criteria?.labels ?? []) {
-		const value = sanitizeGitHubQualifierValue(label);
-		if (value.length > 0) {
-			qualifiers.push(`label:"${value}"`);
-		}
+		pushSanitized(label, v => `label:"${v}"`);
 	}
-
-	if (criteria?.milestone != null) {
-		const value = sanitizeGitHubQualifierValue(criteria.milestone);
-		if (value.length > 0) {
-			qualifiers.push(`milestone:"${value}"`);
-		}
-	}
-
-	if (criteria?.updatedAfter != null) {
-		const value = sanitizeGitHubQualifierValue(criteria.updatedAfter);
-		if (value.length > 0) {
-			qualifiers.push(`updated:>=${value}`);
-		}
-	}
-
-	if (criteria?.createdAfter != null) {
-		const value = sanitizeGitHubQualifierValue(criteria.createdAfter);
-		if (value.length > 0) {
-			qualifiers.push(`created:>=${value}`);
-		}
-	}
+	pushSanitized(criteria?.milestone, v => `milestone:"${v}"`);
+	pushSanitized(criteria?.updatedAfter, v => `updated:>=${v}`);
+	pushSanitized(criteria?.createdAfter, v => `created:>=${v}`);
 
 	if (criteria?.withoutLinkedPullRequest === true) {
 		qualifiers.push('-linked:pr');
@@ -3865,15 +3867,10 @@ export class GitHubApi {
 		},
 		cancellation?: AbortSignal,
 	): Promise<AliasedIssueSearchResult | undefined> {
-		const scope: string[] = [];
-		if (options?.org) {
-			scope.push(`org:${sanitizeGitHubQualifierValue(options.org)}`);
-		}
-		for (const repo of options?.repos ?? []) {
-			scope.push(`repo:${sanitizeGitHubQualifierValue(repo)}`);
-		}
-
-		const base = [...scope, ...toGitHubIssueSearchQualifiers(options?.criteria)].join(' ');
+		const base = [
+			...toGitHubIssueSearchScopeQualifiers(options?.org, options?.repos),
+			...toGitHubIssueSearchQualifiers(options?.criteria),
+		].join(' ');
 
 		// One aliased search per relationship, OR-ed by union. They can't be one query: GitHub AND-s qualifiers,
 		// so `author:@me assignee:@me` would return the intersection — issues the user both opened and is assigned
@@ -3881,8 +3878,8 @@ export class GitHubApi {
 		const relationships = options?.criteria?.relationships;
 		const searches: AliasedIssueSearch[] = relationships?.length
 			? relationships.map(r => ({
-					alias: toIssueSearchRelationshipAlias(r),
-					query: `${base} ${toGitHubIssueRelationshipQualifier(r)}`.trim(),
+					alias: gitHubIssueSearchRelationships[r].alias,
+					query: `${base} ${gitHubIssueSearchRelationships[r].qualifier}`.trim(),
 				}))
 			: [{ alias: 'matched', query: base }];
 
@@ -3913,20 +3910,16 @@ export class GitHubApi {
 		if (scopes.length === 0) return [];
 
 		const queries = scopes.map(s => {
-			const qualifiers: string[] = [];
-			if (s.org) {
-				qualifiers.push(`org:${sanitizeGitHubQualifierValue(s.org)}`);
-			}
-			for (const repo of s.repos ?? []) {
-				qualifiers.push(`repo:${sanitizeGitHubQualifierValue(repo)}`);
-			}
-			qualifiers.push(...toGitHubIssueSearchQualifiers(s.criteria));
+			const qualifiers = [
+				...toGitHubIssueSearchScopeQualifiers(s.org, s.repos),
+				...toGitHubIssueSearchQualifiers(s.criteria),
+			];
 
 			// A relationship set is OR-ed across searches, which a single count can't express — the facade splits
 			// such a scope into one count per relationship before calling, so at most one is present here.
 			const relationship = s.criteria?.relationships?.[0];
 			if (relationship != null) {
-				qualifiers.push(toGitHubIssueRelationshipQualifier(relationship));
+				qualifiers.push(gitHubIssueSearchRelationships[relationship].qualifier);
 			}
 			return qualifiers.join(' ');
 		});
@@ -4009,6 +4002,18 @@ export class GitHubApi {
 			page?: number;
 			truncated?: boolean;
 			[alias: string]: string | number | boolean | null | undefined;
+		}
+
+		// Enforced, not just documented: aliases share the cursor's top level with `page` and `truncated`, so an
+		// alias colliding with either would overwrite it — and the failure would be SILENT, a page number replaced
+		// by a cursor string that reads back as page 1, restarting the walk with no error and no truncation flag.
+		// Cheap to check, and it fails at the one call that introduced the collision rather than in a consumer's
+		// persisted cursor.
+		const reserved = searches.filter(s => s.alias === 'page' || s.alias === 'truncated');
+		if (reserved.length > 0) {
+			throw new Error(
+				`Issue search alias(es) ${reserved.map(s => `'${s.alias}'`).join(', ')} collide with the composite cursor's reserved keys`,
+			);
 		}
 
 		let cursor: SearchCursor | undefined;

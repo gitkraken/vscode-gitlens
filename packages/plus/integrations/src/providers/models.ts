@@ -43,7 +43,7 @@ import type {
 } from '@gitkraken/provider-apis';
 import entityIdentifiersModule from '@gitkraken/provider-apis/entity-identifiers';
 import providerUtilsModule from '@gitkraken/provider-apis/provider-utils';
-import { githubSearchResultLimit } from '@gitlens/git-github/api/github.js';
+import { githubSearchResultLimit } from '@gitlens/git-github/api/config.js';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type { IssueMember, IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
