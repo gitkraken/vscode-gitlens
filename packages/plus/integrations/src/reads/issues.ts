@@ -121,6 +121,11 @@ export async function listIssuesPage(
 			);
 		}
 
+		// GitHub expresses "any assignee" as `assignee:*`, which is meaningless without a scope: unscoped it
+		// matches millions of issues across all of GitHub instead of the user's own world. ANY scope makes it
+		// meaningful (one repository, several, or an org) — it is specifically THIS branch, the account-wide read,
+		// that has none to offer. Scope the read to repositories (or use `searchIssuesPage`, whose criteria model
+		// takes `any-assignee` alongside a `repos`/`org` scope) rather than reading unscoped.
 		if (
 			options.includeAllAssignees === true &&
 			(options.providerId === GitCloudHostIntegrationId.GitHub ||

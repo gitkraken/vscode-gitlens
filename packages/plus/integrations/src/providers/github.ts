@@ -593,6 +593,10 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		cancellation?: AbortSignal,
 		options?: SearchMyIssuesOptions,
 	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+		// `includeAllAssignees` becomes `assignee:*`, which needs a scope to mean anything — with none it matches
+		// millions of issues across all of GitHub rather than "assigned to anyone in the user's world". ANY scope
+		// works (one repo, several, or an org), so this refuses only the genuinely unscoped read; the scoped
+		// "assigned to anyone over these repos" request is served by `searchIssuesPage`.
 		if ((repos == null || repos.length === 0) && options?.includeAllAssignees) {
 			throw new IntegrationReadUnavailableError(
 				this.name,
