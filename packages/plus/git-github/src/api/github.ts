@@ -3876,9 +3876,10 @@ export class GitHubApi {
 		// user-relative by definition, so an all-assignees read still only surfaces the current user's authored
 		// and mentioned issues plus every assigned-to-anyone issue.
 		//
-		// NOTE: GitHub only honors `assignee:*` when the search is scoped to a single repository (see GitHub's
-		// issue-search docs). Callers using `includeAllAssignees` must scope the read via `repos` (the broaden
-		// fan-out does this per org/repo); an unscoped account-wide `assignee:*` is not meaningful to GitHub.
+		// NOTE: `assignee:*` requires a SCOPE to be meaningful, but any scope will do — one repository, several,
+		// or an org (measured: `repo:a repo:b … assignee:*` returns exactly the sum of the two per-repo counts).
+		// It is only the UNSCOPED form that is meaningless, matching millions of issues across all of GitHub, so
+		// callers must supply `repos` (or an org qualifier via `search`); the facade refuses the unscoped case.
 		const assignedQualifier = options?.includeAllAssignees ? 'assignee:*' : 'assignee:@me';
 		try {
 			const rsp = await this.graphql<SearchResult>(
