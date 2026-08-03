@@ -271,14 +271,14 @@ Used to run a GitLens command.
 
 #### Format
 
-_{prefix}/command/{command}(?source={source})_
+_{prefix}/command/{command}(?source={source})(&mode={mode})_
 
 #### References
 
 - _{command}_ is the name of the command to run. Currently supported values include:
   - _cloud-patches_ - Runs the `GitLens: Show Cloud Patches View` command.
 
-  - _graph_ - Runs the `GitLens: Show Graph` command.
+  - _graph_ - Runs the `GitLens: Show Graph` command. Accepts the optional _{mode}_ parameter below to open the Commit Graph directly into one of its modes.
 
   - _home_ - Runs the `GitLens: Show Home View` command.
 
@@ -298,9 +298,22 @@ _{prefix}/command/{command}(?source={source})_
 
 - _{source}_ is an optional parameter representing the `source.detail` for the command's telemetry.
 
+- _{mode}_ is an optional parameter, applicable only to the _graph_ command, that opens the Commit Graph directly into one of its modes rather than its default view. No repository needs to be specified — the mode is applied to whichever repository the Commit Graph resolves on its own. Currently supported values include:
+  - _compose_ - Opens the Commit Graph into Compose mode.
+
+  - _review_ - Opens the Commit Graph into Review mode.
+
+  An unrecognized value fails the link with an error rather than falling back to the default view, so a malformed link is visible instead of silently opening a plain Commit Graph. Note that when _mode_ is the only query parameter it is prefixed with _?_ rather than _&_, as in the examples below.
+
 #### Example Usage
 
 External sources, such as GitKraken web pages, can use these links to directly run a GitLens command - for example, to show the Launchpad.
+
+To open the Commit Graph directly into one of its modes, use the _graph_ command with the _mode_ parameter:
+
+- _{prefix}/command/graph?mode=compose_
+
+- _{prefix}/command/graph?mode=review_
 
 ### Integrations
 

@@ -6,6 +6,7 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { GlCommands } from '../../constants.commands.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
+import type { GraphShowAction } from '../../webviews/plus/graph/protocol.js';
 
 export type UriTypes = 'link';
 
@@ -53,6 +54,14 @@ export const DeepLinkCommandTypeToCommand = new Map<DeepLinkCommandType, GlComma
 	[DeepLinkCommandType.Walkthrough, 'gitlens.getStarted'],
 	[DeepLinkCommandType.Worktrees, 'gitlens.showWorktreesView'],
 	[DeepLinkCommandType.InstallMCP, 'gitlens.ai.mcp.install'],
+]);
+
+/** Optional `mode` param on a `link/command/graph` deep link — opens the Commit Graph straight into
+ *  compose or review instead of its default view. Neither action needs a repository: the graph
+ *  applies them to whichever repo it resolves on its own. */
+export const DeepLinkGraphModeToShowAction = new Map<string, GraphShowAction>([
+	['compose', 'enter-compose'],
+	['review', 'enter-review'],
 ]);
 
 export enum DeepLinkActionType {

@@ -21,6 +21,7 @@ import { maybeUri, normalizePath } from '@gitlens/utils/path.js';
 import type { OpenChatActionCommandArgs } from '../../commands/openChatAction.js';
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage.js';
+import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { executeGitCommand } from '../../git/actions.js';
 import { openComparisonChanges, openFileAtRevision } from '../../git/actions/commit.js';
@@ -35,13 +36,14 @@ import { configuration } from '../../system/-webview/configuration.js';
 import { getOrOpenTextEditor } from '../../system/-webview/vscode/editors.js';
 import type { OpenWorkspaceLocation } from '../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
-import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration.js';
+import type { GraphWebviewShowingArgs, ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration.js';
 import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink.js';
 import {
 	AccountDeepLinkTypes,
 	DeepLinkActionType,
 	DeepLinkCommandType,
 	DeepLinkCommandTypeToCommand,
+	DeepLinkGraphModeToShowAction,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
 	deepLinkStateToProgress,
@@ -1577,7 +1579,27 @@ export class DeepLinkService implements Disposable {
 					}
 
 					const detail = this._context.params?.get('source');
-					const source = detail != null ? { source: 'deeplink', detail: detail } : { source: 'deeplink' };
+					const source: Source =
+						detail != null ? { source: 'deeplink', detail: detail } : { source: 'deeplink' };
+
+					if (mainId === DeepLinkCommandType.Graph) {
+						const mode = this._context.params?.get('mode');
+						if (mode != null) {
+							const showAction = DeepLinkGraphModeToShowAction.get(mode);
+							if (showAction == null) {
+								action = DeepLinkServiceAction.DeepLinkErrored;
+								message = `Invalid graph mode '${mode}'.`;
+								break;
+							}
+
+							await executeCommand<GraphWebviewShowingArgs>(command, {
+								action: showAction,
+								source: source,
+							});
+							action = DeepLinkServiceAction.DeepLinkResolved;
+							break;
+						}
+					}
 
 					await executeCommand(command, source);
 					action = DeepLinkServiceAction.DeepLinkResolved;
