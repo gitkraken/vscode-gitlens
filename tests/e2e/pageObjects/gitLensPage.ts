@@ -218,11 +218,6 @@ export class GitLensPage extends VSCodePage {
 		await this.executeCommand('gitlens.showGraphView');
 	}
 
-	/** Commit Graph Details webview */
-	get commitGraphDetailsViewWebview(): Promise<FrameLocator | null> {
-		return this.getGitLensWebview('Graph Details', 'webviewView');
-	}
-
 	// ============================================================================
 	// GitLens Status Bar Items
 	// ============================================================================

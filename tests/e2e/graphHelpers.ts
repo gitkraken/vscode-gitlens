@@ -26,9 +26,10 @@ export async function waitForGraphRowsRendered(graphWebview: FrameLocator, timeo
 
 /**
  * Widen the primary side bar so the Graph gets a panel-like width: at its default ~300px (#5545)
- * the details panel's file tree paints no `gl-tree-item`s. `decreaseViewWidth` shrinks the editor,
- * handing ~60px per call to the focused view; it clamps at the editor's minimum, so over-calling is
- * harmless whatever earlier spec files left behind.
+ * the details panel's file tree paints no `gl-tree-item`s. `decreaseViewWidth` always shrinks the
+ * EDITOR part (~60px per call, clamping at its minimum, so over-calling is harmless); the freed
+ * width goes to its grid neighbours — the primary side bar here, since `resetUI` keeps the
+ * secondary one closed. The focus call just makes sure the view is open first.
  */
 export async function widenSideBarForGraph(vscode: VSCodeInstance, steps = 12): Promise<void> {
 	await vscode.gitlens.executeCommand<void>('gitlens.views.graph.focus');

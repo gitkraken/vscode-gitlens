@@ -2,8 +2,8 @@
  * GitLens Graph — Header menus E2E Tests
  *
  * Covers the deterministic surfaces of the Commit Graph header (toolbar):
- *  - Create menu: Create Branch / Create Worktree / Apply-Pop Stash, wired to their commands.
- *  - Start New menu: Start Work on an Issue / Start Review on a PR.
+ *  - Start New menu: Start Work / Start Review / Create Branch / Create Worktree / Apply-Pop Stash,
+ *    wired to their commands.
  *  - Launchpad indicator: the rocket button, its not-connected state, and the "Open Launchpad"
  *    action.
  *  - Commit-signing indicator in the WIP details (gated on repo commit.gpgsign).
@@ -19,6 +19,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout, ShortTimeout } from '../baseTest.js';
+import { widenSideBarForGraph } from '../graphHelpers.js';
 
 let git: GitFixture;
 
@@ -32,14 +33,17 @@ function commandLink(webview: FrameLocator, commandId: string) {
 	return webview.locator(`[href*="command:${commandId}"]`).first();
 }
 
-/** Open the Commit Graph and wait until the header (Create action) has rendered. */
+/** Open the Commit Graph and wait until the header (Start New action) has rendered. */
 async function openGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
+	// At the side bar's default ~300px the persistent row-actions overlay covers the WIP row's
+	// subject text and intercepts the click in selectWipDetails — give the rows room first
+	await widenSideBarForGraph(vscode);
 	const webview = await vscode.gitlens.commitGraphViewWebview;
 	expect(webview).not.toBeNull();
-	// The Create action only renders once the graph is allowed + a repo is selected — good readiness
-	// signal that the header is up.
-	await expect.poll(() => headerButton(webview!, 'Create').count(), { timeout: 30000 }).toBeGreaterThan(0);
+	// The Start New action only renders once the graph is allowed + a repo is selected — good
+	// readiness signal that the header is up.
+	await expect.poll(() => headerButton(webview!, 'Start New').count(), { timeout: 30000 }).toBeGreaterThan(0);
 	return webview!;
 }
 
@@ -122,7 +126,9 @@ test.describe('Graph — Header menus', () => {
 		await vscode.gitlens.resetUI();
 	});
 
-	test('Create menu wires branch / worktree / stash commands', async ({ vscode }) => {
+	test('Start New menu wires branch / worktree / stash commands', async ({ vscode }) => {
+		// The old standalone Create menu was folded into Start New (df7472130) — same three
+		// command links, different host button
 		using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 6 /* Paid */,
 			planId: 'pro',
@@ -130,9 +136,9 @@ test.describe('Graph — Header menus', () => {
 
 		const webview = await openGraph(vscode);
 
-		const createButton = headerButton(webview, 'Create');
-		await expect(createButton).toHaveAttribute('aria-haspopup', 'true');
-		await openHeaderMenu(webview, 'Create', 'gitlens.git.branch');
+		const startButton = headerButton(webview, 'Start New');
+		await expect(startButton).toHaveAttribute('aria-haspopup', 'true');
+		await openHeaderMenu(webview, 'Start New', 'gitlens.git.branch');
 
 		await expect(commandLink(webview, 'gitlens.views.createWorktree')).toBeVisible();
 		await expect(commandLink(webview, 'gitlens.stashesApply')).toBeVisible();

@@ -138,7 +138,7 @@ const test = base.extend({
 
 // A taller graph for the jump-to-pinned pill: the pill only renders when the pinned branch's row is
 // loaded AND scrolled off-screen (gl-lit-graph.updatePinnedPillDirection). The branch tips are created
-// first, then ~40 commits are added on `main`, so on open (scrolled to the top / newest main commits)
+// first, then ~120 commits are added on `main`, so on open (scrolled to the top / newest main commits)
 // the branch rows sit far below the viewport — loaded, but off-screen — which is exactly the pill's
 // trigger. Kept separate from the small fixture above, whose tests read the on-screen branch row's
 // +pinned context and therefore need those rows rendered.
@@ -166,7 +166,7 @@ const testTall = base.extend({
 				await git.commit('Commit on branch-c', 'branch-c.txt', 'branch-c change');
 				await git.checkout('main');
 
-				for (let i = 1; i <= 40; i++) {
+				for (let i = 1; i <= 120; i++) {
 					await git.commit(`Main commit ${i}`, `main-${i}.txt`, `main change ${i}`);
 				}
 
@@ -322,7 +322,7 @@ testTall.describe('Graph — Pin Branch to Edge — jump-to-pinned pill', () => 
 			const stateInfo = await getGraphState(graphWebview!);
 			expect(stateInfo).not.toBeNull();
 
-			// Pin branch-c: buried under 40 newer main commits, so its row is loaded but far below the
+			// Pin branch-c: buried under 120 newer main commits, so its row is loaded but far below the
 			// viewport when the graph opens at the top.
 			await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToEdge', {
 				webview: stateInfo!.webviewId,
