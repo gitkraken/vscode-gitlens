@@ -3,8 +3,10 @@ import type {
 	IssueFilter,
 	IssueSearchCapabilities,
 	IssueSearchCriteria,
+	IssueSearchRelationship,
 	PullRequestFilter,
 } from '../providerFilters.js';
+import type { ProviderRepoInput, ProviderReposInput } from '../providers/models.js';
 import { providersMetadata } from '../providers/models.js';
 
 /**
@@ -158,6 +160,66 @@ export function resolveIssueSearchCriteria(
 }
 
 /**
+ * The relationships that bound a filtered issue search to the CURRENT USER, and so can stand in for a
+ * repository/org scope.
+ *
+ * Derived from the union rather than spelled out per call site, because the distinction it encodes is the whole
+ * reason the scope rule exists: `any-assignee` and `unassigned` are deliberately absent — they describe the
+ * ISSUE, not the caller, so neither reduces the search to anyone's own world (measured: unscoped `no:assignee`
+ * matches ~45 million issues on GitHub).
+ */
+const userScopingIssueSearchRelationships: readonly IssueSearchRelationship[] = ['authored', 'assigned', 'mentioned'];
+
+/** What a provider with NO filtered issue search reports: nothing expressible, spelled out rather than absent. */
+const unsupportedIssueSearchCapabilities: IssueSearchCapabilities = {
+	relationships: [],
+	text: false,
+	labels: false,
+	milestone: false,
+	updatedAfter: false,
+	createdAfter: false,
+	withoutLinkedPullRequest: false,
+	states: false,
+};
+
+/** Why a filtered issue search's scope was refused, or `undefined` when it is usable. */
+export type IssueSearchScopeRejection =
+	/** No repositories, no org, and no user-relative relationship: a search of the whole host. */
+	| 'unscoped'
+	/** Repositories given as ids. A search names repositories by PATH, so ids can't express a scope. */
+	| 'repo-ids';
+
+/**
+ * Validates that a filtered issue search is scoped at all, and narrows `repos` to the descriptor form the
+ * provider query needs.
+ *
+ * Shared by `searchIssuesPage` and `countIssues` because a count computed under different constraints than the
+ * read it previews is a WRONG number rather than a missing one. The rejection is returned as a reason code, not a
+ * warning: the two callers word it differently (whole-read vs naming the offending scope's key), and wording is
+ * the warning layer's business.
+ *
+ * The two rejections are mutually exclusive — `repo-ids` requires repositories and `unscoped` requires none — so
+ * the order they're checked in cannot change the outcome.
+ */
+export function resolveIssueSearchScope(
+	repos: ProviderReposInput | undefined,
+	org: string | undefined,
+	criteria: IssueSearchCriteria | undefined,
+): { rejection?: IssueSearchScopeRejection; repos?: ProviderRepoInput[] } {
+	if (repos?.length) {
+		// `ProviderReposInput` is a union of descriptor and id arrays; only the descriptor form is usable here.
+		if (repos.some(r => typeof r === 'string' || typeof r === 'number')) return { rejection: 'repo-ids' };
+
+		return { repos: repos as ProviderRepoInput[] };
+	}
+
+	if (org != null && org.length > 0) return {};
+	if (criteria?.relationships?.some(r => userScopingIssueSearchRelationships.includes(r)) === true) return {};
+
+	return { rejection: 'unscoped' };
+}
+
+/**
  * The filters `listPullRequestsPage`/`listIssuesPage` (and the sweeps) accept for a provider, so a caller can
  * narrow to what the provider can express BEFORE issuing the read.
  *
@@ -208,15 +270,16 @@ export function getSupportedFilters(providerId: IntegrationIds): {
 		// Always an object, never `undefined`: a provider WITHOUT a filtered issue search reports one whose
 		// `relationships` is empty and whose flags are all false, so a consumer reads capabilities the same way
 		// for every provider (and an empty `relationships` is the signal to hide the surface itself).
+		//
+		// Spread over the all-false baseline rather than defaulting each flag: a criterion added to
+		// `IssueSearchCapabilities` then can't be forgotten here and silently reported as `undefined` (which a
+		// consumer's `if (caps.x)` would read as unsupported — right answer, wrong reason, and untyped).
+		// `supportedIssueSearch` is typed as the complete shape, so no member can arrive as an explicit undefined.
 		issueSearch: {
+			...unsupportedIssueSearchCapabilities,
+			...issueSearch,
+			// Copied, so mutating the result can't corrupt the metadata table.
 			relationships: [...(issueSearch?.relationships ?? [])],
-			text: issueSearch?.text ?? false,
-			labels: issueSearch?.labels ?? false,
-			milestone: issueSearch?.milestone ?? false,
-			updatedAfter: issueSearch?.updatedAfter ?? false,
-			createdAfter: issueSearch?.createdAfter ?? false,
-			withoutLinkedPullRequest: issueSearch?.withoutLinkedPullRequest ?? false,
-			states: issueSearch?.states ?? false,
 		},
 	};
 }

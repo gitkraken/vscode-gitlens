@@ -1,5 +1,8 @@
 import type { IssueSearchCriteria } from '@gitlens/git/models/issue.js';
+import { chunk } from '@gitlens/utils/array.js';
+import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationIds } from '../constants.js';
+import { providerFanOutConcurrency } from '../constants.js';
 import type { ProviderRepoInput, ProviderReposInput } from '../providers/models.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProviderResult, ProviderWarning } from '../results.js';
@@ -11,7 +14,7 @@ import {
 } from '../utils/integration.utils.js';
 import type { ProviderReadContext } from './context.js';
 import { runCaptured } from './drains.js';
-import { resolveIssueSearchCriteria } from './filters.js';
+import { resolveIssueSearchCriteria, resolveIssueSearchScope } from './filters.js';
 import {
 	gitHostOnlySurfaceWarning,
 	issuesUnsupportedWarning,
@@ -141,53 +144,61 @@ export async function countIssues(
 	const warnings: ProviderWarning[] = [];
 	let fetchFailed = false;
 
-	// Validate and normalize every scope first, so a refusal costs no request at all and the countable ones are
-	// still batched together.
-	const countable: { key: string; repos?: ProviderRepoInput[]; org?: string; criteria?: IssueSearchCriteria }[] = [];
+	// Validate every scope first, so a refusal costs no request at all and the countable ones are still batched
+	// together.
+	const countable: IssueCountScope[] = [];
 	for (const scope of options.scopes) {
-		const rejection = rejectScope(options.providerId, scope);
-		if (rejection != null) {
-			appendDedupedWarning(warnings, rejection(domain, options.connectionId));
+		const warning = rejectScope(options.providerId, domain, options.connectionId, scope);
+		if (warning != null) {
+			// `push`, not `appendDedupedWarning`: every rejection message embeds the scope's own key, and duplicate
+			// keys were already refused above, so no two of these can ever collapse — deduping them would only pay
+			// the O(n²) key comparison to prove it.
+			warnings.push(warning);
 			fetchFailed = true;
 			continue;
 		}
 
-		countable.push({
-			key: scope.key,
-			repos: scope.repos as ProviderRepoInput[] | undefined,
-			org: scope.org,
-			criteria: scope.criteria,
-		});
+		countable.push(scope);
 	}
 
-	const items: IssueCountResult[] = [];
-	for (let i = 0; i < countable.length; i += issueCountChunkSize) {
-		const chunk = countable.slice(i, i + issueCountChunkSize);
-		const { value, warning } = await runCaptured(
+	// Chunks are independent requests over their own slice of scopes — nothing in one reads what another produced,
+	// and `runCaptured` never throws — so they run concurrently, bounded like every other fan-out on the facade.
+	// Sequentially they would spend exactly the resource this probe is tuned to conserve: latency, ~2s per chunk.
+	// `mapBounded` returns in input order, so `items` and `warnings` stay in scope order.
+	const batches = await mapBounded(chunk(countable, issueCountChunkSize), providerFanOutConcurrency, batch =>
+		runCaptured(
 			options.providerId,
 			domain,
 			options.connectionId,
 			() =>
 				integration.countIssuesResult(
-					chunk.map(s => ({ repos: s.repos, org: s.org, criteria: s.criteria })),
+					batch.map(s => ({
+						repos: s.repos as ProviderRepoInput[] | undefined,
+						org: s.org,
+						criteria: s.criteria,
+					})),
 					undefined,
 					options.connectionId,
 				),
 			{ warnOnMissingSession: warnOnMissingSession },
-		);
+		).then(result => ({ batch: batch, ...result })),
+	);
+
+	const items: IssueCountResult[] = [];
+	for (const { batch, value, warning } of batches) {
 		if (warning != null) {
 			appendDedupedWarning(warnings, warning);
 		}
 		if (value == null) {
-			// This chunk contributes nothing, but the chunks around it still do. Drop only these scopes.
+			// This batch contributes nothing, but the batches around it still do. Drop only these scopes.
 			fetchFailed = true;
 			continue;
 		}
 
-		for (let j = 0; j < chunk.length; j++) {
-			const count = value[j];
+		for (let i = 0; i < batch.length; i++) {
+			const count = value[i];
 			items.push({
-				key: chunk[j].key,
+				key: batch[i].key,
 				count: count,
 				// Only a reported count can exceed a declared ceiling; unknown-vs-limit is not a comparison.
 				exceedsProviderLimit: count != null && providerLimit != null && count > providerLimit,
@@ -221,32 +232,30 @@ function findDuplicateKey(scopes: readonly IssueCountScope[]): string | undefine
 }
 
 /**
- * Why one scope can't be counted, as a warning builder awaiting the attribution — or `undefined` when it can.
+ * Why one scope can't be counted, as the warning to report — or `undefined` when it can.
  *
- * The two refusals mirror `searchIssuesPage`'s exactly, and deliberately: a count that didn't apply the same
- * constraints as the read it previews would be a wrong number rather than a missing one, which is worse.
+ * The scope and criteria rules come from {@link resolveIssueSearchScope} / {@link resolveIssueSearchCriteria},
+ * the same validators `searchIssuesPage` uses, so a count always previews the constraints the read would apply.
+ * That is not cosmetic: a count computed under different constraints is a WRONG number rather than a missing
+ * one, which is worse. Only the wording is local, because these name the offending scope's key.
  */
 function rejectScope(
 	providerId: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
 	scope: IssueCountScope,
-): ((domain: string | undefined, connectionId: string | undefined) => ProviderWarning) | undefined {
-	const hasRepos = (scope.repos?.length ?? 0) > 0;
-	// A search names repositories by path, so an id-based input can't scope the count.
-	if (hasRepos && scope.repos!.some(r => typeof r === 'string' || typeof r === 'number')) {
-		return (domain, connectionId) =>
-			otherWarning(
+): ProviderWarning | undefined {
+	const scoping = resolveIssueSearchScope(scope.repos, scope.org, scope.criteria);
+	switch (scoping.rejection) {
+		case 'repo-ids':
+			return otherWarning(
 				providerId,
 				domain,
 				connectionId,
 				`Issue count scope '${scope.key}' cannot be scoped by repository id; pass repository descriptors (namespace + name) instead.`,
 			);
-	}
-
-	const hasUserRelationship =
-		scope.criteria?.relationships?.some(r => r === 'authored' || r === 'assigned' || r === 'mentioned') === true;
-	if (!hasRepos && !(scope.org != null && scope.org.length > 0) && !hasUserRelationship) {
-		return (domain, connectionId) =>
-			otherWarning(
+		case 'unscoped':
+			return otherWarning(
 				providerId,
 				domain,
 				connectionId,
@@ -256,22 +265,20 @@ function rejectScope(
 
 	const resolved = resolveIssueSearchCriteria(providerId, scope.criteria);
 	if (resolved.rejection != null) {
-		const rejection = resolved.rejection;
-		return (domain, connectionId) =>
-			unsupportedIssueSearchCriteriaWarning(providerId, domain, connectionId, rejection);
+		return unsupportedIssueSearchCriteriaWarning(providerId, domain, connectionId, resolved.rejection);
 	}
 
-	// A relationship set is an OR across several searches, which one count can't express: summing them would
-	// double-count anything matching two, and taking the max would under-report. Rather than answer with a wrong
-	// number, ask the caller to count each relationship as its own scope — where the keys make the OR explicit.
+	// Count-only, with no counterpart in the read: a relationship set is an OR across several searches, which one
+	// count can't express — summing them would double-count anything matching two, and taking the max would
+	// under-report. Rather than answer with a wrong number, ask the caller to count each relationship as its own
+	// scope, where the keys make the OR explicit.
 	if ((scope.criteria?.relationships?.length ?? 0) > 1) {
-		return (domain, connectionId) =>
-			otherWarning(
-				providerId,
-				domain,
-				connectionId,
-				`Issue count scope '${scope.key}' requests several relationships, which a single count can't express (they are OR-ed, so overlapping matches would be double-counted); pass one scope per relationship.`,
-			);
+		return otherWarning(
+			providerId,
+			domain,
+			connectionId,
+			`Issue count scope '${scope.key}' requests several relationships, which a single count can't express (they are OR-ed, so overlapping matches would be double-counted); pass one scope per relationship.`,
+		);
 	}
 
 	return undefined;
