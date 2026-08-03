@@ -122,6 +122,7 @@ interface GlobalStorageCore {
 	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
 	'graph:searchMode': StoredGraphSearchMode;
 	'graph:useNaturalLanguageSearch': boolean;
+	'graph:pendingSideBarMove': boolean;
 	'integrations:configured': StoredIntegrationConfigurations;
 	/** Unified onboarding/dismissible UI state */
 	'onboarding:state': OnboardingStorage;

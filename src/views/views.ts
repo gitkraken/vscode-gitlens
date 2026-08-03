@@ -151,7 +151,7 @@ export class Views implements Disposable {
 				setTimeout(() => {
 					executeCoreCommand(getViewFocusCommand('gitlens.views.scm.grouped'), { preserveFocus: true });
 					if (newInstall) {
-						executeCoreCommand(getViewFocusCommand('gitlens.views.home'), { preserveFocus: true });
+						executeCoreCommand(getViewFocusCommand('gitlens.views.graph'), { preserveFocus: true });
 					}
 				}, 0);
 			});

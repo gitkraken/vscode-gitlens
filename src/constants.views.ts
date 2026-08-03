@@ -108,12 +108,12 @@ export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewCo
 		'workbench.view.scm',
 		['branches', 'commits', 'remotes', 'repositories', 'stashes', 'tags', 'worktrees', 'contributors'],
 	],
-	['workbench.view.extension.gitlensPanel', ['graph']],
+	['workbench.view.extension.gitlensPanel', []],
 	[
 		'workbench.view.extension.gitlensInspect',
 		['commitDetails', 'fileHistory', 'lineHistory', 'timeline', 'searchAndCompare'],
 	],
-	['workbench.view.extension.gitlens', ['welcome', 'home', 'workspaces']],
+	['workbench.view.extension.gitlens', ['welcome', 'graph', 'home', 'workspaces']],
 ]);
 
 export type TreeViewRefNodeTypes = 'branch' | 'commit' | 'stash' | 'tag';

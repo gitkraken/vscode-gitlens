@@ -118,7 +118,6 @@ export function registerGraphWebviewView(
 			trackingFeature: 'graphView',
 			type: 'graph',
 			plusFeature: true,
-			location: 'panel',
 			webviewHostOptions: {
 				retainContextWhenHidden: true,
 			},
@@ -292,12 +291,14 @@ export function registerGraphWebviewCommands<T>(
 			});
 		}),
 		registerCommand('gitlens.graph.simulate.mainView', () => {
-			// Dev/pre-release only (see contributions gating): simulates the #5391 end state where
-			// the Graph has replaced Home as the GitLens side bar's main view, by mutating the same
-			// default-container mapping the real consolidation will change. Arms the one-time layout
-			// prompt (graphWebview.getLayoutPromptNeeded reads this mapping) and — coherently — makes
-			// "Reset Views Layout" send the Graph to the side bar while the simulation is on.
-			// In-memory only; a window reload restores the real defaults.
+			// Dev/pre-release only (see contributions gating): flips the Graph between the two
+			// default-container mappings, by mutating the same map the real defaults come from. Now
+			// that the Graph really is the side bar's main view (#5545) this simulates the *old*
+			// world — useful for exercising the pre-move state (upgrade path, the "Graph has moved"
+			// follow-up). Flipping also disarms/arms the one-time layout prompt
+			// (graphWebview.getLayoutPromptNeeded reads this mapping) and — coherently — changes
+			// where "Reset Views Layout" sends the Graph. In-memory only; a window reload restores
+			// the real defaults.
 			const sidebar = viewIdsByDefaultContainerId.get('workbench.view.extension.gitlens');
 			const panel = viewIdsByDefaultContainerId.get('workbench.view.extension.gitlensPanel');
 			if (sidebar == null || panel == null) return;
@@ -316,7 +317,7 @@ export function registerGraphWebviewCommands<T>(
 			}
 
 			void window.showInformationMessage(
-				`Graph-as-main-view simulation: ${simulated ? 'OFF' : 'ON (layout prompt armed)'}`,
+				`Graph default place: ${simulated ? 'bottom panel (pre-#5545 world)' : 'side bar (layout prompt armed)'}`,
 			);
 			// Rebuild the view's bootstrap so the prompt gate re-evaluates. Through the proxy, not
 			// `gitlens.views.graph.refresh` — that command only exists while the view is resolved, so

@@ -191,25 +191,25 @@ export class GitLensPage extends VSCodePage {
 	}
 
 	// ============================================================================
-	// GitLens Panel Views (Bottom Panel)
+	// Commit Graph View
 	// ============================================================================
 
-	/** GitLens tab in the bottom panel */
+	/** GitLens tab in the bottom panel — only present once a user moves the Graph there */
 	get gitlensPanel(): Locator {
 		return this.panel.getTab('GitLens', true);
 	}
 
-	/** Commit Graph view section in the panel (matched via its panel toolbar) */
+	/** Commit Graph view section in the GitLens sidebar */
 	get commitGraphViewSection(): Locator {
-		// When the Commit Graph view is open, its panel toolbar is labelled
-		// "GitLens: Commit Graph: <repo> actions" and stays visible in both the gated (Community)
-		// and loaded (Pro) states. Match that toolbar by accessible name — the panel title <h2>
-		// itself is sr-hidden, and a bare "Graph" text match resolved to the hidden generic
-		// "GitLens: Graph" header.
-		return this.panel.locator.getByRole('toolbar', { name: /Commit Graph/ }).first();
+		// Side-bar panes expose their header as `role="button"` named "<title> Section" — here
+		// "Commit Graph: <repo> Section" — in both the gated (Community) and loaded (Pro) states.
+		// Anchored at the start so it can't also match the pane's "GitLens: Commit Graph: <repo>
+		// actions" toolbar, and `.first()` because the repo suffix makes the name unstable to assert
+		// exactly.
+		return this.sidebar.getSection(/^Commit Graph/i).first();
 	}
 
-	/** Commit Graph webview in the panel */
+	/** Commit Graph webview */
 	get commitGraphViewWebview(): Promise<FrameLocator | null> {
 		return this.getGitLensWebview('Graph', 'webviewView');
 	}
@@ -218,12 +218,7 @@ export class GitLensPage extends VSCodePage {
 		await this.executeCommand('gitlens.showGraphView');
 	}
 
-	/** Commit Graph Details tab in the panel */
-	get commitGraphDetailsViewSection(): Locator {
-		return this.panel.getTab(/^Graph Details$/i, false);
-	}
-
-	/** Commit Graph Details webview in the panel */
+	/** Commit Graph Details webview */
 	get commitGraphDetailsViewWebview(): Promise<FrameLocator | null> {
 		return this.getGitLensWebview('Graph Details', 'webviewView');
 	}

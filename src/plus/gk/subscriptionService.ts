@@ -841,9 +841,7 @@ export class SubscriptionService implements Disposable {
 	async showAccountView(silent: boolean = false): Promise<void> {
 		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
 
-		if (!this.container.views.home.visible) {
-			await executeCommand('gitlens.showAccountView');
-		}
+		await executeCommand('gitlens.showAccountView');
 	}
 
 	@debug()
