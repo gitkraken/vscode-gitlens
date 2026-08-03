@@ -4,7 +4,7 @@ import type { Event } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
-import type { IssueFilter, PullRequestFilter } from './providerFilters.js';
+import type { IssueFilter, IssueSearchCapabilities, PullRequestFilter } from './providerFilters.js';
 import type {
 	ConnectionStateChangeEvent,
 	ProviderBroadenResult,
@@ -200,6 +200,12 @@ export interface IntegrationManager {
 		pullRequestsAccountWide?: PullRequestFilter[];
 		issues: IssueFilter[];
 		issuesAccountWide: IssueFilter[];
+		/**
+		 * What {@link searchIssuesPage} (and {@link countIssues}, over the same criteria) can express for this
+		 * provider. Always present: a provider with no filtered issue search reports an empty `relationships` and
+		 * all-false flags, which is the signal to hide that surface rather than to hide individual chips.
+		 */
+		issueSearch: IssueSearchCapabilities;
 	};
 	/** Forces an authoritative cloud connection refresh. Rejects if the backend connection list cannot be read. */
 	refreshConnections(): Promise<void>;

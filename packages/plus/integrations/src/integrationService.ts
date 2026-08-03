@@ -62,6 +62,7 @@ import { createApiClients } from './providers/apiClients.js';
 import type { GitHubApi } from './providers/github/github.js';
 import type {
 	IssueFilter,
+	IssueSearchCapabilities,
 	ProviderOrganization,
 	ProviderReposInput,
 	ProviderRepositoryShape,
@@ -531,6 +532,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		pullRequestsAccountWide: PullRequestFilter[];
 		issues: IssueFilter[];
 		issuesAccountWide: IssueFilter[];
+		issueSearch: IssueSearchCapabilities;
 	} {
 		return getSupportedFilters(providerId);
 	}
