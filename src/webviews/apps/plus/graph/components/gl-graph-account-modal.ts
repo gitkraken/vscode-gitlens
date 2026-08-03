@@ -2,10 +2,11 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { GraphWalkthroughProgress, WalkthroughProgress } from '../../../../../constants.walkthroughs.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GlDialog } from '../../../shared/components/overlays/dialog.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { OnboardingState } from '../../../shared/contexts/onboarding.js';
 import { onboardingContext } from '../../../shared/contexts/onboarding.js';
@@ -26,8 +27,8 @@ declare global {
 	}
 }
 
-/** Sections of the modal that an opener can request focus on (e.g. the walkthrough pill). */
-export type AccountModalSection = 'walkthrough';
+/** Sections of the modal that an opener can request focus on (e.g. the walkthrough pill or a rollup chip). */
+export type AccountModalSection = 'account' | 'walkthrough' | 'ai' | 'integrations';
 
 /** Detail of the `gl-show-account-modal` event dispatched by the header pills. */
 export type ShowAccountModalEventDetail = { focus?: AccountModalSection };
@@ -44,6 +45,7 @@ export type ShowAccountModalEventDetail = { focus?: AccountModalSection };
 export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
+		focusableBaseStyles,
 		scrollableBase,
 		ruleStyles,
 		css`
@@ -53,7 +55,7 @@ export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 
 			.account-modal::part(base) {
 				width: min(98vw, 130rem);
-				/* gl-dialog's internal max-width (50rem) would clamp the width above */
+				min-width: auto;
 				max-width: none;
 				max-height: 96vh;
 				padding: 0;
@@ -108,6 +110,14 @@ export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-8);
+			}
+
+			/* Pointable sections anchor an absolutely-positioned pulse overlay */
+			.section--account,
+			.section--walkthrough,
+			.section--integrations,
+			.section--ai {
+				position: relative;
 			}
 
 			/* Matches the chips' .header__title (chipStyles.ts) so all panel headings read as one system */
@@ -173,6 +183,48 @@ export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 					grid-area: ai;
 				}
 			}
+
+			/* Focus-ring pulse overlay that flashes over a pointed section (see point()) */
+			.pulse {
+				position: absolute;
+				inset: calc(-1 * var(--gl-space-8));
+				z-index: 1;
+				pointer-events: none;
+				background: color-mix(in srgb, var(--vscode-focusBorder) 9%, transparent);
+				border: 1px solid var(--vscode-focusBorder);
+				border-radius: var(--gl-radius-md);
+				opacity: 0;
+			}
+
+			.pulse--active {
+				animation: gl-point 1150ms ease-out both;
+			}
+
+			@keyframes gl-point {
+				0% {
+					opacity: 0;
+					transform: scale(0.99);
+				}
+
+				20% {
+					opacity: 1;
+					transform: scale(1);
+				}
+
+				55% {
+					opacity: 1;
+				}
+
+				100% {
+					opacity: 0;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.pulse--active {
+					animation-duration: 1ms;
+				}
+			}
 		`,
 	];
 
@@ -192,6 +244,10 @@ export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 	@query('gl-dialog')
 	private _dialog?: GlDialog;
 
+	/** The setup section currently being pointed at (scrolled to + pulsing), or null. */
+	@state()
+	private _pointAt: AccountModalSection | null = null;
+
 	show(): void {
 		this.open = true;
 	}
@@ -199,20 +255,27 @@ export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 	protected override updated(changedProperties: PropertyValues): void {
 		super.updated(changedProperties);
 
-		if (changedProperties.has('open') && this.open && this.focusSection === 'walkthrough') {
-			void this.focusWalkthrough();
+		if (changedProperties.has('open') && this.open && this.focusSection != null) {
+			void this.focusRequestedSection(this.focusSection);
 		}
 	}
 
-	private async focusWalkthrough(): Promise<void> {
+	private async focusRequestedSection(section: AccountModalSection): Promise<void> {
+		// null first so a repeat click on the same card restarts the animation
+		this._pointAt = null;
+
 		// `showModal()` runs during gl-dialog's own update; wait for it or the content isn't focusable yet
 		await this._dialog?.updateComplete;
+		this._pointAt = section;
 
-		const walkthrough = this.shadowRoot?.querySelector<HTMLAnchorElement>('.walkthrough');
-		if (walkthrough == null) return;
+		// The walkthrough is a single interactive control, so focus it directly; the AI/Integrations
+		// sections are regions made focusable via tabindex=-1 (see render), so focus lands on the whole section.
+		const selector = section === 'walkthrough' ? '.walkthrough' : `.section--${section}`;
+		const target = this.shadowRoot?.querySelector<HTMLElement>(selector);
+		if (target == null) return;
 
-		walkthrough.scrollIntoView({ block: 'nearest' });
-		walkthrough.focus();
+		target.scrollIntoView({ block: 'nearest' });
+		target.focus();
 	}
 
 	private close = (): void => {
@@ -253,17 +316,20 @@ export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 
 						<div class="statuses">
 							<section class="section section--account">
+								${this.renderPulse('account')}
 								<gl-account-chip display="panel"></gl-account-chip>
 							</section>
 
 							${this.renderWalkthrough()}
 						</div>
 
-						<section class="section section--ai">
+						<section class="section section--ai" tabindex="-1">
+							${this.renderPulse('ai')}
 							<gl-ai-panel></gl-ai-panel>
 						</section>
 
-						<section class="section section--integrations">
+						<section class="section section--integrations" tabindex="-1">
+							${this.renderPulse('integrations')}
 							<gl-integrations-panel></gl-integrations-panel>
 						</section>
 					</div>
@@ -278,6 +344,7 @@ export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 		if (main == null && graph == null) return nothing;
 
 		return html`<section class="section section--walkthrough">
+			${this.renderPulse('walkthrough')}
 			<h3 class="section__title">Walkthroughs</h3>
 			${this.renderWalkthroughEntry('GitLens Walkthrough', main, undefined)}
 			${this.renderWalkthroughEntry('Graph Walkthrough', graph, { mode: 'graph' })}
@@ -304,6 +371,10 @@ export class GlGraphAccountModal extends SignalWatcher(LitElement) {
 			></gl-progress-ring>
 			<span>${title} ${progress.doneCount}/${progress.allCount}</span>
 		</a>`;
+	}
+
+	private renderPulse(target: AccountModalSection): unknown {
+		return html`<div class="pulse${this._pointAt === target ? ' pulse--active' : ''}" aria-hidden="true"></div>`;
 	}
 
 	/** The same MCP-or-Hooks banner slot the Home view renders: MCP until dismissed (as the

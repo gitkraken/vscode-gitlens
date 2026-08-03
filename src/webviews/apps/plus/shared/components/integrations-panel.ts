@@ -14,7 +14,8 @@ import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/mode
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { IntegrationStateInfo } from '../../../../rpc/services/types.js';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { IntegrationsState } from '../../../shared/contexts/integrations.js';
 import { integrationsContext } from '../../../shared/contexts/integrations.js';
 import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
@@ -47,7 +48,8 @@ export class GlIntegrationsPanel extends SignalWatcher(LitElement) {
 	private _integrations!: IntegrationsState;
 
 	static override styles = [
-		elementBase,
+		boxSizingBase,
+		focusableBaseStyles,
 		linkBase,
 		chipStyles,
 		integrationRowStyles,

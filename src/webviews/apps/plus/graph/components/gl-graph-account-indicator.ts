@@ -9,7 +9,8 @@ import {
 } from '../../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
-import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
+import { focusableBaseStyles, focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { OnboardingState } from '../../../shared/contexts/onboarding.js';
 import { getActiveWalkthrough, onboardingContext } from '../../../shared/contexts/onboarding.js';
 import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
@@ -17,6 +18,7 @@ import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import { accountRingStyles } from '../../shared/components/accountRing.css.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
 import { actionButton } from '../styles/graph.css.js';
+import type { AccountModalSection, ShowAccountModalEventDetail } from './gl-graph-account-modal.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/code-icon.js';
@@ -76,6 +78,8 @@ const accountButtonLabels: Record<AccountRingState, string> = {
 @customElement('gl-graph-account-indicator')
 export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 	static override styles = [
+		boxSizingBase,
+		focusableBaseStyles,
 		actionButton,
 		accountRingStyles,
 		ruleStyles,
@@ -346,11 +350,17 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				<hr />
 				<div class="rollup__section">
 					<p class="rollup__heading">AI / Agents</p>
-					<gl-integrations-chip display="ai-icons"></gl-integrations-chip>
+					<gl-integrations-chip
+						display="ai-icons"
+						@click=${() => this.onOpenModal('ai')}
+					></gl-integrations-chip>
 				</div>
 				<div class="rollup__section">
 					<p class="rollup__heading">Integrations</p>
-					<gl-integrations-chip display="icons"></gl-integrations-chip>
+					<gl-integrations-chip
+						display="icons"
+						@click=${() => this.onOpenModal('integrations')}
+					></gl-integrations-chip>
 				</div>
 			</div>
 		</gl-popover>`;
@@ -381,12 +391,19 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 
 	private onClick = (e: MouseEvent): void => {
 		e.preventDefault();
+		this.onOpenModal();
+	};
+
+	// Shared by the account button (no section) and the rollup chips (a section) — hides the rollup, then asks
+	// gl-graph-app to open the account modal, optionally focused on a section (see `onShowAccountModal` there).
+	private onOpenModal(focus?: AccountModalSection): void {
 		void this._popover?.hide();
 		this.dispatchEvent(
-			new CustomEvent('gl-show-account-modal', {
+			new CustomEvent<ShowAccountModalEventDetail>('gl-show-account-modal', {
+				detail: { focus: focus },
 				bubbles: true,
 				composed: true,
 			}),
 		);
-	};
+	}
 }

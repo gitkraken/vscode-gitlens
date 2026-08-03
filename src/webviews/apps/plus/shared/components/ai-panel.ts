@@ -5,7 +5,8 @@ import { customElement } from 'lit/decorators.js';
 import type { Source } from '../../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AIState } from '../../../../rpc/services/types.js';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
 import { chipStyles } from './chipStyles.js';
@@ -31,7 +32,8 @@ export class GlAiPanel extends SignalWatcher(LitElement) {
 	private _ai!: AIContextState;
 
 	static override styles = [
-		elementBase,
+		boxSizingBase,
+		focusableBaseStyles,
 		linkBase,
 		chipStyles,
 		integrationRowStyles,
