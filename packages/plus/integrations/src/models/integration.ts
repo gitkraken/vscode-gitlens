@@ -68,6 +68,22 @@ export type AccountWideIssuesResult = {
 };
 
 /**
+ * One page of the FILTERED issue search (`GitHostIntegration.searchIssuesPageResult`).
+ *
+ * Carries what {@link AccountWideIssuesResult} does, plus `totalCount`: the number of matches the provider
+ * reported, which is what makes the result ceiling reportable as a figure ("N matched, at most M can be read")
+ * rather than as a bare `truncated` flag. `undefined` means the provider reported no count, never zero matches.
+ */
+export type ProviderIssueSearchPage = {
+	values: IssueShape[];
+	truncated: boolean;
+	cursor?: string;
+	hasMore: boolean;
+	page: number;
+	totalCount?: number;
+};
+
+/**
  * Options for the account-wide issue read. `includeAllAssignees` drops the "assigned to me" scoping so the
  * read broadens to issues assigned to anyone (the account-wide equivalent of the repo-scoped
  * {@link GitHostIntegration.getMyIssuesForReposResult}'s toggle). Authored/mentioned categories, where a
@@ -121,6 +137,7 @@ type SyncReqUsecase = Exclude<
 	| 'getResourcesForUser'
 	| 'getSshSigningKeysForEmails'
 	| 'mergePullRequest'
+	| 'searchIssuesPage'
 	| 'searchMyIssues'
 	| 'searchMyPullRequests'
 	| 'searchPullRequests',

@@ -1,4 +1,4 @@
-import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { Event } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
@@ -305,6 +305,50 @@ export interface IntegrationManager {
 		 */
 		page?: number;
 		/** Continuation from a prior page's `cursor`; supplying it costs exactly one upstream request per scope. */
+		cursor?: string;
+		itemsPerPage?: number;
+		forceSync?: boolean;
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+	}): Promise<ProviderPagedResult<IssueShape>>;
+	/**
+	 * Issues matching structured criteria over a repository/org scope, with NO forced relationship to the current
+	 * user — the issue counterpart of the PR search, and the read to use for "every issue in these repos matching
+	 * X" rather than "my issues".
+	 *
+	 * Why this and not {@link listIssuesPage}: that read is either bound to the user's own relationships
+	 * (account-wide) or routed through the SDK's repo-scoped read, whose over-limit recovery walk can spend up to
+	 * 128 sequential requests and still return an incomplete set. This one is a single request per page.
+	 *
+	 * Three parts of the contract worth reading before calling:
+	 *
+	 * - **Scope is mandatory.** Pass `repos`, `org`, or a user relationship (`authored`/`assigned`/`mentioned`).
+	 *   `any-assignee`/`unassigned` do NOT scope anything — either alone matches every such issue on the host —
+	 *   so a call carrying only those is refused (warning + `fetchFailed`).
+	 * - **Ordering is always most-recently-updated-first**, not an option. A "show the N most recent" policy at
+	 *   the provider's result ceiling is only correct under a guaranteed order.
+	 * - **At the result ceiling the read SUCCEEDS.** It reports an omission carrying `totalCount` (how many
+	 *   matched) and `limit` (how many are reachable) with `recovery: 'none'`, so a consumer can say "19.240
+	 *   matched, showing the 1.000 most recent" and know not to offer a "load more". It never falls back to a
+	 *   per-repository recovery walk.
+	 *
+	 * Check `getSupportedFilters().issueSearch` first: a provider with no filtered issue search reports empty
+	 * relationships (and this read refuses), and a criterion it can't express refuses the whole read rather than
+	 * serving a wider result than asked for.
+	 */
+	searchIssuesPage(options: {
+		providerId: IntegrationIds;
+		/** Repositories to search. Combines with `org`; both constrain the same query. */
+		repos?: ProviderRepositoriesInput;
+		/** Organization/account to search. Combines with `repos`. */
+		org?: string;
+		criteria?: IssueSearchCriteria;
+		/**
+		 * Requested 1-based page. This read is cursor-only, so without a `cursor` reaching page N costs O(N)
+		 * upstream requests; pass the previous page's cursor to make it exactly one.
+		 */
+		page?: number;
 		cursor?: string;
 		itemsPerPage?: number;
 		forceSync?: boolean;

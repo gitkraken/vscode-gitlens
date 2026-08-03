@@ -11,7 +11,7 @@ import {
 } from '@gitlens/git/errors.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueSearchCriteria, IssueSearchRelationship, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest, PullRequestState, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
@@ -140,6 +140,136 @@ function getRequestRetryDelay(attempt: number): number {
  * same number.
  */
 export const githubSearchResultLimit = 1000;
+
+/**
+ * Strips everything from a user-supplied qualifier VALUE that could break out of it: the double quote that would
+ * close its own `"…"`, and the control characters (newlines included) that cannot appear in a GitHub search query
+ * and exist here only as a smuggling vector.
+ *
+ * Not a general escape — GitHub search has no escape syntax — so the only safe transformation is removal. A value
+ * emptied by it is dropped by its caller rather than emitted as an empty qualifier, which GitHub would reject.
+ */
+function sanitizeGitHubQualifierValue(value: string): string {
+	// eslint-disable-next-line no-control-regex
+	return value.replace(/["\u0000-\u001f\u007f]/g, '').trim();
+}
+
+/**
+ * Sanitizes free text, which is a different problem from a qualifier value: bare words are the POINT here, so it
+ * can't just be quoted. What must not survive is anything that would read as a qualifier — GitHub parses any
+ * whitespace-delimited `key:value` token as one, so a user typing `foo org:someone-else` would otherwise re-scope
+ * the search to another org.
+ *
+ * Tokens containing `:` are dropped whole rather than having the colon removed: the remainder would silently
+ * change what the user searched for, and a dropped token at least matches nothing extra. The structured criteria
+ * are the qualifier channel.
+ */
+function sanitizeGitHubSearchText(text: string): string {
+	return sanitizeGitHubQualifierValue(text)
+		.split(/\s+/)
+		.filter(token => token.length > 0 && !token.includes(':'))
+		.join(' ');
+}
+
+/** GitHub's search qualifier for one relationship. `@me` binds to the token's own user. */
+function toGitHubIssueRelationshipQualifier(relationship: IssueSearchRelationship): string {
+	switch (relationship) {
+		case 'authored':
+			return 'author:@me';
+		case 'assigned':
+			return 'assignee:@me';
+		case 'mentioned':
+			return 'mentions:@me';
+		case 'any-assignee':
+			return 'assignee:*';
+		case 'unassigned':
+			return 'no:assignee';
+	}
+	// No `default`: the union is declared in @gitlens/git, so `noImplicitReturns` fails the build here if a
+	// relationship is added without a qualifier — rather than silently emitting an unconstrained search.
+}
+
+/**
+ * The GraphQL alias for a relationship's search. Derived rather than the relationship string itself because
+ * `any-assignee` is not a valid GraphQL name, and the alias is also this read's persisted cursor key — so it has
+ * to be stable and unique per relationship.
+ */
+function toIssueSearchRelationshipAlias(relationship: IssueSearchRelationship): string {
+	return relationship.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+/**
+ * Translates the provider-neutral criteria into GitHub search qualifiers, EXCLUDING the relationship (which
+ * becomes its own aliased search, since GitHub AND-s qualifiers and relationships are OR-ed) and excluding the
+ * repository/org scope (which the caller owns).
+ *
+ * `sort:updated` is always emitted: the read's contract is most-recently-updated-first, so a consumer's "show the
+ * N most recent" policy at the result ceiling is correct. Free-form values go through the sanitizers above, and
+ * one emptied by sanitizing is dropped rather than emitted as an empty qualifier.
+ */
+function toGitHubIssueSearchQualifiers(criteria: IssueSearchCriteria | undefined): string[] {
+	const qualifiers = ['type:issue'];
+
+	switch (criteria?.state) {
+		case 'closed':
+			qualifiers.push('is:closed');
+			break;
+		// Every state — no qualifier constrains it.
+		case 'all':
+			break;
+		default:
+			qualifiers.push('is:open');
+			break;
+	}
+
+	if (criteria?.includeArchived !== true) {
+		qualifiers.push('archived:false');
+	}
+
+	for (const label of criteria?.labels ?? []) {
+		const value = sanitizeGitHubQualifierValue(label);
+		if (value.length > 0) {
+			qualifiers.push(`label:"${value}"`);
+		}
+	}
+
+	if (criteria?.milestone != null) {
+		const value = sanitizeGitHubQualifierValue(criteria.milestone);
+		if (value.length > 0) {
+			qualifiers.push(`milestone:"${value}"`);
+		}
+	}
+
+	if (criteria?.updatedAfter != null) {
+		const value = sanitizeGitHubQualifierValue(criteria.updatedAfter);
+		if (value.length > 0) {
+			qualifiers.push(`updated:>=${value}`);
+		}
+	}
+
+	if (criteria?.createdAfter != null) {
+		const value = sanitizeGitHubQualifierValue(criteria.createdAfter);
+		if (value.length > 0) {
+			qualifiers.push(`created:>=${value}`);
+		}
+	}
+
+	if (criteria?.withoutLinkedPullRequest === true) {
+		qualifiers.push('-linked:pr');
+	}
+
+	if (criteria?.text != null) {
+		const text = sanitizeGitHubSearchText(criteria.text);
+		if (text.length > 0) {
+			qualifiers.push(text);
+		}
+	}
+
+	// Contract, not an option: see `GitHubApi.searchIssuesPage`.
+	qualifiers.push('sort:updated');
+
+	return qualifiers;
+}
 
 /** One aliased `search` field in a multi-search issue request; see {@link GitHubApi.searchIssuesByAlias}. */
 interface AliasedIssueSearch {
@@ -3704,6 +3834,136 @@ export class GitHubApi {
 		}
 
 		return this.searchIssuesByAlias(provider, token, searches, options, cancellation);
+	}
+
+	/**
+	 * The filtered issue search: issues matching structured criteria over a repository/org scope, with no forced
+	 * relationship to the current user. The issue counterpart of {@link searchMyPullRequestsPage}, and distinct
+	 * from {@link searchMyIssues}, which is permanently bound to `@me`.
+	 *
+	 * Ordering is part of the contract, not an option: always `sort:updated` (most recently updated first). A
+	 * consumer's "show the N most recent" policy at GitHub's result ceiling is only correct under a guaranteed
+	 * order, and an option would let a caller pick relevance order and then truncate to an arbitrary subset.
+	 *
+	 * Each requested relationship becomes its own aliased search, unioned and deduped by url; with none, a single
+	 * search runs over the scope alone. `criteria.text` and the other free-form values are sanitized so user input
+	 * cannot inject a qualifier and re-scope the search — see {@link toGitHubIssueSearchQualifiers}.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async searchIssuesPage(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		options?: {
+			repos?: string[];
+			org?: string;
+			criteria?: IssueSearchCriteria;
+			baseUrl?: string;
+			avatarSize?: number;
+			includeBody?: boolean;
+			cursor?: string;
+			pageSize?: number;
+		},
+		cancellation?: AbortSignal,
+	): Promise<AliasedIssueSearchResult | undefined> {
+		const scope: string[] = [];
+		if (options?.org) {
+			scope.push(`org:${sanitizeGitHubQualifierValue(options.org)}`);
+		}
+		for (const repo of options?.repos ?? []) {
+			scope.push(`repo:${sanitizeGitHubQualifierValue(repo)}`);
+		}
+
+		const base = [...scope, ...toGitHubIssueSearchQualifiers(options?.criteria)].join(' ');
+
+		// One aliased search per relationship, OR-ed by union. They can't be one query: GitHub AND-s qualifiers,
+		// so `author:@me assignee:@me` would return the intersection — issues the user both opened and is assigned
+		// to — instead of either set. With no relationship the scope + criteria are already the whole query.
+		const relationships = options?.criteria?.relationships;
+		const searches: AliasedIssueSearch[] = relationships?.length
+			? relationships.map(r => ({
+					alias: toIssueSearchRelationshipAlias(r),
+					query: `${base} ${toGitHubIssueRelationshipQualifier(r)}`.trim(),
+				}))
+			: [{ alias: 'matched', query: base }];
+
+		return this.searchIssuesByAlias(provider, token, searches, options, cancellation);
+	}
+
+	/**
+	 * Counts issues for several scopes in ONE request, transferring no issues at all — each scope is an aliased
+	 * `search` selecting only `issueCount`, with `first: 0` so no nodes are fetched.
+	 *
+	 * This is what makes a "this will fetch ~N issues" preview affordable: measured against the live API, 30
+	 * aliased counts cost a single rate-limit point. It is still a network request per chunk, so a caller is
+	 * expected to debounce and cache.
+	 *
+	 * Returns counts positionally — one per input scope, same order — because a caller-supplied key must never
+	 * reach the GraphQL document (it would break it); the aliases are generated. `undefined` in a slot means the
+	 * response omitted that alias, which the caller reports as "not counted" rather than as zero.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async countIssues(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		scopes: readonly { repos?: string[]; org?: string; criteria?: IssueSearchCriteria }[],
+		options?: { baseUrl?: string },
+		cancellation?: AbortSignal,
+	): Promise<(number | undefined)[]> {
+		const scope = getScopedLogger();
+		if (scopes.length === 0) return [];
+
+		const queries = scopes.map(s => {
+			const qualifiers: string[] = [];
+			if (s.org) {
+				qualifiers.push(`org:${sanitizeGitHubQualifierValue(s.org)}`);
+			}
+			for (const repo of s.repos ?? []) {
+				qualifiers.push(`repo:${sanitizeGitHubQualifierValue(repo)}`);
+			}
+			qualifiers.push(...toGitHubIssueSearchQualifiers(s.criteria));
+
+			// A relationship set is OR-ed across searches, which a single count can't express — the facade splits
+			// such a scope into one count per relationship before calling, so at most one is present here.
+			const relationship = s.criteria?.relationships?.[0];
+			if (relationship != null) {
+				qualifiers.push(toGitHubIssueRelationshipQualifier(relationship));
+			}
+			return qualifiers.join(' ');
+		});
+
+		// Aliases are positional and generated (`s0`, `s1`, …): a caller's key is arbitrary text and would break
+		// the document, so the caller maps results back by index.
+		const params = queries.map((_, i) => `$q${i}: String!`).join('\n\t\t\t\t');
+		// `first: 0` is what makes this cheap — `issueCount` alone, no nodes over the wire.
+		const fields = queries
+			.map((_, i) => `s${i}: search(query: $q${i}, type: ISSUE, first: 0) { issueCount }`)
+			.join('\n\t\t\t\t');
+		const query = `query countIssues(
+				${params}
+			) {
+				${fields}
+			}`;
+
+		const variables: Record<string, unknown> = { baseUrl: options?.baseUrl };
+		queries.forEach((q, i) => {
+			variables[`q${i}`] = q;
+		});
+
+		try {
+			const rsp = await this.graphql<Record<string, { issueCount?: number } | undefined>>(
+				provider,
+				token,
+				query,
+				variables,
+				scope,
+				cancellation,
+			);
+			if (rsp == null) return queries.map(() => undefined);
+
+			return queries.map((_, i) => rsp[`s${i}`]?.issueCount);
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
 	}
 
 	/**
