@@ -351,6 +351,12 @@ export interface IntegrationManager {
 		 */
 		page?: number;
 		cursor?: string;
+		/**
+		 * Page size PER RELATIONSHIP, not per page. Each requested relationship is its own provider query, so a
+		 * page of a 2-relationship search returns up to `2 × itemsPerPage` items before deduplication — and fewer
+		 * than that when the two overlap. `page.itemsPerPage` reports what actually came back, so size the UI off
+		 * that rather than off this. A provider may also cap it below what is asked for.
+		 */
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
