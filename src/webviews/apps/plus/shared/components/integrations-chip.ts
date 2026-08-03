@@ -4,7 +4,8 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import type { AIState, IntegrationStateInfo } from '../../../../rpc/services/types.js';
-import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
+import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
+import { boxSizingBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
 import { aiContext } from '../../../shared/contexts/ai.js';
 import type { IntegrationsState } from '../../../shared/contexts/integrations.js';
@@ -38,7 +39,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	};
 
 	static override styles = [
-		elementBase,
+		boxSizingBase,
+		focusableBaseStyles,
 		linkBase,
 		chipStyles,
 		css`
@@ -56,6 +58,16 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-6);
 				align-items: baseline;
 				padding: var(--gl-space-2) var(--gl-space-4) var(--gl-space-4);
+			}
+
+			button.chip {
+				margin: 0;
+				font: inherit;
+				color: inherit;
+				text-align: start;
+				appearance: none;
+				background: none;
+				border: none;
 			}
 
 			.chip__label {
@@ -163,11 +175,15 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		}
 
 		if (this.display === 'icons') {
-			return html`<span class="chip" tabindex="0">${this.renderIntegrationIcons()}</span>`;
+			return html`<button id="chip" class="chip" type="button" aria-label="Integrations">
+				${this.renderIntegrationIcons()}
+			</button>`;
 		}
 
 		if (this.display === 'ai-icons') {
-			return html`<span class="chip" tabindex="0">${this.renderAIIcons()}</span>`;
+			return html`<button id="chip" class="chip" type="button" aria-label="AI and agents">
+				${this.renderAIIcons()}
+			</button>`;
 		}
 
 		if (this.display === 'panel') {
