@@ -98,6 +98,19 @@ suite('facade-raised incompleteness warnings', () => {
 		assert.equal(omissionFor('interrupted'), undefined);
 	});
 
+	test('the hierarchy surfaces get the same structured omission as the paged reads', () => {
+		// `listOrgs`/`listProjects` were the last reads raising a bare `kind: 'other'` line for their own
+		// truncation, which a consumer cannot tell apart from a provider failure. They route through here now,
+		// so the surface is named in the prose while the actionable fact stays in `omission`.
+		for (const readKind of ['Organization', 'Project'] as const) {
+			const warning = truncationWarning(id, 'github.com', 'c1', readKind, 'exhausted');
+
+			assert.ok(warning.message.startsWith(`${readKind} read`), `${readKind} names its own surface`);
+			assert.deepEqual(warning.omission, { kind: 'pagination-incomplete', recovery: 'none' });
+			assert.equal(warning.isAuth, false);
+		}
+	});
+
 	test('a facade-raised omission never attributes a scope, having none to name', () => {
 		// These apply to the whole read, not to one repository or project — so a consumer acting on `recovery`
 		// re-runs the read itself and never mistakes this for a per-scope remedy.
