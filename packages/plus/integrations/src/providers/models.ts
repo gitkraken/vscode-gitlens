@@ -1201,6 +1201,9 @@ export function toProviderPullRequestWithUniqueId(pr: PullRequest): PullRequestW
 
 export function toProviderAccount(account: PullRequestMember | IssueMember): ProviderAccount {
 	return {
+		// Stays the provider id because the categorizer matches the viewer to a pull request's people by `id`,
+		// and every provider but GitHub already agrees on that namespace. Re-keying to the login breaks Azure,
+		// whose account `username` is a display name while its members' is a UPN — different namespaces.
 		id: account.id ?? null,
 		avatarUrl: account.avatarUrl ?? null,
 		name: account.name ?? null,

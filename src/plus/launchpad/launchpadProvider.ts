@@ -3,7 +3,7 @@ import type { CancellationToken, ConfigurationChangeEvent, Event } from 'vscode'
 import { Disposable, env, EventEmitter, Uri, window } from 'vscode';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMember } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
@@ -22,7 +22,11 @@ import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostInt
 import type { IntegrationResult } from '@gitlens/integrations/models/integration.js';
 import { isMaybeGitHubPullRequestUrl } from '@gitlens/integrations/providers/github/github.utils.js';
 import { isMaybeGitLabPullRequestUrl } from '@gitlens/integrations/providers/gitlab/gitlab.utils.js';
-import type { EnrichablePullRequest, ProviderActionablePullRequest } from '@gitlens/integrations/providers/models.js';
+import type {
+	EnrichablePullRequest,
+	ProviderAccount,
+	ProviderActionablePullRequest,
+} from '@gitlens/integrations/providers/models.js';
 import {
 	getActionablePullRequests,
 	toProviderPullRequestWithUniqueId,
@@ -177,8 +181,95 @@ export const supportedLaunchpadIntegrations: (GitCloudHostIntegrationId | CloudG
 	GitSelfManagedHostIntegrationId.BitbucketServer,
 ];
 type SupportedLaunchpadIntegrationIds = (typeof supportedLaunchpadIntegrations)[number];
-function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
+export function isSupportedLaunchpadIntegrationId(id: string): id is SupportedLaunchpadIntegrationIds {
 	return supportedLaunchpadIntegrations.includes(id as SupportedLaunchpadIntegrationIds);
+}
+
+/**
+ * Rewrites whichever of a pull request's people are the viewer onto the account's own id, so the shared
+ * categorizer's viewer match — author, assignees and reviewers compared to the viewer by `id` alone —
+ * actually lands. It doesn't otherwise wherever the account and the pull request's people are keyed in
+ * different namespaces, and every viewer-relative category then silently disappears. GitHub fetched
+ * provider-natively is the one path that does that: every account carries the provider's own id, and the
+ * providers-api keys a pull request's people the same way, but GitHub's native fetch keys them by login.
+ * Everywhere else both sides already agree, so this is a no-op that costs one `Set` miss.
+ *
+ * The handle comes off our own model's members rather than the provider-shaped copies: `toProviderAccount`
+ * fills their `username` from the display name, so on that path they no longer carry a handle to match on.
+ * Everyone whose handle isn't the account's is left exactly as-is, so the blast radius of a bad match is
+ * the viewer's own rows.
+ *
+ * Callers canonicalize at the seam where they build the provider-shaped inputs, because that's the only
+ * place both halves — our model for the handles, the account for the id — are in hand.
+ */
+export function canonicalizeViewerIdentity(
+	providerPr: PullRequestWithUniqueID,
+	pr: PullRequest,
+	account: Account,
+): PullRequestWithUniqueID {
+	// Ids matching the account's need no rewrite; this collects the ones only the handle can identify.
+	const viewerIds = new Set<string>();
+	const collect = (member: PullRequestMember | undefined) => {
+		if (account.username && member?.username === account.username && member.id) {
+			viewerIds.add(member.id);
+		}
+	};
+
+	collect(pr.author);
+	pr.assignees?.forEach(collect);
+	pr.reviewRequests?.forEach(r => collect(r.reviewer));
+	pr.latestReviews?.forEach(r => collect(r.reviewer));
+	if (!viewerIds.size) return providerPr;
+
+	const rewrite = (person: ProviderAccount) => (viewerIds.has(person.id) ? { ...person, id: account.id } : person);
+
+	return {
+		...providerPr,
+		author: providerPr.author != null ? rewrite(providerPr.author) : providerPr.author,
+		assignees: providerPr.assignees?.map(rewrite) ?? providerPr.assignees,
+		reviews: providerPr.reviews?.map(r => ({ ...r, reviewer: rewrite(r.reviewer) })) ?? providerPr.reviews,
+	};
+}
+
+// TODO: Switch to using getActionablePullRequests from the shared provider library
+// once it supports passing in multiple current users, one for each provider
+/** Splits pull requests by integration so each batch is categorized against that provider's current
+ *  user, since the shared library takes a single viewer. Shared with the graph's PRs panel, which
+ *  categorizes without the enrichment (pin/snooze) half.
+ *
+ *  `options.viewer: 'none'` categorizes with no viewer at all — see below. */
+export function categorizePullRequests(
+	pullRequests: (PullRequestWithUniqueID & { provider: { id: string } })[],
+	currentUsers: Map<string, Account> | undefined,
+	options?: { enrichedItemsByUniqueId?: EnrichedItemsByUniqueId; viewer?: 'current' | 'none' },
+): ProviderActionablePullRequest[] {
+	// The last resort for a caller that can't resolve an account at all. It gives up every viewer-relative
+	// category (`needsMyReview` becomes unreachable) and, worse, ungates every author-side one, so each fires
+	// for every pull request — a caller asking for it owes its rows the demotions that keeps honest, at
+	// minimum dropping `unassignedReviewers`, which is true of anything nobody has been asked to review yet.
+	// Prefer resolving the account: viewer-relative categories only need the account and the pull request's
+	// people to share an id namespace, which `canonicalizeViewerIdentity` gives callers on the one path
+	// (GitHub fetched provider-natively) that doesn't already agree.
+	if (options?.viewer === 'none') return getActionablePullRequests(pullRequests, null, options);
+
+	const pullRequestsByIntegration = groupByMap<string, PullRequestWithUniqueID & { provider: { id: string } }>(
+		pullRequests,
+		pr => pr.provider.id,
+	);
+
+	const actionablePullRequests: ProviderActionablePullRequest[] = [];
+	for (const [integrationId, prs] of pullRequestsByIntegration.entries()) {
+		const currentUser = currentUsers?.get(integrationId);
+		if (currentUser == null) {
+			Logger.warn(`No current user for integration ${integrationId}`);
+			continue;
+		}
+
+		const actionablePrs = getActionablePullRequests(prs, { id: currentUser.id }, options);
+		actionablePullRequests.push(...actionablePrs);
+	}
+
+	return actionablePullRequests;
 }
 
 export type LaunchpadCategorizedResult =
@@ -735,6 +826,10 @@ export class LaunchpadProvider implements Disposable {
 
 				const providerId = pr.provider.id;
 
+				// Keyed the same way `categorizePullRequests` groups below, so a pull request is canonicalized
+				// against the very account it is then categorized against.
+				const account = myAccounts.get(providerId);
+
 				const enrichProviderId = !isSupportedLaunchpadIntegrationId(providerId)
 					? undefined
 					: isEnrichableIntegrationId(providerId)
@@ -758,7 +853,7 @@ export class LaunchpadProvider implements Disposable {
 				const repoIdentity = getRepositoryIdentityForPullRequest(pr);
 
 				return {
-					...providerPr,
+					...(account != null ? canonicalizeViewerIdentity(providerPr, pr, account) : providerPr),
 					type: 'pullrequest',
 					uuid: providerPr.uuid,
 					provider: pr.provider,
@@ -771,7 +866,7 @@ export class LaunchpadProvider implements Disposable {
 
 			// Note: The expected output of this is ActionablePullRequest[], but we are passing in EnrichablePullRequest,
 			// so we need to cast the output as LaunchpadPullRequest[].
-			const actionableItems = this.getActionablePullRequests(
+			const actionableItems = categorizePullRequests(
 				inputPrs.filter((i: EnrichablePullRequest | undefined): i is EnrichablePullRequest => i != null),
 				myAccounts,
 				{ enrichedItemsByUniqueId: enrichedItemsByEntityId },
@@ -843,33 +938,6 @@ export class LaunchpadProvider implements Disposable {
 				this._onDidRefresh.fire(result);
 			}
 		}
-	}
-
-	// TODO: Switch to using getActionablePullRequests from the shared provider library
-	// once it supports passing in multiple current users, one for each provider
-	private getActionablePullRequests(
-		pullRequests: (PullRequestWithUniqueID & { provider: { id: string } })[],
-		currentUsers: Map<string, Account>,
-		options?: { enrichedItemsByUniqueId?: EnrichedItemsByUniqueId },
-	): ProviderActionablePullRequest[] {
-		const pullRequestsByIntegration = groupByMap<string, PullRequestWithUniqueID & { provider: { id: string } }>(
-			pullRequests,
-			pr => pr.provider.id,
-		);
-
-		const actionablePullRequests: ProviderActionablePullRequest[] = [];
-		for (const [integrationId, prs] of pullRequestsByIntegration.entries()) {
-			const currentUser = currentUsers.get(integrationId);
-			if (currentUser == null) {
-				Logger.warn(`No current user for integration ${integrationId}`);
-				continue;
-			}
-
-			const actionablePrs = getActionablePullRequests(prs, { id: currentUser.id }, options);
-			actionablePullRequests.push(...actionablePrs);
-		}
-
-		return actionablePullRequests;
 	}
 
 	private _groupedIds: Set<string> | undefined;
@@ -1078,7 +1146,8 @@ function ensureRemoteUrl(url: string) {
 
 export function getPullRequestBranchDeepLink(
 	container: Container,
-	pr: PullRequest,
+	// Typed on the fields the link carries, so callers holding only a PR's identity + refs can build one
+	pr: Pick<PullRequest, 'id' | 'title' | 'provider' | 'refs'>,
 	headRefBranchName: string,
 	remoteUrl: string,
 	action?: DeepLinkActionType,

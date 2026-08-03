@@ -292,6 +292,7 @@ export class GitHubApi {
 
 		interface QueryResult {
 			viewer: {
+				databaseId: number | null;
 				name: string | null;
 				email: string | null;
 				login: string | null;
@@ -302,6 +303,7 @@ export class GitHubApi {
 		try {
 			const query = `query getCurrentAccount($avatarSize: Int) {
 	viewer {
+		databaseId
 		name
 		email
 		login
@@ -314,7 +316,10 @@ export class GitHubApi {
 
 			return {
 				provider: provider,
-				id: rsp.viewer.login,
+				// `id` is the provider's own id, as it is for every other provider, and `username` the handle
+				// filters and viewer matching key on. Falls back to the login only when GitHub omits the
+				// database id, which leaves the two equal rather than leaving `id` empty.
+				id: rsp.viewer.databaseId != null ? String(rsp.viewer.databaseId) : rsp.viewer.login,
 				name: rsp.viewer.name ?? undefined,
 				email: rsp.viewer.email ?? undefined,
 				// If we are GitHub Enterprise, we may need to convert the avatar URL since it might require authentication
