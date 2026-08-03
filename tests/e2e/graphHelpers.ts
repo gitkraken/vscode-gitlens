@@ -25,13 +25,24 @@ export async function waitForGraphRowsRendered(graphWebview: FrameLocator, timeo
 }
 
 /**
- * Wait for the graph's rows, maximizing the bottom panel only if they aren't visible yet.
+ * Widen the primary side bar so the Graph gets a panel-like width: at its default ~300px (#5545)
+ * the details panel's file tree paints no `gl-tree-item`s. `decreaseViewWidth` shrinks the editor,
+ * handing ~60px per call to the focused view; it clamps at the editor's minimum, so over-calling is
+ * harmless whatever earlier spec files left behind.
+ */
+export async function widenSideBarForGraph(vscode: VSCodeInstance, steps = 12): Promise<void> {
+	await vscode.gitlens.executeCommand<void>('gitlens.views.graph.focus');
+	for (let i = 0; i < steps; i++) {
+		await vscode.gitlens.executeCommand<void>('workbench.action.decreaseViewWidth');
+	}
+}
+
+/**
+ * Wait for the graph's rows, widening the host only if they aren't visible yet.
  *
- * A short bottom panel lays the graph tree out but reports its rows `hidden`, so a spec that gates on
- * {@link waitForGraphRowsRendered} needs the panel maximized. `workbench.action.toggleMaximizedPanel`
- * is a stateful toggle and the VS Code instance is shared across spec files, so a spec cannot simply
- * flip it: whether that maximizes or restores depends on what ran before. Probing first makes the
- * outcome the same either way, and costs a toggle only when the rows really are hidden.
+ * A cramped host lays the graph tree out but reports its rows `hidden`, so a spec that gates on
+ * {@link waitForGraphRowsRendered} needs more room first. Probing before widening keeps the outcome the
+ * same whatever the previous spec file left behind, and costs nothing when the rows are already there.
  */
 export async function ensureGraphRowsRendered(
 	vscode: VSCodeInstance,
@@ -45,6 +56,6 @@ export async function ensureGraphRowsRendered(
 		.first();
 	if (await rows.isVisible().catch(() => false)) return;
 
-	await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
+	await widenSideBarForGraph(vscode);
 	await waitForGraphRowsRendered(graphWebview, timeout);
 }

@@ -10,7 +10,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { waitForGraphRowsRendered } from '../graphHelpers.js';
+import { waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
 
 // Build a repo with enough commits and files to exercise the tree thoroughly
 const test = base.extend({
@@ -59,8 +59,9 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 		dismissOnboarding: true,
 	});
 
-	// Maximize the panel so the details pane has enough height for tree items
-	await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
+	// Widen the side bar so the details panel has room for tree items — at the side bar's default
+	// ~300px it renders the tree container but no items (see widenSideBarForGraph)
+	await widenSideBarForGraph(vscode);
 
 	await vscode.gitlens.showCommitGraphView();
 
@@ -85,6 +86,7 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 
 async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
+	await widenSideBarForGraph(vscode);
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
 	await expect(graphWebview!.getByRole('tree', { name: 'Commit graph' })).toBeVisible({ timeout: 30000 });

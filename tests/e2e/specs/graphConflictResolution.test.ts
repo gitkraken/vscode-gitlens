@@ -29,7 +29,7 @@ import * as process from 'node:process';
 import type { FrameLocator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { ensureGraphRowsRendered } from '../graphHelpers.js';
+import { ensureGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -141,6 +141,7 @@ async function exitResolveMode(webview: FrameLocator): Promise<void> {
 /** Open the Commit Graph and wait until the conflicted WIP row has rendered. */
 async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
+	await widenSideBarForGraph(vscode);
 	const webview = await vscode.gitlens.commitGraphViewWebview;
 	expect(webview).not.toBeNull();
 	// Gate the row paint separately from the conflict state, so a failure names which one broke rather
