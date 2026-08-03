@@ -4448,8 +4448,12 @@ gl-graph-app {
 				white-space: nowrap;
 			}
 
-			&__kebab {
+			// The ref-kind color belongs to the identity (icon + name) only — the chips are chrome, so
+			// they take the header's own foreground like the right-side actions do.
+			&__kebab,
+			&__action {
 				flex: none;
+				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 			}
 		}
 

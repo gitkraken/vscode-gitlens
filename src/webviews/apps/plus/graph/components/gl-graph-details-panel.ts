@@ -1037,6 +1037,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							></gl-action-chip>`
 						: nothing
 				}
+				${this.renderBranchSheetOpenOnRemoteChip(ref, context)}
 			</span>
 			${this.renderBranchSheetFocusChip(ref)}
 			${
@@ -1071,6 +1072,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@gl-graph-branch-sheet-close-request=${this.handleCloseBranchSheet}
 			></gl-graph-branch-sheet-pane>
 		</gl-detail-sheet>`;
+	}
+
+	/** The sheet's Open on Remote chip — only for a ref that actually exists on a remote. Gated on the
+	 *  ref context's `+tracking`/`+remote` flags, the same test the row menu's own entry uses, so the
+	 *  chip appears exactly when the menu item does. */
+	private renderBranchSheetOpenOnRemoteChip(ref: BranchSheetRef, context: GraphItemContext | undefined) {
+		if (context == null || (ref.refType !== 'head' && ref.refType !== 'remote')) return nothing;
+		if (!context.webviewItem.includes('+tracking') && !context.webviewItem.includes('+remote')) return nothing;
+
+		return html`<gl-action-chip
+			class="branch-sheet-title__action"
+			icon="globe"
+			label="Open Branch on Remote"
+			alt-icon="copy"
+			alt-label="Copy Remote Branch URL"
+			overlay="tooltip"
+			href=${this._webview.createCommandLink<GraphItemContext>('gitlens.graph.openBranchOnRemote', context)}
+			alt-href=${this._webview.createCommandLink<GraphItemContext>('gitlens.graph.copyRemoteBranchUrl', context)}
+		></gl-action-chip>`;
 	}
 
 	/** The sheet's Focus chip — branches and remote branches only. The label stays "Focus on Branch"
