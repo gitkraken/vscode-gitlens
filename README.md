@@ -210,11 +210,12 @@ An x-ray or developer tools Inspect into your code, focused on providing context
 
 ### GitLens
 
-Quick access to many GitLens features. Also the home of GitKraken teams and collaboration services (e.g. Cloud Patches, Cloud Workspaces), help, and support.
+Home of the [**Commit Graph `Pro`**](#commit-graph-pro) — GitLens' main view — along with quick access to many GitLens features, GitKraken teams and collaboration services (e.g. Cloud Patches, Cloud Workspaces), help, and support.
 
-- **Home** &mdash; Quick access to many features.
-- [**Cloud Patches `Preview`**](#cloud-patches-preview) &mdash; Privately and securely share code with specific teammates
-- [**Cloud Workspaces `Preview`**](#gitkraken-workspaces-preview) &mdash; Easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.
+- [**Commit Graph `Pro`**](#commit-graph-pro) &mdash; Visualize your repository and keep track of all work in progress; can be moved to the bottom panel or opened in the editor area if you prefer.
+- **Home** &mdash; Quick access to many features (hidden by default; show it with the _GitLens: Show Home View_ command).
+- [**Cloud Patches `Preview`**](#cloud-patches-preview) &mdash; Privately and securely share code with specific teammates (hidden by default; show it with the _GitLens: Show Cloud Patches View_ command).
+- [**Cloud Workspaces `Preview`**](#gitkraken-workspaces-preview) &mdash; Easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow (hidden by default; show it with the _GitLens: Show Cloud Workspaces View_ command).
 
 ### Source Control
 
@@ -231,7 +232,7 @@ Shows additional views that are focused on exploring and managing your repositor
 
 ### (Bottom) Panel
 
-Convenient and easy access to the Commit Graph with a dedicated details view.
+An optional home for the Commit Graph — choose it from the graph's one-time layout prompt, or drag the view there.
 
 ## Cloud Workspaces `Preview`
 

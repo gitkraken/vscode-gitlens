@@ -1142,7 +1142,6 @@ export type ContributedPaletteCommands =
 	| 'gitlens.toggleFileHeatmap'
 	| 'gitlens.toggleGraph'
 	| 'gitlens.toggleLineBlame'
-	| 'gitlens.toggleMaximizedGraph'
 	| 'gitlens.toggleReviewMode'
 	| 'gitlens.toggleZenMode'
 	| 'gitlens.views.workspaces.create'
@@ -1207,4 +1206,5 @@ export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.openFolderHistoryInGraph'
 	| 'gitlens.openIssueOnRemote'
-	| 'gitlens.plus.cloudIntegrations.connect';
+	| 'gitlens.plus.cloudIntegrations.connect'
+	| 'gitlens.toggleMaximizedGraph';

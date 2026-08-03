@@ -16,10 +16,10 @@ export const viewsCategories: SettingsCategory[] = [
 			{
 				kind: 'segmented',
 				key: 'graph.layout',
-				label: 'Prefer showing the Commit Graph in the',
+				label: 'Prefer showing the Commit Graph',
 				options: [
-					{ value: 'editor', label: 'editor area' },
-					{ value: 'panel', label: 'side bar' },
+					{ value: 'editor', label: 'in the editor area' },
+					{ value: 'panel', label: 'as a view' },
 				],
 			},
 			{

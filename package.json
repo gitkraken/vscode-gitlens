@@ -949,7 +949,7 @@
 						],
 						"enumDescriptions": [
 							"Prefer showing the Commit Graph in the editor area",
-							"Prefer showing the Commit Graph in the GitLens side bar"
+							"Prefer showing the Commit Graph as a view"
 						],
 						"markdownDescription": "Specifies the preferred layout of the _Commit Graph_",
 						"scope": "window",
@@ -1004,7 +1004,7 @@
 							"Opens editors beside the Commit Graph when it is the active editor; otherwise opens in the active editor group",
 							"Always opens editors in the active editor group"
 						],
-						"markdownDescription": "Specifies which editor group editors (files, diffs, etc.) opened from the _Commit Graph_ should appear in when the graph is in an editor tab. Has no effect when the graph is shown as a panel.",
+						"markdownDescription": "Specifies which editor group editors (files, diffs, etc.) opened from the _Commit Graph_ should appear in when the graph is in an editor tab. Has no effect when the graph is shown as a view.",
 						"scope": "window",
 						"order": 4
 					},
@@ -1352,7 +1352,7 @@
 							"Table: single-line rows with columns (message, author, date, sha)",
 							"List: stacked two-line rows with no columns"
 						],
-						"markdownDescription": "Specifies the style (row layout) of the _Commit Graph_ — `table` (single-line rows with columns) or `list` (stacked two-line rows). `auto` switches to `list` when the panel is too narrow for the columns",
+						"markdownDescription": "Specifies the style (row layout) of the _Commit Graph_ — `table` (single-line rows with columns) or `list` (stacked two-line rows). `auto` switches to `list` when the view is too narrow for the columns",
 						"scope": "window",
 						"order": 710
 					},
@@ -8354,7 +8354,7 @@
 			},
 			{
 				"command": "gitlens.graph.simulate.mainView",
-				"title": "Simulate Graph as Main View (Debugging)",
+				"title": "Simulate Graph Default Location (Debugging)",
 				"category": "GitLens"
 			},
 			{
@@ -8412,7 +8412,7 @@
 			},
 			{
 				"command": "gitlens.graph.switchToPanelLayout",
-				"title": "Prefer Commit Graph in Side Bar",
+				"title": "Prefer Commit Graph as a View",
 				"category": "GitLens",
 				"enablement": "config.gitlens.graph.layout != panel"
 			},
@@ -9754,7 +9754,6 @@
 			{
 				"command": "gitlens.toggleMaximizedGraph",
 				"title": "Toggle Maximized Commit Graph",
-				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
 			{
@@ -15116,7 +15115,7 @@
 				},
 				{
 					"command": "gitlens.toggleMaximizedGraph",
-					"when": "gitlens:enabled"
+					"when": "false"
 				},
 				{
 					"command": "gitlens.toggleReviewMode",
@@ -29500,7 +29499,7 @@
 					"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-graph)",
-					"initialSize": 4,
+					"initialSize": 6,
 					"visibility": "visible"
 				},
 				{

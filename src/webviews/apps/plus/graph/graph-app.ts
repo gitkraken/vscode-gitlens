@@ -3197,6 +3197,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private get shouldShowLayoutPrompt(): boolean {
 		return (
 			(this.graphState.layoutPromptNeeded ?? false) &&
+			// Not while the Pro gate is up: both the gate and this prompt are top-layer modals, so for a
+			// signed-in-but-unentitled user the prompt would stack over the gate — asking a placement
+			// question about a graph they can't see, and burning the one-shot answer
+			(this.graphState.allowed ?? false) &&
 			// The prompt lives inside the graph subtree, which the no-repository empty state
 			// doesn't render — require repositories to be RESOLVED and non-empty (stricter than
 			// the subtree's own `?.length === 0` check, which renders during the initial load

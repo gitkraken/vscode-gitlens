@@ -285,10 +285,7 @@ export function registerGraphWebviewCommands<T>(
 		}),
 		registerCommand(`${panels.id}.switchToPanelLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'panel');
-			queueMicrotask(async () => {
-				await executeCoreCommand('gitlens.views.graph.resetViewLocation');
-				void executeCommand('gitlens.showGraphView');
-			});
+			queueMicrotask(() => void executeCommand('gitlens.showGraphView'));
 		}),
 		registerCommand('gitlens.graph.simulate.mainView', () => {
 			// Dev/pre-release only (see contributions gating): flips the Graph between the two
@@ -326,18 +323,13 @@ export function registerGraphWebviewCommands<T>(
 		}),
 		registerCommand('gitlens.toggleGraph', (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
-				void executeCoreCommand('workbench.action.closePanel');
+				void executeCoreCommand('gitlens.views.graph.toggleVisibility');
 			} else {
 				void executeCommand('gitlens.showGraphView', ...args);
 			}
 		}),
 		registerCommand('gitlens.toggleMaximizedGraph', (...args: any[]) => {
-			if (getContext('gitlens:webviewView:graph:visible')) {
-				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
-			} else {
-				void executeCommand('gitlens.showGraphView', ...args);
-				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
-			}
+			void executeCommand('gitlens.showGraphView', ...args);
 		}),
 		registerCommand('gitlens.showInCommitGraph', showInCommitGraph),
 		registerCommand('gitlens.showInCommitGraphView', (args: ShowInCommitGraphCommandArgs) => {

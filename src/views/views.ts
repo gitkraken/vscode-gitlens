@@ -120,7 +120,7 @@ export class Views implements Disposable {
 		let newInstall = false;
 		let showGitLensView = false;
 		if (!configuration.get('advanced.skipOnboarding')) {
-			// If this is a new install, expand the GitLens view and show the home view by default, unless we are skipping onboarding
+			// If this is a new install, expand the GitLens view and land on the Graph — its main view — unless we are skipping onboarding
 			newInstall = getContext('gitlens:install:new', false);
 			showGitLensView = newInstall;
 			if (!showGitLensView) {

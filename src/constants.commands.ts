@@ -239,7 +239,6 @@ export type CoreCommands =
 	| 'workbench.action.chat.open'
 	| 'workbench.action.closeActiveEditor'
 	| 'workbench.action.closeAllEditors'
-	| 'workbench.action.closePanel'
 	| 'workbench.action.closeWindow'
 	| 'workbench.action.moveEditorToNewWindow'
 	| 'workbench.action.focusFirstEditorGroup'
@@ -261,7 +260,6 @@ export type CoreCommands =
 	| 'workbench.action.reloadWindow'
 	| 'workbench.action.terminal.paste'
 	| 'workbench.action.terminal.sendSequence'
-	| 'workbench.action.toggleMaximizedPanel'
 	| 'workbench.action.focusPanel'
 	| 'workbench.action.togglePanel'
 	| 'workbench.extensions.action.extensionUpdates'
@@ -271,6 +269,7 @@ export type CoreCommands =
 	| 'workbench.extensions.uninstallExtension'
 	| 'workbench.files.action.focusFilesExplorer'
 	| 'workbench.view.explorer'
+	| 'workbench.view.extension.gitlens'
 	| 'workbench.view.extension.gitlensInspect'
 	| 'workbench.view.scm'
 	| VendorChatCommands
