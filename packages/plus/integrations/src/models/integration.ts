@@ -136,6 +136,7 @@ type SyncReqUsecase = Exclude<
 	| 'getRepositoryMetadata'
 	| 'getResourcesForUser'
 	| 'getSshSigningKeysForEmails'
+	| 'countIssues'
 	| 'mergePullRequest'
 	| 'searchIssuesPage'
 	| 'searchMyIssues'

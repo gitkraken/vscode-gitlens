@@ -661,6 +661,28 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		);
 	}
 
+	/**
+	 * Counts several scopes in ONE request. GitHub's `search` reports `issueCount` on a zero-node selection, so a
+	 * count preview costs no issue transfer — measured, 30 aliased counts are a single rate-limit point.
+	 */
+	protected override async countProviderIssues(
+		session: ProviderAuthenticationSession,
+		scopes: readonly { repos?: ProviderRepoInput[]; org?: string; criteria?: IssueSearchCriteria }[],
+		cancellation?: AbortSignal,
+	): Promise<(number | undefined)[] | undefined> {
+		return (await this.authenticationService.apis.github)?.countIssues(
+			this,
+			toTokenWithInfo(this.id, session),
+			scopes.map(s => ({
+				repos: s.repos?.map(r => `${r.namespace}/${r.name}`),
+				org: s.org,
+				criteria: s.criteria,
+			})),
+			{ baseUrl: this.apiBaseUrl },
+			cancellation,
+		);
+	}
+
 	protected override async searchProviderPullRequests(
 		session: ProviderAuthenticationSession,
 		searchQuery: string,
