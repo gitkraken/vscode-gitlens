@@ -69,6 +69,13 @@ export function classifyGitDirChange(relativePath: string): RepositoryChange[] |
 		case 'sequencer':
 			return ['pausedOp'];
 
+		// `'heads'` is deliberately the ONLY thing a `refs/heads/*` event yields, including a create. It is
+		// tempting to read a create as "a new branch exists under this name" and use it to drop anything
+		// derived from the old branch's identity (its base, its merge target). That signal does not mean
+		// what it looks like: git rewrites an EXISTING loose ref by writing `<name>.lock` and renaming it
+		// over the file, which watchers report as a create of the destination — so every ordinary commit
+		// would look like a new branch and discard a live branch's metadata. Nothing here can distinguish
+		// the two; identity changes are handled where GitLens performs the operation itself.
 		case 'refs/heads':
 			return ['heads'];
 

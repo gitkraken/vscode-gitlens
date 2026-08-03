@@ -159,6 +159,10 @@ export function createTestRepo(options?: {
 // the fast path's "new commits are strictly newer than the seam" reasoning is actually exercised. Starts
 // well after `createTestRepo`'s fixed 2024-01-01 initial commit.
 let commitClockMs = Date.parse('2024-06-01T00:00:00Z');
+
+/** Matches the `user.name`/`user.email` every test repo is configured with, so fast-import-authored
+ * commits hash identically to `git commit`-authored ones. */
+const commitIdentity = 'Test User <test@gitlens.test>';
 function nextCommitDate(): string {
 	commitClockMs += 60_000;
 	return new Date(commitClockMs).toISOString();
@@ -275,15 +279,40 @@ export function addCommits(repoPath: string, count: number, prefix = 'batch'): v
  * history cheaply. Avoids the loose-object write race that hundreds of rapid file commits hit on some
  * filesystems (WSL2), and needs no stats.
  */
+/**
+ * Appends `count` empty commits to the current branch in ONE `git fast-import`, rather than one
+ * `git commit` process each — the bulk-seeding call sites run into the hundreds, and per-commit spawns
+ * dominated their runtime.
+ *
+ * Produces byte-identical commits to the per-commit path (same author/committer identity, same
+ * `nextCommitDate()` sequence, same messages, same unchanged tree), so recorded SHAs and date ordering
+ * are unaffected. Writes only the branch ref: the tree is unchanged, so index and working tree — including
+ * anything uncommitted — stay valid and need no reset.
+ */
 export function addEmptyCommits(repoPath: string, count: number, prefix = 'e'): void {
+	if (count <= 0) return;
+
+	// fast-import addresses the branch by ref, so a detached HEAD has nothing to append to.
+	const ref = execFileSync('git', ['symbolic-ref', '--quiet', 'HEAD'], { cwd: repoPath, stdio: 'pipe' })
+		.toString()
+		.trim();
+
+	const commands: string[] = [];
 	for (let i = 0; i < count; i++) {
-		const date = nextCommitDate();
-		execFileSync('git', ['commit', '--allow-empty', '-m', `${prefix} commit ${i}`], {
-			cwd: repoPath,
-			stdio: 'pipe',
-			env: { ...process.env, GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date },
-		});
+		const seconds = Math.floor(Date.parse(nextCommitDate()) / 1000);
+		const message = `${prefix} commit ${i}\n`;
+		// Only the first needs an explicit parent; fast-import tracks the branch tip after that.
+		const from = i === 0 ? `from ${ref}^0\n` : '';
+		commands.push(
+			`commit ${ref}\nauthor ${commitIdentity} ${seconds} +0000\ncommitter ${commitIdentity} ${seconds} +0000\ndata ${Buffer.byteLength(message)}\n${message}${from}\n`,
+		);
 	}
+
+	execFileSync('git', ['fast-import', '--quiet', '--date-format=raw'], {
+		cwd: repoPath,
+		input: commands.join(''),
+		stdio: ['pipe', 'pipe', 'pipe'],
+	});
 }
 
 /** Create a branch rooted at an explicit start-point (needed to fork an old-dated commit off history). */
@@ -412,7 +441,7 @@ export function getRefTips(repoPath: string): Map<string, string> {
 
 /**
  * Clone an existing test repo into a fresh temp dir and return a configured {@link TestRepo} for it.
- * The clone gets deterministic user config + `gc.auto 0` and an `origin` remote pointing at the source,
+ * The clone gets deterministic user config + auto-gc/maintenance disabled and an `origin` remote pointing at the source,
  * so scenarios can commit to the source and `fetch()` the batch into the clone (a high-fidelity fetch).
  */
 export function cloneTestRepo(
@@ -434,6 +463,7 @@ export function cloneTestRepo(
 	execFileSync('git', ['config', 'user.email', 'test@gitlens.test'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'pipe' });
+	// See `createTestRepo`: `gc.auto` alone leaves `maintenance.auto` (default true) free to repack.
 	execFileSync('git', ['config', 'gc.auto', '0'], { cwd: dir, stdio: 'pipe' });
 	execFileSync('git', ['config', 'maintenance.auto', 'false'], { cwd: dir, stdio: 'pipe' });
 

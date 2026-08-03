@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { fileUri } from '@gitlens/utils/uri.js';
+import { Cache } from '../../cache.js';
 import type { GitDir } from '../../models/repository.js';
 import type { FileWatcher, FileWatchEvent, FileWatchingProvider } from '../provider.js';
 import { dotGitGlobCombined, dotGitGlobCommon, dotGitGlobRoot } from '../watcherPatterns.js';

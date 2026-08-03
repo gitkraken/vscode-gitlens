@@ -486,3 +486,284 @@ suite('Cache — tag-scoped invalidation', () => {
 		assert.strictEqual(factoryCount, 2, 'a force-moved or recreated tag must not serve its old count');
 	});
 });
+
+suite('Cache — gkConfig watcher reconciliation', () => {
+	const repoPath = '/test/repo';
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	/**
+	 * Mirrors the CLI config sub-provider's reconciler: re-reads via `getGkConfigMap` (a cache miss,
+	 * since the watcher path clears it first) and hands the result to `reconcileGkConfigMap`. Returns
+	 * a promise for the last reconcile's "changed" result, set synchronously so the test can await it
+	 * right after `onRepositoryChanged` returns.
+	 */
+	function registerTestReconciler(nextMap: () => Map<string, string>): () => Promise<boolean> {
+		let pending: Promise<boolean>;
+		cache.setGkConfigReconciler((rp, priorSnapshot) => {
+			pending = cache
+				.getGkConfigMap(rp, () => nextMap())
+				.then(freshMap => cache.reconcileGkConfigMap(rp, priorSnapshot, freshMap));
+			// These tests exercise the reconcile cascade itself, so they always report success — the
+			// coarse fallback is driven by the outcome and would otherwise mask what they assert.
+			return pending.then(() => 'reconciled' as const);
+		});
+		return () => pending;
+	}
+
+	test('a gk-last-accessed-only change does not re-trigger baseBranchName', async () => {
+		let baseFactoryCount = 0;
+		const baseFactory = () => {
+			baseFactoryCount++;
+			return Promise.resolve('origin/main');
+		};
+
+		await cache.getGkConfigMap(repoPath, () =>
+			Promise.resolve(
+				new Map([
+					['branch.main.gk-merge-base', 'origin/main'],
+					['branch.main.gk-last-accessed', '2024-01-01T00:00:00.000Z'],
+				]),
+			),
+		);
+		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
+		assert.strictEqual(baseFactoryCount, 1);
+
+		const result = registerTestReconciler(
+			() =>
+				new Map([
+					['branch.main.gk-merge-base', 'origin/main'], // unchanged
+					['branch.main.gk-last-accessed', '2024-06-01T00:00:00.000Z'], // changed, but not merge-relevant
+				]),
+		);
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		assert.strictEqual(await result(), false, 'no merge-relevant key changed');
+
+		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
+		assert.strictEqual(baseFactoryCount, 1, 'a gk-last-accessed-only change must not re-derive the base branch');
+	});
+
+	test('a gk-merge-base change re-triggers baseBranchName', async () => {
+		let baseFactoryCount = 0;
+		const baseFactory = () => {
+			baseFactoryCount++;
+			return Promise.resolve('origin/main');
+		};
+
+		await cache.getGkConfigMap(repoPath, () =>
+			Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']])),
+		);
+		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
+		assert.strictEqual(baseFactoryCount, 1);
+
+		const result = registerTestReconciler(() => new Map([['branch.main.gk-merge-base', 'origin/develop']]));
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		assert.strictEqual(await result(), true, 'gk-merge-base changed externally');
+
+		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
+		assert.strictEqual(baseFactoryCount, 2, 'an external gk-merge-base change must re-derive the base branch');
+	});
+
+	test('recordGkConfigWrite keeps a self-write from being diffed as an external change', async () => {
+		let overviewFactoryCount = 0;
+		const overviewFactory = () => {
+			overviewFactoryCount++;
+			return Promise.resolve(undefined);
+		};
+
+		await cache.getGkConfigMap(repoPath, () =>
+			Promise.resolve(new Map([['branch.main.gk-merge-target', 'origin/main']])),
+		);
+		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
+		assert.strictEqual(overviewFactoryCount, 1);
+
+		// Simulate `setGkConfigCore`'s self-write bookkeeping happening before the watcher's event arrives.
+		cache.recordGkConfigWrite(repoPath, 'branch.main.gk-merge-target', 'origin/develop');
+
+		const result = registerTestReconciler(() => new Map([['branch.main.gk-merge-target', 'origin/develop']]));
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		assert.strictEqual(await result(), false, 'the write is already reflected in the snapshot, so it is not "new"');
+
+		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
+		assert.strictEqual(overviewFactoryCount, 1, 'branchOverviews should not be re-evicted for our own write');
+	});
+
+	test('with no prior snapshot (never read before), falls back to a coarse clear', async () => {
+		let baseFactoryCount = 0;
+		const baseFactory = () => {
+			baseFactoryCount++;
+			return Promise.resolve('origin/main');
+		};
+		let overviewFactoryCount = 0;
+		const overviewFactory = () => {
+			overviewFactoryCount++;
+			return Promise.resolve(undefined);
+		};
+
+		// Populated via paths that never touch gk config (e.g. `vscode-merge-base`/reflog, non-gk
+		// merge-target detection) — no gkConfig snapshot exists yet for this repo.
+		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
+		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
+		assert.strictEqual(baseFactoryCount, 1);
+		assert.strictEqual(overviewFactoryCount, 1);
+
+		const result = registerTestReconciler(() => new Map([['branch.main.gk-merge-target', 'origin/develop']]));
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+		assert.strictEqual(await result(), true, 'no snapshot to compare against must be treated as changed');
+
+		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
+		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
+		assert.strictEqual(baseFactoryCount, 2, 'coarse fallback must clear baseBranchName');
+		assert.strictEqual(overviewFactoryCount, 2, 'coarse fallback must clear branchOverviews');
+	});
+
+	test('with no reconciler registered, falls back to the coarse clear (e.g. the GitHub provider)', async () => {
+		let baseFactoryCount = 0;
+		const baseFactory = () => {
+			baseFactoryCount++;
+			return Promise.resolve('origin/main');
+		};
+
+		await cache.getGkConfigMap(repoPath, () =>
+			Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']])),
+		);
+		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
+		assert.strictEqual(baseFactoryCount, 1);
+
+		cache.onRepositoryChanged(repoPath, ['gkConfig']); // no reconciler registered
+
+		await cache.getBaseBranchName(repoPath, 'main', baseFactory);
+		assert.strictEqual(baseFactoryCount, 2, 'no reconciler means the coarse cascade must still run');
+	});
+
+	test("the reconcile's re-read must not join a bulk read that started before the change", async () => {
+		let factoryCount = 0;
+		let releaseInflight!: () => void;
+		const inflightGate = new Promise<void>(resolve => (releaseInflight = resolve));
+
+		// Establish the baseline, then evict as a write would.
+		await cache.getGkConfigMap(repoPath, () => {
+			factoryCount++;
+			return Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']]));
+		});
+		cache.deleteGkConfigMap(repoPath);
+
+		// A bulk read that started before the external write and is still running when the watcher fires,
+		// so it can only ever see the pre-change content.
+		const inflight = cache.getGkConfigMap(repoPath, async () => {
+			factoryCount++;
+			await inflightGate;
+			return new Map([['branch.main.gk-merge-base', 'origin/main']]);
+		});
+
+		const result = registerTestReconciler(() => {
+			factoryCount++;
+			return new Map([['branch.main.gk-merge-base', 'origin/develop']]);
+		});
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+
+		releaseInflight();
+		await inflight;
+
+		assert.strictEqual(factoryCount, 3, 'the reconcile must spawn its own read rather than ride the in-flight one');
+		assert.strictEqual(await result(), true, 'riding the pre-change read would diff it as unchanged');
+	});
+
+	test('an incidental read landing before the watcher event must not advance the reconcile baseline', async () => {
+		await cache.getGkConfigMap(repoPath, () =>
+			Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/main']])),
+		);
+		cache.deleteGkConfigMap(repoPath);
+
+		// An unrelated caller (any `getGkConfig` lookup) reads between the external write hitting disk and
+		// the watcher firing, so it already sees the new value.
+		await cache.getGkConfigMap(repoPath, () =>
+			Promise.resolve(new Map([['branch.main.gk-merge-base', 'origin/develop']])),
+		);
+
+		const result = registerTestReconciler(() => new Map([['branch.main.gk-merge-base', 'origin/develop']]));
+		cache.onRepositoryChanged(repoPath, ['gkConfig']);
+
+		assert.strictEqual(
+			await result(),
+			true,
+			'the baseline must still be the pre-change value, or the change diffs against itself',
+		);
+	});
+});
+
+suite('Cache — gkConfig cascade across worktrees', () => {
+	const repoPath = '/test/repo';
+	const worktree = '/test/repo-wt';
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+		cache.registerRepoPath(fileUri(repoPath), { uri: fileUri(`${repoPath}/.git`) });
+		cache.registerRepoPath(fileUri(worktree), {
+			uri: fileUri(`${repoPath}/.git/worktrees/wt`),
+			commonUri: fileUri(`${repoPath}/.git`),
+		});
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	test('a per-key cascade evicts a sibling worktree’s mapped branchOverviews entry', async () => {
+		// Assert on the VALUE the worktree caller is served, not on factory invocations: the shared
+		// commonPath entry is evicted either way, so a call-count assertion would pass even with the
+		// worktree bucket left stale.
+		let version = 'v1';
+		const factory = () => Promise.resolve({ repoPath: repoPath, contributors: [], mergeTarget: version } as never);
+
+		const first = (await cache.getBranchOverview(worktree, 'main|origin/main', factory)) as unknown as {
+			mergeTarget: string;
+		};
+		assert.strictEqual(first.mergeTarget, 'v1');
+
+		// An external gk-config change for that ref cascades per-key (no coarse clear any more).
+		version = 'v2';
+		cache.deleteGkConfig(repoPath, 'branch.main.gk-merge-target-user');
+
+		const second = (await cache.getBranchOverview(worktree, 'main|origin/main', factory)) as unknown as {
+			mergeTarget: string;
+		};
+		assert.strictEqual(second.mergeTarget, 'v2', 'the worktree entry must not survive the cascade');
+	});
+});
+
+suite('Cache.getCloseGeneration', () => {
+	const repoPath = '/test/repo';
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	test('starts at zero for a path that was never registered', () => {
+		assert.strictEqual(cache.getCloseGeneration(repoPath), 0);
+	});
+
+	test('advances on unregister so an async step can tell its target went away mid-flight', () => {
+		const generation = cache.getCloseGeneration(repoPath);
+		cache.unregisterRepoPath(repoPath);
+		assert.notStrictEqual(cache.getCloseGeneration(repoPath), generation);
+	});
+
+	test('a sibling path closing does not disturb this one', () => {
+		cache.unregisterRepoPath('/test/repo-feature');
+		assert.strictEqual(cache.getCloseGeneration(repoPath), 0);
+	});
+});

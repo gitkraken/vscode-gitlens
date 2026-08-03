@@ -78,6 +78,5 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 	// miss. Subscriptions are torn down with the service (its `watchService`'s emitters are disposed on dispose).
 	service.watchService?.onDidChangeWorkingTree(repoPath => provider.cache.onWorkingTreeChanged(repoPath));
 	service.watchService?.onDidChangeRepository(e => provider.cache.onRepositoryChanged(e.repoPath, e.changes));
-
 	return service;
 }
