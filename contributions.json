@@ -4447,7 +4447,7 @@
 			}
 		},
 		"gitlens.graph.simulate.mainView": {
-			"label": "Simulate Graph as Main View (Debugging)",
+			"label": "Simulate Graph Default Location (Debugging)",
 			"commandPalette": "gitlens:enabled && (gitlens:debugging || gitlens:prerelease)"
 		},
 		"gitlens.graph.soloBranch": {
@@ -4605,7 +4605,7 @@
 			}
 		},
 		"gitlens.graph.switchToPanelLayout": {
-			"label": "Prefer Commit Graph in Side Bar",
+			"label": "Prefer Commit Graph as a View",
 			"enablement": "config.gitlens.graph.layout != panel",
 			"commandPalette": "gitlens:enabled && config.gitlens.graph.layout != panel",
 			"menus": {
@@ -8435,8 +8435,7 @@
 		},
 		"gitlens.toggleMaximizedGraph": {
 			"label": "Toggle Maximized Commit Graph",
-			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled"
+			"icon": "$(gitlens-graph)"
 		},
 		"gitlens.toggleReviewMode": {
 			"label": "Toggle Review Mode",
@@ -21092,7 +21091,7 @@
 			"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-graph)",
-			"initialSize": 4,
+			"initialSize": 6,
 			"visibility": "visible",
 			"container": "gitlens",
 			"order": 1

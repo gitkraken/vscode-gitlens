@@ -2280,10 +2280,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/** The prompt only applies to the Graph *view* (side bar/panel host) — the editor tab has no
-	 *  side-vs-bottom placement to choose. It arms only once the Graph's DEFAULT container is the
-	 *  GitLens side bar — i.e. when the Graph has replaced Home as the panel's main view (#5391).
-	 *  Until that consolidation lands this is always false for users; devs/pre-release can preview
-	 *  via the `gitlens.graph.simulate.mainView` command, which mutates the same mapping. */
+	 *  side-vs-bottom placement to choose. It arms while the Graph's DEFAULT container is the GitLens
+	 *  side bar — true since #5545 made the Graph the side bar's main view; devs/pre-release can flip
+	 *  back to the pre-move world via `gitlens.graph.simulate.mainView`, which mutates the same
+	 *  mapping. */
 	private getLayoutPromptNeeded(): boolean {
 		const graphIsMainView =
 			viewIdsByDefaultContainerId.get('workbench.view.extension.gitlens')?.includes('graph') ?? false;
@@ -2305,8 +2305,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (params.choice === 'dismissed') return;
 
 		if (params.choice === 'sidebar') {
+			// An explicit move, not `resetViewLocation`: "reset to default" resolves the default from the
+			// window's live view registry, which still holds the OLD (bottom panel) default when the
+			// upgrade landed via an extension-host-only restart — the button would silently no-op until
+			// the window reloads. The GitLens container itself is never re-located: wherever the user
+			// keeps it is a real preference.
 			try {
-				await executeCoreCommand('gitlens.views.graph.resetViewLocation');
+				await executeCoreCommand('vscode.moveViews', {
+					viewIds: [this.host.id],
+					destinationId: 'workbench.view.extension.gitlens',
+				});
 			} catch {}
 		} else {
 			try {
