@@ -23,6 +23,16 @@ import { gitHostOnlySurfaceWarning, issuesUnsupportedWarning, noConnectionWarnin
  * provider positions — one per org — so its continuation is a per-org cursor BUNDLE (see `cursors.ts`) and its
  * failure attribution is per provider across those orgs. Both are the reason a page number alone can't address a
  * later page, and why {@link broadenIssues} walks prior pages itself when given only `page`.
+ *
+ * SUPERSEDED for a caller that already knows its repositories: `searchIssuesPage({ repos, criteria })` answers
+ * the same question in one request per page, with no repository drain and no route through the SDK read whose
+ * over-limit recovery walk can spend up to 128 requests. This read stays for "fan out across these orgs,
+ * whatever repos they contain", whose per-provider attribution the single-provider search doesn't produce.
+ *
+ * If you migrate a caller, note the semantics carefully: broadening means ALL VISIBLE — it passes
+ * `includeAllAssignees: true`, which resolves to no assignee constraint at all, so unassigned issues ARE
+ * included. The equivalent is an OMITTED `relationships`, not `['any-assignee']`: `assignee:*` means "has some
+ * assignee" and would silently exclude every unassigned issue, which is the opposite of broadening.
  */
 
 export interface BroadenIssuesOptions {

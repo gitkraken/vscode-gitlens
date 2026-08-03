@@ -110,3 +110,60 @@ unchanged.
 
 **Caveat:** Azure DevOps is scoped within a single organization; multi-org scoping remains unsupported (the
 existing single-org guard stands).
+
+## 7. Filtered issue search + count probe
+
+Gap raised by [kepler#1745](https://github.com/gitkraken/kepler/issues/1745) Part 2 (the "All visible" issue
+explorer). Kepler needed three things no existing read provided, and the reason is one asymmetry: the PR side
+had a free-text, repo-scoped, relationship-optional search primitive (`searchPullRequests` /
+`searchMyPullRequestsPage`) and the issue side had none. Every issue read was either bound to `@me` or routed
+through `getIssuesForRepos`, which is the 128-request `recoverOverLimitSearch` path — the source of the
+reported 116 s / 88 omissions.
+
+**`searchIssuesPage`** (`IssueShape`, one request per page) is the issue counterpart. Structured
+`IssueSearchCriteria` rather than a raw query string: a raw string is exactly why `searchPullRequests` is
+GitHub-only in practice and why its capability is undeclarable, and Kepler has to render filter chips and hide
+the unsupported ones, which needs a typed model plus `getSupportedFilters().issueSearch`.
+
+**`countIssues`** answers "how many match" with zero issues transferred, which is what makes the cost dialog
+and the live count label affordable. Verified against the live GitHub API: 30 aliased counts cost **1**
+rate-limit point.
+
+Decisions worth recording, because each closes off a plausible-looking alternative:
+
+- **A separate method, not `countOnly` on the read.** Transferring zero issues is the whole value; a flag
+  would return a `ProviderPagedResult` whose `items`, `cursor` and `hasMore` are all meaningless.
+- **A sibling read, not a mode of `listIssuesPage`.** That read is already two divergent branches around a
+  contract where `filters` replaces the provider's definition of "my issues"; `any-assignee` / `unassigned`
+  aren't "my issues" at all. Same reasoning as `broaden.ts` / `sweeps.ts` being separate files.
+- **`sort:updated` is a contract, not an option.** Kepler's cap policy ("the 1.000 most recent") is only
+  correct under a guaranteed order; an option invites picking relevance order and then truncating to an
+  arbitrary subset.
+- **The result ceiling is an omission, not a failure.** `fetchFailed` absent, `recovery: 'none'`, and
+  `omission.totalCount` populated — which is the number in Kepler's "This will fetch ~19.240 issues". The
+  `ProviderWarningOmission.totalCount` field already existed and was documented as "Only GitHub's search cap
+  does today"; it simply had never been populated on this path, because `searchMyIssues` computed
+  `issueCount > 1000` into a boolean and discarded the number.
+- **Scope is mandatory, and `any-assignee` / `unassigned` do not count as one.** They describe the issue, not
+  the caller (measured: unscoped `no:assignee` is tens of millions of results).
+
+**Corrected along the way:** the source claimed GitHub honors `assignee:*` only for a single repository, which
+was the standing argument for refusing a multi-repo "assigned to anyone" read. Measured
+(`is:issue is:open archived:false`): kepler 111 + vscode-gitlens 133 = **244** for both repos together, and
+`org:gitkraken` 315. Any scope works; only the unscoped form is meaningless (6.7 M), which is what the guards
+actually refuse.
+
+**Provider coverage:** GitHub/GHE only. GitLab and Azure declare no `issueSearch` capability, so the read is
+refused there rather than serving an unnarrowed list — unimplemented, not impossible: GitLab maps to `search` /
+`updated_after` / `labels` / `milestone` with one relationship per REST call (its `assignee_username` +
+`author_username` compose with AND, so relationships must stay separate drains), and Azure to per-project WIQL.
+`withoutLinkedPullRequest` and free text have no equivalent on either.
+
+**Not done, deliberately:** `broadenIssues` was left as-is rather than reimplemented on top of this. It is a
+multi-provider, multi-org fan-out with its own result type and per-org cursor bundle, so only its inner
+per-org read could be swapped; and its "all visible" breadth maps to an OMITTED relationship set, not to
+`any-assignee`, which excludes unassigned issues. See the note in `reads/broaden.ts` and
+[`integrations.md` §9](./integrations.md#9-per-provider-behavior-worth-designing-around).
+
+**Kepler-side follow-up:** `ProviderScopeFilter` carries a single `repo?: string` today and needs the criteria
+set; the `provider-data` adapter then routes "All visible" to `searchIssuesPage` + `countIssues`.
