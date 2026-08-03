@@ -218,6 +218,8 @@ export { IssueFilter, PullRequestFilter } from './providerFilters.js';
 // The filtered issue search's criteria model and the capability table that says which of it a provider honors.
 // String unions and plain interfaces, so a consumer builds criteria without importing an internal subpath.
 export type { IssueSearchCapabilities, IssueSearchCriteria, IssueSearchRelationship } from './providerFilters.js';
+// The count-only issue probe's input and result shapes.
+export type { IssueCountResult, IssueCountScope } from './reads/counts.js';
 // Cross-provider PR/issue state filters (string unions in the git models).
 export type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 export type { IssueStateFilter } from '@gitlens/git/models/issue.js';
