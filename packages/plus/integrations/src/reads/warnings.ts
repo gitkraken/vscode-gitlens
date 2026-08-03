@@ -189,6 +189,17 @@ function truncationMessage(id: IntegrationIds, readKind: TruncatedReadKind, caus
 	// is not the same case — that union is the SDK's, and can widen under a dependency bump.)
 }
 
+/**
+ * The one sentence every "you asked for a narrowing this provider can't express" refusal uses.
+ *
+ * Shared because the three callers below differ only in a noun: the wording is consumer-visible, and three
+ * hand-written copies drift three ways — including the `(supported: …)` clause, which exists to avoid emitting an
+ * empty parenthetical and has to be the same guard in all of them.
+ */
+function unsupportedNarrowingMessage(id: IntegrationIds, noun: string, requested: string, supported: string): string {
+	return `The requested ${noun} (${requested}) are not supported by '${id}'${supported.length > 0 ? ` (supported: ${supported})` : ''}; skipped to avoid returning a wider result than requested.`;
+}
+
 /** Warning for an account-wide issue read whose requested filters the provider can't express server-side. */
 export function unsupportedAccountWideIssueFiltersWarning(
 	id: IntegrationIds,
@@ -201,7 +212,7 @@ export function unsupportedAccountWideIssueFiltersWarning(
 		id,
 		domain,
 		connectionId,
-		`The requested account-wide issue filters (${filters.join(', ')}) are not supported by '${id}'${supported.length ? ` (supported: ${supported.join(', ')})` : ''}; skipped to avoid returning a wider result than requested.`,
+		unsupportedNarrowingMessage(id, 'account-wide issue filters', filters.join(', '), supported.join(', ')),
 	);
 }
 
@@ -217,7 +228,7 @@ export function unsupportedAccountWidePullRequestFiltersWarning(
 		id,
 		domain,
 		connectionId,
-		`The requested account-wide pull request filters (${filters.join(', ')}) are not supported by '${id}'${supported.length ? ` (supported: ${supported.join(', ')})` : ''}; skipped to avoid returning a wider result than requested.`,
+		unsupportedNarrowingMessage(id, 'account-wide pull request filters', filters.join(', '), supported.join(', ')),
 	);
 }
 
@@ -256,8 +267,12 @@ export function unsupportedIssueSearchCriteriaWarning(
 			break;
 		case 'unsupported-criteria': {
 			const supported = providersMetadata[id]?.supportedIssueSearch;
-			const expressible = supported != null ? describeIssueSearchCapabilities(supported) : '';
-			message = `The requested issue search criteria (${rejection.criteria.join(', ')}) are not supported by '${id}'${expressible ? ` (supported: ${expressible})` : ''}; skipped to avoid returning a wider result than requested.`;
+			message = unsupportedNarrowingMessage(
+				id,
+				'issue search criteria',
+				rejection.criteria.join(', '),
+				supported != null ? describeIssueSearchCapabilities(supported) : '',
+			);
 			break;
 		}
 		case 'contradictory-relationships':

@@ -597,6 +597,45 @@ suite('IntegrationManager.countIssues', () => {
 		}
 	});
 
+	// The batches are independent requests, so they run concurrently — sequentially they would spend exactly the
+	// resource the probe exists to conserve (measured ~2s per batch, so 10 batches would be ~20s instead of ~4s).
+	test('runs its batches concurrently rather than one after another', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			let inFlight = 0;
+			let maxInFlight = 0;
+			const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+			assert.ok(gh != null);
+			(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+			const githubApi = await (
+				gh as unknown as {
+					authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+				}
+			).authenticationService.apis.github;
+			assert.ok(githubApi);
+			githubApi.countIssues = async (_p: unknown, _t: unknown, scopes: Record<string, unknown>[]) => {
+				inFlight++;
+				maxInFlight = Math.max(maxInFlight, inFlight);
+				await Promise.resolve();
+				inFlight--;
+				return scopes.map(() => 1);
+			};
+
+			// 75 scopes ⇒ 3 batches of 25.
+			await manager.countIssues({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				scopes: Array.from({ length: 75 }, (_, i) => ({
+					key: `k${i}`,
+					repos: [{ namespace: 'o', name: `r${i}` }],
+				})),
+			});
+
+			assert.ok(maxInFlight > 1, `expected overlapping requests, saw at most ${maxInFlight} in flight`);
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	test('batches beyond the chunk size into several requests', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		try {
