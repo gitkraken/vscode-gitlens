@@ -215,6 +215,9 @@ export type {
 } from './results.js';
 // Runtime enums — re-exported as values (not `export type`) so consumers can read their members.
 export { IssueFilter, PullRequestFilter } from './providerFilters.js';
+// The filtered issue search's criteria model and the capability table that says which of it a provider honors.
+// String unions and plain interfaces, so a consumer builds criteria without importing an internal subpath.
+export type { IssueSearchCapabilities, IssueSearchCriteria, IssueSearchRelationship } from './providerFilters.js';
 // Cross-provider PR/issue state filters (string unions in the git models).
 export type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 export type { IssueStateFilter } from '@gitlens/git/models/issue.js';

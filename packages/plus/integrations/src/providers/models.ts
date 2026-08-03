@@ -74,9 +74,11 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
 import type { Integration, IntegrationType } from '../models/integration.js';
+import type { IssueSearchCapabilities } from '../providerFilters.js';
 import { IssueFilter, PullRequestFilter } from '../providerFilters.js';
 
 export { IssueFilter, PullRequestFilter } from '../providerFilters.js';
+export type { IssueSearchCapabilities, IssueSearchCriteria, IssueSearchRelationship } from '../providerFilters.js';
 import type { ProviderRepositoryShape } from '../results.js';
 
 export type { ProviderOrganization, ProviderRepositoryShape } from '../results.js';
@@ -710,10 +712,43 @@ export interface ProviderMetadata {
 	 * axes; it omits `Mention` because that REST read has no first-class mention filter.
 	 */
 	supportedAccountWideIssueFilters?: IssueFilter[];
+	/**
+	 * What the provider's FILTERED issue search (`searchIssuesPage`, and the `countIssues` probe over the same
+	 * criteria) can express server-side. A third, wider surface than either filter set above: it is not bound to
+	 * the user at all, so it takes relationships those reads have no way to name (`any-assignee`, `unassigned`),
+	 * plus free text and issue attributes.
+	 *
+	 * Absent means the provider has NO filtered issue search and the read is refused. Present, it is a promise:
+	 * every field declared here reaches the provider query, so a consumer that intersects against it never has a
+	 * read refused, and a criterion is never silently ignored.
+	 */
+	supportedIssueSearch?: IssueSearchCapabilities;
 }
 
 export type Providers = Record<IntegrationIds, ProviderInfo>;
 export type ProvidersMetadata = Record<IntegrationIds, ProviderMetadata>;
+
+/**
+ * GitHub and GitHub Enterprise express every criterion as a search qualifier on the same GraphQL `search` field,
+ * so the two share one declaration — a GHE instance running the same search syntax has the same capability, and
+ * two copies of this table would be free to drift.
+ *
+ * Every entry is a claim the implementation must keep: `searchIssuesPage` emits a qualifier for each of these,
+ * and a test asserts that (see the `issueSearch` capability tests) so the table can't quietly outrun the code.
+ */
+const githubIssueSearchCapabilities: IssueSearchCapabilities = {
+	// `author:@me` / `assignee:@me` / `mentions:@me` / `assignee:*` / `no:assignee`, each its own aliased search.
+	relationships: ['authored', 'assigned', 'mentioned', 'any-assignee', 'unassigned'],
+	text: true,
+	labels: true,
+	milestone: true,
+	updatedAfter: true,
+	createdAfter: true,
+	// `-linked:pr`.
+	withoutLinkedPullRequest: true,
+	// `is:open` / `is:closed`, or neither for all states.
+	states: true,
+};
 
 export const providersMetadata: ProvidersMetadata = {
 	[GitCloudHostIntegrationId.GitHub]: {
@@ -742,6 +777,7 @@ export const providersMetadata: ProvidersMetadata = {
 		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
 		// one composite cursor, so any subset of them is expressible.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		supportedIssueSearch: githubIssueSearchCapabilities,
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
 	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
@@ -770,6 +806,7 @@ export const providersMetadata: ProvidersMetadata = {
 		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
 		// one composite cursor, so any subset of them is expressible.
 		supportedAccountWideIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
+		supportedIssueSearch: githubIssueSearchCapabilities,
 		scopes: ['repo', 'read:user', 'user:email'],
 	},
 	[GitCloudHostIntegrationId.GitLab]: {
