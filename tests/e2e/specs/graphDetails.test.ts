@@ -12,7 +12,7 @@ import * as process from 'node:process';
 import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
-import { waitForGraphRowsRendered } from '../graphHelpers.js';
+import { waitForGraphRowsRendered, widenSideBarForGraph } from '../graphHelpers.js';
 
 // Configure with a purpose-built test repository
 const test = base.extend({
@@ -49,12 +49,6 @@ const test = base.extend({
 // All graph details tests run serially on a single VS Code worker instance
 test.describe.configure({ mode: 'serial' });
 
-// `workbench.action.toggleMaximizedPanel` is a stateful toggle and each describe runs its own
-// beforeAll → openGraphWithPro, so toggling per-call would alternate the maximized state (and
-// leave some describes cramped, breaking row selection). Maximize exactly once for the whole
-// file; the maximized panel persists across the resetUI cycles between tests.
-let panelMaximized = false;
-
 /**
  * Open the graph view with Pro subscription and return the webview FrameLocator.
  * The graph is a Pro feature, so subscription simulation is required.
@@ -69,14 +63,10 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 		dismissOnboarding: true,
 	});
 
-	// Maximize the panel so the graph has room to render the commit-message column and its rows
-	// aren't overlapped by the working-changes/scrollbar layers (which intercept row clicks).
-	if (!panelMaximized) {
-		await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
-		panelMaximized = true;
-	}
-
 	await vscode.gitlens.showCommitGraphView();
+	// Widen the side bar so the graph has room to render the
+	// commit-message column and its rows aren't overlapped by the working-changes/scrollbar layers.
+	await widenSideBarForGraph(vscode);
 
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
@@ -200,16 +190,6 @@ async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
 	const comparePanel = graphWebview.locator('gl-details-multicommit-panel').first();
 	await expect(commitDetails.or(wipDetails).or(comparePanel)).toBeVisible({ timeout: 30000 });
 }
-
-// Restore the panel to its non-maximized baseline once the whole file is done. The VS Code
-// instance is worker-scoped and reused across spec files, so without this the one-time maximize
-// above would leak a maximized panel into other specs running later on the same worker.
-test.afterAll(async ({ vscode }) => {
-	if (panelMaximized) {
-		await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
-		panelMaximized = false;
-	}
-});
 
 // ============================================================================
 // Panel Visibility

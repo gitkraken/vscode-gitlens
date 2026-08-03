@@ -24,6 +24,7 @@ import * as process from 'node:process';
 import type { FrameLocator, Locator } from '@playwright/test';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, createTmpDir, expect, GitFixture, MaxTimeout } from '../baseTest.js';
+import { widenSideBarForGraph } from '../graphHelpers.js';
 
 let git: GitFixture;
 
@@ -37,14 +38,17 @@ function fetchLink(webview: FrameLocator): Locator {
 	return webview.locator('gl-fetch-button a.action-button[aria-label="Fetch"]').first();
 }
 
-/** Open the Commit Graph and wait until the header (Create action) has rendered. */
+/** Open the Commit Graph and wait until the header (Start New action) has rendered. */
 async function openGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
+	// Give the header room so its action buttons aren't at the mercy
+	// of the ~300px default side-bar width
+	await widenSideBarForGraph(vscode);
 	const webview = await vscode.gitlens.commitGraphViewWebview;
 	expect(webview).not.toBeNull();
-	// The Create action only renders once the graph is allowed + a repo is selected — good readiness
-	// signal that the header (and the git-action buttons beside it) is up.
-	await expect.poll(() => headerButton(webview!, 'Create').count(), { timeout: 30000 }).toBeGreaterThan(0);
+	// The Start New action only renders once the graph is allowed + a repo is selected — good
+	// readiness signal that the header (and the git-action buttons beside it) is up.
+	await expect.poll(() => headerButton(webview!, 'Start New').count(), { timeout: 30000 }).toBeGreaterThan(0);
 	return webview!;
 }
 
