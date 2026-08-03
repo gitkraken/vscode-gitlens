@@ -9,6 +9,7 @@ import {
 } from '../constants.js';
 import type { IntegrationIds } from '../constants.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
+import { providersMetadata } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -285,6 +286,36 @@ suite('IntegrationManager.searchIssuesPage', () => {
 				assert.equal(omission.limit, 1000);
 				assert.equal(result.warnings[0].kind, 'other');
 			} finally {
+				manager.dispose();
+			}
+		});
+
+		// The cap warning quotes a limit, so it can only be built for a provider that DECLARES one. A provider with
+		// a filtered issue search but no declared ceiling (nothing forces the two metadata fields to travel
+		// together) must fall through to the generic wording rather than quoting an invented limit or, worse,
+		// reporting the truncation with no warning at all.
+		test('falls back to the generic warning when the provider declares no ceiling', async () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			const metadata = providersMetadata[GitCloudHostIntegrationId.GitHub];
+			const limit = metadata.issueSearchResultLimit;
+			try {
+				delete metadata.issueSearchResultLimit;
+				await stubGitHubApi(manager, {
+					searchIssuesPage: () => emptyPage({ truncated: true, totalCount: 19240 }),
+				});
+
+				const result = await manager.searchIssuesPage({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					repos: [{ namespace: 'o', name: 'a' }],
+				});
+
+				assert.equal(result.page.truncated, true);
+				assert.equal(result.warnings.length, 1, 'the truncation is still reported');
+				assert.doesNotMatch(result.warnings[0].message, /19240|at most/, 'but no limit is quoted');
+				assert.equal(result.warnings[0].omission?.kind, 'pagination-incomplete');
+				assert.equal(result.warnings[0].omission?.limit, undefined);
+			} finally {
+				metadata.issueSearchResultLimit = limit;
 				manager.dispose();
 			}
 		});
@@ -654,6 +685,59 @@ suite('IntegrationManager.countIssues', () => {
 				countCalls.map(c => c.length),
 				[25, 1],
 				'chunked at 25, so a 26th scope starts a second request',
+			);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	// The riskiest consequence of batching concurrently: results come back per batch and are matched to scopes by
+	// POSITION WITHIN the batch. If a middle batch fails, the surviving batches must still map to their own scopes
+	// — a mis-alignment here would report one filter's count under another filter's name, which is worse than a
+	// missing number because it looks authoritative.
+	test('keeps every surviving batch aligned to its own scopes when a middle batch fails', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		try {
+			const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+			assert.ok(gh != null);
+			(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+			const githubApi = await (
+				gh as unknown as {
+					authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+				}
+			).authenticationService.apis.github;
+			assert.ok(githubApi);
+
+			// Each scope's count encodes the repo it belongs to, so a mis-alignment is visible rather than plausible.
+			githubApi.countIssues = (_p: unknown, _t: unknown, scopes: { repos?: string[] }[]) => {
+				// The second batch (scopes 26-50) fails outright.
+				if (scopes[0]?.repos?.[0] === 'o/r25') return Promise.reject(new Error('batch boom'));
+
+				return Promise.resolve(scopes.map(s => Number(/\d+/.exec(s.repos?.[0] ?? '0')?.[0] ?? 0)));
+			};
+
+			// 75 scopes ⇒ 3 batches of 25; the middle one fails.
+			const result = await manager.countIssues({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				scopes: Array.from({ length: 75 }, (_, i) => ({
+					key: `k${i}`,
+					repos: [{ namespace: 'o', name: `r${i}` }],
+				})),
+			});
+
+			assert.equal(result.fetchFailed, true, 'the failed batch is reported');
+			assert.equal(result.items.length, 50, 'the other two batches survive in full');
+			for (const item of result.items) {
+				assert.equal(
+					item.count,
+					Number(item.key.slice(1)),
+					`${item.key} must carry its OWN count, not a neighbour's`,
+				);
+			}
+			// And the gap is exactly the failed batch, not an off-by-one slice of it.
+			assert.deepEqual(
+				result.items.map(i => i.key).filter(k => Number(k.slice(1)) >= 25 && Number(k.slice(1)) < 50),
+				[],
 			);
 		} finally {
 			manager.dispose();
