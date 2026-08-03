@@ -18,6 +18,10 @@ export const elementBase = css`
 `;
 
 export const boxSizingBase = css`
+	:host {
+		box-sizing: border-box;
+	}
+
 	* {
 		box-sizing: border-box;
 	}
