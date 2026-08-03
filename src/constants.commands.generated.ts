@@ -37,6 +37,7 @@ export type ContributedCommands =
 	| 'gitlens.ai.switchProvider:scm'
 	| 'gitlens.annotations.nextChange'
 	| 'gitlens.annotations.previousChange'
+	| 'gitlens.applyPatchFromClipboard:graph'
 	| 'gitlens.associateIssueWithBranch:graph'
 	| 'gitlens.associateIssueWithBranch:views'
 	| 'gitlens.changeUpstream:graph'

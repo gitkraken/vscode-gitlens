@@ -50,6 +50,11 @@ export interface CreatePatchCommandArgs {
 	description?: string;
 }
 
+export interface ApplyPatchFromClipboardCommandArgs {
+	/** The repository or worktree to apply into. Omitted from the palette, which targets the best/first repo. */
+	repoPath?: string;
+}
+
 /** Builds the patch args for a Source Control multi-resource selection. Exported for testing (mirrors the
  *  extracted arg builders in `stashSave.ts`). */
 export async function getCreatePatchArgsForScmStates(
@@ -317,25 +322,29 @@ export class ApplyPatchFromClipboardCommand extends GlCommandBase {
 		super(['gitlens.applyPatchFromClipboard', 'gitlens.pastePatchFromClipboard']);
 	}
 
-	async execute(): Promise<void> {
+	async execute(args?: ApplyPatchFromClipboardCommandArgs): Promise<void> {
 		const patch = await env.clipboard.readText();
-		let repo = this.container.git.getBestRepositoryOrFirst();
+		// Resolve by path rather than looking up a repository — a worktree is often not an opened one
+		let svc =
+			args?.repoPath != null
+				? this.container.git.getRepositoryService(args.repoPath)
+				: this.container.git.getBestRepositoryOrFirst()?.git;
 
 		// Make sure it looks like a valid patch
-		const valid = patch.length ? await repo?.git.patch?.validatePatch(patch) : false;
+		const valid = patch.length ? await svc?.patch?.validatePatch(patch) : false;
 		if (!valid) {
 			void window.showWarningMessage('No valid patch found in the clipboard');
 			return;
 		}
 
-		repo ??= await getRepositoryOrShowPicker(this.container, 'Apply Copied Patch');
-		if (repo == null) return;
+		svc ??= (await getRepositoryOrShowPicker(this.container, 'Apply Copied Patch'))?.git;
+		if (svc == null) return;
 
 		try {
-			const commit = await repo.git.patch?.createUnreachableCommitForPatch('HEAD', 'Pasted Patch', patch);
+			const commit = await svc.patch?.createUnreachableCommitForPatch('HEAD', 'Pasted Patch', patch);
 			if (commit == null) return;
 
-			await repo.git.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
+			await svc.patch?.applyUnreachableCommitForPatch(commit.sha, { stash: false });
 			void window.showInformationMessage(`Patch applied successfully`);
 		} catch (ex) {
 			if (isCancellationError(ex)) return;

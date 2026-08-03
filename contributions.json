@@ -607,6 +607,19 @@
 			"label": "Apply Copied Changes (Patch)",
 			"commandPalette": "gitlens:enabled && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.applyPatchFromClipboard:graph": {
+			"label": "Apply Copied Changes (Patch)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions_1",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.associateIssueWithBranch": {
 			"label": "Associate Issue with Branch...",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"

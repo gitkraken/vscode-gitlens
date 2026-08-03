@@ -42,7 +42,7 @@ import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
-import type { CreatePatchCommandArgs } from '../../../commands/patches.js';
+import type { ApplyPatchFromClipboardCommandArgs, CreatePatchCommandArgs } from '../../../commands/patches.js';
 import type { RecomposeBranchCommandArgs } from '../../../commands/recomposeBranch.js';
 import type { RecomposeFromCommitCommandArgs } from '../../../commands/recomposeFromCommit.js';
 import type { GraphScrollMarkersAdditionalTypes } from '../../../config.js';
@@ -1664,6 +1664,18 @@ export class GraphCommands {
 		if (wip == null || wip.ref !== uncommitted) return Promise.resolve();
 
 		return StashActions.apply(this.getGraphItemWorktreePath(item) ?? wip.repoPath);
+	}
+
+	@command('gitlens.applyPatchFromClipboard:')
+	@debug()
+	private applyPatchFromClipboard(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null || ref.ref !== uncommitted) return Promise.resolve();
+
+		// Apply INTO the row's own worktree — a sidebar worktree row's `ref.repoPath` is the graph's repo
+		return executeCommand<ApplyPatchFromClipboardCommandArgs, void>('gitlens.applyPatchFromClipboard', {
+			repoPath: this.getGraphItemWorktreePath(item) ?? ref.repoPath,
+		});
 	}
 
 	@command('gitlens.stashDelete:')
