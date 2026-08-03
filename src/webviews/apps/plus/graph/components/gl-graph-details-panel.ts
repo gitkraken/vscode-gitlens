@@ -816,15 +816,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  its enrichment in place when the graph's row/branch data changes underneath it. */
 	private _branchSheetChangeStamp = 0;
 
-	/** Optimistic pin-to-edge state for the open sheet's branch — seeded from the ref context's
-	 *  `+pinned` flag and flipped locally on toggle (the snapshot context can't refresh mid-open). */
-	@state() private _branchSheetPinned?: boolean;
-
 	/** Open the branch/tag sheet for `ref` (the graph owns the pinned/focus state + decides when to
 	 *  open vs close, so this just sets). */
 	openBranchSheet(ref: BranchSheetRef): void {
 		this._branchSheet = ref;
-		this._branchSheetPinned = undefined;
 	}
 
 	/** Close the branch/tag sheet. */
@@ -946,8 +941,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** The sheet's Hide/Show chip. Unlike Focus, this one DOES carry its state — whether a ref is
 	 *  hidden is durable filter state that outlives the sheet, so the button names which way it will
 	 *  go. `excludeRefs` is `@signalState()` and this panel is a `SignalWatcher`, so the host's
-	 *  visibility push re-renders the chip; no optimistic local copy (unlike Pin, whose state comes
-	 *  from a frozen context snapshot). */
+	 *  visibility push re-renders the chip; no optimistic local copy — same rule as Pin. */
 	private renderBranchSheetHideChip(ref: BranchSheetRef, context: GraphItemContext | undefined) {
 		const excluded = resolveBranchSheetExcludeRef(ref, context);
 		if (excluded == null) return nothing;
@@ -987,15 +981,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				context = undefined;
 			}
 		}
-		// Resolved from LIVE pin state, not the ref's open-time context — the pin can change from this sheet, a
-		// graph row, or the side bar, and a snapshot leaves the kebab's menu offering the wrong action. The
-		// optimistic flip still wins while set, so this sheet's own toggle doesn't wait on the host round-trip.
+		// Resolved from LIVE pin state, never the ref's open-time context — the pin can change from this sheet,
+		// a graph row, the pinned pill, or the side bar, and a snapshot leaves the kebab's menu offering the
+		// wrong action (and `unpinBranchFromEdge` ignores its item, so it would clear whatever IS pinned).
+		// `pinnedRef` is `@signalState()` and this panel is a `SignalWatcher`, so reading it here is also what
+		// subscribes the sheet to those external changes.
 		const sheetRefId = branchSheetContextRef(context)?.id;
-		const isPinned =
-			this._branchSheetPinned ??
-			(sheetRefId != null
-				? this._graphState?.pinnedRef?.id === sheetRefId
-				: (ref.context?.includes('+pinned') ?? false));
+		const isPinned = sheetRefId != null && this._graphState?.pinnedRef?.id === sheetRefId;
 		// The kebab's menu is gated on `+pinned` in this string, so re-stamp it to match.
 		const kebabContext = withPinnedFlag(ref.context, isPinned);
 		// The sheet describes a BRANCH, so its repo must not follow the selection. `effectiveRepoPath`
@@ -1051,10 +1043,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 								isPinned ? 'gitlens.graph.unpinBranchFromEdge' : 'gitlens.graph.pinBranchToEdge',
 								context,
 							)}
-							@click=${() => {
-								// oxlint-disable-next-line lit/no-this-assign-in-render
-								this._branchSheetPinned = !isPinned;
-							}}
 						></gl-action-chip>`
 					: nothing
 			}
@@ -4242,7 +4230,8 @@ function branchStateEqual(a: BranchStateLike | undefined, b: BranchStateLike | u
 }
 
 /** A sheet ref's serialized context with `+pinned` re-stamped to `pinned` — what the branch kebab's menu is
- *  gated on. The context is captured when the sheet opens, so it can't track a later pin change on its own. */
+ *  gated on. The context string is captured when the sheet opens, so its own flag can't track a later pin
+ *  change; the caller passes the live pin state in. */
 function withPinnedFlag(context: string | undefined, pinned: boolean): string | undefined {
 	if (context == null) return undefined;
 	if (context.includes('+pinned') === pinned) return context;
