@@ -3721,7 +3721,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	/** Records a real (non-WIP) single-commit selection into back/forward history. Suppresses the
+	/** Records a viewed single selection (commit, stash, or WIP) into back/forward history. Suppresses the
 	 *  selection echo(es) of our own {@link navigateTo} re-drive. The guard is STICKY (matched by
 	 *  sha, not cleared on the first match) because the graph component can re-emit the same
 	 *  selection multiple times (RAF retries / focus-row churn) — clearing on the first echo would
