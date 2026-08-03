@@ -564,9 +564,11 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			</button>
 			<span class="rule__title">
 				<span class="rule__title-type">${name || typeLabel}</span>
-				${matcher
-					? html`<span class="rule__title-matcher"> — <code>${matcher}</code></span>`
-					: html`<span class="rule__title-unset"> — no matcher yet</span>`}
+				${
+					matcher
+						? html`<span class="rule__title-matcher"> — <code>${matcher}</code></span>`
+						: html`<span class="rule__title-unset"> — no matcher yet</span>`
+				}
 			</span>
 			<button
 				type="button"
@@ -636,40 +638,47 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 							)}
 					/>
 				</div>
-				${editShadowsLive
-					? html`<p class="notice notice--hint">
-							<code-icon icon="info" aria-hidden="true"></code-icon>
-							<span
-								>Unsaved changes — the saved matcher <code>${savedMatcher}</code> stays in effect until
-								this edit is valid.</span
-							>
-						</p>`
-					: matcherMissing
+				${
+					editShadowsLive
 						? html`<p class="notice notice--hint">
 								<code-icon icon="info" aria-hidden="true"></code-icon>
 								<span
-									>Add a ${isRegex ? 'regex' : 'domain'} to match remotes — until then this entry is
-									ignored.</span
+									>Unsaved changes — the saved matcher <code>${savedMatcher}</code> stays in effect
+									until this edit is valid.</span
 								>
 							</p>`
-						: nothing}
-				${regexBroken
-					? html`<p class="notice notice--warning">
-							<code-icon icon="warning" aria-hidden="true"></code-icon>
-							<span
-								>This regular expression isn't valid, so this remote is ignored until it's fixed.</span
-							>
-						</p>`
-					: nothing}
-				${serverStyleDomain
-					? html`<p class="notice notice--hint">
-							<code-icon icon="info" aria-hidden="true"></code-icon>
-							<span
-								>Self-hosted ${typeLabel} URLs are usually path-based — a plain domain may not match.
-								Consider a regex that captures the domain and path.</span
-							>
-						</p>`
-					: nothing}
+						: matcherMissing
+							? html`<p class="notice notice--hint">
+									<code-icon icon="info" aria-hidden="true"></code-icon>
+									<span
+										>Add a ${isRegex ? 'regex' : 'domain'} to match remotes — until then this entry
+										is ignored.</span
+									>
+								</p>`
+							: nothing
+				}
+				${
+					regexBroken
+						? html`<p class="notice notice--warning">
+								<code-icon icon="warning" aria-hidden="true"></code-icon>
+								<span
+									>This regular expression isn't valid, so this remote is ignored until it's
+									fixed.</span
+								>
+							</p>`
+						: nothing
+				}
+				${
+					serverStyleDomain
+						? html`<p class="notice notice--hint">
+								<code-icon icon="info" aria-hidden="true"></code-icon>
+								<span
+									>Self-hosted ${typeLabel} URLs are usually path-based — a plain domain may not
+									match. Consider a regex that captures the domain and path.</span
+								>
+							</p>`
+						: nothing
+				}
 			</div>
 
 			<div class="subfields">
@@ -715,15 +724,17 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 	private renderUrls(draft: RemoteDraft, index: number, incomplete: boolean) {
 		return html`<div class="urls">
 			<span class="urls__heading">URL templates</span>
-			${incomplete
-				? html`<p class="notice notice--warning">
-						<code-icon icon="warning" aria-hidden="true"></code-icon>
-						<span
-							>Fill in every required URL template so this custom remote can resolve links — it isn't
-							saved until they're complete.</span
-						>
-					</p>`
-				: nothing}
+			${
+				incomplete
+					? html`<p class="notice notice--warning">
+							<code-icon icon="warning" aria-hidden="true"></code-icon>
+							<span
+								>Fill in every required URL template so this custom remote can resolve links — it isn't
+								saved until they're complete.</span
+							>
+						</p>`
+					: nothing
+			}
 			${urlFields.map(f => {
 				const value = (draft.urls as Record<string, string> | undefined)?.[f.key] ?? '';
 				const invalid = f.required && incomplete && !value.trim();
@@ -769,12 +780,14 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			);
 		}
 
-		return html`${this._externalNotice
-				? html`<p class="notice notice--hint">
-						<code-icon icon="info" aria-hidden="true"></code-icon>
-						<span>${this._externalNotice}</span>
-					</p>`
-				: nothing}
+		return html`${
+				this._externalNotice
+					? html`<p class="notice notice--hint">
+							<code-icon icon="info" aria-hidden="true"></code-icon>
+							<span>${this._externalNotice}</span>
+						</p>`
+					: nothing
+			}
 			<div class="rules">${rows}</div>
 			<p class="hint">
 				Match your Git remotes to a provider so GitLens can open files, commits, branches, and pull requests on

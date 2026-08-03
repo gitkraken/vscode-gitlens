@@ -166,9 +166,11 @@ export class GlSettingsScmViews extends SignalWatcher(LitElement) {
 				<code-icon icon=${viewIcons[id]} aria-hidden="true"></code-icon>
 				<span>
 					${label}
-					${localOnly
-						? html`<span class="row__note">Unavailable for virtual or remote repositories</span>`
-						: nothing}
+					${
+						localOnly
+							? html`<span class="row__note">Unavailable for virtual or remote repositories</span>`
+							: nothing
+					}
 				</span>
 			</span>
 			<gl-checkbox

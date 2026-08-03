@@ -290,17 +290,19 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 							@input=${this.handleSearchInput}
 							@keydown=${this.handleSearchKeyDown}
 						/>
-						${s.query.get()
-							? html`<gl-button
-									class="header__search-clear"
-									appearance="input"
-									tooltip="Clear"
-									aria-label="Clear search"
-									@click=${this.handleSearchClear}
-								>
-									<code-icon icon="close"></code-icon>
-								</gl-button>`
-							: nothing}
+						${
+							s.query.get()
+								? html`<gl-button
+										class="header__search-clear"
+										appearance="input"
+										tooltip="Clear"
+										aria-label="Clear search"
+										@click=${this.handleSearchClear}
+									>
+										<code-icon icon="close"></code-icon>
+									</gl-button>`
+								: nothing
+						}
 					</div>
 					${
 						scopes.length > 1

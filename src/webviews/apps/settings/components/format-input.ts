@@ -809,9 +809,11 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		const typeahead = mode != null;
 
 		return html`<label class="label" for="input">
-				${d.label}${dirty
-					? html`<span class="label__dirty" aria-live="polite">Unsaved — press Enter to apply</span>`
-					: nothing}
+				${d.label}${
+					dirty
+						? html`<span class="label__dirty" aria-live="polite">Unsaved — press Enter to apply</span>`
+						: nothing
+				}
 			</label>
 			<div class="field-wrap">
 				<div class="field" @focusout=${this.handleFocusOut}>
@@ -846,18 +848,22 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 					@gl-autocomplete-active-change=${() => this.requestUpdate()}
 				></gl-autocomplete>
 			</div>
-			${d.preview != null
-				? html`<p
-						class="example ${this._exampleError ? 'example--error' : ''}"
-						aria-live="polite"
-						aria-atomic="true"
-					>
-						<span>Example:</span>
-						${mode === 'hover' && !this._exampleError && this._example
-							? html`<gl-markdown inline .markdown=${this._example}></gl-markdown>`
-							: html`<span class="example__text">${this._example || '—'}</span>`}
-					</p>`
-				: nothing}`;
+			${
+				d.preview != null
+					? html`<p
+							class="example ${this._exampleError ? 'example--error' : ''}"
+							aria-live="polite"
+							aria-atomic="true"
+						>
+							<span>Example:</span>
+							${
+								mode === 'hover' && !this._exampleError && this._example
+									? html`<gl-markdown inline .markdown=${this._example}></gl-markdown>`
+									: html`<span class="example__text">${this._example || '—'}</span>`
+							}
+						</p>`
+					: nothing
+			}`;
 	}
 
 	private renderTokenMenu(mode: TokenMode): unknown {
@@ -889,26 +895,28 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 					@keydown=${this.handleSearchKeyDown}
 				/>
 				<div class="token-list" role="listbox" aria-label="Available tokens" @keydown=${this.handleListKeyDown}>
-					${tokens.length
-						? tokens.map((t, i) => {
-								// Date tokens insert bare; `${}` tokens show their base form (the modifier
-								// builder below reflects the composed shape that will actually be inserted)
-								const display = mode === 'date' ? t.token : `\${${t.token}}`;
-								return html`<button
-									type="button"
-									class="token"
-									role="option"
-									tabindex=${i === this._activeIndex ? '0' : '-1'}
-									aria-selected=${i === this._activeIndex}
-									@click=${() => this.insertToken(t)}
-									@focus=${() => {
-										this._activeIndex = i;
-									}}
-								>
-									<code>${display}</code><span>${t.label}</span>
-								</button>`;
-							})
-						: html`<p class="tokens__hint">No matching tokens</p>`}
+					${
+						tokens.length
+							? tokens.map((t, i) => {
+									// Date tokens insert bare; `${}` tokens show their base form (the modifier
+									// builder below reflects the composed shape that will actually be inserted)
+									const display = mode === 'date' ? t.token : `\${${t.token}}`;
+									return html`<button
+										type="button"
+										class="token"
+										role="option"
+										tabindex=${i === this._activeIndex ? '0' : '-1'}
+										aria-selected=${i === this._activeIndex}
+										@click=${() => this.insertToken(t)}
+										@focus=${() => {
+											this._activeIndex = i;
+										}}
+									>
+										<code>${display}</code><span>${t.label}</span>
+									</button>`;
+								})
+							: html`<p class="tokens__hint">No matching tokens</p>`
+					}
 				</div>
 				${mode !== 'date' ? this.renderModifiers() : nothing}
 				<span class="tokens__hint">
@@ -935,49 +943,51 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				></code-icon>
 				Width, alignment &amp; surrounding text
 			</button>
-			${this._showModifiers
-				? html`<div class="mods__body">
-						<label class="mods__field">
-							Prefix text
-							<input
-								type="text"
-								spellcheck="false"
-								.value=${this._modPrefix}
-								@input=${(e: Event) => {
-									this._modPrefix = (e.target as HTMLInputElement).value;
-								}}
-							/>
-						</label>
-						<label class="mods__field">
-							Suffix text
-							<input
-								type="text"
-								spellcheck="false"
-								.value=${this._modSuffix}
-								@input=${(e: Event) => {
-									this._modSuffix = (e.target as HTMLInputElement).value;
-								}}
-							/>
-						</label>
-						<label class="mods__field">
-							Width (truncate / pad)
-							<input
-								type="number"
-								min="0"
-								.value=${this._modWidth}
-								@input=${(e: Event) => {
-									this._modWidth = (e.target as HTMLInputElement).value;
-								}}
-							/>
-						</label>
-						<fieldset class="mods__align">
-							<legend>Width option</legend>
-							${this.renderFlagRadio('', 'None')} ${this.renderFlagRadio('?', 'Collapse whitespace')}
-							${this.renderFlagRadio('-', 'Right-align')}
-						</fieldset>
-						<p class="mods__preview">Inserts <code>${this.composeToken('token')}</code></p>
-					</div>`
-				: nothing}
+			${
+				this._showModifiers
+					? html`<div class="mods__body">
+							<label class="mods__field">
+								Prefix text
+								<input
+									type="text"
+									spellcheck="false"
+									.value=${this._modPrefix}
+									@input=${(e: Event) => {
+										this._modPrefix = (e.target as HTMLInputElement).value;
+									}}
+								/>
+							</label>
+							<label class="mods__field">
+								Suffix text
+								<input
+									type="text"
+									spellcheck="false"
+									.value=${this._modSuffix}
+									@input=${(e: Event) => {
+										this._modSuffix = (e.target as HTMLInputElement).value;
+									}}
+								/>
+							</label>
+							<label class="mods__field">
+								Width (truncate / pad)
+								<input
+									type="number"
+									min="0"
+									.value=${this._modWidth}
+									@input=${(e: Event) => {
+										this._modWidth = (e.target as HTMLInputElement).value;
+									}}
+								/>
+							</label>
+							<fieldset class="mods__align">
+								<legend>Width option</legend>
+								${this.renderFlagRadio('', 'None')} ${this.renderFlagRadio('?', 'Collapse whitespace')}
+								${this.renderFlagRadio('-', 'Right-align')}
+							</fieldset>
+							<p class="mods__preview">Inserts <code>${this.composeToken('token')}</code></p>
+						</div>`
+					: nothing
+			}
 		</div>`;
 	}
 
