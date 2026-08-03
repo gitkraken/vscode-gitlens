@@ -107,6 +107,46 @@ export function dispatchContextMenuAt(target: HTMLElement): void {
 	);
 }
 
+/** `<input>` types that take no typed text, so a bare-key shortcut may still claim the keystroke. */
+const nonTextInputTypes = new Set([
+	'button',
+	'checkbox',
+	'color',
+	'file',
+	'image',
+	'radio',
+	'range',
+	'reset',
+	'submit',
+]);
+
+/**
+ * Whether an event originated in a text-entry surface — the guard an app-level single-key shortcut
+ * (e.g. the Commit Graph's `/`) needs so it never swallows a keystroke meant for typing.
+ *
+ * Walks the COMPOSED path rather than reading `event.target`, because a `document`-level listener sees
+ * the target retargeted to the outermost shadow host — for the commit search box that's
+ * `<gl-search-box>`, two shadow roots above the `<input>`.
+ *
+ * Checkbox and radio `<input>`s don't count: `gl-checkbox` / `gl-radio` delegate focus into a real
+ * `<input>`, and a shortcut should still fire while one of those holds focus. Unrecognized input types
+ * DO count, so a new text-ish type errs toward keeping the keystroke.
+ */
+export function isTextEntryTarget(event: Event): boolean {
+	return event.composedPath().some(el => {
+		const target = el as HTMLElement & { type?: string };
+		switch (target.tagName) {
+			case 'INPUT':
+				return !nonTextInputTypes.has(target.type ?? 'text');
+			case 'TEXTAREA':
+			case 'SELECT':
+				return true;
+			default:
+				return target.isContentEditable === true;
+		}
+	});
+}
+
 /** Parses a CSS duration and returns the number of milliseconds. */
 export function parseDuration(delay: number | string): number {
 	delay = delay.toString().toLowerCase();

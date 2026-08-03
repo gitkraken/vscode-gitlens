@@ -57,6 +57,7 @@ const otherGroup: ShortcutGroup = {
 };
 
 // Mirrors the graph's `onKeydown` (navigation + open + fold) — keep in sync when its bindings change.
+// `/` is the exception: it's a webview-wide shortcut owned by `gl-graph-app`, not a rows-only binding.
 const navigationGroup: ShortcutGroup = {
 	title: 'Navigation',
 	shortcuts: [

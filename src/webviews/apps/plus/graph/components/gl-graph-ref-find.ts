@@ -142,12 +142,13 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		super.updated(changedProperties);
 	}
 
-	/** Focuses the input and selects any preserved query, so typing replaces the last search. */
-	private focusInput(): void {
+	/** Focuses the input and selects any preserved query, so typing replaces the last search. Public so
+	 *  the graph can re-claim the input when `/` is pressed while the widget is already open. */
+	override focus(options?: FocusOptions): void {
 		const input = this._inputEl;
 		if (input == null) return;
 
-		input.focus();
+		input.focus(options);
 		input.select();
 	}
 
@@ -176,7 +177,7 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 
 		// Re-run against whatever the panels now hold; a preserved query should still be live on reopen.
 		this.recompute({ jump: false });
-		void this.updateComplete.then(() => this.focusInput());
+		void this.updateComplete.then(() => this.focus());
 	}
 
 	private reset(): void {

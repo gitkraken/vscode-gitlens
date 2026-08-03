@@ -324,6 +324,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.querySelector('gl-lit-graph')?.clearRefFocus();
 	}
 
+	/** Opens the graph's ref finder for graph-app's document-level `/` shortcut. `returnFocus` is the
+	 *  element the keystroke came from, which the finder hands the keyboard back to on dismissal. */
+	openRefFind(returnFocus?: HTMLElement): void {
+		this.querySelector('gl-lit-graph')?.openRefFind(returnFocus);
+	}
+
 	/** The GRAPH-ROW sha(s) of graph-app's inspection anchor (the single source of truth for what the
 	 *  details panel shows). The wrapper DERIVES the row highlight from this each render
 	 *  (`anchorShas ∩ renderableRows`), so the highlight is never stored/stale — it goes empty

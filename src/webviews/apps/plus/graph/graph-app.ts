@@ -66,6 +66,7 @@ import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
+import { isTextEntryTarget } from '../../shared/dom.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
 import '../shared/components/account-bar.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
@@ -610,6 +611,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.addEventListener('dragstart', this._onDocDragStart);
 		document.addEventListener('dragend', this._onDocDragEnd);
 		document.addEventListener('drop', this._onDocDragEnd);
+		document.addEventListener('keydown', this._handleRefFindShortcutKeydown);
 
 		this._graphSizeObserver = new ResizeObserver(entries => {
 			// Use `borderBoxSize` (not `contentRect`) so the snapshot matches what
@@ -692,6 +694,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.removeEventListener('dragstart', this._onDocDragStart);
 		document.removeEventListener('dragend', this._onDocDragEnd);
 		document.removeEventListener('drop', this._onDocDragEnd);
+		document.removeEventListener('keydown', this._handleRefFindShortcutKeydown);
 		this._sidebarCloseWatcher?.destroy();
 		this._sidebarCloseWatcher = null;
 		this._sidebarEscArmed = false;
@@ -964,6 +967,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		e.stopPropagation();
 		this.closeSidebarOverlayFromEsc();
+	};
+
+	/**
+	 * `/` opens the graph's ref finder from ANYWHERE in the webview — the header, the side bar, the
+	 * details panel, a focused ref pill — not just from the focused rows.
+	 *
+	 * Lives here rather than on `gl-lit-graph` because the graph subtree stays MOUNTED (just `hidden`)
+	 * in Kanban / Visualizations mode (see `renderGraphPaneContent`), so the mode gate has to come from
+	 * `effectiveDisplayMode`. Attached for the component's lifetime and self-gating, like the overlay
+	 * listeners above.
+	 *
+	 * BUBBLE phase, and it bails on `defaultPrevented`, so anything nearer to the focus keeps first
+	 * refusal — a component that wants `/` for itself just has to claim it the usual way. Nothing does
+	 * today: `gl-tree-view`'s type-ahead (the one other consumer of bare printable keys) excludes `/`
+	 * from its character set, so a focused side-bar branch row reaches us.
+	 */
+	private _handleRefFindShortcutKeydown = (e: KeyboardEvent): void => {
+		if (e.key !== '/' || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
+		if (this.effectiveDisplayMode !== 'graph') return;
+		if (isTextEntryTarget(e)) return;
+		// A modal `<dialog>` — every `gl-dialog` (the shortcuts, account, and layout-prompt modals) calls
+		// `showModal()` — inerts the rest of the document, so the finder's input could never take focus
+		// and the keystroke would simply vanish.
+		if (e.composedPath().some(el => (el as HTMLElement).tagName === 'DIALOG')) return;
+
+		// Absent on the gated / no-repo screens, which replace the whole graph subtree.
+		const graph = this.graph;
+		if (graph == null) return;
+
+		e.preventDefault();
+		e.stopPropagation();
+		// `composedPath()[0]` is the real focused element even when it sits inside a shadow root, which
+		// `e.target` (retargeted to the outermost host) isn't — so the finder can hand the keyboard back
+		// exactly where it came from.
+		const from = e.composedPath()[0];
+		graph.openRefFind(from instanceof HTMLElement && from !== document.body ? from : undefined);
 	};
 
 	private closeSidebarOverlayFromEsc(): void {

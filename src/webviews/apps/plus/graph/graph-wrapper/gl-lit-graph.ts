@@ -637,6 +637,11 @@ export class GlLitGraph extends LitElement {
 	// Which trigger opened the finder, for telemetry — tells us whether the header button is earning
 	// its width or whether `/` is carrying the feature.
 	private _refFindOpenedBy: 'shortcut' | 'button' = 'button';
+	// Element that held focus when `/` opened the finder, so dismissing it hands the keyboard back
+	// instead of relocating it to the rows — `/` fires from anywhere in the webview, so "wherever you
+	// were" is often not the graph. Cleared once a commit lands (see `onRefFindJump`), because from then
+	// on the landed ROW is where you want to be.
+	private _refFindReturnFocus?: HTMLElement;
 	// Pill key of the ref the find widget last landed on — that pill wears the selected/hover fill so
 	// it's identifiable among the others on its row. Read live by the ref-pill hooks.
 	private _refFindHitKey?: string;
@@ -5890,19 +5895,8 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
-		// `/` opens the ref find widget. Free here (the graph binds arrows, Enter/Space, h/H, Esc, Home/End,
-		// PageUp/Down and Tab) and only reachable while the TREE ITSELF holds focus — the bubbled-target
-		// branch above already returned — so it can never swallow a keystroke meant for a text input.
-		// Ctrl/Cmd+F belongs to the commit search box; Alt+F is unusable on Windows/Linux, where Alt hands
-		// off to the menu bar. Ahead of the empty-rows guard: with nothing paged in, find is exactly what
-		// you want.
-		if (event.key === '/' && !event.altKey && !event.ctrlKey && !event.metaKey) {
-			event.preventDefault();
-			event.stopPropagation();
-			this._refFindOpenedBy = 'shortcut';
-			this.setRefFindOpen(true);
-			return;
-		}
+		// NOTE: `/` (open the ref finder) is NOT bound here — `gl-graph-app` owns it as a document-level
+		// shortcut so it works from anywhere in the webview, not just the focused rows. See `openRefFind`.
 
 		if (this.displayRows.length === 0) return;
 
@@ -7737,8 +7731,30 @@ export class GlLitGraph extends LitElement {
 
 	private toggleRefFind = (): void => {
 		this._refFindOpenedBy = 'button';
+		// The button path returns focus to the rows, so drop any target a prior `/` session left behind.
+		this._refFindReturnFocus = undefined;
 		this.setRefFindOpen(!this.refFindOpen);
 	};
+
+	/**
+	 * Opens the ref finder for the app-level `/` shortcut (`gl-graph-app` owns the key so it fires from
+	 * anywhere in the webview; this is the only entry point that isn't the header button).
+	 *
+	 * `returnFocus` is the element the keystroke came from — where the keyboard goes back to on dismissal.
+	 *
+	 * Already open re-claims the input rather than no-opping (`setRefFindOpen` early-returns on an
+	 * unchanged value), so `/` always means "put me in the finder" even when focus has wandered off it.
+	 */
+	openRefFind(returnFocus?: HTMLElement): void {
+		this._refFindOpenedBy = 'shortcut';
+		this._refFindReturnFocus = returnFocus;
+		if (this.refFindOpen) {
+			this.refFindRef.value?.focus();
+			return;
+		}
+
+		this.setRefFindOpen(true);
+	}
 
 	/**
 	 * The find widget, rendered at VIEWPORT level (a sibling of the header, pinned to its top-right)
@@ -7778,6 +7794,11 @@ export class GlLitGraph extends LitElement {
 	private onRefFindJump = (e: CustomEvent<{ sha: string; focus: boolean; refKey?: string }>): void => {
 		const sha = e.detail.sha;
 		this.markRefFindHit(e.detail.refKey);
+		// `focus` marks a COMMIT (Enter) rather than one of the per-keystroke preview jumps — the keyboard
+		// is moving to the landed row, so the finder must not hand it back to wherever `/` was pressed.
+		if (e.detail.focus) {
+			this._refFindReturnFocus = undefined;
+		}
 		// A target that isn't paged in yet needs watching: `jumpToRefRow` starts the host walk, but the
 		// reveal it queues resolves an index the rest of the walk then moves (see `retryRefFindReveal`).
 		this._refFindLoadingSha = this.processedIndexBySha.has(sha) ? undefined : sha;
@@ -7857,8 +7878,18 @@ export class GlLitGraph extends LitElement {
 			this.invalidateAdornments();
 		}
 		// Opening hands focus to the input — the widget does that itself, once its own render has made the
-		// input focusable. Closing brings the keyboard back so it isn't stranded on a hidden element.
+		// input focusable. Closing brings the keyboard back so it isn't stranded on a hidden element:
+		// to wherever `/` was pressed when the finder is being dismissed without landing, otherwise the rows.
 		if (!open) {
+			const returnTo = this._refFindReturnFocus;
+			this._refFindReturnFocus = undefined;
+			if (returnTo?.isConnected) {
+				returnTo.focus();
+				// An `inert` or hidden ancestor swallows `focus()` silently and drops focus to the body —
+				// only the rows fallback below can un-strand the keyboard from there.
+				if (document.activeElement !== document.body) return;
+			}
+
 			this.treeRef.value?.focus();
 		}
 	}
