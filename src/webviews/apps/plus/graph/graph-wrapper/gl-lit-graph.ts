@@ -4966,6 +4966,23 @@ export class GlLitGraph extends LitElement {
 		}
 
 		this.revealIndexAt(index, centerRevealRatio);
+
+		// Clicking a MARKER is clicking a named row — HEAD, the upstream, the merge target, the pinned ref,
+		// the selection — so it selects and takes the focus anchor too, the same handoff the HEAD and pinned
+		// pills perform. Scrolling alone left the rail as the one waypoint affordance that moved the view
+		// without landing you anywhere.
+		//
+		// An EMPTY-rail click deliberately does none of that: it is a position rather than a row, scrubbing
+		// like a scrollbar, and selecting whichever commit happens to sit at that pixel would open the details
+		// panel on something the user never picked.
+		if (nearest == null) return;
+
+		const sha = this.displayRows[index]?.sha;
+		if (sha == null) return;
+
+		this.armLandingFlash(sha);
+		this.focusIndex = index;
+		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
 	}
 
 	// ─── Interaction (delegated; rows carry no per-row listeners) ──────────────
