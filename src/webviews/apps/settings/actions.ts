@@ -1,6 +1,7 @@
 import type { Remote } from '@eamodio/supertalk';
 import type { AutolinkConfig, Config, CustomRemoteType, RemotesUrlsConfig } from '../../../config.js';
 import { isCustomConfigKey } from '../../protocol.js';
+import type { ScopedAiModelInfo } from '../../rpc/services/types.js';
 import type { SettingsServices, SettingsUpdateParams } from '../../settings/settingsService.js';
 import { anchorToCategory } from './categories/index.js';
 import type { CheckDescriptor, SettingsKey } from './model.js';
@@ -103,13 +104,13 @@ export class SettingsActions {
 		// A superseded attempt's late failure must not flip an in-flight retry
 		// back to the error state
 		const generation = ++this._servicesLoadGeneration;
-		s.serviceErrors.set({ subscription: false, integrations: false, ai: false });
+		s.serviceErrors.set({ subscription: false, integrations: false, ai: false, agents: false });
 
 		// A superseded attempt's late resolution must touch neither the error flags
 		// nor the data signals, or it could overwrite fresher data from the retry
 		const current = () => generation === this._servicesLoadGeneration;
 
-		const failed = (...services: ('subscription' | 'integrations' | 'ai')[]) => {
+		const failed = (...services: ('subscription' | 'integrations' | 'ai' | 'agents')[]) => {
 			if (!current()) return;
 
 			const errors = { ...s.serviceErrors.get() };
@@ -122,16 +123,18 @@ export class SettingsActions {
 		let subscription;
 		let integrations;
 		let ai;
+		let agents;
 		try {
 			// Resolving the sub-service handles is itself an RPC round-trip that
 			// can reject — without this, a retry could silently skeleton forever
-			[subscription, integrations, ai] = await Promise.all([
+			[subscription, integrations, ai, agents] = await Promise.all([
 				this.services.subscription,
 				this.services.integrations,
 				this.services.ai,
+				this.services.agents,
 			]);
 		} catch {
-			failed('subscription', 'integrations', 'ai');
+			failed('subscription', 'integrations', 'ai', 'agents');
 			return;
 		}
 
@@ -167,6 +170,105 @@ export class SettingsActions {
 			},
 			() => failed('ai'),
 		);
+
+		// Walkthrough progress feeds the Get Started launchpad's two walkthrough steps. It's
+		// non-critical — a failure just leaves those steps reading "Not started", never an error.
+		void this.services.walkthrough
+			.then(walkthrough => walkthrough.getProgress())
+			.then(progress => {
+				if (current() && progress != null) {
+					s.walkthrough.set(progress);
+				}
+			})
+			.catch(() => {});
+
+		void agents.getAgents().then(
+			list => {
+				if (current()) {
+					s.agents.set(list);
+				}
+			},
+			() => failed('agents'),
+		);
+		void ai.getScopedModels().then(
+			scopedModels => {
+				if (current()) {
+					s.scopedAiModels.set(scopedModels);
+				}
+			},
+			() => failed('ai'),
+		);
+	}
+
+	/**
+	 * Re-reads the current model and the compose/review/resolve scope overrides together.
+	 * Called after `switchAiModel`/`resetAiModel` land, and by the `ai.onModelChanged` push
+	 * (which fires for scope-only changes too, always with the global model as its payload —
+	 * so any fire means "re-read the scoped models", not just the global one).
+	 *
+	 * Never rejects: every call site fires this off with `void` (the event push, the row
+	 * buttons), so an escaping rejection would land as an unhandled rejection instead of
+	 * anything the user can act on. A failure flags the AI service — the same signal
+	 * `loadSharedServices` uses — and leaves the last-known values on screen; a later
+	 * success clears the flag so a transient failure doesn't strand the error text.
+	 */
+	async refreshAiModels(): Promise<void> {
+		try {
+			const ai = await this.services.ai;
+			const [model, scopedModels] = await Promise.all([ai.getModel(), ai.getScopedModels()]);
+			this.state.aiModel.set(model);
+			this.state.scopedAiModels.set(scopedModels);
+			this.setAiServiceError(false);
+		} catch {
+			this.setAiServiceError(true);
+		}
+	}
+
+	/** Flags (or clears) the AI shared-service error without disturbing its siblings. */
+	private setAiServiceError(failed: boolean): void {
+		const errors = this.state.serviceErrors.get();
+		if (errors.ai === failed) return;
+
+		this.state.serviceErrors.set({ ...errors, ai: failed });
+	}
+
+	/**
+	 * Switches the AI provider/model for `scope` (or the global default when omitted) via
+	 * VS Code's native picker, then re-reads the resolved models directly. The picker command
+	 * resolves only after the selection is persisted, so the `ai.onModelChanged` event would
+	 * race this read if relied on alone — see `switchAIModel` in
+	 * `src/webviews/apps/plus/graph/components/detailsActions.ts` for the same hazard on the
+	 * graph details side. The explicit re-read below must stay, even though `onModelChanged`
+	 * also triggers a `refreshAiModels()` call (via `settings.ts`).
+	 */
+	async switchAiModel(scope?: ScopedAiModelInfo['scope']): Promise<void> {
+		try {
+			const commands = await this.services.commands;
+			await commands.execute('gitlens.ai.switchProvider', {
+				source: 'settings',
+				detail: scope ?? 'default',
+				scope: scope,
+			});
+		} catch {
+			// The picker owns its own error surfacing; a dispatch failure leaves the selection
+			// untouched, so there's nothing to re-read and nothing to add on top of it
+			return;
+		}
+
+		await this.refreshAiModels();
+	}
+
+	/** Clears a scope's stored override, reverting it to the resolved default. */
+	async resetAiModel(scope: ScopedAiModelInfo['scope']): Promise<void> {
+		try {
+			const ai = await this.services.ai;
+			await ai.clearScopedModel(scope);
+		} catch {
+			this.setAiServiceError(true);
+			return;
+		}
+
+		await this.refreshAiModels();
 	}
 
 	// ── Config writes ──

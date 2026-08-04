@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import type { AIState } from '../../../rpc/services/types.js';
+import type { AIState, ScopedAiModelInfo } from '../../../rpc/services/types.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
@@ -19,13 +19,23 @@ declare global {
 	}
 }
 
+/** Label + icon per scope, matching the graph WIP header's compose/review/resolve
+ * treatment (`gl-details-wip-header.ts`) — except the compose label, which reads
+ * "Composing Commits" here since only the commit-composing flow (not all WIP
+ * composing) has a scoped model. */
+const scopedModelMeta: Record<ScopedAiModelInfo['scope'], { label: string; icon: string }> = {
+	compose: { label: 'Composing Commits', icon: 'wand' },
+	review: { label: 'Reviewing Changes', icon: 'checklist' },
+	resolve: { label: 'Resolving Conflicts', icon: 'gl-merge' },
+};
+
 /**
- * The AI integrations panel — provider/model, GitKraken MCP, default coding
- * agent, and Claude Code hooks rows, mirroring the Home view's integrations chip.
+ * The AI integrations panel — the provider/model row, mirroring the Home
+ * view's integrations chip.
  *
- * Aside from the category's master switch (`gitlens.ai.enabled`), these aren't
- * config settings: state comes from the shared AI RPC service and all actions
- * run commands (switch model, install MCP, switch agent, install hooks).
+ * Aside from the category's master switch (`gitlens.ai.enabled`), this isn't
+ * a config setting: state comes from the shared AI RPC service and the action
+ * runs a command (switch model).
  */
 @customElement('gl-settings-ai')
 export class GlSettingsAI extends SignalWatcher(LitElement) {
@@ -103,6 +113,19 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
+			/* Indents the compose/review/resolve rows under the provider/model row they
+			   refine, and slightly de-emphasizes their title so they read as children,
+			   not peers — ordered before the disconnected rule below so a disconnected
+			   sub-row still gets the more muted disconnected color, not this one. */
+			.row--sub {
+				margin-inline-start: var(--gl-space-24);
+			}
+
+			.row--sub .row__title {
+				font-size: 1.15rem;
+				color: var(--color-foreground--85);
+			}
+
 			.row--disconnected .row__title,
 			.row--disconnected .row__details {
 				color: var(--color-foreground--50);
@@ -165,7 +188,7 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 					>
 				</div>`;
 			}
-			return html`<skeleton-loader lines="4"></skeleton-loader>`;
+			return html`<skeleton-loader lines="1"></skeleton-loader>`;
 		}
 
 		if (!ai.orgEnabled) {
@@ -183,7 +206,7 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 		}
 
 		return html`<ul class="rows">
-			${this.renderModelRow()}${this.renderMcpRow(ai)}${this.renderDefaultAgentRow(ai)}${this.renderHooksRow(ai)}
+			${this.renderModelRow()}${this.renderScopedModelRows()}
 		</ul>`;
 	}
 
@@ -203,7 +226,7 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 				<span class="row__details"
 					>${
 						model?.name ??
-						(failed ? 'Couldn’t load the current model' : 'Select an AI model to enable AI features')
+						(failed ? "Couldn't load the current model" : 'Select an AI model to enable AI features')
 					}</span
 				>
 			</span>
@@ -221,130 +244,53 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 		</li>`;
 	}
 
-	private renderMcpRow(ai: AIState) {
-		const { mcp } = ai;
-		const active = mcp.settingEnabled && mcp.installed;
+	/** Renders the compose/review/resolve scope-override rows, or nothing while they're
+	 * still loading — the panel already skeletons the whole list until `ai` resolves, and a
+	 * partial list (top-level rows present, these absent) is better than a second mid-list
+	 * skeleton. A fetch failure also renders nothing here; the top-level `serviceErrors.ai`
+	 * retry (above) is the only recovery affordance, same as the provider/model row. */
+	private renderScopedModelRows() {
+		const scopedModels = this._state.scopedAiModels.get();
+		if (scopedModels == null) return nothing;
 
-		return html`<li class="row row--${active ? 'connected' : 'disconnected'}">
-			<code-icon class="row__icon" icon="mcp" aria-hidden="true"></code-icon>
-			<span class="row__content">
-				<span class="row__title">GitKraken MCP</span>
-				<span class="row__details"
-					>${
-						mcp.settingEnabled
-							? 'Leverage Git & Integrations in AI chats'
-							: 'GitKraken MCP has been disabled via settings'
-					}</span
-				>
-			</span>
-			<span class="row__actions">
-				${
-					!mcp.settingEnabled
-						? html`<gl-button
-								appearance="secondary"
-								href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
-									source: 'settings',
-									detail: 'integrations',
-								})}"
-								tooltip="Re-enable GitKraken MCP"
-								><code-icon icon="unlock" slot="prefix" aria-hidden="true"></code-icon>
-								Re-enable</gl-button
-							>`
-						: mcp.installed
-							? html`<gl-button
-										appearance="secondary"
-										href="${createCommandLink<Source>('gitlens.ai.mcp.selectAgents', {
-											source: 'settings',
-											detail: 'integrations',
-										})}"
-										tooltip="Connect More Agents"
-										><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Connect
-										Agents</gl-button
-									>
-									<gl-button
-										appearance="secondary"
-										href="${createCommandLink<Source>('gitlens.ai.mcp.reinstall', {
-											source: 'settings',
-											detail: 'integrations',
-										})}"
-										tooltip="Reinstall GitKraken MCP"
-										><code-icon icon="sync" slot="prefix" aria-hidden="true"></code-icon>
-										Reinstall</gl-button
-									>
-									<span class="row__status"
-										><code-icon icon="check" aria-hidden="true"></code-icon> Installed${
-											mcp.bundled ? ' (bundled)' : ''
-										}</span
-									>`
-							: html`<gl-button
-									appearance="secondary"
-									href="${createCommandLink<Source>('gitlens.ai.mcp.install', {
-										source: 'settings',
-										detail: 'integrations',
-									})}"
-									tooltip="Install GitKraken MCP"
-									><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon>
-									Install</gl-button
-								>`
-				}
-			</span>
-		</li>`;
+		return scopedModels.map(info => this.renderScopedModelRow(info));
 	}
 
-	private renderDefaultAgentRow(ai: AIState) {
-		const agent = ai.defaultAgent;
+	private renderScopedModelRow(info: ScopedAiModelInfo) {
+		const { scope, model, isOverride } = info;
+		const meta = scopedModelMeta[scope];
+		// The scoped fallback isn't necessarily the global default model (it prefers a
+		// faster model), so naming it here is deliberate — "same as above" would be wrong.
+		// "select a default above" rather than a bare "unavailable": with no default and no override
+		// there's nothing to inherit, and the default row directly above is the only way out
+		const details =
+			model == null ? 'No model — select a default above' : isOverride ? model.name : `Default — ${model.name}`;
 
-		return html`<li class="row row--${agent != null ? 'connected' : 'disconnected'}">
-			<code-icon class="row__icon" icon="robot" aria-hidden="true"></code-icon>
+		return html`<li class="row row--sub row--${model != null ? 'connected' : 'disconnected'}">
+			<code-icon class="row__icon" icon="${meta.icon}" aria-hidden="true"></code-icon>
 			<span class="row__content">
-				<span class="row__title">Default Coding Agent</span>
-				<span class="row__details">${agent != null ? agent.label : 'No default agent selected'}</span>
+				<span class="row__title">${meta.label}</span>
+				<span class="row__details">${details}</span>
 			</span>
 			<span class="row__actions">
 				<gl-button
 					appearance="secondary"
-					href="${createCommandLink('gitlens.agents.switchDefaultAgent')}"
-					tooltip="Switch Default Agent"
-					><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon> Switch Agent</gl-button
+					aria-label="Switch AI Model for ${meta.label}"
+					tooltip="Switch AI Model for ${meta.label}"
+					@click=${() => void this.actions?.switchAiModel(scope)}
+					><code-icon icon="arrow-swap" slot="prefix" aria-hidden="true"></code-icon> Switch</gl-button
 				>
-			</span>
-		</li>`;
-	}
-
-	private renderHooksRow(ai: AIState) {
-		const claude = ai.hooks.claude;
-		// Nothing to install OR uninstall if hooks aren't supported on this
-		// machine or Claude isn't detected (mirrors the integrations chip)
-		if (!claude.supported || !claude.detected) return nothing;
-
-		return html`<li class="row row--${claude.installed ? 'connected' : 'disconnected'}">
-			<code-icon class="row__icon" icon="search-sparkle" aria-hidden="true"></code-icon>
-			<span class="row__content">
-				<span class="row__title">GitKraken Claude Code Hooks</span>
-				<span class="row__details"
-					>${
-						claude.installed
-							? 'Installed — Claude surfaces agent status'
-							: 'Configure Claude to surface agent status'
-					}</span
-				>
-			</span>
-			<span class="row__actions">
 				${
-					claude.installed
+					isOverride
 						? html`<gl-button
 								appearance="secondary"
-								href="${createCommandLink('gitlens.agents.uninstallClaudeHook')}"
-								tooltip="Uninstall Claude Hooks"
-								><code-icon icon="debug-disconnect" slot="prefix" aria-hidden="true"></code-icon>
-								Uninstall</gl-button
+								aria-label="Use Default AI Model for ${meta.label}"
+								tooltip="Use Default AI Model for ${meta.label}"
+								@click=${() => void this.actions?.resetAiModel(scope)}
+								><code-icon icon="discard" slot="prefix" aria-hidden="true"></code-icon> Use
+								Default</gl-button
 							>`
-						: html`<gl-button
-								appearance="secondary"
-								href="${createCommandLink('gitlens.agents.installClaudeHook')}"
-								tooltip="Install Claude Hooks"
-								><code-icon icon="plug" slot="prefix" aria-hidden="true"></code-icon> Install</gl-button
-							>`
+						: nothing
 				}
 			</span>
 		</li>`;

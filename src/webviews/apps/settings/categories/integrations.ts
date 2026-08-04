@@ -2,34 +2,12 @@ import type { SettingsCategory } from '../model.js';
 
 export const integrationsCategories: SettingsCategory[] = [
 	{
-		id: 'integrations',
-		settingsSearch: 'gitlens.integrations',
-		name: 'Cloud Integrations',
-		group: 'Integrations',
-		icon: 'plug',
-		hint: 'Connect hosting services like GitHub and issue trackers like Jira to track progress and take action on PRs and issues related to your branches',
-		learnMoreUrl: 'https://help.gitkraken.com/gitlens/gitlens-start-here/#improve-workflows-with-integrations',
-		master: {
-			kind: 'check',
-			key: 'integrations.enabled',
-			label: 'Cloud Integrations',
-		},
-		controls: [
-			{
-				kind: 'integrations',
-				label: 'Cloud integrations',
-				// Search text — the rendered rows come from the integrations RPC service
-				hint: 'GitHub, GitHub Enterprise, GitLab, Azure DevOps, Bitbucket, Jira, Linear',
-			},
-		],
-	},
-	{
 		id: 'ai',
 		settingsSearch: 'gitlens.ai',
 		name: 'AI',
 		group: 'Integrations',
 		icon: 'sparkle',
-		hint: 'Generate commit messages, explain changes, and power other AI features across GitLens',
+		hint: 'Composing commits, reviewing changes, resolving conflicts, explaining history, and power other AI features across GitLens',
 		learnMoreUrl: 'https://help.gitkraken.com/gitlens/gl-gk-ai/',
 		master: {
 			kind: 'check',
