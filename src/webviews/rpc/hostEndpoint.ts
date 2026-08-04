@@ -20,6 +20,7 @@
  */
 import type { Endpoint } from '@eamodio/supertalk';
 import type { Disposable, Webview } from 'vscode';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { RpcMessageWrapper } from './constants.js';
 import { decodeRpcPayload, encodeRpcPayload, isRpcMessage, RPC_NAMESPACE } from './constants.js';
 
@@ -39,6 +40,9 @@ export interface BufferedEndpoint extends Endpoint, Disposable {
 	/** Update visibility state. When transitioning to visible, flushes buffered messages. */
 	setVisible(visible: boolean): void;
 }
+
+/** Depth at which the hidden-side FIFO is reported as suspicious (see {@link bufferMessage}). */
+const fifoWarnThreshold = 500;
 
 /**
  * Creates a Supertalk-compatible Endpoint from a VS Code Webview.
@@ -74,28 +78,38 @@ export function createHostEndpoint(webview: Webview): BufferedEndpoint {
 		if (msg.type === 'handler' && msg.wireType != null) {
 			handlerMap.set(msg.wireType, msg);
 		} else {
+			// Deliberately uncapped: unlike the deduped handler map, every entry here is a distinct logical
+			// operation, and dropping a `return`/`resolve`/`reject` strands the webview promise waiting on it
+			// forever. Bounding this safely means tearing the connection down and forcing a refresh, not
+			// discarding messages — warn instead so a runaway shows up rather than hanging silently.
 			fifoQueue.push(msg);
+			if (fifoQueue.length === fifoWarnThreshold) {
+				Logger.warn(
+					`RPC host endpoint has buffered ${fifoWarnThreshold} messages while hidden; the webview may be producing calls faster than visibility is restored`,
+				);
+			}
 		}
 	}
 
 	/**
-	 * Flush all buffered messages. FIFO queue first (preserving order),
-	 * then deduped handler values. Each is sent as an individual postMessage
-	 * so Supertalk's Connection handles them correctly.
+	 * Flush all buffered messages — FIFO queue first (preserving order), then the deduped handler values.
+	 * Re-batched into a single post: messages are unbatched on the way in only so handler dedup can see
+	 * them individually, and Supertalk's Connection unpacks `type: 'batch'` on receive, so replaying them
+	 * one-by-one just pays a structured-clone hop per message for no benefit.
 	 */
 	function flush(): void {
 		if (fifoQueue.length === 0 && handlerMap.size === 0) return;
 
-		const fifo = fifoQueue.splice(0);
-		const handlers = [...handlerMap.values()];
+		const messages = fifoQueue.splice(0);
+		messages.push(...handlerMap.values());
 		handlerMap.clear();
 
-		for (const msg of fifo) {
-			doPost(msg);
+		if (messages.length === 1) {
+			doPost(messages[0]);
+			return;
 		}
-		for (const msg of handlers) {
-			doPost(msg);
-		}
+
+		doPost({ type: 'batch', messages: messages });
 	}
 
 	return {
