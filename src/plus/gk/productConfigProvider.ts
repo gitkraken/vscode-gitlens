@@ -308,6 +308,12 @@ function getApplicablePromo(
 
 	for (const promo of promos) {
 		if (isPromoApplicable(promo, state, plan, expiringOnly)) {
+			// An empty `locations` targets nowhere — either authored as `[]`, or every value was
+			// unrecognized by this client and dropped in `getConfig`. Such a promo must be fully
+			// transparent: neither returned (even for location-less lookups) nor allowed to end the
+			// search below, or a promo aimed at a future surface would blank every current placement.
+			if (promo.locations?.length === 0) continue;
+
 			if (location == null || promo.locations == null || promo.locations.includes(location)) {
 				return promo;
 			}
@@ -332,11 +338,15 @@ function getConfig(data: unknown): Config | undefined {
 
 	const { promosV2, promosV2plus, promos: promosV1, ...rest } = data;
 
-	const given: (PromoJson | PromoV2PlusJson)[] =
-		promosV2plus && promosV2
-			? [...promosV2plus, ...promosV2].reverse()
-			: (promosV2plus ?? promosV2 ?? promosV1 ?? []);
-	// Filter out promos that we don't know how to handle
+	// `promosV2plus` layers onto `promosV2` and onto nothing else; `promos` is the V1 legacy island.
+	// The list is REVERSED here and reversed back after the dedupe below, so that when one key appears in
+	// both lists the surviving entry keeps the `promosV2` slot (order is priority — an override must not
+	// jump the queue), while keys that exist only in `promosV2plus` end up in front. The two reverses must
+	// stay paired for EVERY path, or single-list configs come out in reverse priority order.
+	const given: (PromoJson | PromoV2PlusJson)[] = (
+		promosV2plus && promosV2 ? [...promosV2plus, ...promosV2] : [...(promosV2plus ?? promosV2 ?? promosV1 ?? [])]
+	).reverse();
+	// Drop promos from a version whose rules we don't have
 	const known: KnownPromoJson[] = given.filter(isKnownVersion);
 	const deduped: KnownPromoJson[] = [];
 	for (const d of known) {

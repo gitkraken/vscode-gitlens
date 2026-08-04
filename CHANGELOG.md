@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a promo banner to the _Commit Graph_ header during time-limited campaigns &mdash; a centered line above the toolbar row, like the _Home_ view's banner; it shows only promotions with an expiration date (never the evergreen discount), shortens its text as the header narrows, and disappears entirely &mdash; taking no space &mdash; when no campaign is running or the header is too narrow
+
 - Adds an empty state to the _Commit Graph_ when no repository is open &mdash; offers _Open a Folder_, _Clone a Repository_, and _Start a New Project_ actions to get started; in web/virtual environments (e.g. vscode.dev) clone and new-project are replaced by an _Open Remote Repository_ action ([#5408](https://github.com/gitkraken/vscode-gitlens/issues/5408))
 - Adds an untrusted-workspace state to the _Commit Graph_ &mdash; a repository opened in a folder running in Restricted Mode previously showed the no-repository empty state; the graph now shows a _Manage Workspace Trust_ prompt instead, and refreshes to your history as soon as you grant trust
 - Adds a sign-in screen to the _Commit Graph_ for signed-out users &mdash; when no account is connected, the graph is replaced by a _Get Started with GitLens_ screen offering _Create Free Account_ and _Sign In_ actions; when the connected account's email is unverified, it shows a _Verify your email_ prompt with _Resend Email_ and _Synchronize Status_ actions instead
