@@ -4,6 +4,7 @@ import { resetApprovedAvatarTemplates, resetAvatarCache } from '../avatars.js';
 import type { Container } from '../container.js';
 import type { QuickPickItemOfT } from '../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
+import { settingsMigrations } from '../settingsMigrations.js';
 import { command, executeCoreCommand } from '../system/-webview/command.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { GlCommandBase } from './commandBase.js';
@@ -14,6 +15,7 @@ const resetTypes = [
 	'avatars',
 	'cli',
 	'integrations',
+	'migrations',
 	'onboarding',
 	'previews',
 	'promoOptIns',
@@ -91,6 +93,11 @@ export class ResetCommand extends GlCommandBase {
 			items.push(
 				createQuickPickSeparator('DEBUG'),
 				{
+					label: 'Reset Migrations...',
+					detail: 'Re-arms selected one-time migrations, so they run again on the next reload',
+					item: 'migrations',
+				},
+				{
 					label: 'Reset Subscription...',
 					detail: 'Resets the stored subscription',
 					item: 'subscription',
@@ -147,6 +154,10 @@ export class ResetCommand extends GlCommandBase {
 				confirmationMessage = 'Are you sure you want to reset all of the stored integrations?';
 				confirm.title = 'Reset Integrations';
 				break;
+			case 'migrations':
+				// No modal — the multi-select in `reset` is the deliberate step, and re-running
+				// idempotent migrations is recoverable, unlike the data wipes above
+				break;
 			case 'onboarding':
 				confirmationMessage =
 					'Are you sure you want to reset the onboarding/first-time experience? This clears all dismissed banners/notices and tracked usage.';
@@ -199,6 +210,9 @@ export class ResetCommand extends GlCommandBase {
 		switch (reset) {
 			case 'all':
 				for (const r of resetTypes) {
+					// Interactive picker; the `storage.reset` below wipes `settings:migrated` anyway
+					if (r === 'migrations') continue;
+
 					await this.reset(r);
 				}
 
@@ -209,7 +223,9 @@ export class ResetCommand extends GlCommandBase {
 
 				// Services cache their state in memory and write it back (feature flags, graph columns, ...),
 				// so without a reload the wipe partially undoes itself
-				void this.promptToReload();
+				void this.promptToReload(
+					'All GitLens data has been reset. Reload the window to finish clearing any state still held in memory.',
+				);
 				break;
 
 			case 'ai':
@@ -234,6 +250,39 @@ export class ResetCommand extends GlCommandBase {
 			case 'integrations':
 				await this.container.integrations.reset();
 				break;
+
+			case 'migrations': {
+				const applied = this.container.storage.get('settings:migrated');
+				if (!applied?.length) {
+					void window.showInformationMessage('There are no completed migrations to reset.');
+					break;
+				}
+
+				const picks = await window.showQuickPick(
+					applied.map(id => {
+						const migration = settingsMigrations.find(m => m.id === id);
+						return {
+							label: id,
+							description: migration?.status?.(this.container.storage),
+							detail: migration?.description ?? 'Unknown migration — no longer exists in this version',
+						};
+					}),
+					{
+						title: 'Reset Migrations',
+						placeHolder: 'Choose migrations to re-run on the next reload',
+						canPickMany: true,
+					},
+				);
+				if (!picks?.length) break;
+
+				await this.container.storage.store(
+					'settings:migrated',
+					applied.filter(id => !picks.some(p => p.label === id)),
+				);
+
+				void this.promptToReload('The selected migrations will run again once the window is reloaded.');
+				break;
+			}
 
 			case 'onboarding':
 				await this.container.onboarding.resetAll();
@@ -281,13 +330,12 @@ export class ResetCommand extends GlCommandBase {
 		}
 	}
 
-	private async promptToReload(): Promise<void> {
+	private async promptToReload(message: string): Promise<void> {
 		const reload: MessageItem = { title: 'Reload' };
-		const result = await window.showInformationMessage(
-			'All GitLens data has been reset. Reload the window to finish clearing any state still held in memory.',
-			reload,
-			{ title: 'Later', isCloseAffordance: true },
-		);
+		const result = await window.showInformationMessage(message, reload, {
+			title: 'Later',
+			isCloseAffordance: true,
+		});
 		if (result !== reload) return;
 
 		void executeCoreCommand('workbench.action.reloadWindow');

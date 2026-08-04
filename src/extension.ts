@@ -1,14 +1,5 @@
 import type { ExtensionContext } from 'vscode';
-import {
-	version as codeVersion,
-	ConfigurationTarget,
-	env,
-	ExtensionMode,
-	LogLevel,
-	Uri,
-	window,
-	workspace,
-} from 'vscode';
+import { version as codeVersion, commands, env, ExtensionMode, LogLevel, Uri, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform.js';
 import { defaultResolver as envDefaultResolver } from '@env/resolver.js';
 import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
@@ -35,7 +26,6 @@ import type { OpenIssueOnRemoteCommandArgs } from './commands/openIssueOnRemote.
 import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote.js';
 import { trackableSchemes } from './constants.js';
 import { SyncedStorageKeys } from './constants.storage.js';
-import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
 import { Container } from './container.js';
 import { isGitUri } from './git/gitUri.js';
 import {
@@ -47,6 +37,7 @@ import {
 } from './messages.js';
 import { registerPartnerActionRunners } from './partners.js';
 import { needsCursorMcpCleanupNotice } from './plus/gk/utils/-webview/mcp.utils.js';
+import { settingsMigrations } from './settingsMigrations.js';
 import { executeCommand, executeCoreCommand, registerCommands } from './system/-webview/command.js';
 import { configuration, Configuration } from './system/-webview/configuration.js';
 import { setContext } from './system/-webview/context.js';
@@ -226,7 +217,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		void showWhatsNew(container, gitlensVersion, prerelease, previousVersion);
 		showMcp(container, gitlensVersion, previousVersion);
-		void applyPendingGraphSideBarMove(container);
+		void applyPendingLegacyViewHiding(container);
 
 		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion).catch();
 
@@ -309,96 +300,110 @@ export function deactivate(): void {
 	Container.instance.deactivate();
 }
 
-// One-time settings migrations, each identified by a stable `id` and applied at most once per
-// install (tracked by id in the `settings:migrated` storage key). Append new entries — no
-// per-migration storage key, and no reliance on the install version (which spans two schemes:
-// stable `18.x` and date-based pre-release). Migrations MUST be idempotent (a fresh install runs
-// them as no-ops).
-const settingsMigrations: { id: string; migrate: (storage: Storage) => Promise<void> }[] = [
-	{
-		// Move existing explicit `right`/`bottom` Commit Graph details locations onto the new
-		// width-aware `auto` default. Window-scoped, so only user/workspace can hold a value.
-		id: 'graph.details.location:auto',
-		migrate: async () => {
-			const inspect = configuration.inspect('graph.details.location');
-			const isPinned = (v: unknown) => v === 'right' || v === 'bottom';
-			if (isPinned(inspect?.globalValue)) {
-				await configuration.update('graph.details.location', 'auto', ConfigurationTarget.Global);
-			}
-			if (isPinned(inspect?.workspaceValue)) {
-				await configuration.update('graph.details.location', 'auto', ConfigurationTarget.Workspace);
-			}
-		},
-	},
-	{
-		// Replace the boolean `terminalLinks.showDetailsView` with the `terminalLinks.showIn` enum.
-		// Old default (`true` = show the Inspect view) maps to `inspect`; `false` maps to `quickpick`.
-		// Unset users fall through to the new `graph` default.
-		id: 'terminalLinks.showIn:enum',
-		migrate: async () => {
-			await configuration.migrate('terminalLinks.showDetailsView', 'terminalLinks.showIn', {
-				migrationFn: (v: unknown) => (v === false ? 'quickpick' : 'inspect'),
-			});
-		},
-	},
-	{
-		// Unpin installs that a passive AI-model resolve silently wrote to Copilot: resolving the fallback
-		// used to persist its result, so merely rendering an AI chip could write `ai.model`, after which
-		// signing in never re-evaluated. Such a write only ever landed in User settings, so only Global is
-		// inspected. Either tell on its own is enough to call it passive:
-		//  - the model is `copilot:gpt-4.1`, the passive fallback's hardcoded pick and the only Copilot id
-		//    GitLens has ever hardcoded. Copilot no longer serves it, so the setting is already inert —
-		//    it resolves to nothing and falls through to the fallback regardless.
-		//  - the AI picker was never opened on this machine, so no Copilot model here was ever chosen.
-		//    This covers the fallback's `?? models[0]` branch, which could have stored any id.
-		// A Copilot model other than gpt-4.1 on a machine where the picker HAS been opened is a real
-		// choice, and is left alone. Clearing lets the fallback re-evaluate: GitKraken AI once signed in.
-		id: 'ai.model:unpin-passive-copilot',
-		migrate: async (storage: Storage) => {
-			if (configuration.inspect('ai.model')?.globalValue !== 'vscode') return;
-
-			const isPassiveModel = configuration.inspect('ai.vscode.model')?.globalValue === 'copilot:gpt-4.1';
-			// `UsageTracker` is only a typed view over this key, and the Container doesn't exist yet here
-			const usages: Partial<Record<TrackedUsageKeys, TrackedUsage>> = storage.get('usages') ?? {};
-			const pickerOpened = (
-				['gitlens.ai.switchProvider', 'gitlens.ai.switchProvider:scm', 'gitlens.switchAIModel'] as const
-			).some(c => usages[`command:${c}:executed`] != null);
-
-			if (!isPassiveModel && pickerOpened) return;
-
-			await configuration.update('ai.model', undefined, ConfigurationTarget.Global);
-			await configuration.update('ai.vscode.model', undefined, ConfigurationTarget.Global);
-		},
-	},
-	{
-		// The Commit Graph's default home moved from the bottom panel to the GitLens side bar (#5545),
-		// and VS Code keeps a view where it last was — so existing users would stay in the panel.
-		// We can't move them from here because this runs before the Container exists.
-		// We just flag it for `applyPendingGraphSideBarMove` on the next ready.
-		// `version` still holds the *previous* version at this point — it's stored later, on ready — so null means a fresh install,
-		// which already gets the side bar from `package.json`.
-		id: 'graph.location:sidebar',
-		migrate: async (storage: Storage) => {
-			if ((storage.get('version') ?? storage.get('preVersion')) == null) return;
-
-			await storage.store('graph:pendingSideBarMove', true);
-		},
-	},
-];
-
-/** Consumes the one-shot flag set by the `graph.location:sidebar` migration.
- *  Resetting the view's location — not moving it — is what sends it to its newly declared container;
- *  it also reveals and expands the view, which is intended. */
-async function applyPendingGraphSideBarMove(container: Container): Promise<void> {
-	if (!container.storage.get('graph:pendingSideBarMove')) return;
-
-	// Clear first — a failure here must not re-arm the move on every activation
-	await container.storage.delete('graph:pendingSideBarMove');
+/** Consumes the one-shot flag set by the `views.legacy:hidden` migration, hiding Home, Cloud Patches
+ *  and Cloud Workspaces for upgraded profiles. Best-effort by design: each hide command acts only
+ *  while the container currently holding its view is the active composite of that container's
+ *  location (verified — a programmatic call resolves without doing anything otherwise, so command
+ *  resolution proves nothing). Views dragged into an inactive container are therefore left alone;
+ *  ones dragged into a simultaneously-active location (e.g. an open secondary side bar) may still be
+ *  hidden — harmless for the hide's intent either way. */
+async function applyPendingLegacyViewHiding(container: Container): Promise<void> {
+	if (!container.storage.get('views:pendingLegacyHide')) return;
 
 	try {
-		await executeCoreCommand('gitlens.views.graph.resetViewLocation');
+		// Ephemeral/automation profiles opt out of onboarding-style UI — don't force-reveal anything there
+		if (configuration.get('advanced.skipOnboarding')) {
+			Logger.debug('applyPendingLegacyViewHiding: skipped (advanced.skipOnboarding)');
+			await container.storage.delete('views:pendingLegacyHide');
+
+			return;
+		}
+
+		// Profiles that disabled Plus features may have no Graph to land on (its `when` hangs off
+		// `gitlens:plus:disabled`) — Home stays their main surface, so don't hide anything. Read the
+		// SETTING, not the context: `gitlens:plus:disabled` is computed debounced-async after ready and
+		// cannot be set yet here. The flag stays ARMED (not consumed): if Plus features come back later,
+		// the next activation performs the hide.
+		if (configuration.get('plusFeatures.enabled', undefined, true) === false) {
+			Logger.debug('applyPendingLegacyViewHiding: deferred (plus features disabled)');
+
+			return;
+		}
+
+		// Untrusted windows and any open virtual (GitHub) folder keep Cloud Patches/Workspaces
+		// `when`-excluded, so their hide commands can never register here — defer (flag stays armed) until
+		// a window where they can. The scheme test approximates `gitlens:hasVirtualFolders` (repo-based,
+		// set async after discovery — unreadable here); the mismatch fails safe in both directions
+		if (!workspace.isTrusted || workspace.workspaceFolders?.some(f => f.uri.scheme === 'vscode-vfs')) {
+			Logger.debug('applyPendingLegacyViewHiding: deferred (untrusted or virtual workspace)');
+
+			return;
+		}
+
+		// Claim the flag before acting: on a multi-window upgrade every window activates with it armed,
+		// and one forced reveal is enough
+		await container.storage.delete('views:pendingLegacyHide');
+
+		// The hide commands only act while the GitLens container's composite is materialized (their own
+		// metadata: "…if it is visible and the view container it is located in is visible") — verified:
+		// without this they resolve as silent no-ops. Focus commands can't materialize it reliably —
+		// they open whichever container holds their view (a hand-placed Graph would open that one) and
+		// resolve `null` instead of rejecting when the view isn't active. The container command is a
+		// TOGGLE, but at activation it only closes when the whole GitLens container was dragged into a
+		// currently-focused bottom panel — for a layout that curated, the hides bailing (so the views
+		// stay) is the directive-compliant outcome anyway. (In the side bars the already-visible-and-
+		// focused case just moves focus to the editor group — harmless, hides still work.) Note the
+		// reveal itself resolves the Graph webview (the pane is declared visible and starts expanded) —
+		// that cost is inherent to the hide.
+		await executeCoreCommand('workbench.view.extension.gitlens');
+
+		// Two passes so a late-resolving `when` can't stall the rest past the reveal (Cloud Patches
+		// waits on the org's drafts entitlement): hide whatever is ready now, then poll for stragglers.
+		// A `when` that never comes true isn't showing its view anyway — the common case (no drafts
+		// entitlement) burns the full budget for it; accepted, this runs voided off the critical path,
+		// once per install.
+		let remaining: ('home' | 'drafts' | 'workspaces')[] = ['home', 'drafts', 'workspaces'];
+		const deadline = Date.now() + 15000;
+		while (remaining.length) {
+			const cmds = await commands.getCommands(true);
+			const pending: typeof remaining = [];
+			for (const view of remaining) {
+				if (!cmds.includes(`gitlens.views.${view}.removeView`)) {
+					pending.push(view);
+					continue;
+				}
+
+				try {
+					await executeCoreCommand(`gitlens.views.${view}.removeView`);
+				} catch (ex) {
+					Logger.debug(`applyPendingLegacyViewHiding: hiding '${view}' failed (${String(ex)})`);
+				}
+			}
+
+			remaining = pending;
+			if (remaining.length === 0 || Date.now() > deadline) {
+				if (remaining.length) {
+					Logger.debug(
+						`applyPendingLegacyViewHiding: skipped '${remaining.join("', '")}' (never registered)`,
+					);
+				}
+				break;
+			}
+
+			await new Promise<void>(resolve => setTimeout(resolve, 1000));
+		}
+
+		// Land on the Graph LAST: its focus activates whichever container holds the view, so running it
+		// before the hides would deactivate the GitLens composite for anyone who hand-placed the Graph
+		// in another side-bar container, silently no-opping every hide. `preserveFocus` keeps the
+		// keyboard where it is; resolves as a harmless no-op if the Graph isn't available. Skipped for
+		// editor-layout profiles — not to avoid the webview (the reveal above already resolved it), but
+		// to avoid un-hiding or expanding a Graph pane they may have deliberately collapsed.
+		if (configuration.get('graph.layout') !== 'editor') {
+			await executeCoreCommand('gitlens.views.graph.focus', { preserveFocus: true });
+		}
 	} catch (ex) {
-		Logger.error(ex, 'applyPendingGraphSideBarMove');
+		Logger.error(ex, 'applyPendingLegacyViewHiding');
 	}
 }
 
