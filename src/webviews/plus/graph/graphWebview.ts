@@ -446,6 +446,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// return whether they sent (e.g. `notifyDidChangeBranchStateOnly`, `notifyDidChangeOverview`).
 	// The consumer in `sendPendingIpcNotifications` `void`s the call so the boolean is unused.
 	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean | void>>([
+		[DidChangeAgentSessionsNotification, () => this.notifyDidChangeAgentSessions()],
 		[DidChangeBranchStateNotification, () => this._producers.notifyDidChangeBranchStateOnly()],
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
@@ -1549,7 +1550,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onAgentSessionsChanged(sessions: AgentSessionState[]): void {
-		void this.host.notify(DidChangeAgentSessionsNotification, { sessions: sessions });
+		void this.notifyDidChangeAgentSessions(sessions);
 
 		// Agent membership drives the `agents` branches-visibility ref set, so any change to
 		// the live session list needs to recompute the included refs and push a fresh
@@ -1558,6 +1559,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this.getBranchesVisibility(this.getFiltersByRepo(repoPath)) === 'agents') {
 			void this.notifyDidChangeRefsVisibility();
 		}
+	}
+
+	/** Re-reads the live sessions rather than taking a captured array, so a queued replay ships current
+	 *  state instead of whatever was live when the hook fired. */
+	private async notifyDidChangeAgentSessions(sessions?: AgentSessionState[]): Promise<boolean> {
+		if (!this.host.ready || !this.host.visible) {
+			this.host.addPendingIpcNotification(DidChangeAgentSessionsNotification, this._ipcNotificationMap, this);
+			return false;
+		}
+
+		return this.host.notify(DidChangeAgentSessionsNotification, {
+			sessions: sessions ?? this.container.agentStatus?.getSerializedSessions() ?? [],
+		});
 	}
 
 	@ipcRequest(GetWipStatsRequest)
