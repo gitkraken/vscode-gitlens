@@ -1196,9 +1196,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	/** Routed from {@link GraphAppHost} when the extension pushes a selection — a host-initiated reveal
 	 *  (Show in Commit Graph, terminal links, deep links). The graph doesn't auto-scroll on a plain
-	 *  selection, so bring the revealed row into view. */
+	 *  selection, so bring the revealed row into view. A landing: the user acted somewhere else entirely,
+	 *  so leaving an already-visible row where it sits would answer "which one?" with nothing. */
 	ensureRowVisible(sha: string): void {
-		void this.graph?.navigateToCommit(sha, { source: 'host' });
+		void this.graph?.navigateToCommit(sha, { source: 'host', flash: true });
 	}
 
 	/** Routed from {@link GraphAppHost} when a graph context-menu action requests showing a
@@ -1351,7 +1352,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				if (isWipSelectionSha(sha)) {
 					this.unscopeToRevealWip(rowSha);
 				}
-				void this.graph?.navigateToCommit(rowSha, { source: 'selection-sync' });
+				void this.graph?.navigateToCommit(rowSha, { source: 'selection-sync', reveal: 'if-changed' });
 			}
 		}
 
@@ -1496,7 +1497,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// Wait for the graph to mount after the mode switch before asking it to reveal a row.
 			await this.updateComplete;
 		}
-		void this.graph?.navigateToCommit(e.detail.sha, { source: 'overview' });
+		void this.graph?.navigateToCommit(e.detail.sha, { source: 'overview', flash: true });
 	};
 
 	private handleOverviewBarSelect = async (e: CustomEvent<OverviewBarSelectDetail>): Promise<void> => {
@@ -1548,7 +1549,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `navigateToCommit` handles both and waits through the render + scope catch-up. The
 		// `openWipDetails` await above ensures the graph is mounted (e.g. after the displayMode
 		// switch) before we call it.
-		void this.graph?.navigateToCommit(id, { source: 'overview' });
+		void this.graph?.navigateToCommit(id, { source: 'overview', flash: true });
 	};
 
 	/** Resolves once the active scope has cleared (or a safety timeout elapses). Used after a
@@ -1916,7 +1917,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			} else if (scope.focalBranchTipSha != null) {
 				const sha = scope.focalBranchTipSha;
 				this._pendingFocalTipBranchRef = undefined;
-				void this.graph?.navigateToCommit(sha, { source: 'selection-sync' });
+				void this.graph?.navigateToCommit(sha, { source: 'selection-sync', reveal: 'if-changed' });
 			}
 		}
 
@@ -2223,7 +2224,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		void this.graph?.navigateToCommit(e.detail.sha, { source: 'details' });
+		// A parent-SHA or autolink click usually walks to a neighbor, which the reveal rule leaves in place —
+		// the panel, not the graph, is what the user is reading. It still flashes: the click was theirs, and a
+		// selection that moves without the viewport moving has nothing else marking it.
+		void this.graph?.navigateToCommit(e.detail.sha, { source: 'details', flash: true });
 	}
 
 	private _nextStepsShownWhileHidden = false;
@@ -3025,7 +3029,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.graphState.clearScope();
 		}
 
-		void this.graph?.navigateToCommit(uncommitted, { source: 'wip' });
+		void this.graph?.navigateToCommit(uncommitted, { source: 'wip', flash: true });
 	};
 
 	private handleToggleDetails(e: CustomEvent<{ altKey?: boolean } | void>) {
@@ -3233,7 +3237,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	private handleSidebarPanelSelect(e: CustomEvent<GraphSidebarPanelSelectEventDetail>): void {
-		void this.graph?.navigateToCommit(e.detail.sha, { source: 'sidebar' });
+		void this.graph?.navigateToCommit(e.detail.sha, { source: 'sidebar', flash: true });
 		if (this.shouldAutoCollapseOverlay()) {
 			this.graph?.focus();
 		}
@@ -3295,7 +3299,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const sha = this.getOverviewBranchSelectionSha(e.detail.branchId);
 		if (sha != null) {
-			void this.graph?.navigateToCommit(sha, { source: 'overview' });
+			void this.graph?.navigateToCommit(sha, { source: 'overview', flash: true });
 		}
 
 		// If the user clicked the card without first hovering, the merge-target tip SHA isn't known
@@ -3394,7 +3398,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 			const sha = this.getOverviewBranchSelectionSha(branch.id);
 			if (sha != null) {
-				void this.graph?.navigateToCommit(sha, { source: 'sidebar' });
+				void this.graph?.navigateToCommit(sha, { source: 'sidebar', flash: true });
 			}
 			return;
 		}
@@ -3443,7 +3447,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// If the helper returned the tip and tip isn't loaded, the IPC `LoadRowRequest`
 			// fallback in `navigateToCommit` will fetch it; otherwise the fast path or
 			// synthetic-WIP retry handles it.
-			void this.graph?.navigateToCommit(sha, { source: 'overview' });
+			void this.graph?.navigateToCommit(sha, { source: 'overview', flash: true });
 			return;
 		}
 
@@ -3632,7 +3636,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			sha = closest.sha;
 		}
 
-		this.graph.selectCommits([sha], { ensureVisible: true });
+		// A landing: the click happened on the minimap, so the row's resting position is the only thing that
+		// tells the user which day they hit.
+		this.graph.selectCommits([sha], { ensureVisible: true, flash: true });
 
 		if (e.target != null) {
 			const { target } = e;
@@ -3793,9 +3799,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this._selectedCommit = { sha: target.sha, repoPath: target.repoPath, commitLite: target.commitLite };
 			// WIP selections are recorded as the bare `uncommitted` revision + the worktree they came from;
 			// re-select THAT worktree's row, or navigation maps the revision to our own WIP row.
+			// Stepping back and forward mostly revisits rows still in view, which the reveal rule leaves
+			// alone, so the graph follows the panel without fighting it for attention. Flashes because the
+			// user pressed back/forward, and the row taking the selection needs to say so.
 			void this.graph?.navigateToCommit(
 				target.sha === uncommitted && target.repoPath ? createWipRowId(target.repoPath) : target.sha,
-				{ source: 'history' },
+				{ source: 'history', flash: true },
 			);
 		}
 	}

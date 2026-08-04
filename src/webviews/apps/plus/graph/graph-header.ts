@@ -782,6 +782,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				// cannot occur until the user changes the view.
 				deferSynthetic: false,
 				signal: abort.signal,
+				// A landing: stepping results is driven from the search box in the header, so each hit needs
+				// to announce where it put you rather than rely on you having watched the rows.
+				flash: true,
 			});
 		} finally {
 			if (this._activeNavigationAbort === abort) {

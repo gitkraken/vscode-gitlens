@@ -177,6 +177,10 @@ export interface RowRenderContext {
 	 *  itself so it's NEARER than the row's own `commit.contextData` and wins there. */
 	avatarVscodeContext?: string;
 	isSelected: boolean;
+	/** This row is the one a jump just landed on, and its announcing flash is playing. Bound to the ROW
+	 *  rather than read off `.is-selected` at animation time, so a selection that moves during the 700ms
+	 *  can't inherit a wash it didn't earn. */
+	isLandingFlash?: boolean;
 	isFocused: boolean;
 	isAnchor: boolean;
 	/** The row's dominant anchor for styling purposes only — one winner. The MARKERS read the three
@@ -1277,6 +1281,9 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	}
 	if (ctx.isSelected) {
 		rowClasses += ' is-selected';
+	}
+	if (ctx.isLandingFlash) {
+		rowClasses += ' is-landing-flash';
 	}
 	if (ctx.isFocused) {
 		rowClasses += ' is-focused';

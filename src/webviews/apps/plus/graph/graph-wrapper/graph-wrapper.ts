@@ -19,6 +19,7 @@ import type {
 	GraphMissingRefsMetadata,
 	GraphRef,
 	GraphRefMetadataItem,
+	GraphRevealMode,
 	GraphScope,
 	GraphSelectedRows,
 	GraphSelection,
@@ -82,12 +83,12 @@ import {
 import './gl-lit-graph.js';
 
 /**
- * Where a navigation came from. DIAGNOSTIC ONLY — it feeds `getGraphDebugDiagnostics` and nothing else.
+ * Where a navigation came from, for diagnostics ONLY — never consult it to decide reveal behavior.
  *
- * A source names the code path that dispatched, which is not the same as what the user was trying to see:
- * `jump` covers both ref-find stepping and the Pull popover's jump-to-incoming, and `wip` and `wip-jump`
- * differ in how they RESOLVE a target rather than in how deliberate they are. Anything that wants to know
- * a caller's intent has to be told, not infer it from here.
+ * A source names the code path that dispatched, not what the user was trying to see, and several cover
+ * dispatchers with opposite intent: `jump` covers both ref-find stepping and the Pull popover's
+ * jump-to-incoming; `wip` and `wip-jump` differ in how they RESOLVE a target, not in how deliberate they
+ * are. Reveal behavior is stated explicitly per call site via {@link GraphNavigationOptions.reveal}.
  */
 export type GraphNavigationSource =
 	| 'details'
@@ -103,12 +104,31 @@ export type GraphNavigationSource =
 	| 'wip-jump';
 
 export type GraphNavigationOptions = {
-	/** Diagnostic origin for this navigation — see {@link GraphNavigationSource}. */
+	/** Diagnostic origin for this navigation. Never drives behavior — see {@link GraphNavigationSource}. */
 	source?: GraphNavigationSource;
 	/** Cancel this navigation when its caller no longer owns the user intent. */
 	signal?: AbortSignal;
 	/** Move the graph's keyboard/ARIA focus anchor to the selected row after it renders. */
 	focus?: boolean;
+	/**
+	 * When the reveal may act. Defaults to `'always'`, which is safe as a default BECAUSE the rule it runs is
+	 * conservative: a row already sitting comfortably in view is left alone, so "always" means "always
+	 * evaluate", not "always scroll". Only pushes nobody asked for need `'if-changed'`.
+	 *
+	 * Note there is no way to ask for a particular POSITION. Callers know why they are navigating; only the
+	 * graph knows where the row currently sits, and that is what decides whether and how far to move.
+	 */
+	reveal?: GraphRevealMode;
+	/**
+	 * Play the landing flash once the row is revealed. Orthogonal to {@link reveal}, and NOT conditioned on
+	 * the viewport having moved: the flash draws the eye to the row, which a navigation that lands on an
+	 * already-visible row needs MORE than one that scrolls, not less — nothing else marks that it happened.
+	 *
+	 * The line it tracks is whether the USER asked for this navigation. Set it for anything a person
+	 * clicked; leave it off for selection syncs and re-anchors, where an ambient flash is noise (the same
+	 * reason `9eb626264` deleted the row-marker rail's selection flash).
+	 */
+	flash?: boolean;
 	/**
 	 * Whether a client-only WIP row that is not currently renderable should remain pending until the
 	 * decoration layer synthesizes it. Search disables this so a WIP excluded by the active view is
@@ -122,6 +142,10 @@ export type GraphNavigationResult =
 	| { status: 'not-found' }
 	| { status: 'cancelled' };
 
+/** A navigation's resolved reveal intent, carried on the pending record so a coalesced repeat ask can be
+ *  merged into it rather than discarded (see {@link GlGraphWrapper.navigateToCommit}). */
+type GraphRevealIntent = { mode: GraphRevealMode; flash: boolean };
+
 type PendingGraphNavigation = {
 	abortCleanup?: () => void;
 	/** Set when this navigation issued a host `LoadRowRequest` — the host walk it started is UNCAPPED,
@@ -133,6 +157,7 @@ type PendingGraphNavigation = {
 	generation: number;
 	repositoryId?: string;
 	repoPath?: string;
+	reveal: GraphRevealIntent;
 	signal?: AbortSignal;
 	sha: string;
 	timeout?: ReturnType<typeof setTimeout>;
@@ -413,11 +438,21 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private onJumpToCommit = (e: CustomEvent<{ sha: string; focus?: boolean }>) => {
-		void this.navigateToCommit(e.detail.sha, { source: 'jump', focus: e.detail.focus });
+	// Reveal intent rides on the EVENT, not on the source: `gl-jump-to-commit` is dispatched by affordances
+	// as different as a ref pill, a WIP row's neighbor button and the Pull popover, and only the dispatcher
+	// knows whether its target is one row away or across the history.
+	private onJumpToCommit = (
+		e: CustomEvent<{ sha: string; focus?: boolean; reveal?: GraphRevealMode; flash?: boolean }>,
+	) => {
+		void this.navigateToCommit(e.detail.sha, {
+			source: 'jump',
+			focus: e.detail.focus,
+			reveal: e.detail.reveal,
+			flash: e.detail.flash,
+		});
 	};
 
-	private onJumpToNearestWip = (e: CustomEvent<{ fromSha: string }>) => {
+	private onJumpToNearestWip = (e: CustomEvent<{ fromSha: string; reveal?: GraphRevealMode; flash?: boolean }>) => {
 		const rows = this.graphState.rows;
 		// PEER rows only — the graph's own is passed separately below as the flagged `primaryWip`
 		// candidate (keyed by `uncommitted`, which is what `navigateToCommit` resolves back to its row).
@@ -458,7 +493,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		}
 
 		// Last-resort: no in-column WIP and no ancestry match → jump to the primary (uncommitted).
-		void this.navigateToCommit(target ?? uncommitted, { source: 'wip-jump' });
+		void this.navigateToCommit(target ?? uncommitted, {
+			source: 'wip-jump',
+			reveal: e.detail.reveal,
+			flash: e.detail.flash,
+		});
 	};
 
 	// Cache keyed by (rows, wipRowsById, primaryRepoPath, scope, branchesVisibility,
@@ -1051,7 +1090,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const target = this.getCurrentBranchSelectionSha();
 		if (target == null || anchorShas.includes(target)) return;
 
-		void this.navigateToCommit(target, { source: 'visibility' });
+		void this.navigateToCommit(target, { source: 'visibility', reveal: 'if-changed' });
 	}
 
 	/** The current branch's graph-row sha to select (its WIP if it renders under the active filters,
@@ -1115,9 +1154,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.cancelPendingSelection();
 		const rows = this.selectCommitsCore(shas);
 		// `ensureVisible` is opt-in: scroll the (first) selected row into view ONLY when the caller asks
-		// (search-result nav, etc.) — a plain selection never auto-scrolls. No-op if already on screen.
+		// (search-result nav, etc.) — a plain selection never auto-scrolls.
 		if (options?.ensureVisible && shas.length > 0) {
-			this.querySelector('gl-lit-graph')?.scrollToSha(shas[0]);
+			this.querySelector('gl-lit-graph')?.scrollToSha(shas[0], {
+				mode: options.reveal ?? 'always',
+				flash: options.flash === true,
+			});
 		}
 		return rows;
 	}
@@ -1273,6 +1315,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		deferSynthetic: boolean,
 		focus: boolean,
 		signal: AbortSignal | undefined,
+		reveal: GraphRevealIntent,
 		debugMark?: string,
 	): Promise<GraphNavigationResult> {
 		let resolve!: (result: GraphNavigationResult) => void;
@@ -1284,6 +1327,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			generation: generation,
 			repositoryId: this._selectIntentRepositoryId,
 			repoPath: this._selectIntentRepoPath,
+			reveal: reveal,
 			signal: signal,
 			sha: sha,
 			promise: promise,
@@ -1398,6 +1442,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const deferSynthetic = options?.deferSynthetic !== false;
 		const focus = options?.focus === true;
 		const signal = options?.signal;
+		// Resolved once and shared by all three reveal sites below (loaded, deferred synthetic WIP, and
+		// host-loaded), so a row that has to be paged in lands the same way one already in hand does.
+		const reveal: GraphRevealIntent = {
+			mode: options?.reveal ?? 'always',
+			flash: options?.flash === true,
+		};
 		const pending = this._pendingNavigation;
 		if (
 			pending?.sha === sha &&
@@ -1407,6 +1457,19 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			pending.signal === signal
 		) {
 			pending.focus ||= focus;
+			// Same upgrade-don't-discard rule `focus` follows: a repeat ask for the row already in flight can
+			// carry STRONGER intent than the one queued — an ambient selection-sync paging a row in, then the
+			// user clicking that same sha — and coalescing must not swallow it. MERGED, not replaced, and each
+			// axis independently, so neither can be downgraded: a later `'if-changed'` can't demote a pending
+			// `'always'`, and a flash-only upgrade still re-arms.
+			const merged: GraphRevealIntent = {
+				mode: pending.reveal.mode === 'always' || reveal.mode === 'always' ? 'always' : 'if-changed',
+				flash: pending.reveal.flash || reveal.flash,
+			};
+			if (merged.mode !== pending.reveal.mode || merged.flash !== pending.reveal.flash) {
+				pending.reveal = merged;
+				litGraph?.scrollToSha(sha, merged);
+			}
 			return pending.promise;
 		}
 
@@ -1428,12 +1491,20 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				loaded: row != null,
 			});
 		}
-		const navigation = this.createPendingNavigation(generation, sha, deferSynthetic, focus, signal, debugMark);
+		const navigation = this.createPendingNavigation(
+			generation,
+			sha,
+			deferSynthetic,
+			focus,
+			signal,
+			reveal,
+			debugMark,
+		);
 
 		if (row != null) {
 			this.selectCommitsCore([sha], rowBySha);
 			// Navigation implies reveal.
-			litGraph?.scrollToSha(sha);
+			litGraph?.scrollToSha(sha, reveal);
 			await this.ensureRendered();
 			if (
 				!this._selectIntent.isCurrent(generation) ||
@@ -1465,7 +1536,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			}
 
 			this._selectIntent.defer(sha, generation);
-			litGraph?.scrollToSha(sha);
+			litGraph?.scrollToSha(sha, reveal);
 
 			// A peer worktree's WIP row is only synthesized once its ANCHOR commit is loaded — the
 			// interleave drops it otherwise — so deferring alone would wait for a row that can never
@@ -1509,7 +1580,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// Selection is client-owned: hold the latest intent until the rows push makes it renderable.
 		this._selectIntent.defer(sha, generation);
 		// Row isn't loaded yet — queue the reveal so it fires once the host's rows land.
-		litGraph?.scrollToSha(sha);
+		litGraph?.scrollToSha(sha, reveal);
 		return navigation;
 	}
 	private onColumnsChanged(event: CustomEventType<'gl-graph-changecolumns'>) {

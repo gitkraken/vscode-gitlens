@@ -584,9 +584,12 @@ export class GlDetailsWipHeader extends LitElement {
 		const sha = this.wip?.branch?.reference?.sha;
 		if (!sha) return;
 
+		// The graph decides whether this moves the viewport — the tip can be the next row down or far away,
+		// depending on how many other branches' commits sort between it and the WIP row. Flashes regardless:
+		// the user clicked, and without a scroll the wash is the only signal the selection went anywhere.
 		this.dispatchEvent(
 			new CustomEvent('gl-jump-to-commit', {
-				detail: { sha: sha },
+				detail: { sha: sha, flash: true },
 				bubbles: true,
 				composed: true,
 			}),

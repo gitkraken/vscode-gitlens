@@ -2343,14 +2343,15 @@ gl-lit-graph {
 		background-color: var(--ref-color);
 	}
 
-	// Landing flash: a brief wash over the row the finder just selected, settling into ordinary
-	// selection. Scoped to `.is-selected` because the find always selects what it lands on, so no
-	// per-row state has to be threaded through the virtualizer to find the target.
-	.gl-graph--find-flash .gl-graph__row.is-selected {
-		animation: gl-graph-find-flash 700ms var(--gl-ease-out, ease-out) 1;
+	// Landing flash: a brief wash over the row a jump just landed on, settling into ordinary selection.
+	// Bound to the LANDED ROW (`is-landing-flash`, keyed by sha in the row renderer) rather than to whichever
+	// row happens to be `.is-selected` while it plays — the class outlives the jump by 700ms, and a selection
+	// moving inside that window would otherwise hand the wash to a row that never earned it.
+	.gl-graph__row.is-landing-flash {
+		animation: gl-graph-landing-flash 700ms var(--gl-ease-out, ease-out) 1;
 	}
 
-	@keyframes gl-graph-find-flash {
+	@keyframes gl-graph-landing-flash {
 		0% {
 			background-color: var(--vscode-editor-findMatchHighlightBackground, hsl(var(--brand) / 55%));
 		}
@@ -2365,7 +2366,7 @@ gl-lit-graph {
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.gl-graph--find-flash .gl-graph__row.is-selected {
+		.gl-graph__row.is-landing-flash {
 			animation: none;
 		}
 	}

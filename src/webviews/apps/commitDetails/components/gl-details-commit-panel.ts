@@ -585,9 +585,12 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const fromSha = this.commit?.sha;
 		if (!fromSha) return;
 
+		// The graph decides whether this moves the viewport — the WIP this resolves to usually sits on the
+		// commit the panel is describing, but can be a peer worktree's and far away. Flashes regardless: the
+		// user clicked, and without a scroll the wash is the only signal the selection went anywhere.
 		this.dispatchEvent(
 			new CustomEvent('gl-jump-to-nearest-wip', {
-				detail: { fromSha: fromSha },
+				detail: { fromSha: fromSha, flash: true },
 				bubbles: true,
 				composed: true,
 			}),

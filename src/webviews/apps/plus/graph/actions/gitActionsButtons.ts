@@ -891,7 +891,10 @@ export class PushPullButton extends LitElement {
 
 		// Same path the WIP row's jump and the overview bar's legs use — it pages the row in when it isn't
 		// loaded, then selects and reveals it.
-		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha } }));
+		//
+		// A landing: this fires from a popover in the HEADER, so the user isn't looking at the rows, and an
+		// incoming commit that happens to already be on screen would otherwise answer the click with nothing.
+		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha, flash: true } }));
 	}
 
 	private onJumpClick(e: MouseEvent): void {

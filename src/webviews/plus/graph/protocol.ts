@@ -230,12 +230,28 @@ export interface GraphRef {
  *  matches", which the WIP-visibility helpers distinguish from an empty `{}` ("no filter"). */
 export const emptySetMarker = 'gk.empty-set-marker' as const;
 
+/**
+ * When a reveal is allowed to act. WHERE it lands is not a caller's choice — one rule decides that: a row
+ * with enough history already beneath it is left exactly where it is, and anything else is scrolled to a
+ * fixed fraction down the viewport.
+ *
+ * - `'always'` — evaluate that rule on every ask. For anything a person did.
+ * - `'if-changed'` — evaluate it only when the target differs from the last row revealed; a repeat ask for
+ *   the same row does nothing at all. For pushes nobody asked for (a host selection sync, a re-anchor),
+ *   where re-applying the rule would drag a reader back to a row they had deliberately scrolled away from.
+ */
+export type GraphRevealMode = 'always' | 'if-changed';
+
 /** Options for the graph component's `selectCommits`. */
 export interface SelectCommitsOptions {
 	/** If true, toggle selection; if false, replace selection. */
 	toggle?: boolean;
 	/** If true, scroll to ensure the focused commit is visible. */
 	ensureVisible?: boolean;
+	/** When `ensureVisible` may act. Defaults to `'always'`. */
+	reveal?: GraphRevealMode;
+	/** Play the landing flash once the row is revealed. Independent of {@link reveal}. */
+	flash?: boolean;
 }
 
 /** A read-only graph row as surfaced by the graph component's selection APIs. */

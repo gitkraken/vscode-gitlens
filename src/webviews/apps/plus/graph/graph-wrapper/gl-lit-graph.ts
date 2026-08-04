@@ -80,6 +80,7 @@ import type {
 	GraphRefMetadataItem,
 	GraphRefMetadataType,
 	GraphRefsMetadata,
+	GraphRevealMode,
 	GraphRowStats,
 	GraphScope,
 	GraphScrollMarkerTypes,
@@ -136,12 +137,29 @@ type LitVirtualizer = HTMLElement & {
 	updateComplete: Promise<boolean>;
 	// Resolves after the virtualizer has SIZED ITS SPACER and applied its own scroll correction — strictly
 	// later than `updateComplete`, which only covers its Lit render. A scroll write that has to survive
-	// newly-grown content has to wait for this one (see centerRowAt).
+	// newly-grown content has to wait for this one (see revealIndexAt).
 	layoutComplete?: Promise<void>;
 };
 
 // Expanded-density column header height in px (matches `.gl-graph__header` height: 2.4rem @ 1rem=10px).
 const headerHeightPx = 24;
+// Where a jump parks its target, as a fraction of the viewport (0 = top edge, 0.5 = centered). A third
+// leaves the bulk of the viewport BELOW the row, which is the direction history reads in — you jump to a
+// tip, a PR head or WIP to walk back from it. Clamping covers the top of the graph for free: WIP and recent
+// tips land at `scrollTop = 0` with no special case.
+const landingRevealRatio = 1 / 3;
+// How far down the viewport a row may sit and still be left alone. Past this line it has less than a third
+// of a screen of history under it, which is the thing you came to read, so it gets scrolled up to
+// `landingRevealRatio`.
+//
+// Deliberately NOT equal to the landing: the gap between the two is a deadband. Were they the same, a row
+// parked exactly on the line would re-scroll on the next jump, and stepping through search hits would drag
+// the viewport a row at a time. With the gap, a landing buys roughly a third of a screen of slack — hits
+// walk down a STATIONARY page and the view snaps once, at the end. (vim's `scrolljump` exists for exactly
+// this reason.)
+const revealComfortRatio = 2 / 3;
+// Dead center. Only the scroll-marker rail wants it (see `jumpToScrollMarker`).
+const centerRevealRatio = 0.5;
 // How close (px) the cursor must be to a scroll-marker row for it to highlight/tooltip — a "magnet"
 // so dense, merged markers are each reachable by sweeping, without false hits over empty rail.
 const scrollMarkerMagnetPx = 8;
@@ -398,6 +416,8 @@ interface RenderCtx {
 	nodeMode: 'compact' | 'avatar';
 	nodeAvatars: boolean;
 	selected: ReadonlySet<string>;
+	/** Row a jump just landed on, while its announcing flash plays (see `_landingFlashSha`). */
+	landingFlashSha?: string;
 	focusedSha: string | undefined;
 	anchorShas?: ReadonlySet<string>;
 	focalTipShas?: ReadonlySet<string>;
@@ -645,10 +665,12 @@ export class GlLitGraph extends LitElement {
 	// Pill key of the ref the find widget last landed on — that pill wears the selected/hover fill so
 	// it's identifiable among the others on its row. Read live by the ref-pill hooks.
 	private _refFindHitKey?: string;
-	// Whether the find's landing flash is playing. Scoped to the VIEWPORT rather than threaded per-row:
-	// the find always SELECTS what it lands on, so `.is-selected` already identifies the target row.
-	@state() private _refFindFlashing = false;
-	private _refFindFlashTimer?: ReturnType<typeof setTimeout>;
+	// Sha of the row whose landing flash is playing, or undefined for none. Keyed on the SHA rather than as a
+	// viewport-level flag over `.is-selected`: the class outlives the write that armed it by 700ms, and a
+	// selection moving inside that window would hand the wash to a row that never earned it (a click right
+	// after a jump). The row renderer reads this, so virtualizer recycling can't carry it either.
+	@state() private _landingFlashSha?: string;
+	private _landingFlashTimer?: ReturnType<typeof setTimeout>;
 	// Sha of a find target the host is still paging in, with the row index it was last revealed at.
 	private _refFindLoadingSha?: string;
 	private _refFindLoadingRevealedIndex?: number;
@@ -891,6 +913,7 @@ export class GlLitGraph extends LitElement {
 			nodeMode: c.nodeMode,
 			avatars: c.nodeAvatars,
 			isSelected: c.selected.has(row.sha),
+			isLandingFlash: c.landingFlashSha != null && row.sha === c.landingFlashSha,
 			isFocused: row.sha === c.focusedSha,
 			isAnchor: isAnchor,
 			anchorKind: anchorKind,
@@ -2072,6 +2095,7 @@ export class GlLitGraph extends LitElement {
 			nodeMode: nodeMode,
 			nodeAvatars: nodeAvatars,
 			selected: this.selectedShas,
+			landingFlashSha: this._landingFlashSha,
 			focusedSha: focusedSha,
 			anchorShas: this.scopeAnchors.anchorShas,
 			focalTipShas: this.scopeAnchors.focalTipShas,
@@ -2291,6 +2315,12 @@ export class GlLitGraph extends LitElement {
 			this._viewportTopSha = undefined;
 			this._viewportTopIndex = 0;
 			this._viewportScrollTop = 0;
+			// Same overlapping-sha hazard, one field over: a sha revealed in the PREVIOUS repo would make an
+			// `'if-changed'` reveal for the same sha here read as "already handled" and silently decline,
+			// leaving the newly selected row wherever it happened to fall. Not folded into
+			// `cancelPendingReveal` — cancelling a queued reveal (a click does it) must NOT forget what was
+			// last revealed, or every cancel would re-enable a passive re-push we mean to suppress.
+			this._lastRevealedSha = undefined;
 		}
 
 		if (rows.length === 0) {
@@ -2674,7 +2704,11 @@ export class GlLitGraph extends LitElement {
 	// `focus: false` keeps the keyboard where it is — the ref find widget steps through matches while the
 	// user is still typing, so taking the tree's focus mid-jump would strand them. Everything else jumps
 	// with focus, which is the default.
-	private jumpToRefRow(sha: Sha, options?: { focus?: boolean }): void {
+	//
+	// Both callers land and both flash — a ref's tip is exactly the "jump here, then read back through
+	// history" case the landing ratio is shaped for, and the flash is left to the reveal so it fires when the
+	// row arrives rather than when the click did (which for an unpaged target are far apart).
+	private jumpToRefRow(sha: Sha, options?: { focus?: boolean; flash?: boolean }): void {
 		const focus = options?.focus ?? true;
 		// If the target is hidden inside a collapsed lane, expand that lane first so it can be revealed —
 		// scrollToSha keeps the reveal PENDING and retries once the expanded row renders.
@@ -2692,7 +2726,11 @@ export class GlLitGraph extends LitElement {
 		if (focus) {
 			this.treeRef.value?.focus();
 		}
-		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha, focus: focus } }));
+		document.dispatchEvent(
+			new CustomEvent('gl-jump-to-commit', {
+				detail: { sha: sha, focus: focus, flash: options?.flash ?? true },
+			}),
+		);
 	}
 
 	// Lazily request ref metadata (ahead/behind, PRs, issues) for the tracked refs in view that don't
@@ -4424,7 +4462,7 @@ export class GlLitGraph extends LitElement {
 				${ref(this.viewportRef)}
 				class="gl-graph__viewport scrollable${
 					this.windowFocused === false ? ' gl-graph--window-unfocused' : ''
-				}${this._refFindFlashing ? ' gl-graph--find-flash' : ''}"
+				}"
 				@keydown=${this.handleViewportKeydown}
 				@focusin=${this.onFocusIn}
 				@click=${this.onClick}
@@ -4907,6 +4945,10 @@ export class GlLitGraph extends LitElement {
 	// otherwise the row at the clicked position (the rail doubles as a click-to-jump navigator). Rows
 	// are fixed-height, so the target scrollTop is a direct index × rowHeight (no measurement needed).
 	// Driven from pointerup (not @click) so it coexists with the drag-scrub (only fires when no drag).
+	//
+	// The one affordance that keeps DEAD CENTER rather than the landing ratio: the rail is positional, so
+	// the clicked Y already says where in the viewport the row belongs, and an offset landing would read as
+	// having missed the click.
 	private jumpToScrollMarker(container: HTMLElement, clientY: number): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller == null) return;
@@ -4923,7 +4965,7 @@ export class GlLitGraph extends LitElement {
 			index = Math.round(((clientY - rect.top) / rect.height) * total);
 		}
 
-		this.centerRowAt(index);
+		this.revealIndexAt(index, centerRevealRatio);
 	}
 
 	// ─── Interaction (delegated; rows carry no per-row listeners) ──────────────
@@ -5046,12 +5088,12 @@ export class GlLitGraph extends LitElement {
 		);
 	}
 
-	// Cancel a ref-pill activation still waiting on its deferral timer.
-	private clearRefFindFlashTimer(): void {
-		if (this._refFindFlashTimer == null) return;
+	// Cancel a landing flash still waiting on its removal timer.
+	private clearLandingFlashTimer(): void {
+		if (this._landingFlashTimer == null) return;
 
-		clearTimeout(this._refFindFlashTimer);
-		this._refFindFlashTimer = undefined;
+		clearTimeout(this._landingFlashTimer);
+		this._landingFlashTimer = undefined;
 	}
 
 	private cancelPendingPillActivation(): void {
@@ -5072,7 +5114,7 @@ export class GlLitGraph extends LitElement {
 		// scroll the view away instead of just selecting what was clicked — the intermittent "jumps instead
 		// of selects". The jump button stops propagation, so its own freshly-queued reveal never reaches here.
 		// Through `cancelPendingReveal` so the reveal GENERATION bumps too: a bare assignment leaves an
-		// in-flight post-layout re-assert (centerRowAt) believing it still owns the viewport, and it would
+		// in-flight post-layout re-assert (revealIndexAt) believing it still owns the viewport, and it would
 		// land after this click and scroll away from what was just selected.
 		this.cancelPendingReveal();
 
@@ -5128,9 +5170,15 @@ export class GlLitGraph extends LitElement {
 			// commit the working changes sit on) — a client-side scroll+select via the same
 			// `gl-jump-to-commit` path the WIP details header uses (graph-wrapper's onJumpToCommit →
 			// navigateToCommit); NOT a host round-trip like data-row-action.
+			//
+			// Says nothing about distance, because it can't: this same attribute is emitted by the WIP
+			// row-marker pill, which exists only when HEAD is NOT the next row. The reveal rule sorts it out —
+			// a tip already sitting in view stays put, one crammed at the bottom or off-screen gets landed.
+			// Flashes either way: when nothing scrolls, the wash is the ONLY thing that pulls the eye to the
+			// row that just took the selection.
 			const jumpSha = el.getAttribute('data-jump-sha');
 			if (jumpSha != null) {
-				document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha } }));
+				document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha, flash: true } }));
 				event.stopPropagation();
 				return;
 			}
@@ -5138,11 +5186,16 @@ export class GlLitGraph extends LitElement {
 			// The inverse: a worktree branch-tip row's "Jump to Working Changes" button jumps to the WIP
 			// row sitting on this commit. Pass the row's own sha as `fromSha`; graph-wrapper's
 			// onJumpToNearestWip resolves it (exact-anchor match) to that worktree's WIP row — the same
-			// client-side path the commit details panel's chip uses.
+			// client-side path the commit details panel's chip uses. Distance is likewise unknowable here: the
+			// resolved WIP can be a peer worktree's, matched by lane or ancestry, and arbitrarily far away.
 			if (el.getAttribute('data-jump-nearest-wip') != null) {
 				const sha = this.resolveSha(event);
 				if (sha != null) {
-					document.dispatchEvent(new CustomEvent('gl-jump-to-nearest-wip', { detail: { fromSha: sha } }));
+					document.dispatchEvent(
+						new CustomEvent('gl-jump-to-nearest-wip', {
+							detail: { fromSha: sha, flash: true },
+						}),
+					);
 				}
 				event.stopPropagation();
 				return;
@@ -6515,37 +6568,73 @@ export class GlLitGraph extends LitElement {
 	// navigateToCommit) — generic selection changes (a click, details-panel sync) never auto-
 	// scroll. A reveal for a not-yet-loaded row is held and flushed when the row arrives.
 	private _pendingRevealSha?: string;
-	private _pendingRevealPosition: 'center' | 'nearest' = 'center';
+	private _pendingRevealMode: GraphRevealMode = 'always';
+	private _pendingRevealFlash = false;
+	/** Target of the last reveal this element evaluated — the `'if-changed'` gate compares against it. Set
+	 *  whether or not that reveal ended up scrolling, since "we already dealt with this row" is the question
+	 *  it answers, not "we moved for this row". */
+	private _lastRevealedSha?: string;
 
-	/** Scroll the row for `sha` into view (centered by default) — but only when it's currently
-	 *  off-screen, so revealing an already-visible row (e.g. a search hit on screen) doesn't jump.
-	 *  If the row isn't loaded yet, the reveal is deferred until it appears. */
-	scrollToSha(sha: string, position: 'center' | 'nearest' = 'center'): void {
+	/**
+	 * Scroll the row for `sha` into view, deferring until the row appears if it isn't loaded yet.
+	 *
+	 * WHERE it lands isn't a caller's choice — {@link flushPendingReveal} owns that. `mode` says only when
+	 * the rule may run: `'always'` for anything a person did, `'if-changed'` for pushes nobody asked for.
+	 *
+	 * `flash` is deliberately a separate axis — announcing a landing and deciding whether to move for it are
+	 * different questions, and with this rule "didn't move" is the common answer.
+	 */
+	scrollToSha(sha: string, options?: { mode?: GraphRevealMode; flash?: boolean }): void {
 		// A deliberate reveal takes precedence over a pending lane-collapse scroll anchor — and over any
 		// anchor RETRY already in flight, which would otherwise land after the reveal (its `_pendingRevealSha`
 		// guard reads false once the reveal has flushed) and undo it.
 		this._pendingScrollAnchorTop = undefined;
 		this._scrollAnchorGeneration++;
 		this._pendingRevealSha = sha;
-		this._pendingRevealPosition = position;
+		this._pendingRevealMode = options?.mode ?? 'always';
+		this._pendingRevealFlash = options?.flash === true;
 		this.flushPendingReveal();
 	}
 
 	/** Cancel a queued reveal and any post-layout retry. User selection and repository changes win. */
 	cancelPendingReveal(): void {
 		this._pendingRevealSha = undefined;
+		this._pendingRevealFlash = false;
 		this._revealGeneration++;
 	}
 
-	// `scrollToIndex(idx, 'nearest')` replacement that also honors `gitlens.graph.scrollRowPadding` —
-	// rows of margin kept from the viewport edge. Used
-	// by every 'nearest' reveal (keyboard nav, jump-to-HEAD/-sha, focus-in ensure-visible, the
-	// pending-reveal retry below) — deliberate-reveal-only, NEVER the scroll hot path, so the one live
-	// `scrollTop` read below is fine (mirrors the plain-visibility checks these same call sites already
-	// did). All size math otherwise comes from cached geometry (`scrollerClientHeight`/`rowHeight`) — no
-	// layout-forcing reads. Padding is clamped to leave at least one row of "nearest" slack either side;
-	// a clamp-to-zero (tiny viewport, or the setting itself is 0) falls through to the exact prior
-	// behavior.
+	/**
+	 * Whether the row at `idx` is already somewhere worth leaving it — visible, AND with at least
+	 * `1 - revealComfortRatio` of a viewport of history beneath it. When this holds a reveal does nothing at
+	 * all, which is the point: the cheapest scroll is the one that doesn't happen.
+	 *
+	 * BOTH halves are load-bearing. "Enough room below" alone is vacuously true for a row scrolled off above
+	 * the viewport — the whole viewport is below it — so a target that had been left behind upward would
+	 * never be revealed. The visibility half is what excludes it.
+	 *
+	 * Reads the same TRACKED scroll position and cached geometry `revealIndexNearest` does, so it forces no
+	 * layout and cannot disagree with the decision that follows it.
+	 */
+	private isIndexComfortablyPlaced(idx: number): boolean {
+		const viewportHeight = this.scrollerClientHeight;
+		// Defensive only — `flushPendingReveal` refuses to decide anything without geometry, so this can't be
+		// reached from there. With no viewport nothing can be comfortably placed in it.
+		if (viewportHeight <= 0) return false;
+
+		const rowHeight = this.rowHeight;
+		const rowTop = idx * rowHeight;
+		const scrollTop = this._viewportScrollTop;
+		// Top edge at or below the fold, bottom edge inside the comfort line.
+		return rowTop >= scrollTop && rowTop + rowHeight <= scrollTop + viewportHeight * revealComfortRatio;
+	}
+
+	// `scrollToIndex(idx, 'nearest')` replacement that also honors `gitlens.graph.scrollRowPadding` — rows of
+	// margin kept from the viewport edge. KEYBOARD NAVIGATION ONLY now (arrow/page stepping and the focus-in
+	// ensure-visible); jumps go through the reveal rule instead, which decides by trailing context rather
+	// than by bare visibility. Never the scroll hot path, so the one live `scrollTop` read below is fine. All
+	// size math otherwise comes from cached geometry (`scrollerClientHeight`/`rowHeight`) — no layout-forcing
+	// reads. Padding is clamped to leave at least one row of slack either side; a clamp-to-zero (tiny
+	// viewport, or the setting itself is 0) falls through to plain minimal scrolling.
 	private revealIndexNearest(idx: number): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller == null) return;
@@ -6564,7 +6653,7 @@ export class GlLitGraph extends LitElement {
 		// early-return, and each write below re-syncs it, so the tracked value is exact here.
 		const scrollTop = this._viewportScrollTop;
 		if (padding <= 0) {
-			// Already fully on-screen → leave it put, same as the 'center' path in flushPendingReveal;
+			// Already fully on-screen → leave it put, which is the whole point of 'nearest';
 			// `scrollToIndex` isn't a guaranteed no-op for an already-visible row (lit-virtualizer can still
 			// nudge it), so skip the call entirely rather than rely on that.
 			if (rowTop >= scrollTop && rowBottom <= scrollTop + viewportHeight) return;
@@ -6606,60 +6695,94 @@ export class GlLitGraph extends LitElement {
 		const idx = this.indexBySha.get(sha);
 		if (idx == null) return; // not loaded/visible yet — keep pending; updated() retries on next render
 
+		// Same keep-it-pending contract for missing GEOMETRY. `scrollerClientHeight` starts at 0 and is only
+		// filled in by the ResizeObserver, so a navigation that arrives on the first render — a deep link or
+		// "Show in Commit Graph" that opens the graph, where the rows can already be in hand — would other-
+		// wise choose its reveal mode against a zero-height viewport AND be consumed doing it, losing the
+		// positioning request for good. Bail BEFORE the clear below so `updated()` re-flushes once there's a
+		// viewport to reveal into.
+		if (this.scrollerClientHeight <= 0) return;
+
+		// A push nobody asked for only acts when it names a DIFFERENT row than the last one revealed. Geometry
+		// alone can't carry this: a reader who scrolls away from the selected row and then gets that same
+		// selection re-pushed — a state sync, or the pending-notification replay that fires when the webview
+		// becomes visible again — would be dragged back to a row they had deliberately left. Comparing
+		// identity instead makes the repeat a no-op no matter where they've scrolled to.
+		if (this._pendingRevealMode === 'if-changed' && sha === this._lastRevealedSha) {
+			this._pendingRevealSha = undefined;
+			this._pendingRevealFlash = false;
+			return;
+		}
+
 		// Supersede any in-flight anchor retry before dropping the guard it checks, or it could fire after
 		// this reveal has scrolled and put the viewport back where the anchor wanted it.
 		this._scrollAnchorGeneration++;
 		this._pendingRevealSha = undefined;
+		this._lastRevealedSha = sha;
+		const flash = this._pendingRevealFlash;
+		this._pendingRevealFlash = false;
 
-		if (this._pendingRevealPosition === 'nearest') {
-			// Padding-aware — its own internal check subsumes the plain-visibility skip below.
-			this.revealIndexNearest(idx);
-			return;
+		// THE rule, and the only place it lives: a row with enough history already under it is left exactly
+		// where it is; everything else — off screen, or crammed into the bottom third — is scrolled to the
+		// landing. No caller gets a say, because no caller can know where its target currently sits.
+		if (!this.isIndexComfortablyPlaced(idx)) {
+			this.revealIndexAt(idx, landingRevealRatio);
 		}
 
-		// Already fully on-screen → leave the scroll position put (revealing shouldn't recenter a
-		// row the user can already see).
-		const top = idx * this.rowHeight;
-		const viewTop = scroller.scrollTop;
-		if (top >= viewTop && top + this.rowHeight <= viewTop + scroller.clientHeight) return;
-
-		this.centerRowAt(idx);
+		if (flash) {
+			// Deferred, because this method also runs from `updated()` (the reveal for a row that had to be
+			// paged in flushes there): arming drops the flash class synchronously to restart the animation,
+			// and a reactive write mid-update schedules a second update Lit flags in dev. Post-render is the
+			// honest time for it anyway — the row has to be sitting at its landed position for the wash to
+			// read as "you arrived HERE".
+			void this.updateComplete.then(() => this.armLandingFlash(sha));
+		}
 	}
 
 	private _revealGeneration = 0;
 
 	/**
-	 * Scroll the row at `idx` to the vertical CENTER of the viewport — the single source of the centering
-	 * math, shared by every "jump to a row" affordance (reveal, scroll-marker rail, HEAD pill, pinned pill)
-	 * so they can't drift apart.
+	 * Park the row at `idx` at `ratio` down the viewport — the single source of the positioning math, shared
+	 * by every "jump to a row" affordance (reveal, scroll-marker rail, HEAD pill, pinned pill) so they can't
+	 * drift apart. `ratio` is 0 for the top edge, 0.5 for centered, 1 for the bottom.
 	 *
-	 * The row's MIDPOINT lands on the viewport's midpoint: `top - (clientHeight - rowHeight) / 2`. Note this
-	 * is NOT `top - clientHeight / 2`, which centers the row's TOP EDGE and therefore sits half a row high.
+	 * The offset is `top - (clientHeight - rowHeight) * ratio`, which is VS Code's own `list.reveal`
+	 * `relativeTop` formula. Note the `- rowHeight`: `top - clientHeight * ratio` would position the row's
+	 * TOP EDGE at the ratio and therefore sit a fraction of a row high, and at 0.5 it centers the edge rather
+	 * than the row. Clamping to 0 means an index inside the first `ratio` of the viewport lands at the top.
 	 *
 	 * Writes `scrollTop` directly rather than calling the virtualizer's `scrollToIndex(idx, 'center')`, which
 	 * defers until it has measured the target and can settle short — or not at all — for an index far outside
 	 * the rendered range (the "jump sometimes doesn't land" flakiness). Rows are a fixed `rowHeight` here, so
 	 * the offset is exact arithmetic; `revealIndexNearest` already does its own scrollTop math the same way.
 	 */
-	private centerRowAt(idx: number): void {
+	private revealIndexAt(idx: number, ratio: number): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller == null) return;
 
-		const centered = Math.max(0, idx * this.rowHeight - Math.max(0, (scroller.clientHeight - this.rowHeight) / 2));
-		// Stamped BEFORE the write, so every center — including one that lands cleanly and schedules no retry
+		// ROUNDED, and that matters: `landed === target` below treats any inequality as "the write didn't
+		// take" and schedules a re-assert. A whole-pixel target round-trips through `scrollTop` exactly, so
+		// the comparison answers the question it means to ask. A fractional one does not — Chrome stores
+		// scroll offsets in 1/64px LayoutUnits, and a third of a viewport is not representable there, so the
+		// readback would differ by a rounding crumb on most viewport heights and every landing would take the
+		// retry path. (A ratio of 0.5 hid this: `.5` is exact in both float64 and 1/64ths.)
+		const target = Math.round(
+			Math.max(0, idx * this.rowHeight - Math.max(0, (scroller.clientHeight - this.rowHeight) * ratio)),
+		);
+		// Stamped BEFORE the write, so every reveal — including one that lands cleanly and schedules no retry
 		// of its own — supersedes a retry still in flight. Stamping only on the clamped path below would leave
 		// the earlier generation current, and that earlier retry would then re-assert its stale target over
 		// this reveal.
 		const generation = ++this._revealGeneration;
 		this._scrollAnchorGeneration++;
-		scroller.scrollTop = centered;
+		scroller.scrollTop = target;
 		// Mirror the jump into the tracked position immediately. The scroller's own scroll event would do it,
 		// but not until the next rendering opportunity — and until then `revealIndexNearest` would judge
 		// visibility from the PRE-jump offset, and a rows update landing in that window would compute its
 		// insert-above correction from it and re-park the viewport where the jump moved it from.
 		const landed = scroller.scrollTop;
 		this.trackViewportTop(landed);
-		if (landed === centered) return;
+		if (landed === target) return;
 
 		// The write didn't take: a row that just paged in (displayRows GREW this same update — e.g.
 		// jumpToRefRow's row-load round-trip) can sit past the child virtualizer's PRE-growth spacer height,
@@ -6682,15 +6805,23 @@ export class GlLitGraph extends LitElement {
 			if (this._revealGeneration !== generation || this._pendingRevealSha != null) return;
 
 			const el = this.virtualizerRef.value;
-			if (el == null || el.scrollTop === centered) return;
+			if (el == null || el.scrollTop === target) return;
 
 			// A scroll that moved since our write is the user's, not the layout's — theirs wins.
 			if (this._viewportScrollTop !== landed) return;
 
+			// End-of-content clamping is not a failed write: the browser won't scroll past the last screenful,
+			// so a row in the final viewport necessarily lands lower than `ratio` asked for, and re-writing
+			// achieves nothing. Checked HERE rather than by clamping `target` up front, because before this
+			// point the spacer can still be PRE-growth for a row that just paged in — clamping to that stale
+			// height would make the bad write look successful and cancel the very retry this exists to be.
+			// Matters more at a third than at a half: the shallower offset puts more rows in that final band.
+			if (el.scrollTop >= el.scrollHeight - el.clientHeight) return;
+
 			// Same reason the initial write bumps it: this is a deliberate reveal, and a lane-collapse anchor
 			// retry armed in between must not land after it and undo it.
 			this._scrollAnchorGeneration++;
-			el.scrollTop = centered;
+			el.scrollTop = target;
 			this.trackViewportTop(el.scrollTop);
 		});
 	}
@@ -7337,9 +7468,11 @@ export class GlLitGraph extends LitElement {
 		const idx = this.indexBySha.get(headSha);
 		if (idx == null) return;
 
-		// Jump to (center) HEAD AND select it — same selection path a row click uses, so the details
-		// panel opens on HEAD too. Move the focus anchor with it (matches replace-click behavior).
-		this.centerRowAt(idx);
+		// Jump to HEAD AND select it — same selection path a row click uses, so the details panel opens on
+		// HEAD too. Move the focus anchor with it (matches replace-click behavior). A landing, not a nearest:
+		// the pill lives in the header, so the user's attention isn't on the rows and a no-op wouldn't read.
+		this.revealIndexAt(idx, landingRevealRatio);
+		this.armLandingFlash(headSha);
 		this.focusIndex = idx;
 		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: headSha, mode: 'replace' } }));
 	};
@@ -7352,8 +7485,9 @@ export class GlLitGraph extends LitElement {
 		const idx = this.indexBySha.get(pinnedSha);
 		if (idx == null) return;
 
-		// Jump to (center) the pinned branch AND select it (same path as the HEAD pill).
-		this.centerRowAt(idx);
+		// Jump to the pinned branch AND select it (same path as the HEAD pill).
+		this.revealIndexAt(idx, landingRevealRatio);
+		this.armLandingFlash(pinnedSha);
 		this.focusIndex = idx;
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-changeselection', { detail: { sha: pinnedSha, mode: 'replace' } }),
@@ -7803,7 +7937,12 @@ export class GlLitGraph extends LitElement {
 		// reveal it queues resolves an index the rest of the walk then moves (see `retryRefFindReveal`).
 		this._refFindLoadingSha = this.processedIndexBySha.has(sha) ? undefined : sha;
 		this._refFindLoadingRevealedIndex = undefined;
-		this.jumpToRefRow(sha, { focus: e.detail.focus });
+		// The REVEAL owns the flash, not this handler: a find target may need a host walk to page in, and
+		// arming here would start the 700ms timer against a row that doesn't exist yet — losing the flash
+		// entirely on any walk slower than that, and (before the flash was keyed by sha) washing whichever
+		// row happened to be selected instead. `flushPendingReveal` arms it when the row actually lands, and
+		// `retryRefFindReveal`'s per-batch re-arms carry no flash, so a multi-batch page-in can't strobe.
+		this.jumpToRefRow(sha, { focus: e.detail.focus, flash: true });
 	};
 
 	/**
@@ -7834,28 +7973,37 @@ export class GlLitGraph extends LitElement {
 		// ask is still open and returns having done nothing, so re-navigating here is silently swallowed AND
 		// burns this retry's one chance (the index stamp above). Selection is the select intent's job and it
 		// does land; only the scroll needs re-arming as later batches move the row.
+		//
+		// No flash: this is the SAME landing still settling, and re-arming per batch would strobe. Each re-arm
+		// re-tests the rule, so once a batch leaves the row comfortably placed the rest cost nothing.
 		this.scrollToSha(sha);
 	}
 
-	/**
-	 * Marks the landed ref so its pill takes the selected/hover fill, and flashes its row once.
-	 *
-	 * The flash is deliberately re-armable on the same sha: stepping back onto a ref you already
-	 * visited should still announce itself, so the class is dropped and re-added rather than left on.
-	 */
+	/** Marks the landed ref so its pill takes the selected/hover fill. The row's announcing flash is the
+	 *  reveal's job (see `onRefFindJump`) — it, not this, knows when the row arrived. */
 	private markRefFindHit(refKey: string | undefined): void {
 		this._refFindHitKey = refKey;
 		this.invalidateAdornments();
+	}
 
-		this.clearRefFindFlashTimer();
-		// Drop it first so a repeat landing on the same row restarts the animation instead of being a
-		// no-op re-render with the class already applied.
-		this._refFindFlashing = false;
+	/**
+	 * Plays the landing flash over `sha`'s row once — a brief wash announcing "you arrived here".
+	 *
+	 * Kept independent of WHERE a reveal lands (and of whether one happened at all): a caller that wants to
+	 * announce without scrolling, or to land without announcing, sets one without touching the other.
+	 *
+	 * Deliberately re-armable on the same row: landing again on a row you already visited should still
+	 * announce itself, so the class is dropped and re-added rather than left on. The `updateComplete` hop is
+	 * what makes the drop take effect — re-adding it within the same render is a no-op the animation ignores.
+	 */
+	private armLandingFlash(sha: string): void {
+		this.clearLandingFlashTimer();
+		this._landingFlashSha = undefined;
 		void this.updateComplete.then(() => {
-			this._refFindFlashing = true;
-			this._refFindFlashTimer = setTimeout(() => {
-				this._refFindFlashing = false;
-				this._refFindFlashTimer = undefined;
+			this._landingFlashSha = sha;
+			this._landingFlashTimer = setTimeout(() => {
+				this._landingFlashSha = undefined;
+				this._landingFlashTimer = undefined;
 			}, 700);
 		});
 	}
