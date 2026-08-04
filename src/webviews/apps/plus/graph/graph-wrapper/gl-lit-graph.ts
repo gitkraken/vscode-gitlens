@@ -158,6 +158,34 @@ const landingRevealRatio = 1 / 3;
 // walk down a STATIONARY page and the view snaps once, at the end. (vim's `scrolljump` exists for exactly
 // this reason.)
 const revealComfortRatio = 2 / 3;
+// Motion for a reveal that moves, lifted wholesale from VS Code's `SmoothScrollingOperation` so a graph
+// jump reads like every other animated scroll in the window: 125ms (`SMOOTH_SCROLLING_TIME`,
+// editor/common/viewLayout/viewLayout.ts) on an ease-out cubic.
+// Scaled by how far the slide actually travels, between these bounds. A fixed duration is right for an
+// editor, where scrolls span a narrow range; here the same animation covers anything from a few rows to a
+// couple of screens, and one number can't be both snappy for the former and legible for the latter. VS
+// Code's 125ms sits between them.
+const smoothRevealMinDurationMs = 90;
+const smoothRevealMaxDurationMs = 180;
+// The furthest a reveal animates, in viewports — and for a longer jump, how far out it cuts to before
+// running that same animation in. One number, so every animated arrival is the same gesture regardless of
+// how far the jump was.
+//
+// It is also the honest ceiling on animating a virtualized list: the rows swept past have to be rendered as
+// they're crossed, and beyond a couple of viewports at this duration that outruns the virtualizer and shows
+// as blanks streaming by.
+const smoothRevealMaxSpan = 2.5;
+
+/** VS Code's easing for the same operation: fast off the mark, settling into the destination. */
+function easeOutCubic(t: number): number {
+	return 1 - (1 - t) ** 3;
+}
+
+/** Read live rather than cached — the OS setting can change while the webview is open, and a reveal that
+ *  animates after the user asked for less motion is exactly the case this guards. */
+function prefersReducedMotion(): boolean {
+	return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+}
 // Dead center. Only the scroll-marker rail wants it (see `jumpToScrollMarker`).
 const centerRevealRatio = 0.5;
 // How close (px) the cursor must be to a scroll-marker row for it to highlight/tooltip — a "magnet"
@@ -1407,6 +1435,8 @@ export class GlLitGraph extends LitElement {
 		this.emitMoreRows.cancel();
 		this.announceLoadingMore.cancel();
 		this.cancelPendingPillActivation();
+		// A reveal animation holds a rAF that would otherwise keep writing `scrollTop` on a detached scroller.
+		this.cancelRevealAnimation();
 		this.resizeDragCleanup?.();
 		this.resizeDragCleanup = undefined;
 		// Tear down any in-flight column-reorder drag (window listeners, rAF, pointer capture, cursor) so
@@ -4788,6 +4818,7 @@ export class GlLitGraph extends LitElement {
 			@pointerleave=${this.onScrollMarkerPointerLeave}
 			@pointerover=${this.stopPointerOver}
 			@contextmenu=${this.onScrollMarkerContextMenu}
+			@click=${(e: Event) => e.stopPropagation()}
 		>
 			${repeat(
 				rows,
@@ -4999,7 +5030,9 @@ export class GlLitGraph extends LitElement {
 	// Click the rail → center a row in the viewport: the NEAREST marker if the click is near one,
 	// otherwise the row at the clicked position (the rail doubles as a click-to-jump navigator). Rows
 	// are fixed-height, so the target scrollTop is a direct index × rowHeight (no measurement needed).
-	// Driven from pointerup (not @click) so it coexists with the drag-scrub (only fires when no drag).
+	// Driven from pointerup (not @click) so it coexists with the drag-scrub (only fires when no drag) — and
+	// the rail STOPS the click that follows, because `onClick` cancels any reveal in flight and would
+	// otherwise kill the scroll this very press just started. Same contract the ref-find widget follows.
 	//
 	// The one affordance that keeps DEAD CENTER rather than the landing ratio: the rail is positional, so
 	// the clicked Y already says where in the viewport the row belongs, and an offset landing would read as
@@ -5020,7 +5053,7 @@ export class GlLitGraph extends LitElement {
 			index = Math.round(((clientY - rect.top) / rect.height) * total);
 		}
 
-		this.revealIndexAt(index, centerRevealRatio);
+		this.revealIndexAt(index, centerRevealRatio, true);
 
 		// Clicking a MARKER is clicking a named row — HEAD, the upstream, the merge target, the pinned ref,
 		// the selection — so it selects and takes the focus anchor too, the same handoff the HEAD and pinned
@@ -6790,6 +6823,8 @@ export class GlLitGraph extends LitElement {
 	private _pendingRevealSha?: string;
 	private _pendingRevealMode: GraphRevealMode = 'always';
 	private _pendingRevealFlash = false;
+	/** Row to flash once the reveal has actually come to rest — see {@link settleReveal}. */
+	private _flashOnRevealSettled?: string;
 	/** Target of the last reveal this element evaluated — the `'if-changed'` gate compares against it. Set
 	 *  whether or not that reveal ended up scrolling, since "we already dealt with this row" is the question
 	 *  it answers, not "we moved for this row". */
@@ -6820,7 +6855,13 @@ export class GlLitGraph extends LitElement {
 	cancelPendingReveal(): void {
 		this._pendingRevealSha = undefined;
 		this._pendingRevealFlash = false;
+		// Nothing is going to land, so nothing should announce a landing — and leaving this set would hand a
+		// stale sha to whichever reveal settles next.
+		this._flashOnRevealSettled = undefined;
 		this._revealGeneration++;
+		// A reveal still mid-flight is the same stale intent as one still queued — the generation bump above
+		// stops the loop, this releases the frame it was holding.
+		this.cancelRevealAnimation();
 	}
 
 	/**
@@ -6935,18 +6976,21 @@ export class GlLitGraph extends LitElement {
 		// THE rule, and the only place it lives: a row with enough history already under it is left exactly
 		// where it is; everything else — off screen, or crammed into the bottom third — is scrolled to the
 		// landing. No caller gets a say, because no caller can know where its target currently sits.
-		if (!this.isIndexComfortablyPlaced(idx)) {
-			this.revealIndexAt(idx, landingRevealRatio);
+		if (this.isIndexComfortablyPlaced(idx)) {
+			// Nothing to move, so nothing to wait for. Still deferred a tick: this method also runs from
+			// `updated()`, and arming drops the flash class synchronously to restart the animation, which is a
+			// reactive write mid-update that Lit flags in dev.
+			if (flash) {
+				void this.updateComplete.then(() => this.armLandingFlash(sha));
+			}
+			return;
 		}
 
-		if (flash) {
-			// Deferred, because this method also runs from `updated()` (the reveal for a row that had to be
-			// paged in flushes there): arming drops the flash class synchronously to restart the animation,
-			// and a reactive write mid-update schedules a second update Lit flags in dev. Post-render is the
-			// honest time for it anyway — the row has to be sitting at its landed position for the wash to
-			// read as "you arrived HERE".
-			void this.updateComplete.then(() => this.armLandingFlash(sha));
-		}
+		// Handed to the reveal rather than fired here, so the wash marks the ARRIVAL: the viewport may now
+		// take a couple of hundred milliseconds to get there, and a flash that starts on departure smears
+		// across the travel instead of saying "you landed HERE".
+		this._flashOnRevealSettled = flash ? sha : undefined;
+		this.revealIndexAt(idx, landingRevealRatio, true);
 	}
 
 	private _revealGeneration = 0;
@@ -6966,7 +7010,7 @@ export class GlLitGraph extends LitElement {
 	 * the rendered range (the "jump sometimes doesn't land" flakiness). Rows are a fixed `rowHeight` here, so
 	 * the offset is exact arithmetic; `revealIndexNearest` already does its own scrollTop math the same way.
 	 */
-	private revealIndexAt(idx: number, ratio: number): void {
+	private revealIndexAt(idx: number, ratio: number, animate = false): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller == null) return;
 
@@ -6985,13 +7029,72 @@ export class GlLitGraph extends LitElement {
 		// this reveal.
 		const generation = ++this._revealGeneration;
 		this._scrollAnchorGeneration++;
-		scroller.scrollTop = target;
-		// Mirror the jump into the tracked position immediately. The scroller's own scroll event would do it,
-		// but not until the next rendering opportunity — and until then `revealIndexNearest` would judge
-		// visibility from the PRE-jump offset, and a rows update landing in that window would compute its
-		// insert-above correction from it and re-park the viewport where the jump moved it from.
+		// Any animation still running belongs to a superseded reveal.
+		this.cancelRevealAnimation();
+
+		const from = scroller.scrollTop;
+		const viewportHeight = this.scrollerClientHeight;
+		if (!animate || from === target || viewportHeight <= 0 || prefersReducedMotion()) {
+			scroller.scrollTop = target;
+			this.settleReveal(scroller, target, generation);
+			return;
+		}
+
+		// Every animated reveal ends with the SAME motion: at most `smoothRevealMaxSpan` viewports of
+		// ease-out. A jump already within that range simply runs it. A longer one cuts to exactly that
+		// distance out — in the direction of travel — and then runs the identical animation, so the arrival
+		// is indistinguishable from a short jump's rather than being its own smaller gesture. (Earlier
+		// attempts gave long jumps a *different*, shorter tail — 0.75 of a viewport, then 3 rows — and both
+		// read as "jump, then slide" precisely because the tail didn't match the vocabulary.)
+		const distance = Math.abs(target - from);
+		const maxSpan = smoothRevealMaxSpan * viewportHeight;
+		if (distance <= maxSpan) {
+			this.runRevealAnimation(scroller, from, target, generation);
+			return;
+		}
+
+		const approach = Math.round(from < target ? target - maxSpan : target + maxSpan);
+		this._scrollAnchorGeneration++;
+		scroller.scrollTop = approach;
 		const landed = scroller.scrollTop;
 		this.trackViewportTop(landed);
+
+		// Let the virtualizer render where we've landed before moving again — starting the slide against an
+		// unrendered range is what streamed blank rows past the first time.
+		const settled = scroller.layoutComplete ?? scroller.updateComplete;
+		void settled.then(() => {
+			if (this._revealGeneration !== generation) return;
+
+			const el = this.virtualizerRef.value;
+			if (el == null) return;
+			// Anything that moved the viewport across the settle owns it now.
+			if (this._viewportScrollTop !== landed) return;
+
+			this.runRevealAnimation(el, el.scrollTop, target, generation);
+		});
+	}
+
+	/**
+	 * The landing check, shared by the instant write and the tail of an animation: mirror where we actually
+	 * ended up, and re-assert once if the browser refused the write.
+	 *
+	 * `landed` is read back rather than assumed. Mirroring it into the tracked position matters immediately:
+	 * the scroller's own scroll event wouldn't do it until the next rendering opportunity, and until then
+	 * `revealIndexNearest` would judge visibility from the PRE-jump offset, and a rows update landing in that
+	 * window would compute its insert-above correction from it and re-park the viewport where we moved it from.
+	 */
+	private settleReveal(scroller: LitVirtualizer, target: number, generation: number): void {
+		const landed = scroller.scrollTop;
+		this.trackViewportTop(landed);
+
+		// The motion has stopped, so this is the arrival — announce it. A reveal that gets superseded or
+		// interrupted never reaches here and never flashes, which is right: nothing landed.
+		const flashSha = this._flashOnRevealSettled;
+		if (flashSha != null) {
+			this._flashOnRevealSettled = undefined;
+			void this.updateComplete.then(() => this.armLandingFlash(flashSha));
+		}
+
 		if (landed === target) return;
 
 		// The write didn't take: a row that just paged in (displayRows GREW this same update — e.g.
@@ -7034,6 +7137,65 @@ export class GlLitGraph extends LitElement {
 			el.scrollTop = target;
 			this.trackViewportTop(el.scrollTop);
 		});
+	}
+
+	private _revealAnimationFrame?: number;
+	/** The last offset the animation wrote, AS READ BACK. Every frame compares the live `scrollTop` against
+	 *  it: if they differ, something other than us moved the viewport — the user, or a layout correction —
+	 *  and it owns the scroll from that point. Storing the read-back (not the value we asked for) keeps the
+	 *  comparison honest when the browser clamps us at either end of the list. */
+	private _revealAnimationWrite?: number;
+
+	private cancelRevealAnimation(): void {
+		if (this._revealAnimationFrame == null) return;
+
+		cancelAnimationFrame(this._revealAnimationFrame);
+		this._revealAnimationFrame = undefined;
+		this._revealAnimationWrite = undefined;
+	}
+
+	/**
+	 * Ease `from` → `to`, yielding to anyone else who moves the scroller.
+	 *
+	 * Ends by handing off to {@link settleReveal}, so the clamp-detection and re-assert are identical to the
+	 * instant path; they simply run once the motion has stopped rather than against a scroll still in flight.
+	 */
+	private runRevealAnimation(scroller: LitVirtualizer, from: number, to: number, generation: number): void {
+		const viewportHeight = this.scrollerClientHeight;
+		const reach =
+			viewportHeight > 0 ? Math.min(1, Math.abs(to - from) / (smoothRevealMaxSpan * viewportHeight)) : 1;
+		const duration = smoothRevealMinDurationMs + (smoothRevealMaxDurationMs - smoothRevealMinDurationMs) * reach;
+		const started = performance.now();
+		const step = (now: number): void => {
+			// A newer reveal (or a cancel) owns the viewport now.
+			if (this._revealGeneration !== generation) {
+				this.cancelRevealAnimation();
+				return;
+			}
+			// Someone else moved the scroller mid-flight — theirs wins, same rule the re-assert follows.
+			if (this._revealAnimationWrite != null && scroller.scrollTop !== this._revealAnimationWrite) {
+				this.cancelRevealAnimation();
+				return;
+			}
+
+			const t = Math.min(1, (now - started) / duration);
+			// Bumped per frame, not once: an anchor retry armed part-way through must not land inside the
+			// animation and drag the viewport back to where the row-set change wanted it.
+			this._scrollAnchorGeneration++;
+			scroller.scrollTop = Math.round(from + (to - from) * easeOutCubic(t));
+			this._revealAnimationWrite = scroller.scrollTop;
+			this.trackViewportTop(this._revealAnimationWrite);
+
+			if (t >= 1) {
+				this._revealAnimationFrame = undefined;
+				this._revealAnimationWrite = undefined;
+				this.settleReveal(scroller, to, generation);
+				return;
+			}
+
+			this._revealAnimationFrame = requestAnimationFrame(step);
+		};
+		this._revealAnimationFrame = requestAnimationFrame(step);
 	}
 
 	// Attach the scroll handler PASSIVELY (so it never blocks the compositor on a scroll frame —
@@ -7681,7 +7843,7 @@ export class GlLitGraph extends LitElement {
 		// Jump to HEAD AND select it — same selection path a row click uses, so the details panel opens on
 		// HEAD too. Move the focus anchor with it (matches replace-click behavior). A landing, not a nearest:
 		// the pill lives in the header, so the user's attention isn't on the rows and a no-op wouldn't read.
-		this.revealIndexAt(idx, landingRevealRatio);
+		this.revealIndexAt(idx, landingRevealRatio, true);
 		this.armLandingFlash(headSha);
 		this.focusIndex = idx;
 		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: headSha, mode: 'replace' } }));
@@ -7696,7 +7858,7 @@ export class GlLitGraph extends LitElement {
 		if (idx == null) return;
 
 		// Jump to the pinned branch AND select it (same path as the HEAD pill).
-		this.revealIndexAt(idx, landingRevealRatio);
+		this.revealIndexAt(idx, landingRevealRatio, true);
 		this.armLandingFlash(pinnedSha);
 		this.focusIndex = idx;
 		this.dispatchEvent(
