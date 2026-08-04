@@ -10,11 +10,12 @@ import { Disposable } from 'vscode';
 import type { Container } from '../../../container.js';
 import { resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
 import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
+import { aiModelScopes } from '../../../plus/ai/aiProviderService.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { createRpcEventSubscription } from '../eventVisibilityBuffer.js';
-import type { AiModelInfo, AIState, RpcEventSubscription } from './types.js';
+import type { AiModelInfo, AIState, RpcEventSubscription, ScopedAiModelInfo } from './types.js';
 
 export class AIService {
 	/**
@@ -94,6 +95,31 @@ export class AIService {
 	async getModel(scope?: AIModelScope): Promise<AiModelInfo | undefined> {
 		const model = await this.#container.ai.getModel({ silent: true, scope: scope });
 		return toAiModelInfo(model);
+	}
+
+	/**
+	 * Get the per-scope model selections for all scopes, in display order.
+	 */
+	async getScopedModels(): Promise<ScopedAiModelInfo[]> {
+		// Resolved one scope at a time rather than concurrently: on a cold cache all three resolve
+		// against the same provider, and `getOrUpdateModel` keys its provider instance off a single
+		// shared field — three concurrent misses each construct a provider and re-register its change
+		// listener, overwriting the previous disposable. The first read warms the shared caches, so the
+		// remaining two are near-free, and the provider's model-list fetch is deduped either way.
+		const scopedModels: ScopedAiModelInfo[] = [];
+		for (const scope of aiModelScopes) {
+			const { model, isOverride } = await this.#container.ai.getScopedModel(scope, { silent: true });
+			scopedModels.push({ scope: scope, model: toAiModelInfo(model), isOverride: isOverride });
+		}
+
+		return scopedModels;
+	}
+
+	/**
+	 * Clears `scope`'s override so it inherits the global default again.
+	 */
+	async clearScopedModel(scope: AIModelScope): Promise<void> {
+		await this.#container.ai.clearScopedModel(scope);
 	}
 
 	/**

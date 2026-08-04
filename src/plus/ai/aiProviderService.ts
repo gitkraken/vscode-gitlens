@@ -113,8 +113,12 @@ export type AISourceContext<T> = Source & { context: T };
  * global default. Picking a model from a scoped surface (the composer chip, the graph
  * compose/review/resolve mode chip) writes only to that scope's storage — the global `ai.model`
  * config and other features (commit messages, explain, etc.) are untouched.
+ *
+ * Declared as a value so consumers that must enumerate the scopes at runtime have a
+ * compiler-checked source of truth instead of their own literal array; order is display order.
  */
-export type AIModelScope = 'compose' | 'review' | 'resolve';
+export const aiModelScopes = ['compose', 'review', 'resolve'] as const;
+export type AIModelScope = (typeof aiModelScopes)[number];
 
 export interface AIModelChangeEvent {
 	readonly model: AIModel | undefined;
@@ -721,6 +725,53 @@ export class AIProviderService implements AIService, Disposable {
 			this.container.telemetry.sendEvent('ai/enabled', undefined, source);
 		}
 		await configuration.updateEffective('ai.enabled', true);
+	}
+
+	/**
+	 * The qualified `provider:model` explicitly remembered for `scope`, or `undefined` when the scope
+	 * inherits the global default. Unlike `getModel({ scope })`, this never falls back.
+	 */
+	private getScopedModelId(scope: AIModelScope): AIProviderAndModel | undefined {
+		return this.container.storage.get(`ai:scope:${scope}:model`);
+	}
+
+	/**
+	 * Resolves `scope`'s model together with whether that model came from the scope's own stored
+	 * selection rather than the inherited default.
+	 *
+	 * `isOverride` requires the stored selection to also be what resolved. A stored selection whose
+	 * provider has since been org-disabled or removed resolves past it to the fallback, and reporting
+	 * that as an override would label a model the user isn't actually getting as their choice. The
+	 * qualified-id comparison lives here because this class owns that storage encoding.
+	 */
+	async getScopedModel(
+		scope: AIModelScope,
+		options?: { silent?: boolean },
+	): Promise<{ model: AIModel | undefined; isOverride: boolean }> {
+		const stored = this.getScopedModelId(scope);
+		const model = await this.getModel({ silent: options?.silent, scope: scope });
+
+		return {
+			model: model,
+			isOverride: stored != null && model != null && `${model.provider.id}:${model.id}` === stored,
+		};
+	}
+
+	/**
+	 * Clears `scope`'s remembered model so it inherits the global default again.
+	 */
+	async clearScopedModel(scope: AIModelScope): Promise<void> {
+		if (this.getScopedModelId(scope) == null) return;
+
+		await this.container.storage.delete(`ai:scope:${scope}:model`);
+
+		// Only this scope's resolved value is stale. Unlike `resetModels`, `_model` and
+		// `_providerModelsCache` are deliberately left alone: `resetModels` clears `_model` because every
+		// selection disappears at once, whereas here `getOrUpdateModel`'s reuse of `_model` is gated on a
+		// model-id match, so the stale singleton can't leak into this scope's re-resolve.
+		this._modelCache.delete(scope);
+
+		this._onDidChangeModel.fire({ model: undefined, scope: scope });
 	}
 
 	/**

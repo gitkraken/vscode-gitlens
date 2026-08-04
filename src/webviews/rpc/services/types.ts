@@ -11,6 +11,7 @@ import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import type { Source, TelemetryEventData, TelemetryEvents } from '../../../constants.telemetry.js';
+import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
 
 // Re-export for webview-side consumers (avoids deep `../../../../git/` imports)
 export type { RepositoryChange } from '@gitlens/git/models/repository.js';
@@ -148,6 +149,16 @@ export interface AiModelInfo {
 	readonly provider: { readonly id: string; readonly name: string };
 	/** Provider-supplied consumption-rate label (GitKraken AI only); undefined for other providers. */
 	readonly consumptionRateLabel?: string;
+}
+
+/** Per-scope AI model selection for the Settings AI panel. */
+export interface ScopedAiModelInfo {
+	/** The operation this selection applies to. */
+	readonly scope: AIModelScope;
+	/** The model the scope will actually use — the override when set, otherwise the resolved default. */
+	readonly model: AiModelInfo | undefined;
+	/** True only when the scope has its own stored selection AND that selection is what resolved. */
+	readonly isOverride: boolean;
 }
 
 /**
