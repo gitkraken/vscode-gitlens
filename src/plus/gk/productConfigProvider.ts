@@ -306,18 +306,21 @@ function getApplicablePromo(
 ): Promo | undefined {
 	if (state == null) return undefined;
 
+	// Each location resolves to the first applicable promo that SERVES it — a location miss is not
+	// terminal (this used to `break`). With location-scoped campaigns now a first-class shape (`graph`
+	// exists only on `v: 3` entries), a terminal miss would let a graph-only campaign blank every other
+	// placement — or, ordered the other way, let any concurrent campaign blank the graph. Verified
+	// equivalent on every historical config, where campaigns all carry the same location set.
 	for (const promo of promos) {
-		if (isPromoApplicable(promo, state, plan, expiringOnly)) {
-			// An empty `locations` targets nowhere — either authored as `[]`, or every value was
-			// unrecognized by this client and dropped in `getConfig`. Such a promo must be fully
-			// transparent: neither returned (even for location-less lookups) nor allowed to end the
-			// search below, or a promo aimed at a future surface would blank every current placement.
-			if (promo.locations?.length === 0) continue;
+		if (!isPromoApplicable(promo, state, plan, expiringOnly)) continue;
 
-			if (location == null || promo.locations == null || promo.locations.includes(location)) {
-				return promo;
-			}
-			break;
+		// An empty `locations` targets nowhere — either authored as `[]`, or every value was
+		// unrecognized by this client and dropped in `getConfig`. Such a promo must be fully
+		// transparent, even to location-less lookups.
+		if (promo.locations?.length === 0) continue;
+
+		if (location == null || promo.locations == null || promo.locations.includes(location)) {
+			return promo;
 		}
 	}
 
