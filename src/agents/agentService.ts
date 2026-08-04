@@ -1,3 +1,5 @@
+import { EventEmitter } from 'vscode';
+import type { Event } from 'vscode';
 import type { GkAgent } from '@env/gk/agentFetcher.js';
 import { fetchAgents, isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
 
@@ -15,6 +17,16 @@ export class AgentService {
 	// Bumped on every `invalidateCache()` so in-flight fetches dispatched before the invalidation
 	// know to skip the cache write when they resolve later.
 	private _generation = 0;
+
+	private readonly _onDidChangeAgents = new EventEmitter<void>();
+	/** Fires whenever the cached agent list is invalidated (hook install/uninstall, per-agent MCP install). */
+	get onDidChangeAgents(): Event<void> {
+		return this._onDidChangeAgents.event;
+	}
+
+	dispose(): void {
+		this._onDidChangeAgents.dispose();
+	}
 
 	/** Fetches the live agent list. Internally cached with a 5min TTL; concurrent callers share a single in-flight fetch. */
 	async getAll(): Promise<readonly GkAgent[]> {
@@ -59,5 +71,6 @@ export class AgentService {
 		this._cache = undefined;
 		this._inflight = undefined;
 		this._generation++;
+		this._onDidChangeAgents.fire();
 	}
 }

@@ -140,6 +140,18 @@ export interface IntegrationChangeEventData {
 }
 
 /**
+ * Serializable per-agent info for the Agents settings table.
+ * `mcp`/`hooks` are present only for gkcli-provided CLI agents; Chat/Extension agents omit them.
+ */
+export interface AgentInfo {
+	readonly id: string;
+	readonly label: string;
+	readonly kind: 'ide-chat' | 'claude-extension' | 'cli';
+	readonly mcp?: { readonly supported: boolean; readonly installed: boolean };
+	readonly hooks?: { readonly supported: boolean; readonly installed: boolean };
+}
+
+/**
  * Serializable AI model info.
  * A simplified shape that crosses the RPC boundary safely.
  */
