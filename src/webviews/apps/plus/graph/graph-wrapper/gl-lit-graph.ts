@@ -6301,15 +6301,19 @@ export class GlLitGraph extends LitElement {
 	// it, so the range can trail the end by more than the prefetch distance while the user sits ON the end.
 	// Reading the range alone there answers "no rows needed" and silently drops the deferred ask End awaits.
 	needsMoreRows(lastIndex: number = this.furthestKnownRowIndex()): boolean {
-		// Suppressed under a scope re-root projection — that view ends in the collapsed older-history fold, so
-		// auto-paging would pull the WHOLE repo in to grow a fold the user hasn't expanded; the fold is the
-		// explicit "there's more" affordance instead.
-		if (this.hasMore === false || this.scopeProjection != null) return false;
+		if (this.hasMore === false) return false;
 
 		const rows = this.displayRows;
 		// Past the end means the caller's index predates a row-set swap (repo change, scope, filter) — that's a
 		// stale range, not a reason to page.
 		if (rows.length === 0 || lastIndex >= rows.length) return false;
+
+		// A scope re-root ends its view in a collapsed fold, so the last row is that fold's STUB, not the edge
+		// of the loaded window — paging there would pull the whole repo in to grow a fold the user hasn't
+		// opened, and the chevron is the affordance instead. Keyed on the last row rather than on "a
+		// projection is active": once the bottom fold is expanded its last row is a real commit at a real data
+		// boundary, and paging has to resume or the fold can never reach past the loaded window.
+		if (this.scopeProjection?.collapsedByTipSha.has(rows.at(-1)!.sha)) return false;
 
 		return lastIndex >= rows.length - this.prefetchDistanceRows();
 	}
