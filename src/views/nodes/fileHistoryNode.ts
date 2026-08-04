@@ -5,12 +5,11 @@ import { deletedOrMissing } from '@gitlens/git/models/revision.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { weakEvent } from '@gitlens/utils/event.js';
-import { filterMap, flatMap, map, some, uniqueBy } from '@gitlens/utils/iterable.js';
+import { filterMap, flatMap, map, uniqueBy } from '@gitlens/utils/iterable.js';
 import { getLoggableName } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { basename } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { GitUri } from '../../git/gitUri.js';
 import type { RepositoryChangeEvent, RepositoryWorkingTreeChangeEvent } from '../../git/models/repository.js';
 import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils.js';
@@ -139,11 +138,9 @@ export class FileHistoryNode
 	}
 
 	private onWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
-		if (this.folder) {
-			if (!some(e.uris, uri => uri.fsPath.startsWith(this.uri.fsPath))) return;
-		} else if (!some(e.uris, uri => areUrisEqual(uri, this.uri))) {
-			return;
-		}
+		// Covers the folder case too — `changed` matches anything beneath the uri, and nothing can be
+		// beneath a file, so this degrades to equality on its own.
+		if (!e.changed(this.uri)) return;
 
 		using scope = maybeStartScopedLogger(
 			`${getLoggableName(this)}.onWorkingTreeChanged(e=${this.uri.toString(true)})`,

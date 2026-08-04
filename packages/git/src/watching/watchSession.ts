@@ -57,6 +57,15 @@ const defaultRepoDelay = 250;
 const defaultWorkingTreeDelay = 2500;
 
 /**
+ * Cap on retained working-tree paths per flush. The set otherwise grows without bound — while the window
+ * is unfocused the session is suspended, so a branch switch or build accumulates every touched path until
+ * refocus. Set low deliberately: ordinary edits are a handful of paths, anything past this was a
+ * refresh-everything event anyway, and dropping past it only costs the matching consumers a
+ * conservative refresh.
+ */
+const maxWorkingTreePaths = 1000;
+
+/**
  * Per-repository session that owns the debounce/coalesce/suspend
  * pipeline for both repo (.git) and working-tree changes.
  *
@@ -78,6 +87,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	private readonly workingTreeDelays = new Map<number, number>();
 	private workingTreeNextId = 0;
 	private pendingWorkingTreePaths = new Set<string>();
+	private pendingWorkingTreeIncomplete = false;
 	private workingTreeTimer: ReturnType<typeof setTimeout> | undefined;
 	private effectiveWorkingTreeMs: number;
 	private readonly defaultWorkingTreeMs: number;
@@ -116,6 +126,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 		this.pendingRepoEvent = undefined;
 		this.pendingWorkingTreePaths.clear();
+		this.pendingWorkingTreeIncomplete = false;
 		this.repoDelays.clear();
 		this.workingTreeDelays.clear();
 
@@ -128,7 +139,15 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	}
 
 	get hasPendingChanges(): boolean {
-		return this.pendingRepoEvent != null || this.pendingWorkingTreePaths.size > 0;
+		return this.pendingRepoEvent != null || this.hasPendingWorkingTreeChanges;
+	}
+
+	/**
+	 * An incomplete batch with no surviving paths still has to fire: the caller dropped paths we never saw, so
+	 * gating the pipeline on the retained set alone would swallow the change entirely.
+	 */
+	private get hasPendingWorkingTreeChanges(): boolean {
+		return this.pendingWorkingTreePaths.size > 0 || this.pendingWorkingTreeIncomplete;
 	}
 
 	get repoSubscriberCount(): number {
@@ -243,6 +262,9 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 				if (this.workingTreeDelays.size === 0) {
 					this.cancelWorkingTreeTimer();
 					this.pendingWorkingTreePaths.clear();
+					// Dropped with the paths it describes — a stale flag would make the next subscriber's
+					// first ordinary flush claim a partial set and force needless full refreshes.
+					this.pendingWorkingTreeIncomplete = false;
 					this.lifecycle?.onLastWorkingTreeSubscriber?.();
 				}
 			}),
@@ -266,7 +288,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		if (this.pendingRepoEvent != null) {
 			this.scheduleRepoFlush(delayMs);
 		}
-		if (this.pendingWorkingTreePaths.size > 0) {
+		if (this.hasPendingWorkingTreeChanges) {
 			this.scheduleWorkingTreeFlush(delayMs);
 		}
 	}
@@ -298,10 +320,14 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	}
 
 	/** Push working tree file changes into the pipeline */
-	pushWorkingTreeChanges(paths: Iterable<string>): void {
+	/** `incomplete` marks the batch as partial when the caller already dropped paths of its own. */
+	pushWorkingTreeChanges(paths: Iterable<string>, incomplete?: boolean): void {
 		if (this._disposed) return;
 
 		this._etagWorkingTree++;
+		if (incomplete) {
+			this.pendingWorkingTreeIncomplete = true;
+		}
 		this.coalesceWorkingTrees(paths);
 	}
 
@@ -362,18 +388,20 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 	private flushWorkingTree(): void {
 		this.workingTreeTimer = undefined;
-		if (this.pendingWorkingTreePaths.size === 0) return;
+		if (!this.hasPendingWorkingTreeChanges) return;
 
 		const paths = this.pendingWorkingTreePaths;
+		const incomplete = this.pendingWorkingTreeIncomplete;
 		this.pendingWorkingTreePaths = new Set();
+		this.pendingWorkingTreeIncomplete = false;
 		// Advance the cache's status clock (via WatchService's global forwarding) BEFORE notifying subscribers,
 		// so a subscriber that synchronously reads status sees the post-change generation, not a joinable pre-change run.
 		this.onDidFireWorkingTreeChangeCallback?.(this.repoPath);
-		this.workingTreeEmitter.fire({ repoPath: this.repoPath, paths: paths });
+		this.workingTreeEmitter.fire({ repoPath: this.repoPath, paths: paths, incomplete: incomplete });
 	}
 
 	private scheduleWorkingTreeFlush(delayOverride?: number): void {
-		if (this._suspended || this.pendingWorkingTreePaths.size === 0) return;
+		if (this._suspended || !this.hasPendingWorkingTreeChanges) return;
 
 		if (this.workingTreeTimer != null) {
 			clearTimeout(this.workingTreeTimer);
@@ -383,6 +411,13 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 	private coalesceWorkingTrees(paths: Iterable<string>): void {
 		for (const p of paths) {
+			// Stop retaining paths past the cap, but keep draining the iterable — the flag is what makes the
+			// partial set safe to consume, and dropping out early would leave later paths for the next window.
+			if (this.pendingWorkingTreePaths.size >= maxWorkingTreePaths && !this.pendingWorkingTreePaths.has(p)) {
+				this.pendingWorkingTreeIncomplete = true;
+				continue;
+			}
+
 			this.pendingWorkingTreePaths.add(p);
 		}
 		this.scheduleWorkingTreeFlush();

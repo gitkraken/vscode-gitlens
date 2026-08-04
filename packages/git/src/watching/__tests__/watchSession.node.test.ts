@@ -692,6 +692,182 @@ describe('WatchSession', () => {
 			session.dispose();
 		});
 
+		it('does not set overflowed for an ordinary burst', async () => {
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 50,
+			});
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 50 });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			session.pushWorkingTreeChanges(Array.from({ length: 100 }, (_, i) => `/repo/${i}.ts`));
+
+			await delay(80);
+			assert.strictEqual(received.length, 1);
+			assert.strictEqual(received[0].paths.size, 100);
+			assert.strictEqual(received[0].incomplete, false);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('caps retained paths and reports overflowed once the cap is exceeded', async () => {
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 50,
+			});
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 50 });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			// Well past the cap, pushed in chunks the way a branch switch or build arrives.
+			for (let i = 0; i < 15; i++) {
+				session.pushWorkingTreeChanges(Array.from({ length: 100 }, (_, j) => `/repo/${i}-${j}.ts`));
+			}
+
+			await delay(80);
+			assert.strictEqual(received.length, 1);
+			assert.strictEqual(received[0].incomplete, true);
+			// Retained set stays bounded rather than growing to the 1500 paths pushed.
+			assert.ok(received[0].paths.size <= 1000, `expected <= 1000 retained paths, got ${received[0].paths.size}`);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('clears overflowed on the next flush', async () => {
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 50,
+			});
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 50 });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			for (let i = 0; i < 15; i++) {
+				session.pushWorkingTreeChanges(Array.from({ length: 100 }, (_, j) => `/repo/${i}-${j}.ts`));
+			}
+			await delay(80);
+
+			session.pushWorkingTreeChanges(['/repo/after.ts']);
+			await delay(80);
+
+			assert.strictEqual(received.length, 2);
+			assert.strictEqual(received[0].incomplete, true);
+			// A stuck flag would make every later event claim a partial set and force needless refreshes.
+			assert.strictEqual(received[1].incomplete, false);
+			assert.strictEqual(received[1].paths.size, 1);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('accumulates across a suspend window without growing past the cap', async () => {
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 50,
+			});
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 50 });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			// The unbounded-growth case this cap exists for: window unfocused, so nothing flushes.
+			session.suspend();
+			for (let i = 0; i < 20; i++) {
+				session.pushWorkingTreeChanges(Array.from({ length: 100 }, (_, j) => `/repo/${i}-${j}.ts`));
+			}
+
+			await delay(80);
+			assert.strictEqual(received.length, 0, 'suspended session must not fire');
+
+			session.resume();
+			await delay(80);
+
+			assert.strictEqual(received.length, 1);
+			assert.strictEqual(received[0].incomplete, true);
+			assert.ok(received[0].paths.size <= 1000, `expected <= 1000 retained paths, got ${received[0].paths.size}`);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('propagates a caller-reported overflow even when the surviving batch is small', async () => {
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 50,
+			});
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 50 });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			// What the watch service's pre-filter buffer does when it caps: most of what it dropped was
+			// gitignored, so only a couple of paths survive filtering — but the batch is still partial.
+			session.pushWorkingTreeChanges(['/repo/a.ts', '/repo/b.ts'], true);
+
+			await delay(80);
+			assert.strictEqual(received.length, 1);
+			assert.strictEqual(received[0].paths.size, 2);
+			assert.strictEqual(received[0].incomplete, true, 'a small batch can still be partial');
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('fires a caller-reported overflow even when every path was filtered out', async () => {
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 50,
+			});
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const sub = session.subscribeToWorkingTree({ delayMs: 50 });
+			sub.onDidChangeWorkingTree(e => received.push(e));
+
+			// The watch service pushes this shape when its pre-filter buffer capped and everything that
+			// survived was gitignored. The paths it dropped were never filtered, so something may well have
+			// changed — swallowing this because the retained set is empty is a silent miss.
+			session.pushWorkingTreeChanges([], true);
+
+			await delay(80);
+			assert.strictEqual(received.length, 1);
+			assert.strictEqual(received[0].paths.size, 0);
+			assert.strictEqual(received[0].incomplete, true);
+
+			sub.dispose();
+			session.dispose();
+		});
+
+		it('drops a pending overflow when the last working-tree subscriber leaves', async () => {
+			const session = new RepositoryWatchSession({
+				repoPath: '/repo',
+				defaultWorkingTreeDelayMs: 50,
+			});
+
+			const first = session.subscribeToWorkingTree({ delayMs: 50 });
+			session.pushWorkingTreeChanges(['/repo/a.ts'], true);
+			first.dispose();
+
+			const received: WorkingTreeChangeEvent[] = [];
+			const second = session.subscribeToWorkingTree({ delayMs: 50 });
+			second.onDidChangeWorkingTree(e => received.push(e));
+
+			session.pushWorkingTreeChanges(['/repo/b.ts']);
+			await delay(80);
+
+			assert.strictEqual(received.length, 1);
+			// A leaked flag would make this ordinary edit claim a partial set and force needless refreshes.
+			assert.strictEqual(received[0].incomplete, false);
+
+			second.dispose();
+			session.dispose();
+		});
+
 		it('repo and working tree pipelines are independent', async () => {
 			const session = new RepositoryWatchSession({
 				repoPath: '/repo',

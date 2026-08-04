@@ -7,7 +7,6 @@ import { findLastIndex } from '@gitlens/utils/array.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { weakEvent } from '@gitlens/utils/event.js';
-import { join, map, slice } from '@gitlens/utils/iterable.js';
 import { pad } from '@gitlens/utils/string.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
@@ -448,14 +447,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		return this.repo.etag;
 	}
 
-	@trace({
-		args: e => ({
-			e: `{ repository: ${e.repository.name ?? ''}, uris(${e.uris.size}): [${join(
-				map(slice(e.uris, 0, 1), u => u.fsPath),
-				', ',
-			)}${e.uris.size > 1 ? ', ...' : ''}] }`,
-		}),
-	})
+	@trace({ args: e => ({ e: e.toString() }) })
 	private async onWorkingTreeChanged(_e: RepositoryWorkingTreeChangeEvent) {
 		this._status = this.repo.git.status.getStatus();
 

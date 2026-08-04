@@ -7,12 +7,12 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
-import { basename, normalizePath } from '@gitlens/utils/path.js';
+import { some } from '@gitlens/utils/iterable.js';
+import { basename, isDescendant, normalizePath } from '@gitlens/utils/path.js';
 import type { Uri } from '@gitlens/utils/uri.js';
-import { fileUri } from '@gitlens/utils/uri.js';
 import type { GitProviderDescriptor } from '../providers/types.js';
 import { getCommonRepositoryUri } from '../utils/repository.utils.js';
-import type { WatcherRepoChangeEvent } from '../watching/changeEvent.js';
+import type { WatcherRepoChangeEvent, WorkingTreeChangeEvent } from '../watching/changeEvent.js';
 import type { RepositoryWatchService, WatchHandle, WatchHooks } from '../watching/watchService.js';
 import type { RepositorySubscription } from '../watching/watchSession.js';
 import { RepositoryChangeEvent } from './repositoryChangeEvent.js';
@@ -107,10 +107,44 @@ export interface RepositoryInit {
 	readonly watchService: RepositoryWatchService;
 }
 
-export interface RepositoryWorkingTreeChangeEvent {
-	readonly repository: Repository;
-	/** URIs of changed files */
-	readonly uris: ReadonlySet<Uri>;
+/**
+ * An event describing working tree file changes.
+ *
+ * Deliberately exposes no path collection. Consumers react by refreshing, and a refresh re-reads current
+ * state — so the paths only ever gate whether to bother, never what the answer is. A partial set would
+ * read as usable while quietly licensing the one harmful outcome (concluding a file did NOT change), so
+ * {@link changed} is the only way to ask.
+ */
+export class RepositoryWorkingTreeChangeEvent {
+	constructor(
+		readonly repository: Repository,
+		/** Absolute paths changed in this batch; partial when {@link incomplete}. */
+		private readonly paths: ReadonlySet<string>,
+		/** Whether paths were dropped, so {@link paths} can't be used to rule anything out. */
+		private readonly incomplete: boolean,
+	) {}
+
+	/**
+	 * Whether `uri` — or anything beneath it, when it's a folder — changed in this batch.
+	 *
+	 * Conservative: `true` whenever the batch is incomplete, since a miss would then prove nothing. Matches
+	 * on paths rather than URIs so nothing has to be allocated to answer.
+	 */
+	changed(uri: Uri): boolean {
+		if (this.incomplete) return true;
+
+		const path = uri.fsPath;
+		return some(this.paths, p => p === path || isDescendant(p, path));
+	}
+
+	toString(): string {
+		if (this.incomplete) return `{ repository: ${this.repository.name ?? ''}, paths: incomplete }`;
+
+		const [first] = this.paths;
+		return `{ repository: ${this.repository.name ?? ''}, paths(${this.paths.size}): [${first ?? ''}${
+			this.paths.size > 1 ? ', ...' : ''
+		}] }`;
+	}
 }
 
 export class Repository {
@@ -140,7 +174,8 @@ export class Repository {
 	protected _watchHandle: WatchHandle | undefined;
 	protected readonly _watchService: RepositoryWatchService;
 
-	private _pendingWorkingTreeChange?: RepositoryWorkingTreeChangeEvent;
+	private _pendingWorkingTreePaths?: Set<string>;
+	private _pendingWorkingTreeIncomplete = false;
 	private _pendingWorkingTreeFlush = false;
 	private _repoChangeListener: UnifiedDisposable | undefined;
 	/** Outstanding leases on the shared {@link _watchHandle} across `watch()` + `watchWorkingTree()`. */
@@ -318,7 +353,7 @@ export class Repository {
 		if (acquired == null) return createDisposable(() => {});
 
 		const sub = acquired.handle.session.subscribeToWorkingTree({ delayMs: delay });
-		const listener = sub.onDidChangeWorkingTree(e => this.onWorkingTreeChanged(e.paths));
+		const listener = sub.onDidChangeWorkingTree(e => this.onWorkingTreeChanged(e));
 
 		return createDisposable(
 			() => {
@@ -409,24 +444,30 @@ export class Repository {
 	 * `_onDidChangeWorkingTree` emission. Without this coalescing, every WIP-dependent listener
 	 * (graph, file history, compare branch, etc.) would fire N times for N active subscriptions.
 	 */
-	protected onWorkingTreeChanged(paths: ReadonlySet<string>): void {
+	/** Takes the session event whole rather than spreading it across parameters — a subclass override that
+	 *  dropped a trailing positional argument silently defeated this pipeline once already. */
+	protected onWorkingTreeChanged(e: WorkingTreeChangeEvent): void {
 		this._updatedAt = Date.now();
 
-		this._pendingWorkingTreeChange ??= { repository: this, uris: new Set<Uri>() };
-		for (const p of paths) {
-			(this._pendingWorkingTreeChange.uris as Set<Uri>).add(fileUri(p));
+		this._pendingWorkingTreePaths ??= new Set<string>();
+		for (const p of e.paths) {
+			this._pendingWorkingTreePaths.add(p);
 		}
+		this._pendingWorkingTreeIncomplete ||= e.incomplete;
 
 		if (this._pendingWorkingTreeFlush) return;
 
 		this._pendingWorkingTreeFlush = true;
 		queueMicrotask(() => {
 			this._pendingWorkingTreeFlush = false;
-			const e = this._pendingWorkingTreeChange;
-			if (e == null) return;
+			const paths = this._pendingWorkingTreePaths;
+			if (paths == null) return;
 
-			this._pendingWorkingTreeChange = undefined;
-			this._onDidChangeWorkingTree.fire(e);
+			const incomplete = this._pendingWorkingTreeIncomplete;
+			this._pendingWorkingTreePaths = undefined;
+			this._pendingWorkingTreeIncomplete = false;
+
+			this._onDidChangeWorkingTree.fire(new RepositoryWorkingTreeChangeEvent(this, paths, incomplete));
 		});
 	}
 

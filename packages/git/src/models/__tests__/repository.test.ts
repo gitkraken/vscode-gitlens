@@ -3,10 +3,11 @@ import * as assert from 'assert';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { Uri } from '@gitlens/utils/uri.js';
+import { fileUri } from '@gitlens/utils/uri.js';
 import type { GitProviderDescriptor } from '../../providers/types.js';
 import { WatcherRepoChangeEvent } from '../../watching/changeEvent.js';
 import type { RepositoryWatchService } from '../../watching/watchService.js';
-import type { RepositoryInit } from '../repository.js';
+import type { RepositoryInit, RepositoryWorkingTreeChangeEvent } from '../repository.js';
 import { Repository } from '../repository.js';
 import type { RepositoryChangeEvent } from '../repositoryChangeEvent.js';
 
@@ -119,11 +120,12 @@ suite('Repository.markFetched / onFetchHeadChanged', () => {
 function createWatchedRepo(): {
 	repo: TestRepository;
 	fireSessionRepoChange: (e: WatcherRepoChangeEvent) => void;
+	fireSessionWorkingTreeChange: (paths: string[], incomplete?: boolean) => void;
 	getWatchCalls: () => number;
 	getHandleDisposes: () => number;
 } {
 	const repoEmitter = new Emitter<WatcherRepoChangeEvent>();
-	const wtEmitter = new Emitter<{ repoPath: string; paths: ReadonlySet<string> }>();
+	const wtEmitter = new Emitter<{ repoPath: string; paths: ReadonlySet<string>; incomplete: boolean }>();
 
 	const session = {
 		repoPath: '/repo',
@@ -159,6 +161,8 @@ function createWatchedRepo(): {
 	return {
 		repo: new TestRepository(init),
 		fireSessionRepoChange: e => repoEmitter.fire(e),
+		fireSessionWorkingTreeChange: (paths, incomplete = false) =>
+			wtEmitter.fire({ repoPath: '/repo', paths: new Set(paths), incomplete: incomplete }),
 		getWatchCalls: () => watchCalls,
 		getHandleDisposes: () => handleDisposes,
 	};
@@ -196,6 +200,57 @@ suite('Repository.watch (caller-owned watch lifecycle)', () => {
 			// No watch() lease held → no session handle → the non-forced change is dropped
 			repo.triggerOnGitIgnoreChanged();
 			assert.strictEqual(events.length, 0, 'non-forced change must be dropped while unwatched');
+		} finally {
+			repo.dispose();
+		}
+	});
+
+	test('working-tree matching is exact, and folder-aware, when the batch is complete', async () => {
+		const { repo, fireSessionWorkingTreeChange } = createWatchedRepo();
+		try {
+			const events: RepositoryWorkingTreeChangeEvent[] = [];
+			repo.onDidChangeWorkingTree(e => events.push(e));
+
+			const lease = repo.watchWorkingTree();
+			fireSessionWorkingTreeChange(['/repo/a.ts', '/repo/nested/b.ts']);
+			// The repository coalesces bridge calls onto a microtask before firing.
+			await Promise.resolve();
+
+			assert.strictEqual(events.length, 1);
+			const e = events[0];
+			assert.ok(e.changed(fileUri('/repo/a.ts')));
+			assert.ok(!e.changed(fileUri('/repo/zzz.ts')));
+			// A folder matches anything beneath it — the same call, no separate prefix method.
+			assert.ok(e.changed(fileUri('/repo/nested')));
+			assert.ok(!e.changed(fileUri('/repo/other')));
+			// Boundary-aware: a naive prefix would match `/repo/nes` against `/repo/nested/b.ts`.
+			assert.ok(!e.changed(fileUri('/repo/nes')));
+
+			lease.dispose();
+		} finally {
+			repo.dispose();
+		}
+	});
+
+	test('an incomplete working-tree change matches everything, since a miss proves nothing', async () => {
+		const { repo, fireSessionWorkingTreeChange } = createWatchedRepo();
+		try {
+			const events: RepositoryWorkingTreeChangeEvent[] = [];
+			repo.onDidChangeWorkingTree(e => events.push(e));
+
+			const lease = repo.watchWorkingTree();
+			// The retained set is partial, so a path that changed may be absent from it.
+			fireSessionWorkingTreeChange(['/repo/a.ts'], true);
+			await Promise.resolve();
+
+			assert.strictEqual(events.length, 1);
+			const e = events[0];
+			// Absent from the retained set, but must still match — treating this as "unchanged" is the
+			// silent false negative the cap would otherwise introduce.
+			assert.ok(e.changed(fileUri('/repo/zzz.ts')));
+			assert.ok(e.changed(fileUri('/repo/anywhere')));
+
+			lease.dispose();
 		} finally {
 			repo.dispose();
 		}

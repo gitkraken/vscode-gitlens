@@ -85,6 +85,11 @@ export class WatcherRepoChangeEvent {
  */
 export interface WorkingTreeChangeEvent {
 	readonly repoPath: string;
-	/** Absolute paths of changed files (post-gitignore filtering) */
+	/** Absolute paths of changed files (post-gitignore filtering). Partial when {@link incomplete}. */
 	readonly paths: ReadonlySet<string>;
+	/**
+	 * `true` when more paths changed than the accumulator retains, so {@link paths} is a partial set and a
+	 * miss does NOT mean the file is unchanged. Consumers testing membership must treat this as a match.
+	 */
+	readonly incomplete: boolean;
 }

@@ -6,6 +6,7 @@ import { Repository } from '@gitlens/git/models/repository.js';
 import { RepositoryChangeEvent } from '@gitlens/git/models/repositoryChangeEvent.js';
 import type { GitProviderDescriptor } from '@gitlens/git/providers/types.js';
 import { getRepositoryOrWorktreePath } from '@gitlens/git/utils/repository.utils.js';
+import type { WorkingTreeChangeEvent } from '@gitlens/git/watching/changeEvent.js';
 import { debug, loggable, logName } from '@gitlens/utils/decorators/log.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { getLoggableName } from '@gitlens/utils/logger.js';
@@ -175,9 +176,9 @@ export class GlRepository extends Repository implements Disposable {
 		super.onFetchHeadChanged();
 	}
 
-	protected override onWorkingTreeChanged(paths: ReadonlySet<string>): void {
+	protected override onWorkingTreeChanged(e: WorkingTreeChangeEvent): void {
 		queueMicrotask(() => this.git.branches.onCurrentBranchModified?.());
-		super.onWorkingTreeChanged(paths);
+		super.onWorkingTreeChanged(e);
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {

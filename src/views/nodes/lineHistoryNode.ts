@@ -9,11 +9,10 @@ import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { weakEvent } from '@gitlens/utils/event.js';
-import { filterMap, find, some } from '@gitlens/utils/iterable.js';
+import { filterMap, find } from '@gitlens/utils/iterable.js';
 import { getLoggableName } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { areUrisEqual } from '@gitlens/utils/uri.js';
 import type { GitUri } from '../../git/gitUri.js';
 import type { RepositoryChangeEvent, RepositoryWorkingTreeChangeEvent } from '../../git/models/repository.js';
 import { getBranchAheadRange } from '../../git/utils/-webview/branch.utils.js';
@@ -212,7 +211,7 @@ export class LineHistoryNode
 	}
 
 	private onWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
-		if (!some(e.uris, uri => areUrisEqual(uri, this.uri))) return;
+		if (!e.changed(this.uri)) return;
 
 		using scope = maybeStartScopedLogger(
 			`${getLoggableName(this)}.onWorkingTreeChanged(e=${this.uri.toString(true)})`,
