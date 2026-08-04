@@ -18,7 +18,7 @@ interface TokenBackend {
 	/** Optional status for the connection-list response. */
 	connectionsStatus?: number;
 	/** Per-path token responses; return null to simulate a failed/absent token. */
-	token: (path: string) => unknown;
+	token: (path: string) => unknown | Promise<unknown>;
 	/** HTTP status for a failed token fetch (token() returned null). Defaults to 500 (transient). */
 	errorStatus?: number;
 }
@@ -27,7 +27,7 @@ function createManager(backend: TokenBackend) {
 	const runtime = createFakeRuntime();
 	const paths: string[] = [];
 	runtime.account.getAccount = async () => ({ id: 'me' });
-	runtime.account.fetchGkApi = (path: string) => {
+	runtime.account.fetchGkApi = async (path: string) => {
 		paths.push(path);
 		let payload: unknown = { data: null };
 		let status = 200;
@@ -35,7 +35,7 @@ function createManager(backend: TokenBackend) {
 			status = backend.connectionsStatus ?? 200;
 			payload = status >= 200 && status < 300 ? { data: backend.connections } : { error: 'boom' };
 		} else if (path.startsWith('v1/provider-tokens/')) {
-			const data = backend.token(path);
+			const data = await backend.token(path);
 			if (data == null) {
 				status = backend.errorStatus ?? 500;
 				payload = { error: 'boom' };
@@ -43,7 +43,7 @@ function createManager(backend: TokenBackend) {
 				payload = { data: data };
 			}
 		}
-		return Promise.resolve(new Response(JSON.stringify(payload), { status: status }));
+		return new Response(JSON.stringify(payload), { status: status });
 	};
 	return { runtime: runtime, manager: createIntegrationManager(runtime), paths: paths };
 }
@@ -140,6 +140,126 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		assert.equal(byId.get('p1')?.type, 'oauth');
 
 		manager.dispose();
+	});
+
+	test('refreshConnections fetches connection sessions concurrently', async () => {
+		const started = new Set<string>();
+		let releaseRequests!: () => void;
+		let resolveBothStarted!: () => void;
+		const requestsReleased = new Promise<void>(resolve => (releaseRequests = resolve));
+		const bothStarted = new Promise<void>(resolve => (resolveBothStarted = resolve));
+		const { manager } = createManager({
+			connections: [
+				{
+					tokenId: 'p1',
+					provider: 'github',
+					type: 'oauth',
+					domain: 'github.com',
+					accountName: 'octo',
+					secondaries: [
+						{
+							tokenId: 's1',
+							provider: 'github',
+							type: 'oauth',
+							domain: 'github.com',
+							accountName: 'hubot',
+						},
+					],
+				},
+			],
+			token: async path => {
+				const tokenId = path === 'v1/provider-tokens/github' ? 'p1' : path.split('/').pop()!;
+				if (path.startsWith('v1/provider-tokens/tokens/')) {
+					started.add(tokenId);
+					if (started.size === 2) {
+						resolveBothStarted();
+					}
+					await requestsReleased;
+				}
+				return {
+					tokenId: tokenId,
+					accessToken: `tok-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+				};
+			},
+		});
+		const refresh = manager.refreshConnections();
+
+		try {
+			await Promise.race([
+				bothStarted,
+				new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('connection session fetches remained sequential')), 1000),
+				),
+			]);
+			assert.deepEqual(started, new Set(['p1', 's1']));
+		} finally {
+			releaseRequests();
+			await refresh;
+			manager.dispose();
+		}
+	});
+
+	test('refreshConnections reconciles independent providers concurrently', async () => {
+		const started = new Set<string>();
+		let releaseRequests!: () => void;
+		let resolveBothStarted!: () => void;
+		const requestsReleased = new Promise<void>(resolve => (releaseRequests = resolve));
+		const bothStarted = new Promise<void>(resolve => (resolveBothStarted = resolve));
+		const { manager } = createManager({
+			connections: [
+				{
+					tokenId: 'gh1',
+					provider: 'github',
+					type: 'oauth',
+					domain: 'github.com',
+					accountName: 'octo',
+				},
+				{
+					tokenId: 'gl1',
+					provider: 'gitlab',
+					type: 'oauth',
+					domain: 'gitlab.com',
+					accountName: 'tanuki',
+				},
+			],
+			token: async path => {
+				const provider = path.split('/').pop()!;
+				if (path.startsWith('v1/provider-tokens/tokens/')) {
+					const tokenId = provider;
+					started.add(tokenId);
+					if (started.size === 2) {
+						resolveBothStarted();
+					}
+					await requestsReleased;
+				}
+				const tokenId = provider === 'github' ? 'gh1' : provider === 'gitlab' ? 'gl1' : provider;
+				return {
+					tokenId: tokenId,
+					accessToken: `tok-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+				};
+			},
+		});
+		const refresh = manager.refreshConnections();
+
+		try {
+			await Promise.race([
+				bothStarted,
+				new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('provider reconciliations remained sequential')), 1000),
+				),
+			]);
+			assert.deepEqual(started, new Set(['gh1', 'gl1']));
+		} finally {
+			releaseRequests();
+			await refresh;
+			manager.dispose();
+		}
 	});
 
 	test('blank wire account names fall back to the cached account name', async () => {
