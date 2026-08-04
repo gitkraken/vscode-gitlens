@@ -1559,9 +1559,11 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 
 		// Persist every account when the backend advertises per-connection identity (multi-account). This
 		// is a strict no-op for backends that return a single, id-less connection per provider.
-		for (const [integrationId, connections] of connectionsById) {
-			await this.reconcileCloudConnections(integrationId, connections, forceConnect);
-		}
+		await Promise.all(
+			Array.from(connectionsById, ([integrationId, connections]) =>
+				this.reconcileCloudConnections(integrationId, connections, forceConnect),
+			),
+		);
 
 		this.ctx.hooks?.connection?.onConnectedChanged?.({
 			integrationIds: [...connectedIntegrations.values()],
@@ -1612,79 +1614,91 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		const existingById = new Map(
 			this.configuredIntegrationService.getConfigured(id, { cloud: true }).map(c => [c.id, c]),
 		);
-		for (const connection of identified) {
-			// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
-			// Self-managed integrations are keyed/constructed by host.
-			const host = hostFromDomain(connection.domain);
+		const preparedConnections = await Promise.all(
+			identified.map(async connection => {
+				// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
+				// Self-managed integrations are keyed/constructed by host.
+				const host = hostFromDomain(connection.domain);
 
-			// Self-managed connections are keyed by host, so an unparseable/empty domain would store the
-			// session and descriptor under an empty host — producing ambiguous keys (`connected:<id>:`) that
-			// break later resolution and local-disconnect checks. Skip such a connection rather than corrupt
-			// state; cloud providers key off their canonical domain and are unaffected.
-			if (isGitSelfManagedHostIntegrationId(id) && !host) {
-				scope?.warn(`Skipping connection '${connection.id}' for ${id}: unresolved host from domain`);
-				continue;
-			}
-
-			// Don't resurrect a connection the user disconnected locally: a host "disconnect" only clears
-			// local state (the backend still lists the token), so without this the next non-forced sync would
-			// re-store the secret/config. A forced reconnect clears this flag (in the sync loop above) before
-			// reconcile runs, so it proceeds normally.
-			if (this.isLocallyDisconnected(id, host)) continue;
-
-			syncEligibleIds.add(connection.id);
-
-			// On a routine (non-forced) check-in, skip the token fetch + secret write for a connection we
-			// already have stored and that hasn't expired: nothing to refresh, so avoid the extra GK API
-			// traffic and secret churn. Still treat it as synced (so it doesn't trip the prune guard) and
-			// record its primary below. Forced syncs, new connections, and expired tokens fall through and
-			// fetch as before.
-			const cached = existingById.get(connection.id);
-			if (!forceConnect && cached != null && !isDescriptorExpired(cached)) {
-				syncedIds.add(connection.id);
-				if (connection.primary) {
-					const domain = isGitSelfManagedHostIntegrationId(id) ? host : undefined;
-					if (!syncedPrimaryIdsByDomain.has(domain)) {
-						syncedPrimaryIdsByDomain.set(domain, connection.id);
-					}
+				// Self-managed connections are keyed by host, so an unparseable/empty domain would store the
+				// session and descriptor under an empty host — producing ambiguous keys (`connected:<id>:`) that
+				// break later resolution and local-disconnect checks. Skip such a connection rather than corrupt
+				// state; cloud providers key off their canonical domain and are unaffected.
+				if (isGitSelfManagedHostIntegrationId(id) && !host) {
+					scope?.warn(`Skipping connection '${connection.id}' for ${id}: unresolved host from domain`);
+					return undefined;
 				}
-				continue;
-			}
 
-			try {
-				const session = await cloudIntegrations.getConnectionSession(id, undefined, connection.id);
-				if (session == null) continue;
+				// Don't resurrect a connection the user disconnected locally: a host "disconnect" only clears
+				// local state (the backend still lists the token), so without this the next non-forced sync would
+				// re-store the secret/config. A forced reconnect clears this flag (in the sync loop above) before
+				// reconcile runs, so it proceeds normally.
+				if (this.isLocallyDisconnected(id, host)) return undefined;
 
-				let providerSession = toProviderSession(id, connection, session, host);
+				syncEligibleIds.add(connection.id);
 
-				// Resolve a human-readable account handle with the same precedence as the gk CLI:
-				// (1) the value the backend put on the connection, (2) a previously-resolved name cached in
-				// our configured store (keyed by connection id), (3) a live provider-API lookup. This keeps
-				// provider round-trips to the first sight of a connection; degrade to undefined on failure.
-				const existing = existingById.get(connection.id);
-				const accountName =
-					normalizeAccountName(connection.accountName) ??
-					normalizeAccountName(existing?.accountName) ??
-					(await this.resolveAccountName(id, host, providerSession));
-				if (accountName != null) {
-					providerSession = {
-						...providerSession,
-						account: { ...providerSession.account, label: accountName },
+				// On a routine (non-forced) check-in, skip the token fetch + secret write for a connection we
+				// already have stored and that hasn't expired: nothing to refresh, so avoid the extra GK API
+				// traffic and secret churn. Still treat it as synced (so it doesn't trip the prune guard) and
+				// record its primary below. Forced syncs, new connections, and expired tokens fall through and
+				// fetch as before.
+				const cached = existingById.get(connection.id);
+				if (!forceConnect && cached != null && !isDescriptorExpired(cached)) {
+					return { kind: 'cached' as const, connection: connection, host: host };
+				}
+
+				try {
+					const session = await cloudIntegrations.getConnectionSession(id, undefined, connection.id);
+					if (session == null) return undefined;
+
+					let providerSession = toProviderSession(id, connection, session, host);
+
+					// Resolve a human-readable account handle with the same precedence as the gk CLI:
+					// (1) the value the backend put on the connection, (2) a previously-resolved name cached in
+					// our configured store (keyed by connection id), (3) a live provider-API lookup. This keeps
+					// provider round-trips to the first sight of a connection; degrade to undefined on failure.
+					const existing = existingById.get(connection.id);
+					const accountName =
+						normalizeAccountName(connection.accountName) ??
+						normalizeAccountName(existing?.accountName) ??
+						(await this.resolveAccountName(id, host, providerSession));
+					if (accountName != null) {
+						providerSession = {
+							...providerSession,
+							account: { ...providerSession.account, label: accountName },
+						};
+					}
+
+					return {
+						kind: 'fetched' as const,
+						connection: connection,
+						host: host,
+						providerSession: providerSession,
 					};
+				} catch (ex) {
+					scope?.warn(
+						`Failed to sync connection '${connection.id}' for ${id}: ${ex instanceof Error ? ex.message : String(ex)}`,
+					);
+					return undefined;
 				}
+			}),
+		);
 
-				await this.configuredIntegrationService.storeSession(id, providerSession);
-				syncedIds.add(connection.id);
-				if (connection.primary) {
-					const domain = isGitSelfManagedHostIntegrationId(id) ? host : undefined;
-					if (!syncedPrimaryIdsByDomain.has(domain)) {
-						syncedPrimaryIdsByDomain.set(domain, connection.id);
-					}
+		// The remote work above is independent, but session persistence remains ordered because storage
+		// implementations may update a shared configured-connections collection with read-modify-write.
+		for (const prepared of preparedConnections) {
+			if (prepared == null) continue;
+
+			if (prepared.kind === 'fetched') {
+				await this.configuredIntegrationService.storeSession(id, prepared.providerSession);
+			}
+
+			syncedIds.add(prepared.connection.id);
+			if (prepared.connection.primary) {
+				const domain = isGitSelfManagedHostIntegrationId(id) ? prepared.host : undefined;
+				if (!syncedPrimaryIdsByDomain.has(domain)) {
+					syncedPrimaryIdsByDomain.set(domain, prepared.connection.id);
 				}
-			} catch (ex) {
-				scope?.warn(
-					`Failed to sync connection '${connection.id}' for ${id}: ${ex instanceof Error ? ex.message : String(ex)}`,
-				);
 			}
 		}
 

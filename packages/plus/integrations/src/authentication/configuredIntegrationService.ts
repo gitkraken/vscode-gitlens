@@ -40,6 +40,7 @@ export interface ConfiguredIntegrationsChangeEvent {
 
 export class ConfiguredIntegrationService implements Disposable {
 	private readonly _onDidChange = new Emitter<ConfiguredIntegrationsChangeEvent>();
+	private storeConfiguredQueue: Promise<void> = Promise.resolve();
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this._onDidChange.event;
 	}
@@ -129,7 +130,11 @@ export class ConfiguredIntegrationService implements Disposable {
 			}));
 		}
 
-		await this.ctx.storage.store('integrations:configured', configured);
+		const pending = this.storeConfiguredQueue.then(() =>
+			this.ctx.storage.store('integrations:configured', configured),
+		);
+		this.storeConfiguredQueue = pending.catch(() => {});
+		await pending;
 	}
 
 	private async addOrUpdateConfigured(descriptor: ConfiguredIntegrationDescriptor): Promise<void> {
