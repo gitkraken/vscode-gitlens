@@ -1496,7 +1496,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// Wait for the graph to mount after the mode switch before asking it to reveal a row.
 			await this.updateComplete;
 		}
-		void this.graph?.navigateToCommit(e.detail.sha, { source: 'details' });
+		void this.graph?.navigateToCommit(e.detail.sha, { source: 'overview' });
 	};
 
 	private handleOverviewBarSelect = async (e: CustomEvent<OverviewBarSelectDetail>): Promise<void> => {
@@ -1548,7 +1548,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `navigateToCommit` handles both and waits through the render + scope catch-up. The
 		// `openWipDetails` await above ensures the graph is mounted (e.g. after the displayMode
 		// switch) before we call it.
-		void this.graph?.navigateToCommit(id, { source: 'scope' });
+		void this.graph?.navigateToCommit(id, { source: 'overview' });
 	};
 
 	/** Resolves once the active scope has cleared (or a safety timeout elapses). Used after a
@@ -3295,7 +3295,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const sha = this.getOverviewBranchSelectionSha(e.detail.branchId);
 		if (sha != null) {
-			void this.graph?.navigateToCommit(sha, { source: 'scope' });
+			void this.graph?.navigateToCommit(sha, { source: 'overview' });
 		}
 
 		// If the user clicked the card without first hovering, the merge-target tip SHA isn't known

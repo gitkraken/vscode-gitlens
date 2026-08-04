@@ -81,9 +81,30 @@ import {
 } from '../utils/wip.utils.js';
 import './gl-lit-graph.js';
 
+/**
+ * Where a navigation came from. DIAGNOSTIC ONLY — it feeds `getGraphDebugDiagnostics` and nothing else.
+ *
+ * A source names the code path that dispatched, which is not the same as what the user was trying to see:
+ * `jump` covers both ref-find stepping and the Pull popover's jump-to-incoming, and `wip` and `wip-jump`
+ * differ in how they RESOLVE a target rather than in how deliberate they are. Anything that wants to know
+ * a caller's intent has to be told, not infer it from here.
+ */
+export type GraphNavigationSource =
+	| 'details'
+	| 'history'
+	| 'host'
+	| 'jump'
+	| 'overview'
+	| 'search'
+	| 'selection-sync'
+	| 'sidebar'
+	| 'visibility'
+	| 'wip'
+	| 'wip-jump';
+
 export type GraphNavigationOptions = {
-	/** Diagnostic origin for this navigation. */
-	source?: string;
+	/** Diagnostic origin for this navigation — see {@link GraphNavigationSource}. */
+	source?: GraphNavigationSource;
 	/** Cancel this navigation when its caller no longer owns the user intent. */
 	signal?: AbortSignal;
 	/** Move the graph's keyboard/ARIA focus anchor to the selected row after it renders. */
