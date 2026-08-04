@@ -10,8 +10,13 @@
 	--editor-font-size: var(--vscode-editor-font-size);
 	--editor-font-weight: var(--vscode-editor-font-weight);
 
+	// Brand accent colors (GitKraken purple → blue) — the stops behind the brand gradient,
+	// plus hero glows and accent sweeps that need the endpoints on their own.
+	--gl-brand-purple: #7900c9;
+	--gl-brand-blue: #196fff;
+
 	// Brand accent gradient (GitKraken purple → blue) — Pro feature gates, promos, etc.
-	--gl-gradient-brand: linear-gradient(to right, #7900c9, #196fff);
+	--gl-gradient-brand: linear-gradient(to right, var(--gl-brand-purple), var(--gl-brand-blue));
 
 	// Subtle brand wash (magenta → blue @ ~10%) — low-emphasis feature-region backgrounds
 	// (auto-compose container, MCP/hooks buttons, matching promo banner). Static + decorative;
