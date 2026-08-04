@@ -60,6 +60,14 @@ import {
  */
 const wipWatchGracePeriodMs = 30_000;
 
+/**
+ * Minimum spacing between secondary-WIP probe fan-outs for one repo. Every graph state build reaches the
+ * probe — including a reuse build that walks no rows — and one logical change arrives as a burst of builds,
+ * each a `GraphDataController.stateFreshnessMs` deferral behind the last. Sized to span that burst so it
+ * costs one fan-out across every worktree instead of one per build.
+ */
+const wipProbeCooldownMs = 3000;
+
 // Minimal template used for the first line of the WIP row hover (avatar + author). The rest of the WIP
 // tooltip is built directly in `getWipTooltip` to accommodate the optional worktree path and the
 // "No working changes" fallback, neither of which is representable via formatter tokens.
@@ -153,6 +161,10 @@ export class GraphWipService {
 
 	private _wipProbeGeneration = 0;
 	private _wipProbeCancellation: CancellationTokenSource | undefined;
+	/** The latest probe fan-out: `running` until it settles, `startedAt` fencing the {@link wipProbeCooldownMs}
+	 *  window, `repoPath` so a swap always re-probes. A per-run object rather than fields on the service, so a
+	 *  superseded run's `finally` settles ITS entry and can't reopen a stale window over the current one. */
+	private _wipProbeRun: { repoPath: string; startedAt: number; running: boolean } | undefined;
 
 	/**
 	 * Coalesces concurrent `notifyDidChangeWorkingTree` triggers into a single in-flight call, with a
@@ -718,25 +730,38 @@ export class GraphWipService {
 	 *  through the guarded working-tree channel (the webview's `mergeWipState` folds the probe
 	 *  fields into whatever anchors it already has). */
 	probeSecondaryWipInBackground(): void {
+		const repo = this.repository;
+		if (repo == null) return;
+
+		// One fan-out per repo per window: join the run already in flight, and drop anything landing inside the
+		// window it started in. The walk re-`git diff`s every worktree for an answer a state rebuild can't have
+		// changed, and the burst's tail lands just after the run settles — which is why the in-flight check alone
+		// doesn't cover it. Dropping is invisible: the payload is enrichment-only and `mergeWipState` keeps the
+		// last probe's fields, so the bar holds the previous answer rather than blanking.
+		const last = this._wipProbeRun;
+		if (last?.repoPath === repo.path && (last.running || performance.now() - last.startedAt < wipProbeCooldownMs)) {
+			return;
+		}
+
 		const generation = ++this._wipProbeGeneration;
-		// Cancel the superseded generation's fan-out: its results would be discarded by the generation
-		// guard below anyway, so letting up to 4 git probes per stale generation run to completion only
-		// stacks processes (rapid reloads / repo swaps) with no cross-generation bound.
+		// Cancel a fan-out still running for a DIFFERENT repo (rapid reloads / repo swaps): its results are
+		// discarded by the generation guard below anyway, so letting it keep spawning only stacks processes
+		// against the repo the user is no longer looking at.
 		this._wipProbeCancellation?.cancel();
 		this._wipProbeCancellation?.dispose();
 		const cancellable = new CancellationTokenSource();
 		this._wipProbeCancellation = cancellable;
+		const run = { repoPath: repo.path, startedAt: performance.now(), running: true };
+		this._wipProbeRun = run;
 
-		const repo = this.repository;
 		void (async () => {
 			try {
 				const wipRows = await this.getWipRows(cancellable.token, { probeChanges: true });
 				if (this._disposed || generation !== this._wipProbeGeneration || this.repository !== repo) return;
+
 				// Nothing to report without a PEER: the probe only fills peers' dirty/unpushed bits (the
 				// graph's own worktree gets authoritative stats from the working-tree push), and the
 				// topology this would carry is the same one `getState` already sent.
-				if (repo == null) return;
-
 				const primaryWipRowId = createWipRowId(repo.path);
 				if (!Object.keys(wipRows.rows).some(id => id !== primaryWipRowId)) return;
 
@@ -747,6 +772,7 @@ export class GraphWipService {
 				});
 			} catch {
 			} finally {
+				run.running = false;
 				if (this._wipProbeCancellation === cancellable) {
 					this._wipProbeCancellation = undefined;
 				}
@@ -1288,6 +1314,8 @@ export class GraphWipService {
 		// Force the badge to re-evaluate on the next push so a repo swap to one with the same
 		// change count as the prior repo still re-stamps (and the tooltip stays correct).
 		this._lastBadgeCount = -1;
+		// A forced refresh re-probes instead of riding the outgoing graph's cooldown window.
+		this._wipProbeRun = undefined;
 	}
 
 	/** Force the panel-tab badge to re-evaluate on the next push (setting toggle). */
