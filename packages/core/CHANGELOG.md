@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.104] - 2026-08-04
+
 ### Added
 
 - Adds `IntegrationService.searchIssuesPage`, a filtered issue search over a repository/org scope with no forced relationship to the current user. Until now every issue read was either bound to the user's own relationships (`searchMyIssues`, permanently `@me`) or routed through the SDK's repo-scoped read, whose over-limit recovery walk can spend up to 128 sequential requests and still return an incomplete set; this is one request per page and reads exactly what was asked for. Three parts of the contract are load-bearing: scope is mandatory (`repos`, `org`, or a user relationship — and repository IDs are refused, since a search names repositories by path and dropping them would silently search the whole org); ordering is always `sort:updated` rather than optional, because a consumer's "show the N most recent" policy at the result ceiling is only correct under a guaranteed order; and at that ceiling the read SUCCEEDS, reporting an omission with `recovery: 'none'` carrying `totalCount` and `limit`, so a consumer can say "19,240 matched, showing the 1,000 most recent" and knows not to offer a load-more that cannot deliver. Note `itemsPerPage` is per RELATIONSHIP — each is its own provider query, so an N-relationship search returns up to N × `itemsPerPage` before the url dedupe; `page.itemsPerPage` is what actually came back (plus/integrations)
@@ -182,7 +184,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.103...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.104...HEAD
+[0.5.104]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.103...gitkraken:releases/core/v0.5.104
 [0.5.103]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.102...gitkraken:releases/core/v0.5.103
 [0.5.102]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.101...gitkraken:releases/core/v0.5.102
 [0.5.101]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.100...gitkraken:releases/core/v0.5.101
