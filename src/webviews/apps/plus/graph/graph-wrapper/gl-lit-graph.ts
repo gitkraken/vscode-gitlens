@@ -1314,7 +1314,11 @@ export class GlLitGraph extends LitElement {
 		// Start each (re-)connect with a clean scroll-shadow state — the scroller resets to top.
 		this.wasScrolled = false;
 		this.resizeObserver = new ResizeObserver(entries => {
-			const width = entries[0]?.contentRect.width ?? 0;
+			// Both this element AND the virtualizer are observed (see `observeVirtualizerResize`), so pick our
+			// OWN entry for the container width rather than trusting entry order — a virtualizer-only resize
+			// would otherwise report the scroller's width as the container's.
+			const self = entries.find(e => e.target === this);
+			const width = self?.contentRect.width ?? this.containerWidth;
 			if (width !== this.containerWidth) {
 				this.containerWidth = width;
 				// Abort any in-flight reveal slide: a resize re-solves the grouped cap/widths, and the
@@ -1343,10 +1347,28 @@ export class GlLitGraph extends LitElement {
 				this.updateHeadPillDirection();
 				this.updatePinnedPillDirection();
 			}
-			// A resize can shift the chrome above the row list onto/off a fractional boundary.
-			this.snapVirtualizerToPixelGrid();
+			// A resize can shift the chrome above the row list onto/off a fractional boundary — but only a
+			// resize can, so re-measure only when the scroller's box actually moved. Deliveries far outnumber
+			// actual size changes (paging and scrollbar churn each fire one), and the snap's
+			// `getBoundingClientRect` is not free on every one. Compare the FRACTIONAL `contentRect`, not the
+			// integer `clientHeight` above: a sub-pixel chrome shift is exactly what the snap corrects, and
+			// rounding hides it.
+			const scrollerEntry = entries.find(e => e.target === this.virtualizerRef.value);
+			if (scrollerEntry != null) {
+				const { width: w, height: h } = scrollerEntry.contentRect;
+				if (w !== this.lastSnapWidth || h !== this.lastSnapHeight) {
+					this.lastSnapWidth = w;
+					this.lastSnapHeight = h;
+					this.snapVirtualizerToPixelGrid();
+				}
+			} else if (self != null) {
+				// Our own resize with no scroller entry in this delivery — the scroller's offset can still have
+				// moved, so snap and let the scroller's own entry re-confirm on the next delivery.
+				this.snapVirtualizerToPixelGrid();
+			}
 		});
 		this.resizeObserver.observe(this);
+		this.observeVirtualizerResize();
 		// On RECONNECT the virtualizer DOM already exists but firstUpdated won't fire again, so
 		// re-attach the (passive) scroll listener here. First connect is handled by firstUpdated.
 		if (this.hasUpdated) {
@@ -4446,6 +4468,33 @@ export class GlLitGraph extends LitElement {
 		// per-row state changed without `items` changing (selection/focus/placement/node-style/
 		// dimming/adornments). Cheap: one closure alloc; the body reads the cached _renderCtx + the
 		// C-group-lean renderRow. Keeping it stable would freeze those updates on screen.
+		//
+		// That blunt guarantee is also the dominant per-keypress cost during arrow navigation on a
+		// lane-heavy history: a new identity re-runs `renderItem` for EVERY row in the rendered range, and
+		// a keypress changes the appearance of two of them. Making it stable is a real option, but it is
+		// not a one-line change — everything below has to land with it, or the failure is a silently
+		// frozen row rather than a slow one:
+		//  • `renderRowItem` must become a `this`-free function of `(row, index, ctx)`. It reads a dozen
+		//    host fields directly today (`skeletonScroll`, `excludeTypes`/`excludeRefs`/`downstreams`/
+		//    `_refOrder`, `displayRows`, `nowMs`, `repoPath`, …), so no context-based staleness check can
+		//    be exhaustive while those live reads exist.
+		//  • The "did anything but selection change" test must compare the WHOLE context (excluding only
+		//    `selected`/`focusedSha`) rather than an enumerated field list — an include-list fails unsafe
+		//    (freeze), a whole-object compare fails safe (redundant re-render). That requires memoizing
+		//    `zones`, `laneWindow`, `rowMarkerTips` and `wipRowMarkerPill` at their source: each allocates
+		//    fresh every update, and `laneWindow` does so exactly when lanes overflow — so without the
+		//    memos the check always trips on precisely the repos this is meant to help.
+		//  • State that mutates behind a stable reference is invisible to any such compare and needs an
+		//    explicit bump: `settleSkeletonScroll` (its `requestUpdate` relies on this closure being
+		//    recreated — see its comment), `invalidateAdornments`, the in-place `failedAvatarUrls` add,
+		//    the payload-only `commits` swap, the palette epoch, and the relative-date minute tick.
+		//  • Selection/focus would move to an imperative reconcile — they reach the row as two class
+		//    tokens plus `aria-selected`/`data-focused` and nothing else, and hover already works this way
+		//    (it triggers no render at all). The template must KEEP stamping them from the context so a
+		//    later re-render self-heals.
+		// Note the scroll path is unaffected either way: the virtualize directive re-runs `renderItem` over
+		// the whole range on every `rangeChanged`, independent of this identity.
+		//
 		// `undefined` row = a hole from the virtualizer's not-yet-remeasured range (see `rowKey`) — spacer it,
 		// matching the missing-commit degradation in `renderRowItem`.
 		const renderItem = (row: ProcessedGraphRow | undefined, index: number): TemplateResult =>
@@ -6519,7 +6568,21 @@ export class GlLitGraph extends LitElement {
 		// Prime the cached viewport height before the first scroll (the ResizeObserver refreshes it on resize).
 		this.scrollerClientHeight = this.virtualizerRef.value?.clientHeight ?? 0;
 		this.attachScrollListener();
+		// The scroller exists only now, so this is where it joins the ResizeObserver.
+		this.observeVirtualizerResize();
 		this.snapVirtualizerToPixelGrid();
+	}
+
+	/** Observe the scroller as well as the host. Chrome above the row list (toolbar / search / column
+	 *  header) can change height without resizing the graph itself — the flex row list absorbs it — so
+	 *  observing only the host misses exactly the case the pixel snap and the `scrollerClientHeight` cache
+	 *  exist to track. The scroller is created by the first render, so this is called from `firstUpdated`
+	 *  and again on reconnect; `observe` on an already-observed target is a no-op. */
+	private observeVirtualizerResize(): void {
+		const scroller = this.virtualizerRef.value;
+		if (scroller == null) return;
+
+		this.resizeObserver?.observe(scroller);
 	}
 
 	// The chrome above the row list (toolbar + search + column header) can sum to a FRACTIONAL height, so
@@ -6527,6 +6590,10 @@ export class GlLitGraph extends LitElement {
 	// device-pixel grid and softens. Snap the virtualizer back onto whole pixels with a tiny compensating
 	// transform (recomputed on resize). Visual only: the scroller still owns scrollTop, so scrolling and
 	// the virtualizer's own measurements are unaffected.
+	// Scroller box the snap was last computed for, so repeat observer deliveries at an unchanged size skip
+	// the measuring read (see the ResizeObserver callback).
+	private lastSnapWidth = -1;
+	private lastSnapHeight = -1;
 	private virtualizerSnapOffset = 0;
 	private snapVirtualizerToPixelGrid(): void {
 		const el = this.virtualizerRef.value;
@@ -6539,6 +6606,41 @@ export class GlLitGraph extends LitElement {
 
 		this.virtualizerSnapOffset = offset;
 		el.style.transform = offset !== 0 ? `translateY(${offset.toFixed(3)}px)` : '';
+	}
+
+	// Column layout the Changes opt-in overlay was last positioned against — see `syncChangesOptIn`.
+	private lastOptInLayoutKey?: string;
+
+	/** Position the dormant Changes opt-in overlay over its RENDERED header cell. Solved-zone arithmetic
+	 *  can't see layout-owning concerns (grouped refs/graph slot, crumbs), and drift paints the overlay over
+	 *  the wrong column (live-caught +126px with grouped refs), so this measures. Hidden until positioned so
+	 *  it never flashes unaligned.
+	 *
+	 *  `offsetLeft` forces a synchronous layout, so it is gated on the solved column layout actually having
+	 *  moved rather than run per update — `updated()` fires several times per keypress during arrow
+	 *  navigation and none of those touch the header. The visibility check is the second half of the gate — a
+	 *  re-created overlay comes back with the template's `visibility: hidden` and a fresh `cspStyleMap`
+	 *  (which otherwise skips writes for unchanged values, so it never clobbers the `left` we set here),
+	 *  and without that check an unchanged layout key would leave the new element permanently hidden. */
+	private syncChangesOptIn(): void {
+		const optin = this.changesOptInRef.value;
+		if (optin == null) {
+			this.lastOptInLayoutKey = undefined;
+			return;
+		}
+
+		const c = this._renderCtx;
+		const key = `${this.containerWidth}|${this.graphPlacement}|${c.gutterWidth}|${c.zones
+			.map(z => `${z.id}:${z.width}`)
+			.join(',')}`;
+		if (key === this.lastOptInLayoutKey && optin.style.visibility === 'visible') return;
+
+		const cell = this.querySelector<HTMLElement>('.gl-graph__header-cell[data-col-id="changes"]');
+		if (cell == null) return;
+
+		this.lastOptInLayoutKey = key;
+		optin.style.left = `${cell.offsetLeft}px`;
+		optin.style.visibility = 'visible';
 	}
 
 	protected override updated(changed: PropertyValues): void {
@@ -6557,24 +6659,11 @@ export class GlLitGraph extends LitElement {
 		// ...and re-arms it while a find's page-in is still settling: later batches move the row's index, and
 		// the flush above has already consumed itself against an earlier one.
 		this.retryRefFindReveal();
-		// Keep the virtualizer pixel-snapped after every render too — the ResizeObserver only fires on OUR
-		// size change, so chrome above the row list (toolbar/search/header) shifting onto a fractional
-		// boundary without resizing us would otherwise leave the snap stale → every row (and its text)
-		// renders off the device-pixel grid and softens. Cheap: a no-op early-returns when already snapped.
-		this.snapVirtualizerToPixelGrid();
-		// Position the dormant Changes opt-in overlay from the RENDERED header cell — solved-zone
-		// arithmetic can't see layout-owning concerns (grouped refs/graph slot, crumbs), and drift paints
-		// the overlay over the wrong column (live-caught +126px with grouped refs). Hidden until
-		// positioned so it never flashes unaligned; re-synced every render (the template style re-apply
-		// resets it).
-		const optin = this.changesOptInRef.value;
-		if (optin != null) {
-			const cell = this.querySelector<HTMLElement>('.gl-graph__header-cell[data-col-id="changes"]');
-			if (cell != null) {
-				optin.style.left = `${cell.offsetLeft}px`;
-				optin.style.visibility = 'visible';
-			}
-		}
+		// Re-position the dormant Changes opt-in overlay — self-gated on the column layout having moved, so
+		// it measures on a header change rather than on every update. The virtualizer's pixel snap is the
+		// other geometry reader; it rides the ResizeObserver, whose callbacks land after layout. Keep both
+		// off this method: anything measuring here forces a synchronous layout on every update.
+		this.syncChangesOptIn();
 		if (DEBUG) {
 			getGraphDebugDiagnostics().endUpdate({
 				repoPath: this.repoPath,
@@ -6600,15 +6689,67 @@ export class GlLitGraph extends LitElement {
 		orientation: 'horizontal',
 	});
 
+	// Cache for `getHeaderRovingItems`, keyed on the candidate set itself (elements + their keys) rather
+	// than on the header's inputs — the DOM is the thing the answer is derived from, so it can't drift the
+	// way an enumerated input list would.
+	private _headerRovingCache?: {
+		candidates: readonly HTMLElement[];
+		keys: readonly string[];
+		items: { key: string; element: HTMLElement }[];
+	};
+
 	/** The header's roving controls (column labels, resize handles, filter/placement/settings buttons) in
 	 *  visual (DOM) order; visible only. Keyed by the stable `data-roving-key` each render site sets. */
 	private getHeaderRovingItems(): { key: string; element: HTMLElement }[] {
 		const header = this.querySelector('.gl-graph__header');
 		if (header == null) return [];
 
-		return [...header.querySelectorAll<HTMLElement>('[data-roving-key]')]
+		// `querySelectorAll` and `dataset` are tree/attribute reads — free. The visibility filter below is
+		// NOT: `offsetParent` forces a synchronous layout, and the controller calls this from `hostUpdated`
+		// after EVERY host update, i.e. with `render()`'s mutations still pending. Row-level updates
+		// (selection, focus, scroll) never touch the header, so that flush buys nothing on the path that
+		// runs it most.
+		//
+		// Reuse the previous answer while the candidate set is identical. Every one of these controls is
+		// conditionally RENDERED (none is hidden in place by CSS), so an unchanged element list with
+		// unchanged keys means an unchanged visible list. Both halves are load-bearing: comparing elements
+		// alone misses a reused node whose `data-roving-key` was rebound (a column's zone id changing),
+		// and comparing keys alone misses a node swap.
+		const candidates = header.querySelectorAll<HTMLElement>('[data-roving-key]');
+		const cached = this._headerRovingCache;
+		if (cached != null && cached.candidates.length === candidates.length) {
+			let same = true;
+			for (let i = 0; i < candidates.length; i++) {
+				const el = candidates[i];
+				if (cached.candidates[i] !== el || cached.keys[i] !== el.dataset.rovingKey) {
+					same = false;
+					break;
+				}
+			}
+			if (same) return cached.items;
+		}
+
+		const elements = [...candidates];
+		const items = elements
 			.filter(el => el.offsetParent != null && getComputedStyle(el).visibility !== 'hidden')
 			.map(el => ({ key: el.dataset.rovingKey!, element: el }));
+		// Only cache when EVERY candidate is visible. A control that was in the DOM but not laid out when
+		// this ran — the whole graph subtree `[hidden]` for timeline/kanban mode nulls every `offsetParent`,
+		// and a control can be mid-transition — would otherwise be cached as absent and stay absent, since
+		// the DOM it is keyed on never changes. That is a tab stop silently missing until something unrelated
+		// re-composes the header. Recomputing instead costs a layout read on updates where the header is
+		// genuinely partly hidden, which is the failure worth having: slow, not broken.
+		if (items.length !== elements.length) {
+			this._headerRovingCache = undefined;
+			return items;
+		}
+
+		this._headerRovingCache = {
+			candidates: elements,
+			keys: elements.map(el => el.dataset.rovingKey!),
+			items: items,
+		};
+		return items;
 	}
 
 	/** True when `sha` is currently rendered (present in `displayRows`); false when it's loaded but
@@ -6708,10 +6849,10 @@ export class GlLitGraph extends LitElement {
 	// `scrollToIndex(idx, 'nearest')` replacement that also honors `gitlens.graph.scrollRowPadding` — rows of
 	// margin kept from the viewport edge. KEYBOARD NAVIGATION ONLY now (arrow/page stepping and the focus-in
 	// ensure-visible); jumps go through the reveal rule instead, which decides by trailing context rather
-	// than by bare visibility. Never the scroll hot path, so the one live `scrollTop` read below is fine. All
-	// size math otherwise comes from cached geometry (`scrollerClientHeight`/`rowHeight`) — no layout-forcing
-	// reads. Padding is clamped to leave at least one row of slack either side; a clamp-to-zero (tiny
-	// viewport, or the setting itself is 0) falls through to plain minimal scrolling.
+	// than by bare visibility. All size math comes from cached geometry (`scrollerClientHeight`/`rowHeight`)
+	// and the tracked scroll offset — no layout-forcing reads at all. Padding is clamped to leave at least
+	// one row of slack either side; a clamp-to-zero (tiny viewport, or the setting itself is 0 — the
+	// default) leaves `padPx` at 0, where the arithmetic below reduces exactly to plain minimal scrolling.
 	private revealIndexNearest(idx: number): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller == null) return;
@@ -6729,25 +6870,15 @@ export class GlLitGraph extends LitElement {
 		// hotspot at rest. `onScroll` mirrors every scroll into `_viewportScrollTop` ahead of its own
 		// early-return, and each write below re-syncs it, so the tracked value is exact here.
 		const scrollTop = this._viewportScrollTop;
-		if (padding <= 0) {
-			// Already fully on-screen → leave it put, which is the whole point of 'nearest';
-			// `scrollToIndex` isn't a guaranteed no-op for an already-visible row (lit-virtualizer can still
-			// nudge it), so skip the call entirely rather than rely on that.
-			if (rowTop >= scrollTop && rowBottom <= scrollTop + viewportHeight) return;
-
-			this._scrollAnchorGeneration++;
-			scroller.scrollToIndex(idx, 'nearest');
-			// `scrollToIndex` lands asynchronously, and its scroll event is what would otherwise refresh the
-			// tracked position — mirror the minimal scroll 'nearest' resolves to, so the NEXT keypress can't
-			// judge visibility from a stale value and skip a reveal it owed. If the virtualizer lands a hair
-			// differently, its scroll event corrects this on arrival.
-			this.trackViewportTop(Math.max(0, rowTop < scrollTop ? rowTop : rowBottom - viewportHeight));
-			return;
-		}
-
-		// Bumped per WRITE, not on entry: both branches below can decline to scroll (the row already sits
-		// inside the padding), and cancelling a pending anchor retry when we never moved would strand the
-		// viewport where the row-set change left it.
+		// Rows are a uniform `rowHeight`, so the destination is exact arithmetic and a direct `scrollTop`
+		// write lands it. Deliberately NOT the virtualizer's `scrollToIndex`, which resolves through a
+		// native `scrollIntoView` on the row element — a forced layout plus a walk of every scroll
+		// ancestor, on a path keyboard navigation hits once per press at the viewport edge — and which
+		// settles asynchronously and can land short (the same flakiness `centerRowAt` documents avoiding).
+		//
+		// Generation is bumped per WRITE, not on entry: both branches can decline to scroll (the row is
+		// already inside the padding), and cancelling a pending anchor retry when we never moved would
+		// strand the viewport where the row-set change left it.
 		const padPx = padding * rowHeight;
 		if (rowTop < scrollTop + padPx) {
 			this._scrollAnchorGeneration++;
@@ -6756,7 +6887,7 @@ export class GlLitGraph extends LitElement {
 			this.trackViewportTop(target);
 		} else if (rowBottom > scrollTop + viewportHeight - padPx) {
 			this._scrollAnchorGeneration++;
-			const target = rowBottom - viewportHeight + padPx;
+			const target = Math.max(0, rowBottom - viewportHeight + padPx);
 			scroller.scrollTop = target;
 			this.trackViewportTop(target);
 		}
@@ -7000,7 +7131,7 @@ export class GlLitGraph extends LitElement {
 		const scrollTop = (event.target as HTMLElement).scrollTop;
 		// Teleport-class jump: well past one viewport since the LAST sample (read before trackScrollVelocity
 		// advances it) means the new rendered range shares nothing with the old. Engage skeleton rows only on
-		// the SECOND consecutive teleport — a lone jump (scrollbar track click, reveal/scrollToIndex) renders
+		// the SECOND consecutive teleport — a lone jump (scrollbar track click, a reveal) renders
 		// its landing full-cost as before, while a sustained scrollbar drag goes cheap from its second tick.
 		// The 1.5× / raised floor keeps FAST WHEEL SPINS (which can exceed a viewport per frame) rendering
 		// full rows — only genuine scrollbar-drag deltas qualify; full rows keep up fine below that.

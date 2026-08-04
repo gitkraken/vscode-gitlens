@@ -66,6 +66,22 @@ export function gutterEpochSignature(p: GutterEpochParams): string {
 // unwindowed builds (it's the content width there); windowed builds derive their content width from the
 // WINDOW, so their keys carry no width and stay identical across offsets — the lane window itself is NOT
 // keyed either: entries remember the window they were built under and match by COVERAGE (see `render`).
+/** `buildEdgeHash` walks every column up to `edgeColumnMax` and concatenates per column, so its cost
+ *  scales with the row's lane span — and it runs for every rendered row on every update, including the
+ *  cache HITS it exists to find. On a wide, merge-heavy history that key build outgrows the lookup it
+ *  guards. It is a pure function of three row fields, and rows keep their identity while the engine
+ *  doesn't re-run (selection, focus and scroll updates all reuse `processedRows`), so memoize it per row
+ *  and let a genuine rows change drop the entries with the rows themselves. */
+const edgeHashByRow = new WeakMap<ProcessedGraphRow, string>();
+function rowEdgeHash(row: ProcessedGraphRow): string {
+	let hash = edgeHashByRow.get(row);
+	if (hash === undefined) {
+		hash = buildEdgeHash(row.edges, row.edgeColumnMax, row.column);
+		edgeHashByRow.set(row, hash);
+	}
+	return hash;
+}
+
 function gutterRowKey(
 	row: ProcessedGraphRow,
 	metrics: GutterMetrics,
@@ -74,7 +90,7 @@ function gutterRowKey(
 ): string {
 	// Length-prefix the free-form segments (`<len>:<value>`) so a value containing the `|` delimiter can't
 	// straddle into the next segment and collide with a different row's key.
-	let key = `${buildEdgeHash(row.edges, row.edgeColumnMax, row.column)}|${row.column}|${row.kind}`;
+	let key = `${rowEdgeHash(row)}|${row.column}|${row.kind}`;
 	if (metrics.laneWindow == null) {
 		key = `${key}|${metrics.gutterWidth}`;
 	}
