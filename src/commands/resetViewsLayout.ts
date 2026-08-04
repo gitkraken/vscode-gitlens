@@ -17,6 +17,9 @@ export class ResetViewsLayoutCommand extends GlCommandBase {
 		// }
 
 		for (const [containerId, viewIds] of viewIdsByDefaultContainerId) {
+			// Skip emptied containers (e.g. `gitlensPanel`) — either command would pop them open while they have no views
+			if (viewIds.length === 0) continue;
+
 			try {
 				void (await executeCoreCommand('vscode.moveViews', {
 					viewIds: viewIds.map<ViewIds>(v => `gitlens.views.${v}`),
