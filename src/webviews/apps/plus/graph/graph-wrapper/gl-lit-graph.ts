@@ -828,7 +828,9 @@ export class GlLitGraph extends LitElement {
 		// pills, avatars, actions, aria/context payloads). Cheap enough to rebuild the whole range every
 		// drag frame, and the settle swap just fills the extras in — the lanes never repaint. The workdir
 		// row and the active row stay full (anchor + focus/selection continuity).
-		const skeleton = this.skeletonScroll && row.kind !== 'workdir' && row.sha !== this._activeRowId;
+		// Compare against `focusedSha`, NOT `_activeRowId` — the latter is the `graph-row-<sha>` ELEMENT id
+		// (aria-activedescendant), so a raw sha never equals it and the active-row exemption above never fired.
+		const skeleton = this.skeletonScroll && row.kind !== 'workdir' && row.sha !== c.focusedSha;
 
 		const adornments = skeleton ? undefined : c.getAdornments(row);
 		const isAnchor = c.anchorShas?.has(row.sha) === true;
