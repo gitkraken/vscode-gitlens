@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.105] - 2026-08-04
+
 ### Changed
 
 - Reconciles cloud connections concurrently instead of one at a time, so sign-in and every routine check-in cost roughly one connection's latency rather than the sum. Providers reconcile in parallel with each other, and within a provider each connection's token fetch and account-name lookup run together. What is deliberately NOT parallel is the writing: session persistence stays a sequential pass over the prepared results, because a storage implementation may update the shared configured-connections collection read-modify-write, and `ConfiguredIntegrationService` now serializes those writes through a queue for the same reason. Primary selection is unchanged — it is decided in that ordered pass, so which connection wins for a domain still follows the backend's order and does not depend on which request happened to resolve first (plus/integrations)
@@ -188,7 +190,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.104...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.105...HEAD
+[0.5.105]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.104...gitkraken:releases/core/v0.5.105
 [0.5.104]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.103...gitkraken:releases/core/v0.5.104
 [0.5.103]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.102...gitkraken:releases/core/v0.5.103
 [0.5.102]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.101...gitkraken:releases/core/v0.5.102
