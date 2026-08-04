@@ -21,6 +21,7 @@ import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVis
 import { createRpcEventSubscription } from '../rpc/eventVisibilityBuffer.js';
 import { createSharedServices } from '../rpc/services/common.js';
 import { proxyServices } from '../rpc/services/proxy.js';
+import { WalkthroughService } from '../rpc/walkthroughService.js';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider.js';
 import type { State } from './protocol.js';
 import type { SettingsWebviewShowingArgs } from './registration.js';
@@ -110,6 +111,8 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 		return proxyServices({
 			...shared,
+
+			walkthrough: new WalkthroughService(this.container, buffer, tracker),
 
 			settings: {
 				// ── Events ──

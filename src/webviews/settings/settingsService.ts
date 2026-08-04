@@ -19,6 +19,7 @@ import type { ConfigPath, ConfigPathValue } from '../../system/-webview/configur
 import type { CustomConfigPath, CustomConfigPathValue } from '../protocol.js';
 import type { SharedWebviewServices } from '../rpc/services/common.js';
 import type { Unsubscribe } from '../rpc/services/types.js';
+import type { WalkthroughProgressService } from '../rpc/walkthroughService.js';
 
 // ============================================================
 // Event Types (used by subscription callbacks)
@@ -131,4 +132,6 @@ export interface SettingsViewService {
 /** RPC services for the Settings webview. */
 export interface SettingsServices extends SharedWebviewServices {
 	readonly settings: SettingsViewService;
+	/** Walkthrough progress for the Get Started launchpad's two walkthrough steps. */
+	readonly walkthrough: WalkthroughProgressService;
 }

@@ -25,7 +25,17 @@ export interface WalkthroughProgressPayload {
 	readonly graph: GraphWalkthroughProgress;
 }
 
-export class WalkthroughService {
+/**
+ * The RPC-facing surface of {@link WalkthroughService} — the shape webviews compose into
+ * their services interface (the class also carries private host-only state). Any webview
+ * embedding a walkthrough progress display can reference this.
+ */
+export interface WalkthroughProgressService {
+	readonly onProgressChanged: RpcEventSubscription<WalkthroughProgressPayload>;
+	getProgress(): Promise<WalkthroughProgressPayload | undefined>;
+}
+
+export class WalkthroughService implements WalkthroughProgressService {
 	readonly #container: Container;
 
 	/**
