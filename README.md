@@ -196,7 +196,7 @@ Our views are arranged for focus and productivity, although you can easily drag 
   <figcaption>GitLens Inspect as shown above has been manually moved into the Secondary Side Bar</figcaption>
 </figure>
 
-💡 Use the `Reset Views Layout` command to quickly get back to the default layout.
+💡 Use the `Reset Views Layout` command to quickly move all views back to their default locations (it doesn't change which views are shown or hidden).
 
 ### GitLens Inspect
 

@@ -138,7 +138,6 @@ export class WelcomeCloseCommand extends GlCommandBase {
 
 	execute(): void {
 		void executeCoreCommand('gitlens.views.welcome.toggleVisibility');
-		void executeCommand('gitlens.showHomeView');
 	}
 }
 
