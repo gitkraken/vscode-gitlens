@@ -1207,11 +1207,23 @@ export class WebviewController<
 		return hadPending;
 	}
 
-	sendPendingIpcNotifications(): void {
-		if (
-			!this._ready ||
-			(this._pendingIpcNotifications.size === 0 && this._pendingIpcPromiseNotifications.size === 0)
-		) {
+	/**
+	 * Flushes the pending queues. Pass `except` to drop one type instead of sending it — for a caller that
+	 * supersedes that type's data another way (the Graph's reveal-time full rebuild supersedes the queued
+	 * full-state push, and replaying it would join the in-flight state notify and cost a second rebuild).
+	 * Everything else still has to be sent: the queue also holds types no state push carries, both
+	 * failure-requeued ones (`notify` re-queues any `queueable` type) and provider-queued ones.
+	 */
+	sendPendingIpcNotifications(except?: IpcNotification<any>): void {
+		// Bail before dropping `except` — discarding it on a call that then flushes nothing would lose it
+		// with no replacement send, which is the one outcome this parameter must never produce.
+		if (!this._ready) return;
+
+		if (except != null) {
+			this._pendingIpcNotifications.delete(except as IpcNotification);
+		}
+
+		if (this._pendingIpcNotifications.size === 0 && this._pendingIpcPromiseNotifications.size === 0) {
 			return;
 		}
 

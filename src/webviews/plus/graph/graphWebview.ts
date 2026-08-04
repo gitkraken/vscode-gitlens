@@ -1489,6 +1489,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (repositoryChanged) {
 					void this._wip.notifyDidChangeWorkingTree();
 				}
+				// Flush the rest of the queue rather than letting the rebuild's `reset` drop it. The queue
+				// isn't limited to `_ipcNotificationMap` types that `getState` carries — `notify` re-queues
+				// any `queueable` type whose send failed, and some of those have no state representation at
+				// all (scope-anchor invalidation only clears the webview's merge-base cache from its own
+				// handler). Drop the queued full-state push, since the rebuild above supersedes it and
+				// replaying it would join the in-flight state notify and cost a second rebuild.
+				this.host.sendPendingIpcNotifications(DidChangeNotification);
 			}
 		} else if (visible) {
 			this.host.sendPendingIpcNotifications();

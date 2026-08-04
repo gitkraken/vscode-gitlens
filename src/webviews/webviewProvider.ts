@@ -125,7 +125,8 @@ export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 		thisArg: any,
 	): void;
 	clearPendingIpcNotifications(): boolean;
-	sendPendingIpcNotifications(): void;
+	/** Flushes the pending queues; `except` drops that one type instead of sending it. */
+	sendPendingIpcNotifications(except?: IpcNotification<any>): void;
 
 	getTelemetryContext(): WebviewTelemetryContext;
 	/**
