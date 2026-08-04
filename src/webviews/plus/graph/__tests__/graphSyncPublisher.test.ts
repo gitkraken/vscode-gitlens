@@ -395,6 +395,71 @@ suite('graphSyncPublisher', () => {
 		publisher.dispose();
 	});
 
+	test('markCarrier ships a bare carrier when nothing is dirty and no rider waits', async () => {
+		const { publisher, host, data } = createPublisher();
+		data.rows = rows(5);
+
+		await publisher.flush(); // snapshot
+		assert.strictEqual(host.sent.length, 1);
+
+		// Nothing marked, no riders — the suppression in `doFlush` would normally drop this entirely, which is
+		// what wedges a client waiting on a response it must have (a page that added no rows).
+		await publisher.flush();
+		assert.strictEqual(host.sent.length, 1, 'an empty flush ships nothing without a carrier');
+
+		publisher.markCarrier();
+		await publisher.flush();
+		assert.strictEqual(host.sent.length, 2, 'markCarrier forces the emission through');
+		assert.strictEqual(host.last.sync?.snapshot ?? false, false, 'delta, not a snapshot');
+		assert.deepStrictEqual(host.last.rows, [], 'a carrier leaves rows untouched');
+		assert.notStrictEqual(host.last.paging, undefined, 'paging always rides, so `hasMore` stays truthful');
+
+		// Consumed by the emission that honored it.
+		await publisher.flush();
+		assert.strictEqual(host.sent.length, 2, 'the carrier is one-shot');
+
+		publisher.dispose();
+	});
+
+	test('a carrier survives a failed send, exactly as riders do', async () => {
+		const { publisher, host, data } = createPublisher();
+		data.rows = rows(5);
+
+		await publisher.flush(); // snapshot
+		assert.strictEqual(host.sent.length, 1);
+
+		host.ok = false;
+		publisher.markCarrier();
+		await publisher.flush();
+		assert.strictEqual(host.sent.length, 2, 'the carrier was attempted');
+
+		// The send failed, so the client it exists to settle is still waiting — dropping it here is what
+		// leaves the webview's paging lock set forever.
+		host.ok = true;
+		await publisher.flush();
+		assert.strictEqual(host.sent.length, 3, 'the failed carrier is retried');
+
+		publisher.dispose();
+	});
+
+	test('a carrier held across hold/release ships once on release', async () => {
+		const { publisher, host, data } = createPublisher();
+		data.rows = rows(5);
+
+		await publisher.flush(); // snapshot
+		assert.strictEqual(host.sent.length, 1);
+
+		publisher.hold();
+		publisher.markCarrier();
+		assert.strictEqual(host.sent.length, 1, 'held: nothing ships yet');
+
+		publisher.release();
+		await tick();
+		assert.strictEqual(host.sent.length, 2, 'release drives the pending carrier');
+
+		publisher.dispose();
+	});
+
 	test('onResyncRequest no-ops when the webview is already in sync, else snapshots', async () => {
 		const { publisher, host, data } = createPublisher();
 		data.rows = rows(5);

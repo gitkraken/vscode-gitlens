@@ -678,8 +678,16 @@ export class GraphDataController {
 		params: IpcParams<typeof GetMoreRowsCommand>,
 		sendSelectedRows: boolean = false,
 	): Promise<void> {
-		if (this._graphSession?.current.paging == null) return;
-		if (this._graphSession.current.more == null || this.repository?.etag !== this._etagRepository) {
+		// Nothing to page from — including no session at all, which a repo swap mid-flight leaves behind. The
+		// client sets its `loading` lock before sending and clears it only on a rows push, so returning
+		// silently here wedges the lock and with it EVERY later page request; refresh instead, whose
+		// full-state push carries `loading: false`. (A carrier can't serve this: the publisher builds one from
+		// the session, and there isn't one.)
+		if (
+			this._graphSession?.current.paging == null ||
+			this._graphSession.current.more == null ||
+			this.repository?.etag !== this._etagRepository
+		) {
 			this.updateState(true);
 
 			return;
@@ -697,6 +705,12 @@ export class GraphDataController {
 			// already resolves (the query's inner catch swallows it), so it never lands here.
 			Logger.error(ex, 'GraphDataController', 'onGetMoreRows');
 		} finally {
+			// Guarantee the push below actually ships: a page that adds nothing (superseded walk, or a failure
+			// above) marks no channel, and with no search rider `attachRiders` leaves nothing pending either, so
+			// `flush` early-returns on an empty dirty set — wedging the client's `loading` lock, which only a
+			// rows push clears, forever. A CARRIER, not `mark('rows')` — see `markCarrier` for why re-shipping
+			// rows here would restart the very prefetch this response is answering.
+			this._graphSync.markCarrier();
 			// Notify BEFORE release so a failed page still ships an (empty-delta) rows push that resets client loading.
 			this.notifyDidChangeRows(sendSelectedRows);
 			this._graphSync.release();

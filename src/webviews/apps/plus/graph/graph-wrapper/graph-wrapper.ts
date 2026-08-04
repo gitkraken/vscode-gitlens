@@ -432,6 +432,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		document.removeEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
 		document.removeEventListener('gl-jump-to-commit', this.onJumpToCommit as EventListener);
 		this.cancelPendingSelection();
+		// Nothing will replay it, and a remount starts from whatever the host then pushes.
+		this._deferredMoreRows = undefined;
 		if (this._clearRowContextTimer != null) {
 			clearTimeout(this._clearRowContextTimer);
 			this._clearRowContextTimer = undefined;
@@ -1024,6 +1026,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
 			?loading=${graphState.loading || graphState.ensureLoading || graphState.scopeLoading}
+			.hasMore=${(graphState.paging?.hasMore ?? true) && !this.filterResultsExhausted}
 			?windowFocused=${graphState.windowFocused}
 			@gl-graph-changeselection=${this.onGraphSelectionChanged}
 			@gl-graph-rowdoubleclick=${this.onGraphRowDoubleClick}
@@ -1058,6 +1061,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// replay has to see that navigation in `rowLoadInFlight` and re-park rather than race it. Deferring
 		// is free; a cancelled walk is not.
 		this.replayDeferredUnreachableAnchors();
+		// AFTER the anchor replay so a targeted anchor walk wins the gate: it's starvation-prone (attempt
+		// budget, parked on a no-progress response), while a generic row page re-parks for free.
+		this.replayDeferredMoreRows();
 	}
 
 	/** When the user switches to `branchesVisibility: 'current'`, a SECONDARY-worktree WIP anchor is
@@ -1307,6 +1313,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			}
 		}
 		pending.resolve(result);
+		// `_pendingNavigation` is half of `rowLoadInFlight` but a plain field, so clearing it schedules no
+		// render — and a navigation that resolves before the delayed `ensureLoading` affordance ever engages
+		// writes no signal either. Replay here or a page parked behind this load waits for an unrelated render.
+		this.replayDeferredMoreRows();
 	}
 
 	private createPendingNavigation(
@@ -1868,6 +1878,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  with {@link scopeAnchorKey} so a replay can't page for a view the user has already left. */
 	private _deferredUnreachableAnchors?: { anchors: ReadonlySet<string>; key: string | undefined };
 	private _unreachableAnchorScope: typeof graphStateContext.__context__.scope = undefined;
+	/** A row page held back because a load was already in flight — replayed from `updated()` once it clears.
+	 *  Stamped with the repository it was asked for: a swap REPLACES the row set, and the graph clamps a
+	 *  now-out-of-range focus onto the new rows (often onto their last row), so the replay's own
+	 *  `needsMoreRows` re-validation would see a perfectly in-range index and page the WRONG repository.
+	 *  `displayRows` rides along only so a replayed ask keeps the count it was asked at for DEBUG. */
+	private _deferredMoreRows?: { displayRows: number; repoPath: string | undefined };
 
 	// `<gl-lit-graph>` emits a small, renderer-shaped set of events; the handlers below translate them
 	// into the IPC commands and app-wide events the rest of the app (details panel, selection sync,
@@ -2047,21 +2063,53 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onGraphMoreRows(e: CustomEvent<{ displayRows: number } | null>) {
-		if (this.graphState.loading || !this.graphState.paging?.hasMore) return;
+		this.requestMoreRows(e.detail?.displayRows ?? 0);
+	}
 
-		// Filter mode: once the search result set is fully loaded there's nothing more for row paging
-		// to surface, so don't keep paging through history trying to "fill" the viewport with
-		// non-matches.
+	/** Ask the host for the next row page. A request blocked by an in-flight load is PARKED, never dropped —
+	 *  same principle as {@link processUnreachableAnchors}. Paging is edge-triggered off a scroll range change
+	 *  or row nav, and a user parked at the loaded end can produce NEITHER (End is a no-op there, since the
+	 *  reveal declines to scroll a row that's already visible), so a dropped ask is a page that never arrives
+	 *  until they scroll up and back down. `graphState.loading` is also a shared affordance flag the timeline
+	 *  sets for its own pages; that over-broad gate is tolerable precisely because a blocked ask costs a
+	 *  replay, not a lost page. */
+	/** Filter mode with the whole result set already loaded — row paging has nothing left to surface, so don't
+	 *  keep walking history trying to "fill" the viewport with non-matches. Folded into the graph's `hasMore`
+	 *  so the element stops emitting asks (and announcing "loading more") for pages this would reject. */
+	private get filterResultsExhausted(): boolean {
 		const searchResults = this.graphState.searchResults;
-		if (
+		return (
 			this.graphState.searchMode === 'filter' &&
 			searchResults != null &&
 			!isGraphSearchResultsError(searchResults) &&
 			!searchResults.hasMore &&
 			searchResults.commitsLoaded.count === searchResults.count
-		) {
+		);
+	}
+
+	private requestMoreRows(displayRows: number): void {
+		if (!this.graphState.paging?.hasMore) {
+			this._deferredMoreRows = undefined;
 			return;
 		}
+
+		if (this.filterResultsExhausted) {
+			this._deferredMoreRows = undefined;
+			return;
+		}
+
+		// Blocked — park it rather than drop it (see above). At most ONE parked ask, cleared on acceptance, so
+		// a deferral costs exactly one replay and can never loop. Gated on `rowLoadInFlight`, not `loading`
+		// alone: the host only dedups an untargeted page against a pending TARGETED walk while the search
+		// object is identical too (`pendingSearch === search`), so a search change in between turns this ask
+		// into a supersede that cancels a `navigateToCommit` walk. Over-broad is free here — a blocked ask
+		// costs a replay, not a lost page.
+		if (this.rowLoadInFlight) {
+			this._deferredMoreRows = { displayRows: displayRows, repoPath: this.getRepoPath() };
+			return;
+		}
+
+		this._deferredMoreRows = undefined;
 
 		// Marked HERE, after every acceptance guard — a request rejected above never starts a page, and
 		// leaving its mark standing would inflate the next successful page's measured duration.
@@ -2069,11 +2117,58 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			getGraphDebugDiagnostics().markPageRequested({
 				repoPath: this.getRepoPath(),
 				sourceRows: this.graphState.rows?.length ?? 0,
-				displayRows: e.detail?.displayRows ?? 0,
+				displayRows: displayRows,
 			});
 		}
 		this.graphState.loading = true;
 		this._ipc.sendCommand(GetMoreRowsCommand, { id: undefined });
+	}
+
+	/** Re-run a page request deferred while a row load held the gate. Cheap enough for `updated()`: ONE plain
+	 *  field read when nothing is parked, and that early return is load-bearing, not just tidy — see
+	 *  {@link replayDeferredUnreachableAnchors} for why (`SignalWatcher` tracks every `graphState` read here).
+	 *
+	 *  Re-validated against the graph's LIVE predicate rather than stamped with a key like the anchor
+	 *  deferral: a repo switch, a scope, or a filter all REPLACE the row set, and any of them makes a parked
+	 *  ask meaningless — `needsMoreRows` already rejects every one of those (scope projection, stale range
+	 *  index), so asking it again is both cheaper and harder to get wrong than mirroring that state here. */
+	private replayDeferredMoreRows(): void {
+		const deferred = this._deferredMoreRows;
+		if (deferred == null) return;
+
+		// The repository moved on — the rows this was asked against are gone. Identity has to be checked HERE
+		// rather than left to `needsMoreRows`: a swap clamps the stale focus into the new row set, so the
+		// index the predicate sees is in range and indistinguishable from a real one.
+		if (deferred.repoPath !== this.getRepoPath()) {
+			this._deferredMoreRows = undefined;
+			return;
+		}
+
+		const graph = this.querySelector('gl-lit-graph');
+		if (graph == null) {
+			this._deferredMoreRows = undefined;
+			return;
+		}
+
+		// Re-validate only AFTER the graph has applied this update. Lit schedules a child's update as its own
+		// microtask, so at our `updated()` the element still holds the PRE-page row window — asking it now
+		// would measure the ask against the very rows the response just delivered, answer "still needed" no
+		// matter how far the new rows moved the end, and page again unprompted.
+		void graph.updateComplete.then(() => {
+			const pending = this._deferredMoreRows;
+			// Re-check identity as well as existence: the await is where a repo swap most easily lands.
+			if (pending == null || pending.repoPath !== this.getRepoPath()) {
+				this._deferredMoreRows = undefined;
+				return;
+			}
+
+			if (!graph.needsMoreRows()) {
+				this._deferredMoreRows = undefined;
+				return;
+			}
+
+			this.requestMoreRows(pending.displayRows);
+		});
 	}
 
 	private onGraphContextMenu(event: CustomEvent<{ sha: string; type: GitGraphRow['kind']; zone: 'ref' | 'row' }>) {

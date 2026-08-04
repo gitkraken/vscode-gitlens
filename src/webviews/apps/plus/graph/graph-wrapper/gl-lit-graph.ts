@@ -579,6 +579,10 @@ export class GlLitGraph extends LitElement {
 	@property({ attribute: false }) runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
 	@property({ attribute: false }) agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
 	@property({ type: Boolean }) loading?: boolean;
+	// Whether the host has more rows to page in. The element can't infer it, and without it every paging
+	// trigger keeps firing dead events at the end of history — including the screen-reader "loading more"
+	// announcement, which `dispatchMoreRows` makes before the wrapper's guards can reject the ask.
+	@property({ type: Boolean }) hasMore?: boolean;
 	// VS Code host-window focus state — undefined/true = focused. Dims the selection accent to the
 	// inactive tone (see `gl-graph--window-unfocused` in graph.scss) when the window loses focus,
 	// matching VS Code's own list/tree views.
@@ -2543,13 +2547,10 @@ export class GlLitGraph extends LitElement {
 			// Pipelined prefetch: a page just applied (identity-prefix append). If the last rendered range is
 			// STILL within the prefetch distance of the new end, immediately request the next page instead of
 			// waiting for another scroll event — so sustained scrolling keeps exactly one page in flight. The
-			// wrapper's `graphState.loading` guard drops this if a request is already active or paging stopped
-			// (filter-mode result set fully loaded / `hasMore` false). Suppressed under a scope projection,
-			// matching the scroll trigger.
-			if (
-				this.scopeProjection == null &&
-				this.pendingRangeLast >= this.displayRows.length - this.prefetchDistanceRows()
-			) {
+			// wrapper defers this if a request is already active, and drops it once paging stops (filter-mode
+			// result set fully loaded / `hasMore` false). Undebounced: it's already rate-limited by the round
+			// trip, and riding `emitMoreRows` would stall it behind a pending keyboard/scroll ask.
+			if (this.needsMoreRows(this.pendingRangeLast)) {
 				this.dispatchMoreRows();
 			}
 		} else if (!displayRowsUnchanged) {
@@ -3893,7 +3894,10 @@ export class GlLitGraph extends LitElement {
 		return this.effectiveStyle === 'list' ? rowHeightList : rowHeightTable;
 	}
 
-	// Rows per PageUp/PageDown jump — one viewport's worth, less a row of overlap for context.
+	// Rows per PageUp/PageDown jump — one viewport's worth, less a row of overlap for context. Reads the LIVE
+	// height on purpose: `scrollerClientHeight` only refreshes from a ResizeObserver on the host, so chrome
+	// that resizes the scroller without resizing us (the filter-mode search footer) leaves it stale, and a
+	// page jump has to land exactly. Once per PageUp/PageDown is nowhere near the arrow-key hot path.
 	private pageStep(): number {
 		const viewportHeight = this.virtualizerRef.value?.clientHeight ?? 0;
 		const rows = Math.floor(viewportHeight / this.rowHeight) - 1;
@@ -6088,6 +6092,9 @@ export class GlLitGraph extends LitElement {
 						: Math.min(last, this.focusIndex + 1);
 				if (t == null) {
 					event.preventDefault();
+					// No further branching point / lineage row WITHIN the loaded rows — the same dead end End was
+					// stuck at, so ask for the next page rather than silently doing nothing.
+					this.requestMoreRowsForNavigation(last);
 					return true;
 				}
 
@@ -6115,6 +6122,8 @@ export class GlLitGraph extends LitElement {
 					: Math.min(last, this.focusIndex + this.pageStep());
 				if (t == null) {
 					event.preventDefault();
+					// No further ref row within the loaded rows — same dead end as above.
+					this.requestMoreRowsForNavigation(last);
 					return true;
 				}
 
@@ -6187,7 +6196,19 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 		this.revealIndexNearest(next);
+		this.requestMoreRowsForNavigation(next);
 		return true;
+	}
+
+	// Row nav has to ask for rows ITSELF — paging is otherwise only ever triggered by a range change, and End
+	// (plus a clamped PageDown) lands on the last LOADED row. Parked there the reveal is a no-op (the row is
+	// already visible), so no scroll, no range change, and no ask: the page never arrives until the user
+	// scrolls up and back down. Shares `emitMoreRows` with the scroll trigger so a reveal that DOES scroll
+	// collapses into one ask, and so a held key can't outpace the debounce.
+	private requestMoreRowsForNavigation(index: number): void {
+		if (this.needsMoreRows(index)) {
+			this.emitMoreRows();
+		}
 	}
 
 	// On Tab-in, align the active descendant with the current selection so the screen reader
@@ -6269,6 +6290,43 @@ export class GlLitGraph extends LitElement {
 		this.revealIndexNearest(idx);
 	};
 
+	// True once `lastIndex` sits within the prefetch distance of the loaded end, i.e. the next page should be
+	// in flight. Reads only tracked/cached geometry, so it's safe from a keydown handler or an update.
+	// Public because the wrapper re-validates a deferred ask against it: only this element knows the scope
+	// projection and the live row window, so re-asking beats mirroring either into a key over there.
+	//
+	// The default takes the FURTHER of the rendered range and the focused row (see `furthestKnownRowIndex`),
+	// because those diverge in exactly the case this has to get right: End moves focus to the last loaded row,
+	// but the virtualizer's range lands asynchronously and prefetch keeps growing the row set out from under
+	// it, so the range can trail the end by more than the prefetch distance while the user sits ON the end.
+	// Reading the range alone there answers "no rows needed" and silently drops the deferred ask End awaits.
+	needsMoreRows(lastIndex: number = this.furthestKnownRowIndex()): boolean {
+		// Suppressed under a scope re-root projection — that view ends in the collapsed older-history fold, so
+		// auto-paging would pull the WHOLE repo in to grow a fold the user hasn't expanded; the fold is the
+		// explicit "there's more" affordance instead.
+		if (this.hasMore === false || this.scopeProjection != null) return false;
+
+		const rows = this.displayRows;
+		// Past the end means the caller's index predates a row-set swap (repo change, scope, filter) — that's a
+		// stale range, not a reason to page.
+		if (rows.length === 0 || lastIndex >= rows.length) return false;
+
+		return lastIndex >= rows.length - this.prefetchDistanceRows();
+	}
+
+	// How far into the loaded rows the user has actually reached: the rendered range's end or the keyboard
+	// cursor, whichever is further. Each is discarded INDEPENDENTLY when it points past the end — they go
+	// stale on different schedules (a row-set shrink leaves `pendingRangeLast` behind until the virtualizer
+	// re-measures, while `focusIndex` is re-pinned on the next keypress), so taking the max first would let
+	// one stale value veto the other's perfectly valid answer. Both stale ⇒ -1 ⇒ nothing needed.
+	private furthestKnownRowIndex(): number {
+		const max = this.displayRows.length - 1;
+		return Math.max(
+			this.pendingRangeLast <= max ? this.pendingRangeLast : -1,
+			this.focusIndex <= max ? this.focusIndex : -1,
+		);
+	}
+
 	// Dispatch a "load the next page" request. The wrapper's `graphState.loading` guard (webview) and the
 	// host's `_pendingRowsQuery` dedup collapse repeated calls to a single in-flight request, so firing
 	// this per scroll frame or per applied page can't storm the host — at most one page loads at a time.
@@ -6322,12 +6380,10 @@ export class GlLitGraph extends LitElement {
 
 		// Streaming: prefetch the next page BEFORE the loaded end scrolls into view, so it's already in
 		// flight when the user arrives (rather than hitting a loading wall). The trigger distance grows
-		// with the viewport and the current scroll velocity — see `computePrefetchDistance`. Suppressed
-		// while a scope re-root projection is active — its (short) view ends in the collapsed older-history
-		// fold, so auto-paging would pull the WHOLE repo in to grow a fold the user hasn't even expanded.
-		// The fold is the explicit "there's more" affordance instead. (When scoped but the projection is
-		// inactive — e.g. the merge-base isn't loaded yet — paging still runs so it can be found.)
-		if (this.scopeProjection == null && last >= rows.length - this.prefetchDistanceRows()) {
+		// with the viewport and the current scroll velocity — see `computePrefetchDistance`. (When scoped
+		// but the projection is inactive — e.g. the merge-base isn't loaded yet — paging still runs so it
+		// can be found.)
+		if (this.needsMoreRows(last)) {
 			this.emitMoreRows();
 		}
 

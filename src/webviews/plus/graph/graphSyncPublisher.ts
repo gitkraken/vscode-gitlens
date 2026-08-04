@@ -109,6 +109,8 @@ export class GraphSyncPublisher {
 	private _riderSearch: DidSearchParams | undefined;
 	private _riderSelectedRows: GraphSelectedRows | undefined;
 	private _ridersPending = false;
+	/** Set by {@link markCarrier}: emit once even with nothing dirty. Cleared by the emission that honors it. */
+	private _carrierRequired = false;
 
 	/** A refsMetadata reset REPLACE is queued (see {@link markRefsMetadataReset}): the next refsMetadata
 	 *  emission ships the FULL map + `refsMetadataReset`, not a spread-merge delta. Cleared on a successful
@@ -170,6 +172,24 @@ export class GraphSyncPublisher {
 	}
 
 	/**
+	 * Require the next flush to emit even with nothing dirty and no rider — a bare carrier delta (`rows: []`
+	 * plus the always-fields) whose only job is to settle a client waiting on a response it must have.
+	 *
+	 * Deliberately NOT `mark('rows')`: a rows delta re-ships the window as a REPLACE, and the reducer rebuilds
+	 * the array either way, so the webview's row identity changes and the virtualizer re-fires `rangeChanged`
+	 * — which re-triggers the prefetch it just answered. A carrier keeps `rows` untouched (the reducer's
+	 * zero-row branch retains what it holds), so it settles the client without restarting the cycle.
+	 */
+	markCarrier(): void {
+		this._carrierRequired = true;
+		if (this._holdCount > 0) return;
+
+		if (this._flushing == null) {
+			this.scheduleFlush();
+		}
+	}
+
+	/**
 	 * Suspend flushing so a multi-step host update (setGraph → await → attach riders) ships as ONE atomic
 	 * emission. Re-entrant: nest freely. While held, {@link mark} won't schedule and {@link flush} cancels
 	 * any timer and no-ops (all pending flags — dirty, riders, snapshot — persist). {@link release} at depth
@@ -185,7 +205,7 @@ export class GraphSyncPublisher {
 		this._holdCount--;
 		if (this._holdCount > 0) return;
 
-		if (this._dirty.size > 0 || this._ridersPending || this._snapshotRequired) {
+		if (this._dirty.size > 0 || this._ridersPending || this._snapshotRequired || this._carrierRequired) {
 			void this.flush();
 		}
 	}
@@ -347,7 +367,8 @@ export class GraphSyncPublisher {
 			// `!_snapshotRequired` for the same no-hot-loop reason.
 			if (
 				!this._disposed &&
-				(reflushForSnapshot || (!this._snapshotRequired && (this._dirty.size > 0 || this._ridersPending)))
+				(reflushForSnapshot ||
+					(!this._snapshotRequired && (this._dirty.size > 0 || this._ridersPending || this._carrierRequired)))
 			) {
 				void this.flush();
 			}
@@ -367,12 +388,16 @@ export class GraphSyncPublisher {
 
 			params = this.buildSnapshot();
 		} else {
-			// Nothing dirty AND no rider waiting for a carrier → nothing to ship.
-			if (this._dirty.size === 0 && !this._ridersPending) return;
+			// Nothing dirty, no rider waiting for a carrier, and nothing demanding a bare one → nothing to ship.
+			if (this._dirty.size === 0 && !this._ridersPending && !this._carrierRequired) return;
 
 			params = this.buildDelta(this._dirty);
 			this._dirty.clear();
 		}
+		// Captured, not consumed: a failed send must keep the requirement standing, exactly as riders do below
+		// — the client it exists to settle is still waiting.
+		const carrierSent = this._carrierRequired;
+		this._carrierRequired = false;
 
 		// Capture the rider values attached to THIS emission so a rider re-attached mid-flight (during the
 		// await) survives: on success we clear a field ONLY if it still holds the captured value.
@@ -403,6 +428,9 @@ export class GraphSyncPublisher {
 				this._refsMetadataResetPending = false;
 			}
 		} else {
+			// Re-arm the carrier: `markBroken` requires a snapshot and deliberately schedules no reflush, so
+			// without this the emission a client is blocked on is simply lost.
+			this._carrierRequired ||= carrierSent;
 			this.markBroken();
 		}
 	}
