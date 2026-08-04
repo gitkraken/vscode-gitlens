@@ -580,7 +580,6 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 			env = { GIT_EDITOR: options.messageEditor };
 		}
 
-		let mutated = false;
 		try {
 			if (options?.allowEmpty) {
 				const commitArgs = ['commit', '--allow-empty', '--no-edit'];
@@ -588,7 +587,6 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					// Git won't record the empty commit on its own; making it explicitly (`--no-edit` reuses the
 					// message git already prepared) is what lets the operation move past it.
 					await this.git.run({ cwd: repoPath, errors: 'throw' }, ...commitArgs);
-					mutated = true;
 				} catch (ex) {
 					scope?.error(ex);
 					// Same reason taxonomy, but attributed to the commit that actually failed
@@ -624,7 +622,6 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 				},
 				...args,
 			);
-			mutated = true;
 		} catch (ex) {
 			if (PausedOperationContinueError.is(ex)) throw ex;
 
@@ -650,12 +647,13 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 				throw error;
 			}
 		} finally {
-			// The repo can mutate even when a later step throws (the empty commit landing before its
-			// `--continue` fails) — notify on mutation, not on method success.
-			if (mutated) {
-				this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-				this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
-			}
+			// Notify unconditionally rather than only on success: a throwing `--continue` can still have
+			// mutated the repo (committing the resolved step, then stopping on the NEXT step's conflict or
+			// empty commit), and the error alone can't distinguish that from a no-op failure. Invalidating
+			// after a genuine no-op only costs a re-read; not invalidating after a real advance leaves
+			// consumers rendering a stale step.
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		}
 	}
 }

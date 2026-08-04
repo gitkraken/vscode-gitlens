@@ -123,6 +123,9 @@ suite('PausedOperationsGitSubProvider.continuePausedOperation', () => {
 	test('with allowEmpty records the empty commit and concludes the cherry-pick', async () => {
 		const r = createTestRepo();
 		try {
+			// The allowEmpty commit passes no `core.editor`/`GIT_EDITOR` of its own — it relies solely on
+			// `--no-edit`. Force any editor invocation to fail so a regression that drops it can't pass.
+			execFileSync('git', ['config', 'core.editor', 'false'], { cwd: r.path, stdio: 'pipe' });
 			setupConflictedCherryPick(r);
 			// Resolving to main's own content leaves the pick with nothing to apply
 			resolveReadme(r, '# Test Repository\nmain edit\n');
@@ -146,6 +149,38 @@ suite('PausedOperationsGitSubProvider.continuePausedOperation', () => {
 
 			const status = await r.provider.pausedOps.getPausedOperationStatus(r.path, { force: true });
 			assert.strictEqual(status, undefined, 'Expected the cherry-pick to be finished');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('with allowEmpty records the empty commit and concludes the revert', async () => {
+		const r = createTestRepo();
+		try {
+			execFileSync('git', ['config', 'core.editor', 'false'], { cwd: r.path, stdio: 'pipe' });
+			setupConflictedRevert(r);
+			// Resolving to HEAD's own content leaves the revert with nothing to apply
+			resolveReadme(r, '# Test Repository\nbeta\n');
+
+			await assert.rejects(
+				r.provider.pausedOps.continuePausedOperation(r.path, { messageEditor: 'true' }),
+				(ex: unknown) => PausedOperationContinueError.is(ex, 'emptyCommit'),
+			);
+
+			const before = getCommitCount(r);
+			await r.provider.pausedOps.continuePausedOperation(r.path, { allowEmpty: true, messageEditor: 'true' });
+
+			assert.strictEqual(getCommitCount(r), before + 1, 'Expected the empty commit to be recorded');
+			assert.strictEqual(getSubject(r), 'Revert "Add alpha"');
+
+			const diff = execFileSync('git', ['diff', '--name-only', 'HEAD~1', 'HEAD'], {
+				cwd: r.path,
+				encoding: 'utf-8',
+			}).trim();
+			assert.strictEqual(diff, '', 'Expected the recorded commit to be empty');
+
+			const status = await r.provider.pausedOps.getPausedOperationStatus(r.path, { force: true });
+			assert.strictEqual(status, undefined, 'Expected the revert to be finished');
 		} finally {
 			r.cleanup();
 		}
