@@ -253,18 +253,41 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Object })
 	pausedOpStatus?: GitPausedOperationStatus;
 
-	/** Set when Continue is clicked; the command runs out of band, so only a fresh `pausedOpStatus`
-	 *  clears it. Git blocked on a commit-message editor pushes nothing, so the spinner holding is
-	 *  correct — it's waiting on the user. */
+	/** Set when Continue is clicked; the command runs out of band, so a fresh `pausedOpStatus` clears it. */
 	@state()
 	private _continuing = false;
 
+	/** A continue can fail without moving the repo (an empty commit the user then cancels out of,
+	 *  unstaged changes, unmerged files), and a host that re-sends an unchanged `pausedOpStatus` by
+	 *  reference won't register as a change either — so the fresh-status reset alone can strand the
+	 *  primary action in a disabled spinner with nothing else to click. Restore it after a wait long
+	 *  enough that no ordinary continue trips it.
+	 *
+	 *  Note this is only a backstop: measured live, the reset almost always comes from the status
+	 *  instead — even a continue still blocked on the commit-message editor churns `COMMIT_EDITMSG`
+	 *  and the index, which lands a fresh status and clears the busy state early. So the spinner is
+	 *  not a reliable "still running" indicator; re-clicking is harmless (the runner dedups the
+	 *  in-flight command), but the bar can't currently distinguish waiting from finished. */
+	private static readonly continuingWatchdogMs = 30000;
+	private _continuingTimer: ReturnType<typeof setTimeout> | undefined;
+
+	override disconnectedCallback(): void {
+		this.clearContinuing();
+		super.disconnectedCallback?.();
+	}
+
 	protected override willUpdate(changedProperties: PropertyValues<this>): void {
 		if (changedProperties.has('pausedOpStatus')) {
-			this._continuing = false;
+			this.clearContinuing();
 		}
 
 		super.willUpdate(changedProperties);
+	}
+
+	private clearContinuing(): void {
+		clearTimeout(this._continuingTimer);
+		this._continuingTimer = undefined;
+		this._continuing = false;
 	}
 
 	private get onSkipUrl() {
@@ -419,8 +442,18 @@ export class GlMergeConflictWarning extends LitElement {
 	};
 
 	/** Presentation only — the href's navigation still fires the command. */
-	private onContinue = (): void => {
+	private onContinue = (e: Event): void => {
+		// The button keeps its href while busy so `gl-button` reuses its inner anchor — dropping the href
+		// swaps that anchor for a `<button>`, which discards keyboard focus. So the repeat activation is
+		// cancelled here instead: `disabled` stops the pointer, and Enter on a focused link fires a click
+		// we can preventDefault.
+		if (this._continuing) {
+			e.preventDefault();
+			return;
+		}
+
 		this._continuing = true;
+		this._continuingTimer = setTimeout(() => this.clearContinuing(), GlMergeConflictWarning.continuingWatchdogMs);
 	};
 
 	private renderActions(status: GitPausedOperationStatus, variant: PausedOperationVariant) {
@@ -496,24 +529,28 @@ export class GlMergeConflictWarning extends LitElement {
 	 *  longer excluded — `revert --continue` is supported end to end. */
 	private renderPrimaryAction(status: GitPausedOperationStatus, variant: PausedOperationVariant, aiPrimary: boolean) {
 		if (variant !== 'conflicts') {
-			// No href while waiting — disabled stops the pointer, but a link still navigates on Enter.
-			if (this._continuing) {
-				const waiting = aiPrimary
+			const continuing = this._continuing;
+			const label = continuing
+				? aiPrimary
 					? 'Continuing Automatic Rebase…'
-					: `Continuing ${pausedOperationStatusStringsByType[status.type].name}…`;
-				return html`<gl-button density="compact" disabled
-					><code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>${waiting}</gl-button
-				>`;
-			}
+					: `Continuing ${pausedOperationStatusStringsByType[status.type].name}…`
+				: aiPrimary
+					? 'Continue Automatic Rebase'
+					: getPausedOperationBarActionLabel(status, variant, this.conflictsCount);
 
-			if (aiPrimary) {
-				return html`<gl-button density="compact" href=${this.onContinueWithAiUrl} @click=${this.onContinue}
-					>Continue Automatic Rebase</gl-button
-				>`;
-			}
-
-			return html`<gl-button density="compact" href=${this.onContinueUrl} @click=${this.onContinue}
-				>${getPausedOperationBarActionLabel(status, variant, this.conflictsCount)}</gl-button
+			// One template across both states, and the href kept even while busy, so Lit reuses the button
+			// AND `gl-button` reuses its inner anchor (no href swaps that anchor for a `<button>`, which
+			// discards keyboard focus). `disabled` stops the pointer and drops it from the tab order without
+			// blurring it; `onContinue` cancels the repeat navigation. `aria-busy` carries the state change.
+			return html`<gl-button
+				density="compact"
+				?disabled=${continuing}
+				aria-busy=${continuing ? 'true' : nothing}
+				href=${aiPrimary ? this.onContinueWithAiUrl : this.onContinueUrl}
+				@click=${this.onContinue}
+				>${
+					continuing ? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>` : nothing
+				}${label}</gl-button
 			>`;
 		}
 

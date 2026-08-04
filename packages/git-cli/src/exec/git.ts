@@ -284,6 +284,16 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 			[GitErrors.unresolvedConflicts, 'conflicts'],
 			[GitErrors.unstagedChanges, 'unstagedChanges'],
 			[GitErrors.changesWouldBeOverwritten, 'wouldOverwriteChanges'],
+			// A single (non-sequencer) revert resolved to a no-op never gets git's "previous revert is now
+			// empty" message — its `--continue` falls through to the commit, which reports having nothing to
+			// commit. Mid-paused-op that means the step became empty, so it earns the same choice.
+			//
+			// Kept LAST because the pattern is deliberately broad: it also matches "no changes added to
+			// commit" and "nothing added to commit", which appear alongside the more specific unmerged /
+			// conflict / unstaged messages. Matching first would shadow those. It isn't narrowed to the
+			// "working tree clean" variant because an empty step with untracked files present instead reports
+			// "nothing added to commit but untracked files present".
+			[GitErrors.nothingToCommit, 'emptyCommit'],
 		],
 	],
 	[
