@@ -609,7 +609,10 @@ gl-lit-graph {
 		// rather than `outline`: the leftmost cell is flush against the viewport's left edge, which sits on
 		// the graph subtree's overflow-clip boundary, so a flush/`outline-offset: -1px` ring's leftmost pixel
 		// is clipped away (same reason the row ring below is an inset overlay). `inset: 1px` keeps it clear.
-		&:has(.gl-graph__header-label:focus-visible)::after {
+		// A narrow Changes column swaps its label for the compact mode-picker button — that button IS the
+		// column's keyboard control there, so it rings the cell the same way.
+		&:has(.gl-graph__header-label:focus-visible)::after,
+		&:has(.gl-graph__changes-mode-picker-button:focus-visible)::after {
 			content: '';
 			position: absolute;
 			inset: 1px;
@@ -2659,9 +2662,11 @@ gl-lit-graph {
 			color: hsl(var(--foreground));
 			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
 		}
+		// No ring of its own: it only ever renders inside a header cell, and standing in for that column's
+		// label it rings the WHOLE cell (see the header-cell `:has(...)` rule) exactly as the label does.
+		// Its own outline on top of that would read as two nested rings.
 		&:focus-visible {
-			outline: 1px solid var(--vscode-focusBorder);
-			outline-offset: -1px;
+			outline: none;
 		}
 	}
 	.gl-graph__changes-mode-picker-icon {

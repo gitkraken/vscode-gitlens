@@ -8610,6 +8610,11 @@ export class GlLitGraph extends LitElement {
 		></code-icon>`;
 	}
 
+	// At these widths this button REPLACES the column's label, so it carries the label's roving key
+	// (`label:changes`) rather than one of its own: it is the column's keyboard control here, and keying it
+	// the same way both puts it where the header rove order expects the column and keeps the tab stop
+	// pinned across a width change that swaps label and button. `refocusColumnLabel` and the cell's
+	// focus ring resolve it for the same reason.
 	// Compact picker entry, shown when the Changes column is too narrow for the full label — at icon stage
 	// (the body cell is a single glyph; `primaryIcon` = the column's own full-size `request-changes` icon,
 	// with `withChevron` appending the picker chevron) or the older filter-only floor (a lone `chevron-down`
@@ -8637,7 +8642,7 @@ export class GlLitGraph extends LitElement {
 			aria-label="Change Changes column visualization"
 			data-tooltip="Change Visualization"
 			draggable="false"
-			data-roving-key="changes-mode"
+			data-roving-key="label:changes"
 			@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
 		>
 			<code-icon
@@ -10015,11 +10020,17 @@ export class GlLitGraph extends LitElement {
 	// refocus it. Keyboard-reorder only; pointer-drag reorders never call this (no focus to preserve).
 	private async refocusColumnLabel(colId: string): Promise<void> {
 		await this.updateComplete;
-		const selector =
+		// A narrow Changes column renders the compact mode-picker button INSTEAD of a label, so match either
+		// — without this the reorder lands and then drops focus, which reads as Shift+Arrow not working at
+		// all (the next press has nothing focused to reach the handler).
+		const cell =
 			colId === 'graph'
-				? '.gl-graph__header-cell--graph .gl-graph__header-label'
-				: `.gl-graph__header-cell[data-col-id="${CSS.escape(colId)}"] .gl-graph__header-label`;
-		this.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+				? '.gl-graph__header-cell--graph'
+				: `.gl-graph__header-cell[data-col-id="${CSS.escape(colId)}"]`;
+		const control = this.querySelector<HTMLElement>(
+			`${cell} .gl-graph__header-label, ${cell} .gl-graph__changes-mode-picker-button`,
+		);
+		control?.focus({ preventScroll: true });
 	}
 
 	// Keyboard resize for the role=separator handle (Arrow Left/Right; Shift = coarse step).
