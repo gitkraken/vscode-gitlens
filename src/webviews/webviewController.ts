@@ -822,6 +822,7 @@ export class WebviewController<
 					subscription.state,
 					e.params.plan ?? getSubscriptionNextPaidPlanId(subscription),
 					e.params.location,
+					e.params.expiringOnly,
 				);
 				void this.respond(ApplicablePromoRequest, e, { promo: promo });
 				break;

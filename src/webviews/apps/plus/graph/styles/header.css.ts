@@ -42,6 +42,17 @@ export const titlebarStyles = css`
 		border-bottom: var(--gl-border-width) solid transparent;
 	}
 
+	.titlebar__row--promo {
+		justify-content: center;
+		container-name: graph-titlebar-promo;
+		container-type: inline-size;
+		overflow: hidden;
+	}
+
+	.titlebar__row--promo:not(:has(gl-graph-header-promo[has-promo])) {
+		display: none;
+	}
+
 	.titlebar__row--filtered {
 		background: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-bg), transparent);
 		border-top-color: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-border), transparent);

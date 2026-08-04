@@ -82,6 +82,7 @@ import '../../shared/components/search/search-box.js';
 import './actions/gitActionsButtons.js';
 import './components/gl-graph-launchpad-indicator.js';
 import './components/gl-graph-account-indicator.js';
+import './components/gl-graph-header-promo.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -1011,6 +1012,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		return cache(
 			html`<header class="titlebar graph-app__header">
 				<progress-indicator min-visible="300" ?active="${this.graphState.isBusy}"></progress-indicator>
+				<div class="titlebar__row titlebar__row--promo">
+					<gl-graph-header-promo></gl-graph-header-promo>
+				</div>
 				${this.renderTitlebarHeaderRow(repo)} ${this.renderTitlebarSearchRow(repo)}
 			</header>`,
 		);
