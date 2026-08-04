@@ -37,6 +37,7 @@ export const ExecuteCommand = new IpcCommand<ExecuteCommandParams>('core', 'comm
 export interface ApplicablePromoRequestParams {
 	plan?: PromoPlans;
 	location?: PromoLocation;
+	expiringOnly?: boolean;
 }
 export interface ApplicablePromoResponse {
 	promo: Promo | undefined;

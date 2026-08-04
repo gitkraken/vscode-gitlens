@@ -26,16 +26,29 @@ export class PromosContext implements Disposable {
 		);
 	}
 
-	private _promos = new Map<`${PromoPlans | undefined}|${PromoLocation | undefined}`, Promise<Promo | undefined>>();
+	private _promos = new Map<
+		`${PromoPlans | undefined}|${PromoLocation | undefined}|${boolean}`,
+		Promise<Promo | undefined>
+	>();
 
-	async getApplicablePromo(plan?: PromoPlans, location?: PromoLocation): Promise<Promo | undefined> {
-		const cacheKey = `${plan}|${location}` as const;
+	async getApplicablePromo(
+		plan?: PromoPlans,
+		location?: PromoLocation,
+		expiringOnly: boolean = false,
+	): Promise<Promo | undefined> {
+		const cacheKey = `${plan}|${location}|${expiringOnly}` as const;
 		let promise = this._promos.get(cacheKey);
 		if (promise == null) {
-			promise = this.ipc.sendRequest(ApplicablePromoRequest, { plan: plan, location: location }).then(
-				rsp => rsp.promo,
-				() => undefined,
-			);
+			promise = this.ipc
+				.sendRequest(ApplicablePromoRequest, {
+					plan: plan,
+					location: location,
+					expiringOnly: expiringOnly,
+				})
+				.then(
+					rsp => rsp.promo,
+					() => undefined,
+				);
 			this._promos.set(cacheKey, promise);
 		}
 		const promo = await promise;

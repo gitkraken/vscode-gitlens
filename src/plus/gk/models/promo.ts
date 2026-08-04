@@ -3,7 +3,10 @@ import type { SubscriptionState } from '../../../constants.subscription.js';
 import type { PaidSubscriptionPlanIds } from './subscription.js';
 
 export type PromoKeys = 'pro50' | (string & {});
-export type PromoLocation = 'account' | 'badge' | 'gate' | 'home';
+export type PromoLocationV2 = 'account' | 'badge' | 'gate' | 'home';
+export type PromoLocationV3 = PromoLocationV2 | 'graph';
+export type PromoLocation = PromoLocationV3;
+
 export type PromoPlans = PaidSubscriptionPlanIds;
 
 export interface Promo {
@@ -24,6 +27,7 @@ export interface Promo {
 			};
 			readonly link?: {
 				readonly html: string;
+				readonly compactHtml?: string;
 				readonly title: string;
 				readonly command?: GlExtensionCommands;
 			};

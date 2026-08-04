@@ -8,7 +8,7 @@ import type { GlExtensionCommands } from '../../constants.commands.js';
 import { SubscriptionState } from '../../constants.subscription.js';
 import type { Container } from '../../container.js';
 import { deviceCohortGroup } from '../../system/-webview/vscode.js';
-import type { Promo, PromoLocation, PromoPlans } from './models/promo.js';
+import type { Promo, PromoLocation, PromoLocationV2, PromoPlans } from './models/promo.js';
 import type { ServerConnection } from './serverConnection.js';
 
 type Config = {
@@ -24,6 +24,7 @@ type ConfigJson = {
 	v?: number;
 	promos?: PromoJson[];
 	promosV2?: PromoV2Json[];
+	promosV2plus?: PromoV2PlusJson[];
 	cli?: {
 		minimumCoreVersion: string;
 		minimumProxyVersion: string;
@@ -35,7 +36,13 @@ type PromoJson = Replace<Promo, 'plan' | 'expiresOn' | 'startsOn', string | unde
 };
 type PromoV2Json = Replace<Promo, 'expiresOn' | 'startsOn', string | undefined> & { v: number | undefined };
 
-const maxKnownPromoVersion = 2;
+/** promo with v=3 is tolerant to adding a new location without bumping a version.
+ * The new location won't break a client that does not support it, the unknown location just gets ignored */
+type PromoV3Json = Replace<PromoV2Json, 'locations', string[] | undefined>;
+type PromoFutureJson = { v: number };
+type PromoV2PlusJson = PromoV2Json | PromoV3Json | PromoFutureJson;
+
+const maxKnownPromoVersion = 3;
 
 const fallbackConfig: Config = {
 	promos: [
@@ -145,11 +152,12 @@ export class ProductConfigProvider {
 		state: SubscriptionState | undefined,
 		plan: PromoPlans,
 		location?: PromoLocation,
+		expiringOnly?: boolean,
 	): Promise<Promo | undefined> {
 		if (state == null) return undefined;
 
 		const promos = await this.getPromos();
-		return getApplicablePromo(promos, state, plan, location);
+		return getApplicablePromo(promos, state, plan, location, expiringOnly);
 	}
 
 	async getCliMinimumVersions(): Promise<{ core: string; proxy: string }> {
@@ -170,7 +178,7 @@ export class ProductConfigProvider {
 }
 
 function createConfigValidator(): Validator<ConfigJson> {
-	const isLocation = Is.Enum<PromoLocation>('account', 'badge', 'gate', 'home');
+	const isLocationV2 = Is.Enum<PromoLocationV2>('account', 'badge', 'gate', 'home');
 	const isState = Is.Enum<SubscriptionState>(
 		SubscriptionState.VerificationRequired,
 		SubscriptionState.Community,
@@ -201,6 +209,7 @@ function createConfigValidator(): Validator<ConfigJson> {
 
 	const isWebviewLink = createValidator({
 		html: Is.String,
+		compactHtml: Is.Optional(Is.String),
 		title: Is.String,
 		command: Is.Optional((value): value is GlExtensionCommands => isCommandPattern(value)),
 	});
@@ -230,7 +239,7 @@ function createConfigValidator(): Validator<ConfigJson> {
 		states: Is.Optional(Is.Array(isState)),
 		expiresOn: Is.Optional(Is.String),
 		startsOn: Is.Optional(Is.String),
-		locations: Is.Optional(Is.Array(isLocation)),
+		locations: Is.Optional(Is.Array(isLocationV2)),
 		content: Is.Optional(isContent),
 		percentile: Is.Optional(Is.Number),
 	});
@@ -243,10 +252,35 @@ function createConfigValidator(): Validator<ConfigJson> {
 		states: Is.Optional(Is.Array(isState)),
 		expiresOn: Is.Optional(Is.String),
 		startsOn: Is.Optional(Is.String),
-		locations: Is.Optional(Is.Array(isLocation)),
+		locations: Is.Optional(Is.Array(isLocationV2)),
 		content: Is.Optional(isContentV2),
 		percentile: Is.Optional(Is.Number),
 	});
+
+	// V3 differs from V2 in exactly one place: `locations` takes any string,
+	// so unknown locations do not break the validation, they are filtered later.
+	const promoV3Validator = createValidator<PromoV3Json>({
+		v: Is.Number,
+		key: Is.String,
+		code: Is.Optional(Is.String),
+		plan: Is.Enum<PromoPlans>('pro', 'advanced', 'teams', 'enterprise'),
+		states: Is.Optional(Is.Array(isState)),
+		expiresOn: Is.Optional(Is.String),
+		startsOn: Is.Optional(Is.String),
+		locations: Is.Optional(Is.Array(Is.String)),
+		content: Is.Optional(isContentV2),
+		percentile: Is.Optional(Is.Number),
+	});
+
+	const promoV2PlusValidator = (data: unknown): data is PromoV2PlusJson => {
+		if (!Is.Object(data)) return false;
+
+		const { v } = data as { v?: unknown };
+		if (!Is.Number(v)) return false;
+		if (v > maxKnownPromoVersion) return true;
+
+		return v === 2 ? promoV2Validator(data) : v === 3 ? promoV3Validator(data) : false;
+	};
 
 	const cliValidator = createValidator({
 		minimumCoreVersion: Is.String,
@@ -259,6 +293,7 @@ function createConfigValidator(): Validator<ConfigJson> {
 		v: Is.Optional(Is.Number),
 		promos: Is.Optional(Is.Array(promoValidator)),
 		promosV2: Is.Optional(Is.Array(promoV2Validator)),
+		promosV2plus: Is.Optional(Is.Array(promoV2PlusValidator)),
 	});
 }
 
@@ -267,11 +302,12 @@ function getApplicablePromo(
 	state: SubscriptionState | undefined,
 	plan: PromoPlans,
 	location?: PromoLocation,
+	expiringOnly?: boolean,
 ): Promo | undefined {
 	if (state == null) return undefined;
 
 	for (const promo of promos) {
-		if (isPromoApplicable(promo, state, plan)) {
+		if (isPromoApplicable(promo, state, plan, expiringOnly)) {
 			if (location == null || promo.locations == null || promo.locations.includes(location)) {
 				return promo;
 			}
@@ -282,29 +318,50 @@ function getApplicablePromo(
 	return undefined;
 }
 
+type KnownPromoJson = PromoJson | PromoV2Json | PromoV3Json;
+const isKnownVersion = (d: PromoJson | PromoV2PlusJson): d is KnownPromoJson =>
+	d.v == null || d.v <= maxKnownPromoVersion;
+const isPromoLocation = Is.Enum<PromoLocation>('account', 'badge', 'gate', 'home', 'graph');
+function filterLocations(locations: string[] | undefined): PromoLocation[] | undefined {
+	return locations?.filter(isPromoLocation);
+}
+
 function getConfig(data: unknown): Config | undefined {
 	const validator = createConfigValidator();
 	if (!validator(data)) return undefined;
 
-	const { promosV2, promos: promosV1, ...rest } = data;
+	const { promosV2, promosV2plus, promos: promosV1, ...rest } = data;
 
-	const promos = (promosV2 ?? promosV1 ?? [])
-		// Filter out promos that we don't know how to handle
-		.filter(d => d.v == null || d.v <= maxKnownPromoVersion)
-		.map(
-			d =>
-				({
-					key: d.key,
-					code: d.code,
-					plan: d.plan ?? 'pro',
-					states: d.states,
-					expiresOn: d.expiresOn == null ? undefined : new Date(d.expiresOn).getTime(),
-					startsOn: d.startsOn == null ? undefined : new Date(d.startsOn).getTime(),
-					locations: d.locations,
-					content: d.content,
-					percentile: d.percentile,
-				}) satisfies Promo,
-		);
+	const given: (PromoJson | PromoV2PlusJson)[] =
+		promosV2plus && promosV2
+			? [...promosV2plus, ...promosV2].reverse()
+			: (promosV2plus ?? promosV2 ?? promosV1 ?? []);
+	// Filter out promos that we don't know how to handle
+	const known: KnownPromoJson[] = given.filter(isKnownVersion);
+	const deduped: KnownPromoJson[] = [];
+	for (const d of known) {
+		const i = deduped.findIndex(x => x.key === d.key);
+		if (i === -1) {
+			deduped.push(d);
+		} else if ((d.v ?? 0) > (deduped[i].v ?? 0)) {
+			deduped[i] = d;
+		}
+	}
+
+	const promos = deduped.reverse().map(
+		d =>
+			({
+				key: d.key,
+				code: d.code,
+				plan: d.plan ?? 'pro',
+				states: d.states,
+				expiresOn: d.expiresOn == null ? undefined : new Date(d.expiresOn).getTime(),
+				startsOn: d.startsOn == null ? undefined : new Date(d.startsOn).getTime(),
+				locations: filterLocations(d.locations),
+				content: d.content,
+				percentile: d.percentile,
+			}) satisfies Promo,
+	);
 
 	const config: Config = {
 		...fallbackConfig,
@@ -314,10 +371,11 @@ function getConfig(data: unknown): Config | undefined {
 	return config;
 }
 
-function isPromoApplicable(promo: Promo, state: SubscriptionState, plan: PromoPlans): boolean {
+function isPromoApplicable(promo: Promo, state: SubscriptionState, plan: PromoPlans, expiringOnly?: boolean): boolean {
 	const now = Date.now();
 
 	return (
+		(!expiringOnly || promo.expiresOn != null) &&
 		(promo.plan == null || promo.plan === plan) &&
 		(promo.states == null || promo.states.includes(state)) &&
 		(promo.expiresOn == null || promo.expiresOn > now) &&

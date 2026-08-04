@@ -59,6 +59,10 @@ export class GlPromo extends LitElement {
 				color: inherit;
 				text-decoration: underline;
 			}
+
+			.link__compact {
+				display: none;
+			}
 		`,
 	];
 
@@ -116,7 +120,10 @@ export class GlPromo extends LitElement {
 						part="link"
 						href="${this.getCommandUrl(promo)}"
 						title="${ifDefined(content.link.title)}"
-						>${unsafeHTML(content.link.html)}</a
+						><span class="link__full" part="full">${unsafeHTML(content.link.html)}</span
+						><span class="link__compact" part="compact"
+							>${unsafeHTML(content.link.compactHtml ?? content.link.html)}</span
+						></a
 					>`;
 				}
 				break;
