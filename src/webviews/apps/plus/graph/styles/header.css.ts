@@ -53,6 +53,15 @@ export const titlebarStyles = css`
 		display: none;
 	}
 
+	/* The "too narrow" state must hide the ROW (its borders and the titlebar's row-gap included), and a
+	   container can't gate its own display — so this is a media query. The strip always spans the full
+	   webview width, so the viewport tracks the strip's width to within the header padding. */
+	@media (width <= 250px) {
+		.titlebar__row--promo {
+			display: none;
+		}
+	}
+
 	.titlebar__row--filtered {
 		background: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-bg), transparent);
 		border-top-color: color-mix(in srgb, var(--gl-chip-filtered-color) var(--gl-chip-tint-border), transparent);
