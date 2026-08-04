@@ -1023,9 +1023,31 @@ export class WebviewController<
 			completionId: completionId,
 		};
 
+		// Capture what the queue holds now so the post-send cleanup can tell "superseded by this send" from
+		// "queued while this send was in flight". The await below is a full postMessage round-trip (up to the
+		// 30s hang guard), and the Graph's reveal-time rebuild flushes the queue while its own reset send is
+		// still outstanding — so an enqueue landing inside that window is routine, not theoretical.
+		const supersededEntry = this._pendingIpcNotifications.get(notificationType as IpcNotification);
+		const supersededEntries = notificationType.reset ? [...this._pendingIpcNotifications] : undefined;
+
 		const success = await this.postMessage(msg, notificationType.silent);
 		if (success) {
-			this._pendingIpcNotifications.clear();
+			// Honor reset semantics (same rule as the replay buffer below and `addPendingIpcNotificationCore`):
+			// a reset-type notification supersedes all prior state, so drop the whole queue. Anything else
+			// supersedes only its own type — clearing the map wholesale would discard unrelated queued
+			// notifications, which is how a send that happens while hidden (e.g. scope-anchor invalidation,
+			// org settings, agent sessions) silently drops a queued one. Either way, only drop entries that
+			// are still the ones this send superseded: anything enqueued or replaced during the await carries
+			// newer state than what just went out, so removing it would lose an update.
+			if (supersededEntries != null) {
+				for (const [type, entry] of supersededEntries) {
+					if (this._pendingIpcNotifications.get(type) === entry) {
+						this._pendingIpcNotifications.delete(type);
+					}
+				}
+			} else if (this._pendingIpcNotifications.get(notificationType as IpcNotification) === supersededEntry) {
+				this._pendingIpcNotifications.delete(notificationType as IpcNotification);
+			}
 			// While the replay window is open, append every successfully delivered message to the log in send order
 			// so that on reconnect we can replay the exact sequence the previous iframe saw — including
 			// IpcPromiseSettled and request responses, so embedded IpcPromise placeholders in earlier messages
