@@ -78,7 +78,10 @@ export class ConfigCatFeatureFlagService implements FeatureFlagService {
 
 		try {
 			const response = await fetch(this.container.urls.getGkApiUrl('feature-flags', 'config'), {
-				headers: { Accept: 'application/json' },
+				// This fetch bypasses ServerConnection (unauthenticated, fire-and-forget), so set the shared
+				// User-Agent explicitly — otherwise Node's built-in fetch defaults to `node` and the request is
+				// unattributable server-side.
+				headers: { Accept: 'application/json', 'User-Agent': this.container.userAgent },
 			});
 
 			if (!response.ok) {
