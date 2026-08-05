@@ -309,9 +309,14 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const releaseNotes = { title: 'View Release Notes' };
 	const openWalkthrough = { title: 'Open Walkthrough' };
+	const openGraph = { title: 'Show Commit Graph' };
 
 	let message: string;
 	switch (majorVersion) {
+		case '19':
+			message =
+				'GitLens upgraded to 19 — the Commit Graph now lives in the GitLens panel, sitting right beside your work to carry every change from task to merge with AI Review, Compose, and Resolve.';
+			break;
 		case '18':
 			message =
 				'GitLens upgraded to 18 — the Commit Graph is all new with agent integration, multi-worktree WIP rows, AI-powered Review and Compose modes, and more.';
@@ -325,7 +330,7 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 			break;
 	}
 
-	const actions: MessageItem[] = [releaseNotes];
+	const actions: MessageItem[] = majorVersion === '19' ? [openGraph, releaseNotes] : [releaseNotes];
 	if (majorVersion === '18') {
 		actions.push(openWalkthrough);
 	}
@@ -337,6 +342,8 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 		void openUrl(urls.releaseNotes);
 	} else if (result === openWalkthrough) {
 		void executeCommand('gitlens.showWelcomeView', { mode: 'graph' });
+	} else if (result === openGraph) {
+		void executeCommand('gitlens.showGraphView');
 	}
 }
 
