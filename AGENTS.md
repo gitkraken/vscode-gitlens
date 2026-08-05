@@ -4,15 +4,13 @@ This workspace contains **GitLens** - a powerful VS Code extension that supercha
 
 ## Working Style Expectations
 
-1. **Accuracy over speed** — Read the actual code before proposing changes. Do not guess at method names, decorator behaviors, or class interfaces. Verify they exist first by searching the codebase.
+1. **Accuracy over speed** — Do not guess at method names, decorator behaviors, or class interfaces. Verify they exist first by searching the codebase.
 2. **Simplicity over abstraction** — Prefer the simplest correct solution; no new types, enums, or wrapper abstractions unless they serve multiple consumers.
-3. **Completeness over iteration** — Audit ALL affected locations (call sites, subclass overrides, both Node.js and browser code paths) before presenting a change as complete.
-4. **Fixing over disabling** — Fix the root cause. "Fix" and "disable" are different instructions.
-5. **Confirming over assuming** — When debugging, present your hypothesis with evidence before implementing. If a request is ambiguous, ask for clarification. Do not silently start editing on non-trivial changes without stating your approach.
-6. **Purposeful changes** — Refactoring for clarity and codebase health is encouraged; explain what and why. No silent drive-by changes unrelated to the task.
-7. **Branch ownership** — The current branch owns ALL of its issues, not just those from your current task. An error that exists on this branch but not on the base branch is the branch's responsibility regardless of when it was introduced (verify with `git diff main --stat` or similar; issues that also exist on the base branch are truly pre-existing and can be noted, not prioritized). After completing your task, address remaining branch build/type/test failures — or if the scope is too large, ask the user how to proceed. A task is not complete until the code builds cleanly and related tests pass.
+3. **Fixing over disabling** — Fix the root cause. "Fix" and "disable" are different instructions. This includes tests: when one fails, find and fix the cause — do NOT simplify the test or change its intent to make it pass.
+4. **Hypothesis before implementation** — When debugging, present your hypothesis with evidence before implementing against it. On any non-trivial change, state your approach before editing; if the request is ambiguous, ask rather than assume.
+5. **Branch ownership** — The current branch owns ALL of its issues, not just those from your current task. An error that exists on this branch but not on the base branch is the branch's responsibility regardless of when it was introduced (verify with `git diff main --stat` or similar; issues that also exist on the base branch are truly pre-existing and can be noted, not prioritized). After completing your task, address remaining branch build/type/test failures — or if the scope is too large, ask the user how to proceed. A task is not complete until the code builds cleanly and related tests pass.
 
-> For the detailed rules behind #2/#3/#4/#6 (complexity, completeness checklist, fix vs. disable, scope of changes): see `docs/coding-standards.md`
+> For the rules these summarize plus the ones not listed here — complexity limits, the completeness checklist (call sites, subclass overrides, Node.js _and_ browser paths), fix vs. disable, scope of changes, and error handling: see `docs/coding-standards.md`
 
 ## Development Environment
 
@@ -51,62 +49,49 @@ For commit message format and workflow, use `/commit`. For CHANGELOG format and 
 
 ### Directory Structure
 
-```
-packages/                     # Shared workspace packages (@gitlens/*)
-├── core/                     # Core primitives shared across packages
-├── git/                      # Git domain: models, parsers, per-operation providers (branches, commits, ...)
-├── git-cli/                  # Git CLI execution (exec/) and CLI output parsers
-├── ipc/                      # IPC primitives
-├── plus/                     # Pro packages: ai/, agents/, integrations/, git-github/
-└── utils/                    # Shared utilities & decorators (usable in host and webviews)
-src/
-├── extension.ts              # Extension entry point, activation logic
-├── container.ts              # Service Locator - manages all services (singleton)
-├── agents/                   # AI agent service & providers
-├── annotations/              # Editor decoration providers
-├── api/                      # Public extension API
-├── autolinks/                # Auto-linking issues/PRs in commit messages & branch names
-├── codelens/                 # Editor CodeLens providers
-├── commands/                 # 100+ command implementations (git/ = git-wizard sub-commands)
-├── env/                      # Environment-specific implementations (node/ desktop, browser/ web)
-├── featureFlags/             # Feature flag service
-├── git/                      # Git orchestration layer (gitProviderService.ts, actions, formatters)
-├── hovers/                   # Editor hover providers
-├── onboarding/               # Onboarding, walkthrough state, usage tracking
-├── plus/                     # Pro features (non-OSS, see LICENSE.plus): ai/, gk/, integrations/, launchpad/, ...
-├── quickpicks/               # Quick pick/input (quick menus) implementations
-├── statusbar/                # Status bar item management
-├── system/                   # Host utilities; -webview/ = extension-host-specific
-├── telemetry/                # Usage analytics and error reporting
-├── terminal/                 # Terminal integration providers
-├── trackers/                 # Tracks document state and blames
-├── treemap/                  # Treemap visualization service
-├── uris/                     # Deep link uri handling
-├── views/                    # Tree view providers (sidebar views)
-├── virtual/                  # Virtual file system & content providers
-├── vsls/                     # Live Share support
-└── webviews/                 # Webview controllers + IPC (protocol.ts, webviewsController.ts)
-    └── apps/                 # Webview UI apps (Lit): shared/, rebase/, settings/, plus/{graph,home,timeline,...}
-tests/                        # E2E and Unit tests
-walkthroughs/                 # Welcome and tips walkthroughs
-custom-elements.json          # Custom Elements Manifest - generated web component metadata
-```
+Most of the layout is self-describing — browse `packages/`, `src/`, and `tests/`. What the folder names do _not_ tell you:
+
+- **`packages/` (`@gitlens/*`) vs `src/`** — `packages/git` holds the git domain (models, parsers, per-operation providers) and `packages/git-cli` runs the CLI; `src/git` is the orchestration layer over them (`gitProviderService.ts`, actions, formatters). `packages/utils` is the only utility layer webviews may import; `src/system` is host-only, and `src/system/-webview/` is extension-host-specific.
+- **`src/env/node/` vs `src/env/browser/`** — the same feature must work in desktop VS Code and VS Code for Web. Shared code imports through the `@env/` alias, which resolves per build target. Changing one path means checking the other.
+- **`src/plus/` and `packages/plus/` are non-OSS** — licensed separately, see `LICENSE.plus`.
+- **`src/container.ts`** — the service locator; nearly every service is reached through it.
+- **`src/commands/git/`** — sub-commands of the git wizard, not standalone commands.
+- **`src/trackers/`** — tracks document state and blame, not git refs.
+- **`src/vsls/`** — VS Live Share support. **`src/uris/`** — deep-link URI handling.
+- **`custom-elements.json`** — generated web component metadata; never hand-edit.
 
 > For detailed architecture (patterns, services, environment abstraction, webviews, IPC, caching, build config): see `docs/architecture.md`
 
 ## Coding Standards & Style Rules
 
+Not caught by any linter — get these right by hand:
+
 - **Strict TypeScript** — no `any` usage (exceptions only for external APIs)
 - **Explicit return types** for public methods; **prefer `type` over `interface`** for unions
-- **Use path aliases**: `@env/` for environment-specific code
+- **No default exports**; use `import type` for type-only imports
+- **No barrel files** — no `index.ts` or re-export-only modules. When splitting a file, delete the original and update consumers to import from where things actually live; do NOT leave a re-exporting shim.
+- **No inline `import('./x.js').Type`** — add a top-of-file `import type { … }` and reference the type by name. Lint permits the inline form (`disallowTypeAnnotations: false`), so this one is on you: it ducks the import-order rule and hides the dependency.
+- **Naming**: Classes PascalCase (no `I` prefix), methods/variables camelCase, constants camelCase (**not** SCREAMING_SNAKE_CASE), files camelCase.ts
 - **Import order**: node built-ins → external → internal → relative
-- **No default exports** use `import type` for type-only imports
-- **Always use `.js` extension** in imports (ESM requirement)
-- **Naming**: Classes PascalCase (no `I` prefix), methods/variables camelCase, constants camelCase (not SCREAMING_SNAKE_CASE), files camelCase.ts
 - **Folders**: Models under `models/`, shared utilities in `packages/utils/`, host-specific in `src/system/-webview/`, webview apps under `src/webviews/apps/`
 
-> For error handling patterns, implementation quality rules, and completeness checklist: see `docs/coding-standards.md`
->
+### Custom Lint Rules
+
+The repo enforces its own rules from `scripts/eslint-rules/`. Write conforming code up front rather than relying on `pnpm run check:fix` — these show up in diffs and reviews:
+
+| Rule                               | Enforces                                                                                                                                                                                                                                           |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `require-block-body`               | Block bodies for `if`/`while`/`for`/`for-in`/`for-of`. A single-line `if` is allowed ONLY when its body is control flow — `return`, `break`, `continue`, `throw`, `yield`. Loops always need braces. `else if` branches are checked independently. |
+| `require-js-extension`             | An explicit `.js` extension on local (`@env/` and relative) imports                                                                                                                                                                                |
+| `one-var`                          | One variable per declaration statement                                                                                                                                                                                                             |
+| `newline-after-control-flow`       | A blank line after a control flow statement                                                                                                                                                                                                        |
+| `no-instanceof-cancellation-error` | `isCancellationError()` instead of `instanceof CancellationError`                                                                                                                                                                                  |
+| `scoped-logger-usage`              | Correct `getScopedLogger()` usage — see the decorator note below                                                                                                                                                                                   |
+| `no-scss-in-css-template`          | No SCSS syntax inside `css` tagged templates                                                                                                                                                                                                       |
+| `no-src-imports`                   | No import specifiers starting with `src/`                                                                                                                                                                                                          |
+| `no-self-package-imports`          | Same-package imports use a relative path, not the workspace package name                                                                                                                                                                           |
+| `valid-package-imports`            | `@gitlens/*` imports name a subpath the target package's `exports` exposes                                                                                                                                                                         |
+
 > For webview styling — prefix conventions, the `1rem = 10px` base, the `--gl-*` design tokens, and the elevation (z-index + shadow) system: see `docs/webview-styling.md`
 >
 > For webview accessibility requirements: see `docs/accessibility.md`
@@ -154,7 +139,3 @@ When implementing something new, look at these files first:
 - Run `pnpm run generate:commandTypes` after adding commands (or let the watcher handle it)
 
 **IPC** — see `docs/architecture.md` for the webview IPC protocol (`IpcCommand` / `IpcRequest` / `IpcNotification`)
-
-**Testing**
-
-- When debugging test failures, DON'T simplify NOR change the intent of the tests just to get them to pass. Instead, INVESTIGATE and UNDERSTAND the root cause of the failure and address that directly, or raise an issue to the user if you can't resolve it.
