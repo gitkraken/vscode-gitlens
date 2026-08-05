@@ -15,6 +15,7 @@ import {
 	getPausedOperationBarActionLabel,
 	getPausedOperationBarIconTooltip,
 	getPausedOperationBarLabel,
+	getPausedOperationBarRefsSummary,
 	getPausedOperationSkipDetail,
 	getPausedOperationSkipLabel,
 	getPausedOperationSkipRef,
@@ -186,33 +187,45 @@ suite('pausedOperationVariantIcons', () => {
 	});
 });
 
+suite('getPausedOperationBarRefsSummary', () => {
+	test('branch operands are named, in the operation’s own direction', () => {
+		assert.strictEqual(getPausedOperationBarRefsSummary(createMerge()), 'Merging feature into main');
+		assert.strictEqual(getPausedOperationBarRefsSummary(createRebase()), 'Rebasing feature onto main');
+	});
+
+	test('a revision operand is shortened', () => {
+		assert.strictEqual(getPausedOperationBarRefsSummary(createCherryPick()), 'Cherry picking a1b2c3d into main');
+		assert.strictEqual(getPausedOperationBarRefsSummary(createRevert()), 'Reverting a1b2c3d in main');
+	});
+});
+
 suite('getPausedOperationBarIconTooltip', () => {
-	test('conflicts restate the count in plain words', () => {
+	test('conflicts restate the count in plain words, led by the operands', () => {
 		assert.strictEqual(
 			getPausedOperationBarIconTooltip(createMerge(), 'conflicts', 2),
-			'2 conflicting files must be resolved before the merge can continue',
+			'Merging feature into main. 2 conflicting files must be resolved before the merge can continue',
 		);
 		assert.strictEqual(
 			getPausedOperationBarIconTooltip(createRebase(), 'conflicts', 1),
-			'1 conflicting file must be resolved before the rebase can continue',
+			'Rebasing feature onto main. 1 conflicting file must be resolved before the rebase can continue',
 		);
 	});
 
 	test('a countless host drops the number, not the sentence', () => {
 		assert.strictEqual(
 			getPausedOperationBarIconTooltip(createCherryPick(), 'conflicts', undefined),
-			'Conflicting files must be resolved before the cherry-pick can continue',
+			'Cherry picking a1b2c3d into main. Conflicting files must be resolved before the cherry-pick can continue',
 		);
 	});
 
 	test('ready spells out that nothing is blocking', () => {
 		assert.strictEqual(
 			getPausedOperationBarIconTooltip(createMerge(), 'ready', undefined),
-			'No unresolved conflicts — ready to continue',
+			'Merging feature into main. No unresolved conflicts — ready to continue',
 		);
 	});
 
-	test('pending has nothing to explain', () => {
+	test('pending has nothing to explain — its own label already names the refs', () => {
 		assert.strictEqual(
 			getPausedOperationBarIconTooltip(createRebase({ current: 0, total: 0 }), 'pending', undefined),
 			undefined,
