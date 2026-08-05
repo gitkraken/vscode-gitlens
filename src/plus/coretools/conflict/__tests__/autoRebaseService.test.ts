@@ -77,7 +77,12 @@ function makeFakes(record: StoredAutoRebaseUndo | undefined, repo: Partial<FakeR
 		},
 		git: { getRepositoryService: () => svc },
 		telemetry: { sendEvent: () => {} },
-		ai: { enabled: true, allowed: true, flushBYOKUsage: () => Promise.resolve() },
+		ai: {
+			enabled: true,
+			allowed: true,
+			flushBYOKUsage: () => Promise.resolve(),
+			getModel: () => Promise.resolve({ id: 'test-model', provider: { id: 'test' } }),
+		},
 	} as unknown as Container;
 
 	return { service: new AutoRebaseService(container), state: state, storage: storage };
@@ -288,7 +293,12 @@ function makeTakeoverFakes(headSha: string) {
 		},
 		git: { getRepositoryService: () => svc },
 		telemetry: { sendEvent: () => {} },
-		ai: { enabled: true, allowed: true, flushBYOKUsage: () => Promise.resolve() },
+		ai: {
+			enabled: true,
+			allowed: true,
+			flushBYOKUsage: () => Promise.resolve(),
+			getModel: () => Promise.resolve({ id: 'test-model', provider: { id: 'test' } }),
+		},
 	} as unknown as Container;
 
 	service = new AutoRebaseService(container);
@@ -343,7 +353,12 @@ function makeResumeFakes() {
 		},
 		git: { getRepositoryService: () => svc },
 		telemetry: { sendEvent: (name: string) => void events.push(name) },
-		ai: { enabled: true, allowed: true, flushBYOKUsage: () => Promise.resolve() },
+		ai: {
+			enabled: true,
+			allowed: true,
+			flushBYOKUsage: () => Promise.resolve(),
+			getModel: () => Promise.resolve({ id: 'test-model', provider: { id: 'test' } }),
+		},
 	} as unknown as Container;
 
 	const service = new AutoRebaseService(container);
