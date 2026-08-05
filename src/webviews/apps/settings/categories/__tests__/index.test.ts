@@ -51,7 +51,6 @@ suite('settings taxonomy — anchor coverage', () => {
 			'sorting',
 			'shortcuts',
 			'modes',
-			'terminal-links',
 			'rebase-editor',
 		];
 		for (const id of droppedIds) {

@@ -76,7 +76,6 @@ export const droppedAnchorQueries: Record<string, string> = {
 	// Substring-matches both `gitlens.modes` and `gitlens.mode.statusBar.*`/`gitlens.mode.active`,
 	// which the dropped section also exposed
 	modes: 'gitlens.mode',
-	'terminal-links': 'gitlens.terminalLinks',
 	'rebase-editor': 'gitlens.rebaseEditor',
 };
 
