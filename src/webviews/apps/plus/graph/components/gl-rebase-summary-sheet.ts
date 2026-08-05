@@ -357,6 +357,7 @@ export class GlRebaseSummarySheet extends LitElement {
 	}
 
 	private renderOverview(summary: AutoRebaseSummary, fileCount: number): unknown {
+		const emptiedCount = summary.steps.reduce((n, s) => (s.kind === 'empty-skipped' ? n + 1 : n), 0);
 		const outcomeLabel =
 			summary.outcome === 'completed'
 				? 'completed'
@@ -381,6 +382,10 @@ export class GlRebaseSummarySheet extends LitElement {
 						? html` · ${pluralize('conflicted file', fileCount)} resolved across
 							${pluralize('step', summary.steps.length)}`
 						: nothing
+				}${
+					// Steps git dropped for being empty aren't commits on the branch — the counts above would
+					// otherwise read as "every step landed".
+					emptiedCount > 0 ? html` · ${pluralize('commit', emptiedCount)} skipped as empty` : nothing
 				}
 			</div>
 			${

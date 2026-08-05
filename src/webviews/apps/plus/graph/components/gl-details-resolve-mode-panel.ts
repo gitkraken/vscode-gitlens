@@ -94,9 +94,20 @@ function kindDisplay(kind: ConflictKind | undefined, status?: GitFileConflictSta
 /** Conflicted files across a run's recorded steps — the unit users count, where a step is one rebase
  *  pause that can carry several files. `aiOnly` drops `manual` steps (the user resolved those after an
  *  escalation, so they aren't AI's work); `empty-skipped` steps still count, since AI did resolve their
- *  files and the commit only turned out empty afterwards. */
+ *  files and the commit only turned out empty afterwards — {@link describeEmptySkipped} is what tells
+ *  the user those commits are gone, so the file count alone never reads as a clean run. */
 function countResolvedFiles(steps: readonly AutoRebaseSummaryStep[], options?: { aiOnly?: boolean }): number {
 	return steps.reduce((count, s) => (options?.aiOnly && s.kind === 'manual' ? count : count + s.files.length), 0);
+}
+
+/** Names the commits git dropped for being empty, so a completed run can't report them as kept. A step
+ *  legitimately empties whenever its changes are already upstream, so this states the fact without
+ *  calling it a loss. */
+function describeEmptySkipped(steps: readonly AutoRebaseSummaryStep[]): string | undefined {
+	const count = steps.reduce((n, s) => (s.kind === 'empty-skipped' ? n + 1 : n), 0);
+	if (count === 0) return undefined;
+
+	return `${pluralize('commit', count)} became empty and ${count === 1 ? 'was' : 'were'} skipped.`;
 }
 
 /** Drop the trailing action hint ("… — choose a side to keep") from a conflict description — the row's
@@ -888,15 +899,23 @@ export class GlDetailsResolveModePanel extends LitElement {
 		// Only AI's own resolutions earn the "with AI" credit — a run that escalated and was finished by
 		// hand has `manual` steps, and claiming those would overstate what automation did.
 		const resolvedByAi = countResolvedFiles(run.steps, { aiOnly: true });
+		// Git drops a step whose resolution left nothing to commit — a completed run has to say so here,
+		// where the eye lands, not only on the step row further down.
+		const emptied = describeEmptySkipped(run.steps);
 		const outcome =
 			run.phase === 'completed'
-				? resolvedByAi > 0
-					? `Rebase completed — ${pluralize('conflicted file', resolvedByAi)} resolved with AI.`
-					: run.steps.length > 0
-						? 'Rebase completed — you resolved every conflict.'
-						: // Like the cancelled message below, only reachable for a render or two before the
-							// mode exit lands (see `auto-rebase-exit`).
-							'Rebase completed — no conflicts.'
+				? [
+						resolvedByAi > 0
+							? `Rebase completed — ${pluralize('conflicted file', resolvedByAi)} resolved with AI.`
+							: run.steps.length > 0
+								? 'Rebase completed — you resolved every conflict.'
+								: // Like the cancelled message below, only reachable for a render or two before the
+									// mode exit lands (see `auto-rebase-exit`).
+									'Rebase completed — no conflicts.',
+						emptied,
+					]
+						.filter(Boolean)
+						.join(' ')
 				: run.phase === 'aborted'
 					? // A cancelled run leaves the mode (see `auto-rebase-exit`), so this is only reachable for
 						// the render or two before that lands — kept accurate rather than removed so a missed
