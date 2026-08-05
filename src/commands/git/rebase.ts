@@ -426,11 +426,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		// A row rather than a title-bar button: quickpick buttons are icon-only (`iconPath` is the only
 		// visual the API exposes, with the rest on a hover tooltip), and a modifier that rewrites what every
 		// option does should say so in words. `Directive.Noop` keeps the quickpick open on select, and the
-		// row object is reused with a mutated label so the active row survives the refresh by identity.
-		const toggleLabel = () => `$(${updateRefs ? 'check' : 'blank'})  Update Branches`;
+		// row object is reused with a mutated icon so the active row survives the refresh by identity.
+		const toggleIcon = () => new ThemeIcon(`gitlens-checkbox-${updateRefs ? 'checked' : 'unchecked'}`);
 		const updateRefsToggle = createDirectiveQuickPickItem(Directive.Noop, false, {
-			label: toggleLabel(),
+			label: 'Update Branches',
 			detail: 'Also move any branches pointing to the rebased commits',
+			iconPath: toggleIcon(),
 		});
 
 		let potentialConflict: Promise<ConflictDetectionResult | undefined> | undefined;
@@ -481,7 +482,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		// flags (the accepted item's flags are the whole contract with `execute()`), so they're rebuilt too.
 		updateRefsToggle.onDidSelect = () => {
 			updateRefs = !updateRefs;
-			updateRefsToggle.label = toggleLabel();
+			updateRefsToggle.iconPath = toggleIcon();
 			items = buildItems();
 			refreshQuickPick();
 		};
