@@ -13,8 +13,14 @@ export type GitCoreConfigKeys =
 	| 'gpg.ssh.program'
 	| 'gpg.ssh.allowedSignersFile'
 	| 'init.defaultBranch'
+	/** `merge.autoStash` — whether `git merge` (and so a merging `git pull`) stashes and reapplies uncommitted changes */
+	| 'merge.autoStash'
+	/** `pull.autoStash` — overrides `merge.autoStash`/`rebase.autoStash` for `git pull`, in either mode */
+	| 'pull.autoStash'
 	/** `pull.rebase` — whether `git pull` rebases instead of merging; also accepts `merges`/`interactive` */
 	| 'pull.rebase'
+	/** `rebase.autoStash` — whether `git rebase` (and so a rebasing `git pull`) stashes and reapplies uncommitted changes */
+	| 'rebase.autoStash'
 	| 'user.email'
 	| 'user.name'
 	| 'user.signingkey';

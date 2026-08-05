@@ -169,6 +169,7 @@ export class GitActionsButtons extends LitElement {
 				.state=${this.state}
 				.fetchedTextShort=${this.fetchedTextShort}
 				.branchName=${this.branchName}
+				.wipState=${this.wipState}
 			></gl-push-pull-button>
 			${
 				this.branchState != null && this.branchState.upstream == null
@@ -757,6 +758,10 @@ export class PushPullButton extends LitElement {
 	@property({ type: String })
 	branchName?: string;
 
+	/** The conflict verdict depends on the working tree, not just on ahead/behind. */
+	@property({ type: Object })
+	wipState?: GraphWipState;
+
 	@query('gl-popover') private _popover?: GlPopover;
 
 	@state() private _conflicts?: PullConflictPreview;
@@ -810,7 +815,16 @@ export class PushPullButton extends LitElement {
 		const branchState = this.branchState;
 		if (repoPath == null || branchState == null || !this.isBehind) return undefined;
 
-		return `${repoPath}|${this.branchName ?? ''}|${branchState.behind}|${branchState.ahead}|${branchState.upstreamSha ?? ''}`;
+		return `${repoPath}|${this.branchName ?? ''}|${branchState.behind}|${branchState.ahead}|${branchState.upstreamSha ?? ''}|${this.workDirStatsFingerprint}`;
+	}
+
+	/** Working-tree fingerprint folded into `conflictsKey` so stash/discard/restore bust a pinned verdict —
+	 *  the counts are only a proxy, so swapping one dirty file for another at identical counts won't. */
+	private get workDirStatsFingerprint(): string {
+		const stats = this.wipState?.workDirStats;
+		if (stats == null) return '-';
+
+		return `${stats.added}.${stats.modified}.${stats.deleted}.${stats.renamed ?? 0}`;
 	}
 
 	override disconnectedCallback(): void {
@@ -819,7 +833,7 @@ export class PushPullButton extends LitElement {
 	}
 
 	override updated(changed: PropertyValues<this>): void {
-		if (!changed.has('branchState')) return;
+		if (!changed.has('branchState') && !changed.has('wipState')) return;
 
 		// Drop a verdict the moment it stops describing the current branch state — otherwise switching
 		// branches (or pulling) leaves the previous answer on screen until the next fetch resolves, which is
@@ -844,7 +858,10 @@ export class PushPullButton extends LitElement {
 	}
 
 	private armSettle(): void {
-		this.cancelSettle();
+		// Never restart a countdown already in flight. `updated()` re-arms on every WIP push, and a watcher
+		// pushing faster than the settle delay would otherwise reset the timer forever and starve the fetch.
+		if (this._settleTimer != null) return;
+
 		this._settleTimer = setTimeout(() => {
 			this._settleTimer = undefined;
 			if (!this._popoverOpen) return;

@@ -70,7 +70,10 @@ export type CachedGitTypes =
  */
 export type GkReconcileOutcome = 'reconciled' | 'deferred' | 'failed';
 
-export type ConflictDetectionCacheKey = `apply:${string}:${string}:${string}` | `merge:${string}:${string}`;
+export type ConflictDetectionCacheKey =
+	| `apply:${string}:${string}:${string}`
+	| `merge:${string}:${string}`
+	| `reapply:${string}:${string}`;
 
 /**
  * Ceiling on how long a derived branch base is trusted. Long enough that repeated reads during normal use

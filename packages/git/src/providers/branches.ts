@@ -102,6 +102,12 @@ export interface GitBranchesSubProvider {
 		targetBranch: string,
 		cancellation?: AbortSignal,
 	): Promise<ConflictDetectionResult>;
+	/** Detects conflicts when an autostash is reapplied onto the tree an integration produced */
+	getPotentialStashReapplyConflicts?(
+		repoPath: string,
+		ontoTreeOid: string,
+		cancellation?: AbortSignal,
+	): Promise<ConflictDetectionResult>;
 	getBaseBranchName?(
 		repoPath: string,
 		ref: string,

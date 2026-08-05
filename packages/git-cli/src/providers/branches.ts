@@ -3,7 +3,7 @@ import type { GitServiceContext } from '@gitlens/git/context.js';
 import { BranchError } from '@gitlens/git/errors.js';
 import type { BranchDisposition, BranchMetadata } from '@gitlens/git/models/branch.js';
 import { GitBranch } from '@gitlens/git/models/branch.js';
-import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
+import type { ConflictDetectionErrorReason, ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type {
 	BranchContributionsOverview,
@@ -41,6 +41,7 @@ import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
 import { getGitCommandError, gitConfigsBranch, gitConfigsLog, GitError, GitErrors, GitWarnings } from '../exec/git.js';
+import type { GitMergeConflict } from '../parsers/mergeTreeParser.js';
 import { parseMergeTreeConflict } from '../parsers/mergeTreeParser.js';
 
 /** Minimum time between writes to the config for last accessed/modified dates */
@@ -1279,7 +1280,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (!data) return { status: 'clean' };
 
 				const mergeConflict = parseMergeTreeConflict(data);
-				if (!mergeConflict.conflicts.length) return { status: 'clean' };
+				if (!mergeConflict.conflicts.length) return { status: 'clean', treeOid: mergeConflict.treeOid };
 
 				return {
 					status: 'conflicts',
@@ -1290,10 +1291,135 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						files: mergeConflict.conflicts,
 						shas: undefined, // Merge conflicts don't have a specific commit SHA
 					},
+					treeOid: mergeConflict.treeOid,
 				};
 			},
 			{ cancellation: cancellation },
 		);
+	}
+
+	/** Detects conflicts when an autostash is reapplied onto the tree an integration produced */
+	@debug()
+	async getPotentialStashReapplyConflicts(
+		repoPath: string,
+		ontoTreeOid: string,
+		cancellation?: AbortSignal,
+	): Promise<ConflictDetectionResult> {
+		// Requires Git v2.38+ for --write-tree with 3-arg form
+		if (!(await this.git.supports('git:merge-tree:write-tree'))) {
+			return createConflictDetectionError('unsupported');
+		}
+
+		// git stash create writes commit objects but touches neither the working tree nor the stash ref, and
+		// captures tracked changes only — which is exactly what autostash does
+		let stashSha: string;
+		try {
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+				'stash',
+				'create',
+			);
+			stashSha = result.stdout.trim();
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			return createConflictDetectionError('other');
+		}
+
+		if (!stashSha) return { status: 'clean' };
+
+		// Key on what the simulation actually consumes — the stash's tree and its first parent (the HEAD it was
+		// taken against, and so the merge base). The stash SHA itself embeds a commit timestamp, so two runs over
+		// an identical tree produce different SHAs and a SHA-keyed entry could never be hit.
+		let stashTree: string;
+		let stashParent: string;
+		try {
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+				'rev-parse',
+				`${stashSha}^{tree}`,
+				`${stashSha}^`,
+			);
+			[stashTree, stashParent] = result.stdout.trim().split('\n');
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			return createConflictDetectionError('other');
+		}
+
+		const cacheKey: ConflictDetectionCacheKey = `reapply:${ontoTreeOid}:${stashTree}.${stashParent}`;
+		return this.cache.conflictDetection.getOrCreate(
+			repoPath,
+			cacheKey,
+			async (_cacheable, signal) => {
+				// The stash commit's first parent is the HEAD it was taken against, which is the correct merge
+				// base for a reapply — ours is the post-integration tree, theirs is the stash
+				const step = await this.runMergeTreeStep(repoPath, `${stashSha}^`, ontoTreeOid, stashSha, signal);
+				if (!step.ok) return createConflictDetectionError(step.reason);
+
+				if (!step.result.conflicts.length) return { status: 'clean', treeOid: step.result.treeOid };
+
+				return {
+					status: 'conflicts',
+					conflict: {
+						repoPath: repoPath,
+						branch: stashSha,
+						target: ontoTreeOid,
+						files: step.result.conflicts,
+						shas: undefined,
+					},
+					treeOid: step.result.treeOid,
+				};
+			},
+			{ cancellation: cancellation },
+		);
+	}
+
+	private async runMergeTreeStep(
+		repoPath: string,
+		base: string,
+		ours: string,
+		theirs: string,
+		cancellation?: AbortSignal,
+	): Promise<{ ok: true; result: GitMergeConflict } | { ok: false; reason: ConflictDetectionErrorReason }> {
+		const scope = getScopedLogger();
+
+		let data;
+		try {
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
+				'merge-tree',
+				'--write-tree',
+				'-z',
+				'--name-only',
+				'--no-messages',
+				`--merge-base=${base}`,
+				ours,
+				theirs,
+			);
+			data = result.stdout;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			const msg: string = ex?.toString() ?? '';
+			if (GitErrors.notAValidObjectName.test(msg)) {
+				scope?.error(ex, `'${ours}' or '${theirs}' not found - ensure the branches/commits exist`);
+				return { ok: false, reason: 'refNotFound' };
+			} else if (GitErrors.badRevision.test(msg)) {
+				scope?.error(ex, `Invalid revision: ${msg.slice(msg.indexOf("'"))}`);
+				return { ok: false, reason: 'refNotFound' };
+			} else if (GitErrors.noMergeBase.test(msg)) {
+				scope?.error(ex, `Unable to merge '${ours}' and '${theirs}' as they have no common ancestor`);
+				return { ok: false, reason: 'noMergeBase' };
+			} else if (ex instanceof GitError) {
+				data = ex.stdout;
+			} else {
+				scope?.error(ex, 'Failed to execute merge-tree for conflict check');
+				return { ok: false, reason: 'other' };
+			}
+		}
+
+		return { ok: true, result: parseMergeTreeConflict(data ?? '') };
 	}
 
 	private async checkForPotentialConflicts(
@@ -1332,56 +1458,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		for (const commit of commits) {
 			if (cancellation?.aborted) throw new CancellationError();
 
-			let data;
-			try {
-				// Use merge-tree --write-tree with --merge-base to simulate cherry-pick:
-				// merge-tree --write-tree --merge-base=<commit-parent> <current-tree> <commit>
-				// This performs a 3-way merge where:
-				//   - base = commit.parent (where the commit started)
-				//   - ours = currentTreeOid (current state of the target)
-				//   - theirs = commit.sha (what we're cherry-picking)
-				const result = await this.git.run(
-					{ cwd: repoPath, cancellation: cancellation, errors: 'throw' },
-					'merge-tree',
-					'--write-tree',
-					'-z',
-					'--name-only',
-					'--no-messages',
-					`--merge-base=${commit.parent}`,
-					currentTreeOid,
-					commit.sha,
-				);
-				data = result.stdout;
-			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
+			// Use merge-tree --write-tree with --merge-base to simulate cherry-pick:
+			// merge-tree --write-tree --merge-base=<commit-parent> <current-tree> <commit>
+			// This performs a 3-way merge where:
+			//   - base = commit.parent (where the commit started)
+			//   - ours = currentTreeOid (current state of the target)
+			//   - theirs = commit.sha (what we're cherry-picking)
+			const step = await this.runMergeTreeStep(repoPath, commit.parent, currentTreeOid, commit.sha, cancellation);
+			if (!step.ok) return createConflictDetectionError(step.reason);
 
-				const msg: string = ex?.toString() ?? '';
-				if (GitErrors.notAValidObjectName.test(msg)) {
-					scope?.error(
-						ex,
-						`'${targetBranch}' or '${commit.sha}' not found - ensure the branches/commits exist`,
-					);
-					return createConflictDetectionError('refNotFound');
-				} else if (GitErrors.badRevision.test(msg)) {
-					scope?.error(ex, `Invalid revision: ${msg.slice(msg.indexOf("'"))}`);
-					return createConflictDetectionError('refNotFound');
-				} else if (GitErrors.noMergeBase.test(msg)) {
-					scope?.error(
-						ex,
-						`Unable to merge '${commit.sha}' and '${targetBranch}' as they have no common ancestor`,
-					);
-					return createConflictDetectionError('noMergeBase');
-				} else if (ex instanceof GitError) {
-					data = ex.stdout;
-				} else {
-					scope?.error(ex, 'Failed to execute merge-tree for conflict check');
-					return createConflictDetectionError('other');
-				}
-			}
-
-			if (!data) continue;
-
-			const mergeConflict = parseMergeTreeConflict(data);
+			const mergeConflict = step.result;
 
 			if (mergeConflict.conflicts.length) {
 				conflictingShas.push(commit.sha);
@@ -1400,6 +1486,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							shas: [commit.sha],
 						},
 						stoppedOnFirstConflict: true,
+						treeOid: mergeConflict.treeOid || undefined,
 					};
 				}
 			}
@@ -1422,10 +1509,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					shas: conflictingShas,
 				},
 				stoppedOnFirstConflict: false,
+				treeOid: currentTreeOid,
 			};
 		}
 
-		return { status: 'clean' };
+		return { status: 'clean', treeOid: currentTreeOid };
 	}
 
 	@debug({ exit: true })

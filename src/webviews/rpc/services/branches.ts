@@ -7,6 +7,7 @@
  */
 
 import type { GitBranch } from '@gitlens/git/models/branch.js';
+import { GitFileWorkingTreeStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ConflictDetectionResult } from '@gitlens/git/models/mergeConflicts.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
@@ -66,9 +67,11 @@ export interface BranchEnrichment {
 
 /**
  * What a pull would do to you, as a single verdict. `count` is a file count: for `dirty-overlap` the
- * uncommitted files the incoming commits also touch (git refuses the pull outright); for `merge`/`rebase`
- * the files the simulated integration conflicts in. `unavailable` means we couldn't tell (Git < 2.33, a
- * provider without merge-tree, or a failed simulation) — render nothing rather than guessing.
+ * working-tree files that make git refuse the pull outright — which files those are depends on the pull
+ * mode and whether autostash is on, see {@link getPullBlockedFileCount}; for `merge`/`rebase` the files
+ * that conflict, either in the integration itself or (when autostash is on) in reapplying the stash
+ * afterward. `unavailable` means we couldn't tell (Git < 2.33, a provider without merge-tree, or a failed
+ * simulation) — render nothing rather than guessing.
  */
 export type PullConflictPreview =
 	| { kind: 'dirty-overlap'; count: number }
@@ -79,6 +82,42 @@ export type PullConflictPreview =
 
 /** Git's false-y boolean spellings — anything else (including `merges`/`interactive`) means rebase. */
 const gitFalseValues = new Set(['', 'false', 'no', 'off', '0']);
+
+/**
+ * Counts the working-tree files that make `git pull` refuse outright. `git stash create` (what autostash
+ * runs before integrating) captures tracked changes AND the index, so an autostashed pull only trips over
+ * untracked files the incoming commits would create. Without autostash, `pull --rebase` demands a wholly
+ * clean tree, while a merging `pull` refuses on files the incoming commits touch — plus, only when it has to
+ * build a merge commit (`ahead`), on any STAGED file, because that merge needs a clean index. A merging pull
+ * that just fast-forwards carries staged changes across fine, so gating on `ahead` is what keeps the common
+ * behind-only case from reading as blocked.
+ */
+export function getPullBlockedFileCount(
+	tracked: readonly { path: string; staged: boolean }[],
+	untracked: readonly string[],
+	incoming: ReadonlySet<string>,
+	options: { rebase: boolean; autoStash: boolean; ahead: boolean },
+): number {
+	let count = 0;
+	for (const path of untracked) {
+		if (incoming.has(path)) {
+			count++;
+		}
+	}
+
+	if (options.autoStash) return count;
+
+	if (options.rebase) {
+		return count + tracked.length;
+	}
+
+	for (const file of tracked) {
+		if (incoming.has(file.path) || (options.ahead && file.staged)) {
+			count++;
+		}
+	}
+	return count;
+}
 
 export class BranchesService {
 	constructor(private readonly container: Container) {}
@@ -109,39 +148,68 @@ export class BranchesService {
 		if (branch == null || upstream == null || upstream.missing) return undefined;
 		if (!upstream.state.behind) return { kind: 'clean' };
 
-		const overlap = await this.getDirtyOverlapCount(
+		const rebase = await this.willPullRebase(svc, branch.name);
+		signal?.throwIfAborted();
+		const autoStash = await this.willAutoStash(svc, rebase);
+		signal?.throwIfAborted();
+
+		// Merge-base → upstream, not tip-to-tip: a two-dot diff would pull in files only the local
+		// (ahead) commits touched, which have nothing to do with what's incoming.
+		const incoming = createRevisionRange(branch.ref, upstream.name, '...');
+		const blocked = await this.getBlockedFileCount(
 			svc,
-			createRevisionRange(branch.ref, upstream.name, '..'),
+			incoming,
+			{ rebase: rebase, autoStash: autoStash, ahead: upstream.state.ahead > 0 },
 			signal,
 		);
 		signal?.throwIfAborted();
-		if (overlap > 0) return { kind: 'dirty-overlap', count: overlap };
+		if (blocked > 0) return { kind: 'dirty-overlap', count: blocked };
 
-		// A fast-forward can't conflict — there's nothing to integrate, so skip the simulation entirely.
-		if (!upstream.state.ahead) return { kind: 'clean' };
+		let onto: string | undefined;
+		if (!upstream.state.ahead) {
+			// A fast-forward can't conflict on its own — there's nothing to integrate — but with autostash
+			// on, reapplying the stash after the fast-forward still can, so the landing tree is still needed.
+			onto = `${upstream.name}^{tree}`;
+		} else {
+			const result = rebase
+				? await this.getPotentialRebaseConflicts(svc, upstream.name, branch.ref, signal)
+				: await svc.branches.getPotentialMergeConflicts?.(branch.name, upstream.name, signal);
+			signal?.throwIfAborted();
 
-		const rebase = await this.willPullRebase(svc, branch.name);
-		signal?.throwIfAborted();
+			if (result == null || result.status === 'error') return { kind: 'unavailable' };
+			if (result.status === 'conflicts') {
+				return { kind: rebase ? 'rebase' : 'merge', count: result.conflict.files.length };
+			}
 
-		const result = rebase
-			? await this.getPotentialRebaseConflicts(svc, upstream.name, branch.ref, signal)
-			: await svc.branches.getPotentialMergeConflicts?.(branch.name, upstream.name, signal);
-		signal?.throwIfAborted();
+			onto = result.treeOid;
+		}
 
-		if (result == null || result.status === 'error') return { kind: 'unavailable' };
-		if (result.status === 'clean') return { kind: 'clean' };
+		// A conflicted integration already returned above, so reaching here means `onto` is either the
+		// fast-forward tree or a clean simulation's tree — worth checking whether reapplying the autostash
+		// on top of it conflicts too.
+		if (autoStash && onto != null) {
+			const reapply = await svc.branches.getPotentialStashReapplyConflicts?.(onto, signal);
+			signal?.throwIfAborted();
+			// A reapply we couldn't simulate (Git < 2.38, a `stash create` that failed) is NOT a clean pull —
+			// the integration legs above degrade to `unavailable` for the same reason, and this leg is the only
+			// thing standing between an autostashed pull and a conflict.
+			if (reapply?.status === 'error') return { kind: 'unavailable' };
+			if (reapply?.status === 'conflicts') {
+				return { kind: rebase ? 'rebase' : 'merge', count: reapply.conflict.files.length };
+			}
+		}
 
-		return { kind: rebase ? 'rebase' : 'merge', count: result.conflict.files.length };
+		return { kind: 'clean' };
 	}
 
-	/** Counts uncommitted files that the incoming commits also change — what makes git refuse the pull with
-	 *  "Your local changes to the following files would be overwritten by merge". */
-	private async getDirtyOverlapCount(
+	/** Counts the working-tree files that make git refuse the pull outright, per {@link getPullBlockedFileCount}. */
+	private async getBlockedFileCount(
 		svc: GitRepositoryService,
 		incoming: string,
+		options: { rebase: boolean; autoStash: boolean; ahead: boolean },
 		signal?: AbortSignal,
 	): Promise<number> {
-		// A clean tree can't overlap, so bail before spending anything — this is the common case.
+		// A clean tree can't block anything, so bail before spending anything — this is the common case.
 		if (!(await svc.status.hasWorkingChanges(undefined, signal))) return 0;
 
 		signal?.throwIfAborted();
@@ -149,19 +217,26 @@ export class BranchesService {
 		const status = await svc.status.getStatus(undefined, signal);
 		signal?.throwIfAborted();
 
-		const dirty = new Set(status?.files.map(f => f.path));
-		if (!dirty.size) return 0;
-
-		const incomingFiles = await svc.diff.getDiffStatus(incoming);
-		if (incomingFiles == null) return 0;
-
-		let count = 0;
-		for (const file of incomingFiles) {
-			if (dirty.has(file.path)) {
-				count++;
+		const tracked: { path: string; staged: boolean }[] = [];
+		const untracked: string[] = [];
+		for (const f of status?.files ?? []) {
+			if (f.workingTreeStatus === GitFileWorkingTreeStatus.Untracked) {
+				untracked.push(f.path);
+			} else {
+				tracked.push({ path: f.path, staged: f.staged });
 			}
 		}
-		return count;
+		if (!tracked.length && !untracked.length) return 0;
+
+		// A rebasing pull without autostash refuses on any dirty tracked file, overlapping or not — so with
+		// nothing untracked to intersect, the answer is already decided and the incoming diff is wasted work.
+		if (options.rebase && !options.autoStash && tracked.length > 0 && !untracked.length) return tracked.length;
+
+		// A failed/unavailable diff only costs the overlap terms — the staged and rebase-clean-tree terms
+		// don't depend on it, so degrade to an empty incoming set rather than dropping the whole verdict.
+		const incomingFiles = await svc.diff.getDiffStatus(incoming);
+		const incomingSet = new Set(incomingFiles?.map(f => f.path));
+		return getPullBlockedFileCount(tracked, untracked, incomingSet, options);
 	}
 
 	/** Replays the local (ahead) commits onto the upstream, the way `pull --rebase` will. Stops at the first
@@ -180,7 +255,9 @@ export class BranchesService {
 			)),
 		];
 		signal?.throwIfAborted();
-		if (!shas.length) return { status: 'clean' };
+		// Nothing to replay (every ahead commit is a merge, which `pull --rebase` drops too) — the landing
+		// tree is the upstream's own, and it has to be reported or the autostash reapply check is skipped.
+		if (!shas.length) return { status: 'clean', treeOid: `${upstreamName}^{tree}` };
 
 		return svc.branches.getPotentialApplyConflicts?.(upstreamName, shas, { stopOnFirstConflict: true }, signal);
 	}
@@ -193,6 +270,17 @@ export class BranchesService {
 
 		const pullRebase = await svc.config.getConfig?.('pull.rebase');
 		return pullRebase != null && !gitFalseValues.has(pullRebase.trim().toLowerCase());
+	}
+
+	/** Whether `git pull` will stash-and-reapply uncommitted changes rather than refusing on a dirty tree.
+	 *  `pull.autoStash` decides for either mode; otherwise only the key matching the mode is consulted —
+	 *  `rebase.autoStash` is inert for a merging pull, and `merge.autoStash` for a rebasing one. */
+	private async willAutoStash(svc: GitRepositoryService, rebase: boolean): Promise<boolean> {
+		const pullAutoStash = await svc.config.getConfig?.('pull.autoStash');
+		if (pullAutoStash != null) return !gitFalseValues.has(pullAutoStash.trim().toLowerCase());
+
+		const autoStash = await svc.config.getConfig?.(rebase ? 'rebase.autoStash' : 'merge.autoStash');
+		return autoStash != null && !gitFalseValues.has(autoStash.trim().toLowerCase());
 	}
 
 	/**

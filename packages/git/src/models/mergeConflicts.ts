@@ -13,6 +13,7 @@ export interface MergeConflictFile {
 export type ConflictDetectionErrorReason = 'unsupported' | 'noParent' | 'noMergeBase' | 'refNotFound' | 'other';
 
 export type ConflictDetectionResult =
-	| { status: 'clean' }
-	| { status: 'conflicts'; conflict: MergeConflicts; stoppedOnFirstConflict?: boolean }
+	// `treeOid` is the tree the simulated integration produced, when the provider computed one — callers layer further simulations onto it
+	| { status: 'clean'; treeOid?: string }
+	| { status: 'conflicts'; conflict: MergeConflicts; stoppedOnFirstConflict?: boolean; treeOid?: string }
 	| { status: 'error'; reason: ConflictDetectionErrorReason; message: string };
