@@ -75,7 +75,59 @@ function setupConflictedRebase(r: TestRepo): void {
 	execFileSync('git', ['add', 'README.md'], { cwd: r.path, stdio: 'pipe' });
 }
 
+/**
+ * Starts a rebase of `feature` (two commits, both editing README.md) onto `main`, pausing on the
+ * first step's conflict — so skipping or continuing step 1 lands on step 2's conflict.
+ */
+function setupTwoStepConflictedRebase(r: TestRepo): void {
+	execFileSync('git', ['checkout', '-b', 'feature'], { cwd: r.path, stdio: 'pipe' });
+	addCommit(r.path, 'README.md', '# Test Repository\nfeature one\n', 'Feature commit one');
+	addCommit(r.path, 'README.md', '# Test Repository\nfeature two\n', 'Feature commit two');
+	execFileSync('git', ['checkout', 'main'], { cwd: r.path, stdio: 'pipe' });
+	addCommit(r.path, 'README.md', '# Test Repository\nmain edit\n', 'Main edit README');
+	execFileSync('git', ['checkout', 'feature'], { cwd: r.path, stdio: 'pipe' });
+
+	try {
+		execFileSync('git', ['rebase', 'main'], { cwd: r.path, stdio: 'pipe' });
+		assert.fail('Expected the rebase to pause on a conflict');
+	} catch {
+		// Expected: the rebase pauses on the first step's README.md conflict
+	}
+}
+
 suite('PausedOperationsGitSubProvider.continuePausedOperation', () => {
+	// `--skip`/`--continue` drive the WHOLE rebase, so a LATER step's conflict exits the command
+	// non-zero even though this step did what was asked — and git words it identically to a refusal.
+	// Consumers therefore can't trust the reason alone; they have to compare state. Locking that in:
+	// the throw and the advance must BOTH happen, so anything reporting "cannot skip" has to check.
+	test('a skip that lands on the next step conflicts still advances, despite rejecting', async () => {
+		const r = createTestRepo();
+		try {
+			setupTwoStepConflictedRebase(r);
+
+			const before = await r.provider.pausedOps.getPausedOperationStatus(r.path, { force: true });
+			assert.ok(before?.type === 'rebase');
+			assert.strictEqual(before.steps.current.number, 1);
+
+			await assert.rejects(
+				r.provider.pausedOps.continuePausedOperation(r.path, { skip: true }),
+				(ex: unknown) => PausedOperationContinueError.is(ex, 'conflicts'),
+				'Expected the skip to report unresolved conflicts',
+			);
+
+			const after = await r.provider.pausedOps.getPausedOperationStatus(r.path, { force: true });
+			assert.ok(after?.type === 'rebase', 'Expected the rebase to still be paused, on the NEXT step');
+			assert.strictEqual(after.steps.current.number, 2, 'Expected the skip to have advanced a step');
+			assert.notStrictEqual(
+				after.steps.current.commit?.ref,
+				before.steps.current.commit?.ref,
+				'Expected the paused commit to have moved on',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+
 	test('with messageEditor completes a conflicted rebase headlessly and preserves the commit message', async () => {
 		const r = createTestRepo();
 		try {

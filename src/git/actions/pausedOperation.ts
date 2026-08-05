@@ -88,13 +88,45 @@ async function continuePausedOperationCore(
 		}
 
 		if (PausedOperationContinueError.is(ex, 'conflicts') || PausedOperationContinueError.is(ex, 'unmergedFiles')) {
-			void window.showWarningMessage(ex.message);
+			// `<op> --continue`/`--skip` drives the WHOLE operation, so a LATER step's conflict exits the
+			// command non-zero even though this step did exactly what was asked — and git reports it with the
+			// same "CONFLICT"/"could not apply" text as a refusal, so the reason can't tell them apart. Ask
+			// the repo instead: warn only when nothing actually moved, otherwise the operation advanced and
+			// simply stopped again further along, which the paused-op surface already shows.
+			if (!(await hasPausedOperationProgressed(svc, ex.details.operation))) {
+				void window.showWarningMessage(ex.message);
+			}
 			void showPausedOperationStatus(container, svc.path, { source: source });
 			return;
 		}
 
 		void showGitErrorMessage(ex);
 	}
+}
+
+/**
+ * Whether the paused operation moved since `before` was captured — it finished, changed kind, or
+ * advanced onto a different commit. Compares state rather than error text, which varies by git
+ * version and locale.
+ */
+async function hasPausedOperationProgressed(
+	svc: GitRepositoryService,
+	before: GitPausedOperationStatus,
+): Promise<boolean> {
+	// Force a fresh read: the failing command just mutated the repo, so a cached status is exactly
+	// the pre-command one we're comparing against
+	const after = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
+	if (after == null || after.type !== before.type) return true;
+
+	if (after.type === 'rebase' && before.type === 'rebase') {
+		// The apply backend can't report step numbers, so fall back to the commit being applied
+		return (
+			after.steps.current.number !== before.steps.current.number ||
+			after.steps.current.commit?.ref !== before.steps.current.commit?.ref
+		);
+	}
+
+	return after.HEAD.ref !== before.HEAD.ref;
 }
 
 export interface ShowPausedOperationStatusOptions {
