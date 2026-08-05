@@ -99,7 +99,7 @@ export class GlMergeConflictWarning extends LitElement {
 				white-space: nowrap;
 			}
 
-			/* The phrase never shrinks — width pressure goes to the refs, which shrink and (stepped) drop. */
+			/* The phrase never shrinks — width pressure goes to the refs, which shrink and then drop. */
 			.label__text {
 				flex: none;
 			}
@@ -122,19 +122,23 @@ export class GlMergeConflictWarning extends LitElement {
 				overflow: hidden;
 			}
 
-			/* Refs absorb all the shrink, ellipsizing well past the chips' resting minimum. */
-			.refs .chip {
-				min-width: 0;
-			}
-
 			/* Under width pressure the refs are the first thing to go: the branch row directly below the
-			   strip already names the branch and the paused-at pill's hover carries the rest, so the
-			   phrase and the actions never lose room. Only stripped when a step pill is competing for it.
-			   The threshold is where the chips stop being able to NAME their refs — slivers are worse
-			   than absence. */
+			   strip already names the branch, and the leading icon's hover names the operands, so the
+			   phrase and the actions never lose room. The threshold is where the chips stop being able to
+			   NAME their refs — slivers are worse than absence. Every variant sheds except pending, whose
+			   phrase reads straight into its refs ("Pending rebase of <feature> onto <main>"). */
 			@container (max-width: 52rem) {
-				.status--stepped .refs {
+				.status--sheddable .refs {
 					display: none;
+				}
+
+				/* Refs gone, the phrase is the only thing left that can absorb the squeeze — ellipsize it
+				   rather than let the label's overflow clip it mid-word. */
+				.status--sheddable .label__phrase {
+					flex: 0 1 auto;
+					min-width: 0;
+					overflow: hidden;
+					text-overflow: ellipsis;
 				}
 			}
 
@@ -164,7 +168,7 @@ export class GlMergeConflictWarning extends LitElement {
 				display: inline-flex;
 				flex: 0 1 auto;
 				align-items: center;
-				min-width: 4ch;
+				min-width: 0;
 				padding: 0 var(--gl-space-4);
 				overflow: hidden;
 				color: var(--gl-paused-op-ink);
@@ -328,11 +332,12 @@ export class GlMergeConflictWarning extends LitElement {
 		if (status == null) return nothing;
 
 		const variant = getPausedOperationVariant(status, this.conflicts);
-		// One predicate drives both the CSS gate (refs drop at narrow widths) and the step-pill render.
 		const stepped = isPausedOperationStepped(status, variant) ? status : undefined;
+		// Pending is the one variant whose phrase reads into its refs, so it's the one that can't shed them.
+		const sheddable = variant !== 'pending';
 
 		return html`
-			<span class="status ${stepped != null ? 'status--stepped' : ''}" part="base" data-variant=${variant}>
+			<span class="status ${sheddable ? 'status--sheddable' : ''}" part="base" data-variant=${variant}>
 				${this.renderIcon(status, variant)}${this.renderLabel(status, variant, stepped)}${
 					// Read-only keeps the variant's copy and tint — only the affordances go away.
 					this.readOnly ? nothing : this.renderActions(status, variant)
@@ -358,7 +363,8 @@ export class GlMergeConflictWarning extends LitElement {
 		const label = getPausedOperationBarLabel(status, variant);
 
 		return html`<span class="label"
-			><span class="label__text ${variant === 'conflicts' ? 'label__text--emphasized' : ''}">${label}</span
+			><span class="label__text label__phrase ${variant === 'conflicts' ? 'label__text--emphasized' : ''}"
+				>${label}</span
 			>${stepped != null ? this.renderStep(stepped) : nothing}${this.renderRefs(
 				status,
 				// The pending phrase reads straight into its refs ("Pending rebase of <feature> onto <main>").

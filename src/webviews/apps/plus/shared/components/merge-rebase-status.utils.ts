@@ -1,15 +1,18 @@
 import type { GitPausedOperationStatus, GitRebaseStatus } from '@gitlens/git/models/pausedOperationStatus.js';
-import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
+import type { GitReference, GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import type { PausedOperationVariant } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
-import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import {
+	getConflictCurrentRef,
+	pausedOperationStatusStringsByType,
+} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { pluralize, truncate } from '@gitlens/utils/string.js';
 
 /** Longest commit subject a tooltip carries before it's elided. */
 const maxSubjectLength = 50;
 
-/** True when the strip shows the "at <m/t>" step context — also gates which strips drop their refs at narrow widths. */
+/** True when the strip shows the "at <m/t>" step context. */
 export function isPausedOperationStepped(
 	status: GitPausedOperationStatus,
 	variant: PausedOperationVariant,
@@ -40,24 +43,46 @@ export function getPausedOperationBarActionLabel(
 	return `Continue ${pausedOperationStatusStringsByType[status.type].name}`;
 }
 
-/** Plain-words restatement of the state for label-only scanners, carried on the leading icon. */
+/** `Merging feature into main` — names the operands the ref chips carry, so the identity survives the
+ *  narrow-width shed. Undefined when either side can't be named. */
+export function getPausedOperationBarRefsSummary(status: GitPausedOperationStatus): string | undefined {
+	const current = nameRef(getConflictCurrentRef(status));
+	const incoming = nameRef(status.incoming);
+	if (current == null || incoming == null) return undefined;
+
+	const strings = pausedOperationStatusStringsByType[status.type];
+	return `${strings.label} ${incoming} ${strings.directionality} ${current}`;
+}
+
+function nameRef(ref: GitReference | undefined): string | undefined {
+	if (ref == null) return undefined;
+
+	return ref.refType === 'branch' ? ref.name : shortenRevision(ref.ref) || undefined;
+}
+
+/** Plain-words restatement of the state for label-only scanners, carried on the leading icon. Leads with
+ *  the operands, which are the only place they're named once the refs shed at narrow widths. */
 export function getPausedOperationBarIconTooltip(
 	status: GitPausedOperationStatus,
 	variant: PausedOperationVariant,
 	conflictsCount: number | undefined,
 ): string | undefined {
-	switch (variant) {
-		case 'conflicts': {
-			const name = pausedOperationStatusStringsByType[status.type].prose.toLowerCase();
-			return conflictsCount == null
+	// The pending phrase reads into its refs, which never shed — restating them would only echo the label.
+	if (variant === 'pending') return undefined;
+
+	let state;
+	if (variant === 'conflicts') {
+		const name = pausedOperationStatusStringsByType[status.type].prose.toLowerCase();
+		state =
+			conflictsCount == null
 				? `Conflicting files must be resolved before the ${name} can continue`
 				: `${pluralize('conflicting file', conflictsCount)} must be resolved before the ${name} can continue`;
-		}
-		case 'pending':
-			return undefined;
-		case 'ready':
-			return 'No unresolved conflicts — ready to continue';
+	} else {
+		state = 'No unresolved conflicts — ready to continue';
 	}
+
+	const refs = getPausedOperationBarRefsSummary(status);
+	return refs == null ? state : `${refs}. ${state}`;
 }
 
 export function getPausedOperationAbortLabel(status: GitPausedOperationStatus): string {
