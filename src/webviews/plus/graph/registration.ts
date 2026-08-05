@@ -318,8 +318,10 @@ export function registerGraphWebviewCommands<T>(
 			void window.showInformationMessage(
 				`Graph-as-main-view simulation: ${simulated ? 'OFF' : 'ON (layout prompt armed)'}`,
 			);
-			// Rebuild the view's bootstrap so the prompt gate re-evaluates (no-op if not yet resolved)
-			void executeCommand('gitlens.views.graph.refresh');
+			// Rebuild the view's bootstrap so the prompt gate re-evaluates. Through the proxy, not
+			// `gitlens.views.graph.refresh` — that command only exists while the view is resolved, so
+			// executing it rejects with "command not found" whenever the graph is only open in an editor tab
+			void container.views.graph.refresh(true);
 		}),
 		registerCommand('gitlens.toggleGraph', (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
