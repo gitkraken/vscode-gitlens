@@ -213,6 +213,14 @@ export class GlCliGitProvider implements GlGitProvider {
 				...baseContext,
 				workspace: {
 					...baseContext.workspace!,
+					// Spreading `baseContext.workspace` evaluates its `isTrusted` getter and copies a static
+					// boolean — snapshotted at provider construction, which during untrusted activation freezes
+					// it at `false`. Every git command then reads that stale value and throws
+					// WorkspaceUntrustedError until a window reload rebuilds the context, so a runtime trust
+					// grant never takes. Re-declare it as a live getter so trust changes are seen immediately.
+					get isTrusted(): boolean {
+						return workspace.isTrusted;
+					},
 					getWorktreeDefaultUri: (repoPath: string): Uri | undefined => {
 						let location = configuration.get('worktrees.defaultLocation');
 						if (location == null) {
