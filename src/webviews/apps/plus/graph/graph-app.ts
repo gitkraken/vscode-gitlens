@@ -2161,6 +2161,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const effectiveSha = single?.sha ?? (fallbackPath != null ? uncommitted : undefined);
 		const effectiveRepoPath = (single ?? multi)?.repoPath ?? fallbackPath;
 		const hasContent = effectiveSha != null || multi != null;
+		// The branch sheet has no selected commit but still fills the pane, so it needs the divider
+		// draggable and maximize live too.
+		const hasPaneContent = hasContent || this._branchSheetOpen;
 		const detailsVisible = this.graphState.details?.visible ?? false;
 		const isBottom = this.effectiveDetailsLocation === 'bottom';
 		const sameSide = isBottom ? this.graphState.details?.bottomPosition : this.graphState.details?.position;
@@ -2175,14 +2178,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// The divider is disabled while maximized so no drag can overwrite the persisted `bottomPosition`
 		// — restore just re-binds `.position` to it. Gated on `detailsVisible` so a stray flag can't
 		// force a hidden panel open.
-		const maximized = isBottom && detailsVisible && hasContent && (this.graphState.details?.maximized ?? false);
+		const maximized = isBottom && detailsVisible && hasPaneContent && (this.graphState.details?.maximized ?? false);
 		return html`<gl-split-panel
 			class=${classMap({ 'graph__details-split': true, '-vertical': isBottom })}
 			orientation=${isBottom ? 'vertical' : 'horizontal'}
 			primary="end"
 			.position=${maximized ? 0 : position}
-			.snap=${hasContent ? this._detailsSnap : undefined}
-			.disabled=${!hasContent || maximized}
+			.snap=${hasPaneContent ? this._detailsSnap : undefined}
+			.disabled=${!hasPaneContent || maximized}
 			@gl-split-panel-change=${this.handleDetailsSplitChange}
 			@gl-split-panel-drag-end=${this.handleSplitDragEnd}
 			@gl-split-panel-closed-change=${this.handleDetailsClosedChange}
@@ -2337,7 +2340,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// Retires any open still waiting on the panel to mount, as well as closing a mounted one — a
 			// close arriving during that wait would otherwise be a no-op and the sheet would appear after it.
 			this._branchSheetOpenToken++;
+			this._branchSheetOpen = false;
 			this.detailsPanelEl?.closeBranchSheet();
+			// Also covers a close arriving before the panel mounted — no panel, so no closed event to
+			// carry the restore.
+			this.restoreMaximizedAfterBranchSheet();
 			return;
 		}
 		if (e.detail.name == null) return;
@@ -2363,19 +2370,57 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const panel = await this.waitForDetailsPanel();
 		// Superseded while waiting — the user closed the sheet, or asked for a different ref. Opening now
 		// would reopen something they dismissed, or show the ref they navigated away from.
-		if (token !== this._branchSheetOpenToken) return;
+		// `panel == null` means the wait timed out — no sheet will open, so don't arm the open/restore
+		// bookkeeping that only a close can clear.
+		if (token !== this._branchSheetOpenToken || panel == null) return;
 
-		panel?.openBranchSheet(ref);
+		this._branchSheetOpen = true;
+		this._maximizedBeforeBranchSheet ??= this.graphState.details?.maximized ?? false;
+		panel.openBranchSheet(ref);
 	}
 
 	/** Bumped by every open request and every close, so an open that's still waiting for the details panel to
 	 *  mount can tell it's been superseded. */
 	private _branchSheetOpenToken = 0;
 
+	/** Whether the branch sheet is open — the details pane can hold content (and so be maximizable/
+	 *  resizable) even with no selected commit. */
+	@state()
+	private _branchSheetOpen = false;
+
+	/** `details.maximized` as it stood before the branch sheet opened — maximizing from the sheet's chip is
+	 *  scoped to the sheet, so closing it restores what the panel had (only when the sheet itself made the
+	 *  change; see {@link _maximizeToggledInBranchSheet}). `undefined` means no sheet is open. */
+	private _maximizedBeforeBranchSheet?: boolean;
+
+	/** Whether the sheet's own maximize chip was used while it was open — see
+	 *  {@link restoreMaximizedAfterBranchSheet}. */
+	private _maximizeToggledInBranchSheet = false;
+
+	/** Restores the pre-sheet maximize state; a sheet-scoped maximize must not outlive the sheet. */
+	private restoreMaximizedAfterBranchSheet(): void {
+		const restore = this._maximizedBeforeBranchSheet;
+		const toggled = this._maximizeToggledInBranchSheet;
+		this._maximizedBeforeBranchSheet = undefined;
+		this._maximizeToggledInBranchSheet = false;
+		// Only undo a maximize the sheet's OWN chip made. While the sheet was up, an activated mode, a
+		// pane hide, or a dock flip may have taken ownership of `maximized` — forcing the pre-sheet value
+		// back would clobber theirs (e.g. un-maximizing a compose session the user just entered).
+		if (restore == null || !toggled) return;
+
+		const gs = this.graphState;
+		if ((gs.details?.maximized ?? false) === restore) return;
+
+		gs.details = { maximized: restore };
+		this.persistState();
+	}
+
 	/** The branch sheet closed (any path — see `GlGraphDetailsPanel.updated`'s `_branchSheet`
 	 *  transition check). Clear the graph's click-pinned ref focus so it never outlives the sheet;
 	 *  `clearRefFocus` is idempotent, so a graph-initiated close round-tripping back here is a no-op. */
 	private handleBranchSheetClosed = (): void => {
+		this._branchSheetOpen = false;
+		this.restoreMaximizedAfterBranchSheet();
 		this.graph?.clearRefFocus();
 	};
 
@@ -2829,6 +2874,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleToggleDetailsMaximized = (): void => {
 		const gs = this.graphState;
+		// Attribute the change to the sheet so its close can undo it — and only it.
+		if (this._branchSheetOpen) {
+			this._maximizeToggledInBranchSheet = true;
+		}
+
 		gs.details = { maximized: !(gs.details?.maximized ?? false) };
 		this.persistState();
 	};

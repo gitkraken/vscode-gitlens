@@ -3342,6 +3342,10 @@ export class GlLitGraph extends LitElement {
 		if (this.pinnedRefDismiss == null) {
 			this.pinnedRefDismiss = (e: PointerEvent): void => {
 				const t = e.target;
+				// A divider press lives in gl-split-panel's shadow DOM and retargets to the host (slotted
+				// content retargets to itself), so a split-panel target means a splitter drag — not a dismissal.
+				if (t instanceof Element && t.localName === 'gl-split-panel') return;
+
 				// Don't dismiss when the press is on a ref pill OR an overflow-popover ref row (both carry
 				// `data-ref-name` and toggle/switch the pin) or inside the branch sheet (its action buttons /
 				// chrome) — only a press truly outside all of them untoggles.

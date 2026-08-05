@@ -51,6 +51,7 @@ import {
 	createPastAgentSessionsResolver,
 	matchAgentSessionsForWorktree,
 } from '../../../shared/agentUtils.js';
+import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
@@ -829,7 +830,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  open vs close, so this just sets). */
 	openBranchSheet(ref: BranchSheetRef): void {
 		this._branchSheet = ref;
+		this._branchSheetWasOpen = true;
 	}
+
+	/** Whether an open has been requested and not yet reported closed — see {@link updated}. Tracked
+	 *  separately from `_branchSheet` so an open superseded within its OWN update cycle (the
+	 *  selection auto-close in {@link willUpdate}) still reports a close. */
+	private _branchSheetWasOpen = false;
 
 	/** Close the branch/tag sheet. */
 	closeBranchSheet(): void {
@@ -1056,6 +1063,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					: nothing
 			}
 			${this.renderBranchSheetHideChip(ref, context)}
+			${this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}
 			<gl-graph-branch-sheet-pane
 				.ref=${ref}
 				.services=${this._servicesResolved && this._actions != null ? this._actions.services : undefined}
@@ -1896,11 +1904,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// initiated close like click-outside-dismiss round-tripping back through `closeBranchSheet`).
 		// Notify the graph so its click-pinned ref focus never outlives the sheet — see
 		// `GlLitGraph.clearRefFocus`, which is itself idempotent, so a graph-initiated close doesn't loop.
-		if (changedProperties.has('_branchSheet')) {
-			const wasOpen = (changedProperties.get('_branchSheet') as BranchSheetRef | undefined) != null;
-			if (wasOpen && this._branchSheet == null) {
-				this.dispatchEvent(new CustomEvent('gl-graph-branch-sheet-closed', { bubbles: true, composed: true }));
-			}
+		if (this._branchSheetWasOpen && this._branchSheet == null) {
+			this._branchSheetWasOpen = false;
+			this.dispatchEvent(new CustomEvent('gl-graph-branch-sheet-closed', { bubbles: true, composed: true }));
 		}
 
 		// The rebase summary sheet is `position: absolute` inside the details pane, so at the default
