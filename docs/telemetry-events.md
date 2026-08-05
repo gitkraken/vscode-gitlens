@@ -5080,7 +5080,7 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  // Which graph host the panel is in: an editor tab, or the Graph view
+  // Which graph host the panel is in: an editor tab, or the side bar or bottom panel view
   'host': 'editor' | 'view',
   // Where the details panel is anchored relative to the graph
   'location': 'right' | 'bottom',
