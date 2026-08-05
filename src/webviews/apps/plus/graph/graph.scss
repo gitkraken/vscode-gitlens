@@ -3103,11 +3103,15 @@ gl-lit-graph {
 
 	// The split-segment divider (`border-left` = `--ref-border` = the lane color) vanishes into the inverted
 	// pill's solid fill — knock it out in the editor background so the separator between name and the
-	// merge-target / upstream / +N segment reads. Excludes the muted pill (handled greyscale below).
+	// merge-target / upstream / PR / issue / +N segment reads. Excludes the muted pill (handled greyscale
+	// below). Every segment that draws a divider has to be listed — a missing one reads as a divider that
+	// only exists on hover, since the hover rule flips them all to the fill's contrast color.
 	.gl-graph__ref-pill--row-marker-head:not(.gl-graph__ref-pill--row-marker-muted),
 	.gl-graph__ref-pill--row-marker-upstream {
 		.gl-graph__ref-pill-upstream,
-		.gl-graph__ref-pill-more-group {
+		.gl-graph__ref-pill-more-group,
+		.gl-graph__ref-pill-pr,
+		.gl-graph__ref-pill-issue {
 			border-left-color: color-mix(in srgb, var(--vscode-editor-background) 50%, transparent);
 		}
 	}
@@ -3143,7 +3147,9 @@ gl-lit-graph {
 			color: inherit;
 		}
 		.gl-graph__ref-pill-upstream,
-		.gl-graph__ref-pill-more-group {
+		.gl-graph__ref-pill-more-group,
+		.gl-graph__ref-pill-pr,
+		.gl-graph__ref-pill-issue {
 			border-left-color: color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
 		}
 	}
