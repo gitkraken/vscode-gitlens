@@ -66,11 +66,8 @@ export class ShowViewCommand extends GlCommandBase {
 		const command = context.command;
 		switch (command) {
 			case 'gitlens.showAccountView':
-				// The account surface lives in the Graph's account modal now; `gitlens.showGraph`
-				// routes to the panel or editor graph based on the configured layout.
-				return executeCommand('gitlens.showGraph', {
-					action: 'show-account',
-				} satisfies GraphWebviewShowingArgs[0]);
+				// The account surface lives in the Settings webview's Account category now.
+				return executeCommand('gitlens.showSettingsPage!account');
 			case 'gitlens.showBranchesView':
 				await this.waitForRepo();
 				return this.container.views.showView('branches');

@@ -70,7 +70,6 @@ import { isTextEntryTarget } from '../../shared/dom.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
 import '../shared/components/account-bar.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
-import type { AccountModalSection, ShowAccountModalEventDetail } from './components/gl-graph-account-modal.js';
 import type { BranchSheetRef } from './components/gl-graph-branch-sheet-pane.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
@@ -135,7 +134,6 @@ import '../../shared/components/code-icon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-kanban.js';
-import './components/gl-graph-account-modal.js';
 import './components/gl-graph-keyboard-shortcuts.js';
 import './components/gl-graph-layout-prompt.js';
 import './components/gl-graph-overview-bar.js';
@@ -525,14 +523,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** One-shot guard for the account-bar context wiring (see `updated()`). */
 	private _accountContextsInitialized = false;
 	private _accountUnsubscribe: (() => void) | undefined;
-
-	/** Whether the account modal (opened from the header account/walkthrough pills) is visible. */
-	@state()
-	private _accountModalOpen = false;
-
-	/** Section the opener asked the account modal to focus (e.g. the walkthrough pill). Not reactive on
-	 *  its own — it only ever changes alongside `_accountModalOpen`, which triggers the re-render. */
-	private _accountModalFocus?: AccountModalSection;
 
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
@@ -1304,17 +1294,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}): Promise<void> {
 		const { action, target, commitMessage, scopeBranch, composeInstructions, composeScope } = pending;
 
-		if (action === 'show-account') {
-			this._accountModalFocus = 'account';
-			this._accountModalOpen = true;
-			return;
-		}
-
-		// Any other external show action targets graph content the modal would cover — dismiss it.
-		if (this._accountModalOpen) {
-			this.onCloseAccountModal();
-		}
-
 		if (action === 'scope-to-branch') {
 			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope
 			// to the current branch (the welcome-page / generic `scope-to-branch` entry point).
@@ -2081,16 +2060,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphHover?.reset();
 	}
 
-	private onShowAccountModal = (e: CustomEvent<ShowAccountModalEventDetail | undefined>): void => {
-		this._accountModalFocus = e.detail?.focus;
-		this._accountModalOpen = true;
-	};
-
-	private onCloseAccountModal = (): void => {
-		this._accountModalOpen = false;
-		this._accountModalFocus = undefined;
-	};
-
 	override render() {
 		const sub = this.graphState.subscription;
 		if (sub != null && (sub.account == null || sub.account.verified === false)) {
@@ -2110,11 +2079,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const noRepos = this.graphState.repositories?.length === 0;
 		return html`
 			<div class="graph">
-				<gl-graph-account-modal
-					?open=${this._accountModalOpen}
-					.focusSection=${this._accountModalFocus}
-					@gl-account-modal-close=${this.onCloseAccountModal}
-				></gl-graph-account-modal>
 				${when(
 					!noRepos,
 					() => html`
@@ -2131,7 +2095,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							@toggle-minimap=${this.handleToggleMinimap}
 							@jump-to-wip=${this.handleJumpToWip}
 							@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
-							@gl-show-account-modal=${this.onShowAccountModal}
 						></gl-graph-header>
 					`,
 				)}

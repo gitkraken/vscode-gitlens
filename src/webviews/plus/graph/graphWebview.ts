@@ -1212,11 +1212,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			let rowId: string | undefined;
 			// `show-rebase-summary` opens a selection-decoupled sheet (it fetches by worktree path, not
 			// the selected row), so don't move the user's selection when opening it.
-			if (
-				arg.action !== 'scope-to-branch' &&
-				arg.action !== 'show-account' &&
-				arg.action !== 'show-rebase-summary'
-			) {
+			if (arg.action !== 'scope-to-branch' && arg.action !== 'show-rebase-summary') {
 				// Select the row the action targets: an uncommitted target maps to its worktree's WIP
 				// row, a real target selects its commit sha, and no target falls back to the shown
 				// repo's own WIP row.
@@ -4684,9 +4680,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			details: {
 				...storedPanels?.details,
 				visible:
-					this._pendingAction != null &&
-					this._pendingAction.action !== 'scope-to-branch' &&
-					this._pendingAction.action !== 'show-account'
+					this._pendingAction != null && this._pendingAction.action !== 'scope-to-branch'
 						? true
 						: (storedPanels?.details?.visible ?? true),
 			},

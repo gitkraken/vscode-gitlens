@@ -1887,9 +1887,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						composeInstructions: msg.params.composeInstructions,
 						composeScope: msg.params.composeScope,
 					},
-					...(msg.params.action !== 'scope-to-branch' && msg.params.action !== 'show-account'
-						? { details: { ...this.details, visible: true } }
-						: {}),
+					...(msg.params.action !== 'scope-to-branch' ? { details: { ...this.details, visible: true } } : {}),
 				});
 				break;
 
