@@ -201,8 +201,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				margin-block-start: var(--gl-space-8);
 			}
 
-			/* Search is meaningless in Timeline mode — visually dim it and let \\\`inert\\\` block focus
-	   + interactions natively (instead of removing it from the row entirely). */
+			/* Search is meaningless in Timeline mode — visually dim it and let inert block focus
+			   + interactions natively (instead of removing it from the row entirely). */
 			.search-box--disabled {
 				cursor: not-allowed;
 				opacity: 0.5;
