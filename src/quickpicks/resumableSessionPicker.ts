@@ -27,12 +27,12 @@ const resumeInTerminalButton: QuickInputButton = {
 };
 
 /**
- * Picks a session to reattach to for a worktree — the live ones it can open, then the past ones it
- * can resume out of the transcript store.
+ * Picks a session to reattach to for a worktree — the active ones it can open, then the past ones
+ * recovered from the transcript store it can resume (which includes sessions that have since ended).
  *
  * Accepting a row uses the default target (the extension when it's available, otherwise a terminal);
  * the per-row terminal button forces a terminal instead. Both are offered on past sessions
- * unconditionally — the process is gone, so nothing can collide. A live session only offers the
+ * unconditionally — the process is gone, so nothing can collide. An active session only offers the
  * terminal when {@link canResumeSession} allows it: resuming one that's mid-turn would run a second
  * process against a transcript the first is still writing.
  */

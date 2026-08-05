@@ -2,6 +2,7 @@ import { createReadStream } from 'fs';
 import { open, readdir, stat } from 'fs/promises';
 import { homedir } from 'os';
 import { basename, join } from 'path';
+import { createInterface } from 'readline';
 
 export interface TranscriptTitles {
 	custom?: string;
@@ -28,6 +29,12 @@ export interface TranscriptSessionListing {
 	readonly sessions: TranscriptSessionSummary[];
 	/** Every transcript in the directory, not just the summarized slice — drives "Showing N of M". */
 	readonly total: number;
+}
+
+export interface CompletedTranscriptDetails {
+	titles: TranscriptTitles;
+	firstPrompt?: string;
+	lastPrompt?: string;
 }
 
 interface CacheEntry {
@@ -148,11 +155,69 @@ export class ClaudeCodeTranscriptReader {
 	}
 
 	/**
+	 * One-shot read for a *completed* (terminal, static) session: extracts the transcript titles plus
+	 * the first and last user prompts. Unlike {@link resolve}, it bypasses the tail cache — a finished
+	 * transcript never grows, so it's read once on demand (when a completed row is opened) and the
+	 * result applied to the session. `last-prompt` entries carry the prompt as of that point; the first
+	 * one bearing a value is the session's opening prompt, the last its most recent. Returns `undefined`
+	 * when no transcript is found (archived/purged) — the caller keeps whatever durable-store fields it
+	 * already has.
+	 *
+	 * Streams the file line-by-line rather than buffering it whole: a finished transcript can run to
+	 * tens of MB, but this keeps only one line resident at a time. A *full* scan (not a head/tail
+	 * window) is required for correctness — when the first turn is large the opening `last-prompt` sits
+	 * past any fixed head window, and a windowed read would then mistake a later prompt for the first,
+	 * poisoning the derived session name.
+	 */
+	async resolveCompletedDetails(
+		sessionId: string,
+		cwd: string | undefined,
+	): Promise<CompletedTranscriptDetails | undefined> {
+		const path = await this.locateTranscript(sessionId, cwd);
+		if (path == null) return undefined;
+
+		let stats;
+		try {
+			stats = await stat(path);
+		} catch (ex) {
+			// A transcript that vanished is terminal; an I/O or permission failure must propagate so
+			// the caller retries rather than caching this session as permanently unresolvable.
+			if (!isMissingEntry(ex)) throw ex;
+
+			return undefined;
+		}
+		if (stats.size === 0) return undefined;
+
+		const titles: TranscriptTitles = {};
+		let firstPrompt: string | undefined;
+		let lastPrompt: string | undefined;
+
+		const rl = createInterface({ input: createReadStream(path, { encoding: 'utf8' }), crlfDelay: Infinity });
+		try {
+			for await (const line of rl) {
+				applyTitleLine(line, sessionId, titles);
+				if (!line.includes('last-prompt')) continue;
+
+				const entry = parseSummaryLine(line, sessionId);
+				if (entry?.type === 'last-prompt' && entry.lastPrompt != null && entry.lastPrompt.length > 0) {
+					firstPrompt ??= entry.lastPrompt;
+					lastPrompt = entry.lastPrompt;
+				}
+			}
+		} finally {
+			rl.close();
+		}
+
+		return { titles: titles, firstPrompt: firstPrompt, lastPrompt: lastPrompt };
+	}
+
+	/**
 	 * Lists the transcripts of sessions whose working directory is `cwd`, most-recently-active first,
 	 * summarizing until `limit` summarizable transcripts are found (bounded by a small scan slack) —
 	 * not just the first `limit` on disk, since junk transcripts (dropped below) would otherwise starve
-	 * the result. `excludeSessionIds` is skipped before `limit` applies, but excluded entries still
-	 * count toward `total`.
+	 * the result. `excludeSessionIds` is skipped before `limit` applies, and excluded entries are also
+	 * dropped from `total` — they're already shown elsewhere (e.g. as live sessions), so a caller's
+	 * "N of M" count must not double-count them.
 	 *
 	 * Claude homes a transcript under the directory encoding the session's *current* cwd, migrating the
 	 * file if the session `cd`s — so this directory is exactly the set `claude --resume <id>` can find
@@ -192,7 +257,7 @@ export class ClaudeCodeTranscriptReader {
 		// limit <= 0 means "no ceiling" — summarize every candidate.
 		if (limit <= 0) {
 			pushSummaries(await Promise.allSettled(candidates.map(e => this.resolveSummary(e))));
-			return { sessions: sessions, total: entries.length };
+			return { sessions: sessions, total: candidates.length };
 		}
 
 		const ceiling = Math.min(candidates.length, limit + listScanSlack);
@@ -205,7 +270,7 @@ export class ClaudeCodeTranscriptReader {
 			pushSummaries(await Promise.allSettled(batch.map(e => this.resolveSummary(e))));
 		}
 
-		return { sessions: sessions, total: entries.length };
+		return { sessions: sessions, total: candidates.length };
 	}
 
 	/** Discovers every transcript in `dir`, newest first. The directory also holds one sibling
@@ -353,7 +418,11 @@ export class ClaudeCodeTranscriptReader {
 		let dirs: string[];
 		try {
 			dirs = await readdir(root);
-		} catch {
+		} catch (ex) {
+			// Only a missing projects root means "no transcript". A transient failure propagates so the
+			// caller retries instead of caching a permanent miss.
+			if (!isMissingEntry(ex)) throw ex;
+
 			return undefined;
 		}
 
@@ -377,7 +446,9 @@ export class ClaudeCodeTranscriptReader {
 		let dirs: string[];
 		try {
 			dirs = await readdir(root);
-		} catch {
+		} catch (ex) {
+			if (!isMissingEntry(ex)) throw ex;
+
 			return undefined;
 		}
 
@@ -501,7 +572,10 @@ async function fileExists(path: string): Promise<boolean> {
 	try {
 		const stats = await stat(path);
 		return stats.isFile();
-	} catch {
+	} catch (ex) {
+		// See {@link isMissingEntry}: only a genuine absence is an answer.
+		if (!isMissingEntry(ex)) throw ex;
+
 		return false;
 	}
 }
@@ -510,9 +584,21 @@ async function directoryExists(path: string): Promise<boolean> {
 	try {
 		const stats = await stat(path);
 		return stats.isDirectory();
-	} catch {
-		return false;
+	} catch (ex) {
+		// "Not there" is an answer; anything else (EACCES, EIO, a mount hiccup) is a transient
+		// failure the caller must be able to tell apart — see {@link isMissingEntry}.
+		if (isMissingEntry(ex)) return false;
+
+		throw ex;
 	}
+}
+
+/** True for the "path simply isn't there" errno codes, as opposed to a transient I/O or permission
+ *  failure. Callers cache a genuine absence as terminal, so a transient failure must not look like
+ *  one — it would pin a session to its fallback name until the window reloads. */
+function isMissingEntry(ex: unknown): boolean {
+	const code = (ex as NodeJS.ErrnoException | undefined)?.code;
+	return code === 'ENOENT' || code === 'ENOTDIR';
 }
 
 function readSlice(path: string, start: number, end: number): Promise<Buffer> {

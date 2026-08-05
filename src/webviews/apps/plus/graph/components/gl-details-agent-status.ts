@@ -50,7 +50,7 @@ const liveTickIntervalMs = 30 * 1000;
 export const expandVisibleCategories: Record<ExpandState, ReadonlySet<AgentSessionCategory>> = {
 	collapsed: new Set<AgentSessionCategory>(),
 	partial: new Set<AgentSessionCategory>(['needs-input']),
-	expanded: new Set<AgentSessionCategory>(['needs-input', 'working', 'idle']),
+	expanded: new Set<AgentSessionCategory>(['needs-input', 'working', 'idle', 'completed']),
 };
 
 declare global {
@@ -1124,6 +1124,9 @@ export class GlDetailsAgentStatus extends LitElement {
 		if (counts.idle > 0) {
 			parts.push(html`<span>${counts.idle} idle</span>`);
 		}
+		if (counts.completed > 0) {
+			parts.push(html`<span>${counts.completed} completed</span>`);
+		}
 
 		const out: unknown[] = [];
 		parts.forEach((p, i) => {
@@ -1339,7 +1342,7 @@ export class GlDetailsAgentStatus extends LitElement {
 	}
 
 	private tally(sessions: AgentSessionState[]): Record<AgentSessionCategory, number> {
-		const counts: Record<AgentSessionCategory, number> = { working: 0, 'needs-input': 0, idle: 0 };
+		const counts: Record<AgentSessionCategory, number> = { working: 0, 'needs-input': 0, idle: 0, completed: 0 };
 		for (const s of sessions) {
 			counts[agentPhaseToCategory[s.phase]]++;
 		}

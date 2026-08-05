@@ -1,3 +1,4 @@
+import type { PastAgentSessionsResult } from '../../../agents/models/agentSessionState.js';
 import type { AgentSessionPhase } from '../../../agents/provider.js';
 import type { AgentSessionState } from '../../home/protocol.js';
 import type { OverviewBranch } from '../../shared/overviewBranches.js';
@@ -6,14 +7,17 @@ const phaseRank: Record<AgentSessionPhase, number> = {
 	waiting: 0,
 	working: 1,
 	idle: 2,
+	// Terminal sessions sort last so live agents always lead the list.
+	completed: 3,
 };
 
-export type AgentSessionCategory = 'working' | 'needs-input' | 'idle';
+export type AgentSessionCategory = 'working' | 'needs-input' | 'idle' | 'completed';
 
 export const agentPhaseToCategory: Record<AgentSessionPhase, AgentSessionCategory> = {
 	working: 'working',
 	waiting: 'needs-input',
 	idle: 'idle',
+	completed: 'completed',
 };
 
 export function getAgentCategoryLabel(category: AgentSessionCategory): string {
@@ -24,6 +28,8 @@ export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 			return 'Working';
 		case 'idle':
 			return 'Idle';
+		case 'completed':
+			return 'Completed';
 	}
 }
 
@@ -40,6 +46,8 @@ export function agentSuffixIconFor(category: AgentSessionCategory): string | und
 			return 'sync';
 		case 'idle':
 			return undefined;
+		case 'completed':
+			return 'pass';
 	}
 }
 
@@ -161,7 +169,7 @@ function describePendingPermission(
 }
 
 /** Canonical sort order for agent sessions across every UI surface. Category-actionability first
- *  (needs-input → working → idle), then most-recent phase entry within a category, then
+ *  (needs-input → working → idle → completed), then most-recent phase entry within a category, then
  *  alphabetical by name. Applied once at each state-entry point so all consumers — banners,
  *  pills, cards, hovers — render the same order. Actionable always wins: a fresh idle session
  *  never outranks a session that's actually waiting on you.
@@ -468,6 +476,74 @@ export function createStickyDetailResolver(options?: { holdMs?: number }): Stick
 		prune: prune,
 		get size(): number {
 			return cache.size;
+		},
+	};
+}
+
+/** Reconciles a cached past-session list against the live session list — see
+ *  {@link createPastAgentSessionsResolver}. */
+export interface PastAgentSessionsResolver {
+	/** The past result to both gate visibility on and render, with rows dropped for sessions that
+	 *  are currently tracked and for those that have departed the tracked set. `total` is reduced by
+	 *  what was dropped so the "N more" footer stays honest. Side-effecting: records departures. */
+	resolve(
+		past: PastAgentSessionsResult | undefined,
+		live: readonly AgentSessionState[] | undefined,
+	): PastAgentSessionsResult | undefined;
+}
+
+/**
+ * Past sessions are a pull-only resource, fetched once per worktree — the host never re-pushes them
+ * when the session list changes. So a session that leaves the tracked set (archived, or a pruned
+ * record) is still in the cached list, and the live-id dedup that had been masking it stops the
+ * instant it departs — painting a just-archived session as a "Past" row, which reads as the archive
+ * having failed.
+ *
+ * Callers resolve ONCE per cycle and use the result for both the visibility/sizing gate and the
+ * rendered rows: filtering only at render (inside `gl-details-agent-status`) would let a parent
+ * decide to show a section from the unfiltered count that the child then renders as empty.
+ *
+ * Departures are tracked against the FULL tracked set rather than a worktree-matched subset, so
+ * changing which worktree is displayed isn't mistaken for sessions disappearing. A freshly
+ * delivered result (the host filters archived ids at fetch time) retires every suppression.
+ */
+export function createPastAgentSessionsResolver(): PastAgentSessionsResolver {
+	let seenIds: Set<string> | undefined;
+	let lastPast: PastAgentSessionsResult | undefined;
+	const departed = new Set<string>();
+
+	return {
+		resolve: (past, live) => {
+			if (past !== lastPast) {
+				lastPast = past;
+				departed.clear();
+			}
+
+			// `undefined` means "not loaded" (context not yet populated, or a graph-state reset),
+			// which is NOT the same as "no sessions". Treating it as an empty set would retire every
+			// seen id as departed and permanently suppress the matching Past rows, so hold the prior
+			// snapshot and only diff against a real list.
+			if (live != null) {
+				const nextIds = new Set(live.map(s => s.id));
+				if (seenIds != null) {
+					for (const id of seenIds) {
+						if (!nextIds.has(id)) {
+							departed.add(id);
+						}
+					}
+				}
+				seenIds = nextIds;
+			}
+			const liveIds = seenIds;
+
+			if (past == null) return undefined;
+
+			const sessions = past.sessions.filter(p => !liveIds?.has(p.id) && !departed.has(p.id));
+			const dropped = past.sessions.length - sessions.length;
+			// Preserve reference identity when nothing was dropped — the common case.
+			if (dropped === 0) return past;
+
+			return { sessions: sessions, total: Math.max(0, past.total - dropped) };
 		},
 	};
 }

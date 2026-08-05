@@ -637,6 +637,7 @@ export class GlAgentStatusPill extends LitElement {
 			case 'needs-input':
 				return this.renderNeedsInputHover(session, omitActions);
 			case 'idle':
+			case 'completed':
 				return this.renderIdleHover(session, omitActions);
 		}
 	}

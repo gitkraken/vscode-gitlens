@@ -393,7 +393,7 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 		);
 	});
 
-	test('excludes ids before `limit` applies, but still counts them toward total', async () => {
+	test('excludes ids before `limit` applies, and drops them from `total` too', async () => {
 		const now = Date.now();
 		await seed('live.jsonl', jsonl(aiTitle('live', 'Live')), now);
 		await seed('s0.jsonl', jsonl(aiTitle('s0', 'S0')), now - 1000);
@@ -405,7 +405,11 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 			limit: 3,
 			excludeSessionIds: new Set(['live']),
 		});
-		assert.strictEqual(total, 4, 'excluded entries still count toward total');
+		assert.strictEqual(
+			total,
+			3,
+			'excluded entries must not inflate total — the caller already shows them elsewhere',
+		);
 		assert.deepStrictEqual(
 			sessions.map(s => s.titles.ai),
 			['S0', 'S1', 'S2'],
@@ -484,6 +488,113 @@ suite('encodeProjectDirName', () => {
 			assert.strictEqual(encodeProjectDirName(cwd), expected);
 		});
 	}
+});
+
+function lastPrompt(sessionId: string, value?: string): string {
+	return JSON.stringify({
+		type: 'last-prompt',
+		...(value != null ? { lastPrompt: value } : {}),
+		leafUuid: 'leaf-1',
+		sessionId: sessionId,
+	});
+}
+
+suite('ClaudeCodeTranscriptReader.resolveCompletedDetails', () => {
+	let tmpRoot: string;
+	let transcriptPath: string;
+	const sessionId = 'done-42';
+
+	setup(() => {
+		tmpRoot = mkdtempSync(join(tmpdir(), 'gl-transcript-done-'));
+		transcriptPath = join(tmpRoot, `${sessionId}.jsonl`);
+	});
+
+	teardown(() => {
+		rmSync(tmpRoot, { recursive: true, force: true });
+	});
+
+	test('extracts titles plus the first and last prompts', async () => {
+		await writeFile(
+			transcriptPath,
+			jsonl(
+				lastPrompt(sessionId), // placeholder before the first prompt — no value
+				lastPrompt(sessionId, 'first thing'),
+				aiTitle(sessionId, 'Do the thing'),
+				lastPrompt(sessionId, 'second thing'),
+				lastPrompt(sessionId, 'final thing'),
+			),
+		);
+
+		const reader = new TestReader(transcriptPath);
+		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+
+		assert.strictEqual(details?.titles.ai, 'Do the thing');
+		assert.strictEqual(details?.firstPrompt, 'first thing');
+		assert.strictEqual(details?.lastPrompt, 'final thing');
+	});
+
+	test('leaves prompts undefined when the transcript has no last-prompt entries', async () => {
+		await writeFile(transcriptPath, jsonl(customTitle(sessionId, 'named-it')));
+
+		const reader = new TestReader(transcriptPath);
+		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+
+		assert.strictEqual(details?.titles.custom, 'named-it');
+		assert.strictEqual(details?.firstPrompt, undefined);
+		assert.strictEqual(details?.lastPrompt, undefined);
+	});
+
+	test('ignores last-prompt entries for a different session', async () => {
+		await writeFile(transcriptPath, jsonl(lastPrompt('other-session', 'not mine'), lastPrompt(sessionId, 'mine')));
+
+		const reader = new TestReader(transcriptPath);
+		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+
+		assert.strictEqual(details?.firstPrompt, 'mine');
+		assert.strictEqual(details?.lastPrompt, 'mine');
+	});
+
+	test('returns undefined when no transcript is found', async () => {
+		const reader = new TestReader(undefined);
+		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+
+		assert.strictEqual(details, undefined);
+	});
+
+	test('recovers the true opening prompt when it sits past the first 64 KiB (streamed full scan)', async () => {
+		const fillerLine = JSON.stringify({ type: 'assistant', sessionId: sessionId, text: 'x'.repeat(2000) });
+		// Repeat filler lines until comfortably past the 64 KiB summary window before the real opening
+		// prompt appears — a head/tail-window read (like `readSummary`) would miss it entirely and
+		// mistake a later prompt for the first.
+		let fillerBlock = '';
+		while (fillerBlock.length < 70 * 1024) {
+			fillerBlock += `${fillerLine}\n`;
+		}
+		assert.ok(
+			fillerBlock.length > 64 * 1024,
+			'filler must exceed the summary window for this test to be meaningful',
+		);
+
+		const body =
+			fillerBlock +
+			jsonl(
+				lastPrompt(sessionId, 'true opening prompt'),
+				fillerLine,
+				lastPrompt(sessionId, 'later prompt'),
+				lastPrompt(sessionId, 'final prompt'),
+			);
+		await writeFile(transcriptPath, body);
+
+		const reader = new TestReader(transcriptPath);
+		const details = await reader.resolveCompletedDetails(sessionId, undefined);
+
+		assert.strictEqual(
+			details?.firstPrompt,
+			'true opening prompt',
+			'a windowed read would miss the opening prompt past 64 KiB and wrongly report a later one as first',
+		);
+		assert.strictEqual(details?.lastPrompt, 'final prompt');
+	});
 });
 
 /** Reader rooted at a temp `projects` dir so the real locator runs without touching `~/.claude`. */

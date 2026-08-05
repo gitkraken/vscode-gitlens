@@ -73,6 +73,10 @@ const columns: readonly KanbanColumnDef[] = [
 ];
 
 function columnIdForSession(session: AgentSessionState): KanbanColumnId {
+	// Terminal sessions are done — group them with the abandoned/idle-too-long Inactive column
+	// rather than surfacing them as live Idle work.
+	if (session.phase === 'completed') return 'inactive';
+
 	if (session.phase === 'waiting' || session.pendingPermission != null) return 'needs-input';
 
 	if (session.phase === 'working') return 'working';

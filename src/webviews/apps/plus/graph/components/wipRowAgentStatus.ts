@@ -16,6 +16,8 @@ const categoryPriority: Record<AgentSessionCategory, number> = {
 	'needs-input': 0,
 	working: 1,
 	idle: 2,
+	// Terminal sessions never win the collapse over a live one.
+	completed: 3,
 };
 
 export interface WipRowAgentStatus {
@@ -23,9 +25,11 @@ export interface WipRowAgentStatus {
 	readonly sessions: readonly AgentSessionState[];
 }
 
-/** Drops `idle` sessions older than `wipRowAgentIdleThresholdMs` (clock-skew-clamped so a
- *  future-dated `lastActivity` can't pin a session as permanently recent). Returns `undefined`
- *  when nothing survives so callers can `!= null` test for "row has an indicator". */
+/** Drops `idle` and `completed` sessions older than `wipRowAgentIdleThresholdMs` (clock-skew-
+ *  clamped so a future-dated `lastActivity` can't pin a session as permanently recent) — completed
+ *  sessions can be up to 30 days old, and the host's agents-scope filter applies the same bound to
+ *  them via its `recent` test. Returns `undefined` when nothing survives so callers can `!= null`
+ *  test for "row has an indicator". */
 export function pickWipRowAgentStatus(
 	sessions: readonly AgentSessionState[] | undefined,
 	now: number = Date.now(),
@@ -34,7 +38,7 @@ export function pickWipRowAgentStatus(
 
 	const surviving: AgentSessionState[] = [];
 	for (const session of sessions) {
-		if (session.phase === 'idle') {
+		if (session.phase === 'idle' || session.phase === 'completed') {
 			const age = Math.max(0, now - session.lastActivity.getTime());
 			if (age >= wipRowAgentIdleThresholdMs) continue;
 		}

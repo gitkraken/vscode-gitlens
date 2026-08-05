@@ -1969,7 +1969,7 @@ interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
 
 interface GraphSidebarAgentsSessionSelectedEvent extends GraphContextEventData {
 	'session.phase': string;
-	'session.category': 'working' | 'needs-input' | 'idle';
+	'session.category': 'working' | 'needs-input' | 'idle' | 'completed';
 	'session.hasPendingPermission': boolean;
 	'session.sameRepo': boolean;
 	layout: 'list' | 'tree';
@@ -2374,7 +2374,7 @@ interface GraphKanbanShownEvent extends GraphContextEventData {
 
 interface GraphKanbanSessionSelectedEvent extends GraphContextEventData {
 	'session.phase': string;
-	'session.category': 'working' | 'needs-input' | 'idle';
+	'session.category': 'working' | 'needs-input' | 'idle' | 'completed';
 	'session.hasPendingPermission': boolean;
 	'session.sameRepo': boolean;
 	column: 'needs-input' | 'working' | 'idle' | 'inactive';

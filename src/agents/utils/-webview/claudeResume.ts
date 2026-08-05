@@ -8,11 +8,12 @@ import type { AgentSession } from '../../provider.js';
  *  session has no in-flight work, so a fresh terminal-hosted process can pick up the transcript
  *  without colliding with a live one. `waiting` is also included since the agent is parked on
  *  user input (a pending tool/plan/question) — the existing host can't act on it without the
- *  user, so resuming in a terminal is a non-destructive alternative. Active work phases
+ *  user, so resuming in a terminal is a non-destructive alternative. `completed` is the safest of
+ *  all — the process is already gone, so a resume can never collide. Active work phases
  *  (`working` — covers thinking/tool_use/responding/compacting per `getPhaseForStatus`) are
  *  excluded: spawning a duplicate against a live process risks parallel writes. */
 export function canResumeSession(session: AgentSession): boolean {
-	return session.phase === 'idle' || session.phase === 'waiting';
+	return session.phase === 'idle' || session.phase === 'waiting' || session.phase === 'completed';
 }
 
 /** The minimum needed to resume a session: its id and the directory to resume it from. Past sessions

@@ -1,6 +1,6 @@
 import * as assert from 'node:assert';
 import type { AgentSession } from '@gitlens/agents/types.js';
-import { getSessionDisplayName } from '../agentSessionState.js';
+import { getSessionDisplayName, serializeAgentSession } from '../agentSessionState.js';
 
 function makeSession(overrides: Partial<AgentSession>): AgentSession {
 	return {
@@ -169,5 +169,39 @@ suite('getSessionDisplayName', () => {
 			transcriptTitles: { ai: 'Fix the login flow', agent: 'fallback-slug' },
 		});
 		assert.strictEqual(getSessionDisplayName(session, undefined), 'Fix the login flow');
+	});
+});
+
+suite('serializeAgentSession', () => {
+	const worktreeMetadata = {
+		name: 'feature-x',
+		type: 'branch' as const,
+		isDefault: false,
+		repoPath: '/repo',
+	};
+
+	test('backfills commonPath from the resolved worktree when the provider never probed', () => {
+		// Completed sessions read from the CLI's durable store carry a `worktreePath` but no
+		// `commonPath` — consumers gate card actions on repo identity, so it must be filled in.
+		const session = makeSession({
+			status: 'completed',
+			phase: 'completed',
+			worktreePath: '/repo/.worktrees/feature-x',
+		});
+		assert.strictEqual(serializeAgentSession(session, worktreeMetadata).commonPath, '/repo');
+	});
+
+	test('keeps the provider-resolved commonPath over the worktree lookup', () => {
+		const session = makeSession({
+			worktreePath: '/repo/.worktrees/feature-x',
+			commonPath: '/probed-repo',
+		});
+		assert.strictEqual(serializeAgentSession(session, worktreeMetadata).commonPath, '/probed-repo');
+	});
+
+	test('leaves commonPath undefined when the worktree could not be resolved', () => {
+		// A worktree no open repo owns stays unresolved — the gate correctly refuses to act on it.
+		const session = makeSession({ worktreePath: '/elsewhere/repo' });
+		assert.strictEqual(serializeAgentSession(session, undefined).commonPath, undefined);
 	});
 });

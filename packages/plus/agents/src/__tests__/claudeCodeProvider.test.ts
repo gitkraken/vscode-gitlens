@@ -350,7 +350,7 @@ suite('ClaudeCodeProvider', () => {
 			}
 		});
 
-		test('SessionEnd removes the session entirely (hard wipe)', async () => {
+		test('SessionEnd completes the session and hard-wipes its file activity', async () => {
 			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
 			const provider = new ClaudeCodeProvider(callbacks);
 			try {
@@ -359,10 +359,13 @@ suite('ClaudeCodeProvider', () => {
 				await send(postToolUse('sess', 'Edit', FILE));
 				await send(sessionEnd('sess'));
 
+				const session = provider.sessions.find(s => s.id === 'sess');
+				assert.ok(session != null, 'SessionEnd keeps the session as a terminal completed row');
+				assert.strictEqual(session.status, 'completed');
 				assert.strictEqual(
-					provider.sessions.find(s => s.id === 'sess'),
-					undefined,
-					'SessionEnd should remove the whole session',
+					fileActivityOf(provider, 'sess').length,
+					0,
+					'SessionEnd should wipe the live file-activity heatmap',
 				);
 			} finally {
 				provider.dispose();
@@ -460,6 +463,49 @@ suite('ClaudeCodeProvider', () => {
 
 				assert.strictEqual(provider.sessions[0].workspacePath, undefined);
 				assert.strictEqual(provider.sessions[0].isInWorkspace, false);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('a git probe superseded by a newer cwd does not overwrite the newer location', async () => {
+			// The in-flight guard dedupes by session, so a probe started for the OLD cwd is still
+			// running when a correction for a NEW one arrives (e.g. the durable ended record fixing a
+			// missed CwdChanged). Its answer describes a directory the session has left, so it must be
+			// discarded — and the newer cwd must still get resolved rather than swallowed by the dedupe.
+			const oldCwd = '/repo/old';
+			const newCwd = '/repo/new';
+			type GitInfo = Awaited<ReturnType<NonNullable<AgentProviderCallbacks['resolveGitInfo']>>>;
+			const settle = new Map<string, (info: GitInfo) => void>();
+			const { callbacks, handlers } = createMockCallbacks({
+				resolveGitInfo: (cwd: string) =>
+					new Promise<GitInfo>(resolve => {
+						settle.set(cwd, resolve);
+					}),
+			});
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start([oldCwd]);
+				const handler = handlers.get('agents/session')!;
+				await handler(sessionStart('s1', oldCwd), new URLSearchParams());
+				await flushMicrotasks();
+				assert.ok(settle.has(oldCwd), 'the first probe should be in flight');
+
+				// Correction arrives while the first probe is still outstanding.
+				const internals = provider as unknown as { resolveGitInfo(id: string, cwd: string): Promise<void> };
+				void internals.resolveGitInfo('s1', newCwd);
+
+				// The stale probe lands first, then the queued one.
+				settle.get(oldCwd)!({ repoRoot: '/repo/old', worktreePath: oldCwd, isWorktree: false });
+				await flushMicrotasks();
+				await flushMicrotasks();
+				assert.ok(settle.has(newCwd), 'the superseding cwd must actually be probed, not dropped');
+				settle.get(newCwd)!({ repoRoot: '/repo/new', worktreePath: newCwd, isWorktree: false });
+				await flushMicrotasks();
+
+				const s = provider.sessions.find(x => x.id === 's1')!;
+				assert.strictEqual(s.cwd, newCwd, 'the newer cwd must win');
+				assert.strictEqual(s.commonPath, '/repo/new', 'the stale probe must not restore the old repo');
 			} finally {
 				provider.dispose();
 			}
@@ -1251,11 +1297,14 @@ class StubTranscriptReader extends ClaudeCodeTranscriptReader {
 	}
 }
 
-/** Provider variant that lets tests swap the transcript reader. */
+/** Provider variant that lets tests swap the transcript reader and drive a gated poll tick. */
 class TestProvider extends ClaudeCodeProvider {
 	constructor(callbacks: AgentProviderCallbacks, reader: ClaudeCodeTranscriptReader) {
 		super(callbacks);
 		this._transcriptReader = reader;
+	}
+	runGatedSync(): Promise<void> {
+		return this.syncSessions({ gate: true });
 	}
 }
 
@@ -1323,6 +1372,55 @@ suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
 			assert.ok(
 				listSessionsCalls(cliCalls) >= 1,
 				'a non-empty session list must keep polling (prune backstop + robustness to stale hook detection)',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('keeps polling for completed-only state, but at the idle cadence', async () => {
+		// The poll is the only thing that drops a completed row the CLI stopped listing (archived
+		// elsewhere, or aged out) AND the only trigger for the CLI's own retention sweep — so it must
+		// not gate out. With nothing live it just runs less often.
+		const { callbacks, cliCalls } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				{
+					sessionId: 'done',
+					event: 'Stop',
+					cwd: workspace,
+					pid: 999999,
+					status: 'ended',
+					endReason: 'session-end',
+					endedAt: '2026-07-09T00:00:00.000Z',
+					updatedAt: '2026-07-09T00:00:00.000Z',
+				},
+			]),
+		});
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+			provider.setClaudeHooksInstalled(false);
+			assert.ok(
+				provider.sessions.some(s => s.status === 'completed'),
+				'bootstrap should have ingested the ended record',
+			);
+			cliCalls.length = 0;
+
+			await provider.runGatedSync();
+			assert.strictEqual(
+				listSessionsCalls(cliCalls),
+				0,
+				'a tick inside the idle window is skipped — the bootstrap poll just ran',
+			);
+
+			// Pretend the idle window elapsed.
+			(provider as unknown as { _lastSyncAt: number })._lastSyncAt = 0;
+			await provider.runGatedSync();
+			assert.strictEqual(
+				listSessionsCalls(cliCalls),
+				1,
+				'once the idle window passes, completed-only state still reconciles',
 			);
 		} finally {
 			provider.dispose();
@@ -1492,6 +1590,661 @@ suite('ClaudeCodeProvider live/poll sync discrepancy telemetry', () => {
 				0,
 				'installing hooks mid-session is expected discovery, not drift',
 			);
+		} finally {
+			provider.dispose();
+		}
+	});
+});
+
+suite('ClaudeCodeProvider completed sessions', () => {
+	const REPO = '/home/user/projectA';
+	const ENDED_AT = '2026-07-10T00:00:00.000Z';
+
+	/** A `list-sessions` poll entry for a durable `ended` (completed) session. */
+	function endedRecord(sessionId: string, overrides?: Record<string, unknown>): Record<string, unknown> {
+		return {
+			sessionId: sessionId,
+			event: 'Stop',
+			cwd: REPO,
+			pid: 999999, // not a live process — completed classification ignores pid anyway
+			status: 'ended',
+			endReason: 'session-end',
+			endedAt: ENDED_AT,
+			updatedAt: '2026-07-09T00:00:00.000Z',
+			...overrides,
+		};
+	}
+
+	test('SessionEnd transitions the session to completed instead of removing it', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(subagentStart('s1', 'a1'), new URLSearchParams());
+			assert.ok(
+				provider.sessions.some(s => s.id === 's1'),
+				'session should be tracked while live',
+			);
+
+			await handler(sessionEnd('s1'), new URLSearchParams());
+
+			const s = provider.sessions.find(x => x.id === 's1');
+			assert.ok(s != null, 'session should remain after SessionEnd, not be removed');
+			assert.strictEqual(s.status, 'completed');
+			assert.strictEqual(s.phase, 'completed');
+			assert.strictEqual(s.subagents, undefined, 'subagents are dropped on completion');
+			assert.strictEqual(s.pendingPermission, undefined);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a completed session takes worktreePath from the CLI record without a git probe', async () => {
+		let gitInfoCalls = 0;
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([
+				endedRecord('wt', {
+					cwdTimeline: [{ cwd: REPO, worktree: REPO, at: ENDED_AT }],
+				}),
+			]),
+			resolveGitInfo: () => {
+				gitInfoCalls++;
+				return Promise.resolve(undefined);
+			},
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const s = provider.sessions.find(x => x.id === 'wt');
+			assert.strictEqual(s?.worktreePath, REPO, 'worktreePath comes straight from the record');
+			assert.strictEqual(gitInfoCalls, 0, 'no git probe when the record already carries the worktree');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('poll surfaces an ended record as a completed session even with a dead pid', async () => {
+		const { callbacks } = createMockCallbacks({ cliResponse: JSON.stringify([endedRecord('gone')]) });
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			const s = provider.sessions.find(x => x.id === 'gone');
+			assert.ok(s != null, 'an ended record should surface as a completed session');
+			assert.strictEqual(s.status, 'completed');
+			assert.strictEqual(s.phase, 'completed');
+			assert.strictEqual(s.lastActivity.toISOString(), ENDED_AT, 'lastActivity comes from endedAt');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('an ended record with a live pid is completed, never re-added as a live session', async () => {
+		// The `/clear` case: SessionEnd fired but the process continues under a new id, so the old
+		// ended record still carries a live pid. Classification must key off status, not pid liveness.
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([endedRecord('cleared', { pid: process.pid, event: 'UserPromptSubmit' })]),
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			assert.strictEqual(
+				provider.sessions.find(x => x.id === 'cleared')?.status,
+				'completed',
+				'a live pid must not resurrect an ended session as live',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('poll transitions a tracked live session to completed when the CLI reports it ended', async () => {
+		const options: { cliResponse?: string } = { cliResponse: '[]' };
+		const { callbacks, handlers } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('live', REPO), new URLSearchParams());
+			assert.strictEqual(provider.sessions.find(s => s.id === 'live')?.status, 'idle');
+
+			// The live path missed SessionEnd; the CLI now reports it ended with a still-live pid.
+			options.cliResponse = JSON.stringify([
+				endedRecord('live', { pid: process.pid, event: 'UserPromptSubmit' }),
+			]);
+			await provider.runGatedSync();
+
+			assert.strictEqual(
+				provider.sessions.find(s => s.id === 'live')?.status,
+				'completed',
+				'the poll must reap a live-pid zombie the live path missed',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a completed session is removed once a later poll omits it', async () => {
+		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([endedRecord('done')]) };
+		const { callbacks } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync(); // poll #1 discovers 'done' as completed, sets polledAtLeastOnce
+			assert.ok(
+				provider.sessions.some(s => s.id === 'done'),
+				'completed session discovered',
+			);
+
+			options.cliResponse = '[]';
+			await provider.runGatedSync(); // poll #2 omits it (archived/purged) → removed
+			assert.strictEqual(
+				provider.sessions.some(s => s.id === 'done'),
+				false,
+				'omitted completed session removed',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a freshly completed session is not reconcile-removed before its first poll confirmation', async () => {
+		const options: { cliResponse?: string } = { cliResponse: '[]' };
+		const { callbacks, handlers } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(sessionEnd('s1'), new URLSearchParams()); // → completed, no polledAtLeastOnce yet
+
+			// Age it a few seconds — inside the grace, but NOT the same millisecond as the poll. Without
+			// this the assertion would hold even with the grace removed, since `phaseSince < pollStartedAt`
+			// is false only at identical timestamps. Paired with the after-the-grace test below, this pins
+			// both sides of the boundary.
+			const completed = provider.sessions.find(x => x.id === 's1')!;
+			(completed as { phaseSince: Date }).phaseSince = new Date(Date.now() - 5 * 1000);
+
+			await provider.runGatedSync(); // an in-flight poll that raced before the CLI file was visible
+
+			const s = provider.sessions.find(x => x.id === 's1');
+			assert.ok(s != null, 'must survive an in-flight empty poll it legitimately predates');
+			assert.strictEqual(s.status, 'completed');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('an unconfirmed completed row is reconciled away once the grace elapses', async () => {
+		// The ghost case: the record was archived from another window (or purged) before any poll
+		// observed it, so `polledAtLeastOnce` can never be set and the row would otherwise be pinned
+		// for the window's lifetime. Absence becomes authoritative once the row is older than the
+		// grace that protects a just-completed session from a not-yet-visible record.
+		const { callbacks, handlers } = createMockCallbacks({ cliResponse: '[]' });
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(sessionEnd('s1'), new URLSearchParams());
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'completed');
+
+			// Age the completion past the grace rather than sleeping through it.
+			const completed = provider.sessions.find(s => s.id === 's1')!;
+			(completed as { phaseSince: Date }).phaseSince = new Date(Date.now() - 5 * 60 * 1000);
+
+			await provider.runGatedSync();
+
+			assert.strictEqual(
+				provider.sessions.some(s => s.id === 's1'),
+				false,
+				'an aged, never-confirmed completed row must not survive the poll that omits it',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('poll does not eagerly resolve git info for completed sessions', async () => {
+		let gitInfoCalls = 0;
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([endedRecord('done')]),
+			resolveGitInfo: () => {
+				gitInfoCalls++;
+				return Promise.resolve(undefined);
+			},
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+
+			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'completed');
+			assert.strictEqual(gitInfoCalls, 0, 'completed sessions must defer git resolution');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('resolveCompletedSessionDetails resolves git info on demand', async () => {
+		let gitInfoCalls = 0;
+		const { callbacks } = createMockCallbacks({
+			cliResponse: JSON.stringify([endedRecord('done')]),
+			resolveGitInfo: () => {
+				gitInfoCalls++;
+				return Promise.resolve(undefined);
+			},
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			assert.strictEqual(gitInfoCalls, 0, 'not resolved eagerly');
+
+			provider.resolveCompletedSessionDetails('done');
+			await flushMicrotasks();
+
+			assert.strictEqual(gitInfoCalls, 1, 'lazy resolution fires on demand');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('archiveSession calls the CLI and removes the session', async () => {
+		const { callbacks, cliCalls } = createMockCallbacks({ cliResponse: JSON.stringify([endedRecord('done')]) });
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			assert.ok(provider.sessions.some(s => s.id === 'done'));
+			cliCalls.length = 0;
+
+			const archived = await provider.archiveSession('done');
+
+			assert.strictEqual(archived, true, 'a real archive reports success so the host records telemetry');
+			assert.ok(
+				cliCalls.some(a => a.join(' ') === 'ai hook archive-session done --json'),
+				'archive-session CLI command should be issued',
+			);
+			assert.strictEqual(
+				provider.sessions.some(s => s.id === 'done'),
+				false,
+				'archived session removed locally',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('SessionStart on a completed session revives it to a live idle row', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(sessionEnd('s1'), new URLSearchParams());
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'completed');
+
+			// Resuming reuses the id, so a SessionStart on a completed row is the resume signal.
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+
+			const s = provider.sessions.find(x => x.id === 's1');
+			assert.strictEqual(s?.status, 'idle', 'a resumed session must leave the completed/archivable state');
+			assert.strictEqual(s?.phase, 'idle');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('poll revives a completed session the CLI reports as a live process', async () => {
+		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([endedRecord('done')]) };
+		const { callbacks } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync(); // discovers 'done' as completed
+			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'completed');
+
+			// Resumed out-of-band: the CLI now lists it active with a live pid and an `updatedAt` past
+			// the end (a real resume always advances it). `sessionFileData` uses a `UserPromptSubmit`
+			// event → the revived row must derive `thinking`, not a hardcoded `idle` (mislabeling
+			// active work as idle would offer an unsafe concurrent-write resume).
+			options.cliResponse = JSON.stringify([
+				{ ...sessionFileData('done', REPO), updatedAt: '2026-07-10T00:05:00.000Z' },
+			]);
+			await provider.runGatedSync();
+
+			assert.strictEqual(
+				provider.sessions.find(s => s.id === 'done')?.status,
+				'thinking',
+				'a revived completed row must take the CLI event-derived status, not idle',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('poll does not revive a completed session off a snapshot older than the completion', async () => {
+		// `SessionEnd` fires while the process is still winding down, so a poll whose `list-sessions`
+		// call started BEFORE it comes back with a snapshot that still says "active" with a live pid.
+		// Reviving off that stale record resurrects the row, and `pruneDeadSessions` then deletes it
+		// outright once the process exits — the completed row would vanish moments after it appeared.
+		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([endedRecord('done')]) };
+		const { callbacks } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync(); // discovers 'done' as completed
+			assert.strictEqual(provider.sessions.find(s => s.id === 'done')?.status, 'completed');
+
+			// Stale snapshot: live pid, but `updatedAt` predates `endedAt`.
+			options.cliResponse = JSON.stringify([
+				{ ...sessionFileData('done', REPO), updatedAt: '2026-07-09T23:59:00.000Z' },
+			]);
+			await provider.runGatedSync();
+
+			assert.strictEqual(
+				provider.sessions.find(s => s.id === 'done')?.status,
+				'completed',
+				'a stale pre-completion snapshot must not resurrect the terminal row',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('poll re-resolves the transcript title for a tracked live session that still lacks one', async () => {
+		// A poll-discovered session (another worktree/window owns its hooks) gets no idle-transition
+		// re-resolve, so one discovered before Claude wrote its ai-title would show the repo slug
+		// forever. A later poll must re-check the transcript until a real title lands.
+		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([sessionFileData('s1', REPO)]) };
+		const { callbacks } = createMockCallbacks(options);
+		const reader = new StubTranscriptReader({}); // no title yet
+		const provider = new TestProvider(callbacks, reader);
+		try {
+			await provider.runGatedSync(); // discovers s1, resolves (empty)
+			await flushMicrotasks();
+			assert.ok(
+				reader.calls.some(c => c.sessionId === 's1'),
+				'title resolved on first discovery',
+			);
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.transcriptTitles?.ai, undefined);
+
+			// Claude writes the ai-title; the next poll must re-resolve the still-untitled row.
+			reader.titles = { ai: 'Investigate the thing' };
+			reader.calls.length = 0;
+			await provider.runGatedSync();
+			await flushMicrotasks();
+
+			assert.ok(
+				reader.calls.some(c => c.sessionId === 's1'),
+				'a still-untitled tracked session is re-resolved on a later poll',
+			);
+			assert.strictEqual(
+				provider.sessions.find(s => s.id === 's1')?.transcriptTitles?.ai,
+				'Investigate the thing',
+				'the freshly-written title is picked up',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('completing a session cancels its pending Stop→idle timer so it is not revived to a zombie', async () => {
+		const options: { cliResponse?: string } = { cliResponse: '[]' };
+		const { callbacks, handlers } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(preToolUse('s1', 'Bash', '/f'), new URLSearchParams());
+			await handler(stop('s1'), new URLSearchParams()); // schedules a ~750ms Stop→idle timer
+
+			// The CLI reports it ended before that timer fires; completeSession must cancel the timer.
+			options.cliResponse = JSON.stringify([endedRecord('s1', { pid: process.pid, event: 'UserPromptSubmit' })]);
+			await provider.runGatedSync();
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'completed');
+
+			await wait(900); // let the (now-cancelled) Stop→idle window elapse
+
+			assert.strictEqual(
+				provider.sessions.find(s => s.id === 's1')?.status,
+				'completed',
+				'a completed row must not be revived to idle by a stale Stop→idle timer',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('archiveSession refuses to archive a non-completed (live) session', async () => {
+		const { callbacks, handlers, cliCalls } = createMockCallbacks();
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('live', REPO), new URLSearchParams());
+			assert.strictEqual(provider.sessions.find(s => s.id === 'live')?.status, 'idle');
+			cliCalls.length = 0;
+
+			const archived = await provider.archiveSession('live');
+
+			assert.strictEqual(archived, false, 'a refused archive must report failure so no success telemetry fires');
+			assert.ok(
+				!cliCalls.some(a => a.join(' ').includes('archive-session')),
+				'archive must never reach the CLI for a live session — it would terminate it',
+			);
+			assert.ok(
+				provider.sessions.some(s => s.id === 'live'),
+				'the live session must remain',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('the reconciliation poll requests --status active,ended', async () => {
+		const { callbacks, cliCalls } = createMockCallbacks();
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync();
+
+			const poll = cliCalls.find(a => a.includes('list-sessions'));
+			assert.deepStrictEqual(poll, ['ai', 'hook', 'list-sessions', '--status', 'active,ended', '--json']);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('getArchivedSessionIds issues the archived status query and returns session ids', async () => {
+		const { callbacks, cliCalls } = createMockCallbacks({
+			cliResponse: JSON.stringify([endedRecord('archived-1'), endedRecord('archived-2')]),
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			cliCalls.length = 0; // ignore the bootstrap poll
+
+			const ids = await provider.getArchivedSessionIds();
+
+			assert.ok(
+				cliCalls.some(a => a.join(' ') === 'ai hook list-sessions --status archived --json'),
+				'getArchivedSessionIds should query the archived status filter',
+			);
+			assert.deepStrictEqual(ids, ['archived-1', 'archived-2']);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('getArchivedSessionIds returns an empty array when the CLI call fails', async () => {
+		const { callbacks } = createMockCallbacks();
+		callbacks.runCLICommand = () => Promise.reject(new Error('gk not found'));
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			const ids = await provider.getArchivedSessionIds();
+			assert.deepStrictEqual(ids, []);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('getArchivedSessionIds caches the archived query across concurrent and repeated calls', async () => {
+		const { callbacks, cliCalls } = createMockCallbacks({
+			cliResponse: JSON.stringify([endedRecord('archived-1')]),
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			cliCalls.length = 0; // ignore the bootstrap poll
+
+			// Concurrent callers (one getPastSessions per worktree on panel open) share one CLI spawn...
+			const [a, b] = await Promise.all([provider.getArchivedSessionIds(), provider.getArchivedSessionIds()]);
+			// ...and a follow-up call within the TTL is served from cache.
+			const c = await provider.getArchivedSessionIds();
+
+			const archivedQueries = cliCalls.filter(
+				x => x.join(' ') === 'ai hook list-sessions --status archived --json',
+			).length;
+			assert.strictEqual(archivedQueries, 1, 'concurrent + repeated calls within the TTL share one CLI spawn');
+			assert.deepStrictEqual(a, ['archived-1']);
+			assert.deepStrictEqual(b, ['archived-1']);
+			assert.deepStrictEqual(c, ['archived-1']);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('archiveSession invalidates the archived-id cache so the next query re-fetches', async () => {
+		const cliCalls: string[][] = [];
+		const { callbacks } = createMockCallbacks();
+		callbacks.runCLICommand = (args: string[]) => {
+			cliCalls.push([...args]);
+			if (args.join(' ') === 'ai hook list-sessions --status active,ended --json') {
+				return Promise.resolve(JSON.stringify([endedRecord('done')]));
+			}
+			return Promise.resolve('[]');
+		};
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks();
+			assert.ok(provider.sessions.some(s => s.id === 'done'));
+
+			await provider.getArchivedSessionIds(); // primes the cache
+			await provider.archiveSession('done'); // must invalidate it
+			await provider.getArchivedSessionIds(); // should re-fetch, not serve the stale set
+
+			const archivedQueries = cliCalls.filter(
+				x => x.join(' ') === 'ai hook list-sessions --status archived --json',
+			).length;
+			assert.strictEqual(
+				archivedQueries,
+				2,
+				'archive invalidates the cache so the just-archived id is picked up',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('falls back to a flagless poll when the CLI rejects --status', async () => {
+		const { callbacks } = createMockCallbacks();
+		const recorded: string[][] = [];
+		callbacks.runCLICommand = (args: string[]) => {
+			recorded.push([...args]);
+			if (args.includes('--status')) return Promise.reject(new Error('unknown flag: --status'));
+			return Promise.resolve('[]');
+		};
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync();
+
+			assert.strictEqual(recorded.length, 2, 'should retry once without --status');
+			assert.deepStrictEqual(recorded[0], ['ai', 'hook', 'list-sessions', '--status', 'active,ended', '--json']);
+			assert.deepStrictEqual(recorded[1], ['ai', 'hook', 'list-sessions', '--json']);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a legacy CLI (no --status) keeps remove-on-SessionEnd behavior', async () => {
+		const { callbacks, handlers } = createMockCallbacks();
+		callbacks.runCLICommand = (args: string[]) => {
+			if (args.includes('--status')) return Promise.reject(new Error('unknown flag: --status'));
+			return Promise.resolve('[]');
+		};
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks(); // the bootstrap poll's fallback marks the CLI legacy
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(sessionEnd('s1'), new URLSearchParams());
+
+			assert.strictEqual(
+				provider.sessions.some(s => s.id === 's1'),
+				false,
+				'without a durable store a completed row could never be confirmed or archived — remove on end',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('a legacy poll reconciles away a completed row it can never confirm', async () => {
+		// Models SessionEnd landing before the poll has discovered the CLI is legacy: the row
+		// completes (optimistic default), then the first legacy poll — which can never list it —
+		// must drop it rather than let the polledAtLeastOnce guard pin it forever.
+		const { callbacks, handlers } = createMockCallbacks({ cliResponse: '[]' });
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([REPO]);
+			await flushMicrotasks(); // bootstrap poll succeeds with --status → completed support assumed
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('s1', REPO), new URLSearchParams());
+			await handler(sessionEnd('s1'), new URLSearchParams());
+			assert.strictEqual(provider.sessions.find(s => s.id === 's1')?.status, 'completed');
+
+			callbacks.runCLICommand = (args: string[]) => {
+				if (args.includes('--status')) return Promise.reject(new Error('unknown flag: --status'));
+				return Promise.resolve('[]');
+			};
+			await provider.runGatedSync();
+
+			assert.strictEqual(
+				provider.sessions.some(s => s.id === 's1'),
+				false,
+				'the legacy poll is authoritative — an unconfirmable completed row must not linger',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('drift telemetry ignores completed sessions', async () => {
+		const options: { cliResponse?: string } = { cliResponse: JSON.stringify([endedRecord('done')]) };
+		const { callbacks, syncDiscrepancies } = createMockCallbacks(options);
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync(); // discovers completed 'done'
+			syncDiscrepancies.length = 0;
+
+			await provider.runGatedSync(); // still lists 'done' as ended → no live drift
+
+			assert.strictEqual(syncDiscrepancies.length, 0, 'a completed session absent from polledAlive is not drift');
 		} finally {
 			provider.dispose();
 		}

@@ -13,6 +13,9 @@ export class AgentsService {
 	 * Returns `undefined` when agents are unavailable (the org gate is off, or we're in a browser
 	 * host, where no providers exist) as distinct from an empty result, which means the store simply
 	 * holds nothing for this worktree. Callers cache the two differently.
+	 *
+	 * Tracked `completed` sessions are excluded: webviews already render those as cards, so leaving
+	 * them in would spend the `limit` slots on rows that get deduped away at render.
 	 */
 	async getPastSessionsForWorktree(
 		worktreePath: string,
@@ -24,7 +27,7 @@ export class AgentsService {
 		const agents = this.container.agentStatus;
 		if (agents == null) return undefined;
 
-		const result = await agents.getPastSessions(worktreePath, options);
+		const result = await agents.getPastSessions(worktreePath, { ...options, excludeCompleted: true });
 		signal?.throwIfAborted();
 
 		return result;

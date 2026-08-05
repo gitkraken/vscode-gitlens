@@ -43,9 +43,12 @@ export type AgentSessionStatus =
 	| 'waiting'
 	| 'idle'
 	| 'compacting'
-	| 'permission_requested';
+	| 'permission_requested'
+	// Terminal state: the session has ended (SessionEnd fired, or the CLI's durable store reports it
+	// `ended`). Kept in the list as a de-emphasized "completed" row until archived or 30-day-purged.
+	| 'completed';
 
-export type AgentSessionPhase = 'idle' | 'working' | 'waiting';
+export type AgentSessionPhase = 'idle' | 'working' | 'waiting' | 'completed';
 
 export function getPhaseForStatus(status: AgentSessionStatus): AgentSessionPhase {
 	switch (status) {
@@ -59,6 +62,8 @@ export function getPhaseForStatus(status: AgentSessionStatus): AgentSessionPhase
 			return 'waiting';
 		case 'idle':
 			return 'idle';
+		case 'completed':
+			return 'completed';
 	}
 }
 
@@ -240,6 +245,25 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	 *  set via {@link ResumableSessionsOptions.excludeSessionIds} so exclusion happens before `limit`
 	 *  applies rather than after. */
 	listResumableSessions?(cwd: string, options?: ResumableSessionsOptions): Promise<ResumableSessionsResult>;
+
+	/** Archives a completed (non-live) session via the CLI, dismissing it from the list. Ends an
+	 *  active session first (the CLI broadcasts a synthetic SessionEnd) — but callers should only
+	 *  offer this on `completed` sessions, and a provider refuses (returns `false`) any non-completed
+	 *  row that resumed since the click, so the CLI never terminates live work. Resolves to `true` when
+	 *  the session was archived (removed locally; the next reconciliation poll confirms it). */
+	archiveSession?(sessionId: string): Promise<boolean>;
+
+	/** Resolves git identity + the transcript title and first/last prompt for a completed session
+	 *  lazily — called by the host when the user *opens* a completed row (the `Open Session` action),
+	 *  not on mere display. Completed sessions skip eager resolution during the poll so a 30-day
+	 *  cold-start doesn't fan out hundreds of git probes + transcript reads; the row shows its
+	 *  durable-store label until opened. No-op if the session isn't a tracked completed one. */
+	resolveCompletedSessionDetails?(sessionId: string): void;
+
+	/** Lists the ids of sessions that have been archived. Used to exclude them from the "Past"
+	 *  transcript-store listing — the tracked row is gone once archived, but the transcript on disk
+	 *  survives and would otherwise resurface there. Resolves to `[]` on any error. */
+	getArchivedSessionIds?(): Promise<string[]>;
 }
 
 export interface ResumableSessionsOptions {

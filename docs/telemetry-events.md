@@ -1680,7 +1680,7 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'layout': 'list' | 'tree',
-  'session.category': 'working' | 'needs-input' | 'idle',
+  'session.category': 'working' | 'needs-input' | 'idle' | 'completed',
   'session.hasPendingPermission': boolean,
   'session.phase': string,
   'session.sameRepo': boolean
@@ -2057,7 +2057,7 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'session.category': 'working' | 'needs-input' | 'idle',
+  'session.category': 'working' | 'needs-input' | 'idle' | 'completed',
   'session.hasPendingPermission': boolean,
   'session.phase': string,
   'session.sameRepo': boolean
