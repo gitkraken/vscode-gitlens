@@ -458,6 +458,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	/** True when running in a web/virtual environment (e.g. vscode.dev), where the no-repo empty state
 	 *  offers "Open Remote Repository" instead of clone/init. Sourced from `isWeb` (`@env/platform`). */
 	isWeb?: boolean;
+	/** False when the workspace is untrusted (VS Code Restricted Mode). Drives the empty state to offer
+	 *  "Manage Workspace Trust" instead of open/clone. Sourced from `workspace.isTrusted`. Absent (undefined)
+	 *  is treated as trusted. */
+	trusted?: boolean;
 	repositories?: GraphRepository[];
 	/** Absolute fsPaths of every worktree in the current repo's family (the main checkout plus
 	 *  every secondary worktree), sourced from the loaded graph. A reusable registry for any

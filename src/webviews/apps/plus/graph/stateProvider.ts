@@ -539,6 +539,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor isWeb: State['isWeb'] = false;
 
 	@signalState()
+	accessor trusted: State['trusted'] = true;
+
+	@signalState()
 	accessor repositories: State['repositories'];
 
 	@signalState()

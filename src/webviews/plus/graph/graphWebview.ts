@@ -590,6 +590,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 			}),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
+			// Restricted Mode blocked repo discovery, so the graph was stuck on the untrusted empty state.
+			// Force a fresh discovery now that git ops are permitted and rebuild directly — don't depend on
+			// the onDidChangeRepositories path, which only rebuilds when discovery reports added (non-worktree)
+			// repos. `discoverRepositories` dedups concurrent callers, so overlapping with the container's own
+			// trust re-discovery is safe.
+			workspace.onDidGrantWorkspaceTrust(() => {
+				this.repository = undefined;
+				void this.container.git
+					.discoverRepositories(workspace.workspaceFolders ?? [], { force: true })
+					.finally(() => this._data.updateState());
+			}),
 			// GitLens-initiated git ops fire this synchronously before their RPC returns to the
 			// webview, so invalidating here makes the post-op revalidate see fresh `git status`
 			// data instead of the entry the FS-watcher-driven invalidator (`runNotifyDidChangeWorkingTree`)
@@ -4138,6 +4149,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.cancelOperation('branchState');
 		this.cancelOperation('state');
 
+		if (!workspace.isTrusted) {
+			this._wip.updateWorkingTreeBadge(undefined);
+			return {
+				...this.host.baseWebviewState,
+				allowed: true,
+				trusted: false,
+				repositories: [],
+				isWeb: isWeb,
+			};
+		}
+
 		const searchRequest = this._searchRequest;
 		this._searchRequest = undefined;
 
@@ -4151,6 +4173,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return {
 				...this.host.baseWebviewState,
 				allowed: false,
+				trusted: true,
 				repositories: [],
 				isWeb: isWeb,
 				subscription: subscription,
@@ -4162,6 +4185,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return {
 				...this.host.baseWebviewState,
 				allowed: true,
+				trusted: true,
 				repositories: [],
 				isWeb: isWeb,
 				subscription: subscription,
@@ -4175,6 +4199,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				return {
 					...this.host.baseWebviewState,
 					allowed: true,
+					trusted: true,
 					repositories: [],
 					isWeb: isWeb,
 					subscription: subscription,
@@ -4626,6 +4651,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			selectedRows: convertSelectedRows(this._selectedRows),
 			subscription: access?.subscription.current,
 			allowed: allowed,
+			trusted: true,
 			allowRepoSwitch: allowRepoSwitch,
 			// Rows-plane fields are owned by the publisher's channel now — they never travel on this State.
 			// The webview keeps whatever the publisher last delivered (the current reducer sees exactly the

@@ -65,6 +65,25 @@ export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 	graphState!: typeof graphStateContext.__context__;
 
 	override render(): unknown {
+		if (this.graphState.trusted === false) {
+			return html`
+				<div class="container" role="group" aria-label="Untrusted workspace">
+					<div class="icon"><code-icon icon="workspace-untrusted"></code-icon></div>
+					<h2 class="title">Untrusted workspace</h2>
+					<p class="description">
+						GitLens can't open repositories while this workspace is in Restricted Mode. Trust this workspace
+						to visualize its history, branches, and commits in the Commit Graph.
+					</p>
+					<div class="actions">
+						<gl-button full href="command:workbench.trust.manage">
+							<code-icon slot="prefix" icon="shield"></code-icon>
+							Manage Workspace Trust
+						</gl-button>
+					</div>
+				</div>
+			`;
+		}
+
 		return html`
 			<div class="container" role="group" aria-label="No repository open">
 				<div class="icon"><code-icon icon="source-control"></code-icon></div>
