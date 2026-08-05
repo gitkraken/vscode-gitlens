@@ -14,7 +14,7 @@ export function base64(data: string | Uint8Array): string {
 	return globalThis.btoa(output);
 }
 
-export function fromBase64(s: string): Uint8Array {
+export function fromBase64(s: string): Uint8Array<ArrayBuffer> {
 	const decoded = globalThis.atob(s);
 
 	const len = decoded.length;

@@ -4,7 +4,9 @@ export function base64(data: string | Uint8Array): string {
 	return Buffer.from(data).toString('base64');
 }
 
-export function fromBase64(s: string): Uint8Array {
+// Returns `Uint8Array<ArrayBuffer>` rather than a bare `Uint8Array` (which widens to `ArrayBufferLike` and
+// admits `SharedArrayBuffer`) so the result stays assignable to `BufferSource` — what Web Crypto accepts.
+export function fromBase64(s: string): Uint8Array<ArrayBuffer> {
 	return Buffer.from(s, 'base64');
 }
 
