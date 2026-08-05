@@ -40,31 +40,46 @@ export const integrationsCategories: SettingsCategory[] = [
 			{
 				kind: 'ai',
 				label: 'AI integrations',
-				// Search text — the rendered rows come from the AI RPC service
-				hint: 'AI provider, model, GitKraken MCP, default coding agent, Claude Code hooks',
-			},
-			{
-				kind: 'slider',
-				key: 'ai.modelOptions.temperature',
-				label: 'Temperature',
-				hint: 'A measure of output randomness. Higher values result in more randomness, e.g. creativity, while lower values are more deterministic',
-				min: 0,
-				max: 2,
-				step: 0.1,
+				hint: 'AI provider, model, compose model, review model, conflict resolution model',
 			},
 		],
 	},
 	{
-		id: 'autolinks',
-		settingsSearch: 'gitlens.autolinks',
-		name: 'Autolinks',
+		id: 'agents',
+		settingsSearch: 'gitlens.ai',
+		name: 'Agents',
 		group: 'Integrations',
-		icon: 'link',
-		hint: 'Use autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.',
+		icon: 'robot',
+		hint: 'Set your default coding agent, and install GitKraken MCP and hooks for supported CLI agents',
+		learnMoreUrl: 'https://help.gitkraken.com/gitlens/gl-gk-ai/',
 		controls: [
 			{
-				kind: 'autolinks',
-				label: 'Custom autolinks',
+				kind: 'agents',
+				label: 'Agents',
+				// Search text — the rendered rows come from the Agents RPC service
+				hint: 'Chat, extension, and CLI agents, default agent, GitKraken MCP, Claude Code hooks, Copilot, Cursor, Codex, Gemini, opencode',
+			},
+		],
+	},
+	{
+		id: 'integrations',
+		settingsSearch: 'gitlens.integrations',
+		name: 'Cloud Integrations',
+		group: 'Integrations',
+		icon: 'plug',
+		hint: 'Connect hosting services like GitHub and issue trackers like Jira to track progress and take action on PRs and issues related to your branches',
+		learnMoreUrl: 'https://help.gitkraken.com/gitlens/gitlens-start-here/#improve-workflows-with-integrations',
+		master: {
+			kind: 'check',
+			key: 'integrations.enabled',
+			label: 'Cloud Integrations',
+		},
+		controls: [
+			{
+				kind: 'integrations',
+				label: 'Cloud integrations',
+				// Search text — the rendered rows come from the integrations RPC service
+				hint: 'GitHub, GitHub Enterprise, GitLab, Azure DevOps, Bitbucket, Jira, Linear',
 			},
 		],
 	},
@@ -81,6 +96,20 @@ export const integrationsCategories: SettingsCategory[] = [
 				label: 'Custom remotes',
 				// Search text — the rendered rows come from the gitlens.remotes array
 				hint: 'GitHub Enterprise, GitLab self-hosted, Bitbucket Server, Azure DevOps, self-hosted, enterprise, custom remote',
+			},
+		],
+	},
+	{
+		id: 'autolinks',
+		settingsSearch: 'gitlens.autolinks',
+		name: 'Autolinks',
+		group: 'Integrations',
+		icon: 'link',
+		hint: 'Use autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.',
+		controls: [
+			{
+				kind: 'autolinks',
+				label: 'Custom autolinks',
 			},
 		],
 	},
