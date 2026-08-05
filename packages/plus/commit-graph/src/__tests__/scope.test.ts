@@ -400,3 +400,118 @@ suite('computeInScopeShas', () => {
 		);
 	});
 });
+
+// Stack fixture: three layers rebased onto each other, so they form ONE first-parent line above main.
+//   L3b -> L3a -> L2b -> L2a -> L1b -> L1a -> M3 (main tip) -> M2 -> M1 -> M0
+const stackParents: Record<Sha, Sha[]> = {
+	L3b: ['L3a'],
+	L3a: ['L2b'],
+	L2b: ['L2a'],
+	L2a: ['L1b'],
+	L1b: ['L1a'],
+	L1a: ['M3'],
+	M3: ['M2'],
+	M2: ['M1'],
+	M1: ['M0'],
+	M0: [],
+};
+const stackShas = Object.keys(stackParents);
+const stackHeads: Record<Sha, string> = { L3b: 'layer-3', L2b: 'layer-2', L1b: 'layer-1', M3: 'main' };
+
+const stackRows: HostRow[] = stackShas.map(sha => ({
+	sha: sha,
+	parents: stackParents[sha],
+	heads: stackHeads[sha] != null ? [{ id: `h-${sha}`, name: stackHeads[sha], isCurrentHead: false }] : undefined,
+}));
+
+const stackProcessedRows: ProcessedGraphRow[] = stackShas.map(sha => ({
+	sha: sha,
+	parents: stackParents[sha],
+	kind: 'commit',
+	column: sha.startsWith('L') ? 1 : 0,
+	edges: {},
+	edgeColumnMax: 0,
+}));
+
+/** Focal on the stack's BASE layer — the layer whose own merge target really is the trunk. */
+function stackScope(additionalBranchNames?: string[]): HostScope {
+	return {
+		branchName: 'layer-1',
+		branchRef: '/repo|heads/layer-1',
+		mergeBase: { sha: 'M3', date: 1 },
+		mergeTargetTipSha: 'M3',
+		...(additionalBranchNames != null ? { additionalBranchNames: additionalBranchNames } : undefined),
+	};
+}
+
+function projectStack(scope: HostScope) {
+	const anchors = computeScopeAnchors(stackRows, scope, hasHead);
+	const projection = computeScopeProjection(stackProcessedRows, scope, anchors, new Set());
+	return {
+		anchors: anchors,
+		visible: stackShas.filter(sha => projection == null || !projection.dropped.has(sha)),
+	};
+}
+
+suite('scope — additional branches', () => {
+	test('the base layer alone cannot reach the layers stacked above it', () => {
+		// The layers above are DESCENDANTS of the focal tip, and the spine only ever walks down — which is
+		// the whole reason additional branches exist rather than being a nicety.
+		const { visible } = projectStack(stackScope());
+
+		assert.deepEqual(visible, ['L1b', 'L1a', 'M3']);
+	});
+
+	test('additional branches bring the layers above into scope', () => {
+		const { visible } = projectStack(stackScope(['layer-2', 'layer-3']));
+
+		assert.deepEqual(visible, ['L3b', 'L3a', 'L2b', 'L2a', 'L1b', 'L1a', 'M3']);
+	});
+
+	test('the focal tip stays the focal tip', () => {
+		// Additional tips must not displace it: the focal-tip rail, and everything else that asks for "the"
+		// focal tip, still has to resolve to exactly one commit.
+		const { anchors } = projectStack(stackScope(['layer-2', 'layer-3']));
+
+		assert.deepEqual([...(anchors.focalTipShas ?? [])], ['L1b']);
+		assert.deepEqual([...(anchors.additionalTipShas ?? [])].sort(), ['L2b', 'L3b']);
+	});
+
+	test('additional tips are anchors and synthetic-edge sources', () => {
+		const { anchors } = projectStack(stackScope(['layer-2', 'layer-3']));
+
+		assert.equal(anchors.anchorShas?.has('L2b'), true);
+		assert.equal(anchors.anchorShas?.has('L3b'), true);
+		assert.equal(anchors.syntheticChildren?.has('L3b'), true);
+	});
+
+	test('an additional branch that is not loaded is ignored, not fatal', () => {
+		const { visible, anchors } = projectStack(stackScope(['layer-2', 'layer-99']));
+
+		assert.deepEqual([...(anchors.additionalTipShas ?? [])], ['L2b']);
+		assert.deepEqual(visible, ['L2b', 'L2a', 'L1b', 'L1a', 'M3']);
+	});
+
+	test('the additional lines are in scope for dimming too', () => {
+		const scope = stackScope(['layer-2', 'layer-3']);
+		const anchors = computeScopeAnchors(stackRows, scope, hasHead);
+		const inScope = computeInScopeShas(
+			stackRows,
+			scope,
+			anchors.focalTipShas,
+			anchors.mergeTargetShas,
+			anchors.forkPointShas,
+			anchors.additionalTipShas,
+		);
+
+		for (const sha of ['L1a', 'L1b', 'L2a', 'L2b', 'L3a', 'L3b']) {
+			assert.equal(inScope?.has(sha), true, `${sha} should be in scope`);
+		}
+	});
+
+	test('naming the focal branch again changes nothing', () => {
+		const { visible } = projectStack(stackScope(['layer-1', 'layer-2']));
+
+		assert.deepEqual(visible, ['L2b', 'L2a', 'L1b', 'L1a', 'M3']);
+	});
+});

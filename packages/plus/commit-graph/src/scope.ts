@@ -21,6 +21,15 @@ export interface ScopeRow {
 export interface FocalScope {
 	/** Name of the focal branch, matched against a row's heads via {@link ScopeHeadsPredicate}. */
 	branchName?: string;
+	/**
+	 * Further branch names whose lineage joins the scope, resolved the same way as {@link branchName}.
+	 *
+	 * These do NOT displace the focal branch: it keeps the focal-tip treatment and stays what WIP is
+	 * attributed to. Each one contributes its own first-parent line, bounded by the same merge base, so a
+	 * branch stacked ABOVE the focal tip becomes visible — which walking down from the focal tip alone can
+	 * never reach, since it's a descendant rather than an ancestor.
+	 */
+	additionalBranchNames?: readonly string[];
 	/** Merge-base where the focal branch diverged from its parent line. */
 	mergeBase?: { sha: Sha };
 	/** Tip of the merge target (typically main/develop). Its ancestors are NOT walked. */
@@ -47,6 +56,9 @@ export type ScopeHeadsPredicate<T> = (row: T, branchName: string) => boolean;
 export interface ScopeAnchors {
 	anchorShas?: ReadonlySet<Sha>;
 	focalTipShas?: ReadonlySet<Sha>;
+	/** Tips of {@link FocalScope.additionalBranchNames}. Kept apart from `focalTipShas` so the focal-tip
+	 *  visuals (and everything that reads "the" focal tip) still resolve to exactly one commit. */
+	additionalTipShas?: ReadonlySet<Sha>;
 	forkPointShas?: ReadonlySet<Sha>;
 	mergeTargetShas?: ReadonlySet<Sha>;
 	syntheticChildren?: ReadonlySet<Sha>;
@@ -70,6 +82,7 @@ export function computeScopeAnchors<T extends ScopeRow>(
 		return {
 			anchorShas: undefined,
 			focalTipShas: undefined,
+			additionalTipShas: undefined,
 			forkPointShas: undefined,
 			mergeTargetShas: undefined,
 			syntheticChildren: undefined,
@@ -78,6 +91,7 @@ export function computeScopeAnchors<T extends ScopeRow>(
 	}
 
 	const focalTip = new Set<Sha>();
+	const additionalTips = new Set<Sha>();
 	const forkPoint = new Set<Sha>();
 	const mergeTarget = new Set<Sha>();
 	const unreachable = new Set<Sha>();
@@ -109,10 +123,30 @@ export function computeScopeAnchors<T extends ScopeRow>(
 		}
 	}
 
-	const anchors = new Set<Sha>([...focalTip, ...forkPoint, ...mergeTarget]);
+	// Same by-name resolution, and the same "first matching row wins" rule as the focal branch. Resolved
+	// names are struck off so one pass covers them all, and so a second branch sitting on an already-matched
+	// commit still resolves to it rather than being skipped.
+	if (scope.additionalBranchNames?.length) {
+		const pending = new Set(scope.additionalBranchNames.filter(n => n && n !== scope.branchName));
+		for (const r of rows) {
+			if (pending.size === 0) break;
+
+			for (const name of pending) {
+				if (!hasHead(r, name)) continue;
+
+				additionalTips.add(r.sha);
+				pending.delete(name);
+			}
+		}
+	}
+
+	// Additional tips are anchors on the same terms as the focal tip (the docstring's contract: each acts
+	// as a visibility floor and a synthetic-edge source), so they join both sets.
+	const anchors = new Set<Sha>([...focalTip, ...additionalTips, ...forkPoint, ...mergeTarget]);
 	return {
 		anchorShas: anchors,
 		focalTipShas: focalTip.size > 0 ? focalTip : undefined,
+		additionalTipShas: additionalTips.size > 0 ? additionalTips : undefined,
 		forkPointShas: forkPoint.size > 0 ? forkPoint : undefined,
 		mergeTargetShas: mergeTarget.size > 0 ? mergeTarget : undefined,
 		syntheticChildren: anchors,
@@ -136,11 +170,15 @@ export function computeInScopeShas(
 	focalTipShas: ReadonlySet<Sha> | undefined,
 	mergeTargetShas: ReadonlySet<Sha> | undefined,
 	forkPointShas: ReadonlySet<Sha> | undefined,
+	additionalTipShas?: ReadonlySet<Sha>,
 ): ReadonlySet<Sha> | undefined {
 	if (scope == null || rows == null || rows.length === 0) return undefined;
 	if (focalTipShas == null || focalTipShas.size === 0) return undefined;
 
 	const heads: Sha[] = [...focalTipShas];
+	if (additionalTipShas != null) {
+		heads.push(...additionalTipShas);
+	}
 	if (mergeTargetShas != null) {
 		heads.push(...mergeTargetShas);
 	}
@@ -279,21 +317,31 @@ export function computeScopeProjection(
 	// (rows are newest→oldest, so a higher index is older).
 	const mergeBaseIndex = mergeBase != null ? (indexBySha.get(mergeBase) ?? rows.length) : rows.length;
 	const mergeTargetTip = anchors.mergeTargetShas?.values().next().value;
-	const buildSharedLine = (): ReadonlySet<Sha> | undefined =>
-		mergeTargetTip != null && bySha.has(mergeTargetTip)
-			? new Set(firstParentChainUntil(bySha, mergeTargetTip, noStop, rows.length))
-			: undefined;
+	// Memoized: walking the whole loaded target line is a sizable fraction of this function's cost, and with
+	// additional tips the two-phase walk below can ask for it once per tip.
+	let sharedLineBuilt = false;
+	let sharedLineCache: ReadonlySet<Sha> | undefined;
+	const buildSharedLine = (): ReadonlySet<Sha> | undefined => {
+		if (!sharedLineBuilt) {
+			sharedLineBuilt = true;
+			sharedLineCache =
+				mergeTargetTip != null && bySha.has(mergeTargetTip)
+					? new Set(firstParentChainUntil(bySha, mergeTargetTip, noStop, rows.length))
+					: undefined;
+		}
+		return sharedLineCache;
+	};
 
 	// `reachedBase` reports whether the walk ended ON the merge base, which is what tells the caller the
 	// cheap `mergeBaseIndex` bound was sound for this history. `bounded` answers "did it reach a boundary
 	// at all" — always true once a loaded base bounds it; under an open terminus it distinguishes "ran out
 	// of LOADED rows / met the shared line" (the boundary is merely late) from "ran to a root commit",
 	// which means the resolved base isn't on this line at all.
-	const walkSpine = (sharedLine: ReadonlySet<Sha> | undefined) => {
+	const walkSpine = (sharedLine: ReadonlySet<Sha> | undefined, startTip: Sha) => {
 		const spine = new Set<Sha>();
 		let bounded = mergeBase != null;
 		let reachedBase = false;
-		let cur: Sha | undefined = focalTip;
+		let cur: Sha | undefined = startTip;
 		let safety = rows.length;
 		while (cur != null && safety-- > 0) {
 			// Off the end of the loaded rows: more history exists below, so the boundary is down there.
@@ -335,24 +383,39 @@ export function computeScopeProjection(
 	// on a large graph, and this runs on every paging append — which is why it stays off the common path.
 	// With no target line loaded at all, `mergeBaseIndex` and the window edge are the only bounds left, so a
 	// stale target far back in history yields a longer spine — still bounded, and still the branch's own line.
-	let {
-		spine: focalSpine,
-		bounded: boundedSpine,
-		reachedBase,
-	} = walkSpine(mergeBase == null ? buildSharedLine() : undefined);
-	if (mergeBase != null && !reachedBase) {
-		const sharedLine = buildSharedLine();
-		if (sharedLine != null) {
-			({ spine: focalSpine, bounded: boundedSpine } = walkSpine(sharedLine));
+	const resolveSpine = (startTip: Sha) => {
+		const first = walkSpine(mergeBase == null ? buildSharedLine() : undefined, startTip);
+		if (mergeBase != null && !first.reachedBase) {
+			const sharedLine = buildSharedLine();
+			if (sharedLine != null) return walkSpine(sharedLine, startTip);
 		}
-	}
+		return first;
+	};
+
+	const { spine: focalSpine, bounded: boundedSpine } = resolveSpine(focalTip);
 	// The line ran to a root with no boundary in sight, so the resolved base is not merely late — it isn't
 	// on this line at all (typically a SHA a history rewrite left behind). Re-rooting on that would present
 	// trunk as the branch's spine, so leave it on the dim-in-place fallback.
 	if (!boundedSpine) return undefined;
 
+	// Every scoped line, not just the focal one. Each additional tip walks its own first-parent chain under
+	// the same bound; because they rejoin the focal line at or above the base, the union is the set of
+	// commits the scope covers. An unbounded extra line is DROPPED rather than vetoing the projection —
+	// it would drag trunk in, but the focal branch's own re-root is still sound without it.
+	const scopedSpine = new Set<Sha>(focalSpine);
+	for (const tip of anchors.additionalTipShas ?? []) {
+		if (tip === focalTip || !bySha.has(tip)) continue;
+
+		const extra = resolveSpine(tip);
+		if (!extra.bounded) continue;
+
+		for (const sha of extra.spine) {
+			scopedSpine.add(sha);
+		}
+	}
+
 	// The branch's working-changes row (sits on the focal tip) stays visible alongside the spine.
-	const visible = new Set<Sha>(focalSpine);
+	const visible = new Set<Sha>(scopedSpine);
 	// A loaded base always shows: it's the scope's boundary, and the anchors have already published it as
 	// the fork point. The spine misses it whenever it's off the focal first-parent line, and the older-
 	// history fold below only picks it up when its own first parent is loaded — so without this a base at
@@ -361,7 +424,7 @@ export function computeScopeProjection(
 		visible.add(mergeBase);
 	}
 	for (const r of rows) {
-		if (r.kind === 'workdir' && r.parents.length > 0 && focalSpine.has(r.parents[0])) {
+		if (r.kind === 'workdir' && r.parents.length > 0 && scopedSpine.has(r.parents[0])) {
 			visible.add(r.sha);
 		}
 	}
@@ -400,18 +463,19 @@ export function computeScopeProjection(
 		// The base normally stops this walk by way of the spine. It's off the spine whenever it's off the focal
 		// first-parent line, and without it the walk runs to a root and swallows the older-history fold's
 		// commits into this one as well.
-		const stop = mergeBase != null && !focalSpine.has(mergeBase) ? new Set([...focalSpine, mergeBase]) : focalSpine;
+		const stop =
+			mergeBase != null && !scopedSpine.has(mergeBase) ? new Set([...scopedSpine, mergeBase]) : scopedSpine;
 		addFold(firstParentChainUntil(bySha, mergeTargetTip, stop, rows.length), mergeBase ?? null);
 	}
 
 	// Older-history fold: the merge-base plus everything on the first-parent line below it. Headed at the
 	// BASE, so the boundary commit itself carries the chevron rather than the out-of-scope commit under it —
 	// which also means a collapsed fold costs no row of its own. Prepended rather than walked from, because
-	// `firstParentChainUntil` stops on `focalSpine` members and the base is usually one. Skipped under an
+	// `firstParentChainUntil` stops on `scopedSpine` members and the base is usually one. Skipped under an
 	// open terminus — the base bounds this fold, and nothing below an unloaded base is loaded to fold.
 	const olderTip = mergeBase != null ? bySha.get(mergeBase)?.parents?.[0] : undefined;
 	if (mergeBase != null && olderTip != null && bySha.has(olderTip)) {
-		addFold([mergeBase, ...firstParentChainUntil(bySha, olderTip, focalSpine, rows.length)], null);
+		addFold([mergeBase, ...firstParentChainUntil(bySha, olderTip, scopedSpine, rows.length)], null);
 	}
 
 	const dropped = new Set<Sha>();
