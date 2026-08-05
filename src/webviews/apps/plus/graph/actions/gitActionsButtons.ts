@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -18,11 +19,17 @@ import { inlineCode } from '../../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
+import {
+	getBranchNameWithoutRemote,
+	getRemoteNameFromBranchName,
+	providerIconName,
+} from '../../../shared/git-utils.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import { actionButton, linkBase } from '../styles/graph.css.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
+import { isUnpublishedRow, isUnpulledRow } from '../utils/rowContext.utils.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/code-icon.js';
@@ -160,7 +167,6 @@ export class GitActionsButtons extends LitElement {
 			<gl-push-pull-button
 				.branchState=${this.branchState}
 				.state=${this.state}
-				.fetchedText=${this.fetchedText}
 				.fetchedTextShort=${this.fetchedTextShort}
 				.branchName=${this.branchName}
 			></gl-push-pull-button>
@@ -499,6 +505,12 @@ function samePullConflictPreview(a: PullConflictPreview | undefined, b: PullConf
 	);
 }
 
+/** One footer-bar destination. `resolve` runs lazily, only when the leg is actually clicked — the ones
+ *  that scan rows (oldest unpushed/unpulled) never pay that cost just because the popover opened.
+ *  `label` is omitted for an icon-only leg (HEAD); `tooltip` still carries the full `Jump to …` text for
+ *  `aria-label`, matching the overview bar's ref-leg convention. */
+type FooterJumpLeg = { resolve: () => string | undefined; label?: string; tooltip?: string; icon: string };
+
 @customElement('gl-push-pull-button')
 export class PushPullButton extends LitElement {
 	static override styles = [
@@ -588,20 +600,20 @@ export class PushPullButton extends LitElement {
 
 			/* Zero the popover's own body padding and let each region supply its own, so the banner and footer
 			   run edge to edge. Overriding the custom property is exact; a negative margin guessing at
-			   the padding's value is not. */
-			.pull-popover {
+			   the padding's value is not. Shared by both Pull and Push cards. */
+			.action-popover {
 				display: flex;
 				flex-direction: column;
 			}
 
-			.pull-popover__body {
+			.action-popover__body {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-4);
 				padding: var(--gl-space-8) var(--gl-space-10);
 			}
 
-			.pull-popover__status {
+			.action-popover__status {
 				color: var(--vscode-descriptionForeground);
 			}
 
@@ -692,8 +704,10 @@ export class PushPullButton extends LitElement {
 				white-space: nowrap;
 			}
 
-			/* Threshold = the action's own width plus a gap; below it there's no room for a useful timestamp. */
-			@container (max-width: 22rem) {
+			/* Threshold = the legs' own width plus a gap; below it there's no room for a useful timestamp.
+			   Lower than before Pull's Upstream leg lost its full inline "Jump to Upstream" text for a short
+			   label and Push's HEAD leg lost its label entirely — both cards' legs are narrower now. */
+			@container (max-width: 24rem) {
 				.footerbar__fetched {
 					display: none;
 				}
@@ -734,9 +748,6 @@ export class PushPullButton extends LitElement {
 
 	@property({ type: Object })
 	state!: State;
-
-	@property({ type: String })
-	fetchedText?: string;
 
 	/** Compact form ("4m ago"). The pull popover's footer is a status chip, not prose, so it takes this —
 	 *  matching the Fetch button beside it, which already uses short on its label and long in its popover. */
@@ -784,6 +795,13 @@ export class PushPullButton extends LitElement {
 	/** The tip of the upstream — the newest commit a pull would bring in, and so where the jump lands. */
 	private get incomingSha(): string | undefined {
 		return this.isBehind ? this.branchState?.upstreamSha : undefined;
+	}
+
+	/** HEAD's own sha — the ref a push moves *from*, mirroring `incomingSha`'s "moves to". Already on
+	 *  the wire (`graph-app.ts` feeds the overview bar's HEAD leg from the same field), so no resolution
+	 *  step is needed. */
+	private get headSha(): string | undefined {
+		return this.state.branch?.sha;
 	}
 
 	/** Identity of the branch state a verdict describes. Undefined whenever there's nothing to check. */
@@ -885,25 +903,61 @@ export class PushPullButton extends LitElement {
 		this._conflicts = result;
 	}
 
-	private jumpToIncoming(): void {
-		const sha = this.incomingSha;
-		if (sha == null) return;
+	/** Bounded forward scan for the oldest row matching `predicate`: walks `state.rows` from the top
+	 *  counting hits and stops as soon as the count reaches `target` — that row is the answer, so this
+	 *  never sweeps the whole graph. Falls back to the last matching row seen if the count never gets
+	 *  there (a filtered/scoped graph, or rows still loading), and to `undefined` if none matched at all
+	 *  (drop the leg rather than retarget it at the tip). Only ever called from a click handler — see
+	 *  {@link FooterJumpLeg.resolve}. Shared by the unpushed scan (counts to `ahead`) and its behind-side
+	 *  mirror, the unpulled scan (counts to `behind`). */
+	private resolveOldestRowSha(predicate: (row: GitGraphRow) => boolean, target: number): string | undefined {
+		// Nothing to count to means no row can match. Without this the loop below sweeps every loaded row
+		// looking for a hit that can't exist.
+		if (target === 0) return undefined;
 
+		let lastSha: string | undefined;
+		let count = 0;
+
+		for (const row of this.state.rows ?? []) {
+			if (!predicate(row)) continue;
+
+			lastSha = row.sha;
+			count++;
+			if (count >= target) return row.sha;
+		}
+
+		return lastSha;
+	}
+
+	private resolveOldestUnpushedSha(): string | undefined {
+		return this.resolveOldestRowSha(isUnpublishedRow, this.branchState?.ahead ?? 0);
+	}
+
+	private resolveOldestUnpulledSha(): string | undefined {
+		return this.resolveOldestRowSha(isUnpulledRow, this.branchState?.behind ?? 0);
+	}
+
+	private jumpTo(sha: string): void {
 		// Same path the WIP row's jump and the overview bar's legs use — it pages the row in when it isn't
 		// loaded, then selects and reveals it.
 		//
-		// A landing: this fires from a popover in the HEADER, so the user isn't looking at the rows, and an
-		// incoming commit that happens to already be on screen would otherwise answer the click with nothing.
+		// A landing: this fires from a popover in the HEADER, so the user isn't looking at the rows, and a
+		// target that happens to already be on screen would otherwise answer the click with nothing.
 		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: sha, flash: true } }));
 	}
 
-	private onJumpClick(e: MouseEvent): void {
+	private onJumpClick(e: MouseEvent, resolve: () => string | undefined): void {
+		// Resolved on click, not up front — a scanning leg (oldest unpushed/unpulled) pays for its walk
+		// only when actually clicked. No target: leave the popover open rather than dismiss into nothing.
+		const sha = resolve();
+		if (sha == null) return;
+
 		e.preventDefault();
 		e.stopPropagation();
 		// Dismiss on activation — you're navigating away, and a hover card left pinned over the header
 		// covers the rows you just jumped to (the same convention `gl-commit-row-item` follows).
 		void this._popover?.hide();
-		this.jumpToIncoming();
+		this.jumpTo(sha);
 	}
 
 	private onPullClick(e: MouseEvent): void {
@@ -914,7 +968,21 @@ export class PushPullButton extends LitElement {
 
 		e.preventDefault();
 		e.stopPropagation();
-		this.jumpToIncoming();
+		this.jumpTo(this.incomingSha);
+	}
+
+	private onPushClick(e: MouseEvent): void {
+		// Mirrors onPullClick, but targets Oldest Outgoing — HEAD is nearly always already on screen, so
+		// the shortcut should do the thing you can't get for free. Gated on altKey FIRST so an ordinary
+		// push click never pays for the scan.
+		if (!e.altKey) return;
+
+		const sha = this.resolveOldestUnpushedSha();
+		if (sha == null) return;
+
+		e.preventDefault();
+		e.stopPropagation();
+		this.jumpTo(sha);
 	}
 
 	/** The severity banner. Leads the card because it's the only thing here you can't read off the button
@@ -953,40 +1021,42 @@ export class PushPullButton extends LitElement {
 		</div>`;
 	}
 
-	/** Footer bar: doing on the left, status on the right. Named for the destination the same way the overview
-	 *  bar's leg is (`Jump to Upstream`) — it's the same sha, and the graph has no other verb for a
-	 *  scroll-and-select. Alt+Click stays an unadvertised shortcut; spelling it out here read as an
-	 *  instruction for the footer button rather than for the Pull button it actually applies to. */
-	private renderFooterBar() {
+	/** Footer bar: doing on the left, status on the right. Both cards pass two legs, following the overview
+	 *  bar's ref-leg convention: HEAD/Upstream are the primary leg (Upstream keeps an icon + short label,
+	 *  HEAD drops to icon-only since it has nothing left to say — see {@link renderPush}), and the second,
+	 *  scanning leg (Oldest Outgoing/Oldest Incoming) always carries a label. Every leg's `Jump to …` text
+	 *  lives in a `gl-tooltip` rather than inline, and doubles as its `aria-label`. */
+	private renderFooterBar(legs: readonly FooterJumpLeg[]) {
 		const fetched = this.fetchedTextShort
 			? html`<span class="footerbar__fetched">Fetched ${this.fetchedTextShort}</span>`
 			: nothing;
 
-		// No resolvable upstream tip means nothing to jump to — keep the bar for the timestamp alone rather
-		// than dropping the fact off the card.
-		if (this.incomingSha == null || !this.isBehind) {
+		// Nothing to jump to — keep the bar for the timestamp alone rather than dropping the fact off the card.
+		if (legs.length === 0) {
 			return this.fetchedTextShort ? html`<div class="footerbar">${fetched}</div>` : nothing;
 		}
 
 		return html`<div class="footerbar">
-			<button class="jump" type="button" @click=${this.onJumpClick}>
-				<code-icon icon="arrow-down"></code-icon>Jump to Upstream
-			</button>
+			${legs.map(leg => {
+				const button = html`<button
+					class="jump"
+					type="button"
+					aria-label=${leg.tooltip ?? leg.label}
+					@click=${(e: MouseEvent) => this.onJumpClick(e, leg.resolve)}
+				>
+					<code-icon icon=${leg.icon}></code-icon>${
+						leg.label != null ? html`<span class="jump__label">${leg.label}</span>` : nothing
+					}
+				</button>`;
+
+				return leg.tooltip
+					? html`<gl-tooltip placement="bottom"
+							>${button}<span slot="content">${leg.tooltip}</span></gl-tooltip
+						>`
+					: button;
+			})}
 			${fetched}
 		</div>`;
-	}
-
-	/** Push keeps the plain tooltip — only the pull state has anything worth clicking. */
-	private renderPushTooltipContent() {
-		if (!this.branchState) return nothing;
-
-		const providerSuffix = this.branchState.provider?.name ? html` on ${this.branchState.provider.name}` : '';
-
-		return html`
-			Push ${pluralize('commit', this.branchState.ahead)} to ${this.upstream}${providerSuffix}
-			<hr />
-			${this.renderBranchPrefix()} ${pluralize('commit', this.branchState.ahead)} ahead of ${this.upstream}
-		`;
 	}
 
 	/** The button itself. `slotted` puts it in `<gl-popover>`'s anchor slot; `<gl-tooltip>` takes its anchor
@@ -1000,7 +1070,7 @@ export class PushPullButton extends LitElement {
 			href=${this._webview.createCommandLink(`gitlens.graph.${action}`)}
 			class="action-button${this.isBehind ? ' is-behind' : ''}${this.isAhead ? ' is-ahead' : ''}"
 			aria-label=${label}
-			@click=${action === 'pull' ? this.onPullClick : undefined}
+			@click=${action === 'pull' ? this.onPullClick : this.onPushClick}
 		>
 			<code-icon class="action-button__icon" icon=${icon}></code-icon>
 			<span class="action-button__text"><span class="action-button__label">${label}</span></span>
@@ -1021,13 +1091,6 @@ export class PushPullButton extends LitElement {
 		</a>`;
 	}
 
-	private renderLastFetched() {
-		return this.fetchedText
-			? html`<hr />
-					Last fetched ${this.fetchedText}`
-			: '';
-	}
-
 	/** Pull gets an interactive popover rather than a tooltip: it's the only surface where a click target can
 	 *  live without competing with the button's own click, which must keep pulling. Severity banner on top
 	 *  (the one thing you can't read off the button), prose in the middle, doing in the footer. */
@@ -1037,6 +1100,34 @@ export class PushPullButton extends LitElement {
 		const behind = branchState?.behind ?? 0;
 		const ahead = branchState?.ahead ?? 0;
 
+		const legs: FooterJumpLeg[] = [];
+		const upstreamName = branchState?.upstream;
+		if (upstreamName != null) {
+			// Bare remote name (`origin`) when the upstream tracks a same-named branch — the pill already
+			// shows that name. Otherwise the full `origin/other`. Same rule as the overview bar's leg.
+			const remote = getRemoteNameFromBranchName(upstreamName);
+			const upstreamLegLabel =
+				remote.length > 0 && getBranchNameWithoutRemote(upstreamName) === this.branchName
+					? remote
+					: upstreamName;
+			legs.push({
+				resolve: () => this.incomingSha,
+				label: upstreamLegLabel,
+				tooltip: `Jump to Upstream (${upstreamName})`,
+				icon: providerIconName(branchState?.provider?.icon),
+			});
+		}
+		// "Incoming"/"Outgoing" is the vocabulary GitLens's own tracking-status nodes use for these two sets
+		// (`branchTrackingStatusNode.ts`), and what the SCM view calls them. "Unpulled" isn't idiomatic —
+		// you pull a branch, not a commit — and the pair has to read symmetrically. The `Unpublished`/
+		// `Unpulled` flag bits keep the git layer's naming; this is user-facing copy only.
+		legs.push({
+			resolve: () => this.resolveOldestUnpulledSha(),
+			label: 'Oldest Incoming',
+			tooltip: 'Jump to Oldest Incoming Commit',
+			icon: 'arrow-down',
+		});
+
 		return html`<gl-popover
 			placement="bottom"
 			trigger="hover focus-visible"
@@ -1044,27 +1135,72 @@ export class PushPullButton extends LitElement {
 			@gl-popover-after-hide=${this.onPopoverHide}
 		>
 			${this.renderActionAnchor('pull', true)}
-			<div slot="content" class="pull-popover">
+			<div slot="content" class="action-popover">
 				${this.renderConflictBanner()}
-				<div class="pull-popover__body">
+				<div class="action-popover__body">
 					<span>Pull ${pluralize('commit', behind)} from ${this.upstream}${providerSuffix}</span>
-					<span class="pull-popover__status"
+					<span class="action-popover__status"
 						>${this.renderBranchPrefix()} ${pluralize('commit', behind)} behind
 						${
 							this.isAhead ? html`and ${pluralize('commit', ahead)} ahead of ` : ''
 						}${this.upstream}${providerSuffix}</span
 					>
 				</div>
-				${this.renderFooterBar()}
+				${this.renderFooterBar(legs)}
 			</div>
 		</gl-popover>`;
 	}
 
+	/** No banner slot at all here — nothing to animate in. Whether the remote moved since the last fetch
+	 *  is unknowable without fetching, so there's no divergence to predict the way Pull's conflict banner
+	 *  does; the value is structural parity with Pull plus the two jump legs. */
 	private renderPush() {
-		return html`<gl-tooltip placement="bottom">
-			${this.renderActionAnchor('push', false)}
-			<div slot="content">${this.renderPushTooltipContent()} ${this.renderLastFetched()}</div>
-		</gl-tooltip>`;
+		const branchState = this.branchState;
+		const providerSuffix = branchState?.provider?.name ? html` on ${branchState.provider.name}` : '';
+		const ahead = branchState?.ahead ?? 0;
+
+		const legs: FooterJumpLeg[] = [];
+		const headSha = this.headSha;
+		if (headSha != null) {
+			// Icon-only, matching the overview bar's HEAD leg — there's no ref to name beyond "HEAD" itself,
+			// so a label would only repeat the icon. The ref stays in parentheses in the tooltip the way the
+			// overview bar's legs name theirs — but only when there is one to name, or a detached/unresolved
+			// branch reads "Jump to HEAD (undefined)".
+			legs.push({
+				resolve: () => this.headSha,
+				tooltip: this.branchName ? `Jump to HEAD (${this.branchName})` : 'Jump to HEAD',
+				icon: 'vm-active',
+			});
+		}
+
+		// Renders unconditionally — resolved lazily on click, so there's no upfront scan to gate on.
+		// "Oldest" (a property of the commit) rather than "First" (which reads as newest, since the graph
+		// renders newest-at-top — the opposite end from where this leg lands).
+		legs.push({
+			resolve: () => this.resolveOldestUnpushedSha(),
+			label: 'Oldest Outgoing',
+			tooltip: 'Jump to Oldest Outgoing Commit',
+			icon: 'arrow-down',
+		});
+
+		return html`<gl-popover
+			placement="bottom"
+			trigger="hover focus-visible"
+			@gl-popover-show=${this.onPopoverShow}
+			@gl-popover-after-hide=${this.onPopoverHide}
+		>
+			${this.renderActionAnchor('push', true)}
+			<div slot="content" class="action-popover">
+				<div class="action-popover__body">
+					<span>Push ${pluralize('commit', ahead)} to ${this.upstream}${providerSuffix}</span>
+					<span class="action-popover__status"
+						>${this.renderBranchPrefix()} ${pluralize('commit', ahead)} ahead of
+						${this.upstream}${providerSuffix}</span
+					>
+				</div>
+				${this.renderFooterBar(legs)}
+			</div>
+		</gl-popover>`;
 	}
 
 	override render() {
