@@ -46,7 +46,28 @@ export class AgentStatusService implements Disposable {
 	 */
 	readonly onDidChangeSessions = this._onDidChangeSessions.event;
 
-	private _lastSerialized: string = '';
+	/**
+	 * Per-session serialization memo, keyed by the session OBJECT. Providers replace a session
+	 * immutably on every change (never mutate fields in place), so identity is a sound proxy for
+	 * content: a cache hit means nothing about that session changed.
+	 *
+	 * This exists because the change-detect below runs on every `onDidChangeSessions` — which fires
+	 * per hook event (each tool call) — while `_sessions` also holds every `completed` session in the
+	 * CLI's 30-day window. Re-serializing and stringifying that whole set per event scales the live
+	 * path by total history rather than by what's actually running. Terminal rows never change, so
+	 * they land here once and cost a lookup thereafter.
+	 *
+	 * `generation` tracks {@link _worktreeMetadataGeneration}: the serialized shape also embeds
+	 * host-resolved worktree metadata, which changes independently of the session (branch rename,
+	 * checkout), so a bump invalidates every entry.
+	 */
+	private readonly _sessionStateCache = new WeakMap<
+		AgentSession,
+		{ state: AgentSessionState; key: string; generation: number }
+	>();
+	private _worktreeMetadataGeneration = 0;
+	/** `sessionId -> change-detect key` from the last published snapshot. */
+	private _lastSessionKeys = new Map<string, string>();
 
 	/**
 	 * Transient cache of `worktreePath -> live GitWorktree metadata`. Populated by
@@ -75,6 +96,10 @@ export class AgentStatusService implements Disposable {
 	constructor(
 		private readonly container: Container,
 		providers: AgentSessionProvider[],
+		/** Commands are a process-wide singleton surface — VS Code throws on a duplicate id — so an
+		 *  instance beyond the container's own (tests) must opt out of claiming them. Everything else
+		 *  about the service is per-instance and safe to stand up more than once. */
+		options?: { registerCommands?: boolean },
 	) {
 		this._providers = providers;
 
@@ -129,7 +154,7 @@ export class AgentStatusService implements Disposable {
 				// pending; existing repos may have been removed. Refresh either way.
 				void this.refreshWorktreeNameCache();
 			}),
-			...this.registerCommands(),
+			...((options?.registerCommands ?? true) ? this.registerCommands() : []),
 		);
 
 		this.startProviders();
@@ -210,7 +235,22 @@ export class AgentStatusService implements Disposable {
 	}
 
 	getSerializedSessions(): AgentSessionState[] {
-		return this.sessions.map(s => serializeAgentSession(s, this.getWorktreeMetadataForSession(s)));
+		return this.sessions.map(s => this.getSessionStateEntry(s).state);
+	}
+
+	/** Memoized {@link serializeAgentSession} + its change-detect key — see {@link _sessionStateCache}. */
+	private getSessionStateEntry(session: AgentSession): { state: AgentSessionState; key: string; generation: number } {
+		const cached = this._sessionStateCache.get(session);
+		if (cached != null && cached.generation === this._worktreeMetadataGeneration) return cached;
+
+		const state = serializeAgentSession(session, this.getWorktreeMetadataForSession(session));
+		const entry = {
+			state: state,
+			key: JSON.stringify(state, coarsenVolatileTimestamps),
+			generation: this._worktreeMetadataGeneration,
+		};
+		this._sessionStateCache.set(session, entry);
+		return entry;
 	}
 
 	private getWorktreeMetadataForSession(session: AgentSession): AgentSessionWorktreeMetadata | undefined {
@@ -407,23 +447,31 @@ export class AgentStatusService implements Disposable {
 	}
 
 	private maybeFireSessionsChanged(): void {
-		const serialized = this.getSerializedSessions();
-		// Change-detect on a key with the volatile timestamps coarsened to minute buckets —
-		// `lastActivity` moves on every provider tick, so comparing it raw defeats this gate and
-		// storms every webview with a full push every few seconds for as long as any session is
-		// live. Consumers render elapsed against local `now`, so minute-granularity refreshes are
-		// enough for drift; real changes (phase/status/membership/permission/worktree) still
-		// differ in the key and push immediately. The timestamps stay full-precision in the
-		// payload itself.
-		const stringified = JSON.stringify(serialized, (key, value: unknown) =>
-			(key === 'lastActivity' || key === 'phaseSince') && typeof value === 'string'
-				? `${Math.floor(Date.parse(value) / 60000)}`
-				: value,
-		);
-		if (stringified === this._lastSerialized) return;
+		// Compared PER SESSION rather than as one stringified snapshot: the memo hands back the same
+		// key instance for a session that didn't change, making the comparison a pointer check, so a
+		// long tail of terminal rows costs a lookup each instead of being re-stringified on every
+		// hook event. Only a session whose object identity changed pays a real `JSON.stringify`, and
+		// only its own (~1KB) worth. Session ORDER is deliberately not part of the comparison —
+		// consumers sort for themselves, so a reorder alone is not a change worth pushing.
+		const states: AgentSessionState[] = [];
+		const keys = new Map<string, string>();
+		let changed = false;
+		for (const session of this.sessions) {
+			const entry = this.getSessionStateEntry(session);
+			states.push(entry.state);
+			keys.set(session.id, entry.key);
+			if (!changed && this._lastSessionKeys.get(session.id) !== entry.key) {
+				changed = true;
+			}
+		}
+		// Catches removals (an addition already differs above, and a swap adds an unseen id).
+		if (!changed && keys.size !== this._lastSessionKeys.size) {
+			changed = true;
+		}
+		if (!changed) return;
 
-		this._lastSerialized = stringified;
-		this._onDidChangeSessions.fire(serialized);
+		this._lastSessionKeys = keys;
+		this._onDidChangeSessions.fire(states);
 	}
 
 	/** True iff at least one session has a `worktreePath` we haven't resolved metadata for yet.
@@ -599,6 +647,10 @@ export class AgentStatusService implements Disposable {
 				}
 
 				if (changed) {
+					// Worktree metadata is embedded in every serialized session, so a change here has to
+					// invalidate the per-session memo — otherwise a branch rename/checkout would never
+					// reach consumers, since the session objects themselves are untouched.
+					this._worktreeMetadataGeneration++;
 					this.maybeFireSessionsChanged();
 				}
 			} finally {
@@ -1026,6 +1078,20 @@ export class AgentStatusService implements Disposable {
 /** Field-by-field equality for the worktree metadata cache. Keeps the refresh's `changed` flag
  *  precise (and `maybeFireSerializedChange`'s JSON-diff downstream rare) without paying for
  *  per-worktree `JSON.stringify` round-trips on the host hot path. */
+/** `JSON.stringify` replacer for the change-detect key: coarsens the volatile timestamps to minute
+ *  buckets. `lastActivity` moves on every provider tick, so comparing it raw defeats the gate and
+ *  storms every webview with a full push every few seconds for as long as any session is live.
+ *  Consumers render elapsed against local `now`, so minute-granularity refreshes are enough for
+ *  drift; real changes (phase/status/membership/permission/worktree) still differ in the key and
+ *  push immediately. The timestamps stay full-precision in the payload itself.
+ *
+ *  Dates reach this already converted by `toJSON`, hence the `string` check. */
+function coarsenVolatileTimestamps(key: string, value: unknown): unknown {
+	return (key === 'lastActivity' || key === 'phaseSince') && typeof value === 'string'
+		? `${Math.floor(Date.parse(value) / 60000)}`
+		: value;
+}
+
 function isSameWorktreeMetadata(a: AgentSessionWorktreeMetadata | undefined, b: AgentSessionWorktreeMetadata): boolean {
 	if (a == null) return false;
 	if (a.name !== b.name || a.type !== b.type || a.isDefault !== b.isDefault || a.repoPath !== b.repoPath) {
