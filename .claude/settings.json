@@ -34,6 +34,12 @@
 						"command": "pnpm exec oxfmt \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0",
 						"timeout": 30,
 						"statusMessage": "Formatting code..."
+					},
+					{
+						"type": "command",
+						"command": "node .claude/hooks/css-template-guard.mts",
+						"timeout": 15,
+						"statusMessage": "Checking css`` templates..."
 					}
 				]
 			}
