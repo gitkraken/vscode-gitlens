@@ -2,6 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
+import type { GlExtensionCommands } from '../../../../../constants.commands.js';
 import {
 	getSubscriptionEntitlement,
 	getSubscriptionPlanName,
@@ -11,6 +12,10 @@ import { createCommandLink } from '../../../../../system/commands.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { focusableBaseStyles, focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { AIContextState } from '../../../shared/contexts/ai.js';
+import { aiContext } from '../../../shared/contexts/ai.js';
+import type { IntegrationsState } from '../../../shared/contexts/integrations.js';
+import { integrationsContext } from '../../../shared/contexts/integrations.js';
 import type { OnboardingState } from '../../../shared/contexts/onboarding.js';
 import { getActiveWalkthrough, onboardingContext } from '../../../shared/contexts/onboarding.js';
 import type { SubscriptionContextState } from '../../../shared/contexts/subscription.js';
@@ -18,9 +23,9 @@ import { subscriptionContext } from '../../../shared/contexts/subscription.js';
 import { accountRingStyles } from '../../shared/components/accountRing.css.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
 import { actionButton } from '../styles/graph.css.js';
-import type { AccountModalSection, ShowAccountModalEventDetail } from './gl-graph-account-modal.js';
 import '../../../shared/components/avatar/avatar.js';
 import '../../../shared/components/badges/badge.js';
+import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/progress-ring.js';
@@ -70,8 +75,8 @@ const accountButtonLabels: Record<AccountRingState, string> = {
 
 /**
  * Graph header account pill — collapses the old account bar down to an avatar. Hovering opens a rollup
- * popover (account summary + walkthrough progress + integration icons); clicking opens the full account
- * modal via `gl-show-account-modal` (handled by `gl-graph-app`).
+ * popover (account summary + walkthrough progress + integration icons); clicking navigates to the
+ * Account section of the GitLens Settings view.
  *
  * Consumes the shared subscription + onboarding contexts owned by `gl-graph-app`.
  */
@@ -289,6 +294,12 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 	@consume({ context: onboardingContext, subscribe: true })
 	private _onboarding?: OnboardingState;
 
+	@consume({ context: aiContext })
+	private _ai?: AIContextState;
+
+	@consume({ context: integrationsContext })
+	private _integrations?: IntegrationsState;
+
 	@query('gl-popover')
 	private _popover?: GlPopover;
 
@@ -321,20 +332,60 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 		return getSubscriptionPlanName(subscription.plan.actual.id);
 	}
 
+	/** Mirrors the chip's own skeleton guard: until the subscription resolves, every section renders its
+	 *  chip (which shows its own skeleton) rather than a Settings CTA. */
+	private get loaded(): boolean {
+		return this._subscription?.subscription.get() !== undefined;
+	}
+
+	private get hasAccount(): boolean {
+		return this._subscription?.subscription.get()?.account != null;
+	}
+
+	private get aiEnabled(): boolean {
+		const state = this._ai?.state.get();
+		return (state?.enabled ?? false) && (state?.orgEnabled ?? false);
+	}
+
+	/** Empty ⇒ render the "Set up AI" CTA instead of the AI chip. */
+	private get aiEmpty(): boolean {
+		if (!this.loaded) return false;
+
+		return !(this.aiEnabled && this._ai?.model.get() != null);
+	}
+
+	/** Empty ⇒ render the "Set up agents" CTA instead of the Agents chip. `ai.enabled` gates every signal
+	 *  here, per the decision that the Agents section rides on the AI toggle. */
+	private get agentsEmpty(): boolean {
+		if (!this.loaded) return false;
+
+		const state = this._ai?.state.get();
+		const mcpConnected = this.aiEnabled && Boolean(state?.mcp.settingEnabled) && Boolean(state?.mcp.installed);
+		const hooksConnected = this.aiEnabled && Boolean(state?.hooks.claude.installed);
+		const agentConnected = this.aiEnabled && state?.defaultAgent != null;
+		return !(mcpConnected || hooksConnected || agentConnected);
+	}
+
+	/** Empty ⇒ render the "Set up integrations" CTA instead of the Integrations chip. */
+	private get integrationsEmpty(): boolean {
+		if (!this.loaded) return false;
+
+		const integrations = this._integrations?.integrations.get() ?? [];
+		return !(this.hasAccount && integrations.some(i => i.connected));
+	}
+
 	override render(): unknown {
 		const avatar = this._subscription?.avatar.get();
 		const state = this.ringState;
 		const plan = state === 'trial' || state === 'paid' ? this.planLabel : undefined;
 
 		return html`<gl-popover placement="bottom-end" trigger="hover focus" ?arrow=${false} .distance=${0}>
-			<button
+			<a
 				class="action-button account-button"
 				slot="anchor"
-				type="button"
+				href=${createCommandLink('gitlens.showAccountView')}
 				data-entitlement=${state}
-				aria-haspopup="dialog"
 				aria-label=${plan != null ? `Account — GitLens ${plan}` : accountButtonLabels[state]}
-				@click=${this.onClick}
 			>
 				<gl-avatar .src=${avatar ?? undefined}><code-icon icon="gl-gitlens" size="14"></code-icon></gl-avatar>
 				${
@@ -343,27 +394,58 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 						: nothing
 				}
 				<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
-			</button>
+			</a>
 			<div slot="content" class="rollup">
 				<gl-account-chip display="panel"></gl-account-chip>
 				${this.renderWalkthrough()}
 				<hr />
 				<div class="rollup__section">
-					<p class="rollup__heading">AI / Agents</p>
-					<gl-integrations-chip
-						display="ai-icons"
-						@click=${() => this.onOpenModal('ai')}
-					></gl-integrations-chip>
+					<p class="rollup__heading">AI</p>
+					${
+						this.aiEmpty
+							? this.renderSetupCta('gitlens.showSettingsPage!ai', 'Set up AI')
+							: html`<gl-integrations-chip
+									display="ai-icons"
+									href=${createCommandLink('gitlens.showSettingsPage!ai')}
+								></gl-integrations-chip>`
+					}
+				</div>
+				<div class="rollup__section">
+					<p class="rollup__heading">Agents</p>
+					${
+						this.agentsEmpty
+							? this.renderSetupCta('gitlens.showSettingsPage!agents', 'Set up agents')
+							: html`<gl-integrations-chip
+									display="agent-icons"
+									href=${createCommandLink('gitlens.showSettingsPage!agents')}
+								></gl-integrations-chip>`
+					}
 				</div>
 				<div class="rollup__section">
 					<p class="rollup__heading">Integrations</p>
-					<gl-integrations-chip
-						display="icons"
-						@click=${() => this.onOpenModal('integrations')}
-					></gl-integrations-chip>
+					${
+						this.integrationsEmpty
+							? this.renderSetupCta('gitlens.showSettingsPage!integrations', 'Set up integrations')
+							: html`<gl-integrations-chip
+									display="icons"
+									href=${createCommandLink('gitlens.showSettingsPage!integrations')}
+								></gl-integrations-chip>`
+					}
 				</div>
 			</div>
 		</gl-popover>`;
+	}
+
+	/** Deep-links to the matching Settings section when a rollup section has nothing set up. */
+	private renderSetupCta(command: GlExtensionCommands, label: string): unknown {
+		return html`<gl-button
+			appearance="secondary"
+			full
+			density="compact"
+			href=${createCommandLink(command)}
+			aria-label=${label}
+			>${label}</gl-button
+		>`;
 	}
 
 	private renderWalkthrough(): unknown {
@@ -387,23 +469,5 @@ export class GlGraphAccountIndicator extends SignalWatcher(LitElement) {
 				></gl-progress-ring>
 				<span>${graph ? 'Graph' : 'GitLens'} Walkthrough ${progress.doneCount}/${progress.allCount}</span>
 			</a>`;
-	}
-
-	private onClick = (e: MouseEvent): void => {
-		e.preventDefault();
-		this.onOpenModal();
-	};
-
-	// Shared by the account button (no section) and the rollup chips (a section) — hides the rollup, then asks
-	// gl-graph-app to open the account modal, optionally focused on a section (see `onShowAccountModal` there).
-	private onOpenModal(focus?: AccountModalSection): void {
-		void this._popover?.hide();
-		this.dispatchEvent(
-			new CustomEvent<ShowAccountModalEventDetail>('gl-show-account-modal', {
-				detail: { focus: focus },
-				bubbles: true,
-				composed: true,
-			}),
-		);
 	}
 }

@@ -29,9 +29,14 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	@consume({ context: aiContext })
 	private _ai!: AIContextState;
 
-	/** `icons` renders the integration providers alone and `ai-icons` the AI/MCP/agent/hooks statuses alone,
-	 *  so a consumer can head them as separate sections; `chip` keeps both in one row. */
-	@property({ reflect: true }) display: 'chip' | 'panel' | 'icons' | 'ai-icons' = 'chip';
+	/** `icons` renders the integration providers alone; `ai-icons` the AI model status alone; `agent-icons`
+	 *  the MCP / Hooks / Default Agent statuses alone — so a consumer can head them as separate sections;
+	 *  `chip` keeps everything in one row. */
+	@property({ reflect: true }) display: 'chip' | 'panel' | 'icons' | 'ai-icons' | 'agent-icons' = 'chip';
+
+	/** When set, the `icons`/`ai-icons`/`agent-icons` chip renders as a command link (`<a>`) instead of a
+	 *  `<button>`, so clicking it navigates rather than emitting a click for the host to handle. */
+	@property() href?: string;
 
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -68,6 +73,14 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				appearance: none;
 				background: none;
 				border: none;
+			}
+
+			/* The command-link variant (href) must read like the button chip, not a text link — override
+			   linkBase's textLink color and hover underline. */
+			a.chip,
+			a.chip:hover {
+				color: inherit;
+				text-decoration: none;
 			}
 
 			.chip__label {
@@ -175,15 +188,15 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		}
 
 		if (this.display === 'icons') {
-			return html`<button id="chip" class="chip" type="button" aria-label="Integrations">
-				${this.renderIntegrationIcons()}
-			</button>`;
+			return this.renderIconChip('Integrations', this.renderIntegrationIcons());
 		}
 
 		if (this.display === 'ai-icons') {
-			return html`<button id="chip" class="chip" type="button" aria-label="AI and agents">
-				${this.renderAIIcons()}
-			</button>`;
+			return this.renderIconChip('AI', this.renderAIStatus());
+		}
+
+		if (this.display === 'agent-icons') {
+			return this.renderIconChip('Agents', this.renderAgentIcons());
 		}
 
 		if (this.display === 'panel') {
@@ -194,6 +207,16 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			<span slot="anchor" class="chip" tabindex="0">${this.renderIconRow()}</span>
 			<div slot="content" class="content">${this.renderPanelContent()}</div>
 		</gl-popover>`;
+	}
+
+	/** Icon-only chip: a command link when `href` is set (navigates on click), else a button whose click
+	 *  the host handles. Both keep `id="chip"` so `focus()`/delegatesFocus behave identically. */
+	private renderIconChip(ariaLabel: string, content: unknown): unknown {
+		if (this.href != null) {
+			return html`<a id="chip" class="chip" href=${this.href} aria-label=${ariaLabel}>${content}</a>`;
+		}
+
+		return html`<button id="chip" class="chip" type="button" aria-label=${ariaLabel}>${content}</button>`;
 	}
 
 	private renderIconRow(): unknown {
@@ -211,6 +234,10 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 	private renderAIIcons(): unknown {
 		return html`${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}`;
+	}
+
+	private renderAgentIcons(): unknown {
+		return html`${this.renderMcpStatus()}${this.renderAgentHooksStatus()}${this.renderDefaultAgentStatus()}`;
 	}
 
 	private renderPanelContent(): unknown {
@@ -263,6 +290,15 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 	private renderHooksStatus() {
 		if (!this.aiEnabled || !this.ai.hooks.canInstallClaudeHook) return nothing;
 		return html`<span class="integration status--disconnected" slot="anchor">
+			<code-icon icon="search-sparkle"></code-icon>
+		</span>`;
+	}
+
+	/** Persistent (always-rendered) hooks status for `agent-icons` — greyed when not installed, unlike
+	 *  `renderHooksStatus`, which only renders while installation is still available. */
+	private renderAgentHooksStatus() {
+		const installed = this.aiEnabled && this.ai.hooks.claude.installed;
+		return html`<span class="integration status--${installed ? 'connected' : 'disconnected'}" slot="anchor">
 			<code-icon icon="search-sparkle"></code-icon>
 		</span>`;
 	}
