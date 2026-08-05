@@ -29767,7 +29767,7 @@
 		"@eamodio/supertalk-core": "0.0.6",
 		"@eamodio/supertalk-signals": "0.0.6",
 		"@gitkraken/commit-graph": "workspace:*",
-		"@gitkraken/compose-tools": "0.8.0",
+		"@gitkraken/compose-tools": "0.8.1",
 		"@gitkraken/conflict-tools": "0.2.3",
 		"@gitkraken/provider-apis": "catalog:",
 		"@gitkraken/shared-tools": "0.2.0",
