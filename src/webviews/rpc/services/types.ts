@@ -368,6 +368,9 @@ export interface WipChange {
 	/** An automatic (AI) rebase session owns the paused rebase, so continuing should resume that run
 	 *  rather than issue a plain `--continue` */
 	aiRebaseActive?: boolean;
+	/** A continue/skip is still running. `<op> --continue` blocks for as long as git's commit-message tab
+	 *  stays open, so only the host knows when it ends — the bar can't time it. */
+	pausedOpContinuing?: boolean;
 }
 
 // ============================================================

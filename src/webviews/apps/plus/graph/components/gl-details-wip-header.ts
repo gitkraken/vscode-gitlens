@@ -421,6 +421,7 @@ export class GlDetailsWipHeader extends LitElement {
 				?ai-resolve=${this.aiEnabled}
 				?ai-resume=${this.aiEnabled}
 				?ai-active=${this.wip?.changes?.aiRebaseActive ?? false}
+				?continuing=${this.wip?.changes?.pausedOpContinuing ?? false}
 				?readonly=${this.activeMode != null}
 				.pausedOpStatus=${pausedOpStatus}
 			></gl-merge-rebase-status>

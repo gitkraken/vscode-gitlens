@@ -22,6 +22,7 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { Container } from '../../../container.js';
+import { isContinuingPausedOperation } from '../../../git/actions/pausedOperation.js';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getBranchRemote } from '../../../git/utils/-webview/branch.utils.js';
@@ -1198,6 +1199,10 @@ export class GraphWipService {
 						pausedOpStatus?.type === 'rebase' && this.container.autoRebase.getSession(repo.path) != null
 							? true
 							: undefined,
+					// Flipping this is also what gets the settle past the notification's content dedup: a
+					// continue that failed without moving the repo produces an otherwise identical payload.
+					pausedOpContinuing:
+						pausedOpStatus != null && isContinuingPausedOperation(repo.path) ? true : undefined,
 				},
 				repositoryCount: this.container.git.openRepositoryCount,
 				revision: revision,

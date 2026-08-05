@@ -68,6 +68,7 @@ import type { Container } from '../../../container.js';
 import type { FeaturePreview } from '../../../features.js';
 import { getFeaturePreviewStatus } from '../../../features.js';
 import { openCommitChanges, openCommitChangesWithWorking, undoCommit } from '../../../git/actions/commit.js';
+import { onDidChangeContinuingPausedOperation } from '../../../git/actions/pausedOperation.js';
 import * as RepoActions from '../../../git/actions/repository.js';
 import * as StashActions from '../../../git/actions/stash.js';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter.js';
@@ -561,6 +562,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// The bar's primary continue swaps between automatic/manual with the session
 			this.container.autoRebase.onDidChange(e => {
 				if (e.repoPath === this.repository?.path) {
+					void this._wip.notifyDidChangeWorkingTree();
+				}
+			}),
+			// A continue can block indefinitely on git's commit-message tab, so the bar's busy state comes
+			// from here rather than a timer that could only guess when the command ended
+			onDidChangeContinuingPausedOperation(repoPath => {
+				if (repoPath === this.repository?.path) {
 					void this._wip.notifyDidChangeWorkingTree();
 				}
 			}),
