@@ -99,6 +99,7 @@ function makePorts(repo: FakeRepo, overrides?: Partial<AutoRebaseLoopPorts>): Au
 			return Promise.resolve();
 		},
 		hasStagedChanges: () => Promise.resolve(false),
+		willCommitBeEmpty: () => Promise.resolve(false),
 		continueOperation: options => {
 			repo.continues.push(options ?? {});
 			if (repo.step < repo.total) {
@@ -453,6 +454,60 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.strictEqual(session.steps.length, 1);
 		assert.strictEqual(session.steps[0].kind, 'empty-skipped');
 		assert.strictEqual(attempts, 2);
+	});
+
+	test('records a dropped commit when git empties it silently and exits 0 (real git behavior)', async () => {
+		// A rebase `--continue` whose index matches HEAD drops the commit and reports success — no
+		// `emptyCommit` error is ever raised, so the emptiness has to be detected before continuing.
+		const repo = makeRepo({ 1: ['a.txt'] });
+		const session = makeSession();
+
+		const result = await run(session, makePorts(repo, { willCommitBeEmpty: () => Promise.resolve(true) }));
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(session.steps.length, 1);
+		assert.strictEqual(session.steps[0].kind, 'empty-skipped');
+		// Plain `--continue`, never `--skip`: a mis-detection must not discard real staged content.
+		assert.deepStrictEqual(repo.continues, [{}]);
+	});
+
+	test('records a dropped commit even when the continue reports a LATER step conflict', async () => {
+		// One `--continue` drives the whole rebase: this step's commit can be dropped as empty and the
+		// command still exit non-zero for a later step's conflict. The drop must not go unrecorded.
+		const repo = makeRepo({ 1: ['a.txt'], 3: ['a.txt'] }, 3);
+		const session = makeSession();
+
+		const ports = makePorts(repo, { willCommitBeEmpty: () => Promise.resolve(repo.step === 1) });
+		ports.continueOperation = () => {
+			repo.continues.push({});
+			if (repo.step === 1) {
+				repo.step = 3;
+				throw new PausedOperationContinueError({
+					reason: 'conflicts',
+					operation: makeStatus(3, 3),
+					skip: false,
+					gitCommand: { repoPath: '/repo', args: ['rebase', '--continue'] },
+				});
+			}
+
+			repo.done = true;
+			return Promise.resolve();
+		};
+
+		const result = await run(session, ports);
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(session.steps[0].kind, 'empty-skipped');
+	});
+
+	test('leaves a non-empty step recorded as resolved', async () => {
+		const repo = makeRepo({ 1: ['a.txt'] });
+		const session = makeSession();
+
+		const result = await run(session, makePorts(repo, { willCommitBeEmpty: () => Promise.resolve(false) }));
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(session.steps[0].kind, 'conflicts');
 	});
 
 	test('keeps going when a continue "fails" because a LATER step conflicted (real git behavior)', async () => {

@@ -45,6 +45,8 @@ export interface AutoRebaseLoopPorts {
 	/** Whether the index has staged changes — distinguishes a resolved-and-staged pause (continue)
 	 *  from a genuine non-conflict stop like an interactive `edit`/`break` (escalate) */
 	hasStagedChanges(): Promise<boolean>;
+	/** Whether the index matches HEAD, so the step's commit would be empty and git will drop it */
+	willCommitBeEmpty(): Promise<boolean>;
 	/** Continue (or skip) the paused operation headlessly; throws {@link PausedOperationContinueError} */
 	continueOperation(options?: { skip?: boolean }): Promise<void>;
 	/** Minimum confidence required to auto-apply — read per step so it's live-tunable mid-run */
@@ -104,6 +106,20 @@ export async function runAutoRebaseLoop(
 		stepNumber: number | undefined,
 		recordedStep?: AutoRebaseStepRecord,
 	): Promise<AutoRebaseLoopResult | undefined> => {
+		// A resolution that keeps the current side can leave the index matching HEAD. Git then drops the
+		// commit and still reports success (`--continue` exits 0, "Successfully rebased"), so this is the
+		// only moment the drop is observable. Probe rather than skip: `--continue` commits real content if
+		// this is ever wrong, where a `--skip` would discard it.
+		const willBeEmpty = recordedStep != null && (await ports.willCommitBeEmpty());
+		// Only once the operation has actually moved past this step is the drop a fact rather than a
+		// prediction. Idempotent, since the `emptyCommit` path below records the same thing itself.
+		const recordEmptied = (): void => {
+			if (!willBeEmpty || recordedStep == null || recordedStep.kind === 'empty-skipped') return;
+
+			recordedStep.kind = 'empty-skipped';
+			onDidChange();
+		};
+
 		try {
 			await ports.continueOperation();
 		} catch (ex) {
@@ -135,6 +151,8 @@ export async function runAutoRebaseLoop(
 					return undefined;
 				case 'conflicts':
 				case 'unmergedFiles':
+					// The operation advanced and stopped again further along, so this step is behind us.
+					recordEmptied();
 					return undefined;
 				default:
 					return escalate({
@@ -144,6 +162,10 @@ export async function runAutoRebaseLoop(
 					});
 			}
 		}
+
+		// The continue succeeded, so the step is behind us either way.
+		recordEmptied();
+
 		return undefined;
 	};
 

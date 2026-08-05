@@ -1022,6 +1022,8 @@ interface AutoRebaseStepResolvedEvent {
 interface AutoRebaseCompletedEvent extends AutoRebaseLifecycleEvent {
 	/** Total conflicted files resolved across the run */
 	'files.count': number;
+	/** Steps whose commit git dropped for being empty — the resolution left nothing to commit */
+	'steps.emptied.count': number;
 	/** What happened to the autostash at the end of the run */
 	autostash: 'none' | 'reapplied' | 'left-in-stash';
 }

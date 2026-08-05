@@ -444,6 +444,9 @@ export class AutoRebaseService implements Disposable {
 			applyResolutions: resolutions => integration.applyBatch({ svc: svc, resolutions: resolutions }),
 			stageFiles: paths => svc.staging!.stageFiles(paths),
 			hasStagedChanges: async () => (await svc.status?.getStatus?.())?.files.some(f => f.staged) ?? false,
+			// `git diff --quiet --staged` — index against HEAD, which is what git itself commits.
+			willCommitBeEmpty: async () =>
+				!(await svc.status.hasWorkingChanges({ staged: true, unstaged: false, untracked: false })),
 			continueOperation: options => svc.pausedOps!.continuePausedOperation({ ...options, messageEditor: 'true' }),
 			getConfidenceThreshold: () => configuration.get('ai.autoRebase.confidenceThreshold'),
 			delay: wait,
@@ -600,6 +603,7 @@ export class AutoRebaseService implements Disposable {
 			{
 				...this.lifecycleData(session),
 				'files.count': session.steps.reduce((sum, s) => sum + s.files.length, 0),
+				'steps.emptied.count': session.steps.reduce((n, s) => (s.kind === 'empty-skipped' ? n + 1 : n), 0),
 				autostash: autostash,
 			},
 			active.source,
