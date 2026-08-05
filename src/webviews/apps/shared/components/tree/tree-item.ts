@@ -20,6 +20,10 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean })
 	branch = false;
 
+	/** Whether this row has any actions. Drives whether the action container is rendered at all. */
+	@property({ type: Boolean, attribute: 'has-actions' })
+	hasActions = false;
+
 	@property({ type: Boolean })
 	expanded = true;
 
@@ -283,6 +287,13 @@ export class GlTreeItem extends GlElement {
 	}
 
 	private renderActions() {
+		// Rendered only when the row has actions. An always-present `action-nav` is empty but not free:
+		// it carries a margin, and the CSS meant to keep it out of layout can't reliably detect an empty
+		// slot — so on hover the container would take space and shove the decorations left. Rows with no
+		// right-side decorations never showed it, which is why this only ever looked broken on rows that
+		// have them.
+		if (!this.hasActions) return nothing;
+
 		return html`<action-nav class="actions" part="actions"><slot name="actions"></slot></action-nav>`;
 	}
 

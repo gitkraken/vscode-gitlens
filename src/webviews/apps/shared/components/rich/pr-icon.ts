@@ -2,6 +2,8 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { prIconStyles } from './pr.css.js';
+import type { AutolinkIconStatus } from './utils.js';
+import { getAutolinkIcon } from './utils.js';
 import '../code-icon.js';
 import '../overlays/tooltip.js';
 
@@ -19,18 +21,11 @@ export class PrIcon extends LitElement {
 	prId?: string;
 
 	get icon(): string {
-		let prIcon = this.draft ? 'git-pull-request-draft' : 'git-pull-request';
-		if (this.state) {
-			switch (this.state) {
-				case 'merged':
-					prIcon = 'git-merge';
-					break;
-				case 'closed':
-					prIcon = 'git-pull-request-closed';
-					break;
-			}
-		}
-		return prIcon;
+		// Stateless is NOT the resolver's job: its `status` defaults to 'merged', so handing it an absent
+		// state would draw a merge glyph for a pull request whose state we simply don't know yet.
+		if (!this.state) return this.draft ? 'git-pull-request-draft' : 'git-pull-request';
+
+		return getAutolinkIcon('pr', this.state as AutolinkIconStatus, this.draft).icon;
 	}
 
 	get classes(): string {

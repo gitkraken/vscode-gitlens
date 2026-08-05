@@ -133,6 +133,16 @@ export interface TreeItemDecorationWip extends TreeItemDecorationBase {
 	hasChanges: boolean;
 }
 
+/** A row's position within an ordered stack. Rendered as a glyph plus `layer/size`: the glyph names the
+ *  concept, which the fraction alone can't — `2/3` beside a title reads as a checklist or a review count. */
+export interface TreeItemDecorationStack extends TreeItemDecorationBase {
+	type: 'stack';
+	/** 1-based, where 1 is closest to the stack's base. */
+	layer: number;
+	size: number;
+	tooltip?: string;
+}
+
 export type TreeItemDecoration =
 	| TreeItemDecorationText
 	| TreeItemDecorationIcon
@@ -140,7 +150,8 @@ export type TreeItemDecoration =
 	| TreeItemDecorationTracking
 	| TreeItemDecorationConflict
 	| TreeItemDecorationAgent
-	| TreeItemDecorationWip;
+	| TreeItemDecorationWip
+	| TreeItemDecorationStack;
 
 interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;
@@ -149,7 +160,8 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 		| { type: 'status'; name: GitFileStatus }
 		| { type: 'branch'; status?: string; worktree?: boolean; hasChanges?: boolean }
 		| { type: 'file-icon'; filename: string }
-		| { type: 'agent'; phase: AgentSessionPhase };
+		| { type: 'agent'; phase: AgentSessionPhase }
+		| { type: 'pull-request'; state?: string; draft?: boolean };
 	description?: string;
 	context?: Context;
 	actions?: TreeItemAction[];

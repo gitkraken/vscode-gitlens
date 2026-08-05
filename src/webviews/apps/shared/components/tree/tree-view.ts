@@ -16,6 +16,8 @@ import { VirtualCollectionController } from '../../controllers/virtual-collectio
 import type { VirtualScrollController } from '../../controllers/virtual-scroll.js';
 import { parseFilterTerms } from '../../utils/filter-match.js';
 import { GlElement } from '../element.js';
+import type { AutolinkIconStatus } from '../rich/utils.js';
+import { getAutolinkIcon } from '../rich/utils.js';
 import type { GlGitStatus } from '../status/git-status.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
 import type {
@@ -220,6 +222,40 @@ export class GlTreeView extends GlElement {
 				font-weight: 500;
 				border: var(--gl-border-width) solid;
 				border-radius: 0.9rem;
+			}
+
+			/* Set in a wash of the row's own foreground rather than a fixed tint: the badge marks
+	   membership, not urgency, so it should read as a shape without competing with the state
+	   glyph or the attention indicator. Tabular figures so 2/3 and 2/10 align down a column. */
+			.stack-count {
+				display: inline-flex;
+				gap: 0.3rem;
+				align-items: center;
+				height: 1.5rem;
+				padding: 0 var(--gl-space-4);
+				font-size: var(--gl-font-sm);
+				font-variant-numeric: tabular-nums;
+				border-radius: 0.8rem;
+				background: color-mix(in srgb, transparent 88%, var(--color-foreground));
+			}
+
+			/* Pull-request state, in GitLens's contributed theme colors so a retheme carries. Draft has
+	   no color of its own — it borrows the description foreground, which is what marks it as the
+	   not-yet-real one of the four. */
+			code-icon.tree-icon--pr-opened {
+				color: var(--vscode-gitlens-openPullRequestIconColor);
+			}
+
+			code-icon.tree-icon--pr-merged {
+				color: var(--vscode-gitlens-mergedPullRequestIconColor);
+			}
+
+			code-icon.tree-icon--pr-closed {
+				color: var(--vscode-gitlens-closedPullRequestIconColor);
+			}
+
+			code-icon.tree-icon--pr-draft {
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Phase-tinted agent icon — pulls from the shared --gl-agent-* palette defined in
@@ -679,7 +715,8 @@ export class GlTreeView extends GlElement {
 			| { type: 'status'; name: GlGitStatus['status'] }
 			| { type: 'branch'; status?: string; worktree?: boolean; hasChanges?: boolean }
 			| { type: 'file-icon'; filename: string }
-			| { type: 'agent'; phase: AgentSessionPhase },
+			| { type: 'agent'; phase: AgentSessionPhase }
+			| { type: 'pull-request'; state?: string; draft?: boolean },
 	) {
 		if (icon == null) return nothing;
 
@@ -725,6 +762,18 @@ export class GlTreeView extends GlElement {
 				modifier=${ifDefined(modifier)}
 				class="tree-icon-agent tree-icon-agent--${icon.phase}"
 			></code-icon>`;
+		}
+
+		if (icon.type === 'pull-request') {
+			// Glyph + tone from the shared resolver, so this row can't drift from the pull-request icons the
+			// rich components and the graph's ref pills draw. Rendered as a bare `code-icon` rather than
+			// through `pr-icon`, which wraps itself in a `gl-tooltip` that would nest inside the row's own.
+			const { icon: glyph, modifier } = getAutolinkIcon(
+				'pr',
+				(icon.state?.toLowerCase() as AutolinkIconStatus) ?? 'opened',
+				icon.draft,
+			);
+			return html`<code-icon slot="icon" icon=${glyph} class="tree-icon-pr tree-icon--${modifier}"></code-icon>`;
 		}
 
 		return nothing;
@@ -855,6 +904,16 @@ export class GlTreeView extends GlElement {
 				</gl-tooltip>`;
 			}
 
+			if (decoration.type === 'stack') {
+				return html`<span
+					slot=${slot}
+					part=${slot}
+					class="stack-count"
+					aria-label=${ifDefined(decoration.tooltip ?? decoration.label)}
+					><code-icon icon="layers" size="12"></code-icon>${decoration.layer}/${decoration.size}</span
+				>`;
+			}
+
 			// TODO: implement badge and indicator decorations
 
 			return undefined;
@@ -946,6 +1005,7 @@ export class GlTreeView extends GlElement {
 			.level=${model.level}
 			.size=${model.size}
 			.position=${model.position}
+			.hasActions=${(model.actions?.length ?? 0) > 0}
 			.checkable=${model.checkable}
 			.checked=${model.checked ?? false}
 			.controlledCheck=${model.controlledCheck ?? false}

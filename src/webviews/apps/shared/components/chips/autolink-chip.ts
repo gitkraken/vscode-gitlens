@@ -46,6 +46,11 @@ export class GlAutolinkChip extends LitElement {
 	@property()
 	date?: number | string | Date;
 
+	/** Names what {@link date} is, forwarded to `<issue-pull-request>` — without it a caller passing an
+	 *  `updatedDate` gets the state word as the label ("opened 2 hours ago"), naming the wrong event. */
+	@property({ attribute: 'date-label' })
+	dateLabel?: string;
+
 	@property()
 	dateFormat?: string;
 
@@ -106,6 +111,7 @@ export class GlAutolinkChip extends LitElement {
 					url="${this.url}"
 					identifier=${this.identifier}
 					status=${this.status}
+					.dateLabel=${this.dateLabel}
 					.date=${this.date}
 					.dateFormat=${this.dateFormat}
 					.dateStyle=${this.dateStyle}
