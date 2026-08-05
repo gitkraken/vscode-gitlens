@@ -2,7 +2,13 @@ import * as assert from 'assert';
 import type { GlCommands } from '../../../../../../constants.commands.js';
 import { sidebarItemActions } from '../../../../../plus/graph/graphSidebarActionTelemetry.js';
 import type { GraphSidebarBranch } from '../../../../../plus/graph/protocol.js';
-import { focusRefActionId, getBranchLeafActions } from '../branchActions.utils.js';
+import {
+	branchTreeIcon,
+	focusRefActionId,
+	getBranchLeafActions,
+	remoteProviderFolderIcon,
+	remoteProviderIconsByName,
+} from '../branchActions.utils.js';
 
 function makeBranch(overrides: Partial<GraphSidebarBranch>): GraphSidebarBranch {
 	return {
@@ -59,5 +65,52 @@ suite('branchActions.utils', () => {
 					`add it to sidebarItemActions.branch (graphSidebarActionTelemetry.ts)`,
 			);
 		}
+	});
+
+	test('branchTreeIcon brands remote branches and leaves local ones on the branch glyph', () => {
+		assert.deepStrictEqual(branchTreeIcon(makeBranch({ status: 'ahead', worktree: true })), {
+			type: 'branch',
+			status: 'ahead',
+			worktree: true,
+		});
+
+		assert.strictEqual(
+			branchTreeIcon(makeBranch({ name: 'origin/test', remote: true, providerIcon: 'github' })),
+			'gl-provider-github',
+		);
+		// No provider, or one the icon font doesn't cover, falls back to the cloud codicon
+		assert.strictEqual(branchTreeIcon(makeBranch({ name: 'origin/test', remote: true })), 'cloud');
+		assert.strictEqual(
+			branchTreeIcon(makeBranch({ name: 'origin/test', remote: true, providerIcon: 'remote' })),
+			'cloud',
+		);
+	});
+
+	test('remoteProviderIconsByName keys the group icon off the remote segment', () => {
+		const icons = remoteProviderIconsByName([
+			makeBranch({ name: 'feature/local', providerIcon: 'github' }),
+			makeBranch({ name: 'origin/feature/test', remote: true, providerIcon: 'github' }),
+			makeBranch({ name: 'upstream/feature/test', remote: true }),
+		]);
+
+		// Local branches carry a providerIcon too (their upstream's), but they never fold under a remote node
+		assert.deepStrictEqual(
+			[...icons],
+			[
+				['origin', 'gl-provider-github'],
+				['upstream', 'cloud'],
+			],
+		);
+	});
+
+	test('remoteProviderFolderIcon brands only the node standing in for the remote', () => {
+		const icons = new Map([['origin', 'gl-provider-github']]);
+
+		assert.strictEqual(remoteProviderFolderIcon(icons, 'origin'), 'gl-provider-github');
+		// A compacted node fronting the remote is named for the whole run it swallowed
+		assert.strictEqual(remoteProviderFolderIcon(icons, 'origin/feature'), 'gl-provider-github');
+		// A folder nested under the remote is named for itself alone, and stays a folder
+		assert.strictEqual(remoteProviderFolderIcon(icons, 'feature'), undefined);
+		assert.strictEqual(remoteProviderFolderIcon(icons, ''), undefined);
 	});
 });

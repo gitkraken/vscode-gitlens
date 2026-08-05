@@ -28,6 +28,7 @@ import type { GlTreeView } from '../../../shared/components/tree/tree-view.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { ResourceStatus } from '../../../shared/state/resource.js';
 import { graphStateContext } from '../context.js';
+import { branchTreeIcon, remoteProviderFolderIcon, remoteProviderIconsByName } from '../sidebar/branchActions.utils.js';
 import {
 	getPullRequestNumberFromQuery,
 	parsePullRequestFilterTerms,
@@ -1134,7 +1135,7 @@ function branchToLeaf(
 		level: level,
 		label: label,
 		filterText: filterText,
-		icon: { type: 'branch', status: b.status, worktree: b.worktree },
+		icon: branchTreeIcon(b),
 		checkable: false,
 		// A remote branch has no upstream of its own — the flag is what makes `getBranchId` build a
 		// `remotes/` ref downstream; without it the scope resolves against a `heads/` ref that matches nothing
@@ -1161,13 +1162,14 @@ function buildBranchTreeModel(
 		true,
 		() => true,
 	);
-	return hierarchyToTreeModel(hierarchy, 1, scopedBranchName);
+	return hierarchyToTreeModel(hierarchy, 1, scopedBranchName, remoteProviderIconsByName(branches));
 }
 
 function hierarchyToTreeModel(
 	node: HierarchicalItem<GraphSidebarBranch>,
 	level: number,
 	scopedBranchName: string | undefined,
+	remoteIcons: Map<string, string>,
 ): TreeModel<BranchTreeContext>[] {
 	const models: TreeModel<BranchTreeContext>[] = [];
 	if (node.children != null) {
@@ -1185,14 +1187,14 @@ function hierarchyToTreeModel(
 					),
 				);
 			} else if (child.children != null && child.children.size > 0) {
-				const childModels = hierarchyToTreeModel(child, level + 1, scopedBranchName);
+				const childModels = hierarchyToTreeModel(child, level + 1, scopedBranchName, remoteIcons);
 				models.push({
 					branch: true,
 					expanded: false,
 					path: `folder:${child.relativePath}`,
 					level: level,
+					icon: remoteProviderFolderIcon(remoteIcons, child.name) ?? 'folder',
 					label: child.name,
-					icon: 'folder',
 					checkable: false,
 					context: ['', undefined],
 					children: childModels,

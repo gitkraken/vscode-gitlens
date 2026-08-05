@@ -61,7 +61,14 @@ import {
 } from '../utils/overviewActions.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import type { FocusRefActionArgs } from './branchActions.utils.js';
-import { createFocusRefAction, focusRefActionId, getBranchLeafActions } from './branchActions.utils.js';
+import {
+	branchTreeIcon,
+	createFocusRefAction,
+	focusRefActionId,
+	getBranchLeafActions,
+	remoteProviderFolderIcon,
+	remoteProviderIconsByName,
+} from './branchActions.utils.js';
 import { getPullRequestLeafActions } from './pullRequestActions.utils.js';
 import {
 	getPullRequestNumberFromQuery,
@@ -1164,7 +1171,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const compact = data.compact !== false;
 
 		switch (data.panel) {
-			case 'branches':
+			case 'branches': {
+				const remoteIcons = useTree ? remoteProviderIconsByName(data.items) : undefined;
 				return this.buildItemTree(
 					data.items,
 					useTree,
@@ -1176,7 +1184,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 							? [b.name]
 							: b.name.split('/'),
 					(b, isTree) => this.toBranchLeaf(b, isTree),
+					1,
+					remoteIcons != null ? name => remoteProviderFolderIcon(remoteIcons, name) : undefined,
 				);
+			}
 			case 'pullRequests':
 				return withSearchedPullRequest(data.items, this.prSearchResult).map(pr =>
 					leafToTreeModel(this.toPullRequestLeaf(pr), `pr:${pr.number}`, 1),
@@ -1247,7 +1258,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			label: isTree ? (b.name.split('/').pop() ?? b.name) : b.name,
 			filterText: isTree ? b.name : undefined,
 			tooltip: branchTooltip(b, this.dateFormat),
-			icon: { type: 'branch', status: b.status, worktree: b.worktree },
+			icon: branchTreeIcon(b),
 			description: b.date != null ? fromNow(b.date) : undefined,
 			context: [b.sha, undefined, undefined, b.name] as SidebarItemContext,
 			// Pin before check so the checkmark closes the row — it's the more permanent of the two states,
@@ -1791,6 +1802,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		splitPath: (item: T) => string[],
 		toLeaf: (item: T, isTree: boolean) => LeafProps,
 		baseLevel: number = 1,
+		folderIcon?: (name: string) => string | undefined,
 	): TreeModel<SidebarItemContext>[] {
 		if (items.length === 0) return [];
 
@@ -1808,13 +1820,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			compact,
 			() => true,
 		);
-		return this.hierarchyToTreeModel(hierarchy, baseLevel, item => toLeaf(item, true));
+		return this.hierarchyToTreeModel(hierarchy, baseLevel, item => toLeaf(item, true), folderIcon);
 	}
 
 	private hierarchyToTreeModel<T>(
 		node: HierarchicalItem<T>,
 		level: number,
 		toLeaf: (item: T) => LeafProps,
+		folderIcon?: (name: string) => string | undefined,
 	): TreeModel<SidebarItemContext>[] {
 		const models: TreeModel<SidebarItemContext>[] = [];
 
@@ -1825,14 +1838,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					leaf.label = child.name;
 					models.push(leafToTreeModel(leaf, child.relativePath, level));
 				} else if (child.children != null && child.children.size > 0) {
-					const childModels = this.hierarchyToTreeModel(child, level + 1, toLeaf);
+					const childModels = this.hierarchyToTreeModel(child, level + 1, toLeaf, folderIcon);
 					models.push({
 						branch: true,
 						expanded: false,
 						path: `folder:${child.relativePath}`,
 						level: level,
 						label: child.name,
-						icon: 'folder',
+						icon: folderIcon?.(child.name) ?? 'folder',
 						checkable: false,
 						context: [undefined],
 						children: childModels,

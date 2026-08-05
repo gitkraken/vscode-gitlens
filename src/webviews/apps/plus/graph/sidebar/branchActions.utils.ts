@@ -1,5 +1,6 @@
 import type { GraphSidebarBranch } from '../../../../plus/graph/protocol.js';
-import type { TreeItemAction } from '../../../shared/components/tree/base.js';
+import type { TreeItemAction, TreeModel } from '../../../shared/components/tree/base.js';
+import { providerIconName } from '../../../shared/git-utils.js';
 
 /** Sentinel `TreeItemAction.action` handled inside the webview instead of dispatched to the host —
  *  focusing (scoping) the graph is view state, so it never needs to leave the webview. */
@@ -24,6 +25,47 @@ export interface FocusRefActionArgs {
  */
 export function createFocusRefAction(label: string, args: FocusRefActionArgs): TreeItemAction {
 	return { icon: 'target', label: label, action: focusRefActionId, arguments: [args] };
+}
+
+/**
+ * Icon for a branch row, shared by the branches sidebar panel and the scope picker.
+ *
+ * A remote branch takes its remote's provider glyph (cloud when unrecognized) — the branch glyph's
+ * status/worktree shape has nothing to say about a branch that lives on the server.
+ */
+export function branchTreeIcon(b: GraphSidebarBranch): NonNullable<TreeModel['icon']> {
+	if (b.remote) return providerIconName(b.providerIcon);
+
+	return { type: 'branch', status: b.status, worktree: b.worktree };
+}
+
+/**
+ * Maps each remote name to its provider glyph, for the group nodes remote branches fold under in tree
+ * layout. Derived from the branches themselves — the panels' branch payload carries no remote list.
+ */
+export function remoteProviderIconsByName(branches: GraphSidebarBranch[]): Map<string, string> {
+	const icons = new Map<string, string>();
+	for (const b of branches) {
+		if (!b.remote) continue;
+
+		const remoteName = b.name.split('/', 1)[0];
+		if (remoteName && !icons.has(remoteName)) {
+			icons.set(remoteName, providerIconName(b.providerIcon));
+		}
+	}
+	return icons;
+}
+
+/**
+ * Provider glyph for a branch group node, or `undefined` when it isn't a remote's node and should stay a
+ * folder.
+ *
+ * Takes the node's own name, not its path: a compacted node fronting the remote is named `origin/feature`,
+ * while a folder nested under the remote is named just `feature` — and only the former stands in for the
+ * remote itself.
+ */
+export function remoteProviderFolderIcon(icons: Map<string, string>, name: string): string | undefined {
+	return icons.get(name.split('/', 1)[0]);
 }
 
 /**

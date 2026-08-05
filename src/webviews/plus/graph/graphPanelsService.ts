@@ -428,11 +428,11 @@ export class GraphPanelsService {
 		}
 	}
 
-	private getProviderByRemote(graph: GitGraph): Map<string, string> {
-		const providerByRemote = new Map<string, string>();
+	private getProviderByRemote(graph: GitGraph): Map<string, { name: string; icon: string }> {
+		const providerByRemote = new Map<string, { name: string; icon: string }>();
 		for (const r of graph.remotes.values()) {
 			if (r.provider?.name) {
-				providerByRemote.set(r.name, r.provider.name);
+				providerByRemote.set(r.name, { name: r.provider.name, icon: r.provider.icon });
 			}
 		}
 		return providerByRemote;
@@ -466,7 +466,13 @@ export class GraphPanelsService {
 			const isCheckedOut = b.worktree != null && b.worktree !== false;
 			const hasWorktree = isCheckedOut && !b.worktree.isDefault;
 			const worktree = graph.worktreesByBranch?.get(b.id);
-			const remoteName = b.upstream ? getRemoteNameFromBranchName(b.upstream.name) : undefined;
+			// A remote branch names its own remote; a local one only reaches a provider through its upstream
+			const remoteName = b.remote
+				? b.remoteName
+				: b.upstream
+					? getRemoteNameFromBranchName(b.upstream.name)
+					: undefined;
+			const provider = remoteName ? providerByRemote.get(remoteName) : undefined;
 			return {
 				name: b.name,
 				sha: b.sha,
@@ -480,7 +486,8 @@ export class GraphPanelsService {
 				checkedOut: isCheckedOut || undefined,
 				disposition: b.disposition || undefined,
 				date: b.date?.getTime(),
-				providerName: remoteName ? providerByRemote.get(remoteName) : undefined,
+				providerName: provider?.name,
+				providerIcon: provider?.icon,
 				starred: b.starred || undefined,
 				pinned: (pinnedRefId != null && b.id === pinnedRefId) || undefined,
 				context: {
@@ -1312,7 +1319,7 @@ export class GraphPanelsService {
 				status: w.branch?.status,
 				upstream: w.branch?.upstream?.name,
 				tracking: w.branch?.upstream?.state,
-				providerName: remoteName ? providerByRemote.get(remoteName) : undefined,
+				providerName: remoteName ? providerByRemote.get(remoteName)?.name : undefined,
 				pinned: (pinnedRefId != null && w.branch?.id === pinnedRefId) || undefined,
 				context: context,
 			};

@@ -1310,6 +1310,9 @@ export interface GraphSidebarBranch {
 	disposition?: string;
 	date?: number;
 	providerName?: string;
+	/** Hosting-provider icon key (e.g. `github`) of the branch's remote — its own for a remote branch, its
+	 *  upstream's for a local one. Rendered as `gl-provider-<icon>`; see `providerIconName`. */
+	providerIcon?: string;
 	starred?: boolean;
 	/** Pinned to the graph's edge. Mirrors the `+pinned` flag on `context.webviewItem`, which drives the menu
 	 *  but can't be read for rendering. */
