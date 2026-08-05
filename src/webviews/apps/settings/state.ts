@@ -14,7 +14,7 @@ import type { WalkthroughProgressPayload } from '../../rpc/walkthroughService.js
 import type { SettingsScope } from '../../settings/settingsService.js';
 import type { HostStorage } from '../shared/host/storage.js';
 import { createStateGroup } from '../shared/state/signals.js';
-import { settingsCategories } from './categories/index.js';
+import { defaultSettingsCategory, defaultSettingsCategoryId, settingsCategories } from './categories/index.js';
 import type { SettingsSearchMatch } from './model.js';
 import { getPath, searchSettings } from './model.js';
 
@@ -33,9 +33,8 @@ export function createSettingsState(storage?: HostStorage) {
 
 	// Persisted UI — `retainContextWhenHidden` is off, so a tab-away rebuilds the
 	// webview; everything a user would notice resetting mid-session lives here
-	// Defaults to the first category in nav order (the Setup launchpad) rather than a fixed id,
-	// so the initial selection always tracks the top of the rail if the nav order changes
-	const selectedCategoryId = persisted<string>('selectedCategoryId', settingsCategories[0].id);
+	// Defaults to the Get Started launchpad, not the top of the nav rail
+	const selectedCategoryId = persisted<string>('selectedCategoryId', defaultSettingsCategoryId);
 	/** Nav rail share of the split panel, as a percentage (0–100) — wide enough that
 	 * the longest category names (with a Pro badge + count) don't clip by default */
 	const navPosition = persisted<number>('navPosition', 23);
@@ -86,7 +85,7 @@ export function createSettingsState(storage?: HostStorage) {
 
 	const selectedCategory = computed(() => {
 		const id = selectedCategoryId.get();
-		return settingsCategories.find(c => c.id === id) ?? settingsCategories[0];
+		return settingsCategories.find(c => c.id === id) ?? defaultSettingsCategory;
 	});
 
 	/**

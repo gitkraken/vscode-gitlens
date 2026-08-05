@@ -1,6 +1,12 @@
 import * as assert from 'assert';
 import { settingsPageAnchorCommands } from '../../../../settings/settingsPageAnchors.js';
-import { anchorToCategory, droppedAnchorQueries, settingsCategories } from '../index.js';
+import {
+	anchorToCategory,
+	defaultSettingsCategory,
+	defaultSettingsCategoryId,
+	droppedAnchorQueries,
+	settingsCategories,
+} from '../index.js';
 
 /**
  * Drift guard for the settings taxonomy v2 curation (#5392 Doc A): every
@@ -76,12 +82,22 @@ suite('settings taxonomy — anchor coverage', () => {
 		assert.strictEqual(groups[0], 'Setup', 'the Setup launchpad must be the first-rendered group');
 	});
 
-	test('the Account section is the first category and default landing, with Setup leading its group', () => {
+	test('the Account section is the first category, with Setup leading its group', () => {
 		assert.strictEqual(settingsCategories[0].id, 'account', 'Account must be the first category');
 		assert.strictEqual(settingsCategories[0].group, 'Setup');
 		// The Get Started launchpad stays within the Setup group, right after Account
 		assert.strictEqual(settingsCategories[1].id, 'setup', 'Get Started must follow Account');
 		assert.strictEqual(settingsCategories[1].group, 'Setup');
+	});
+
+	test('the Get Started launchpad is the default landing, not the top of the rail', () => {
+		assert.strictEqual(defaultSettingsCategoryId, 'setup');
+		assert.strictEqual(defaultSettingsCategory.id, 'setup', 'the default id must resolve to a real category');
+		assert.notStrictEqual(
+			defaultSettingsCategoryId,
+			settingsCategories[0].id,
+			'the default landing is deliberately not the first category',
+		);
 	});
 
 	test('every kept category id is unique', () => {

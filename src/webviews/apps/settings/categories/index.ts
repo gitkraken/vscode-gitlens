@@ -9,7 +9,6 @@ import { viewsCategories } from './views.js';
 
 /**
  * All categories, in nav order (group order: Setup, Integrations, Editor, Views, General).
- * Setup is first so it's the default landing (state defaults to `settingsCategories[0]`).
  * `annotationsCategories` + `editorCategories` are both `group: 'Editor'` — two
  * source files for one merged nav group (former "Annotations" + "In-editor").
  */
@@ -21,6 +20,17 @@ export const settingsCategories: readonly SettingsCategory[] = [
 	...editorCategories,
 	...generalCategories,
 ];
+
+/**
+ * Category the app lands on when there's no persisted selection — the Get Started
+ * launchpad, deliberately not the top of the rail (Account), so a first open leads
+ * with setup rather than billing.
+ */
+export const defaultSettingsCategoryId = 'setup';
+
+/** The `defaultSettingsCategoryId` category, or the top of the rail if it ever goes missing. */
+export const defaultSettingsCategory: SettingsCategory =
+	settingsCategories.find(c => c.id === defaultSettingsCategoryId) ?? settingsCategories[0];
 
 /**
  * Legacy anchors that don't match a category id 1:1.
