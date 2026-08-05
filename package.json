@@ -12797,6 +12797,20 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f152"
 				}
+			},
+			"gitlens-checkbox-unchecked": {
+				"description": "checkbox-unchecked icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f153"
+				}
+			},
+			"gitlens-checkbox-checked": {
+				"description": "checkbox-checked icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f154"
+				}
 			}
 		},
 		"menus": {

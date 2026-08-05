@@ -82,5 +82,7 @@
   "merge": 61775,
   "remote": 61776,
   "remote-filled": 61777,
-  "continue-sparkle": 61778
+  "continue-sparkle": 61778,
+  "checkbox-unchecked": 61779,
+  "checkbox-checked": 61780
 }

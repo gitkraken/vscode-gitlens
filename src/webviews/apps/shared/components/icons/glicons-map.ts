@@ -88,4 +88,6 @@ export const iconMap = Object.freeze({
 	'remote': '\\f150',
 	'remote-filled': '\\f151',
 	'continue-sparkle': '\\f152',
+	'checkbox-unchecked': '\\f153',
+	'checkbox-checked': '\\f154',
 });
