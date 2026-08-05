@@ -10,7 +10,6 @@ import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import { GitUri } from '../../git/gitUri.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { relativeDir } from '../../system/-webview/path.js';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { View } from '../viewBase.js';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -140,7 +139,6 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 			repoPath: this.uri.repoPath!,
 
 			fromComparison: true,
-			range: editorLineToDiffRange(0),
 			showOptions: { preserveFocus: true, preview: true },
 		});
 	}
