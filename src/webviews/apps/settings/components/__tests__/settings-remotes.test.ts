@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import type { RemotesUrlsConfig } from '../../../../../config.js';
 import type { RemoteRuleDraft } from '../../actions.js';
-import { findEntryIndex, isEntryLive, isPersistable, projectEntry, urlsComplete } from '../settings-remotes.js';
+import { findEntryIndex, isEntryLive, isPersistable, projectEntry, urlsComplete } from '../settings-remotes.utils.js';
 
 /**
  * The Custom Remotes editor (#5392 Doc C) mirrors the autolinks editor's
