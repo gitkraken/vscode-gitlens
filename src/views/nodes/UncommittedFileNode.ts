@@ -11,7 +11,6 @@ import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPreviou
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import { GitUri } from '../../git/gitUri.js';
 import { createCommand } from '../../system/-webview/command.js';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { getFileTooltipMarkdown } from './abstract/viewFileNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -111,7 +110,7 @@ export class UncommittedFileNode extends ViewRefFileNode<'uncommitted-file', Vie
 			undefined,
 			{
 				uri: GitUri.fromFile(this.file, this.repoPath),
-				range: editorLineToDiffRange(0),
+				range: null,
 				showOptions: {
 					preserveFocus: true,
 					preview: true,

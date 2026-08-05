@@ -1,4 +1,4 @@
-import type { Range } from 'vscode';
+import type { Range, TextEditor } from 'vscode';
 import { Selection } from 'vscode';
 import type { LineRange } from '@gitlens/git/models/lineRange.js';
 import type { DiffRange } from '@gitlens/git/providers/types.js';
@@ -31,6 +31,19 @@ export function editorLineToDiffRange(editorLine: number | undefined): DiffRange
 	}
 
 	return { startLine: editorLine + 1, startCharacter: 1, endLine: editorLine + 1, endCharacter: 1, active: 'start' };
+}
+
+/**
+ * Resolves the range a diff command should open with: `undefined` infers it from the editor's selection,
+ * while `null` (or no editor) means no selection, so the diff editor reveals the first change
+ */
+export function resolveDiffRange(
+	range: DiffRange | null | undefined,
+	editor: TextEditor | undefined,
+): DiffRange | null {
+	if (range !== undefined) return range;
+
+	return editor != null ? selectionToDiffRange(editor.selection) : null;
 }
 
 export function selectionToDiffRange(selection: Selection | undefined): DiffRange {

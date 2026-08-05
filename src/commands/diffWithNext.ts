@@ -8,7 +8,7 @@ import { GitUri } from '../git/gitUri.js';
 import { getCommitGitUri } from '../git/utils/-webview/commit.utils.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { command, executeCommand } from '../system/-webview/command.js';
-import { selectionToDiffRange } from '../system/-webview/vscode/range.js';
+import { resolveDiffRange } from '../system/-webview/vscode/range.js';
 import { getTabUris, getVisibleTabs } from '../system/-webview/vscode/tabs.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
@@ -17,7 +17,8 @@ import type { DiffWithCommandArgs } from './diffWith.js';
 export interface DiffWithNextCommandArgs {
 	commit?: GitCommit;
 
-	range?: DiffRange;
+	/** Use `null` to explicitly open without a selection, so the diff editor reveals the first change */
+	range?: DiffRange | null;
 	showOptions?: TextDocumentShowOptions;
 }
 
@@ -32,7 +33,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 		if (uri == null) return;
 
 		args = { ...args };
-		args.range ??= selectionToDiffRange(editor?.selection);
+		args.range = resolveDiffRange(args.range, editor);
 
 		let isInLeftSideOfDiffEditor = false;
 

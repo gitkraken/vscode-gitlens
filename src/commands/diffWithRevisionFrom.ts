@@ -11,7 +11,7 @@ import { showNoRepositoryWarningMessage } from '../messages.js';
 import { showReferencePicker } from '../quickpicks/referencePicker.js';
 import { showStashPicker } from '../quickpicks/stashPicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
-import { selectionToDiffRange } from '../system/-webview/vscode/range.js';
+import { resolveDiffRange } from '../system/-webview/vscode/range.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { DiffWithCommandArgs } from './diffWith.js';
@@ -19,7 +19,8 @@ import type { DiffWithCommandArgs } from './diffWith.js';
 export interface DiffWithRevisionFromCommandArgs {
 	stash?: boolean;
 
-	range?: DiffRange;
+	/** Use `null` to explicitly open without a selection, so the diff editor reveals the first change */
+	range?: DiffRange | null;
 	showOptions?: TextDocumentShowOptions;
 }
 
@@ -41,7 +42,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		}
 
 		args = { ...args };
-		args.range ??= selectionToDiffRange(editor?.selection);
+		args.range = resolveDiffRange(args.range, editor);
 
 		const svc = this.container.git.getRepositoryService(gitUri.repoPath);
 		const path = svc.getRelativePath(gitUri, gitUri.repoPath);

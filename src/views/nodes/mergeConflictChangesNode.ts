@@ -12,7 +12,6 @@ import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import { GlyphChars } from '../../constants.js';
 import { GitUri } from '../../git/gitUri.js';
 import { createCommand, createCoreCommand } from '../../system/-webview/command.js';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import type { LineHistoryView } from '../lineHistoryView.js';
 import type { ViewsWithCommits } from '../viewBase.js';
@@ -115,7 +114,7 @@ export class MergeConflictChangesNode extends ViewNode<
 				})`,
 			},
 			repoPath: this.status.repoPath,
-			range: editorLineToDiffRange(0),
+			range: null,
 			showOptions: { preserveFocus: true, preview: true },
 		});
 	}
