@@ -410,6 +410,9 @@
 			"label": "Install GitKraken MCP Server",
 			"commandPalette": "!gitlens:untrusted && !gitlens:gk:cli:installed"
 		},
+		"gitlens.ai.mcp.installForAgent": {
+			"label": "Install GitKraken MCP for Agent"
+		},
 		"gitlens.ai.mcp.reinstall": {
 			"label": "Reinstall GitKraken MCP Server",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
@@ -7078,6 +7081,18 @@
 				]
 			}
 		},
+		"gitlens.showSettingsPage!account": {
+			"label": "Open Account Settings",
+			"icon": "$(gear)"
+		},
+		"gitlens.showSettingsPage!agents": {
+			"label": "Open Agents Settings",
+			"icon": "$(gear)"
+		},
+		"gitlens.showSettingsPage!ai": {
+			"label": "Open AI Settings",
+			"icon": "$(gear)"
+		},
 		"gitlens.showSettingsPage!autolinks": {
 			"label": "Configure Autolinks",
 			"icon": "$(gear)",
@@ -7314,6 +7329,10 @@
 					}
 				]
 			}
+		},
+		"gitlens.showSettingsPage!integrations": {
+			"label": "Open Integrations Settings",
+			"icon": "$(gear)"
 		},
 		"gitlens.showSettingsPage!line-history-view": {
 			"label": "Open View Settings",

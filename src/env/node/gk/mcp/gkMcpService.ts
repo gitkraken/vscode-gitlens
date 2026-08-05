@@ -662,6 +662,9 @@ export class GkMcpService implements GkMcpRegistrar {
 			registerCommand('gitlens.ai.mcp.selectAgents', (src?: Source) =>
 				this.handleSelectAgentsCommand(src?.source),
 			),
+			registerCommand('gitlens.ai.mcp.installForAgent', (args?: { agentId?: string; source?: Sources }) =>
+				this.handleInstallForAgentCommand(args),
+			),
 		];
 	}
 
@@ -749,6 +752,59 @@ export class GkMcpService implements GkMcpRegistrar {
 		}
 	}
 
+	@gate()
+	@debug({ exit: true })
+	private async handleInstallForAgentCommand(args?: { agentId?: string; source?: Sources }): Promise<void> {
+		const scope = getScopedLogger();
+		const commandSource = args?.source ?? 'commandPalette';
+		const agentId = args?.agentId;
+		if (agentId == null) return;
+
+		const name = agentId.startsWith('cli:') ? agentId.slice(4) : agentId;
+
+		try {
+			const { cliPath, status } = await this.gkCli.install(false, args?.source);
+			if (status !== 'completed' || cliPath == null) {
+				void window.showWarningMessage(
+					'GitKraken MCP requires the CLI to be installed first. Please run "Install GitKraken MCP Server" first.',
+				);
+				return;
+			}
+
+			const agent = (await this.container.agents.getAll()).find(a => a.name === name);
+			if (agent == null) {
+				void window.showWarningMessage(`Agent '${name}' is no longer available.`);
+				return;
+			}
+
+			const result = await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: `Installing GitKraken MCP for ${agent.displayName}...`,
+					cancellable: false,
+				},
+				() => this.installMcpForAgent(agent, cliPath),
+			);
+
+			// Refresh the cached agent list so the Agents settings table reflects the new MCP state
+			this.container.agents.invalidateCache();
+
+			if (result.status === 'userAction') {
+				void openUrl(result.url);
+			} else if (result.status === 'failed') {
+				void window.showErrorMessage(
+					`Failed to install GitKraken MCP for ${agent.displayName}: ${result.error}`,
+				);
+			} else {
+				void window.showInformationMessage(`GitKraken MCP installed for ${agent.displayName}.`);
+			}
+		} catch (ex) {
+			scope?.error(ex, 'Error installing MCP for agent');
+			const normalized = this.normalizeAndTrackSetupError(ex, commandSource);
+			this.showSetupError(normalized);
+		}
+	}
+
 	/** Shared core: shows agent picker, installs for selected agents, reports results. */
 	private async pickAndInstallAgents(cliPath: string, source: Sources, showEmptyState = false): Promise<void> {
 		const agents = await showMcpAgentPicker(this.container, { showEmptyState: showEmptyState });
@@ -798,6 +854,39 @@ export class GkMcpService implements GkMcpRegistrar {
 		this.showAgentInstallResults(results);
 	}
 
+	private async installMcpForAgent(
+		agent: GkAgent,
+		cliPath: string,
+	): Promise<
+		| { agent: GkAgent; status: 'succeeded' }
+		| { agent: GkAgent; status: 'failed'; error: string }
+		| { agent: GkAgent; status: 'userAction'; url: string }
+	> {
+		const scope = getScopedLogger();
+		try {
+			Logger.debug(scope, `Installing MCP for agent '${agent.name}'...`);
+			const output = await this.gkCli.run(
+				['mcp', 'install', agent.name, '--source=gitlens', `--scheme=${env.uriScheme}`],
+				{ cwd: cliPath },
+			);
+
+			const classification = classifyMcpInstallOutput(output);
+			switch (classification.kind) {
+				case 'succeeded':
+					return { agent: agent, status: 'succeeded' };
+				case 'unsupported':
+					return { agent: agent, status: 'failed', error: 'Not a supported MCP client' };
+				case 'userAction':
+					return { agent: agent, status: 'userAction', url: classification.url };
+				case 'unexpected':
+					return { agent: agent, status: 'failed', error: `Unexpected output: ${classification.output}` };
+			}
+		} catch (ex) {
+			Logger.error(ex, scope, `MCP install failed for agent '${agent.name}'`);
+			return { agent: agent, status: 'failed', error: ex instanceof Error ? ex.message : 'Unknown error' };
+		}
+	}
+
 	@debug()
 	private async installMCPForAgents(
 		agents: GkAgent[],
@@ -813,50 +902,7 @@ export class GkMcpService implements GkMcpRegistrar {
 		const requiresUserAction: { agent: string; url: string }[] = [];
 
 		// Every inner promise catches its own errors, so all resolve — Promise.all is safe here
-		const results = await Promise.all(
-			agents.map(async agent => {
-				try {
-					Logger.debug(scope, `Installing MCP for agent '${agent.name}'...`);
-					const output = await this.gkCli.run(
-						['mcp', 'install', agent.name, '--source=gitlens', `--scheme=${env.uriScheme}`],
-						{ cwd: cliPath },
-					);
-
-					const classification = classifyMcpInstallOutput(output);
-					switch (classification.kind) {
-						case 'succeeded':
-							Logger.debug(scope, `MCP install succeeded for agent '${agent.name}'`);
-							return { agent: agent, status: 'succeeded' as const };
-						case 'unsupported':
-							Logger.warn(scope, `MCP install failed for agent '${agent.name}': not a supported client`);
-							return { agent: agent, status: 'failed' as const, error: 'Not a supported MCP client' };
-						case 'userAction':
-							Logger.debug(
-								scope,
-								`MCP install for agent '${agent.name}' requires user action: ${classification.url}`,
-							);
-							return { agent: agent, status: 'userAction' as const, url: classification.url };
-						case 'unexpected':
-							Logger.warn(
-								scope,
-								`MCP install failed for agent '${agent.name}': unexpected output: ${classification.output}`,
-							);
-							return {
-								agent: agent,
-								status: 'failed' as const,
-								error: `Unexpected output: ${classification.output}`,
-							};
-					}
-				} catch (ex) {
-					Logger.error(ex, scope, `MCP install failed for agent '${agent.name}'`);
-					return {
-						agent: agent,
-						status: 'failed' as const,
-						error: ex instanceof Error ? ex.message : 'Unknown error',
-					};
-				}
-			}),
-		);
+		const results = await Promise.all(agents.map(agent => this.installMcpForAgent(agent, cliPath)));
 
 		for (const result of results) {
 			switch (result.status) {

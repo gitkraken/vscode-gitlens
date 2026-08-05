@@ -1202,9 +1202,14 @@ export type ContributedKeybindingCommands =
  */
 export type ContributedOrphansOrInternalCommands =
 	| 'gitlens.ai.autoRebase.undo'
+	| 'gitlens.ai.mcp.installForAgent'
 	| 'gitlens.graph.commitViaSCM'
 	| 'gitlens.graph.pushWithForce'
 	| 'gitlens.openFolderHistoryInGraph'
 	| 'gitlens.openIssueOnRemote'
 	| 'gitlens.plus.cloudIntegrations.connect'
+	| 'gitlens.showSettingsPage!account'
+	| 'gitlens.showSettingsPage!agents'
+	| 'gitlens.showSettingsPage!ai'
+	| 'gitlens.showSettingsPage!integrations'
 	| 'gitlens.toggleMaximizedGraph';

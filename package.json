@@ -6899,6 +6899,10 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.mcp.installForAgent",
+				"title": "Install GitKraken MCP for Agent"
+			},
+			{
 				"command": "gitlens.ai.mcp.reinstall",
 				"title": "Reinstall GitKraken MCP Server",
 				"category": "GitLens"
@@ -9338,6 +9342,21 @@
 				"icon": "$(gear)"
 			},
 			{
+				"command": "gitlens.showSettingsPage!account",
+				"title": "Open Account Settings",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage!agents",
+				"title": "Open Agents Settings",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage!ai",
+				"title": "Open AI Settings",
+				"icon": "$(gear)"
+			},
+			{
 				"command": "gitlens.showSettingsPage!autolinks",
 				"title": "Configure Autolinks",
 				"category": "GitLens",
@@ -9377,6 +9396,11 @@
 			{
 				"command": "gitlens.showSettingsPage!file-history-view",
 				"title": "Open View Settings",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage!integrations",
+				"title": "Open Integrations Settings",
 				"icon": "$(gear)"
 			},
 			{
@@ -12956,6 +12980,10 @@
 					"when": "!gitlens:untrusted && !gitlens:gk:cli:installed"
 				},
 				{
+					"command": "gitlens.ai.mcp.installForAgent",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.ai.mcp.reinstall",
 					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
 				},
@@ -14840,6 +14868,18 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.showSettingsPage!account",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage!agents",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage!ai",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.showSettingsPage!branches-view",
 					"when": "false"
 				},
@@ -14861,6 +14901,10 @@
 				},
 				{
 					"command": "gitlens.showSettingsPage!file-history-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage!integrations",
 					"when": "false"
 				},
 				{
