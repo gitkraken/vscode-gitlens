@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { applyResolutions, defaultVerifier, extractConflict, resolveConflict } from '@gitkraken/conflict-tools';
 import { CancellationTokenSource } from 'vscode';
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { AIChatMessage, AIChatMessageRole, AIProviderResponse } from '@gitlens/ai/models/provider.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
@@ -35,6 +36,9 @@ export interface ResolveSingleArgs {
 	/** Session-scoped conversation ID forwarded with every AI request so the backend charges its
 	 *  flat per-feature fee once per resolution session instead of once per request. */
 	conversationId?: string;
+	/** Model resolved up front by the caller. Passing it keeps `sendRequest` from resolving one lazily,
+	 *  which can open the model picker mid-request — see {@link ResolveAllParallelArgs.model}. */
+	model?: AIModel;
 }
 
 export interface ExtractArgs {
@@ -64,6 +68,10 @@ export interface ResolveAllParallelArgs {
 	/** Session-scoped conversation ID forwarded with every AI request so the backend charges its
 	 *  flat per-feature fee once per resolution session instead of once per request. */
 	conversationId?: string;
+	/** Model resolved up front by the caller. Without it `sendRequest` resolves one per request, and a
+	 *  non-silent resolve can show the model picker — so files resolving in parallel would each race to
+	 *  open a picker VS Code can only show one of, cancelling the rest as "the AI couldn't resolve". */
+	model?: AIModel;
 }
 
 /** Default max in-flight AI resolutions for the parallel batch path — balances throughput against
@@ -91,7 +99,7 @@ export class ConflictToolsIntegration {
 
 	async resolveSingle(args: ResolveSingleArgs, telemetrySource: Source): Promise<Resolution> {
 		const git = createConflictGitPort(args.svc);
-		const model = createAiModelPort(this.container, telemetrySource, args.conversationId);
+		const model = createAiModelPort(this.container, telemetrySource, args.conversationId, args.model);
 		return resolveConflict(args.conflict, args.context ?? {}, {
 			git: git,
 			model: model,
@@ -120,7 +128,7 @@ export class ConflictToolsIntegration {
 	 */
 	async resolveAllParallel(args: ResolveAllParallelArgs, telemetrySource: Source): Promise<StepResult> {
 		const git = createConflictGitPort(args.svc);
-		const model = createAiModelPort(this.container, telemetrySource, args.conversationId);
+		const model = createAiModelPort(this.container, telemetrySource, args.conversationId, args.model);
 		const entries = [...args.entries];
 		const resolutions: Resolution[] = [];
 		const errors: { filePath: string; error: Error }[] = [];
@@ -375,7 +383,12 @@ function createConflictGitPort(
 	};
 }
 
-function createAiModelPort(container: Container, source: Source, conversationId?: string): ConflictModelPort {
+function createAiModelPort(
+	container: Container,
+	source: Source,
+	conversationId?: string,
+	resolvedModel?: AIModel,
+): ConflictModelPort {
 	return {
 		generate: async (params: ConflictModelParams): Promise<ConflictModelResult> => {
 			const cancellationSource = new CancellationTokenSource();
@@ -430,7 +443,7 @@ function createAiModelPort(container: Container, source: Source, conversationId?
 
 				const result = await container.ai.sendRequest(
 					'conflict-resolution',
-					undefined,
+					resolvedModel,
 					// biome-ignore lint/suspicious/noExplicitAny: AIRequestProvider telemetry type is deeply private; we supply the minimum shape
 					provider as any,
 					source,

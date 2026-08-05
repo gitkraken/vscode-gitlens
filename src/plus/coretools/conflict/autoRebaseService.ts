@@ -1,5 +1,6 @@
 import type { Disposable, Event } from 'vscode';
 import { CancellationTokenSource, EventEmitter } from 'vscode';
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import { PausedOperationAbortError } from '@gitlens/git/errors.js';
 import { uuid } from '@gitlens/utils/crypto.js';
 import { wait } from '@gitlens/utils/promise.js';
@@ -96,7 +97,7 @@ export class AutoRebaseService implements Disposable {
 	 * an operation already in progress, …).
 	 */
 	async start(svc: GitRepositoryService, options: AutoRebaseStartOptions): Promise<AutoRebaseSession> {
-		const integration = await this.ensureAvailable(svc);
+		const { integration, model } = await this.ensureAvailable(svc, options.source);
 
 		const existing = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
 		if (existing != null) {
@@ -150,7 +151,7 @@ export class AutoRebaseService implements Disposable {
 			if (!result.conflicted) {
 				await this.finalize(svc, active);
 			} else {
-				await this.runLoop(svc, active, integration, options.source);
+				await this.runLoop(svc, active, integration, options.source, model);
 			}
 		} catch (ex) {
 			this.fail(active, ex);
@@ -160,7 +161,7 @@ export class AutoRebaseService implements Disposable {
 
 	/** Takes over an existing paused rebase and automates its remaining steps. */
 	async takeover(svc: GitRepositoryService, source: Source): Promise<AutoRebaseSession> {
-		const integration = await this.ensureAvailable(svc);
+		const { integration, model } = await this.ensureAvailable(svc, source);
 
 		const status = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
 		if (status?.type !== 'rebase') {
@@ -175,7 +176,7 @@ export class AutoRebaseService implements Disposable {
 		// takeover session, so the end-of-run summary spans the whole rebase.
 		const existing = this._sessions.get(svc.path);
 		if (existing?.session.phase === 'escalated') {
-			return this.resumeEscalatedSession(svc, existing, integration, source);
+			return this.resumeEscalatedSession(svc, existing, integration, source, model);
 		}
 
 		// The rebase we're taking over may have already autostashed before we arrived — record whether
@@ -209,7 +210,7 @@ export class AutoRebaseService implements Disposable {
 		const active = this.trackSession(session, source);
 
 		try {
-			await this.runLoop(svc, active, integration, source);
+			await this.runLoop(svc, active, integration, source, model);
 		} catch (ex) {
 			this.fail(active, ex);
 		}
@@ -228,6 +229,7 @@ export class AutoRebaseService implements Disposable {
 		active: ActiveAutoRebase,
 		integration: ConflictToolsIntegration,
 		source: Source,
+		model: AIModel,
 	): Promise<AutoRebaseSession> {
 		const { session } = active;
 
@@ -244,7 +246,7 @@ export class AutoRebaseService implements Disposable {
 		this.fireChange(session);
 
 		try {
-			await this.runLoop(svc, active, integration, source);
+			await this.runLoop(svc, active, integration, source, model);
 		} catch (ex) {
 			this.fail(active, ex);
 		}
@@ -422,6 +424,7 @@ export class AutoRebaseService implements Disposable {
 		active: ActiveAutoRebase,
 		integration: ConflictToolsIntegration,
 		source: Source,
+		model: AIModel,
 	): Promise<void> {
 		const signal = toAbortSignal(active.cts.token)!;
 		const ports: AutoRebaseLoopPorts = {
@@ -438,6 +441,8 @@ export class AutoRebaseService implements Disposable {
 						signal: signal,
 						onProgress: args.onProgress,
 						conversationId: active.session.id,
+						// Resolved pre-flight, so no request can stop to ask for one mid-run.
+						model: model,
 					},
 					{ source: source.source, detail: 'autoRebase' },
 				),
@@ -687,7 +692,10 @@ export class AutoRebaseService implements Disposable {
 		);
 	}
 
-	private async ensureAvailable(svc: GitRepositoryService): Promise<ConflictToolsIntegration> {
+	private async ensureAvailable(
+		svc: GitRepositoryService,
+		source: Source,
+	): Promise<{ integration: ConflictToolsIntegration; model: AIModel }> {
 		if (!this.container.ai.allowed) {
 			throw new Error('AI features are disabled.');
 		}
@@ -702,7 +710,18 @@ export class AutoRebaseService implements Disposable {
 			throw new Error('An automatic rebase is already running for this repository.');
 		}
 
-		return integration;
+		// Resolve the model BEFORE anything starts. Left to `sendRequest`, this resolves lazily inside the
+		// run — the picker (or a sign-in/API-key prompt) then opens behind a progress panel already claiming
+		// "Analyzing <file>…", which is indistinguishable from a stall. Answering it here means the run
+		// either starts with a model in hand or never starts at all, and the branch is untouched either way.
+		const model = await this.container.ai.getModel({ scope: 'resolve' }, source);
+		if (model == null) {
+			// Dismissing the picker is a refusal to start, handled like the other pre-flight refusals: the
+			// caller surfaces this message and the repository is never touched.
+			throw new Error('Automatic rebase needs an AI model — none was selected.');
+		}
+
+		return { integration: integration, model: model };
 	}
 
 	private getIntegration(): Promise<ConflictToolsIntegration | undefined> {
