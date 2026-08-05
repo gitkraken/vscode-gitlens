@@ -1,13 +1,15 @@
-import { window } from 'vscode';
+import { EventEmitter, Uri, window } from 'vscode';
 import { PausedOperationAbortError, PausedOperationContinueError } from '@gitlens/git/errors.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
+import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils.js';
 import { executeCommand } from '../../system/-webview/command.js';
+import { isDescendant } from '../../system/-webview/path.js';
 import type { GitRepositoryService } from '../gitRepositoryService.js';
 import { openRebaseEditor } from '../utils/-webview/rebase.utils.js';
 
@@ -22,12 +24,26 @@ export async function abortPausedOperation(svc: GitRepositoryService, options?: 
 	}
 }
 
+/** Repos with a continue/skip in flight. `<op> --continue` can block indefinitely — git opens
+ *  `COMMIT_EDITMSG` and waits for the tab to be closed — and the git runner dedups the still-running
+ *  command by args, so a second invocation would silently ride the first and appear to do nothing. */
+const continuingRepos = new Set<string>();
+
+const _onDidChangeContinuing = new EventEmitter<string>();
+/** Fires with the repo path whenever a continue/skip starts or settles. */
+export const onDidChangeContinuingPausedOperation = _onDidChangeContinuing.event;
+
+/** Whether a continue/skip is still running for `repoPath` — the paused-op bar's busy state. */
+export function isContinuingPausedOperation(repoPath: string): boolean {
+	return continuingRepos.has(repoPath);
+}
+
 export async function continuePausedOperation(
 	container: Container,
 	svc: GitRepositoryService,
 	source?: Source,
 ): Promise<void> {
-	return continuePausedOperationCore(container, svc, undefined, source);
+	return runContinue(container, svc, undefined, source);
 }
 
 export async function skipPausedOperation(
@@ -35,7 +51,70 @@ export async function skipPausedOperation(
 	svc: GitRepositoryService,
 	source?: Source,
 ): Promise<void> {
-	return continuePausedOperationCore(container, svc, { skip: true }, source);
+	return runContinue(container, svc, { skip: true }, source);
+}
+
+/** Guards the user-initiated entry points so a repeat click reports the wait instead of vanishing into
+ *  the runner's dedup. The inner retries (`allowEmpty`/`skip` after the empty-commit prompt) run under
+ *  the same flag — they're the same continue, still in flight. */
+async function runContinue(
+	container: Container,
+	svc: GitRepositoryService,
+	options?: { skip?: boolean },
+	source?: Source,
+): Promise<void> {
+	if (continuingRepos.has(svc.path)) {
+		void showAlreadyContinuing(svc);
+		return;
+	}
+
+	continuingRepos.add(svc.path);
+	_onDidChangeContinuing.fire(svc.path);
+	try {
+		await continuePausedOperationCore(container, svc, options, source);
+	} finally {
+		continuingRepos.delete(svc.path);
+		_onDidChangeContinuing.fire(svc.path);
+	}
+}
+
+/** The open commit-message document git is blocked on — `<gitdir>/COMMIT_EDITMSG` for this repo. */
+function findCommitMessageUri(repoPath: string): Uri | undefined {
+	for (const group of window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			const input: unknown = tab.input;
+			if (input == null || typeof input !== 'object' || !('uri' in input)) continue;
+
+			const { uri } = input;
+			if (!(uri instanceof Uri) || !uri.path.endsWith('COMMIT_EDITMSG')) continue;
+			if (isDescendant(uri, repoPath)) return uri;
+		}
+	}
+
+	return undefined;
+}
+
+async function showAlreadyContinuing(svc: GitRepositoryService): Promise<void> {
+	const status = await svc.pausedOps?.getPausedOperationStatus?.();
+	const name = (status != null ? pausedOperationStatusStringsByType[status.type].prose : 'operation').toLowerCase();
+
+	if (findCommitMessageUri(svc.path) == null) {
+		void window.showInformationMessage(`The ${name} is already continuing — waiting for it to finish.`);
+		return;
+	}
+
+	const showItem = { title: 'Show Commit Message' };
+	const result = await window.showInformationMessage(
+		`The ${name} is waiting for you to save and close the commit message before it can finish.`,
+		showItem,
+	);
+	if (result !== showItem) return;
+
+	// Re-find it: the user may have closed it while the notification was up, which unblocks git anyway.
+	const uri = findCommitMessageUri(svc.path);
+	if (uri != null) {
+		void window.showTextDocument(uri, { preview: false });
+	}
 }
 
 async function continuePausedOperationCore(

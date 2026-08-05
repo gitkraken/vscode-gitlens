@@ -533,7 +533,9 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 		const args = [status.type, options?.quit ? '--quit' : '--abort'];
 
 		try {
-			await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
+			// Unbounded like the operations it undoes — an abort of a large rebase can outrun the default
+			// command timeout, and being SIGTERM'd partway through would leave the repo mid-abort.
+			await this.git.run({ cwd: repoPath, errors: 'throw', timeout: 0 }, ...args);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
@@ -613,6 +615,10 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 					errors: 'throw',
 					configs: configs,
 					env: env,
+					// A `--continue` that opens the commit-message editor blocks for as long as the user leaves
+					// that tab open, which is unbounded — the default `advanced.git.timeout` would SIGTERM it
+					// mid-operation. The start paths (merge/rebase/revert) opt out for the same reason.
+					timeout: 0,
 					// The runner dedups in-flight commands by args only — it ignores per-call `configs`/`env`.
 					// A headless continue (with `GIT_EDITOR`) and a plain `--continue` would therefore collapse
 					// into one execution, so the plain one could silently run headless (auto-accepting a commit

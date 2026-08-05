@@ -257,22 +257,22 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Object })
 	pausedOpStatus?: GitPausedOperationStatus;
 
-	/** Set when Continue is clicked; the command runs out of band, so a fresh `pausedOpStatus` clears it. */
+	/** The host reports a continue/skip still running for this repo. `<op> --continue` blocks for as long
+	 *  as git's commit-message tab stays open — unbounded — so only the host can say when it ends; a
+	 *  timer here could only guess, and guessing wrong re-enables an action whose click can do nothing.
+	 *  Hosts that don't report it leave the busy state to the fresh-status reset below. */
+	@property({ type: Boolean, attribute: 'continuing' })
+	continuing = false;
+
+	/** Set when Continue is clicked, so the action goes busy before the host's first update lands. */
 	@state()
 	private _continuing = false;
 
-	/** A continue can fail without moving the repo (an empty commit the user then cancels out of,
-	 *  unstaged changes, unmerged files), and a host that re-sends an unchanged `pausedOpStatus` by
-	 *  reference won't register as a change either — so the fresh-status reset alone can strand the
-	 *  primary action in a disabled spinner with nothing else to click. Restore it after a wait long
-	 *  enough that no ordinary continue trips it.
-	 *
-	 *  Note this is only a backstop: measured live, the reset almost always comes from the status
-	 *  instead — even a continue still blocked on the commit-message editor churns `COMMIT_EDITMSG`
-	 *  and the index, which lands a fresh status and clears the busy state early. So the spinner is
-	 *  not a reliable "still running" indicator; re-clicking is harmless (the runner dedups the
-	 *  in-flight command), but the bar can't currently distinguish waiting from finished. */
-	private static readonly continuingWatchdogMs = 30000;
+	/** Last-resort backstop for hosts that report neither `continuing` nor a fresh `pausedOpStatus` after a
+	 *  continue settles — without it the action could strand disabled with nothing left to click. Long
+	 *  enough that it can't cut short a real wait on the commit-message tab, and it never overrides a host
+	 *  that says the command is still running. */
+	private static readonly continuingBackstopMs = 300000;
 	private _continuingTimer: ReturnType<typeof setTimeout> | undefined;
 
 	override disconnectedCallback(): void {
@@ -281,7 +281,10 @@ export class GlMergeConflictWarning extends LitElement {
 	}
 
 	protected override willUpdate(changedProperties: PropertyValues<this>): void {
-		if (changedProperties.has('pausedOpStatus')) {
+		// Drop the optimistic state once the host reports the command settled — including a continue that
+		// failed without moving the repo, so the action can't strand disabled. Hosts that don't report
+		// `continuing` at all fall back to a fresh status as the settle signal.
+		if (!this.continuing && (changedProperties.has('continuing') || changedProperties.has('pausedOpStatus'))) {
 			this.clearContinuing();
 		}
 
@@ -292,6 +295,11 @@ export class GlMergeConflictWarning extends LitElement {
 		clearTimeout(this._continuingTimer);
 		this._continuingTimer = undefined;
 		this._continuing = false;
+	}
+
+	/** Busy while either the click's optimistic state or the host's in-flight report holds. */
+	private get isContinuing(): boolean {
+		return this.continuing || this._continuing;
 	}
 
 	private get onSkipUrl() {
@@ -453,13 +461,18 @@ export class GlMergeConflictWarning extends LitElement {
 		// swaps that anchor for a `<button>`, which discards keyboard focus. So the repeat activation is
 		// cancelled here instead: `disabled` stops the pointer, and Enter on a focused link fires a click
 		// we can preventDefault.
-		if (this._continuing) {
+		if (this.isContinuing) {
 			e.preventDefault();
 			return;
 		}
 
 		this._continuing = true;
-		this._continuingTimer = setTimeout(() => this.clearContinuing(), GlMergeConflictWarning.continuingWatchdogMs);
+		this._continuingTimer = setTimeout(() => {
+			// A host reporting an in-flight command outranks the backstop — its `continuing` clears this.
+			if (this.continuing) return;
+
+			this.clearContinuing();
+		}, GlMergeConflictWarning.continuingBackstopMs);
 	};
 
 	private renderActions(status: GitPausedOperationStatus, variant: PausedOperationVariant) {
@@ -535,7 +548,7 @@ export class GlMergeConflictWarning extends LitElement {
 	 *  longer excluded — `revert --continue` is supported end to end. */
 	private renderPrimaryAction(status: GitPausedOperationStatus, variant: PausedOperationVariant, aiPrimary: boolean) {
 		if (variant !== 'conflicts') {
-			const continuing = this._continuing;
+			const continuing = this.isContinuing;
 			const label = continuing
 				? aiPrimary
 					? 'Continuing Automatic Rebase…'
@@ -548,7 +561,7 @@ export class GlMergeConflictWarning extends LitElement {
 			// AND `gl-button` reuses its inner anchor (no href swaps that anchor for a `<button>`, which
 			// discards keyboard focus). `disabled` stops the pointer and drops it from the tab order without
 			// blurring it; `onContinue` cancels the repeat navigation. `aria-busy` carries the state change.
-			return html`<gl-button
+			const button = html`<gl-button
 				density="compact"
 				?disabled=${continuing}
 				aria-busy=${continuing ? 'true' : nothing}
@@ -557,6 +570,15 @@ export class GlMergeConflictWarning extends LitElement {
 				>${
 					continuing ? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>` : nothing
 				}${label}</gl-button
+			>`;
+
+			// A disabled action can't explain itself, and the commonest reason a continue runs long is git
+			// waiting on a commit-message tab the user can't see from here — so name it while busy.
+			if (!continuing) return button;
+
+			return html`<gl-tooltip
+				content="Waiting for Git to finish. If a commit message tab is open, save and close it to continue."
+				>${button}</gl-tooltip
 			>`;
 		}
 
