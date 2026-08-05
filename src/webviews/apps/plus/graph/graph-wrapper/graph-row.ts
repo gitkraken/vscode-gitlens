@@ -46,7 +46,7 @@ import {
 	scopeAnchorRoles,
 } from '../utils/rowMarker.utils.js';
 import type { GutterCache } from './graph-gutter-cache.js';
-import type { NodeStyle } from './graph-gutter.js';
+import type { NodeStyle, WipNodeState } from './graph-gutter.js';
 import { nodeRadiusFor } from './graph-gutter.js';
 import '../../../shared/components/code-icon.js';
 
@@ -141,7 +141,7 @@ export interface RowRenderContext {
 	/** Whether avatar images (vs author letters) are used for identity nodes + the author cell. */
 	avatars: boolean;
 	/** Workdir-only clean/dirty WIP signal for the node glyph (undefined = no glyph / not loaded). */
-	wipState?: 'clean' | 'dirty';
+	wipState?: WipNodeState;
 	/** Workdir-only: running compose/review operation state — drives the action buttons' status icons. */
 	wipOperation?: RunningOperationBucket;
 	/** Workdir-only: attached AI-agent status — drives the agent-indicator action button. */

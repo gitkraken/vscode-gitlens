@@ -134,3 +134,80 @@ suite('GraphWipService.probeSecondaryWipInBackground Test Suite', () => {
 		assert.strictEqual(fakeThis._wipProbeRun, undefined);
 	});
 });
+
+// Same minimal-fake approach for `runWipRefetch`, which reaches only its own maps, the host's
+// ready/visible flags, and the fetch+notify pair.
+type RefetchEntry = { repo: { path: string }; dirty: boolean; deferred?: boolean; inFlight?: Promise<void> };
+
+type FakeRefetchThis = {
+	_wipRefetches: Map<string, RefetchEntry>;
+	_wipWatches: Map<string, unknown>;
+	_disposed: boolean;
+	host: { ready: boolean; visible: boolean; notify: sinon.SinonStub };
+	getWipForRepoAndStats: sinon.SinonStub;
+	onWipServedOutOfBand: sinon.SinonStub;
+};
+
+function runRefetch(fakeThis: FakeRefetchThis, sha: string): Promise<void> {
+	const fn = (GraphWipService.prototype as unknown as { runWipRefetch: (sha: string) => Promise<void> })
+		.runWipRefetch;
+	return fn.call(fakeThis, sha);
+}
+
+function createFakeRefetchThis(sha = 'wip::/peer'): FakeRefetchThis {
+	return {
+		_wipRefetches: new Map([[sha, { repo: { path: '/peer' }, dirty: false }]]),
+		_wipWatches: new Map([[sha, {}]]),
+		_disposed: false,
+		host: { ready: true, visible: true, notify: sinon.stub().resolves(true) },
+		getWipForRepoAndStats: sinon.stub().resolves({ wip: { revision: 1 } }),
+		onWipServedOutOfBand: sinon.stub(),
+	};
+}
+
+suite('GraphWipService.runWipRefetch Test Suite', () => {
+	const sha = 'wip::/peer';
+
+	// A watcher tick landing inside a reveal/rebuild window used to be DELETED. Nothing re-reads a peer
+	// worktree on its own, so that single dropped tick left the row showing pre-change values until the
+	// user happened to touch that worktree again. `!ready` is a moment, not a verdict.
+	test('defers rather than drops when the host is not ready', async () => {
+		const fakeThis = createFakeRefetchThis();
+		fakeThis.host.ready = false;
+
+		await runRefetch(fakeThis, sha);
+
+		assert.strictEqual(fakeThis.getWipForRepoAndStats.callCount, 0, 'no git work for a host still coming up');
+		assert.strictEqual(fakeThis._wipRefetches.get(sha)?.deferred, true, 'the tick must survive for recovery');
+	});
+
+	test('defers rather than drops while the graph is hidden', async () => {
+		const fakeThis = createFakeRefetchThis();
+		fakeThis.host.visible = false;
+
+		await runRefetch(fakeThis, sha);
+
+		assert.strictEqual(fakeThis.getWipForRepoAndStats.callCount, 0);
+		assert.strictEqual(fakeThis._wipRefetches.get(sha)?.deferred, true);
+	});
+
+	// A disposed watcher is a real verdict — that row is no longer tracked, so there is nothing to recover.
+	test('drops when the watcher is gone', async () => {
+		const fakeThis = createFakeRefetchThis();
+		fakeThis._wipWatches.delete(sha);
+
+		await runRefetch(fakeThis, sha);
+
+		assert.strictEqual(fakeThis.getWipForRepoAndStats.callCount, 0);
+		assert.strictEqual(fakeThis._wipRefetches.has(sha), false);
+	});
+
+	test('fetches and notifies when ready and visible', async () => {
+		const fakeThis = createFakeRefetchThis();
+
+		await runRefetch(fakeThis, sha);
+
+		assert.strictEqual(fakeThis.getWipForRepoAndStats.callCount, 1);
+		assert.strictEqual(fakeThis.host.notify.callCount, 1);
+	});
+});

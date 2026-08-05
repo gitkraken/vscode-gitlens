@@ -102,6 +102,7 @@ import type { LaneSeedSource } from '../utils/laneSeed.utils.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow } from '../utils/rowMarker.utils.js';
+import { hasDirtyCounts } from '../utils/wip.utils.js';
 import { branchHintFor, createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
 import '../components/gl-graph-ref-find.js';
 import '../../../shared/components/code-icon.js';
@@ -117,6 +118,7 @@ import { columnsToZones, pickGhostRef, refPillKey, toGraphCommit, zonesToColumns
 import type { FixedSizeLayoutSpecifier } from './graph-fixed-layout.js';
 import { fixedSizeVertical } from './graph-fixed-layout.js';
 import { GutterCache, gutterEpochSignature } from './graph-gutter-cache.js';
+import type { WipNodeState } from './graph-gutter.js';
 import { laneSpacing, nodeRadiusFor, renderGutterSvg, renderWavyFilterDefs } from './graph-gutter.js';
 import type { RowRenderContext } from './graph-row.js';
 import { hasPersistentRowActions, renderChangesCellContent, renderRow } from './graph-row.js';
@@ -485,7 +487,7 @@ interface RenderCtx {
 	/** Tip shas currently collapsed (drives `aria-expanded` on collapsible treeitems). */
 	collapsedTips: ReadonlySet<string>;
 	/** sha → clean/dirty for workdir rows; absent key = no glyph (stats not yet loaded). */
-	wipStateBySha: ReadonlyMap<string, 'clean' | 'dirty'>;
+	wipStateBySha: ReadonlyMap<string, WipNodeState>;
 	/** sha → running compose/review operation + agent status for the workdir rows' action buttons. */
 	runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
 	agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
@@ -1145,7 +1147,7 @@ export class GlLitGraph extends LitElement {
 	// stay expanded.
 	private wipSegmentTips: ReadonlySet<Sha> = new Set();
 	// workdir sha → clean/dirty (built in rebuildWipStatsProvider; drives the WIP node glyph).
-	private wipStateBySha: ReadonlyMap<Sha, 'clean' | 'dirty'> = new Map();
+	private wipStateBySha: ReadonlyMap<Sha, WipNodeState> = new Map();
 	private laneCollapseProvider?: RowAdornmentProvider<TemplateResult, LaneCollapseChipContext>;
 
 	// Adornments (refs + WIP). Lane-collapse + stack providers are deferred to the Phase 5
@@ -3785,11 +3787,11 @@ export class GlLitGraph extends LitElement {
 
 		// Derive a per-sha clean/dirty signal from the SAME stats (so primary + each secondary worktree
 		// WIP row get an independent glyph). Only shas with a stats entry are added — an absent key means
-		// "not loaded yet", so the node draws NO glyph (never a misleading clean check).
-		const wipState = new Map<Sha, 'clean' | 'dirty'>();
+		// "not loaded yet", so the node draws NO glyph (never a misleading clean check). Stale counts draw
+		// a dimmed dirty dot, matching how the stats pill renders them: unverified, but not nothing.
+		const wipState = new Map<Sha, WipNodeState>();
 		for (const [sha, s] of out) {
-			const total = (s.added ?? 0) + (s.modified ?? 0) + (s.deleted ?? 0) + (s.renamed ?? 0);
-			wipState.set(sha, total > 0 ? 'dirty' : 'clean');
+			wipState.set(sha, hasDirtyCounts(s) ? (s.stale ? 'dirty-stale' : 'dirty') : 'clean');
 		}
 		this.wipStateBySha = wipState;
 	}

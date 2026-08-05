@@ -77,6 +77,7 @@ import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
 import { GraphSelectIntent } from '../utils/selectIntent.js';
 import {
 	filterSecondariesForScopeAndVisibility,
+	hasDirtyCounts,
 	isScopeFocalHead,
 	shouldShowPrimaryWipRow,
 } from '../utils/wip.utils.js';
@@ -176,6 +177,12 @@ const navigationTimeoutMs = 30_000;
 /** How many targeted pages a single unreachable scope anchor gets before it's treated as
  *  unreachable-in-practice — see {@link GlGraphWrapper._unreachableAnchorRequests}. */
 const maxUnreachableAnchorPageAttempts = 3;
+
+/** Consecutive empty stats responses a WIP row re-asks about before it stops on its own. Small: the
+ *  causes are transient (a cancelled batch, a busy index) or permanent (feature off, unreadable
+ *  worktree), and a permanently-empty row that keeps asking is just a timer that never pays off. */
+const wipStatsMaxRetries = 2;
+const wipStatsRetryDelayMs = 2000;
 
 /**
  * Walk first-parent ancestry through a row array to produce the inclusive range from
@@ -424,6 +431,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		document.addEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
 		document.addEventListener('gl-jump-to-commit', this.onJumpToCommit as EventListener);
+
+		// A remount cancelled the retry timer but the shas it owed are still pending, and nothing else will
+		// ask for them: the child graph keeps its `lastWipMissingKey` across the detach, so an identical
+		// visible range after reconnect dedups the scan away. Re-arm so they drain instead of stranding.
+		this.armWipStatsRetry();
 	}
 
 	override disconnectedCallback(): void {
@@ -438,6 +450,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			clearTimeout(this._clearRowContextTimer);
 			this._clearRowContextTimer = undefined;
 		}
+		if (this._wipStatsRetryTimer != null) {
+			clearTimeout(this._wipStatsRetryTimer);
+			this._wipStatsRetryTimer = undefined;
+		}
+		// The pending set and miss counts deliberately SURVIVE — `connectedCallback` re-arms the timer, so a
+		// remount resumes the retry instead of dropping rows nothing else would ever ask about again.
 	}
 
 	// Reveal intent rides on the EVENT, not on the source: `gl-jump-to-commit` is dispatched by affordances
@@ -1054,6 +1072,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
+		// Selecting a peer WIP row has to add its watcher even when the viewport didn't move (and clear it
+		// again when the selection leaves); the visible-set event alone only fires on scroll.
+		const selectedPeerWip = this.selectedPeerWipSha;
+		if (selectedPeerWip !== this._lastSelectedPeerWipSha) {
+			this._lastSelectedPeerWipSha = selectedPeerWip;
+			this.syncWipWatches();
+		}
 		this.flushPendingSelect();
 		this.refocusOnEnteringCurrentVisibility();
 		// LAST, after everything here that can start a row load: `refocusOnEnteringCurrentVisibility` may
@@ -2403,10 +2428,42 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private _lastSyncedWipShas: Set<string> | undefined;
 
+	private _lastVisibleWipShas: readonly string[] = [];
+	private _lastSelectedPeerWipSha: string | undefined;
+
+	/** The selected row's sha when it's a PEER WIP row — the worktree the details panel is showing, which
+	 *  has to stay watched even after its row scrolls out. Undefined for commit rows and our own WIP row
+	 *  (whose worktree rides the primary working-tree channel and is always watched). */
+	private get selectedPeerWipSha(): string | undefined {
+		const selected = this.graphState.selectedRows;
+		if (selected == null) return undefined;
+
+		const primaryWipRowId = this.primaryWipRowId;
+		for (const sha of Object.keys(selected)) {
+			if (isWipRowId(sha) && sha !== primaryWipRowId) return sha;
+		}
+		return undefined;
+	}
+
 	private onVisibleWipShasChanged(event: CustomEvent<Record<string, true>>) {
+		this._lastVisibleWipShas = Object.keys(event.detail);
+		this.syncWipWatches();
+	}
+
+	/**
+	 * Sends the host the set of secondary WIP rows to keep watchers on: the ones in the viewport, PLUS the
+	 * one the details panel is showing. A selected row keeps its panel open after scrolling away, and that
+	 * worktree is the one under the most attention — dropping its watcher because its row left the viewport
+	 * is how the panel ends up rendering a working tree that has since moved on. Costs one watcher.
+	 */
+	private syncWipWatches() {
 		// The graph reports the full current set of secondary WIP rows in the viewport.
 		// The host diffs against its own subscription map and opens/closes FS watchers as needed.
-		const shas = Object.keys(event.detail);
+		const shas = [...this._lastVisibleWipShas];
+		const selected = this.selectedPeerWipSha;
+		if (selected != null && !shas.includes(selected)) {
+			shas.push(selected);
+		}
 
 		// Defensive dedup against repeat-identical sets (the library's settle-delay collapses most dupes,
 		// but a round-trip through viewport edges can still emit the same set back to back).
@@ -2433,12 +2490,39 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.graphState.updateActiveWipWatchers(watchedRepoPaths);
 	}
 
-	private async onWipShasMissingStats(event: CustomEvent<Record<string, true>>) {
-		const shas = Object.keys(event.detail);
-		if (shas.length === 0) return;
+	/** Per-sha count of consecutive stats requests that came back with no entry. Cleared the moment one
+	 *  lands, so it measures the CURRENT failure run rather than a session total. */
+	private readonly _wipStatsMisses = new Map<string, number>();
+	/** Shas awaiting the armed retry. A SET, not the failing batch's array: overlapping fetches fail
+	 *  independently, and a later failure landing while the timer is armed has to join the pending retry
+	 *  rather than be dropped on the floor — nothing else would ever ask about it again. */
+	private readonly _wipStatsPendingRetry = new Set<string>();
+	private _wipStatsRetryTimer: ReturnType<typeof setTimeout> | undefined;
 
-		const response = await this._ipc.sendRequest(GetWipStatsRequest, { shas: shas });
-		if (response == null) return;
+	private onWipShasMissingStats(event: CustomEvent<Record<string, true>>) {
+		void this.fetchWipStats(Object.keys(event.detail));
+	}
+
+	/**
+	 * Fetches stats for `shas` and merges them into the hot plane.
+	 *
+	 * A sha that comes back empty stays stale (see below), and the graph's visible-scan only re-dispatches
+	 * when the missing SET changes — so on a viewport that never moves, one transient failure would strand
+	 * the row. Hence the bounded self-retry: re-ask for just the shas that failed, a couple of times, then
+	 * stop. Leaving it to the scan alone would either strand the row or require re-asking on every scan.
+	 */
+	private async fetchWipStats(shas: string[]): Promise<void> {
+		if (shas.length === 0) return;
+		// The host refuses every unforced batch while `graph.showWorktreeWipStats` is off, so asking is pure
+		// round-trip cost — and the empty answer would still CLAIM these rows, superseding (and dropping) the
+		// selection-driven `force: true` fetch that is the only thing allowed to answer for them in that mode.
+		if (this.graphState.config?.showWorktreeWipStats === false) return;
+
+		const ticket = this.graphState.claimWipStatsRequest(shas);
+		// A null response is the host answering nothing at all — same standing as a response missing every
+		// sha, so it must go through the miss/retry bookkeeping below rather than returning early. It's the
+		// failure most likely during startup/reconnect, and the visible-scan dedup never re-asks on its own.
+		const response = (await this._ipc.sendRequest(GetWipStatsRequest, { shas: shas })) ?? {};
 
 		// Merge fetched stats into the hot plane. Skipping no-op entries preserves the prior reference so
 		// downstream reactive consumers don't churn.
@@ -2446,22 +2530,34 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (existing == null) return;
 
 		let next: GraphWipStateById | undefined;
+		let retry = false;
 		for (const sha of shas) {
 			const prev = existing[sha];
 			if (prev == null) continue;
 
+			// A newer request for this row has already been issued — its answer supersedes ours, whichever
+			// order they land in. Skipping both branches keeps us from rolling the row back to an older read
+			// and from counting a miss the newer request may not share.
+			if (!this.graphState.isCurrentWipStatsRequest(sha, ticket)) continue;
+
 			const incoming = response[sha];
 			if (incoming === undefined) {
-				// Host couldn't (or wouldn't) provide stats — feature disabled with force=false,
-				// or the underlying `git status` errored. Don't clobber an existing `workDirStats`
-				// value with `undefined`; just clear the stale flag so the graph's visible-scan
-				// missing-stats dedup doesn't loop on us.
-				if (prev.workDirStatsStale) {
-					next ??= { ...existing };
-					next[sha] = { ...prev, workDirStatsStale: false };
+				// Host couldn't (or wouldn't) provide stats — feature disabled with force=false, the
+				// underlying `git status` errored, or the batch was cancelled by a later one. Keep the
+				// prior `workDirStats` rather than clobbering it with `undefined`, but LEAVE IT STALE:
+				// clearing the flag here promotes an unverified value to authoritative and silences every
+				// stale-gated re-ask at once.
+				const misses = (this._wipStatsMisses.get(sha) ?? 0) + 1;
+				this._wipStatsMisses.set(sha, misses);
+				if (misses <= wipStatsMaxRetries) {
+					this._wipStatsPendingRetry.add(sha);
+					retry = true;
 				}
 				continue;
 			}
+
+			this._wipStatsMisses.delete(sha);
+			this._wipStatsPendingRetry.delete(sha);
 			if (
 				!prev.workDirStatsStale &&
 				areEqual(prev.workDirStats, incoming.workDirStats) &&
@@ -2476,13 +2572,33 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				...prev,
 				workDirStats: incoming.workDirStats,
 				workDirStatsStale: false,
+				// Retire the probe's cheap bit against the authoritative counts — see the matching note in
+				// `mergeWipState`; these two merges have to agree or the WIP bar and the row disagree.
+				hasChanges: hasDirtyCounts(incoming.workDirStats),
 				pausedOpStatus: incoming.pausedOpStatus,
 				hasConflicts: incoming.hasConflicts,
 			};
 		}
-		if (next == null) return;
+		if (next != null) {
+			this.graphState.wipStateById = next;
+		}
 
-		this.graphState.wipStateById = next;
+		if (retry) {
+			this.armWipStatsRetry();
+		}
+	}
+
+	/** Arms the single retry timer if anything is pending and one isn't already running — a failing batch of
+	 *  N rows must not become N timers, and a failure arriving while it's armed joins the set instead. */
+	private armWipStatsRetry(): void {
+		if (this._wipStatsPendingRetry.size === 0 || this._wipStatsRetryTimer != null) return;
+
+		this._wipStatsRetryTimer = setTimeout(() => {
+			this._wipStatsRetryTimer = undefined;
+			const pending = [...this._wipStatsPendingRetry];
+			this._wipStatsPendingRetry.clear();
+			void this.fetchWipStats(pending);
+		}, wipStatsRetryDelayMs);
 	}
 }
 

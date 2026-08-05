@@ -236,6 +236,12 @@ const commitEnrichmentCacheLimit = 32;
 /** How long the selection must hold still before a burst asks the host for the authoritative commit. Key
  *  repeat runs at roughly a third of this, so a held arrow key resolves to one fetch at the end. */
 const commitFetchSettleMs = 100;
+/** Age past which a cached WIP payload is revalidated in the background even when it reads as live.
+ *  `isLive` is a point-in-time read of the host's watcher set, so it says "watched now", never "watched
+ *  continuously since this was cached" — a worktree whose row left and re-entered the viewport reads live
+ *  against a payload that missed everything in between. The revalidate doesn't block paint and lands on
+ *  the host's short-lived status cache, so the ceiling on being wrong is this bound rather than forever. */
+const wipCacheRevalidateAfterMs = 60_000;
 
 export class DetailsActions {
 	private _lastFetchedKey?: string;
@@ -887,6 +893,103 @@ export class DetailsActions {
 		}
 	}
 
+	/** Repo paths with a background WIP revalidate in flight. `resources.wip` cancels its previous fetch on
+	 *  every new one, so an unguarded re-entry (the same-selection path can fire on any focus churn) would
+	 *  kill the read it just started and restart it — a cancel-restart storm that never converges. */
+	private readonly _wipRevalidatesInFlight = new Set<string>();
+	/** Repos whose revalidation was suppressed because one was already running — re-run once it settles, so a
+	 *  request arriving mid-flight isn't silently dropped along with whatever selection needed it. */
+	private readonly _wipRevalidatesPending = new Set<string>();
+
+	/**
+	 * Background-revalidates the cached WIP for `repoPath` when the entry can't vouch for itself: the host
+	 * isn't watching it, a local optimistic edit is awaiting reconciliation, its watcher coverage gapped,
+	 * or it has simply aged past what a point-in-time liveness read is worth. Never blocks paint, and
+	 * no-ops on a live, fresh entry — so the common revisit still costs zero git work.
+	 */
+	private revalidateWipIfStale(
+		cached: NonNullable<ReturnType<AppState['getWipState']>>,
+		repoPath: string,
+		key: string,
+		enrichSignal: AbortSignal | undefined,
+	): void {
+		if (cached.isLive && cached.ageMs <= wipCacheRevalidateAfterMs) return;
+		if (this._wipRevalidatesInFlight.has(repoPath)) {
+			// Don't stack a second fetch — the shared resource would cancel the first. Record that another
+			// ask arrived instead, and re-run once this one settles: the in-flight read may be answering for
+			// a selection that has since moved on (its payload is then rejected by the repo-path guard
+			// below), and dropping this ask outright would leave the current selection unrevalidated with
+			// nothing left to trigger it.
+			this._wipRevalidatesPending.add(repoPath);
+			return;
+		}
+
+		this._wipRevalidatesInFlight.add(repoPath);
+		void (async () => {
+			try {
+				await this.resources.wip.fetch(repoPath);
+				if (this._lastFetchedKey !== key) return;
+
+				if (this.resources.wip.status.get() === 'success') {
+					const result = this.resources.wip.value.get();
+					if (result != null) {
+						const { wip } = result;
+						// `resources.wip` is a SHARED slot holding whichever fetch resolved last, and a
+						// superseded fetch resolves silently rather than throwing (see `runFetch`) — so on an
+						// A → B → A selection, awaiting A's cancelled fetch can read B's payload while
+						// `_lastFetchedKey` is legitimately A again. Verify the payload names the repo we
+						// asked about before applying it, or B's working tree lands under A's key.
+						if (wip.repo?.path !== repoPath) return;
+						// Drop if a newer WIP landed while this background revalidate was in flight.
+						if (!this.acceptWipRevision(wip, repoPath)) return;
+
+						const prevBranchName = this.state.wip.get()?.branch?.name;
+						this.state.wip.set(wip);
+						this.rederiveDeferredDefaultScope(repoPath);
+						// Authoritative host result (stats travel embedded as `wip.stats`) — reconciles
+						// every mirror and leaves the entry live, so revisits don't re-buy a `git status`.
+						this.graphState?.ingestWip(repoPath, wip);
+						if (this.state.activeMode.get() != null) {
+							this.state.wipStale.set(true);
+						}
+
+						const freshBranchName = wip.branch?.name;
+						// No signal means a repeat selection revalidating in place — the enrichment for this
+						// very selection is already loaded, so the payload normally refreshes alone. UNLESS the
+						// worktree checked out a different branch meanwhile: the merge-target / PR / autolink
+						// chips on screen belong to the old one, and nothing else re-fires them for a selection
+						// that never changed.
+						const signal =
+							enrichSignal ?? (freshBranchName !== prevBranchName ? this.resetEnrichment() : undefined);
+						if (signal != null) {
+							if (freshBranchName != null) {
+								this.fetchWipBranchEnrichment(repoPath, freshBranchName, signal);
+							} else {
+								this.state.wipMergeTargetLoading.set(false);
+							}
+						}
+					}
+				}
+			} catch {
+				// ignore background fetch errors if we already have cached content
+			} finally {
+				this._wipRevalidatesInFlight.delete(repoPath);
+				// Another ask arrived while this was running. Re-read the cache and re-decide: if it's live
+				// and fresh now, this no-ops; if the earlier read answered for a selection that has moved on,
+				// this is what gets the current one revalidated.
+				// ...but only while the panel is still showing this repo. Firing for a repo the user has since
+				// navigated away from would start a fetch on the SHARED resource slot, cancelling the fetch
+				// the current selection is waiting on — and that one reads the slot without a repo guard.
+				if (this._wipRevalidatesPending.delete(repoPath) && this._lastFetchedRepoPath === repoPath) {
+					const current = this.graphState?.getWipState(repoPath);
+					if (current != null) {
+						this.revalidateWipIfStale(current, repoPath, this._lastFetchedKey ?? key, undefined);
+					}
+				}
+			}
+		})();
+	}
+
 	async fetchDetails(
 		sha: string | undefined,
 		repoPath: string | undefined,
@@ -896,7 +999,21 @@ export class DetailsActions {
 		const s = this.services;
 
 		const key = `${sha}:${repoPath}`;
-		if (key === this._lastFetchedKey) return;
+		if (key === this._lastFetchedKey) {
+			// Same selection as last time. For a commit that means identical content — the sha IS the
+			// content — so there's nothing to do. A WIP row is the exception: its sha is the fixed
+			// `uncommitted` sentinel, so the key stays equal while the working tree underneath it changes
+			// freely. Re-selecting one has to be able to revalidate, or a worktree that changed since the
+			// last look can never repaint. Only the check, not the whole prologue: the graph re-emits a
+			// selection on focus churn, and re-running the rest would flash the panel for no reason.
+			if (repoPath != null && this.isWip(sha)) {
+				const cached = this.graphState?.getWipState(repoPath);
+				if (cached != null) {
+					this.revalidateWipIfStale(cached, repoPath, key, undefined);
+				}
+			}
+			return;
+		}
 
 		// New selection — abort any in-flight enrichment so a stale merge-target / PR / autolink
 		// fetch from a prior selection can't write state (or pin the loading flag) over the new one.
@@ -1015,44 +1132,9 @@ export class DetailsActions {
 						this.state.wipMergeTargetLoading.set(false);
 					}
 
-					if (!cached.isLive) {
-						// Cache hit but the host isn't actively watching this repo (or there's a
-						// pending local edit awaiting reconciliation) — revalidate quietly in the
-						// background so the panel converges without blocking the initial paint.
-						void (async () => {
-							try {
-								await this.resources.wip.fetch(repoPath);
-								if (this._lastFetchedKey !== key) return;
-
-								if (this.resources.wip.status.get() === 'success') {
-									const result = this.resources.wip.value.get();
-									if (result != null) {
-										const { wip } = result;
-										// Drop if a newer WIP landed while this background revalidate was in flight.
-										if (!this.acceptWipRevision(wip, repoPath)) return;
-
-										this.state.wip.set(wip);
-										this.rederiveDeferredDefaultScope(repoPath);
-										// Authoritative host result (stats travel embedded as `wip.stats`) — reconciles
-										// every mirror and leaves the entry live, so revisits don't re-buy a `git status`.
-										this.graphState?.ingestWip(repoPath, wip);
-										if (this.state.activeMode.get() != null) {
-											this.state.wipStale.set(true);
-										}
-
-										const freshBranchName = wip.branch?.name;
-										if (freshBranchName != null) {
-											this.fetchWipBranchEnrichment(repoPath, freshBranchName, enrichSignal);
-										} else {
-											this.state.wipMergeTargetLoading.set(false);
-										}
-									}
-								}
-							} catch {
-								// ignore background fetch errors if we already have cached content
-							}
-						})();
-					}
+					// Cache hit the entry can't fully vouch for — revalidate quietly in the background so the
+					// panel converges without blocking the initial paint.
+					this.revalidateWipIfStale(cached, repoPath, key, enrichSignal);
 				} else {
 					// Cache miss, or a cached payload older than what's already applied — block and fetch.
 					await this.resources.wip.fetch(repoPath);
@@ -1063,6 +1145,12 @@ export class DetailsActions {
 						const result = this.resources.wip.value.get();
 						if (result != null) {
 							const { wip } = result;
+							// `resources.wip` is a shared slot and a superseded fetch resolves silently, so
+							// reaching here proves only that SOMETHING succeeded — not that it was ours. Same
+							// guard as the background revalidate; `acceptWipRevision` can't stand in for it,
+							// since revisions are per-repo counters and comparing one repo's against another's
+							// is meaningless.
+							if (wip.repo?.path !== repoPath) return;
 							// Drop if a newer WIP landed while this fetch was in flight.
 							if (!this.acceptWipRevision(wip, repoPath)) return;
 

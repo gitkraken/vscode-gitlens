@@ -2882,6 +2882,11 @@ gl-lit-graph {
 		stroke-linecap: round;
 		stroke-dasharray: 0.1 3;
 	}
+	// Dirty center dot carried across a lapse in the worktree's watcher coverage — same dot, dimmed,
+	// until a fresh status re-verifies it. Matches how the stats pill renders stale counts.
+	.gl-graph__node-wip-dirty.is-stale {
+		fill-opacity: 0.45;
+	}
 	// Dot-mode stash node: a faintly-filled, solid-bordered square cross-hatched with diagonal lane
 	// lines. Lane color is set per-node; opacities + widths live here.
 	.gl-graph__node-stash-box {

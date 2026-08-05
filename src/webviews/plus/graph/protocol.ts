@@ -1296,6 +1296,19 @@ export const DidRequestWipRefetchNotification = new IpcNotification<DidRequestWi
 	'wip/refetch/request',
 );
 
+export interface DidCloseWipWatchesParams {
+	/** WIP row ids whose worktree watchers the host has just torn down. */
+	shas: string[];
+}
+/** Host → panel: watchers for these secondary WIP rows are gone, so nothing will report changes to those
+ *  worktrees until they're watched again. Sent when the watcher is ACTUALLY disposed — the host holds it
+ *  for a grace period after a row leaves the viewport, so the panel can't infer this from scroll position
+ *  without invalidating rows whose coverage never lapsed. */
+export const DidCloseWipWatchesNotification = new IpcNotification<DidCloseWipWatchesParams>(
+	scope,
+	'wip/watches/closed',
+);
+
 export interface GraphSidebarBranch {
 	name: string;
 	sha?: string;

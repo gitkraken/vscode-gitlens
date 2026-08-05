@@ -93,6 +93,10 @@ function nodeXFor(row: ProcessedGraphRow, metrics: GutterMetrics): number {
 	return metrics.singleColumn ? xForColumn(0, metrics.columnWidth) : xForColumn(row.column, metrics.columnWidth);
 }
 
+/** Working-tree glyph state for a WIP row's node. `dirty-stale` is `dirty` whose counts haven't been
+ *  re-verified since the worktree's watcher lapsed — same shape, dimmed. */
+export type WipNodeState = 'clean' | 'dirty' | 'dirty-stale';
+
 /**
  * Commit-node rendering style. `mode: 'compact'` draws the small geometric dot (the graph
  * column's default); `mode: 'avatar'` draws an identity node at the commit's lane — the author
@@ -107,8 +111,10 @@ export interface NodeStyle {
 	 *  identify which avatar broke. */
 	avatarEmail?: string;
 	initials: string;
-	/** Workdir-only: 'dirty' draws a small solid center dot in the WIP circle; 'clean'/absent draws none. */
-	wipState?: 'clean' | 'dirty';
+	/** Workdir-only: 'dirty' draws a small solid center dot in the WIP circle; 'dirty-stale' draws it
+	 *  dimmed (counts carried across a gap in the worktree's watcher coverage, not yet re-verified);
+	 *  'clean'/absent draws none. */
+	wipState?: WipNodeState;
 	/** Reports a failed avatar image load — see `RowRenderContext.onAvatarError` (graph-row.ts). */
 	onAvatarError?: (event: Event) => void;
 }
@@ -331,10 +337,10 @@ function renderNode(row: ProcessedGraphRow, metrics: GutterMetrics, nodeStyle?: 
 		// Dirty WIP: a small solid center dot. Sized a touch smaller than the ring's inner edge so a
 		// clear gap rings it (the row gradient shows in the gap); derived from `wipR` so the interior
 		// gap stays balanced when the ring is trimmed. Clean WIP: no center — just the ring.
-		const wipDot =
-			nodeStyle?.wipState === 'dirty'
-				? svg`<circle class="gl-graph__node-wip-dirty" cx=${nodeX} cy=${nodeY} r=${Math.max(1.5, wipR - 3.5)} fill=${nodeColor} />`
-				: nothing;
+		const wipDirty = nodeStyle?.wipState === 'dirty' || nodeStyle?.wipState === 'dirty-stale';
+		const wipDot = wipDirty
+			? svg`<circle class="gl-graph__node-wip-dirty ${nodeStyle?.wipState === 'dirty-stale' ? 'is-stale' : ''}" cx=${nodeX} cy=${nodeY} r=${Math.max(1.5, wipR - 3.5)} fill=${nodeColor} />`
+			: nothing;
 		// No background-mask circle here (unlike the other nodes): the WIP ring's interior is left
 		// transparent (`.gl-graph__node-outline` fill: none) so the row's gradient shines through the
 		// middle. The WIP node is always a lane tip, so the only lane line is the one descending below it.

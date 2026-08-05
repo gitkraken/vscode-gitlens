@@ -51,6 +51,7 @@ import {
 	DidChangeSubscriptionNotification,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
+	DidCloseWipWatchesNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
 	DidRequestActiveSidebarPanelNotification,
@@ -81,6 +82,7 @@ import { graphStateContext } from './context.js';
 import { getGraphDebugDiagnostics } from './graphDebugDiagnostics.js';
 import { GraphRowsSyncReceiver } from './graphRowsSyncReceiver.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
+import { hasDirtyCounts } from './utils/wip.utils.js';
 
 const BaseWebviewStateKeys = [
 	'timestamp',
@@ -358,13 +360,29 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 // module-level is effectively per-instance state.
 export const lastKnownWorkDirStatsBySha = new Map<string, WorkDirStats>();
 
+/** Ceiling on {@link lastKnownWorkDirStatsBySha}, evicting oldest-first (`Map` iterates in insertion
+ *  order). A cap rather than pruning against `wipRowsById`: a row vanishing from the topology is exactly
+ *  the flap this cache exists to survive — the host pushes an empty rows object when a worktree
+ *  enumeration comes back short (`graphWipService.getWipRows`) — so topology-keyed pruning would delete
+ *  each entry at the moment it's needed. Entries are three integers; 128 outlasts any real flap. */
+const lastKnownWorkDirStatsLimit = 128;
+
 function captureLastKnownWorkDirStats(map: State['wipStateById']): void {
 	if (map == null) return;
 
 	for (const [sha, entry] of Object.entries(map)) {
 		if (entry.workDirStats != null) {
+			// Re-insert so the entry counts as recently seen against the eviction order.
+			lastKnownWorkDirStatsBySha.delete(sha);
 			lastKnownWorkDirStatsBySha.set(sha, entry.workDirStats);
 		}
+	}
+
+	while (lastKnownWorkDirStatsBySha.size > lastKnownWorkDirStatsLimit) {
+		const oldest = lastKnownWorkDirStatsBySha.keys().next();
+		if (oldest.done) break;
+
+		lastKnownWorkDirStatsBySha.delete(oldest.value);
 	}
 }
 
@@ -1989,6 +2007,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 			}
 
+			case DidCloseWipWatchesNotification.is(msg): {
+				// Coverage for these worktrees just ended. Flag what we hold for them as unverified so the
+				// visible-range scan re-reads their counts and the details panel stops treating its cached
+				// payload as live — anything that happens to them from now until they're watched again
+				// reaches nobody.
+				this.markWipWatchesClosed(msg.params.shas);
+				break;
+			}
 			case DidRequestWipRefetchNotification.is(msg): {
 				// Host pre-fetched the WIP for a non-active worktree (the active-repo watcher
 				// wouldn't fire for it). Push it through the same channel as the regular
@@ -2174,6 +2200,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _pendingLocalEditPaths = new Set<string>();
 
 	/**
+	 * Repo paths whose cached wip predates a gap in their watcher coverage — the row scrolled out, the
+	 * host closed the watcher, and anything that changed meanwhile arrived nowhere. Re-watching restores
+	 * `_activeWipWatchers` membership but not the missed changes, so `isLive` has to stay false until an
+	 * authoritative payload lands (see `cacheWip`); otherwise the panel keeps painting the pre-gap file
+	 * list and never revalidates.
+	 */
+	private _gappedWipPaths = new Set<string>();
+
+	/**
 	 * Whether `wip` reflects an OLDER working tree than the one already cached for `repoPath`, per the host's
 	 * monotonic {@link Wip.revision}. Payloads race — a debounced push can land after a newer push or after a forced
 	 * refresh — so the graph-level mirrors (cache, badge, overview) must order by that marker rather than by arrival,
@@ -2205,6 +2240,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
 		this.recordWipRevision(repoPath, wip);
 		this._pendingLocalEditPaths.delete(repoPath);
+		this._gappedWipPaths.delete(repoPath);
 	}
 
 	/**
@@ -2348,8 +2384,59 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// `updateActiveWipWatchers` call. Pending optimistic edits suppress `isLive` until the
 		// host's push reconciles.
 		const watched = repoPath === this.selectedRepository || this._activeWipWatchers.has(repoPath);
-		const isLive = watched && !this._pendingLocalEditPaths.has(repoPath);
+		const isLive = watched && !this._pendingLocalEditPaths.has(repoPath) && !this._gappedWipPaths.has(repoPath);
 		return { wip: entry.wip, isLive: isLive, ageMs: Date.now() - entry.timestamp };
+	}
+
+	private _wipStatsRequestSeq = 0;
+	/** Row id → ticket of the most recent `GetWipStatsRequest` that asked about it. */
+	private readonly _wipStatsRequestBySha = new Map<string, number>();
+
+	/**
+	 * Stake a claim on `shas` for an outgoing stats request and return its ticket. Concurrent batches no
+	 * longer cancel each other (cancelling a sibling is what stranded rows with unverifiable stats), so
+	 * supersession moves here — per SHA, which is the only place it's meaningful once batches are allowed to
+	 * overlap on the same row rather than being assumed disjoint. A response is
+	 * applied for a row only while it still holds the claim, so an older read that lands after a newer one
+	 * can't roll the row back: the responses carry no revision of their own to order by.
+	 */
+	claimWipStatsRequest(shas: Iterable<string>): number {
+		const ticket = ++this._wipStatsRequestSeq;
+		for (const sha of shas) {
+			this._wipStatsRequestBySha.set(sha, ticket);
+		}
+		return ticket;
+	}
+
+	/**
+	 * Record that the host tore down the watchers for `shas`: mark each row's stats stale so the visible
+	 * scan re-reads them, and mark the worktree gapped so `getWipState().isLive` stops vouching for a
+	 * payload nothing is keeping current. Driven by the host's own disposal rather than by a row leaving
+	 * the viewport, which the host deliberately outlives by a grace period.
+	 */
+	markWipWatchesClosed(shas: readonly string[]): void {
+		const existing = this.wipStateById;
+		let next: State['wipStateById'] | undefined;
+		for (const sha of shas) {
+			const repoPath = this.wipRowsById?.[sha]?.repoPath;
+			if (repoPath != null && repoPath !== this.selectedRepository) {
+				this._gappedWipPaths.add(repoPath);
+			}
+
+			const prev = existing?.[sha];
+			if (prev?.workDirStats == null || prev.workDirStatsStale) continue;
+
+			next ??= { ...existing };
+			next[sha] = { ...prev, workDirStatsStale: true };
+		}
+		if (next != null) {
+			this.updateState({ wipStateById: next });
+		}
+	}
+
+	/** Whether `ticket` is still the latest request for `sha` — i.e. whether its response may be applied. */
+	isCurrentWipStatsRequest(sha: string, ticket: number): boolean {
+		return this._wipStatsRequestBySha.get(sha) === ticket;
 	}
 
 	/**
@@ -2363,7 +2450,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	updateActiveWipWatchers(repoPaths: Iterable<string>): void {
 		// Primary repo is unioned in dynamically at read time (see `getWipState`) so this method
 		// only tracks the secondary set — no need to re-fire when `selectedRepository` changes.
-		this._activeWipWatchers = new Set(repoPaths);
+		const next = new Set(repoPaths);
+		// A secondary ENTERING the set is uncovered until its watcher exists: anything cached for it — a
+		// details selection of an off-screen worktree, say — was produced with no watcher behind it and
+		// nothing has vouched for it since. The flag clears on the first authoritative payload, so this
+		// costs one revalidate for a repo the panel is actually showing, not a read per row entering view.
+		// Departures are NOT handled here: the host keeps the watcher for a grace period, so a row leaving
+		// the viewport doesn't mean coverage ended. The host says when it does (`markWipWatchesClosed`).
+		for (const repoPath of next) {
+			if (!this._activeWipWatchers.has(repoPath) && repoPath !== this.selectedRepository) {
+				this._gappedWipPaths.add(repoPath);
+			}
+		}
+		this._activeWipWatchers = next;
 	}
 
 	/** Patch one `(worktreePath, draft)` slot in the wipDrafts map. Routes through
@@ -2594,10 +2693,12 @@ export function mergeWipRows(prev: State['wipRowsById'], incoming: State['wipRow
  * lifetime: a worktree enumeration that fails, or a repo whose HEAD has no commits yet, must not blank
  * the header badges.
  *
- * Sticky-restore is the only producer of `workDirStatsStale: true`. Live working-tree updates push
- * fresh stats directly — they don't toggle this flag. The flag exists so re-selection on a
- * session-restored row (graph-app's `fetchSelectedWorktreeWipStats`) refetches authoritative stats
- * instead of trusting cached guesses, and so the GK component's missing-stats request loop terminates.
+ * `workDirStatsStale: true` marks counts nothing has verified: sticky-restore sets it, so does a clean
+ * probe bit that contradicts them here, and so does a row leaving the viewport (`graph-wrapper`'s
+ * `markDepartedWipStatsStale`) — its watcher lapses and the changes it misses reach nobody. Live
+ * working-tree updates push fresh stats directly and clear it. The flag is what makes the row keep
+ * asking: the visible-range scan, the selection refetch, and the pill hover all gate on it, and the
+ * glyph dims while it's set.
  */
 export function mergeWipState(
 	prev: State['wipStateById'],
@@ -2635,7 +2736,14 @@ export function mergeWipState(
 			// `graph-wrapper.onWipShasMissingStats` preserves it by spreading prev — these two must agree.
 			next = {
 				...entry,
-				hasChanges: entry.hasChanges ?? prevEntry?.hasChanges,
+				// The probe's cheap bit answers the same question these counts do, and worse — so a real
+				// `git status` RETIRES it rather than preserving it. Carrying it forward let a worktree that
+				// was dirty at graph load stay `hasChanges: true` for the whole session, and any consumer
+				// that falls back to the bit when the counts look unverified (the WIP bar's pill rule) then
+				// reports a long-since-cleaned worktree as dirty.
+				// Unconditional, not `entry.hasChanges ?? …`: these counts came from a real `git status`, so
+				// they outrank the probe's bit even when a producer sends both in one patch.
+				hasChanges: hasDirtyCounts(entry.workDirStats),
 				hasUnpushed: entry.hasUnpushed ?? prevEntry?.hasUnpushed,
 				ahead: entry.ahead ?? prevEntry?.ahead,
 			};
@@ -2655,6 +2763,14 @@ export function mergeWipState(
 				hasChanges: entry.hasChanges ?? prevEntry?.hasChanges,
 				hasUnpushed: entry.hasUnpushed ?? prevEntry?.hasUnpushed,
 			};
+
+			// The probe's cheap dirty bit says clean while the carried counts say dirty — one of them is
+			// out of date and this patch can't say which. Flag the counts stale so the visible-range scan
+			// buys an authoritative `git status`, rather than letting the unstamped bit overwrite them
+			// (`hasChanges` has no revision fence, so a probe issued before an edit can land after it).
+			if (entry.hasChanges === false && hasDirtyCounts(next.workDirStats)) {
+				next.workDirStatsStale = true;
+			}
 		}
 
 		// Drop undefined-valued keys before storing/comparing: `areEqual` is key-count based, so an

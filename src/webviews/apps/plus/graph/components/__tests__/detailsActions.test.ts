@@ -872,6 +872,87 @@ suite('DetailsActions', () => {
 	});
 });
 
+suite('DetailsActions.revalidateWipIfStale', () => {
+	/** A cached, non-live wip entry shaped like `getWipState`'s return. Built through variables rather than
+	 *  an asserted literal so the assertion lands on an identifier. */
+	function cachedEntry(path: string) {
+		const shell = { repo: { path: path } };
+		return { wip: shell as unknown as Wip, isLive: false, ageMs: 0 };
+	}
+
+	/** Minimal `graphState` for the revalidate path: a non-live cached entry per repo. */
+	function graphStateWith(paths: string[]) {
+		return {
+			getWipState: (repoPath: string) =>
+				paths.includes(repoPath) ? { wip: { repo: { path: repoPath } }, isLive: false, ageMs: 0 } : undefined,
+			ingestWip: () => {},
+		};
+	}
+
+	// `resources.wip` is ONE shared slot that cancels the previous fetch. So a revalidate fired for a repo
+	// the panel has since navigated away from doesn't just waste a read — it cancels the fetch the CURRENT
+	// selection is waiting on, and that path reads the shared slot. The re-run therefore has to check that
+	// the panel still shows the repo it is about to revalidate.
+	test('a queued re-run does not fire for a repo the panel has navigated away from', async () => {
+		const state = createDetailsState();
+		let release!: () => void;
+		const gate = new Promise<void>(r => (release = r));
+		const fetched: string[] = [];
+		const resources = createResources({
+			wip: createResource(async (_signal, repoPath: string) => {
+				fetched.push(repoPath);
+				await gate;
+				return undefined;
+			}),
+		});
+
+		const actions = new DetailsActions(state, createServices(), resources);
+		actions['graphState'] = graphStateWith(['/repo-a', '/repo-b']) as never;
+
+		const cachedA = cachedEntry('/repo-a');
+		// A revalidate for A starts, then a second ask for A arrives while it's in flight and is queued.
+		actions['revalidateWipIfStale'](cachedA, '/repo-a', 'uncommitted:/repo-a', undefined);
+		actions['revalidateWipIfStale'](cachedA, '/repo-a', 'uncommitted:/repo-a', undefined);
+		assert.deepStrictEqual(fetched, ['/repo-a'], 'the second ask must queue, not stack a second fetch');
+
+		// The selection moves to B before A settles.
+		actions['_lastFetchedRepoPath'] = '/repo-b';
+		actions['_lastFetchedKey'] = 'uncommitted:/repo-b';
+		release();
+		await new Promise(r => setTimeout(r, 0));
+
+		assert.deepStrictEqual(fetched, ['/repo-a'], 'the queued re-run must not fetch A over the selection of B');
+	});
+
+	test('a queued re-run fires when the panel is still showing that repo', async () => {
+		const state = createDetailsState();
+		let release!: () => void;
+		const gate = new Promise<void>(r => (release = r));
+		const fetched: string[] = [];
+		const resources = createResources({
+			wip: createResource(async (_signal, repoPath: string) => {
+				fetched.push(repoPath);
+				await gate;
+				return undefined;
+			}),
+		});
+
+		const actions = new DetailsActions(state, createServices(), resources);
+		actions['graphState'] = graphStateWith(['/repo-a']) as never;
+		actions['_lastFetchedRepoPath'] = '/repo-a';
+		actions['_lastFetchedKey'] = 'uncommitted:/repo-a';
+
+		const cachedA = cachedEntry('/repo-a');
+		actions['revalidateWipIfStale'](cachedA, '/repo-a', 'uncommitted:/repo-a', undefined);
+		actions['revalidateWipIfStale'](cachedA, '/repo-a', 'uncommitted:/repo-a', undefined);
+
+		release();
+		await new Promise(r => setTimeout(r, 0));
+
+		assert.deepStrictEqual(fetched, ['/repo-a', '/repo-a'], 'the queued ask must be honoured');
+	});
+});
+
 suite('DetailsActions.ensureBranchCommitsCover', () => {
 	const commit = (sha: string): BranchCommitEntry => ({ sha: sha, pushed: false }) as unknown as BranchCommitEntry;
 

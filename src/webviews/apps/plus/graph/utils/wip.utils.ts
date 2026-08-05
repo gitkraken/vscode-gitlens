@@ -1,6 +1,20 @@
 import { hasKeys } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
-import type { GraphIncludeOnlyRefs, GraphScope, GraphWipRowsById } from '../../../../plus/graph/protocol.js';
+import type {
+	GraphIncludeOnlyRefs,
+	GraphScope,
+	GraphWipRowsById,
+	WorkDirStats,
+} from '../../../../plus/graph/protocol.js';
+
+/** Whether `stats` describes a working tree with anything in it. Shared so the WIP bar's pill, the node
+ *  glyph, and the merge's probe/counts contradiction check can never disagree about what "dirty" means —
+ *  `renamed` is optional and was the field the three used to differ on. */
+export function hasDirtyCounts(stats: Partial<WorkDirStats> | undefined): boolean {
+	if (stats == null) return false;
+
+	return (stats.added ?? 0) + (stats.modified ?? 0) + (stats.deleted ?? 0) + (stats.renamed ?? 0) > 0;
+}
 
 /**
  * NOTE: callers pass the NON-PRIMARY partition of `wipRowsById`. The graph's own worktree's row has

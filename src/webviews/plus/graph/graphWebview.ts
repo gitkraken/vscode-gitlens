@@ -362,7 +362,6 @@ type CancellableOperations =
 	| 'computeIncludedRefs'
 	| 'search'
 	| 'state'
-	| 'wipStats'
 	| 'workingTree';
 
 export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
@@ -413,6 +412,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private _cancellations = new Map<CancellableOperations, CancellationTokenSource>();
+	/** In-flight `GetWipStatsRequest` batches. Unkeyed (see `onGetWipStats`) — batches must not cancel each
+	 *  other, including when they overlap on a sha: ordering for those is settled per-sha on the client
+	 *  (`claimWipStatsRequest`), not by killing a sibling. This exists only so dispose can cancel them all. */
+	private readonly _wipStatsCancellations = new Set<CancellationTokenSource>();
 	private _discovering: Promise<number | undefined> | undefined;
 	private readonly _disposable: Disposable;
 	private _etag?: number;
@@ -883,6 +886,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._graphSync.requireSnapshot();
 		}
 		void this._graphSync.flush();
+		// Ready is the other edge a secondary-WIP tick can defer on (`runWipRefetch`), and unlike hidden
+		// it resolves without any visibility or focus transition — so nothing else would ever flush it.
+		this._wip.recoverDeferredSecondaryWip();
 	}
 
 	/** A soft-reconnected iframe re-boots from the ORIGINAL bootstrap plus the replay buffer — anything
@@ -904,6 +910,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._graphSync.requireSnapshot();
 		}
 		void this._graphSync.flush();
+		// See onReady — a reconnect crosses the same not-ready window.
+		this._wip.recoverDeferredSecondaryWip();
 	}
 
 	private _disposed = false;
@@ -916,6 +924,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// `host.notify` on a torn-down host and its listeners leak for the extension's lifetime.
 		cancelAndDispose(this._cancellations.values());
 		this._cancellations.clear();
+		cancelAndDispose(this._wipStatsCancellations.values());
+		this._wipStatsCancellations.clear();
 		// Cancel any in-flight load-more so its `graph.more()` resolution can't call setGraph on a
 		// disposed instance.
 		this._data.cancelPendingRowsQuery();
@@ -959,7 +969,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					this.onGetSidebarData({ panel: panel, displayed: options?.displayed }, signal),
 				getSidebarCounts: () => this.onGetCounts(),
 				// Straight to the shared 10s status cache — see `getWorktreeWipStats` on the interface for why
-				// this deliberately does NOT reuse `GetWipStatsRequest` (shared `wipStats` cancellation key).
+				// this deliberately does NOT reuse `GetWipStatsRequest`.
 				// `normalizePath` because the client sends `Uri.fsPath`: on Windows that would key the cache
 				// with backslashes, which neither the graph's readers nor the FS-watcher evictor ever match.
 				getWorktreeWipStats: async (path, signal) =>
@@ -1579,6 +1589,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const response: GetWipStatsResponse = {};
 		if (params.shas.length === 0) return response;
 
+		let cancellation: CancellationTokenSource | undefined;
 		try {
 			// When the user has disabled per-worktree WIP stats, short-circuit the graph-triggered
 			// missing-stats calls. The graph's visible-scan dedup never re-asks for an unchanged
@@ -1588,8 +1599,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				return response;
 			}
 
-			const cancellation = this.createCancellation('wipStats');
-			const signal = toAbortSignal(cancellation.token);
+			// Deliberately NOT keyed through `_cancellations`: these batches are siblings, not supersedes —
+			// a scroll-driven scan, a hover force-fetch, and a selection force-fetch all land here. A shared
+			// key made a later batch cancel an earlier one, and a cancelled batch returns below before
+			// writing `response[sha]`, so the client saw missing entries for shas nobody ever re-asked about.
+			// Each batch owns its token; where two of them overlap on a sha, the client orders that sha's
+			// answers (`claimWipStatsRequest`) rather than either killing the other. Dispose cancels all.
+			const source = (cancellation = new CancellationTokenSource());
+			this._wipStatsCancellations.add(source);
+			const signal = toAbortSignal(source.token);
 			const primaryRepoPath = this.repository?.path ?? this._data.session?.repoPath;
 
 			await Promise.allSettled(
@@ -1611,10 +1629,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						// can't leave the WIP row stuck on a stale in-progress indicator.
 						svc.pausedOps?.getPausedOperationStatus?.({ force: true }, signal),
 					]);
-					if (cancellation.token.isCancellationRequested) return;
+					if (source.token.isCancellationRequested) return;
 
 					const status = getSettledValue(statusResult);
-					const diff = status?.diffStatus;
+					// No status at all means the read FAILED (rejected, or unparseable output) — not that the
+					// worktree is clean: a clean one still parses to a status with no files. Omitting the sha
+					// leaves the row's prior counts in place and stale, so it re-asks; zero-filling here
+					// instead published "verified clean" for a worktree nobody managed to read, which draws a
+					// confident clean glyph and hides the pill — the phantom-clean twin of a phantom-dirty row.
+					if (status == null) return;
+
+					const diff = status.diffStatus;
 					const pausedOpStatus = getSettledValue(pausedOpResult);
 					response[sha] = {
 						workDirStats: {
@@ -1623,7 +1648,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							modified: diff?.changed ?? 0,
 						},
 						pausedOpStatus: pausedOpStatus,
-						hasConflicts: status?.hasConflicts,
+						hasConflicts: status.hasConflicts,
 					};
 				}),
 			);
@@ -1633,6 +1658,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetWipStats');
 			// Record-shaped response — partial successes are preserved; missing keys read as undefined frontend-side.
 			return response;
+		} finally {
+			if (cancellation != null) {
+				this._wipStatsCancellations.delete(cancellation);
+				cancellation.dispose();
+			}
 		}
 	}
 

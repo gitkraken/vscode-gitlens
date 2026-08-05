@@ -115,6 +115,7 @@ import { getCommitDateFromRow } from './utils/row.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
 import {
 	filterSecondariesForScopeAndVisibility,
+	hasDirtyCounts,
 	isScopeFocalHead,
 	shouldShowPrimaryWipRow,
 } from './utils/wip.utils.js';
@@ -1706,10 +1707,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						.map(([sha, meta]) => {
 							const state = wipStateById?.[sha];
 							const stats = state?.workDirStats;
+							const counted = stats != null ? hasDirtyCounts(stats) : undefined;
+							// Verified counts decide alone. STALE counts (carried across a watch gap, or
+							// contradicted by the probe) decide TOGETHER with the probe bit, either signal
+							// enough: whichever is out of date, the worktree earns a pill and hovering it
+							// buys the authoritative status that settles it. A missing pill has no hover, so
+							// erring quiet here is what strands the row.
 							const dirty =
-								stats != null
-									? stats.added + stats.modified + stats.deleted > 0
-									: state?.hasChanges === true;
+								counted != null && state?.workDirStatsStale !== true
+									? counted
+									: counted === true || state?.hasChanges === true;
 							return { sha: sha, meta: meta, state: state, dirty: dirty };
 						})
 						.filter(({ state, dirty }) => dirty || state?.hasUnpushed === true)
@@ -1743,8 +1750,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// probed — those commits are already visible in the main graph, unlike a hidden secondary's.
 		const primary = this.primaryWipRowId != null ? gs.wipStateById?.[this.primaryWipRowId] : undefined;
 		const primaryStats = primary?.workDirStats;
-		const primaryDirty =
-			primaryStats != null && (primaryStats.added > 0 || primaryStats.modified > 0 || primaryStats.deleted > 0);
+		const primaryDirty = hasDirtyCounts(primaryStats);
 		const primaryAhead = gs.branchState?.ahead ?? 0;
 		items.push({
 			id: uncommitted,
@@ -3830,8 +3836,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// Already have stats for this row (user re-selected it) — nothing to do.
 		if (current.workDirStats != null && !current.workDirStatsStale) return;
 
+		const ticket = this.graphState.claimWipStatsRequest([sha]);
 		const response = await this._ipc.sendRequest(GetWipStatsRequest, { shas: [sha], force: true });
 		if (response == null) return;
+
+		// A newer request for this row supersedes ours regardless of which response lands first — batches
+		// no longer cancel each other, and the responses carry no revision to order by.
+		if (!this.graphState.isCurrentWipStatsRequest(sha, ticket)) return;
 
 		const map = this.graphState.wipStateById;
 		if (map == null) return;
@@ -3840,21 +3851,24 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (prev == null) return;
 
 		const stats = response[sha];
-		// `force: true` bypasses the disabled-feature short-circuit on the host, so a missing
-		// entry here means the underlying `git status` failed. Preserve any prior `workDirStats`
-		// (including a sticky-restored value) rather than clobbering it with `undefined`. When the
-		// response does land, also pick up the secondary's `pausedOpStatus` so the row reflects
-		// any in-progress rebase/merge/cherry-pick.
-		const updated =
-			stats === undefined
-				? { ...prev, workDirStatsStale: false }
-				: {
-						...prev,
-						workDirStats: stats.workDirStats,
-						workDirStatsStale: false,
-						pausedOpStatus: stats.pausedOpStatus,
-						hasConflicts: stats.hasConflicts,
-					};
+		// `force: true` bypasses the disabled-feature short-circuit on the host, so a missing entry here
+		// means the status read failed, or a later batch cancelled this one. Preserve any prior
+		// `workDirStats` (including a sticky-restored value) rather than clobbering it with `undefined` —
+		// and leave it stale, since nothing verified it. When the response does land, also pick up the
+		// secondary's `pausedOpStatus` so the row reflects any in-progress rebase/merge/cherry-pick.
+		if (stats === undefined) return;
+
+		const updated = {
+			...prev,
+			workDirStats: stats.workDirStats,
+			workDirStatsStale: false,
+			// Retire the probe's bit against these counts, same as the other two authoritative writers
+			// (`mergeWipState`, `graph-wrapper`'s stats merge) — a preserved `true` outlives the status that
+			// disproved it and resurfaces as a phantom pill once these counts go stale.
+			hasChanges: hasDirtyCounts(stats.workDirStats),
+			pausedOpStatus: stats.pausedOpStatus,
+			hasConflicts: stats.hasConflicts,
+		};
 		const next = { ...map, [sha]: updated };
 		this.graphState.wipStateById = next;
 	}

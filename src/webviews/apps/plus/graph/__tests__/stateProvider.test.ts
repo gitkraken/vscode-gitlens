@@ -18,6 +18,7 @@ import type { AppState } from '../context.js';
 import type { GraphSearchControlState } from '../stateProvider.js';
 import {
 	applyScopeAnchorPatch,
+	GraphStateProvider,
 	isScopeAnchorStale,
 	mergeWipRows,
 	mergeWipState,
@@ -35,6 +36,48 @@ import {
 	isScopeFocalHead,
 	shouldShowPrimaryWipRow,
 } from '../utils/wip.utils.js';
+
+// Exercised against a minimal fake `this` (the same approach `graphWipService.test.ts` takes) rather than
+// a constructed provider, which would need a live webview context. Couples to the private field names.
+suite('GraphStateProvider WIP stats supersession', () => {
+	type FakeThis = { _wipStatsRequestSeq: number; _wipStatsRequestBySha: Map<string, number> };
+	const proto = GraphStateProvider.prototype;
+
+	function createFakeThis(): FakeThis {
+		return { _wipStatsRequestSeq: 0, _wipStatsRequestBySha: new Map() };
+	}
+	const claim = (t: FakeThis, shas: string[]) => proto.claimWipStatsRequest.call(t, shas);
+	const isCurrent = (t: FakeThis, sha: string, ticket: number) => proto.isCurrentWipStatsRequest.call(t, sha, ticket);
+
+	// Batches no longer cancel each other, so a slow earlier read can land AFTER a newer one. Without a
+	// per-sha claim it would overwrite fresh counts with older ones — the responses carry no revision.
+	test('a later request supersedes an earlier one for the same sha', () => {
+		const t = createFakeThis();
+		const first = claim(t, ['wip::/a']);
+		const second = claim(t, ['wip::/a']);
+
+		assert.strictEqual(isCurrent(t, 'wip::/a', first), false, 'the older read must not apply');
+		assert.strictEqual(isCurrent(t, 'wip::/a', second), true);
+	});
+
+	// Supersession is PER SHA: overlapping batches usually ask about different rows, and a later batch
+	// claiming row B must not invalidate an in-flight batch's claim on row A.
+	test('a later request leaves shas it did not claim alone', () => {
+		const t = createFakeThis();
+		const first = claim(t, ['wip::/a', 'wip::/b']);
+		claim(t, ['wip::/b']);
+
+		assert.strictEqual(isCurrent(t, 'wip::/a', first), true, 'an unclaimed sha keeps its owner');
+		assert.strictEqual(isCurrent(t, 'wip::/b', first), false);
+	});
+
+	test('a sha nobody claimed is current for no one', () => {
+		const t = createFakeThis();
+		const ticket = claim(t, ['wip::/a']);
+
+		assert.strictEqual(isCurrent(t, 'wip::/unknown', ticket), false);
+	});
+});
 
 suite('mergeWipRows', () => {
 	test('returns undefined when incoming is undefined', () => {
@@ -289,6 +332,53 @@ suite('mergeWipState', () => {
 		const result = mergeWipState(prev, {}, {}, 'wip::/primary');
 
 		assert.deepStrictEqual(Object.keys(result ?? {}), ['wip::/primary']);
+	});
+
+	// The background probe's cheap dirty bit and the carried-forward counts are produced by different
+	// reads with no shared ordering, so a disagreement can't be resolved by either one. Flagging the
+	// counts stale routes it to an authoritative `git status` instead of letting the unstamped bit win —
+	// a probe issued before an edit could otherwise land after fresh counts and wrongly clean the row.
+	test('flags carried stats stale when an incoming clean probe contradicts them', () => {
+		const prev: State['wipStateById'] = {
+			'wip::/a': { workDirStats: stats(3, 0, 1), workDirStatsStale: false, hasChanges: true },
+		};
+		const result = mergeWipState(prev, { 'wip::/a': { hasChanges: false } }, rows, undefined);
+
+		const merged = result?.['wip::/a'];
+		assert.deepStrictEqual(merged?.workDirStats, stats(3, 0, 1), 'the counts are kept, not overwritten');
+		assert.strictEqual(merged?.workDirStatsStale, true);
+		assert.strictEqual(merged?.hasChanges, false);
+	});
+
+	// Regression: a phantom pill in the WIP bar. `hasChanges` is the probe's cheap bit and it used to be
+	// carried forward forever, so a worktree that was dirty at graph load kept `hasChanges: true` even after
+	// an authoritative `git status` reported it clean. Any consumer that falls back to the bit when the
+	// counts read unverified — the bar's pill rule does, deliberately, so a stale row can't go quiet —
+	// then re-reported the cleaned worktree as dirty the moment its row scrolled out and its counts were
+	// flagged stale. Authoritative counts must RETIRE the bit, not defer to it.
+	test('retires a stale hasChanges when authoritative counts say clean', () => {
+		const prev: State['wipStateById'] = {
+			'wip::/a': { workDirStats: stats(4, 1, 2), hasChanges: true },
+		};
+		const result = mergeWipState(prev, { 'wip::/a': { workDirStats: stats(0, 0, 0) } }, rows, undefined);
+
+		assert.strictEqual(result?.['wip::/a']?.hasChanges, false, 'the probe bit must not outlive a real status');
+	});
+
+	test('sets hasChanges from authoritative counts that say dirty', () => {
+		const prev: State['wipStateById'] = { 'wip::/a': { workDirStats: stats(0, 0, 0), hasChanges: false } };
+		const result = mergeWipState(prev, { 'wip::/a': { workDirStats: stats(0, 0, 3) } }, rows, undefined);
+
+		assert.strictEqual(result?.['wip::/a']?.hasChanges, true);
+	});
+
+	test('leaves stats alone when a clean probe agrees with zeroed counts', () => {
+		const prev: State['wipStateById'] = {
+			'wip::/a': { workDirStats: stats(0, 0, 0), workDirStatsStale: false, hasChanges: true },
+		};
+		const result = mergeWipState(prev, { 'wip::/a': { hasChanges: false } }, rows, undefined);
+
+		assert.notStrictEqual(result?.['wip::/a']?.workDirStatsStale, true);
 	});
 
 	test('ignores an incoming entry for a row the topology plane does not have', () => {

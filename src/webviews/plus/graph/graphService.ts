@@ -660,11 +660,11 @@ export interface GraphSidebarService {
 	 * "settled, no data" (no status available) — distinct from a rejection, so the tooltip can land on a
 	 * terminal state instead of spinning.
 	 *
-	 * Deliberately NOT `GetWipStatsRequest`: that handler opens a cancellation under the shared `wipStats`
-	 * key, so a hover would cancel the graph's in-flight visible-range scan — and that scan never re-asks for
-	 * an unchanged missing set, so those rows would lose their stats pills until a reload. It also skips the
-	 * primary repo path and collapses config-off into an empty response. This goes straight to the shared
-	 * 10s status cache instead, so it still joins any concurrent read for the same worktree.
+	 * Deliberately NOT `GetWipStatsRequest`: that handler skips the primary repo path and collapses
+	 * config-off into an empty response, neither of which suits a tooltip the user explicitly opened. This
+	 * goes straight to the shared 10s status cache instead, so it still joins any concurrent read for the
+	 * same worktree. (Those batches no longer cross-cancel — each owns its token — but they still answer a
+	 * different question than a single deliberate hover.)
 	 */
 	getWorktreeWipStats(path: string, signal?: AbortSignal): Promise<GitDiffFileStats | null>;
 	/** Looks up one pull request by number, for the Focus pane's search fallback — the panel lists only

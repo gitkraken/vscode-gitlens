@@ -50,6 +50,7 @@ import {
 	createWipRowId,
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
+	DidCloseWipWatchesNotification,
 	DidRequestWipRefetchNotification,
 	getWipRowWorktreePath,
 } from './protocol.js';
@@ -121,6 +122,11 @@ export class GraphWipService {
 
 	/** Per-secondary-WIP filesystem watchers, keyed by the worktree's synthetic WIP row id. */
 	private readonly _wipWatches = new Map<string, Disposable>();
+
+	/** Rows this graph has watched at some point. A watcher OPENING for a row already in here is a RE-open,
+	 *  which means coverage lapsed in between and the worktree must be re-read; a first-ever open can have
+	 *  missed nothing, so it doesn't pay for one. Bounded by the repo's worktree count. */
+	private readonly _wipEverWatched = new Set<string>();
 
 	/** Pending watcher-disposal timers; entries here mean "watcher is lingering past viewport exit". */
 	private readonly _wipWatchRemoveTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -241,6 +247,10 @@ export class GraphWipService {
 						this._wipRefetches.delete(sha);
 					}
 				}
+				// Coverage for this worktree ends HERE, not when its row left the viewport — tell the panel
+				// so it can mark what it holds unverified. Without this the client has to guess from scroll
+				// position, which invalidates rows this grace period was keeping covered.
+				void this.host.notify(DidCloseWipWatchesNotification, { shas: [sha] });
 			}, wipWatchGracePeriodMs);
 			this._wipWatchRemoveTimers.set(sha, timer);
 		}
@@ -310,6 +320,19 @@ export class GraphWipService {
 					watcher,
 				),
 			);
+
+			// Read once on RE-open. A watcher only reports changes made while it exists, so everything that
+			// happened to this worktree between the last watcher closing and this one opening reached
+			// nobody — and for the details panel there is no other channel: it repaints from the wip the
+			// host PUSHES, so with no tick it keeps rendering a pre-gap file list indefinitely.
+			// A first-ever open is skipped: there's no prior coverage to have missed anything, the row's
+			// stats ride the visible-range scan, and the panel block-fetches on first selection. Paying
+			// there would cost a full wip payload — file list, conflict markers, and a FORCED paused-op read
+			// that no cache absorbs — plus a push, for every row of a first scroll-through.
+			if (this._wipEverWatched.has(sha)) {
+				this.queueWipRefetch(sha, repo);
+			}
+			this._wipEverWatched.add(sha);
 		}
 	}
 
@@ -341,17 +364,19 @@ export class GraphWipService {
 	private async runWipRefetch(sha: string): Promise<void> {
 		const entry = this._wipRefetches.get(sha);
 		if (entry == null) return;
-		// Watcher disposed during debounce, or webview gone — drop without a fetch.
-		if (!this._wipWatches.has(sha) || !this.host.ready) {
+		// Watcher disposed during debounce — drop without a fetch.
+		if (!this._wipWatches.has(sha)) {
 			this._wipRefetches.delete(sha);
 			return;
 		}
-		// Graph hidden — defer rather than drop. Running `git status` for an unseen panel is wasted
-		// work, but silently discarding the tick would leave the secondary's WIP/paused-op stale with
-		// no recovery (unlike the primary, which queues a pending notification and replays on show).
-		// Keep the entry and mark it deferred; `recoverDeferredSecondaryWip` flushes it on the next
-		// visibility/focus regain.
-		if (!this.host.visible) {
+		// Graph hidden or still coming up — defer rather than drop. Running `git status` for an unseen
+		// panel is wasted work, but silently discarding the tick would leave the secondary's WIP/paused-op
+		// stale with no recovery (unlike the primary, which queues a pending notification and replays on
+		// show). A tick landing inside a reveal/rebuild window is the same story: `!host.ready` is a
+		// moment, not a verdict — the delivery side below already refuses to gate on it. Keep the entry
+		// and mark it deferred; `recoverDeferredSecondaryWip` flushes it on the next visibility/focus
+		// regain.
+		if (!this.host.ready || !this.host.visible) {
 			entry.deferred = true;
 			return;
 		}
@@ -1344,6 +1369,7 @@ export class GraphWipService {
 			d.dispose();
 		}
 		this._wipWatches.clear();
+		this._wipEverWatched.clear();
 		for (const entry of this._wipRefetches.values()) {
 			if (entry.timer != null) {
 				clearTimeout(entry.timer);

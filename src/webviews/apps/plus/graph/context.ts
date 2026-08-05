@@ -201,6 +201,17 @@ export interface AppState extends State {
 	updateActiveWipWatchers(repoPaths: Iterable<string>): void;
 
 	/**
+	 * Stake a claim on `shas` for an outgoing `GetWipStatsRequest` and return its ticket; pair with
+	 * {@link isCurrentWipStatsRequest} before applying the response. Concurrent batches don't cancel each
+	 * other, and the responses carry no revision, so this is what keeps an older read that lands late from
+	 * rolling a row back over a newer one.
+	 */
+	claimWipStatsRequest(shas: Iterable<string>): number;
+
+	/** Whether `ticket` is still the latest {@link claimWipStatsRequest} for `sha`. */
+	isCurrentWipStatsRequest(sha: string, ticket: number): boolean;
+
+	/**
 	 * Patch one `(worktreePath, draft)` slot in the per-repo wipDrafts map (routed through
 	 * `updateState` so `_state.wipDrafts` stays in sync with the signal accessor). Pass
 	 * `draft: null` to delete; prunes the parent map to `undefined` when empty. Used by the
