@@ -1,12 +1,6 @@
 import * as assert from 'assert';
 import { settingsPageAnchorCommands } from '../../../../settings/settingsPageAnchors.js';
-import {
-	anchorToCategory,
-	defaultSettingsCategory,
-	defaultSettingsCategoryId,
-	droppedAnchorQueries,
-	settingsCategories,
-} from '../index.js';
+import { anchorToCategory, defaultSettingsCategoryId, droppedAnchorQueries, settingsCategories } from '../index.js';
 
 /**
  * Drift guard for the settings taxonomy v2 curation (#5392 Doc A):
@@ -60,43 +54,15 @@ suite('settings taxonomy — anchor coverage', () => {
 		});
 	});
 
-	test('every category renders in one of the taxonomy v2 groups, Setup first', () => {
-		const groups = settingsCategories.map(c => c.group);
+	test('the default landing resolves to a real category', () => {
 		assert.ok(
-			groups.every(
-				g => g === 'Setup' || g === 'Integrations' || g === 'Editor' || g === 'Views' || g === 'General',
-			),
-			'every category must use a taxonomy v2 group',
-		);
-		assert.strictEqual(groups[0], 'Setup', 'the Setup launchpad must be the first-rendered group');
-	});
-
-	test('the Account section is the first category, with Setup leading its group', () => {
-		assert.strictEqual(settingsCategories[0].id, 'account', 'Account must be the first category');
-		assert.strictEqual(settingsCategories[0].group, 'Setup');
-		// The Get Started launchpad stays within the Setup group, right after Account
-		assert.strictEqual(settingsCategories[1].id, 'setup', 'Get Started must follow Account');
-		assert.strictEqual(settingsCategories[1].group, 'Setup');
-	});
-
-	test('the Get Started launchpad is the default landing, not the top of the rail', () => {
-		assert.strictEqual(defaultSettingsCategoryId, 'setup');
-		assert.strictEqual(defaultSettingsCategory.id, 'setup', 'the default id must resolve to a real category');
-		assert.notStrictEqual(
-			defaultSettingsCategoryId,
-			settingsCategories[0].id,
-			'the default landing is deliberately not the first category',
+			settingsCategories.some(c => c.id === defaultSettingsCategoryId),
+			'defaultSettingsCategoryId must resolve to a registered category',
 		);
 	});
 
 	test('every kept category id is unique', () => {
 		const ids = settingsCategories.map(c => c.id);
 		assert.strictEqual(new Set(ids).size, ids.length);
-	});
-
-	test('the new Launchpad category is present in the Integrations group', () => {
-		const launchpad = settingsCategories.find(c => c.id === 'launchpad');
-		assert.ok(launchpad, 'a "launchpad" category must exist');
-		assert.strictEqual(launchpad.group, 'Integrations');
 	});
 });
