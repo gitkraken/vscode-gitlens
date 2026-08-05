@@ -121,7 +121,7 @@ export class AsyncComputedState<T, R = unknown> {
 }
 
 export function signalState<T>(initialValue?: T, options?: { afterChange?: (target: any, value: T) => void }) {
-	return (target: any, _fieldName: string, targetFields: { get?: () => T; set?: (v: T) => void }) => {
+	return (_target: any, _fieldName: string, targetFields: { get?: () => T; set?: (v: T) => void }) => {
 		if (targetFields.get && targetFields.set) {
 			const signal = new Signal.State(initialValue);
 			// oxlint-disable-next-line typescript/no-unsafe-return
@@ -129,9 +129,11 @@ export function signalState<T>(initialValue?: T, options?: { afterChange?: (targ
 				get: function () {
 					return signal.get();
 				},
-				set: function (value: T) {
+				// `afterChange` gets the instance (`this`), not the decorator's `target` — that's the prototype,
+				// so any hook reaching for instance state (or calling a method that does) sees `undefined`
+				set: function (this: any, value: T) {
 					signal.set(value);
-					options?.afterChange?.(target, value);
+					options?.afterChange?.(this, value);
 				},
 			} as any;
 		}
@@ -143,7 +145,7 @@ export const signalObjectState = <T extends Record<PropertyKey, unknown> | undef
 	initialValue?: T,
 	options?: { afterChange?: (target: any, value: T) => void },
 ) => {
-	return (target: any, _fieldName: string, targetFields: { get?: () => T; set?: (v: T) => void }) => {
+	return (_target: any, _fieldName: string, targetFields: { get?: () => T; set?: (v: T) => void }) => {
 		if (targetFields.get && targetFields.set) {
 			const signal = signalObject(initialValue);
 			// oxlint-disable-next-line typescript/no-unsafe-return
@@ -152,11 +154,12 @@ export const signalObjectState = <T extends Record<PropertyKey, unknown> | undef
 					// Don't return {...signal} for optimization purpose
 					return signal;
 				},
-				set: function (value: any) {
+				// See `signalState` — `afterChange` gets the instance, not the prototype
+				set: function (this: any, value: any) {
 					for (const [k, v] of Object.entries(value)) {
 						signal[k] = v;
 					}
-					options?.afterChange?.(target, value);
+					options?.afterChange?.(this, value);
 				},
 			} as any;
 		}
