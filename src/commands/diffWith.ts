@@ -29,7 +29,8 @@ export interface DiffWithCommandArgs {
 	repoPath: string | undefined;
 
 	fromComparison?: boolean;
-	range?: DiffRange;
+	/** Use `null` to explicitly open without a selection, so the diff editor reveals the first change */
+	range?: DiffRange | null;
 	showOptions?: TextDocumentShowOptions;
 	source?: Source;
 }

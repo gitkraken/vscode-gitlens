@@ -13,7 +13,6 @@ import { StatusFileFormatter } from '../../git/formatters/statusFormatter.js';
 import { GitUri } from '../../git/gitUri.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { relativeDir } from '../../system/-webview/path.js';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { getFileTooltip } from './abstract/viewFileNode.js';
 import type { ViewNode } from './abstract/viewNode.js';
@@ -201,7 +200,7 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 				{
 					commit: this.commit,
 					uri: GitUri.fromFile(this.file, this.repoPath),
-					range: editorLineToDiffRange(0),
+					range: null,
 					showOptions: { preserveFocus: true, preview: true },
 				},
 			);
@@ -233,7 +232,7 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 						),
 					},
 					repoPath: this.repoPath,
-					range: editorLineToDiffRange(0),
+					range: null,
 					showOptions: { preserveFocus: true, preview: true },
 				};
 				break;
@@ -251,7 +250,7 @@ export class StatusFileNode extends ViewRefFileNode<'status-file', ViewsWithComm
 						uri: GitUri.fromFile(this.file, this.repoPath),
 					},
 					repoPath: this.repoPath,
-					range: editorLineToDiffRange(0),
+					range: null,
 					showOptions: {
 						preserveFocus: true,
 						preview: true,

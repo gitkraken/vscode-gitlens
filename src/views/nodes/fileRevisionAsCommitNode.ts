@@ -27,7 +27,7 @@ import { remoteSupportsIntegration } from '../../git/utils/-webview/remote.utils
 import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { editorLineToDiffRange, selectionToDiffRange } from '../../system/-webview/vscode/range.js';
+import { selectionToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import type { LineHistoryView } from '../lineHistoryView.js';
 import type { ViewsWithCommits } from '../viewBase.js';
@@ -223,7 +223,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	}
 
 	override getCommand(): Command | undefined {
-		let range: DiffRange;
+		let range: DiffRange | null;
 		if (this.commit.lines.length) {
 			// TODO@eamodio should the endLine be the last line of the commit?
 			range = {
@@ -233,7 +233,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 				endCharacter: 1,
 			};
 		} else {
-			range = this.commit.file?.range ?? selectionToDiffRange(this._options?.selection);
+			const selection = this._options?.selection;
+			range = this.commit.file?.range ?? (selection != null ? selectionToDiffRange(selection) : null);
 		}
 
 		if (this.commit.file?.hasConflicts) {
@@ -251,7 +252,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 					uri: GitUri.fromFile(headPath, this.repoPath),
 				},
 				repoPath: this.repoPath,
-				range: editorLineToDiffRange(0),
+				range: null,
 				showOptions: { preserveFocus: false, preview: false },
 			});
 		}

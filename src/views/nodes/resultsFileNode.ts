@@ -139,6 +139,7 @@ export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State
 			repoPath: this.uri.repoPath!,
 
 			fromComparison: true,
+			range: null,
 			showOptions: { preserveFocus: true, preview: true },
 		});
 	}

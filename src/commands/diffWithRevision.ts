@@ -13,14 +13,15 @@ import type { DirectiveQuickPickItem } from '../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { splitPath } from '../system/-webview/path.js';
-import { selectionToDiffRange } from '../system/-webview/vscode/range.js';
+import { resolveDiffRange } from '../system/-webview/vscode/range.js';
 import { ActiveEditorCommand } from './commandBase.js';
 import { getCommandUri } from './commandBase.utils.js';
 import type { DiffWithCommandArgs } from './diffWith.js';
 import type { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom.js';
 
 export interface DiffWithRevisionCommandArgs {
-	range?: DiffRange;
+	/** Use `null` to explicitly open without a selection, so the diff editor reveals the first change */
+	range?: DiffRange | null;
 	showOptions?: TextDocumentShowOptions;
 }
 
@@ -37,7 +38,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		const gitUri = await GitUri.fromUri(uri);
 
 		args = { ...args };
-		args.range ??= selectionToDiffRange(editor?.selection);
+		args.range = resolveDiffRange(args.range, editor);
 
 		try {
 			const svc = this.container.git.getRepositoryService(gitUri.repoPath!);

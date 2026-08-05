@@ -70,7 +70,6 @@ import { getContext, setContext } from '../system/-webview/context.js';
 import { revealInFileExplorer } from '../system/-webview/vscode.js';
 import type { MergeEditorInputs } from '../system/-webview/vscode/editors.js';
 import { openMergeEditor } from '../system/-webview/vscode/editors.js';
-import { editorLineToDiffRange } from '../system/-webview/vscode/range.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
 import type { OpenWorkspaceLocation } from '../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../system/-webview/vscode/workspaces.js';
@@ -1499,7 +1498,7 @@ export class ViewCommands implements Disposable {
 				lhs: { sha: node.status.HEAD.ref, uri: GitUri.fromFile(node.file, node.repoPath, undefined, true) },
 				rhs: { sha: 'HEAD', uri: GitUri.fromFile(node.file, node.repoPath) },
 				repoPath: node.repoPath,
-				range: editorLineToDiffRange(0),
+				range: null,
 				showOptions: { preserveFocus: false, preview: false },
 			});
 
@@ -1657,6 +1656,7 @@ export class ViewCommands implements Disposable {
 		if (node.isAny('status-file', 'uncommitted-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.uri,
+				range: null,
 				showOptions: { preserveFocus: true, preview: true },
 			});
 		}
@@ -1664,6 +1664,7 @@ export class ViewCommands implements Disposable {
 		if (node.is('conflict-file')) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>('gitlens.diffWithWorking:views', undefined, {
 				uri: node.baseUri,
+				range: null,
 				showOptions: { preserveFocus: true, preview: true },
 			});
 		}
@@ -1677,6 +1678,7 @@ export class ViewCommands implements Disposable {
 						undefined,
 						{
 							uri: baseUri,
+							range: null,
 							showOptions: { preserveFocus: true, preview: true },
 						},
 					);

@@ -31,7 +31,6 @@ import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import { createCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
-import { editorLineToDiffRange } from '../../system/-webview/vscode/range.js';
 import type { FileHistoryView } from '../fileHistoryView.js';
 import type { ViewsWithCommits } from '../viewBase.js';
 import { disposeChildren } from '../viewBase.js';
@@ -228,7 +227,7 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 			{
 				commit: this.commit,
 				uri: this.uri,
-				range: editorLineToDiffRange(0),
+				range: null,
 				showOptions: { preserveFocus: true, preview: true },
 			},
 		);

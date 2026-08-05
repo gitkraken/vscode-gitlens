@@ -158,7 +158,7 @@ export abstract class CommitFileNodeBase<
 	}
 
 	override getCommand(): Command | undefined {
-		let range: DiffRange;
+		let range: DiffRange | null;
 		if (this.commit.lines.length) {
 			// TODO@eamodio should the endLine be the last line of the commit?
 			range = {
@@ -168,7 +168,8 @@ export abstract class CommitFileNodeBase<
 				endCharacter: 1,
 			};
 		} else {
-			range = this.commit.file?.range ?? selectionToDiffRange(this.options?.selection);
+			const selection = this.options?.selection;
+			range = this.commit.file?.range ?? (selection != null ? selectionToDiffRange(selection) : null);
 		}
 
 		return createCommand<[undefined, DiffWithPreviousCommandArgs]>(
