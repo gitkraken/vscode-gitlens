@@ -5,6 +5,8 @@ import { customElement, property } from 'lit/decorators.js';
 import type { AutolinkConfig } from '../../../../config.js';
 import { focusOutlineButton, srOnly } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
+import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
+import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { CheckDescriptor, SettingsCategory, SettingsGroup, SettingsSearchMatch } from '../model.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
@@ -33,7 +35,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				padding: var(--gl-space-10) 0;
+				padding-block: 0 var(--gl-space-10);
 				overflow-y: auto;
 			}
 
@@ -99,6 +101,15 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				visibility: hidden;
 			}
 
+			.item__avatar {
+				flex: none;
+				width: 1.6rem;
+				aspect-ratio: 1 / 1;
+				object-fit: cover;
+				background-color: var(--vscode-sideBar-background);
+				border-radius: 50%;
+			}
+
 			.item__name {
 				flex: 1;
 				min-width: 0;
@@ -139,6 +150,10 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 
 	@consume({ context: settingsStateContext })
 	private _state!: SettingsState;
+
+	/** Feeds the Account item's avatar (host-bridged in settings.ts), matching the account chip's photo. */
+	@consume({ context: subscriptionContext, subscribe: true })
+	private _subscription!: SubscriptionContextState;
 
 	@property({ attribute: false })
 	onSelect?: (id: string) => void;
@@ -200,6 +215,12 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 		on: boolean | undefined;
 		count?: { label: string; aria: string };
 	} {
+		// Signed-in cue for the Account section — placeholder pip until the subscription resolves
+		if (category.controls.some(c => c.kind === 'account')) {
+			if (this._subscription.subscription.get() === undefined) return { on: undefined };
+			return { on: this._subscription.hasAccount.get() };
+		}
+
 		if (category.controls.some(c => c.kind === 'integrations')) {
 			const integrations = this._state.cloudIntegrations.get();
 			// Still loading — placeholder pip, no count
@@ -348,7 +369,13 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 					groups.entries(),
 					([group, items]) => html`
 						<div class="group" role="group" aria-label=${group}>
-							<h2 class="group__label" aria-hidden="true">${group}</h2>
+							${
+								// Setup leads the rail as the app's home group; its heading would just label the
+								// obvious, so it's suppressed (the group keeps its aria-label for screen readers).
+								group !== 'Setup'
+									? html`<h2 class="group__label" aria-hidden="true">${group}</h2>`
+									: nothing
+							}
 							${items.map(m => this.renderItem(m.category, selectedId, tabStopId))}
 						</div>
 					`,
@@ -375,7 +402,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 					? html`<span class="item__pip item__pip--placeholder" aria-hidden="true"></span>`
 					: html`<span class="item__pip ${on ? 'item__pip--on' : ''}" aria-hidden="true"></span>`
 			}
-			<code-icon icon=${category.icon} aria-hidden="true"></code-icon>
+			${this.renderItemIcon(category)}
 			<span class="item__name">${category.name}</span>
 			${
 				category.pro
@@ -393,5 +420,17 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 						: nothing
 			}
 		</button>`;
+	}
+
+	/** The Account item leads with the signed-in user's avatar when one is available; every other item (and
+	 *  a signed-out account) uses its codicon. Mirrors the account chip so the same photo reads in both places. */
+	private renderItemIcon(category: SettingsCategory) {
+		if (category.controls.some(c => c.kind === 'account')) {
+			const avatar = this._subscription.avatar.get();
+			if (avatar) {
+				return html`<img class="item__avatar" src=${avatar} alt="" aria-hidden="true" />`;
+			}
+		}
+		return html`<code-icon icon=${category.icon} aria-hidden="true"></code-icon>`;
 	}
 }

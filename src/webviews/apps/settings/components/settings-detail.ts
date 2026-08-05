@@ -13,6 +13,8 @@ import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import './setting-control.js';
 import './settings-preview.js';
+import './settings-setup.js';
+import '../../plus/shared/components/account-chip.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/icons/icon-cube.js';
@@ -110,6 +112,13 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				gap: 1.8rem;
+				max-width: 64rem;
+				padding: 2rem 2.6rem 2.4rem;
+			}
+
+			/* The account chip carries its own header/CTAs; give it the standard pane
+			   inset and cap its width so the panel matches the other sections. */
+			.account {
 				max-width: 64rem;
 				padding: 2rem 2.6rem 2.4rem;
 			}
@@ -280,6 +289,32 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 		}
 
 		const category = this.category;
+
+		// The Get Started launchpad owns the whole pane — its own brand hero replaces the
+		// standard category header, so it renders full-bleed (the rows self-cap their width).
+		if (category.controls.length === 1 && category.controls[0].kind === 'setup') {
+			return html`
+				<section aria-label=${category.name}>
+					<gl-settings-setup .actions=${this.actions}></gl-settings-setup>
+					${category.learnMoreUrl != null ? html`<p class="footer">${this.renderLearnMore(category)}</p>` : nothing}
+				</section>
+			`;
+		}
+
+		// The account section renders the shared account chip inline: it carries its own header
+		// (plan title + actions) and swaps to a sign-in / create-account screen when signed out,
+		// so it replaces the standard category header the same way the launchpad does.
+		if (category.controls.length === 1 && category.controls[0].kind === 'account') {
+			return html`
+				<section aria-label=${category.name}>
+					<div class="account">
+						<gl-account-chip display="panel"></gl-account-chip>
+					</div>
+					${category.learnMoreUrl != null ? html`<p class="footer">${this.renderLearnMore(category)}</p>` : nothing}
+				</section>
+			`;
+		}
+
 		const masterOn = this.masterOn;
 		const masterDisabledByOrg = this.masterDisabledByOrg;
 		const highlighted = new Set(this._state.highlightedKeys.get());
@@ -364,28 +399,43 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 					)}
 				</div>
 
-				<p class="footer">
-					<code-icon icon="gear" aria-hidden="true"></code-icon>
-					<span
-						>For more options, open the
-						<a
-							href="command:workbench.action.openSettings?${encodeURIComponent(
-								JSON.stringify(this.settingsSearch.split(' or ')[0]),
-							)}"
-							>Settings UI</a
-						>
-						and search for <code>${this.settingsSearch}</code></span
-					>
-					${
-						category.learnMoreUrl != null
-							? html`<a href=${category.learnMoreUrl} aria-label="Learn more about ${category.name}"
-									>Learn more</a
-								>`
+				${
+					this.hasSettingsSearch
+						? html`<p class="footer">
+								<code-icon icon="gear" aria-hidden="true"></code-icon>
+								<span
+									>For more options, open the
+									<a
+										href="command:workbench.action.openSettings?${encodeURIComponent(
+											JSON.stringify(this.settingsSearch.split(' or ')[0]),
+										)}"
+										>Settings UI</a
+									>
+									and search for <code>${this.settingsSearch}</code></span
+								>
+								${this.renderLearnMore(category)}
+							</p>`
+						: category.learnMoreUrl != null
+							? html`<p class="footer">${this.renderLearnMore(category)}</p>`
 							: nothing
-					}
-				</p>
+				}
 			</section>
 		`;
+	}
+
+	private renderLearnMore(category: SettingsCategory) {
+		if (category.learnMoreUrl == null) return nothing;
+		return html`<a href=${category.learnMoreUrl} aria-label="Learn more about ${category.name}">Learn more</a>`;
+	}
+
+	/**
+	 * Whether the category maps to any GitLens config the native Settings UI can
+	 * search for — so a pure-navigation category (the Setup launchpad) doesn't
+	 * fabricate a `gitlens.<id>` footer that resolves to nothing.
+	 */
+	private get hasSettingsSearch(): boolean {
+		const category = this.category;
+		return category.settingsSearch != null || category.master != null || category.controls.some(c => 'key' in c);
 	}
 
 	private get settingsSearch(): string {

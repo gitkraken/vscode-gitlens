@@ -65,13 +65,23 @@ suite('settings taxonomy — anchor coverage', () => {
 		});
 	});
 
-	test('every category renders in one of the 4 taxonomy v2 groups, Integrations first', () => {
+	test('every category renders in one of the taxonomy v2 groups, Setup first', () => {
 		const groups = settingsCategories.map(c => c.group);
 		assert.ok(
-			groups.every(g => g === 'Integrations' || g === 'Editor' || g === 'Views' || g === 'General'),
+			groups.every(
+				g => g === 'Setup' || g === 'Integrations' || g === 'Editor' || g === 'Views' || g === 'General',
+			),
 			'every category must use a taxonomy v2 group',
 		);
-		assert.strictEqual(groups[0], 'Integrations', 'Integrations must be the first-rendered group');
+		assert.strictEqual(groups[0], 'Setup', 'the Setup launchpad must be the first-rendered group');
+	});
+
+	test('the Account section is the first category and default landing, with Setup leading its group', () => {
+		assert.strictEqual(settingsCategories[0].id, 'account', 'Account must be the first category');
+		assert.strictEqual(settingsCategories[0].group, 'Setup');
+		// The Get Started launchpad stays within the Setup group, right after Account
+		assert.strictEqual(settingsCategories[1].id, 'setup', 'Get Started must follow Account');
+		assert.strictEqual(settingsCategories[1].group, 'Setup');
 	});
 
 	test('every kept category id is unique', () => {

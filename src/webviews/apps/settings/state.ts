@@ -3,7 +3,14 @@ import { createContext } from '@lit/context';
 import { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { Config } from '../../../config.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
-import type { AiModelInfo, AIState, IntegrationStateInfo } from '../../rpc/services/types.js';
+import type {
+	AgentInfo,
+	AiModelInfo,
+	AIState,
+	IntegrationStateInfo,
+	ScopedAiModelInfo,
+} from '../../rpc/services/types.js';
+import type { WalkthroughProgressPayload } from '../../rpc/walkthroughService.js';
 import type { SettingsScope } from '../../settings/settingsService.js';
 import type { HostStorage } from '../shared/host/storage.js';
 import { createStateGroup } from '../shared/state/signals.js';
@@ -26,7 +33,9 @@ export function createSettingsState(storage?: HostStorage) {
 
 	// Persisted UI — `retainContextWhenHidden` is off, so a tab-away rebuilds the
 	// webview; everything a user would notice resetting mid-session lives here
-	const selectedCategoryId = persisted<string>('selectedCategoryId', 'current-line');
+	// Defaults to the first category in nav order (the Setup launchpad) rather than a fixed id,
+	// so the initial selection always tracks the top of the rail if the nav order changes
+	const selectedCategoryId = persisted<string>('selectedCategoryId', settingsCategories[0].id);
 	/** Nav rail share of the split panel, as a percentage (0–100) — wide enough that
 	 * the longest category names (with a Pro badge + count) don't clip by default */
 	const navPosition = persisted<number>('navPosition', 23);
@@ -46,11 +55,17 @@ export function createSettingsState(storage?: HostStorage) {
 	const cloudIntegrations = signal<IntegrationStateInfo[] | undefined>(undefined);
 	const aiState = signal<AIState | undefined>(undefined);
 	const aiModel = signal<AiModelInfo | undefined>(undefined);
+	const agents = signal<AgentInfo[] | undefined>(undefined);
+	/** Progress of the two Get Started walkthroughs; non-critical, so its own failure never gates the app. */
+	const walkthrough = signal<WalkthroughProgressPayload | undefined>(undefined);
+	/** The compose/review/resolve scoped overrides, in display order; `undefined` means not yet loaded. */
+	const scopedAiModels = signal<ScopedAiModelInfo[] | undefined>(undefined);
 	/** Shared-service fetch failures, so panels can show an error + retry instead of a forever-skeleton */
-	const serviceErrors = signal<{ subscription: boolean; integrations: boolean; ai: boolean }>({
+	const serviceErrors = signal<{ subscription: boolean; integrations: boolean; ai: boolean; agents: boolean }>({
 		subscription: false,
 		integrations: false,
 		ai: false,
+		agents: false,
 	});
 
 	// Ephemeral UI
@@ -128,6 +143,9 @@ export function createSettingsState(storage?: HostStorage) {
 		cloudIntegrations: cloudIntegrations,
 		aiState: aiState,
 		aiModel: aiModel,
+		agents: agents,
+		walkthrough: walkthrough,
+		scopedAiModels: scopedAiModels,
 		serviceErrors: serviceErrors,
 
 		// Ephemeral UI

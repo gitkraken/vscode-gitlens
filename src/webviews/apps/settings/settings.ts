@@ -1,11 +1,12 @@
 import './settings.scss';
 import type { Remote } from '@eamodio/supertalk';
-import { provide } from '@lit/context';
+import { ContextProvider, provide } from '@lit/context';
 import { html, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
 import type { SettingsServices } from '../../settings/settingsService.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
+import { createDefaultSubscriptionContextState, subscriptionContext } from '../shared/contexts/subscription.js';
 import { setDefaultDateLocales } from '../shared/date.js';
 import { getHost } from '../shared/host/context.js';
 import { RpcController } from '../shared/rpc/rpcController.js';
@@ -47,6 +48,16 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 	/** Instance-owned state — created here with persistence support, passed to actions as a parameter. */
 	@provide({ context: settingsStateContext })
 	private _state: SettingsState = createSettingsState(this._host.storage);
+
+	/**
+	 * Subscription context for `gl-account-chip` (Account section) and the nav's avatar. Seeded with
+	 * defaults, then swapped to the host-side RemoteSignals in `_onRpcReady` (same bridge as Graph/Home),
+	 * so account/avatar state stays live without copying through the settings state signals.
+	 */
+	private readonly _subscriptionCtx = new ContextProvider(this, {
+		context: subscriptionContext,
+		initialValue: createDefaultSubscriptionContextState(),
+	});
 
 	private _actions?: SettingsActions;
 	private _unsubscribes: (() => void)[] = [];
@@ -96,15 +107,41 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 		const s = this._state;
 
 		try {
-			const [settings, subscription, integrations, ai] = await Promise.all([
+			const [settings, subscription, integrations, ai, agents, walkthrough] = await Promise.all([
 				services.settings,
 				services.subscription,
 				services.integrations,
 				services.ai,
+				services.agents,
+				services.walkthrough,
 			]);
 
 			const actions = new SettingsActions(s, services, settings);
 			this._actions = actions;
+
+			// Swap the subscription context to the host-side RemoteSignals directly (no copy), exactly as
+			// Graph/Home do — this feeds `gl-account-chip` and the nav's avatar. Supertalk proxy properties
+			// are thenable at runtime.
+			/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy properties are thenable at runtime */
+			const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal] =
+				await Promise.all([
+					subscription.subscriptionState,
+					subscription.orgSettingsState,
+					subscription.avatarState,
+					subscription.hasAccountState,
+					subscription.organizationsCountState,
+				]);
+			/* eslint-enable @typescript-eslint/await-thenable */
+			this._subscriptionCtx.setValue(
+				{
+					subscription: subscriptionSignal,
+					orgSettings: orgSettingsSignal,
+					avatar: avatarSignal,
+					hasAccount: hasAccountSignal,
+					organizationsCount: orgCountSignal,
+				},
+				true,
+			);
 
 			this._stopAutoPersist = s.startAutoPersist();
 
@@ -124,12 +161,23 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 			const unsubIntegrations = await integrations.onIntegrationsChanged(data => {
 				s.cloudIntegrations.set(data.integrations);
 			});
-			const unsubAiModel = await ai.onModelChanged(model => {
-				s.aiModel.set(model);
+			const unsubAiModel = await ai.onModelChanged(() => {
+				// Fires for scope-only changes too (the payload is always the global model), so
+				// route through `refreshAiModels()` to re-read both it and the scoped list rather
+				// than setting `s.aiModel` from a payload that may not reflect what changed.
+				void actions.refreshAiModels();
 			});
 			const unsubAiState = await ai.onStateChanged(state => {
 				s.aiState.set(state);
 			});
+			// Get Started walkthrough steps' live progress
+			const unsubWalkthrough = await walkthrough.onProgressChanged(progress => {
+				s.walkthrough.set(progress);
+			});
+			const unsubAgents = await agents.onAgentsChanged(list => {
+				s.agents.set(list);
+			});
+
 			this._unsubscribes.push(
 				unsubConfig,
 				unsubAnchor,
@@ -137,6 +185,8 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 				unsubIntegrations,
 				unsubAiModel,
 				unsubAiState,
+				unsubAgents,
+				unsubWalkthrough,
 			);
 
 			const context = await settings.getInitialContext();

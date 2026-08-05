@@ -4,18 +4,21 @@ import { annotationsCategories } from './annotations.js';
 import { editorCategories } from './editor.js';
 import { generalCategories } from './general.js';
 import { integrationsCategories } from './integrations.js';
+import { setupCategories } from './setup.js';
 import { viewsCategories } from './views.js';
 
 /**
- * All categories, in nav order (group order: Integrations, Editor, Views, General).
+ * All categories, in nav order (group order: Setup, Integrations, Editor, Views, General).
+ * Setup is first so it's the default landing (state defaults to `settingsCategories[0]`).
  * `annotationsCategories` + `editorCategories` are both `group: 'Editor'` — two
  * source files for one merged nav group (former "Annotations" + "In-editor").
  */
 export const settingsCategories: readonly SettingsCategory[] = [
+	...setupCategories,
 	...integrationsCategories,
+	...viewsCategories,
 	...annotationsCategories,
 	...editorCategories,
-	...viewsCategories,
 	...generalCategories,
 ];
 

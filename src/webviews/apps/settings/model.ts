@@ -16,7 +16,7 @@ import type { CustomConfigPath } from '../../protocol.js';
 
 export type SettingsKey = ConfigPath | CustomConfigPath;
 
-export type SettingsGroup = 'Integrations' | 'Editor' | 'Views' | 'General';
+export type SettingsGroup = 'Setup' | 'Integrations' | 'Editor' | 'Views' | 'General';
 
 export type PreviewKind =
 	| 'blame'
@@ -197,6 +197,35 @@ export interface AIPanelDescriptor extends DescriptorBase {
 	kind: 'ai';
 }
 
+/**
+ * The getting-started launchpad panel — live-status cards (integrations
+ * connected, AI model, agent MCP/hooks) whose actions navigate in-app to the
+ * owning category. State comes from the shared subscription/integrations/AI RPC
+ * signals; `label`/`hint` exist for search.
+ */
+export interface SetupDescriptor extends DescriptorBase {
+	kind: 'setup';
+}
+
+/**
+ * The account panel — renders `gl-account-chip` inline (its panel display),
+ * which shows account/plan details when signed in and a sign-in / create-account
+ * screen when signed out. Driven by the shared subscription RPC signals (bridged
+ * into `subscriptionContext`); `label`/`hint` exist for search.
+ */
+export interface AccountPanelDescriptor extends DescriptorBase {
+	kind: 'account';
+}
+
+/**
+ * The Agents table — detected coding agents grouped by kind (Chat / Extension / CLI) with per-row
+ * Default / MCP / Hooks controls (driven by the shared Agents + AI RPC services; rows act through
+ * a config write for Default and commands for MCP/Hooks).
+ */
+export interface AgentsPanelDescriptor extends DescriptorBase {
+	kind: 'agents';
+}
+
 /** Non-interactive informational callout. */
 export interface InfoDescriptor {
 	kind: 'info';
@@ -217,6 +246,9 @@ export type SettingDescriptor =
 	| ScmViewsDescriptor
 	| IntegrationsPanelDescriptor
 	| AIPanelDescriptor
+	| AgentsPanelDescriptor
+	| SetupDescriptor
+	| AccountPanelDescriptor
 	| InfoDescriptor;
 
 export interface SettingsCategory {
@@ -355,7 +387,11 @@ export function descriptorKeys(d: SettingDescriptor): string[] {
 		// The AI panel reflects these settings (read-only or via commands), so a
 		// pasted setting name still lands on the category
 		case 'ai':
-			return ['ai.model', 'ai.defaultAgent', 'gitkraken.mcp.autoEnabled'];
+			return ['ai.model'];
+		case 'agents':
+			return ['ai.defaultAgent', 'gitkraken.mcp.autoEnabled'];
+		case 'setup':
+		case 'account':
 		case 'integrations':
 		case 'info':
 			return [];
