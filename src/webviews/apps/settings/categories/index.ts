@@ -43,16 +43,17 @@ const anchorAliases: Record<string, string> = {
 };
 
 /**
- * Dropped-category anchors (and legacy aliases whose target was dropped) →
- * the native Settings UI search query they redirect to. Consumed by
- * `SettingsWebviewProvider.onShowing` — the single chokepoint every
- * `gitlens.showSettingsPage[!<anchor>]` invocation passes through (including
- * the base command's setting-key anchors), so a redirect registered here
- * intercepts the request before the webview ever shows.
+ * Dropped-category anchors → the native Settings UI search query they redirect
+ * to. Consumed by `SettingsWebviewProvider.onShowing` — the single chokepoint
+ * every `gitlens.showSettingsPage[!<anchor>]` invocation passes through
+ * (including the base command's setting-key anchors), so a redirect registered
+ * here intercepts the request before the webview ever shows.
  *
- * Covered by a test asserting every `showSettingsPage!<anchor>` command's
- * anchor is either a kept category id (resolves via `anchorToCategory`) or a
- * key here — so a dropped category can never silently orphan its entry point.
+ * Every entry must correspond to a live `gitlens.showSettingsPage!<anchor>`
+ * command (see `settingsPageAnchorCommands`) whose category was dropped —
+ * otherwise it's a redirect for an entry point that can never fire it. A test
+ * asserts each such command's anchor resolves to a kept category or a key here,
+ * so a dropped category can never silently orphan its command.
  */
 export const droppedAnchorQueries: Record<string, string> = {
 	'file-annotations': 'gitlens.fileAnnotations',
@@ -61,22 +62,10 @@ export const droppedAnchorQueries: Record<string, string> = {
 	'remotes-view': 'gitlens.views.remotes',
 	'tags-view': 'gitlens.views.tags',
 	'worktrees-view': 'gitlens.views.worktrees',
-	'commit-details-view': 'gitlens.views.commitDetails',
 	'contributors-view': 'gitlens.views.contributors',
 	'file-history-view': 'gitlens.views.fileHistory',
 	'line-history-view': 'gitlens.views.lineHistory',
 	'search-compare-view': 'gitlens.views.searchAndCompare',
-	// Substring-matches every sort* setting (sortRepositoriesBy/sortBranchesBy/sortTagsBy/
-	// sortContributorsBy/sortWorktreesBy/sortWorkingChangesBy), not just sortRepositoriesBy
-	sorting: 'gitlens.sort',
-	// The legacy sorting section's HTML id was 'views'; 'sorting' itself is also
-	// covered directly above in case anything still deep-links to the section id
-	views: 'gitlens.sort',
-	shortcuts: 'gitlens.keymap',
-	// Substring-matches both `gitlens.modes` and `gitlens.mode.statusBar.*`/`gitlens.mode.active`,
-	// which the dropped section also exposed
-	modes: 'gitlens.mode',
-	'rebase-editor': 'gitlens.rebaseEditor',
 };
 
 /**

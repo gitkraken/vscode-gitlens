@@ -9,10 +9,14 @@ import {
 } from '../index.js';
 
 /**
- * Drift guard for the settings taxonomy v2 curation (#5392 Doc A): every
- * `gitlens.showSettingsPage!<anchor>` command must resolve to either a kept
- * category (via `anchorToCategory`) or a `droppedAnchorQueries` redirect —
- * so a future category drop can't silently orphan its command/menu entry point.
+ * Drift guard for the settings taxonomy v2 curation (#5392 Doc A):
+ *  - every `gitlens.showSettingsPage!<anchor>` command resolves to a kept
+ *    category (via `anchorToCategory`) or a `droppedAnchorQueries` redirect,
+ *    so a category drop can't silently orphan its command;
+ *  - every `droppedAnchorQueries` redirect is backed by such a command for a
+ *    dropped category, so a redirect never lingers for an entry point that can
+ *    never fire it (and never points at a still-kept category — the check that
+ *    caught the terminal-links regression).
  */
 suite('settings taxonomy — anchor coverage', () => {
 	test('every showSettingsPage!<anchor> command resolves to a kept category or a native redirect', () => {
@@ -30,32 +34,18 @@ suite('settings taxonomy — anchor coverage', () => {
 		}
 	});
 
-	test('the legacy "views" alias redirects to native now that the sorting section is dropped', () => {
-		assert.ok('views' in droppedAnchorQueries, 'the "views" legacy alias must have a redirect');
-		assert.strictEqual(anchorToCategory('views'), undefined);
-	});
-
-	test('every dropped category id has a redirect and no longer exists as a category', () => {
-		const droppedIds = [
-			'file-annotations',
-			'repositories-view',
-			'branches-view',
-			'remotes-view',
-			'tags-view',
-			'worktrees-view',
-			'commit-details-view',
-			'contributors-view',
-			'file-history-view',
-			'line-history-view',
-			'search-compare-view',
-			'sorting',
-			'shortcuts',
-			'modes',
-			'rebase-editor',
-		];
-		for (const id of droppedIds) {
-			assert.ok(id in droppedAnchorQueries, `${id} is missing a droppedAnchorQueries redirect`);
-			assert.ok(!settingsCategories.some(c => c.id === id), `${id} should no longer be a registered category`);
+	test('every droppedAnchorQueries redirect is backed by a live showSettingsPage! command for a dropped category', () => {
+		const commandAnchors = new Set(settingsPageAnchorCommands.map(c => /!(.*)/.exec(c)?.[1]));
+		for (const anchor of Object.keys(droppedAnchorQueries)) {
+			assert.ok(
+				commandAnchors.has(anchor),
+				`${anchor} has a redirect but no gitlens.showSettingsPage!${anchor} command uses it`,
+			);
+			assert.strictEqual(
+				anchorToCategory(anchor),
+				undefined,
+				`${anchor} redirects to native settings but still resolves to a kept category`,
+			);
 		}
 	});
 
