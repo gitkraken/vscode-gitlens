@@ -169,6 +169,17 @@ suite('GitHubApi.searchPullRequestsPage', () => {
 		assert.doesNotMatch(query, /@me/);
 	});
 
+	test('uses a cost-safe default page size while preserving the explicit maximum', async () => {
+		const { config, getCalls } = capture([{}, {}]);
+		const api = new GitHubApi(config);
+
+		await api.searchPullRequestsPage(provider, token, { repos: ['o/a'] });
+		await api.searchPullRequestsPage(provider, token, { repos: ['o/a'], pageSize: 500 });
+
+		assert.match(getCalls()[0].query, /scopeOpen: search\(first: 30,/);
+		assert.match(getCalls()[1].query, /scopeOpen: search\(first: 100,/);
+	});
+
 	test('translates the declared mention relationship without widening to commenter', async () => {
 		const { config, getCalls } = capture();
 		await new GitHubApi(config).searchPullRequestsPage(provider, token, {
