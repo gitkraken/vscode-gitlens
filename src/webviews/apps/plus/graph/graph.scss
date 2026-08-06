@@ -1216,10 +1216,11 @@ gl-lit-graph {
 		// are solid). border-color inherits the kind color via currentColor.
 		border: 1px dotted currentColor;
 		// Height MATCHES the branch ref pill it sits beside, and by construction rather than a tuned number:
-		// in both pills the ICON is the tallest box (1.2rem > the text's line-height:1 em box), so identical
-		// icon size + identical block padding + a 1px border on each ⇒ identical total height (1.2 + 0.6 +
-		// 2px). Only the DECORATIVE differences remain (dotted border, uppercase, smaller 0.9rem text), so
-		// the chip still reads as an annotation without sitting short next to the branch pills.
+		// in both pills the ICON is the tallest box (1.2rem > the text's line-height:1 em box), and edge-to-
+		// icon is 0.4rem on each — here 0.3rem padding + 1px border, on the ref pill 0.4rem padding (its ring
+		// is an inset shadow, not a border) ⇒ identical 2rem total. Only the DECORATIVE differences remain
+		// (dotted border, uppercase, smaller 0.9rem text), so the chip still reads as an annotation without
+		// sitting short next to the branch pills.
 		padding: 0.3rem 0.5rem;
 		font-size: 0.9rem;
 		font-weight: 600;
@@ -1674,7 +1675,7 @@ gl-lit-graph {
 		overflow: hidden;
 	}
 	// Leading-icon guarantee: floor the zone so its overflow:hidden can never chop the pill's leading
-	// icon — border(0.1·2)+pad(0.8·2)+icon(1.2) = exactly 3rem. This is NOT a pill floor (the pill sizes
+	// icon — pad(0.9·2)+icon(1.2) = exactly 3rem. This is NOT a pill floor (the pill sizes
 	// itself, see `-main`), and NOT min-content — that sums in the anchor markers AND outranks the
 	// grouped cap below (min-width beats max-width), starving the message all over again.
 	.gl-graph__refs:has(.gl-graph__ref-pill) {
@@ -3000,10 +3001,17 @@ gl-lit-graph {
 		flex-shrink: 1;
 		align-items: center;
 		gap: 0.6rem;
-		border: 1px solid var(--ref-border, currentColor);
+		// The ring is an INSET box-shadow, not a real border, so the pill's padding box IS its visual box.
+		// The hover-expand overlay is an abspos child pinned at `inset 0` to that padding box (the abspos
+		// containing block): with no ±1px inset/border arithmetic between the two boxes they share one
+		// layout rect and pixel-snap identically at ANY zoom/display scale. A real border made the overlay
+		// reach it via `-1px` insets + its own 1px border — terms that round independently under fractional
+		// zoom, landing the overlay's solid edge one device pixel above/left of the pill's on hover.
+		box-shadow: inset 0 0 0 1px var(--ref-border, currentColor);
 		border-radius: 0.4rem;
-		// Vertical padding trimmed 1px/side (0.4→0.3rem) so the pill sits a touch shorter in the row.
-		padding: 0.3rem 0.8rem;
+		// Padding absorbs the 1px the border used to occupy (0.1rem = 1px), keeping the pill's overall
+		// size and its content position unchanged.
+		padding: 0.4rem 0.9rem;
 		font-size: 1rem;
 		font-weight: 500;
 		line-height: 1;
@@ -3018,7 +3026,6 @@ gl-lit-graph {
 		--pill-on-fill: var(--ref-on-color, #fff);
 		transition:
 			color 150ms ease-out,
-			border-color 150ms ease-out,
 			background-color 150ms ease-out,
 			box-shadow 150ms ease-out;
 
@@ -3026,13 +3033,14 @@ gl-lit-graph {
 		// (`--pill-on-fill`, WCAG luminance) keeps text + icon CRISP + readable on ANY lane. No
 		// text-shadow halo — it softened the glyph edges (and, being inherited, blurred the expand
 		// overlay too) — and no fixed white, which is low-contrast on light lanes (amber/gold/teal).
-		// border-color stays the literal lane color (not `--pill-fill`): a role pill's ring must hold the
+		// The ring stays the literal lane color (not `--pill-fill`): a role pill's ring must hold the
 		// lane color through hover while its INTERIOR re-points to the role fill (see the role rules below).
 		&:hover {
 			color: var(--pill-on-fill);
 			background-color: var(--pill-fill);
-			border-color: var(--ref-color);
-			box-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
+			box-shadow:
+				inset 0 0 0 1px var(--ref-color),
+				0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
 		}
 	}
 
@@ -3071,7 +3079,7 @@ gl-lit-graph {
 		--pill-on-fill: var(--vscode-editor-background);
 		background-color: var(--pill-fill);
 		// Solid lane color, NOT the alpha'd `--ref-border` — the ring has to carry the lane on its own now.
-		border-color: var(--ref-color);
+		box-shadow: inset 0 0 0 1px var(--ref-color);
 		color: var(--pill-on-fill);
 		// Read by the ahead/behind stats on a SELECTED row (below): unlike `--pill-on-fill`, which the base
 		// pill also defines (so it can't tell a role pill from an ordinary one), this is only ever set here —
@@ -3086,10 +3094,10 @@ gl-lit-graph {
 
 		// The hover-expand overlay is a SEPARATE filled box painted on top of the pill, and it fills with
 		// `--pill-fill` — so without this the pill still visibly flipped to the fallback lane color the
-		// moment it expanded, even though the resting pill above no longer does.
+		// moment it expanded, even though the resting pill above no longer does. (The overlay's lane ring
+		// needs no re-point — its base rule already draws it in `--ref-color`.)
 		.gl-graph__ref-pill-expand {
 			background-color: var(--pill-fill);
-			border-color: var(--ref-color);
 			color: var(--pill-on-fill);
 		}
 
@@ -3132,23 +3140,26 @@ gl-lit-graph {
 	// sets those inline, and an inline custom prop beats a class's custom-prop override.
 	.gl-graph__ref-pill--row-marker-head.gl-graph__ref-pill--row-marker-muted {
 		background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-		border-color: color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
 		color: var(--vscode-descriptionForeground, var(--vscode-foreground));
 
 		// …but once you interact with it, it takes its ROLE color (HEAD green) like any other emphasis pill —
 		// grey is only its RESTING, secondary state. Same fill + lane ring as the rules above, so hovering the
 		// WIP pill and hovering the real HEAD-row pill land on the same appearance. Unlike the role block's own
 		// hover (deleted above), this one is NOT redundant: the rest declarations here are grey literals, not
-		// `--pill-fill`/`--pill-on-fill`, so hover has to actively re-point them to the role fill.
+		// `--pill-fill`/`--pill-on-fill`, so hover has to actively re-point them to the role fill. The full
+		// shadow list (lane ring + elevation) has to be restated too: this rule's grey resting ring is
+		// equal-specificity-but-later than the base `:hover`, so it would otherwise clobber it.
 		&:hover {
 			background-color: var(--pill-fill);
-			border-color: var(--ref-color);
+			box-shadow:
+				inset 0 0 0 1px var(--ref-color),
+				0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
 			color: var(--pill-on-fill);
 		}
 
 		.gl-graph__ref-pill-expand {
 			background-color: var(--pill-fill);
-			border-color: var(--ref-color);
 			color: var(--pill-on-fill);
 		}
 
@@ -3180,7 +3191,7 @@ gl-lit-graph {
 	// (the default extends rightward over the message), so this variant pins the overlay's RIGHT edge to the
 	// pill and lets it grow LEFTWARD instead.
 	.gl-graph__ref-pill--expand-right .gl-graph__ref-pill-expand {
-		right: -1px;
+		right: 0;
 		left: auto;
 	}
 
@@ -3202,9 +3213,10 @@ gl-lit-graph {
 	// height layer bleeding into the pill's padding, behind the icons (`z-index: -1`, contained by
 	// `isolation`), with the pill's LEFT corners since this is the leading zone.
 	//
-	// The band runs edge-to-DIVIDER, not edge-to-content: it bleeds left into the pill's 0.8rem padding, and
-	// right across the pill's 0.6rem flex gap plus the upstream segment's 0.1rem margin — landing exactly on
-	// that segment's `border-left` hairline, so the two zones' highlights meet at the rule with no dead strip.
+	// The band runs edge-to-DIVIDER, not edge-to-content: it bleeds left into the pill's 0.9rem padding
+	// (stopping at the 1px ring's inner edge), and right across the pill's 0.6rem flex gap plus the upstream
+	// segment's 0.1rem margin — landing exactly on that segment's `border-left` hairline, so the two zones'
+	// highlights meet at the rule with no dead strip.
 	.gl-graph__ref-pill-main--jump {
 		position: relative;
 		isolation: isolate;
@@ -3290,7 +3302,7 @@ gl-lit-graph {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
-		// Pulls the pin back into the pill's 0.8rem inline padding so it reads as the pill's own leading
+		// Pulls the pin back into the pill's 0.9rem inline padding so it reads as the pill's own leading
 		// marker rather than a third glyph. Stops at -0.3rem because the pin's hover band already bleeds
 		// 0.5rem left — any further and the band would spill past the pill's rounded edge.
 		margin-left: -0.3rem;
@@ -3652,7 +3664,7 @@ gl-lit-graph {
 		position: absolute;
 		// Reach the pill's top/bottom FILL edges (not just the chip's short content box) so the hover highlight
 		// + focus rect span the full pill height like the jump — the chip's icon is shorter than the fill, so
-		// -0.5rem clears the ~0.3rem pill padding + 1px border + 1px overlay bleed each side.
+		// -0.5rem clears the 0.4rem pill padding with 1px to spare each side.
 		inset-block: -0.5rem;
 		// Match the left gap (the chip's 0.5rem padding-left) on the right too, so the rect sits symmetric
 		// around the text — the chip has no padding-right, so extend the band 0.5rem past its right edge.
@@ -3713,11 +3725,16 @@ gl-lit-graph {
 	}
 	// Hover-expand overlay: a full-name copy of the pill, absolutely positioned over the in-flow
 	// (shrunk) pill, extending right over the message — no reflow because the flow box is untouched.
+	// ZERO insets and NO border of its own, on purpose: the pill is borderless (its ring is an inset
+	// box-shadow), so the abspos containing block — the pill's padding box — IS the pill's visual box,
+	// and `0` pins the overlay's edges to it with no ±1px arithmetic. Any `-1px` inset + own-border
+	// formulation rounds independently from the pill under fractional zoom/display scaling, painting the
+	// overlay's solid edge one device pixel above/left of the pill's (the "pill grows 1px on hover" bug).
 	.gl-graph__ref-pill-expand {
 		position: absolute;
-		left: -1px;
-		top: -1px;
-		bottom: -1px;
+		left: 0;
+		top: 0;
+		bottom: 0;
 		// MUST be max-content, NOT the abspos default (shrink-to-fit): shrink-to-fit resolves against the
 		// available width, which here is the pill's own SHRUNKEN box — so the overlay floored at its
 		// MIN-content and the segments that yield (the upstream label's 0-min grid track) collapsed to an
@@ -3728,8 +3745,8 @@ gl-lit-graph {
 		display: none;
 		align-items: center;
 		gap: 0.6rem;
-		padding: 0 0.8rem;
-		border: 1px solid var(--pill-fill);
+		// 0.9rem matches the pill's inline padding, so the overlay's glyphs land exactly on the pill's.
+		padding: 0 0.9rem;
 		border-radius: 0.4rem;
 		background-color: var(--pill-fill);
 		// Per-ref black/white contrast color (WCAG luminance, computed in refStyle) so the filled chip
@@ -3738,7 +3755,13 @@ gl-lit-graph {
 		// regardless of what it reads, so re-pointing here can't affect role pills either way.
 		color: var(--pill-on-fill);
 		white-space: nowrap;
-		box-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.3);
+		// The ring rides the shadow list (the overlay is borderless — see the inset note above). Lane color
+		// for every variant: an ordinary pill's `--pill-fill` IS `--ref-color`, so the ring melts into the
+		// fill exactly as its fill-colored border used to, while a role/muted pill gets the lane ring its
+		// overrides previously had to re-point `border-color` for.
+		box-shadow:
+			inset 0 0 0 1px var(--ref-color),
+			0 0.1rem 0.6rem rgba(0, 0, 0, 0.3);
 		z-index: 20;
 		// MUST receive pointer events: the overlay is a descendant of the pill, so hovering it keeps
 		// `.gl-graph__ref-pill:is(:hover, :focus-within)` alive across the FULL expansion. With `none`, the cursor falls
@@ -3764,8 +3787,12 @@ gl-lit-graph {
 	}
 	// Suppress the pill's OWN ring once a grouped-pill secondary is cursored (`aria-activedescendant` set) —
 	// the ring moves to the active popover row instead; the pill stays filled/expanded, just unringed.
+	// Two inset rings: the lane ring stays at the edge (it lived in the border before, which this rule's
+	// shadow never touched) and the focus ring sits just inside it, where the old inset shadow landed.
 	.gl-graph__ref-pill:focus-visible:not([aria-activedescendant]) .gl-graph__ref-pill-expand {
-		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
+		box-shadow:
+			inset 0 0 0 1px var(--ref-color),
+			inset 0 0 0 2px var(--vscode-focusBorder);
 	}
 	// A focused sub-chip is covered by the fill overlay, so mirror its focus ring onto the matching expanded
 	// twin inside the overlay — the copy actually visible on the fill. (The in-flow copy still holds real
