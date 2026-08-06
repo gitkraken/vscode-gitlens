@@ -9,6 +9,7 @@ import type {
 } from './autoRebase.types.js';
 import type { ConsultedTool } from './consultation.js';
 import { getConsultations, recordConsultation } from './consultation.js';
+import { getResolutionRefs } from './resolutionRefs.js';
 import type { ConflictProgressEvent, Resolution, ResolutionContext, StepResult, UnmergedEntry } from './types.js';
 
 /**
@@ -311,17 +312,14 @@ export async function runAutoRebaseLoop(
 		// place the resolver reports it — the resolution itself carries just a count.
 		const consultations = new Map<string, ConsultedTool[]>();
 
-		// During a rebase HEAD is the already-rebased side ("ours") and the commit being applied
-		// (REBASE_HEAD) is the incoming side ("theirs").
 		const stepCommit = status.steps.current.commit;
+		// Both sides come from the shared helper — `status.HEAD` is the *incoming* ref during a rebase,
+		// so deriving "ours" from it (as this did) diffed the incoming side against itself.
+		const refs = getResolutionRefs(status);
 		const result = await ports.resolveConflicts({
 			entries: entries,
 			context: {
-				refs: {
-					ours: status.HEAD?.ref ?? 'HEAD',
-					theirs: stepCommit?.ref ?? status.incoming?.ref ?? 'REBASE_HEAD',
-					...(status.mergeBase != null ? { base: status.mergeBase } : {}),
-				},
+				...(refs != null ? { refs: refs } : {}),
 				...(stepCommit?.message ? { commitMessage: stepCommit.message } : {}),
 				...(previousResolutions.length > 0 ? { previousResolutions: [...previousResolutions] } : {}),
 			},
