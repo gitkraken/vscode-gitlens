@@ -195,3 +195,45 @@ export function collectLaneChain(
 
 	return chain;
 }
+
+/**
+ * Collect the lanes that diverge at `forkSha` — the fork's own lane plus each child lane that peels
+ * off a different column — for left/right lane navigation. The fork itself seeds the result; a child
+ * that shares the fork's column is the same lane continuing, not a divergence, so it's skipped in
+ * favor of the seed. Returns shas, not display rows — mapping to what's actually rendered (including
+ * a collapsed-lane's chip) is the caller's job.
+ */
+// Rows param widened to the structural minimum this reads (sha + column). `indexBySha` maps sha → its
+// index into `rows`; `childrenBySha` is `buildChildrenBySha`'s output.
+export function collectForkLanes(
+	rows: readonly { sha: Sha; column: number }[],
+	indexBySha: ReadonlyMap<Sha, number>,
+	childrenBySha: ReadonlyMap<Sha, readonly Sha[]>,
+	forkSha: Sha,
+): readonly { column: number; sha: Sha }[] {
+	const forkIndex = indexBySha.get(forkSha);
+	if (forkIndex == null) return [];
+
+	const forkRow = rows[forkIndex];
+	if (forkRow == null) return [];
+
+	const byColumn = new Map<number, Sha>([[forkRow.column, forkSha]]);
+
+	const children = childrenBySha.get(forkSha);
+	if (children != null) {
+		for (const childSha of children) {
+			const childIndex = indexBySha.get(childSha);
+			if (childIndex == null) continue;
+
+			const childRow = rows[childIndex];
+			if (childRow.column === forkRow.column) continue;
+			if (byColumn.has(childRow.column)) continue;
+
+			byColumn.set(childRow.column, childSha);
+		}
+	}
+
+	return Array.from(byColumn.entries(), ([column, sha]) => ({ column: column, sha: sha })).sort(
+		(a, b) => a.column - b.column,
+	);
+}

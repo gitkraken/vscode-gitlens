@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildChildrenBySha, collectLaneChain, findBranchingPointSha } from '../navigation.js';
+import { buildChildrenBySha, collectForkLanes, collectLaneChain, findBranchingPointSha } from '../navigation.js';
 import type { Sha } from '../types.js';
 
 type NavRow = { sha: Sha; parents: readonly Sha[]; column: number };
@@ -160,5 +160,65 @@ suite('engine/navigation collectLaneChain', () => {
 
 	test('an unloaded seed contributes nothing', () => {
 		assert.deepStrictEqual(chainOf(makeRows(), ['ZZZ'], 'both'), []);
+	});
+});
+
+suite('engine/navigation collectForkLanes', () => {
+	test('a 3-way fork returns the seed plus each child, sorted by column ascending', () => {
+		const rows: NavRow[] = [
+			row('C1', ['Fork'], 1),
+			row('C2', ['Fork'], 2),
+			row('C3', ['Fork'], 3),
+			row('Fork', [], 0),
+		];
+		const lanes = collectForkLanes(rows, indexBySha(rows), buildChildrenBySha(rows), 'Fork');
+		assert.deepStrictEqual(lanes, [
+			{ column: 0, sha: 'Fork' },
+			{ column: 1, sha: 'C1' },
+			{ column: 2, sha: 'C2' },
+			{ column: 3, sha: 'C3' },
+		]);
+	});
+
+	test('non-adjacent child columns still sort ascending, not by insertion order', () => {
+		const rows: NavRow[] = [
+			row('A', ['Fork'], 0),
+			row('B', ['Fork'], 3),
+			row('C', ['Fork'], 5),
+			row('Fork', [], 2),
+		];
+		const lanes = collectForkLanes(rows, indexBySha(rows), buildChildrenBySha(rows), 'Fork');
+		assert.deepStrictEqual(lanes, [
+			{ column: 0, sha: 'A' },
+			{ column: 2, sha: 'Fork' },
+			{ column: 3, sha: 'B' },
+			{ column: 5, sha: 'C' },
+		]);
+	});
+
+	test('an unloaded child (in childrenBySha but not in rows/indexBySha) is silently skipped', () => {
+		// Build childrenBySha from a fuller row set that includes 'Ghost', but pass a reduced rows/
+		// indexBySha to collectForkLanes that omits it — mirroring a child that hasn't paged in yet.
+		const allRows: NavRow[] = [row('A', ['Fork'], 1), row('Ghost', ['Fork'], 2), row('Fork', [], 0)];
+		const childrenBySha = buildChildrenBySha(allRows);
+
+		const rows: NavRow[] = [row('A', ['Fork'], 1), row('Fork', [], 0)];
+		const lanes = collectForkLanes(rows, indexBySha(rows), childrenBySha, 'Fork');
+		assert.deepStrictEqual(lanes, [
+			{ column: 0, sha: 'Fork' },
+			{ column: 1, sha: 'A' },
+		]);
+	});
+
+	test('a fork at the bottom edge (no children) returns only the seed', () => {
+		const rows: NavRow[] = [row('Leaf', [], 0)];
+		const lanes = collectForkLanes(rows, indexBySha(rows), buildChildrenBySha(rows), 'Leaf');
+		assert.deepStrictEqual(lanes, [{ column: 0, sha: 'Leaf' }]);
+	});
+
+	test('a non-fork row (its only child shares its column) returns only the seed', () => {
+		const rows: NavRow[] = [row('Child', ['Row'], 0), row('Row', [], 0)];
+		const lanes = collectForkLanes(rows, indexBySha(rows), buildChildrenBySha(rows), 'Row');
+		assert.deepStrictEqual(lanes, [{ column: 0, sha: 'Row' }]);
 	});
 });

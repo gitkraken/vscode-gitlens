@@ -224,6 +224,38 @@ export class CommitGraphProjectionSession {
 		};
 	}
 
+	/**
+	 * Fold or unfold every collapsible segment at once. Mirrors `toggle()`'s manual-set bookkeeping but
+	 * replaces both sets wholesale instead of flipping one sha, so this is O(1) update calls regardless
+	 * of segment count.
+	 */
+	setAllCollapsed(collapsed: boolean): CommitGraphProjectionToggle | undefined {
+		const input = this._input;
+		if (input == null) return undefined;
+
+		const wasCollapsed = !collapsed;
+		if (collapsed) {
+			this._manuallyCollapsed = new Set(this._state.segmentsByTipSha.keys());
+			this._manuallyExpanded = new Set();
+		} else {
+			this._manuallyExpanded = new Set(this._state.segmentsByTipSha.keys());
+			this._manuallyCollapsed = new Set();
+		}
+
+		return {
+			wasCollapsed: wasCollapsed,
+			state: this.update(input),
+		};
+	}
+
+	/** Whether every collapsible segment is currently folded. False when there are none to fold. */
+	get allLanesCollapsed(): boolean {
+		return (
+			this._state.segmentsByTipSha.size > 0 &&
+			this._state.effectiveCollapsed.size === this._state.segmentsByTipSha.size
+		);
+	}
+
 	private projectRows(
 		input: CommitGraphProjectionInput,
 		scopeProjection: ScopeProjection | undefined,
