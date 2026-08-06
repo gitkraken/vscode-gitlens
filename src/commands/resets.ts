@@ -2,6 +2,7 @@ import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
 import { resetApprovedAvatarTemplates, resetAvatarCache } from '../avatars.js';
 import type { Container } from '../container.js';
+import { clearTrialResetSessionAttempts } from '../plus/gk/trialAutoReset.js';
 import type { QuickPickItemOfT } from '../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { settingsMigrations } from '../settingsMigrations.js';
@@ -320,6 +321,8 @@ export class ResetCommand extends GlCommandBase {
 					switch (reset) {
 						case 'subscription':
 							await this.container.storage.delete('premium:subscription');
+							await this.container.storage.deleteWithPrefix('plus:trialReset');
+							clearTrialResetSessionAttempts();
 							break;
 						case 'previews':
 							await this.container.storage.deleteWithPrefix('plus:preview');
