@@ -7,7 +7,7 @@ import type { ProviderWarning } from '../results.js';
 /**
  * Everything the facade's provider reads need from the service that owns connection state — and nothing else.
  *
- * The reads (`listOrgs`, `listRepos`, the paged PR/issue reads, the sweeps, `broadenIssues`,
+ * The reads (`listOrgs`, `listRepos`, the paged PR/issue reads and searches, the sweeps, `broadenIssues`,
  * `resolveRepository`) are otherwise stateless: given a resolved integration they only transform provider
  * results into the neutral shapes consumers get. What they can't do themselves is decide WHICH integration
  * instance and which host a request addresses, because that depends on the configured connections, the

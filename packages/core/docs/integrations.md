@@ -119,6 +119,7 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `listProjects`               | `ProviderOrganization`    | The project tier: Azure DevOps, and issue-tracker projects.                           |
 | `listRepos`                  | `ProviderRepositoryShape` | Repos of an `org`, or account-wide user-affiliated repos when `org` is omitted.       |
 | `listPullRequestsPage`       | `PullRequestShape`        | With `repos`: those repos' PRs. Without: the user's PRs account-wide.                 |
+| `searchPullRequestsPage`     | `PullRequestShape`        | PRs involving the user that match structured criteria, optionally repo/org-scoped.    |
 | `listIssuesPage`             | `IssueShape`              | Same split, for a **git host**'s issues.                                              |
 | `searchIssuesPage`           | `IssueShape`              | Issues matching structured criteria over a repo/org scope — **no** `@me` binding.     |
 | `countIssues`                | `IssueCountResult`        | How many match each scope, fetching none of them. See §5.1.                           |
@@ -170,6 +171,43 @@ Invariants worth relying on:
 - Sweeps drain internally and expose **no** cursor: `hasMore` is always `false`. Gate "this is the complete
   set" on `page.allPages === true`, which is false for _both_ truncation and failure — unlike
   `page.truncated`, which can be misread as a benign cap.
+
+### The filtered pull request search
+
+`searchPullRequestsPage` pushes free text to the provider instead of filtering the already-loaded PR page. It is
+bounded by repository/organization or by explicit current-user relationships. Relationship and state arrays are
+OR sets, so the same read expresses both Kepler's visible scope and its terminal `closed + merged` scope. Inputs
+are structured and checked all-or-nothing against the provider's capability table:
+
+```ts
+const caps = manager.getSupportedFilters(providerId).pullRequestSearch;
+if (caps.relationships.length === 0) return loadedRowsOnlyFallback();
+
+const result = await manager.searchPullRequestsPage({
+	providerId: providerId,
+	repos: [{ namespace: 'gitkraken', name: 'vscode-gitlens' }],
+	criteria: {
+		text: 'graph performance',
+		relationships: [PullRequestFilter.Author, PullRequestFilter.Assignee, PullRequestFilter.ReviewRequested],
+		states: ['closed', 'merged'],
+		includeArchived: false,
+	},
+	page: page,
+	cursor: cursor,
+});
+```
+
+Omit `relationships` to search every PR in the supplied repo/org scope; without such a scope at least one
+relationship is mandatory. This is deliberately not `involves:@me`: that GitHub shortcut excludes
+`review-requested` but includes `commenter`, so it cannot match the adjacent visible-PR list.
+
+The provider always orders this read most-recently-updated-first. A threaded `cursor` is exactly one upstream
+request; GitHub puts every active relationship × state facet into aliases in that one GraphQL document. A page
+number without a cursor walks from page 1. At GitHub's 1,000-result-per-facet ceiling, `page.truncated` is true and
+the warning's `omission` carries `totalCount`, `limit`, and `recovery: 'none'`. `totalCount` is the largest
+provider-reported pre-ceiling facet count, matching the per-search ceiling's unit; it is not the returned or
+still-reachable row count. Free text is sanitized so qualifier-shaped tokens such as `org:other` are removed
+rather than allowed to change the structured scope.
 
 ### 5.1 The filtered issue search and its count probe
 
@@ -368,6 +406,9 @@ const filters = wanted.filter(f => capability.includes(f));
 
 - `pullRequests` — the repo-scoped PR read.
 - `pullRequestsAccountWide` — the optional account-wide PR capability. Treat a missing field as empty.
+- `pullRequestSearch` — the filtered PR search (`searchPullRequestsPage`). Always present; empty `relationships`
+  means the provider has no such search. It declares the exact `relationships` and `states`, plus `text`,
+  `includeArchived`, `repositoryScope`, and `organizationScope`.
 - `issues` — the **repo-scoped** git-host read, **and** the issue-tracker read
   (`listIssueTrackerIssuesPage` validates against this field).
 - `issuesAccountWide` — the account-wide git-host read only. Usually narrower (GitLab can express
@@ -421,6 +462,7 @@ Derived from the provider models and `providersMetadata`. ✓ supported · ✗ r
 | PRs, repo-scoped             |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
 | PRs, account-wide            |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  ✗   |   ✗    |   ✗    |
 | PR `states` account-wide     |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |  —   |   —    |   —    |
+| `searchPullRequestsPage`     |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
 | Issues, repo-scoped          |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | Issues, account-wide         |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |  —   |   —    |   —    |
 | `searchIssuesPage`           |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |  ✗   |   ✗    |   ✗    |
@@ -436,6 +478,10 @@ ReviewRequested`.
 Account-wide PR filters: GitHub/GHE `Author, Assignee, ReviewRequested, Mention` · GitLab
 `Author, Assignee, ReviewRequested` · Bitbucket + Bitbucket DC `Author, ReviewRequested` · Azure
 `Author, Assignee, ReviewRequested`.
+PR **search** capabilities (`getSupportedFilters().pullRequestSearch`): GitHub/GHE express relationships
+`Author, Assignee, ReviewRequested, Mention`, states `open, closed, merged, all`, `text`, `includeArchived`, and
+repository/organization scopes. Every other provider declares empty lists and false flags, so the read is refused
+rather than returning a page that did not apply a requested criterion or scope.
 Issue filters: GitHub/GHE + Azure + Jira `Author, Assignee, Mention` · GitLab `Author, Assignee` ·
 Linear + Trello `Assignee` · Bitbucket family none.
 Account-wide issue filters: GitHub/GHE `Author, Assignee, Mention` · Azure `Author, Assignee` · GitLab
@@ -454,10 +500,13 @@ free text have no equivalent on either.
 
 ## 9. Per-provider behavior worth designing around
 
-- **GitHub / GHE** — cursor-only everywhere. The account-wide issue read is three searches (`author:@me`,
-  `assignee:@me`, `mentions:@me`) behind one composite cursor; a filtered account-wide PR read is one search
-  per state × relationship facet behind a composite cursor that resumes only active facets. Each search caps
-  at GitHub's own 1.000-result ceiling, surfaced as `page.truncated` — and on `searchIssuesPage` additionally
+- **GitHub / GHE** — cursor-only everywhere. The filtered PR search aliases each requested relationship × state
+  facet into one GraphQL request per page, dedupes facet overlap, and sorts the page most-recently-updated-first.
+  With no relationships it searches every PR in the required repo/org scope. The
+  account-wide issue read is three searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind one composite
+  cursor; the filtered account-wide `listPullRequestsPage` read is one search per state × relationship facet
+  behind a composite cursor that resumes only active facets. Each search caps
+  at GitHub's own 1,000-result ceiling, surfaced as `page.truncated` — and on the filtered searches additionally
   as an omission carrying the total match count (§5.1). The only provider with a filtered issue search today.
   `includeAllAssignees` is refused on the **account-wide** issue read: it becomes `assignee:*`, which needs a
   scope to mean anything (unscoped it matches millions of issues across all of GitHub) and that read has none

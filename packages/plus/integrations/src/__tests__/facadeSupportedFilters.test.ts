@@ -179,6 +179,92 @@ suite('IntegrationManager.getSupportedFilters', () => {
 		}
 	});
 
+	suite('pullRequestSearch', () => {
+		test('is always present and only GitHub/GHE declare support today', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				for (const id of allIds) {
+					assert.ok(manager.getSupportedFilters(id).pullRequestSearch != null);
+				}
+
+				const withSearch = allIds.filter(
+					id => manager.getSupportedFilters(id).pullRequestSearch.relationships.length > 0,
+				);
+				assert.deepEqual(
+					withSearch.sort(),
+					[GitCloudHostIntegrationId.GitHub, GitSelfManagedHostIntegrationId.CloudGitHubEnterprise].sort(),
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('reports empty lists and every flag false for an unsupported provider', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitLab).pullRequestSearch, {
+					relationships: [],
+					states: [],
+					text: false,
+					includeArchived: false,
+					repositoryScope: false,
+					organizationScope: false,
+				});
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('GitHub declares every relationship, state, and scope channel it implements', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				assert.deepEqual(manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub).pullRequestSearch, {
+					relationships: [
+						PullRequestFilter.Author,
+						PullRequestFilter.Assignee,
+						PullRequestFilter.ReviewRequested,
+						PullRequestFilter.Mention,
+					],
+					states: ['open', 'closed', 'merged', 'all'],
+					text: true,
+					includeArchived: true,
+					repositoryScope: true,
+					organizationScope: true,
+				});
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('returns copies of relationship and state lists', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				const first = manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub).pullRequestSearch;
+				first.relationships.length = 0;
+				first.states.length = 0;
+
+				const second = manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub).pullRequestSearch;
+				assert.ok(second.relationships.length > 0);
+				assert.ok(second.states.length > 0);
+			} finally {
+				manager.dispose();
+			}
+		});
+
+		test('GitHub Enterprise mirrors GitHub', () => {
+			const manager = createIntegrationManager(createFakeRuntime());
+			try {
+				assert.deepEqual(
+					manager.getSupportedFilters(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise)
+						.pullRequestSearch,
+					manager.getSupportedFilters(GitCloudHostIntegrationId.GitHub).pullRequestSearch,
+				);
+			} finally {
+				manager.dispose();
+			}
+		});
+	});
+
 	/**
 	 * `issueSearch` describes a third, wider surface than the two filter sets: the filtered issue search, which
 	 * isn't bound to the user at all. It is reported for EVERY provider — empty rather than absent — because that

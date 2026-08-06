@@ -5,6 +5,8 @@ import type {
 	IssueSearchCriteria,
 	IssueSearchRelationship,
 	PullRequestFilter,
+	PullRequestSearchCapabilities,
+	PullRequestSearchCriteria,
 } from '../providerFilters.js';
 import type { ProviderRepoInput, ProviderReposInput } from '../providers/models.js';
 import { providersMetadata } from '../providers/models.js';
@@ -63,6 +65,88 @@ export function resolveAccountWidePullRequestFilters(
 	if (supported == null || filters.some(f => !supported.includes(f))) return { unsupported: true };
 
 	return { filters: [...new Set(filters)], unsupported: false };
+}
+
+/** Why {@link resolvePullRequestSearchCriteria} refused a criteria set. */
+export type PullRequestSearchCriteriaRejection =
+	/** The provider has no filtered pull-request search. */
+	| { reason: 'unsupported-search' }
+	/** The provider has one, but cannot express every requested criterion server-side. */
+	| { reason: 'unsupported-criteria'; criteria: string[] };
+
+/**
+ * Validates filtered pull-request search criteria all-or-nothing. Dropping an unsupported criterion would
+ * widen the provider query while leaving its page and cursor describing the wider set, so the facade refuses the
+ * request before any upstream call instead.
+ */
+export function resolvePullRequestSearchCriteria(
+	id: IntegrationIds,
+	criteria: PullRequestSearchCriteria | undefined,
+): { rejection?: PullRequestSearchCriteriaRejection } {
+	const supported = providersMetadata[id]?.supportedPullRequestSearch;
+	if (supported == null || supported.relationships.length === 0) {
+		return { rejection: { reason: 'unsupported-search' } };
+	}
+	if (criteria == null) return {};
+
+	const unsupported: string[] = [];
+	for (const relationship of criteria.relationships ?? []) {
+		if (!supported.relationships.includes(relationship)) {
+			unsupported.push(`relationships:${relationship}`);
+		}
+	}
+	for (const state of criteria.states ?? []) {
+		if (!supported.states.includes(state)) {
+			unsupported.push(`states:${state}`);
+		}
+	}
+	if (criteria.text != null && criteria.text.trim().length > 0 && !supported.text) {
+		unsupported.push('text');
+	}
+	if (criteria.includeArchived === true && !supported.includeArchived) {
+		unsupported.push('includeArchived');
+	}
+
+	return unsupported.length > 0 ? { rejection: { reason: 'unsupported-criteria', criteria: unsupported } } : {};
+}
+
+/** Why a filtered pull-request search's repository/organization boundary was refused. */
+export type PullRequestSearchScopeRejection =
+	| 'unscoped'
+	| 'repo-ids'
+	| 'unsupported-repository-scope'
+	| 'unsupported-organization-scope';
+
+/**
+ * Validates the search boundary independently from its criteria. A current-user relationship is itself a safe
+ * account-wide boundary; without one, a repository or organization scope is mandatory.
+ */
+export function resolvePullRequestSearchScope(
+	id: IntegrationIds,
+	repos: ProviderReposInput | undefined,
+	org: string | undefined,
+	criteria: PullRequestSearchCriteria | undefined,
+): { rejection?: PullRequestSearchScopeRejection; repos?: ProviderRepoInput[] } {
+	const supported = providersMetadata[id]?.supportedPullRequestSearch;
+	let resolvedRepos: ProviderRepoInput[] | undefined;
+
+	if (repos?.length) {
+		if (repos.some(r => typeof r === 'string' || typeof r === 'number')) return { rejection: 'repo-ids' };
+		if (supported?.repositoryScope !== true) return { rejection: 'unsupported-repository-scope' };
+
+		resolvedRepos = repos as ProviderRepoInput[];
+	}
+
+	const hasOrganizationScope = org != null && org.length > 0;
+	if (hasOrganizationScope && supported?.organizationScope !== true) {
+		return { rejection: 'unsupported-organization-scope' };
+	}
+
+	if (resolvedRepos != null || hasOrganizationScope || (criteria?.relationships?.length ?? 0) > 0) {
+		return { repos: resolvedRepos };
+	}
+
+	return { rejection: 'unscoped' };
 }
 
 /**
@@ -182,6 +266,16 @@ const unsupportedIssueSearchCapabilities: IssueSearchCapabilities = {
 	states: false,
 };
 
+/** What a provider with no filtered pull-request search reports. */
+const unsupportedPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
+	relationships: [],
+	states: [],
+	text: false,
+	includeArchived: false,
+	repositoryScope: false,
+	organizationScope: false,
+};
+
 /** Why a filtered issue search's scope was refused, or `undefined` when it is usable. */
 export type IssueSearchScopeRejection =
 	/** No repositories, no org, and no user-relative relationship: a search of the whole host. */
@@ -248,6 +342,9 @@ export function resolveIssueSearchScope(
  * rather than a list, because its criteria aren't a single kind. An empty `relationships` means the provider has
  * no filtered issue search — hide the surface, not just its chips.
  *
+ * `pullRequestSearch` describes the separate filtered PR search. Its table declares each criteria vocabulary
+ * plus repository/organization scope support; an empty relationship list means the search itself is absent.
+ *
  * Note this is a CAPABILITY table — "what the provider can express" — not a recommendation. A consumer
  * matching another tool's behavior may deliberately pass fewer filters than are listed here (or none, where an
  * already-scoped read would only be narrowed by them). Intersecting against this table is what keeps a
@@ -256,15 +353,23 @@ export function resolveIssueSearchScope(
 export function getSupportedFilters(providerId: IntegrationIds): {
 	pullRequests: PullRequestFilter[];
 	pullRequestsAccountWide: PullRequestFilter[];
+	pullRequestSearch: PullRequestSearchCapabilities;
 	issues: IssueFilter[];
 	issuesAccountWide: IssueFilter[];
 	issueSearch: IssueSearchCapabilities;
 } {
 	const metadata = providersMetadata[providerId];
 	const issueSearch = metadata?.supportedIssueSearch;
+	const pullRequestSearch = metadata?.supportedPullRequestSearch;
 	return {
 		pullRequests: [...(metadata?.supportedPullRequestFilters ?? [])],
 		pullRequestsAccountWide: [...(metadata?.supportedAccountWidePullRequestFilters ?? [])],
+		pullRequestSearch: {
+			...unsupportedPullRequestSearchCapabilities,
+			...pullRequestSearch,
+			relationships: [...(pullRequestSearch?.relationships ?? [])],
+			states: [...(pullRequestSearch?.states ?? [])],
+		},
 		issues: [...(metadata?.supportedIssueFilters ?? [])],
 		issuesAccountWide: [...(metadata?.supportedAccountWideIssueFilters ?? [])],
 		// Always an object, never `undefined`: a provider WITHOUT a filtered issue search reports one whose

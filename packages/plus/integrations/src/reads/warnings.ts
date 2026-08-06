@@ -1,8 +1,13 @@
 import type { IntegrationIds } from '../constants.js';
-import type { IssueFilter, IssueSearchCapabilities, PullRequestFilter } from '../providerFilters.js';
+import type {
+	IssueFilter,
+	IssueSearchCapabilities,
+	PullRequestFilter,
+	PullRequestSearchCapabilities,
+} from '../providerFilters.js';
 import { providersMetadata } from '../providers/models.js';
 import type { ProviderWarning } from '../results.js';
-import type { IssueSearchCriteriaRejection } from './filters.js';
+import type { IssueSearchCriteriaRejection, PullRequestSearchCriteriaRejection } from './filters.js';
 
 /**
  * The warnings the provider facade raises on its OWN terms, as opposed to the ones derived from a caught
@@ -154,7 +159,8 @@ type TruncatedReadKind =
 	| 'Organization'
 	| 'Project'
 	| 'Account-wide issue search'
-	| 'Issue search';
+	| 'Issue search'
+	| 'Pull request search';
 
 /** {@link incompleteReadWarning} for a paged or drained read, phrased per surface. */
 export function truncationWarning(
@@ -244,6 +250,44 @@ export function unsupportedFiltersWarning(
 		connectionId,
 		`The requested pull request filters are not supported by '${id}'; skipped to avoid returning unfiltered results.`,
 	);
+}
+
+/** Warning for a filtered pull-request search the provider cannot run as requested. */
+export function unsupportedPullRequestSearchCriteriaWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	rejection: PullRequestSearchCriteriaRejection,
+): ProviderWarning {
+	let message: string;
+	switch (rejection.reason) {
+		case 'unsupported-search':
+			message = `Filtered pull request search is not supported by '${id}'; use \`listPullRequestsPage\` for its own pull request reads.`;
+			break;
+		case 'unsupported-criteria': {
+			const supported = providersMetadata[id]?.supportedPullRequestSearch;
+			message = unsupportedNarrowingMessage(
+				id,
+				'pull request search criteria',
+				rejection.criteria.join(', '),
+				supported != null ? describePullRequestSearchCapabilities(supported) : '',
+			);
+			break;
+		}
+	}
+
+	return otherWarning(id, domain, connectionId, message);
+}
+
+function describePullRequestSearchCapabilities(capabilities: PullRequestSearchCapabilities): string {
+	return [
+		...(capabilities.relationships.length ? [`relationships:${capabilities.relationships.join('|')}`] : []),
+		...(capabilities.states.length ? [`states:${capabilities.states.join('|')}`] : []),
+		...(capabilities.text ? ['text'] : []),
+		...(capabilities.includeArchived ? ['includeArchived'] : []),
+		...(capabilities.repositoryScope ? ['repository scope'] : []),
+		...(capabilities.organizationScope ? ['organization scope'] : []),
+	].join(', ');
 }
 
 /**
@@ -336,6 +380,32 @@ export function issueSearchCapResultWarning(
 		omission: {
 			kind: 'provider-limit',
 			// The items past the ceiling can't be fetched by anything, so never offer a "load more".
+			recovery: 'none',
+			limit: limit,
+			totalCount: totalCount,
+		},
+	};
+}
+
+/** Quantified omission for a pull-request search that exceeded the provider's reachable result window. */
+export function pullRequestSearchCapResultWarning(
+	id: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	totalCount: number | undefined,
+): ProviderWarning | undefined {
+	const limit = providersMetadata[id]?.pullRequestSearchResultLimit;
+	if (limit == null || totalCount == null || totalCount <= limit) return undefined;
+
+	return {
+		...otherWarning(
+			id,
+			domain,
+			connectionId,
+			`Pull request search matched ${totalCount} results, but '${id}' serves at most ${limit}; narrow the search to read the rest.`,
+		),
+		omission: {
+			kind: 'provider-limit',
 			recovery: 'none',
 			limit: limit,
 			totalCount: totalCount,
