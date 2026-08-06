@@ -125,16 +125,16 @@ export class GlMergeConflictWarning extends LitElement {
 			/* Under width pressure the refs are the first thing to go: the branch row directly below the
 			   strip already names the branch, and the leading icon's hover names the operands, so the
 			   phrase and the actions never lose room. The threshold is where the chips stop being able to
-			   NAME their refs — slivers are worse than absence. Every variant sheds except pending, whose
-			   phrase reads straight into its refs ("Pending rebase of <feature> onto <main>"). */
+			   NAME their refs — slivers are worse than absence. Every variant sheds, including pending,
+			   whose leading "of" rides inside the group so its phrase still reads once they're gone. */
 			@container (max-width: 52rem) {
-				.status--sheddable .refs {
+				.refs {
 					display: none;
 				}
 
 				/* Refs gone, the phrase is the only thing left that can absorb the squeeze — ellipsize it
 				   rather than let the label's overflow clip it mid-word. */
-				.status--sheddable .label__phrase {
+				.label__phrase {
 					flex: 0 1 auto;
 					min-width: 0;
 					overflow: hidden;
@@ -341,11 +341,9 @@ export class GlMergeConflictWarning extends LitElement {
 
 		const variant = getPausedOperationVariant(status, this.conflicts);
 		const stepped = isPausedOperationStepped(status, variant) ? status : undefined;
-		// Pending is the one variant whose phrase reads into its refs, so it's the one that can't shed them.
-		const sheddable = variant !== 'pending';
 
 		return html`
-			<span class="status ${sheddable ? 'status--sheddable' : ''}" part="base" data-variant=${variant}>
+			<span class="status" part="base" data-variant=${variant}>
 				${this.renderIcon(status, variant)}${this.renderLabel(status, variant, stepped)}${
 					// Read-only keeps the variant's copy and tint — only the affordances go away.
 					this.readOnly ? nothing : this.renderActions(status, variant)
@@ -375,8 +373,9 @@ export class GlMergeConflictWarning extends LitElement {
 				>${label}</span
 			>${stepped != null ? this.renderStep(stepped) : nothing}${this.renderRefs(
 				status,
-				// The pending phrase reads straight into its refs ("Pending rebase of <feature> onto <main>").
-				variant !== 'pending',
+				// Pending's phrase reads straight into its refs ("Pending rebase" + "of <feature> onto <main>"),
+				// so it leads with that "of" where every other variant leads with a separator.
+				variant === 'pending' ? 'of' : '·',
 			)}</span
 		>`;
 	}
@@ -402,14 +401,17 @@ export class GlMergeConflictWarning extends LitElement {
 			>`;
 	}
 
-	private renderRefs(status: GitPausedOperationStatus, separator: boolean) {
+	private renderRefs(status: GitPausedOperationStatus, lead: '·' | 'of') {
 		const strings = pausedOperationStatusStringsByType[status.type];
 		// Never null in practice: `current` is required on non-rebase models, `onto` on rebase.
 		const current = getConflictCurrentRef(status)!;
 
-		// The leading separator lives inside the group so nothing dangles when it drops at narrow widths.
+		// The leading token lives inside the group so nothing dangles when it drops at narrow widths —
+		// neither a separator nor the preposition the pending phrase would otherwise trail off with.
 		return html`<span class="refs"
-			>${separator ? html`<span class="separator">·</span>` : nothing}${this.renderReference(status.incoming)}<span>${strings.directionality}</span>${this.renderReference(current)}</span
+			>${
+				lead === '·' ? html`<span class="separator">·</span>` : html`<span class="label__text">of</span>`
+			}${this.renderReference(status.incoming)}<span>${strings.directionality}</span>${this.renderReference(current)}</span
 		>`;
 	}
 

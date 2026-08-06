@@ -141,10 +141,10 @@ suite('getPausedOperationBarLabel', () => {
 		assert.strictEqual(getPausedOperationBarLabel(createRevert(), 'ready'), 'Reverting');
 	});
 
-	test('a pending rebase reads into its refs', () => {
+	test('a pending rebase stands alone, since its refs can shed', () => {
 		assert.strictEqual(
 			getPausedOperationBarLabel(createRebase({ current: 0, total: 0 }), 'pending'),
-			'Pending rebase of',
+			'Pending rebase',
 		);
 	});
 });
@@ -225,10 +225,10 @@ suite('getPausedOperationBarIconTooltip', () => {
 		);
 	});
 
-	test('pending has nothing to explain — its own label already names the refs', () => {
+	test('pending names its operands too, since its refs shed like every other variant', () => {
 		assert.strictEqual(
 			getPausedOperationBarIconTooltip(createRebase({ current: 0, total: 0 }), 'pending', undefined),
-			undefined,
+			'Rebasing feature onto main. The rebase hasn’t reached its first step',
 		);
 	});
 });
