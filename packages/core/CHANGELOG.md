@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `IntegrationManager.searchPullRequestsPage`, a filtered pull-request search bounded by repository/organization or explicit current-user relationships. The structured criteria carry free text, an OR set of `PullRequestFilter` relationships, an OR set of states, and `includeArchived`; this expresses both `Author + Assignee + ReviewRequested` visibility and the complete `closed + merged` terminal set without relying on GitHub's mismatched `involves:@me`. `getSupportedFilters().pullRequestSearch` declares the exact relationship/state vocabularies plus text, archived, repository-scope, and organization-scope support. GitHub/GHE sanitize free text, alias every relationship × state facet into exactly one upstream request per cursor-threaded page, dedupe overlap, and order most recently updated first. At GitHub's 1,000-result ceiling the read succeeds with a `provider-limit` omission carrying the provider's pre-ceiling `totalCount`, `limit`, and `recovery: 'none'`. Other providers declare empty/false capabilities and the facade refuses the read rather than silently ignoring criteria or scope ([#5665](https://github.com/gitkraken/vscode-gitlens/issues/5665)) (plus/integrations)
+
 ## [0.5.105] - 2026-08-04
 
 ### Changed

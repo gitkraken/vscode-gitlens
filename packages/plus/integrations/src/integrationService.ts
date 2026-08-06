@@ -1,6 +1,11 @@
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
-import type { PullRequest, PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestSearchCriteria,
+	PullRequestShape,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
@@ -67,6 +72,7 @@ import type {
 	ProviderReposInput,
 	ProviderRepositoryShape,
 	PullRequestFilter,
+	PullRequestSearchCapabilities,
 } from './providers/models.js';
 import { providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
@@ -81,6 +87,7 @@ import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
 import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
+import { searchPullRequestsPage } from './reads/searchPullRequests.js';
 import { sweepClosedPullRequests, sweepPullRequests } from './reads/sweeps.js';
 import { noConnectionWarning } from './reads/warnings.js';
 import type {
@@ -533,6 +540,7 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 	getSupportedFilters(providerId: IntegrationIds): {
 		pullRequests: PullRequestFilter[];
 		pullRequestsAccountWide: PullRequestFilter[];
+		pullRequestSearch: PullRequestSearchCapabilities;
 		issues: IssueFilter[];
 		issuesAccountWide: IssueFilter[];
 		issueSearch: IssueSearchCapabilities;
@@ -1049,6 +1057,22 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 		domain?: string;
 	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		return listPullRequestsPage(this, options);
+	}
+
+	/** See {@link IntegrationManager.searchPullRequestsPage}. */
+	async searchPullRequestsPage(options: {
+		providerId: IntegrationIds;
+		repos?: ProviderReposInput;
+		org?: string;
+		criteria?: PullRequestSearchCriteria;
+		page?: number;
+		cursor?: string;
+		itemsPerPage?: number;
+		forceSync?: boolean;
+		connectionId?: string;
+		domain?: string;
+	}): Promise<ProviderPagedResult<PullRequestShape>> {
+		return searchPullRequestsPage(this, options);
 	}
 
 	async listIssuesPage(options: {
