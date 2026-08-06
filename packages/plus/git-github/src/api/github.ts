@@ -96,6 +96,13 @@ const requestRetryMaxDelay = 2000; // ms
 /** How many email->login user searches to alias into a single GraphQL request (keeps query cost within limits). */
 const accountResolveBatchSize = 25;
 
+// Pull-request search selects the full PR fragment (reviews, requests, refs, commits, etc.),
+// which makes GitHub reject broad 100-node searches with `Resource limits for this query
+// exceeded` on large repositories. Thirty keeps the default within that GraphQL cost budget
+// while callers that know their scope is cheap can still opt into the supported 100-node max.
+const defaultPullRequestSearchPageSize = 30;
+const maxPullRequestSearchPageSize = 100;
+
 function isRetryableTransientError(ex: unknown): ex is RequestError {
 	// An aborted request is rethrown as the original `AbortError` (not a `RequestError`), so it is
 	// excluded here. octokit maps a fetch/network failure to a `RequestError` with status 500 and
@@ -4070,7 +4077,10 @@ export class GitHubApi {
 	): Promise<PullRequestSearchResult | undefined> {
 		const scope = getScopedLogger();
 
-		const pageSize = Math.min(100, Math.max(1, Math.trunc(options?.pageSize ?? 100)));
+		const pageSize = Math.min(
+			maxPullRequestSearchPageSize,
+			Math.max(1, Math.trunc(options?.pageSize ?? defaultPullRequestSearchPageSize)),
+		);
 		const facets = toGitHubPullRequestSearchFacets(options?.criteria);
 		const facetAliases = facets.map(f => f.alias).sort();
 		const scopeQualifiers = toGitHubIssueSearchScopeQualifiers(options?.org, options?.repos);
