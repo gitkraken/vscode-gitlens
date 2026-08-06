@@ -38,6 +38,14 @@ export function getValidatedTemperature(
 	modelTemperature?: number | null,
 	defaultTemperature?: number,
 ): number | undefined {
+	// `temperature: null` on the model is a capability statement, not a default: the model rejects the
+	// parameter (reasoning models, Anthropic Opus 4.7+/Sonnet 5, Gemini 3.x) or the catalog can't
+	// promise it accepts one (every GitKraken-proxy and OpenRouter model). It therefore has to win over
+	// a caller-supplied value — callers merge as `modelOptions?.temperature ?? model.temperature`, and
+	// `0 ?? null` is `0`, so an explicit 0 would otherwise defeat the opt-out and be sent anyway.
+	// It also covers upstreams the id check below can't see: a proxy model is `openai:gpt-5.6-…`, not
+	// `gpt-5.6-…`, so `startsWith` misses it while the upstream still 400s on a non-default value.
+	if (model.temperature === null) return undefined;
 	if (modelTemperature === null) return undefined;
 	// GPT5 doesn't support anything but the default temperature
 	if (model.id.startsWith('gpt-5')) return undefined;
