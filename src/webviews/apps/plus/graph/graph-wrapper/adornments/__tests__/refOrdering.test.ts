@@ -1,8 +1,9 @@
 import * as assert from 'assert';
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 import type { TemplateResult } from 'lit';
+import { refPillKey } from '../../../utils/refKey.utils.js';
 import type { GraphCommitRef } from '../../graph-commit.js';
-import { isUpstreamRemoteOf, pickGhostRef, refPillKey, sortRowRefs } from '../../graph-commit.js';
+import { isUpstreamRemoteOf, pickGhostRef, sortRowRefs } from '../../graph-commit.js';
 import type { WipStats } from '../wipStatsAdornmentProvider.js';
 import { createWipStatsAdornmentProvider } from '../wipStatsAdornmentProvider.js';
 
@@ -202,6 +203,40 @@ suite('graph ref ordering — pins', () => {
 	test('the edge pin promotes a local head, not just a remote', () => {
 		const withLocal = [...refs, head('other')];
 		assert.strictEqual(keys(sortRowRefs(withLocal, { pinnedRefId: headId('other') }))[1], 'head:other');
+	});
+});
+
+suite('graph ref ordering — ref-find hit', () => {
+	test('a find hit promotes an ordinary local/tag/remote to primary', () => {
+		const refs = [head('main', { current: true }), remote('origin', 'other'), tag('v1')];
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { findHitRefKey: 'tag:v1' })), [
+			'tag:v1',
+			'head:main',
+			'remote:origin/other',
+		]);
+	});
+
+	test("a find hit on a remote that is a local head's in-sync upstream promotes the LOCAL as carrier", () => {
+		const refs = [{ ...trackedHead('main', 'origin'), current: true }, remote('origin', 'main'), tag('v1')];
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { findHitRefKey: 'remote:origin/main' })), [
+			'head:main',
+			'remote:origin/main',
+			'tag:v1',
+		]);
+	});
+
+	test('a click pin still outranks a find hit', () => {
+		const refs = [head('a'), head('b'), head('c')];
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { pinnedRefKey: 'head:a', findHitRefKey: 'head:b' })), [
+			'head:a',
+			'head:b',
+			'head:c',
+		]);
+	});
+
+	test('no find hit leaves ordering unchanged', () => {
+		const refs = [{ ...trackedHead('current', 'origin'), current: true }, remote('origin', 'current'), tag('v1')];
+		assert.deepStrictEqual(keys(sortRowRefs(refs, { findHitRefKey: undefined })), keys(sortRowRefs(refs)));
 	});
 });
 

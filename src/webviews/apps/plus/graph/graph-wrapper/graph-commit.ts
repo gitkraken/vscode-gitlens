@@ -15,6 +15,7 @@ import {
 	serializeRemoteBranchRefContext,
 	serializeTagRefContext,
 } from '../utils/refContext.utils.js';
+import { refPillKey } from '../utils/refKey.utils.js';
 import { pickRowUndoTarget } from '../utils/row.utils.js';
 import {
 	isUnpublishedRow,
@@ -326,15 +327,6 @@ export function isRefHidden(
 	return ref.kind !== 'remote' || !isTrackedUpstream(ref, downstreams);
 }
 
-/**
- * Stable, UNIQUE per-ref key (a local branch and the remote it tracks share a `name`, e.g. `main` vs
- * `origin/main`, so name alone can't identify a ref). Kind + remote owner + name disambiguates:
- * `head:main`, `remote:origin/main`, `tag:v1`. Also what the rendered pill carries as `data-ref-key`.
- */
-export function refPillKey(ref: { kind: string; name: string; owner?: string | null }): string {
-	return ref.kind === 'remote' ? `remote:${ref.owner ?? ''}/${ref.name}` : `${ref.kind}:${ref.name}`;
-}
-
 /** A remote ref's full `owner/name` — what an upstream is named by (`origin/main`). */
 function remoteFullName(ref: GraphCommitRef): string {
 	return ref.owner != null ? `${ref.owner}/${ref.name}` : ref.name;
@@ -369,6 +361,9 @@ export interface RowRefOrder {
 	pinnedRefKey?: string;
 	/** `id` of the ref pinned to the EDGE (persisted host state). */
 	pinnedRefId?: string;
+	/** `refPillKey` of the ref the ref-find widget landed on. Ranks like a pin: only the PRIMARY pill is
+	 *  visible inline and only it takes the find fill, so a buried match would land with nothing to show. */
+	findHitRefKey?: string;
 	/** Full `owner/name` of the current branch's upstream (`branchState.upstream`). Ranks that remote
 	 *  even on rows the local HEAD pill ISN'T on — i.e. whenever HEAD is ahead of or behind it, which
 	 *  is precisely when the two land on different rows. */
@@ -376,11 +371,11 @@ export interface RowRefOrder {
 }
 
 /**
- * Order a row's refs for display, primary first: click-pinned → current ref → edge-pinned → current
- * upstream → worktree ref → worktree upstream → default branch → local → remote → tag. Ties break on
- * the BARE name (numeric collation, so `v1.9.0` precedes `v1.10.0`) then the remote owner — never the
- * rendered label, so the order can't shift when `gitlens.graph.showRemoteNames` toggles and same-named
- * remotes from different owners stay adjacent. The upstream tiers match a remote ref to the
+ * Order a row's refs for display, primary first: click-pinned → ref-find hit → current ref → edge-pinned
+ * → current upstream → worktree ref → worktree upstream → default branch → local → remote → tag. Ties
+ * break on the BARE name (numeric collation, so `v1.9.0` precedes `v1.10.0`) then the remote owner —
+ * never the rendered label, so the order can't shift when `gitlens.graph.showRemoteNames` toggles and
+ * same-named remotes from different owners stay adjacent. The upstream tiers match a remote ref to the
  * current/worktree head's upstream; they (and the worktree/default tiers) activate as the host carries
  * `upstream` / `worktree` / a default flag (additive, legacy-safe) — until then those refs simply fall
  * through to local/remote/tag, which is what virtual/GitHub repos get since their provider ships none
@@ -388,48 +383,63 @@ export interface RowRefOrder {
  *
  * The current-upstream tier reads `order.currentUpstreamName` as well as the row's own current head,
  * because the row-local match only fires when HEAD and its upstream sit on the SAME commit (in sync).
- * The click pin outranks the current checkout — it's an explicit, transient focus act, and only the
- * PRIMARY pill carries `.is-pinned`, so burying it would leave the click with no visible effect.
+ * The click pin outranks the ref-find hit and the current checkout — it's an explicit, transient focus
+ * act, and only the PRIMARY pill carries `.is-pinned`, so burying it would leave the click with no
+ * visible effect. The ref-find hit in turn outranks the current checkout for the same reason: only the
+ * primary pill is visible inline, and only it takes the find fill.
  *
  * Shared by the ref pill (`refAdornmentProvider`) and the lane-tip ghost ref so the two can't name
  * different branches for the same row.
  */
+/** An in-sync remote is carried by its LOCAL: the two render as one combined pill, so promoting the
+ *  remote alone would split it (`isUpstreamRemoteOf` needs the head second). Falls back to the ref
+ *  itself when no local tracks it. */
+function carrierFor(refs: readonly GraphCommitRef[], matched: GraphCommitRef | undefined): GraphCommitRef | undefined {
+	if (matched?.kind !== 'remote') return matched;
+
+	return refs.find(r => r.kind === 'head' && isUpstreamRemoteOf(matched, r)) ?? matched;
+}
+
 export function sortRowRefs(refs: readonly GraphCommitRef[], order?: RowRefOrder): GraphCommitRef[] {
 	if (refs.length < 2) return refs.slice();
 
 	const currentHead = refs.find(r => r.kind === 'head' && r.current);
 	const worktreeHeads = refs.filter(r => r.kind === 'head' && r.secondaryWorktreeId != null);
+	// A ref-find hit landing on a remote that's the in-sync upstream of a local head HERE ranks the pair by
+	// its LOCAL, for the same reason as the edge pin below: the two render as one combined pill, so
+	// promoting the remote alone would split it in two. The find fill still lands on the matched remote —
+	// the combined pill's upstream segment.
+	const findHit = order?.findHitRefKey != null ? refs.find(r => refPillKey(r) === order.findHitRefKey) : undefined;
+	const findHitCarrier = carrierFor(refs, findHit);
 	// An edge pin landing on a remote that's the in-sync upstream of a local head HERE ranks the pair by its
 	// LOCAL: the two render as one combined pill, so promoting the remote alone would split it in two and the
 	// absorbed remote could never be matched back (`isUpstreamRemoteOf` needs the head second). The pin still
 	// shows — on that pill's upstream segment, which IS the pinned remote.
 	const edgePinned = order?.pinnedRefId != null ? refs.find(r => r.id === order.pinnedRefId) : undefined;
-	const edgePinCarrier =
-		edgePinned?.kind === 'remote'
-			? (refs.find(r => r.kind === 'head' && isUpstreamRemoteOf(edgePinned, r)) ?? edgePinned)
-			: edgePinned;
+	const edgePinCarrier = carrierFor(refs, edgePinned);
 	const tier = (r: GraphCommitRef): number => {
 		// Either pin can land on a head OR a remote, so both straddle the kind switch below. Click before
 		// edge: it's the more recent, explicitly-expressed intent when a row carries both.
 		if (order?.pinnedRefKey != null && refPillKey(r) === order.pinnedRefKey) return 0; // click-pinned
-		if (r.kind === 'head' && r.current) return 1; // the current checkout
-		if (edgePinCarrier != null && r === edgePinCarrier) return 2; // pinned to the edge
+		if (findHitCarrier != null && r === findHitCarrier) return 1; // ref-find hit
+		if (r.kind === 'head' && r.current) return 2; // the current checkout
+		if (edgePinCarrier != null && r === edgePinCarrier) return 3; // pinned to the edge
 		if (r.kind === 'head') {
-			if (r.secondaryWorktreeId != null) return 4; // checked out in another worktree
-			if (r.isDefault) return 6; // the repo's default branch
-			return 7; // local branch
+			if (r.secondaryWorktreeId != null) return 5; // checked out in another worktree
+			if (r.isDefault) return 7; // the repo's default branch
+			return 8; // local branch
 		}
 		if (r.kind === 'remote') {
 			// The row-local match covers an in-sync HEAD (its local pill is right here); the name match
 			// covers every other row — which is all of them once HEAD is ahead of or behind its upstream.
-			if (isUpstreamRemoteOf(r, currentHead)) return 3; // upstream of the current branch
-			if (order?.currentUpstreamName != null && remoteFullName(r) === order.currentUpstreamName) return 3;
-			if (worktreeHeads.some(h => isUpstreamRemoteOf(r, h))) return 5; // upstream of a worktree branch
-			if (r.isDefault) return 6; // the repo's default branch (remote-only — no local checkout)
-			return 8; // remote branch
+			if (isUpstreamRemoteOf(r, currentHead)) return 4; // upstream of the current branch
+			if (order?.currentUpstreamName != null && remoteFullName(r) === order.currentUpstreamName) return 4;
+			if (worktreeHeads.some(h => isUpstreamRemoteOf(r, h))) return 6; // upstream of a worktree branch
+			if (r.isDefault) return 7; // the repo's default branch (remote-only — no local checkout)
+			return 9; // remote branch
 		}
 
-		return 9; // tag
+		return 10; // tag
 	};
 
 	return refs.toSorted(

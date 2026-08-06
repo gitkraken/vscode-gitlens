@@ -2338,17 +2338,6 @@ gl-lit-graph {
 		margin-inline-start: 0;
 	}
 
-	// The ref the find widget landed on wears the SAME fill the pill takes on hover — lane color inside,
-	// per-lane contrast color for the text — so the ref you asked for is identifiable among the others
-	// sharing its row, in the vocabulary the pill already speaks. Held while the finder is open, and
-	// dropped when it closes: the emphasis belongs to the find, not to the selection it leaves behind.
-	// Role-colored pills (HEAD / upstream) are excluded — their fill carries meaning this must not
-	// overwrite, and they are already the most legible pills on screen.
-	.gl-graph__ref-pill--find-hit:not(.gl-graph__ref-pill--row-marker-head, .gl-graph__ref-pill--row-marker-upstream) {
-		color: var(--ref-on-color, #fff);
-		background-color: var(--ref-color);
-	}
-
 	// Landing flash: a brief wash over the row a jump just landed on, settling into ordinary selection.
 	// Bound to the LANDED ROW (`is-landing-flash`, keyed by sha in the row renderer) rather than to whichever
 	// row happens to be `.is-selected` while it plays — the class outlives the jump by 700ms, and a selection
@@ -2988,6 +2977,12 @@ gl-lit-graph {
 		filter: brightness(1.28);
 	}
 
+	// Single source of truth for "this pill is showing its filled look" — the five triggers that fill a ref
+	// pill with its lane color and reveal the hover-expand overlay: pointer/keyboard hover, click-pinned,
+	// context-pinned (native context menu open over the pill), and a find hit. Interpolate as
+	// `.gl-graph__ref-pill#{$pill-filled}` wherever a rule needs to react to the pill being filled.
+	$pill-filled: ':is(:hover, :focus-within, .is-pinned, .is-context-pinned, .gl-graph__ref-pill--find-hit)';
+
 	// Ref pills (RefAdornmentProvider). Colors come from the --ref-* custom props set by refStyle()
 	// (NOT inline color/bg, so the :hover rule can win). At rest: lane-colored text + soft border;
 	// on hover: the pill FILLS with its lane color and the text flips to a readable contrast.
@@ -3016,19 +3011,26 @@ gl-lit-graph {
 		color: var(--ref-color, hsl(var(--foreground)));
 		background-color: var(--ref-bg, transparent);
 		cursor: pointer;
+		// What this pill fills with, and what it knocks its content out in — resolved ONCE here (or
+		// re-pointed by a role/muted variant below) and read by every filled-state rule downstream. Unlike
+		// `--ref-*`, these are never set inline, so a class rule can always re-point them.
+		--pill-fill: var(--ref-color);
+		--pill-on-fill: var(--ref-on-color, #fff);
 		transition:
 			color 150ms ease-out,
 			border-color 150ms ease-out,
 			background-color 150ms ease-out,
 			box-shadow 150ms ease-out;
 
-		// On hover the pill fills with its lane color; the per-lane black/white contrast color
-		// (`--ref-on-color`, WCAG luminance) keeps text + icon CRISP + readable on ANY lane. No
+		// On hover the pill fills with `--pill-fill`; the per-lane black/white contrast color
+		// (`--pill-on-fill`, WCAG luminance) keeps text + icon CRISP + readable on ANY lane. No
 		// text-shadow halo — it softened the glyph edges (and, being inherited, blurred the expand
 		// overlay too) — and no fixed white, which is low-contrast on light lanes (amber/gold/teal).
+		// border-color stays the literal lane color (not `--pill-fill`): a role pill's ring must hold the
+		// lane color through hover while its INTERIOR re-points to the role fill (see the role rules below).
 		&:hover {
-			color: var(--ref-on-color, #fff);
-			background-color: var(--ref-color);
+			color: var(--pill-on-fill);
+			background-color: var(--pill-fill);
 			border-color: var(--ref-color);
 			box-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.25);
 		}
@@ -3046,14 +3048,15 @@ gl-lit-graph {
 	// DIRECT background-color/color/border-color, NOT the `--ref-*` custom props: refStyle() sets those props
 	// INLINE on the pill, and an inline custom prop beats a class's custom-prop override — so a `--ref-bg:`
 	// here would be dead (which is exactly why the earlier tint never showed). A real `background-color`
-	// declaration has no inline competitor, so it wins over the base rule's `var(--ref-bg)`. Both rest AND
-	// :hover set them (the base `:hover` fills via `var(--ref-color)`, so the role must re-assert on hover).
-	// The role fill, per role — everything below reads `--row-marker-fill`, so the two roles differ by ONE line.
+	// declaration has no inline competitor, so it wins over the base rule's `var(--ref-bg)`. `--pill-fill` /
+	// `--pill-on-fill`, however, are NOT set inline anywhere, so re-pointing them here is enough — no rule
+	// downstream needs its own re-assertion just to outrank an inline value.
+	// The role fill, per role — everything below reads `--pill-fill`, so the two roles differ by ONE line.
 	.gl-graph__ref-pill--row-marker-head {
-		--row-marker-fill: var(--gl-row-marker-head);
+		--pill-fill: var(--gl-row-marker-head);
 	}
 	.gl-graph__ref-pill--row-marker-upstream {
-		--row-marker-fill: var(--gl-row-marker-upstream);
+		--pill-fill: var(--gl-row-marker-upstream);
 	}
 
 	// ROLE FILL INSIDE, LANE RING AROUND: the role color owns the pill's interior and the lane color becomes
@@ -3062,29 +3065,32 @@ gl-lit-graph {
 	// the lane color mid-interaction, which is the jarring part: hover swapped the meaning of the color.
 	.gl-graph__ref-pill--row-marker-head,
 	.gl-graph__ref-pill--row-marker-upstream {
-		background-color: var(--row-marker-fill);
+		// What this pill knocks its content out in RIGHT NOW — always its own `color` below. Declared first so
+		// `color` (and the ahead/behind stats further down) can resolve THROUGH it instead of hardcoding the
+		// literal twice.
+		--pill-on-fill: var(--vscode-editor-background);
+		background-color: var(--pill-fill);
 		// Solid lane color, NOT the alpha'd `--ref-border` — the ring has to carry the lane on its own now.
 		border-color: var(--ref-color);
-		color: var(--vscode-editor-background);
-		// What this pill knocks its content out in RIGHT NOW — always its own `color` above. Published as a
-		// prop so the state rules further down (which colorize against the LANE, and outrank anything this
-		// block could say about their elements) can resolve THROUGH it instead of having to be outranked.
-		// Read by the ahead/behind stats; an explicit color, not `currentColor`, so it still interpolates.
-		--row-marker-on-fill: var(--vscode-editor-background);
+		color: var(--pill-on-fill);
+		// Read by the ahead/behind stats on a SELECTED row (below): unlike `--pill-on-fill`, which the base
+		// pill also defines (so it can't tell a role pill from an ordinary one), this is only ever set here —
+		// its mere presence is what that one rule uses to distinguish "role, stay knocked out" from
+		// "ordinary, follow the lane color instead". An explicit color, not `currentColor`, so it interpolates.
+		--row-marker-on-fill: var(--pill-on-fill);
 
-		&:hover {
-			background-color: var(--row-marker-fill);
-			border-color: var(--ref-color);
-			color: var(--vscode-editor-background);
-		}
+		// No `&:hover` here: the base `.gl-graph__ref-pill:hover` rule already reads `--pill-fill` /
+		// `--pill-on-fill` / (a literal) `--ref-color` for border, and this block has already re-pointed the
+		// first two — so hover resolves to the same values as rest with nothing left to re-assert. Confirmed:
+		// deleting this block changes nothing (verified by walking the cascade, not just by removing it).
 
 		// The hover-expand overlay is a SEPARATE filled box painted on top of the pill, and it fills with
-		// `--ref-color` (the lane) — so without this the pill still visibly flipped to the lane color the
+		// `--pill-fill` — so without this the pill still visibly flipped to the fallback lane color the
 		// moment it expanded, even though the resting pill above no longer does.
 		.gl-graph__ref-pill-expand {
-			background-color: var(--row-marker-fill);
+			background-color: var(--pill-fill);
 			border-color: var(--ref-color);
-			color: var(--vscode-editor-background);
+			color: var(--pill-on-fill);
 		}
 
 		// The inner segments' hover rule knocks text out in `--ref-on-color`, which is the contrast color
@@ -3117,26 +3123,33 @@ gl-lit-graph {
 	}
 
 	// Muted variant (the WIP-row pill): GREYSCALE + neutral, so it reads as a plain secondary decorator next
-	// to the fully-inverted, role-colored pill on the HEAD row. Single class (role-agnostic) that wins over
-	// the role classes by source order; direct properties (an inline `--ref-*` would clobber a custom prop).
-	.gl-graph__ref-pill--row-marker-muted {
+	// to the fully-inverted, role-colored pill on the HEAD row. Only HEAD ever renders muted — `gl-lit-graph.ts`
+	// has exactly one call site that sets `muted: true`, and it hardcodes `role: 'head'` — so the compound
+	// selector (both classes, 0,2,0) is written for HEAD only. Compound rather than a role-agnostic single
+	// class: at equal specificity a single `--row-marker-muted` class only wins over the role rule by being
+	// declared LATER in the file (F7) — reorder the file and it silently un-mutes. The compound selector wins
+	// on SPECIFICITY instead, so source order can't affect it. Direct properties, not `--ref-*`: refStyle()
+	// sets those inline, and an inline custom prop beats a class's custom-prop override.
+	.gl-graph__ref-pill--row-marker-head.gl-graph__ref-pill--row-marker-muted {
 		background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
 		border-color: color-mix(in srgb, var(--vscode-foreground) 22%, transparent);
 		color: var(--vscode-descriptionForeground, var(--vscode-foreground));
 
 		// …but once you interact with it, it takes its ROLE color (HEAD green) like any other emphasis pill —
 		// grey is only its RESTING, secondary state. Same fill + lane ring as the rules above, so hovering the
-		// WIP pill and hovering the real HEAD-row pill land on the same appearance.
+		// WIP pill and hovering the real HEAD-row pill land on the same appearance. Unlike the role block's own
+		// hover (deleted above), this one is NOT redundant: the rest declarations here are grey literals, not
+		// `--pill-fill`/`--pill-on-fill`, so hover has to actively re-point them to the role fill.
 		&:hover {
-			background-color: var(--row-marker-fill);
+			background-color: var(--pill-fill);
 			border-color: var(--ref-color);
-			color: var(--vscode-editor-background);
+			color: var(--pill-on-fill);
 		}
 
 		.gl-graph__ref-pill-expand {
-			background-color: var(--row-marker-fill);
+			background-color: var(--pill-fill);
 			border-color: var(--ref-color);
-			color: var(--vscode-editor-background);
+			color: var(--pill-on-fill);
 		}
 
 		// The split segments (merge-target glyph + upstream) track the pill's OWN color in every mode — no
@@ -3361,17 +3374,17 @@ gl-lit-graph {
 	// for the badge inside the (lane-filled) expand overlay so the grouped pill's +N stays readable there.
 	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-more,
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-more {
-		color: var(--ref-on-color, #fff);
+		color: var(--pill-on-fill);
 	}
 	// A row-marker pill is FILLED at rest (see the role rules above), so its badge can take NEITHER base
 	// color: `--ref-color` is the lane, which lands lane-on-role (teal on green — invisible), and
 	// `--ref-on-color` is the contrast color computed for the LANE, not for the role fill it's actually
-	// sitting on. Knock it out in the editor background in EVERY state, matching the pill's own text.
-	// Qualified through `-more-group` (the badge's only parent) and declared AFTER the two rules above so it
-	// outranks both — the equal-specificity hover rule included.
+	// sitting on. Knock it out through `--pill-on-fill` (the role's own knockout) in EVERY state, matching the
+	// pill's own text. Qualified through `-more-group` (the badge's only parent) and declared AFTER the two
+	// rules above so it outranks both — the equal-specificity hover rule included.
 	.gl-graph__ref-pill--row-marker-head .gl-graph__ref-pill-more-group .gl-graph__ref-pill-more,
 	.gl-graph__ref-pill--row-marker-upstream .gl-graph__ref-pill-more-group .gl-graph__ref-pill-more {
-		color: var(--vscode-editor-background);
+		color: var(--pill-on-fill);
 	}
 	// ...except on the muted (WIP-row) variant, which is grey at rest — a knockout would vanish into it.
 	// Track the pill's own color like its other segments: grey at rest, knocked out once it fills on hover.
@@ -3543,46 +3556,56 @@ gl-lit-graph {
 	// green/red: they'd sit on the role fill instead of the row background, reading as decoration ON a
 	// colored chip rather than as status. De-colorize them from the START, to the same knockout the pill
 	// uses for its own text, so the inverted pill looks at rest the way an ordinary pill looks hovered
-	// (which is what it IS: permanently filled). Every rule below resolves through `--row-marker-on-fill`
-	// too, so the higher-specificity hover/selected states can't put the LANE's contrast color back on a
-	// ROLE fill. Excludes the muted (WIP-row) variant, which is hollow grey at rest, not inverted — nothing
-	// there fights green/red, so it keeps the colorization and only de-colorizes once it fills on hover
-	// (where the rule below picks the prop up). `-upstream` needs no such guard: only HEAD goes muted.
+	// (which is what it IS: permanently filled). Every rule below resolves through `--pill-on-fill` too, so
+	// the higher-specificity hover/selected states can't put the LANE's contrast color back on a ROLE fill.
+	// Excludes the muted (WIP-row) variant, which is hollow grey at rest, not inverted — nothing there fights
+	// green/red, so it keeps the colorization and only de-colorizes once it fills on hover (where the rule
+	// below picks the prop up). `-upstream` needs no such guard: only HEAD goes muted.
 	.gl-graph__ref-pill--row-marker-head:not(.gl-graph__ref-pill--row-marker-muted) .gl-graph__ref-pill-tracking,
 	.gl-graph__ref-pill--row-marker-upstream .gl-graph__ref-pill-tracking {
-		--gl-tracking-ahead: var(--row-marker-on-fill);
-		--gl-tracking-behind: var(--row-marker-on-fill);
-		--gl-pill-foreground: var(--row-marker-on-fill);
+		--gl-tracking-ahead: var(--pill-on-fill);
+		--gl-tracking-behind: var(--pill-on-fill);
+		--gl-pill-foreground: var(--pill-on-fill);
 	}
-	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-tracking {
-		--gl-tracking-ahead: var(--row-marker-on-fill, var(--ref-on-color, #fff));
-		--gl-tracking-behind: var(--row-marker-on-fill, var(--ref-on-color, #fff));
-		--gl-pill-foreground: var(--row-marker-on-fill, var(--ref-on-color, #fff));
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-tracking,
+	.gl-graph__ref-pill--find-hit .gl-graph__ref-pill-tracking {
+		--gl-tracking-ahead: var(--pill-on-fill);
+		--gl-tracking-behind: var(--pill-on-fill);
+		--gl-pill-foreground: var(--pill-on-fill);
 	}
+	// NOT `--pill-on-fill` here: unlike `--row-marker-on-fill` (only ever set by the role rules above),
+	// `--pill-on-fill` is now defined on EVERY pill (the base rule gives it a default), so the `var(x,
+	// fallback)` trick that distinguishes "role pill, stay knocked out" from "ordinary pill, follow the lane
+	// color instead" would break — the fallback would never trigger since `--pill-on-fill` is never actually
+	// undefined. `--row-marker-on-fill` stays alive for this one rule specifically (aliased to `--pill-on-fill`
+	// where a role pill sets it, so it's still a single source of truth, just under a name that role pills
+	// alone define).
 	.gl-graph__row.is-selected .gl-graph__ref-pill-tracking {
 		--gl-tracking-ahead: var(--row-marker-on-fill, var(--ref-color));
 		--gl-tracking-behind: var(--row-marker-on-fill, var(--ref-color));
 		--gl-pill-foreground: var(--row-marker-on-fill, var(--ref-color));
 	}
-	// ...but once the pill FILLS (hover / pinned / context-pinned) that lane color now EQUALS the fill, so
-	// the numbers vanish into it. The plain :hover rule above tries to restore the on-fill contrast color,
-	// but the is-selected rule ties it on specificity and wins by source order — so on a SELECTED row the
-	// hovered stats went invisible. Re-assert the contrast color for the filled states with a selected-row
-	// qualifier so it outranks is-selected. (`is-pinned`/`is-context-pinned` show the same filled overlay.)
-	.gl-graph__row.is-selected .gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-tracking,
-	.gl-graph__row.is-selected .gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-tracking,
-	.gl-graph__row.is-selected .gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-tracking {
-		--gl-tracking-ahead: var(--row-marker-on-fill, var(--ref-on-color, #fff));
-		--gl-tracking-behind: var(--row-marker-on-fill, var(--ref-on-color, #fff));
-		--gl-pill-foreground: var(--row-marker-on-fill, var(--ref-on-color, #fff));
+	// ...but once the pill FILLS — hover/focus-within, click-pinned, context-pinned, or a find hit — that lane
+	// color now EQUALS the fill, so the numbers vanish into it, on both selected and unselected rows. Scope
+	// through the expand overlay (a correct proxy for "filled": it's `display: none` at rest and revealed by
+	// all four triggers) instead of enumerating them, mirroring the +N badge and segment-divider rules above.
+	// Three classes deep so it ties the `.gl-graph__row.is-selected …` rule above at (0,3,0) and wins by
+	// source order (placed after) — it also beats the plain :hover rule and the row-marker default further
+	// above (same specificity, later), which is harmless: both already resolve through `--pill-on-fill` first,
+	// so overriding them here doesn't change their output for role pills.
+	.gl-graph__ref-pill .gl-graph__ref-pill-expand .gl-graph__ref-pill-tracking {
+		--gl-tracking-ahead: var(--pill-on-fill);
+		--gl-tracking-behind: var(--pill-on-fill);
+		--gl-pill-foreground: var(--pill-on-fill);
 	}
 	// Grouped-pill popover: a row FILLS with the lane color on hover OR the keyboard cursor (`.is-active`), so
 	// its ahead/behind stats must de-colorize to the contrast color too — otherwise the green/red counts fight
 	// the fill and vanish. Popover rows aren't `.gl-graph__ref-pill`, so the inline rule above never reached them.
-	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-pill-tracking {
-		--gl-tracking-ahead: var(--ref-on-color, #fff);
-		--gl-tracking-behind: var(--ref-on-color, #fff);
-		--gl-pill-foreground: var(--ref-on-color, #fff);
+	.gl-graph__ref-popover-row:is(:hover, .is-active, .gl-graph__ref-popover-row--find-hit)
+		.gl-graph__ref-pill-tracking {
+		--gl-tracking-ahead: var(--pill-on-fill);
+		--gl-tracking-behind: var(--pill-on-fill);
+		--gl-pill-foreground: var(--pill-on-fill);
 	}
 	.gl-graph__ref-pill-jump-arrow {
 		display: inline-flex;
@@ -3654,6 +3677,11 @@ gl-lit-graph {
 	// On the FILLED pill (hover, the expand overlay, and popover-row hover) the lane-color border-left
 	// blends into the lane fill → the split divider vanishes. Switch it to the contrast color so it stays
 	// visible against the fill.
+	// NOT `--pill-on-fill` here, deliberately: this selector also matches a HOVERED role pill's segments (the
+	// role divider rule above it in the file is lower-specificity and loses to this one on hover), where
+	// `--pill-on-fill` resolves to the role knockout (`--vscode-editor-background`) rather than the LANE's own
+	// contrast color — a different value than `--ref-on-color` gives today. Converting would change the
+	// divider color on a hovered/expanded role pill's segments; kept literal to preserve that.
 	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-upstream,
 	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-more-group,
 	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-pr,
@@ -3662,7 +3690,8 @@ gl-lit-graph {
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-more-group,
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-pr,
 	.gl-graph__ref-pill-expand .gl-graph__ref-pill-issue,
-	.gl-graph__ref-popover-row:is(:hover, .is-active) .gl-graph__ref-pill-upstream {
+	.gl-graph__ref-popover-row:is(:hover, .is-active, .gl-graph__ref-popover-row--find-hit)
+		.gl-graph__ref-pill-upstream {
 		border-left-color: color-mix(in srgb, var(--ref-on-color, #fff) 35%, transparent);
 	}
 	// Hover-card body for the PR/issue chips — a plain gl-popover card (no override, unlike the +N ref
@@ -3700,12 +3729,14 @@ gl-lit-graph {
 		align-items: center;
 		gap: 0.6rem;
 		padding: 0 0.8rem;
-		border: 1px solid var(--ref-color);
+		border: 1px solid var(--pill-fill);
 		border-radius: 0.4rem;
-		background-color: var(--ref-color);
+		background-color: var(--pill-fill);
 		// Per-ref black/white contrast color (WCAG luminance, computed in refStyle) so the filled chip
-		// reads cleanly on ANY lane — light (amber/gold) or dark — with no text-shadow halo.
-		color: var(--ref-on-color, #fff);
+		// reads cleanly on ANY lane — light (amber/gold) or dark — with no text-shadow halo. A role pill's own
+		// `.gl-graph__ref-pill-expand` override (above, higher specificity) always wins over this base rule
+		// regardless of what it reads, so re-pointing here can't affect role pills either way.
+		color: var(--pill-on-fill);
 		white-space: nowrap;
 		box-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.3);
 		z-index: 20;
@@ -3716,12 +3747,13 @@ gl-lit-graph {
 		// handlers), since the overlay sits inside it.
 		pointer-events: auto;
 	}
-	.gl-graph__ref-pill:is(:hover, :focus-within) {
+	.gl-graph__ref-pill#{$pill-filled} {
 		z-index: 20;
 	}
-	// The fill (expand overlay) follows the pill's hover / focus-within, so it STAYS filled while focus is on
-	// one of the pill's inline sub-chips (upstream-jump / PR / issue) — matching hover instead of collapsing.
-	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-expand {
+	// The fill (expand overlay) follows the same $pill-filled triggers, so it STAYS filled while focus is on
+	// one of the pill's inline sub-chips (upstream-jump / PR / issue), while a context menu or click holds the
+	// pill pinned, or while the finder holds a hit revealed — matching hover instead of collapsing.
+	.gl-graph__ref-pill#{$pill-filled} .gl-graph__ref-pill-expand {
 		display: inline-flex;
 	}
 	// Keyboard focus mirrors hover and swaps the ugly UA `outline: auto` for a clean inset ring on the expand
@@ -3757,42 +3789,21 @@ gl-lit-graph {
 		.gl-graph__ref-pill-issue::before {
 		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
 	}
-	// Hide the in-flow (shrunk) content while the overlay is shown (hover / focus-within) so they don't double up.
-	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-main {
+	// Hide the in-flow (shrunk) content while the overlay is shown ($pill-filled) so they don't double up.
+	.gl-graph__ref-pill#{$pill-filled} .gl-graph__ref-pill-main {
 		visibility: hidden;
 	}
 	// The expand overlay is absolutely positioned and extends right over the message — but its
-	// ancestors clip with overflow:hidden (needed for truncation). While a ref pill is hovered,
-	// un-clip just that ancestor chain so the overlay can escape and paint on top.
-	.gl-graph__refs:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
-	.gl-graph__zone:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
-	.gl-graph__list-content:has(.gl-graph__ref-pill:is(:hover, :focus-within)),
-	.gl-graph__list-line1:has(.gl-graph__ref-pill:is(:hover, :focus-within)) {
-		overflow: visible;
-	}
-	// Context-pinned (native context menu open over a pill — host adds `.is-context-pinned`, hover is
-	// lost when the menu steals focus) AND click-pinned (`.is-pinned`, the focus toggle) both keep the
-	// primary name revealed: mirror the :hover expand + un-clip rules for their lifetime.
-	.gl-graph__ref-pill.is-context-pinned,
-	.gl-graph__ref-pill.is-pinned {
-		z-index: 20;
-	}
-	.gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-expand,
-	.gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-expand {
-		display: inline-flex;
-	}
-	.gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-main,
-	.gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-main {
-		visibility: hidden;
-	}
-	.gl-graph__refs:has(.gl-graph__ref-pill.is-context-pinned),
-	.gl-graph__zone:has(.gl-graph__ref-pill.is-context-pinned),
-	.gl-graph__list-content:has(.gl-graph__ref-pill.is-context-pinned),
-	.gl-graph__list-line1:has(.gl-graph__ref-pill.is-context-pinned),
-	.gl-graph__refs:has(.gl-graph__ref-pill.is-pinned),
-	.gl-graph__zone:has(.gl-graph__ref-pill.is-pinned),
-	.gl-graph__list-content:has(.gl-graph__ref-pill.is-pinned),
-	.gl-graph__list-line1:has(.gl-graph__ref-pill.is-pinned) {
+	// ancestors clip with overflow:hidden (needed for truncation). While a ref pill is filled
+	// ($pill-filled — hover, click-pinned, context-pinned, or a find hit), un-clip just that ancestor
+	// chain so the overlay can escape and paint on top. Context-pinned is a native context menu open
+	// over the pill (host adds `.is-context-pinned`; hover is lost when the menu steals focus);
+	// click-pinned is the focus toggle (`.is-pinned`); the find hit (`--find-hit`) is held for as long
+	// as the finder is open so the pill stays revealed instead of flickering with the pointer.
+	.gl-graph__refs:has(.gl-graph__ref-pill#{$pill-filled}),
+	.gl-graph__zone:has(.gl-graph__ref-pill#{$pill-filled}),
+	.gl-graph__list-content:has(.gl-graph__ref-pill#{$pill-filled}),
+	.gl-graph__list-line1:has(.gl-graph__ref-pill#{$pill-filled}) {
 		overflow: visible;
 	}
 
@@ -3899,19 +3910,26 @@ gl-lit-graph {
 		white-space: nowrap;
 		color: var(--ref-color, hsl(var(--foreground)));
 		cursor: pointer;
+		// Popover rows have no role/muted variant (unlike the inline pill), so this pair is never re-pointed —
+		// it exists purely so the hover fill below reads through the same two-property contract.
+		--pill-fill: var(--ref-color);
+		--pill-on-fill: var(--ref-on-color, #fff);
 		transition:
 			color 120ms ease-out,
 			background-color 120ms ease-out,
 			border-color 120ms ease-out;
 
 		// Fill with the lane color on hover, matching the inline pill exactly: the per-lane black/white
-		// contrast color (`--ref-on-color`) keeps text + icon crisp on any lane — NO text-shadow halo.
-		// `.is-active` mirrors :hover for the keyboard cursor (grouped-pill menu, Arrow Up/Down).
+		// contrast color (`--pill-on-fill`) keeps text + icon crisp on any lane — NO text-shadow halo.
+		// `.is-active` mirrors :hover for the keyboard cursor (grouped-pill menu, Arrow Up/Down), and
+		// `--find-hit` for a search match listed here rather than promoted to the inline pill — it holds the
+		// fill for as long as the finder is open, the same contract the inline pill's find hit has.
 		&:hover,
-		&.is-active {
-			color: var(--ref-on-color, #fff);
-			background-color: var(--ref-color);
-			border-color: var(--ref-color);
+		&.is-active,
+		&--find-hit {
+			color: var(--pill-on-fill);
+			background-color: var(--pill-fill);
+			border-color: var(--pill-fill);
 		}
 		// The focus rect rides the cursor ITEM (`.is-cursor`), not the fill (`.is-active`): a cursored row is
 		// filled its whole lifetime, but when Left/Right steps the cursor onto the row's jump the rect moves

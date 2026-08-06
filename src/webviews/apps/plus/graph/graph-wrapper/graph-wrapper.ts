@@ -1322,6 +1322,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (result.status === 'not-found') {
 			this._hostSelectionRequest.rejectFor(pending.sha);
 		}
+		// The ref-find reveal watch is scoped to THIS load; EVERY exit ends it, `selected` included.
+		// Measured: left armed, the watch re-reveals on any later index change — forcing a stale stamp on a
+		// landed target snapped the viewport from 243856 to 22870, its row's exact offset. New commits
+		// arriving above it do the same, which is the fetch-jumps-the-graph report this began with. The
+		// targeted walk is finished by `selected` (it pages until the sha is in, and the host load is
+		// cancelled on every other status), so nothing legitimate is left to re-arm for.
+		this.querySelector('gl-lit-graph')?.endRefFindLoad(pending.sha);
 		if (pending.timeout != null) {
 			clearTimeout(pending.timeout);
 		}

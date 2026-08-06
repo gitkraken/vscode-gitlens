@@ -16,10 +16,11 @@ import type {
 } from '../../../../../plus/graph/protocol.js';
 import type { StyleInfo } from '../../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
+import { refContextPinKey, refPillKey } from '../../utils/refKey.utils.js';
 import type { RowMarkerRole, RowMarkerTips } from '../../utils/rowMarker.utils.js';
 import { primaryRowMarkerRole, rowMarkerRolesFor, shortRefName } from '../../utils/rowMarker.utils.js';
 import type { GraphCommitRef, GraphCommitView, RowRefOrder } from '../graph-commit.js';
-import { isRefHidden, isUpstreamRemoteOf, refPillKey, sortRowRefs } from '../graph-commit.js';
+import { isRefHidden, isUpstreamRemoteOf, sortRowRefs } from '../graph-commit.js';
 import '../../../../shared/components/code-icon.js';
 import '../../../../shared/components/overlays/popover.js';
 import '../../../../shared/components/pills/tracking.js';
@@ -90,6 +91,15 @@ export interface RefPillHooks {
 	 *  wears the selected/hover fill for as long as the widget is open, so the ref you asked for is
 	 *  identifiable among the others sharing its row. */
 	getFindHitRefKey?: () => string | undefined;
+	/** Pill key of the CLICK-pinned ref, read live. That pill stays expanded (`.is-pinned`) and keeps its
+	 *  ancestry-chain highlight regardless of hover, until the pin is cleared or moved. */
+	getPinnedRefKey?: () => string | undefined;
+	/** {@link refContextPinKey} of the ref pill pinned open by a native context menu, read live. That pill
+	 *  stays expanded (`.is-context-pinned`) for as long as the menu is up — the menu steals `:hover`, so
+	 *  without this the pill would collapse mid-interaction. Distinct from `getPinnedRefKey`: transient to
+	 *  the menu's lifetime, no ancestry-chain highlight, and jump-sha-qualified so the WIP-row proxy pill
+	 *  and the real pill it mirrors stay distinguishable. */
+	getContextPinnedRefKey?: () => string | undefined;
 }
 
 // Map the structured commit refs to the pill's view model, ALREADY in display order. A plain
@@ -411,15 +421,55 @@ export function renderRefPill(
 	// lane-colored ref pill. Those rows are already called out by the rail + their marker chip, and recoloring
 	// the branch pill there implied the pill itself was the target rather than just sitting on that commit.
 	const emphasisRole = role === 'head' || role === 'upstream' ? role : undefined;
-	const rowMarkerClass = `${emphasisRole != null ? ` gl-graph__ref-pill--row-marker-${emphasisRole}` : ''}${
-		emphasisRole != null && rowMarker?.muted === true ? ' gl-graph__ref-pill--row-marker-muted' : ''
-	}${rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''}${
-		hooks?.getFindHitRefKey?.() === refPillKey(primary) ? ' gl-graph__ref-pill--find-hit' : ''
-	}`;
 	// In-sync combine: when a head's upstream remote is ALSO on this row (same commit ⇒ in sync), fold it
 	// into that head's upstream segment instead of listing it separately — so the pair reads as one
 	// combined pill. Applied to the PRIMARY pill and (below) to each head in the +N popover alike.
-	const upstreamOnRow = parsed.find((r, i) => i > 0 && isUpstreamRemoteOf(r, primary));
+	// Computed BEFORE `rowMarkerClass` so the find-hit check below can see it.
+	//
+	// An UNTRACKED head matches any co-located remote sharing its bare name (`isUpstreamRemoteOf`'s last
+	// fallback), so several refs on this row can satisfy the predicate — a fork topology with both
+	// `origin/main` and `upstream/main` on an untracked local `main`. `sortRowRefs` resolved the find hit
+	// against a specific ref; picking a different one here would leave the searched remote outside the
+	// combined pill entirely, rendered as an unmarked `+N` row. So prefer the searched ref when it's one
+	// of the candidates, and fall back to first-match otherwise.
+	const findHitRefKey = hooks?.getFindHitRefKey?.();
+	const upstreamOnRow =
+		(findHitRefKey != null
+			? parsed.find((r, i) => i > 0 && refPillKey(r) === findHitRefKey && isUpstreamRemoteOf(r, primary))
+			: undefined) ?? parsed.find((r, i) => i > 0 && isUpstreamRemoteOf(r, primary));
+	// The find-hit class marks the PILL that contains the matched ref. That's normally the primary itself,
+	// but `sortRowRefs` carries an in-sync remote match on its LOCAL (so the pair still combines into one
+	// pill) — the class then has to match against the absorbed remote's key instead, via `upstreamOnRow`.
+	// The WIP-row proxy pill (`rowMarker.jumpSha` set) is excluded for the same reason as the pins below: it
+	// re-renders the HEAD row's refs under the SAME key, so a hit on the current branch would mark a SECOND
+	// pill the finder never landed on — and, since `--find-hit` now forces the expand overlay open, leave it
+	// expanded over the WIP row's message for the finder's whole session.
+	const isFindHit =
+		rowMarker?.jumpSha == null &&
+		findHitRefKey != null &&
+		(findHitRefKey === refPillKey(primary) ||
+			(upstreamOnRow != null && findHitRefKey === refPillKey(upstreamOnRow)));
+	// The click-pinned ref only ever lands on the PRIMARY pill (unlike the find hit / edge pin, it has no
+	// carrier substitution — `sortRowRefs` ranks a pinned remote by itself, so it's promoted to primary
+	// outright). The WIP-row proxy pill (`rowMarker.jumpSha` set) is excluded: it renders the HEAD row's
+	// refs under the SAME pill key, and its contract is jump-only — it never earned the pin.
+	const isPinned =
+		rowMarker?.jumpSha == null &&
+		hooks?.getPinnedRefKey?.() != null &&
+		hooks.getPinnedRefKey() === refPillKey(primary);
+	// Same carrier restriction as the click pin — a native context menu only ever targets the rendered
+	// primary pill. Unlike the click pin, the WIP-row proxy pill is NOT excluded: it is right-clickable and
+	// must stay expanded for its own menu's lifetime. Matched through `refContextPinKey`, which qualifies
+	// the key by the jump sha, so the proxy and the real HEAD-row pill (identical `refPillKey`) can't be
+	// confused for one another.
+	const isContextPinned =
+		hooks?.getContextPinnedRefKey?.() != null &&
+		hooks.getContextPinnedRefKey() === refContextPinKey(refPillKey(primary), rowMarker?.jumpSha);
+	const rowMarkerClass = `${emphasisRole != null ? ` gl-graph__ref-pill--row-marker-${emphasisRole}` : ''}${
+		emphasisRole != null && rowMarker?.muted === true ? ' gl-graph__ref-pill--row-marker-muted' : ''
+	}${rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''}${
+		isFindHit ? ' gl-graph__ref-pill--find-hit' : ''
+	}${isPinned ? ' is-pinned' : ''}${isContextPinned ? ' is-context-pinned' : ''}`;
 	const afterPrimary = upstreamOnRow != null ? parsed.slice(1).filter(r => r !== upstreamOnRow) : parsed.slice(1);
 	// Within the popover, pair each head with its in-sync upstream remote (if also listed) and absorb that
 	// remote into the head's row, so the expanded rows combine just like the primary pill.
@@ -867,8 +917,13 @@ function renderPopoverRefRow(
 			? renderUpstreamSegment(parsed, fromSha, hooks, upstreamOnRow, `ref-menuitem-${refPillKey(parsed)}-jump`)
 			: nothing;
 
+	// A find hit normally wins the primary slot outright (`sortRowRefs`' find tier), but not when it's an
+	// in-sync remote carried by its local — then the match lists here instead, and without this the ref you
+	// searched for is the one thing on the row with nothing marking it.
+	const isFindHit = hooks?.getFindHitRefKey?.() === refPillKey(parsed);
+
 	return html`<div
-		class="gl-graph__ref-popover-row"
+		class="gl-graph__ref-popover-row${isFindHit ? ' gl-graph__ref-popover-row--find-hit' : ''}"
 		style=${cspStyleMap(refStyle(color, isHead, 'row'))}
 		role="menuitem"
 		id=${`ref-menuitem-${refPillKey(parsed)}`}

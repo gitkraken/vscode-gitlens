@@ -100,6 +100,7 @@ import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import type { LaneSeedSource } from '../utils/laneSeed.utils.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
+import { refContextPinKey, refPillKey } from '../utils/refKey.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow } from '../utils/rowMarker.utils.js';
 import { hasDirtyCounts } from '../utils/wip.utils.js';
@@ -114,7 +115,7 @@ import { createRefAdornmentProvider, renderRefPill, toParsedRefs } from './adorn
 import { createWipStatsAdornmentProvider } from './adornments/wipStatsAdornmentProvider.js';
 import type { WipStats } from './adornments/wipStatsAdornmentProvider.js';
 import type { GraphCommitRef, GraphCommitView, RowRefOrder } from './graph-commit.js';
-import { columnsToZones, pickGhostRef, refPillKey, toGraphCommit, zonesToColumnsConfig } from './graph-commit.js';
+import { columnsToZones, pickGhostRef, toGraphCommit, zonesToColumnsConfig } from './graph-commit.js';
 import type { FixedSizeLayoutSpecifier } from './graph-fixed-layout.js';
 import { fixedSizeVertical } from './graph-fixed-layout.js';
 import { GutterCache, gutterEpochSignature } from './graph-gutter-cache.js';
@@ -732,12 +733,22 @@ export class GlLitGraph extends LitElement {
 	// `.is-inRefChain` (others dim). Driven by a pill CLICK now (not hover), so it persists across
 	// hover-out + scroll; cleared when the pill is clicked again (unpinned).
 	@state() private refHoverChainShas?: ReadonlySet<string>;
-	// Name of the click-pinned ref pill: keeps it expanded (the `.is-pinned` class, reconciled after
-	// each render) and drives the dim chain above + the click toggle. Undefined = nothing pinned.
+	// Name of the click-pinned ref pill: keeps it expanded (the `.is-pinned` class, read live off this
+	// field via `refPillHooks.getPinnedRefKey` — see `renderRefPill`) and drives the dim chain above +
+	// the click toggle. Undefined = nothing pinned. Same treatment for `_contextPinnedRefKey` below
+	// (the `.is-context-pinned` class, forced open while a native context menu sits over the pill —
+	// see `pinRefPill`/`unpinRefPill`). Both ride the adornment cache, NOT a DOM reconcile pass, so
+	// every writer of either field must also call `invalidateAdornments()` or the pill won't restyle —
+	// there is no sweep left to paper over a missed eviction.
 	@state() private _pinnedRefKey?: string;
 	// Sha the pinned ref resolved to — kept so the lane chain can be re-walked when more rows page in
 	// (a precise lane boundary means the branch's older commits would otherwise arrive dimmed).
 	private _pinnedRefSha?: string;
+	// `refContextPinKey` of the ref pill pinned open by a native context menu, read live via
+	// `refPillHooks.getContextPinnedRefKey` — see `renderRefPill`. Jump-sha-qualified, NOT a bare
+	// `refPillKey`: the WIP row's proxy pill mirrors the HEAD row's refs under the same pill key.
+	// Undefined = nothing context-pinned.
+	@state() private _contextPinnedRefKey?: string;
 	// The ref pill (if any) currently under the pointer — `{ key, sha }` matches what `togglePinnedRef`
 	// needs (`resolveRef` + `resolveSha` on the same event). Tracked regardless of the modifier so a
 	// press right after entering the pill activates immediately, with no re-hover required.
@@ -1249,6 +1260,8 @@ export class GlLitGraph extends LitElement {
 		getShowRemoteNames: () => this.config?.showRemoteNamesOnRefs === true,
 		getRowMarkerTips: () => this._rowMarkerTips,
 		getFindHitRefKey: () => this._refFindHitKey,
+		getPinnedRefKey: () => this._pinnedRefKey,
+		getContextPinnedRefKey: () => this._contextPinnedRefKey,
 		getPinnedRefId: () => this.pinnedRef?.id,
 		onUnpinRef: () => this.dispatchEvent(new CustomEvent('gl-graph-unpinref')),
 	};
@@ -1468,10 +1481,6 @@ export class GlLitGraph extends LitElement {
 		}
 		this.emitRowHover.cancel();
 		// Cancel any scheduled rAFs so their callbacks can't run against the detached instance.
-		if (this.reconcilePinnedRefPillRaf != null) {
-			cancelAnimationFrame(this.reconcilePinnedRefPillRaf);
-			this.reconcilePinnedRefPillRaf = null;
-		}
 		if (this.columnFlipRaf != null) {
 			cancelAnimationFrame(this.columnFlipRaf);
 			this.columnFlipRaf = null;
@@ -1535,6 +1544,7 @@ export class GlLitGraph extends LitElement {
 			// new view against a stale chain and leaks the `document` pointerdown dismiss listener. Clear
 			// it directly (the @state writes re-render; the lane re-derivation below rebuilds the ref
 			// adornments with the cleared pin) and dismiss any pinned ref popover.
+			let clearedRefState = false;
 			if (this._pinnedRefKey != null || this.pinnedRefDismiss != null) {
 				this._pinnedRefKey = undefined;
 				this._pinnedRefSha = undefined;
@@ -1544,6 +1554,23 @@ export class GlLitGraph extends LitElement {
 					this.pinnedRefDismiss = undefined;
 				}
 				this.unpinRefPill();
+				clearedRefState = true;
+			}
+			// The find widget's last hit keys a ref in the PRIOR scope's rows too — left open across a
+			// scope switch, a ref sharing that key in the NEW view would silently inherit the find-hit
+			// emphasis despite never having been searched for. A page-in still chasing the old scope's
+			// walk is equally stale, so the loading watch goes with it.
+			if (this._refFindHitKey != null || this._refFindLoadingSha != null) {
+				this._refFindHitKey = undefined;
+				this._refFindLoadingSha = undefined;
+				this._refFindLoadingRevealedIndex = undefined;
+				clearedRefState = true;
+			}
+			// Both fields above ride the adornment cache now (`.is-pinned` / `--find-hit` render off them,
+			// there's no DOM reconcile pass to paper over a miss) — evict so the clear actually restyles.
+			// No separate `requestUpdate()`: this runs inside `willUpdate`, already mid-cycle.
+			if (clearedRefState) {
+				this.invalidateAdornments();
 			}
 		}
 
@@ -1577,6 +1604,34 @@ export class GlLitGraph extends LitElement {
 			this.lastExcludeRefsForRows = this.excludeRefs;
 			this.lastExcludeTypesForRows = this.excludeTypes;
 			this.recomputeRows(idLength);
+
+			// The context-menu pin lasts exactly as long as the menu that raised it. A rows refresh means
+			// the interaction it belonged to is over, and its other dismiss paths (focus return, the next
+			// primary press) may never fire if the menu action navigated away — so clear here too rather
+			// than leave a pill expanded and its popover forced open. Unlike the click pin below, it makes
+			// no attempt to survive a refresh.
+			this.unpinRefPill();
+
+			// A rows refresh can also drop the click-pinned ref's row entirely, or filter the ref itself
+			// out (branch deleted / hidden). The lane-chain re-walk above tolerates that gracefully, but
+			// the branch sheet would stay open on a ref that no longer exists and the click-outside
+			// dismiss listener would stay attached — clear through `clearPinnedRef()` so both tear down,
+			// same as the dismiss handler does.
+			if (this._pinnedRefKey != null) {
+				const stillPresent =
+					this._pinnedRefSha != null &&
+					this.getCommitBySha(this._pinnedRefSha)?.commitRefs.some(r => refPillKey(r) === this._pinnedRefKey);
+				if (!stillPresent) {
+					this.clearPinnedRef();
+					this.dispatchEvent(
+						new CustomEvent('gl-graph-open-branch', {
+							detail: { open: false },
+							bubbles: true,
+							composed: true,
+						}),
+					);
+				}
+			}
 		}
 
 		if ((changed.has('columns') || this.columns !== this.lastColumnsRef) && this.shouldApplyIncomingColumns()) {
@@ -3359,12 +3414,10 @@ export class GlLitGraph extends LitElement {
 			};
 			document.addEventListener('pointerdown', this.pinnedRefDismiss, true);
 		}
-		// Re-render the ref pills so the newly-pinned ref is promoted to the inline pill (the ref
-		// provider reads `_pinnedRefKey`); the cached adornments don't track pin state on their own.
+		// Re-render the ref pills so the newly-pinned ref is promoted to the inline pill AND takes
+		// `.is-pinned` (both read `_pinnedRefKey` live — see `renderRefPill`); the cached adornments
+		// don't track pin state on their own.
 		this.invalidateAdornments();
-		// The promoted pill is a NEW element the virtualizer renders after this update — reconcile once it
-		// exists so `.is-pinned` lands on it (else a secondary→primary promotion loses its highlight).
-		this.scheduleReconcilePinnedRefPill();
 		return true;
 	}
 
@@ -3377,11 +3430,8 @@ export class GlLitGraph extends LitElement {
 			document.removeEventListener('pointerdown', this.pinnedRefDismiss, true);
 			this.pinnedRefDismiss = undefined;
 		}
-		// Revert the promoted inline pill back to the priority primary.
+		// Revert the promoted inline pill back to the priority primary and drop its `.is-pinned` class.
 		this.invalidateAdornments();
-		// Reconcile after the rows settle so `.is-pinned` is stripped from the reverted pill (same
-		// virtualizer-timing reason as in `togglePinnedRef`).
-		this.scheduleReconcilePinnedRefPill();
 	}
 
 	// Public entry point for the details panel: clears the click-pinned ref focus when the branch
@@ -3501,46 +3551,6 @@ export class GlLitGraph extends LitElement {
 	private deactivateModifierChain(): void {
 		this.modifierChainShas = undefined;
 		this.lastModifierChainSeed = undefined;
-	}
-
-	// Reconcile the click-pinned expand class after each render. The pill element is recreated on
-	// re-render (scroll/selection), so the imperative `.is-pinned` class can't live only on the DOM —
-	// re-apply it to the pinned pill (by its UNIQUE `data-ref-key`) and strip it from any stale pill.
-	// Keyed by `data-ref-key`, NOT `data-ref-name`: a local branch and the remote it tracks share a
-	// name, so name-matching tagged the wrong pill (the split pill wouldn't stay expanded on click).
-	// The WIP row's row-marker PROXY pill (`data-jump-sha`) renders the HEAD row's refs, so it carries the
-	// SAME `data-ref-key` — and sits earlier in the DOM. Excluded from both halves below, or it would steal
-	// the pin from the real pill and the clicked pill would never stay expanded.
-	private reconcilePinnedRefPill(): void {
-		const key = this._pinnedRefKey;
-		for (const el of this.querySelectorAll('.gl-graph__ref-pill.is-pinned')) {
-			if (!(el instanceof HTMLElement) || el.dataset.refKey !== key || el.dataset.jumpSha != null) {
-				el.classList.remove('is-pinned');
-			}
-		}
-		if (key == null) return;
-
-		const pinned = this.querySelector(
-			`.gl-graph__ref-pill[data-ref-key="${CSS.escape(key)}"]:not([data-jump-sha])`,
-		);
-		pinned?.classList.add('is-pinned');
-	}
-
-	// After a pin toggle the affected row is re-rendered by the virtualizer a frame or two AFTER our
-	// `updated()` reconcile runs — so when a secondary ref is promoted to the inline pill, that brand-new
-	// pill doesn't exist yet when `updated()` reconciles, and `.is-pinned` never lands (the highlight is
-	// lost on mouseleave). Reconcile again once the rows have settled.
-	private reconcilePinnedRefPillRaf: number | null = null;
-	private scheduleReconcilePinnedRefPill(): void {
-		if (this.reconcilePinnedRefPillRaf != null) {
-			cancelAnimationFrame(this.reconcilePinnedRefPillRaf);
-		}
-		this.reconcilePinnedRefPillRaf = requestAnimationFrame(() => {
-			this.reconcilePinnedRefPillRaf = requestAnimationFrame(() => {
-				this.reconcilePinnedRefPillRaf = null;
-				this.reconcilePinnedRefPill();
-			});
-		});
 	}
 
 	// Emit the rich-hover lifecycle for the row under the pointer. Ref pills are fully excluded (they
@@ -5511,16 +5521,21 @@ export class GlLitGraph extends LitElement {
 		return undefined;
 	}
 
-	// Keep a right-clicked ref pill "open" while the native context menu is up: pin the name overlay
-	// (CSS class mirroring :hover) and force any wrapping multi-ref popover open. Unpinned on the next
-	// interaction after the menu closes (webview-focus return, or the next primary pointerdown).
-	private pinnedRefPill?: HTMLElement;
+	// Keep a right-clicked ref pill "open" while the native context menu is up: force-expand it
+	// (`_contextPinnedRefKey` → `.is-context-pinned`, read live — see `renderRefPill`) and force any
+	// wrapping multi-ref popover open. Unpinned on the next interaction after the menu closes
+	// (webview-focus return, or the next primary pointerdown).
 	private pinnedRefPopover?: GlPopover;
 	private pinRefPill(pill: HTMLElement): void {
 		this.unpinRefPill(); // never pin two at once / leak across rows
-		this.pinnedRefPill = pill;
-		pill.classList.add('is-context-pinned');
+		// Qualified by the pill's jump sha: the WIP row's proxy pill carries the SAME `data-ref-key` as the
+		// real pill on the HEAD row, so the bare key would expand the wrong one (see `refContextPinKey`).
+		this._contextPinnedRefKey = refContextPinKey(pill.dataset.refKey, pill.dataset.jumpSha);
+		this.invalidateAdornments();
 
+		// Resolved from the live pill under the cursor, not re-derived from the key later — this handler
+		// only ever fires with the wrapping popover (if any) still attached, so there's nothing to gain
+		// from a deferred lookup.
 		const popover = pill.closest<GlPopover>('gl-popover.gl-graph__ref-popover') ?? undefined;
 		if (popover != null) {
 			this.pinnedRefPopover = popover;
@@ -5538,8 +5553,10 @@ export class GlLitGraph extends LitElement {
 		}
 	};
 	private unpinRefPill(): void {
-		this.pinnedRefPill?.classList.remove('is-context-pinned');
-		this.pinnedRefPill = undefined;
+		if (this._contextPinnedRefKey != null) {
+			this._contextPinnedRefKey = undefined;
+			this.invalidateAdornments();
+		}
 		if (this.pinnedRefPopover != null) {
 			void this.pinnedRefPopover.hide();
 			this.pinnedRefPopover = undefined;
@@ -6487,11 +6504,6 @@ export class GlLitGraph extends LitElement {
 		this.pendingRangeFirst = first;
 		this.pendingRangeLast = last;
 
-		// Recycled rows lose the imperative click-pinned expand class — re-apply it for the new range.
-		if (this._pinnedRefKey != null) {
-			this.reconcilePinnedRefPill();
-		}
-
 		// HEAD pill: show a "Jump to HEAD" affordance when the current HEAD commit is off-screen.
 		this.updateHeadPillDirection();
 		// Pinned-branch pill: same, for the pinned branch's row.
@@ -6686,8 +6698,6 @@ export class GlLitGraph extends LitElement {
 
 	protected override updated(changed: PropertyValues): void {
 		super.updated(changed);
-		// Re-apply the click-pinned ref-pill expand class to the live DOM after each render.
-		this.reconcilePinnedRefPill();
 		// Re-assert the scroll position captured across a row-set change — a lane collapse/expand, or rows
 		// arriving/reordering (fetch, commit, scope switch, rebase) — so the swap doesn't shift the viewport
 		// (runs before flushPendingReveal — a reveal, if armed, wins and clears this anchor).
@@ -7552,31 +7562,34 @@ export class GlLitGraph extends LitElement {
 	// Written in `willUpdate` via `updateRefOrder`.
 	private _refOrder?: RowRefOrder;
 
-	// Rebuild the ref-ordering inputs (both pins + the current branch's upstream) ONLY when one of them
-	// actually moves — the object's IDENTITY is what `createRefAdornmentProvider` keys its projection
-	// cache on, so a fresh object per update would defeat it. Stays undefined while none is set (nothing
-	// pinned, no upstream), which lets `sortRowRefs` skip the pin checks outright.
+	// Rebuild the ref-ordering inputs (both pins + the current branch's upstream + the ref-find hit) ONLY
+	// when one of them actually moves — the object's IDENTITY is what `createRefAdornmentProvider` keys
+	// its projection cache on, so a fresh object per update would defeat it. Stays undefined while none is
+	// set (nothing pinned, no upstream, no find hit), which lets `sortRowRefs` skip the pin checks outright.
 	private updateRefOrder(): void {
 		const pinnedRefKey = this._pinnedRefKey;
 		const pinnedRefId = this.pinnedRef?.id;
 		const currentUpstreamName = this.currentUpstream;
+		const findHitRefKey = this._refFindHitKey;
 
 		const order = this._refOrder;
 		if (
 			order?.pinnedRefKey === pinnedRefKey &&
 			order?.pinnedRefId === pinnedRefId &&
-			order?.currentUpstreamName === currentUpstreamName
+			order?.currentUpstreamName === currentUpstreamName &&
+			order?.findHitRefKey === findHitRefKey
 		) {
 			return;
 		}
 
 		this._refOrder =
-			pinnedRefKey == null && pinnedRefId == null && currentUpstreamName == null
+			pinnedRefKey == null && pinnedRefId == null && currentUpstreamName == null && findHitRefKey == null
 				? undefined
 				: {
 						pinnedRefKey: pinnedRefKey,
 						pinnedRefId: pinnedRefId,
 						currentUpstreamName: currentUpstreamName,
+						findHitRefKey: findHitRefKey,
 					};
 	}
 
@@ -8357,11 +8370,26 @@ export class GlLitGraph extends LitElement {
 		this.scrollToSha(sha);
 	}
 
+	/** Ends the reveal watch for `sha` — the wrapper calls this when the row load it started settles, in
+	 *  any way: landed, superseded, timed out. Without it a target that never materializes stays watched
+	 *  for the finder's whole session, and unrelated paging that later brings the row in yanks the
+	 *  viewport to it. Ignores a sha that isn't the one being watched, so a stale settle can't disarm a
+	 *  newer jump. */
+	endRefFindLoad(sha: string): void {
+		if (this._refFindLoadingSha !== sha) return;
+
+		this._refFindLoadingSha = undefined;
+		this._refFindLoadingRevealedIndex = undefined;
+	}
+
 	/** Marks the landed ref so its pill takes the selected/hover fill. The row's announcing flash is the
 	 *  reveal's job (see `onRefFindJump`) — it, not this, knows when the row arrived. */
 	private markRefFindHit(refKey: string | undefined): void {
 		this._refFindHitKey = refKey;
 		this.invalidateAdornments();
+		// `_refFindHitKey` is a plain field, not `@state()` — nothing else here guarantees a render, so this
+		// event handler has to request its own (see `invalidateAdornments`'s comment).
+		this.requestUpdate();
 	}
 
 	/**
