@@ -156,7 +156,13 @@ type EnrichableItem = any;
 export type ProviderAccount = Account;
 export type ProviderReposInput = (string | number)[] | GetRepoInput[];
 export type ProviderRepoInput = GetRepoInput;
-export type ProviderPullRequest = GitPullRequest;
+// GitLens-local extension of provider-apis' `GitPullRequest`: each review also carries
+// the head-commit oid it was submitted against, threaded through the core↔provider
+// round-trip so a consumer can tell "the PR moved past my review" (review oid !== head
+// oid). Not part of the upstream provider-apis shape.
+export type ProviderPullRequest = Omit<GitPullRequest, 'reviews'> & {
+	reviews: (NonNullable<GitPullRequest['reviews']>[number] & { commitOid?: string })[] | null;
+};
 export type ProviderRepository = GitRepository;
 export type ProviderIssue = ProviderApiIssue;
 export type ProviderEnterpriseOptions = EnterpriseOptions;
@@ -805,12 +811,14 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Reviewed,
 			PullRequestFilter.Mention,
 		],
 		supportedAccountWidePullRequestFilters: [
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Reviewed,
 			PullRequestFilter.Mention,
 		],
 		supportedPullRequestSearch: githubPullRequestSearchCapabilities,
@@ -837,12 +845,14 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Reviewed,
 			PullRequestFilter.Mention,
 		],
 		supportedAccountWidePullRequestFilters: [
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
+			PullRequestFilter.Reviewed,
 			PullRequestFilter.Mention,
 		],
 		supportedPullRequestSearch: githubPullRequestSearchCapabilities,
@@ -1244,6 +1254,7 @@ export function toProviderReviews(reviewers: PullRequestReviewer[]): ProviderPul
 		.map(reviewer => ({
 			reviewer: toProviderAccount(reviewer.reviewer),
 			state: toProviderPullRequestReviewState[reviewer.state] ?? GitPullRequestReviewState.ReviewRequested,
+			commitOid: reviewer.commitOid,
 		}));
 }
 
@@ -1268,6 +1279,7 @@ export function toCompletedReviews(reviews: ProviderPullRequest['reviews']): Pul
 					isCodeOwner: false, // TODO: Find this value, and implement in the shared lib if needed
 					reviewer: fromProviderAccount(r.reviewer),
 					state: fromProviderPullRequestReviewState[r.state],
+					commitOid: r.commitOid,
 				}));
 }
 
