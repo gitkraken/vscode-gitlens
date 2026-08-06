@@ -16,13 +16,14 @@ import {
 	elideRefName,
 	matchRefs,
 	pickInitialTargetIndex,
-	refFindPillKey,
 	refreshMatchRows,
 	stepMatchIndex,
 } from '../utils/refFind.utils.js';
+import { refPillKey } from '../utils/refKey.utils.js';
 import { graphRefFindStyles } from './gl-graph-ref-find.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/tooltip.js';
 
 export interface GraphRefFindJumpEventDetail {
 	sha: string;
@@ -91,8 +92,50 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	/** Last-seen panel payloads, compared by identity to know when a fetch actually changed something. */
 	private _panelData?: unknown[];
 
+	/** Ref key of the match we last jumped the graph to. Not reactive — used to gate re-jumps, not to render. */
+	private _landedRefKey: string | undefined;
+
 	private get activeMatch(): RefFindMatch | undefined {
 		return this._index >= 0 ? this._matches[this._index] : undefined;
+	}
+
+	private _onWebviewBlur = (): void => this.onWebviewBlur();
+
+	/**
+	 * Set while a native context-menu request is in flight. VS Code's menu steals webview focus on open,
+	 * which arrives here as a `webview-blur` — indistinguishable from "the user left the webview" unless
+	 * we mark the menu ourselves. Without it, right-clicking anywhere (including inside our own input, to
+	 * paste) would dismiss the widget and lose the query. Same guard `graph-app.ts` uses for the overlay
+	 * sidebar (`_suppressOverlayCollapseForMenu`). Cleared on `webview-focus` (the menu closed and focus
+	 * came back) or on the next primary pointerdown (a right-click that raised no menu never gets one).
+	 */
+	private _suppressBlurForMenu = false;
+	private _onWebviewFocus = (): void => {
+		this._suppressBlurForMenu = false;
+	};
+	private _onContextMenu = (): void => {
+		this._suppressBlurForMenu = true;
+	};
+	private _onPointerDown = (e: PointerEvent): void => {
+		if (e.button === 0) {
+			this._suppressBlurForMenu = false;
+		}
+	};
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		window.addEventListener('webview-blur', this._onWebviewBlur, false);
+		window.addEventListener('webview-focus', this._onWebviewFocus, false);
+		document.addEventListener('contextmenu', this._onContextMenu, true);
+		document.addEventListener('pointerdown', this._onPointerDown, true);
+	}
+
+	override disconnectedCallback(): void {
+		window.removeEventListener('webview-blur', this._onWebviewBlur, false);
+		window.removeEventListener('webview-focus', this._onWebviewFocus, false);
+		document.removeEventListener('contextmenu', this._onContextMenu, true);
+		document.removeEventListener('pointerdown', this._onPointerDown, true);
+		super.disconnectedCallback?.();
 	}
 
 	/**
@@ -113,9 +156,10 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		// A panel that was invalidated (reset to null) has to be re-fetched, or the match set stays empty.
 		this.ensurePanels();
 
-		// Land the jump only if we never got one — a routine sidebar invalidation shouldn't yank the graph
-		// out from under someone reading the row they already jumped to.
-		this.recompute({ jump: this.activeMatch == null });
+		// Land the jump only if we haven't landed one yet — a routine sidebar invalidation shouldn't yank
+		// the graph out from under someone reading the row they already jumped to. Tracked via the landed
+		// ref key rather than `activeMatch`, since the invalidation empties `_matches` in between.
+		this.recompute({ jump: this._landedRefKey == null });
 	}
 
 	override updated(changedProperties: PropertyValues): void {
@@ -183,6 +227,7 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	private reset(): void {
 		this._matches = [];
 		this._index = -1;
+		this._landedRefKey = undefined;
 	}
 
 	private buildCandidates(): RefFindCandidate[] {
@@ -209,7 +254,12 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	private recompute(options?: { jump?: boolean }): void {
 		const matches = matchRefs(this._query, this.buildCandidates(), sha => this.getRowIndex?.(sha));
 		this._matches = matches;
-		this._index = pickInitialTargetIndex(matches);
+
+		// Prefer restoring the landed match's position over re-picking, so a panel invalidation doesn't
+		// throw away wherever the user had stepped to.
+		const landedIndex =
+			this._landedRefKey != null ? matches.findIndex(m => refPillKey(m) === this._landedRefKey) : -1;
+		this._index = landedIndex !== -1 ? landedIndex : pickInitialTargetIndex(matches);
 
 		if (options?.jump !== false) {
 			this.jumpToActive();
@@ -231,9 +281,11 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 	}
 
 	private emitJump(match: RefFindMatch, focus: boolean): void {
+		const refKey = refPillKey(match);
+		this._landedRefKey = refKey;
 		this.dispatchEvent(
 			new CustomEvent<GraphRefFindJumpEventDetail>('gl-graph-ref-find-jump', {
-				detail: { sha: match.sha, focus: focus, refKey: refFindPillKey(match) },
+				detail: { sha: match.sha, focus: focus, refKey: refKey },
 				bubbles: true,
 				composed: true,
 			}),
@@ -242,6 +294,43 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 
 	private close(): void {
 		this.dispatchEvent(new CustomEvent('gl-graph-ref-find-close', { bubbles: true, composed: true }));
+	}
+
+	/**
+	 * Closes on focus-out only when `refFindAutoHide` is explicitly on. The setting defaults to `false`
+	 * and `GraphComponentConfig.refFindAutoHide` is optional, so `!== true` is the check that treats an
+	 * absent value as the documented default — the convention this component's other default-off config
+	 * fields (`experimentalKanbanEnabled`, `experimentalVisualizationsEnabled`) already follow.
+	 *
+	 * `relatedTarget` is retargeted to the nearest
+	 * ancestor in OUR shadow tree (e.g. `gl-button` itself, even when focus actually landed on its
+	 * internal button), so a plain `shadowRoot.contains()` check is enough to tell a real focus-out
+	 * from focus merely moving between elements the widget owns.
+	 *
+	 * A `null` relatedTarget is ambiguous — the graph's own overlay-collapse handling
+	 * (`graph-app.ts`'s `_handleSidebarOverlayFocusOut`) treats it the same way: it can mean focus
+	 * left the webview entirely, but VS Code webviews also report it for routine in-webview moves to
+	 * a non-focusable node. Closing on every `null` would dismiss the widget on those false positives,
+	 * so that case is left to {@link onWebviewBlur}, which fires only when the webview itself loses
+	 * focus (the host's `focused: false` message, relayed as the `webview-blur` window event).
+	 */
+	private onFocusOut(e: FocusEvent): void {
+		if (this._graphState?.config?.refFindAutoHide !== true) return;
+
+		const related = e.relatedTarget;
+		if (related == null) return;
+		if (related instanceof Node && this.shadowRoot?.contains(related) === true) return;
+
+		this.close();
+	}
+
+	private onWebviewBlur(): void {
+		if (!this.open) return;
+		if (this._graphState?.config?.refFindAutoHide !== true) return;
+		// A native context menu blurs the webview without the user having left it — see `_suppressBlurForMenu`.
+		if (this._suppressBlurForMenu) return;
+
+		this.close();
 	}
 
 	private step(direction: 1 | -1): void {
@@ -253,6 +342,8 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 
 	private onInput(e: Event): void {
 		this._query = (e.target as HTMLInputElement).value;
+		// A new query legitimately re-lands, so drop the old landed ref key before recomputing.
+		this._landedRefKey = undefined;
 		this.recompute();
 	}
 
@@ -341,33 +432,61 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		if (match == null) return nothing;
 
 		const unloaded = match.rowIndex == null;
-		return html`<span
-			class="find__hit${unloaded ? ' find__hit--unloaded' : ''}"
-			title=${unloaded ? `${match.name} — not loaded, press Enter to fetch it` : match.name}
+		const total = this._matches.length;
+		// Sized to the widget: ~328px of text room (34rem less the widget padding and the hit's indent) at
+		// ~0.6em per character in the 11px monospace face. Two short of the ~49 that fit, so the unloaded
+		// variant's leading glyph doesn't push the last characters under the clip; ~11 shorter again when
+		// the step hint shares the line. Move these if the widget's `inline-size` moves — tuned as a set.
+		const label = elideRefName(match.label, total > 1 ? 36 : 47);
+		const hit = html`<span class="find__hit${unloaded ? ' find__hit--unloaded' : ''}"
 			>${
 				unloaded ? html`<code-icon class="find__hit-icon" icon="cloud-download"></code-icon>` : nothing
-			}${elideRefName(match.name)}</span
+			}${label}</span
 		>`;
+
+		// Only worth a tooltip when it has something the line itself doesn't already say: the full name
+		// when elision ate part of it, or what Enter will do for a ref that isn't paged in. A tooltip
+		// echoing a name that's fully visible is noise.
+		const tooltip = unloaded
+			? `${match.label} — not loaded, press Enter to fetch it`
+			: label !== match.label
+				? match.label
+				: undefined;
+		const hitEl =
+			tooltip == null ? hit : html`<gl-tooltip content=${tooltip} placement="bottom">${hit}</gl-tooltip>`;
+
+		// Shown only with somewhere to step TO — it's a discoverability hint for the arrow keys, not a
+		// stepper: deliberately text, never buttons, since it's the buttons that would make this read as the
+		// editor's find widget. `aria-hidden` because the input carries `aria-keyshortcuts` for the same
+		// fact, and announcing a changing count on every keystroke would be noise.
+		const nav =
+			total > 1
+				? html`<span class="find__nav" aria-hidden="true">↑↓ ${this._index + 1} of ${total}</span>`
+				: nothing;
+
+		return html`<div class="find__result">${hitEl}${nav}</div>`;
 	}
 
 	override render(): unknown {
 		const noMatches = this._query.trim().length > 0 && this._matches.length === 0;
 
-		return html`<div class="find" role="search" aria-label="Find a branch or tag">
+		return html`<div class="find" role="search" aria-label="Find a branch or tag" @focusout=${this.onFocusOut}>
 			<div class="find__row">
-				<code-icon class="find__icon" icon="search"></code-icon>
-				<input
-					class="find__input${noMatches ? ' find__input--empty' : ''}"
-					type="text"
-					spellcheck="false"
-					autocomplete="off"
-					placeholder="Find a branch or tag..."
-					aria-label="Find a branch or tag"
-					.value=${this._query}
-					@input=${this.onInput}
-					@keydown=${this.onKeydown}
-				/>
-				${this.renderHit()}
+				<div class="find__field">
+					<code-icon class="find__icon" icon="search"></code-icon>
+					<input
+						class="find__input${noMatches ? ' find__input--empty' : ''}"
+						type="text"
+						spellcheck="false"
+						autocomplete="off"
+						placeholder="Find a branch or tag..."
+						aria-label="Find a branch or tag"
+						aria-keyshortcuts="ArrowDown ArrowUp"
+						.value=${this._query}
+						@input=${this.onInput}
+						@keydown=${this.onKeydown}
+					/>
+				</div>
 				<gl-button
 					class="find__close"
 					appearance="toolbar"
@@ -379,6 +498,7 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 					<span slot="tooltip">Close</span>
 				</gl-button>
 			</div>
+			${this.renderHit()}
 		</div>`;
 	}
 }

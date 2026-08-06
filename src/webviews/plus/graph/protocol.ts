@@ -835,6 +835,8 @@ export interface GraphComponentConfig {
 	minimapReversed?: boolean;
 	multiSelectionMode?: GraphMultiSelectionMode;
 	onlyFollowFirstParent?: boolean;
+	/** Whether the ref finder closes when it loses focus. Backed by `gitlens.graph.refFindAutoHide`. */
+	refFindAutoHide?: boolean;
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
 	searchAutocompleteOnFocus?: boolean;

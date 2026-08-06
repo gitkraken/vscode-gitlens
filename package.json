@@ -1452,6 +1452,13 @@
 						"scope": "window",
 						"order": 803
 					},
+					"gitlens.graph.refFindAutoHide": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether the _Commit Graph_'s Branch / Tag finder closes when it loses focus",
+						"scope": "window",
+						"order": 804
+					},
 					"gitlens.graph.scrollRowPadding": {
 						"type": "number",
 						"default": 0,

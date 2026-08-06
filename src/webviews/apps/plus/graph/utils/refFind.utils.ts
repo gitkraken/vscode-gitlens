@@ -9,6 +9,7 @@ import type {
 } from '../../../../plus/graph/protocol.js';
 import { emptySetMarker } from '../../../../plus/graph/protocol.js';
 import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
+import { refPillKey } from './refKey.utils.js';
 
 /**
  * Ref find ("jump to a ref by name") vocabulary, shared by the header trigger and the find widget.
@@ -22,10 +23,16 @@ import { parseFilterTerms } from '../../../shared/utils/filter-match.js';
 export type RefFindKind = 'head' | 'remote' | 'tag';
 
 export interface RefFindCandidate {
-	/** Display and match text. Remote branches are fully qualified (`origin/main`). */
-	name: string;
-	sha: string;
 	kind: RefFindKind;
+	/** Bare ref name (`main`) — with `owner`, the input to `refPillKey`. */
+	name: string;
+	/** Remote alias (`origin`); remotes only. */
+	owner?: string;
+	/** What the user sees and what the query matches: `owner/name` for a remote, `name` otherwise. */
+	label: string;
+	/** Extra names this candidate also answers to (see the in-sync fold in `buildRefFindCandidates`). */
+	aliases?: readonly string[];
+	sha: string;
 	/** Tip commit date. Orders refs whose rows aren't loaded; remote branches don't carry one. */
 	date?: number;
 	current?: boolean;
@@ -50,13 +57,12 @@ export interface RefFindSources {
 	tags?: readonly GraphSidebarTag[];
 }
 
-function refKey(kind: RefFindKind, name: string): string {
-	return `${kind}:${name}`;
-}
-
 /**
- * Projects a filter map to a `kind:name` set. Matches on the entries' `name`/`type` rather than the
- * map keys, which are `<repoPath>|heads/<name>` ids the webview can't rebuild from sidebar data.
+ * Projects a filter map to a set of {@link refPillKey}s. Matches on the entries' `name`/`type`/`owner`
+ * rather than the map keys, which are `<repoPath>|heads/<name>` ids the webview can't rebuild from
+ * sidebar data. A remote entry carries a BARE `name` with the owner in `.owner` (see
+ * `graphWebview.ts`'s `convertBranchToIncludeOnlyRef`), which is exactly the shape `refPillKey` takes — so hiding
+ * `origin/main` leaves an identically-named branch on another remote findable.
  *
  * `undefined` means "no filter". A map holding only {@link emptySetMarker} yields an EMPTY set, not
  * `undefined` — as an include-only filter that correctly admits nothing.
@@ -73,7 +79,7 @@ function toRefKeySet(refs: Record<string, GraphRefOptData> | undefined): Set<str
 		// `worktree` refs have no jump candidate to match, so they never contribute a key.
 		if (ref.type !== 'head' && ref.type !== 'remote' && ref.type !== 'tag') continue;
 
-		keys.add(refKey(ref.type, ref.name));
+		keys.add(refPillKey({ kind: ref.type, name: ref.name, owner: ref.owner }));
 	}
 	return keys;
 }
@@ -95,8 +101,13 @@ function isTypeExcluded(kind: RefFindKind, excludeTypes: GraphExcludeTypes | und
  * Assembles the jump candidates from the branches/remotes/tags sidebar payloads, dropping anything
  * the live filters hide — jumping to a ref the user deliberately hid would silently undo that choice.
  *
- * The branches panel ships local heads only (it filters `b.remote`), and remote branches arrive
- * unqualified under their parent remote, so their names are re-qualified here.
+ * The branches panel carries REMOTE branches too (the default remote's, when
+ * `views.branches.showRemoteBranches` is on — see `getSidebarBranches`), already fully qualified. Those
+ * are skipped here: the remotes panel is the authoritative source for them, and adding one as a `head`
+ * would mint a `head:origin/foo` key no pill can ever carry — the jump would land on the right row with
+ * nothing highlighted, and the same ref would list twice.
+ *
+ * Remote branches arrive unqualified under their parent remote, so their names are qualified here.
  */
 export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFindFilters): RefFindCandidate[] {
 	const excluded = toRefKeySet(filters?.excludeRefs);
@@ -106,30 +117,95 @@ export function buildRefFindCandidates(sources: RefFindSources, filters?: RefFin
 	const candidates: RefFindCandidate[] = [];
 	const seen = new Set<string>();
 
-	function add(kind: RefFindKind, name: string, sha: string | undefined, date?: number, current?: boolean): void {
+	// Whether a ref survives the live filters. Split out of `add` because the in-sync fold below has to
+	// ask the same question WITHOUT adding: a remote the filters hide must not reach the candidate list
+	// as an alias on its local either, or "Hide Remote Branches" (or hiding that one remote branch)
+	// would still leave `origin/main` typeable.
+	function isVisible(kind: RefFindKind, key: string, sha: string | undefined): boolean {
 		// No tip sha means nothing to navigate to.
-		if (sha == null || !sha) return;
-		if (isTypeExcluded(kind, excludeTypes)) return;
+		if (sha == null || !sha) return false;
+		if (isTypeExcluded(kind, excludeTypes)) return false;
+		if (excluded?.has(key)) return false;
+		if (includeOnly != null && !includeOnly.has(key)) return false;
 
-		const key = refKey(kind, name);
-		if (excluded?.has(key)) return;
-		if (includeOnly != null && !includeOnly.has(key)) return;
-		if (seen.has(key)) return;
-
-		seen.add(key);
-		candidates.push({ name: name, sha: sha, kind: kind, date: date, current: current });
+		return true;
 	}
 
+	function add(
+		kind: RefFindKind,
+		name: string,
+		owner: string | undefined,
+		sha: string | undefined,
+		date?: number,
+		current?: boolean,
+	): RefFindCandidate | undefined {
+		// Repeated from `isVisible` (which can't narrow through the call) so `sha` is a string below.
+		if (sha == null || !sha) return undefined;
+
+		// One key for filtering AND dedup: `refPillKey` is owner-aware, so two remotes' same-named
+		// branches neither collide here nor get hidden by a filter naming only one of them.
+		const key = refPillKey({ kind: kind, name: name, owner: owner });
+		if (!isVisible(kind, key, sha)) return undefined;
+		if (seen.has(key)) return undefined;
+
+		seen.add(key);
+		const candidate: RefFindCandidate = {
+			kind: kind,
+			name: name,
+			owner: owner,
+			label: kind === 'remote' && owner != null ? `${owner}/${name}` : name,
+			sha: sha,
+			date: date,
+			current: current,
+		};
+		candidates.push(candidate);
+		return candidate;
+	}
+
+	// Local branches configured with a given upstream name, keyed by that name. A `Map<name, list>`
+	// rather than last-write-wins: two locals can share an upstream name, and only the one whose sha
+	// actually matches the remote's is in sync with it — the other must stay its own candidate.
+	const localsByUpstreamName = new Map<string, RefFindCandidate[]>();
+
 	for (const branch of sources.branches ?? []) {
-		add('head', branch.name, branch.sha, branch.date, branch.current);
+		// The remotes loop below owns these, with the owner split out so the key matches the rendered pill.
+		if (branch.remote) continue;
+
+		const candidate = add('head', branch.name, undefined, branch.sha, branch.date, branch.current);
+		if (candidate != null && branch.upstream?.name != null) {
+			const locals = localsByUpstreamName.get(branch.upstream.name);
+			if (locals != null) {
+				locals.push(candidate);
+			} else {
+				localsByUpstreamName.set(branch.upstream.name, [candidate]);
+			}
+		}
 	}
 	for (const remote of sources.remotes ?? []) {
 		for (const branch of remote.branches) {
-			add('remote', `${remote.name}/${branch.name}`, branch.sha);
+			const qualifiedName = `${remote.name}/${branch.name}`;
+
+			// Fold into the local that's actually in sync (same sha) — the graph renders them as ONE
+			// combined pill (see `refAdornmentProvider`), so offering both here would make `↓` land on
+			// the same row twice. The remote stays findable by its qualified name via the alias.
+			//
+			// Gated on the remote's OWN visibility: the fold skips `add`, so without this a remote the
+			// filters hide would still be typeable through the alias it left on its local.
+			const inSyncLocal =
+				branch.sha != null &&
+				isVisible('remote', refPillKey({ kind: 'remote', name: branch.name, owner: remote.name }), branch.sha)
+					? localsByUpstreamName.get(qualifiedName)?.find(c => c.sha === branch.sha)
+					: undefined;
+			if (inSyncLocal != null) {
+				inSyncLocal.aliases = [...(inSyncLocal.aliases ?? []), qualifiedName];
+				continue;
+			}
+
+			add('remote', branch.name, remote.name, branch.sha);
 		}
 	}
 	for (const tag of sources.tags ?? []) {
-		add('tag', tag.name, tag.sha, tag.date);
+		add('tag', tag.name, undefined, tag.sha, tag.date);
 	}
 
 	return candidates;
@@ -154,7 +230,7 @@ function compareByGraphOrder(a: RefFindMatch, b: RefFindMatch): number {
 		if (b.date == null) return -1;
 		return b.date - a.date;
 	}
-	return a.name.localeCompare(b.name);
+	return a.label.localeCompare(b.label);
 }
 
 /**
@@ -179,17 +255,19 @@ export function refreshMatchRows(
  * happen.
  *
  * Returns how WELL it matched, for scoring: whether every segment matched by prefix (rather than
- * merely containing the term), whether the ref's leaf segment was consumed, and how many segments
- * were skipped. `undefined` means no match.
+ * merely containing the term), whether the ref's leaf segment was consumed — and if so, whether that
+ * segment EQUALS the final term segment rather than merely containing/prefixing it — and how many
+ * segments were skipped. `undefined` means no match.
  */
 function matchPathSegments(
 	nameSegs: readonly string[],
 	termSegs: readonly string[],
-): { allPrefix: boolean; leafMatched: boolean; skipped: number } | undefined {
+): { allPrefix: boolean; leafMatched: boolean; leafExact: boolean; skipped: number } | undefined {
 	let nameIndex = 0;
 	let skipped = 0;
 	let allPrefix = true;
 	let leafMatched = false;
+	let leafExact = false;
 
 	for (const termSeg of termSegs) {
 		let found = false;
@@ -203,6 +281,7 @@ function matchPathSegments(
 					allPrefix = false;
 				}
 				leafMatched = nameIndex === nameSegs.length;
+				leafExact = leafMatched && nameSeg === termSeg;
 				break;
 			}
 
@@ -212,7 +291,7 @@ function matchPathSegments(
 		if (!found) return undefined;
 	}
 
-	return { allPrefix: allPrefix, leafMatched: leafMatched, skipped: skipped };
+	return { allPrefix: allPrefix, leafMatched: leafMatched, leafExact: leafExact, skipped: skipped };
 }
 
 /**
@@ -234,11 +313,12 @@ function scoreTerm(lower: string, nameSegs: readonly string[], term: string): nu
 		const result = matchPathSegments(nameSegs, termSegs);
 		if (result == null) return undefined;
 
-		// Naming the leaf is the strongest signal you meant this ref; prefix beats mid-segment; each
-		// skipped segment means you named less of the path than it has.
+		// Naming the leaf is the strongest signal you meant this ref — exact more so than a segment that
+		// merely starts with or contains the term (`foo` vs `foo-extra-long-tail`); prefix beats
+		// mid-segment; each skipped segment means you named less of the path than it has.
 		let score = result.allPrefix ? 0.85 : 0.65;
 		if (result.leafMatched) {
-			score += 0.1;
+			score += result.leafExact ? 0.1 : 0.05;
 		}
 		return Math.max(0.3, score - Math.min(result.skipped, 4) * 0.03);
 	}
@@ -276,6 +356,22 @@ function scoreRefName(name: string, terms: string[]): number | undefined {
 }
 
 /**
+ * Scores a candidate against all terms, trying its `label` and each alias and keeping the BEST
+ * (maximum) — aliases are alternative names for the same ref, so the strongest one should win, unlike
+ * {@link scoreRefName}'s within-one-name terms, where the weakest decides.
+ */
+function scoreCandidate(candidate: RefFindCandidate, terms: string[]): number | undefined {
+	let best: number | undefined;
+	for (const name of [candidate.label, ...(candidate.aliases ?? [])]) {
+		const score = scoreRefName(name, terms);
+		if (score != null && (best == null || score > best)) {
+			best = score;
+		}
+	}
+	return best;
+}
+
+/**
  * Matches `query` against the candidates and returns them in GRAPH order (not score order) — the
  * order `↓`/`↑` step through and the `N of M` count is read against.
  *
@@ -291,7 +387,7 @@ export function matchRefs(
 
 	const matches: RefFindMatch[] = [];
 	for (const candidate of candidates) {
-		const score = scoreRefName(candidate.name, terms);
+		const score = scoreCandidate(candidate, terms);
 		if (score == null) continue;
 
 		matches.push({ ...candidate, score: score, rowIndex: getRowIndex(candidate.sha) });
@@ -324,16 +420,6 @@ export function pickInitialTargetIndex(matches: readonly RefFindMatch[]): number
 }
 
 /**
- * The key identifying this ref among the pills on its row, matching the graph's own `refPillKey`.
- *
- * Aligns for all three kinds because remote candidates are already fully qualified here — a remote's
- * key is `remote:<owner>/<name>`, and this module's `name` is exactly that `<owner>/<name>`.
- */
-export function refFindPillKey(match: Pick<RefFindCandidate, 'kind' | 'name'>): string {
-	return `${match.kind}:${match.name}`;
-}
-
-/**
  * Shortens a ref name for display, keeping the END — the part that identifies it.
  *
  * Branch names get long, and a trailing ellipsis would eat exactly the distinguishing half
@@ -347,10 +433,18 @@ export function refFindPillKey(match: Pick<RefFindCandidate, 'kind' | 'name'>): 
 export function elideRefName(name: string, max = 28): string {
 	if (max <= 1 || name.length <= max) return name;
 
-	const leaf = name.slice(name.lastIndexOf('/') + 1);
-	// `…/leaf` only helps if it's actually shorter than what we started with.
-	if (leaf.length + 2 <= max && leaf.length + 2 < name.length) return `…/${leaf}`;
+	// Drop leading segments ONE AT A TIME, keeping the longest tail that still fits. Dropping straight to
+	// the leaf is what the budget allows at worst, not what it allows at best — `origin/feature/foo` in 28
+	// has room for `…/feature/foo`, and throwing `feature/` away too just leaves the line short.
+	const segments = name.split('/');
+	for (let i = 1; i < segments.length; i++) {
+		const tail = segments.slice(i).join('/');
+		if (tail.length + 2 <= max) return `…/${tail}`;
+	}
 
+	// Even the leaf alone overflows, so chop into it — still from the head, so the tail survives.
+	// `split` always yields at least one entry, so the fallback is unreachable — it just keeps the type honest.
+	const leaf = segments.at(-1) ?? name;
 	return `…${leaf.slice(leaf.length - (max - 1))}`;
 }
 

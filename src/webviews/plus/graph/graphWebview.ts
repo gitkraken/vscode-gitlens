@@ -4074,6 +4074,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			minimapReversed: configuration.get('graph.minimap.reversed'),
 			multiSelectionMode: configuration.get('graph.multiselect'),
 			onlyFollowFirstParent: configuration.get('graph.onlyFollowFirstParent'),
+			refFindAutoHide: configuration.get('graph.refFindAutoHide'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			scrollMarkerTypes: this.getScrollMarkerTypes(),
 			searchAutocompleteOnFocus: configuration.get('graph.searchAutocompleteOnFocus'),

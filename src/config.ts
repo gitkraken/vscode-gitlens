@@ -477,6 +477,7 @@ export interface GraphConfig {
 	readonly pullRequests: {
 		readonly enabled: boolean;
 	};
+	readonly refFindAutoHide: boolean;
 	readonly scrollMarkers: {
 		readonly enabled: boolean;
 		readonly additionalTypes: GraphScrollMarkersAdditionalTypes[];
