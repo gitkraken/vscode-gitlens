@@ -309,9 +309,9 @@ suite('countDiffInsertionsAndDeletions Test Suite', () => {
 		assert.strictEqual(parsed.files.length, 1);
 
 		const { insertions, deletions } = countDiffInsertionsAndDeletions(parsed.files[0]);
-		// previous: 3 lines (deletions context), current: 4 lines (insertions context)
-		assert.strictEqual(insertions, 4, 'Should count current lines as insertions');
-		assert.strictEqual(deletions, 3, 'Should count previous lines as deletions');
+		// One added line, three unchanged context lines that must not be counted
+		assert.strictEqual(insertions, 1, 'Should count only added lines as insertions');
+		assert.strictEqual(deletions, 0, 'Should not count context lines as deletions');
 	});
 
 	test('returns zeros for file without hunks', () => {
@@ -345,9 +345,8 @@ rename to new.ts`;
 		assert.strictEqual(parsed.files.length, 1);
 
 		const { insertions, deletions } = countDiffInsertionsAndDeletions(parsed.files[0]);
-		// First hunk: prev 2, curr 3
-		// Second hunk: prev 3, curr 2
-		assert.strictEqual(insertions, 5, 'Should sum current lines from all hunks');
-		assert.strictEqual(deletions, 5, 'Should sum previous lines from all hunks');
+		// First hunk: one added line; second hunk: one removed line
+		assert.strictEqual(insertions, 1, 'Should sum added lines from all hunks');
+		assert.strictEqual(deletions, 1, 'Should sum removed lines from all hunks');
 	});
 });

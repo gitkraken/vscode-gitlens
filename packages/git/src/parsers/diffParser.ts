@@ -219,18 +219,41 @@ export async function filterDiffFiles(
 		.join('');
 }
 
-/** Counts insertions and deletions from a parsed diff file */
+/**
+ * Counts the added and removed lines of a parsed diff file, matching what `git diff --numstat`
+ * reports for it. Binary files and files without content changes (pure renames, mode changes)
+ * count as 0/0.
+ */
 export function countDiffInsertionsAndDeletions(file: ParsedGitDiffFile): { insertions: number; deletions: number } {
 	let insertions = 0;
 	let deletions = 0;
 	for (const hunk of file.hunks) {
-		insertions += hunk.current.count;
-		deletions += hunk.previous.count;
+		// Counted off the hunk's raw content rather than its header counts (which include unchanged
+		// context) or `hunk.lines` (which merges a removed/added pair into one `changed` entry and
+		// lets a following context line overwrite the tail of an asymmetric block). Scanned in place
+		// rather than split into lines: splitting a multi-megabyte diff allocates a string per line
+		// for a single pass that only ever looks at each line's first character.
+		const { content } = hunk;
+		for (let start = 0; start < content.length;) {
+			const marker = content[start];
+			if (marker === '+') {
+				insertions++;
+			} else if (marker === '-') {
+				deletions++;
+			}
+
+			const end = content.indexOf('\n', start);
+			if (end === -1) break;
+
+			start = end + 1;
+		}
 	}
 	return { insertions: insertions, deletions: deletions };
 }
 
-/** Counts approximate number of changed lines in a diff file */
+/** Counts the approximate number of changed lines in a diff file — the size of both sides of its
+ *  hunks, unchanged context included. Suitable for relative sizing, not for reporting a line count
+ *  to the user; use {@link countDiffInsertionsAndDeletions} for that. */
 export function countDiffLines(file: ParsedGitDiffFile): number {
 	let count = 0;
 	for (const hunk of file.hunks) {
