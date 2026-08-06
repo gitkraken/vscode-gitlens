@@ -96,6 +96,8 @@ export class KeyboardNavController implements ReactiveController {
 				return true;
 			}
 			case ' ': {
+				if (e.altKey) return true;
+
 				const id = focus.focusedId;
 				if (id == null) return true;
 

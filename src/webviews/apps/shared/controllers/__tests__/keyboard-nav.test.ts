@@ -15,12 +15,16 @@ function fakeHost(): ReactiveControllerHost {
 	};
 }
 
-function key(k: string, mods?: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }): KeyboardEvent {
+function key(
+	k: string,
+	mods?: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean },
+): KeyboardEvent {
 	const event = {
 		key: k,
 		shiftKey: mods?.shiftKey ?? false,
 		ctrlKey: mods?.ctrlKey ?? false,
 		metaKey: mods?.metaKey ?? false,
+		altKey: mods?.altKey ?? false,
 	};
 	return event as unknown as KeyboardEvent;
 }
@@ -98,6 +102,14 @@ suite('KeyboardNavController', () => {
 		keyboard.handleKeydown(key(' '));
 		assert.deepStrictEqual(selectedIds(), ['c']);
 		keyboard.handleKeydown(key(' '));
+		assert.deepStrictEqual(selectedIds(), []);
+	});
+
+	test('Alt+Space is consumed without toggling — checkable rows own it', () => {
+		const { focus, keyboard, selectedIds } = setup('multi');
+		focus.focusIndex(2); // 'c'
+		const handled = keyboard.handleKeydown(key(' ', { altKey: true }));
+		assert.strictEqual(handled, true);
 		assert.deepStrictEqual(selectedIds(), []);
 	});
 

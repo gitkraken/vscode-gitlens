@@ -13,6 +13,8 @@ import { RovingTabindexController } from '../../../shared/controllers/roving-tab
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
+import type { SidebarRailEntry } from './sidebarPanels.js';
+import { visibleSidebarRailEntries } from './sidebarPanels.js';
 import type { SidebarActions } from './sidebarState.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -53,31 +55,25 @@ interface DisplayModeToggle {
 	icon: string;
 	activeTooltip: string;
 	inactiveTooltip: string;
-	/** When set, the toggle only renders if the named feature flag on `_state.config` is truthy.
-	 *  Lets us gate experimental modes (kanban) behind a config setting without changing the
-	 *  shape of the bottom-rail render path. */
-	requiresConfigFlag?: 'experimentalKanbanEnabled';
 	/** When set, the toggle carries a "new" dot until the user first interacts with it. */
 	onboardingKey?: OnboardingKeys;
 }
 
-const displayModeToggles: readonly DisplayModeToggle[] = [
-	{
+const displayModeToggleByMode: Record<Exclude<GraphDisplayMode, 'graph'>, DisplayModeToggle> = {
+	kanban: {
 		mode: 'kanban',
 		icon: 'gl-kanban-view',
 		activeTooltip: 'Show Commit Graph',
 		inactiveTooltip: 'Show Agent Kanban',
-		requiresConfigFlag: 'experimentalKanbanEnabled',
 		onboardingKey: 'graph:kanban:buttonCallout',
 	},
-];
-
-const visualizationsToggle: DisplayModeToggle = {
-	mode: 'visualizations',
-	icon: 'pulse',
-	activeTooltip: 'Show Commit Graph',
-	inactiveTooltip: 'Show Visualizations',
-	onboardingKey: 'graph:visualizations:buttonCallout',
+	visualizations: {
+		mode: 'visualizations',
+		icon: 'pulse',
+		activeTooltip: 'Show Commit Graph',
+		inactiveTooltip: 'Show Visualizations',
+		onboardingKey: 'graph:visualizations:buttonCallout',
+	},
 };
 
 export interface GraphSidebarToggleEventDetail {
@@ -331,21 +327,35 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 	`;
 
-	get include(): undefined | IconTypes[] {
+	/** Full rail order: panels, then display-mode toggles — mirrors `visibleSidebarRailEntries` in
+	 *  `sidebarPanels.ts`, the single source of truth also consulted by the Alt+digit shortcuts in
+	 *  `graph-app.ts`. */
+	private get railEntries(): readonly SidebarRailEntry[] {
 		const repo = this._state.repositories?.find(item => item.id === this._state.selectedRepository);
-		// `pullRequests` is listed for virtual repos too — its data comes from the integration API, not
-		// from local git, so it works wherever a remote's integration is connected.
-		const base: readonly IconTypes[] = repo?.virtual
-			? (['overview', 'agents', 'pullRequests', 'branches', 'remotes', 'tags'] as const)
-			: (['overview', 'agents', 'pullRequests', 'branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
+		const kanbanEnabled = this._state.config?.experimentalKanbanEnabled ?? false;
+		return visibleSidebarRailEntries(repo?.virtual ?? false, kanbanEnabled);
+	}
 
-		return [...base];
+	/** Panels included for the current repo kind, in canonical rail order — see `sidebarPanels.ts`.
+	 *  `pullRequests` is listed for virtual repos too — its data comes from the integration API, not
+	 *  from local git, so it works wherever a remote's integration is connected. */
+	get include(): readonly IconTypes[] {
+		return this.railEntries
+			.filter((e): e is Extract<SidebarRailEntry, { kind: 'panel' }> => e.kind === 'panel')
+			.map(e => e.panel);
 	}
 
 	/** The icons actually rendered, in rail order, after applying `include`. */
 	private get visibleIcons(): Icon[] {
-		const include = this.include;
-		return include == null ? icons : icons.filter(i => include.includes(i.type));
+		const included = new Set(this.include);
+		return icons.filter(i => included.has(i.type));
+	}
+
+	/** Display-mode toggles included for the current gate state, in rail order. */
+	private get visibleDisplayModeToggles(): readonly DisplayModeToggle[] {
+		return this.railEntries
+			.filter((e): e is Extract<SidebarRailEntry, { kind: 'displayMode' }> => e.kind === 'displayMode')
+			.map(e => displayModeToggleByMode[e.mode]);
 	}
 
 	@property({ type: String, attribute: 'active-panel' })
@@ -424,13 +434,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			${overflowAt == null ? nothing : this.renderOverflow(visible.slice(overflowAt), isGraphMode)}
 			<div class="spacer"></div>
 			${repeat(
-				displayModeToggles.filter(
-					t => t.requiresConfigFlag == null || this._state.config?.[t.requiresConfigFlag],
-				),
+				this.visibleDisplayModeToggles,
 				t => t.mode,
 				t => this.renderDisplayModeToggle(t, displayMode),
 			)}
-			${this.renderDisplayModeToggle(visualizationsToggle, displayMode)} ${this.renderShortcutsButton()}
+			${this.renderShortcutsButton()}
 		</section>`;
 	}
 

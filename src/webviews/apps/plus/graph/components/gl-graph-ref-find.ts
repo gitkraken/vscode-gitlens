@@ -347,14 +347,11 @@ export class GlGraphRefFind extends SignalWatcher(LitElement) {
 		this.recompute();
 	}
 
+	// Escape is NOT here: the graph pushes the open finder onto the keymap's overlay stack, which resolves
+	// Esc top-down before any focus scope — so a hovercard opened over the finder closes first and this
+	// second. The keys below are genuinely focus-based and stay local.
 	private onKeydown(e: KeyboardEvent): void {
 		switch (e.key) {
-			case 'Escape':
-				e.preventDefault();
-				e.stopPropagation();
-				this.close();
-				return;
-
 			case 'Enter':
 				e.preventDefault();
 				e.stopPropagation();

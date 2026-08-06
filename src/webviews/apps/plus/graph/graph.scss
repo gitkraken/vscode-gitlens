@@ -731,6 +731,15 @@ gl-lit-graph {
 		flex: 1 1 auto;
 		min-height: 0 !important;
 		contain: layout;
+
+		// Never ring the scroller: it's tabindex=-1 purely as a scroll container, but a row-BODY
+		// mousedown natively focuses it (nearest click-focusable ancestor) and a MODIFIER-held click
+		// (shift/ctrl+click selection) defeats Chromium's pointer heuristic for :focus-visible — the
+		// shared `[tabindex]:focus-visible` outline then boxes the whole graph until the click handler
+		// re-homes focus onto the tree. The `[tabindex]` bump outranks the shared rule.
+		&[tabindex] {
+			outline: none;
+		}
 		// Always reserve the scrollbar lane, even when the rows don't overflow — the scroll-marker rail
 		// and the "Scroll to HEAD" pill are positioned against `--gl-graph-scrollbar-width` (measured as
 		// `offsetWidth - clientWidth`), so without this a short list gives the lane back to the rows and

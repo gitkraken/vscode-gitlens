@@ -3,6 +3,7 @@ import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
+import { getShiftKeySymbol } from '@env/platform.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
 import '../../../../shared/components/code-icon.js';
@@ -148,13 +149,16 @@ function renderLaneFoldChevron(ctx: LaneCollapseChipContext): TemplateResult {
 	// IDE code-folding gutter style: a single compact chevron in either state (right = collapsed,
 	// down = expanded). The hidden-count + branch name go in the tooltip, not a visible chip — the
 	// fold strip is only wide enough for the chevron.
-	const label = ctx.isCollapsed
+	const base = ctx.isCollapsed
 		? ctx.branchHint != null
 			? `Click to expand ${hidden} hidden ${noun} from ${ctx.branchHint}`
 			: `Click to expand ${hidden} hidden ${noun}`
 		: ctx.branchHint != null
 			? `Click to fold ${hidden} ${noun} in ${ctx.branchHint}`
 			: `Click to fold ${hidden} ${noun} in this lane`;
+	// Shift-click applies this lane's pending direction to EVERY lane. Surfaced in the tooltip because the
+	// fold strip has no room for a second control, so the modifier is otherwise undiscoverable.
+	const label = `${base}\n[${getShiftKeySymbol()}] ${ctx.isCollapsed ? 'Expand all lanes' : 'Fold all lanes'}`;
 	const ariaLabel = ctx.isCollapsed
 		? ctx.branchHint != null
 			? `Expand collapsed lane ${ctx.branchHint} (${hidden} ${noun} hidden)`

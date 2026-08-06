@@ -82,8 +82,10 @@ suite('findWipInColumn', () => {
 		assert.strictEqual(findWipInColumn('SELECTED', rows, primaryWip('TOP'), m, columns), uncommitted);
 	});
 
-	test('only same-column WIP is BELOW the click → returns undefined (falls back to primary)', () => {
-		// No same-column WIP at-or-above the click. Returns undefined.
+	test('only same-column WIP is BELOW the click → returns undefined (caller falls back to primary)', () => {
+		// The below-anchor filter is absolute, not a preference: with no other candidate the
+		// search returns undefined rather than reaching down for it. The caller then falls back
+		// to the primary WIP (or, mid-column-load, to the ancestry search).
 		const rows: WipSearchRow[] = [commit('SELECTED'), commit('OLD_TIP')];
 		const columns: ColumnNumberBySha = { SELECTED: 1, OLD_TIP: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'OLD_TIP' }]);
@@ -94,37 +96,47 @@ suite('findWipInColumn', () => {
 	test('partial column load: anchor whose column isnʼt yet known is KEPT (not dropped)', () => {
 		// Simulates the column-recalc gap: SELECTED's column is known (1), and a freshly loaded
 		// secondary's anchor column hasn't been recomputed yet (missing from map). The secondary
-		// should still be considered. Setup: feature's anchor is FARTHER UP than primary, so
-		// under the farthest-wins rule it must win — proving the keep-unknown filter let it
-		// through (if dropped, primary at NEAR would win).
-		const rows: WipSearchRow[] = [commit('FAR_NEW_ANCHOR'), commit('M'), commit('NEAR'), commit('SELECTED')];
-		// FAR_NEW_ANCHOR deliberately missing from columns (the partial-load scenario).
-		const columns: ColumnNumberBySha = { M: 1, NEAR: 1, SELECTED: 1 };
-		const m = meta([{ sha: featureWipSha, parentSha: 'FAR_NEW_ANCHOR' }]);
+		// should still be considered. Setup: feature's anchor is NEARER than primary's, so under
+		// the nearest-above rule it must win — proving the keep-unknown filter let it through (if
+		// dropped, primary at FAR would win by default).
+		const rows: WipSearchRow[] = [commit('FAR'), commit('M'), commit('NEW_ANCHOR'), commit('SELECTED')];
+		// NEW_ANCHOR deliberately missing from columns (the partial-load scenario).
+		const columns: ColumnNumberBySha = { FAR: 1, M: 1, SELECTED: 1 };
+		const m = meta([{ sha: featureWipSha, parentSha: 'NEW_ANCHOR' }]);
 
-		// feature's anchor row 0 is farthest above SELECTED (row 3) — feature wins. If the
-		// keep-unknown filter were missing, feature would be silently dropped and primary at
-		// NEAR (row 2, distance 1) would win instead.
-		assert.strictEqual(findWipInColumn('SELECTED', rows, primaryWip('NEAR'), m, columns), featureWipSha);
+		assert.strictEqual(findWipInColumn('SELECTED', rows, primaryWip('FAR'), m, columns), featureWipSha);
 	});
 
-	test('column match: FARTHEST tip in same column wins (most principal branch in the lane)', () => {
+	test('column match: NEAREST anchor above the click wins (most specific container)', () => {
 		// Two WIPs both in column 1: primary far above (TOP row 0, distance 3), feature just
-		// above (NEAR row 2, distance 1). Among same-column candidates at-or-above the click,
-		// the farthest-up tip wins — `main`/primary is the most principal branch in the lane
-		// when many feature branches share its first-parent chain without visually diverging.
-		// Without this preference, every mid-range click would jump to whichever feature has
-		// the newest tip rather than the lane's principal branch.
+		// above (NEAR row 2, distance 1). Both checkouts contain SELECTED, so the nearest is the
+		// one whose working changes sit directly on top of it — feature wins.
 		const rows: WipSearchRow[] = [commit('TOP'), commit('M'), commit('NEAR'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, M: 1, NEAR: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'NEAR' }]);
 
-		assert.strictEqual(findWipInColumn('SELECTED', rows, primaryWip('TOP'), m, columns), uncommitted);
+		assert.strictEqual(findWipInColumn('SELECTED', rows, primaryWip('TOP'), m, columns), featureWipSha);
 	});
 
-	test('column match: exact-anchor still beats farthest (rule #1 wins regardless)', () => {
-		// SELECTED is feature's exact anchor; rule #1 returns feature even though primary's
-		// anchor is farther up the same column.
+	test('column match: nearest-above holds at lane scale (3 up beats 500 up)', () => {
+		// Two anchors stacked in one lane above the cursor: the primary at the very top of 500
+		// in-lane rows, a secondary 3 rows up. The near one wins however far the other is.
+		const rows: WipSearchRow[] = [];
+		const columns: Record<string, number> = {};
+		for (let i = 0; i < 500; i++) {
+			rows.push(commit(`R${i}`));
+			columns[`R${i}`] = 1;
+		}
+		rows.push(commit('SELECTED'));
+		columns.SELECTED = 1;
+		const m = meta([{ sha: featureWipSha, parentSha: 'R497' }]);
+
+		assert.strictEqual(findWipInColumn('SELECTED', rows, primaryWip('R0'), m, columns), featureWipSha);
+	});
+
+	test('column match: exact-anchor still beats nearest (rule #1 wins regardless)', () => {
+		// SELECTED is feature's exact anchor; rule #1 returns feature without the distance rule
+		// ever running against primary's same-column anchor.
 		const rows: WipSearchRow[] = [commit('TOP'), commit('M'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, M: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'SELECTED' }]);
@@ -143,10 +155,10 @@ suite('findWipInColumn', () => {
 		assert.strictEqual(findWipInColumn('SELECTED', rows, primaryWip('TOP'), m, columns), uncommitted);
 	});
 
-	test('tie-break at farthest distance: primary wins over secondary at the same row', () => {
-		// Primary and secondary both anchored at TOP (row 0, farthest from SELECTED at row 2).
-		// Without the tie-break helper, iteration order would decide (primary first → wins by
-		// luck). The deterministic helper guarantees primary wins on ties regardless of order.
+	test('tie-break at equal distance: primary wins over secondary at the same row', () => {
+		// Primary and secondary both anchored at TOP (row 0, 2 rows above SELECTED). Without the
+		// tie-break helper, iteration order would decide (primary first → wins by luck). The
+		// deterministic helper guarantees primary wins on ties regardless of order.
 		const rows: WipSearchRow[] = [commit('TOP'), commit('M'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { TOP: 1, M: 1, SELECTED: 1 };
 		const m = meta([{ sha: featureWipSha, parentSha: 'TOP' }]);
@@ -154,8 +166,8 @@ suite('findWipInColumn', () => {
 		assert.strictEqual(findWipInColumn('SELECTED', rows, primaryWip('TOP'), m, columns), uncommitted);
 	});
 
-	test('tie-break at farthest distance: lexicographically smaller sha wins between two secondaries', () => {
-		// No primary; two secondaries both anchored at FAR (row 0, farthest). featureWipSha and
+	test('tie-break at equal distance: lexicographically smaller sha wins between two secondaries', () => {
+		// No primary; two secondaries both anchored at FAR (row 0). featureWipSha and
 		// otherWipSha are both at distance 2 — the smaller sha wins deterministically.
 		const rows: WipSearchRow[] = [commit('FAR'), commit('M'), commit('SELECTED')];
 		const columns: ColumnNumberBySha = { FAR: 1, M: 1, SELECTED: 1 };

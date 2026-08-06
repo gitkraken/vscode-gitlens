@@ -514,8 +514,6 @@ export class GlGraphMinimap extends GlElement {
 			this._cachedTheme = undefined;
 			this.invalidateStatic();
 		});
-
-		window.addEventListener('keydown', this.onWindowKeyDown);
 	}
 
 	override disconnectedCallback(): void {
@@ -526,8 +524,6 @@ export class GlGraphMinimap extends GlElement {
 
 		this._themeDisposable?.dispose();
 		this._themeDisposable = undefined;
-
-		window.removeEventListener('keydown', this.onWindowKeyDown);
 
 		if (this._drawRAF != null) {
 			cancelAnimationFrame(this._drawRAF);
@@ -1148,11 +1144,9 @@ export class GlGraphMinimap extends GlElement {
 		this.resetZoom();
 	};
 
-	private onWindowKeyDown = (e: KeyboardEvent): void => {
-		if (e.key === 'Escape' && this.isZoomed) {
-			this.resetZoom();
-		}
-	};
+	// No Escape listener here: `gl-graph-minimap-zoom-change` already announces the zoom, and `graph-app`
+	// turns that into an entry on the keymap's Esc overlay stack — so exiting zoom queues behind whatever
+	// transient surface is on top instead of firing alongside it.
 
 	private get canvasRect(): DOMRect {
 		return (this._canvasRect ??= this.canvas.getBoundingClientRect());

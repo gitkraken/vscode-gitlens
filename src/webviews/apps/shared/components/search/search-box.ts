@@ -28,6 +28,7 @@ declare global {
 		'gl-search-openinview': CustomEvent<void>;
 		'gl-search-pause': CustomEvent<void>;
 		'gl-search-resume': CustomEvent<void>;
+		'gl-search-exit': CustomEvent<void>;
 	}
 }
 
@@ -287,7 +288,7 @@ export class GlSearchBox extends GlElement {
 	}
 
 	private handleShortcutKeys(e: KeyboardEvent) {
-		if (e.altKey) return;
+		if (e.defaultPrevented || e.altKey || this.inert) return;
 
 		if ((e.key === 'F3' && !e.ctrlKey && !e.metaKey) || (e.key === 'g' && e.metaKey && !e.ctrlKey && isMac)) {
 			e.preventDefault();
@@ -435,6 +436,10 @@ export class GlSearchBox extends GlElement {
 				@gl-search-pause="${(e: Event) => {
 					e.stopImmediatePropagation();
 					this.emit('gl-search-pause');
+				}}"
+				@gl-search-exit="${(e: Event) => {
+					e.stopImmediatePropagation();
+					this.emit('gl-search-exit');
 				}}"
 			></gl-search-input>
 			${when(

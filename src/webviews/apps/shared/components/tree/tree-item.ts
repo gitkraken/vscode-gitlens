@@ -1,5 +1,6 @@
 import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import { getAltKeySymbol } from '@env/platform.js';
 import { ModifierKeysController } from '../../controllers/modifier-keys.js';
@@ -169,6 +170,17 @@ export class GlTreeItem extends GlElement {
 			}
 		}
 
+		if (changedProperties.has('checked') || changedProperties.has('checkable') || force) {
+			if (this.checkable) {
+				this.setAttribute(
+					'aria-checked',
+					this.checked === 'indeterminate' ? 'mixed' : this.checked ? 'true' : 'false',
+				);
+			} else {
+				this.removeAttribute('aria-checked');
+			}
+		}
+
 		if (changedProperties.has('parentExpanded') || force) {
 			this.setAttribute('aria-hidden', this.isHidden.toString());
 		}
@@ -243,6 +255,7 @@ export class GlTreeItem extends GlElement {
 				id="checkbox"
 				type="checkbox"
 				tabindex="-1"
+				aria-label=${ifDefined(this.checkableTooltip)}
 				.checked=${this.checked === true}
 				.indeterminate=${this.checked === 'indeterminate'}
 				?disabled=${this.disableCheck}
@@ -404,34 +417,64 @@ export class GlTreeItem extends GlElement {
 		this._checkboxClickAlt = e.altKey;
 	}
 
-	private onCheckboxChange(e: Event) {
-		e.preventDefault();
-		e.stopPropagation();
-		let newChecked = (e.target as HTMLInputElement).checked;
-		// Alt+click on a mixed (indeterminate) checkbox flips the natural transition from
-		// checked-true (stage remaining) to checked-false (unstage everything) so users can
-		// drop staged content in one click instead of two. Read alt from BOTH the captured
-		// click event AND the live modifier tracker — keyboard activation (Space) skips the
-		// click handler, and some platforms may not fire the click handler before change.
-		const altHeld = this._checkboxClickAlt || this._modifiers.altKey;
-		if (this.checked === 'indeterminate' && altHeld) {
-			newChecked = false;
-			// Sync the input — the browser already set checked=true for the indeterminate
-			// click; without this, the input visually flips on for one frame before Lit's
-			// next render reconciles against `this.checked = false`.
-			(e.target as HTMLInputElement).checked = false;
-		}
-		this._checkboxClickAlt = false;
+	/** The next checked value on a toggle, given the current `checked` and whether Alt is held.
+	 *  Mirrors the browser's own indeterminate→checked transition (clicking an indeterminate or
+	 *  unchecked box checks it; clicking a checked box unchecks it), with the Alt override for the
+	 *  mixed-state "unstage everything" shortcut. Shared by the native click path and keyboard Space
+	 *  so the semantics live in exactly one place. */
+	private nextChecked(altHeld: boolean): boolean {
+		if (this.checked === 'indeterminate' && altHeld) return false;
+
+		return this.checked !== true;
+	}
+
+	/** Applies a computed checked value: respects `controlledCheck` (model-driven, no optimistic
+	 *  update) and emits `gl-tree-item-checked`. `inputEl`, when passed, is the native checkbox to
+	 *  resync when the computed value diverges from what the browser already set. */
+	private applyChecked(newChecked: boolean, inputEl?: HTMLInputElement): void {
 		if (this.controlledCheck) {
 			// Controlled: the action may be blocked or cancelled (e.g. a conflict-stage confirm), so don't
 			// adopt the toggle optimistically — revert the input and let the model drive `checked` once the
 			// operation actually completes.
-			(e.target as HTMLInputElement).checked = this.checked === true;
+			if (inputEl != null) {
+				inputEl.checked = this.checked === true;
+			}
 		} else {
 			this.checked = newChecked;
 		}
 
 		this.emit('gl-tree-item-checked', { node: this, checked: newChecked });
+	}
+
+	private onCheckboxChange(e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+		// Read alt from BOTH the captured click event AND the live modifier tracker — keyboard
+		// activation (Space) skips the click handler, and some platforms may not fire the click
+		// handler before change.
+		const altHeld = this._checkboxClickAlt || this._modifiers.altKey;
+		const newChecked = this.nextChecked(altHeld);
+		this._checkboxClickAlt = false;
+
+		const input = e.target as HTMLInputElement;
+		if (this.checked === 'indeterminate' && altHeld) {
+			// Sync the input — the browser already set checked=true for the indeterminate click;
+			// without this, the input visually flips on for one frame before Lit's next render
+			// reconciles against `this.checked = false`.
+			input.checked = false;
+		}
+
+		this.applyChecked(newChecked, input);
+	}
+
+	/** Keyboard entry point (Space on a checkable tree row): toggles this row's checkbox through the
+	 *  same semantics as a native click (including the mixed-state Alt override), without requiring
+	 *  the checkbox itself to hold DOM focus. Called by `gl-tree-view`'s container keydown handler. */
+	toggleChecked(altHeld: boolean): void {
+		if (!this.checkable || this.disableCheck) return;
+
+		const newChecked = this.nextChecked(altHeld);
+		this.applyChecked(newChecked);
 	}
 
 	private onCheckboxMouseEnter() {

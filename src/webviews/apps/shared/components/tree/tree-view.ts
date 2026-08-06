@@ -1570,6 +1570,17 @@ export class GlTreeView extends GlElement {
 			}
 
 			const focused = this.treeItems[this.getCurrentFocusedIndex()];
+
+			// Checkable rows toggle their checkbox on Space (Alt+Space for the mixed-state shortcut),
+			// routed through the row's own toggleChecked so the mixed-state semantics aren't duplicated
+			// here. Takes priority over branch expand/collapse — a checkable folder still toggles.
+			if (focused?.checkable) {
+				e.preventDefault();
+				e.stopPropagation();
+				this.getFocusedTreeItemElement()?.toggleChecked(e.altKey);
+				return;
+			}
+
 			if (focused?.branch) {
 				e.preventDefault();
 				e.stopPropagation();
@@ -1626,8 +1637,17 @@ export class GlTreeView extends GlElement {
 		}
 
 		// Type-ahead for printable characters — ignore Ctrl/Cmd/Alt combos so native shortcuts
-		// (copy/paste, select-all, etc.) aren't swallowed while the tree has focus.
-		if (!e.ctrlKey && !e.metaKey && !e.altKey && this.isPrintableCharacter(e.key)) {
+		// (copy/paste, select-all, etc.) aren't swallowed while the tree has focus. Shifted LETTERS
+		// are excluded too: matching is case-insensitive so a capital adds nothing, and eating them
+		// would swallow the graph's Shift-letter toggle chords (Shift+M/B/D/…) whenever a details
+		// tree has focus. Shifted punctuation (`_`) stays — it has no lowercase twin.
+		if (
+			!e.ctrlKey &&
+			!e.metaKey &&
+			!e.altKey &&
+			!(e.shiftKey && /[a-zA-Z]/.test(e.key)) &&
+			this.isPrintableCharacter(e.key)
+		) {
 			this.handleTypeAhead(e.key);
 			return true;
 		}

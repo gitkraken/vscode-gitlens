@@ -222,3 +222,85 @@ suite('engine/navigation collectForkLanes', () => {
 		assert.deepStrictEqual(lanes, [{ column: 0, sha: 'Row' }]);
 	});
 });
+
+suite('engine/navigation buildChildrenBySha ordering', () => {
+	test('children of one parent stay top-to-bottom across non-contiguous, interleaved rows', () => {
+		const rows: NavRow[] = [
+			row('C1', ['P'], 1),
+			row('X', ['Y'], 0),
+			row('C2', ['P'], 2),
+			row('Z', ['W'], 0),
+			row('C3', ['P'], 3),
+			row('P', [], 0),
+		];
+		const children = buildChildrenBySha(rows);
+		// Interleaved filler rows (X, Z) must not disturb the top-to-bottom order of P's children.
+		assert.deepStrictEqual(children.get('P'), ['C1', 'C2', 'C3']);
+	});
+});
+
+suite('engine/navigation collectForkLanes dedupe and kinds', () => {
+	test('two children of the same fork on the same column: the topmost wins, the second is dropped', () => {
+		const rows: NavRow[] = [row('C1', ['Fork'], 1), row('C2', ['Fork'], 1), row('Fork', [], 0)];
+		const lanes = collectForkLanes(rows, indexBySha(rows), buildChildrenBySha(rows), 'Fork');
+		// C1 is topmost (row0) and claims column 1 first; C2 (row1, same column) is skipped by the
+		// byColumn.has guard.
+		assert.deepStrictEqual(lanes, [
+			{ column: 0, sha: 'Fork' },
+			{ column: 1, sha: 'C1' },
+		]);
+	});
+
+	test('a workdir (wip::…) child on its own column becomes a lane entry like any other child', () => {
+		const rows: NavRow[] = [row('wip::abc', ['Fork'], 1), row('Fork', [], 0)];
+		const lanes = collectForkLanes(rows, indexBySha(rows), buildChildrenBySha(rows), 'Fork');
+		// collectForkLanes is kind-agnostic — a synthetic workdir sha is treated the same as a real commit.
+		assert.deepStrictEqual(lanes, [
+			{ column: 0, sha: 'Fork' },
+			{ column: 1, sha: 'wip::abc' },
+		]);
+	});
+
+	test('a later row range recycling the fork column does not disturb the seed entry', () => {
+		const rows: NavRow[] = [
+			row('C1', ['Fork'], 1),
+			row('SameCol', ['Fork'], 0),
+			row('Fork', ['Older'], 0),
+			row('Unrelated1', ['Unrelated2'], 0),
+			row('Unrelated2', [], 0),
+		];
+		const lanes = collectForkLanes(rows, indexBySha(rows), buildChildrenBySha(rows), 'Fork');
+		// SameCol shares Fork's own column, so it's skipped as a lane continuation, not a divergence.
+		// Unrelated1/Unrelated2 recycle column 0 further down but aren't children of Fork, so they're
+		// never considered — the seed still resolves to Fork itself, not whatever else sits on column 0.
+		assert.deepStrictEqual(lanes, [
+			{ column: 0, sha: 'Fork' },
+			{ column: 1, sha: 'C1' },
+		]);
+	});
+});
+
+suite('engine/navigation findBranchingPointSha getSameColumnChild fallback', () => {
+	test('up-walk falls back to the first-parent child when no same-column child exists', () => {
+		const rows: NavRow[] = [row('M', ['X'], 0), row('X', ['Base'], 1), row('Base', [], 0)];
+		// X's only child is M, but M sits on column 0 while X sits on column 1 — no same-column child,
+		// so the walk must fall back to the child whose first parent is X (M.parents[0] === 'X').
+		const sha = findBranchingPointSha(rows, indexBySha(rows), buildChildrenBySha(rows), 'X', -1);
+		assert.strictEqual(sha, 'M');
+	});
+});
+
+suite('engine/navigation findBranchingPointSha resume-from-target', () => {
+	test('down-walk from a segment tip whose immediate same-column parent is already a branching point returns that parent', () => {
+		const rows: NavRow[] = [
+			row('OtherChild', ['BP'], 2),
+			row('Tip', ['BP'], 1),
+			row('BP', ['Base'], 1),
+			row('Base', [], 1),
+		];
+		// BP is a branching point (OtherChild forks off on column 2). Tip's first step down is BP itself
+		// — the newly-reached-commit check must catch it on that very first step, not skip past it.
+		const sha = findBranchingPointSha(rows, indexBySha(rows), buildChildrenBySha(rows), 'Tip', 1);
+		assert.strictEqual(sha, 'BP');
+	});
+});

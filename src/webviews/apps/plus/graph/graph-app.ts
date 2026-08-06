@@ -5,6 +5,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
+import { isMac } from '@env/platform.js';
 import type { GitGraphRow, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
@@ -13,10 +14,13 @@ import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
+import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
+import { mergeWebviewItems } from '../../../../system/webview.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
 import type {
 	DidRequestOpenCompareModeParams,
@@ -24,6 +28,7 @@ import type {
 	DidRequestSearchParams,
 	GraphComposeScopeSeed,
 	GraphDisplayMode,
+	GraphItemContext,
 	GraphMinimapMarkerTypes,
 	GraphScopeBranch,
 	GraphScopeSource,
@@ -53,10 +58,13 @@ import {
 	UpdateGraphConfigurationCommand,
 	UpdateGraphDisplayModeCommand,
 } from '../../../plus/graph/protocol.js';
+import { ExecuteCommand } from '../../../protocol.js';
 import { noop } from '../../shared/actions/rpc.js';
 import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
+import type { GlFileTreePane } from '../../shared/components/tree/gl-file-tree-pane.js';
+import type { GlTreeView } from '../../shared/components/tree/tree-view.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
 import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
@@ -71,6 +79,7 @@ import { NavigationStack } from '../../shared/controllers/navigationStack.js';
 import { isTextEntryTarget } from '../../shared/dom.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
 import '../shared/components/account-bar.js';
+import type { KeymapDispatcher } from '../../shared/keymap/keymapDispatcher.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { BranchSheetRef } from './components/gl-graph-branch-sheet-pane.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
@@ -100,14 +109,21 @@ import { abortRunningOperations, createGraphCrossPaneState, graphCrossPaneContex
 import type { GraphLaunchpadState } from './graphLaunchpadState.js';
 import { createGraphLaunchpadState, graphLaunchpadContext } from './graphLaunchpadState.js';
 import type { GlGraphHover } from './hover/graphHover.js';
+import type { GraphKeymapScope } from './keymap/graphKeymap.js';
+import { createGraphKeymapDispatcher } from './keymap/graphKeymap.js';
 import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } from './minimap/minimap-container.js';
-import type { GraphMinimapDaySelectedEventDetail, GraphMinimapWheelEvent } from './minimap/minimap.js';
+import type {
+	GraphMinimapDaySelectedEventDetail,
+	GraphMinimapWheelEvent,
+	GraphMinimapZoomChangeEvent,
+} from './minimap/minimap.js';
 import type { GlGraphSidebarPanel, GraphSidebarPanelSelectEventDetail } from './sidebar/sidebar-panel.js';
 import type {
 	GlGraphSideBar,
 	GraphSidebarDisplayModeChangeEventDetail,
 	GraphSidebarToggleEventDetail,
 } from './sidebar/sidebar.js';
+import { visibleSidebarPanels } from './sidebar/sidebarPanels.js';
 import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { resolveMinimapShown } from './utils/minimap.utils.js';
@@ -172,6 +188,42 @@ function branchNameFromRef(branchRef: string | undefined): string | undefined {
 function primaryFallbackLabel(repoPath: string): string {
 	return basename(repoPath) || '(detached)';
 }
+
+/** Maps a numeric-row `KeyboardEvent.code` (`Digit0`-`Digit9`) to the shortcut index it represents:
+ *  `Digit1`-`Digit9` → 0-8, `Digit0` → 9 (the 10th item). `undefined` for anything else, including the
+ *  numpad's own `Numpad0`-`Numpad9` codes — only the numeric row keys these shortcuts. */
+function digitIndexFromCode(code: string): number | undefined {
+	if (!code.startsWith('Digit')) return undefined;
+
+	const digit = Number(code.slice('Digit'.length));
+	if (!Number.isInteger(digit) || digit < 0 || digit > 9) return undefined;
+
+	return digit === 0 ? 9 : digit - 1;
+}
+
+/** `.open` matters: after a dialog closes, focus can remain on a control still slotted INSIDE the closed
+ *  <dialog> (native close doesn't move it), and a tag-only test would keep treating that dialog as a
+ *  modal that owns the keyboard. */
+function noOpenDialogGuard(e: KeyboardEvent): boolean {
+	return !e.composedPath().some(el => (el as HTMLElement).tagName === 'DIALOG' && (el as HTMLDialogElement).open);
+}
+
+/** `keys` chord list for the sidebar-panel digit shortcut — `Alt+1`-`8` (code-token chords, so the
+ *  physical numeric-row keys, regardless of the digit's shifted symbol). Eight because that's the
+ *  panel count in `sidebarPanelOrder`; the display-mode toggles have their own letter chords.
+ *  Alt+digit shadows VS Code's `workbench.action.openEditorAtIndex`, but this webview's keydown handler
+ *  calls `preventDefault` on a matched chord, which suppresses that at the OS/host layer too (verified
+ *  live against a running instance). */
+const sidebarAltDigitKeys = [
+	'alt+Digit1',
+	'alt+Digit2',
+	'alt+Digit3',
+	'alt+Digit4',
+	'alt+Digit5',
+	'alt+Digit6',
+	'alt+Digit7',
+	'alt+Digit8',
+];
 
 const sidebarDefaultPct = 20;
 const sidebarMinPct = 15;
@@ -329,6 +381,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		s => (this._navState = s),
 	);
 
+	/** Document-level key dispatcher for the graph webview's shortcuts. Scopes/bindings are registered
+	 *  in {@link connectedCallback}; {@link disconnectedCallback} tears everything down in one call. */
+	readonly keymap: KeymapDispatcher<GraphKeymapScope> = createGraphKeymapDispatcher(isMac);
+
+	/** Stable `pushOverlay` reference for surfaces that register themselves on the Esc stack through a
+	 *  property (the hover card) — a fresh bind per render would dirty the property every update. */
+	private readonly pushOverlay = (entry: OverlayEntry): Disposable => this.keymap.pushOverlay(entry);
+
 	@state()
 	private _navState: NavigationState = { count: 0, position: 0, canBack: false, canForward: false };
 
@@ -394,6 +454,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			(this.graphState.details?.visible ?? false)
 		);
 	}
+
+	/** Gates a binding to graph mode only — kanban/visualizations hide the graph subtree behind
+	 *  `renderGraphPaneContent`'s short-circuit, so graph-only shortcuts (ref finder, overview-bar
+	 *  digits, the Shift+letter toggles) must not fire there. NOTE: graph mode does NOT guarantee
+	 *  `this.graph` exists — the gated / no-repo screens replace the whole graph subtree — so run
+	 *  bodies must still null-guard it. */
+	private readonly isGraphModeShortcut = (): boolean => this.effectiveDisplayMode === 'graph';
 
 	/** The selection that drives the details panel, picked by the active `displayMode`. In
 	 *  any non-graph mode the alternate-mode slot is honored; otherwise the graph slots. */
@@ -487,6 +554,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const repos = this.graphState.repositories;
 		const repo = repoId != null ? repos?.find(r => r.id === repoId) : repos?.[0];
 		return repo?.commonPath ?? repo?.path;
+	}
+
+	/** Whether the selected repository is virtual (GitHub/GitLab-hosted, no local git) — gates the
+	 *  `worktrees`/`stashes` sidebar panels, same rule `gl-graph-sidebar` applies to its rail. */
+	private get isVirtualRepo(): boolean {
+		const gs = this.graphState;
+		return gs.repositories?.find(r => r.id === gs.selectedRepository)?.virtual ?? false;
 	}
 
 	// use Light DOM
@@ -644,7 +718,251 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.addEventListener('dragstart', this._onDocDragStart);
 		document.addEventListener('dragend', this._onDocDragEnd);
 		document.addEventListener('drop', this._onDocDragEnd);
-		document.addEventListener('keydown', this._handleRefFindShortcutKeydown);
+
+		// The sidebar's tree filter input — a text entry, so it can't ride the `webview` scope (that one
+		// bails on text entry by design). Selector-matched against the input inside `gl-tree-view`'s shadow
+		// root, with a guard pinning it to the SIDEBAR's tree: the details panel's file trees render the
+		// same input and must keep their Esc.
+		this.keymap.registerScope('sidebarFilter', { selector: '.filter-input' }, [
+			e => this.sidebarPanelEl != null && e.composedPath().includes(this.sidebarPanelEl),
+		]);
+		// Any rendered `gl-tree-view` (sidebar file tree, details-panel file trees, the branch
+		// sheet) — no guards, so `mod+KeyF` bindings scoped here apply wherever a tree is focused.
+		this.keymap.registerScope('tree', { selector: 'gl-tree-view' }, []);
+		this.keymap.registerScope('webview', 'always', [e => !isTextEntryTarget(e), noOpenDialogGuard]);
+		// No `isTextEntryTarget` guard: chrome toggles bound here must work with the caret in a text box
+		// (search box, sidebar filter, etc). Alt+letter/digit types nothing on Windows/Linux. On macOS
+		// these bindings match `e.code` (physical key) and call `preventDefault`, which consumes the
+		// Option special character that key would otherwise type (e.g. Option+S would type `ß`) — a
+		// deliberate, accepted cost when a graph text input has focus.
+		this.keymap.registerScope('webviewGlobal', 'always', [noOpenDialogGuard]);
+		this.keymap.registerBindings([
+			// Leaving the sidebar filter. An UNPINNED (overlay) sidebar closes instead — that's the existing
+			// behavior and belongs to the overlay's `CloseWatcher`, so decline and let the key through to it.
+			// Pinned, there's nothing to close, so land the keyboard on the rows. Query preserved either way.
+			{
+				keys: ['Escape'],
+				scope: 'sidebarFilter',
+				sheet: 'hidden',
+				run: () => {
+					if (this.shouldAutoCollapseOverlay()) return false;
+
+					this.graph?.focus();
+					return true;
+				},
+			},
+			{
+				// Opens/focuses whichever tree owns the focused `gl-tree-view` — the details panel's
+				// file tree pane, or a bare tree (e.g. the branch sheet) that supports its own filter.
+				// Declines (falls through to the `webview`-scope binding below) for anything else.
+				keys: ['mod+KeyF'],
+				scope: 'tree',
+				sheet: 'hidden',
+				run: e => {
+					const path = e.composedPath();
+
+					const filePane = path.find(el => (el as HTMLElement).tagName === 'GL-FILE-TREE-PANE') as
+						| GlFileTreePane
+						| undefined;
+					if (filePane != null) {
+						filePane.showAndFocusFilter();
+						return true;
+					}
+
+					const treeView = path.find(el => (el as HTMLElement).tagName === 'GL-TREE-VIEW') as
+						| GlTreeView
+						| undefined;
+					if (treeView?.filterable) {
+						treeView.focus();
+						return true;
+					}
+
+					return false;
+				},
+			},
+			{
+				keys: ['/'],
+				scope: 'webview',
+				when: [this.isGraphModeShortcut],
+				sheet: {
+					group: 'search',
+					label: 'Find a branch or tag',
+					order: 1,
+					subline: ['ArrowUp', 'ArrowDown', 'text: matches · ', 'Enter', 'text: selects'],
+				},
+				run: e => {
+					const graph = this.graph;
+					if (graph == null) return false;
+
+					const from = e.composedPath()[0];
+					graph.openRefFind(from instanceof HTMLElement && from !== document.body ? from : undefined);
+					return true;
+				},
+			},
+			{
+				keys: ['mod+KeyF'],
+				scope: 'webview',
+				when: [this.isGraphModeShortcut],
+				sheet: {
+					group: 'search',
+					label: 'Search commits',
+					order: 2,
+					subline: ['Enter', 'text: steps · ', 'Escape', 'text: leaves'],
+				},
+				run: () => this.graphHeader?.focusSearch() ?? false,
+			},
+			{
+				// `mod+/` (not `ctrl+/`): the chord exists for GitKraken Desktop parity, and GK's binding is
+				// ⌘/ on macOS.
+				keys: ['?', 'mod+/'],
+				scope: 'webview',
+				// Footer copy reads as a sentence after the chip ("? shows this reference"), and only the
+				// primary chord is shown — the `mod+/` alias would double the footer's width.
+				sheet: { group: 'footer', label: 'shows this reference', order: 2, keysOverride: ['?'] },
+				run: () => {
+					this.handleShowShortcuts();
+					return true;
+				},
+			},
+			{
+				keys: [
+					'Digit1',
+					'Digit2',
+					'Digit3',
+					'Digit4',
+					'Digit5',
+					'Digit6',
+					'Digit7',
+					'Digit8',
+					'Digit9',
+					'Digit0',
+				],
+				scope: 'webview',
+				when: [this.isGraphModeShortcut],
+				sheet: {
+					group: 'goto',
+					label: 'Recent worktrees',
+					order: 8,
+					keysOverride: ['Digit1', 'sep:…', 'Digit0'],
+				},
+				run: e => {
+					const digit = digitIndexFromCode(e.code);
+					if (digit == null) return false;
+
+					const item = this.overviewBarItems[digit];
+					if (item == null) return false;
+
+					const fromGraph = e.composedPath().some(el => el === this.graph);
+					void this.selectOverviewBarItem(
+						{ id: item.id, branch: item.branch, repoPath: item.repoPath },
+						{ returnFocusToGraph: fromGraph },
+					);
+					return true;
+				},
+			},
+			{
+				keys: sidebarAltDigitKeys,
+				scope: 'webviewGlobal',
+				sheet: {
+					group: 'panels',
+					label: 'Toggle a side bar panel',
+					order: 1,
+					keysOverride: ['alt+Digit1', 'sep:…', 'Digit8'],
+				},
+				run: e => {
+					this.graph?.suppressModifierChainUntilAltRelease?.();
+
+					const digit = digitIndexFromCode(e.code);
+					if (digit == null) return false;
+
+					const panel = visibleSidebarPanels(this.isVirtualRepo)[digit];
+					if (panel == null) return false;
+
+					this.activateSidebarPanel(panel);
+					return true;
+				},
+			},
+			// Alt+letter/digit (not Shift+letter): these chrome toggles must fire even while a text input
+			// inside the graph (search box, sidebar filter, etc.) has focus, which the `webview` scope's
+			// `isTextEntryTarget` guard blocks by design — so they're bound on `webviewGlobal` instead.
+			// Alt+letter/digit types nothing on Windows/Linux and is safely reclaimable on macOS (see the
+			// `webviewGlobal` scope's registration comment for the Option-character cost); Shift+letter
+			// would type a real character into a focused input.
+			// The two display-mode toggles route through `toggleDisplayMode`, the same path the rail's
+			// bottom toggle click takes.
+			{
+				// `alt+KeyK`, not `alt+KeyA`: Option+A produces å on macOS, a real letter for Scandinavian
+				// layouts, so K was chosen to avoid shadowing it.
+				keys: ['alt+KeyK'],
+				scope: 'webviewGlobal',
+				sheet: { group: 'panels', label: 'Toggle Agent Kanban', order: 2, keysOverride: ['alt+KeyK'] },
+				run: () => {
+					this.graph?.suppressModifierChainUntilAltRelease?.();
+					if (!(this.graphState.config?.experimentalKanbanEnabled ?? false)) return false;
+
+					this.toggleDisplayMode('kanban');
+					return true;
+				},
+			},
+			{
+				keys: ['alt+KeyV'],
+				scope: 'webviewGlobal',
+				sheet: { group: 'panels', label: 'Toggle visualizations', order: 3, keysOverride: ['alt+KeyV'] },
+				run: () => {
+					this.graph?.suppressModifierChainUntilAltRelease?.();
+					this.toggleDisplayMode('visualizations');
+					return true;
+				},
+			},
+			{
+				keys: ['alt+KeyM'],
+				scope: 'webviewGlobal',
+				when: [this.isGraphModeShortcut],
+				sheet: { group: 'panels', label: 'Toggle minimap', order: 4, keysOverride: ['alt+KeyM'] },
+				run: () => {
+					this.graph?.suppressModifierChainUntilAltRelease?.();
+					this.handleToggleMinimap();
+					return true;
+				},
+			},
+			{
+				keys: ['alt+KeyS'],
+				scope: 'webviewGlobal',
+				when: [this.isGraphModeShortcut],
+				sheet: { group: 'panels', label: 'Toggle side bar', order: 5, keysOverride: ['alt+KeyS'] },
+				run: () => {
+					this.graph?.suppressModifierChainUntilAltRelease?.();
+					this.handleToggleSidebar();
+					return true;
+				},
+			},
+			{
+				keys: ['alt+KeyD'],
+				scope: 'webviewGlobal',
+				when: [this.isGraphModeShortcut],
+				sheet: { group: 'panels', label: 'Toggle details panel', order: 6, keysOverride: ['alt+KeyD'] },
+				run: () => {
+					this.graph?.suppressModifierChainUntilAltRelease?.();
+					this.handleToggleDetails(new CustomEvent('toggle-details'));
+					return true;
+				},
+			},
+			{
+				// Alt layers "alternate" on the Shift+D primary — matches GitLens's alt-action convention.
+				// Code-token (`KeyD`), not a bare `D` — Alt remaps `event.key` on Mac/intl layouts (e.g.
+				// Option+Shift+D isn't 'D'), so an Alt-carrying chord must match on the physical key.
+				keys: ['shift+alt+KeyD'],
+				scope: 'webviewGlobal',
+				when: [this.isGraphModeShortcut],
+				sheet: { group: 'panels', label: 'Dock details elsewhere', order: 7 },
+				run: () => {
+					this.graph?.suppressModifierChainUntilAltRelease?.();
+					this.handleToggleDetails(new CustomEvent('toggle-details', { detail: { altKey: true } }));
+					return true;
+				},
+			},
+		]);
+		this.keymap.attach();
 
 		this._graphSizeObserver = new ResizeObserver(entries => {
 			// Use `borderBoxSize` (not `contentRect`) so the snapshot matches what
@@ -733,7 +1051,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.removeEventListener('dragstart', this._onDocDragStart);
 		document.removeEventListener('dragend', this._onDocDragEnd);
 		document.removeEventListener('drop', this._onDocDragEnd);
-		document.removeEventListener('keydown', this._handleRefFindShortcutKeydown);
+		// Drops every registered scope/binding AND the whole overlay stack, so the surfaces' own disposables
+		// (held for the reconnect case) become no-ops.
+		this.keymap.dispose();
+		this._minimapZoomOverlay = undefined;
 		this._sidebarCloseWatcher?.destroy();
 		this._sidebarCloseWatcher = null;
 		this._sidebarEscArmed = false;
@@ -1002,46 +1323,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private _handleSidebarOverlayEscKeydown = (e: KeyboardEvent): void => {
-		if (e.key !== 'Escape') return;
+		// A consumed Esc closed something else — mirrors the `CloseWatcher` path above, where a
+		// preventDefault'ed keydown cancels the close request outright.
+		if (e.key !== 'Escape' || e.defaultPrevented) return;
 
 		e.stopPropagation();
 		this.closeSidebarOverlayFromEsc();
-	};
-
-	/**
-	 * `/` opens the graph's ref finder from ANYWHERE in the webview — the header, the side bar, the
-	 * details panel, a focused ref pill — not just from the focused rows.
-	 *
-	 * Lives here rather than on `gl-lit-graph` because the graph subtree stays MOUNTED (just `hidden`)
-	 * in Kanban / Visualizations mode (see `renderGraphPaneContent`), so the mode gate has to come from
-	 * `effectiveDisplayMode`. Attached for the component's lifetime and self-gating, like the overlay
-	 * listeners above.
-	 *
-	 * BUBBLE phase, and it bails on `defaultPrevented`, so anything nearer to the focus keeps first
-	 * refusal — a component that wants `/` for itself just has to claim it the usual way. Nothing does
-	 * today: `gl-tree-view`'s type-ahead (the one other consumer of bare printable keys) excludes `/`
-	 * from its character set, so a focused side-bar branch row reaches us.
-	 */
-	private _handleRefFindShortcutKeydown = (e: KeyboardEvent): void => {
-		if (e.key !== '/' || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
-		if (this.effectiveDisplayMode !== 'graph') return;
-		if (isTextEntryTarget(e)) return;
-		// A modal `<dialog>` — every `gl-dialog` (the shortcuts, account, and layout-prompt modals) calls
-		// `showModal()` — inerts the rest of the document, so the finder's input could never take focus
-		// and the keystroke would simply vanish.
-		if (e.composedPath().some(el => (el as HTMLElement).tagName === 'DIALOG')) return;
-
-		// Absent on the gated / no-repo screens, which replace the whole graph subtree.
-		const graph = this.graph;
-		if (graph == null) return;
-
-		e.preventDefault();
-		e.stopPropagation();
-		// `composedPath()[0]` is the real focused element even when it sits inside a shadow root, which
-		// `e.target` (retargeted to the outermost host) isn't — so the finder can hand the keyboard back
-		// exactly where it came from.
-		const from = e.composedPath()[0];
-		graph.openRefFind(from instanceof HTMLElement && from !== document.body ? from : undefined);
 	};
 
 	private closeSidebarOverlayFromEsc(): void {
@@ -1548,7 +1835,19 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	};
 
 	private handleOverviewBarSelect = async (e: CustomEvent<OverviewBarSelectDetail>): Promise<void> => {
-		const { id, repoPath } = e.detail;
+		await this.selectOverviewBarItem(e.detail);
+	};
+
+	/** Selects a WIP overview-bar item (click or digit shortcut) — puts the graph in graph mode, drops
+	 *  a scope that would hide the target worktree, opens the WIP details panel, and reveals the row.
+	 *  `returnFocusToGraph` re-focuses the graph once everything above has settled — used by the digit
+	 *  shortcut, whose keystroke originates in the graph and shouldn't leave it; the click path (no
+	 *  option) leaves focus on the pill, matching today's behavior. */
+	private async selectOverviewBarItem(
+		detail: OverviewBarSelectDetail,
+		options?: { returnFocusToGraph?: boolean },
+	): Promise<void> {
+		const { id, repoPath } = detail;
 		// Bar is a global WIP affordance; clicking it always lands the user in graph mode
 		// so the corresponding WIP row is visible (matches the stated user intent: "select that
 		// WIP row in the graph and reveal the WIP details panel").
@@ -1597,7 +1896,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `openWipDetails` await above ensures the graph is mounted (e.g. after the displayMode
 		// switch) before we call it.
 		void this.graph?.navigateToCommit(id, { source: 'overview', flash: true });
-	};
+
+		if (options?.returnFocusToGraph) {
+			void this.updateComplete.then(() => this.graph?.focus());
+		}
+	}
 
 	/** Resolves once the active scope has cleared (or a safety timeout elapses). Used after a
 	 *  scope-clearing overview-bar click: the clear lands via a host round-trip, so this lets the
@@ -2206,6 +2509,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							@show-details=${this.handleShowDetails}
 							@toggle-minimap=${this.handleToggleMinimap}
 							@jump-to-wip=${this.handleJumpToWip}
+							@gl-search-exit=${this.handleSearchExit}
 							@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 						></gl-graph-header>
 					`,
@@ -2216,7 +2520,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						noRepos
 							? html`<gl-graph-empty-state class="graph__empty-state"></gl-graph-empty-state>`
 							: html`
-									<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
+									<gl-graph-hover
+										id="commit-hover"
+										.distance=${0}
+										.skidding=${15}
+										.pushOverlay=${this.pushOverlay}
+									></gl-graph-hover>
 									<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
 									<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
 								`
@@ -2351,16 +2660,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			>
 				${when(
 					this.graphState.config?.sidebar,
-					() =>
-						html`<gl-graph-sidebar
-								active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
-								.sidebarVisible=${this.graphState.sidebar?.visible ?? false}
-								@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
-								@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
-								@gl-graph-sidebar-show-shortcuts=${this.handleShowShortcuts}
-							></gl-graph-sidebar>
-							<gl-graph-keyboard-shortcuts></gl-graph-keyboard-shortcuts>`,
+					() => html`<gl-graph-sidebar
+						active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
+						.sidebarVisible=${this.graphState.sidebar?.visible ?? false}
+						@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
+						@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
+						@gl-graph-sidebar-show-shortcuts=${this.handleShowShortcuts}
+					></gl-graph-sidebar>`,
 				)}
+				<!-- Rendered unconditionally (not gated on graph.config.sidebar) — otherwise
+				     keyboardShortcutsEl is undefined with the sidebar config off, and the ? shortcut silently no-ops. -->
+				<gl-graph-keyboard-shortcuts
+					.keymap=${this.keymap}
+					@gl-graph-keyboard-shortcuts-closed=${() => this.graph?.focus()}
+				></gl-graph-keyboard-shortcuts>
 				${
 					this.graphState.config?.sidebar
 						? this.renderSidebarSplit(!isGraphMode)
@@ -2671,6 +2984,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-minimap-selected=${this.handleMinimapDaySelected}
 					@gl-graph-minimap-config-change=${this.handleMinimapConfigChange}
 					@gl-graph-minimap-wheel=${this.handleMinimapWheel}
+					@gl-graph-minimap-zoom-change=${this.handleMinimapZoomChange}
 				></gl-graph-minimap-container>
 				${this.renderGraphContent('end')}
 			</gl-split-panel>
@@ -2710,10 +3024,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				}
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}
+					.keymap=${this.keymap}
 					.rowMarkerMergeTarget=${this.graphState.rowMarkerMergeTarget}
 					@gl-graph-change-column-mode=${this.handleGraphChangeColumnMode}
 					@gl-graph-change-selection=${this.handleGraphSelectionChanged}
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
+					@gl-graph-copy-request=${this.handleGraphCopyRequest}
 					@gl-graph-enable-changes-column=${this.handleGraphEnableChangesColumn}
 					@gl-graph-filter-column=${this.handleGraphFilterColumn}
 					@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
@@ -2866,17 +3182,36 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.persistState();
 	};
 
-	private setSidebarPanel(panel: GraphSidebarPanel): void {
+	private setSidebarPanel(panel: GraphSidebarPanel, options?: { focusFilter?: boolean }): void {
 		const gs = this.graphState;
 		if (gs.sidebar?.activePanel === panel && gs.sidebar?.visible === true) return;
 
 		gs.sidebar = { activePanel: panel, visible: true };
 		this.persistState();
-		this.focusSidebarFilterAfterRender();
+		if (options?.focusFilter !== false) {
+			this.focusSidebarFilterAfterRender();
+		}
 	}
 
 	private focusSidebarFilterAfterRender(): void {
 		void this.updateComplete.then(() => this.sidebarPanelEl?.focusFilter());
+	}
+
+	/** Whether DOM focus is currently inside `root`, walking through shadow roots (an active element's own
+	 *  shadow root can itself have a focused element, and so on). Containment is checked at EVERY level of
+	 *  the descent: `contains` never crosses a shadow boundary, so testing only the deepest active element
+	 *  would miss focus sitting inside a descendant host's shadow tree — the common case here. */
+	private isFocusInside(root: Element | undefined | null): boolean {
+		if (root == null) return false;
+
+		let active: Element | null = document.activeElement;
+		while (active != null) {
+			if (root === active || root.contains(active)) return true;
+
+			active = active.shadowRoot?.activeElement ?? null;
+		}
+
+		return false;
 	}
 
 	private hideSidebar(): void {
@@ -3191,7 +3526,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const gs = this.graphState;
 		if (gs.details?.visible) {
+			const focusWasInside = this.isFocusInside(this.detailsPanelEl);
 			this.setDetailsVisible(false);
+			void this.updateComplete.then(() => {
+				if (focusWasInside) {
+					this.graph?.focus();
+				}
+			});
 		} else {
 			this.setDetailsVisible(true, 'toggle');
 			this.ensureDetailsPosition();
@@ -3222,15 +3563,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this._sidebarOpenAtAutoCollapse = undefined;
 		const wasOpen = stashed ?? this.sidebarOpen;
 		if (wasOpen) {
+			const focusWasInside = this.isFocusInside(this.sidebarPanelEl);
 			this.hideSidebar();
+			if (focusWasInside) {
+				this.graph?.focus();
+			}
 		} else {
 			this.setSidebarPanel(gs.sidebar?.activePanel ?? 'branches');
 		}
 	}
 
-	private handleSidebarToggle(e: CustomEvent<GraphSidebarToggleEventDetail>) {
+	/** Opens `panel` with the same semantics the rail icon click uses: from a non-graph display mode,
+	 *  switch to graph and open the panel; clicking/pressing the already-open active panel closes the
+	 *  sidebar; otherwise switches the sidebar to that panel. Shared by the rail click
+	 *  (`handleSidebarToggle`) and the Shift+digit shortcut, so the two can't drift. */
+	private activateSidebarPanel(panel: GraphSidebarPanel, options?: { focusFilter?: boolean }): void {
 		const gs = this.graphState;
-		const panel = e.detail.panel;
 
 		// From a visualization/kanban mode the rail icons return to the graph with the chosen panel
 		// open rather than toggling — a click here always means "show me this in the graph". Written
@@ -3241,15 +3589,26 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			gs.displayMode = 'graph';
 			gs.sidebar = { activePanel: panel, visible: true };
 			this.persistState();
-			this.focusSidebarFilterAfterRender();
+			if (options?.focusFilter !== false) {
+				this.focusSidebarFilterAfterRender();
+			}
+
 			return;
 		}
 
 		if (gs.sidebar?.visible && gs.sidebar?.activePanel === panel) {
+			const focusWasInside = this.isFocusInside(this.sidebarPanelEl);
 			this.hideSidebar();
+			if (focusWasInside) {
+				this.graph?.focus();
+			}
 		} else {
-			this.setSidebarPanel(panel);
+			this.setSidebarPanel(panel, options);
 		}
+	}
+
+	private handleSidebarToggle(e: CustomEvent<GraphSidebarToggleEventDetail>) {
+		this.activateSidebarPanel(e.detail.panel);
 	}
 
 	private handleSidebarTogglePinned = (): void => {
@@ -3275,6 +3634,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// the user's `sidebarVisible` setting is preserved automatically and restored on return.
 		this.persistState();
 	};
+
+	/** Toggles into/out of a display mode with the same semantics as the rail's bottom toggle click
+	 *  (`sidebar.ts`'s `handleDisplayModeToggle`): the active mode returns to graph, any other mode
+	 *  switches directly to it. Routes through `handleDisplayModeChange` — the same handler the rail's
+	 *  click drives via `gl-graph-sidebar-display-mode-change` — so there is one behavior, not two. */
+	private toggleDisplayMode(mode: Exclude<GraphDisplayMode, 'graph'>): void {
+		const current = this.graphState.displayMode ?? 'graph';
+		const next: GraphDisplayMode = current === mode ? 'graph' : mode;
+		this.handleDisplayModeChange(
+			new CustomEvent<GraphSidebarDisplayModeChangeEventDetail>('gl-graph-sidebar-display-mode-change', {
+				detail: { mode: next },
+			}),
+		);
+	}
 
 	/** One-shot guard: `shown` telemetry per webview session, not per mount — the `when()` gate
 	 *  can unmount/remount the prompt (e.g. an onboarding reset re-shows the walkthrough banner
@@ -3764,6 +4137,43 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graph?.scrollGraphBy(e.detail.deltaY);
 	}
 
+	/** Esc in the search box, once its own ladder (autocomplete, then a running search) is exhausted: the
+	 *  box keeps its query and the keyboard returns to the rows. The event bubbles up from `gl-search-box`
+	 *  through the header; other hosts of that shared component simply don't listen for it.
+	 *
+	 *  The overlay stack outranks the exit: the input consumes Esc before the document dispatcher can see
+	 *  it, so an open transient surface (pinned hover card, minimap zoom) is popped HERE instead — focus
+	 *  stays in the box, and the next Esc performs the exit. One action per press, stack-first. */
+	private handleSearchExit(): void {
+		if (this.keymap.closeTopOverlay()) return;
+
+		this.graph?.focus();
+	}
+
+	/** Live overlay-stack registration for a zoomed minimap — non-null exactly while it's zoomed. */
+	private _minimapZoomOverlay: Disposable | undefined;
+
+	/** The minimap has no Esc handler of its own — the zoom joins the Esc overlay stack here, so exiting it
+	 *  queues behind any transient surface opened over it instead of firing alongside. Driven off the
+	 *  zoom-change event, which is the minimap's existing announcement of both directions. */
+	private handleMinimapZoomChange(e: GraphMinimapZoomChangeEvent) {
+		if (e.detail.zoomed) {
+			this._minimapZoomOverlay ??= this.keymap.pushOverlay({
+				id: 'graph-minimap-zoom',
+				onClose: () => {
+					if (this.minimapEl == null) return false;
+
+					this.minimapEl.resetZoom();
+					return true;
+				},
+			});
+			return;
+		}
+
+		this._minimapZoomOverlay?.dispose();
+		this._minimapZoomOverlay = undefined;
+	}
+
 	private handleMinimapDaySelected(e: CustomEvent<GraphMinimapDaySelectedEventDetail>) {
 		if (!this.graphState.rows) return;
 
@@ -4048,6 +4458,51 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			case 'sha':
 				header.insertSearchOperator('commit:');
 		}
+	}
+
+	/** `Ctrl`/`Cmd`+`C` inside the graph — `gl-lit-graph` serializes the focused/selected row's own
+	 *  `data-vscode-context` string (same format the right-click menu uses) and we forward it to the
+	 *  existing `gitlens.graph.copy` command, which already prefers `worktreePath` and newline-joins a
+	 *  multi-selection — no new command needed. */
+	private handleGraphCopyRequest(e: CustomEventType<'gl-graph-copy-request'>) {
+		const { context, selectionContexts } = e.detail;
+		let item: GraphItemContext | undefined;
+		try {
+			item = context != null ? (JSON.parse(context) as GraphItemContext) : undefined;
+		} catch {
+			item = undefined;
+		}
+		if (item != null) {
+			// The parsed item only carries `webviewItem`/`webviewItemValue` — the host's
+			// `isWebviewItemContext` guard also needs `webview`/`webviewInstance`, which a real
+			// right-click gets for free from the root element's merged `data-vscode-context`.
+			item.webview = this.graphState.webviewId;
+			item.webviewInstance = this.graphState.webviewInstanceId;
+
+			if (selectionContexts != null && selectionContexts.length > 1) {
+				const parsedContexts: GraphItemContext[] = [];
+				for (const s of selectionContexts) {
+					let parsed: GraphItemContext | undefined;
+					try {
+						parsed = JSON.parse(s) as GraphItemContext;
+					} catch {
+						parsed = undefined;
+					}
+
+					if (parsed == null) continue;
+
+					parsedContexts.push(parsed);
+				}
+
+				item.webviewItems = mergeWebviewItems(parsedContexts.map(c => c.webviewItem));
+				item.webviewItemsValues = parsedContexts.map(c => ({
+					webviewItem: c.webviewItem,
+					webviewItemValue: c.webviewItemValue,
+				}));
+				item.listMultiSelection = true;
+			}
+		}
+		this._ipc.sendCommand(ExecuteCommand, { command: 'gitlens.graph.copy', args: item != null ? [item] : [] });
 	}
 
 	private handleGraphRowContextMenu(_e: CustomEventType<'gl-graph-row-context-menu'>) {

@@ -1003,6 +1003,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@query('gl-search-box')
 	private readonly searchEl!: GlSearchBox;
 
+	focusSearch(): boolean {
+		const searchEl = this.searchEl;
+		if (searchEl == null || searchEl.inert) return false;
+
+		searchEl.focus();
+		return true;
+	}
+
 	@query('gl-graph-scope-popover')
 	private readonly scopePopoverEl!: GlGraphScopePopover | null;
 

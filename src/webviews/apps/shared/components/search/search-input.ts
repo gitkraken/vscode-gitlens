@@ -67,6 +67,7 @@ declare global {
 		'gl-search-cancel': CustomEvent<SearchCancelEventDetail>;
 		'gl-search-pause': CustomEvent<void>;
 		'gl-search-resume': CustomEvent<void>;
+		'gl-search-exit': CustomEvent<void>;
 	}
 }
 
@@ -1145,6 +1146,11 @@ background-color: var(--vscode-menu-background);
 				} else if (this.searching) {
 					// If search is running, pause it (preserve results)
 					this.emit('gl-search-pause');
+				} else {
+					// Nothing left to dismiss — announce that the user is leaving the box so the host can put
+					// focus somewhere useful. The query is preserved; clearing stays on the `×` control. Still
+					// consumed either way, so the key can't also act on whatever else is listening.
+					this.emit('gl-search-exit');
 				}
 
 				return true;

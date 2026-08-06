@@ -43,6 +43,7 @@ import {
 	renderLayoutAction,
 } from './file-tree-utils.js';
 import { fileTreeStyles } from './gl-file-tree-pane.css.js';
+import type { GlTreeView } from './tree-view.js';
 import '../badges/badge.js';
 import '../webview-pane.js';
 import '../chips/action-chip.js';
@@ -710,7 +711,10 @@ export class GlFileTreePane extends LitElement {
 	private onToggleSearch(e: Event) {
 		e.preventDefault();
 		e.stopPropagation();
-		const next = !this.effectiveShowSearchBox;
+		this.setShowSearchBox(!this.effectiveShowSearchBox);
+	}
+
+	private setShowSearchBox(next: boolean): void {
 		// Mutate the fallback so uncontrolled consumers keep working; controlled consumers ignore
 		// this and update via the property on the next render.
 		this._showSearchBox = next;
@@ -721,6 +725,35 @@ export class GlFileTreePane extends LitElement {
 				composed: true,
 			}),
 		);
+	}
+
+	/** Opens the filter box (if collapsed) and moves focus into the tree/filter — the `mod+F`
+	 *  keymap binding's entry point. Awaits the render triggered by opening the box before
+	 *  focusing, since the filter input doesn't exist in the DOM until then. */
+	showAndFocusFilter(): void {
+		if (!this.effectiveShowSearchBox) {
+			this.setShowSearchBox(true);
+			// No render promise can be awaited here: a CONTROLLED consumer round-trips the change
+			// through its own state before `showSearchBox` comes back down, so `effectiveShowSearchBox`
+			// stays false past any local updateComplete. Retry across frames (bounded) until the
+			// tree-view has actually rendered the filter input, then focus lands in it.
+			let attempts = 0;
+			const tryFocus = (): void => {
+				const tree = this.renderRoot?.querySelector<GlTreeView>('gl-tree-view');
+				if (tree?.renderRoot?.querySelector('.filter-input') != null) {
+					tree.focus();
+					return;
+				}
+
+				if (++attempts < 10) {
+					requestAnimationFrame(tryFocus);
+				}
+			};
+			requestAnimationFrame(tryFocus);
+			return;
+		}
+
+		this.renderRoot?.querySelector<GlTreeView>('gl-tree-view')?.focus();
 	}
 
 	private onTreeSearchBoxFilterChanged(e: CustomEvent<boolean>) {

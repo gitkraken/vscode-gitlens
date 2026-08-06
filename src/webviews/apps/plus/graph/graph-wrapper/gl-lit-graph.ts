@@ -4,6 +4,7 @@ import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commi
 import { collectReachable } from '@gitkraken/commit-graph/engine/layout.js';
 import {
 	buildChildrenBySha,
+	collectForkLanes,
 	collectLaneChain,
 	findBranchingPointSha,
 } from '@gitkraken/commit-graph/engine/navigation.js';
@@ -62,6 +63,8 @@ import {
 	unitThresholdMs,
 } from '@gitlens/utils/date.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
+import type { KeyBindingDescriptor } from '@gitlens/utils/keys/keybinding.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	DidSearchParams,
@@ -88,19 +91,22 @@ import type {
 	GraphSelectedRows,
 	GraphWipStateById,
 } from '../../../../plus/graph/protocol.js';
-import { createWipRowId, isWipRowId } from '../../../../plus/graph/protocol.js';
+import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '../../../../plus/graph/protocol.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import type { GlPopover } from '../../../shared/components/overlays/popover.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import { RovingTabindexController } from '../../../shared/controllers/roving-tabindex.js';
 import { dispatchContextMenuAt } from '../../../shared/dom.js';
+import type { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { GlGraphRefFind } from '../components/gl-graph-ref-find.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
+import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
 import type { LaneSeedSource } from '../utils/laneSeed.utils.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import { refContextPinKey, refPillKey } from '../utils/refKey.utils.js';
+import { serializeWipContext } from '../utils/rowContext.utils.js';
 import type { RowMarkerTips } from '../utils/rowMarker.utils.js';
 import { isPrimaryWipRow } from '../utils/rowMarker.utils.js';
 import { hasDirtyCounts } from '../utils/wip.utils.js';
@@ -170,6 +176,10 @@ const revealComfortRatio = 2 / 3;
 // Code's 125ms sits between them.
 const smoothRevealMinDurationMs = 90;
 const smoothRevealMaxDurationMs = 180;
+// How long bare Alt must be held before the lane dim engages — long enough that a chording Alt+letter/digit
+// keydown+run never has time to paint the dim before `suppressModifierChainUntilAltRelease` cancels it, short
+// enough that a genuine Alt-hold still feels immediate.
+const altHoldEngageDelayMs = 200;
 // The furthest a reveal animates, in viewports — and for a longer jump, how far out it cuts to before
 // running that same animation in. One number, so every animated arrival is the same gesture regardless of
 // how far the jump was.
@@ -542,6 +552,10 @@ const changesModeGlyphs: Record<ChangesColumnMode, TemplateResult> = {
 	></span>`,
 };
 
+// The managed-focus controls inside a row. Sub-chips (upstream-jump / PR / issue) match THEMSELVES, not
+// the pill containing them, so each is its own stop.
+const rowControlSelector = '.gl-graph__row-action, [data-ref-metadata-type], .gl-graph__ref-pill';
+
 /**
  * The commit graph renderer. Owns the `<lit-virtualizer>` row list, the engine pipeline
  * (GitGraphRow → GraphCommitView → package-owned `CommitGraphEngineSession`), container-focus keyboard
@@ -656,12 +670,18 @@ export class GlLitGraph extends LitElement {
 	// joins that cell's label-fit math (see `renderHeader`). Hover/focus reveal is CSS-only and never
 	// touches this or the zone-width solver.
 	@property({ attribute: false }) activeFilterColumns?: ReadonlySet<GraphColumnName>;
+	// The webview's key dispatcher (owned by `gl-graph-app`, forwarded through the wrapper). Set after
+	// construction, so the `rows` scope + bindings register on the first update that sees it — see
+	// `registerKeymap`.
+	@property({ attribute: false }) keymap?: KeymapDispatcher<GraphKeymapScope>;
 
 	@state() private containerWidth = 0;
 	@state() private focusIndex = 0;
-	// Fixed end of a keyboard range selection (Shift+Arrow). Reset to the moving row on any plain
+	// Fixed end of a range selection (Shift+Arrow / Shift+Click). Reset to the landing row on any plain
 	// (non-shift) navigation so the next Shift+Arrow extends from where the user last landed.
-	private _selectionAnchorIndex?: number;
+	// Held as a SHA, not an index: display rows are re-projected under the user (fold-all, scope change,
+	// paging), and a raw index would silently name a different commit afterwards.
+	private _selectionAnchorSha?: string;
 	// Column-header drag-reorder state. The drag SIMULATES the drop (columns re-render in the tentative
 	// order), so the only reactive bit is `dragColId` — the id of the column being dragged — which marks
 	// its cell as the lifted one. The rest of the drag (base snapshot, target, rAF) lives in `columnDrag`.
@@ -1103,6 +1123,12 @@ export class GlLitGraph extends LitElement {
 	// Cached set of search-matched shas (undefined = no active search). Rebuilt only when
 	// `searchResults` changes (see willUpdate) — read by dim/highlight + the filter-mode row filter.
 	private _searchMatchedShas?: ReadonlySet<string>;
+	/** True while the display rows are the search FILTER's projection — the same condition that feeds
+	 *  `filterShas` to the projection. Those rows are flattened (`column: 0`) and keep their ORIGINAL
+	 *  parent links, most of which no longer name a displayed row, so lane and lineage walks can't run. */
+	private get searchFiltering(): boolean {
+		return this.searchMode === 'filter' && this._searchMatchedShas != null;
+	}
 
 	// Scope (recomputed when rows/scope change). `syntheticChildren` feeds recomputeRows so the
 	// engine emits wavy synthetic edges; `inScopeShas` drives per-row dimming.
@@ -1334,6 +1360,8 @@ export class GlLitGraph extends LitElement {
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
+		this.registerKeymap();
+
 		if (DEBUG) {
 			getGraphDebugDiagnostics().connect(this, () =>
 				createGraphDebugSnapshot({
@@ -1428,6 +1456,7 @@ export class GlLitGraph extends LitElement {
 		if (DEBUG) {
 			getGraphDebugDiagnostics().disconnect(this);
 		}
+		this.unregisterKeymap();
 		window.removeEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
 		document.removeEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
 		this.stopRelativeTimeTimer();
@@ -1479,6 +1508,7 @@ export class GlLitGraph extends LitElement {
 			clearTimeout(this.tooltipHideTimer);
 			this.tooltipHideTimer = undefined;
 		}
+		this.cancelPendingAltHoldEngage();
 		this.emitRowHover.cancel();
 		// Cancel any scheduled rAFs so their callbacks can't run against the detached instance.
 		if (this.columnFlipRaf != null) {
@@ -1499,6 +1529,10 @@ export class GlLitGraph extends LitElement {
 	}
 
 	override willUpdate(changed: PropertyValues<this>): void {
+		// `keymap` arrives as a property, so it's unset on the first connect — register on the first
+		// update that carries it.
+		this.registerKeymap();
+
 		if (DEBUG) {
 			getGraphDebugDiagnostics().beginUpdate(this.rows, changed.has('rows'), {
 				changed: Array.from(changed.keys(), String),
@@ -3090,8 +3124,10 @@ export class GlLitGraph extends LitElement {
 
 	// Visually-hidden polite live region for screen-reader announcements (lane collapse, paging).
 	// Written via the cached element ref (CSSOM textContent — no host re-render).
+	// Public so the wrapper can report the outcome of the operations it owns (the nearest-WIP jump) —
+	// this element owns the graph's only live region.
 	private liveRef = createRef<HTMLElement>();
-	private announce(message: string): void {
+	announce(message: string): void {
 		const el = this.liveRef.value;
 		if (el != null) {
 			el.textContent = message;
@@ -3192,8 +3228,10 @@ export class GlLitGraph extends LitElement {
 				this.hoveredPillRef = pill;
 				// Modifier already held when the pointer arrives onto a new pill — retarget the chain now
 				// (the willUpdate reconcile only re-runs on an Alt transition, not this pointer move).
+				// Through the reconcile, not `activateModifierChain` directly, so the bare-Alt and
+				// suppression gates apply to a pointer arrival exactly as they do to an Alt press.
 				if (event.altKey) {
-					this.activateModifierChain();
+					this.reconcileModifierChain();
 				}
 			}
 		} else if (this.hoveredPillRef != null) {
@@ -3503,14 +3541,84 @@ export class GlLitGraph extends LitElement {
 	// Shared by the `willUpdate` reconcile and the pointer-leave paths, which now HAND OFF to the next-best
 	// seed (focused row, then HEAD) instead of clearing: leaving a row doesn't mean you stopped holding Alt.
 	private reconcileModifierChain(): void {
-		// Gate on window focus: an Alt-Tab away fires no keyup/visibilitychange, so the tracker can still
-		// read `altKey` true while unfocused — without this the dim would stick. (The same `blur` signal
-		// drives `gl-graph--window-unfocused` in render().)
-		if (this._modifiers.altKey && this.windowFocused !== false) {
+		// One release ends the suppression, whatever else the chord did.
+		if (!this._modifiers.altKey) {
+			this._suppressModifierChain = false;
+			this.cancelPendingAltHoldEngage();
+		}
+
+		if (!this.canEngageModifierChain()) {
+			this.cancelPendingAltHoldEngage();
+			if (this.modifierChainShas != null) {
+				this.deactivateModifierChain();
+			}
+
+			return;
+		}
+
+		// Already engaged — retarget immediately, no delay (pointer arrival / keyboard focus change).
+		if (this.modifierChainShas != null) {
 			this.activateModifierChain();
-		} else if (this.modifierChainShas != null) {
+			return;
+		}
+
+		// Fresh engage — delay so a chording Alt+letter/digit shortcut never flashes the dim.
+		if (this._pendingAltHoldEngageTimer != null) return;
+
+		this._pendingAltHoldEngageTimer = setTimeout(() => {
+			this._pendingAltHoldEngageTimer = undefined;
+			if (!this.canEngageModifierChain()) return;
+
+			this.activateModifierChain();
+		}, altHoldEngageDelayMs);
+	}
+
+	// Gate on window focus: an Alt-Tab away fires no keyup/visibilitychange, so the tracker can still
+	// read `altKey` true while unfocused — without this the dim would stick. (The same `blur` signal
+	// drives `gl-graph--window-unfocused` in render().)
+	//
+	// BARE Alt only: Alt+Shift/Ctrl/Cmd chords name their own actions, and dimming the graph under them
+	// reads as a mode the chord didn't enter. Alt+Arrow keeps the highlight — it walks lanes, so showing
+	// the lane is the point.
+	private canEngageModifierChain(): boolean {
+		const bareAlt =
+			this._modifiers.altKey && !this._modifiers.shiftKey && !this._modifiers.ctrlKey && !this._modifiers.metaKey;
+
+		return bareAlt && !this._suppressModifierChain && this.windowFocused !== false && this.hasLaneSeedInput();
+	}
+
+	private cancelPendingAltHoldEngage(): void {
+		if (this._pendingAltHoldEngageTimer == null) return;
+
+		clearTimeout(this._pendingAltHoldEngageTimer);
+		this._pendingAltHoldEngageTimer = undefined;
+	}
+
+	// Set by `suppressModifierChainUntilAltRelease` for Alt chords that resolve OUTSIDE the graph (the
+	// app's Alt+digit / Alt+letter shortcuts), whose Alt press would otherwise dim the graph on the way.
+	private _suppressModifierChain = false;
+
+	// Pending fresh-engage timer from `reconcileModifierChain` — the Alt-hold delay in flight.
+	private _pendingAltHoldEngageTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/** Hold off the Alt-hold lane dim until Alt is released — for an Alt chord whose action isn't a lane
+	 *  move. Called by the host before it consumes the chord. */
+	public suppressModifierChainUntilAltRelease(): void {
+		this._suppressModifierChain = true;
+		this.cancelPendingAltHoldEngage();
+		if (this.modifierChainShas != null) {
 			this.deactivateModifierChain();
 		}
+	}
+
+	/** Whether anything in the graph is pointing at a row for the Alt-hold chain to seed from — the pointer
+	 *  (hovered pill / row) or keyboard focus inside the rows. `windowFocused` alone is too coarse: it stays
+	 *  true with focus in an editor or another view, so Alt there dimmed a graph nobody was working in.
+	 *  `pickLaneSeed`'s HEAD fallback then applies only when one of these inputs is actually engaged. */
+	private hasLaneSeedInput(): boolean {
+		if (this.hoveredPillRef != null || this.hoveredRowSha != null || this.pointerRowSha != null) return true;
+
+		return this.treeRef.value?.contains(document.activeElement) === true;
 	}
 
 	// Lane-bounded first-parent chain for the given seed tips, layered into `inRefChainShas`. Reuses the
@@ -5175,6 +5283,25 @@ export class GlLitGraph extends LitElement {
 		return this.getCommitBySha(sha)?.kind ?? 'commit';
 	}
 
+	/** The serialized `webviewItem` context for a row, as the right-click menu would see it — what a
+	 *  keyboard-invoked row command has to carry, since there's no `data-vscode-context` DOM walk to do it.
+	 *  WIP rows aren't in the payload plane at all (they're synthetic), so they're built here from the
+	 *  worktree path their id encodes; commit rows reuse the view row's own lazily-resolved context. */
+	private rowContextFor(sha: string | undefined): string | undefined {
+		if (sha == null) return undefined;
+
+		const worktreePath = getWipRowWorktreePath(sha);
+		if (worktreePath != null) {
+			return serializeWipContext(
+				worktreePath,
+				sha !== this.primaryWipRowId,
+				this.wipStateById?.[sha]?.hasConflicts ?? false,
+			);
+		}
+
+		return this.getCommitBySha(sha)?.contextData;
+	}
+
 	// A ref-pill click's pin + branch-sheet open is deferred so a checkout double-click doesn't flash them
 	// (the first of a double-click's two clicks would otherwise pin/open and the second toggle it back off).
 	private _pendingPillActivation?: ReturnType<typeof setTimeout>;
@@ -5344,7 +5471,14 @@ export class GlLitGraph extends LitElement {
 			// selection — so it stays a return.
 			const toggleTip = el.getAttribute('data-lane-toggle-tip');
 			if (toggleTip != null) {
-				this.toggleLane(toggleTip);
+				// Shift means "all" on the chevron exactly as it does on Shift+Left/Right: the clicked lane's
+				// CURRENT state picks the direction, so the click always moves every lane the way this one was
+				// about to go rather than flipping each independently.
+				if (event.shiftKey) {
+					this.setAllLanesCollapsed(!this.effectiveCollapsed.has(toggleTip));
+				} else {
+					this.toggleLane(toggleTip);
+				}
 				return;
 			}
 		}
@@ -5408,18 +5542,23 @@ export class GlLitGraph extends LitElement {
 					? 'toggle'
 					: 'replace';
 
-		// Range (shift+click): emit the visible-row span from the selection anchor (the
-		// previously-focused row) through the clicked row. The wrapper consumes this directly,
-		// or recomputes a first-parent chain when `multiSelectionMode: 'topological'`. The
-		// anchor (focusIndex) stays put on range so successive shift+clicks extend from it;
+		// Range (shift+click): emit the visible-row span from the selection anchor through the clicked
+		// row. The wrapper consumes this directly, or recomputes a first-parent chain when
+		// `multiSelectionMode: 'topological'`. Same anchor the keyboard Shift+Arrow ranges use — the
+		// anchor stays put so successive shift+clicks extend from it while focus follows the moving end;
 		// replace/toggle move the anchor to the clicked row.
 		let rangeShas: string[] | undefined;
 		if (mode === 'range' && idx != null) {
-			const lo = Math.min(this.focusIndex, idx);
-			const hi = Math.max(this.focusIndex, idx);
+			const anchor = this.selectionAnchorIndex;
+			const lo = Math.min(anchor, idx);
+			const hi = Math.max(anchor, idx);
 			rangeShas = this.displayRows.slice(lo, hi + 1).map(r => r.sha);
+			this.focusIndex = idx;
 		} else if (idx != null) {
 			this.focusIndex = idx;
+			// Keyboard Shift+Arrow ranges extend from the anchor, not `focusIndex` — re-pin it too, or a
+			// click followed by Shift+Down ranges from wherever the keyboard last anchored.
+			this._selectionAnchorSha = sha;
 			// A click is a discrete action — reveal its lane NOW; the reveal debounce exists for
 			// key-repeat navigation (see revealFocusedLaneSoon). willUpdate's tracker re-arm is a no-op
 			// (the lane is in view by then).
@@ -5576,21 +5715,52 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// First-parent lineage step: dir=1 (down/older) → the row's first parent; dir=-1 (up/newer) → the
-	// nearest row above whose first parent is this row. Undefined when the lineage leaves the loaded set.
+	// row above whose first parent is this row (from a WIP row: its anchor's), preferring the one on this
+	// row's own lane. Undefined when the lineage leaves the loaded set.
 	private findTopologicalRowIndex(from: number, dir: 1 | -1): number | undefined {
 		const rows = this.displayRows;
 		const cur = rows[from];
 		if (cur == null) return undefined;
 
 		if (dir === 1) {
+			// `parents[0]` on a DISPLAY row is the projection's remapped first VISIBLE ancestor, not the
+			// commit's own first parent — a fold whose dropped parent can't be resolved omits it, so at a
+			// window edge this can step onto the second merge leg.
 			const parentSha = cur.parents?.[0];
 			return parentSha != null ? this.indexBySha.get(parentSha) : undefined;
 		}
 
+		// A WIP row's sha is synthetic — no row parents it, so walking up from one would dead-end. It's a
+		// stop on its anchor's lineage, not a terminus: resume the anchor's walk from just above the WIP
+		// row, which lands on the anchor's real child (or the next worktree's WIP row anchored there).
+		const childOfSha = cur.kind === 'workdir' ? cur.parents?.[0] : cur.sha;
+		if (childOfSha == null) return undefined;
+
+		// The lane is the ANCHOR's column, not the starting row's: a peer WIP row claims a lane of its own
+		// whenever its anchor's column is already reserved, so its own column names the wrong lane.
+		const anchorIndex = this.indexBySha.get(childOfSha);
+		const laneColumn = (anchorIndex != null ? rows[anchorIndex]?.column : undefined) ?? cur.column;
+
+		// Every commit that forked here also lists it as its first parent, so multiple rows above can match.
+		// Take the nearest on-lane one — the layout gave the anchor the column its in-lane child reserved,
+		// so column equality identifies that child — and keep the nearest off-lane match as the fallback.
+		let offLane: number | undefined;
 		for (let i = from - 1; i >= 0; i--) {
-			if (rows[i].parents?.[0] === cur.sha) return i;
+			const row = rows[i];
+			if (row.parents?.[0] !== childOfSha) continue;
+
+			// A WIP row anchored here is on-lane whatever column it landed on — it's a stop on this
+			// lineage, not a fork off it. Only while nothing nearer matched, though: a PEER's row is
+			// interleaved directly above its anchor, but the graph's own is pinned at row 0 however far
+			// its anchor sits down the list, and that one must not outrank a real child in between.
+			if (row.column === laneColumn || (row.kind === 'workdir' && offLane == null)) return i;
+
+			offLane ??= i;
 		}
-		return undefined;
+
+		// Nothing continues this lane: it's a tip, so step onto the nearest branch that forked from it
+		// rather than dead-ending (the engine's lane walks fall back the same way).
+		return offLane;
 	}
 
 	// Lazy reverse-topology map for branching-point nav + lane-chain highlight; rebuilt only when
@@ -5611,22 +5781,30 @@ export class GlLitGraph extends LitElement {
 	// (processedRows) so hops through a collapsed lane still land, then maps the target back to a
 	// display row — its own row, or the collapsed lane's chip row when it's folded away.
 	private findBranchingPointIndex(from: number, dir: 1 | -1): number | undefined {
-		const fromSha = this.displayRows[from]?.sha;
-		if (fromSha == null) return undefined;
+		let walkFrom = this.displayRows[from]?.sha;
+		if (walkFrom == null) return undefined;
 
-		const sha = findBranchingPointSha(
-			this.processedRows,
-			this.processedIndexBySha,
-			this.ensureChildrenBySha(),
-			fromSha,
-			dir,
-		);
-		if (sha == null) return undefined;
+		const children = this.ensureChildrenBySha();
+		// A folded target maps to its segment's CHIP row, which always sits ABOVE it — so downward that
+		// mapping can land at or before `from` and the key would either walk backwards or stick forever.
+		// Resume the walk from the folded target itself (the engine only tests its stop condition on newly
+		// reached commits, so restarting there is the same walk continued) until something actually moves in
+		// `dir`. Bounded by the processed-row count: every pass consumes at least one commit.
+		for (let guard = this.processedRows.length; guard > 0; guard--) {
+			const sha = findBranchingPointSha(this.processedRows, this.processedIndexBySha, children, walkFrom, dir);
+			if (sha == null) return undefined;
 
-		const idx = this.indexBySha.get(sha);
-		if (idx != null) return idx;
+			const idx = this.indexBySha.get(sha) ?? this.mapFoldedRowIndex(sha);
+			if (idx != null && (idx - from) * dir > 0) return idx;
 
-		// Target hidden inside a collapsed lane → land on that lane's chip (tip) row instead.
+			walkFrom = sha;
+		}
+
+		return undefined;
+	}
+
+	/** Display index for a row hidden inside a collapsed lane — its segment's chip (tip) row. */
+	private mapFoldedRowIndex(sha: string): number | undefined {
 		const tip = this.segmentByCommit.get(sha);
 		return tip != null ? this.indexBySha.get(tip) : undefined;
 	}
@@ -5637,7 +5815,8 @@ export class GlLitGraph extends LitElement {
 	// groups in visual order — REFS (ref pills, left) then ACTIONS (row-action buttons, right):
 	//   Tab from the tree → the first group's first control; Tab → the next group; Tab past the last leaves
 	//   the graph. Arrow Left/Right + Home/End rove within a group. Enter/Space activate (pills via a
-	//   synthesized click the delegation handles; action <button>s natively). Esc / Shift+Tab retreat.
+	//   synthesized click; action <button>s natively). Esc / Shift+Tab retreat. These are the `rowControl`
+	//   scope's bindings; every other row key falls through to `rows` (see `rowControlKeyBindings`).
 	// A grouped (multi-ref) pill also acts as a menu button: Enter fires its primary ref, while Arrow
 	// Up/Down move an `aria-activedescendant` cursor over the open popover's ref rows and Enter on a
 	// cursored row activates THAT ref — focus stays on the pill (the popover content is hoisted out of the
@@ -5739,93 +5918,41 @@ export class GlLitGraph extends LitElement {
 		return false;
 	}
 
-	private handleRowControlKeydown(event: KeyboardEvent, control: HTMLElement): void {
-		const group = this.controlGroup(control);
+	/** The innermost managed row control in a keydown's composed path (sub-chips resolve to THEMSELVES, not
+	 *  the pill containing them, so each is its own rove stop), or null. The `rowControl` scope's element. */
+	private rowControlFor(event: KeyboardEvent): HTMLElement | null {
+		return (
+			event
+				.composedPath()
+				.find((el): el is HTMLElement => el instanceof HTMLElement && el.matches(rowControlSelector)) ?? null
+		);
+	}
 
-		// A grouped pill claims the menu keys for its WHOLE area — the pill itself AND its inline sub-chips
-		// (PR/issue/upstream-jump). On the PILL: Up/Down move the popover cursor, Enter activates the cursored
-		// ref, Escape clears it. On a SUB-CHIP: Up/Down STILL navigate the group's menu — focus returns to the
-		// pill (the menu anchor) so the cursor tracks the focused element and Enter can activate it — while
-		// Enter/Left/Right stay with the sub-chip. handleGroupedPillKeydown returns true when it consumed the
-		// key (and false for a single pill, whose Up/Down then falls through to row nav below).
-		if (group === 'refs') {
-			if (control.classList.contains('gl-graph__ref-pill')) {
-				if (this.handleGroupedPillKeydown(event, control)) return;
-			} else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-				const pill = control.closest<HTMLElement>('.gl-graph__ref-pill');
-				if (pill != null && this.groupedPillRows(pill).length > 0) {
-					pill.focus();
-					if (this.handleGroupedPillKeydown(event, pill)) return;
-				}
-			}
-		}
+	/** The ref pill in a keydown's composed path — the `pillMenu` scope's element, reached from the pill
+	 *  itself or from one of its inline sub-chips. */
+	private pillFor(event: KeyboardEvent): HTMLElement | null {
+		return (
+			event
+				.composedPath()
+				.find((el): el is HTMLElement => el instanceof HTMLElement && el.matches('.gl-graph__ref-pill')) ?? null
+		);
+	}
 
-		// Up/Down navigate ROWS from any other focused control (single pill, sub-chip, action button) — the
-		// grouped-pill menu above claims them only for a grouped pill. Return to the tree (the row-browsing
-		// host) on the adjacent row, matching the tree's own arrow nav.
-		if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-			// Adjacent to the CONTROL's row: focusing the tree runs onFocusIn's realign (focusIndex ← first
-			// SELECTED row), which diverges from this row after a Shift+Arrow range — re-pin it after.
-			const rowIdx = this.rowIndexOf(control);
-			this.treeRef.value?.focus();
-			if (rowIdx != null) {
-				this.focusIndex = rowIdx;
-			}
-			this.navigateRows(event);
-			return;
-		}
+	/** Rove within the focused control's group. Clears a grouped pill's lingering menu cursor first —
+	 *  roving away otherwise leaves a stale `.is-active` row + dangling `aria-activedescendant`. */
+	private roveFromControl(event: KeyboardEvent, where: number | 'first' | 'last'): boolean {
+		const control = this.rowControlFor(event);
+		if (control == null) return false;
 
-		// Any remaining key moves focus off this control; clear a grouped pill's lingering menu cursor first
-		// (roving away otherwise leaves a stale `.is-active` row + dangling `aria-activedescendant`).
+		this.clearPillCursorFor(control);
+		this.roveRowControls(control, where);
+		return true;
+	}
+
+	/** Clear the menu cursor when `control` is a ref pill; a no-op for sub-chips and action buttons. */
+	private clearPillCursorFor(control: HTMLElement): void {
 		if (control.classList.contains('gl-graph__ref-pill')) {
 			this.clearGroupedPillCursor(control);
-		}
-
-		switch (event.key) {
-			case 'ArrowRight':
-				this.roveRowControls(control, 1);
-				event.preventDefault();
-				break;
-			case 'ArrowLeft':
-				this.roveRowControls(control, -1);
-				event.preventDefault();
-				break;
-			case 'Home':
-				this.roveRowControls(control, 'first');
-				event.preventDefault();
-				break;
-			case 'End':
-				this.roveRowControls(control, 'last');
-				event.preventDefault();
-				break;
-			case 'Tab':
-				// Cross groups: refs → actions (Tab), actions → refs (Shift+Tab). No adjacent group FORWARD
-				// leaves the graph (browser default → the trailing overlays). No adjacent group BACKWARD
-				// retreats to the tree — done EXPLICITLY because the browser's Shift+Tab from a focused
-				// tabindex=-1 control can rove backward through the sibling -1 controls instead of stepping out.
-				if (this.moveToAdjacentGroup(control, event.shiftKey ? -1 : 1)) {
-					event.preventDefault();
-				} else if (event.shiftKey) {
-					this.treeRef.value?.focus();
-					event.preventDefault();
-				}
-				break;
-			case 'Enter':
-			case ' ':
-				// Non-button ref controls (pills + PR/issue chip anchors are <span role=button>) synthesize the
-				// single click the delegation routes: a pill → togglePinnedRef + gl-graph-open-branch + select; a
-				// PR/issue chip → its own open (see `onClick`). Native <button>s (row actions, the upstream-jump
-				// chip whose Enter IS its jump) fire their own click on Enter/Space — leave those to the browser.
-				if (group === 'refs' && control.tagName !== 'BUTTON') {
-					control.click();
-					event.preventDefault();
-				}
-				break;
-			case 'Escape':
-				// Explicit "back out" to the tree (the nav host). Shift+Tab does the same via the browser.
-				this.treeRef.value?.focus();
-				event.preventDefault();
-				break;
 		}
 	}
 
@@ -5840,69 +5967,81 @@ export class GlLitGraph extends LitElement {
 		return [...popover.querySelectorAll<HTMLElement>('.gl-graph__ref-popover-row')];
 	}
 
-	/** Handle Up/Down/Left/Right/Enter/Escape for a grouped pill's menu. Up/Down move the ROW cursor; once a
-	 *  row is cursored Left/Right rove ITS items (the ref, then its jump action) — exiting to an adjacent pill
-	 *  is via Up-past-top / Escape, not Left/Right. Returns true when the key was consumed. */
-	private handleGroupedPillKeydown(event: KeyboardEvent, pill: HTMLElement): boolean {
+	/** The cursored (`is-active`) popover row of the pill in the event's path, with that pill and its rows.
+	 *  Null when there's no pill or it has no menu (a plain single pill) — every `pillMenu` binding declines
+	 *  then, leaving the key to `rowControl`. */
+	private groupedPillCursor(event: KeyboardEvent): {
+		pill: HTMLElement;
+		rows: HTMLElement[];
+		activeRow: HTMLElement | undefined;
+	} | null {
+		const pill = this.pillFor(event);
+		if (pill == null) return null;
+
 		const rows = this.groupedPillRows(pill);
-		if (rows.length === 0) return false;
+		if (rows.length === 0) return null;
 
-		const activeRow = rows.find(r => r.classList.contains('is-active')) ?? null;
-		const activeRowIdx = activeRow != null ? rows.indexOf(activeRow) : -1;
+		return { pill: pill, rows: rows, activeRow: rows.find(r => r.classList.contains('is-active')) };
+	}
 
-		switch (event.key) {
-			case 'ArrowDown':
-				this.setGroupedPillCursor(pill, rows, Math.min(rows.length - 1, activeRowIdx + 1));
-				event.preventDefault();
-				return true;
-			case 'ArrowUp':
-				// Up from the first row (or with no cursor) clears back to the pill itself.
-				this.setGroupedPillCursor(pill, rows, activeRowIdx <= 0 ? -1 : activeRowIdx - 1);
-				event.preventDefault();
-				return true;
-			case 'ArrowRight':
-			case 'ArrowLeft': {
-				// No cursor yet → let Left/Right rove between pills (fall through). With a row cursored they
-				// rove WITHIN it (ref → jump), clamped at the ends so the cursor never leaves the row here.
-				if (activeRow == null) return false;
+	/** Up/Down move the ROW cursor. From an inline sub-chip this ENTERS the parent pill's menu: focus goes
+	 *  back to the pill (the menu anchor) so the cursor tracks the focused element and Enter can activate it.
+	 *  Up from the first row (or with no cursor) clears back to the pill itself. */
+	private moveGroupedPillCursor(event: KeyboardEvent, dir: 1 | -1): boolean {
+		const cursor = this.groupedPillCursor(event);
+		if (cursor == null) return false;
 
-				const items = this.groupedRowItems(activeRow);
-				const curIdx = Math.max(
-					0,
-					items.findIndex(el => el.classList.contains('is-cursor')),
-				);
-				const nextIdx = event.key === 'ArrowRight' ? curIdx + 1 : curIdx - 1;
-				if (nextIdx >= 0 && nextIdx < items.length) {
-					this.setRowItemCursor(pill, rows, activeRow, nextIdx);
-				}
-				event.preventDefault();
-				return true;
-			}
-			case 'Enter':
-			case ' ':
-				// Activate the cursored item — the row = its ref, a sub-action = its jump; no cursor → fall
-				// through to the pill's primary.
-				if (activeRow != null) {
-					const items = this.groupedRowItems(activeRow);
-					(items.find(el => el.classList.contains('is-cursor')) ?? activeRow).click();
-					this.clearGroupedPillCursor(pill);
-					event.preventDefault();
-					return true;
-				}
-
-				return false;
-			case 'Escape':
-				// First Escape (cursor set) clears it; a second (no cursor) falls through to exit the group.
-				if (activeRow != null) {
-					this.clearGroupedPillCursor(pill);
-					event.preventDefault();
-					return true;
-				}
-
-				return false;
-			default:
-				return false;
+		const { pill, rows, activeRow } = cursor;
+		if (this.rowControlFor(event) !== pill) {
+			pill.focus();
 		}
+
+		const idx = activeRow != null ? rows.indexOf(activeRow) : -1;
+		this.setGroupedPillCursor(pill, rows, dir === 1 ? Math.min(rows.length - 1, idx + 1) : idx <= 0 ? -1 : idx - 1);
+		return true;
+	}
+
+	/** With a row cursored, Left/Right rove ITS items (the ref, then its jump action), clamped at the ends so
+	 *  the cursor never leaves the row — exiting to an adjacent pill is Up-past-top / Escape. No cursor yet →
+	 *  decline, so `rowControl` roves between pills instead. */
+	private roveGroupedPillRowItems(event: KeyboardEvent, dir: 1 | -1): boolean {
+		const cursor = this.groupedPillCursor(event);
+		if (cursor?.activeRow == null) return false;
+
+		const { pill, rows, activeRow } = cursor;
+		const items = this.groupedRowItems(activeRow);
+		const curIdx = Math.max(
+			0,
+			items.findIndex(el => el.classList.contains('is-cursor')),
+		);
+		const nextIdx = curIdx + dir;
+		if (nextIdx >= 0 && nextIdx < items.length) {
+			this.setRowItemCursor(pill, rows, activeRow, nextIdx);
+		}
+
+		return true;
+	}
+
+	/** Activate the cursored item — the row = its ref, a sub-action = its jump. No cursor → decline, so the
+	 *  pill's own primary fires (`rowControl`'s synthesized click). */
+	private activateGroupedPillCursor(event: KeyboardEvent): boolean {
+		const cursor = this.groupedPillCursor(event);
+		if (cursor?.activeRow == null) return false;
+
+		const items = this.groupedRowItems(cursor.activeRow);
+		(items.find(el => el.classList.contains('is-cursor')) ?? cursor.activeRow).click();
+		this.clearGroupedPillCursor(cursor.pill);
+		return true;
+	}
+
+	/** First Escape (cursor set) clears it; a second (no cursor) declines, falling through to `rowControl`'s
+	 *  retreat to the tree. */
+	private clearGroupedPillCursorFor(event: KeyboardEvent): boolean {
+		const cursor = this.groupedPillCursor(event);
+		if (cursor?.activeRow == null) return false;
+
+		this.clearGroupedPillCursor(cursor.pill);
+		return true;
 	}
 
 	/** Items rovable within a cursored popover row, in visual order: the row itself (its primary ref) then its
@@ -6028,6 +6167,665 @@ export class GlLitGraph extends LitElement {
 		return null;
 	}
 
+	// ——— `pillMenu` / `rowControl` / `rows` scopes: the graph's bindings on the webview's key dispatcher ———
+
+	private _keymapScopes: Disposable[] = [];
+	private _keymapBindings: Disposable | undefined;
+
+	/** Register the graph's scopes + bindings. Idempotent, and a no-op until `keymap` arrives (it's a
+	 *  property, so it's unset on the first connect — see `willUpdate`). The scopes are selector-based, so
+	 *  they resolve against whatever is rendered at dispatch time and need no render to have happened. The
+	 *  `rows` guard mirrors the empty-graph bail the local handler used to do before any row key. */
+	private registerKeymap(): void {
+		const keymap = this.keymap;
+		if (keymap == null || this._keymapScopes.length > 0) return;
+
+		// `pillMenu` MUST be registered BEFORE `rowControl`: both selectors match the SAME
+		// `.gl-graph__ref-pill` element of the composed path, and the dispatcher walks the registered scopes
+		// in registration order per path element — so registration order alone decides which of the two lands
+		// innermost in the chain, and the pill's menu keys have to win over roving.
+		this._keymapScopes.push(
+			keymap.registerScope('pillMenu', { selector: '.gl-graph__ref-pill' }),
+			keymap.registerScope('rowControl', { selector: rowControlSelector }),
+			keymap.registerScope('rows', { selector: '.gl-graph__tree' }, [() => this.displayRows.length > 0]),
+		);
+		this._keymapBindings = keymap.registerBindings([
+			...this.pillMenuKeyBindings(),
+			...this.rowControlKeyBindings(),
+			...this.rowKeyBindings(),
+		]);
+		// A reconnect with the finder still open has to re-take its overlay slot — `unregisterKeymap`
+		// dropped it. The other overlay surfaces (mode menu, column drag) are torn down on disconnect.
+		if (this.refFindOpen) {
+			this.pushRefFindOverlay();
+		}
+	}
+
+	private unregisterKeymap(): void {
+		this._keymapBindings?.dispose();
+		this._keymapBindings = undefined;
+		for (const scope of this._keymapScopes) {
+			scope.dispose();
+		}
+
+		this._keymapScopes = [];
+		// Leave no entry behind on the app's stack — it outlives us, and a stale entry would eat an Esc.
+		this._refFindOverlay?.dispose();
+		this._refFindOverlay = undefined;
+	}
+
+	/** True when the event originated on the tree container itself rather than on a control inside a row.
+	 *  Guards the keys a focused row control owns (Enter/Space/Esc/Home/End/`←`/`→`): the `rowControl` scope
+	 *  claims most of them, and the one it deliberately leaves to the browser — a native `<button>`'s
+	 *  Enter/Space click — must not be swallowed out from under it here. */
+	private isTreeTarget(event: KeyboardEvent): boolean {
+		return event.composedPath()[0] === this.treeRef.value;
+	}
+
+	/** Wrap a run body so it first re-pins the row cursor onto a focused row control's row. The rows scope
+	 *  is document-level, so its keys fire while a pill/action holds focus; focusing the tree runs
+	 *  onFocusIn's realign (focusIndex ← first SELECTED row), which diverges from the control's row after a
+	 *  Shift+Arrow range — re-pin after. */
+	private repinned(run: (event: KeyboardEvent) => boolean): (event: KeyboardEvent) => boolean {
+		return event => {
+			const control = this.rowControlFor(event);
+			if (control != null) {
+				const rowIndex = this.rowIndexOf(control);
+				this.treeRef.value?.focus();
+				if (rowIndex != null) {
+					this.focusIndex = rowIndex;
+				}
+			}
+
+			return run(event);
+		};
+	}
+
+	/** Select the focused row; `open` also opens it (Enter = the keyboard double-click, Space just selects
+	 *  and keeps focus in the graph for continued arrow browsing). */
+	private selectFocusedRow(open: boolean): boolean {
+		const sha = this.displayRows[this.focusIndex]?.sha;
+		if (sha != null) {
+			// Keyboard selection moves the selected commit to a different row, leaving the focus-pin's ref
+			// chain orphaned (rows dimmed against a stale chain). Clear it — this path never coincides with
+			// pill-pinning (that goes through togglePinnedRef on a pointer click).
+			if (this._pinnedRefKey != null) {
+				this.clearPinnedRef();
+			}
+			// Optimistically reflect selection so the screen reader announces aria-selected immediately,
+			// before the host round-trips the new selectedRows back.
+			this.selectedShas = new Set([sha]);
+			this._selectionAnchorSha = sha;
+			this.requestUpdate();
+			this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
+			if (open) {
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-rowdoubleclick', {
+						detail: { sha: sha, type: this.rowKindForSha(sha) },
+					}),
+				);
+			}
+		}
+
+		return true;
+	}
+
+	/** Clear the row selection (the wrapper accepts `sha: null`). No column-drag guard: a drag pushes itself
+	 *  onto the Esc overlay stack, which resolves ahead of every focus-scope binding — so this never runs. */
+	private clearRowSelection(): boolean {
+		// Optimistically clear locally too so the screen reader hears the deselection immediately +
+		// aria-selected drops now.
+		if (this.selectedShas.size > 0) {
+			this.selectedShas = new Set();
+			this.requestUpdate();
+		}
+		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: null, mode: 'replace' } }));
+		return true;
+	}
+
+	/** Copy the focused row. A live text selection keeps the native copy — the user selected that text to
+	 *  copy it, and no row shortcut is worth silently replacing the clipboard. `graph-app` owns the actual
+	 *  command dispatch; this only names the row. */
+	private copyFocusedRow(): boolean {
+		if (window.getSelection()?.isCollapsed === false) return false;
+
+		const context = this.rowContextFor(this.displayRows[this.focusIndex]?.sha);
+		if (context == null) return false;
+
+		let selectionContexts: string[] | undefined;
+		if (this.selectedShas.size > 1) {
+			const contexts: string[] = [];
+			for (const row of this.displayRows) {
+				if (!this.selectedShas.has(row.sha)) continue;
+
+				const rowContext = this.rowContextFor(row.sha);
+				if (rowContext == null) continue;
+
+				contexts.push(rowContext);
+			}
+			selectionContexts = contexts;
+		}
+
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-copy-request', {
+				detail: {
+					context: context,
+					selectionContexts:
+						selectionContexts != null && selectionContexts.length > 1 ? selectionContexts : undefined,
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
+
+		if (selectionContexts != null && selectionContexts.length > 1) {
+			this.announce(`Copied ${pluralize('commit', selectionContexts.length)}.`);
+		} else {
+			this.announce('Copied.');
+		}
+		return true;
+	}
+
+	/** The `pillMenu` scope's bindings — a grouped (multi-ref) pill's popover cursor, claimed for the pill's
+	 *  WHOLE area (the pill itself AND its inline sub-chips). Every run declines for a plain single pill (no
+	 *  menu rows) or, for the cursor-relative keys, with no cursor live — falling through to `rowControl`
+	 *  and then `rows`. All sheet-hidden: the sheet documents this menu in prose, not per key. */
+	private pillMenuKeyBindings(): KeyBindingDescriptor<GraphKeymapScope, KeyboardEvent>[] {
+		return [
+			{
+				keys: ['ArrowDown'],
+				scope: 'pillMenu',
+				sheet: 'hidden',
+				run: e => this.moveGroupedPillCursor(e, 1),
+			},
+			{
+				keys: ['ArrowUp'],
+				scope: 'pillMenu',
+				sheet: 'hidden',
+				run: e => this.moveGroupedPillCursor(e, -1),
+			},
+			{
+				keys: ['ArrowRight'],
+				scope: 'pillMenu',
+				sheet: 'hidden',
+				run: e => this.roveGroupedPillRowItems(e, 1),
+			},
+			{
+				keys: ['ArrowLeft'],
+				scope: 'pillMenu',
+				sheet: 'hidden',
+				run: e => this.roveGroupedPillRowItems(e, -1),
+			},
+			{
+				keys: ['Enter', ' '],
+				scope: 'pillMenu',
+				sheet: 'hidden',
+				run: e => this.activateGroupedPillCursor(e),
+			},
+			{
+				keys: ['Escape'],
+				scope: 'pillMenu',
+				sheet: 'hidden',
+				run: e => this.clearGroupedPillCursorFor(e),
+			},
+		];
+	}
+
+	/** The `rowControl` scope's bindings — the roving-toolbar keys a focused row control owns (see the
+	 *  managed-focus note above `activeRowElement`). Everything else a row key binds falls through to `rows`,
+	 *  whose runs re-pin the cursor onto this control's row (`repinned`). All sheet-hidden: the sheet
+	 *  documents diving into a row's controls in prose. */
+	private rowControlKeyBindings(): KeyBindingDescriptor<GraphKeymapScope, KeyboardEvent>[] {
+		return [
+			{
+				keys: ['ArrowRight'],
+				scope: 'rowControl',
+				sheet: 'hidden',
+				run: e => this.roveFromControl(e, 1),
+			},
+			{
+				keys: ['ArrowLeft'],
+				scope: 'rowControl',
+				sheet: 'hidden',
+				run: e => this.roveFromControl(e, -1),
+			},
+			{
+				keys: ['Home'],
+				scope: 'rowControl',
+				sheet: 'hidden',
+				run: e => this.roveFromControl(e, 'first'),
+			},
+			{
+				keys: ['End'],
+				scope: 'rowControl',
+				sheet: 'hidden',
+				run: e => this.roveFromControl(e, 'last'),
+			},
+			// Cross groups: refs → actions (Tab), actions → refs (Shift+Tab). No adjacent group FORWARD
+			// declines, so the browser default leaves the graph (controls are tabindex=-1 → the trailing
+			// overlays). No adjacent group BACKWARD retreats to the tree EXPLICITLY, because the browser's
+			// Shift+Tab from a tabindex=-1 control can rove backward through its -1 siblings instead of
+			// stepping out.
+			{
+				keys: ['Tab'],
+				scope: 'rowControl',
+				sheet: 'hidden',
+				run: e => {
+					const control = this.rowControlFor(e);
+					if (control == null) return false;
+
+					this.clearPillCursorFor(control);
+					return this.moveToAdjacentGroup(control, 1);
+				},
+			},
+			{
+				keys: ['shift+Tab'],
+				scope: 'rowControl',
+				sheet: 'hidden',
+				run: e => {
+					const control = this.rowControlFor(e);
+					if (control == null) return false;
+
+					this.clearPillCursorFor(control);
+					if (!this.moveToAdjacentGroup(control, -1)) {
+						this.treeRef.value?.focus();
+					}
+
+					return true;
+				},
+			},
+			// Non-button ref controls (pills + PR/issue chip anchors are <span role=button>) synthesize the
+			// single click the delegation routes: a pill → togglePinnedRef + gl-graph-open-branch + select; a
+			// PR/issue chip → its own open (see `onClick`). Native <button>s (row actions, the upstream-jump
+			// chip whose Enter IS its jump) fire their own click on Enter/Space — decline so the browser does
+			// it (the `rows` Enter/Space bindings are `isTreeTarget`-guarded, so they decline here too).
+			{
+				keys: ['Enter', ' '],
+				scope: 'rowControl',
+				sheet: 'hidden',
+				run: e => {
+					const control = this.rowControlFor(e);
+					if (control == null || control.tagName === 'BUTTON' || this.controlGroup(control) !== 'refs') {
+						return false;
+					}
+
+					this.clearPillCursorFor(control);
+					control.click();
+					return true;
+				},
+			},
+			// Explicit "back out" to the tree (the nav host); Shift+Tab out of the first group does the same.
+			// A grouped pill's live menu cursor eats the first Escape (`pillMenu`), so this is the second.
+			{
+				keys: ['Escape'],
+				scope: 'rowControl',
+				sheet: 'hidden',
+				run: e => {
+					const control = this.rowControlFor(e);
+					if (control == null) return false;
+
+					this.clearPillCursorFor(control);
+					this.treeRef.value?.focus();
+					return true;
+				},
+			},
+		];
+	}
+
+	/** The `rows` scope's bindings. A `run` returning false leaves the key alone (falls through to an outer
+	 *  scope, then the browser); the dispatcher prevents + stops the event on true. Prev/next pairs put the
+	 *  shortcut-sheet row on the first of the pair and hide its twin, so the sheet reads one row per move. */
+	private rowKeyBindings(): KeyBindingDescriptor<GraphKeymapScope, KeyboardEvent>[] {
+		return [
+			// Shift extends the range from the anchor on every row move (see `applyRowNavigation`), so each
+			// move declares its Shift chord alongside the plain one.
+			{
+				keys: ['ArrowUp', 'shift+ArrowUp'],
+				scope: 'rows',
+				sheet: {
+					group: 'navigation',
+					label: 'Previous / next commit',
+					order: 1,
+					// A spaced `text:` divider, not a tight `sep:` — the slash here separates the arrows from
+					// their vim aliases, rather than the two halves of one chord.
+					keysOverride: ['ArrowUp', 'ArrowDown', 'text: / ', 'k', 'j'],
+				},
+				run: this.repinned(e => this.stepRow(e, -1)),
+			},
+			{
+				keys: ['ArrowDown', 'shift+ArrowDown'],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(e => this.stepRow(e, 1)),
+			},
+			// Vim-style aliases. A single-character token matches the shifted form too, and Shift+k produces
+			// `K` — so range extension stays on the arrows rather than getting a half-working second binding.
+			{
+				keys: ['k'],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(e => this.stepRow(e, -1)),
+			},
+			{
+				keys: ['j'],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(e => this.stepRow(e, 1)),
+			},
+			{
+				keys: ['ArrowLeft'],
+				scope: 'rows',
+				when: [e => this.isTreeTarget(e)],
+				sheet: {
+					group: 'folding',
+					label: 'Fold / unfold the lane',
+					order: 1,
+					keysOverride: ['ArrowLeft', 'ArrowRight'],
+				},
+				run: () => this.foldFocusedLane(-1),
+			},
+			{
+				keys: ['ArrowRight'],
+				scope: 'rows',
+				when: [e => this.isTreeTarget(e)],
+				sheet: 'hidden',
+				run: () => this.foldFocusedLane(1),
+			},
+			{
+				keys: ['PageUp', 'shift+PageUp'],
+				scope: 'rows',
+				sheet: {
+					group: 'navigation',
+					label: 'Page up / down',
+					order: 2,
+					keysOverride: ['PageUp', 'PageDown'],
+				},
+				run: this.repinned(e => this.stepPage(e, -1)),
+			},
+			{
+				keys: ['PageDown', 'shift+PageDown'],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(e => this.stepPage(e, 1)),
+			},
+			// Home/End belong to a focused row control (first / last control in its group), so they only
+			// reach the rows from the tree itself.
+			{
+				keys: ['Home', 'shift+Home'],
+				scope: 'rows',
+				when: [e => this.isTreeTarget(e)],
+				sheet: {
+					group: 'navigation',
+					label: 'First / last commit',
+					order: 3,
+					keysOverride: ['Home', 'End'],
+				},
+				run: e => this.stepEnd(e, -1),
+			},
+			{
+				keys: ['End', 'shift+End'],
+				scope: 'rows',
+				when: [e => this.isTreeTarget(e)],
+				sheet: 'hidden',
+				run: e => this.stepEnd(e, 1),
+			},
+			// Ctrl AND Meta both walk the lineage on every platform (as they always have here), so declare
+			// both rather than collapsing to `mod`.
+			{
+				keys: ['ctrl+ArrowUp', 'ctrl+shift+ArrowUp', 'meta+ArrowUp', 'meta+shift+ArrowUp'],
+				scope: 'rows',
+				sheet: {
+					group: 'navigation',
+					label: 'Follow the branch',
+					order: 4,
+					keysOverride: ['mod+ArrowUp', 'sep:/', 'ArrowDown'],
+				},
+				run: this.repinned(e => this.stepLineage(e, -1)),
+			},
+			{
+				keys: ['ctrl+ArrowDown', 'ctrl+shift+ArrowDown', 'meta+ArrowDown', 'meta+shift+ArrowDown'],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(e => this.stepLineage(e, 1)),
+			},
+			// The alt-variant of stepping: the same axis as the plain arrows, jumping to where the lineage
+			// BRANCHES instead of one row. Bare Alt is the documented chord — Ctrl+Alt+arrows is legacy
+			// GNOME workspace switching (grabbed at the OS before the webview ever sees it), so it can't
+			// be canonical; it rides along as an undocumented alias since it reads as "the alt of lineage"
+			// and is unbound in VS Code on every platform.
+			{
+				keys: [
+					'alt+ArrowUp',
+					'alt+shift+ArrowUp',
+					'ctrl+alt+ArrowUp',
+					'ctrl+alt+shift+ArrowUp',
+					'meta+alt+ArrowUp',
+					'meta+alt+shift+ArrowUp',
+				],
+				scope: 'rows',
+				sheet: {
+					group: 'navigation',
+					label: 'Previous / next fork',
+					order: 6,
+					keysOverride: ['alt+ArrowUp', 'sep:/', 'ArrowDown'],
+				},
+				run: this.repinned(e => this.stepForkPoint(e, -1)),
+			},
+			{
+				keys: [
+					'alt+ArrowDown',
+					'alt+shift+ArrowDown',
+					'ctrl+alt+ArrowDown',
+					'ctrl+alt+shift+ArrowDown',
+					'meta+alt+ArrowDown',
+					'meta+alt+shift+ArrowDown',
+				],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(e => this.stepForkPoint(e, 1)),
+			},
+			// Unlike the bare (fold) and Ctrl/Cmd (reserved) horizontal chords, the Alt and Shift ones are NOT
+			// tree-only: a focused row control leaves them to the rows, since `rowControl` binds bare `←`/`→`
+			// alone. `repinned` moves focus back to the tree on the control's row first.
+			// Ctrl (Cmd on mac, dual-accepted like the lineage arrows — macOS grabs ctrl+arrows for Mission
+			// Control before the webview ever sees them): Ctrl means "structural navigation" on both axes,
+			// lineage vertically and the fork's lanes horizontally. Alt stays the alt-action layer.
+			{
+				keys: ['ctrl+ArrowLeft', 'meta+ArrowLeft'],
+				scope: 'rows',
+				sheet: {
+					group: 'navigation',
+					label: 'Switch branch at a fork',
+					order: 5,
+					keysOverride: ['mod+ArrowLeft', 'sep:/', 'ArrowRight'],
+				},
+				run: this.repinned(e => this.navigateForkLane(e, -1)),
+			},
+			{
+				keys: ['ctrl+ArrowRight', 'meta+ArrowRight'],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(e => this.navigateForkLane(e, 1)),
+			},
+			{
+				keys: ['shift+ArrowLeft'],
+				scope: 'rows',
+				sheet: {
+					group: 'folding',
+					label: 'Fold / unfold every lane',
+					order: 2,
+					keysOverride: ['shift+ArrowLeft', 'sep:/', 'ArrowRight'],
+					subline: ['text:also ', 'raw:Shift', 'text:+click a fold chevron'],
+				},
+				run: this.repinned(() => {
+					this.setAllLanesCollapsed(true);
+					return true;
+				}),
+			},
+			{
+				keys: ['shift+ArrowRight'],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(() => {
+					this.setAllLanesCollapsed(false);
+					return true;
+				}),
+			},
+			// Single-letter jumps target the primary/canonical row (same `_rowMarkerTips` source the
+			// overview rail's jump legs use, so the two can never disagree); Shift variants scan loaded
+			// rows outward from focus for the nearest occurrence instead.
+			{
+				keys: ['h'],
+				scope: 'rows',
+				sheet: { group: 'goto', label: 'HEAD', order: 2 },
+				run: this.repinned(() => {
+					if (!this.jumpToRow(this._rowMarkerTips?.headSha)) {
+						this.announce('No HEAD commit resolved.');
+					}
+
+					return true;
+				}),
+			},
+			{
+				keys: ['H'],
+				scope: 'rows',
+				sheet: { group: 'goto', label: 'Nearest worktree branch', order: 5, keysOverride: ['shift+KeyH'] },
+				run: this.repinned(() => {
+					if (!this.jumpToRow(this.nearestCheckedOutHeadSha())) {
+						this.announce('No checked-out worktree branch found.');
+					}
+
+					return true;
+				}),
+			},
+			{
+				keys: ['u'],
+				scope: 'rows',
+				sheet: { group: 'goto', label: 'Upstream', order: 3 },
+				run: this.repinned(() => {
+					if (!this.jumpToRow(this._rowMarkerTips?.upstreamSha)) {
+						this.announce('No upstream for this branch.');
+					}
+
+					return true;
+				}),
+			},
+			{
+				keys: ['t'],
+				scope: 'rows',
+				sheet: { group: 'goto', label: 'Merge target', order: 4 },
+				run: this.repinned(() => {
+					// The merge target resolves asynchronously (scope-anchor pull), so a silent no-op here
+					// would read as broken while it's still in flight — say why instead.
+					if (!this.jumpToRow(this._rowMarkerTips?.targetSha)) {
+						this.announce('No merge target resolved.');
+					}
+
+					return true;
+				}),
+			},
+			{
+				keys: ['w'],
+				scope: 'rows',
+				sheet: { group: 'goto', label: 'Your working changes', order: 1 },
+				run: this.repinned(() => {
+					// Resolved by the host handler (graph-wrapper's onJumpToNearestWip): `target: 'primary'`
+					// routes straight to this graph's own WIP row, deferring the navigation when it isn't
+					// loaded yet. No focused row (empty graph) means no jump to make — release the key, the
+					// same as every other row navigation with nothing to move within.
+					const fromSha = this.displayRows[this.focusIndex]?.sha;
+					if (fromSha == null) return false;
+
+					document.dispatchEvent(
+						new CustomEvent('gl-jump-to-nearest-wip', {
+							detail: { fromSha: fromSha, focus: true, flash: true, target: 'primary' },
+						}),
+					);
+					return true;
+				}),
+			},
+			{
+				keys: ['W'],
+				scope: 'rows',
+				sheet: {
+					group: 'goto',
+					label: 'Working changes on this lane',
+					order: 6,
+					keysOverride: ['shift+KeyW'],
+				},
+				run: this.repinned(() => {
+					const fromSha = this.displayRows[this.focusIndex]?.sha;
+					if (fromSha == null) return false;
+
+					document.dispatchEvent(
+						new CustomEvent('gl-jump-to-nearest-wip', {
+							detail: { fromSha: fromSha, focus: true, flash: true, target: 'nearest' },
+						}),
+					);
+					return true;
+				}),
+			},
+			// Bracket keys walk ref rows (head/remote/tag) — the ref-to-ref move PageUp/Down used to carry
+			// under Alt.
+			{
+				keys: ['['],
+				scope: 'rows',
+				sheet: { group: 'goto', label: 'Previous / next branch or tag', order: 7, keysOverride: ['[', ']'] },
+				run: this.repinned(e => this.stepRefRow(e, -1)),
+			},
+			{
+				keys: [']'],
+				scope: 'rows',
+				sheet: 'hidden',
+				run: this.repinned(e => this.stepRefRow(e, 1)),
+			},
+			{
+				keys: ['Escape'],
+				scope: 'rows',
+				when: [e => this.isTreeTarget(e)],
+				sheet: 'hidden',
+				run: () => this.clearRowSelection(),
+			},
+			{
+				keys: ['Enter'],
+				scope: 'rows',
+				when: [e => this.isTreeTarget(e)],
+				sheet: { group: 'selection', label: 'Open details', order: 3 },
+				run: () => this.selectFocusedRow(true),
+			},
+			{
+				keys: [' '],
+				scope: 'rows',
+				when: [e => this.isTreeTarget(e)],
+				sheet: { group: 'selection', label: 'Select only', order: 2 },
+				run: () => this.selectFocusedRow(false),
+			},
+			// Ctrl+Shift+C produces the key `C`, which the `c` token never matches — so the shifted form
+			// stays with whatever else binds it, exactly as before.
+			{
+				keys: ['ctrl+c', 'meta+c'],
+				scope: 'rows',
+				sheet: {
+					group: 'selection',
+					label: 'Copy SHA / worktree path',
+					order: 4,
+					keysOverride: ['mod+KeyC'],
+				},
+				run: this.repinned(() => this.copyFocusedRow()),
+			},
+			// Reserved: Alt+←/→ deliberately do nothing here (Alt is the alt-action layer, not a nav
+			// modifier), but unconsumed they'd reach VS Code's editor-history navigation — a surprising
+			// teleport out of the graph — so swallow them. (Alt+↑/↓ are bound above as fork-point aliases.)
+			{
+				keys: ['alt+ArrowLeft', 'alt+ArrowRight'],
+				scope: 'rows',
+				when: [e => this.isTreeTarget(e)],
+				sheet: 'hidden',
+				run: () => true,
+			},
+		];
+	}
+
 	private handleViewportKeydown = (event: KeyboardEvent): void => {
 		// Re-entry: Shift+Tab from ANY trailing overlay (the HEAD-jump / pinned pills, the changes-opt-in
 		// Show/Hide buttons, the hscrollbar) returns straight to the active row's last managed control, rather
@@ -6047,217 +6845,380 @@ export class GlLitGraph extends LitElement {
 	};
 
 	private onKeydown = (event: KeyboardEvent): void => {
-		// Managed row-control focus: keydown bubbled from a `tabindex=-1` control we moved focus onto (a
-		// row-action button). Own the roving + exit keys; Enter/Space fall through to native <button>
-		// activation (the delegated onClick turns data-row-action into the host event), and Tab/Shift+Tab
-		// fall through to the browser — the controls are tabindex=-1, so forward Tab leaves the graph and
-		// Shift+Tab retreats to the tree container. (The column header is a preceding SIBLING of the tree,
-		// so its keys never bubble here — it has its own headerRoving toolbar.)
-		if (event.target !== event.currentTarget) {
-			const control =
-				event.target instanceof Element
-					? // Sub-chips (upstream-jump / PR / issue = `[data-ref-metadata-type]`) resolve to
-						// THEMSELVES, not the pill that contains them, so each is its own rove stop.
-						event.target.closest<HTMLElement>(
-							'.gl-graph__row-action, [data-ref-metadata-type], .gl-graph__ref-pill',
-						)
-					: null;
-			if (control != null) {
-				this.handleRowControlKeydown(event, control);
-			}
-			return;
-		}
+		// Only the tree container's own keys: a keydown bubbled from a focused row control is the
+		// `rowControl` scope's Tab (cross groups, or leave the graph), never a dive. (The column header is a
+		// preceding SIBLING of the tree, so its keys never bubble here — it has its own headerRoving toolbar.)
+		if (event.target !== event.currentTarget) return;
 
 		// Tab dives into the active row's controls (a single roving tab stop); Shift+Tab falls through so
 		// focus retreats to the header (the preceding tab stops). If the active row has no controls, let
 		// Tab fall through too (it leaves the graph).
+		//
+		// Every other row key — movement, folding, jumps, copy, Enter/Space/Escape — is registered on the
+		// webview's dispatcher under the `rows` / `rowControl` / `pillMenu` scopes (see `registerKeymap`),
+		// NOT bound here. This branch could be a rows binding too (run-returns-false would hand Tab back to
+		// the browser); it stays local only because it gains nothing from the move and the target guard
+		// above is clearer here.
 		if (event.key === 'Tab' && !event.shiftKey && this.enterActiveRowGroup()) {
 			event.preventDefault();
-			return;
-		}
-
-		// NOTE: `/` (open the ref finder) is NOT bound here — `gl-graph-app` owns it as a document-level
-		// shortcut so it works from anywhere in the webview, not just the focused rows. See `openRefFind`.
-
-		if (this.displayRows.length === 0) return;
-
-		// Row movement (Arrow Up/Down [Alt = branching point, Ctrl/Cmd = topological lineage], Page Up/Down
-		// [Alt = ref row], Home/End; Shift extends a range) — shared with the row controls so Up/Down navigate
-		// rows from a focused pill/action too.
-		if (this.navigateRows(event)) return;
-
-		switch (event.key) {
-			case 'Enter':
-			case ' ': {
-				const sha = this.displayRows[this.focusIndex]?.sha;
-				if (sha != null) {
-					// Keyboard selection moves the selected commit to a different row, leaving the focus-pin's
-					// ref chain orphaned (rows dimmed against a stale chain). Clear it — this path never
-					// coincides with pill-pinning (that goes through togglePinnedRef on a pointer click).
-					if (this._pinnedRefKey != null) {
-						this.clearPinnedRef();
-					}
-					// Optimistically reflect selection so the screen reader announces aria-selected
-					// immediately, before the host round-trips the new selectedRows back.
-					this.selectedShas = new Set([sha]);
-					this._selectionAnchorIndex = this.focusIndex;
-					this.requestUpdate();
-					this.dispatchEvent(
-						new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }),
-					);
-					// Enter also OPENS the commit (keyboard equivalent of double-click); Space just selects
-					// and keeps focus in the graph for continued arrow browsing.
-					if (event.key === 'Enter') {
-						this.dispatchEvent(
-							new CustomEvent('gl-graph-rowdoubleclick', {
-								detail: { sha: sha, type: this.rowKindForSha(sha) },
-							}),
-						);
-					}
-				}
-				event.preventDefault();
-				return;
-			}
-			case 'h':
-			case 'H': {
-				// Jump selection to HEAD (the current branch tip) — a frequent re-orientation move. Shift
-				// targets HEAD's upstream instead (falling back to HEAD when it has none / it's off-window).
-				const headSha = this.headSha;
-				let targetSha = headSha;
-				if (event.shiftKey && headSha != null) {
-					// Several local branches can share the HEAD commit — take the checked-out one's upstream.
-					const heads = this.getCommitBySha(headSha)?.commitRefs.filter(r => r.kind === 'head');
-					const upstreamId = (heads?.find(r => r.current === true) ?? heads?.[0])?.upstreamId;
-					targetSha = (upstreamId != null ? this.refRowIndex.get(upstreamId)?.sha : undefined) ?? headSha;
-				}
-				const idx = targetSha != null ? this.indexBySha.get(targetSha) : undefined;
-				if (targetSha != null && idx != null) {
-					if (this._pinnedRefKey != null) {
-						this.clearPinnedRef();
-					}
-					this._laneSeedSource = 'keyboard';
-					this.focusIndex = idx;
-					this._selectionAnchorIndex = idx;
-					this.selectedShas = new Set([targetSha]);
-					this.requestUpdate();
-					this.dispatchEvent(
-						new CustomEvent('gl-graph-changeselection', { detail: { sha: targetSha, mode: 'replace' } }),
-					);
-					this.revealIndexNearest(idx);
-				}
-				event.preventDefault();
-				return;
-			}
-			case 'Escape':
-				// During an in-flight column drag, Escape aborts the drag (handled at the window level) —
-				// don't also clear the row selection as a side effect.
-				if (this.columnDrag != null) return;
-
-				// Clear selection (wrapper accepts sha: null). Optimistically clear locally too so
-				// the screen reader hears the deselection immediately + aria-selected drops now.
-				if (this.selectedShas.size > 0) {
-					this.selectedShas = new Set();
-					this.requestUpdate();
-				}
-				this.dispatchEvent(
-					new CustomEvent('gl-graph-changeselection', { detail: { sha: null, mode: 'replace' } }),
-				);
-				event.preventDefault();
-				return;
-			case 'ArrowLeft':
-			case 'ArrowRight': {
-				// Collapse/expand the lane segment when focused on its tip (WAI-ARIA tree pattern) —
-				// the only keyboard path to the lane chevrons (which are managed-focus, tabindex=-1).
-				const sha = this.displayRows[this.focusIndex]?.sha;
-				if (this.foldingEnabled && sha != null && this.segmentsByTipSha.has(sha)) {
-					const collapsed = this.effectiveCollapsed.has(sha);
-					if ((event.key === 'ArrowLeft' && !collapsed) || (event.key === 'ArrowRight' && collapsed)) {
-						this.toggleLane(sha);
-						event.preventDefault();
-					}
-				}
-			}
 		}
 	};
 
-	/** Row navigation shared by the focused tree container and a focused row control (Up/Down navigate rows
-	 *  from a pill/action too). Arrow Up/Down (Alt = next branching point, Ctrl/Cmd = first-parent lineage),
-	 *  Page Up/Down (Alt = ref row), Home/End; Shift extends a range selection from the anchor. Returns true
-	 *  when it consumed a navigation key (callers stop) — false leaves the key for the caller's own handling. */
-	private navigateRows(event: KeyboardEvent): boolean {
+	/** Move focus + selection to `sha`'s row, as a single-row replace. Reaches every state the pointer's
+	 *  ref-pill jump reaches: displayed, folded inside a collapsed lane, or not yet paged in. Returns false
+	 *  only for an unset sha — i.e. a marker that never resolved, which is what the callers announce. */
+	private jumpToRow(sha: string | undefined): boolean {
+		if (sha == null) return false;
+
+		let idx = this.indexBySha.get(sha);
+		if (idx == null) {
+			// Folded away inside a collapsed lane: expand it (recomputeDisplayRows runs synchronously, so
+			// the row is indexed straight after) and land locally.
+			const tip = this.segmentByCommit.get(sha);
+			if (tip != null && this.effectiveCollapsed.has(tip)) {
+				this.toggleLane(tip);
+				idx = this.indexBySha.get(sha);
+			}
+		}
+
+		if (idx == null) {
+			// Not in the display set at all — hand it to the wrapper's load/select/reveal operation, which
+			// holds the intent while the row pages in. Same route (and same detail shape) the ref pills take.
+			this.jumpToRefRow(sha, { focus: true, flash: true });
+			return true;
+		}
+
+		// Standing on the target already: moving nothing must not drop the user's pinned ref or re-dispatch
+		// a selection that's already current (same guard plain arrow navigation applies).
+		const alreadySelected = this.focusIndex === idx && this.selectedShas.size === 1 && this.selectedShas.has(sha);
+		this._laneSeedSource = 'keyboard';
+		this.focusIndex = idx;
+		this._selectionAnchorSha = sha;
+		if (!alreadySelected) {
+			// The jump moves the selected commit off the pinned pill's row, leaving its ref chain orphaned.
+			if (this._pinnedRefKey != null) {
+				this.clearPinnedRef();
+			}
+			this.selectedShas = new Set([sha]);
+			this.requestUpdate();
+			this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: sha, mode: 'replace' } }));
+		}
+		this.revealIndexNearest(idx);
+		// A jump can land near the loaded tail just as a step can, and the reveal alone never asks for rows.
+		this.requestMoreRowsForNavigation(idx);
+		return true;
+	}
+
+	/** Nearest row (by index distance from `focusIndex`, ties toward the earlier direction scanned)
+	 *  whose HEAD is checked out in some worktree — scans `displayRows` via the raw-row-by-sha map
+	 *  (ref metadata lives on `GitGraphRow`, not the engine's `ProcessedGraphRow`), no host round-trip. */
+	private nearestCheckedOutHeadSha(): string | undefined {
+		const rows = this.displayRows;
+		const rowBySha = this.getRowByShaMap();
+		if (rowBySha == null) return undefined;
+
+		const focus = this.focusIndex;
+		const isCheckedOut = (index: number): boolean =>
+			rowBySha.get(rows[index].sha)?.heads?.some(h => h.worktree != null) === true;
+
+		for (let distance = 0; distance < rows.length; distance++) {
+			const forward = focus + distance;
+			if (forward < rows.length && isCheckedOut(forward)) {
+				return rows[forward].sha;
+			}
+
+			if (distance === 0) continue;
+
+			const backward = focus - distance;
+			if (backward >= 0 && isCheckedOut(backward)) {
+				return rows[backward].sha;
+			}
+		}
+
+		return undefined;
+	}
+
+	// The fork the lateral lane walk is anchored at, plus its lanes as `collectForkLanes` returned them.
+	// Kept so a SECOND Ctrl/Cmd+Arrow steps on from the lane it just landed on rather than re-deriving from
+	// a row that is no longer a fork. Cleared by any other navigation (see `applyRowNavigation`).
+	private _forkNavOrigin?: { sha: string; lanes: readonly { column: number; sha: string }[] };
+
+	/** Step one lane sideways at a fork point: Ctrl/Cmd+Right toward higher columns, Ctrl/Cmd+Left lower.
+	 *  Clamps at both ends — there's no visual cue for a wrap, so wrapping would just look like a jump.
+	 *  Returns false (leaving the key untouched) when the focused row isn't a fork at all. */
+	private navigateForkLane(event: KeyboardEvent, dir: 1 | -1): boolean {
+		const focusedSha = this.displayRows[this.focusIndex]?.sha;
+		if (focusedSha == null) return false;
+
+		// Reuse the anchored fork while focus is still on one of its lanes; otherwise this row is the fork.
+		let origin = this._forkNavOrigin;
+		let lanes: readonly { sha: string; index: number }[] =
+			origin != null ? this.resolveForkLaneRows(origin.lanes) : [];
+		if (lanes.every(l => l.index !== this.focusIndex)) {
+			const forkLanes = collectForkLanes(
+				this.processedRows,
+				this.processedIndexBySha,
+				this.ensureChildrenBySha(),
+				focusedSha,
+			);
+			if (forkLanes.length < 2) return false;
+
+			origin = { sha: focusedSha, lanes: forkLanes };
+			lanes = this.resolveForkLaneRows(forkLanes);
+		}
+
+		// Check the RESOLVED lanes, not what the walk collected: resolution drops lanes with nothing to land
+		// on (unloaded, or folded inside a nested collapse), and one landable lane is no fork to walk.
+		if (lanes.length < 2) return false;
+
+		const cursor = lanes.findIndex(l => l.index === this.focusIndex);
+		const target = cursor !== -1 ? lanes[cursor + dir] : undefined;
+		if (target == null) {
+			event.preventDefault();
+			// Only a genuine clamp gets an announcement — `cursor === -1` means focus isn't on any of the
+			// resolved lanes, so there's no end to be at.
+			if (cursor !== -1) {
+				this.announce(dir === 1 ? 'Last lane at fork point.' : 'First lane at fork point.');
+			}
+
+			return true;
+		}
+
+		const moved = this.applyRowNavigation(event, target.index);
+		// After `applyRowNavigation`, which clears the anchor on every move — including this one.
+		this._forkNavOrigin = origin;
+		this.announce(`Lane ${cursor + dir + 1} of ${lanes.length} at fork point.`);
+		return moved;
+	}
+
+	/** Map fork lanes onto the rows actually rendered, preserving `collectForkLanes`' ascending-column
+	 *  order and dropping lanes with nothing to land on. A lane hidden inside a collapsed segment resolves
+	 *  to that segment's chip row instead (same fallback `findBranchingPointIndex` applies). */
+	private resolveForkLaneRows(lanes: readonly { sha: string }[]): readonly { sha: string; index: number }[] {
+		const rows: { sha: string; index: number }[] = [];
+		for (const lane of lanes) {
+			const index = this.indexBySha.get(lane.sha) ?? this.mapFoldedRowIndex(lane.sha);
+			if (index == null) continue;
+
+			rows.push({ sha: lane.sha, index: index });
+		}
+		return rows;
+	}
+
+	/** Fold or unfold every collapsible lane in one step (Shift+Left / Shift+Right). Deliberately not
+	 *  `toggleLane` in a loop: one projection pass, one event, one announcement — N of each would spam the
+	 *  live region and make the host re-derive per lane. */
+	private setAllLanesCollapsed(collapsed: boolean): void {
+		if (!this.foldingEnabled) return;
+
+		const scrollAnchor = this.captureLaneScrollAnchor();
+		const prevFocusedSha = this.displayRows[this.focusIndex]?.sha;
+
+		const toggle = this.projectionSession.setAllCollapsed(collapsed);
+		if (toggle == null) return;
+
+		this.applyProjectionState(toggle.state);
+		this.recomputeDisplayRows(prevFocusedSha);
+		this.rebuildProviders();
+		this.invalidateAdornments();
+		if (scrollAnchor != null) {
+			this._pendingScrollAnchorTop = this.resolveLaneScrollAnchorTop(scrollAnchor);
+		}
+		this.requestUpdate();
+		this.dispatchEvent(new CustomEvent('gl-graph-lanetoggleall', { detail: { collapsed: collapsed } }));
+
+		this.announce(
+			collapsed
+				? `All lanes collapsed. ${pluralize('lane', this.segmentsByTipSha.size)} folded.`
+				: 'All lanes expanded.',
+		);
+	}
+
+	/** Step one row (`↑`/`↓`, and their `k`/`j` aliases). Extending a TOPOLOGICAL selection steps the
+	 *  moving end along the first-parent chain instead of the display order — otherwise one step onto an
+	 *  interleaved off-chain row hands `walkTopologicalRange` two unrelated endpoints and the selection
+	 *  collapses to just those two rows. Matches "select next in branch" elsewhere (GitKraken Desktop). */
+	private stepRow(event: KeyboardEvent, dir: 1 | -1): boolean {
 		const last = this.displayRows.length - 1;
 		if (last < 0) return false;
 
-		let next: number;
-		switch (event.key) {
-			case 'ArrowDown': {
-				// Alt = next branching point; Ctrl/Cmd = follow first-parent lineage; plain = next row.
-				const t = event.altKey
-					? this.findBranchingPointIndex(this.focusIndex, 1)
-					: event.ctrlKey || event.metaKey
-						? this.findTopologicalRowIndex(this.focusIndex, 1)
-						: Math.min(last, this.focusIndex + 1);
-				if (t == null) {
-					event.preventDefault();
-					// No further branching point / lineage row WITHIN the loaded rows — the same dead end End was
-					// stuck at, so ask for the next page rather than silently doing nothing.
-					this.requestMoreRowsForNavigation(last);
-					return true;
-				}
-
-				next = t;
-				break;
-			}
-			case 'ArrowUp': {
-				const t = event.altKey
-					? this.findBranchingPointIndex(this.focusIndex, -1)
-					: event.ctrlKey || event.metaKey
-						? this.findTopologicalRowIndex(this.focusIndex, -1)
-						: Math.max(0, this.focusIndex - 1);
-				if (t == null) {
-					event.preventDefault();
-					return true;
-				}
-
-				next = t;
-				break;
-			}
-			case 'PageDown': {
-				// Alt = jump to the next ref row; plain = move a page.
-				const t = event.altKey
-					? this.findRefRowIndex(this.focusIndex, 1)
-					: Math.min(last, this.focusIndex + this.pageStep());
-				if (t == null) {
-					event.preventDefault();
-					// No further ref row within the loaded rows — same dead end as above.
-					this.requestMoreRowsForNavigation(last);
-					return true;
-				}
-
-				next = t;
-				break;
-			}
-			case 'PageUp': {
-				const t = event.altKey
-					? this.findRefRowIndex(this.focusIndex, -1)
-					: Math.max(0, this.focusIndex - this.pageStep());
-				if (t == null) {
-					event.preventDefault();
-					return true;
-				}
-
-				next = t;
-				break;
-			}
-			case 'Home':
-				next = 0;
-				break;
-			case 'End':
-				next = last;
-				break;
-			default:
-				return false;
+		const next = this.topologicalExtend(event)
+			? this.stepChain(this.focusIndex, dir, 1)
+			: dir === 1
+				? Math.min(last, this.focusIndex + 1)
+				: Math.max(0, this.focusIndex - 1);
+		if (next == null) {
+			return this.navigationDeadEnd(
+				event,
+				dir,
+				last,
+				dir === 1 ? 'No older commit in this lineage.' : 'No newer commit in this lineage.',
+			);
 		}
+
+		return this.applyRowNavigation(event, next);
+	}
+
+	/** Whether a Shift-extend should follow the first-parent chain rather than display order. */
+	private topologicalExtend(event: KeyboardEvent): boolean {
+		return event.shiftKey && this.config?.multiSelectionMode === 'topological';
+	}
+
+	/** Walk up to `steps` first-parent lineage hops from `from` (see `findTopologicalRowIndex`), stopping
+	 *  at the loaded chain's edge. Returns the last reachable index, or undefined when even one hop fails. */
+	private stepChain(from: number, dir: 1 | -1, steps: number): number | undefined {
+		let index: number | undefined;
+		let cursor = from;
+		for (let i = 0; i < steps; i++) {
+			const next = this.findTopologicalRowIndex(cursor, dir);
+			if (next == null) break;
+
+			index = next;
+			cursor = next;
+		}
+		return index;
+	}
+
+	/** Step along the first-parent lineage (Ctrl/Cmd+`↑`/`↓`). */
+	private stepLineage(event: KeyboardEvent, dir: 1 | -1): boolean {
+		const last = this.displayRows.length - 1;
+		// A filtered row set has no lineage to walk (see `searchFiltering`) — release the key rather than
+		// consume it on a walk that can only dead-end.
+		if (last < 0 || this.searchFiltering) return false;
+
+		const next = this.findTopologicalRowIndex(this.focusIndex, dir);
+		if (next == null) {
+			return this.navigationDeadEnd(
+				event,
+				dir,
+				last,
+				dir === 1 ? 'No older commit in this lineage.' : 'No newer commit in this lineage.',
+			);
+		}
+
+		return this.applyRowNavigation(event, next);
+	}
+
+	/** Step to the previous / next branching point (Alt+`↑`/`↓`). */
+	private stepForkPoint(event: KeyboardEvent, dir: 1 | -1): boolean {
+		const last = this.displayRows.length - 1;
+		// Branching points are a lane concept, and a filtered row set has no lanes (see `searchFiltering`).
+		if (last < 0 || this.searchFiltering) return false;
+
+		const next = this.findBranchingPointIndex(this.focusIndex, dir);
+		if (next == null) {
+			return this.navigationDeadEnd(event, dir, last, dir === 1 ? 'No further fork.' : 'No previous fork.');
+		}
+
+		return this.applyRowNavigation(event, next);
+	}
+
+	/** Step to the previous / next ref row — head/remote/tag (`[`/`]`). */
+	private stepRefRow(event: KeyboardEvent, dir: 1 | -1): boolean {
+		const last = this.displayRows.length - 1;
+		if (last < 0) return false;
+
+		const next = this.findRefRowIndex(this.focusIndex, dir);
+		if (next == null) {
+			return this.navigationDeadEnd(event, dir, last, dir === 1 ? 'No further ref.' : 'No previous ref.');
+		}
+
+		return this.applyRowNavigation(event, next);
+	}
+
+	/** Step a page (`PgUp`/`PgDn`). A topological Shift-extend pages ALONG THE CHAIN (a page's worth of
+	 *  lineage hops) for the same reason `stepRow` does. */
+	private stepPage(event: KeyboardEvent, dir: 1 | -1): boolean {
+		const last = this.displayRows.length - 1;
+		if (last < 0) return false;
+
+		const next = this.topologicalExtend(event)
+			? this.stepChain(this.focusIndex, dir, this.pageStep())
+			: dir === 1
+				? Math.min(last, this.focusIndex + this.pageStep())
+				: Math.max(0, this.focusIndex - this.pageStep());
+		if (next == null) {
+			return this.navigationDeadEnd(
+				event,
+				dir,
+				last,
+				dir === 1 ? 'No older commit in this lineage.' : 'No newer commit in this lineage.',
+			);
+		}
+
+		return this.applyRowNavigation(event, next);
+	}
+
+	/** Jump to the first / last loaded row (`Home`/`End`). A topological Shift-extend walks the chain to
+	 *  its loaded edge instead. */
+	private stepEnd(event: KeyboardEvent, dir: 1 | -1): boolean {
+		const last = this.displayRows.length - 1;
+		if (last < 0) return false;
+
+		const next = this.topologicalExtend(event)
+			? this.stepChain(this.focusIndex, dir, this.displayRows.length)
+			: dir === 1
+				? last
+				: 0;
+		if (next == null) {
+			return this.navigationDeadEnd(
+				event,
+				dir,
+				last,
+				dir === 1 ? 'No older commit in this lineage.' : 'No newer commit in this lineage.',
+			);
+		}
+
+		return this.applyRowNavigation(event, next);
+	}
+
+	/** No further target WITHIN the loaded rows: downward is the same dead end End is stuck at, so ask for
+	 *  the next page rather than silently doing nothing. The key stays consumed either way, and the live
+	 *  region says WHICH of the two happened — a silent consumed keypress reads as a wedged key. */
+	private navigationDeadEnd(event: KeyboardEvent, dir: 1 | -1, last: number, miss: string): boolean {
+		// Redundant with the dispatcher's prevent-on-consume, but keeps the key inert on its own.
+		event.preventDefault();
+		// Not while filtered: the displayed rows are the search's match set, so a page of new commits adds
+		// nothing to walk — the ask would just repeat on every press.
+		if (dir === 1 && !this.searchFiltering && this.needsMoreRows(last)) {
+			this.requestMoreRowsForNavigation(last);
+			this.announce('Loading more commits…');
+		} else {
+			this.announce(miss);
+		}
+
+		return true;
+	}
+
+	/** Fold or unfold the focused row's lane segment (`←`/`→`) — the only keyboard path to the lane
+	 *  chevrons (which are managed-focus, tabindex=-1). Returns false when the focused row isn't a segment
+	 *  tip or the direction is a no-op, leaving the key untouched (WAI-ARIA tree pattern). */
+	private foldFocusedLane(dir: 1 | -1): boolean {
+		const sha = this.displayRows[this.focusIndex]?.sha;
+		if (!this.foldingEnabled || sha == null || !this.segmentsByTipSha.has(sha)) return false;
+
+		const collapsed = this.effectiveCollapsed.has(sha);
+		if ((dir === -1 && !collapsed) || (dir === 1 && collapsed)) {
+			this.toggleLane(sha);
+			return true;
+		}
+
+		return false;
+	}
+
+	/** The range-selection anchor as a display index. Falls back to the focused row whenever the anchored
+	 *  commit isn't displayed — never anchored, or folded/filtered/scoped away since. */
+	private get selectionAnchorIndex(): number {
+		const index = this._selectionAnchorSha != null ? this.indexBySha.get(this._selectionAnchorSha) : undefined;
+		return index ?? this.focusIndex;
+	}
+
+	/** Commit a row move to `next`: focus + selection (Shift extends the range from the anchor), reveal, and
+	 *  the paging ask. Returns true — the key is consumed either way, even when the target row is gone. */
+	private applyRowNavigation(event: KeyboardEvent, next: number): boolean {
+		// Any ordinary move leaves the fork the lateral lane walk was anchored at, so the next
+		// Ctrl/Cmd+Arrow re-derives its lanes from wherever focus landed.
+		this._forkNavOrigin = undefined;
 
 		event.preventDefault();
 		const targetSha = this.displayRows[next]?.sha;
@@ -6271,8 +7232,8 @@ export class GlLitGraph extends LitElement {
 		if (event.shiftKey && multiEnabled) {
 			// Shift+Arrow extends a range selection from the fixed anchor to the new row; the details panel
 			// follows the moving end. The anchor stays put across successive Shift+Arrows.
-			const anchor = this._selectionAnchorIndex ?? this.focusIndex;
-			this._selectionAnchorIndex = anchor;
+			const anchor = this.selectionAnchorIndex;
+			this._selectionAnchorSha = this.displayRows[anchor]?.sha;
 			this.focusIndex = next;
 			const lo = Math.min(anchor, next);
 			const hi = Math.max(anchor, next);
@@ -6290,7 +7251,7 @@ export class GlLitGraph extends LitElement {
 			const alreadySelected =
 				this.focusIndex === next && this.selectedShas.size === 1 && this.selectedShas.has(targetSha);
 			this.focusIndex = next;
-			this._selectionAnchorIndex = next;
+			this._selectionAnchorSha = targetSha;
 			if (!alreadySelected) {
 				if (this._pinnedRefKey != null) {
 					this.clearPinnedRef();
@@ -6342,7 +7303,7 @@ export class GlLitGraph extends LitElement {
 		// A programmatic jump moves the graph to a row without the pointer, so it owns the lane seed too.
 		this._laneSeedSource = 'keyboard';
 		this.focusIndex = index;
-		this._selectionAnchorIndex = index;
+		this._selectionAnchorSha = sha;
 		return true;
 	}
 
@@ -8418,12 +9379,34 @@ export class GlLitGraph extends LitElement {
 		this.setRefFindOpen(false);
 	};
 
+	/** Live overlay-stack registration for the find widget — non-null exactly while it's open. */
+	private _refFindOverlay: Disposable | undefined;
+
+	/** Esc is the overlay stack's, not the widget's: focus never leaves its input, so a local handler would
+	 *  beat any surface opened on top of it. Pushed at open time so the stack's LIFO order is the order the
+	 *  surfaces actually opened in. */
+	private pushRefFindOverlay(): void {
+		this._refFindOverlay ??= this.keymap?.pushOverlay({
+			id: 'graph-ref-find',
+			onClose: () => {
+				if (!this.refFindOpen) return false;
+
+				this.setRefFindOpen(false);
+				return true;
+			},
+		});
+	}
+
 	/** Opens/closes the find widget. Closing returns focus to the graph so the keyboard isn't stranded. */
 	private setRefFindOpen(open: boolean): void {
 		if (this.refFindOpen === open) return;
 
 		this.refFindOpen = open;
-		if (!open) {
+		if (open) {
+			this.pushRefFindOverlay();
+		} else {
+			this._refFindOverlay?.dispose();
+			this._refFindOverlay = undefined;
 			// The emphasis belongs to an open find, not to the selection it left behind, and a walk
 			// still landing must not scroll a closed finder's target into view.
 			this._refFindHitKey = undefined;
@@ -8874,6 +9857,8 @@ export class GlLitGraph extends LitElement {
 	private changesModeMenuRef = createRef<HTMLElement>();
 	@state() private changesModeAnchor?: HTMLElement;
 	private changesModeFocusIndex = 0;
+	/** Live overlay-stack registration for the mode menu — non-null exactly while it's open. */
+	private _changesModeOverlay: Disposable | undefined;
 
 	// Optimistic latch: the opt-in overlay's click flips this so the dormant overlay + header tint clear
 	// instantly, before the host's `changesColumnEnabled` push lands. Reset in willUpdate on that push
@@ -8942,6 +9927,17 @@ export class GlLitGraph extends LitElement {
 		// outside-pointer dismiss — add one that EXCEPTS the anchor so a click on the label toggles (never
 		// reopens). Capture phase so it settles before the label's own pointerup toggle.
 		document.addEventListener('pointerdown', this.onChangesModeDocumentPointerDown, true);
+		// Esc goes through the overlay stack so this menu ranks above the focus chain and below anything
+		// opened over it. Pushed at open time to keep the stack in open order.
+		this._changesModeOverlay = this.keymap?.pushOverlay({
+			id: 'graph-changes-mode-menu',
+			onClose: () => {
+				if (this.changesModeAnchor == null) return false;
+
+				this.closeChangesModeMenu('always');
+				return true;
+			},
+		});
 	}
 
 	// Focus on close: 'always' = keyboard/pick paths (ARIA menu pattern — focus returns to the trigger
@@ -8960,6 +9956,8 @@ export class GlLitGraph extends LitElement {
 
 	private detachChangesModeMenu(): void {
 		document.removeEventListener('pointerdown', this.onChangesModeDocumentPointerDown, true);
+		this._changesModeOverlay?.dispose();
+		this._changesModeOverlay = undefined;
 	}
 
 	// Return focus to the label only if the close dropped it to <body> — i.e. the focused glyph was hidden
@@ -9048,11 +10046,8 @@ export class GlLitGraph extends LitElement {
 				next = count - 1;
 				break;
 			// No Enter/Space case: the focused native <button> fires its own @click (→ pickChangesMode).
-			case 'Escape':
-				event.preventDefault();
-				event.stopPropagation();
-				this.closeChangesModeMenu('always');
-				return;
+			// No Escape case either — the open menu sits on the keymap's overlay stack, which closes the
+			// topmost surface only, so a card opened over the menu isn't skipped.
 			case 'Tab':
 				event.preventDefault();
 				this.closeChangesModeMenu('always');
@@ -9790,6 +10785,9 @@ export class GlLitGraph extends LitElement {
 		} | null;
 	} | null = null;
 
+	/** Live overlay-stack registration for an armed/in-flight column drag — Esc aborts it. */
+	private _columnDragOverlay: Disposable | undefined;
+
 	// Whole-cell drag handle: a primary press anywhere on a column header cell arms a reorder (the resize
 	// handle + the controls stopPropagation on pointerdown, so they're excluded). The drag begins only once
 	// the pointer crosses a small threshold. Mirrors `onResizeStart`: preventDefault (else the browser's
@@ -9852,7 +10850,17 @@ export class GlLitGraph extends LitElement {
 		window.addEventListener('pointermove', this.onColumnPointerMove);
 		window.addEventListener('pointerup', this.onColumnPointerUp);
 		window.addEventListener('pointercancel', this.onColumnPointerCancel);
-		window.addEventListener('keydown', this.onColumnDragKeydown);
+		// Esc aborts the drag through the overlay stack, which outranks every focus-scope binding — so the
+		// rows' Escape (clear selection) can't also fire, and no guard is needed there for it.
+		this._columnDragOverlay = this.keymap?.pushOverlay({
+			id: 'graph-column-drag',
+			onClose: () => {
+				if (this.columnDrag == null) return false;
+
+				this.cancelColumnDrag();
+				return true;
+			},
+		});
 	}
 
 	private onColumnPointerMove = (event: PointerEvent): void => {
@@ -10154,16 +11162,6 @@ export class GlLitGraph extends LitElement {
 		this.cancelColumnDrag();
 	};
 
-	// Escape discards the in-flight simulation (restores the base order). Stop propagation so it doesn't
-	// also reach the viewport's keydown handler and clear the row selection as a side effect.
-	private onColumnDragKeydown = (event: KeyboardEvent): void => {
-		if (event.key !== 'Escape' || this.columnDrag == null) return;
-
-		event.preventDefault();
-		event.stopPropagation();
-		this.cancelColumnDrag();
-	};
-
 	private cancelColumnDrag(): void {
 		const base = this.columnDrag?.base ?? null;
 		this.endColumnDrag();
@@ -10188,7 +11186,8 @@ export class GlLitGraph extends LitElement {
 		window.removeEventListener('pointermove', this.onColumnPointerMove);
 		window.removeEventListener('pointerup', this.onColumnPointerUp);
 		window.removeEventListener('pointercancel', this.onColumnPointerCancel);
-		window.removeEventListener('keydown', this.onColumnDragKeydown);
+		this._columnDragOverlay?.dispose();
+		this._columnDragOverlay = undefined;
 		document.body.style.cursor = '';
 		this.draggingColumn = false;
 		this.dragColId = null;
@@ -10309,7 +11308,9 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		'gl-graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig; revision?: number }>;
+		'gl-graph-copy-request': CustomEvent<{ context: string; selectionContexts?: string[] }>;
 		'gl-graph-lanetoggle': CustomEvent<{ tipSha: string }>;
+		'gl-graph-lanetoggleall': CustomEvent<{ collapsed: boolean }>;
 		'gl-graph-mouseleave': CustomEvent<void>;
 	}
 }

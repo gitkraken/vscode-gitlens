@@ -36,10 +36,14 @@ export interface WipCandidate {
  *  1. **Exact-anchor match.** If a WIP's anchor IS the clicked commit (the user clicked
  *     directly on a branch's tip that has a WIP attached), return that WIP — regardless of
  *     column. Captures "I clicked the tip of this branch, take me to its working changes."
- *  2. **Same column.** Among WIPs whose anchor renders in the same column as the clicked
- *     commit, pick the one whose anchor is closest by row distance. The WIP's own row column
- *     and its anchor's column are the same by construction (the synthetic WIP row inherits
- *     the anchor's lane), so anchor column is the canonical lane signal.
+ *  2. **Nearest above, in the lane.** Among WIPs whose anchor renders in the same column as the
+ *     clicked commit and sits at-or-above it, pick the one whose anchor is NEAREST. An anchor
+ *     above the click in its own lane is a checkout whose state CONTAINS the clicked commit, and
+ *     the nearest such anchor is the most specific container — the working changes that sit
+ *     directly on top of this commit rather than a broader branch further up the same lane.
+ *     Membership is tested on the ANCHOR's column, which is the lane the user reads the WIP as
+ *     belonging to — the WIP row usually lands in that same lane, but layout gives it one of its
+ *     own when the anchor's column is already reserved, so its own column is not a reliable signal.
  *  3. **Otherwise → undefined.** Caller falls back to the primary WIP. No attempt to pick
  *     across lanes — clicking a commit on an unrelated lane shouldn't trigger a jump to a
  *     branch in a different visual lane.
@@ -98,12 +102,11 @@ export function findWipInColumn(
 	}
 	if (exact != null) return exact.sha;
 
-	// Rule 2: among same-column WIPs whose anchor is at-or-above the click, pick the one
-	// FARTHEST UP (largest row distance). The farthest-up tip in a shared column is the most
-	// principal branch in that lane — typically `main` when many feature branches share its
-	// first-parent chain without yet visually diverging. Closest-up was the wrong call: it
-	// always landed on whichever feature branch had a tip newest above the click, even when
-	// that feature is a side-extension of the lane's principal branch.
+	// Rule 2: among same-column WIPs whose anchor is at-or-above the click, pick the one NEAREST
+	// (smallest row distance). Every candidate here is a checkout that CONTAINS the clicked commit
+	// — it's in that anchor's history — so the choice is which container the user means, and the
+	// nearest one is the most specific: the working changes sitting directly on top of this commit,
+	// not a broader branch further up the same lane.
 	//
 	// Filters:
 	// - **Column**: an anchor whose column isn't yet in `columnsBySha` (columns are emitted only
@@ -124,7 +127,7 @@ export function findWipInColumn(
 		const distance = fromIndex - anchorIndex;
 		if (
 			best == null ||
-			distance > best.distance ||
+			distance < best.distance ||
 			(distance === best.distance &&
 				preferOver(wip, { sha: best.sha, anchor: wip.anchor, primary: best.primary }))
 		) {

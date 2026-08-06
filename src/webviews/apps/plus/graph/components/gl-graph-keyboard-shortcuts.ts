@@ -1,268 +1,403 @@
-import { css, html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { css, html, LitElement, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { getAltKeySymbol, getCmdKeySymbol, getShiftKeySymbol, isMac } from '@env/platform.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
+import type { ChordSymbols } from '@gitlens/utils/keys/chord.js';
+import { formatChordParts, parseChord } from '@gitlens/utils/keys/chord.js';
+import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { KeymapDispatcher, KeymapSheetRow } from '../../../shared/keymap/keymapDispatcher.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/dialog.js';
 
-// Platform-aware modifier labels — symbols on macOS, words elsewhere.
-const ctrlOrCmd = getCmdKeySymbol();
-const alt = getAltKeySymbol();
-const shift = getShiftKeySymbol();
+// Platform-aware modifier symbols, matching how `parseChord`/`formatChordParts` resolve `mod` (`meta`
+// on macOS, `ctrl` elsewhere) — `ctrl` stays the literal Ctrl label on both platforms since an
+// explicit (non-`mod`) `ctrl+` binding means the physical key, not "Ctrl or Cmd".
+const chordSymbols: ChordSymbols = {
+	ctrl: 'Ctrl',
+	alt: getAltKeySymbol(),
+	shift: getShiftKeySymbol(),
+	meta: getCmdKeySymbol(),
+};
 
 // macOS stacks modifier symbols with no separator (⇧↑); elsewhere we join words with `+` (Shift+↑).
 const chordSeparator = isMac ? '' : '+';
 
-/** A single key chord, e.g. `['⌘', 'F']` — rendered as one chip joining its keys. */
-type Chord = string[];
-type Shortcut = { chords: Chord[]; description: string };
-type ShortcutGroup = { title: string; shortcuts: Shortcut[] };
+type SheetGroup = 'navigation' | 'selection' | 'folding' | 'goto' | 'panels' | 'search';
 
-// Chrome bindings — owned by search-box/search-input, gl-commit-box, and the hover/minimap Escape
-// handlers rather than the graph rows, so they stay in effect regardless of what the graph renders.
-const openGroup: ShortcutGroup = {
-	title: 'Open',
-	shortcuts: [
-		{ chords: [['Enter']], description: 'Open the selected commit' },
-		{ chords: [['Space']], description: 'Select commit, keep focus in graph' },
-	],
-};
-const searchGroup: ShortcutGroup = {
-	title: 'Search',
-	shortcuts: [
-		{ chords: [[ctrlOrCmd, 'F']], description: 'Focus the search box' },
-		{
-			chords: isMac ? [['F3'], [ctrlOrCmd, 'G']] : [['F3']],
-			description: 'Go to next match (hold Shift for previous)',
-		},
-		{ chords: [['Enter'], [shift, 'Enter']], description: 'Next / previous match (in search box)' },
-		{ chords: [['↑'], ['↓']], description: 'Search history & autocomplete (in search box)' },
-		{ chords: [['Esc']], description: 'Cancel the search' },
-	],
-};
-const commitGroup: ShortcutGroup = {
-	title: 'Commit',
-	shortcuts: [{ chords: [[ctrlOrCmd, 'Enter']], description: 'Commit staged changes (in commit box)' }],
-};
-// Not derivable from the graph's `onKeydown` — Alt is a hold modifier, and Esc is chrome (hover/error/minimap/side bar).
-const otherGroup: ShortcutGroup = {
-	title: 'Other',
-	shortcuts: [
-		{
-			chords: [[alt]],
-			description:
-				'Hold to highlight the branch lane of the hovered or focused row, else HEAD (dismisses the hover)',
-		},
-		{ chords: [['Esc']], description: 'Close hover or unpinned side bar, dismiss error, or exit minimap zoom' },
-	],
+// Render order, left column first — CSS multicol flows the groups in this order.
+const groupOrder: readonly SheetGroup[] = ['navigation', 'selection', 'folding', 'goto', 'panels', 'search'];
+
+const groupTitles: Record<SheetGroup, string> = {
+	navigation: 'Navigation',
+	selection: 'Selection',
+	folding: 'Folding',
+	goto: 'Go to',
+	panels: 'Panels',
+	search: 'Search',
 };
 
-// Mirrors the graph's `onKeydown` (navigation + open + fold) — keep in sync when its bindings change.
-// `/` is the exception: it's a webview-wide shortcut owned by `gl-graph-app`, not a rows-only binding.
-const navigationGroup: ShortcutGroup = {
-	title: 'Navigation',
-	shortcuts: [
-		{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
-		{ chords: [['←'], ['→']], description: 'Collapse / expand the focused branch lane' },
-		{
-			chords: [
-				[shift, '↑'],
-				[shift, '↓'],
-			],
-			description: 'Extend selection up / down',
-		},
-		{
-			chords: [
-				[ctrlOrCmd, '↑'],
-				[ctrlOrCmd, '↓'],
-			],
-			description: 'Select topologically (follow branch lineage)',
-		},
-		{
-			chords: [
-				[alt, '↑'],
-				[alt, '↓'],
-			],
-			description: 'Select previous / next branching point',
-		},
-		{ chords: [['Home'], ['End']], description: 'Select first / last commit' },
-		{ chords: [['PgUp'], ['PgDn']], description: 'Move selection up / down a page' },
-		{
-			chords: [
-				[alt, 'PgUp'],
-				[alt, 'PgDn'],
-			],
-			description: 'Select previous / next ref',
-		},
-		{ chords: [['H']], description: 'Select HEAD commit (hold Shift for its upstream)' },
-		{ chords: [['/']], description: 'Find a branch or tag by name and jump to it' },
-		{ chords: [['Esc']], description: 'Clear selection' },
-	],
-};
-const shortcutGroups: ShortcutGroup[] = [navigationGroup, openGroup, searchGroup, commitGroup, otherGroup];
+// Bindings that live outside the keymap registry entirely — owned by chrome elements (the search box,
+// the row's Tab-dive handler) or not expressible as a binding (a hold-only modifier, Shift riding
+// along on every movement chord, Esc's overlay-stack meaning). New keyboard behavior belongs in a
+// binding's `sheet` metadata, NOT here — only add a row here when there's truly no binding to attach
+// it to.
+const residualRows: readonly KeymapSheetRow[] = [
+	{ group: 'navigation', label: "Focus the commit's refs & actions", order: 7, keys: ['Tab'] },
+	{
+		group: 'selection',
+		label: 'Extend the selection',
+		order: 1,
+		// Not a chord: Shift is declared on each movement binding rather than bound on its own, so
+		// the rail spells "Shift + nav" out of literals.
+		keys: [`mod:${chordSymbols.shift}`, `sep:${chordSeparator}`, 'text:nav'],
+	},
+	{ group: 'search', label: 'Next match', order: 3, keys: isMac ? ['F3', 'mod+KeyG'] : ['F3'] },
+	{ group: 'search', label: 'Previous match', order: 4, keys: ['shift+F3'] },
+	{ group: 'footer', label: 'closes the topmost', order: 1, keys: ['Escape'] },
+	{ group: 'footer', label: 'to highlight the lane', order: 3, keys: ['text:Hold ', `raw:${chordSymbols.alt}`] },
+];
 
 @customElement('gl-graph-keyboard-shortcuts')
 export class GlGraphKeyboardShortcuts extends LitElement {
-	static override styles = css`
-		:host {
-			display: contents;
-		}
+	static override styles = [
+		scrollableBase,
+		css`
+			:host {
+				display: contents;
+			}
 
-		.shortcuts-dialog::part(base) {
-			width: 56rem;
-			max-width: 90vw;
-		}
+			/* Scoped to [open]: an unconditional display on the part would override the UA's
+	   dialog:not([open]) { display: none } and paint the closed sheet inline under the graph. */
+			.shortcuts-dialog[open]::part(base) {
+				display: flex;
+				flex-direction: column;
+			}
 
-		.container {
-			display: flex;
-			flex-direction: column;
-			gap: 1.4rem;
-		}
+			.shortcuts-dialog::part(base) {
+				/* gl-dialog's own styles don't set box-sizing, so without it here width/max-width
+		   size the CONTENT box only — the dialog's padding then pushes the actual box past
+		   the max-width at narrow widths. */
+				box-sizing: border-box;
+				width: 104rem;
+				max-width: 96vw;
+				max-height: 92vh;
+				/* Sections own their own padding (the title bar and footer rules need to sit flush
+		   against the dialog edge), so the dialog contributes none. */
+				padding: 0;
+				overflow: hidden;
+			}
 
-		.header {
-			display: flex;
-			gap: var(--gl-space-16);
-			align-items: center;
-			justify-content: space-between;
-		}
+			.container {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				min-height: 0;
+				/* The column count responds to the DIALOG's width, not the viewport's — the graph can
+		   be docked into a narrow panel while the window stays wide. Sized by the dialog above,
+		   so inline-size containment has nothing to circularly resolve. */
+				container-type: inline-size;
+			}
 
-		.header h2 {
-			display: flex;
-			gap: var(--gl-space-8);
-			align-items: center;
-			margin: 0;
-			font-size: 1.5rem;
-			font-weight: 600;
-		}
+			.titlebar {
+				display: flex;
+				gap: var(--gl-space-16);
+				align-items: center;
+				justify-content: space-between;
+				padding: 1.3rem 2rem;
+				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border);
+			}
 
-		.close {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			padding: var(--gl-space-4);
-			color: inherit;
-			cursor: pointer;
-			background: none;
-			border: none;
-			border-radius: var(--gl-radius-sm);
-		}
+			.titlebar h2 {
+				display: flex;
+				gap: var(--gl-space-8);
+				align-items: center;
+				margin: 0;
+				font-size: var(--gl-font-lg);
+				font-weight: 600;
+			}
 
-		.close:hover {
-			background: var(--vscode-toolbar-hoverBackground);
-		}
+			.close {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 2.4rem;
+				height: 2.4rem;
+				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				cursor: pointer;
+				background: none;
+				border: none;
+				border-radius: var(--gl-radius-sm);
+			}
 
-		.groups {
-			column-count: 2;
-			column-gap: var(--gl-space-24);
-		}
+			.close:hover {
+				color: var(--vscode-foreground);
+				background: var(--vscode-toolbar-hoverBackground);
+			}
 
-		.group {
-			margin-bottom: var(--gl-space-12);
-			break-inside: avoid;
-		}
+			/* Caps how tall the sheet gets before it scrolls internally; flex + min-height let it give
+	   back below that cap when the dialog itself is height-capped by a short viewport. */
+			.scrollwrap {
+				flex: 1;
+				min-height: 0;
+				max-height: 76vh;
+				overflow: hidden auto;
+			}
 
-		.group:last-child {
-			margin-bottom: 0;
-		}
+			.body {
+				column-gap: 3.2rem;
+				padding: 1.8rem 2rem 1.4rem;
+				columns: 3;
+			}
 
-		.group h3 {
-			margin: 0 0 var(--gl-space-4);
-			font-size: var(--gl-font-sm);
-			font-weight: 600;
-			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
-			text-transform: uppercase;
-			letter-spacing: 0.05rem;
-		}
+			@container (max-width: 88rem) {
+				.body {
+					columns: 2;
+				}
+			}
 
-		.rows {
-			display: grid;
-			grid-template-columns: max-content 1fr;
-			gap: var(--gl-space-4) var(--gl-space-10);
-			align-items: baseline;
-		}
+			@container (max-width: 60rem) {
+				.body {
+					columns: 1;
+				}
+			}
 
-		.keys {
-			display: inline-flex;
-			flex-wrap: wrap;
-			gap: var(--gl-space-6);
-		}
+			.group {
+				margin-bottom: 1.7rem;
+				break-inside: avoid;
+			}
 
-		kbd {
-			display: inline-block;
-			min-width: 1.6rem;
-			padding: 0.1rem 0.4rem;
-			font-family: inherit;
-			font-size: var(--gl-font-sm);
-			line-height: 1.5;
-			color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
-			text-align: center;
-			background-color: var(--vscode-keybindingLabel-background, var(--vscode-toolbar-hoverBackground));
-			border: var(--gl-border-width) solid var(--vscode-keybindingLabel-border, transparent);
-			border-bottom-color: var(
-				--vscode-keybindingLabel-bottomBorder,
-				var(--vscode-keybindingLabel-border, transparent)
-			);
-			border-radius: var(--gl-radius-sm);
-		}
+			.group h3 {
+				margin: 0 0 0.7rem;
+				font-size: 1rem;
+				font-weight: 600;
+				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+			}
 
-		.desc {
-			font-size: var(--gl-font-md);
-			color: var(--color-foreground--75, var(--vscode-foreground));
-		}
+			.row {
+				display: flex;
+				align-items: baseline;
+				margin-bottom: 0.45rem;
+				font-size: var(--gl-font-md);
+			}
 
-		.footnote {
-			margin: 0;
-			font-size: var(--gl-font-sm);
-			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
-		}
-	`;
+			.keys {
+				flex: 0 0 12.5rem;
+				width: 12.5rem;
+				padding-right: 1.1rem;
+				text-align: right;
+				white-space: nowrap;
+			}
+
+			.label {
+				flex: 1;
+				color: var(--vscode-foreground);
+			}
+
+			/* Secondary key sequences get their own line under the label — inline text is for short
+	   qualifiers only. */
+			.subline {
+				display: block;
+				margin-top: 0.15rem;
+				font-size: 1.02rem;
+				color: var(--color-foreground--50, var(--vscode-descriptionForeground));
+			}
+
+			.subline kbd {
+				padding: 0.1rem 0.4rem;
+				font-size: 0.92rem;
+			}
+
+			.subline .text {
+				font-size: inherit;
+				color: inherit;
+			}
+
+			kbd {
+				display: inline-block;
+				padding: 0.15rem 0.5rem;
+				font-family: inherit;
+				font-size: 1rem;
+				color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
+				background-color: var(--vscode-keybindingLabel-background, var(--vscode-toolbar-hoverBackground));
+				border: var(--gl-border-width) solid var(--vscode-keybindingLabel-border, transparent);
+				border-bottom-color: var(
+					--vscode-keybindingLabel-bottomBorder,
+					var(--vscode-keybindingLabel-border, transparent)
+				);
+				border-radius: var(--gl-radius-sm);
+			}
+
+			/* Modifiers read as hollow so the eye lands on the key that actually names the shortcut. */
+			kbd.mod {
+				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				background-color: transparent;
+			}
+
+			.sep {
+				margin: 0 0.12rem;
+				font-size: 1rem;
+				color: var(--color-foreground--50, var(--vscode-descriptionForeground));
+			}
+
+			.text {
+				font-size: 1.05rem;
+				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+			}
+
+			.footrow {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.8rem 3.2rem;
+				justify-content: center;
+				padding: 1.2rem 0 1.4rem;
+				margin: 0 2rem;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+				white-space: nowrap;
+				border-top: var(--gl-border-width) solid var(--vscode-widget-border);
+			}
+
+			.footrow kbd {
+				font-size: 0.95rem;
+			}
+		`,
+	];
+
+	// The dispatcher the sheet renders from — bound by graph-app (`.keymap=${this.keymap}`), so the
+	// rows always reflect the live registered bindings.
+	@property({ attribute: false })
+	keymap: KeymapDispatcher<string> | undefined;
 
 	@state()
 	private open = false;
 
+	private _overlay: Disposable | undefined;
+
 	show(): void {
 		this.open = true;
+		// Join the Esc overlay stack: opened over another overlay (ref-find, minimap zoom), LIFO makes
+		// the sheet close FIRST. Without this the dispatcher pops the hidden overlay behind the modal
+		// and its preventDefault suppresses the native dialog's own Esc dismissal — a dead-looking press.
+		this._overlay ??= this.keymap?.pushOverlay({
+			id: 'graph-keyboard-shortcuts',
+			onClose: () => {
+				this.close();
+				return true;
+			},
+		});
 	}
 
 	private close(): void {
+		// Dispose covers every close path the dispatcher didn't drive (✕ button, backdrop click).
+		this._overlay?.dispose();
+		this._overlay = undefined;
 		this.open = false;
+		// Native dialog close leaves DOM focus on whatever it focused INSIDE the (now closed) dialog —
+		// stranding the keyboard on a hidden control. Tell the host so it can land focus somewhere useful.
+		this.dispatchEvent(new CustomEvent('gl-graph-keyboard-shortcuts-closed'));
 	}
 
 	override render(): unknown {
+		const grouped = new Map<string, KeymapSheetRow[]>();
+		for (const row of [...(this.keymap?.sheetEntries() ?? []), ...residualRows]) {
+			let list = grouped.get(row.group);
+			if (list == null) {
+				list = [];
+				grouped.set(row.group, list);
+			}
+
+			list.push(row);
+		}
+
+		for (const list of grouped.values()) {
+			list.sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+		}
+
 		return html`<gl-dialog
 			class="shortcuts-dialog"
 			modal
 			closedby="any"
+			label="Keyboard Shortcuts"
 			?open=${this.open}
 			@gl-dialog-close=${this.close}
 		>
 			<div class="container">
-				<header class="header">
+				<header class="titlebar">
 					<h2><code-icon icon="keyboard"></code-icon> Keyboard Shortcuts</h2>
 					<button class="close" type="button" aria-label="Close" @click=${this.close}>
 						<code-icon icon="close"></code-icon>
 					</button>
 				</header>
-				<div class="groups">${shortcutGroups.map(g => this.renderGroup(g))}</div>
-				<p class="footnote">Shortcuts apply while the Commit Graph has focus.</p>
+				<div class="scrollwrap scrollable">
+					<div class="body">
+						${groupOrder
+							.filter(group => grouped.has(group))
+							.map(group => this.renderGroup(group, grouped.get(group)!))}
+					</div>
+				</div>
+				<div class="footrow">
+					${(grouped.get('footer') ?? []).map(
+						row => html`<span>${this.renderEntries(row.keys, false)} ${row.label}</span>`,
+					)}
+				</div>
 			</div>
 		</gl-dialog>`;
 	}
 
-	private renderGroup(group: ShortcutGroup): unknown {
+	private renderGroup(group: SheetGroup, rows: readonly KeymapSheetRow[]): unknown {
 		return html`<section class="group">
-			<h3>${group.title}</h3>
-			<div class="rows">
-				${group.shortcuts.map(
-					s =>
-						html`<span class="keys">${s.chords.map(c => this.renderChord(c))}</span>
-							<span class="desc">${s.description}</span>`,
-				)}
-			</div>
+			<h3>${groupTitles[group]}</h3>
+			${rows.map(
+				row => html`<div class="row">
+					<span class="keys">${this.renderEntries(row.keys, true)}</span>
+					<span class="label"
+						>${row.label}${
+							row.subline != null
+								? html`<span class="subline">${this.renderEntries(row.subline, false)}</span>`
+								: nothing
+						}</span
+					>
+				</div>`,
+			)}
 		</section>`;
 	}
 
-	private renderChord(chord: Chord): unknown {
-		return html`<kbd>${chord.join(chordSeparator)}</kbd>`;
+	/** Renders a display-entry list. `spaced` puts a space between adjacent chips — what the keys rail
+	 *  wants (`↑ ↓`, `[ ]`) — while sublines and the footer run tight. `sep:`/`text:` entries carry
+	 *  their own spacing in their payloads, so nothing is inserted on either side of them. */
+	private renderEntries(entries: readonly string[], spaced: boolean): unknown {
+		const spacing = (entry: string) => !entry.startsWith('sep:') && !entry.startsWith('text:');
+
+		return entries.map((entry, i) => {
+			const gap = spaced && i > 0 && spacing(entry) && spacing(entries[i - 1]);
+			return html`${gap ? ' ' : nothing}${this.renderEntry(entry)}`;
+		});
+	}
+
+	/** Resolves one `SheetDisplayEntry` — see its type for the grammar. */
+	private renderEntry(entry: string): unknown {
+		if (entry.startsWith('raw:')) return html`<kbd>${entry.slice('raw:'.length)}</kbd>`;
+
+		if (entry.startsWith('mod:')) return html`<kbd class="mod">${entry.slice('mod:'.length)}</kbd>`;
+
+		if (entry.startsWith('text:')) return html`<span class="text">${entry.slice('text:'.length)}</span>`;
+
+		if (entry.startsWith('sep:')) {
+			const text = entry.slice('sep:'.length);
+			// An empty payload is how the platform-resolved chord separator collapses on macOS.
+			return text ? html`<span class="sep">${text}</span>` : nothing;
+		}
+
+		const parts = formatChordParts(parseChord(entry, isMac), chordSymbols);
+		return parts.map(
+			(part, i) =>
+				html`${i > 0 && chordSeparator ? html`<span class="sep">${chordSeparator}</span>` : nothing}<kbd
+						class=${part.kind === 'mod' ? 'mod' : nothing}
+						>${part.text}</kbd
+					>`,
+		);
 	}
 }
 

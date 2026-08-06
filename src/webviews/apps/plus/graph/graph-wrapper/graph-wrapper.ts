@@ -54,6 +54,7 @@ import type { CustomEventType } from '../../../shared/components/element.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../../shared/contexts/telemetry.js';
+import type { KeymapDispatcher } from '../../../shared/keymap/keymapDispatcher.js';
 import type { AnchorKey } from '../components/anchorKey.js';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
@@ -62,6 +63,7 @@ import { graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
+import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
 import { isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { GraphHostSelectionRequest } from '../utils/hostSelectionRequest.js';
@@ -383,12 +385,23 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.querySelector('gl-lit-graph')?.openRefFind(returnFocus);
 	}
 
+	/** Holds off the graph's Alt-hold lane dim until Alt is released — for graph-app's Alt+digit /
+	 *  Alt+letter shortcuts, whose Alt press would otherwise dim the graph on the way to the action. */
+	suppressModifierChainUntilAltRelease(): void {
+		this.querySelector('gl-lit-graph')?.suppressModifierChainUntilAltRelease();
+	}
+
 	/** The GRAPH-ROW sha(s) of graph-app's inspection anchor (the single source of truth for what the
 	 *  details panel shows). The wrapper DERIVES the row highlight from this each render
 	 *  (`anchorShas ∩ renderableRows`), so the highlight is never stored/stale — it goes empty
 	 *  when the anchor row isn't renderable (scope/visibility filter-out), and the details persist. */
 	@property({ attribute: false })
 	anchorShas?: readonly string[];
+
+	/** The webview's key dispatcher, forwarded to `<gl-lit-graph>` so it can register the `rows` scope
+	 *  and its bindings. Owned by `gl-graph-app`. */
+	@property({ attribute: false })
+	keymap?: KeymapDispatcher<GraphKeymapScope>;
 
 	/** The current branch's merge-target tip + name (pulled client-side via the scope-anchor pipeline) —
 	 *  forwarded straight through to `<gl-lit-graph>`, the one row-marker leg the client can't derive
@@ -472,11 +485,33 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		});
 	};
 
-	private onJumpToNearestWip = (e: CustomEvent<{ fromSha: string; reveal?: GraphRevealMode; flash?: boolean }>) => {
+	private onJumpToNearestWip = (
+		e: CustomEvent<{
+			fromSha: string;
+			focus?: boolean;
+			reveal?: GraphRevealMode;
+			flash?: boolean;
+			target?: 'primary' | 'nearest';
+		}>,
+	) => {
+		// `target: 'primary'` (this graph's own row) skips the column/ancestry search entirely.
+		if (e.detail.target === 'primary') {
+			void this.navigateToWipRow(uncommitted, e.detail);
+
+			return;
+		}
+
 		const rows = this.graphState.rows;
 		// PEER rows only — the graph's own is passed separately below as the flagged `primaryWip`
 		// candidate (keyed by `uncommitted`, which is what `navigateToCommit` resolves back to its row).
-		const peerWipRows = this.getPeerWipRows();
+		// Filtered exactly as the decoration filters them, so the search can't target a peer whose row
+		// isn't rendered (scope / branch visibility) — that jump would silently wait out its deferral.
+		const peerWipRows = filterSecondariesForScopeAndVisibility(
+			this.getPeerWipRows(),
+			this.graphState.scope,
+			this.graphState.branchesVisibility,
+			this.graphState.includeOnlyRefs,
+		);
 		const primaryAnchor = this.graphState.branch?.sha;
 		// The engine-side search is host-agnostic — it takes the primary WIP as a flagged candidate
 		// rather than knowing GitLens' `uncommitted` sentinel. The flag is what wins its tie-breaks.
@@ -487,17 +522,23 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// Undefined before it mounts, which keeps the BFS-ancestry fallback below as the safety net.
 		const columnsBySha = this.querySelector('gl-lit-graph')?.getColumnsBySha();
 
+		// Starting ON a WIP row (Shift+W from working changes): its sha is synthetic, so it's in neither
+		// `rows` nor the column map and every strategy below would miss it. Search from its anchor commit
+		// instead — the real row it sits on top of.
+		const fromRow = this.getDecoratedRowByShaMap()?.get(e.detail.fromSha);
+		const fromSha = (fromRow?.kind === 'workdir' ? fromRow.parents[0] : undefined) ?? e.detail.fromSha;
+
 		// Primary strategy: pick the WIP in the same column as the clicked commit (the
 		// "visual lane" the user sees). Exact-anchor match (clicked commit IS a branch tip
 		// with a WIP) overrides — jumps directly to that branch's WIP regardless of column.
-		let target = findWipInColumn(e.detail.fromSha, rows, primaryWip, peerWipRows, columnsBySha);
+		let target = findWipInColumn(fromSha, rows, primaryWip, peerWipRows, columnsBySha);
 
 		// Defensive fallback when column data for the clicked commit is unavailable — either
 		// the cold-start window before the graph has laid out and exposed any columns, OR the brief partial-load
 		// gap after scope change / paging where the clicked row is in `rows` but not yet in
 		// the column map. Without this, clicks during the gap blindly snap to primary.
 		// Once the column for the clicked commit lands, the column rule dominates.
-		if (target == null && columnsBySha?.[e.detail.fromSha] == null) {
+		if (target == null && columnsBySha?.[fromSha] == null) {
 			const wips: WipCandidate[] = [];
 			if (primaryWip != null) {
 				wips.push(primaryWip);
@@ -509,16 +550,29 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					}
 				}
 			}
-			target = findNearestWipByAncestry(e.detail.fromSha, wips, rows);
+			target = findNearestWipByAncestry(fromSha, wips, rows);
 		}
 
 		// Last-resort: no in-column WIP and no ancestry match → jump to the primary (uncommitted).
-		void this.navigateToCommit(target ?? uncommitted, {
-			source: 'wip-jump',
-			reveal: e.detail.reveal,
-			flash: e.detail.flash,
-		});
+		void this.navigateToWipRow(target ?? uncommitted, e.detail);
 	};
+
+	/** Run a nearest-WIP jump and report a miss to the graph's live region — the WIP row can be absent
+	 *  (detached HEAD, a scope that excludes it) and a silent no-op there reads as a broken key. */
+	private async navigateToWipRow(
+		sha: string,
+		options: { focus?: boolean; reveal?: GraphRevealMode; flash?: boolean },
+	): Promise<void> {
+		const result = await this.navigateToCommit(sha, {
+			source: 'wip-jump',
+			focus: options.focus,
+			reveal: options.reveal,
+			flash: options.flash,
+		});
+		if (result.status === 'not-found') {
+			this.querySelector('gl-lit-graph')?.announce('No working changes row to jump to.');
+		}
+	}
 
 	// Cache keyed by (rows, wipRowsById, primaryRepoPath, scope, branchesVisibility,
 	// includeOnlyRefs, branch.id + detached) — any reference change invalidates. Only the TOPOLOGY
@@ -1040,6 +1094,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.scope=${graphState.scope}
 			.wipStateById=${graphState.wipStateById}
 			.rowMarkerMergeTarget=${this.rowMarkerMergeTarget}
+			.keymap=${this.keymap}
 			.primaryWipRowId=${showPrimary ? primaryWipRowId : undefined}
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
@@ -1460,7 +1515,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (options?.signal?.aborted === true) return { status: 'cancelled' };
 
 		const litGraph = this.querySelector('gl-lit-graph');
-		const { rows: decorated, primaryWipRowId } = this.getDecoratedRows();
+		const { rows: decorated, showPrimary, primaryWipRowId } = this.getDecoratedRows();
 
 		// Callers referring to "the WIP" by git revision (sidebar panel, overview cards) hand us
 		// `uncommitted`, which is NOT a row id — map it to the graph's own worktree's WIP row here, the
@@ -1472,7 +1527,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			// Returning is the honest answer; the next render (once `repositories`/`selectedRepository`
 			// land) synthesizes the row and a repeat call resolves. Deliberate: the previous behavior
 			// normalized to a path-free constant and fired a host round-trip that could never resolve it.
-			if (primaryWipRowId == null) {
+			//
+			// `showPrimary` is the same gate the decoration renders on: with it false (detached HEAD, a
+			// scope that excludes the current branch) the row is never synthesized, so deferring to it
+			// would just wait out the timeout in silence.
+			if (primaryWipRowId == null || !showPrimary) {
 				return { status: 'not-found' };
 			}
 

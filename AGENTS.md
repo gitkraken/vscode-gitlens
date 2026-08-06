@@ -95,6 +95,8 @@ The repo enforces its own rules from `scripts/eslint-rules/`. Write conforming c
 > For webview styling — prefix conventions, the `1rem = 10px` base, the `--gl-*` design tokens, and the elevation (z-index + shadow) system: see `docs/webview-styling.md`
 >
 > For webview accessibility requirements: see `docs/accessibility.md`
+>
+> For the Commit Graph keyboard architecture — focus scopes, the Esc overlay stack, the chord vocabulary, and how to add a binding: see `docs/graph-keyboard.md`
 
 ### Decorator System
 

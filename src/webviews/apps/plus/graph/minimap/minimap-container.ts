@@ -526,6 +526,11 @@ export class GlGraphMinimapContainer extends GlElement {
 	}
 
 	private handleExitZoom() {
+		this.resetZoom();
+	}
+
+	/** Exits the minimap's brush/scope zoom. Public so `graph-app` can drive it from the Esc overlay stack. */
+	resetZoom(): void {
 		this.minimap?.resetZoom();
 	}
 

@@ -4,6 +4,8 @@ import { until } from 'lit/directives/until.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
+import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
 import type { DidGetRowHoverParams } from '../../../../plus/graph/protocol.js';
 import { GlElement } from '../../../shared/components/element.js';
@@ -65,6 +67,11 @@ export class GlGraphHover extends GlElement {
 	@property({ type: Function })
 	requestMarkdown: ((row: GitGraphRow) => Promise<DidGetRowHoverParams>) | undefined;
 
+	/** Pushes this card onto the keymap's Esc overlay stack while it's open, so one Esc closes the
+	 *  topmost surface only. Injected by `graph-app`, which owns the dispatcher. */
+	@property({ attribute: false })
+	pushOverlay?: (entry: OverlayEntry) => Disposable;
+
 	@query('gl-popover')
 	popup!: GlPopover;
 
@@ -81,18 +88,21 @@ export class GlGraphHover extends GlElement {
 	// Alt registers even while the graph is unfocused.
 	private readonly _modifiers = new ModifierKeysController(this);
 
+	/** Live overlay-stack registration — non-null exactly while the card is open. */
+	private _overlay: Disposable | undefined;
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
 		this.parentElement?.addEventListener('mouseleave', this.onParentMouseLeave);
-		window.addEventListener('keydown', this.onWindowKeydown);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 
 		this.parentElement?.removeEventListener('mouseleave', this.onParentMouseLeave);
-		window.removeEventListener('keydown', this.onWindowKeydown);
+		this._overlay?.dispose();
+		this._overlay = undefined;
 	}
 
 	override firstUpdated(): void {
@@ -246,12 +256,6 @@ export class GlGraphHover extends GlElement {
 		this.unhoverTimer = setTimeout(() => this.hide(), 150);
 	}
 
-	private onWindowKeydown = (e: KeyboardEvent) => {
-		if (e.key === 'Escape') {
-			this.hide();
-		}
-	};
-
 	private showCore(
 		anchor: string | HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> },
 		markdown: Promise<PromiseSettledResult<string>> | PromiseSettledResult<string> | string,
@@ -282,6 +286,17 @@ export class GlGraphHover extends GlElement {
 
 		this.anchor = anchor;
 		this.open = true;
+		// Push at open time, not at construction — the stack is LIFO and its order has to be the order the
+		// surfaces actually opened in. Re-anchoring to another row keeps the original entry, so a card that
+		// stays up across a row-to-row move doesn't jump the queue.
+		this._overlay ??= this.pushOverlay?.({ id: 'graph-hover', onClose: () => this.onOverlayClose() });
+	}
+
+	private onOverlayClose(): boolean {
+		if (!this.open) return false;
+
+		this.hide();
+		return true;
 	}
 
 	private _lastUnhoveredTimestamp = 0;
@@ -301,6 +316,8 @@ export class GlGraphHover extends GlElement {
 		this.shaHovering = undefined;
 		this.markdown = undefined;
 		this.open = false;
+		this._overlay?.dispose();
+		this._overlay = undefined;
 	}
 
 	resetUnhoverTimer(): void {
