@@ -1,5 +1,5 @@
 import { css, html, LitElement, svg } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import type { GlDialog } from '../../../shared/components/overlays/dialog.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -13,11 +13,6 @@ export type GraphLayoutPromptChoice = 'sidebar' | 'panel' | 'dismissed';
 const promptTitle = 'How would you like to use the Commit Graph?';
 const promptCaption =
 	"The Commit Graph is now the main GitLens view — it's your command center for managing agents, worktrees, commits, and reviews. Pick where it should live; you can always drag it elsewhere later.";
-const sidebarCaption = 'Compact, alongside your editor';
-const panelCaption = 'Full width, below your editor';
-
-/** The compact variants hide the per-option captions — keep in sync with the media queries in the styles */
-const captionsHiddenMediaQuery = '(max-width: 479px), (max-height: 419px)';
 
 export interface GraphLayoutPromptChoiceEventDetail {
 	choice: GraphLayoutPromptChoice;
@@ -53,9 +48,8 @@ export class GlGraphLayoutPrompt extends LitElement {
 		}
 
 		.layout-prompt__title {
+			padding-inline-end: 2.8rem;
 			margin: 0;
-			/* Clear the absolutely-positioned close button in the top-right corner */
-			padding-right: 2.8rem;
 			font-size: 1.6rem;
 			font-weight: 600;
 			line-height: 1.2;
@@ -64,18 +58,15 @@ export class GlGraphLayoutPrompt extends LitElement {
 		.layout-prompt__caption {
 			margin: 0;
 			color: var(--vscode-descriptionForeground);
+			text-wrap: pretty;
 		}
 
 		/* Stand-in for the main caption when a compact variant visually hides it (see below) */
 		.layout-prompt__title-info {
-			display: none;
+			--code-icon-size: 1em;
+
 			margin-left: 0.4rem;
 			color: var(--vscode-descriptionForeground);
-			/* Match the title's font size and center on its text line ('middle' lands the icon
-			   box on the line-box midpoint here; the short variant's smaller title needs an
-			   extra optical nudge — see below) */
-			--code-icon-size: 1em;
-			--code-icon-v-align: middle;
 		}
 
 		.layout-prompt__title-info:focus-visible {
@@ -93,23 +84,24 @@ export class GlGraphLayoutPrompt extends LitElement {
 		.layout-prompt__option {
 			display: flex;
 			flex-direction: column;
-			align-items: center;
 			gap: var(--gl-space-8);
+			align-items: center;
 			padding: var(--gl-space-16);
-			background: none;
-			color: inherit;
 			font-family: inherit;
 			font-size: inherit;
+			color: inherit;
+			appearance: none;
+			cursor: pointer;
+			background: none;
 			border: 1px solid var(--vscode-widget-border);
 			border-radius: var(--gl-radius-sm);
-			cursor: pointer;
 		}
 
 		.layout-prompt__option:hover,
 		.layout-prompt__option:focus-visible {
+			outline: none;
 			background-color: var(--vscode-list-hoverBackground);
 			border-color: var(--vscode-focusBorder);
-			outline: none;
 		}
 
 		.layout-prompt__option-label {
@@ -117,10 +109,8 @@ export class GlGraphLayoutPrompt extends LitElement {
 		}
 
 		.layout-prompt__option-caption {
+			font-size: var(--gl-font-sm);
 			color: var(--vscode-descriptionForeground);
-			font-size: 1.1rem;
-			/* Keep the description on one line — the dialog is min-content sized, so without this
-			   the caption wraps at the illustration's width */
 			white-space: nowrap;
 		}
 
@@ -153,13 +143,13 @@ export class GlGraphLayoutPrompt extends LitElement {
 		}
 
 		.layout-prompt__skip {
-			background: none;
-			border: none;
 			padding: 0;
-			color: var(--vscode-textLink-foreground);
 			font-family: inherit;
 			font-size: inherit;
+			color: var(--vscode-textLink-foreground);
 			cursor: pointer;
+			background: none;
+			border: none;
 		}
 
 		.layout-prompt__skip:hover,
@@ -177,8 +167,8 @@ export class GlGraphLayoutPrompt extends LitElement {
 		.layout-prompt__option-text {
 			display: flex;
 			flex-direction: column;
-			align-items: center;
 			gap: var(--gl-space-4);
+			align-items: center;
 		}
 
 		.layout-prompt__illustration {
@@ -217,15 +207,26 @@ export class GlGraphLayoutPrompt extends LitElement {
 			}
 		}
 
-		/* Horizontally narrow (e.g. the Graph in the side bar): stack the option cards — each
-		   keeps the normal column layout (title below the picture, like the short variant) —
-		   and drop the captions so the dialog stays short enough; the hidden text surfaces
-		   via hover tooltips (option cards + the title's info icon) instead */
-		@media (max-width: 479px) {
+		/* Visually hidden,sighted users get text from the title's info-icon tooltip instead */
+		@media (width > 419px) and (height > 419px) {
+			.layout-prompt__title-info {
+				display: none;
+			}
+		}
+
+		@media (width <= 419px) or (height <= 419px) {
+			.layout-prompt__caption {
+				${srOnlyStyles}
+			}
+
+			.layout-prompt__title {
+				font-size: var(--gl-font-base);
+			}
+		}
+
+		@media (width <= 479px) {
 			.layout-prompt__options {
-				flex-direction: column;
-				/* Cards hug their content (like the short variant) instead of stretching to the
-				   dialog's width, which read as flexible side padding */
+				flex-wrap: wrap;
 				align-items: center;
 			}
 
@@ -233,46 +234,14 @@ export class GlGraphLayoutPrompt extends LitElement {
 				padding: var(--gl-space-8);
 			}
 
-			/* Visually hidden but kept in the accessibility tree — sighted users get the same
-			   text from the title's info-icon tooltip instead */
-			.layout-prompt__caption {
-				${srOnlyStyles}
-			}
-
-			.layout-prompt__title-info {
-				display: inline-block;
-			}
-
-			.layout-prompt__option-caption {
-				display: none;
-			}
-
 			.layout-prompt__illustration {
 				width: 9.6rem;
 			}
 		}
 
-		/* Vertically narrow (e.g. the Graph in a short bottom panel): compress — smaller
-		   illustrations, drop the secondary captions, tighter spacing */
-		@media (max-height: 419px) {
+		@media (height <= 419px) {
 			.layout-prompt {
 				gap: var(--gl-space-8);
-			}
-
-			.layout-prompt__title {
-				font-size: 1.3rem;
-			}
-
-			/* Visually hidden but kept in the accessibility tree — sighted users get the same
-			   text from the title's info-icon tooltip instead */
-			.layout-prompt__caption {
-				${srOnlyStyles}
-			}
-
-			.layout-prompt__title-info {
-				display: inline-block;
-				/* The smaller title leaves the icon sitting low — nudge it up optically */
-				translate: 0 -0.06em;
 			}
 
 			.layout-prompt__option-caption {
@@ -290,30 +259,6 @@ export class GlGraphLayoutPrompt extends LitElement {
 	`;
 
 	private _answered = false;
-
-	/** When a compact variant hides the per-option captions, surface them as hover tooltips instead */
-	@state()
-	private _optionCaptionsHidden = false;
-
-	private _captionsHiddenMedia?: MediaQueryList;
-	private readonly onCaptionsHiddenMediaChange = (e: MediaQueryListEvent): void => {
-		this._optionCaptionsHidden = e.matches;
-	};
-
-	override connectedCallback(): void {
-		super.connectedCallback?.();
-
-		this._captionsHiddenMedia = window.matchMedia(captionsHiddenMediaQuery);
-		this._captionsHiddenMedia.addEventListener('change', this.onCaptionsHiddenMediaChange);
-		this._optionCaptionsHidden = this._captionsHiddenMedia.matches;
-	}
-
-	override disconnectedCallback(): void {
-		this._captionsHiddenMedia?.removeEventListener('change', this.onCaptionsHiddenMediaChange);
-		this._captionsHiddenMedia = undefined;
-
-		super.disconnectedCallback?.();
-	}
 
 	override render(): unknown {
 		return html`<gl-dialog
@@ -342,24 +287,20 @@ export class GlGraphLayoutPrompt extends LitElement {
 				</h2>
 				<p class="layout-prompt__caption">${promptCaption}</p>
 				<div class="layout-prompt__options">
-					<gl-tooltip content=${sidebarCaption} ?disabled=${!this._optionCaptionsHidden}>
-						<button type="button" class="layout-prompt__option" @click=${() => this.choose('sidebar')}>
-							${this.renderSidebarIllustration()}
-							<span class="layout-prompt__option-text">
-								<span class="layout-prompt__option-label">Side Bar</span>
-								<span class="layout-prompt__option-caption">${sidebarCaption}</span>
-							</span>
-						</button>
-					</gl-tooltip>
-					<gl-tooltip content=${panelCaption} ?disabled=${!this._optionCaptionsHidden}>
-						<button type="button" class="layout-prompt__option" @click=${() => this.choose('panel')}>
-							${this.renderPanelIllustration()}
-							<span class="layout-prompt__option-text">
-								<span class="layout-prompt__option-label">Bottom Panel</span>
-								<span class="layout-prompt__option-caption">${panelCaption}</span>
-							</span>
-						</button>
-					</gl-tooltip>
+					<button type="button" class="layout-prompt__option" @click=${() => this.choose('sidebar')}>
+						${this.renderSidebarIllustration()}
+						<span class="layout-prompt__option-text">
+							<span class="layout-prompt__option-label">Side Bar</span>
+							<span class="layout-prompt__option-caption">Compact, alongside your editor</span>
+						</span>
+					</button>
+					<button type="button" class="layout-prompt__option" @click=${() => this.choose('panel')}>
+						${this.renderPanelIllustration()}
+						<span class="layout-prompt__option-text">
+							<span class="layout-prompt__option-label">Bottom Panel</span>
+							<span class="layout-prompt__option-caption">Full width, below your editor</span>
+						</span>
+					</button>
 				</div>
 				<div class="layout-prompt__footer">
 					<gl-tooltip content="Close and keep my current layout">
