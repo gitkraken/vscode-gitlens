@@ -1943,7 +1943,19 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const decoratedRowsIndex = this.getDecoratedRowsIndex(decoratedRowsForSelection);
 		let rangeShas = graphRangeShas;
 		if (mode === 'range' && this.graphState.config?.multiSelectionMode === 'topological' && sha != null) {
-			const prior = this.graphState.activeRow?.split('|')[0];
+			// The anchor must come from the event's own range, not `activeRow` — `activeRow` tracks the
+			// moving end of the selection (the row just pressed/clicked), not its fixed anchor. Deriving
+			// `prior` from it made successive shift+arrow presses slide a 2-row window instead of
+			// accumulating a range. `graphRangeShas` carries both ends; the anchor is whichever end isn't
+			// `sha`.
+			let prior: string | undefined;
+			if (graphRangeShas != null && graphRangeShas.length > 0) {
+				const lastRangeSha = graphRangeShas.at(-1);
+				prior = sha === lastRangeSha ? graphRangeShas[0] : lastRangeSha;
+			} else {
+				prior = this.graphState.activeRow?.split('|')[0];
+			}
+
 			if (decoratedRowsIndex != null && prior != null && prior !== sha) {
 				rangeShas = walkTopologicalRange(decoratedRowsIndex.rows, decoratedRowsIndex.indexBySha, prior, sha);
 			}
