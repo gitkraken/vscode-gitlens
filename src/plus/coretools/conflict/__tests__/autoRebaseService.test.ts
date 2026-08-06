@@ -432,3 +432,94 @@ suite('coretools/conflict/AutoRebaseService late cancel', () => {
 		assert.strictEqual(storage.has('autoRebase:undo:/repo'), false);
 	});
 });
+
+/**
+ * Harness for the pre-flight ordering: `calls` records the model resolve and the rebase itself, so a
+ * test can assert both whether the user was asked about AI at all and that the ask precedes anything
+ * that would show progress. `pausedOp` sets what the pre-flight status read finds.
+ */
+function makePreflightFakes(pausedOp?: GitPausedOperationStatus) {
+	const calls: string[] = [];
+	const storage = new Map<string, unknown>();
+
+	const svc = {
+		path: '/repo',
+		pausedOps: { getPausedOperationStatus: () => Promise.resolve(pausedOp) },
+		branches: { getBranch: () => Promise.resolve({ name: 'feature' }) },
+		revision: { resolveRevision: () => Promise.resolve({ sha: 'post', revision: 'post' }) },
+		status: { getStatus: () => Promise.resolve({ hasChanges: false, files: [] }) },
+		ops: {
+			rebase: () => {
+				calls.push('rebase');
+				return Promise.resolve({ conflicted: false });
+			},
+			reset: () => Promise.resolve(),
+		},
+		staging: { stageFiles: () => Promise.resolve() },
+		createUnsafeGit: () => undefined,
+	};
+
+	const container = {
+		storage: {
+			getWorkspace: (key: string) => storage.get(key),
+			storeWorkspace: (key: string, value: unknown) => {
+				storage.set(key, value);
+				return Promise.resolve();
+			},
+			deleteWorkspace: (key: string) => {
+				storage.delete(key);
+				return Promise.resolve();
+			},
+		},
+		git: { getRepositoryService: () => svc },
+		telemetry: { sendEvent: () => {} },
+		ai: {
+			enabled: true,
+			allowed: true,
+			flushBYOKUsage: () => Promise.resolve(),
+			getModel: () => {
+				calls.push('getModel');
+				return Promise.resolve({ id: 'test-model', provider: { id: 'test' } });
+			},
+		},
+	} as unknown as Container;
+
+	const service = new AutoRebaseService(container);
+	// Stub the lazily node-imported integration — no run gets far enough to use it
+	(service as unknown as { _integration: Promise<unknown> })._integration = Promise.resolve({});
+
+	return { service: service, calls: calls, svc: svc as unknown as GitRepositoryService };
+}
+
+suite('coretools/conflict/AutoRebaseService pre-flight ordering', () => {
+	test('a start refused for an operation already in progress never asks about AI', async () => {
+		const { service, calls, svc } = makePreflightFakes({ type: 'merge' } as unknown as GitPausedOperationStatus);
+
+		await assert.rejects(
+			service.start(svc, { upstream: 'main', source: { source: 'commandPalette' } }),
+			/A merge is already in progress\./,
+		);
+
+		// The refusal was knowable without AI, so no provider/model decision may have been spent on it
+		assert.deepStrictEqual(calls, []);
+	});
+
+	test('a takeover refused for having no rebase to take over never asks about AI', async () => {
+		const { service, calls, svc } = makePreflightFakes(undefined);
+
+		await assert.rejects(service.takeover(svc, { source: 'commandPalette' }), /No rebase is in progress\./);
+
+		assert.deepStrictEqual(calls, []);
+	});
+
+	test('a start that proceeds resolves the model before the rebase begins', async () => {
+		const { service, calls, svc } = makePreflightFakes(undefined);
+
+		const session = await service.start(svc, { upstream: 'main', source: { source: 'commandPalette' } });
+
+		// Guards the ordering the other direction: a model resolved lazily inside the run would open its
+		// picker behind a panel already showing progress, which reads as a stall (#5662)
+		assert.strictEqual(session.phase, 'completed');
+		assert.deepStrictEqual(calls, ['getModel', 'rebase']);
+	});
+});

@@ -97,7 +97,7 @@ export class AutoRebaseService implements Disposable {
 	 * an operation already in progress, …).
 	 */
 	async start(svc: GitRepositoryService, options: AutoRebaseStartOptions): Promise<AutoRebaseSession> {
-		const { integration, model } = await this.ensureAvailable(svc, options.source);
+		const integration = await this.ensureAvailable(svc);
 
 		const existing = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
 		if (existing != null) {
@@ -107,6 +107,9 @@ export class AutoRebaseService implements Disposable {
 					: `A ${existing.type} is already in progress.`,
 			);
 		}
+
+		// Every refusal above is knowable without AI, so the model is resolved only once they've passed
+		const model = await this.ensureModel(options.source);
 
 		const [branch, headRev, status, stashMessages] = await Promise.all([
 			options.branch ?? svc.branches.getBranch().then(b => b?.name),
@@ -161,7 +164,7 @@ export class AutoRebaseService implements Disposable {
 
 	/** Takes over an existing paused rebase and automates its remaining steps. */
 	async takeover(svc: GitRepositoryService, source: Source): Promise<AutoRebaseSession> {
-		const { integration, model } = await this.ensureAvailable(svc, source);
+		const integration = await this.ensureAvailable(svc);
 
 		const status = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
 		if (status?.type !== 'rebase') {
@@ -170,6 +173,9 @@ export class AutoRebaseService implements Disposable {
 		if (!status.isPaused) {
 			throw new Error('The rebase is not paused.');
 		}
+
+		// There's a rebase to take over, so it's worth asking for a model (see `ensureModel`)
+		const model = await this.ensureModel(source);
 
 		// Resume our own escalated run in place — reuse the existing session (id, preRun, and the
 		// steps already recorded before the escalation) instead of discarding them via a fresh
@@ -692,10 +698,12 @@ export class AutoRebaseService implements Disposable {
 		);
 	}
 
-	private async ensureAvailable(
-		svc: GitRepositoryService,
-		source: Source,
-	): Promise<{ integration: ConflictToolsIntegration; model: AIModel }> {
+	/**
+	 * The pre-flight checks that can refuse without asking the user anything — all silent, so a
+	 * caller can run them (and its own paused-operation checks) before {@link ensureModel} spends a
+	 * decision on a start that was never going to happen.
+	 */
+	private async ensureAvailable(svc: GitRepositoryService): Promise<ConflictToolsIntegration> {
 		if (!this.container.ai.allowed) {
 			throw new Error('AI features are disabled.');
 		}
@@ -710,10 +718,22 @@ export class AutoRebaseService implements Disposable {
 			throw new Error('An automatic rebase is already running for this repository.');
 		}
 
-		// Resolve the model BEFORE anything starts. Left to `sendRequest`, this resolves lazily inside the
-		// run — the picker (or a sign-in/API-key prompt) then opens behind a progress panel already claiming
-		// "Analyzing <file>…", which is indistinguishable from a stall. Answering it here means the run
-		// either starts with a model in hand or never starts at all, and the branch is untouched either way.
+		return integration;
+	}
+
+	/**
+	 * Resolves the model the run will use, prompting if nothing is configured. Callers must invoke
+	 * this in the window between their own silent refusals and `trackSession()`:
+	 * - AFTER every refusal that doesn't need AI (an operation already in progress, …), so we never
+	 *   ask which provider to trust only to then report an obstacle that was knowable up front.
+	 * - BEFORE anything shows progress. Left to `sendRequest`, this resolves lazily inside the run,
+	 *   and the picker (or a sign-in/API-key prompt) opens behind a panel already claiming
+	 *   "Analyzing <file>…", which is indistinguishable from a stall.
+	 *
+	 * So the run either starts with a model in hand or never starts at all, and the branch is
+	 * untouched either way.
+	 */
+	private async ensureModel(source: Source): Promise<AIModel> {
 		const model = await this.container.ai.getModel({ scope: 'resolve' }, source);
 		if (model == null) {
 			// Dismissing the picker is a refusal to start, handled like the other pre-flight refusals: the
@@ -721,7 +741,7 @@ export class AutoRebaseService implements Disposable {
 			throw new Error('Automatic rebase needs an AI model — none was selected.');
 		}
 
-		return { integration: integration, model: model };
+		return model;
 	}
 
 	private getIntegration(): Promise<ConflictToolsIntegration | undefined> {
