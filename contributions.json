@@ -21131,7 +21131,7 @@
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-launchpad-view)",
 			"initialSize": 2,
-			"visibility": "collapsed",
+			"visibility": "hidden",
 			"container": "gitlens",
 			"order": 3,
 			"welcomeContent": [
