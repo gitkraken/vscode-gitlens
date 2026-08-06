@@ -6,6 +6,7 @@ import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOpe
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { getFeaturePreviewStatus } from '../../features.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils.js';
 import { executeCommand } from '../../system/-webview/command.js';
@@ -243,8 +244,11 @@ export async function showPausedOperationStatus(
 
 async function isGraphAccessible(container: Container, repoPath: string): Promise<boolean> {
 	if (!arePlusFeaturesEnabled()) return false;
+	if ((await container.git.access('graph', repoPath)).allowed !== false) return true;
 
-	return (await container.git.access('graph', repoPath)).allowed !== false;
+	// Mirror the Graph's own gate (`isGraphAccessAllowed`): an active Pro feature preview renders the
+	// Graph normally, so a rebase conflict must surface there rather than in the rebase editor
+	return getFeaturePreviewStatus(container.subscription.getFeaturePreview('graph')) === 'active';
 }
 
 function revealPausedOperationInGraph(repoPath: string, source?: Source): void {
