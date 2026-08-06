@@ -1263,6 +1263,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						void this.revealRow(rowId);
 					}
 				}
+				// While account-gated the app can only park the action for its sign-in messaging (the
+				// graph DOM doesn't exist) — retain it here too, so gated rebuilds and the un-gating
+				// full build re-deliver the LATEST task instead of a stale earlier one
+				if (this._accountAccessRequired) {
+					this._pendingAction = {
+						action: arg.action,
+						target: arg.target,
+						composeInstructions: arg.composeInstructions,
+						composeScope: arg.composeScope,
+					};
+				}
 				void this.host.notify(DidRequestGraphActionNotification, {
 					action: arg.action,
 					target: arg.target,
@@ -4186,6 +4197,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				repositories: [],
 				isWeb: isWeb,
 				subscription: subscription,
+				// Sent but NOT cleared (unlike the full build below): the app can't act on it while the
+				// account screen is up, but uses it to pick task-specific sign-in messaging (#5534); the
+				// un-gating full rebuild re-delivers it for actual consumption.
+				pendingAction: this._pendingAction,
 			};
 		}
 

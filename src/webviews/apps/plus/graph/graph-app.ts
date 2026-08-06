@@ -1323,6 +1323,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private _pendingScopeToBranch = false;
 
+	/** A task action that arrived — or was interrupted by a sign-out — while the account-access
+	 *  screen is up (#5534). While gated the graph/details DOM doesn't exist, so consuming an action
+	 *  would silently drop it; it's parked here instead, drives the screen's task-specific sign-in
+	 *  messaging, and is consumed once the account becomes usable. `@state` so a warm arrival
+	 *  re-renders the already-shown screen with the task copy. */
+	@state()
+	private _gatedPendingAction?: NonNullable<AppState['pendingAction']>;
+	private _wasAccountGated = false;
+
+	/** Mirrors the host's `isAccountAccessRequired` — the single predicate for both the parking
+	 *  logic and the render swap, so what's parked can't desync from what's displayed. */
+	private get isAccountGated(): boolean {
+		const sub = this.graphState.subscription;
+		return sub != null && (sub.account == null || sub.account.verified === false);
+	}
+
 	private async consumePendingAction(pending: {
 		action: GraphShowAction;
 		target?: { sha: string; worktreePath: string; filePaths?: string[] };
@@ -1389,7 +1405,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		if (action === 'open-compare') {
-			await this.updateComplete;
+			// Same cold-open mounting caveat as the enter-*-mode actions below — on a cold (or freshly
+			// un-gated) graph the details panel mounts only after the initial data/layout settles, so
+			// `updateComplete` alone can run this against a still-null panel and silently drop the compare.
+			const panel = await this.waitForDetailsPanel();
 			const compareParams =
 				target != null
 					? {
@@ -1404,7 +1423,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							rightRefType: 'branch' as const,
 							includeWorkingTree: true,
 						};
-			this.detailsPanelEl?.openCompareMode(compareParams, showDetails);
+			panel?.openCompareMode(compareParams, showDetails);
 			return;
 		}
 
@@ -1873,6 +1892,40 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		await this.openWipDetails(repoPath, sha, target, target === 'agents' ? 'request-agents' : 'request-mode');
 	};
 
+	protected override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
+		super.willUpdate(changedProperties);
+
+		// Account-gate action parking (#5534) — see `_gatedPendingAction`. In `willUpdate` (not
+		// `updated`) so the same render that shows the account screen already has the task copy.
+		const gated = this.isAccountGated;
+		if (gated) {
+			const pending = this.graphState.pendingAction;
+			if (pending != null) {
+				this.graphState.pendingAction = undefined;
+				this._gatedPendingAction = pending;
+			}
+
+			// A sign-out interrupting a live task: capture it on the flip, before this render tears
+			// the details panel down. An explicit parked action wins over the ambient mode.
+			if (!this._wasAccountGated && this._gatedPendingAction == null) {
+				const task = this.detailsPanelEl?.activeTaskAction;
+				if (task != null) {
+					this._gatedPendingAction = task;
+				}
+			}
+		} else if (this._wasAccountGated) {
+			const parked = this._gatedPendingAction;
+			this._gatedPendingAction = undefined;
+			// The un-gating rebuild re-delivers a host-held action by itself (the gated `getState`
+			// sends `pendingAction` without clearing it) — the parked copy would be a duplicate;
+			// consume it only when the rebuild carried nothing (the interrupted-mode capture).
+			if (parked != null && this.graphState.pendingAction == null) {
+				void this.updateComplete.then(() => this.consumePendingAction(parked));
+			}
+		}
+		this._wasAccountGated = gated;
+	}
+
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
 
@@ -2110,9 +2163,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		const sub = this.graphState.subscription;
-		if (sub != null && (sub.account == null || sub.account.verified === false)) {
-			return html`<gl-graph-access-account></gl-graph-access-account>`;
+		if (this.isAccountGated) {
+			return html`<gl-graph-access-account
+				.intentAction=${this._gatedPendingAction?.action}
+			></gl-graph-access-account>`;
 		}
 
 		const detailsVisible = this.graphState.details?.visible ?? false;

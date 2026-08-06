@@ -40,6 +40,7 @@ import type {
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
+import type { GraphActionTarget, GraphShowAction } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
@@ -634,3 +635,40 @@ export function createDetailsState() {
 
 /** Graph Details state type — the return value of `createDetailsState()`. */
 export type DetailsState = ReturnType<typeof createDetailsState>;
+
+/** The live task the user is engaged in — read by the account-gate's task-specific sign-in
+ *  messaging and post-sign-in restore when a sign-out interrupts the task (#5534). An active
+ *  compose/review/resolve mode wins over an open compare — the two can coexist (the sheet sits
+ *  over the panel) and the mode is the more specific task. WIP and single-commit anchors are
+ *  carried as the target so the restore reopens the SAME content (a secondary worktree's WIP
+ *  included); a multi-commit anchor isn't representable in a show target, so it restores
+ *  mode-level onto the working changes. An open compare degrades the same way — the sheet's refs
+ *  would need a two-ref show target (a protocol change), so the restore reopens the default
+ *  compare shape (current branch vs working tree), not the interrupted refs. Compose seeds
+ *  (a recompose commit-range, typed instructions) aren't representable either — an interrupted
+ *  compose restores as a plain compose of its anchor. */
+export function getActiveTaskAction(
+	state: DetailsState,
+): { action: GraphShowAction; target?: GraphActionTarget } | undefined {
+	const mode = state.activeMode.get();
+	if (mode != null) {
+		const context = state.activeModeContext.get();
+		const sha = state.activeModeSha.get();
+		const repoPath = state.activeModeRepoPath.get();
+		const target =
+			(context === 'commit' || context === 'wip') && sha != null && repoPath != null
+				? {
+						sha: sha,
+						worktreePath: repoPath,
+						// A resolve run can be scoped to specific conflicted files — carry that scope so
+						// the restore doesn't silently widen to all conflicts
+						filePaths: mode === 'resolve' ? state.resolveFocusedFilePaths.get()?.slice() : undefined,
+					}
+				: undefined;
+		return { action: `enter-${mode}`, target: target };
+	}
+
+	if (state.compareSheetOpen.get() || state.compareAsPanel.get()) return { action: 'open-compare' };
+
+	return undefined;
+}

@@ -25,10 +25,12 @@ import type {
 } from '../../../../plus/graph/graphService.js';
 import type {
 	GetWipLineStatsResponse,
+	GraphActionTarget,
 	GraphComposeScopeSeed,
 	GraphExcludedRef,
 	GraphItemContext,
 	GraphScopeBranch,
+	GraphShowAction,
 	State,
 } from '../../../../plus/graph/protocol.js';
 import {
@@ -72,7 +74,7 @@ import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqu
 import { detailsActionsContext, detailsStateContext, detailsWorkflowContext } from './detailsContext.js';
 import { resolveDetailsActions } from './detailsResolver.js';
 import type { DetailsContext, DetailsState, RunningOperation, RunningOperationExecState } from './detailsState.js';
-import { createDetailsState } from './detailsState.js';
+import { createDetailsState, getActiveTaskAction } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
 import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
@@ -261,6 +263,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					repoPath: this._state.activeModeRepoPath.get(),
 				})
 			: anchorKey({ sha: this.sha, shas: this.shas, repoPath: this.repoPath });
+	}
+
+	/** The live task the user is engaged in — see {@link getActiveTaskAction}. Read by the
+	 *  account-gate's task-specific sign-in messaging (#5534) when a sign-out interrupts it. */
+	get activeTaskAction(): { action: GraphShowAction; target?: GraphActionTarget } | undefined {
+		return getActiveTaskAction(this._state);
 	}
 
 	/** Per-mode exec state + has-result of the engaged anchor's entry — drives the suffix-icon
