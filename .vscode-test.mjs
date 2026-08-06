@@ -65,6 +65,7 @@ export default defineConfig([
 			ui: 'tdd',
 			timeout: 20000,
 			color: true,
+			require: ['./scripts/test-setup.cjs'],
 		},
 	},
 ]);
