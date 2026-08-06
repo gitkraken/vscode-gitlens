@@ -2264,6 +2264,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			@gl-split-panel-change=${this.handleDetailsSplitChange}
 			@gl-split-panel-drag-end=${this.handleSplitDragEnd}
 			@gl-split-panel-closed-change=${this.handleDetailsClosedChange}
+			@gl-split-panel-dblclick=${this.handleDetailsSplitDblClick}
 		>
 			<div slot="start" class="graph__graph-pane">${this.renderGraphPaneContent()}</div>
 			<div slot="end" class="graph__details-pane" ?inert=${!detailsVisible}>
@@ -3117,6 +3118,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		this.graphState.details = { [this.detailsPositionKeyForEvent(e)]: e.detail.position };
 	}
+
+	private handleDetailsSplitDblClick = (e: Event): void => {
+		// The agent-status split inside the details panel emits the same composed event — only
+		// reset when the double-click came from this splitter's own divider.
+		if (e.target !== e.currentTarget) return;
+
+		this.graphState.details = { [this.detailsPositionKeyForEvent(e)]: 100 - detailsDefaultPct };
+		this.persistState();
+	};
 
 	private handleDetailsClosedChange = (e: CustomEvent<{ closed: boolean; position: number }>): void => {
 		const gs = this.graphState;
