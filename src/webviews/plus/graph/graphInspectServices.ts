@@ -2,7 +2,6 @@ import type { CancellationTokenSource, Disposable } from 'vscode';
 import { env, ProgressLocation, Uri, window } from 'vscode';
 import type { AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
-import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import { rootSha, uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
@@ -42,11 +41,11 @@ import type { AutoRebaseSession } from '../../../plus/coretools/conflict/autoReb
 import type { ConsultedTool } from '../../../plus/coretools/conflict/consultation.js';
 import { getConsultations, recordConsultation } from '../../../plus/coretools/conflict/consultation.js';
 import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
+import { getResolutionRefs } from '../../../plus/coretools/conflict/resolutionRefs.js';
 import type {
 	ConflictProgressEvent,
 	Resolution as ConflictToolsResolution,
 	ResolutionContext,
-	ResolutionRefs,
 } from '../../../plus/coretools/conflict/types.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
@@ -3100,15 +3099,6 @@ function isPreviewableText(content: string | undefined): boolean {
  *  ref to name for `theirs` (e.g. `stash@{0}` may be the wrong stash). Guessing would feed the
  *  resolver a misleading three-way diff; without refs, conflict-tools skips that diff and
  *  resolves from the conflict markers, which is the safe degradation. */
-function getResolutionRefs(status: GitPausedOperationStatus | undefined): ResolutionRefs | undefined {
-	if (status == null) return undefined;
-	return {
-		ours: status.HEAD?.ref ?? 'HEAD',
-		theirs: status.incoming?.ref ?? 'MERGE_HEAD',
-		...(status.mergeBase != null ? { base: status.mergeBase } : {}),
-	};
-}
-
 /** Logs each resolution's AI token usage (when the provider reported it) plus a run total to the
  *  debug logs — usage is diagnostic detail, so it stays out of the resolve results UI. */
 function logResolutionUsage(resolutions: readonly ConflictToolsResolution[], scope: string): void {
