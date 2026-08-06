@@ -919,6 +919,8 @@ void
   'files.count': number,
   // Conflicted steps recorded so far
   'steps.count': number,
+  // Steps whose commit git dropped for being empty — the resolution left nothing to commit
+  'steps.emptied.count': number,
   // `true` when the run took over an already-paused rebase
   'takeover': boolean
 }
