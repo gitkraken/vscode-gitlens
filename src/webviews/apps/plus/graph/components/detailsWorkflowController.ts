@@ -604,8 +604,9 @@ export class DetailsWorkflowController implements ReactiveController {
 	/** Promotes the compare sheet into a side-by-side or top/bottom panel — a nested split
 	 *  inside the details panel. Compare leaves the sheet (which dismisses) and reappears
 	 *  beside (or above) the underlying details content in a dedicated split. Refs/tab/scroll
-	 *  persist via the shared signals. Optional `orientation` lets the caller specify
-	 *  side-by-side ('horizontal') vs top/bottom ('vertical'); defaults to whatever is set. */
+	 *  persist via the shared signals. Optional `orientation` lets the caller make an explicit
+	 *  side-by-side ('horizontal') vs top/bottom ('vertical') choice; omitted, the split keeps
+	 *  its current mode — auto (shape-following) unless the user already picked one. */
 	openCompareAsPanel(orientation?: 'horizontal' | 'vertical'): void {
 		const state = this.actions.state;
 		if (!state.compareSheetOpen.get() && !state.compareAsPanel.get()) return;
@@ -625,6 +626,9 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		state.compareSheetOpen.set(false);
 		state.compareAsPanel.set(false);
+		// Layout resets too — an explicit orientation/size choice shouldn't haunt the next compare.
+		state.compareSplitOrientation.set(undefined);
+		state.compareSplitPosition.set(50);
 		state.branchCompareLeftRef.set(undefined);
 		state.branchCompareLeftRefType.set(undefined);
 		state.branchCompareRightRef.set(undefined);

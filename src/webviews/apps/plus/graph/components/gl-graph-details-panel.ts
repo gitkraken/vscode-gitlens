@@ -2529,15 +2529,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 
 		// Pinned compare: nested split panel inside the details host. Details on the start side,
-		// compare on the end side. Position/orientation are user-adjustable and persisted via
-		// the shared signals, so unpin → re-pin restores the user's last layout.
-		const orientation = this._state.compareSplitOrientation.get();
+		// compare on the end side. Orientation follows the panel's shape (via
+		// `_preferredCompareOrientation`) until the user explicitly picks one; position and an
+		// explicit orientation persist via the shared signals, so unpin → re-pin restores the
+		// user's last layout.
+		const orientation = this._state.compareSplitOrientation.get() ?? this._preferredCompareOrientation;
 		const position = this._state.compareSplitPosition.get();
 		return html`<gl-split-panel
 			class="compare-pinned-split"
 			orientation=${orientation}
 			.position=${position}
 			@gl-split-panel-change=${this.handleCompareSplitChange}
+			@gl-split-panel-dblclick=${this.handleCompareSplitDblClick}
 		>
 			<div slot="start" class="compare-pinned-split__start">${detailsContent}${conflictSheet}${branchSheet}</div>
 			<div slot="end" class="compare-pinned-split__end">
@@ -2577,9 +2580,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			(sheet as { skipFocusRestore: boolean }).skipFocusRestore = true;
 		}
 
-		const preferred = this._preferredCompareOrientation;
-		const target = e.altKey ? this.flipOrientation(preferred) : preferred;
-		this._workflow.openCompareAsPanel(target);
+		// Plain click keeps the orientation in auto (shape-following) mode; Alt-click is an
+		// explicit choice that sticks.
+		this._workflow.openCompareAsPanel(
+			e.altKey ? this.flipOrientation(this._preferredCompareOrientation) : undefined,
+		);
 	};
 
 	private flipOrientation(o: PanelOrientation): PanelOrientation {
@@ -2587,11 +2592,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private handleFlipCompareOrientation = (): void => {
-		this._state.compareSplitOrientation.set(this.flipOrientation(this._state.compareSplitOrientation.get()));
+		const effective = this._state.compareSplitOrientation.get() ?? this._preferredCompareOrientation;
+		this._state.compareSplitOrientation.set(this.flipOrientation(effective));
 	};
 
 	private handleCompareSplitChange = (e: CustomEvent<{ position: number }>): void => {
 		this._state.compareSplitPosition.set(e.detail.position);
+	};
+
+	private handleCompareSplitDblClick = (e: Event): void => {
+		// Splits nested inside the details content emit the same composed event — only reset
+		// when the double-click came from this splitter's own divider.
+		if (e.target !== e.currentTarget) return;
+
+		this._state.compareSplitPosition.set(50);
 	};
 
 	/** Loading placeholder shown until `preferences` (the file layout) loads, so the tree never

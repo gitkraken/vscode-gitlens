@@ -386,7 +386,10 @@ function createTransientState() {
 	// sheet), or close from either form.
 	const compareAsPanel = signal(false);
 	const compareSplitPosition = signal(50);
-	const compareSplitOrientation = signal<'horizontal' | 'vertical'>('horizontal');
+	// undefined = auto: the pinned split follows the details panel's shape (wide → side-by-side,
+	// narrow → stacked) and re-adapts live as the panel resizes. Set only by an explicit user
+	// choice (the flip chip, or Alt-promoting the sheet), which then sticks until compare closes.
+	const compareSplitOrientation = signal<'horizontal' | 'vertical' | undefined>(undefined);
 
 	// Scope picker + AI exclusions + stale indicator
 	const scope = signal<ScopeSelection | undefined>(undefined);
