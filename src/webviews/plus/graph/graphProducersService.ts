@@ -219,12 +219,19 @@ export class GraphProducersService {
 			this._refsMetadata ??= new Map();
 
 			const branch = branchesById.get(id);
-			const metadata = { ...this._refsMetadata.get(id) };
+
+			// Every write REPLACES the entry with a fresh object, and reads take the map's current value.
+			// `buildRefsMetadataDelta` ships only entries whose value reference changed, so a shared object
+			// mutated in place goes unpublished the moment one write has already been flushed: the
+			// synchronous `upstream` write lands in an early tick, and the async pull request / issue
+			// resolvers then mutate that same, already-published reference.
+			const write = (patch: Partial<NonNullable<GraphRefMetadata>>) => {
+				this._refsMetadata!.set(id, { ...this._refsMetadata!.get(id), ...patch });
+			};
 
 			if (branch == null) {
 				for (const type of missingTypes) {
-					metadata[type] = null;
-					this._refsMetadata.set(id, metadata);
+					write({ [type]: null });
 				}
 
 				return;
@@ -237,11 +244,13 @@ export class GraphProducersService {
 				const pr = branch != null ? await getBranchAssociatedPullRequest(this.container, branch) : undefined;
 
 				if (pr == null) {
-					if (metadata.pullRequest === undefined || metadata.pullRequest?.length === 0) {
-						metadata.pullRequest = null;
+					// Only claim "no pull request" when nothing is already recorded — an existing list is a
+					// real answer this miss must not erase.
+					const current = this._refsMetadata!.get(id);
+					if (current?.pullRequest === undefined || current.pullRequest?.length === 0) {
+						write({ pullRequest: null });
 					}
 
-					this._refsMetadata!.set(id, metadata);
 					return;
 				}
 
@@ -296,11 +305,16 @@ export class GraphProducersService {
 					}),
 				};
 
-				metadata.pullRequest = [prMetadata];
+				write({ pullRequest: [prMetadata] });
 
-				this._refsMetadata!.set(id, metadata);
+				// A missing upstream never gets its own resolution pass, so mirror the result onto its id —
+				// as its own value object, so neither entry's later writes touch the other.
 				if (branch?.upstream?.missing) {
-					this._refsMetadata!.set(getBranchId(repoPath, true, branch.upstream.name), metadata);
+					const upstreamId = getBranchId(repoPath, true, branch.upstream.name);
+					this._refsMetadata!.set(upstreamId, {
+						...this._refsMetadata!.get(upstreamId),
+						pullRequest: [prMetadata],
+					});
 				}
 			};
 
@@ -321,7 +335,7 @@ export class GraphProducersService {
 						);
 
 						// A rejected lookup is a TRANSIENT failure, not an answer — bail without recording one.
-						// The `metadata.issue = null` below is authoritative ("this branch has no issues") and
+						// The `write({ issue: null })` below is authoritative ("this branch has no issues") and
 						// the webview's per-id dedup treats it as resolved, so a blip would stick until an
 						// unrelated invalidation. Leaving the entry unset lets the next request retry. Applies to
 						// PARTIAL failures too: publishing the ones that did resolve reads as the complete set,
@@ -337,8 +351,7 @@ export class GraphProducersService {
 					}
 
 					if (!issues?.length) {
-						metadata.issue = null;
-						this._refsMetadata!.set(id, metadata);
+						write({ issue: null });
 						return;
 					}
 				}
@@ -375,16 +388,14 @@ export class GraphProducersService {
 					});
 				}
 
-				metadata.issue = issuesMetadata;
-				this._refsMetadata!.set(id, metadata);
+				write({ issue: issuesMetadata });
 			};
 
 			const asyncResolvers: Promise<void>[] = [];
 
 			for (const type of missingTypes) {
 				if (!supportedRefMetadataTypes.includes(type)) {
-					metadata[type] = null;
-					this._refsMetadata.set(id, metadata);
+					write({ [type]: null });
 
 					continue;
 				}
@@ -392,8 +403,7 @@ export class GraphProducersService {
 				// PR/issue enrichment requires a connected integration; without one, resolve them as
 				// "none" so the webview stops re-requesting them, while still resolving upstream below.
 				if (!hasIntegration && type !== 'upstream') {
-					metadata[type] = null;
-					this._refsMetadata.set(id, metadata);
+					write({ [type]: null });
 
 					continue;
 				}
@@ -407,8 +417,7 @@ export class GraphProducersService {
 					const upstream = branch?.upstream;
 
 					if (upstream == null || upstream.missing) {
-						metadata.upstream = null;
-						this._refsMetadata.set(id, metadata);
+						write({ upstream: null });
 						continue;
 					}
 
@@ -428,9 +437,7 @@ export class GraphProducersService {
 						}),
 					};
 
-					metadata.upstream = upstreamMetadata;
-
-					this._refsMetadata.set(id, metadata);
+					write({ upstream: upstreamMetadata });
 					continue;
 				}
 
