@@ -1,9 +1,16 @@
 import * as assert from 'node:assert/strict';
-import { GitPullRequestMergeableState, GitPullRequestState } from '@gitkraken/provider-apis';
+import { GitPullRequestMergeableState, GitPullRequestReviewState, GitPullRequestState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
+import { PullRequestReviewState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { ProviderPullRequest } from '../models.js';
-import { fromProviderPullRequest, getProviderPullRequestIdentity, toProviderPullRequest } from '../models.js';
+import {
+	fromProviderPullRequest,
+	getProviderPullRequestIdentity,
+	toProviderPullRequest,
+	toProviderPullRequestWithUniqueId,
+} from '../models.js';
+import { providerPullRequestReviewStateDismissed, toProviderReviews } from '../pullRequestReviews.js';
 
 /**
  * Covers the clone-URL / fork / cross-repository plumbing added for read-API parity (#5435): the SDK's
@@ -192,5 +199,165 @@ suite('pull request ref mapping (#5435 clone URLs + fork)', () => {
 		assert.equal(pr.repository.id, '');
 		assert.equal(pr.refs?.base.owner, '');
 		assert.equal(pr.refs?.base.repo, '');
+	});
+});
+
+/** Shared across the review suites below, which all need one submitted reviewer and sometimes a second. */
+const approver = { id: 'a', username: 'approver', name: 'Approver', email: null, avatarUrl: null, url: null };
+
+/**
+ * `commitOid` is a GitLens-local extension of provider-apis' review shape, so it only survives if BOTH
+ * directions carry it. It exists so a consumer can compare a review against the PR's current head and tell
+ * "the PR moved past my review" from a review still at the tip; a round trip that drops it silently reports
+ * every review as being at an unknown commit, which is indistinguishable from a provider that never sent one.
+ */
+suite('pull request review commitOid round trip', () => {
+	test('survives fromProviderPullRequest -> toProviderPullRequest', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				reviews: [
+					{ reviewer: approver, state: GitPullRequestReviewState.Approved, commitOid: 'reviewed-sha' },
+					{
+						reviewer: { ...approver, id: 'b', username: 'pending', name: 'Pending' },
+						state: GitPullRequestReviewState.ReviewRequested,
+					},
+				],
+			}),
+			fakeProvider,
+		);
+
+		assert.equal(pr.latestReviews?.length, 1);
+		assert.equal(pr.latestReviews?.[0].commitOid, 'reviewed-sha');
+		// A pending request has no submitted review and so no commit to carry.
+		assert.equal(pr.reviewRequests?.length, 1);
+		assert.equal(pr.reviewRequests?.[0]?.commitOid, undefined);
+
+		const roundTrip = toProviderPullRequest(pr);
+
+		const approved = roundTrip.reviews?.find(r => r.state === GitPullRequestReviewState.Approved);
+		assert.equal(approved?.commitOid, 'reviewed-sha');
+	});
+
+	test('is undefined when the provider did not report one', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				reviews: [{ reviewer: approver, state: GitPullRequestReviewState.Approved }],
+			}),
+			fakeProvider,
+		);
+
+		assert.equal(pr.latestReviews?.[0].commitOid, undefined);
+	});
+});
+
+/**
+ * A dismissed review is the canonical "the PR moved past my review": GitHub's `dismiss stale reviews` branch
+ * rule flips an approval to DISMISSED on the next push, and `reviewed-by:@me` still returns that PR. Dropping
+ * it in the projection would hand a consumer a PR from the reviewed set with NO review row for the current
+ * user — indistinguishable from never having reviewed it, which is exactly what `commitOid` exists to detect.
+ * provider-apis has no DISMISSED member, so the local fork adds one.
+ */
+suite('pull request dismissed review projection', () => {
+	test('survives the projection with its state and commitOid intact', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				reviews: [
+					{
+						reviewer: approver,
+						state: providerPullRequestReviewStateDismissed,
+						commitOid: 'stale-sha',
+					},
+				],
+			}),
+			fakeProvider,
+		);
+
+		assert.equal(pr.latestReviews?.length, 1);
+		assert.equal(pr.latestReviews?.[0]?.state, PullRequestReviewState.Dismissed);
+		assert.equal(pr.latestReviews?.[0]?.commitOid, 'stale-sha');
+		// Dismissed is a submitted verdict, not an outstanding request.
+		assert.equal(pr.reviewRequests?.length, 0);
+
+		const roundTrip = toProviderPullRequest(pr);
+
+		assert.equal(roundTrip.reviews?.length, 1);
+		assert.equal(roundTrip.reviews?.[0]?.state, providerPullRequestReviewStateDismissed);
+		assert.equal(roundTrip.reviews?.[0]?.commitOid, 'stale-sha');
+	});
+
+	test('is dropped at the SDK boundary, which has no member for it', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				reviews: [
+					{ reviewer: approver, state: providerPullRequestReviewStateDismissed },
+					{
+						reviewer: { ...approver, id: 'b', username: 'other' },
+						state: GitPullRequestReviewState.Approved,
+					},
+				],
+			}),
+			fakeProvider,
+		);
+
+		// `getActionablePullRequests` categorizes by review state and only knows provider-apis' vocabulary, so
+		// the widened state must not reach it.
+		const forSdk = toProviderPullRequestWithUniqueId(pr);
+
+		assert.deepEqual(
+			forSdk.reviews?.map(r => r.state),
+			[GitPullRequestReviewState.Approved],
+		);
+	});
+
+	/**
+	 * An unsubmitted draft carries no verdict and is visible only to its author. It is the ONE state that stays
+	 * unmapped, so this pins that it is dropped rather than falling through to the `ReviewRequested` default —
+	 * which would report a draft as an outstanding request from that reviewer.
+	 */
+	test('drops a pending review rather than reporting it as a request', () => {
+		const reviewer = { id: 'a', name: 'Approver', username: 'approver' };
+
+		assert.deepEqual(
+			toProviderReviews([{ isCodeOwner: false, reviewer: reviewer, state: PullRequestReviewState.Pending }]),
+			[],
+		);
+		assert.deepEqual(
+			toProviderReviews([
+				{ isCodeOwner: false, reviewer: reviewer, state: PullRequestReviewState.Dismissed },
+			])?.map(r => r.state),
+			[providerPullRequestReviewStateDismissed],
+		);
+	});
+
+	/**
+	 * provider-apis maps only its four known GitHub review states, so a real dismissed review out of its
+	 * `latestReviews` selection arrives as `state: undefined` — a value its own type says cannot occur. Publishing
+	 * it would put an unswitchable state on `PullRequestShape.latestReviews`, and mapping back would hit
+	 * `toProviderReviews`' `ReviewRequested` fallback and turn a dismissed review into an outstanding request.
+	 */
+	test('drops an SDK review whose state has no local mapping instead of publishing it', () => {
+		const pr = fromProviderPullRequest(
+			createProviderPullRequest({
+				reviews: [
+					{ reviewer: approver, state: undefined as unknown as GitPullRequestReviewState },
+					{
+						reviewer: { ...approver, id: 'b', username: 'other' },
+						state: GitPullRequestReviewState.Approved,
+					},
+				],
+			}),
+			fakeProvider,
+		);
+
+		assert.deepEqual(
+			pr.latestReviews?.map(r => r.reviewer.id),
+			['b'],
+			'the unmappable row is dropped, the valid sibling survives',
+		);
+		assert.deepEqual(
+			toProviderPullRequest(pr).reviews?.map(r => r.state),
+			[GitPullRequestReviewState.Approved],
+			'and nothing round-trips into a fabricated review request',
+		);
 	});
 });

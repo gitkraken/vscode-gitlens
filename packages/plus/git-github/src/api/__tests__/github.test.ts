@@ -8,6 +8,27 @@ import type { GitHubApiConfig } from '../config.js';
 import { filterPullRequestsBySearchState, GitHubApi, toGitHubSearchStateQualifier } from '../github.js';
 import type { GitHubTokenInfo } from '../token.js';
 
+/** Serves `data` to one GraphQL request and captures the query document it was asked for. */
+function captureQuery(data: unknown): { config: GitHubApiConfig; getQuery: () => string } {
+	let query = '';
+	const config: GitHubApiConfig = {
+		isWeb: false,
+		fetch: async (_url, init) => {
+			const body = JSON.parse(String(init?.body ?? '{}')) as { query?: string };
+			query = body.query ?? '';
+			return new Response(JSON.stringify({ data: data }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			});
+		},
+		wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
+	};
+	return { config: config, getQuery: () => query };
+}
+
+/** An empty search page, for tests that only assert the query document the read builds. */
+const emptySearchPage = { search: { issueCount: 0, pageInfo: { endCursor: null, hasNextPage: false }, nodes: [] } };
+
 suite('toGitHubSearchStateQualifier', () => {
 	const cases: [label: string, include: PullRequestState[] | undefined, expected: string][] = [
 		['undefined -> open-only default', undefined, 'is:open'],
@@ -328,6 +349,7 @@ suite('GitHubApi.searchMyPullRequestsPage summaries', () => {
 		assert.match(query, /\bheadRefName\b/);
 		assert.doesNotMatch(query, /\blatestReviews\b/);
 		assert.doesNotMatch(query, /\bstatusCheckRollup\b/);
+		assert.match(query, /search\(first: 100,/, 'the lite fragment keeps the 100-node maximum');
 		assert.equal(result.values[0].body, 'Summary body');
 		assert.equal(result.values[0].refs?.head.branch, 'feature');
 	});
@@ -379,6 +401,159 @@ suite('GitHubApi.searchMyPullRequestsPage summaries', () => {
 		assert.equal(searches[1], 'is:merged is:pr involves:@me archived:false sort:updated');
 		assert.equal(searches[2], 'is:closed is:unmerged is:pr archived:false author:@me sort:updated');
 		assert.equal(searches[3], 'is:pr involves:@me archived:false sort:updated');
+	});
+
+	/**
+	 * The page follows the projection: the full fragment is what GitHub rejects at 100 nodes, so it pages at the
+	 * reduced size on EVERY path — an omitted `summary` included, since that also selects it. No caller is exempt;
+	 * `searchMyPullRequests` drains pages instead. See `defaultPullRequestSearchPageSize`.
+	 */
+	for (const [name, summary, expectedPageSize, expectFullProjection] of [
+		['the full fragment pages at the reduced size when summary is false', false, 30, true],
+		['an omitted summary selects the same fragment and the same reduced page', undefined, 30, true],
+		['the lite shape asks for the 100-node maximum', true, 100, false],
+	] as const) {
+		test(name, async () => {
+			const { config, getQuery } = captureQuery(emptySearchPage);
+
+			await new GitHubApi(config).searchMyPullRequestsPage(provider, token, { state: 'open', summary: summary });
+
+			const query = getQuery();
+			if (expectFullProjection) {
+				assert.match(query, /\blatestReviews\b/, 'the full projection selects the review fields');
+				// The oid the `commitOid` projection reads, so a consumer can compare a review against the head.
+				assert.match(query, /latestReviews[\s\S]*?commit\s*\{\s*oid/);
+			} else {
+				assert.doesNotMatch(query, /\blatestReviews\b/);
+			}
+			assert.match(query, new RegExp(`search\\(first: ${expectedPageSize},`));
+		});
+	}
+
+	/**
+	 * `searchMyPullRequests` returns a list with no cursor to hand back, so it has to drain pages itself — that
+	 * drain is what lets the full projection page at 30 everywhere without costing this caller coverage. It stops
+	 * at the page budget, and a page without a usable next cursor ends it rather than repeating itself.
+	 */
+	suite('searchMyPullRequests drains pages', () => {
+		function capturePages(pages: { nodes: unknown[]; endCursor: string | null; hasNextPage: boolean }[]): {
+			config: GitHubApiConfig;
+			getCursors: () => (string | undefined)[];
+		} {
+			const cursors: (string | undefined)[] = [];
+			let call = 0;
+			return {
+				config: {
+					isWeb: false,
+					fetch: async (_url, init) => {
+						const body = JSON.parse(String(init?.body ?? '{}')) as { variables?: { cursor?: string } };
+						cursors.push(body.variables?.cursor ?? undefined);
+						const page = pages[Math.min(call++, pages.length - 1)];
+						return new Response(
+							JSON.stringify({
+								data: {
+									search: {
+										issueCount: page.nodes.length,
+										pageInfo: { endCursor: page.endCursor, hasNextPage: page.hasNextPage },
+										nodes: page.nodes,
+									},
+								},
+							}),
+							{ status: 200, headers: { 'content-type': 'application/json' } },
+						);
+					},
+					wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
+				},
+				getCursors: () => cursors,
+			};
+		}
+
+		function node(number: number): Record<string, unknown> {
+			const repository = {
+				isFork: false,
+				name: 'repo',
+				owner: { login: 'octo' },
+				sshUrl: 'git@github.com:octo/repo.git',
+				url: 'https://github.com/octo/repo',
+			};
+			return {
+				id: `node-${number}`,
+				number: number,
+				title: `PR ${number}`,
+				body: null,
+				permalink: `https://github.com/octo/repo/pull/${number}`,
+				url: `https://github.com/octo/repo/pull/${number}`,
+				state: 'OPEN',
+				createdAt: '2026-01-01T00:00:00Z',
+				updatedAt: '2026-01-02T00:00:00Z',
+				closed: false,
+				closedAt: null,
+				mergedAt: null,
+				author: { login: 'octo', avatarUrl: '', url: 'https://github.com/octo' },
+				baseRefName: 'main',
+				baseRefOid: 'base',
+				headRefName: 'feature',
+				headRefOid: 'head',
+				headRepository: repository,
+				repository: { ...repository, viewerPermission: 'WRITE' },
+				isCrossRepository: false,
+				isDraft: false,
+				additions: 0,
+				deletions: 0,
+				assignees: { nodes: [] },
+				checksUrl: '',
+				mergeable: 'MERGEABLE',
+				reviewDecision: 'REVIEW_REQUIRED',
+				latestReviews: { nodes: [] },
+				viewerLatestReview: null,
+				reviewRequests: { nodes: [] },
+				commits: { nodes: [] },
+				totalCommentsCount: 0,
+				viewerCanUpdate: true,
+			};
+		}
+
+		test('follows the cursor and dedupes a row a later page repeats', async () => {
+			const { config, getCursors } = capturePages([
+				{ nodes: [node(1), node(2)], endCursor: 'c1', hasNextPage: true },
+				{ nodes: [node(2), node(3)], endCursor: 'c2', hasNextPage: false },
+			]);
+
+			const values = await new GitHubApi(config).searchMyPullRequests(provider, token);
+
+			assert.deepEqual(getCursors(), [undefined, 'c1'], 'the second page resumes from the first cursor');
+			assert.deepEqual(
+				values.map(pr => pr.id),
+				['1', '2', '3'],
+				'the repeated pull request is kept once, in first-seen order',
+			);
+		});
+
+		test('stops at the page budget rather than draining an endless cursor', async () => {
+			let served = 0;
+			const { config } = capturePages([
+				{
+					get nodes() {
+						return [node(++served)];
+					},
+					endCursor: 'always-more',
+					hasNextPage: true,
+				},
+			]);
+
+			const values = await new GitHubApi(config).searchMyPullRequests(provider, token);
+
+			// A cursor repeating itself ends the drain on the second page; only a moving one reaches the budget.
+			assert.equal(values.length, 2);
+		});
+
+		test('stops when a page reports no next page', async () => {
+			const { config, getCursors } = capturePages([{ nodes: [node(1)], endCursor: 'c1', hasNextPage: false }]);
+
+			await new GitHubApi(config).searchMyPullRequests(provider, token);
+
+			assert.equal(getCursors().length, 1);
+		});
 	});
 });
 
@@ -448,23 +623,6 @@ suite('GitHubApi direct pull request lookups', () => {
 			totalCommentsCount: 0,
 			viewerCanUpdate: true,
 		};
-	}
-
-	function captureQuery(data: unknown): { config: GitHubApiConfig; getQuery: () => string } {
-		let query = '';
-		const config: GitHubApiConfig = {
-			isWeb: false,
-			fetch: async (_url, init) => {
-				const body = JSON.parse(String(init?.body ?? '{}')) as { query?: string };
-				query = body.query ?? '';
-				return new Response(JSON.stringify({ data: data }), {
-					status: 200,
-					headers: { 'content-type': 'application/json' },
-				});
-			},
-			wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
-		};
-		return { config: config, getQuery: () => query };
 	}
 
 	test('getPullRequest requests and maps the body', async () => {

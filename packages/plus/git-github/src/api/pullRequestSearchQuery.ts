@@ -12,10 +12,20 @@ export type GitHubPullRequestSearchFacet = {
 	qualifiers: string[];
 };
 
-const relationshipQualifier: Record<PullRequestFilter, string> = {
+/**
+ * The GitHub search qualifier each relationship translates to. Exhaustive over `PullRequestFilter` so a new
+ * member can't be silently unmapped.
+ *
+ * Exported because the account-wide read builds its own facets from the same vocabulary (see
+ * `GitHubIntegrationBase.getProviderMyPullRequestsForUser`). Kept as ONE declaration rather than a copy per
+ * caller: the exhaustive `Record` makes a missing key a compile error, but nothing would catch two copies
+ * disagreeing on a qualifier STRING, and a wrong qualifier is a read that quietly answers a different question.
+ */
+export const gitHubPullRequestRelationshipQualifiers: Record<PullRequestFilter, string> = {
 	[PullRequestFilter.Author]: 'author:@me',
 	[PullRequestFilter.Assignee]: 'assignee:@me',
 	[PullRequestFilter.ReviewRequested]: 'review-requested:@me',
+	[PullRequestFilter.Reviewed]: 'reviewed-by:@me',
 	[PullRequestFilter.Mention]: 'mentions:@me',
 };
 
@@ -23,6 +33,7 @@ const relationshipAlias: Record<PullRequestFilter, string> = {
 	[PullRequestFilter.Author]: 'author',
 	[PullRequestFilter.Assignee]: 'assignee',
 	[PullRequestFilter.ReviewRequested]: 'reviewRequested',
+	[PullRequestFilter.Reviewed]: 'reviewed',
 	[PullRequestFilter.Mention]: 'mention',
 };
 
@@ -129,7 +140,7 @@ export function toGitHubPullRequestSearchFacets(
 			alias: `${relationship != null ? relationshipAlias[relationship] : 'scope'}${stateAlias[state]}`,
 			qualifiers: [
 				'is:pr',
-				...(relationship != null ? [relationshipQualifier[relationship]] : []),
+				...(relationship != null ? [gitHubPullRequestRelationshipQualifiers[relationship]] : []),
 				...stateQualifiers(state),
 				// `!= null`, not truthy: `draft:false` narrows to ready-for-review PRs just as `draft:true` narrows to drafts.
 				...(criteria?.draft != null ? [`draft:${criteria.draft}`] : []),

@@ -23,6 +23,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
+import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -64,13 +65,19 @@ const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor =
 type GitLabPullRequestAssociation = 'assigned' | 'authored' | 'reviewRequested';
 type GitLabPullRequestFacetCursor = Partial<Record<GitLabPullRequestAssociation, string>>;
 
-const gitLabAssociationForFilter: Record<
-	Exclude<PullRequestFilter, PullRequestFilter.Mention>,
-	GitLabPullRequestAssociation
-> = {
+/**
+ * The account-wide relationships GitLab can express, and the `scope` each maps to. `undefined` means GitLab has
+ * no equivalent axis (it has neither `Mention` nor `reviewed-by`), and this map is the single declaration of
+ * that. Exhaustive over `PullRequestFilter` on purpose: a new member must be decided for GitLab here rather
+ * than compiling through as silently unsupported. Exported for the advertised-vs-expressible capability test,
+ * which is what keeps it agreeing with `supportedAccountWidePullRequestFilters`; no runtime consumer imports it.
+ */
+export const gitLabAssociationForFilter: Record<PullRequestFilter, GitLabPullRequestAssociation | undefined> = {
 	[PullRequestFilter.Assignee]: 'assigned',
 	[PullRequestFilter.Author]: 'authored',
 	[PullRequestFilter.ReviewRequested]: 'reviewRequested',
+	[PullRequestFilter.Reviewed]: undefined,
+	[PullRequestFilter.Mention]: undefined,
 };
 
 function parseGitLabPullRequestFacetCursor(cursor: string | undefined): GitLabPullRequestFacetCursor {
@@ -473,15 +480,26 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 		const api = await this.getProvidersApi();
 		const requested = options?.filters?.length ? new Set(options.filters) : undefined;
+		// The filter contract is all-or-nothing, so refuse as soon as ONE requested member is inexpressible rather
+		// than only when every one is: dropping the rest would answer a narrower question than was asked
+		// (`[Author, Mention]` becoming `authored`). Throw rather than return `undefined`, which the facade reads
+		// as "no session could be resolved" and a drain turns into a not-connected warning, misattributing a
+		// refusal; `getMyPullRequestsForUserResult` recovers the throw into `{ error }`. Defense in depth:
+		// `resolveAccountWidePullRequestFilters` already refuses such a set, so only a direct caller of the public
+		// method reaches this.
+		const unsupported = requested == null ? [] : [...requested].filter(f => gitLabAssociationForFilter[f] == null);
+		if (unsupported.length > 0) {
+			throw new IntegrationReadUnavailableError(
+				this.name,
+				`account-wide pull request filters not expressible by GitLab: ${unsupported.join(', ')}`,
+			);
+		}
+
 		const associations: GitLabPullRequestAssociation[] =
 			requested == null
 				? ['authored', 'assigned', 'reviewRequested']
-				: [...requested]
-						.filter(
-							(filter): filter is Exclude<PullRequestFilter, PullRequestFilter.Mention> =>
-								filter !== PullRequestFilter.Mention,
-						)
-						.map(filter => gitLabAssociationForFilter[filter]);
+				: Array.from(requested, f => gitLabAssociationForFilter[f]).filter(a => a != null);
+
 		const cursors = parseGitLabPullRequestFacetCursor(options?.cursor);
 		const resumable = associations.filter(association => cursors[association] != null);
 		const associationsToQuery = options?.cursor != null && resumable.length > 0 ? resumable : associations;
