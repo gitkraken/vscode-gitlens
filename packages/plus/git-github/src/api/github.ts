@@ -13,7 +13,13 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestState, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestSearchCriteria,
+	PullRequestShape,
+	PullRequestState,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
@@ -72,6 +78,7 @@ import {
 	toGitHubIssueSearchQualifiers,
 	toGitHubIssueSearchScopeQualifiers,
 } from './issueSearchQuery.js';
+import { toGitHubPullRequestSearchFacets } from './pullRequestSearchQuery.js';
 import type { GitHubTokenInfo } from './token.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -160,6 +167,22 @@ export interface AliasedIssueSearchResult {
 	 * The largest `issueCount` any single alias reported, which is what {@link githubSearchResultLimit} applies
 	 * to (the ceiling is per search, not per request). Absent when no request was made — every alias was already
 	 * exhausted — so `undefined` means "not reported", never zero matches.
+	 */
+	totalCount?: number;
+}
+
+/** One page of the filtered pull-request search. */
+export interface PullRequestSearchResult {
+	values: PullRequestShape[];
+	/** Opaque cursor carrying each active facet continuation plus the positional page. */
+	cursor?: string;
+	hasMore: boolean;
+	page: number;
+	/** True at GitHub's search ceiling or when GitHub advertises a page without a usable cursor. */
+	truncated: boolean;
+	/**
+	 * The largest pre-ceiling `issueCount` any relationship × state facet reported, which is what
+	 * {@link githubSearchResultLimit} applies to. Never the number of rows reachable after that ceiling.
 	 */
 	totalCount?: number;
 }
@@ -4141,6 +4164,226 @@ export class GitHubApi {
 				page: page,
 				truncated: truncated,
 				totalCount: maxIssueCount,
+			};
+		} catch (ex) {
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	/**
+	 * Searches pull requests over a repository/org or current-user relationship scope. One GraphQL document carries
+	 * every active relationship × state facet, so one HTTP request serves one page even when the logical search is
+	 * a union. The cursor preserves each facet's continuation plus the positional page.
+	 *
+	 * Ordering is always most-recently-updated-first, and user text is sanitized before it reaches the provider
+	 * query. See {@link toGitHubPullRequestSearchFacets}.
+	 */
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async searchPullRequestsPage(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		options?: {
+			repos?: string[];
+			org?: string;
+			criteria?: PullRequestSearchCriteria;
+			baseUrl?: string;
+			avatarSize?: number;
+			cursor?: string;
+			pageSize?: number;
+		},
+		cancellation?: AbortSignal,
+	): Promise<PullRequestSearchResult | undefined> {
+		const scope = getScopedLogger();
+
+		const pageSize = Math.min(100, Math.max(1, Math.trunc(options?.pageSize ?? 100)));
+		const facets = toGitHubPullRequestSearchFacets(options?.criteria);
+		const facetAliases = facets.map(f => f.alias).sort();
+		const scopeQualifiers = toGitHubIssueSearchScopeQualifiers(options?.org, options?.repos);
+		const facetSearches = new Map(
+			facets.map(f => [f.alias, [...scopeQualifiers, ...f.qualifiers].join(' ')] as const),
+		);
+		// Bind a cursor to every qualifier without publishing the user text/scope inside the opaque cursor. FNV-1a
+		// is a compact drift key, not a security primitive: a mismatch only degrades safely to page 1.
+		let cursorKeyHash = 0x811c9dc5;
+		for (const value of [...facetSearches.entries()].sort(([a], [b]) => a.localeCompare(b)).flat()) {
+			for (let i = 0; i < value.length; i++) {
+				cursorKeyHash ^= value.charCodeAt(i);
+				cursorKeyHash = Math.imul(cursorKeyHash, 0x01000193);
+			}
+			cursorKeyHash ^= 0;
+			cursorKeyHash = Math.imul(cursorKeyHash, 0x01000193);
+		}
+		const cursorKey = (cursorKeyHash >>> 0).toString(36);
+
+		type SearchCategory = {
+			issueCount: number;
+			pageInfo?: { endCursor?: string | null; hasNextPage: boolean };
+			nodes: (GitHubPullRequest | null)[] | null;
+		};
+		interface SearchCursor {
+			key: string;
+			page: number;
+			facets: Record<string, string | null>;
+			truncated?: boolean;
+			totalCount?: number;
+		}
+
+		let cursor: SearchCursor | undefined;
+		if (options?.cursor != null) {
+			try {
+				const parsed = JSON.parse(options.cursor) as Partial<SearchCursor>;
+				const parsedFacets = parsed.facets;
+				if (parsedFacets != null && typeof parsedFacets === 'object' && !Array.isArray(parsedFacets)) {
+					const parsedAliases = Object.keys(parsedFacets).sort();
+					const sameFacets =
+						parsedAliases.length === facetAliases.length &&
+						parsedAliases.every((alias, index) => alias === facetAliases[index]);
+					const usableSlots = Object.values(parsedFacets).every(
+						slot => slot === null || (typeof slot === 'string' && slot.length > 0),
+					);
+					if (parsed.key === cursorKey && sameFacets && usableSlots) {
+						cursor = {
+							key: cursorKey,
+							page:
+								typeof parsed.page === 'number' && Number.isFinite(parsed.page)
+									? Math.max(1, Math.trunc(parsed.page))
+									: 1,
+							facets: parsedFacets,
+							truncated: parsed.truncated === true,
+							totalCount:
+								typeof parsed.totalCount === 'number' && Number.isFinite(parsed.totalCount)
+									? Math.max(0, Math.trunc(parsed.totalCount))
+									: undefined,
+						};
+					}
+				}
+			} catch {}
+		}
+		const page = cursor?.page ?? 1;
+		const isActive = (alias: string): boolean => cursor?.facets[alias] !== null;
+		const activeFacets = facets.filter(f => isActive(f.alias));
+		if (activeFacets.length === 0) {
+			return {
+				values: [],
+				hasMore: false,
+				page: page,
+				truncated: cursor?.truncated === true,
+				totalCount: cursor?.totalCount,
+			};
+		}
+
+		const includeVar = (alias: string): string => `include${alias.charAt(0).toUpperCase()}${alias.slice(1)}`;
+		const params = facets.flatMap(f => [
+			`$${f.alias}Search: String!`,
+			`$${f.alias}Cursor: String`,
+			`$${includeVar(f.alias)}: Boolean!`,
+		]);
+		const fields = facets.map(
+			f => `${f.alias}: search(first: ${pageSize}, after: $${f.alias}Cursor, query: $${f.alias}Search, type: ISSUE)
+				@include(if: $${includeVar(f.alias)}) {
+				issueCount
+				pageInfo {
+					endCursor
+					hasNextPage
+				}
+				nodes {
+					... on PullRequest {
+						${gqlPullRequestFragment}
+					}
+				}
+			}`,
+		);
+		const query = `query searchPullRequestsPage(
+			${params.join('\n\t\t\t')}
+			$avatarSize: Int
+		) {
+			${fields.join('\n\t\t\t')}
+		}`;
+
+		const variables: Record<string, unknown> = {
+			baseUrl: options?.baseUrl,
+			avatarSize: options?.avatarSize,
+		};
+		for (const facet of facets) {
+			variables[`${facet.alias}Search`] = facetSearches.get(facet.alias);
+			variables[`${facet.alias}Cursor`] = cursor?.facets[facet.alias] ?? undefined;
+			variables[includeVar(facet.alias)] = isActive(facet.alias);
+		}
+
+		try {
+			const rsp = await this.graphql<Record<string, SearchCategory | undefined>>(
+				provider,
+				token,
+				query,
+				variables,
+				scope,
+				cancellation,
+			);
+			if (rsp == null) return { values: [], hasMore: false, page: page, truncated: false };
+
+			const pullRequests: PullRequestShape[] = [];
+			for (const facet of activeFacets) {
+				for (const node of rsp[facet.alias]?.nodes ?? []) {
+					if (node?.id == null) continue;
+
+					try {
+						pullRequests.push(fromGitHubPullRequest(node, provider));
+					} catch (ex) {
+						scope?.warn(`skipped unmappable pull request; id=${node.id}, url=${node.url}, ex=${ex}`);
+					}
+				}
+			}
+			pullRequests.sort((a, b) => b.updatedDate.getTime() - a.updatedDate.getTime());
+			const values = [
+				...uniqueBy(
+					pullRequests,
+					pr => pr.url,
+					(original, _current) => original,
+				),
+			];
+
+			const nextFacets: Record<string, string | null> = {};
+			let hasMore = false;
+			let continuationMissing = false;
+			let totalCount = cursor?.totalCount ?? 0;
+			let providerLimitReached = false;
+			for (const facet of facets) {
+				if (!isActive(facet.alias)) {
+					nextFacets[facet.alias] = null;
+					continue;
+				}
+
+				const category = rsp[facet.alias];
+				const endCursor =
+					category?.pageInfo?.hasNextPage === true && category.pageInfo.endCursor
+						? category.pageInfo.endCursor
+						: null;
+				nextFacets[facet.alias] = endCursor;
+				if (endCursor != null) {
+					hasMore = true;
+				}
+				if (category?.pageInfo?.hasNextPage === true && category.pageInfo.endCursor == null) {
+					continuationMissing = true;
+				}
+				totalCount = Math.max(totalCount, category?.issueCount ?? 0);
+				providerLimitReached ||= (category?.issueCount ?? 0) > githubSearchResultLimit;
+			}
+			const truncated = cursor?.truncated === true || providerLimitReached || continuationMissing;
+			const next: SearchCursor = {
+				key: cursorKey,
+				page: page + 1,
+				facets: nextFacets,
+				truncated: truncated || undefined,
+				totalCount: totalCount,
+			};
+
+			return {
+				values: values,
+				cursor: hasMore ? JSON.stringify(next) : undefined,
+				hasMore: hasMore,
+				page: page,
+				truncated: truncated,
+				totalCount: totalCount,
 			};
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);

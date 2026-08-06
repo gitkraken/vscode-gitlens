@@ -5,6 +5,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type {
 	PullRequest,
 	PullRequestMergeMethod,
+	PullRequestSearchCriteria,
 	PullRequestStackInfo,
 	PullRequestState,
 	PullRequestStateFilter,
@@ -26,7 +27,11 @@ import { IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { ProviderIssueSearchPage, SearchMyIssuesOptions } from '../models/integration.js';
+import type {
+	ProviderIssueSearchPage,
+	ProviderPullRequestSearchPage,
+	SearchMyIssuesOptions,
+} from '../models/integration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
 import type {
@@ -621,6 +626,37 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 							mentioned: options.filters.includes(IssueFilter.Mention),
 						}
 					: undefined,
+			},
+			cancellation,
+		);
+	}
+
+	/**
+	 * Filtered pull-request search over a repository/organization or explicit current-user relationship scope. The
+	 * API client owns criteria sanitizing, facet unioning, ordering, and the composite cursor that carries GitHub's
+	 * result-ceiling signal across pages.
+	 */
+	protected override async searchProviderPullRequestsPage(
+		session: ProviderAuthenticationSession,
+		options: {
+			repos?: ProviderRepoInput[];
+			org?: string;
+			criteria?: PullRequestSearchCriteria;
+			cursor?: string;
+			pageSize?: number;
+		},
+		cancellation?: AbortSignal,
+	): Promise<ProviderPullRequestSearchPage | undefined> {
+		return (await this.authenticationService.apis.github)?.searchPullRequestsPage(
+			this,
+			toTokenWithInfo(this.id, session),
+			{
+				repos: options.repos?.map(r => `${r.namespace}/${r.name}`),
+				org: options.org,
+				criteria: options.criteria,
+				baseUrl: this.apiBaseUrl,
+				cursor: options.cursor,
+				pageSize: options.pageSize,
 			},
 			cancellation,
 		);
