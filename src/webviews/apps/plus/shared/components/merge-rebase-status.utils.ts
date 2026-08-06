@@ -24,9 +24,9 @@ export function isPausedOperationStepped(
 export function getPausedOperationBarLabel(status: GitPausedOperationStatus, variant: PausedOperationVariant): string {
 	const strings = pausedOperationStatusStringsByType[status.type];
 	if (variant === 'conflicts') return `${strings.prose} paused`;
-	if (variant === 'pending' && status.type === 'rebase') {
-		return pausedOperationStatusStringsByType.rebase.pending;
-	}
+	// The shared `pending` string trails a preposition for callers that append a ref inline (the tree
+	// view). The bar's refs can shed, so it carries that "of" inside the refs group instead.
+	if (variant === 'pending' && status.type === 'rebase') return 'Pending rebase';
 	return strings.label;
 }
 
@@ -67,11 +67,10 @@ export function getPausedOperationBarIconTooltip(
 	variant: PausedOperationVariant,
 	conflictsCount: number | undefined,
 ): string | undefined {
-	// The pending phrase reads into its refs, which never shed — restating them would only echo the label.
-	if (variant === 'pending') return undefined;
-
 	let state;
-	if (variant === 'conflicts') {
+	if (variant === 'pending') {
+		state = 'The rebase hasn’t reached its first step';
+	} else if (variant === 'conflicts') {
 		const name = pausedOperationStatusStringsByType[status.type].prose.toLowerCase();
 		state =
 			conflictsCount == null
