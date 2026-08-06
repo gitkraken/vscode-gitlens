@@ -32,6 +32,14 @@
 			"default": "./dist/env/node/platform.js"
 		},
 		"./env/node/*.js": null,
+		"./keys/chord.js": {
+			"types": "./dist/keys/chord.d.ts",
+			"default": "./dist/keys/chord.js"
+		},
+		"./keys/keybinding.js": {
+			"types": "./dist/keys/keybinding.d.ts",
+			"default": "./dist/keys/keybinding.js"
+		},
 		"./*.js": {
 			"types": "./dist/*.d.ts",
 			"default": "./dist/*.js"
