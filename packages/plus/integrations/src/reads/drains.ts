@@ -71,6 +71,8 @@ export async function drainPullRequests(
 	state: PullRequestStateFilter[] | undefined,
 	filters: PullRequestFilter[] | undefined,
 	includeReviewRequested: boolean,
+	// Account-wide only: fetch the full projection (reviews) rather than the lite/summary one.
+	includeReviews: boolean,
 	connectionId: string | undefined,
 	maxPages: number,
 	attributeUnavailableProvider: boolean,
@@ -115,7 +117,8 @@ export async function drainPullRequests(
 							cursor: pageCursor,
 							includeReviewRequested: includeReviewRequested,
 							filters: filters,
-							summary: true,
+							// Lite by default; the full projection (reviews) only when a caller opts in.
+							summary: !includeReviews,
 						},
 						connectionId,
 					)

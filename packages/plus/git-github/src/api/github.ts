@@ -284,6 +284,9 @@ latestReviews(first: 25) {
 			url
 		}
 		state
+		commit {
+			oid
+		}
 	}
 }
 reviewRequests(first: 25) {

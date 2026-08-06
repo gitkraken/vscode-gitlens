@@ -112,6 +112,7 @@ async function sweepTarget(
 		options?.states,
 		resolved.filters,
 		accountWide ? (options?.includeReviewRequested ?? false) : false,
+		accountWide ? (options?.includeReviews ?? false) : false,
 		connectionId,
 		maxPages,
 		attributeUnavailableProviders,

@@ -207,6 +207,7 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 		nodes: {
 			author: GitHubMember | null;
 			state: GitHubPullRequestReviewState;
+			commit?: { oid: string } | null;
 		}[];
 	};
 	reviewRequests: {
@@ -470,6 +471,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider)
 		pr.latestReviews.nodes.map(r => ({
 			reviewer: fromGitHubMemberOrGhost(r.author),
 			state: fromGitHubPullRequestReviewState(r.state),
+			commitOid: r.commit?.oid,
 		})),
 		pr.assignees.nodes.map(r => ({
 			id: r.login,

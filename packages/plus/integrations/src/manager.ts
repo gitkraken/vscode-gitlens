@@ -156,6 +156,12 @@ type PullRequestSweepCommonOptions = {
 	 * This extends the provider-native result; it is not a narrowing filter.
 	 */
 	includeReviewRequested?: boolean;
+	/**
+	 * Account-wide only: fetch the full PR projection (review decision, review requests, latest reviews)
+	 * instead of the default summary/lite one. Opt-in because it enlarges every account-wide page; callers
+	 * that classify by review state (e.g. a "needs my review" surface) set it, others keep the lean read.
+	 */
+	includeReviews?: boolean;
 	forceSync?: boolean;
 	maxPages?: number;
 	/**

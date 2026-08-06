@@ -95,6 +95,7 @@ const pullRequestRelationshipQualifier: Record<PullRequestFilter, string> = {
 	[PullRequestFilter.Author]: 'author:@me',
 	[PullRequestFilter.Assignee]: 'assignee:@me',
 	[PullRequestFilter.ReviewRequested]: 'review-requested:@me',
+	[PullRequestFilter.Reviewed]: 'reviewed-by:@me',
 	[PullRequestFilter.Mention]: 'mentions:@me',
 };
 

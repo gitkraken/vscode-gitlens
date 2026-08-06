@@ -154,6 +154,10 @@ export enum PullRequestFilter {
 	Author = 'author',
 	Assignee = 'assignee',
 	ReviewRequested = 'review-requested',
+	// PRs the user has already reviewed (GitHub `reviewed-by:@me`), as opposed to
+	// `ReviewRequested` (a still-pending request). Distinguishes "waiting on the
+	// author after my review" from "waiting for my review".
+	Reviewed = 'reviewed-by',
 	Mention = 'mention',
 }
 
@@ -227,6 +231,10 @@ export interface PullRequestReviewer {
 	isCodeOwner?: boolean;
 	reviewer: PullRequestMember;
 	state: PullRequestReviewState;
+	// The head commit oid this review was submitted against (GitHub). Lets a consumer
+	// tell "the PR moved past my review" (oid !== the PR's current head) from a review
+	// still at the tip — without a per-review timestamp.
+	commitOid?: string;
 }
 
 export type PullRequestRepositoryIdentityDescriptor = RequireSomeWithProps<

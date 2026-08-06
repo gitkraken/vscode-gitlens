@@ -65,7 +65,8 @@ type GitLabPullRequestAssociation = 'assigned' | 'authored' | 'reviewRequested';
 type GitLabPullRequestFacetCursor = Partial<Record<GitLabPullRequestAssociation, string>>;
 
 const gitLabAssociationForFilter: Record<
-	Exclude<PullRequestFilter, PullRequestFilter.Mention>,
+	// GitLab has no `Mention` axis and no `reviewed-by` equivalent, so both are excluded.
+	Exclude<PullRequestFilter, PullRequestFilter.Mention | PullRequestFilter.Reviewed>,
 	GitLabPullRequestAssociation
 > = {
 	[PullRequestFilter.Assignee]: 'assigned',
@@ -478,8 +479,12 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				? ['authored', 'assigned', 'reviewRequested']
 				: [...requested]
 						.filter(
-							(filter): filter is Exclude<PullRequestFilter, PullRequestFilter.Mention> =>
-								filter !== PullRequestFilter.Mention,
+							(
+								filter,
+							): filter is Exclude<
+								PullRequestFilter,
+								PullRequestFilter.Mention | PullRequestFilter.Reviewed
+							> => filter !== PullRequestFilter.Mention && filter !== PullRequestFilter.Reviewed,
 						)
 						.map(filter => gitLabAssociationForFilter[filter]);
 		const cursors = parseGitLabPullRequestFacetCursor(options?.cursor);
