@@ -761,7 +761,7 @@ suite('Diff Parser Test Suite', () => {
 	});
 
 	suite('countDiffInsertionsAndDeletions', () => {
-		test('counts insertions and deletions from hunks', () => {
+		test('counts insertions and deletions from hunks, excluding context lines', () => {
 			const data = [
 				'diff --git a/src/foo.ts b/src/foo.ts',
 				'index abc1234..def5678 100644',
@@ -777,8 +777,140 @@ suite('Diff Parser Test Suite', () => {
 			const result = parseGitDiff(data);
 			const counts = countDiffInsertionsAndDeletions(result.files[0]);
 
-			assert.strictEqual(counts.insertions, 4);
+			assert.strictEqual(counts.insertions, 1);
+			assert.strictEqual(counts.deletions, 0);
+		});
+
+		test('counts an asymmetric change block', () => {
+			const data = [
+				'diff --git a/src/foo.ts b/src/foo.ts',
+				'index abc1234..def5678 100644',
+				'--- a/src/foo.ts',
+				'+++ b/src/foo.ts',
+				'@@ -1,5 +1,3 @@',
+				' line1',
+				'-old1',
+				'-old2',
+				'-old3',
+				'+new1',
+				' line5',
+			].join('\n');
+
+			const result = parseGitDiff(data);
+			const counts = countDiffInsertionsAndDeletions(result.files[0]);
+
+			assert.strictEqual(counts.insertions, 1);
 			assert.strictEqual(counts.deletions, 3);
+		});
+
+		test('counts an added file with no deletions', () => {
+			const data = [
+				'diff --git a/new.txt b/new.txt',
+				'new file mode 100644',
+				'index 0000000..abc1234',
+				'--- /dev/null',
+				'+++ b/new.txt',
+				'@@ -0,0 +1 @@',
+				'+hello',
+			].join('\n');
+
+			const result = parseGitDiff(data);
+			assert.strictEqual(result.files[0].status, GitFileIndexStatus.Added);
+
+			const counts = countDiffInsertionsAndDeletions(result.files[0]);
+
+			assert.strictEqual(counts.insertions, 1);
+			assert.strictEqual(counts.deletions, 0);
+		});
+
+		test('counts a deleted file with no insertions', () => {
+			const data = [
+				'diff --git a/gone.txt b/gone.txt',
+				'deleted file mode 100644',
+				'index abc1234..0000000',
+				'--- a/gone.txt',
+				'+++ /dev/null',
+				'@@ -1,2 +0,0 @@',
+				'-line1',
+				'-line2',
+			].join('\n');
+
+			const result = parseGitDiff(data);
+			assert.strictEqual(result.files[0].status, GitFileIndexStatus.Deleted);
+
+			const counts = countDiffInsertionsAndDeletions(result.files[0]);
+
+			assert.strictEqual(counts.insertions, 0);
+			assert.strictEqual(counts.deletions, 2);
+		});
+
+		test('ignores the no-newline marker', () => {
+			const data = [
+				'diff --git a/src/foo.ts b/src/foo.ts',
+				'index abc1234..def5678 100644',
+				'--- a/src/foo.ts',
+				'+++ b/src/foo.ts',
+				'@@ -1 +1 @@',
+				'-old',
+				'\\ No newline at end of file',
+				'+new',
+				'\\ No newline at end of file',
+			].join('\n');
+
+			const result = parseGitDiff(data);
+			const counts = countDiffInsertionsAndDeletions(result.files[0]);
+
+			assert.strictEqual(counts.insertions, 1);
+			assert.strictEqual(counts.deletions, 1);
+		});
+
+		test('returns zeros for a pure rename and for a binary file', () => {
+			const rename = [
+				'diff --git a/old.ts b/new.ts',
+				'similarity index 100%',
+				'rename from old.ts',
+				'rename to new.ts',
+			].join('\n');
+
+			let result = parseGitDiff(rename);
+			assert.strictEqual(result.files[0].status, GitFileIndexStatus.Renamed);
+			assert.deepStrictEqual(countDiffInsertionsAndDeletions(result.files[0]), {
+				insertions: 0,
+				deletions: 0,
+			});
+
+			const binary = [
+				'diff --git a/logo.png b/logo.png',
+				'index abc1234..def5678 100644',
+				'Binary files a/logo.png and b/logo.png differ',
+			].join('\n');
+
+			result = parseGitDiff(binary);
+			assert.strictEqual(result.files[0].metadata.binary, true);
+			assert.deepStrictEqual(countDiffInsertionsAndDeletions(result.files[0]), {
+				insertions: 0,
+				deletions: 0,
+			});
+		});
+
+		test('counts annotated diff content (as sent to the AI)', () => {
+			const data = [
+				'diff --git a/src/foo.ts b/src/foo.ts',
+				'index abc1234..def5678 100644',
+				'--- a/src/foo.ts',
+				'+++ b/src/foo.ts',
+				'@@ -1,3 +1,3 @@',
+				' [    1] line1',
+				'-[     ] old',
+				'+[    2] new',
+				' [    3] line3',
+			].join('\n');
+
+			const result = parseGitDiff(data);
+			const counts = countDiffInsertionsAndDeletions(result.files[0]);
+
+			assert.strictEqual(counts.insertions, 1);
+			assert.strictEqual(counts.deletions, 1);
 		});
 	});
 

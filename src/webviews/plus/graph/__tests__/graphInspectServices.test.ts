@@ -374,9 +374,9 @@ const diffWithNestedRepoGitlink = [
 
 type CreateServices = () => { graphInspect: GraphInspectService };
 
-function createReviewFake() {
+function createReviewFake(diff: string = diffWithNestedRepoGitlink) {
 	const getDiff = sinon.stub();
-	getDiff.withArgs(uncommitted).resolves({ contents: diffWithNestedRepoGitlink });
+	getDiff.withArgs(uncommitted).resolves({ contents: diff });
 	getDiff.withArgs(uncommittedStaged).resolves(undefined);
 
 	// Mirrors the scratch-index staging the review performs (#5604/#5605) so these tests run the same
@@ -398,14 +398,18 @@ function createReviewFake() {
 
 	const reviewChanges = sinon.stub().returns({ promise: Promise.resolve({ result: { mode: 'single-pass' } }) });
 	const reviewFocusArea = sinon.stub().returns({ promise: Promise.resolve({ result: {} }) });
+	const reviewOverview = sinon
+		.stub()
+		.returns({ promise: Promise.resolve({ result: { mode: 'two-pass', focusAreas: [] } }) });
 
 	const container = {
 		git: { getRepositoryService: () => svc },
 		ai: {
-			// No model → the conservative single-pass threshold, which this small diff clears, so the
-			// assertions can read the diff straight off the single-pass request.
+			// No model → the conservative single-pass (8000-token) threshold. `diffWithNestedRepoGitlink`
+			// clears it, so the existing single-pass assertions can read the diff straight off that
+			// request; the two-pass manifest tests below pass a diff sized to exceed it instead.
 			getModel: async () => undefined,
-			actions: { reviewChanges: reviewChanges, reviewFocusArea: reviewFocusArea },
+			actions: { reviewChanges: reviewChanges, reviewFocusArea: reviewFocusArea, reviewOverview: reviewOverview },
 		},
 	} as unknown as Container;
 
@@ -433,6 +437,7 @@ function createReviewFake() {
 		graphInspect: graphInspect,
 		reviewChanges: reviewChanges,
 		reviewFocusArea: reviewFocusArea,
+		reviewOverview: reviewOverview,
 		diffCache: diffCache,
 	};
 }
@@ -524,6 +529,123 @@ suite('graphInspectServices — review exclusions across path shapes (#5603)', (
 		await m.graphInspect.reviewChanges('/repo', scope, undefined, ['new.txt']);
 
 		assert.strictEqual(m.diffCache.size, 2);
+	});
+});
+
+// Fix under test (#5658): pass 1 of a two-pass review sees nothing but the JSON file manifest built
+// here, so every field on it has to be trustworthy — a hardcoded `status: 'M'` or hunk-header-inflated
+// line counts fed pass 1 wrong data with nothing to catch it. This diff is padded well past
+// `shouldUseSinglePass`'s ~22400-character (8000-token) fallback threshold so `reviewChanges` takes the
+// two-pass branch and the manifest actually gets built.
+
+/** One context line long enough that a handful of them, repeated, push the whole diff past the
+ *  single-pass token threshold without needing hundreds of lines to do it. */
+const paddingContextLines = Array.from({ length: 12 }, (_, i) => ` context padding line ${i} ${'x'.repeat(2000)}`);
+
+/** A diff with one file of each shape the manifest has to get right: a plain modification (with
+ *  padding context so the diff clears the two-pass threshold), a new file, a rename with content
+ *  changes, and a binary file. */
+const diffForTwoPassManifest = [
+	'diff --git a/modified.txt b/modified.txt',
+	'index 1111111..2222222 100644',
+	'--- a/modified.txt',
+	'+++ b/modified.txt',
+	'@@ -1,15 +1,16 @@',
+	...paddingContextLines,
+	'-removed line one',
+	'-removed line two',
+	'+added line one',
+	'+added line two',
+	'+added line three',
+	' trailing context line',
+	'diff --git a/added.txt b/added.txt',
+	'new file mode 100644',
+	'index 0000000..3333333',
+	'--- /dev/null',
+	'+++ b/added.txt',
+	'@@ -0,0 +1,4 @@',
+	'+added file line one',
+	'+added file line two',
+	'+added file line three',
+	'+added file line four',
+	'diff --git a/renamed_old.txt b/renamed_new.txt',
+	'similarity index 80%',
+	'rename from renamed_old.txt',
+	'rename to renamed_new.txt',
+	'index 4444444..5555555 100644',
+	'--- a/renamed_old.txt',
+	'+++ b/renamed_new.txt',
+	'@@ -1,3 +1,3 @@',
+	' unchanged line',
+	'-old content',
+	'+new content',
+	' trailing line',
+	'diff --git a/binary.png b/binary.png',
+	'index 6666666..7777777 100644',
+	'Binary files a/binary.png and b/binary.png differ',
+	'',
+].join('\n');
+
+interface ManifestFile {
+	path: string;
+	status: string;
+	additions: number;
+	deletions: number;
+}
+
+function reviewedManifest(stub: sinon.SinonStub): ManifestFile[] {
+	assert.ok(stub.called, 'the pass-1 review-overview action should have been invoked');
+	const files = (stub.firstCall.args[0] as { files: string }).files;
+	return JSON.parse(files) as ManifestFile[];
+}
+
+suite('graphInspectServices — two-pass file manifest (#5658)', () => {
+	test('reports real per-file status and changed-line counts — not a blanket "M" or inflated counts', async () => {
+		const m = createReviewFake(diffForTwoPassManifest);
+
+		const result = await m.graphInspect.reviewChanges(
+			'/repo',
+			wipScope({ includeUnstaged: true }),
+			undefined,
+			undefined,
+		);
+
+		assert.ok(!('error' in result), `review should not have errored: ${JSON.stringify(result)}`);
+		// Confirms the diff was actually large enough to take the two-pass branch, rather than the
+		// assertions below silently reading stale (unset) stub state.
+		sinon.assert.notCalled(m.reviewChanges);
+		sinon.assert.calledOnce(m.reviewOverview);
+
+		const files = reviewedManifest(m.reviewOverview);
+		const byPath = new Map(files.map(f => [f.path, f]));
+
+		const modified = byPath.get('modified.txt');
+		assert.ok(modified, 'modified.txt should be in the manifest');
+		assert.strictEqual(modified.status, 'M');
+		assert.strictEqual(modified.additions, 3, 'only the 3 real `+` lines, not the 16-line hunk header count');
+		assert.strictEqual(modified.deletions, 2, 'only the 2 real `-` lines, not the padding context lines');
+
+		const added = byPath.get('added.txt');
+		assert.ok(added, 'added.txt should be in the manifest');
+		assert.strictEqual(
+			added.status,
+			'A',
+			'a new file must not read as a blanket "M" against a nonexistent prior version',
+		);
+		assert.strictEqual(added.additions, 4);
+		assert.strictEqual(added.deletions, 0, 'the `-0,0` hunk header must not be read as a phantom deletion');
+
+		const renamed = byPath.get('renamed_new.txt');
+		assert.ok(renamed, 'renamed_new.txt should be in the manifest, keyed by its new path');
+		assert.strictEqual(renamed.status, 'R');
+		assert.strictEqual(renamed.additions, 1);
+		assert.strictEqual(renamed.deletions, 1);
+
+		const binary = byPath.get('binary.png');
+		assert.ok(binary, 'binary.png should be in the manifest');
+		assert.strictEqual(binary.status, 'M');
+		assert.strictEqual(binary.additions, 0, 'a binary file has no line-based hunks to count');
+		assert.strictEqual(binary.deletions, 0);
 	});
 });
 
