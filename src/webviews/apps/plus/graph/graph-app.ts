@@ -181,11 +181,14 @@ const detailsDefaultPct = 50;
 const detailsMinPct = 20;
 const detailsMaxPct = 80;
 
-// Width thresholds (px) for the `auto` details location — below `enter` the panel flips to the
-// bottom, above `exit` it flips back to the right. The dead-band between them prevents flicker when
-// the panel is dragged across the boundary.
-const detailsAutoBottomEnterPx = 820;
-const detailsAutoBottomExitPx = 920;
+// The `auto` details location flips to the bottom when width is scarce relative to height — the
+// panel docks on whichever axis has surplus. The width threshold scales with height (a short pane
+// can't spare vertical room; a tall one can), clamped so tiny panes still prefer the bottom's
+// full-width file list and huge panes eventually go side-by-side. Exit sits 10% above enter as a
+// dead-band against flicker while dragging across the boundary.
+const detailsAutoBottomAspect = 1.6;
+const detailsAutoBottomMinPx = 900;
+const detailsAutoBottomMaxPx = 1600;
 
 const minimapDefaultPx = 40;
 const minimapMaxPct = 40;
@@ -658,14 +661,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// hide/show cycle.
 			if (width > 0 && height > 0) {
 				this._lastGraphSize = { width: width, height: height };
-				// Drive the `auto` details location from the overall panes width. Hysteresis
-				// (separate enter/exit thresholds) keeps it from flapping when dragged across the
-				// boundary. Only consumed when the configured location is `auto` (see
-				// `effectiveDetailsLocation`), but tracked unconditionally so switching back to
-				// `auto` is immediately correct without waiting for the next resize.
-				if (this._autoEffectiveLocation === 'right' && width < detailsAutoBottomEnterPx) {
+				// Drive the `auto` details location from the panes' shape: the width threshold is a
+				// pure function of height (see `detailsAutoBottomAspect`), so no feedback loop is
+				// possible — `.graph` is the layout root and its size doesn't depend on where the
+				// panel docks. Hysteresis (exit 10% above enter) keeps it from flapping when
+				// dragged across the boundary. Only consumed when the configured location is `auto`
+				// (see `effectiveDetailsLocation`), but tracked unconditionally so switching back
+				// to `auto` is immediately correct without waiting for the next resize.
+				const enterPx = Math.min(
+					Math.max(height * detailsAutoBottomAspect, detailsAutoBottomMinPx),
+					detailsAutoBottomMaxPx,
+				);
+				if (this._autoEffectiveLocation === 'right' && width < enterPx) {
 					this._autoEffectiveLocation = 'bottom';
-				} else if (this._autoEffectiveLocation === 'bottom' && width > detailsAutoBottomExitPx) {
+				} else if (this._autoEffectiveLocation === 'bottom' && width > enterPx * 1.1) {
 					this._autoEffectiveLocation = 'right';
 					// Maximize is bottom-only — drop it on a flip to the side so it doesn't silently
 					// re-apply when the panel later returns to the bottom.
