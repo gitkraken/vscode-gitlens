@@ -1,9 +1,4 @@
-export enum PullRequestFilter {
-	Author = 'author',
-	Assignee = 'assignee',
-	ReviewRequested = 'review-requested',
-	Mention = 'mention',
-}
+export { PullRequestFilter } from '@gitlens/git/models/pullRequest.js';
 
 export enum IssueFilter {
 	Author = 'author',
@@ -25,3 +20,10 @@ export type {
 	IssueSearchCriteria,
 	IssueSearchRelationship,
 } from '@gitlens/git/models/issue.js';
+
+/**
+ * The filtered pull-request search criteria and its capability table. These live in `@gitlens/git` for the
+ * same dependency-direction reason as the issue-search model above: provider API clients translate them below
+ * this package and cannot import this facade.
+ */
+export type { PullRequestSearchCapabilities, PullRequestSearchCriteria } from '@gitlens/git/models/pullRequest.js';

@@ -42,6 +42,7 @@ export type IntegrationType = 'git' | 'issues';
 // The issue-read contracts live in their own module (pure data, and their relationship to each other is the
 // point of reading them together); re-exported here so the providers that implement these reads keep one import.
 export type { AccountWideIssuesResult, ProviderIssueSearchPage, SearchMyIssuesOptions } from './issueReads.js';
+export type { ProviderPullRequestSearchPage } from './pullRequestReads.js';
 
 export type IntegrationKey<T extends IntegrationIds = IntegrationIds> = T extends
 	| GitCloudHostIntegrationId
@@ -82,6 +83,7 @@ type SyncReqUsecase = Exclude<
 	| 'countIssues'
 	| 'mergePullRequest'
 	| 'searchIssuesPage'
+	| 'searchPullRequestsPage'
 	| 'searchMyIssues'
 	| 'searchMyPullRequests'
 	| 'searchPullRequests',

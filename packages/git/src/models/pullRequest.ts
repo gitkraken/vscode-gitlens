@@ -149,8 +149,58 @@ export interface PullRequestMember {
 	url?: string;
 }
 
+/** Provider-neutral relationship facets shared by PR listings and filtered PR search. */
+export enum PullRequestFilter {
+	Author = 'author',
+	Assignee = 'assignee',
+	ReviewRequested = 'review-requested',
+	Mention = 'mention',
+}
+
 /** Selects which pull request states a read should include. `all` covers open + closed + merged. */
 export type PullRequestStateFilter = 'open' | 'closed' | 'merged' | 'all';
+
+/**
+ * What the filtered pull-request search narrows on.
+ *
+ * Structured rather than a provider query string so callers can send free text without giving it a qualifier
+ * channel, and can check {@link PullRequestSearchCapabilities} before issuing a read. Every requested criterion
+ * is validated all-or-nothing before the provider runs; unsupported criteria never fall through to a wider
+ * result set whose paging would no longer describe the returned items.
+ *
+ * Relationships are OR-ed, as are states. Omitting `relationships` removes the current-user constraint, which is
+ * only safe when the manager call supplies a repository or organization scope. Omitting `states` reads open PRs.
+ */
+export interface PullRequestSearchCriteria {
+	/**
+	 * Free text matched by the provider's own relevance rules. Tokens that look like provider qualifiers are
+	 * removed before the query is built, so text cannot change the search's scope or state.
+	 */
+	text?: string;
+	/** Current-user relationship facets to union. Empty/omitted means no relationship constraint. */
+	relationships?: PullRequestFilter[];
+	/** Pull request states to union. Empty/omitted reads open PRs; `all` subsumes every other member. */
+	states?: PullRequestStateFilter[];
+	/** Includes PRs from archived repositories. They are excluded by default. */
+	includeArchived?: boolean;
+}
+
+/**
+ * Which {@link PullRequestSearchCriteria} fields and manager-level scopes a provider can express server-side.
+ * An empty `relationships` means the provider has no filtered PR search at all.
+ */
+export interface PullRequestSearchCapabilities {
+	/** Current-user relationship facets the provider can union. Empty means the search itself is unsupported. */
+	relationships: PullRequestFilter[];
+	/** Individual state values the provider can union in one logical search. */
+	states: PullRequestStateFilter[];
+	text: boolean;
+	includeArchived: boolean;
+	/** Whether the manager's repository-descriptor scope is supported. */
+	repositoryScope: boolean;
+	/** Whether the manager's organization scope is supported. */
+	organizationScope: boolean;
+}
 
 export interface PullRequestRef {
 	owner: string;

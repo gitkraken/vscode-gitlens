@@ -3,7 +3,12 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestSearchCriteria,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -44,7 +49,12 @@ import {
 } from '../providers/models.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
-import type { IntegrationResult, IntegrationType, ProviderIssueSearchPage } from './integration.js';
+import type {
+	IntegrationResult,
+	IntegrationType,
+	ProviderIssueSearchPage,
+	ProviderPullRequestSearchPage,
+} from './integration.js';
 import { IntegrationBase } from './integration.js';
 
 function isAzureDevOpsProvider(
@@ -1542,6 +1552,50 @@ export abstract class GitHostIntegration<
 		state?: PullRequestStateFilter,
 		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
+
+	/**
+	 * Result-returning wrapper for the filtered pull-request search. Errors become the soft
+	 * `{ error }` branch so the public facade can preserve an empty account and a failed request as distinct
+	 * outcomes.
+	 */
+	async searchPullRequestsPageResult(
+		options: {
+			repos?: ProviderRepoInput[];
+			org?: string;
+			criteria?: PullRequestSearchCriteria;
+			cursor?: string;
+			pageSize?: number;
+		},
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<ProviderPullRequestSearchPage | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		const start = performance.now();
+		try {
+			const result = await this.searchProviderPullRequestsPage?.(session, options, cancellation);
+			this.resetRequestExceptionCount('searchPullRequestsPage');
+			return { value: result, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('searchPullRequestsPage', ex, { scope: scope, connectionId: connectionId });
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	/** Must agree with `ProviderMetadata.supportedPullRequestSearch`. */
+	protected searchProviderPullRequestsPage?(
+		session: ProviderAuthenticationSession,
+		options: {
+			repos?: ProviderRepoInput[];
+			org?: string;
+			criteria?: PullRequestSearchCriteria;
+			cursor?: string;
+			pageSize?: number;
+		},
+		cancellation?: AbortSignal,
+	): Promise<ProviderPullRequestSearchPage | undefined>;
 
 	async searchPullRequests(
 		searchQuery: string,

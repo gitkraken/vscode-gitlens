@@ -1,10 +1,19 @@
 import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.js';
-import type { PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequestSearchCriteria,
+	PullRequestShape,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { Event } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
 import type { IntegrationIds } from './constants.js';
-import type { IssueFilter, IssueSearchCapabilities, PullRequestFilter } from './providerFilters.js';
+import type {
+	IssueFilter,
+	IssueSearchCapabilities,
+	PullRequestFilter,
+	PullRequestSearchCapabilities,
+} from './providerFilters.js';
 import type { IssueCountResult, IssueCountScope } from './reads/counts.js';
 import type {
 	ConnectionStateChangeEvent,
@@ -142,8 +151,9 @@ export type ListProjectsOptions =
  *
  * ## Paging contract
  *
- * Every paged read (`listRepos`, `listPullRequestsPage`, `listIssuesPage`, `listIssueTrackerIssuesPage`,
- * `broadenIssues`) takes both `page` and `cursor`, and the two are NOT interchangeable:
+ * Every paged read (`listRepos`, `listPullRequestsPage`, `searchPullRequestsPage`, `listIssuesPage`,
+ * `listIssueTrackerIssuesPage`, `broadenIssues`) takes both `page` and `cursor`, and the two are NOT
+ * interchangeable:
  *
  * - **Supplying `cursor` guarantees a single upstream round trip per provider scope.** A threaded continuation
  *   is handed to the provider as-is; the facade never walks the pages before it. This is a guarantee, not an
@@ -199,6 +209,11 @@ export interface IntegrationManager {
 		pullRequests: PullRequestFilter[];
 		/** Optional for structural compatibility; missing means no account-wide narrowing filters are supported. */
 		pullRequestsAccountWide?: PullRequestFilter[];
+		/**
+		 * Criteria and scopes {@link searchPullRequestsPage} can express. Always present; an empty relationship list
+		 * means the provider exposes no filtered pull-request search.
+		 */
+		pullRequestSearch: PullRequestSearchCapabilities;
 		issues: IssueFilter[];
 		issuesAccountWide: IssueFilter[];
 		/**
@@ -272,6 +287,42 @@ export interface IntegrationManager {
 		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
 		 * it must come from the trusted authentication configuration, not repository or remote data.
 		 */
+		domain?: string;
+	}): Promise<ProviderPagedResult<PullRequestShape>>;
+	/**
+	 * Pull requests matching structured criteria over a repository/organization or current-user relationship
+	 * scope.
+	 *
+	 * This is a separate read from {@link listPullRequestsPage}: free text reaches the provider instead of filtering
+	 * whichever rows happened to be loaded, and every cursor-threaded page costs exactly one upstream request.
+	 * `criteria.relationships` and `criteria.states` are OR sets, so `[closed, merged]` expresses the complete
+	 * terminal set and `[Author, Assignee, ReviewRequested]` matches the visible PR list without falling back to
+	 * GitHub's mismatched `involves:@me`. Omit relationships only with a repository/organization scope to search
+	 * every PR there.
+	 *
+	 * Results are always ordered most-recently-updated-first. If the provider's result ceiling is reached, the
+	 * request still succeeds and carries a warning omission with `totalCount`, `limit`, and `recovery: 'none'`.
+	 * `totalCount` is the largest provider-reported pre-ceiling facet count, not the reachable or returned row
+	 * count; this mirrors the per-search ceiling's own unit.
+	 *
+	 * Check `getSupportedFilters().pullRequestSearch` before calling. A provider that reports no relationships
+	 * refuses the read rather than returning a page that never honored the criteria or scope.
+	 */
+	searchPullRequestsPage(options: {
+		providerId: IntegrationIds;
+		/** Repository descriptors that bound the search; ids cannot name provider search qualifiers. */
+		repos?: ProviderRepositoriesInput;
+		/** Organization/account that bounds the search. */
+		org?: string;
+		criteria?: PullRequestSearchCriteria;
+		/** Cursor-only: without a cursor, reaching page N costs O(N) upstream requests. */
+		page?: number;
+		cursor?: string;
+		/** Page size per relationship × state facet; the deduped union can contain more rows. */
+		itemsPerPage?: number;
+		forceSync?: boolean;
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
 		domain?: string;
 	}): Promise<ProviderPagedResult<PullRequestShape>>;
 	listIssuesPage(options: {

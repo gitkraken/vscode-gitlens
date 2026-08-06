@@ -75,11 +75,17 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../constants.js';
 import type { Integration, IntegrationType } from '../models/integration.js';
-import type { IssueSearchCapabilities } from '../providerFilters.js';
+import type { IssueSearchCapabilities, PullRequestSearchCapabilities } from '../providerFilters.js';
 import { IssueFilter, PullRequestFilter } from '../providerFilters.js';
 
 export { IssueFilter, PullRequestFilter } from '../providerFilters.js';
-export type { IssueSearchCapabilities, IssueSearchCriteria, IssueSearchRelationship } from '../providerFilters.js';
+export type {
+	IssueSearchCapabilities,
+	IssueSearchCriteria,
+	IssueSearchRelationship,
+	PullRequestSearchCapabilities,
+	PullRequestSearchCriteria,
+} from '../providerFilters.js';
 import type { ProviderRepositoryShape } from '../results.js';
 
 export type { ProviderOrganization, ProviderRepositoryShape } from '../results.js';
@@ -696,6 +702,16 @@ export interface ProviderMetadata {
 	 * This is independent from `supportedPullRequestFilters`, which describes repo-scoped reads.
 	 */
 	supportedAccountWidePullRequestFilters?: PullRequestFilter[];
+	/**
+	 * What the filtered pull-request search can express server-side. Absent means the provider has
+	 * no such search and the facade refuses it rather than returning an unfiltered page.
+	 */
+	supportedPullRequestSearch?: PullRequestSearchCapabilities;
+	/**
+	 * Maximum results the provider will serve for one pull-request search facet. Matches beyond it are unreachable
+	 * and are reported as a succeeded omission carrying this limit plus the provider's pre-ceiling facet count.
+	 */
+	pullRequestSearchResultLimit?: number;
 	/** Filters the REPO-scoped issue read can express. */
 	supportedIssueFilters?: IssueFilter[];
 	/**
@@ -760,6 +776,21 @@ const githubIssueSearchCapabilities: IssueSearchCapabilities = {
 	states: true,
 };
 
+/** GitHub and GHE use the same filtered pull-request search syntax and result ceiling. */
+const githubPullRequestSearchCapabilities: PullRequestSearchCapabilities = {
+	relationships: [
+		PullRequestFilter.Author,
+		PullRequestFilter.Assignee,
+		PullRequestFilter.ReviewRequested,
+		PullRequestFilter.Mention,
+	],
+	states: ['open', 'closed', 'merged', 'all'],
+	text: true,
+	includeArchived: true,
+	repositoryScope: true,
+	organizationScope: true,
+};
+
 export const providersMetadata: ProvidersMetadata = {
 	[GitCloudHostIntegrationId.GitHub]: {
 		domain: 'github.com',
@@ -782,6 +813,8 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.ReviewRequested,
 			PullRequestFilter.Mention,
 		],
+		supportedPullRequestSearch: githubPullRequestSearchCapabilities,
+		pullRequestSearchResultLimit: githubSearchResultLimit,
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
@@ -812,6 +845,8 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.ReviewRequested,
 			PullRequestFilter.Mention,
 		],
+		supportedPullRequestSearch: githubPullRequestSearchCapabilities,
+		pullRequestSearchResultLimit: githubSearchResultLimit,
 		// Use 'username' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		// The account-wide read is three independent searches (`author:@me`, `assignee:@me`, `mentions:@me`) behind
