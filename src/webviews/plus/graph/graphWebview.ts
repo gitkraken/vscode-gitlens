@@ -97,9 +97,9 @@ import {
 import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
-import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
+import { isAccountAccessRequired } from '../../../plus/gk/utils/subscription.utils.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
@@ -2068,10 +2068,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
-	private isAccountAccessRequired(subscription: Subscription): boolean {
-		return subscription.account == null || subscription.account.verified === false;
-	}
-
 	@trace({ args: false })
 	private onFeaturePreviewChanged(e: FeaturePreviewChangeEvent) {
 		if (e.feature !== 'graph') return;
@@ -2200,7 +2196,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._etagSubscription = e.etag;
 
 		const wasAccountAccessRequired = this._accountAccessRequired;
-		this._accountAccessRequired = this.isAccountAccessRequired(e.current);
+		this._accountAccessRequired = isAccountAccessRequired(e.current);
 
 		// When the account-access state flips in either direction, reload the full state rather than
 		// sending a subscription-only push. The full `getState` push carries subscription + repositories
@@ -4184,7 +4180,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._searchRequest = undefined;
 
 		const subscription = await this.container.subscription.getSubscription();
-		this._accountAccessRequired = this.isAccountAccessRequired(subscription);
+		this._accountAccessRequired = isAccountAccessRequired(subscription);
 		if (this._accountAccessRequired) {
 			// Signed out or unverified: the webview renders only the account-access screen, so skip the
 			// entire graph data pipeline (git walk, WIP, branch/PR/remote/worktree lookups). A full reload

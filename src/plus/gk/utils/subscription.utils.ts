@@ -28,6 +28,15 @@ export function compareSubscriptionPlans(
 	return getSubscriptionPlanOrder(planA) - getSubscriptionPlanOrder(planB);
 }
 
+/**
+ * Whether the account itself blocks access — none connected, or one whose email isn't verified.
+ * Surfaces gated on this (e.g. the Commit Graph) replace their entire content with an account screen,
+ * so callers routing work to one must treat it as unusable ahead of any plan/visibility check.
+ */
+export function isAccountAccessRequired(subscription: Subscription): boolean {
+	return subscription.account == null || subscription.account.verified === false;
+}
+
 export function computeSubscriptionState(subscription: Optional<Subscription, 'state'>): SubscriptionState {
 	const {
 		account,

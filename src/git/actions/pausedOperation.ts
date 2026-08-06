@@ -6,9 +6,9 @@ import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOpe
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { getFeaturePreviewStatus } from '../../features.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { arePlusFeaturesEnabled } from '../../plus/gk/utils/-webview/plus.utils.js';
+import { isAccountAccessRequired } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { isDescendant } from '../../system/-webview/path.js';
 import type { GitRepositoryService } from '../gitRepositoryService.js';
@@ -244,11 +244,12 @@ export async function showPausedOperationStatus(
 
 async function isGraphAccessible(container: Container, repoPath: string): Promise<boolean> {
 	if (!arePlusFeaturesEnabled()) return false;
-	if ((await container.git.access('graph', repoPath)).allowed !== false) return true;
 
-	// Mirror the Graph's own gate (`isGraphAccessAllowed`): an active Pro feature preview renders the
-	// Graph normally, so a rebase conflict must surface there rather than in the rebase editor
-	return getFeaturePreviewStatus(container.subscription.getFeaturePreview('graph')) === 'active';
+	// Signed out or unverified, the Graph replaces its whole content with the account screen, so it can't
+	// surface a conflict at all — regardless of plan or repo visibility. Keep the rebase editor instead.
+	if (isAccountAccessRequired(await container.subscription.getSubscription())) return false;
+
+	return (await container.git.access('graph', repoPath)).allowed !== false;
 }
 
 function revealPausedOperationInGraph(repoPath: string, source?: Source): void {
