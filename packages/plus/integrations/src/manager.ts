@@ -78,7 +78,14 @@ export interface ProviderSweepTarget {
  */
 export interface ProviderSweepTargetEvent {
 	providerId: IntegrationIds;
-	/** The resolved read domain when the target got far enough to resolve one; the requested domain otherwise. */
+	/**
+	 * The self-managed host this target selects, resolved from its configured connection, its explicit domain,
+	 * or the provider's primary configured host — the same rule the read itself uses, and the same one whether
+	 * the target drained fully or was rejected by the first guard.
+	 *
+	 * Always `undefined` for a cloud provider: it has a single host, so there is nothing to disambiguate. Group
+	 * by `providerId` and treat this as a label, not part of the key.
+	 */
 	domain: string | undefined;
 	connectionId: string | undefined;
 	/**
