@@ -266,6 +266,9 @@ interface AIConfig {
 	readonly generateSearchQuery: {
 		readonly customInstructions: string;
 	};
+	readonly resolveConflicts: {
+		readonly customInstructions: string;
+	};
 	readonly gitkraken: {
 		readonly model: AIProviderAndModel | null;
 	};

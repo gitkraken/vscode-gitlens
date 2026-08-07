@@ -4679,6 +4679,16 @@
 							"preview"
 						]
 					},
+					"gitlens.ai.resolveConflicts.customInstructions": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies custom instructions to provide to the AI provider when resolving merge or rebase conflicts. Applies to every conflict AI resolves — in the _Commit Graph_'s **Resolve** panel and during an automatic rebase. Guidance given for a single run in the **Resolve** panel takes priority over this.",
+						"scope": "window",
+						"order": 210,
+						"tags": [
+							"preview"
+						]
+					},
 					"gitlens.ai.openInAgent": {
 						"type": "string",
 						"enum": [

@@ -52,6 +52,7 @@ import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker.js';
 import { cancelAndDispose, fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { executeCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import { getOpenVirtualSessionIds } from '../../../virtual/virtualFileSystemProvider.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
@@ -1450,10 +1451,12 @@ export class GraphInspectServices {
 					const refs = getResolutionRefs(await svc.pausedOps?.getPausedOperationStatus?.());
 
 					// `instructions` (whole-run "Refine" feedback) rides conflict-tools' first-class
-					// `ResolutionContext.userGuidance`, which 0.2.0 renders into the prompt.
+					// `ResolutionContext.userGuidance`, which 0.2.0 renders into the prompt — combined with
+					// the standing custom-instructions setting, since both are guidance for the same prompt.
+					const guidance = combineResolveGuidance(instructions);
 					const context: ResolutionContext = {
 						...(refs != null ? { refs: refs } : {}),
-						...(instructions ? { userGuidance: instructions } : {}),
+						...(guidance ? { userGuidance: guidance } : {}),
 					};
 
 					const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
@@ -1636,12 +1639,16 @@ export class GraphInspectServices {
 						// row was already showing.
 						const consultations = new Map<string, ConsultedTool[]>();
 
-						// Feedback rides conflict-tools' first-class `ResolutionContext.userGuidance`.
+						// Feedback rides conflict-tools' first-class `ResolutionContext.userGuidance`, combined
+						// with the standing custom-instructions setting — a retry shouldn't drop it.
 						const resolution = await integration.resolveSingle(
 							{
 								svc: svc,
 								conflict: conflict,
-								context: { ...(refs != null ? { refs: refs } : {}), userGuidance: feedback },
+								context: {
+									...(refs != null ? { refs: refs } : {}),
+									userGuidance: combineResolveGuidance(feedback),
+								},
 								signal: resolveSignal,
 								// Same conversation as the run being retried (an active session implies
 								// the ID exists; minting here is just a defensive fallback).
@@ -3099,6 +3106,25 @@ function isPreviewableText(content: string | undefined): boolean {
  *  ref to name for `theirs` (e.g. `stash@{0}` may be the wrong stash). Guessing would feed the
  *  resolver a misleading three-way diff; without refs, conflict-tools skips that diff and
  *  resolves from the conflict markers, which is the safe degradation. */
+/**
+ * Combines the standing `ai.resolveConflicts.customInstructions` setting with the guidance typed for
+ * this run (the panel's Refine box, or a row's retry feedback) into one `userGuidance` block.
+ *
+ * Both are guidance for the same prompt, so neither should silently replace the other: the setting is
+ * a standing preference ("prefer the incoming side for lockfiles"), the typed text is a correction for
+ * the run in front of you. The typed text goes last and is labelled as taking priority, matching how
+ * `generateCommits` layers its setting under its per-session instructions.
+ */
+function combineResolveGuidance(instructions: string | undefined): string | undefined {
+	const setting = configuration.get('ai.resolveConflicts.customInstructions')?.trim();
+	const typed = instructions?.trim();
+
+	if (!setting) return typed || undefined;
+	if (!typed) return setting;
+
+	return `${setting}\n\nAnd here is additional guidance for this run (it takes highest priority): ${typed}`;
+}
+
 /** Logs each resolution's AI token usage (when the provider reported it) plus a run total to the
  *  debug logs — usage is diagnostic detail, so it stays out of the resolve results UI. */
 function logResolutionUsage(resolutions: readonly ConflictToolsResolution[], scope: string): void {

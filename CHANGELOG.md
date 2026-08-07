@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a `gitlens.ai.resolveConflicts.customInstructions` setting &mdash; standing guidance for AI conflict resolution (e.g. "prefer the incoming side for lock files", "never combine both sides of an import"), applied to every conflict AI resolves in the _Commit Graph_'s **Resolve** panel and during an automatic rebase. Guidance typed for a single run in the **Resolve** panel still applies on top and takes priority
 - Adds a promo banner to the _Commit Graph_ header during time-limited campaigns &mdash; a centered line above the toolbar row, like the _Home_ view's banner; it shows only promotions with an expiration date (never the evergreen discount), shortens its text as the header narrows, and disappears entirely &mdash; taking no space &mdash; when no campaign is running or the header is too narrow
 
 - Adds an empty state to the _Commit Graph_ when no repository is open &mdash; offers _Open a Folder_, _Clone a Repository_, and _Start a New Project_ actions to get started; in web/virtual environments (e.g. vscode.dev) clone and new-project are replaced by an _Open Remote Repository_ action ([#5408](https://github.com/gitkraken/vscode-gitlens/issues/5408))

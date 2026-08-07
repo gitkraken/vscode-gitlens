@@ -55,6 +55,9 @@ export interface AutoRebaseLoopPorts {
 	continueOperation(options?: { skip?: boolean }): Promise<void>;
 	/** Minimum confidence required to auto-apply — read per step so it's live-tunable mid-run */
 	getConfidenceThreshold(): number;
+	/** The user's standing conflict-resolution instructions, if any — injected like the threshold above
+	 *  so the loop stays free of configuration access */
+	getCustomInstructions(): string | undefined;
 	delay(ms: number): Promise<void>;
 }
 
@@ -317,10 +320,14 @@ export async function runAutoRebaseLoop(
 		// Both sides come from the shared helper — `status.HEAD` is the *incoming* ref during a rebase,
 		// so deriving "ours" from it (as this did) diffed the incoming side against itself.
 		const refs = getResolutionRefs(status);
+		const customInstructions = ports.getCustomInstructions();
 		const result = await ports.resolveConflicts({
 			entries: entries,
 			context: {
 				...(refs != null ? { refs: refs } : {}),
+				// A standing preference ("prefer the incoming side for lockfiles") should govern every
+				// conflict AI resolves, not just the ones resolved by hand in the panel.
+				...(customInstructions ? { userGuidance: customInstructions } : {}),
 				...(stepCommit?.message ? { commitMessage: stepCommit.message } : {}),
 				...(previousResolutions.length > 0 ? { previousResolutions: [...previousResolutions] } : {}),
 			},
