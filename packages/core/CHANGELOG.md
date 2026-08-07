@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Syncs cloud connections concurrently instead of one at a time, completing the pass that [0.5.105] started on reconciliation. `syncCloudIntegrations` awaited `syncCloudConnection` per provider in a serial loop, and a forced sync deletes each provider's stored session and refetches it from the cloud — so the loop cost the SUM of every provider's latency on a path that gates every provider read. Measured against a 7-connection account, the provider list settled in ~1.6 s versus ~2.3 s serial (medians of 8 interleaved cold starts), and the win grows with connection count and link latency. The fan-out needs no per-provider grouping because every shared mutable path was already serialized: `ensureProvider` is gated on `providerId`, so the two integrations a multi-host self-managed id yields share one in-flight construction; `ensureSession` is gated per integration instance; `addOrUpdateConfigured`/`removeConfigured` mutate the configured collection in a synchronous critical section behind a write queue; and secrets and `connected:` flags are keyed by integration id + domain (plus/integrations)
+
+### Fixed
+
+- `Integration.disconnect` now awaits the `deleteAllSessions` clear instead of leaving it floating, so a caller that awaits `disconnect()` can rely on the secrets and descriptors being gone when it resumes. Nothing but incidental scheduling slack ever made the clear land in time: the serial connection-sync loop happened to suspend on the next provider, which let the previous provider's delete finish. Syncing providers concurrently removed that slack and exposed a full-provider disconnect returning with a descriptor still stored (plus/integrations)
+
 ## [0.5.106] - 2026-08-06
 
 ### Added
