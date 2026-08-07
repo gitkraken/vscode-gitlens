@@ -1,0 +1,1147 @@
+import * as assert from 'node:assert/strict';
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import { suite, test } from 'mocha';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { GitCloudHostIntegrationId } from '../constants.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
+import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
+import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { IntegrationResult } from '../models/integration.js';
+import type {
+	ProviderApiPagedResult,
+	ProviderIssue,
+	ProviderPullRequest,
+	ProviderRepository,
+} from '../providers/models.js';
+import { createFakeRuntime } from './fakeRuntime.js';
+import { connectedGitHub, primarySession, providerPr, stubApi } from './sweepHelpers.js';
+
+/**
+ * The provider-specific account-wide reads the sweeps and broaden sit on: Bitbucket's workspace and reviewer
+ * fan-outs, Azure's per-project drains, and the GitLab/GitHub account-wide issue seams (#5438).
+ */
+
+suite('provider account-wide reads (#5438)', () => {
+	test('Bitbucket account-wide PR read drains all workspace pages (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		let calls = 0;
+		stubApi(bb, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: (
+				_t: unknown,
+				_u: string,
+				_ws: string,
+				o?: { page?: number },
+			) => {
+				calls += 1;
+				const page = o?.page ?? 1;
+				// Two pages: page 1 hasMore, page 2 terminal.
+				return Promise.resolve({
+					data: [{ id: `pr-${page}` } as unknown as ProviderPullRequest],
+					hasMore: page < 2,
+					nextPage: page < 2 ? page + 1 : null,
+				});
+			},
+			// The reviewer slice is opt-in (#5551) and not requested here, so it must never run; flag the repo
+			// discovery/read hooks so a regression that fans out unconditionally fails loudly.
+			getReposForBitbucketWorkspace: () => {
+				assert.fail('the reviewer fan-out must not run without includeReviewRequested');
+			},
+			getPullRequestsForRepo: () => {
+				assert.fail('the reviewer fan-out must not run without includeReviewRequested');
+			},
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		// Single workspace so the drain is deterministic.
+		(
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
+
+		// Call the account-wide core directly to assert the per-workspace drain (avoids the sweep wrapper).
+		const result = await (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		assert.equal(calls, 2, 'both workspace pages are drained');
+		assert.equal(result?.value?.values.length, 2, 'PRs from both pages are returned');
+		assert.equal(result?.value?.paging?.truncated, undefined, 'a fully drained workspace is not marked truncated');
+
+		manager.dispose();
+	});
+
+	test('Bitbucket authored PRs preserve a page-1 prefix when page 2 fails', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+		stubApi(bb, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: (
+				_t: unknown,
+				_u: string,
+				_ws: string,
+				options?: { page?: number },
+			) =>
+				options?.page === 2
+					? Promise.reject(
+							new AuthenticationError(
+								{
+									providerId: GitCloudHostIntegrationId.Bitbucket,
+									microHash: undefined,
+									cloud: true,
+									type: 'oauth',
+									scopes: [],
+								},
+								AuthenticationErrorReason.Unauthorized,
+							),
+						)
+					: Promise.resolve({
+							data: [
+								providerPr('authored-prefix', {
+									url: 'u/authored-prefix',
+									repository: {
+										id: 'repo-1',
+										name: 'repo',
+										owner: { login: 'ws' },
+										remoteInfo: null,
+									},
+								}),
+							],
+							hasMore: true,
+							nextPage: 2,
+						}),
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/authored-prefix'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.ok(result.warnings.some(warning => warning.kind === 'auth'));
+		manager.dispose();
+	});
+
+	test('Bitbucket account-wide PR read includes review-requested PRs via reviewerId, not a text query (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		let reviewerIdArg: string | undefined;
+		let queryArg: string | undefined;
+		let reviewerReposCalled = false;
+		stubApi(bb, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({
+					data: [{ id: 'authored', url: 'u/authored' } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				}),
+			// The reviewer slice now enumerates the workspace's repos, then drains each repo's PRs by reviewerId.
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: (_t: unknown, _repo: unknown, o?: { reviewerId?: string; query?: string }) => {
+				reviewerIdArg = o?.reviewerId;
+				queryArg = o?.query;
+				return Promise.resolve({
+					values: [{ id: 'reviewing', url: 'u/reviewing' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}' },
+				});
+			},
+			// The aggregate getPullRequestsForRepos must NOT be used for the reviewer slice anymore (it's not
+			// resumable); flag if it's called so the test fails loudly on a regression.
+			getPullRequestsForRepos: () => {
+				reviewerReposCalled = true;
+				return Promise.resolve({ values: [] });
+			},
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
+
+		const result = await (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					includeReviewRequested?: boolean;
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult({ includeReviewRequested: true });
+		// The reviewer read goes through the per-repo paged method with the dedicated reviewerId input, not the
+		// aggregate getPullRequestsForRepos (which is not resumable) nor a text `query`.
+		assert.equal(reviewerReposCalled, false, 'the non-resumable aggregate getPullRequestsForRepos is not used');
+		assert.equal(reviewerIdArg, 'u1', 'the reviewer read uses reviewerId');
+		assert.equal(queryArg, undefined, 'the reviewer clause is not passed as a text query');
+		const urls = (result?.value?.values ?? []).map(pr => pr.url).sort();
+		assert.deepEqual(urls, ['u/authored', 'u/reviewing'], 'both authored and review-requested PRs are returned');
+
+		manager.dispose();
+	});
+
+	/**
+	 * Helper: wire a Bitbucket integration for the reviewer-slice tests, stubbing account/workspaces and the
+	 * authored drain (empty) so each test only exercises the repo-discovery + per-repo reviewer drain.
+	 */
+	async function bitbucketForReviewerSlice(
+		runtime: ReturnType<typeof createFakeRuntime>,
+		api: Record<string, unknown>,
+	) {
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+		stubApi(bb, {
+			// Authored drain contributes nothing; the tests target the reviewer slice.
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({ data: [], hasMore: false, nextPage: null }),
+			...api,
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
+		return { manager: manager, bb: bb };
+	}
+
+	// The reviewer fan-out is opt-in (#5551), so the reviewer-slice tests must ask for it explicitly; the
+	// default (authored-only) path is covered separately below.
+	function callAccountWide(bb: GitHostIntegration, options?: { includeReviewRequested?: boolean }) {
+		return (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: (options?: {
+					includeReviewRequested?: boolean;
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult({ includeReviewRequested: true, ...options });
+	}
+
+	test('Bitbucket reviewer PRs are returned for a repo with no open local remote (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		// No getOpenRemotes stub — the new reviewer slice enumerates workspace repos instead of open remotes.
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: () =>
+				Promise.resolve({
+					values: [{ id: 'rev', url: 'u/rev' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}' },
+				}),
+		});
+
+		const result = await callAccountWide(bb);
+		assert.deepEqual(
+			(result?.value?.values ?? []).map(pr => pr.url),
+			['u/rev'],
+			'a reviewer PR on a repo with no open remote is discovered via the workspace repo list',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer slice drains all pages of a repo with multiple PR pages (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		let prCalls = 0;
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: (_t: unknown, _repo: unknown, o?: { cursor?: string }) => {
+				prCalls += 1;
+				const page = o?.cursor == null || o.cursor === '{}' ? 1 : Number(JSON.parse(o.cursor).value);
+				return Promise.resolve({
+					values: [{ id: `rev-${page}`, url: `u/rev-${page}` } as unknown as ProviderPullRequest],
+					paging: {
+						more: page < 2,
+						cursor: page < 2 ? JSON.stringify({ value: page + 1, type: 'page' }) : '{}',
+					},
+				});
+			},
+		});
+
+		const result = await callAccountWide(bb);
+		assert.equal(prCalls, 2, 'both PR pages of the repo are drained');
+		assert.deepEqual(
+			(result?.value?.values ?? []).map(pr => pr.url).sort(),
+			['u/rev-1', 'u/rev-2'],
+			'PRs from both pages are returned',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer repo discovery preserves page-1 repos when page 2 fails', async () => {
+		const { manager } = await bitbucketForReviewerSlice(createFakeRuntime(), {
+			getReposForBitbucketWorkspace: (_t: unknown, _ws: string, options?: { cursor?: string }) =>
+				options?.cursor != null
+					? Promise.reject(new Error('repo discovery page 2 failed'))
+					: Promise.resolve({
+							values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+							paging: {
+								more: true,
+								cursor: JSON.stringify({ value: 2, type: 'page' }),
+							},
+						}),
+			getPullRequestsForRepo: () =>
+				Promise.resolve({
+					values: [
+						providerPr('review-prefix', {
+							url: 'u/review-prefix',
+							repository: {
+								id: 'r1',
+								name: 'repo',
+								owner: { login: 'ws' },
+								remoteInfo: null,
+							},
+						}),
+					],
+					paging: { more: false, cursor: '{}' },
+				}),
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+			includeReviewRequested: true,
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/review-prefix'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.ok(result.warnings.length > 0);
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer PR discovery preserves a page-1 prefix when page 2 fails', async () => {
+		const { manager } = await bitbucketForReviewerSlice(createFakeRuntime(), {
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: (_t: unknown, _repo: unknown, options?: { cursor?: string }) =>
+				options?.cursor != null
+					? Promise.reject(new Error('reviewer PR page 2 failed'))
+					: Promise.resolve({
+							values: [
+								providerPr('review-prefix', {
+									url: 'u/review-prefix',
+									repository: {
+										id: 'r1',
+										name: 'repo',
+										owner: { login: 'ws' },
+										remoteInfo: null,
+									},
+								}),
+							],
+							paging: {
+								more: true,
+								cursor: JSON.stringify({ value: 2, type: 'page' }),
+							},
+						}),
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+			includeReviewRequested: true,
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/review-prefix'],
+		);
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.page.truncated, true);
+		assert.ok(result.warnings.length > 0);
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer slice preserves siblings and warns when one repo fails with auth (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [
+						{ id: 'r1', namespace: 'ws', name: 'good' } as unknown as ProviderRepository,
+						{ id: 'r2', namespace: 'ws', name: 'bad' } as unknown as ProviderRepository,
+					],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: (_t: unknown, repo: { name: string }) => {
+				if (repo.name === 'bad') {
+					return Promise.reject(
+						new AuthenticationError(
+							{
+								providerId: GitCloudHostIntegrationId.Bitbucket,
+								microHash: undefined,
+								cloud: true,
+								type: 'oauth',
+								scopes: [],
+							},
+							AuthenticationErrorReason.Unauthorized,
+						),
+					);
+				}
+				return Promise.resolve({
+					values: [
+						providerPr('good-pr', {
+							url: 'u/good',
+							repository: { id: 'r1', name: 'good', owner: { login: 'ws' }, remoteInfo: null },
+						}),
+					],
+					paging: { more: false, cursor: '{}' },
+				});
+			},
+		});
+
+		// An auth failure on one repo is recorded as a structured scope failure (not re-thrown, which would
+		// discard the good repo's PR), so the facade maps it to an actionable auth warning + fetchFailed while
+		// the good repo's reviewer PR still survives. Opt into the reviewer slice (#5551) so the fan-out runs.
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+			includeReviewRequested: true,
+			connectionId: undefined,
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/good'],
+			"the good repo's reviewer PR survives the bad repo's auth failure",
+		);
+		assert.equal(result.fetchFailed, true, 'the auth failure marks the slice incomplete');
+		assert.ok(
+			result.warnings.some(w => w.kind === 'auth'),
+			'the repo auth failure is surfaced as an actionable auth warning',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer slice dedupes a URL-less PR by repository identity (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+		stubApi(bb, {
+			// The same PR is both authored by and review-requested from the user; it must collapse to one entry.
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({
+					data: [
+						{
+							id: 'shared',
+							url: undefined,
+							repository: { id: 'r1' },
+						} as unknown as ProviderPullRequest,
+					],
+					hasMore: false,
+					nextPage: null,
+				}),
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: () =>
+				Promise.resolve({
+					values: [
+						{
+							id: 'shared',
+							url: undefined,
+							repository: { id: 'r1' },
+						} as unknown as ProviderPullRequest,
+					],
+					paging: { more: false, cursor: '{}' },
+				}),
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
+
+		const result = await callAccountWide(bb);
+		assert.equal(
+			result?.value?.values.length,
+			1,
+			'an authored PR that is also review-requested collapses by repository + PR id without a URL',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer slice marks truncated when repo discovery hits its backstop (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		let discoveryCalls = 0;
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			// Repo discovery always reports another page → the drain stops at its backstop and flags truncation.
+			getReposForBitbucketWorkspace: (_t: unknown, _ws: string, o?: { cursor?: string }) => {
+				discoveryCalls += 1;
+				const page = o?.cursor == null || o.cursor === '{}' ? 1 : Number(JSON.parse(o.cursor).value);
+				return Promise.resolve({
+					values: [
+						{ id: `r${page}`, namespace: 'ws', name: `repo-${page}` } as unknown as ProviderRepository,
+					],
+					paging: { more: true, cursor: JSON.stringify({ value: page + 1, type: 'page' }) },
+				});
+			},
+			getPullRequestsForRepo: () => Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } }),
+		});
+
+		const result = await callAccountWide(bb);
+		assert.equal(discoveryCalls, 20, 'repo discovery stops at the maxReposPagesPerWorkspace backstop');
+		assert.equal(result?.value?.paging?.truncated, true, 'a backstopped repo discovery marks the slice truncated');
+
+		manager.dispose();
+	});
+
+	test('Bitbucket account-wide PR read skips the reviewer fan-out by default (#5551)', async () => {
+		const runtime = createFakeRuntime();
+		let repoDiscoveryCalls = 0;
+		let reviewerReadCalls = 0;
+		// The authored drain returns one PR; the reviewer hooks count their calls so we can assert they never run.
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({
+					data: [{ id: 'authored', url: 'u/authored' } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				}),
+			getReposForBitbucketWorkspace: () => {
+				repoDiscoveryCalls += 1;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+			getPullRequestsForRepo: () => {
+				reviewerReadCalls += 1;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		// Default read (no includeReviewRequested): authored PRs only, and the O(workspaces × repos) reviewer
+		// fan-out must not run — that's the cost regression #5551 fixes.
+		const result = await (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		assert.equal(repoDiscoveryCalls, 0, 'workspace repo discovery is skipped without includeReviewRequested');
+		assert.equal(reviewerReadCalls, 0, 'the per-repo reviewer read is skipped without includeReviewRequested');
+		assert.deepEqual(
+			(result?.value?.values ?? []).map(pr => pr.url),
+			['u/authored'],
+			'the default read returns authored PRs only',
+		);
+
+		manager.dispose();
+	});
+
+	test('sweepPullRequests does not fan out the Bitbucket reviewer slice without includeReviewRequested (#5551)', async () => {
+		const runtime = createFakeRuntime();
+		let repoDiscoveryCalls = 0;
+		const { manager } = await bitbucketForReviewerSlice(runtime, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({
+					data: [{ id: 'authored', url: 'u/authored' } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				}),
+			getReposForBitbucketWorkspace: () => {
+				repoDiscoveryCalls += 1;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+			getPullRequestsForRepo: () => Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } }),
+		});
+
+		// A plain sweep (Kepler's periodic kanban read) passes no filters, so it must stay on the authored-only
+		// path and never trigger the per-repo reviewer fan-out.
+		const result = await manager.sweepPullRequests({ providerIds: [GitCloudHostIntegrationId.Bitbucket] });
+		assert.equal(repoDiscoveryCalls, 0, 'a filterless sweep does not enumerate workspace repos');
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/authored'],
+			'a filterless sweep returns authored PRs only',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket account-wide PR read marks truncated when a workspace hits the page backstop (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		// Every page claims there's more, so the drain runs until the maxPagesPerWorkspace (20) backstop and
+		// reports truncated rather than looping unbounded.
+		let calls = 0;
+		stubApi(bb, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: (
+				_t: unknown,
+				_u: string,
+				_ws: string,
+				o?: { page?: number },
+			) => {
+				calls += 1;
+				const page = o?.page ?? 1;
+				return Promise.resolve({
+					data: [{ id: `pr-${page}` } as unknown as ProviderPullRequest],
+					hasMore: true,
+					nextPage: page + 1,
+				});
+			},
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
+
+		const result = await (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		assert.equal(calls, 20, 'the drain stops at the maxPagesPerWorkspace backstop');
+		assert.equal(result?.value?.paging?.truncated, true, 'a backstopped workspace is reported as truncated');
+
+		manager.dispose();
+	});
+
+	test("Azure account-wide PR read: one project's failure does not discard the others (#5438)", async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// The 'bad' project's read throws (e.g. a 429/403 mid-sweep); the 'good' project drains cleanly. The
+		// fan-out must be settled per-project so the failure doesn't take down the good project's PRs.
+		stubApi(azure, {
+			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }) => {
+				if (project.project === 'bad') return Promise.reject(new Error('boom'));
+				return Promise.resolve({
+					data: [{ id: `pr-${project.project}` } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				});
+			},
+		});
+		(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount =
+			() => Promise.resolve({ id: 'guid-1' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({
+				values: [
+					{ resourceName: 'org-1', name: 'good' },
+					{ resourceName: 'org-1', name: 'bad' },
+				],
+			});
+
+		const result = await (
+			azure as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<
+					IntegrationResult<ProviderApiPagedResult<ProviderPullRequest>>
+				>;
+			}
+		).getMyPullRequestsForUserResult();
+		const ids = result?.value?.values.map(pr => pr.id) ?? [];
+		assert.deepEqual(ids, ['pr-good'], "the good project's PRs survive the bad project's failure");
+		// A dropped project makes the aggregate incomplete: instead of re-throwing (which would discard the good
+		// project's PRs) or a silent flatSettled, the failure is preserved as a structured per-scope failure in
+		// the SDK metadata, which the facade then maps to a warning + fetchFailed.
+		const failures = result?.value?.metadata?.failures ?? [];
+		assert.equal(failures.length, 2, 'both filter reads for the bad project are recorded as scope failures');
+		assert.ok(
+			failures.every(f => f.scope?.projectId === 'bad'),
+			'the failure is attributed to the bad project scope',
+		);
+		assert.equal(result?.value?.metadata?.completeness, 'partial', 'the aggregate is marked partial');
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide PR read keeps URL-less cross-org id collisions (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// Both orgs surface a URL-less PR whose Azure pullRequestId is "42" (ids are only org-unique). Keyed by
+		// id one would be dropped; keyed by repository + id both survive while authored/reviewer facets dedupe.
+		stubApi(azure, {
+			getPullRequestsForAzureProject: (_t: unknown, project: { namespace: string; project: string }) =>
+				Promise.resolve({
+					data: [
+						{
+							id: '42',
+							url: undefined,
+							repository: { id: `${project.namespace}/repo` },
+						} as unknown as ProviderPullRequest,
+					],
+					hasMore: false,
+					nextPage: null,
+				}),
+		});
+		(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount =
+			() => Promise.resolve({ id: 'guid-1' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () =>
+			Promise.resolve([
+				{ id: 'org-a', name: 'Org A' },
+				{ id: 'org-b', name: 'Org B' },
+			]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({
+				values: [
+					{ resourceName: 'org-a', name: 'p' },
+					{ resourceName: 'org-b', name: 'p' },
+				],
+			});
+
+		const result = await (
+			azure as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		const repositoryIds = (result?.value?.values ?? []).map(pr => pr.repository.id).sort();
+		assert.deepEqual(
+			repositoryIds,
+			['org-a/repo', 'org-b/repo'],
+			'both URL-less cross-org PRs with the same numeric id are kept',
+		);
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide PR read marks truncated when a project hits the page backstop (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// Every page claims more, so each project's drain runs until the maxPagesPerProject (20) backstop.
+		// A single project fans out into an authored + assigned read, so 2 × 20 = 40 calls for one project.
+		let calls = 0;
+		stubApi(azure, {
+			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }, o?: { page?: number }) => {
+				calls += 1;
+				const page = o?.page ?? 1;
+				return Promise.resolve({
+					data: [{ id: `pr-${project.project}-${page}` } as unknown as ProviderPullRequest],
+					hasMore: true,
+					nextPage: page + 1,
+				});
+			},
+		});
+		(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount =
+			() => Promise.resolve({ id: 'guid-1' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({ values: [{ resourceName: 'org-1', name: 'good' }] });
+
+		const result = await (
+			azure as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		assert.equal(calls, 40, 'both scoped drains stop at the maxPagesPerProject backstop');
+		assert.equal(result?.value?.paging?.truncated, true, 'a backstopped project is reported as truncated');
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide issue read drains every page per project/filter (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// Two pages threaded by the SDK cursor; the read must follow paging.more/cursor to the end, not stop at
+		// the first page (the old `.values`-only read silently capped at page 1).
+		const seenCursors: (string | undefined)[] = [];
+		stubApi(azure, {
+			getIssuesForAzureProject: (_t: unknown, _ns: string, _p: string, options?: { cursor?: string }) => {
+				seenCursors.push(options?.cursor);
+				const page = options?.cursor == null ? 1 : Number(options.cursor);
+				return Promise.resolve({
+					values: [
+						{
+							id: `i${page}`,
+							url: `https://x/i${page}`,
+							updatedDate: new Date(0),
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: page < 2, cursor: page < 2 ? String(page + 1) : '{}' },
+				});
+			},
+		});
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({ values: [{ resourceName: 'org-1', name: 'proj' }] });
+
+		const result = await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<
+					IntegrationResult<{ values: unknown[]; truncated: boolean }>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult();
+		// One project × two filters (assignee + author) run concurrently, each drained to page 2. Order across
+		// the two drains is not deterministic, so assert counts: two first-page reads (undefined) and two
+		// second-page reads ('2').
+		assert.equal(seenCursors.length, 4, 'both filters drain both pages');
+		assert.equal(seenCursors.filter(c => c == null).length, 2, 'two first-page reads');
+		assert.equal(seenCursors.filter(c => c === '2').length, 2, 'two second-page reads (the cursor is threaded)');
+		assert.equal(result?.value?.truncated, false, 'a fully drained read is not truncated');
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide issue read keeps same-id work items from different organizations', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		stubApi(azure, {
+			getIssuesForAzureProject: (_t: unknown, org: string) =>
+				Promise.resolve({
+					values: [
+						{
+							id: '42',
+							number: '42',
+							title: `Work item in ${org}`,
+							url: `https://dev.azure.com/${org}/_workitems/edit/42`,
+							createdDate: new Date(0),
+							updatedDate: new Date(1),
+							closedDate: null,
+							author: null,
+							assignees: [],
+							labels: [],
+							repository: null,
+							commentCount: 0,
+							upvoteCount: 0,
+							description: null,
+							type: 'Bug',
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: false, cursor: '{}' },
+				}),
+		});
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () =>
+			Promise.resolve([
+				{ id: 'org-a', name: 'Org A' },
+				{ id: 'org-b', name: 'Org B' },
+			]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{
+					values: { id: string; resourceId: string; resourceName: string; name: string }[];
+				}>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({
+				values: [
+					{ id: 'project-a', resourceId: 'org-a', resourceName: 'org-a', name: 'project' },
+					{ id: 'project-b', resourceId: 'org-b', resourceName: 'org-b', name: 'project' },
+				],
+			});
+
+		const result = await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					r?: unknown,
+					c?: unknown,
+					id?: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<IntegrationResult<{ values: IssueShape[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult(undefined, undefined, undefined, { includeAllAssignees: true });
+
+		assert.deepEqual(
+			result?.value?.values.map(issue => issue.url).sort(),
+			['https://dev.azure.com/org-a/_workitems/edit/42', 'https://dev.azure.com/org-b/_workitems/edit/42'],
+			'organization-scoped numeric ids do not collapse across organizations',
+		);
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide issue read preserves siblings and records an auth/rate-limit rejection as a scope failure (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// A 429 on the 'bad' project must NOT re-throw (that would discard the 'good' project's issues) nor
+		// collapse into a generic truncation. It's preserved as a structured rate-limit scope failure in the
+		// metadata, which the facade maps to a rate-limit warning + fetchFailed, while the good issues survive.
+		stubApi(azure, {
+			getIssuesForAzureProject: (_t: unknown, _org: string, project: string) => {
+				if (project === 'bad') {
+					return Promise.reject(new RequestRateLimitError(new Error('429'), undefined, undefined));
+				}
+				return Promise.resolve({ values: [{ id: 'i-good' }], paging: { more: false, cursor: '{}' } });
+			},
+		});
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{
+					values: { resourceId: string; resourceName: string; name: string }[];
+				}>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({
+				values: [
+					{ resourceId: 'org-1', resourceName: 'org-1', name: 'good' },
+					{ resourceId: 'org-1', resourceName: 'org-1', name: 'bad' },
+				],
+			});
+
+		const result = await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<
+					IntegrationResult<{ values: unknown[]; truncated: boolean; metadata?: CollectionMetadata }>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult();
+		assert.equal(result?.error, undefined, 'a partial read is not surfaced as a hard error');
+		assert.equal(result?.value?.values.length, 1, "the good project's issues survive");
+		const failures = result?.value?.metadata?.failures ?? [];
+		assert.ok(
+			failures.some(f => f.kind === 'rate-limit' && f.scope?.projectId === 'bad'),
+			'the rate-limit rejection is recorded as a scope failure on the bad project',
+		);
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide issue read broadens to a single unfiltered drain per project when includeAllAssignees is set (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		const seenFilters: { assigneeLogins?: string[]; authorLogin?: string }[] = [];
+		stubApi(azure, {
+			getIssuesForAzureProject: (
+				_t: unknown,
+				_ns: string,
+				_p: string,
+				options?: { assigneeLogins?: string[]; authorLogin?: string },
+			) => {
+				seenFilters.push({ assigneeLogins: options?.assigneeLogins, authorLogin: options?.authorLogin });
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({ values: [{ resourceName: 'org-1', name: 'proj' }] });
+
+		await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					r?: unknown,
+					c?: unknown,
+					id?: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<IntegrationResult<{ values: unknown[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult(undefined, undefined, undefined, { includeAllAssignees: true });
+
+		// A single unfiltered drain replaces the assignee+author pair: any-assignee subsumes the authored read.
+		assert.equal(seenFilters.length, 1, 'one unfiltered drain per project, not the assigned+authored pair');
+		assert.equal(seenFilters[0].assigneeLogins, undefined, 'the per-user assignee filter is dropped');
+		assert.equal(seenFilters[0].authorLogin, undefined, 'no author filter is applied either');
+
+		manager.dispose();
+	});
+
+	test('GitLab account-wide issue read stops before fetching the next page after cancellation (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		const controller = new AbortController();
+		let calls = 0;
+		stubApi(gl, {
+			getIssuesForCurrentUser: () => {
+				calls++;
+				controller.abort();
+				return Promise.resolve({
+					values: [],
+					paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
+				});
+			},
+		});
+
+		const result = await (
+			gl as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					r?: unknown,
+					c?: AbortSignal,
+					id?: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<IntegrationResult<{ values: unknown[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult(undefined, controller.signal, undefined, { includeAllAssignees: true });
+
+		assert.equal(calls, 1, 'the drain does not fetch a second page after cancellation');
+		assert.equal(result?.value, undefined);
+		assert.equal(result?.error?.name, 'CancellationError');
+
+		manager.dispose();
+	});
+
+	test('GitHub account-wide issue seam rejects includeAllAssignees instead of advertising an unsupported read (#5535)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		const result = await (
+			gh as unknown as {
+				searchMyIssuesWithTruncationResult: (
+					r?: unknown,
+					c?: unknown,
+					id?: unknown,
+					o?: { includeAllAssignees?: boolean },
+				) => Promise<IntegrationResult<{ values: unknown[]; truncated: boolean }>>;
+			}
+		).searchMyIssuesWithTruncationResult(undefined, undefined, undefined, { includeAllAssignees: true });
+
+		assert.equal(result?.value, undefined);
+		assert.match(result?.error?.message ?? '', /includeAllAssignees/i);
+		assert.match(result?.error?.message ?? '', /account-wide issue reads/i);
+
+		manager.dispose();
+	});
+});
