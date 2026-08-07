@@ -111,6 +111,7 @@ function makePorts(repo: FakeRepo, overrides?: Partial<AutoRebaseLoopPorts>): Au
 			return Promise.resolve();
 		},
 		getConfidenceThreshold: () => 0.8,
+		getCustomInstructions: () => undefined,
 		delay: () => Promise.resolve(),
 		...overrides,
 	};
@@ -196,6 +197,48 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.deepStrictEqual(session.steps[0].files.find(f => f.path === 'service.py')?.consulted, [
 			{ tool: 'grep', reason: 'is the renamed symbol still referenced?' },
 		]);
+	});
+
+	test('passes the standing custom instructions to every step it resolves', async () => {
+		// A preference like "prefer the incoming side for lockfiles" has to govern conflicts an automatic
+		// rebase resolves too, not just the ones resolved by hand in the panel — the run never gets a
+		// chance to type guidance.
+		const repo = makeRepo({ 1: ['a.txt'], 2: ['b.txt'] });
+		const session = makeSession();
+		const seen: (string | undefined)[] = [];
+
+		const ports = makePorts(repo, { getCustomInstructions: () => 'prefer the incoming side for lockfiles' });
+		const baseResolve = ports.resolveConflicts;
+		ports.resolveConflicts = args => {
+			seen.push(args.context.userGuidance);
+			return baseResolve(args);
+		};
+
+		const result = await run(session, ports);
+
+		assert.strictEqual(result.type, 'completed');
+		assert.deepStrictEqual(seen, [
+			'prefer the incoming side for lockfiles',
+			'prefer the incoming side for lockfiles',
+		]);
+	});
+
+	test('omits userGuidance entirely when no instructions are configured', () => {
+		// `userGuidance` renders as a `<user-guidance>` block in the prompt, so an empty one would tell
+		// the model the user said something when they didn't.
+		const repo = makeRepo({ 1: ['a.txt'] });
+		const session = makeSession();
+		const ports = makePorts(repo);
+		const baseResolve = ports.resolveConflicts;
+		let context: { userGuidance?: string } | undefined;
+		ports.resolveConflicts = args => {
+			context = args.context;
+			return baseResolve(args);
+		};
+
+		return run(session, ports).then(() => {
+			assert.strictEqual(context != null && 'userGuidance' in context, false);
+		});
 	});
 
 	test('escalates as ai-unavailable when AI runs out mid-run, not as a per-file failure', async () => {

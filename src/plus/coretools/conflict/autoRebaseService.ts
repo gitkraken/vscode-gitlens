@@ -464,6 +464,8 @@ export class AutoRebaseService implements Disposable {
 				!(await svc.status.hasWorkingChanges({ staged: true, unstaged: false, untracked: false })),
 			continueOperation: options => svc.pausedOps!.continuePausedOperation({ ...options, messageEditor: 'true' }),
 			getConfidenceThreshold: () => configuration.get('ai.autoRebase.confidenceThreshold'),
+			getCustomInstructions: () =>
+				configuration.get('ai.resolveConflicts.customInstructions')?.trim() || undefined,
 			delay: wait,
 		};
 
