@@ -2669,7 +2669,7 @@ background-upgraded the extension while the host kept running the old build
   // Whether the scoped branch has a tracked upstream resolved at the time of the scope change
   'scope.hasUpstream': boolean,
   // Where the user initiated the scope change
-  'source': 'sidebar' | 'popover' | 'overview-card'
+  'source': 'sidebar' | 'popover' | 'overview-card' | 'wip-row'
 }
 ```
 

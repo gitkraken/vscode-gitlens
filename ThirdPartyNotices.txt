@@ -4,7 +4,7 @@ THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
 1. @awesome.me/webawesome version 3.10.0 (https://github.com/shoelace-style/webawesome)
-2. @configcat/sdk version 1.0.2 (https://github.com/configcat/js-unified-sdk)
+2. @configcat/sdk version 1.1.0 (https://github.com/configcat/js-unified-sdk)
 3. @eamodio/supertalk-core version 0.0.6 (https://github.com/eamodio/supertalk)
 4. @eamodio/supertalk-signals version 0.0.6 (https://github.com/eamodio/supertalk)
 5. @eamodio/supertalk version 0.0.7 (https://github.com/eamodio/supertalk)
@@ -22,20 +22,19 @@ This project incorporates components from the projects listed below.
 17. @opentelemetry/semantic-conventions version 1.43.0 (https://github.com/open-telemetry/opentelemetry-js)
 18. @vscode/codicons version 0.0.45 (https://github.com/microsoft/vscode-codicons)
 19. diff2html version 3.4.56 (https://github.com/rtfpessoa/diff2html)
-20. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
-21. fast-string-truncated-width version 3.0.3 (https://github.com/fabiospampinato/fast-string-truncated-width)
-22. fflate version 0.8.3 (https://github.com/101arrowz/fflate)
-23. ignore version 7.0.6 (https://github.com/kaelzhang/node-ignore)
-24. lit version 3.3.3 (https://github.com/lit/lit)
-25. marked version 18.0.7 (https://github.com/markedjs/marked)
-26. microsoft/vscode (https://github.com/microsoft/vscode)
-27. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-28. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-29. signal-polyfill version 0.2.2 (https://github.com/proposal-signals/signal-polyfill)
-30. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
-31. slug version 12.0.1 (https://github.com/Trott/slug)
-32. sortablejs version 1.15.7 (https://github.com/SortableJS/Sortable)
-33. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
+20. fast-string-truncated-width version 3.0.3 (https://github.com/fabiospampinato/fast-string-truncated-width)
+21. fflate version 0.8.3 (https://github.com/101arrowz/fflate)
+22. ignore version 7.0.6 (https://github.com/kaelzhang/node-ignore)
+23. lit version 3.3.3 (https://github.com/lit/lit)
+24. marked version 18.0.7 (https://github.com/markedjs/marked)
+25. microsoft/vscode (https://github.com/microsoft/vscode)
+26. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+27. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+28. signal-polyfill version 0.2.2 (https://github.com/proposal-signals/signal-polyfill)
+29. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
+30. slug version 12.0.1 (https://github.com/Trott/slug)
+31. sortablejs version 1.15.7 (https://github.com/SortableJS/Sortable)
+32. vscode-uri version 3.1.0 (https://github.com/microsoft/vscode-uri)
 
 %% @awesome.me/webawesome NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -3031,32 +3030,6 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 
 =========================================
 END OF  diff2html NOTICES AND INFORMATION
-
-%% driver.js NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License
-
-Copyright (c) Kamran Ahmed
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-=========================================
-END OF  driver.js NOTICES AND INFORMATION
 
 %% fast-string-truncated-width NOTICES AND INFORMATION BEGIN HERE
 =========================================
