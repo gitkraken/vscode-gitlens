@@ -21113,7 +21113,7 @@
 			"initialSize": 6,
 			"visibility": "visible",
 			"container": "gitlens",
-			"order": 1
+			"order": 0
 		},
 		"gitlens.views.home": {
 			"type": "webview",
@@ -21407,9 +21407,9 @@
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-gitlens)",
 			"initialSize": 1,
-			"visibility": "visible",
+			"visibility": "collapsed",
 			"container": "gitlens",
-			"order": 0
+			"order": 1
 		},
 		"gitlens.views.workspaces": {
 			"name": "Cloud Workspaces",

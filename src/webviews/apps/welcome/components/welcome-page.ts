@@ -547,7 +547,7 @@ export class GlWelcomePage extends LitElement {
 				<div class="section section--centered">
 					<p>
 						<a class="back-link" href="${createCommandLink('gitlens.showWelcomeView', { mode: 'graph' })}"
-							>See what's new in the Commit Graph &rarr;</a
+							>Get Started with the Commit Graph &rarr;</a
 						>
 					</p>
 				</div>
@@ -587,11 +587,11 @@ export class GlWelcomePage extends LitElement {
 			<div part="page" class="welcome scrollable">
 				<div class="section section--back">
 					<a href="${createCommandLink('gitlens.showWelcomeView')}" class="back-link"
-						>&larr; Back to the GitLens walkthrough</a
+						>&larr; Back to Get Started with GitLens</a
 					>
 				</div>
 				<div class="section header">
-					<h1><gitlens-logo-circle></gitlens-logo-circle><span>What's new in GitLens 18</span></h1>
+					<h1><gitlens-logo-circle></gitlens-logo-circle><span>Get Started with the Graph</span></h1>
 				</div>
 				<gl-walkthrough-progress
 					class="section"

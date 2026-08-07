@@ -170,7 +170,8 @@ export class WelcomeShowGraphCommand extends GlCommandBase {
 			name: 'open/graph',
 			command: command,
 		});
-		executeCommand(command);
+		void executeCommand(command);
+		void executeCommand('gitlens.showWelcomeView', { mode: 'graph' });
 	}
 }
 

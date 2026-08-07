@@ -29550,15 +29550,6 @@
 			"gitlens": [
 				{
 					"type": "webview",
-					"id": "gitlens.views.welcome",
-					"name": "Welcome",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-gitlens)",
-					"initialSize": 1,
-					"visibility": "visible"
-				},
-				{
-					"type": "webview",
 					"id": "gitlens.views.graph",
 					"name": "Graph",
 					"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
@@ -29566,6 +29557,15 @@
 					"icon": "$(gitlens-graph)",
 					"initialSize": 6,
 					"visibility": "visible"
+				},
+				{
+					"type": "webview",
+					"id": "gitlens.views.welcome",
+					"name": "Welcome",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-gitlens)",
+					"initialSize": 1,
+					"visibility": "collapsed"
 				},
 				{
 					"type": "webview",
