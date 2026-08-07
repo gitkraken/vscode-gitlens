@@ -3320,10 +3320,13 @@ suite('sweep + broaden (#5438)', () => {
 			targets: [
 				{ providerId: GitCloudHostIntegrationId.GitHub, connectionId: 'github-secondary' },
 				{ providerId: GitCloudHostIntegrationId.GitLab, connectionId: 'gitlab-secondary' },
-				// Never resolves a connection, so it never resolves a read domain either — the path where the
-				// event has to fall back to the domain the caller asked for, or a self-managed target becomes
-				// unidentifiable in the very case it matters.
-				{ providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, domain: 'ghe.example.com' },
+				// Never resolves a connection, so it never reaches the read's own domain resolution — and its
+				// domain is given in URL form, which is what makes this target discriminating: echoing
+				// `target.domain` would report the raw URL and split one host across two buckets.
+				{
+					providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'https://ghe.example.com/api/v3',
+				},
 			],
 			repos: [{ namespace: 'octocat', name: 'hello' }],
 			onTargetSettled: event => void events.push(event),
@@ -3364,12 +3367,19 @@ suite('sweep + broaden (#5438)', () => {
 				},
 			],
 		);
-		// The domain is only asserted for the self-managed target, which is the case it exists for: it is what
-		// tells two hosts of the same provider apart, and this target never resolved one, so the event has to
-		// carry back the domain the caller asked for.
-		assert.equal(
-			events.find(e => e.providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise)?.domain,
-			'ghe.example.com',
+		// The domain follows one rule for every target: the self-managed HOST it selects, resolved without an
+		// integration instance, so a target rejected by the first guard reports what a drained one would — and
+		// normalized, so the URL the caller passed above comes back as the host. Cloud providers report none at
+		// all: a single host is nothing to disambiguate, and reporting one only sometimes (as `domainForRead`
+		// does, from the connection descriptor or the instance) splits one provider across two buckets for a
+		// consumer grouping by provider + domain.
+		assert.deepEqual(
+			events.map(e => [e.providerId, e.domain]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+			[
+				[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe.example.com'],
+				[GitCloudHostIntegrationId.GitHub, undefined],
+				[GitCloudHostIntegrationId.GitLab, undefined],
+			],
 		);
 		// Magnitudes are not asserted: a threshold in a unit suite is a flake, and `queueWaitMs` is 0 by
 		// construction while the target count stays within the fan-out's concurrency limit.
