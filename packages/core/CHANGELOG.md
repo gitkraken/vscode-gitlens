@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - `Integration.disconnect` now awaits the `deleteAllSessions` clear instead of leaving it floating, so a caller that awaits `disconnect()` can rely on the secrets and descriptors being gone when it resumes. Nothing but incidental scheduling slack ever made the clear land in time: the serial connection-sync loop happened to suspend on the next provider, which let the previous provider's delete finish. Syncing providers concurrently removed that slack and exposed a full-provider disconnect returning with a descriptor still stored (plus/integrations)
+- `GitHubApi.searchMyPullRequestsPage` now orders by `sort:updated`, making ordering a contract the way `searchPullRequestsPage` already did. It sent no `sort:` qualifier at all, so GitHub answered in `best-match` (relevance) order — which meant any consumer that stopped short of draining every page kept an arbitrary sample rather than the N most recently updated, and the retained set could shift with GitHub's ranking with nothing changed upstream. This is the read behind both PR sweeps, so a sweep with a page budget now has a deterministic, time-bounded recency window: a consumer deriving a change signal from the sweep no longer sees phantom changes from re-ranking, and a terminal pull request cannot drop out of a bounded window and reappear later (plus/git-github)
 
 ## [0.5.106] - 2026-08-06
 
