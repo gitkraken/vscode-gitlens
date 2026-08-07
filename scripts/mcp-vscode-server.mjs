@@ -162,6 +162,128 @@ function ensureDisplay(screenResolution = '1920x1080x24') {
 	}
 }
 
+// Descendant PIDs of an Electron main process — used to find crashpad/gsettings/helper
+// processes that detach from Electron and outlive electronApp.close().
+function listDescendants(rootPid) {
+	try {
+		const out = execFileSync('ps', ['-eo', 'pid=,ppid='], { encoding: 'utf8' });
+		const childrenByPpid = new Map();
+		for (const line of out.split('\n')) {
+			const trimmed = line.trim();
+			if (!trimmed) continue;
+			const [pid, ppid] = trimmed.split(/\s+/).map(Number);
+			if (!childrenByPpid.has(ppid)) childrenByPpid.set(ppid, []);
+			childrenByPpid.get(ppid).push(pid);
+		}
+		const result = [];
+		const queue = [...(childrenByPpid.get(rootPid) ?? [])];
+		while (queue.length) {
+			const pid = queue.shift();
+			result.push(pid);
+			for (const child of childrenByPpid.get(pid) ?? []) queue.push(child);
+		}
+		return result;
+	} catch {
+		return [];
+	}
+}
+
+// Reads /proc/<pid>/<name> (e.g. "cmdline", "environ") as text, NUL-delimited fields
+// replaced with spaces so cmdline/environ read like a normal string.
+function readProcFile(pid, name) {
+	try {
+		return readFileSync(`/proc/${pid}/${name}`, 'utf8').replace(/\0/g, ' ');
+	} catch {
+		return null;
+	}
+}
+
+// TERM then KILL a set of pids, but only ones whose cmdline matches an expected pattern —
+// guards against killing an unrelated process that happens to reuse a leaked pid.
+async function killPids(pids, expectedPatterns) {
+	const matches = pid => {
+		const cmdline = readProcFile(pid, 'cmdline');
+		if (!cmdline) return false;
+		return expectedPatterns.some(p => (p instanceof RegExp ? p.test(cmdline) : cmdline.includes(p)));
+	};
+
+	const targets = pids.filter(matches);
+	for (const pid of targets) {
+		try {
+			process.kill(pid, 'SIGTERM');
+		} catch {
+			// Already gone
+		}
+	}
+
+	if (!targets.length) return;
+
+	await new Promise(resolve => setTimeout(resolve, 500));
+
+	for (const pid of targets) {
+		try {
+			process.kill(pid, 0); // Throws if the process is gone
+			process.kill(pid, 'SIGKILL');
+		} catch {
+			// Already gone
+		}
+	}
+}
+
+// Sweep processes leaked by a prior inspector run that got SIGKILLed before cleanup() could reap
+// its descendants (crashpad_handler / the gsettings proxy-monitor watcher). Runs before every
+// launch so leaks don't accumulate across sessions. Only touches processes reparented to init
+// whose args match our own leak signatures — never a live inspector's children (those still have
+// an electron/code/.vscode-test parent) and never Xvfb itself.
+function sweepOrphans() {
+	try {
+		const out = execFileSync('ps', ['-eo', 'pid=,ppid=,args='], { encoding: 'utf8' });
+		const procs = [];
+		const argsByPid = new Map();
+		for (const line of out.split('\n')) {
+			const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
+			if (!m) continue;
+			const pid = Number(m[1]);
+			const ppid = Number(m[2]);
+			const args = m[3];
+			procs.push({ pid, ppid, args });
+			argsByPid.set(pid, args);
+		}
+
+		const hasVSCodeParent = ppid => {
+			const parentArgs = argsByPid.get(ppid);
+			if (!parentArgs) return false;
+			const lower = parentArgs.toLowerCase();
+			return lower.includes('electron') || lower.includes('code') || lower.includes('.vscode-test');
+		};
+
+		const toKill = [];
+		for (const { pid, ppid, args } of procs) {
+			if (args.includes('Xvfb')) continue;
+			if (hasVSCodeParent(ppid)) continue; // Has a live VS Code/Electron parent — not orphaned
+
+			const isCrashpad =
+				args.includes('chrome_crashpad_handler') &&
+				args.includes('--database=') &&
+				args.includes('/.vscode-test/');
+			const isGsettingsProxyMonitor =
+				args.includes('gsettings') && args.includes('monitor') && args.includes('org.gnome.system.proxy');
+			if (isCrashpad) {
+				toKill.push(pid);
+			} else if (isGsettingsProxyMonitor) {
+				const environ = readProcFile(pid, 'environ');
+				if (environ?.includes('DISPLAY=:99')) toKill.push(pid);
+			}
+		}
+
+		if (toKill.length) {
+			void killPids(toKill, ['chrome_crashpad_handler', 'gsettings', '.vscode-test/', 'vscode-agent-']);
+		}
+	} catch {
+		// Best-effort — never block a launch over this
+	}
+}
+
 // =============================================================================
 // Log searching
 // =============================================================================
@@ -479,7 +601,23 @@ async function cleanup() {
 				// Window may already be closing — safe to ignore
 			}
 		}
+		// electronApp.close() only exits the Electron main process. crashpad_handler and the
+		// gsettings proxy-monitor watcher are grandchildren that detach and reparent to init —
+		// they never exit on their own, so reap them explicitly (Linux only).
+		let electronPid;
+		try {
+			electronPid = electronApp?.process?.()?.pid;
+		} catch {
+			electronPid = undefined;
+		}
+		const descendants = electronPid ? listDescendants(electronPid) : [];
 		await electronApp?.close().catch(() => {});
+		if (process.platform === 'linux') {
+			await killPids(
+				[...descendants, ...(electronPid ? [electronPid] : [])],
+				['chrome_crashpad_handler', 'gsettings', '.vscode-test/', 'vscode-agent-'],
+			).catch(() => {});
+		}
 	} finally {
 		electronApp = null;
 		page = null;
@@ -784,6 +922,10 @@ server.tool(
 
 		state = 'launching';
 		try {
+			// Reap anything a prior SIGKILLed inspector run leaked (crashpad_handler /
+			// gsettings proxy-monitor) before starting a new one.
+			if (process.platform === 'linux') sweepOrphans();
+
 			const extensionPath = path.resolve(args.extension_path ?? process.cwd());
 			const agentConfig = loadAgentConfig(extensionPath);
 			const withEvaluator = args.with_evaluator ?? true;
