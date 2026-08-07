@@ -120,6 +120,8 @@ export interface GetOverviewBranch {
 				hasConflicts?: boolean;
 				conflictsCount?: number;
 				pausedOpStatus?: GitPausedOperationStatus;
+				/** A continue/skip is still running — see `OverviewBranchWip.pausedOpContinuing`. */
+				pausedOpContinuing?: boolean;
 		  }
 		| undefined
 	>;

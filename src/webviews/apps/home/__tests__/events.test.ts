@@ -26,6 +26,7 @@ suite('setupSubscriptions Test Suite', () => {
 		const services = {
 			home: {
 				onWalkthroughProgressChanged: () => () => {},
+				onPausedOperationContinuingChanged: () => () => {},
 				onPreviewChanged: () => () => {},
 				onAiAllAccessBannerChanged: () => () => {},
 				onOverviewRepositoryChanged: () => () => {},
@@ -83,6 +84,7 @@ suite('setupSubscriptions Test Suite', () => {
 			refreshLaunchpad: () => {},
 			refreshAgentOverview: () => {},
 			refreshActiveOverview: () => {},
+			refreshActiveOverviewNow: () => {},
 		} satisfies SubscriptionActions;
 
 		const unsubscribe = await setupSubscriptions(state, services, actions);
@@ -117,6 +119,7 @@ suite('setupSubscriptions Test Suite', () => {
 		const services = {
 			home: {
 				onWalkthroughProgressChanged: () => () => {},
+				onPausedOperationContinuingChanged: () => () => {},
 				onPreviewChanged: () => () => {},
 				onAiAllAccessBannerChanged: () => () => {},
 				onOverviewRepositoryChanged: (callback: (data: { repoPath: string | undefined }) => void) => {
@@ -166,6 +169,7 @@ suite('setupSubscriptions Test Suite', () => {
 			refreshLaunchpad: () => {},
 			refreshAgentOverview: () => {},
 			refreshActiveOverview: () => {},
+			refreshActiveOverviewNow: () => {},
 		} satisfies SubscriptionActions;
 
 		const unsubscribe = await setupSubscriptions(state, services, actions);
@@ -175,6 +179,101 @@ suite('setupSubscriptions Test Suite', () => {
 
 		assert.strictEqual(state.home.overviewRepositoryPath.get(), '/repo/selected');
 		assert.strictEqual(replaceOverviewCalls, 1);
+
+		unsubscribe();
+	});
+
+	test('should refresh the active overview immediately when a paused operation continue starts or settles', async () => {
+		const state = {
+			home: createHomeState(new InMemoryStorage()),
+			integrations: createIntegrationsState(),
+			ai: createAIState(),
+			onboarding: createOnboardingState(),
+			launchpad: createLaunchpadState(),
+			commands: { service: undefined },
+		};
+
+		let onPausedOperationContinuingChanged: (() => void) | undefined;
+
+		const services = {
+			home: {
+				onWalkthroughProgressChanged: () => () => {},
+				onPausedOperationContinuingChanged: (callback: () => void) => {
+					onPausedOperationContinuingChanged = callback;
+					return () => {};
+				},
+				onPreviewChanged: () => () => {},
+				onAiAllAccessBannerChanged: () => () => {},
+				onOverviewRepositoryChanged: () => () => {},
+				onOverviewFilterChanged: () => () => {},
+				onFocusAccount: () => () => {},
+				onAgentSessionsChanged: () => () => {},
+			},
+			launchpad: {
+				onLaunchpadChanged: () => () => {},
+			},
+			config: {},
+			subscription: {
+				onSubscriptionChanged: () => () => {},
+			},
+			integrations: {
+				onIntegrationsChanged: () => () => {},
+			},
+			repositories: {
+				onDiscoveryCompleted: () => () => {},
+				onRepositoriesChanged: () => () => {},
+				onRepositoryChanged: () => () => {},
+				getRepositoriesState: () =>
+					Promise.resolve({ count: 0, openCount: 0, hasUnsafe: false, trusted: true }),
+			},
+			onboarding: {
+				onDidChange: () => () => {},
+			},
+			ai: {
+				onModelChanged: () => () => {},
+				onStateChanged: () => () => {},
+			},
+		} as unknown as Parameters<typeof setupSubscriptions>[1];
+
+		let nowCalls = 0;
+		let activeCalls = 0;
+		let inactiveCalls = 0;
+		let overviewCalls = 0;
+
+		const actions = {
+			refreshOverview: () => {
+				overviewCalls++;
+			},
+			refreshActiveOverview: () => {
+				activeCalls++;
+			},
+			refreshActiveOverviewNow: () => {
+				nowCalls++;
+			},
+			refreshInactiveOverview: () => {
+				inactiveCalls++;
+			},
+			replaceOverview: () => {},
+			updateOverviewFilter: () => {},
+			onFocusAccount: () => {},
+			onSubscriptionChanged: () => {},
+			refreshLaunchpad: () => {},
+			refreshAgentOverview: () => {},
+		} satisfies SubscriptionActions;
+
+		const unsubscribe = await setupSubscriptions(state, services, actions);
+
+		assert.ok(onPausedOperationContinuingChanged, 'paused operation continuing callback should be registered');
+
+		// The start edge and the settle edge are the same event — both must land, and neither may go
+		// through a debounce that could outlive the state it reports.
+		onPausedOperationContinuingChanged?.();
+		onPausedOperationContinuingChanged?.();
+
+		assert.strictEqual(nowCalls, 2);
+		assert.strictEqual(activeCalls, 0);
+		assert.strictEqual(inactiveCalls, 0);
+		assert.strictEqual(overviewCalls, 0);
 
 		unsubscribe();
 	});
@@ -206,6 +305,7 @@ suite('setupSubscriptions Test Suite', () => {
 			const services = {
 				home: {
 					onWalkthroughProgressChanged: () => () => {},
+					onPausedOperationContinuingChanged: () => () => {},
 					onPreviewChanged: () => () => {},
 					onAiAllAccessBannerChanged: () => () => {},
 					onOverviewRepositoryChanged: () => () => {},
@@ -240,6 +340,9 @@ suite('setupSubscriptions Test Suite', () => {
 					overviewCalls++;
 				},
 				refreshActiveOverview: () => {
+					activeCalls++;
+				},
+				refreshActiveOverviewNow: () => {
 					activeCalls++;
 				},
 				refreshInactiveOverview: () => {

@@ -96,6 +96,9 @@ export interface HomeViewService {
 	/** Fired when the overview filter changes. */
 	onOverviewFilterChanged: RpcEventSubscription<{ filter: OverviewFilters }>;
 
+	/** Fired when a paused-operation continue/skip starts or settles, in any repo. */
+	onPausedOperationContinuingChanged: RpcEventSubscription<undefined>;
+
 	// --- Walkthrough ---
 
 	/** Get current walkthrough progress, or undefined if dismissed. */

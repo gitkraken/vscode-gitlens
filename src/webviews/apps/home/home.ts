@@ -672,6 +672,11 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			refreshActiveOverview: () => {
 				this._refreshActiveDebounced();
 			},
+			// Coalesced but NOT cancel-and-restart: `replaceOverview`'s `cancel()` would abort the WIP and
+			// enrichment promises the already-rendered progressive cards are holding.
+			refreshActiveOverviewNow: () => {
+				void this._fetchActiveCoalesced();
+			},
 			refreshInactiveOverview: () => {
 				this._refreshInactiveDebounced();
 			},

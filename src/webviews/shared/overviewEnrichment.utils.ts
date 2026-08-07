@@ -12,6 +12,7 @@ import { filterMap } from '@gitlens/utils/iterable.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { EnrichedAutolink } from '../../autolinks/models/autolinks.js';
 import type { Container } from '../../container.js';
+import { isContinuingPausedOperation } from '../../git/actions/pausedOperation.js';
 import { getAssociatedIssuesForBranch } from '../../git/utils/-webview/branch.issue.utils.js';
 import {
 	getBranchAssociatedPullRequest,
@@ -344,6 +345,10 @@ export async function getOverviewWip(
 					hasConflicts: status?.hasConflicts,
 					conflictsCount: status?.conflicts.length,
 					pausedOpStatus: pausedOpStatus,
+					// Keyed by the same worktree-aware path as the status above — the in-flight set holds the
+					// path of the repo that OWNS the paused op.
+					pausedOpContinuing:
+						pausedOpStatus != null && isContinuingPausedOperation(repoPath) ? true : undefined,
 				};
 			}
 		}),
