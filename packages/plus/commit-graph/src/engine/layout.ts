@@ -38,13 +38,20 @@ interface LayoutState {
 	/** Low columns reserved for pinned branches (= highest assigned pinned column + 1). Non-pinned commits
 	 *  claim columns at/above this so a fresh lane never collides with a pinned-branch lane. */
 	pinnedColumnCount: number;
+	/** sha → owning pinned head sha (same ownership as `pinnedColumns`, first-owner-wins). Threaded through
+	 *  so pinned lanes — which never open a `SegmentBuilder` — can still resolve a ghost-ref tip. */
+	pinnedTipByCommit: ReadonlyMap<Sha, Sha>;
 	/** In-progress segment builders, keyed by current column index. */
 	segmentByColumn: Map<number, SegmentBuilder>;
 	/** Finalized segments — appended on column-free, drained at the end of the layout pass. */
 	finalizedSegments: LaneSegment[];
 }
 
-function createState(pinnedColumns: ReadonlyMap<Sha, number>, pinnedColumnCount: number): LayoutState {
+function createState(
+	pinnedColumns: ReadonlyMap<Sha, number>,
+	pinnedColumnCount: number,
+	pinnedTipByCommit: ReadonlyMap<Sha, Sha>,
+): LayoutState {
 	return {
 		columnsUsed: new Set(),
 		columnsToFreeWhenFound: new Map(),
@@ -52,6 +59,7 @@ function createState(pinnedColumns: ReadonlyMap<Sha, number>, pinnedColumnCount:
 		hasMergeNodeChildBySha: new Set(),
 		pinnedColumns: pinnedColumns,
 		pinnedColumnCount: pinnedColumnCount,
+		pinnedTipByCommit: pinnedTipByCommit,
 		segmentByColumn: new Map(),
 		finalizedSegments: [],
 	};
@@ -200,14 +208,17 @@ export function collectReachable(
  * no empty phantom lane is held. Pass the heads base-first so the shared base/trunk lands on column 0.
  *
  * Rows must be in the same order the layout will process them (topological / date order). The result
- * is the `pinnedShas` → per-commit column map the layout consumes.
+ * is the `pinnedShas` → per-commit column map the layout consumes, plus the sha → owning-head map
+ * (`tipBySha`) that lets a pinned-lane row resolve its own ghost-ref tip (pinned lanes never open a
+ * `SegmentBuilder`, so they'd otherwise be invisible to `segmentByCommit`).
  */
 export function assignPinnedColumns(
 	rows: readonly { sha: Sha; parents: readonly Sha[] }[],
 	pinnedHeadShas: readonly Sha[],
-): Map<Sha, number> {
+): { columns: Map<Sha, number>; tipBySha: Map<Sha, Sha> } {
 	const columns = new Map<Sha, number>();
-	if (pinnedHeadShas.length === 0) return columns;
+	const tipBySha = new Map<Sha, Sha>();
+	if (pinnedHeadShas.length === 0) return { columns: columns, tipBySha: tipBySha };
 
 	const bySha = new Map<Sha, { parents: readonly Sha[] }>();
 	for (const row of rows) {
@@ -228,11 +239,12 @@ export function assignPinnedColumns(
 			if (columns.has(cur)) break;
 
 			columns.set(cur, col);
+			tipBySha.set(cur, head);
 			cur = bySha.get(cur)?.parents?.[0];
 		}
 	}
 
-	return columns;
+	return { columns: columns, tipBySha: tipBySha };
 }
 
 /**
@@ -396,6 +408,7 @@ function cloneLayoutState(s: LayoutState): LayoutState {
 		hasMergeNodeChildBySha: new Set(s.hasMergeNodeChildBySha),
 		pinnedColumns: s.pinnedColumns,
 		pinnedColumnCount: s.pinnedColumnCount,
+		pinnedTipByCommit: s.pinnedTipByCommit,
 		segmentByColumn: segmentByColumn,
 		// Shallow copy ON PURPOSE: a finalized segment is immutable (only live BUILDERS mutate, and
 		// those are deep-copied above), so the elements can be shared. Preserving segment identity
@@ -408,7 +421,11 @@ function cloneLayoutState(s: LayoutState): LayoutState {
 // Derive the render-facing outputs (drained segments + still-unloaded parent columns) from a state
 // WITHOUT mutating it — so the snapshot taken from the same state stays valid (pre-drain). Mirrors the
 // end-of-pass finalization in `computeColumnsAndSegments`.
-function finalizeLayout(state: LayoutState): { segments: LaneSegment[]; unloadedColumns: Map<Sha, number> } {
+function finalizeLayout(state: LayoutState): {
+	segments: LaneSegment[];
+	unloadedColumns: Map<Sha, number>;
+	pinnedTipByCommit: ReadonlyMap<Sha, Sha>;
+} {
 	const segments = state.finalizedSegments.slice();
 	for (const builder of state.segmentByColumn.values()) {
 		const seg = finalizeSegment(builder, null);
@@ -420,7 +437,7 @@ function finalizeLayout(state: LayoutState): { segments: LaneSegment[]; unloaded
 	for (const [sha, info] of state.reserverInfoBySha) {
 		unloadedColumns.set(sha, info.column);
 	}
-	return { segments: segments, unloadedColumns: unloadedColumns };
+	return { segments: segments, unloadedColumns: unloadedColumns, pinnedTipByCommit: state.pinnedTipByCommit };
 }
 
 // Assign columns for a slice of rows into `output`, threading `state` forward (the core of both the
@@ -457,6 +474,7 @@ export function appendColumnsAndSegments(
 	rows: ProcessedGraphRow[];
 	segments: readonly LaneSegment[];
 	unloadedColumns: ReadonlyMap<Sha, number>;
+	pinnedTipByCommit: ReadonlyMap<Sha, Sha>;
 	snapshot: GraphLayoutSnapshot;
 } {
 	const prior = snapshot as unknown as InternalLayoutSnapshot;
@@ -467,11 +485,12 @@ export function appendColumnsAndSegments(
 		state: state,
 		processedCount: prior.processedCount + newRows.length,
 	};
-	const { segments, unloadedColumns } = finalizeLayout(state);
+	const { segments, unloadedColumns, pinnedTipByCommit } = finalizeLayout(state);
 	return {
 		rows: output,
 		segments: segments,
 		unloadedColumns: unloadedColumns,
+		pinnedTipByCommit: pinnedTipByCommit,
 		snapshot: nextSnapshot as unknown as GraphLayoutSnapshot,
 	};
 }
@@ -512,20 +531,25 @@ export function computeColumnsAndSegments(
 	rows: ProcessedGraphRow[];
 	segments: readonly LaneSegment[];
 	unloadedColumns: ReadonlyMap<Sha, number>;
+	/** sha → owning pinned head sha, for pinned-lane ghost-ref resolution (empty when nothing pinned). */
+	pinnedTipByCommit: ReadonlyMap<Sha, Sha>;
 	// Resume token to continue this pass over freshly-paged rows via `appendColumnsAndSegments`. Valid
 	// only for the unpinned case (an append can't retro-extend pinned chains); ignore it when pinned.
 	snapshot: GraphLayoutSnapshot;
 } {
 	// `pinnedShas` is the ORDERED list of branch heads to pin to successive columns (0, 1, 2, …); expand
 	// it to a per-commit column map (each head's first-parent chain; shared ancestors keep the lower lane).
-	const pinnedColumns = assignPinnedColumns(rows, options?.pinnedShas ?? []);
+	const { columns: pinnedColumns, tipBySha: pinnedTipByCommit } = assignPinnedColumns(
+		rows,
+		options?.pinnedShas ?? [],
+	);
 	let pinnedColumnCount = 0;
 	for (const c of pinnedColumns.values()) {
 		if (c + 1 > pinnedColumnCount) {
 			pinnedColumnCount = c + 1;
 		}
 	}
-	const state = createState(pinnedColumns, pinnedColumnCount);
+	const state = createState(pinnedColumns, pinnedColumnCount, pinnedTipByCommit);
 
 	const output: ProcessedGraphRow[] = new Array(rows.length);
 	assignColumnsInto(state, rows, output);
@@ -537,12 +561,13 @@ export function computeColumnsAndSegments(
 	// reservations still present belong to parents that never loaded — surfaced so the edge pass can draw
 	// a dangling stub down each held lane. The column is held deliberately for paging stability: re-running
 	// with the parent loaded reserves the same column, so the lane doesn't shift when more history pages in.
-	const { segments, unloadedColumns } = finalizeLayout(state);
+	const { segments, unloadedColumns, pinnedTipByCommit: finalPinnedTipByCommit } = finalizeLayout(state);
 
 	return {
 		rows: output,
 		segments: segments,
 		unloadedColumns: unloadedColumns,
+		pinnedTipByCommit: finalPinnedTipByCommit,
 		snapshot: snapshot as unknown as GraphLayoutSnapshot,
 	};
 }

@@ -505,6 +505,15 @@ interface RenderCtx {
 	/** Trunk segment's tip sha (deliberately excluded from `segmentByCommit` — lane-fold/split-pill
 	 *  jump must never treat trunk as collapsible) — ghost-resolution-only fallback for trunk rows. */
 	trunkTipSha?: string;
+	/** sha → owning pinned head sha, for pinned-lane ghost-ref resolution (pinned lanes never form a
+	 *  `segmentByCommit` entry). */
+	pinnedTipByCommit: ReadonlyMap<string, string>;
+	/** Shas that are members of the current trunk segment — scopes the `trunkTipSha` ghost fallback to
+	 *  rows actually on that lane. */
+	trunkCommitShas: ReadonlySet<string>;
+	/** Segment tips that are worktree WIP rows — ghost resolution hops these to their first parent
+	 *  (the branch tip that actually carries the ref; a WIP row's `commitRefs` is always empty). */
+	wipSegmentTips: ReadonlySet<string>;
 	/** Tip shas currently collapsed (drives `aria-expanded` on collapsible treeitems). */
 	collapsedTips: ReadonlySet<string>;
 	/** sha → clean/dirty for workdir rows; absent key = no glyph (stats not yet loaded). */
@@ -932,25 +941,39 @@ export class GlLitGraph extends LitElement {
 		// below for BOTH the fold-chevron hit-target (`laneTipSha`) and the ghost-ref resolution so the
 		// map lookup only happens once.
 		const laneTipSha = c.segmentByCommit.get(row.sha);
-		// Ghost-ref pill source: the lane tip's PRIMARY visible ref (never this row's own sha) — only
-		// resolved for rows that could actually show a ghost (config on, not workdir/stash) so ref-ful
-		// rows and WIP/stash rows never pay for the lookup. Two map lookups (segmentByCommit + getCommit)
-		// + a small scan over the tip's refs — cheap enough per ref-less row with no caching.
-		// `segmentByCommit` excludes the trunk segment (laneTipSha stays undefined there — lane-fold/
-		// split-pill jump must not treat trunk as collapsible), so fall back to the trunk tip for ghost
-		// resolution ONLY — a ref-less trunk row still ghosts the nearest descendant tip's branch.
-		// `laneTipSha` itself (the fold hit-target) is untouched.
-		const ghostTipSha = laneTipSha ?? c.trunkTipSha;
-		const ghostRefSource =
-			!skeleton && c.showGhostRefs && ghostTipSha != null && row.kind !== 'workdir' && row.kind !== 'stash'
-				? pickGhostRef(
-						c.getCommit(ghostTipSha)?.commitRefs,
-						this.excludeTypes,
-						this.excludeRefs,
-						this.downstreams,
-						this._refOrder,
-					)
-				: undefined;
+		// Ghost-ref pill source: the lane tip's PRIMARY visible ref (never this row's own sha) — the whole
+		// chain below is gated on rows that could actually show a ghost (config on, not workdir/stash) so
+		// everyone else pays nothing beyond the `laneTipSha` read above (which the fold hit-target needs
+		// regardless). `laneTipSha` resolves first. A row on a pinned chain (`pinBranchToEdge`) never forms
+		// a lane segment, so it resolves to its own pinned branch's head instead. The trunk fallback
+		// applies only to rows that are actual members of the trunk segment (`trunkCommitShas`) — a row
+		// that belongs to no lane at all (e.g. an unfinalized single-commit side lane) shows no ghost
+		// rather than borrowing the trunk's.
+		let ghostRefSource: ReturnType<typeof pickGhostRef>;
+		if (!skeleton && c.showGhostRefs && row.kind !== 'workdir' && row.kind !== 'stash') {
+			let ghostTipSha =
+				laneTipSha ??
+				c.pinnedTipByCommit.get(row.sha) ??
+				(c.trunkCommitShas.has(row.sha) ? c.trunkTipSha : undefined);
+			// A worktree's WIP row heads its branch's lane segment whenever that worktree has working
+			// changes — and a WIP row's `commitRefs` is always empty, so the whole lane would resolve no
+			// ghost. Hop to the WIP row's first parent (the branch tip, which carries the ref) — the same
+			// hop `trunkGhostTipSha` does for the trunk's own WIP tip.
+			if (ghostTipSha != null && c.wipSegmentTips.has(ghostTipSha)) {
+				ghostTipSha = c.getCommit(ghostTipSha)?.parents[0];
+			}
+
+			ghostRefSource =
+				ghostTipSha != null
+					? pickGhostRef(
+							c.getCommit(ghostTipSha)?.commitRefs,
+							this.excludeTypes,
+							this.excludeRefs,
+							this.downstreams,
+							this._refOrder,
+						)
+					: undefined;
+		}
 		const ghostRef: RowRenderContext['ghostRef'] =
 			ghostRefSource != null ? { name: ghostRefSource.name, kind: ghostRefSource.kind } : undefined;
 		// Sticky-timeline hairline: a 1px separator overlay where this row's group differs from the row
@@ -1189,6 +1212,10 @@ export class GlLitGraph extends LitElement {
 	private scopeProjection?: ScopeProjection;
 	// commit-sha → segment-tip-sha (non-trunk) for the gutter node's lane-collapse hit-target.
 	private segmentByCommit: ReadonlyMap<Sha, Sha> = new Map();
+	// sha → owning pinned head sha, for pinned-lane ghost-ref resolution.
+	private pinnedTipByCommit: ReadonlyMap<Sha, Sha> = new Map();
+	// Shas that are members of the current trunk segment, for scoping the trunk ghost-ref fallback.
+	private trunkCommitShas: ReadonlySet<Sha> = new Set();
 	// Commits that WIP/workdir rows sit on (first-parent anchors). Kept visible on collapse so
 	// folding a lane never hides — nor re-anchors a WIP row away from — the commit it's based on.
 	private wipAnchorShas: ReadonlySet<Sha> = new Set();
@@ -2292,6 +2319,9 @@ export class GlLitGraph extends LitElement {
 			formatDate: useShortDate ? this.formatDateShortFn : this.formatDateFn,
 			segmentByCommit: this.segmentByCommit,
 			trunkTipSha: this.trunkGhostTipSha(),
+			pinnedTipByCommit: this.pinnedTipByCommit,
+			trunkCommitShas: this.trunkCommitShas,
+			wipSegmentTips: this.wipSegmentTips,
 			collapsedTips: this.effectiveCollapsed,
 			wipStateBySha: this.wipStateBySha,
 			runningOperationByRowSha: this.runningOperationByRowSha,
@@ -2571,6 +2601,8 @@ export class GlLitGraph extends LitElement {
 		this.headSha = state.headSha;
 		this.trunkSegmentTip = state.trunkSegmentTip;
 		this.segmentByCommit = state.segmentByCommit;
+		this.pinnedTipByCommit = state.pinnedTipByCommit;
+		this.trunkCommitShas = state.trunkCommitShas;
 		this.wipAnchorShas = state.wipAnchorShas;
 		this.workdirShas = state.workdirShas;
 		this.wipSegmentTips = state.wipSegmentTips;

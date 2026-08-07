@@ -64,6 +64,12 @@ export type CommitGraphSessionState<TCommit extends GraphCommit> = {
 	headSha?: Sha;
 	trunkSegmentTip?: Sha;
 	segmentByCommit: ReadonlyMap<Sha, Sha>;
+	/** sha → owning pinned head sha, for pinned-lane ghost-ref resolution (pinned lanes never form a
+	 *  `segmentByCommit` entry — they don't open a `SegmentBuilder`). Empty when nothing is pinned. */
+	pinnedTipByCommit: ReadonlyMap<Sha, Sha>;
+	/** Shas that are members of the current trunk segment — ghost-ref resolution's trunk fallback is
+	 *  scoped to these rows only, so a row belonging to no segment at all borrows nothing. */
+	trunkCommitShas: ReadonlySet<Sha>;
 	wipAnchorShas: ReadonlySet<Sha>;
 	workdirShas: ReadonlySet<Sha>;
 	wipSegmentTips: ReadonlySet<Sha>;
@@ -113,6 +119,8 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 	/** False while {@link _trunkSegmentTip} is only the top-row fallback — HEAD has no segment yet. */
 	private _trunkFromHead = false;
 	private _segmentByCommit: ReadonlyMap<Sha, Sha> = new Map();
+	private _pinnedTipByCommit: ReadonlyMap<Sha, Sha> = new Map();
+	private _trunkCommitShas: ReadonlySet<Sha> = new Set();
 	private _wipAnchorShas: ReadonlySet<Sha> = new Set();
 	private _workdirShas: ReadonlySet<Sha> = new Set();
 	private _wipSegmentTips: ReadonlySet<Sha> = new Set();
@@ -214,6 +222,7 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		this._rows = result.rows;
 		this._segments = result.segments;
 		this._unloadedColumns = result.unloadedColumns;
+		this._pinnedTipByCommit = result.pinnedTipByCommit;
 		this._resume = syntheticChildren == null && pinnedShas == null ? result.resume : undefined;
 		const priorHeadSha = this._headSha;
 		this._headSha = input.headSha;
@@ -266,9 +275,11 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 
 		const wipSegmentTips = appended ? new Set(this._wipSegmentTips) : new Set<Sha>();
 		let segmentByCommit = this._segmentByCommit as Map<Sha, Sha>;
+		let trunkCommitShas = this._trunkCommitShas as Set<Sha>;
 		if (!appended || this._trunkSegmentTip !== priorTrunk) {
 			this._lastIndexedSegmentByTip.clear();
 			segmentByCommit = new Map();
+			trunkCommitShas = new Set();
 		}
 		for (const segment of this._segments) {
 			if (workdirShas.has(segment.tipSha)) {
@@ -277,7 +288,18 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 			if (this._lastIndexedSegmentByTip.get(segment.tipSha) === segment) continue;
 
 			this._lastIndexedSegmentByTip.set(segment.tipSha, segment);
-			if (segment.tipSha === this._trunkSegmentTip) continue;
+			if (segment.tipSha === this._trunkSegmentTip) {
+				// An OPEN trunk re-finalizes into a fresh object (with its full commit list) every pass, so
+				// the identity dedupe above never skips it — index only the appended tail or a long trunk
+				// re-inserts its whole history on every page-in. `commitShas` only ever grows by append for
+				// a live builder (any other change goes through the wholesale reset above), so the set's
+				// size IS the already-indexed prefix length.
+				for (let i = trunkCommitShas.size; i < segment.commitShas.length; i++) {
+					trunkCommitShas.add(segment.commitShas[i]);
+				}
+
+				continue;
+			}
 
 			for (const sha of segment.commitShas) {
 				segmentByCommit.set(sha, segment.tipSha);
@@ -285,6 +307,7 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		}
 
 		this._segmentByCommit = segmentByCommit;
+		this._trunkCommitShas = trunkCommitShas;
 		this._wipAnchorShas = wipAnchorShas;
 		this._workdirShas = workdirShas;
 		this._wipSegmentTips = wipSegmentTips;
@@ -314,6 +337,8 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 		this._headSha = undefined;
 		this._trunkSegmentTip = undefined;
 		this._segmentByCommit = new Map();
+		this._pinnedTipByCommit = new Map();
+		this._trunkCommitShas = new Set();
 		this._wipAnchorShas = new Set();
 		this._workdirShas = new Set();
 		this._wipSegmentTips = new Set();
@@ -335,6 +360,8 @@ export class CommitGraphEngineSession<TSource extends RowTopology, TCommit exten
 			headSha: this._headSha,
 			trunkSegmentTip: this._trunkSegmentTip,
 			segmentByCommit: this._segmentByCommit,
+			pinnedTipByCommit: this._pinnedTipByCommit,
+			trunkCommitShas: this._trunkCommitShas,
 			wipAnchorShas: this._wipAnchorShas,
 			workdirShas: this._workdirShas,
 			wipSegmentTips: this._wipSegmentTips,

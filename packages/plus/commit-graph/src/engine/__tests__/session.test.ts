@@ -106,6 +106,31 @@ suite('engine/session', () => {
 		assert.strictEqual(after.trunkSegmentTip, first.trunkSegmentTip, 'an append must not move the trunk');
 	});
 
+	test('trunk shas stay present in trunkCommitShas across an append', () => {
+		const s = session();
+		// A single lane whose tip (T3) has a not-yet-loaded parent (T4) — the append below pages it in,
+		// genuinely EXTENDING the trunk segment rather than adding an unrelated disconnected tail.
+		const initial: RowTopology[] = [
+			row('T0', ['T1'], 1_000_000),
+			row('T1', ['T2'], 999_990),
+			row('T2', ['T3'], 999_980),
+			row('T3', ['T4'], 999_970),
+		];
+		const first = s.update({ sourceRows: initial, toCommit: toCommit, headSha: 'T0' });
+		assert.ok(first.trunkCommitShas.has('T0'), 'precondition: T0 must be a trunk member');
+		assert.ok(first.trunkCommitShas.has('T3'), 'precondition: T3 must be a trunk member');
+
+		const appended: RowTopology[] = [...initial, row('T4', ['T5'], 999_960), row('T5', [], 999_950)];
+		const after = s.update({ sourceRows: appended, toCommit: toCommit, headSha: 'T0' });
+		assert.strictEqual(after.transition.kind, 'append');
+		// Trunk shas from before the append...
+		assert.ok(after.trunkCommitShas.has('T0'));
+		assert.ok(after.trunkCommitShas.has('T3'));
+		// ...and the newly-appended trunk extension are both present.
+		assert.ok(after.trunkCommitShas.has('T4'));
+		assert.ok(after.trunkCommitShas.has('T5'));
+	});
+
 	test('recomputes the trunk when HEAD moves to another segment', () => {
 		const s = session();
 		const rows = graph(12, { branchAt: 6 });

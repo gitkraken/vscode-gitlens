@@ -143,6 +143,19 @@ suite('engine/layout segments', () => {
 		const { segments } = computeColumnsAndSegments(fixtures.mergeFan());
 		assert.ok(!segments.some(s => s.commitShas.length < 2));
 	});
+
+	test('a single-commit side lane sha is absent from every segment and from pinnedTipByCommit', () => {
+		// Pin M so `pinnedTipByCommit` is genuinely populated — with no pins the map is empty by
+		// construction and the 'B' assertion passes vacuously. M's first-parent chain (M→A→C) maps to
+		// M; B — a single-commit second-parent lane that never finalizes into a segment — stays out of
+		// both, so a ghost-ref consumer must not treat it as trunk-eligible either.
+		const { segments, pinnedTipByCommit } = computeColumnsAndSegments(fixtures.mergeFan(), {
+			pinnedShas: ['M'],
+		});
+		assert.ok(!segments.some(s => s.commitShas.includes('B')), 'B must not be a member of any finalized segment');
+		assert.strictEqual(pinnedTipByCommit.get('A'), 'M');
+		assert.strictEqual(pinnedTipByCommit.has('B'), false);
+	});
 });
 
 suite('engine/layout purity', () => {
@@ -171,7 +184,7 @@ suite('engine/layout pinned columns', () => {
 	test('assignPinnedColumns tags each head first-parent chain with its stack column', () => {
 		// Two stacked heads: H1→X→base, H2→Y→base. Base is shared, keeps the lower lane.
 		const rows = [row('H1', ['X']), row('H2', ['Y']), row('X', ['base']), row('Y', ['base']), row('base', [])];
-		const cols = assignPinnedColumns(rows, ['H1', 'H2']);
+		const { columns: cols } = assignPinnedColumns(rows, ['H1', 'H2']);
 		assert.strictEqual(cols.get('H1'), 0);
 		assert.strictEqual(cols.get('X'), 0);
 		assert.strictEqual(cols.get('base'), 0); // shared ancestor stays on the earlier head's lane
@@ -181,9 +194,20 @@ suite('engine/layout pinned columns', () => {
 
 	test('a head not present in the loaded rows reserves no column', () => {
 		const rows = [row('H1', ['base']), row('base', [])];
-		const cols = assignPinnedColumns(rows, ['H1', 'missing']);
+		const { columns: cols } = assignPinnedColumns(rows, ['H1', 'missing']);
 		assert.strictEqual(cols.get('H1'), 0);
 		assert.strictEqual(cols.has('missing'), false);
+	});
+
+	test('assignPinnedColumns tags each chain member with its owning head sha (tipBySha)', () => {
+		// Same fixture as the stack-column test above: H1→X→base, H2→Y→base, base shared.
+		const rows = [row('H1', ['X']), row('H2', ['Y']), row('X', ['base']), row('Y', ['base']), row('base', [])];
+		const { tipBySha } = assignPinnedColumns(rows, ['H1', 'H2']);
+		assert.strictEqual(tipBySha.get('H1'), 'H1');
+		assert.strictEqual(tipBySha.get('X'), 'H1');
+		assert.strictEqual(tipBySha.get('base'), 'H1'); // shared ancestor stays owned by the earlier head
+		assert.strictEqual(tipBySha.get('H2'), 'H2');
+		assert.strictEqual(tipBySha.get('Y'), 'H2');
 	});
 
 	// Regression: a stash reserves a pinned first-parent (F); a newer non-stash sibling (T, via C1)

@@ -65,6 +65,9 @@ export function processGraphRows(
 	rows: ProcessedGraphRow[];
 	segments: readonly LaneSegment[];
 	unloadedColumns: ReadonlyMap<Sha, number>;
+	/** sha → owning pinned head sha, for pinned-lane ghost-ref resolution. Empty on the resume/append
+	 *  branch — pinned lanes and resume are mutually exclusive per the resumability gate below. */
+	pinnedTipByCommit: ReadonlyMap<Sha, Sha>;
 	/** Resume token to pass back on the next page-in for an incremental append. */
 	resume: GraphProcessResume;
 	/** The spans actually reused from `reconcile.priorRows` (prior row identity), when any. */
@@ -107,6 +110,7 @@ export function processGraphRows(
 			rows: allRows,
 			segments: segments,
 			unloadedColumns: unloadedColumns,
+			pinnedTipByCommit: new Map(),
 			resume: nextResume as unknown as GraphProcessResume,
 		};
 	}
@@ -116,6 +120,7 @@ export function processGraphRows(
 		rows: processed,
 		segments,
 		unloadedColumns,
+		pinnedTipByCommit,
 		snapshot,
 	} = computeColumnsAndSegments(rows, { pinnedShas: options?.pinnedShas });
 	// Prefix-change reconciliation: align the fresh LAYOUT against the prior rows so the edge pass
@@ -163,6 +168,7 @@ export function processGraphRows(
 		rows: processed,
 		segments: segments,
 		unloadedColumns: unloadedColumns,
+		pinnedTipByCommit: pinnedTipByCommit,
 		resume: nextResume as unknown as GraphProcessResume,
 		reconciled: reconciled,
 	};
