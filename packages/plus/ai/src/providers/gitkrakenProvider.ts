@@ -94,14 +94,29 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		return 'chat/completions';
 	}
 
+	protected override isToolsRejection(status: number, message: string | undefined): boolean {
+		if (super.isToolsRejection(status, message)) return true;
+		if (message == null) return false;
+
+		// The backend forwards an upstream refusal as its own envelope carrying only "upstream AI provider
+		// error (<provider> HTTP 400)", naming neither "tool" nor "function" — so the base's text match can
+		// never fire here. Treat any wrapped upstream 400 as a candidate and let the retry decide: `tools`
+		// is the only field a tool-using request sends that a plain completion doesn't, the probe costs one
+		// request, and the caller latches the rejection only when dropping tools actually fixes it. A
+		// misread therefore self-corrects — the same bargain `isResponseFormatRejection` below makes.
+		return getWrappedUpstreamStatus(message) === 400;
+	}
+
 	protected override isResponseFormatRejection(status: number, body: string): boolean {
 		if (super.isResponseFormatRejection(status, body)) return true;
 
-		// The backend wraps upstream schema rejections as its own 500.1 carrying only the upstream
-		// status (e.g. its Gemini schema converter mangles null-union types → Gemini 400s). A
-		// non-schema upstream 400 also matches — the strip-and-resend probe is cheap and rejection
-		// is only memoized when the resend succeeds, so misclassification self-corrects.
-		return status === 500 && getWrappedUpstreamStatus(body) === 400;
+		// The backend wraps upstream schema rejections in its own envelope, carrying only the upstream
+		// status (e.g. its Gemini schema converter mangles null-union types → Gemini 400s). Match on the
+		// wrapper, NOT the envelope code — that varies by backend (500.1 on prod, 400.1 seen on staging),
+		// and keying off it means the probe silently stops firing. A non-schema upstream 400 also matches,
+		// which is fine: the strip-and-resend probe is cheap and rejection is only memoized when the
+		// resend succeeds, so misclassification self-corrects.
+		return getWrappedUpstreamStatus(body) === 400;
 	}
 
 	protected override getHeaders<TAction extends AIActionType>(
@@ -128,7 +143,8 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		retries: number,
 		maxInputTokens: number,
 		body?: string,
-	): Promise<{ retry: true; maxInputTokens: number }> {
+		sentTools?: boolean,
+	): Promise<{ retry: true; maxInputTokens: number; withoutTools?: boolean }> {
 		type ErrorResponse = {
 			error?: { code: string; message: string; data?: any };
 		};
@@ -138,7 +154,15 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 			json = (body != null ? JSON.parse(body) : await rsp.json()) as ErrorResponse | undefined;
 		} catch {}
 
+		// The backend's own prose says only "upstream AI provider error (<provider> HTTP <status>)" and
+		// puts the provider's actual complaint in `data`. Dropping it (as every branch but the
+		// entitlement one did) leaves nothing naming a cause, so a request the upstream rejected is
+		// indistinguishable from any other 400 — and the only way to find out is to guess.
 		let message = json?.error?.message || rsp.statusText;
+		const detail = formatErrorData(json?.error?.data);
+		if (detail != null) {
+			message += `; ${detail}`;
+		}
 
 		let status: string | number;
 		let code: string | number;
@@ -146,6 +170,33 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 
 		status = status ? parseInt(status, 10) : rsp.status;
 		code = code ? parseInt(code, 10) : 0;
+
+		// Classify a wrapped upstream failure by the status it carries, not by the envelope's own code:
+		// prod reports these as 500.1, but staging has been seen using 400.1, and keying off the outer
+		// code means an upstream rate limit arrives as a bare Error with no reason — so no "Switch
+		// Model" action and no retry, just an opaque message.
+		const upstreamStatus = getWrappedUpstreamStatus(message);
+		if (upstreamStatus != null) {
+			const wrapped = new Error(`(${this.name}) ${status}.${code}: ${message}`);
+			switch (upstreamStatus) {
+				case 429:
+					throw new AIError(AIErrorReason.RateLimitExceeded, wrapped);
+				case 413:
+					throw new AIError(AIErrorReason.RequestTooLarge, wrapped);
+				case 401:
+				case 403:
+					throw new AIError(AIErrorReason.Unauthorized, wrapped);
+				// Anything else is the upstream refusing the request itself. There's nothing to recover
+				// automatically, so fall through and surface it with the detail folded in above.
+			}
+		}
+
+		// Recover a tools rejection BEFORE the switch below. This override owns the 400 case and throws,
+		// so it never reaches `super.handleFetchFailure` — which is the only place the base's
+		// retry-without-tools fallback lives, leaving it unreachable for this provider.
+		if (sentTools && this.isToolsRejection(status, message)) {
+			return { retry: true, maxInputTokens: maxInputTokens, withoutTools: true };
+		}
 
 		switch (status) {
 			case 400: // Bad Request
@@ -224,15 +275,8 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);
 			case 500: {
 				// CodeServerError        = "500.1"
-
-				// The backend wraps ALL upstream provider failures as 500.1, carrying only the
-				// upstream HTTP status in the message — recover the actionable ones from it
-				if (getWrappedUpstreamStatus(message) === 429) {
-					throw new AIError(
-						AIErrorReason.RateLimitExceeded,
-						new Error(`(${this.name}) ${status}.${code}: ${message}`),
-					);
-				}
+				// Wrapped upstream failures are classified above, before this switch — the backend has
+				// used more than one envelope code for them, so that can't key off `status`.
 				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);
 			}
 			case 503:
@@ -254,7 +298,49 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 	}
 }
 
-/** Extracts the upstream HTTP status from the backend's 500.1 upstream-error prose wrapper */
+/** Max characters of `error.data` folded into a message — enough to name a cause, bounded so a large
+ *  payload can't dominate a notification or a log line. */
+const maxErrorDetailLength = 500;
+
+/**
+ * Renders the backend's `error.data` as a short detail string. This is where the upstream provider's
+ * own complaint arrives, so it's the difference between "upstream AI provider error (OpenAI HTTP 400)"
+ * and knowing which field it rejected.
+ *
+ * Strings pass through; objects are JSON-encoded. A common shape is the upstream's own error envelope,
+ * so a nested `message` is preferred when present rather than dumping the whole object.
+ */
+function formatErrorData(data: unknown): string | undefined {
+	if (data == null) return undefined;
+
+	let text: string | undefined;
+	if (typeof data === 'string') {
+		text = data;
+	} else if (typeof data === 'object') {
+		const nested =
+			(data as { error?: { message?: unknown }; message?: unknown }).error?.message ??
+			(data as { message?: unknown }).message;
+		if (typeof nested === 'string' && nested) {
+			text = nested;
+		} else {
+			try {
+				text = JSON.stringify(data);
+			} catch {
+				return undefined;
+			}
+		}
+	} else if (typeof data === 'number' || typeof data === 'boolean') {
+		text = String(data);
+	}
+
+	text = text?.trim();
+	if (!text || text === '{}' || text === 'null') return undefined;
+
+	return text.length > maxErrorDetailLength ? `${text.slice(0, maxErrorDetailLength)}…` : text;
+}
+
+/** Extracts the upstream HTTP status from the backend's upstream-error prose wrapper. The envelope code
+ *  varies (500.1 on prod, 400.1 seen on staging), so callers must key off this, not the outer code. */
 function getWrappedUpstreamStatus(text: string): number | undefined {
 	const status = /upstream ai provider error[\s\S]*?http (\d{3})/i.exec(text)?.[1];
 	return status != null ? parseInt(status, 10) : undefined;
