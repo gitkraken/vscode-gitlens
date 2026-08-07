@@ -156,10 +156,7 @@ function sliceOutcome(slice: SweepSlice | undefined): ProviderSweepTargetEvent['
  * same rule no matter how far it got. `resolveDomainForRead` needs no integration instance, which is what makes
  * that possible: a target rejected by the first guard resolves the same host a fully drained one does.
  */
-function startSweepReporting(
-	ctx: ProviderReadContext,
-	observe: (event: ProviderSweepTargetEvent) => void,
-): (target: ProviderSweepTarget) => (slice: SweepSlice | undefined) => void {
+function startSweepReporting(ctx: ProviderReadContext, observe: (event: ProviderSweepTargetEvent) => void) {
 	const fanOutStartedAt = performance.now();
 
 	return function beginTarget(target: ProviderSweepTarget) {
@@ -188,9 +185,6 @@ export async function sweepPullRequests(
 ): Promise<ProviderSweepResult<PullRequestShape>> {
 	const { targets, attributeUnavailableProviders } = resolvePullRequestSweepTargets(options);
 
-	// Opened before the fan-out so a target that waited for a worker slot reports the wait, and only when
-	// someone is listening: an omitted observer must cost nothing at all — not even a clock read — which is the
-	// contract a host's perf gate relies on when it is off (it is off by default).
 	const observe = options?.onTargetSettled;
 	const beginTarget = observe != null ? startSweepReporting(ctx, observe) : undefined;
 
