@@ -1,9 +1,11 @@
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
+import type { GraphShowAction } from '../../../plus/graph/protocol.js';
 import { ChooseAccountOrgCommand, ChooseRepositoryCommand } from '../../../plus/graph/protocol.js';
 import { featureGateContentStyles } from '../../shared/components/feature-gate.css.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
@@ -11,6 +13,7 @@ import { subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { SubscriptionContextState } from '../../shared/contexts/subscription.js';
 import { linkStyles } from '../shared/components/vscode.css.js';
 import { graphStateContext } from './context.js';
+import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/feature-gate.js';
@@ -40,8 +43,15 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
 
+	/** The task that brought the user here (parked by the app while gated) — selects the gate copy;
+	 *  actions without task copy fall back to the generic Commit Graph pitch. */
+	@property({ attribute: false })
+	intentAction?: GraphShowAction;
+
 	override render() {
 		const orgCount = this._subscription.organizationsCount.get();
+		const copy = this.intentAction != null ? intentCopyByAction[this.intentAction] : undefined;
+		const source: Source = { source: 'graph', detail: getIntentSourceDetail('gate', this.intentAction) };
 
 		return html`<gl-feature-gate
 			.featurePreview=${this.graphState.featurePreview}
@@ -57,7 +67,7 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 			featureWithArticleIfNeeded="the Commit Graph"
 			?allowRepoSwitch=${this.graphState.allowRepoSwitch}
 			?allowOrgSwitch=${orgCount > 0}
-			.source=${{ source: 'graph', detail: 'gate' } as const}
+			.source=${source}
 			.state=${this.graphState.subscription?.state}
 			.webroot=${this.graphState.webroot}
 			@gl-switch-repos=${this.onSwitchRepos}
@@ -68,19 +78,28 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 					<div class="icon-cube feature__feature-icon"><code-icon icon="gl-gitlens"></code-icon></div>
 					<hgroup>
 						<h2 class="feature__title">
-							<span>Try the All-New Commit Graph</span>
+							<span>${copy?.heading ?? 'Try the All-New Commit Graph'}</span>
 							<gl-feature-badge
 								.source=${{ source: 'graph', detail: 'badge' } as const}
 								.subscription=${this.graphState.subscription}
 							></gl-feature-badge>
 						</h2>
-						<p class="feature__lede">Where your development and agentic workflows come together</p>
+						<p class="feature__lede">
+							${copy?.body ?? 'Where your development and agentic workflows come together'}
+						</p>
 					</hgroup>
 				</header>
 
 				<p class="feature__sub">
-					Parallelize your workflow—manage multiple active worktrees, orchestrate concurrent agents, and
-					execute your entire Git lifecycle without context-switching
+					<strong
+						>${
+							copy != null
+								? 'Try the All-New Commit Graph to parallelize your workflow'
+								: 'Parallelize your workflow'
+						}</strong
+					>
+					&mdash; manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git
+					lifecycle without context-switching
 				</p>
 
 				<ul class="list">

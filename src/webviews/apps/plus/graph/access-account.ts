@@ -6,31 +6,10 @@ import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
 import { graphStateContext } from './context.js';
+import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/gitlens-logo-circle.js';
-
-/** Task-specific sign-in messaging (#5534): when a specific task brought the user to this screen,
- *  the heading + body confirm that signing in completes THAT task. Copy is verbatim from the issue;
- *  everything else on the screen (CTAs, waiting/verify states) is intent-independent. */
-const signInCopyByIntent: Partial<Record<GraphShowAction, { heading: string; body: string }>> = {
-	'enter-compose': {
-		heading: 'Compose Better Commits with AI',
-		body: 'Sign in to let GitLens restructure your changes into clean, well-scoped commits — with clear messages written for you and your team.',
-	},
-	'enter-review': {
-		heading: 'Get an AI Review Before You Push',
-		body: 'Sign in to catch issues early with a severity-tagged review of your changes — then delegate fixes straight to an agent.',
-	},
-	'open-compare': {
-		heading: 'Compare Branches, Commits, and Worktrees',
-		body: 'Sign in to unlock side-by-side comparisons across branches, tags, and commits — right from the visual Commit Graph.',
-	},
-	'enter-resolve': {
-		heading: 'Resolve Conflicts with Confidence',
-		body: 'Sign in for guided, AI-assisted conflict resolution — see both sides, take the right changes, and finish the merge faster so you can get back to building.',
-	},
-};
 
 const src = { source: 'graph', detail: 'signin' } as const satisfies Source;
 
@@ -311,15 +290,11 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	}
 
 	private get signInCopy(): { heading: string; body: string } | undefined {
-		return this.intentAction != null ? signInCopyByIntent[this.intentAction] : undefined;
+		return this.intentAction != null ? intentCopyByAction[this.intentAction] : undefined;
 	}
 
-	/** CTA/telemetry attribution: task-specific arrivals extend the detail (`signin:review`) so
-	 *  sign-in conversion can be sliced by task; intentless flows keep the original `signin`. */
 	private get signInSource(): Source {
-		if (this.intentAction == null || this.signInCopy == null) return src;
-
-		return { source: 'graph', detail: `signin:${this.intentAction.replace(/^(enter|open)-/, '')}` };
+		return { source: 'graph', detail: getIntentSourceDetail('signin', this.intentAction) };
 	}
 
 	private renderSignIn(): unknown {
