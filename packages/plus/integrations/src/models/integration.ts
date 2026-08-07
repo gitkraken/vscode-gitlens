@@ -269,7 +269,13 @@ export abstract class IntegrationBase<
 			// id, so an unscoped clear would sign the user out of unrelated hosts. deleteAllSessions derives an
 			// undefined domain for cloud providers, so they still clear every account as intended.
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			void authProvider.deleteAllSessions(this.authProviderDescriptor);
+			// Awaited, not fire-and-forget: a caller that awaits `disconnect()` has to be able to rely on the
+			// secrets and descriptors actually being gone when it resumes. Left floating, the only thing that
+			// ever made this land in time was incidental scheduling slack — `syncCloudIntegrations` used to
+			// await each provider in turn, so a later iteration's suspension let the previous provider's delete
+			// finish. Syncing providers concurrently removes that slack and the clear was observably still
+			// pending when the sync returned.
+			await authProvider.deleteAllSessions(this.authProviderDescriptor);
 		}
 
 		this.resetRequestExceptionCount('all');
