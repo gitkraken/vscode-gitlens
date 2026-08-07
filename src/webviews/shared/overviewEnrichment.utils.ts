@@ -221,6 +221,10 @@ export async function getPullRequestInfo(
 		updatedDate: pr.updatedDate?.getTime(),
 		reviewDecision: pr.reviewDecision,
 		providerId: pr.provider.id,
+		stack:
+			pr.stack != null
+				? { number: pr.stack.number, position: pr.stack.position, size: pr.stack.size }
+				: undefined,
 		launchpad: getLaunchpadItemInfo(container, pr, launchpadPromise),
 	};
 }

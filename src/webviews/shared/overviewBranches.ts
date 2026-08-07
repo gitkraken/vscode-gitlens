@@ -169,6 +169,9 @@ export interface OverviewBranchPullRequest {
 	/** Provider id (e.g. 'github') — lets the host resolve the PR by id without relying on the
 	 *  repo's current-branch fallback. */
 	providerId?: string;
+	/** Stack membership, when this pull request is one layer of a stack. `position` is 1-based from the
+	 *  stack's base. */
+	stack?: { number: number; position: number; size: number };
 	launchpad?: Promise<OverviewBranchLaunchpadItem | undefined>;
 }
 

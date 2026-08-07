@@ -544,6 +544,7 @@ export class GlDetailsWipHeader extends LitElement {
 			.reviewDecision=${pr.reviewDecision}
 			.itemId=${pr.id}
 			.providerId=${pr.providerId}
+			.stack=${pr.stack}
 			details
 			openOnRemote
 		></gl-autolink-chip>`;

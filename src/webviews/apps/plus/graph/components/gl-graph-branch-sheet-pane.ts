@@ -687,6 +687,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			.reviewDecision=${pr.reviewDecision}
 			.itemId=${pr.id}
 			.providerId=${pr.providerId}
+			.stack=${pr.stack}
 			details
 			openOnRemote
 		></gl-autolink-chip>`;

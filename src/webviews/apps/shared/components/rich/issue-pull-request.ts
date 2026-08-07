@@ -1,6 +1,7 @@
 import { css, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
 import { GlElement } from '../element.js';
 import { getAutolinkIcon } from './utils.js';
 import '../button.js';
@@ -259,7 +260,7 @@ export class IssuePullRequest extends GlElement {
 
 	/** Stack membership, when this pull request is one layer of a stack. */
 	@property({ attribute: false })
-	stack?: { number: number; position: number; size: number };
+	stack?: Pick<PullRequestStackInfo, 'number' | 'position' | 'size'>;
 
 	@property()
 	reviewDecision?: string;
