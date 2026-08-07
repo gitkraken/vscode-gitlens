@@ -1301,6 +1301,12 @@ export class AIProviderService implements AIService, Disposable {
 			progress?: ProgressOptions;
 			/** Schema for native structured output on capable provider+model combos; ignored elsewhere */
 			responseFormat?: AIResponseFormat;
+			/** Suppresses the interactive error notifications (retry / switch-model / upgrade prompts) this
+			 *  service otherwise shows and *awaits*. Required for any driven multi-step run: a notification
+			 *  carrying buttons doesn't auto-dismiss, so an un-actioned one parks the request and freezes
+			 *  whatever is driving it. Pair with {@link throwAIErrors} so the caller still receives the
+			 *  reason and can report it in its own UI. */
+			silent?: boolean;
 			throwAIErrors?: boolean;
 			/** Tools to advertise to the model. Silently dropped for providers that don't support them,
 			 *  so callers don't need to know which provider resolved. */
@@ -1535,6 +1541,22 @@ export class AIProviderService implements AIService, Disposable {
 								},
 								source,
 							);
+
+							// Every arm below `await`s a notification, and a VS Code notification carrying
+							// buttons doesn't auto-dismiss — so an un-actioned one parks this request, and with
+							// it anything driving it. A multi-step run (automatic rebase) would sit mid-step
+							// behind a toast, reporting the last thing it did, with even its own Cancel inert
+							// until someone clicks. Driven callers therefore opt out of the whole interactive
+							// tier and surface the failure in their own UI; they pass `throwAIErrors` so the
+							// reason survives for them to classify.
+							if (options?.silent) {
+								if (!fulfilled) {
+									options?.generating?.cancel();
+								}
+								if (options?.throwAIErrors) throw error;
+
+								return undefined;
+							}
 
 							switch (error.reason) {
 								case AIErrorReason.NoNetwork:
