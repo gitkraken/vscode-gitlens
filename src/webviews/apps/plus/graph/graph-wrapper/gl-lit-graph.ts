@@ -3817,10 +3817,12 @@ export class GlLitGraph extends LitElement {
 		// The row-marker rail and its hit zone count too: they're direct children of the ROW (so the hit zone
 		// can span the fold strip), which would otherwise land them in `content` and pop the card across the
 		// whole band. They sit over the lanes and read as part of them, so they track exactly like the lanes.
+		// The dedicated Refs column (`--ref`) counts too, but only there: it only renders standalone when
+		// refs are their own column — grouped/inline refs live in the message cell and keep the hovercard.
 		const zone: RowHoverZone =
 			node instanceof Element &&
 			node.closest(
-				'.gl-graph__zone--graph, .gl-graph__gutter-viewport--inline, .gl-graph__fold-lane, .gl-graph__row-marker-rail, .gl-graph__row-marker-hit',
+				'.gl-graph__zone--graph, .gl-graph__zone--ref, .gl-graph__gutter-viewport--inline, .gl-graph__fold-lane, .gl-graph__row-marker-rail, .gl-graph__row-marker-hit',
 			) != null
 				? 'graph'
 				: 'content';
@@ -5772,10 +5774,15 @@ export class GlLitGraph extends LitElement {
 		);
 	};
 
-	// The .gl-graph__ref-pill element under the event (light-DOM walk, parallels resolveRef).
+	// The .gl-graph__ref-pill element under the event (light-DOM walk, parallels resolveRef). Ghost
+	// pills don't count: they're hoverable (name expand) but not a real ref surface — no `data-ref-key`
+	// to context-pin, and no pill-level `data-vscode-context`, so the native menu shows the ROW menu and
+	// the zone must say so.
 	private resolveRefPill(event: Event): HTMLElement | undefined {
 		for (const el of event.composedPath()) {
-			if (el instanceof HTMLElement && el.classList.contains('gl-graph__ref-pill')) return el;
+			if (el instanceof HTMLElement && el.classList.contains('gl-graph__ref-pill')) {
+				return el.classList.contains('gl-graph__ref-pill--ghost') ? undefined : el;
+			}
 		}
 		return undefined;
 	}

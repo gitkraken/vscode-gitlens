@@ -3256,8 +3256,10 @@ gl-lit-graph {
 	}
 	// Icon↔label spacing as a LABEL MARGIN, not `-main`'s grid `gap`: a gap doesn't collapse with its
 	// 0-width track, so it stranded 0.6rem of dead space between the icon and the divider at full
-	// compression. A margin rides with the label and vanishes with it. Scoped to `-main`'s label — the
-	// ghost pill's label is a direct flex child of the pill and takes the pill's own `gap` instead.
+	// compression. A margin rides with the label and vanishes with it. The ghost pill's label lives in
+	// a `-main` wrapper too — that grid's 0-min label track is what lets the pill shrink to the zone
+	// instead of flooring at `max-width` and overhanging the clip (a direct flex-child label would
+	// contribute its whole nowrap name to the pill's auto minimum).
 	.gl-graph__ref-pill-main > .gl-graph__ref-pill-label {
 		margin-inline-start: 0.6rem;
 	}
@@ -3850,17 +3852,60 @@ gl-lit-graph {
 	// Ghost ref pill (`showGhostRefsOnRowHover`): a faint placeholder for ref-less rows naming the
 	// branch/tag their lane belongs to (the lane-segment tip's ref), revealed on row hover/selection only
 	// — a real lane-colored pill (same `--ref-*` custom props, shared base class) faded to 50% opacity
-	// (legacy parity), plus a dashed border; never interactive.
+	// (legacy parity), with its ring dashed; never interactive.
 	.gl-graph__ref-pill--ghost {
 		display: none;
 		opacity: 0.5;
-		border-style: dashed;
+		// The dashed ring is a ::before pinned to the padding box — an inset shadow can't dash, and a
+		// real border on the pill would both shift its geometry off the real pills' and round
+		// independently from the hover-expand overlay under fractional zoom. The overlay pins to the
+		// SAME box, so the two rings share one rect and pixel-snap identically (the same reasoning as
+		// the base pill's inset-shadow ring + inset-0 overlay).
+		box-shadow: none;
 		cursor: default;
-		pointer-events: none;
+
+		&::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+			border: 1px dashed var(--ref-border, currentColor);
+			border-radius: 0.4rem;
+			pointer-events: none;
+		}
 	}
 	.gl-graph__row:hover .gl-graph__ref-pill--ghost,
 	.gl-graph__row.is-selected .gl-graph__ref-pill--ghost {
 		display: inline-flex;
+	}
+	// The resting 50% fade would carry through to the expanded overlay and make the full name
+	// illegible, so hovering the pill itself (the $pill-filled trigger) restores full opacity.
+	// The base pill's hover treatment (lane-color fill + inset ring + drop shadow) must NOT apply —
+	// a ghost stays hollow: the expand overlay supplies the hover surface, and the filled pill
+	// bleeding past the overlay's edge (plus its shadow) reads as a real pill underneath.
+	.gl-graph__ref-pill--ghost:hover {
+		opacity: 1;
+		color: var(--ref-color);
+		background-color: transparent;
+		box-shadow: none;
+	}
+	// While expanded the overlay's ring replaces the pill's: on an untruncated label (e.g. `main`)
+	// the overlay's max-content width and the pill's flex width land within a sub-pixel of each
+	// other, so the two dashed right edges stack into one thicker-looking line unless the pill's
+	// own ring is dropped for the duration.
+	.gl-graph__ref-pill--ghost#{$pill-filled}::before {
+		content: none;
+	}
+	// The overlay keeps the base inset (the pill's padding box — the same rect the ghost's ::before
+	// ring pins to) and carries its own dashed ring in place of the base overlay's filled treatment.
+	.gl-graph__ref-pill--ghost .gl-graph__ref-pill-expand {
+		border: 1px dashed var(--ref-border, currentColor);
+		border-radius: 0.4rem;
+		box-shadow: none;
+		// The base overlay is borderless (its 0.9rem padding lands the glyphs exactly on the pill's);
+		// this one has a real 1px border, so give that 1px back or the name jumps right on expand.
+		padding: 0 0.8rem;
+		background-color: hsl(var(--background));
+		color: var(--ref-color);
 	}
 
 	// Ref popover (multi-ref overflow). Hosted by <gl-popover>; the content slot is the list.

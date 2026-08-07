@@ -376,9 +376,11 @@ const ghostRefIcon: Record<'head' | 'remote' | 'tag', string> = { head: 'vm', re
  *  layout space for it. Label is always the bare ref name (never `owner/name`, even when
  *  `showRemoteNames` is on) — a ghost is a hint, not a full pill. Revealed on row hover/selection only
  *  (pure CSS, see `.gl-graph__ref-pill--ghost` in graph.scss), faded to a low-opacity real pill there —
- *  not interactive. Colored by the row's lane (not a resolved ref color, since the ghost never resolves
- *  a full ref chip) via the same `--ref-*` custom props a real pill gets, mirroring `refStyle`'s
- *  non-head branch (`refAdornmentProvider.ts`) without importing it — the two stay decoupled. */
+ *  never clickable and never keyboard-focusable, though hovering it expands the full name in an
+ *  overlay like a real pill. Colored by the row's lane (not a
+ *  resolved ref color, since the ghost never resolves a full ref chip) via the same `--ref-*` custom
+ *  props a real pill gets, mirroring `refStyle`'s non-head branch (`refAdornmentProvider.ts`) without
+ *  importing it — the two stay decoupled. */
 function renderGhostRefPill(ghost: NonNullable<RowRenderContext['ghostRef']>, column: number): TemplateResult {
 	const color = colorForColumn(column);
 	return html`<span
@@ -390,8 +392,15 @@ function renderGhostRefPill(ghost: NonNullable<RowRenderContext['ghostRef']>, co
 			'--ref-bg': 'transparent',
 			'--ref-border': withAlpha(color, 0.6),
 		})}
-		><span class="gl-graph__ref-pill-icon"><code-icon icon=${ghostRefIcon[ghost.kind]}></code-icon></span
-		><span class="gl-graph__ref-pill-label">${ghost.name}</span></span
+		><span class="gl-graph__ref-pill-main"
+			><span class="gl-graph__ref-pill-icon"><code-icon icon=${ghostRefIcon[ghost.kind]}></code-icon></span
+			><span class="gl-graph__ref-pill-label">${ghost.name}</span></span
+		><span class="gl-graph__ref-pill-expand" aria-hidden="true"
+			><span class="gl-graph__ref-pill-expand-name"
+				><span class="gl-graph__ref-pill-icon"><code-icon icon=${ghostRefIcon[ghost.kind]}></code-icon></span
+				><span class="gl-graph__ref-pill-expand-label">${ghost.name}</span></span
+			></span
+		></span
 	>`;
 }
 
