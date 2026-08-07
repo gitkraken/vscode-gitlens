@@ -76,6 +76,7 @@ function makeFakes(record: StoredAutoRebaseUndo | undefined, repo: Partial<FakeR
 			},
 		},
 		git: { getRepositoryService: () => svc },
+		operationOrigins: { markAdopted: () => {} },
 		telemetry: { sendEvent: () => {} },
 		ai: {
 			enabled: true,
@@ -292,6 +293,7 @@ function makeTakeoverFakes(headSha: string) {
 			},
 		},
 		git: { getRepositoryService: () => svc },
+		operationOrigins: { markAdopted: () => {} },
 		telemetry: { sendEvent: () => {} },
 		ai: {
 			enabled: true,
@@ -352,6 +354,7 @@ function makeResumeFakes() {
 			},
 		},
 		git: { getRepositoryService: () => svc },
+		operationOrigins: { markAdopted: () => {} },
 		telemetry: { sendEvent: (name: string) => void events.push(name) },
 		ai: {
 			enabled: true,
@@ -472,6 +475,7 @@ function makePreflightFakes(pausedOp?: GitPausedOperationStatus) {
 			},
 		},
 		git: { getRepositoryService: () => svc },
+		operationOrigins: { markAdopted: () => {} },
 		telemetry: { sendEvent: () => {} },
 		ai: {
 			enabled: true,

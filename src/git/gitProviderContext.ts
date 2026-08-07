@@ -93,6 +93,13 @@ export function createGitProviderContext(container: Container): GitServiceContex
 			},
 			operations: {
 				onConflicted: command => container.telemetry.sendEvent('gitCommand/conflict', { command: command }),
+				onRebaseCapableOperation: (repoPath, command, phase) => {
+					if (phase === 'started') {
+						container.operationOrigins.markStarted(repoPath, command);
+					} else {
+						void container.operationOrigins.onOperationEnded(repoPath);
+					}
+				},
 				onGitDirResolveFailed: (repoPath, gitDir, errorMessage) =>
 					container.telemetry.sendEvent('op/git/gitDirResolve/failed', {
 						'repository.path': repoPath,

@@ -3980,16 +3980,18 @@
 						],
 						"enum": [
 							false,
+							"auto",
 							"interactive",
 							true
 						],
 						"enumDescriptions": [
-							"Never automatically open the editor",
-							"Only automatically open the editor when an interactive rebase is detected",
-							"Automatically open the editor when any paused rebase is detected"
+							"Never automatically open",
+							"Only automatically open when the paused rebase was started from GitLens (rebase commands, Commit Graph, automatic rebase, or a pull that rebases) or acted on from GitLens (e.g. continued)",
+							"Only automatically open when an interactive rebase is detected",
+							"Automatically open when any paused rebase is detected"
 						],
-						"default": true,
-						"markdownDescription": "Specifies whether to automatically open the _Interactive Rebase Editor_ when a paused rebase is detected",
+						"default": "auto",
+						"markdownDescription": "Specifies whether to automatically open the _Interactive Rebase Editor_ (or the _Commit Graph_ for conflict pauses, when accessible) when a paused rebase is detected",
 						"scope": "window",
 						"order": 11
 					},

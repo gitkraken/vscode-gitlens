@@ -192,6 +192,68 @@ suite('OperationsGitSubProvider Test Suite', () => {
 		);
 	});
 
+	suite('onRebaseCapableOperation hook', () => {
+		let hookSpy: sinon.SinonSpy;
+
+		setup(() => {
+			hookSpy = sandbox.spy();
+			const context = {
+				hooks: { operations: { onRebaseCapableOperation: hookSpy } },
+			} as unknown as GitServiceContext;
+			const cache = { deleteBaseBranchName: () => {} } as unknown as Cache;
+			const provider = {
+				worktrees: {
+					getWorktree: () => Promise.resolve({ uri: { fsPath: '/repo/wt' } }),
+				},
+			} as unknown as CliGitProviderInternal;
+
+			operations = new OperationsGitSubProvider(context, gitStub, cache, provider);
+		});
+
+		test('rebase fires started and ended with the repo path', async () => {
+			await operations.rebase(repoPath, 'origin/main');
+
+			assert.deepStrictEqual(hookSpy.args, [
+				[repoPath, 'rebase', 'started'],
+				[repoPath, 'rebase', 'ended'],
+			]);
+		});
+
+		test('pull fires started and ended with the repo path', async () => {
+			await operations.pull(repoPath);
+
+			assert.deepStrictEqual(hookSpy.args, [
+				[repoPath, 'pull', 'started'],
+				[repoPath, 'pull', 'ended'],
+			]);
+		});
+
+		test('pull fires ended even when the command fails', async () => {
+			stubRunFailure('fatal: Could not read from remote repository.');
+
+			await assert.rejects(operations.pull(repoPath));
+			assert.deepStrictEqual(hookSpy.args, [
+				[repoPath, 'pull', 'started'],
+				[repoPath, 'pull', 'ended'],
+			]);
+		});
+
+		test('pull targeting a branch checked out in a worktree fires with the worktree path', async () => {
+			await operations.pull(repoPath, { branch: branchRef() });
+
+			assert.deepStrictEqual(hookSpy.args, [
+				['/repo/wt', 'pull', 'started'],
+				['/repo/wt', 'pull', 'ended'],
+			]);
+		});
+
+		test('fetch does not fire the hook — even with `pull: true` it runs a fetch, which cannot start a rebase', async () => {
+			await operations.fetch(repoPath, { branch: branchRef(), pull: true });
+
+			assert.ok(hookSpy.notCalled);
+		});
+	});
+
 	test('restore surfaces an invalid-ref failure as CheckoutError', async () => {
 		// restore is implemented via `git checkout`; `unknownRevision` is a GitWarning, so without
 		// `errors: 'throw'` the default handler swallows it and the restore resolves as if it succeeded.

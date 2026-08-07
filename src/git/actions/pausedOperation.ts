@@ -72,6 +72,14 @@ async function runContinue(
 	continuingRepos.add(svc.path);
 	_onDidChangeContinuing.fire(svc.path);
 	try {
+		// Acting on a rebase through GitLens adopts it, so later pauses of an externally-started
+		// rebase auto-open under `openOnPausedRebase: 'auto'`. Rebase-only — an adopted entry is
+		// cleaned up by rebase change events, which other paused operations never produce.
+		const status = await svc.pausedOps?.getPausedOperationStatus?.();
+		if (status?.type === 'rebase') {
+			container.operationOrigins.markAdopted(svc.path);
+		}
+
 		await continuePausedOperationCore(container, svc, options, source);
 	} finally {
 		continuingRepos.delete(svc.path);

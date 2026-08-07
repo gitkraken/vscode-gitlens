@@ -397,15 +397,23 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				);
 				if (worktree != null) {
 					// Branch is checked out in a worktree — run git pull in that worktree's directory
-					await this.pullCore(
-						normalizePath(worktree.uri.fsPath),
-						{
-							rebase: options?.rebase,
-							tags: options?.tags,
-							source: options?.source,
-						},
-						runOptions,
-					);
+					// Any rebase state (e.g. from `pull.rebase=true`) appears under the worktree path
+					const worktreePath = normalizePath(worktree.uri.fsPath);
+					this.context.hooks?.operations?.onRebaseCapableOperation?.(worktreePath, 'pull', 'started');
+					try {
+						await this.pullCore(
+							worktreePath,
+							{
+								rebase: options?.rebase,
+								tags: options?.tags,
+								source: options?.source,
+							},
+							runOptions,
+						);
+					} finally {
+						this.context.hooks?.operations?.onRebaseCapableOperation?.(worktreePath, 'pull', 'ended');
+					}
+
 					this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'tags');
 					this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'remotes', 'index']);
 				} else {
@@ -415,15 +423,20 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				return;
 			}
 
-			await this.pullCore(
-				repoPath,
-				{
-					rebase: options?.rebase,
-					tags: options?.tags,
-					source: options?.source,
-				},
-				runOptions,
-			);
+			this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'pull', 'started');
+			try {
+				await this.pullCore(
+					repoPath,
+					{
+						rebase: options?.rebase,
+						tags: options?.tags,
+						source: options?.source,
+					},
+					runOptions,
+				);
+			} finally {
+				this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'pull', 'ended');
+			}
 
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status', 'tags');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'remotes', 'index']);
@@ -739,6 +752,9 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			args.push(options.branch);
 		}
 
+		// Fired before the process runs — `git rebase` exits 0 when stopping at `edit`/`break`,
+		// so the result can't be used to detect that a rebase started
+		this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'rebase', 'started');
 		try {
 			await this.git.run(
 				// Avoid a timeout since rebases can take a long time (set to 0 to disable)
@@ -765,9 +781,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					),
 			);
 			if (RebaseError.is(mapped, 'conflicts')) {
-				return this.createConflictResult(repoPath, 'rebase');
+				return await this.createConflictResult(repoPath, 'rebase');
 			}
 			throw mapped;
+		} finally {
+			// The command exited (success, pause, or failure) — any rebase it left behind is on disk now
+			this.context.hooks?.operations?.onRebaseCapableOperation?.(repoPath, 'rebase', 'ended');
 		}
 	}
 

@@ -159,6 +159,17 @@ export interface GitServiceHooks {
 		onConflicted?(command: GitConflictCommand, conflicts?: GitConflictFile[]): void;
 		/** Called when getGitDir resolves to a non-existent .git directory or rev-parse fails */
 		onGitDirResolveFailed?(repoPath: string, gitDir: string, errorMessage: string): void;
+		/**
+		 * Called when a git operation that can start a rebase begins (`'started'`, before the
+		 * process runs) and again when the command exits (`'ended'`, on success and failure alike).
+		 * Fired at start (not from the result) because `git rebase` exits 0 when stopping at
+		 * `edit`/`break`, and fired for every pull because `pull.rebase=true` config can start
+		 * a rebase the host can't predict from the arguments. The `'ended'` phase lets the host
+		 * check whether the operation actually left a rebase in progress.
+		 * @param repoPath The path the rebase state will appear under (the worktree path for
+		 * worktree-targeted pulls)
+		 */
+		onRebaseCapableOperation?(repoPath: string, command: 'rebase' | 'pull', phase: 'started' | 'ended'): void;
 	};
 }
 

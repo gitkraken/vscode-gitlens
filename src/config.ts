@@ -702,7 +702,7 @@ interface PlusFeaturesConfig {
 interface RebaseEditorConfig {
 	readonly density: 'compact' | 'comfortable';
 	readonly openBehavior: 'auto' | 'beside';
-	readonly openOnPausedRebase: boolean | 'interactive';
+	readonly openOnPausedRebase: boolean | 'auto' | 'interactive';
 	readonly ordering: 'asc' | 'desc';
 	readonly revealLocation: 'graph' | 'inspect';
 	readonly revealBehavior: 'onDoubleClick' | 'onSelection';
