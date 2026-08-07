@@ -684,6 +684,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  clicks racing a repo switch) detect it's no longer the latest and skip its callback. */
 	private _detailsRevealToken = 0;
 
+	/** What the LATEST {@link withDetailsPanel} reveal was for — lets the branch sheet's
+	 *  `{open: false}` cancellation retire an in-flight BRANCH open without cross-cancelling an
+	 *  unrelated reveal (compare/rebase/mode) that happens to be awaiting the panel: the graph fires
+	 *  `{open: false}` on ANY click-outside-dismiss while a ref is pinned, sheet or no sheet. */
+	private _detailsRevealFor: 'branch' | 'other' = 'other';
+
 	@query('gl-graph-keyboard-shortcuts')
 	private readonly keyboardShortcutsEl: GlGraphKeyboardShortcuts | undefined;
 
@@ -1776,8 +1782,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async withDetailsPanel(
 		fn: (panel: GlGraphDetailsPanel) => void,
 		trigger: DetailsVisibleTrigger,
+		revealFor: 'branch' | 'other' = 'other',
 	): Promise<void> {
 		const token = ++this._detailsRevealToken;
+		this._detailsRevealFor = revealFor;
 		this.setDetailsVisible(true, trigger);
 		this.ensureDetailsPosition();
 		const panel = await this.waitForDetailsPanel();
@@ -2625,7 +2633,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-search-box-filter-change=${this.handleDetailsSearchBoxFilterChange}
 					@next-steps-shown=${this.handleNextStepsShown}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
-					@gl-graph-branch-sheet-closed=${this.handleBranchSheetClosed}
 				></gl-graph-details-panel>
 			</div>
 		</gl-split-panel>`;
@@ -2752,9 +2759,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}>,
 	): void => {
 		if (e.detail.open === false) {
-			// Retires any open still waiting on the panel to mount, as well as closing a mounted one — a
-			// close arriving during that wait would otherwise be a no-op and the sheet would appear after it.
-			this._branchSheetOpenToken++;
+			// Retires a BRANCH open still waiting on the panel to mount, as well as closing a mounted
+			// one — a close arriving during that wait would otherwise be a no-op and the sheet would
+			// appear after it. Scoped by `_detailsRevealFor`: this event fires on any click-outside
+			// while a ref is pinned, and must not cancel an unrelated in-flight reveal.
+			if (this._detailsRevealFor === 'branch') {
+				this._detailsRevealToken++;
+			}
 			this._branchSheetOpen = false;
 			this.detailsPanelEl?.closeBranchSheet();
 			// Also covers a close arriving before the panel mounted — no panel, so no closed event to
@@ -2764,39 +2775,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 		if (e.detail.name == null) return;
 
-		void this.openBranchSheet({
+		const ref: BranchSheetRef = {
 			name: e.detail.name,
 			refType: e.detail.refType ?? 'head',
 			remote: e.detail.remote ?? null,
 			sha: e.detail.sha ?? null,
 			context: e.detail.context,
-		});
+		};
+		void this.withDetailsPanel(panel => panel.openBranchSheet(ref), 'request-mode', 'branch');
 	};
-
-	/** Opens the branch sheet on `ref` and makes the details pane that hosts it visible.
-	 *
-	 *  Reveals the pane first, then waits for the panel to mount: on a cold graph open (the host's
-	 *  request path) the panel renders only after the initial data/layout settles, so opening the
-	 *  sheet on it directly would silently no-op. */
-	private async openBranchSheet(ref: BranchSheetRef): Promise<void> {
-		const token = ++this._branchSheetOpenToken;
-		this.setDetailsVisible(true, 'request-mode');
-		this.ensureDetailsPosition();
-		const panel = await this.waitForDetailsPanel();
-		// Superseded while waiting — the user closed the sheet, or asked for a different ref. Opening now
-		// would reopen something they dismissed, or show the ref they navigated away from.
-		// `panel == null` means the wait timed out — no sheet will open, so don't arm the open/restore
-		// bookkeeping that only a close can clear.
-		if (token !== this._branchSheetOpenToken || panel == null) return;
-
-		this._branchSheetOpen = true;
-		this._maximizedBeforeBranchSheet ??= this.graphState.details?.maximized ?? false;
-		panel.openBranchSheet(ref);
-	}
-
-	/** Bumped by every open request and every close, so an open that's still waiting for the details panel to
-	 *  mount can tell it's been superseded. */
-	private _branchSheetOpenToken = 0;
 
 	/** Whether the branch sheet is open — the details pane can hold content (and so be maximizable/
 	 *  resizable) even with no selected commit. */
@@ -2829,15 +2816,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		gs.details = { maximized: restore };
 		this.persistState();
 	}
-
-	/** The branch sheet closed (any path — see `GlGraphDetailsPanel.updated`'s `_branchSheet`
-	 *  transition check). Clear the graph's click-pinned ref focus so it never outlives the sheet;
-	 *  `clearRefFocus` is idempotent, so a graph-initiated close round-tripping back here is a no-op. */
-	private handleBranchSheetClosed = (): void => {
-		this._branchSheetOpen = false;
-		this.restoreMaximizedAfterBranchSheet();
-		this.graph?.clearRefFocus();
-	};
 
 	private handleAlternateModeClose = (): void => {
 		const gs = this.graphState;
@@ -3318,14 +3296,40 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  `undefined` means we haven't maximized for a sheet. */
 	private _maximizedBeforeRebaseSummary?: boolean;
 
+	private handleSheetStackChange = (e: CustomEvent<{ kinds: SheetKind[]; prevKinds: SheetKind[] }>): void => {
+		this.handleBranchSheetStackChange(e.detail.kinds, e.detail.prevKinds);
+		this.handleRebaseSummaryStackChange(e.detail.kinds, e.detail.prevKinds);
+	};
+
+	/** The branch sheet opening/closing. Close is an "any path" signal — Esc/X/scrim, the Focus
+	 *  action, the pane's own close request, the selection auto-close, or a graph-initiated close
+	 *  round-tripping through `closeBranchSheet`. Clear the graph's click-pinned ref focus so it
+	 *  never outlives the sheet; `clearRefFocus` is idempotent, so a graph-initiated close looping
+	 *  back here is a no-op. */
+	private handleBranchSheetStackChange(kinds: SheetKind[], prevKinds: SheetKind[]): void {
+		const wasOpen = prevKinds.includes('branch');
+		const isOpen = kinds.includes('branch');
+		if (wasOpen === isOpen) return;
+
+		if (!isOpen) {
+			this._branchSheetOpen = false;
+			this.restoreMaximizedAfterBranchSheet();
+			this.graph?.clearRefFocus();
+			return;
+		}
+
+		this._branchSheetOpen = true;
+		this._maximizedBeforeBranchSheet ??= this.graphState.details?.maximized ?? false;
+	}
+
 	/** The end-of-run summary is a full review surface but renders `position: absolute` inside the
 	 *  details pane, so at the default split almost none of it is visible. Reuse the same bottom-only
 	 *  maximize the modes use — it drives the split to 0 with the divider disabled, so the persisted
 	 *  `bottomPosition` is never overwritten and restoring is just re-binding it. The side dock has no
 	 *  maximize, so its split is left alone. */
-	private handleSheetStackChange = (e: CustomEvent<{ kinds: SheetKind[]; prevKinds: SheetKind[] }>): void => {
-		const wasOpen = e.detail.prevKinds.includes('rebaseSummary');
-		const isOpen = e.detail.kinds.includes('rebaseSummary');
+	private handleRebaseSummaryStackChange(kinds: SheetKind[], prevKinds: SheetKind[]): void {
+		const wasOpen = prevKinds.includes('rebaseSummary');
+		const isOpen = kinds.includes('rebaseSummary');
 		if (wasOpen === isOpen) return;
 
 		const gs = this.graphState;
@@ -3347,7 +3351,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			gs.details = { maximized: true };
 			this.persistState();
 		}
-	};
+	}
 
 	private emitDetailsVisibilityTelemetry(visible: boolean, trigger: DetailsVisibleTrigger): void {
 		if (visible) {

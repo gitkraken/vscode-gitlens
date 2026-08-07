@@ -3510,8 +3510,23 @@ export class GlLitGraph extends LitElement {
 
 				// Don't dismiss when the press is on a ref pill OR an overflow-popover ref row (both carry
 				// `data-ref-name` and toggle/switch the pin) or inside the branch sheet (its action buttons /
-				// chrome) — only a press truly outside all of them untoggles.
+				// chrome) — only a press truly outside all of them untoggles. `closest()` first: it resolves
+				// the light-DOM cases (pills, popover rows) without allocating the composed path. It CANNOT
+				// see a sheet inside a component's shadow root (`e.target` retargets to the host), so a miss
+				// falls through to a composed-path scan before dismissing.
 				if (t instanceof Element && t.closest('[data-ref-name], gl-detail-sheet') != null) return;
+
+				if (
+					e
+						.composedPath()
+						.some(
+							el =>
+								el instanceof Element &&
+								(el.localName === 'gl-detail-sheet' || el.matches('[data-ref-name]')),
+						)
+				) {
+					return;
+				}
 
 				this.clearPinnedRef();
 				// Close the branch sheet too, so the focus state stays in sync.
