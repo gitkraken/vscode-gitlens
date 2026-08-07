@@ -113,6 +113,7 @@ export type {
 	ProviderRepositoriesInput,
 	ProviderRepositoryInput,
 	ProviderSweepTarget,
+	ProviderSweepTargetEvent,
 	PullRequestSweepOptions,
 } from './manager.js';
 
