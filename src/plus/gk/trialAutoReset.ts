@@ -1,6 +1,6 @@
-// One-time, out-of-window Pro trial reset. `canResetTrial` is true only between `trialEnd` and
-// `nextOptInDate` — never during an active trial — so active trials are skipped without settling and
-// re-checked on later Graph opens. Attempts are tracked per account.
+// One-time, out-of-window Pro trial reset. The server owns eligibility (`canResetTrial`) — the client
+// never predicts it or schedules around a trial's end. Active trials are skipped without settling and
+// re-checked whenever the Graph rebuilds; every other answer is final. Attempts are tracked per account.
 //
 // Launch promo — to remove: this file + test, `SubscriptionService.autoResetTrialIfEligible` and its
 // `graphWebview.getState` call site, the `plus:trialReset:${string}:attempted` storage key (incl. its
