@@ -6333,7 +6333,7 @@ void
   'context.ascending': boolean,
   'context.config.density': 'compact' | 'comfortable',
   'context.config.openBehavior': 'auto' | 'beside',
-  'context.config.openOnPausedRebase': boolean | 'interactive',
+  'context.config.openOnPausedRebase': boolean | 'auto' | 'interactive',
   'context.config.ordering': 'asc' | 'desc',
   'context.config.revealBehavior': 'onDoubleClick' | 'onSelection',
   'context.config.revealLocation': 'graph' | 'inspect',

@@ -34,6 +34,7 @@ import { EventBus } from './eventBus.js';
 import type { FeatureFlagService } from './featureFlags/featureFlagService.js';
 import { ConfigCatFeatureFlagService } from './featureFlags/featureFlagService.js';
 import { GitFileSystemProvider } from './git/fsProvider.js';
+import { GitOperationOriginTracker } from './git/gitOperationOriginTracker.js';
 import { GitProviderService } from './git/gitProviderService.js';
 import type { RepositoryLocationProvider } from './git/location/repositorylocationProvider.js';
 import { registerPublishListener } from './git/publishListener.js';
@@ -513,6 +514,14 @@ export class Container {
 			this._disposables.push((this._autoRebase = new AutoRebaseService(this)));
 		}
 		return this._autoRebase;
+	}
+
+	private _operationOrigins: GitOperationOriginTracker | undefined;
+	get operationOrigins(): GitOperationOriginTracker {
+		if (this._operationOrigins == null) {
+			this._disposables.push((this._operationOrigins = new GitOperationOriginTracker(this)));
+		}
+		return this._operationOrigins;
 	}
 
 	private readonly _codeLensController: GitCodeLensController;

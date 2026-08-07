@@ -215,6 +215,9 @@ export class AutoRebaseService implements Disposable {
 		};
 		const active = this.trackSession(session, source);
 
+		// Taking over adopts the rebase, so later pauses auto-open under `openOnPausedRebase: 'auto'`
+		this.container.operationOrigins.markAdopted(svc.path);
+
 		try {
 			await this.runLoop(svc, active, integration, source, model);
 		} catch (ex) {
