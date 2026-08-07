@@ -392,10 +392,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.querySelector('gl-lit-graph')?.openRefFind(returnFocus);
 	}
 
-	/** Holds off the graph's Alt-hold lane dim until Alt is released — for graph-app's Alt+digit /
-	 *  Alt+letter shortcuts, whose Alt press would otherwise dim the graph on the way to the action. */
-	suppressModifierChainUntilAltRelease(): void {
-		this.querySelector('gl-lit-graph')?.suppressModifierChainUntilAltRelease();
+	/** Holds off the graph's Ctrl-hold lane dim until Ctrl is released — for graph-app's Ctrl-carrying
+	 *  non-lane shortcuts (search focus, the shortcut sheet), whose Ctrl press would otherwise dim the
+	 *  graph on the way to the action. */
+	suppressModifierChainUntilCtrlRelease(): void {
+		this.querySelector('gl-lit-graph')?.suppressModifierChainUntilCtrlRelease();
 	}
 
 	/** The GRAPH-ROW sha(s) of graph-app's inspection anchor (the single source of truth for what the

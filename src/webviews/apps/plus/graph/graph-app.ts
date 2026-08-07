@@ -759,6 +759,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				scope: 'tree',
 				sheet: 'hidden',
 				run: e => {
+					this.graph?.suppressModifierChainUntilCtrlRelease?.();
+
 					const path = e.composedPath();
 
 					const filePane = path.find(el => (el as HTMLElement).tagName === 'GL-FILE-TREE-PANE') as
@@ -809,7 +811,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					order: 2,
 					subline: ['Enter', 'text: steps · ', 'Escape', 'text: leaves'],
 				},
-				run: () => this.graphHeader?.focusSearch() ?? false,
+				run: () => {
+					this.graph?.suppressModifierChainUntilCtrlRelease?.();
+					return this.graphHeader?.focusSearch() ?? false;
+				},
 			},
 			{
 				// `mod+/` (not `ctrl+/`): the chord exists for GitKraken Desktop parity, and GK's binding is
@@ -820,6 +825,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				// primary chord is shown — the `mod+/` alias would double the footer's width.
 				sheet: { group: 'footer', label: 'shows this reference', order: 2, keysOverride: ['?'] },
 				run: () => {
+					this.graph?.suppressModifierChainUntilCtrlRelease?.();
 					this.handleShowShortcuts();
 					return true;
 				},
@@ -870,8 +876,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					keysOverride: ['alt+Digit1', 'sep:…', 'Digit8'],
 				},
 				run: e => {
-					this.graph?.suppressModifierChainUntilAltRelease?.();
-
 					const digit = digitIndexFromCode(e.code);
 					if (digit == null) return false;
 
@@ -897,7 +901,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				scope: 'webviewGlobal',
 				sheet: { group: 'panels', label: 'Toggle Agent Kanban', order: 2, keysOverride: ['alt+KeyK'] },
 				run: () => {
-					this.graph?.suppressModifierChainUntilAltRelease?.();
 					if (!(this.graphState.config?.experimentalKanbanEnabled ?? false)) return false;
 
 					this.toggleDisplayMode('kanban');
@@ -909,7 +912,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				scope: 'webviewGlobal',
 				sheet: { group: 'panels', label: 'Toggle visualizations', order: 3, keysOverride: ['alt+KeyV'] },
 				run: () => {
-					this.graph?.suppressModifierChainUntilAltRelease?.();
 					this.toggleDisplayMode('visualizations');
 					return true;
 				},
@@ -920,7 +922,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: { group: 'panels', label: 'Toggle minimap', order: 4, keysOverride: ['alt+KeyM'] },
 				run: () => {
-					this.graph?.suppressModifierChainUntilAltRelease?.();
 					this.handleToggleMinimap();
 					return true;
 				},
@@ -931,7 +932,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: { group: 'panels', label: 'Toggle side bar', order: 5, keysOverride: ['alt+KeyS'] },
 				run: () => {
-					this.graph?.suppressModifierChainUntilAltRelease?.();
 					this.handleToggleSidebar();
 					return true;
 				},
@@ -942,7 +942,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: { group: 'panels', label: 'Toggle details panel', order: 6, keysOverride: ['alt+KeyD'] },
 				run: () => {
-					this.graph?.suppressModifierChainUntilAltRelease?.();
 					this.handleToggleDetails(new CustomEvent('toggle-details'));
 					return true;
 				},
@@ -956,7 +955,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				when: [this.isGraphModeShortcut],
 				sheet: { group: 'panels', label: 'Dock details elsewhere', order: 7 },
 				run: () => {
-					this.graph?.suppressModifierChainUntilAltRelease?.();
 					this.handleToggleDetails(new CustomEvent('toggle-details', { detail: { altKey: true } }));
 					return true;
 				},

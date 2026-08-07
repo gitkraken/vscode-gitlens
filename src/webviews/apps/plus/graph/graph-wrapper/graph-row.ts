@@ -190,7 +190,7 @@ export interface RowRenderContext {
 	isForkAnchor?: boolean;
 	isTargetAnchor?: boolean;
 	isDimmed: boolean;
-	/** The dim is the lighter transient (Alt-hold) peek rather than the full pinned/search/scope dim. */
+	/** The dim is the lighter transient (Ctrl-hold) peek rather than the full pinned/search/scope dim. */
 	isDimmedSoft: boolean;
 	/** Row matches the active search (normal mode) — gets the search-highlight treatment. */
 	isSearchMatch: boolean;

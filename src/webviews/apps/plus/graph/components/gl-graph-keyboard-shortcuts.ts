@@ -54,7 +54,7 @@ const residualRows: readonly KeymapSheetRow[] = [
 	{ group: 'search', label: 'Next match', order: 3, keys: isMac ? ['F3', 'mod+KeyG'] : ['F3'] },
 	{ group: 'search', label: 'Previous match', order: 4, keys: ['shift+F3'] },
 	{ group: 'footer', label: 'closes the topmost', order: 1, keys: ['Escape'] },
-	{ group: 'footer', label: 'to highlight the lane', order: 3, keys: ['text:Hold ', `raw:${chordSymbols.alt}`] },
+	{ group: 'footer', label: 'to highlight the lane', order: 3, keys: ['text:Hold ', 'raw:Ctrl'] },
 ];
 
 @customElement('gl-graph-keyboard-shortcuts')

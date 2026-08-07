@@ -103,7 +103,6 @@ import type { GlGraphRefFind } from '../components/gl-graph-ref-find.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createGraphDebugSnapshot, getGraphDebugDiagnostics } from '../graphDebugDiagnostics.js';
 import type { GraphKeymapScope } from '../keymap/graphKeymap.js';
-import type { LaneSeedSource } from '../utils/laneSeed.utils.js';
 import { laneSeedKey, pickLaneSeed } from '../utils/laneSeed.utils.js';
 import { refContextPinKey, refPillKey } from '../utils/refKey.utils.js';
 import { serializeWipContext } from '../utils/rowContext.utils.js';
@@ -176,10 +175,11 @@ const revealComfortRatio = 2 / 3;
 // Code's 125ms sits between them.
 const smoothRevealMinDurationMs = 90;
 const smoothRevealMaxDurationMs = 180;
-// How long bare Alt must be held before the lane dim engages — long enough that a chording Alt+letter/digit
-// keydown+run never has time to paint the dim before `suppressModifierChainUntilAltRelease` cancels it, short
-// enough that a genuine Alt-hold still feels immediate.
-const altHoldEngageDelayMs = 200;
+// How long bare Ctrl must be held before the lane dim engages. Longer than a chord-disambiguation window
+// needs to be on its own: Ctrl fronts far more everyday gestures than Alt did — Ctrl+click multi-select
+// aiming, Ctrl+C, Ctrl+F — and at 200ms those routinely outlived the delay and flashed the dim; 500ms
+// reads as "deliberately holding", not "slow chord".
+const ctrlHoldEngageDelayMs = 500;
 // How long a peeked card's re-anchor keeps retrying for the landing row's element before giving up —
 // generous because a jump (End/Home) can page rows in from git before the landing row exists at all.
 const peekReanchorDeadlineMs = 1000;
@@ -482,7 +482,7 @@ interface RenderCtx {
 	searchMode?: GraphSearchMode;
 	/** Lane chain of the focused ref/row → `.is-inRefChain` rows (others dim). Bounded at the merge base. */
 	inRefChainShas?: ReadonlySet<string>;
-	/** The active chain is the transient Alt-hold peek (lighter dim) rather than the click-pin (full dim). */
+	/** The active chain is the transient Ctrl-hold peek (lighter dim) rather than the click-pin (full dim). */
 	chainTransient?: boolean;
 	/** `gitlens.graph.dimMergeCommits` — when true, merge rows render dimmed. */
 	dimMergeCommits?: boolean;
@@ -783,29 +783,21 @@ export class GlLitGraph extends LitElement {
 	// needs (`resolveRef` + `resolveSha` on the same event). Tracked regardless of the modifier so a
 	// press right after entering the pill activates immediately, with no re-hover required.
 	private hoveredPillRef?: { key: string; sha: string };
-	// Shared modifier-key tracker — the single source of Alt truth. Unlike a bare window keydown/keyup
-	// pair (which only fires when the webview iframe has keyboard focus), it also reads `altKey` off
-	// pointer events, so Alt is observed even when the graph isn't focused, and a menu-bar-steal that
+	// Shared modifier-key tracker — the single source of Ctrl truth. Unlike a bare window keydown/keyup
+	// pair (which only fires when the webview iframe has keyboard focus), it also reads `ctrlKey` off
+	// pointer events, so Ctrl is observed even when the graph isn't focused, and a menu-bar-steal that
 	// swallows the keyup still self-corrects on the next pointer move. `willUpdate` reconciles the
-	// transient chain against its `altKey` (see the reconcile there).
+	// transient chain against its `ctrlKey` (see the reconcile there).
 	private readonly _modifiers = new ModifierKeysController(this);
-	// Transient Alt-hold chain (`activateModifierChain`/`deactivateModifierChain`): while Alt is
-	// held over a ref pill, dims rows outside that ref's lane chain — the same derivation as the
-	// click-pin, but momentary and layered ON TOP of it (see the `inRefChainShas` assignment in
-	// `updateRenderState`, which prefers this over `refHoverChainShas` while set).
+	// Transient Ctrl-hold chain (`activateModifierChain`/`deactivateModifierChain`): while Ctrl is held,
+	// dims rows outside the focused/selected row's lane chain — the same derivation as the click-pin, but
+	// momentary and layered ON TOP of it (see the `inRefChainShas` assignment in `updateRenderState`,
+	// which prefers this over `refHoverChainShas` while set).
 	@state() private modifierChainShas?: ReadonlySet<string>;
-	// Seed key `activateModifierChain` last computed the chain from (`pill:<key>:<sha>` or `row:<sha>`) —
-	// re-hovering the SAME pill/row while the modifier stays held (or a fresh reconcile lands on it) is a
-	// no-op instead of re-walking `collectLaneChain` over the lane again.
+	// Seed key `activateModifierChain` last computed the chain from (`row:<sha>`) — landing on the SAME
+	// seed while the modifier stays held (or a fresh reconcile lands on it) is a no-op instead of
+	// re-walking `collectLaneChain` over the lane again.
 	private lastModifierChainSeed?: string;
-	// Which input last NAMED a row — decides whether the Alt-hold chain seeds off the pointer or the
-	// keyboard when both point somewhere (see `pickLaneSeed`). Stamped only at genuine user-intent sites,
-	// never derived from `focusIndex`: paging/folding/restore re-clamp that index with no user involved.
-	private _laneSeedSource: LaneSeedSource = 'pointer';
-	// Pointer position at the last `_laneSeedSource` stamp — lets `onPointerOverTooltip` tell a real move
-	// apart from a boundary event fired because content scrolled under a stationary cursor.
-	private _laneSeedPointerX?: number;
-	private _laneSeedPointerY?: number;
 	// Direction to the current HEAD commit when it's scrolled OFF-screen (drives the floating
 	// "Jump to HEAD" pill; the arrow points toward HEAD). Undefined = HEAD is visible → no pill.
 	// Only flips when HEAD crosses the visible edge (set from onRangeChanged), so it's not per-frame.
@@ -920,7 +912,7 @@ export class GlLitGraph extends LitElement {
 					: isForkAnchor
 						? 'fork'
 						: undefined;
-		// A focused lane chain (Alt-hold or click-pin) takes over the dim: while it's active, dim tracks
+		// A focused lane chain (Ctrl-hold or click-pin) takes over the dim: while it's active, dim tracks
 		// chain membership ALONE — an in-chain merge no longer dims itself away, and search/scope dims
 		// yield to it (search matches keep their own `is-highlighted` tint). The transient peek dims
 		// out-of-chain rows more softly than the pinned focus.
@@ -1005,7 +997,7 @@ export class GlLitGraph extends LitElement {
 					(c.dimMergeCommits === true && row.kind === 'merge') ||
 					// Active search dims every non-match (and every row when there are 0 matches).
 					(c.searchMatchedShas != null && !c.searchMatchedShas.has(row.sha)),
-			// Transient (Alt-hold) out-of-chain rows dim softer than the pinned focus — a peek, not a mode.
+			// Transient (Ctrl-hold) out-of-chain rows dim softer than the pinned focus — a peek, not a mode.
 			isDimmedSoft: outOfChain && c.chainTransient === true,
 			// Highlight matched rows — only in `normal` mode (filter mode would hide non-matches, so the
 			// remaining rows are all matches and highlighting them would be redundant; matches the legacy).
@@ -1523,7 +1515,7 @@ export class GlLitGraph extends LitElement {
 			clearTimeout(this.tooltipHideTimer);
 			this.tooltipHideTimer = undefined;
 		}
-		this.cancelPendingAltHoldEngage();
+		this.cancelPendingCtrlHoldEngage();
 		this.emitRowHover.cancel();
 		// Cancel any scheduled rAFs so their callbacks can't run against the detached instance.
 		if (this.columnFlipRaf != null) {
@@ -1739,14 +1731,13 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
-		// Reconcile the transient Alt-hold chain against the shared modifier tracker. The tracker
-		// `requestUpdate`s us on every Alt transition (including ones carried by a pointer event while the
-		// graph is unfocused, or a menu-bar-steal that swallowed the keyup), so this engages on Alt-press
+		// Reconcile the transient Ctrl-hold chain against the shared modifier tracker. The tracker
+		// `requestUpdate`s us on every Ctrl transition (including ones carried by a pointer event while the
+		// graph is unfocused, or a menu-bar-steal that swallowed the keyup), so this engages on Ctrl-press
 		// and reverts on release without a mouse move. `activateModifierChain` dedups against
-		// `lastModifierChainSeed`, so this per-update pass is a no-op once settled — but it is ALSO what
-		// retargets the chain on keyboard navigation: `focusIndex` is `@state`, so Alt+Arrow schedules an
-		// update and the new focused row becomes the seed here. The explicit calls in
-		// `handleRowHover`/`onPointerOverTooltip` retarget on a pointer row/pill change.
+		// `lastModifierChainSeed`, so this per-update pass is a no-op once settled — but it is ALSO the ONLY
+		// retarget path: `focusIndex` is `@state`, so navigating/selecting a different commit schedules an
+		// update and the new focused row becomes the seed here. The pointer never retargets it.
 		this.reconcileModifierChain();
 
 		const selectionChanged = changed.has('selectedRows') || this.selectedRows !== this.lastSelectedRowsRef;
@@ -1910,7 +1901,7 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
-		// The pinned ref's lane chain (and a held-Alt transient chain) was walked against the rows loaded
+		// The pinned ref's lane chain (and a held-Ctrl transient chain) was walked against the rows loaded
 		// at the time — now bounded precisely at the merge base, so a branch's older commits that page in
 		// later would otherwise arrive dimmed (outside the frozen set). Re-walk against the fresh rows. A
 		// scope change already cleared the pin above, so this only fires for genuine paging/reconcile.
@@ -2270,9 +2261,9 @@ export class GlLitGraph extends LitElement {
 			inScopeShas: this.scopeProjection != null ? undefined : this.inScopeShas,
 			searchMatchedShas: this._searchMatchedShas,
 			searchMode: this.searchMode,
-			// The transient Alt-hold chain overrides the click-pin while held; falls back to the pin.
+			// The transient Ctrl-hold chain overrides the click-pin while held; falls back to the pin.
 			inRefChainShas: this.modifierChainShas ?? this.refHoverChainShas,
-			// Transient (Alt-hold) gets a lighter dim than the pinned focus — a peek, not a mode.
+			// Transient (Ctrl-hold) gets a lighter dim than the pinned focus — a peek, not a mode.
 			chainTransient: this.modifierChainShas != null,
 			dimMergeCommits: this.config?.dimMergeCommits,
 			showGhostRefs: this.config?.showGhostRefsOnRowHover === true,
@@ -3293,29 +3284,18 @@ export class GlLitGraph extends LitElement {
 				? event.target.closest<HTMLElement>('.gl-graph__row')?.dataset.sha
 				: undefined;
 
-		// Landing on a row (or anything in one, incl. a ref pill) hands the Alt-hold lane seed back to the
-		// pointer — but ONLY on real pointer motion. Scrolling content under a stationary cursor re-fires
-		// `pointerover` for the newly hit row with the SAME coordinates, and the keyboard's own reveal-scroll
-		// does exactly that, so stamping those would steal the seed back mid-keyboard-navigation.
-		const pointerMoved = event.clientX !== this._laneSeedPointerX || event.clientY !== this._laneSeedPointerY;
-		this._laneSeedPointerX = event.clientX;
-		this._laneSeedPointerY = event.clientY;
-		if (pointerMoved && pointerRowSha != null) {
-			this._laneSeedSource = 'pointer';
-		}
-
 		if (pointerRowSha !== this.pointerRowSha) {
 			this.pointerRowSha = pointerRowSha;
 			this.updateStickyTimelineYield();
 		}
 
-		// Alt-hold ref-chain dim: track which pill (if any) is under the pointer on EVERY move, so an Alt
-		// press that arrives later (via the modifier tracker's willUpdate reconcile) knows what to activate
-		// against. Fires for every element in the viewport (not just pills) — resolving to `undefined` off
-		// a pill is what detects "left it" without a separate pointerout branch. Gated behind a
-		// cheap native `closest()` first: `resolvePillHover` walks `event.composedPath()` TWICE
-		// (resolveRef + resolveSha each do their own walk/allocation) — most pointer moves in the graph
-		// aren't anywhere near a pill, so this short-circuits the common case for free.
+		// Track which pill (if any) is under the pointer on EVERY move — feeds `togglePinnedRef` (a press
+		// right after entering the pill needs no re-hover) and the pill's own hover popover. Fires for
+		// every element in the viewport (not just pills) — resolving to `undefined` off a pill is what
+		// detects "left it" without a separate pointerout branch. Gated behind a cheap native `closest()`
+		// first: `resolvePillHover` walks `event.composedPath()` TWICE (resolveRef + resolveSha each do
+		// their own walk/allocation) — most pointer moves in the graph aren't anywhere near a pill, so this
+		// short-circuits the common case for free.
 		const overPill = event.target instanceof Element && event.target.closest('[data-ref-name]') != null;
 		const pill = overPill ? this.resolvePillHover(event) : undefined;
 		if (pill != null) {
@@ -3325,19 +3305,9 @@ export class GlLitGraph extends LitElement {
 				this.hoveredPillRef.sha !== pill.sha
 			) {
 				this.hoveredPillRef = pill;
-				// Modifier already held when the pointer arrives onto a new pill — retarget the chain now
-				// (the willUpdate reconcile only re-runs on an Alt transition, not this pointer move).
-				// Through the reconcile, not `activateModifierChain` directly, so the bare-Alt and
-				// suppression gates apply to a pointer arrival exactly as they do to an Alt press.
-				if (event.altKey) {
-					this.reconcileModifierChain();
-				}
 			}
 		} else if (this.hoveredPillRef != null) {
 			this.hoveredPillRef = undefined;
-			// Off the pill, not necessarily off Alt — hand the seed to the row under the pointer (or the
-			// focused row / HEAD) rather than clearing the highlight outright.
-			this.reconcileModifierChain();
 		}
 
 		// The row-marker band (the rail plus its widened hit zone) hover-expands on its own and must NOT open
@@ -3492,8 +3462,8 @@ export class GlLitGraph extends LitElement {
 				this.updateStickyTimelineYield();
 			}
 			this.endRowHover(related ?? null);
-			// With the pointer outside the viewport the modifier tracker sees no further pointer events, so an
-			// Alt release only reaches us as a keyup — which needs keyboard focus. Without it, drop the dim
+			// With the pointer outside the viewport the modifier tracker sees no further pointer events, so a
+			// Ctrl release only reaches us as a keyup — which needs keyboard focus. Without it, drop the dim
 			// rather than strand it on the focused-row/HEAD seed with no way to observe the release.
 			if (this.treeRef.value?.contains(document.activeElement) === true) {
 				this.reconcileModifierChain();
@@ -3596,28 +3566,22 @@ export class GlLitGraph extends LitElement {
 		return counterpart != null && counterpart !== sha ? [sha, counterpart] : [sha];
 	}
 
-	// Alt-hold transient chain (same first-parent derivation `togglePinnedRef` uses for the click
+	// Ctrl-hold transient chain (same first-parent derivation `togglePinnedRef` uses for the click
 	// pin), layered on top of it via the `inRefChainShas` fallback in `updateRenderState`. Unlike the
 	// pin, this never touches `_pinnedRefKey`/adornments — the ref pills themselves don't change, only
 	// the per-row dim/chain flags read fresh off `modifierChainShas` each render, so there's no adornment
 	// cache to evict here (contrast `togglePinnedRef`/`clearPinnedRef`, which evict to promote/demote the
 	// inline pill).
 	//
-	// `pickLaneSeed` chooses the seed: last-mover-wins between the pointer and the keyboard, falling back
-	// to HEAD. A hovered ref PILL is the richest pointer seed (the ref's own chain + its tracked
-	// counterpart) and walks DOWN-only since a ref IS its lane tip; every ROW seed — hovered, focused or
-	// HEAD — walks BOTH ways to cover the whole lane ("the branch this commit is on"). Both stop at the
-	// fork/merge boundary (see `collectLaneChain`), so highlighting a branch never bleeds into the trunk
-	// below its merge base.
-	//
-	// The pointer's row is `hoveredRowSha ?? pointerRowSha`: the rich-hover card is cancelled while the
-	// pointer sits on a row affordance (a `data-tooltip` action/anchor), and `pointerRowSha` survives that
-	// cancel, so Alt still engages with the pointer parked on a row's action strip.
+	// `pickLaneSeed` chooses the seed: the focused row, falling back to HEAD when nothing is focused. The
+	// pointer plays no part — hovering never seeds or retargets this chain, so the highlight stays put
+	// while scrolling or mousing around. The `willUpdate` reconcile (on `focusIndex` changing) is the only
+	// retarget path; navigating or selecting a different commit is what moves it. The seed always walks
+	// BOTH ways to cover the whole lane ("the branch this commit is on"), stopping at the fork/merge
+	// boundary (see `collectLaneChain`), so highlighting a branch never bleeds into the trunk below its
+	// merge base.
 	private activateModifierChain(): void {
 		const target = pickLaneSeed({
-			source: this._laneSeedSource,
-			pillRef: this.hoveredPillRef,
-			pointerSha: this.hoveredRowSha ?? this.pointerRowSha,
 			focusedSha: this.displayRows[this.focusIndex]?.sha,
 			headSha: this.headSha,
 		});
@@ -3630,24 +3594,21 @@ export class GlLitGraph extends LitElement {
 		if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
 
 		this.lastModifierChainSeed = seed;
-		this.modifierChainShas =
-			target.kind === 'pill'
-				? this.laneChainFor(this.pinnedChainShas(target.key, target.sha), 'down')
-				: this.laneChainFor([target.sha], 'both');
+		this.modifierChainShas = this.laneChainFor([target.sha], 'both');
 	}
 
-	// Bring the transient chain in line with the shared modifier tracker — the single source of Alt truth.
+	// Bring the transient chain in line with the shared modifier tracker — the single source of Ctrl truth.
 	// Shared by the `willUpdate` reconcile and the pointer-leave paths, which now HAND OFF to the next-best
-	// seed (focused row, then HEAD) instead of clearing: leaving a row doesn't mean you stopped holding Alt.
+	// seed (focused row, then HEAD) instead of clearing: leaving a row doesn't mean you stopped holding Ctrl.
 	private reconcileModifierChain(): void {
 		// One release ends the suppression, whatever else the chord did.
-		if (!this._modifiers.altKey) {
+		if (!this._modifiers.ctrlKey) {
 			this._suppressModifierChain = false;
-			this.cancelPendingAltHoldEngage();
+			this.cancelPendingCtrlHoldEngage();
 		}
 
 		if (!this.canEngageModifierChain()) {
-			this.cancelPendingAltHoldEngage();
+			this.cancelPendingCtrlHoldEngage();
 			if (this.modifierChainShas != null) {
 				this.deactivateModifierChain();
 			}
@@ -3661,62 +3622,61 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
-		// Fresh engage — delay so a chording Alt+letter/digit shortcut never flashes the dim.
-		if (this._pendingAltHoldEngageTimer != null) return;
+		// Fresh engage — delay so a chording Ctrl+letter/digit shortcut never flashes the dim.
+		if (this._pendingCtrlHoldEngageTimer != null) return;
 
-		this._pendingAltHoldEngageTimer = setTimeout(() => {
-			this._pendingAltHoldEngageTimer = undefined;
+		this._pendingCtrlHoldEngageTimer = setTimeout(() => {
+			this._pendingCtrlHoldEngageTimer = undefined;
 			if (!this.canEngageModifierChain()) return;
 
 			this.activateModifierChain();
-		}, altHoldEngageDelayMs);
+		}, ctrlHoldEngageDelayMs);
 	}
 
 	// Gate on window focus: an Alt-Tab away fires no keyup/visibilitychange, so the tracker can still
-	// read `altKey` true while unfocused — without this the dim would stick. (The same `blur` signal
+	// read `ctrlKey` true while unfocused — without this the dim would stick. (The same `blur` signal
 	// drives `gl-graph--window-unfocused` in render().)
 	//
-	// BARE Alt only: Alt+Shift/Ctrl/Cmd chords name their own actions, and dimming the graph under them
-	// reads as a mode the chord didn't enter. Alt+Arrow keeps the highlight — it walks lanes, so showing
+	// BARE Ctrl only: Ctrl+Shift/Alt/Cmd chords name their own actions, and dimming the graph under them
+	// reads as a mode the chord didn't enter. Ctrl+Arrow keeps the highlight — it walks lanes, so showing
 	// the lane is the point.
 	private canEngageModifierChain(): boolean {
-		const bareAlt =
-			this._modifiers.altKey && !this._modifiers.shiftKey && !this._modifiers.ctrlKey && !this._modifiers.metaKey;
+		const bareCtrl =
+			this._modifiers.ctrlKey && !this._modifiers.altKey && !this._modifiers.shiftKey && !this._modifiers.metaKey;
 
-		return bareAlt && !this._suppressModifierChain && this.windowFocused !== false && this.hasLaneSeedInput();
+		return bareCtrl && !this._suppressModifierChain && this.windowFocused !== false && this.hasLaneSeedInput();
 	}
 
-	private cancelPendingAltHoldEngage(): void {
-		if (this._pendingAltHoldEngageTimer == null) return;
+	private cancelPendingCtrlHoldEngage(): void {
+		if (this._pendingCtrlHoldEngageTimer == null) return;
 
-		clearTimeout(this._pendingAltHoldEngageTimer);
-		this._pendingAltHoldEngageTimer = undefined;
+		clearTimeout(this._pendingCtrlHoldEngageTimer);
+		this._pendingCtrlHoldEngageTimer = undefined;
 	}
 
-	// Set by `suppressModifierChainUntilAltRelease` for Alt chords that resolve OUTSIDE the graph (the
-	// app's Alt+digit / Alt+letter shortcuts), whose Alt press would otherwise dim the graph on the way.
+	// Set by `suppressModifierChainUntilCtrlRelease` for Ctrl chords that resolve OUTSIDE the graph (the
+	// app's Ctrl-carrying non-lane shortcuts — search focus, peek, copy, the shortcut sheet), whose Ctrl
+	// press would otherwise dim the graph on the way.
 	private _suppressModifierChain = false;
 
-	// Pending fresh-engage timer from `reconcileModifierChain` — the Alt-hold delay in flight.
-	private _pendingAltHoldEngageTimer: ReturnType<typeof setTimeout> | undefined;
+	// Pending fresh-engage timer from `reconcileModifierChain` — the Ctrl-hold delay in flight.
+	private _pendingCtrlHoldEngageTimer: ReturnType<typeof setTimeout> | undefined;
 
-	/** Hold off the Alt-hold lane dim until Alt is released — for an Alt chord whose action isn't a lane
+	/** Hold off the Ctrl-hold lane dim until Ctrl is released — for a Ctrl chord whose action isn't a lane
 	 *  move. Called by the host before it consumes the chord. */
-	public suppressModifierChainUntilAltRelease(): void {
+	public suppressModifierChainUntilCtrlRelease(): void {
 		this._suppressModifierChain = true;
-		this.cancelPendingAltHoldEngage();
+		this.cancelPendingCtrlHoldEngage();
 		if (this.modifierChainShas != null) {
 			this.deactivateModifierChain();
 		}
 	}
 
-	/** Whether anything in the graph is pointing at a row for the Alt-hold chain to seed from — the pointer
-	 *  (hovered pill / row) or keyboard focus inside the rows. `windowFocused` alone is too coarse: it stays
-	 *  true with focus in an editor or another view, so Alt there dimmed a graph nobody was working in.
-	 *  `pickLaneSeed`'s HEAD fallback then applies only when one of these inputs is actually engaged. */
+	/** Whether keyboard focus is inside the rows tree for the Ctrl-hold chain to seed from. `windowFocused`
+	 *  alone is too coarse: it stays true with focus in an editor or another view, so Ctrl there dimmed a
+	 *  graph nobody was working in. `pickLaneSeed`'s HEAD fallback then applies only once focus is actually
+	 *  inside the tree. */
 	private hasLaneSeedInput(): boolean {
-		if (this.hoveredPillRef != null || this.hoveredRowSha != null || this.pointerRowSha != null) return true;
-
 		return this.treeRef.value?.contains(document.activeElement) === true;
 	}
 
@@ -3765,8 +3725,8 @@ export class GlLitGraph extends LitElement {
 	// minimap follows it) but the ONE decision point below (zone → treatment) only schedules the
 	// debounced card for 'content' — sliding onto content from the SAME row upgrades to the full
 	// hover; sliding back onto the lanes hides any open/pending card without dropping row-hover/
-	// minimap tracking. Also (re)targets the Alt-hold lane-chain dim (`activateModifierChain`)
-	// when a NEW row is entered while Alt is already held.
+	// minimap tracking. Also (re)targets the Ctrl-hold lane-chain dim (`activateModifierChain`)
+	// when a NEW row is entered while Ctrl is already held.
 	private handleRowHover(event: PointerEvent): void {
 		const node = event.target;
 		if (node instanceof Element && node.closest('[data-ref-name]') != null) {
@@ -3832,10 +3792,6 @@ export class GlLitGraph extends LitElement {
 		// reached here), not `hoveredRowSha` — so no CSSOM poke is needed on this card-only transition.
 		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
 		this.startRowHover(sha, zone, event, rowEl, true);
-		// Modifier already held when a NEW row is entered (row→row retargets same as pill→pill).
-		if (event.altKey) {
-			this.activateModifierChain();
-		}
 	}
 
 	// `rowhoverstart` + emitRowHover's payload are dispatched together at both hover-start sites — a
@@ -3877,11 +3833,6 @@ export class GlLitGraph extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
 		);
-		// A pill claiming the hover moments earlier in the SAME event (see onPointerOverTooltip) has
-		// already re-activated for it — only re-seed when NEITHER a pill nor a row is hovered anymore.
-		if (this.hoveredPillRef == null) {
-			this.reconcileModifierChain();
-		}
 	}
 
 	private closestTooltipTarget(node: EventTarget | null): HTMLElement | undefined {
@@ -6912,7 +6863,10 @@ export class GlLitGraph extends LitElement {
 					keysOverride: ['i', 'text: / ', 'mod+KeyI'],
 					subline: ['Escape', 'text: closes'],
 				},
-				run: this.repinned(() => this.togglePeek()),
+				run: this.repinned(() => {
+					this.suppressModifierChainUntilCtrlRelease();
+					return this.togglePeek();
+				}),
 			},
 			// Ctrl+Shift+C produces the key `C`, which the `c` token never matches — so the shifted form
 			// stays with whatever else binds it, exactly as before.
@@ -6925,7 +6879,10 @@ export class GlLitGraph extends LitElement {
 					order: 5,
 					keysOverride: ['mod+KeyC'],
 				},
-				run: this.repinned(() => this.copyFocusedRow()),
+				run: this.repinned(() => {
+					this.suppressModifierChainUntilCtrlRelease();
+					return this.copyFocusedRow();
+				}),
 			},
 			// Reserved: Alt+←/→ deliberately do nothing here (Alt is the alt-action layer, not a nav
 			// modifier), but unconsumed they'd reach VS Code's editor-history navigation — a surprising
@@ -7005,7 +6962,6 @@ export class GlLitGraph extends LitElement {
 		// Standing on the target already: moving nothing must not drop the user's pinned ref or re-dispatch
 		// a selection that's already current (same guard plain arrow navigation applies).
 		const alreadySelected = this.focusIndex === idx && this.selectedShas.size === 1 && this.selectedShas.has(sha);
-		this._laneSeedSource = 'keyboard';
 		this.focusIndex = idx;
 		this._selectionAnchorSha = sha;
 		if (!alreadySelected) {
@@ -7338,10 +7294,6 @@ export class GlLitGraph extends LitElement {
 		const targetSha = this.displayRows[next]?.sha;
 		if (targetSha == null) return true;
 
-		// The keyboard now owns the Alt-hold lane seed — so Alt+Arrow (branching point) and Alt+PageUp/Down
-		// (ref) retarget the highlight as they move instead of leaving it on whatever the pointer last sat on.
-		this._laneSeedSource = 'keyboard';
-
 		const multiEnabled = this.config?.multiSelectionMode !== false;
 		if (event.shiftKey && multiEnabled) {
 			// Shift+Arrow extends a range selection from the fixed anchor to the new row; the details panel
@@ -7414,8 +7366,6 @@ export class GlLitGraph extends LitElement {
 		// Focus first: onFocusIn deliberately realigns to the current selection. The navigation
 		// selection is applied in the same task, but the event can still observe the prior row.
 		this.treeRef.value?.focus({ focusVisible: false });
-		// A programmatic jump moves the graph to a row without the pointer, so it owns the lane seed too.
-		this._laneSeedSource = 'keyboard';
 		this.focusIndex = index;
 		this._selectionAnchorSha = sha;
 		return true;
