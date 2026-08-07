@@ -3,6 +3,7 @@ import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { GraphItemContext, GraphScopeBranch, State } from '../../../../plus/graph/protocol.js';
 import { UpdateRefsVisibilityCommand } from '../../../../plus/graph/protocol.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
@@ -15,9 +16,11 @@ import { graphStateContext } from '../context.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
 	branchSheetContextRef,
+	findRowHead,
 	parseBranchSheetContext,
 	resolveBranchSheetExcludeRef,
 	resolveBranchSheetScope,
+	resolveLiveBranchSheetContext,
 	withPinnedFlag,
 } from './branchSheet.utils.js';
 import type { ResolvedServices } from './detailsActions.js';
@@ -185,8 +188,17 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 		const title = ref.refType === 'remote' && ref.remote != null ? `${ref.remote}/${ref.name}` : ref.name;
 		const kind = ref.refType === 'tag' ? 'Tag' : ref.refType === 'remote' ? 'Remote Branch' : 'Branch';
 		const icon = ref.refType === 'tag' ? 'tag' : 'git-branch';
-		// The ref's typed graph context — payload for the chrome's Pin/Hide command links.
-		const context = parseBranchSheetContext(ref.context);
+		// Live-resolved from the loaded row the same way the graph's own ref pills build theirs — carries every
+		// flag (+tracking/+remote/+worktree/+current/+pinned/…), not just pin, so the kebab menu and the chips
+		// below track publish/upstream/pin changes made while this sheet stays open. Falls back to the open-time
+		// snapshot when the ref's row hasn't paged in.
+		const liveContext = resolveLiveBranchSheetContext(
+			ref,
+			this._graphState?.rows,
+			this.repoPath,
+			this._graphState?.pinnedRef?.id,
+		);
+		const context = liveContext ?? parseBranchSheetContext(ref.context);
 		// Resolved from LIVE pin state, never the ref's open-time context — the pin can change from this sheet,
 		// a graph row, the pinned pill, or the side bar, and a snapshot leaves the kebab's menu offering the
 		// wrong action (and `unpinBranchFromEdge` ignores its item, so it would clear whatever IS pinned).
@@ -194,8 +206,10 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 		// subscribes the sheet to those external changes.
 		const sheetRefId = branchSheetContextRef(context)?.id;
 		const isPinned = sheetRefId != null && this._graphState?.pinnedRef?.id === sheetRefId;
-		// The kebab's menu is gated on `+pinned` in this string, so re-stamp it to match.
-		const kebabContext = withPinnedFlag(ref.context, isPinned);
+		// The live context already has the correct `+pinned` flag baked in (passed above); only the snapshot
+		// fallback needs it re-stamped, since pin is the one thing guaranteed fresh for an unloaded ref.
+		const kebabContext =
+			liveContext != null ? serializeWebviewItemContext(liveContext) : withPinnedFlag(ref.context, isPinned);
 		// "head" (local, incl. current/worktree) reuses the WIP header's static-branch color hook;
 		// remote/tag have no such hook yet (single consumer so far) — go straight to their own
 		// scroll-marker tokens.
@@ -335,12 +349,23 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 		></gl-action-chip>`;
 	}
 
-	/** The sheet's Open on Remote chip — only for a ref that actually exists on a remote. Gated on the
-	 *  ref context's `+tracking`/`+remote` flags, the same test the row menu's own entry uses, so the
-	 *  chip appears exactly when the menu item does. */
+	/** The sheet's Open on Remote chip — only for a ref that actually exists on a remote. A remote ref
+	 *  always qualifies; a local head is resolved LIVE off `this._graphState.rows` (same pattern as the
+	 *  Pin chip's `isPinned`), since `context` is a snapshot from open time and publishing the branch or
+	 *  changing its upstream while the sheet is open wouldn't otherwise move the gate. Falls back to the
+	 *  snapshot's `+tracking`/`+remote` flags when the branch's tip row hasn't paged in yet. */
 	private renderOpenOnRemoteChip(ref: BranchSheetRef, context: GraphItemContext | undefined): unknown {
 		if (context == null || (ref.refType !== 'head' && ref.refType !== 'remote')) return nothing;
-		if (!context.webviewItem.includes('+tracking') && !context.webviewItem.includes('+remote')) return nothing;
+
+		if (ref.refType === 'head') {
+			const head = findRowHead(this._graphState?.rows, h => h.name === ref.name);
+			const hasRemote =
+				head != null
+					? head.upstream != null && !head.upstream.missing
+					: context.webviewItem.includes('+tracking') || context.webviewItem.includes('+remote');
+
+			if (!hasRemote) return nothing;
+		}
 
 		return html`<gl-action-chip
 			class="branch-sheet-title__action"

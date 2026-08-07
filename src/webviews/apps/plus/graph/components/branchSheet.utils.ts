@@ -1,6 +1,7 @@
-import type { GitGraphRow, GitGraphRowHead } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GitGraphRowHead, GitGraphRowRemoteHead, GitGraphRowTag } from '@gitlens/git/models/graph.js';
 import type { GitBranchReference, GitTagReference } from '@gitlens/git/models/reference.js';
 import type { GraphExcludedRef, GraphItemContext, GraphScopeBranch } from '../../../../plus/graph/protocol.js';
+import { buildBranchRefContext, buildRemoteBranchRefContext, buildTagRefContext } from '../utils/refContext.utils.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 
 // Pure branch/tag sheet helpers shared by the chrome component (`gl-graph-branch-sheet.ts`) and the
@@ -114,4 +115,84 @@ export function resolveBranchSheetScope(
 	const name = `${ref.remote}/${ref.name}`;
 	const local = findRowHead(rows, h => h.upstream != null && !h.upstream.missing && h.upstream.name === name);
 	return local != null ? { branchName: local.name, upstreamName: name } : { branchName: name, remote: true };
+}
+
+/** First remote head across the loaded rows matching `predicate` — see {@link findRowHead}. */
+export function findRowRemote(
+	rows: GitGraphRow[] | undefined,
+	predicate: (remote: GitGraphRowRemoteHead) => boolean,
+): GitGraphRowRemoteHead | undefined {
+	for (const row of rows ?? []) {
+		const remote = row.remotes?.find(predicate);
+		if (remote != null) return remote;
+	}
+	return undefined;
+}
+
+/** First tag across the loaded rows matching `predicate` — see {@link findRowHead}. */
+export function findRowTag(
+	rows: GitGraphRow[] | undefined,
+	predicate: (tag: GitGraphRowTag) => boolean,
+): GitGraphRowTag | undefined {
+	for (const row of rows ?? []) {
+		const tag = row.tags?.find(predicate);
+		if (tag != null) return tag;
+	}
+	return undefined;
+}
+
+/** The sheet ref's CURRENT tip sha — the sha of the loaded row carrying the ref. `undefined` when the
+ *  ref's row hasn't paged in; callers fall back to the open-time snapshot sha. */
+export function findRefTipSha(ref: BranchSheetRef, rows: GitGraphRow[] | undefined): string | undefined {
+	for (const row of rows ?? []) {
+		const carries =
+			ref.refType === 'head'
+				? row.heads?.some(h => h.name === ref.name)
+				: ref.refType === 'remote'
+					? row.remotes?.some(r => r.owner === ref.remote && r.name === ref.name)
+					: row.tags?.some(t => t.name === ref.name);
+		if (carries) return row.sha;
+	}
+	return undefined;
+}
+
+/**
+ * Rebuilds a sheet ref's context from the loaded row the same way the graph's own ref pills build theirs
+ * (`buildBranchRefContext`/`buildRemoteBranchRefContext`/`buildTagRefContext`), instead of parsing the
+ * sheet's open-time snapshot (`ref.context`). That snapshot freezes every flag — `+tracking`, `+remote`,
+ * `+worktree`, `+current`, `+pinned`, … — at the moment the sheet opened, so e.g. publishing the branch
+ * while the sheet is open leaves the kebab menu and chips offering stale actions.
+ *
+ * Returns `undefined` when the ref's tip row hasn't paged in yet (heads/remotes/tags only exist on loaded
+ * rows) or the ref is id-less (see `serializeBranchRefContext`'s own suppression for lean refs) — callers
+ * fall back to the snapshot in both cases.
+ */
+export function resolveLiveBranchSheetContext(
+	ref: BranchSheetRef,
+	rows: GitGraphRow[] | undefined,
+	repoPath: string | undefined,
+	pinnedRefId: string | undefined,
+): GraphItemContext | undefined {
+	if (repoPath == null) return undefined;
+
+	const state = pinnedRefId != null ? { pinnedRefId: pinnedRefId } : undefined;
+
+	if (ref.refType === 'head') {
+		const head = findRowHead(rows, h => h.name === ref.name);
+		return head?.id != null ? buildBranchRefContext(head, repoPath, state) : undefined;
+	}
+
+	if (ref.refType === 'remote') {
+		if (ref.remote == null) return undefined;
+
+		const remote = findRowRemote(rows, r => r.owner === ref.remote && r.name === ref.name);
+		return remote?.id != null ? buildRemoteBranchRefContext(remote, repoPath, state) : undefined;
+	}
+
+	if (ref.refType === 'tag') {
+		const tag = findRowTag(rows, t => t.name === ref.name);
+		return tag?.id != null ? buildTagRefContext(tag, repoPath) : undefined;
+	}
+
+	return undefined;
 }

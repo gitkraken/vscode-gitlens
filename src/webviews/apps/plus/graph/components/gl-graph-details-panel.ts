@@ -64,7 +64,12 @@ import { graphLaunchpadContext } from '../graphLaunchpadState.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import type { AnchorKey } from './anchorKey.js';
 import { anchorKey } from './anchorKey.js';
-import { branchSheetContextRef, parseBranchSheetContext, resolveBranchSheetScope } from './branchSheet.utils.js';
+import {
+	branchSheetContextRef,
+	findRefTipSha,
+	parseBranchSheetContext,
+	resolveBranchSheetScope,
+} from './branchSheet.utils.js';
 import type { DetailsActions } from './detailsActions.js';
 import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
 import { detailsActionsContext, detailsStateContext, detailsWorkflowContext } from './detailsContext.js';
@@ -897,8 +902,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 * actually violated.
 	 */
 	private selectionBelongsToBranchSheet(ref: BranchSheetRef): boolean {
-		// Cheapest tests first; `isBranchSheetScoped` walks the loaded rows.
-		if (ref.sha != null && this.sha === ref.sha) return true;
+		// The tip is resolved LIVE when the ref's row is loaded — `ref.sha` froze at open, so a
+		// branch that advanced under the open sheet (commit/pull) would otherwise fail its own-tip
+		// exemption and auto-close on selecting the new tip.
+		const tipSha = findRefTipSha(ref, this._graphState?.rows) ?? ref.sha;
+		if (tipSha != null && this.sha === tipSha) return true;
 		if (!isWipSelectionSha(this.sha)) return false;
 
 		return this.isBranchSheetScoped(ref);
