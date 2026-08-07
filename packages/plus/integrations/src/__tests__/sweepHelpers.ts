@@ -7,9 +7,9 @@ import type { ProviderPullRequest } from '../providers/models.js';
 import type { createFakeRuntime } from './fakeRuntime.js';
 
 /**
- * Fixtures shared by the suites split out of the former `sweepAndBroaden.test.ts`: the pull request sweeps,
- * the broaden fan-out, the provider account-wide reads, and the sweep target observer. Not named `*.test.ts`
- * so the runner's glob does not pick it up as a suite of its own.
+ * Fixtures for the suites covering the pull request sweeps, the broaden fan-out, the per-provider account-wide
+ * reads, and the sweep target observer — a connected GitHub manager, a session, a provider pull request, and
+ * the SDK-surface swap they all read through. Not named `*.test.ts` so the runner's glob leaves it alone.
  */
 
 export function primarySession(token: string): ProviderAuthenticationSession {
