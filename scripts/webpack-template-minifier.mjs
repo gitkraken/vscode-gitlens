@@ -1,4 +1,5 @@
 import { defaultMinifyOptions, defaultStrategy, minifyHTMLLiterals } from 'minify-html-literals';
+import postcss from 'postcss';
 import { createCssProcessor } from './css-minify-preset.mjs';
 
 /**
@@ -33,6 +34,33 @@ import { createCssProcessor } from './css-minify-preset.mjs';
  */
 
 let processor;
+
+/**
+ * The library's `${…}` stand-in is `@TEMPLATE_EXPRESSION…();` — the trailing `;` is part of the
+ * split token. When an interpolation ends a declaration (`--x: ${val};`), cssnano collapses the
+ * placeholder's own `;` into the declaration separator, and the split-by-placeholder step then
+ * consumes that separator — fusing the NEXT declaration into this value. A custom property eats
+ * whatever follows silently, since almost any token stream is a valid custom-property value.
+ *
+ * The library guards against exactly this, but only via a clean-css `transform` hook
+ * (`adjustMinifyCSSOptions`) that redirecting `minifyCSS` to cssnano bypasses. Mirror it here: a
+ * second parse over cssnano's output re-appends `;` to any declaration value that ends with the
+ * placeholder, so the split eats the restored one and the real separator survives. Parse-level on
+ * purpose — placeholders in mid-value positions (`var(--x, ${fallback})`) keep their `();` inside
+ * the parens, and a string-level replace could not tell the two apart.
+ */
+const placeholderValueSuffix = /@TEMPLATE_EXPRESSION_*\(\)$/;
+const semicolonRestorer = postcss([
+	{
+		postcssPlugin: 'restore-template-expression-semicolons',
+		Declaration(decl) {
+			const value = decl.value.trimEnd();
+			if (placeholderValueSuffix.test(value)) {
+				decl.value = `${value};`;
+			}
+		},
+	},
+]);
 
 /** @this {import('webpack').LoaderContext<unknown>} */
 export default function templateMinifierLoader(source) {
@@ -94,7 +122,14 @@ export default function templateMinifierLoader(source) {
 
 	processor ??= createCssProcessor();
 
-	Promise.all(stylesheets.map(css => processor.process(css, { from: undefined }).then(r => [css, r.css])))
+	Promise.all(
+		stylesheets.map(css =>
+			processor
+				.process(css, { from: undefined })
+				.then(r => semicolonRestorer.process(r.css, { from: undefined }))
+				.then(r => [css, r.css]),
+		),
+	)
 		.then(entries => {
 			const minified = new Map(entries);
 			const result = minifyHTMLLiterals(source, {
