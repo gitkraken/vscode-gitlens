@@ -13,6 +13,30 @@ declare global {
 	}
 }
 
+/**
+ * A button that renders as a `<button>`, or as an `<a>` when `href` is set.
+ *
+ * @tag gl-button
+ *
+ * @slot - The button label.
+ * @slot prefix - Content before the label, typically a `code-icon`.
+ * @slot suffix - Content after the label, typically a `code-icon`.
+ * @slot tooltip - Rich tooltip content. Use instead of the `tooltip` property when the tooltip needs markup.
+ *
+ * @cssproperty --button-foreground - Text color. Default `var(--vscode-button-foreground)`.
+ * @cssproperty --button-background - Background color. Default `var(--vscode-button-background)`.
+ * @cssproperty --button-hover-background - Background color on hover. Default `var(--vscode-button-hoverBackground)`.
+ * @cssproperty --button-border - Border color. Default `var(--vscode-button-border, transparent)`.
+ * @cssproperty --button-width - Host and control width. Default `max-content`. Ignored when `full` is set.
+ * @cssproperty --button-padding - Control padding. Default `0.4rem`.
+ * @cssproperty --button-padding-inline - Horizontal padding for the default and `secondary` appearances only. Default `0.8rem`.
+ * @cssproperty --button-gap - Gap between the prefix, label, and suffix slots. Default `0.6rem`.
+ * @cssproperty --button-line-height - Line height of the host and control. Default `1.35`.
+ * @cssproperty --button-compact-padding - Control padding when `density="compact"`. Default `0.4rem`.
+ * @cssproperty --button-tight-padding - Control padding when `density="tight"`. Default `0.4rem 0.8rem`.
+ * @cssproperty --button-input-padding - Control padding when `appearance="input"`. Default `0.1rem`.
+ * @cssproperty --button-input-height - Control height when `appearance="input"`. Default `1.8rem`.
+ */
 @customElement('gl-button')
 export class GlButton extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
@@ -151,6 +175,27 @@ export class GlButton extends LitElement {
 				--button-foreground: var(--vscode-button-foreground);
 			}
 
+			/* Text-link appearance — renders like an inline hyperlink rather than a button */
+			:host([appearance='link']) {
+				--button-background: transparent;
+				--button-foreground: var(--vscode-textLink-foreground);
+				--button-hover-background: transparent;
+				--button-border: transparent;
+				--button-padding: 0;
+
+				width: max-content;
+				border-radius: 0;
+			}
+
+			:host([appearance='link']:hover) {
+				--button-foreground: var(--vscode-textLink-activeForeground);
+			}
+
+			/* Underline only the text label on hover — leave prefix/suffix icon slots undecorated */
+			:host([appearance='link']:hover) .label {
+				text-decoration: underline;
+			}
+
 			/* Variant property for semantic states - appearance controls structure, variant controls color */
 
 			/* Solid buttons (default and secondary) with variants get full color treatment */
@@ -282,8 +327,37 @@ export class GlButton extends LitElement {
 	@query('.control')
 	protected control!: HTMLElement;
 
+	/**
+	 * Visual treatment. Controls chrome and structure; use `variant` for semantic state color and
+	 * `density` for size. On the transparent appearances (`toolbar`, `input`, `alert`) a `variant`
+	 * only recolors the text — the background and border stay transparent.
+	 *
+	 * Unset (default) — solid, filled with VS Code's primary button color. The main action on a
+	 * surface; there should generally be only one.
+	 *
+	 * `secondary` — solid, in VS Code's muted button color. The lesser action sitting next to a
+	 * default button (Cancel, Dismiss, a second choice in the same row).
+	 *
+	 * `toolbar` — no chrome until hover. Icon actions in view headers, row hover actions, and
+	 * action bars, where a filled button would be visual noise.
+	 *
+	 * `input` — `toolbar`, but sized to sit inside a text field's chrome: fixed height, tighter
+	 * padding and gap, and an inset focus ring so it doesn't collide with the field's border. For
+	 * affordances rendered within a field — clear buttons, mode toggles, token pickers. Often
+	 * paired with `role="checkbox"` + `aria-checked` for the toggles.
+	 *
+	 * `alert` — outlined in the info-alert color, filling on hover. For the call to action inside
+	 * an alert or feature-gate banner, where a solid button would fight the banner's background.
+	 *
+	 * `link` — renders as an inline hyperlink: text-link colors, no padding or radius, and the
+	 * label (not the prefix/suffix icons) underlines on hover. For an action inside prose that
+	 * should read as a link. Combine with `href` for real navigation; use it without `href` when
+	 * the action runs a command but belongs visually in the sentence.
+	 *
+	 * @summary Visual treatment. Unset is the primary filled button.
+	 */
 	@property({ reflect: true })
-	appearance?: 'alert' | 'secondary' | 'toolbar' | 'input';
+	appearance?: 'alert' | 'secondary' | 'toolbar' | 'input' | 'link';
 
 	@property({ reflect: true })
 	variant?: 'danger' | 'warning' | 'success';
@@ -297,6 +371,11 @@ export class GlButton extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	full = false;
 
+	/**
+	 * Setting `href` switches the host `role` to `link` and renders an anchor; otherwise the
+	 * host is a `button`. Setting `aria-checked` turns it into a toggle, picking up VS Code's
+	 * input-option colors.
+	 */
 	@property()
 	href?: string;
 

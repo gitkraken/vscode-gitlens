@@ -12,7 +12,7 @@ import '../../shared/components/gitlens-logo-circle.js';
 
 /** Task-specific sign-in messaging (#5534): when a specific task brought the user to this screen,
  *  the heading + body confirm that signing in completes THAT task. Copy is verbatim from the issue;
- *  everything else on the screen (CTAs, footnote, waiting/verify states) is intent-independent. */
+ *  everything else on the screen (CTAs, waiting/verify states) is intent-independent. */
 const signInCopyByIntent: Partial<Record<GraphShowAction, { heading: string; body: string }>> = {
 	'enter-compose': {
 		heading: 'Compose Better Commits with AI',
@@ -151,15 +151,6 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				border-radius: var(--gl-radius-xs);
 			}
 
-			.footnote {
-				margin-block: var(--gl-space-16) 0;
-				font-size: var(--gl-font-sm);
-				line-height: 1.5;
-				color: var(--vscode-descriptionForeground);
-				opacity: 0.7;
-				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 240ms both;
-			}
-
 			.sync-status {
 				margin-block: var(--gl-space-16) 0;
 				font-size: var(--gl-font-sm);
@@ -167,6 +158,14 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				color: var(--vscode-descriptionForeground);
 				opacity: 0.7;
 				animation: gl-fade-up var(--gl-duration-slow) var(--gl-ease-out) both;
+			}
+
+			.learn-more {
+				--button-gap: var(--gl-space-4);
+
+				margin-block-start: var(--gl-space-16);
+				font-size: var(--gl-font-sm);
+				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 300ms both;
 			}
 
 			@keyframes gl-fade-up {
@@ -215,7 +214,6 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 					margin-block-start: var(--gl-space-12);
 				}
 
-				.footnote,
 				.sync-status {
 					margin-block-start: var(--gl-space-8);
 				}
@@ -228,8 +226,8 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				.body,
 				.actions,
 				.waiting,
-				.footnote,
-				.sync-status {
+				.sync-status,
+				.learn-more {
 					animation: none;
 				}
 			}
@@ -338,9 +336,14 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 					}
 				</p>
 				${this.waiting ? this.renderWaiting() : this.renderSignInActions()}
-				<p class="footnote">
-					<code-icon icon="link-external"></code-icon> Sign-in continues on gitkraken.dev in your browser.
-				</p>
+				<gl-button
+					class="learn-more"
+					appearance="link"
+					href=${createCommandLink('gitlens.showWelcomeView', { mode: 'main' })}
+				>
+					<code-icon slot="prefix" icon="book"></code-icon>
+					Learn More
+				</gl-button>
 			</div>
 		`;
 	}
