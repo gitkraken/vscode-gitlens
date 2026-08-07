@@ -166,9 +166,8 @@ type PullRequestSweepCommonOptions = {
 	 * unhandled rejection. It is also invoked synchronously in the middle of the fan-out — do not re-enter the
 	 * manager from it.
 	 *
-	 * Omitting it costs nothing at all — not even a clock read — so a host whose perf gate is off pays exactly
-	 * what it paid before this option existed. The guards in the sweep's fan-out are what enforce that; they are
-	 * not redundant.
+	 * Omitting it costs nothing at all, not even a clock read, so a host that only measures behind a gate can
+	 * leave the gate off without paying for the option.
 	 *
 	 * It reports how a target SETTLED, not every way one can end, and **delivery does not stop when the sweep
 	 * fails**: if a target's read throws instead of reporting failure through its slice, the sweep rejects with
