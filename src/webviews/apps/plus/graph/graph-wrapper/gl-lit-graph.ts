@@ -2383,7 +2383,7 @@ export class GlLitGraph extends LitElement {
 		// same way a rest-state river threads through its own dots (an off-grid pin reads as a stray line
 		// beside the dots). RIGHT trails by just the node clearance (radius + a hair).
 		this.style.setProperty('--gutter-pin-x', `${xForColumn(0, this.columnWidth)}px`);
-		this.style.setProperty('--gutter-inset', `${nodeRadiusFor(this.nodeSizingMode) + 2}px`);
+		this.style.setProperty('--gutter-inset', `${nodeRadiusFor(this.nodeSizingMode, this.rowHeight) + 2}px`);
 	}
 
 	// Lane BUILD window for the current scroll offset — active exactly when the clamp is (column-overflow
@@ -4190,7 +4190,14 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private get rowHeight(): number {
-		return this.effectiveStyle === 'list' ? rowHeightList : rowHeightTable;
+		// Snap the pitch to whole DEVICE pixels: at a fractional zoom/DPR a CSS-integer pitch lands row
+		// boundaries on half device pixels, so each row's lane raster resamples at alternating phase — a
+		// 1-device-px seam in the lane line at every other boundary. No DPR-change listener needed: a
+		// zoom change reflows the webview, the scroller ResizeObserver fires, and the next render re-reads
+		// this getter.
+		const h = this.effectiveStyle === 'list' ? rowHeightList : rowHeightTable;
+		const dpr = window.devicePixelRatio || 1;
+		return Math.round(h * dpr) / dpr;
 	}
 
 	// Rows per PageUp/PageDown jump — one viewport's worth, less a row of overlap for context. Reads the LIVE
@@ -4308,7 +4315,7 @@ export class GlLitGraph extends LitElement {
 		// The pin bounds (see `--gutter-pin-x`/`--gutter-inset`): left pins at the first-lane position,
 		// right trails by the node clearance.
 		const pinX = xForColumn(0, colW);
-		const inset = nodeRadiusFor(this.nodeSizingMode) + 2;
+		const inset = nodeRadiusFor(this.nodeSizingMode, this.rowHeight) + 2;
 		const x = xForColumn(row.column, colW);
 		// Visible span for a dot at the current offset — a HALF-COLUMN tighter than the pin bounds, so the
 		// reveal fires just before the dot pins (not after it sticks to the edge).
@@ -7754,8 +7761,12 @@ export class GlLitGraph extends LitElement {
 		if (el == null) return;
 
 		// `top` already includes our prior compensation; back it out to read the raw layout offset.
+		// Snap to the DEVICE grid, not CSS integers — at a fractional DPR a CSS-integer top still lands
+		// on a half device pixel (the row pitch is device-snapped in `rowHeight`, so one snapped origin
+		// keeps every boundary on the grid).
+		const dpr = window.devicePixelRatio || 1;
 		const layoutTop = el.getBoundingClientRect().top - this.virtualizerSnapOffset;
-		const offset = Math.round(layoutTop) - layoutTop;
+		const offset = Math.round(layoutTop * dpr) / dpr - layoutTop;
 		if (Math.abs(offset - this.virtualizerSnapOffset) < 0.01) return;
 
 		this.virtualizerSnapOffset = offset;

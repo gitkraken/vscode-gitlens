@@ -58,7 +58,7 @@ export function relativeTimeShort(date: number, now: number = Date.now()): strin
 // Geometry
 
 export const rowHeightTable = 24; // `table` style: tight single-line rows (was 30 — too much vertical gap)
-export const rowHeightList = 46; // `list` style: 2-line stacked rows
+export const rowHeightList = 44; // `list` style: 2-line stacked rows
 export const nodeRadius = 5;
 export const nodeRadiusRef = 6;
 export const nodeRadiusWorkdir = 7;

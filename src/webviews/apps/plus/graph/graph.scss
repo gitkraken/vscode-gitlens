@@ -918,6 +918,11 @@ gl-lit-graph {
 			width: var(--row-graph-width);
 			right: auto;
 		}
+		// List rows are ~2x the table height, so the same tint covers ~2x the area and reads heavier —
+		// dial the whole wash (band, edge line, and bleed alike) down to compensate.
+		&.is-list.is-graph-band::before {
+			opacity: 0.65;
+		}
 		// Both graph + refs inlined into Message: there's no host-column boundary at the lanes' edge, so
 		// instead of a crisp colorized line, ONE continuous wash flows from the dot, ramps up across the
 		// lanes, holds through the (outlined) pills, then tapers off into the message's first letters. It's

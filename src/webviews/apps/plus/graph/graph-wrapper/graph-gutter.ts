@@ -51,10 +51,16 @@ const stashGlyph = String.fromCharCode(0xea98);
 // 24px row) instead of being clipped by it — and it shows a touch more lane line between nodes).
 const dotNodeRadius = 5;
 const avatarNodeRadius = 9;
+// Taller (list-style, 2-line) rows give the identity node more air, so it grows to hold its visual
+// weight against the row; the 24px table row stays at the focus-ring-cleared 9.
+const avatarNodeRadiusTall = 11;
+const tallRowThreshold = 40;
 
-// Fixed node radius for the mode. (No longer takes a columnWidth — the resize no longer respaces.)
-export function nodeRadiusFor(mode: NodeStyle['mode']): number {
-	return mode === 'avatar' ? avatarNodeRadius : dotNodeRadius;
+// Fixed node radius for the mode (avatar steps up on tall rows). (No longer takes a columnWidth —
+// the resize no longer respaces.)
+export function nodeRadiusFor(mode: NodeStyle['mode'], rowHeight?: number): number {
+	if (mode !== 'avatar') return dotNodeRadius;
+	return rowHeight != null && rowHeight >= tallRowThreshold ? avatarNodeRadiusTall : avatarNodeRadius;
 }
 
 // Extra gap (px) past the node diameter for EXPANDED lane spacing — leaves clear air between a node
@@ -221,9 +227,9 @@ function renderIdentityNode(
 	const nodeX = nodeXFor(row, metrics);
 	const nodeY = rowHeight / 2;
 	const r = nodeAvatarRadius;
-	// Drawn at the fixed base radius; the group scales to the avatar target radius (9-11.5) for the
-	// current lane spacing, so the image + clipPath + ring scale together.
-	const scale = nodeRadiusFor('avatar') / nodeAvatarRadius;
+	// Drawn at the fixed base radius; the group scales to the avatar target radius for the current
+	// row height, so the image + clipPath + ring scale together.
+	const scale = nodeRadiusFor('avatar', rowHeight) / nodeAvatarRadius;
 	const useImage = nodeStyle.avatars && nodeStyle.avatarUrl != null && nodeStyle.avatarUrl.length > 0;
 	const inner = useImage
 		? svg`<image
@@ -254,9 +260,9 @@ function renderIdentityNode(
 // Avatar/letter-mode stash node: the SAME lane-colored SQUARE as the dot-mode stash (so a stash
 // always reads as a square, never a circle), sized like the identity nodes so it aligns, with a
 // white `archive` codicon centered as the stash mark. Same bg-mask gap + hover-grow treatment.
-function renderStashIconNode(nodeX: number, nodeY: number, color: string): SVGTemplateResult {
+function renderStashIconNode(nodeX: number, nodeY: number, color: string, rowHeight: number): SVGTemplateResult {
 	const r = nodeAvatarRadius;
-	const scale = nodeRadiusFor('avatar') / nodeAvatarRadius;
+	const scale = nodeRadiusFor('avatar', rowHeight) / nodeAvatarRadius;
 	const m = r + laneGap / scale;
 	return svg`<g class="commit-dot-glow" transform="translate(${nodeX}, ${nodeY}) scale(${scale})">
 		<rect class="gl-graph__node-carve" x=${-m} y=${-m} width=${m * 2} height=${m * 2} rx="2" fill=${BACKGROUND} />
@@ -306,16 +312,17 @@ function renderNode(row: ProcessedGraphRow, metrics: GutterMetrics, nodeStyle?: 
 	const nodeY = rowHeight / 2;
 
 	const mode = nodeStyle?.mode ?? 'compact';
-	// Fixed node radius per mode (no longer tracks lane spacing). The bg-mask (r + laneGap) carves the
-	// 1px gap to the lane line above/below.
-	const r = nodeRadiusFor(mode);
+	// Fixed node radius per mode (no longer tracks lane spacing; avatars step up on tall rows — the
+	// fall-through dot shapes track it so WIP/merge/stash stay sized with their neighbors). The
+	// bg-mask (r + laneGap) carves the 1px gap to the lane line above/below.
+	const r = nodeRadiusFor(mode, rowHeight);
 
 	// Avatar/letter mode → identity node for authored rows; stash → square w/ glyph (no author); workdir
 	// always falls through to its dotted circle below.
 	// (Check `nodeStyle?.mode === 'avatar'` directly so TS narrows `nodeStyle` for renderIdentityNode.)
 	if (nodeStyle?.mode === 'avatar') {
 		if (isStash) {
-			return renderStashIconNode(nodeX, nodeY, nodeColor);
+			return renderStashIconNode(nodeX, nodeY, nodeColor, rowHeight);
 		}
 		if (!isWorkdir) {
 			return renderIdentityNode(row, metrics, nodeColor, nodeStyle);
@@ -422,7 +429,7 @@ export function renderGutterSvg(
 	const { gutterWidth, rowHeight } = metrics;
 	const nodeX = nodeXFor(row, metrics);
 	const nodeY = rowHeight / 2;
-	const r = nodeRadiusFor(nodeStyle?.mode ?? 'compact');
+	const r = nodeRadiusFor(nodeStyle?.mode ?? 'compact', rowHeight);
 	const win = metrics.laneWindow;
 
 	// One geometry pass → the raster (pass-through) ops feed the `<image>`, the overlay ops become live

@@ -723,7 +723,7 @@ function renderSkeletonGutter(
 	// narrower than an avatar dot); the pin bounds match the real node's CSS clamp (left at the
 	// first-lane `--gutter-pin-x`, right trailing by radius + 2) so edge-pinned dots don't shift on the
 	// settle swap.
-	const r = Math.min(nodeRadiusFor(nodeMode), Math.max(2, Math.floor(width / 2) - 2));
+	const r = Math.min(nodeRadiusFor(nodeMode, rowHeight), Math.max(2, Math.floor(width / 2) - 2));
 	const inset = r + 2;
 	const pinX = xForColumn(0, columnWidth);
 	const x = (singleColumn ? xForColumn(0, columnWidth) : xForColumn(row.column, columnWidth)) - laneOffset;
@@ -1217,7 +1217,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					columnWidth,
 					ctx.laneOffset ?? 0,
 					ctx.inlineGutterWidth,
-					nodeRadiusFor(ctx.nodeMode) + 2,
+					nodeRadiusFor(ctx.nodeMode, ctx.rowHeight) + 2,
 				)
 			: inlineClipped
 				? ctx.inlineGutterWidth
