@@ -2445,6 +2445,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 	}
 
+	/** Releases sheet-local state and the host-side virtual diff sessions when the rebase-summary
+	 *  sheet leaves the stack — call from every pop/clear/remove path, not per-path. */
+	private releaseRebaseSummarySheet(): void {
+		this._rebaseSummaryWipAtOpen = undefined;
+		// `_actionsReady`: the sheet can leave the stack before resolveServices finishes on a cold
+		// open — same reason the fetch accessors await it.
+		void this._actionsReady.then(() => this._actions.endAutoRebaseSummarySession());
+	}
+
 	/** Pops the top sheet. Restores focus to the ORIGINAL trigger (memo[0]) once the stack fully
 	 *  empties — intermediate pops leave focus to the newly-exposed sheet's own auto-focus. */
 	popSheet(): void {
@@ -2452,7 +2461,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (popped == null) return;
 
 		if (popped.kind === 'rebaseSummary') {
-			this._rebaseSummaryWipAtOpen = undefined;
+			this.releaseRebaseSummarySheet();
 		}
 
 		if (popped.kind === 'compare') {
@@ -2472,7 +2481,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  invalidates everything currently open. */
 	clearSheets(): void {
 		if (this._sheetStack.some(d => d.kind === 'rebaseSummary')) {
-			this._rebaseSummaryWipAtOpen = undefined;
+			this.releaseRebaseSummarySheet();
 		}
 
 		if (this._sheetStack.some(d => d.kind === 'compare')) {
@@ -2498,7 +2507,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._sheetFocusMemos = this._sheetFocusMemos.filter((_, i) => keep[i]);
 
 		if (kind === 'rebaseSummary') {
-			this._rebaseSummaryWipAtOpen = undefined;
+			this.releaseRebaseSummarySheet();
 		}
 	}
 

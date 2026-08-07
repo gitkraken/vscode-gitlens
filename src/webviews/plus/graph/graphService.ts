@@ -606,6 +606,9 @@ export interface GraphInspectService {
 	readonly onAutoRebaseProgress: RpcEventSubscription<AutoRebaseRunUpdate | undefined>;
 	/** Aborts a running automatic rebase, restoring the branch to its pre-rebase state. */
 	cancelAutoRebase(repoPath: string): Promise<void>;
+	/** Releases the auto-rebase summary's virtual diff sessions when its sheet closes — keeps
+	 *  sessions alive for any diff still open in an editor tab. Fire-and-forget. */
+	endAutoRebaseSummarySession(): Promise<void>;
 	/** Phase 1 of the branch-compare progressive load — counts + All Files only. Triggered on
 	 *  refs/wip change. Per-side commit + file data is fetched separately via {@link getBranchComparisonSide}. */
 	getBranchComparisonSummary(

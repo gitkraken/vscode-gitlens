@@ -115,6 +115,16 @@ export class GraphResolveVirtualContentProvider implements VirtualContentProvide
 		}
 	}
 
+	/** Ends every session except those in `keepSessionIds` — used when a sheet closes but one of its
+	 *  diffs is still open in an editor tab; that session must stay live until the tab closes too. */
+	endSessionsExcept(keepSessionIds: ReadonlySet<string>): void {
+		for (const sessionId of [...this._sessions.keys()]) {
+			if (!keepSessionIds.has(sessionId)) {
+				this.endSession(sessionId);
+			}
+		}
+	}
+
 	getLabel(_sessionId: string, commitId: string): string {
 		return commitId === ResolveVirtualSide.resolved ? 'AI-resolved' : 'conflicted';
 	}

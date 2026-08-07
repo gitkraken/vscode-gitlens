@@ -1,5 +1,5 @@
 import type { Event, FileChangeEvent, FileStat, FileSystemProvider, FileType, Uri } from 'vscode';
-import { Disposable, EventEmitter, FileSystemError, Uri as VscUri, workspace } from 'vscode';
+import { Disposable, EventEmitter, FileSystemError, Uri as VscUri, window, workspace } from 'vscode';
 import { isLinux } from '@env/platform.js';
 import {
 	decodeGitLensRevisionUriAuthority,
@@ -7,6 +7,7 @@ import {
 } from '@gitlens/git/utils/uriAuthority.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { Schemes } from '../constants.js';
+import { getTabUris } from '../system/-webview/vscode/tabs.js';
 import type { VirtualFileSystemService } from './virtualFileSystemService.js';
 
 /** Authority payload encoded into a `gitlens-virtual://` URI. Identifiers only — never content. */
@@ -34,6 +35,33 @@ export function decodeVirtualUri(uri: Uri): { authority: VirtualUriAuthority; pa
 	// URI paths always start with '/'; strip for repo-relative path passed to providers.
 	const path = uri.path.startsWith('/') ? uri.path.slice(1) : uri.path;
 	return { authority: authority, path: path };
+}
+
+/**
+ * Session ids, for the given virtual namespace, whose `gitlens-virtual://` URI is currently open in
+ * an editor tab. Ending one of these sessions would break that tab's next content re-fetch — see
+ * {@link VirtualFileSystemProvider.readFile}.
+ */
+export function getOpenVirtualSessionIds(namespace: string): Set<string> {
+	const sessionIds = new Set<string>();
+	for (const group of window.tabGroups.all) {
+		for (const tab of group.tabs) {
+			const { modified, original } = getTabUris(tab);
+			for (const uri of [modified, original]) {
+				if (uri?.scheme !== Schemes.GitLensVirtual) continue;
+
+				try {
+					const { authority } = decodeVirtualUri(uri);
+					if (authority.namespace === namespace) {
+						sessionIds.add(authority.sessionId);
+					}
+				} catch {
+					// Not a decodable gitlens-virtual URI — ignore.
+				}
+			}
+		}
+	}
+	return sessionIds;
 }
 
 /**

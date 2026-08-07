@@ -52,6 +52,7 @@ import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker
 import { cancelAndDispose, fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
+import { getOpenVirtualSessionIds } from '../../../virtual/virtualFileSystemProvider.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import { getCoreCommitDetails } from '../../commitDetails/commitDetailsWebview.utils.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../../rpc/eventVisibilityBuffer.js';
@@ -2014,6 +2015,10 @@ export class GraphInspectServices {
 					this.container.autoRebase.cancel(repoPath, 'abort');
 					return Promise.resolve();
 				},
+				endAutoRebaseSummarySession: (): Promise<void> => {
+					this.releaseAutoRebaseSummarySessions();
+					return Promise.resolve();
+				},
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
 					// Phase 1 — counts + the unified All Files diff + the merge base. Smallest payload
 					// to land the user on a useful panel; per-side commits + their files are fetched
@@ -2392,6 +2397,16 @@ export class GraphInspectServices {
 			this._autoRebaseVirtual.runId = runId;
 		}
 		return this._autoRebaseVirtual;
+	}
+
+	/** Releases the auto-rebase summary's per-step virtual sessions when its sheet closes — keeping
+	 *  alive only sessions whose diff is still open in an editor tab (ending those would break the
+	 *  tab; see {@link getOpenVirtualSessionIds}). No-op if the summary was never fetched. */
+	private releaseAutoRebaseSummarySessions(): void {
+		if (this._autoRebaseVirtual == null) return;
+
+		const openSessionIds = getOpenVirtualSessionIds(AutoRebaseVirtualNamespace);
+		this._autoRebaseVirtual.provider.endSessionsExcept(openSessionIds);
 	}
 
 	/**

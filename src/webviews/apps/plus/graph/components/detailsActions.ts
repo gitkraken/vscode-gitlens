@@ -786,6 +786,12 @@ export class DetailsActions {
 		return this.services.graphInspect.cancelAutoRebase(repoPath);
 	}
 
+	/** Releases the summary's host-side virtual diff sessions — call when its sheet leaves the
+	 *  stack (close, undo, invalidation). Fire-and-forget. */
+	endAutoRebaseSummarySession(): Promise<void> {
+		return this.services.graphInspect.endAutoRebaseSummarySession();
+	}
+
 	/** Re-resolves a single file with user feedback (per-file retry). See {@link startResolve}. */
 	reresolveFile(
 		repoPath: string,
