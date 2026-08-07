@@ -130,6 +130,7 @@ interface GlobalStorageCore {
 }
 
 type GlobalStorageDynamic = Record<`plus:preview:${FeaturePreviews}:usages`, StoredFeaturePreviewUsagePeriod[]> &
+	Record<`plus:trialReset:${string}:attempted`, boolean> &
 	Record<
 		`plus:organization:${string}:settings`,
 		Stored<(OrganizationSettings & { lastValidatedAt: number }) | undefined>

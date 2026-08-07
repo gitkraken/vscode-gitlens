@@ -2892,6 +2892,12 @@ type SubscriptionActionEventData =
 			action: 'visibility';
 			visible: boolean;
 	  }
+	| {
+			/** One-time out-of-window trial reset, attempted from Graph state builds; `failed` may repeat within a session (retries), paid accounts emit no event */
+			action: 'auto-reset-trial';
+			/** `refused` = the reset 409'd an account the eligibility check approved (e.g. paid-org members); `failed-shape` = the eligibility payload no longer matches what the client reads */
+			outcome: 'reset' | 'not-eligible' | 'refused' | 'failed' | 'failed-shape';
+	  }
 	| FeaturePreviewActionEventData;
 
 export interface SubscriptionEventDataWithPrevious
