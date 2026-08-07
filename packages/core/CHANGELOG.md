@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `onTargetSettled` to both pull-request sweeps (`sweepPullRequests`, `sweepClosedPullRequests`), reporting each target as it settles with its `providerId`, resolved `domain`, `connectionId`, row `count`, `durationMs`, `queueWaitMs`, `truncated` and an `outcome` of `ok` / `fetch-failed` / `failed-provider` / `skipped`. A sweep makes one call and distributes its targets internally, so until now nothing per-target crossed the package boundary: a host could see that a sweep took eight seconds but not which provider spent them, and per-target counts were only derivable because a sweep accepts at most one target per provider. `outcome` is one value rather than the underlying booleans because "the whole target is unusable" and "the target returned a slice with a gap" are different facts a consumer buckets differently — a `failed-provider` target contributes nothing, a `fetch-failed` one contributes `count` rows that are incomplete. `skipped` is the target that resolved to no reachable connection: it is deliberately absent from the aggregate result (no rows, no warning, no id in `failedProviderIds`), which makes the event the only place a consumer counting targets can see it. What is deliberately NOT in this: any ability to influence the sweep — the callback's return value is ignored and a throw is swallowed rather than allowed to turn a fulfilled target into a rejected one — and any cost when it is omitted, where nothing is allocated and no event is built. It reports how a target SETTLED, not every way one can end: a target whose read throws rejects the whole sweep, and neither it nor the targets still in flight are reported, because the result they would have been attributed against no longer exists (plus/integrations)
+
 ## [0.5.107] - 2026-08-07
 
 ### Changed

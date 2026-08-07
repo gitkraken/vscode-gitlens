@@ -2,7 +2,12 @@ import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { mapBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationIds } from '../constants.js';
 import { providerFanOutConcurrency } from '../constants.js';
-import type { ClosedPullRequestSweepOptions, PullRequestSweepOptions } from '../manager.js';
+import type {
+	ClosedPullRequestSweepOptions,
+	ProviderSweepTarget,
+	ProviderSweepTargetEvent,
+	PullRequestSweepOptions,
+} from '../manager.js';
 import { fromProviderPullRequest } from '../providers/models.js';
 import type { ProviderSweepResult, ProviderWarning } from '../results.js';
 import { appendDedupedWarning } from '../results.js';
@@ -35,6 +40,143 @@ interface SweepSlice {
 	truncated: boolean;
 	providerId: IntegrationIds;
 	failedProvider: boolean;
+	/**
+	 * The domain the read actually used, or the requested one on the paths that fail before resolving it.
+	 * Carried for per-target attribution only — the aggregation ignores it, since a sweep accepts at most one
+	 * target per provider and therefore attributes by `providerId` alone.
+	 */
+	domain: string | undefined;
+}
+
+/**
+ * Drain ONE sweep target. Extracted from the fan-out so the fan-out callback has a single exit: every
+ * per-target observation (see `onTargetSettled`) is then reported in one place instead of at each of this
+ * function's several early returns, where a missed branch would silently drop a provider's attribution.
+ *
+ * `undefined` means the target resolved to no reachable connection and is deliberately not attributed in the
+ * aggregate result.
+ */
+async function sweepTarget(
+	ctx: ProviderReadContext,
+	options: PullRequestSweepOptions | undefined,
+	target: ProviderSweepTarget,
+	attributeUnavailableProviders: boolean,
+): Promise<SweepSlice | undefined> {
+	const { providerId: id, connectionId, domain: requestedDomain } = target;
+	const repos = options?.repos ?? [];
+	const maxPages = options?.maxPages ?? 100;
+	/** A target that never reached a drain: the provider itself failed, so its slice is empty and attributed. */
+	const rejectedTarget = (warnings: ProviderWarning[], resolvedDomain?: string): SweepSlice => ({
+		items: [],
+		warnings: warnings,
+		fetchFailed: true,
+		truncated: false,
+		providerId: id,
+		failedProvider: true,
+		domain: resolvedDomain ?? requestedDomain,
+	});
+
+	if (isIssuesHostIntegrationId(id)) {
+		return rejectedTarget([gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps')]);
+	}
+
+	const integration = await ctx.getIntegrationForRead(id, connectionId, requestedDomain);
+	if (integration == null) {
+		// A requested connection that can't be resolved is a broken connection — surface it as a
+		// warning + fetchFailed rather than dropping the provider's slice silently.
+		const early = ctx.earlyReturnConnectionWarnings(id, connectionId, requestedDomain);
+		if (early.warnings.length === 0 && !attributeUnavailableProviders) return undefined;
+
+		return rejectedTarget(
+			early.warnings.length !== 0 ? early.warnings : [noConnectionWarning(id, requestedDomain, connectionId)],
+		);
+	}
+	if (!isGitHostIntegration(integration)) {
+		return rejectedTarget([gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps')]);
+	}
+
+	await ctx.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
+
+	const domain = ctx.domainForRead(integration, id, connectionId, requestedDomain);
+	const accountWide = repos.length === 0;
+	const requestedFilters = target.filters ?? options?.filters;
+	const resolved = accountWide
+		? resolveAccountWidePullRequestFilters(id, requestedFilters)
+		: resolvePullRequestFilters(id, requestedFilters);
+	if (resolved.unsupported) {
+		return rejectedTarget(
+			[
+				accountWide
+					? unsupportedAccountWidePullRequestFiltersWarning(id, domain, connectionId, requestedFilters ?? [])
+					: unsupportedFiltersWarning(id, domain, connectionId),
+			],
+			domain,
+		);
+	}
+
+	const drain = await drainPullRequests(
+		integration,
+		id,
+		domain,
+		repos,
+		options?.states,
+		resolved.filters,
+		accountWide ? (options?.includeReviewRequested ?? false) : false,
+		connectionId,
+		maxPages,
+		attributeUnavailableProviders,
+	);
+	const currentAccountId = drain.items.some(pr => pr.author != null)
+		? await getCurrentAccountId(integration, connectionId)
+		: undefined;
+	// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
+	// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
+	return {
+		...drain,
+		items: drain.items.map(pr => fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId })),
+		providerId: id,
+		domain: domain,
+	};
+}
+
+/**
+ * How a target ended, as the consumer buckets it. `failedProvider` outranks `fetchFailed` because a target
+ * whose provider failed produced no slice to be partial about, and `undefined` is the target that resolved to
+ * no reachable connection at all.
+ */
+function sliceOutcome(slice: SweepSlice | undefined): ProviderSweepTargetEvent['outcome'] {
+	if (slice == null) return 'skipped';
+	if (slice.failedProvider) return 'failed-provider';
+	if (slice.fetchFailed) return 'fetch-failed';
+	return 'ok';
+}
+
+/**
+ * Report one settled target, never letting instrumentation change the sweep's outcome.
+ *
+ * The try/catch is what makes the observer observation-only: called from the fan-out's success path, a throwing
+ * callback would otherwise propagate out of the `mapBounded` task and reject the entire sweep — corrupting the
+ * read, not just the metric. Swallowed silently; the consumer owns its own aggregation.
+ */
+function notifyTargetSettled(
+	observe: (event: ProviderSweepTargetEvent) => void,
+	target: ProviderSweepTarget,
+	slice: SweepSlice | undefined,
+	startedAt: number,
+	fanOutStartedAt: number,
+): void {
+	try {
+		observe({
+			providerId: target.providerId,
+			domain: slice?.domain ?? target.domain,
+			connectionId: target.connectionId,
+			count: slice?.items.length ?? 0,
+			durationMs: performance.now() - startedAt,
+			queueWaitMs: startedAt - fanOutStartedAt,
+			outcome: sliceOutcome(slice),
+			truncated: slice?.truncated ?? false,
+		});
+	} catch {}
 }
 
 export async function sweepPullRequests(
@@ -42,84 +184,18 @@ export async function sweepPullRequests(
 	options?: PullRequestSweepOptions,
 ): Promise<ProviderSweepResult<PullRequestShape>> {
 	const { targets, attributeUnavailableProviders } = resolvePullRequestSweepTargets(options);
-	const maxPages = options?.maxPages ?? 100;
-	const repos = options?.repos ?? [];
+
+	const observe = options?.onTargetSettled;
+	// Stamped before the fan-out so a target that waited for a worker slot reports the wait.
+	const fanOutStartedAt = performance.now();
 
 	const results = await mapBounded(targets, providerFanOutConcurrency, async target => {
-		const { providerId: id, connectionId, domain: requestedDomain } = target;
-		/** A target that never reached a drain: the provider itself failed, so its slice is empty and attributed. */
-		const rejectedTarget = (warnings: ProviderWarning[]): SweepSlice => ({
-			items: [],
-			warnings: warnings,
-			fetchFailed: true,
-			truncated: false,
-			providerId: id,
-			failedProvider: true,
-		});
-
-		if (isIssuesHostIntegrationId(id)) {
-			return rejectedTarget([
-				gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps'),
-			]);
+		const startedAt = performance.now();
+		const slice = await sweepTarget(ctx, options, target, attributeUnavailableProviders);
+		if (observe != null) {
+			notifyTargetSettled(observe, target, slice, startedAt, fanOutStartedAt);
 		}
-
-		const integration = await ctx.getIntegrationForRead(id, connectionId, requestedDomain);
-		if (integration == null) {
-			// A requested connection that can't be resolved is a broken connection — surface it as a
-			// warning + fetchFailed rather than dropping the provider's slice silently.
-			const early = ctx.earlyReturnConnectionWarnings(id, connectionId, requestedDomain);
-			if (early.warnings.length === 0 && !attributeUnavailableProviders) return undefined;
-
-			return rejectedTarget(
-				early.warnings.length !== 0 ? early.warnings : [noConnectionWarning(id, requestedDomain, connectionId)],
-			);
-		}
-		if (!isGitHostIntegration(integration)) {
-			return rejectedTarget([
-				gitHostOnlySurfaceWarning(id, requestedDomain, connectionId, 'pull request sweeps'),
-			]);
-		}
-
-		await ctx.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
-
-		const domain = ctx.domainForRead(integration, id, connectionId, requestedDomain);
-		const accountWide = repos.length === 0;
-		const requestedFilters = target.filters ?? options?.filters;
-		const resolved = accountWide
-			? resolveAccountWidePullRequestFilters(id, requestedFilters)
-			: resolvePullRequestFilters(id, requestedFilters);
-		if (resolved.unsupported) {
-			return rejectedTarget([
-				accountWide
-					? unsupportedAccountWidePullRequestFiltersWarning(id, domain, connectionId, requestedFilters ?? [])
-					: unsupportedFiltersWarning(id, domain, connectionId),
-			]);
-		}
-
-		const drain = await drainPullRequests(
-			integration,
-			id,
-			domain,
-			repos,
-			options?.states,
-			resolved.filters,
-			accountWide ? (options?.includeReviewRequested ?? false) : false,
-			connectionId,
-			maxPages,
-			attributeUnavailableProviders,
-		);
-		const currentAccountId = drain.items.some(pr => pr.author != null)
-			? await getCurrentAccountId(integration, connectionId)
-			: undefined;
-		// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
-		// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
-		return {
-			...drain,
-			items: drain.items.map(pr =>
-				fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId }),
-			),
-			providerId: id,
-		};
+		return slice;
 	});
 
 	const items: PullRequestShape[] = [];
