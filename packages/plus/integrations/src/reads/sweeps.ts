@@ -145,8 +145,9 @@ function sliceOutcome(slice: SweepSlice | undefined): ProviderSweepTargetEvent['
  * the returned function stamps one target's start, and the function IT returns is the only thing that can
  * report that target. The timestamps therefore never cross a boundary, so there is no pair of interchangeable
  * numbers for a call site to transpose, and the whole reporting concern is one value the fan-out either has or
- * does not. A caller who installed no observer never opens one, which is how "costs nothing when omitted"
- * survives as a property of the code rather than of three scattered guards.
+ * does not. That is also what keeps the option free when it is omitted: with no observer there is nothing to
+ * open, so no clock is read and no reporting object exists — do not "simplify" that into an unconditional
+ * open, because a host whose perf gate is off (the default) is entitled to pay nothing for it.
  *
  * The try/catch is what makes the observer observation-only: called from the fan-out's success path, a throwing
  * callback would otherwise propagate out of the `mapBounded` task and reject the entire sweep — corrupting the
