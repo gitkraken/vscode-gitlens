@@ -140,6 +140,12 @@ export class MistralProvider extends OpenAICompatibleProviderBase<typeof provide
 				}
 			}
 
+			// This override throws for every non-404/429 status, so the base class's tools-rejection
+			// recovery would never run for Mistral — check it here to keep the text-only fallback
+			if (sentTools && this.isToolsRejection(rsp.status, message)) {
+				return { retry: true, maxInputTokens: maxInputTokens, withoutTools: true };
+			}
+
 			throw new Error(`(${this.name}) ${rsp.status}: ${message || rsp.statusText}`);
 		}
 

@@ -230,6 +230,12 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				if (result.retry) {
 					maxInputTokens = result.maxInputTokens;
 					if (result.withoutTools) {
+						// Say so explicitly: the caller degrades silently by design, so the only remaining
+						// evidence would be `toolCalls=0` — indistinguishable from a model that simply chose
+						// not to consult the repository. That ambiguity is the whole reason to log it.
+						Logger.warn(
+							`(${this.name}) ${model.id}: tools were rejected (${rsp.status}); retrying without them — repository consultation is unavailable for the rest of this session`,
+						);
 						toolsRejected = true;
 					}
 					retries++;
@@ -299,6 +305,30 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 	 *  {@link AIModel.supportsStructuredOutputs}; static providers override with id-based gates */
 	protected supportsResponseFormat(model: AIModel<T>): boolean {
 		return model.supportsStructuredOutputs ?? true;
+	}
+
+	/**
+	 * Whether a failed response reads as a rejection of the `tools` field rather than a problem with the
+	 * prompt — the trigger for one retry without tools, so a tool-using feature degrades to single-shot
+	 * instead of failing outright.
+	 *
+	 * Providers that wrap upstream rejections in their own envelope (e.g. GitKraken) must override this:
+	 * the wrapper's prose names neither "tool" nor "function", so the text match here cannot see through
+	 * it and the fallback would never fire.
+	 */
+	protected isToolsRejection(status: number, message: string | undefined): boolean {
+		if (status !== 400 || !message) return false;
+
+		const m = message.toLowerCase();
+		return (
+			(m.includes('tool') || m.includes('function')) &&
+			(m.includes('unsupported') ||
+				m.includes('not supported') ||
+				m.includes('unknown') ||
+				m.includes('unrecognized') ||
+				m.includes('invalid') ||
+				m.includes('unexpected'))
+		);
 	}
 
 	/** Whether a failed response means the native response format itself was rejected — the
@@ -498,7 +528,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		// A provider that advertises the OpenAI shape but rejects `tools` (an older or partial
 		// implementation) gets one retry without them, so the caller degrades to text-only instead of
 		// failing outright.
-		if (sentTools && rsp.status === 400 && isToolsRejection(json?.error?.message)) {
+		if (sentTools && this.isToolsRejection(rsp.status, json?.error?.message)) {
 			return { retry: true, maxInputTokens: maxInputTokens, withoutTools: true };
 		}
 
@@ -518,11 +548,23 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			throw new Error(`(${this.name}) ${getActionName(action)}: No URL configured`);
 		}
 
+		const body = JSON.stringify(request);
+
+		// A rejected request is otherwise undiagnosable: a proxying backend reports only its own
+		// "upstream AI provider error (<provider> HTTP <status>)", so which field the upstream objected to
+		// can only be inferred. Log the request's shape — which fields were sent, and how much — but not
+		// the messages, which carry the user's source code.
+		Logger.trace(
+			`(${this.name}) ${getActionName(action)} → ${model.id}: fields=[${Object.keys(request)
+				.sort()
+				.join(',')}] bytes=${body.length}`,
+		);
+
 		try {
 			return await this.context.fetch(url, {
 				headers: await this.getHeaders(action, apiKey, model, url, conversationId),
 				method: 'POST',
-				body: JSON.stringify(request),
+				body: body,
 				signal: signal,
 			});
 		} catch (ex) {
@@ -530,22 +572,6 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			throw ex;
 		}
 	}
-}
-
-/** Whether a 400's message reads as a rejection of the `tools` field rather than a prompt problem. */
-function isToolsRejection(message: string | undefined): boolean {
-	if (!message) return false;
-
-	const m = message.toLowerCase();
-	return (
-		(m.includes('tool') || m.includes('function')) &&
-		(m.includes('unsupported') ||
-			m.includes('not supported') ||
-			m.includes('unknown') ||
-			m.includes('unrecognized') ||
-			m.includes('invalid') ||
-			m.includes('unexpected'))
-	);
 }
 
 export interface ChatCompletionRequest {
