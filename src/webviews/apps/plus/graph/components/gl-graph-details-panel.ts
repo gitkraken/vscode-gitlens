@@ -3,7 +3,6 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { getAltKeySymbol } from '@env/platform.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -53,7 +52,6 @@ import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
-import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
@@ -90,6 +88,7 @@ import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } fro
 import type { SheetDescriptor, SheetKind, SheetOverlayCoordinator } from './sheetStack.js';
 import {
 	popSheet as popSheetFromStack,
+	projectCompareSignal,
 	pushSheet,
 	reduceOnSelectionChange,
 	removeKind,
@@ -106,6 +105,8 @@ import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import './gl-graph-branch-sheet.js';
+import './gl-graph-compare-pinned.js';
+import './gl-graph-compare-sheet.js';
 import './gl-rebase-summary-sheet.js';
 import './gl-wip-conflict-sheet.js';
 import './gl-details-multicommit-panel.js';
@@ -575,14 +576,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	graphReady = false;
 
 	/** The compare chip is unusable as an anchor — hidden while a mode is active, and `inert` once the
-	 *  sheet opens — so use the sheet's own header, a sibling of the inert `.details-content`. */
+	 *  sheet opens — so use the sheet's own header, a sibling of the inert `.details-content`. The
+	 *  `gl-detail-sheet` lives inside the compare wrapper's shadow root, so pierce both. */
 	private readonly queryCompareSheetHeader = (): HTMLElement | undefined => {
-		const sheet = this.renderRoot.querySelector('gl-detail-sheet.compare-sheet');
-		return (
-			sheet?.shadowRoot?.querySelector<HTMLElement>('[part~="header"]') ??
-			(sheet as HTMLElement | null) ??
-			undefined
-		);
+		const wrapper = this.renderRoot.querySelector('gl-graph-compare-sheet');
+		const sheet = wrapper?.shadowRoot?.querySelector('gl-detail-sheet');
+		return sheet?.shadowRoot?.querySelector<HTMLElement>('[part~="header"]') ?? sheet ?? wrapper ?? undefined;
 	};
 
 	private get isMultiCommit(): boolean {
@@ -915,8 +914,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this.popSheet();
 	};
 
-	/** Renders whatever's on top of {@link _sheetStack}. 'compare' still uses its own legacy render
-	 *  path until a later phase migrates it — it falls through to `nothing` here. */
+	/** Renders whatever's on top of {@link _sheetStack}. */
 	private renderTopSheet() {
 		const top = this._sheetStack.at(-1);
 		if (top == null) return nothing;
@@ -962,8 +960,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					@gl-detail-sheet-close=${this.handleCloseRebaseSummary}
 					@rebase-summary-view-diff=${this.handleRebaseSummaryViewDiff}
 				></gl-rebase-summary-sheet>`;
-			default:
-				return nothing;
+			case 'compare':
+				return html`<gl-graph-compare-sheet
+					.preferredOrientation=${this._preferredCompareOrientation}
+					?show-back=${this._sheetStack.length > 1}
+					@gl-detail-sheet-close=${this.handleCloseCompareSheet}
+					@gl-graph-compare-promote=${this.handleComparePromote}
+					>${this.renderCompareMode()}<gl-graph-coachmark
+						slot="actions"
+						mark="compare"
+						placement="bottom-end"
+						.anchor=${this.queryCompareSheetHeader}
+						?auto-show=${this.graphReady}
+					></gl-graph-coachmark
+				></gl-graph-compare-sheet>`;
+			default: {
+				// Exhaustive: a new SheetDescriptor kind without a render case would leave the details
+				// content inert (`stack.length > 0`) with no sheet mounted to close — fail at build time.
+				const exhaustive: never = top;
+				return exhaustive;
+			}
 		}
 	}
 
@@ -1361,8 +1377,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _resizeObserver?: ResizeObserver;
 	@state() private _preferredCompareOrientation: PanelOrientation = 'vertical';
 
-	/** Stack of currently-open detail sheets. 'branch'/'compare' still use their own legacy fields
-	 *  until later phases migrate them. */
+	/** Stack of currently-open detail sheets — every sheet kind renders from here, top-only, via
+	 *  {@link renderTopSheet}. Compare's openness is projected in from `compareSheetOpen`. */
 	@state() private _sheetStack: SheetDescriptor[] = [];
 
 	/** Parallel to {@link _sheetStack} — the element to restore focus to when the sheet at that
@@ -1420,7 +1436,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
-	private readonly _modifiers = new ModifierKeysController(this);
 	/** Timer stored so `disconnectedCallback` can cancel it — otherwise a fast open/close
 	 *  cycle leaves the callback firing on a detached element with `style.overflow = ''` (no
 	 *  crash, but leaks DOM references for the timer's lifetime and stacks under rapid toggling). */
@@ -1584,6 +1599,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				}
 				this._sheetStack = next;
 				this._sheetFocusMemos = [];
+			}
+		}
+
+		// Projects the compare-signal's open/closed state onto the sheet stack — compare's own
+		// open/close lifecycle stays owned by `compareSheetOpen` (driven by the workflow controller),
+		// this just keeps the stack in sync with it every cycle. Selection-decoupled: reads only the
+		// signal, never selection, so it can't be affected by (or interfere with) the selection-close
+		// block above.
+		{
+			const compareOpen = this._state.compareSheetOpen.get();
+			const projected = projectCompareSignal(this._sheetStack, compareOpen);
+			if (projected !== this._sheetStack) {
+				if (compareOpen) {
+					this.openSheet({ kind: 'compare' });
+				} else {
+					// removeSheetKind, NOT popSheet/clearSheets: those call `closeCompare()`, which
+					// would stomp `compareAsPanel` back to false and break the promote-to-pinned
+					// transition this projection is reacting to.
+					this.removeSheetKind('compare');
+				}
 			}
 		}
 
@@ -2249,7 +2284,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// commit/worktree. When the current selection is merely refreshing (its own files/enrichment
 		// still streaming in), the content is correct, so it stays interactive. Implies `stale`.
 		const blockPointer = resolved != null && current == null;
-		const compareSheetOpen = this._state.compareSheetOpen.get();
 		const compareAsPanel = this._state.compareAsPanel.get();
 
 		// `.details-content` is the SCROLLING container — its content overflows and the user
@@ -2265,7 +2299,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			aria-busy=${resolved == null || stale}
 			aria-live="polite"
 			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
-			?inert=${compareSheetOpen || this._sheetStack.length > 0}
+			?inert=${this._sheetStack.length > 0}
 		>
 			${
 				resolved != null
@@ -2288,49 +2322,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}
 		</div>`;
 
-		const compareSheet = compareSheetOpen
-			? (() => {
-					// Click pins to preferred orientation; Alt-click flips it.
-					// Icon + tooltip update live with the Alt-key so the affordance previews the actual action.
-					const labelFor = (o: PanelOrientation) => (o === 'horizontal' ? 'Move Beside' : 'Move Below');
-					const iconFor = (o: PanelOrientation) =>
-						o === 'horizontal' ? 'layout-sidebar-right' : 'layout-panel';
-					const preferred = this._preferredCompareOrientation;
-					const alternate = this.flipOrientation(preferred);
-					const effective = this._modifiers.altKey ? alternate : preferred;
-					const actionLabel = labelFor(effective);
-					const actionIcon = iconFor(effective);
-					const tooltipContent = this._modifiers.altKey
-						? actionLabel
-						: `${actionLabel}\n[${getAltKeySymbol()}] ${labelFor(alternate)}`;
-					return html`<gl-detail-sheet
-						class="compare-sheet"
-						aria-label="Compare"
-						sheet-title="Comparing References"
-						close-label="Close"
-						@gl-detail-sheet-close=${this.handleCloseCompareSheet}
-					>
-						<gl-action-chip
-							slot="actions"
-							icon=${actionIcon}
-							label=${tooltipContent}
-							overlay="tooltip"
-							@click=${this.handleOpenCompareAsPanel}
-						></gl-action-chip>
-						${this.renderCompareMode()}
-						<gl-graph-coachmark
-							slot="actions"
-							mark="compare"
-							placement="bottom-end"
-							.anchor=${this.queryCompareSheetHeader}
-							?auto-show=${this.graphReady}
-						></gl-graph-coachmark>
-					</gl-detail-sheet>`;
-				})()
-			: nothing;
-
 		if (!compareAsPanel) {
-			return html`<div class="details-host">${detailsContent}${compareSheet}${this.renderTopSheet()}</div>`;
+			return html`<div class="details-host">${detailsContent}${this.renderTopSheet()}</div>`;
 		}
 
 		// Pinned compare: nested split panel inside the details host. Details on the start side,
@@ -2349,31 +2342,27 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		>
 			<div slot="start" class="compare-pinned-split__start">${detailsContent}${this.renderTopSheet()}</div>
 			<div slot="end" class="compare-pinned-split__end">
-				<div class="compare-pinned-host">
-					<header class="compare-pinned-host__header">
-						<span class="compare-pinned-host__title">Comparing References</span>
-						<div class="compare-pinned-host__actions">
-							<gl-action-chip
-								icon=${orientation === 'horizontal' ? 'layout-panel' : 'layout-sidebar-right'}
-								label=${orientation === 'horizontal' ? 'Move Below' : 'Move Beside'}
-								overlay="tooltip"
-								@click=${this.handleFlipCompareOrientation}
-							></gl-action-chip>
-							<gl-action-chip
-								icon="close"
-								label="Close"
-								overlay="tooltip"
-								@click=${this.handleCloseCompareSheet}
-							></gl-action-chip>
-						</div>
-					</header>
-					<div class="compare-pinned-host__body">${this.renderCompareMode()}</div>
-				</div>
+				<gl-graph-compare-pinned
+					orientation=${orientation}
+					@gl-graph-compare-flip=${this.handleFlipCompareOrientation}
+					@gl-graph-compare-close=${this.handleClosePinnedCompare}
+					>${this.renderCompareMode()}</gl-graph-compare-pinned
+				>
 			</div>
 		</gl-split-panel>`;
 	}
 
 	private handleCloseCompareSheet = (): void => {
+		this.popSheet();
+	};
+
+	private handleComparePromote = (e: CustomEvent<{ orientation: PanelOrientation | undefined }>): void => {
+		// `undefined` keeps the split in auto (shape-following) mode; only an Alt-click promotes with
+		// an explicit orientation that sticks.
+		this._workflow.openCompareAsPanel(e.detail.orientation);
+	};
+
+	private handleClosePinnedCompare = (): void => {
 		this._workflow.closeCompare();
 	};
 
@@ -2395,11 +2384,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// A converted sheet owns its `gl-detail-sheet` inside its shadow root, which this query can't
 		// reach — its host mirrors the flag through (see `GlGraphBranchSheet.skipFocusRestore`).
 		const mounted = this.querySelector<HTMLElement & { skipFocusRestore: boolean }>(
-			'gl-graph-branch-sheet, gl-detail-sheet',
+			'gl-graph-branch-sheet, gl-graph-compare-sheet, gl-wip-conflict-sheet, gl-rebase-summary-sheet, gl-detail-sheet',
 		);
 		if (mounted != null) {
 			mounted.skipFocusRestore = true;
 		}
+
+		const hadCompare = this._sheetStack.some(d => d.kind === 'compare');
 
 		if (options?.push) {
 			const before = this._sheetStack;
@@ -2414,6 +2405,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this._sheetStack = replaceStack(this._sheetStack, descriptor);
 			this._sheetFocusMemos = [focusEl];
 		}
+
+		// Opening a non-compare sheet can discard 'compare' off the stack (replaceStack) or leave it
+		// buried under a push — either way, once it's no longer present, the signal must follow so the
+		// projection in willUpdate doesn't clobber this sheet back to compare on the next render.
+		if (hadCompare && descriptor.kind !== 'compare' && !this._sheetStack.some(d => d.kind === 'compare')) {
+			this._workflow.closeCompare();
+		}
 	}
 
 	/** Pops the top sheet. Restores focus to the ORIGINAL trigger (memo[0]) once the stack fully
@@ -2424,6 +2422,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		if (popped.kind === 'rebaseSummary') {
 			this._rebaseSummaryWipAtOpen = undefined;
+		}
+
+		if (popped.kind === 'compare') {
+			this._workflow.closeCompare();
 		}
 
 		const rootMemo = this._sheetFocusMemos[0];
@@ -2440,6 +2442,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	clearSheets(): void {
 		if (this._sheetStack.some(d => d.kind === 'rebaseSummary')) {
 			this._rebaseSummaryWipAtOpen = undefined;
+		}
+
+		if (this._sheetStack.some(d => d.kind === 'compare')) {
+			this._workflow.closeCompare();
 		}
 
 		const rootMemo = this._sheetFocusMemos[0];
@@ -2464,21 +2470,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this._rebaseSummaryWipAtOpen = undefined;
 		}
 	}
-
-	private handleOpenCompareAsPanel = (e: MouseEvent): void => {
-		// Skip the sheet's focus-restoration — the user is transitioning INTO the panel,
-		// not dismissing the sheet.
-		const sheet = this.querySelector('gl-detail-sheet');
-		if (sheet != null) {
-			(sheet as { skipFocusRestore: boolean }).skipFocusRestore = true;
-		}
-
-		// Plain click keeps the orientation in auto (shape-following) mode; Alt-click is an
-		// explicit choice that sticks.
-		this._workflow.openCompareAsPanel(
-			e.altKey ? this.flipOrientation(this._preferredCompareOrientation) : undefined,
-		);
-	};
 
 	private flipOrientation(o: PanelOrientation): PanelOrientation {
 		return o === 'horizontal' ? 'vertical' : 'horizontal';
@@ -2683,7 +2674,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			<gl-details-wip-header
 				.wip=${wip}
 				.currentRepoPath=${this.graphRepoPath()}
-				?sheets-open=${this._state.compareSheetOpen.get() || this._sheetStack.length > 0}
+				?sheets-open=${this._sheetStack.length > 0}
 				?graph-ready=${this.graphReady}
 				?show-maximize=${this.showMaximize}
 				?maximized=${this.maximized}

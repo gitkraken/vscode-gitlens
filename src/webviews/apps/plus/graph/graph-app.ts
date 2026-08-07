@@ -684,12 +684,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  clicks racing a repo switch) detect it's no longer the latest and skip its callback. */
 	private _detailsRevealToken = 0;
 
-	/** What the LATEST {@link withDetailsPanel} reveal was for — lets the branch sheet's
-	 *  `{open: false}` cancellation retire an in-flight BRANCH open without cross-cancelling an
-	 *  unrelated reveal (compare/rebase/mode) that happens to be awaiting the panel: the graph fires
-	 *  `{open: false}` on ANY click-outside-dismiss while a ref is pinned, sheet or no sheet. */
-	private _detailsRevealFor: 'branch' | 'other' = 'other';
-
 	@query('gl-graph-keyboard-shortcuts')
 	private readonly keyboardShortcutsEl: GlGraphKeyboardShortcuts | undefined;
 
@@ -1533,9 +1527,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  explicit refs (e.g. from a sidebar tree compare action). Ensures the details panel is
 	 *  visible, then forwards to the details panel which owns the workflow controller. */
 	openCompareMode(params: DidRequestOpenCompareModeParams): void {
-		this.setDetailsVisible(true, 'request-compare');
-		this.ensureDetailsPosition();
-		this.detailsPanelEl?.openCompareMode(params);
+		void this.withDetailsPanel(panel => panel.openCompareMode(params), 'request-compare');
 	}
 
 	/** Routed from {@link GraphAppHost} when the extension pushes a selection — a host-initiated reveal
@@ -1716,10 +1708,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		if (action === 'open-compare') {
-			// Same cold-open mounting caveat as the enter-*-mode actions below — on a cold (or freshly
-			// un-gated) graph the details panel mounts only after the initial data/layout settles, so
-			// `updateComplete` alone can run this against a still-null panel and silently drop the compare.
-			const panel = await this.waitForDetailsPanel();
 			const compareParams =
 				target != null
 					? {
@@ -1734,7 +1722,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							rightRefType: 'branch' as const,
 							includeWorkingTree: true,
 						};
-			panel?.openCompareMode(compareParams, showDetails);
+			void this.withDetailsPanel(panel => panel.openCompareMode(compareParams), 'request-mode');
 			return;
 		}
 
@@ -1774,6 +1762,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 		return this.detailsPanelEl;
 	}
+
+	/** What the LATEST {@link withDetailsPanel} reveal was for — lets the branch sheet's
+	 *  `{open: false}` cancellation retire an in-flight BRANCH open without cross-cancelling an
+	 *  unrelated reveal (compare/rebase/mode) that happens to be awaiting the panel: the graph fires
+	 *  `{open: false}` on ANY click-outside-dismiss while a ref is pinned, sheet or no sheet. */
+	private _detailsRevealFor: 'branch' | 'other' = 'other';
 
 	/** Single open path for "make the details panel visible, wait for it to mount (a cold graph
 	 *  open lags a few frames — see {@link waitForDetailsPanel}), then act on it". `token` guards

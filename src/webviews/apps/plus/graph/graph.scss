@@ -4540,58 +4540,10 @@ gl-graph-app {
 			min-width: 0;
 			min-height: 0;
 			overflow: hidden;
-			// Positioned containing block so the branch sheet (gl-detail-sheet, position: absolute;
-			// inset: 0) anchors to this non-scrolling host — same role .details-host plays in the
-			// non-panel layout.
+			// Positioned containing block so the top sheet of the stack (gl-detail-sheet,
+			// position: absolute; inset: 0) anchors to this non-scrolling host — same role
+			// .details-host plays in the non-panel layout.
 			position: relative;
-		}
-
-		.compare-pinned-host {
-			display: flex;
-			flex: 1;
-			flex-direction: column;
-			min-height: 0;
-			background: var(--vscode-sideBar-background, var(--color-background));
-			border-left: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
-		}
-
-		.compare-pinned-host__header {
-			box-sizing: border-box;
-			display: flex;
-			flex: 0 0 auto;
-			gap: var(--gl-space-8);
-			align-items: center;
-			justify-content: space-between;
-			min-height: 4.2rem;
-			padding: var(--gl-space-8) var(--gl-space-8) var(--gl-space-8) var(--gl-space-16);
-			background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
-			border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
-		}
-
-		.compare-pinned-host__title {
-			flex: 1 1 auto;
-			min-width: 0;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			font-size: var(--gl-font-lg);
-			font-weight: 600;
-			color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
-			white-space: nowrap;
-		}
-
-		.compare-pinned-host__actions {
-			display: inline-flex;
-			flex: 0 0 auto;
-			gap: var(--gl-space-2);
-			align-items: center;
-		}
-
-		.compare-pinned-host__body {
-			display: flex;
-			flex: 1 1 auto;
-			flex-direction: column;
-			min-height: 0;
-			overflow: hidden;
 		}
 
 		.commit-panel {
