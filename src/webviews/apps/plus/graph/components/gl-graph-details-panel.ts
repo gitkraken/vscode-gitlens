@@ -21,6 +21,7 @@ import type {
 	AutoRebaseSummary,
 	ConflictSide,
 	GraphServices,
+	UndoAutoRebaseResult,
 	VirtualRefShape,
 } from '../../../../plus/graph/graphService.js';
 import type {
@@ -92,7 +93,7 @@ import type {
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
-import type { SheetDescriptor, SheetOverlayCoordinator } from './sheetStack.js';
+import type { SheetDescriptor, SheetKind, SheetOverlayCoordinator } from './sheetStack.js';
 import { popSheet as popSheetFromStack, pushSheet, removeKind, replaceStack, sheetKey } from './sheetStack.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
@@ -134,6 +135,12 @@ const agentStatusMaxPct = 80;
  *  actions. Used for multi-commit (range) refs whose source returns a bare string. */
 function asRefObj(ref: string | undefined): { ref: string } | undefined {
 	return ref != null ? { ref: ref } : undefined;
+}
+
+/** Order-sensitive equality for the sheet stack's kind composition — used to report `updated`'s
+ *  stack-change event only on an actual composition change. */
+function sheetKindsEqual(a: readonly SheetKind[], b: readonly SheetKind[]): boolean {
+	return a.length === b.length && a.every((k, i) => k === b[i]);
 }
 
 /** Renders a mode-status counts snippet with leading icons — "🟢 1 commit · 📄 2 files".
@@ -179,8 +186,9 @@ declare global {
 			previous: GraphDetailsMode;
 			current: GraphDetailsMode;
 		}>;
-		/** The Automatic Rebase summary sheet opened or closed — the app sizes the details pane for it. */
-		'gl-graph-rebase-summary-open-change': CustomEvent<{ open: boolean }>;
+		/** The sheet stack's kind composition changed — e.g. the app sizes the details pane for a
+		 *  rebase summary sheet opening or closing. */
+		'gl-graph-sheet-stack-change': CustomEvent<{ kinds: SheetKind[]; prevKinds: SheetKind[] }>;
 	}
 }
 
@@ -1105,26 +1113,40 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		</gl-detail-sheet>`;
 	}
 
-	/** Renders whatever's on top of {@link _sheetStack}. Phase 1: only 'conflict' is ever pushed
-	 *  here — other kinds fall through to `nothing` (unreachable until their openers migrate). */
+	/** Renders whatever's on top of {@link _sheetStack}. 'branch'/'compare' still use their own
+	 *  legacy render paths until later phases migrate them — they fall through to `nothing` here. */
 	private renderTopSheet() {
 		const top = this._sheetStack.at(-1);
-		if (top?.kind !== 'conflict') return nothing;
+		if (top == null) return nothing;
 
-		return html`<gl-wip-conflict-sheet
-			.detail=${top.detail}
-			.getDetails=${this.getConflictDetails}
-			file-name=${top.fileName}
-			?show-back=${this._sheetStack.length > 1}
-			.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
-			.preferences=${this._state.preferences.get()}
-			@gl-detail-sheet-close=${this.handleCloseConflictDetails}
-			@conflict-open-changes=${this.handleConflictOpenChanges}
-			@conflict-stage=${this.handleConflictStage}
-			@conflict-open-commit=${this.handleConflictOpenCommit}
-			@conflict-open-file=${this.handleConflictOpenFile}
-			@conflict-resolve-ai=${this.handleConflictResolveAi}
-		></gl-wip-conflict-sheet>`;
+		switch (top.kind) {
+			case 'conflict':
+				return html`<gl-wip-conflict-sheet
+					.detail=${top.detail}
+					.getDetails=${this.getConflictDetails}
+					file-name=${top.fileName}
+					?show-back=${this._sheetStack.length > 1}
+					.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+					.preferences=${this._state.preferences.get()}
+					@gl-detail-sheet-close=${this.handleCloseConflictDetails}
+					@conflict-open-changes=${this.handleConflictOpenChanges}
+					@conflict-stage=${this.handleConflictStage}
+					@conflict-open-commit=${this.handleConflictOpenCommit}
+					@conflict-open-file=${this.handleConflictOpenFile}
+					@conflict-resolve-ai=${this.handleConflictResolveAi}
+				></gl-wip-conflict-sheet>`;
+			case 'rebaseSummary':
+				return html`<gl-rebase-summary-sheet
+					.repoPath=${top.repoPath}
+					.getSummary=${this.getRebaseSummary}
+					.undoRebase=${this.undoRebaseSummary}
+					?show-back=${this._sheetStack.length > 1}
+					@gl-detail-sheet-close=${this.handleCloseRebaseSummary}
+					@rebase-summary-view-diff=${this.handleRebaseSummaryViewDiff}
+				></gl-rebase-summary-sheet>`;
+			default:
+				return nothing;
+		}
 	}
 
 	/** Wraps the same service call the panel always used to fetch conflict details — injected into
@@ -1442,8 +1464,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// `?inert`. Mode entry is a deliberate request for that surface — the automatic rebase
 		// escalation handoff arrives here — so a summary sheet from a finished run (this repo's or
 		// another's) must never be left sitting on top of it, unreachable.
-		this._rebaseSummarySheet = undefined;
-		this._pendingRebaseSummary = undefined;
+		this.removeSheetKind('rebaseSummary');
 
 		if (this._workflow == null) {
 			// Element mounted but async init (resolveDetailsActions → controller) hasn't finished —
@@ -1507,43 +1528,38 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow.toggleMode(mode, selection);
 	}
 
-	/** Deferred openRebaseSummary target for a cold open — the pending action can land before
-	 *  async service resolution finishes. Mirrors {@link _pendingMode}. */
-	private _pendingRebaseSummary?: string;
-
 	/** Opens the Automatic Rebase summary sheet for `repoPath`'s session — selection-decoupled,
-	 *  like the compare sheet. Fetching also (re)registers the host-side virtual diff sessions
-	 *  backing each file's View Changes. */
-	async openRebaseSummary(repoPath: string): Promise<void> {
-		if (this._actions == null) {
-			// Element mounted but async init (resolveDetailsActions) hasn't finished — defer and
-			// apply once services resolve. Mirrors the `_pendingMode` path.
-			this._pendingRebaseSummary = repoPath;
-			return;
-		}
-
+	 *  like the compare sheet. The sheet fetches its own data via {@link getRebaseSummary}, which
+	 *  awaits service readiness itself, so a cold-open `show-rebase-summary` (arriving before async
+	 *  init finishes) needs no local deferral. */
+	openRebaseSummary(repoPath: string): void {
 		// A completed run's final `git status` push can land AFTER the summary opens, so the slot can
 		// still hold the run's own paused-op payload. Snapshot it as already-seen — see the
 		// paused-op invalidation in `willUpdate`.
 		this._rebaseSummaryWipAtOpen = this._graphState?.wip;
-		this._rebaseSummarySheet = { repoPath: repoPath, loading: true };
-		let next: NonNullable<typeof this._rebaseSummarySheet>;
-		try {
-			const result = await this._actions.fetchAutoRebaseSummary(repoPath);
-			next =
-				result == null
-					? { repoPath: repoPath, loading: false, error: 'No automatic rebase summary is available.' }
-					: 'error' in result
-						? { repoPath: repoPath, loading: false, error: result.error.message }
-						: { repoPath: repoPath, loading: false, summary: result.summary };
-		} catch {
-			next = { repoPath: repoPath, loading: false, error: 'Unable to load the rebase summary.' };
-		}
-		// The sheet may have been closed (or re-targeted) while fetching
-		if (this._rebaseSummarySheet?.repoPath === repoPath && this._rebaseSummarySheet.loading) {
-			this._rebaseSummarySheet = next;
-		}
+		this.openSheet({ kind: 'rebaseSummary', repoPath: repoPath });
 	}
+
+	/** Injected into the rebase-summary sheet so IT owns the fetch lifecycle — mirrors
+	 *  {@link getConflictDetails}. Awaits {@link _actionsReady} itself: `show-rebase-summary` can
+	 *  arrive on a cold graph open before `resolveServices` has finished. Throws (rather than
+	 *  resolving `undefined`) on a service-reported failure so the sheet can show the specific
+	 *  message instead of a generic one. */
+	private readonly getRebaseSummary = async (repoPath: string): Promise<AutoRebaseSummary | undefined> => {
+		await this._actionsReady;
+		const result = await this._actions.fetchAutoRebaseSummary(repoPath);
+		if (result == null) throw new Error('No automatic rebase summary is available.');
+		if ('error' in result) throw new Error(result.error.message);
+
+		return result.summary;
+	};
+
+	/** Injected undo — mirrors {@link getRebaseSummary}'s readiness wait. Preserves
+	 *  `undoAutoRebase`'s success/error contract; the sheet decides how to react. */
+	private readonly undoRebaseSummary = async (repoPath: string, sessionId: string): Promise<UndoAutoRebaseResult> => {
+		await this._actionsReady;
+		return this._actions.undoAutoRebase(repoPath, sessionId);
+	};
 
 	private get isLoading(): boolean {
 		if (!this._actions) {
@@ -1561,8 +1577,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _resizeObserver?: ResizeObserver;
 	@state() private _preferredCompareOrientation: PanelOrientation = 'vertical';
 
-	/** Stack of currently-open detail sheets. Phase 1: only 'conflict' descriptors are pushed here —
-	 *  branch/rebaseSummary/compare still use their own legacy fields until later phases migrate. */
+	/** Stack of currently-open detail sheets. 'branch'/'compare' still use their own legacy fields
+	 *  until later phases migrate them. */
 	@state() private _sheetStack: SheetDescriptor[] = [];
 
 	/** Parallel to {@link _sheetStack} — the element to restore focus to when the sheet at that
@@ -1573,6 +1589,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  transitions exactly once per change, not once per render. */
 	private _prevSheetTopKey?: string;
 
+	/** Tracks the previous stack's kind composition so {@link updated} can report a
+	 *  `gl-graph-sheet-stack-change` exactly once per composition change, not once per render. */
+	private _prevSheetKinds: SheetKind[] = [];
+
 	/** Seam for a later phase to mirror stack pushes/pops into the graph keymap's overlay focus
 	 *  stack (`pushOverlay`/`popOverlay`). No-op until that phase wires it up. */
 	private readonly _sheetCoordinator: SheetOverlayCoordinator = {
@@ -1580,21 +1600,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		closed: () => {},
 	};
 
-	/** Open state + lazily-fetched data for the Automatic Rebase summary sheet (undefined = closed). */
-	@state()
-	private _rebaseSummarySheet?: {
-		repoPath: string;
-		loading: boolean;
-		error?: string;
-		summary?: AutoRebaseSummary;
-		undoing?: boolean;
-		undoError?: string;
-	};
-
-	/** The pushed-wip payload that was in `graphState.wip` when {@link _rebaseSummarySheet} opened.
-	 *  Identity-compared only (never read), so the open-time payload can't trip the paused-op
-	 *  invalidation in {@link willUpdate}. */
+	/** The pushed-wip payload observed when the rebase-summary sheet on {@link _sheetStack} was
+	 *  opened. Identity-compared only (never read), so the open-time payload can't trip the
+	 *  paused-op invalidation in {@link willUpdate}. Cleared whenever the sheet leaves the stack. */
 	private _rebaseSummaryWipAtOpen?: unknown;
+
+	/** Resolves once {@link _actions} is assigned — lets a caller that fired before async init
+	 *  finished (e.g. a cold-open `show-rebase-summary`) await readiness itself instead of the
+	 *  panel deferring the request. */
+	private _resolveActionsReady!: () => void;
+	private readonly _actionsReady: Promise<void> = new Promise(resolve => {
+		this._resolveActionsReady = resolve;
+	});
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -1875,16 +1892,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// means the repo has moved on — most importantly a NEW automatic rebase escalating, whose
 			// Resolve panel the sheet would cover and `?inert`. Rides the same pushed-wip signal the
 			// panel already consumes (no repo/selection gate: the sheet is selection-decoupled).
-			const summarySheet = this._rebaseSummarySheet;
+			const rebaseSummaryTop = this._sheetStack.find(d => d.kind === 'rebaseSummary');
 			if (
-				summarySheet != null &&
+				rebaseSummaryTop != null &&
 				pushedWip != null &&
 				pushedWip !== this._rebaseSummaryWipAtOpen &&
-				pushedWip.repo?.path === summarySheet.repoPath &&
+				pushedWip.repo?.path === rebaseSummaryTop.repoPath &&
 				pushedWip.changes?.pausedOpStatus != null
 			) {
-				this._rebaseSummarySheet = undefined;
-				this._rebaseSummaryWipAtOpen = undefined;
+				this.removeSheetKind('rebaseSummary');
 			}
 
 			// Branch-state changes (ahead/behind shifts from fetch/pull/push) still need to
@@ -1971,25 +1987,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this.dispatchEvent(new CustomEvent('gl-graph-branch-sheet-closed', { bubbles: true, composed: true }));
 		}
 
-		// The rebase summary sheet is `position: absolute` inside the details pane, so at the default
-		// split it opens into ~100px of a ~300px scroll. Report each open/closed transition so the app
-		// can size the pane for it — reported from here (not the call sites) so every clear path
-		// (close, successful undo, staleness invalidation) is covered by one signal.
-		if (changedProperties.has('_rebaseSummarySheet')) {
-			const wasOpen = changedProperties.get('_rebaseSummarySheet') != null;
-			const isOpen = this._rebaseSummarySheet != null;
-			if (wasOpen !== isOpen) {
-				this.dispatchEvent(
-					new CustomEvent('gl-graph-rebase-summary-open-change', {
-						detail: { open: isOpen },
-						bubbles: true,
-						composed: true,
-					}),
-				);
-			}
-		}
-
-		{
+		// Every stack mutation replaces the `_sheetStack` array (the reducers never mutate in place),
+		// so Lit's change tracking is a sound gate — skips the key/kinds re-derivation on the many
+		// updates this signal-heavy panel runs that don't touch the stack.
+		if (changedProperties.has('_sheetStack')) {
 			const top = this._sheetStack.at(-1);
 			const topKey = top != null ? sheetKey(top) : undefined;
 			if (topKey !== this._prevSheetTopKey) {
@@ -2000,6 +2001,24 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this._sheetCoordinator.opened(topKey);
 				}
 				this._prevSheetTopKey = topKey;
+			}
+
+			// Some kind transitions have their own consumer-visible effect — e.g. the rebase summary
+			// sheet is `position: absolute` inside the details pane, so at the default split it opens
+			// into ~100px of a ~300px scroll, and the app resizes the pane for it. Reported from here
+			// (not the individual open/close call sites) so every clear path (close, successful undo,
+			// staleness invalidation) is covered by one signal.
+			const kinds = this._sheetStack.map(d => d.kind);
+			const prevKinds = this._prevSheetKinds;
+			if (!sheetKindsEqual(kinds, prevKinds)) {
+				this._prevSheetKinds = kinds;
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-sheet-stack-change', {
+						detail: { kinds: kinds, prevKinds: prevKinds },
+						bubbles: true,
+						composed: true,
+					}),
+				);
 			}
 		}
 
@@ -2347,6 +2366,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// stays focused on lifecycle and render routing.
 		this._actions = await resolveDetailsActions(services, this._state);
 		this._actions.graphState = this._graphState;
+		this._resolveActionsReady();
 		// Instantiating the controller auto-attaches it via `host.addController(this)`; Lit
 		// fires `hostConnected` immediately (since we're already connected), which sets up
 		// the repo-change subscription without an extra call here.
@@ -2362,12 +2382,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			const { mode, repoPath, sha, focusedFilePaths, composeInstructions, composeScope } = this._pendingMode;
 			this._pendingMode = undefined;
 			this.enterModeForWip(mode, repoPath, sha, focusedFilePaths, composeInstructions, composeScope);
-		}
-
-		if (this._pendingRebaseSummary != null) {
-			const repoPath = this._pendingRebaseSummary;
-			this._pendingRebaseSummary = undefined;
-			void this.openRebaseSummary(repoPath);
 		}
 
 		void this._actions.fetchCapabilities();
@@ -2471,12 +2485,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			aria-busy=${resolved == null || stale}
 			aria-live="polite"
 			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
-			?inert=${
-				compareSheetOpen ||
-				this._sheetStack.length > 0 ||
-				branchSheetRef != null ||
-				this._rebaseSummarySheet != null
-			}
+			?inert=${compareSheetOpen || this._sheetStack.length > 0 || branchSheetRef != null}
 		>
 			${
 				resolved != null
@@ -2542,23 +2551,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const branchSheet = this.renderBranchSheet(branchSheetRef);
 
-		const rebaseSummarySheet =
-			this._rebaseSummarySheet != null
-				? html`<gl-rebase-summary-sheet
-						.summary=${this._rebaseSummarySheet.summary}
-						?loading=${this._rebaseSummarySheet.loading}
-						.error=${this._rebaseSummarySheet.error}
-						?undoing=${this._rebaseSummarySheet.undoing ?? false}
-						.undoError=${this._rebaseSummarySheet.undoError}
-						@gl-detail-sheet-close=${this.handleCloseRebaseSummary}
-						@rebase-summary-view-diff=${this.handleRebaseSummaryViewDiff}
-						@rebase-summary-undo=${this.handleRebaseSummaryUndo}
-					></gl-rebase-summary-sheet>`
-				: nothing;
-
 		if (!compareAsPanel) {
 			return html`<div class="details-host">
-				${detailsContent}${compareSheet}${this.renderTopSheet()}${branchSheet}${rebaseSummarySheet}
+				${detailsContent}${compareSheet}${this.renderTopSheet()}${branchSheet}
 			</div>`;
 		}
 
@@ -2649,6 +2644,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const { stack, popped } = popSheetFromStack(this._sheetStack);
 		if (popped == null) return;
 
+		if (popped.kind === 'rebaseSummary') {
+			this._rebaseSummaryWipAtOpen = undefined;
+		}
+
 		const rootMemo = this._sheetFocusMemos[0];
 		this._sheetStack = stack;
 		this._sheetFocusMemos = this._sheetFocusMemos.slice(0, -1);
@@ -2661,12 +2660,30 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** Discards the whole stack at once (vs. popping one at a time) — e.g. a selection change that
 	 *  invalidates everything currently open. */
 	clearSheets(): void {
+		if (this._sheetStack.some(d => d.kind === 'rebaseSummary')) {
+			this._rebaseSummaryWipAtOpen = undefined;
+		}
+
 		const rootMemo = this._sheetFocusMemos[0];
 		this._sheetStack = [];
 		this._sheetFocusMemos = [];
 
 		if (rootMemo?.isConnected) {
 			rootMemo.focus({ preventScroll: true });
+		}
+	}
+
+	/** Drops every sheet of `kind` from the stack, wherever it sits, keeping the focus-memo stack's
+	 *  shape in sync. Owns the kind-scoped bookkeeping (the rebase wip-stamp) so callers can't forget
+	 *  it; deliberately does NOT run user-close hooks (resolve-mode exit) — removal is invalidation,
+	 *  not dismissal. */
+	private removeSheetKind(kind: SheetKind): void {
+		const keep = this._sheetStack.map(d => d.kind !== kind);
+		this._sheetStack = removeKind(this._sheetStack, kind);
+		this._sheetFocusMemos = this._sheetFocusMemos.filter((_, i) => keep[i]);
+
+		if (kind === 'rebaseSummary') {
+			this._rebaseSummaryWipAtOpen = undefined;
 		}
 	}
 
@@ -4190,7 +4207,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleCloseRebaseSummary = () => {
-		this._rebaseSummarySheet = undefined;
+		this.popSheet();
 
 		// The run opened Resolve mode as its progress surface, and this sheet is only reachable from that
 		// run completing — so closing it means the review is done and the mode has nothing left to show
@@ -4201,39 +4218,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleRebaseSummaryViewDiff = (e: CustomEvent<RebaseSummaryViewDiffDetail>) => {
-		const sheet = this._rebaseSummarySheet;
-		const summary = sheet?.summary;
-		if (sheet == null || summary == null) return;
+		const top = this._sheetStack.at(-1);
+		if (top?.kind !== 'rebaseSummary') return;
 
-		const step = summary.steps.find(s => s.step === e.detail.step);
+		// The sheet owns the fetched summary now — query it directly rather than duplicating it here.
+		const summary = this.querySelector('gl-rebase-summary-sheet')?.summary;
+		const step = summary?.steps.find(s => s.step === e.detail.step);
 		const file = step?.files.find(f => f.filePath === e.detail.filePath);
 		if (file?.virtualRef == null) return;
 
 		// The rebase is over, so the file has no WIP entry — a minimal shape suffices for the
 		// virtual compare (it only reads repoPath + path).
-		this._actions.openResolutionDiff(
-			{ repoPath: sheet.repoPath, path: file.filePath, status: 'M' },
-			file.virtualRef,
-		);
-	};
-
-	private handleRebaseSummaryUndo = async () => {
-		const sheet = this._rebaseSummarySheet;
-		const summary = sheet?.summary;
-		if (sheet == null || summary == null || sheet.undoing) return;
-
-		this._rebaseSummarySheet = { ...sheet, undoing: true, undoError: undefined };
-		let next: NonNullable<typeof this._rebaseSummarySheet> | undefined;
-		try {
-			const result = await this._actions.undoAutoRebase(sheet.repoPath, summary.sessionId);
-			// Success closes the sheet — the graph refreshes via the repo change the reset fires
-			next = 'error' in result ? { ...sheet, undoing: false, undoError: result.error.message } : undefined;
-		} catch {
-			next = { ...sheet, undoing: false, undoError: 'Unable to undo the rebase.' };
-		}
-		if (this._rebaseSummarySheet?.repoPath === sheet.repoPath) {
-			this._rebaseSummarySheet = next;
-		}
+		this._actions.openResolutionDiff({ repoPath: top.repoPath, path: file.filePath, status: 'M' }, file.virtualRef);
 	};
 
 	private handleConflictOpenChanges = (e: CustomEvent<ConflictSheetSideEventDetail>) => {
@@ -4273,11 +4269,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const repoPath = top.detail.repoPath;
 		const filePath = top.detail.path;
 
-		// Drop the conflict entry wherever it sits (not just a plain pop) and keep the focus-memo
-		// stack's shape matching — removeKind can remove a non-top entry in later phases.
-		const keep = this._sheetStack.map(d => d.kind !== 'conflict');
-		this._sheetStack = removeKind(this._sheetStack, 'conflict');
-		this._sheetFocusMemos = this._sheetFocusMemos.filter((_, i) => keep[i]);
+		// Drop the conflict entry wherever it sits (not just a plain pop) — removeKind can remove a
+		// non-top entry in later phases.
+		this.removeSheetKind('conflict');
 
 		this.enterModeForWip('resolve', repoPath, uncommitted, [filePath]);
 	};

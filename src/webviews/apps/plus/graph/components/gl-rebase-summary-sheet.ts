@@ -6,6 +6,7 @@ import type {
 	AutoRebaseSummary,
 	AutoRebaseSummaryStep,
 	ResolvedFileSummary,
+	UndoAutoRebaseResult,
 } from '../../../../plus/graph/graphService.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import {
@@ -35,11 +36,11 @@ export interface RebaseSummaryViewDiffDetail {
  * an automatic rebase resolved, grouped by the step (commit) where it paused, with per-file
  * strategy/confidence/reasoning rows and before/after diffs, plus the validated Undo.
  *
- * Owns its `gl-detail-sheet` (selection-decoupled, like the compare and conflict sheets). Data is
- * fetched by the details panel; this component is presentational and emits (bubbles + composed):
+ * Owns its `gl-detail-sheet` (selection-decoupled, like the compare and conflict sheets) and its
+ * own fetch/undo lifecycle — the panel injects {@link GlRebaseSummarySheet.getSummary} and
+ * {@link GlRebaseSummarySheet.undoRebase} to wrap its service calls. Emits (bubbles + composed):
  * - `rebase-summary-view-diff` {step, filePath} — open that file's resolved-vs-conflicted diff
- * - `rebase-summary-undo` — the user confirmed the inline undo
- * - `gl-detail-sheet-close` — re-emitted by the inner sheet on dismiss
+ * - `gl-detail-sheet-close` — re-emitted by the inner sheet on dismiss, and on a successful undo
  */
 @customElement('gl-rebase-summary-sheet')
 export class GlRebaseSummarySheet extends LitElement {
@@ -283,22 +284,61 @@ export class GlRebaseSummarySheet extends LitElement {
 		`,
 	];
 
-	@property({ type: Object })
-	summary?: AutoRebaseSummary;
+	/** The session to summarize — driven by the parent. Triggers {@link fetchSummary} on change. */
+	@property({ type: String, attribute: 'repo-path' })
+	repoPath = '';
 
-	@property({ type: Boolean })
-	loading = false;
+	/** Injected fetcher — the parent binds this to wrap its own service call and await service
+	 *  readiness. Throwing (or resolving `undefined`) surfaces as {@link _error}. */
+	@property({ attribute: false })
+	getSummary?: (repoPath: string) => Promise<AutoRebaseSummary | undefined>;
 
-	@property({ type: String })
-	error?: string;
+	/** Injected undo — the parent binds this to wrap its own service call. Preserves
+	 *  `undoAutoRebase`'s success/error contract; this component decides how to react. */
+	@property({ attribute: false })
+	undoRebase?: (repoPath: string, sessionId: string) => Promise<UndoAutoRebaseResult>;
 
+	/** Forwarded to the inner `gl-detail-sheet` — true when this sheet sits above another in the stack. */
+	@property({ type: Boolean, attribute: 'show-back' })
+	showBack = false;
+
+	private _skipFocusRestore = false;
+
+	/** Mirrors `gl-detail-sheet.skipFocusRestore` onto the inner sheet — the sheet-stack router queries
+	 *  this host, which shadow DOM hides the inner element from. */
+	set skipFocusRestore(value: boolean) {
+		this._skipFocusRestore = value;
+		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
+		if (sheet != null) {
+			sheet.skipFocusRestore = value;
+		}
+	}
+	get skipFocusRestore(): boolean {
+		return this._skipFocusRestore;
+	}
+
+	override firstUpdated(): void {
+		if (!this._skipFocusRestore) return;
+
+		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
+		if (sheet != null) {
+			sheet.skipFocusRestore = true;
+		}
+	}
+
+	@state() private _summary?: AutoRebaseSummary;
+	@state() private _loading = false;
+	@state() private _error?: string;
 	/** An undo RPC is in flight — disables the footer actions. */
-	@property({ type: Boolean })
-	undoing = false;
-
+	@state() private _undoing = false;
 	/** Error from a failed/refused undo — shown as a banner; the Undo button disables. */
-	@property({ type: String, attribute: 'undo-error' })
-	undoError?: string;
+	@state() private _undoError?: string;
+
+	/** Read-only — lets the panel resolve a step/file to its `virtualRef` for View Changes without
+	 *  duplicating the fetched summary in its own state. */
+	get summary(): AutoRebaseSummary | undefined {
+		return this._summary;
+	}
 
 	@state()
 	private _collapsedSteps = new Set<number>();
@@ -312,7 +352,11 @@ export class GlRebaseSummarySheet extends LitElement {
 	private _overflowingReasons = new Set<string>();
 
 	override render(): unknown {
-		return html`<gl-detail-sheet aria-label="Automatic rebase summary" close-label="Close">
+		return html`<gl-detail-sheet
+			aria-label="Automatic rebase summary"
+			close-label="Close"
+			?show-back=${this.showBack}
+		>
 			<span slot="title" class="title">
 				<code-icon icon="gl-merge"></code-icon>
 				<span class="title__name">Automatic Rebase Summary</span>
@@ -322,12 +366,20 @@ export class GlRebaseSummarySheet extends LitElement {
 		</gl-detail-sheet>`;
 	}
 
+	override willUpdate(changed: PropertyValues<this>): void {
+		if (changed.has('repoPath') && this.repoPath) {
+			void this.fetchSummary(this.repoPath);
+		}
+	}
+
 	override updated(changed: PropertyValues<this>): void {
 		// The refusal banner lives at the top of the body, which can be scrolled well past it (the
 		// sheet is only as tall as the details pane) — the user would confirm a destructive action and
 		// see nothing change. `nearest` keeps the correction to the body instead of realigning every
 		// scroll ancestor.
-		if (changed.has('undoError') && this.undoError) {
+		// Cast because `keyof` excludes private members, but private @state fields still land in the
+		// change map — same reason rebase.ts casts for `_conflictFilesLayout`.
+		if (changed.has('_undoError' as keyof GlRebaseSummarySheet) && this._undoError) {
 			this.renderRoot.querySelector('.banner--error')?.scrollIntoView({ block: 'nearest' });
 		}
 
@@ -340,9 +392,33 @@ export class GlRebaseSummarySheet extends LitElement {
 		}
 	}
 
+	private async fetchSummary(repoPath: string): Promise<void> {
+		this._loading = true;
+		this._error = undefined;
+		this._summary = undefined;
+		this._undoError = undefined;
+
+		let summary: AutoRebaseSummary | undefined;
+		let error: string | undefined;
+		try {
+			summary = await this.getSummary?.(repoPath);
+			if (summary == null) {
+				error = 'No automatic rebase summary is available.';
+			}
+		} catch (ex) {
+			error = ex instanceof Error ? ex.message : 'Unable to load the rebase summary.';
+		}
+
+		if (this.repoPath !== repoPath) return; // superseded by a newer open mid-flight
+
+		this._loading = false;
+		this._error = error;
+		this._summary = summary;
+	}
+
 	private renderContent(): unknown {
-		if (this.loading) return html`<div class="state">Loading rebase summary…</div>`;
-		if (this.error) return html`<div class="state">${this.error}</div>`;
+		if (this._loading) return html`<div class="state">Loading rebase summary…</div>`;
+		if (this._error) return html`<div class="state">${this._error}</div>`;
 
 		const summary = this.summary;
 		if (summary == null) return nothing;
@@ -400,9 +476,9 @@ export class GlRebaseSummarySheet extends LitElement {
 					: nothing
 			}
 			${
-				this.undoError
+				this._undoError
 					? html`<div class="banner banner--error">
-							<code-icon icon="error" size="12"></code-icon><span>${this.undoError}</span>
+							<code-icon icon="error" size="12"></code-icon><span>${this._undoError}</span>
 						</div>`
 					: nothing
 			}
@@ -497,12 +573,12 @@ export class GlRebaseSummarySheet extends LitElement {
 
 	private renderFooter(): unknown {
 		const summary = this.summary;
-		if (summary == null || this.loading || this.error) return nothing;
+		if (summary == null || this._loading || this._error) return nothing;
 
 		// `undoError` intentionally doesn't disable the button — a refusal surfaces in the overview
 		// banner and can be retried by reopening the popover. `undoing` disables it during the RPC.
-		const undoDisabled = !summary.undoable || this.undoing;
-		const label = this.undoing ? 'Undoing…' : 'Undo Rebase';
+		const undoDisabled = !summary.undoable || this._undoing;
+		const label = this._undoing ? 'Undoing…' : 'Undo Rebase';
 
 		let undo;
 		if (summary.undoable) {
@@ -565,8 +641,37 @@ export class GlRebaseSummarySheet extends LitElement {
 	}
 
 	private onConfirmUndo = (): void => {
-		this.dispatchEvent(new CustomEvent('rebase-summary-undo', { bubbles: true, composed: true }));
+		void this.undo();
 	};
+
+	private async undo(): Promise<void> {
+		const summary = this._summary;
+		if (summary == null || this._undoing || this.undoRebase == null) return;
+
+		this._undoing = true;
+		this._undoError = undefined;
+
+		let error: string | undefined;
+		try {
+			const result = await this.undoRebase(this.repoPath, summary.sessionId);
+			if ('error' in result) {
+				error = result.error.message;
+			}
+		} catch {
+			error = 'Unable to undo the rebase.';
+		}
+
+		if (this._summary !== summary) return; // superseded by a newer open mid-flight
+
+		if (error == null) {
+			// Success closes the sheet — the graph refreshes via the repo change the reset fires.
+			this.onKeep();
+			return;
+		}
+
+		this._undoing = false;
+		this._undoError = error;
+	}
 
 	private onKeep = (): void => {
 		this.dispatchEvent(new CustomEvent('gl-detail-sheet-close', { bubbles: true, composed: true }));

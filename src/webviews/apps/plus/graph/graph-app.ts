@@ -97,6 +97,7 @@ import type {
 } from './components/gl-graph-timeline.js';
 import type { GraphTreemapModeChangeDetail } from './components/gl-graph-treemap.js';
 import type { GraphVisualizationModeChangeDetail } from './components/gl-graph-visualizations.js';
+import type { SheetKind } from './components/sheetStack.js';
 import { getEffectiveVisualizationKey } from './components/visualizations.utils.js';
 import { pickWipRowAgentStatus } from './components/wipRowAgentStatus.js';
 import type { AppState } from './context.js';
@@ -259,6 +260,15 @@ type GraphSelectedCommits = {
 	/** Per-sha commit shells for the multi-commit endpoints — skips the from/to getCommit IPCs. */
 	commitLites?: Record<string, CommitDetails>;
 };
+
+/** What asked the details panel to become visible — feeds telemetry and `withDetailsPanel`. */
+type DetailsVisibleTrigger =
+	| 'toggle'
+	| 'request-compare'
+	| 'request-mode'
+	| 'request-agents'
+	| 'request-graph-wip-bar'
+	| 'auto-restore';
 
 @customElement('gl-graph-app')
 export class GraphApp extends SignalWatcher(LitElement) {
@@ -669,6 +679,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@query('gl-graph-details-panel')
 	private readonly detailsPanelEl: GlGraphDetailsPanel | undefined;
+
+	/** Bumped on every {@link withDetailsPanel} call — lets a stale in-flight reveal (e.g. rapid
+	 *  clicks racing a repo switch) detect it's no longer the latest and skip its callback. */
+	private _detailsRevealToken = 0;
 
 	@query('gl-graph-keyboard-shortcuts')
 	private readonly keyboardShortcutsEl: GlGraphKeyboardShortcuts | undefined;
@@ -1691,10 +1705,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		};
 
 		if (action === 'show-rebase-summary') {
-			showDetails();
-			// Same cold-open mounting caveat as the enter-*-mode actions below — poll for the panel.
-			const panel = await this.waitForDetailsPanel();
-			void panel?.openRebaseSummary(repoPath);
+			void this.withDetailsPanel(panel => panel.openRebaseSummary(repoPath), 'request-mode');
 			return;
 		}
 
@@ -1721,22 +1732,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		showDetails();
-
 		if (action === 'enter-review' || action === 'enter-compose' || action === 'enter-resolve') {
-			// On a cold graph open the details panel mounts only after the initial graph data/layout
-			// settles. Poll for the element directly (independent of this app's `updateComplete`,
-			// which can stay pending through the busy cold load) so the mode request doesn't silently
-			// no-op via the `?.` below. `enterModeForWip` builds its own selection from repoPath/sha,
-			// so it doesn't need the panel to have reconciled to the row first.
-			const panel = await this.waitForDetailsPanel();
 			const mode = action === 'enter-review' ? 'review' : action === 'enter-compose' ? 'compose' : 'resolve';
 			// `filePaths` (resolve only) scopes the run to specific conflicted files; undefined = all conflicts.
 			// `composeInstructions` (compose only) seeds the AI-instructions input; ignored by review/resolve.
 			// `composeScope` (compose only) is the resolved recompose commit-range seed; absent = working-changes compose.
-			panel?.enterModeForWip(mode, repoPath, sha, target?.filePaths, composeInstructions, composeScope);
+			void this.withDetailsPanel(
+				panel =>
+					panel.enterModeForWip(mode, repoPath, sha, target?.filePaths, composeInstructions, composeScope),
+				'request-mode',
+			);
 			return;
 		}
+
+		showDetails();
 
 		await this.updateComplete;
 		// Seed the WIP details commit input AFTER the panel has reconciled to the target row —
@@ -1758,6 +1767,23 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			await new Promise<void>(resolve => setTimeout(resolve, 30));
 		}
 		return this.detailsPanelEl;
+	}
+
+	/** Single open path for "make the details panel visible, wait for it to mount (a cold graph
+	 *  open lags a few frames — see {@link waitForDetailsPanel}), then act on it". `token` guards
+	 *  against a stale reveal (e.g. rapid clicks racing a repo switch) landing its callback after a
+	 *  newer one already ran. */
+	private async withDetailsPanel(
+		fn: (panel: GlGraphDetailsPanel) => void,
+		trigger: DetailsVisibleTrigger,
+	): Promise<void> {
+		const token = ++this._detailsRevealToken;
+		this.setDetailsVisible(true, trigger);
+		this.ensureDetailsPosition();
+		const panel = await this.waitForDetailsPanel();
+		if (token !== this._detailsRevealToken || panel == null) return;
+
+		fn(panel);
 	}
 
 	private async scopeToBranch(): Promise<void> {
@@ -2591,7 +2617,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.navigation=${this._navState}
 					@select-commit=${this.handleSelectCommit}
 					@gl-toggle-details-maximized=${this.handleToggleDetailsMaximized}
-					@gl-graph-rebase-summary-open-change=${this.handleRebaseSummaryOpenChange}
+					@gl-graph-sheet-stack-change=${this.handleSheetStackChange}
 					@gl-nav-back=${this.handleNavBack}
 					@gl-nav-forward=${this.handleNavForward}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
@@ -3260,16 +3286,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.persistState();
 	}
 
-	private setDetailsVisible(
-		visible: boolean,
-		trigger?:
-			| 'toggle'
-			| 'request-compare'
-			| 'request-mode'
-			| 'request-agents'
-			| 'request-graph-wip-bar'
-			| 'auto-restore',
-	): void {
+	private setDetailsVisible(visible: boolean, trigger?: DetailsVisibleTrigger): void {
 		const gs = this.graphState;
 		if (gs.details?.visible === visible) return;
 
@@ -3306,9 +3323,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  maximize the modes use — it drives the split to 0 with the divider disabled, so the persisted
 	 *  `bottomPosition` is never overwritten and restoring is just re-binding it. The side dock has no
 	 *  maximize, so its split is left alone. */
-	private handleRebaseSummaryOpenChange = (e: CustomEvent<{ open: boolean }>): void => {
+	private handleSheetStackChange = (e: CustomEvent<{ kinds: SheetKind[]; prevKinds: SheetKind[] }>): void => {
+		const wasOpen = e.detail.prevKinds.includes('rebaseSummary');
+		const isOpen = e.detail.kinds.includes('rebaseSummary');
+		if (wasOpen === isOpen) return;
+
 		const gs = this.graphState;
-		if (!e.detail.open) {
+		if (!isOpen) {
 			const restore = this._maximizedBeforeRebaseSummary;
 			this._maximizedBeforeRebaseSummary = undefined;
 			// Only undo OUR maximize — if it was already maximized when the sheet opened, leave it.
@@ -3328,16 +3349,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	};
 
-	private emitDetailsVisibilityTelemetry(
-		visible: boolean,
-		trigger:
-			| 'toggle'
-			| 'request-compare'
-			| 'request-mode'
-			| 'request-agents'
-			| 'request-graph-wip-bar'
-			| 'auto-restore',
-	): void {
+	private emitDetailsVisibilityTelemetry(visible: boolean, trigger: DetailsVisibleTrigger): void {
 		if (visible) {
 			// `??=`, not `=`: the WIP-bar re-anchors an already-open panel by calling this directly
 			// (setDetailsVisible short-circuits when visibility is unchanged). Only start the dwell
