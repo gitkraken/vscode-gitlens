@@ -1,6 +1,6 @@
 import * as process from 'node:process';
 import { test as base, createTmpDir, GitFixture } from '../baseTest.js';
-import { findGkCliFromArgs, findIpcFileByWorkspace, McpClient, waitForCliInstall } from '../helpers/mcpHelper.js';
+import { findGkCliFromArgs, McpClient, waitForMcpReady } from '../helpers/mcpHelper.js';
 
 export { expect } from '@playwright/test';
 export type {
@@ -40,11 +40,12 @@ export const mcpTest = base.extend<McpFixtures>({
 
 	mcpClient: async ({ vscode }, use) => {
 		const gkPath = findGkCliFromArgs(vscode.electron.args);
-		await waitForCliInstall(gkPath);
-		const workspacePath = vscode.electron.workspacePath;
 
-		const ipcFilePath = await findIpcFileByWorkspace(workspacePath);
-		const client = new McpClient(gkPath, ipcFilePath);
+		// One shared budget for both preconditions, so a slow editor cannot spend the whole per-test
+		// timeout on the install wait and leave the discovery wait to fail anonymously.
+		const { ipcFilePath, ipcDiagnosis } = await waitForMcpReady(gkPath, vscode.electron.workspacePath);
+
+		const client = new McpClient(gkPath, ipcFilePath, 'vscode', ipcDiagnosis);
 		await use(client);
 	},
 });

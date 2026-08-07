@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as process from 'node:process';
@@ -49,8 +49,49 @@ export type IpcDiscoveryData = {
 	createdAt?: string;
 };
 
-/** Directory where GitLens writes IPC discovery files. */
+/**
+ * Directory where GitLens writes IPC discovery files.
+ *
+ * This is an assumption about the *editor's* environment, not just ours: GitLens resolves it from
+ * whatever `os.tmpdir()` reports inside the extension host. The harness launches the editor as a
+ * child of this process, so the two agree — but only while that holds. The two ways it breaks are
+ * platform-specific and both surface here as "no discovery file", which is why
+ * {@link describeIpcDiscovery} reports the resolved directory rather than leaving a failure to
+ * name nothing:
+ * - **macOS**: `TMPDIR` is per-user and per-session (`/var/folders/<hash>/…`, itself a symlink to
+ *   `/private/var/…`). A differently-launched editor gets a different one. Reads work through
+ *   either form, so the diagnosis reports both when they differ.
+ * - **Windows**: `%TEMP%` is per-user, and a redirected or roamed profile puts the file somewhere
+ *   this process cannot see. `readdir` can also fail outright on a permission-restricted directory,
+ *   which the poll loop records instead of swallowing.
+ */
 const ipcDiscoveryDir = path.join(os.tmpdir(), 'gitkraken', 'gitlens');
+
+/** Prefix + extension GitLens names its discovery files with. */
+const ipcDiscoveryFilePrefix = 'gitlens-ipc-server-';
+
+/**
+ * Sleeps between polls with exponential backoff and jitter, never overshooting `deadline`.
+ *
+ * Backoff keeps a long, contended wait from spinning on the filesystem hundreds of times, while the
+ * low starting delay keeps the fast path fast (a first-attempt hit never sleeps at all). Jitter
+ * matters under parallel workers: without it, N workers that started together stay in lockstep and
+ * hit the same directory on the same tick for the whole wait.
+ *
+ * Returns the delay actually slept, or `undefined` when the deadline has passed and the caller
+ * should give up.
+ */
+async function backoffDelay(attempt: number, deadline: number): Promise<number | undefined> {
+	const remaining = deadline - Date.now();
+	if (remaining <= 0) return undefined;
+
+	// 250ms doubling to a 2s ceiling: worst-case added latency on a hit is one ceiling-length sleep,
+	// which is negligible against the multi-second waits this exists for.
+	const base = Math.min(250 * 2 ** Math.min(attempt, 3), 2000);
+	const delay = Math.min(base + Math.floor(Math.random() * 250), remaining);
+	await new Promise(r => setTimeout(r, delay));
+	return delay;
+}
 
 /**
  * Reads and parses the IPC discovery JSON file.
@@ -89,26 +130,100 @@ export function findGkCliFromArgs(electronArgs: string[]): string {
  * runs (GitLens writes it asynchronously after activation).
  */
 export async function findIpcFileByWorkspace(workspacePath: string, timeoutMs = 30_000): Promise<string | undefined> {
-	const normalizedTarget = workspacePath.replace(/\\/g, '/').toLowerCase();
 	const deadline = Date.now() + timeoutMs;
 
-	while (Date.now() < deadline) {
-		if (existsSync(ipcDiscoveryDir)) {
-			for (const f of readdirSync(ipcDiscoveryDir)) {
-				if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) continue;
+	for (let attempt = 0; ; attempt++) {
+		const match = findIpcFileNow(workspacePath).filePath;
+		if (match != null) return match;
 
-				const fullPath = path.join(ipcDiscoveryDir, f);
-				const data = readIpcDiscoveryFile(fullPath);
-				if (data == null) continue;
+		if ((await backoffDelay(attempt, deadline)) == null) return undefined;
+	}
+}
 
-				const match = data.workspacePaths?.some(p => p.replace(/\\/g, '/').toLowerCase() === normalizedTarget);
-				if (match) return fullPath;
-			}
-		}
-		await new Promise(r => setTimeout(r, 500));
+/** One non-blocking sweep of the discovery directory, plus what it saw — the raw material for both
+ *  the poll loop and {@link describeIpcDiscovery}. */
+function findIpcFileNow(workspacePath: string): {
+	filePath?: string;
+	candidates: { file: string; workspaces: string[] }[];
+	readError?: string;
+} {
+	const normalizedTarget = normalizeWorkspacePath(workspacePath);
+	const candidates: { file: string; workspaces: string[] }[] = [];
+
+	if (!existsSync(ipcDiscoveryDir)) return { candidates: candidates };
+
+	let files: string[];
+	try {
+		files = readdirSync(ipcDiscoveryDir);
+	} catch (ex) {
+		// A directory we cannot enumerate (permissions, a redirected profile) is a different failure
+		// from an empty one, and the caller must be able to say which.
+		return { candidates: candidates, readError: ex instanceof Error ? ex.message : String(ex) };
 	}
 
-	return undefined;
+	for (const file of files) {
+		if (!file.startsWith(ipcDiscoveryFilePrefix) || !file.endsWith('.json')) continue;
+
+		const fullPath = path.join(ipcDiscoveryDir, file);
+		const data = readIpcDiscoveryFile(fullPath);
+		if (data == null) continue;
+
+		const workspaces = data.workspacePaths ?? [];
+		candidates.push({ file: file, workspaces: workspaces });
+		if (workspaces.some(p => normalizeWorkspacePath(p) === normalizedTarget)) {
+			return { filePath: fullPath, candidates: candidates };
+		}
+	}
+
+	return { candidates: candidates };
+}
+
+/** Windows paths differ in separator and case between what GitLens writes and what Playwright reports. */
+function normalizeWorkspacePath(workspacePath: string): string {
+	return workspacePath.replace(/\\/g, '/').toLowerCase();
+}
+
+/**
+ * Explains why {@link findIpcFileByWorkspace} came back empty, in terms of the assumption that broke.
+ *
+ * Without this a missing discovery file reads as a bare `undefined`: the IPC specs skip, the round-trip
+ * specs fall back to the CLI's own discovery, and the run stays green while proving nothing. The report
+ * distinguishes the cases that need different fixes — directory missing (GitLens never published, e.g.
+ * AI features disabled), directory unreadable (permissions), no files (published elsewhere — a different
+ * `TMPDIR`/`%TEMP%` than this process sees), or files present for other workspaces (a stale instance, or
+ * the wrong one matched).
+ */
+export function describeIpcDiscovery(workspacePath: string): string {
+	const realDir = safeRealPath(ipcDiscoveryDir);
+	const where =
+		realDir != null && realDir !== ipcDiscoveryDir
+			? `${ipcDiscoveryDir} (resolves to ${realDir})`
+			: ipcDiscoveryDir;
+	const preamble = `no IPC discovery file for workspace "${workspacePath}" in ${where}`;
+
+	if (!existsSync(ipcDiscoveryDir)) {
+		return `${preamble} — the directory does not exist, so GitLens never published one here. Either it did not reach \`startIpc\` (AI features disabled turn the whole publish path off), or the editor resolved a different temp directory than this process (${process.platform === 'win32' ? '%TEMP%' : 'TMPDIR'} is per-user).`;
+	}
+
+	const { candidates, readError } = findIpcFileNow(workspacePath);
+	if (readError != null) {
+		return `${preamble} — the directory exists but could not be read: ${readError}`;
+	}
+	if (!candidates.length) {
+		return `${preamble} — the directory exists but holds no \`${ipcDiscoveryFilePrefix}*.json\` files, so nothing published into the temp directory this process sees.`;
+	}
+
+	const listed = candidates.map(c => `${c.file} → [${c.workspaces.join(', ')}]`).join('; ');
+	return `${preamble} — ${candidates.length} discovery file(s) present, none carrying this workspace: ${listed}`;
+}
+
+/** `realpathSync` that reports failure as absent rather than throwing — used for diagnosis only. */
+function safeRealPath(target: string): string | undefined {
+	try {
+		return realpathSync(target);
+	} catch {
+		return undefined;
+	}
 }
 
 /**
@@ -117,19 +232,72 @@ export async function findIpcFileByWorkspace(workspacePath: string, timeoutMs = 
  * ~26s launched alone and ~44s when several instances start at once (measured on Linux — the download +
  * extract slides later under launch contention). So the 30s default was too tight and produced transient
  * `mcp*` failures on Positron under parallel CI workers. Polls and returns the instant the binary appears,
- * so fast editors pay nothing; the generous cap only affects the slow/contended path. This runs in the
- * test-scoped `mcpClient` fixture ahead of the IPC-discovery wait (`findIpcFileByWorkspace`, up to 30s),
- * so on the slow/contended path the two waits can together exceed the 60s per-test timeout — but only
- * ever fail an already-doomed run faster; the happy path returns in seconds and never approaches it.
+ * so fast editors pay nothing; the generous cap only affects the slow/contended path.
+ *
+ * Prefer {@link waitForMcpReady} over calling this directly: it shares one budget with the
+ * IPC-discovery wait, so the two cannot add up past the per-test timeout.
  */
 export async function waitForCliInstall(gkPath: string, timeoutMs = 50_000): Promise<void> {
-	const deadline = Date.now() + timeoutMs;
-	while (Date.now() < deadline) {
+	const started = Date.now();
+	const deadline = started + timeoutMs;
+
+	for (let attempt = 0; ; attempt++) {
 		if (existsSync(gkPath)) return;
 
-		await new Promise(r => setTimeout(r, 500));
+		if ((await backoffDelay(attempt, deadline)) == null) {
+			// Name what was checked and what is actually there: the usual causes are an editor that
+			// never activated GitLens (nothing in the directory at all) and a partially-extracted
+			// download (directory present, binary not).
+			const dir = path.dirname(gkPath);
+			let contents: string;
+			try {
+				contents = existsSync(dir) ? `contains [${readdirSync(dir).join(', ')}]` : 'does not exist';
+			} catch (ex) {
+				contents = `could not be read: ${ex instanceof Error ? ex.message : String(ex)}`;
+			}
+
+			throw new Error(
+				`GK CLI never appeared at "${gkPath}" — gave up after ${attempt + 1} attempts over ${Date.now() - started}ms (budget ${timeoutMs}ms). Its directory ${contents}. GitLens installs it on first activation, so this means activation did not get that far, not that the wait was too short.`,
+			);
+		}
 	}
-	throw new Error(`GK CLI not found at "${gkPath}" after ${timeoutMs}ms`);
+}
+
+/** What the `mcpClient` fixture needs before it can talk to the bundled server. */
+export interface McpReadiness {
+	/** The gk binary GitLens installed, confirmed present. */
+	gkPath: string;
+	/** Discovery file pinning the live instance, or `undefined` when none was published for it. */
+	ipcFilePath: string | undefined;
+	/** Set only when `ipcFilePath` is `undefined` — why, in terms of the assumption that broke. */
+	ipcDiagnosis: string | undefined;
+}
+
+/**
+ * Waits for both preconditions of an MCP call — the installed CLI, then the discovery file that pins
+ * the running instance — under a **single** budget.
+ *
+ * Sequencing them with independent timeouts is what used to make a slow, contended run fail
+ * anonymously: 50s of install wait followed by 30s of discovery wait can only end in the 60s per-test
+ * timeout, which names neither. Sharing one budget means the second wait gets whatever the first left,
+ * and whichever precondition is actually missing is the one that reports.
+ *
+ * A missing discovery file is deliberately not fatal: the CLI can still find the instance itself, and
+ * `mcp.test.ts` covers that unpinned path on purpose. It comes back as a diagnosis the caller can
+ * surface instead of a silent `undefined`.
+ */
+export async function waitForMcpReady(gkPath: string, workspacePath: string, budgetMs = 55_000): Promise<McpReadiness> {
+	const deadline = Date.now() + budgetMs;
+
+	await waitForCliInstall(gkPath, budgetMs);
+
+	const ipcFilePath = await findIpcFileByWorkspace(workspacePath, Math.max(deadline - Date.now(), 0));
+
+	return {
+		gkPath: gkPath,
+		ipcFilePath: ipcFilePath,
+		ipcDiagnosis: ipcFilePath == null ? describeIpcDiscovery(workspacePath) : undefined,
+	};
 }
 
 /**
@@ -141,6 +309,8 @@ export class McpClient {
 		readonly gkPath: string,
 		readonly ipcFilePath: string | undefined,
 		private readonly host: 'vscode' | 'cursor' = 'vscode',
+		/** Why {@link ipcFilePath} is absent, when it is — so a skip or failure can name the cause. */
+		readonly ipcDiagnosis?: string,
 	) {}
 
 	/** Returns names of all tools exposed by the MCP server, optionally started in a specific mode. */
