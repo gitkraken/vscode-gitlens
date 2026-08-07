@@ -120,3 +120,33 @@ export function classifyNetworkError(ex: unknown): AIErrorReason.NoNetwork | AIE
 	}
 	return sawFetchFailed ? AIErrorReason.NoNetwork : undefined;
 }
+
+/**
+ * Whether an error means AI itself is unavailable, rather than this particular request being
+ * unacceptable. The distinction matters to any caller running a loop: an unavailable-AI failure will
+ * repeat identically for every remaining item, so the loop should stop and say so, while a
+ * request-shaped failure (too large, no data) may well succeed on the next item.
+ *
+ * `RequestTooLarge` and `NoRequestData` are therefore deliberately excluded — they're properties of
+ * the one request that failed.
+ */
+export function isAIUnavailableError(ex: unknown): ex is AIError {
+	if (!(ex instanceof AIError)) return false;
+
+	switch (ex.reason) {
+		case AIErrorReason.DeniedByOrganization:
+		case AIErrorReason.DeniedByUser:
+		case AIErrorReason.NoEntitlement:
+		case AIErrorReason.RateLimitExceeded:
+		case AIErrorReason.RateLimitOrFundsExceeded:
+		case AIErrorReason.ServiceCapacityExceeded:
+		case AIErrorReason.Unauthorized:
+		case AIErrorReason.UserQuotaExceeded:
+		case AIErrorReason.NoNetwork:
+		case AIErrorReason.Unreachable:
+		case AIErrorReason.ModelNotSupported:
+			return true;
+		default:
+			return false;
+	}
+}

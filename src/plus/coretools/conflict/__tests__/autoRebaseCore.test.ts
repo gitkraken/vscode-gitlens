@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { AIError, AIErrorReason } from '@gitlens/ai/errors.js';
 import { PausedOperationContinueError } from '@gitlens/git/errors.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { AutoRebaseSession } from '../autoRebase.types.js';
@@ -195,6 +196,63 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.deepStrictEqual(session.steps[0].files.find(f => f.path === 'service.py')?.consulted, [
 			{ tool: 'grep', reason: 'is the renamed symbol still referenced?' },
 		]);
+	});
+
+	test('escalates as ai-unavailable when AI runs out mid-run, not as a per-file failure', async () => {
+		// Out of credits isn't a file that resisted resolution — every remaining step would fail the same
+		// way. Reporting it as `resolve-errors` ("The AI couldn't resolve service.py") blames the file and
+		// sends the user to look at the wrong thing, so the reason and message have to name the real cause.
+		const repo = makeRepo({ 1: ['service.py'] });
+		const session = makeSession();
+
+		const result = await run(
+			session,
+			makePorts(repo, {
+				resolveConflicts: () =>
+					Promise.resolve({
+						resolutions: [],
+						errors: [
+							{
+								filePath: 'service.py',
+								error: new AIError(AIErrorReason.UserQuotaExceeded),
+							},
+						],
+						skipped: [],
+					}),
+			}),
+		);
+
+		assert.strictEqual(result.type, 'escalated');
+		assert.strictEqual(result.type === 'escalated' && result.escalation.reason, 'ai-unavailable');
+		assert.strictEqual(
+			result.type === 'escalated' && /token limit/i.test(result.escalation.message),
+			true,
+			'the message must carry the real cause, not the file name',
+		);
+		// Nothing written, and the rebase is left paused for the user — not aborted over a billing state.
+		assert.strictEqual(repo.applied.length, 0);
+		assert.strictEqual(repo.continues.length, 0);
+	});
+
+	test('still escalates a genuine per-file failure as resolve-errors', async () => {
+		// `RequestTooLarge` is a property of the one request, so a different file may well succeed —
+		// it must not be swept into the run-level classification above.
+		const repo = makeRepo({ 1: ['a.txt'] });
+		const session = makeSession();
+
+		const result = await run(
+			session,
+			makePorts(repo, {
+				resolveConflicts: () =>
+					Promise.resolve({
+						resolutions: [],
+						errors: [{ filePath: 'a.txt', error: new AIError(AIErrorReason.RequestTooLarge) }],
+						skipped: [],
+					}),
+			}),
+		);
+
+		assert.strictEqual(result.type === 'escalated' && result.escalation.reason, 'resolve-errors');
 	});
 
 	test('escalates on low confidence without applying anything, handing off all resolutions', async () => {

@@ -25,6 +25,9 @@ export type AutoRebaseEscalationReason =
 	| 'low-confidence'
 	/** The AI failed to resolve one or more files */
 	| 'resolve-errors'
+	/** AI became unavailable mid-run (out of credits, rate-limited, offline, access revoked) — every
+	 *  remaining step would fail the same way, so it's the run that stopped, not a file that resisted */
+	| 'ai-unavailable'
 	/** One or more files had no parseable conflict markers (binary, symlink, …) */
 	| 'skipped-files'
 	/** The rebase paused for something other than conflicts (edit/break todo entry, …) */

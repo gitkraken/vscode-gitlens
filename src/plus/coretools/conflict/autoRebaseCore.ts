@@ -1,3 +1,4 @@
+import { isAIUnavailableError } from '@gitlens/ai/errors.js';
 import { PausedOperationContinueError } from '@gitlens/git/errors.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type {
@@ -361,6 +362,23 @@ export async function runAutoRebaseLoop(
 		};
 
 		if (result.errors.length > 0) {
+			// An availability failure isn't a file that resisted resolution — it's the run losing AI, so
+			// every remaining step would fail identically. Say that instead of naming the file, which
+			// otherwise reads as "the AI examined this and gave up" and sends the user looking at the
+			// wrong thing. The reason is only here to be read because the port throws the real `AIError`.
+			const unavailable = result.errors.find(e => isAIUnavailableError(e.error));
+			if (unavailable != null) {
+				return escalate(
+					{
+						reason: 'ai-unavailable',
+						message: `Automatic rebase stopped — ${unavailable.error.message} This step’s conflicts are still unresolved.`,
+						stepNumber: stepNumber,
+						files: result.errors.map(e => ({ path: e.filePath, error: e.error.message })),
+					},
+					handoff,
+				);
+			}
+
 			return escalate(
 				{
 					reason: 'resolve-errors',

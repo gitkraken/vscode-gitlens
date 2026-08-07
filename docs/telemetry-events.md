@@ -936,7 +936,7 @@ void
   'confidence.threshold': number,
   // Time from run start in milliseconds
   'duration': number,
-  'reason': 'low-confidence' | 'resolve-errors' | 'skipped-files' | 'non-conflict-pause' | 'external-modification' | 'step-cap' | 'continue-error' | 'stopped' | 'unexpected-error',
+  'reason': 'low-confidence' | 'resolve-errors' | 'ai-unavailable' | 'skipped-files' | 'non-conflict-pause' | 'external-modification' | 'step-cap' | 'continue-error' | 'stopped' | 'unexpected-error',
   // The step automation stopped at, when known
   'step': number,
   // Conflicted steps recorded so far

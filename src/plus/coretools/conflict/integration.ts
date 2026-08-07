@@ -695,6 +695,13 @@ function createAiModelPort(
 						temperature: params.temperature,
 					},
 					tools: tools,
+					// Resolution is always a driven loop — many steps per file, up to `ResolveConcurrency`
+					// files at once. The service's interactive error prompts are `await`ed, so leaving them
+					// on would park every in-flight file behind its own un-dismissable notification and
+					// freeze the run (an automatic rebase would sit mid-step with even Cancel inert).
+					// `throwAIErrors` keeps the real `AIError` — the caller reports it per file instead.
+					silent: true,
+					throwAIErrors: true,
 				});
 
 				if (result === 'cancelled') {

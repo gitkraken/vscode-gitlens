@@ -1039,6 +1039,7 @@ interface AutoRebaseEscalatedEvent extends AutoRebaseLifecycleEvent {
 	reason:
 		| 'low-confidence'
 		| 'resolve-errors'
+		| 'ai-unavailable'
 		| 'skipped-files'
 		| 'non-conflict-pause'
 		| 'external-modification'
