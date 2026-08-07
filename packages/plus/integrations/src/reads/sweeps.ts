@@ -141,7 +141,12 @@ function sliceOutcome(slice: SweepSlice | undefined): ProviderSweepTargetEvent['
 }
 
 /**
- * Report one settled target, never letting instrumentation change the sweep's outcome.
+ * Per-target reporting for a sweep's `onTargetSettled`, opened once per sweep: this stamps the fan-out start,
+ * the returned function stamps one target's start, and the function IT returns is the only thing that can
+ * report that target. The timestamps therefore never cross a boundary, so there is no pair of interchangeable
+ * numbers for a call site to transpose, and the whole reporting concern is one value the fan-out either has or
+ * does not. A caller who installed no observer never opens one, which is how "costs nothing when omitted"
+ * survives as a property of the code rather than of three scattered guards.
  *
  * The try/catch is what makes the observer observation-only: called from the fan-out's success path, a throwing
  * callback would otherwise propagate out of the `mapBounded` task and reject the entire sweep — corrupting the
@@ -151,26 +156,30 @@ function sliceOutcome(slice: SweepSlice | undefined): ProviderSweepTargetEvent['
  * same rule no matter how far it got. `resolveDomainForRead` needs no integration instance, which is what makes
  * that possible: a target rejected by the first guard resolves the same host a fully drained one does.
  */
-function notifyTargetSettled(
+function startSweepReporting(
 	ctx: ProviderReadContext,
 	observe: (event: ProviderSweepTargetEvent) => void,
-	target: ProviderSweepTarget,
-	slice: SweepSlice | undefined,
-	startedAt: number,
-	fanOutStartedAt: number,
-): void {
-	try {
-		observe({
-			providerId: target.providerId,
-			domain: ctx.resolveDomainForRead(target.providerId, target.connectionId, target.domain),
-			connectionId: target.connectionId,
-			count: slice?.items.length ?? 0,
-			durationMs: performance.now() - startedAt,
-			queueWaitMs: startedAt - fanOutStartedAt,
-			outcome: sliceOutcome(slice),
-			truncated: slice?.truncated ?? false,
-		});
-	} catch {}
+): (target: ProviderSweepTarget) => (slice: SweepSlice | undefined) => void {
+	const fanOutStartedAt = performance.now();
+
+	return function beginTarget(target: ProviderSweepTarget) {
+		const startedAt = performance.now();
+
+		return function reportSettled(slice: SweepSlice | undefined) {
+			try {
+				observe({
+					providerId: target.providerId,
+					domain: ctx.resolveDomainForRead(target.providerId, target.connectionId, target.domain),
+					connectionId: target.connectionId,
+					count: slice?.items.length ?? 0,
+					durationMs: performance.now() - startedAt,
+					queueWaitMs: startedAt - fanOutStartedAt,
+					outcome: sliceOutcome(slice),
+					truncated: slice?.truncated ?? false,
+				});
+			} catch {}
+		};
+	};
 }
 
 export async function sweepPullRequests(
@@ -179,18 +188,16 @@ export async function sweepPullRequests(
 ): Promise<ProviderSweepResult<PullRequestShape>> {
 	const { targets, attributeUnavailableProviders } = resolvePullRequestSweepTargets(options);
 
-	const observe = options?.onTargetSettled;
-	// Stamped before the fan-out so a target that waited for a worker slot reports the wait. Read the
-	// clock only when someone is listening: an omitted observer must cost nothing at all, which is the
+	// Opened before the fan-out so a target that waited for a worker slot reports the wait, and only when
+	// someone is listening: an omitted observer must cost nothing at all — not even a clock read — which is the
 	// contract a host's perf gate relies on when it is off (it is off by default).
-	const fanOutStartedAt = observe != null ? performance.now() : 0;
+	const observe = options?.onTargetSettled;
+	const beginTarget = observe != null ? startSweepReporting(ctx, observe) : undefined;
 
 	const results = await mapBounded(targets, providerFanOutConcurrency, async target => {
-		const startedAt = observe != null ? performance.now() : 0;
+		const reportSettled = beginTarget?.(target);
 		const slice = await sweepTarget(ctx, options, target, attributeUnavailableProviders);
-		if (observe != null) {
-			notifyTargetSettled(ctx, observe, target, slice, startedAt, fanOutStartedAt);
-		}
+		reportSettled?.(slice);
 		return slice;
 	});
 
