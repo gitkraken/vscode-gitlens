@@ -153,14 +153,21 @@ type PullRequestSweepCommonOptions = {
 	/**
 	 * Fired once per target as it settles, for host-side per-provider attribution.
 	 *
-	 * Observation only: it cannot influence the sweep, and a throw is swallowed rather than allowed to turn a
-	 * successful target into a failed one. Omitting it costs nothing at all — not even a clock read — so a host
-	 * whose perf gate is off pays exactly what it paid before this option existed. The guards in the sweep's
-	 * fan-out are what enforce that; they are not redundant.
+	 * Observation only: it cannot influence the sweep, and a SYNCHRONOUS throw is swallowed rather than allowed
+	 * to turn a successful target into a failed one. Return nothing and do no async work: the `void` return type
+	 * admits an `async` callback, but nothing awaits it, so a rejection from one escapes that guarantee as an
+	 * unhandled rejection. It is also invoked synchronously in the middle of the fan-out — do not re-enter the
+	 * manager from it.
 	 *
-	 * It reports how a target SETTLED, not every way one can end: if a target's read throws instead of
-	 * reporting failure through its slice, the whole sweep rejects, and neither that target nor the ones still
-	 * in flight are reported — the result they would have been attributed against no longer exists.
+	 * Omitting it costs nothing at all — not even a clock read — so a host whose perf gate is off pays exactly
+	 * what it paid before this option existed. The guards in the sweep's fan-out are what enforce that; they are
+	 * not redundant.
+	 *
+	 * It reports how a target SETTLED, not every way one can end, and **delivery does not stop when the sweep
+	 * fails**: if a target's read throws instead of reporting failure through its slice, the sweep rejects with
+	 * that error, but its sibling targets are already in flight and are not cancelled, so their events still
+	 * arrive — after the returned promise has rejected. Key the accumulator to the call rather than closing it
+	 * on rejection, or a late event lands in whatever bucket is current by then.
 	 */
 	onTargetSettled?: (event: ProviderSweepTargetEvent) => void;
 };
