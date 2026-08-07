@@ -92,6 +92,8 @@ import type {
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
+import type { SheetDescriptor, SheetOverlayCoordinator } from './sheetStack.js';
+import { popSheet as popSheetFromStack, pushSheet, removeKind, replaceStack, sheetKey } from './sheetStack.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
@@ -1005,7 +1007,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 * absolutely-positioned gl-detail-sheets would render two dimming scrims over the same host).
 	 */
 	private renderBranchSheet(ref: BranchSheetRef | undefined) {
-		if (ref == null || this._state.compareSheetOpen.get() || this._conflictSheet != null) return nothing;
+		if (ref == null || this._state.compareSheetOpen.get() || this._sheetStack.length > 0) return nothing;
 
 		// Remote-qualify the title the same way the pane does ("origin/main", not "main") — `ref.name`
 		// alone is the bare branch name shared with its local tracking counterpart.
@@ -1102,6 +1104,33 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			></gl-graph-branch-sheet-pane>
 		</gl-detail-sheet>`;
 	}
+
+	/** Renders whatever's on top of {@link _sheetStack}. Phase 1: only 'conflict' is ever pushed
+	 *  here — other kinds fall through to `nothing` (unreachable until their openers migrate). */
+	private renderTopSheet() {
+		const top = this._sheetStack.at(-1);
+		if (top?.kind !== 'conflict') return nothing;
+
+		return html`<gl-wip-conflict-sheet
+			.detail=${top.detail}
+			.getDetails=${this.getConflictDetails}
+			file-name=${top.fileName}
+			?show-back=${this._sheetStack.length > 1}
+			.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+			.preferences=${this._state.preferences.get()}
+			@gl-detail-sheet-close=${this.handleCloseConflictDetails}
+			@conflict-open-changes=${this.handleConflictOpenChanges}
+			@conflict-stage=${this.handleConflictStage}
+			@conflict-open-commit=${this.handleConflictOpenCommit}
+			@conflict-open-file=${this.handleConflictOpenFile}
+			@conflict-resolve-ai=${this.handleConflictResolveAi}
+		></gl-wip-conflict-sheet>`;
+	}
+
+	/** Wraps the same service call the panel always used to fetch conflict details — injected into
+	 *  the sheet component so IT owns the fetch lifecycle instead of the panel. */
+	private readonly getConflictDetails = (detail: FileChangeListItemDetail): Promise<ConflictDetails | undefined> =>
+		this._actions.getConflictDetails(detail.repoPath, detail.path, detail.status ?? '');
 
 	/** The sheet's Open on Remote chip — only for a ref that actually exists on a remote. Gated on the
 	 *  ref context's `+tracking`/`+remote` flags, the same test the row menu's own entry uses, so the
@@ -1532,14 +1561,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _resizeObserver?: ResizeObserver;
 	@state() private _preferredCompareOrientation: PanelOrientation = 'vertical';
 
-	/** Open state + lazily-fetched data for the WIP Conflict Details sheet (undefined = closed). */
-	@state()
-	private _conflictSheet?: {
-		detail: FileChangeListItemDetail;
-		fileName: string;
-		loading: boolean;
-		error: boolean;
-		details?: ConflictDetails;
+	/** Stack of currently-open detail sheets. Phase 1: only 'conflict' descriptors are pushed here —
+	 *  branch/rebaseSummary/compare still use their own legacy fields until later phases migrate. */
+	@state() private _sheetStack: SheetDescriptor[] = [];
+
+	/** Parallel to {@link _sheetStack} — the element to restore focus to when the sheet at that
+	 *  index closes. Captured from `document.activeElement` at the moment each sheet was opened. */
+	private _sheetFocusMemos: (HTMLElement | undefined)[] = [];
+
+	/** Tracks the previous top-of-stack identity so {@link updated} can report open/close
+	 *  transitions exactly once per change, not once per render. */
+	private _prevSheetTopKey?: string;
+
+	/** Seam for a later phase to mirror stack pushes/pops into the graph keymap's overlay focus
+	 *  stack (`pushOverlay`/`popOverlay`). No-op until that phase wires it up. */
+	private readonly _sheetCoordinator: SheetOverlayCoordinator = {
+		opened: () => {},
+		closed: () => {},
 	};
 
 	/** Open state + lazily-fetched data for the Automatic Rebase summary sheet (undefined = closed). */
@@ -1948,6 +1986,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						composed: true,
 					}),
 				);
+			}
+		}
+
+		{
+			const top = this._sheetStack.at(-1);
+			const topKey = top != null ? sheetKey(top) : undefined;
+			if (topKey !== this._prevSheetTopKey) {
+				if (this._prevSheetTopKey != null) {
+					this._sheetCoordinator.closed(this._prevSheetTopKey);
+				}
+				if (topKey != null) {
+					this._sheetCoordinator.opened(topKey);
+				}
+				this._prevSheetTopKey = topKey;
 			}
 		}
 
@@ -2392,7 +2444,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// re-slides. Falling through to the single `.details-host` template keeps Lit's template instance,
 		// and with it the sheet's DOM.
 		const noContent = resolved == null && !this.isLoading;
-		if (noContent && this._branchSheet == null) return nothing;
+		if (noContent && this._branchSheet == null && this._sheetStack.length === 0) return nothing;
 
 		// "Stale" covers both: cached content shown while loading, and current content shown while
 		// a background refresh is running.
@@ -2421,7 +2473,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
 			?inert=${
 				compareSheetOpen ||
-				this._conflictSheet != null ||
+				this._sheetStack.length > 0 ||
 				branchSheetRef != null ||
 				this._rebaseSummarySheet != null
 			}
@@ -2488,24 +2540,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				})()
 			: nothing;
 
-		const conflictSheet =
-			this._conflictSheet != null
-				? html`<gl-wip-conflict-sheet
-						.details=${this._conflictSheet.details}
-						?loading=${this._conflictSheet.loading}
-						?error=${this._conflictSheet.error}
-						file-name=${this._conflictSheet.fileName}
-						.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
-						.preferences=${this._state.preferences.get()}
-						@gl-detail-sheet-close=${this.handleCloseConflictDetails}
-						@conflict-open-changes=${this.handleConflictOpenChanges}
-						@conflict-stage=${this.handleConflictStage}
-						@conflict-open-commit=${this.handleConflictOpenCommit}
-						@conflict-open-file=${this.handleConflictOpenFile}
-						@conflict-resolve-ai=${this.handleConflictResolveAi}
-					></gl-wip-conflict-sheet>`
-				: nothing;
-
 		const branchSheet = this.renderBranchSheet(branchSheetRef);
 
 		const rebaseSummarySheet =
@@ -2524,7 +2558,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		if (!compareAsPanel) {
 			return html`<div class="details-host">
-				${detailsContent}${compareSheet}${conflictSheet}${branchSheet}${rebaseSummarySheet}
+				${detailsContent}${compareSheet}${this.renderTopSheet()}${branchSheet}${rebaseSummarySheet}
 			</div>`;
 		}
 
@@ -2542,7 +2576,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@gl-split-panel-change=${this.handleCompareSplitChange}
 			@gl-split-panel-dblclick=${this.handleCompareSplitDblClick}
 		>
-			<div slot="start" class="compare-pinned-split__start">${detailsContent}${conflictSheet}${branchSheet}</div>
+			<div slot="start" class="compare-pinned-split__start">
+				${detailsContent}${this.renderTopSheet()}${branchSheet}
+			</div>
 			<div slot="end" class="compare-pinned-split__end">
 				<div class="compare-pinned-host">
 					<header class="compare-pinned-host__header">
@@ -2571,6 +2607,68 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleCloseCompareSheet = (): void => {
 		this._workflow.closeCompare();
 	};
+
+	// Sheet stack router
+
+	get sheetDepth(): number {
+		return this._sheetStack.length;
+	}
+
+	/** Opens (or replaces the top of) the sheet stack. `push: true` stacks on top of whatever's
+	 *  open; omitted/false discards the current stack and starts fresh — the policy external
+	 *  openers (e.g. a WIP conflict row) use, since they're not "drilling down" from another sheet. */
+	openSheet(descriptor: SheetDescriptor, options?: { push?: boolean }): void {
+		const focusEl = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+
+		// The currently-mounted sheet is about to unmount (or get replaced) as a side effect of a
+		// stack change we're driving here, not the user dismissing it — the router owns focus
+		// restoration for this transition, not the sheet's own disconnect handler.
+		const mounted = this.querySelector('gl-detail-sheet');
+		if (mounted != null) {
+			mounted.skipFocusRestore = true;
+		}
+
+		if (options?.push) {
+			const before = this._sheetStack;
+			this._sheetStack = pushSheet(before, descriptor);
+			// pushSheet collapses a re-push of the current top in place (same length) — keep the
+			// memo stack's shape matching the sheet stack's shape in both cases.
+			this._sheetFocusMemos =
+				this._sheetStack.length === before.length
+					? [...this._sheetFocusMemos.slice(0, -1), focusEl]
+					: [...this._sheetFocusMemos, focusEl];
+		} else {
+			this._sheetStack = replaceStack(this._sheetStack, descriptor);
+			this._sheetFocusMemos = [focusEl];
+		}
+	}
+
+	/** Pops the top sheet. Restores focus to the ORIGINAL trigger (memo[0]) once the stack fully
+	 *  empties — intermediate pops leave focus to the newly-exposed sheet's own auto-focus. */
+	popSheet(): void {
+		const { stack, popped } = popSheetFromStack(this._sheetStack);
+		if (popped == null) return;
+
+		const rootMemo = this._sheetFocusMemos[0];
+		this._sheetStack = stack;
+		this._sheetFocusMemos = this._sheetFocusMemos.slice(0, -1);
+
+		if (this._sheetStack.length === 0 && rootMemo?.isConnected) {
+			rootMemo.focus({ preventScroll: true });
+		}
+	}
+
+	/** Discards the whole stack at once (vs. popping one at a time) — e.g. a selection change that
+	 *  invalidates everything currently open. */
+	clearSheets(): void {
+		const rootMemo = this._sheetFocusMemos[0];
+		this._sheetStack = [];
+		this._sheetFocusMemos = [];
+
+		if (rootMemo?.isConnected) {
+			rootMemo.focus({ preventScroll: true });
+		}
+	}
 
 	private handleOpenCompareAsPanel = (e: MouseEvent): void => {
 		// Skip the sheet's focus-restoration — the user is transitioning INTO the panel,
@@ -2791,7 +2889,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.wip=${wip}
 				.currentRepoPath=${this.graphRepoPath()}
 				?sheets-open=${
-					this._state.compareSheetOpen.get() || this._conflictSheet != null || this._branchSheet != null
+					this._state.compareSheetOpen.get() || this._sheetStack.length > 0 || this._branchSheet != null
 				}
 				?graph-ready=${this.graphReady}
 				?show-maximize=${this.showMaximize}
@@ -4084,31 +4182,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleOpenConflictDetails = (e: CustomEvent<FileChangeListItemDetail>) => {
 		const detail = e.detail;
 		const fileName = detail.path.split('/').pop() || detail.path;
-		this._conflictSheet = { detail: detail, fileName: fileName, loading: true, error: false };
-		void this.loadConflictDetails(detail);
+		this.openSheet({ kind: 'conflict', detail: detail, fileName: fileName });
 	};
 
-	private async loadConflictDetails(detail: FileChangeListItemDetail): Promise<void> {
-		let details: ConflictDetails | undefined;
-		let error: boolean;
-		try {
-			details = await this._actions.getConflictDetails(detail.repoPath, detail.path, detail.status ?? '');
-			error = details == null;
-		} catch {
-			error = true;
-		}
-
-		// Stale-guard: ignore the result if the user closed the sheet or opened another file mid-flight.
-		const current = this._conflictSheet;
-		if (current == null || current.detail.repoPath !== detail.repoPath || current.detail.path !== detail.path) {
-			return;
-		}
-
-		this._conflictSheet = { ...current, loading: false, error: error, details: details };
-	}
-
 	private handleCloseConflictDetails = () => {
-		this._conflictSheet = undefined;
+		this.popSheet();
 	};
 
 	private handleCloseRebaseSummary = () => {
@@ -4159,47 +4237,48 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleConflictOpenChanges = (e: CustomEvent<ConflictSheetSideEventDetail>) => {
-		const conflict = this._conflictSheet;
-		if (conflict == null) return;
+		const top = this._sheetStack.at(-1);
+		if (top?.kind !== 'conflict') return;
 
-		this._actions.openConflictChanges(conflict.detail, e.detail.side);
+		this._actions.openConflictChanges(top.detail, e.detail.side);
 	};
 
 	private handleConflictStage = (e: CustomEvent<ConflictSheetSideEventDetail>) => {
-		const conflict = this._conflictSheet;
-		if (conflict == null) return;
+		const top = this._sheetStack.at(-1);
+		if (top?.kind !== 'conflict') return;
 
-		this._actions.stageConflictSide(
-			conflict.detail.repoPath,
-			conflict.detail.path,
-			conflict.detail.status ?? '',
-			e.detail.side,
-		);
+		this._actions.stageConflictSide(top.detail.repoPath, top.detail.path, top.detail.status ?? '', e.detail.side);
 	};
 
 	private handleConflictOpenCommit = (e: CustomEvent<ConflictSheetCommitEventDetail>) => {
-		const conflict = this._conflictSheet;
-		if (conflict == null) return;
+		const top = this._sheetStack.at(-1);
+		if (top?.kind !== 'conflict') return;
 
-		this._actions.openConflictCommit(conflict.detail.repoPath, conflict.detail.path, e.detail.sha);
+		this._actions.openConflictCommit(top.detail.repoPath, top.detail.path, e.detail.sha);
 	};
 
 	private handleConflictOpenFile = () => {
-		const conflict = this._conflictSheet;
-		if (conflict == null) return;
+		const top = this._sheetStack.at(-1);
+		if (top?.kind !== 'conflict') return;
 
-		this._actions.openFile(conflict.detail);
+		this._actions.openFile(top.detail);
 	};
 
 	/** Header "Resolve Conflicts" — closes the sheet and enters resolve mode focused on this
 	 *  one file (mirrors the paused-op banner's resolve, but scoped to the sheet's file). */
 	private handleConflictResolveAi = () => {
-		const conflict = this._conflictSheet;
-		if (conflict == null) return;
+		const top = this._sheetStack.at(-1);
+		if (top?.kind !== 'conflict') return;
 
-		const repoPath = conflict.detail.repoPath;
-		const filePath = conflict.detail.path;
-		this._conflictSheet = undefined;
+		const repoPath = top.detail.repoPath;
+		const filePath = top.detail.path;
+
+		// Drop the conflict entry wherever it sits (not just a plain pop) and keep the focus-memo
+		// stack's shape matching — removeKind can remove a non-top entry in later phases.
+		const keep = this._sheetStack.map(d => d.kind !== 'conflict');
+		this._sheetStack = removeKind(this._sheetStack, 'conflict');
+		this._sheetFocusMemos = this._sheetFocusMemos.filter((_, i) => keep[i]);
+
 		this.enterModeForWip('resolve', repoPath, uncommitted, [filePath]);
 	};
 

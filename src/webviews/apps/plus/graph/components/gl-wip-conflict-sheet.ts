@@ -1,7 +1,9 @@
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Preferences } from '../../../../plus/graph/detailsProtocol.js';
 import type { ConflictDetails, ConflictDetailsCommit, ConflictDetailsSide } from '../../../../rpc/services/types.js';
+import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { CommitRowData } from './gl-commit-row.js';
 import './gl-commit-row-item.js';
@@ -174,14 +176,13 @@ export class GlWipConflictSheet extends LitElement {
 		`,
 	];
 
+	/** The conflicted file's identity/detail, driven by the parent. */
 	@property({ type: Object })
-	details?: ConflictDetails;
+	detail?: FileChangeListItemDetail;
 
-	@property({ type: Boolean })
-	loading = false;
-
-	@property({ type: Boolean })
-	error = false;
+	/** Injected fetcher — the parent binds this to wrap its own service call. */
+	@property({ attribute: false })
+	getDetails?: (detail: FileChangeListItemDetail) => Promise<ConflictDetails | undefined>;
 
 	/** Basename of the conflicted file, for the sheet title. */
 	@property({ type: String, attribute: 'file-name' })
@@ -194,6 +195,25 @@ export class GlWipConflictSheet extends LitElement {
 	@property({ type: Object })
 	preferences?: Preferences;
 
+	/** Forwarded to the inner `gl-detail-sheet` — true when this sheet sits above another in the stack. */
+	@property({ type: Boolean, attribute: 'show-back' })
+	showBack = false;
+
+	private _skipFocusRestore = false;
+
+	/** Mirrors `gl-detail-sheet.skipFocusRestore` onto the inner sheet — the sheet-stack router queries
+	 *  this host, which shadow DOM hides the inner element from. */
+	set skipFocusRestore(value: boolean) {
+		this._skipFocusRestore = value;
+		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
+		if (sheet != null) {
+			sheet.skipFocusRestore = value;
+		}
+	}
+	get skipFocusRestore(): boolean {
+		return this._skipFocusRestore;
+	}
+
 	/** Split orientation — flipped by width (side-by-side when wide, stacked when narrow). */
 	@state()
 	private _orientation: 'horizontal' | 'vertical' = 'horizontal';
@@ -202,9 +222,20 @@ export class GlWipConflictSheet extends LitElement {
 	@state()
 	private _position = 50;
 
+	@state() private _loading = false;
+	@state() private _error = false;
+	@state() private _details?: ConflictDetails;
+
 	private _resizeObserver?: ResizeObserver;
 
 	override firstUpdated(): void {
+		if (this._skipFocusRestore) {
+			const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
+			if (sheet != null) {
+				sheet.skipFocusRestore = true;
+			}
+		}
+
 		const body = this.shadowRoot?.querySelector('.body');
 		if (body == null) return;
 
@@ -226,8 +257,35 @@ export class GlWipConflictSheet extends LitElement {
 		super.disconnectedCallback?.();
 	}
 
+	override willUpdate(changedProperties: PropertyValues<this>): void {
+		if (changedProperties.has('detail') && this.detail != null && this.getDetails != null) {
+			void this.fetchDetails(this.detail);
+		}
+	}
+
+	private async fetchDetails(detail: FileChangeListItemDetail): Promise<void> {
+		this._loading = true;
+		this._error = false;
+		this._details = undefined;
+
+		let details: ConflictDetails | undefined;
+		let error = false;
+		try {
+			details = await this.getDetails?.(detail);
+			error = details == null;
+		} catch {
+			error = true;
+		}
+
+		if (this.detail !== detail) return; // superseded by a newer open mid-flight
+
+		this._loading = false;
+		this._error = error;
+		this._details = details;
+	}
+
 	override render(): unknown {
-		return html`<gl-detail-sheet aria-label="Conflict details" close-label="Close">
+		return html`<gl-detail-sheet aria-label="Conflict details" close-label="Close" ?show-back=${this.showBack}>
 			<span slot="title" class="title">
 				<code-icon icon="warning"></code-icon>
 				<span class="title__name">Conflict · ${this.fileName}</span>
@@ -256,10 +314,10 @@ export class GlWipConflictSheet extends LitElement {
 	}
 
 	private renderContent(): unknown {
-		if (this.loading) return html`<div class="state">Loading conflict details…</div>`;
-		if (this.error) return html`<div class="state">Unable to load conflict details.</div>`;
+		if (this._loading) return html`<div class="state">Loading conflict details…</div>`;
+		if (this._error) return html`<div class="state">Unable to load conflict details.</div>`;
 
-		const details = this.details;
+		const details = this._details;
 		if (details == null) return nothing;
 
 		return html`<gl-split-panel
