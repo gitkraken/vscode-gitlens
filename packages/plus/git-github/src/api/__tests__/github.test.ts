@@ -331,6 +331,55 @@ suite('GitHubApi.searchMyPullRequestsPage summaries', () => {
 		assert.equal(result.values[0].body, 'Summary body');
 		assert.equal(result.values[0].refs?.head.branch, 'feature');
 	});
+
+	test('orders by sort:updated so a page-budgeted sweep retains a recency window', async () => {
+		// Ordering is a contract here, not a preference: the closed-PR sweep caps its walk, so without an
+		// explicit sort GitHub's `best-match` ranking decides which rows survive the cap, and the retained set
+		// can change with no upstream change at all.
+		const searches: string[] = [];
+		const config: GitHubApiConfig = {
+			isWeb: false,
+			fetch: async (_url, init) => {
+				const body = JSON.parse(String(init?.body ?? '{}')) as {
+					variables?: { search?: string };
+				};
+				searches.push(body.variables?.search ?? '');
+				return new Response(
+					JSON.stringify({
+						data: {
+							search: {
+								issueCount: 0,
+								pageInfo: { endCursor: null, hasNextPage: false },
+								nodes: [],
+							},
+						},
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				);
+			},
+			wrapForForcedInsecureSSL: (_ignore, fn) => fn(),
+		};
+		const api = new GitHubApi(config);
+
+		await api.searchMyPullRequestsPage(provider, token, { state: 'closed' });
+		await api.searchMyPullRequestsPage(provider, token, { state: 'merged' });
+		await api.searchMyPullRequestsPage(provider, token, {
+			state: 'closed',
+			search: 'author:@me',
+			includeDefaultInvolvement: false,
+		});
+		// `all` contributes no state qualifier, so it also proves the sort survives an empty leading slot.
+		await api.searchMyPullRequestsPage(provider, token, { state: 'all' });
+
+		assert.equal(searches.length, 4);
+		for (const search of searches) {
+			assert.match(search, /\bsort:updated\b/, `missing sort:updated in "${search}"`);
+		}
+		assert.equal(searches[0], 'is:closed is:unmerged is:pr involves:@me archived:false sort:updated');
+		assert.equal(searches[1], 'is:merged is:pr involves:@me archived:false sort:updated');
+		assert.equal(searches[2], 'is:closed is:unmerged is:pr archived:false author:@me sort:updated');
+		assert.equal(searches[3], 'is:pr involves:@me archived:false sort:updated');
+	});
 });
 
 suite('GitHubApi direct pull request lookups', () => {
