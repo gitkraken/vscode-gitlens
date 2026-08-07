@@ -4,6 +4,7 @@ import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { createManualTokenAuthProvider } from '../authentication/manualTokenProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
@@ -3544,6 +3545,66 @@ suite('sweep + broaden (#5438)', () => {
 			events.reduce((sum, e) => sum + e.count, 0),
 			result.items.length,
 			'the attributed rows account for the whole closed sweep',
+		);
+
+		manager.dispose();
+	});
+
+	test('a sibling target still reports after another target rejected the sweep', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			scopes: ['api'],
+			domain: 'gitlab.com',
+		};
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () =>
+				Promise.resolve({
+					values: [providerPr('1')],
+					paging: { more: false, cursor: '{}' },
+				} satisfies PagedResult<ProviderPullRequest>),
+		});
+
+		// A throw from a seam the sweep calls with no try/catch — unlike a provider read failure, which the
+		// drain converts into `fetchFailed`. This is the only way the sweep itself rejects.
+		const readSeam = manager as unknown as {
+			getIntegrationForRead: (id: string, connectionId?: string, domain?: string) => Promise<unknown>;
+		};
+		const resolveIntegration = readSeam.getIntegrationForRead.bind(manager);
+		readSeam.getIntegrationForRead = (id, connectionId, domain) => {
+			if (id === GitCloudHostIntegrationId.GitLab) throw new Error('resolution blew up');
+			return resolveIntegration(id, connectionId, domain);
+		};
+
+		// Awaited rather than slept on: the sibling settles through however many microtask hops its drain takes,
+		// and a single tick that happens to be enough today is how this assertion would rot into a flake.
+		const events: ProviderSweepTargetEvent[] = [];
+		const settled = defer<void>();
+		await assert.rejects(
+			manager.sweepPullRequests({
+				providerIds: [GitCloudHostIntegrationId.GitLab, GitCloudHostIntegrationId.GitHub],
+				repos: [{ namespace: 'octocat', name: 'hello' }],
+				onTargetSettled: event => {
+					events.push(event);
+					settled.fulfill();
+				},
+			}),
+			/resolution blew up/,
+		);
+
+		// `mapBounded` propagates the first rejection but does not cancel the siblings, so GitHub's event is
+		// delivered even though the sweep already failed. Pinned because a consumer that closed its accumulator
+		// on rejection would misfile this into whatever bucket is current by then.
+		assert.equal(events.length, 0, 'the rejection lands before the surviving sibling has settled');
+		await settled.promise;
+		assert.deepEqual(
+			events.map(e => ({ providerId: e.providerId, count: e.count, outcome: e.outcome })),
+			[{ providerId: GitCloudHostIntegrationId.GitHub, count: 1, outcome: 'ok' }],
+			'the target that settled is reported after the sweep already failed; the one that threw is not',
 		);
 
 		manager.dispose();
