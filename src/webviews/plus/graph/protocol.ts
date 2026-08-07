@@ -397,7 +397,7 @@ export interface GraphComposeScopeSeed {
 }
 
 /** Surface the user focused (scoped) the graph from. Reported as `graph/scope/changed`'s `source`. */
-export type GraphScopeSource = 'popover' | 'overview-card' | 'sidebar';
+export type GraphScopeSource = 'popover' | 'overview-card' | 'sidebar' | 'wip-row';
 
 /** Target branch for a `scope-to-branch` action. When present, the webview focuses (scopes) the
  *  graph to this branch instead of the current branch — used by the Focus on Branch/Worktree

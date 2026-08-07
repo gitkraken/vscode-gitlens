@@ -4523,11 +4523,48 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphHover.hide();
 	}
 
-	private handleGraphRowDoubleClick(_e: CustomEventType<'gl-graph-row-double-click'>) {
-		if (this.graphState.details?.visible) return;
+	/** Opens the details panel (unless already open) and, for a WIP row, also toggles the graph's
+	 *  scope onto that row's branch — same behavior as the header's Focus button, reached from the
+	 *  WIP row itself. Additive: runs regardless of whether the details panel was already open. */
+	private handleGraphRowDoubleClick(e: CustomEventType<'gl-graph-row-double-click'>) {
+		if (!this.graphState.details?.visible) {
+			this.setDetailsVisible(true);
+			this.ensureDetailsPosition();
+		}
 
-		this.setDetailsVisible(true);
-		this.ensureDetailsPosition();
+		if (e.detail.graphRow.kind === 'workdir') {
+			this.toggleScopeFromWipRow(e.detail.graphRow.sha);
+		}
+	}
+
+	private toggleScopeFromWipRow(sha: string): void {
+		let branchRef: string | undefined;
+		let branchName: string | undefined;
+		let upstreamName: string | undefined;
+
+		if (isPrimaryWipRowId(sha, this.fallbackRepoPath)) {
+			const branch = this.graphState.branch;
+			if (branch == null || branch.detached || branch.id == null) return;
+
+			branchRef = branch.id;
+			branchName = branch.name;
+			upstreamName = branch.upstream?.missing ? undefined : branch.upstream?.name;
+		} else {
+			const wip = this.graphState.wipRowsById?.[sha];
+			if (wip?.branchRef == null || wip.branch == null) return;
+
+			branchRef = wip.branchRef;
+			branchName = wip.branch.name;
+			upstreamName = wip.branch.upstream?.missing ? undefined : wip.branch.upstream?.name;
+		}
+
+		if (this.graphState.scope?.branchRef === branchRef) {
+			this.graphState.clearScope();
+
+			return;
+		}
+
+		void this.scopeToBranchByName(branchName, upstreamName, { source: 'wip-row' });
 	}
 
 	private handleGraphRowHover({
