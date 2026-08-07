@@ -234,6 +234,13 @@ const defaultUserSettings: Record<string, unknown> = {
 	// Skip onboarding/welcome screens — ephemeral test environments shouldn't show welcome views
 	'gitlens.advanced.skipOnboarding': true,
 
+	// Load-bearing for the whole MCP suite, not a preference. GitLens registers its CLI/MCP IPC
+	// handlers — and publishes the discovery file the `mcpClient` fixture matches on — inside
+	// `gkCliService.startIpc`, which only runs while AI features are enabled. With this off the
+	// fixture finds no discovery file and every `gitlens_*` call answers `-32603 "server not found"`,
+	// so a change to the packaged default would read as an unrelated MCP outage. Pinned explicitly.
+	'gitlens.ai.enabled': true,
+
 	// Quiet VS Code's built-in Git extension. These tests drive git through the CLI + GitLens (never
 	// the built-in SCM UI), but the built-in extension watches `.git` and periodically refreshes/
 	// fetches — grabbing `.git/index.lock` mid-operation. Under a 4-worker CI runner that contends with
