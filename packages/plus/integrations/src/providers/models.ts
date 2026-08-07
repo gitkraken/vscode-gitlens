@@ -811,7 +811,6 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
-			PullRequestFilter.Reviewed,
 			PullRequestFilter.Mention,
 		],
 		supportedAccountWidePullRequestFilters: [
@@ -845,7 +844,6 @@ export const providersMetadata: ProvidersMetadata = {
 			PullRequestFilter.Author,
 			PullRequestFilter.Assignee,
 			PullRequestFilter.ReviewRequested,
-			PullRequestFilter.Reviewed,
 			PullRequestFilter.Mention,
 		],
 		supportedAccountWidePullRequestFilters: [
