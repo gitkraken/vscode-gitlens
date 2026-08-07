@@ -39,6 +39,7 @@ import { openComparisonChanges } from '../../git/actions/commit.js';
 import {
 	abortPausedOperation,
 	continuePausedOperation,
+	onDidChangeContinuingPausedOperation,
 	showPausedOperationStatus,
 	skipPausedOperation,
 } from '../../git/actions/pausedOperation.js';
@@ -191,6 +192,18 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			},
 			onOverviewRepositoryChanged: this._overviewRepoChangedEvent.subscribe(buffer, tracker),
 			onOverviewFilterChanged: this._overviewFilterChangedEvent.subscribe(buffer, tracker),
+			// A continue/skip blocks on git's commit-message tab for an unbounded time, so the bar's busy
+			// state can only come from the host. Unfiltered on purpose: the continuing path is the repo that
+			// OWNS the paused op, which for a worktree-backed active branch is the worktree rather than the
+			// selected repo — the case the flag exists for is exactly the one a path filter would drop.
+			onPausedOperationContinuingChanged: createRpcEventSubscription<undefined>(
+				buffer,
+				'pausedOpContinuing',
+				'signal',
+				buffered => onDidChangeContinuingPausedOperation(() => buffered(undefined)),
+				undefined,
+				tracker,
+			),
 
 			// --- Walkthrough ---
 			getWalkthroughProgress: () => Promise.resolve(this.getWalkthroughProgress()),

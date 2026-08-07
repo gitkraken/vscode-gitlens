@@ -107,6 +107,14 @@ export interface OverviewBranchWip {
 	conflictsCount?: number;
 	pausedOpStatus?: GitPausedOperationStatus;
 	/**
+	 * A continue/skip is still running for the repo/worktree that owns `pausedOpStatus`. `<op> --continue`
+	 * blocks for as long as git's commit-message tab stays open, so only the host knows when it ends —
+	 * without this the bar's optimistic busy state is cleared by the next overview refresh, which lands
+	 * while git is still blocked. `true`/absent, never `false`, mirroring the Graph's
+	 * `WipChange.pausedOpContinuing`.
+	 */
+	pausedOpContinuing?: boolean;
+	/**
 	 * Set when an on-demand stats fetch settled without producing a breakdown (the request failed or was
 	 * cancelled), so the hover can show a terminal "Couldn't load changes" instead of a perpetual
 	 * "Loading changes…". Only meaningful while `workingTreeState` is absent. Supplied by the Graph's WIP

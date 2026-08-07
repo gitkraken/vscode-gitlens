@@ -101,6 +101,9 @@ export interface SubscriptionActions {
 	refreshOverview(): void;
 	/** Called when only the active overview data should be refreshed (FS edits, index changes — anything that can't shift the inactive list). */
 	refreshActiveOverview(): void;
+	/** Called when the active overview must refresh NOW, without the usual debounce — the busy state of a
+	 *  paused-operation continue/skip is only correct for as long as it matches the host's in-flight set. */
+	refreshActiveOverviewNow(): void;
 	/** Called when only the inactive overview data should be refreshed. */
 	refreshInactiveOverview(): void;
 	/** Called when the current overview should be replaced immediately. */
@@ -209,6 +212,15 @@ export function setupSubscriptions(
 		() =>
 			services.home.onWalkthroughProgressChanged((progress: WalkthroughProgress) => {
 				state.onboarding.walkthroughProgress.set(progress);
+			}),
+
+		// Both edges of a continue/skip need a fetch: the start so the bar goes busy even when the click
+		// came from another surface, and the settle because the repo change the command produces carries
+		// the paused op's OWN path — which the handler above drops when that's a worktree rather than the
+		// selected overview repo, leaving the bar stranded on its host-reported busy state.
+		() =>
+			services.home.onPausedOperationContinuingChanged(() => {
+				actions.refreshActiveOverviewNow();
 			}),
 
 		// ============================================================
