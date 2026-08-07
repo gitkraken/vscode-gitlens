@@ -262,6 +262,68 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		}
 	});
 
+	test('refreshConnections syncs cloud connections concurrently', async () => {
+		// The sibling tests above gate on `v1/provider-tokens/tokens/…`, the per-connection reconcile pass.
+		// This one gates on the PROVIDER-scoped path, which is what the `syncCloudConnection` loop resolves
+		// through — a different pass, and the one that used to await each provider in turn.
+		const started = new Set<string>();
+		let releaseRequests!: () => void;
+		let resolveBothStarted!: () => void;
+		const requestsReleased = new Promise<void>(resolve => (releaseRequests = resolve));
+		const bothStarted = new Promise<void>(resolve => (resolveBothStarted = resolve));
+		const { manager } = createManager({
+			connections: [
+				{
+					tokenId: 'gh1',
+					provider: 'github',
+					type: 'oauth',
+					domain: 'github.com',
+					accountName: 'octo',
+				},
+				{
+					tokenId: 'gl1',
+					provider: 'gitlab',
+					type: 'oauth',
+					domain: 'gitlab.com',
+					accountName: 'tanuki',
+				},
+			],
+			token: async path => {
+				const provider = path.split('/').pop()!;
+				if (path === 'v1/provider-tokens/github' || path === 'v1/provider-tokens/gitlab') {
+					started.add(provider);
+					if (started.size === 2) {
+						resolveBothStarted();
+					}
+					await requestsReleased;
+				}
+				const tokenId = provider === 'github' ? 'gh1' : provider === 'gitlab' ? 'gl1' : provider;
+				return {
+					tokenId: tokenId,
+					accessToken: `tok-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+				};
+			},
+		});
+		const refresh = manager.refreshConnections();
+
+		try {
+			await Promise.race([
+				bothStarted,
+				new Promise<never>((_, reject) =>
+					setTimeout(() => reject(new Error('cloud connection syncs remained sequential')), 1000),
+				),
+			]);
+			assert.deepEqual(started, new Set(['github', 'gitlab']));
+		} finally {
+			releaseRequests();
+			await refresh;
+			manager.dispose();
+		}
+	});
+
 	test('blank wire account names fall back to the cached account name', async () => {
 		const { runtime, manager } = createManager({
 			connections: [

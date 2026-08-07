@@ -1574,12 +1574,31 @@ export class IntegrationService implements Disposable, RepositoryResolutionConte
 			}
 		}
 
+		// Concurrent, not serial: each `syncCloudConnection` is a cloud round trip (a forced sync deletes the
+		// stored session and refetches it), so a serial loop pays the SUM of every provider's latency on a
+		// path that gates EVERY provider read. `reconcileCloudConnections` below is already `Promise.all`.
+		//
+		// Safe because every shared mutable path is already serialized, which is why this can be a plain
+		// fan-out rather than needing per-provider grouping:
+		// - `ensureProvider` is `@gate()`d on `providerId`, so the two integrations a multi-host
+		//   self-managed id yields (one per domain, see `getSupportedCloudIntegrations`) share one
+		//   in-flight construction instead of racing to `providers.set`.
+		// - `ensureSession` is `@gate()`d per integration instance.
+		// - `addOrUpdateConfigured`/`removeConfigured` mutate `configured` in a synchronous critical
+		//   section (no `await` between read and `set`), and `storeConfigured` has its own write queue.
+		// - Secrets and the `connected:` workspace flags are keyed by integration id + domain.
+		const integrations: Integration[] = [];
 		for await (const integration of this.getSupportedCloudIntegrations(domainsById)) {
-			await integration.syncCloudConnection(
-				this.getCloudConnectionState(integration, connectedIntegrations, domainsById),
-				forceConnect,
-			);
+			integrations.push(integration);
 		}
+		await Promise.all(
+			integrations.map(integration =>
+				integration.syncCloudConnection(
+					this.getCloudConnectionState(integration, connectedIntegrations, domainsById),
+					forceConnect,
+				),
+			),
+		);
 
 		// Persist every account when the backend advertises per-connection identity (multi-account). This
 		// is a strict no-op for backends that return a single, id-less connection per provider.
