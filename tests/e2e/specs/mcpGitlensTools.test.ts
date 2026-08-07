@@ -36,8 +36,15 @@ import { expect, mcpTest as test } from '../fixtures/mcp.js';
 
 type GitlensToolResult = { content?: { text?: string }[]; isError?: boolean };
 
-/** The `{ data, summary }` envelope every `gitlens_*` tool wraps its payload in. */
-type GitlensToolEnvelope = { data?: unknown; summary?: string };
+/**
+ * The `{ data, summary }` envelope a `gitlens_*` tool response carries, **after validation**.
+ *
+ * `data` is required here even though the wire form can omit it — the CLI leaves the key out
+ * entirely for a nil payload — because that omission is exactly what
+ * {@link parseGitlensToolResponse} rejects. Everything it hands back has one, so callers should
+ * not have to re-check. `summary` stays optional: the CLI genuinely omits it for an empty summary.
+ */
+type GitlensToolEnvelope = { data: unknown; summary?: string };
 
 const openGraph = 'gitlens_open_graph';
 
@@ -70,14 +77,16 @@ function parseGitlensToolResponse(response: McpMessage): GitlensToolEnvelope {
 	const text = result?.content?.[0]?.text;
 	expect(text, 'tool response should carry text content').toBeTruthy();
 
-	let parsed: GitlensToolEnvelope;
+	// Parsed as partial, returned as validated: the envelope only earns its required `data` once the
+	// assertion below has rejected the nil-payload form the CLI emits without the key.
+	let parsed: Partial<GitlensToolEnvelope>;
 	try {
-		parsed = JSON.parse(text!) as GitlensToolEnvelope;
+		parsed = JSON.parse(text!) as Partial<GitlensToolEnvelope>;
 	} catch (ex) {
 		throw new Error(`tool response text was not valid JSON: ${text!.slice(0, 200)}`, { cause: ex });
 	}
 	expect(parsed).toHaveProperty('data');
-	return parsed;
+	return parsed as GitlensToolEnvelope;
 }
 
 /** Unwraps just the `data` payload from a `gitlens_*` response. */
