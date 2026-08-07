@@ -158,9 +158,11 @@ export interface RowRenderContext {
 	/** Commit/merge-only: resolved Undo Commit target (leaf worktree HEAD), when undo is offered. The
 	 *  optional `worktreePath` routes the undo to a non-active worktree; `branchName` labels the button. */
 	undoTarget?: { worktreePath?: string; branchName?: string };
-	/** Commit/merge-only: a WIP/workdir row sits on this commit (it's a worktree branch tip) — gates the
-	 *  Jump to Working Changes action (the inverse of the WIP row's Jump to Branch Tip). */
-	hasWipRow?: boolean;
+	/** Commit/merge-only: this is the graph's own HEAD row with its WIP row pinned non-adjacent at the
+	 *  top — gates the Jump to Working Changes action, the inverse of the WIP row's proxy-pill jump and
+	 *  shown under the SAME decision. Never set for peer worktree tips: their WIP rows interleave
+	 *  directly above them, so the jump would move one row. */
+	hasJumpableWipRow?: boolean;
 	/** The current worktree's row-marker tips (HEAD / upstream / merge-target shas + the target name). The
 	 *  SAME object on every row — rows resolve their own role from it by sha (`rowMarkerRolesFor`, a
 	 *  no-alloc bitmask check), so only the handful of marked rows render the left-edge rail — up to 5 when a scope
@@ -859,7 +861,7 @@ export function hasPersistentRowActions(
 }
 
 // Row-action strip (right-aligned): per row kind — workdir gets Resolve (conflicts only) / Compose /
-// Review / Stash-Save (+ an agent indicator when agents are attached), stash gets Apply/Drop, commit/
+// Review (+ an agent indicator when agents are attached), stash gets Apply/Drop, commit/
 // merge gets Undo (leaf worktree tip) / Open-Changes / Push-to-Commit (unpushed). Buttons carry
 // data-row-action / data-wip-open; gl-lit-graph's click delegation turns them into the
 // gl-graph-rowaction / gl-graph-wiprowopen events the wrapper routes to the host. WIP buttons reflect
@@ -968,30 +970,8 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					<code-icon icon="checklist"></code-icon>${renderActionStatus(
 						reviewStatus,
 						reviewStatus === 'loading',
-					)}</button
-				><button
-					class="gl-graph__row-action gl-graph__row-action--gated"
-					type="button"
-					tabindex="-1"
-					data-row-action="stash-save"
-					data-tooltip="Stash All Changes..."
-					aria-label="Stash All Changes..."
-				>
-					<code-icon icon="gl-stash-save"></code-icon></button
-				>${
-					ctx.commit.parents[0] != null
-						? html`<button
-								class="gl-graph__row-action gl-graph__row-action--gated"
-								type="button"
-								tabindex="-1"
-								data-jump-sha=${ctx.commit.parents[0]}
-								data-tooltip="Jump to Branch Tip"
-								aria-label="Jump to Branch Tip"
-							>
-								<code-icon icon="download"></code-icon>
-							</button>`
-						: nothing
-				}`;
+					)}
+				</button>`;
 			break;
 		}
 		case 'stash':
@@ -1052,7 +1032,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 				>
 					<code-icon icon="diff-multiple"></code-icon></button
 				>${
-					ctx.hasWipRow === true
+					ctx.hasJumpableWipRow === true
 						? html`<button
 								class="gl-graph__row-action gl-graph__row-action--gated"
 								type="button"

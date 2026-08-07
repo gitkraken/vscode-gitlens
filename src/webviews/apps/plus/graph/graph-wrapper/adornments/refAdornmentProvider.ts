@@ -384,6 +384,9 @@ export interface RefPillRowMarker {
 	 *  to navigate a competing action, and it would unpin from a surface that never offered to pin. The
 	 *  graph's own row pills are where the edge pin is shown and cleared. */
 	suppressPinControl?: boolean;
+	/** Icons-only: no label text, ever, and no hover-expand overlay. The name lives only in the tooltip
+	 *  (`data-tooltip` on `.gl-graph__ref-pill-main`). Set by the WIP-row proxy pill. */
+	iconsOnly?: boolean;
 }
 
 export function renderRefPill(
@@ -469,7 +472,9 @@ export function renderRefPill(
 		emphasisRole != null && rowMarker?.muted === true ? ' gl-graph__ref-pill--row-marker-muted' : ''
 	}${rowMarker?.expandAnchor === 'right' ? ' gl-graph__ref-pill--expand-right' : ''}${
 		isFindHit ? ' gl-graph__ref-pill--find-hit' : ''
-	}${isPinned ? ' is-pinned' : ''}${isContextPinned ? ' is-context-pinned' : ''}`;
+	}${isPinned ? ' is-pinned' : ''}${isContextPinned ? ' is-context-pinned' : ''}${
+		rowMarker?.iconsOnly === true ? ' gl-graph__ref-pill--icons-only' : ''
+	}`;
 	const afterPrimary = upstreamOnRow != null ? parsed.slice(1).filter(r => r !== upstreamOnRow) : parsed.slice(1);
 	// Within the popover, pair each head with its in-sync upstream remote (if also listed) and absorb that
 	// remote into the head's row, so the expanded rows combine just like the primary pill.
@@ -491,7 +496,7 @@ export function renderRefPill(
 	// A row-marker pill that carries `upstream` opts out of both and just NAMES the remote instead.
 	let upstreamSegment: TemplateResult | typeof nothing;
 	if (rowMarker?.upstream != null) {
-		upstreamSegment = renderNamedUpstreamSegment(primary, rowMarker.upstream, hooks);
+		upstreamSegment = renderNamedUpstreamSegment(primary, rowMarker.upstream, hooks, rowMarker?.iconsOnly === true);
 	} else {
 		upstreamSegment =
 			fromSha != null
@@ -541,8 +546,8 @@ export function renderRefPill(
 				>`
 			: nothing;
 	// The WIP-row pill is a PROXY for the HEAD branch pill shown on the WIP row: `data-jump-sha` makes a click
-	// JUMP to the HEAD tip (scroll + select) via the same path the WIP row's "Jump to Branch Tip" button uses
-	// — onClick handles it early (jump + stopPropagation), so the pill navigates to the branch WITHOUT pinning
+	// JUMP to the HEAD tip (scroll + select) via the same `gl-jump-to-commit` path the WIP details header's
+	// jump button uses — onClick handles it early (jump + stopPropagation), so the pill navigates to the branch WITHOUT pinning
 	// or opening its sheet. That makes the NAME half a jump zone in its own right, so it takes the same lit-up
 	// band + "Jump to …" tooltip the upstream/merge-target segments carry — otherwise the pill's largest zone
 	// was the only one that never signalled where it goes. Tooltip wording mirrors the overview bar's legs.
@@ -576,21 +581,28 @@ export function renderRefPill(
 			class="gl-graph__ref-pill-main${nameJump ? ' gl-graph__ref-pill-main--jump' : ''}"
 			data-tooltip=${nameTip ?? nothing}
 		>
-			${leadingSlot}
-			<span class="gl-graph__ref-pill-label">${chipLabel(primary, showRemoteNames)}</span>
+			${leadingSlot}${
+				rowMarker?.iconsOnly === true
+					? nothing
+					: html`<span class="gl-graph__ref-pill-label">${chipLabel(primary, showRemoteNames)}</span>`
+			}
 		</span>
 		${upstreamSegment}${targetSegment}${prChip}${issueChip}${moreBadge}
-		<span class="gl-graph__ref-pill-expand" aria-hidden="true"
-			>${
-				nameJump
-					? html`<span
-							class="gl-graph__ref-pill-expand-name gl-graph__ref-pill-main--jump"
-							data-tooltip=${nameTip}
-							>${expandName}</span
-						>`
-					: expandName
-			}${upstreamSegment}${targetSegmentExpanded}${prChipExpanded}${issueChipExpanded}${moreBadge}</span
-		>
+		${
+			rowMarker?.iconsOnly === true
+				? nothing
+				: html`<span class="gl-graph__ref-pill-expand" aria-hidden="true"
+						>${
+							nameJump
+								? html`<span
+										class="gl-graph__ref-pill-expand-name gl-graph__ref-pill-main--jump"
+										data-tooltip=${nameTip}
+										>${expandName}</span
+									>`
+								: expandName
+						}${upstreamSegment}${targetSegmentExpanded}${prChipExpanded}${issueChipExpanded}${moreBadge}</span
+					>`
+		}
 	</span>`;
 
 	// A single ref → bare pill. Its hover-expand overlay is absolutely positioned and must escape the
@@ -851,15 +863,16 @@ function renderNamedUpstreamSegment(
 	ref: ParsedRef,
 	upstream: { name: string; hostingServiceType?: GkProviderId; jumpSha?: Sha },
 	hooks: RefPillHooks | undefined,
+	iconOnly: boolean,
 ): TemplateResult {
 	const full = shortRefName(upstream.name);
 	const remote = getRemoteNameFromBranchName(full);
 	const label = remote.length > 0 && getBranchNameWithoutRemote(full) === ref.name ? remote : full;
 	const icon = remoteRefIcon(upstream.hostingServiceType);
 	const sha = upstream.jumpSha;
-	if (sha == null) return renderNamedSegment(icon, label, `Upstream (${full})`);
+	if (sha == null) return renderNamedSegment(icon, iconOnly ? '' : label, `Upstream (${full})`);
 
-	return renderNamedSegment(icon, label, `Jump to Upstream (${full})`, () => hooks?.onJumpToRef(sha));
+	return renderNamedSegment(icon, iconOnly ? '' : label, `Jump to Upstream (${full})`, () => hooks?.onJumpToRef(sha));
 }
 
 /**

@@ -1033,9 +1033,11 @@ export class GlLitGraph extends LitElement {
 			isUnpushed: commit.isUnpublished,
 			isUnpulled: commit.isUnpulled,
 			undoTarget: commit.undo,
-			// A WIP/workdir row sits on this commit (it's a worktree branch tip) — gates the inverse
-			// Jump to Working Changes action. `wipAnchorShas` holds workdir rows' first-parent anchors.
-			hasWipRow: this.wipAnchorShas.has(row.sha),
+			// Gates the inverse Jump to Working Changes action by the SAME decision as the WIP row's proxy
+			// pill (pill built ⇒ the primary WIP row exists, non-adjacent): only the graph's own HEAD row
+			// offers it — a peer worktree's WIP row interleaves directly above its tip, so the jump there
+			// would move one row.
+			hasJumpableWipRow: c.wipRowMarkerPill != null && row.sha === c.rowMarkerTips?.headSha,
 			avatarVscodeContext: commit.avatarVscodeContext,
 			// The SAME tips object for every row (a reference, no per-row derivation): each row resolves its
 			// own HEAD/upstream/target role by sha — 3 compares for the rows that play none. The prebuilt WIP
@@ -5437,7 +5439,7 @@ export class GlLitGraph extends LitElement {
 		// (the pill branch below re-schedules only on a first click; `onDblClick` handles the checkout).
 		this.cancelPendingPillActivation();
 
-		// Row-action buttons (Open Changes / stash Apply-Drop / WIP Compose-Review-Stash) resolve
+		// Row-action buttons (Open Changes / stash Apply-Drop / WIP Compose-Review) resolve
 		// BEFORE selection so a button click doesn't also select the row. They carry data-row-action
 		// (→ host RowActionCommand) or data-wip-open (→ the compose/review/agents workflow); the
 		// wrapper routes both. Alt on open-changes switches to the working-tree variant.
@@ -5480,16 +5482,16 @@ export class GlLitGraph extends LitElement {
 				return;
 			}
 
-			// The WIP row's "Jump to Branch Tip" button carries the tip sha directly (`parents[0]`, the
-			// commit the working changes sit on) — a client-side scroll+select via the same
-			// `gl-jump-to-commit` path the WIP details header uses (graph-wrapper's onJumpToCommit →
-			// navigateToCommit); NOT a host round-trip like data-row-action.
+			// The WIP row-marker pill carries the HEAD tip sha directly (`jumpSha`) — a client-side
+			// scroll+select via the same `gl-jump-to-commit` path the WIP details header uses
+			// (graph-wrapper's onJumpToCommit → navigateToCommit); NOT a host round-trip like
+			// data-row-action.
 			//
-			// Says nothing about distance, because it can't: this same attribute is emitted by the WIP
-			// row-marker pill, which exists only when HEAD is NOT the next row. The reveal rule sorts it out —
-			// a tip already sitting in view stays put, one crammed at the bottom or off-screen gets landed.
-			// Flashes either way: when nothing scrolls, the wash is the ONLY thing that pulls the eye to the
-			// row that just took the selection.
+			// Says nothing about distance, because it can't: the pill (and hence this attribute) exists
+			// only when HEAD is NOT the next row. The reveal rule sorts it out — a tip already sitting in
+			// view stays put, one crammed at the bottom or off-screen gets landed. Flashes either way: when
+			// nothing scrolls, the wash is the ONLY thing that pulls the eye to the row that just took the
+			// selection.
 			const jumpSha = el.getAttribute('data-jump-sha');
 			if (jumpSha != null) {
 				document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha, flash: true } }));
@@ -8694,10 +8696,11 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// The primary WIP row's row-marker pill: the CURRENT branch's ref pill (sourced from the HEAD row's
-	// refs), right-anchored, role-forced to HEAD (so it carries the green emphasis + the merge-target
-	// segment) and reused verbatim from `renderRefPill` — one pill language everywhere. `muted` softens the
-	// inversion so it reads as secondary to the real HEAD-row pill; `jumpSha` makes a click JUMP to the HEAD
-	// tip (scroll + select) without pinning — the WIP row is far from HEAD, so the pill is a navigation aid.
+	// refs), role-forced to HEAD (so it carries the green emphasis + the merge-target segment) and reused
+	// verbatim from `renderRefPill` — one pill language everywhere. `muted` softens the inversion so it
+	// reads as secondary to the real HEAD-row pill; `jumpSha` makes a click JUMP to the HEAD tip (scroll +
+	// select) without pinning — the WIP row is far from HEAD, so the pill is a navigation aid. `iconsOnly`
+	// keeps it icon-only with no hover-expand — the name lives in the tooltip only.
 	private buildWipRowMarkerPill(tips: RowMarkerTips | undefined): TemplateResult | undefined {
 		const target = this.wipRowMarkerPillTarget(tips);
 		if (target == null) return undefined;
@@ -8731,6 +8734,7 @@ export class GlLitGraph extends LitElement {
 				expandAnchor: 'right',
 				muted: true,
 				suppressPinControl: true,
+				iconsOnly: true,
 				jumpSha: tips?.headSha,
 				upstream:
 					primary.upstreamName != null

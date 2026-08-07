@@ -12,7 +12,6 @@ import type { GitReference, GitRevisionReference, GitStashReference } from '@git
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
-import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getBranchId, getBranchNameWithoutRemote, getLocalBranchByUpstream } from '@gitlens/git/utils/branch.utils.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
@@ -2537,7 +2536,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					let cache = true;
 					let commit;
-					let secondaryWorktree;
 					try {
 						const wipWorktreePath = params.type === 'workdir' ? getWipRowWorktreePath(id) : undefined;
 						const isSecondaryWip =
@@ -2547,15 +2545,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						switch (params.type) {
 							case 'workdir':
 								cache = false;
-								[commit, secondaryWorktree] = await Promise.all([
-									svc.commits.getCommit(uncommitted, toAbortSignal(cancellation.token)),
-									isSecondaryWip
-										? svc.worktrees?.getWorktree(
-												wt => wt.path === hoverRepoPath,
-												toAbortSignal(cancellation.token),
-											)
-										: undefined,
-								]);
+								// The uncommitted pseudo-commit's `repoPath` carries the worktree path the
+								// WIP tooltip shows — no worktree lookup needed.
+								commit = await svc.commits.getCommit(uncommitted, toAbortSignal(cancellation.token));
 								break;
 							case 'stash': {
 								const stash = await svc.stash?.getStash(undefined, toAbortSignal(cancellation.token));
@@ -2586,12 +2578,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							});
 						}
 
-						markdown = this.getCommitTooltip(commit, cancellation.token, secondaryWorktree).catch(
-							(ex: unknown) => {
-								this._hoverCache.delete(id);
-								throw ex;
-							},
-						);
+						markdown = this.getCommitTooltip(commit, cancellation.token).catch((ex: unknown) => {
+							this._hoverCache.delete(id);
+							throw ex;
+						});
 						if (cache) {
 							this._hoverCache.set(id, markdown);
 						}
@@ -2624,13 +2614,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async getCommitTooltip(
-		commit: GitCommit,
-		cancellation: CancellationToken,
-		worktree?: GitWorktree | undefined,
-	) {
+	private async getCommitTooltip(commit: GitCommit, cancellation: CancellationToken) {
 		if (commit.isUncommitted) {
-			return this._wip.getWipTooltip(commit, cancellation, worktree);
+			return this._wip.getWipTooltip(commit, cancellation);
 		}
 
 		const template = configuration.get(
@@ -4233,7 +4219,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// loaded graph was built, so it can be reused verbatim (see `reuseGraph`).
 		const repositoryUnchanged = this.repository.etag === this._etagRepository;
 		this._etagRepository = this.repository?.etag;
-		this.host.title = `${this.host.originalTitle}: ${this.repository.name}`;
+		// Repo name only in the editor tab's title — the view keeps its bare title (the header's repo
+		// picker already names the repo there).
+		this.host.title = this.host.is('editor')
+			? `${this.host.originalTitle}: ${this.repository.name}`
+			: this.host.originalTitle;
 
 		let selectionChanged = false;
 

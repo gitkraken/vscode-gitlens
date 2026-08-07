@@ -9,7 +9,6 @@ import type { GitRevisionReference, GitStashReference } from '@gitlens/git/model
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
-import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -23,7 +22,6 @@ import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { Container } from '../../../container.js';
 import { isContinuingPausedOperation } from '../../../git/actions/pausedOperation.js';
-import { CommitFormatter } from '../../../git/formatters/commitFormatter.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { getBranchRemote } from '../../../git/utils/-webview/branch.utils.js';
 import { formatCommitStats } from '../../../git/utils/-webview/commit.utils.js';
@@ -69,13 +67,6 @@ const wipWatchGracePeriodMs = 30_000;
  * costs one fan-out across every worktree instead of one per build.
  */
 const wipProbeCooldownMs = 3000;
-
-// Minimal template used for the first line of the WIP row hover (avatar + author). The rest of the WIP
-// tooltip is built directly in `getWipTooltip` to accommodate the optional worktree path and the
-// "No working changes" fallback, neither of which is representable via formatter tokens.
-const wipAuthorTemplate =
-	// oxlint-disable-next-line no-template-curly-in-string
-	'${avatar} &nbsp;__${author}__';
 
 /** Collaborators the WIP/working-tree cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphWipContext()`. `getRepository`/`getSession` read live provider
@@ -721,21 +712,15 @@ export class GraphWipService {
 		return slice;
 	}
 
-	async getWipTooltip(commit: GitCommit, cancellation: CancellationToken, worktree?: GitWorktree): Promise<string> {
-		const [authorLine] = await Promise.all([
-			CommitFormatter.fromTemplateAsync(
-				wipAuthorTemplate,
-				commit,
-				{ source: 'graph' },
-				{ outputFormat: 'markdown' },
-			),
-			GitCommit.ensureFullDetails(commit, { include: { stats: true } }),
-		]);
+	// Deliberately minimal — the worktree path and the change stats, nothing else. The commit is the
+	// worktree's own `uncommitted` pseudo-commit, so its `repoPath` IS the worktree's path (peer WIP
+	// rows route through their worktree's repository service).
+	async getWipTooltip(commit: GitCommit, cancellation: CancellationToken): Promise<string> {
+		await GitCommit.ensureFullDetails(commit, { include: { stats: true } });
 
 		if (cancellation.isCancellationRequested) throw new CancellationError();
 
-		const workingTreeLine =
-			worktree != null ? `\`Working Tree\` &nbsp;$(folder) \`${worktree.uri.fsPath}\`` : '`Working Tree`';
+		const workingTreeLine = `$(folder) \`${commit.repoPath}\``;
 
 		const statsShort = formatCommitStats(commit.stats, 'stats', { color: true });
 		const statsExpanded = formatCommitStats(commit.stats, 'expanded', {
@@ -749,7 +734,7 @@ export class GraphWipService {
 				: statsShort
 			: 'No working changes';
 
-		return `${authorLine}\\\n${workingTreeLine}\\\n${statsLine}`;
+		return `${statsLine}\\\n${workingTreeLine}`;
 	}
 
 	/** Runs the worktree clean/dirty probe OFF the load path and pushes the enriched metadata

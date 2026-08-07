@@ -3204,6 +3204,11 @@ gl-lit-graph {
 		left: auto;
 	}
 
+	// No label, so the base pill's label-sized horizontal padding is excess around the icon alone.
+	.gl-graph__ref-pill--icons-only {
+		padding-inline: 0.6rem;
+	}
+
 	.gl-graph__ref-pill-main {
 		// Grid, not flex: `minmax(0, 1fr)` zeroes the label track's min-content contribution — the one
 		// thing flex CAN'T express (a flex item contributes its own min-content, and the label is nowrap,
@@ -3826,7 +3831,8 @@ gl-lit-graph {
 		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
 	}
 	// Hide the in-flow (shrunk) content while the overlay is shown ($pill-filled) so they don't double up.
-	.gl-graph__ref-pill#{$pill-filled} .gl-graph__ref-pill-main {
+	// Icons-only pills have no overlay to swap to, so they're excluded — hiding `-main` there would blank them.
+	.gl-graph__ref-pill#{$pill-filled}:not(.gl-graph__ref-pill--icons-only) .gl-graph__ref-pill-main {
 		visibility: hidden;
 	}
 	// The expand overlay is absolutely positioned and extends right over the message — but its

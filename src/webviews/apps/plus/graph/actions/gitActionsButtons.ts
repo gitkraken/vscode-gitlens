@@ -81,6 +81,18 @@ export class GitActionsButtons extends LitElement {
 			gl-tooltip {
 				margin-left: var(--gl-space-4);
 			}
+
+			/* Room-gated, not state-gated (state gating is hasWorkingChanges in the template): hidden until
+			   the titlebar has space to spare for a fourth action button. */
+			.git-actions__stash {
+				display: none;
+			}
+
+			@container graph-titlebar (min-width: 58rem) {
+				.git-actions__stash {
+					display: inline-block;
+				}
+			}
 		`,
 	];
 
@@ -206,6 +218,7 @@ export class GitActionsButtons extends LitElement {
 			${
 				this.hasWorkingChanges
 					? html`<gl-button
+							class="git-actions__stash"
 							appearance="toolbar"
 							href=${createCommandLink<StashSaveCommandArgs>('gitlens.stashSave', {
 								repoPath: this.state.selectedRepository,
