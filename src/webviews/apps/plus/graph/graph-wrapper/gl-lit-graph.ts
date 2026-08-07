@@ -210,8 +210,9 @@ const scrollMarkerMagnetPx = 8;
 // Vertical gap (px) left between adjacent rows' block ticks so they don't squish/merge.
 const scrollMarkerGapPx = 1;
 // Max block-tick height (px) — in a small graph the per-row rail span approaches the full row height,
-// and row-sized bricks read as UI chrome instead of position ticks.
-const scrollMarkerMaxBlockPx = 12;
+// and row-sized bricks read as UI chrome instead of position ticks. Kept near the line shapes' caps
+// (fullLine 4, thinLine 2) so the three shapes read as one scaled family, not chrome vs hairlines.
+const scrollMarkerMaxBlockPx = 6;
 // Pointer travel (px) past which a rail press becomes a drag-scrub (vs. a click-to-jump on release).
 const scrollMarkerDragThresholdPx = 3;
 // Width (px) of the dedicated lane-fold strip prepended to the lanes when folding is enabled — wide
