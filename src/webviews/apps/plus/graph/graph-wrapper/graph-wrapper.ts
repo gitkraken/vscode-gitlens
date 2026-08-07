@@ -83,6 +83,7 @@ import {
 	isScopeFocalHead,
 	shouldShowPrimaryWipRow,
 } from '../utils/wip.utils.js';
+import type { GraphRowPeekRequest } from './gl-lit-graph.js';
 import './gl-lit-graph.js';
 
 /**
@@ -336,6 +337,12 @@ declare global {
 			graphRow: GitGraphRow;
 			relatedTarget: EventTarget | null;
 		}>;
+		/** Keyboard peek of the focused row's hover card (see `GlLitGraph.togglePeek`). `open` is an OUT
+		 *  parameter the app writes back synchronously — the graph has no other view of the card's state. */
+		'gl-graph-row-peek': CustomEvent<
+			| { action: 'toggle' | 'reanchor'; graphRow: GitGraphRow; anchor: HTMLElement; open: boolean }
+			| { action: 'close' }
+		>;
 		/** Re-dispatched upward (see `startRowHover`) so the app can arm its hover affordances. */
 		rowhoverstart: CustomEvent<void>;
 		/** Re-dispatched upward (see `onGraphRowHoverTrack`) to drive minimap row tracking. */
@@ -1117,6 +1124,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@gl-graph-rowhoverstart=${this.onGraphRowHoverStart}
 			@gl-graph-rowhovertrack=${this.onGraphRowHoverTrack}
 			@gl-graph-rowhover=${this.onGraphRowHover}
+			@gl-graph-rowpeek=${this.onGraphRowPeek}
 			@gl-graph-rowunhover=${this.onGraphRowUnhover}
 			@gl-graph-rowaction=${this.onGraphRowAction}
 			@gl-graph-unpinref=${this.onGraphUnpinRef}
@@ -1922,6 +1930,27 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				},
 			}),
 		);
+	}
+
+	/** Relays an externally-driven peek close (Esc popping the hover's overlay entry) down to the graph. */
+	notifyPeekClosed(): void {
+		this.querySelector('gl-lit-graph')?.onPeekClosedExternally();
+	}
+
+	/** Resolves the graph's peek request onto a row and relays the app's answer back through the incoming
+	 *  event's detail — both dispatches are synchronous, so the graph reads `open` right after its own. */
+	private onGraphRowPeek({ detail }: CustomEvent<GraphRowPeekRequest>) {
+		if (detail.action === 'close') {
+			this.dispatchEvent(new CustomEvent('gl-graph-row-peek', { detail: { action: 'close' } }));
+			return;
+		}
+
+		const graphRow = this.resolveHoverRow(detail.sha);
+		if (graphRow == null) return;
+
+		const relayed = { action: detail.action, graphRow: graphRow, anchor: detail.anchor, open: false };
+		this.dispatchEvent(new CustomEvent('gl-graph-row-peek', { detail: relayed }));
+		detail.open = relayed.open;
 	}
 
 	private onGraphRowUnhover({

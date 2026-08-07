@@ -180,6 +180,9 @@ const smoothRevealMaxDurationMs = 180;
 // keydown+run never has time to paint the dim before `suppressModifierChainUntilAltRelease` cancels it, short
 // enough that a genuine Alt-hold still feels immediate.
 const altHoldEngageDelayMs = 200;
+// How long a peeked card's re-anchor keeps retrying for the landing row's element before giving up —
+// generous because a jump (End/Home) can page rows in from git before the landing row exists at all.
+const peekReanchorDeadlineMs = 1000;
 // The furthest a reveal animates, in viewports — and for a longer jump, how far out it cuts to before
 // running that same animation in. One number, so every animated arrival is the same gesture regardless of
 // how far the jump was.
@@ -413,6 +416,13 @@ type ResolvedRefTarget = {
  *  column (tracks only — no card today, but the seam for a future lane/branch hover card). Threaded
  *  into the emitted `gl-graph-rowhover*` events' detail so the wrapper can forward it accurately. */
 type RowHoverZone = 'content' | 'graph';
+
+/** A keyboard peek request emitted as `gl-graph-rowpeek` — open/close the rich hover card on the FOCUSED
+ *  row, or move an open one onto it. `open` is an out parameter: the wrapper (and the app behind it)
+ *  answer synchronously, which is the graph's only view of whether the card is up. */
+export type GraphRowPeekRequest =
+	| { action: 'toggle' | 'reanchor'; sha: string; anchor: HTMLElement; open: boolean }
+	| { action: 'close' };
 
 /**
  * Snapshot of the render-derived state the per-row `renderItem` needs. Populated once per
@@ -1464,6 +1474,11 @@ export class GlLitGraph extends LitElement {
 		this.gutterCache.clear();
 		// Drop the persistent requested-avatars dedup so a reconnect re-scans from scratch.
 		this.requestedAvatars.clear();
+		if (this._peekReanchorFrame != null) {
+			cancelAnimationFrame(this._peekReanchorFrame);
+			this._peekReanchorFrame = undefined;
+		}
+		this._peekOpen = false;
 		this.resizeObserver?.disconnect();
 		this.resizeObserver = undefined;
 		this.virtualizerRef.value?.removeEventListener('scroll', this.onScroll);
@@ -3179,6 +3194,90 @@ export class GlLitGraph extends LitElement {
 		250,
 	);
 
+	// ————— Keyboard peek —————
+	// `i` (or `mod+I`) shows the same rich card the pointer hover opens, anchored on the FOCUSED row's
+	// element — the card is owned by `graph-app`, so every request goes out as `gl-graph-rowpeek` and comes
+	// back through the event's `open` out parameter.
+	// While it's up: keyboard navigation re-anchors it (below), Esc closes it via the overlay stack the card
+	// pushes itself onto, and a genuine pointer hover takes it over (`GlGraphHover.onRowHovered`).
+	private _peekOpen = false;
+	private _peekReanchorFrame: number | undefined;
+
+	/** Opens the peek card on the focused row, or closes an open one. `false` (no focused row / no rendered
+	 *  row element) falls the key through to the next candidate. */
+	private togglePeek(): boolean {
+		const sha = this.displayRows[this.focusIndex]?.sha;
+		const anchor = this.activeRowElement();
+		if (sha == null || anchor == null) return false;
+
+		this._peekOpen = this.requestPeek({ action: 'toggle', sha: sha, anchor: anchor, open: false });
+		this.announce(this._peekOpen ? 'Commit info shown.' : 'Commit info hidden.');
+		return true;
+	}
+
+	private requestPeek(request: GraphRowPeekRequest): boolean {
+		this.dispatchEvent(new CustomEvent('gl-graph-rowpeek', { detail: request }));
+		return request.action === 'close' ? false : request.open;
+	}
+
+	private closePeek(): void {
+		if (!this._peekOpen) return;
+
+		this._peekOpen = false;
+		this.requestPeek({ action: 'close' });
+		this.announce('Commit info hidden.');
+	}
+
+	/** The card closed by a path this element can't see (Esc pops the hover's overlay-stack entry directly)
+	 *  — sync the peek flag now instead of waiting for the next re-anchor to self-heal, and make the close
+	 *  audible like every other close path. */
+	onPeekClosedExternally(): void {
+		if (!this._peekOpen) return;
+
+		this._peekOpen = false;
+		this.announce('Commit info hidden.');
+	}
+
+	/** Follows the row cursor while peeked. Deferred a frame so the move's scroll + virtualizer render have
+	 *  landed and so a held arrow key coalesces into one re-anchor per frame. The retry runs against a time
+	 *  DEADLINE, not a frame count: an End/Home jump can trigger edge-paging, and the landing row only
+	 *  renders after the rows request returns — hundreds of ms, not frames. A row that still hasn't arrived
+	 *  at the deadline (scrolled out under the wheel, rows replaced) closes the card rather than stranding
+	 *  it on a recycled element. */
+	private schedulePeekReanchor(deadline?: number): void {
+		if (this._peekReanchorFrame != null) return;
+
+		const limit = deadline ?? performance.now() + peekReanchorDeadlineMs;
+		this._peekReanchorFrame = requestAnimationFrame(() => {
+			this._peekReanchorFrame = undefined;
+			if (!this._peekOpen) return;
+
+			const sha = this.displayRows[this.focusIndex]?.sha;
+			const anchor = this.activeRowElement();
+			if (sha == null || anchor == null) {
+				if (performance.now() < limit) {
+					this.schedulePeekReanchor(limit);
+				} else {
+					this.closePeek();
+				}
+				return;
+			}
+
+			this._peekOpen = this.requestPeek({ action: 'reanchor', sha: sha, anchor: anchor, open: false });
+		});
+	}
+
+	/** Focus leaving the graph closes the peek — it belongs to the row cursor, and nothing outside the
+	 *  viewport can drive it. A null `relatedTarget` (the whole window losing focus) closes too. */
+	private readonly onFocusOut = (event: FocusEvent): void => {
+		if (!this._peekOpen) return;
+
+		const next = event.relatedTarget;
+		if (next instanceof Node && this.viewportRef.value?.contains(next)) return;
+
+		this.closePeek();
+	};
+
 	private readonly onPointerOverTooltip = (event: PointerEvent): void => {
 		// No hovers/tooltips while a column resize is in progress — the pointer sweeps over the graph
 		// as the user drags the header handle, and flickering tooltips/row cards would be distracting.
@@ -4674,6 +4773,7 @@ export class GlLitGraph extends LitElement {
 				}"
 				@keydown=${this.handleViewportKeydown}
 				@focusin=${this.onFocusIn}
+				@focusout=${this.onFocusOut}
 				@click=${this.onClick}
 				@dblclick=${this.onDblClick}
 				@contextmenu=${this.onContextMenu}
@@ -6800,6 +6900,20 @@ export class GlLitGraph extends LitElement {
 				sheet: { group: 'selection', label: 'Select only', order: 2 },
 				run: () => this.selectFocusedRow(false),
 			},
+			// `mod+KeyI` rides along for the VS Code hover reflex (Cmd/Ctrl+I) — the code token keeps it
+			// layout-independent, and the plain `i` stays the primary.
+			{
+				keys: ['i', 'mod+KeyI'],
+				scope: 'rows',
+				sheet: {
+					group: 'selection',
+					label: 'Peek commit info',
+					order: 4,
+					keysOverride: ['i', 'text: / ', 'mod+KeyI'],
+					subline: ['Escape', 'text: closes'],
+				},
+				run: this.repinned(() => this.togglePeek()),
+			},
 			// Ctrl+Shift+C produces the key `C`, which the `c` token never matches — so the shifted form
 			// stays with whatever else binds it, exactly as before.
 			{
@@ -6808,7 +6922,7 @@ export class GlLitGraph extends LitElement {
 				sheet: {
 					group: 'selection',
 					label: 'Copy SHA / worktree path',
-					order: 4,
+					order: 5,
 					keysOverride: ['mod+KeyC'],
 				},
 				run: this.repinned(() => this.copyFocusedRow()),
@@ -7676,6 +7790,10 @@ export class GlLitGraph extends LitElement {
 		// other geometry reader; it rides the ResizeObserver, whose callbacks land after layout. Keep both
 		// off this method: anything measuring here forces a synchronous layout on every update.
 		this.syncChangesOptIn();
+		// An open keyboard peek follows the row cursor (self-gated on being open — nothing to do otherwise).
+		if (this._peekOpen && changed.has('focusIndex')) {
+			this.schedulePeekReanchor();
+		}
 		if (DEBUG) {
 			getGraphDebugDiagnostics().endUpdate({
 				repoPath: this.repoPath,
@@ -8262,6 +8380,13 @@ export class GlLitGraph extends LitElement {
 		return this._lastScrollTime === 0 || now - this._lastScrollTime > GlLitGraph.scrollIdleMs;
 	}
 	private onScroll = (event: Event): void => {
+		// A peeked card is anchored to a real row ELEMENT, and scrolling the row cursor out of view
+		// virtualizes that element away — leaving the card stranded on a detached (soon recycled) node.
+		// Only a wheel/drag scroll gets here with the cursor unmoved; keyboard moves re-anchor instead.
+		if (this._peekOpen && this.activeRowElement() == null) {
+			this.schedulePeekReanchor();
+		}
+
 		// HEAD pill tracks the live scroll position (cheap: a Map lookup + compare; sets state only on
 		// an edge-cross). Runs every scroll, BEFORE the is-scrolled threshold early-return below.
 		this.updateHeadPillDirection();

@@ -2525,6 +2525,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 										.distance=${0}
 										.skidding=${15}
 										.pushOverlay=${this.pushOverlay}
+										@gl-graph-hoverpeekclosed=${this.handleHoverPeekClosed}
 									></gl-graph-hover>
 									<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
 									<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
@@ -3037,6 +3038,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
 					@gl-graph-row-double-click=${this.handleGraphRowDoubleClick}
 					@gl-graph-row-hover=${this.handleGraphRowHover}
+					@gl-graph-row-peek=${this.handleGraphRowPeek}
 					@gl-graph-row-unhover=${this.handleGraphRowUnhover}
 					@gl-graph-wip-row-open=${this.handleWipRowOpen}
 					@rowhoverstart=${this.handleGraphRowHoverStart}
@@ -4506,6 +4508,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleGraphRowContextMenu(_e: CustomEventType<'gl-graph-row-context-menu'>) {
+		// A pinned keyboard peek would sit behind the context menu — end it explicitly, since `hide()`
+		// is peek-inert by design (see GlGraphHover.hide).
+		this.graphHover.closePeek();
 		this.graphHover.hide();
 	}
 
@@ -4546,6 +4551,31 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		hover.requestMarkdown ??= this.getRowHoverPromise.bind(this);
 		hover.onRowHovered(graphRow, anchor);
+	}
+
+	/** Keyboard peek (`i` / `mod+I`) — the same hover card the pointer opens, driven
+	 *  by the graph's focused row. The graph reads `detail.open` back off the event to learn the card's
+	 *  state (it has no other view of it), so this handler must answer synchronously. */
+	/** The hover closed a keyboard peek by a path the graph can't observe (Esc's overlay pop) — relay it
+	 *  down so the graph syncs its peek flag and announces the close. */
+	private handleHoverPeekClosed() {
+		this.graph?.notifyPeekClosed();
+	}
+
+	private handleGraphRowPeek({ detail }: CustomEventType<'gl-graph-row-peek'>) {
+		const hover = this.graphHover;
+		if (hover == null) return;
+
+		if (detail.action === 'close') {
+			hover.closePeek();
+			return;
+		}
+
+		hover.requestMarkdown ??= this.getRowHoverPromise.bind(this);
+		detail.open =
+			detail.action === 'toggle'
+				? hover.togglePeek(detail.graphRow, detail.anchor)
+				: hover.repeek(detail.graphRow, detail.anchor);
 	}
 
 	private handleGraphRowHoverTrack({

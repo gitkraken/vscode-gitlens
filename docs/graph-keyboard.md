@@ -23,7 +23,7 @@ A binding's `run()` may return `false` — the key falls to the next candidate, 
 
 ## The chord vocabulary
 
-- **Plain keys** (`rows` scope): step/fold/jump — arrows, `j`/`k`, `Home`/`End`, `[`/`]`, `h`/`u`/`t`/`w`, `Enter`/`Space`, `Ctrl+C` copy. Digits `1`–`0` (webview scope) select overview/WIP-bar worktrees.
+- **Plain keys** (`rows` scope): step/fold/jump — arrows, `j`/`k`, `Home`/`End`, `[`/`]`, `h`/`u`/`t`/`w`, `Enter`/`Space`, `i` (or `mod+I`, for the VS Code hover reflex) peek — the pointer's rich hover card on the focused row: toggles, follows the row cursor, on the overlay stack for Esc — `Ctrl+C` copy. Digits `1`–`0` (webview scope) select overview/WIP-bar worktrees.
 - **Shift** = extend (selections, topologically along the first-parent chain) and variant jumps (`Shift+H`/`Shift+W`).
 - **Ctrl/Cmd** = structural navigation: `Ctrl+↑↓` first-parent lineage (lane-faithful, steps through WIP rows), `Ctrl+←→` switch branch at a fork. `Ctrl+F` focuses the commit search box — or, with focus in a file tree (`tree` scope), that tree's filter box, opening it if hidden.
 - **Alt** = the chrome layer (`webviewGlobal` scope — works while typing in any graph text box): `Alt+M`/`S`/`D` toggle minimap/side bar/details, `Alt+Shift+D` docks details elsewhere, `Alt+1`–`8` toggle side bar panels, `Alt+K` Agent Kanban, `Alt+V` visualizations. Bare `Alt+↑↓` steps fork points (`Ctrl+Alt` accepted silently — GNOME grabs it at the OS).
