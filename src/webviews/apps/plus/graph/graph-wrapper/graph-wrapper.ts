@@ -753,17 +753,22 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			// back to `isCurrentHead`: that anchors at true HEAD (still the focal tip when the scope IS
 			// the current branch) and lets the projection drop the row when the scope isn't.
 			//
-			// The positional fallback is unscoped-only, where it's the long-standing behavior and there's
-			// no projection to mis-place the row against. Under a scope it would only be reached with the
-			// branch unknown or the focal tip not yet loaded, and guessing a lane there is exactly how the
-			// row lands somewhere it doesn't belong — a parentless row the projection drops is the honest
-			// outcome instead.
+			// The unscoped fallbacks: when HEAD's row isn't in the loaded page (`isCurrentHead` is per-row
+			// decoration, so it can't resolve), the host's WIP topology record carries the worktree's real
+			// HEAD sha — anchoring there gives the engine an unloaded parent it handles honestly (reserved
+			// lane + dangling stub that connects when HEAD pages in), instead of adopting `rows[0]`'s chain.
+			// The positional `rows[0]` guess survives only for the cold window before that record arrives.
+			// Under a scope neither is used: guessing a lane there is exactly how the row lands somewhere it
+			// doesn't belong — a parentless row the projection drops is the honest outcome instead.
 			const headRefSha =
 				(showPrimary && scope?.branchName != null && currentBranch != null
 					? rows.find(r => r.heads?.some(h => h.name === scope.branchName))?.sha
 					: undefined) ??
 				rows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha ??
-				(scope == null ? rows[0]?.sha : undefined);
+				(scope == null
+					? ((primaryWipRowId != null ? wipRowsById?.[primaryWipRowId]?.parentSha : undefined) ??
+						rows[0]?.sha)
+					: undefined);
 
 			// The primary row's ID is its worktree's WIP row id — the SAME scheme every other worktree's
 			// WIP row uses (`createWipRowId`). Its `type` stays `'workdir'` (the row type). No label
@@ -1099,6 +1104,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.includeOnlyRefs=${graphState.includeOnlyRefs}
 			.pinnedRef=${graphState.pinnedRef}
 			.currentUpstream=${graphState.branchState?.upstream}
+			.currentBranch=${graphState.branch}
 			.scope=${graphState.scope}
 			.wipStateById=${graphState.wipStateById}
 			.rowMarkerMergeTarget=${this.rowMarkerMergeTarget}

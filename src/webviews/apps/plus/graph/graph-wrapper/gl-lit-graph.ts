@@ -674,6 +674,16 @@ export class GlLitGraph extends LitElement {
 	// pill right after the pins on every row — including the rows HEAD's own pill isn't on, which is all
 	// of them once HEAD is ahead of or behind it. See `RowRefOrder`.
 	@property({ type: String }) currentUpstream?: string;
+	// The CURRENT branch payload (`graphState.branch`) — the host-side authority on HEAD's identity.
+	// Fallback source for the row-marker tips + the WIP row's proxy pill when HEAD's row isn't in the
+	// loaded page (the engine's `headSha` comes from per-row `isCurrentHead` decoration, so it can't
+	// resolve there). A jump off the fallback pages the row in via the wrapper's load/select/reveal.
+	@property({ attribute: false }) currentBranch?: {
+		name: string;
+		sha?: string;
+		detached?: boolean;
+		upstream?: { name: string; missing: boolean };
+	};
 	// Columns whose header filter is currently active (derived host-side from the search query's
 	// operators — see graph-header's `updateActiveFilterColumns`). A filterable column's header filter
 	// button is persistently shown + accent-toned when its id is in this set, and its 22px footprint
@@ -1941,8 +1951,14 @@ export class GlLitGraph extends LitElement {
 		// @state, not a `changed.has` key.)
 		// The merge-target pull lands async (after the initial paint), and it drives the HEAD pill's role +
 		// target segment — so evict cached adornments when it moves so the HEAD pill re-resolves with it.
-		// (HEAD + upstream tips derive from rows/refRowIndex/refsMetadata, already covered above.)
-		const rowMarkerChanged = changed.has('rowMarkerMergeTarget');
+		// (HEAD + upstream tips derive from rows/refRowIndex/refsMetadata, already covered above — except
+		// the `currentBranch` fallback the tips use when HEAD isn't loaded, so it evicts too.)
+		const rowMarkerChanged = changed.has('rowMarkerMergeTarget') || changed.has('currentBranch');
+		// The HEAD waypoint can now resolve from the branch payload alone (unloaded HEAD), so a payload
+		// arriving between range changes must recompute it — the range/scroll call sites won't fire.
+		if (changed.has('currentBranch')) {
+			this.updateHeadPillDirection();
+		}
 		if (
 			rowsChanged ||
 			laneInputsChanged ||
@@ -8533,7 +8549,7 @@ export class GlLitGraph extends LitElement {
 	// buffer rows). Only writes the @state on a CHANGE so a scroll that doesn't cross HEAD never re-renders.
 	private updateHeadPillDirection(): void {
 		const scroller = this.virtualizerRef.value;
-		const headSha = this.headSha;
+		const headSha = this.effectiveHeadSha;
 		let dir: 'up' | 'down' | undefined;
 		if (scroller != null && headSha != null) {
 			const idx = this.indexBySha.get(headSha);
@@ -8546,6 +8562,11 @@ export class GlLitGraph extends LitElement {
 				} else if (top >= viewBottom) {
 					dir = 'down';
 				}
+			} else if (this.headSha == null) {
+				// HEAD's row isn't loaded at all (the fallback sha) — it's beyond the window's tail in the
+				// date-ordered walk, so point down; the click pages it in. A DECORATED head that's merely
+				// missing from the display set (ref-visibility filter) keeps the pill hidden as before.
+				dir = 'down';
 			}
 		}
 		if (dir !== this.headPillDirection) {
@@ -8651,12 +8672,24 @@ export class GlLitGraph extends LitElement {
 	// never recomputes.
 	private _rowMarkerTips?: RowMarkerTips;
 
+	// HEAD's sha for the jump/waypoint affordances: the engine's decoration-derived `headSha`, else the
+	// branch payload's tip when HEAD's row hasn't paged in (decoration is per-row, so it can't resolve
+	// there). Jumps off the fallback page the row in. Detached HEAD opts out: no branch to stand for.
+	private get effectiveHeadSha(): string | undefined {
+		return this.headSha ?? (this.currentBranch?.detached !== true ? this.currentBranch?.sha : undefined);
+	}
+
 	// Build the row-marker tips from the client's own scalars: HEAD from `this.headSha`, the upstream tip
 	// from the HEAD ref's `upstreamId` via `refRowIndex` (the same walk `H`-jump uses), and the merge-target
 	// from the scope-anchor pull (`rowMarkerMergeTarget`). Returns undefined when the row plays none of
 	// them (nothing to mark).
+	//
+	// The engine's `headSha` is per-row `isCurrentHead` decoration, so it goes undefined whenever HEAD's
+	// row hasn't paged in — the branch payload fills that hole with the host's authoritative tip sha, so
+	// HEAD-keyed jumps (the `h` key, the WIP proxy pill) still resolve; `jumpToRow`/`navigateToCommit`
+	// page an unloaded target in. Detached HEAD opts out: no branch identity to stand for.
 	private computeRowMarkerTips(): RowMarkerTips | undefined {
-		const headSha = this.headSha;
+		const headSha = this.effectiveHeadSha;
 		const target = this.rowMarkerMergeTarget;
 
 		let upstreamSha: string | undefined;
@@ -8672,9 +8705,15 @@ export class GlLitGraph extends LitElement {
 
 	// Whether the primary WIP row's row-marker pill should render, and the data it needs (HEAD refs + lane
 	// color). Rendered only when HEAD has been pushed DOWN the list: suppressed when the HEAD commit row
-	// sits directly below the WIP row (adjacent — HEAD is already right there), and undefined when the HEAD
-	// row isn't loaded. Structural (row-index) checks only — no viewport math. Shared by the pill build and
-	// the sticky-timeline yield check so both read the same decision.
+	// sits directly below the WIP row (adjacent — HEAD is already right there). Structural (row-index)
+	// checks only — no viewport math. Shared by the pill build and the sticky-timeline yield check so both
+	// read the same decision.
+	//
+	// An UNLOADED HEAD (tips carrying the branch payload's fallback sha) still gets the pill — by
+	// definition not adjacent, and the jump is exactly how the user pulls HEAD into the loaded set. Its
+	// refs are synthesized from the branch payload (the real ref decoration lives on the unloaded row),
+	// and its lane comes from the engine's reservation for the WIP row's unloaded parent, matching the
+	// dangling stub the row draws.
 	private wipRowMarkerPillTarget(
 		tips: RowMarkerTips | undefined,
 	): { headRefs: readonly GraphCommitRef[]; column: number } | undefined {
@@ -8687,12 +8726,25 @@ export class GlLitGraph extends LitElement {
 		if (wipIdx == null) return undefined;
 
 		const headIdx = this.processedIndexBySha.get(headSha);
-		if (headIdx == null || headIdx === wipIdx + 1) return undefined;
+		if (headIdx === wipIdx + 1) return undefined;
 
-		const headRefs = this.getCommitBySha(headSha)?.commitRefs;
-		if (headRefs == null || headRefs.length === 0) return undefined;
+		if (headIdx != null) {
+			const headRefs = this.getCommitBySha(headSha)?.commitRefs;
+			if (headRefs == null || headRefs.length === 0) return undefined;
 
-		return { headRefs: headRefs, column: this.processedRows[headIdx]?.column ?? 0 };
+			return { headRefs: headRefs, column: this.processedRows[headIdx]?.column ?? 0 };
+		}
+
+		const branch = this.currentBranch;
+		if (branch == null || branch.detached === true || branch.sha !== headSha) return undefined;
+
+		const syntheticRef: GraphCommitRef = {
+			kind: 'head',
+			name: branch.name,
+			current: true,
+			upstreamName: branch.upstream?.missing !== true ? branch.upstream?.name : undefined,
+		};
+		return { headRefs: [syntheticRef], column: this.unloadedColumns.get(headSha) ?? 0 };
 	}
 
 	// The primary WIP row's row-marker pill: the CURRENT branch's ref pill (sourced from the HEAD row's
@@ -8906,13 +8958,21 @@ export class GlLitGraph extends LitElement {
 		return `${formatGitLensDate(from, 'MMM D')} – ${formatGitLensDate(to, sameMonth ? 'D' : 'MMM D')}`;
 	}
 
-	private onHeadPillClick = (): void => {
+	private onHeadPillClick = (e: MouseEvent): void => {
+		// Jump-button convention (see `onClick`): stop the bubble so the delegated click handler's
+		// `cancelPendingReveal` can't tear down the reveal this very click queues/starts.
+		e.stopPropagation();
 		const scroller = this.virtualizerRef.value;
-		const headSha = this.headSha;
+		const headSha = this.effectiveHeadSha;
 		if (scroller == null || headSha == null) return;
 
 		const idx = this.indexBySha.get(headSha);
-		if (idx == null) return;
+		if (idx == null) {
+			// HEAD's row isn't loaded — the same wrapper load/select/reveal hand-off the WIP proxy pill's
+			// jump takes; the intent holds while the row pages in.
+			this.jumpToRefRow(headSha, { focus: true, flash: true });
+			return;
+		}
 
 		// Jump to HEAD AND select it — same selection path a row click uses, so the details panel opens on
 		// HEAD too. Move the focus anchor with it (matches replace-click behavior). A landing, not a nearest:
@@ -8923,7 +8983,9 @@ export class GlLitGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('gl-graph-changeselection', { detail: { sha: headSha, mode: 'replace' } }));
 	};
 
-	private onPinnedPillClick = (): void => {
+	private onPinnedPillClick = (e: MouseEvent): void => {
+		// Same jump-button convention as `onHeadPillClick` — the bubble would cancel the reveal mid-flight.
+		e.stopPropagation();
 		const scroller = this.virtualizerRef.value;
 		const pinnedSha = this.pinnedSha;
 		if (scroller == null || pinnedSha == null) return;
