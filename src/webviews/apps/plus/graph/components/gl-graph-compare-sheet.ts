@@ -2,6 +2,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { getAltKeySymbol } from '@env/platform.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
+import { SheetWrapper } from './sheetWrapper.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/overlays/detail-sheet.js';
@@ -31,11 +32,10 @@ declare global {
  *
  * Emits (bubbles + composed):
  * - `gl-graph-compare-promote` {orientation} — the promote-to-panel action chip
- * - `gl-detail-sheet-close` — re-emitted for the inner sheet's own dismissal
- *   (see {@link GlGraphCompareSheet.handleInnerClose})
+ * - `gl-detail-sheet-close` — re-emitted for the inner sheet's own dismissal (see {@link SheetWrapper})
  */
 @customElement('gl-graph-compare-sheet')
-export class GlGraphCompareSheet extends LitElement {
+export class GlGraphCompareSheet extends SheetWrapper(LitElement) {
 	static override styles = [
 		css`
 			:host {
@@ -63,30 +63,6 @@ export class GlGraphCompareSheet extends LitElement {
 	preferredOrientation: PanelOrientation = 'vertical';
 
 	private readonly _modifiers = new ModifierKeysController(this);
-
-	private _skipFocusRestore = false;
-
-	/** Mirrors `gl-detail-sheet.skipFocusRestore` onto the inner sheet — the sheet-stack router queries
-	 *  this host, which shadow DOM hides the inner element from. */
-	set skipFocusRestore(value: boolean) {
-		this._skipFocusRestore = value;
-		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
-		if (sheet != null) {
-			sheet.skipFocusRestore = value;
-		}
-	}
-	get skipFocusRestore(): boolean {
-		return this._skipFocusRestore;
-	}
-
-	override firstUpdated(): void {
-		if (!this._skipFocusRestore) return;
-
-		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
-		if (sheet != null) {
-			sheet.skipFocusRestore = true;
-		}
-	}
 
 	override render(): unknown {
 		// Click pins to preferred orientation; Alt-click flips it. Icon + tooltip update live with
@@ -142,13 +118,5 @@ export class GlGraphCompareSheet extends LitElement {
 				composed: true,
 			}),
 		);
-	};
-
-	/** The inner sheet's own dismissal surfaces as a close from this host — the sheet stack pops on it. */
-	private handleInnerClose = (e: Event): void => {
-		// `stopPropagation` matters: the inner `gl-detail-sheet-close` is composed and would otherwise
-		// escape and double-fire alongside the re-emit.
-		e.stopPropagation();
-		this.dispatchEvent(new CustomEvent('gl-detail-sheet-close', { bubbles: true, composed: true }));
 	};
 }

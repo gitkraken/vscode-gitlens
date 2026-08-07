@@ -25,6 +25,7 @@ import {
 } from './branchSheet.utils.js';
 import type { ResolvedServices } from './detailsActions.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
+import { SheetWrapper } from './sheetWrapper.js';
 import './gl-graph-branch-sheet-pane.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/chips/action-chip.js';
@@ -40,10 +41,10 @@ import '../../../shared/components/overlays/tooltip.js';
  * Emits (bubbles + composed):
  * - `gl-graph-scope-to-branch` {GraphScopeBranch} — the Focus chip
  * - `gl-detail-sheet-close` — re-emitted for both the inner sheet's own dismissal and the pane's own
- *   close request (see {@link GlGraphBranchSheet.handleInnerClose})
+ *   close request (see {@link SheetWrapper})
  */
 @customElement('gl-graph-branch-sheet')
-export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
+export class GlGraphBranchSheet extends SheetWrapper(SignalWatcher(LitElement)) {
 	static override styles = [
 		css`
 			:host {
@@ -151,30 +152,6 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 	/** Fed from the panel's SHEET maximize state (transient, derived) — not the panel's own. */
 	@property({ type: Boolean, attribute: 'maximized' })
 	maximized = false;
-
-	private _skipFocusRestore = false;
-
-	/** Mirrors `gl-detail-sheet.skipFocusRestore` onto the inner sheet — the sheet-stack router queries
-	 *  this host, which shadow DOM hides the inner element from. */
-	set skipFocusRestore(value: boolean) {
-		this._skipFocusRestore = value;
-		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
-		if (sheet != null) {
-			sheet.skipFocusRestore = value;
-		}
-	}
-	get skipFocusRestore(): boolean {
-		return this._skipFocusRestore;
-	}
-
-	override firstUpdated(): void {
-		if (!this._skipFocusRestore) return;
-
-		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
-		if (sheet != null) {
-			sheet.skipFocusRestore = true;
-		}
-	}
 
 	override render(): unknown {
 		if (this.ref == null) return nothing;
@@ -377,15 +354,6 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 			alt-href=${this._webview.createCommandLink<GraphItemContext>('gitlens.graph.copyRemoteBranchUrl', context)}
 		></gl-action-chip>`;
 	}
-
-	/** Both the inner sheet's own dismissal and the pane's close request surface as ONE close from this
-	 *  host — the sheet stack pops on it. */
-	private handleInnerClose = (e: Event): void => {
-		// `stopPropagation` matters: the inner `gl-detail-sheet-close` is composed and would otherwise
-		// escape and double-fire alongside the re-emit.
-		e.stopPropagation();
-		this.dispatchEvent(new CustomEvent('gl-detail-sheet-close', { bubbles: true, composed: true }));
-	};
 }
 
 declare global {

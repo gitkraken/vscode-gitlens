@@ -19,6 +19,7 @@ import {
 	resolveDisplayStyles,
 	strategyDisplay,
 } from './resolveDisplay.js';
+import { SheetWrapper } from './sheetWrapper.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -44,7 +45,7 @@ export interface RebaseSummaryViewDiffDetail {
  * - `gl-detail-sheet-close` — re-emitted by the inner sheet on dismiss, and on a successful undo
  */
 @customElement('gl-rebase-summary-sheet')
-export class GlRebaseSummarySheet extends LitElement {
+export class GlRebaseSummarySheet extends SheetWrapper(LitElement) {
 	static override styles = [
 		scrollableBase,
 		resolveDisplayStyles,
@@ -298,30 +299,6 @@ export class GlRebaseSummarySheet extends LitElement {
 	 *  `undoAutoRebase`'s success/error contract; this component decides how to react. */
 	@property({ attribute: false })
 	undoRebase?: (repoPath: string, sessionId: string) => Promise<UndoAutoRebaseResult>;
-
-	private _skipFocusRestore = false;
-
-	/** Mirrors `gl-detail-sheet.skipFocusRestore` onto the inner sheet — the sheet-stack router queries
-	 *  this host, which shadow DOM hides the inner element from. */
-	set skipFocusRestore(value: boolean) {
-		this._skipFocusRestore = value;
-		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
-		if (sheet != null) {
-			sheet.skipFocusRestore = value;
-		}
-	}
-	get skipFocusRestore(): boolean {
-		return this._skipFocusRestore;
-	}
-
-	override firstUpdated(): void {
-		if (!this._skipFocusRestore) return;
-
-		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
-		if (sheet != null) {
-			sheet.skipFocusRestore = true;
-		}
-	}
 
 	@state() private _summary?: AutoRebaseSummary;
 	@state() private _loading = false;

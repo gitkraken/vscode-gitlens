@@ -6,6 +6,7 @@ import type { ConflictDetails, ConflictDetailsCommit, ConflictDetailsSide } from
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { CommitRowData } from './gl-commit-row.js';
+import { SheetWrapper } from './sheetWrapper.js';
 import './gl-commit-row-item.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/chips/action-chip.js';
@@ -45,7 +46,7 @@ const sideBySideMinWidth = 460;
  * - `gl-detail-sheet-close` — re-emitted by the inner sheet on dismiss
  */
 @customElement('gl-wip-conflict-sheet')
-export class GlWipConflictSheet extends LitElement {
+export class GlWipConflictSheet extends SheetWrapper(LitElement) {
 	static override styles = [
 		scrollableBase,
 		css`
@@ -195,21 +196,6 @@ export class GlWipConflictSheet extends LitElement {
 	@property({ type: Object })
 	preferences?: Preferences;
 
-	private _skipFocusRestore = false;
-
-	/** Mirrors `gl-detail-sheet.skipFocusRestore` onto the inner sheet — the sheet-stack router queries
-	 *  this host, which shadow DOM hides the inner element from. */
-	set skipFocusRestore(value: boolean) {
-		this._skipFocusRestore = value;
-		const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
-		if (sheet != null) {
-			sheet.skipFocusRestore = value;
-		}
-	}
-	get skipFocusRestore(): boolean {
-		return this._skipFocusRestore;
-	}
-
 	/** Split orientation — flipped by width (side-by-side when wide, stacked when narrow). */
 	@state()
 	private _orientation: 'horizontal' | 'vertical' = 'horizontal';
@@ -224,13 +210,8 @@ export class GlWipConflictSheet extends LitElement {
 
 	private _resizeObserver?: ResizeObserver;
 
-	override firstUpdated(): void {
-		if (this._skipFocusRestore) {
-			const sheet = this.shadowRoot?.querySelector('gl-detail-sheet');
-			if (sheet != null) {
-				sheet.skipFocusRestore = true;
-			}
-		}
+	override firstUpdated(changedProperties: PropertyValues<this>): void {
+		super.firstUpdated(changedProperties);
 
 		const body = this.shadowRoot?.querySelector('.body');
 		if (body == null) return;

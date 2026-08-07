@@ -103,6 +103,7 @@ import {
 	replaceStack,
 	sheetKey,
 } from './sheetStack.js';
+import { sheetWrapperSelector } from './sheetWrapper.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
@@ -2438,10 +2439,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// stack change we're driving here, not the user dismissing it — the router owns focus
 		// restoration for this transition, not the sheet's own disconnect handler.
 		// A converted sheet owns its `gl-detail-sheet` inside its shadow root, which this query can't
-		// reach — its host mirrors the flag through (see `GlGraphBranchSheet.skipFocusRestore`).
-		const mounted = this.querySelector<HTMLElement & { skipFocusRestore: boolean }>(
-			'gl-graph-branch-sheet, gl-graph-compare-sheet, gl-wip-conflict-sheet, gl-rebase-summary-sheet, gl-detail-sheet',
-		);
+		// reach — its host mirrors the flag through (see `SheetWrapper`). A new sheet kind must add
+		// its tag to `sheetWrapperTags` in sheetWrapper.ts.
+		const mounted = this.querySelector<HTMLElement & { skipFocusRestore: boolean }>(sheetWrapperSelector);
 		if (mounted != null) {
 			mounted.skipFocusRestore = true;
 		}
