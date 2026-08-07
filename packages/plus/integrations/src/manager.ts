@@ -154,7 +154,9 @@ type PullRequestSweepCommonOptions = {
 	 * Fired once per target as it settles, for host-side per-provider attribution.
 	 *
 	 * Observation only: it cannot influence the sweep, and a throw is swallowed rather than allowed to turn a
-	 * successful target into a failed one. Nothing is allocated and no event is built when it is omitted.
+	 * successful target into a failed one. Omitting it costs nothing at all — not even a clock read — so a host
+	 * whose perf gate is off pays exactly what it paid before this option existed. The guards in the sweep's
+	 * fan-out are what enforce that; they are not redundant.
 	 *
 	 * It reports how a target SETTLED, not every way one can end: if a target's read throws instead of
 	 * reporting failure through its slice, the whole sweep rejects, and neither that target nor the ones still
