@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.5.107] - 2026-08-07
+
 ### Changed
 
 - Syncs cloud connections concurrently instead of one at a time, completing the pass that [0.5.105] started on reconciliation. `syncCloudIntegrations` awaited `syncCloudConnection` per provider in a serial loop, and a forced sync deletes each provider's stored session and refetches it from the cloud — so the loop cost the SUM of every provider's latency on a path that gates every provider read. Measured against a 7-connection account, the provider list settled in ~1.6 s versus ~2.3 s serial (medians of 8 interleaved cold starts), and the win grows with connection count and link latency. The fan-out needs no per-provider grouping because every shared mutable path was already serialized: `ensureProvider` is gated on `providerId`, so the two integrations a multi-host self-managed id yields share one in-flight construction; `ensureSession` is gated per integration instance; `addOrUpdateConfigured`/`removeConfigured` mutate the configured collection in a synchronous critical section behind a write queue; and secrets and `connected:` flags are keyed by integration id + domain (plus/integrations)
@@ -205,7 +207,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.106...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.107...HEAD
+[0.5.107]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.106...gitkraken:releases/core/v0.5.107
 [0.5.106]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.105...gitkraken:releases/core/v0.5.106
 [0.5.105]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.104...gitkraken:releases/core/v0.5.105
 [0.5.104]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.5.103...gitkraken:releases/core/v0.5.104
