@@ -45,6 +45,15 @@ export class GlGraphCompareSheet extends LitElement {
 			* {
 				box-sizing: border-box;
 			}
+
+			/* Title + the slotted onboarding hint sit together on the header's start side, so the hint
+			   reads as annotating the title rather than joining the action chips. */
+			.title {
+				display: inline-flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
+			}
 		`,
 	];
 
@@ -99,11 +108,11 @@ export class GlGraphCompareSheet extends LitElement {
 		return html`<gl-detail-sheet
 			esc-managed
 			aria-label="Compare"
-			sheet-title="Comparing References"
 			close-label="Close"
 			?show-back=${this.showBack}
 			@gl-detail-sheet-close=${this.handleInnerClose}
 		>
+			<span slot="title" class="title">Comparing References<slot name="title-hint"></slot></span>
 			<gl-action-chip
 				slot="actions"
 				icon=${actionIcon}

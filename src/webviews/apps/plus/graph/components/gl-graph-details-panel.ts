@@ -50,6 +50,7 @@ import {
 	createPastAgentSessionsResolver,
 	matchAgentSessionsForWorktree,
 } from '../../../shared/agentUtils.js';
+import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
@@ -582,13 +583,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@property({ type: Boolean, attribute: 'graph-ready' })
 	graphReady = false;
 
-	/** The compare chip is unusable as an anchor — hidden while a mode is active, and `inert` once the
-	 *  sheet opens — so use the sheet's own header, a sibling of the inert `.details-content`. The
-	 *  `gl-detail-sheet` lives inside the compare wrapper's shadow root, so pierce both. */
-	private readonly queryCompareSheetHeader = (): HTMLElement | undefined => {
+	/** The compare sheet's title span — the coachmark anchors here so its tip pops under the title,
+	 *  matching the WIP header's compose/review marks (`queryHeaderTitle`). The span lives in the
+	 *  wrapper's shadow root; fall back outward when it hasn't rendered yet. */
+	private readonly queryCompareSheetTitle = (): HTMLElement | undefined => {
 		const wrapper = this.renderRoot.querySelector('gl-graph-compare-sheet');
-		const sheet = wrapper?.shadowRoot?.querySelector('gl-detail-sheet');
-		return sheet?.shadowRoot?.querySelector<HTMLElement>('[part~="header"]') ?? sheet ?? wrapper ?? undefined;
+		return wrapper?.shadowRoot?.querySelector<HTMLElement>('.title') ?? wrapper ?? undefined;
 	};
 
 	private get isMultiCommit(): boolean {
@@ -973,11 +973,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					?show-back=${this._sheetStack.length > 1}
 					@gl-detail-sheet-close=${this.handleCloseCompareSheet}
 					@gl-graph-compare-promote=${this.handleComparePromote}
-					>${this.renderCompareMode()}<gl-graph-coachmark
+					>${this.renderCompareMode()}${
+						this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing
+					}<gl-action-chip
 						slot="actions"
+						icon="refresh"
+						label="Refresh Comparison"
+						overlay="tooltip"
+						@click=${() => this._actions.refreshBranchCompare(this.effectiveRepoPath)}
+					></gl-action-chip
+					><gl-graph-coachmark
+						slot="title-hint"
 						mark="compare"
-						placement="bottom-end"
-						.anchor=${this.queryCompareSheetHeader}
+						placement="bottom"
+						.anchor=${this.queryCompareSheetTitle}
 						?auto-show=${this.graphReady}
 					></gl-graph-coachmark
 				></gl-graph-compare-sheet>`;
@@ -2377,8 +2386,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					orientation=${orientation}
 					@gl-graph-compare-flip=${this.handleFlipCompareOrientation}
 					@gl-graph-compare-close=${this.handleClosePinnedCompare}
-					>${this.renderCompareMode()}</gl-graph-compare-pinned
-				>
+					>${this.renderCompareMode()}${this.showMaximize ? renderDetailsMaximizeChip(this.maximized) : nothing}<gl-action-chip
+						slot="actions"
+						icon="refresh"
+						label="Refresh Comparison"
+						overlay="tooltip"
+						@click=${() => this._actions.refreshBranchCompare(this.effectiveRepoPath)}
+					></gl-action-chip
+				></gl-graph-compare-pinned>
 			</div>
 		</gl-split-panel>`;
 	}
@@ -2930,8 +2945,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const activeView = this._state.branchCompareActiveView.get();
 
 		return html`<gl-details-compare-mode-panel
-			?show-maximize=${this.showMaximize}
-			?maximized=${this.maximized}
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			.branchName=${branch?.name}

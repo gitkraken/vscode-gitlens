@@ -92,6 +92,7 @@ export class GlGraphComparePinned extends LitElement {
 						overlay="tooltip"
 						@click=${this.handleFlipClick}
 					></gl-action-chip>
+					<slot name="actions"></slot>
 					<gl-action-chip
 						icon="close"
 						label="Close"

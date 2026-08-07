@@ -23,7 +23,6 @@ import {
 	renderAutolinksPopover,
 } from '../../../shared/components/chips/autolinks.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
-import { renderDetailsMaximizeChip } from '../../../shared/components/details-header/details-maximize-chip.js';
 import { redispatch } from '../../../shared/components/element.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
 import {
@@ -91,13 +90,6 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	@property({ attribute: 'branch-name' })
 	branchName?: string;
-
-	/** Graph-bottom-only: render the maximize/restore chip left of the compare Refresh. */
-	@property({ type: Boolean, attribute: 'show-maximize' })
-	showMaximize = false;
-	/** Drives the maximize chip's icon/label when `showMaximize` is true. */
-	@property({ type: Boolean })
-	maximized = false;
 
 	@property({ attribute: 'repo-path' })
 	repoPath?: string;
@@ -548,14 +540,6 @@ export class GlDetailsCompareModePanel extends LitElement {
 				}
 			</div>
 			<div class="compare-bar__actions">
-				${this.showMaximize ? renderDetailsMaximizeChip(this.maximized, false) : nothing}
-				<gl-action-chip
-					class="compare-refresh"
-					icon="refresh"
-					label="Refresh Comparison"
-					overlay="tooltip"
-					@click=${this.dispatchRefreshCompare}
-				></gl-action-chip>
 				<gl-action-chip
 					class="compare-open-in-sac"
 					icon="link-external"

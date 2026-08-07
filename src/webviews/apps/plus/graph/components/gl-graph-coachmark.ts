@@ -416,11 +416,11 @@ export class GlGraphCoachMark extends SignalWatcher(LitElement) {
 
 		const lightbulb =
 			offered && this.autoShow && !this._open && dismissed === false
-				? html`<gl-tooltip placement="bottom" content="Show tip: ${content.title}">
+				? html`<gl-tooltip placement="bottom" content="Show Tip: ${content.title}">
 						<button
 							type="button"
 							class="lightbulb"
-							aria-label="Show tip: ${content.title}"
+							aria-label="Show Tip: ${content.title}"
 							@click=${this.onLightbulbClick}
 						>
 							<code-icon icon="lightbulb-sparkle"></code-icon>
