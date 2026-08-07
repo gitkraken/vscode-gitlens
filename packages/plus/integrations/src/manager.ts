@@ -59,6 +59,51 @@ export interface ProviderSweepTarget {
 	filters?: PullRequestFilter[];
 }
 
+/**
+ * One target's contribution to a pull-request sweep, reported as it settles.
+ *
+ * A sweep makes a single call and distributes its targets internally, so its aggregate result carries no
+ * per-target timing at all and only derivable per-target counts. This is the boundary that exposes them, for a
+ * host attributing a slow or failing sweep to the provider responsible.
+ *
+ * `outcome` is reported as one value rather than the underlying booleans because a consumer buckets by it, and
+ * because "the whole target is unusable" and "the target returned a slice with a gap" are different facts:
+ * a `failed-provider` target contributes nothing, a `fetch-failed` one contributes `count` rows that are
+ * incomplete. `skipped` is a target that resolved to no reachable connection and is deliberately not
+ * attributed in the aggregate result — reported anyway so a consumer counting targets never loses one.
+ *
+ * A target that produced no slice at all reports `count: 0` and `truncated: false` — always for `skipped`, and
+ * for `failed-provider` as `drainPullRequests` reports it today. Read those fields rather than deriving them
+ * from `outcome`: they are the target's own values, not constants the outcome guarantees.
+ */
+export interface ProviderSweepTargetEvent {
+	providerId: IntegrationIds;
+	/** The resolved read domain when the target got far enough to resolve one; the requested domain otherwise. */
+	domain: string | undefined;
+	connectionId: string | undefined;
+	/**
+	 * Rows this target contributed to the aggregate result. The sweep concatenates target slices without a
+	 * cross-target pass — duplicates are collapsed per target, across its own pages — so these sum to exactly
+	 * `items.length`, and a sum that disagrees means a target went unreported.
+	 */
+	count: number;
+	/**
+	 * Wall time from this target's worker picking it up to its slice being ready.
+	 *
+	 * Targets in the same sweep run concurrently, so these intervals OVERLAP and are not additive: summing them
+	 * across a sweep exceeds the sweep's own duration. Compare them against each other, not against a total.
+	 */
+	durationMs: number;
+	/**
+	 * Wall time between the fan-out starting and this target's worker picking the target up. Structurally 0
+	 * while the target count stays within the fan-out's concurrency limit, which every realistic account does.
+	 */
+	queueWaitMs: number;
+	outcome: 'ok' | 'failed-provider' | 'fetch-failed' | 'skipped';
+	/** Whether this target left pages unread. */
+	truncated: boolean;
+}
+
 type ProviderSweepSelection =
 	| {
 			targets: readonly ProviderSweepTarget[];
@@ -105,6 +150,17 @@ type PullRequestSweepCommonOptions = {
 	includeReviewRequested?: boolean;
 	forceSync?: boolean;
 	maxPages?: number;
+	/**
+	 * Fired once per target as it settles, for host-side per-provider attribution.
+	 *
+	 * Observation only: it cannot influence the sweep, and a throw is swallowed rather than allowed to turn a
+	 * successful target into a failed one. Nothing is allocated and no event is built when it is omitted.
+	 *
+	 * It reports how a target SETTLED, not every way one can end: if a target's read throws instead of
+	 * reporting failure through its slice, the whole sweep rejects, and neither that target nor the ones still
+	 * in flight are reported — the result they would have been attributed against no longer exists.
+	 */
+	onTargetSettled?: (event: ProviderSweepTargetEvent) => void;
 };
 
 export type PullRequestSweepOptions = PullRequestSweepCommonOptions & ProviderSweepSelection;
