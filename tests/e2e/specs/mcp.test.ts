@@ -134,7 +134,7 @@ test.describe('MCP — IPC Discovery', () => {
 
 	test('should find IPC discovery file for current workspace', ({ mcpClient, vscode }) => {
 		const ipcPath = mcpClient.ipcFilePath;
-		test.skip(ipcPath == null, 'No IPC discovery file available');
+		test.skip(ipcPath == null, mcpClient.ipcDiagnosis ?? 'No IPC discovery file available');
 
 		const workspacePath = vscode.electron.workspacePath;
 		expect(existsSync(ipcPath!)).toBe(true);
@@ -151,7 +151,7 @@ test.describe('MCP — IPC Discovery', () => {
 
 	test('should contain valid IPC discovery data', ({ mcpClient }) => {
 		const ipcPath = mcpClient.ipcFilePath;
-		test.skip(ipcPath == null, 'No IPC discovery file available');
+		test.skip(ipcPath == null, mcpClient.ipcDiagnosis ?? 'No IPC discovery file available');
 
 		const data = readIpcDiscoveryFile(ipcPath!);
 		expect(data).toBeDefined();
@@ -166,7 +166,7 @@ test.describe('MCP — IPC Discovery', () => {
 
 	test('should include workspace paths in discovery data', ({ mcpClient }) => {
 		const ipcPath = mcpClient.ipcFilePath;
-		test.skip(ipcPath == null, 'No IPC discovery file available');
+		test.skip(ipcPath == null, mcpClient.ipcDiagnosis ?? 'No IPC discovery file available');
 
 		const data = readIpcDiscoveryFile(ipcPath!);
 		expect(data).toBeDefined();
@@ -178,7 +178,7 @@ test.describe('MCP — IPC Discovery', () => {
 
 	test('should include IDE metadata in discovery data', async ({ mcpClient, vscode }) => {
 		const ipcPath = mcpClient.ipcFilePath;
-		test.skip(ipcPath == null, 'No IPC discovery file available');
+		test.skip(ipcPath == null, mcpClient.ipcDiagnosis ?? 'No IPC discovery file available');
 
 		const data = readIpcDiscoveryFile(ipcPath!);
 		expect(data).toBeDefined();
