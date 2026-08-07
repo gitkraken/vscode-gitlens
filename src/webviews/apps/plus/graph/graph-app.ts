@@ -1639,6 +1639,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _gatedPendingAction?: NonNullable<AppState['pendingAction']>;
 	private _wasAccessGated = false;
 
+	/** Shows the post-sign-in welcome interstitial: armed when the account wall clears live (a
+	 *  sign-in completed while the account screen was showing) with no parked task to run — a task
+	 *  arrival goes straight to the graph instead, both for intent and because
+	 *  `consumePendingAction` drives the graph subtree, which doesn't mount while this screen is up.
+	 *  Cleared when the user continues, a task action arrives, or the account wall re-raises. */
+	@state()
+	private _postSignInPending = false;
+	private _wasAccountGated = false;
+
 	/** Mirrors the host's `isAccountAccessRequired` — the predicate for the render swap to the
 	 *  account screen, and one of the two walls `isAccessGated` parks behind. */
 	private get isAccountGated(): boolean {
@@ -2240,6 +2249,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	protected override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		super.willUpdate(changedProperties);
 
+		// Post-sign-in welcome interstitial — arm on a live account-wall clear (sign-in completed
+		// while the account screen was showing). Skipped when the plan gate would still block the
+		// graph, or when a parked/incoming task action exists (see `_postSignInPending`).
+		const accountGated = this.isAccountGated;
+		if (accountGated) {
+			this._postSignInPending = false;
+		} else if (
+			this._wasAccountGated &&
+			(this.graphState.allowed ?? false) &&
+			this._gatedPendingAction == null &&
+			this.graphState.pendingAction == null
+		) {
+			this._postSignInPending = true;
+		}
+		this._wasAccountGated = accountGated;
+
+		// A task action arriving while the interstitial is up trumps onboarding — yield in willUpdate
+		// so the graph mounts in this same render and the action (consumed in `updated`) doesn't land
+		// in an unmounted subtree.
+		if (this._postSignInPending && this.graphState.pendingAction != null) {
+			this._postSignInPending = false;
+		}
+
 		// Access-gate action parking (#5534) — see `_gatedPendingAction`. In `willUpdate` (not
 		// `updated`) so the same render that raises the wall already has the task copy.
 		const gated = this.isAccessGated;
@@ -2515,9 +2547,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		if (this.isAccountGated) {
+		if (this.isAccountGated || this._postSignInPending) {
 			return html`<gl-graph-access-account
 				.intentAction=${this._gatedPendingAction?.action}
+				.postSignIn=${this._postSignInPending}
+				@gl-continue=${this.onPostSignInContinue}
 			></gl-graph-access-account>`;
 		}
 
@@ -3603,6 +3637,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		} else {
 			this.setSidebarPanel(gs.sidebar?.activePanel ?? 'branches');
 		}
+	}
+
+	private onPostSignInContinue(): void {
+		this._postSignInPending = false;
 	}
 
 	/** Opens `panel` with the same semantics the rail icon click uses: from a non-graph display mode,

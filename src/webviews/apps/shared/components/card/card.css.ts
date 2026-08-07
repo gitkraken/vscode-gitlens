@@ -22,6 +22,13 @@ export const cardStyles = css`
 		border-radius: var(--gl-radius-sm);
 	}
 
+	/* The href variant renders as an anchor; without this the UA link color and underline paint
+	   through the slotted content (text-decoration propagates, so slotted text can't opt out). */
+	a.card {
+		color: inherit;
+		text-decoration: none;
+	}
+
 	:host-context(.vscode-dark) .card.is-base,
 	:host-context(.vscode-high-contrast) .card.is-base {
 		border-inline-start-color: color-mix(in lab, var(--gl-color-mix-base) 100%, #fff 7%);

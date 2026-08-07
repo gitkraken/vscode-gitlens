@@ -5,9 +5,12 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type { GraphShowAction } from '../../../plus/graph/protocol.js';
+import { CloseGraphWalkthroughBannerCommand } from '../../../plus/graph/protocol.js';
+import { ipcContext } from '../../shared/contexts/ipc.js';
 import { graphStateContext } from './context.js';
 import { getIntentSourceDetail, intentCopyByAction } from './intentCopy.js';
 import '../../shared/components/button.js';
+import '../../shared/components/card/card.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/gitlens-logo-circle.js';
 
@@ -53,6 +56,20 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			.icon-accent {
 				color: var(--vscode-charts-blue);
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) both;
+			}
+
+			.success {
+				display: flex;
+				gap: var(--gl-space-4);
+				align-items: center;
+				margin-block: 0 var(--gl-space-6);
+				font-size: var(--gl-font-md);
+				color: var(--vscode-descriptionForeground);
+				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) both;
+			}
+
+			.success code-icon {
+				color: var(--vscode-charts-green);
 			}
 
 			.heading {
@@ -147,6 +164,80 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 300ms both;
 			}
 
+			.walkthrough {
+				--button-gap: var(--gl-space-4);
+
+				margin-block-start: var(--gl-space-12);
+				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 180ms both;
+			}
+
+			.setup {
+				/* The component's card surface defaults derive from the sidebar background; re-derive it
+				   here since this screen sits on the editor background instead. */
+				--gl-card-background: color-mix(
+					in lab,
+					var(--vscode-editor-background) 100%,
+					var(--vscode-foreground) 4%
+				);
+				--gl-card-hover-background: color-mix(
+					in lab,
+					var(--vscode-editor-background) 100%,
+					var(--vscode-foreground) 8%
+				);
+
+				display: flex;
+				flex-direction: column;
+				inline-size: 100%;
+				margin-block-start: var(--gl-space-16);
+				text-align: start;
+				animation: gl-fade-up var(--gl-duration-x-slow) var(--gl-ease-out) 240ms both;
+			}
+
+			.setup__label {
+				margin-block: 0 var(--gl-space-6);
+				font-size: var(--gl-font-sm);
+				font-weight: 600;
+				color: var(--vscode-foreground);
+			}
+
+			.setup-card {
+				display: flex;
+				gap: var(--gl-space-10);
+				align-items: center;
+			}
+
+			.setup-card__icon {
+				flex: none;
+				color: var(--vscode-charts-blue);
+			}
+
+			.setup-card__content {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				gap: var(--gl-space-2);
+			}
+
+			.setup-card__title {
+				font-weight: 600;
+				color: var(--vscode-foreground);
+			}
+
+			.setup-card__hint {
+				font-size: var(--gl-font-sm);
+				line-height: 1.4;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.setup-card__chevron {
+				flex: none;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.actions--last {
+				animation-delay: 300ms;
+			}
+
 			@keyframes gl-fade-up {
 				from {
 					opacity: 0;
@@ -196,17 +287,28 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				.sync-status {
 					margin-block-start: var(--gl-space-8);
 				}
+
+				.walkthrough {
+					margin-block-start: var(--gl-space-8);
+				}
+
+				.setup {
+					margin-block-start: var(--gl-space-10);
+				}
 			}
 
 			@media (prefers-reduced-motion: reduce) {
 				.logo,
 				.icon-accent,
+				.success,
 				.heading,
 				.body,
 				.actions,
 				.waiting,
 				.sync-status,
-				.learn-more {
+				.learn-more,
+				.walkthrough,
+				.setup {
 					animation: none;
 				}
 			}
@@ -216,10 +318,18 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	@consume({ context: graphStateContext, subscribe: true })
 	graphState!: typeof graphStateContext.__context__;
 
+	@consume({ context: ipcContext })
+	private readonly _ipc!: typeof ipcContext.__context__;
+
 	/** The task that brought the user here (parked by the app while gated) — selects the
 	 *  sign-in copy; actions without task copy fall back to the generic pitch. */
 	@property({ attribute: false })
 	intentAction?: GraphShowAction;
+
+	/** Render the post-sign-in welcome screen. Set by the app when the account wall clears live;
+	 *  the app keeps this element mounted while set, so `account` is non-null on that screen. */
+	@property({ type: Boolean })
+	postSignIn = false;
 
 	@state()
 	private waiting = false;
@@ -235,7 +345,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 	private _cooldownInterval: ReturnType<typeof setInterval> | undefined;
 	private _syncTimer: ReturnType<typeof setTimeout> | undefined;
-	private _lastScreen: 'signin' | 'verify' | undefined;
+	private _lastScreen: 'signin' | 'verify' | 'welcome' | undefined;
 	private _lastFocusKey: string | undefined;
 
 	override disconnectedCallback(): void {
@@ -244,13 +354,21 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		this.clearTimers();
 	}
 
+	private get screen(): 'signin' | 'verify' | 'welcome' {
+		const account = this.graphState.subscription?.account;
+		if (account == null) return 'signin';
+		if (account.verified === false) return 'verify';
+
+		return this.postSignIn ? 'welcome' : 'verify';
+	}
+
 	protected override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		super.willUpdate(changedProperties);
 
-		const screen = this.graphState.subscription?.account == null ? 'signin' : 'verify';
-		// The sign-in and verify sub-screens share one reused element instance; drop transient UI state
-		// when switching between them so a stale spinner, cooldown, or "not verified" note can't leak
-		// across the transition.
+		const screen = this.screen;
+		// The sign-in, verify, and welcome sub-screens share one reused element instance; drop
+		// transient UI state when switching between them so a stale spinner, cooldown, or "not
+		// verified" note can't leak across the transition (including waiting -> welcome).
 		if (this._lastScreen != null && this._lastScreen !== screen) {
 			this.clearTimers();
 			this.waiting = false;
@@ -265,10 +383,11 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		super.updated(changedProperties);
 
 		// Keep focus on the primary control whenever the visible view changes — the initial mount, the
-		// sign-in <-> verify switch, and the actions <-> "waiting" swap each remove the focused control,
-		// which would otherwise drop focus to <body>. Defer a frame so the new control's inner element
-		// has rendered (gl-button.focus() delegates to a not-yet-rendered `.control`).
-		const screen = this.graphState.subscription?.account == null ? 'signin' : 'verify';
+		// sign-in <-> verify <-> welcome switches, and the actions <-> "waiting" swap each remove the
+		// focused control, which would otherwise drop focus to <body>. Defer a frame so the new
+		// control's inner element has rendered (gl-button.focus() delegates to a not-yet-rendered
+		// `.control`).
+		const screen = this.screen;
 		const focusKey = `${screen}:${this.waiting ? 'waiting' : 'idle'}`;
 		if (focusKey === this._lastFocusKey) return;
 
@@ -277,7 +396,8 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			// `gl-button.focus()` delegates to its inner `.control`, which is null while the button is
 			// still rendering or being torn down during a screen swap — ignore focus in that window.
 			try {
-				this.renderRoot?.querySelector<HTMLElement>('gl-button, .cancel')?.focus();
+				const selector = screen === 'welcome' ? 'gl-button.continue' : 'gl-button, .cancel';
+				this.renderRoot?.querySelector<HTMLElement>(selector)?.focus();
 			} catch {
 				/* control not ready yet */
 			}
@@ -285,8 +405,14 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 	}
 
 	override render(): unknown {
-		const account = this.graphState.subscription?.account;
-		return account == null ? this.renderSignIn() : this.renderVerifyEmail();
+		switch (this.screen) {
+			case 'signin':
+				return this.renderSignIn();
+			case 'welcome':
+				return this.renderWelcome();
+			default:
+				return this.renderVerifyEmail();
+		}
 	}
 
 	private get signInCopy(): { heading: string; body: string } | undefined {
@@ -393,6 +519,69 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		`;
 	}
 
+	private renderWelcome(): unknown {
+		return html`
+			<div class="container">
+				<gitlens-logo-circle class="logo"></gitlens-logo-circle>
+				<p class="success" role="status">
+					<code-icon icon="pass-filled"></code-icon>
+					You're signed in
+				</p>
+				<h1 class="heading">Welcome to the Commit Graph</h1>
+				<p class="body">
+					Where your development and agentic workflows come together &mdash; visualize branches and commits,
+					manage parallel work and agents, and run your entire Git workflow from one view.
+				</p>
+				<gl-button class="walkthrough" appearance="link" @click=${this.onOpenWalkthrough}>
+					<code-icon slot="prefix" icon="play-circle"></code-icon>
+					Take the Commit Graph Walkthrough
+				</gl-button>
+				<div class="setup">
+					<h2 class="setup__label">Set up your workflow</h2>
+					<gl-card class="setup__card" href=${createCommandLink('gitlens.showSettingsPage!ai')}>
+						<div class="setup-card">
+							<code-icon class="setup-card__icon" icon="sparkle"></code-icon>
+							<div class="setup-card__content">
+								<span class="setup-card__title">Set up AI</span>
+								<span class="setup-card__hint"
+									>Compose commits, review changes, and resolve conflicts with AI</span
+								>
+							</div>
+							<code-icon class="setup-card__chevron" icon="chevron-right"></code-icon>
+						</div>
+					</gl-card>
+					<gl-card class="setup__card" href=${createCommandLink('gitlens.showSettingsPage!agents')}>
+						<div class="setup-card">
+							<code-icon class="setup-card__icon" icon="robot"></code-icon>
+							<div class="setup-card__content">
+								<span class="setup-card__title">Set up Agents</span>
+								<span class="setup-card__hint"
+									>Choose your default coding agent and install the GitKraken MCP</span
+								>
+							</div>
+							<code-icon class="setup-card__chevron" icon="chevron-right"></code-icon>
+						</div>
+					</gl-card>
+					<gl-card class="setup__card" href=${createCommandLink('gitlens.showSettingsPage!integrations')}>
+						<div class="setup-card">
+							<code-icon class="setup-card__icon" icon="plug"></code-icon>
+							<div class="setup-card__content">
+								<span class="setup-card__title">Connect Integrations</span>
+								<span class="setup-card__hint"
+									>See and act on PRs and issues from GitHub, Jira, and more</span
+								>
+							</div>
+							<code-icon class="setup-card__chevron" icon="chevron-right"></code-icon>
+						</div>
+					</gl-card>
+				</div>
+				<div class="actions actions--last">
+					<gl-button full class="continue" @click=${this.onContinue}>Continue to Commit Graph</gl-button>
+				</div>
+			</div>
+		`;
+	}
+
 	private readonly onStart = (): void => {
 		this.waiting = true;
 	};
@@ -423,6 +612,18 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 			this.syncChecked = true;
 			this._syncTimer = undefined;
 		}, syncStatusDelayMs);
+	};
+
+	private readonly onContinue = (): void => {
+		this.dispatchEvent(new CustomEvent('gl-continue'));
+	};
+
+	private readonly onOpenWalkthrough = (): void => {
+		// The banner IPC command is the canonical in-graph walkthrough entry — it records
+		// walkthrough-started usage (which also retires the header megaphone highlight) before
+		// opening the Get Started view in graph mode.
+		this._ipc.sendCommand(CloseGraphWalkthroughBannerCommand, { openWelcome: true });
+		this.dispatchEvent(new CustomEvent('gl-continue'));
 	};
 
 	private clearCooldownTimer(): void {
