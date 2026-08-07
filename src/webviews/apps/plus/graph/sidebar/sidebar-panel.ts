@@ -75,6 +75,8 @@ import {
 	parsePullRequestFilterTerms,
 	withSearchedPullRequest,
 } from './pullRequestFilter.utils.js';
+import type { PullRequestStackEntry } from './pullRequestStacks.utils.js';
+import { groupPullRequestsByStack } from './pullRequestStacks.utils.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import { resolveSelectedTag } from './sidebarTelemetry.utils.js';
@@ -1209,8 +1211,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				);
 			}
 			case 'pullRequests':
-				return withSearchedPullRequest(data.items, this.prSearchResult).map(pr =>
-					leafToTreeModel(this.toPullRequestLeaf(pr), `pr:${pr.number}`, 1),
+				return groupPullRequestsByStack(withSearchedPullRequest(data.items, this.prSearchResult)).map(entry =>
+					entry.kind === 'stack'
+						? this.toStackBranch(entry)
+						: leafToTreeModel(this.toPullRequestLeaf(entry.pr), `pr:${entry.pr.number}`, 1),
 				);
 			case 'remotes':
 				return this.buildRemoteTree(data.items, useTree, compact);
@@ -1293,6 +1297,61 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		};
 	}
 
+	/**
+	 * A stack's parent row. Synthetic — it owns no pull request of its own — so it takes its own `stack:`
+	 * path namespace, which keeps `pr:${number}` matching exactly the rows that are pull requests
+	 * (selection telemetry and focused-path restore both match on that form) and gives the tree a stable
+	 * key to persist expansion against.
+	 *
+	 * The trunk lives here rather than on every layer: it's a property of the stack, and each member's own
+	 * base is the layer below it. Stating it once is also what lets the collapsed row stay meaningful.
+	 */
+	private toStackBranch(entry: PullRequestStackEntry): TreeModel<SidebarItemContext> {
+		const children = entry.members.map(pr => leafToTreeModel(this.toPullRequestLeaf(pr), `pr:${pr.number}`, 2));
+
+		// The count states what GitHub reports, not how many rows are below — a paged-off layer still
+		// merges when the stack merges, so under-reporting it would understate the blast radius.
+		const loaded = entry.members.length;
+		const count = loaded < entry.size ? `${loaded} of ${entry.size} PRs` : `${entry.size} PRs`;
+
+		// Focus the whole stack: the BASE layer is focal — it's the one whose merge target really is the
+		// trunk, so its spine runs the full depth of the stack — and the layers above ride along as
+		// additional branches, since they're descendants the focal walk can't reach on its own. Members are
+		// ordered top-first, so the base is last. Needs every layer focusable: a member whose head isn't
+		// fetched has no ref to scope to, and a stack shown minus a layer is worse than no action at all.
+		const actions: TreeItemAction[] = [];
+		const base = entry.members.at(-1);
+		if (loaded === entry.size && entry.members.every(m => m.focus != null) && base?.focus != null) {
+			actions.push(
+				createFocusRefAction('Focus on Stack', {
+					...base.focus,
+					additional: entry.members
+						.slice(0, -1)
+						.map(m => ({ branchName: m.focus!.branchName, remote: m.focus!.remote })),
+					origin: { kind: 'stack', number: entry.number, size: entry.size },
+				}),
+			);
+		}
+
+		return {
+			branch: true,
+			expanded: true,
+			path: `stack:${entry.number}`,
+			level: 1,
+			label: `Stack #${entry.number}`,
+			description: `→ ${entry.baseRef}`,
+			icon: 'layers',
+			checkable: false,
+			// Matches on the trunk and on the members' own text, so filtering to a layer keeps the group.
+			filterText: `stack #${entry.number} ${entry.baseRef}`,
+			decorations: [
+				{ type: 'text', label: count, position: 'before', kind: 'muted' },
+			] satisfies TreeItemDecoration[],
+			actions: actions,
+			children: children,
+		};
+	}
+
 	private toPullRequestLeaf(pr: GraphSidebarPullRequest): LeafProps {
 		const actions = getPullRequestLeafActions(pr);
 		// Last, so it lands on the row's right edge — same rule as the branch and remote-branch rows. With the
@@ -1300,7 +1359,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// fork whose remote this repository doesn't have — the host command runs instead, which offers to
 		// fetch and then scopes. Same action either way, so the row doesn't explain the difference.
 		if (pr.focus != null) {
-			actions.push(createFocusRefAction('Focus on Pull Request', pr.focus));
+			actions.push(
+				createFocusRefAction('Focus on Pull Request', {
+					...pr.focus,
+					origin: { kind: 'pullRequest', number: pr.number },
+				}),
+			);
 		} else if (pr.state === 'opened' && pr.headBranch && pr.headUrl) {
 			actions.push({
 				icon: 'target',
@@ -1364,15 +1428,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					? `${markdown}\n\n${merges}`
 					: markdown,
 			// A merged/closed row reaches this list only via the search-by-number fallback, and carries no
-			// indicator (grouping is open-only) — so the glyph is the only thing distinguishing it.
-			icon:
-				pr.state === 'merged'
-					? 'git-merge'
-					: pr.state === 'closed'
-						? 'git-pull-request-closed'
-						: pr.isDraft
-							? 'git-pull-request-draft'
-							: 'git-pull-request',
+			// indicator (grouping is open-only) — so the glyph is the only thing distinguishing it. Color
+			// comes with it, from GitLens's contributed pull-request colors, and draft keeps its own glyph
+			// so the distinction survives for anyone the hue doesn't reach.
+			icon: { type: 'pull-request', state: pr.state, draft: pr.isDraft },
 			description: pr.authorName,
 			decorations: [
 				// Leading, in the scanning column, so provenance reads before the title — the trailing slot stays
@@ -1390,6 +1449,19 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						]
 					: []),
 				{ type: 'text', label: `#${pr.number}`, position: 'before', kind: 'muted' },
+				// Which layer this is. The trunk isn't repeated here — the parent row states it once, and a
+				// member's own base is the layer below it, which isn't the useful fact at a glance.
+				...(pr.stack != null
+					? [
+							{
+								type: 'stack' as const,
+								label: `Layer ${pr.stack.position} of ${pr.stack.size}`,
+								position: 'before' as const,
+								layer: pr.stack.position,
+								size: pr.stack.size,
+							},
+						]
+					: []),
 				// Trailing indicator, and only for a grouping that asks something of the user — a glyph on
 				// every row would stop separating the ones that need attention from the ones that don't.
 				...(decorationKind != null && groupIcon != null
@@ -2251,16 +2323,27 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// Same repo-path resolution the scope path itself uses (`scopeToBranchByName`), so the ref
 		// built here matches the one already published on the scope.
 		const repoPath = getSelectedRepoPath(this._state);
+		const scope = this._state.scope;
+		// Same target means same ORIGIN too — focusing a stack over its plain-focused base (or vice versa)
+		// is a re-focus that changes the scope's shape, not a toggle of the same one.
+		const sameOrigin = scope?.origin?.kind === args.origin?.kind && scope?.origin?.number === args.origin?.number;
 		if (
 			repoPath != null &&
-			this._state.scope?.branchRef === getBranchId(repoPath, args.remote ?? false, args.branchName)
+			sameOrigin &&
+			scope?.branchRef === getBranchId(repoPath, args.remote ?? false, args.branchName)
 		) {
 			this._state.clearScope();
 			return;
 		}
 
 		this.dispatchEvent(
-			new CustomEvent<GraphScopeBranch & { source: GraphScopeSource }>('gl-graph-scope-to-branch', {
+			new CustomEvent<
+				GraphScopeBranch & {
+					source: GraphScopeSource;
+					additional?: FocusRefActionArgs['additional'];
+					origin?: FocusRefActionArgs['origin'];
+				}
+			>('gl-graph-scope-to-branch', {
 				detail: { ...args, source: 'sidebar' },
 				bubbles: true,
 				composed: true,

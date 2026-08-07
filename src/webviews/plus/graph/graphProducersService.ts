@@ -267,7 +267,12 @@ export class GraphProducersService {
 					author: pr.author.name,
 					date: (pr.mergedDate ?? pr.closedDate ?? pr.updatedDate)?.getTime(),
 					state: pr.state,
+					isDraft: pr.isDraft,
 					url: pr.url,
+					stack:
+						pr.stack != null
+							? { number: pr.stack.number, position: pr.stack.position, size: pr.stack.size }
+							: undefined,
 					context: serializeWebviewItemContext<GraphItemContext>({
 						// Every suffix names a precondition some handler actually checks — a suffix that
 						// merely says "a refs object exists" gates nothing, since the providers-api path
@@ -295,6 +300,10 @@ export class GraphProducersService {
 							url: pr.url,
 							repoPath: repoPath,
 							refs: pr.refs,
+							stack:
+								pr.stack != null
+									? { number: pr.stack.number, position: pr.stack.position, size: pr.stack.size }
+									: undefined,
 							provider: {
 								id: pr.provider.id,
 								name: pr.provider.name,

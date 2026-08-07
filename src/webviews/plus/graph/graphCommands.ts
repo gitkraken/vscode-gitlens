@@ -1418,12 +1418,20 @@ export class GraphCommands {
 		}
 
 		const upstreamName = `${target.remoteName}/${target.headBranch}`;
+
+		// One layer, and only that layer — a stacked pull request's own commits against the layer below are
+		// exactly the diff being reviewed, which is what makes a stack reviewable at all. Seeing the whole
+		// stack is a different question, asked from the stack row in the pull requests panel.
 		void this.host.notify(DidRequestGraphActionNotification, {
 			action: 'scope-to-branch',
 			scopeBranch:
 				target.localBranch != null
 					? { branchName: target.localBranch.name, upstreamName: upstreamName }
 					: { branchName: upstreamName, remote: true },
+			// So the header names the pull request that was focused rather than the branch it resolved to.
+			// The display number, never `id` — the sidebar rows that route here come from the providers-api
+			// path, where `id` is the provider's internal id.
+			scopeOrigin: { kind: 'pullRequest', number: getPullRequestNumber(value) },
 		});
 	}
 

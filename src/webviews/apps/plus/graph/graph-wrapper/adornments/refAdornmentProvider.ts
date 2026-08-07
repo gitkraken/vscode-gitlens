@@ -16,6 +16,8 @@ import type {
 } from '../../../../../plus/graph/protocol.js';
 import type { StyleInfo } from '../../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../../shared/components/csp-style-map.directive.js';
+import type { AutolinkIconStatus } from '../../../../shared/components/rich/utils.js';
+import { getAutolinkIcon } from '../../../../shared/components/rich/utils.js';
 import { refContextPinKey, refPillKey } from '../../utils/refKey.utils.js';
 import type { RowMarkerRole, RowMarkerTips } from '../../utils/rowMarker.utils.js';
 import { primaryRowMarkerRole, rowMarkerRolesFor, shortRefName } from '../../utils/rowMarker.utils.js';
@@ -241,17 +243,17 @@ function refStyle(color: string, isHead: boolean, _variant: 'pill' | 'row'): Sty
 	};
 }
 
-// PR chip icon by state (case-insensitive — the host's `state` string isn't a strict union); merged/
-// closed get a distinct glyph, everything else (open, draft, unknown) reads as an open pull request.
-function pullRequestIcon(state: string | undefined): string {
-	switch (state?.toLowerCase()) {
-		case 'merged':
-			return 'git-merge';
-		case 'closed':
-			return 'git-pull-request-closed';
-		default:
-			return 'git-pull-request';
-	}
+// Glyph + tone for a pull request, from the shared resolver every other surface uses. Kept behind a local
+// wrapper only to normalize `state`: `PullRequestMetadata.state` is widened to `string`, so the case has to
+// be pinned somewhere — doing it here means the resolver still sees the union it expects.
+//
+// On the PILL the glyph carries state ALONE: the chip sits on the ref's fill, which is the branch's lane
+// color, so a tinted icon there is a contrast lottery. The hover card, on the tooltip's own background,
+// does take the tone.
+//
+// An absent state pins to 'opened': the resolver's own default is 'merged' (see pr-icon.ts's identical guard).
+function pullRequestGlyph(pr: PullRequestMetadata): { icon: string; modifier: string } {
+	return getAutolinkIcon('pr', (pr.state?.toLowerCase() as AutolinkIconStatus) ?? 'opened', pr.isDraft);
 }
 
 /**
@@ -284,80 +286,120 @@ function firstRefMetadata<T>(
 // match the pill's own (`data-ref-name`/`-kind`/`-remote`/`-is-head`/`-vscode-context`) plus a
 // `data-ref-metadata-type` discriminator, so a later double-click-routing pass can resolve both the
 // metadata item AND the owning ref (host guard needs `ref.context`) from this chip.
+
+/**
+ * The pull-request hover card. Rendered by the graph's ONE delegated tooltip rather than by a popover per
+ * chip — the chip only marks itself with `data-ref-metadata-type` + `data-ref-id`, and the host looks the
+ * metadata back up. Exported for that resolver.
+ */
+export function renderPullRequestTooltipCard(pr: PullRequestMetadata): TemplateResult {
+	const label = `#${pr.id}`;
+	const { icon, modifier } = pullRequestGlyph(pr);
+	// The date is whichever of merged/closed/updated applies (see the producer), so it MUST be labelled by
+	// state — unlabelled, the same "2 hours ago" silently means three different things. Likewise the name
+	// is the pull request's author, never an assignee, and "Opened by" holds for every state.
+	const verb = modifier === 'pr-merged' ? 'merged' : modifier === 'pr-closed' ? 'closed' : 'updated';
+	const author = pr.author ? `Opened by ${pr.author}` : undefined;
+	const when =
+		pr.date != null
+			? // Reads as one sentence after the author; capitalized only when it has to lead the line.
+				`${author == null ? `${verb[0].toUpperCase()}${verb.slice(1)}` : verb} ${relativeTime(pr.date)}`
+			: undefined;
+	const meta = [author, when].filter((v): v is string => v != null && v.length > 0);
+
+	return html`<div class="gl-graph__ref-metadata-card">
+		<div class="gl-graph__ref-metadata-card-head">
+			<code-icon
+				class="gl-graph__ref-metadata-card-icon gl-graph__ref-metadata-card-icon--${modifier}"
+				icon=${icon}
+			></code-icon>
+			<span class="gl-graph__ref-metadata-card-title">${pr.title}</span>
+			<span class="gl-graph__ref-metadata-card-id">${label}</span>
+		</div>
+		${meta.length > 0 ? html`<div class="gl-graph__ref-metadata-card-meta">${meta.join(' · ')}</div>` : nothing}
+		${
+			pr.stack != null
+				? html`<div class="gl-graph__ref-metadata-card-stack">
+						<code-icon icon="layers"></code-icon>Stack #${pr.stack.number}<span
+							class="gl-graph__ref-metadata-card-stack-box"
+							>${pr.stack.position}/${pr.stack.size}</span
+						>
+					</div>`
+				: nothing
+		}
+	</div>`;
+}
+
+/** The issue hover card. Same delegated-tooltip contract as {@link renderPullRequestTooltipCard}. */
+export function renderIssueTooltipCard(issue: IssueMetadata): TemplateResult {
+	return html`<div class="gl-graph__ref-metadata-card">
+		<div class="gl-graph__ref-metadata-card-head">
+			<code-icon class="gl-graph__ref-metadata-card-icon" icon="issues"></code-icon>
+			<span class="gl-graph__ref-metadata-card-title">${issue.title}</span>
+			<span class="gl-graph__ref-metadata-card-id">${issue.displayId}</span>
+		</div>
+		<div class="gl-graph__ref-metadata-card-meta">${issue.issueTrackerType}</div>
+	</div>`;
+}
+
 function renderPrChip(pr: PullRequestMetadata, ref: ParsedRef, expanded: boolean): TemplateResult {
 	const label = `#${pr.id}`;
-	const meta = [pr.state, pr.author, pr.date != null ? relativeTime(pr.date) : undefined].filter(
-		(v): v is string => v != null && v.length > 0,
-	);
-	return html`<gl-popover
+	return html`<span
 		class="gl-graph__ref-pill-pr"
-		hoist
-		.arrow=${false}
-		placement="bottom-start"
-		trigger="hover focus"
-		.distance=${1}
-		style=${cspStyleMap({ '--show-delay': '120ms', '--hide-delay': '180ms' })}
+		role="button"
+		tabindex=${
+			// Only the in-flow copy roves; the expanded-twin copy sits in an aria-hidden subtree, where a
+			// click-focusable element would put focus inside hidden-from-AT content.
+			expanded ? nothing : '-1'
+		}
+		aria-label=${
+			pr.stack != null
+				? `Pull request ${label}, layer ${pr.stack.position} of ${pr.stack.size}`
+				: `Pull request ${label}`
+		}
+		data-ref-metadata-type="pullRequest"
+		data-ref-id=${ref.id ?? nothing}
+		data-ref-name=${ref.name}
+		data-ref-kind=${ref.kind}
+		data-ref-remote=${ref.owner ?? nothing}
+		data-ref-is-head=${ref.current ? 'true' : nothing}
+		data-vscode-context=${ref.context ?? nothing}
 	>
-		<span
-			slot="anchor"
-			role="button"
-			tabindex=${
-				// Only the in-flow copy roves; the expanded-twin copy sits in an aria-hidden subtree, where a
-				// click-focusable element would put focus inside hidden-from-AT content.
-				expanded ? nothing : '-1'
-			}
-			aria-label="Pull request ${label}"
-			data-ref-metadata-type="pullRequest"
-			data-ref-id=${ref.id ?? nothing}
-			data-ref-name=${ref.name}
-			data-ref-kind=${ref.kind}
-			data-ref-remote=${ref.owner ?? nothing}
-			data-ref-is-head=${ref.current ? 'true' : nothing}
-			data-vscode-context=${ref.context ?? nothing}
-		>
-			<code-icon icon=${pullRequestIcon(pr.state)}></code-icon>${expanded ? html`<span>${label}</span>` : nothing}
-		</span>
-		<div slot="content" class="gl-graph__ref-metadata-card" @mousedown=${stopEvent}>
-			<div class="gl-graph__ref-metadata-card-title">${pr.title}</div>
-			${meta.length > 0 ? html`<div class="gl-graph__ref-metadata-card-meta">${meta.join(' · ')}</div>` : nothing}
-		</div>
-	</gl-popover>`;
+		<code-icon icon=${pullRequestGlyph(pr).icon}></code-icon
+		>${expanded ? html`<span class="gl-graph__ref-pill-chip-id">${label}</span>` : nothing}${
+			// Icon, id, then the layer count, hard against each other — the three read as one identifier
+			// rather than as a pill with something appended to it.
+			pr.stack != null
+				? html`<span class="gl-graph__ref-pill-stack" aria-hidden="true"
+						>${pr.stack.position}/${pr.stack.size}</span
+					>`
+				: nothing
+		}
+	</span>`;
 }
 
 function renderIssueChip(issue: IssueMetadata, ref: ParsedRef, expanded: boolean): TemplateResult {
 	const label = issue.displayId;
-	return html`<gl-popover
+	return html`<span
 		class="gl-graph__ref-pill-issue"
-		hoist
-		.arrow=${false}
-		placement="bottom-start"
-		trigger="hover focus"
-		.distance=${1}
-		style=${cspStyleMap({ '--show-delay': '120ms', '--hide-delay': '180ms' })}
+		role="button"
+		tabindex=${
+			// Same as the PR chip: rove only the in-flow copy, never the aria-hidden expanded twin.
+			expanded ? nothing : '-1'
+		}
+		aria-label="Issue ${label}"
+		data-ref-metadata-type="issue"
+		data-ref-id=${ref.id ?? nothing}
+		data-ref-name=${ref.name}
+		data-ref-kind=${ref.kind}
+		data-ref-remote=${ref.owner ?? nothing}
+		data-ref-is-head=${ref.current ? 'true' : nothing}
+		data-vscode-context=${ref.context ?? nothing}
 	>
-		<span
-			slot="anchor"
-			role="button"
-			tabindex=${
-				// Same as the PR chip: rove only the in-flow copy, never the aria-hidden expanded twin.
-				expanded ? nothing : '-1'
-			}
-			aria-label="Issue ${label}"
-			data-ref-metadata-type="issue"
-			data-ref-id=${ref.id ?? nothing}
-			data-ref-name=${ref.name}
-			data-ref-kind=${ref.kind}
-			data-ref-remote=${ref.owner ?? nothing}
-			data-ref-is-head=${ref.current ? 'true' : nothing}
-			data-vscode-context=${ref.context ?? nothing}
-		>
-			<code-icon icon="issues"></code-icon>${expanded ? html`<span>${label}</span>` : nothing}
-		</span>
-		<div slot="content" class="gl-graph__ref-metadata-card" @mousedown=${stopEvent}>
-			<div class="gl-graph__ref-metadata-card-title">${issue.title}</div>
-			<div class="gl-graph__ref-metadata-card-meta">${issue.issueTrackerType}</div>
-		</div>
-	</gl-popover>`;
+		<code-icon icon="issues"></code-icon>${
+			expanded ? html`<span class="gl-graph__ref-pill-chip-id">${label}</span>` : nothing
+		}
+	</span>`;
 }
 
 /** RowMarker options for the pill. `role` forces the role emphasis (the WIP-row pill, which sits on a

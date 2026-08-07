@@ -12,6 +12,7 @@ import type {
 	DidGetSidebarDataParams,
 	GraphExcludeTypes,
 	GraphRefOptData,
+	GraphScopeOrigin,
 	GraphSidebarBranch,
 	GraphSidebarPullRequest,
 	UpdateGraphConfigurationParams,
@@ -34,6 +35,7 @@ import {
 	parsePullRequestFilterTerms,
 	withSearchedPullRequest,
 } from '../sidebar/pullRequestFilter.utils.js';
+import { groupPullRequestsByStack } from '../sidebar/pullRequestStacks.utils.js';
 import { sidebarActionsContext } from '../sidebar/sidebarContext.js';
 import type { SidebarActions } from '../sidebar/sidebarState.js';
 import { graphScopePopoverStyles } from './gl-graph-scope-popover.css.js';
@@ -213,11 +215,25 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				label = 'Agents';
 				tooltip = 'Showing Agent Branches Only';
 				break;
-			case 'scoped':
-				icon = 'target';
-				label = scopedName ?? 'Scoped';
-				tooltip = `Showing ${scopedName ?? 'Specific Branch'} Only`;
+			case 'scoped': {
+				// Every scope lands on a branch, but the branch isn't always what was picked — a focused
+				// pull request or stack names itself here instead of whichever branch it resolved to.
+				const origin = this.graphState.scope?.origin;
+				if (origin?.kind === 'pullRequest') {
+					icon = 'git-pull-request';
+					label = `#${origin.number}`;
+					tooltip = `Showing Pull Request #${origin.number} Only`;
+				} else if (origin?.kind === 'stack') {
+					icon = 'layers';
+					label = `Stack #${origin.number}`;
+					tooltip = `Showing Stack #${origin.number} of ${origin.size} Pull Requests Only`;
+				} else {
+					icon = 'target';
+					label = scopedName ?? 'Scoped';
+					tooltip = `Showing ${scopedName ?? 'Specific Branch'} Only`;
+				}
 				break;
+			}
 		}
 
 		const filtered = this.isFiltered;
@@ -418,8 +434,11 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	}
 
 	private renderFocusBranchRow(currentMode: string) {
-		const isCurrent = currentMode === 'scoped';
-		const scopedName = this.graphState.scope?.branchName;
+		// A scope reached through a pull request or a stack belongs to the row below: it still resolves to a
+		// branch, but naming that branch here would mark two rows as the live scope and leave the user to
+		// work out which one they actually picked.
+		const isCurrent = currentMode === 'scoped' && this.graphState.scope?.origin == null;
+		const scopedName = isCurrent ? this.graphState.scope?.branchName : undefined;
 		const expanded = this._focusBranchExpanded;
 
 		return html`<menu-item
@@ -474,8 +493,14 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	private renderFocusPrRow() {
 		const expanded = this._focusPrExpanded;
 
+		// A stack is more pull requests than it is branches, so its readout belongs on this row rather than
+		// the branch one — even though the scope it produces focuses a branch like any other.
+		const origin = this.graphState.scope?.origin;
+
 		return html`<menu-item
-				class="mode-menu-item mode-menu-item--focus ${expanded ? 'mode-menu-item--expanded' : ''}"
+				class="mode-menu-item mode-menu-item--focus ${
+					origin != null ? 'mode-menu-item--current' : ''
+				} ${expanded ? 'mode-menu-item--expanded' : ''}"
 				aria-expanded=${expanded ? 'true' : 'false'}
 				@click=${this.handleFocusPrRowClick}
 			>
@@ -483,6 +508,15 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					<code-icon icon="git-pull-request"></code-icon>
 				</span>
 				<span class="mode-menu-item__label">Focus Pull Request</span>
+				${
+					origin?.kind === 'stack'
+						? html`<span class="mode-menu-item__branch"
+								><code-icon icon="layers" size="11"></code-icon> Stack #${origin.number}</span
+							>`
+						: origin?.kind === 'pullRequest'
+							? html`<span class="mode-menu-item__branch">#${origin.number}</span>`
+							: nothing
+				}
 				<code-icon
 					class="mode-menu-item__chevron"
 					icon=${expanded ? 'chevron-down' : 'chevron-right'}
@@ -687,7 +721,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		// Skip folder nodes (branch name is empty) — let the tree handle expansion, don't close the popover.
 		if (branchName == null || branchName === '') return;
 
-		this.handleScopeToBranch(branchName, context?.[1], context?.[2]);
+		this.handleScopeToBranch(branchName, context?.[1], context?.[2], context?.[3], context?.[4]);
 	};
 
 	private handleFocusBranchRowClick = (e: Event) => {
@@ -1022,10 +1056,22 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		this.hideModePopover();
 	}
 
-	private handleScopeToBranch(branchName: string, upstreamName?: string | undefined, remote?: boolean) {
+	private handleScopeToBranch(
+		branchName: string,
+		upstreamName?: string | undefined,
+		remote?: boolean,
+		additional?: { branchName: string; remote?: boolean }[],
+		origin?: GraphScopeOrigin,
+	) {
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-scope-to-branch', {
-				detail: { branchName: branchName, upstreamName: upstreamName, remote: remote },
+				detail: {
+					branchName: branchName,
+					upstreamName: upstreamName,
+					remote: remote,
+					additional: additional,
+					origin: origin,
+				},
 				bubbles: true,
 				composed: true,
 			}),
@@ -1088,7 +1134,59 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	}
 }
 
-type BranchTreeContext = [branchName: string, upstreamName: string | undefined, remote?: boolean];
+type BranchTreeContext = [
+	branchName: string,
+	upstreamName: string | undefined,
+	remote?: boolean,
+	/** Set only by a stack row: the layers above the focal one, which the scope can't reach on its own. */
+	additional?: { branchName: string; remote?: boolean }[],
+	/** What the row represents, so the scope can name it rather than the branch it resolved to. */
+	origin?: GraphScopeOrigin,
+];
+
+function pullRequestToLeaf(
+	pr: GraphSidebarPullRequest,
+	scopedBranchName: string | undefined,
+	level: number,
+): TreeModel<BranchTreeContext> {
+	return {
+		branch: false,
+		expanded: false,
+		path: `pr:${pr.number}`,
+		level: level,
+		// Title leads, number rides as a decoration — same treatment as the sidebar panel's rows.
+		// No fork marker is needed here: rows without a focus target are filtered out by the caller, so
+		// every row in this list is focusable by construction.
+		label: pr.title,
+		decorations: [
+			{ type: 'text', label: `#${pr.number}`, position: 'before', kind: 'muted' },
+			...(pr.stack != null
+				? [
+						{
+							type: 'stack' as const,
+							label: `Layer ${pr.stack.position} of ${pr.stack.size}`,
+							position: 'before' as const,
+							layer: pr.stack.position,
+							size: pr.stack.size,
+						},
+					]
+				: []),
+		] satisfies TreeItemDecoration[],
+		// Head branch included so filtering by branch name finds the PR, matching how users think
+		// about which PR a branch belongs to.
+		filterText: `${pr.number} ${pr.title} ${pr.headBranch ?? ''}`,
+		icon: { type: 'pull-request', state: pr.state, draft: pr.isDraft },
+		checkable: false,
+		context: [
+			pr.focus!.branchName,
+			pr.focus!.upstreamName,
+			pr.focus!.remote,
+			undefined,
+			{ kind: 'pullRequest', number: pr.number },
+		] as BranchTreeContext,
+		matched: pr.focus!.branchName === scopedBranchName,
+	};
+}
 
 function buildPullRequestListModel(
 	prs: GraphSidebarPullRequest[],
@@ -1096,28 +1194,48 @@ function buildPullRequestListModel(
 ): TreeModel<BranchTreeContext>[] {
 	// Only PRs whose head resolves against this repo are listed — a fork head has no ref this graph
 	// can scope to, so offering it would produce a row that does nothing when picked.
-	return prs
-		.filter(pr => pr.focus != null)
-		.map(pr => ({
-			branch: false,
-			expanded: false,
-			path: `pr:${pr.number}`,
+	const focusable = prs.filter(pr => pr.focus != null);
+
+	return groupPullRequestsByStack(focusable).flatMap(entry => {
+		if (entry.kind === 'pullRequest') return [pullRequestToLeaf(entry.pr, scopedBranchName, 1)];
+
+		// Every row here IS its action, so an incomplete stack can't have one: with a layer missing (paged
+		// off, or a fork head that's unfocusable) the last member is NOT the base, and focusing it would
+		// re-root on a layer whose own merge target is the layer below rather than the trunk. Same gate the
+		// sidebar's Focus on Stack applies — it just drops the action and keeps the group; here the group
+		// falls back to plain rows, each of which still focuses its own layer.
+		if (entry.members.length !== entry.size) {
+			return entry.members.map(m => pullRequestToLeaf(m, scopedBranchName, 1));
+		}
+
+		// Picking the stack focuses the BASE layer with the ones above it as additional branches — the same
+		// arrangement the sidebar's Focus on Stack builds, since only the base's own line reaches the trunk.
+		// Members are ordered top-first, so the base is last.
+		const base = entry.members.at(-1)!;
+		return {
+			branch: true,
+			expanded: true,
+			path: `stack:${entry.number}`,
 			level: 1,
-			// Title leads, number rides as a decoration — same treatment as the sidebar panel's rows.
-			// No fork marker is needed here: rows without a focus target are filtered out above, so
-			// every row in this list is focusable by construction.
-			label: pr.title,
-			decorations: [
-				{ type: 'text', label: `#${pr.number}`, position: 'before', kind: 'muted' },
-			] satisfies TreeItemDecoration[],
-			// Head branch included so filtering by branch name finds the PR, matching how users think
-			// about which PR a branch belongs to.
-			filterText: `${pr.number} ${pr.title} ${pr.headBranch ?? ''}`,
-			icon: pr.isDraft ? 'git-pull-request-draft' : 'git-pull-request',
+			label: `Stack #${entry.number}`,
+			description: `→ ${entry.baseRef}`,
+			icon: 'layers',
 			checkable: false,
-			context: [pr.focus!.branchName, pr.focus!.upstreamName, pr.focus!.remote] as BranchTreeContext,
-			matched: pr.focus!.branchName === scopedBranchName,
-		}));
+			filterText: `stack #${entry.number} ${entry.baseRef}`,
+			decorations: [
+				{ type: 'text', label: `${entry.size} PRs`, position: 'before', kind: 'muted' },
+			] satisfies TreeItemDecoration[],
+			context: [
+				base.focus!.branchName,
+				base.focus!.upstreamName,
+				base.focus!.remote,
+				entry.members.slice(0, -1).map(m => ({ branchName: m.focus!.branchName, remote: m.focus!.remote })),
+				{ kind: 'stack', number: entry.number, size: entry.size },
+			] as BranchTreeContext,
+			matched: base.focus!.branchName === scopedBranchName,
+			children: entry.members.map(m => pullRequestToLeaf(m, scopedBranchName, 2)),
+		};
+	});
 }
 
 function branchToLeaf(

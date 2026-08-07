@@ -31,6 +31,7 @@ import type {
 	GraphItemContext,
 	GraphMinimapMarkerTypes,
 	GraphScopeBranch,
+	GraphScopeOrigin,
 	GraphScopeSource,
 	GraphShowAction,
 	GraphSidebarPanel,
@@ -1669,10 +1670,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		target?: { sha: string; worktreePath: string; filePaths?: string[] };
 		commitMessage?: string;
 		scopeBranch?: GraphScopeBranch;
+		scopeOrigin?: GraphScopeOrigin;
 		composeInstructions?: string;
 		composeScope?: GraphComposeScopeSeed;
 	}): Promise<void> {
-		const { action, target, commitMessage, scopeBranch, composeInstructions, composeScope } = pending;
+		const { action, target, commitMessage, scopeBranch, scopeOrigin, composeInstructions, composeScope } = pending;
 
 		if (action === 'scope-to-branch') {
 			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope
@@ -1680,6 +1682,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			if (scopeBranch != null) {
 				await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName, {
 					remote: scopeBranch.remote,
+					origin: scopeOrigin,
 				});
 			} else {
 				await this.scopeToBranch();
@@ -3972,11 +3975,26 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleScopeToBranchFromHeader(
-		e: CustomEvent<GraphScopeBranch & { source?: GraphScopeSource }>,
+		e: CustomEvent<
+			GraphScopeBranch & {
+				source?: GraphScopeSource;
+				additional?: { branchName: string; remote?: boolean }[];
+				origin?: GraphScopeOrigin;
+			}
+		>,
 	): Promise<void> {
+		// The scope carries additional branches as ref ids, so resolve them against the same repo path
+		// `scopeToBranchByName` builds the focal ref from — a mismatched path yields ids that match no row.
+		const repoPath = this.fallbackRepoPath;
+		const additional = e.detail.additional;
 		return this.scopeToBranchByName(e.detail.branchName, e.detail.upstreamName, {
 			remote: e.detail.remote,
 			source: e.detail.source,
+			origin: e.detail.origin,
+			additionalBranchRefs:
+				additional?.length && repoPath != null
+					? additional.map(b => getBranchId(repoPath, b.remote ?? false, b.branchName))
+					: undefined,
 		});
 	}
 
@@ -3986,7 +4004,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async scopeToBranchByName(
 		branchName: string,
 		upstreamName?: string,
-		options?: { remote?: boolean; source?: GraphScopeSource },
+		options?: {
+			remote?: boolean;
+			source?: GraphScopeSource;
+			additionalBranchRefs?: string[];
+			origin?: GraphScopeOrigin;
+		},
 	): Promise<void> {
 		// Use the selected repo's actual path (the opened workspace's path). That's what the host
 		// passes as `this.repository.path` when building the graph's row index AND the
@@ -4008,7 +4031,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			overview?.active.find(b => b.name === branchName) ?? overview?.recent.find(b => b.name === branchName);
 		if (branch != null) {
 			const mergeTargetTipSha = this.graphState.overviewEnrichment?.[branch.id]?.mergeTarget?.sha;
-			await this.scopeToBranchById(branch.id, mergeTargetTipSha, source);
+			await this.scopeToBranchById(
+				branch.id,
+				mergeTargetTipSha,
+				source,
+				options?.additionalBranchRefs,
+				options?.origin,
+			);
 			// Supersession guard: a concurrent `setScope` for a different branch can land while
 			// our `await` is parked. If `this.graphState.scope` is no longer for our branch by the
 			// time we resume, the newer call owns the selection — don't fire a stale one against
@@ -4032,6 +4061,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				branchRef: branchRef,
 				branchName: branchName,
 				upstreamRef: upstreamName != null ? getBranchId(repoPath, true, upstreamName) : undefined,
+				additionalBranchRefs: options?.additionalBranchRefs,
+				origin: options?.origin,
 			},
 			source,
 		);
@@ -4081,6 +4112,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		branchId: string,
 		mergeTargetTipSha?: string,
 		source: GraphScopeSource = 'overview-card',
+		additionalBranchRefs?: string[],
+		origin?: GraphScopeOrigin,
 	): Promise<void> {
 		const overview = this.graphState.overview;
 		if (overview == null) return;
@@ -4104,6 +4137,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				branchName: branch.name,
 				upstreamRef: upstreamRef,
 				mergeTargetTipSha: sha,
+				additionalBranchRefs: additionalBranchRefs,
+				origin: origin,
 			},
 			source,
 		);
@@ -4129,13 +4164,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		// Skip re-assignment when structurally equal so the graph doesn't re-evaluate
-		// scope highlighting on unrelated graph updates.
+		// scope highlighting on unrelated graph updates. `additionalBranchRefs` and `origin` are part of
+		// that identity: a stack and its base layer resolve to the SAME focal branch, so comparing the
+		// focal fields alone made "Focus on Stack" a silent no-op right after focusing its base pull
+		// request (and the reverse leave the header naming a stack it no longer shows).
 		const current = this.graphState.scope;
 		if (
 			current?.branchRef === scope.branchRef &&
 			current?.branchName === scope.branchName &&
 			current?.upstreamRef === scope.upstreamRef &&
-			current?.mergeTargetTipSha === scope.mergeTargetTipSha
+			current?.mergeTargetTipSha === scope.mergeTargetTipSha &&
+			current?.origin?.kind === scope.origin?.kind &&
+			current?.origin?.number === scope.origin?.number &&
+			(current?.additionalBranchRefs?.length ?? 0) === (scope.additionalBranchRefs?.length ?? 0) &&
+			(current?.additionalBranchRefs ?? []).every((ref, i) => ref === scope.additionalBranchRefs?.[i])
 		) {
 			return;
 		}

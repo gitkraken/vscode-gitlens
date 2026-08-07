@@ -3,7 +3,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitGraph } from '@gitlens/git/models/graph.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestStackInfo } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitStatus } from '@gitlens/git/models/status.js';
@@ -18,6 +18,7 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@git
 import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import { fromProviderPullRequest, toProviderPullRequestWithUniqueId } from '@gitlens/integrations/providers/models.js';
 import { getIntegrationIdForRemote } from '@gitlens/integrations/utils/integration.utils.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { areEqual } from '@gitlens/utils/object.js';
@@ -640,6 +641,12 @@ export class GraphPanelsService {
 			return { ...empty, emptyState: { reason: 'unsupported' as const, providerName: remote.provider.name } };
 		}
 
+		// Started alongside the list fetch, not after it: the two are independent requests, and serializing
+		// them put a whole extra round trip in front of every panel build. Cancellation is the only error it
+		// can raise (everything else is logged and folded to `undefined`), and the `throwIfAborted` below
+		// re-raises that — so the swallow here only keeps an early return from leaving it unhandled.
+		const stacks = this.getStacksByPullRequestNumber(remote, integration, signal).catch(() => undefined);
+
 		const result = await this.fetchPullRequests(graph.repoPath, integration, remote);
 		signal?.throwIfAborted();
 		// No list at all means nothing answered — a failed lookup (which resolves rather than throwing), an
@@ -652,6 +659,11 @@ export class GraphPanelsService {
 
 		const { localByUpstream, remoteNames } = buildLocalBranchesByUpstream(graph);
 		const currentBranchName = getCurrentBranchName(graph);
+		// These pull requests come from the shared providers API, whose type carries no stack membership,
+		// so it's joined in separately — one request for the whole repository rather than per pull request.
+		const stacksByNumber = await stacks;
+		signal?.throwIfAborted();
+
 		const items = result.prs.map(pr =>
 			this.toSidebarPullRequest(
 				pr,
@@ -661,6 +673,7 @@ export class GraphPanelsService {
 				remoteNames,
 				result.launchpadByPr?.get(pr),
 				currentBranchName,
+				stacksByNumber,
 			),
 		);
 
@@ -890,6 +903,49 @@ export class GraphPanelsService {
 		);
 	}
 
+	/**
+	 * Stack membership for the repository's stacked pull requests, keyed by number — GitHub-only, since no
+	 * other host has stacks. Best-effort: a repository not enrolled in the preview, or any failure, yields
+	 * `undefined` and the rows simply render unstacked.
+	 */
+	private async getStacksByPullRequestNumber(
+		remote: GitRemote<RemoteProvider>,
+		integration: GitHostIntegration,
+		signal?: AbortSignal,
+	): Promise<Map<number, PullRequestStackInfo> | undefined> {
+		// Only github.com has stacks. Without this every GitHub Enterprise Server panel build would spend a
+		// round-trip on a request that can only 404 — the same reasoning as the GraphQL selections' gate.
+		if (integration.id !== GitCloudHostIntegrationId.GitHub) return undefined;
+
+		const owner = remote.provider.owner;
+		const repo = remote.provider.repoName;
+		if (owner == null || repo == null) return undefined;
+
+		const cached = this._stacksCache.get(`${owner}/${repo}`);
+		if (cached != null && Date.now() - cached.timestamp < pullRequestsCacheExpiration) return cached.stacks;
+
+		try {
+			const stacks = await integration.getStacksByPullRequestNumber?.(owner, repo, signal);
+
+			// Only a real answer is cached — caching `undefined` would pin a transient failure for the
+			// cache's whole lifetime, and the rows silently de-group when membership goes missing.
+			if (stacks != null) {
+				this._stacksCache.set(`${owner}/${repo}`, { stacks: stacks, timestamp: Date.now() });
+			}
+			return stacks ?? cached?.stacks;
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			// The doc above promises best-effort: a malformed preview payload must degrade to rows without
+			// badges, not take the whole panel down.
+			Logger.warn(`Unable to resolve stacks for ${owner}/${repo}: ${ex}`, 'getSidebarPullRequests');
+			return cached?.stacks;
+		}
+	}
+
+	/** Stacks live outside `_pullRequestsCache` (a different request), so they get the same expiry here. */
+	private readonly _stacksCache = new Map<string, { stacks: Map<number, PullRequestStackInfo>; timestamp: number }>();
+
 	private toSidebarPullRequest(
 		pr: PullRequest,
 		repoPath: string,
@@ -898,6 +954,7 @@ export class GraphPanelsService {
 		remoteNames: Set<string>,
 		launchpad?: GraphSidebarPullRequest['launchpad'],
 		currentBranchName?: string,
+		stacksByNumber?: Map<number, PullRequestStackInfo>,
 	): GraphSidebarPullRequest {
 		// Truthiness, not a null check: `fromProviderPullRequest` always builds `refs` and fills a gone head
 		// repo (merged-and-deleted, deleted fork) with `''` — the same test the command handlers make before
@@ -932,10 +989,15 @@ export class GraphPanelsService {
 					? { branchName: upstreamName, remote: true }
 					: undefined;
 
+		// `PullRequest.id` is the number only on the provider-native path; the providers-api path
+		// puts the provider's internal id there. The URL carries the real number on both.
+		const number = getPullRequestNumberFromUrl(pr.url) ?? pr.id;
+		// Prefer what the model already carries (the native reads select it) and fall back to the
+		// per-repository join, which is the only source on the providers-api path this panel uses.
+		const stack = pr.stack ?? stacksByNumber?.get(Number(number));
+
 		return {
-			// `PullRequest.id` is the number only on the provider-native path; the providers-api path
-			// puts the provider's internal id there. The URL carries the real number on both.
-			number: getPullRequestNumberFromUrl(pr.url) ?? pr.id,
+			number: number,
 			id: pr.id,
 			title: pr.title,
 			state: pr.state,
@@ -964,6 +1026,15 @@ export class GraphPanelsService {
 			statusCheckRollup: pr.statusCheckRollupState,
 			reviewDecision: pr.reviewDecision,
 			launchpad: launchpad,
+			stack:
+				stack != null
+					? {
+							number: stack.number,
+							position: stack.position,
+							size: stack.size,
+							baseRef: stack.baseRef,
+						}
+					: undefined,
 			context: {
 				webview: this.host.id,
 				webviewItemOrigin: sidebarItemOrigin,
@@ -986,6 +1057,13 @@ export class GraphPanelsService {
 					url: pr.url,
 					repoPath: repoPath,
 					refs: pr.refs,
+					// Identifiers only, for commands invoked against this row. No command reads them today —
+					// `focusPullRequest` deliberately scopes to the one layer, and whole-stack focus is driven
+					// from the stack row's own webview-side action.
+					stack:
+						stack != null
+							? { number: stack.number, position: stack.position, size: stack.size }
+							: undefined,
 					provider: {
 						id: pr.provider.id,
 						name: pr.provider.name,
@@ -1364,6 +1442,9 @@ export class GraphPanelsService {
 		// which is the one thing a user pressing Refresh is trying to get rid of.
 		if (params.panel === 'pullRequests') {
 			this._pullRequestsCache = undefined;
+			// Stack membership is a second cache behind the same rows — leaving it would re-serve the old
+			// grouping over a freshly fetched list, which is exactly what Refresh is meant to defeat.
+			this._stacksCache.clear();
 		}
 		this.notifySidebarInvalidated();
 	}
@@ -1466,6 +1547,8 @@ export class GraphPanelsService {
 	 *  empty state) is entirely a function of that, so drop the cached list and re-fetch. */
 	onIntegrationConnectionChanged(): void {
 		this._pullRequestsCache = undefined;
+		// Stack membership is read through the same integration, so it's just as invalid now.
+		this._stacksCache.clear();
 		this.notifySidebarInvalidated();
 	}
 

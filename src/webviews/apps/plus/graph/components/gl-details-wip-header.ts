@@ -535,6 +535,7 @@ export class GlDetailsWipHeader extends LitElement {
 			url=${pr.url}
 			identifier="#${pr.id}"
 			status=${status}
+			date-label="updated"
 			.date=${pr.updatedDate}
 			.dateFormat=${this.dateFormat}
 			.dateStyle=${this.dateStyle}

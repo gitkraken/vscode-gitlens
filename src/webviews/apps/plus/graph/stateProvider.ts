@@ -1887,6 +1887,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						target: msg.params.target,
 						commitMessage: msg.params.commitMessage,
 						scopeBranch: msg.params.scopeBranch,
+						scopeOrigin: msg.params.scopeOrigin,
 						composeInstructions: msg.params.composeInstructions,
 						composeScope: msg.params.composeScope,
 					},

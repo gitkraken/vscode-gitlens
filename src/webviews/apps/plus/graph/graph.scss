@@ -3655,8 +3655,8 @@ gl-lit-graph {
 		transform: translateY(-0.1rem) rotateX(180deg);
 	}
 	// PR / issue chips: same divider treatment as the upstream segment — a compact, same-height
-	// addendum to the pill (icon + short label; a default gl-popover card on hover carries the
-	// details). Rendered ONLY on the inline primary pill, never in the +N popover rows.
+	// addendum to the pill (icon + short label; the graph's shared delegated tooltip renders the
+	// details card on hover). Rendered ONLY on the inline primary pill, never in the +N popover rows.
 	.gl-graph__ref-pill-pr,
 	.gl-graph__ref-pill-issue {
 		position: relative;
@@ -3666,7 +3666,9 @@ gl-lit-graph {
 		flex-shrink: 0;
 		align-items: center;
 		line-height: 1;
-		gap: 0.3rem;
+		// Spaces the chip's own icon / id / count — it used to sit on the popover's anchor span, which the
+		// chip no longer has now that its card is rendered by the graph's shared delegated tooltip.
+		gap: 0.4rem;
 		margin-left: 0.1rem;
 		padding: 0 0 0 0.5rem;
 		border-left: 1px solid var(--ref-border, currentColor);
@@ -3697,13 +3699,39 @@ gl-lit-graph {
 	.gl-graph__ref-pill-issue:hover::before {
 		background: color-mix(in srgb, var(--ref-on-color, #fff) 16%, transparent);
 	}
-	// The icon + label live INSIDE the popover's anchor span (the host's `gap` can't reach them), so
-	// the anchor needs its own flex gap to keep them from running together.
-	.gl-graph__ref-pill-pr [slot='anchor'],
-	.gl-graph__ref-pill-issue [slot='anchor'] {
+	// A stacked PR's layer (`2/3`). The pill already carries the lane color, so this stays a quiet count
+	// rather than a second accent. At rest the pill is UNFILLED, so it takes `currentColor` — the same
+	// rest-vs-filled contract the `+N` badge follows. `--ref-on-color` is the contrast color computed for
+	// the LANE FILL, which at rest doesn't exist, so using it here paints fill-contrast text (white on most
+	// lanes) straight onto the editor background.
+	// Hugs its text rather than taking a fixed height. A fixed box centers the BOX, and a digit sits high
+	// inside its em box (nothing occupies the descender), so a perfectly centered box still reads high —
+	// which the count's visible background made obvious. Both this and the count now size to their text and
+	// are centered by the pill, with the count's padding symmetric so its background sits evenly around it.
+	.gl-graph__ref-pill-chip-id {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
+	}
+	.gl-graph__ref-pill-stack {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		padding: 0.15rem 0.25rem;
+		border-radius: 0.3rem;
+		font-size: 0.9em;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+		color: currentColor;
+		background: color-mix(in srgb, currentColor 18%, transparent);
+	}
+	// Filled states (hover/focus-within, and the lane-filled expand overlay) flip it to the fill's contrast
+	// color, matching the `+N` badge's treatment. Set ABOVE the chip's own hover wash (16%, above) — at the
+	// same value the box would dissolve into the band that just lit up beneath it, exactly when it's being
+	// looked at.
+	.gl-graph__ref-pill:is(:hover, :focus-within) .gl-graph__ref-pill-stack,
+	.gl-graph__ref-pill-expand .gl-graph__ref-pill-stack {
+		color: var(--ref-on-color, #fff);
+		background: color-mix(in srgb, var(--ref-on-color, #fff) 24%, transparent);
 	}
 	// On the FILLED pill (hover, the expand overlay, and popover-row hover) the lane-color border-left
 	// blends into the lane fill → the split divider vanishes. Switch it to the contrast color so it stays
@@ -3733,14 +3761,62 @@ gl-lit-graph {
 		gap: 0.4rem;
 		max-width: 32rem;
 	}
+	// Title leads and the identifier trails it, matching the sidebar's rows. `baseline` so a wrapped
+	// title keeps the trailing id on the last line's baseline rather than floating against the block.
+	.gl-graph__ref-metadata-card-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.2rem 0.5rem;
+	}
+	.gl-graph__ref-metadata-card-icon {
+		align-self: center;
+		flex-shrink: 0;
+	}
+	// On the card the glyph sits on the tooltip's own background, NOT a lane fill — so unlike the chip in
+	// the pill it can carry GitLens's contributed state colors.
+	.gl-graph__ref-metadata-card-icon--pr-opened {
+		color: var(--vscode-gitlens-openPullRequestIconColor);
+	}
+	.gl-graph__ref-metadata-card-icon--pr-merged {
+		color: var(--vscode-gitlens-mergedPullRequestIconColor);
+	}
+	.gl-graph__ref-metadata-card-icon--pr-closed {
+		color: var(--vscode-gitlens-closedPullRequestIconColor);
+	}
+	.gl-graph__ref-metadata-card-icon--pr-draft {
+		color: var(--vscode-descriptionForeground);
+	}
 	.gl-graph__ref-metadata-card-title {
+		flex: 1 1 60%;
+		min-width: 0;
 		font-weight: 600;
 		white-space: normal;
 		overflow-wrap: break-word;
 	}
+	.gl-graph__ref-metadata-card-id {
+		flex: none;
+		color: var(--vscode-descriptionForeground);
+		font-variant-numeric: tabular-nums;
+	}
 	.gl-graph__ref-metadata-card-meta {
 		color: var(--vscode-descriptionForeground);
 		font-size: 1.1rem;
+	}
+	.gl-graph__ref-metadata-card-stack {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		color: var(--vscode-descriptionForeground);
+		font-size: 1.1rem;
+	}
+	.gl-graph__ref-metadata-card-stack-box {
+		// Pushed to the card's right edge, matching the pull-request pill's own card.
+		margin-left: auto;
+		padding: 0 0.3rem;
+		border-radius: 0.3rem;
+		background: color-mix(in srgb, currentColor 18%, transparent);
+		font-variant-numeric: tabular-nums;
 	}
 	// Hover-expand overlay: a full-name copy of the pill, absolutely positioned over the in-flow
 	// (shrunk) pill, extending right over the message — no reflow because the flow box is untouched.
@@ -3816,9 +3892,12 @@ gl-lit-graph {
 	// A focused sub-chip is covered by the fill overlay, so mirror its focus ring onto the matching expanded
 	// twin inside the overlay — the copy actually visible on the fill. (The in-flow copy still holds real
 	// focus; drop its UA outline since it sits hidden behind the fill.)
+	// The PR / issue chips ARE the focusable element now (they were the popover's anchor span before), so
+	// these match the chip itself — a descendant selector matches nothing and left the in-flow copy showing
+	// a UA outline from behind the fill with no ring on the visible twin.
 	.gl-graph__ref-pill-upstream--jump:focus-visible,
-	.gl-graph__ref-pill-pr [slot='anchor']:focus-visible,
-	.gl-graph__ref-pill-issue [slot='anchor']:focus-visible {
+	.gl-graph__ref-pill-pr:focus-visible,
+	.gl-graph__ref-pill-issue:focus-visible {
 		outline: none;
 	}
 	// The jump's ring rides its full-pill-height `::before` band so the rect hugs the pill edges, not an inner box.
@@ -3827,10 +3906,10 @@ gl-lit-graph {
 		.gl-graph__ref-pill-upstream--jump::before {
 		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);
 	}
-	.gl-graph__ref-pill:has(.gl-graph__ref-pill-pr [slot='anchor']:focus-visible)
+	.gl-graph__ref-pill:has(.gl-graph__ref-pill-pr:focus-visible)
 		.gl-graph__ref-pill-expand
 		.gl-graph__ref-pill-pr::before,
-	.gl-graph__ref-pill:has(.gl-graph__ref-pill-issue [slot='anchor']:focus-visible)
+	.gl-graph__ref-pill:has(.gl-graph__ref-pill-issue:focus-visible)
 		.gl-graph__ref-pill-expand
 		.gl-graph__ref-pill-issue::before {
 		box-shadow: inset 0 0 0 1px var(--vscode-focusBorder);

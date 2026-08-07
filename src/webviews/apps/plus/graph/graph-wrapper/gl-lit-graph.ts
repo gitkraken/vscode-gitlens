@@ -116,7 +116,13 @@ import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 import type { LaneCollapseChipContext } from './adornments/laneCollapseAdornmentProvider.js';
 import type { ParsedRef, RefPillHooks } from './adornments/refAdornmentProvider.js';
-import { createRefAdornmentProvider, renderRefPill, toParsedRefs } from './adornments/refAdornmentProvider.js';
+import {
+	createRefAdornmentProvider,
+	renderIssueTooltipCard,
+	renderPullRequestTooltipCard,
+	renderRefPill,
+	toParsedRefs,
+} from './adornments/refAdornmentProvider.js';
 import { createWipStatsAdornmentProvider } from './adornments/wipStatsAdornmentProvider.js';
 import type { WipStats } from './adornments/wipStatsAdornmentProvider.js';
 import type { GraphCommitRef, GraphCommitView, RowRefOrder } from './graph-commit.js';
@@ -263,6 +269,13 @@ const rowHasLocalHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
  *  resolves no focal tip at all, which leaves it with neither a re-root nor a dim. */
 const rowHasRemoteHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
 	row.remotes?.some(r => `${r.owner}/${r.name}` === branchName) === true;
+
+/** Ref-pill segments that own a tooltip of their own, in the order `expandedTwinIfCovered` tests them. */
+const pillTooltipSegmentClasses = [
+	'gl-graph__ref-pill-upstream',
+	'gl-graph__ref-pill-pr',
+	'gl-graph__ref-pill-issue',
+] as const;
 
 // Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
 // attached to the DOM. Used to size the date column to its NORMAL (non-compact) format on autosize.
@@ -2411,8 +2424,50 @@ export class GlLitGraph extends LitElement {
 	// to the engine) and emits the unreachable-anchors paging signal.
 	private recomputeScope(): void {
 		// `|remotes/` inverts `getBranchId`, which builds `${repoPath}|remotes/${name}` for a remote branch.
-		const hasHead = this.scope?.branchRef.includes('|remotes/') === true ? rowHasRemoteHead : rowHasLocalHead;
-		const anchors = computeScopeAnchors(this.rows, this.scope, hasHead);
+		const focalHasHead = this.scope?.branchRef.includes('|remotes/') === true ? rowHasRemoteHead : rowHasLocalHead;
+
+		// The scope names its additional branches by ref id, but the scope math resolves by NAME, so invert
+		// `getBranchId` here. Each ref carries its own namespace and a stack can mix them (a layer with no
+		// local branch falls back to its remote), so the namespace is tracked per name and the predicate
+		// dispatches on it — resolving in one namespace only, for the same reason the focal predicate does.
+		const remoteNames = new Set<string>();
+		const localNames = new Set<string>();
+		const additionalBranchNames: string[] = [];
+		for (const ref of this.scope?.additionalBranchRefs ?? []) {
+			const remoteAt = ref.indexOf('|remotes/');
+			const name = remoteAt >= 0 ? ref.slice(remoteAt + '|remotes/'.length) : undefined;
+			if (name != null) {
+				remoteNames.add(name);
+				additionalBranchNames.push(name);
+				continue;
+			}
+
+			const localAt = ref.indexOf('|heads/');
+			if (localAt >= 0) {
+				const localName = ref.slice(localAt + '|heads/'.length);
+				localNames.add(localName);
+				additionalBranchNames.push(localName);
+			}
+		}
+
+		// Both namespaces are tracked, not just the remote one: the focal predicate is the fallback, so a
+		// LOCAL additional branch under a remote focal branch (a stack whose base layer has no local branch)
+		// would otherwise be looked up as `${owner}/${name}` and never resolve — dropping that layer's
+		// commits from the scope with no error anywhere.
+		const hasHead: ScopeHeadsPredicate<GitGraphRow> = (row, branchName) =>
+			remoteNames.has(branchName)
+				? rowHasRemoteHead(row, branchName)
+				: localNames.has(branchName)
+					? rowHasLocalHead(row, branchName)
+					: focalHasHead(row, branchName);
+
+		const anchors = computeScopeAnchors(
+			this.rows,
+			this.scope != null && additionalBranchNames.length
+				? { ...this.scope, additionalBranchNames: additionalBranchNames }
+				: this.scope,
+			hasHead,
+		);
 		this.scopeAnchors = anchors;
 		this.inScopeShas = computeInScopeShas(
 			this.rows,
@@ -2420,6 +2475,7 @@ export class GlLitGraph extends LitElement {
 			anchors.focalTipShas,
 			anchors.mergeTargetShas,
 			anchors.forkPointShas,
+			anchors.additionalTipShas,
 		);
 		this.emitUnreachableAnchors(anchors.unreachableAnchors);
 	}
@@ -3432,6 +3488,23 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
+		// PR/issue chips: the card is rendered from the ref's live metadata rather than duplicated into the
+		// DOM per chip, so it resolves here instead of coming in as a `data-tooltip` string.
+		//
+		// Matched on the two metadata types that HAVE a card — `data-ref-metadata-type` is older than this
+		// path and also marks the upstream and merge-target segments (for double-click routing), which carry
+		// ordinary `data-tooltip` strings. Claiming every element with the attribute swallowed their
+		// tooltips. A chip whose metadata has since been invalidated falls through too, and the generic
+		// path below hides it.
+		const metadataType = target.dataset.refMetadataType;
+		if (metadataType === 'pullRequest' || metadataType === 'issue') {
+			const content = this.resolveRefMetadataTooltip(metadataType, target.dataset.refId);
+			if (content != null) {
+				this.showTooltipContent(target, content, 'top', 280);
+				return;
+			}
+		}
+
 		const text = target.dataset.tooltip ?? '';
 		if (text.length === 0) {
 			this.scheduleHideTooltip();
@@ -3486,10 +3559,10 @@ export class GlLitGraph extends LitElement {
 		const expand = pill.querySelector<HTMLElement>('.gl-graph__ref-pill-expand');
 		if (expand == null || getComputedStyle(expand).display === 'none') return target;
 
-		// Only the upstream segment (jump / status) carries a `data-tooltip` inside a pill; its twin is in -expand.
-		const twin = target.classList.contains('gl-graph__ref-pill-upstream')
-			? expand.querySelector<HTMLElement>('.gl-graph__ref-pill-upstream')
-			: null;
+		// The pill's tooltip-bearing segments: the upstream half (jump / status, a `data-tooltip` string) and
+		// the PR / issue chips (a card resolved from `refsMetadata`). Each has a twin inside -expand.
+		const segment = pillTooltipSegmentClasses.find(c => target.classList.contains(c));
+		const twin = segment != null ? expand.querySelector<HTMLElement>(`.${segment}`) : null;
 
 		return twin ?? target;
 	}
@@ -3907,13 +3980,35 @@ export class GlLitGraph extends LitElement {
 		);
 	}
 
+	/** The hover card for a PR/issue chip, resolved from the same `refsMetadata` the chip was rendered from.
+	 *  Undefined when the metadata has since been invalidated — the chip outlives a refresh by a frame. */
+	private resolveRefMetadataTooltip(type: string, refId: string | undefined): TemplateResult | undefined {
+		if (refId == null) return undefined;
+
+		const metadata = this.refsMetadata?.[refId];
+		if (metadata == null) return undefined;
+
+		if (type === 'pullRequest') {
+			const pr = metadata.pullRequest?.[0];
+			return pr != null ? renderPullRequestTooltipCard(pr) : undefined;
+		}
+		if (type === 'issue') {
+			const issue = metadata.issue?.[0];
+			return issue != null ? renderIssueTooltipCard(issue) : undefined;
+		}
+		return undefined;
+	}
+
 	private closestTooltipTarget(node: EventTarget | null): HTMLElement | undefined {
 		if (!(node instanceof Element)) return undefined;
 
 		// Match scalar tooltips (`data-tooltip`) AND multi-marker rail bands (`data-tooltip-row`) — the
 		// band has no `data-tooltip` string, so without this it would resolve to null and the rail
 		// hover would spuriously fire the row-hover card instead of the marker tooltip.
-		const el = node.closest<HTMLElement>('[data-tooltip], [data-tooltip-row]');
+		// `data-ref-metadata-type` joins them: the PR/issue chips carry no tooltip STRING — their card is
+		// built from the ref's metadata at hover time — so without this they'd resolve to null and the row
+		// hover card would fire over the chip instead.
+		const el = node.closest<HTMLElement>('[data-tooltip], [data-tooltip-row], [data-ref-metadata-type]');
 		return el ?? undefined;
 	}
 

@@ -1,4 +1,4 @@
-import type { GraphSidebarBranch } from '../../../../plus/graph/protocol.js';
+import type { GraphScopeOrigin, GraphSidebarBranch } from '../../../../plus/graph/protocol.js';
 import type { TreeItemAction, TreeModel } from '../../../shared/components/tree/base.js';
 import { providerIconName } from '../../../shared/git-utils.js';
 
@@ -13,6 +13,15 @@ export interface FocusRefActionArgs {
 	/** Set when `branchName` is a remote branch that no local branch tracks, so the scope needs a
 	 *  `remotes/*` ref id rather than a local head. */
 	remote?: boolean;
+	/**
+	 * Further branches to bring into the same scope, without displacing `branchName` as the focal one.
+	 *
+	 * For a stack that's the layers above the focal branch: they're DESCENDANTS of its tip, and the scope
+	 * only ever walks down from the focal tip, so nothing else can reach them.
+	 */
+	additional?: { branchName: string; remote?: boolean }[];
+	/** What was focused, when the branch was reached through a pull request or a stack. */
+	origin?: GraphScopeOrigin;
 }
 
 /**

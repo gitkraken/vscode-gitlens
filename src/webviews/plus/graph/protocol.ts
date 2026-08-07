@@ -182,7 +182,13 @@ export interface PullRequestMetadata extends BaseRefMetadata {
 	author?: string;
 	date?: number;
 	state?: string;
+	/** Drafts carry their own glyph — on a colored pill the fill is the branch's lane color, so shape is
+	 *  the only signal that survives; a tinted icon would be a contrast lottery. */
+	isDraft?: boolean;
 	url?: string;
+	/** Present only when the pull request belongs to a stack. `position` is 1-based from the stack's base;
+	 *  `number` identifies the stack and shares the repository's issue/pull-request number sequence. */
+	stack?: { number: number; position: number; size: number };
 }
 export interface UpstreamMetadata extends BaseRefMetadata {
 	name: string;
@@ -429,10 +435,25 @@ export interface GraphOverviewData {
 	error?: string;
 }
 
+/**
+ * What the user asked to focus, when it wasn't simply a branch. Every scope still lands on a branch —
+ * this says which thing that branch was reached through, so the header can name what was picked instead
+ * of whichever branch it resolved to.
+ *
+ * A stack's `number` shares the repository's issue/pull-request number sequence, so it can never collide
+ * with a pull request's.
+ */
+export type GraphScopeOrigin =
+	| { kind: 'pullRequest'; number: string }
+	| { kind: 'stack'; number: number; size: number };
+
 export interface GraphScope {
 	branchName: string;
 	/** Full ref id of the specific branch to scope to (e.g. 'refs/heads/feature/x'). NOT necessarily HEAD. */
 	branchRef: string;
+	/** What was focused to produce this scope. Deliberately NOT part of the scope's refresh identity
+	 *  (`branchRef` + `additionalBranchRefs`): relabelling the same scope must not rebuild the graph. */
+	origin?: GraphScopeOrigin;
 	/** Full ref id of the branch's upstream (e.g. 'refs/remotes/origin/feature/x'). */
 	upstreamRef?: string;
 	/** SHA of the focal branch's tip commit. Backfilled by the scope-anchor resolver so callers
@@ -588,6 +609,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		target?: GraphActionTarget;
 		commitMessage?: string;
 		scopeBranch?: GraphScopeBranch;
+		scopeOrigin?: GraphScopeOrigin;
 		composeInstructions?: string;
 		composeScope?: GraphComposeScopeSeed;
 	};
@@ -1420,6 +1442,14 @@ export interface GraphSidebarPullRequest {
 	 *  switch on a match, so the row's switch affordances stand down rather than promise a no-op. */
 	current?: boolean;
 	/**
+	 * Stack membership, when this pull request is one layer of a stack. `position` is 1-based from the
+	 * stack's base, and `baseRef` is the stack's trunk — not this layer's base, which is the layer below.
+	 *
+	 * Joined host-side from a per-repository stacks lookup: these rows come from the shared providers API,
+	 * whose type carries no stack membership.
+	 */
+	stack?: { number: number; position: number; size: number; baseRef: string };
+	/**
 	 * Launchpad categorization for the row's grouping indicator and hover signals. Resolved host-side
 	 * (it needs each integration's current user) and best-effort — absent when categorization is
 	 * unavailable or fails, which the row and hover degrade around.
@@ -1697,6 +1727,8 @@ export interface DidRequestGraphActionParams {
 	commitMessage?: string;
 	/** For `scope-to-branch`: the branch to focus the graph on. Absent = focus the current branch. */
 	scopeBranch?: GraphScopeBranch;
+	/** For `scope-to-branch`: what was focused, when the branch was reached through something else. */
+	scopeOrigin?: GraphScopeOrigin;
 	/** For 'enter-compose': seeds the compose panel's AI-instructions input (parity with the standalone composer's autoComposeInstructions — seed only, no auto-run). */
 	composeInstructions?: string;
 	/** For 'enter-compose': resolved commit-range seed; absent = working-changes compose. */
@@ -1983,6 +2015,9 @@ export interface GraphPullRequestContextValue {
 	repoPath: string;
 	refs?: PullRequestRefs;
 	provider: ProviderReference;
+	/** Stack membership, when the pull request is stacked. Identifiers only — no command reads them yet;
+	 *  whole-stack focus is driven webview-side from the stack row rather than through a command. */
+	stack?: { number: number; position: number; size: number };
 }
 
 export interface GraphIssueContextValue {

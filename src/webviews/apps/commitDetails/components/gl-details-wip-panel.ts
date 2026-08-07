@@ -554,6 +554,9 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 						url="${this.pullRequest.url}"
 						identifier="#${this.pullRequest.id}"
 						status="${this.pullRequest.state}"
+						.stack=${this.pullRequest.stack}
+						.author=${this.pullRequest.author?.name}
+						date-label="updated"
 						.date=${this.pullRequest.updatedDate}
 						.dateFormat="${this.preferences?.dateFormat}"
 						.dateStyle="${this.preferences?.dateStyle}"

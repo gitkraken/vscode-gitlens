@@ -1061,6 +1061,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											type="pr"
 											identifier=${`#${pr.id}`}
 											status=${pr.state}
+											.stack=${pr.stack}
 											compact
 										></issue-pull-request>
 									</button>
@@ -1071,6 +1072,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 											url=${pr.url}
 											identifier=${`#${pr.id}`}
 											status=${pr.state}
+											.stack=${pr.stack}
+											.author=${pr.author?.name}
+											date-label="updated"
 											.date=${pr.updatedDate}
 											.dateFormat=${config?.dateFormat}
 											.dateStyle=${config?.dateStyle}

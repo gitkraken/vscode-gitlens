@@ -294,8 +294,11 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 		// selection stays on the sheet's row and there's no auto-close to arm against; arming here
 		// would leave the flag set to swallow the user's NEXT real navigation instead.
 		const repoPath = getSelectedRepoPath(this._graphState ?? {});
+		// The sheet's focus action is always a plain branch focus — a stack/PR-origin scope on the same
+		// branch is a different scope, so it re-focuses instead of clearing.
 		if (
 			repoPath != null &&
+			this._graphState?.scope?.origin == null &&
 			this._graphState?.scope?.branchRef === getBranchId(repoPath, scope.remote ?? false, scope.branchName)
 		) {
 			this._graphState.clearScope();
