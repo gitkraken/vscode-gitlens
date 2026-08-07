@@ -62,8 +62,14 @@ export type IpcDiscoveryData = {
  *   `/private/var/…`). A differently-launched editor gets a different one. Reads work through
  *   either form, so the diagnosis reports both when they differ.
  * - **Windows**: `%TEMP%` is per-user, and a redirected or roamed profile puts the file somewhere
- *   this process cannot see. `readdir` can also fail outright on a permission-restricted directory,
- *   which the poll loop records instead of swallowing.
+ *   this process cannot see.
+ *
+ * (Linux is the boring case: `TMPDIR` is usually unset and both sides land in a shared `/tmp`.)
+ *
+ * A `readdir` that fails outright — a permission-restricted or vanished directory — is carried out
+ * of the sweep rather than swallowed, and reported by {@link describeIpcDiscovery}. The poll loop
+ * itself keeps retrying: it cannot tell a permanent refusal from a directory being recreated
+ * underneath it, and the wait has a deadline anyway.
  */
 const ipcDiscoveryDir = path.join(os.tmpdir(), 'gitkraken', 'gitlens');
 
@@ -145,12 +151,15 @@ export async function findIpcFileByWorkspace(workspacePath: string, timeoutMs = 
 function findIpcFileNow(workspacePath: string): {
 	filePath?: string;
 	candidates: { file: string; workspaces: string[] }[];
+	/** Files named like discovery files that could not be read or parsed. */
+	unreadable: string[];
 	readError?: string;
 } {
 	const normalizedTarget = normalizeWorkspacePath(workspacePath);
 	const candidates: { file: string; workspaces: string[] }[] = [];
+	const unreadable: string[] = [];
 
-	if (!existsSync(ipcDiscoveryDir)) return { candidates: candidates };
+	if (!existsSync(ipcDiscoveryDir)) return { candidates: candidates, unreadable: unreadable };
 
 	let files: string[];
 	try {
@@ -158,7 +167,11 @@ function findIpcFileNow(workspacePath: string): {
 	} catch (ex) {
 		// A directory we cannot enumerate (permissions, a redirected profile) is a different failure
 		// from an empty one, and the caller must be able to say which.
-		return { candidates: candidates, readError: ex instanceof Error ? ex.message : String(ex) };
+		return {
+			candidates: candidates,
+			unreadable: unreadable,
+			readError: ex instanceof Error ? ex.message : String(ex),
+		};
 	}
 
 	for (const file of files) {
@@ -166,16 +179,22 @@ function findIpcFileNow(workspacePath: string): {
 
 		const fullPath = path.join(ipcDiscoveryDir, file);
 		const data = readIpcDiscoveryFile(fullPath);
-		if (data == null) continue;
+		if (data == null) {
+			// Locked, truncated or corrupt: `readIpcDiscoveryFile` collapses I/O and parse failures
+			// alike into `undefined`, so without tracking it here the file would vanish from the
+			// diagnosis and read as "nothing was published" — the opposite of what happened.
+			unreadable.push(file);
+			continue;
+		}
 
 		const workspaces = data.workspacePaths ?? [];
 		candidates.push({ file: file, workspaces: workspaces });
 		if (workspaces.some(p => normalizeWorkspacePath(p) === normalizedTarget)) {
-			return { filePath: fullPath, candidates: candidates };
+			return { filePath: fullPath, candidates: candidates, unreadable: unreadable };
 		}
 	}
 
-	return { candidates: candidates };
+	return { candidates: candidates, unreadable: unreadable };
 }
 
 /** Windows paths differ in separator and case between what GitLens writes and what Playwright reports. */
@@ -202,19 +221,26 @@ export function describeIpcDiscovery(workspacePath: string): string {
 	const preamble = `no IPC discovery file for workspace "${workspacePath}" in ${where}`;
 
 	if (!existsSync(ipcDiscoveryDir)) {
-		return `${preamble} — the directory does not exist, so GitLens never published one here. Either it did not reach \`startIpc\` (AI features disabled turn the whole publish path off), or the editor resolved a different temp directory than this process (${process.platform === 'win32' ? '%TEMP%' : 'TMPDIR'} is per-user).`;
+		return `${preamble} — the directory does not exist, so GitLens never published one here. Either it did not reach \`startIpc\` (AI features disabled turn the whole publish path off), or the editor resolved a different temp directory than this process did (${process.platform === 'win32' ? '%TEMP%' : 'TMPDIR'} need not agree across launch contexts).`;
 	}
 
-	const { candidates, readError } = findIpcFileNow(workspacePath);
+	const { candidates, unreadable, readError } = findIpcFileNow(workspacePath);
 	if (readError != null) {
 		return `${preamble} — the directory exists but could not be read: ${readError}`;
 	}
+
+	// Unreadable files are reported alongside whatever else was found: a locked or half-written
+	// discovery file is a different problem from an absent one, and it is invisible in the counts.
+	const spoiled = unreadable.length
+		? ` ${unreadable.length} file(s) matched the naming pattern but could not be read or parsed (locked, truncated or corrupt): ${unreadable.join(', ')}.`
+		: '';
+
 	if (!candidates.length) {
-		return `${preamble} — the directory exists but holds no \`${ipcDiscoveryFilePrefix}*.json\` files, so nothing published into the temp directory this process sees.`;
+		return `${preamble} — the directory exists but holds no readable \`${ipcDiscoveryFilePrefix}*.json\` files, so nothing usable published into the temp directory this process sees.${spoiled}`;
 	}
 
 	const listed = candidates.map(c => `${c.file} → [${c.workspaces.join(', ')}]`).join('; ');
-	return `${preamble} — ${candidates.length} discovery file(s) present, none carrying this workspace: ${listed}`;
+	return `${preamble} — ${candidates.length} discovery file(s) present, none carrying this workspace: ${listed}.${spoiled}`;
 }
 
 /** `realpathSync` that reports failure as absent rather than throwing — used for diagnosis only. */
@@ -245,9 +271,10 @@ export async function waitForCliInstall(gkPath: string, timeoutMs = 50_000): Pro
 		if (existsSync(gkPath)) return;
 
 		if ((await backoffDelay(attempt, deadline)) == null) {
-			// Name what was checked and what is actually there: the usual causes are an editor that
-			// never activated GitLens (nothing in the directory at all) and a partially-extracted
-			// download (directory present, binary not).
+			// Name what was checked and what is actually there, without claiming which cause it was:
+			// an absent binary is equally consistent with GitLens never reaching the installer and
+			// with the installer running and failing — `CliBinaryInstaller` catches its download and
+			// extraction errors and reports `attempted`, leaving exactly this filesystem state.
 			const dir = path.dirname(gkPath);
 			let contents: string;
 			try {
@@ -257,7 +284,7 @@ export async function waitForCliInstall(gkPath: string, timeoutMs = 50_000): Pro
 			}
 
 			throw new Error(
-				`GK CLI never appeared at "${gkPath}" — gave up after ${attempt + 1} attempts over ${Date.now() - started}ms (budget ${timeoutMs}ms). Its directory ${contents}. GitLens installs it on first activation, so this means activation did not get that far, not that the wait was too short.`,
+				`GK CLI never appeared at "${gkPath}" — gave up after ${attempt + 1} attempts over ${Date.now() - started}ms (budget ${timeoutMs}ms). Its directory ${contents}. GitLens installs it during activation, so waiting longer will not help: either activation never reached the installer, or the install itself failed (offline, download or extraction) and was swallowed. Check the extension host log for the install attempt.`,
 			);
 		}
 	}
