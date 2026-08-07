@@ -98,7 +98,10 @@ import type { OnboardingChangeEvent } from '../../../onboarding/onboardingServic
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
-import { isAccountAccessRequired } from '../../../plus/gk/utils/subscription.utils.js';
+import {
+	isAccountAccessRequired,
+	isSubscriptionTrialOrPaidFromState,
+} from '../../../plus/gk/utils/subscription.utils.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
@@ -2206,6 +2209,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		//  - on entering the access screen, cancels any in-flight full-path `getState` (whose stale
 		//    signed-in state would otherwise overwrite the signed-out one) and clears a stale badge.
 		if (wasAccountAccessRequired !== this._accountAccessRequired && this.host.ready) {
+			this._data.updateState(true);
+			return;
+		}
+
+		// A Pro-access flip (upgrade, manual reactivation, or the trial auto-reset — which is kicked
+		// off from `getState` itself) makes any in-flight state build stale: its `allowed`/
+		// `subscription` snapshot would re-gate the Graph when it ships, so a full rebuild follows
+		// (superseding it via the coalesced-run refire, not cancelling it). Deliberately fires in
+		// both directions, even with no build in flight — a re-gate needs fresh state too.
+		if (
+			isSubscriptionTrialOrPaidFromState(e.previous.state) !==
+				isSubscriptionTrialOrPaidFromState(e.current.state) &&
+			this.host.ready
+		) {
 			this._data.updateState(true);
 			return;
 		}
