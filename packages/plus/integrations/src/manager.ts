@@ -102,8 +102,13 @@ export interface ProviderSweepTargetEvent {
 	 */
 	durationMs: number;
 	/**
-	 * Wall time between the fan-out starting and this target's worker picking the target up. Structurally 0
-	 * while the target count stays within the fan-out's concurrency limit, which every realistic account does.
+	 * Wall time between the fan-out starting and this target's worker picking the target up.
+	 *
+	 * Structurally 0 only while the target count fits the fan-out's concurrency limit, which a selection of a
+	 * few providers does and the default sweep does NOT: with no `targets`/`providerIds` it opens one target per
+	 * supported git host, more than the limit, so the last ones genuinely wait. A non-zero value there is the
+	 * normal case, not an anomaly — it is the cost of the bound, and only worth acting on if it rivals
+	 * `durationMs`.
 	 */
 	queueWaitMs: number;
 	outcome: 'ok' | 'failed-provider' | 'fetch-failed' | 'skipped';
