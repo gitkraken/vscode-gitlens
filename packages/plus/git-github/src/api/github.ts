@@ -3510,6 +3510,15 @@ export class GitHubApi {
 		return `https://avatars.githubusercontent.com/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
 	}
 
+	/**
+	 * One page of the current user's pull requests, filtered by state and optionally by an explicit
+	 * relationship qualifier. Backs the PR sweeps, which drain it page by page.
+	 *
+	 * Ordering is part of the contract, not an option: always `sort:updated` (most recently updated first),
+	 * matching {@link searchPullRequestsPage}. A caller that stops before `hasMore` clears — every sweep with a
+	 * page budget — therefore retains a well-defined recency window instead of an arbitrary slice of GitHub's
+	 * relevance ranking.
+	 */
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
 	async searchMyPullRequestsPage(
 		provider: Provider,
@@ -3608,12 +3617,20 @@ export class GitHubApi {
 				options?.includeDefaultInvolvement === false
 					? 'is:pr archived:false'
 					: 'is:pr involves:@me archived:false';
+			// Ordering is part of the contract, not an option — same as `searchPullRequestsPage`. Without it
+			// GitHub answers in `best-match` (relevance) order, so any result set the caller stops short of
+			// draining is an arbitrary sample rather than "the N most recent": which rows land inside a page
+			// budget can then shift with GitHub's ranking even when nothing changed upstream. Consumers that
+			// cap the walk depend on this to make their window deterministic and time-bounded.
 			const rsp = await this.graphql<SearchResult>(
 				provider,
 				token,
 				query,
 				{
-					search: [stateQualifier, relationshipQualifier, search].filter(Boolean).join(' ').trim(),
+					search: [stateQualifier, relationshipQualifier, search, 'sort:updated']
+						.filter(Boolean)
+						.join(' ')
+						.trim(),
 					cursor: options?.cursor,
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,
