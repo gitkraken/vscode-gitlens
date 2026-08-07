@@ -1,7 +1,16 @@
 import { changesModeOrDefault, isChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import type { ColumnMode } from '@gitkraken/commit-graph/view.js';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
-import { CancellationTokenSource, commands, Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
+import {
+	CancellationTokenSource,
+	commands,
+	ConfigurationTarget,
+	Disposable,
+	Uri,
+	ViewColumn,
+	window,
+	workspace,
+} from 'vscode';
 import { isWeb } from '@env/platform.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
@@ -1862,9 +1871,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					case 'onlyFollowFirstParent':
 						void configuration.updateEffective('graph.onlyFollowFirstParent', params.changes[key]);
 						break;
-					case 'detailsLocation':
-						void configuration.updateEffective('graph.details.location', params.changes[key]);
+					case 'detailsLocation': {
+						// Persist 'auto' explicitly — `updateEffective` clears a value equal to the
+						// default, and an unset `graph.details.location` re-triggers the first-time
+						// (hidden details) experience. Window-scoped setting, so only user/workspace
+						// can hold a value.
+						const value = params.changes[key];
+						if (value === 'auto') {
+							void configuration.update(
+								'graph.details.location',
+								value,
+								configuration.inspect('graph.details.location')?.workspaceValue !== undefined
+									? ConfigurationTarget.Workspace
+									: ConfigurationTarget.Global,
+							);
+						} else {
+							void configuration.updateEffective('graph.details.location', value);
+						}
 						break;
+					}
 					case 'sidebarPinned':
 						void configuration.updateEffective('graph.sidebar.pinned', params.changes[key]);
 						break;
@@ -4061,7 +4086,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
-			detailsLocation: configuration.get('graph.details.location') ?? 'auto',
+			// `undefined` = no saved value — signals the webview's first-time (hidden details) experience
+			detailsLocation: configuration.isUnset('graph.details.location')
+				? undefined
+				: (configuration.get('graph.details.location') ?? 'auto'),
 			detailsMaximizeOnMode: configuration.get('graph.details.maximizeOnMode') ?? true,
 			enabledRefMetadataTypes: this._producers.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
@@ -4735,10 +4763,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			searchRequest: searchRequest,
 			details: {
 				...storedPanels?.details,
+				// Until a details location has been saved (the first-time experience), the panel starts
+				// hidden — the first interaction that shows it saves the location as 'auto' (see the
+				// webview's details-visibility transition), ending the first-time state.
 				visible:
 					this._pendingAction != null && this._pendingAction.action !== 'scope-to-branch'
 						? true
-						: (storedPanels?.details?.visible ?? true),
+						: configuration.isUnset('graph.details.location')
+							? false
+							: (storedPanels?.details?.visible ?? true),
 			},
 			// Bootstrap-only: the side bar's open state is app-owned once the app is running (it persists
 			// to the memento we read here), so re-sending it on every rebuild would clobber live state

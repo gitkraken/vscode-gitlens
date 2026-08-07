@@ -773,6 +773,8 @@ export interface GraphComponentConfig {
 	changesColumnEnabled?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
+	/** `undefined` = `graph.details.location` has no saved value — the first-time (hidden details)
+	 *  experience: the panel starts hidden and the first show saves the location as 'auto'. */
 	detailsLocation?: 'auto' | 'right' | 'bottom';
 	detailsMaximizeOnMode?: boolean;
 	dimMergeCommits?: boolean;

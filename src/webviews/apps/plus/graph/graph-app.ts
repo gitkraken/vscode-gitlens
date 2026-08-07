@@ -2358,6 +2358,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (detailsVisible !== this._wasDetailsVisible) {
 			this._wasDetailsVisible = detailsVisible;
 			if (detailsVisible) {
+				// First show with no saved details location: save 'auto' to end the first-time
+				// (hidden details) experience. Single chokepoint for every show path, including
+				// host-driven (pending action) shows.
+				if (this.graphState.config?.detailsLocation == null) {
+					this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: 'auto' } });
+				}
 				const pane = this.querySelector<HTMLElement>('.graph__details-pane');
 				if (pane) {
 					const isBottom = this.effectiveDetailsLocation === 'bottom';
@@ -4274,7 +4280,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private handleGraphSelectionChanged(e: CustomEventType<'gl-graph-change-selection'>) {
 		this.graphHover.hide();
 
-		const { selection, reachability, commits } = e.detail;
+		const { selection, reachability, commits, userIntent } = e.detail;
 
 		// Never clear the inspection anchor on an empty selection. The wrapper only dispatches genuine
 		// (non-empty) intent here; an empty report is a scope/visibility filter-out or a transient GK
@@ -4336,6 +4342,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			) {
 				void this.fetchSelectedWorktreeWipStats(active.id);
 			}
+		}
+
+		// First-time experience: with no saved details location the panel starts hidden — the first
+		// user-intent selection (row click / keyboard select) shows it, and the visibility transition
+		// in `updated` then saves the location as 'auto'. Programmatic selection echoes (e.g. a
+		// scope-to-branch focal-tip sync) must not open the panel uninvited.
+		if (userIntent && !this.graphState.details?.visible && this.graphState.config?.detailsLocation == null) {
+			this.setDetailsVisible(true);
+			this.ensureDetailsPosition();
 		}
 
 		const count = this._selectionTrackingCounter.next();

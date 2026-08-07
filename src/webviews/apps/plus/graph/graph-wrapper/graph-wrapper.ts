@@ -318,6 +318,9 @@ declare global {
 			reachability?: GitCommitReachability;
 			/** Per-sha commit shell (no files/stats) for synchronous first paint of the details panel. */
 			commits?: Record<string, CommitDetails>;
+			/** `true` = direct user intent on the graph (row click / keyboard select), as opposed to a
+			 *  programmatic re-drive through {@link GlGraphWrapper.selectCommits}. */
+			userIntent?: boolean;
 		}>;
 		'gl-graph-change-column-mode': CustomEvent<{ name: GraphColumnName; mode: ColumnMode | undefined }>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
@@ -2170,7 +2173,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-change-selection', {
-				detail: { selection: selection, reachability: reachability, commits: commits },
+				detail: { selection: selection, reachability: reachability, commits: commits, userIntent: true },
 			}),
 		);
 
