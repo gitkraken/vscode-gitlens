@@ -40,12 +40,6 @@ interface SweepSlice {
 	truncated: boolean;
 	providerId: IntegrationIds;
 	failedProvider: boolean;
-	/**
-	 * The domain the read actually used, or the requested one on the paths that fail before resolving it.
-	 * Carried for per-target attribution only — the aggregation ignores it, since a sweep accepts at most one
-	 * target per provider and therefore attributes by `providerId` alone.
-	 */
-	domain: string | undefined;
 }
 
 /**
@@ -66,14 +60,13 @@ async function sweepTarget(
 	const repos = options?.repos ?? [];
 	const maxPages = options?.maxPages ?? 100;
 	/** A target that never reached a drain: the provider itself failed, so its slice is empty and attributed. */
-	const rejectedTarget = (warnings: ProviderWarning[], resolvedDomain?: string): SweepSlice => ({
+	const rejectedTarget = (warnings: ProviderWarning[]): SweepSlice => ({
 		items: [],
 		warnings: warnings,
 		fetchFailed: true,
 		truncated: false,
 		providerId: id,
 		failedProvider: true,
-		domain: resolvedDomain ?? requestedDomain,
 	});
 
 	if (isIssuesHostIntegrationId(id)) {
@@ -104,14 +97,11 @@ async function sweepTarget(
 		? resolveAccountWidePullRequestFilters(id, requestedFilters)
 		: resolvePullRequestFilters(id, requestedFilters);
 	if (resolved.unsupported) {
-		return rejectedTarget(
-			[
-				accountWide
-					? unsupportedAccountWidePullRequestFiltersWarning(id, domain, connectionId, requestedFilters ?? [])
-					: unsupportedFiltersWarning(id, domain, connectionId),
-			],
-			domain,
-		);
+		return rejectedTarget([
+			accountWide
+				? unsupportedAccountWidePullRequestFiltersWarning(id, domain, connectionId, requestedFilters ?? [])
+				: unsupportedFiltersWarning(id, domain, connectionId),
+		]);
 	}
 
 	const drain = await drainPullRequests(
@@ -135,7 +125,6 @@ async function sweepTarget(
 		...drain,
 		items: drain.items.map(pr => fromProviderPullRequest(pr, integration, { currentAccountId: currentAccountId })),
 		providerId: id,
-		domain: domain,
 	};
 }
 
@@ -157,8 +146,13 @@ function sliceOutcome(slice: SweepSlice | undefined): ProviderSweepTargetEvent['
  * The try/catch is what makes the observer observation-only: called from the fan-out's success path, a throwing
  * callback would otherwise propagate out of the `mapBounded` task and reject the entire sweep — corrupting the
  * read, not just the metric. Swallowed silently; the consumer owns its own aggregation.
+ *
+ * The domain is resolved here rather than carried out of {@link sweepTarget}, so every target reports it by the
+ * same rule no matter how far it got. `resolveDomainForRead` needs no integration instance, which is what makes
+ * that possible: a target rejected by the first guard resolves the same host a fully drained one does.
  */
 function notifyTargetSettled(
+	ctx: ProviderReadContext,
 	observe: (event: ProviderSweepTargetEvent) => void,
 	target: ProviderSweepTarget,
 	slice: SweepSlice | undefined,
@@ -168,7 +162,7 @@ function notifyTargetSettled(
 	try {
 		observe({
 			providerId: target.providerId,
-			domain: slice?.domain ?? target.domain,
+			domain: ctx.resolveDomainForRead(target.providerId, target.connectionId, target.domain),
 			connectionId: target.connectionId,
 			count: slice?.items.length ?? 0,
 			durationMs: performance.now() - startedAt,
@@ -195,7 +189,7 @@ export async function sweepPullRequests(
 		const startedAt = observe != null ? performance.now() : 0;
 		const slice = await sweepTarget(ctx, options, target, attributeUnavailableProviders);
 		if (observe != null) {
-			notifyTargetSettled(observe, target, slice, startedAt, fanOutStartedAt);
+			notifyTargetSettled(ctx, observe, target, slice, startedAt, fanOutStartedAt);
 		}
 		return slice;
 	});
