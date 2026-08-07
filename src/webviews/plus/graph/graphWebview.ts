@@ -4186,6 +4186,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			};
 		}
 
+		// Runs on every state build, not just opens — its own guards make repeats cheap no-ops
+		void this.container.subscription.autoResetTrialIfEligible({ source: 'graph' });
+
 		if (this.container.git.repositoryCount === 0) {
 			this._wip.updateWorkingTreeBadge(undefined);
 			return {

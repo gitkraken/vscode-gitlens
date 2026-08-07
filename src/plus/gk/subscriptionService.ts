@@ -75,7 +75,8 @@ import type { Organization } from './models/organization.js';
 import type { Promo } from './models/promo.js';
 import type { PaidSubscriptionPlanIds, Subscription, SubscriptionUpgradeCommandArgs } from './models/subscription.js';
 import type { ServerConnection } from './serverConnection.js';
-import { ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils.js';
+import { autoResetTrialIfEligible } from './trialAutoReset.js';
+import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from './utils/-webview/plus.utils.js';
 import { getConfiguredActiveOrganizationId, updateActiveOrganizationId } from './utils/-webview/subscription.utils.js';
 import { getSubscriptionFromCheckIn } from './utils/checkin.utils.js';
 import {
@@ -752,6 +753,30 @@ export class SubscriptionService implements Disposable {
 			scope?.error(ex);
 			debugger;
 		}
+	}
+
+	/**
+	 * Attempts the one-time out-of-window Pro trial reset.
+	 * Remove along with the promo.
+	 */
+	@gate(() => '')
+	@debug()
+	async autoResetTrialIfEligible(source: Source): Promise<void> {
+		// Silent check on purpose — never prompt from this background path
+		if (!arePlusFeaturesEnabled()) return;
+
+		return autoResetTrialIfEligible(
+			this.container,
+			this.connection,
+			{
+				getSubscription: () => this.getSubscription(),
+				ensureSession: () => this.ensureSession(false, source),
+				refreshSubscription: async session => {
+					await this.checkInAndValidate(session, source, { force: true });
+				},
+			},
+			source,
+		);
 	}
 
 	@debug()
