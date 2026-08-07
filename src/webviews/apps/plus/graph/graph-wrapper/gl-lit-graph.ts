@@ -2308,23 +2308,27 @@ export class GlLitGraph extends LitElement {
 		// Column placement splices the graph at `graphVisSlot` (0..length) so the lead sums every preceding
 		// zone; inline shares the resolved HOST zone (by id — falls back to the anchor-slot clamp when the
 		// host isn't in `visibleZones`). Clamping the column case dropped the last column's width when the
-		// graph was the LAST column (band/scrollbar anchored one column short).
+		// graph was the LAST column (band/scrollbar anchored one column short). List mode renders the lanes
+		// leftmost, so the lead is 0.
 		const graphHostVisIdx = visibleZones.findIndex(z => z.id === graphHostId);
 		const leadCount =
-			this.graphPlacement === 'column'
-				? Math.min(graphVisSlot, visibleZones.length)
-				: graphHostVisIdx >= 0
-					? graphHostVisIdx
-					: Math.min(graphVisSlot, Math.max(0, visibleZones.length - 1));
+			this.effectiveStyle === 'list'
+				? 0
+				: this.graphPlacement === 'column'
+					? Math.min(graphVisSlot, visibleZones.length)
+					: graphHostVisIdx >= 0
+						? graphHostVisIdx
+						: Math.min(graphVisSlot, Math.max(0, visibleZones.length - 1));
 		let leadOffset = 0;
 		for (let i = 0; i < leadCount; i++) {
 			leadOffset += visibleZones[i].width;
 		}
-		// `hidden` placement has no lane column at all, but `graphColumnWidth` still resolves to a phantom
-		// "what it would be if shown" size — zeroed here so `--graph-col-vw` (below) correctly tells the
-		// timeline-separator gradient (graph.scss) there's no lane region to exclude in that placement, not
-		// just the scrollbar (which self-gates on `graphPlacement === 'column'` regardless of this value).
-		const viewport = this.graphPlacement === 'hidden' ? 0 : Math.max(0, this.graphColumnWidth - this.foldLaneWidth);
+		// The active placement's REAL lane-area width — the resizable column's lane area, grouped's uniform
+		// cap, 0 when hidden (no lanes; `graphColumnWidth` still resolves to a phantom "what it would be if
+		// shown" size there). `--graph-col-vw` (below) feeds the timeline-separator gradient (graph.scss),
+		// so grouped must report the inline cap, not the phantom column width; the scrollbar self-gates on
+		// `graphPlacement === 'column'`, where the two agree.
+		const viewport = this.graphLaneViewport;
 		const content = this.gutterWidth;
 		const thumb = content > 0 ? Math.max(graphHScrollMinThumbPx, (viewport * viewport) / content) : viewport;
 		const travel = Math.max(0, viewport - thumb);

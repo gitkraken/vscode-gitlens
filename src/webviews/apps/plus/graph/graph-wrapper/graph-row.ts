@@ -1308,6 +1308,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// band stops at the START of the host column (the lanes' right edge), since a non-refs host owns its
 	// own content. `hidden` has no node, so it falls back to the thin left EDGE.
 	const isGraphColumn = ctx.graphPlacement === 'column';
+	const isList = ctx.style === 'list';
 	// Which zone slot the lanes occupy: the graph's own slot (column) or — when inlined — its grouped HOST
 	// zone, tracked BY ID (`graphHostId`) so it never crams a leading Refs column with lane art. Falls back
 	// to the anchor-slot clamp (last zone) when the host id is unset or no longer visible.
@@ -1322,7 +1323,8 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// Column placement splices the graph as its OWN cell at `graphColumnPos` (0..zones.length), so the
 	// lead sums every zone before that splice point — NOT `laneZoneIdx`, whose last-zone clamp (needed
 	// for the inline host lookup) dropped the final column's width when the graph was the LAST column.
-	const graphLeadCount = isGraphColumn ? Math.min(ctx.graphColumnPos, ctx.zones.length) : laneZoneIdx;
+	// List mode has no zone cells and always renders the lanes leftmost, so the lead is 0.
+	const graphLeadCount = isList ? 0 : isGraphColumn ? Math.min(ctx.graphColumnPos, ctx.zones.length) : laneZoneIdx;
 	let graphLeadOffset = 0;
 	for (let i = 0; i < graphLeadCount; i++) {
 		graphLeadOffset += ctx.zones[i].width;
@@ -1330,10 +1332,11 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// Band geometry. Column: confined to the graph viewport (left = graphLeadOffset, width =
 	// graphColumnWidth) so it never bleeds into adjacent columns; fades to a crisp line at the viewport's
 	// right edge. Inline: full-row overlay fading to the host Refs column's right edge (graph combined
-	// into Refs) or the lanes' right edge otherwise. `hidden` → thin EDGE.
+	// into Refs) or the lanes' right edge otherwise. `hidden` → thin EDGE. The ref-host-column branch is
+	// table-only since refs render inline in list mode.
 	const bandEdge = isGraphColumn
 		? ctx.graphColumnWidth
-		: laneZone?.id === 'ref'
+		: !isList && laneZone?.id === 'ref'
 			? graphLeadOffset + laneZone.width
 			: graphLeadOffset + ctx.foldLaneWidth + inlineWidth;
 	// Dot center. Column: relative to the graph-cell left (the ::before sits there). Inline: absolute
@@ -1344,15 +1347,19 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// three static inputs the CSS pin (`--gutter-node-x`) and the band origin derive the dot's live
 	// screen position from (see graph.scss; the only dynamic input is the shared `--graph-gutter-scroll`).
 	const laneCenterX = ctx.singleColumn ? xForColumn(0, columnWidth) : xForColumn(row.column, columnWidth);
-	const laneLead = (isGraphColumn ? 0 : graphLeadOffset) + ctx.foldLaneWidth;
+	// `hidden` has no lanes — its `graphLeadOffset` is a phantom sum, so drop it and the marker rail
+	// (anchored at `--row-graph-left + --row-lane-lead`, see graph.scss) stays at the row's left edge.
+	const laneLead = (isGraphColumn || ctx.graphPlacement === 'hidden' ? 0 : graphLeadOffset) + ctx.foldLaneWidth;
 	const laneViewportW = isGraphColumn ? ctx.graphColumnWidth - ctx.foldLaneWidth : inlineWidth;
 	rowClasses += ctx.graphPlacement === 'hidden' ? ' is-graph-edge' : ' is-graph-band';
 	if (isGraphColumn) {
 		rowClasses += ' is-graph-column';
-	} else if (ctx.graphPlacement === 'grouped' && ctx.refsPlacement === 'grouped') {
-		// Both graph + refs inlined into Message: the band edge falls mid-column (no host-column
-		// boundary there), so soften it to a fade-out that bleeds a little into the message instead of
-		// a hard colorized line.
+	} else if (ctx.graphPlacement === 'grouped' && (isList || laneZone?.id !== 'ref')) {
+		// Grouped with no host-column boundary at the band edge — any non-ref host (the edge falls
+		// mid-column at each row's own lane extent), and all of list mode (no columns at all): soften
+		// the edge to a fade-out that bleeds a little into the message instead of a hard colorized
+		// line. Only a ref host in table mode keeps the crisp line — the edge sits on the combined
+		// graph+refs column's right boundary there (mirrors the `bandEdge` branches above).
 		rowClasses += ' is-graph-bleed';
 	}
 

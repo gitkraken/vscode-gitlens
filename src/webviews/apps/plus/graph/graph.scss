@@ -1254,11 +1254,12 @@ gl-lit-graph {
 	// paints it over the row's state background but behind the lane art (like `.is-graph-band`). Non-interactive.
 	.gl-graph__row-marker-connector {
 		position: absolute;
-		left: calc(var(--row-graph-left, 0px) + var(--row-fold-w, 0px) + 0.3rem);
+		// The bar sits at the LANE ORIGIN (`graph-left + lane-lead` — the lanes' left edge in every
+		// placement: column carries the lead in `graph-left`, grouped carries it in `lane-lead`), so the
+		// connector starts just past it and only `lane-x` remains to reach the dot.
+		left: calc(var(--row-graph-left, 0px) + var(--row-lane-lead, 0px) + 0.3rem);
 		top: 0;
-		// Span from just past the bar to the dot. Both ends shift by the fold strip, so its width drops out
-		// of the reach: `(graph-left + lane-lead + lane-x) - (graph-left + fold-w + 0.3rem)`.
-		width: max(0px, var(--row-lane-lead, 0px) - var(--row-fold-w, 0px) + var(--row-lane-x, 0px) - 0.3rem);
+		width: max(0px, var(--row-lane-x, 0px) - 0.3rem);
 		height: 100%;
 		z-index: -1;
 		pointer-events: none;
@@ -1292,11 +1293,12 @@ gl-lit-graph {
 	// itself (no JS, nothing on the scroll path). Decorative (`aria-hidden`) — the roles ride the row's aria-label.
 	.gl-graph__row-marker-rail {
 		position: absolute;
-		// Anchored at the LANES' left edge, not the graph column's — the fold strip owns the column's first
-		// `--row-fold-w` and holds the fold chevron, which this would otherwise sit on top of and make
-		// unclickable (both are exactly 1.4rem wide, so they collided pixel-for-pixel). Collapses to
-		// `--row-graph-left` when folding is off, where the strip has no width.
-		left: calc(var(--row-graph-left, 0px) + var(--row-fold-w, 0px));
+		// Anchored at the LANE ORIGIN (`graph-left + lane-lead`) — past the fold strip, which owns the
+		// column's first `--row-fold-w` and holds the fold chevron; this would otherwise sit on top of it
+		// and make it unclickable (both are exactly 1.4rem wide, so they collided pixel-for-pixel). The
+		// two vars split the lead differently per placement (column: `graph-left`; grouped: `lane-lead`),
+		// so their sum is the lanes' left edge in every mode.
+		left: calc(var(--row-graph-left, 0px) + var(--row-lane-lead, 0px));
 		top: 0;
 		display: flex;
 		align-items: stretch;
@@ -1321,12 +1323,13 @@ gl-lit-graph {
 	// in the DOM, so the bar and the expanded pill paint over it and keep their own `:hover` — the pointer
 	// hands off between the two without ever dropping the expand. A click here has no `data-sha`, so it walks
 	// up to the row and selects it.
-	// Starts at the graph column's LEFT EDGE — including the fold strip, unlike the rail, which starts past
-	// it. The fold chevron is lifted above this (see `.lane-fold-chevron`) so it keeps its own hover and
-	// clicks; everywhere else on the strip falls through to here and expands the marker.
+	// Starts at the graph column's LEFT EDGE (lane origin minus the fold strip) — including the strip,
+	// unlike the rail, which starts past it. The fold chevron is lifted above this (see
+	// `.lane-fold-chevron`) so it keeps its own hover and clicks; everywhere else on the strip falls
+	// through to here and expands the marker.
 	.gl-graph__row-marker-hit {
 		position: absolute;
-		left: var(--row-graph-left, 0);
+		left: calc(var(--row-graph-left, 0px) + var(--row-lane-lead, 0px) - var(--row-fold-w, 0px));
 		top: 0;
 		width: 1.4rem;
 		height: 100%;
@@ -1338,30 +1341,25 @@ gl-lit-graph {
 	// largest node is the avatar (r9, ×1.1 = 9.9 while hovered/selected) and its collapse hit-target is
 	// `max(r + 2, 7.5)` = 11 at that size — so 1.6rem leaves ~5px of air. `max()` floors it at the rail's own
 	// width: a lane-0 node sits only ~1.7rem from the lane origin, so those rows have nothing to give. Gated
-	// on `is-graph-band` (i.e. the graph is rendered) — with the graph `hidden` there are no lanes and
-	// `--row-lane-lead` is the summed width of the zones BEFORE the absent lanes, which would spread this
-	// across the row's own text.
+	// on `is-graph-band` (i.e. the graph is rendered) — with the graph `hidden` there is no node to reach
+	// toward, so the resting 1.4rem hit stands.
 	.gl-graph__row.is-graph-band .gl-graph__row-marker-hit {
 		// `max()` is the math context — no `calc()` wrapper, which the minifier's postcss-calc can't tokenize
-		// past one level of nesting (see `--gutter-node-dim` below). The fold strip drops out of the reach
+		// past one level of nesting (see `--gutter-node-dim` below).
 		// Reaches from the column's left edge to the node's margin. The fold strip is INSIDE this span (this
-		// starts before it, unlike the rail), so unlike the connector its width doesn't subtract it. Floored
-		// at ZERO, never at a resting width: a floor wider than the reach would put the zone back under the
-		// node, which is the whole thing the 1.1rem is buying. 1.1rem is the node's lane-collapse hit radius
-		// at avatar size (`max(r + 2, 7.5)`), so the zone stops exactly where that target starts — and 1.1px
-		// clear of the grown avatar itself (r9 ×1.1).
-		width: max(0px, var(--row-lane-lead, 0px) + var(--row-lane-x, 0px) - 1.1rem);
+		// starts before it, unlike the rail), so it adds back in; the lead drops out (both ends carry it).
+		// Floored at ZERO, never at a resting width: a floor wider than the reach would put the zone back
+		// under the node, which is the whole thing the 1.1rem is buying. 1.1rem is the node's lane-collapse
+		// hit radius at avatar size (`max(r + 2, 7.5)`), so the zone stops exactly where that target starts
+		// — and 1.1px clear of the grown avatar itself (r9 ×1.1).
+		width: max(0px, var(--row-fold-w, 0px) + var(--row-lane-x, 0px) - 1.1rem);
 	}
 
 	// The rail's own resting box is bound by the SAME reach — its 1.4rem default is wider than the gap on a
 	// lane-0 row, so it would sit on the node even with the hit zone gone. Never narrower than the bar it has
 	// to show, never wider than the default.
 	.gl-graph__row.is-graph-band .gl-graph__row-marker-rail {
-		min-width: clamp(
-			0.3rem,
-			var(--row-lane-lead, 0px) - var(--row-fold-w, 0px) + var(--row-lane-x, 0px) - 1.1rem,
-			1.4rem
-		);
+		min-width: clamp(0.3rem, var(--row-lane-x, 0px) - 1.1rem, 1.4rem);
 	}
 
 	// The resting bar: a thin vertical stack of role swatches (one when a single role; split equally when the
