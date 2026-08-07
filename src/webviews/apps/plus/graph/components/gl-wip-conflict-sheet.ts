@@ -285,7 +285,12 @@ export class GlWipConflictSheet extends LitElement {
 	}
 
 	override render(): unknown {
-		return html`<gl-detail-sheet aria-label="Conflict details" close-label="Close" ?show-back=${this.showBack}>
+		return html`<gl-detail-sheet
+			esc-managed
+			aria-label="Conflict details"
+			close-label="Close"
+			?show-back=${this.showBack}
+		>
 			<span slot="title" class="title">
 				<code-icon icon="warning"></code-icon>
 				<span class="title__name">Conflict · ${this.fileName}</span>

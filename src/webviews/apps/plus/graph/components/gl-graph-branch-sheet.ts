@@ -204,6 +204,7 @@ export class GlGraphBranchSheet extends SignalWatcher(LitElement) {
 		// The ref pill acts as a toggle, so focus must stay on it.
 		return html`<gl-detail-sheet
 			preserve-trigger-focus
+			esc-managed
 			aria-label=${kind}
 			sheet-title=${title}
 			close-label="Close"

@@ -7,6 +7,8 @@ import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
+import type { OverlayEntry } from '@gitlens/utils/keys/keybinding.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionState, PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
 import type { StashApplyCommandArgs } from '../../../../../commands/stashApply.js';
@@ -561,6 +563,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** Back/forward history state from the graph host, forwarded to the commit panel's header. */
 	@property({ attribute: false })
 	navigation?: NavigationState;
+
+	/** Registers a transient surface on the host's keymap Esc overlay stack; supplied by `gl-graph-app`.
+	 *  Wired to the top-of-stack sheet only — see {@link _sheetCoordinator}. */
+	@property({ attribute: false })
+	pushOverlay?: (entry: OverlayEntry) => Disposable;
 
 	/** True when the details panel is docked bottom — gates the maximize/restore chip in every mode's
 	 *  toolbar. Forwarded to each mode sub-panel. */
@@ -1393,11 +1400,33 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  `gl-graph-sheet-stack-change` exactly once per composition change, not once per render. */
 	private _prevSheetKinds: SheetKind[] = [];
 
-	/** Seam for a later phase to mirror stack pushes/pops into the graph keymap's overlay focus
-	 *  stack (`pushOverlay`/`popOverlay`). No-op until that phase wires it up. */
+	/** Disposes the currently-registered overlay entry for the top-of-stack sheet — see
+	 *  {@link _sheetCoordinator}. */
+	private _sheetOverlayDisposable: Disposable | undefined;
+
+	/** Mirrors the sheet stack's top-of-stack transitions onto the graph keymap's Esc overlay stack:
+	 *  `opened` pushes an entry that pops the sheet on Esc, `closed` disposes it. Esc ordering across
+	 *  sheets/hover/ref-find/drag is decided by the registry's LIFO, not by this coordinator. */
 	private readonly _sheetCoordinator: SheetOverlayCoordinator = {
-		opened: () => {},
-		closed: () => {},
+		opened: key => {
+			this._sheetOverlayDisposable?.dispose();
+			this._sheetOverlayDisposable = this.pushOverlay?.({
+				id: `sheet|${key}`,
+				onClose: () => {
+					if (this._sheetStack.length === 0) return false;
+
+					this.popSheet();
+					return true;
+				},
+			});
+		},
+		closed: _key => {
+			// If Esc popped via closeTopOverlay, the dispatcher already spliced this entry out of its
+			// stack — this dispose() finds index -1 and no-ops. Depth>1 stacks pop one level per Esc:
+			// after popSheet() the next opened() call (for the newly revealed sheet) pushes a fresh entry.
+			this._sheetOverlayDisposable?.dispose();
+			this._sheetOverlayDisposable = undefined;
+		},
 	};
 
 	/** The pushed-wip payload observed when the rebase-summary sheet on {@link _sheetStack} was
@@ -1537,6 +1566,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// `hostDisconnected` hook — no manual cleanup needed here.
 		this._state.resetAll();
 		this._actions?.dispose();
+		this._sheetOverlayDisposable?.dispose();
+		this._sheetOverlayDisposable = undefined;
 	}
 
 	/** Exposed for {@link DetailsWorkflowController}'s subscription filter. */

@@ -353,6 +353,7 @@ export class GlRebaseSummarySheet extends LitElement {
 
 	override render(): unknown {
 		return html`<gl-detail-sheet
+			esc-managed
 			aria-label="Automatic rebase summary"
 			close-label="Close"
 			?show-back=${this.showBack}

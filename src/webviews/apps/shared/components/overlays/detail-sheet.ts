@@ -38,8 +38,11 @@ declare global {
  * remain fully interactive while the sheet is open. This is intentional for selection-decoupled
  * content (e.g. compare) where the user benefits from continued navigation in the broader UI.
  *
- * Esc and the built-in close button emit `gl-detail-sheet-close`. Custom toolbar actions go
- * through the `actions` slot. Focus is restored to the previously-focused element on close.
+ * Esc and the built-in close button emit `gl-detail-sheet-close`. By default Esc closes via a
+ * `CloseWatcher` plus a document-capture keydown listener (so it fires even when focus never
+ * entered the sheet). When `escManaged` is set, neither is registered — the host's keymap Esc
+ * overlay stack owns Esc and calls back into this component to close it. Custom toolbar actions
+ * go through the `actions` slot. Focus is restored to the previously-focused element on close.
  */
 @customElement('gl-detail-sheet')
 export class GlDetailSheet extends LitElement {
@@ -262,6 +265,12 @@ export class GlDetailSheet extends LitElement {
 	@property({ type: Boolean, attribute: 'preserve-trigger-focus' })
 	preserveTriggerFocus = false;
 
+	/** When `true`, Esc ownership belongs to the host's keymap overlay stack instead of this component:
+	 *  skips creating the `CloseWatcher` and skips the document-capture keydown listener in
+	 *  `connectedCallback`. Everything else (scrim click, close/back chip) is unchanged. */
+	@property({ type: Boolean, attribute: 'esc-managed' })
+	escManaged = false;
+
 	@query('.sheet')
 	private sheetEl!: HTMLElement;
 
@@ -272,22 +281,26 @@ export class GlDetailSheet extends LitElement {
 		super.connectedCallback?.();
 		this.previouslyFocused = (document.activeElement as HTMLElement) ?? null;
 
-		if ('CloseWatcher' in window) {
-			this.closeWatcher = new CloseWatcher();
-			// Match the dismissibility guard on the polyfill keydown path / scrim click — a
-			// non-dismissible sheet must NOT close on Esc via the native CloseWatcher either.
-			this.closeWatcher.onclose = () => {
-				if (!this.dismissible) return;
+		// `escManaged` sheets cede Esc entirely to the host's keymap overlay stack — neither path
+		// below is registered, so a raw Esc reaches the stack's dispatcher instead of closing here.
+		if (!this.escManaged) {
+			if ('CloseWatcher' in window) {
+				this.closeWatcher = new CloseWatcher();
+				// Match the dismissibility guard on the polyfill keydown path / scrim click — a
+				// non-dismissible sheet must NOT close on Esc via the native CloseWatcher either.
+				this.closeWatcher.onclose = () => {
+					if (!this.dismissible) return;
 
-				this.requestClose();
-			};
+					this.requestClose();
+				};
+			}
+			// ALWAYS listen at document capture too (not just as a CloseWatcher polyfill): the sheet
+			// doesn't trap focus, so Esc must close it even when focus never entered it (e.g. still on
+			// the graph after the opening pill click) or when the focused component consumes Escape
+			// before the CloseWatcher sees it. `requestClose` is re-entrancy-guarded, so the two paths
+			// can't double-fire.
+			document.addEventListener('keydown', this.handleDocumentKeyDown, true);
 		}
-		// ALWAYS listen at document capture too (not just as a CloseWatcher polyfill): the sheet
-		// doesn't trap focus, so Esc must close it even when focus never entered it (e.g. still on
-		// the graph after the opening pill click) or when the focused component consumes Escape
-		// before the CloseWatcher sees it. `requestClose` is re-entrancy-guarded, so the two paths
-		// can't double-fire.
-		document.addEventListener('keydown', this.handleDocumentKeyDown, true);
 
 		// Focus the sheet itself so keyboard users land here on open (unless `preserveTriggerFocus`, where a
 		// toggle trigger like a graph ref pill keeps focus so a second activation can CLOSE the sheet). We do

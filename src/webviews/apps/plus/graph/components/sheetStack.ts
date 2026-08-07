@@ -10,13 +10,10 @@ export type SheetDescriptor =
 export type SheetKind = SheetDescriptor['kind'];
 
 /**
- * Seam for the graph keymap registry (`feature/graph-keyboard-shortcuts`): the details panel calls
- * `opened`/`closed` on every top-of-stack transition, keyed by {@link sheetKey}. The intended
- * mapping once that registry lands: `opened(key)` → `keymap.pushOverlay({ id: key, onClose: () =>
- * { panel.popSheet(); return true; } })`, `closed(key)` → dispose that overlay entry — so Esc
- * ordering across sheets/hover/ref-find/drag is decided by the registry's LIFO instead of
- * `gl-detail-sheet`'s own document-capture listener (which then needs an opt-out). No behavior
- * here — just the shape.
+ * Mirrors the details panel's top-of-stack transitions onto the graph keymap's Esc overlay stack.
+ * `opened(key)` pushes a `pushOverlay` entry (id `sheet|${key}`) whose `onClose` pops the top
+ * sheet; `closed(key)` disposes it. Esc ordering across sheets/hover/ref-find/drag is decided by
+ * the registry's LIFO (`KeymapDispatcher`), not this type.
  */
 export type SheetOverlayCoordinator = { opened(key: string): void; closed(key: string): void };
 

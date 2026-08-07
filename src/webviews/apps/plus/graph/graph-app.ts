@@ -2617,6 +2617,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.showSearchBox=${this.graphState.details?.showSearchBox ?? true}
 					.searchBoxFilter=${this.graphState.details?.searchBoxFilter ?? true}
 					.navigation=${this._navState}
+					.pushOverlay=${this.pushOverlay}
 					@select-commit=${this.handleSelectCommit}
 					@gl-toggle-details-maximized=${this.handleToggleDetailsMaximized}
 					@gl-graph-sheet-stack-change=${this.handleSheetStackChange}

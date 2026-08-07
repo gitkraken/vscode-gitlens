@@ -6,7 +6,7 @@ The Commit Graph's keyboard handling runs through a layered keymap registry: a c
 
 One `document` bubble-phase listener; it bails if a widget already called `preventDefault` — widgets keep first refusal. Then two axes, in order:
 
-1. **Overlay stack (state axis, Esc only)** — a LIFO stack of open transient surfaces: hover card, ref-find, changes-mode menu, minimap zoom, column-drag abort, the shortcut sheet. Esc pops the topmost willing entry. **Focus-independent** — a hovercard over a focused ref-find closes first. Surfaces push on open (`pushOverlay` → disposable) and dispose on any other close path. Widgets whose Esc must outrank the stack for focus-local transients (the search box's autocomplete/pause rungs) consume locally, but their _fallback_ action defers via `KeymapDispatcher.closeTopOverlay()` — the stack always outranks a dead-end fallback.
+1. **Overlay stack (state axis, Esc only)** — a LIFO stack of open transient surfaces: hover card, ref-find, changes-mode menu, minimap zoom, column-drag abort, the details sheet stack's top sheet, the shortcut sheet. Esc pops the topmost willing entry. **Focus-independent** — a hovercard over a focused ref-find closes first. Surfaces push on open (`pushOverlay` → disposable) and dispose on any other close path. Widgets whose Esc must outrank the stack for focus-local transients (the search box's autocomplete/pause rungs) consume locally, but their _fallback_ action defers via `KeymapDispatcher.closeTopOverlay()` — the stack always outranks a dead-end fallback.
 2. **Focus scope chain** — computed per keydown from `composedPath()`, innermost out:
 
 | Scope           | Active when the event path contains…              | Scope guards                                                   |

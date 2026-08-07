@@ -97,6 +97,7 @@ export class GlGraphCompareSheet extends LitElement {
 			: `${actionLabel}\n[${getAltKeySymbol()}] ${labelFor(alternate)}`;
 
 		return html`<gl-detail-sheet
+			esc-managed
 			aria-label="Compare"
 			sheet-title="Comparing References"
 			close-label="Close"
