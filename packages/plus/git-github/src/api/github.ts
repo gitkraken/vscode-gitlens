@@ -4038,7 +4038,7 @@ export class GitHubApi {
 	): Promise<boolean> {
 		const scope = getScopedLogger();
 		interface QueryResult {
-			pullRequest: GitHubPullRequestLite | null | undefined;
+			mergePullRequest: { pullRequest: { id: string } | null | undefined } | null | undefined;
 		}
 
 		let githubMergeStrategy;
@@ -4086,7 +4086,7 @@ export class GitHubApi {
 				cancellation,
 			);
 
-			return rsp?.pullRequest?.id === nodeId;
+			return rsp?.mergePullRequest?.pullRequest?.id === nodeId;
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
