@@ -12,6 +12,7 @@ const relationshipQualifier: Record<PullRequestFilter, string> = {
 	[PullRequestFilter.Author]: 'author:@me',
 	[PullRequestFilter.Assignee]: 'assignee:@me',
 	[PullRequestFilter.ReviewRequested]: 'review-requested:@me',
+	[PullRequestFilter.Reviewed]: 'reviewed-by:@me',
 	[PullRequestFilter.Mention]: 'mentions:@me',
 };
 
@@ -19,6 +20,7 @@ const relationshipAlias: Record<PullRequestFilter, string> = {
 	[PullRequestFilter.Author]: 'author',
 	[PullRequestFilter.Assignee]: 'assignee',
 	[PullRequestFilter.ReviewRequested]: 'reviewRequested',
+	[PullRequestFilter.Reviewed]: 'reviewed',
 	[PullRequestFilter.Mention]: 'mention',
 };
 

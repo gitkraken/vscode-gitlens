@@ -104,6 +104,7 @@ export async function sweepPullRequests(
 			options?.states,
 			resolved.filters,
 			accountWide ? (options?.includeReviewRequested ?? false) : false,
+			accountWide ? (options?.includeReviews ?? false) : false,
 			connectionId,
 			maxPages,
 			attributeUnavailableProviders,
