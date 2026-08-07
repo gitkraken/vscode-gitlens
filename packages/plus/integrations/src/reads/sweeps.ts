@@ -186,11 +186,13 @@ export async function sweepPullRequests(
 	const { targets, attributeUnavailableProviders } = resolvePullRequestSweepTargets(options);
 
 	const observe = options?.onTargetSettled;
-	// Stamped before the fan-out so a target that waited for a worker slot reports the wait.
-	const fanOutStartedAt = performance.now();
+	// Stamped before the fan-out so a target that waited for a worker slot reports the wait. Read the
+	// clock only when someone is listening: an omitted observer must cost nothing at all, which is the
+	// contract a host's perf gate relies on when it is off (it is off by default).
+	const fanOutStartedAt = observe != null ? performance.now() : 0;
 
 	const results = await mapBounded(targets, providerFanOutConcurrency, async target => {
-		const startedAt = performance.now();
+		const startedAt = observe != null ? performance.now() : 0;
 		const slice = await sweepTarget(ctx, options, target, attributeUnavailableProviders);
 		if (observe != null) {
 			notifyTargetSettled(observe, target, slice, startedAt, fanOutStartedAt);
