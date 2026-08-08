@@ -23,6 +23,9 @@ import type { IssueSorting } from '../providerFilters.js';
  *   written out separately and neither is derived from the other.
  * - **Azure declares no `dueDate`.** `Microsoft.VSTS.Scheduling.DueDate` is an Agile-process field, absent under
  *   Scrum/Basic, so a read that ordered by it would fail on some organizations and not others.
+ * - **`reactions` means THUMBS-UP**, not the total across every reaction type: it is the only reaction count an
+ *   `IssueShape` carries, so it is also what the merge comparator reads, and both sides emit the per-emoji
+ *   qualifier so a single-scope and a merged read agree.
  * - **Linear orders DESCENDING ONLY**, and **Jira declares no `reactions`**: it has votes, and a vote is not a
  *   reaction, so mapping them would break what the neutral key means everywhere else.
  */
